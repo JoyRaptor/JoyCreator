@@ -79,4 +79,12 @@ class MediaAtlasPlacementTest {
         assertTrue(peak <= slots.capacity, "peak $peak")
         assertTrue(evicted > 0)
     }
+    @Test fun theSlotCountScalesWithThePhone() {
+        assertEquals(14_352_384L, MediaAtlasPlacement.BYTES_PER_SLOT, "what the Note 9 reported for one slot")
+        assertEquals(6 to 6, MediaAtlasPlacement.slotGrid(2_756_300_800L), "the Note 9 with a drawing open: 38 -> 6 x 6")
+        assertEquals(4 to 4, MediaAtlasPlacement.slotGrid(0L), "never fewer than 16")
+        assertEquals(8 to 8, MediaAtlasPlacement.slotGrid(1L shl 40), "never more than 64")
+        assertEquals(4 to 5, MediaAtlasPlacement.slotGrid(101 * MediaAtlasPlacement.BYTES_PER_SLOT))
+        assertEquals(6 to 7, MediaAtlasPlacement.slotGrid(241 * MediaAtlasPlacement.BYTES_PER_SLOT), "48 rounds down to 6 x 7")
+    }
 }

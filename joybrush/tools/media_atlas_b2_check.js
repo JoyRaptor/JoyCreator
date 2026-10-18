@@ -27,7 +27,7 @@ const ROOT = path.join(__dirname, '..');
 const SHADER_DIR = path.join(ROOT, 'shaders');
 function argVal(name, dflt) { const i = process.argv.indexOf('--' + name); return i >= 0 && i + 1 < process.argv.length ? process.argv[i + 1] : dflt; }
 const QUICK = process.argv.includes('--quick');
-const PPM = 12, LW = 1280, AW = 1024;
+const PPM = 12, LW = 1280, AW = parseInt(argVal('atlas', '1024'), 10);   // --atlas 1536 = 6 x 6 slots (B3 slot scaling)
 
 const INCLUDE_RE = /^#include\s+"([^"]+)"$/;
 function expand(rel, seen = new Set()) {
@@ -199,7 +199,7 @@ const KINDS = ['orderA', 'orderB', 'noRing'];
     return fs.existsSync(edge) ? edge : null;
   })();
   if (!exe) { console.log(JSON.stringify({ pass: false, error: 'no browser' })); process.exit(1); }
-  const browser = await chromium.launch({ executablePath: exe, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+  const browser = await chromium.launch({ executablePath: exe, args: (process.argv.includes('--gpu') ? ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist'] : ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist']) });
   let out;
   try {
     const page = await browser.newPage();

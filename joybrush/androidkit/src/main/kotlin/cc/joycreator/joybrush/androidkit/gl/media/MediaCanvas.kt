@@ -13,6 +13,8 @@ import cc.joycreator.joybrush.core.brush.scaled
 import cc.joycreator.joybrush.core.layers.LayerBudget
 import cc.joycreator.joybrush.core.media.DOC_PX_PER_MM
 import cc.joycreator.joybrush.core.media.DabBatch
+import cc.joycreator.joybrush.core.media.MediaAtlasPlacement
+import cc.joycreator.joybrush.core.paint.Tiles
 import cc.joycreator.joybrush.core.media.PasteStep
 import cc.joycreator.joybrush.core.media.DryStroke
 import cc.joycreator.joybrush.core.media.MediaSample
@@ -312,7 +314,12 @@ class MediaCanvas(
         if (warm !== made) warm?.releasePrograms()
         warm = null
         try {
-            made.init(MediaWindowMath.PX, MediaWindowMath.PX)
+            if (atlas) {
+                // Slot scaling (the Lead, Oct 18): as many slots as 20 % of what is free pays for, 16 to 64, near square.
+                val (cols, rows) = MediaAtlasPlacement.slotGrid(avail)
+                android.util.Log.i("JoyBrushMediaMemory", "atlas $cols x $rows slots (available=$avail)")
+                made.init(cols * Tiles.SIZE, rows * Tiles.SIZE)
+            } else made.init(MediaWindowMath.PX, MediaWindowMath.PX)
         } catch (x: IllegalStateException) {
             unsupported = "This phone's graphics cannot paint pencil, watercolour and oil (it has no float colour buffers)."
             return null
@@ -394,7 +401,13 @@ class MediaCanvas(
             e.dryFrame(batch, batch.dabs[lastDab + 16].toDouble(), batch.dabs[lastDab + 17].toDouble(), paper, st.mat!!, DOC_PX_PER_MM)
         }
         if (st.thin != null) e.wetFrame(thin, paper, DOC_PX_PER_MM, wq)
-        if (steps != null) for (step in steps) e.pasteStep(step, st.brush!!, paper, DOC_PX_PER_MM, st.seed)
+        if (steps != null && steps.isNotEmpty()) {
+            mediaTrace("JB.media.paste.frame") {
+                for (step in steps) e.pasteStep(step, st.brush!!, paper, DOC_PX_PER_MM, st.seed)
+                e.pasteSettle()   // an unpaired last step's box back into the canvas everything else reads
+            }
+            MediaPhases.timer?.invoke("paste.steps (count)", steps.size.toDouble())
+        }
         if (st.wet != null) e.wetFrame(wetIn, paper, DOC_PX_PER_MM, wq)
         if (eraseIn != null) {
             e.eraseFrame(eraseIn, existingStores(st.layerId, w))

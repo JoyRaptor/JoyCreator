@@ -26,7 +26,7 @@ const ROOT = path.join(__dirname, '..');
 const SHADER_DIR = path.join(ROOT, 'shaders');
 function argVal(name, dflt) { const i = process.argv.indexOf('--' + name); return i >= 0 && i + 1 < process.argv.length ? process.argv[i + 1] : dflt; }
 const QUICK = process.argv.includes('--quick');
-const PPM = 12, LW = 1536, AW = 1024;
+const PPM = 12, LW = parseInt(argVal('layer', '1536'), 10), AW = parseInt(argVal('atlas', '1024'), 10);   // --atlas 1536 --layer 2048: 35 slots over 64 tiles
 
 const INCLUDE_RE = /^#include\s+"([^"]+)"$/;
 function expand(rel, seen = new Set()) {
@@ -193,8 +193,12 @@ const FLAT = [0, 0], F = (n) => QUICK ? Math.max(4, n >> 2) : n;
 // Every point at least 215 px inside the layer: its pass rect plus the look's halo and reach (110 px) never meets the
 // layer's edge, where the oracle (a window) clamps its reads and the atlas would read nothing.
 const M0 = 215, M1 = LW - 215;
-const SNAKE = [[M0, 215], [M1, 215], [M1, 490], [M0, 490], [M0, 765], [M1, 765], [M1, 1040], [M0, 1040], [M0, M1], [M1, M1]];
-const LOOP = [[M0, 215], [M1, 215], [M1, 765], [M0, 765], [M0, M1], [M1, M1], [M1, 490], [M0, 490]];   // back over row 1-2 at the end
+// The 1536 layer's paths exactly as proved before; any other layer: rows 275 px apart across it.
+const ROWS = LW === 1536 ? [215, 490, 765, 1040, M1] : Array.from({ length: Math.floor((M1 - 215) / 275) + 1 }, (_, i) => 215 + 275 * i);
+const SNAKE = LW === 1536 ? [[M0, 215], [M1, 215], [M1, 490], [M0, 490], [M0, 765], [M1, 765], [M1, 1040], [M0, 1040], [M0, M1], [M1, M1]]
+  : ROWS.flatMap((y, i) => i % 2 ? [[M1, y], [M0, y]] : [[M0, y], [M1, y]]);
+const LOOP = LW === 1536 ? [[M0, 215], [M1, 215], [M1, 765], [M0, 765], [M0, M1], [M1, M1], [M1, 490], [M0, 490]]   // back over row 1-2 at the end
+  : [...SNAKE, [SNAKE[SNAKE.length - 1][0], ROWS[1]], [M0 + M1 - SNAKE[SNAKE.length - 1][0], ROWS[1]]];   // up to row 2, back across it
 const SCENARIOS = [
   buildDry({ name: 'dry point stick, snake over 36 tiles', path: SNAKE, frames: F(120), seed: 21, lean: 0.6, side: false, smearMm: 0.4 }),
   buildDry({ name: 'Proto Pencil tilted + smear, snake', stick: 'Proto Pencil', path: SNAKE, frames: F(120), seed: 24, lean: 1.9, side: true, smearMm: 0.9 }),
@@ -224,7 +228,7 @@ const KINDS = ['orderA', 'orderB', 'noWriteBack', 'noReplay'];
       let part;
       // A browser that dies under memory pressure (another job on the machine) is retried once; a real failure repeats.
       for (let attempt = 0; attempt < 2; attempt++) {
-        const browser = await chromium.launch({ executablePath: exe, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+        const browser = await chromium.launch({ executablePath: exe, args: (process.argv.includes('--gpu') ? ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist'] : ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist']) });
         try {
           const page = await browser.newPage();
           page.on('console', (m) => { if (m.type() === 'error') console.error('[page]', m.text()); });
@@ -256,7 +260,7 @@ const KINDS = ['orderA', 'orderB', 'noWriteBack', 'noReplay'];
     noWb += r.mismatch.noWriteBack?.total ?? 0; noRp += r.mismatch.noReplay?.total ?? 0;
     misses += (r.misses.orderA ?? 0) + (r.misses.orderB ?? 0);
   }
-  const longStrokes = out.results.every(r => r.tilesCrossed >= 30 && (r.evictions.orderA ?? 0) > 0 && r.maxResident <= 15 && r.changed > 200);
+  const longStrokes = out.results.every(r => r.tilesCrossed >= 30 && (r.evictions.orderA ?? 0) > 0 && r.maxResident <= (AW / 256) ** 2 - 1 && r.changed > 200);
   const pass = errors === 0 && exactBad === 0 && misses === 0 && noWb > 0 && noRp > 0 && longStrokes;
   console.log(JSON.stringify({ pass, layer: LW, atlas: AW, resident: 15,
     totals: { mismatchedPixels: exactBad, admissionMisses: misses, noWriteBackDetected: noWb, noReplayDetected: noRp }, longStrokes,

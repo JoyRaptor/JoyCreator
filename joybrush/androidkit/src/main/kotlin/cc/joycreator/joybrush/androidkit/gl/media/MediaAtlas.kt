@@ -207,7 +207,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
 
     private fun applyActivity(a: FloatArray, at: Map<Int, Long>) {
         val now = nowMs()
-        val perRow = media.slotCount.let { kotlin.math.sqrt(it.toDouble()).toInt() } * (tile / 16)
+        val perRow = media.textureWidth / 16   // the measurement's rows: one value per 16 px of the atlas's width
         val minMm = WET_MIN_MM
         for ((slot, key) in at) {
             if (slots.resident(page(key))?.slot != slot) continue

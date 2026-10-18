@@ -383,6 +383,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     fun wetInputNeeds(batches: List<DabBatch?>): List<Need> = batches.mapNotNull { b ->
         if (b == null || b.count == 0) null else layerRect(b.dirty, 48.0)?.let { Need(it, MediaAtlasPlacement.WET_REACH, input = true) }
     }
+    /** The engine's texture width (layer px at full resolution): the atlas's slots × 256 across. */
+    val textureWidth: Int get() = w
     /** How many slots the atlas has (B2: one of them is staging). */
     val slotCount: Int get() = (w / MediaAtlasDraw.SIDE) * (h / MediaAtlasDraw.SIDE)
     fun slotTexel(slot: Int): Pair<Int, Int> = requireNotNull(atlas) { "not an atlas engine" }.slotTexel(slot)
@@ -603,6 +605,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
 
     // ---- dry media (pencil) ----
     fun dryFrame(batch: DabBatch, travelX: Double, travelY: Double, paper: MediaPaperGl, mat: StickMaterial, pxPerMm: Double) {
+        pasteSettle()
         if (batch.count == 0) return
         ensureDry()
         val cur = state[0]
@@ -703,12 +706,24 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     var legacyRect = false
 
     /** One step of a paste brush: the brush trades with the canvas under it, both sides from the same state. */
+    // Its three passes are systrace sections only: a paste stroke makes a dozen steps a frame, and timing each (glFinish
+    // brackets) would measure the brackets. The canvas times all of a frame's steps at once (paste.frame).
     fun pasteStep(st: PasteStep, b: PasteBrush, paper: MediaPaperGl, pxPerMm: Double, seed: Int) {
-        mediaTrace("JB.media.paper.bake") { bakePaper(paper) }
+        traced("JB.media.paper.bake") { bakePaper(paper) }
         val cap = cellCap(b)
         val t = paper.stats.toothMm
         val cur = brush[bc]
         val nxt = brush[1 - bc]
+        val square = pasteNeed(st, b, pxPerMm)?.rect
+        val rect = if (legacyRect) square else layerRect(PasteFootprint.docBounds(st, b, scale.toDouble(), pxPerMm), 2.0)
+        // Paired steps ([pastePairs]): a B step reads state[1], where the A step before it left its box; first everything it
+        // reads beyond that box is brought over from state[0] (which still holds the canvas there).
+        val held = pasteHeld
+        val pairB = pastePairs && held != null && square != null && rect != null
+        if (pairB) traced("JB.media.paste.strip") {
+            for (r in rectMinus(grow(rect!!, MediaAtlasPlacement.PASTE_REACH.toFloat()), held!!)) copyRect(state[0], pFbo1, r)
+        }
+        val src = if (pairB) state[1] else state[0]
         GLES30.glDisable(GLES30.GL_BLEND)
         GLES30.glBindVertexArray(quadVao)
         // Brush side first (reads the canvas BEFORE this step), into the other brush buffer.
@@ -716,22 +731,20 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         GLES30.glViewport(0, 0, PASTE_LANES, PASTE_DEPTH)
         val bu = progPasteBrush.use()
         common(bu)
-        MediaUniforms.paste(bu, st, b, cap, t, pxPerMm, seed, bakeTex, state[0].p0, state[0].p1)
+        MediaUniforms.paste(bu, st, b, cap, t, pxPerMm, seed, bakeTex, src.p0, src.p1)
         MediaUniforms.pasteBrush(bu, cur.b0, cur.b1, b.wick, w, h, PASTE_LANES, PASTE_DEPTH)
-        mediaTrace("JB.media.paste.brush") { GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4) }
+        traced("JB.media.paste.brush") { GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4) }
         // Canvas side, from the same (old) brush cells. The dab shader hands back its input untouched wherever the brush
         // has no coverage (jb_paste_dab.frag lines 40/47/83), so only the oriented box around the real footprint
         // ([PasteFootprint], ~7-10x smaller than the old square for Oil round) has to be shaded and copied back.
         // The quad is STILL the old square and the box is a scissor on it: a smaller quad would interpolate v_docPx /
         // v_layerPx with different rounding, and the noise inside the shader would shift by an ulp (measured:
         // tools/media_paste_rect_parity_check.js). Same primitive + scissor = the same fragments, bit for bit.
-        val square = pasteNeed(st, b, pxPerMm)?.rect
-        val rect = if (legacyRect) square else layerRect(PasteFootprint.docBounds(st, b, scale.toDouble(), pxPerMm), 2.0)
         if (square != null && rect != null) {
             need(square, MediaAtlasPlacement.PASTE_REACH)
             touch(rect)
             stores += "p0"; stores += "p1"
-            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, pFbo1)
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, if (pairB) pFbo0 else pFbo1)
             GLES30.glViewport(0, 0, w, h)
             val tight = rect !== square && !free
             if (tight) {
@@ -740,15 +753,54 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
             }
             val du = progPasteDab.use()
             common(du)
-            MediaUniforms.paste(du, st, b, cap, t, pxPerMm, seed, bakeTex, state[0].p0, state[0].p1)
+            MediaUniforms.paste(du, st, b, cap, t, pxPerMm, seed, bakeTex, src.p0, src.p1)
             MediaUniforms.pasteDab(du, cur.b0, cur.b1, w, h, square)
             // Window: the square, trimmed by the scissor to the footprint box. Free placement: the box itself, slot by slot
             // (the same pixels: no varying is interpolated across the quad any more).
-            mediaTrace("JB.media.paste.dab") { quad(if (free) rect else square) }
+            traced("JB.media.paste.dab") { quad(if (free) rect else square) }
             if (tight) GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
-            mediaTrace("JB.media.paste.copy") { copyRect(state[1], pFbo0, rect) }
+            when {
+                // B: its box is in state[0] now; what is left of A's box in state[1] comes back, and state[0] is all of it.
+                pairB -> { traced("JB.media.paste.copy") { for (r in rectMinus(held!!, rect)) copyRect(state[1], pFbo0, r) }; pasteHeld = null }
+                // A: its box stays in state[1] for the next step to read.
+                pastePairs -> pasteHeld = rect
+                else -> traced("JB.media.paste.copy") { copyRect(state[1], pFbo0, rect) }
+            }
         }
         bc = 1 - bc
+    }
+
+    /**
+     * Paste steps in pairs: bit for bit what one copy-back per step gives, with a third fewer passes. Step A writes its box
+     * into state[1] and leaves it there; step B copies over only what it reads beyond that box (state[0] holds the canvas
+     * there), reads state[1], writes its own box into state[0], then copies back the part of A's box it did not cover. Two
+     * thin strips per pair instead of two whole boxes. False: every step copies its box back (the path before; kept to
+     * compare, MediaAtlasProbe "pasteCopy").
+     */
+    var pastePairs = true
+
+    /** Step A's box while the canvas there is in state[1] (state[0] everywhere else); null: state[0] is all of it. */
+    private var pasteHeld: FloatArray? = null
+
+    /** Ends a frame's paste steps: an unpaired last step's box goes back to state[0], which everything else reads. */
+    fun pasteSettle() {
+        val h = pasteHeld ?: return
+        pasteHeld = null
+        traced("JB.media.paste.copy") { copyRect(state[1], pFbo0, h) }
+    }
+
+    private fun grow(r: FloatArray, d: Float) = floatArrayOf(r[0] - d, r[1] - d, r[2] + d, r[3] + d)
+
+    /** [a] less [b] as at most four rectangles (layer px). */
+    private fun rectMinus(a: FloatArray, b: FloatArray): List<FloatArray> {
+        val ix0 = max(a[0], b[0]); val iy0 = max(a[1], b[1]); val ix1 = min(a[2], b[2]); val iy1 = min(a[3], b[3])
+        if (ix1 <= ix0 || iy1 <= iy0) return listOf(a)
+        val out = ArrayList<FloatArray>(4)
+        if (iy0 > a[1]) out += floatArrayOf(a[0], a[1], a[2], iy0)
+        if (iy1 < a[3]) out += floatArrayOf(a[0], iy1, a[2], a[3])
+        if (ix0 > a[0]) out += floatArrayOf(a[0], iy0, ix0, iy1)
+        if (ix1 < a[2]) out += floatArrayOf(ix1, iy0, a[2], iy1)
+        return out
     }
 
     // ---- the eraser on a media layer (app only; the Lead, step-4 check 1) ----
@@ -758,6 +810,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
      * paper's crush is kept.
      */
     fun eraseFrame(batch: DabBatch, stores: Set<String>) {
+        pasteSettle()
         if (batch.count == 0 || stores.isEmpty()) return
         ensureDry()
         val n = eraseNeed(batch) ?: return
@@ -825,6 +878,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
 
     private fun wetFrameInner(batch: DabBatch?, paper: MediaPaperGl, pxPerMm: Double, wc0: WetConstants, substeps: Int?,
                               evapOverride: Double?, maxWetSeconds: Double) {
+        pasteSettle()
         ensureWet()
         mediaTrace("JB.media.paper.bake") { bakePaper(paper) }
         val ws = wet!!
@@ -1125,6 +1179,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     // ---- the look: what the app's layer stack composites ----
     /** Render the look (premultiplied RGBA8, paper removed) for [rect] (layer px) into the returned texture. */
     fun renderLook(rect: FloatArray, paper: MediaPaperGl, look: MediaLook, pxPerMm: Double): Int {
+        pasteSettle()
         lookTexture()
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, lookFbo)
         GLES30.glViewport(0, 0, w, h)

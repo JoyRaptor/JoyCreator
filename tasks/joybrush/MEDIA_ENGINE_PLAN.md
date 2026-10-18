@@ -539,3 +539,18 @@ GLSL; any change goes through the lab first and is proved by `media_render.js`.*
     the scraper is an empty knife. Curves linear (the app dials them in).
   - Pencil about 2× too big (the app's size knob).
   - → v9.4 knife v3 with toggles; real-size view.
+
+## Paste / oil speed (2026-10-18, the atlas lane)
+
+Measured on the Note 9 (tasks/joybrush/reviews/MEDIA_PROFILE_NOTE9_20261018.jsonl; device matrix p95 200-260 ms for Palette
+knife 1/2, Scraper, All-round): a paste step every 0.3 mm makes about a dozen steps a frame on a fast stroke, each a
+three-pass chain (brush cells, canvas dab, copy back over the footprint box).
+
+- **Done, bit for bit (no look change):** paired steps (MediaLayerEngine.pastePairs): two thin strips per pair of steps
+  instead of two whole-box copies; the old path kept to compare (MediaAtlasProbe "pasteCopy" must match it exactly).
+  The profiler times a frame's paste steps once (paste.frame) and counts them, instead of bracketing every step.
+- **Parked: look change, needs owner A/B** (not built):
+  - batching several steps into one pass: later steps would pick up paint from a canvas that does not yet hold the
+    earlier ones, so smears and pickup change;
+  - step spacing that grows with pen speed (fewer, larger steps when fast): fewer passes, coarser marks at speed.
+

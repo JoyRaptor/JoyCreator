@@ -435,6 +435,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     private val engine = GlPaintEngine().also {
         // Undo letting its oldest steps go over the memory budget is said once per drawing, never done silently.
         it.undo.onFirstTrim = { kept -> post { onNotice?.invoke(UndoLog.trimmedSentence(kept)) } }
+        // A stroke meant as an editable line that had to stay pixels (v1.2 H12), said once for that stroke.
+        it.onLineNotice = { said -> post { onNotice?.invoke(said) } }
     }
 
     /**
@@ -1795,7 +1797,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                         val tileBoard=engine.tileBoardId?.let { id -> engine.boardDocument?.boards?.firstOrNull { it.id == id } }
                         val shape=if(tileBoard == null) mask else mask.foldInto(tileBoard.rect)
                         val changes=FillPenRaster.plan(shape,argb,opacity,mode,ownership) { engine.readTile(target,it) }
-                        engine.replaceTiles(target,changes,wrappedBoardId=tileBoard?.id)
+                        engine.replaceTiles(target,changes,wrappedBoardId=tileBoard?.id,fill=FillRequest(shape,argb,opacity,mode))
                         if(changes.isNotEmpty()) reportHistory() else post { onRefused?.invoke(FillPenRaster.NOTHING_TO_FILL) }
                     } else post { onRefused?.invoke(FillPenRaster.TOO_SMALL) }
                 } finally {
@@ -2410,7 +2412,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 val synced=syncBoardLayers(current); engine.setBoardDocument(synced)
                 engine.setFramePreviews(emptyMap())
                 // A sentence when editable lines became pixels for this change (v1.2 H4), shown like any other notice.
-                engine.applyBoardChange(edit(synced))?.let { said -> post { onRefused?.invoke(said) } }; reportHistory()
+                engine.applyBoardChange(edit(synced))?.let { said -> post { onNotice?.invoke(said) } }; reportHistory()
             } catch(e:Exception) { post{onRefused?.invoke(e.message ?: "That board change could not be applied")} }
         }
     }

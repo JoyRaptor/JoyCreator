@@ -27,7 +27,7 @@ class BrushPreviewKeyTest {
 
     @Test fun theFileNameIsIdHashAndSize() {
         val key = BrushPreviewKey.of(brush("ink:pen"), 900, 90, style)
-        assertTrue(key.fileName, Regex("ink_pen_[0-9a-f]{16}_900x90\\.png").matches(key.fileName))
+        assertTrue(key.fileName, Regex("ink_pen_[0-9a-f]{8}_[0-9a-f]{16}_900x90\\.png").matches(key.fileName))
     }
 
     @Test fun anySettingOfTheBrushChangesTheKeyButNotTheIdPart() {
@@ -66,9 +66,34 @@ class BrushPreviewKeyTest {
         val key = BrushPreviewKey.of(brush("media:wet:Round"), 640, 77, style)
         val back = assertNotNull(BrushPreviewKey.parse(key.fileName))
         assertEquals(key, back)
-        assertEquals("media_wet_Round", back.idPart)
+        assertEquals(BrushPreviewKey.idPart("media:wet:Round"), back.idPart)
+        assertTrue(back.idPart, back.idPart.startsWith("media_wet_Round_"))
         assertEquals(640, back.width)
         assertEquals(77, back.height)
+    }
+
+    @Test fun twoLongIdsThatShareTheirFirst60CharactersGetDifferentNames() {
+        val shared = "x".repeat(60)
+        val a = BrushPreviewKey.of(brush(shared + "-one"), 900, 90, style)
+        val b = BrushPreviewKey.of(brush(shared + "-two"), 900, 90, style)
+        assertNotEquals(a.fileName, b.fileName)
+        assertNotEquals(a.idPart, b.idPart)
+    }
+
+    @Test fun aLongBrushIsNotTakenForAnotherBrushsOtherVersionWhenTrimmed() {
+        val shared = "x".repeat(60)
+        val a = BrushPreviewKey.of(brush(shared + "-one"), 900, 90, style)
+        val b = BrushPreviewKey.of(brush(shared + "-two"), 900, 90, style)
+        val gone = PreviewDiskTrim.victims(listOf(PreviewDiskTrim.Entry(a.fileName, 100, 1)), b, PreviewDiskTrim.Limits())
+        assertTrue("another brush's picture was deleted: $gone", gone.isEmpty())
+    }
+
+    @Test fun aLongIdStoredAndParsedBackKeepsItsOwnParts() {
+        val id = "media:" + "w".repeat(70) + ":Round"
+        val key = BrushPreviewKey.of(brush(id), 640, 77, style)
+        val back = assertNotNull(BrushPreviewKey.parse(key.fileName))
+        assertEquals(key, back)
+        assertEquals(BrushPreviewKey.idPart(id), back.idPart)
     }
 
     @Test fun aFileThatIsNotOurNameDoesNotParse() {

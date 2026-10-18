@@ -10,7 +10,8 @@ import java.security.MessageDigest
  * size of the picture, and the look it was drawn in. A preview is made once per brush version, not once per drawer open,
  * so two previews with the same name are the same picture. Pure.
  *
- * File name: `<sanitized id>_<16 hex of a hash of the brush file text, the style and [RENDERER_VERSION]>_<w>x<h>.png`.
+ * File name: `<sanitized id>_<8 hex of a hash of the full id>_<16 hex of a hash of the brush file text, the style and
+ * [RENDERER_VERSION]>_<w>x<h>.png`.
  */
 object BrushPreviewKey {
 
@@ -31,8 +32,15 @@ object BrushPreviewKey {
 
     fun of(preset: BrushPreset, width: Int, height: Int, style: BrushPreviewStyle): Key {
         val text = try { BrushJson.encode(preset) } catch (e: Exception) { preset.toString() }
-        return Key(sanitize(preset.id), hash("v$RENDERER_VERSION|${style.key}|$text"), width, height)
+        return Key(idPart(preset.id), hash("v$RENDERER_VERSION|${style.key}|$text"), width, height)
     }
+
+    /**
+     * The brush's part of the file name: the readable [sanitize]d id, then 8 hex digits of the hash of the FULL id. The
+     * readable part alone can collide (two ids sharing their first 48 characters, or `media:dry` and `media_dry`), and
+     * [PreviewDiskTrim] takes equal parts to be versions of one brush, so the hash keeps each brush's pictures apart.
+     */
+    fun idPart(id: String): String = "${sanitize(id)}_${hash(id).take(8)}"
 
     /** [id] as a safe file-name part: letters, digits, dot and hyphen kept, every other run of characters one underscore. */
     fun sanitize(id: String): String {

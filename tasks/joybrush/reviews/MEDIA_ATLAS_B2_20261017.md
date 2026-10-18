@@ -103,6 +103,13 @@ slots 4 7 1 / 8 0 5 / 2 6 3, read back un-shuffled) and broken. Pass = atlas-ide
 atlas-scrambled vs window **0** (bit-exact float bits and look bytes) and broken > 0 and non-vacuous. Not run on the
 phone (not mine to install); the lead runs it.
 
+**Device result, October 17 (run by the Lead):** PASS on the Note 9 (Adreno 630). Build: joy-creator + d3d3c981f merged
+as 1d1d4e19f, APK sha256 7f5242f3e8fedcd3d98ba3164c42f64096d59176572d6360f705e6a546e8a2a4. atlas-identity vs window
+**0**, atlas-scrambled vs window **0**, broken caught 2,910,927 pixels, non-vacuous, glError 0. Strokes: pencil HB
+(15 frames, 30,226 changed), watercolour Round flat (22, 1,091,452), watercolour wash tilted (22, 3,064,852), oil round
+(15, 3,064,848), eraser (8, 2,797,708); atlas and scrambled are 0 on every stroke, and broken is caught on every plane.
+JSON: MEDIA_ATLAS_B2_DEVICE_PROBE_NOTE9_20261017.json.
+
 ## Not done here
 
 Eviction (B3), the look atlas (B4), any default-on, any device run.

@@ -13,6 +13,7 @@ import cc.joycreator.joybrush.core.brush.scaled
 import cc.joycreator.joybrush.core.layers.LayerBudget
 import cc.joycreator.joybrush.core.media.DOC_PX_PER_MM
 import cc.joycreator.joybrush.core.media.DabBatch
+import cc.joycreator.joybrush.core.media.PasteStep
 import cc.joycreator.joybrush.core.media.DryStroke
 import cc.joycreator.joybrush.core.media.MediaSample
 import cc.joycreator.joybrush.core.media.MediaSpline
@@ -179,6 +180,20 @@ class MediaCanvas(
     fun frame(nowMs: Long): Boolean {
         val e = engine ?: return false
         val w = window ?: return false
+        // Bench only: time every media section of this frame (glFinish brackets) and note what the textures cost.
+        val rec = stats?.takeIf { it.recording }
+        MediaPhases.timer = rec?.let { s -> { name: String, ms: Double -> s.phase(name, ms) } }
+        try { return frameInner(e, w, nowMs) } finally {
+            MediaPhases.timer = null
+            if (rec != null && (rec.memory == null || (e.hasWaterTextures && !memoryHadWater))) {
+                rec.memory = e.memoryReport(); memoryHadWater = e.hasWaterTextures
+            }
+        }
+    }
+
+    private var memoryHadWater = false
+
+    private fun frameInner(e: MediaLayerEngine, w: MediaPlace, nowMs: Long): Boolean {
         // The paper's tilt is read every frame, so running water turns as the pad or the phone turns (it was read only
         // at a stroke's start: owner, 2026-10-12).
         val tilted = !slope.contentEquals(lastSlope)
@@ -198,7 +213,9 @@ class MediaCanvas(
             return true
         }
         if (e.wetActive) {
-            e.wetFrame(null, paint.mediaPaper(), DOC_PX_PER_MM, wetQuality ?: WetConstants())
+            val wq = wetQuality ?: WetConstants()
+            if (w is MediaAtlas) w.admit(listOfNotNull(e.wetNeed(listOf(null), DOC_PX_PER_MM, wq.substeps)))
+            e.wetFrame(null, paint.mediaPaper(), DOC_PX_PER_MM, wq)
             w.flush()
             w.touched(nowMs)
             return true
@@ -276,7 +293,8 @@ class MediaCanvas(
         }
         engine = made
         val render = { r: FloatArray -> made.renderLook(r, paint.mediaPaper(), look, DOC_PX_PER_MM); Unit }
-        window = (if (atlas) MediaAtlas(paint, made, render) else MediaWindow(paint, made, render)).also { it.stats = stats }
+        val dry = { rects: List<FloatArray> -> made.dryTilesNow(rects, paint.mediaPaper(), DOC_PX_PER_MM, wetQuality ?: WetConstants()) }
+        window = (if (atlas) MediaAtlas(paint, made, render, dry) else MediaWindow(paint, made, render)).also { it.stats = stats }
         return made
     }
 
@@ -333,6 +351,13 @@ class MediaCanvas(
             w.follow(doubleArrayOf(st.penX - r, st.penY - r, st.penX + r, st.penY + r), st.penX, st.penY)
         }
         w.lookHalo = if (look.impasto > 0f) MediaWindow.LOOK_HALO_MAX else MediaWindow.LOOK_HALO_FLAT
+        // Every input of this frame, taken before any pass runs, so the atlas can admit the whole frame first (B3).
+        val wq = wetQuality ?: WetConstants()
+        val thin = st.thin?.take()
+        val steps = st.paste?.take()
+        val wetIn = st.wet?.take()
+        val eraseIn = if (st.erase && st.eraseDabs.isNotEmpty()) eraseBatch(st.eraseDabs) else null
+        if (w is MediaAtlas) w.admit(frameNeeds(e, st, batch, thin, steps, wetIn, eraseIn, wq))
         // Bench only: split the frame's media cost into the simulation (dabs, steps, water) and the write-back (look
         // render, tile copies), each finished on the GPU so the split is real time, not command submission.
         val timing = stats?.takeIf { it.recording }
@@ -342,15 +367,15 @@ class MediaCanvas(
             val lastDab = (batch.count - 1) * DabBatch.FLOATS
             e.dryFrame(batch, batch.dabs[lastDab + 16].toDouble(), batch.dabs[lastDab + 17].toDouble(), paper, st.mat!!, DOC_PX_PER_MM)
         }
-        st.thin?.let { e.wetFrame(it.take(), paper, DOC_PX_PER_MM, wetQuality ?: WetConstants()) }
-        st.paste?.let { ps -> for (step in ps.take()) e.pasteStep(step, st.brush!!, paper, DOC_PX_PER_MM, st.seed) }
-        st.wet?.let { e.wetFrame(it.take(), paper, DOC_PX_PER_MM, wetQuality ?: WetConstants()) }
-        if (st.erase && st.eraseDabs.isNotEmpty()) {
-            e.eraseFrame(eraseBatch(st.eraseDabs), existingStores(st.layerId, w))
+        if (st.thin != null) e.wetFrame(thin, paper, DOC_PX_PER_MM, wq)
+        if (steps != null) for (step in steps) e.pasteStep(step, st.brush!!, paper, DOC_PX_PER_MM, st.seed)
+        if (st.wet != null) e.wetFrame(wetIn, paper, DOC_PX_PER_MM, wq)
+        if (eraseIn != null) {
+            e.eraseFrame(eraseIn, existingStores(st.layerId, w))
             st.eraseDabs.clear()
         }
         // Water that is already running in the window keeps running under a dry or paste stroke.
-        if (st.wet == null && st.thin == null && e.wetActive) e.wetFrame(null, paper, DOC_PX_PER_MM, wetQuality ?: WetConstants())
+        if (st.wet == null && st.thin == null && e.wetActive) e.wetFrame(null, paper, DOC_PX_PER_MM, wq)
         if (timing != null) android.opengl.GLES30.glFinish()
         val t1 = System.nanoTime()
         w.flush(stores = last || legacyWindow)
@@ -359,6 +384,26 @@ class MediaCanvas(
             timing.simAcc += (t1 - t0) / 1e6
             timing.flushAcc += (System.nanoTime() - t1) / 1e6
         }
+    }
+
+    /**
+     * Media Atlas v2 B3: what this frame's passes will ask the atlas for, computed by the passes' own code
+     * ([MediaLayerEngine.dryNeed] and the rest), so [MediaAtlas.admit] can hold all of it before the first one draws.
+     */
+    private fun frameNeeds(e: MediaLayerEngine, st: Stroke, dry: DabBatch?, thin: DabBatch?, steps: List<PasteStep>?, wetIn: DabBatch?,
+                           eraseIn: DabBatch?, wq: WetConstants): List<MediaLayerEngine.Need> {
+        val out = ArrayList<MediaLayerEngine.Need>()
+        if (dry != null && dry.count > 0) e.dryNeed(dry, st.mat!!, DOC_PX_PER_MM)?.let(out::add)
+        steps?.forEach { step -> e.pasteNeed(step, st.brush!!, DOC_PX_PER_MM)?.let(out::add) }
+        if (eraseIn != null) e.eraseNeed(eraseIn)?.let(out::add)
+        // The water frames in the order run() makes them (the same batches, or none while water already runs).
+        val water = ArrayList<DabBatch?>()
+        if (st.thin != null) water += thin
+        if (st.wet != null) water += wetIn
+        if (st.wet == null && st.thin == null && e.wetActive) water += null
+        if (water.isNotEmpty()) e.wetNeed(water, DOC_PX_PER_MM, wq.substeps)?.let(out::add)
+        out += e.wetInputNeeds(water)
+        return out
     }
 
     private fun eraseBatch(dabs: List<Dab>): DabBatch {

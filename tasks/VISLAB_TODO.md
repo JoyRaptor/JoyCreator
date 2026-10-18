@@ -81,7 +81,8 @@ Web pilot: `preview_start vislab-web`, page `tools/vislab-web/index.html#<look-i
 - [x] **C3. Floating visualiser hears phone audio without recording** (Android's playback
   - DONE 10-18, Note 9 with the owner: speaker button -> Android's question -> Start now -> hearing the phone; Glass Peaks jumped with the demo song playing on the phone; tapping again went back to the microphone and Android released the permission. Apps that forbid capture stay silent.
   capture needs the screen-capture consent) — `vislab/overlay/OverlaySound.java` (NONE/RECORDING/MIC).
-- [ ] **C4. Studio: VisLab looks inside Studio's visualiser** (owner 10-18: build it here, not the
+- [ ] **C4. Studio: VisLab looks inside Studio's visualiser** (full brief for the next agent:
+  `tasks/VISLAB_HANDOFF_20261018_STUDIO.md`) (owner 10-18: build it here, not the
   Studio lane; integrate, not override; "Studio is meant to replace After Effects").
   Owner rulings 10-18: VisLab looks are a **section of the Rolodex** (same visualiser item, classic
   styles stay selectable); a **small editor in Studio** for values worth keyframing (reactivity,

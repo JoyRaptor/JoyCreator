@@ -173,12 +173,17 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
             val rects = a.keys.map(::tileRect)
             // Where their water was: the look changes only there (and its halo), and everything that reads is held.
             val wet = a.keys.mapNotNull { water.extent(it) }.map { e -> floatArrayOf(e[0].toFloat(), e[1].toFloat(), e[2].toFloat(), e[3].toFloat()) }
+            // The tiles and everything their new look reads, here and held while it is drawn: a tail that came back into
+            // the water may border a tile that left long ago (b3w, 2026-10-18: 86 px read from a tile not loaded).
+            val brief = holdBriefly(a.keys + wet.flatMap { tilesOf(it, lookHalo + MediaAtlasPlacement.LOOK_REACH) },
+                slots.residents().map { it.page.tileKey }.filter(water::holdsWater))
             dryTiles(rects)
             water.dried(a.keys, a.drain)
             pendingStores += media.takeDirtyStores()
             for (k in a.keys) slots.resident(page(k))?.let { slots.markDirty(it.page) }
             // Their look now, while everything it reads is still here: once dry they may leave this very frame.
             for (r in wet) writeLook(layerId!!, r, hold = false)
+            for (p in brief) { if (slots.resident(p) != null) slots.unpin(p); pinned -= p }
             if (a.drain) {
                 drainedTails++
                 android.util.Log.i(TAG, "watercolour: a drip's tail dried where it lay to make room (${a.keys.size} area)")
@@ -294,6 +299,32 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
             slots.pin(p); pinned += p; loaded = true
         }
         if (loaded) media.setResidency(resident())
+    }
+
+    /**
+     * Loads and pins [keys] for a moment (a draining tail's look); returns what it pinned, to let go after. Nothing in
+     * [keep] (the tiles holding water) may be evicted to make room: its flow is not stored, so a water tile pushed out
+     * mid-frame would come back without it, and rounded to half floats (b3w). None loaded if they cannot fit beside it.
+     */
+    private fun holdBriefly(keys: Collection<Long>, keep: Collection<Long>): List<MediaAtlasPage> {
+        val wanted = keys.toSet()
+        if (!MediaAtlasPlacement.fits(slots.capacity, wanted + keep.filter { slots.resident(page(it)) != null }, pinned.mapTo(HashSet()) { it.tileKey })) {
+            android.util.Log.w(TAG, "a draining tail's look and its reads do not fit (${wanted.size} areas): drawn with what is here")
+            return emptyList()
+        }
+        val added = ArrayList<MediaAtlasPage>()
+        // What must stay is pinned while the rest loads, then let go with the rest (the frame's own hold pins it again).
+        for (key in keep) { val p = page(key); if (p !in pinned && slots.resident(p) != null) { slots.pin(p); pinned += p; added += p } }
+        var loaded = false
+        for (key in wanted) {
+            val p = page(key)
+            if (p in pinned) continue
+            if (slots.resident(p) != null) slots.touch(p)
+            else { residency.ensure(p) ?: continue; loaded = true }
+            slots.pin(p); pinned += p; added += p
+        }
+        if (loaded) media.setResidency(resident())
+        return added
     }
 
     private fun unpinAll() {

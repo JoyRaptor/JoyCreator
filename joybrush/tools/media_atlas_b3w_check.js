@@ -569,6 +569,22 @@ async function PAGE(P) {
     hold(E, [...keys]);
   }
   // A pass's own ask (MediaAtlas.need): after admission everything is held already; anything else is a planning miss.
+  // MediaAtlas.holdBriefly: load and pin for a moment (a draining tail's look); what it pinned, to let go after.
+  function holdBriefly(E, keys, keep) {
+    if (!E.atlas) return [];
+    const wanted = [...new Set(keys)], kept = keep.filter((t) => E.res.has(t));
+    if (new Set([...wanted, ...kept, ...E.pins]).size > E.cap) return [];
+    const added = [];
+    for (const t of kept) if (!E.pins.has(t)) { E.pins.add(t); added.push(t); }   // never evicted to make room
+    for (const t of wanted) {
+      if (E.pins.has(t)) continue;
+      if (E.res.has(t)) { const sl = E.res.get(t); E.res.delete(t); E.res.set(t, sl); }
+      else { if (!E.free.length) evictOne(E); load(E, t, E.free.shift()); }
+      E.pins.add(t); E.touchedTiles.add(t); added.push(t);
+    }
+    E.maxResident = Math.max(E.maxResident, E.res.size);
+    return added;
+  }
   function ensure(E, rect, reach) {
     if (!E.atlas || !rect) return;
     const miss = tilesOf(dilate(rect, reach)).filter((t) => !E.pins.has(t));
@@ -760,10 +776,12 @@ async function PAGE(P) {
         E.planLog.set(fi, JSON.stringify(plan));
         for (const a of plan) {
           const wet = a.keys.map((t) => E.water.extent(t)).filter(Boolean);
+          const brief = holdBriefly(E, [...a.keys, ...wet.flatMap((e) => tilesOf(dilate(e, LOOK_HALO + P.REACH.look)))], [...E.res.keys()].filter((t) => E.water.holds(t)));   // MediaAtlas.holdBriefly
           dryTiles(E, sc, a.keys);
           E.water.dried(a.keys, a.drain);
           E.ctx = 'drain' + JSON.stringify(a.keys);
           for (const e of wet) renderLook(E, [e[0] - LOOK_HALO, e[1] - LOOK_HALO, e[2] + LOOK_HALO, e[3] + LOOK_HALO], true);
+          for (const t of brief) E.pins.delete(t);
           if (a.drain) E.drainedN++; else E.settledN++;
         }
         must = E.water.mustStay(domain, reads, LOOK_HALO + P.REACH.look);

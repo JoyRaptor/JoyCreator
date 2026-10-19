@@ -389,7 +389,19 @@ async function PAGE(P) {
     }
     return o;
   }
+  // --time: each layer-shaped pass's GPU time, by program, per engine (finished before and after).
+  const passTime = {};
   function drawRect(E, r, shift = 8) {
+    if (!P.time) return drawRectInner(E, r, shift);
+    const prog = gl.getParameter(gl.CURRENT_PROGRAM), name = (Object.entries(E.P).find(([, v]) => v === prog) || ['?'])[0];
+    const fb = gl.getParameter(gl.FRAMEBUFFER_BINDING);
+    sync(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb); const t0 = performance.now();
+    drawRectInner(E, r, shift);
+    sync(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb); const b = ((passTime[E.kind] = passTime[E.kind] || {})[name] = passTime[E.kind][name] || { ms: 0, n: 0 });
+    b.ms += performance.now() - t0; b.n++;
+    gl.useProgram(prog);
+  }
+  function drawRectInner(E, r, shift = 8) {
     if (!E.atlas) { gl.bindVertexArray(quadVao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); return; }
     const side = 1 << shift, inst = [];
     for (let ty = 0; ty < N; ty++) for (let tx = 0; tx < N; tx++) {
@@ -727,7 +739,8 @@ async function PAGE(P) {
     const med = (a) => { const b = [...a].sort((x, y) => x - y); return b[b.length >> 1]; };
     for (const sc of Object.values(timing)) for (const k of Object.values(sc)) { k.simMedian = med(k.sim.slice(1)); k.lookMedian = med(k.look.slice(1)); }
     const dbg = gl.getExtension('WEBGL_debug_renderer_info');
-    return { timing, renderer: dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : '' };
+    for (const k of Object.values(passTime)) for (const b of Object.values(k)) b.ms = +b.ms.toFixed(1);
+    return { timing, passTime, renderer: dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : '' };
   }
   return { results, missingUniforms: [...missing].sort() };
 }

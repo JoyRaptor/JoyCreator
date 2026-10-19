@@ -40,6 +40,9 @@ flat in vec4 v_contact;
 flat in vec4 v_pen;
 flat in float v_live;
 flat in vec2 v_fade; // optional tail attribute: amount and local angle
+flat in vec4 v_quad01;
+flat in vec4 v_quad23;
+flat in vec4 v_quadMeta;
 
 float jb_contactCoverage() {
     bool live = v_live > 0.5;
@@ -51,7 +54,7 @@ float jb_contactCoverage() {
     vec2 lean = live ? v_pen.zw : u_leanDir;
     vec2 contactOffset = v_offset + (live ? v_pen.x : 0.0) * v_radius * vec2(cos(v_angle), sin(v_angle));
     JbTip t = JbTip(v_radius, v_angle, aspect, u_corner, u_taper, hardness, u_minPx);
-    float tipCov = jb_unibrushTipCoverage(contactOffset, t, v_fade.x, v_fade.y);
+    float tipCov = jb_unibrushTipCoverage(contactOffset, t, v_fade.x, v_fade.y, v_quad01, v_quad23, v_quadMeta);
     float d = tipCov * v_flow;
 
     bool tipOn = u_tipGrainPitchPx > 0.0;

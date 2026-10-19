@@ -160,9 +160,16 @@ class BrushDabber(val preset: BrushPreset, seed: Long) {
         }
         dabCount++
 
+        val quadSpec = preset.tip.quad
+        val morph = if (quadSpec?.b != null) unit(Dynamics.eval(quadSpec.morph, inputs), 0f) else 0f
+        val dynamicAspect = preset.tip.aspectDynamics?.let { finite(Dynamics.eval(it, inputs), preset.tip.aspect).coerceIn(-1f, 1f) }
+        val quadAspect = quadSpec?.let { TipQuads.aspect(it.a, it.b, morph, dynamicAspect ?: preset.tip.aspect) }
         return DabLook(radius = radius, angle = angle, flow = flow, cap = cap,
-            profile = preset.tip.profile, fadeAmount = fadeAmount, fadeAngle = fadeAngle,
-            aspect = preset.tip.aspectDynamics?.let { finite(Dynamics.eval(it, inputs), preset.tip.aspect).coerceIn(-1f, 1f) } ?: Float.NaN,
+            profile = quadSpec?.a?.profile ?: preset.tip.profile,
+            profileB = quadSpec?.b?.let { it.profile ?: preset.tip.profile }, profileMix = morph,
+            quad = quadSpec?.let { TipQuads.interpolate(it.a, it.b, morph) },
+            fadeAmount = fadeAmount, fadeAngle = fadeAngle,
+            aspect = quadAspect ?: dynamicAspect ?: Float.NaN,
             anchor = preset.tip.anchorDynamics?.let { unit(Dynamics.eval(it, inputs), 0f) } ?: Float.NaN,
             hardness = if (preset.version >= VERSION_CONTACT) unit(Dynamics.eval(preset.tip.hardness, inputs), unit(preset.tip.hardness.base, 0.9f)) else Float.NaN,
             tipDepth = if (preset.version >= VERSION_CONTACT) unit(Dynamics.eval(preset.tipTexture.depth, inputs), unit(preset.tipTexture.depth.base, 1f)) else Float.NaN,

@@ -1,0 +1,56 @@
+{
+  "transport": {
+    "pass": true,
+    "dabs": 3,
+    "differingBytes": 0,
+    "wrongOffsetDifferingBytes": 2466,
+    "wrongQuadOffsetDifferingBytes": 2686,
+    "coveredPixels": 1343,
+    "layout": "17n prefix + optional 2n fade + optional 12n quad; attr8 stride8 offset n*68; attrs9..11 stride48 offset n*76",
+    "order": "identical"
+  },
+  "parity": {
+    "cases": 156,
+    "failedCases": 0,
+    "samples": 159744,
+    "max": 0.004318125098039222,
+    "rms": 0.0003780851132458673
+  },
+  "deviceAcceptance": false,
+  "controls": {
+    "rotatedFade": {
+      "relevantCases": 52,
+      "detectedCases": 32,
+      "max": 0.3324524064705882
+    },
+    "roundOff": {
+      "relevantCases": 117,
+      "detectedCases": 53,
+      "max": 1
+    },
+    "quadOff": {
+      "relevantCases": 156,
+      "detectedCases": 155,
+      "max": 1
+    },
+    "mixOff": {
+      "relevantCases": 104,
+      "detectedCases": 80,
+      "max": 0.9629492823529412
+    },
+    "fadeOff": {
+      "relevantCases": 52,
+      "detectedCases": 40,
+      "max": 0.44807651176470586
+    },
+    "hardProfile": {
+      "relevantCases": 156,
+      "detectedCases": 80,
+      "max": 0.986740173
+    }
+  },
+  "coreTests": 2547,
+  "optionalCoreSkips": 4,
+  "pass": true,
+  "backendTests": 1052
+}

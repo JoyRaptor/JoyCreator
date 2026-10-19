@@ -25,12 +25,13 @@ const val BRUSH_FORMAT = "joybrush.brush"
  *  - **11** added the pencil's `media.stick.blend`, `media.stick.build` and `media.stick.tuning` — [VERSION_PENCIL_BLEND].
  *  - **12** added explicit Unibrush tip rotation sources — [VERSION_UNIBRUSH].
  *  - **13** added Unibrush radial profiles and directional fade — [VERSION_TIP_PROFILE].
+ *  - **14** added four-point tips and A/B shape/profile morph — [VERSION_TIP_QUAD].
  *
  * A word needs the version that introduced it, NOT the newest one: a fill pen is still a version-2
  * file, so a build that predates smudge can open it. [BrushJson.wordsNeedingVersion] carries the
  * per-word number.
  */
-const val BRUSH_VERSION = 13
+const val BRUSH_VERSION = 14
 
 /** Unibrush D1. Reconcile with the current shared brush version before Lead integration. */
 const val VERSION_UNIBRUSH = 12
@@ -188,6 +189,7 @@ object BrushJson {
         if (p.tip.anchorDynamics != null) out += VersionedWord("tip.anchorDynamics", VERSION_CONTACT)
         if (p.tip.angleSource != null) out += VersionedWord("tip.angleSource", VERSION_UNIBRUSH)
         if (p.tip.profile != null) out += VersionedWord("tip.profile", VERSION_TIP_PROFILE)
+        if (p.tip.quad != null) out += VersionedWord("tip.quad", VERSION_TIP_QUAD)
         if (p.tip.fade != null) out += VersionedWord("tip.fade", VERSION_TIP_PROFILE)
         if (p.engine == ENGINE_MEDIA) out += VersionedWord("engine \"$ENGINE_MEDIA\"", VERSION_MEDIA)
         else if (p.media != null) out += VersionedWord("media", VERSION_MEDIA)

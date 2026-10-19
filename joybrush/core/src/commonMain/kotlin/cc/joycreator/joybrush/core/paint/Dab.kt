@@ -45,6 +45,9 @@ data class Dab(
     val fadeAngle: Float = Float.NaN,
     /** Shared immutable stroke profile; no LUT is allocated or copied per dab. */
     val profile: TipProfileSpec? = null,
+    val profileB: TipProfileSpec? = null,
+    val profileMix: Float = 0f,
+    val quad: cc.joycreator.joybrush.core.brush.QuadDab? = null,
 )
 
 /**
@@ -79,11 +82,17 @@ data class TipShape(
     val fadeAmount: Float = 0f,
     /** In the tip's local frame, after the final tip angle/jitter. Radians. */
     val fadeAngle: Float = 0f,
+    val profileB: TipProfileSpec? = null,
+    val profileMix: Float = 0f,
+    val quad: cc.joycreator.joybrush.core.brush.QuadDab? = null,
 )
 
 /** Resolve live contact values; missing channels use the stroke shape. */
 fun Dab.tipShape(fallback: TipShape): TipShape = fallback.copy(
     profile = profile ?: fallback.profile,
+    profileB = if (quad != null) profileB else fallback.profileB,
+    profileMix = if (quad != null) profileMix else fallback.profileMix,
+    quad = quad ?: fallback.quad,
     aspect = if (aspect.isFinite()) aspect.coerceIn(-1f, 1f) else fallback.aspect,
     hardness = if (hardness.isFinite()) hardness.coerceIn(0f, 1f) else fallback.hardness,
     anchor = if (anchor.isFinite()) anchor.coerceIn(0f, 1f) else fallback.anchor,

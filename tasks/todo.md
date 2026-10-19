@@ -86,7 +86,7 @@ Isolated branch codex/unibrush starts at lead/layer-ops as authorized in the han
 - [x] D1 engine/model: explicit rotation sources; legacy dab compatibility; pressure/tilt recipe APIs; JVM proof. Sheet controls are D9; side-fade is D2.
 - [ ] D1 Lead review/integration and phone acceptance.
 - [x] D2 engine: radial profiles and directional fade; CPU/GPU/transport checks. Lead integration and phone acceptance pending.
-- [ ] D3: four-point shapes, rounding and A/B morph; shader/replay checks.
+- [x] D3 engine: four-point shapes, rounding and A/B morph; CPU/GPU/replay checks. Lead integration and phone acceptance pending.
 - [ ] D4: seeded colour dynamics; determinism/replay checks.
 - [ ] D5: sampled image sets and frozen archive resources; Lead engine patch; phone proof.
 - [ ] D6: dual-tip masking; shader checks.
@@ -109,3 +109,9 @@ Production shaders match CPU in 72 cases / 73728 probes (max error < 1/255), wit
 wrong-profile/fade controls detected. Three-dab extended buffer matches individual draws byte-for-byte;
 wrong-offset control differs in 2856 bytes. Historical 820c62802 vs new shader: zero differing pixels.
 Headless Edge/SwiftShader only; Note 9 feel/performance and editable-line adapter remain pending.
+
+D3 review (2026-10-19): core 2547 (4 optional skips), backend 1052, no failures/errors.
+156 CPU/GPU cases / 159744 probes pass below 2/255 (max .0043181251); all six controls detected.
+Extended VBO is byte-identical to individual draws; both wrong-offset controls differ.
+Historical old shader comparison remains exact. Shader contact sheet inspected; no phone claim.
+See tasks/joybrush/reviews/UNIBRUSH_D3_20261018.md and accompanying 20261019 evidence.

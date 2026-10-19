@@ -55,6 +55,9 @@ import kotlinx.serialization.ExperimentalSerializationApi
     val profile: TipProfileSpec? = null,
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val fade: TipFadeSpec? = null,
+    /** v14: explicit four-handle shape. Null retains every old superellipse/taper exactly. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val quad: TipQuadSpec? = null,
 )
 
 /** Paper grain image/scale are ignored since JB-9.03: the document paper decides (R10 P4).

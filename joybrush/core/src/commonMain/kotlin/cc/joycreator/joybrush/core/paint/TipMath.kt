@@ -9,6 +9,8 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 import cc.joycreator.joybrush.core.brush.TipProfile
 import cc.joycreator.joybrush.core.brush.TipProfiles
+import cc.joycreator.joybrush.core.brush.TipProfileSpec
+import cc.joycreator.joybrush.core.brush.QuadMath
 
 /**
  * CPU twin of `joybrush/shaders/jb_tip.glsl` — the reference the GPU is checked against, and what
@@ -30,18 +32,21 @@ object TipMath {
 
     /** Coverage 0..1 at offset (dx, dy) px from the dab centre. */
     fun coverage(dx: Float, dy: Float, radiusPx: Float, angle: Float, tip: TipShape): Float {
+        if (tip.quad?.let { QuadMath.prepare(it).empty } == true) return 0f
         val g = Geometry(radiusPx, angle, tip)
         val d = g.d(dx, dy)
         // fwidth(d) exactly as the GPU forms it: forward differences one pixel along x and y.
         val aa = max(abs(g.d(dx + 1f, dy) - d) + abs(g.d(dx, dy + 1f) - d), 1e-4f)
         val inner = min(tip.hardness.coerceIn(0f, 1f), 1f - aa)
         val outer = 1f + 0.5f * aa
-        val profile = tip.profile
-        val cov = when (profile?.kind) {
+        fun radial(profile: TipProfileSpec?): Float = when (profile?.kind) {
             null -> 1f - smoothstep(inner, outer, d)
             TipProfile.hard -> 1f - smoothstep(1f - 0.5f * aa, outer, d)
             else -> TipProfiles.coverage(profile!!, ((d - inner) / (outer - inner)).coerceIn(0f, 1f))
         }
+        val first = radial(tip.profile)
+        val mix = tip.profileMix.coerceIn(0f, 1f)
+        val cov = if (mix > 0f) first + (radial(tip.profileB) - first) * mix else first
         val legacy = cov * g.fade
         if (!(tip.fadeAmount > 0f)) return legacy
         return legacy * g.directionalFade(dx, dy, tip.fadeAmount, tip.fadeAngle)
@@ -49,6 +54,7 @@ object TipMath {
 
     /** The tip's normalised superellipse distance field (the part of jb_tipCoverage before antialiasing). */
     private class Geometry(radiusPx: Float, angle: Float, private val tip: TipShape) {
+        private val quad = tip.quad?.let { QuadMath.prepare(it) }
         private val shift = radiusPx * (if (tip.anchor.isFinite()) tip.anchor.coerceIn(0f, 1f) else 0f)
         private val c = cos(angle)
         private val s = sin(angle)
@@ -72,6 +78,8 @@ object TipMath {
             val qy = -s * dx + c * dy
             val along = (qy / hy * 0.5f + 0.5f).coerceIn(0f, 1f)
             val widthScale = max(1f - tip.taper.coerceIn(0f, 1f) * along, 1e-3f)
+            val shape = quad
+            if (shape != null) return 1f + shape.signedDistance(qx / (hx * widthScale), qy / hy) / shape.normalizationScale
             return superellipse(qx, qy, hx * widthScale, hy, tip.corner)
         }
 

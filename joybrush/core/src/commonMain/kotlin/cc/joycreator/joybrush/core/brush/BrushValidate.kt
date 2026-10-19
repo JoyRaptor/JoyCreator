@@ -63,7 +63,7 @@ object BrushValidate {
      * second message, which every `assertSole` in the tests would notice. The trap, therefore, is
      * [paramsOf], not this set.
      */
-    private val RANGED_BASES = setOf("size", "tip.hardness", "tip.aspectDynamics", "tip.anchorDynamics", "tip.fade.amount")
+    private val RANGED_BASES = setOf("size", "tip.hardness", "tip.aspectDynamics", "tip.anchorDynamics", "tip.fade.amount", "tip.quad.morph")
 
     fun validate(p: BrushPreset): List<String> {
         val out = ArrayList<String>()
@@ -112,22 +112,36 @@ object BrushValidate {
         // 6/7 — the tip's shape limits.
         if (p.tip.taper !in 0f..1f) out += "tip.taper ${p.tip.taper} is outside 0..1"
         if (p.tip.aspect !in -1f..1f) out += "tip.aspect ${p.tip.aspect} is outside -1..1"
-        if (p.tip.profile != null || p.tip.fade != null) {
-            if (p.engine != "stamp") out += "Unibrush profiles and fade need engine stamp"
-            if (p.line != null) out += "Unibrush profile/fade with stroke-end shaping needs the D7 adapter"
+        if (p.tip.profile != null || p.tip.fade != null || p.tip.quad != null) {
+            if (p.engine != "stamp") out += "Unibrush shapes, profiles and fade need engine stamp"
+            if (p.line != null) out += "This build cannot combine stroke-end shaping with Unibrush shapes, profiles or fade"
         }
         p.tip.fade?.let { fade ->
             if (fade.amount.base !in 0f..1f) out += "tip.fade.amount.base must be 0..1"
             if (!fade.angle.isFinite()) out += "tip.fade.angle must be finite"
         }
-        p.tip.profile?.let { profile ->
+        p.tip.quad?.let { quad ->
+            if (p.tip.source != "procedural") out += "tip.quad needs a procedural tip"
+            if (quad.morph.base !in 0f..1f) out += "tip.quad.morph.base must be 0..1"
+            for ((name, shape) in listOfNotNull("a" to quad.a, quad.b?.let { "b" to it })) {
+                if (shape.points.size != 4 || shape.points.any { it.x !in -1f..1f || it.y !in -1f..1f })
+                    out += "tip.quad.$name.points must have four points in -1..1"
+                if (shape.roundness !in 0f..1f) out += "tip.quad.$name.roundness must be 0..1"
+                if (shape.aspect != null && shape.aspect !in -1f..1f) out += "tip.quad.$name.aspect must be -1..1"
+            }
+        }
+        for ((name, profile) in listOfNotNull(
+            p.tip.profile?.let { "tip.profile" to it },
+            p.tip.quad?.a?.profile?.let { "tip.quad.a.profile" to it },
+            p.tip.quad?.b?.profile?.let { "tip.quad.b.profile" to it },
+        )) {
             if (profile.curve.size !in 2..MAX_CURVE_POINTS || profile.curve.any { point ->
                 point.size != 2 || point.any { it !in 0f..1f }
-            }) out += "tip.profile.curve must have 2..$MAX_CURVE_POINTS points in 0..1"
+            }) out += "$name.curve must have 2..$MAX_CURVE_POINTS points in 0..1"
             else {
-                if (profile.curve.zipWithNext().any { (a, b) -> a[0] >= b[0] }) out += "tip.profile.curve x must increase"
+                if (profile.curve.zipWithNext().any { (a, b) -> a[0] >= b[0] }) out += "$name.curve x must increase"
                 if (profile.curve.first()[0] != 0f || profile.curve.last() != listOf(1f, 0f))
-                    out += "tip.profile.curve must start at radius 0 and end at [1, 0]"
+                    out += "$name.curve must start at radius 0 and end at [1, 0]"
             }
         }
 
@@ -497,5 +511,6 @@ object BrushValidate {
         p.tip.aspectDynamics?.let { "tip.aspectDynamics" to it },
         p.tip.anchorDynamics?.let { "tip.anchorDynamics" to it },
         p.tip.fade?.let { "tip.fade.amount" to it.amount },
+        p.tip.quad?.let { "tip.quad.morph" to it.morph },
     )
 }

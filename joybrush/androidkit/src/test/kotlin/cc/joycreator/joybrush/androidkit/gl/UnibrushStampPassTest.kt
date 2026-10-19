@@ -8,6 +8,10 @@ import cc.joycreator.joybrush.core.brush.TipProfile
 import cc.joycreator.joybrush.core.brush.TipProfileSpec
 import cc.joycreator.joybrush.core.brush.TipProfiles
 import cc.joycreator.joybrush.core.brush.TipSpec
+import cc.joycreator.joybrush.core.brush.QuadShapeSpec
+import cc.joycreator.joybrush.core.brush.QuadPoint
+import cc.joycreator.joybrush.core.brush.TipQuads
+import cc.joycreator.joybrush.core.brush.QuadMath
 import cc.joycreator.joybrush.core.grain.GrainMath
 import cc.joycreator.joybrush.core.input.PenSample
 import cc.joycreator.joybrush.core.paint.Dab
@@ -150,5 +154,51 @@ class UnibrushStampPassTest {
             assertEquals(a.y, b.y)
             assertEquals(a.radius * 2f, b.radius)
         }
+    }
+
+    @Test fun shapeTailFollowsTheCompleteFadeTailAndLegacyPrefixAndResets() {
+        val pass = StampPass(Grains())
+        val look = look(pass)
+        val square = TipQuads.interpolate(QuadShapeSpec(), null, 0f)
+        val triangle = TipQuads.interpolate(QuadShapeSpec(points = listOf(QuadPoint(-1f,-1f),QuadPoint(1f,-1f),
+            QuadPoint(0f,1f),QuadPoint(0f,1f)), roundness = .35f), null, 0f)
+        val dabs = listOf(Dab(1f,2f,3f,quad = square,profileMix = .25f,fadeAmount = .3f,fadeAngle = .2f),
+            Dab(4f,5f,6f,quad = triangle,profileMix = .75f), Dab(7f,8f,9f))
+        val prefix = bits(pass.pack(dabs, look))
+        val draw = pass.packForDraw(dabs, look)
+        assertEquals(3 * (17 + 2 + 12), draw.limit())
+        assertEquals(prefix, bits(draw).take(51))
+        assertEquals(.3f, draw.get(51)); assertEquals(.2f, draw.get(52))
+        val start = 57
+        for ((index, q) in listOf(square, triangle).withIndex()) {
+            val shape = QuadMath.prepare(q)
+            val offset = start + index * 12
+            for (i in 0 until 4) {
+                assertEquals(if (i < shape.count) shape.x(i) else 0f, draw.get(offset + i * 2))
+                assertEquals(if (i < shape.count) shape.y(i) else 0f, draw.get(offset + i * 2 + 1))
+            }
+            assertEquals(shape.roundness, draw.get(offset + 8))
+            assertEquals(shape.normalizationScale, draw.get(offset + 9))
+            assertEquals(dabs[index].profileMix, draw.get(offset + 10))
+            assertEquals(if (shape.circle) 5f else 3f, draw.get(offset + 11))
+        }
+        assertEquals(0f, draw.get(start + 24 + 11), "a mixed legacy instance must disable quad coverage")
+        assertEquals(17, pass.packForDraw(listOf(Dab(1f,2f,3f)), look).limit(), "no stale shape tail")
+        assertEquals(29, pass.packForDraw(listOf(dabs.first().copy(fadeAmount = 0f)), look).limit())
+    }
+
+    @Test fun theSecondProfileUploadsItsOwnLookupAndResetsIndependently() {
+        val pass = StampPass(Grains()); val gl = Rec()
+        val a = TipProfileSpec(TipProfile.custom)
+        val b = TipProfileSpec(TipProfile.custom, listOf(listOf(0f,.25f),listOf(1f,0f)))
+        pass.setProfileUniforms(gl, gl::loc, a)
+        pass.setProfileUniforms(gl, gl::loc, b, secondary = true)
+        assertEquals(5, gl.integers["u_tipProfileB"])
+        val bVectors = gl.vectors.filter { it.first.startsWith("u_tipProfileLutB[") }
+        assertEquals(64, bVectors.size)
+        assertEquals(TipProfiles.samples(b).toList(), bVectors.flatMap { it.second })
+        pass.setProfileUniforms(gl, gl::loc, null, secondary = true)
+        assertEquals(0, gl.integers["u_tipProfileB"])
+        assertEquals(5, gl.integers["u_tipProfile"], "clearing B cannot change A")
     }
 }

@@ -11,7 +11,8 @@ const os = require('os');
 
 const root = path.join(__dirname, '..');
 const shaderDir = path.join(root, 'shaders');
-const fixturePath = path.join(root, 'core', 'build', 'unibrush-profile-fixture.json');
+const quadCheck = process.argv.includes('--quad');
+const fixturePath = path.join(root, 'core', 'build', quadCheck ? 'unibrush-quad-fixture.json' : 'unibrush-profile-fixture.json');
 const tolerance = 2 / 255;
 const controlThreshold = 2 * tolerance;
 
@@ -41,6 +42,8 @@ function fixture() {
     if (!Array.isArray(c.lut) || c.lut.length !== 256 || c.lut.some(v => !Number.isFinite(v))) fail('expected 256 finite LUT samples');
     if (!Array.isArray(c.coverage) || c.coverage.length !== c.width * c.height ||
         c.coverage.some(v => !Number.isFinite(v) || v < 0 || v > 1)) fail('invalid CPU coverage array');
+    if (c.quad && (c.quad.length !== 8 || c.quad.some(v => !Number.isFinite(v)) ||
+        !c.quadMeta || c.quadMeta.length !== 4 || c.quadMeta.some(v => !Number.isFinite(v)) || c.quadMeta[1] <= 0)) fail('invalid quad');
   }
   return value;
 }
@@ -113,11 +116,14 @@ uniform vec2 u_fixtureSize;
 uniform vec4 u_geometry0;
 uniform vec4 u_geometry1;
 uniform float u_fadeAngle;
+uniform vec4 u_quad01;
+uniform vec4 u_quad23;
+uniform vec4 u_quadMeta;
 out vec4 color;
 void main(){
   JbTip t=JbTip(u_geometry0.x,u_geometry0.y,u_geometry0.z,u_geometry0.w,
                 u_geometry1.x,u_geometry1.y,u_geometry1.z);
-  float coverage=jb_unibrushTipCoverage(gl_FragCoord.xy-u_fixtureSize/2.0,t,u_geometry1.w,u_fadeAngle);
+  float coverage=jb_unibrushTipCoverage(gl_FragCoord.xy-u_fixtureSize/2.0,t,u_geometry1.w,u_fadeAngle,u_quad01,u_quad23,u_quadMeta);
   color=vec4(coverage,0,0,1);
 }`;
       const p = program(vertex, fragment, 'profile oracle');
@@ -128,8 +134,16 @@ void main(){
         return location;
       }
       const locations = Object.fromEntries(['u_fixtureSize', 'u_geometry0', 'u_geometry1', 'u_fadeAngle',
-        'u_tipProfile', 'u_tipProfileLut[0]'].map(name => [name, uniform(name)]));
+        'u_tipProfile', 'u_tipProfileLut[0]', 'u_tipProfileB', 'u_tipProfileLutB[0]',
+        'u_quad01', 'u_quad23', 'u_quadMeta'].map(name => [name, uniform(name)]));
       const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
+      const gallery = document.createElement('canvas');
+      gallery.width = 900; gallery.height = Math.ceil(data.cases.length / 9) * 102 + 32;
+      const galleryCtx = gallery.getContext('2d');
+      galleryCtx.fillStyle = '#f5f7f8'; galleryCtx.fillRect(0,0,gallery.width,gallery.height);
+      galleryCtx.fillStyle = '#16212c'; galleryCtx.font = '15px sans-serif';
+      galleryCtx.fillText('Unibrush · actual shader output · ' +
+        (data.cases.some(c => c.quad) ? 'corners and profile morph' : 'radial profiles and angled fade'), 10, 21);
       const target = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, target);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
@@ -148,9 +162,33 @@ void main(){
         gl.uniform1f(locations.u_fadeAngle, c.fadeAngle + (mutation === 'rotatedFade' ? Math.PI / 2 : 0));
         gl.uniform1i(locations.u_tipProfile, mutation === 'hardProfile' ? 1 : c.profile);
         gl.uniform4fv(locations['u_tipProfileLut[0]'], new Float32Array(c.lut));
+        gl.uniform1i(locations.u_tipProfileB, c.profileB || 0);
+        gl.uniform4fv(locations['u_tipProfileLutB[0]'], new Float32Array(c.lutB || c.lut));
+        gl.uniform4fv(locations.u_quad01, new Float32Array(c.quad ? c.quad.slice(0,4) : [0,0,0,0]));
+        gl.uniform4fv(locations.u_quad23, new Float32Array(c.quad ? c.quad.slice(4) : [0,0,0,0]));
+        const meta = (c.quadMeta || [0,1,0,0]).slice();
+        if (mutation === 'quadOff') meta[3] = 0;
+        if (mutation === 'roundOff') meta[0] = 0;
+        if (mutation === 'roundOff' && meta[3] === 5) meta[3] = 4;
+        if (mutation === 'mixOff') meta[2] = 0;
+        gl.uniform4fv(locations.u_quadMeta, new Float32Array(meta));
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
         const pixels = new Uint8Array(c.width * c.height * 4);
         gl.readPixels(0, 0, c.width, c.height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+        if (mutation === null) {
+          const cell = data.cases.indexOf(c), x = (cell % 9) * 100, y = Math.floor(cell / 9) * 102 + 32;
+          const image = galleryCtx.createImageData(c.width,c.height);
+          for (let i = 0; i < c.width * c.height; i++) {
+            const shade = 255 - pixels[i*4];
+            image.data.set([shade,shade,shade,255],i*4);
+          }
+          galleryCtx.putImageData(image,x+18,y);
+          galleryCtx.fillStyle = '#16212c'; galleryCtx.font = '9px sans-serif';
+          const match = c.name.match(/^(.*)-round(.*)-mix(.*)$/);
+          const [shape,round,mix] = match ? [match[1], 'r'+match[2], 'm'+match[3]] : c.name.split('-');
+          galleryCtx.fillText(shape,x+4,y+77);
+          galleryCtx.fillText([round,mix].filter(Boolean).join(' · '),x+4,y+90);
+        }
         const error = gl.getError();
         if (error !== gl.NO_ERROR) throw new Error(c.name + ': GL error ' + error);
         let max = 0, squareSum = 0, samples = 0, beyondTolerance = 0, beyondControlThreshold = 0;
@@ -165,7 +203,9 @@ void main(){
       }
 
       const cases = [];
-      const controls = Object.fromEntries(['hardProfile', 'fadeOff', 'rotatedFade'].map(name =>
+      const controls = Object.fromEntries((data.cases.some(c => c.quad) ?
+        ['hardProfile', 'fadeOff', 'rotatedFade', 'quadOff', 'roundOff', 'mixOff'] :
+        ['hardProfile', 'fadeOff', 'rotatedFade']).map(name =>
         [name, { relevantCases: 0, detectedCases: 0, max: 0, witnesses: [] }]));
       let max = 0, squareSum = 0, samples = 0, failedCases = 0;
       for (const c of data.cases) {
@@ -176,7 +216,9 @@ void main(){
         if (baseline.beyondTolerance) failedCases++;
         for (const name of Object.keys(controls)) {
           const measured = render(c, name);
-          const relevant = name === 'hardProfile' ? c.profile !== 1 : c.fade > 0;
+          const relevant = name === 'hardProfile' ? c.profile !== 1 : name === 'quadOff' ? !!c.quad :
+            name === 'roundOff' ? c.quadMeta && c.quadMeta[0] > 0 :
+            name === 'mixOff' ? c.quadMeta && c.quadMeta[2] > 0 : c.fade > 0;
           if (!relevant) continue;
           const control = controls[name];
           control.relevantCases++; control.max = Math.max(control.max, measured.max);
@@ -200,6 +242,7 @@ void main(){
           gl.uniform1f(u(name), value);
         }
         gl.uniform1i(u('u_tipProfile'), 4);
+        gl.uniform1i(u('u_tipProfileB'), 2);
         const placeholder = gl.createTexture();
         for (const [unit, sampler] of [[0, 'u_tipGrain'], [1, 'u_paperSurface'], [2, 'u_paperFluid']]) {
           gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, placeholder);
@@ -235,6 +278,9 @@ void main(){
         });
         const dabs = [dab(24, 28, 18, .2, .25, -.4), dab(34, 31, 15, -.5, .9, .9),
           dab(29, 38, 20, .7, .6, -1.1)];
+        if (data.cases.some(c => c.quad)) {
+          dabs.forEach((d, i) => { d.quad = [-1,-1,1,-.6,.6,1,-.8,.4, .2+i*.3, .6, i*.4, 4]; });
+        }
         function renderGroups(groups, wrongOffset = false) {
           gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer); gl.viewport(0, 0, n, n);
           gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
@@ -243,14 +289,26 @@ void main(){
           gl.useProgram(productionStamp); gl.bindVertexArray(vertices);
           gl.bindBuffer(gl.ARRAY_BUFFER, instances);
           for (const group of groups) {
-            const packed = new Float32Array([...group.flatMap(d => d.prefix), ...group.flatMap(d => d.tail)]);
+            const packed = new Float32Array([...group.flatMap(d => d.prefix), ...group.flatMap(d => d.tail),
+              ...group.flatMap(d => d.quad || [])]);
             gl.bufferData(gl.ARRAY_BUFFER, packed, gl.STREAM_DRAW);
             gl.enableVertexAttribArray(8);
-            gl.vertexAttribPointer(8, 2, gl.FLOAT, false, 8, group.length * 68 - (wrongOffset ? 8 : 0));
+            gl.vertexAttribPointer(8, 2, gl.FLOAT, false, 8, group.length * 68 - (wrongOffset === 'fade' ? 8 : 0));
             gl.vertexAttribDivisor(8, 1);
+            for (let attribute = 9; attribute <= 11; attribute++) {
+              if (group[0].quad) {
+                gl.enableVertexAttribArray(attribute);
+                gl.vertexAttribPointer(attribute, 4, gl.FLOAT, false, 48,
+                  group.length * 76 + (attribute - 9) * 16 - (wrongOffset === 'quad' ? 8 : 0));
+                gl.vertexAttribDivisor(attribute, 1);
+              } else { gl.disableVertexAttribArray(attribute); gl.vertexAttrib4f(attribute, 0, 0, 0, 0); }
+            }
             gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, group.length);
           }
           gl.disableVertexAttribArray(8); gl.vertexAttrib2f(8, 0, 0);
+          for (let attribute = 9; attribute <= 11; attribute++) {
+            gl.disableVertexAttribArray(attribute); gl.vertexAttribDivisor(attribute, 0); gl.vertexAttrib4f(attribute, 0,0,0,0);
+          }
           const bytes = new Uint8Array(n * n * 4);
           gl.readPixels(0, 0, n, n, gl.RGBA, gl.UNSIGNED_BYTE, bytes);
           const error = gl.getError();
@@ -259,23 +317,29 @@ void main(){
         }
         const batched = renderGroups([dabs]);
         const individual = renderGroups(dabs.map(d => [d]));
-        const wrong = renderGroups([dabs], true);
+        const wrong = renderGroups([dabs], 'fade');
+        const wrongQuad = dabs[0].quad ? renderGroups([dabs], 'quad') : null;
         const differing = (a, b) => a.reduce((count, value, index) => count + (value !== b[index] ? 1 : 0), 0);
         const differingBytes = differing(batched, individual);
         const wrongOffsetDifferingBytes = differing(batched, wrong);
+        const wrongQuadOffsetDifferingBytes = wrongQuad ? differing(batched, wrongQuad) : null;
         const coveredPixels = batched.reduce((count, value, index) => count + (index % 4 === 3 && value > 0 ? 1 : 0), 0);
-        return { pass: differingBytes === 0 && wrongOffsetDifferingBytes > 0 && coveredPixels > 0,
-          dabs: dabs.length, differingBytes, wrongOffsetDifferingBytes, coveredPixels,
-          layout: '17n-float prefix + 2n-float tail; attr8 stride8 offset n*68', order: 'identical' };
+        return { pass: differingBytes === 0 && wrongOffsetDifferingBytes > 0 &&
+            (wrongQuadOffsetDifferingBytes === null || wrongQuadOffsetDifferingBytes > 0) && coveredPixels > 0,
+          dabs: dabs.length, differingBytes, wrongOffsetDifferingBytes, wrongQuadOffsetDifferingBytes, coveredPixels,
+          layout: '17n prefix + optional 2n fade + optional 12n quad; attr8 stride8 offset n*68; attrs9..11 stride48 offset n*76', order: 'identical' };
       }
       const transport = transportCheck();
       const pass = failedCases === 0 && Object.values(controls).every(c => c.detectedCases > 0) && transport.pass;
       return { pass, compiled: ['production stamp', 'production smudge', 'profile oracle'], tolerance,
         controlThreshold, probes: 'even/even pixel centres; forward derivatives',
         parity: { cases: cases.length, failedCases, samples, max, rms: Math.sqrt(squareSum / samples) },
-        cases, controls, transport };
+        cases, controls, transport, gallery: gallery.toDataURL('image/png').split(',')[1] };
     }, { data, shaders, tolerance, controlThreshold });
-    console.log(JSON.stringify({ ...result, fixture: fixturePath, playwright: runtime.resolved }, null, 2));
+    const galleryPath = fixturePath.replace(/\.json$/, '.png');
+    fs.writeFileSync(galleryPath, Buffer.from(result.gallery, 'base64'));
+    delete result.gallery;
+    console.log(JSON.stringify({ ...result, fixture: fixturePath, galleryPath, playwright: runtime.resolved }, null, 2));
     if (!result.pass) process.exitCode = 1;
   } finally {
     await browser.close();

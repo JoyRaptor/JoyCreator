@@ -3,7 +3,7 @@
 ## UNIBRUSH_20261018
 status: ACTIVE — D1/D2 engine verified; D3 four-point shape/morph in isolated worktree; latest owner brief supersedes historical brush-contact claim.
 worktree: C:/Temp/jb-codex-unibrush; branch codex/unibrush; base origin/lead/layer-ops 107748a78.
-files: core/brush/{BrushPreset,BrushJson,BrushValidate,BrushDabber,TipRotation,BrushBehaviors,TipProfiles}.kt; core/paint/{Dab,DabPlacer,TipMath}.kt; gl/StampPass.kt; shared stamp/profile shaders; corresponding Unibrush tests/fixtures; tasks/todo.md; tasks/joybrush/AGENT_BOARD.md. Review helper owns only tools/unibrush_profile_check.js.
+files: core/brush/{BrushPreset,BrushJson,BrushValidate,BrushDabber,TipRotation,BrushBehaviors,TipProfiles,TipQuad,QuadMath}.kt; core/paint/{Dab,DabPlacer,TipMath}.kt; gl/StampPass.kt; shared stamp/profile/quad shaders; corresponding Unibrush tests/fixtures; tasks/todo.md; tasks/joybrush/AGENT_BOARD.md. Review helper completed bounded QuadMath leaf and now audits read-only.
 DEVICE: none. Builds take jb-gradle.lock; no Lead engine/view/lines or helper media edits.
 # October14 ACTIVE Lead: C:/Temp/jb-live-current, lead/jb-live-current, sourceccb4913bf includes originbb4df6c64.
 # Prior C:/Temp/jb-live-lines is frozen/backed-up b203e760; original owner folder/worktrees preserved.

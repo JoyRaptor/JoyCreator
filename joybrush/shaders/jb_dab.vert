@@ -32,6 +32,12 @@ flat out vec4 v_pen;
 flat out float v_live;
 layout(location = 8) in vec2 a_fade;
 flat out vec2 v_fade;
+layout(location = 9) in vec4 a_quad01;
+layout(location = 10) in vec4 a_quad23;
+layout(location = 11) in vec4 a_quadMeta; // roundness, normalization, profile mix, kind
+flat out vec4 v_quad01;
+flat out vec4 v_quad23;
+flat out vec4 v_quadMeta;
 
 void main() {
     // Half-size that contains the tip at any rotation, plus an antialiasing margin
@@ -56,4 +62,7 @@ void main() {
     v_pen = a_pen;
     v_live = a_live;
     v_fade = a_fade;
+    v_quad01 = a_quad01;
+    v_quad23 = a_quad23;
+    v_quadMeta = a_quadMeta;
 }

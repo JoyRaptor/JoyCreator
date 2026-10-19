@@ -27,6 +27,18 @@ import kotlin.math.sin
  * the difference between jitter and leaves: across-only smears a line sideways, both-axes sprays it
  * in two dimensions.
  *
+ * ## A symmetry copy that is a reflection
+ *
+ * The offsets above are built in each dab's OWN frame, from that dab's angle. A copy that is a
+ * REFLECTION has its dabs at reflected angles, and a reflection maps the original's perpendicular
+ * onto the NEGATIVE of the copy's perpendicular — so an offset rebuilt in the copy's frame with the
+ * same random number has to have its ACROSS component negated. Without that the copy's texture
+ * comes out with its left and right swapped: a handedness-flipped copy rather than a mirrored one.
+ *
+ * That is what `flipAcross` is, and it is the ONLY thing it does: the across value is negated, the
+ * along value is not (a reflection leaves the along direction where it was), and the random stream
+ * is not touched at all — the same draws, in the same order, whichever way the copy faces.
+ *
  * ## The two draws, and why they come in that order
  *
  * Per input dab this takes `c` (the count jitter) and then, for each copy, `a` then `b` — the two
@@ -84,31 +96,57 @@ object Scatter {
      *
      * [inputsOf] is called ONCE per input dab, not per copy — the pen's state is a property of the
      * dab the stroke would have drawn, and all n copies are the same dab moved.
+     *
+     * This is the shape every caller used before the symmetry lanes: the copy that is a REFLECTION
+     * is [expand] with `flipAcross = true`, which is the same expansion with the across offset
+     * negated — a reflection reverses handedness. It changes no draw and no count: the stream is
+     * the same either way, only which way round the stroke the offsets go.
      */
     fun expand(
         dabs: List<Dab>,
         spec: ScatterSpec,
         rng: SplitMix,
         inputsOf: (Dab) -> DabInputs,
+    ): List<Dab> = expand(dabs, spec, rng, inputsOf, false)
+
+    /**
+     * The same expansion, with the ACROSS offset negated for a copy that is a REFLECTION.
+     *
+     * [flipAcross] is the fifth parameter everywhere in this class, right after [inputsOf], so that
+     * one rule covers all three entry points. The overload above exists because [inputsOf] is the
+     * LAST parameter of that overload: a caller writing `expand(dabs, spec, rng) { … }` binds its
+     * trailing lambda to the last parameter, and a Boolean there would not be a function at all.
+     */
+    fun expand(
+        dabs: List<Dab>,
+        spec: ScatterSpec,
+        rng: SplitMix,
+        inputsOf: (Dab) -> DabInputs,
+        flipAcross: Boolean = false,
     ): List<Dab> {
         // A stroke nobody drew is not a stroke, and must not take anything out of the stream either:
         // a caller that expands an empty list has to be sitting exactly where it was.
         if (dabs.isEmpty()) return emptyList()
 
         val out = ArrayList<Dab>(dabs.size)
-        expandTo(dabs, spec, rng, inputsOf) { out.add(it) }
+        expandTo(dabs, spec, rng, inputsOf, flipAcross) { out.add(it) }
         return out
     }
 
-    /** Same copies and random draws as [expand], emitted without a scattered-dab list. */
+    /**
+     * Same copies and random draws as [expand], emitted without a scattered-dab list.
+     *
+     * [flipAcross] means what it means in [expand]. It is placed before [emit] so that a caller
+     * writing `expandTo(dabs, spec, rng, inputsOf) { … }` still binds its lambda to the emitter.
+     */
     fun expandTo(dabs: List<Dab>, spec: ScatterSpec, rng: SplitMix,
-                 inputsOf: (Dab) -> DabInputs, emit: (Dab) -> Unit) {
-        for (dab in dabs) expandTo(dab, spec, rng, inputsOf, emit)
+                 inputsOf: (Dab) -> DabInputs, flipAcross: Boolean = false, emit: (Dab) -> Unit) {
+        for (dab in dabs) expandTo(dab, spec, rng, inputsOf, flipAcross, emit)
     }
 
     /** One placed dab. Keep the same RNG for every dab; refusal aborts this scatter stream. */
     fun expandTo(dab: Dab, spec: ScatterSpec, rng: SplitMix,
-                 inputsOf: (Dab) -> DabInputs, emit: (Dab) -> Unit) {
+                 inputsOf: (Dab) -> DabInputs, flipAcross: Boolean = false, emit: (Dab) -> Unit) {
             // Decision 1: the count draw is FIRST and is taken whether or not countJitter is set.
             val c = rng.nextFloat()
             val raw = spec.count * (1f - spec.countJitter * c)
@@ -139,13 +177,21 @@ object Scatter {
                 // Drawn even when bothAxes is off, and then thrown away — see the class note. Nothing
                 // here says that to the compiler, because a compiler that knew would delete it.
                 val b = rng.nextFloat()
+                // The across value is negated for a copy that is a REFLECTION: a reflection maps the
+                // original's perpendicular onto the NEGATIVE of the copy's perpendicular, so an
+                // offset rebuilt in the copy's own frame with the same draw has to go the other way
+                // round the stroke or the copy's texture comes out handedness-flipped rather than
+                // mirrored. The negation is a sign flip and nothing else — the stream is not touched
+                // and the along component is NOT flipped, because a reflection leaves the along
+                // direction where it was.
                 val across = 2f * a - 1f
+                val acrossSigned = if (flipAcross) -across else across
                 val along = if (spec.bothAxes) 2f * b - 1f else 0f
 
                 // across × perpendicular + along × tangent, where the perpendicular is the angle
                 // turned a quarter turn: (-sinA, cosA), and the tangent is (cosA, sinA).
-                val dx = (across * -sinA + along * cosA) * scale
-                val dy = (across * cosA + along * sinA) * scale
+                val dx = (acrossSigned * -sinA + along * cosA) * scale
+                val dy = (acrossSigned * cosA + along * sinA) * scale
                 emit(shifted(dab, dx, dy))
             }
     }

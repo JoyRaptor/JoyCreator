@@ -28,8 +28,18 @@ import kotlin.math.max
  *
  * Not thread-safe, and neither is the placer: a stroke's dabs are built on the thread that is
  * drawing, in order.
+ *
+ * ## The frame, for a symmetry copy
+ *
+ * [frame] says how this stroke's angles are seen by a symmetry COPY. It is [AngleFrame.IDENTITY] for
+ * an ordinary stroke, and that default is a no-op down to the bit: a brush that is not a copy draws
+ * exactly the stroke it drew before the frame existed.
+ *
+ * The frame is applied to the tip's BASE and to the angle JITTER, and never to the direction: a
+ * copy's lane is fed the samples already transformed into the copy's frame, so the tracker's answer
+ * there is already the copy's direction.
  */
-class BrushDabber(val preset: BrushPreset, seed: Long) {
+class BrushDabber(val preset: BrushPreset, seed: Long, val frame: AngleFrame = AngleFrame.IDENTITY) {
 
     private val rng = SplitMix(seed)
 
@@ -123,11 +133,18 @@ class BrushDabber(val preset: BrushPreset, seed: Long) {
 
         // Angle in radians, and the file's own angle is in DEGREES. A NaN from that one curve must
         // not wipe out the direction the tracker found, so it is the only term that is guarded.
-        var angle = 0f
+        var base = 0f
         val angleDeg = Dynamics.eval(preset.tip.angle, inputs)
-        if (!angleDeg.isNaN()) angle = degToRad(angleDeg)
+        if (!angleDeg.isNaN()) base = degToRad(angleDeg)
+        // The frame goes on the BASE and on the JITTER, and NOT on the direction: a symmetry copy's
+        // lane is fed the samples already transformed into the copy's frame, so the tracker's
+        // answer here is ALREADY the copy's direction, and the copy's rotation is in it. Adding the
+        // frame to the direction as well would turn the copy's rotation on twice.
+        //
+        // The order matters and is the frame's whole contract: base → frame → direction → jitter.
+        var angle = frame.base(base)
         if (preset.tip.followDirection) angle += direction
-        angle += degToRad(preset.angleJitter) * (2f * angleDraw - 1f)
+        angle += frame.jitter(degToRad(preset.angleJitter) * (2f * angleDraw - 1f))
 
         // A NaN flow would make the placer drop the dab's flow to 0 and the brush would vanish, so
         // a NaN here stands for "draw normally". A NaN CAP is the opposite: NaN is the sentinel for

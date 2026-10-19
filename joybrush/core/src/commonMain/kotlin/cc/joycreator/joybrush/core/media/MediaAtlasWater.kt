@@ -122,9 +122,11 @@ class MediaAtlasWater(val quietMs: Long = 2000) {
     /**
      * The tiles that must stay resident while water runs over [domain] (the simulated rectangle's tiles): those holding
      * water, and every tile within [READ] + [MARGIN] of where it lies, as far as the water reads ([reads]: the rectangle's
-     * tiles grown by the wet reach).
+     * tiles grown by the wet reach). [lookReach] (layer px; the look's halo plus what it reads): the look is redrawn over
+     * the water each frame and when a tail drains, so every tile within that of the water stays too, whether the water reads
+     * it or not. A look that read a tile already gone drew wrong edges (b3w, 2026-10-18: 86 px at a drained tail's corner).
      */
-    fun mustStay(domain: Collection<Long>, reads: Collection<Long>): Set<Long> {
+    fun mustStay(domain: Collection<Long>, reads: Collection<Long>, lookReach: Int = 0): Set<Long> {
         val readable = reads.toHashSet()
         val out = LinkedHashSet<Long>()
         for (k in domain) {
@@ -132,6 +134,10 @@ class MediaAtlasWater(val quietMs: Long = 2000) {
             out += k
             val g = grow(e, READ + MARGIN)
             for (n in MediaAtlasPlacement.tiles(g[0].toDouble(), g[1].toDouble(), g[2].toDouble(), g[3].toDouble(), 0)) if (n in readable) out += n
+            if (lookReach > 0) {
+                val l = grow(e, lookReach)
+                out += MediaAtlasPlacement.tiles(l[0].toDouble(), l[1].toDouble(), l[2].toDouble(), l[3].toDouble(), 0)
+            }
         }
         return out
     }
@@ -145,12 +151,12 @@ class MediaAtlasWater(val quietMs: Long = 2000) {
      * where the pen is (layer px), for "farthest first". The plan is applied in order by the host (and [dried] told).
      */
     fun plan(domain: Collection<Long>, reads: Collection<Long>, frame: Set<Long>, held: Set<Long>, capacity: Int,
-             penX: Double, penY: Double, nowMs: Long): List<Action>? {
+             penX: Double, penY: Double, nowMs: Long, lookReach: Int = 0): List<Action>? {
         val actions = ArrayList<Action>()
         // Tentative states, so each step sees the previous ones.
         val saved = tiles.mapValues { it.value.state to it.value.ext }
         val savedExcluded = excluded.toSet()
-        fun fits() = (frame + held + mustStay(domain, reads)).size <= capacity
+        fun fits() = (frame + held + mustStay(domain, reads, lookReach)).size <= capacity
         fun dry(k: Long) { tiles[k]?.let { it.state = State.DRY; it.ext = null } }
         try {
             while (!fits()) {

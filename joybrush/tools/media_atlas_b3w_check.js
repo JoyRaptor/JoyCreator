@@ -48,6 +48,7 @@ const FILES = { quad: 'media/jb_media_quad.vert', flux: 'media/jb_wet_flux.frag'
 function srcSet(...defs) {
   const o = {}; for (const [k, f] of Object.entries(FILES)) o[k] = defs.length ? define(expand(f), ...defs) : expand(f);
   o.quadPlain = defs.length ? define(expand(FILES.quad), ...defs, 'JB_PLAIN_TARGET') : o.quad;
+  if (defs.includes('JB_ATLAS')) o.render = define(expand(FILES.render), ...defs, 'JB_ATLAS_NBR');   // MediaLayerEngine's look build
   return o;
 }
 const SRC = { window: srcSet(), atlas: srcSet('JB_ATLAS') };
@@ -343,6 +344,7 @@ async function PAGE(P) {
       else if (u.type === gl.FLOAT_VEC3) gl.uniform3fv(u.loc, v);
       else if (u.type === gl.FLOAT_VEC4) gl.uniform4fv(u.loc, v);
       else if (u.type === gl.INT_VEC4) gl.uniform4iv(u.loc, v);
+      else if (u.type === gl.INT_VEC2) gl.uniform2iv(u.loc, v);   // the look's u_nbrTile, u_nbrSlot[9]
       else throw new Error('unhandled uniform type for ' + name);
     }
     gl.activeTexture(gl.TEXTURE0);
@@ -567,6 +569,22 @@ async function PAGE(P) {
     hold(E, [...keys]);
   }
   // A pass's own ask (MediaAtlas.need): after admission everything is held already; anything else is a planning miss.
+  // MediaAtlas.holdBriefly: load and pin for a moment (a draining tail's look); what it pinned, to let go after.
+  function holdBriefly(E, keys, keep) {
+    if (!E.atlas) return [];
+    const wanted = [...new Set(keys)], kept = keep.filter((t) => E.res.has(t));
+    if (new Set([...wanted, ...kept, ...E.pins]).size > E.cap) return [];
+    const added = [];
+    for (const t of kept) if (!E.pins.has(t)) { E.pins.add(t); added.push(t); }   // never evicted to make room
+    for (const t of wanted) {
+      if (E.pins.has(t)) continue;
+      if (E.res.has(t)) { const sl = E.res.get(t); E.res.delete(t); E.res.set(t, sl); }
+      else { if (!E.free.length) evictOne(E); load(E, t, E.free.shift()); }
+      E.pins.add(t); E.touchedTiles.add(t); added.push(t);
+    }
+    E.maxResident = Math.max(E.maxResident, E.res.size);
+    return added;
+  }
   function ensure(E, rect, reach) {
     if (!E.atlas || !rect) return;
     const miss = tilesOf(dilate(rect, reach)).filter((t) => !E.pins.has(t));
@@ -635,9 +653,10 @@ async function PAGE(P) {
         if (mf > eps) t.lastFlow = now;
       },
       dried(keys, drain) { for (const k of keys) { let t = T.get(k); if (!t) { t = { state: 'D', lastFlow: -Infinity, firstWet: Infinity, ext: null }; T.set(k, t); } t.state = 'D'; t.ext = null; if (drain) excluded.add(k); } },
-      mustStay(domain, reads) {
+      mustStay(domain, reads, lookReach = 0) {   // MediaAtlasWater.mustStay: and every tile the look over the water reads
         const rd = new Set(reads), out = new Set();
-        for (const k of domain) { const e = extent(k); if (!e) continue; out.add(k); for (const n of tilesIn(growR(e, READ + MARGIN))) if (rd.has(n)) out.add(n); }
+        for (const k of domain) { const e = extent(k); if (!e) continue; out.add(k); for (const n of tilesIn(growR(e, READ + MARGIN))) if (rd.has(n)) out.add(n);
+          if (lookReach > 0) for (const n of tilesIn(growR(e, lookReach))) out.add(n); }
         return out;
       },
       components(domain) {
@@ -654,10 +673,10 @@ async function PAGE(P) {
         }
         return out;
       },
-      plan(domain, reads, frame, held, capacity, penX, penY, now) {
+      plan(domain, reads, frame, held, capacity, penX, penY, now, lookReach = 0) {
         const dist = (k) => Math.hypot((k % GN + 0.5) * 256 - penX, (Math.floor(k / GN) + 0.5) * 256 - penY);
         const saved = new Map([...T].map(([k, t]) => [k, [t.state, t.ext]])), savedEx = new Set(excluded), actions = [];
-        const fits = () => new Set([...frame, ...held, ...self.mustStay(domain, reads)]).size <= capacity;
+        const fits = () => new Set([...frame, ...held, ...self.mustStay(domain, reads, lookReach)]).size <= capacity;
         const dry = (k) => { const t = T.get(k); if (t) { t.state = 'D'; t.ext = null; } };
         try {
           while (!fits()) {
@@ -749,20 +768,23 @@ async function PAGE(P) {
     if (Fr.rect) {
       const domain = tilesOf(Fr.rect), reads = tilesOf(dilate(Fr.rect, P.REACH.wet));
       for (const k of domain) E.water.entered(k, now);
-      must = E.water.mustStay(domain, reads);
+      must = E.water.mustStay(domain, reads, LOOK_HALO + P.REACH.look);
       if (new Set([...frame, ...must]).size > E.capV) {
         const pen = box || Fr.rect;
-        const plan = E.water.plan(domain, reads, frame, new Set(), E.capV, (pen[0] + pen[2]) / 2, (pen[1] + pen[3]) / 2, now);
+        const plan = E.water.plan(domain, reads, frame, new Set(), E.capV, (pen[0] + pen[2]) / 2, (pen[1] + pen[3]) / 2, now, LOOK_HALO + P.REACH.look);
         if (!plan) throw new Error('refused: the water and this frame need more than 15 tiles at frame ' + fi);
         E.planLog.set(fi, JSON.stringify(plan));
         for (const a of plan) {
           const wet = a.keys.map((t) => E.water.extent(t)).filter(Boolean);
+          const brief = holdBriefly(E, [...a.keys, ...wet.flatMap((e) => tilesOf(dilate(e, LOOK_HALO + P.REACH.look)))], [...E.res.keys()].filter((t) => E.water.holds(t)));   // MediaAtlas.holdBriefly
           dryTiles(E, sc, a.keys);
           E.water.dried(a.keys, a.drain);
+          E.ctx = 'drain' + JSON.stringify(a.keys);
           for (const e of wet) renderLook(E, [e[0] - LOOK_HALO, e[1] - LOOK_HALO, e[2] + LOOK_HALO, e[3] + LOOK_HALO], true);
+          for (const t of brief) E.pins.delete(t);
           if (a.drain) E.drainedN++; else E.settledN++;
         }
-        must = E.water.mustStay(domain, reads);
+        must = E.water.mustStay(domain, reads, LOOK_HALO + P.REACH.look);
       }
     }
     E.waterHeld = must;
@@ -951,6 +973,11 @@ async function PAGE(P) {
   // everything it reads held; the atlas keeps it in its slots' look and writes it back with the tile.
   function renderLook(E, rect, loose) {
     if (!loose) ensure(E, rect, P.REACH.look);
+    if (E.atlas && loose && E.lookMiss) for (const t of tilesOf(rect)) {   // probe: a look drawn here whose reads are not all here
+      if (!E.res.has(t)) continue;
+      const tx = t % GN * 256, ty = Math.floor(t / GN) * 256, part = [Math.max(rect[0], tx), Math.max(rect[1], ty), Math.min(rect[2], tx + 256), Math.min(rect[3], ty + 256)];
+      for (const n of tilesOf(dilate(part, P.REACH.look))) if (!E.res.has(n)) E.lookMiss.push([E.fi, E.ctx, t, n, part.map(Math.round)]);
+    }
     gl.bindFramebuffer(gl.FRAMEBUFFER, E.lookFbo); gl.viewport(0, 0, E.W, E.W); gl.disable(gl.BLEND);
     const w = E.ws[E.wc], lamp = [-0.55, 0.55, 0.62], ln = Math.hypot(...lamp);
     const U = { ...COMMON(E), ...paperU, ...atlasU(E, 8), u_p0: { tex: E.st[0].p0 }, u_p1: { tex: E.st[0].p1 }, u_paperState: { tex: E.st[0].paper }, u_ground: { tex: E.ground }, u_paperBake: { tex: E.bakeTex },
@@ -961,8 +988,17 @@ async function PAGE(P) {
     for (const [t, s] of E.res) {
       if (!scissorSlot(E, s, t, rect)) continue;
       const tx = t % GN, ty = Math.floor(t / GN), [ax, ay] = slotXY(s, 8);
-      use(E.P.render, { ...U, u_pan: [ax - tx * 256, ay - ty * 256] }); gl.drawArrays(gl.TRIANGLES, 0, 3); gl.disable(gl.SCISSOR_TEST);
+      use(E.P.render, { ...U, u_pan: [ax - tx * 256, ay - ty * 256], u_nbrTile: [tx, ty], u_nbrSlot: nbrOf(E, tx, ty) }); gl.drawArrays(gl.TRIANGLES, 0, 3); gl.disable(gl.SCISSOR_TEST);
     }
+  }
+  // MediaAtlasGl.neighbours: the look's 3x3 neighbour slots (JB_ATLAS_NBR), x = -1 where a tile is not here.
+  function nbrOf(E, tx, ty) {
+    const o = [];
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const x = tx + dx, y = ty + dy, s = x >= 0 && y >= 0 && x < GN && y < GN ? E.res.get(y * GN + x) : undefined;
+      if (s === undefined) o.push(-1, -1); else o.push(...slotXY(s, 8));
+    }
+    return o;
   }
   // ---------- readback ----------
   const rf = gl.createFramebuffer();
@@ -976,6 +1012,7 @@ async function PAGE(P) {
   const tileBox = (t, h) => [t % GN * 256 - h, Math.floor(t / GN) * 256 - h, t % GN * 256 + 256 + h, Math.floor(t / GN) * 256 + 256 + h];
   function wetLook(E, Fr) {
     // MediaAtlas.flush: the look where the brush put water, and over every tile that holds water.
+    E.ctx = 'frame';
     if (Fr.inRect) renderLook(E, [Math.floor(Fr.inRect[0] - LOOK_HALO), Math.floor(Fr.inRect[1] - LOOK_HALO), Math.ceil(Fr.inRect[2] + LOOK_HALO), Math.ceil(Fr.inRect[3] + LOOK_HALO)], true);
     for (const t of E.waterHeld) { const e = E.water.extent(t); if (e && E.res.has(t)) renderLook(E, [e[0] - LOOK_HALO, e[1] - LOOK_HALO, e[2] + LOOK_HALO, e[3] + LOOK_HALO], true); }
   }
@@ -988,10 +1025,10 @@ async function PAGE(P) {
         OWNED = { tex: [], fbo: [] };
         const seed = sc.seed * 101 + 7;
         const O = makeEngine(kind === 'deviation' ? 'oracleFree' : 'oracle', seed), A = makeEngine(kind === 'deviation' ? 'orderA' : kind, seed), m = { total: 0 };
-        O.q16 = tex(AW, AW, 'rgba16f'); A.oracle = O; A.trace = [];
+        O.q16 = tex(AW, AW, 'rgba16f'); A.oracle = O; A.trace = []; A.lookMiss = [];
         const dt = 1000 * P.WC.dt * 4;
         for (let fi = 0; fi < sc.frames.length; fi++) {
-          const Fr = sc.frames[fi], now = fi * dt;
+          const Fr = sc.frames[fi], now = fi * dt; A.fi = fi;
           for (const e of [A, O]) {
             admitWet(e, sc, Fr, fi, now);
             wetFrameW(e, sc, Fr);
@@ -1012,7 +1049,16 @@ async function PAGE(P) {
               const px = i / 4; m.where.push({ plane: k, x: px % LW, y: Math.floor(px / LW), oracle: Array.from(fa.slice(i, i + 4)), atlas: Array.from(fb.slice(i, i + 4)) }); } }
         }
         const lo = readB(O.store.look, 0, 0, LW, LW), la = readB(A.store.look, 0, 0, LW, LW), ld = diffPx(lo, la);
-        m.look = ld; m.total += ld;
+        m.look = ld; m.total += ld; m.lookMissN = A.lookMiss.length; m.lookMiss = A.lookMiss.slice(0, 40);
+        if (ld && !m.lookWhere) {   // where the look differs: which tile, is it here at the end, what the water rules say of it
+          m.lookWhere = []; const seen = new Map();
+          for (let i = 0; i < lo.length; i += 4) if (lo[i] !== la[i] || lo[i + 1] !== la[i + 1] || lo[i + 2] !== la[i + 2] || lo[i + 3] !== la[i + 3]) {
+            const px = i / 4, x = px % LW, y = Math.floor(px / LW), t = Math.floor(y / 256) * GN + Math.floor(x / 256);
+            const e = seen.get(t) || { tile: t, n: 0, x0: x, y0: y, x1: x, y1: y, oracle: Array.from(lo.slice(i, i + 4)), atlas: Array.from(la.slice(i, i + 4)) };
+            e.n++; e.x0 = Math.min(e.x0, x); e.y0 = Math.min(e.y0, y); e.x1 = Math.max(e.x1, x); e.y1 = Math.max(e.y1, y); seen.set(t, e);
+          }
+          for (const e of seen.values()) { e.residentAtEnd = A.res.has(e.tile); try { e.state = A.water.state(e.tile); e.excluded = A.water.excluded.has(e.tile); } catch (x) { e.state = String(x); } m.lookWhere.push(e); }
+        }
         if (kind === 'deviation') {
           const d = []; let sum = 0, n = 0;
           for (let i = 0; i < lo.length; i += 4) for (let c = 0; c < 3; c++) { const v = Math.abs(lo[i + c] - la[i + c]); sum += v; n++; if (v) d.push(v); }

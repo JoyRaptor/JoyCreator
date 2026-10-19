@@ -22,6 +22,8 @@ internal interface UniformSink {
     fun uniform1i(loc: Int, a: Int)
     /** Only Media Atlas v2's page-table uniforms are int vectors (the window build declares none). */
     fun uniform4i(loc: Int, a: Int, b: Int, c: Int, d: Int): Unit = throw UnsupportedOperationException("uniform4i")
+    /** And the atlas look's neighbour slots (an ivec2 array, JB_ATLAS_NBR). */
+    fun uniform2iv(loc: Int, count: Int, v: IntArray): Unit = throw UnsupportedOperationException("uniform2iv")
 
     /** Binds [tex] on texture [unit] and leaves unit 0 active again, exactly as the map-based `use` always did. */
     fun bindTexture(unit: Int, tex: Int)
@@ -34,6 +36,7 @@ internal object GlUniformSink : UniformSink {
     override fun uniform4f(loc: Int, a: Float, b: Float, c: Float, d: Float) = GLES30.glUniform4f(loc, a, b, c, d)
     override fun uniform1i(loc: Int, a: Int) = GLES30.glUniform1i(loc, a)
     override fun uniform4i(loc: Int, a: Int, b: Int, c: Int, d: Int) = GLES30.glUniform4i(loc, a, b, c, d)
+    override fun uniform2iv(loc: Int, count: Int, v: IntArray) = GLES30.glUniform2iv(loc, count, v, 0)
     override fun bindTexture(unit: Int, tex: Int) {
         GLES30.glActiveTexture(GLES30.GL_TEXTURE0 + unit)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, tex)
@@ -143,6 +146,13 @@ internal class UniformBank(private val slots: Map<String, UniformSlot>, private 
         val f = s.f   // small ints are exact as floats: the shadow copy
         if (s.known && f[0] == x.toFloat() && f[1] == y.toFloat() && f[2] == z.toFloat() && f[3] == w.toFloat()) return
         sink.uniform4i(s.loc, x, y, z, w); f[0] = x.toFloat(); f[1] = y.toFloat(); f[2] = z.toFloat(); f[3] = w.toFloat(); s.known = true
+    }
+
+    /** An ivec2 or ivec2 array (u_nbrTile, u_nbrSlot), written whole every draw (they change with every tile drawn). */
+    fun i2v(name: String, v: IntArray) {
+        val s = slots[name] ?: return
+        if (s.type != GLES30.GL_INT_VEC2) wrongType(name, "an ivec2 array")
+        sink.uniform2iv(s.loc, v.size / 2, v)
     }
 
     private fun wrongType(name: String, wanted: String): Nothing =

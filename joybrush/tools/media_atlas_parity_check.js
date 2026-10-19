@@ -55,6 +55,7 @@ function srcSet(read, ...defs) {
   o.quadPlain = defs.length ? define(expand(FILES.quad, read), ...defs, 'JB_PLAIN_TARGET') : o.quad;   // the paste brush's cells
   // MediaLayerEngine's atlas build of every pass drawn slot by slot (ATLAS_NBR).
   if (defs.includes('JB_ATLAS')) for (const k of ['apply', 'copy', 'bake', 'flux', 'update', 'pasteDab', 'bead', 'eraseApply', 'render']) o[k] = define(expand(FILES[k], read), ...defs, 'JB_ATLAS_NBR');
+  if (defs.includes('JB_ATLAS')) o.pasteBrush = define(expand(FILES.pasteBrush, read), ...defs, 'JB_ATLAS_NBR', 'JB_ATLAS_NBR5');
   return o;
 }
 const SRC = { old: srcSet(readOld), new: srcSet(readNew), atlas: srcSet(readNew, 'JB_ATLAS') };
@@ -380,9 +381,9 @@ async function PAGE(P) {
   const atlasU = (E, shift) => E.atlas ? { u_atlasTable: { tex: E.table }, u_atlasGrid: [0, 0, N, N], u_atlasSlotsX: N, u_atlasShift: shift, u_atlasWrap: [0, 0, 0, 0], u_atlasWalls: [E.wallsOn ? 1 : 0, 0, 0, 0] } : {};
   // A layer-shaped pass over rect r (layer px at the pass's resolution). Window: one quad. Atlas: one instance per slot.
   // MediaAtlasGl.neighbours: a slot's 3x3 neighbour slots from this engine's table (identity, or the broken control's).
-  function nbrOf(E, tx, ty) {
+  function nbrOf(E, tx, ty, rad = 1) {
     const o = [];
-    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    for (let dy = -rad; dy <= rad; dy++) for (let dx = -rad; dx <= rad; dx++) {
       const x = tx + dx, y = ty + dy, s = x >= 0 && y >= 0 && x < N && y < N ? E.tableData[y * N + x] : -1;
       if (s < 0) o.push(-1, -1); else o.push((s % N) * 256, Math.floor(s / N) * 256);
     }
@@ -405,7 +406,7 @@ async function PAGE(P) {
     const tileLoc = gl.getUniformLocation(prog, 'u_nbrTile');
     for (let i = 0; i < inst.length / 8; i++) {
       const tx = inst[i * 8 + 2], ty = inst[i * 8 + 3];
-      gl.uniform2i(tileLoc, tx, ty); gl.uniform2iv(nbrLoc, new Int32Array(nbrOf(E, tx, ty, true)));
+      gl.uniform2i(tileLoc, tx, ty); gl.uniform2iv(nbrLoc, new Int32Array(nbrOf(E, tx, ty)));
       for (let k = 0; k < 2; k++) gl.vertexAttribPointer(1 + k, 4, gl.FLOAT, false, 32, i * 32 + k * 16);
       gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, 1);
     }
@@ -618,6 +619,10 @@ async function PAGE(P) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, E.brushFbo[nb]); gl.viewport(0, 0, 32, 8);
       use(E.P.pasteBrush, { ...U, ...atlasU(E, 8), u_targetSize: [32, 8], u_rect: [0, 0, 32, 8], u_p0: { tex: E.st[0].p0 }, u_p1: { tex: E.st[0].p1 },
         u_brush0: { tex: E.brush[E.bc][0] }, u_brush1: { tex: E.brush[E.bc][1] } });
+      if (E.atlas) {   // JB_ATLAS_NBR5 (MediaLayerEngine.pasteStep): the 5x5 tiles around the step's middle
+        const ctx = Math.floor((s.rect[0] + s.rect[2]) / 2 / 256), cty = Math.floor((s.rect[1] + s.rect[3]) / 2 / 256), pg = gl.getParameter(gl.CURRENT_PROGRAM);
+        gl.uniform2i(gl.getUniformLocation(pg, 'u_nbrTile'), ctx, cty); gl.uniform2iv(gl.getUniformLocation(pg, 'u_nbrSlot'), new Int32Array(nbrOf(E, ctx, cty, 2)));
+      }
       gl.bindVertexArray(quadVao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);   // not layer-shaped: one quad in every build
       E.bc = nb;
       gl.bindFramebuffer(gl.FRAMEBUFFER, E.pFbo[1]); gl.viewport(0, 0, W, H);

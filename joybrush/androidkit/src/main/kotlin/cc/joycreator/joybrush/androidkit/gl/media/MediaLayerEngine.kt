@@ -97,7 +97,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         ProgramSpec({ progFlux = it }, "jb_media_quad.vert", "jb_wet_flux.frag", "media wet flux", atlasDefs = ATLAS_NBR),
         ProgramSpec({ progUpdate = it }, "jb_media_quad.vert", "jb_wet_update.frag", "media wet update", atlasDefs = ATLAS_NBR),
         ProgramSpec({ progPasteDab = it }, "jb_media_quad.vert", "jb_paste_dab.frag", "media paste dab", atlasDefs = ATLAS_NBR),
-        ProgramSpec({ progPasteBrush = it }, "jb_media_quad.vert", "jb_paste_brush.frag", "media paste brush", plain = true),
+        ProgramSpec({ progPasteBrush = it }, "jb_media_quad.vert", "jb_paste_brush.frag", "media paste brush", plain = true, atlasDefs = ATLAS_NBR5),
         ProgramSpec({ progBead = it }, "jb_media_quad.vert", "jb_wet_bead.frag", "media wet bead", atlasDefs = ATLAS_NBR),
         ProgramSpec({ progEraseDab = it }, "jb_media_erase_dab.vert", "jb_media_erase_dab.frag", "media erase dab"),
         ProgramSpec({ progErase = it }, "jb_media_quad.vert", "jb_media_erase_apply.frag", "media erase", atlasDefs = ATLAS_NBR),
@@ -732,6 +732,18 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         GLES30.glViewport(0, 0, PASTE_LANES, PASTE_DEPTH)
         val bu = progPasteBrush.use()
         common(bu)
+        // JB_ATLAS_NBR5: the brush's cells read the canvas around the step through the 5x5 tiles around its middle.
+        val a = atlas
+        if (a != null && square != null) {
+            val ctx = floor((square[0] + square[2]) / 2f / MediaAtlasDraw.SIDE).toInt()
+            val cty = floor((square[1] + square[3]) / 2f / MediaAtlasDraw.SIDE).toInt()
+            val reach = MediaAtlasPlacement.PASTE_REACH
+            if (floor((square[0] - reach) / MediaAtlasDraw.SIDE).toInt() < ctx - 2 || floor((square[1] - reach) / MediaAtlasDraw.SIDE).toInt() < cty - 2 ||
+                floor((square[2] + reach) / MediaAtlasDraw.SIDE).toInt() > ctx + 2 || floor((square[3] + reach) / MediaAtlasDraw.SIDE).toInt() > cty + 2)
+                android.util.Log.w("JoyBrushMediaAtlas", "a paste step wider than 5 tiles: its brush reads past what it is handed")
+            a.neighbours(ctx, cty, nbrSlots5, r = 2)
+            nbrTile[0] = ctx; nbrTile[1] = cty; bu.i2v("u_nbrTile", nbrTile); bu.i2v("u_nbrSlot", nbrSlots5)
+        }
         MediaUniforms.paste(bu, st, b, cap, t, pxPerMm, seed, bakeTex, src.p0, src.p1)
         MediaUniforms.pasteBrush(bu, cur.b0, cur.b1, b.wick, w, h, PASTE_LANES, PASTE_DEPTH)
         traced("JB.media.paste.brush") { GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4) }
@@ -1180,6 +1192,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     }
 
     private val nbrSlots = IntArray(18)
+    private val nbrSlots5 = IntArray(50)
     private val nbrTile = IntArray(2)
 
     /** The newest water measurement, whoever asked for it (the atlas's residency, or the canvas's quiet watch), and its count. */
@@ -1315,3 +1328,5 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
  * (JB_ATLAS_NBR, jb_media_atlas.glsl): compiles in a fraction of the time and runs near the window's speed.
  */
 private val ATLAS_NBR = listOf("JB_ATLAS_NBR")
+/** The paste brush's build: the same, 5x5 around the step (its target is the brush's cells, not a slot). */
+private val ATLAS_NBR5 = listOf("JB_ATLAS_NBR", "JB_ATLAS_NBR5")

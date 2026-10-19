@@ -183,7 +183,8 @@ private const val PREF_WATER_TEST = "joybrush.waterTest"
 // Export (LAYER_OPS §6): the last choices, so the next export is one tap.
 private const val PREF_EXPORT_WHOLE = "joybrush.exportWhole"
 private const val PREF_EXPORT_LAYERED = "joybrush.exportLayered"
-private const val PREF_EXPORT_PAPER = "joybrush.exportPaper"
+// A fresh key: the older "export_paper" may hold a value of another type from an earlier build.
+private const val PREF_EXPORT_WITH_PAPER = "joybrush.exportPaper"
 
 /** Layer thumbnails are re-drawn this long after the last change, so a burst of strokes costs one refresh. */
 private const val THUMBS_AFTER_MS = 250L
@@ -2322,7 +2323,7 @@ class JoyBrushActivity : Activity() {
         if (doc == null) { canvas.ensureBoardDocument { exportMenu(anchor) }; return }
         val whole = prefs.getBoolean(PREF_EXPORT_WHOLE, false)
         val layered = prefs.getBoolean(PREF_EXPORT_LAYERED, false)
-        val paper = prefs.getBoolean(PREF_EXPORT_PAPER, true)
+        val paper = prefs.getBoolean(PREF_EXPORT_WITH_PAPER, true)
         fun pick(key: String, on: Boolean) { prefs.edit().putBoolean(key, on).apply(); exportMenu(anchor) }
         fun mark(on: Boolean) = if (on) "●  " else "○  "
         val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
@@ -2337,7 +2338,7 @@ class JoyBrushActivity : Activity() {
         // A board's flat picture has its own sheet (PNG, GIF, sprite sheet…) with its own paper switch.
         val ownSheet = !whole && !layered
         if (!ownSheet) box.addView(menuRow(if (paper) "☑  Include the paper" else "☐  Include the paper",
-            "Put the paper under the drawing, or leave it transparent") { pick(PREF_EXPORT_PAPER, !paper) })
+            "Put the paper under the drawing, or leave it transparent") { pick(PREF_EXPORT_WITH_PAPER, !paper) })
         box.addView(menuRow(if (ownSheet) "Choose a format  ›" else "Export  ›", "Choose where to save it") {
             if (ownSheet) { pngOptions(anchor); return@menuRow }
             val boardId = if (whole) null else boardController?.selectedBoardId
@@ -2349,7 +2350,7 @@ class JoyBrushActivity : Activity() {
             launch(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
                 addCategory(Intent.CATEGORY_OPENABLE)
                 type = if (layered) "image/openraster" else "image/png"
-                putExtra(Intent.EXTRA_TITLE, cc.joycreator.joybrush.androidkit.io.AnimExport.safeBaseName(name) + if (layered) ".ora" else ".png")
+                putExtra(Intent.EXTRA_TITLE, cc.joycreator.joybrush.core.export.AnimExport.safeBaseName(name) + if (layered) ".ora" else ".png")
             }, REQUEST_EXPORT_PNG)
         })
         popovers.show(box, anchor, Popovers.Side.BESIDE, widthDp = 240f)

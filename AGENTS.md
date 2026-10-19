@@ -52,3 +52,5 @@
 - **Minimal Impact**: Changes should only touch what's necessary. Avoid introducing bugs.
 
 ---
+## Phone rule (owner, 2026-10-19)
+- **Never launch the app with `adb shell monkey`**: it turns the owner's screen-rotation lock OFF on the phone (see tasks/DEVICE_CONTROL_RUNBOOK.md). Launch with `am start -n <activity>` (resolve it with `cmd package resolve-activity --brief`). Never change the phone's rotation settings.

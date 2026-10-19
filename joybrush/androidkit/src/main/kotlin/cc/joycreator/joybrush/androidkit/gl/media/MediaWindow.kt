@@ -112,6 +112,19 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
         return !MediaWindowMath.within(nx, ny, paints)
     }
 
+    /**
+     * A frame whose dabs the usual follow would clip: the window centred on [dabs] instead, if that holds them all (most
+     * such frames on the Note 9: the pen-centred window leaves as little as 128 px behind a fast pen). One move, as follow
+     * would have made; true when the frame can now run whole. False: no window holds it; it must go in parts.
+     */
+    fun holdWhole(dabs: DoubleArray): Boolean {
+        val id = layerId ?: return false
+        val (nx, ny) = MediaWindowMath.placeForRect(dabs)
+        if (!MediaWindowMath.within(nx, ny, dabs)) return false
+        if (nx != tx || ny != ty) mediaTrace("JB.media.window.move") { moveTo(id, plane, nx, ny, resumeWater = true) }
+        return true
+    }
+
     /** A part of a frame too wide for one window (MediaCanvas.runWindowParts): the window centred on it, so up to SPAN fits. */
     fun followCentred(docRect: DoubleArray) {
         val id = layerId ?: return

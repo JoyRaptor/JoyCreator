@@ -6,6 +6,9 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.sin
+import kotlin.math.sqrt
+import cc.joycreator.joybrush.core.brush.TipProfile
+import cc.joycreator.joybrush.core.brush.TipProfiles
 
 /**
  * CPU twin of `joybrush/shaders/jb_tip.glsl` — the reference the GPU is checked against, and what
@@ -32,8 +35,16 @@ object TipMath {
         // fwidth(d) exactly as the GPU forms it: forward differences one pixel along x and y.
         val aa = max(abs(g.d(dx + 1f, dy) - d) + abs(g.d(dx, dy + 1f) - d), 1e-4f)
         val inner = min(tip.hardness.coerceIn(0f, 1f), 1f - aa)
-        val cov = 1f - smoothstep(inner, 1f + 0.5f * aa, d)
-        return cov * g.fade
+        val outer = 1f + 0.5f * aa
+        val profile = tip.profile
+        val cov = when (profile?.kind) {
+            null -> 1f - smoothstep(inner, outer, d)
+            TipProfile.hard -> 1f - smoothstep(1f - 0.5f * aa, outer, d)
+            else -> TipProfiles.coverage(profile!!, ((d - inner) / (outer - inner)).coerceIn(0f, 1f))
+        }
+        val legacy = cov * g.fade
+        if (!(tip.fadeAmount > 0f)) return legacy
+        return legacy * g.directionalFade(dx, dy, tip.fadeAmount, tip.fadeAngle)
     }
 
     /** The tip's normalised superellipse distance field (the part of jb_tipCoverage before antialiasing). */
@@ -62,6 +73,17 @@ object TipMath {
             val along = (qy / hy * 0.5f + 0.5f).coerceIn(0f, 1f)
             val widthScale = max(1f - tip.taper.coerceIn(0f, 1f) * along, 1e-3f)
             return superellipse(qx, qy, hx * widthScale, hy, tip.corner)
+        }
+
+        fun directionalFade(dx: Float, dy: Float, amount: Float, angle: Float): Float {
+            val vx = cos(angle)
+            val vy = sin(angle)
+            val qx = c * dx + s * dy + shift
+            val qy = -s * dx + c * dy
+            // Project in physical local space: a canvas-relative fade keeps its angle on a thin nib.
+            val reach = max(sqrt(hx * hx * vx * vx + hy * hy * vy * vy), 1e-4f)
+            val across = (.5f + .5f * (qx * vx + qy * vy) / reach).coerceIn(0f, 1f)
+            return 1f - amount.coerceIn(0f, 1f) * across
         }
     }
 

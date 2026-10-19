@@ -39,6 +39,8 @@ class BrushDabber(val preset: BrushPreset, seed: Long) {
     private val buildUp: Boolean = preset.accumulate == "buildup"
     private val tracker = DirectionTracker()
     private val tipRotation = preset.tip.angleSource?.let { TipRotation(it) }
+    private val fadeRotation = preset.tip.fade?.takeIf { it.relativeTo == FadeFrame.penAzimuth }
+        ?.let { TipRotation(TipAngleSource.penAzimuth) }
 
     private var speedPxPerS = 0f
     private var hasTime = false
@@ -130,6 +132,17 @@ class BrushDabber(val preset: BrushPreset, seed: Long) {
         if (tipRotation != null) angle += tipRotation.update(sample)
         else if (preset.tip.followDirection) angle += direction
         angle += degToRad(preset.angleJitter) * (2f * angleDraw - 1f)
+        val fadeSpec = preset.tip.fade
+        val fadeAmount = fadeSpec?.let { unit(Dynamics.eval(it.amount, inputs), 0f) } ?: Float.NaN
+        val fadeAngle = fadeSpec?.let {
+            val offset = (it.angle.toDouble() * PI / 180.0).toFloat()
+            val local = when (it.relativeTo) {
+                FadeFrame.tip -> offset
+                FadeFrame.canvas -> offset - angle
+                FadeFrame.penAzimuth -> offset + (fadeRotation?.update(sample) ?: 0f) - angle
+            }
+            if (local.isFinite()) cc.joycreator.joybrush.core.input.Angles.wrap(local.toDouble()).toFloat() else 0f
+        } ?: Float.NaN
 
         // A NaN flow would make the placer drop the dab's flow to 0 and the brush would vanish, so
         // a NaN here stands for "draw normally". A NaN CAP is the opposite: NaN is the sentinel for
@@ -148,6 +161,7 @@ class BrushDabber(val preset: BrushPreset, seed: Long) {
         dabCount++
 
         return DabLook(radius = radius, angle = angle, flow = flow, cap = cap,
+            profile = preset.tip.profile, fadeAmount = fadeAmount, fadeAngle = fadeAngle,
             aspect = preset.tip.aspectDynamics?.let { finite(Dynamics.eval(it, inputs), preset.tip.aspect).coerceIn(-1f, 1f) } ?: Float.NaN,
             anchor = preset.tip.anchorDynamics?.let { unit(Dynamics.eval(it, inputs), 0f) } ?: Float.NaN,
             hardness = if (preset.version >= VERSION_CONTACT) unit(Dynamics.eval(preset.tip.hardness, inputs), unit(preset.tip.hardness.base, 0.9f)) else Float.NaN,

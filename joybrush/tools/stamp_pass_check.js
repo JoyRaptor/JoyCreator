@@ -1,31 +1,75 @@
 // stamp_pass_check.js: H1 (VECTOR_RENDER_DESIGN §8) on the GPU, headless (Edge + SwiftShader, as contact_check.js).
-//   (a) EXACTNESS: today's jb_dab.vert (--old-vert <file>, e.g. `git show origin/joy-creator:joybrush/shaders/jb_dab.vert`)
-//       and the new one with u_scale unset render byte-identical stroke buffers, paper grain on.
+//   (a) EXACTNESS: the old vertex AND fragment shaders, including their own old includes,
+//       and the new pair with u_scale unset render byte-identical stroke buffers, paper grain on.
 //   (b) u_scale = 1 is byte-identical to u_scale unset.
 //   (c) S5 split invariance: one instanced draw vs the same list in random chunks, in order, are byte-identical;
 //       CONTROL: the same chunks drawn in reverse order must differ (blending is order-dependent, so (c) can fail).
 //   (d) S2/S3 scale: the same doc region at scale 2 into a 2x target, box-filtered 2x2, matches scale 1 within the
 //       antialiasing band; CONTROL: the 2x target drawn with u_scale unset must miss badly.
-// Run: NODE_PATH=<bundled node_modules> node stamp_pass_check.js --old-vert <path>
+// Run: NODE_PATH=<bundled node_modules> node stamp_pass_check.js --old-ref 820c62802
+// Or: --old-vert <path> --old-frag <path> (includes must be beside the corresponding old files).
 const fs = require('fs'), path = require('path');
-const { chromium } = require('playwright-core');
+const { execFileSync } = require('child_process');
 const root = path.join(__dirname, '..');
-const src = n => fs.readFileSync(path.join(root, 'shaders', n), 'utf8').replace(/^#include "([^"]+)"/gm, (_, m) => src(m));
-const argOld = process.argv.indexOf('--old-vert');
-if (argOld < 0) { console.error('usage: node stamp_pass_check.js --old-vert <old jb_dab.vert>'); process.exit(2); }
-const oldVert = fs.readFileSync(process.argv[argOld + 1], 'utf8');
+const repoRoot = path.resolve(root, '..');
+const usage = 'usage: node stamp_pass_check.js --old-ref <gitref> OR --old-vert <old jb_dab.vert> --old-frag <old jb_dab.frag>';
+const options = {};
+for (let i = 2; i < process.argv.length; i += 2) {
+  const flag = process.argv[i], value = process.argv[i + 1];
+  if (!['--old-ref', '--old-vert', '--old-frag'].includes(flag) || !value || value.startsWith('--') || options[flag]) {
+    console.error(usage); process.exit(2);
+  }
+  options[flag] = value;
+}
+if (options['--old-ref'] ? (options['--old-vert'] || options['--old-frag']) :
+    !(options['--old-vert'] && options['--old-frag'])) {
+  console.error(usage); process.exit(2);
+}
+
+function expander(read, resolveChild) {
+  const cache = new Map(), active = [];
+  function expand(name) {
+    if (cache.has(name)) return cache.get(name);
+    if (active.includes(name)) throw Error('Shader include cycle: ' + [...active, name].join(' -> '));
+    active.push(name);
+    try {
+      const expanded = read(name).replace(/^\s*#include\s+"([^"]+)"[^\r\n]*$/gm,
+        (_, child) => expand(resolveChild(name, child)));
+      cache.set(name, expanded);
+      return expanded;
+    } finally { active.pop(); }
+  }
+  return expand;
+}
+const relativeInclude = (name, child) => path.posix.normalize(path.posix.join(path.posix.dirname(name), child));
+const src = expander(n => fs.readFileSync(path.join(root, 'shaders', n), 'utf8'), relativeInclude);
 (async () => {
+  let oldVert, oldFrag;
+  if (options['--old-ref']) {
+    const ref = options['--old-ref'];
+    const oldSource = expander(n => execFileSync('git', ['show', ref + ':joybrush/shaders/' + n],
+      { cwd: repoRoot, encoding: 'utf8' }), relativeInclude);
+    oldVert = oldSource('jb_dab.vert');
+    oldFrag = oldSource('jb_dab.frag');
+  } else {
+    const oldSource = expander(n => fs.readFileSync(n, 'utf8'),
+      (name, child) => path.resolve(path.dirname(name), child));
+    oldVert = oldSource(path.resolve(options['--old-vert']));
+    oldFrag = oldSource(path.resolve(options['--old-frag']));
+  }
+  const newVert = src('jb_dab.vert'), newFrag = src('jb_dab.frag');
+  const { chromium } = require('playwright-core');
   const browser = await chromium.launch({ executablePath: process.env.CHROME || 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
     args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   try {
     const page = await browser.newPage();
-    const out = await page.evaluate(({ newVert, oldVert, frag }) => {
+    const out = await page.evaluate(({ newVert, oldVert, newFrag, oldFrag }) => {
       const canvas = document.createElement('canvas');
       const gl = canvas.getContext('webgl2');
       if (!gl || !gl.getExtension('EXT_color_buffer_float')) throw Error('Float WebGL2 required');
       const sh = (t, s) => { const x = gl.createShader(t); gl.shaderSource(x, s); gl.compileShader(x); if (!gl.getShaderParameter(x, gl.COMPILE_STATUS)) throw Error(gl.getShaderInfoLog(x)); return x; };
-      const prog = vs => { const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, frag)); gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw Error(gl.getProgramInfoLog(p)); return p; };
-      const progNew = prog(newVert), progOld = prog(oldVert);
+      const prog = (vs, frag) => { const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, frag)); gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw Error(gl.getProgramInfoLog(p)); return p; };
+      const progNew = prog(newVert, newFrag), progOld = prog(oldVert, oldFrag);
       // A deterministic paper surface (RGBA: slope x, slope y, height, h^2) on unit 1, REPEAT, so grain is exercised.
       let seed = 99; const rnd = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
       const P = 64, paperPx = new Uint8Array(P * P * 4);
@@ -92,7 +136,7 @@ const oldVert = fs.readFileSync(process.argv[argOld + 1], 'utf8');
       res.d_control_unset = { meanAbsAlpha: meanAbs(one1, wrong1), covered: covered(wrong1) };
       res.glError = gl.getError();
       return res;
-    }, { newVert: src('jb_dab.vert'), oldVert: oldVert.replace(/^#include "([^"]+)"/gm, (_, m) => src(m)), frag: src('jb_dab.frag') });
+    }, { newVert, oldVert, newFrag, oldFrag });
     console.log(JSON.stringify(out, null, 1));
     const fails = [];
     if (out.a_oldVsNewUnset.differing !== 0) fails.push('(a) old vs new shader differ');
@@ -105,4 +149,4 @@ const oldVert = fs.readFileSync(process.argv[argOld + 1], 'utf8');
     if (out.glError !== 0) fails.push('glError ' + out.glError);
     if (fails.length) { console.error('FAILED: ' + fails.join('; ')); process.exitCode = 1; } else console.log('stamp_pass_check: all pass, both controls fail as they must');
   } finally { await browser.close(); }
-})();
+})().catch(error => { console.error(error.stack || error.message); process.exitCode = 1; });

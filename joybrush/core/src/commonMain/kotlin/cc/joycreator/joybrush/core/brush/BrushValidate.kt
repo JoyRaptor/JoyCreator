@@ -63,7 +63,7 @@ object BrushValidate {
      * second message, which every `assertSole` in the tests would notice. The trap, therefore, is
      * [paramsOf], not this set.
      */
-    private val RANGED_BASES = setOf("size", "tip.hardness", "tip.aspectDynamics", "tip.anchorDynamics")
+    private val RANGED_BASES = setOf("size", "tip.hardness", "tip.aspectDynamics", "tip.anchorDynamics", "tip.fade.amount")
 
     fun validate(p: BrushPreset): List<String> {
         val out = ArrayList<String>()
@@ -112,6 +112,24 @@ object BrushValidate {
         // 6/7 — the tip's shape limits.
         if (p.tip.taper !in 0f..1f) out += "tip.taper ${p.tip.taper} is outside 0..1"
         if (p.tip.aspect !in -1f..1f) out += "tip.aspect ${p.tip.aspect} is outside -1..1"
+        if (p.tip.profile != null || p.tip.fade != null) {
+            if (p.engine != "stamp") out += "Unibrush profiles and fade need engine stamp"
+            if (p.line != null) out += "Unibrush profile/fade with stroke-end shaping needs the D7 adapter"
+        }
+        p.tip.fade?.let { fade ->
+            if (fade.amount.base !in 0f..1f) out += "tip.fade.amount.base must be 0..1"
+            if (!fade.angle.isFinite()) out += "tip.fade.angle must be finite"
+        }
+        p.tip.profile?.let { profile ->
+            if (profile.curve.size !in 2..MAX_CURVE_POINTS || profile.curve.any { point ->
+                point.size != 2 || point.any { it !in 0f..1f }
+            }) out += "tip.profile.curve must have 2..$MAX_CURVE_POINTS points in 0..1"
+            else {
+                if (profile.curve.zipWithNext().any { (a, b) -> a[0] >= b[0] }) out += "tip.profile.curve x must increase"
+                if (profile.curve.first()[0] != 0f || profile.curve.last() != listOf(1f, 0f))
+                    out += "tip.profile.curve must start at radius 0 and end at [1, 0]"
+            }
+        }
 
         // 8 — the tip never fades below minPx, and a tip wider than 16 px on screen is a mistake.
         for ((name, param, range) in listOf(
@@ -478,5 +496,6 @@ object BrushValidate {
     ) + listOfNotNull(
         p.tip.aspectDynamics?.let { "tip.aspectDynamics" to it },
         p.tip.anchorDynamics?.let { "tip.anchorDynamics" to it },
+        p.tip.fade?.let { "tip.fade.amount" to it.amount },
     )
 }

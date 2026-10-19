@@ -3,6 +3,9 @@ package cc.joycreator.joybrush.androidkit.gl
 import android.opengl.GLES30
 import cc.joycreator.joybrush.androidkit.gl.media.UniformSink
 import cc.joycreator.joybrush.core.brush.PaperResponse
+import cc.joycreator.joybrush.core.brush.TipProfile
+import cc.joycreator.joybrush.core.brush.TipProfileSpec
+import cc.joycreator.joybrush.core.brush.TipProfiles
 import cc.joycreator.joybrush.core.doc.RectPx
 import cc.joycreator.joybrush.core.grain.GrainMath
 import cc.joycreator.joybrush.core.paint.Dab
@@ -115,7 +118,26 @@ internal class StampPass(private val grains: GrainSource) {
         gl.uniform1f(loc("u_taper"), look.tip.taper)
         gl.uniform1f(loc("u_hardness"), look.tip.hardness)
         gl.uniform1f(loc("u_minPx"), look.tip.minPx)
+        setProfileUniforms(gl, loc, newest.profile ?: look.tip.profile)
         setGrainUniforms(gl, loc, look, newest)
+    }
+
+    private var cachedProfile: TipProfileSpec? = null
+    private var profileSamples: FloatArray? = null
+
+    /** Reset even for legacy strokes so a preceding custom brush cannot leak its profile. */
+    internal fun setProfileUniforms(gl: UniformSink, loc: (String) -> Int, profile: TipProfileSpec?) {
+        gl.uniform1i(loc("u_tipProfile"), profile?.kind?.code ?: 0)
+        if (profile?.kind != TipProfile.custom) return
+        if (cachedProfile !== profile) {
+            cachedProfile = profile
+            profileSamples = TipProfiles.samples(profile)
+        }
+        val values = profileSamples!!
+        for (i in 0 until 64) {
+            val k = i * 4
+            gl.uniform4f(loc("u_tipProfileLut[$i]"), values[k], values[k + 1], values[k + 2], values[k + 3])
+        }
     }
 
     /** JB-9.03: the fixed document surface; both brush programs bind it on unit 1. */
@@ -205,13 +227,26 @@ internal class StampPass(private val grains: GrainSource) {
      * [list] packed as [FLOATS] floats per dab, ready to upload: x, y, radius, angle, flow, cap, travel x/y, then
      * [putContact]'s nine. Returned flipped; valid until the next call.
      */
-    fun pack(list: List<Dab>, look: StrokeLook): FloatBuffer {
-        val need = list.size * FLOATS
+    fun pack(list: List<Dab>, look: StrokeLook): FloatBuffer = packInternal(list, look, false)
+
+    /** The original interleaved prefix is untouched; the optional tail is a separate attribute. */
+    internal fun packForDraw(list: List<Dab>, look: StrokeLook): FloatBuffer =
+        packInternal(list, look, hasFade(list, look))
+
+    private fun hasFade(list: List<Dab>, look: StrokeLook): Boolean =
+        look.tip.fadeAmount > 0f || list.any { it.fadeAmount.isFinite() && it.fadeAmount > 0f }
+
+    private fun packInternal(list: List<Dab>, look: StrokeLook, fade: Boolean): FloatBuffer {
+        val need = list.size * (FLOATS + if (fade) 2 else 0)
         if (instanceData.capacity() < need) instanceData = newFloats(need * 2)
         instanceData.clear()
         for (d in list) {
             instanceData.put(d.x).put(d.y).put(d.radius).put(d.angle).put(d.flow).put(d.cap).put(d.travelX).put(d.travelY)
             putContact(instanceData, d, look)
+        }
+        if (fade) for (d in list) {
+            instanceData.put(if (d.fadeAmount.isFinite()) d.fadeAmount.coerceIn(0f, 1f) else look.tip.fadeAmount)
+                .put(if (d.fadeAngle.isFinite()) d.fadeAngle else look.tip.fadeAngle)
         }
         instanceData.flip()
         return instanceData
@@ -224,11 +259,27 @@ internal class StampPass(private val grains: GrainSource) {
      * the stamp VAO and the target, and set the stroke uniforms ([setStrokeUniforms]) for this batch.
      */
     fun drawInto(gl: UniformSink, loc: (String) -> Int, look: StrokeLook, vbo: Int, originDocX: Float, originDocY: Float, list: List<Dab>) {
+        val profile = list.lastOrNull()?.profile ?: look.tip.profile
+        require(list.all { (it.profile ?: look.tip.profile) == profile }) { "A stamp batch must use one radial profile" }
         gl.uniform2f(loc("u_tileOrigin"), originDocX, originDocY)
-        val data = pack(list, look)
+        val fade = hasFade(list, look)
+        val data = packInternal(list, look, fade)
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, vbo)
-        GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, list.size * BYTES, data, GLES30.GL_STREAM_DRAW)
-        GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, list.size)
+        GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, data.remaining() * 4, data, GLES30.GL_STREAM_DRAW)
+        if (fade) {
+            GLES30.glEnableVertexAttribArray(8)
+            GLES30.glVertexAttribPointer(8, 2, GLES30.GL_FLOAT, false, 8, list.size * BYTES)
+            GLES30.glVertexAttribDivisor(8, 1)
+        } else {
+            GLES30.glDisableVertexAttribArray(8)
+            GLES30.glVertexAttrib2f(8, 0f, 0f)
+        }
+        try {
+            GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, list.size)
+        } finally {
+            GLES30.glDisableVertexAttribArray(8)
+            GLES30.glVertexAttrib2f(8, 0f, 0f)
+        }
     }
 
     /**

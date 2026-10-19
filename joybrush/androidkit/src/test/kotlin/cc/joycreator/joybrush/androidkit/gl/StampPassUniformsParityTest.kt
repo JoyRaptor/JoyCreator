@@ -242,8 +242,9 @@ class StampPassUniformsParityTest {
                 val dabs = dabsOf(rnd)
                 legacy.addDabsUniforms(old, 256, dabs)
                 pass.setStrokeUniforms(new, new::loc, look, dabs[dabs.size - 1], 256, 1f)
-                assertEquals(old.snapshot(), new.snapshot(exclude = setOf("u_scale")), "stroke $stroke: uniforms and pictures")
+                assertEquals(old.snapshot(), new.snapshot(exclude = setOf("u_scale", "u_tipProfile")), "stroke $stroke: uniforms and pictures")
                 assertEquals("1f ${1f.toRawBits()}", new.values["u_scale"], "the live path draws at scale 1")
+                assertEquals("1i 0", new.values["u_tipProfile"], "legacy strokes reset the profile mode")
                 assertEquals(floats(legacy.fillInstances(dabs)), floats(pass.pack(dabs, look)), "stroke $stroke: instance floats")
                 batches++
                 if (old.units[1] != grains.placeholder) paperBound++
@@ -260,6 +261,7 @@ class StampPassUniformsParityTest {
         val dabs = listOf(Dab(1f, 2f, 3f))
         control.addDabsUniforms(c1, 256, dabs)
         pass.setStrokeUniforms(c2, c2::loc, pass.lookFor(tip, grain, null, null, null, RectPx(1, 2, 3, 4), null), dabs[0], 256, 1f)
-        assertNotEquals(c1.snapshot(), c2.snapshot(exclude = setOf("u_scale")), "the comparison sees a changed uniform")
+        assertEquals("1i 0", c2.values["u_tipProfile"], "the legacy control resets the profile mode")
+        assertNotEquals(c1.snapshot(), c2.snapshot(exclude = setOf("u_scale", "u_tipProfile")), "the comparison sees a changed uniform")
     }
 }

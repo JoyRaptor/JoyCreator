@@ -30,6 +30,8 @@ layout(location = 7) in float a_live;
 flat out vec4 v_contact;
 flat out vec4 v_pen;
 flat out float v_live;
+layout(location = 8) in vec2 a_fade;
+flat out vec2 v_fade;
 
 void main() {
     // Half-size that contains the tip at any rotation, plus an antialiasing margin
@@ -53,4 +55,5 @@ void main() {
     v_contact = a_contact;
     v_pen = a_pen;
     v_live = a_live;
+    v_fade = a_fade;
 }

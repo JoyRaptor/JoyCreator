@@ -50,6 +50,11 @@ import kotlinx.serialization.ExperimentalSerializationApi
      * Explicit sources ignore followDirection. Omitted for legacy brushes on re-save. */
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val angleSource: TipAngleSource? = null,
+    /** v13: absent uses the exact pre-Unibrush radial coverage. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val profile: TipProfileSpec? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val fade: TipFadeSpec? = null,
 )
 
 /** Paper grain image/scale are ignored since JB-9.03: the document paper decides (R10 P4).

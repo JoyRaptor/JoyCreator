@@ -4,14 +4,13 @@ import kotlin.math.abs
 
 /** Sheet chip choices, compiled to existing Params. These enums are not serialized. */
 enum class PressureBehavior { width, ink, both, none }
-enum class TiltBehavior { angle, flatten, size, none }
+enum class TiltBehavior { angle, flatten, size, none, sideFade }
 
 /**
  * One wiring path for the Simple sheet and preset modes, with no new per-dab pressure/tilt branches.
  * Chip choices replace that input's curves; advanced curves on other inputs stay as they were.
  * Custom additive zero-base sums and multiplicative aspect recipes that cannot be rewired without
  * changing other inputs are refused in words, rather than accepting a chip that does nothing.
- * Side-fade joins this row in D2, when it can affect actual tip coverage.
  */
 object BrushBehaviors {
     fun rotation(p: BrushPreset, source: TipAngleSource): BrushPreset = p.copy(
@@ -27,7 +26,10 @@ object BrushBehaviors {
 
     fun tilt(p: BrushPreset, behavior: TiltBehavior): BrushPreset {
         val oldAspect = p.tip.aspectDynamics?.without(BrushInput.tilt)
-        var result = p.copy(size = p.size.without(BrushInput.tilt), tip = p.tip.copy(aspectDynamics = oldAspect))
+        val oldFade = p.tip.fade?.let { fade ->
+            fade.copy(amount = fade.amount.without(BrushInput.tilt))
+        }
+        var result = p.copy(size = p.size.without(BrushInput.tilt), tip = p.tip.copy(aspectDynamics = oldAspect, fade = oldFade))
         // Editing a legacy hybrid explicitly separates lean from travel; merely loading it never does.
         if (p.tip.angleSource == null && p.tip.followDirection) result = rotation(result, TipAngleSource.stroke)
         if (result.tip.angleSource == TipAngleSource.penAzimuth) result = rotation(result, TipAngleSource.fixed)
@@ -56,6 +58,14 @@ object BrushBehaviors {
                     aspectDynamics = Param(base, (oldAspect?.inputs ?: emptyList()) + curve(BrushInput.tilt, 0f, delta), "add")))
             }
             TiltBehavior.size -> result.copy(size = multiplier(result.size, BrushInput.tilt, 1f, 2f))
+            TiltBehavior.sideFade -> {
+                if (oldFade?.amount?.inputs?.isNotEmpty() == true) {
+                    throw BrushException("This custom fade uses other inputs. Reset its fade dynamics before choosing Tilt side-fade.")
+                }
+                result.copy(version = maxOf(result.version, VERSION_TIP_PROFILE), tip = result.tip.copy(fade = TipFadeSpec(
+                    amount = Param(0f, listOf(curve(BrushInput.tilt, 0f, 1f)), "add"),
+                    angle = p.tip.fade?.angle ?: 0f, relativeTo = FadeFrame.penAzimuth)))
+            }
             TiltBehavior.none -> result
         }
     }

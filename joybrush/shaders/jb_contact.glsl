@@ -1,7 +1,7 @@
 // jb_contact.glsl: shared stamp and paint contact, including live stylus geometry and paper.
 // Coverage times flow only; the caller supplies either cap or carried colour.
 // Texture reads stay behind uniform branches so implicit derivatives are valid.
-#include "jb_tip.glsl"
+#include "jb_profile.glsl"
 #include "jb_grain.glsl"
 #include "jb_paper.glsl"
 #include "jb_tile_paper.glsl"
@@ -39,6 +39,7 @@ flat in vec2 v_travel;
 flat in vec4 v_contact;
 flat in vec4 v_pen;
 flat in float v_live;
+flat in vec2 v_fade; // optional tail attribute: amount and local angle
 
 float jb_contactCoverage() {
     bool live = v_live > 0.5;
@@ -50,7 +51,7 @@ float jb_contactCoverage() {
     vec2 lean = live ? v_pen.zw : u_leanDir;
     vec2 contactOffset = v_offset + (live ? v_pen.x : 0.0) * v_radius * vec2(cos(v_angle), sin(v_angle));
     JbTip t = JbTip(v_radius, v_angle, aspect, u_corner, u_taper, hardness, u_minPx);
-    float tipCov = jb_tipCoverage(contactOffset, t);
+    float tipCov = jb_unibrushTipCoverage(contactOffset, t, v_fade.x, v_fade.y);
     float d = tipCov * v_flow;
 
     bool tipOn = u_tipGrainPitchPx > 0.0;

@@ -14,6 +14,8 @@ data class GuideSettings(
     val perspective: Guide.Perspective? = null,
     /** Ruler and ellipse tracers, any number. */
     val tracers: List<Guide> = emptyList(),
+    /** The symmetry line, when the brush is being copied across it. */
+    val symmetry: Guide.Symmetry? = null,
     /** Strokes are pulled onto the guides. Off keeps the lines and drops the pull (Decision 3). */
     val snapEnabled: Boolean = true,
 ) {
@@ -27,7 +29,7 @@ data class GuideSettings(
         return out
     }
 
-    val isEmpty: Boolean get() = grid == null && isometric == null && perspective == null && tracers.isEmpty()
+    val isEmpty: Boolean get() = grid == null && isometric == null && perspective == null && tracers.isEmpty() && symmetry == null
 
     /** Why these settings may not be used, as a sentence naming the guide, or null. Never a silent repair. */
     fun refusalFor(): String? {

@@ -243,6 +243,12 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
      */
     @Volatile var snapTo: List<Guide> = emptyList()
 
+    /**
+     * The symmetry line, when the brush is to be copied across it. The screen sets it from its guide settings and null
+     * turns it off. Read at pen-down: a stroke is never copied onto a line that moved halfway through it.
+     */
+    @Volatile var symmetryGuide: Guide.Symmetry? = null
+
     /** Called on the UI thread when the stroke in progress locks onto a guide (true) and when it ends (false). */
     var onGuideLock: ((Boolean) -> Unit)? = null
 

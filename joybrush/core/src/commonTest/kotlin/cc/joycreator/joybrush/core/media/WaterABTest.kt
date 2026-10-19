@@ -34,6 +34,9 @@ class WaterABTest {
         q.observe(grid(1, 2, 3), 300)                   // still spreading
         q.observe(grid(1, 2, 3), 600)                   // a settling pool's slow edge flow is not "moving"
         assertEquals(900L, q.quietFor(1200))
+        q.observe(grid(2, 3), 1200)                      // its edge drying out is not moving either
+        assertEquals(1300L, q.quietFor(1600), "drying keeps the quiet (Note 9: S never slept while a pool soaked in)")
+        q.observe(grid(2, 3), 1300)
         q.observe(grid(1, 2, 3, flow = 2.5f), 1500)      // a drip runs
         assertEquals(0L, q.quietFor(1500))
         q.reset(2000)

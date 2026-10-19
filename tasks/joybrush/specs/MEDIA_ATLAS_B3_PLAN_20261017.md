@@ -116,3 +116,10 @@ behind the flag.
   Note 9 flat water runs about 2.3x the window, tilted about 5x: the wet flux pass alone is 3.2-3.7x in its atlas build and
   none of shared reads, precomputed offsets, no-wall builds or loop unrolling moved it (the stop rule). Finding it needs
   the Adreno shader profiler or a bisection of the flux body. Open: a screen-sized window (scoped, the owner's call).
+- **Window patch on main (1445af733, after a hotfix):** the first version on main froze the palette knife (604 parts,
+  45 s: paste steps measured by their old full square); main was reverted, and 53be96265 measures a step by docBounds and
+  caps a frame at 8 parts (a frame needing more runs exactly as before). Checked on all 22 media brushes plus the 6 wet
+  tilted, same hour as main: dry and flat wet/paste within noise or better, the knife fixed, tilted wet +13% p95 on
+  single runs. **Known limit:** the cap fires on the big wet brushes on tilted paper (All-round once, Wash twice in one
+  run): a slow tilted frame whose dabs span wider than any window. Those frames still clip their trailing dabs, exactly as
+  before the patch. Rule from now on: any window or media-frame change is phone-checked on the full brush list.

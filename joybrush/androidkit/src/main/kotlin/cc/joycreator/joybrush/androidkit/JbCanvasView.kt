@@ -1103,6 +1103,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 post {
                     fillSerial++; onFillPreview?.invoke(null)
                     surfaceReady = true
+                    // A new drawing and a graphics restart compile the media programs before the first stroke too,
+                    // not only a drawing opened from a file (the first stroke after an install paid for all of them).
+                    postDelayed({ pumpMediaPrewarm() }, 400)
                     if (contentLost) {
                         val recover = onGraphicsLost
                         if (recover != null) recover(retainedContents?.doc?.id ?: freshDocId)
@@ -2973,10 +2976,20 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
      * After a drawing opens, the pencil, watercolour and oil programs compile one per idle moment (GL thread), so the first
      * realistic stroke starts at once instead of stalling about a second on a Note 9. Never during a stroke.
      */
+    /** One prewarm chain at a time: a surface and a load straight after it ask for it together. Main thread. */
+    private var prewarmPumping = false
+
     private fun pumpMediaPrewarm() {
+        if (prewarmPumping) return
+        prewarmPumping = true
+        pumpMediaPrewarmStep()
+    }
+
+    private fun pumpMediaPrewarmStep() {
         onGl {
-            if (drawing || engine.strokeInProgress) { postDelayed({ pumpMediaPrewarm() }, 500); return@onGl }
-            if (mediaCanvas.prewarmStep()) post { postDelayed({ pumpMediaPrewarm() }, 60) }
+            if (drawing || engine.strokeInProgress) { post { postDelayed({ pumpMediaPrewarmStep() }, 500) }; return@onGl }
+            if (mediaCanvas.prewarmStep()) post { postDelayed({ pumpMediaPrewarmStep() }, 60) }
+            else post { prewarmPumping = false }
         }
     }
 

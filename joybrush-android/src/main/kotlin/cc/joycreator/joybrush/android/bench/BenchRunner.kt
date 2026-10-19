@@ -37,7 +37,9 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
                /** The owner's watercolour comparison to run with (WaterTest id: today, a, s, flat, flatnr, all); none = as set. */
                val water: String? = null,
                /** The media atlas on or off for this run (`jb_media_atlas`); none = as shipped. */
-               val atlas: Boolean? = null)
+               val atlas: Boolean? = null,
+               /** How long after the surface the first case starts (`jb_start_ms`): measures a cold first stroke. */
+               val startMs: Long = 1500L)
 
     private val ui = Handler(Looper.getMainLooper())
     private val jobs = ArrayDeque<Triple<BrushPreset, String, Int>>()
@@ -64,7 +66,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
 
     private fun waitForSurface() {
         if (!canvas.surfaceReady || canvas.width == 0) { ui.postDelayed({ waitForSurface() }, 200); return }
-        ui.postDelayed({ next() }, 1500)   // let startup settle (paper bakes, first frames)
+        ui.postDelayed({ next() }, spec.startMs)   // let startup settle (paper bakes, first frames, media prewarm)
     }
 
     private fun next() {
@@ -322,7 +324,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
                 holdMs = intent.getLongExtra("jb_hold_ms", 0L), settleMs = intent.getLongExtra("jb_settle_ms", 800L),
                 matrixBoards = list(intent.getStringExtra("jb_matrix_boards")), matrixFrom = intent.getIntExtra("jb_matrix_from", 0),
                 matrixTo = intent.getIntExtra("jb_matrix_to", Int.MAX_VALUE), water = intent.getStringExtra("jb_water"),
-                atlas = if (intent.hasExtra("jb_media_atlas")) intent.getBooleanExtra("jb_media_atlas", false) else null)
+                atlas = if (intent.hasExtra("jb_media_atlas")) intent.getBooleanExtra("jb_media_atlas", false) else null,
+                startMs = intent.getLongExtra("jb_start_ms", 1500L).coerceIn(0L, 60_000L))
         }
     }
 }

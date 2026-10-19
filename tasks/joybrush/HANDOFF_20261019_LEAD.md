@@ -1,0 +1,46 @@
+# JoyBrush Lead handoff, 2026-10-19
+
+Read this first, then `specs/SYMMETRY_20261019.md` (the owner's newest request) and `tasks/lessons.md`.
+
+## Where things are
+
+- **main (origin/joy-creator):** b00b82667 plus this handoff commit. It's on the Note 9 and green: core 2515, androidkit 1050, app 317.
+- What landed 10-18/19:
+  - layer Lock / Merge Down / Flatten = freeze / Freeze layer (LAYER_OPS §2–§4);
+  - whole-drawing export, flat PNG or layered ORA, remembered (⋯ → Export…);
+  - drawings with editable lines now export (`ExportPicture.asShown`);
+  - Water test switch (⋯ → Water test: Today / A brush first / S sleeps / flat / flat no relief / all);
+  - window patch: no stroke loses its tail; at most 8 parts a frame;
+  - media prewarm on every canvas surface (no first-stroke hitch after an install);
+  - audit P1 fixes (doc ids, media leak, erased mask tiles);
+  - bench extras jb_water, jb_media_atlas, jb_start_ms.
+- **Integration worktree:** C:/Temp/jb-integ-fix (branch lead/integration-1018-fix). Locally it has the helper's diagnostic timing merge (73c691498), NOT pushed. Its 22-brush zero-cost phone check was pending when this session ended. Merge origin/joy-creator into it before pushing (this handoff commit went straight to main).
+- **Scripts:** tasks/joybrush/lead-scripts/ (copied from the lead's scratchpad; `S` = the script folder):
+  - lead-build.sh: machine-wide Gradle lock at %LOCALAPPDATA%/Temp/jb-gradle.lock, plus a free-RAM gate;
+  - full-then-apk.sh: core + androidkit + app suites, then apk-install;
+  - apk-install.sh: phone lock, HOME first, `install -r`, launcher start, screenshot;
+  - install-apk.sh `<apk>`;
+  - build-main-apk.sh: keeps the integration APK, builds main's.
+  APKs and screenshots land in that folder and are git-ignored.
+
+## Lanes
+
+- **Opus helper** (session local_76d7423a…, branch helper1/media-atlas-b1): Tile board speed for ordinary brushes (pencil, softair, marker, bristle, flatpaint and legacy watercolour run 2–10× slower on tile than on canvas; see reviews/DEVICE_MATRIX_20261017.md). Step 1 is diagnostic timing (73c691498), then a profile and a plan BEFORE any fix. It may edit the tile paths in GlPaintEngine; the lead stays out of them.
+- **Atlas: PARKED** (off by default). Tilted water flux stays 3–5× the window's. Everything it fixed is kept.
+- **Codex:** Unibrush / Digital Pen (briefs/CODEX_DIGITAL_PEN_BRIEF_20261018.md) and Animation clips C1–C8 in C:/Temp/jb-clips (its lane note says the owner asked). Stay out of jb-clips.
+
+## Waiting on the owner
+
+1. Try Water test "A · brush first" against "Today". If he likes A, making it the default is the biggest pen-down win (~35% faster).
+2. Whole-screen patch: lead recommends SKIP for now (explained to him 10-19: ~3× graphics memory, no help zoomed out, risk). Note: symmetry with watercolour/oil (spec E4) needs it.
+3. Flatten "Keep lines editable" checkbox: asked; no answer yet.
+4. Symmetry questions Q1–Q6 in the spec.
+5. Older: pencil shelf name (TrueTooth vs Proto); Flatten blend-over-paper.
+
+## Rules learned 10-18/19 (keep them)
+
+- A media / window change reaches main only after the FULL list runs on the Note 9 in the same hour as a main baseline: 22 brushes flat + 6 wet tilted + wideFlick. The lead must look at the screenshots himself. Watercolour-only checks let a 45 s palette-knife freeze through (reverted, c93a200d5).
+- Same-hour baselines: single runs vary ±20%. Compare against main measured in the same hour.
+- To undo a bad push: `git revert -m 1` the merges, check the tree equals the last good commit, push, and reinstall the saved last-good APK. Bring the work back later with a revert of the revert.
+- Never build in a folder another agent is editing (Codex took jb-clips mid-session).
+- The disk fills fast: 79 idle worktrees removed 10-18 (tasks/REMOVED_WORKTREES_20261018.md). Delete only regenerable build output, never worktrees with unsaved work.

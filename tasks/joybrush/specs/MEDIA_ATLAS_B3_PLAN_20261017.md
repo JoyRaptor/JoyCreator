@@ -121,5 +121,8 @@ behind the flag.
   caps a frame at 8 parts (a frame needing more runs exactly as before). Checked on all 22 media brushes plus the 6 wet
   tilted, same hour as main: dry and flat wet/paste within noise or better, the knife fixed, tilted wet +13% p95 on
   single runs. **Known limit:** the cap fires on the big wet brushes on tilted paper (All-round once, Wash twice in one
-  run): a slow tilted frame whose dabs span wider than any window. Those frames still clip their trailing dabs, exactly as
+  run; and Wash once on FLAT paper in a later run): a slow frame of a big wet brush whose dabs span wider than any window. Those frames still clip their trailing dabs, exactly as
   before the patch. Rule from now on: any window or media-frame change is phone-checked on the full brush list.
+- **Cold first stroke after an install (b00b82667, the Lead's JbCanvasView):** the prewarm pump only ran when a drawing was
+  LOADED, so a new drawing compiled all 14 media programs inside its first stroke (1.1-1.3 s on the Note 9 after an install).
+  It now also starts when the canvas surface is made: the first stroke 1.5 s after opening ran 268 ms max, as warm.

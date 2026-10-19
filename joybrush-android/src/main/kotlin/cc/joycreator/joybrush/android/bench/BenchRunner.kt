@@ -22,7 +22,10 @@ import cc.joycreator.joybrush.core.brush.BrushPreset
  * unsaved drawing and never restores or writes the working file (the activity's job), so the person's drawing is
  * never touched.
  */
-class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, private val onDone: () -> Unit) {
+class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, private val finished: () -> Unit) {
+    // The atlas switch is process-wide: a run that changed it puts it back, so the app after a bench draws as shipped.
+    private val atlasBefore = canvas.mediaAtlasEnabled
+    private val onDone: () -> Unit = { if (spec.atlas != null) canvas.mediaAtlasEnabled = atlasBefore; finished() }
 
     class Spec(val cases: List<String>, val brushes: List<String>, val runs: Int, val clear: Boolean, val legacy: Boolean,
                /** Per case (same order as [cases]): the colour to paint it in, or none to keep the brush's. */
@@ -32,7 +35,9 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
                /** The `matrix` case ([MatrixBench]): which board kinds (none = all four) and which cell numbers (from..to) to run. */
                val matrixBoards: List<String> = emptyList(), val matrixFrom: Int = 0, val matrixTo: Int = Int.MAX_VALUE,
                /** The owner's watercolour comparison to run with (WaterTest id: today, a, s, flat, flatnr, all); none = as set. */
-               val water: String? = null)
+               val water: String? = null,
+               /** The media atlas on or off for this run (`jb_media_atlas`); none = as shipped. */
+               val atlas: Boolean? = null)
 
     private val ui = Handler(Looper.getMainLooper())
     private val jobs = ArrayDeque<Triple<BrushPreset, String, Int>>()
@@ -44,6 +49,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
             val shipped = cc.joycreator.joybrush.core.media.WetConstants()
             shipped.copy(dt = shipped.dt * shipped.substeps / n, substeps = n)
         }
+        spec.atlas?.let { canvas.mediaAtlasEnabled = it; Log.i(TAG, "media atlas: $it") }
         spec.water?.let { canvas.mediaWaterAB = cc.joycreator.joybrush.android.WaterTest.of(it).ab; Log.i(TAG, "water test: $it") }
         if ("matrix" in spec.cases) { MatrixBench(canvas, spec, onDone).start(); return }
         val all = BrushLibrary.builtIn()
@@ -315,7 +321,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
                 wetSubsteps = intent.getIntExtra("jb_wet_substeps", -1).takeIf { it in 1..16 },
                 holdMs = intent.getLongExtra("jb_hold_ms", 0L), settleMs = intent.getLongExtra("jb_settle_ms", 800L),
                 matrixBoards = list(intent.getStringExtra("jb_matrix_boards")), matrixFrom = intent.getIntExtra("jb_matrix_from", 0),
-                matrixTo = intent.getIntExtra("jb_matrix_to", Int.MAX_VALUE), water = intent.getStringExtra("jb_water"))
+                matrixTo = intent.getIntExtra("jb_matrix_to", Int.MAX_VALUE), water = intent.getStringExtra("jb_water"),
+                atlas = if (intent.hasExtra("jb_media_atlas")) intent.getBooleanExtra("jb_media_atlas", false) else null)
         }
     }
 }

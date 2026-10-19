@@ -463,6 +463,11 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         get() = mediaCanvas.wetQuality
         set(v) { mediaCanvas.wetQuality = v }
 
+    /** Debug A/B only: new media engines draw through the media atlas (MediaAtlasGl.enabled; off until it ships). */
+    var mediaAtlasEnabled: Boolean
+        get() = cc.joycreator.joybrush.androidkit.gl.media.MediaAtlasGl.enabled
+        set(v) { cc.joycreator.joybrush.androidkit.gl.media.MediaAtlasGl.enabled = v }
+
     /** The owner's watercolour comparison (core WaterAB; the default is today's water). Any thread. */
     var mediaWaterAB: cc.joycreator.joybrush.core.media.WaterAB
         get() = mediaCanvas.waterAB

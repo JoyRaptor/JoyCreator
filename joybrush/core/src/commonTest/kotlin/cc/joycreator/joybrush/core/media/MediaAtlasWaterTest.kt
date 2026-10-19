@@ -24,8 +24,12 @@ class MediaAtlasWaterTest {
         w.observe(k(2, 2), 0f, 0.3f, 0f, 0, minMm, eps)
         assertEquals(MediaAtlasWater.State.DAMP, w.state(k(2, 2)))
         assertEquals(9, w.mustStay(domain, domain).size)
-        // Neighbours are only kept as far as the water reads.
+        // Neighbours are only kept as far as the water reads...
         assertEquals(setOf(k(2, 2), k(3, 2), k(2, 3), k(3, 3)), w.mustStay(domain, block(2, 2, 3, 3)))
+        // ...and as far as its look reads, whatever the water does (a look reading a tile already gone drew wrong edges).
+        assertEquals(block(1, 1, 3, 3).toSet(), w.mustStay(domain, block(2, 2, 3, 3), lookReach = 109))
+        w.observe(k(2, 2), 0f, 0.3f, 0f, 0, minMm, eps, extent = intArrayOf(2 * 256 + 150, 2 * 256 + 150, 2 * 256 + 160, 2 * 256 + 160))
+        assertEquals(setOf(k(2, 2)), w.mustStay(domain, setOf(k(2, 2)), lookReach = 90), "a pool in the middle of its tile reads no neighbour")
     }
 
     @Test fun aTileEnteringTheWaterIsWaterOnlyWhereWaterCanBe() {

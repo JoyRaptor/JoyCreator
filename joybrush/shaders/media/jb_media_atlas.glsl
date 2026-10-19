@@ -21,6 +21,15 @@ uniform highp ivec4 u_atlasWrap;         // a Tile board in full-res layer px: o
 uniform highp ivec4 u_atlasWalls;        // .x = 1 in the water's passes: tiles taken out of the water are walls (B3, D2)
 flat in highp ivec4 v_slot;              // this fragment's slot origin (atlas texels, xy) and its tile (zw); a pass that
                                          // is not per-slot (brush cells, the look) gets a tile no layer cell can have
+#ifdef JB_ATLAS_NBR
+// The look (JB_ATLAS_NBR, with JB_ATLAS): drawn tile by tile, each draw handed the slots of its tile and the 8 around it,
+// which is every tile a look pixel reads (its reach, 56 px, is under a tile). A read is then a few integer ops: no page
+// table, no branch. Through the table, the look's ~160 reads a pixel each inlined the whole lookup: the shader took 194 s
+// to compile on a PC and ~100 s on the Note 9, and drew 50x slower than the window's there, long enough to hang the GPU
+// (2026-10-18). The same texels as the table gives (the host fills these from it), so the same look, bit for bit.
+uniform highp ivec2 u_nbrTile;           // the tile this draw covers
+uniform highp ivec2 u_nbrSlot[9];        // slot origins (atlas texels) of tiles u_nbrTile + (-1..1, -1..1), row by row; x < 0 = not here
+#endif
 #endif
 
 const int JB_SLOT_SHIFT = 8;             // full-resolution slot side 256 = Tiles.SIZE
@@ -71,6 +80,15 @@ highp ivec2 jb_ownCell(highp ivec2 q, highp int shift, out bool ok) {
 
 // Layer cell q at slot side (1 << shift) → its atlas texel. ok = false where the tile is not resident.
 highp ivec2 jb_atS(highp ivec2 q, highp int shift, out bool ok) {
+#ifdef JB_ATLAS_NBR
+    // Branch-free: the index is clamped into the 3x3 and ok says whether it had to be.
+    highp ivec2 nt = q >> shift;
+    highp ivec2 d = nt - u_nbrTile + 1;
+    highp ivec2 dc = clamp(d, 0, 2);
+    highp ivec2 o = u_nbrSlot[dc.y * 3 + dc.x];
+    ok = d == dc && o.x >= 0 && shift == JB_SLOT_SHIFT;
+    return ok ? o + (q - (nt << shift)) : ivec2(0);
+#else
     if (u_atlasWrap.z > 0) {
         // A Tile board repeats in pixel space; boards need not be tile-aligned. The half-res field wraps at half the
         // size, which the driver only allows for even board rectangles.
@@ -93,6 +111,7 @@ highp ivec2 jb_atS(highp ivec2 q, highp int shift, out bool ok) {
     if (slot < 0) { ok = false; return ivec2(0); }
     ok = true;
     return (ivec2(slot - (slot / u_atlasSlotsX) * u_atlasSlotsX, slot / u_atlasSlotsX) << shift) + local;
+#endif
 }
 #endif
 
@@ -116,7 +135,12 @@ vec4 jb_fetchS(sampler2D t, highp ivec2 q, highp int shift) {
 #ifdef JB_ATLAS
     bool ok;
     highp ivec2 a = jb_atS(q, shift, ok);
+#ifdef JB_ATLAS_NBR
+    vec4 v = texelFetch(t, a, 0);   // a is (0, 0) where !ok: a real texel, so the read needs no branch around it
+    return ok ? v : vec4(0.0);
+#else
     return ok ? texelFetch(t, a, 0) : vec4(0.0);
+#endif
 #else
     return texelFetch(t, q, 0);
 #endif

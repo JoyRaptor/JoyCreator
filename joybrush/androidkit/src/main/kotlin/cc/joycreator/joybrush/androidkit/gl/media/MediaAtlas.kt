@@ -162,9 +162,10 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         val reads = tilesOf(waterRect, MediaAtlasPlacement.WET_REACH)
         for (k in domain) if (water.state(k) == null) water.entered(k, now, storedWater(k))
         val held = pinned.mapTo(HashSet()) { it.tileKey }
-        var must = water.mustStay(domain, reads)
+        val look = lookHalo + MediaAtlasPlacement.LOOK_REACH
+        var must = water.mustStay(domain, reads, look)
         if (MediaAtlasPlacement.fits(slots.capacity, frame + must, held)) return must
-        val plan = water.plan(domain, reads, frame, held, slots.capacity, (pen[0] + pen[2]) / 2.0, (pen[1] + pen[3]) / 2.0, now)
+        val plan = water.plan(domain, reads, frame, held, slots.capacity, (pen[0] + pen[2]) / 2.0, (pen[1] + pen[3]) / 2.0, now, look)
             ?: throw MediaRoomException("This watercolour stroke reaches further than this phone can hold at once. " +
                 "Paint a smaller area at a time.")
         for (a in plan) {
@@ -183,7 +184,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
                 android.util.Log.i(TAG, "watercolour: a drip's tail dried where it lay to make room (${a.keys.size} area)")
             } else settledComponents++
         }
-        must = water.mustStay(domain, reads)
+        must = water.mustStay(domain, reads, look)
         return must
     }
 
@@ -201,7 +202,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         val now = nowMs()
         val domain = tilesOf(rect, 0)
         for (k in domain) if (water.state(k) == null) water.entered(k, now, storedWater(k))
-        waterHeld = water.mustStay(domain, tilesOf(rect, reach))
+        waterHeld = water.mustStay(domain, tilesOf(rect, reach), lookHalo + MediaAtlasPlacement.LOOK_REACH)
         hold(waterHeld)
     }
 

@@ -53,6 +53,7 @@ const FILES = { quad: 'media/jb_media_quad.vert', flux: 'media/jb_wet_flux.frag'
 function srcSet(read, ...defs) {
   const o = {}; for (const [k, f] of Object.entries(FILES)) o[k] = defs.length ? define(expand(f, read), ...defs) : expand(f, read);
   o.quadPlain = defs.length ? define(expand(FILES.quad, read), ...defs, 'JB_PLAIN_TARGET') : o.quad;   // the paste brush's cells
+  if (defs.includes('JB_ATLAS')) o.render = define(expand(FILES.render, read), ...defs, 'JB_ATLAS_NBR');   // MediaLayerEngine's look build
   return o;
 }
 const SRC = { old: srcSet(readOld), new: srcSet(readNew), atlas: srcSet(readNew, 'JB_ATLAS') };
@@ -304,6 +305,7 @@ async function PAGE(P) {
       else if (u.type === gl.FLOAT_VEC3) gl.uniform3fv(u.loc, v);
       else if (u.type === gl.FLOAT_VEC4) gl.uniform4fv(u.loc, v);
       else if (u.type === gl.INT_VEC4) gl.uniform4iv(u.loc, v);
+      else if (u.type === gl.INT_VEC2) gl.uniform2iv(u.loc, v);   // the look's u_nbrTile, u_nbrSlot[9]
       else throw new Error('unhandled uniform type for ' + name);
     }
     gl.activeTexture(gl.TEXTURE0);
@@ -459,7 +461,8 @@ async function PAGE(P) {
     const in0 = tex(W, H, 'rgba16f'), in1 = tex(W, H, 'rgba16f');
     const bakeTex = tex(W, H, 'rgba16f'), fluidBake = tex(W, H, 'r8'), waterBake = tex(W, H, 'r16f');
     const E = { kind, atlas, P: Pg, st, ws, run, bead, in0, in1, bakeTex, fluidBake, waterBake, wc: 0, bw, bh };
-    E.table = tex(N, N, 'r32i', kind === 'broken' ? tableBroken : tableIdentity);
+    E.tableData = kind === 'broken' ? tableBroken : tableIdentity;
+    E.table = tex(N, N, 'r32i', E.tableData);
     E.bakeFbo = fbo(bakeTex, fluidBake, waterBake);
     E.beadFbo = bead.map((b) => fbo(b));
     E.fluxFbo = [0, 1].map((i) => fbo(ws[i].flux, run));
@@ -601,8 +604,22 @@ async function PAGE(P) {
     const w = E.ws[E.wc], lamp = [-0.55, 0.55, 0.62], ln = Math.hypot(...lamp);
     use(E.P.render, { ...COMMON, ...paperU, ...atlasU(E, 8), u_p0: { tex: E.st[0].p0 }, u_p1: { tex: E.st[0].p1 }, u_paperState: { tex: E.st[0].paper }, u_ground: { tex: E.ground }, u_paperBake: { tex: E.bakeTex },
       u_w0: { tex: w.w0 }, u_w1: { tex: w.w1 }, u_pan: [0, 0], u_zoom: 1, u_pxPerMm: P.PPM, u_toothMm: 0.09, u_paperColor: [0.95, 0.93, 0.88], u_lamp: lamp.map(v => v / ln),
-      u_relief: 0, u_sheen: 0.06, u_capMm: 0.004, u_mode: 0, u_impasto: 1.4, u_look: 1 });
-    gl.bindVertexArray(emptyVao); gl.drawArrays(gl.TRIANGLES, 0, 3);
+      u_relief: 0, u_sheen: 0.06, u_capMm: 0.004, u_mode: 0, u_impasto: 1.4, u_look: 1, ...(E.atlas ? { u_nbrTile: [0, 0], u_nbrSlot: new Array(18).fill(-1) } : {}) });
+    gl.bindVertexArray(emptyVao);
+    if (!E.atlas) gl.drawArrays(gl.TRIANGLES, 0, 3);
+    else for (let ty = 0; ty < N; ty++) for (let tx = 0; tx < N; tx++) {   // slot by slot with its neighbours, as MediaLayerEngine.renderLook
+      const x0 = Math.max(LOOK_M, tx * 256), y0 = Math.max(LOOK_M, ty * 256), x1 = Math.min(W - LOOK_M, tx * 256 + 256), y1 = Math.min(H - LOOK_M, ty * 256 + 256);
+      if (x1 <= x0 || y1 <= y0) continue;
+      const nb = [];
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const x = tx + dx, y = ty + dy, s = x >= 0 && y >= 0 && x < N && y < N ? E.tableData[y * N + x] : -1;
+        if (s < 0) nb.push(-1, -1); else nb.push((s % N) * 256, Math.floor(s / N) * 256);
+      }
+      gl.scissor(x0, y0, x1 - x0, y1 - y0);
+      gl.uniform2i(gl.getUniformLocation(E.P.render, 'u_nbrTile'), tx, ty);
+      gl.uniform2iv(gl.getUniformLocation(E.P.render, 'u_nbrSlot'), new Int32Array(nb));
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    }
     gl.disable(gl.SCISSOR_TEST);
   }
   // ---------- readback and comparison ----------

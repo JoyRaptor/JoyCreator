@@ -18,7 +18,7 @@ import java.nio.ByteOrder
  * dab quad + the 24-float dab-with-slot layout). The instance lists come from the JVM-tested [MediaAtlasDraw]. GL thread.
  * Off by default ([enabled]) until B2 places tiles freely.
  */
-internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: Int, broken: Boolean = false) {
+internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: Int, private val broken: Boolean = false) {
     private val draw = MediaAtlasDraw()
     /** B1: the identity table. B2 ([setResidency]): whatever the host placed where; −1 = not resident. */
     private var slotOf: (Int, Int) -> Int = MediaAtlasDraw.identity(nx, ny)
@@ -85,6 +85,21 @@ internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: I
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, table)
         GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D, 0, GLES30.GL_R32I, t.w, t.h, 0, GLES30.GL_RED_INTEGER, GLES30.GL_INT, cells)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
+    }
+
+    /**
+     * The look's reads (JB_ATLAS_NBR, jb_media_atlas.glsl): into [out] (18 ints), the first texel of the slots holding tiles
+     * ([tx], [ty]) + (-1..1, -1..1), row by row, x = -1 where a tile is not here: what the page table says of each, so the
+     * look reads the very texels a table read would (the probe's broken table included).
+     */
+    fun neighbours(tx: Int, ty: Int, out: IntArray) {
+        var i = 0
+        for (dy in -1..1) for (dx in -1..1) {
+            val x = tx + dx; val y = ty + dy
+            val s = if (broken && !free) { if (x in 0 until nx && y in 0 until ny) slotOf((x + 1) % nx, y) else -1 } else slotOf(x, y)
+            if (s < 0) { out[i] = -1; out[i + 1] = -1 } else { val (ax, ay) = slotTexel(s); out[i] = ax; out[i + 1] = ay }
+            i += 2
+        }
     }
 
     /** Slot [slot]'s first texel (full resolution). */

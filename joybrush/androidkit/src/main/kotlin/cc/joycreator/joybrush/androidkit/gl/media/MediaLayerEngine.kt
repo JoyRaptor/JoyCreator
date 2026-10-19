@@ -91,7 +91,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         ProgramSpec({ progDab = it }, "jb_dry_dab.vert", "jb_dry_dab.frag", "media dry dab"),
         ProgramSpec({ progApply = it }, "jb_media_quad.vert", "jb_media_apply.frag", "media apply"),
         ProgramSpec({ progCopy = it }, "jb_media_quad.vert", "jb_media_copy.frag", "media copy"),
-        ProgramSpec({ progRender = it }, "jb_media_screen.vert", "jb_media_render.frag", "media render"),
+        ProgramSpec({ progRender = it }, "jb_media_screen.vert", "jb_media_render.frag", "media render", atlasDefs = listOf("JB_ATLAS_NBR")),
         ProgramSpec({ progBake = it }, "jb_media_quad.vert", "jb_media_bake.frag", "media bake"),
         ProgramSpec({ progWetDab = it }, "jb_wet_dab.vert", "jb_wet_dab.frag", "media wet dab"),
         ProgramSpec({ progFlux = it }, "jb_media_quad.vert", "jb_wet_flux.frag", "media wet flux"),
@@ -103,7 +103,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         ProgramSpec({ progErase = it }, "jb_media_quad.vert", "jb_media_erase_apply.frag", "media erase"),
         ProgramSpec({ progActivity = it }, "jb_media_screen.vert", "jb_wet_activity.frag", "media wet activity"),
     )
-    private class ProgramSpec(val set: (MediaProgram) -> Unit, val vert: String, val frag: String, val label: String, val plain: Boolean = false)
+    private class ProgramSpec(val set: (MediaProgram) -> Unit, val vert: String, val frag: String, val label: String, val plain: Boolean = false,
+                              /** More defines for the atlas build only (the look's JB_ATLAS_NBR). */ val atlasDefs: List<String> = emptyList())
 
     /** The programs compiled so far, in [programTable]'s order (what [releasePrograms] deletes). */
     private val programs = ArrayList<MediaProgram>()
@@ -115,7 +116,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
      */
     fun compileNext(): Boolean {
         val spec = programTable.getOrNull(programs.size) ?: return false
-        val defs = if (atlasMode) listOf("JB_ATLAS") else emptyList()
+        val defs = if (atlasMode) listOf("JB_ATLAS") + spec.atlasDefs else emptyList()
         val made = MediaProgram(shaders, "media/${spec.vert}", "media/${spec.frag}", spec.label, if (spec.plain && atlasMode) defs + "JB_PLAIN_TARGET" else defs)
         programs += made
         spec.set(made)
@@ -1178,6 +1179,9 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         return out
     }
 
+    private val nbrSlots = IntArray(18)
+    private val nbrTile = IntArray(2)
+
     /** The newest water measurement, whoever asked for it (the atlas's residency, or the canvas's quiet watch), and its count. */
     var lastActivity: FloatArray? = null; private set
     var activitySeq = 0; private set
@@ -1213,6 +1217,9 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
                     if (a.scissorSlot(slot, tx, ty, rect)) {
                         val (ax, ay) = a.slotTexel(slot)
                         ru.f2("u_pan", -originX * scale + (ax - tx * MediaAtlasDraw.SIDE), -originY * scale + (ay - ty * MediaAtlasDraw.SIDE))
+                        // The look reads its tile and the 8 around it straight from these, not through the table (JB_ATLAS_NBR).
+                        a.neighbours(tx, ty, nbrSlots)
+                        nbrTile[0] = tx; nbrTile[1] = ty; ru.i2v("u_nbrTile", nbrTile); ru.i2v("u_nbrSlot", nbrSlots)
                         GLES30.glDrawArrays(GLES30.GL_TRIANGLES, 0, 3)
                     }
                 }

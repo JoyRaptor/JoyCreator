@@ -44,6 +44,7 @@ const FILES = { quad: 'media/jb_media_quad.vert', flux: 'media/jb_wet_flux.frag'
 function srcSet(...defs) {
   const o = {}; for (const [k, f] of Object.entries(FILES)) o[k] = defs.length ? define(expand(f), ...defs) : expand(f);
   o.quadPlain = defs.length ? define(expand(FILES.quad), ...defs, 'JB_PLAIN_TARGET') : o.quad;
+  if (defs.includes('JB_ATLAS')) o.render = define(expand(FILES.render), ...defs, 'JB_ATLAS_NBR');   // MediaLayerEngine's look build
   return o;
 }
 const SRC = { window: srcSet(), atlas: srcSet('JB_ATLAS') };
@@ -306,6 +307,7 @@ async function PAGE(P) {
       else if (u.type === gl.FLOAT_VEC3) gl.uniform3fv(u.loc, v);
       else if (u.type === gl.FLOAT_VEC4) gl.uniform4fv(u.loc, v);
       else if (u.type === gl.INT_VEC4) gl.uniform4iv(u.loc, v);
+      else if (u.type === gl.INT_VEC2) gl.uniform2iv(u.loc, v);   // the look's u_nbrTile, u_nbrSlot[9]
       else throw new Error('unhandled uniform type for ' + name);
     }
     gl.activeTexture(gl.TEXTURE0);
@@ -707,8 +709,17 @@ async function PAGE(P) {
     for (const [t, s] of E.res) {
       if (!scissorSlot(E, s, t, rect)) continue;
       const tx = t % GN, ty = Math.floor(t / GN), [ax, ay] = slotXY(s, 8);
-      use(E.P.render, { ...U, u_pan: [ax - tx * 256, ay - ty * 256] }); gl.drawArrays(gl.TRIANGLES, 0, 3); gl.disable(gl.SCISSOR_TEST);
+      use(E.P.render, { ...U, u_pan: [ax - tx * 256, ay - ty * 256], u_nbrTile: [tx, ty], u_nbrSlot: nbrOf(E, tx, ty) }); gl.drawArrays(gl.TRIANGLES, 0, 3); gl.disable(gl.SCISSOR_TEST);
     }
+  }
+  // MediaAtlasGl.neighbours: the look's 3x3 neighbour slots (JB_ATLAS_NBR), x = -1 where a tile is not here.
+  function nbrOf(E, tx, ty) {
+    const o = [];
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const x = tx + dx, y = ty + dy, s = x >= 0 && y >= 0 && x < GN && y < GN ? E.res.get(y * GN + x) : undefined;
+      if (s === undefined) o.push(-1, -1); else o.push(...slotXY(s, 8));
+    }
+    return o;
   }
   // ---------- readback ----------
   const rf = gl.createFramebuffer();

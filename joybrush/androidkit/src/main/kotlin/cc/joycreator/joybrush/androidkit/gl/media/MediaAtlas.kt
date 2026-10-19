@@ -468,6 +468,17 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         }
     }
 
+    /** Tile by tile (each with what its look reads), so any area fits; held only while it is redone. */
+    override fun refreshLook(rect: FloatArray) {
+        val id = layerId ?: return
+        for (key in keysIn(rect)) {
+            val part = MediaAtlasWater.intersect(intArrayOf(floor(rect[0]).toInt(), floor(rect[1]).toInt(), ceil(rect[2]).toInt(), ceil(rect[3]).toInt()),
+                MediaAtlasWater.rectOf(key)) ?: continue
+            writeLook(id, floatArrayOf(part[0].toFloat(), part[1].toFloat(), part[2].toFloat(), part[3].toFloat()))
+            unpinAll()
+        }
+    }
+
     override fun wakeWater() {
         val id = layerId ?: return
         if (media.wetActive) return

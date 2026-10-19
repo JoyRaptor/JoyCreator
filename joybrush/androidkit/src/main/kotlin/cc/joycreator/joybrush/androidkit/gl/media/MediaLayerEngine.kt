@@ -1173,8 +1173,14 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         mapped?.order(java.nio.ByteOrder.nativeOrder())?.asFloatBuffer()?.get(out)
         GLES30.glUnmapBuffer(GLES30.GL_PIXEL_PACK_BUFFER)
         GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, 0)
-        return if (mapped != null) out else null
+        if (mapped == null) return null
+        lastActivity = out; activitySeq++
+        return out
     }
+
+    /** The newest water measurement, whoever asked for it (the atlas's residency, or the canvas's quiet watch), and its count. */
+    var lastActivity: FloatArray? = null; private set
+    var activitySeq = 0; private set
 
     // ---- the look: what the app's layer stack composites ----
     /** Render the look (premultiplied RGBA8, paper removed) for [rect] (layer px) into the returned texture. */

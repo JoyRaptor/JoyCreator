@@ -251,6 +251,11 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
     }
 
     /** Before a new stroke into sleeping water (after an undo, or a reopened drawing): let it run again. */
+    override fun refreshLook(rect: FloatArray) {
+        val id = layerId ?: return
+        writeLook(id, rect)
+    }
+
     override fun wakeWater() {
         val id = layerId ?: return
         if (media.wetActive) return

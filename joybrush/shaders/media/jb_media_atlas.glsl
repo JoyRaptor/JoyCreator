@@ -28,9 +28,17 @@ flat in highp ivec4 v_slot;              // this fragment's slot origin (atlas t
 // compile on a PC and ~100 s on the Note 9 and drew 50x slower than the window's there, long enough to hang the GPU; the
 // water's flux 7.6 s to compile and its frames ran 5-15x the window's (2026-10-18). The host fills these from the very
 // table (MediaAtlasGl.neighbours), so the same texels are read: the same result, bit for bit. No Tile-board wrap here.
+// JB_ATLAS_NBR5: 5x5 instead (the paste brush: its target is the brush's cells, not a slot, so the neighbourhood is
+// centred on the tile under the step and must hold the whole step's footprint, up to about 2 tiles from that tile).
+#ifdef JB_ATLAS_NBR5
+const highp int JB_NBR_R = 2;
+#else
+const highp int JB_NBR_R = 1;
+#endif
+const highp int JB_NBR_N = 2 * JB_NBR_R + 1;
 uniform highp ivec2 u_nbrTile;           // the tile this draw covers (v_slot.zw in a per-slot pass)
-uniform highp ivec2 u_nbrSlot[9];        // full-resolution slot origins (atlas texels) of tiles u_nbrTile + (-1..1, -1..1),
-                                         // row by row; -1 = not here, JB_NBR_WALL = a wall for this (water) pass
+uniform highp ivec2 u_nbrSlot[JB_NBR_N * JB_NBR_N];   // full-resolution slot origins (atlas texels) of tiles u_nbrTile +
+                                         // (-R..R, -R..R), row by row; -1 = not here, JB_NBR_WALL = a wall for this (water) pass
 const highp int JB_NBR_WALL = -2;
 #endif
 #endif
@@ -88,12 +96,12 @@ highp ivec2 jb_atS(highp ivec2 q, highp int shift, out bool ok) {
     // nearest q (jb_ownCell). Half-resolution fields (shift 7) sit at half the full-resolution origins.
     highp int down = JB_SLOT_SHIFT - shift;
     highp ivec2 nt = q >> shift;
-    highp ivec2 d = nt - u_nbrTile + 1;
-    highp ivec2 dc = clamp(d, 0, 2);
-    highp ivec2 o = u_nbrSlot[dc.y * 3 + dc.x];
+    highp ivec2 d = nt - u_nbrTile + JB_NBR_R;
+    highp ivec2 dc = clamp(d, 0, 2 * JB_NBR_R);
+    highp ivec2 o = u_nbrSlot[dc.y * JB_NBR_N + dc.x];
     bool wall = o.x == JB_NBR_WALL;
     highp ivec2 lo = u_nbrTile << shift;
-    highp ivec2 a = wall ? (u_nbrSlot[4] >> down) + clamp(q, lo, lo + (1 << shift) - 1) - lo : (o >> down) + (q - (nt << shift));
+    highp ivec2 a = wall ? (u_nbrSlot[JB_NBR_R * JB_NBR_N + JB_NBR_R] >> down) + clamp(q, lo, lo + (1 << shift) - 1) - lo : (o >> down) + (q - (nt << shift));
     ok = d == dc && (wall || o.x >= 0);
     return ok ? a : ivec2(0);
 #else
@@ -127,9 +135,9 @@ highp ivec2 jb_atS(highp ivec2 q, highp int shift, out bool ok) {
 bool jb_wall(highp ivec2 q) {
 #if defined(JB_ATLAS) && defined(JB_ATLAS_NBR)
     highp ivec2 nt = q >> JB_SLOT_SHIFT;   // walls are marked only while the water's passes draw (MediaAtlasGl.neighbours)
-    highp ivec2 d = nt - u_nbrTile + 1;
-    highp ivec2 dc = clamp(d, 0, 2);
-    return d == dc && nt != u_nbrTile && u_nbrSlot[dc.y * 3 + dc.x].x == JB_NBR_WALL;
+    highp ivec2 d = nt - u_nbrTile + JB_NBR_R;
+    highp ivec2 dc = clamp(d, 0, 2 * JB_NBR_R);
+    return d == dc && nt != u_nbrTile && u_nbrSlot[dc.y * JB_NBR_N + dc.x].x == JB_NBR_WALL;
 #elif defined(JB_ATLAS)
     if (u_atlasWalls.x == 0) return false;
     highp ivec2 tile = q >> JB_SLOT_SHIFT;

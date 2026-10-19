@@ -46,6 +46,7 @@ function srcSet(...defs) {
   o.quadPlain = defs.length ? define(expand(FILES.quad), ...defs, 'JB_PLAIN_TARGET') : o.quad;
   // MediaLayerEngine's atlas build of every pass drawn slot by slot (ATLAS_NBR).
   if (defs.includes('JB_ATLAS')) for (const k of ['apply', 'copy', 'bake', 'flux', 'update', 'pasteDab', 'bead', 'eraseApply', 'render']) o[k] = define(expand(FILES[k]), ...defs, 'JB_ATLAS_NBR');
+  if (defs.includes('JB_ATLAS')) o.pasteBrush = define(expand(FILES.pasteBrush), ...defs, 'JB_ATLAS_NBR', 'JB_ATLAS_NBR5');
   return o;
 }
 const SRC = { window: srcSet(), atlas: srcSet('JB_ATLAS') };
@@ -699,6 +700,10 @@ async function PAGE(P) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, E.brushFbo[nb]); gl.viewport(0, 0, 32, 8);
       use(E.P.pasteBrush, { ...U, ...atlasU(E, 8), u_targetSize: [32, 8], u_rect: [0, 0, 32, 8], u_p0: { tex: E.st[0].p0 }, u_p1: { tex: E.st[0].p1 },
         u_brush0: { tex: E.brush[E.bc][0] }, u_brush1: { tex: E.brush[E.bc][1] } });
+      if (E.atlas) {   // JB_ATLAS_NBR5 (MediaLayerEngine.pasteStep): the 5x5 tiles around the step's middle
+        const ctx = Math.floor((s.rect[0] + s.rect[2]) / 2 / 256), cty = Math.floor((s.rect[1] + s.rect[3]) / 2 / 256), pg = gl.getParameter(gl.CURRENT_PROGRAM);
+        gl.uniform2i(gl.getUniformLocation(pg, 'u_nbrTile'), ctx, cty); gl.uniform2iv(gl.getUniformLocation(pg, 'u_nbrSlot'), new Int32Array(nbrOf(E, ctx, cty, false, 2)));
+      }
       gl.bindVertexArray(quadVao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       E.bc = nb;
       gl.bindFramebuffer(gl.FRAMEBUFFER, E.pFbo[1]); gl.viewport(0, 0, E.W, E.W);
@@ -725,9 +730,9 @@ async function PAGE(P) {
     }
   }
   // MediaAtlasGl.neighbours: the look's 3x3 neighbour slots (JB_ATLAS_NBR), x = -1 where a tile is not here.
-  function nbrOf(E, tx, ty, withWalls = false) {
+  function nbrOf(E, tx, ty, withWalls = false, rad = 1) {
     const o = [];
-    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    for (let dy = -rad; dy <= rad; dy++) for (let dx = -rad; dx <= rad; dx++) {
       const x = tx + dx, y = ty + dy, inGrid = x >= 0 && y >= 0 && x < GN && y < GN, s = inGrid ? E.res.get(y * GN + x) : undefined;
       if (withWalls && E.wallsOn && E.walls && inGrid && E.walls.has(y * GN + x)) o.push(-2, -2);
       else if (s === undefined) o.push(-1, -1); else o.push(...slotXY(s, 8));

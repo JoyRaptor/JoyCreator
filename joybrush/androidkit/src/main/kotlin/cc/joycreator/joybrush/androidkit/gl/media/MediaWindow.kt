@@ -103,10 +103,47 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
         if (!MediaWindowMath.holds(tx, ty, docRect)) mediaTrace("JB.media.window.move") { moveTo(id, plane, penX, penY, resumeWater = true) }
     }
 
+    /**
+     * Whether [follow]ing ([docRect], [penX], [penY]) would leave part of [paints] (document px) off the window: a frame
+     * that would clip its own dabs (a slow cold first frame, a very fast flick). Only those are drawn in parts.
+     */
+    fun wouldClip(docRect: DoubleArray, penX: Double, penY: Double, paints: DoubleArray): Boolean {
+        val (nx, ny) = if (MediaWindowMath.holds(tx, ty, docRect)) tx to ty else MediaWindowMath.placeFor(penX, penY)
+        return !MediaWindowMath.within(nx, ny, paints)
+    }
+
+    /**
+     * A frame whose dabs the usual follow would clip: the window centred on [dabs] instead, if that holds them all (most
+     * such frames on the Note 9: the pen-centred window leaves as little as 128 px behind a fast pen). One move, as follow
+     * would have made; true when the frame can now run whole. False: no window holds it; it must go in parts.
+     */
+    fun holdWhole(dabs: DoubleArray): Boolean {
+        val id = layerId ?: return false
+        val (nx, ny) = MediaWindowMath.placeForRect(dabs)
+        if (!MediaWindowMath.within(nx, ny, dabs)) return false
+        if (nx != tx || ny != ty) mediaTrace("JB.media.window.move") { moveTo(id, plane, nx, ny, resumeWater = true) }
+        return true
+    }
+
+    /** A part of a frame too wide for one window (MediaCanvas.runWindowParts): the window centred on it, so up to SPAN fits. */
+    fun followCentred(docRect: DoubleArray) {
+        val id = layerId ?: return
+        if (MediaWindowMath.holds(tx, ty, docRect)) return
+        val (nx, ny) = MediaWindowMath.placeForRect(docRect)
+        mediaTrace("JB.media.window.move") { moveTo(id, plane, nx, ny, resumeWater = true) }
+    }
+
     private fun moveTo(layer: String, plane: String?, docX: Double, docY: Double, resumeWater: Boolean) {
+        val (nx, ny) = MediaWindowMath.placeFor(docX, docY)
+        moveTo(layer, plane, nx, ny, resumeWater)
+    }
+
+    // Water the window leaves is stored as it is (wet, frozen until a window loads it again). Drying it where it lay
+    // (2026-10-19, 323ace7bc) made tile-shaped hard edges and boxed in tilted drips on the Note 9: worse than the one edge
+    // it was to soften. The edge goes with the atlas (no window).
+    private fun moveTo(layer: String, plane: String?, nx: Int, ny: Int, resumeWater: Boolean) {
         stats?.let { if (it.recording) it.mediaWindowMoves++ }
         flush()
-        val (nx, ny) = MediaWindowMath.placeFor(docX, docY)
         load(layer, plane, nx, ny, resumeWater)
     }
 

@@ -2346,7 +2346,9 @@ class JoyBrushActivity : Activity() {
             if (!whole && boardId == null) { toast("Choose a board to export"); return@menuRow }
             boardController?.stopPreview()
             pendingPng = PngTarget(doc.id, boardId, null, paper, layered)
-            val name = if (boardId == null) doc.name else doc.boards.first { it.id == boardId }.name
+            // The drawing's name as the library shows it ("Drawing 3"), not the document's internal one.
+            val name = if (boardId != null) doc.boards.first { it.id == boardId }.name
+                else workingFile()?.let { f -> cc.joycreator.joybrush.android.library.DrawingLibrary.list(this).firstOrNull { it.file == f.name }?.name } ?: doc.name
             launch(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
                 addCategory(Intent.CATEGORY_OPENABLE)
                 type = if (layered) "image/openraster" else "image/png"

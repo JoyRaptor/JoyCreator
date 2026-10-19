@@ -57,3 +57,4 @@ Read this first, then `specs/SYMMETRY_20261019.md` (the owner's newest request) 
   2. run the same matrix in the same hour;
   3. add a per-cell hash of MatrixBench's "after" plane on both builds (stateAfter is already read back) as the pixel-exact seam proof;
   4. push only if canvas/animation/sprite are within noise, tile is faster and the hashes match.
+- Helper handoff: helper1/media-atlas-b1 f834e9d0f, tasks/joybrush/handoffs/HELPER1_TILE_SPEED_HANDOFF_20261019.md (exact baseline command). Main baseline logs copied to tasks/joybrush/evidence/tile-baseline-20261019/.

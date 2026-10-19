@@ -460,8 +460,12 @@ class MediaCanvas(
             // are clamped to the window as they always were; measuring them split most topScribble frames on the Note 9).
             val dabs = frameRect(st, input, padded = false)
             w.lookHalo = haloOf(lookNow())
-            if (dabs != null && w.wouldClip(followRect, fx, fy, dabs)) runWindowParts(e, w, st, input, wq, last)
-            else { w.follow(followRect, fx, fy); runFrame(e, w, st, input, wq, last) }
+            when {
+                dabs == null || !w.wouldClip(followRect, fx, fy, dabs) -> { w.follow(followRect, fx, fy); runFrame(e, w, st, input, wq, last) }
+                // Most frames the usual follow would clip fit one window placed on their dabs: one move, the frame whole.
+                w.holdWhole(dabs) -> runFrame(e, w, st, input, wq, last)
+                else -> runWindowParts(e, w, st, input, wq, last)
+            }
             if (input.erase != null) st.eraseDabs.clear()
             return
         }

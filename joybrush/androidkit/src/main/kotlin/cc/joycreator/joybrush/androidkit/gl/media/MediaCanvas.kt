@@ -456,9 +456,11 @@ class MediaCanvas(
                 wq0.copy(substeps = schedule.whileDrawing(true, wq0.substeps)) else wq0
             val input = FrameInput(batch, st.thin?.take(), st.paste?.take(), st.wet?.take(),
                 if (st.erase && st.eraseDabs.isNotEmpty()) eraseBatch(st.eraseDabs) else null)
-            val r = frameRect(st, input)
+            // Clipped means dabs lost: the dabs' own boxes, not the reach around them (the water's spread and the smear
+            // are clamped to the window as they always were; measuring them split most topScribble frames on the Note 9).
+            val dabs = frameRect(st, input, padded = false)
             w.lookHalo = haloOf(lookNow())
-            if (r != null && w.wouldClip(followRect, fx, fy, r)) runWindowParts(e, w, st, input, wq, last)
+            if (dabs != null && w.wouldClip(followRect, fx, fy, dabs)) runWindowParts(e, w, st, input, wq, last)
             else { w.follow(followRect, fx, fy); runFrame(e, w, st, input, wq, last) }
             if (input.erase != null) st.eraseDabs.clear()
             return
@@ -508,11 +510,15 @@ class MediaCanvas(
         out += input to r
     }
 
-    /** Everything [input] paints and reads, in document px (what the window must hold for it); null: nothing to paint. */
-    private fun frameRect(st: Stroke, input: FrameInput): DoubleArray? {
+    /**
+     * Everything [input] paints and reads, in document px (what the window must hold for it); null: nothing to paint.
+     * [padded] false: the dabs' (and paste steps') own extent only.
+     */
+    private fun frameRect(st: Stroke, input: FrameInput, padded: Boolean = true): DoubleArray? {
         var r: DoubleArray? = null
-        fun add(d: DoubleArray?, pad: Double) {
+        fun add(d: DoubleArray?, pad0: Double) {
             if (d == null) return
+            val pad = if (padded) pad0 else 0.0
             val a = r
             r = if (a == null) doubleArrayOf(d[0] - pad, d[1] - pad, d[2] + pad, d[3] + pad)
             else doubleArrayOf(minOf(a[0], d[0] - pad), minOf(a[1], d[1] - pad), maxOf(a[2], d[2] + pad), maxOf(a[3], d[3] + pad))

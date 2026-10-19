@@ -464,7 +464,17 @@ class MediaCanvas(
                 dabs == null || !w.wouldClip(followRect, fx, fy, dabs) -> { w.follow(followRect, fx, fy); runFrame(e, w, st, input, wq, last) }
                 // Most frames the usual follow would clip fit one window placed on their dabs: one move, the frame whole.
                 w.holdWhole(dabs) -> runFrame(e, w, st, input, wq, last)
-                else -> runWindowParts(e, w, st, input, wq, last)
+                else -> {
+                    val parts = ArrayList<Pair<FrameInput, DoubleArray?>>()
+                    windowParts(st, input, parts)
+                    if (parts.size <= MAX_WINDOW_PARTS) runWindowParts(e, w, st, parts, wq, last)
+                    else {
+                        // Never let a brush's shape freeze a frame (the palette knife made 604 parts, 45 s on the Note 9,
+                        // when its steps were measured by their old full square): past the cap, the frame runs as before.
+                        android.util.Log.w("JoyBrushMedia", "a frame would need ${parts.size} parts: drawn as before, clipped")
+                        w.follow(followRect, fx, fy); runFrame(e, w, st, input, wq, last)
+                    }
+                }
             }
             if (input.erase != null) st.eraseDabs.clear()
             return
@@ -490,9 +500,8 @@ class MediaCanvas(
      * rest with the last (each part runs its own water for its own dabs, and N parts with every step made one frame N
      * times as long: 4.7 s on the Note 9).
      */
-    private fun runWindowParts(e: MediaLayerEngine, w: MediaWindow, st: Stroke, input: FrameInput, wq: WetConstants, last: Boolean) {
-        val parts = ArrayList<Pair<FrameInput, DoubleArray?>>()
-        windowParts(st, input, parts)
+    private fun runWindowParts(e: MediaLayerEngine, w: MediaWindow, st: Stroke, parts: List<Pair<FrameInput, DoubleArray?>>,
+                               wq: WetConstants, last: Boolean) {
         android.util.Log.i("JoyBrushMedia", "a frame wider than the window, drawn in ${parts.size} parts")
         for ((i, p) in parts.withIndex()) {
             val (part, r) = p
@@ -533,7 +542,9 @@ class MediaCanvas(
         input.thin?.takeIf { it.count > 0 }?.let { add(it.dirty, wetPad) }
         input.wet?.takeIf { it.count > 0 }?.let { add(it.dirty, wetPad) }
         input.erase?.takeIf { it.count > 0 }?.let { add(it.dirty, 4.0) }
-        input.paste?.forEach { step -> add(cc.joycreator.joybrush.core.media.PasteFootprint.legacyBounds(step, st.brush!!, DOC_PX_PER_MM),
+        // A paste step's own footprint (the oriented box the paste pass draws), not its old full square: for the palette
+        // knife the square was wider than any window, so every frame split down to single steps.
+        input.paste?.forEach { step -> add(cc.joycreator.joybrush.core.media.PasteFootprint.docBounds(step, st.brush!!, 1.0, DOC_PX_PER_MM),
             MediaAtlasPlacement.PASTE_REACH + 4.0) }
         return r
     }
@@ -662,3 +673,6 @@ class MediaCanvas(
 
 /** Frames between the water measurements Option S reads in a window (the atlas measures every 8 frames for its own rules). */
 private const val QUIET_QUERY_FRAMES = 8
+
+/** The most parts a frame is drawn in by the window patch; a frame needing more runs as before (MediaCanvas.run). */
+private const val MAX_WINDOW_PARTS = 8

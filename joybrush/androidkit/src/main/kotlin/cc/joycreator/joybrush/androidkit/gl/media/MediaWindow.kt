@@ -119,10 +119,15 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
         // The window patch (2026-10-19): water in the tiles this move leaves behind dries where it lies before it is stored,
         // instead of being stored wet and frozen there (a hard wet/dry step at the old window's edge, owner-visible).
         val settled = if (layer == layerId && plane == this.plane && !legacyLook) settleLeaving(nx, ny) else emptyList()
+        // Their water stores go between strokes (GlPaintEngine.dropMediaTiles refuses during one: the first try dropped
+        // them here, mid-stroke, and the refusal ended the stroke on the Note 9). Until then they hold dried, zero water.
+        settledPending += settled
         flush()
-        if (settled.isNotEmpty()) layerId?.let { dropWater(it, settled) }
         load(layer, plane, nx, ny, resumeWater)
     }
+
+    /** Tiles whose water dried as the window left them (settleLeaving), their water stores to drop between strokes. */
+    private val settledPending = LinkedHashSet<Long>()
 
     /** Dries the water in the tiles a move to ([nx], [ny]) leaves; returns them (their water stores go after the flush). */
     private fun settleLeaving(nx: Int, ny: Int): List<Long> {
@@ -170,6 +175,10 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
         pendingStores += media.takeDirtyStores()
         if (rect != null) pendingRect = union(pendingRect, rect)
         if (rect != null) mediaTrace("JB.media.look.write") { writeLook(id, rect) }
+        if (stores && settledPending.isNotEmpty() && !paint.mediaStrokeInProgress) {
+            writeStores(id)   // what is pending lands first, so the dropped tiles are not written back after
+            dropWater(id, settledPending.toList()); settledPending.clear()
+        }
         mediaTrace("JB.media.store.write") { if (stores) writeStores(id) else reserveStores() }
     }
 
@@ -257,7 +266,7 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
 
     /** Nothing here has anywhere to go (the layer went, or the drawing did): drop it all, unwritten. */
     private fun forget() {
-        layerId = null; dryPending = false; pendingStores.clear(); pendingRect = null
+        layerId = null; dryPending = false; pendingStores.clear(); pendingRect = null; settledPending.clear()
         media.takeDirty(); media.takeDirtyStores(); media.stopWater()
     }
 

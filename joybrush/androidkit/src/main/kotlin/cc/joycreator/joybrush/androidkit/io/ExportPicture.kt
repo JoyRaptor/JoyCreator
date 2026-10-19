@@ -4,6 +4,7 @@ import cc.joycreator.joybrush.core.doc.Cel
 import cc.joycreator.joybrush.core.doc.LayerKind
 import cc.joycreator.joybrush.core.doc.RectPx
 import cc.joycreator.joybrush.core.doc.TILE_SIZE
+import cc.joycreator.joybrush.core.doc.hasPixels
 import cc.joycreator.joybrush.core.render.MAX_REGION_PX
 
 /**

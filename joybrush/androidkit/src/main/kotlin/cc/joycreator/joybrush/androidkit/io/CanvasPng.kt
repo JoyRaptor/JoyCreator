@@ -26,6 +26,15 @@ object CanvasPng {
     fun encode(contents: JbContents, includePaper: Boolean,
         paperRenderer: ((RectPx) -> ByteArray)? = null,
         onWarning: (String) -> Unit = {},
+    ): ByteArray = encodeRegion(contents, null, includePaper, paperRenderer, onWarning)
+
+    /**
+     * [region] of the drawing in document pixels, null for the active board's. The whole-drawing export (LAYER_OPS §6)
+     * passes [ExportPicture.wholeDrawing]: every board inside it shows its current frame, as on screen.
+     */
+    fun encodeRegion(contents: JbContents, region: RectPx?, includePaper: Boolean,
+        paperRenderer: ((RectPx) -> ByteArray)? = null,
+        onWarning: (String) -> Unit = {},
     ): ByteArray {
         val doc = contents.doc
         RegionRenderer.unsupportedContentReason(doc)?.let { throw JbArchiveException(it) }
@@ -35,9 +44,9 @@ object CanvasPng {
         if (doc.layers.any { !it.kind.hasPixels || it.animatedIn != null }) {
             throw JbArchiveException("this PNG renderer supports raster layers; vector rendering is not connected")
         }
-        val board = doc.boards.firstOrNull { it.id == doc.activeBoardId }
+        val rect = region ?: (doc.boards.firstOrNull { it.id == doc.activeBoardId }
             ?: doc.boards.singleOrNull()
-            ?: throw JbArchiveException("choose a board to export")
+            ?: throw JbArchiveException("choose a board to export")).rect
         for (layer in doc.layers) for (cel in DocOps.storedCels(layer)) for (key in cel.tiles) {
             if (Triple(layer.id, cel.id, key) !in contents.tiles) {
                 throw JbArchiveException("a tile of \"${layer.name}\" is missing; the PNG was not written")
@@ -58,17 +67,17 @@ object CanvasPng {
         // `RegionRenderer.render` is where `requireSize` throws, i.e. AFTER the decode, so the check
         // is repeated here in the one door that lacked it; `AnimExport.checkRegionFits` and
         // `OraExport.boardOf` already refuse before resolving their paper.
-        val regionPx = board.rect.w.toLong() * board.rect.h.toLong()
+        val regionPx = rect.w.toLong() * rect.h.toLong()
         if (regionPx > MAX_REGION_PX) {
             throw RegionException(
-                "a ${board.rect.w} by ${board.rect.h} region is $regionPx pixels, and the most this " +
+                "a ${rect.w} by ${rect.h} region is $regionPx pixels, and the most this " +
                     "renderer will allocate is $MAX_REGION_PX. Export a smaller area, or a piece of it at a time.",
             )
         }
         val renderer = paperRendererFor(contents, includePaper, paperRenderer, onWarning)
             ?: flatPaperRenderer(contents, includePaper, onWarning)
-        val pixels = RegionRenderer.render(doc, source, board.rect, null, null, renderer)
-        return PngWriter.encode(board.rect.w, board.rect.h, pixels)
+        val pixels = RegionRenderer.render(doc, source, rect, null, null, renderer)
+        return PngWriter.encode(rect.w, rect.h, pixels)
     }
 
     /**

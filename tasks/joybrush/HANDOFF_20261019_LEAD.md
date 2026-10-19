@@ -58,3 +58,20 @@ Read this first, then `specs/SYMMETRY_20261019.md` (the owner's newest request) 
   3. add a per-cell hash of MatrixBench's "after" plane on both builds (stateAfter is already read back) as the pixel-exact seam proof;
   4. push only if canvas/animation/sprite are within noise, tile is faster and the hashes match.
 - Helper handoff: helper1/media-atlas-b1 f834e9d0f, tasks/joybrush/handoffs/HELPER1_TILE_SPEED_HANDOFF_20261019.md (exact baseline command). Main baseline logs copied to tasks/joybrush/evidence/tile-baseline-20261019/.
+
+## Owner's phone test, 10-19 afternoon (evidence/owner-seams-20261019.jpg, red arrows)
+
+- **Water default stays "Today".** "A · brush first" stays an option; he didn't feel it much faster. Revisit once the optimisations land.
+- **Seams are still there**, in Today and in A:
+  - drips cut off flat;
+  - straight bands across a wash;
+  - seams that GROW as the water keeps running after it looked fine;
+  - a long crisscross stroke that seams.
+- Cause: the water only moves inside the ~1024 px patch near the pen. Drips running out of it, and water left behind when it moves, freeze at its edge. The 10-19 window patch only stopped STROKES being cut; it doesn't keep water outside the patch moving.
+- **Top engine item for next week: no seams.** All still-moving water must be simulated together. Options, in the lead's order:
+  1. a patch that grows to hold the moving water (bounded by memory; the whole-screen-patch scope, sized by the water instead of the screen; also needed for symmetry E4);
+  2. the parked atlas, if tilted flux gets fixed.
+  - Pair either with "water only where water is" for speed.
+- Water does follow the paper: jb_wet_flux runs water downhill along the paper's relief (u_paperBake height), with absorbency and fibre direction (u_fluidBake) and paper-dependent pinning at wet fronts.
+- **Rotation:** tipping the phone rotated the canvas. Fixed 10-19: while "Tilt with phone" is on, the screen keeps its orientation (lockRotationForTilt).
+  His phone's rotation lock keeps coming back unlocked after agent sessions. Known cause (DEVICE_CONTROL_RUNBOOK §monkey): `adb shell monkey` turns auto-rotate ON. Every agent must launch with `am start`, never monkey.

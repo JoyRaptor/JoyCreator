@@ -25,6 +25,10 @@ internal object TilePainting {
         return if (right <= left || bottom <= top) null else RegionTileRect(left.toInt(), top.toInt(), (right-left).toInt(), (bottom-top).toInt())
     }
 
+    /** [dabs]' period copies ([dabs]) bucketed by the [size] tiles they touch on board [rect], each tile's in dab order. */
+    fun bucketsOnBoard(rect: RectPx, dabs: List<Dab>, size: Int): Map<Long, List<Dab>> =
+        Tiles.bucket(dabs.flatMap { dabs(rect, it) }, size).filterKeys { clip(rect, it) != null }
+
     fun intersect(a: RegionTileRect, b: RegionTileRect): RegionTileRect? {
         val x = maxOf(a.x,b.x); val y = maxOf(a.y,b.y)
         val right = minOf(a.right,b.right); val bottom = minOf(a.bottom,b.bottom)

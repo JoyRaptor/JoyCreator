@@ -527,12 +527,14 @@ class GlPaintEngine(
      * tiling off; the previous preview simply stays. Ignored for a board that is not the armed tile.
      */
     fun setTilePreviewRect(id: String,rect: RectPx?) {
+        paintWaitingTileStroke()
         requireLocalPaint()
         if(rect == null || id != tileBoardId || strokeInProgress) { tilePreviewRect=null; return }
         val max=boardPreview.maxSide()
         if(TileLimits.fits(rect) && rect.w <= max && rect.h <= max) tilePreviewRect=rect
     }
     fun setOnionBoard(id: String?) {
+        paintWaitingTileStroke()
         requireLocalPaint()
         if(id != null) require(boardDocument?.boards?.any { it.id == id && it.kind == BoardKind.ANIMATION } == true)
         onionBoardId=id
@@ -540,6 +542,9 @@ class GlPaintEngine(
     /** GL-thread snapshot. Playback has no saved cursor and contributes no history step. */
     val previewFrames: Map<String, String> get() = framePreviews.toMap()
     private val strokeTiles = HashMap<Long, Int>()
+    /** A tile-board stroke's dabs and tuft stamps waiting for this frame's one paint pass (TileStrokeBatch). */
+    private val tileDabs = TileStrokeBatch<Dab>()
+    private val tileTufts = TileStrokeBatch<TuftStamp>()
     private var colR = 0f; private var colG = 0f; private var colB = 0f
     private var opacity = 1f
     private var accumulate = Accumulate.WASH
@@ -815,6 +820,7 @@ class GlPaintEngine(
 
     /** Adds an empty layer on top (no-op if it exists). */
     fun addLayer(id: String) {
+        paintWaitingTileStroke()
         requireLocalPaint()
         layers.getOrPut(id) { Layer(id) } }
 
@@ -833,6 +839,7 @@ class GlPaintEngine(
     private fun emptyTexOf(store: Layer): Int = if (store.isMask) whiteTex else clearTex
 
     fun setLayerOpacity(id: String, opacity: Float) {
+        paintWaitingTileStroke()
         requireLocalPaint()
         layers[id]?.opacity = opacity.coerceIn(0f, 1f) }
     fun setLayerName(id: String, name: String) {
@@ -921,6 +928,7 @@ class GlPaintEngine(
 
     /** The stack made [target] with NO undo step: loading a drawing. */
     fun setStack(target: LayerStack) {
+        paintWaitingTileStroke()
         requireLocalPaint()
         applyStack(target)
         activeHint = target.activeId
@@ -1365,6 +1373,7 @@ class GlPaintEngine(
 
     /** The same small preview, bounded to a selected board, including negative document coordinates. */
     fun renderThumbnail(id: String, bounds: RectPx, outW: Int, outH: Int): IntArray? {
+        paintWaitingTileStroke()
         val layer = storeOf(id) ?: return null
         val pageW = bounds.w
         val pageH = bounds.h
@@ -1478,6 +1487,7 @@ class GlPaintEngine(
         }
     }
     fun setLayerVisible(id: String, visible: Boolean) {
+        paintWaitingTileStroke()
         requireLocalPaint()
         layers[id]?.visible = visible }
 
@@ -1487,6 +1497,7 @@ class GlPaintEngine(
      * non-NORMAL layer sends the whole stack down [drawComposited].
      */
     fun setLayerBlend(id: String, mode: BlendMode) {
+        paintWaitingTileStroke()
         requireLocalPaint()
         layers[id]?.blend = mode }
     fun layerBlend(id: String): BlendMode = layers[id]?.blend ?: BlendMode.NORMAL
@@ -1494,6 +1505,7 @@ class GlPaintEngine(
 
     /** Empties a layer as one undoable step. */
     fun clearLayer(id: String) {
+        paintWaitingTileStroke()
         requireLocalPaint()
         settleLift()
         val layer = storeOf(id) ?: return
@@ -1535,6 +1547,7 @@ class GlPaintEngine(
      * row (no flip needed). Null if the tile does not exist.
      */
     fun readTile(layerId: String, key: Long): ByteArray? {
+        paintWaitingTileStroke()
         settleWatercolourFade()
         settleLift()
         val store=storeOf(layerId) ?: return null
@@ -1569,6 +1582,7 @@ class GlPaintEngine(
      * eyedropper reads one pixel per move, not a whole 256 KB tile).
      */
     fun readPixel(layerId: String, docX: Int, docY: Int): ByteArray? {
+        paintWaitingTileStroke()
         val tx = Math.floorDiv(docX, size)
         val ty = Math.floorDiv(docY, size)
         val store=storeOf(layerId) ?: return null
@@ -1589,6 +1603,7 @@ class GlPaintEngine(
      * clears nothing else. Creates the layer and the tile if needed.
      */
     fun writeTile(layerId: String, key: Long, rgba: ByteArray) {
+        paintWaitingTileStroke()
         requireLocalPaint()
         require(rgba.size == size * size * 4) { "tile must be ${size * size * 4} bytes, got ${rgba.size}" }
         val layer = storeOrCreate(layerId)
@@ -1731,6 +1746,7 @@ class GlPaintEngine(
         private set
 
     fun resetDocument() {
+        paintWaitingTileStroke()
         settleLift()
         check(!resettingJointPaint) { "Finish joint retirement before resetting the drawing" }
         documentGeneration += 1
@@ -2009,6 +2025,7 @@ class GlPaintEngine(
         return physicalDisplayTiles(layer, planeOf(layer, celId)).keys.toList()
     }
     fun writeCelTile(layerId: String,celId: String,key: Long,rgba: ByteArray) {
+        paintWaitingTileStroke()
         requireLocalPaint()
         require(rgba.size==size*size*4)
         val layer=layers[layerId] ?: error("No live layer $layerId")
@@ -2016,6 +2033,7 @@ class GlPaintEngine(
         uploadTile(store.getOrPut(key){newLayerTile()},rgba); invalidateProjection(layer)
     }
     fun readCelTile(layerId: String,celId: String,key: Long): ByteArray? {
+        paintWaitingTileStroke()
         settleWatercolourFade()
         settleLift()
         val layer = layers[layerId] ?: return null
@@ -2490,6 +2508,7 @@ class GlPaintEngine(
 
     /** GL thread. A deleted layer's or frame's lines are history only and are not saved. */
     fun lineSave(): LineSave {
+        paintWaitingTileStroke()
         settleWatercolourFade()
         settleLift()
         val records = LinkedHashMap<LinePlane, List<StrokeRecord>>()
@@ -2928,6 +2947,7 @@ class GlPaintEngine(
                 watercolourSeed = record.seed)
             requireRecordedGrainAssets(replay.strokeGrain, look, loadedPaper?.paper)
             addDabs(replay.dabs)
+            paintWaitingTileStroke()
             if (wcSpec != null) wcPass?.finishInto(strokeTiles, 1f)
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
             GLES30.glViewport(0, 0, size, size)
@@ -4642,14 +4662,27 @@ class GlPaintEngine(
             if (dab.travelKnown) dab else dab.copy(travelX=strokeTravel.x,travelY=strokeTravel.y,travelKnown=true)
         }
         val tile=strokeTileRect
-        val (wrapped, buckets) = mediaTrace("JB.paint.dabs.wrap") {
-            val w = if(tile == null) directed else directed.flatMap { TilePainting.dabs(tile,it) }
-            w to Tiles.bucket(w, size).filterKeys { tile == null || TilePainting.clip(tile,it) != null }
+        val buckets = mediaTrace("JB.paint.dabs.wrap") {
+            if (tile == null) Tiles.bucket(directed, size) else TilePainting.bucketsOnBoard(tile, directed, size)
         }
         require(tile == null || (strokeTiles.keys + buckets.keys).toSet().size <= TilePainting.MAX_TILES) { "This tile stroke is too large" }
         for (key in buckets.keys) strokeTiles.getOrPut(key) { newStrokeTile() }
+        if (tile != null) {
+            // A tile stroke's dabs wait for one paint pass a frame (paintWaitingTileStroke). The tiles are made and the
+            // size refusal given now, as before; a lean the waiting run does not share paints the run first.
+            val lean = TileStrokeBatch.leanOf(dabs)
+            if (!tileDabs.fits(lean)) paintTileDabs()
+            tileDabs.add(buckets, lean, dabs[dabs.size - 1])
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+            return
+        }
+        drawDabBuckets(buckets, dabs[dabs.size - 1])
+    }
+
+    /** Draws bucketed dabs into their stroke tiles ([fbo] bound, blending set); per-batch uniforms from [newest]. */
+    private fun drawDabBuckets(buckets: Map<Long, List<Dab>>, newest: Dab) {
         dabProg.use()
-        stamp.setStrokeUniforms(GlUniformSink, dabProg::loc, look, dabs[dabs.size - 1], size, 1f)
+        stamp.setStrokeUniforms(GlUniformSink, dabProg::loc, look, newest, size, 1f)
         GLES30.glBindVertexArray(dabVao)
 
         for ((key, list) in buckets) {
@@ -4731,6 +4764,17 @@ class GlPaintEngine(
         val buckets = TuftMath.bucket(wrapped, size).filterKeys { tile == null || TilePainting.clip(tile,it) != null }
         require(tile == null || (strokeTiles.keys + buckets.keys).toSet().size <= TilePainting.MAX_TILES) { "This tile stroke is too large" }
         for (key in buckets.keys) strokeTiles.getOrPut(key) { newStrokeTile() }
+        if (tile != null) {
+            // As addDabs: a tile stroke's stamps wait for one paint pass a frame. Tuft uniforms are the stroke's own.
+            tileTufts.add(buckets)
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+            return
+        }
+        drawTuftBuckets(shading, buckets)
+    }
+
+    /** Draws bucketed tuft stamps into their stroke tiles ([fbo] bound, blending set). */
+    private fun drawTuftBuckets(shading: TuftShading, buckets: Map<Long, List<TuftStamp>>) {
         tuftProg.use()
         GLES30.glUniform1f(tuftProg.loc("u_tileSize"), size.toFloat())
         GLES30.glUniform1f(tuftProg.loc("u_bristles"), shading.bristles)
@@ -4832,10 +4876,41 @@ class GlPaintEngine(
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
     }
 
+    /**
+     * Paints what a tile-board stroke has waiting (TileStrokeBatch): one pass, one framebuffer switch per tile, the same
+     * dabs in the same order per tile as painting each pen event. Called before anything draws, reads, ends or changes
+     * around the stroke; costs one emptiness check otherwise.
+     */
+    private fun paintWaitingTileStroke() {
+        if (!tileDabs.isEmpty()) mediaTrace("JB.paint.dabs") { paintTileDabs() }
+        if (!tileTufts.isEmpty()) mediaTrace("JB.paint.tuft") {
+            val shading = requireNotNull(tuft)
+            bindStrokeTarget()
+            drawTuftBuckets(shading, tileTufts.take())
+        }
+    }
+
+    /** The waiting dabs' run (already inside addDabs' trace when a new lean ends it there). */
+    private fun paintTileDabs() {
+        if (tileDabs.isEmpty()) return
+        val newest = requireNotNull(tileDabs.uniformsFrom)
+        bindStrokeTarget()
+        drawDabBuckets(tileDabs.take(), newest)
+    }
+
+    /** The stroke buffer as addDabs / addTuftStamps bind it: [fbo], tile viewport, premultiplied blending. */
+    private fun bindStrokeTarget() {
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
+        GLES30.glViewport(0, 0, size, size)
+        GLES30.glEnable(GLES30.GL_BLEND)
+        GLES30.glBlendFuncSeparate(GLES30.GL_ONE, GLES30.GL_ONE_MINUS_SRC_ALPHA, GLES30.GL_ONE, GLES30.GL_ONE_MINUS_SRC_ALPHA)
+    }
+
     /** Commits the active stroke into its layer as one undoable step. Returns tiles changed. */
     fun endStroke(): Int = mediaTrace("JB.paint.commit") { endStrokeInner() }
     private fun endStrokeInner(): Int {
         requireLocalPaint()
+        paintWaitingTileStroke()
         val layer = strokeLayer ?: return 0
         val options = wcSpec
         if(options != null && !wcPrepared) {
@@ -4933,6 +5008,7 @@ class GlPaintEngine(
     }
 
     fun undoStep(): Boolean {
+        paintWaitingTileStroke()
         settleLift()
         if (publishedPaint != null) {
             val step = undo.peekUndo() ?: return false
@@ -4960,6 +5036,7 @@ class GlPaintEngine(
     }
 
     fun redoStep(): Boolean {
+        paintWaitingTileStroke()
         settleLift()
         if (publishedPaint != null) {
             val step = undo.peekRedo() ?: return false
@@ -5872,6 +5949,7 @@ class GlPaintEngine(
 
     /** Preview modes affect the screen only. Archives, thumbnails and exports always call draw. */
     fun drawDisplay(w: Int,h: Int,m: FloatArray,paper: Int) {
+        paintWaitingTileStroke()
         val doc=boardDocument
         val tile=tileBoardId?.let { id -> doc?.boards?.firstOrNull { it.id == id } }
         if(tile != null) {
@@ -5913,6 +5991,7 @@ class GlPaintEngine(
      * framebuffer. [docToClip] is a column-major 3×3 matrix from document px to clip space.
      */
     fun draw(viewportW: Int, viewportH: Int, docToClip: FloatArray, paperArgb: Int, targetFbo: Int = 0) {
+        paintWaitingTileStroke()
         if (needsComposite()) { drawComposited(viewportW, viewportH, docToClip, paperArgb, targetFbo); return }
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, targetFbo)
         GLES30.glViewport(0, 0, viewportW, viewportH)
@@ -6208,6 +6287,7 @@ class GlPaintEngine(
     }
 
     private fun releaseStrokeTiles() {
+        tileDabs.clear(); tileTufts.clear()
         // Back into the pool it came from: a smudge's RGBA tiles and a stamp's single-channel tiles are not interchangeable.
         if (strokeIsRgba) { freeSmudgeTex.addAll(strokeTiles.values); trimPool(freeSmudgeTex, 16) }
         else { freeStrokeTex.addAll(strokeTiles.values); trimPool(freeStrokeTex, 32) }

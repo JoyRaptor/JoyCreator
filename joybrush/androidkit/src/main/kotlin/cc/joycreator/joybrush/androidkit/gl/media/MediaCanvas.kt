@@ -135,6 +135,9 @@ class MediaCanvas(
     ) {
         var penX = 0.0
         var penY = 0.0
+        /** Where the window's follow point was last frame (its travel picks where a moving window goes); NaN at first. */
+        var lastPenX = Double.NaN
+        var lastPenY = Double.NaN
         var reachPx = 0.0
         /** Eraser dabs waiting for the next frame: x, y, radius, strength (then 16 unused floats each). */
         val eraseDabs = ArrayList<Dab>()
@@ -449,8 +452,11 @@ class MediaCanvas(
             followRect = doubleArrayOf(st.penX - r, st.penY - r, st.penX + r, st.penY + r); fx = st.penX; fy = st.penY
         }
         // The window patch: a frame whose paint would fall off the window it is about to follow to is drawn in parts.
-        // Every other frame runs exactly as before.
+        // Every other frame runs exactly as before. A window that must move goes ahead of the pen's travel.
         if (w is MediaWindow && !legacyWindow) {
+            val dirX = if (st.lastPenX.isNaN()) 0.0 else fx - st.lastPenX
+            val dirY = if (st.lastPenY.isNaN()) 0.0 else fy - st.lastPenY
+            st.lastPenX = fx; st.lastPenY = fy
             val wq0 = water()
             val wq = if (waterAB.brushFirst && (st.wet != null || st.thin != null || e.wetActive))
                 wq0.copy(substeps = schedule.whileDrawing(true, wq0.substeps)) else wq0
@@ -461,7 +467,7 @@ class MediaCanvas(
             val dabs = frameRect(st, input, padded = false)
             w.lookHalo = haloOf(lookNow())
             when {
-                dabs == null || !w.wouldClip(followRect, fx, fy, dabs) -> { w.follow(followRect, fx, fy); runFrame(e, w, st, input, wq, last) }
+                dabs == null || !w.wouldClip(followRect, fx, fy, dabs, dirX, dirY) -> { w.followTravel(followRect, fx, fy, dirX, dirY); runFrame(e, w, st, input, wq, last) }
                 // Most frames the usual follow would clip fit one window placed on their dabs: one move, the frame whole.
                 w.holdWhole(dabs) -> runFrame(e, w, st, input, wq, last)
                 else -> {
@@ -472,7 +478,7 @@ class MediaCanvas(
                         // Never let a brush's shape freeze a frame (the palette knife made 604 parts, 45 s on the Note 9,
                         // when its steps were measured by their old full square): past the cap, the frame runs as before.
                         android.util.Log.w("JoyBrushMedia", "a frame would need ${parts.size} parts: drawn as before, clipped")
-                        w.follow(followRect, fx, fy); runFrame(e, w, st, input, wq, last)
+                        w.followTravel(followRect, fx, fy, dirX, dirY); runFrame(e, w, st, input, wq, last)
                     }
                 }
             }

@@ -31,6 +31,20 @@ object MediaWindowMath {
      */
     const val SPAN = PX - 2 * MARGIN - Tiles.SIZE
 
+    /**
+     * Where a window that must move goes, given which way the pen travels ([dirX], [dirY], document px since the last
+     * frame): [placeFor] puts the pen in the third of four tiles, which leaves one tile and a bit ahead of a pen
+     * travelling right or down and two behind it; moving right (or down) the pen goes in the second tile instead, so the
+     * room ahead doubles and the next move comes about twice as late. Left, up, or still: exactly [placeFor].
+     */
+    fun placeForTravel(docX: Double, docY: Double, dirX: Double, dirY: Double): Pair<Int, Int> {
+        val (tx, ty) = placeFor(docX, docY)
+        return Pair(if (dirX > TRAVEL_PX) tx + 1 else tx, if (dirY > TRAVEL_PX) ty + 1 else ty)
+    }
+
+    /** Pen movement (document px a frame) below which a stroke counts as still: no travel direction. */
+    const val TRAVEL_PX = 2.0
+
     /** The window's top-left tile that puts document rectangle [rect]'s middle nearest the window's middle. */
     fun placeForRect(rect: DoubleArray): Pair<Int, Int> =
         Pair(kotlin.math.round((rect[0] + rect[2]) / 2 / Tiles.SIZE - TILES / 2.0).toInt(),

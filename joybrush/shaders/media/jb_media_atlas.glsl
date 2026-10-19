@@ -22,13 +22,16 @@ uniform highp ivec4 u_atlasWalls;        // .x = 1 in the water's passes: tiles 
 flat in highp ivec4 v_slot;              // this fragment's slot origin (atlas texels, xy) and its tile (zw); a pass that
                                          // is not per-slot (brush cells, the look) gets a tile no layer cell can have
 #ifdef JB_ATLAS_NBR
-// The look (JB_ATLAS_NBR, with JB_ATLAS): drawn tile by tile, each draw handed the slots of its tile and the 8 around it,
-// which is every tile a look pixel reads (its reach, 56 px, is under a tile). A read is then a few integer ops: no page
-// table, no branch. Through the table, the look's ~160 reads a pixel each inlined the whole lookup: the shader took 194 s
-// to compile on a PC and ~100 s on the Note 9, and drew 50x slower than the window's there, long enough to hang the GPU
-// (2026-10-18). The same texels as the table gives (the host fills these from it), so the same look, bit for bit.
-uniform highp ivec2 u_nbrTile;           // the tile this draw covers
-uniform highp ivec2 u_nbrSlot[9];        // slot origins (atlas texels) of tiles u_nbrTile + (-1..1, -1..1), row by row; x < 0 = not here
+// JB_ATLAS_NBR (with JB_ATLAS): the pass is drawn tile by tile, each draw handed the slots of its tile and the 8 around
+// it, which is every tile its reads reach (every reach is under a tile: look 56, wet 80, paste 12 px). A read is then a
+// few integer ops: no page table, no branch. Through the table, every read inlined the whole lookup: the look took 194 s to
+// compile on a PC and ~100 s on the Note 9 and drew 50x slower than the window's there, long enough to hang the GPU; the
+// water's flux 7.6 s to compile and its frames ran 5-15x the window's (2026-10-18). The host fills these from the very
+// table (MediaAtlasGl.neighbours), so the same texels are read: the same result, bit for bit. No Tile-board wrap here.
+uniform highp ivec2 u_nbrTile;           // the tile this draw covers (v_slot.zw in a per-slot pass)
+uniform highp ivec2 u_nbrSlot[9];        // full-resolution slot origins (atlas texels) of tiles u_nbrTile + (-1..1, -1..1),
+                                         // row by row; -1 = not here, JB_NBR_WALL = a wall for this (water) pass
+const highp int JB_NBR_WALL = -2;
 #endif
 #endif
 
@@ -81,13 +84,18 @@ highp ivec2 jb_ownCell(highp ivec2 q, highp int shift, out bool ok) {
 // Layer cell q at slot side (1 << shift) → its atlas texel. ok = false where the tile is not resident.
 highp ivec2 jb_atS(highp ivec2 q, highp int shift, out bool ok) {
 #ifdef JB_ATLAS_NBR
-    // Branch-free: the index is clamped into the 3x3 and ok says whether it had to be.
+    // Branch-free: the index is clamped into the 3x3 and ok says whether it had to be. A wall reads the reader's own cell
+    // nearest q (jb_ownCell). Half-resolution fields (shift 7) sit at half the full-resolution origins.
+    highp int down = JB_SLOT_SHIFT - shift;
     highp ivec2 nt = q >> shift;
     highp ivec2 d = nt - u_nbrTile + 1;
     highp ivec2 dc = clamp(d, 0, 2);
     highp ivec2 o = u_nbrSlot[dc.y * 3 + dc.x];
-    ok = d == dc && o.x >= 0 && shift == JB_SLOT_SHIFT;
-    return ok ? o + (q - (nt << shift)) : ivec2(0);
+    bool wall = o.x == JB_NBR_WALL;
+    highp ivec2 lo = u_nbrTile << shift;
+    highp ivec2 a = wall ? (u_nbrSlot[4] >> down) + clamp(q, lo, lo + (1 << shift) - 1) - lo : (o >> down) + (q - (nt << shift));
+    ok = d == dc && (wall || o.x >= 0);
+    return ok ? a : ivec2(0);
 #else
     if (u_atlasWrap.z > 0) {
         // A Tile board repeats in pixel space; boards need not be tile-aligned. The half-res field wraps at half the
@@ -117,7 +125,12 @@ highp ivec2 jb_atS(highp ivec2 q, highp int shift, out bool ok) {
 
 // True where layer cell q (full resolution) is a wall for the water (see JB_WALL_BIT); never in the window build.
 bool jb_wall(highp ivec2 q) {
-#ifdef JB_ATLAS
+#if defined(JB_ATLAS) && defined(JB_ATLAS_NBR)
+    highp ivec2 nt = q >> JB_SLOT_SHIFT;   // walls are marked only while the water's passes draw (MediaAtlasGl.neighbours)
+    highp ivec2 d = nt - u_nbrTile + 1;
+    highp ivec2 dc = clamp(d, 0, 2);
+    return d == dc && nt != u_nbrTile && u_nbrSlot[dc.y * 3 + dc.x].x == JB_NBR_WALL;
+#elif defined(JB_ATLAS)
     if (u_atlasWalls.x == 0) return false;
     highp ivec2 tile = q >> JB_SLOT_SHIFT;
     if (tile == v_slot.zw) return false;

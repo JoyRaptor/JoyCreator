@@ -32,6 +32,42 @@ const SRC = {
   fragN: define(expand('media/jb_media_render.frag'), 'JB_ATLAS', 'JB_ATLAS_NBR'),
 };
 for (const k of Object.keys(SRC)) SRC[k] = fresh(SRC[k]);
+// --compile-all: every program of MediaLayerEngine's programTable, window build and atlas build (its own defines), timed.
+const PROGRAMS = [['dry dab', 'jb_dry_dab.vert', 'jb_dry_dab.frag'], ['apply', 'jb_media_quad.vert', 'jb_media_apply.frag'],
+  ['copy', 'jb_media_quad.vert', 'jb_media_copy.frag'], ['render', 'jb_media_screen.vert', 'jb_media_render.frag', [], ['JB_ATLAS_NBR']],
+  ['bake', 'jb_media_quad.vert', 'jb_media_bake.frag'], ['wet dab', 'jb_wet_dab.vert', 'jb_wet_dab.frag'],
+  ['wet flux', 'jb_media_quad.vert', 'jb_wet_flux.frag'], ['wet update', 'jb_media_quad.vert', 'jb_wet_update.frag'],
+  ['paste dab', 'jb_media_quad.vert', 'jb_paste_dab.frag'], ['paste brush', 'jb_media_quad.vert', 'jb_paste_brush.frag', ['JB_PLAIN_TARGET']],
+  ['wet bead', 'jb_media_quad.vert', 'jb_wet_bead.frag'], ['erase dab', 'jb_media_erase_dab.vert', 'jb_media_erase_dab.frag'],
+  ['erase', 'jb_media_quad.vert', 'jb_media_erase_apply.frag'], ['wet activity', 'jb_media_screen.vert', 'jb_wet_activity.frag']];
+const ALL = PROGRAMS.map(([label, v, f, plain = [], extra = []]) => ({ label,
+  window: [fresh(expand('media/' + v)), fresh(expand('media/' + f))],
+  atlas: [fresh(define(expand('media/' + v), 'JB_ATLAS', ...plain)), fresh(define(expand('media/' + f), 'JB_ATLAS', ...plain, ...extra))] }));
+
+async function COMPILE(P) {
+  const c = document.createElement('canvas'); const gl = c.getContext('webgl2');
+  const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+  const out = { renderer: dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : '', programs: [] };
+  for (const p of P.all) {
+    const r = { label: p.label };
+    for (const build of ['window', 'atlas']) {
+      const t0 = performance.now();
+      try {
+        const pr = gl.createProgram();
+        for (const [type, src] of [[gl.VERTEX_SHADER, p[build][0]], [gl.FRAGMENT_SHADER, p[build][1]]]) {
+          const sh = gl.createShader(type); gl.shaderSource(sh, src); gl.compileShader(sh);
+          if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh).slice(0, 300));
+          gl.attachShader(pr, sh);
+        }
+        gl.linkProgram(pr);
+        if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr).slice(0, 300));
+        r[build + 'Ms'] = Math.round(performance.now() - t0);
+      } catch (e) { r[build + 'Error'] = String(e.message || e); }
+    }
+    out.programs.push(r);
+  }
+  return out;
+}
 
 async function PAGE(P) {
   const out = { variants: {} };
@@ -159,7 +195,8 @@ async function PAGE(P) {
   }
   page.setDefaultTimeout(600000);
   await page.setContent('<!doctype html><title>look bench</title><body></body>');
-  const r = await page.evaluate(PAGE, { ...SRC, reps: parseInt(argVal('reps', '5'), 10), only: argVal('only', null) });
+  const r = process.argv.includes('--compile-all') ? await page.evaluate(COMPILE, { all: ALL })
+    : await page.evaluate(PAGE, { ...SRC, reps: parseInt(argVal('reps', '5'), 10), only: argVal('only', null) });
   console.log(JSON.stringify(r, null, 1));
   await page.close();
   if (!cdp) await browser.close(); else await browser.close().catch(() => {});

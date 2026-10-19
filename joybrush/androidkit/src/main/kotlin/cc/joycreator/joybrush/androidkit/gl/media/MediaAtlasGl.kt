@@ -88,16 +88,21 @@ internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: I
     }
 
     /**
-     * The look's reads (JB_ATLAS_NBR, jb_media_atlas.glsl): into [out] (18 ints), the first texel of the slots holding tiles
-     * ([tx], [ty]) + (-1..1, -1..1), row by row, x = -1 where a tile is not here: what the page table says of each, so the
-     * look reads the very texels a table read would (the probe's broken table included).
+     * A JB_ATLAS_NBR pass's reads (jb_media_atlas.glsl): into [out] (18 ints), the first texel of the slots holding tiles
+     * ([tx], [ty]) + (-1..1, -1..1), row by row, x = -1 where a tile is not here and -2 for a wall when [withWalls] (the
+     * water's passes, [wallsOn]): what the page table says of each, so the very texels a table read would (the probe's
+     * broken table included).
      */
-    fun neighbours(tx: Int, ty: Int, out: IntArray) {
+    fun neighbours(tx: Int, ty: Int, out: IntArray, withWalls: Boolean = false) {
         var i = 0
         for (dy in -1..1) for (dx in -1..1) {
             val x = tx + dx; val y = ty + dy
             val s = if (broken && !free) { if (x in 0 until nx && y in 0 until ny) slotOf((x + 1) % nx, y) else -1 } else slotOf(x, y)
-            if (s < 0) { out[i] = -1; out[i + 1] = -1 } else { val (ax, ay) = slotTexel(s); out[i] = ax; out[i + 1] = ay }
+            when {
+                withWalls && Tiles.key(x, y) in walls -> { out[i] = -2; out[i + 1] = -2 }
+                s < 0 -> { out[i] = -1; out[i + 1] = -1 }
+                else -> { val (ax, ay) = slotTexel(s); out[i] = ax; out[i + 1] = ay }
+            }
             i += 2
         }
     }
@@ -146,6 +151,7 @@ internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: I
     }
 
     fun uniforms(u: UniformBank, shift: Int = MediaAtlasDraw.SHIFT) {
+        bank = u
         u.itex("u_atlasTable", table)
         u.i4("u_atlasGrid", grid[0], grid[1], grid[2], grid[3])
         u.f1("u_atlasSlotsX", nx)
@@ -176,8 +182,22 @@ internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: I
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, instBuf)
         GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, n * 32, upload.upload(draw.rect, n * 8), GLES30.GL_STREAM_DRAW)
         GLES30.glBindVertexArray(quadVao)
-        GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, n)
+        val u = bank
+        if (u == null || !u.has("u_nbrSlot")) { GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, n); return }
+        // JB_ATLAS_NBR: one slot a draw, each handed its 3x3 neighbours (the instance's attributes moved to it).
+        for (i in 0 until n) {
+            val tx = draw.rect[i * 8 + 2].toInt(); val ty = draw.rect[i * 8 + 3].toInt()
+            neighbours(tx, ty, nbrSlots, wallsOn)
+            nbrTile[0] = tx; nbrTile[1] = ty; u.i2v("u_nbrTile", nbrTile); u.i2v("u_nbrSlot", nbrSlots)
+            for (k in 0 until 2) GLES30.glVertexAttribPointer(1 + k, 4, GLES30.GL_FLOAT, false, 32, i * 32 + k * 16)
+            GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, 1)
+        }
+        for (k in 0 until 2) GLES30.glVertexAttribPointer(1 + k, 4, GLES30.GL_FLOAT, false, 32, k * 16)
     }
+    private val nbrSlots = IntArray(18)
+    private val nbrTile = IntArray(2)
+    /** The bank of the program the pass made current ([uniforms] is called for every pass before it draws). */
+    private var bank: UniformBank? = null
 
     /**
      * [batch]'s dabs, each once per slot its box touches (dab order kept). [boxOf] writes dab i's layer-px box into its array;

@@ -89,18 +89,18 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
      */
     private val programTable: List<ProgramSpec> = listOf(
         ProgramSpec({ progDab = it }, "jb_dry_dab.vert", "jb_dry_dab.frag", "media dry dab"),
-        ProgramSpec({ progApply = it }, "jb_media_quad.vert", "jb_media_apply.frag", "media apply"),
-        ProgramSpec({ progCopy = it }, "jb_media_quad.vert", "jb_media_copy.frag", "media copy"),
-        ProgramSpec({ progRender = it }, "jb_media_screen.vert", "jb_media_render.frag", "media render", atlasDefs = listOf("JB_ATLAS_NBR")),
-        ProgramSpec({ progBake = it }, "jb_media_quad.vert", "jb_media_bake.frag", "media bake"),
+        ProgramSpec({ progApply = it }, "jb_media_quad.vert", "jb_media_apply.frag", "media apply", atlasDefs = ATLAS_NBR),
+        ProgramSpec({ progCopy = it }, "jb_media_quad.vert", "jb_media_copy.frag", "media copy", atlasDefs = ATLAS_NBR),
+        ProgramSpec({ progRender = it }, "jb_media_screen.vert", "jb_media_render.frag", "media render", atlasDefs = ATLAS_NBR),
+        ProgramSpec({ progBake = it }, "jb_media_quad.vert", "jb_media_bake.frag", "media bake", atlasDefs = ATLAS_NBR),
         ProgramSpec({ progWetDab = it }, "jb_wet_dab.vert", "jb_wet_dab.frag", "media wet dab"),
-        ProgramSpec({ progFlux = it }, "jb_media_quad.vert", "jb_wet_flux.frag", "media wet flux"),
-        ProgramSpec({ progUpdate = it }, "jb_media_quad.vert", "jb_wet_update.frag", "media wet update"),
-        ProgramSpec({ progPasteDab = it }, "jb_media_quad.vert", "jb_paste_dab.frag", "media paste dab"),
+        ProgramSpec({ progFlux = it }, "jb_media_quad.vert", "jb_wet_flux.frag", "media wet flux", atlasDefs = ATLAS_NBR),
+        ProgramSpec({ progUpdate = it }, "jb_media_quad.vert", "jb_wet_update.frag", "media wet update", atlasDefs = ATLAS_NBR),
+        ProgramSpec({ progPasteDab = it }, "jb_media_quad.vert", "jb_paste_dab.frag", "media paste dab", atlasDefs = ATLAS_NBR),
         ProgramSpec({ progPasteBrush = it }, "jb_media_quad.vert", "jb_paste_brush.frag", "media paste brush", plain = true),
-        ProgramSpec({ progBead = it }, "jb_media_quad.vert", "jb_wet_bead.frag", "media wet bead"),
+        ProgramSpec({ progBead = it }, "jb_media_quad.vert", "jb_wet_bead.frag", "media wet bead", atlasDefs = ATLAS_NBR),
         ProgramSpec({ progEraseDab = it }, "jb_media_erase_dab.vert", "jb_media_erase_dab.frag", "media erase dab"),
-        ProgramSpec({ progErase = it }, "jb_media_quad.vert", "jb_media_erase_apply.frag", "media erase"),
+        ProgramSpec({ progErase = it }, "jb_media_quad.vert", "jb_media_erase_apply.frag", "media erase", atlasDefs = ATLAS_NBR),
         ProgramSpec({ progActivity = it }, "jb_media_screen.vert", "jb_wet_activity.frag", "media wet activity"),
     )
     private class ProgramSpec(val set: (MediaProgram) -> Unit, val vert: String, val frag: String, val label: String, val plain: Boolean = false,
@@ -1309,3 +1309,9 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     private fun union(a: FloatArray?, b: FloatArray): FloatArray =
         if (a == null) b.copyOf() else floatArrayOf(min(a[0], b[0]), min(a[1], b[1]), max(a[2], b[2]), max(a[3], b[3]))
 }
+
+/**
+ * The atlas build of every pass drawn slot by slot: reads through the 3x3 neighbour slots, not the page table
+ * (JB_ATLAS_NBR, jb_media_atlas.glsl): compiles in a fraction of the time and runs near the window's speed.
+ */
+private val ATLAS_NBR = listOf("JB_ATLAS_NBR")

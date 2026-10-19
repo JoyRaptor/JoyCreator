@@ -36,12 +36,6 @@ object MediaWindowMath {
         Pair(kotlin.math.round((rect[0] + rect[2]) / 2 / Tiles.SIZE - TILES / 2.0).toInt(),
             kotlin.math.round((rect[1] + rect[3]) / 2 / Tiles.SIZE - TILES / 2.0).toInt())
 
-    /** Of the tiles [keys] (in the window at ([tx], [ty])), those a window at ([nx], [ny]) no longer holds. */
-    fun leaving(keys: Collection<Long>, nx: Int, ny: Int): List<Long> {
-        val stays = allKeys(nx, ny).toSet()
-        return keys.filter { it !in stays }
-    }
-
     /** Whether a document rectangle [x0, y0, x1, y1] stays [MARGIN] inside the window whose top-left tile is ([tx], [ty]). */
     fun holds(tx: Int, ty: Int, rect: DoubleArray): Boolean {
         val ox = tx * Tiles.SIZE.toDouble(); val oy = ty * Tiles.SIZE.toDouble()

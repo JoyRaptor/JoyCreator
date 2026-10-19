@@ -395,7 +395,7 @@ class MediaCanvas(
             made.renderLook(r, paint.mediaPaper(), l, DOC_PX_PER_MM); Unit
         }
         val dry = { rects: List<FloatArray> -> made.dryTilesNow(rects, paint.mediaPaper(), DOC_PX_PER_MM, water()) }
-        window = (if (atlas) MediaAtlas(paint, made, render, dry) else MediaWindow(paint, made, render, dry)).also { it.stats = stats }
+        window = (if (atlas) MediaAtlas(paint, made, render, dry) else MediaWindow(paint, made, render)).also { it.stats = stats }
         return made
     }
 
@@ -467,8 +467,9 @@ class MediaCanvas(
      * The window patch (2026-10-19): one frame of a stroke in the window, every dab drawn. A frame whose dabs reach wider
      * than the window holds (MediaWindowMath.SPAN; a slow first frame after an install batches a whole stroke) is drawn in
      * parts, its dabs in order, the window moving to each, exactly as a faster phone would have drawn them; the window
-     * clipped such dabs before, and lost the stroke's far end. Water the window leaves behind dries where it lies
-     * (MediaWindow.settleLeaving).
+     * clipped such dabs before, and lost the stroke's far end. The parts share the frame's water steps: one each, the
+     * rest with the last (each part runs its own water for its own dabs, and N parts with every step made one frame N
+     * times as long: 4.7 s on the Note 9).
      */
     private fun runWindowed(e: MediaLayerEngine, w: MediaWindow, st: Stroke, batch: DabBatch?, last: Boolean) {
         w.lookHalo = haloOf(lookNow())
@@ -477,24 +478,28 @@ class MediaCanvas(
             wq0.copy(substeps = schedule.whileDrawing(true, wq0.substeps)) else wq0
         val input = FrameInput(batch, st.thin?.take(), st.paste?.take(), st.wet?.take(),
             if (st.erase && st.eraseDabs.isNotEmpty()) eraseBatch(st.eraseDabs) else null)
-        runWindowPart(e, w, st, input, wq, last)
+        val parts = ArrayList<Pair<FrameInput, DoubleArray?>>()
+        windowParts(st, input, parts)
+        for ((i, p) in parts.withIndex()) {
+            val (part, r) = p
+            if (r != null) w.follow(r, (r[0] + r[2]) / 2, (r[1] + r[3]) / 2)
+            else { val q = st.reachPx + 4; w.follow(doubleArrayOf(st.penX - q, st.penY - q, st.penX + q, st.penY + q), st.penX, st.penY) }
+            val final = i == parts.lastIndex
+            val steps = if (final) maxOf(1, wq.substeps - (parts.size - 1)) else 1
+            runFrame(e, w, st, part, if (steps == wq.substeps) wq else wq.copy(substeps = steps), last && final)
+        }
         if (input.erase != null) st.eraseDabs.clear()
     }
 
-    private fun runWindowPart(e: MediaLayerEngine, w: MediaWindow, st: Stroke, input: FrameInput, wq: WetConstants, last: Boolean) {
+    /** [input] cut in halves, in dab order, until each part fits the window (MediaWindowMath.SPAN), with what it reaches. */
+    private fun windowParts(st: Stroke, input: FrameInput, out: MutableList<Pair<FrameInput, DoubleArray?>>) {
         val r = frameRect(st, input)
         if (r != null && (r[2] - r[0] > MediaWindowMath.SPAN || r[3] - r[1] > MediaWindowMath.SPAN)) {
             val halves = input.halves()
-            if (halves != null) {
-                runWindowPart(e, w, st, halves.first, wq, last = false)
-                runWindowPart(e, w, st, halves.second, wq, last)
-                return
-            }
+            if (halves != null) { windowParts(st, halves.first, out); windowParts(st, halves.second, out); return }
             android.util.Log.w("JoyBrushMedia", "one dab wider than the window holds (${(r[2] - r[0]).toInt()} px)")
         }
-        if (r != null) w.follow(r, (r[0] + r[2]) / 2, (r[1] + r[3]) / 2)
-        else { val p = st.reachPx + 4; w.follow(doubleArrayOf(st.penX - p, st.penY - p, st.penX + p, st.penY + p), st.penX, st.penY) }
-        runFrame(e, w, st, input, wq, last)
+        out += input to r
     }
 
     /** Everything [input] paints and reads, in document px (what the window must hold for it); null: nothing to paint. */

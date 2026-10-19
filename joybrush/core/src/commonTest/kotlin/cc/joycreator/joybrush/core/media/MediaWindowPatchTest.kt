@@ -1,6 +1,5 @@
 package cc.joycreator.joybrush.core.media
 
-import cc.joycreator.joybrush.core.paint.Tiles
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -18,13 +17,5 @@ class MediaWindowPatchTest {
             assertTrue(MediaWindowMath.holds(tx, ty, rect), "${rect.toList()} at $tx,$ty")
         }
         assertEquals(512, MediaWindowMath.SPAN, "4 tiles less the two margins and one tile of rounding")
-    }
-
-    @Test fun theTilesLeftBehindAreTheOldWindowsOnesTheNewOneDoesNotHold() {
-        val old = MediaWindowMath.allKeys(0, 0)
-        val going = MediaWindowMath.leaving(old, 1, 0)
-        assertEquals((0..3).map { Tiles.key(0, it) }, going, "moving one tile right leaves the first column")
-        assertTrue(MediaWindowMath.leaving(old, 0, 0).isEmpty())
-        assertEquals(old.size, MediaWindowMath.leaving(old, 9, 9).size)
     }
 }

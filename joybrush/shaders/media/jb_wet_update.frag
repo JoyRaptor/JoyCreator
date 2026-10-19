@@ -44,6 +44,7 @@ uniform float u_edgeDep;        // pigment drops out faster at the drying edge (
 uniform float u_mingle;         // pigment spreading through connected water (cells²/s): wet-in-wet colour mixing
 uniform sampler2D u_waterBake;  // R = paper height smoothed to fibre scale
 uniform sampler2D u_fluidBake;  // absorbency, fibre direction, capacity
+uniform float u_noBody;         // owner A/B (2026-10-18): 1 = watercolour leaves no paint body (no relief); unset 0 = as always
 
 layout(location = 0) out vec4 o_w0;
 layout(location = 1) out vec4 o_w1;
@@ -181,7 +182,7 @@ void main() {
     }
     p0.rgb += dep.rgb;
     p1.rgb += vec3(dep.a);
-    p0.a += dot(dep.rgb, vec3(1.0)) * 0.0004;   // pigment film volume (tiny; paste media add body)
+    p0.a += dot(dep.rgb, vec3(1.0)) * 0.0004 * (1.0 - u_noBody);   // pigment film volume (tiny; paste media add body)
 
     o_w0 = vec4(w, s, age, outW / max(u_dt, 1.0e-6));
     o_w1 = max(pig, vec4(0.0));

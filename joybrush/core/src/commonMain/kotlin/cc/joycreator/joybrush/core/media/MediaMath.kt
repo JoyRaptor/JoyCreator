@@ -40,27 +40,47 @@ internal fun grow(rect: DoubleArray?, x0: Double, y0: Double, x1: Double, y1: Do
     if (rect == null) doubleArrayOf(x0, y0, x1, y1)
     else doubleArrayOf(min(rect[0], x0), min(rect[1], y0), max(rect[2], x1), max(rect[3], y1))
 
-/** Instanced dabs for a media pass: [FLOATS] floats each, in the layout the dab vertex shader reads. */
-class DabBatch(val dabs: FloatArray, val count: Int, val dirty: DoubleArray?) {
+/**
+ * Instanced dabs for a media pass: [FLOATS] floats each, in the layout the dab vertex shader reads. [boxes]: each dab's
+ * own doc-px box (4 doubles per dab), when known, so a frame too big for the media atlas can be split in time ([slice]).
+ */
+class DabBatch(val dabs: FloatArray, val count: Int, val dirty: DoubleArray?, val boxes: DoubleArray? = null) {
+    /**
+     * Dabs [from] until [to], in order, with their own dirty box: what a faster phone would have batched into a frame of
+     * its own (Media Atlas v2 B3 step 6, the Lead's D3). Null when the boxes are not known.
+     */
+    fun slice(from: Int, to: Int): DabBatch? {
+        val b = boxes ?: return null
+        require(from in 0..to && to <= count) { "slice $from..$to of $count dabs" }
+        var d: DoubleArray? = null
+        for (i in from until to) d = grow(d, b[i * 4], b[i * 4 + 1], b[i * 4 + 2], b[i * 4 + 3])
+        return DabBatch(dabs.copyOfRange(from * FLOATS, to * FLOATS), to - from, d, b.copyOfRange(from * 4, to * 4))
+    }
+
     companion object { const val FLOATS = 20 }
 }
 
 /** Collects dab instances (20 floats each) and the doc-px rectangle they touch. */
 internal class DabCollector {
     private val pending = ArrayList<DoubleArray>()
+    private val boxes = ArrayList<DoubleArray>()
     var dirty: DoubleArray? = null
         private set
 
     fun push(inst: DoubleArray, box: DoubleArray) {
         pending.add(inst)
+        boxes.add(box)
         dirty = grow(dirty, box[0], box[1], box[2], box[3])
     }
 
     fun take(): DabBatch {
         val out = FloatArray(pending.size * DabBatch.FLOATS)
         pending.forEachIndexed { i, inst -> for (k in 0 until DabBatch.FLOATS) out[i * DabBatch.FLOATS + k] = inst[k].toFloat() }
-        val batch = DabBatch(out, pending.size, dirty)
+        val bx = DoubleArray(boxes.size * 4)
+        boxes.forEachIndexed { i, b -> for (k in 0 until 4) bx[i * 4 + k] = b[k] }
+        val batch = DabBatch(out, pending.size, dirty, bx)
         pending.clear()
+        boxes.clear()
         dirty = null
         return batch
     }

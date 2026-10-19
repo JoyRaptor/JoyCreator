@@ -68,7 +68,7 @@ function wetUniformMap(wc) {
     u_runMmPerS: wc.runMmPerS, u_runMm: wc.runMm, u_runHoldMm: wc.runHold * tooth, u_runFilmMm: wc.runFilm, u_runPin: wc.runPin, u_runSizing: wc.runSizing,
     u_dripGapMm: wc.dripGap, u_quietMm: wc.quiet, u_runHoldK: wc.runHoldK, u_runCoherent: wc.runCoherent, u_runCohere: wc.runCohere,
     u_steerScale: wc.steerScale, u_runSteer: wc.runSteer, u_runAlong: wc.runAlong, u_heightMean: heightMean, u_fullMm: wc.fullMm, u_filmMm: wc.filmMm,
-    u_edgeDep: wc.edgeDep, u_mingle: Math.min(0.24 / wc.dt, wc.mingle),
+    u_edgeDep: wc.edgeDep, u_mingle: Math.min(0.24 / wc.dt, wc.mingle), u_noBody: 0,
   };
 }
 const WC = { dt: 1 / 120, substeps: 4, flow: 30, keep: 0.9, pinMm: 0.22, dampS: 0.35, minMm: 0.002, evap: 0.003, edgeEvap: 4, absorb: 0.25, capMm: 0.08, wick: 5,
@@ -241,7 +241,7 @@ const SCENARIOS = [
     return fs.existsSync(edge) ? edge : null;
   })();
   if (!exe) { console.log(JSON.stringify({ pass: false, error: 'no browser: pass --chrome <exe> or set CHROME' })); process.exit(1); }
-  const browser = await chromium.launch({ executablePath: exe, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+  const browser = await chromium.launch({ executablePath: exe, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });   // SwiftShader only: these compare the atlas with the WINDOW build, two different programs, and a real GPU's compiler may round them apart (Intel d3d11: dry dabs differ by an ulp even at the proven size; the Note 9's Adreno does not)
   let out;
   try {
     const page = await browser.newPage();

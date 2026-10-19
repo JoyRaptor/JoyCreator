@@ -73,6 +73,17 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
 
     override fun touched(nowMs: Long) { lastActiveMs = nowMs }
 
+    /** The drawing this atlas's state was loaded from: none of it is written back once another has opened. */
+    private val drawing = DocumentStamp { paint.documentGeneration }
+
+    /** Another drawing opened since this loaded ([DocumentStamp]): let everything go unwritten. True when it did. */
+    private fun staleDrawing(): Boolean {
+        if (layerId == null || !drawing.stale) return false
+        android.util.Log.w("JoyBrushMedia", "another drawing opened under the live paint: let it go unwritten")
+        forget()
+        return true
+    }
+
     override fun releaseIfIdle(nowMs: Long): Boolean {
         if (layerId == null || media.asleep || media.wetActive || paint.mediaStrokeInProgress) return false
         if (nowMs - lastActiveMs < MediaWindow.IDLE_MS) return false
@@ -81,7 +92,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
     }
 
     override fun release() {
-        if (layerId == null) return
+        if (layerId == null || staleDrawing()) return
         flush()
         for (r in slots.residents()) if (r.dirty) writeBackSlot(r.slot, r.page.tileKey)
         pinned.clear(); admitted = false; slots.clear(); media.setResidency(emptyMap())
@@ -91,10 +102,12 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
     }
 
     override fun place(layer: String, plane: String?, docX: Double, docY: Double, resumeWater: Boolean) {
+        staleDrawing()
         if (layerId != null && (layer != layerId || plane != this.plane)) release()
         if (layerId == null) {
             // Requirement 5 happens per tile as it loads (dropStalePayload in [loadSlot]).
             media.wake()
+            drawing.stamp()
             layerId = layer; this.plane = plane
             groundFromLook.clear()
         }
@@ -115,7 +128,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
     var admissionMisses = 0; private set
 
     override fun admit(needs: List<MediaLayerEngine.Need>) {
-        if (layerId == null || needs.isEmpty()) return
+        if (staleDrawing() || layerId == null || needs.isEmpty()) return
         val now = nowMs()
         if (!media.wetActive && needs.none { it.water }) resetWater()
         val keys = LinkedHashSet<Long>()
@@ -207,7 +220,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
 
     private fun applyActivity(a: FloatArray, at: Map<Int, Long>) {
         val now = nowMs()
-        val perRow = media.slotCount.let { kotlin.math.sqrt(it.toDouble()).toInt() } * (tile / 16)
+        val perRow = media.textureWidth / 16   // the measurement's rows: one value per 16 px of the atlas's width
         val minMm = WET_MIN_MM
         for ((slot, key) in at) {
             if (slots.resident(page(key))?.slot != slot) continue
@@ -346,10 +359,8 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
     // ---- the frame boundary (as MediaWindow.flush: the look every frame, the stores at the stroke's end) ----
     override fun flush(stores: Boolean) {
         val id = layerId ?: return
-        if (id !in paint.layerIds()) {
-            layerId = null; dryPending = false; pendingStores.clear(); pendingRect = null; pinned.clear(); admitted = false; slots.clear(); media.setResidency(emptyMap())
-            media.takeDirty(); media.takeDirtyStores(); media.stopWater(); return
-        }
+        if (staleDrawing()) return
+        if (id !in paint.layerIds()) { forget(); return }
         if (dryPending && !paint.mediaStrokeInProgress) { dryPending = false; dropWater(id) }
         val rect = media.takeDirty()
         pendingStores += media.takeDirtyStores()
@@ -443,12 +454,20 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         if (firstTouch.isNotEmpty()) paint.writableMediaTiles(id, firstTouch, listOf(MediaStores.GROUND), plane)
     }
 
+    /** Nothing here has anywhere to go (the layer went, or the drawing did): drop it all, unwritten (no slot written back). */
+    private fun forget() {
+        layerId = null; dryPending = false; pendingStores.clear(); pendingRect = null; pinned.clear(); admitted = false; slots.clear(); media.setResidency(emptyMap())
+        resetWater()
+        media.takeDirty(); media.takeDirtyStores(); media.stopWater()
+    }
+
     private fun dropWater(id: String) {
         val keys = heldKeys()
         for (store in MediaStores.WATER) paint.dropMediaTiles(id, store, keys.filter { paint.mediaTile(id, store, it, plane) != null }, plane)
     }
 
     override fun restored(layer: String, plane: String?, keys: Set<Long>): Boolean {
+        if (staleDrawing()) return false
         if (layer != layerId || plane != this.plane) return false
         val mine = heldKeys().toSet()
         if (keys.none { it in mine }) return false
@@ -460,6 +479,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
     }
 
     override fun lookWritten(layer: String, plane: String?, keys: Set<Long>) {
+        if (staleDrawing()) return
         if (layer != layerId || plane != this.plane || media.asleep) return
         for (key in keys) {
             val res = slots.resident(page(key)) ?: continue
@@ -468,7 +488,20 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         }
     }
 
+    /** Tile by tile (each with what its look reads), so any area fits; held only while it is redone. */
+    override fun refreshLook(rect: FloatArray) {
+        if (staleDrawing()) return
+        val id = layerId ?: return
+        for (key in keysIn(rect)) {
+            val part = MediaAtlasWater.intersect(intArrayOf(floor(rect[0]).toInt(), floor(rect[1]).toInt(), ceil(rect[2]).toInt(), ceil(rect[3]).toInt()),
+                MediaAtlasWater.rectOf(key)) ?: continue
+            writeLook(id, floatArrayOf(part[0].toFloat(), part[1].toFloat(), part[2].toFloat(), part[3].toFloat()))
+            unpinAll()
+        }
+    }
+
     override fun wakeWater() {
+        if (staleDrawing()) return
         val id = layerId ?: return
         if (media.wetActive) return
         val wet = heldKeys().filter { paint.mediaTile(id, "w0", it, plane) != null }

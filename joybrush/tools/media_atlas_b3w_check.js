@@ -28,7 +28,9 @@ const ROOT = path.join(__dirname, '..');
 const SHADER_DIR = path.join(ROOT, 'shaders');
 function argVal(name, dflt) { const i = process.argv.indexOf('--' + name); return i >= 0 && i + 1 < process.argv.length ? process.argv[i + 1] : dflt; }
 const QUICK = process.argv.includes('--quick');
-const PPM = 12, LW = 1536, AW = 1792;   // every engine 7 x 7 slots; the atlas under test may use only 15
+const PPM = 12, LW = parseInt(argVal('layer', '1536'), 10), CAP = parseInt(argVal('cap', '15'), 10);
+// Every engine has room for every tile (+ staging), as a square of slots; the atlas under test may use only CAP of them.
+const AW = Math.ceil(Math.sqrt((LW / 256) ** 2 + 1)) * 256;
 
 const INCLUDE_RE = /^#include\s+"([^"]+)"$/;
 function expand(rel, seen = new Set()) {
@@ -59,7 +61,7 @@ function wetUniformMap(wc) {
     u_runMmPerS: wc.runMmPerS, u_runMm: wc.runMm, u_runHoldMm: wc.runHold * tooth, u_runFilmMm: wc.runFilm, u_runPin: wc.runPin, u_runSizing: wc.runSizing,
     u_dripGapMm: wc.dripGap, u_quietMm: wc.quiet, u_runHoldK: wc.runHoldK, u_runCoherent: wc.runCoherent, u_runCohere: wc.runCohere,
     u_steerScale: wc.steerScale, u_runSteer: wc.runSteer, u_runAlong: wc.runAlong, u_heightMean: heightMean, u_fullMm: wc.fullMm, u_filmMm: wc.filmMm,
-    u_edgeDep: wc.edgeDep, u_mingle: Math.min(0.24 / wc.dt, wc.mingle),
+    u_edgeDep: wc.edgeDep, u_mingle: Math.min(0.24 / wc.dt, wc.mingle), u_noBody: 0,
   };
 }
 const WC = { dt: 1 / 120, substeps: 4, flow: 30, keep: 0.9, pinMm: 0.22, dampS: 0.35, minMm: 0.002, evap: 0.003, edgeEvap: 4, absorb: 0.25, capMm: 0.08, wick: 5,
@@ -219,16 +221,19 @@ function buildPaste(sc) {
 const FLAT = [0, 0], F = (n) => QUICK ? Math.max(4, n >> 2) : n;
 // Every point at least 215 px inside the layer: the wet reach (80) plus the look's halo and reach (110) never meet its edge.
 const M0 = 215, M1 = LW - 215;
-const SNAKE = [[M0, 215], [M1, 215], [M1, 490], [M0, 490], [M0, 765], [M1, 765], [M1, 1040], [M0, 1040], [M0, M1], [M1, M1]];
+const ROWS = LW === 1536 ? [215, 490, 765, 1040, M1] : Array.from({ length: Math.floor((M1 - 215) / 275) + 1 }, (_, i) => 215 + 275 * i);
+const SNAKE = LW === 1536 ? [[M0, 215], [M1, 215], [M1, 490], [M0, 490], [M0, 765], [M1, 765], [M1, 1040], [M0, 1040], [M0, M1], [M1, M1]]
+  : ROWS.flatMap((y, i) => i % 2 ? [[M1, y], [M0, y]] : [[M0, y], [M1, y]]);
 const DOT = (x, y) => [[x - 60, y - 20], [x + 60, y + 20]];
-const DOTS = [[300, 300], [1236, 1236], [300, 1236], [1236, 300], [768, 768], [768, 300], [300, 768], [1236, 768], [768, 1236]];
+const DOTS = LW === 1536 ? [[300, 300], [1236, 1236], [300, 1236], [1236, 300], [768, 768], [768, 300], [300, 768], [1236, 768], [768, 1236]]
+  : [0, 1, 2].flatMap((j) => [0, 1, 2].map((i) => [300 + i * (LW - 600) / 2, 300 + j * (LW - 600) / 2])).sort((a, b) => (a[0] * 7 + a[1] * 3) % 5 - (b[0] * 7 + b[1] * 3) % 5);
 // Frames are 1/30 s of water (4 substeps of 1/120 s): "quiet for 2 s" is 60 frames.
 const SCENARIOS = [
   // D2: one continuous trail, the pen always at its young end; the old end dries and becomes a wall as room runs out.
   buildWetLong({ name: 'wet Round, one long trail over 36 tiles', brush: 'Round', segments: [{ path: SNAKE, frames: F(120) }], after: F(20), slope: [0, 0], seed: 51 }),
   // D1: three pools, the pen away for 2.7 s, then a fourth pool far from them: the farthest quiet pool dries whole.
-  buildWetLong({ name: 'wet Round, quiet pools then a new one', brush: 'Round', segments: [...[[300, 300], [1236, 300], [300, 1236]].map(([x, y]) => ({ path: DOT(x, y), frames: F(12) })),
-    { pause: true, frames: F(80) }, { path: DOT(1236, 1236), frames: F(12) }], after: F(10), slope: [0, 0], seed: 53 }),
+  buildWetLong({ name: 'wet Round, quiet pools then a new one', brush: 'Round', segments: [...[[300, 300], [LW - 300, 300], [300, LW - 300]].map(([x, y]) => ({ path: DOT(x, y), frames: F(12) })),
+    { pause: true, frames: F(80) }, { path: DOT(LW - 300, LW - 300), frames: F(12) }], after: F(10), slope: [0, 0], seed: 53 }),
   // Stress: nine pools one after another, each still moving when the next starts.
   buildWetLong({ name: 'wet Round, nine separate pools', brush: 'Round', segments: DOTS.map(([x, y]) => ({ path: DOT(x, y), frames: F(12) })), after: F(30), slope: [0, 0], seed: 52,
     kinds: ['orderA', 'orderB', 'noWalls'] }),
@@ -261,7 +266,7 @@ const KINDS = ['orderA', 'orderB', 'settleMidFlow', 'noWalls', 'deviation'];
         try {
           const page = await browser.newPage();
           page.on('console', (m) => { if (m.type() === 'error') console.error('[page]', m.text()); });
-          part = await page.evaluate(PAGE, { LW, AW, PPM, SRC, wu: wetUniformMap(WC), WC, REACH, KINDS: [kind], scenarios: [SCENARIOS[si]], images: !!argVal('images', null), clean: process.argv.includes('--clean') });
+          part = await page.evaluate(PAGE, { LW, AW, PPM, SRC, wu: wetUniformMap(WC), WC, REACH, CAP, KINDS: [kind], scenarios: [SCENARIOS[si]], images: !!argVal('images', null), clean: process.argv.includes('--clean') });
         } catch (e) { part = { results: [{ name: SCENARIOS[si].name, medium: SCENARIOS[si].kind, mismatch: {}, evictions: {}, loads: {}, misses: {}, planMismatch: {}, settled: {}, drained: {}, maxResident: 0, tilesCrossed: 0, changed: 0, error: kind + ': ' + String(e.message || e).split(String.fromCharCode(10))[0] }], missingUniforms: [], crashed: true }; }
         finally { await browser.close().catch(() => {}); }
         if (!part.crashed) break;
@@ -292,7 +297,7 @@ const KINDS = ['orderA', 'orderB', 'settleMidFlow', 'noWalls', 'deviation'];
     noWalls += r.mismatch.noWalls?.total ?? 0; drains += r.drained.orderA ?? 0;
   }
   const longStroke = out.results.some(r => r.tilesCrossed >= 30);
-  const sane = out.results.every(r => (r.evictions.orderA ?? 0) > 0 && r.maxResident <= 15 && r.changed > 200);
+  const sane = out.results.every(r => (r.evictions.orderA ?? 0) > 0 && r.maxResident <= CAP && r.changed > 200);
   const pass = errors === 0 && exactBad === 0 && planBad === 0 && misses === 0 && midFlow > 0 && (drains === 0 || noWalls > 0) && longStroke && sane;
   if (argVal('images', null)) for (const r of out.results) if (r.images) {
     for (const [k, b64] of Object.entries(r.images)) fs.writeFileSync(path.join(argVal('images'), r.name.replace(/[^a-z0-9]+/gi, '_') + '_' + k + '.rgba'), Buffer.from(b64, 'base64'));
@@ -477,10 +482,10 @@ async function PAGE(P) {
       const oracle = kind.startsWith('oracle');
       const order = [...Array(RESIDENT).keys()];
       if (kind === 'orderB' || kind === 'noWalls') { const rr = rngf(0xb2b2); for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(rr() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; } }
-      E.cap = oracle ? RESIDENT : 15;
+      E.cap = oracle ? RESIDENT : P.CAP;
       E.free = order.slice(0, E.cap);
       // The water's rules, against the same virtual budget of 15 for every engine but the never-settling one.
-      E.capV = kind === 'oracleFree' ? Infinity : 15;
+      E.capV = kind === 'oracleFree' ? Infinity : P.CAP;
       E.water = WaterRules(kind === 'settleMidFlow' ? 0 : 2000);
       E.walls = new Set(); E.skip = new Set(); E.skipOn = false; E.wallsOn = false; E.noWalls = kind === 'noWalls';
       E.planLog = new Map(); E.pendingQuant = []; E.settledN = 0; E.drainedN = 0; E.waterHeld = new Set(); E.admitted = false;

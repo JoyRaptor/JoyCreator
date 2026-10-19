@@ -43,8 +43,13 @@ internal object MediaAtlasProbe {
     private const val SIZE = 768
 
     fun probe(shaders: ShaderLibrary, paper: MediaPaperGl): String {
-        val kinds = listOf("window", "atlas", "scrambled", "broken")
-        val engines = kinds.map { k -> MediaLayerEngine(shaders, atlasMode = k != "window", atlasBroken = k == "broken").also { it.init(SIZE, SIZE) } }
+        // pasteCopy: the window with one copy-back per paste step (the path before paired steps): must be the window's bits.
+        val kinds = listOf("window", "atlas", "scrambled", "broken", "pasteCopy")
+        val engines = kinds.map { k ->
+            MediaLayerEngine(shaders, atlasMode = k != "window" && k != "pasteCopy", atlasBroken = k == "broken").also {
+                it.init(SIZE, SIZE); if (k == "pasteCopy") it.pastePairs = false
+            }
+        }
         // B2's free placement: the same 3 × 3 tiles, every one in a slot that is not its own (no two neighbours adjacent in
         // the atlas the way they are on the layer). Read back un-shuffled, it must be the window's bits.
         engines[2].setResidency(SCRAMBLE.withIndex().associate { (t, slot) -> cc.joycreator.joybrush.core.paint.Tiles.key(t % 3, t / 3) to slot })
@@ -115,9 +120,23 @@ internal object MediaAtlasProbe {
                 var frames = 0
                 for (chunk in pts.chunked(4)) {
                     frames++
-                    for ((i, e) in engines.withIndex()) { for (s in chunk) splines[i].add(s); for (step in paste[i].take()) e.pasteStep(step, brush, paper, ppm, 11) }
+                    for ((i, e) in engines.withIndex()) { for (s in chunk) splines[i].add(s); for (step in paste[i].take()) e.pasteStep(step, brush, paper, ppm, 11); e.pasteSettle() }
                 }
                 compare("oil round", frames)
+            }
+            // 4b) a palette knife (trowel) back across it: many steps a frame, the paired steps' strips and leftovers
+            run {
+                val brush = PasteBrushes.ALL["Palette knife 1"] ?: PasteBrushes.ALL.values.first()
+                engines.forEach { it.reloadBrush(opaquePaint(doubleArrayOf(0.2, 0.3, 0.75)), brush, 12) }
+                val paste = engines.map { PasteStroke(brush, ppm, 1.0) }
+                val splines = paste.map { p -> MediaSpline(sink = p::add) }
+                val pts = samples(50, 250f, 520f, -20f, 0.5)
+                var frames = 0
+                for (chunk in pts.chunked(5)) {
+                    frames++
+                    for ((i, e) in engines.withIndex()) { for (s in chunk) splines[i].add(s); for (step in paste[i].take()) e.pasteStep(step, brush, paper, ppm, 12); e.pasteSettle() }
+                }
+                compare("palette knife", frames)
             }
             // 5) the eraser across everything, both seams
             run {
@@ -148,9 +167,12 @@ internal object MediaAtlasProbe {
             }
             var scrambledBad = 0L
             for (i in 0 until strokes.length()) scrambledBad += strokes.getJSONObject(i).getJSONObject("scrambled").getLong("pixels")
-            report.put("atlasVsWindowPixels", atlasBad).put("scrambledVsWindowPixels", scrambledBad).put("brokenDetectedPixels", brokenSeen).put("nonvacuous", !vacuous)
+            var pasteBad = 0L
+            for (i in 0 until strokes.length()) pasteBad += strokes.getJSONObject(i).getJSONObject("pasteCopy").getLong("pixels")
+            report.put("atlasVsWindowPixels", atlasBad).put("scrambledVsWindowPixels", scrambledBad).put("pastePairsVsCopyPixels", pasteBad)
+                .put("brokenDetectedPixels", brokenSeen).put("nonvacuous", !vacuous)
             report.put("glError", GLES30.glGetError())
-            report.put("pass", atlasBad == 0L && scrambledBad == 0L && brokenSeen > 0L && !vacuous)
+            report.put("pass", atlasBad == 0L && scrambledBad == 0L && pasteBad == 0L && brokenSeen > 0L && !vacuous)
         } catch (e: Throwable) {
             report.put("pass", false).put("error", e.toString())
         } finally {

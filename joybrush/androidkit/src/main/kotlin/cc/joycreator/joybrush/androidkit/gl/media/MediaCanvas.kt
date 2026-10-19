@@ -13,6 +13,8 @@ import cc.joycreator.joybrush.core.brush.scaled
 import cc.joycreator.joybrush.core.layers.LayerBudget
 import cc.joycreator.joybrush.core.media.DOC_PX_PER_MM
 import cc.joycreator.joybrush.core.media.DabBatch
+import cc.joycreator.joybrush.core.media.MediaAtlasPlacement
+import cc.joycreator.joybrush.core.paint.Tiles
 import cc.joycreator.joybrush.core.media.PasteStep
 import cc.joycreator.joybrush.core.media.DryStroke
 import cc.joycreator.joybrush.core.media.MediaSample
@@ -23,6 +25,9 @@ import cc.joycreator.joybrush.core.media.PasteBrush
 import cc.joycreator.joybrush.core.media.PasteStroke
 import cc.joycreator.joybrush.core.media.StickMaterial
 import cc.joycreator.joybrush.core.media.THINNER
+import cc.joycreator.joybrush.core.media.WaterAB
+import cc.joycreator.joybrush.core.media.WaterQuiet
+import cc.joycreator.joybrush.core.media.WaterSchedule
 import cc.joycreator.joybrush.core.media.WETNESS
 import cc.joycreator.joybrush.core.media.WetConstants
 import cc.joycreator.joybrush.core.media.WetStroke
@@ -62,6 +67,49 @@ class MediaCanvas(
      * (the same simulated time, less accuracy). Null = the shipped constants.
      */
     @Volatile var wetQuality: cc.joycreator.joybrush.core.media.WetConstants? = null
+
+    /**
+     * The owner's watercolour A/B ([WaterAB]: brush first, sleep when still, flat look while wet, no relief). The default
+     * is today's water exactly. Set from any thread; read on the GL thread each frame.
+     */
+    @Volatile var waterAB = WaterAB()
+    private val schedule = WaterSchedule()
+    private val quiet = WaterQuiet(WetConstants().minMm.toFloat())
+    /** Option S: the water stood still long enough; it is not simulated again until a stroke, a tilt or an undo. */
+    private var waterAsleep = false
+    /** Where the look was drawn flat while wet and not yet drawn over in full (layer px). */
+    private var flatArea: FloatArray? = null
+    private var activitySeen = 0
+    private var framesSinceQuery = 0
+
+    /** The water's constants this frame: the shipped ones (or the bench's), with the A/B applied. */
+    private fun water(): WetConstants = waterAB.apply(wetQuality ?: WetConstants())
+
+    /** The look drawn now: without relief while water runs, when the A/B asks for it. */
+    private fun lookNow(): MediaLook =
+        if (waterAB.flatLookWhileWet && engine?.wetActive == true && !waterAsleep)
+            MediaLook(look.paperColor, look.lamp, impasto = 0f, sheen = look.sheen, capMm = look.capMm)
+        else look
+
+    private fun haloOf(l: MediaLook) = if (l.impasto > 0f) MediaWindow.LOOK_HALO_MAX else MediaWindow.LOOK_HALO_FLAT
+
+    /** The water stopped or slept: the full look over everything drawn flat while it ran. */
+    private fun refreshFlat(w: MediaPlace) {
+        val r = flatArea ?: return
+        flatArea = null
+        w.lookHalo = haloOf(look)
+        mediaTrace("JB.media.look.refresh") { w.refreshLook(r) }
+    }
+
+    /** Option S's watch: how long the water has stood still. The atlas measures the water for its own rules; a window here. */
+    private fun quietMs(e: MediaLayerEngine, w: MediaPlace, nowMs: Long): Long {
+        if (w !is MediaAtlas) {
+            e.takeWaterActivity()
+            if (++framesSinceQuery >= QUIET_QUERY_FRAMES && e.requestWaterActivity()) framesSinceQuery = 0
+        }
+        if (e.activitySeq != activitySeen) { activitySeen = e.activitySeq; e.lastActivity?.let { quiet.observe(it, nowMs) } }
+        return quiet.quietFor(nowMs)
+    }
 
     /** The debug replay's counters, handed to each window made (null in normal use). */
     var stats: cc.joycreator.joybrush.androidkit.bench.FrameStats? = null
@@ -128,6 +176,8 @@ class MediaCanvas(
             w.place(layerId, paint.mediaPlaneAt(layerId, x, y), x, y)
             w.wakeWater()
             waterStoppedByUndo = false
+            waterAsleep = false
+            quiet.reset(nowMs)
             e.slope = slope
             look = MediaLook(rgb(paint.paperArgb).map { it.toFloat() }.toFloatArray(), lamp = look.lamp)
             paint.beginMediaStroke()
@@ -206,20 +256,36 @@ class MediaCanvas(
         // Water left lying in the window (a layer switch, a reopen, a window that was released and reloaded) starts to run
         // again when the paper tilts, not only at the next stroke. Water an undo stopped stays stopped.
         if (tilted && st == null && !e.wetActive && !e.asleep && !waterStoppedByUndo) w.wakeWater()
+        if (tilted && st == null && waterAsleep && !waterStoppedByUndo) { waterAsleep = false; quiet.reset(nowMs) }
         if (st != null) {
             stats?.let { if (it.recording) it.mediaFrames++ }
             run(e, w, st)
             w.touched(nowMs)
+            quiet.reset(nowMs)
             return true
         }
+        if (e.wetActive && waterAsleep) return false   // Option S: the water lies still in the window until it is woken
+        waterAsleep = false
         if (e.wetActive) {
-            val wq = wetQuality ?: WetConstants()
+            val ab = waterAB
+            val wq0 = water()
+            val wq = if (ab.brushFirst) wq0.copy(substeps = schedule.whileIdle(true, wq0.substeps)) else wq0
             if (w is MediaAtlas) w.admit(listOfNotNull(e.wetNeed(listOf(null), DOC_PX_PER_MM, wq.substeps)))
             e.wetFrame(null, paint.mediaPaper(), DOC_PX_PER_MM, wq)
             w.flush()
             w.touched(nowMs)
+            val sleepS = ab.sleepAfterQuietSec
+            if (sleepS != null && e.wetActive && quietMs(e, w, nowMs) >= sleepS * 1000) {
+                android.util.Log.i("JoyBrushWater", "the water stood still ${sleepS}s: asleep until the next stroke, tilt or undo")
+                waterAsleep = true
+                schedule.reset()
+                refreshFlat(w)
+                return false
+            }
             return true
         }
+        schedule.reset()
+        refreshFlat(w)
         if (w.releaseIfIdle(nowMs)) noteHeld()
         return false
     }
@@ -243,14 +309,14 @@ class MediaCanvas(
 
     /** [GlPaintEngine.onMediaRestored]: undo or redo stops the water and reloads (never restarting it). */
     fun restored(layerId: String, plane: String?, keys: Set<Long>) {
-        if (window?.restored(layerId, plane, keys) == true) waterStoppedByUndo = true
+        if (window?.restored(layerId, plane, keys) == true) { waterStoppedByUndo = true; waterAsleep = false }
     }
 
     /** [GlPaintEngine.onLookWritten]: a plain write changed these tiles' pixels; the window reloads them. */
     fun lookWritten(layerId: String, plane: String?, keys: Set<Long>) { window?.lookWritten(layerId, plane, keys) }
 
     /** The layer or the screen changed: write back and let the window go. */
-    fun releaseWindow() { if (stroke == null) { window?.release(); noteHeld() } }
+    fun releaseWindow() { if (stroke == null) { window?.let(::refreshFlat); window?.release(); noteHeld() } }
 
     /** GL context lost or the canvas closing. */
     fun release() {
@@ -312,14 +378,23 @@ class MediaCanvas(
         if (warm !== made) warm?.releasePrograms()
         warm = null
         try {
-            made.init(MediaWindowMath.PX, MediaWindowMath.PX)
+            if (atlas) {
+                // Slot scaling (the Lead, Oct 18): as many slots as 20 % of what is free pays for, 16 to 64, near square.
+                val (cols, rows) = MediaAtlasPlacement.slotGrid(avail)
+                android.util.Log.i("JoyBrushMediaMemory", "atlas $cols x $rows slots (available=$avail)")
+                made.init(cols * Tiles.SIZE, rows * Tiles.SIZE)
+            } else made.init(MediaWindowMath.PX, MediaWindowMath.PX)
         } catch (x: IllegalStateException) {
             unsupported = "This phone's graphics cannot paint pencil, watercolour and oil (it has no float colour buffers)."
             return null
         }
         engine = made
-        val render = { r: FloatArray -> made.renderLook(r, paint.mediaPaper(), look, DOC_PX_PER_MM); Unit }
-        val dry = { rects: List<FloatArray> -> made.dryTilesNow(rects, paint.mediaPaper(), DOC_PX_PER_MM, wetQuality ?: WetConstants()) }
+        val render = { r: FloatArray ->
+            val l = lookNow()
+            if (l !== look) flatArea = flatArea?.let { a -> floatArrayOf(minOf(a[0], r[0]), minOf(a[1], r[1]), maxOf(a[2], r[2]), maxOf(a[3], r[3])) } ?: r.copyOf()
+            made.renderLook(r, paint.mediaPaper(), l, DOC_PX_PER_MM); Unit
+        }
+        val dry = { rects: List<FloatArray> -> made.dryTilesNow(rects, paint.mediaPaper(), DOC_PX_PER_MM, water()) }
         window = (if (atlas) MediaAtlas(paint, made, render, dry) else MediaWindow(paint, made, render)).also { it.stats = stats }
         return made
     }
@@ -361,7 +436,6 @@ class MediaCanvas(
      * so it moved and reloaded every frame and clipped dabs outside it (LEAD_PLAN F1, F2).
      */
     private fun run(e: MediaLayerEngine, w: MediaPlace, st: Stroke, last: Boolean = false) {
-        val paper = paint.mediaPaper()
         val batch = st.dry?.take()
         w.legacyLook = legacyWindow
         e.legacyRect = legacyWindow   // bench A/B: the old full-square paste rect too
@@ -376,14 +450,58 @@ class MediaCanvas(
             val r = st.reachPx + 4
             w.follow(doubleArrayOf(st.penX - r, st.penY - r, st.penX + r, st.penY + r), st.penX, st.penY)
         }
-        w.lookHalo = if (look.impasto > 0f) MediaWindow.LOOK_HALO_MAX else MediaWindow.LOOK_HALO_FLAT
+        w.lookHalo = haloOf(lookNow())
         // Every input of this frame, taken before any pass runs, so the atlas can admit the whole frame first (B3).
-        val wq = wetQuality ?: WetConstants()
-        val thin = st.thin?.take()
-        val steps = st.paste?.take()
-        val wetIn = st.wet?.take()
-        val eraseIn = if (st.erase && st.eraseDabs.isNotEmpty()) eraseBatch(st.eraseDabs) else null
-        if (w is MediaAtlas) w.admit(frameNeeds(e, st, batch, thin, steps, wetIn, eraseIn, wq))
+        // Option A (brush first): while the pen is down the water runs one step a frame; the rest is paid back after.
+        val wq0 = water()
+        val wq = if (waterAB.brushFirst && (st.wet != null || st.thin != null || e.wetActive))
+            wq0.copy(substeps = schedule.whileDrawing(true, wq0.substeps)) else wq0
+        val input = FrameInput(batch, st.thin?.take(), st.paste?.take(), st.wet?.take(),
+            if (st.erase && st.eraseDabs.isNotEmpty()) eraseBatch(st.eraseDabs) else null)
+        runFrame(e, w, st, input, wq, last)
+        if (input.erase != null) st.eraseDabs.clear()
+    }
+
+    /** One frame's inputs, in pen order within each medium. */
+    private class FrameInput(val dry: DabBatch?, val thin: DabBatch?, val paste: List<PasteStep>?, val wet: DabBatch?, val erase: DabBatch?) {
+        private fun n(b: DabBatch?) = b?.count ?: 0
+        val units get() = maxOf(n(dry), n(thin), paste?.size ?: 0, n(wet), n(erase))
+
+        /**
+         * The first and second halves of every input, in pen order (Media Atlas v2 B3 step 6, the Lead's D3): what a faster
+         * phone would have drawn as two frames. Null when it cannot be split (one dab, or dabs without their boxes).
+         */
+        fun halves(): Pair<FrameInput, FrameInput>? {
+            if (units < 2) return null
+            fun cut(b: DabBatch?): Pair<DabBatch?, DabBatch?>? {
+                if (b == null) return null to null
+                val m = (b.count + 1) / 2
+                return (b.slice(0, m) ?: return null) to (b.slice(m, b.count) ?: return null)
+            }
+            val d = cut(dry) ?: return null; val t = cut(thin) ?: return null; val w = cut(wet) ?: return null; val r = cut(erase) ?: return null
+            val pm = ((paste?.size ?: 0) + 1) / 2
+            return FrameInput(d.first, t.first, paste?.subList(0, pm), w.first, r.first) to
+                FrameInput(d.second, t.second, paste?.subList(pm, paste.size), w.second, r.second)
+        }
+    }
+
+    /**
+     * The passes of one frame. In the atlas the frame is admitted first; one that the atlas cannot hold even after the
+     * water made room (D1/D2) is split in time, its dabs in order, into frames that fit, each drawn, looked at and let go
+     * in turn, exactly as a faster phone would have batched the same dabs; only a single dab that cannot fit is refused.
+     */
+    private fun runFrame(e: MediaLayerEngine, w: MediaPlace, st: Stroke, input: FrameInput, wq: WetConstants, last: Boolean) {
+        val paper = paint.mediaPaper()
+        val batch = input.dry; val thin = input.thin; val steps = input.paste; val wetIn = input.wet; val eraseIn = input.erase
+        if (w is MediaAtlas) {
+            try { w.admit(frameNeeds(e, st, batch, thin, steps, wetIn, eraseIn, wq)) } catch (r: MediaRoomException) {
+                val (a, b) = input.halves() ?: throw r
+                android.util.Log.i("JoyBrushMediaAtlas", "a frame too big for the atlas, split in time (${input.units} dabs)")
+                runFrame(e, w, st, a, wq, last = false)
+                runFrame(e, w, st, b, wq, last)
+                return
+            }
+        }
         // Bench only: split the frame's media cost into the simulation (dabs, steps, water) and the write-back (look
         // render, tile copies), each finished on the GPU so the split is real time, not command submission.
         val timing = stats?.takeIf { it.recording }
@@ -394,12 +512,15 @@ class MediaCanvas(
             e.dryFrame(batch, batch.dabs[lastDab + 16].toDouble(), batch.dabs[lastDab + 17].toDouble(), paper, st.mat!!, DOC_PX_PER_MM)
         }
         if (st.thin != null) e.wetFrame(thin, paper, DOC_PX_PER_MM, wq)
-        if (steps != null) for (step in steps) e.pasteStep(step, st.brush!!, paper, DOC_PX_PER_MM, st.seed)
-        if (st.wet != null) e.wetFrame(wetIn, paper, DOC_PX_PER_MM, wq)
-        if (eraseIn != null) {
-            e.eraseFrame(eraseIn, existingStores(st.layerId, w))
-            st.eraseDabs.clear()
+        if (steps != null && steps.isNotEmpty()) {
+            mediaTrace("JB.media.paste.frame") {
+                for (step in steps) e.pasteStep(step, st.brush!!, paper, DOC_PX_PER_MM, st.seed)
+                e.pasteSettle()   // an unpaired last step's box back into the canvas everything else reads
+            }
+            MediaPhases.timer?.invoke("paste.steps (count)", steps.size.toDouble())
         }
+        if (st.wet != null) e.wetFrame(wetIn, paper, DOC_PX_PER_MM, wq)
+        if (eraseIn != null) e.eraseFrame(eraseIn, existingStores(st.layerId, w))
         // Water that is already running in the window keeps running under a dry or paste stroke.
         if (st.wet == null && st.thin == null && e.wetActive) e.wetFrame(null, paper, DOC_PX_PER_MM, wq)
         if (timing != null) android.opengl.GLES30.glFinish()
@@ -434,6 +555,7 @@ class MediaCanvas(
 
     private fun eraseBatch(dabs: List<Dab>): DabBatch {
         val out = FloatArray(dabs.size * DabBatch.FLOATS)
+        val boxes = DoubleArray(dabs.size * 4)
         var x0 = Double.MAX_VALUE; var y0 = Double.MAX_VALUE; var x1 = -Double.MAX_VALUE; var y1 = -Double.MAX_VALUE
         dabs.forEachIndexed { i, d ->
             val o = i * DabBatch.FLOATS
@@ -441,8 +563,10 @@ class MediaCanvas(
             out[o + 3] = (d.cap * d.flow.coerceAtMost(1f)).coerceIn(0f, 1f)
             x0 = minOf(x0, (d.x - d.radius).toDouble()); y0 = minOf(y0, (d.y - d.radius).toDouble())
             x1 = maxOf(x1, (d.x + d.radius).toDouble()); y1 = maxOf(y1, (d.y + d.radius).toDouble())
+            boxes[i * 4] = (d.x - d.radius - 2).toDouble(); boxes[i * 4 + 1] = (d.y - d.radius - 2).toDouble()
+            boxes[i * 4 + 2] = (d.x + d.radius + 2).toDouble(); boxes[i * 4 + 3] = (d.y + d.radius + 2).toDouble()
         }
-        return DabBatch(out, dabs.size, doubleArrayOf(x0 - 2, y0 - 2, x1 + 2, y1 + 2))
+        return DabBatch(out, dabs.size, doubleArrayOf(x0 - 2, y0 - 2, x1 + 2, y1 + 2), boxes)
     }
 
     /** The stores this layer has inside the window: the eraser writes only those (stores stay lazy). */
@@ -459,3 +583,6 @@ class MediaCanvas(
 
     private fun rgb(argb: Int) = doubleArrayOf(((argb shr 16) and 0xFF) / 255.0, ((argb shr 8) and 0xFF) / 255.0, (argb and 0xFF) / 255.0)
 }
+
+/** Frames between the water measurements Option S reads in a window (the atlas measures every 8 frames for its own rules). */
+private const val QUIET_QUERY_FRAMES = 8

@@ -24,6 +24,8 @@ interface MediaPlace {
      * to do here: it moves in [follow].
      */
     fun admit(needs: List<MediaLayerEngine.Need>) {}
+    /** Recompute the look over [rect] (layer px) with every read held, now (the full look after a flat one while wet). */
+    fun refreshLook(rect: FloatArray)
     fun flush(stores: Boolean = true)
     fun restored(layer: String, plane: String?, keys: Set<Long>): Boolean
     fun lookWritten(layer: String, plane: String?, keys: Set<Long>)

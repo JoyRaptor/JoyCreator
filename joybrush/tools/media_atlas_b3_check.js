@@ -26,7 +26,7 @@ const ROOT = path.join(__dirname, '..');
 const SHADER_DIR = path.join(ROOT, 'shaders');
 function argVal(name, dflt) { const i = process.argv.indexOf('--' + name); return i >= 0 && i + 1 < process.argv.length ? process.argv[i + 1] : dflt; }
 const QUICK = process.argv.includes('--quick');
-const PPM = 12, LW = 1536, AW = 1024;
+const PPM = 12, LW = parseInt(argVal('layer', '1536'), 10), AW = parseInt(argVal('atlas', '1024'), 10);   // --atlas 1536 --layer 2048: 35 slots over 64 tiles
 
 const INCLUDE_RE = /^#include\s+"([^"]+)"$/;
 function expand(rel, seen = new Set()) {
@@ -57,7 +57,7 @@ function wetUniformMap(wc) {
     u_runMmPerS: wc.runMmPerS, u_runMm: wc.runMm, u_runHoldMm: wc.runHold * tooth, u_runFilmMm: wc.runFilm, u_runPin: wc.runPin, u_runSizing: wc.runSizing,
     u_dripGapMm: wc.dripGap, u_quietMm: wc.quiet, u_runHoldK: wc.runHoldK, u_runCoherent: wc.runCoherent, u_runCohere: wc.runCohere,
     u_steerScale: wc.steerScale, u_runSteer: wc.runSteer, u_runAlong: wc.runAlong, u_heightMean: heightMean, u_fullMm: wc.fullMm, u_filmMm: wc.filmMm,
-    u_edgeDep: wc.edgeDep, u_mingle: Math.min(0.24 / wc.dt, wc.mingle),
+    u_edgeDep: wc.edgeDep, u_mingle: Math.min(0.24 / wc.dt, wc.mingle), u_noBody: 0,
   };
 }
 const WC = { dt: 1 / 120, substeps: 4, flow: 30, keep: 0.9, pinMm: 0.22, dampS: 0.35, minMm: 0.002, evap: 0.003, edgeEvap: 4, absorb: 0.25, capMm: 0.08, wick: 5,
@@ -151,8 +151,8 @@ function protoDab(st, p, lean, P, tilted) {
 function buildDry(sc) {
   const frames = [];
   for (let f = 0; f < sc.frames; f++) {
-    const pts = ptsOf(sc, f / sc.frames, (f + 1) / sc.frames, 6);
-    const dabs = []; let dirty = null;
+    const pts = ptsOf(sc, f / sc.frames, (f + 1) / sc.frames, sc.dabsPerFrame || 6);
+    const dabs = [], boxes = []; let dirty = null;
     pts.forEach((p, i) => {
       const P = 0.25 + 0.65 * ((f * 6 + i) % 11) / 10, lean = [Math.cos(sc.lean), Math.sin(sc.lean)];
       // The quad must cover everywhere the stick can press (stickContact does): past the longest zone (L2 = 3.4 mm) and
@@ -161,9 +161,9 @@ function buildDry(sc) {
       const dab = sc.stick ? protoDab(STICKS[sc.stick], p, lean, P, sc.side) : [p.x, p.y, lean[0], lean[1], xMin, xMax, yMax, D, 0.45, 1.6, 3.4, 0.8, 1, 0.6, 0.35, 0.12, p.dx, p.dy, 0.4, P];
       dabs.push(dab);
       const e = (Math.hypot(Math.max(Math.abs(dab[4]), dab[5]), dab[6]) + 0.1) * PPM + 2;
-      dirty = union(dirty, [p.x - e, p.y - e, p.x + e, p.y + e]);
+      dirty = union(dirty, [p.x - e, p.y - e, p.x + e, p.y + e]); boxes.push([p.x - e, p.y - e, p.x + e, p.y + e]);
     });
-    frames.push({ dabs, travel: [pts[pts.length - 1].dx, pts[pts.length - 1].dy], rect: layerRect(dirty, sc.smearMm * PPM + 2) });
+    frames.push({ dabs, boxes, travel: [pts[pts.length - 1].dx, pts[pts.length - 1].dy], rect: layerRect(dirty, sc.smearMm * PPM + 2) });
   }
   const st = STICKS[sc.stick || 'zones'];
   return { kind: 'dry', name: sc.name, seed: sc.seed, smearMm: sc.smearMm, stick: { u_stickBlend: st.blend, u_stickShape: st.shape, u_zoneGrad: st.grads }, frames };
@@ -173,8 +173,9 @@ function buildErase(sc) {
   for (let f = 0; f < sc.frames; f++) {
     const pts = ptsOf(sc, f / sc.frames, (f + 1) / sc.frames, 5);
     const r = sc.radius, dabs = pts.map((p, i) => [p.x, p.y, r, 0.4 + 0.6 * ((f + i) % 4) / 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
-    let dirty = null; for (const p of pts) dirty = union(dirty, [p.x - r - 3, p.y - r - 3, p.x + r + 3, p.y + r + 3]);
-    frames.push({ dabs, rect: layerRect(dirty, 0) });
+    let dirty = null; const boxes = pts.map((p) => [p.x - r - 3, p.y - r - 3, p.x + r + 3, p.y + r + 3]);
+    for (const b of boxes) dirty = union(dirty, b);
+    frames.push({ dabs, boxes, rect: layerRect(dirty, 0) });
   }
   return { kind: 'erase', name: sc.name, seed: sc.seed, frames };
 }
@@ -193,8 +194,12 @@ const FLAT = [0, 0], F = (n) => QUICK ? Math.max(4, n >> 2) : n;
 // Every point at least 215 px inside the layer: its pass rect plus the look's halo and reach (110 px) never meets the
 // layer's edge, where the oracle (a window) clamps its reads and the atlas would read nothing.
 const M0 = 215, M1 = LW - 215;
-const SNAKE = [[M0, 215], [M1, 215], [M1, 490], [M0, 490], [M0, 765], [M1, 765], [M1, 1040], [M0, 1040], [M0, M1], [M1, M1]];
-const LOOP = [[M0, 215], [M1, 215], [M1, 765], [M0, 765], [M0, M1], [M1, M1], [M1, 490], [M0, 490]];   // back over row 1-2 at the end
+// The 1536 layer's paths exactly as proved before; any other layer: rows 275 px apart across it.
+const ROWS = LW === 1536 ? [215, 490, 765, 1040, M1] : Array.from({ length: Math.floor((M1 - 215) / 275) + 1 }, (_, i) => 215 + 275 * i);
+const SNAKE = LW === 1536 ? [[M0, 215], [M1, 215], [M1, 490], [M0, 490], [M0, 765], [M1, 765], [M1, 1040], [M0, 1040], [M0, M1], [M1, M1]]
+  : ROWS.flatMap((y, i) => i % 2 ? [[M1, y], [M0, y]] : [[M0, y], [M1, y]]);
+const LOOP = LW === 1536 ? [[M0, 215], [M1, 215], [M1, 765], [M0, 765], [M0, M1], [M1, M1], [M1, 490], [M0, 490]]   // back over row 1-2 at the end
+  : [...SNAKE, [SNAKE[SNAKE.length - 1][0], ROWS[1]], [M0 + M1 - SNAKE[SNAKE.length - 1][0], ROWS[1]]];   // up to row 2, back across it
 const SCENARIOS = [
   buildDry({ name: 'dry point stick, snake over 36 tiles', path: SNAKE, frames: F(120), seed: 21, lean: 0.6, side: false, smearMm: 0.4 }),
   buildDry({ name: 'Proto Pencil tilted + smear, snake', stick: 'Proto Pencil', path: SNAKE, frames: F(120), seed: 24, lean: 1.9, side: true, smearMm: 0.9 }),
@@ -202,6 +207,9 @@ const SCENARIOS = [
   buildErase({ name: 'eraser, snake', path: SNAKE, frames: F(100), seed: 31, radius: 18 }),
   buildPaste({ name: 'oil round brush, snake', path: SNAKE, frames: F(120), seed: 41, shape: 0, blade: 0, halfW: 2.2, lenMax: 7 }),
   buildPaste({ name: 'palette knife, back over evicted tiles', path: LOOP, frames: F(110), seed: 42, shape: 2, blade: 1, halfW: 3.0, lenMax: 5 }),
+  // Step 6 (the Lead's D3): four frames for the whole snake, each one wider than the atlas holds: split in time, in dab
+  // order, into frames that fit, as a faster phone would have drawn them; the oracle draws the same split.
+  buildDry({ name: 'dry fast flick, frames split in time', path: SNAKE, frames: 4, dabsPerFrame: 60, seed: 25, lean: 0.6, side: false, smearMm: 0.4 }),
 ];
 const KINDS = ['orderA', 'orderB', 'noWriteBack', 'noReplay'];
 
@@ -224,7 +232,7 @@ const KINDS = ['orderA', 'orderB', 'noWriteBack', 'noReplay'];
       let part;
       // A browser that dies under memory pressure (another job on the machine) is retried once; a real failure repeats.
       for (let attempt = 0; attempt < 2; attempt++) {
-        const browser = await chromium.launch({ executablePath: exe, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+        const browser = await chromium.launch({ executablePath: exe, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });   // SwiftShader only: these compare the atlas with the WINDOW build, two different programs, and a real GPU's compiler may round them apart (Intel d3d11: dry dabs differ by an ulp even at the proven size; the Note 9's Adreno does not)
         try {
           const page = await browser.newPage();
           page.on('console', (m) => { if (m.type() === 'error') console.error('[page]', m.text()); });
@@ -256,7 +264,7 @@ const KINDS = ['orderA', 'orderB', 'noWriteBack', 'noReplay'];
     noWb += r.mismatch.noWriteBack?.total ?? 0; noRp += r.mismatch.noReplay?.total ?? 0;
     misses += (r.misses.orderA ?? 0) + (r.misses.orderB ?? 0);
   }
-  const longStrokes = out.results.every(r => r.tilesCrossed >= 30 && (r.evictions.orderA ?? 0) > 0 && r.maxResident <= 15 && r.changed > 200);
+  const longStrokes = out.results.every(r => r.tilesCrossed >= 30 && (r.evictions.orderA ?? 0) > 0 && r.maxResident <= (AW / 256) ** 2 - 1 && r.changed > 200);
   const pass = errors === 0 && exactBad === 0 && misses === 0 && noWb > 0 && noRp > 0 && longStrokes;
   console.log(JSON.stringify({ pass, layer: LW, atlas: AW, resident: 15,
     totals: { mismatchedPixels: exactBad, admissionMisses: misses, noWriteBackDetected: noWb, noReplayDetected: noRp }, longStrokes,
@@ -727,19 +735,43 @@ async function PAGE(P) {
         const O = makeEngine('window', sc.seed * 101 + 7), A = makeEngine(kind, sc.seed * 101 + 7), m = { total: 0 };
         A.oracle = O;
         const first = kind === P.KINDS[0] ? planesOf(O) : null, firstData = first ? Object.fromEntries(Object.entries(first).map(([k, t]) => [k, readF(t)])) : null;
-        for (let fi = 0; fi < sc.frames.length; fi++) {
-          const Fr = sc.frames[fi], parts = frameParts(sc, Fr);
+        // MediaCanvas.runFrame: a frame the atlas cannot hold is split in time, dabs in order (both engines draw the halves).
+        const layerRect = (r, padDoc) => {   // the node side's layerRect (the frame builders), in the page
+          if (!r) return null;
+          const x0 = Math.max(0, Math.floor(r[0] - padDoc)), y0 = Math.max(0, Math.floor(r[1] - padDoc));
+          const x1 = Math.min(LW, Math.ceil(r[2] + padDoc)), y1 = Math.min(LW, Math.ceil(r[3] + padDoc));
+          return x1 > x0 && y1 > y0 ? [x0, y0, x1, y1] : null;
+        };
+        const halves = (Fr) => {
+          const n = Fr.dabs ? Fr.dabs.length : (Fr.steps || []).length; if (n < 2) return null;
+          const m = Math.ceil(n / 2);
+          if (Fr.steps) return [{ steps: Fr.steps.slice(0, m) }, { steps: Fr.steps.slice(m) }];
+          const part = (a, b) => {
+            let d = null; for (const bx of Fr.boxes.slice(a, b)) d = union(d, bx);
+            const last = Fr.dabs[b - 1];
+            return { dabs: Fr.dabs.slice(a, b), boxes: Fr.boxes.slice(a, b), travel: [last[16], last[17]], rect: layerRect(d, sc.kind === 'dry' ? sc.smearMm * P.PPM + 2 : 0) };
+          };
+          return [part(0, m), part(m, n)];
+        };
+        const doFrame = (Fr, fi) => {
+          const parts = frameParts(sc, Fr);
           let box = null; for (const [pr] of parts) if (pr) box = union(box, pr);
           const lookRect = box ? [Math.floor(box[0] - LOOK_HALO), Math.floor(box[1] - LOOK_HALO), Math.ceil(box[2] + LOOK_HALO), Math.ceil(box[3] + LOOK_HALO)] : null;
           // The atlas first: its admission may evict, and the oracle then rounds that tile before ITS frame, as the stores do.
-          admit(A, parts, box);
+          try { admit(A, parts, box); } catch (err) {
+            const h = String(err.message).startsWith('refused') ? halves(Fr) : null;
+            if (!h) throw err;
+            A.splits = (A.splits || 0) + 1;
+            doFrame(h[0], fi); doFrame(h[1], fi); return;
+          }
           for (const e of [A, O]) {
             if (sc.kind === 'dry') dryFrame(e, sc, Fr); else if (sc.kind === 'erase') eraseFrame(e, sc, Fr); else pasteFrame(e, sc, Fr);
             if (lookRect) renderLook(e, lookRect);
           }
           A.pins.clear();
           const ge = gl.getError(); if (ge !== gl.NO_ERROR) throw new Error('GL error 0x' + ge.toString(16) + ' at frame ' + fi + ' (' + kind + ')');
-        }
+        };
+        for (let fi = 0; fi < sc.frames.length; fi++) doFrame(sc.frames[fi], fi);
         // The stroke's end: the atlas writes every resident tile back; the oracle's whole layer goes through f16 likewise.
         writeBack(A);
         quantize(O, 0, 0, LW, LW, false);
@@ -752,7 +784,7 @@ async function PAGE(P) {
         }
         const lo = readB(O.lookTex, 0, 0, LW, LW), la = readB(A.store.look, 0, 0, LW, LW), ld = diffPx(lo, la);
         m.look = ld; m.total += ld;
-        r.mismatch[kind] = m; r.loads[kind] = A.loads; r.evictions[kind] = A.evictions; r.misses[kind] = A.misses;
+        r.mismatch[kind] = m; r.loads[kind] = A.loads; r.evictions[kind] = A.evictions; r.misses[kind] = A.misses; r.splits = Math.max(r.splits || 0, A.splits || 0);
         r.maxResident = Math.max(r.maxResident, A.maxResident); r.tilesCrossed = Math.max(r.tilesCrossed, A.touchedTiles.size);
         if (firstData) { const last = planesOf(O); r.changed = Object.keys(last).reduce((s2, k) => s2 + diffPx(firstData[k], readF(last[k])), 0); }
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);

@@ -1,5 +1,18 @@
 # Joy Brush shared agent board
 
+## Unibrush D3 — 2026-10-19 — ready for Lead review
+
+Source adf5936b3 adds four ordered tip handles, exact circular corner fillets and A/B morph
+of points/rounding/aspect/radial coverage by Param. Null quad retains every old tip's math.
+Full core2547 (four optional skips), backend1052: zero failures/errors. Actual production
+GPU vs CPU:156 cases/159744 probes, maxerror .0043181251 (<2/255), all six wrong-feature
+controls detected. Extended packing vs individual draws is byte-exact; wrong fade/quad
+offset controls differ2466/2686 bytes. Historical820c62802 shader pixels remain exact.
+See reviews/UNIBRUSH_D3_20261018.md, UNIBRUSH_D3_20261019.json and shader contact sheet.
+No phone/performance/owner acceptance claim. No Lead engine/view/line/helper media edits.
+The D7 LineShaper forwarding adapter still gates new tip fields plus line-style shaping.
+Continuing D4 colour dynamics, preserving WASH cap/coverage semantics with conditional MRT.
+
 ## Unibrush D2 — 2026-10-18 — ready for Lead review
 
 Source dc3aca21c on codex/unibrush adds hard/linear/smooth/Gaussian/custom radial profiles,

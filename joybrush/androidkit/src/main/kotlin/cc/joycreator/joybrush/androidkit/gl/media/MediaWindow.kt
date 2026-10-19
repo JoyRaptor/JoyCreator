@@ -43,6 +43,17 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
     /** When the window last did anything (ms, the caller's clock): it is released after [IDLE_MS] asleep. */
     private var lastActiveMs = 0L
 
+    /** The drawing this window's state was loaded from: none of it is written back once another has opened. */
+    private val drawing = DocumentStamp { paint.documentGeneration }
+
+    /** Another drawing opened since this loaded ([DocumentStamp]): let everything go unwritten. True when it did. */
+    private fun staleDrawing(): Boolean {
+        if (layerId == null || !drawing.stale) return false
+        android.util.Log.w("JoyBrushMedia", "another drawing opened under the live paint: let it go unwritten")
+        forget()
+        return true
+    }
+
     /** The debug replay's counters (window moves and reloads), or null. */
     override var stats: cc.joycreator.joybrush.androidkit.bench.FrameStats? = null
 
@@ -64,7 +75,7 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
 
     /** Writes back and lets the window go now: the layer or the screen changed. */
     override fun release() {
-        if (layerId == null) return
+        if (layerId == null || staleDrawing()) return
         flush()
         media.sleep()
         layerId = null
@@ -80,6 +91,7 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
 
     /** Puts the window on [layer] around the pen at ([docX], [docY]): a no-op while it already holds that point. */
     override fun place(layer: String, plane: String?, docX: Double, docY: Double, resumeWater: Boolean) {
+        staleDrawing()
         if (layer == layerId && plane == this.plane && MediaWindowMath.holds(tx, ty, doubleArrayOf(docX, docY, docX, docY))) return
         if (layerId != null && (layer != layerId || plane != this.plane)) release()
         moveTo(layer, plane, docX, docY, resumeWater)
@@ -124,11 +136,9 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
      */
     override fun flush(stores: Boolean) {
         val id = layerId ?: return
+        if (staleDrawing()) return
         // The layer went (deleted, or its making undone): nothing here has anywhere to go.
-        if (id !in paint.layerIds()) {
-            layerId = null; dryPending = false; pendingStores.clear(); pendingRect = null
-            media.takeDirty(); media.takeDirtyStores(); media.stopWater(); return
-        }
+        if (id !in paint.layerIds()) { forget(); return }
         if (dryPending && !paint.mediaStrokeInProgress) { dryPending = false; dropWater(id) }
         val rect = media.takeDirty()
         pendingStores += media.takeDirtyStores()
@@ -219,6 +229,12 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
         else -> floatArrayOf(minOf(a[0], b[0]), minOf(a[1], b[1]), maxOf(a[2], b[2]), maxOf(a[3], b[3]))
     }
 
+    /** Nothing here has anywhere to go (the layer went, or the drawing did): drop it all, unwritten. */
+    private fun forget() {
+        layerId = null; dryPending = false; pendingStores.clear(); pendingRect = null
+        media.takeDirty(); media.takeDirtyStores(); media.stopWater()
+    }
+
     private fun dropWater(id: String) {
         val all = MediaWindowMath.allKeys(tx, ty)
         for (store in MediaStores.WATER) paint.dropMediaTiles(id, store, all.filter { paint.mediaTile(id, store, it, plane) != null }, plane)
@@ -226,6 +242,7 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
 
     /** Undo or redo put tiles of [layer] back: stop the water and reload what the window shows. True when it stopped it. */
     override fun restored(layer: String, plane: String?, keys: Set<Long>): Boolean {
+        if (staleDrawing()) return false
         if (layer != layerId || plane != this.plane) return false
         val mine = MediaWindowMath.allKeys(tx, ty).toSet()
         if (keys.none { it in mine }) return false
@@ -239,6 +256,7 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
      * payload as the engine now has it (none, after slice 1's drop) and their ground, and let the water elsewhere run on.
      */
     override fun lookWritten(layer: String, plane: String?, keys: Set<Long>) {
+        if (staleDrawing()) return
         if (layer != layerId || plane != this.plane || media.asleep) return
         val mine = MediaWindowMath.allKeys(tx, ty).toSet()
         for (key in keys) {
@@ -252,11 +270,13 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
 
     /** Before a new stroke into sleeping water (after an undo, or a reopened drawing): let it run again. */
     override fun refreshLook(rect: FloatArray) {
+        if (staleDrawing()) return
         val id = layerId ?: return
         writeLook(id, rect)
     }
 
     override fun wakeWater() {
+        if (staleDrawing()) return
         val id = layerId ?: return
         if (media.wetActive) return
         waterRect(id)?.let { media.resumeWater(it) }
@@ -267,6 +287,7 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
         // Requirement 5: a payload whose look changed behind the media's back goes, rather than render over the new pixels.
         paint.dropStalePayload(layer, MediaWindowMath.allKeys(nx, ny), plane)
         media.wake()
+        drawing.stamp()
         layerId = layer; this.plane = plane; tx = nx; ty = ny
         media.moveTo((nx * tile).toFloat(), (ny * tile).toFloat())
         groundFromLook.clear()

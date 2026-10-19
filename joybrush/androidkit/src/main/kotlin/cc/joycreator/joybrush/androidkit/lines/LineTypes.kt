@@ -22,20 +22,42 @@ class LineSnapshot(
     val revision: Long,
     planes: Map<LinePlane, List<StrokeRecord>>,
     brushes: Map<String, BrushPreset>,
+    /** Every plane that holds ITEMS (lines or pixel slabs): its pixels must stay what its items draw (v1.2). */
+    itemPlanes: Set<LinePlane> = emptySet(),
+    /** Grows only when the kept brushes change ([revision] grows with every line): the pen-down freeze cache's key. */
+    val brushRevision: Long = 0L,
+    /** Slab tiles held across the drawing (256 KB each): the slab budget's reading. */
+    val slabTiles: Int = 0,
 ) {
     val planes: Map<LinePlane, List<StrokeRecord>> = planes.mapValues { it.value.toList() }
     val brushes: Map<String, BrushPreset> = brushes.toMap()
+    val itemPlanes: Set<LinePlane> = (itemPlanes + planes.filterValues { it.isNotEmpty() }.keys).toSet()
 
     /** The plane's lines in drawing order (seq), empty when it has none. */
     fun lines(plane: LinePlane): List<StrokeRecord> = planes[plane].orEmpty()
     fun brush(id: String): BrushPreset? = brushes[id]
     fun hasLines(plane: LinePlane): Boolean = planes[plane]?.isNotEmpty() == true
 
+    /** Does the plane hold lines or pixel slabs? A stroke there that is not a line becomes a slab. */
+    fun holdsItems(plane: LinePlane): Boolean = plane in itemPlanes
+    fun holdsItemsOnLayer(layerId: String): Boolean = itemPlanes.any { it.layerId == layerId }
+
     companion object { val EMPTY = LineSnapshot(0L, emptyMap(), emptyMap()) }
 }
 
 /** One Select edit; each is ONE undo step (owner: one press, one step). */
 sealed class LineEdit {
+    /** Every line this edit names. */
+    fun addresses(): Collection<LineAddress> = when (this) {
+        is Replace -> after.map { it.address }
+        is Add -> records.map { it.address }
+        is Delete -> ids
+        is Bake -> ids
+    }
+
+    /** The layers this edit touches (v1.2 H9: a locked or hidden one refuses it). */
+    fun layerIds(): Set<String> = addresses().mapTo(LinkedHashSet()) { it.layerId }
+
     /**
      * Same addresses and seqs (recolour, re-brush, re-weight, reshape, transform). [brushes] = frozen copies a
      * re-brush introduces (FrozenBrushRegistry.freeze against [LineSnapshot.brushes]); records name them by id.
@@ -44,6 +66,8 @@ sealed class LineEdit {
     /** New lines on top, at vacant addresses (duplicate, paste); the engine assigns their seqs. */
     data class Add(val records: List<AddressedStroke>, val brushes: Map<String, BrushPreset> = emptyMap()) : LineEdit()
     data class Delete(val ids: Set<LineAddress>) : LineEdit()
+    /** Rasterize Down (v1.2 H3): each line becomes a pixel slab at its own seq and its record goes; the pixels stay. */
+    data class Bake(val ids: Set<LineAddress>) : LineEdit()
 }
 
 /** What an edit did, on the UI thread. [message] says why in words when [ok] is false. */

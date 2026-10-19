@@ -1,0 +1,134 @@
+{
+  "format": "joy.vis/1",
+  "id": "trap-halo",
+  "name": "Halo Drop",
+  "family": "Music video",
+  "description": "Round mirrored spectrum around your logo, sparks flying out, the screen kicks with the drum.",
+  "palette": [
+    "#FFFFFF",
+    "#9BE7FF",
+    "#4D8CFF",
+    "#B04DFF",
+    "#FF4DD8"
+  ],
+  "background": "#05040A",
+  "layers": [
+    {
+      "type": "nebula",
+      "name": "Space",
+      "res": 0.5,
+      "palette": [
+        "#7B2CBF",
+        "#3A0CA3",
+        "#4361EE",
+        "#4CC9F0",
+        "#F72585"
+      ],
+      "p": {
+        "brightness": 0.45,
+        "stars": 0.7,
+        "coreGlow": 0.4
+      }
+    },
+    {
+      "type": "particles",
+      "name": "Sparks",
+      "p": {
+        "count": 8000,
+        "emitter": 1,
+        "esize": 0.36,
+        "speed": 0.5,
+        "speedVar": 0.6,
+        "dirMode": 1,
+        "life": 1.6,
+        "drag": 0.4,
+        "curl": 0.4,
+        "curlScale": 2,
+        "size": 0.004,
+        "look": 1,
+        "stretch": 1.2,
+        "brightness": 1.2,
+        "colorMode": 2,
+        "rate": 0.8,
+        "burst": 0.12,
+        "punch": 1,
+        "audioSpeed": 1.5
+      }
+    },
+    {
+      "type": "spectrum",
+      "name": "Halo bars",
+      "p": {
+        "mode": 0,
+        "count": 120,
+        "radial": 1,
+        "mirror": 1,
+        "rotation": 0,
+        "y": 0,
+        "size": {
+          "v": 0.36,
+          "mod": {
+            "kick": 0.01
+          }
+        },
+        "height": 0.28,
+        "fill": 0.5,
+        "glow": 0.45,
+        "core": 1,
+        "gain": 1,
+        "freqHi": 0.7,
+        "brightness": 0.9,
+        "extra": 0.5,
+        "thick": 0.004,
+        "colorMode": 2
+      }
+    },
+    {
+      "type": "shapes",
+      "name": "Pulse rings",
+      "p": {
+        "mode": 2,
+        "radius": 0.37,
+        "thick": 0.004,
+        "glow": 0.6,
+        "shockSpeed": 0.8,
+        "shockLife": 0.9,
+        "brightness": 0.9
+      }
+    },
+    {
+      "type": "image",
+      "name": "Logo",
+      "echo": false,
+      "add": 0,
+      "p": {
+        "size": 0.3,
+        "pump": 0.9,
+        "shake": 0.6,
+        "halo": 0.7,
+        "circle": 1,
+        "split": 0.5
+      }
+    }
+  ],
+  "post": {
+    "p": {
+      "bloom": 0.8,
+      "bloomThreshold": 0.7,
+      "chroma": {
+        "v": 0.15,
+        "mod": {
+          "kick": 0.3
+        }
+      },
+      "shake": {
+        "v": 0,
+        "mod": {
+          "kick": 0.25
+        }
+      },
+      "vignette": 0.5,
+      "grain": 0.12
+    }
+  }
+}

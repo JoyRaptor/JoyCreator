@@ -114,7 +114,7 @@ class GlRecordedHistoryTest {
         val at = LinePlane("paint", null)
         val line = record()
         engine.nativeLines.put(at, "line", line)
-        engine.nativeLines.widen(line, setOf(0L))   // the tile the line crosses
+        engine.nativeLines.widen(at, "line", setOf(0L))   // the tile the line crosses
         engine.nativeLines.setBase(at, 0L, 77)
         assertTrue(engine.layerHasLines("paint"))
 

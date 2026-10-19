@@ -1,0 +1,51 @@
+{
+  "format": "joy.vis/1",
+  "id": "studio-waterfall",
+  "name": "Studio Waterfall",
+  "family": "Pro",
+  "description": "Two seconds of sound as a tilted 3D spectrogram, with a crisp live line in front.",
+  "palette": [
+    "#0E2A47",
+    "#1F6FB2",
+    "#2EC4B6",
+    "#E6F14A",
+    "#FFFFFF"
+  ],
+  "background": "#05070B",
+  "layers": [
+    {
+      "type": "spectrogram",
+      "name": "Waterfall",
+      "p": {
+        "direction": 0,
+        "tilt": 0.3,
+        "contrast": 1.3,
+        "brightness": 1.1,
+        "grid": 0.2
+      }
+    },
+    {
+      "type": "spectrum",
+      "name": "Live line",
+      "p": {
+        "mode": 3,
+        "y": -1,
+        "size": 1,
+        "height": 0.25,
+        "thick": 0.003,
+        "glow": 0.5,
+        "fill": 0.25,
+        "brightness": 1,
+        "colorMode": 1,
+        "palShift": 0.25
+      }
+    }
+  ],
+  "post": {
+    "p": {
+      "bloom": 0.6,
+      "grain": 0.1,
+      "vignette": 0.3
+    }
+  }
+}

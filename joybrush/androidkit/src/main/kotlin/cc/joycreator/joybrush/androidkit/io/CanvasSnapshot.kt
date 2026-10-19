@@ -16,12 +16,12 @@ import cc.joycreator.joybrush.core.doc.Paper
  */
 object CanvasSnapshot {
     /**
-     * Editable lines v1 (NATIVE_LINES_V1): ordinary line records, their looks and frozen brush copies are kept; upper
-     * pixel slabs and captured-source lines (the exact-provenance format) are refused before anything is replaced.
+     * Editable lines v1 + v1.2 (NATIVE_LINES_V1, H13): ordinary line records, their looks, frozen brush copies and the
+     * pixel slabs the engine composes are kept; other slab stacks and captured-source lines (the exact-provenance format)
+     * are refused before anything is replaced.
      */
     internal fun requireSupportedPayload(contents: JbContents) {
-        if (contents.slabs.isNotEmpty() || contents.doc.layers.any { layer -> DocOps.storedCels(layer).any { it.slabs.isNotEmpty() } })
-            throw JbArchiveException("This drawing has pixel slabs that this screen cannot show yet; your saved drawing was kept")
+        LineOpenPlan.refusal(contents)?.let { throw JbArchiveException(it.replaceFirstChar { c -> c.uppercaseChar() } + "; your saved drawing was kept") }
         if (contents.strokes.values.any { lines -> lines.any { it.capturedPhysicalSource != null } })
             throw JbArchiveException("This drawing has exact-copy lines that this screen cannot show yet; your saved drawing was kept")
     }
@@ -36,7 +36,8 @@ object CanvasSnapshot {
         require(contents.doc.layers.all{it.kind.hasPixels && it.animatedIn==null}) {
             "The raster renderer cannot retain vector payloads"
         }
-        return contents.copy(tiles = emptyMap(), strokes = emptyMap(), mediaTiles = emptyMap(), looks = emptyMap(), brushes = emptyMap())
+        return contents.copy(tiles = emptyMap(), strokes = emptyMap(), mediaTiles = emptyMap(), looks = emptyMap(), brushes = emptyMap(),
+            slabs = emptyMap())
     }
 
     /** [livePaper] carries current paper settings; omitted for older colour-only snapshot callers. */

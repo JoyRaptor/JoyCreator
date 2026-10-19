@@ -1061,3 +1061,25 @@ Patching Java files with `open(p).read()` / `open(p,'w').write()` silently turne
 ## Project JSON is pretty-printed: test patterns on a real file (Claude/Joybot, 2026-10-15)
 Two Joybot regexes over project.json — `"id":"..."` (to find what a tool added) and `"lastModified":\d+` (to ignore a plain re-save) — never matched, because gson writes `"id": "..."` with a space. Result on the phone: Review rows had no Show me, and every "Undo from here" was refused as "the project has changed". It took two phone rounds to see because the code looked right and compiled.
 - Rule: any pattern over a stored file is checked against a REAL file pulled from the device (`adb exec-out run-as com.fadcam.beta cat files/faditor/projects/<id>/project.json`) before it ships; allow `\s*` around every `:` in JSON patterns.
+
+## VisLab: move the space, not the picture; never TIME x a moving speed (Claude/VisLab, 2026-10-18)
+Two owner corrections in one day. (1) "Place" for every layer first drew the layer, then moved,
+sized and turned the finished picture: the aurora moved like a card with a box edge. The owner
+asked why it was not "a particle system in space or vectors on a canvas". Fix: hand the layer's
+placement to its own shaders (`uView`: placeIn for full-screen layers, placeOut for points and
+lines) so it is generated in that space; cheaper too (no extra pass). (2) Spiral Banner spun
+whole turns on every kick: the shader did `rot2(TIME * SPIN)` and the look linked SPIN to the
+kick, so each kick moved the angle by (change in speed) x (seconds since start). Fix: knobs used
+as `TIME * knob` are "rate" and the host integrates them.
+- Rule: a transform control changes the coordinates the effect is computed in, never a picture of it.
+- Rule: a speed that can change (music, an edit) is integrated over time, never multiplied by the clock.
+- Rule: a refactor of a shader that runs on the phone is measured on the phone before it ships.
+  The Words three-part split was pilot-only tested and cost the Note 9 up to 4x (11-19 fps).
+
+## 2026-10-18 — JoyBrush Lead (fork): a merge conflict from editing a peer's lane
+- **What happened:** the lead fixed the 1 s first-media-stroke hitch inside MediaLayerEngine/MediaCanvas, the Opus helper's
+  lane files, while the helper was changing the same functions. The merge into the integration branch conflicted, and a
+  background test run had been launched in the SAME tool batch as the merge, so it briefly ran on a tree with conflict markers.
+- **Rule:** (1) never edit a file in another agent's lane: send them the patch and the reason; (2) run
+  `git merge-tree --write-tree HEAD <branch>` BEFORE any merge, and start a build only in a later step after `git status`
+  shows a clean tree; (3) on a conflict: `git merge --abort`, stop the build, revert or hand off; never resolve it.

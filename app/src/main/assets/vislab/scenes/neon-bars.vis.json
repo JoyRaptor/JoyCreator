@@ -1,0 +1,69 @@
+{
+  "format": "joy.vis/1",
+  "id": "neon-bars",
+  "name": "Neon Bars",
+  "family": "Classic+",
+  "description": "The classic bars, done properly: glowing cores, peak caps, a floor reflection, sparks off the tips. See-through.",
+  "palette": [
+    "#00F0FF",
+    "#3D5AFE",
+    "#B517FF",
+    "#FF2BD6",
+    "#FF7A1A"
+  ],
+  "background": null,
+  "layers": [
+    {
+      "type": "spectrum",
+      "name": "Bars",
+      "p": {
+        "mode": 0,
+        "count": 48,
+        "y": -0.2,
+        "size": 0.9,
+        "height": 0.6,
+        "fill": 0.55,
+        "round": 1,
+        "glow": 0.3,
+        "core": 1,
+        "mirror": 2,
+        "colorMode": 0,
+        "peaks": 0.8,
+        "extra": 0.35,
+        "brightness": 1,
+        "gain": 1.1
+      }
+    },
+    {
+      "type": "particles",
+      "name": "Tip sparks",
+      "p": {
+        "count": 3000,
+        "emitter": 5,
+        "ey": -0.2,
+        "esize": 0.9,
+        "speed": 0.3,
+        "dirMode": 0,
+        "dir": 0,
+        "spread": 0.05,
+        "gravity": 0.3,
+        "life": 1,
+        "size": 0.003,
+        "look": 1,
+        "stretch": 0.6,
+        "brightness": 1.5,
+        "rate": 0.5,
+        "colorMode": 3,
+        "punch": 0
+      }
+    }
+  ],
+  "post": {
+    "p": {
+      "bloom": 0.6,
+      "bloomThreshold": 0.8,
+      "vignette": 0,
+      "grain": 0
+    }
+  }
+}

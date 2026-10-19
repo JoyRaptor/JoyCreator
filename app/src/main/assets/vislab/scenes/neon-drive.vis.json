@@ -1,0 +1,47 @@
+{
+  "format": "joy.vis/1",
+  "id": "neon-drive",
+  "name": "Neon Drive",
+  "family": "Lyrics",
+  "description": "Drive down a night street where every word is a neon sign: the coming ones glow further down the road, the one being sung stutters on beside you.",
+  "palette": [
+    "#FF2BD6",
+    "#00F0FF",
+    "#FFB000",
+    "#B517FF",
+    "#39FF14"
+  ],
+  "background": "#000000",
+  "layers": [
+    {
+      "type": "words",
+      "name": "Street",
+      "echo": false,
+      "p": {
+        "path": 4,
+        "behaviour": 2,
+        "letters": 1,
+        "flicker": 1,
+        "size": 0.14,
+        "spread": 0.6,
+        "banner": 1,
+        "glow": 0.8,
+        "lead": 6,
+        "brightness": 1.25,
+        "pump": 0.2
+      }
+    }
+  ],
+  "post": {
+    "p": {
+      "bloom": 1,
+      "bloomThreshold": 0.5,
+      "reflect": 0.45,
+      "horizon": 0,
+      "ripple": 0.4,
+      "chroma": 0.12,
+      "vignette": 0.5,
+      "grain": 0.1
+    }
+  }
+}

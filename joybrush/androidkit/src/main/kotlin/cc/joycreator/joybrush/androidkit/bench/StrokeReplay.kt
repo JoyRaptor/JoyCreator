@@ -54,6 +54,14 @@ object StrokeReplay {
         else -> null
     }
 
+    /**
+     * The device matrix's stroke: [passes] sweeps between [x0] and [x1] while the pen descends from [y0] to [y1], all in view px
+     * ([x1] may lie past [x0] or before it). Scribble-like: the pen keeps turning, and pressure swells and fades as in every case.
+     */
+    fun zigzag(x0: Float, x1: Float, y0: Float, y1: Float, passes: Int, ms: Double): List<Sample> = sweep(ms) { t ->
+        (x0 + (x1 - x0) * tri(t * passes / 2.0)) to (y0 + (y1 - y0) * t.toFloat())
+    }
+
     private fun line(x0: Float, y0: Float, x1: Float, y1: Float, ms: Double): List<Sample> =
         sweep(ms) { t -> (x0 + (x1 - x0) * t.toFloat()) to (y0 + (y1 - y0) * t.toFloat()) }
 

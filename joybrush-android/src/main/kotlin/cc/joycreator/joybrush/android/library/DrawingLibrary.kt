@@ -3,7 +3,10 @@ package cc.joycreator.joybrush.android.library
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
+import android.widget.Toast
 import cc.joycreator.joybrush.androidkit.io.JbArchive
 import cc.joycreator.joybrush.androidkit.io.JbContents
 import cc.joycreator.joybrush.core.doc.DocOps
@@ -264,12 +267,26 @@ object DrawingLibrary {
         if (!JoyFolderHome.isChosen(app)) return
         JoyFolderHome.io().execute {
             try {
-                val jf = JoyFolderHome.open(app) ?: return@execute
+                val jf = JoyFolderHome.open(app)
+                if (jf == null) {
+                    Log.w(TAG, "folder copy of ${file.name} not written: the Joy Creator folder can't be opened")
+                    tellFolderCopyFailed(app, file.name)
+                    return@execute
+                }
                 mirrorFile(app, jf, dir, file.name, contents.doc.id)
             } catch (e: Exception) {
                 Log.w(TAG, "folder copy of ${file.name} not written; the next save tries again", e)
+                tellFolderCopyFailed(app, file.name)
             }
         }
+    }
+
+    private val folderCopyNotice = FolderCopyNotice()
+
+    /** Tells the person, once per drawing per session, that the copy in their Joy Creator folder was not made. Any thread. */
+    private fun tellFolderCopyFailed(app: Context, file: String) {
+        if (!folderCopyNotice.firstFailure(file)) return
+        Handler(Looper.getMainLooper()).post { Toast.makeText(app, FolderCopyNotice.SENTENCE, Toast.LENGTH_LONG).show() }
     }
 
     /**
@@ -295,7 +312,8 @@ object DrawingLibrary {
         for (it in jf.index.items()) {
             if (FileKind.of(Placement.nameOf(it.path)) != FileKind.DRAWING || it.path in knownPaths) continue
             val id = docIdIn(jf, it.path) ?: continue
-            if (id in known) continue
+            // The once-shared id says nothing about which drawing a file is: those are told apart by path only.
+            if (FolderAdoption.knownById(id, known)) continue
             val now = System.currentTimeMillis()
             val name = "drawing-$now-${added + 1}.joybrush"
             val target = File(dir, name)
@@ -376,11 +394,17 @@ object DrawingLibrary {
         }
         if (rel != null && jf.fs.stat(rel!!) == null) rel = null
         if (rel == null && id != null) {
-            // Moved or renamed by the person: same drawing id inside.
+            // Moved or renamed by the person: same drawing id inside. Never a file another drawing in the list already
+            // keeps its copy in, and never by the id every drawing once shared (audit 2026-10-18 P1: that adoption
+            // overwrote another drawing's folder copy).
+            val claimed = synchronized(lock) {
+                val entries = readIndex(dir).optJSONObject("drawings") ?: JSONObject()
+                entries.keys().asSequence().filter { it != file }
+                    .mapNotNull { k -> entries.optJSONObject(k)?.optString("folderPath", "")?.ifEmpty { null } }.toHashSet()
+            }
             jf.index.scan(jf.fs)
-            rel = jf.index.items().firstOrNull {
-                FileKind.of(Placement.nameOf(it.path)) == FileKind.DRAWING && docIdIn(jf, it.path) == id
-            }?.path
+            rel = FolderAdoption.pick(id, jf.index.items().asSequence().map { it.path }
+                .filter { FileKind.of(Placement.nameOf(it)) == FileKind.DRAWING }, claimed) { docIdIn(jf, it) }
         }
         if (rel == null) {
             val where = jf.prepareDir(Placement.What.NEW_WORK, null, null, FileKind.DRAWING)

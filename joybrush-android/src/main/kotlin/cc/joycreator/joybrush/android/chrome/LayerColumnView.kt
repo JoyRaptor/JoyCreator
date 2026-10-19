@@ -422,6 +422,7 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
             c.restore()
 
             if (!layer.visible) drawEyeOff(c, r.right - kit.dp(9f), r.top + kit.dp(8f))
+            if (layer.locked) drawLock(c, r.left + kit.dp(9f), r.top + kit.dp(8f))
             if (layer.opacity < 0.995f) corner(c, "${(layer.opacity * 100).roundToInt()}%", r.left + kit.dp(3f), r.bottom - kit.dp(3f), left = true)
             val short = BlendNames.short(layer.blend)
             if (short.isNotEmpty()) corner(c, short, r.right - kit.dp(3f), r.bottom - kit.dp(3f), left = false)
@@ -448,6 +449,20 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
         }
 
         /** A crossed eye: this layer is hidden. */
+        /** A locked layer (LAYER_OPS L1): the padlock on a dark disc, top left, opposite the hidden eye. */
+        private fun drawLock(c: Canvas, cx: Float, cy: Float) {
+            val r = kit.dp(6.5f)
+            paint.color = ColorUtils.setAlphaComponent(kit.p.ground, 180)
+            c.drawCircle(cx, cy, r + kit.dp(1.5f), paint)
+            val s = 2f * r * 0.85f / 24f
+            c.save()
+            c.translate(cx - 12f * s, cy - 12f * s)
+            c.scale(s, s)
+            paint.color = kit.p.drawerInk
+            c.drawPath(JbIcon.LOCK.path(), paint)
+            c.restore()
+        }
+
         private fun drawEyeOff(c: Canvas, cx: Float, cy: Float) {
             val r = kit.dp(6.5f)
             paint.color = ColorUtils.setAlphaComponent(kit.p.ground, 180)

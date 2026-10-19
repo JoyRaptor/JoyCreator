@@ -33,7 +33,9 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import cc.joycreator.joybrush.android.chrome.BitmapPreviewCodec
 import cc.joycreator.joybrush.android.chrome.BrushDrawerView
+import cc.joycreator.joybrush.android.chrome.BrushPreviewCache
 import cc.joycreator.joybrush.android.chrome.ChromeKit
 import cc.joycreator.joybrush.android.chrome.ColourPairView
 import cc.joycreator.joybrush.android.chrome.GuideOverlayView
@@ -41,6 +43,7 @@ import cc.joycreator.joybrush.android.chrome.PaperTiltController
 import cc.joycreator.joybrush.android.chrome.TiltPadView
 import cc.joycreator.joybrush.android.chrome.JbIcon
 import cc.joycreator.joybrush.android.chrome.PaperSheetView
+import cc.joycreator.joybrush.android.chrome.PreviewCancel
 import cc.joycreator.joybrush.androidkit.io.PaperResources
 import cc.joycreator.joybrush.core.doc.Paper
 import cc.joycreator.joybrush.core.paper.PaperPreviews
@@ -174,6 +177,8 @@ private const val PREF_GUIDES = "guides"
 
 /** NATIVE_LINES_V1: the "Editable lines" switch. Off until chosen; the app remembers it, the drawing does not. */
 private const val PREF_EDITABLE_LINES = "joybrush.editableLines"
+/** LAYER_OPS L6: what Flatten does with hidden layers: "ask" (default), "keep" or "discard". */
+private const val PREF_FLATTEN_HIDDEN = "joybrush.flattenHidden"
 
 /** Layer thumbnails are re-drawn this long after the last change, so a burst of strokes costs one refresh. */
 private const val THUMBS_AFTER_MS = 250L
@@ -228,6 +233,23 @@ private val fileIo = Executors.newSingleThreadExecutor()
 class JoyBrushActivity : Activity() {
 
     private lateinit var canvas: JbCanvasView
+
+    /**
+     * The brush drawer's pictures, drawn by the engines on the canvas's GL thread and kept per brush version in memory and in
+     * `cacheDir/brush_previews`. One for the screen, so a second open of the drawer finds them already made.
+     */
+    private val brushPreviews: BrushPreviewCache<Bitmap> by lazy {
+        BrushPreviewCache(
+            dir = File(cacheDir, "brush_previews"),
+            maker = { preset, w, h, style, done ->
+                val ticket = canvas.renderBrushPreview(preset, w, h, style, done)
+                PreviewCancel { ticket.cancel() }
+            },
+            codec = BitmapPreviewCodec,
+            ui = BitmapPreviewCodec.uiThread(),
+            io = BitmapPreviewCodec.ioThread(),
+        )
+    }
     private lateinit var undoBtn: TopButton
     private lateinit var redoBtn: TopButton
 
@@ -370,6 +392,13 @@ class JoyBrushActivity : Activity() {
     /** Pausing the GL thread, once a snapshot has answered or the wait for one is up. */
     private val pauseView = Runnable { pauseViewNow() }
 
+    /** Back closes an open menu first (the smoke test, 2026-10-18: it left the drawing with a layer menu still open). */
+    @Deprecated("Back on a plain Activity")
+    override fun onBackPressed() {
+        if (popovers.isOpen) { popovers.close(); return }
+        @Suppress("DEPRECATION") super.onBackPressed()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         pendingBoardExport = cc.joycreator.joybrush.android.board.BoardExportCoordinator.restore(savedInstanceState?.getBundle("board_export"))
@@ -466,6 +495,7 @@ class JoyBrushActivity : Activity() {
         // JB-2.04: the column follows the stack, and anything refused is said in words.
         canvas.onLayersChanged = { stack -> layersChanged(stack) }
         canvas.onRefused = { why -> toast(why) }
+        canvas.onNotice = { sentence -> toast(sentence) }
         canvas.onGraphicsLost = { documentId -> boardController?.stop(); recoverGraphics(documentId) }
         setColumnOpen(prefs.getBoolean(PREF_LAYERS_OPEN, false))
         // The top icons re-read the picture behind them whenever it can have changed under them.
@@ -788,8 +818,15 @@ class JoyBrushActivity : Activity() {
         strip.showOpacity(canvas.preset?.engine != cc.joycreator.joybrush.core.brush.ENGINE_MEDIA)
     }
 
+    /** Said once, the first time the drawer opens: a packaged brush that could not load is missing from it (just-works sweep). */
+    private var unusableBrushesTold = false
+
     /** The brush drawer, opened on the shelf the tool's brush is on. Picking closes it at once (0 ms). */
     private fun openBrushes(slot: ToolSlot) {
+        if (!unusableBrushesTold) {
+            unusableBrushesTold = true
+            BrushLibrary.unusableSentence()?.let { toast(it) }
+        }
         val current = tools.current?.brushId
         val own = when (slot) {
             ToolSlot.SMUDGE -> BrushShelf.Kind.SMUDGE
@@ -808,7 +845,7 @@ class JoyBrushActivity : Activity() {
             tools = tools.pick(held)
             applyTool()
             brushes.firstOrNull { it.id == held.id }?.let { openSettings(it) }
-        })
+        }, previews = brushPreviews)
         // Full width on a phone (the Note 9 at its dense setting is ~548 dp); capped on a tablet so strokes stay readable.
         popovers.showSheet(drawer, maxWidthDp = 600f, alignEnd = placement.edge == StripPlacement.Edge.RIGHT)
     }
@@ -871,6 +908,32 @@ class JoyBrushActivity : Activity() {
 
     // ── the ⋯ menu ──
 
+    /**
+     * Flatten, asking first about hidden layers the way Photoshop does, unless the person ticked "Remember my choice"
+     * (the ⋯ menu's "Flatten: hidden layers" row changes it later).
+     */
+    private fun flattenAsking(anchor: View) {
+        val pref = prefs.getString(PREF_FLATTEN_HIDDEN, "ask") ?: "ask"
+        if (!canvas.hasHiddenLayers || pref != "ask") { canvas.flatten(discardHidden = pref == "discard"); return }
+        var remember = false
+        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        box.addView(drawerText("Some layers are hidden.", 13f).apply { setPadding(dp(12), dp(10), dp(12), dp(4)) })
+        fun choose(discard: Boolean) {
+            if (remember) prefs.edit().putString(PREF_FLATTEN_HIDDEN, if (discard) "discard" else "keep").apply()
+            popovers.close(); canvas.flatten(discard)
+        }
+        box.addView(menuRow("Keep hidden layers", "Flatten what shows; hidden layers stay as they are") { choose(false) })
+        box.addView(menuRow("Discard hidden layers", "Flatten what shows and delete the hidden layers. Undo brings them back",
+            dot = kit.p.stateDestroy) { choose(true) })
+        lateinit var rememberRow: View
+        rememberRow = menuRow("☐  Remember my choice", "Don't ask again; change it later in the ⋯ menu") {
+            remember = !remember
+            (rememberRow as? android.widget.TextView)?.text = if (remember) "☑  Remember my choice" else "☐  Remember my choice"
+        }
+        box.addView(rememberRow)
+        popovers.show(box, anchor, Popovers.Side.BESIDE, widthDp = 240f)
+    }
+
     private fun moreMenu(anchor: View) {
         val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         box.addView(menuRow("Boards…", "Create or select an Image, Animation or Sprite board") { popovers.close(); boardController?.showMenu() })
@@ -879,6 +942,13 @@ class JoyBrushActivity : Activity() {
             if (linesOn) "Editable lines are on: new strokes stay lines you can pick with Select, then move, recolour and re-brush. Tap to turn off"
             else "Editable lines are off: new strokes are plain pixels. Tap to keep new strokes as lines you can pick with Select") {
             setEditableLines(!linesOn)
+        })
+        val flattenPref = prefs.getString(PREF_FLATTEN_HIDDEN, "ask") ?: "ask"
+        box.addView(menuRow("Hidden layers on Flatten: ${mapOf("ask" to "Ask", "keep" to "Keep", "discard" to "Discard")[flattenPref]}",
+            "What Flatten does with hidden layers. Tap to change: Ask, Keep, Discard") {
+            val next = when (flattenPref) { "ask" -> "keep"; "keep" -> "discard"; else -> "ask" }
+            prefs.edit().putString(PREF_FLATTEN_HIDDEN, next).apply()
+            popovers.close(); moreMenu(anchor)
         })
         addTiltRows(box)
         box.addView(menuRow("Save a copy…", "Save a copy of this drawing where you choose") { askWhereToSave() })
@@ -1121,7 +1191,7 @@ class JoyBrushActivity : Activity() {
             if (canvas.activeLayerId != id) canvas.selectLayer(id)
             val on = !canvas.editingMask
             canvas.setEditingMask(on)
-            if (on) toast("Painting on the mask: dark hides, light shows")
+            if (on && canvas.editingMask) toast("Painting on the mask: dark hides, light shows")
         }
     }
 
@@ -1297,12 +1367,19 @@ class JoyBrushActivity : Activity() {
             setPadding(dp(8), 0, dp(8), 0)
             imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_DONE
             kit.label(this, "Layer name")
+            // A blank name is said no to once, and the field goes back to the name the layer keeps (so the focus loss that
+            // follows the Done key sees an unchanged name and stays quiet).
+            fun commitName(v: android.widget.EditText) {
+                val typed = v.text.toString()
+                canvas.renameLayer(id, typed)
+                if (typed.isBlank()) v.setText(canvas.layers[id]?.name ?: layer.name)
+            }
             setOnEditorActionListener { v, _, _ ->
-                canvas.renameLayer(id, v.text.toString())
+                commitName(v as android.widget.EditText)
                 v.clearFocus()
                 false
             }
-            setOnFocusChangeListener { v, has -> if (!has) canvas.renameLayer(id, (v as android.widget.EditText).text.toString()) }
+            setOnFocusChangeListener { v, has -> if (!has) commitName(v as android.widget.EditText) }
         }
         box.addView(name, LinearLayout.LayoutParams(MATCH, dp(40)))
 
@@ -1344,7 +1421,7 @@ class JoyBrushActivity : Activity() {
             box.addView(menuRow("Add mask", "Add a mask to this layer — paint dark on it to hide, light to show") {
                 canvas.selectLayer(id)
                 canvas.addMask(id)
-                toast("Painting on the mask: dark hides, light shows")
+                if (canvas.editingMask) toast("Painting on the mask: dark hides, light shows")
             })
         } else {
             val onMask = canvas.editingMask && canvas.activeLayerId == id
@@ -1364,7 +1441,23 @@ class JoyBrushActivity : Activity() {
         box.addView(menuRow(if (layer.visible) "Hide" else "Show", if (layer.visible) "Hide this layer" else "Show this layer") {
             canvas.setLayerVisible(id, !layer.visible)
         })
+        box.addView(menuRow(if (layer.locked) "Unlock" else "Lock",
+            if (layer.locked) "Let this layer's paint, lines and mask change again"
+            else "Keep this layer's paint, lines and mask from changing; its opacity, blend and visibility still change") {
+            canvas.setLayerLocked(id, !layer.locked)
+        })
         box.addView(menuRow("Duplicate", "Make a copy of this layer above it") { canvas.duplicateLayer(id) })
+        if (canvas.layers.indexOf(id) > 0) {
+            box.addView(menuRow("Merge down", "Merge this layer into the one under it; the picture stays the same. Undo brings both back") {
+                popovers.close(); canvas.mergeDown(id, boardController?.selectedBoardId)
+            })
+        }
+        box.addView(menuRow("Freeze layer", "Turn this layer's editable lines and realistic paint into plain pixels; frees memory. Undo brings them back") {
+            popovers.close(); canvas.freezeLayer(id)
+        })
+        box.addView(menuRow("Flatten", "Freeze every visible layer into one, exactly as it looks. Undo brings them back") {
+            popovers.close(); flattenAsking(anchor)
+        })
         box.addView(menuRow("Clear layer", "Empty this layer — Undo brings it back") {
             canvas.selectLayer(id)
             endSelection(); canvas.clearCanvas()
@@ -2313,6 +2406,9 @@ class JoyBrushActivity : Activity() {
         val controller = SelectController(kit, root, canvas, host, popovers, selectApp(host))
         selection = controller
         controller.attach()
+        // The strip opens with a brush in hand, so the tool must too: SelectTool starts with Select in hand, which would
+        // swallow the first pen strokes after opening until a brush was tapped (found by the device matrix, 2026-10-18).
+        controller.selectToolInHand = selectInHand
         // Lines that changed from outside the tool (a stroke, an undo, a drawing opened): a selection naming a line that
         // is gone ends. The tool's own edits are already in the host's lists, so they pass.
         canvas.onLinesChanged = { SelectionSync.afterLinesChanged(controller.tool, host) }
@@ -2415,7 +2511,7 @@ class JoyBrushActivity : Activity() {
             val brush = ToolMemory.sized(picked, memory?.sizePx ?: picked.size.base, memory?.opacity ?: picked.opacity.base)
             val id = try { host.freezeBrush(brush) } catch (e: Exception) { null }
             if (id != null) onPicked(id) else toast("That brush can't be kept as a line.")
-        })
+        }, previews = brushPreviews)
         popovers.showSheet(drawer, maxWidthDp = 600f, alignEnd = placement.edge == StripPlacement.Edge.RIGHT)
     }
 

@@ -1,0 +1,53 @@
+{
+  "format": "joy.vis/1",
+  "id": "coral",
+  "name": "Coral Growth",
+  "family": "Generative",
+  "description": "Reaction-diffusion coral that grows with the song; every kick plants a new colony.",
+  "palette": [
+    "#F7FFF7",
+    "#4ECDC4",
+    "#1A8FE3",
+    "#7B2CBF",
+    "#FF6B6B"
+  ],
+  "background": "#03060A",
+  "layers": [
+    {
+      "type": "rd",
+      "name": "Coral",
+      "p": {
+        "feed": 0.0545,
+        "kill": 0.062,
+        "iterations": 12,
+        "brightness": 1,
+        "emboss": 1.2,
+        "kickSeed": 1,
+        "bandFeed": 0.4,
+        "seedSize": 0.035,
+        "ringSeed": 0.6,
+        "detail": 0.45
+      }
+    },
+    {
+      "type": "lines",
+      "name": "Rim",
+      "p": {
+        "mode": 1,
+        "rows": 1,
+        "size": 0.62,
+        "amp": 0.06,
+        "thick": 0.003,
+        "glow": 0.8,
+        "brightness": 1
+      }
+    }
+  ],
+  "post": {
+    "p": {
+      "bloom": 0.7,
+      "vignette": 0.4,
+      "grain": 0.1
+    }
+  }
+}

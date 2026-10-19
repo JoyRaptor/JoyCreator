@@ -249,6 +249,37 @@ object MaskPaint {
     }
 
     /**
+     * The fill's OWN pixels, tile by tile (editable lines v1.2, H2): each covered pixel is the premultiplied source
+     * `S = (r*a, g*a, b*a, 255*a)` of the file comment, with `a = coverage / 255 * opacity`, over an empty tile. This is
+     * what a pixel slab keeps of a fill on a plane that holds editable lines: the slab's operator (`normal` for
+     * [MaskPaintMode.FILL], `behind`, `erase`) then does what the mode does to whatever is under it, so the fill stays
+     * in time order with the lines instead of being baked into them. Only tiles with some covered pixel are returned.
+     * The same rounding as [pixel]; an opacity of zero (or an empty mask) gives nothing.
+     */
+    fun units(mask: SelectionMask, argb: Int, opacity: Float): Map<Long, ByteArray> {
+        if (mask.isEmpty || opacityOf(opacity) <= 0.0) return emptyMap()
+        val out = LinkedHashMap<Long, ByteArray>()
+        val none = IntArray(4)
+        val painted = IntArray(4)
+        for (entry in mask.tiles) {
+            val coverage = entry.value
+            val tile = ByteArray(TILE_BYTES)
+            var any = false
+            for (i in coverage.indices) {
+                val c = coverage[i].toInt() and 0xFF
+                if (c == 0) continue
+                pixel(MaskPaintMode.FILL, argb, opacity, c, none, painted)
+                val at = i * 4
+                tile[at] = painted[0].toByte(); tile[at + 1] = painted[1].toByte()
+                tile[at + 2] = painted[2].toByte(); tile[at + 3] = painted[3].toByte()
+                if (painted[3] != 0) any = true
+            }
+            if (any) out[entry.key] = tile
+        }
+        return out
+    }
+
+    /**
      * The opacity of a fill, as the 0..1 factor it multiplies the coverage by.
      *
      * CLAMPED, not refused: this number comes off a slider, and a slider that overshoots by one

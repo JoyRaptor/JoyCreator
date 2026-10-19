@@ -13,6 +13,8 @@ data class LayerState(
     val hasMask: Boolean = false,
     /** Clipped to the nearest unclipped layer below (JB-2.23). Never true of the bottom layer: see [LayerStack.normalized]. */
     val clip: Boolean = false,
+    /** Locked (LAYER_OPS L1): its pixels, lines and mask can't change; its settings (opacity, blend, show) still can. */
+    val locked: Boolean = false,
 )
 
 /**
@@ -92,6 +94,7 @@ data class LayerStack(val layers: List<LayerState>, val activeId: String) {
     fun withMask(id: String, on: Boolean): LayerStack = update(id) { it.copy(hasMask = on) }
 
     /** Clipped or not. The bottom layer has nothing to clip to, so asking to clip it changes nothing. */
+    fun withLocked(id: String, on: Boolean): LayerStack = update(id) { it.copy(locked = on) }
     fun withClip(id: String, on: Boolean): LayerStack = if (on && indexOf(id) == 0) this else update(id) { it.copy(clip = on) }
 
     /**
@@ -99,6 +102,9 @@ data class LayerStack(val layers: List<LayerState>, val activeId: String) {
      * move or a delete that would leave one there unclips it instead of making a drawing that cannot be saved.
      */
     fun normalized(): LayerStack = if (layers.first().clip) copy(layers = listOf(layers.first().copy(clip = false)) + layers.drop(1)) else this
+
+    /** True when a layer clipped in this stack is not clipped in [after]: a move or delete left the bottom layer nothing to clip to. */
+    fun lostClipIn(after: LayerStack): Boolean = layers.any { b -> b.clip && after[b.id]?.clip == false }
 
     /** A new name, trimmed; a blank one keeps the old name (a layer with no name cannot be found in a list). */
     fun rename(id: String, name: String): LayerStack {
@@ -135,6 +141,9 @@ data class LayerStack(val layers: List<LayerState>, val activeId: String) {
 
     companion object {
         const val MAX_NAME = 40
+
+        /** What the person is told when [normalized] unclips a layer for them. */
+        const val UNCLIPPED = "Unclipped: there's nothing below to clip to."
         private val NAME = Regex("Layer (\\d+)")
 
         /** "Hair" → "Hair copy", "Hair copy" → "Hair copy 2", "Hair copy 2" → "Hair copy 3". */

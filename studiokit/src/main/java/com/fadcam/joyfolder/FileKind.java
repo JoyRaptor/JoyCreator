@@ -19,7 +19,7 @@ public enum FileKind {
     BRUSH(Group.SUPPLY, "Brushes", ".brush.json"),
     PAPER(Group.SUPPLY, "Papers", ".paper.json"),
     PALETTE(Group.SUPPLY, "Palettes", ".palette.json"),
-    LOOK(Group.SUPPLY, "Looks", ".grade.json", ".caption.json", ".waveform.json", ".cube"),
+    LOOK(Group.SUPPLY, "Looks", ".grade.json", ".caption.json", ".waveform.json", ".vis.json", ".vispart.json", ".cube"),
     FONT(Group.SUPPLY, "Fonts", ".ttf", ".otf"),
     /** A folder holding a {@code plugin.json} or {@code mod.json}. Never matched by name. */
     PLUGIN(Group.SUPPLY, "Plugins"),

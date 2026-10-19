@@ -32,6 +32,43 @@ object BoardExportLayout {
         fun choice() = Choice(boardId, scope, format, currentFrameId, rangeStartId, rangeEndId)
         fun canExport() = exportEnabled && scope in availableScopes && format in availableFormats
     }
+    /**
+     * Why the Export button is greyed, as the sentence a tap on it gives; null when it is not greyed. The button stays
+     * greyed (nothing may be exported then); this only stops it being silent.
+     */
+    fun whyNotExportable(i: Input): String? {
+        if (i.canExport()) return null
+        val ids = i.identity.frameIds
+        val frames = when (i.scope) {
+            Scope.ANIMATION -> ids.size
+            Scope.RANGE -> (ids.indexOf(i.rangeEndId) - ids.indexOf(i.rangeStartId) + 1).coerceAtLeast(1)
+            else -> 1
+        }
+        return when {
+            !i.exportEnabled && frames > 1 ->
+                "This export is bigger than this phone can hold in memory. Choose a shorter range or fewer frames, or make the board smaller."
+            !i.exportEnabled -> "This board is bigger than this phone can export. Make the board smaller and try again."
+            i.scope !in i.availableScopes -> "\"${i.scope.label}\" can't be exported from this board."
+            else -> "${i.format.label} isn't available for \"${i.scope.label}\"; choose another file type."
+        }
+    }
+
+    /**
+     * What a tap on a greyed control says, else null: the Export button ([whyNotExportable]), a scope row or a format chip.
+     * The memory bar is information, not a button, and says nothing.
+     */
+    fun whyGreyed(i: Input, controlId: String): String? {
+        if (controlId == "export-go") return whyNotExportable(i)
+        Scope.entries.firstOrNull { controlId == "export-scope-${it.name.lowercase()}" }?.let { scope ->
+            return if (scope in i.availableScopes) null else "\"${scope.label}\" isn't available for this board."
+        }
+        Format.entries.firstOrNull { controlId == "export-format-${it.name.lowercase()}" }?.let { format ->
+            return if (format in i.availableFormats) null
+            else "${format.label} isn't available for \"${i.scope.label}\"; choose another file type."
+        }
+        return null
+    }
+
     const val HEIGHT_DP = 236f
     const val TOP_RADIUS_DP = 20f
     const val BUDGET_TOOLTIP = "How much of this board's memory budget its frames use"

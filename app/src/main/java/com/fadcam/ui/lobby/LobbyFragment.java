@@ -1040,6 +1040,7 @@ public class LobbyFragment extends BaseFragment {
         String art = null;
         // A sheet or character the hero names, so tapping it opens exactly that.
         heroPart = null;
+        com.fadcam.vislab.room.LobbyHero.Shown vizShown = null;
 
         if (r.id == ROOM_CAPTURE) {
             // Capture's hero is the room's READINESS, not a picture of a camera. Until the
@@ -1074,6 +1075,12 @@ public class LobbyFragment extends BaseFragment {
                 hasContent = false;
                 name = sub = "";
             }
+        } else if (r.id == ROOM_VIZ && (vizShown = com.fadcam.vislab.room.LobbyHero.read(requireContext())) != null) {
+            // VisLab keeps a still of the look you left it on (VisLabActivity.onPause).
+            hasContent = true;
+            name = vizShown.name;
+            sub = vizShown.family;
+            art = vizShown.image;
         } else {
             // Sprite Lab, Avatar and Viz Lab all live INSIDE a project today (STATE §9
             // defect 13: "sheets live inside project.json, so a character perfected in one
@@ -1129,8 +1136,8 @@ public class LobbyFragment extends BaseFragment {
             heroArt.setBackgroundColor(Studio.SURFACE);
             if (lastDrawing != null) {
                 loadThumbInto(heroArt, lastDrawing.thumbPath);
-            } else if (heroPart != null) {
-                loadThumbInto(heroArt, art);   // the sheet's own picture; plain ground if it has none
+            } else if (heroPart != null || vizShown != null) {
+                loadThumbInto(heroArt, art);   // the sheet's / look's own picture; plain ground if it has none
             } else if (!projects.isEmpty() && r.id != ROOM_CAPTURE) {
                 loadThumbInto(heroArt, projects.get(0).videoUri);
             }
@@ -1155,7 +1162,7 @@ public class LobbyFragment extends BaseFragment {
         heroSub.setText(sub);
         heroSub.setVisibility(hasContent ? View.VISIBLE : View.INVISIBLE);
 
-        heroAction.setText(lastDrawing != null ? getString(R.string.lobby_act_carry_on)
+        heroAction.setText(lastDrawing != null || vizShown != null ? getString(R.string.lobby_act_carry_on)
                 : hasContent || r.id == ROOM_JOYBRUSH ? r.action : getString(R.string.lobby_act_start));
         heroAction.setTextColor(r.onGrad);
         heroAction.setBackground(pillGradient(r.gradA, r.gradB, dp(999)));
@@ -1239,6 +1246,11 @@ public class LobbyFragment extends BaseFragment {
             return;
         }
 
+        if (r.id == ROOM_VIZ) {                                      // VisLab: its own room (VISLAB_20261016)
+            startActivity(new Intent(requireContext(), com.fadcam.vislab.room.VisLabActivity.class));
+            return;
+        }
+
         String projectId = projects.isEmpty() ? null : projects.get(0).id;
         int idx = r.id;
         if (idx == ROOM_JOYBRUSH) {                                  // Joy Brush: the last drawing, or a new one
@@ -1269,7 +1281,7 @@ public class LobbyFragment extends BaseFragment {
         } catch (Exception e) {
             FLog.w("Lobby", "enterRoom failed for " + r.title, e);
         }
-        // Viz Lab has no room yet, and neither bench has anywhere to live without a project.
+        // Neither bench has anywhere to live without a project (Viz Lab returned above).
         // The Library's Projects view is the honest fallback: it is where they will make one.
         openProjects(false);
     }

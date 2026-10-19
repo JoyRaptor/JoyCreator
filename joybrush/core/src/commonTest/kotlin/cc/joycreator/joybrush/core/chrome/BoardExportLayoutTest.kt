@@ -80,4 +80,54 @@ class BoardExportLayoutTest {
         assertFailsWith<IllegalArgumentException> {BoardExportLayout.layout(base.copy(formatTextWidthsPx=emptyMap()))}
         assertFailsWith<IllegalArgumentException> {base.copy(memoryFraction=Float.NaN)}
     }
+
+    // Just-works sweep: a greyed Export button keeps refusing, and now says why when it is tapped.
+    @Test fun aGreyedExportSaysWhyInWordsAndAnEnabledOneSaysNothing() {
+        assertNull(BoardExportLayout.whyNotExportable(input()))
+        val tooBig=input().copy(exportEnabled=false)
+        assertFalse(tooBig.canExport())
+        assertEquals("This export is bigger than this phone can hold in memory. Choose a shorter range or fewer frames, or make the board smaller.",
+            BoardExportLayout.whyNotExportable(tooBig))
+        assertEquals("This board is bigger than this phone can export. Make the board smaller and try again.",
+            BoardExportLayout.whyNotExportable(tooBig.copy(scope=Scope.FRAME,format=Format.PNG)))
+        // A range of one frame is a single picture: shortening it further is no advice.
+        assertEquals("This board is bigger than this phone can export. Make the board smaller and try again.",
+            BoardExportLayout.whyNotExportable(tooBig.copy(scope=Scope.RANGE,rangeStartId="f2",rangeEndId="f2")))
+        assertTrue(BoardExportLayout.whyNotExportable(tooBig.copy(scope=Scope.RANGE))!!.contains("shorter range"))
+    }
+
+    @Test fun anUnavailableScopeOrTypeIsExplainedTooAndNeverBlamedOnMemory() {
+        val noScope=input().copy(availableScopes=setOf(Scope.FRAME))
+        assertEquals("\"Animation\" can't be exported from this board.", BoardExportLayout.whyNotExportable(noScope))
+        val noType=input().copy(availableFormats=setOf(Format.PNG))
+        assertEquals("GIF isn't available for \"Animation\"; choose another file type.", BoardExportLayout.whyNotExportable(noType))
+        for (reason in listOf(noScope, noType).map { BoardExportLayout.whyNotExportable(it)!! }) assertFalse(reason.contains("memory"))
+    }
+
+    @Test fun everyGreyedExportHasASentence() {
+        for (scope in Scope.entries) for (format in Format.entries) for (enabled in listOf(true,false)) {
+            val i=input().copy(scope=scope,format=format,exportEnabled=enabled)
+            assertEquals(i.canExport(), BoardExportLayout.whyNotExportable(i)==null, "$scope $format $enabled")
+        }
+    }
+
+    // Just-works sweep: every greyed control a person can tap says why; the memory bar is information and stays quiet.
+    @Test fun greyedScopeRowsAndFormatChipsExplainThemselvesLikeExport() {
+        val i=input().copy(availableScopes=setOf(Scope.ANIMATION,Scope.FRAME),availableFormats=setOf(Format.PNG_FRAMES))
+        assertEquals("\"A range of frames\" isn't available for this board.",BoardExportLayout.whyGreyed(i,"export-scope-range"))
+        assertNull(BoardExportLayout.whyGreyed(i,"export-scope-animation"))
+        assertEquals("GIF isn't available for \"Animation\"; choose another file type.",BoardExportLayout.whyGreyed(i,"export-format-gif"))
+        assertNull(BoardExportLayout.whyGreyed(i,"export-format-png_frames"))
+        assertEquals(BoardExportLayout.whyNotExportable(i),BoardExportLayout.whyGreyed(i,"export-go"))
+        assertNull(BoardExportLayout.whyGreyed(i,"export-budget"))
+        assertNull(BoardExportLayout.whyGreyed(i,"export-title"))
+    }
+
+    @Test fun everyDisabledControlInTheLayoutHasASentenceExceptTheMemoryBar() {
+        val i=input().copy(availableScopes=setOf(Scope.FRAME),availableFormats=setOf(Format.PNG),exportEnabled=false)
+        for (control in BoardExportLayout.layout(i).controls.filter { !it.enabled }) {
+            val said=BoardExportLayout.whyGreyed(i,control.id)
+            if (control.id=="export-budget") assertNull(said) else assertNotNull(said,"${control.id} is greyed and silent")
+        }
+    }
 }

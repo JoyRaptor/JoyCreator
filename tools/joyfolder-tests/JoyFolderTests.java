@@ -109,6 +109,8 @@ public final class JoyFolderTests {
         eq(FileKind.DOCUMENT, FileKind.of("notes.json"));
         eq(FileKind.SPRITE_SHEET, FileKind.of("Star guy.sprite.json"));
         eq(FileKind.LOOK, FileKind.of("Teal orange.CUBE"));
+        eq(FileKind.LOOK, FileKind.of("Sound City.vis.json"));   // a VisLab look
+        eq(FileKind.LOOK, FileKind.of("Fire Aurora.vispart.json"));   // a VisLab part, beside the looks
         eq(FileKind.PROJECT, FileKind.of("Lecture 3.joyproject"));
         eq(FileKind.VIDEO, FileKind.of("Take 1.MP4"));
         eq(FileKind.OTHER, FileKind.of("README"));

@@ -296,8 +296,24 @@ class CanvasSelectionHostTest {
         rig.host.dimRest(0.5f)
         rig.host.adjustColour(10f, 1f, 1f, true)
         assertTrue(rig.canvas.submitted.isEmpty())
-        assertFalse(rig.host.bakeLines(setOf(planeP.address("a"))))
-        assertEquals(listOf("Rasterize Down is coming next"), rig.ui.notes)
+    }
+
+    @Test fun rasterizeDownIsOneBakeEditAndTheLinesLeaveSelectAtOnce() {
+        val rig = Rig()
+        assertFalse(rig.host.bakeLines(emptySet()))
+        assertFalse(rig.host.bakeLines(setOf(planeP.address("ghost"))))
+        assertTrue(rig.canvas.submitted.isEmpty())
+        assertTrue(rig.host.bakeLines(setOf(planeP.address("a"))))
+        assertEquals(LineEdit.Bake(setOf(planeP.address("a"))), rig.canvas.submitted.single().first)
+        assertEquals("a baked line is pixels now, not a line", listOf("b"), rig.host.activeLines().map { it.id })
+    }
+
+    @Test fun editsInFlightAreDroppedWhenAnotherDrawingOpens() {
+        val rig = Rig()
+        assertTrue(rig.host.deleteLines(setOf(planeP.address("a"))))
+        assertEquals(listOf("b"), rig.host.activeLines().map { it.id })
+        rig.canvas.epoch++          // an open: the old drawing's edit no longer applies here
+        assertEquals(listOf("a", "b"), rig.host.activeLines().map { it.id })
     }
 
     @Test fun thePaintClipIsKept() {

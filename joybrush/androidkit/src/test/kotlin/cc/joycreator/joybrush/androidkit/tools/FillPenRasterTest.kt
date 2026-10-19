@@ -42,6 +42,24 @@ class FillPenRasterTest {
         assertTrue(FillPenRaster.prepare(List(4) { PenSample(3f, 3f, it.toDouble()) }, 0f, 1f).isEmpty)
     }
 
+    // Just-works sweep: a speck the fill cannot show is said in words, not dropped.
+    @Test fun aSpeckUnderFourScreenPixelsIsTooSmallToFillAndSaysSo() {
+        assertFalse(FillPenRaster.fillsEnough(FillPenRaster.prepare(square(size = 1f), 0f, 1f), 1f))
+        assertTrue(FillPenRaster.fillsEnough(FillPenRaster.prepare(square(size = 8f), 0f, 1f), 1f))
+        assertEquals("That shape is too small to fill.", FillPenRaster.TOO_SMALL)
+    }
+
+    @Test fun theSizeIsJudgedOnTheScreenNotOnThePage() {
+        val onePagePixel = FillPenRaster.prepare(square(size = 1f), 0f, 1f)
+        assertFalse(FillPenRaster.fillsEnough(onePagePixel, 1f))
+        assertTrue(FillPenRaster.fillsEnough(onePagePixel, 3f), "zoomed in, the same shape is 9 screen pixels")
+    }
+
+    @Test fun aTapOrADegenerateShapeIsTooSmallToFill() {
+        assertFalse(FillPenRaster.fillsEnough(SelectionMask.EMPTY, 1f))
+        assertFalse(FillPenRaster.fillsEnough(FillPenRaster.prepare(List(4) { PenSample(3f, 3f, it.toDouble()) }, 0f, 1f), 1f))
+    }
+
     @Test fun negativeOriginsUseFloorTileCoordinates() {
         val mask = FillPenRaster.prepare(square(-4f, -4f), 0f, 1f)
         val result = FillPenRaster.plan(mask, 0xFFFF0000.toInt(), 1f, MaskPaintMode.FILL) { null }
@@ -152,5 +170,15 @@ class FillPenRasterTest {
             MaskPaintMode.ERASE, ownership) { reads++; null }
         assertEquals(1, reads)
         assertTrue(changes.isEmpty())
+    }
+
+    // Just-works sweep: a fill that would change no pixel says so instead of doing nothing.
+    @Test fun fillingWhatIsAlreadyThatColourChangesNothingAndSaysSo() {
+        val mask = FillPenRaster.prepare(square(), 0f, 1f)
+        val red = tile(255, 0, 0, 255)
+        val unchanged = FillPenRaster.plan(mask, 0xFFFF0000.toInt(), 1f, MaskPaintMode.FILL) { red }
+        assertTrue(unchanged.isEmpty(), "no pixel differs, so the plan is empty and the person is told")
+        assertEquals("Nothing to fill there.", FillPenRaster.NOTHING_TO_FILL)
+        assertFalse(FillPenRaster.plan(mask, 0xFF0000FF.toInt(), 1f, MaskPaintMode.FILL) { red }.isEmpty(), "a different colour does change it")
     }
 }

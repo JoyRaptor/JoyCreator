@@ -70,10 +70,13 @@ class CanvasLoadAdmissionTest {
     }
 
     // Editable lines v1: upper slabs stay refused; a look body the drawing does not list is half-written, so refused.
-    @Test fun upperSlabsAndUnlistedLookBodiesRefuseBeforeEitherPublicEntryMutatesOrQueues() {
+    // Editable lines v1.2 (H13): an upper slab listed AND carried is admitted; a body nobody lists is refused.
+    @Test fun upperSlabsAdmittedWhenListedAndCarriedAndUnlistedBodiesRefuseBeforeEitherPublicEntryMutatesOrQueues() {
         val view = surface(); val base = raster(); val bytes = ByteArray(TILE_BYTES)
         val header = cel(base) { it.copy(slabs = listOf(SlabRef("0_0", 0), SlabRef("0_0", 2, "erase"))) }
-        requireRefusal(view, header.copy(slabs = mapOf(SlabKey("paint", "cel", "0_0", 2) to bytes)))
+        view.checkContents(header.copy(slabs = mapOf(SlabKey("paint", "cel", "0_0", 2) to bytes)))
+        requireRefusal(view, cel(base) { it.copy(slabs = listOf(SlabRef("0_0", 0), SlabRef("0_0", 2, "overlay"))) }
+            .copy(slabs = mapOf(SlabKey("paint", "cel", "0_0", 2) to bytes)))
         requireRefusal(view, base.copy(slabs = mapOf(SlabKey("paint", "cel", "0_0", 2) to bytes)))
         requireRefusal(view, base.copy(looks = mapOf(Triple("paint", "cel", "0_0") to bytes)))
     }

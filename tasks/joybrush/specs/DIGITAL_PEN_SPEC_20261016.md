@@ -12,6 +12,32 @@ Owner (2026-10-16, building on the 2026-10-02 "one parametric pen", LEAD_DESK an
 Plus anything that makes it premium. Must work in raster AND as editable lines (NATIVE_LINES_V1).
 Builder: Codex or another agent. Lead reviews each slice.
 
+## 0. Owner amendment, 2026-10-18: it is the UNIBRUSH (supersedes the names and A4's shape below where they differ)
+Owner, condensed: *the Digital Essentials are really ONE super flexible brush that can become many. In Photoshop the
+hardness slider is another dial on MY pen, not two brushes.* The presentation must make people feel these are MODES of one
+versatile brush, so they dive in and make it theirs. The presets are only there "to get you thinking."
+- **Name:** **Unibrush** (owner's word; the only "UNIBRUSH" US mark found is an abandoned 2017 scrubbing-brush filing).
+  Presets are its modes: *Unibrush Soft, Unibrush Hard, Unibrush Calligraphy, Unibrush Taper, Unibrush Fade, Unibrush
+  Texture* … On the shelf the header says Unibrush once and each row shows only its mode word.
+- **Make it yours:** change anything, press **New brush**, and it is saved as a new mode in that same Unibrush shelf.
+- **The shape, by hand** (replaces A4's polygon/star as the main shape tool; star/polygon may stay as presets of it):
+  1. **Four points:** drag any of 4 points into any shape 4 points can make; an **arrow handle** sets the facing angle
+     (Photoshop has the angle; it has no free shape). **1b. A second shape B**: pressure or tilt (or speed) morphs the tip
+     from shape A to shape B (circle → rectangle is just every parameter sliding).
+  2. **Corners:** from a hard angle to completely rounded, or anything between (the existing `tip.corner`, now on the quad).
+  3. **Sliders** for size and thinness (`tip.aspect`).
+  4. **Softness:** a radial gradient (A2 profile) and a linear gradient with its own angle (A3 directional fade).
+  5. **Size.** 6. **Jitter** of every sort (size, angle, scatter, colour: A5).
+  7. **Texture:** a sampled stamp image with its spacing (A6), and a SECOND texture across the stroke (paper-like, fixed to
+     the canvas: the existing `GrainSpec`/`tipTexture`, plus A7's dual tip for broken edges).
+  8. **Behaviours:** what the tip turns with: its angle, the stroke direction, the pen's lean, the barrel (A1).
+- **Engine (A11):** the tip is a rounded-quad SDF in `jb_tip.glsl` from 4 normalised points + corner radius; shape B is a
+  second point set; per dab `t = Param(pressure|tilt|speed)` interpolates points, corner, aspect and profile. Pure dab
+  data, so it replays exactly as an editable line. Every existing round/square/taper brush maps to a quad (migration test:
+  old brushes byte-identical).
+- **Sheet:** the shape editor sits under the live preview stroke (drawn by the real engine); A and B are two tabs of the
+  same editor with a "morph by" chip row (pressure · tilt · speed · off).
+
 ## 1. What already exists (reuse it, do not rebuild)
 The stamp engine (`engine: "stamp"`, `BrushPreset`, `BrushDabber`, `jb_tip.glsl`, `Dynamics.kt`, `Response.kt`) already has most of Photoshop's brush tip and shape dynamics:
 
@@ -111,13 +137,13 @@ So the Digital Pen is **(a) a few real engine additions, (b) a premium settings 
 |---|---|---|
 | D1 | A1 angle source + A8/A9 chip wiring + migration of followDirection | JVM dab tests; old brushes byte-identical |
 | D2 | A2 profiles + A3 directional fade in jb_tip.glsl | headless shader check vs CPU oracle; broken control |
-| D3 | A4 polygon/star SDF | shader check; replay == live |
+| D3 | A11 four-point shape + corner + shape-B morph (A4 star/polygon as its presets) | shader check vs CPU oracle; replay == live; old brushes byte-identical |
 | D4 | A5 colour dynamics | determinism test (same seed → same colours); replay == live |
 | D5 | A6 sampled tip sets + freezing images into drawings + editable-line replay of image tips | archive roundtrip; GPU replay == live on the Note 9 bench |
 | D6 | A7 dual tip | shader check |
 | D7 | A10 replayable stroke-end taper | replay == live |
 | D8 | Stabilizer section + record codec bump | replay of a stabilised stroke == live, bit for bit |
-| D9 | Settings sheet + preset family + real-engine previews | owner check on the phone |
+| D9 | Unibrush sheet (shape editor, A/B tabs, New brush saves a mode) + preset modes + real-engine previews | owner check on the phone |
 | D10 | Performance: soft-dab spacing and half-res buffer | Note 9 bench numbers in §6 |
 
 **Owner check:** the 9 presets drawn on the Note 9 as raster AND as editable lines (then moved, rotated, recoloured, re-brushed). He judges against Photoshop's default round and Procreate's.

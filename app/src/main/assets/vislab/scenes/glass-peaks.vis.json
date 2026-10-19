@@ -1,0 +1,74 @@
+{
+  "format": "joy.vis/1",
+  "id": "glass-peaks",
+  "name": "Glass Peaks",
+  "family": "Landscape",
+  "description": "Translucent spectrum mountains in rows of depth over a wet, rippling floor.",
+  "palette": [
+    "#3CFFB4",
+    "#22D3EE",
+    "#5B6CFF",
+    "#C04CFF",
+    "#FF4FD8"
+  ],
+  "background": "#020308",
+  "layers": [
+    {
+      "type": "filaments",
+      "name": "Mountains",
+      "p": {
+        "rows": 6,
+        "threads": 320,
+        "baseY": -0.25,
+        "width": 1.1,
+        "height": 0.95,
+        "depth": 0.07,
+        "sharp": 0.9,
+        "dof": 0.9,
+        "rim": 0.6,
+        "fill": 0.2,
+        "brightness": 1,
+        "gain": 1.2,
+        "mirror": 2,
+        "smooth": 0.35,
+        "spike": 0.75,
+        "crown": 0.3,
+        "colorMode": 0,
+        "rowShift": 0.08,
+        "ageStep": 0.12,
+        "drift": 0.5
+      }
+    },
+    {
+      "type": "particles",
+      "name": "Ground sparkles",
+      "p": {
+        "count": 1500,
+        "emitter": 2,
+        "ey": -0.27,
+        "esize": 1,
+        "speed": 0.02,
+        "dirMode": 4,
+        "life": 3,
+        "size": 0.006,
+        "look": 2,
+        "brightness": 1.2,
+        "twinkle": 0.8,
+        "colorMode": 3,
+        "punch": 0.3,
+        "burst": 0.02
+      }
+    }
+  ],
+  "post": {
+    "p": {
+      "reflect": 0.85,
+      "horizon": -0.25,
+      "ripple": 0.7,
+      "bloom": 1.2,
+      "bloomThreshold": 0.5,
+      "vignette": 0.4,
+      "grain": 0.08
+    }
+  }
+}

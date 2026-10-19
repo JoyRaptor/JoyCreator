@@ -37,8 +37,10 @@ internal class FakeCanvas : HostCanvas {
     /** When set, the canvas answers inside submitLineEdit, as it does for "Lift the pen". */
     var answerAtOnce: LineEditResult? = null
     var redraws = 0
+    var epoch = 0
 
     override val lineSnapshot: LineSnapshot get() = snapshot
+    override val lineEditEpoch: Int get() = epoch
     override fun activeLinePlanes(): List<LinePlane> = active
     override fun visibleLinePlanes(): List<LinePlane> = visible
     override fun submitLineEdit(edit: LineEdit, done: (LineEditResult) -> Unit) {

@@ -1,0 +1,150 @@
+package com.fadcam.vislab.model;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
+import com.fadcam.vislab.audio.Signals;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+/**
+ * A {@link VisScene} made ready to draw: layer types resolved, knobs compiled, palettes
+ * linearised. Rebuilt whenever the look is edited ({@link VisScene#edits()} moves); nothing
+ * here allocates per frame.
+ */
+public final class CompiledScene {
+
+
+    /** One drawable layer. {@link #source} is the layer's JSON (identity for per-layer state). */
+    public static final class Layer {
+        @NonNull public final JsonObject source;
+        @NonNull public final VisType type;
+        @NonNull public final KnobSet knobs;
+        /** The controls every layer has (types.json "layer"): opacity, reactivity, softness, place. */
+        @NonNull public final KnobSet common;
+        private final int iOpacity, iReact, iSoft, iX, iY, iSize, iTurn;
+        /** 0 = paint (hides what is behind), 1 = light (adds). */
+        public final float add;
+        /** Draw into the echo trails (true) or crisp above them. */
+        public final boolean underEcho;
+        public final float res;
+        public final float seed;
+        /** Own palette (15 linear floats) or null to use the scene's. */
+        @Nullable public final float[] palette;
+        /** Picture reference for image layers ("asset:...", a file path, or null for the default logo). */
+        @Nullable public final String image;
+
+        Layer(@NonNull JsonObject source, @NonNull VisType type, @NonNull VisType layerType, int index) {
+            this.source = source;
+            this.type = type;
+            knobs = KnobSet.compile(type.knobs, VisScene.knobsOf(source));
+            // Layer-wide controls sit on the layer itself ("opacity": 0.8, "turn": {"v": 0, "mod": ...}).
+            JsonObject lc = new JsonObject();
+            for (VisKnob k : layerType.knobs) if (source.has(k.id)) lc.add(k.id, source.get(k.id));
+            common = KnobSet.compile(layerType.knobs, lc);
+            iOpacity = layerType.indexOf("opacity");
+            iReact = layerType.indexOf("react");
+            iSoft = layerType.indexOf("soft");
+            iX = layerType.indexOf("x");
+            iY = layerType.indexOf("y");
+            iSize = layerType.indexOf("size");
+            iTurn = layerType.indexOf("turn");
+            add = num(source, "add", 1f);
+            JsonElement e = source.get("echo");
+            underEcho = !(e != null && e.isJsonPrimitive() && !e.getAsBoolean());
+            res = num(source, "res", type.res);
+            seed = num(source, "seed", (float) Math.floor(index * 7.31 + 1));
+            String[] stops = VisScene.stops(source.get("palette"));
+            palette = stops != null ? VisScene.paletteLinear(stops) : null;
+            JsonElement im = source.get("image");
+            image = im != null && im.isJsonPrimitive() ? im.getAsString() : null;
+        }
+
+        public void eval(@Nullable Signals s) {
+            common.eval(s);
+            knobs.eval(s, react());
+        }
+
+        private float v(int i, float fallback) {
+            return i < 0 ? fallback : common.values[i];
+        }
+
+        public float opacity() { return v(iOpacity, 1f); }
+
+        /** Scales every music link of this layer: 0 calm, 1 as set, 2 wild. */
+        public float react() { return Math.max(0f, v(iReact, 1f)); }
+
+        public float soft() { return Math.max(0f, Math.min(1f, v(iSoft, 0f))); }
+
+        public float x() { return v(iX, 0f); }
+
+        public float y() { return v(iY, 0f); }
+
+        public float size() { return Math.max(0.05f, v(iSize, 1f)); }
+
+        /** Degrees. */
+        public float turn() { return v(iTurn, 0f); }
+    }
+
+    @NonNull public final VisScene scene;
+    public final int edits;
+    @NonNull public final List<Layer> layers;
+    @Nullable public final KnobSet echo;
+    @NonNull public final KnobSet post;
+    @NonNull public final VisTypes types;
+    @NonNull public final float[] palette;
+    /** Linear rgb, or null for see-through. */
+    @Nullable public final float[] background;
+
+    /** After an edit: every speed carries on from the look as it was (see KnobSet#carryFrom). */
+    public void carryFrom(@Nullable CompiledScene prev) {
+        if (prev == null) return;
+        for (Layer L : layers) {
+            for (Layer P : prev.layers) {
+                if (P.source != L.source) continue;
+                L.knobs.carryFrom(P.knobs);
+                break;
+            }
+        }
+        if (echo != null) echo.carryFrom(prev.echo);
+        post.carryFrom(prev.post);
+    }
+
+    public CompiledScene(@NonNull VisScene scene, @NonNull VisTypes types, @Nullable String[] brandPalette) {
+        this.scene = scene;
+        this.types = types;
+        edits = scene.edits();
+        List<Layer> out = new ArrayList<>();
+        JsonArray arr = scene.layers();
+        for (int i = 0; i < arr.size(); i++) {
+            JsonElement e = arr.get(i);
+            if (!e.isJsonObject()) continue;
+            JsonObject lo = e.getAsJsonObject();
+            JsonElement on = lo.get("on");
+            if (on != null && on.isJsonPrimitive() && !on.getAsBoolean()) continue;
+            JsonElement t = lo.get("type");
+            VisType type = types.type(t != null && t.isJsonPrimitive() ? t.getAsString() : null);
+            if (type == null) continue;   // unknown type (newer pack): skipped, not fatal
+            out.add(new Layer(lo, type, types.layer, i));
+        }
+        layers = Collections.unmodifiableList(out);
+        JsonObject eo = scene.echoOn();
+        echo = eo != null ? KnobSet.compile(types.echo.knobs, VisScene.knobsOf(eo)) : null;
+        post = KnobSet.compile(types.post.knobs, scene.postKnobs());
+        palette = VisScene.paletteLinear(brandPalette != null ? brandPalette : scene.palette());
+        String bg = scene.background();
+        background = bg != null ? VisScene.hexToLinear(bg, new float[3], 0) : null;
+    }
+
+    private static float num(@NonNull JsonObject o, @NonNull String k, float def) {
+        JsonElement e = o.get(k);
+        if (e == null || !e.isJsonPrimitive()) return def;
+        if (e.getAsJsonPrimitive().isBoolean()) return e.getAsBoolean() ? 1f : 0f;
+        return e.getAsJsonPrimitive().isNumber() ? e.getAsFloat() : def;
+    }
+}

@@ -1959,7 +1959,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         super.onResume();
         checkRunningExportState();
         takeSharedFiles(0);
-        refreshOutsideDot();
+        takeBringInFromJoybot();
+        refreshOutsideWarning();
 
         // A sequence offer parked by the picker's result callback (see the field's doc).
         if (pendingSequenceOffer != null) {
@@ -2391,7 +2392,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Long-press too: JoyRaptor remembers renaming by holding the title, and a rename that
         // only answers one of the two presses people try is a rename that seems broken.
         editorTitle.setOnLongClickListener(v -> { showRenameProjectDialog(); return true; });
-        addOutsideDot();
         editorTimeline.setOnTrackHeaderActionListener(this::onTrackHeaderAction);
         editorTimeline.setOnTrackHeaderLongPressListener(this::onTrackHeaderLongPress);
         editorTimeline.setLayerGestureCallback(layerGestureCallback());
@@ -3693,7 +3693,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             startActivity(intent);
         });
         androidx.appcompat.widget.TooltipCompat.setTooltipText(findViewById(R.id.btn_ai_assistant),
-                "Joybot, your helper — he glows green when he has an idea for this project");
+                "Joybot, your helper — he glows green when he has an idea for this project,"
+                        + " amber when something needs your attention");
     }
 
     /**
@@ -5108,54 +5109,28 @@ public class FaditorEditorActivity extends AppCompatActivity {
     //
     // The owner, 2026-10-14: a really large file is LINKED where it is (copying a 2 GB recording
     // doubles it), with a warning and a Copy button; the project can be gathered into the folder at
-    // any time; and a yellow dot shows a project still uses files from outside it. Tap the dot to
-    // bring them in. Small files are already copied (copyUriToInternalStorage, then the folder mirror).
+    // any time. Small files are already copied (copyUriToInternalStorage, then the folder mirror).
+    //
+    // The owner, 2026-10-16: no yellow dot and no dialog for it. JOYBOT breathes amber while the
+    // project uses outside files; tapping him says which, with his Copy/Move guess for each, and
+    // the person answers in the chat. The chat parks the answer (AIChatState.putBringIn) and the
+    // editor carries it out here when it comes back (bringInOutside, unchanged).
 
-    /** The yellow dot after the title: this project links to files outside the folder. */
-    private TextView outsideDot;
     /** Large files already warned about this session, so one file is one warning. */
     private final java.util.Set<String> largeWarned = new java.util.HashSet<>();
-
-    private void addOutsideDot() {
-        if (editorTitle == null || !(editorTitle.getParent() instanceof ViewGroup)) return;
-        ViewGroup bar = (ViewGroup) editorTitle.getParent();
-        outsideDot = new TextView(this);
-        outsideDot.setText("\u25CF");
-        outsideDot.setTextColor(Studio.CAREFUL);
-        outsideDot.setTextSize(14);
-        outsideDot.setGravity(android.view.Gravity.CENTER);
-        int d = Math.round(36 * getResources().getDisplayMetrics().density);
-        outsideDot.setLayoutParams(new LinearLayout.LayoutParams(d, d));
-        String what = "Some files are outside your Joy Creator folder";
-        outsideDot.setContentDescription(what);
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) outsideDot.setTooltipText(what);
-        outsideDot.setVisibility(View.GONE);
-        outsideDot.setOnClickListener(v -> showOutsideDialog());
-        bar.addView(outsideDot, bar.indexOfChild(editorTitle) + 1);
-    }
 
     /** Every media link the project in memory holds: clips, overlays, audio, image overlays. */
     @NonNull
     private java.util.Set<String> mediaRefs() {
-        java.util.Set<String> refs = new java.util.LinkedHashSet<>();
-        if (project == null) return refs;
-        refs.addAll(com.fadcam.ui.faditor.project.ProjectIntegrity.collectMediaUris(project).keySet());
-        // Pictures placed as image overlays (the IMG track) keep their link on the overlay.
-        for (com.fadcam.ui.faditor.model.TextOverlayItem o : project.getTimeline().getTextOverlays()) {
-            if (o != null && o.getImageUri() != null && !o.getImageUri().isEmpty()) refs.add(o.getImageUri());
-        }
-        return refs;
+        return project == null ? new java.util.LinkedHashSet<String>()
+                : com.fadcam.joyfolder.studio.OutsideFiles.mediaRefs(project);
     }
 
-    /** The outside files the project in memory uses. Main thread (string checks and a stat). */
+    /** The outside files the project in memory uses that the person hasn't chosen to leave. */
     @NonNull
     private java.util.List<String> outsideRefs() {
-        java.util.List<String> out = new java.util.ArrayList<>();
-        if (project == null || !com.fadcam.joyfolder.android.JoyFolderHome.isChosen(this)) return out;
-        for (String ref : mediaRefs()) {
-            if (com.fadcam.joyfolder.studio.StudioMirror.isOutside(this, ref)) out.add(ref);
-        }
-        return out;
+        return project == null ? new java.util.ArrayList<String>()
+                : com.fadcam.joyfolder.studio.OutsideFiles.refs(this, project);
     }
 
     /**
@@ -5172,9 +5147,25 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (replaceMediaSources(copies) > 0) scheduleAutoSave();
     }
 
-    private void refreshOutsideDot() {
-        if (outsideDot == null) return;
-        outsideDot.setVisibility(outsideRefs().isEmpty() ? View.GONE : View.VISIBLE);
+    /** Joybot breathes amber while the project uses outside files (was a yellow dot by the title). */
+    private void refreshOutsideWarning() {
+        View bot = findViewById(R.id.btn_ai_assistant);
+        int outside = outsideRefs().size();
+        if (bot != null) com.fadcam.ui.faditor.ai.joybot.JoybotPulse.warn(bot, outside > 0);
+    }
+
+    /** A Copy/Move answer Joybot's chat parked for this project: carry it out now. */
+    private void takeBringInFromJoybot() {
+        if (project == null) return;
+        java.util.Map<String, String> parked = com.fadcam.ui.faditor.ai.AIChatState.takeBringIn(project.getId());
+        if (parked.isEmpty()) return;
+        java.util.Map<String, com.fadcam.joyfolder.studio.BringInDialog.Choice> choices = new java.util.LinkedHashMap<>();
+        for (java.util.Map.Entry<String, String> e : parked.entrySet()) {
+            choices.put(e.getKey(), "MOVE".equals(e.getValue())
+                    ? com.fadcam.joyfolder.studio.BringInDialog.Choice.MOVE
+                    : com.fadcam.joyfolder.studio.BringInDialog.Choice.COPY);
+        }
+        bringInOutside(choices);
     }
 
     private void noteLargeLinked(@NonNull Uri uri, long size) {
@@ -5187,22 +5178,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (root == null) return;
             com.google.android.material.snackbar.Snackbar.make(root,
                             "This is a large file (" + android.text.format.Formatter.formatShortFileSize(this, size)
-                                    + "), so it's linked where it is, not copied. Copy or move it into your Joy Creator folder?",
+                                    + "), so it's linked where it is, not copied. Joybot can bring it into your Joy Creator folder.",
                             com.google.android.material.snackbar.Snackbar.LENGTH_LONG)
                     .setDuration(10_000)
                     .setActionTextColor(0xFF22D3EE)
-                    .setAction("Copy or move\u2026", v -> com.fadcam.joyfolder.studio.BringInDialog.show(
-                            this, java.util.Collections.singletonList(uri.toString()), this::bringInOutside))
+                    .setAction("Ask Joybot", v -> {
+                        View bot = findViewById(R.id.btn_ai_assistant);
+                        if (bot != null) bot.performClick();
+                    })
                     .show();
-            // The clip lands just after this returns: show the dot once it has.
-            if (outsideDot != null) outsideDot.postDelayed(this::refreshOutsideDot, 600);
+            // The clip lands just after this returns: Joybot turns amber once it has.
+            root.postDelayed(this::refreshOutsideWarning, 600);
         });
-    }
-
-    private void showOutsideDialog() {
-        final java.util.List<String> refs = outsideRefs();
-        if (refs.isEmpty()) { refreshOutsideDot(); return; }
-        com.fadcam.joyfolder.studio.BringInDialog.show(this, refs, this::bringInOutside);
     }
 
     /**
@@ -5240,7 +5227,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 if (isFinishing() || project == null) return;
                 int n = replaceMediaSources(copied);
                 if (n > 0) saveProjectNow();
-                refreshOutsideDot();
+                refreshOutsideWarning();
                 // MOVE: other projects follow the file, then the original goes.
                 java.util.Map<String, String> moved = new java.util.HashMap<>();
                 for (String ref : moving) if (copied.containsKey(ref)) moved.put(ref, copied.get(ref).toString());

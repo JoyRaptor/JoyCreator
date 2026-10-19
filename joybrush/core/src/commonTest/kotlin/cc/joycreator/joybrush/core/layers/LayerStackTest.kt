@@ -4,6 +4,8 @@ import cc.joycreator.joybrush.core.doc.BlendMode
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -149,5 +151,32 @@ class LayerStackTest {
         assertEquals(true, masked["a"]!!.hasMask)
         assertEquals(true, masked.duplicate("a", "a2")!!["a2"]!!.hasMask)
         assertEquals(false, masked.withMask("a", false)["a"]!!.hasMask)
+    }
+
+    // Just-works sweep: a move or delete that leaves a clipped layer at the bottom unclips it, and the screen says so.
+    @Test fun aClippedLayerThatBecomesTheBottomIsUnclippedAndTheStackCanTellTheScreen() {
+        val stack = LayerStack(listOf(LayerState("a", "A"), LayerState("b", "B", clip = true)), "b")
+        val moved = stack.move("b", 0)
+        assertFalse(moved.layers.first().clip)
+        assertTrue(stack.lostClipIn(moved))
+        val deleted = assertNotNull(stack.delete("a"))
+        assertFalse(deleted["b"]!!.clip)
+        assertTrue(stack.lostClipIn(deleted))
+        assertEquals("Unclipped: there's nothing below to clip to.", LayerStack.UNCLIPPED)
+    }
+
+    @Test fun nothingIsSaidWhenNoClipWasLost() {
+        val stack = LayerStack(listOf(LayerState("a", "A"), LayerState("b", "B", clip = true), LayerState("c", "C")), "b")
+        assertFalse(stack.lostClipIn(stack.move("c", 0)))                 // b is still above something
+        assertFalse(stack.lostClipIn(stack.rename("a", "Base")))
+        assertFalse(LayerStack.single().lostClipIn(LayerStack.single()))
+    }
+
+    @Test fun lockingIsALayerSettingThatTravelsWithItsCopy() {
+        val locked = abc.withLocked("a", true)
+        assertTrue(locked["a"]!!.locked)
+        assertFalse(locked["b"]!!.locked)
+        assertFalse(locked.withLocked("a", false)["a"]!!.locked)
+        assertEquals(abc, abc.withLocked("a", false), "unlocking an unlocked layer changes nothing")
     }
 }

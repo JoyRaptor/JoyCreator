@@ -85,6 +85,53 @@
                         android:layout_marginStart="8dp" />
                 </LinearLayout>
 
+                <!-- VISLAB VISUALISER TOGGLE (VISLAB_20261016): the floating visualiser, over the screen -->
+                <LinearLayout
+                    android:id="@+id/btnVisualiserToggle"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:background="@drawable/overlay_toolbar_header_bg"
+                    android:clipToOutline="true"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:layout_marginBottom="8dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:tooltipText="A music visualiser floating over the screen; it is in the recording too">
+
+                    <TextView
+                        android:id="@+id/iconVisualiserToggle"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:gravity="center"
+                        android:text="graphic_eq"
+                        android:textSize="20sp"
+                        android:textColor="@color/s_ink_faint"
+                        android:fontFamily="@font/materialicons"
+                        android:layout_marginEnd="10dp" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Visualiser"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/s_ink"
+                        android:fontFamily="@font/ubuntu_regular" />
+
+                    <TextView
+                        android:id="@+id/visualiserToggleState"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/webcam_overlay_off"
+                        android:textSize="11sp"
+                        android:textColor="@color/s_ink_faint"
+                        android:fontFamily="@font/ubuntu_regular" />
+                </LinearLayout>
+
                 <!-- RECORDING CONTROLS SECTION (MOVED TO TOP) -->
                 <LinearLayout 
                     android:id="@+id/recordingControlsContainer"

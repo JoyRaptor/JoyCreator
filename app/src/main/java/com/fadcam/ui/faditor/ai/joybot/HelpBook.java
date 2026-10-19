@@ -157,10 +157,11 @@ public final class HelpBook {
                             + "app's rebuildable caches, and lists your biggest files so an unused one can go to Trash.",
                     "space", null),
             new Topic("trash", "trash|deleted|bin|recover",
-                    "Hold the Joy Creator logo at the top of the lobby to open the Trash.", null, null),
+                    "Hold the Joy Creator logo at the top of the lobby to open the Trash.", "trash", null),
             new Topic("ai", "api key|key|openrouter|model|ai setting|connect|free ai",
                     "Tap ⚙ at the top of this chat. Paste an OpenRouter key (the free model costs nothing), "
-                            + "or the address of any OpenAI-compatible service.", null, null),
+                            + "or the address of any OpenAI-compatible service. More than one subscription? Tap the "
+                            + "model name at the top → Add another AI account, then switch between them there.", null, null),
             new Topic("joybot", "what can you do|who are you|help me|what do you do",
                     "Right here on the phone I can transcribe, add captions, cut ums and silences, add "
                             + "transitions and visualizers, make slides, and answer “how do I”. With an AI "

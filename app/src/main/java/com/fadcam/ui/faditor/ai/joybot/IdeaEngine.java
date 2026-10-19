@@ -35,7 +35,8 @@ public final class IdeaEngine {
     public static final int MAX_IDEAS = 3;
 
     /** Where Joybot was opened; the same project can call for different help in different rooms. */
-    public enum Room { LOBBY, STUDIO, SPRITELAB, AVATAR, LIBRARY, JOYBRUSH }
+    /** Where Joybot was opened from. VISLAB: the visualiser room (VisLab lane, 10-17); its ideas are about the look on screen. */
+    public enum Room { LOBBY, STUDIO, SPRITELAB, AVATAR, LIBRARY, JOYBRUSH, VISLAB }
 
     /** Guided flows that are actually built; an idea for an unbuilt flow is never shown. */
     public static final String FLOW_SLIDE = "slide";
@@ -113,6 +114,10 @@ public final class IdeaEngine {
         }
         if (room == Room.LIBRARY) {
             library(f, out);
+            return;
+        }
+        if (room == Room.VISLAB) {
+            vislab(out);
             return;
         }
         if (f.isEmpty()) {
@@ -349,6 +354,22 @@ public final class IdeaEngine {
                         + " is your newest recording, and this project doesn't use it yet.")
                 .hint("Go to the Library to find it and open it in the Studio")
                 .priority(60).build());
+    }
+
+    /** VisLab: the look on screen is the subject; every idea is a request the model carries out. */
+    private static void vislab(List<Idea> out) {
+        out.add(Idea.of("vislab_kick", Idea.Kind.ASK, "Hit harder on the kick")
+                .say("Make this look hit harder on the kick")
+                .hint("Link more of the look to the kick drum").needsKey().priority(40).build());
+        out.add(Idea.of("vislab_calm", Idea.Kind.ASK, "A calmer version")
+                .say("Make a calmer version of this look and keep the original")
+                .hint("A new look: slower, softer, fewer flashes").needsKey().priority(38).build());
+        out.add(Idea.of("vislab_brand", Idea.Kind.ASK, "Use my colours")
+                .say("Put VisLab in my brand colours")
+                .hint("Every look in your five colours").needsKey().priority(36).build());
+        out.add(Idea.of("vislab_layer", Idea.Kind.ASK, "Add something on top")
+                .say("Add a layer to this look that suits it")
+                .hint("Lasers, particles, a tunnel… I'll pick one that fits").needsKey().priority(34).build());
     }
 
     // ── words ───────────────────────────────────────────────────────────────

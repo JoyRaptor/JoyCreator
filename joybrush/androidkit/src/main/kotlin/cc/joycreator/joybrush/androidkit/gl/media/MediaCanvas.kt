@@ -232,9 +232,11 @@ class MediaCanvas(
         val w = window ?: return false
         // Bench only: time every media section of this frame (glFinish brackets) and note what the textures cost.
         val rec = stats?.takeIf { it.recording }
-        MediaPhases.timer = rec?.let { s -> { name: String, ms: Double -> s.phase(name, ms) } }
+        // The canvas may already time the whole GL frame (JbCanvasView.onDrawFrame): keep its timer, put it back after.
+        val outer = MediaPhases.timer
+        MediaPhases.timer = rec?.let { s -> { name: String, ms: Double -> s.phase(name, ms) } } ?: outer
         try { return frameInner(e, w, nowMs) } finally {
-            MediaPhases.timer = null
+            MediaPhases.timer = outer
             if (rec != null && (rec.memory == null || (e.hasWaterTextures && !memoryHadWater))) {
                 rec.memory = e.memoryReport(); memoryHadWater = e.hasWaterTextures
             }

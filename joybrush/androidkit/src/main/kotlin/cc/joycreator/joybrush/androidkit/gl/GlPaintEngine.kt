@@ -28,6 +28,7 @@ import cc.joycreator.joybrush.androidkit.gl.lines.NativeBaseTransferProof
 import cc.joycreator.joybrush.androidkit.gl.lines.PromotedBaseProjection
 import cc.joycreator.joybrush.androidkit.gl.watercolour.WatercolourPass
 import cc.joycreator.joybrush.androidkit.gl.media.GlUniformSink
+import cc.joycreator.joybrush.androidkit.gl.media.mediaTrace
 import cc.joycreator.joybrush.androidkit.io.PaperResources
 import cc.joycreator.joybrush.androidkit.io.JbContents
 import cc.joycreator.joybrush.androidkit.io.ColdRecordedLoadPlan
@@ -4622,7 +4623,10 @@ class GlPaintEngine(
     fun capForStroke(): Float = if (accumulate == Accumulate.WASH) opacity else 1f
 
     /** Renders dabs into the stroke buffer. */
-    fun addDabs(dabs: List<Dab>) {
+    // Bench only: the stroke's, the commit's and the display's sections are timed (glFinish brackets, MediaPhases) while
+    // the bench records a frame, and are Systrace sections otherwise; nothing changes when neither is on.
+    fun addDabs(dabs: List<Dab>) = mediaTrace("JB.paint.dabs") { addDabsInner(dabs) }
+    private fun addDabsInner(dabs: List<Dab>) {
         if (strokeLayer == null || dabs.isEmpty()) return
         if (wcSpec != null) { addWatercolourDabs(dabs); return }
         smudge?.let { addSmudgeDabs(it, dabs); return }
@@ -4638,8 +4642,10 @@ class GlPaintEngine(
             if (dab.travelKnown) dab else dab.copy(travelX=strokeTravel.x,travelY=strokeTravel.y,travelKnown=true)
         }
         val tile=strokeTileRect
-        val wrapped=if(tile == null) directed else directed.flatMap { TilePainting.dabs(tile,it) }
-        val buckets = Tiles.bucket(wrapped, size).filterKeys { tile == null || TilePainting.clip(tile,it) != null }
+        val (wrapped, buckets) = mediaTrace("JB.paint.dabs.wrap") {
+            val w = if(tile == null) directed else directed.flatMap { TilePainting.dabs(tile,it) }
+            w to Tiles.bucket(w, size).filterKeys { tile == null || TilePainting.clip(tile,it) != null }
+        }
         require(tile == null || (strokeTiles.keys + buckets.keys).toSet().size <= TilePainting.MAX_TILES) { "This tile stroke is too large" }
         for (key in buckets.keys) strokeTiles.getOrPut(key) { newStrokeTile() }
         dabProg.use()
@@ -4711,7 +4717,8 @@ class GlPaintEngine(
      * A tuft stroke's footprints (R9 §3B), into the same single-channel stroke buffer with the same blending as
      * [addDabs] — so commit, preview and undo are the stamp engine's own. Needs a stroke begun with a [TuftShading].
      */
-    fun addTuftStamps(stamps: List<TuftStamp>) {
+    fun addTuftStamps(stamps: List<TuftStamp>) = mediaTrace("JB.paint.tuft") { addTuftStampsInner(stamps) }
+    private fun addTuftStampsInner(stamps: List<TuftStamp>) {
         val shading = tuft
         if (strokeLayer == null || stamps.isEmpty() || shading == null) return
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
@@ -4826,7 +4833,8 @@ class GlPaintEngine(
     }
 
     /** Commits the active stroke into its layer as one undoable step. Returns tiles changed. */
-    fun endStroke(): Int {
+    fun endStroke(): Int = mediaTrace("JB.paint.commit") { endStrokeInner() }
+    private fun endStrokeInner(): Int {
         requireLocalPaint()
         val layer = strokeLayer ?: return 0
         val options = wcSpec
@@ -5869,11 +5877,11 @@ class GlPaintEngine(
         if(tile != null) {
             // A stroke always paints into the saved rectangle, so the drag preview yields the moment one begins.
             val rect=tilePreviewRect?.takeUnless { strokeInProgress } ?: tile.rect
-            cropPreview(rect,paper,false)
-            boardPreview.show(w,h,m,rect,tileVao,true,floatArrayOf(1f,1f,1f,1f))
+            mediaTrace("JB.paint.tile.crop") { cropPreview(rect,paper,false) }
+            mediaTrace("JB.paint.tile.show") { boardPreview.show(w,h,m,rect,tileVao,true,floatArrayOf(1f,1f,1f,1f)) }
             return
         }
-        draw(w,h,m,paper)
+        mediaTrace("JB.paint.draw") { draw(w,h,m,paper) }
         if(strokeInProgress || framePreviews.isNotEmpty()) return
         val onion=onionBoardId?.let { id -> doc?.boards?.firstOrNull { it.id == id } } ?: return
         val index=onion.frames.indexOfFirst { it.id == onion.currentFrameId }

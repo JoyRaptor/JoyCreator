@@ -310,6 +310,15 @@ class MatrixBench(private val canvas: JbCanvasView, private val spec: BenchRunne
                 .put("undoSteps", steps).put("undoExact", exact ?: JSONObject.NULL)
                 .put("p50", s?.let { r2(it.busy.p50) } ?: JSONObject.NULL).put("p95", s?.let { r2(it.busy.p95) } ?: JSONObject.NULL)
                 .put("frames", s?.strokeFrames ?: 0)
+                // Where a frame's time goes (as the plain bench reports it): mean/p95 of work, display, and every timed
+                // paint and media section (MediaPhases, set by JbCanvasView while the bench records).
+                .also { j ->
+                    if (s != null) {
+                        fun pct(x: FrameStats.Pct?) = x?.let { JSONObject().put("p50", r2(it.p50)).put("p95", r2(it.p95)).put("max", r2(it.max)).put("mean", r2(it.mean)) } ?: JSONObject.NULL
+                        j.put("workMs", pct(s.work)).put("displayMs", pct(s.display))
+                        j.put("phasesMs", JSONObject().also { ph -> for ((k, v) in s.phases) ph.put(k, pct(v)) })
+                    }
+                }
                 .put("verdict", verdict).put("primed", primed).put("settled", settled).put("settleMs", settleMs)
                 .also {
                     if (kind == Kind.TILE) it.put("wrapPx", wrapPx).put("leakPx", seen.outsidePx)

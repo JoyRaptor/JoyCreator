@@ -1124,7 +1124,14 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             }
             override fun onDrawFrame(gl: GL10?) {
                 frameStats.frameBegin()
-                try { drawFrame() } finally { frameStats.frameEnd() }
+                // Bench only: while the bench records, the paint engine's and the media's sections of this frame are timed
+                // (MediaPhases, glFinish brackets) into its phases. Off (the app): nothing set, nothing timed.
+                val timing = frameStats.recording
+                if (timing) cc.joycreator.joybrush.androidkit.gl.media.MediaPhases.timer = { name, ms -> frameStats.phase(name, ms) }
+                try { drawFrame() } finally {
+                    if (timing) cc.joycreator.joybrush.androidkit.gl.media.MediaPhases.timer = null
+                    frameStats.frameEnd()
+                }
             }
             private fun drawFrame() {
                 while (frameWork.isNotEmpty()) frameWork.removeFirst()()

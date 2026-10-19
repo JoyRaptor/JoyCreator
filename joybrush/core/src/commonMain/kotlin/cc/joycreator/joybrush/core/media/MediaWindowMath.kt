@@ -24,6 +24,24 @@ object MediaWindowMath {
     fun placeFor(docX: Double, docY: Double): Pair<Int, Int> =
         Pair(floor(docX / Tiles.SIZE).toInt() - TILES / 2, floor(docY / Tiles.SIZE).toInt() - TILES / 2)
 
+    /**
+     * The widest (and tallest) part of a frame a window placed by [placeForRect] always holds: its middle is within half a
+     * tile of the window's, so [SPAN] / 2 fits on every side inside the margin. A frame wider than this is drawn in parts,
+     * its dabs in order, the window moving to each (the window patch, 2026-10-19: dabs outside the window were dropped).
+     */
+    const val SPAN = PX - 2 * MARGIN - Tiles.SIZE
+
+    /** The window's top-left tile that puts document rectangle [rect]'s middle nearest the window's middle. */
+    fun placeForRect(rect: DoubleArray): Pair<Int, Int> =
+        Pair(kotlin.math.round((rect[0] + rect[2]) / 2 / Tiles.SIZE - TILES / 2.0).toInt(),
+            kotlin.math.round((rect[1] + rect[3]) / 2 / Tiles.SIZE - TILES / 2.0).toInt())
+
+    /** Whether a document rectangle lies wholly on the window at ([tx], [ty]) (no margin: nothing of it would be clipped). */
+    fun within(tx: Int, ty: Int, rect: DoubleArray): Boolean {
+        val ox = tx * Tiles.SIZE.toDouble(); val oy = ty * Tiles.SIZE.toDouble()
+        return rect[0] >= ox && rect[1] >= oy && rect[2] <= ox + PX && rect[3] <= oy + PX
+    }
+
     /** Whether a document rectangle [x0, y0, x1, y1] stays [MARGIN] inside the window whose top-left tile is ([tx], [ty]). */
     fun holds(tx: Int, ty: Int, rect: DoubleArray): Boolean {
         val ox = tx * Tiles.SIZE.toDouble(); val oy = ty * Tiles.SIZE.toDouble()

@@ -97,3 +97,22 @@ behind the flag.
   when the atlas is made (as windowFits sizes the window), target 4+ concurrent wet pools on the Note 9. Numbers (bytes
   per slot per store, free memory with a drawing open) are reported before any budget constant changes.
 
+## October 19: the window patch, and the atlas parked
+
+- **Shipped bug, fixed by the window patch (05136a021):** the media window dropped trailing dabs. For a watercolour or oil
+  stroke it centred on the PEN (MediaWindowMath.placeFor puts the pen in its third tile), which can leave 128 px behind a
+  fast pen; a frame's dabs trail back to where the pen was a frame ago (about 450 px in the bench's topScribble), and the
+  ones past the window's edge were clipped: a straight cut through the stroke at a tile line, worst on a slow cold first
+  frame. Now a frame whose dabs the usual follow would clip (MediaWindow.wouldClip, the dabs' own boxes, no margin) first
+  takes one window centred on its dabs (holdWhole: one move, today's path, all its water steps); only a frame no window
+  holds (wider than about 768 px of dabs) is drawn in parts, dabs in order, sharing the frame's water steps. Every other
+  frame runs as before. Note 9, same hour, warm: tilted pen p95 +9%, max +7%; flat within run-to-run noise; no splits on
+  topScribble; the cold first stroke and a 1500 px flick whole; Toast 0, KGSL 0. The window-edge seam at x 768 is nearly
+  gone as a side effect (the window sits over the wash). Tried and dropped on the way: drying the tiles a moving window
+  leaves (tile-shaped hard edges, boxed tilted drips), and splitting every frame over 512 px (pen-down frames 2-5x).
+- **Atlas parked (off by default).** It no longer hangs the GPU or loses the stroke (the look read every texel through the
+  page table: 3dbbb654b), compiles in about 1.5 s cold instead of 106 s (every per-slot pass on its 3x3 neighbour slots,
+  ec5b11f39; the paste brush on 5x5, 034f028de), and B3w is exact (look reach and drain-time loads, c9c7b9254). On the
+  Note 9 flat water runs about 2.3x the window, tilted about 5x: the wet flux pass alone is 3.2-3.7x in its atlas build and
+  none of shared reads, precomputed offsets, no-wall builds or loop unrolling moved it (the stop rule). Finding it needs
+  the Adreno shader profiler or a bisection of the flux body. Open: a screen-sized window (scoped, the owner's call).

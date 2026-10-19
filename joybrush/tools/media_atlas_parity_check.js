@@ -53,7 +53,8 @@ const FILES = { quad: 'media/jb_media_quad.vert', flux: 'media/jb_wet_flux.frag'
 function srcSet(read, ...defs) {
   const o = {}; for (const [k, f] of Object.entries(FILES)) o[k] = defs.length ? define(expand(f, read), ...defs) : expand(f, read);
   o.quadPlain = defs.length ? define(expand(FILES.quad, read), ...defs, 'JB_PLAIN_TARGET') : o.quad;   // the paste brush's cells
-  if (defs.includes('JB_ATLAS')) o.render = define(expand(FILES.render, read), ...defs, 'JB_ATLAS_NBR');   // MediaLayerEngine's look build
+  // MediaLayerEngine's atlas build of every pass drawn slot by slot (ATLAS_NBR).
+  if (defs.includes('JB_ATLAS')) for (const k of ['apply', 'copy', 'bake', 'flux', 'update', 'pasteDab', 'bead', 'eraseApply', 'render']) o[k] = define(expand(FILES[k], read), ...defs, 'JB_ATLAS_NBR');
   return o;
 }
 const SRC = { old: srcSet(readOld), new: srcSet(readNew), atlas: srcSet(readNew, 'JB_ATLAS') };
@@ -242,15 +243,21 @@ const SCENARIOS = [
     return fs.existsSync(edge) ? edge : null;
   })();
   if (!exe) { console.log(JSON.stringify({ pass: false, error: 'no browser: pass --chrome <exe> or set CHROME' })); process.exit(1); }
-  const browser = await chromium.launch({ executablePath: exe, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });   // SwiftShader only: these compare the atlas with the WINDOW build, two different programs, and a real GPU's compiler may round them apart (Intel d3d11: dry dabs differ by an ulp even at the proven size; the Note 9's Adreno does not)
+  // --time --cdp <port>: no comparison; the window and atlas builds' frames TIMED on a real GPU (a phone's Chrome over adb).
+  const cdp = argVal('cdp', null);
+  const browser = cdp ? await chromium.connectOverCDP('http://127.0.0.1:' + cdp)
+    : await chromium.launch({ executablePath: exe, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });   // SwiftShader only: these compare the atlas with the WINDOW build, two different programs, and a real GPU's compiler may round them apart (Intel d3d11: dry dabs differ by an ulp even at the proven size; the Note 9's Adreno does not)
   let out;
   try {
-    const page = await browser.newPage();
+    const page = cdp ? await browser.contexts()[0].newPage() : await browser.newPage();
+    page.setDefaultTimeout(1800000);
     page.on('console', (m) => { if (m.type() === 'error') console.error('[page]', m.text()); });
-    out = await page.evaluate(PAGE, { W: SIZE, PPM, SRC, wu: wetUniformMap(WC), WC, scenarios: SCENARIOS });
+    out = await page.evaluate(PAGE, { W: SIZE, PPM, SRC, wu: wetUniformMap(WC), WC, scenarios: SCENARIOS, time: process.argv.includes('--time') });
+    if (cdp) await page.close();
   } finally {
-    await browser.close();
+    await browser.close().catch(() => {});
   }
+  if (out.timing) { console.log(JSON.stringify(out, null, 1)); process.exit(0); }
   if (out.error) { console.log(JSON.stringify({ pass: false, base: BASE, ...out })); process.exit(1); }
   let atlasBad = 0, brokenSeen = 0, errors = 0, compared = 0;
   const brokenByScenario = {};
@@ -298,7 +305,7 @@ async function PAGE(P) {
         if (v === undefined) { missing.add(name); unit++; continue; }
         gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, v.tex); gl.uniform1i(u.loc, unit); unit++; continue;
       }
-      if (v === undefined) { missing.add(name); continue; }
+      if (v === undefined) { if (!name.startsWith('u_nbr')) missing.add(name); continue; }   // u_nbr*: set per slot in drawRect
       if (u.type === gl.FLOAT) gl.uniform1f(u.loc, +v);
       else if (u.type === gl.INT || u.type === gl.BOOL) gl.uniform1i(u.loc, v | 0);
       else if (u.type === gl.FLOAT_VEC2) gl.uniform2fv(u.loc, v);
@@ -372,6 +379,15 @@ async function PAGE(P) {
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { tableIdentity[y * N + x] = x + y * N; tableBroken[y * N + x] = (x + 1) % N + y * N; }
   const atlasU = (E, shift) => E.atlas ? { u_atlasTable: { tex: E.table }, u_atlasGrid: [0, 0, N, N], u_atlasSlotsX: N, u_atlasShift: shift, u_atlasWrap: [0, 0, 0, 0], u_atlasWalls: [E.wallsOn ? 1 : 0, 0, 0, 0] } : {};
   // A layer-shaped pass over rect r (layer px at the pass's resolution). Window: one quad. Atlas: one instance per slot.
+  // MediaAtlasGl.neighbours: a slot's 3x3 neighbour slots from this engine's table (identity, or the broken control's).
+  function nbrOf(E, tx, ty) {
+    const o = [];
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const x = tx + dx, y = ty + dy, s = x >= 0 && y >= 0 && x < N && y < N ? E.tableData[y * N + x] : -1;
+      if (s < 0) o.push(-1, -1); else o.push((s % N) * 256, Math.floor(s / N) * 256);
+    }
+    return o;
+  }
   function drawRect(E, r, shift = 8) {
     if (!E.atlas) { gl.bindVertexArray(quadVao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); return; }
     const side = 1 << shift, inst = [];
@@ -382,7 +398,18 @@ async function PAGE(P) {
     }
     if (!inst.length) return;
     gl.bindBuffer(gl.ARRAY_BUFFER, slotBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(inst), gl.STREAM_DRAW);
-    gl.bindVertexArray(atlasQuadVao); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, inst.length / 8);
+    gl.bindVertexArray(atlasQuadVao);
+    const prog = gl.getParameter(gl.CURRENT_PROGRAM), nbrLoc = gl.getUniformLocation(prog, 'u_nbrSlot');
+    if (nbrLoc === null) { gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, inst.length / 8); return; }
+    // JB_ATLAS_NBR (MediaAtlasGl.drawRect): one slot a draw, handed its 3x3 neighbours (walls marked while they are on).
+    const tileLoc = gl.getUniformLocation(prog, 'u_nbrTile');
+    for (let i = 0; i < inst.length / 8; i++) {
+      const tx = inst[i * 8 + 2], ty = inst[i * 8 + 3];
+      gl.uniform2i(tileLoc, tx, ty); gl.uniform2iv(nbrLoc, new Int32Array(nbrOf(E, tx, ty, true)));
+      for (let k = 0; k < 2; k++) gl.vertexAttribPointer(1 + k, 4, gl.FLOAT, false, 32, i * 32 + k * 16);
+      gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, 1);
+    }
+    for (let k = 0; k < 2; k++) gl.vertexAttribPointer(1 + k, 4, gl.FLOAT, false, 32, k * 16);
   }
   // Instanced dabs; [box] gives each dab's layer-px bounding box. Atlas: each dab once per slot its box touches, in order.
   function drawDabs(E, dabs, box) {
@@ -450,7 +477,9 @@ async function PAGE(P) {
   const paperU = { u_paperSurface: { tex: paperTex }, u_paperTexelPx: 2, u_paperSize: PS, u_paperHexTexels: 32, u_paperSlopeRange: SLOPE, u_paperRotatable: 1, u_paperHeightMean: 0.5,
     u_paperHBot: 0.2, u_paperHTop: 0.8, u_paperFluid: { tex: fluidTex }, u_paperFluidTexelPx: 0, u_paperFluidSize: 4, u_paperFluidHexTexels: 1 };
   const COMMON = { u_layerOrigin: [0, 0], u_layerScale: 1, u_targetSize: [W, H] };
-  const KINDS = ['old', 'new', 'atlas', 'broken'];
+  const KINDS = P.time ? ['new', 'atlas'] : ['old', 'new', 'atlas', 'broken'];
+  const px1 = new Uint8Array(4), sync = () => { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px1); };
+  const timing = {};
   // ---------- an engine ----------
   function makeEngine(kind, seed) {
     const atlas = kind === 'atlas' || kind === 'broken', Pg = PROG[atlas ? 'atlas' : kind];
@@ -610,11 +639,7 @@ async function PAGE(P) {
     else for (let ty = 0; ty < N; ty++) for (let tx = 0; tx < N; tx++) {   // slot by slot with its neighbours, as MediaLayerEngine.renderLook
       const x0 = Math.max(LOOK_M, tx * 256), y0 = Math.max(LOOK_M, ty * 256), x1 = Math.min(W - LOOK_M, tx * 256 + 256), y1 = Math.min(H - LOOK_M, ty * 256 + 256);
       if (x1 <= x0 || y1 <= y0) continue;
-      const nb = [];
-      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-        const x = tx + dx, y = ty + dy, s = x >= 0 && y >= 0 && x < N && y < N ? E.tableData[y * N + x] : -1;
-        if (s < 0) nb.push(-1, -1); else nb.push((s % N) * 256, Math.floor(s / N) * 256);
-      }
+      const nb = nbrOf(E, tx, ty);
       gl.scissor(x0, y0, x1 - x0, y1 - y0);
       gl.uniform2i(gl.getUniformLocation(E.P.render, 'u_nbrTile'), tx, ty);
       gl.uniform2iv(gl.getUniformLocation(E.P.render, 'u_nbrSlot'), new Int32Array(nb));
@@ -659,9 +684,19 @@ async function PAGE(P) {
         const Fr = sc.frames[fi];
         for (const k of KINDS) {
           const e = E[k];
+          if (P.time) sync();
+          const t0 = performance.now();
           if (sc.kind === 'wet') wetFrame(e, sc, Fr); else if (sc.kind === 'dry') dryFrame(e, sc, Fr); else if (sc.kind === 'erase') eraseFrame(e, sc, Fr); else pasteFrame(e, sc, Fr);
+          if (P.time) sync();
+          const t1 = performance.now();
           renderLook(e);
+          if (P.time) {
+            sync();
+            const tk = ((timing[sc.name] = timing[sc.name] || {})[k] = timing[sc.name][k] || { sim: [], look: [] });
+            tk.sim.push(+(t1 - t0).toFixed(1)); tk.look.push(+(performance.now() - t1).toFixed(1));
+          }
         }
+        if (P.time) { r.frames++; continue; }
         const snaps = {}; for (const k of KINDS) snaps[k] = snapshot(E[k]);
         if (!first) first = snaps.new;
         for (const k of KINDS.slice(1)) {
@@ -682,6 +717,12 @@ async function PAGE(P) {
     for (const f of OWNED.fbo) gl.deleteFramebuffer(f);
     OWNED = null;
     results.push(r);
+  }
+  if (P.time) {
+    const med = (a) => { const b = [...a].sort((x, y) => x - y); return b[b.length >> 1]; };
+    for (const sc of Object.values(timing)) for (const k of Object.values(sc)) { k.simMedian = med(k.sim.slice(1)); k.lookMedian = med(k.look.slice(1)); }
+    const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+    return { timing, renderer: dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : '' };
   }
   return { results, missingUniforms: [...missing].sort() };
 }

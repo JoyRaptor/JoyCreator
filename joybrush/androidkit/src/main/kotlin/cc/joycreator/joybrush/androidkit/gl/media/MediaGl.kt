@@ -148,6 +148,9 @@ internal class UniformBank(private val slots: Map<String, UniformSlot>, private 
         sink.uniform4i(s.loc, x, y, z, w); f[0] = x.toFloat(); f[1] = y.toFloat(); f[2] = z.toFloat(); f[3] = w.toFloat(); s.known = true
     }
 
+    /** Whether the program declares [name] (and uses it): a JB_ATLAS_NBR program has u_nbrSlot. */
+    fun has(name: String): Boolean = name in slots
+
     /** An ivec2 or ivec2 array (u_nbrTile, u_nbrSlot), written whole every draw (they change with every tile drawn). */
     fun i2v(name: String, v: IntArray) {
         val s = slots[name] ?: return

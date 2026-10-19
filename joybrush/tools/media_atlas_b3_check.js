@@ -44,7 +44,8 @@ const FILES = { quad: 'media/jb_media_quad.vert', flux: 'media/jb_wet_flux.frag'
 function srcSet(...defs) {
   const o = {}; for (const [k, f] of Object.entries(FILES)) o[k] = defs.length ? define(expand(f), ...defs) : expand(f);
   o.quadPlain = defs.length ? define(expand(FILES.quad), ...defs, 'JB_PLAIN_TARGET') : o.quad;
-  if (defs.includes('JB_ATLAS')) o.render = define(expand(FILES.render), ...defs, 'JB_ATLAS_NBR');   // MediaLayerEngine's look build
+  // MediaLayerEngine's atlas build of every pass drawn slot by slot (ATLAS_NBR).
+  if (defs.includes('JB_ATLAS')) for (const k of ['apply', 'copy', 'bake', 'flux', 'update', 'pasteDab', 'bead', 'eraseApply', 'render']) o[k] = define(expand(FILES[k]), ...defs, 'JB_ATLAS_NBR');
   return o;
 }
 const SRC = { window: srcSet(), atlas: srcSet('JB_ATLAS') };
@@ -300,7 +301,7 @@ async function PAGE(P) {
         if (v === undefined) { missing.add(name); unit++; continue; }
         gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, v.tex); gl.uniform1i(u.loc, unit); unit++; continue;
       }
-      if (v === undefined) { missing.add(name); continue; }
+      if (v === undefined) { if (!name.startsWith('u_nbr')) missing.add(name); continue; }   // u_nbr*: set per slot in drawRect
       if (u.type === gl.FLOAT) gl.uniform1f(u.loc, +v);
       else if (u.type === gl.INT || u.type === gl.BOOL) gl.uniform1i(u.loc, v | 0);
       else if (u.type === gl.FLOAT_VEC2) gl.uniform2fv(u.loc, v);
@@ -538,7 +539,18 @@ async function PAGE(P) {
     }
     if (!inst.length) return;
     gl.bindBuffer(gl.ARRAY_BUFFER, slotBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(inst), gl.STREAM_DRAW);
-    gl.bindVertexArray(atlasQuadVao); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, inst.length / 8);
+    gl.bindVertexArray(atlasQuadVao);
+    const prog = gl.getParameter(gl.CURRENT_PROGRAM), nbrLoc = gl.getUniformLocation(prog, 'u_nbrSlot');
+    if (nbrLoc === null) { gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, inst.length / 8); return; }
+    // JB_ATLAS_NBR (MediaAtlasGl.drawRect): one slot a draw, handed its 3x3 neighbours (walls marked while they are on).
+    const tileLoc = gl.getUniformLocation(prog, 'u_nbrTile');
+    for (let i = 0; i < inst.length / 8; i++) {
+      const tx = inst[i * 8 + 2], ty = inst[i * 8 + 3];
+      gl.uniform2i(tileLoc, tx, ty); gl.uniform2iv(nbrLoc, new Int32Array(nbrOf(E, tx, ty, true)));
+      for (let k = 0; k < 2; k++) gl.vertexAttribPointer(1 + k, 4, gl.FLOAT, false, 32, i * 32 + k * 16);
+      gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, 1);
+    }
+    for (let k = 0; k < 2; k++) gl.vertexAttribPointer(1 + k, 4, gl.FLOAT, false, 32, k * 16);
   }
   // Dabs. [clip] (layer px) is the window build's scissor; the atlas draws each slot's group under that slot's own scissor.
   function drawDabs(E, dabs, box, clip) {
@@ -713,11 +725,12 @@ async function PAGE(P) {
     }
   }
   // MediaAtlasGl.neighbours: the look's 3x3 neighbour slots (JB_ATLAS_NBR), x = -1 where a tile is not here.
-  function nbrOf(E, tx, ty) {
+  function nbrOf(E, tx, ty, withWalls = false) {
     const o = [];
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-      const x = tx + dx, y = ty + dy, s = x >= 0 && y >= 0 && x < GN && y < GN ? E.res.get(y * GN + x) : undefined;
-      if (s === undefined) o.push(-1, -1); else o.push(...slotXY(s, 8));
+      const x = tx + dx, y = ty + dy, inGrid = x >= 0 && y >= 0 && x < GN && y < GN, s = inGrid ? E.res.get(y * GN + x) : undefined;
+      if (withWalls && E.wallsOn && E.walls && inGrid && E.walls.has(y * GN + x)) o.push(-2, -2);
+      else if (s === undefined) o.push(-1, -1); else o.push(...slotXY(s, 8));
     }
     return o;
   }

@@ -25,7 +25,9 @@ import cc.joycreator.joybrush.core.paint.Tiles
  *
  * The window simulates in full float; the stores rest as half floats, so each write-back rounds once (the Lead's ruling).
  */
-class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine, private val renderLook: (FloatArray) -> Unit) : MediaPlace {
+class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine, private val renderLook: (FloatArray) -> Unit,
+                  /** Dries these window-px rectangles where they lie (MediaLayerEngine.dryTilesNow): water the window leaves. */
+                  private val dryTiles: (List<FloatArray>) -> Unit = {}) : MediaPlace {
     override var layerId: String? = null; private set
     /** The plane of [layerId] the window holds (JB-2.40 slice 3): null = the shared plane, else a frame cel id. */
     override var plane: String? = null; private set
@@ -100,14 +102,38 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
     /** Keeps a stroke's area ([x0, y0, x1, y1], document px) inside the window, moving it to centre on the pen if not. */
     override fun follow(docRect: DoubleArray, penX: Double, penY: Double) {
         val id = layerId ?: return
-        if (!MediaWindowMath.holds(tx, ty, docRect)) mediaTrace("JB.media.window.move") { moveTo(id, plane, penX, penY, resumeWater = true) }
+        if (MediaWindowMath.holds(tx, ty, docRect)) return
+        // Centred on what this frame paints (the window patch): a part up to MediaWindowMath.SPAN always fits. The pen-centred
+        // placement left as little as 128 px on one side, and dabs past it were clipped. The bench's legacy A/B keeps it.
+        val (nx, ny) = if (legacyLook) MediaWindowMath.placeFor(penX, penY) else MediaWindowMath.placeForRect(docRect)
+        mediaTrace("JB.media.window.move") { moveTo(id, plane, nx, ny, resumeWater = true) }
     }
 
     private fun moveTo(layer: String, plane: String?, docX: Double, docY: Double, resumeWater: Boolean) {
-        stats?.let { if (it.recording) it.mediaWindowMoves++ }
-        flush()
         val (nx, ny) = MediaWindowMath.placeFor(docX, docY)
+        moveTo(layer, plane, nx, ny, resumeWater)
+    }
+
+    private fun moveTo(layer: String, plane: String?, nx: Int, ny: Int, resumeWater: Boolean) {
+        stats?.let { if (it.recording) it.mediaWindowMoves++ }
+        // The window patch (2026-10-19): water in the tiles this move leaves behind dries where it lies before it is stored,
+        // instead of being stored wet and frozen there (a hard wet/dry step at the old window's edge, owner-visible).
+        val settled = if (layer == layerId && plane == this.plane && !legacyLook) settleLeaving(nx, ny) else emptyList()
+        flush()
+        if (settled.isNotEmpty()) layerId?.let { dropWater(it, settled) }
         load(layer, plane, nx, ny, resumeWater)
+    }
+
+    /** Dries the water in the tiles a move to ([nx], [ny]) leaves; returns them (their water stores go after the flush). */
+    private fun settleLeaving(nx: Int, ny: Int): List<Long> {
+        if (!media.wetActive) return emptyList()
+        val going = MediaWindowMath.leaving(MediaWindowMath.keysIn(tx, ty, media.wetRect), nx, ny)
+        if (going.isEmpty()) return emptyList()
+        dryTiles(going.map { k ->
+            val x = ((Tiles.tx(k) - tx) * tile).toFloat(); val y = ((Tiles.ty(k) - ty) * tile).toFloat()
+            floatArrayOf(x, y, x + tile, y + tile)
+        })
+        return going
     }
 
     /**
@@ -235,9 +261,8 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
         media.takeDirty(); media.takeDirtyStores(); media.stopWater()
     }
 
-    private fun dropWater(id: String) {
-        val all = MediaWindowMath.allKeys(tx, ty)
-        for (store in MediaStores.WATER) paint.dropMediaTiles(id, store, all.filter { paint.mediaTile(id, store, it, plane) != null }, plane)
+    private fun dropWater(id: String, keys: List<Long> = MediaWindowMath.allKeys(tx, ty)) {
+        for (store in MediaStores.WATER) paint.dropMediaTiles(id, store, keys.filter { paint.mediaTile(id, store, it, plane) != null }, plane)
     }
 
     /** Undo or redo put tiles of [layer] back: stop the water and reload what the window shows. True when it stopped it. */

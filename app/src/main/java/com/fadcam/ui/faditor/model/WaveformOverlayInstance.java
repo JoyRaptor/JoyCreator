@@ -105,6 +105,19 @@ public class WaveformOverlayInstance implements LinkFollower {
      */
     @Nullable private String customStyleJson;
 
+    /**
+     * VisLab (VISLAB_SPEC section 7, owner 10-18: integrate, not override): the id of a VisLab
+     * look this visualizer draws INSTEAD of its waveform style, through
+     * {@code com.fadcam.vislab.studio.StudioVis}. Null = the classic style (styleId /
+     * customStyleJson), which stays selectable. Everything else (time range, transform,
+     * keyframes, links, fades) is shared. Persisted by ProjectStorage (absent = null).
+     */
+    @Nullable private String visLook;
+
+    @Nullable public String getVisLook() { return visLook; }
+    public void setVisLook(@Nullable String lookId) { this.visLook = lookId; }
+    public boolean isVisLab() { return visLook != null; }
+
     /** Normalized placement in canvas coords [0,1]. */
     private float centerX = 0.5f;
     private float centerY = 0.5f;

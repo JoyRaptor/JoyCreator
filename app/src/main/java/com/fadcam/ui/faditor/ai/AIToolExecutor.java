@@ -90,6 +90,14 @@ public class AIToolExecutor {
         if (com.fadcam.ui.faditor.ai.actions.AppActions.registry().has(toolName)) {
             return com.fadcam.ui.faditor.ai.actions.AppActions.execute(context, projectId, toolName, args);
         }
+        // The older tools change things too: a locked object (or row) stays as it is, as in the
+        // editor (audit 2026-10-18 J12).
+        if (projectId != null && !com.fadcam.ui.faditor.ai.actions.AgentTools.isRead(toolName)) {
+            FaditorProject lockCheck = storage.load(projectId);
+            String locked = lockCheck == null ? null
+                    : com.fadcam.ui.faditor.ai.actions.ItemLocks.refusal(toolName, lockCheck.getTimeline(), args);
+            if (locked != null) return "Error: " + locked;
+        }
         try {
             switch (toolName) {
                 case "get_project_state": return toolGetProjectState();
@@ -533,7 +541,14 @@ public class AIToolExecutor {
                         // editor, or an earlier step) must survive this save.
                         FaditorProject fresh = storage.load(projectId);
                         Clip target = fresh == null ? null : findClip(fresh, clipId);
-                        if (target == null) { fresh = proj; target = clip; }
+                        if (target == null || !sameSource(target, clip)) {
+                            // Deleted or swapped while it was transcribed: never save the old copy
+                            // of the project to bring it back (audit 2026-10-18 J2).
+                            resultRef.set("Error: that clip was removed or changed while it was being"
+                                    + " transcribed, so the transcript wasn't added. Run it again if it's still wanted.");
+                            latch.countDown();
+                            return;
+                        }
                         target.addTranscript(nt);
                         // Re-running the same model REPLACES its previous run instead of
                         // stacking another near-identical copy in project.json. Only
@@ -570,6 +585,11 @@ public class AIToolExecutor {
         return resultRef.get();
     }
 
+    /** The same media file: an analysis of {@code then} still describes {@code now}. */
+    private static boolean sameSource(@NonNull Clip now, @NonNull Clip then) {
+        return java.util.Objects.equals(now.getSourceUri(), then.getSourceUri());
+    }
+
     private String toolDetectSilence(@NonNull JSONObject args) {
         String clipId = args.optString("clipId", "");
         float sensitivity = (float) args.optDouble("sensitivity", 0.5);
@@ -601,8 +621,21 @@ public class AIToolExecutor {
                             silenceSpans.add(new long[]{cursor, clip.getOutPointMs()});
                         }
 
-                        clip.setSilenceCandidates(silenceSpans);
-                        storage.save(proj);
+                        // Save into the project as it is NOW, touching only this clip: the person
+                        // may have edited meanwhile (audit 2026-10-18 J2). A clip deleted, swapped
+                        // or re-trimmed meanwhile gets nothing: these spans describe the old one.
+                        FaditorProject fresh = storage.load(projectId);
+                        Clip target = fresh == null ? null : findClip(fresh, clipId);
+                        if (target == null || !sameSource(target, clip)
+                                || target.getInPointMs() != clip.getInPointMs()
+                                || target.getOutPointMs() != clip.getOutPointMs()) {
+                            resultRef.set("Error: that clip was removed or changed while it was being"
+                                    + " checked for silences, so nothing was saved. Run it again if it's still wanted.");
+                            latch.countDown();
+                            return;
+                        }
+                        target.setSilenceCandidates(silenceSpans);
+                        storage.save(fresh);
                         AIChatState.signalModified(projectId);
 
                         StringBuilder sb = new StringBuilder();
@@ -2345,6 +2378,11 @@ public class AIToolExecutor {
     private String toolRemoveTransitions(@NonNull JSONObject args) {
         FaditorProject proj = storage.load(projectId);
         if (proj == null) return "Error: project not found";
+        // Say what to remove: an empty call (a cut-off reply arrives as {}) used to mean "all"
+        // and wiped every transition (audit 2026-10-18 J1).
+        if (!args.has("kind") && !args.has("seams")) {
+            return "Error: say which transitions: seams [n, …] for some, or kind \"all\" / \"fades\". Nothing was removed.";
+        }
         String kind = args.optString("kind", "all");
         JSONArray seams = args.optJSONArray("seams");
         java.util.Set<Integer> only = null;
@@ -2389,16 +2427,35 @@ public class AIToolExecutor {
             Clip c = it.clip;
             if (hasEnd) {
                 long local = Math.max(50, end - it.timelineStart);
-                if (local >= c.getVisualDurationMs()) return "Error: a clip can't end later than its footage; it already ends at "
+                if (local > c.getVisualDurationMs()) return "Error: a clip can't end later than its footage; it already ends at "
                         + (it.timelineStart + c.getVisualDurationMs()) + "ms";
-                c.setOutPointMs(c.mapToSourceMs(local));
+                // Its own end already: nothing to trim (mapping that point gives -1, audit J11).
+                if (local < c.getVisualDurationMs()) c.setOutPointMs(c.mapToSourceMs(local));
             }
             if (hasStart && start > it.timelineStart) {
                 c.setInPointMs(c.mapToSourceMs(start - it.timelineStart));
             }
         } else if (it.clip != null) {
+            // A floating video: its length is the FINAL end minus the FINAL start (audit J11).
             Clip c = it.clip;
-            if (hasEnd && end != Long.MAX_VALUE) c.setOutPointMs(c.mapToSourceMs(Math.max(50, end - it.timelineStart)));
+            if (hasEnd && end != Long.MAX_VALUE) {
+                long want = Math.max(50, end - start), have = c.getVisualDurationMs();
+                if (want < have) {
+                    c.setOutPointMs(c.mapToSourceMs(want));
+                } else if (want > have) {
+                    // Longer: more of the source after its out point, at its speed, if the file has it.
+                    if (c.hasLoopExtension()) {
+                        return "Error: this video loops, so it can't be lengthened by its end time; change its loop instead.";
+                    }
+                    long more = (long) ((want - have) * c.getSpeedMultiplier());
+                    long room = c.getSourceDurationMs() - c.getOutPointMs();
+                    if (more > room) {
+                        return "Error: the video's footage runs out; from " + clock(start) + " it can last at most "
+                                + clock(have + (long) (room / Math.max(0.01f, c.getSpeedMultiplier()))) + ".";
+                    }
+                    c.setOutPointMs(c.getOutPointMs() + more);
+                }
+            }
             if (hasStart) c.setOverlayStartMs(start);
         } else if (it.obj instanceof com.fadcam.ui.faditor.model.TextOverlayItem) {
             ((com.fadcam.ui.faditor.model.TextOverlayItem) it.obj).setTimeRange(start, end);
@@ -2412,16 +2469,22 @@ public class AIToolExecutor {
             if (end != Long.MAX_VALUE) a.setDurationMs(end - start);
         } else if (it.obj instanceof com.fadcam.ui.faditor.model.AudioClip) {
             com.fadcam.ui.faditor.model.AudioClip a = (com.fadcam.ui.faditor.model.AudioClip) it.obj;
-            long oldOffset = a.getOffsetMs();
-            if (hasEnd && end != Long.MAX_VALUE) a.setOutPointMs(a.getInPointMs() + Math.max(50, end - oldOffset));
+            // Its length is the FINAL end minus the FINAL start (it used the old start, audit J11).
+            long newStart = hasStart ? start : a.getOffsetMs();
+            if (hasEnd && end != Long.MAX_VALUE) a.setOutPointMs(a.getInPointMs() + Math.max(50, end - newStart));
             if (hasStart) a.setOffsetMs(start);
         } else {
             return "Error: can't retime a " + it.kind;
         }
         storage.save(proj);
         AIChatState.signalModified(projectId, "Retime " + it.kind);
-        return "The " + it.kind + " “" + it.name + "” now runs from " + clock(start) + " to "
-                + (end == Long.MAX_VALUE ? "the end" : clock(end))
+        // Say what it IS now, read back from the project, not what was asked for (audit J11).
+        Item now = null;
+        for (Item x : allItems(proj)) if (x.id.equals(id)) { now = x; break; }
+        long nowStart = now != null ? now.timelineStart : start;
+        long nowLen = now != null ? itemLength(now) : Long.MAX_VALUE;
+        String until = nowLen == Long.MAX_VALUE ? (end == Long.MAX_VALUE ? "the end" : clock(end)) : clock(nowStart + nowLen);
+        return "The " + it.kind + " “" + it.name + "” now runs from " + clock(nowStart) + " to " + until
                 + (it.spine ? " (it's on the main track, so it was trimmed and the video's length changed)." : ".");
     }
 

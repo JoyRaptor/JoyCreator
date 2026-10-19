@@ -100,12 +100,17 @@ public final class StudioActions {
     public static String execute(@NonNull Context app, @NonNull ProjectStorage storage,
                                  @NonNull String projectId, @NonNull String tool, @NonNull JSONObject args) {
         FaditorProject proj = storage.load(projectId);
-        if (proj == null) return "Error: project not found";
+        if (proj == null) return "Error: the project couldn't be read just now (the editor may be busy). Try again.";
         // Markers are not in project.json: they live in the bookmarks.json sidecar. Load them so
         // list_markers and add_marker see the real list, and remember it to tell if the action moved them.
         File dir = storage.projectDir(projectId);
         List<Long> marksBefore = BookmarkStore.load(dir);
         proj.setBookmarksMs(marksBefore);
+        ActionSpec spec = registry().spec(tool);
+        if (spec != null && spec.effect != ActionSpec.Effect.READ) {
+            String locked = ItemLocks.refusal(tool, proj.getTimeline(), args);
+            if (locked != null) return "Error: " + locked;
+        }
         try {
             ActionResult res = registry().run(new StudioCtx(app, projectId, proj), tool, toMap(args));
             TOUCHED.set(new ArrayList<>(res.touchedIds));
@@ -116,7 +121,12 @@ public final class StudioActions {
                 boolean live = JoybotStorage.isLive(projectId);
                 if (marksChanged && live) BookmarkStore.save(dir, proj.getBookmarksMs());
                 boolean saved = storage.save(proj);
-                if (marksChanged && !live && saved) BookmarkStore.save(dir, proj.getBookmarksMs());
+                if (!saved) {
+                    // Not saved = not done: never report it as a change (audit 2026-10-18 J6).
+                    TOUCHED.set(new ArrayList<>());
+                    return "Error: that change couldn't be saved, so it didn't happen. Try again.";
+                }
+                if (marksChanged && !live) BookmarkStore.save(dir, proj.getBookmarksMs());
                 AIChatState.signalModified(projectId, res.summary);
             }
             return res.toToolText();

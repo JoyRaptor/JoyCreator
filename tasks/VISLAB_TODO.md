@@ -81,7 +81,8 @@ Web pilot: `preview_start vislab-web`, page `tools/vislab-web/index.html#<look-i
 - [x] **C3. Floating visualiser hears phone audio without recording** (Android's playback
   - DONE 10-18, Note 9 with the owner: speaker button -> Android's question -> Start now -> hearing the phone; Glass Peaks jumped with the demo song playing on the phone; tapping again went back to the microphone and Android released the permission. Apps that forbid capture stay silent.
   capture needs the screen-capture consent) — `vislab/overlay/OverlaySound.java` (NONE/RECORDING/MIC).
-- [ ] **C4. Studio: VisLab looks inside Studio's visualiser** (owner 10-18: build it here, not the
+- [ ] **C4. Studio: VisLab looks inside Studio's visualiser** (full brief for the next agent:
+  `tasks/VISLAB_HANDOFF_20261018_STUDIO.md`) (owner 10-18: build it here, not the
   Studio lane; integrate, not override; "Studio is meant to replace After Effects").
   Owner rulings 10-18: VisLab looks are a **section of the Rolodex** (same visualiser item, classic
   styles stay selectable); a **small editor in Studio** for values worth keyframing (reactivity,
@@ -102,11 +103,19 @@ Web pilot: `preview_start vislab-web`, page `tools/vislab-web/index.html#<look-i
     `frameAt`), used by scrubbing. Transcripts: `Clip.getActiveNamedTranscript`, words in source ms.
   Build order (tick each):
   - [ ] S1 the item can carry a VisLab look (`visLook` id), saved and loaded, undoable.
+        10-18: field + save/load BUILT (not phone-tested; no UI sets it yet; undo comes with S2).
   - [ ] S2 Rolodex section "VisLab looks"; choosing one swaps the classic knobs out (Classic brings them back).
   - [ ] S3 one renderer for preview and export: offscreen ES 3 on its own thread -> Bitmap; sound from an
         offline 60 Hz feature track of the source (PcmSidecar -> FeatureExtractor), cached.
+        10-18: core BUILT and compiling (`vislab/studio/OffscreenGl`, `SoundClock`, `StudioVis`; a
+        replay-after-seek clock instead of a stored track); NOT wired into preview/export, never run.
   - [ ] S4 small editor: Reactivity, Fade (opacity) and the look's key knobs, keyframable.
   - [ ] S5 the transcript's words feed a look's Words layer.
+## E. Audit 10-18 (tasks/audits/2026-10-18/; details in the handoff, section 7)
+
+- [ ] **Audit R1-R3** floating visualiser: fixed 10-18 (`VisOverlayService`, `OverlaySound`, `AnnotationService`), NOT phone-checked yet.
+- [ ] **Audit V1-V9** VisLab: open, for the next agent.
+
 ## D. Speed, heat, sharing
 
 - [x] **D1. Crystal and Gyroid Dive** are the slowest looks (`shaders/voronoi.frag`, `raymarch.frag`).

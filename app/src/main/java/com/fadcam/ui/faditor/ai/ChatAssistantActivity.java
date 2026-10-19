@@ -154,22 +154,20 @@ public class ChatAssistantActivity extends AppCompatActivity {
     // their conversation when they reopen the chat. Capped at 200 entries
     // to prevent unbounded memory growth.
     private static final int MAX_MESSAGE_LOG = 200;
-    private static final List<String[]> messageLog = new ArrayList<>(); // [role, text]
+    /** Each conversation's shown messages ([role, text]), by {@link JoybotAgent#conversationKey}. */
+    private static final java.util.Map<String, List<String[]>> MESSAGE_LOGS = new java.util.HashMap<>();
+    /** This screen's conversation's shown messages (set in onCreate). */
+    private List<String[]> messageLog = new ArrayList<>(); // [role, text]
 
     // Static conversation history — survives Activity recreation so the
     // conversation persists while the app is open, even if the user closes
     // and reopens the chat window.
     // It lives in JoybotAgent: a request the model is carrying out outlives this screen.
-    private static final List<JSONObject> conversationHistory = JoybotAgent.HISTORY;
-
-    /** The project the kept conversation is about. */
-    @Nullable private static String lastChatProjectId;
-
-    /** Clear the static conversation (called when the editor opens a different project). */
-    public static void resetConversation() {
-        conversationHistory.clear();
-        messageLog.clear();
-    }
+    // Each project (or room, with none open) has its own (JoybotAgent.history): a request still
+    // running for one project never talks into another's chat (audit 2026-10-18 J4).
+    private List<JSONObject> conversationHistory = new ArrayList<>();
+    /** This screen's conversation ({@link JoybotAgent#conversationKey}). */
+    private String chatKey = "";
 
     @Override
     public void finish() {
@@ -199,10 +197,18 @@ public class ChatAssistantActivity extends AppCompatActivity {
             if (r != null) room = IdeaEngine.Room.valueOf(r);
         } catch (IllegalArgumentException ignored) { }
         ideaMemory = new IdeaMemory(this);
-        // The conversation is kept while the app is open, but it belongs to ONE project: opening
-        // Joybot from the lobby about a different project must not carry the last one's talk.
-        if (!java.util.Objects.equals(projectId, lastChatProjectId)) resetConversation();
-        lastChatProjectId = projectId;
+        // The conversation is kept while the app is open, one per project (or room): opening
+        // Joybot about a different project shows that project's talk, never the last one's.
+        chatKey = JoybotAgent.conversationKey(projectId, room);
+        conversationHistory = JoybotAgent.history(chatKey);
+        synchronized (MESSAGE_LOGS) {
+            List<String[]> log = MESSAGE_LOGS.get(chatKey);
+            if (log == null) {
+                log = new ArrayList<>();
+                MESSAGE_LOGS.put(chatKey, log);
+            }
+            messageLog = log;
+        }
 
         AIChatState.chatActive = true;
 
@@ -241,8 +247,8 @@ public class ChatAssistantActivity extends AppCompatActivity {
         }
         // A request the model is carrying out keeps going with the chat closed: pick it back up.
         JoybotAgent.attach(agentListener);
-        JoybotAgent.Ask running = JoybotAgent.current();
-        if (running != null && java.util.Objects.equals(running.projectId, projectId)) {
+        JoybotAgent.Ask running = JoybotAgent.liveFor(chatKey);
+        if (running != null) {
             setBusy(true);
             actor.setMood(JoybotView.Mood.WORK);
             addBotMessage("Still working on \u201c" + JoybotAgent.shortOf(running.text) + "\u201d\u2026");
@@ -252,11 +258,11 @@ public class ChatAssistantActivity extends AppCompatActivity {
         offerBringIn();
         // A plan still waiting for Go ahead: its card isn't in the saved words, so show it again.
         JoybotAgent.Plan waitingPlan = JoybotAgent.pendingPlan(projectId);
-        if (waitingPlan != null && !planCardShown && JoybotAgent.current() == null) addPlanCard(waitingPlan);
+        if (waitingPlan != null && !planCardShown && JoybotAgent.liveFor(chatKey) == null) addPlanCard(waitingPlan);
         // The last Director run's Review: Show me opens the editor and closes this screen, and the
         // card is not in the saved words, so bring it back (rows already put back stay grey).
         List<JoybotAgent.Change> lastReview = JoybotAgent.pendingReview(projectId);
-        if (lastReview != null && !reviewCardShown && projectId != null && JoybotAgent.current() == null) {
+        if (lastReview != null && !reviewCardShown && projectId != null && JoybotAgent.liveFor(chatKey) == null) {
             addReviewCard(projectId, lastReview);
         }
         refreshIdeas(true);
@@ -1116,6 +1122,8 @@ public class ChatAssistantActivity extends AppCompatActivity {
     /** The agent's request, shown while this screen is open (attached in onCreate). */
     private final JoybotAgent.Listener agentListener = new JoybotAgent.Listener() {
         private boolean gone() { return isFinishing() || isDestroyed(); }
+
+        @Override public String conversationKey() { return chatKey; }
 
         @Override public void onText(@NonNull String shown, boolean newBubble) {
             if (gone()) return;
@@ -2758,7 +2766,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         JoybotJobs.cancel();
         voice.hush();
         endHandsFree();
-        JoybotAgent.cancel();
+        JoybotAgent.cancel(chatKey);   // this chat's requests only
         addBotMessage("Stopped.");
         actor.setMood(JoybotView.Mood.IDLE);
         setBusy(false);
@@ -3182,7 +3190,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
     // ── UI helpers ─────────────────────────────────────────────────
 
     /** Trim messageLog to MAX_MESSAGE_LOG entries (oldest removed first). */
-    private static void trimMessageLog() {
+    private void trimMessageLog() {
         synchronized (messageLog) {
             while (messageLog.size() > MAX_MESSAGE_LOG) {
                 messageLog.remove(0);

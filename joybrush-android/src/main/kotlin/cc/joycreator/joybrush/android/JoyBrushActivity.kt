@@ -179,6 +179,7 @@ private const val PREF_GUIDES = "guides"
 private const val PREF_EDITABLE_LINES = "joybrush.editableLines"
 /** LAYER_OPS L6: what Flatten does with hidden layers: "ask" (default), "keep" or "discard". */
 private const val PREF_FLATTEN_HIDDEN = "joybrush.flattenHidden"
+private const val PREF_WATER_TEST = "joybrush.waterTest"
 
 /** Layer thumbnails are re-drawn this long after the last change, so a burst of strokes costs one refresh. */
 private const val THUMBS_AFTER_MS = 250L
@@ -421,6 +422,7 @@ class JoyBrushActivity : Activity() {
         }
         kit = ChromeKit(this)
         prefs = getSharedPreferences(CHROME_PREFS, Context.MODE_PRIVATE)
+        canvas.mediaWaterAB = WaterTest.of(prefs.getString(PREF_WATER_TEST, null)).ab
         // Each tool as the person left it; the first shipped brush of each kind on a first visit (JB-1.05b, JB-2.01).
         tools = ToolMemory.decode(prefs.getString(PREF_TOOLS, null), brushes)
         tuning = BrushTuning.decode(prefs.getString(PREF_TUNING, null))
@@ -948,6 +950,14 @@ class JoyBrushActivity : Activity() {
             "What Flatten does with hidden layers. Tap to change: Ask, Keep, Discard") {
             val next = when (flattenPref) { "ask" -> "keep"; "keep" -> "discard"; else -> "ask" }
             prefs.edit().putString(PREF_FLATTEN_HIDDEN, next).apply()
+            popovers.close(); moreMenu(anchor)
+        })
+        // The owner's watercolour comparison (October 18): steps through the ways the water trades work for speed.
+        val water = WaterTest.of(prefs.getString(PREF_WATER_TEST, null))
+        box.addView(menuRow("Water test: ${water.label}", "${water.about} Tap for the next one") {
+            val next = WaterTest.next(water.id)
+            prefs.edit().putString(PREF_WATER_TEST, next.id).apply()
+            canvas.mediaWaterAB = next.ab
             popovers.close(); moreMenu(anchor)
         })
         addTiltRows(box)

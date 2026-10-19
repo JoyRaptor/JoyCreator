@@ -30,7 +30,9 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
                /** Fewer, longer water substeps per frame (4 = shipped): the same simulated time, less accuracy. */
                val wetSubsteps: Int? = null, val holdMs: Long = 0L, val settleMs: Long = 800L,
                /** The `matrix` case ([MatrixBench]): which board kinds (none = all four) and which cell numbers (from..to) to run. */
-               val matrixBoards: List<String> = emptyList(), val matrixFrom: Int = 0, val matrixTo: Int = Int.MAX_VALUE)
+               val matrixBoards: List<String> = emptyList(), val matrixFrom: Int = 0, val matrixTo: Int = Int.MAX_VALUE,
+               /** The owner's watercolour comparison to run with (WaterTest id: today, a, s, flat, flatnr, all); none = as set. */
+               val water: String? = null)
 
     private val ui = Handler(Looper.getMainLooper())
     private val jobs = ArrayDeque<Triple<BrushPreset, String, Int>>()
@@ -42,6 +44,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
             val shipped = cc.joycreator.joybrush.core.media.WetConstants()
             shipped.copy(dt = shipped.dt * shipped.substeps / n, substeps = n)
         }
+        spec.water?.let { canvas.mediaWaterAB = cc.joycreator.joybrush.android.WaterTest.of(it).ab; Log.i(TAG, "water test: $it") }
         if ("matrix" in spec.cases) { MatrixBench(canvas, spec, onDone).start(); return }
         val all = BrushLibrary.builtIn()
         Log.i(TAG, "brushes available: " + all.joinToString(",") { it.id })
@@ -312,7 +315,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
                 wetSubsteps = intent.getIntExtra("jb_wet_substeps", -1).takeIf { it in 1..16 },
                 holdMs = intent.getLongExtra("jb_hold_ms", 0L), settleMs = intent.getLongExtra("jb_settle_ms", 800L),
                 matrixBoards = list(intent.getStringExtra("jb_matrix_boards")), matrixFrom = intent.getIntExtra("jb_matrix_from", 0),
-                matrixTo = intent.getIntExtra("jb_matrix_to", Int.MAX_VALUE))
+                matrixTo = intent.getIntExtra("jb_matrix_to", Int.MAX_VALUE), water = intent.getStringExtra("jb_water"))
         }
     }
 }

@@ -463,6 +463,11 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         get() = mediaCanvas.wetQuality
         set(v) { mediaCanvas.wetQuality = v }
 
+    /** The owner's watercolour comparison (core WaterAB; the default is today's water). Any thread. */
+    var mediaWaterAB: cc.joycreator.joybrush.core.media.WaterAB
+        get() = mediaCanvas.waterAB
+        set(v) { mediaCanvas.waterAB = v }
+
     /** The paper's downhill slope for pencil, watercolour and oil, document space ([0, 0] = flat). Main thread. */
     fun setMediaSlope(x: Float, y: Float) {
         onGl { mediaCanvas.slope = floatArrayOf(x, y) }

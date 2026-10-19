@@ -88,14 +88,14 @@ internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: I
     }
 
     /**
-     * A JB_ATLAS_NBR pass's reads (jb_media_atlas.glsl): into [out] ((2r+1)² x 2 ints), the first texel of the slots holding
-     * tiles ([tx], [ty]) + (-r..r, -r..r), row by row (r = 2: JB_ATLAS_NBR5, the paste brush), x = -1 where a tile is not here and -2 for a wall when [withWalls] (the
+     * A JB_ATLAS_NBR pass's reads (jb_media_atlas.glsl): into [out] (18 ints), the first texel of the slots holding tiles
+     * ([tx], [ty]) + (-1..1, -1..1), row by row, x = -1 where a tile is not here and -2 for a wall when [withWalls] (the
      * water's passes, [wallsOn]): what the page table says of each, so the very texels a table read would (the probe's
      * broken table included).
      */
-    fun neighbours(tx: Int, ty: Int, out: IntArray, withWalls: Boolean = false, r: Int = 1) {
+    fun neighbours(tx: Int, ty: Int, out: IntArray, withWalls: Boolean = false) {
         var i = 0
-        for (dy in -r..r) for (dx in -r..r) {
+        for (dy in -1..1) for (dx in -1..1) {
             val x = tx + dx; val y = ty + dy
             val s = if (broken && !free) { if (x in 0 until nx && y in 0 until ny) slotOf((x + 1) % nx, y) else -1 } else slotOf(x, y)
             when {

@@ -439,37 +439,17 @@ class MediaCanvas(
         val batch = st.dry?.take()
         w.legacyLook = legacyWindow
         e.legacyRect = legacyWindow   // bench A/B: the old full-square paste rect too
-        val followRect: DoubleArray; val fx: Double; val fy: Double
-        if (!legacyWindow && batch != null && batch.count > 0 && batch.dirty != null) {
+        if (legacyWindow) {
+            val r = st.reachPx + 4
+            w.follow(doubleArrayOf(st.penX - r, st.penY - r, st.penX + r, st.penY + r), st.penX, st.penY)
+        } else if (batch != null && batch.count > 0 && batch.dirty != null) {
             val pad = st.mat!!.smearMm * DOC_PX_PER_MM + 4
             val d = batch.dirty!!
-            followRect = doubleArrayOf(d[0] - pad, d[1] - pad, d[2] + pad, d[3] + pad); fx = (d[0] + d[2]) / 2; fy = (d[1] + d[3]) / 2
+            w.follow(doubleArrayOf(d[0] - pad, d[1] - pad, d[2] + pad, d[3] + pad), (d[0] + d[2]) / 2, (d[1] + d[3]) / 2)
         } else {
             val r = st.reachPx + 4
-            followRect = doubleArrayOf(st.penX - r, st.penY - r, st.penX + r, st.penY + r); fx = st.penX; fy = st.penY
+            w.follow(doubleArrayOf(st.penX - r, st.penY - r, st.penX + r, st.penY + r), st.penX, st.penY)
         }
-        // The window patch: a frame whose paint would fall off the window it is about to follow to is drawn in parts.
-        // Every other frame runs exactly as before.
-        if (w is MediaWindow && !legacyWindow) {
-            val wq0 = water()
-            val wq = if (waterAB.brushFirst && (st.wet != null || st.thin != null || e.wetActive))
-                wq0.copy(substeps = schedule.whileDrawing(true, wq0.substeps)) else wq0
-            val input = FrameInput(batch, st.thin?.take(), st.paste?.take(), st.wet?.take(),
-                if (st.erase && st.eraseDabs.isNotEmpty()) eraseBatch(st.eraseDabs) else null)
-            // Clipped means dabs lost: the dabs' own boxes, not the reach around them (the water's spread and the smear
-            // are clamped to the window as they always were; measuring them split most topScribble frames on the Note 9).
-            val dabs = frameRect(st, input, padded = false)
-            w.lookHalo = haloOf(lookNow())
-            when {
-                dabs == null || !w.wouldClip(followRect, fx, fy, dabs) -> { w.follow(followRect, fx, fy); runFrame(e, w, st, input, wq, last) }
-                // Most frames the usual follow would clip fit one window placed on their dabs: one move, the frame whole.
-                w.holdWhole(dabs) -> runFrame(e, w, st, input, wq, last)
-                else -> runWindowParts(e, w, st, input, wq, last)
-            }
-            if (input.erase != null) st.eraseDabs.clear()
-            return
-        }
-        w.follow(followRect, fx, fy)
         w.lookHalo = haloOf(lookNow())
         // Every input of this frame, taken before any pass runs, so the atlas can admit the whole frame first (B3).
         // Option A (brush first): while the pen is down the water runs one step a frame; the rest is paid back after.
@@ -480,62 +460,6 @@ class MediaCanvas(
             if (st.erase && st.eraseDabs.isNotEmpty()) eraseBatch(st.eraseDabs) else null)
         runFrame(e, w, st, input, wq, last)
         if (input.erase != null) st.eraseDabs.clear()
-    }
-
-    /**
-     * The window patch (2026-10-19): one frame of a stroke in the window, every dab drawn. A frame whose dabs reach wider
-     * than the window holds (MediaWindowMath.SPAN; a slow first frame after an install batches a whole stroke) is drawn in
-     * parts, its dabs in order, the window moving to each, exactly as a faster phone would have drawn them; the window
-     * clipped such dabs before, and lost the stroke's far end. The parts share the frame's water steps: one each, the
-     * rest with the last (each part runs its own water for its own dabs, and N parts with every step made one frame N
-     * times as long: 4.7 s on the Note 9).
-     */
-    private fun runWindowParts(e: MediaLayerEngine, w: MediaWindow, st: Stroke, input: FrameInput, wq: WetConstants, last: Boolean) {
-        val parts = ArrayList<Pair<FrameInput, DoubleArray?>>()
-        windowParts(st, input, parts)
-        android.util.Log.i("JoyBrushMedia", "a frame wider than the window, drawn in ${parts.size} parts")
-        for ((i, p) in parts.withIndex()) {
-            val (part, r) = p
-            if (r != null) w.followCentred(r)
-            val final = i == parts.lastIndex
-            val steps = if (final) maxOf(1, wq.substeps - (parts.size - 1)) else 1
-            runFrame(e, w, st, part, if (steps == wq.substeps) wq else wq.copy(substeps = steps), last && final)
-        }
-    }
-
-    /** [input] cut in halves, in dab order, until each part fits the window (MediaWindowMath.SPAN), with what it reaches. */
-    private fun windowParts(st: Stroke, input: FrameInput, out: MutableList<Pair<FrameInput, DoubleArray?>>) {
-        val r = frameRect(st, input)
-        if (r != null && (r[2] - r[0] > MediaWindowMath.SPAN || r[3] - r[1] > MediaWindowMath.SPAN)) {
-            val halves = input.halves()
-            if (halves != null) { windowParts(st, halves.first, out); windowParts(st, halves.second, out); return }
-            android.util.Log.w("JoyBrushMedia", "one dab wider than the window holds (${(r[2] - r[0]).toInt()} px)")
-        }
-        out += input to r
-    }
-
-    /**
-     * Everything [input] paints and reads, in document px (what the window must hold for it); null: nothing to paint.
-     * [padded] false: the dabs' (and paste steps') own extent only.
-     */
-    private fun frameRect(st: Stroke, input: FrameInput, padded: Boolean = true): DoubleArray? {
-        var r: DoubleArray? = null
-        fun add(d: DoubleArray?, pad0: Double) {
-            if (d == null) return
-            val pad = if (padded) pad0 else 0.0
-            val a = r
-            r = if (a == null) doubleArrayOf(d[0] - pad, d[1] - pad, d[2] + pad, d[3] + pad)
-            else doubleArrayOf(minOf(a[0], d[0] - pad), minOf(a[1], d[1] - pad), maxOf(a[2], d[2] + pad), maxOf(a[3], d[3] + pad))
-        }
-        input.dry?.takeIf { it.count > 0 }?.let { add(it.dirty, st.mat!!.smearMm * DOC_PX_PER_MM + 4) }
-        // The water's input: dabs + 48 (MediaLayerEngine.wetFrame), and the brush's own reach as the window always kept it.
-        val wetPad = maxOf(48.0, st.reachPx) + 4
-        input.thin?.takeIf { it.count > 0 }?.let { add(it.dirty, wetPad) }
-        input.wet?.takeIf { it.count > 0 }?.let { add(it.dirty, wetPad) }
-        input.erase?.takeIf { it.count > 0 }?.let { add(it.dirty, 4.0) }
-        input.paste?.forEach { step -> add(cc.joycreator.joybrush.core.media.PasteFootprint.legacyBounds(step, st.brush!!, DOC_PX_PER_MM),
-            MediaAtlasPlacement.PASTE_REACH + 4.0) }
-        return r
     }
 
     /** One frame's inputs, in pen order within each medium. */

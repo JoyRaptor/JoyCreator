@@ -33,17 +33,13 @@ const SRC = {
 };
 for (const k of Object.keys(SRC)) SRC[k] = fresh(SRC[k]);
 // --compile-all: every program of MediaLayerEngine's programTable, window build and atlas build (its own defines), timed.
-// The atlas build's defines exactly as MediaLayerEngine.programTable gives them (ATLAS_NBR, ATLAS_NBR5, JB_PLAIN_TARGET).
-// Chrome caches compiled programs across runs: a build already compiled once here reads as fast; only a first compile
-// of a source is a cold measurement.
-const NB = ['JB_ATLAS_NBR'];
-const PROGRAMS = [['dry dab', 'jb_dry_dab.vert', 'jb_dry_dab.frag'], ['apply', 'jb_media_quad.vert', 'jb_media_apply.frag', [], NB],
-  ['copy', 'jb_media_quad.vert', 'jb_media_copy.frag', [], NB], ['render', 'jb_media_screen.vert', 'jb_media_render.frag', [], NB],
-  ['bake', 'jb_media_quad.vert', 'jb_media_bake.frag', [], NB], ['wet dab', 'jb_wet_dab.vert', 'jb_wet_dab.frag'],
-  ['wet flux', 'jb_media_quad.vert', 'jb_wet_flux.frag', [], NB], ['wet update', 'jb_media_quad.vert', 'jb_wet_update.frag', [], NB],
-  ['paste dab', 'jb_media_quad.vert', 'jb_paste_dab.frag', [], NB], ['paste brush', 'jb_media_quad.vert', 'jb_paste_brush.frag', ['JB_PLAIN_TARGET'], ['JB_ATLAS_NBR', 'JB_ATLAS_NBR5']],
-  ['wet bead', 'jb_media_quad.vert', 'jb_wet_bead.frag', [], NB], ['erase dab', 'jb_media_erase_dab.vert', 'jb_media_erase_dab.frag'],
-  ['erase', 'jb_media_quad.vert', 'jb_media_erase_apply.frag', [], NB], ['wet activity', 'jb_media_screen.vert', 'jb_wet_activity.frag']];
+const PROGRAMS = [['dry dab', 'jb_dry_dab.vert', 'jb_dry_dab.frag'], ['apply', 'jb_media_quad.vert', 'jb_media_apply.frag'],
+  ['copy', 'jb_media_quad.vert', 'jb_media_copy.frag'], ['render', 'jb_media_screen.vert', 'jb_media_render.frag', [], ['JB_ATLAS_NBR']],
+  ['bake', 'jb_media_quad.vert', 'jb_media_bake.frag'], ['wet dab', 'jb_wet_dab.vert', 'jb_wet_dab.frag'],
+  ['wet flux', 'jb_media_quad.vert', 'jb_wet_flux.frag'], ['wet update', 'jb_media_quad.vert', 'jb_wet_update.frag'],
+  ['paste dab', 'jb_media_quad.vert', 'jb_paste_dab.frag'], ['paste brush', 'jb_media_quad.vert', 'jb_paste_brush.frag', ['JB_PLAIN_TARGET']],
+  ['wet bead', 'jb_media_quad.vert', 'jb_wet_bead.frag'], ['erase dab', 'jb_media_erase_dab.vert', 'jb_media_erase_dab.frag'],
+  ['erase', 'jb_media_quad.vert', 'jb_media_erase_apply.frag'], ['wet activity', 'jb_media_screen.vert', 'jb_wet_activity.frag']];
 const ALL = PROGRAMS.map(([label, v, f, plain = [], extra = []]) => ({ label,
   window: [fresh(expand('media/' + v)), fresh(expand('media/' + f))],
   atlas: [fresh(define(expand('media/' + v), 'JB_ATLAS', ...plain)), fresh(define(expand('media/' + f), 'JB_ATLAS', ...plain, ...extra))] }));

@@ -635,11 +635,7 @@ async function PAGE(P) {
         const ctx = Math.floor((s.rect[0] + s.rect[2]) / 2 / 256), cty = Math.floor((s.rect[1] + s.rect[3]) / 2 / 256), pg = gl.getParameter(gl.CURRENT_PROGRAM);
         gl.uniform2i(gl.getUniformLocation(pg, 'u_nbrTile'), ctx, cty); gl.uniform2iv(gl.getUniformLocation(pg, 'u_nbrSlot'), new Int32Array(nbrOf(E, ctx, cty, 2)));
       }
-      if (P.time) { const fb = gl.getParameter(gl.FRAMEBUFFER_BINDING); sync(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb); }
-      const tB = performance.now();
       gl.bindVertexArray(quadVao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);   // not layer-shaped: one quad in every build
-      if (P.time) { const fb = gl.getParameter(gl.FRAMEBUFFER_BINDING); sync(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
-        const b = ((passTime[E.kind] = passTime[E.kind] || {}).pasteBrush = passTime[E.kind].pasteBrush || { ms: 0, n: 0 }); b.ms += performance.now() - tB; b.n++; }
       E.bc = nb;
       gl.bindFramebuffer(gl.FRAMEBUFFER, E.pFbo[1]); gl.viewport(0, 0, W, H);
       use(E.P.pasteDab, { ...U, ...atlasU(E, 8), u_p0: { tex: E.st[0].p0 }, u_p1: { tex: E.st[0].p1 }, u_brush0: { tex: E.brush[E.bc][0] }, u_brush1: { tex: E.brush[E.bc][1] }, u_rect: s.rect });

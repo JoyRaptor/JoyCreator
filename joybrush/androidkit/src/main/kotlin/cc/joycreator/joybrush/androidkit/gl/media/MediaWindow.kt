@@ -107,22 +107,9 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
      * Whether [follow]ing ([docRect], [penX], [penY]) would leave part of [paints] (document px) off the window: a frame
      * that would clip its own dabs (a slow cold first frame, a very fast flick). Only those are drawn in parts.
      */
-    fun wouldClip(docRect: DoubleArray, penX: Double, penY: Double, paints: DoubleArray, dirX: Double = 0.0, dirY: Double = 0.0): Boolean {
-        val (nx, ny) = if (MediaWindowMath.holds(tx, ty, docRect)) tx to ty else MediaWindowMath.placeForTravel(penX, penY, dirX, dirY)
+    fun wouldClip(docRect: DoubleArray, penX: Double, penY: Double, paints: DoubleArray): Boolean {
+        val (nx, ny) = if (MediaWindowMath.holds(tx, ty, docRect)) tx to ty else MediaWindowMath.placeFor(penX, penY)
         return !MediaWindowMath.within(nx, ny, paints)
-    }
-
-    /**
-     * [follow], placing a window that must move by which way the pen travels (MediaWindowMath.placeForTravel): fewer moves
-     * on a stroke going right or down. A move is a whole flush and reload (10-16 ms a frame on the Note 9's wet strokes).
-     * If that place would not hold [docRect], the usual one.
-     */
-    fun followTravel(docRect: DoubleArray, penX: Double, penY: Double, dirX: Double, dirY: Double) {
-        val id = layerId ?: return
-        if (MediaWindowMath.holds(tx, ty, docRect)) return
-        var (nx, ny) = MediaWindowMath.placeForTravel(penX, penY, dirX, dirY)
-        if (!MediaWindowMath.holds(nx, ny, docRect)) { val p = MediaWindowMath.placeFor(penX, penY); nx = p.first; ny = p.second }
-        mediaTrace("JB.media.window.move") { moveTo(id, plane, nx, ny, resumeWater = true) }
     }
 
     /**

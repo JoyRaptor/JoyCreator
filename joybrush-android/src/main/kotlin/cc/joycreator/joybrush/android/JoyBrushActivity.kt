@@ -1136,6 +1136,7 @@ class JoyBrushActivity : Activity() {
         overlays.addView(tiltPad, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.BOTTOM or Gravity.END))
         tiltPad.setWanted(prefs.getBoolean(PREF_TILT_PAD, false))
         paperTilt.phoneTilt = prefs.getBoolean(PREF_TILT_PHONE, false) && paperTilt.phoneTiltAvailable
+        lockRotationForTilt(paperTilt.phoneTilt)
     }
 
     /** The two switches, in the ⋯ menu beside the other things set once and rarely touched. */
@@ -1152,8 +1153,18 @@ class JoyBrushActivity : Activity() {
                 "Tip the phone to tip the paper; the way you hold it when you switch this on counts as level") {
                 prefs.edit().putBoolean(PREF_TILT_PHONE, !phoneOn).apply()
                 paperTilt.phoneTilt = !phoneOn
+                lockRotationForTilt(!phoneOn)
             })
         }
+    }
+
+    /**
+     * Tipping the phone to run the paint must never turn the screen (owner, 10-19): while "Tilt with phone" is on the
+     * screen stays as it is, whatever the phone's own auto-rotate setting says.
+     */
+    private fun lockRotationForTilt(on: Boolean) {
+        requestedOrientation = if (on) android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LOCKED
+            else android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
     }
 
     /** Owner decision 5: everything movable, and one way back. */

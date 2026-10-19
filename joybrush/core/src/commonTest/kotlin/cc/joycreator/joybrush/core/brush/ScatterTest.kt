@@ -3,6 +3,8 @@ package cc.joycreator.joybrush.core.brush
 import cc.joycreator.joybrush.core.paint.Dab
 import kotlin.math.abs
 import kotlin.math.cos
+import kotlin.math.max
+import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.test.Test
@@ -383,5 +385,119 @@ class ScatterTest {
             assertEquals(3f, c.x)
             assertEquals(4f, c.y)
         }
+    }
+
+    // ---- a copy that is a reflection -----------------------------------------------------------------
+
+    /**
+     * A symmetry copy that is a REFLECTION has its across offset negated: the copy's texture has
+     * to be MIRRORED, and a reflection maps the original's perpendicular onto the NEGATIVE of the
+     * copy's perpendicular. Without the negation the copy comes out with its left and right
+     * swapped — a handedness-flipped copy rather than a mirrored one.
+     *
+     * The along offset is NOT negated: a reflection leaves the direction along the stroke where it
+     * was. The dabs are at angle 0, where the tangent is +x and the perpendicular is +y, so the
+     * two axes of the offset are the dab's own y and x and nothing needs inverting.
+     */
+    @Test
+    fun aReflectionNegatesTheAcrossOffsetAndLeavesTheAlongOneAlone() {
+        val spec = ScatterSpec(amount = Param(1f), count = 3, bothAxes = true)
+        val dabs = flat(5)
+        val plain = Scatter.expand(dabs, spec, SplitMix(31337L)) { inputs }
+        val flipped = Scatter.expand(dabs, spec, SplitMix(31337L), { inputs }, flipAcross = true)
+        assertEquals(15, plain.size)
+        assertEquals(plain.size, flipped.size)
+        // The along offset is there to be left alone, so it has to be THERE: a test that compared
+        // two lists of zeros would pass on a scatter that had stopped scattering.
+        assertTrue(plain.any { it.x != 0f }, "bothAxes on and nothing moved along the stroke")
+        for (i in plain.indices) {
+            assertEquals(plain[i].x, flipped[i].x, "copy $i moved along the stroke")
+            assertEquals(-plain[i].y, flipped[i].y, "copy $i's across offset was not negated")
+        }
+    }
+
+    /**
+     * The flag is a flag and not a setting: it must not move the random stream. The same seed has
+     * to leave the generator in exactly the same place, and the same number of dabs has to come
+     * out — a scatter whose stream moved would put every later brush that shares the seed out of
+     * step with it.
+     */
+    @Test
+    fun theReflectionFlagDoesNotMoveTheRandomStream() {
+        val spec = ScatterSpec(amount = Param(0.7f), count = 3, countJitter = 0f)
+        val dabs = run(5, angle = 0.6f)
+        for (flag in listOf(false, true)) {
+            val rng = SplitMix(31337L)
+            val out = Scatter.expand(dabs, spec, rng, { inputs }, flipAcross = flag)
+            // The same number of dabs either way: a flag cannot change a count.
+            assertEquals(15, out.size, "flipAcross=$flag changed the number of dabs")
+            // Exactly 5 × (1 + 2 × 3) = 35 draws, and the generator has to be sitting on the 36th.
+            val replay = SplitMix(31337L)
+            repeat(5 * (1 + 2 * 3)) { replay.nextFloat() }
+            assertEquals(replay.nextFloat(), rng.nextFloat(),
+                "flipAcross=$flag drew a different number of times")
+        }
+        // The two runs differ in their ACROSS offsets and in nothing else. The offsets are built in
+        // the dab's OWN frame, so they are read back in that frame: the along component must be
+        // the same number and the across one must be its negative. (At an angle of 0 the frame is
+        // the page's, and the two are simply x and y — which is what the test above does.)
+        val plain = Scatter.expand(dabs, spec, SplitMix(31337L)) { inputs }
+        val flipped = Scatter.expand(dabs, spec, SplitMix(31337L), { inputs }, flipAcross = true)
+        assertEquals(plain.size, flipped.size)
+        assertNotEquals(plain.map { it.y }, flipped.map { it.y }, "the across offsets did not move")
+        for (i in plain.indices) {
+            val source = dabs[i / 3]
+            val tx = cos(source.angle.toDouble()).toFloat()
+            val ty = sin(source.angle.toDouble()).toFloat()
+            val dx0 = plain[i].x - source.x
+            val dy0 = plain[i].y - source.y
+            val dx1 = flipped[i].x - source.x
+            val dy1 = flipped[i].y - source.y
+            assertEquals(dx0 * tx + dy0 * ty, dx1 * tx + dy1 * ty, 1e-5f,
+                "copy $i moved along the stroke")
+            assertEquals(-(dx0 * -ty + dy0 * tx), dx1 * -ty + dy1 * tx, 1e-5f,
+                "copy $i's across offset was not negated")
+        }
+    }
+
+    /**
+     * The default scatter is what it was, down to the bit: the whole of the old arithmetic is
+     * written out again here — the count draw, then a pair of offsets per copy, in that order, and
+     * the offsets built in the dab's own frame — and the dabs that come out have to be the same
+     * numbers. The comparison is on the bits, because a scatter that moved by a hundredth of a
+     * pixel would still look right and would still be a different stroke.
+     */
+    @Test
+    fun theDefaultScatterIsExactlyWhatItWas() {
+        val spec = ScatterSpec(amount = Param(0.5f), count = 3, countJitter = 0f, bothAxes = true)
+        val dabs = flat(4) // at the origin, at angle 0
+        val out = Scatter.expand(dabs, spec, SplitMix(20261019L)) { inputs }
+        assertEquals(12, out.size)
+
+        // amount 0.5 of a diameter 2 is a scale of 1.
+        val scale = spec.amount.base * 2f * 1f
+        val cosA = cos(0.0).toFloat()
+        val sinA = sin(0.0).toFloat()
+        val replay = SplitMix(20261019L)
+        var n = 0
+        for (dab in dabs) {
+            val c = replay.nextFloat()
+            val raw = spec.count * (1f - spec.countJitter * c)
+            val copies = max(1, raw.roundToInt())
+            repeat(copies) {
+                val a = replay.nextFloat()
+                val b = replay.nextFloat()
+                val across = 2f * a - 1f
+                val along = 2f * b - 1f
+                val dx = (across * -sinA + along * cosA) * scale
+                val dy = (across * cosA + along * sinA) * scale
+                assertEquals(dab.x + dx, out[n].x, "copy $n x")
+                assertEquals(dab.y + dy, out[n].y, "copy $n y")
+                n++
+            }
+        }
+        assertEquals(12, n)
+        // And the same list, not a lookalike, when the flag is asked for by name.
+        assertEquals(out, Scatter.expand(dabs, spec, SplitMix(20261019L), { inputs }, flipAcross = false))
     }
 }

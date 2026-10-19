@@ -7,7 +7,9 @@ import cc.joycreator.joybrush.core.paint.DabLook
 import cc.joycreator.joybrush.core.paint.DabPlacer
 import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.cos
 import kotlin.math.max
+import kotlin.math.sin
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
@@ -78,12 +80,67 @@ class BrushDabberTest {
     private val ink: BrushPreset = BrushJson.decode(inkJson)
     private val pencil: BrushPreset = BrushJson.decode(pencilJson)
 
+    /**
+     * A brush with all three of the things the angle frame touches: a tip angle of its own, the
+     * switch that says whether that angle is an OFFSET from the stroke or an ABSOLUTE angle, and
+     * an angle jitter. The offset case is the same file with the switch turned on, because the
+     * four-case rule is about what the frame does to the base, and the base only means one thing
+     * or the other.
+     */
+    private val angledJson: String = """
+        {
+          "format": "joybrush.brush",
+          "version": 1,
+          "id": "joybrush.angled",
+          "name": "Angled",
+          "engine": "stamp",
+          "tip": {
+            "corner": 2,
+            "angle": { "base": 20 },
+            "followDirection": false
+          },
+          "size": { "base": 6 },
+          "opacity": { "base": 1 },
+          "flow": { "base": 1 },
+          "spacing": 0.04,
+          "angleJitter": 30,
+          "accumulate": "wash",
+          "blend": "normal",
+          "license": "CC0"
+        }
+    """.trimIndent() + "\n"
+
+    private val angled: BrushPreset = BrushJson.decode(angledJson)
+
+    /** The same brush with the tip turned to face the way it is moving. */
+    private val steered: BrushPreset = angled.copy(tip = angled.tip.copy(followDirection = true))
+
     private fun curve(vararg points: Pair<Float, Float>, input: BrushInput = BrushInput.pressure) =
         InputCurve(input, points.map { listOf(it.first, it.second) })
 
     /** One sample on a straight run: [n] steps of [step] px, [ms] ms apart, at a fixed pressure. */
     private fun line(n: Int, step: Float = 10f, ms: Double = 10.0, pressure: Float = 1f): List<PenSample> =
         (0..n).map { PenSample(it * step, 0f, it * ms, pressure = pressure) }
+
+    /**
+     * A straight run UP (+y), so the tracker's answer is known: nothing on the first dab, and
+     * +PI/2 from the second on — its first real movement seeds it outright.
+     */
+    private fun straightUp(n: Int): List<PenSample> =
+        (0..n).map { PenSample(0f, it * 10f, it * 10.0) }
+
+    /**
+     * The angle-jitter draw of dab [i] for [seed], read off a replay of the same stream: the
+     * constructor's one draw, then three per dab — the `random` input, the size jitter, and the
+     * angle jitter this returns.
+     */
+    private fun angleDrawFor(seed: Long, i: Int): Float {
+        val replay = SplitMix(seed)
+        replay.nextFloat() // the stroke's own draw, taken in the constructor
+        repeat(i) { repeat(3) { replay.nextFloat() } } // three draws per earlier dab
+        repeat(2) { replay.nextFloat() } // this dab's `random` input and its size jitter
+        return replay.nextFloat()
+    }
 
     /**
      * A brush whose tip angle IS the speed, so the speed filter can be read off a dab's angle: the
@@ -346,6 +403,208 @@ class BrushDabberTest {
         val still = BrushDabber(pencil, 1L)
         val stillAngles = line(5).mapIndexed { i, s -> still.look(s, i * 10f, i).angle }
         assertTrue(stillAngles.all { it == 0f }, "$stillAngles")
+    }
+
+    // ---- the angle frame: a symmetry copy's angles ------------------------------------------------
+
+    /**
+     * The frame is the last thing added to this class, so the frame that says nothing must say
+     * nothing DOWN TO THE BIT: a brush that is not a symmetry copy has to draw exactly the stroke
+     * it drew before the frame existed.
+     *
+     * The expected angle is written out longhand from the file's own numbers and the stream's own
+     * draws — the arithmetic the class used before the frame — so the comparison is against the
+     * old behaviour and not against a copy of the new code. The bits are compared, not the value:
+     * `toRawBits` is what a float IS, and a frame that quietly moved a signed zero would be a
+     * change nobody could see.
+     */
+    @Test
+    fun theDefaultFrameIsAByteForByteNoOp() {
+        val seed = 20261019L
+        for (brush in listOf(angled, steered)) {
+            val dabber = BrushDabber(brush, seed) // the default frame
+            val samples = straightUp(6)
+            for (i in samples.indices) {
+                val jitter = degToRad(30f) * (2f * angleDrawFor(seed, i) - 1f)
+                val direction = if (i == 0) 0f else (PI / 2).toFloat()
+                val expected = if (brush.tip.followDirection) {
+                    (degToRad(20f) + direction) + jitter
+                } else {
+                    degToRad(20f) + jitter
+                }
+                val look = dabber.look(samples[i], i * 10f, i)
+                assertEquals(expected.toRawBits(), look.angle.toRawBits(),
+                    "dab $i of ${brush.id}: expected $expected, got ${look.angle}")
+            }
+        }
+        // And the frame itself is a no-op down to the sign of a zero: `−0.0f + 0.0f` is `+0.0f`,
+        // so a frame that added a rotation of nothing to a signed zero would change it.
+        assertEquals((-0.0f).toRawBits(), AngleFrame.IDENTITY.base(-0.0f).toRawBits())
+        assertEquals((-0.0f).toRawBits(), AngleFrame.IDENTITY.jitter(-0.0f).toRawBits())
+    }
+
+    /**
+     * The four cases, on the frame itself with nothing else in the way: a rotation and a
+     * reflection are not the same operation on a tip, and the difference is exactly these four.
+     *
+     * The frame's `followDirection` is the FILE's `tip.followDirection`, copied in — so the base is
+     * either an offset from the stroke or an absolute angle, and the rule turns on which.
+     */
+    @Test
+    fun theFrameHasFourCasesAndTheyAreTheOnesTheTableSays() {
+        val base = degToRad(20f)
+        val jitter = degToRad(30f)
+        val axis = 0.7
+        val rotation = 0.5
+
+        // A rotation: an OFFSET base is left alone — the direction already carries the rotation —
+        // and an ABSOLUTE base turns by it.
+        assertEquals(base, AngleFrame(rotation = rotation, followDirection = true).base(base))
+        assertEquals(base + rotation.toFloat(),
+            AngleFrame(rotation = rotation, followDirection = false).base(base))
+        // A reflection: an OFFSET base changes its sign — a right-leaning tip mirrors to a
+        // left-leaning one — and an ABSOLUTE base is reflected about the copy's own axis, because
+        // an angle α reflected about φ' is 2φ' − α.
+        assertEquals(-base, AngleFrame(mirrorAxis = axis, followDirection = true).base(base))
+        assertEquals((2.0 * axis - base).toFloat(),
+            AngleFrame(mirrorAxis = axis, followDirection = false).base(base))
+        // The jitter is a signed offset: a reflection flips the sign of every signed offset, and a
+        // rotation keeps it.
+        assertEquals(jitter, AngleFrame(rotation = rotation).jitter(jitter))
+        assertEquals(-jitter, AngleFrame(mirrorAxis = axis).jitter(jitter))
+        // And the two flags that say what the frame is.
+        assertTrue(!AngleFrame.IDENTITY.mirrored && !AngleFrame.IDENTITY.flipAcross)
+        assertTrue(AngleFrame(mirrorAxis = axis).mirrored && AngleFrame(mirrorAxis = axis).flipAcross)
+        assertTrue(!AngleFrame(rotation = rotation).mirrored &&
+            !AngleFrame(rotation = rotation).flipAcross)
+    }
+
+    /** The rotation cases again, through the dabber, with the brush's own file in the picture. */
+    @Test
+    fun aRotationFrameTurnsAnAbsoluteBaseAndLeavesAnOffsetOneAlone() {
+        val seed = 20261019L
+        val rotation = 0.5
+        val absolute = BrushDabber(angled, seed, AngleFrame(rotation = rotation, followDirection = false))
+        val offset = BrushDabber(steered, seed, AngleFrame(rotation = rotation, followDirection = true))
+        val samples = straightUp(6)
+        for (i in samples.indices) {
+            val jitter = degToRad(30f) * (2f * angleDrawFor(seed, i) - 1f)
+            val direction = if (i == 0) 0f else (PI / 2).toFloat()
+            assertEquals(
+                (degToRad(20f) + rotation.toFloat()) + jitter,
+                absolute.look(samples[i], i * 10f, i).angle,
+                "dab $i",
+            )
+            assertEquals(
+                (degToRad(20f) + direction) + jitter,
+                offset.look(samples[i], i * 10f, i).angle,
+                "dab $i",
+            )
+        }
+    }
+
+    /** And the reflection cases, the same way round. */
+    @Test
+    fun aMirrorFrameFlipsAnOffsetBaseAndReflectsAnAbsoluteOne() {
+        val seed = 20261019L
+        val axis = 0.7
+        val offset = BrushDabber(steered, seed, AngleFrame(mirrorAxis = axis, followDirection = true))
+        val absolute = BrushDabber(angled, seed, AngleFrame(mirrorAxis = axis, followDirection = false))
+        val samples = straightUp(6)
+        for (i in samples.indices) {
+            val jitter = degToRad(30f) * (2f * angleDrawFor(seed, i) - 1f)
+            val direction = if (i == 0) 0f else (PI / 2).toFloat()
+            // An offset base changes its sign, and the jitter with it.
+            assertEquals(
+                (-degToRad(20f) + direction) + (-jitter),
+                offset.look(samples[i], i * 10f, i).angle,
+                "dab $i",
+            )
+            // An absolute base is reflected about the copy's own axis, and the jitter still flips.
+            assertEquals(
+                ((2.0 * axis - degToRad(20f)).toFloat()) + (-jitter),
+                absolute.look(samples[i], i * 10f, i).angle,
+                "dab $i",
+            )
+        }
+    }
+
+    /**
+     * The jitter on its own, with the base angle taken out of the way: a brush with no base angle
+     * leaves the dab's angle as the direction plus the jitter, and both are known here.
+     */
+    @Test
+    fun aMirrorFrameFlipsTheJitterAndARotationFrameDoesNot() {
+        val seed = 20261019L
+        val flat = steered.copy(tip = steered.tip.copy(angle = Param(0f)))
+        val plain = BrushDabber(flat, seed)
+        val mirror = BrushDabber(flat, seed, AngleFrame(mirrorAxis = 0.7, followDirection = true))
+        val rotation = BrushDabber(flat, seed, AngleFrame(rotation = 0.5, followDirection = true))
+        val samples = straightUp(6)
+        for (i in samples.indices) {
+            val jitter = degToRad(30f) * (2f * angleDrawFor(seed, i) - 1f)
+            val direction = if (i == 0) 0f else (PI / 2).toFloat()
+            assertEquals(direction + jitter, plain.look(samples[i], i * 10f, i).angle, "dab $i")
+            assertEquals(direction - jitter, mirror.look(samples[i], i * 10f, i).angle, "dab $i")
+            assertEquals(direction + jitter, rotation.look(samples[i], i * 10f, i).angle, "dab $i")
+        }
+    }
+
+    /**
+     * The whole point of the frame: a copy's tip must be the ORIGINAL tip reflected.
+     *
+     * A reflection about the axis φ' maps an angle α to 2φ' − α, so the mirrored tip of a stroke
+     * whose composed angle is `base + direction + jitter` is `2φ' − (base + direction + jitter)`.
+     *
+     * The copy's lane is fed the samples TRANSFORMED into the copy's frame, so the direction the
+     * tracker finds in that lane is the COPY's own direction — 2φ' − the original's — and not the
+     * original's. That is why the frame turns the base and the jitter and leaves the direction
+     * alone: the direction term is already the copy's.
+     *
+     * The stroke here runs along +x and the copy's lane runs along −x, which is its reflection
+     * about the y-axis (φ' = PI/2): the copy's direction is PI, and 2φ' − 0 = PI.
+     */
+    @Test
+    fun aMirroredLanesTipIsTheOriginalsTipReflected() {
+        val seed = 20261019L
+        val axis = (PI / 2).toDouble()
+        val original = BrushDabber(steered, seed)
+        val copy = BrushDabber(steered, seed, AngleFrame(mirrorAxis = axis, followDirection = true))
+        val forward = line(6)
+        val reflected = forward.map { PenSample(-it.x, 0f, it.timeMs, pressure = it.pressure) }
+        for (i in forward.indices) {
+            val originalAngle = original.look(forward[i], i * 10f, i).angle
+            val copyAngle = copy.look(reflected[i], i * 10f, i).angle
+            // The first dab of a stroke has no direction yet — the tracker has not seen a movement
+            // — so the copy's first dab carries the tracker's default and not the reflected one.
+            // The symmetry lane owns the samples; a frame cannot turn a direction that is not there.
+            if (i == 0) continue
+            assertEquals(2f * axis.toFloat() - originalAngle, copyAngle, 1e-5f, "dab $i")
+        }
+    }
+
+    /**
+     * The same identity for a copy that is only ROTATED: its tip is the original's tip turned by
+     * the rotation. The copy's lane is fed the samples turned by it, so the direction term already
+     * carries θ and the base — an offset from the direction — is left alone.
+     */
+    @Test
+    fun aRotatedLanesTipIsTheOriginalsTipTurnedByTheRotation() {
+        val seed = 20261019L
+        val rotation = 0.5
+        val original = BrushDabber(steered, seed)
+        val copy = BrushDabber(steered, seed, AngleFrame(rotation = rotation, followDirection = true))
+        val forward = line(6)
+        val turned = forward.map {
+            PenSample(it.x * cos(rotation).toFloat(), it.x * sin(rotation).toFloat(), it.timeMs,
+                pressure = it.pressure)
+        }
+        for (i in forward.indices) {
+            val originalAngle = original.look(forward[i], i * 10f, i).angle
+            val copyAngle = copy.look(turned[i], i * 10f, i).angle
+            if (i == 0) continue // no direction yet, on either side
+            assertEquals(originalAngle + rotation.toFloat(), copyAngle, 1e-5f, "dab $i")
+        }
     }
 
     // ---- speed ----------------------------------------------------------------------------------

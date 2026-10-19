@@ -44,3 +44,16 @@ Read this first, then `specs/SYMMETRY_20261019.md` (the owner's newest request) 
 - To undo a bad push: `git revert -m 1` the merges, check the tree equals the last good commit, push, and reinstall the saved last-good APK. Bring the work back later with a revert of the revert.
 - Never build in a folder another agent is editing (Codex took jb-clips mid-session).
 - The disk fills fast: 79 idle worktrees removed 10-18 (tasks/REMOVED_WORKTREES_20261018.md). Delete only regenerable build output, never worktrees with unsaved work.
+
+## Late 10-19: Tile board speed, step 1 (NOT on main, NOT phone-tested)
+
+- Helper commit **d4b3cd917** (helper1/media-atlas-b1). Tile-board stamp/tuft dabs are bucketed per tile and painted in one pass per frame (TileStrokeBatch.kt).
+- Merged locally as integration ec0a50e94 (not pushed); all suites green (androidkit 1052, app 317).
+- The Note 9 was left on MAIN (1e33f1188 code) on purpose.
+- Main baseline done 10:39–10:59: 33 brushes × 4 boards, helper scratchpad wp_tile4/main_today.log.
+  Main tile p50 ms/frames: pencil 78/4, bristle 67/8, marker 53/6, softair 115/5, flatpaint 134/2 (flatpaint not in step 1).
+- To finish:
+  1. `install -r` the tile-fix APK;
+  2. run the same matrix in the same hour;
+  3. add a per-cell hash of MatrixBench's "after" plane on both builds (stateAfter is already read back) as the pixel-exact seam proof;
+  4. push only if canvas/animation/sprite are within noise, tile is faster and the hashes match.

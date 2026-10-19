@@ -26,6 +26,8 @@ object StrokeReplay {
     /** The named cases, each sized to the view. */
     fun case(name: String, w: Int, h: Int): List<Sample>? = when (name) {
         // The owner's complaint (Note 20, 2026-10-08): a large quick C. 270 degrees, radius 35% of the width, 120 ms.
+        // The window patch's proof: a flick across ~1500 px in 120 ms lands in one or two frames, wider than the window.
+        "wideFlick" -> line(w * 0.04f, h * 0.08f, w * 0.96f, h * 0.62f, 120.0)
         "fastC" -> arc(w * 0.5f, h * 0.5f, w * 0.35f, 135.0, -135.0 - 0.0, 120.0)
         // A slower C, same shape: 600 ms.
         "slowC" -> arc(w * 0.5f, h * 0.5f, w * 0.35f, 135.0, -135.0, 600.0)

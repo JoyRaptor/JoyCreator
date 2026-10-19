@@ -36,6 +36,12 @@ object MediaWindowMath {
         Pair(kotlin.math.round((rect[0] + rect[2]) / 2 / Tiles.SIZE - TILES / 2.0).toInt(),
             kotlin.math.round((rect[1] + rect[3]) / 2 / Tiles.SIZE - TILES / 2.0).toInt())
 
+    /** Whether a document rectangle lies wholly on the window at ([tx], [ty]) (no margin: nothing of it would be clipped). */
+    fun within(tx: Int, ty: Int, rect: DoubleArray): Boolean {
+        val ox = tx * Tiles.SIZE.toDouble(); val oy = ty * Tiles.SIZE.toDouble()
+        return rect[0] >= ox && rect[1] >= oy && rect[2] <= ox + PX && rect[3] <= oy + PX
+    }
+
     /** Whether a document rectangle [x0, y0, x1, y1] stays [MARGIN] inside the window whose top-left tile is ([tx], [ty]). */
     fun holds(tx: Int, ty: Int, rect: DoubleArray): Boolean {
         val ox = tx * Tiles.SIZE.toDouble(); val oy = ty * Tiles.SIZE.toDouble()

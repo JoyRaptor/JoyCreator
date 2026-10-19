@@ -439,18 +439,31 @@ class MediaCanvas(
         val batch = st.dry?.take()
         w.legacyLook = legacyWindow
         e.legacyRect = legacyWindow   // bench A/B: the old full-square paste rect too
-        if (w is MediaWindow && !legacyWindow) { runWindowed(e, w, st, batch, last); return }
-        if (legacyWindow) {
-            val r = st.reachPx + 4
-            w.follow(doubleArrayOf(st.penX - r, st.penY - r, st.penX + r, st.penY + r), st.penX, st.penY)
-        } else if (batch != null && batch.count > 0 && batch.dirty != null) {
+        val followRect: DoubleArray; val fx: Double; val fy: Double
+        if (!legacyWindow && batch != null && batch.count > 0 && batch.dirty != null) {
             val pad = st.mat!!.smearMm * DOC_PX_PER_MM + 4
             val d = batch.dirty!!
-            w.follow(doubleArrayOf(d[0] - pad, d[1] - pad, d[2] + pad, d[3] + pad), (d[0] + d[2]) / 2, (d[1] + d[3]) / 2)
+            followRect = doubleArrayOf(d[0] - pad, d[1] - pad, d[2] + pad, d[3] + pad); fx = (d[0] + d[2]) / 2; fy = (d[1] + d[3]) / 2
         } else {
             val r = st.reachPx + 4
-            w.follow(doubleArrayOf(st.penX - r, st.penY - r, st.penX + r, st.penY + r), st.penX, st.penY)
+            followRect = doubleArrayOf(st.penX - r, st.penY - r, st.penX + r, st.penY + r); fx = st.penX; fy = st.penY
         }
+        // The window patch: a frame whose paint would fall off the window it is about to follow to is drawn in parts.
+        // Every other frame runs exactly as before.
+        if (w is MediaWindow && !legacyWindow) {
+            val wq0 = water()
+            val wq = if (waterAB.brushFirst && (st.wet != null || st.thin != null || e.wetActive))
+                wq0.copy(substeps = schedule.whileDrawing(true, wq0.substeps)) else wq0
+            val input = FrameInput(batch, st.thin?.take(), st.paste?.take(), st.wet?.take(),
+                if (st.erase && st.eraseDabs.isNotEmpty()) eraseBatch(st.eraseDabs) else null)
+            val r = frameRect(st, input)
+            w.lookHalo = haloOf(lookNow())
+            if (r != null && w.wouldClip(followRect, fx, fy, r)) runWindowParts(e, w, st, input, wq, last)
+            else { w.follow(followRect, fx, fy); runFrame(e, w, st, input, wq, last) }
+            if (input.erase != null) st.eraseDabs.clear()
+            return
+        }
+        w.follow(followRect, fx, fy)
         w.lookHalo = haloOf(lookNow())
         // Every input of this frame, taken before any pass runs, so the atlas can admit the whole frame first (B3).
         // Option A (brush first): while the pen is down the water runs one step a frame; the rest is paid back after.
@@ -471,24 +484,17 @@ class MediaCanvas(
      * rest with the last (each part runs its own water for its own dabs, and N parts with every step made one frame N
      * times as long: 4.7 s on the Note 9).
      */
-    private fun runWindowed(e: MediaLayerEngine, w: MediaWindow, st: Stroke, batch: DabBatch?, last: Boolean) {
-        w.lookHalo = haloOf(lookNow())
-        val wq0 = water()
-        val wq = if (waterAB.brushFirst && (st.wet != null || st.thin != null || e.wetActive))
-            wq0.copy(substeps = schedule.whileDrawing(true, wq0.substeps)) else wq0
-        val input = FrameInput(batch, st.thin?.take(), st.paste?.take(), st.wet?.take(),
-            if (st.erase && st.eraseDabs.isNotEmpty()) eraseBatch(st.eraseDabs) else null)
+    private fun runWindowParts(e: MediaLayerEngine, w: MediaWindow, st: Stroke, input: FrameInput, wq: WetConstants, last: Boolean) {
         val parts = ArrayList<Pair<FrameInput, DoubleArray?>>()
         windowParts(st, input, parts)
+        android.util.Log.i("JoyBrushMedia", "a frame wider than the window, drawn in ${parts.size} parts")
         for ((i, p) in parts.withIndex()) {
             val (part, r) = p
-            if (r != null) w.follow(r, (r[0] + r[2]) / 2, (r[1] + r[3]) / 2)
-            else { val q = st.reachPx + 4; w.follow(doubleArrayOf(st.penX - q, st.penY - q, st.penX + q, st.penY + q), st.penX, st.penY) }
+            if (r != null) w.followCentred(r)
             val final = i == parts.lastIndex
             val steps = if (final) maxOf(1, wq.substeps - (parts.size - 1)) else 1
             runFrame(e, w, st, part, if (steps == wq.substeps) wq else wq.copy(substeps = steps), last && final)
         }
-        if (input.erase != null) st.eraseDabs.clear()
     }
 
     /** [input] cut in halves, in dab order, until each part fits the window (MediaWindowMath.SPAN), with what it reaches. */

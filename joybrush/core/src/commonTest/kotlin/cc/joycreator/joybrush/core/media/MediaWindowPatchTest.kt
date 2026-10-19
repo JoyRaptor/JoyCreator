@@ -18,4 +18,11 @@ class MediaWindowPatchTest {
         }
         assertEquals(512, MediaWindowMath.SPAN, "4 tiles less the two margins and one tile of rounding")
     }
+
+    @Test fun aFrameClipsOnlyWhenItsPaintLeavesTheWindowItself() {
+        assertTrue(MediaWindowMath.within(0, 0, doubleArrayOf(0.0, 0.0, 1024.0, 1024.0)), "the whole window, edge to edge")
+        assertTrue(!MediaWindowMath.within(0, 0, doubleArrayOf(-1.0, 10.0, 100.0, 100.0)), "a pixel past the left edge")
+        assertTrue(!MediaWindowMath.within(1, 0, doubleArrayOf(300.0, 0.0, 1281.0, 20.0)), "a pixel past the right edge")
+        assertTrue(MediaWindowMath.within(1, 0, doubleArrayOf(300.0, 0.0, 1280.0, 20.0)))
+    }
 }

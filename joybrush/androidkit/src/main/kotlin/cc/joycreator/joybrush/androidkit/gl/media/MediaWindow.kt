@@ -100,10 +100,23 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
     /** Keeps a stroke's area ([x0, y0, x1, y1], document px) inside the window, moving it to centre on the pen if not. */
     override fun follow(docRect: DoubleArray, penX: Double, penY: Double) {
         val id = layerId ?: return
+        if (!MediaWindowMath.holds(tx, ty, docRect)) mediaTrace("JB.media.window.move") { moveTo(id, plane, penX, penY, resumeWater = true) }
+    }
+
+    /**
+     * Whether [follow]ing ([docRect], [penX], [penY]) would leave part of [paints] (document px) off the window: a frame
+     * that would clip its own dabs (a slow cold first frame, a very fast flick). Only those are drawn in parts.
+     */
+    fun wouldClip(docRect: DoubleArray, penX: Double, penY: Double, paints: DoubleArray): Boolean {
+        val (nx, ny) = if (MediaWindowMath.holds(tx, ty, docRect)) tx to ty else MediaWindowMath.placeFor(penX, penY)
+        return !MediaWindowMath.within(nx, ny, paints)
+    }
+
+    /** A part of a frame too wide for one window (MediaCanvas.runWindowParts): the window centred on it, so up to SPAN fits. */
+    fun followCentred(docRect: DoubleArray) {
+        val id = layerId ?: return
         if (MediaWindowMath.holds(tx, ty, docRect)) return
-        // Centred on what this frame paints (the window patch): a part up to MediaWindowMath.SPAN always fits. The pen-centred
-        // placement left as little as 128 px on one side, and dabs past it were clipped. The bench's legacy A/B keeps it.
-        val (nx, ny) = if (legacyLook) MediaWindowMath.placeFor(penX, penY) else MediaWindowMath.placeForRect(docRect)
+        val (nx, ny) = MediaWindowMath.placeForRect(docRect)
         mediaTrace("JB.media.window.move") { moveTo(id, plane, nx, ny, resumeWater = true) }
     }
 

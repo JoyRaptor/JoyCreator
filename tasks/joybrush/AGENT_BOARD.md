@@ -1,5 +1,22 @@
 # Joy Brush shared agent board
 
+## Unibrush D2 — 2026-10-18 — ready for Lead review
+
+Source dc3aca21c on codex/unibrush adds hard/linear/smooth/Gaussian/custom radial profiles,
+tip/canvas/pen-azimuth directional fade and the tilt side-fade recipe. Legacy fields omitted,
+RNG sequence and the 17-float stamp prefix stay exact; optional fade data follows the prefix.
+Full core 2529 (4 optional corpus skips), backend 1050: zero failures/errors. Production shaders
+pass 72 CPU cases / 73728 probes (<1/255 max error), all wrong-profile/fade controls detected.
+Extended three-dab transport matches individual draws byte-for-byte; wrong-offset control differs
+in 2856 bytes. Historical 820c62802 vs new shader: zero differing pixels (old regression controls pass).
+Evidence: tools/unibrush_profile_check.js, tools/stamp_pass_check.js --old-ref 820c62802,
+TipProfileFixtureTest and UnibrushStampPassTest. Local logs C:/Temp/jb-unibrush-d2-tests.log,
+C:/Temp/jb-unibrush-d2-gpu.json. Headless Edge/SwiftShader; no phone/performance acceptance claim.
+No Lead engine/view/lines or helper media edits. New profile/fade with line-style shaping is
+explicitly refused until the D7 Lead adapter forwards the new Dab fields (otherwise LineShaper
+silently drops them). Ordinary raw-sample/seed live vs replay and codec roundtrips pass.
+Continuing D3 four-point shapes/morph. Lead review/integration of D1/D2 is requested.
+
 ## Current Root lane — October15 captured format, then private clipping adapter
 
 Source628424db passes core2402 (4 optional skips), backend786/native203 and exact

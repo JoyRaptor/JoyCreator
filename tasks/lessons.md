@@ -1083,3 +1083,15 @@ as `TIME * knob` are "rate" and the host integrates them.
 - **Rule:** (1) never edit a file in another agent's lane: send them the patch and the reason; (2) run
   `git merge-tree --write-tree HEAD <branch>` BEFORE any merge, and start a build only in a later step after `git status`
   shows a clean tree; (3) on a conflict: `git merge --abort`, stop the build, revert or hand off; never resolve it.
+
+## 2026-10-20 — JoyBrush Lead: three small traps from the tile / crash / atlas day
+- **`grep FATAL` on a phone log also matches OTHER apps** (a carrier service crashed during a stress loop and stopped it as
+  if Joy had). Count `Process: com.fadcam` after FATAL, or the exception text itself.
+- **Git Bash paths for Windows programs:** `adb.exe`, `node` and `adb install` want `C:/Temp/...`, not `/c/Temp/...` (adb: "failed to
+  stat"; node: opens `C:\c\Temp\...`). Use `cygpath -m` for anything handed to a Windows binary.
+- **A flaky crash is worth a stress loop plus a diagnostic build, not more reading.** The palette-knife "duplicate after texture
+  ownership" (about 1 run in 8) took two diagnostic APKs: log double releases with both stacks, loop the brushes that trigger it.
+- **The commit hook blocks device serials and the Windows user path** in new files (even in scripts). Resolve the serial with
+  `adb devices -l | grep SM_N960U` and the folders with `$LOCALAPPDATA`.
+- **A hash compare between two builds only judges deterministic cells.** Check the hash of a build against ITSELF on a board the
+  change does not touch first: Sable, Bristle and every media brush differed run to run, so only the stamp brushes could be judged.

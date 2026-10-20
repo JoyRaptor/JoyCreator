@@ -673,7 +673,12 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         var samples = 0
         var startArgb: Int? = null
     }
-    private var lineContact: LineContact? = null
+    /**
+     * The contacts being kept as editable lines: ONE for an ordinary stroke, and ONE PER LANE for a
+     * symmetry stroke. A lane records the samples IT heard - the copy's own samples - so a later
+     * replay of that record draws the copy that was painted.
+     */
+    private var lineContacts: List<LineContact> = emptyList()
 
     /**
      * The id of the document this canvas makes when it has none from a file: unique per drawing (a new library drawing,
@@ -1878,14 +1883,23 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             // first dab exists, so the tip's hardness and the stroke's opacity are the ones the
             // file evaluated AT that dab rather than the base values the file happens to carry.
         }
-        lineContact = lineFrozen?.let { f ->
+        // The recording(s) of this stroke. An ordinary stroke records ONE contact; a symmetry stroke
+        // records ONE PER LANE, each with the lane's OWN seed (R13: the seed must be the exact seed
+        // the dabber used, or the replay is not the stroke that was drawn) and its own id.
+        lineContacts = lineFrozen?.let { f ->
             try {
-                LineContact(StrokeCapture(newLineName("ln"), f.id, strokeSeed, amount, view.zoom, colorArgb ?: b.argb), f.newEntries)
-            } catch (e: Exception) { null }
-        }
+                val lanes = symmetryLanes
+                if (lanes.isEmpty()) listOf(
+                    LineContact(StrokeCapture(newLineName("ln"), f.id, strokeSeed, amount, view.zoom, colorArgb ?: b.argb), f.newEntries)
+                ) else lanes.map { lane ->
+                    // The lane makes its own recording: the seed in it is the lane's own seed.
+                    LineContact(lane.capture(newLineName("ln"), f.id, amount, view.zoom, colorArgb ?: b.argb), f.newEntries)
+                }
+            } catch (e: Exception) { emptyList() }
+        } ?: emptyList()
         // Lines live under document cels and are saved by the board path: a fresh drawing gets its board document first
         // (queued before this stroke's own GL work, as the media path does).
-        if (lineContact != null && boardDocument == null) {
+        if (lineContacts.isNotEmpty() && boardDocument == null) {
             val stack = stackUi
             val w = viewW; val h = viewH
             onGl {
@@ -1983,7 +1997,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         val tuft = if (p != null && strokeTuft != null) TuftStroke.shading(p, strokeSeed) else null
         val argb = (colorArgb ?: b.argb).let { if (strokeOnMask) maskGrey(it) else it }
         diagnosticContact?.let { it.start = DiagnosticStrokeStart(argb, opacity, tip.hardness) }
-        lineContact?.startArgb = argb
+        for (c in lineContacts) c.startArgb = argb
         val target = strokeLayerId
         val watercolorOptions=strokeWatercolour?.spec
         val watercolorSeed=strokeSeed
@@ -2076,15 +2090,17 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         // R9: the lift — a fast one carries on as the bristles leave the paper — and any spatter it throws.
         strokeTuft?.let { t -> paintTuft(t.finish()) }
         val diagnosticResult = finishDiagnosticCapture()
-        // The line's record carries the colour the stroke actually began with (as the first dab evaluated it).
-        val line = lineContact?.let { c -> c.capture.finish()?.let { r -> c.startArgb?.let { r.copy(colorArgb = it) } } }
-        val lineBrushes = lineContact?.brushes.orEmpty()
-        lineContact = null
+        // The line's records carry the colour the stroke actually began with (as the first dab evaluated it).
+        // A symmetry stroke has ONE record per lane: each is the copy's OWN recording, and the engine
+        // makes them ONE group, so Select takes the whole set and ONE undo takes them all back.
+        val lines = lineContacts.mapNotNull { c -> c.capture.finish()?.let { r -> c.startArgb?.let { r.copy(colorArgb = it) } } }
+        val lineBrushes = lineContacts.firstOrNull()?.brushes.orEmpty()
+        lineContacts = emptyList()
         drawing = false
         smoother = null; placer = null; tracker = null
         strokePreset = null; strokeDabber = null; strokeWatercolour = null; scatterRng = null; strokeErase = false; strokeTuft = null
         symmetryLanes = emptyList(); symmetryPending = emptyList()
-        boardStrokeWork { engine.setPendingLine(line, lineBrushes); engine.endStroke(); reportHistory() }
+        boardStrokeWork { engine.setPendingLines(lines, lineBrushes); engine.endStroke(); reportHistory() }
         flushPaperVisits()
         onStrokeEnded?.invoke()
         diagnosticResult?.let { (observer, result) -> observer(result) }
@@ -2093,8 +2109,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     private fun cancelStroke() {
         diagnosticContact?.capture?.cancel()
         diagnosticContact = null
-        lineContact?.capture?.cancel()
-        lineContact = null
+        for (c in lineContacts) c.capture.cancel()
+        lineContacts = emptyList()
         // What a media stroke already painted stays, as one step (water cannot be un-run mid-flow).
         if (mediaStroke || mediaErase) { finishMediaStroke(); return }
         resetSnapper(fresh = false)
@@ -2261,7 +2277,19 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             if (contact.sampleCount >= 32768) refuseDiagnosticCapture("Diagnostic capture reached its 32768 raw sample budget")
             else { contact.capture.add(raw); contact.sampleCount++ }
         }
-        if (raw.isPlaceable && !raw.predicted) lineContact?.let { it.capture.add(raw); it.samples++ }
+        // The symmetry's lanes: every lane has its OWN smoother, so every lane releases its OWN
+        // points, and those points are the COPY's - not the original's. The transform is applied
+        // to the sample, once, inside the lane, and the lane records THAT sample: the recording is
+        // the copy's own, so a later replay of it draws the copy that was painted.
+        if (symmetryLanes.isNotEmpty()) {
+            for (i in symmetryLanes.indices) {
+                val contact = lineContacts.getOrNull(i)
+                symmetryPending[i].addAll(symmetryLanes[i].feed(raw, contact?.capture))
+                if (contact != null) contact.samples++
+            }
+            return
+        }
+        if (raw.isPlaceable && !raw.predicted) lineContacts.firstOrNull()?.let { it.capture.add(raw); it.samples++ }
         // The watercolor dabber owns the POC's pressure/tilt/path filters. Never smooth or curve it twice.
         if(strokeWatercolour != null) { if(raw.isPlaceable && !raw.predicted) released.add(raw); return }
         if (strokePreset?.engine == ENGINE_FILL && !mediaErase) {
@@ -2274,13 +2302,6 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             }
             fillSamples.add(raw)
             sm?.let { released.addAll(it.add(raw)) }; return
-        }
-        // The symmetry's lanes: every lane has its OWN smoother, so every lane releases its OWN
-        // points, and those points are the COPY's - not the original's. The transform is applied
-        // to the sample, once, inside the lane.
-        if (symmetryLanes.isNotEmpty()) {
-            for (i in symmetryLanes.indices) symmetryPending[i].addAll(symmetryLanes[i].feed(raw))
-            return
         }
         val smoother = sm ?: return
         val s = strokePreset?.response?.apply(raw) ?: raw

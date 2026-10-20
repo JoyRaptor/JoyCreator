@@ -16,6 +16,7 @@ import cc.joycreator.joybrush.core.input.PenSample
 import cc.joycreator.joybrush.core.input.StrokeSmoother
 import cc.joycreator.joybrush.core.paint.Dab
 import cc.joycreator.joybrush.core.paint.DabPlacer
+import cc.joycreator.joybrush.core.stroke.StrokeCapture
 
 /**
  * The app's hard-coded round brush, as a symmetry lane needs it: the numbers the view's own
@@ -63,6 +64,9 @@ data class HardcodedTip(
  * - **Its own [SplitMix]** for the scatter, so two lanes never share a stream.
  * - **Its own seed**, which is the same for every lane when the guide's `symmetric` is on and a
  *   different one per lane when it is off.
+ * - **Its own recording**, when the stroke is kept as an editable line: the lane records the samples
+ *   it HEARD - the copy's own samples, before the response and the smoother - so a later replay of
+ *   that recording draws this copy and not the original.
  *
  * ## The seed, and what "symmetric" means
  *
@@ -118,6 +122,17 @@ class SymmetryLane private constructor(
     /** True when this lane is the ORIGINAL stroke: the one the copies are copies of. */
     val isOriginal: Boolean get() = copy == null
 
+    /**
+     * This lane's own recording, for a stroke that is kept as an editable line.
+     *
+     * The seed is the LANE's seed - the exact seed this lane's dabber drew with (LEAD_RULINGS R13) -
+     * so a later replay of the recording is the stroke that was drawn and not another one. The lane
+     * owns that seed, so the lane is where the recording is made: nobody can hand a record a seed
+     * the brush never used.
+     */
+    fun capture(id: String, brushId: String, smoothing: Float, screenPerDoc: Float, colorArgb: Int): StrokeCapture =
+        StrokeCapture(id, brushId, seed, smoothing, screenPerDoc, colorArgb)
+
     /** The stroke's opacity, as the engine takes it (a WASH stroke's only channel for it). */
     val strokeOpacity: Float get() = dabber?.strokeOpacity ?: 1f
 
@@ -134,6 +149,14 @@ class SymmetryLane private constructor(
     /**
      * Feeds one pen sample and returns the points this lane's smoother released.
      *
+     * [record] is this lane's OWN recording of the raw samples: it is given the lane's own copy of
+     * the sample - the copy's map applied, BEFORE the brush's response and the smoother - so a later
+     * replay of that recording draws exactly the copy that was painted. It is null when the stroke
+     * is not kept as an editable line.
+     *
+     * The transform is applied ONCE, here: the same transformed sample is what the brush hears and
+     * what the recording holds, so the two can never come apart.
+     *
      * The order is the contract: the copy's map first (the position, and the lean and the twist
      * when the guide is symmetric), then the brush's own response curves, then the smoother. The
      * response only shapes the pressure and the tilt, and the transform only moves the sample, so
@@ -141,9 +164,12 @@ class SymmetryLane private constructor(
      *
      * A cancelled lane releases nothing.
      */
-    fun feed(sample: PenSample): List<PenSample> {
+    fun feed(sample: PenSample, record: StrokeCapture? = null): List<PenSample> {
         if (cancelled) return emptyList()
         val moved = if (copy == null) sample else SymmetryMath.apply(sample, copy, symmetric)
+        // The recording holds the samples the BRUSH heard: a predicted or unplaceable sample is
+        // dropped by the smoother and never reaches the brush, so it is not recorded either.
+        if (record != null && moved.isPlaceable && !moved.predicted) record.add(moved)
         val heard = response?.apply(moved) ?: moved
         return smoother.add(heard)
     }

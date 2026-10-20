@@ -7,7 +7,7 @@ precision highp float;
 
 in vec4 v_carried;
 uniform float u_texturePickup;
-uniform vec2 u_tileOrigin;
+// u_tileOrigin is shared with jb_contact.glsl.
 uniform float u_tileSize;
 uniform sampler2D u_pickup00;
 uniform sampler2D u_pickup10;

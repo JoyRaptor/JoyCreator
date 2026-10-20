@@ -29,7 +29,14 @@ import kotlin.math.max
  * Not thread-safe, and neither is the placer: a stroke's dabs are built on the thread that is
  * drawing, in order.
  */
-class BrushDabber(val preset: BrushPreset, seed: Long, colors: StrokeColors? = null) {
+class BrushDabber(val preset: BrushPreset, seed: Long, colors: StrokeColors? = null,
+                  sampledTips: SampledTipSet? = null) {
+
+    private val samples = preset.tip.sampled?.let { spec ->
+        sampledTips?.takeIf { it.matches(spec) }
+            ?: throw BrushException("The sampled tip needs all its frozen image masks")
+    }
+    private val samplePicker = preset.tip.sampled?.let { SampledTipPicker(it, seed) }
 
     private val colorDynamics = preset.color.dynamics?.takeIf { it.isActive }?.let {
         ColorDynamics(it, seed, colors ?: throw BrushException("Colour dynamics need the stroke's frozen ink colours"))
@@ -136,6 +143,8 @@ class BrushDabber(val preset: BrushPreset, seed: Long, colors: StrokeColors? = n
         if (tipRotation != null) angle += tipRotation.update(sample)
         else if (preset.tip.followDirection) angle += direction
         angle += degToRad(preset.angleJitter) * (2f * angleDraw - 1f)
+        val sampleChoice = samplePicker?.next(sample, distancePx, index)
+        if (sampleChoice != null) angle += sampleChoice.rotationRadians
         val fadeSpec = preset.tip.fade
         val fadeAmount = fadeSpec?.let { unit(Dynamics.eval(it.amount, inputs), 0f) } ?: Float.NaN
         val fadeAngle = fadeSpec?.let {
@@ -169,6 +178,8 @@ class BrushDabber(val preset: BrushPreset, seed: Long, colors: StrokeColors? = n
         val dynamicAspect = preset.tip.aspectDynamics?.let { finite(Dynamics.eval(it, inputs), preset.tip.aspect).coerceIn(-1f, 1f) }
         val quadAspect = quadSpec?.let { TipQuads.aspect(it.a, it.b, morph, dynamicAspect ?: preset.tip.aspect) }
         return DabLook(radius = radius, angle = angle, flow = flow, cap = cap,
+            sampled = sampleChoice?.let { SampledStamp(checkNotNull(samples), it.imageIndex, preset.tip.minPx) },
+            spacingMultiplier = sampleChoice?.spacingMultiplier ?: 1f,
             color = colorDynamics?.at(distancePx, sample.pressure),
             profile = quadSpec?.a?.profile ?: preset.tip.profile,
             profileB = quadSpec?.b?.let { it.profile ?: preset.tip.profile }, profileMix = morph,

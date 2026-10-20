@@ -50,6 +50,7 @@ data class Dab(
     val quad: cc.joycreator.joybrush.core.brush.QuadDab? = null,
     /** v15: resolved straight sRGB; null retains the fixed stroke colour and old buffer path. */
     val color: cc.joycreator.joybrush.core.brush.ColorDab? = null,
+    val sampled: cc.joycreator.joybrush.core.brush.SampledStamp? = null,
 )
 
 /**
@@ -87,10 +88,13 @@ data class TipShape(
     val profileB: TipProfileSpec? = null,
     val profileMix: Float = 0f,
     val quad: cc.joycreator.joybrush.core.brush.QuadDab? = null,
+    val sampled: cc.joycreator.joybrush.core.brush.SampledStamp? = null,
 )
 
 /** Resolve live contact values; missing channels use the stroke shape. */
 fun Dab.tipShape(fallback: TipShape): TipShape = fallback.copy(
+    sampled = sampled ?: fallback.sampled,
+    minPx = (sampled ?: fallback.sampled)?.minPx ?: fallback.minPx,
     profile = profile ?: fallback.profile,
     profileB = if (quad != null) profileB else fallback.profileB,
     profileMix = if (quad != null) profileMix else fallback.profileMix,

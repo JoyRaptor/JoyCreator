@@ -45,7 +45,7 @@ Rule: nothing below marked DECISION gets built until the owner picks.
 - [ ] Sweep leftovers: caption motion "Type - word" stuck; caption hide-eye / outline swatch no visible response; Invert effect not visible on an image overlay; Puppet RECORDING tab button column clipped.
 - [ ] Lobby: reads off the main thread; "N ITEMS" count to match Library; recording card opens the recording.
 
-## JoyBrush engine continuation — October 16 (Codex Lead)
+## JoyBrush engine continuation â€” October 16 (Codex Lead)
 
 - [x] Bound canonical-source bake through actual engine publication and public undo/redo;
   source 97d0a51c full backend 876 and native 203 passed.
@@ -78,7 +78,7 @@ Open (owner decisions): Viz Lab card; bottom words (Packs/Bits/Finder); Remote/S
 Open (mine): restyle Home recorder (Bits); fullscreen preview; Home sidebar; audio envelope oddities; voiceovers in project view; rename/trash helpers for sheets/characters; retire AvatarToggleView + eye-colour pref; sweep leftovers (caption presets retest).
 Parked: VisLab (brief in tasks/VISLAB_BRIEF.md); Joy Brush send-into-existing-project.
 
-# Unibrush — 2026-10-18
+# Unibrush â€” 2026-10-18
 
 Owner brief: tasks/joybrush/briefs/CODEX_DIGITAL_PEN_BRIEF_20261018.md. Section 0 wins.
 Isolated branch codex/unibrush starts at lead/layer-ops as authorized in the handoff.
@@ -88,7 +88,8 @@ Isolated branch codex/unibrush starts at lead/layer-ops as authorized in the han
 - [x] D2 engine: radial profiles and directional fade; CPU/GPU/transport checks. Lead integration and phone acceptance pending.
 - [x] D3 engine: four-point shapes, rounding and A/B morph; CPU/GPU/replay checks. Lead integration and phone acceptance pending.
 - [x] D4 engine: seeded colour dynamics, frozen palette/codec, CPU/GPU/replay checks. Lead patch held; app/phone acceptance pending.
-- [ ] D5: sampled image sets and frozen archive resources; Lead engine patch; phone proof.
+- [x] D5 engine: sampled image sets, frozen archive resources, real PNG imports and CPU/GPU/replay checks.
+- [ ] D5 Lead application integration/activation, combined app and Note9 proof (held patches only).
 - [ ] D6: dual-tip masking; shader checks.
 - [ ] D7: stroke-end taper parity; Lead integration if required.
 - [ ] D8: stabilizer suggestions/settings and exact raw-record replay; Lead record integration.
@@ -115,3 +116,9 @@ D3 review (2026-10-19): core 2547 (4 optional skips), backend 1052, no failures/
 Extended VBO is byte-identical to individual draws; both wrong-offset controls differ.
 Historical old shader comparison remains exact. Shader contact sheet inspected; no phone claim.
 See tasks/joybrush/reviews/UNIBRUSH_D3_20261018.md and accompanying 20261019 evidence.
+
+D5 review (2026-10-20): core2607 passed (4 optional skips); backend1082 executed,
+with one new test assertion corrected to the archive's documented sequence ordering. All seven
+archive tests pass on rerun. Sample GPU18 cases/18432 probes/zero failures/max .00229069451;
+nine broken controls detect; full VBO/MRT transport exact; legacy shader pixels unchanged.
+Held adapters apply after D4 in outside scratch only. App/Note9 acceptance remains pending.

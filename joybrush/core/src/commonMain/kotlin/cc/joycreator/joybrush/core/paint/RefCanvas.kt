@@ -62,7 +62,11 @@ class RefCanvas(private val tileSize: Int = Tiles.SIZE, undoBudgetBytes: Long = 
 
     fun addDabs(dabs: List<Dab>) {
         checkNotNull(layerId) { "no stroke in progress" }
-        for ((key, list) in Tiles.bucket(dabs.map { if (it.anchor.isFinite()) it else it.copy(anchor = tip.anchor) }, tileSize)) {
+        val resolved = dabs.map { d ->
+            if (d.anchor.isFinite() && (d.sampled != null || tip.sampled == null)) d else d.copy(
+                anchor = if (d.anchor.isFinite()) d.anchor else tip.anchor, sampled = d.sampled ?: tip.sampled)
+        }
+        for ((key, list) in Tiles.bucket(resolved, tileSize)) {
             val buf = stroke.getOrPut(key) { FloatArray(px) }
             val ox = Tiles.tx(key) * tileSize
             val oy = Tiles.ty(key) * tileSize
@@ -86,7 +90,7 @@ class RefCanvas(private val tileSize: Int = Tiles.SIZE, undoBudgetBytes: Long = 
 
     private fun stamp(buf: FloatArray, colors: FloatArray?, ox: Int, oy: Int, d: Dab) {
         val liveTip = d.tipShape(tip)
-        val e = TipMath.extent(d.radius, liveTip.anchor)
+        val e = TipMath.extent(d.radius, liveTip.anchor, liveTip.sampled, liveTip.aspect)
         val x0 = max(floor(d.x - e).toInt(), ox); val x1 = min(floor(d.x + e).toInt(), ox + tileSize - 1)
         val y0 = max(floor(d.y - e).toInt(), oy); val y1 = min(floor(d.y + e).toInt(), oy + tileSize - 1)
         for (y in y0..y1) for (x in x0..x1) {

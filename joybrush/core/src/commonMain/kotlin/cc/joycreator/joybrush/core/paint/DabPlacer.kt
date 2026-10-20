@@ -23,6 +23,8 @@ data class DabLook(val radius: Float, val angle: Float = 0f, val flow: Float = 1
     val profileMix: Float = 0f,
     val quad: cc.joycreator.joybrush.core.brush.QuadDab? = null,
     val color: cc.joycreator.joybrush.core.brush.ColorDab? = null,
+    val sampled: cc.joycreator.joybrush.core.brush.SampledStamp? = null,
+    val spacingMultiplier: Float = 1f,
 )
 
 /**
@@ -107,10 +109,13 @@ class DabPlacer(
             profile = l.profile, fadeAmount = optional(l.fadeAmount, 0f, 1f), fadeAngle = if (l.fadeAngle.isFinite()) l.fadeAngle else Float.NaN,
             quad = l.quad, profileB = l.profileB, profileMix = l.profileMix,
             color = l.color,
+            sampled = l.sampled,
             aspect = optional(l.aspect, -1f, 1f), hardness = optional(l.hardness, 0f, 1f),
             tipDepth = optional(l.tipDepth, 0f, 1f), paperDepth = optional(l.paperDepth, 0f, 1f),
             anchor = optional(l.anchor, 0f, 1f)))
-        val step = 2f * radius * spacing
+        val baseStep = 2f * radius * spacing
+        val multiplier = if (l.spacingMultiplier.isFinite()) l.spacingMultiplier.coerceIn(0f, 2f) else 1f
+        val step = if (multiplier == 1f) baseStep else baseStep * multiplier
         return if (step.isFinite()) max(step, minSpacingPx) else minSpacingPx
     }
 

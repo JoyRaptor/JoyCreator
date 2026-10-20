@@ -5,6 +5,8 @@ import cc.joycreator.joybrush.core.brush.BrushException
 import cc.joycreator.joybrush.core.brush.BrushJson
 import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.brush.BrushValidate
+import cc.joycreator.joybrush.core.brush.SampledTips
+import java.io.InputStream
 
 /**
  * The brushes that ship with the app (JB-1.05b).
@@ -31,12 +33,25 @@ object BrushLibrary {
     private const val INDEX = "index.txt"
 
     /** What reading the packaged brushes gave: the ones that load, and the folders that did not. */
-    internal class Loaded(val brushes: List<BrushPreset>, val skipped: List<String>, val indexMissing: Boolean = false)
+    internal class Loaded(val brushes: List<BrushPreset>, val skipped: List<String>, val indexMissing: Boolean = false,
+                          val imageFolders: Map<String,String> = emptyMap())
 
     private var cache: Loaded? = null
 
     /** The built-in brushes, in `index.txt` order. Empty if none were packaged. */
     fun builtIn(): List<BrushPreset> = loaded().brushes
+
+    /** Explicit packaged-library source only. Saved lines resolve from their document's PNG bundle. */
+    fun imageStream(brushId: String, path: String): InputStream? {
+        val resource = imageResourcePath(loaded(), brushId, path) ?: return null
+        return BrushLibrary::class.java.getResourceAsStream("$ROOT/$resource")
+    }
+
+    internal fun imageResourcePath(loaded: Loaded, brushId: String, path: String): String? {
+        if (!SampledTips.safePath(path)) return null
+        val folder = loaded.imageFolders[brushId] ?: return null
+        return "$folder/$path"
+    }
 
     /** The folders of packaged brushes that would not load (and so are missing from [builtIn]). Empty when all loaded. */
     fun unusable(): List<String> = loaded().skipped
@@ -60,7 +75,13 @@ object BrushLibrary {
         }
         val out = ArrayList<BrushPreset>()
         val skipped = ArrayList<String>()
+        val imageFolders = LinkedHashMap<String,String>()
         for (name in names) {
+            if (!Regex("[A-Za-z0-9_-]+").matches(name)) {
+                warn("brush $name has an unsafe packaged folder")
+                skipped.add(name)
+                continue
+            }
             val json = read("$name/brush.json")
             if (json == null) {
                 warn("brush $name has no packaged brush.json")
@@ -68,12 +89,17 @@ object BrushLibrary {
                 continue
             }
             val preset = decode(name, json, warn)
-            if (preset != null) out.add(preset) else skipped.add(name)
+            if (preset != null && preset.id !in imageFolders) {
+                out.add(preset); imageFolders[preset.id] = name
+            } else {
+                if (preset != null) warn("brush $name repeats a packaged brush id ${preset.id}")
+                skipped.add(name)
+            }
         }
         if (skipped.isNotEmpty()) warn("built-in brushes could not be loaded and are missing from the drawer (${skipped.size}): " + skipped.joinToString(", "))
         // Pencil, watercolour and oil (brush version 8): built from the media lab's own tables, so the two never disagree.
         out.addAll(cc.joycreator.joybrush.core.brush.MediaPresets.ALL)
-        return Loaded(out, skipped)
+        return Loaded(out, skipped, imageFolders = imageFolders.toMap())
     }
 
     /** The packaged brush list itself is missing: every folder brush is gone, and that is said too. */

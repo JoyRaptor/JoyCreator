@@ -34,6 +34,13 @@ object TipMath {
     fun coverage(dx: Float, dy: Float, radiusPx: Float, angle: Float, tip: TipShape): Float {
         if (tip.quad?.let { QuadMath.prepare(it).empty } == true) return 0f
         val g = Geometry(radiusPx, angle, tip)
+        val imageCoverage = if (tip.sampled != null) g.imageCoverage(dx, dy) else 1f
+        if (imageCoverage <= 0f) return 0f
+        // A PNG defines its own silhouette. Only an explicitly chosen profile/quad masks it.
+        if (tip.sampled != null && tip.quad == null && tip.profile == null) {
+            val result = imageCoverage * g.fade
+            return if (tip.fadeAmount > 0f) result * g.directionalFade(dx, dy, tip.fadeAmount, tip.fadeAngle) else result
+        }
         val d = g.d(dx, dy)
         // fwidth(d) exactly as the GPU forms it: forward differences one pixel along x and y.
         val aa = max(abs(g.d(dx + 1f, dy) - d) + abs(g.d(dx, dy + 1f) - d), 1e-4f)
@@ -47,7 +54,7 @@ object TipMath {
         val first = radial(tip.profile)
         val mix = tip.profileMix.coerceIn(0f, 1f)
         val cov = if (mix > 0f) first + (radial(tip.profileB) - first) * mix else first
-        val legacy = cov * g.fade
+        val legacy = cov * g.fade * imageCoverage
         if (!(tip.fadeAmount > 0f)) return legacy
         return legacy * g.directionalFade(dx, dy, tip.fadeAmount, tip.fadeAngle)
     }
@@ -80,7 +87,16 @@ object TipMath {
             val widthScale = max(1f - tip.taper.coerceIn(0f, 1f) * along, 1e-3f)
             val shape = quad
             if (shape != null) return 1f + shape.signedDistance(qx / (hx * widthScale), qy / hy) / shape.normalizationScale
+            if (tip.sampled != null) return max(abs(qx / (hx * widthScale)), abs(qy / hy))
             return superellipse(qx, qy, hx * widthScale, hy, tip.corner)
+        }
+
+        fun imageCoverage(dx: Float, dy: Float): Float {
+            val qx = c * dx + s * dy + shift
+            val qy = -s * dx + c * dy
+            val along = (qy / hy * .5f + .5f).coerceIn(0f, 1f)
+            val widthScale = max(1f - tip.taper.coerceIn(0f, 1f) * along, 1e-3f)
+            return checkNotNull(tip.sampled).mask.sample(qx / (hx * widthScale), qy / hy)
         }
 
         fun directionalFade(dx: Float, dy: Float, amount: Float, angle: Float): Float {
@@ -96,8 +112,16 @@ object TipMath {
     }
 
     /** Half-size of a square, centred on the dab, that contains the tip at any rotation (+ AA margin). */
-    fun extent(radiusPx: Float, anchor: Float = 0f): Float =
-        radiusPx * (1.4143f + if (anchor.isFinite()) abs(anchor.coerceIn(0f, 1f)) else 0f) + 2f
+    fun extent(radiusPx: Float, anchor: Float = 0f,
+               sampled: cc.joycreator.joybrush.core.brush.SampledStamp? = null, aspect: Float = 0f): Float {
+        val shift = if (anchor.isFinite()) abs(anchor.coerceIn(0f, 1f)) else 0f
+        if (sampled == null) return radiusPx * (1.4143f + shift) + 2f
+        val a = if (aspect.isFinite()) aspect.coerceIn(-1f, 1f) else 0f
+        val halfMin = max(sampled.minPx, .5f) * .5f
+        val hx = max(radiusPx * (if (a > 0f) 1f-a else 1f), halfMin) * sampled.mask.supportHalfWidth
+        val hy = max(radiusPx * (if (a < 0f) 1f+a else 1f), halfMin) * sampled.mask.supportHalfHeight
+        return max(radiusPx * 1.4143f, sqrt(hx * hx + hy * hy)) + radiusPx * shift + 2f
+    }
 
     private fun smoothstep(e0: Float, e1: Float, x: Float): Float {
         if (e1 <= e0) return if (x < e0) 0f else 1f

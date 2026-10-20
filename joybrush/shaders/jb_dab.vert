@@ -40,6 +40,8 @@ flat out vec4 v_quad23;
 flat out vec4 v_quadMeta;
 layout(location = 12) in vec4 a_color; // resolved straight sRGB, enabled
 flat out vec4 v_color;
+layout(location = 13) in vec4 a_sample; // index+1, native width, native height, minPx
+flat out vec4 v_sample;
 
 void main() {
     // Half-size that contains the tip at any rotation, plus an antialiasing margin
@@ -49,6 +51,12 @@ void main() {
     // fwidth then makes the antialiasing band one target px (S3), and the paper is sampled where the paper is (S4).
     float s = u_scale > 0.0 ? u_scale : 1.0;
     float ext = a_dab.z * (1.4143 + (a_live > 0.5 ? abs(a_pen.x) : 0.0)) + 2.0 / s;
+    if (a_sample.x > 0.5 && a_sample.y > 0.0 && a_sample.z > 0.0) {
+        float a = clamp(a_contact.x, -1.0, 1.0);
+        vec2 axes = max(a_dab.z * vec2(a > 0.0 ? 1.0-a : 1.0, a < 0.0 ? 1.0+a : 1.0), vec2(max(a_sample.w, 0.5)*0.5));
+        vec2 support = (a_sample.yz + 1.0) / max(a_sample.y, a_sample.z);
+        ext = max(a_dab.z * 1.4143, length(axes * support)) + a_dab.z * (a_live > 0.5 ? abs(a_pen.x) : 0.0) + 2.0 / s;
+    }
     vec2 off = a_corner * ext;
     vec2 p = a_dab.xy + off;
     gl_Position = vec4((p - u_tileOrigin) * s / u_tileSize * 2.0 - 1.0, 0.0, 1.0);
@@ -68,4 +76,5 @@ void main() {
     v_quad23 = a_quad23;
     v_quadMeta = a_quadMeta;
     v_color = a_color;
+    v_sample = a_sample;
 }

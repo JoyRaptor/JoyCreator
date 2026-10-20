@@ -81,7 +81,7 @@ object LineSvg {
             val why = InkReplay.refusal(record, brush) ?: when {
                 brush!!.engine == ENGINE_WATERCOLOUR ->
                     "stroke \"${record.id}\" is asset-rendered watercolor and needs image export; SVG outlines cannot preserve its dab PNGs or pooling"
-                brush!!.tip.source != "procedural" && brush.engine != ENGINE_FILL ->
+                (brush!!.tip.source != "procedural" || brush.tip.sampled != null) && brush.engine != ENGINE_FILL ->
                     "stroke \"${record.id}\" uses an image tip; an outline can only follow a procedural tip"
                 brush!!.color.dynamics?.isActive == true ->
                     "stroke \"${record.id}\" varies its colour and needs image export; one SVG fill cannot preserve it"

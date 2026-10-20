@@ -1,11 +1,13 @@
 # LANES.md — live file-lock board for parallel agents
 
 ## UNIBRUSH_20261018
-status: ACTIVE — D1–D3 engine verified; D4 colour dynamics in isolated worktree; latest owner brief supersedes historical brush-contact claim.
+status: ACTIVE — D1–D4 engine verified; D5 sampled tips/resources in isolated worktree; latest owner brief supersedes historical brush-contact claim.
 worktree: C:/Temp/jb-codex-unibrush; branch codex/unibrush; base origin/lead/layer-ops 107748a78.
 files: core/brush/{BrushPreset,BrushJson,BrushValidate,BrushDabber,TipRotation,BrushBehaviors,TipProfiles,TipQuad,QuadMath}.kt; core/paint/{Dab,DabPlacer,TipMath}.kt; gl/StampPass.kt; shared stamp/profile/quad shaders; corresponding Unibrush tests/fixtures; tasks/todo.md; tasks/joybrush/AGENT_BOARD.md. Review helper completed bounded QuadMath leaf and now audits read-only.
 DEVICE: none. Builds take jb-gradle.lock; no Lead engine/view/lines or helper media edits.
 additional D4 owned files: core/brush/ColorDynamics.kt; core/stroke/{StrokeRecord,StrokeCodec,StrokeCapture,CapturedStrokeRules}.kt; core/vector/{InkReplay,InkRaster}.kt; core/paint/RefCanvas.kt; gl/StampColorTargets.kt; corresponding tests; tasks/joybrush/patches/UNIBRUSH_D4_LEAD.{patch,md}. Helpers own disjoint leaves; Lead files only appear in held patch text.
+additional D5 owned leaves: core/brush/{SampledTip,SampledTipSet,ImageMask,BrushAssetPaths,FrozenBrushPngs,FrozenBrushRegistry}.kt; androidkit/io/JbArchive and immutable frozen asset storage; gl/{PngSamplePreflight,AndroidSamplePngDecoder,SampledMaskTextures,AndroidSampleMaskGl}.kt; corresponding sample/asset/archive tests. Parent owns dab/CPU/GPU integration, helpers own new PNG/resource and archive leaves. Protected Lead files remain held patches only.
+additional D5 import leaf: core importers AbrImport/ProcreateImport/KritaImport and new MaterializedImports.kt; androidkit/MaterializedBrushImports.kt; corresponding materialized import tests. Opt-in APIs preserve existing import compatibility.
 # October14 ACTIVE Lead: C:/Temp/jb-live-current, lead/jb-live-current, sourceccb4913bf includes originbb4df6c64.
 # Prior C:/Temp/jb-live-lines is frozen/backed-up b203e760; original owner folder/worktrees preserved.
 # Core2273/backend514/native193 green; sourceccbAPK PASS1m33 with current Note9 capture/bake diagnostics. Later factory guards backend-verified only.

@@ -181,9 +181,9 @@ S.paperFixtures = ['paper-raster-fixture.json', 'paper-raster-large-fixture.json
     out.paperSurfaceCorrelation = correlation(0); out.paperSurfaceControlCorrelation = correlation(1);
     // Fill the same strip with a paper-on dab using the production fragment shader.
     const paperDabV = `#version 300 es\nprecision highp float; layout(location=0) in vec2 a;
-      out vec2 v_offset; out vec2 v_dabCentre; out float v_radius; out float v_angle; out float v_flow; out float v_cap; flat out vec2 v_travel; flat out vec4 v_contact; flat out vec4 v_pen; flat out float v_live; flat out vec2 v_fade; flat out vec4 v_quad01; flat out vec4 v_quad23; flat out vec4 v_quadMeta; flat out vec4 v_color;
+      out vec2 v_offset; out vec2 v_dabCentre; out float v_radius; out float v_angle; out float v_flow; out float v_cap; flat out vec2 v_travel; flat out vec4 v_contact; flat out vec4 v_pen; flat out float v_live; flat out vec2 v_fade; flat out vec4 v_quad01; flat out vec4 v_quad23; flat out vec4 v_quadMeta; flat out vec4 v_color; flat out vec4 v_sample;
       void main(){gl_Position=vec4(a,0,1);v_offset=a*vec2(1024,128);v_dabCentre=vec2(1024,128);
-        v_radius=2048.0;v_angle=0.0;v_flow=1.0;v_cap=1.0;v_travel=vec2(0);v_contact=vec4(0);v_pen=vec4(0);v_live=0.0;v_fade=vec2(0);v_quad01=vec4(0);v_quad23=vec4(0);v_quadMeta=vec4(0);v_color=vec4(0);}`;
+        v_radius=2048.0;v_angle=0.0;v_flow=1.0;v_cap=1.0;v_travel=vec2(0);v_contact=vec4(0);v_pen=vec4(0);v_live=0.0;v_fade=vec2(0);v_quad01=vec4(0);v_quad23=vec4(0);v_quadMeta=vec4(0);v_color=vec4(0);v_sample=vec4(0);}`;
     function dabControlFragment(source) {
       const pattern = /\bhPaper\s*=\s*jb_(?:paperGrainHeight|tilePaperHeight)\s*\(\s*docPx\s*\)\s*;/g;
       const matches = source.match(pattern) || [];

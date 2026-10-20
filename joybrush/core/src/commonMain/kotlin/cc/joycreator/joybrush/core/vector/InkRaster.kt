@@ -247,8 +247,12 @@ object InkRaster {
         val cx = (d.x.toDouble() - docX.toDouble()) * scale.toDouble()
         val cy = (d.y.toDouble() - docY.toDouble()) * scale.toDouble()
         if (!cx.isFinite() || !cy.isFinite()) return
-        val liveTip = d.tipShape(tip)
-        val e = TipMath.extent(radius, liveTip.anchor)
+        val resolvedTip = d.tipShape(tip)
+        val liveTip = if (resolvedTip.sampled != null && scale != 1f) resolvedTip.copy(
+            minPx = resolvedTip.minPx * scale,
+            sampled = resolvedTip.sampled.copy(minPx = resolvedTip.sampled.minPx * scale),
+        ) else resolvedTip
+        val e = TipMath.extent(radius, liveTip.anchor, liveTip.sampled, liveTip.aspect)
         val x0 = max(floor(cx - e).toInt(), 0)
         val x1 = min(floor(cx + e).toInt(), width - 1)
         val y0 = max(floor(cy - e).toInt(), 0)

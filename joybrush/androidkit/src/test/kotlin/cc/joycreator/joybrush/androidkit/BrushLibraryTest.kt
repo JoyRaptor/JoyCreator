@@ -26,6 +26,17 @@ class BrushLibraryTest {
         assertEquals(names.size + MediaPresets.ALL.size, loaded.brushes.size)
     }
 
+    @Test fun imageLookupUsesTheRegisteredFolderAndNeverInterpolatesAnIdOrUnsafePath() {
+        val loaded=load(mapOf("folder" to good))
+        assertEquals("folder/tip.png",BrushLibrary.imageResourcePath(loaded,"joybrush.ink","tip.png"))
+        assertNull(BrushLibrary.imageResourcePath(loaded,"folder","tip.png"))
+        assertNull(BrushLibrary.imageResourcePath(loaded,"joybrush.ink","../tip.png"))
+        assertNull(BrushLibrary.imageResourcePath(loaded,"joybrush.ink","C:/tip.png"))
+        val duplicate=load(linkedMapOf("first" to good,"second" to good))
+        assertEquals(listOf("second"),duplicate.skipped)
+        assertEquals("first/tip.png",BrushLibrary.imageResourcePath(duplicate,"joybrush.ink","tip.png"))
+    }
+
     @Test fun aBrushThatWillNotDecodeOrValidateOrIsMissingIsCountedLoggedAndTheRestStillLoad() {
         val warnings = mutableListOf<String>()
         val fromTheFuture = good.replace("\"version\": 6", "\"version\": 999")

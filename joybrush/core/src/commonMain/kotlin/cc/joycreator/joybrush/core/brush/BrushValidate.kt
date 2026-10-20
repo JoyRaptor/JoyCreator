@@ -112,6 +112,11 @@ object BrushValidate {
         // 6/7 — the tip's shape limits.
         if (p.tip.taper !in 0f..1f) out += "tip.taper ${p.tip.taper} is outside 0..1"
         if (p.tip.aspect !in -1f..1f) out += "tip.aspect ${p.tip.aspect} is outside -1..1"
+        p.tip.sampled?.let { sampled ->
+            out += SampledTips.problems(sampled)
+            if (p.engine != "stamp") out += "Sampled tip sets need engine stamp"
+            if (p.line != null) out += "This build cannot combine stroke-end shaping with sampled tip sets"
+        }
         if (p.tip.profile != null || p.tip.fade != null || p.tip.quad != null) {
             if (p.engine != "stamp") out += "Unibrush shapes, profiles and fade need engine stamp"
             if (p.line != null) out += "This build cannot combine stroke-end shaping with Unibrush shapes, profiles or fade"
@@ -121,7 +126,7 @@ object BrushValidate {
             if (!fade.angle.isFinite()) out += "tip.fade.angle must be finite"
         }
         p.tip.quad?.let { quad ->
-            if (p.tip.source != "procedural") out += "tip.quad needs a procedural tip"
+            if (p.tip.source != "procedural" && p.tip.sampled == null) out += "tip.quad needs a procedural or resolved sampled tip"
             if (quad.morph.base !in 0f..1f) out += "tip.quad.morph.base must be 0..1"
             for ((name, shape) in listOfNotNull("a" to quad.a, quad.b?.let { "b" to it })) {
                 if (shape.points.size != 4 || shape.points.any { it.x !in -1f..1f || it.y !in -1f..1f })
@@ -232,7 +237,7 @@ object BrushValidate {
                 Triple("driftDistancePx", color.driftDistancePx, 1f..4096f),
             )) if (value !in range) out += "color.dynamics.$name must be in $range"
             if (color.isActive) {
-                if (p.engine != "stamp" || p.tip.source != "procedural") out += "Colour dynamics need a procedural stamp tip in this build"
+                if (p.engine != "stamp" || (p.tip.source != "procedural" && p.tip.sampled == null)) out += "Colour dynamics need a procedural or resolved sampled stamp tip"
                 if (p.line != null) out += "This build cannot combine stroke-end shaping with colour dynamics"
             }
         }

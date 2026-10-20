@@ -13,6 +13,9 @@ import cc.joycreator.joybrush.core.brush.QuadPoint
 import cc.joycreator.joybrush.core.brush.TipQuads
 import cc.joycreator.joybrush.core.brush.QuadMath
 import cc.joycreator.joybrush.core.brush.ColorDab
+import cc.joycreator.joybrush.core.brush.ImageMask
+import cc.joycreator.joybrush.core.brush.SampledTipSet
+import cc.joycreator.joybrush.core.brush.SampledStamp
 import cc.joycreator.joybrush.core.grain.GrainMath
 import cc.joycreator.joybrush.core.input.PenSample
 import cc.joycreator.joybrush.core.paint.Dab
@@ -39,17 +42,19 @@ class UnibrushStampPassTest {
         val integers = LinkedHashMap<String, Int>()
         val vectors = ArrayList<Pair<String, List<Float>>>()
         val triples = LinkedHashMap<String, List<Float>>()
+        val textures = LinkedHashMap<Int,Int>()
+        val scalars = LinkedHashMap<String,Float>()
         fun loc(name: String): Int = locations.getOrPut(name) {
             (locations.size + 1).also { names[it] = name }
         }
-        override fun uniform1f(loc: Int, a: Float) {}
+        override fun uniform1f(loc: Int, a: Float) { scalars[names.getValue(loc)] = a }
         override fun uniform2f(loc: Int, a: Float, b: Float) {}
         override fun uniform3f(loc: Int, a: Float, b: Float, c: Float) { triples[names.getValue(loc)] = listOf(a,b,c) }
         override fun uniform4f(loc: Int, a: Float, b: Float, c: Float, d: Float) {
             vectors.add(names.getValue(loc) to listOf(a, b, c, d))
         }
         override fun uniform1i(loc: Int, a: Int) { integers[names.getValue(loc)] = a }
-        override fun bindTexture(unit: Int, tex: Int) {}
+        override fun bindTexture(unit: Int, tex: Int) { textures[unit] = tex }
     }
 
     private fun look(pass: StampPass, tip: TipShape = TipShape()): StampPass.StrokeLook = pass.lookFor(
@@ -58,6 +63,42 @@ class UnibrushStampPassTest {
     )
 
     private fun bits(buffer: FloatBuffer): List<Int> = List(buffer.limit()) { buffer.get(it).toRawBits() }
+
+    @Test fun imageTailFollowsAllEarlierTailsAndLegacyPackStaysExact() {
+        val pass=StampPass(Grains())
+        val set=SampledTipSet(listOf("a.png","b.png"),listOf(ImageMask.fromR8(1,1,byteArrayOf(-1)),ImageMask.fromR8(2,1,byteArrayOf(0,-1))))
+        val quad=TipQuads.interpolate(QuadShapeSpec(),null,0f)
+        val dabs=listOf(Dab(1f,2f,3f,fadeAmount=.5f,quad=quad,color=ColorDab(1f,0f,0f),sampled=SampledStamp(set,1,1f)),
+            Dab(4f,5f,6f,sampled=SampledStamp(set,0,1f)))
+        val strokeLook=look(pass)
+        val prefix=bits(pass.pack(dabs,strokeLook))
+        val packed=pass.packForDraw(dabs,strokeLook)
+        assertEquals(78,packed.limit()) // 2*(17+2+12+4+4)
+        assertEquals(prefix,bits(packed).take(34))
+        assertEquals(listOf(2f,2f,1f,1f,1f,1f,1f,1f),(70 until 78).map { packed.get(it) })
+        assertEquals(17,pass.packForDraw(listOf(Dab(0f,0f,1f)),strokeLook).limit())
+    }
+
+    @Test fun imageUniformsBindOneAtlasAndResetToSafeLegacyPlaceholder() {
+        val pass=StampPass(Grains())
+        val set=SampledTipSet(listOf("a.png"),listOf(ImageMask.fromR8(1,1,byteArrayOf(-1))))
+        val atlas=set.atlas(16)
+        val binding=SampledAtlasBinding(91,atlas.width,atlas.height,atlas.rects())
+        val sample=SampledStamp(set,0,2f)
+        val styled=pass.lookFor(TipShape(sampled=sample),GrainMath.StrokeGrain(GrainMath.GrainUniforms.OFF,GrainMath.GrainUniforms.OFF),
+            null,null,null,null,null,sampledSet=set,sampledBinding=binding)
+        val gl=Rec()
+        pass.setStrokeUniforms(gl,gl::loc,styled,Dab(1f,2f,3f,sampled=sample),64,1f)
+        assertEquals(1,gl.integers["u_sampleEnabled"])
+        assertEquals(3,gl.integers["u_sampleMasks"])
+        assertEquals(91,gl.textures[3])
+        assertEquals(1,gl.vectors.count { it.first.startsWith("u_sampleRects[") })
+        pass.setStrokeUniforms(gl,gl::loc,styled,Dab(1f,2f,3f),64,1f)
+        assertEquals(2f,gl.scalars["u_minPx"],"fallback image metadata must match CPU and vertex geometry")
+        pass.setStrokeUniforms(gl,gl::loc,look(pass),Dab(1f,2f,3f),64,1f)
+        assertEquals(0,gl.integers["u_sampleEnabled"])
+        assertEquals(7,gl.textures[3])
+    }
 
     @Test fun fadeTailLeavesEveryLegacyPrefixBitInPlaceAndResolvesMissingValues() {
         val pass = StampPass(Grains())

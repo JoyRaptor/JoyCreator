@@ -52,17 +52,22 @@ object InkTiles {
                         val tip: TipShape, val opacity: Float)
 
     /** Replay once for a cel, then rebuild several tiles without repeating smoothing and placement. */
-    fun prepare(records: List<StrokeRecord>, brushLookup: (String) -> BrushPreset?): Prepared {
+    fun prepare(records: List<StrokeRecord>, brushLookup: (String) -> BrushPreset?): Prepared =
+        prepare(records, brushLookup, null)
+
+    fun prepare(records: List<StrokeRecord>, brushLookup: (String) -> BrushPreset?,
+                sampledLookup: ((String) -> cc.joycreator.joybrush.core.brush.SampledTipSet?)?): Prepared {
         cc.joycreator.joybrush.core.stroke.CapturedStrokeRules.requireOrdinary(records)
         val marks = ArrayList<Mark>()
         val refused = ArrayList<Refusal>()
         val omitted = ArrayList<Omission>()
         for ((index, record) in records.withIndex()) {
             val brush = brushLookup(record.brushId)
-            val why = InkReplay.refusal(record, brush) ?: when {
+            val sampled = if (brush?.tip?.sampled != null) sampledLookup?.invoke(record.brushId) else null
+            val why = InkReplay.refusal(record, brush, sampled) ?: when {
                 brush!!.engine == cc.joycreator.joybrush.core.brush.ENGINE_WATERCOLOUR ->
                     "stroke \"${record.id}\" needs the watercolor GPU look; CPU ink rendering has no image/pooling pass"
-                brush.tip.source != "procedural" -> "stroke \"${record.id}\" uses an image tip; CPU ink rendering has no image source"
+                brush.tip.source != "procedural" && brush.tip.sampled == null -> "stroke \"${record.id}\" uses an image tip; CPU ink rendering has no image source"
                 brush.tipTexture.enabled -> "stroke \"${record.id}\" uses tip grain; CPU ink rendering cannot reproduce it"
                 blendMode(brush.blend) == null && brush.blend != "behind" ->
                     "stroke \"${record.id}\" uses unsupported blend \"${brush.blend}\""
@@ -75,7 +80,7 @@ object InkTiles {
             val preset = brush!!
             // A fill is a polygon on the live path too, never the stamp shader, so only a line of dabs can owe grain.
             if (preset.engine != ENGINE_FILL && preset.paperGrain.enabled) omitted.add(Omission(index, record.id, PAPER_GRAIN))
-            val replayed = InkReplay.replay(record, preset)
+            val replayed = InkReplay.replay(record, preset, sampled)
             marks.add(Mark(record, preset, replayed.dabs,
                 if (preset.engine == ENGINE_FILL) FillPen.outline(record.samples, record.smoothing, record.screenPerDoc)
                 else emptyList(),
@@ -122,7 +127,8 @@ object InkTiles {
                 mark.outline.maxOf { it.y } >= y && mark.outline.minOf { it.y } <= y + TILE_SIZE
         }
         return mark.dabs.any { dab ->
-            val extent = TipMath.extent(dab.radius, dab.tipShape(mark.tip).anchor) + 1f
+            val tip = dab.tipShape(mark.tip)
+            val extent = TipMath.extent(dab.radius, tip.anchor, tip.sampled, tip.aspect) + 1f
             dab.x + extent >= x && dab.x - extent <= x + TILE_SIZE &&
                 dab.y + extent >= y && dab.y - extent <= y + TILE_SIZE
         }

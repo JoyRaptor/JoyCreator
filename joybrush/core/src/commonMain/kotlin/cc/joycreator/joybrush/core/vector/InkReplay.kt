@@ -2,6 +2,7 @@ package cc.joycreator.joybrush.core.vector
 
 import cc.joycreator.joybrush.core.brush.BrushDabber
 import cc.joycreator.joybrush.core.brush.StrokeColors
+import cc.joycreator.joybrush.core.brush.SampledTipSet
 import cc.joycreator.joybrush.core.brush.watercolourRuntime
 import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.brush.DabInputs
@@ -84,7 +85,7 @@ object InkReplay {
      * @throws InkReplayException if `brush` is null, its engine cannot draw an ink line,
      * or watercolor replay exceeds its dab budget.
      */
-    fun dabs(record: StrokeRecord, brush: BrushPreset?): List<Dab> = replay(record, brush).dabs
+    fun dabs(record: StrokeRecord, brush: BrushPreset?, sampledTips: SampledTipSet? = null): List<Dab> = replay(record, brush, sampledTips).dabs
 
     /**
      * One replay: [Replayed.dabs], and the WHOLE-STROKE values the same [BrushDabber] fixed at the
@@ -104,8 +105,8 @@ object InkReplay {
                    val strokeGrain: GrainMath.StrokeGrain)
 
     /** [dabs] with its whole-stroke numbers; see [Replayed]. Same refusals, same throw. */
-    fun replay(record: StrokeRecord, brush: BrushPreset?): Replayed {
-        refusal(record, brush)?.let { throw InkReplayException(it) }
+    fun replay(record: StrokeRecord, brush: BrushPreset?, sampledTips: SampledTipSet? = null): Replayed {
+        refusal(record, brush, sampledTips)?.let { throw InkReplayException(it) }
         val preset = brush!!
         if(preset.engine == cc.joycreator.joybrush.core.brush.ENGINE_WATERCOLOUR) {
             val options=preset.watercolourRuntime()
@@ -118,7 +119,7 @@ object InkReplay {
             return Replayed(rescaled(dabs,widthScaleOf(record.widthScale)),preset.tip.hardness.base,watercolor.strokeOpacity,
                 GrainMath.StrokeGrain(GrainMath.GrainUniforms.OFF, GrainMath.GrainUniforms.OFF))
         }
-        val dabber = BrushDabber(preset, record.seed, StrokeColors(record.colorArgb, record.secondaryColorArgb ?: -1))
+        val dabber = BrushDabber(preset, record.seed, StrokeColors(record.colorArgb, record.secondaryColorArgb ?: -1), sampledTips)
         // A fill is a SHAPE, not a row of dabs: its raster is `InkRaster.fill` over
         // `FillPen.outline(record.samples, record.smoothing, record.screenPerDoc)`. Asking the
         // dabber for dabs here would draw the fill pen as a line of beads, which is the outline of
@@ -150,7 +151,11 @@ object InkReplay {
      * WC keeps its existing finite replay budget and its no-truncation refusal contract.
      */
     fun replayAdmitted(record: StrokeRecord, brush: BrushPreset?, admit: (Dab) -> Unit): Replayed {
-        refusal(record, brush)?.let { throw InkReplayException(it) }
+        return replayAdmitted(record, brush, null, admit)
+    }
+
+    fun replayAdmitted(record: StrokeRecord, brush: BrushPreset?, sampledTips: SampledTipSet?, admit: (Dab) -> Unit): Replayed {
+        refusal(record, brush, sampledTips)?.let { throw InkReplayException(it) }
         val preset = brush!!
         if (preset.line != null || (preset.engine != "stamp" && preset.engine != cc.joycreator.joybrush.core.brush.ENGINE_WATERCOLOUR)) {
             throw InkReplayException("stroke \"${record.id}\" needs an unshaped stamp or watercolor recipe for admitted replay")
@@ -165,7 +170,7 @@ object InkReplay {
             for (dab in replayed.dabs) retain(dab)
             return Replayed(out, replayed.strokeHardness, replayed.strokeOpacity, replayed.strokeGrain)
         }
-        val dabber = BrushDabber(preset, record.seed, StrokeColors(record.colorArgb, record.secondaryColorArgb ?: -1))
+        val dabber = BrushDabber(preset, record.seed, StrokeColors(record.colorArgb, record.secondaryColorArgb ?: -1), sampledTips)
         val placer = DabPlacer(spacing = dabber.spacing, look = dabber::look)
         val smoother = StrokeSmoother(record.smoothing, record.screenPerDoc)
         val scatter = SplitMix(record.seed xor Scatter.SALT)
@@ -187,7 +192,7 @@ object InkReplay {
      * person can read and a refusal a test can catch are the same words, and a file that grew two
      * would grow two opinions about the same fact.
      */
-    fun refusal(record: StrokeRecord, brush: BrushPreset?): String? = when {
+    fun refusal(record: StrokeRecord, brush: BrushPreset?, sampledTips: SampledTipSet? = null): String? = when {
         record.capturedPhysicalSource != null ->
             "stroke \"${record.id}\" needs physical capture clipping and integer placement"
         // Not drawn as a default nib. A line that suddenly appears in the wrong brush is worse than
@@ -195,6 +200,8 @@ object InkReplay {
         brush == null ->
             "stroke \"${record.id}\" was drawn with brush \"${record.brushId}\", " +
                 "which is not in this document's library"
+        brush.tip.sampled != null && (sampledTips == null || !sampledTips.matches(brush.tip.sampled)) ->
+            "stroke \"${record.id}\" needs its complete frozen sampled-tip images"
         // `smudge` and `wet` read the pixels UNDERNEATH, and an ink layer has none to read — it has
         // recordings. `StrokeEdit.INK_ENGINES` is the one place that says WHICH engines may, so a
         // fifth engine is a change in one file rather than a change in a list written twice.

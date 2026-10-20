@@ -58,6 +58,9 @@ import kotlinx.serialization.ExperimentalSerializationApi
     /** v14: explicit four-handle shape. Null retains every old superellipse/taper exactly. */
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val quad: TipQuadSpec? = null,
+    /** v16: resolved from immutable PNG resources; absence preserves the legacy tip. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val sampled: SampledTipSpec? = null,
 )
 
 /** Paper grain image/scale are ignored since JB-9.03: the document paper decides (R10 P4).

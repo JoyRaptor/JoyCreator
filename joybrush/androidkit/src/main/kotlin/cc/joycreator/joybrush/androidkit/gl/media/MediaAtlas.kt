@@ -127,7 +127,8 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
     /** Passes that asked past their frame's admission (a planning bug; the pass is still served if there is room). */
     var admissionMisses = 0; private set
 
-    override fun admit(needs: List<MediaLayerEngine.Need>) {
+    override fun admit(needs: List<MediaLayerEngine.Need>) = mediaTrace("JB.media.atlas.admit") { admitInner(needs) }
+    private fun admitInner(needs: List<MediaLayerEngine.Need>) {
         if (staleDrawing() || layerId == null || needs.isEmpty()) return
         val now = nowMs()
         if (!media.wetActive && needs.none { it.water }) resetWater()
@@ -334,8 +335,8 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
 
     private val residency by lazy { MediaAtlasResidency(slots, backing) }
     private val backing = object : MediaAtlasBacking {
-        override fun load(slot: Int, page: MediaAtlasPage) = loadSlot(slot, page.tileKey)
-        override fun writeBack(slot: Int, page: MediaAtlasPage) { writeBackSlot(slot, page.tileKey); dropFromTable(page.tileKey) }
+        override fun load(slot: Int, page: MediaAtlasPage) = mediaTrace("JB.media.atlas.load") { loadSlot(slot, page.tileKey) }
+        override fun writeBack(slot: Int, page: MediaAtlasPage) = mediaTrace("JB.media.atlas.writeBack") { writeBackSlot(slot, page.tileKey); dropFromTable(page.tileKey) }
     }
 
     /** One tile into [slot]: its payload, its look and its ground (its `g`, or its look when it has no payload), its paper. */
@@ -360,8 +361,8 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         }
         // The table must hold the new tile before its paper is baked through it.
         val table = resident().toMutableMap().also { it[key] = slot }
-        media.setResidency(table)
-        media.bakeTile(key, paint.mediaPaper())
+        mediaTrace("JB.media.atlas.table") { media.setResidency(table) }
+        mediaTrace("JB.media.atlas.bake") { media.bakeTile(key, paint.mediaPaper()) }
         if (wetHere && resumeOnLoad) media.resumeWater(tileRect(key))
     }
 

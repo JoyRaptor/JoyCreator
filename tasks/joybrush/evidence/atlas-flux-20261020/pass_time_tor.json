@@ -1,0 +1,435 @@
+{
+ "timing": {
+  "wet Round flat (crosses both seams)": {
+   "new": {
+    "sim": [
+     74.3,
+     75.7,
+     81.8,
+     154.7,
+     83.7
+    ],
+    "look": [
+     95,
+     40.8,
+     39.9,
+     89.4,
+     40.7
+    ],
+    "simMedian": 83.7,
+    "lookMedian": 40.8
+   },
+   "atlas": {
+    "sim": [
+     72.5,
+     106.4,
+     131.4,
+     132.4,
+     146.8
+    ],
+    "look": [
+     58.9,
+     56,
+     75.2,
+     56.2,
+     70.7
+    ],
+    "simMedian": 132.4,
+    "lookMedian": 70.7
+   }
+  },
+  "wet Wash tilted (bead, flux steer, ring)": {
+   "new": {
+    "sim": [
+     216.5,
+     175.1,
+     193,
+     246.9,
+     217.9
+    ],
+    "look": [
+     93,
+     52.6,
+     58.2,
+     57.9,
+     51.6
+    ],
+    "simMedian": 217.9,
+    "lookMedian": 57.9
+   },
+   "atlas": {
+    "sim": [
+     176,
+     332.9,
+     286.9,
+     315.5,
+     420.8
+    ],
+    "look": [
+     60.2,
+     102.1,
+     76.4,
+     77.7,
+     57.7
+    ],
+    "simMedian": 332.9,
+    "lookMedian": 77.7
+   }
+  },
+  "wet Round reversed tilt + odd substeps + dryNow": {
+   "new": {
+    "sim": [
+     223.8,
+     182.8,
+     182.8,
+     158.8,
+     66.8
+    ],
+    "look": [
+     92.6,
+     54.1,
+     52.9,
+     39.5,
+     43.7
+    ],
+    "simMedian": 182.8,
+    "lookMedian": 52.9
+   },
+   "atlas": {
+    "sim": [
+     126.5,
+     306.9,
+     313.4,
+     181.4,
+     91.9
+    ],
+    "look": [
+     57.6,
+     100.2,
+     100.2,
+     59.2,
+     67.2
+    ],
+    "simMedian": 306.9,
+    "lookMedian": 100.2
+   }
+  },
+  "dry point stick across the seam": {
+   "new": {
+    "sim": [
+     21.2,
+     18.3,
+     17.8,
+     20.6
+    ],
+    "look": [
+     89.3,
+     40.2,
+     40.4,
+     42.5
+    ],
+    "simMedian": 18.3,
+    "lookMedian": 40.4
+   },
+   "atlas": {
+    "sim": [
+     19.5,
+     10.5,
+     22.9,
+     18.7
+    ],
+    "look": [
+     56.9,
+     56,
+     57.9,
+     57.1
+    ],
+    "simMedian": 18.7,
+    "lookMedian": 57.1
+   }
+  },
+  "dry side stick, smear, corner": {
+   "new": {
+    "sim": [
+     20.2,
+     21.3,
+     22.7,
+     13.7
+    ],
+    "look": [
+     88.8,
+     40.9,
+     40.7,
+     39.8
+    ],
+    "simMedian": 21.3,
+    "lookMedian": 40.7
+   },
+   "atlas": {
+    "sim": [
+     17.4,
+     20.7,
+     10.4,
+     17.8
+    ],
+    "look": [
+     59.2,
+     59.4,
+     56,
+     57.9
+    ],
+    "simMedian": 17.8,
+    "lookMedian": 57.9
+   }
+  },
+  "Proto 2 point across the seam": {
+   "new": {
+    "sim": [
+     11,
+     14,
+     19.9,
+     19.8
+    ],
+    "look": [
+     86.3,
+     39.3,
+     40.2,
+     41
+    ],
+    "simMedian": 19.8,
+    "lookMedian": 40.2
+   },
+   "atlas": {
+    "sim": [
+     11,
+     17.7,
+     20.1,
+     19.5
+    ],
+    "look": [
+     55.5,
+     57.7,
+     60.5,
+     59.5
+    ],
+    "simMedian": 19.5,
+    "lookMedian": 59.5
+   }
+  },
+  "Proto Pencil tilted across the corner": {
+   "new": {
+    "sim": [
+     18.5,
+     14.8,
+     21.9,
+     16.7
+    ],
+    "look": [
+     89.6,
+     40.8,
+     40.3,
+     41.2
+    ],
+    "simMedian": 16.7,
+    "lookMedian": 40.8
+   },
+   "atlas": {
+    "sim": [
+     16.3,
+     19.7,
+     21.9,
+     17.9
+    ],
+    "look": [
+     56.6,
+     59.5,
+     59.2,
+     58.4
+    ],
+    "simMedian": 19.7,
+    "lookMedian": 59.2
+   }
+  },
+  "eraser across both seams": {
+   "new": {
+    "sim": [
+     22.6,
+     19.5,
+     21.4,
+     27.5
+    ],
+    "look": [
+     88,
+     40,
+     40.4,
+     41
+    ],
+    "simMedian": 21.4,
+    "lookMedian": 40.4
+   },
+   "atlas": {
+    "sim": [
+     17.5,
+     28.3,
+     24.8,
+     27.9
+    ],
+    "look": [
+     56.3,
+     55.3,
+     55.8,
+     54.2
+    ],
+    "simMedian": 27.9,
+    "lookMedian": 55.3
+   }
+  },
+  "oil round brush across the seam": {
+   "new": {
+    "sim": [
+     47.1,
+     48,
+     43.1,
+     38.7
+    ],
+    "look": [
+     85.8,
+     41,
+     40.4,
+     39.7
+    ],
+    "simMedian": 43.1,
+    "lookMedian": 40.4
+   },
+   "atlas": {
+    "sim": [
+     28.1,
+     48.9,
+     46.8,
+     49.6
+    ],
+    "look": [
+     56.2,
+     58.6,
+     57.3,
+     58.9
+    ],
+    "simMedian": 48.9,
+    "lookMedian": 58.6
+   }
+  },
+  "palette knife (blade) across the corner": {
+   "new": {
+    "sim": [
+     37.8,
+     43.6,
+     45.9,
+     29.8
+    ],
+    "look": [
+     86.8,
+     40.8,
+     41.1,
+     39.5
+    ],
+    "simMedian": 43.6,
+    "lookMedian": 40.8
+   },
+   "atlas": {
+    "sim": [
+     38.7,
+     37.8,
+     43.5,
+     45.3
+    ],
+    "look": [
+     59,
+     57.1,
+     57.1,
+     58
+    ],
+    "simMedian": 43.5,
+    "lookMedian": 57.1
+   }
+  }
+ },
+ "passTime": {
+  "new": {
+   "bake": {
+    "ms": 291.6,
+    "n": 10
+   },
+   "flux": {
+    "ms": 511.9,
+    "n": 56
+   },
+   "update": {
+    "ms": 649.2,
+    "n": 56
+   },
+   "bead": {
+    "ms": 375.8,
+    "n": 108
+   },
+   "copy": {
+    "ms": 114.2,
+    "n": 38
+   },
+   "apply": {
+    "ms": 76.1,
+    "n": 16
+   },
+   "eraseApply": {
+    "ms": 22,
+    "n": 8
+   },
+   "pasteBrush": {
+    "ms": 56,
+    "n": 16
+   },
+   "pasteDab": {
+    "ms": 63.7,
+    "n": 16
+   }
+  },
+  "atlas": {
+   "bake": {
+    "ms": 274.8,
+    "n": 10
+   },
+   "flux": {
+    "ms": 1025.7,
+    "n": 56
+   },
+   "update": {
+    "ms": 836.6,
+    "n": 56
+   },
+   "bead": {
+    "ms": 404.1,
+    "n": 108
+   },
+   "copy": {
+    "ms": 123.3,
+    "n": 38
+   },
+   "apply": {
+    "ms": 64.5,
+    "n": 16
+   },
+   "eraseApply": {
+    "ms": 26.4,
+    "n": 8
+   },
+   "pasteBrush": {
+    "ms": 52.4,
+    "n": 16
+   },
+   "pasteDab": {
+    "ms": 64.5,
+    "n": 16
+   }
+  }
+ },
+ "renderer": "ANGLE (Qualcomm, Adreno (TM) 630, OpenGL ES 3.2)"
+}

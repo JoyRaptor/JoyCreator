@@ -438,8 +438,13 @@ class BrushDabberTest {
             }
         }
         // And the frame itself is a no-op down to the sign of a zero: `−0.0f + 0.0f` is `+0.0f`,
-        // so a frame that added a rotation of nothing to a signed zero would change it.
-        assertEquals((-0.0f).toRawBits(), AngleFrame.IDENTITY.base(-0.0f).toRawBits())
+        // so a frame that added a rotation of nothing to a signed zero would change it. The
+        // identity frame says nothing for EITHER answer to the brush's switch, because it has no
+        // geometry at all to apply.
+        for (follow in listOf(false, true)) {
+            assertEquals((-0.0f).toRawBits(), AngleFrame.IDENTITY.base(-0.0f, follow).toRawBits(),
+                "the identity frame moved a signed zero (followDirection=$follow)")
+        }
         assertEquals((-0.0f).toRawBits(), AngleFrame.IDENTITY.jitter(-0.0f).toRawBits())
     }
 
@@ -447,8 +452,9 @@ class BrushDabberTest {
      * The four cases, on the frame itself with nothing else in the way: a rotation and a
      * reflection are not the same operation on a tip, and the difference is exactly these four.
      *
-     * The frame's `followDirection` is the FILE's `tip.followDirection`, copied in — so the base is
-     * either an offset from the stroke or an absolute angle, and the rule turns on which.
+     * The switch is the FILE's `tip.followDirection` and it is PASSED IN rather than kept in the
+     * frame — so the base is either an offset from the stroke or an absolute angle, and the rule
+     * turns on which.
      */
     @Test
     fun theFrameHasFourCasesAndTheyAreTheOnesTheTableSays() {
@@ -459,15 +465,15 @@ class BrushDabberTest {
 
         // A rotation: an OFFSET base is left alone — the direction already carries the rotation —
         // and an ABSOLUTE base turns by it.
-        assertEquals(base, AngleFrame(rotation = rotation, followDirection = true).base(base))
+        assertEquals(base, AngleFrame(rotation = rotation).base(base, followDirection = true))
         assertEquals(base + rotation.toFloat(),
-            AngleFrame(rotation = rotation, followDirection = false).base(base))
+            AngleFrame(rotation = rotation).base(base, followDirection = false))
         // A reflection: an OFFSET base changes its sign — a right-leaning tip mirrors to a
         // left-leaning one — and an ABSOLUTE base is reflected about the copy's own axis, because
         // an angle α reflected about φ' is 2φ' − α.
-        assertEquals(-base, AngleFrame(mirrorAxis = axis, followDirection = true).base(base))
+        assertEquals(-base, AngleFrame(mirrorAxis = axis).base(base, followDirection = true))
         assertEquals((2.0 * axis - base).toFloat(),
-            AngleFrame(mirrorAxis = axis, followDirection = false).base(base))
+            AngleFrame(mirrorAxis = axis).base(base, followDirection = false))
         // The jitter is a signed offset: a reflection flips the sign of every signed offset, and a
         // rotation keeps it.
         assertEquals(jitter, AngleFrame(rotation = rotation).jitter(jitter))
@@ -479,13 +485,54 @@ class BrushDabberTest {
             !AngleFrame(rotation = rotation).flipAcross)
     }
 
-    /** The rotation cases again, through the dabber, with the brush's own file in the picture. */
+    /**
+     * The three factories, one kind of copy each: a radial copy is turned, a mirror copy is
+     * reflected about its OWN axis, and a kaleidoscope copy is the composition of the two — which
+     * is ITSELF a reflection, about the guide's line turned by half the copy's own rotation.
+     *
+     * The half-turn is the whole point of the last one. A kaleidoscope copy is `R(θ) ∘ M(φ)`, and
+     * that composition is a reflection about `φ + θ/2` — so a copy reflected about the GUIDE's
+     * line is a whole extra half-turn out, and every lane of the kaleidoscope with it.
+     */
+    @Test
+    fun theFactoriesSayOneThingEachAndTheKaleidoscopeCarriesItsOwnHalfTurn() {
+        // A radial copy: turned, and no axis at all.
+        val turned = AngleFrame.rotated(0.5)
+        assertEquals(0.5, turned.rotation, 0.0)
+        assertTrue(!turned.mirrored && turned.mirrorAxis == null && !turned.flipAcross)
+        // A mirror copy: reflected, about the axis IT is reflected in.
+        val reflected = AngleFrame.reflected(0.7)
+        assertEquals(0.7, reflected.mirrorAxis!!, 0.0)
+        assertTrue(reflected.mirrored && reflected.flipAcross)
+        // A kaleidoscope copy: the guide's line turned by θ into the copy, so the copy's own axis
+        // is the guide's line plus HALF the turn.
+        val guide = 0.7
+        val rotation = 0.5
+        val kaleido = AngleFrame.kaleidoscope(rotation = rotation, guideAxis = guide)
+        assertTrue(kaleido.mirrored && kaleido.flipAcross)
+        assertEquals(guide + rotation / 2.0, kaleido.mirrorAxis!!, 1e-12, "the copy's own axis")
+        // And that is NOT the guide's line: the difference is a quarter turn, which is why a
+        // factory that forgot the half-turn would put every lane out by that much.
+        assertTrue(abs(kaleido.mirrorAxis!! - guide) > 0.1, "the copy's axis is the guide's line")
+        // The base is reflected about THAT axis, not the guide's.
+        val base = degToRad(20f)
+        assertEquals((2.0 * (guide + rotation / 2.0) - base).toFloat(),
+            kaleido.base(base, followDirection = false), 1e-6f)
+        assertTrue(abs(kaleido.base(base, followDirection = false) - (2.0 * guide - base).toFloat()) > 1e-3f,
+            "the base was reflected about the guide's line")
+    }
+
+    /**
+     * The rotation cases again, through the dabber, with the brush's own file in the picture. The
+     * frame says nothing about the brush: the same frame serves both brushes here, and each brush's
+     * own `tip.followDirection` is what the dabber passes into it.
+     */
     @Test
     fun aRotationFrameTurnsAnAbsoluteBaseAndLeavesAnOffsetOneAlone() {
         val seed = 20261019L
         val rotation = 0.5
-        val absolute = BrushDabber(angled, seed, AngleFrame(rotation = rotation, followDirection = false))
-        val offset = BrushDabber(steered, seed, AngleFrame(rotation = rotation, followDirection = true))
+        val absolute = BrushDabber(angled, seed, AngleFrame(rotation = rotation))
+        val offset = BrushDabber(steered, seed, AngleFrame(rotation = rotation))
         val samples = straightUp(6)
         for (i in samples.indices) {
             val jitter = degToRad(30f) * (2f * angleDrawFor(seed, i) - 1f)
@@ -508,8 +555,8 @@ class BrushDabberTest {
     fun aMirrorFrameFlipsAnOffsetBaseAndReflectsAnAbsoluteOne() {
         val seed = 20261019L
         val axis = 0.7
-        val offset = BrushDabber(steered, seed, AngleFrame(mirrorAxis = axis, followDirection = true))
-        val absolute = BrushDabber(angled, seed, AngleFrame(mirrorAxis = axis, followDirection = false))
+        val offset = BrushDabber(steered, seed, AngleFrame(mirrorAxis = axis))
+        val absolute = BrushDabber(angled, seed, AngleFrame(mirrorAxis = axis))
         val samples = straightUp(6)
         for (i in samples.indices) {
             val jitter = degToRad(30f) * (2f * angleDrawFor(seed, i) - 1f)
@@ -538,8 +585,8 @@ class BrushDabberTest {
         val seed = 20261019L
         val flat = steered.copy(tip = steered.tip.copy(angle = Param(0f)))
         val plain = BrushDabber(flat, seed)
-        val mirror = BrushDabber(flat, seed, AngleFrame(mirrorAxis = 0.7, followDirection = true))
-        val rotation = BrushDabber(flat, seed, AngleFrame(rotation = 0.5, followDirection = true))
+        val mirror = BrushDabber(flat, seed, AngleFrame(mirrorAxis = 0.7))
+        val rotation = BrushDabber(flat, seed, AngleFrame(rotation = 0.5))
         val samples = straightUp(6)
         for (i in samples.indices) {
             val jitter = degToRad(30f) * (2f * angleDrawFor(seed, i) - 1f)
@@ -569,7 +616,7 @@ class BrushDabberTest {
         val seed = 20261019L
         val axis = (PI / 2).toDouble()
         val original = BrushDabber(steered, seed)
-        val copy = BrushDabber(steered, seed, AngleFrame(mirrorAxis = axis, followDirection = true))
+        val copy = BrushDabber(steered, seed, AngleFrame(mirrorAxis = axis))
         val forward = line(6)
         val reflected = forward.map { PenSample(-it.x, 0f, it.timeMs, pressure = it.pressure) }
         for (i in forward.indices) {
@@ -587,13 +634,16 @@ class BrushDabberTest {
      * The same identity for a copy that is only ROTATED: its tip is the original's tip turned by
      * the rotation. The copy's lane is fed the samples turned by it, so the direction term already
      * carries θ and the base — an offset from the direction — is left alone.
+     *
+     * The frame here is built with NO switch in it at all, because the frame does not hold one:
+     * the brush's own `tip.followDirection` is what the dabber passes into it.
      */
     @Test
     fun aRotatedLanesTipIsTheOriginalsTipTurnedByTheRotation() {
         val seed = 20261019L
         val rotation = 0.5
         val original = BrushDabber(steered, seed)
-        val copy = BrushDabber(steered, seed, AngleFrame(rotation = rotation, followDirection = true))
+        val copy = BrushDabber(steered, seed, AngleFrame(rotation = rotation))
         val forward = line(6)
         val turned = forward.map {
             PenSample(it.x * cos(rotation).toFloat(), it.x * sin(rotation).toFloat(), it.timeMs,
@@ -604,6 +654,45 @@ class BrushDabberTest {
             val copyAngle = copy.look(turned[i], i * 10f, i).angle
             if (i == 0) continue // no direction yet, on either side
             assertEquals(originalAngle + rotation.toFloat(), copyAngle, 1e-5f, "dab $i")
+        }
+    }
+
+    /**
+     * The bug the frame's own copy of the brush's switch made possible, and the reason the switch
+     * now lives only in the BRUSH: a copy's tip is turned by the rotation ONCE.
+     *
+     * A steered brush (`tip.followDirection = true`) has a tip angle that is an OFFSET from the
+     * stroke's direction. A rotation leaves an offset alone — the copy's lane is fed samples
+     * already turned into the copy's frame, so the direction term carries the θ — and the copy's
+     * tip is the original's turned by θ.
+     *
+     * With the switch in two places the wrong answer was the tip turned by 2θ: the frame turning
+     * the base by θ as well, because the frame's own copy of the switch said "absolute", and the
+     * direction turning it by θ. This test cannot even be WRITTEN against that API — a frame
+     * built without the switch in it could not be asked the question — and it is the question that
+     * matters: a lane that is half a turn out is a lane you can see.
+     */
+    @Test
+    fun aSteeredBrushThroughARotationFrameIsTurnedOnceAndNotTwice() {
+        val seed = 20261019L
+        val rotation = 0.5
+        val original = BrushDabber(steered, seed)
+        val copy = BrushDabber(steered, seed, AngleFrame(rotation = rotation))
+        val forward = line(6)
+        val turned = forward.map {
+            PenSample(it.x * cos(rotation).toFloat(), it.x * sin(rotation).toFloat(), it.timeMs,
+                pressure = it.pressure)
+        }
+        for (i in forward.indices) {
+            val originalAngle = original.look(forward[i], i * 10f, i).angle
+            val copyAngle = copy.look(turned[i], i * 10f, i).angle
+            if (i == 0) continue // no direction yet, on either side
+            // Turned by θ: the direction carries the copy's rotation, and the base — an offset —
+            // is left alone by a rotation.
+            assertEquals(originalAngle + rotation.toFloat(), copyAngle, 1e-5f, "dab $i")
+            // And NOT by 2θ, which is what a frame that read the base as an absolute angle gave.
+            assertTrue(abs(copyAngle - (originalAngle + 2f * rotation.toFloat())) > 1e-3f,
+                "dab $i was turned twice")
         }
     }
 

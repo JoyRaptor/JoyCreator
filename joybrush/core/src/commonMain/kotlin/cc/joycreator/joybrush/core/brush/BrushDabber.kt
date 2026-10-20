@@ -38,6 +38,12 @@ import kotlin.math.max
  * The frame is applied to the tip's BASE and to the angle JITTER, and never to the direction: a
  * copy's lane is fed the samples already transformed into the copy's frame, so the tracker's answer
  * there is already the copy's direction.
+ *
+ * The frame holds the copy's GEOMETRY and nothing else — the rotation, and the axis the copy is
+ * reflected in. The brush's own settings stay with the brush: this class asks the frame for the
+ * base and TELLS it whether the file's `tip.followDirection` is on, so the two can never disagree
+ * about the same brush. A frame that kept its own copy of that switch was a lane turned by twice
+ * the rotation — see [AngleFrame].
  */
 class BrushDabber(val preset: BrushPreset, seed: Long, val frame: AngleFrame = AngleFrame.IDENTITY) {
 
@@ -142,7 +148,11 @@ class BrushDabber(val preset: BrushPreset, seed: Long, val frame: AngleFrame = A
         // frame to the direction as well would turn the copy's rotation on twice.
         //
         // The order matters and is the frame's whole contract: base → frame → direction → jitter.
-        var angle = frame.base(base)
+        //
+        // The brush's own switch goes INTO the frame: whether the tip's base angle is an OFFSET
+        // from the direction or an ABSOLUTE angle is the FILE's business, and the frame asks. The
+        // frame holds the copy's geometry and nothing else, so it cannot answer for the brush.
+        var angle = frame.base(base, preset.tip.followDirection)
         if (preset.tip.followDirection) angle += direction
         angle += frame.jitter(degToRad(preset.angleJitter) * (2f * angleDraw - 1f))
 

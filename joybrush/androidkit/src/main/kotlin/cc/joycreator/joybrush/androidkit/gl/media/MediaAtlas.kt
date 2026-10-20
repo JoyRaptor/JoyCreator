@@ -122,6 +122,9 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
     /** The atlas has no edge to keep a stroke inside: each frame is admitted whole instead ([admit]). */
     override fun follow(docRect: DoubleArray, penX: Double, penY: Double) {}
 
+    /** This frame's look is drawn tile by tile after its passes (its paint and the look's whole ring did not fit at once). */
+    private var lookInParts = false
+
     /** True between a frame's [admit] and its [flush]: every pass of the frame should find its tiles held already. */
     private var admitted = false
     /** Passes that asked past their frame's admission (a planning bug; the pass is still served if there is room). */
@@ -144,11 +147,21 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
             if (n.input) water.touched(intArrayOf(floor(n.rect[0]).toInt(), floor(n.rect[1]).toInt(), ceil(n.rect[2]).toInt(), ceil(n.rect[3]).toInt()), now)
         }
         // The look at the frame's end ([writeLook]): the dirty area (inside these rects), its halo, whole pixels, its reach.
-        box?.let { keys += tilesOf(it, lookHalo + 1 + MediaAtlasPlacement.LOOK_REACH) }
+        val lookKeys = box?.let { tilesOf(it, lookHalo + 1 + MediaAtlasPlacement.LOOK_REACH) }.orEmpty()
+        val paintKeys = LinkedHashSet(keys)
+        keys += lookKeys
         waterHeld = if (waterRect != null) admitWater(waterRect, keys, box ?: waterRect, now) else emptySet()
         keys += waterHeld
         media.waterSkip = water.excluded.toSet()
-        hold(keys)
+        lookInParts = false
+        try { hold(keys) } catch (r: MediaRoomException) {
+            // A frame whose paint fits but not with its look's whole shading ring (one palette-knife step: 20 areas of 18 on the
+            // Note 9): the paint is held alone and the look is drawn afterwards tile by tile ([writeLook]), each part with its
+            // own reads. Dry media only: running water must keep everything it reads at once.
+            if (waterRect != null || media.wetActive || lookKeys.isEmpty()) throw r
+            hold(paintKeys)
+            lookInParts = true
+        }
         admitted = true
     }
 
@@ -167,6 +180,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         var must = water.mustStay(domain, reads, look)
         if (MediaAtlasPlacement.fits(slots.capacity, frame + must, held)) return must
         val plan = water.plan(domain, reads, frame, held, slots.capacity, (pen[0] + pen[2]) / 2.0, (pen[1] + pen[3]) / 2.0, now, look)
+            ?: run { android.util.Log.w(TAG, "water refused: frame ${frame.size}, water must stay ${must.size}, held ${held.size}, capacity ${slots.capacity}"); null }
             ?: throw MediaRoomException("This watercolour stroke reaches further than this phone can hold at once. " +
                 "Paint a smaller area at a time.")
         for (a in plan) {
@@ -425,6 +439,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         // Recompute the dirty area and what it shades around it, with everything the look reads resident (no window edge).
         val out = floatArrayOf(dirty[0] - h, dirty[1] - h, dirty[2] + h, dirty[3] + h)
         val r = floatArrayOf(floor(out[0]), floor(out[1]), ceil(out[2]), ceil(out[3]))
+        if (hold && lookInParts) { writeLookInParts(id, r); return }
         if (!hold) {
             val missing = tilesOf(r, MediaAtlasPlacement.LOOK_REACH).count { slots.resident(page(it)) == null }
             if (missing > 0) android.util.Log.w(TAG, "look of a water tile with $missing of its reads not here (should not happen)")
@@ -443,6 +458,33 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
             val x0 = maxOf(r[0].toInt(), tx0); val y0 = maxOf(r[1].toInt(), ty0); val x1 = minOf(r[2].toInt(), tx0 + tile); val y1 = minOf(r[3].toInt(), ty0 + tile)
             if (x1 <= x0 || y1 <= y0) continue
             media.blit(media.lookTexture(), ax + x0 - tx0, ay + y0 - ty0, ax + x1 - tx0, ay + y1 - ty0, targets.getValue(key), x0 - tx0, y0 - ty0, x1 - tx0, y1 - ty0)
+        }
+    }
+
+    /**
+     * The look of [r] one tile at a time, each with the tiles its reads reach held only for its own draw: a frame too wide
+     * for its paint and its look's ring at once (see [admit]). The frame's passes are done, so its tiles may leave meanwhile;
+     * a tile that leaves is written back first (it is marked dirty), and one that is needed again is loaded again.
+     */
+    private fun writeLookInParts(id: String, r: FloatArray) {
+        unpinAll()
+        for (key in keysIn(r)) {
+            val tx0 = (Tiles.tx(key) * tile).toFloat(); val ty0 = (Tiles.ty(key) * tile).toFloat()
+            val part = floatArrayOf(maxOf(r[0], tx0), maxOf(r[1], ty0), minOf(r[2], tx0 + tile), minOf(r[3], ty0 + tile))
+            if (part[2] <= part[0] || part[3] <= part[1]) continue
+            val held = holdBriefly(tilesOf(part, MediaAtlasPlacement.LOOK_REACH), emptyList())
+            if (held.isEmpty()) { android.util.Log.w(TAG, "a part of the look could not be held: left as it was"); continue }
+            val slot = slots.resident(page(key))?.slot
+            if (slot != null) {
+                renderLook(part)
+                val target = paint.writableMediaTiles(id, listOf(key), listOf(MEDIA_LOOK), plane).getValue(MEDIA_LOOK).getValue(key)
+                val (ax, ay) = media.slotTexel(slot)
+                val x0 = part[0].toInt(); val y0 = part[1].toInt(); val x1 = part[2].toInt(); val y1 = part[3].toInt()
+                val ix0 = tx0.toInt(); val iy0 = ty0.toInt()
+                media.blit(media.lookTexture(), ax + x0 - ix0, ay + y0 - iy0, ax + x1 - ix0, ay + y1 - iy0, target, x0 - ix0, y0 - iy0, x1 - ix0, y1 - iy0)
+            }
+            for (p in held) if (slots.resident(p) != null) slots.unpin(p)
+            pinned.removeAll(held.toSet())
         }
     }
 

@@ -40,15 +40,32 @@ object MediaAtlasPlacement {
     const val BYTES_PER_SLOT = BYTES_PER_PX * 256 * 256
 
     /**
-     * Slot scaling (the Lead, October 18): an atlas of clamp(floor(0.20 × [availBytes] / [BYTES_PER_SLOT]), 16, 64) slots,
-     * rounded down to a near-square grid (columns, rows; rows at most one more than columns), sized once when the atlas is
+     * Slot scaling (the Lead, October 18): an atlas of clamp(floor([SHARE] × [availBytes] / [BYTES_PER_SLOT]), [MIN_SLOTS], [MAX_SLOTS]) slots,
+     * rounded down to a near-square grid (columns, rows; rows at most two more than columns), sized once when the atlas is
      * made from what the phone says is free. A Note 9 with 2.76 GB available gets 6 × 6 = 36 (517 MB): about four
      * running pools of watercolour and a frame, so D2 is a last resort, not something a normal wash meets.
      */
+    /**
+     * The fewest slots an atlas gets (2026-10-20): one palette-knife step or one Wash frame needs about 20 tiles at once on
+     * the Note 9, and an atlas of 16 (the window's size) refused them. 24 is 344 MB, about 20 % of what a Note 9 has free
+     * with a drawing open (1.67 GB). Rows may be up to two more than columns, so 24 is 4 x 6 and not rounded down to 20.
+     */
+    const val MIN_SLOTS = 24
+
+    /**
+     * The share of free memory an atlas takes (2026-10-20, was 0.20): a 3.5 s watercolour scribble across the Note 9 keeps 24-27
+     * tiles of running water at once, and with 22 slots every frame dried tails early, split itself and took 0.8-2.6 s. 0.35 of
+     * the 1.58 GB free that day is 36 slots (517 MB), what the Lead sized on 10-18 for a phone with 2.76 GB free.
+     */
+    const val SHARE = 0.35
+
+    /** The most slots (689 MB): with plenty free the share would reach 900 MB of graphics memory, more than any stroke needs. */
+    const val MAX_SLOTS = 48
+
     fun slotGrid(availBytes: Long): Pair<Int, Int> {
-        val n = (0.20 * availBytes / BYTES_PER_SLOT).toLong().coerceIn(16L, 64L).toInt()
+        val n = (SHARE * availBytes / BYTES_PER_SLOT).toLong().coerceIn(MIN_SLOTS.toLong(), MAX_SLOTS.toLong()).toInt()
         val cols = kotlin.math.sqrt(n.toDouble()).toInt()
-        return cols to minOf(cols + 1, n / cols)
+        return cols to minOf(cols + 2, n / cols)
     }
 
     /**

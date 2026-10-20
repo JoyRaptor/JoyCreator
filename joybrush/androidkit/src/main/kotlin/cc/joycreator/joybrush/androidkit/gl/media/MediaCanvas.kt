@@ -320,6 +320,9 @@ class MediaCanvas(
     /** The layer or the screen changed: write back and let the window go. */
     fun releaseWindow() { if (stroke == null) { window?.let(::refreshFlat); window?.release(); noteHeld() } }
 
+    /** The paint-engine switch (atlas or window): write back and let the engine go, so the next stroke makes the other kind. */
+    fun releaseEngine() { if (stroke != null) return; window?.let(::refreshFlat); window?.release(); release(); noteHeld() }
+
     /** GL context lost or the canvas closing. */
     fun release() {
         engine?.release()

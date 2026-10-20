@@ -180,6 +180,10 @@ private const val PREF_EDITABLE_LINES = "joybrush.editableLines"
 /** LAYER_OPS L6: what Flatten does with hidden layers: "ask" (default), "keep" or "discard". */
 private const val PREF_FLATTEN_HIDDEN = "joybrush.flattenHidden"
 private const val PREF_WATER_TEST = "joybrush.waterTest"
+/** The paint engine for pencil, watercolour and oil: "atlas" (the whole layer) or "window" (the old 1024 px patch). */
+private const val PREF_PAINT_ENGINE = "joybrush.paintEngine"
+/** What a person who never chose gets. */
+private const val DEFAULT_PAINT_ENGINE = "window"
 // Export (LAYER_OPS §6): the last choices, so the next export is one tap.
 private const val PREF_EXPORT_WHOLE = "joybrush.exportWhole"
 private const val PREF_EXPORT_LAYERED = "joybrush.exportLayered"
@@ -430,6 +434,7 @@ class JoyBrushActivity : Activity() {
         kit = ChromeKit(this)
         prefs = getSharedPreferences(CHROME_PREFS, Context.MODE_PRIVATE)
         canvas.mediaWaterAB = WaterTest.of(prefs.getString(PREF_WATER_TEST, null)).ab
+        canvas.setMediaAtlas(prefs.getString(PREF_PAINT_ENGINE, DEFAULT_PAINT_ENGINE) == "atlas")
         // Each tool as the person left it; the first shipped brush of each kind on a first visit (JB-1.05b, JB-2.01).
         tools = ToolMemory.decode(prefs.getString(PREF_TOOLS, null), brushes)
         tuning = BrushTuning.decode(prefs.getString(PREF_TUNING, null))
@@ -967,6 +972,16 @@ class JoyBrushActivity : Activity() {
             val next = WaterTest.next(water.id)
             prefs.edit().putString(PREF_WATER_TEST, next.id).apply()
             canvas.mediaWaterAB = next.ab
+            popovers.close(); moreMenu(anchor)
+        })
+        // The paint engine (October 20): the atlas paints pencil, watercolour and oil on the whole layer, with no window edge;
+        // the window is the old engine, kept so the two can be compared on the same drawing.
+        val atlasOn = prefs.getString(PREF_PAINT_ENGINE, DEFAULT_PAINT_ENGINE) == "atlas"
+        box.addView(menuRow(if (atlasOn) "Paint engine: Atlas (new)" else "Paint engine: Window (old)",
+            if (atlasOn) "Pencil, watercolour and oil work on the whole layer: no edge where the water stops. Tap for the old window"
+            else "Pencil, watercolour and oil work in a patch near the pen (water stops at its edge). Tap for the new atlas") {
+            prefs.edit().putString(PREF_PAINT_ENGINE, if (atlasOn) "window" else "atlas").apply()
+            canvas.setMediaAtlas(!atlasOn)
             popovers.close(); moreMenu(anchor)
         })
         addTiltRows(box)

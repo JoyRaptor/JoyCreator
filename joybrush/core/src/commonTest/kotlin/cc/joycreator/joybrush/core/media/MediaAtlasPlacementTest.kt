@@ -81,10 +81,11 @@ class MediaAtlasPlacementTest {
     }
     @Test fun theSlotCountScalesWithThePhone() {
         assertEquals(14_352_384L, MediaAtlasPlacement.BYTES_PER_SLOT, "what the Note 9 reported for one slot")
-        assertEquals(6 to 6, MediaAtlasPlacement.slotGrid(2_756_300_800L), "the Note 9 with a drawing open: 38 -> 6 x 6")
-        assertEquals(4 to 4, MediaAtlasPlacement.slotGrid(0L), "never fewer than 16")
-        assertEquals(8 to 8, MediaAtlasPlacement.slotGrid(1L shl 40), "never more than 64")
-        assertEquals(4 to 5, MediaAtlasPlacement.slotGrid(101 * MediaAtlasPlacement.BYTES_PER_SLOT))
-        assertEquals(6 to 7, MediaAtlasPlacement.slotGrid(241 * MediaAtlasPlacement.BYTES_PER_SLOT), "48 rounds down to 6 x 7")
+        assertEquals(6 to 8, MediaAtlasPlacement.slotGrid(2_756_300_800L), "a Note 9 with 2.76 GB free: 67 -> the cap of 48, 6 x 8")
+        assertEquals(6 to 6, MediaAtlasPlacement.slotGrid(1_582_469_120L), "the Note 9 with a drawing open on 10-20: 38 -> 6 x 6")
+        assertEquals(4 to 6, MediaAtlasPlacement.slotGrid(0L), "never fewer than 24 (MIN_SLOTS), as 4 x 6")
+        assertEquals(6 to 8, MediaAtlasPlacement.slotGrid(1L shl 40), "never more than 48 (MAX_SLOTS)")
+        assertEquals(4 to 6, MediaAtlasPlacement.slotGrid(57 * MediaAtlasPlacement.BYTES_PER_SLOT), "19 is under the floor: 24")
+        assertEquals(6 to 8, MediaAtlasPlacement.slotGrid(138 * MediaAtlasPlacement.BYTES_PER_SLOT), "48 is 6 x 8 (rows up to two more than columns)")
     }
 }

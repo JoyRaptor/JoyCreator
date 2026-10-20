@@ -468,6 +468,16 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         get() = cc.joycreator.joybrush.androidkit.gl.media.MediaAtlasGl.enabled
         set(v) { cc.joycreator.joybrush.androidkit.gl.media.MediaAtlasGl.enabled = v }
 
+    /**
+     * The owner's paint-engine switch (the ⋯ menu): realistic paint through the media atlas (the whole layer, no window
+     * edge) or the old 1024 px window. Takes effect at once: the engine in use writes back and is let go.
+     */
+    fun setMediaAtlas(on: Boolean) {
+        if (mediaAtlasEnabled == on) return
+        mediaAtlasEnabled = on
+        onGl { mediaCanvas.releaseEngine() }
+    }
+
     /** The owner's watercolour comparison (core WaterAB; the default is today's water). Any thread. */
     var mediaWaterAB: cc.joycreator.joybrush.core.media.WaterAB
         get() = mediaCanvas.waterAB
@@ -1141,6 +1151,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                     if (mediaCanvas.frame(SystemClock.uptimeMillis())) { reportMediaHistory(); super@JbCanvasView.requestRender() }
                 } catch (e: Exception) {
                     noteBenchError("media frame", e)
+                    // What the stroke already painted stays, as its one undo step; a step left open made the NEXT media
+                    // stroke crash ("a media stroke inside another stroke", Note 9 2026-10-20, after a refused atlas frame).
+                    if (engine.mediaStrokeInProgress) { engine.endMediaStroke(); reportMediaHistory() }
                     mediaCanvas.release()
                     post { if (drawing && (mediaStroke || mediaErase)) cancelStroke(); onRefused?.invoke(e.message ?: "The pencil, watercolour or oil stroke could not be painted") }
                 }

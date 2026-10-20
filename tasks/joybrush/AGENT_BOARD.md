@@ -775,3 +775,21 @@ recipes raise BrushException; D9 must show that message rather than silently res
 canvas/engine/lines or helper media edits, no main merge and no phone commands. D2 profiles/fade now in progress;
 its small Lead adapter changes will be supplied as held patches. Lead review/integration of D1 is requested.
 
+## Unibrush D4 — 2026-10-20 — engine verified, Lead adapter held
+
+Commit **b8a6c4ec8** on codex/unibrush adds explicit seeded colour dynamics (brush v15), frozen
+primary/secondary palette capture (raw codec v5), live/replay parity and CPU/GPU RGB-moment
+accumulation. Existing brushes keep their fixed-colour arithmetic and independent random streams.
+Full serialized offline checks: core **2577/0 failures/0 errors/4 optional skips**, backend
+**1059/0/0/0**, 8m24s. Production GPU: 32 blend/opacity/backdrop cases, max error .0019607843;
+batched versus individual/full-tail VBO and separate MRT targets are byte-identical. All broken
+controls detect faults. Historical 820c62802 shaders still match legacy pixels exactly.
+
+Review: reviews/UNIBRUSH_D4_20261020.md. Exact held patch and integration note:
+patches/UNIBRUSH_D4_LEAD.patch / .md. It passes git apply --check against our untouched Lead base;
+it has NOT been applied, compiled as a combined app or phone-tested. Lead must reconcile palette,
+MRT ownership/inventories, mask conversion and commit binding against current main. No Lead
+engine/View/line or helper media source changed; no merge/conflict resolution/phone action.
+D1–D4 engine checkpoints are ready for review. D5 sampled tips/resources are now in progress;
+full spec, app integration, Note9 performance and owner feel acceptance remain unfinished.
+

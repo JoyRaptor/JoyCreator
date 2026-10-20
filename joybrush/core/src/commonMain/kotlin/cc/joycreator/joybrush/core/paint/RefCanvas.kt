@@ -17,6 +17,8 @@ import kotlin.math.min
  * 3. [endStroke] — each touched tile is rebuilt as a NEW tile: with `a = s × (opacity if BUILD_UP else 1)`,
  *    NORMAL: `out = colour·a + dst·(1 − a)`; ERASE: `out = dst·(1 − a)`; MULTIPLY and SCREEN: the W3C modes on the
  *    premultiplied stroke colour `colour·a`, as `render/Blend` and `jb_commit.frag` apply them. Old tiles go to undo.
+ * Optional per-dab colour accumulates RGB moments `m' = colour·cap·d + m·(1 − d)` beside the same mask;
+ * commit uses `m·k` for RGB and the original mask for alpha. A missing dab colour uses the stroke colour.
  */
 class RefCanvas(private val tileSize: Int = Tiles.SIZE, undoBudgetBytes: Long = 64L shl 20) {
 
@@ -32,6 +34,9 @@ class RefCanvas(private val tileSize: Int = Tiles.SIZE, undoBudgetBytes: Long = 
     private var blend = StrokeBlend.NORMAL
     private var tip = TipShape()
     private val stroke = HashMap<Long, FloatArray>()
+    // RGB moments use the same coverage decay as the mask, with straight per-dab colour.
+    // Absent for ordinary fixed-colour strokes: their allocation and arithmetic stay unchanged.
+    private val strokeColors = HashMap<Long, FloatArray>()
 
     /** Tiles of a layer (read-only view for tests and exporters). */
     fun tiles(layer: String): Map<Long, FloatArray> = layers[layer] ?: emptyMap()
@@ -49,7 +54,7 @@ class RefCanvas(private val tileSize: Int = Tiles.SIZE, undoBudgetBytes: Long = 
         check(layerId == null) { "a stroke is already in progress" }
         layerId = layer; r = red; g = green; b = blue
         this.opacity = opacity.coerceIn(0f, 1f); this.mode = mode; this.blend = blend; this.tip = tip
-        stroke.clear()
+        stroke.clear(); strokeColors.clear()
     }
 
     /** The cap a dab should carry for the active stroke's mode. */
@@ -61,11 +66,25 @@ class RefCanvas(private val tileSize: Int = Tiles.SIZE, undoBudgetBytes: Long = 
             val buf = stroke.getOrPut(key) { FloatArray(px) }
             val ox = Tiles.tx(key) * tileSize
             val oy = Tiles.ty(key) * tileSize
-            for (d in list) stamp(buf, ox, oy, d)
+            for (d in list) {
+                var colors = strokeColors[key]
+                if (colors == null && d.color != null) {
+                    // Colour may first appear in a later event batch. Preserve the contribution
+                    // already accumulated under the stroke's fixed colour before switching paths.
+                    colors = FloatArray(px * 3)
+                    for (i in 0 until px) {
+                        colors[i * 3] = r * buf[i]
+                        colors[i * 3 + 1] = g * buf[i]
+                        colors[i * 3 + 2] = b * buf[i]
+                    }
+                    strokeColors[key] = colors
+                }
+                stamp(buf, colors, ox, oy, d)
+            }
         }
     }
 
-    private fun stamp(buf: FloatArray, ox: Int, oy: Int, d: Dab) {
+    private fun stamp(buf: FloatArray, colors: FloatArray?, ox: Int, oy: Int, d: Dab) {
         val liveTip = d.tipShape(tip)
         val e = TipMath.extent(d.radius, liveTip.anchor)
         val x0 = max(floor(d.x - e).toInt(), ox); val x1 = min(floor(d.x + e).toInt(), ox + tileSize - 1)
@@ -76,6 +95,13 @@ class RefCanvas(private val tileSize: Int = Tiles.SIZE, undoBudgetBytes: Long = 
             if (cov <= 0f) continue
             val i = (y - oy) * tileSize + (x - ox)
             buf[i] = d.cap * cov + buf[i] * (1f - cov)
+            if (colors != null) {
+                val c = d.color
+                val j = i * 3
+                colors[j] = (c?.r ?: r) * d.cap * cov + colors[j] * (1f - cov)
+                colors[j + 1] = (c?.g ?: g) * d.cap * cov + colors[j + 1] * (1f - cov)
+                colors[j + 2] = (c?.b ?: b) * d.cap * cov + colors[j + 2] * (1f - cov)
+            }
         }
     }
 
@@ -86,6 +112,7 @@ class RefCanvas(private val tileSize: Int = Tiles.SIZE, undoBudgetBytes: Long = 
         val changes = ArrayList<UndoLog.TileChange<FloatArray>>()
         val k = if (mode == Accumulate.BUILD_UP) opacity else 1f
         for ((key, s) in stroke) {
+            val colors = strokeColors[key]
             val before = tiles[key]
             if (before == null && blend == StrokeBlend.ERASE) continue
             val after = FloatArray(px * 4)
@@ -94,32 +121,34 @@ class RefCanvas(private val tileSize: Int = Tiles.SIZE, undoBudgetBytes: Long = 
                 val j = i * 4
                 val dr = before?.get(j) ?: 0f; val dg = before?.get(j + 1) ?: 0f
                 val db = before?.get(j + 2) ?: 0f; val da = before?.get(j + 3) ?: 0f
+                // The mask is authoritative alpha, including when successive caps differ.
+                val sr = if (colors == null) r * a else colors[i * 3] * k
+                val sg = if (colors == null) g * a else colors[i * 3 + 1] * k
+                val sb = if (colors == null) b * a else colors[i * 3 + 2] * k
                 if (blend == StrokeBlend.ERASE) {
                     after[j] = dr * (1 - a); after[j + 1] = dg * (1 - a); after[j + 2] = db * (1 - a); after[j + 3] = da * (1 - a)
                 } else if (blend == StrokeBlend.MULTIPLY) {
                     // W3C multiply, premultiplied: s·d + s·(1 − da) + d·(1 − a) per channel, with s = colour · a.
-                    val sr = r * a; val sg = g * a; val sb = b * a
                     after[j] = sr * dr + sr * (1 - da) + dr * (1 - a); after[j + 1] = sg * dg + sg * (1 - da) + dg * (1 - a)
                     after[j + 2] = sb * db + sb * (1 - da) + db * (1 - a); after[j + 3] = a + da * (1 - a)
                 } else if (blend == StrokeBlend.SCREEN) {
                     // W3C screen, premultiplied: s + d·(1 − s) per channel.
-                    val sr = r * a; val sg = g * a; val sb = b * a
                     after[j] = sr + dr * (1 - sr); after[j + 1] = sg + dg * (1 - sg)
                     after[j + 2] = sb + db * (1 - sb); after[j + 3] = a + da * (1 - a)
                 } else {
-                    after[j] = r * a + dr * (1 - a); after[j + 1] = g * a + dg * (1 - a)
-                    after[j + 2] = b * a + db * (1 - a); after[j + 3] = a + da * (1 - a)
+                    after[j] = sr + dr * (1 - a); after[j + 1] = sg + dg * (1 - a)
+                    after[j + 2] = sb + db * (1 - a); after[j + 3] = a + da * (1 - a)
                 }
             }
             tiles[key] = after
             changes.add(UndoLog.TileChange(layer, key, before, after))
         }
-        stroke.clear(); layerId = null
+        stroke.clear(); strokeColors.clear(); layerId = null
         if (changes.isNotEmpty()) undo.push(UndoLog.Step(changes))
         return changes.size
     }
 
-    fun cancelStroke() { stroke.clear(); layerId = null }
+    fun cancelStroke() { stroke.clear(); strokeColors.clear(); layerId = null }
 
     fun undoStep(): Boolean {
         val s = undo.undo() ?: return false

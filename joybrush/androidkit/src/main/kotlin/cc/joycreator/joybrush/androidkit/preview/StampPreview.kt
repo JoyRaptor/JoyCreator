@@ -9,6 +9,7 @@ import cc.joycreator.joybrush.core.brush.DabInputs
 import cc.joycreator.joybrush.core.brush.ENGINE_SMUDGE
 import cc.joycreator.joybrush.core.brush.Scatter
 import cc.joycreator.joybrush.core.brush.SplitMix
+import cc.joycreator.joybrush.core.brush.StrokeColors
 import cc.joycreator.joybrush.core.grain.GrainMath
 import cc.joycreator.joybrush.core.input.PenSample
 import cc.joycreator.joybrush.core.paint.Accumulate
@@ -38,8 +39,9 @@ object StampPreview {
         val smudge: SmudgeParams?,
     )
 
-    fun build(shown: BrushPreset, samples: List<PenSample>): Prepared {
-        val dabber = BrushDabber(shown, CannedStroke.SEED)
+    fun build(shown: BrushPreset, samples: List<PenSample>,
+              colors: StrokeColors = StrokeColors(0xFF000000.toInt(), 0xFFFFFFFF.toInt())): Prepared {
+        val dabber = BrushDabber(shown, CannedStroke.SEED, colors)
         val placer = DabPlacer(spacing = dabber.spacing, look = dabber::look)
         val placed = placer.add(samples.map { shown.response.apply(it) })
         val dabs = Scatter.expand(placed, shown.scatter, SplitMix(CannedStroke.SEED xor CannedStroke.SCATTER_SALT)) { dab ->

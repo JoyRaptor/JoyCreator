@@ -31,6 +31,7 @@ import cc.joycreator.joybrush.core.io.ByteWriter
  * | 2 | …`screenPerDoc`, **`colorArgb`, `widthScale`**, `sampleCount`, samples. |
  * | 3 | …`widthScale`, **`seq` (i64), [`groupId` (utf8) only when the group flag is set]**, `sampleCount`, samples. Header flag bit 3 = locked (no payload), bit 4 = has a groupId. |
  * | 4 | v3 fields, then an optional captured-source block (flag bit 5), then `sampleCount`, samples. |
+ * | 5 | v4 fields, then optional `secondaryColorArgb` (u32, flag bit 6), then `sampleCount`, samples. |
  *
  * v3 (JB-5.20 D1, 5.20a) puts a line in its cel's time order (`seq`) and carries the two owner/UI fields. `locked` and
  * `groupId` cost nothing when they are not used: the flag bits are 0 and no bytes are written. A v1/v2 recording read
@@ -41,21 +42,21 @@ import cc.joycreator.joybrush.core.io.ByteWriter
  * x/y/w/h (signed i32), u16 exclusion count, canonical y/x/h/w ordered exclusion rectangles
  * (signed i32 x/y/w/h), then signed i32 dx/dy. Exclusions may overlap, but cannot repeat.
  * Captured records store all sensor channels, including raw NaN bits when every reading is NaN.
- * v4 records reject trailers; lists containing any v4 record also reject outer trailers. Legacy
+ * v4+ records reject trailers; lists containing any v4+ record also reject outer trailers. Legacy
  * v1-v3 records and legacy-only lists retain their historical trailer policy.
  *
- * [VERSION] is 4 and [OLDEST_VERSION] is 1: the writer always writes the newest, and the reader
+ * [VERSION] is 5 and [OLDEST_VERSION] is 1: the writer always writes the newest, and the reader
  * accepts every version in between, because a recording written by the build that drew it must
  * still open. The magic stays [MAGIC] — it names the FORMAT FAMILY ("a Joy Brush stroke"), and a
- * v4 recording is still one. A version outside the range is refused by number, as JB-0.04's
- * decision 4 says: this build does not know what a v5 recording means, and guessing is how a
+ * v5 recording is still one. A version outside the range is refused by number, as JB-0.04's
+ * decision 4 says: this build does not know what a v6 recording means, and guessing is how a
  * drawing is destroyed.
  */
 object StrokeCodec {
     const val MAGIC = "JBS1"
 
     /** The newest recording this build writes, and the newest it reads. */
-    const val VERSION: Int = 4
+    const val VERSION: Int = 5
 
     /** The oldest recording this build reads. See the table above. */
     const val OLDEST_VERSION: Int = 1
@@ -69,6 +70,7 @@ object StrokeCodec {
     private const val FLAG_LOCKED = 1 shl 3   // v3
     private const val FLAG_GROUP = 1 shl 4    // v3
     private const val FLAG_CAPTURED = 1 shl 5 // v4
+    private const val FLAG_SECONDARY_COLOR = 1 shl 6 // v5
     private const val SAMPLE_FLAGS = FLAG_TILT or FLAG_AZIMUTH or FLAG_BARREL
     private const val V3_FLAGS = FLAG_LOCKED or FLAG_GROUP
 
@@ -93,6 +95,7 @@ object StrokeCodec {
         if (record.locked) flags = flags or FLAG_LOCKED
         if (record.groupId != null) flags = flags or FLAG_GROUP
         if (record.capturedPhysicalSource != null) flags = flags or FLAG_CAPTURED or SAMPLE_FLAGS
+        if (record.secondaryColorArgb != null) flags = flags or FLAG_SECONDARY_COLOR
         w.u16(flags)
 
         w.utf8(record.id)
@@ -105,6 +108,7 @@ object StrokeCodec {
         w.i64(record.seq)
         record.groupId?.let { w.utf8(it) }
         record.capturedPhysicalSource?.let { writeCaptured(w, it) }
+        record.secondaryColorArgb?.let { writeInt(w, it) }
         w.u32(record.samples.size.toLong())
 
         val tilt = flags and FLAG_TILT != 0
@@ -137,7 +141,7 @@ object StrokeCodec {
         // samples would come back as plausible rubbish. Refuse rather than guess.
         // The locked / group bits exist from version 3; in a v1/v2 recording they are as unknown as any other.
         val known = SAMPLE_FLAGS or (if (version >= 3) V3_FLAGS else 0) or
-            (if (version >= 4) FLAG_CAPTURED else 0)
+            (if (version >= 4) FLAG_CAPTURED else 0) or (if (version >= 5) FLAG_SECONDARY_COLOR else 0)
         if (flags and known.inv() != 0) {
             throw StrokeCodecException("unsupported stroke flags 0x${flags.toString(16)}")
         }
@@ -178,6 +182,7 @@ object StrokeCodec {
         }
         val locked = version >= 3 && flags and FLAG_LOCKED != 0
         val captured = if (flags and FLAG_CAPTURED != 0) readCaptured(r, bytes) else null
+        val secondaryColorArgb = if (flags and FLAG_SECONDARY_COLOR != 0) r.u32().toInt() else null
 
         val count = r.u32()
         val sampleBytes = MIN_SAMPLE_BYTES + (if (flags and FLAG_TILT != 0) 4 else 0) +
@@ -200,8 +205,8 @@ object StrokeCodec {
             val tool = toolOf(r.u8())
             samples.add(PenSample(x, y, timeMs, pressure, t, a, b, tool))
         }
-        if (version >= 4 && r.remaining != 0) throw StrokeCodecException("trailing bytes in v4 stroke")
-        return StrokeRecord(id, brushId, seed, smoothing, screenPerDoc, samples, colorArgb, widthScale, seq, locked, groupId, captured)
+        if (version >= 4 && r.remaining != 0) throw StrokeCodecException("trailing bytes in v$version stroke")
+        return StrokeRecord(id, brushId, seed, smoothing, screenPerDoc, samples, colorArgb, widthScale, seq, locked, groupId, captured, secondaryColorArgb)
             .also { requireCaptured(it) }
     }
 
@@ -231,7 +236,7 @@ object StrokeCodec {
         // one byte each at the very least. This stops a corrupt count from asking for a huge list.
         if (count > r.remaining) throw StrokeCodecException("truncated: count $count, ${r.remaining} bytes left")
         val out = ArrayList<StrokeRecord>(count.toInt())
-        var hasV4 = false
+        var hasStrictRecord = false
         repeat(count.toInt()) {
             // Checked before the read, so a corrupt length is "truncated" and not a negative count.
             val n = r.u32()
@@ -239,11 +244,11 @@ object StrokeCodec {
             val bytes = r.bytes(n.toInt())
             val record = decode(bytes)
             val version = versionOf(bytes)
-            if (version >= 4) hasV4 = true
+            if (version >= 4) hasStrictRecord = true
             // v1/v2 recordings are numbered by where they sit in the file: that WAS their time order (JB-5.20 D1).
             out.add(if (version < 3) record.copy(seq = (out.size + 1).toLong()) else record)
         }
-        if (hasV4 && r.remaining != 0) throw StrokeCodecException("trailing bytes in list containing v4 strokes")
+        if (hasStrictRecord && r.remaining != 0) throw StrokeCodecException("trailing bytes in list containing v4+ strokes")
         return out
     }
 

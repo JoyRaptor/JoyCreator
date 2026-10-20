@@ -14,6 +14,7 @@ class StrokeCapture(
     private val smoothing: Float,
     private val screenPerDoc: Float,
     private val colorArgb: Int,
+    private val secondaryColorArgb: Int? = null,
 ) {
     private val samples = ArrayList<PenSample>()
     private var ended = false
@@ -37,7 +38,8 @@ class StrokeCapture(
         val raw = samples.toList()
         samples.clear()
         return raw.takeIf { it.isNotEmpty() }?.let {
-            StrokeRecord(id, brushId, seed, smoothing, screenPerDoc, it, colorArgb)
+            StrokeRecord(id, brushId, seed, smoothing, screenPerDoc, it, colorArgb,
+                secondaryColorArgb = secondaryColorArgb)
         }
     }
 

@@ -21,6 +21,7 @@ class StrokeCaptureTest {
         assertEquals(.7f, record.smoothing)
         assertEquals(2f, record.screenPerDoc)
         assertEquals(0xFF123456.toInt(), record.colorArgb)
+        assertNull(record.secondaryColorArgb, "legacy capture callers retain the absent-palette sentinel")
         assertEquals("frozen", record.brushId)
         assertEquals(0L, record.seq)
     }
@@ -33,6 +34,22 @@ class StrokeCaptureTest {
         assertEquals(listOf(sample), assertNotNull(capture.finish()).samples)
         assertFailsWith<IllegalStateException> { capture.add(sample) }
         assertFailsWith<IllegalStateException> { capture.finish() }
+    }
+
+    @Test fun secondaryPaletteIsFrozenWithPrimaryAndSurvivesRecolorAndCodec() {
+        val primary = 0x80123456.toInt()
+        val secondary = 0x10293847
+        val capture = StrokeCapture("stroke", "frozen", 9182L, .7f, 2f, primary, secondary)
+        val raw = PenSample(-0f, 2f, 4.5, pressure = .6f, tilt = .5f, azimuth = -.7f, barrel = .8f)
+        capture.add(raw)
+        val record = assertNotNull(capture.finish())
+        assertEquals(primary, record.colorArgb)
+        assertEquals(secondary, record.secondaryColorArgb)
+        assertEquals(listOf(raw), record.samples)
+        val edited = StrokeEdit.recolor(record, 0xFFABCDEF.toInt())
+        assertEquals(record.copy(colorArgb = 0xFFABCDEF.toInt()), edited)
+        assertEquals(secondary, edited.secondaryColorArgb)
+        assertEquals(edited, StrokeCodec.decode(StrokeCodec.encode(edited)))
     }
 
     @Test fun canceledAndEmptyContactsCannotCreateRecords() {

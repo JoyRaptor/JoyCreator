@@ -61,7 +61,8 @@ object CapturedStrokeRules {
 
     private fun sameRecipe(a: StrokeRecord, b: StrokeRecord): Boolean =
         a.id == b.id && a.seq == b.seq && a.brushId == b.brushId && a.seed == b.seed &&
-            a.colorArgb == b.colorArgb && a.smoothing.toRawBits() == b.smoothing.toRawBits() &&
+            a.colorArgb == b.colorArgb && a.secondaryColorArgb == b.secondaryColorArgb &&
+            a.smoothing.toRawBits() == b.smoothing.toRawBits() &&
             a.screenPerDoc.toRawBits() == b.screenPerDoc.toRawBits() && a.widthScale.toRawBits() == b.widthScale.toRawBits() &&
             a.samples.size == b.samples.size && a.samples.indices.all { i ->
                 val x = a.samples[i]; val y = b.samples[i]

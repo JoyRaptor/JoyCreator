@@ -5,6 +5,8 @@ import cc.joycreator.joybrush.core.brush.VERSION_PENCIL_BLEND
 import cc.joycreator.joybrush.core.brush.VERSION_UNIBRUSH
 import cc.joycreator.joybrush.core.brush.VERSION_TIP_PROFILE
 import cc.joycreator.joybrush.core.brush.VERSION_TIP_QUAD
+import cc.joycreator.joybrush.core.brush.VERSION_COLOR_DYNAMICS
+import cc.joycreator.joybrush.core.brush.ColorMode
 import cc.joycreator.joybrush.core.brush.TipAngleSource
 import cc.joycreator.joybrush.core.brush.BrushException
 import cc.joycreator.joybrush.core.brush.BrushInput
@@ -114,8 +116,10 @@ class EnumFreezeTest {
         // 10 is the replayable line-watercolour engine, not the media-watercolour engine.
         // 11 is the pencil's edge blend and build-up (`media.stick.blend`, `.build`; the owner, 2026-10-14).
         // 12 adds explicit Unibrush rotation; absent fields retain the legacy hybrid.
-        assertEquals(14, BRUSH_VERSION)
-        assertEquals(VERSION_TIP_QUAD, BRUSH_VERSION, "the newest version is the one this row added")
+        assertEquals(15, BRUSH_VERSION)
+        assertEquals(VERSION_COLOR_DYNAMICS, BRUSH_VERSION, "the newest version is the one this row added")
+        assertTrue(VERSION_TIP_QUAD < VERSION_COLOR_DYNAMICS)
+        assertEquals(listOf("perDab", "perStroke", "perStrokeDrift"), ColorMode.entries.map { it.name })
         assertTrue(VERSION_TIP_PROFILE < VERSION_TIP_QUAD)
         assertTrue(VERSION_UNIBRUSH < VERSION_TIP_PROFILE)
         assertTrue(VERSION_PENCIL_BLEND < VERSION_UNIBRUSH)

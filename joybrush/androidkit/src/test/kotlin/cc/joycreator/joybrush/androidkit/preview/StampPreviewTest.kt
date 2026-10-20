@@ -6,6 +6,9 @@ import cc.joycreator.joybrush.core.brush.ENGINE_SMUDGE
 import cc.joycreator.joybrush.core.brush.Param
 import cc.joycreator.joybrush.core.brush.ResponseSpec
 import cc.joycreator.joybrush.core.brush.SmudgeSpec
+import cc.joycreator.joybrush.core.brush.ColorDynamicsSpec
+import cc.joycreator.joybrush.core.brush.ColorJitter
+import cc.joycreator.joybrush.core.brush.StrokeColors
 import cc.joycreator.joybrush.core.paint.Accumulate
 import cc.joycreator.joybrush.core.paint.StrokeBlend
 import kotlin.test.Test
@@ -33,6 +36,17 @@ class StampPreviewTest {
             assertEquals(a.strokeOpacity, b.strokeOpacity, p.id)
             assertEquals(a.tip, b.tip, p.id)
         }
+    }
+
+    @Test fun colourPreviewUsesItsPaletteAndTheSecondaryChangesItsCacheKey() {
+        val p = brush().copy(color = ColorJitter(dynamics = ColorDynamicsSpec(secondaryMix = 1f)))
+        val samples = CannedStroke.pen(800, 100, p.size.base)
+        val warm = StampPreview.build(p, samples, StrokeColors(0xFFFF0000.toInt(), 0xFFFFFF00.toInt()))
+        val cool = StampPreview.build(p, samples, StrokeColors(0xFFFF0000.toInt(), 0xFF0000FF.toInt()))
+        assertTrue(warm.dabs.map { it.color } != cool.dabs.map { it.color })
+        assertEquals(warm.dabs.map { it.copy(color = null) }, cool.dabs.map { it.copy(color = null) })
+        val style = BrushPreviewStyle()
+        assertTrue(style.key != style.copy(secondaryInk = 0xFF0000FF.toInt()).key)
     }
 
     @Test fun everyShippedStampBrushLaysDabsInsideThePictureOrJustBeyondItsEdge() {

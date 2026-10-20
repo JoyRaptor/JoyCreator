@@ -117,7 +117,12 @@ import kotlinx.serialization.ExperimentalSerializationApi
 
 @Serializable data class ScatterSpec(val amount: Param = Param(0f), val count: Int = 1, val countJitter: Float = 0f, val bothAxes: Boolean = true)
 
-@Serializable data class ColorJitter(val hue: Float = 0f, val saturation: Float = 0f, val value: Float = 0f, val perStroke: Boolean = false)
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable data class ColorJitter(val hue: Float = 0f, val saturation: Float = 0f, val value: Float = 0f, val perStroke: Boolean = false,
+    /** v15: explicit opt-in; old stored/imported jitter never changes its historical rendering. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val dynamics: ColorDynamicsSpec? = null,
+)
 
 @Serializable data class BrushPreset(
     val format: String = "joybrush.brush",

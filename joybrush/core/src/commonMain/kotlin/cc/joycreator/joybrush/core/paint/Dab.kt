@@ -48,6 +48,8 @@ data class Dab(
     val profileB: TipProfileSpec? = null,
     val profileMix: Float = 0f,
     val quad: cc.joycreator.joybrush.core.brush.QuadDab? = null,
+    /** v15: resolved straight sRGB; null retains the fixed stroke colour and old buffer path. */
+    val color: cc.joycreator.joybrush.core.brush.ColorDab? = null,
 )
 
 /**

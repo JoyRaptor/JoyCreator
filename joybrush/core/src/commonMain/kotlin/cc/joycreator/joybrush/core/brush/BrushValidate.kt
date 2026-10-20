@@ -222,6 +222,20 @@ object BrushValidate {
         if (colours.isNotEmpty()) {
             out += "color jitter is outside 0..1: " + colours.joinToString("; ")
         }
+        p.color.dynamics?.let { color ->
+            for ((name, value, range) in listOf(
+                Triple("hueRangeDegrees", color.hueRangeDegrees, 0f..180f),
+                Triple("saturationRange", color.saturationRange, 0f..1f),
+                Triple("valueRange", color.valueRange, 0f..1f),
+                Triple("secondaryMix", color.secondaryMix, 0f..1f),
+                Triple("pressureHueDegrees", color.pressureHueDegrees, -180f..180f),
+                Triple("driftDistancePx", color.driftDistancePx, 1f..4096f),
+            )) if (value !in range) out += "color.dynamics.$name must be in $range"
+            if (color.isActive) {
+                if (p.engine != "stamp" || p.tip.source != "procedural") out += "Colour dynamics need a procedural stamp tip in this build"
+                if (p.line != null) out += "This build cannot combine stroke-end shaping with colour dynamics"
+            }
+        }
 
         // 16 — a number no range speaks for must still be a number. `"hardness": {"base": 1e999}`
         // decodes to +Infinity, which draws nothing and which JSON cannot write back out, so a brush

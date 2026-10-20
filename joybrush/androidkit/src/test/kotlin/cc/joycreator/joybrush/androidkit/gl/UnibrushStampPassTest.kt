@@ -12,6 +12,7 @@ import cc.joycreator.joybrush.core.brush.QuadShapeSpec
 import cc.joycreator.joybrush.core.brush.QuadPoint
 import cc.joycreator.joybrush.core.brush.TipQuads
 import cc.joycreator.joybrush.core.brush.QuadMath
+import cc.joycreator.joybrush.core.brush.ColorDab
 import cc.joycreator.joybrush.core.grain.GrainMath
 import cc.joycreator.joybrush.core.input.PenSample
 import cc.joycreator.joybrush.core.paint.Dab
@@ -22,6 +23,7 @@ import java.nio.FloatBuffer
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.test.assertFailsWith
 
 /** Exercises CPU packing and the uniform sink only; no Android GL entry point is called. */
 class UnibrushStampPassTest {
@@ -36,12 +38,13 @@ class UnibrushStampPassTest {
         private val names = HashMap<Int, String>()
         val integers = LinkedHashMap<String, Int>()
         val vectors = ArrayList<Pair<String, List<Float>>>()
+        val triples = LinkedHashMap<String, List<Float>>()
         fun loc(name: String): Int = locations.getOrPut(name) {
             (locations.size + 1).also { names[it] = name }
         }
         override fun uniform1f(loc: Int, a: Float) {}
         override fun uniform2f(loc: Int, a: Float, b: Float) {}
-        override fun uniform3f(loc: Int, a: Float, b: Float, c: Float) {}
+        override fun uniform3f(loc: Int, a: Float, b: Float, c: Float) { triples[names.getValue(loc)] = listOf(a,b,c) }
         override fun uniform4f(loc: Int, a: Float, b: Float, c: Float, d: Float) {
             vectors.add(names.getValue(loc) to listOf(a, b, c, d))
         }
@@ -200,5 +203,32 @@ class UnibrushStampPassTest {
         pass.setProfileUniforms(gl, gl::loc, null, secondary = true)
         assertEquals(0, gl.integers["u_tipProfileB"])
         assertEquals(5, gl.integers["u_tipProfile"], "clearing B cannot change A")
+    }
+
+    @Test fun rgbTailFollowsEveryEarlierTailAndCannotLeakIntoLegacy() {
+        val pass = StampPass(Grains()); val look = look(pass)
+        val quad = TipQuads.interpolate(QuadShapeSpec(),null,0f)
+        val list = listOf(Dab(1f,2f,3f,quad=quad,fadeAmount=.7f,fadeAngle=.2f,color=ColorDab(.1f,.4f,.8f)),
+            Dab(4f,5f,6f))
+        val legacyPrefix = bits(pass.pack(list,look))
+        val draw = pass.packForDraw(list,look)
+        assertEquals(70,draw.limit())
+        assertEquals(legacyPrefix,bits(draw).take(34))
+        assertEquals(listOf(.1f,.4f,.8f,1f,0f,0f,0f,0f),List(8) { draw.get(62+it) })
+        assertEquals(17,pass.packForDraw(listOf(Dab(1f,2f,3f)),look).limit())
+        assertEquals(21,pass.packForDraw(listOf(Dab(1f,2f,3f,color=ColorDab(1f,0f,0f))),look).limit())
+        assertFailsWith<IllegalArgumentException> {
+            pass.packForDraw(listOf(Dab(1f,2f,3f,color=ColorDab(Float.NaN,0f,0f))),look)
+        }
+    }
+
+    @Test fun fixedColourFallbackIsFrozenInTheLookAndUploadedForMixedDabs() {
+        val pass = StampPass(Grains()); val gl = Rec()
+        val look = pass.lookFor(TipShape(),GrainMath.StrokeGrain(GrainMath.GrainUniforms.OFF,GrainMath.GrainUniforms.OFF),
+            null,null,null,null,null,baseColor=ColorDab(.2f,.4f,.7f))
+        pass.setStrokeUniforms(gl,gl::loc,look,Dab(1f,2f,3f),256,1f)
+        assertEquals(listOf(.2f,.4f,.7f),gl.triples["u_stampBaseColor"])
+        pass.setStrokeUniforms(gl,gl::loc,look(pass),Dab(1f,2f,3f),256,1f)
+        assertEquals(listOf(0f,0f,0f),gl.triples["u_stampBaseColor"])
     }
 }

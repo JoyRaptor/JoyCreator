@@ -38,6 +38,8 @@ layout(location = 11) in vec4 a_quadMeta; // roundness, normalization, profile m
 flat out vec4 v_quad01;
 flat out vec4 v_quad23;
 flat out vec4 v_quadMeta;
+layout(location = 12) in vec4 a_color; // resolved straight sRGB, enabled
+flat out vec4 v_color;
 
 void main() {
     // Half-size that contains the tip at any rotation, plus an antialiasing margin
@@ -65,4 +67,5 @@ void main() {
     v_quad01 = a_quad01;
     v_quad23 = a_quad23;
     v_quadMeta = a_quadMeta;
+    v_color = a_color;
 }

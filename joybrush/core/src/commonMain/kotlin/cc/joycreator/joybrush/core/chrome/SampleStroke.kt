@@ -7,6 +7,7 @@ import cc.joycreator.joybrush.core.brush.ENGINE_TUFT
 import cc.joycreator.joybrush.core.brush.TuftStroke
 import cc.joycreator.joybrush.core.brush.Scatter
 import cc.joycreator.joybrush.core.brush.SplitMix
+import cc.joycreator.joybrush.core.brush.StrokeColors
 import cc.joycreator.joybrush.core.input.PenSample
 import cc.joycreator.joybrush.core.paint.Dab
 import cc.joycreator.joybrush.core.paint.DabPlacer
@@ -53,11 +54,12 @@ object SampleStroke {
      * The dabs of [preset]'s sample stroke in a [width] × [height] box, drawn [displaySize] px wide at most. Pure and
      * repeatable: the same preset and box always give the same dabs.
      */
-    fun dabs(preset: BrushPreset, width: Float, height: Float, displaySize: Float): List<Dab> {
+    fun dabs(preset: BrushPreset, width: Float, height: Float, displaySize: Float,
+             colors: StrokeColors = StrokeColors(0xFF000000.toInt(), 0xFFFFFFFF.toInt())): List<Dab> {
         val size = min(preset.size.base, displaySize).coerceAtLeast(1f)
         val shown = ToolMemory.sized(preset, size, preset.opacity.base)
         if (shown.engine == ENGINE_TUFT) return tuftDabs(shown, path(width, height, inset = size / 2f + 1f).map { shown.response.apply(it) })
-        val dabber = BrushDabber(shown, SEED)
+        val dabber = BrushDabber(shown, SEED, colors)
         val placer = DabPlacer(spacing = dabber.spacing, look = dabber::look)
         val placed = placer.add(path(width, height, inset = size / 2f + 1f).map { shown.response.apply(it) })
         return Scatter.expand(placed, shown.scatter, SplitMix(SEED xor SCATTER_SALT)) { dab ->

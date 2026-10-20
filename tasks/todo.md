@@ -87,7 +87,7 @@ Isolated branch codex/unibrush starts at lead/layer-ops as authorized in the han
 - [ ] D1 Lead review/integration and phone acceptance.
 - [x] D2 engine: radial profiles and directional fade; CPU/GPU/transport checks. Lead integration and phone acceptance pending.
 - [x] D3 engine: four-point shapes, rounding and A/B morph; CPU/GPU/replay checks. Lead integration and phone acceptance pending.
-- [ ] D4: seeded colour dynamics; determinism/replay checks.
+- [x] D4 engine: seeded colour dynamics, frozen palette/codec, CPU/GPU/replay checks. Lead patch held; app/phone acceptance pending.
 - [ ] D5: sampled image sets and frozen archive resources; Lead engine patch; phone proof.
 - [ ] D6: dual-tip masking; shader checks.
 - [ ] D7: stroke-end taper parity; Lead integration if required.

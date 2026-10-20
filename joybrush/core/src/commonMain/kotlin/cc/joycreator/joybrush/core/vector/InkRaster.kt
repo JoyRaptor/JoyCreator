@@ -112,6 +112,7 @@ object InkRaster {
         val cr = channelOf(colorRgb, 16)
         val cg = channelOf(colorRgb, 8)
         val cb = channelOf(colorRgb, 0)
+        var colored = false
         // A NaN opacity is 1, the same rule `MaskPaint.opacityOf` uses and for the same reason: a
         // NaN that silently multiplied nothing would look exactly like a stroke at 0%.
         val o = if (opacity.isNaN()) 1f else opacity
@@ -121,14 +122,26 @@ object InkRaster {
         // `dst` is 0 for every pixel and `dst * (1 - a)` is 0. The commit is therefore
         // `colour * a` with `a = s * k`, which is RefCanvas.endStroke's formula with a destination
         // that is all zeroes. It is done IN PLACE: one array instead of two, which at the budget is
-        // the difference between 128 MiB of scratch and 64.
-        for (d in dabs) stampInto(px, width, height, d, tip, docX, docY, scale)
+        // the difference between 128 MiB of scratch and 64. An explicit per-dab colour activates
+        // RGB moments in the otherwise unused slots; their alpha is still this original mask.
+        for (d in dabs) {
+            if (!colored && d.color != null) {
+                // Until the first explicit colour, retain the legacy mask-only arithmetic.
+                // Seed that prefix once, exactly as RefCanvas does across native event batches.
+                for (i in 0 until px.size / 4) {
+                    val a = px[i * 4 + 3]
+                    px[i * 4] = cr * a; px[i * 4 + 1] = cg * a; px[i * 4 + 2] = cb * a
+                }
+                colored = true
+            }
+            stampInto(px, width, height, d, tip, docX, docY, scale, colored, cr, cg, cb)
+        }
 
         for (i in 0 until px.size / 4) {
             val a = px[i * 4 + 3] * k
-            px[i * 4] = cr * a
-            px[i * 4 + 1] = cg * a
-            px[i * 4 + 2] = cb * a
+            px[i * 4] = if (colored) px[i * 4] * k else cr * a
+            px[i * 4 + 1] = if (colored) px[i * 4 + 1] * k else cg * a
+            px[i * 4 + 2] = if (colored) px[i * 4 + 2] * k else cb * a
             px[i * 4 + 3] = a
         }
         return px
@@ -215,6 +228,10 @@ object InkRaster {
         docX: Int,
         docY: Int,
         scale: Float,
+        colored: Boolean,
+        red: Float,
+        green: Float,
+        blue: Float,
     ) {
         // A dab with no place in the world is SKIPPED, not clamped: there is no nearby pixel to
         // clamp it to, and one NaN coordinate reaching `TipMath.coverage` would make every pixel it
@@ -261,6 +278,12 @@ object InkRaster {
                 // coverage, not a colour channel.
                 val at = (row + x) * 4 + 3
                 px[at] = d.cap * cov + px[at] * (1f - cov)
+                if (colored) {
+                    val c = d.color
+                    px[at - 3] = (c?.r ?: red) * d.cap * cov + px[at - 3] * (1f - cov)
+                    px[at - 2] = (c?.g ?: green) * d.cap * cov + px[at - 2] * (1f - cov)
+                    px[at - 1] = (c?.b ?: blue) * d.cap * cov + px[at - 1] * (1f - cov)
+                }
             }
         }
     }

@@ -29,7 +29,11 @@ import kotlin.math.max
  * Not thread-safe, and neither is the placer: a stroke's dabs are built on the thread that is
  * drawing, in order.
  */
-class BrushDabber(val preset: BrushPreset, seed: Long) {
+class BrushDabber(val preset: BrushPreset, seed: Long, colors: StrokeColors? = null) {
+
+    private val colorDynamics = preset.color.dynamics?.takeIf { it.isActive }?.let {
+        ColorDynamics(it, seed, colors ?: throw BrushException("Colour dynamics need the stroke's frozen ink colours"))
+    }
 
     private val rng = SplitMix(seed)
 
@@ -165,6 +169,7 @@ class BrushDabber(val preset: BrushPreset, seed: Long) {
         val dynamicAspect = preset.tip.aspectDynamics?.let { finite(Dynamics.eval(it, inputs), preset.tip.aspect).coerceIn(-1f, 1f) }
         val quadAspect = quadSpec?.let { TipQuads.aspect(it.a, it.b, morph, dynamicAspect ?: preset.tip.aspect) }
         return DabLook(radius = radius, angle = angle, flow = flow, cap = cap,
+            color = colorDynamics?.at(distancePx, sample.pressure),
             profile = quadSpec?.a?.profile ?: preset.tip.profile,
             profileB = quadSpec?.b?.let { it.profile ?: preset.tip.profile }, profileMix = morph,
             quad = quadSpec?.let { TipQuads.interpolate(it.a, it.b, morph) },

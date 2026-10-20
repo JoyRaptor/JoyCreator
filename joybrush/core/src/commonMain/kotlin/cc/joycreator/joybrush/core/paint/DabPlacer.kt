@@ -22,6 +22,7 @@ data class DabLook(val radius: Float, val angle: Float = 0f, val flow: Float = 1
     val profileB: cc.joycreator.joybrush.core.brush.TipProfileSpec? = null,
     val profileMix: Float = 0f,
     val quad: cc.joycreator.joybrush.core.brush.QuadDab? = null,
+    val color: cc.joycreator.joybrush.core.brush.ColorDab? = null,
 )
 
 /**
@@ -105,6 +106,7 @@ class DabPlacer(
             tilt = s.tilt, azimuth = s.azimuth, travelX = travel.x, travelY = travel.y, travelKnown = true,
             profile = l.profile, fadeAmount = optional(l.fadeAmount, 0f, 1f), fadeAngle = if (l.fadeAngle.isFinite()) l.fadeAngle else Float.NaN,
             quad = l.quad, profileB = l.profileB, profileMix = l.profileMix,
+            color = l.color,
             aspect = optional(l.aspect, -1f, 1f), hardness = optional(l.hardness, 0f, 1f),
             tipDepth = optional(l.tipDepth, 0f, 1f), paperDepth = optional(l.paperDepth, 0f, 1f),
             anchor = optional(l.anchor, 0f, 1f)))

@@ -17,6 +17,24 @@ import kotlin.test.assertTrue
 
 class LineSvgTest {
 
+    @Test fun newUnibrushAppearanceCannotSilentlyFlattenToTheOldSvgFill() {
+        val base=BrushPreset(id="unibrush",name="Brush",size=Param(12f))
+        val r=StrokeRecord("new","unibrush",1L,0f,1f,listOf(PenSample(10f,10f,0.0),PenSample(30f,20f,20.0)))
+        val styles=listOf(
+            base.copy(color=cc.joycreator.joybrush.core.brush.ColorJitter(dynamics=cc.joycreator.joybrush.core.brush.ColorDynamicsSpec(hueRangeDegrees=20f))),
+            base.copy(tip=TipSpec(quad=cc.joycreator.joybrush.core.brush.TipQuadSpec())),
+            base.copy(tip=TipSpec(profile=cc.joycreator.joybrush.core.brush.TipProfileSpec())),
+            base.copy(tip=TipSpec(fade=cc.joycreator.joybrush.core.brush.TipFadeSpec())),
+        )
+        assertTrue(paths(LineSvg.export(100.0,100.0,listOf(r),{base}).svg).isNotEmpty())
+        for(p in styles) {
+            val out=LineSvg.export(100.0,100.0,listOf(r),{p})
+            assertTrue(paths(out.svg).isEmpty())
+            assertEquals(1,out.skipped.size)
+            assertTrue(out.skipped.single().reason.contains("image export"))
+        }
+    }
+
     private val pen = BrushPreset(id = "pen", name = "Pen", size = Param(12f), tip = TipSpec(hardness = Param(1f)))
     private val brushes = listOf(
         pen,

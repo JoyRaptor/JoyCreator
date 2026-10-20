@@ -1,6 +1,7 @@
 package cc.joycreator.joybrush.core.vector
 
 import cc.joycreator.joybrush.core.brush.BrushDabber
+import cc.joycreator.joybrush.core.brush.StrokeColors
 import cc.joycreator.joybrush.core.brush.watercolourRuntime
 import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.brush.DabInputs
@@ -117,7 +118,7 @@ object InkReplay {
             return Replayed(rescaled(dabs,widthScaleOf(record.widthScale)),preset.tip.hardness.base,watercolor.strokeOpacity,
                 GrainMath.StrokeGrain(GrainMath.GrainUniforms.OFF, GrainMath.GrainUniforms.OFF))
         }
-        val dabber = BrushDabber(preset, record.seed)
+        val dabber = BrushDabber(preset, record.seed, StrokeColors(record.colorArgb, record.secondaryColorArgb ?: -1))
         // A fill is a SHAPE, not a row of dabs: its raster is `InkRaster.fill` over
         // `FillPen.outline(record.samples, record.smoothing, record.screenPerDoc)`. Asking the
         // dabber for dabs here would draw the fill pen as a line of beads, which is the outline of
@@ -164,7 +165,7 @@ object InkReplay {
             for (dab in replayed.dabs) retain(dab)
             return Replayed(out, replayed.strokeHardness, replayed.strokeOpacity, replayed.strokeGrain)
         }
-        val dabber = BrushDabber(preset, record.seed)
+        val dabber = BrushDabber(preset, record.seed, StrokeColors(record.colorArgb, record.secondaryColorArgb ?: -1))
         val placer = DabPlacer(spacing = dabber.spacing, look = dabber::look)
         val smoother = StrokeSmoother(record.smoothing, record.screenPerDoc)
         val scatter = SplitMix(record.seed xor Scatter.SALT)

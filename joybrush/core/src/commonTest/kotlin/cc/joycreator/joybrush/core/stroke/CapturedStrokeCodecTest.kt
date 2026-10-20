@@ -77,8 +77,8 @@ class CapturedStrokeCodecTest {
 
     @Test fun ordinaryWriterIsV4WithCapturedFlagClear() {
         val bytes = StrokeCodec.encode(ordinary())
-        assertEquals(4, StrokeCodec.VERSION)
-        assertEquals(4, bytes[4].toInt())
+        assertEquals(5, StrokeCodec.VERSION)
+        assertEquals(5, bytes[4].toInt())
         assertEquals(0, bytes[6].toInt() and 32)
         assertEquals(ordinary(), StrokeCodec.decode(bytes))
     }
@@ -195,7 +195,7 @@ class CapturedStrokeCodecTest {
     }
 
     @Test fun unknownV4HeaderFlagRefused() {
-        refuses(wire().also { it[6] = (it[6].toInt() or 64).toByte() }, "flags")
+        refuses(wire().also { it[4] = 4; it[6] = (it[6].toInt() or 64).toByte() }, "flags")
     }
 
     @Test fun unknownCapturedSourceVersionRefused() { refuses(wire(block(version = 2)), "source version") }

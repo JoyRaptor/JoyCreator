@@ -7,6 +7,7 @@ import cc.joycreator.joybrush.core.brush.TipProfile
 import cc.joycreator.joybrush.core.brush.TipProfileSpec
 import cc.joycreator.joybrush.core.brush.TipProfiles
 import cc.joycreator.joybrush.core.brush.QuadMath
+import cc.joycreator.joybrush.core.brush.ColorDab
 import cc.joycreator.joybrush.core.doc.RectPx
 import cc.joycreator.joybrush.core.grain.GrainMath
 import cc.joycreator.joybrush.core.paint.Dab
@@ -61,6 +62,7 @@ internal class StampPass(private val grains: GrainSource) {
         /** A tile board's rect, so translated copies sample the same periodic surface; null on an ordinary board. */
         val tilePaperRect: RectPx?,
         val fluidTexture: Int?,
+        val baseColor: ColorDab = ColorDab(0f, 0f, 0f),
     )
 
     /**
@@ -75,6 +77,7 @@ internal class StampPass(private val grains: GrainSource) {
         tuftPaperPitchPx: Float?,
         tilePaperRect: RectPx?,
         fluidTexture: Int?,
+        baseColor: ColorDab = ColorDab(0f, 0f, 0f),
     ): StrokeLook {
         // A grain whose picture is missing is drawn as OFF: a missing picture must never read as "paint
         // everywhere". The picture is bound per batch in addDabs, but resolved here, once per stroke.
@@ -102,6 +105,7 @@ internal class StampPass(private val grains: GrainSource) {
             paperInfluence = influence,
             tilePaperRect = tilePaperRect,
             fluidTexture = fluidTexture,
+            baseColor = baseColor,
         )
     }
 
@@ -119,6 +123,7 @@ internal class StampPass(private val grains: GrainSource) {
         gl.uniform1f(loc("u_taper"), look.tip.taper)
         gl.uniform1f(loc("u_hardness"), look.tip.hardness)
         gl.uniform1f(loc("u_minPx"), look.tip.minPx)
+        gl.uniform3f(loc("u_stampBaseColor"), look.baseColor.r, look.baseColor.g, look.baseColor.b)
         setProfileUniforms(gl, loc, newest.profile ?: look.tip.profile)
         setProfileUniforms(gl, loc, if (newest.quad != null) newest.profileB else look.tip.profileB, secondary = true)
         setGrainUniforms(gl, loc, look, newest)
@@ -239,7 +244,7 @@ internal class StampPass(private val grains: GrainSource) {
 
     /** The original interleaved prefix is untouched; the optional tail is a separate attribute. */
     internal fun packForDraw(list: List<Dab>, look: StrokeLook): FloatBuffer =
-        packInternal(list, look, hasFade(list, look), hasQuad(list, look))
+        packInternal(list, look, hasFade(list, look), hasQuad(list, look), list.any { it.color != null })
 
     private fun hasQuad(list: List<Dab>, look: StrokeLook): Boolean =
         look.tip.quad != null || list.any { it.quad != null }
@@ -247,8 +252,8 @@ internal class StampPass(private val grains: GrainSource) {
     private fun hasFade(list: List<Dab>, look: StrokeLook): Boolean =
         look.tip.fadeAmount > 0f || list.any { it.fadeAmount.isFinite() && it.fadeAmount > 0f }
 
-    private fun packInternal(list: List<Dab>, look: StrokeLook, fade: Boolean, quad: Boolean = false): FloatBuffer {
-        val need = list.size * (FLOATS + (if (fade) 2 else 0) + (if (quad) 12 else 0))
+    private fun packInternal(list: List<Dab>, look: StrokeLook, fade: Boolean, quad: Boolean = false, color: Boolean = false): FloatBuffer {
+        val need = list.size * (FLOATS + (if (fade) 2 else 0) + (if (quad) 12 else 0) + (if (color) 4 else 0))
         if (instanceData.capacity() < need) instanceData = newFloats(need * 2)
         instanceData.clear()
         for (d in list) {
@@ -274,6 +279,13 @@ internal class StampPass(private val grains: GrainSource) {
             instanceData.put(shape?.roundness ?: 0f).put(shape?.normalizationScale ?: 1f)
                 .put(if (d.quad != null) d.profileMix else look.tip.profileMix).put(kind)
         }
+        if (color) for (d in list) {
+            val ink = d.color
+            require(ink == null || (ink.r in 0f..1f && ink.g in 0f..1f && ink.b in 0f..1f)) {
+                "A colored dab needs finite straight RGB in 0..1"
+            }
+            instanceData.put(ink?.r ?: 0f).put(ink?.g ?: 0f).put(ink?.b ?: 0f).put(if (ink == null) 0f else 1f)
+        }
         instanceData.flip()
         return instanceData
     }
@@ -292,7 +304,8 @@ internal class StampPass(private val grains: GrainSource) {
         gl.uniform2f(loc("u_tileOrigin"), originDocX, originDocY)
         val fade = hasFade(list, look)
         val quad = hasQuad(list, look)
-        val data = packInternal(list, look, fade, quad)
+        val color = list.any { it.color != null }
+        val data = packInternal(list, look, fade, quad, color)
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, vbo)
         GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, data.remaining() * 4, data, GLES30.GL_STREAM_DRAW)
         if (fade) {
@@ -314,9 +327,21 @@ internal class StampPass(private val grains: GrainSource) {
                 GLES30.glVertexAttrib4f(attribute, 0f, 0f, 0f, 0f)
             }
         }
+        if (color) {
+            GLES30.glEnableVertexAttribArray(12)
+            GLES30.glVertexAttribPointer(12, 4, GLES30.GL_FLOAT, false, 16,
+                list.size * (BYTES + (if (fade) 8 else 0) + (if (quad) 48 else 0)))
+            GLES30.glVertexAttribDivisor(12, 1)
+        } else {
+            GLES30.glDisableVertexAttribArray(12)
+            GLES30.glVertexAttrib4f(12, 0f, 0f, 0f, 0f)
+        }
         try {
             GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, list.size)
         } finally {
+            GLES30.glDisableVertexAttribArray(12)
+            GLES30.glVertexAttribDivisor(12, 0)
+            GLES30.glVertexAttrib4f(12, 0f, 0f, 0f, 0f)
             for (attribute in 9..11) {
                 GLES30.glDisableVertexAttribArray(attribute)
                 GLES30.glVertexAttribDivisor(attribute, 0)

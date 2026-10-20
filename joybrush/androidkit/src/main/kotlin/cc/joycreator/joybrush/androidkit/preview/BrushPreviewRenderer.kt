@@ -247,7 +247,8 @@ class BrushPreviewRenderer(private val memory: () -> Pair<Long, Long>) {
                 e.addTuftStamps(stamps)
             }
             else -> {
-                val p = StampPreview.build(shown, samples)
+                val p = StampPreview.build(shown, samples,
+                    cc.joycreator.joybrush.core.brush.StrokeColors(argb, req.style.secondaryInk))
                 e.beginStroke(LAYER, argb, p.strokeOpacity, p.accumulate, p.blend, p.tip, p.grain, p.smudge)
                 e.addDabs(p.dabs)
             }

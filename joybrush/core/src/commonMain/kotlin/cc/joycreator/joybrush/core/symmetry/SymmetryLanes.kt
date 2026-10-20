@@ -57,22 +57,53 @@ sealed class LaneBrush {
 }
 
 /**
+ * The cap that applied to a symmetry stroke: the brush family, and the most COPIES it may make.
+ *
+ * The owner counts COPIES ("cap copies per brush family"), so the number here is the copy count
+ * and NOT the lane count: a guide with one mirror has ONE copy and TWO lanes, the original and
+ * the mirror.
+ *
+ * This is a VALUE: the core reports which cap applied and the view decides whether to say so out
+ * loud. Nothing in the core remembers that it has already said it.
+ */
+data class SymmetryCap(val family: SymmetryFamily, val copies: Int)
+
+/**
  * The lanes of one symmetry stroke: the ORIGINAL first, then the copies.
  *
  * @property lanes the lanes, in order. Lane 0 is the original stroke.
- * @property requestedLanes how many lanes the guide asked for, before any cap.
- * @property limit the most lanes this brush may make.
+ * @property requestedCopies how many COPIES the guide asked for, before any cap.
+ * @property family the brush family this stroke is drawn with.
+ * @property copyLimit the most COPIES this brush family may make.
  */
 class SymmetryLaneSet(
     val lanes: List<SymmetryLane>,
-    val requestedLanes: Int,
-    val limit: Int,
+    val requestedCopies: Int,
+    val family: SymmetryFamily,
+    val copyLimit: Int,
 ) {
     /** The ORIGINAL lane: the one the copies are copies of. */
     val original: SymmetryLane get() = lanes[0]
 
-    /** True when the guide asked for more lanes than this brush may make. */
-    val capped: Boolean get() = lanes.size < requestedLanes
+    /** The COPIES this stroke makes: the lanes less the original. */
+    val copies: Int get() = lanes.size - 1
+
+    /** How many LANES the guide asked for: the copies and the original. */
+    val requestedLanes: Int get() = requestedCopies + 1
+
+    /** The most lanes this brush family may make: the copies it may make, and the original. */
+    val laneLimit: Int get() = copyLimit + 1
+
+    /** True when the guide asked for more copies than this brush may make. */
+    val capped: Boolean get() = copies < requestedCopies
+
+    /**
+     * The cap that bit, or null when none did: the family, and the COPY count it allows.
+     *
+     * The number in here is the one the app says out loud ("this brush keeps symmetry to N
+     * copies"), so it is the copy count and never the lane count.
+     */
+    val cap: SymmetryCap? get() = if (capped) SymmetryCap(family, copyLimit) else null
 }
 
 /**
@@ -80,15 +111,27 @@ class SymmetryLaneSet(
  *
  * ## The caps, and the words that go with them
  *
- * The owner's answer: the stamp, vector, eraser and smudge families are NOT capped below thirty
- * copies, and the hard guard is SIXTY lanes - which is exactly what a kaleidoscope of thirty
- * makes. The media families are capped per medium (dry sixteen, wet eight, paste eight), and
- * those numbers are the media phase's to measure; they live in this one table so that phase has
- * one place to fill in and cannot leave a family behind.
+ * The owner's answer (2026-10-19): *"May I cap copies per brush family on the Note 9 (ink/pen up
+ * to ~30, pencil ~16, watercolour ~8, oil ~4-8), and show a small note when the cap hits?"* — the
+ * caps are counted in COPIES, so the table below is in copies and the lane limit is DERIVED from
+ * it: lanes = copies + 1, the original always being there. A guide with one mirror has one copy
+ * and two lanes, and the number the app says is the copy count.
+ *
+ * The ink and pen family — the stamp family — may make thirty copies. The media families are
+ * capped per medium — dry sixteen, wet eight, paste eight — and those three numbers are
+ * PROVISIONAL: the media phase is the one that measures them on the phone, and they live in this
+ * one table so that phase has one place to fill in and cannot leave a family behind. The families
+ * the owner did not name — the eraser, smudge and push dabs — are not capped below thirty copies:
+ * they take the guard.
+ *
+ * The hard guard is SIXTY LANES — fifty-nine copies and the original — and no family may pass it.
+ * It is ONE number, [HARD_LANE_LIMIT], and [HARD_COPY_LIMIT] is that same guard counted in
+ * copies, so the two cannot drift apart.
  *
  * A cap that bites is NOT silent: the stroke goes on with the capped set, and the app says so
  * once, in words - [capSentence]. A person who asks for thirty copies and gets eight deserves to
- * be told.
+ * be told. Saying it ONCE is the view's business: the core reports WHICH cap applied
+ * ([SymmetryLaneSet.cap]) and the view remembers whether it has already said it.
  *
  * ## The families this phase does NOT copy
  *
@@ -102,36 +145,54 @@ object SymmetryLanes {
     /**
      * The most lanes any family may make, whatever the family asks for: sixty, which is what a
      * kaleidoscope of thirty makes and the hard guard on everything else.
+     *
+     * Sixty lanes are FIFTY-NINE COPIES and the original. [HARD_COPY_LIMIT] is that same guard
+     * counted in copies, and it is derived from this one number so that the two cannot drift.
      */
     const val HARD_LANE_LIMIT = 60
 
+    /** The same hard guard in COPIES: sixty lanes less the original. */
+    const val HARD_COPY_LIMIT = HARD_LANE_LIMIT - 1
+
     /**
-     * The most lanes each family may make.
+     * The most COPIES each family may make — the owner's answer, in the owner's own unit.
      *
-     * The media numbers (dry sixteen, wet eight, paste eight) are the media phase's to measure;
-     * they are here so that the table has ONE place for them, and a family added later has
-     * exactly one number to fill in.
+     * The ink and pen family — the stamp family — may make thirty copies. The media families are
+     * capped per medium — dry sixteen, wet eight, paste eight — and those three are PROVISIONAL
+     * until the media phase measures them on the phone.
+     *
+     * The families the owner did not name — the eraser, smudge and push dabs, and the three that
+     * are refused in this phase — take the guard: they are not capped below thirty copies.
      */
     private val CAPS: Map<SymmetryFamily, Int> = mapOf(
-        SymmetryFamily.STAMP to HARD_LANE_LIMIT,
-        SymmetryFamily.ERASER to HARD_LANE_LIMIT,
-        SymmetryFamily.SMUDGE to HARD_LANE_LIMIT,
-        SymmetryFamily.PUSH to HARD_LANE_LIMIT,
+        SymmetryFamily.STAMP to 30,
         SymmetryFamily.MEDIA_DRY to 16,
         SymmetryFamily.MEDIA_WET to 8,
         SymmetryFamily.MEDIA_PASTE to 8,
-        // The three below are refused in this phase, so their cap never bites. They are in the
-        // table anyway: a family with no entry would be a family a later change could forget.
-        SymmetryFamily.TUFT to HARD_LANE_LIMIT,
-        SymmetryFamily.WATERCOLOUR to HARD_LANE_LIMIT,
-        SymmetryFamily.FILL to HARD_LANE_LIMIT,
+        // The ones below are not capped below thirty copies: they take the guard. The three that
+        // are refused in this phase are in the table anyway: a family with no entry would be a
+        // family a later change could forget.
+        SymmetryFamily.ERASER to HARD_COPY_LIMIT,
+        SymmetryFamily.SMUDGE to HARD_COPY_LIMIT,
+        SymmetryFamily.PUSH to HARD_COPY_LIMIT,
+        SymmetryFamily.TUFT to HARD_COPY_LIMIT,
+        SymmetryFamily.WATERCOLOUR to HARD_COPY_LIMIT,
+        SymmetryFamily.FILL to HARD_COPY_LIMIT,
     )
 
     /**
-     * The most lanes [family] may make: its own number, and never more than the hard guard.
+     * The most COPIES [family] may make: its own number, and never more than the hard guard.
      */
-    fun laneCapFor(family: SymmetryFamily): Int =
-        minOf(CAPS[family] ?: HARD_LANE_LIMIT, HARD_LANE_LIMIT)
+    fun copyCapFor(family: SymmetryFamily): Int =
+        minOf(CAPS[family] ?: HARD_COPY_LIMIT, HARD_COPY_LIMIT)
+
+    /**
+     * The most LANES [family] may make: its copies, and the original.
+     *
+     * The one rule that turns a cap in copies into a limit in lanes: lanes = copies + 1. It is
+     * here, in ONE place, so that the lane limit and the copy cap can never drift apart.
+     */
+    fun laneCapFor(family: SymmetryFamily): Int = copyCapFor(family) + 1
 
     /**
      * The family a brush belongs to, from its engine and (for the media brushes) its medium.
@@ -175,16 +236,19 @@ object SymmetryLanes {
     }
 
     /**
-     * The words for a cap that bit: how many copies this brush keeps on this phone.
+     * The words for a cap that bit: how many COPIES this brush keeps on this phone.
+     *
+     * The number is the COPY count — the one the owner asked about — and never the lane count:
+     * a cap of thirty copies is thirty in this sentence, not thirty-one.
      */
-    fun capSentence(lanes: Int): String = "This brush keeps symmetry to $lanes copies on this phone."
+    fun capSentence(copies: Int): String = "This brush keeps symmetry to $copies copies on this phone."
 
     /**
      * The lanes of a stroke under [guide].
      *
      * The copies come from [SymmetryMath.copies] - the ORIGINAL is lane 0 and is not among them -
      * and the family may cut the list short. The cut is REPORTED: [SymmetryLaneSet.capped] and
-     * [SymmetryLaneSet.limit] say so, and the app says [capSentence].
+     * [SymmetryLaneSet.cap] say so, and the app says [capSentence].
      *
      * The refusal is NOT here: it is [refusalFor], and it is the app's gate. This builder will
      * build any family's lanes, because the media phase will need it and because the cap has to
@@ -199,16 +263,16 @@ object SymmetryLanes {
         screenPerDoc: Float,
     ): SymmetryLaneSet {
         val copies = SymmetryMath.copies(guide)
-        val requested = copies.size + 1
-        val limit = laneCapFor(family)
-        val kept = copies.take((limit - 1).coerceAtLeast(0))
+        val requested = copies.size
+        val limit = copyCapFor(family)
+        val kept = copies.take(limit)
         val lanes = ArrayList<SymmetryLane>(kept.size + 1)
         lanes.add(lane(null, AngleFrame.IDENTITY, brush, guide.symmetric, seedFor(guide, 0, seed), smoothing, screenPerDoc))
         for (i in kept.indices) {
             val copy = kept[i]
             lanes.add(lane(copy, frameFor(copy), brush, guide.symmetric, seedFor(guide, i + 1, seed), smoothing, screenPerDoc))
         }
-        return SymmetryLaneSet(lanes, requested, limit)
+        return SymmetryLaneSet(lanes, requested, family, limit)
     }
 
     /**

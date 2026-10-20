@@ -2,6 +2,7 @@ package cc.joycreator.joybrush.androidkit.gl.media
 
 import cc.joycreator.joybrush.androidkit.gl.GlPaintEngine
 import cc.joycreator.joybrush.androidkit.gl.MEDIA_LOOK
+import cc.joycreator.joybrush.core.media.MediaPin
 import cc.joycreator.joybrush.core.media.MediaStores
 import cc.joycreator.joybrush.core.media.MediaWindowMath
 import cc.joycreator.joybrush.core.paint.Tiles
@@ -46,6 +47,19 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
     /** The drawing this window's state was loaded from: none of it is written back once another has opened. */
     private val drawing = DocumentStamp { paint.documentGeneration }
 
+    /**
+     * The window is PINNED: it sits on the symmetry centre for the whole stroke and it does NOT move.
+     *
+     * Why (JB-2.12a's Phase E): the copies' wet paint must live in ONE water field — they mix
+     * where they meet, and a mirrored wash runs down on both sides — and a window that moved would
+     * flush and reload (10–16 ms a frame on a Note 9) and cut the water at its edge.
+     *
+     * Every way of moving the window asks [MediaPin.mayMove] first, so a new way of moving it
+     * cannot forget the pin.
+     */
+    var pinned = false
+        private set
+
     /** Another drawing opened since this loaded ([DocumentStamp]): let everything go unwritten. True when it did. */
     private fun staleDrawing(): Boolean {
         if (layerId == null || !drawing.stale) return false
@@ -79,6 +93,7 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
         flush()
         media.sleep()
         layerId = null
+        pinned = false
     }
 
     companion object {
@@ -91,14 +106,35 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
 
     /** Puts the window on [layer] around the pen at ([docX], [docY]): a no-op while it already holds that point. */
     override fun place(layer: String, plane: String?, docX: Double, docY: Double, resumeWater: Boolean) {
+        if (!MediaPin.mayMove(pinned)) return   // PINNED: the window does not move for the whole stroke
         staleDrawing()
         if (layer == layerId && plane == this.plane && MediaWindowMath.holds(tx, ty, doubleArrayOf(docX, docY, docX, docY))) return
         if (layerId != null && (layer != layerId || plane != this.plane)) release()
         moveTo(layer, plane, docX, docY, resumeWater)
     }
 
+    /**
+     * Pins the window on the symmetry centre ([cx], [cy]): it is placed there ONCE, rounded to the
+     * tile grid ([MediaWindowMath.placeForRounded]), and it does not move again for the whole
+     * stroke.
+     *
+     * The centre is the middle of the guide's line, and the radius of the zone the pen may paint in
+     * is [cc.joycreator.joybrush.core.media.MediaSafety.safeRadius] for this placement.
+     */
+    fun pin(layer: String, plane: String?, cx: Double, cy: Double) {
+        if (layerId != null && (layer != layerId || plane != this.plane)) release()
+        pinned = true
+        val (nx, ny) = MediaWindowMath.placeForRounded(cx, cy)
+        if (layer == layerId && plane == this.plane && nx == tx && ny == ty) return
+        moveTo(layer, plane, nx, ny, resumeWater = true)
+    }
+
+    /** The stroke is over: the window follows the pen again. */
+    fun unpin() { pinned = false }
+
     /** Keeps a stroke's area ([x0, y0, x1, y1], document px) inside the window, moving it to centre on the pen if not. */
     override fun follow(docRect: DoubleArray, penX: Double, penY: Double) {
+        if (!MediaPin.mayMove(pinned)) return   // PINNED: the window does not move for the whole stroke
         val id = layerId ?: return
         if (!MediaWindowMath.holds(tx, ty, docRect)) mediaTrace("JB.media.window.move") { moveTo(id, plane, penX, penY, resumeWater = true) }
     }
@@ -108,6 +144,7 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
      * that would clip its own dabs (a slow cold first frame, a very fast flick). Only those are drawn in parts.
      */
     fun wouldClip(docRect: DoubleArray, penX: Double, penY: Double, paints: DoubleArray): Boolean {
+        if (!MediaPin.mayMove(pinned)) return false   // PINNED: the window cannot move, so no move can clip anything
         val (nx, ny) = if (MediaWindowMath.holds(tx, ty, docRect)) tx to ty else MediaWindowMath.placeFor(penX, penY)
         return !MediaWindowMath.within(nx, ny, paints)
     }
@@ -118,6 +155,7 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
      * would have made; true when the frame can now run whole. False: no window holds it; it must go in parts.
      */
     fun holdWhole(dabs: DoubleArray): Boolean {
+        if (!MediaPin.mayMove(pinned)) return false   // PINNED: the window cannot move to hold them
         val id = layerId ?: return false
         val (nx, ny) = MediaWindowMath.placeForRect(dabs)
         if (!MediaWindowMath.within(nx, ny, dabs)) return false
@@ -127,6 +165,7 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
 
     /** A part of a frame too wide for one window (MediaCanvas.runWindowParts): the window centred on it, so up to SPAN fits. */
     fun followCentred(docRect: DoubleArray) {
+        if (!MediaPin.mayMove(pinned)) return   // PINNED: the window does not move for the whole stroke
         val id = layerId ?: return
         if (MediaWindowMath.holds(tx, ty, docRect)) return
         val (nx, ny) = MediaWindowMath.placeForRect(docRect)

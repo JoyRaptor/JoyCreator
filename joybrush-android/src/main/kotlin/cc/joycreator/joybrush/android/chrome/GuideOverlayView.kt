@@ -2,7 +2,9 @@ package cc.joycreator.joybrush.android.chrome
 
 import android.annotation.SuppressLint
 import android.graphics.Canvas
+import android.graphics.DashPathEffect
 import android.graphics.Paint
+import android.graphics.Path
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
@@ -55,6 +57,50 @@ class GuideOverlayView(private val kit: ChromeKit, private val transform: ViewTr
     private val line = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND }
     private val handle = Paint(Paint.ANTI_ALIAS_FLAG)
 
+    // ── the media brushes' safe zone ──
+
+    /**
+     * The safe zone of the media symmetry, in document px: the radius about the symmetry centre the
+     * pen may paint in. Zero means there is no zone, and nothing is drawn.
+     *
+     * The view reads it from the canvas ([cc.joycreator.joybrush.androidkit.JbCanvasView.safeZoneRadiusDocPx]),
+     * which knows the brush's own reach and the pin's own placement of the media window.
+     */
+    var safeZoneRadiusDocPx: Float = 0f
+        set(value) { if (field != value) { field = value; zoneKey = null; invalidate() } }
+
+    /** True while a media brush (the pencil, the watercolour or the oil) is in hand. */
+    var mediaBrushInHand: Boolean = false
+        set(value) { if (field != value) { field = value; invalidate() } }
+
+    /** The darkening outside the zone: black at a fifth (alpha 51). */
+    private val zoneShade = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+        color = ColorUtils.setAlphaComponent(android.graphics.Color.BLACK, 51)
+    }
+
+    /** The dotted circle about the symmetry centre. */
+    private val zoneRing = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = kit.dp(2f)
+        color = kit.p.guide
+    }
+
+    /** The zone's path: the circle and the whole screen, so that everything outside the circle can be filled. */
+    private val zonePath = Path()
+
+    /** What the path was built for: it is rebuilt only when the zone moves or the view changes size. */
+    private var zoneKey: ZoneKey? = null
+
+    /** The circle where it was last built, in screen px. */
+    private var zoneScreenX = 0f
+    private var zoneScreenY = 0f
+    private var zoneScreenR = 0f
+
+    private class ZoneKey(
+        val cx: Double, val cy: Double, val radius: Float, val width: Int, val height: Int, val zoom: Float,
+    )
+
     /** The visible page in document px, filled in place: the same numbers every frame, no new array. */
     private val viewDoc = FloatArray(4)
 
@@ -85,6 +131,8 @@ class GuideOverlayView(private val kit: ChromeKit, private val transform: ViewTr
     init {
         isClickable = false
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
+        // The zone's dotted ring: the dash is made ONCE, not every frame.
+        zoneRing.pathEffect = DashPathEffect(floatArrayOf(kit.dp(5f), kit.dp(5f)), 0f)
     }
 
     /** The visible page, in document px: the box around the four screen corners (the page may be turned). */
@@ -124,6 +172,9 @@ class GuideOverlayView(private val kit: ChromeKit, private val transform: ViewTr
         }
         // The symmetry line is drawn on its own: it is not one of s.all(), so the snapper never sees it.
         s.symmetry?.let { sym -> drawSymmetry(c, sym, view, zoom) }
+        // The media brushes' safe zone: the dotted circle about the symmetry centre, and the paper
+        // outside it darkened by a fifth. Only while a media brush is in hand.
+        s.symmetry?.let { sym -> drawSafeZone(c, sym, zoom) }
         if (adjusting) for (p in adjustHandles(s)) drawHandle(c, p.second)
         // The symmetry's ends are always there: the line is dragged whenever it is on.
         s.symmetry?.let { sym ->
@@ -149,6 +200,38 @@ class GuideOverlayView(private val kit: ChromeKit, private val transform: ViewTr
                 c.drawLine(x0, y0, x1, y1, line)
             }
         }
+    }
+
+    /**
+     * The safe zone of a media stroke under the symmetry: the dotted circle about the symmetry
+     * centre, and everything outside it darkened by a fifth.
+     *
+     * The circle is the zone the media engine will actually use (the brush's own reach around the
+     * symmetry centre, inside the window pinned there), so the person can see where the paint may
+     * go before the pen goes there.
+     *
+     * The path is rebuilt only when the zone MOVES (the guide, the radius, the zoom) or the view
+     * changes size: nothing is allocated per frame.
+     */
+    private fun drawSafeZone(c: Canvas, sym: Guide.Symmetry, zoom: Float) {
+        if (!mediaBrushInHand || !(safeZoneRadiusDocPx > 0f)) return
+        val cx = (sym.a.x + sym.b.x) / 2.0
+        val cy = (sym.a.y + sym.b.y) / 2.0
+        val key = ZoneKey(cx, cy, safeZoneRadiusDocPx, width, height, zoom)
+        if (zoneKey != key) {
+            zoneKey = key
+            val (sx, sy) = transform.docToScreen(cx.toFloat(), cy.toFloat())
+            val r = safeZoneRadiusDocPx * zoom
+            zoneScreenX = sx; zoneScreenY = sy; zoneScreenR = r
+            zonePath.reset()
+            // The circle and the whole screen, filled EVEN_ODD: everything OUTSIDE the circle is darkened.
+            zonePath.fillType = Path.FillType.EVEN_ODD
+            zonePath.addCircle(sx, sy, r, Path.Direction.CW)
+            zonePath.addRect(0f, 0f, width.toFloat(), height.toFloat(), Path.Direction.CCW)
+        }
+        // The circle and the whole screen: the EVEN_ODD fill darkens everything OUTSIDE the circle.
+        c.drawPath(zonePath, zoneShade)
+        c.drawCircle(zoneScreenX, zoneScreenY, zoneScreenR, zoneRing)
     }
 
     /** The symmetry's drawn segments, kept until the line or the page moves: no work, and no garbage, every frame. */

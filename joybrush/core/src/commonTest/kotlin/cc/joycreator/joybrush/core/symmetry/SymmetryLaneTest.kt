@@ -560,8 +560,10 @@ class SymmetryLaneTest {
 
     /**
      * A family that is not a stroke of dabs is refused IN WORDS: the tuft engine lays footprints,
-     * the legacy watercolour engine keeps its own dab array, the fill pen rasterises a shape, and
-     * the media brushes paint through the media engine.
+     * the legacy watercolour engine keeps its own dab array and the fill pen rasterises a shape.
+     *
+     * The MEDIA families are NOT refused any more (JB-2.12a's Phase E): the pencil, the watercolour
+     * and the oil are copied by the media engine's lanes, and their caps are the media caps.
      */
     @Test
     fun aFamilyThatIsNotADabPathIsRefusedInWords() {
@@ -569,9 +571,6 @@ class SymmetryLaneTest {
             SymmetryFamily.TUFT,
             SymmetryFamily.WATERCOLOUR,
             SymmetryFamily.FILL,
-            SymmetryFamily.MEDIA_DRY,
-            SymmetryFamily.MEDIA_WET,
-            SymmetryFamily.MEDIA_PASTE,
         )) {
             val sentence = assertNotNull(SymmetryLanes.refusalFor(family), "$family was not refused")
             assertTrue(sentence.isNotBlank(), "$family was refused with no words")
@@ -581,6 +580,10 @@ class SymmetryLaneTest {
         assertNull(SymmetryLanes.refusalFor(SymmetryFamily.ERASER))
         assertNull(SymmetryLanes.refusalFor(SymmetryFamily.SMUDGE))
         assertNull(SymmetryLanes.refusalFor(SymmetryFamily.PUSH))
+        // The media families work now (Phase E): they are copied, and the caps below are their caps.
+        assertNull(SymmetryLanes.refusalFor(SymmetryFamily.MEDIA_DRY))
+        assertNull(SymmetryLanes.refusalFor(SymmetryFamily.MEDIA_WET))
+        assertNull(SymmetryLanes.refusalFor(SymmetryFamily.MEDIA_PASTE))
 
         // And the families are found from the brush's own engine and medium.
         assertEquals(SymmetryFamily.TUFT, SymmetryLanes.familyFor("tuft", null))

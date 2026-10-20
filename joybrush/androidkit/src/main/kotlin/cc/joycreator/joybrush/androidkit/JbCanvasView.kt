@@ -9,8 +9,6 @@ import cc.joycreator.joybrush.core.brush.ENGINE_MEDIA
 import cc.joycreator.joybrush.core.brush.MEDIUM_DRY
 import cc.joycreator.joybrush.core.brush.MEDIUM_WET
 import cc.joycreator.joybrush.core.media.MediaBelly
-import cc.joycreator.joybrush.core.media.MediaInput
-import cc.joycreator.joybrush.core.media.MediaSample
 import android.opengl.GLES30
 import cc.joycreator.joybrush.androidkit.io.PaperResources
 import cc.joycreator.joybrush.core.paper.ResolvedPaper
@@ -64,6 +62,8 @@ import cc.joycreator.joybrush.core.brush.WatercolourDabber
 import cc.joycreator.joybrush.core.brush.ENGINE_WATERCOLOUR
 import cc.joycreator.joybrush.core.brush.watercolourRuntime
 import cc.joycreator.joybrush.core.brush.BrushPreset
+import cc.joycreator.joybrush.core.brush.mediaScale
+import cc.joycreator.joybrush.core.brush.scaled
 import cc.joycreator.joybrush.core.brush.FrozenBrushRegistry
 import cc.joycreator.joybrush.core.brush.FrozenBrushResult
 import cc.joycreator.joybrush.core.brush.ENGINE_SMUDGE
@@ -81,6 +81,8 @@ import cc.joycreator.joybrush.core.media.MediaStores
 import cc.joycreator.joybrush.core.grain.GrainMath
 import cc.joycreator.joybrush.core.guide.Guide
 import cc.joycreator.joybrush.core.guide.GuideSnapper
+import cc.joycreator.joybrush.core.guide.SymmetryMath
+import cc.joycreator.joybrush.core.media.MediaSafety
 import cc.joycreator.joybrush.core.symmetry.HardcodedTip
 import cc.joycreator.joybrush.core.symmetry.LaneBrush
 import cc.joycreator.joybrush.core.symmetry.SymmetryFamily
@@ -156,8 +158,15 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
      * The brush FILE in use (JB-1.05b), or null for the hard-coded round [Brush] above. Change it
      * between strokes: a stroke in progress keeps the preset it started with, so every dab of one
      * stroke comes from one file and one seed.
+     *
+     * Setting it re-reads the symmetry's safe zone: the zone is the brush's reach around the
+     * symmetry centre, so it changes with the brush.
      */
     @Volatile var preset: BrushPreset? = null
+        set(value) {
+            field = value
+            refreshSafeZone()
+        }
 
     /**
      * True once the person has moved the smoothing slider, and only then does the slider beat the
@@ -251,8 +260,54 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     /**
      * The symmetry line, when the brush is to be copied across it. The screen sets it from its guide settings and null
      * turns it off. Read at pen-down: a stroke is never copied onto a line that moved halfway through it.
+     *
+     * Setting it re-reads the safe zone: the zone is the brush's reach around the symmetry centre,
+     * so it moves with the line.
      */
     @Volatile var symmetryGuide: Guide.Symmetry? = null
+        set(value) {
+            field = value
+            refreshSafeZone()
+        }
+
+    /**
+     * The safe zone of the media symmetry, in document px: the radius about the symmetry centre the
+     * pen may paint in, or 0 when there is none. The overlay draws it (the dotted circle and the
+     * darkening outside it).
+     *
+     * It is the zone for the CURRENT guide and brush, so it changes when either does; the view says
+     * so through [onSafeZoneChanged].
+     */
+    @Volatile var safeZoneRadiusDocPx: Float = 0f
+        private set
+
+    /** True while the brush in hand is a media brush (the pencil, the watercolour or the oil). */
+    @Volatile var mediaBrushInHand: Boolean = false
+        private set
+
+    /** Called on the UI thread when the safe zone changed (the guide moved, or the brush changed). */
+    var onSafeZoneChanged: (() -> Unit)? = null
+
+    /**
+     * Re-reads the safe zone: the radius the media brushes may paint in under the current guide.
+     *
+     * The radius is the one the media engine will use for the stroke (the pin's own placement of the
+     * window, and the brush's own reach): see [MediaSafety.safeRadiusFor]. It is zero when there is
+     * no media brush in hand, no symmetry, or no safe zone at all — a brush that reaches further than
+     * the window can hold is refused in words when the stroke begins.
+     */
+    private fun refreshSafeZone() {
+        val p = preset
+        val spec = p?.media
+        mediaBrushInHand = spec != null
+        val guide = symmetryGuide?.takeIf { it.count >= 2 }
+        val centre = guide?.let { SymmetryMath.centre(it) }
+        val radius = if (centre != null && spec != null && p != null) {
+            MediaSafety.safeRadiusFor(centre.x, centre.y, spec.scaled(p.mediaScale()).reachDocPx())
+        } else 0.0
+        safeZoneRadiusDocPx = if (radius > 0.0) radius.toFloat() else 0f
+        onSafeZoneChanged?.invoke()
+    }
 
     /** Called on the UI thread when the stroke in progress locks onto a guide (true) and when it ends (false). */
     var onGuideLock: ((Boolean) -> Unit)? = null
@@ -1190,6 +1245,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                     mediaCanvas.release()
                     post { if (drawing && (mediaStroke || mediaErase)) cancelStroke(); onRefused?.invoke(e.message ?: "The pencil, watercolour or oil stroke could not be painted") }
                 }
+                // A frame that would not fit the pinned window is REFUSED, in words: the sentence waits here
+                // and is said once, on the UI thread.
+                mediaCanvas.takeRefusal()?.let { why -> post { onRefused?.invoke(why) } }
                 frameStats.afterMedia()
                 if(engine.watercolourFrame(SystemClock.uptimeMillis())) reportHistory()
                 if(engine.watercolourAnimating) super@JbCanvasView.requestRender()
@@ -1572,6 +1630,11 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     private var lastMediaArgb: Int? = null
     /** GL thread: what the history buttons last heard, so running water reports only when the undo stack changes. */
     private var mediaHistorySeen = Pair(-1, false)
+    /**
+     * The symmetry guide of the media stroke in progress, read ONCE at pen-down and frozen for the
+     * whole stroke (null: the ordinary stroke, and the window follows the pen).
+     */
+    private var mediaSymmetry: Guide.Symmetry? = null
 
     /** The active layer's kind, from the document; a layer the document has not seen yet is paint. */
     private fun activeLayerKind(): LayerKind = boardDocument?.layers?.firstOrNull { it.id == activeLayer }?.kind ?: LayerKind.PAINT
@@ -1582,6 +1645,18 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             drawing = false
             onRefused?.invoke("A mask is painted with paint brushes. Pencil, watercolour and oil paint on the layer itself.")
             return
+        }
+        // The symmetry line, read ONCE at pen-down and frozen for the whole stroke: a stroke is
+        // never copied onto a line that moved halfway through it. Under a guide the media window
+        // is PINNED on the symmetry centre, so that every copy's wet paint lives in one water field.
+        val symmetry = symmetryGuide?.takeIf { it.count >= 2 }
+        mediaSymmetry = symmetry
+        if (symmetry != null) {
+            // The cap that bit is said out loud, ONCE: the owner asked for "a small note when the
+            // cap hits", and a person painting ten strokes must hear it once, not ten times.
+            val family = SymmetryLanes.familyFor(p.engine, p.media?.medium)
+            val note = capNote.sentenceFor(SymmetryLanes.capFor(symmetry, family))
+            if (note != null) post { onRefused?.invoke(note) }
         }
         // The common refusals come BEFORE any layer is made (the Lead, 4c review): a GPU that cannot, a phone without the
         // free memory for the window. Said in words; nothing changes.
@@ -1632,13 +1707,14 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         val p = strokePreset ?: return
         val samples = MotionEventSamples.from(ev, idx, { x, y -> view.screenToDoc(x, y) }, view.rotation)
         val snap = snapper
-        val out = ArrayList<MediaSample>(samples.size)
+        val out = ArrayList<PenSample>(samples.size)
         for (s in samples) {
             // A predicted point is drawn for latency elsewhere; paint and water cannot be taken back, so media never uses one.
             if (s.predicted) continue
             val placed = snap?.map(s) ?: s
-            // A tuned pencil knows its own pen reach (the tilt that counts as lying flat); every other media brush uses the app's.
-            out += MediaInput.sample(p.response.apply(placed), p.media?.stick?.tuning?.tiltReachDeg ?: MediaInput.REACH_DEG)
+            // The brush hears the pen (its response curves); the media engine reads the sample after
+            // it has been transformed into each copy's own frame (MediaCanvas.add).
+            out += p.response.apply(placed)
         }
         if (snap != null && snap.locked && !lockShown) { lockShown = true; onGuideLock?.invoke(true) }
         if (out.isEmpty()) return
@@ -1655,17 +1731,22 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             onGl {
                 // Without the board document a save would drop the media state, so nothing is painted - and that is always
                 // said: the reason when making the document failed (above), else a sentence here. Never a silent stroke.
-                if (engine.boardDocument != null) mediaCanvas.begin(target, p, argb, belly, first.x, first.y, now)?.let { why -> post { onRefused?.invoke(why) } }
-                else if (!mediaDocRefused) post { onRefused?.invoke("This drawing could not take pencil, watercolour or oil") }
+                if (engine.boardDocument != null) {
+                    mediaCanvas.begin(target, p, argb, belly, first.x.toDouble(), first.y.toDouble(), now, mediaSymmetry)
+                        ?.let { why -> post { onRefused?.invoke(why) } }
+                } else if (!mediaDocRefused) post { onRefused?.invoke("This drawing could not take pencil, watercolour or oil") }
             }
         }
-        onGl { mediaCanvas.add(out) }
+        // A stroke that leaves the safe zone is REFUSED, in words, once: the sentence is returned
+        // (never thrown - this runs on the GL thread, outside the draw frame's try/catch).
+        onGl { mediaCanvas.add(out)?.let { why -> post { onRefused?.invoke(why) } } }
     }
 
     private fun finishMediaStroke() {
         resetSnapper(fresh = false)
         drawing = false
         mediaStroke = false; mediaErase = false; mediaBegun = false
+        mediaSymmetry = null
         smoother = null; placer = null; tracker = null
         strokePreset = null; strokeDabber = null; strokeWatercolour = null; scatterRng = null; strokeErase = false; strokeTuft = null
         onGl {

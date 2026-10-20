@@ -133,12 +133,18 @@ class SymmetryLaneSet(
  * be told. Saying it ONCE is the view's business: the core reports WHICH cap applied
  * ([SymmetryLaneSet.cap]) and the view remembers whether it has already said it.
  *
- * ## The families this phase does NOT copy
- *
- * The tuft engine lays footprints, the legacy watercolour engine keeps its own dab array, the
- * fill pen rasterises a shape, and the media brushes paint through the media engine: none of them
- * is a stroke of dabs, and none of them can be copied by running a brush again. They are refused
- * in words by [refusalFor] rather than half-drawn.
+     * ## The families this phase does NOT copy
+     *
+     * The tuft engine lays footprints, the legacy watercolour engine keeps its own dab array and
+     * the fill pen rasterises a shape: none of them is a stroke of dabs, and none of them can be
+     * copied by running a brush again. They are refused in words by [refusalFor] rather than
+     * half-drawn.
+     *
+     * The MEDIA families — the pencil, the watercolour and the oil — ARE copied (JB-2.12a's
+     * Phase E): the media engine paints them through one window pinned on the symmetry centre, so
+     * that every copy's wet paint lives in one water field. Their caps above are their caps, and
+     * the three numbers are PROVISIONAL until the media phase has measured them on the phone.
+
  */
 object SymmetryLanes {
 
@@ -159,7 +165,8 @@ object SymmetryLanes {
      *
      * The ink and pen family — the stamp family — may make thirty copies. The media families are
      * capped per medium — dry sixteen, wet eight, paste eight — and those three are PROVISIONAL
-     * until the media phase measures them on the phone.
+     * until the media phase measures them on the phone (the media phase now COPIES them, so the
+     * numbers are live: they are the copies the pencil, the watercolour and the oil may make).
      *
      * The families the owner did not name — the eraser, smudge and push dabs, and the three that
      * are refused in this phase — take the guard: they are not capped below thirty copies.
@@ -223,14 +230,17 @@ object SymmetryLanes {
      *
      * A refusal in words, never a silent single lane: a person who asks for symmetry and gets
      * one stroke with no word has been told a lie by omission.
+     *
+     * The MEDIA families are NOT refused any more (JB-2.12a's Phase E): the pencil, the
+     * watercolour and the oil are copied by the media engine's lanes, and the caps above are
+     * their caps. The tuft engine lays footprints, the legacy watercolour engine keeps its own
+     * dab array and the fill pen rasterises a shape: none of them is a stroke of dabs, and none
+     * of them can be copied by running a brush again.
      */
     fun refusalFor(family: SymmetryFamily): String? = when (family) {
         SymmetryFamily.TUFT,
         SymmetryFamily.WATERCOLOUR,
         SymmetryFamily.FILL,
-        SymmetryFamily.MEDIA_DRY,
-        SymmetryFamily.MEDIA_WET,
-        SymmetryFamily.MEDIA_PASTE,
         -> "Symmetry is not available for this brush."
         else -> null
     }
@@ -273,6 +283,41 @@ object SymmetryLanes {
             lanes.add(lane(copy, frameFor(copy), brush, guide.symmetric, seedFor(guide, i + 1, seed), smoothing, screenPerDoc))
         }
         return SymmetryLaneSet(lanes, requested, family, limit)
+    }
+
+    /**
+     * The lanes of a MEDIA symmetry stroke: the ORIGINAL first, then the copies.
+     *
+     * The copies and the cap are the stamp path's ([build]): the same guide, the same table, the
+     * same words when the cap bites. What is different is what a lane IS: a media lane is the
+     * copy's MAP and the seed (see [MediaLane]), because the media engine paints through water
+     * and paste and cannot be run twice on the same sample. The engine makes the lane's own
+     * spline and its own wet, dry or paste builder from them.
+     *
+     * Every lane shares ONE seed: the copies are the same brush (the owner).
+     */
+    fun buildMedia(guide: Guide.Symmetry, family: SymmetryFamily, seed: Long): MediaLaneSet {
+        val copies = SymmetryMath.copies(guide)
+        val requested = copies.size
+        val limit = copyCapFor(family)
+        val kept = copies.take(limit)
+        val lanes = ArrayList<MediaLane>(kept.size + 1)
+        lanes.add(MediaLane(null, seed, guide.symmetric))
+        for (copy in kept) lanes.add(MediaLane(copy, seed, guide.symmetric))
+        return MediaLaneSet(lanes, requested, family, limit)
+    }
+
+    /**
+     * The cap that would apply to [guide] under [family], without building the lanes: the number
+     * the app says out loud, and null when no cap bites.
+     *
+     * It is the same rule [build] and [buildMedia] use — the copies the guide asks for against
+     * the family's cap — said here so that the view can say the note without building a stroke.
+     */
+    fun capFor(guide: Guide.Symmetry, family: SymmetryFamily): SymmetryCap? {
+        val requested = SymmetryMath.copies(guide).size
+        val limit = copyCapFor(family)
+        return if (requested > limit) SymmetryCap(family, limit) else null
     }
 
     /**

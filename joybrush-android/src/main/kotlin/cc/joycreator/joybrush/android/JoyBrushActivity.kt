@@ -465,6 +465,14 @@ class JoyBrushActivity : Activity() {
             onChanged = { next, done -> guides = next; placeSymmetryWidget(); if (done) guidesChanged() }
         }
         root.addView(guideOverlay, FrameLayout.LayoutParams(MATCH, MATCH))
+        // The media brushes' safe zone: the canvas knows the brush's reach and the pin's own window,
+        // so it hands the radius over; the overlay draws the circle and the darkening outside it.
+        val showSafeZone = {
+            guideOverlay.mediaBrushInHand = canvas.mediaBrushInHand
+            guideOverlay.safeZoneRadiusDocPx = canvas.safeZoneRadiusDocPx
+        }
+        canvas.onSafeZoneChanged = showSafeZone
+        showSafeZone()
         // The symmetry widget floats beside the line: over the drawing and the guide, under the chrome.
         symmetryWidget = SymmetryWidgetView(kit).apply {
             onChanged = { next, done ->

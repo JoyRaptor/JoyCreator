@@ -22,6 +22,7 @@ import kotlin.math.atan2
 import kotlin.math.hypot
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -398,40 +399,161 @@ class SymmetryLaneTest {
     // ---- 7. the caps -----------------------------------------------------------------------------
 
     /**
-     * The caps are the owner's answer, and a cap that bites is REPORTED so the app can say so.
+     * The caps are the owner's answer, and the owner's answer counts COPIES.
      *
-     * The stamp family is not capped below thirty copies and the hard guard is sixty lanes - which
-     * is what a kaleidoscope of thirty makes. The media families are capped per medium, and those
-     * numbers are the media phase's to measure; they live in the one table so that phase has one
+     * The owner (2026-10-19): *"May I cap copies per brush family on the Note 9 (ink/pen up to
+     * ~30, pencil ~16, watercolour ~8, oil ~4-8), and show a small note when the cap hits?"* — so
+     * the table is in copies: the ink and pen family (the stamp family) may make thirty copies, and
+     * the media families their own number each. The three media numbers are PROVISIONAL until the
+     * media phase measures them on the phone; they live in the one table so that phase has one
      * place to fill in.
      */
     @Test
-    fun theCapsAreTheOwnersAnswerAndTheyAreReported() {
-        assertEquals(60, SymmetryLanes.HARD_LANE_LIMIT)
-        assertEquals(60, SymmetryLanes.laneCapFor(SymmetryFamily.STAMP))
-        assertEquals(60, SymmetryLanes.laneCapFor(SymmetryFamily.SMUDGE))
-        assertEquals(16, SymmetryLanes.laneCapFor(SymmetryFamily.MEDIA_DRY))
-        assertEquals(8, SymmetryLanes.laneCapFor(SymmetryFamily.MEDIA_WET))
-        assertEquals(8, SymmetryLanes.laneCapFor(SymmetryFamily.MEDIA_PASTE))
+    fun theCapsAreTheOwnersAnswerAndTheyAreCountedInCopies() {
+        assertEquals(30, SymmetryLanes.copyCapFor(SymmetryFamily.STAMP))
+        assertEquals(16, SymmetryLanes.copyCapFor(SymmetryFamily.MEDIA_DRY))
+        assertEquals(8, SymmetryLanes.copyCapFor(SymmetryFamily.MEDIA_WET))
+        assertEquals(8, SymmetryLanes.copyCapFor(SymmetryFamily.MEDIA_PASTE))
+        // The families the owner did not name are not capped below thirty copies: they take the
+        // guard, which is more than thirty copies.
+        for (family in listOf(
+            SymmetryFamily.ERASER,
+            SymmetryFamily.SMUDGE,
+            SymmetryFamily.PUSH,
+            SymmetryFamily.TUFT,
+            SymmetryFamily.WATERCOLOUR,
+            SymmetryFamily.FILL,
+        )) {
+            assertTrue(
+                SymmetryLanes.copyCapFor(family) >= 30,
+                "$family is capped below thirty copies",
+            )
+        }
 
-        // A kaleidoscope of thirty asks for sixty lanes and gets all sixty.
+        // The lane limit is DERIVED from the copy cap - lanes = copies + 1, the original always
+        // being there - and that rule lives in ONE place.
+        for (family in SymmetryFamily.values()) {
+            assertEquals(
+                SymmetryLanes.copyCapFor(family) + 1,
+                SymmetryLanes.laneCapFor(family),
+                "$family: the lane limit is not the copy cap plus the original",
+            )
+        }
+        assertEquals(31, SymmetryLanes.laneCapFor(SymmetryFamily.STAMP))
+        assertEquals(9, SymmetryLanes.laneCapFor(SymmetryFamily.MEDIA_WET))
+    }
+
+    /**
+     * A guide that asks for more copies than the cap gets EXACTLY the cap's worth of copies, and
+     * the lanes it makes are those copies and the original.
+     *
+     * A kaleidoscope of thirty asks for fifty-nine copies: twenty-nine rotations and thirty
+     * mirrors.
+     */
+    @Test
+    fun aGuideThatAsksForMoreCopiesThanTheCapGetsExactlyTheCapInCopies() {
+        val kaleido = Guide.Symmetry(Pt(200.0, -100.0), Pt(200.0, 100.0), count = 30, kaleido = true)
+
+        // The stamp family: thirty copies.
+        val stamp = build(kaleido)
+        assertEquals(59, stamp.requestedCopies, "a kaleidoscope of thirty asks for fifty-nine copies")
+        assertEquals(30, stamp.copies, "the stamp family keeps thirty copies")
+        assertEquals(31, stamp.lanes.size, "thirty copies and the original are thirty-one lanes")
+        assertTrue(stamp.capped, "the cap bit and was not reported")
+
+        // A media family: the wet one may make eight copies, the dry one sixteen.
+        val wet = build(kaleido, family = SymmetryFamily.MEDIA_WET)
+        assertEquals(8, wet.copies, "the wet media family keeps eight copies")
+        assertEquals(9, wet.lanes.size, "eight copies and the original are nine lanes")
+        assertTrue(wet.capped, "the cap bit and was not reported")
+        val dry = build(kaleido, family = SymmetryFamily.MEDIA_DRY)
+        assertEquals(16, dry.copies, "the dry media family keeps sixteen copies")
+        assertEquals(17, dry.lanes.size, "sixteen copies and the original are seventeen lanes")
+    }
+
+    /**
+     * A guide under the cap is not capped at all: it keeps every copy it asked for, and reports no
+     * cap.
+     */
+    @Test
+    fun aGuideUnderTheCapIsNotCapped() {
+        // One mirror: ONE copy and TWO lanes.
+        val mirror = build(mirrorGuide())
+        assertEquals(1, mirror.copies)
+        assertEquals(2, mirror.lanes.size)
+        assertTrue(!mirror.capped, "one mirror is under every cap")
+        assertNull(mirror.cap, "a cap that did not bite is not reported")
+
+        // A plain guide of thirty: twenty-nine copies, which is under the ink family's thirty.
+        val thirty = build(Guide.Symmetry(Pt(0.0, 0.0), Pt(100.0, 0.0), count = 30))
+        assertEquals(29, thirty.copies)
+        assertEquals(30, thirty.lanes.size)
+        assertTrue(!thirty.capped, "twenty-nine copies is under the ink family's thirty")
+        assertNull(thirty.cap)
+    }
+
+    /**
+     * The number the cap REPORTS is the copy count - the number the sentence says - and never the
+     * lane count.
+     */
+    @Test
+    fun theCapReportsTheCopyCountAndNotTheLaneCount() {
         val kaleido = Guide.Symmetry(Pt(200.0, -100.0), Pt(200.0, 100.0), count = 30, kaleido = true)
         val stamp = build(kaleido)
-        assertEquals(60, stamp.requestedLanes, "a kaleidoscope of thirty asks for sixty lanes")
-        assertEquals(60, stamp.lanes.size)
-        assertEquals(60, stamp.limit)
-        assertTrue(!stamp.capped, "the stamp family is not capped below thirty copies")
+        val cap = assertNotNull(stamp.cap, "the cap bit and was not reported")
+        assertEquals(SymmetryFamily.STAMP, cap.family, "the cap does not name the family")
+        assertEquals(30, cap.copies, "the cap reports copies, not lanes")
+        assertEquals(31, stamp.lanes.size, "the lanes are the copies and the original")
 
-        // A family whose cap bites gets the capped set AND says so.
-        val wet = build(kaleido, family = SymmetryFamily.MEDIA_WET)
-        assertEquals(60, wet.requestedLanes)
-        assertEquals(8, wet.lanes.size, "the wet media family keeps eight lanes")
-        assertTrue(wet.capped, "the cap bit and was not reported")
-        assertEquals(8, wet.limit)
+        // The sentence says the copy count.
         assertEquals(
-            "This brush keeps symmetry to 8 copies on this phone.",
-            SymmetryLanes.capSentence(wet.lanes.size),
+            "This brush keeps symmetry to 30 copies on this phone.",
+            SymmetryLanes.capSentence(cap.copies),
         )
+        // And the lane count is NOT the number in it: thirty-one copies would say something else.
+        assertNotEquals(
+            SymmetryLanes.capSentence(cap.copies),
+            SymmetryLanes.capSentence(stamp.lanes.size),
+        )
+    }
+
+    /**
+     * The hard guard: sixty lanes, fifty-nine copies, ONE number, and nothing goes past it.
+     *
+     * The rule that turns one into the other is in one place - the copy limit is DERIVED from the
+     * lane limit - so the two cannot drift apart.
+     */
+    @Test
+    fun theHardGuardIsOneNumberAndNothingGoesPastIt() {
+        assertEquals(60, SymmetryLanes.HARD_LANE_LIMIT)
+        assertEquals(59, SymmetryLanes.HARD_COPY_LIMIT, "sixty lanes are fifty-nine copies")
+        assertEquals(SymmetryLanes.HARD_LANE_LIMIT - 1, SymmetryLanes.HARD_COPY_LIMIT)
+
+        // A kaleidoscope guide at the maximum count is capped, and it never goes past the guard.
+        val kaleido = Guide.Symmetry(Pt(200.0, -100.0), Pt(200.0, 100.0), count = 30, kaleido = true)
+        val stamp = build(kaleido)
+        assertTrue(stamp.capped, "the cap bit")
+        assertTrue(stamp.copies <= SymmetryLanes.HARD_COPY_LIMIT, "the guard was passed")
+        assertTrue(stamp.lanes.size <= SymmetryLanes.HARD_LANE_LIMIT, "the guard was passed")
+
+        // A family that is not capped below thirty copies reaches the guard and stops there: the
+        // kaleidoscope of thirty IS the guard, fifty-nine copies and sixty lanes.
+        val smudge = build(kaleido, family = SymmetryFamily.SMUDGE)
+        assertEquals(59, smudge.copies, "the guard is fifty-nine copies")
+        assertEquals(60, smudge.lanes.size, "the guard is sixty lanes")
+        assertTrue(!smudge.capped, "the guide asked for exactly the guard")
+
+        // And no family's limit is past the guard.
+        for (family in SymmetryFamily.values()) {
+            assertTrue(
+                SymmetryLanes.copyCapFor(family) <= SymmetryLanes.HARD_COPY_LIMIT,
+                "$family: the copy cap is past the guard",
+            )
+            assertTrue(
+                SymmetryLanes.laneCapFor(family) <= SymmetryLanes.HARD_LANE_LIMIT,
+                "$family: the lane cap is past the guard",
+            )
+        }
     }
 
     // ---- 8. the refusal --------------------------------------------------------------------------
@@ -497,9 +619,12 @@ class SymmetryLaneTest {
         assertEquals(30, capped.lanes.size, "the count over the cap is capped at thirty")
         assertEquals(30, capped.requestedLanes)
 
-        // And a count over the cap with the mirror on top: sixty lanes, the hard guard.
+        // And a count over the cap with the mirror on top: fifty-nine copies is all a guide may
+        // ask for, and the ink family's cap cuts even that to thirty copies and thirty-one lanes.
         val overKaleido = Guide.Symmetry(Pt(0.0, 0.0), Pt(100.0, 0.0), count = 1000, kaleido = true)
-        assertEquals(60, build(overKaleido).lanes.size)
+        val kaleido = build(overKaleido)
+        assertEquals(59, kaleido.requestedCopies, "a guide may ask for fifty-nine copies")
+        assertEquals(31, kaleido.lanes.size, "the ink family keeps thirty copies")
 
         // The lanes of a degenerate guide still draw: the original is a stroke like any other.
         val perLane = run(build(point).lanes, samples)

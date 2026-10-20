@@ -1109,6 +1109,15 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
      */
     private var symmetryPending: List<MutableList<PenSample>> = emptyList()
 
+    /**
+     * The symmetry's cap note, and the memory of having said it (JB-2.12a's Phase B).
+     *
+     * The owner asked for "a small note when the cap hits": ONE note, not one per stroke. The
+     * memory is here, on the view's side of the line, because the core's lane code is a pure
+     * function of its inputs - it reports WHICH cap applied, and this decides whether to speak.
+     */
+    private val capNote = SymmetryCapNote()
+
     // queueEvent can run before EGL is current, both at startup and after a file picker.
     // Only renderer callbacks guarantee a current context AND surface. GL-thread only.
     private val frameWork = ArrayDeque<() -> Unit>()
@@ -1924,8 +1933,12 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         // The stroke's own numbers come from LANE 0 - the original - because the engine has ONE
         // set of uniforms and the lanes' first-dab values can differ from each other.
         strokeDabber = set.original.dabber
-        // A cap that bit is said out loud, once: the stroke goes on with the capped set.
-        if (set.capped) post { onRefused?.invoke(SymmetryLanes.capSentence(set.lanes.size)) }
+        // A cap that bit is said out loud, ONCE: the owner asked for "a small note when the cap
+        // hits", and a person painting ten strokes must hear it once, not ten times. The note is
+        // said again when the brush family or the cap changes. The number in it is the COPY
+        // count - the cap's - and not the lane count.
+        val note = capNote.sentenceFor(set.cap)
+        if (note != null) post { onRefused?.invoke(note) }
     }
 
     private fun strokeBlend(p: BrushPreset?, erase: Boolean): StrokeBlend = when {

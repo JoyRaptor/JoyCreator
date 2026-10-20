@@ -39,6 +39,12 @@ import kotlin.math.max
  * copy's lane is fed the samples already transformed into the copy's frame, so the tracker's answer
  * there is already the copy's direction.
  *
+ * The frame also says where the direction STARTS. The tracker holds a heading until the pen has
+ * moved far enough for it to find one, and that heading is the copy's own: the frame's
+ * [AngleFrame.transformedDefaultHeading] — θ for a rotation, 2φ' for a reflection. Without it a
+ * copy's first dabs pointed the ORIGINAL's way. The identity frame's heading is 0, the plain +x
+ * every ordinary stroke has always started with, so a brush that is not a copy is unaffected.
+ *
  * The frame holds the copy's GEOMETRY and nothing else — the rotation, and the axis the copy is
  * reflected in. The brush's own settings stay with the brush: this class asks the frame for the
  * base and TELLS it whether the file's `tip.followDirection` is on, so the two can never disagree
@@ -53,7 +59,12 @@ class BrushDabber(val preset: BrushPreset, seed: Long, val frame: AngleFrame = A
     private val strokeRandom: Float = rng.nextFloat()
 
     private val buildUp: Boolean = preset.accumulate == "buildup"
-    private val tracker = DirectionTracker()
+
+    /**
+     * The tip's direction — and the tracker's heading BEFORE the pen has moved, which is the
+     * copy's own heading and not the original's (see the class note).
+     */
+    private val tracker = DirectionTracker(initialDirection = frame.transformedDefaultHeading)
 
     private var speedPxPerS = 0f
     private var hasTime = false

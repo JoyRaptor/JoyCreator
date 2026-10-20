@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # passtime.sh <out.json> [JB_X defines] : per-pass window vs atlas GPU timing on the Note 9 through its Chrome (phone lock, Home before/after).
 # The shaders come from C:/Temp/lead-atlas-exp (edit them there). JB_X (comma list) is added to every atlas pass's defines.
-export MSYS_NO_PATHCONV=1; ADB="$LOCALAPPDATA/Android/Sdk/platform-tools/adb.exe"; SER=$("$ADB" devices -l | grep SM_N960U | awk "{print $1}"); LOCK="$LOCALAPPDATA/Temp/jb-phone.lock"
+export MSYS_NO_PATHCONV=1; ADB="$LOCALAPPDATA/Android/Sdk/platform-tools/adb.exe"; SER=$("$ADB" devices -l | grep SM_N960U | awk '{print $1}'); LOCK="$LOCALAPPDATA/Temp/jb-phone.lock"
 ( set -o noclobber; echo "JoyBrush Lead pass timing in Chrome $(date -Iseconds)" > "$LOCK" ) 2>/dev/null || { echo "lock held: $(cat $LOCK)"; exit 1; }
 trap '"$ADB" -s $SER forward --remove tcp:9333 2>/dev/null; "$ADB" -s $SER shell input keyevent KEYCODE_HOME; rm -f "$LOCK"' EXIT
 "$ADB" -s $SER shell input keyevent KEYCODE_HOME; sleep 1

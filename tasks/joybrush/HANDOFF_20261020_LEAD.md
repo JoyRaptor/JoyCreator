@@ -54,13 +54,11 @@ Read `HANDOFF_20261019_LEAD.md` first for the rules and the lanes; this note is 
 
 ## Symmetry (the other agent's branch `lead/symmetry-1019`, a1a16627f, worktree C:/Temp/jb-symmetry)
 
-- Not yet verified by the Lead. What I read: the angle table (re-derived by hand: all four rows and the kaleidoscope axis
-  phi + theta/2 are right), `AngleFrame`, `SymmetryLane` (the transform is applied once, to the sample), the `GuideSettings`
-  decode (a bad symmetry line cannot wipe the other guides), and the `JbCanvasView` fan-out (one engine stroke, one undo step,
-  frozen at pen-down). The lane's scatter feeds the same NaN speed/direction the ordinary path does, so lane 0 matches today's stroke.
-- Still to do before it reaches main: run the suites in a worktree of its own (not in jb-symmetry while the agent works), build,
-  and test on the phone: the mirror of a round brush, a tilted/rotated brush, kaleidoscope, undo after a fan-out, Select picks
-  the group, the eraser, an editable-line stroke saved and reopened; and the media families refuse in words (E4 is not built).
+- **Lead check, 10-20 (worktree C:/Temp/lead-symcheck = lead/symmetry-1019 merged with main 4e75cea5b, branch lead/symmetry-check):**
+  - Suites green on that merge: core 2574, androidkit 1072, app 317 (0 failures).
+  - Read and re-derived by hand: the angle table (all four rows and the kaleidoscope axis phi + theta/2 are right), AngleFrame, SymmetryLane (the transform is applied once, to the sample), the GuideSettings decode (a bad symmetry line cannot wipe the other guides), the JbCanvasView fan-out (one engine stroke, one undo step, frozen at pen-down). Lane scatter feeds the same NaN speed/direction the ordinary path does.
+  - Note 9 (fresh drawing, ink brush, finger swipes by adb): Helpers -> Symmetry puts a vertical line up at once; a stroke on one side is mirrored exactly (checked the coordinates); scrubbing the count to 8 gives 8 rotated copies around the line midpoint; the Mirror chip gives the kaleidoscope (16 copies from one tap); ONE undo takes every copy back, redo returns them; no crash. Screenshots: evidence/symmetry-check-20261020/.
+  - NOT checked yet: the angle of a tilted/calligraphy tip on a copy, scatter brushes, the eraser, Select picking the group and a recolour, save and reopen, the two-finger rotate and snapping, the refusal sentence for watercolour / oil / pencil-media (E4 is not built), and speed at count 30. Branch is not merged to main.
 
 ## Waiting on the owner (unchanged from 10-19 except 1)
 

@@ -793,3 +793,19 @@ engine/View/line or helper media source changed; no merge/conflict resolution/ph
 D1–D4 engine checkpoints are ready for review. D5 sampled tips/resources are now in progress;
 full spec, app integration, Note9 performance and owner feel acceptance remain unfinished.
 
+## Unibrush D5 checkpoint — 2026-10-20 (Codex)
+
+Source/evidence: **5990e272f**, branch codex/unibrush. Explicit v16 sampled-tip sets,
+real PNG imports, immutable byte-aware frozen brushes and archive resources are implemented.
+Core2607 passed (4 optional corpus skips). Backend1082 executed: one new assertion expected
+an unsorted fixture; corrected to documented drawing order, all7 archive tests then passed.
+No runtime source changed after that full backend run. Stamp/smudge/tuft/paper shader regression
+and156 profile/quad cases pass. Sample GPU18 cases/18432 probes/max .00229069451, all9 broken
+controls detected; full image/fade/quad/RGB VBO equals individual draws on both MRT targets.
+Historical pre-Unibrush legacy shader pixels remain exact.
+
+**Held only:** tasks/joybrush/patches/UNIBRUSH_D5_{ENGINE,VIEW}.patch plus proposed test patch,
+with documented remaining activation gates. D4 then bothD5 patches apply in an outside scratch
+tree. Protected canonical Lead/scene/View/media files are untouched. No combined app compile,
+merge, Note9 performance/feel or full spec completion is claimed. Lead must activate resource-
+bearing live scene contact; legacy NativeLines continues explicit image refusal. D6 begins next.

@@ -20,8 +20,14 @@ import java.nio.ByteOrder
  */
 internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: Int, private val broken: Boolean = false) {
     private val draw = MediaAtlasDraw()
-    /** B1: the identity table. B2 ([setResidency]): whatever the host placed where; −1 = not resident. */
-    private var slotOf: (Int, Int) -> Int = MediaAtlasDraw.identity(nx, ny)
+    /**
+     * The ZERO slot (2026-10-20): the last one, never a tile's, zero in every texture (the engine clears them all when it
+     * makes them, and no pass draws a slot that is not a tile's). A tile that is not here is read there: the quadrant reads
+     * of jb_media_atlas.glsl need no "is it here" test, which cost the Note 9's water a third of its time.
+     */
+    val zeroSlot = nx * ny - 1
+    /** B1: the identity table (minus the zero slot). B2 ([setResidency]): whatever the host placed where; −1 = not resident. */
+    private var slotOf: (Int, Int) -> Int = MediaAtlasDraw.identity(nx, ny).let { id -> { x: Int, y: Int -> id(x, y).takeIf { it != zeroSlot } ?: -1 } }
     private var grid = intArrayOf(0, 0, nx, ny)
     /** True once a host places tiles freely ([setResidency]): the engine then has no window edge. */
     var free = false; private set
@@ -35,7 +41,7 @@ internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: I
     private val dabVao: Int
 
     init {
-        require(nx > 0 && ny > 0) { "an atlas needs at least one slot" }
+        require(nx * ny >= 2) { "an atlas needs a slot and its zero slot" }
         val ids = IntArray(1)
         GLES30.glGenTextures(1, ids, 0); table = ids[0]
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, table)
@@ -76,7 +82,7 @@ internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: I
     /** The page-table uniforms for a pass whose target slots are `1 shl shift` (8 full resolution, 7 the bead field). */
     /** Media Atlas v2 B2: the page table becomes [map] (tile key -> slot), uploaded at once; the engine loses its window edge. */
     fun setResidency(map: Map<Long, Int>) {
-        for (s in map.values) require(s in 0 until nx * ny) { "slot $s is not in this atlas" }
+        for (s in map.values) require(s in 0 until zeroSlot) { "slot $s is not a tile slot of this atlas" }
         val t = MediaAtlasPlacement.table(map, walls)
         free = true; resident = HashMap(map)
         slotOf = t::slotOf; grid = intArrayOf(t.x, t.y, t.w, t.h)
@@ -158,7 +164,9 @@ internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: I
         u.f1("u_atlasShift", shift)
         u.i4("u_atlasWrap", 0, 0, 0, 0)
         u.i4("u_atlasWalls", if (wallsOn) 1 else 0, 0, 0, 0)
+        val (zx, zy) = slotTexel(zeroSlot); zero[0] = zx; zero[1] = zy; u.i2v("u_atlasZero", zero)
     }
+    private val zero = IntArray(2)
 
     /** B3: tiles the current pass leaves alone even though they are resident (a drip's dried tail, out of the water). */
     var skip: Set<Long> = emptySet()

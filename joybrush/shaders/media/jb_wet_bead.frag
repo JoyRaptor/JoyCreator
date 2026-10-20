@@ -22,6 +22,7 @@ uniform float u_sigma;      // in half-resolution cells (at most 4.8: the kernel
 out vec4 o_bead;
 
 void main() {
+    jb_atlasBegin();
     ivec2 c = jb_cell();             // half-resolution cell
     if (u_pass == 0) {
         ivec2 size = textureSize(u_w0, 0);

@@ -47,7 +47,8 @@ internal object MediaAtlasProbe {
         val kinds = listOf("window", "atlas", "scrambled", "broken", "pasteCopy")
         val engines = kinds.map { k ->
             MediaLayerEngine(shaders, atlasMode = k != "window" && k != "pasteCopy", atlasBroken = k == "broken").also {
-                it.init(SIZE, SIZE); if (k == "pasteCopy") it.pastePairs = false
+                // An atlas engine gets one more row of slots: its last slot is the zero slot (MediaAtlasGl.zeroSlot), never a tile's.
+                it.init(SIZE, if (it.atlasMode) SIZE + 256 else SIZE); if (k == "pasteCopy") it.pastePairs = false
             }
         }
         // B2's free placement: the same 3 × 3 tiles, every one in a slot that is not its own (no two neighbours adjacent in

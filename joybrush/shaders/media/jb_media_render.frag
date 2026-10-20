@@ -41,6 +41,7 @@ float crushAt(vec2 lp) { return jb_bilinearL(u_paperState, lp).r; }
 void main() {
     vec2 docPx = (gl_FragCoord.xy - u_pan) / u_zoom;
     vec2 lp = (docPx - u_layerOrigin) * u_layerScale;
+    jb_atlasBeginAt(ivec2(floor(lp)));
     float lpm = u_pxPerMm * u_layerScale;          // layer px per mm
     if (!jb_insidePx(lp, u_targetSize)) {
         o_color = vec4(0.16, 0.16, 0.17, 1.0);

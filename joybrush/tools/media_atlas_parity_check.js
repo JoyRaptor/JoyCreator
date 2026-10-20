@@ -54,7 +54,7 @@ function srcSet(read, ...defs) {
   const o = {}; for (const [k, f] of Object.entries(FILES)) o[k] = defs.length ? define(expand(f, read), ...defs) : expand(f, read);
   o.quadPlain = defs.length ? define(expand(FILES.quad, read), ...defs, 'JB_PLAIN_TARGET') : o.quad;   // the paste brush's cells
   // MediaLayerEngine's atlas build of every pass drawn slot by slot (ATLAS_NBR).
-  if (defs.includes('JB_ATLAS')) for (const k of ['apply', 'copy', 'bake', 'flux', 'update', 'pasteDab', 'bead', 'eraseApply', 'render']) o[k] = define(expand(FILES[k], read), ...defs, 'JB_ATLAS_NBR');
+  if (defs.includes('JB_ATLAS')) for (const k of ['apply', 'copy', 'bake', 'flux', 'update', 'pasteDab', 'bead', 'eraseApply', 'render']) o[k] = define(expand(FILES[k], read), ...defs, 'JB_ATLAS_NBR', ...(process.env.JB_X ? process.env.JB_X.split(',') : []));
   if (defs.includes('JB_ATLAS')) o.pasteBrush = define(expand(FILES.pasteBrush, read), ...defs, 'JB_ATLAS_NBR', 'JB_ATLAS_NBR5');
   return o;
 }
@@ -378,7 +378,7 @@ async function PAGE(P) {
   // Slot s of a pass at resolution side = 1 << shift sits at ((s % N) << shift, floor(s / N) << shift); identity: tile (x, y) -> slot x + y·N.
   const tableIdentity = new Int32Array(N * N), tableBroken = new Int32Array(N * N);
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { tableIdentity[y * N + x] = x + y * N; tableBroken[y * N + x] = (x + 1) % N + y * N; }
-  const atlasU = (E, shift) => E.atlas ? { u_atlasTable: { tex: E.table }, u_atlasGrid: [0, 0, N, N], u_atlasSlotsX: N, u_atlasShift: shift, u_atlasWrap: [0, 0, 0, 0], u_atlasWalls: [E.wallsOn ? 1 : 0, 0, 0, 0] } : {};
+  const atlasU = (E, shift) => E.atlas ? { u_atlasTable: { tex: E.table }, u_atlasGrid: [0, 0, N, N], u_atlasSlotsX: N, u_atlasShift: shift, u_atlasWrap: [0, 0, 0, 0], u_atlasWalls: [E.wallsOn ? 1 : 0, 0, 0, 0], u_atlasZero: [0, H] } : {};
   // A layer-shaped pass over rect r (layer px at the pass's resolution). Window: one quad. Atlas: one instance per slot.
   // MediaAtlasGl.neighbours: a slot's 3x3 neighbour slots from this engine's table (identity, or the broken control's).
   function nbrOf(E, tx, ty, rad = 1) {
@@ -497,11 +497,14 @@ async function PAGE(P) {
   function makeEngine(kind, seed) {
     const atlas = kind === 'atlas' || kind === 'broken', Pg = PROG[atlas ? 'atlas' : kind];
     const sd = seedState(seed);
-    const st = [0, 1].map((i) => ({ p0: tex(W, H, 'rgba32f', i ? sd.g0 : sd.p0), p1: tex(W, H, 'rgba32f', i ? sd.g1 : sd.p1), paper: tex(W, H, 'rgba32f', i ? sd.g2 : sd.ps) }));
-    const ws = [0, 1].map(() => ({ w0: tex(W, H, 'rgba32f', sd.w0), w1: tex(W, H, 'rgba32f', sd.w1), flux: tex(W, H, 'rgba16f') }));
-    const run = tex(W, H, 'rg16f'), bw = W >> 1, bh = H >> 1, bead = [tex(bw, bh, 'rgba16f'), tex(bw, bh, 'rgba16f')];
-    const in0 = tex(W, H, 'rgba16f'), in1 = tex(W, H, 'rgba16f');
-    const bakeTex = tex(W, H, 'rgba16f'), fluidBake = tex(W, H, 'r8'), waterBake = tex(W, H, 'r16f');
+    // The atlas builds get one more row of slots: its first is the ZERO slot (u_atlasZero, jb_media_atlas.glsl), never a
+    // tile's and zero in every texture. Readbacks and passes stay on the W x H window above it.
+    const AH = atlas ? H + 256 : H, pad = (d) => { if (!atlas || !d) return d; const o = new d.constructor(W * AH * 4); o.set(d); return o; };
+    const st = [0, 1].map((i) => ({ p0: tex(W, AH, 'rgba32f', pad(i ? sd.g0 : sd.p0)), p1: tex(W, AH, 'rgba32f', pad(i ? sd.g1 : sd.p1)), paper: tex(W, AH, 'rgba32f', pad(i ? sd.g2 : sd.ps)) }));
+    const ws = [0, 1].map(() => ({ w0: tex(W, AH, 'rgba32f', pad(sd.w0)), w1: tex(W, AH, 'rgba32f', pad(sd.w1)), flux: tex(W, AH, 'rgba16f') }));
+    const run = tex(W, AH, 'rg16f'), bw = W >> 1, bh = AH >> 1, bead = [tex(bw, bh, 'rgba16f'), tex(bw, bh, 'rgba16f')];
+    const in0 = tex(W, AH, 'rgba16f'), in1 = tex(W, AH, 'rgba16f');
+    const bakeTex = tex(W, AH, 'rgba16f'), fluidBake = tex(W, AH, 'r8'), waterBake = tex(W, AH, 'r16f');
     const E = { kind, atlas, P: Pg, st, ws, run, bead, in0, in1, bakeTex, fluidBake, waterBake, wc: 0, bw, bh };
     E.tableData = kind === 'broken' ? tableBroken : tableIdentity;
     E.table = tex(N, N, 'r32i', E.tableData);
@@ -514,10 +517,10 @@ async function PAGE(P) {
     E.wetCopy = [fbo(ws[0].w0, ws[0].w1, ws[0].flux, run), fbo(ws[1].w0, ws[1].w1, ws[1].flux)];
     E.wFbo = ws.map((w) => fbo(w.w0, w.w1));
     E.inFbo = fbo(in0, in1);
-    E.delta = tex(W, H, 'rgba16f'); E.deltaFbo = fbo(E.delta); clearFbo(E.deltaFbo);
-    E.cover = tex(W, H, 'rgba16f'); E.coverFbo = fbo(E.cover); clearFbo(E.coverFbo);
-    E.lookTex = tex(W, H, 'rgba8'); E.lookFbo = fbo(E.lookTex);
-    E.ground = tex(W, H, 'rgba8', groundBytes);
+    E.delta = tex(W, AH, 'rgba16f'); E.deltaFbo = fbo(E.delta); clearFbo(E.deltaFbo);
+    E.cover = tex(W, AH, 'rgba16f'); E.coverFbo = fbo(E.cover); clearFbo(E.coverFbo);
+    E.lookTex = tex(W, AH, 'rgba8'); E.lookFbo = fbo(E.lookTex);
+    E.ground = tex(W, AH, 'rgba8', pad(groundBytes));
     const r = rngf(seed + 5), cells = (k) => { const a = new Float32Array(32 * 8 * 4); for (let i = 0; i < 32 * 8; i++) { a[i * 4] = k ? 0.3 * r() : 2 * r(); a[i * 4 + 1] = k ? 0 : 1.5 * r(); a[i * 4 + 2] = k ? 0 : r(); a[i * 4 + 3] = k ? 0 : 0.4 * r(); } return a; };
     E.brush = [0, 1].map(() => [tex(32, 8, 'rgba32f', cells(0)), tex(32, 8, 'rgba32f', cells(1))]);
     E.brushFbo = E.brush.map((b) => fbo(b[0], b[1])); E.bc = 0;

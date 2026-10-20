@@ -34,6 +34,7 @@ layout(location = 1) out vec4 o_p1;
 layout(location = 2) out vec4 o_paper;
 
 void main() {
+    jb_atlasBegin();
     ivec2 c = jb_cell();
     vec2 lp = jb_fragPx();          // this cell's centre, exact (not the interpolated v_layerPx)
     vec4 p0 = jb_fetch(u_p0, c);

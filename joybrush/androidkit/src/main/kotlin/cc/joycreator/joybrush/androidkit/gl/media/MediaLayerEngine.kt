@@ -82,6 +82,13 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     private lateinit var progEraseDab: MediaProgram
     private lateinit var progErase: MediaProgram
     private lateinit var progActivity: MediaProgram
+    /** The water's passes built with JB_ATLAS_WALLS: drawn instead while a drained tile is a wall (MediaAtlasGl.wallsOn). */
+    private var progFluxW: MediaProgram? = null
+    private var progUpdateW: MediaProgram? = null
+    private var progBeadW: MediaProgram? = null
+    private fun fluxProgram() = atlas?.takeIf { it.wallsOn }?.let { progFluxW } ?: progFlux
+    private fun updateProgram() = atlas?.takeIf { it.wallsOn }?.let { progUpdateW } ?: progUpdate
+    private fun beadProgram() = atlas?.takeIf { it.wallsOn }?.let { progBeadW } ?: progBead
 
     /**
      * Every media program, in compile order: field setter, vertex, fragment, label, and whether it draws into the paste
@@ -102,6 +109,11 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         ProgramSpec({ progEraseDab = it }, "jb_media_erase_dab.vert", "jb_media_erase_dab.frag", "media erase dab"),
         ProgramSpec({ progErase = it }, "jb_media_quad.vert", "jb_media_erase_apply.frag", "media erase", atlasDefs = ATLAS_NBR),
         ProgramSpec({ progActivity = it }, "jb_media_screen.vert", "jb_wet_activity.frag", "media wet activity"),
+    ) + if (!atlasMode) emptyList() else listOf(
+        // The quadrant reads pay nothing for walls; these do, and only run while one exists (jb_media_atlas.glsl).
+        ProgramSpec({ progFluxW = it }, "jb_media_quad.vert", "jb_wet_flux.frag", "media wet flux (walls)", atlasDefs = ATLAS_NBR_WALLS),
+        ProgramSpec({ progUpdateW = it }, "jb_media_quad.vert", "jb_wet_update.frag", "media wet update (walls)", atlasDefs = ATLAS_NBR_WALLS),
+        ProgramSpec({ progBeadW = it }, "jb_media_quad.vert", "jb_wet_bead.frag", "media wet bead (walls)", atlasDefs = ATLAS_NBR_WALLS),
     )
     private class ProgramSpec(val set: (MediaProgram) -> Unit, val vert: String, val frag: String, val label: String, val plain: Boolean = false,
                               /** More defines for the atlas build only (the look's JB_ATLAS_NBR). */ val atlasDefs: List<String> = emptyList())
@@ -287,6 +299,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         fluidBake = MediaTex.make(w, h, GLES30.GL_R8, GLES30.GL_RED, GLES30.GL_UNSIGNED_BYTE, GLES30.GL_NEAREST)
         waterBake = MediaTex.make(w, h, GLES30.GL_R16F, GLES30.GL_RED, GLES30.GL_HALF_FLOAT)
         bakeFbo = MediaTex.fbo(bakeTex, fluidBake, waterBake)
+        clearFbo(bakeFbo)   // the atlas's zero slot must read as zero in every texture (and made textures start undefined)
     }
 
     private fun ensureWet() {
@@ -299,6 +312,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         beadW = (w + 1) / 2; beadH = (h + 1) / 2
         bead = IntArray(2) { MediaTex.make(beadW, beadH) }
         beadFbo = IntArray(2) { MediaTex.fbo(bead[it]) }
+        for (f in beadFbo) clearFbo(f)
         fluxFbo = IntArray(2) { MediaTex.fbo(ws[it].flux, run) }
         // One per (water buffer written, state buffer written): the paint planes ping-pong with the substeps (see wetFrame).
         updFbo = IntArray(4) { MediaTex.fbo(ws[it shr 1].w0, ws[it shr 1].w1, state[it and 1].p0, state[it and 1].p1) }
@@ -386,8 +400,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     }
     /** The engine's texture width (layer px at full resolution): the atlas's slots × 256 across. */
     val textureWidth: Int get() = w
-    /** How many slots the atlas has (B2: one of them is staging). */
-    val slotCount: Int get() = (w / MediaAtlasDraw.SIDE) * (h / MediaAtlasDraw.SIDE)
+    /** How many slots the atlas hands out (B2: one of them is staging). The last physical slot is the ZERO slot, never a tile's. */
+    val slotCount: Int get() = (w / MediaAtlasDraw.SIDE) * (h / MediaAtlasDraw.SIDE) - 1
     fun slotTexel(slot: Int): Pair<Int, Int> = requireNotNull(atlas) { "not an atlas engine" }.slotTexel(slot)
     fun setResidency(map: Map<Long, Int>) { requireNotNull(atlas) { "not an atlas engine" }.setResidency(map) }
     fun toLayerPx(docX: Double, docY: Double): Pair<Float, Float> = ((docX - originX) * scale).toFloat() to ((docY - originY) * scale).toFloat()
@@ -955,12 +969,12 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
             if (tilted) mediaTrace("JB.media.wet.bead") { beadPasses(a.w0, rect, beadCells) }
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fluxFbo[bi])
             GLES30.glViewport(0, 0, w, h)
-            val fu = progFlux.use()
+            val fu = fluxProgram().use()
             common(fu); wetFrameUniforms.apply(fu)
             MediaUniforms.wetFlux(fu, bead[0], src.p0, a.w0, a.flux, bakeTex, fluidBake, waterBake, rect, w, h)
             mediaTrace("JB.media.wet.flux") { quad(rect) }
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, updFbo[bi * 2 + 1 - (k and 1)])
-            val pu = progUpdate.use()
+            val pu = updateProgram().use()
             common(pu); wetFrameUniforms.apply(pu)
             MediaUniforms.wetUpdate(pu, a.w0, a.w1, b.flux, run, src.p0, src.p1, bakeTex, waterBake, fluidBake, in0, in1,
                 if (k == 0 && useInput) 1 else 0, rect, w, h)
@@ -1021,7 +1035,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         fun pass(fbo: Int, pass: Int, src: Int, axisX: Float, axisY: Float) {
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
             GLES30.glViewport(0, 0, beadW, beadH)
-            val bu = progBead.use()
+            val bu = beadProgram().use()
             common(bu); MediaUniforms.bead(bu, hr, beadW, beadH, sigma, pass, w0, src, axisX, axisY)
             atlas?.uniforms(bu, MediaAtlasDraw.SHIFT - 1)   // the half-resolution field's slots are 128 cells
             quad(hr, MediaAtlasDraw.SHIFT - 1)
@@ -1105,7 +1119,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         GLES30.glDisable(GLES30.GL_BLEND)
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, updFbo[bi * 2 + 1])
         GLES30.glViewport(0, 0, w, h)
-        val pu = progUpdate.use()
+        val pu = updateProgram().use()
         common(pu); wetFrameUniforms.apply(pu)
         for (r in rects) {
             MediaUniforms.wetUpdate(pu, ws[wc].w0, ws[wc].w1, ws[bi].flux, run, state[0].p0, state[0].p1, bakeTex, waterBake, fluidBake,
@@ -1224,7 +1238,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
                 pxPerMm, paper.stats.toothMm, look)
             GLES30.glBindVertexArray(emptyVao)
             val a = atlas
-            if (free && a != null) {
+            if (a != null) {   // identity (the device probe) too: every NBR look draw needs its tile's neighbours
                 // Each slot's texels map back to layer px through u_pan: gl_FragCoord − pan = layer px (exact integers at scale 1).
                 a.forEachPart(rect) { slot, tx, ty, _, _, _, _ ->
                     if (a.scissorSlot(slot, tx, ty, rect)) {
@@ -1328,5 +1342,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
  * (JB_ATLAS_NBR, jb_media_atlas.glsl): compiles in a fraction of the time and runs near the window's speed.
  */
 private val ATLAS_NBR = listOf("JB_ATLAS_NBR")
+/** The water's passes while a drained tile is a wall: the same reads plus the wall test (jb_media_atlas.glsl). */
+private val ATLAS_NBR_WALLS = listOf("JB_ATLAS_NBR", "JB_ATLAS_WALLS")
 /** The paste brush's build: the same, 5x5 around the step (its target is the brush's cells, not a slot). */
 private val ATLAS_NBR5 = listOf("JB_ATLAS_NBR", "JB_ATLAS_NBR5")

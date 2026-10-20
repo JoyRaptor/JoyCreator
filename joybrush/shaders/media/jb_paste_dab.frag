@@ -36,6 +36,7 @@ float surfaceAt(vec2 lp) {
 }
 
 void main() {
+    jb_atlasBegin();
     // The cell and its centre, exact (not interpolated): layer px, and the doc px the quad's v_docPx interpolates.
     ivec2 cell = jb_cell();
     vec2 layerPx = jb_fragPx();

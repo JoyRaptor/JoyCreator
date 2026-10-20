@@ -413,16 +413,19 @@ async function PAGE(P) {
   // =================================================================================================================
   function makeEngine(kind, seed) {
     const atlas = kind !== 'window', W = atlas ? AW : LW, Pg = PROG[atlas ? 'atlas' : 'window'];
+    // An atlas has one more row of slots below its own: the first is the ZERO slot (u_atlasZero, jb_media_atlas.glsl),
+    // never a tile's and zero in every texture (WebGL zero-fills). Nothing else reads or writes that row.
+    const TH = atlas ? W + 256 : W;
     const sd = seedState(seed);
     const E = { kind, atlas, P: Pg, W, wc: 0, bw: W >> 1, reachOn: kind !== 'noRing', seamReads: 0, maxResident: 0, loads: 0 };
-    const T = (fmt, data) => tex(W, W, fmt, atlas ? null : data);
+    const T = (fmt, data) => tex(W, TH, fmt, atlas ? null : data);
     E.st = [0, 1].map((i) => ({ p0: T('rgba32f', i ? sd.g0 : sd.p0), p1: T('rgba32f', i ? sd.g1 : sd.p1), paper: T('rgba32f', i ? sd.g2 : sd.ps) }));
-    E.ws = [0, 1].map(() => ({ w0: T('rgba32f', sd.w0), w1: T('rgba32f', sd.w1), flux: tex(W, W, 'rgba16f') }));
-    E.run = tex(W, W, 'rg16f'); E.bead = [tex(E.bw, E.bw, 'rgba16f'), tex(E.bw, E.bw, 'rgba16f')];
-    E.in0 = tex(W, W, 'rgba16f'); E.in1 = tex(W, W, 'rgba16f');
-    E.bakeTex = tex(W, W, 'rgba16f'); E.fluidBake = tex(W, W, 'r8'); E.waterBake = tex(W, W, 'r16f');
-    E.delta = tex(W, W, 'rgba16f'); E.cover = tex(W, W, 'rgba16f');
-    E.lookTex = tex(W, W, 'rgba8'); E.ground = tex(W, W, 'rgba8', atlas ? null : groundBytes);
+    E.ws = [0, 1].map(() => ({ w0: T('rgba32f', sd.w0), w1: T('rgba32f', sd.w1), flux: tex(W, TH, 'rgba16f') }));
+    E.run = tex(W, TH, 'rg16f'); E.bead = [tex(E.bw, TH >> 1, 'rgba16f'), tex(E.bw, TH >> 1, 'rgba16f')];
+    E.in0 = tex(W, TH, 'rgba16f'); E.in1 = tex(W, TH, 'rgba16f');
+    E.bakeTex = tex(W, TH, 'rgba16f'); E.fluidBake = tex(W, TH, 'r8'); E.waterBake = tex(W, TH, 'r16f');
+    E.delta = tex(W, TH, 'rgba16f'); E.cover = tex(W, TH, 'rgba16f');
+    E.lookTex = tex(W, TH, 'rgba8'); E.ground = tex(W, TH, 'rgba8', atlas ? null : groundBytes);
     E.bakeFbo = fbo(E.bakeTex, E.fluidBake, E.waterBake); E.beadFbo = E.bead.map((b) => fbo(b));
     E.fluxFbo = [0, 1].map((i) => fbo(E.ws[i].flux, E.run));
     E.updFbo = [0, 1, 2, 3].map((i) => fbo(E.ws[i >> 1].w0, E.ws[i >> 1].w1, E.st[i & 1].p0, E.st[i & 1].p1));
@@ -457,7 +460,7 @@ async function PAGE(P) {
     return E;
   }
   const slotXY = (s, shift) => [(s % SN) << shift, Math.floor(s / SN) << shift];
-  const atlasU = (E, shift) => E.atlas ? { u_atlasTable: { tex: E.table }, u_atlasGrid: [0, 0, GN, GN], u_atlasSlotsX: SN, u_atlasShift: shift, u_atlasWrap: [0, 0, 0, 0], u_atlasWalls: [E.wallsOn ? 1 : 0, 0, 0, 0] } : {};
+  const atlasU = (E, shift) => E.atlas ? { u_atlasTable: { tex: E.table }, u_atlasGrid: [0, 0, GN, GN], u_atlasSlotsX: SN, u_atlasShift: shift, u_atlasWrap: [0, 0, 0, 0], u_atlasWalls: [E.wallsOn ? 1 : 0, 0, 0, 0], u_atlasZero: [0, AW] } : {};
   const COMMON = (E) => ({ u_layerOrigin: [0, 0], u_layerScale: 1, u_targetSize: [E.W, E.W] });
   // tiles a layer-px rect touches (inclusive ranges), clamped to the layer
   function tilesOf(r) {

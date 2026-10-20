@@ -52,6 +52,7 @@ layout(location = 2) out vec4 o_p0;
 layout(location = 3) out vec4 o_p1;
 
 void main() {
+    jb_atlasBegin();
     ivec2 c = jb_cell();
     ivec2 size = textureSize(u_w0, 0);
     vec4 a = jb_fetch(u_w0, c);

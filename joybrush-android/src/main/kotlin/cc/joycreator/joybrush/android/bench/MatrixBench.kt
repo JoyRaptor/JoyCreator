@@ -302,6 +302,18 @@ class MatrixBench(private val canvas: JbCanvasView, private val spec: BenchRunne
             val wrapPx = if (kind == Kind.TILE) seen.stripPx else 0
             val verdict = MatrixDiff.verdict(err, refusedText != null, seen.px, steps, exact, kind.label, wrapPx, framePx, sharedInZone)
             val s = stats
+            // Pixel-exact proof between two builds: one hash over every plane of the "after" state (seams included).
+            val afterHash = after?.let { st ->
+                var h = -0x340d631b7bdddcdbL // FNV-1a 64 offset basis
+                for (name in st.planes.keys.sorted()) {
+                    val tiles = st.planes[name].orEmpty()
+                    for (key in tiles.keys.sorted()) {
+                        h = (h xor key) * 0x100000001b3L
+                        for (b in tiles.getValue(key)) h = (h xor (b.toLong() and 0xff)) * 0x100000001b3L
+                    }
+                }
+                java.lang.Long.toHexString(h)
+            }
             fun r2(v: Double) = Math.round(v * 100.0) / 100.0
             return JSONObject().put("case", "matrix").put("idx", job.index).put("brush", preset.id).put("name", preset.name)
                 .put("engine", preset.engine).put("board", kind.label)
@@ -319,7 +331,7 @@ class MatrixBench(private val canvas: JbCanvasView, private val spec: BenchRunne
                         j.put("phasesMs", JSONObject().also { ph -> for ((k, v) in s.phases) ph.put(k, pct(v)) })
                     }
                 }
-                .put("verdict", verdict).put("primed", primed).put("settled", settled).put("settleMs", settleMs)
+                .put("verdict", verdict).put("afterHash", afterHash ?: JSONObject.NULL).put("primed", primed).put("settled", settled).put("settleMs", settleMs)
                 .also {
                     if (kind == Kind.TILE) it.put("wrapPx", wrapPx).put("leakPx", seen.outsidePx)
                     if (kind == Kind.ANIMATION) it.put("framePx", framePx).put("sharedInBoardPx", sharedInZone)

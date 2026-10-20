@@ -6306,12 +6306,17 @@ class GlPaintEngine(
         periodicPickup.clear(); strokeReads.clear()
     }
 
+    private val dbgReleases = HashMap<Int, Throwable>()
     private fun recycleLayerTex(tex: Int) {
         if (forgettingGraphicsContext) return
         // Scene caches, baked slabs and UndoLog endpoints all retire through this hook.
         // The pool still owns a recycled allocation; future budgets count that actual owner.
         if (tex != 0) recordedWorkingTiles.forget(physicalContextEpoch, tex)
-        if (tex in freeFloatTex || tex in freeLayerTex) android.util.Log.e("JoyBrushDup", "double release of texture $tex", Throwable("release"))
+        if (tex in freeFloatTex || tex in freeLayerTex) {
+            android.util.Log.e("JoyBrushDup", "double release of texture $tex; first release:", dbgReleases[tex])
+            android.util.Log.e("JoyBrushDup", "second release:", Throwable("release"))
+        }
+        dbgReleases[tex] = Throwable("release")
         if (tex in floatNames) {
             freeFloatTex.addLast(tex)
             while (freeFloatTex.size > 16) freeFloatTex.removeFirst().let {

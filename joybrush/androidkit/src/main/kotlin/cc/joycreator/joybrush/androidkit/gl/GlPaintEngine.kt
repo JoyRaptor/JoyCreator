@@ -5739,6 +5739,14 @@ class GlPaintEngine(
         val changes = mediaStroke ?: return 0
         mediaStroke = null
         mediaStrokeHeld.clear()
+        run {
+            val seen = HashMap<Int, UndoLog.TileChange<Int>>()
+            for (c in changes) {
+                val a = c.after ?: continue
+                val o = seen.put(a, c)
+                if (o != null) android.util.Log.e("JoyBrushDup", "duplicate after $a: ${o.layerId}/${o.celId}/${o.key} before=${o.before} AND ${c.layerId}/${c.celId}/${c.key} before=${c.before}; poolF=${a in freeFloatTex} poolL=${a in freeLayerTex}")
+            }
+        }
         if (changes.isNotEmpty()) undo.push(UndoLog.Step(changes))
         return changes.size
     }
@@ -5786,6 +5794,8 @@ class GlPaintEngine(
                     val tile = Triple(storeId, plane, key)
                     if (now != null && tile in held) { texes[key] = now; continue }
                     val after = if (look) newLayerTile() else newPayloadTile(store)
+                    if (stroke != null && (stroke.any { it.after == after } || fresh.any { it.after == after } || after == now))
+                        android.util.Log.e("JoyBrushDup", "fresh tile $after for $storeId/$plane/$key is already an after in this stroke (now=$now)", Throwable("fresh"))
                     initializeTile(after, now, false)
                     val dropped = topHeld[tile]
                     // A tile this stroke itself dropped (a stale payload, [dropStalePayload]) comes back in that same change.
@@ -6301,6 +6311,7 @@ class GlPaintEngine(
         // Scene caches, baked slabs and UndoLog endpoints all retire through this hook.
         // The pool still owns a recycled allocation; future budgets count that actual owner.
         if (tex != 0) recordedWorkingTiles.forget(physicalContextEpoch, tex)
+        if (tex in freeFloatTex || tex in freeLayerTex) android.util.Log.e("JoyBrushDup", "double release of texture $tex", Throwable("release"))
         if (tex in floatNames) {
             freeFloatTex.addLast(tex)
             while (freeFloatTex.size > 16) freeFloatTex.removeFirst().let {

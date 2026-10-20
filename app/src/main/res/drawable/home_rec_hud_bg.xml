@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Recorder home: anything floating over the preview (zoom readout, photo, full screen).
+     The see-through fill every drawer uses, never opaque, no outline. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/s_drawer_scrim" />
+    <corners android:radius="10dp" />
+</shape>

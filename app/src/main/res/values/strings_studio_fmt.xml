@@ -10,6 +10,6 @@
     <string name="studio_fmt_reorder_failed_1_s">Reorder failed: %1$s</string>
     <string name="studio_fmt_reorder_error_1_s">Reorder error: %1$s</string>
     <string name="studio_fmt_align_failed_1_s">Align failed: %1$s</string>
-    <string name="studio_fmt_that_doesn_t_look_like">That doesn\'t look like a Faditor slide: %1$s</string>
+    <string name="studio_fmt_that_doesn_t_look_like">That doesn\'t look like a Studio slide: %1$s</string>
     <string name="studio_fmt_slide_import_failed_1_s">Slide import failed: %1$s</string>
 </resources>

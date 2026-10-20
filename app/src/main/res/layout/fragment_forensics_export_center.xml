@@ -28,7 +28,8 @@
             android:contentDescription="@string/back"
             android:padding="2dp"
             android:src="@drawable/ic_close"
-            android:tint="@android:color/white" />
+            android:tint="@color/s_ink_dim"
+            android:tooltipText="@string/smart_detection_tip_back" />
 
         <TextView
             android:layout_width="0dp"
@@ -36,9 +37,9 @@
             android:layout_marginStart="12dp"
             android:layout_weight="1"
             android:text="@string/forensics_export_title"
-            android:textColor="@android:color/white"
-            android:textSize="20sp"
-            android:textStyle="bold" />
+            android:fontFamily="@font/joy_display"
+            android:textColor="@color/s_ink"
+            android:textSize="19sp" />
     </LinearLayout>
 
     <ScrollView
@@ -54,13 +55,14 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:padding="16dp"
+            android:paddingBottom="76dp">
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/forensics_export_subtitle"
-                android:textColor="@android:color/darker_gray"
+                android:textColor="@color/s_ink_dim"
                 android:textSize="12sp" />
 
             <TextView
@@ -68,7 +70,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:textColor="@android:color/darker_gray"
+                android:textColor="@color/s_ink_dim"
                 android:textSize="12sp" />
 
             <TextView
@@ -76,7 +78,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 android:text="@string/forensics_export_source_warning"
-                android:textColor="@android:color/darker_gray"
+                android:textColor="@color/s_ink_dim"
                 android:textSize="12sp" />
 
             <com.google.android.material.button.MaterialButton
@@ -94,7 +96,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 android:text="@string/forensics_export_no_path"
-                android:textColor="@android:color/darker_gray"
+                android:textColor="@color/s_ink_dim"
                 android:textSize="12sp" />
 
             <com.google.android.material.button.MaterialButton
@@ -111,7 +113,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                android:textColor="@android:color/darker_gray"
+                android:textColor="@color/s_ink_dim"
                 android:textSize="12sp" />
         </LinearLayout>
     </ScrollView>

@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#000000">
+    android:background="@color/s_ground">
 
     <LinearLayout
         android:id="@+id/header_bar"
@@ -29,7 +29,8 @@
             android:contentDescription="@string/universal_close"
             android:padding="2dp"
             android:src="@drawable/ic_close"
-            android:tint="@android:color/white"
+            android:tint="@color/s_ink_dim"
+            android:tooltipText="@string/smart_detection_tip_close"
             android:visibility="gone" />
 
         <LinearLayout
@@ -42,10 +43,10 @@
                 android:id="@+id/text_lab_title"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:fontFamily="@font/joy_display"
                 android:text="@string/forensic_intelligence_title"
-                android:textColor="@android:color/white"
-                android:textSize="20sp"
-                android:textStyle="bold" />
+                android:textColor="@color/s_ink"
+                android:textSize="19sp" />
 
             <LinearLayout
                 android:id="@+id/lab_header_stats_row"
@@ -59,32 +60,32 @@
                     android:layout_width="12dp"
                     android:layout_height="12dp"
                     android:src="@drawable/ic_photo"
-                    android:tint="#CCFFFFFF" />
+                    android:tint="@color/s_ink_dim" />
 
                 <TextView
                     android:id="@+id/text_lab_stat_count"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="3dp"
-                    android:textColor="#CCFFFFFF"
-                    android:textSize="11sp"
-                    android:textStyle="bold" />
+                    android:textColor="@color/s_ink_dim"
+                    android:fontFamily="@font/joy_mono"
+                    android:textSize="11sp" />
 
                 <ImageView
                     android:layout_width="12dp"
                     android:layout_height="12dp"
                     android:layout_marginStart="10dp"
                     android:src="@drawable/database_24px"
-                    android:tint="#CCFFFFFF" />
+                    android:tint="@color/s_ink_dim" />
 
                 <TextView
                     android:id="@+id/text_lab_stat_size"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="3dp"
-                    android:textColor="#CCFFFFFF"
-                    android:textSize="11sp"
-                    android:textStyle="bold" />
+                    android:textColor="@color/s_ink_dim"
+                    android:fontFamily="@font/joy_mono"
+                    android:textSize="11sp" />
             </LinearLayout>
         </LinearLayout>
 
@@ -101,13 +102,16 @@
                 android:contentDescription="@string/records_options_title"
                 android:padding="2dp"
                 android:src="@drawable/ic_two_line_hamburger"
-                android:tint="@android:color/white" />
+                android:tint="@color/s_ink_dim"
+                android:tooltipText="@string/smart_detection_tip_menu" />
 
             <FrameLayout
                 android:id="@+id/button_lab_select_all_container"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
+                android:contentDescription="@string/smart_detection_tip_select_all"
                 android:foreground="?attr/selectableItemBackgroundBorderless"
+                android:tooltipText="@string/smart_detection_tip_select_all"
                 android:visibility="gone">
 
                 <ImageView
@@ -123,7 +127,7 @@
                     android:layout_height="20dp"
                     android:layout_gravity="center"
                     android:src="@drawable/avd_check_draw"
-                    android:tint="?attr/colorPrimary"
+                    android:tint="@color/s_armed"
                     android:visibility="invisible" />
             </FrameLayout>
         </FrameLayout>

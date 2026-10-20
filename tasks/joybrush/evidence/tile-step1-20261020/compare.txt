@@ -1,0 +1,120 @@
+
+== canvas
+Ink                        p50      16 ->   15.93  fr  36 ->  33  hash same  v works   px 7029  
+Sable                      p50   15.37 ->   15.64  fr  35 ->  38  hash DIFF  v works   px 13622 -> 13670 
+Pencil                     p50   85.34 ->    33.2  fr   7 ->  17  hash same  v works   px 32296  
+Bristle                    p50    15.2 ->   15.97  fr  38 ->  38  hash DIFF  v works   px 13851 -> 14439 
+Flat Paint                 p50   26.02 ->   38.75  fr  18 ->  15  hash same  v works   px 43229  
+Marker                     p50   15.66 ->    15.5  fr  37 ->  33  hash same  v works   px 33027  
+Soft air                   p50   46.76 ->   37.84  fr  14 ->  16  hash same  v works   px 52621  
+Smudge                     p50    15.8 ->   15.45  fr  37 ->  38  hash same  v works   px 13074  
+Eraser                     p50   15.36 ->   15.61  fr  36 ->  38  hash same  v works   px 46319  
+Fill pen                   p50    2.68 ->    3.23  fr   5 ->   3  hash same  v works   px 57120  
+Watercolour line           p50  301.69 ->       0  fr   2 ->   0  hash DIFF  v works   px 16471 -> 16504 
+Proto Pencil               p50   23.64 ->   29.73  fr  14 ->  15  hash DIFF  v works   px 21760 -> 21783 
+Proto Mix                  p50   18.38 ->   22.51  fr  29 ->  23  hash DIFF  v works   px 35674 -> 35629 
+Proto                      p50    22.8 ->   21.84  fr  22 ->  23  hash DIFF  v works   px 40167 -> 40185 
+Proto 2                    p50   18.95 ->   17.53  fr  26 ->  30  hash DIFF  v works   px 33671 -> 33674 
+2H                         p50   17.35 ->   16.13  fr  30 ->  30  hash DIFF  v works   px 14196  
+HB                         p50   16.49 ->   15.83  fr  29 ->  34  hash DIFF  v works   px 18373 -> 18374 
+2B                         p50   15.82 ->   15.95  fr  32 ->  35  hash DIFF  v works   px 24386 -> 24384 
+6B                         p50   16.28 ->   16.43  fr  29 ->  30  hash DIFF  v works   px 28798 -> 28816 
+Woodless 8B                p50   20.61 ->    18.3  fr  24 ->  24  hash DIFF  v works   px 48233 -> 48260 
+All-round (watercolour)    p50  144.77 ->  167.42  fr   5 ->   4  hash DIFF  v works   px 170540 -> 170601 
+Round                      p50  170.06 ->  185.87  fr   4 ->   4  hash DIFF  v works   px 172962 -> 171375 
+Wash                       p50  187.74 ->  261.27  fr   4 ->   3  hash DIFF  v works   px 317738 -> 310745 
+Dry brush                  p50  188.37 ->   105.7  fr   4 ->   7  hash DIFF  v works   px 196272 -> 196235 
+Water                      p50  182.22 ->  218.54  fr   4 ->   4  hash DIFF  v works   px 199844 -> 186131 
+Thirsty                    p50  198.01 ->   143.6  fr   4 ->   5  hash DIFF  v works   px 175013 -> 174704 
+All-round (oil)            p50  140.11 ->  136.63  fr   5 ->   5  hash DIFF  v works   px 95657 -> 95651 
+Oil flat                   p50   61.46 ->   70.14  fr   8 ->   9  hash DIFF  v works   px 158232 -> 150960 
+Oil round                  p50  117.98 ->   41.87  fr   5 ->  11  hash DIFF  v works   px 133355 -> 130109 
+Fan blender                p50  163.83 ->  139.89  fr   4 ->   4  hash DIFF  v works   px 239356 -> 234270 
+Palette knife 1            p50  119.23 ->   100.7  fr   6 ->   6  hash DIFF  v works   px 291188 -> 290158 
+Palette knife 2            p50  142.05 ->  148.91  fr   4 ->   4  hash DIFF  v works   px 138593 -> 127574 
+Scraper                    p50   97.63 ->   89.84  fr   7 ->   6  hash same  v noop   px 0  
+
+== animation
+Ink                        p50   15.64 ->   15.58  fr  37 ->  37  hash same  v works   px 3821  
+Sable                      p50   15.45 ->   15.47  fr  38 ->  36  hash DIFF  v works   px 7727 -> 7563 
+Pencil                     p50   73.32 ->   95.68  fr   9 ->   7  hash same  v works   px 21214  
+Bristle                    p50   15.38 ->   15.39  fr  38 ->  37  hash DIFF  v works   px 7584 -> 7942 
+Flat Paint                 p50   62.52 ->   76.71  fr   8 ->   9  hash same  v works   px 22555  
+Marker                     p50   16.51 ->   15.81  fr  34 ->  36  hash same  v works   px 18592  
+Soft air                   p50   37.31 ->   20.61  fr  17 ->  27  hash same  v works   px 28369  
+Smudge                     p50   15.53 ->   15.78  fr  38 ->  37  hash same  v works   px 4129  
+Eraser                     p50   15.55 ->   15.53  fr  37 ->  36  hash same  v works   px 27820  
+Fill pen                   p50    3.86 ->    5.54  fr   5 ->   3  hash same  v works   px 42420  
+Watercolour line           p50   81.49 ->   39.92  fr   8 ->  14  hash DIFF  v works   px 8660 -> 8705 
+Proto Pencil               p50   23.05 ->   23.73  fr  22 ->  21  hash DIFF  v noop   px 0  
+Proto Mix                  p50   16.88 ->   20.37  fr  32 ->  23  hash DIFF  v noop   px 0  
+Proto                      p50   20.18 ->    21.3  fr  26 ->  23  hash DIFF  v noop   px 0  
+Proto 2                    p50   19.13 ->   16.13  fr  28 ->  32  hash DIFF  v noop   px 0  
+2H                         p50   15.86 ->      16  fr  33 ->  34  hash DIFF  v noop   px 0  
+HB                         p50   17.71 ->   17.09  fr  31 ->  31  hash DIFF  v noop   px 0  
+2B                         p50   17.96 ->   17.95  fr  29 ->  27  hash DIFF  v noop   px 0  
+6B                         p50    17.4 ->    16.4  fr  25 ->  32  hash DIFF  v noop   px 0  
+Woodless 8B                p50   21.43 ->   21.77  fr  22 ->  23  hash DIFF  v noop   px 0  
+All-round (watercolour)    p50   193.4 ->  131.46  fr   4 ->   5  hash DIFF  v noop   px 0  
+Round                      p50  167.39 ->  166.87  fr   4 ->   4  hash DIFF  v noop   px 0  
+Wash                       p50  213.28 ->  206.68  fr   3 ->   3  hash DIFF  v noop   px 0  
+Dry brush                  p50  192.22 ->  205.12  fr   4 ->   4  hash DIFF  v noop   px 0  
+Water                      p50  215.47 ->  207.81  fr   4 ->   4  hash DIFF  v noop   px 0  
+Thirsty                    p50  165.42 ->  134.68  fr   4 ->   4  hash DIFF  v noop   px 0  
+All-round (oil)            p50  127.05 ->  134.88  fr   5 ->   5  hash DIFF  v noop   px 0  
+Oil flat                   p50   63.96 ->      69  fr   8 ->   9  hash DIFF  v noop   px 0  
+Oil round                  p50   141.7 ->   21.18  fr   5 ->  25  hash DIFF  v noop   px 0  
+Fan blender                p50  109.73 ->  163.03  fr   6 ->   4  hash DIFF  v noop   px 0  
+Palette knife 1            p50  126.28 ->  170.97  fr   6 ->   4  hash DIFF  v noop   px 0  
+Palette knife 2            p50  150.57 ->  158.61  fr   5 ->   4  hash DIFF  v noop   px 0  
+Scraper                    p50   130.4 ->   75.46  fr   5 ->   7  hash DIFF  v noop   px 0  
+
+== tile
+Ink                        p50    16.1 ->   16.19  fr  38 ->  36  hash same  v works   px 6456   wrap 2531 leak 0
+Sable                      p50   19.07 ->   21.48  fr  29 ->  29  hash DIFF  v works   px 12866 -> 13101  wrap 4517->4538 leak 0
+Pencil                     p50  105.43 ->  148.81  fr   5 ->   5  hash same  v works   px 29498   wrap 9775 leak 0
+Bristle                    p50   72.27 ->   43.39  fr   9 ->   8  hash DIFF  v works   px 16506 -> 14996  wrap 5261->5422 leak 0
+Flat Paint                 p50  148.58 ->  145.95  fr   2 ->   2  hash same  v works   px 39253   wrap 14346 leak 0
+Marker                     p50   77.91 ->   51.31  fr   7 ->   6  hash same  v works   px 30141   wrap 10713 leak 0
+Soft air                   p50    89.1 ->   87.04  fr   4 ->   4  hash same  v works   px 47879   wrap 16696 leak 0
+Smudge                     p50   15.99 ->   15.62  fr  35 ->  36  hash same  v works   px 14631   wrap 5746 leak 0
+Eraser                     p50   15.69 ->   15.81  fr  38 ->  38  hash same  v works   px 44790   wrap 14199 leak 0
+Fill pen                   p50    6.31 ->    5.48  fr   4 ->   3  hash same  v works   px 45503   wrap 6868 leak 0
+Watercolour line           p50   66.24 ->  275.58  fr   4 ->   3  hash DIFF  v works   px 15171 -> 15148  wrap 5936->5943 leak 0
+
+== sprite
+Ink                        p50   15.45 ->   15.29  fr  38 ->  36  hash same  v works   px 3483  
+Sable                      p50   15.75 ->   15.37  fr  37 ->  39  hash DIFF  v works   px 7670 -> 7643 
+Pencil                     p50   17.47 ->   16.03  fr  28 ->  34  hash same  v works   px 15287  
+Bristle                    p50   15.26 ->   15.43  fr  37 ->  37  hash DIFF  v works   px 13999 -> 14192 
+Flat Paint                 p50   16.96 ->   15.72  fr  31 ->  38  hash same  v works   px 19821  
+Marker                     p50   15.32 ->   15.56  fr  37 ->  36  hash same  v works   px 16068  
+Soft air                   p50   15.54 ->   15.96  fr  37 ->  37  hash same  v works   px 24582  
+Smudge                     p50   15.61 ->   15.63  fr  37 ->  38  hash same  v works   px 8671  
+Eraser                     p50   15.17 ->   15.53  fr  34 ->  38  hash same  v works   px 25746  
+Fill pen                   p50    3.33 ->    3.94  fr   4 ->   3  hash same  v works   px 14448  
+Watercolour line           p50   30.99 ->   20.31  fr  21 ->  24  hash DIFF  v works   px 8034 -> 8051 
+Proto Pencil               p50   15.83 ->   16.15  fr  34 ->  35  hash DIFF  v works   px 10639 -> 10632 
+Proto Mix                  p50   16.92 ->   15.89  fr  29 ->  34  hash DIFF  v works   px 16935 -> 16969 
+Proto                      p50   16.03 ->   15.86  fr  33 ->  32  hash DIFF  v works   px 19111 -> 19106 
+Proto 2                    p50   15.85 ->   14.83  fr  34 ->  31  hash DIFF  v works   px 16135 -> 16125 
+2H                         p50   15.43 ->   15.27  fr  33 ->  32  hash DIFF  v works   px 6974 -> 6977 
+HB                         p50   15.53 ->   15.84  fr  31 ->  34  hash DIFF  v works   px 9006 -> 9011 
+2B                         p50   15.67 ->   15.75  fr  33 ->  31  hash DIFF  v works   px 11833 -> 11831 
+6B                         p50   15.78 ->   15.93  fr  31 ->  31  hash DIFF  v works   px 13945 -> 13947 
+Woodless 8B                p50   18.41 ->   16.15  fr  26 ->  30  hash DIFF  v works   px 22683  
+All-round (watercolour)    p50  116.99 ->  199.07  fr   6 ->   5  hash DIFF  v works   px 93865 -> 93931 
+Round                      p50   81.66 ->  110.12  fr   6 ->   5  hash DIFF  v works   px 88010 -> 87822 
+Wash                       p50  117.62 ->   108.5  fr   4 ->   5  hash DIFF  v works   px 215742 -> 215714 
+Dry brush                  p50   87.48 ->  147.22  fr   6 ->   4  hash DIFF  v works   px 102103 -> 102245 
+Water                      p50  105.86 ->      89  fr   6 ->   7  hash DIFF  v works   px 115616 -> 115504 
+Thirsty                    p50  110.35 ->  122.95  fr   5 ->   5  hash DIFF  v works   px 86843 -> 87207 
+All-round (oil)            p50   15.84 ->   16.15  fr  17 ->  20  hash DIFF  v works   px 42216 -> 42238 
+Oil flat                   p50    17.3 ->   17.83  fr  26 ->  23  hash DIFF  v works   px 66849 -> 66519 
+Oil round                  p50   16.13 ->   22.52  fr  27 ->  16  hash DIFF  v works   px 57668 -> 58359 
+Fan blender                p50    72.7 ->   59.91  fr   9 ->  10  hash DIFF  v works   px 109939 -> 120043 
+Palette knife 1            p50    48.7 ->   63.31  fr   8 ->   9  hash DIFF  v works   px 169179 -> 169137 
+Palette knife 2            p50  115.85 ->    95.2  fr   5 ->   6  hash DIFF  v works   px 90826 -> 88945 
+Scraper                    p50   68.22 ->  136.23  fr   8 ->   5  hash same  v noop   px 0  
+
+hash same 56 diff 76 result-fields differ 52

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The Remote screen (RemoteFragment, fragment_remote.xml), once "Server Room".
+  Section names are written in plain case; the layout draws them in spaced mono capitals.
+-->
+<resources>
+    <!-- Header -->
+    <string name="remote_title">Remote</string>
+    <string name="remote_chip_on_air">ON AIR</string>
+    <string name="remote_chip_off_air">OFF AIR</string>
+
+    <!-- Sections -->
+    <string name="remote_section_on_air">On air</string>
+    <string name="remote_section_connection">Connection</string>
+    <string name="remote_section_health">Health</string>
+    <string name="remote_section_security">Security</string>
+    <string name="remote_section_help">Help</string>
+
+    <!-- Quality row, until the live value arrives -->
+    <string name="remote_quality_default">High (1080p) • 30fps • 8 Mbps</string>
+
+    <!-- Cloud usage card -->
+    <string name="remote_usage_title">Cloud Usage Reporting</string>
+    <string name="remote_usage_retrying">Retrying connection...</string>
+    <string name="remote_usage_bytes">Bytes Reported</string>
+    <string name="remote_usage_failures">Failures</string>
+    <string name="remote_usage_action">Action</string>
+    <string name="remote_usage_retry">Retry</string>
+    <string name="remote_usage_retry_toast">Retrying usage reporting...</string>
+    <string name="remote_usage_title_active">Cloud Usage (Active)</string>
+    <string name="remote_usage_title_error">Cloud Usage (Error)</string>
+    <string name="remote_usage_title_retrying">Cloud Usage (Retrying)</string>
+    <string name="remote_usage_title_plain">Cloud Usage</string>
+    <string name="remote_usage_no_errors">No errors</string>
+    <string name="remote_usage_errors_fmt">%1$d/50 errors</string>
+</resources>

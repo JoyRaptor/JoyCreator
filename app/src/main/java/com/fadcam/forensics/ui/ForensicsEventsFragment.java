@@ -430,7 +430,7 @@ public class ForensicsEventsFragment extends Fragment implements ForensicsEvents
                 continue;
             }
             final String value = subtype.trim().toLowerCase();
-            Chip chip = new Chip(requireContext(), null, com.google.android.material.R.style.Widget_MaterialComponents_Chip_Choice);
+            Chip chip = new com.fadcam.forensics.ui.view.SlantChip(requireContext());
             chip.setCheckable(true);
             chip.setText(value);
             chip.setLayoutParams(new LinearLayout.LayoutParams(

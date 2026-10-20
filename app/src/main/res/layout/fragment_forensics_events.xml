@@ -27,7 +27,8 @@
             android:contentDescription="@string/back"
             android:padding="2dp"
             android:src="@drawable/ic_close"
-            android:tint="@android:color/white" />
+            android:tint="@color/s_ink_dim"
+            android:tooltipText="@string/smart_detection_tip_back" />
 
         <TextView
             android:layout_width="0dp"
@@ -35,9 +36,9 @@
             android:layout_marginStart="12dp"
             android:layout_weight="1"
             android:text="@string/forensics_events_title"
-            android:textColor="@android:color/white"
-            android:textSize="20sp"
-            android:textStyle="bold" />
+            android:fontFamily="@font/joy_display"
+            android:textColor="@color/s_ink"
+            android:textSize="19sp" />
     </LinearLayout>
 
     <LinearLayout
@@ -47,7 +48,7 @@
         android:paddingStart="12dp"
         android:paddingTop="8dp"
         android:paddingEnd="12dp"
-        android:paddingBottom="10dp"
+        android:paddingBottom="76dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -64,9 +65,9 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="4dp"
-                app:cardBackgroundColor="?attr/colorTopBar">
+                app:cardCornerRadius="0dp"
+                app:cardElevation="0dp"
+                app:cardBackgroundColor="@android:color/transparent">
 
                 <HorizontalScrollView
                     android:id="@+id/event_chip_scroll"
@@ -83,9 +84,9 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         app:singleLine="true"
-                        app:chipSpacingHorizontal="6dp">
+                        app:chipSpacingHorizontal="3dp">
 
-                    <com.google.android.material.chip.Chip
+                    <com.fadcam.forensics.ui.view.SlantChip
                         android:id="@+id/chip_event_all"
                         style="@style/Widget.FadCam.RecordsFilterChip"
                         android:layout_width="wrap_content"
@@ -94,7 +95,7 @@
                         android:checked="true"
                         android:text="@string/forensics_filter_all" />
 
-                    <com.google.android.material.chip.Chip
+                    <com.fadcam.forensics.ui.view.SlantChip
                         android:id="@+id/chip_event_person"
                         style="@style/Widget.FadCam.RecordsFilterChip"
                         android:layout_width="wrap_content"
@@ -102,7 +103,7 @@
                         android:checkable="true"
                         android:text="@string/forensics_filter_person" />
 
-                    <com.google.android.material.chip.Chip
+                    <com.fadcam.forensics.ui.view.SlantChip
                         android:id="@+id/chip_event_vehicle"
                         style="@style/Widget.FadCam.RecordsFilterChip"
                         android:layout_width="wrap_content"
@@ -110,7 +111,7 @@
                         android:checkable="true"
                         android:text="@string/forensics_filter_vehicle" />
 
-                    <com.google.android.material.chip.Chip
+                    <com.fadcam.forensics.ui.view.SlantChip
                         android:id="@+id/chip_event_pet"
                         style="@style/Widget.FadCam.RecordsFilterChip"
                         android:layout_width="wrap_content"
@@ -118,7 +119,7 @@
                         android:checkable="true"
                         android:text="@string/forensics_filter_pet" />
 
-                    <com.google.android.material.chip.Chip
+                    <com.fadcam.forensics.ui.view.SlantChip
                         android:id="@+id/chip_event_object"
                         style="@style/Widget.FadCam.RecordsFilterChip"
                         android:layout_width="wrap_content"
@@ -126,7 +127,7 @@
                         android:checkable="true"
                         android:text="@string/forensics_filter_object" />
 
-                    <com.google.android.material.chip.Chip
+                    <com.fadcam.forensics.ui.view.SlantChip
                         android:id="@+id/chip_event_high_conf"
                         style="@style/Widget.FadCam.RecordsFilterChip"
                         android:layout_width="wrap_content"
@@ -145,7 +146,7 @@
                 android:contentDescription="@string/sort_by"
                 android:padding="4dp"
                 android:src="@drawable/ic_sort"
-                android:tint="?attr/colorHeading" />
+                android:tint="@color/s_ink_dim" />
         </LinearLayout>
 
         <LinearLayout
@@ -160,7 +161,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:textColor="@android:color/darker_gray"
+                android:textColor="@color/s_ink_dim"
                 android:textSize="11sp"
                 android:textStyle="bold" />
 
@@ -168,7 +169,7 @@
                 android:id="@+id/text_media_state_value"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textColor="@android:color/darker_gray"
+                android:textColor="@color/s_ink_dim"
                 android:textSize="11sp"
                 android:textStyle="bold" />
         </LinearLayout>
@@ -178,9 +179,9 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="4dp"
-            app:cardBackgroundColor="?attr/colorTopBar">
+            app:cardCornerRadius="0dp"
+            app:cardElevation="0dp"
+            app:cardBackgroundColor="@android:color/transparent">
 
             <HorizontalScrollView
                 android:layout_width="match_parent"
@@ -197,9 +198,9 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     app:singleLine="true"
-                    app:chipSpacingHorizontal="6dp">
+                    app:chipSpacingHorizontal="3dp">
 
-                    <com.google.android.material.chip.Chip
+                    <com.fadcam.forensics.ui.view.SlantChip
                         android:id="@+id/chip_subtype_all"
                         style="@style/Widget.FadCam.RecordsFilterChip"
                         android:layout_width="wrap_content"
@@ -227,7 +228,7 @@
             android:gravity="center"
             android:padding="16dp"
             android:text="@string/forensics_events_empty"
-            android:textColor="@android:color/darker_gray"
+            android:textColor="@color/s_ink_dim"
             android:visibility="gone" />
     </LinearLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

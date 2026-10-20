@@ -849,13 +849,12 @@ public class ForensicsGalleryFragment extends Fragment {
 
     private android.text.SpannableString makeChipLabel(String label, int count) {
         android.text.SpannableString ss = new android.text.SpannableString(label + "  " + count);
-        int accent = resolveThemeColor(R.attr.colorButton);
-        int shade = android.graphics.Color.rgb(
-                android.graphics.Color.red(accent) + (255 - android.graphics.Color.red(accent)) / 8,
-                android.graphics.Color.green(accent) + (255 - android.graphics.Color.green(accent)) / 8,
-                android.graphics.Color.blue(accent) + (255 - android.graphics.Color.blue(accent)) / 8);
+        // Count badge: an old-black pill with light digits. It reads on both faces of the
+        // slanted chip (solid cyan when chosen, raised zinc when not), which a span cannot
+        // switch between, so it takes neither face's colour.
         float density = getResources().getDisplayMetrics().density;
-        ss.setSpan(new com.fadcam.ui.utils.PillBadgeSpan(shade, 0xFFFFFFFF, density),
+        ss.setSpan(new com.fadcam.ui.utils.PillBadgeSpan(com.fadcam.ui.faditor.Studio.GROUND,
+                        com.fadcam.ui.faditor.Studio.INK, density),
                 label.length() + 2, ss.length(), android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
         return ss;
     }

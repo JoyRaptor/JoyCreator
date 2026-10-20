@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Camera quick tiles (autofocus, exposure, zoom) as three sheared chips that read as one banded
+     object: zinc with a white glyph, or solid cyan with the glyph cut out in black while that
+     setting is away from its default. HomeRecTile reads HomeFragment's old "orange glyph = active"
+     colour calls as that state. Ids unchanged. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
@@ -9,41 +14,42 @@
     android:weightSum="3">
 
     <!-- AF mode toggle (continuous / off) -->
-    <TextView
+    <com.fadcam.ui.home.HomeRecTile
         android:id="@+id/tile_af_toggle"
         android:layout_width="0dp"
         android:layout_height="40dp"
         android:layout_weight="1"
         android:layout_marginEnd="4dp"
-        android:background="@drawable/home_tile_bg"
         android:gravity="center"
         android:fontFamily="@font/materialicons"
         android:text="center_focus_strong"
         android:contentDescription="@string/desc_autofocus_toggle"
-        android:textColor="?attr/homeRailTextPrimary"
+        android:tooltipText="@string/desc_autofocus_toggle"
+        android:textColor="@color/s_ink"
         android:textSize="24sp"
         android:padding="6dp"
         android:clickable="true"
         android:focusable="true"
+        app:homeRecFlatLeft="true"
         android:nextFocusUp="@+id/cardStats"
         android:nextFocusDown="@+id/cardRailTogglePortrait" />
 
 
 
     <!-- Exposure (single tile opens slider picker) -->
-    <TextView
+    <com.fadcam.ui.home.HomeRecTile
         android:id="@+id/tile_exp"
         android:layout_width="0dp"
         android:layout_height="40dp"
         android:layout_weight="1"
         android:layout_marginEnd="4dp"
-        android:background="@drawable/home_tile_bg"
         android:gravity="center"
         android:text="exposure"
         android:fontFamily="@font/materialicons"
         android:textSize="24sp"
         android:contentDescription="@string/desc_exposure_compensation"
-        android:textColor="?attr/homeRailTextPrimary"
+        android:tooltipText="@string/desc_exposure_compensation"
+        android:textColor="@color/s_ink"
         android:padding="6dp"
         android:clickable="true"
         android:focusable="true"
@@ -51,21 +57,22 @@
         android:nextFocusDown="@+id/cardRailTogglePortrait" />
 
     <!-- Zoom ratio (quick access to zoom settings) -->
-    <TextView
+    <com.fadcam.ui.home.HomeRecTile
         android:id="@+id/tile_zoom"
         android:layout_width="0dp"
         android:layout_height="40dp"
         android:layout_weight="1"
-        android:background="@drawable/home_tile_bg"
         android:padding="6dp"
         android:gravity="center"
         android:text="zoom_in"
         android:fontFamily="@font/materialicons"
         android:textSize="24sp"
         android:contentDescription="@string/desc_zoom_ratio"
-        android:textColor="?attr/homeRailTextPrimary"
+        android:tooltipText="@string/desc_zoom_ratio"
+        android:textColor="@color/s_ink"
         android:clickable="true"
         android:focusable="true"
+        app:homeRecFlatRight="true"
         android:nextFocusUp="@+id/cardStats"
         android:nextFocusDown="@+id/cardRailTogglePortrait" />
 

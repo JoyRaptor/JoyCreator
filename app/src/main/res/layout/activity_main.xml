@@ -75,7 +75,7 @@
             android:nextFocusDown="@+id/bottom_navigation"
             app:itemIconSize="22dp"
             app:itemIconTint="@color/bottom_nav_icon_tint"
-            app:itemTextColor="@android:color/white"
+            app:itemTextColor="@color/s_ink"
             app:itemActiveIndicatorStyle="@null"
             app:menu="@menu/bottom_nav_menu" />
     </FrameLayout>

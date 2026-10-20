@@ -19,6 +19,9 @@ import androidx.interpolator.view.animation.FastOutSlowInInterpolator;
 import com.fadcam.Constants;
 import com.fadcam.R;
 import com.fadcam.SharedPreferencesManager;
+import com.fadcam.ui.faditor.Studio;
+import com.fadcam.ui.lobby.SlantDrawable;
+import com.fadcam.ui.type.Type;
 
 /**
  * Component for handling the mode switcher (FadCam, FadRec, FadMic) functionality
@@ -115,27 +118,25 @@ public class ModeSwitcherComponent {
             segmentFadCam.setBackground(null);
             segmentFadRec.setBackground(null);
             segmentFadMic.setBackground(null);
+            paintTracks(rootView);
 
             // Set text colors immediately (before view is shown) to prevent flicker
             // This must happen synchronously, not in post()
             android.widget.TextView tvFadCam = (android.widget.TextView) segmentFadCam.getChildAt(0);
             android.widget.TextView tvFadRec = (android.widget.TextView) segmentFadRec.getChildAt(0);
             android.widget.TextView tvFadMic = (android.widget.TextView) segmentFadMic.getChildAt(0);
-            
-            int whiteColor = ContextCompat.getColor(context, android.R.color.white);
-            int grayColor = ContextCompat.getColor(context, R.color.amoled_text_secondary);
-            
+
             if (tvFadCam != null) {
-                tvFadCam.setTextColor(Constants.MODE_FADCAM.equals(currentMode) ? whiteColor : grayColor);
-                tvFadCam.setTypeface(null, Constants.MODE_FADCAM.equals(currentMode) ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
+                tvFadCam.setTextColor(inkFor(Constants.MODE_FADCAM.equals(currentMode)));
+                tvFadCam.setTypeface(faceFor(Constants.MODE_FADCAM.equals(currentMode)));
             }
             if (tvFadRec != null) {
-                tvFadRec.setTextColor(Constants.MODE_FADREC.equals(currentMode) ? whiteColor : grayColor);
-                tvFadRec.setTypeface(null, Constants.MODE_FADREC.equals(currentMode) ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
+                tvFadRec.setTextColor(inkFor(Constants.MODE_FADREC.equals(currentMode)));
+                tvFadRec.setTypeface(faceFor(Constants.MODE_FADREC.equals(currentMode)));
             }
             if (tvFadMic != null) {
-                tvFadMic.setTextColor(Constants.MODE_FADMIC.equals(currentMode) ? whiteColor : grayColor);
-                tvFadMic.setTypeface(null, Constants.MODE_FADMIC.equals(currentMode) ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
+                tvFadMic.setTextColor(inkFor(Constants.MODE_FADMIC.equals(currentMode)));
+                tvFadMic.setTypeface(faceFor(Constants.MODE_FADMIC.equals(currentMode)));
             }
 
             // Set backgrounds after text is set
@@ -205,6 +206,37 @@ public class ModeSwitcherComponent {
             Constants.MODE_FADMIC.equals(mode)));
     }
 
+    // ── THE JOY CREATOR LOOK ────────────────────────────────────────────────
+    // Three sheared chips that read as one banded object, the lobby New row's shape: zinc when
+    // off, solid cyan with the word cut out in black when on. Same shear and corner as the lobby.
+    private static final int SLANT_DP = 10;
+    private static final int CORNER_DP = 3;
+
+    private int dp(float v) {
+        return Math.round(v * context.getResources().getDisplayMetrics().density);
+    }
+
+    /** Black on the cyan ON chip, dim grey on a zinc one. */
+    private static int inkFor(boolean active) {
+        return active ? Studio.GROUND : Studio.INK_DIM;
+    }
+
+    private android.graphics.Typeface faceFor(boolean active) {
+        return Type.body(context, active ? Type.BOLD : Type.MEDIUM);
+    }
+
+    /** The zinc chips behind the segments. Nothing else touches these, so they are painted once. */
+    private void paintTracks(@NonNull View rootView) {
+        View tracksView = rootView.findViewById(R.id.mode_switcher_tracks);
+        if (!(tracksView instanceof LinearLayout)) return;
+        LinearLayout tracks = (LinearLayout) tracksView;
+        int n = tracks.getChildCount();
+        for (int i = 0; i < n; i++) {
+            tracks.getChildAt(i).setBackground(new SlantDrawable(Studio.RAISED, Studio.RAISED,
+                    dp(SLANT_DP), dp(CORNER_DP), i == 0, i == n - 1));
+        }
+    }
+
     private void applyTextStatesInstant(String mode) {
         styleText(segmentFadCam, Constants.MODE_FADCAM.equals(mode), false);
         styleText(segmentFadRec, Constants.MODE_FADREC.equals(mode), false);
@@ -253,7 +285,10 @@ public class ModeSwitcherComponent {
             lp.topMargin = 0;
             lp.width = targetWidth;
             lp.height = targetHeight;
-            activeIndicator.setBackgroundResource(R.drawable.segment_active_background);
+            // The ON chip: solid cyan, sheared, squared off at whichever outer end it sits on.
+            activeIndicator.setBackground(new SlantDrawable(Studio.ARMED_LIGHT, Studio.ARMED,
+                    dp(SLANT_DP), dp(CORNER_DP),
+                    target == segmentFadCam, target == segmentFadMic));
             activeIndicator.setVisibility(View.VISIBLE);
             activeIndicator.setLayoutParams(lp);
             activeIndicator.setY(targetTop);
@@ -331,8 +366,8 @@ public class ModeSwitcherComponent {
         if (tv == null) return;
         
         int currentColor = tv.getCurrentTextColor();
-        int targetColor = ContextCompat.getColor(context, active ? android.R.color.white : R.color.amoled_text_secondary);
-        tv.setTypeface(null, active ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
+        int targetColor = inkFor(active);
+        tv.setTypeface(faceFor(active));
         
         // Only change color if it's actually different
         if (currentColor == targetColor) {

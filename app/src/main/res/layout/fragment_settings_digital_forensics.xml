@@ -27,7 +27,8 @@
             android:contentDescription="@string/back"
             android:padding="2dp"
             android:src="@drawable/ic_close"
-            android:tint="@color/s_ink_dim" />
+            android:tint="@color/s_ink_dim"
+            android:tooltipText="@string/smart_detection_tip_back" />
 
         <TextView
             android:layout_width="wrap_content"

@@ -1,0 +1,6 @@
+Pencil       patch: p50 med 235.9 [375,283,222,236,84,150] frames 3 hashes 1   |   main: p50 med 161.8 [559,22,96,135,162,433] frames 3 hashes 1
+Marker       patch: p50 med 76.1 [73,72,76,79,42,96] frames 4 hashes 1   |   main: p50 med 101.8 [124,85,80,105,102,65] frames 5 hashes 1
+Soft air     patch: p50 med 99.5 [41,92,126,107,99,99] frames 4 hashes 1   |   main: p50 med 116.8 [86,53,117,137,134,97] frames 4 hashes 1
+Bristle      patch: p50 med 86.0 [103,74,86,88,53,81] frames 7 hashes 6   |   main: p50 med 92.1 [76,103,93,77,92,72] frames 7 hashes 6
+Ink          patch: p50 med 15.7 [16,16,16,15,15,16] frames 38 hashes 1   |   main: p50 med 15.6 [16,16,16,16,16,16] frames 38 hashes 1
+Sable        patch: p50 med 17.8 [16,24,24,17,18,18] frames 30 hashes 6   |   main: p50 med 21.6 [16,24,16,22,16,25] frames 37 hashes 6

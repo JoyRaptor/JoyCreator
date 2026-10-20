@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Recorder home: the small handle under the cards that folds them away. A zinc pill on the
+     black ground, no tinted surround (the cards' panel was removed). -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="@color/s_ink_33">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/s_panel" />
+            <corners android:radius="8dp" />
+        </shape>
+    </item>
+    <item android:id="@android:id/mask">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/s_ink" />
+            <corners android:radius="8dp" />
+        </shape>
+    </item>
+</ripple>

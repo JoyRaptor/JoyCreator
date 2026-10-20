@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The empty Story Board glyph: a viewfinder frame with a lens at its heart. Line only (no fill),
+     one weight, drawn white so the layout can tint it. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="96"
+    android:viewportHeight="96">
+    <!-- Four corner brackets -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M10,30 L10,14 Q10,10 14,10 L30,10 M66,10 L82,10 Q86,10 86,14 L86,30 M86,66 L86,82 Q86,86 82,86 L66,86 M30,86 L14,86 Q10,86 10,82 L10,66"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="2.5" />
+    <!-- Lens and handle -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M42,28 A14,14 0 1 1 42,56 A14,14 0 1 1 42,28 M52,52 L64,64"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="2.5" />
+</vector>

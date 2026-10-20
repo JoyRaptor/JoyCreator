@@ -219,6 +219,7 @@
             android:layout_weight="26"
             android:minHeight="150dp"
             android:maxHeight="300dp"
+            android:background="@color/studio_ground"
             android:clipChildren="true">
 
             <ImageView

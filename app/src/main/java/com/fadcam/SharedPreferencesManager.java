@@ -123,7 +123,8 @@ public class SharedPreferencesManager {
             // accent, which works when the accent is a mid-tone red or gold. Joy Creator's is
             // a light aqua reserved for the one thing you are meant to press, and the white
             // clock face on it would measure under 2:1. Greys fade, colour guides.
-            return "#424242";
+            // The same zinc panel as every other card on the recorder home (Studio.PANEL).
+            return "#111114";
         } else if (currentTheme.equals("Crimson Bloom")) {
             return "#F44336"; // Red for Red theme
         } else if (currentTheme.equals("Premium Gold")) {
@@ -165,7 +166,7 @@ public class SharedPreferencesManager {
             ) {
                 setClockCardColor("#424242"); // Dark Grey for AMOLED
             } else if (currentTheme.equals("Joy Creator")) {
-                setClockCardColor("#424242"); // see getClockCardColor for why grey, not accent
+                setClockCardColor("#111114"); // Studio.PANEL; see getClockCardColor for why grey, not accent
             } else if (currentTheme.equals("Crimson Bloom")) {
                 setClockCardColor("#F44336"); // Red for Red theme
             } else if (currentTheme.equals("Premium Gold")) {

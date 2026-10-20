@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- The ON AIR chip's pulse: black on the green chip, like the dot it rings. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="oval">
-    <solid android:color="#FF00FF00" />
+    <solid android:color="@color/s_on_go" />
     <size android:width="12dp" android:height="12dp" />
 </shape>

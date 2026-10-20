@@ -54,7 +54,7 @@ function srcSet(read, ...defs) {
   const o = {}; for (const [k, f] of Object.entries(FILES)) o[k] = defs.length ? define(expand(f, read), ...defs) : expand(f, read);
   o.quadPlain = defs.length ? define(expand(FILES.quad, read), ...defs, 'JB_PLAIN_TARGET') : o.quad;   // the paste brush's cells
   // MediaLayerEngine's atlas build of every pass drawn slot by slot (ATLAS_NBR).
-  if (defs.includes('JB_ATLAS')) for (const k of ['apply', 'copy', 'bake', 'flux', 'update', 'pasteDab', 'bead', 'eraseApply', 'render']) o[k] = define(expand(FILES[k], read), ...defs, 'JB_ATLAS_NBR');
+  if (defs.includes('JB_ATLAS')) for (const k of ['apply', 'copy', 'bake', 'flux', 'update', 'pasteDab', 'bead', 'eraseApply', 'render']) o[k] = define(expand(FILES[k], read), ...defs, 'JB_ATLAS_NBR', ...(process.env.JB_X ? process.env.JB_X.split(',') : []));
   if (defs.includes('JB_ATLAS')) o.pasteBrush = define(expand(FILES.pasteBrush, read), ...defs, 'JB_ATLAS_NBR', 'JB_ATLAS_NBR5');
   return o;
 }
@@ -253,7 +253,7 @@ const SCENARIOS = [
     const page = cdp ? await browser.contexts()[0].newPage() : await browser.newPage();
     page.setDefaultTimeout(1800000);
     page.on('console', (m) => { if (m.type() === 'error') console.error('[page]', m.text()); });
-    out = await page.evaluate(PAGE, { W: SIZE, PPM, SRC, wu: wetUniformMap(WC), WC, scenarios: SCENARIOS, time: process.argv.includes('--time') });
+    out = await page.evaluate(PAGE, { W: SIZE, PPM, SRC, wu: wetUniformMap(WC), WC, scenarios: SCENARIOS, time: process.argv.includes('--time'), g1: /G1/.test(process.env.JB_X || '') });
     if (cdp) await page.close();
   } finally {
     await browser.close().catch(() => {});
@@ -385,6 +385,7 @@ async function PAGE(P) {
     const o = [];
     for (let dy = -rad; dy <= rad; dy++) for (let dx = -rad; dx <= rad; dx++) {
       const x = tx + dx, y = ty + dy, s = x >= 0 && y >= 0 && x < N && y < N ? E.tableData[y * N + x] : -1;
+      if (P.g1) { const X = (s < 0 ? 0 : (s % N) * 256) - (tx + dx) * 256, Y = (s < 0 ? 0 : Math.floor(s / N) * 256) - (ty + dy) * 256; o.push(X, Y); } else
       if (s < 0) o.push(-1, -1); else o.push((s % N) * 256, Math.floor(s / N) * 256);
     }
     return o;

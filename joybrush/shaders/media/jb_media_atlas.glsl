@@ -95,10 +95,59 @@ highp ivec2 jb_atS(highp ivec2 q, highp int shift, out bool ok) {
     // Branch-free: the index is clamped into the 3x3 and ok says whether it had to be. A wall reads the reader's own cell
     // nearest q (jb_ownCell). Half-resolution fields (shift 7) sit at half the full-resolution origins.
     highp int down = JB_SLOT_SHIFT - shift;
+#ifdef JB_X_OWN
+    // EXPERIMENT (timing only, wrong data): every read lands in the draw's own slot, no array, no walls.
+    ok = true;
+    highp ivec2 lo0 = u_nbrTile << shift;
+    return (u_nbrSlot[JB_NBR_R * JB_NBR_N + JB_NBR_R] >> down) + clamp(q, lo0, lo0 + (1 << shift) - 1) - lo0;
+#endif
     highp ivec2 nt = q >> shift;
+#ifdef JB_X_TBL
+    {
+        // EXPERIMENT: the page table read branch-free (no dynamic uniform-array index, no divergent branch).
+        highp ivec2 g = nt - u_atlasGrid.xy;
+        bool inb = g.x >= 0 && g.y >= 0 && g.x < u_atlasGrid.z && g.y < u_atlasGrid.w;
+        highp int slot = texelFetch(u_atlasTable, clamp(g, ivec2(0), u_atlasGrid.zw - 1), 0).r;
+        bool mark = slot == -2 || slot >= 16777216;
+        highp int sr = slot >= 16777216 ? slot - 16777216 : slot;
+        bool wallHit = inb && mark && u_atlasWalls.x != 0;
+        highp ivec2 lo1 = u_nbrTile << shift;
+        highp ivec2 ownA = (u_nbrSlot[JB_NBR_R * JB_NBR_N + JB_NBR_R] >> down) + clamp(q, lo1, lo1 + (1 << shift) - 1) - lo1;
+        highp int rowq = sr / u_atlasSlotsX;
+        highp ivec2 tblA = (ivec2(sr - rowq * u_atlasSlotsX, rowq) << shift) + (q - (nt << shift));
+        ok = wallHit || (inb && sr >= 0);
+        return ok ? (wallHit ? ownA : tblA) : ivec2(0);
+    }
+#endif
+#ifdef JB_X_FAST
+    // The draw's own tile (the common read): its slot, no table. Exactly what the general path returns for it.
+    if (nt == u_nbrTile) { ok = true; return (u_nbrSlot[JB_NBR_R * JB_NBR_N + JB_NBR_R] >> down) + (q - (nt << shift)); }
+#endif
     highp ivec2 d = nt - u_nbrTile + JB_NBR_R;
+#ifdef JB_X_TOR
+    {
+        // EXPERIMENT: a toroidal layout: the atlas texel is the layer cell modulo the atlas (a power of two here), the
+        // 3x3 neighbourhood's residency and walls are two bit masks. No array, no table, no clamp.
+        highp int idx = d.y * 3 + d.x;
+        bool res = ((0x1FF >> idx) & 1) != 0;
+        bool wl = ((u_atlasWalls.y >> idx) & 1) != 0;
+        highp ivec2 lo2 = u_nbrTile << shift;
+        highp ivec2 own = clamp(q, lo2, lo2 + (1 << shift) - 1);
+        ok = res || wl;
+        return ok ? (wl ? own : q) & ((1024 >> down) - 1) : ivec2(0);
+    }
+#endif
+#ifdef JB_X_Q
+    // EXPERIMENT: dynamic index, nothing else (no clamp, no ok, no wall): the floor of the array approach.
+    ok = true;
+    return (u_nbrSlot[d.y * JB_NBR_N + d.x] >> down) + (q - (nt << shift));
+#endif
     highp ivec2 dc = clamp(d, 0, 2 * JB_NBR_R);
+#ifdef JB_X_CIDX
+    highp ivec2 o = u_nbrSlot[JB_NBR_R * JB_NBR_N + JB_NBR_R] + (dc - JB_NBR_R) * 256;   // EXPERIMENT: constant index, wrong data for neighbours
+#else
     highp ivec2 o = u_nbrSlot[dc.y * JB_NBR_N + dc.x];
+#endif
     bool wall = o.x == JB_NBR_WALL;
     highp ivec2 lo = u_nbrTile << shift;
     highp ivec2 a = wall ? (u_nbrSlot[JB_NBR_R * JB_NBR_N + JB_NBR_R] >> down) + clamp(q, lo, lo + (1 << shift) - 1) - lo : (o >> down) + (q - (nt << shift));

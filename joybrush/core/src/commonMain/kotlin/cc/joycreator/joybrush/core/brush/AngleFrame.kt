@@ -20,6 +20,10 @@ package cc.joycreator.joybrush.core.brush
  * samples already transformed into the copy's frame, so the tracker's answer there IS the copy's
  * direction, and turning it again would apply the copy's rotation twice.
  *
+ * The one thing the frame DOES say about the direction is where it STARTS: a copy's tracker holds
+ * a heading until the pen has moved, and that heading has to be the copy's — see
+ * [transformedDefaultHeading]. The direction itself is still the tracker's.
+ *
  * ## The frame holds the COPY's geometry; the BRUSH holds the brush's behaviour
  *
  * A frame says two things about a copy and nothing else: how far the copy is TURNED, and the AXIS
@@ -124,6 +128,31 @@ data class AngleFrame(
      * brush's sign that is flipped — the frame keeps nothing of the brush.
      */
     fun jitter(jitterRad: Float): Float = if (mirrored) -jitterRad else jitterRad
+
+    /**
+     * The ORIGINAL's default heading — +x — as THIS copy's geometry transforms it, in radians.
+     *
+     * The direction tracker holds a heading of its own until the pen has moved far enough for it
+     * to find one, and for a copy that heading has to be the COPY's: the copy's lane is fed the
+     * samples already transformed into the copy's frame, so every direction the tracker FINDS
+     * there is the copy's — but the one it STARTS at was the original's, and the copy's first
+     * dabs pointed the wrong way.
+     *
+     *  - a copy that is only TURNED turns the heading by its [rotation]: θ,
+     *  - a copy that is REFLECTED reflects it about the copy's OWN axis: 2φ'.
+     *
+     * A kaleidoscope copy is ITSELF a reflection — about the axis `φ + θ/2` (see [kaleidoscope]) —
+     * so its heading is `2φ + θ`, from the same rule and with the half-turn already in it. That is
+     * the number, not the guide's line's 2φ.
+     *
+     * This is the seed for a copy's direction tracker, and the identity frame's is 0: the plain
+     * +x every ordinary stroke has always started with.
+     */
+    val transformedDefaultHeading: Float
+        get() {
+            val axis = mirrorAxis
+            return if (axis == null) rotation.toFloat() else (2.0 * axis).toFloat()
+        }
 
     companion object {
         /**

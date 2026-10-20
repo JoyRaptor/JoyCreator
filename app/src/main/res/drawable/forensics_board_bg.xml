@@ -1,18 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item>
-        <shape android:shape="rectangle">
-            <gradient
-                android:angle="270"
-                android:startColor="#000000"
-                android:centerColor="@color/s_ground"
-                android:endColor="#000000" />
-        </shape>
-    </item>
-    <item android:drawable="@drawable/forensics_board_doodles" />
-    <item>
-        <shape android:shape="rectangle">
-            <solid android:color="#08000000" />
-        </shape>
-    </item>
-</layer-list>
+<!--
+    The ground behind the Story Board cards: the old black, flat.
+
+    It used to be a gradient with a tiled pattern of FadCam / FADSEC detective doodles over it
+    (forensics_board_doodles). That pattern is gone: it was brand art on a screen whose only
+    job is to hold the dossier cards, and it showed through the empty state too. The doodle
+    files stay in the project, unused, until the owner says to delete them.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@color/s_ground" />
+</shape>

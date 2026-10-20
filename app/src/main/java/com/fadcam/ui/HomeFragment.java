@@ -2141,6 +2141,7 @@ public class HomeFragment extends BaseFragment {
         if (fragmentHelper != null) {
             fragmentHelper.syncModeSwitcherToCurrentPreference();
         }
+        applyRecorderStatusBar(true);
         // Always clear stale "starting preview" pending state when Home becomes visible.
         // Service callback is the source of truth and will re-assert active preview state.
         clearPreviewOnlyPendingState(true);
@@ -3652,6 +3653,7 @@ public class HomeFragment extends BaseFragment {
     public void onPause() {
         super.onPause();
         FLog.d(TAG, "HomeFragment paused.");
+        applyRecorderStatusBar(false);
         updateMainSwipeGestureGate(false);
         if (!isRecordingOrPaused() && (isPreviewOnlyActive || isPreviewOnlyStartPending) && !isLaunchingFullscreen) {
             dispatchStopPreviewOnly();
@@ -4689,16 +4691,25 @@ public class HomeFragment extends BaseFragment {
         // -----
         View headerBar = view.findViewById(R.id.header_bar);
         if (headerBar != null) {
-            // Use drawable background for consistency with other tabs (portrait home, records, etc)
-            int colorTopBar = resolveThemeColor(R.attr.colorTopBar);
-            // Create drawable with correct color
-            android.graphics.drawable.GradientDrawable drawable = new android.graphics.drawable.GradientDrawable();
-            drawable.setColor(colorTopBar);
-            drawable.setCornerRadii(new float[]{0, 0, 0, 0, 24*getResources().getDisplayMetrics().density, 24*getResources().getDisplayMetrics().density, 24*getResources().getDisplayMetrics().density, 24*getResources().getDisplayMetrics().density});
-            headerBar.setBackground(drawable);
+            // Joy Creator: the header sits flat on the black ground (its XML background,
+            // header_bar_rounded_bg = s_ground). The old code repainted it here as a raised
+            // bar with rounded bottom corners in the theme's top-bar colour; the recorder
+            // home now uses fixed tokens, like the Library screens.
+            headerBar.setBackgroundResource(R.drawable.header_bar_rounded_bg);
         }
         // If you have FABs or MaterialButtons, set their background tint to colorButton
         // here
+    }
+
+    /**
+     * The recorder home stands on old black, so the strip behind the status bar goes black while
+     * it is in front, and back to the theme's colour when it leaves (the Remote tab's pattern).
+     */
+    private void applyRecorderStatusBar(boolean inFront) {
+        if (getActivity() instanceof MainActivity) {
+            ((MainActivity) getActivity()).setStatusBarColor(
+                    inFront ? com.fadcam.ui.faditor.Studio.GROUND : 0);
+        }
     }
 
     private int resolveThemeColor(int attr) {
@@ -6055,7 +6066,7 @@ public class HomeFragment extends BaseFragment {
     private int getCurrentDisplayOption() {
         return requireActivity()
             .getSharedPreferences("AppPreferences", Context.MODE_PRIVATE)
-            .getInt("display_option", 2); // Default to "Everything"
+            .getInt("display_option", 1); // Default: time + date. The Hijri line (2, "Everything") is opt-in: small right-aligned Arabic was noise for most users.
     }
 
     private String getCurrentClockHourFormat() {
@@ -6092,7 +6103,7 @@ public class HomeFragment extends BaseFragment {
             "AppPreferences",
             Context.MODE_PRIVATE
         );
-        int displayOption = prefs.getInt("display_option", 2); // Default to "Everything"
+        int displayOption = prefs.getInt("display_option", 1); // Default: time + date. The Hijri line (2, "Everything") is opt-in: small right-aligned Arabic was noise for most users.
         String hourFormatPref = prefs.getString(
             Constants.PREF_HOME_CLOCK_HOUR_FORMAT,
             CLOCK_HOUR_FORMAT_12
@@ -11012,6 +11023,7 @@ public class HomeFragment extends BaseFragment {
             }
         } else {
             // Tab switched away — pause heavy operations
+            applyRecorderStatusBar(false);
             pauseUpdateHandlers();
             if (!isLaunchingPhotoCapture) {
                 stopBubbleRotation();
@@ -11501,10 +11513,9 @@ public class HomeFragment extends BaseFragment {
             View root = getView();
             if (root == null) return;
 
-            View activeIndicator = root.findViewById(R.id.segment_active_indicator);
-            if (activeIndicator != null) {
-                activeIndicator.setBackgroundResource(R.drawable.segment_active_background);
-            }
+            // The ON chip (segment_active_indicator) is painted by ModeSwitcherComponent, sheared to
+            // match whichever segment it lands on. Painting the old rounded pill here would show it
+            // until the first layout pass replaced it.
 
             View segmentFadCam = root.findViewById(R.id.segment_fadcam);
             View segmentFadRec = root.findViewById(R.id.segment_fadrec);
@@ -12692,40 +12703,44 @@ public class HomeFragment extends BaseFragment {
         int iconColor;
         int stateIconRes;
 
+        // Joy Creator: the dark card is the same zinc panel as the other cards, flat (no
+        // elevation, which Material 3 tints teal), and the only colour is the state itself:
+        // live pink while recording, amber while paused, grey when idle. The white card (a
+        // user setting) keeps its own light palette.
         if (isModePausedForElapsedAppearance()) {
             backgroundColor = useBlackCard
-                    ? Color.parseColor("#E6000000")
+                    ? com.fadcam.ui.faditor.Studio.PANEL
                     : useWhiteCard ? Color.parseColor("#F7F3EE") : Color.TRANSPARENT;
-            strokeColor = useBlackCard || useWhiteCard ? railStrokeColor : Color.TRANSPARENT;
-            titleColor = useWhiteCard ? Color.parseColor("#6C4B12") : Color.parseColor("#FFF6E2");
-            subtitleColor = useWhiteCard ? Color.parseColor("#A07024") : Color.parseColor("#D8B06C");
-            iconColor = useWhiteCard ? Color.parseColor("#A07024") : Color.parseColor("#C8923A");
+            strokeColor = useWhiteCard ? railStrokeColor : Color.TRANSPARENT;
+            titleColor = useWhiteCard ? Color.parseColor("#6C4B12") : com.fadcam.ui.faditor.Studio.INK;
+            subtitleColor = useWhiteCard ? Color.parseColor("#A07024") : com.fadcam.ui.faditor.Studio.CAREFUL;
+            iconColor = useWhiteCard ? Color.parseColor("#A07024") : com.fadcam.ui.faditor.Studio.CAREFUL;
             stateIconRes = R.drawable.pause_rounded;
         } else if (isModeRecordingForElapsedAppearance()) {
             backgroundColor = useBlackCard
-                    ? Color.parseColor("#E6000000")
+                    ? com.fadcam.ui.faditor.Studio.PANEL
                     : useWhiteCard ? Color.parseColor("#F7FBF8") : Color.TRANSPARENT;
-            strokeColor = useBlackCard || useWhiteCard ? railStrokeColor : Color.TRANSPARENT;
-            titleColor = useWhiteCard ? Color.parseColor("#165B36") : Color.parseColor("#EDFFF4");
-            subtitleColor = useWhiteCard ? Color.parseColor("#2F8A5A") : Color.parseColor("#8DE0AC");
-            iconColor = useWhiteCard ? Color.parseColor("#2F8A5A") : Color.parseColor("#56C889");
+            strokeColor = useWhiteCard ? railStrokeColor : Color.TRANSPARENT;
+            titleColor = useWhiteCard ? Color.parseColor("#165B36") : com.fadcam.ui.faditor.Studio.INK;
+            subtitleColor = useWhiteCard ? Color.parseColor("#2F8A5A") : com.fadcam.ui.faditor.Studio.LIVE;
+            iconColor = useWhiteCard ? Color.parseColor("#2F8A5A") : com.fadcam.ui.faditor.Studio.LIVE;
             stateIconRes = R.drawable.play_button_rounded;
         } else {
             backgroundColor = useBlackCard
-                    ? Color.parseColor("#E6000000")
+                    ? com.fadcam.ui.faditor.Studio.PANEL
                     : useWhiteCard ? Color.parseColor("#F4F6F8") : Color.TRANSPARENT;
-            strokeColor = useBlackCard || useWhiteCard ? railStrokeColor : Color.TRANSPARENT;
-            titleColor = useWhiteCard ? Color.parseColor("#33424C") : Color.parseColor("#C9D5DE");
-            subtitleColor = useWhiteCard ? Color.parseColor("#667682") : Color.parseColor("#90A4AE");
-            iconColor = useWhiteCard ? Color.parseColor("#667682") : Color.parseColor("#6B7C88");
+            strokeColor = useWhiteCard ? railStrokeColor : Color.TRANSPARENT;
+            titleColor = useWhiteCard ? Color.parseColor("#33424C") : com.fadcam.ui.faditor.Studio.INK;
+            subtitleColor = useWhiteCard ? Color.parseColor("#667682") : com.fadcam.ui.faditor.Studio.INK_FAINT;
+            iconColor = useWhiteCard ? Color.parseColor("#667682") : com.fadcam.ui.faditor.Studio.INK_FAINT;
             stateIconRes = R.drawable.play_button_rounded;
         }
 
         cardElapsedHero.setCardBackgroundColor(backgroundColor);
         cardElapsedHero.setStrokeColor(strokeColor);
-        cardElapsedHero.setStrokeWidth((useBlackCard || useWhiteCard) ? dpToPxInt(1) : 0);
+        cardElapsedHero.setStrokeWidth(useWhiteCard ? dpToPxInt(1) : 0);
         cardElapsedHero.setRadius(dpToPxInt(12));
-        cardElapsedHero.setCardElevation((useBlackCard || useWhiteCard) ? dpToPxInt(4) : 0);
+        cardElapsedHero.setCardElevation(0);
         cardElapsedHero.setMinimumHeight(dpToPxInt(isLandscapeMode() ? 46 : 48));
 
         if (tvElapsedTitle != null) {

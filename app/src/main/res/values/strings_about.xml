@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The About page (com.fadcam.ui.about.AboutJoyFragment). Every word it shows lives here, except the
+  ones it deliberately shares: the wing names come from the lobby (lobby_room_*), and the privacy
+  answers, the open-source note, the copyright and licence line and "View Source Code" are the
+  classic About screen's own strings, so the two screens can never disagree.
+-->
+<resources>
+    <!-- top bar -->
+    <string name="aboutjoy_title">About</string>
+    <string name="aboutjoy_back">Back</string>
+    <string name="aboutjoy_count">v%1$s</string>
+
+    <!-- hero -->
+    <string name="aboutjoy_banner_desc">Joy Creator</string>
+    <string name="aboutjoy_tagline">One studio for everything you make.</string>
+    <string name="aboutjoy_tagline_sub">Edit, paint, animate and capture, all on your phone.</string>
+
+    <!-- version and updates -->
+    <string name="aboutjoy_version_label">Version</string>
+    <string name="aboutjoy_build">Build %1$s · %2$s</string>
+    <string name="aboutjoy_check">Check for updates</string>
+    <string name="aboutjoy_check_hint">Look online for a newer Joy Creator</string>
+    <string name="aboutjoy_checking">Checking…</string>
+    <string name="aboutjoy_up_to_date">You have the newest version.</string>
+    <string name="aboutjoy_update_ready">Version %1$s is ready.</string>
+    <string name="aboutjoy_beta_ready">You have the newest version. A beta, %1$s, is out too.</string>
+    <string name="aboutjoy_get_beta">Get the beta</string>
+    <string name="aboutjoy_update_failed">Could not check right now. Try again in a while.</string>
+
+    <!-- the wings -->
+    <string name="aboutjoy_wings_label">The wings</string>
+    <string name="aboutjoy_wing_studio">Cut video and sound on a timeline</string>
+    <string name="aboutjoy_wing_joybrush">Paint and animate, frame by frame</string>
+    <string name="aboutjoy_wing_sprites">Build sprite sheets and characters</string>
+    <string name="aboutjoy_wing_capture">Record the camera or the screen</string>
+    <string name="aboutjoy_wing_joybot">Joybot</string>
+    <string name="aboutjoy_wing_joybot_desc">Your helper, in every room</string>
+    <string name="aboutjoy_wing_viz">Turn sound into moving pictures</string>
+    <string name="aboutjoy_soon">Soon</string>
+    <string name="aboutjoy_wing_spoken">%1$s: %2$s</string>
+
+    <!-- privacy -->
+    <string name="aboutjoy_privacy_label">Privacy</string>
+    <string name="aboutjoy_privacy_toggle">Show or hide the privacy answers</string>
+
+    <!-- open source -->
+    <string name="aboutjoy_open_label">Open source</string>
+    <string name="aboutjoy_based_on">Built on FadCam by FadSec Lab</string>
+    <string name="aboutjoy_source_hint">Open the source code in your browser</string>
+
+    <!-- sign-off -->
+    <string name="aboutjoy_made_by">Made by</string>
+    <string name="aboutjoy_maker">JoyRaptor</string>
+    <string name="aboutjoy_classic">Classic About</string>
+    <string name="aboutjoy_classic_hint">Open the old About screen</string>
+    <string name="aboutjoy_no_browser">No browser to open this link</string>
+</resources>

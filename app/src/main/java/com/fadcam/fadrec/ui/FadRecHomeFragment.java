@@ -828,9 +828,10 @@ public class FadRecHomeFragment extends HomeFragment {
                 // Set the PNG drawable
                 ivScreenRecordIcon.setImageResource(com.fadcam.R.drawable.screen_recorder);
                 
-                // Apply tint (green color matching camera icon)
+                // Grey, matching the camera row's icon: on the recorder home colour is spent only
+                // on the record button and on what is ON (Joy Creator restyle).
                 ivScreenRecordIcon.setColorFilter(
-                    ContextCompat.getColor(requireContext(), com.fadcam.R.color.greenPastel),
+                    ContextCompat.getColor(requireContext(), com.fadcam.R.color.s_ink_dim),
                     android.graphics.PorterDuff.Mode.SRC_IN
                 );
                 

@@ -496,12 +496,22 @@ public class MainActivity extends AppCompatActivity {
 
             // Active-tab label mode: only the selected tab shows its label.
             bottomNavigationView.setLabelVisibilityMode(NavigationBarView.LABEL_VISIBILITY_SELECTED);
-            bottomNavigationView.setItemActiveIndicatorEnabled(false);
+            // Joy Creator: the chosen tab is ON, and ON is a solid cyan pill with the icon cut
+            // out in black (bottom_nav_icon_tint: checked = s_ground). The other icons fade grey.
+            // The pill is sized here because the XML style for it is @null.
+            bottomNavigationView.setItemActiveIndicatorEnabled(true);
             // Center content (icon + label) vertically within the 64dp dock.
             bottomNavigationView.setItemGravity(NavigationBarView.ITEM_GRAVITY_CENTER);
             try {
+                final float dens = getResources().getDisplayMetrics().density;
+                bottomNavigationView.setItemActiveIndicatorWidth(Math.round(48 * dens));
+                bottomNavigationView.setItemActiveIndicatorHeight(Math.round(28 * dens));
+                bottomNavigationView.setItemActiveIndicatorShapeAppearance(
+                        new com.google.android.material.shape.ShapeAppearanceModel.Builder()
+                                .setAllCornerSizes(new com.google.android.material.shape.RelativeCornerSize(0.5f))
+                                .build());
                 bottomNavigationView.setItemActiveIndicatorColor(
-                        android.content.res.ColorStateList.valueOf(android.graphics.Color.TRANSPARENT));
+                        android.content.res.ColorStateList.valueOf(com.fadcam.ui.faditor.Studio.ARMED));
             } catch (Exception ignored) { }
 
             // Apply rounded corners (24dp) via ViewOutlineProvider so the background and

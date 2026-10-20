@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The Remote screen's few shared looks, so fragment_remote.xml says "a row" instead of repeating
+  nine attributes forty times. Colours are the Studio tokens; type is the Studio's faces.
+-->
+<resources>
+    <!-- A row inside a group card. The card behind it is the panel; the row only paints its press. -->
+    <style name="Remote.Row" parent="">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:orientation">horizontal</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:paddingStart">14dp</item>
+        <item name="android:paddingEnd">12dp</item>
+        <item name="android:paddingTop">12dp</item>
+        <item name="android:paddingBottom">12dp</item>
+        <item name="android:minHeight">48dp</item>
+        <item name="android:background">@drawable/settings_home_row_bg</item>
+    </style>
+
+    <!-- A small tile inside the Health grid. -->
+    <style name="Remote.Tile" parent="">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:orientation">horizontal</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:padding">12dp</item>
+        <item name="android:background">@drawable/settings_home_row_bg</item>
+    </style>
+
+    <style name="Remote.RowTitle" parent="">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:textColor">@color/s_ink</item>
+        <item name="android:fontFamily">@font/joy_body</item>
+        <item name="android:textFontWeight">600</item>
+    </style>
+
+    <style name="Remote.RowValue" parent="">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">2dp</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:textColor">@color/s_ink_dim</item>
+        <item name="android:fontFamily">@font/joy_body</item>
+    </style>
+
+    <style name="Remote.TileLabel" parent="">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textSize">11sp</item>
+        <item name="android:textColor">@color/s_ink_dim</item>
+        <item name="android:fontFamily">@font/joy_body</item>
+        <item name="android:textFontWeight">600</item>
+    </style>
+
+    <style name="Remote.TileValue" parent="">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">4dp</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:textColor">@color/s_ink</item>
+        <item name="android:fontFamily">@font/joy_body</item>
+    </style>
+
+    <style name="Remote.Chevron" parent="">
+        <item name="android:layout_width">14dp</item>
+        <item name="android:layout_height">14dp</item>
+        <item name="android:layout_gravity">center_vertical</item>
+        <item name="android:src">@drawable/ic_arrow_right</item>
+        <item name="android:tint">@color/s_ink_faint</item>
+        <item name="android:importantForAccessibility">no</item>
+    </style>
+
+    <!-- The mono spaced-capitals label over a group (same voice as the Settings hub). -->
+    <style name="Remote.Section" parent="">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:paddingStart">6dp</item>
+        <item name="android:paddingTop">22dp</item>
+        <item name="android:paddingBottom">8dp</item>
+        <item name="android:textSize">11sp</item>
+        <item name="android:textColor">@color/s_ink_dim</item>
+        <item name="android:fontFamily">@font/joy_mono</item>
+        <item name="android:textFontWeight">500</item>
+        <item name="android:letterSpacing">0.14</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:accessibilityHeading">true</item>
+    </style>
+
+    <style name="Remote.Card" parent="">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:orientation">vertical</item>
+        <item name="android:background">@drawable/settings_group_card_bg</item>
+    </style>
+
+    <style name="Remote.Note" parent="">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:textColor">@color/s_ink_dim</item>
+        <item name="android:fontFamily">@font/joy_body</item>
+        <item name="android:layout_marginBottom">8dp</item>
+    </style>
+
+    <style name="Remote.HelpStep" parent="">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:textColor">@color/s_ink</item>
+        <item name="android:fontFamily">@font/joy_body</item>
+        <item name="android:layout_marginBottom">6dp</item>
+    </style>
+</resources>

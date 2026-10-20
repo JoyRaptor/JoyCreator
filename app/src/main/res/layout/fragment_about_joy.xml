@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The About page (com.fadcam.ui.about.AboutJoyFragment). The skeleton only; the code paints it.
+
+  Top: back, the title and the version, as on the Settings hub and Recently deleted.
+  Below: one scrolling column the fragment fills with its parts (hero, version, wings, privacy,
+  open source, sign-off), each built by its own small class.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/aboutjoy_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/s_ground"
+    android:clickable="true"
+    android:focusable="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="6dp"
+        android:paddingEnd="16dp">
+
+        <TextView
+            android:id="@+id/aboutjoy_back"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:gravity="center"
+            android:fontFamily="@font/materialicons"
+            android:textColor="@color/s_ink_dim"
+            android:textSize="20sp"
+            android:contentDescription="@string/aboutjoy_back"
+            android:background="?attr/selectableItemBackgroundBorderless" />
+
+        <TextView
+            android:id="@+id/aboutjoy_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:text="@string/aboutjoy_title"
+            android:textColor="@color/s_ink"
+            android:textSize="19sp"
+            android:letterSpacing="-0.04" />
+
+        <TextView
+            android:id="@+id/aboutjoy_count"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="9dp"
+            android:layout_marginTop="3dp"
+            android:textColor="@color/s_ink_off"
+            android:textSize="10sp" />
+    </LinearLayout>
+
+    <ScrollView
+        android:id="@+id/aboutjoy_scroll"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:scrollbars="none"
+        android:overScrollMode="ifContentScrolls">
+
+        <LinearLayout
+            android:id="@+id/aboutjoy_body"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingBottom="32dp" />
+    </ScrollView>
+</LinearLayout>

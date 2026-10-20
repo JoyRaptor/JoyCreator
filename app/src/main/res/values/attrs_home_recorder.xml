@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The recorder home's slanted controls (com.fadcam.ui.home). Read by HomeRecSkin.
+     homeRecOnFace: what colour the control fills with when it is ON.
+       armed  = solid cyan, the app-wide "this is chosen" (mirror on, visualizer armed, torch on).
+       danger = solid red, for the one ON state that means "something is missing" (no sound).
+     homeRecFlatLeft / homeRecFlatRight: square off that end, so a row of chips starts and ends
+       flush, the way the lobby's New row does. -->
+<resources>
+    <declare-styleable name="HomeRecSkin">
+        <attr name="homeRecOnFace" format="enum">
+            <enum name="armed" value="0" />
+            <enum name="danger" value="1" />
+        </attr>
+        <attr name="homeRecFlatLeft" format="boolean" />
+        <attr name="homeRecFlatRight" format="boolean" />
+    </declare-styleable>
+</resources>

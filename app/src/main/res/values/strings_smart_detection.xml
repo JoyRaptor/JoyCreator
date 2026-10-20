@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Smart Detection (the Lab): words the restyled screens own. The rest of the feature's text
+     still lives in strings.xml under forensics_* and digital_forensics_*. -->
+<resources>
+    <!-- Empty Story Board: one glyph, one line, one hint. -->
+    <string name="smart_detection_empty_title">Story Board is clear</string>
+    <string name="smart_detection_empty_hint">Frames the camera flags will show up here</string>
+    <string name="smart_detection_empty_glyph_desc">Nothing detected yet</string>
+
+    <!-- Hover labels (tooltips) for the icon-only buttons. -->
+    <string name="smart_detection_tip_close">Close</string>
+    <string name="smart_detection_tip_back">Back</string>
+    <string name="smart_detection_tip_menu">Smart Detection menu</string>
+    <string name="smart_detection_tip_select_all">Select all</string>
+    <string name="smart_detection_tip_sort">Sort</string>
+    <string name="smart_detection_tip_grid">Change grid layout</string>
+    <string name="smart_detection_tip_scroll">Scroll to top</string>
+</resources>

@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Legacy bottom dock icons (Joy Creator): the chosen tab sits on a solid cyan pill
+     (MainActivity sets the active indicator), so its icon is cut out in black; the others are
+     zinc grey. Greys fade, colour guides. -->
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Selected item: bright white -->
-    <item android:color="#FFFFFF" android:state_enabled="true" android:state_checked="true"/>
-    <!-- Unselected item: white with reduced opacity (dimmed) -->
-    <item android:color="#66FFFFFF" android:state_enabled="true"/>
-    <!-- Disabled item: white with very low opacity -->
-    <item android:color="#33FFFFFF" android:state_enabled="false"/>
+    <!-- Selected item: punched out of the cyan pill -->
+    <item android:color="@color/s_ground" android:state_enabled="true" android:state_checked="true"/>
+    <!-- Unselected item -->
+    <item android:color="@color/s_ink_faint" android:state_enabled="true"/>
+    <!-- Disabled item -->
+    <item android:color="@color/s_ink_off" android:state_enabled="false"/>
 </selector>

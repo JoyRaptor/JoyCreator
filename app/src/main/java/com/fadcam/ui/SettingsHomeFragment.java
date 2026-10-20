@@ -382,7 +382,8 @@ public class SettingsHomeFragment extends Fragment {
         setupMiniAppCards(root);
         equalizeMiniCardRows(root);
         bindRow(root, R.id.group_watermark_quick, () -> openSubFragment(new WatermarkSettingsFragment()));
-        bindRow(root, R.id.group_about, () -> openSubFragment(new AboutFragment()));
+        // The new About page; the classic one stays reachable from its foot.
+        bindRow(root, R.id.group_about, () -> com.fadcam.ui.about.AboutJoyFragment.open(requireActivity()));
         bindRow(root, R.id.group_review, () -> launchReview());
         bindRow(root, R.id.group_readme, () -> openReadmeDialog());
     }

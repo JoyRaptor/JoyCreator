@@ -1,4 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Camera / Screen / Mic as three sheared chips that read as one banded object (the lobby New
+     row's shape). Three layers, back to front:
+       mode_switcher_tracks      the three zinc chips, painted by ModeSwitcherComponent;
+       segment_active_indicator  the ON chip (solid cyan), which slides between them;
+       mode_switcher_segments    the tap targets and their words (black when ON, grey when off).
+     The segments and tracks carry the same weights and gaps, so the sliding chip lands exactly
+     on a track. Every id the Java reads is kept. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/mode_switcher_root"
     android:layout_width="match_parent"
@@ -6,14 +13,26 @@
     android:layout_marginStart="16dp"
     android:layout_marginTop="4dp"
     android:layout_marginEnd="16dp"
-    android:layout_marginBottom="0dp"
-    android:background="@drawable/segmented_control_background">
+    android:layout_marginBottom="0dp">
+
+    <LinearLayout
+        android:id="@+id/mode_switcher_tracks"
+        android:layout_width="match_parent"
+        android:layout_height="28dp"
+        android:importantForAccessibility="noHideDescendants"
+        android:orientation="horizontal">
+
+        <View android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:layout_marginEnd="3dp" />
+
+        <View android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:layout_marginEnd="3dp" />
+
+        <View android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
+    </LinearLayout>
 
     <View
         android:id="@+id/segment_active_indicator"
         android:layout_width="0dp"
-        android:layout_height="28dp"
-        android:background="@drawable/segment_active_background" />
+        android:layout_height="28dp" />
 
     <LinearLayout
         android:id="@+id/mode_switcher_segments"
@@ -22,30 +41,36 @@
         android:orientation="horizontal">
 
         <!-- FadCam Segment -->
-        <FrameLayout android:id="@+id/segment_fadcam" android:layout_width="0dp" android:layout_height="28dp" android:layout_weight="1" android:clickable="true" android:focusable="true"
+        <FrameLayout android:id="@+id/segment_fadcam" android:layout_width="0dp" android:layout_height="28dp" android:layout_weight="1" android:layout_marginEnd="3dp" android:clickable="true" android:focusable="true"
+            android:contentDescription="@string/capture_mode_camera"
+            android:tooltipText="@string/capture_mode_camera"
             android:nextFocusUp="@+id/btnGetPro"
             android:nextFocusDown="@+id/rowCamera">
 
-            <TextView android:id="@+id/text_fadcam" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center" android:text="@string/capture_mode_camera" android:textSize="11sp" />
+            <TextView android:id="@+id/text_fadcam" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center" android:fontFamily="@font/joy_body" android:importantForAccessibility="no" android:includeFontPadding="false" android:text="@string/capture_mode_camera" android:textColor="@color/s_ink_dim" android:textSize="11sp" />
         </FrameLayout>
 
         <!-- FadRec Segment -->
-        <FrameLayout android:id="@+id/segment_fadrec" android:layout_width="0dp" android:layout_height="28dp" android:layout_weight="1" android:clickable="true" android:focusable="true"
+        <FrameLayout android:id="@+id/segment_fadrec" android:layout_width="0dp" android:layout_height="28dp" android:layout_weight="1" android:layout_marginEnd="3dp" android:clickable="true" android:focusable="true"
+            android:contentDescription="@string/capture_mode_screen"
+            android:tooltipText="@string/capture_mode_screen"
             android:nextFocusUp="@+id/btnGetPro"
             android:nextFocusDown="@+id/rowCamera">
 
-            <TextView android:id="@+id/text_fadrec" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center" android:text="@string/capture_mode_screen" android:textSize="11sp" />
+            <TextView android:id="@+id/text_fadrec" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center" android:fontFamily="@font/joy_body" android:importantForAccessibility="no" android:includeFontPadding="false" android:text="@string/capture_mode_screen" android:textColor="@color/s_ink_dim" android:textSize="11sp" />
 
             <!-- NEW Badge for FadRec -->
-            <TextView android:id="@+id/badge_fadrec" android:layout_width="wrap_content" android:layout_height="wrap_content" android:background="@drawable/new_badge_background" android:text="@string/badge_new" android:textColor="@color/s_ink" android:textStyle="bold" android:textSize="7sp" android:paddingStart="3dp" android:paddingEnd="3dp" android:paddingTop="1dp" android:paddingBottom="1dp" android:minWidth="10dp" android:gravity="center" android:layout_gravity="top|end" android:layout_marginTop="1dp" android:layout_marginEnd="1dp" android:visibility="visible" />
+            <TextView android:id="@+id/badge_fadrec" android:layout_width="wrap_content" android:layout_height="wrap_content" android:background="@drawable/new_badge_background" android:text="@string/badge_new" android:textColor="@color/s_ink" android:textStyle="bold" android:textSize="7sp" android:paddingStart="3dp" android:paddingEnd="3dp" android:paddingTop="1dp" android:paddingBottom="1dp" android:minWidth="10dp" android:gravity="center" android:layout_gravity="top|end" android:layout_marginTop="1dp" android:layout_marginEnd="12dp" android:visibility="visible" />
         </FrameLayout>
 
         <!-- FadMic Segment -->
         <FrameLayout android:id="@+id/segment_fadmic" android:layout_width="0dp" android:layout_height="28dp" android:layout_weight="1" android:clickable="true" android:focusable="true"
+            android:contentDescription="@string/capture_mode_mic"
+            android:tooltipText="@string/capture_mode_mic"
             android:nextFocusUp="@+id/btnGetPro"
             android:nextFocusDown="@+id/rowCamera">
 
-            <TextView android:id="@+id/text_fadmic" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center" android:text="@string/capture_mode_mic" android:textSize="11sp" />
+            <TextView android:id="@+id/text_fadmic" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center" android:fontFamily="@font/joy_body" android:importantForAccessibility="no" android:includeFontPadding="false" android:text="@string/capture_mode_mic" android:textColor="@color/s_ink_dim" android:textSize="11sp" />
         </FrameLayout>
 
     </LinearLayout>

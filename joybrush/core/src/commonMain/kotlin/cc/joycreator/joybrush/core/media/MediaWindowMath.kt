@@ -61,6 +61,52 @@ object MediaWindowMath {
 
     /** Every key of the window at ([tx], [ty]), row by row. */
     fun allKeys(tx: Int, ty: Int): List<Long> = keysIn(tx, ty, floatArrayOf(0f, 0f, PX.toFloat(), PX.toFloat()))
+
+    /** How near (window px) the running water's rectangle may come to the window's edge before it counts as pressing on it. */
+    const val WATER_EDGE = 16f
+
+    private const val WET_WEIGHT = 10
+    private const val FRONTIER_WEIGHT = 9
+
+    /**
+     * "Follow the water" (owner's seams, 2026-10-19): where the window should sit while water runs with no pen down, or null
+     * to leave it. The water only moves inside the window, so a wash or a drip that reaches its edge, or water the window left
+     * behind, stops flat there. The better window holds more of the layer's water ([wetKeys]: the tiles with a water store),
+     * and has room on the edge the running water ([rect], window px) presses against: one tile row or column beyond that
+     * edge counts as nearly as much as a wet tile. A move has to beat the window as it is, so a window already holding all
+     * of it stays put. Pure, so it is tested without a GPU.
+     */
+    fun waterPlacement(wetKeys: Collection<Long>, rect: FloatArray, tx: Int, ty: Int): Pair<Int, Int>? {
+        if (rect[2] <= rect[0] || rect[3] <= rect[1]) return null
+        // Only water within a tile of the window counts: old frozen water elsewhere on the layer must not pull the window off the
+        // water that is running, and a move is one tile at a time (the frame rate of a drip is slower than that).
+        val wet = HashSet<Long>(); for (k in wetKeys) if (Tiles.tx(k) in tx - 1..tx + TILES && Tiles.ty(k) in ty - 1..ty + TILES) wet += k
+        val frontier = HashSet<Long>()
+        val x0 = max(0, floor(rect[0] / Tiles.SIZE).toInt()); val x1 = min(TILES - 1, ceil(rect[2] / Tiles.SIZE).toInt() - 1)
+        val y0 = max(0, floor(rect[1] / Tiles.SIZE).toInt()); val y1 = min(TILES - 1, ceil(rect[3] / Tiles.SIZE).toInt() - 1)
+        val edge = WATER_EDGE
+        if (rect[0] <= edge) for (y in y0..y1) frontier += Tiles.key(tx - 1, ty + y)
+        if (rect[2] >= PX - edge) for (y in y0..y1) frontier += Tiles.key(tx + TILES, ty + y)
+        if (rect[1] <= edge) for (x in x0..x1) frontier += Tiles.key(tx + x, ty - 1)
+        if (rect[3] >= PX - edge) for (x in x0..x1) frontier += Tiles.key(tx + x, ty + TILES)
+        if (frontier.isEmpty() && wet.none { k -> Tiles.tx(k) < tx || Tiles.tx(k) >= tx + TILES || Tiles.ty(k) < ty || Tiles.ty(k) >= ty + TILES }) return null
+        fun score(nx: Int, ny: Int): Int {
+            var s = 0
+            for (k in wet) if (Tiles.tx(k) in nx until nx + TILES && Tiles.ty(k) in ny until ny + TILES) s += WET_WEIGHT
+            for (k in frontier) if (k !in wet && Tiles.tx(k) in nx until nx + TILES && Tiles.ty(k) in ny until ny + TILES) s += FRONTIER_WEIGHT
+            return s
+        }
+        var best: Pair<Int, Int>? = null
+        var bestScore = score(tx, ty)
+        var bestMove = 0
+        for (dy in -1..1) for (dx in -1..1) {
+            if (dx == 0 && dy == 0) continue
+            val s = score(tx + dx, ty + dy)
+            val move = kotlin.math.abs(dx) + kotlin.math.abs(dy)
+            if (s > bestScore || (s == bestScore && best != null && move < bestMove)) { best = Pair(tx + dx, ty + dy); bestScore = s; bestMove = move }
+        }
+        return best
+    }
 }
 
 /**

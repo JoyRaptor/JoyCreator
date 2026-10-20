@@ -5716,7 +5716,8 @@ class GlPaintEngine(
         }
         onMediaWarning?.invoke("dropped the media of ${stale.size} tile(s) of $layerId: their pixels changed outside the media funnel")
         val stroke = mediaStroke
-        if (stroke != null) stroke.addAll(changes) else undo.push(UndoLog.Step(changes))
+        // One change per tile in a stroke (MediaStrokeChanges): a texture this stroke made is ended, not dropped again.
+        if (stroke != null) MediaStrokeChanges.addDrops(stroke, changes).forEach(::recycleLayerTex) else undo.push(UndoLog.Step(changes))
         return stale.toSet()
     }
 

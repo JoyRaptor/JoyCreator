@@ -98,6 +98,34 @@ class GuideLinesTest {
     }
 
     @Test
+    fun theSymmetryLineIsDrawnRightAcrossTheViewAndClippedToIt() {
+        // The symmetry line is the 1 px segment (0,0)–(1,1); the line it lies on crosses the view
+        // at (100, 100) and (200, 200), exactly like the ruler does.
+        val segs = GuideLines.visible(
+            Guide.Symmetry(Pt(0.0, 0.0), Pt(1.0, 1.0), count = 2), view(100f, 0f, 200f, 400f), 1f,
+        )
+        assertEquals(1, segs.size, "$segs")
+        val s = segs[0]
+        assertTrue(abs(s[0] - 100f) < 1e-3f, "x0=${s[0]}")
+        assertTrue(abs(s[1] - 100f) < 1e-3f, "y0=${s[1]}")
+        assertTrue(abs(s[2] - 200f) < 1e-3f, "x1=${s[2]}")
+        assertTrue(abs(s[3] - 200f) < 1e-3f, "y1=${s[3]}")
+        // Nothing comes back outside the view: the line is cut off at the view's edge.
+        for (e in 0..1) {
+            val x = s[e * 2].toDouble()
+            val y = s[e * 2 + 1].toDouble()
+            assertTrue(x >= 100.0 - 1e-3 && x <= 200.0 + 1e-3, "x=$x in $s")
+            assertTrue(y >= 0.0 - 1e-3 && y <= 400.0 + 1e-3, "y=$y in $s")
+        }
+        // A symmetry line with no direction draws nothing, like a ruler that is a dot.
+        assertTrue(
+            GuideLines.visible(
+                Guide.Symmetry(Pt(5.0, 5.0), Pt(5.0, 5.0), count = 2), view(0f, 0f, 10f, 10f), 1f,
+            ).isEmpty(),
+        )
+    }
+
+    @Test
     fun aVanishingPointOffTheViewStillThrowsRaysIntoIt() {
         val segs = GuideLines.visible(
             Guide.Perspective(listOf(Pt(150.0, 400.0), Pt(400.0, 120.0))),

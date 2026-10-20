@@ -1,6 +1,7 @@
 package cc.joycreator.joybrush.core.guide
 
 import cc.joycreator.joybrush.core.shape.Pt
+import kotlin.math.floor
 
 /**
  * What the person has switched on and where it is (JB-2.12). A [Guide] is pure geometry (JB-2.12a); this is the state
@@ -53,6 +54,7 @@ data class GuideSettings(
             }
             else -> return "Only rulers and ellipses can be tracers."
         }
+        symmetry?.let { s -> return symmetryRefusal(s.a, s.b, s.count.toDouble()) }
         return null
     }
 
@@ -66,6 +68,12 @@ data class GuideSettings(
             is Guide.Ruler -> append("\nruler ${t.a.x} ${t.a.y} ${t.b.x} ${t.b.y}")
             is Guide.EllipseTracer -> append("\nellipse ${t.center.x} ${t.center.y} ${t.rx} ${t.ry} ${t.rotation}")
             else -> Unit
+        }
+        // The symmetry line, in ONE line, with the flags as 0 and 1: the reader skips any line with
+        // a token that is not a number, so "true" and "false" would lose the line entirely.
+        symmetry?.let { s ->
+            append("\nsym ${s.a.x} ${s.a.y} ${s.b.x} ${s.b.y} ${s.count}")
+            append(" ${if (s.kaleido) 1 else 0} ${if (s.overlap) 1 else 0} ${if (s.symmetric) 1 else 0}")
         }
     }
 
@@ -114,10 +122,52 @@ data class GuideSettings(
                     }
                     "ruler" -> if (n.size == 4) tracers.add(Guide.Ruler(Pt(n[0], n[1]), Pt(n[2], n[3])))
                     "ellipse" -> if (n.size == 5) tracers.add(Guide.EllipseTracer(Pt(n[0], n[1]), n[2], n[3], n[4]))
+                    "sym" -> if (n.size == 8) {
+                        // The symmetry is checked HERE, on its own, and not by [refusalFor] alone:
+                        // a refused setting takes the WHOLE set with it (`decode` ends with
+                        // `if (s.refusalFor() == null) s else NONE`), so one bad symmetry must not
+                        // cost the owner the grid, the perspective and the rulers. A line that
+                        // fails the check is skipped; every other setting survives it.
+                        //
+                        // The check is [symmetryRefusal], the ONE definition of a usable symmetry
+                        // that [refusalFor] uses as well: a rule that lived in only one of the two
+                        // would let a symmetry through the reader that the writer refuses, and
+                        // then the whole set would be NONE again.
+                        val sa = Pt(n[0], n[1])
+                        val sb = Pt(n[2], n[3])
+                        if (symmetryRefusal(sa, sb, n[4]) == null) {
+                            s = s.copy(
+                                symmetry = Guide.Symmetry(
+                                    sa, sb, n[4].toInt(), n[5] != 0.0, n[6] != 0.0, n[7] != 0.0,
+                                ),
+                            )
+                        }
+                    }
                 }
             }
             s = s.copy(tracers = tracers)
             return if (s.refusalFor() == null) s else NONE
+        }
+
+        /**
+         * The ONE definition of a symmetry that may be used: two ends that are different points and
+         * are real numbers, and a count that is a whole number of copies between 1 and
+         * [SymmetryMath.MAX_COUNT].
+         *
+         * The sentence says why not, and it names the symmetry; null means the symmetry is usable.
+         * [refusalFor] and [decode] both ask THIS, so the two can never drift apart: a rule that
+         * lived in only one of them would let a symmetry through the reader that the writer
+         * refuses — and a refused setting takes the whole set with it, which is the very bug the
+         * symmetry's own check exists to prevent.
+         */
+        private fun symmetryRefusal(a: Pt, b: Pt, count: Double): String? {
+            if (!finite(a) || !finite(b)) return "The symmetry line's end is not a number."
+            if (a.x == b.x && a.y == b.y) return "The symmetry line needs two different ends."
+            if (count != floor(count)) return "The symmetry's copy count must be a whole number."
+            if (count < 1.0 || count > SymmetryMath.MAX_COUNT.toDouble()) {
+                return "The symmetry's copy count must be between 1 and ${SymmetryMath.MAX_COUNT}."
+            }
+            return null
         }
 
         private fun finite(p: Pt) = p.x.isFinite() && p.y.isFinite()

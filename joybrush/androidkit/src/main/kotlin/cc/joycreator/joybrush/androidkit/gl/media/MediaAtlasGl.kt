@@ -143,18 +143,33 @@ internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: I
         GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
     }
 
-    /** Scissor to the part of layer-px [rect] in [slot] (tile [tx], [ty]); false when there is none. */
-    fun scissorSlot(slot: Int, tx: Int, ty: Int, rect: FloatArray): Boolean {
-        var hit = false
-        forEachPart(rect) { s, x, y, x0, y0, x1, y1 ->
-            if (s == slot && x == tx && y == ty) {
-                val (ax, ay) = slotTexel(s)
-                GLES30.glEnable(GLES30.GL_SCISSOR_TEST)
-                GLES30.glScissor(ax + x0 - x * MediaAtlasDraw.SIDE, ay + y0 - y * MediaAtlasDraw.SIDE, x1 - x0, y1 - y0)
-                hit = true
+    /**
+     * The look's parts of layer-px [rect], each under its scissor before [f] draws it: [inner] = the part of each tile at
+     * least [reach] px in from its edges (none when [reach] < 0), else what is left (up to four strips a tile, or the whole
+     * part). Whole pixels, so every pixel of [rect] falls in exactly one part.
+     */
+    fun forEachLookPart(rect: FloatArray, reach: Int, inner: Boolean, f: (slot: Int, tx: Int, ty: Int) -> Unit) {
+        GLES30.glEnable(GLES30.GL_SCISSOR_TEST)
+        forEachPart(rect) { slot, tx, ty, x0, y0, x1, y1 ->
+            val (ax, ay) = slotTexel(slot)
+            val ox = ax - tx * MediaAtlasDraw.SIDE; val oy = ay - ty * MediaAtlasDraw.SIDE
+            fun part(px0: Int, py0: Int, px1: Int, py1: Int) {
+                if (px1 <= px0 || py1 <= py0) return
+                GLES30.glScissor(ox + px0, oy + py0, px1 - px0, py1 - py0); f(slot, tx, ty)
+            }
+            val s = MediaAtlasDraw.SIDE
+            val ix0 = maxOf(x0, tx * s + reach); val iy0 = maxOf(y0, ty * s + reach)
+            val ix1 = minOf(x1, tx * s + s - reach); val iy1 = minOf(y1, ty * s + s - reach)
+            val hasInner = reach >= 0 && ix1 > ix0 && iy1 > iy0
+            when {
+                inner -> if (hasInner) part(ix0, iy0, ix1, iy1)
+                !hasInner -> part(x0, y0, x1, y1)
+                else -> {
+                    part(x0, y0, x1, iy0); part(x0, iy1, x1, y1)
+                    part(x0, iy0, ix0, iy1); part(ix1, iy0, x1, iy1)
+                }
             }
         }
-        return hit
     }
 
     fun uniforms(u: UniformBank, shift: Int = MediaAtlasDraw.SHIFT) {

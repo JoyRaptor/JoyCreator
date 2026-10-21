@@ -100,7 +100,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         // Copy and erase read only their own cell: no neighbours, so one instanced draw for every slot (2026-10-20: drawn slot by
         // slot with the 3x3 handed over, the copies were most of an oil or knife step's cost in the atlas).
         ProgramSpec({ progCopy = it }, "jb_media_quad.vert", "jb_media_copy.frag", "media copy", atlasDefs = ATLAS_OWN),
-        ProgramSpec({ progRender = it }, "jb_media_screen.vert", "jb_media_render.frag", "media render", atlasDefs = ATLAS_NBR),
+        ProgramSpec({ progRender = it }, "jb_media_screen.vert", "jb_media_render.frag", "media render", atlasDefs = ATLAS_NBR,
+            ownReach = LOOK_NEAR_REACH, ownDefine = "JB_ATLAS_NEAR"),
         ProgramSpec({ progBake = it }, "jb_media_quad.vert", "jb_media_bake.frag", "media bake", atlasDefs = ATLAS_NBR),
         ProgramSpec({ progWetDab = it }, "jb_wet_dab.vert", "jb_wet_dab.frag", "media wet dab"),
         ProgramSpec({ progFlux = it }, "jb_media_quad.vert", "jb_wet_flux.frag", "media wet flux", atlasDefs = ATLAS_NBR,
@@ -1268,15 +1269,25 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
             val a = atlas
             if (a != null) {   // identity (the device probe) too: every NBR look draw needs its tile's neighbours
                 // Each slot's texels map back to layer px through u_pan: gl_FragCoord − pan = layer px (exact integers at scale 1).
-                a.forEachPart(rect) { slot, tx, ty, _, _, _, _ ->
-                    if (a.scissorSlot(slot, tx, ty, rect)) {
-                        val (ax, ay) = a.slotTexel(slot)
-                        ru.f2("u_pan", -originX * scale + (ax - tx * MediaAtlasDraw.SIDE), -originY * scale + (ay - ty * MediaAtlasDraw.SIDE))
-                        // The look reads its tile and the 8 around it straight from these, not through the table (JB_ATLAS_NBR).
-                        a.neighbours(tx, ty, nbrSlots)
-                        nbrTile[0] = tx; nbrTile[1] = ty; ru.i2v("u_nbrTile", nbrTile); ru.i2v("u_nbrSlot", nbrSlots)
-                        GLES30.glDrawArrays(GLES30.GL_TRIANGLES, 0, 3)
-                    }
+                // The part of each tile a few px in from its edges is drawn by the NEAR build (its near reads own-tile, only the
+                // shadow march addressed), the strips along the edges by this one (MediaAtlasGl.forEachLookPart).
+                val near = ru.own
+                val reach = if (near != null) ceil(ru.ownReach * max(1f, scale)).toInt() else -1
+                fun drawPart(u: UniformBank, slot: Int, tx: Int, ty: Int) {
+                    val (ax, ay) = a.slotTexel(slot)
+                    u.f2("u_pan", -originX * scale + (ax - tx * MediaAtlasDraw.SIDE), -originY * scale + (ay - ty * MediaAtlasDraw.SIDE))
+                    // The look reads its tile and the 8 around it straight from these, not through the table (JB_ATLAS_NBR).
+                    a.neighbours(tx, ty, nbrSlots)
+                    nbrTile[0] = tx; nbrTile[1] = ty; u.i2v("u_nbrTile", nbrTile); u.i2v("u_nbrSlot", nbrSlots)
+                    GLES30.glDrawArrays(GLES30.GL_TRIANGLES, 0, 3)
+                }
+                a.forEachLookPart(rect, reach, inner = false) { slot, tx, ty -> drawPart(ru, slot, tx, ty) }
+                if (near != null) {
+                    val nu = near.use()
+                    ru.copyInto(nu)
+                    a.forEachLookPart(rect, reach, inner = true) { slot, tx, ty -> drawPart(nu, slot, tx, ty) }
+                    progRender.use()
+                    ru.rebindTextures()
                 }
             } else GLES30.glDrawArrays(GLES30.GL_TRIANGLES, 0, 3)
         }
@@ -1372,6 +1383,9 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
 private val ATLAS_NBR = listOf("JB_ATLAS_NBR")
 /** Passes reading only their own pixel (the copy): the OWN build alone, every slot in one draw. */
 private val ATLAS_OWN = listOf("JB_ATLAS_NBR", "JB_ATLAS_OWN")
+/** How far jb_media_render.frag's near reads go (full-resolution cells): its gradients' bilinear taps a cell either side
+ * (c-1 .. c+2), and one. The impasto shadow march (to 51 px) reads far (jb_bilinearLSFar). */
+private const val LOOK_NEAR_REACH = 3
 /** How far jb_paste_dab.frag reads (full-resolution cells): its surface taps 8 px away, read bilinearly (cells c-8 .. c+9). */
 private const val PASTE_DAB_REACH = 9
 /** The most water a frame simulates in the atlas, px x steps: what the window's 1024 px square does at 4 steps. */

@@ -114,8 +114,9 @@ void main() {
         for (int i = 1; i <= 10; i++) {
             float d = float(i * i) * 0.5 + 1.0;                       // doc px, spreading out
             vec2 q = lp + ldir * d * u_layerScale;
-            float pq = jb_bilinearL(u_p0, q).a;
-            float tq = (pq + smoothstep(0.004, 0.04, pq) * jb_bilinearL(u_paperBake, q).b * u_toothMm) * u_impasto;
+            // Up to 51 px away: far reads (jb_bilinearLSFar), the rest of the look is near (the atlas's NEAR build).
+            float pq = jb_bilinearLSFar(u_p0, q, JB_SLOT_SHIFT).a;
+            float tq = (pq + smoothstep(0.004, 0.04, pq) * jb_bilinearLSFar(u_paperBake, q, JB_SLOT_SHIFT).b * u_toothMm) * u_impasto;
             float rise = (tq - t0) - d / u_pxPerMm * tanE;            // mm above the light's line
             lit = min(lit, clamp(1.0 - rise / (0.01 + 0.25 * d / u_pxPerMm), 0.0, 1.0));
         }

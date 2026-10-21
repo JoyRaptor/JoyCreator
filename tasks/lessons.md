@@ -1095,3 +1095,18 @@ as `TIME * knob` are "rate" and the host integrates them.
   `adb devices -l | grep SM_N960U` and the folders with `$LOCALAPPDATA`.
 - **A hash compare between two builds only judges deterministic cells.** Check the hash of a build against ITSELF on a board the
   change does not touch first: Sable, Bristle and every media brush differed run to run, so only the stamp brushes could be judged.
+
+## 2026-10-21 — JoyBrush Lead: what made the atlas fast on the Note 9 (and what did not)
+- **On this tiled GPU a pass costs in proportion to its TARGET, not to what it draws.** Same build, atlas capped at 4 x 6 slots
+  instead of 6 x 6: update and bead per pixel about half. A scissor round what the pass draws bounds it (MediaAtlasGl.drawRect).
+  Any big render target here: scissor every pass. One unscissored blended draw (the wet input in one draw, clipped in the
+  shader) cost 70 ms a frame against 10.
+- **Measure per pixel, not per frame.** A pixel counter (`wet.kpx`) showed the atlas simulating FEWER pixels yet costing more;
+  without it the cause looked like the shader. And an engine that does more real work (water the window cut off) is not slower.
+- **A pile-up has a cliff.** Per-step cost 1.35x the window's made oil frames 3x slower: slow frames gather more input, more
+  steps. Cut the per-step cost to parity, or the steps per frame (PasteSpacing), not just the average.
+- **Test the expensive idea's cost before keeping it.** The half-resolution drip field cut the flux 21 % and added a pass
+  costing twice that: dropped. Time both sides on the phone before committing.
+- **Never edit the worktree while a build of it runs** (the build picks up half the change). Wait for the APK copy, or build in
+  another worktree.
+- **The bench screenshot is the FIRST brush's.** Put the brush to judge first in the list.

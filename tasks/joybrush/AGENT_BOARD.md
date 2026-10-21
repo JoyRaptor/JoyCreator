@@ -1,5 +1,13 @@
 # Joy Brush shared agent board
 
+## Unibrush D8 — 2026-10-21 — engine verified
+
+Source1758d9f44 passes full core2657 (four optional skips)/backend1100, zero failures/errors.
+reviews/UNIBRUSH_D8_20261021.{md,json} records raw codec, actual-filter/replay/fill/preview proof.
+Eight engine slices verified; held Android adapters, Lead activation and Note9 acceptance pending.
+D9 sheet/modes/store/picker/preview host remains OFF until its actual canvas capability exists.
+
+
 ## Unibrush D7 — 2026-10-21 — engine verified
 
 Source8be06b4cf passes full core2629 (four optional skips) and backend1099, zero failures/errors.

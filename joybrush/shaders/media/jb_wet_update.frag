@@ -30,6 +30,9 @@ uniform float u_dt;
 uniform float u_minMm;
 uniform float u_evap;           // mm/s
 uniform float u_edgeEvap;       // extra drying at a thin edge (× evap)
+uniform float u_dryAfterS;      // older water dries faster: from this wet age (sim s) ...
+uniform float u_dryRampS;       // ... ramping in over this long ...
+uniform float u_dryBoost;       // ... to evaporation × (1 + this); 0 = off
 uniform float u_absorb;         // 1/s
 uniform float u_capMm;          // water the paper holds when saturated (mm)
 uniform float u_wick;           // capillary spread (cells²/s)
@@ -141,6 +144,7 @@ void main() {
     float sizingVar = 1.0;
     if (!idle) sizingVar = 0.65 + 0.7 * jb_fetch(u_fluidBake, c).r;
     float evap = u_evap * u_dt * sizingVar * (1.0 + rimWater * u_edgeEvap * (1.0 - wetN));
+    if (u_dryBoost > 0.0) evap *= 1.0 + u_dryBoost * smoothstep(u_dryAfterS, u_dryAfterS + max(u_dryRampS, 1.0e-3), age);
     float before = w;
     w = max(0.0, w - evap);
 

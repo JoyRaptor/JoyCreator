@@ -285,6 +285,7 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
         if (keys.none { it in mine }) return false
         media.stopWater()
         load(layer, plane, tx, ty, resumeWater = false)
+        pendingStores.clear(); pendingRect = null   // the window is what the stores hold now: nothing waits to be written
         return true
     }
 

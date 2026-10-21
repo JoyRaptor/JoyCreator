@@ -175,18 +175,13 @@ class MediaAtlasWater(val quietMs: Long = 2000) {
                     actions += Action(pick, false); for (k in pick) dry(k)
                     continue
                 }
-                // D2: the oldest water's measured tile farthest from the pen (a drip's tail; a long wet stroke's trail is one
-                // such "drip", the pen at its young end), taken out of the water. Never a tile this frame paints.
-                fun known(k: Long) = k !in frame && tiles[k]?.state.let { it != null && it != State.UNKNOWN }
-                // Last resort (2026-10-20): water not measured yet (all of it, just after the engine was made again) gives way
-                // too, or a crowded drawing refused every frame until its old water dried (the Note 9 stopped painting).
-                fun mayGo(k: Long) = k !in frame && holdsWater(k)
-                val anyKnown = domain.any { known(it) && holdsWater(it) }   // a tile this plan dried is known but holds nothing
-                val pickable: (Long) -> Boolean = if (anyKnown) ::known else ::mayGo
-                val oldest = components(domain).filter { c -> c.any(pickable) }
-                    .minByOrNull { c -> c.filter(pickable).minOf { tiles[it]?.firstWetMs ?: Long.MAX_VALUE } } ?: return null
-                val tail = oldest.filter(pickable).maxBy { dist(it, penX, penY) }
-                actions += Action(listOf(tail), true); dry(tail); excluded.add(tail)
+                // D2 (2026-10-21): the oldest whole pool the frame does not touch, dried where it lies. It used to be the oldest
+                // water's tile farthest from the pen, taken out by itself: its water stopped at the tile's straight edge and dried
+                // there, the creases on the owner's Note 9 (an S-shaped wash and a sweep back up). Water is only ever settled whole.
+                // Water not measured yet (all of it, just after the engine was made again) counts too: else a crowded drawing was
+                // refused every frame until its old water dried (2026-10-20).
+                val pool = comps.minByOrNull { c -> c.minOf { tiles[it]?.firstWetMs ?: Long.MAX_VALUE } } ?: return null
+                actions += Action(pool, false); for (k in pool) dry(k)
             }
             return actions
         } finally {

@@ -5734,6 +5734,26 @@ class GlPaintEngine(
         mediaStrokeHeld.clear()
     }
 
+    /**
+     * A media stroke given up (a second finger, a cancelled gesture): every tile it changed goes back to before it, the
+     * textures it made are let go, and NO step is pushed, so redo survives, as a cancelled plain stroke. The media canvas
+     * reloads from the restored tiles ([onMediaRestored]). Returns how many tiles it put back.
+     */
+    fun cancelMediaStroke(): Int {
+        requireLocalPaint()
+        val changes = mediaStroke ?: return 0
+        mediaStroke = null
+        mediaStrokeHeld.clear()
+        if (changes.isEmpty()) return 0
+        for (c in changes.asReversed()) {
+            put(c.layerId, c.key, c.before, c.celId)
+            c.after?.let { if (it != c.before) recycleLayerTex(it) }
+        }
+        reconcileAgreements(changes)
+        reportMediaRestored(changes)
+        return changes.size
+    }
+
     /** Pushes the stroke's step (one press, one step). Returns how many tiles it changed. */
     fun endMediaStroke(): Int {
         requireLocalPaint()

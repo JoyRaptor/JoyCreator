@@ -306,14 +306,28 @@ class MediaCanvas(
         st.spline.finish()
         st.wet?.finish()
         st.thin?.finish()
-        run(e, w, st, last = true)
-        e.endStroke()
-        stroke = null
-        paint.endMediaStroke()
+        // The stroke closes whatever its last frame meets: a frame that could not be stored (the drawing's media room full,
+        // 2026-10-21 on the owner's Note 9) used to throw out of here with the stroke still open, and the app crashed.
+        try { run(e, w, st, last = true) } finally {
+            e.endStroke()
+            stroke = null
+            paint.endMediaStroke()
+        }
     }
 
-    /** A stroke given up (a second finger, a cancelled gesture): what it already painted stays, as one step. */
-    fun cancel() = end()
+    /**
+     * A stroke given up (a second finger, a cancelled gesture): everything it painted goes back ([GlPaintEngine.cancelMediaStroke],
+     * which reloads the window or atlas through [restored]), no step is made, and the water that was there before carries on.
+     */
+    fun cancel() {
+        stroke ?: return
+        val e = engine!!
+        e.endStroke()
+        stroke = null
+        paint.cancelMediaStroke()
+        waterStoppedByUndo = false
+        window?.wakeWater()
+    }
 
     /** [GlPaintEngine.onMediaRestored]: undo or redo stops the water and reloads (never restarting it). */
     fun restored(layerId: String, plane: String?, keys: Set<Long>) {

@@ -35,6 +35,12 @@ data class WetConstants(
      * watercolour has no impasto relief and its flat look is its look. 0 (the default) = as always (0.0004 mm per unit).
      */
     val noBody: Double = 0.0,
+    /**
+     * Older water dries faster (2026-10-21): evaporation × (1 + [dryBoost]) once a pixel has stayed wet [dryAfter] sim seconds,
+     * ramping in over [dryRamp]. Smooth and per pixel (its own wet age), never by tile, so a wash dries from its oldest part
+     * as real paper does, and the wet area stays bounded instead of filling the drawing for minutes. 0 = as before.
+     */
+    val dryAfter: Double = 15.0, val dryRamp: Double = 15.0, val dryBoost: Double = 8.0,
 )
 
 /** How wet the brush is, tapped up and down like Expresii's water drop and napkin (owner, 2026-10-07). */
@@ -111,6 +117,7 @@ fun wetUniforms(paper: MediaPaper, w: WetConstants = WetConstants()): Map<String
         "u_steerScale" to w.steerScale, "u_runSteer" to w.runSteer, "u_runAlong" to w.runAlong,
         "u_heightMean" to paper.heightMean, "u_fullMm" to w.fullMm, "u_filmMm" to w.filmMm, "u_edgeDep" to w.edgeDep,
         "u_mingle" to min(0.24 / w.dt, w.mingle), "u_noBody" to w.noBody,
+        "u_dryAfterS" to w.dryAfter, "u_dryRampS" to w.dryRamp, "u_dryBoost" to w.dryBoost,
     )
 }
 

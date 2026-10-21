@@ -59,9 +59,9 @@ class MediaAtlasWaterTest {
         val plan = w.plan(domain, domain, frame = setOf(k(0, 0)), held = emptySet(), capacity = 6, penX = 10.0, penY = 128.0, nowMs = 3000)
         assertEquals(listOf(MediaAtlasWater.Action(listOf(k(7, 0), k(8, 0)), drain = false)), plan, "the far pool, whole")
         assertEquals(MediaAtlasWater.State.WET, w.state(k(7, 0)), "planning changes nothing until the host has dried it")
-        // At 1 s nothing has been still for 2 s: the oldest water (the far pool) loses tiles from its far end, one at a time.
+        // At 1 s nothing has been still for 2 s: the oldest pool (the far one) still goes whole, never a tile of it (10-21).
         val early = w.plan(domain, domain, setOf(k(0, 0)), emptySet(), 6, 10.0, 128.0, nowMs = 1000)!!
-        assertEquals(listOf(MediaAtlasWater.Action(listOf(k(8, 0)), true), MediaAtlasWater.Action(listOf(k(7, 0)), true)), early)
+        assertEquals(listOf(MediaAtlasWater.Action(listOf(k(7, 0), k(8, 0)), false)), early)
     }
 
     @Test fun connectedWaterIsNeverCutAQuietTileNextToFlowingWaterWaits() {
@@ -71,8 +71,8 @@ class MediaAtlasWaterTest {
         w.observe(k(5, 0), 0.1f, 0.4f, 0f, 0, minMm, eps)        // quiet since 0
         w.observe(k(6, 0), 0.1f, 0.4f, 1f, 2900, minMm, eps)     // still running at 2.9 s, connected to it
         val plan = w.plan(domain, domain, setOf(k(0, 0)), emptySet(), 4, 10.0, 128.0, nowMs = 3000)!!
-        assertTrue(plan.all { it.drain }, "no quiet component: only a drip's tail may go")
-        assertEquals(listOf(k(6, 0)), plan.first().keys, "the tail = the tile of the oldest flowing water farthest from the pen")
+        assertEquals(listOf(MediaAtlasWater.Action(listOf(k(5, 0), k(6, 0)), false)), plan,
+            "no quiet component: the oldest pool goes whole, flowing or not; a tile of it alone made a straight edge (10-21)")
     }
 
     @Test fun waterUnderThePenNeverSettlesAndAFrameTooBigIsRefused() {
@@ -91,16 +91,19 @@ class MediaAtlasWaterTest {
         assertTrue(k(3, 3) !in w.excluded)
         assertEquals(MediaAtlasWater.State.WET, w.state(k(3, 3)))
     }
-    @Test fun aLongWetTrailUnderThePenLosesItsOldEndNeverWhatThePenPaints() {
-        // One continuous trail from (0,0) to (7,0), painted left to right; the pen is at the right end now.
+    @Test fun aLongWetTrailUnderThePenIsNeverCut() {
+        // One continuous trail from (0,0) to (7,0), painted left to right; the pen is at the right end now. Cutting its old end
+        // off tile by tile was the crease the owner saw (S-shaped wash, a sweep back up, 10-21): the trail stays whole, and a
+        // separate older pool goes first.
         val w = MediaAtlasWater()
-        val domain = block(0, 0, 7, 0)
-        for (x in 0..7) w.touched(listOf(k(x, 0)), x * 300L)
+        val domain = block(0, 0, 7, 0) + listOf(k(0, 3))
+        w.touched(listOf(k(0, 3)), 0)
+        for (x in 0..7) w.touched(listOf(k(x, 0)), 100 + x * 300L)
         val frame = setOf(k(6, 0), k(7, 0))
-        val plan = w.plan(domain, domain, frame, emptySet(), capacity = 6, penX = 7.5 * 256, penY = 128.0, nowMs = 2400)!!
-        assertTrue(plan.all { it.drain })
-        assertEquals(listOf(k(0, 0)), plan.first().keys, "the oldest end goes first")
-        assertTrue(plan.none { a -> a.keys.any { it in frame } })
+        assertNull(w.plan(block(0, 0, 7, 0), block(0, 0, 7, 0), frame, emptySet(), capacity = 6, penX = 7.5 * 256, penY = 128.0, nowMs = 2400),
+            "only the trail: nothing may go")
+        val plan = w.plan(domain, domain, frame, emptySet(), capacity = 8, penX = 7.5 * 256, penY = 128.0, nowMs = 2400)!!
+        assertEquals(listOf(MediaAtlasWater.Action(listOf(k(0, 3)), false)), plan, "the separate older pool, whole")
     }
     @Test fun quietMeansStoppedSpreadingNotNoFlow() {
         // A pool keeps a slow outflow feeding its drying edge for as long as it is wet: that is not "moving".
@@ -116,7 +119,8 @@ class MediaAtlasWaterTest {
         assertEquals(listOf(MediaAtlasWater.Action(listOf(k(1, 1)), drain = false)), plan)
         // A drip runs faster than eps: moving, whatever its extent.
         w.observe(k(1, 1), 0.2f, 0.5f, 2.5f, 3300, minMm, flowEps = 1f, extent = intArrayOf(256, 256, 448, 448))
-        assertTrue(w.plan(domain, domain, setOf(k(3, 3)), emptySet(), capacity = 2, penX = 900.0, penY = 900.0, nowMs = 3400)!!.all { it.drain })
+        assertEquals(listOf(MediaAtlasWater.Action(listOf(k(1, 1)), drain = false)),
+            w.plan(domain, domain, setOf(k(3, 3)), emptySet(), capacity = 2, penX = 900.0, penY = 900.0, nowMs = 3400), "moving or not, whole")
     }
 
     @Test fun waterNotMeasuredYetStillGivesWayToTheStrokeBeingPainted() {
@@ -130,6 +134,7 @@ class MediaAtlasWaterTest {
         val plan = w.plan(domain, domain, frame, emptySet(), capacity = 4, penX = 10.0, penY = 10.0, nowMs = 100)
         assertTrue(plan != null, "old water gives way")
         assertTrue(plan!!.flatMap { it.keys }.none { it in frame }, "never what the pen paints")
-        assertEquals(k(7, 1), plan.first().keys.first(), "farthest from the pen first")
+        assertEquals(old.toSet(), plan.flatMap { it.keys }.toSet(), "the old pool, whole")
+        assertTrue(plan.none { it.drain })
     }
 }

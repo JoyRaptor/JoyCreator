@@ -179,6 +179,29 @@ class GlMediaStoresTest {
 
 
 
+    @Test fun aCancelledMediaStrokeGoesBackWithoutAStepAndRedoSurvives() {
+        // The owner's finger daubs (2026-10-21): a stroke a second finger gives up must leave nothing, as a plain stroke.
+        val e = planted()
+        e.undo.push(UndoLog.Step(listOf(UndoLog.TileChange(layer, 3, before = 505, after = 506))))
+        assertTrue(e.undoStep() && e.redoStep(), "the look changed behind the payload: the stroke will drop it")
+        e.undo.push(UndoLog.Step(listOf(UndoLog.TileChange("other", 0, before = 1, after = 2))))
+        assertTrue(e.undoStep(), "something to redo")
+        val depth = e.undo.undoDepth
+        val told = ArrayList<Set<Long>>()
+        e.onMediaRestored = { _, _, keys -> told += keys }
+        e.beginMediaStroke()
+        assertEquals(setOf(3L), e.dropStalePayload(layer, listOf(3L)), "the stroke changed tile 3")
+        assertNull(e.mediaTile(layer, "p0", 3))
+        assertEquals(2, e.cancelMediaStroke(), "its two changes (p0 and the ground) went back")
+        assertEquals(502, e.mediaTile(layer, "p0", 3), "the payload is back")
+        assertEquals(503, e.mediaTile(layer, MediaStores.GROUND, 3))
+        assertEquals(depth, e.undo.undoDepth, "no step")
+        assertTrue(e.undo.canRedo, "and redo survives")
+        assertEquals(listOf(setOf(3L)), told, "the media canvas is told to reload tile 3")
+        assertFalse(e.mediaStrokeInProgress)
+        assertEquals(0, e.cancelMediaStroke(), "nothing to cancel twice")
+    }
+
     // ---- JB-2.40 slice 3: a payload per plane (an animation frame keeps its own pencil, watercolour and oil) ----
 
     private val frame = "frame-1"

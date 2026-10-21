@@ -1065,7 +1065,19 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         onToggleUi = { onToggleUi?.invoke() },
     )
 
-    private var penSeen = false
+    /**
+     * A pen has touched or hovered this canvas: from then on one finger navigates, it never paints. Remembered across restarts
+     * (2026-10-21: after a crash it started false, and the owner's fingers, moving the canvas, left daubs of watercolour).
+     */
+    private var penSeen: Boolean
+        get() = penSeenNow ?: context.getSharedPreferences(PEN_PREFS, android.content.Context.MODE_PRIVATE)
+            .getBoolean(PREF_PEN_SEEN, false).also { penSeenNow = it }
+        set(v) {
+            if (v == penSeen) return
+            penSeenNow = v
+            if (v) context.getSharedPreferences(PEN_PREFS, android.content.Context.MODE_PRIVATE).edit().putBoolean(PREF_PEN_SEEN, true).apply()
+        }
+    private var penSeenNow: Boolean? = null
     private var penHovering = false
     private var penUpAt = 0L
     private var drawing = false
@@ -1281,7 +1293,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             }
             if (isPenAt(ev, 0)) {
                 penSeen = true
-                if (Build.VERSION.SDK_INT >= 30) requestUnbufferedDispatch(ev)
+                requestUnbufferedDispatch(ev)   // the MotionEvent form exists since API 21 (the Note 9 is 29: it was skipped)
                 pointerId = ev.getPointerId(0)
                 startStroke(eraser = MotionEventSamples.tool(ev, 0) == Tool.ERASER)
                 feed(ev)
@@ -1638,7 +1650,25 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         smoother = null; placer = null; tracker = null
         strokePreset = null; strokeDabber = null; strokeWatercolour = null; scatterRng = null; strokeErase = false; strokeTuft = null
         onGl {
-            mediaCanvas.end()
+            // Said in words, never a crash: what the stroke painted stays (its look), it just could not all be kept.
+            try { mediaCanvas.end() } catch (e: cc.joycreator.joybrush.androidkit.gl.MediaRoomException) {
+                noteBenchError("media end", e)
+                post { onRefused?.invoke(e.message ?: "This pencil, watercolour or oil stroke could not all be kept") }
+            }
+            reportHistory()
+        }
+        flushPaperVisits()
+        onStrokeEnded?.invoke()
+    }
+
+    private fun cancelMediaStroke() {
+        resetSnapper(fresh = false)
+        drawing = false
+        mediaStroke = false; mediaErase = false; mediaBegun = false
+        smoother = null; placer = null; tracker = null
+        strokePreset = null; strokeDabber = null; strokeWatercolour = null; scatterRng = null; strokeErase = false; strokeTuft = null
+        onGl {
+            mediaCanvas.cancel()
             reportHistory()
         }
         flushPaperVisits()
@@ -1716,6 +1746,24 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         // replay as a line; any other stroke is still painted, and the engine keeps it as a pixel slab in time order with
         // the lines. Only realistic media (and a tiled board) stay refused in words. With the switch on, a replayable
         // stroke starts a line.
+        // R51, any brush works on any layer (owner, 2026-10-21: his daughter and his wife found the pen did nothing with a brush
+        // picked): a realistic brush on a layer that holds editable lines first turns them into paint (Freeze: the picture
+        // unchanged, its own undo step, said once), then paints. It used to be refused.
+        if (p?.engine == ENGINE_MEDIA && !eraser && !editingMask && watercolourPreviewSeed == null && tileBoardId == null &&
+            lineSnapshot.holdsItemsOnLayer(activeLayer)) {
+            val id = activeLayer; val name = stackUi.active.name
+            onBeforeHistoryChange?.invoke()
+            onGl {
+                mediaCanvas.releaseWindow()
+                val done = try { engine.freezeLayerStep(id) } catch (e: Exception) { noteBenchError("freeze for media", e); false }
+                if (done) {
+                    reportHistory(); publishLines()
+                    post { onNotice?.invoke("Lines on \"$name\" became paint so pencil, watercolour and oil fit. Undo brings them back.") }
+                }
+            }
+            startMediaStroke(p)
+            return
+        }
         var lineFrozen: FrozenBrushResult? = null
         if (!editingMask && watercolourPreviewSeed == null) {
             val holdsItems = lineSnapshot.holdsItemsOnLayer(activeLayer)
@@ -1979,8 +2027,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         diagnosticContact = null
         lineContact?.capture?.cancel()
         lineContact = null
-        // What a media stroke already painted stays, as one step (water cannot be un-run mid-flow).
-        if (mediaStroke || mediaErase) { finishMediaStroke(); return }
+        // A media stroke given up (a second finger, a cancelled gesture) goes back to before it, as a plain stroke does: no step,
+        // redo kept, and its water gone with it. It used to stay as a step: the owner's finger daubs, 2026-10-21, which a
+        // two-finger-tap undo could not reach (each tap's first finger made and removed a daub of its own).
+        if (mediaStroke || mediaErase) { cancelMediaStroke(); return }
         resetSnapper(fresh = false)
         fillSerial++; fillSamples.clear(); fillPoints.clear(); onFillPreview?.invoke(null)
         drawing = false
@@ -3154,6 +3204,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     companion object {
         /** Fingers are ignored for this long after the pen lifts (palm rejection). */
         const val PALM_GRACE_MS = 400L
+        private const val PEN_PREFS = "joybrush.canvas"
+        private const val PREF_PEN_SEEN = "penSeen"
 
         /** Opaque black, the alpha a screen sample is given (the screen has no transparency). */
         private const val OPAQUE_BLACK = -0x1000000

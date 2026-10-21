@@ -809,3 +809,18 @@ with documented remaining activation gates. D4 then bothD5 patches apply in an o
 tree. Protected canonical Lead/scene/View/media files are untouched. No combined app compile,
 merge, Note9 performance/feel or full spec completion is claimed. Lead must activate resource-
 bearing live scene contact; legacy NativeLines continues explicit image refusal. D6 begins next.
+
+## Unibrush D6 checkpoint — 2026-10-20 (Codex)
+
+Source/evidence **df41a3f0f**, codex/unibrush. Seeded static shape/image dual masks,
+combined frozen PNG closure, matching seed/recipe admission and current-context R8
+ownership are implemented. Core2618/0/0/4 optional skips; backend1097/0/0/0.
+Production GPU24 cases/196608 MRT channel probes/max .00510185051 (<2/255), all
+required off/mode/period/clamp/flow-order controls detect; complete VBO/MRT transport
+is exact, reversed-order and wrong-offset controls differ. Disabled dual is byteexact.
+
+**Still held:** D6 Lead patch applies after D4 and bothD5 patches in outside scratch.
+Protected canonical Lead/View/scene/media sources remain untouched. Unadapted legacy
+CPU paths retain explicit dual-context refusals. No app activation, merge, phone feel or
+performance claim. Next: compile held adapters/tests in a disposable source copy while
+continuing D7 owned finalization; D8/D9 drafts are preserved outside the repository.

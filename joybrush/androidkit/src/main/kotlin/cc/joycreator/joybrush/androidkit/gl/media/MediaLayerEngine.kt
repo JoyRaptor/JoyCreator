@@ -99,15 +99,19 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         ProgramSpec({ progApply = it }, "jb_media_quad.vert", "jb_media_apply.frag", "media apply", atlasDefs = ATLAS_NBR),
         // Copy and erase read only their own cell: no neighbours, so one instanced draw for every slot (2026-10-20: drawn slot by
         // slot with the 3x3 handed over, the copies were most of an oil or knife step's cost in the atlas).
-        ProgramSpec({ progCopy = it }, "jb_media_quad.vert", "jb_media_copy.frag", "media copy"),
+        ProgramSpec({ progCopy = it }, "jb_media_quad.vert", "jb_media_copy.frag", "media copy", atlasDefs = ATLAS_OWN),
         ProgramSpec({ progRender = it }, "jb_media_screen.vert", "jb_media_render.frag", "media render", atlasDefs = ATLAS_NBR),
         ProgramSpec({ progBake = it }, "jb_media_quad.vert", "jb_media_bake.frag", "media bake", atlasDefs = ATLAS_NBR),
         ProgramSpec({ progWetDab = it }, "jb_wet_dab.vert", "jb_wet_dab.frag", "media wet dab"),
-        ProgramSpec({ progFlux = it }, "jb_media_quad.vert", "jb_wet_flux.frag", "media wet flux", atlasDefs = ATLAS_NBR),
-        ProgramSpec({ progUpdate = it }, "jb_media_quad.vert", "jb_wet_update.frag", "media wet update", atlasDefs = ATLAS_NBR),
-        ProgramSpec({ progPasteDab = it }, "jb_media_quad.vert", "jb_paste_dab.frag", "media paste dab", atlasDefs = ATLAS_NBR),
+        ProgramSpec({ progFlux = it }, "jb_media_quad.vert", "jb_wet_flux.frag", "media wet flux", atlasDefs = ATLAS_NBR,
+            ownReach = 128 /* none until set each frame ([fluxReach]) */),
+        ProgramSpec({ progUpdate = it }, "jb_media_quad.vert", "jb_wet_update.frag", "media wet update", atlasDefs = ATLAS_NBR,
+            ownReach = UPDATE_REACH),
+        ProgramSpec({ progPasteDab = it }, "jb_media_quad.vert", "jb_paste_dab.frag", "media paste dab", atlasDefs = ATLAS_NBR,
+            ownReach = PASTE_DAB_REACH),
         ProgramSpec({ progPasteBrush = it }, "jb_media_quad.vert", "jb_paste_brush.frag", "media paste brush", plain = true, atlasDefs = ATLAS_NBR5),
-        ProgramSpec({ progBead = it }, "jb_media_quad.vert", "jb_wet_bead.frag", "media wet bead", atlasDefs = ATLAS_NBR),
+        ProgramSpec({ progBead = it }, "jb_media_quad.vert", "jb_wet_bead.frag", "media wet bead", atlasDefs = ATLAS_NBR,
+            ownReach = BEAD_REACH),
         ProgramSpec({ progEraseDab = it }, "jb_media_erase_dab.vert", "jb_media_erase_dab.frag", "media erase dab"),
         ProgramSpec({ progErase = it }, "jb_media_quad.vert", "jb_media_erase_apply.frag", "media erase"),
         ProgramSpec({ progActivity = it }, "jb_media_screen.vert", "jb_wet_activity.frag", "media wet activity"),
@@ -118,7 +122,9 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         ProgramSpec({ progBeadW = it }, "jb_media_quad.vert", "jb_wet_bead.frag", "media wet bead (walls)", atlasDefs = ATLAS_NBR_WALLS),
     )
     private class ProgramSpec(val set: (MediaProgram) -> Unit, val vert: String, val frag: String, val label: String, val plain: Boolean = false,
-                              /** More defines for the atlas build only (the look's JB_ATLAS_NBR). */ val atlasDefs: List<String> = emptyList())
+                              /** More defines for the atlas build only (the look's JB_ATLAS_NBR). */ val atlasDefs: List<String> = emptyList(),
+                              /** >= 0: how far the pass reads (full-res layer px): its tiles' insides are drawn by its OWN build. */
+                              val ownReach: Int = -1)
 
     /** The programs compiled so far, in [programTable]'s order (what [releasePrograms] deletes). */
     private val programs = ArrayList<MediaProgram>()
@@ -131,7 +137,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     fun compileNext(): Boolean {
         val spec = programTable.getOrNull(programs.size) ?: return false
         val defs = if (atlasMode) listOf("JB_ATLAS") + spec.atlasDefs else emptyList()
-        val made = MediaProgram(shaders, "media/${spec.vert}", "media/${spec.frag}", spec.label, if (spec.plain && atlasMode) defs + "JB_PLAIN_TARGET" else defs)
+        val made = MediaProgram(shaders, "media/${spec.vert}", "media/${spec.frag}", spec.label, if (spec.plain && atlasMode) defs + "JB_PLAIN_TARGET" else defs,
+            if (atlasMode && !atlasBroken) spec.ownReach else -1)
         programs += made
         spec.set(made)
         return programs.size < programTable.size
@@ -228,7 +235,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         }
         GLES30.glBindVertexArray(0)
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, 0)
-        if (atlasMode) atlas = MediaAtlasGl(w / MediaAtlasDraw.SIDE, h / MediaAtlasDraw.SIDE, quadBuf, atlasBroken)
+        if (atlasMode) atlas = MediaAtlasGl(w / MediaAtlasDraw.SIDE, h / MediaAtlasDraw.SIDE, quadBuf, atlasBroken).also { it.readScale = maxOf(1f, scale) }
         clearAll()
     }
 
@@ -973,6 +980,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
             GLES30.glViewport(0, 0, w, h)
             val fu = fluxProgram().use()
             common(fu); wetFrameUniforms.apply(fu)
+            fu.ownReach = fluxReach(wc0, beadCells, pxPerMm * scale)
             MediaUniforms.wetFlux(fu, bead[0], src.p0, a.w0, a.flux, bakeTex, fluidBake, waterBake, rect, w, h)
             mediaTrace("JB.media.wet.flux") { quad(rect) }
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, updFbo[bi * 2 + 1 - (k and 1)])
@@ -1007,6 +1015,18 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         val x1 = min(w, ceil(r[2]).toInt()); val y1 = min(h, ceil(r[3]).toInt())
         GLES30.glEnable(GLES30.GL_SCISSOR_TEST)
         GLES30.glScissor(x0, y0, max(0, x1 - x0), max(0, y1 - y0))
+    }
+
+    /**
+     * How far the flux pass reads from its pixel (full-resolution cells), for the part of each tile its OWN build draws
+     * (MediaAtlasGl.drawSplit). From jb_wet_flux.frag: the tilted drip taps beadAt(c + o + out1), |o| <= 2 L with
+     * L = dripGap / 2 in cells and |out1| one mm, read bilinearly at half resolution (+3 full cells); the paper slope d cells
+     * away; the bead slope (+-2, +3); the neighbours (+-1). Plus one for rounding.
+     */
+    private fun fluxReach(wc0: WetConstants, beadCells: Double, cellsPerMm: Double): Int {
+        val drip = ceil(wc0.dripGap * cellsPerMm + cellsPerMm).toInt() + 3
+        val steer = max(2, (wc0.steerScale * beadCells).toInt())
+        return max(max(drip, steer), 5) + 1
     }
 
     /** How far beyond the rectangle the flux pass reads p0.a: one cell, or the paper-slope distance when tilted, and some margin. */
@@ -1344,6 +1364,14 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
  * (JB_ATLAS_NBR, jb_media_atlas.glsl): compiles in a fraction of the time and runs near the window's speed.
  */
 private val ATLAS_NBR = listOf("JB_ATLAS_NBR")
+/** Passes reading only their own pixel (the copy): the OWN build alone, every slot in one draw. */
+private val ATLAS_OWN = listOf("JB_ATLAS_NBR", "JB_ATLAS_OWN")
+/** How far jb_paste_dab.frag reads (full-resolution cells): its surface taps 8 px away, read bilinearly (cells c-8 .. c+9). */
+private const val PASTE_DAB_REACH = 9
+/** How far jb_wet_update.frag reads from its pixel (full-resolution cells): the 3-cell ring of its sizing test, and one. */
+private const val UPDATE_REACH = 4
+/** How far jb_wet_bead.frag reads, full-resolution cells: its blur's 12 half cells (24 + the half cell's two), and one. */
+private const val BEAD_REACH = 26
 /** The water's passes while a drained tile is a wall: the same reads plus the wall test (jb_media_atlas.glsl). */
 private val ATLAS_NBR_WALLS = listOf("JB_ATLAS_NBR", "JB_ATLAS_WALLS")
 /** The paste brush's build: the same, 5x5 around the step (its target is the brush's cells, not a slot). */

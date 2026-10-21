@@ -6,6 +6,7 @@ import cc.joycreator.joybrush.core.media.MediaAtlasDraw
 import cc.joycreator.joybrush.core.media.MediaAtlasPlacement
 import cc.joycreator.joybrush.core.paint.Tiles
 import java.nio.ByteBuffer
+import kotlin.math.ceil
 import java.nio.ByteOrder
 
 /**
@@ -187,10 +188,12 @@ internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: I
         val table = if (skip.isEmpty()) slotOf else { x: Int, y: Int -> if (Tiles.key(x, y) in skip) -1 else slotOf(x, y) }
         val n = draw.rects(rect[0], rect[1], rect[2], rect[3], shift, nx, table)
         if (n == 0) return
+        val u = bank
+        val own = u?.own
+        if (u != null && own != null && u.has("u_nbrSlot")) { drawSplit(u, own, shift); return }
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, instBuf)
         GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, n * 32, upload.upload(draw.rect, n * 8), GLES30.GL_STREAM_DRAW)
         GLES30.glBindVertexArray(quadVao)
-        val u = bank
         if (u == null || !u.has("u_nbrSlot")) { GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, n); return }
         // JB_ATLAS_NBR: one slot a draw, each handed its 3x3 neighbours (the instance's attributes moved to it).
         for (i in 0 until n) {
@@ -201,6 +204,42 @@ internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: I
             GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, 1)
         }
         for (k in 0 until 2) GLES30.glVertexAttribPointer(1 + k, 4, GLES30.GL_FLOAT, false, 32, k * 16)
+    }
+    /** Layer scale above 1 stretches every read (o = 8 · u_layerScale ...): the reach of an OWN part grows with it. */
+    var readScale = 1f
+
+    /**
+     * The quadrant build costs the Note 9 about twice the window's per read (the address: subtracts, compares, selects), and
+     * a branch per read is worse (MEDIA_ATLAS_FLUX_COST_20261020.md). So the part of each slot at least the pass's reach in
+     * from the tile's edges, where no read can leave the tile, is drawn with the pass's OWN build (one draw for all of
+     * them), and only the strips along the edges with the quadrant build, slot by slot. Every pixel is drawn once, by a
+     * build reading the same texels: the same result, bit for bit (MediaAtlasProbe on the device).
+     */
+    private fun drawSplit(u: UniformBank, own: MediaProgram, shift: Int) {
+        draw.split(ceil(u.ownReach * readScale / (1 shl (MediaAtlasDraw.SHIFT - shift))).toInt(), shift)
+        val nb = draw.borderCount; val ni = draw.innerCount
+        val border = draw.border
+        GLES30.glBindVertexArray(quadVao)
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, instBuf)
+        if (nb > 0) {
+            GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, nb * 32, upload.upload(border, nb * 8), GLES30.GL_STREAM_DRAW)
+            for (i in 0 until nb) {
+                val tx = border[i * 8 + 2].toInt(); val ty = border[i * 8 + 3].toInt()
+                neighbours(tx, ty, nbrSlots, wallsOn)
+                nbrTile[0] = tx; nbrTile[1] = ty; u.i2v("u_nbrTile", nbrTile); u.i2v("u_nbrSlot", nbrSlots)
+                for (k in 0 until 2) GLES30.glVertexAttribPointer(1 + k, 4, GLES30.GL_FLOAT, false, 32, i * 32 + k * 16)
+                GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, 1)
+            }
+            for (k in 0 until 2) GLES30.glVertexAttribPointer(1 + k, 4, GLES30.GL_FLOAT, false, 32, k * 16)
+        }
+        if (ni > 0) {
+            val ou = own.use()
+            u.copyInto(ou)
+            GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, ni * 32, upload.upload(draw.inner, ni * 8), GLES30.GL_STREAM_DRAW)
+            GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, ni)
+            u.self!!.use()
+            u.rebindTextures()
+        }
     }
     private val nbrSlots = IntArray(18)
     private val nbrTile = IntArray(2)

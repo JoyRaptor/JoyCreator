@@ -50,6 +50,7 @@ const highp int JB_NBR_WALL = -2;
 // the window's cost. Every NBR shader calls jb_atlasBegin() (or jb_atlasBeginAt) first thing in main.
 uniform highp ivec2 u_atlasZero;          // the first texel of the atlas's ZERO slot: never a tile's, zero in every texture
 const highp int JB_NBR_REACH = 127;      // the promise above: no NBR read is farther than this from its fragment's cell
+const highp int JB_SLOT_SHIFT_I = 8;     // JB_SLOT_SHIFT (declared below), for jb_nbrInit
 highp ivec2 jbLo;                        // the draw's tile origin (full-resolution layer px)
 highp ivec2 jbDir;                       // toward the fragment's corner, per axis: -1 or +1
 highp ivec2 jbO;                         // atlas texel minus layer cell (full res) in the draw's own tile
@@ -57,6 +58,14 @@ highp ivec2 jbOX, jbOY, jbOXY;          // ... in the x, y and diagonal neighbou
 highp int jbWall;                        // bit (x + 2y): that tile is a wall for this (water) pass
 
 void jb_nbrInit(highp ivec2 cellFull) {
+#ifdef JB_ATLAS_OWN
+    // The OWN build (MediaAtlasGl.drawRect): drawn only over the part of a tile where no read of the pass leaves the tile
+    // (its reach in from every edge), all such parts of a pass in one draw. Its reads are the quadrant build's own-tile
+    // reads, the same offset, so the same texels; nothing per draw is needed (the slot comes with the instance).
+    jbLo = v_slot.zw << JB_SLOT_SHIFT_I;
+    jbO = (v_slot.xy << (JB_SLOT_SHIFT_I - u_atlasShift)) - jbLo;
+    jbWall = 0;
+#else
     jbLo = u_nbrTile * 256;
     jbDir = ivec2(cellFull.x - jbLo.x >= 128 ? 1 : -1, cellFull.y - jbLo.y >= 128 ? 1 : -1);
     highp int c = JB_NBR_R * JB_NBR_N + JB_NBR_R;
@@ -70,6 +79,7 @@ void jb_nbrInit(highp ivec2 cellFull) {
     jbOY = oy - (jbLo + ivec2(0, jbDir.y * 256));
     jbOXY = oxy - (jbLo + jbDir * 256);
     jbWall = (sx.x == JB_NBR_WALL ? 2 : 0) | (sy.x == JB_NBR_WALL ? 4 : 0) | (sxy.x == JB_NBR_WALL ? 8 : 0);
+#endif
 }
 #endif
 #endif
@@ -144,6 +154,10 @@ highp ivec2 jb_atS(highp ivec2 q, highp int shift, out bool ok) {
     // is outside [lo, lo + 256): one unsigned compare per axis. Half-resolution fields (shift 7) sit at half the
     // full-resolution origins.
     highp int down = JB_SLOT_SHIFT - shift;
+#ifdef JB_ATLAS_OWN
+    ok = true;
+    return q + (jbO >> down);
+#else
     highp uvec2 rel = uvec2((q << down) - jbLo);
     bool sx = rel.x >= 256u, sy = rel.y >= 256u;
     ok = true;
@@ -156,6 +170,7 @@ highp ivec2 jb_atS(highp ivec2 q, highp int shift, out bool ok) {
     }
 #endif
     return q + ((sy ? (sx ? jbOXY : jbOY) : (sx ? jbOX : jbO)) >> down);
+#endif
 #elif defined(JB_ATLAS_NBR)
     // JB_ATLAS_NBR5 (the paste brush): the 3x3 or 5x5 array, read per read.
     // Branch-free: the index is clamped into the 3x3 and ok says whether it had to be. A wall reads the reader's own cell

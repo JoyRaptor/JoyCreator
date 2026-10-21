@@ -76,6 +76,47 @@ class MediaAtlasDraw {
         return dabCount
     }
 
+    /** The parts of the last [rects] at least a reach in from their tile's edges ([split]), as [rect] instances. */
+    var inner = FloatArray(8 * 16); private set
+    var innerCount = 0; private set
+    /** ... and what is left of each instance: the strips along its tile's edges, or the whole instance. */
+    var border = FloatArray(8 * 32); private set
+    var borderCount = 0; private set
+
+    /**
+     * Splits the instances of the last [rects] (made with [shift]) by [reach] (pass px): the part of each at least [reach]
+     * in from every edge of its tile goes to [inner], the rest to [border] (up to four strips, or the whole instance when
+     * nothing of it is that far in). A pass reading no farther than [reach] reads only its own tile in [inner], so there it
+     * needs no neighbour addressing (JB_ATLAS_OWN). The new edges are whole pixels and pixel centres sit at halves, so
+     * every pixel of an instance falls in exactly one part; a part's outer edges are the instance's own.
+     */
+    fun split(reach: Int, shift: Int) {
+        val side = 1 shl shift
+        innerCount = 0; borderCount = 0
+        for (i in 0 until rectCount) {
+            val o = i * 8
+            val tx0 = rect[o + 2] * side; val ty0 = rect[o + 3] * side
+            val x0 = rect[o + 4]; val y0 = rect[o + 5]; val x1 = rect[o + 6]; val y1 = rect[o + 7]
+            val ix0 = max(x0, tx0 + reach); val iy0 = max(y0, ty0 + reach)
+            val ix1 = min(x1, tx0 + side - reach); val iy1 = min(y1, ty0 + side - reach)
+            if (!(ix1 > ix0 && iy1 > iy0)) { putBorder(o, x0, y0, x1, y1); continue }
+            if (8 * (innerCount + 1) > inner.size) inner = inner.copyOf(inner.size * 2)
+            put(inner, innerCount++, o, ix0, iy0, ix1, iy1)
+            if (iy0 > y0) putBorder(o, x0, y0, x1, iy0)
+            if (iy1 < y1) putBorder(o, x0, iy1, x1, y1)
+            if (ix0 > x0) putBorder(o, x0, iy0, ix0, iy1)
+            if (ix1 < x1) putBorder(o, ix1, iy0, x1, iy1)
+        }
+    }
+    private fun putBorder(o: Int, x0: Float, y0: Float, x1: Float, y1: Float) {
+        if (8 * (borderCount + 1) > border.size) border = border.copyOf(border.size * 2)
+        put(border, borderCount++, o, x0, y0, x1, y1)
+    }
+    private fun put(to: FloatArray, at: Int, o: Int, x0: Float, y0: Float, x1: Float, y1: Float) {
+        rect.copyInto(to, at * 8, o, o + 4)
+        to[at * 8 + 4] = x0; to[at * 8 + 5] = y0; to[at * 8 + 6] = x1; to[at * 8 + 7] = y1
+    }
+
     private val scratch = FloatArray(4)
 
     companion object {

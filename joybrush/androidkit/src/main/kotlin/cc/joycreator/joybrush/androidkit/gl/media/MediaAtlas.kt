@@ -28,7 +28,9 @@ import kotlin.math.floor
  */
 class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, private val renderLook: (FloatArray) -> Unit,
                  /** Dries the water of these tiles (layer px) where it lies: [MediaLayerEngine.dryTilesNow] with the canvas's paper. */
-                 private val dryTiles: (List<FloatArray>) -> Unit = {}) : MediaPlace {
+                 private val dryTiles: (List<FloatArray>) -> Unit = {},
+                 /** [renderLook] for several rectangles in one go (the program set once). */
+                 private val renderLooks: (List<FloatArray>) -> Unit = { rs -> rs.forEach(renderLook) }) : MediaPlace {
     override var layerId: String? = null; private set
     override var plane: String? = null; private set
     override var stats: cc.joycreator.joybrush.androidkit.bench.FrameStats? = null
@@ -54,6 +56,12 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
     private var waterHeld: Set<Long> = emptySet()
     /** This frame's own drawing (its passes' rects, where the brush put water): where the look is recomputed besides the water. */
     private val frameDirty = ArrayList<FloatArray>()
+    /**
+     * This frame's wet dabs, their own boxes: brush input not yet in the water changes only the colour under it (the look adds
+     * it), not the paint's body, so its look needs no shading halo; the halo comes with the water's look once a step takes
+     * it in. The whole halo round each frame's dabs and their water margin was 200-450 k px a frame (10-21, Note 9).
+     */
+    private val frameInput = ArrayList<FloatArray>()
     private var framesSinceQuery = 0
     /** Slot -> tile when the water was last measured: a measurement counts only for tiles still in the same slot. */
     private var querySlots: Map<Int, Long>? = null
@@ -137,12 +145,13 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         if (!media.wetActive && needs.none { it.water }) resetWater()
         val keys = LinkedHashSet<Long>()
         frameDirty.clear()
+        frameInput.clear()
         var box: FloatArray? = null
         var waterRect: FloatArray? = null
         for (n in needs) {
             if (n.water) { waterRect = n.rect; continue }
             keys += tilesOf(n.rect, n.reach)
-            frameDirty += n.rect
+            if (n.input && n.lookRect != null && media.waterBudget.isFinite()) frameInput += n.lookRect else frameDirty += n.rect
             box = union(box, n.rect)
             if (n.input) water.touched(intArrayOf(floor(n.rect[0]).toInt(), floor(n.rect[1]).toInt(), ceil(n.rect[2]).toInt(), ceil(n.rect[3]).toInt()), now)
         }
@@ -426,36 +435,109 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         if (rect != null) {
             pendingRect = union(pendingRect, rect)
             for (key in keysIn(rect)) slots.resident(page(key))?.let { slots.markDirty(it.page) }
-            if (admitted && media.wetActive) {
-                // The water's rectangle is mostly tiles that did not change (dry, maybe not even here): the look is redone
-                // where the frame drew and where water lies (its extent), whose every read is held (MediaAtlasWater.mustStay).
-                // Every wet tile's look every frame. Redoing still water's look only a few tiles a frame (10-21 night) left
-                // tiles showing different moments side by side: a straight edge on screen. No tile-shaped decisions on water.
-                val changed = ArrayList<FloatArray>(frameDirty)
-                for (k in waterHeld) {
-                    val e = water.extent(k) ?: continue
-                    if (slots.resident(page(k)) != null) changed += floatArrayOf(e[0].toFloat(), e[1].toFloat(), e[2].toFloat(), e[3].toFloat())
-                }
-                writeLookOnce(id, changed)
-            } else writeLook(id, rect)
+        }
+        if (admitted && media.wetActive) {
+            // The water's rectangle is mostly tiles that did not change (dry, maybe not even here): the look is redone
+            // where the frame drew and where water lies (its extent), whose every read is held (MediaAtlasWater.mustStay).
+            // Redoing still water's look only a few tiles a frame (10-21 night) left tiles showing different moments side by
+            // side for many frames: a straight edge on screen. No tile-shaped decisions on water.
+            // Water jobs (WATER_JOBS_20261021): the frame's own drawing at once (the look adds the brush input not yet in the
+            // water, so a mark shows the frame it is drawn); the water's look each time a step has finished, drawn part by
+            // part within the frame's [lookBudget] and copied out to the layer all at once.
+            if (frameDirty.isNotEmpty() || frameInput.isNotEmpty()) writeLookOnce(id, frameDirty, frameInput)
+            if (media.waterSteps != lookedSteps) {
+                lookedSteps = media.waterSteps
+                if (lookTodo.isEmpty() && lookDrawn.isEmpty()) startWaterLook() else lookAgain = true
+            }
+            advanceWaterLook(id, lookBudget)
+        } else {
+            if (lookTodo.isNotEmpty() || lookDrawn.isNotEmpty()) advanceWaterLook(id, Double.POSITIVE_INFINITY)
+            if (rect != null) writeLook(id, rect)
         }
         if (media.wetActive) measureWater() else if (querySlots != null || framesSinceQuery != 0) resetWater()
-        if (stores) writeStores(id) else reserveStores()
+        if (stores) {
+            writeStores(id)
+            // Water jobs: dabs the water had not taken in yet are not in what was just written; written in place once they
+            // are (below), or before the next stroke starts ([payOwedStores]), so undo always has the whole stroke.
+            storesOwed = media.inputPending
+        } else if (storesOwed && !media.inputPending) { writeStores(id); storesOwed = false }
+        else reserveStores()
         // The frame is over: its tiles may leave again (running water keeps its own, see [hold]).
         unpinAll()
         admitted = false
     }
 
     private fun keysIn(r: FloatArray): List<Long> = tilesOf(r, 0)
+    /** The water step count ([MediaLayerEngine.waterSteps]) the water's look was last drawn at. */
+    private var lookedSteps = -1L
+
+    // ---- the water's look, part by part (WATER_JOBS_20261021) ----
+    /** How much of the water's look a frame draws: px x [LOOK_WEIGHT]; infinite = all of it in the frame (as before jobs). */
+    var lookBudget = Double.POSITIVE_INFINITY
+    /** Parts (one per tile, layer px) still to draw; parts drawn into the look texture, with the slot they were drawn in. */
+    private val lookTodo = LinkedHashMap<Long, FloatArray>()
+    private val lookDrawn = LinkedHashMap<Long, Pair<FloatArray, Int>>()
+    /** A step finished while a look was under way: another look once it is out. */
+    private var lookAgain = false
+
+    private fun startWaterLook() {
+        val ext = waterHeld.mapNotNull { k -> water.extent(k)?.takeIf { slots.resident(page(k)) != null } }
+            .map { e -> floatArrayOf(e[0].toFloat(), e[1].toFloat(), e[2].toFloat(), e[3].toFloat()) }
+        lookTodo.putAll(lookParts(ext))
+    }
 
     /**
-     * The look of everything [changed] (each grown by its halo), drawn ONCE per tile: the part of each tile inside the grown
-     * rects that touch it. Drawn rect by rect, the water's tiles and their halos overlapped and the same pixels were drawn up
-     * to four times a frame (10-21: the look was 60 % of a crowded wet frame). Everything it reads is held (the frame is
-     * admitted, MediaAtlasWater.mustStay).
+     * Draws the water's look part by part until [budget] is spent (at least one part); once every part is drawn, copies them
+     * all out to the layer's tiles together, so no tile shows a different moment from its neighbour for longer than one look.
      */
-    private fun writeLookOnce(id: String, changed: List<FloatArray>) {
-        val h = lookHalo.toFloat()
+    private fun advanceWaterLook(id: String, budget: Double) {
+        var spent = 0.0
+        val todo = lookTodo.entries.iterator()
+        val now = ArrayList<FloatArray>()
+        while (todo.hasNext()) {
+            val (key, r) = todo.next()
+            val cost = (r[2] - r[0]).toDouble() * (r[3] - r[1]) * LOOK_WEIGHT
+            if (spent > 0.0 && spent + cost > budget) break
+            todo.remove()
+            val res = slots.resident(page(key)) ?: continue
+            // Everything this part's look reads must be here (it was while the water held it; a tile let go since is skipped).
+            if (tilesOf(r, MediaAtlasPlacement.LOOK_REACH).any { k -> slots.resident(page(k)) == null }) continue
+            now += r
+            lookDrawn[key] = r to res.slot
+            spent += cost
+        }
+        if (now.isNotEmpty()) renderLooks(now)
+        MediaPhases.timer?.invoke("look.parts (count)", lookDrawn.size.toDouble())
+        if (lookTodo.isNotEmpty() || lookDrawn.isEmpty()) return
+        // Only parts still in the slot they were drawn in (a tile that left and another that came would copy the wrong pixels).
+        val out = lookDrawn.filter { (key, v) -> slots.resident(page(key))?.slot == v.second }
+        lookDrawn.clear()
+        if (out.isNotEmpty()) copyLookOut(id, out.mapValues { it.value.first })
+        if (lookAgain) { lookAgain = false; startWaterLook() }
+    }
+
+    private fun dropWaterLook() { lookTodo.clear(); lookDrawn.clear(); lookAgain = false }
+
+    /** A stroke ended with brush input the water had not taken in yet: its stores are written again once it has. */
+    var storesOwed = false; private set
+
+    /**
+     * Before a new stroke: the last one's stores while dabs of it still wait for the water (a quick next stroke). The water
+     * catches up now ([MediaLayerEngine.settleInput]) and the stores are written in place, into the last stroke's step.
+     */
+    fun payOwedStores(paper: MediaPaperGl, pxPerMm: Double, wc0: cc.joycreator.joybrush.core.media.WetConstants) {
+        if (!storesOwed) return
+        storesOwed = false
+        val id = layerId ?: return
+        if (staleDrawing() || id !in paint.layerIds()) return
+        media.settleInput(paper, pxPerMm, wc0)
+        pendingStores += media.takeDirtyStores()
+        media.takeDirty()?.let { r -> pendingRect = union(pendingRect, r); for (key in keysIn(r)) slots.resident(page(key))?.let { slots.markDirty(it.page) } }
+        writeStores(id)
+    }
+
+    /** One part per tile: the part of each tile inside the [changed] rects grown by the look's halo (whole pixels). */
+    private fun lookParts(changed: List<FloatArray>, h: Float = lookHalo.toFloat()): LinkedHashMap<Long, FloatArray> {
         val parts = LinkedHashMap<Long, FloatArray>()
         for (c in changed) {
             val g = floatArrayOf(floor(c[0] - h), floor(c[1] - h), ceil(c[2] + h), ceil(c[3] + h))
@@ -469,9 +551,11 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
                 else { p[0] = minOf(p[0], x0); p[1] = minOf(p[1], y0); p[2] = maxOf(p[2], x1); p[3] = maxOf(p[3], y1) }
             }
         }
-        if (parts.isEmpty()) return
-        // The parts never overlap (each inside its own tile): all drawn, then each copied out once.
-        for (r in parts.values) renderLook(r)
+        return parts
+    }
+
+    /** The look texture's [parts] (layer px, one per resident tile) into the layer's look tiles. */
+    private fun copyLookOut(id: String, parts: Map<Long, FloatArray>) {
         val targets = paint.writableMediaTiles(id, parts.keys, listOf(MEDIA_LOOK), plane).getValue(MEDIA_LOOK)
         for ((key, r) in parts) {
             val (ax, ay) = media.slotTexel(slots.resident(page(key))!!.slot)
@@ -479,6 +563,26 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
             val x0 = r[0].toInt(); val y0 = r[1].toInt(); val x1 = r[2].toInt(); val y1 = r[3].toInt()
             media.blit(media.lookTexture(), ax + x0 - tx0, ay + y0 - ty0, ax + x1 - tx0, ay + y1 - ty0, targets.getValue(key), x0 - tx0, y0 - ty0, x1 - tx0, y1 - ty0)
         }
+    }
+
+    /**
+     * The look of everything [changed] (each grown by its halo), drawn ONCE per tile: the part of each tile inside the grown
+     * rects that touch it. Drawn rect by rect, the water's tiles and their halos overlapped and the same pixels were drawn up
+     * to four times a frame (10-21: the look was 60 % of a crowded wet frame). Everything it reads is held (the frame is
+     * admitted, MediaAtlasWater.mustStay).
+     */
+    private fun writeLookOnce(id: String, changed: List<FloatArray>, unhaloed: List<FloatArray> = emptyList()) {
+        val parts = lookParts(changed)
+        for ((k, r) in lookParts(unhaloed, 0f)) {
+            val p = parts[k]
+            if (p == null) parts[k] = r else { p[0] = minOf(p[0], r[0]); p[1] = minOf(p[1], r[1]); p[2] = maxOf(p[2], r[2]); p[3] = maxOf(p[3], r[3]) }
+        }
+        if (parts.isEmpty()) return
+        MediaPhases.timer?.invoke("look.frameParts (count)", parts.size.toDouble())
+        MediaPhases.timer?.invoke("look.framePx k (count)", parts.values.sumOf { (it[2] - it[0]).toDouble() * (it[3] - it[1]) } / 1000)
+        // The parts never overlap (each inside its own tile): all drawn, then each copied out once.
+        renderLooks(parts.values.toList())
+        copyLookOut(id, parts)
     }
 
     /** [hold] false: everything the look reads is known to be here already (it must not be held: the frame is admitted). */
@@ -580,6 +684,8 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
 
     /** Nothing here has anywhere to go (the layer went, or the drawing did): drop it all, unwritten (no slot written back). */
     private fun forget() {
+        dropWaterLook()
+        storesOwed = false
         layerId = null; dryPending = false; pendingStores.clear(); pendingRect = null; pinned.clear(); admitted = false; slots.clear(); media.setResidency(emptyMap()); media.waterPaused = emptySet()
         resetWater()
         media.takeDirty(); media.takeDirtyStores(); media.stopWater()
@@ -595,6 +701,8 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         if (layer != layerId || plane != this.plane) return false
         val mine = heldKeys().toSet()
         if (keys.none { it in mine }) return false
+        dropWaterLook()   // drawn from what the undo just replaced
+        storesOwed = false   // the stroke they belonged to is undone (its waiting dabs go with it: MediaLayerEngine.stopWater)
         media.stopWater()
         resumeOnLoad = false
         try { for (r in slots.residents()) loadSlot(r.slot, r.page.tileKey) } finally { resumeOnLoad = true }
@@ -639,6 +747,8 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
 
     private companion object {
         const val TAG = "JoyBrushMediaAtlas"
+        /** The look's cost per px in the water's units (MediaLayerEngine JOB_WEIGHT: a flat flux px): ~30 ns on the Note 9. */
+        const val LOOK_WEIGHT = 2.0
         /** Frames between water measurements (B3 plan: ~8; quiet means quiet for MediaAtlasWater.quietMs). */
         const val QUERY_FRAMES = 8
         /**

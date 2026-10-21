@@ -478,6 +478,11 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         onGl { mediaCanvas.releaseEngine() }
     }
 
+    /** Water jobs in the atlas (MediaCanvas.waterJobs; on): the bench's A/B. Any thread. */
+    var mediaWaterJobs: Boolean
+        get() = mediaCanvas.waterJobs
+        set(v) { mediaCanvas.waterJobs = v }
+
     /** The owner's watercolour comparison (core WaterAB; the default is today's water). Any thread. */
     var mediaWaterAB: cc.joycreator.joybrush.core.media.WaterAB
         get() = mediaCanvas.waterAB

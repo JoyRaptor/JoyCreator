@@ -192,11 +192,17 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     private var run = 0
     private var bead = IntArray(0); private var beadFbo = IntArray(0); private var beadW = 0; private var beadH = 0
     private var fluxFbo = IntArray(0); private var updFbo = IntArray(0); private var wetCopyFbo = IntArray(0)
-    private var in0 = 0; private var in1 = 0; private var inFbo = 0
+    // The brush input, twice (tasks/joybrush/specs/WATER_JOBS_20261021.md): new dabs go into buffer [inNext], a water job eats
+    // the other. Buffer b: inTex[2b] = (dw mm, dK rgb), inTex[2b + 1] = (dS, solubility weight).
+    private var inTex = IntArray(0)
+    private var inFbos = IntArray(0)
+    private var inNext = 0
+    /** Where buffer b holds dabs (layer px), null = none. */
+    private val inArea = arrayOfNulls<FloatArray>(2)
+    /** Buffer b may hold dabs anywhere (drawn with no rectangle to clip to): its clear is whole. */
+    private val inAll = BooleanArray(2)
     /** Coarse water: the water mid-step for the paint step (jb_wet_coarse.glsl), and the ground under each cell. */
     private var mid0 = 0; private var mid1 = 0; private var terrain = 0; private var terrainFbo = 0
-    /** True while the brush input may hold dabs outside the last scissored area (a dab drawn with no rectangle to clip to). */
-    private var inFull = false
     private var wc = 0
     private var lutTex = 0
     private var lutSrc: Any? = null
@@ -293,20 +299,21 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
      */
     fun sleep() {
         if (asleep) return
+        finishWaterJob()
         val tex = ArrayList<Int>()
         for (s in state) tex += listOf(s.p0, s.p1, s.paper)
         wet?.forEach { tex += listOf(it.w0, it.w1, it.flux) }
-        tex += listOf(delta, bakeTex, fluidBake, waterBake, run, in0, in1, lookTex, groundTex, mid0, mid1, terrain) + bead.toList()
+        tex += listOf(delta, bakeTex, fluidBake, waterBake, run, lookTex, groundTex, mid0, mid1, terrain) + bead.toList() + inTex.toList()
         tex.filter { it != 0 }.toIntArray().let { if (it.isNotEmpty()) MediaTex.deleteTex(*it) }
         val fbos = ArrayList<Int>()
         for (s in state) fbos += s.fbo
-        fbos += listOf(pFbo0, pFbo1, deltaFbo, bakeFbo, inFbo, lookFbo, groundFbo, terrainFbo) + beadFbo.toList() + fluxFbo.toList() + updFbo.toList() +
+        fbos += listOf(pFbo0, pFbo1, deltaFbo, bakeFbo, lookFbo, groundFbo, terrainFbo) + inFbos.toList() + beadFbo.toList() + fluxFbo.toList() + updFbo.toList() +
             wetCopyFbo.toList() + eraseWetFbo.toList()
         fbos.filter { it != 0 }.toIntArray().let { if (it.isNotEmpty()) MediaTex.deleteFbo(*it) }
         eraseWetFbo = IntArray(0)
         groundTex = 0; groundFbo = 0
         delta = 0; deltaFbo = 0; bakeTex = 0; fluidBake = 0; waterBake = 0; bakeFbo = 0; bakedPaper = null
-        wet = null; run = 0; in0 = 0; in1 = 0; inFbo = 0; inFull = false; lookTex = 0; lookFbo = 0
+        wet = null; run = 0; inTex = IntArray(0); inFbos = IntArray(0); forgetInput(); job = null; lookTex = 0; lookFbo = 0
         mid0 = 0; mid1 = 0; terrain = 0; terrainFbo = 0
         bead = IntArray(0); beadFbo = IntArray(0); fluxFbo = IntArray(0); updFbo = IntArray(0); wetCopyFbo = IntArray(0)
         pFbo0 = 0; pFbo1 = 0
@@ -362,10 +369,11 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
             IntArray(2) { MediaTex.fbo(ws[it].w0, ws[it].w1, mid0, mid1) }
         } else IntArray(4) { MediaTex.fbo(ws[it shr 1].w0, ws[it shr 1].w1, state[it and 1].p0, state[it and 1].p1) }
         wetCopyFbo = IntArray(2) { if (it == 0) MediaTex.fbo(ws[0].w0, ws[0].w1, ws[0].flux, run) else MediaTex.fbo(ws[1].w0, ws[1].w1, ws[1].flux) }
-        in0 = MediaTex.make(ww, wh); in1 = MediaTex.make(ww, wh); inFbo = MediaTex.fbo(in0, in1)
+        inTex = IntArray(4) { MediaTex.make(ww, wh) }
+        inFbos = IntArray(2) { MediaTex.fbo(inTex[2 * it], inTex[2 * it + 1]) }
         for (f in wetCopyFbo) clearFbo(f)
-        clearFbo(inFbo)
-        inFull = false
+        for (f in inFbos) clearFbo(f)
+        forgetInput()
     }
 
     private fun emptyTex(): Int {
@@ -381,10 +389,11 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     }
 
     fun clearAll() {
+        job = null
         for (s in state) clearFbo(s.fbo)
         if (groundFbo != 0) clearFbo(groundFbo)
         if (deltaFbo != 0) clearFbo(deltaFbo)
-        if (wet != null) { for (f in wetCopyFbo) clearFbo(f); clearFbo(inFbo); inFull = false }
+        if (wet != null) { for (f in wetCopyFbo) clearFbo(f); for (f in inFbos) clearFbo(f); forgetInput() }
         wetRect = null
         paintRect = null
         wetIdle = 0.0
@@ -420,7 +429,9 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
      * One pass's ask of the host: [rect] (layer px) and [reach] around it, exactly as that pass will call [need].
      * [water] = the water's simulated rectangle (held by the water's rules); [input] = where the brush puts water this frame.
      */
-    class Need(val rect: FloatArray, val reach: Int, val water: Boolean = false, val input: Boolean = false)
+    class Need(val rect: FloatArray, val reach: Int, val water: Boolean = false, val input: Boolean = false,
+               /** [input]: the dabs' own box (layer px): where the look changes this frame (WATER_JOBS_20261021). */
+               val lookRect: FloatArray? = null)
 
     // Media Atlas v2 B3: a frame is admitted whole before it draws (MediaCanvas -> [MediaPlace.admit]), so a frame is never
     // refused or short of a tile half-way. These compute what each pass will ask for with the passes' own code.
@@ -453,7 +464,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
 
     /** Where [batches] put water ([wetFrame]'s brush input, before it is clipped to the water): made resident and marked wet. */
     fun wetInputNeeds(batches: List<DabBatch?>): List<Need> = batches.mapNotNull { b ->
-        if (b == null || b.count == 0) null else layerRect(b.dirty, 48.0)?.let { Need(it, MediaAtlasPlacement.WET_REACH, input = true) }
+        if (b == null || b.count == 0) null else layerRect(b.dirty, 48.0)?.let { Need(it, MediaAtlasPlacement.WET_REACH, input = true, lookRect = layerRect(b.dirty, 2.0)) }
     }
     /** The engine's texture width (layer px at full resolution): the atlas's slots × 256 across. */
     val textureWidth: Int get() = w
@@ -486,7 +497,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, f); GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
         }
         GLES30.glScissor(ax / wf, ay / wf, side / wf, side / wf)   // the water's own resolution
-        for (f in listOf(inFbo) + wetCopyFbo.toList()) {
+        for (f in inFbos.toList() + wetCopyFbo.toList()) {
             if (f == 0) continue
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, f); GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
         }
@@ -619,6 +630,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
 
     /** [store]'s current state at (x, y) (see [loadStoreTile]) into the stored tile [dst]; coarse water fills each cell's pixels. */
     fun writeStoreTile(store: String, dst: Int, x: Int, y: Int) {
+        finishWaterStep()   // a finished step is a whole state ([current] reads it)
         val src = current(store) ?: return
         val t = Tiles.SIZE
         if (store in WATER_STORES && wf > 1) blit(src, x / wf, y / wf, (x + t) / wf, (y + t) / wf, dst, 0, 0, t, t)
@@ -627,7 +639,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
 
     /** The texture a store's current state is read from, for a write-back. Null for water that was never made. */
     fun current(store: String): Int? = when (store) {
-        "p0" -> state[0].p0; "p1" -> state[0].p1; "paper" -> state[0].paper
+        "p0" -> finishedPaint().p0; "p1" -> finishedPaint().p1; "paper" -> state[0].paper
         MediaStores.GROUND -> groundTex
         "w0" -> wet?.get(wc)?.w0; "w1" -> wet?.get(wc)?.w1
         else -> throw IllegalArgumentException("unknown media store $store")
@@ -651,6 +663,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
      * so a tile can be loaded again while the water elsewhere keeps running ([MediaWindow.lookWritten]).
      */
     fun clearRect(x0: Int, y0: Int, x1: Int, y1: Int) {
+        finishWaterJob()   // it reads or writes what a water job does
         GLES30.glEnable(GLES30.GL_SCISSOR_TEST)
         GLES30.glScissor(x0, y0, x1 - x0, y1 - y0)
         GLES30.glClearColor(0f, 0f, 0f, 0f)
@@ -670,6 +683,10 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
 
     /** Stops the water where it is (undo while wet, the Lead's rule): the state stays, nothing runs until [resumeWater]. */
     fun stopWater() {
+        // Undo (or the layer going): the state is about to be replaced, so the job is dropped, not finished, and the brush
+        // input still waiting goes too (it belonged to what was undone).
+        job = null
+        if (inFbos.isNotEmpty()) { for (f in inFbos) clearFbo(f); forgetInput() }
         wetRect = null; paintRect = null; wetIdle = 0.0
         wet?.let { ws -> for (x in ws) { val f = MediaTex.fbo(x.flux); clearFbo(f); MediaTex.deleteFbo(f) } }
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
@@ -720,6 +737,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
 
     // ---- dry media (pencil) ----
     fun dryFrame(batch: DabBatch, travelX: Double, travelY: Double, paper: MediaPaperGl, mat: StickMaterial, pxPerMm: Double) {
+        finishWaterJob()   // it reads or writes what a water job does
         pasteSettle()
         if (batch.count == 0) return
         ensureDry()
@@ -824,6 +842,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     // Its three passes are systrace sections only: a paste stroke makes a dozen steps a frame, and timing each (glFinish
     // brackets) would measure the brackets. The canvas times all of a frame's steps at once (paste.frame).
     fun pasteStep(st: PasteStep, b: PasteBrush, paper: MediaPaperGl, pxPerMm: Double, seed: Int) {
+        finishWaterJob()   // it reads or writes what a water job does
         traced("JB.media.paper.bake") { bakePaper(paper) }
         val cap = cellCap(b)
         val t = paper.stats.toothMm
@@ -937,6 +956,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
      * paper's crush is kept.
      */
     fun eraseFrame(batch: DabBatch, stores: Set<String>) {
+        finishWaterJob()   // it reads or writes what a water job does
         pasteSettle()
         if (batch.count == 0 || stores.isEmpty()) return
         ensureDry()
@@ -997,10 +1017,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
                  evapOverride: Double? = null, maxWetSeconds: Double = 240.0) {
         // B3: tiles the water left (a drip's dried tail, MediaAtlasWater.excluded) are not simulated, as beyond the 4 cm cap.
         // The water beside such a tile sees a wall there (zero gradient, no flow), as at the window's edge: no dry front.
-        val a = atlas
-        if (a != null) { a.skip = waterSkip + waterPaused; a.setWalls(waterSkip); a.wallsOn = waterSkip.isNotEmpty() }
-        try { wetFrameInner(batch, paper, pxPerMm, wc0, substeps, evapOverride, maxWetSeconds) }
-        finally { if (a != null) { a.skip = emptySet(); a.wallsOn = false } }
+        // (A water job keeps the tiles skipped and walled when it started: [runJob].)
+        wetFrameInner(batch, paper, pxPerMm, wc0, substeps, evapOverride, maxWetSeconds)
     }
 
     /**
@@ -1029,6 +1047,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
      * takes one), cannot leave them reading a half that is a step behind when they run again.
      */
     fun holdStill(slotOrigins: List<Pair<Int, Int>>) {
+        finishWaterJob()   // it reads or writes what a water job does
         val ws = wet ?: return
         val s = MediaAtlasDraw.SIDE
         val a = ws[wc]; val b = ws[1 - wc]
@@ -1051,21 +1070,21 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         fun simRect(): FloatArray? =
             wetRect?.let { WetSpread.grow(it, paintRect, slope[0], slope[1], steps, 1 / (pxPerMm * scale),
                 if (free) Int.MAX_VALUE else w, if (free) Int.MAX_VALUE else h) }   // free: only the 4 cm cap, no window
-        var useInput = false
-        var inRect: FloatArray? = null
         if (batch != null && batch.count > 0) {
             val r = layerRect(batch.dirty, 48.0)
             if (r != null) { wetRect = union(wetRect, r); paintRect = union(paintRect, r) }
             // Only the simulated rectangle ever reads the brush input, so the dabs are drawn there and the input is cleared
-            // there after the frame (the full-window clear wrote 16 B/px of nothing). Where there is no rectangle to clip to,
-            // the dabs are drawn whole and the next clear is whole too (inFull), exactly as before.
-            inRect = simRect()
+            // there after the step that eats it (the full-window clear wrote 16 B/px of nothing). Where there is no rectangle
+            // to clip to, the dabs are drawn whole and that buffer's next clear is whole too, exactly as before.
+            val inRect = simRect()
             inRect?.let { needWater(it, MediaAtlasPlacement.WET_REACH) }
-            // The brush input lands on the water's cells ([ww] x [wh]; the layer's pixels without coarse water).
+            // The brush input lands on the water's cells ([ww] x [wh]; the layer's pixels without coarse water), in the buffer
+            // no running job reads ([inNext]).
             val inCells = inRect?.let(::waterRect)
-            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, inFbo)
+            val ib = inNext
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, inFbos[ib])
             GLES30.glViewport(0, 0, ww, wh)
-            if (inCells != null) { if (!free) scissorTo(inCells) } else inFull = true
+            if (inCells != null && !free) scissorTo(inCells)
             GLES30.glEnable(GLES30.GL_BLEND)
             GLES30.glBlendFunc(GLES30.GL_ONE, GLES30.GL_ONE)
             GLES30.glBlendEquation(GLES30.GL_FUNC_ADD)
@@ -1076,83 +1095,269 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
             mediaTrace("JB.media.wet.input") { dabs(batch, inCells, water = true) { d, o -> (hypot(d[o + 4], d[o + 5]) + 0.1f) * ppm } }
             GLES30.glDisable(GLES30.GL_BLEND)
             GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
-            useInput = true
+            if (inRect != null) inArea[ib] = union(inArea[ib], inRect) else inAll[ib] = true
             wetIdle = 0.0
         }
-        // On a tilted paper running water can leave the rectangle: it grows downhill as fast as water can run, never
-        // further than a long drip past the paint, nor past this window (WetSpread, the tested cap).
-        val rect = simRect() ?: return
+        if (job == null) {
+            // On a tilted paper running water can leave the rectangle: it grows downhill as fast as water can run, never
+            // further than a long drip past the paint, nor past this window (WetSpread, the tested cap).
+            val rect = simRect() ?: return
+            startJob(rect, steps, paper, pxPerMm, wc0, evapOverride, maxWetSeconds)
+        }
+        runJob(waterBudget)
+    }
+
+    // ---- water jobs (tasks/joybrush/specs/WATER_JOBS_20261021.md) ----
+    /**
+     * A job: [steps] water steps over [rect] (layer px; [cells] in the water's cells), its constants fixed when it starts, run
+     * stage by stage and band by band ([runJob]) as far as each frame's budget goes. Every pass writes the other half of its
+     * ping-pong pair, so what anything outside the job reads (the look, the next frame's input) is always a finished step:
+     * the water flips ([wc]) when a step's last pass is done. [inIdx]: the brush input buffer it eats in its first step.
+     */
+    private class WaterJob(val rect: FloatArray, val cells: FloatArray, val steps: Int, val wc0: WetConstants, val beadCells: Double,
+                           val inIdx: Int, val useInput: Boolean, val ageScale: Float, val paper: MediaPaperGl,
+                           val pxPerMm: Double, val maxWetSeconds: Double, val stages: List<Int>, val hr: FloatArray?, val sigma: Double,
+                           val skip: Set<Long>, val walls: Set<Long>, val sliced: Boolean) {
+        var k = 0; var stage = 0; var band = 0
+    }
+    private var job: WaterJob? = null
+    private var lastJobNs = 0L
+
+    /**
+     * The water's work this frame, in px x stage weight ([JOB_WEIGHT]): a job runs bands until it is spent (at least one).
+     * Infinite (the window, the device probe, every engine until a host sets it) = a job runs whole in the frame it starts,
+     * exactly as the frames before jobs: the same passes in the same order.
+     */
+    var waterBudget = Double.POSITIVE_INFINITY
+    /** A sliced job's steps (2, even: no paint copy); 0 = the frame's own (the device probe's banded engine, to compare). */
+    internal var slicedSteps = 2
+    /** A water job is under way (its rectangle must stay resident: [waterJobRect]). */
+    val waterJobRunning get() = job != null
+    val waterJobRect: FloatArray? get() = job?.rect
+    /** Counts finished water steps (the host redraws the water's look when it moves). */
+    var waterSteps = 0L; private set
+    /** Some brush input is not yet in the water (the look shows it: [renderLook]). */
+    val inputPending get() = inArea[0] != null || inArea[1] != null || inAll[0] || inAll[1]
+
+    private fun forgetInput() { inArea[0] = null; inArea[1] = null; inAll[0] = false; inAll[1] = false; inNext = 0 }
+
+    private fun startJob(rect: FloatArray, steps: Int, paper: MediaPaperGl, pxPerMm: Double, wc0: WetConstants, evapOverride: Double?,
+                         maxWetSeconds: Double) {
         wetRect = rect
+        val sliced = waterBudget.isFinite()
         // The atlas has no window to stop the water, so a wide wash can ask for more than the window ever drew in a frame
         // (2026-10-21, tilted Wash on the Note 9: up to 18.9 M px-steps against the window's 4.2 M, frames of 3 s). Past
-        // that, this frame takes fewer steps: the water runs a little slower for a moment instead of the frame stalling.
+        // that, a whole-frame job takes fewer steps. A sliced job (a host's budget) takes two whatever its size: the budget
+        // spreads it over frames, and two (even) end in state[0] with no copy.
         val area = (rect[2] - rect[0]).toDouble() * (rect[3] - rect[1]) / (wf * wf)   // in water cells
-        val ran = if (free && area * steps > WET_PX_STEPS) max(1, (WET_PX_STEPS / area).toInt()) else steps
+        val ran = when {
+            sliced && steps > 1 && slicedSteps > 0 -> slicedSteps
+            free && area * steps > WET_PX_STEPS -> max(1, (WET_PX_STEPS / area).toInt())
+            else -> steps
+        }
         MediaPhases.timer?.invoke("wet.kpx (count)", area / 1000.0 * ran)
-        val ageScale = if (frameRealMs > 0f) (frameRealMs / 1000f / (ran * wc0.dt).toFloat()).coerceIn(1f, 60f) else 1f
+        // Wet age in real time: a whole-frame job stands for its frame; a sliced one for the time since the last one started.
+        val now = System.nanoTime()
+        // No clock from the host (frameRealMs 0: the device probe, a bench replay): the water's own time, as always.
+        val realMs = if (frameRealMs > 0f && sliced && lastJobNs != 0L) min(2000f, (now - lastJobNs) / 1e6f) else frameRealMs
+        lastJobNs = now
+        val ageScale = if (realMs > 0f) (realMs / 1000f / (ran * wc0.dt).toFloat()).coerceIn(1f, 60f) else 1f
         stores += WATER_WRITES
         touch(rect)
         wetSince = union(wetSince, rect)
         val beadCells = wc0.beadMm * pxPerMm * scale
-        // The frame's constants, flattened once; the substeps below only apply them (unchanged values cost no GL call).
+        // The job's constants, flattened once; its passes only apply them (unchanged values cost no GL call).
         loadWetFrame(paper, wc0, evapOverride, pxPerMm)
-        // The water's passes run over its cells; the paint step (coarse water) over the layer's pixels.
         val cells = waterRect(rect)
         val tilted = hypot(slope[0].toDouble(), slope[1].toDouble()) > 1e-4
         GLES30.glDisable(GLES30.GL_BLEND)
         // The paint planes (p0, p1) used to be written to state[1] by every update and copied back to state[0] by a
         // whole extra pass. The update reads them at its OWN pixel only, so instead the substeps alternate: substep k reads
-        // state[k mod 2] and writes the other, and a frame of an even number of substeps ends in state[0] with no copy.
+        // state[k mod 2] and writes the other, and an even number of substeps ends in state[0] with no copy.
         // The flux pass also reads p0.a at the neighbours (the water's surface, and the paper's slope d cells away when
         // tilted); inside the rectangle those are the previous substep's output, and beyond it the paint never changes,
         // so state[0]'s values for the ring around the rectangle are copied into state[1] once, before the first substep.
         needWater(rect, MediaAtlasPlacement.WET_REACH)
-        // Coarse water: the flux reads the ground from the terrain (once a frame, as far round as it reads), not the paint, so
+        // Coarse water: the flux reads the ground from the terrain (once a job, as far round as it reads), not the paint, so
         // there is no paint ring to keep in step.
         if (wf > 1) mediaTrace("JB.media.wet.terrain") { terrainPass(cells, fluxReach(wc0, beadCells / wf) + 2, paper) }
-        else if (steps > 1) mediaTrace("JB.media.wet.ring") { copyP0Ring(rect, ringCells(wc0, beadCells)) }
-        for (k in 0 until ran) {
-            val a = ws[wc]
-            val bi = 1 - wc
-            val b = ws[bi]
-            val src = state[k and 1]
-            GLES30.glBindVertexArray(quadVao)
-            if (tilted) mediaTrace("JB.media.wet.bead") { beadPasses(a.w0, rect, beadCells) }
-            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fluxFbo[bi])
+        else if (ran > 1) mediaTrace("JB.media.wet.ring") { copyP0Ring(rect, ringCells(wc0, beadCells)) }
+        // The running bead's field (tilted): 2x2 average of the water, then a Gaussian along x and y, on the half grid.
+        val sigma = min(4.8, max(1.0, 0.25 * beadCells))
+        val hr = if (!tilted) null else {
+            val r = min(12, ceil(2.5 * sigma).toInt())
+            val m = 3 + 2 * r
+            if (free) floatArrayOf(floor(rect[0] / 2) - m, floor(rect[1] / 2) - m, ceil(rect[2] / 2) + m, ceil(rect[3] / 2) + m)
+            else floatArrayOf(max(0f, floor(rect[0] / 2) - m), max(0f, floor(rect[1] / 2) - m),
+                min(beadW.toFloat(), ceil(rect[2] / 2) + m), min(beadH.toFloat(), ceil(rect[3] / 2) + m))
+        }
+        val stages = ArrayList<Int>()
+        if (tilted) { stages += STAGE_BEAD0; stages += STAGE_BEAD1; stages += STAGE_BEAD2 }
+        stages += STAGE_FLUX; stages += STAGE_UPDATE
+        if (wf > 1) stages += STAGE_PAINT
+        // The job eats the input drawn so far; dabs from now on go to the other buffer.
+        val ib = inNext
+        inNext = 1 - ib
+        job = WaterJob(rect, cells, ran, wc0, beadCells, ib, inArea[ib] != null || inAll[ib], ageScale, paper, pxPerMm,
+            maxWetSeconds, stages, hr, sigma, waterSkip + waterPaused, waterSkip, sliced)
+    }
+
+    /** Runs every pass the running job has left, now (anything that reads or writes what the job does calls it first). */
+    fun finishWaterJob() { if (job != null) runJob(Double.POSITIVE_INFINITY) }
+
+    /**
+     * Runs the running job's passes up to the end of its current step (nothing when it stands between steps): a finished
+     * step is a whole state, the water in [wc] and the paint in [finishedPaint]. What a stroke's stores need, at most a step.
+     */
+    fun finishWaterStep() { if (job != null) runJob(Double.POSITIVE_INFINITY, toStep = true) }
+
+    /** The paint as the last finished step left it: state[k mod 2] for a job about to run step k, state[0] otherwise. */
+    private fun finishedPaint(): State = job?.let { state[it.k and 1] } ?: state[0]
+
+    /**
+     * The water caught up with the brush: the running job finished and the input still waiting taken in by one more whole
+     * job, so the state holds every dab (a stroke's end: what its stores keep, and what undo goes back to).
+     */
+    fun settleInput(paper: MediaPaperGl, pxPerMm: Double, wc0: WetConstants) {
+        finishWaterJob()
+        if (!inputPending || wet == null || wetRect == null) return
+        val budget = waterBudget
+        waterBudget = Double.POSITIVE_INFINITY
+        try { wetFrame(null, paper, pxPerMm, wc0) } finally { waterBudget = budget }
+    }
+
+    /** Runs the job's stages, band by band, until [budget] (px x [JOB_WEIGHT]) is spent; at least one band. */
+    private fun runJob(budget: Double, toStep: Boolean = false) {
+        val j = job ?: return
+        if (wet == null) { job = null; return }
+        val ws = wet!!
+        // B3: tiles the water left (a drip's dried tail, MediaAtlasWater.excluded) or set aside (paused pools) are not
+        // simulated; the water beside a tile it left sees a wall there (zero gradient, no flow), as at the window's edge.
+        val a = atlas
+        if (a != null) { a.skip = j.skip; a.setWalls(j.walls); a.wallsOn = j.walls.isNotEmpty() }
+        try { runJobInner(j, ws, budget, toStep) } finally { if (a != null) { a.skip = emptySet(); a.wallsOn = false } }
+    }
+
+    private fun runJobInner(j: WaterJob, ws: Array<Wet>, budget: Double, toStep: Boolean) {
+        if (toStep && j.stage == 0 && j.band == 0) return
+        var spent = 0.0
+        GLES30.glDisable(GLES30.GL_BLEND)
+        while (true) {
+            val stage = j.stages[j.stage]
+            val (area, shift) = stageArea(j, stage)
+            val bands = bandsOf(area, shift, j.sliced)
+            val band = bands[j.band]
+            val cost = bandCost(band, stage)
+            if (spent > 0.0 && spent + cost > budget) return
+            runStage(j, ws, stage, area, band)
+            spent += cost
+            if (++j.band < bands.size) continue
+            j.band = 0
+            if (++j.stage < j.stages.size) continue
+            // A water step is done: the water flips, and the input it ate leaves its buffer.
+            j.stage = 0
+            wc = 1 - wc
+            if (j.k == 0 && j.useInput) clearInput(j.inIdx)
+            waterSteps++
+            if (++j.k < j.steps) { if (toStep) return; continue }
+            endJob(j)
+            return
+        }
+    }
+
+    private fun endJob(j: WaterJob) {
+        job = null
+        // An odd number of substeps (the dry-now frame) leaves the paint in state[1]: one copy, as every substep used to make.
+        if ((j.steps and 1) == 1) mediaTrace("JB.media.wet.tail") { copyRect(state[1], pFbo0, j.rect) }
+        wetIdle += j.steps * j.wc0.dt
+        if (wetIdle > j.maxWetSeconds) dryNow(j.paper, j.pxPerMm)
+    }
+
+    private fun clearInput(ib: Int) {
+        val r = inArea[ib]
+        if (inAll[ib] || r == null) clearFbo(inFbos[ib])
+        else if (free) atlas!!.clearRect(inFbos[ib], waterRect(r), wShift)
+        else {
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, inFbos[ib])
             GLES30.glViewport(0, 0, ww, wh)
-            val fu = fluxProgram().use()
-            commonWater(fu); wetFrameUniforms.apply(fu)
-            fu.ownReach = fluxReach(wc0, beadCells / wf) * wf   // the reach in full-resolution px
-            MediaUniforms.wetFlux(fu, bead[0], src.p0, a.w0, a.flux, bakeTex, fluidBake, waterBake, cells, ww, wh)
-            if (wf > 1) fu.tex("u_terrain", terrain)
-            mediaTrace("JB.media.wet.flux") { quad(cells, wShift) }
-            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, if (wf > 1) updFbo[bi] else updFbo[bi * 2 + 1 - (k and 1)])
-            val pu = updateProgram().use()
-            commonWater(pu); wetFrameUniforms.apply(pu)
-            pu.ownReach = UPDATE_REACH * wf + (wf - 1)   // a coarse cell also reads its own 2 x 2 pixels
-            MediaUniforms.wetUpdate(pu, a.w0, a.w1, b.flux, run, src.p0, src.p1, bakeTex, waterBake, fluidBake, in0, in1,
-                if (k == 0 && useInput) 1 else 0, cells, ww, wh)
-            MediaUniforms.wetAgeScale(pu, ageScale)
-            mediaTrace("JB.media.wet.update") { quad(cells, wShift) }
-            if (wf > 1) mediaTrace("JB.media.wet.paint") { paintStep(src, if ((k and 1) == 0) pFbo1 else pFbo0, rect) }
-            wc = bi
+            scissorTo(waterRect(r))
+            GLES30.glClearColor(0f, 0f, 0f, 0f)
+            GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
+            GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
         }
-        // An odd number of substeps (the dry-now frame) leaves the result in state[1]: one copy, as every substep used to make.
-        if ((ran and 1) == 1) mediaTrace("JB.media.wet.tail") { copyRect(state[1], pFbo0, rect) }
-        if (useInput) {
-            if (inFull || inRect == null) { clearFbo(inFbo); inFull = false }
-            else if (free) atlas!!.clearRect(inFbo, waterRect(inRect), wShift)
-            else {
-                GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, inFbo)
-                GLES30.glViewport(0, 0, ww, wh)
-                scissorTo(waterRect(inRect))
-                GLES30.glClearColor(0f, 0f, 0f, 0f)
-                GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
-                GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+        inArea[ib] = null; inAll[ib] = false
+    }
+
+    /** The rectangle a stage draws over and its target's slot shift. */
+    private fun stageArea(j: WaterJob, stage: Int): Pair<FloatArray, Int> = when (stage) {
+        STAGE_BEAD0, STAGE_BEAD1, STAGE_BEAD2 -> j.hr!! to MediaAtlasDraw.SHIFT - 1
+        STAGE_PAINT -> j.rect to MediaAtlasDraw.SHIFT
+        else -> j.cells to wShift
+    }
+
+    /**
+     * A stage's rectangle cut into bands of whole tile rows (of the stage's own grid) when the job is sliced in the atlas (its
+     * passes draw slot by slot, so a band draws exactly the slots it covers); one band, the whole rectangle, otherwise (the
+     * window's passes draw their rectangle through u_rect, which the flux also reads as the water's edge).
+     */
+    private fun bandsOf(r: FloatArray, shift: Int, sliced: Boolean): List<FloatArray> {
+        if (!sliced || atlas == null) return listOf(r)
+        val side = (1 shl shift).toFloat()
+        val out = ArrayList<FloatArray>()
+        var y0 = r[1]
+        while (y0 < r[3]) {
+            val y1 = min(r[3], (floor(y0 / side) + BAND_TILES) * side)
+            out += floatArrayOf(r[0], y0, r[2], y1)
+            y0 = y1
+        }
+        return if (out.isEmpty()) listOf(r) else out
+    }
+
+    private fun bandCost(b: FloatArray, stage: Int): Double = (b[2] - b[0]).toDouble() * (b[3] - b[1]) * JOB_WEIGHT[stage]
+
+    /** One stage of the job's current step over [band] (the stage's uniforms describe its whole rectangle [area]). */
+    private fun runStage(j: WaterJob, ws: Array<Wet>, stage: Int, area: FloatArray, band: FloatArray) {
+        val k = j.k
+        val a = ws[wc]
+        val bi = 1 - wc
+        val b = ws[bi]
+        val src = state[k and 1]
+        GLES30.glBindVertexArray(quadVao)
+        when (stage) {
+            STAGE_BEAD0, STAGE_BEAD1, STAGE_BEAD2 -> mediaTrace("JB.media.wet.bead") {
+                // 0: 2x2 average + blur along x into bead[0]; 1: blur along x into bead[1]; 2: along y into bead[0].
+                val pass = stage - STAGE_BEAD0
+                GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, beadFbo[pass and 1])
+                GLES30.glViewport(0, 0, beadW, beadH)
+                val bu = beadProgram().use()
+                common(bu)
+                MediaUniforms.bead(bu, area, beadW, beadH, j.sigma, pass, a.w0, bead[1 - (pass and 1)], if (pass < 2) 1f else 0f, if (pass < 2) 0f else 1f)
+                atlas?.uniforms(bu, MediaAtlasDraw.SHIFT - 1)   // the half-resolution field's slots are 128 cells
+                quad(band, MediaAtlasDraw.SHIFT - 1)
             }
+            STAGE_FLUX -> {
+                GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fluxFbo[bi])
+                GLES30.glViewport(0, 0, ww, wh)
+                val fu = fluxProgram().use()
+                commonWater(fu); wetFrameUniforms.apply(fu)
+                fu.ownReach = fluxReach(j.wc0, j.beadCells / wf) * wf   // the reach in full-resolution px
+                MediaUniforms.wetFlux(fu, bead[0], src.p0, a.w0, a.flux, bakeTex, fluidBake, waterBake, area, ww, wh)
+                if (wf > 1) fu.tex("u_terrain", terrain)
+                mediaTrace("JB.media.wet.flux") { quad(band, wShift) }
+            }
+            STAGE_UPDATE -> {
+                GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, if (wf > 1) updFbo[bi] else updFbo[bi * 2 + 1 - (k and 1)])
+                GLES30.glViewport(0, 0, ww, wh)
+                val pu = updateProgram().use()
+                commonWater(pu); wetFrameUniforms.apply(pu)
+                pu.ownReach = UPDATE_REACH * wf + (wf - 1)   // a coarse cell also reads its own 2 x 2 pixels
+                MediaUniforms.wetUpdate(pu, a.w0, a.w1, b.flux, run, src.p0, src.p1, bakeTex, waterBake, fluidBake,
+                    inTex[2 * j.inIdx], inTex[2 * j.inIdx + 1], if (k == 0 && j.useInput) 1 else 0, area, ww, wh)
+                MediaUniforms.wetAgeScale(pu, j.ageScale)
+                mediaTrace("JB.media.wet.update") { quad(band, wShift) }
+            }
+            STAGE_PAINT -> mediaTrace("JB.media.wet.paint") { paintStep(src, if ((k and 1) == 0) pFbo1 else pFbo0, band) }
         }
-        wetIdle += ran * wc0.dt
-        if (wetIdle > maxWetSeconds) dryNow(paper, pxPerMm)
     }
 
     /**
@@ -1182,7 +1387,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         GLES30.glViewport(0, 0, w, h)
         val qu = progWetPaint!!.use()
         common(qu); wetFrameUniforms.apply(qu)
-        qu.tex("u_mid0", mid0); qu.tex("u_mid1", mid1); qu.tex("u_in0", in0); qu.tex("u_in1", in1)
+        val ib = job?.inIdx ?: inNext
+        qu.tex("u_mid0", mid0); qu.tex("u_mid1", mid1); qu.tex("u_in0", inTex[2 * ib]); qu.tex("u_in1", inTex[2 * ib + 1])
         qu.tex("u_p0", src.p0); qu.tex("u_p1", src.p1); qu.tex("u_paperBake", bakeTex); qu.tex("u_waterBake", waterBake)
         qu.f4("u_rect", rect); qu.f2("u_targetSize", w.toFloat(), h.toFloat())
         quad(rect)
@@ -1221,31 +1427,13 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         strip(rx1, ry0, ox1, ry1)      // right
     }
 
-    // The running bead's field: 2Ã—2 average of the water, then a Gaussian along x and y (jb_wet_bead.frag).
-    private fun beadPasses(w0: Int, rect: FloatArray, beadCells: Double) {
-        val sigma = min(4.8, max(1.0, 0.25 * beadCells))
-        val r = min(12, ceil(2.5 * sigma).toInt())
-        val m = 3 + 2 * r
-        val hr = if (free) floatArrayOf(floor(rect[0] / 2) - m, floor(rect[1] / 2) - m, ceil(rect[2] / 2) + m, ceil(rect[3] / 2) + m)
-            else floatArrayOf(max(0f, floor(rect[0] / 2) - m), max(0f, floor(rect[1] / 2) - m),
-            min(beadW.toFloat(), ceil(rect[2] / 2) + m), min(beadH.toFloat(), ceil(rect[3] / 2) + m))
-        fun pass(fbo: Int, pass: Int, src: Int, axisX: Float, axisY: Float) {
-            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
-            GLES30.glViewport(0, 0, beadW, beadH)
-            val bu = beadProgram().use()
-            common(bu); MediaUniforms.bead(bu, hr, beadW, beadH, sigma, pass, w0, src, axisX, axisY)
-            atlas?.uniforms(bu, MediaAtlasDraw.SHIFT - 1)   // the half-resolution field's slots are 128 cells
-            quad(hr, MediaAtlasDraw.SHIFT - 1)
-        }
-        pass(beadFbo[0], 0, bead[1], 1f, 0f)
-        pass(beadFbo[1], 1, bead[0], 1f, 0f)
-        pass(beadFbo[0], 2, bead[1], 0f, 1f)
-    }
-
     /** Let everything dry where it lies (the Dry button, and the end of a long idle). */
     fun dryNow(paper: MediaPaperGl, pxPerMm: Double) {
         if (wet == null || wetRect == null) return
-        wetFrame(null, paper, pxPerMm, substeps = 1, evapOverride = 1e4, maxWetSeconds = 1e9)
+        finishWaterJob()
+        val budget = waterBudget
+        waterBudget = Double.POSITIVE_INFINITY   // in one go, as before jobs
+        try { wetFrame(null, paper, pxPerMm, substeps = 1, evapOverride = 1e4, maxWetSeconds = 1e9) } finally { waterBudget = budget }
         for (f in wetCopyFbo) clearFbo(f)
         wetRect = null
         paintRect = null
@@ -1261,7 +1449,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         state.forEachIndexed { i, st -> named["state$i.p0"] = st.p0; named["state$i.p1"] = st.p1; named["state$i.paper"] = st.paper }
         named["ground"] = groundTex; named["delta"] = delta; named["bake"] = bakeTex; named["fluidBake"] = fluidBake; named["waterBake"] = waterBake
         wet?.forEachIndexed { i, x -> named["wet$i.w0"] = x.w0; named["wet$i.w1"] = x.w1; named["wet$i.flux"] = x.flux }
-        named["run"] = run; bead.forEachIndexed { i, b -> named["bead$i"] = b }; named["in0"] = in0; named["in1"] = in1; named["look"] = lookTex
+        named["run"] = run; bead.forEachIndexed { i, b -> named["bead$i"] = b }; inTex.forEachIndexed { i, t -> named["in$i"] = t }; named["look"] = lookTex
         val out = org.json.JSONObject().put("w", w).put("h", h)
         try {
             val tex = org.json.JSONObject(); var total = 0L; val v = IntArray(1)
@@ -1295,6 +1483,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
      * D1 (a quiet component) and D2 (a drip's tail) of the B3 plan; the water elsewhere keeps running.
      */
     fun dryTilesNow(rects: List<FloatArray>, paper: MediaPaperGl, pxPerMm: Double, wc0: WetConstants = WetConstants()) {
+        finishWaterJob()
         val ws = wet ?: return
         if (rects.isEmpty()) return
         bakePaper(paper)
@@ -1322,7 +1511,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         for (r in rects) {
             val cells = waterRect(r)
             MediaUniforms.wetUpdate(pu, ws[wc].w0, ws[wc].w1, ws[bi].flux, run, state[0].p0, state[0].p1, bakeTex, waterBake, fluidBake,
-                in0, in1, 0, cells, ww, wh)
+                inTex[0], inTex[1], 0, cells, ww, wh)
             quad(cells, wShift)
         }
         if (wf > 1) for (r in rects) paintStep(state[0], pFbo1, r)
@@ -1416,12 +1605,18 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
 
     // ---- the look: what the app's layer stack composites ----
     /** Render the look (premultiplied RGBA8, paper removed) for [rect] (layer px) into the returned texture. */
-    fun renderLook(rect: FloatArray, paper: MediaPaperGl, look: MediaLook, pxPerMm: Double): Int {
+    fun renderLook(rect: FloatArray, paper: MediaPaperGl, look: MediaLook, pxPerMm: Double): Int = renderLook(listOf(rect), paper, look, pxPerMm)
+
+    /**
+     * The look of every rectangle of [rects] (layer px) in one go: the program and its textures set once (a frame's look in
+     * pieces cost ~3 ms of setup a piece on the Note 9, 10-21). The same pixels as one call each.
+     */
+    fun renderLook(rects: List<FloatArray>, paper: MediaPaperGl, look: MediaLook, pxPerMm: Double): Int {
         pasteSettle()
         lookTexture()
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, lookFbo)
         GLES30.glViewport(0, 0, w, h)
-        if (!free) {
+        fun scissorWindow(rect: FloatArray) {
             GLES30.glEnable(GLES30.GL_SCISSOR_TEST)
             GLES30.glScissor(floor(rect[0]).toInt(), floor(rect[1]).toInt(), ceil(rect[2] - rect[0]).toInt(), ceil(rect[3] - rect[1]).toInt())
         }
@@ -1433,10 +1628,16 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
             val bakeT = if (bakeTex != 0) bakeTex else emptyTex()
             val w0T = ws?.get(wc)?.w0 ?: emptyTex()
             val w1T = ws?.get(wc)?.w1 ?: emptyTex()
+            val e = emptyTex()
             val ru = progRender.use()
             common(ru); MediaUniforms.paper(ru, paper)
             MediaUniforms.render(ru, state[0].p0, state[0].p1, state[0].paper, groundTex, bakeT, w0T, w1T, w, h, originX, originY, scale,
                 pxPerMm, paper.stats.toothMm, look)
+            // The brush input not yet in the water (a water job is running, or this frame's dabs wait for the next one).
+            val pending = ws != null && inputPending
+            ru.f1("u_inputPending", if (pending) 1f else 0f)
+            ru.tex("u_inA0", if (pending) inTex[0] else e); ru.tex("u_inA1", if (pending) inTex[1] else e)
+            ru.tex("u_inB0", if (pending) inTex[2] else e); ru.tex("u_inB1", if (pending) inTex[3] else e)
             GLES30.glBindVertexArray(emptyVao)
             val a = atlas
             if (a != null) {   // identity (the device probe) too: every NBR look draw needs its tile's neighbours
@@ -1453,15 +1654,21 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
                     nbrTile[0] = tx; nbrTile[1] = ty; u.i2v("u_nbrTile", nbrTile); u.i2v("u_nbrSlot", nbrSlots)
                     GLES30.glDrawArrays(GLES30.GL_TRIANGLES, 0, 3)
                 }
-                a.forEachLookPart(rect, reach, inner = false) { slot, tx, ty -> drawPart(ru, slot, tx, ty) }
+                for (rect in rects) {
+                    if (!free) scissorWindow(rect)
+                    a.forEachLookPart(rect, reach, inner = false) { slot, tx, ty -> drawPart(ru, slot, tx, ty) }
+                }
                 if (near != null) {
                     val nu = near.use()
                     ru.copyInto(nu)
-                    a.forEachLookPart(rect, reach, inner = true) { slot, tx, ty -> drawPart(nu, slot, tx, ty) }
+                    for (rect in rects) {
+                        if (!free) scissorWindow(rect)
+                        a.forEachLookPart(rect, reach, inner = true) { slot, tx, ty -> drawPart(nu, slot, tx, ty) }
+                    }
                     progRender.use()
                     ru.rebindTextures()
                 }
-            } else GLES30.glDrawArrays(GLES30.GL_TRIANGLES, 0, 3)
+            } else for (rect in rects) { scissorWindow(rect); GLES30.glDrawArrays(GLES30.GL_TRIANGLES, 0, 3) }
         }
         GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
         return lookTex
@@ -1473,6 +1680,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     fun stateTexelPx(name: String): Int = if (name in WATER_STORES) wf else 1
 
     fun stateTextures(): Map<String, Int> {
+        finishWaterJob()   // it reads or writes what a water job does
         val m = linkedMapOf("p0" to state[0].p0, "p1" to state[0].p1, "paper" to state[0].paper)
         wet?.let { m["w0"] = it[wc].w0; m["w1"] = it[wc].w1 }
         return m
@@ -1492,6 +1700,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
 
     /** After state was written from outside (undo, load): water there starts again from rest. */
     fun stateRestored(rect: FloatArray) {
+        finishWaterJob()   // it reads or writes what a water job does
         val a = atlas
         if (free && a != null) {
             wet?.let { ws ->
@@ -1522,18 +1731,19 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     }
 
     fun release() {
+        job = null   // everything goes; what was worth keeping was written back before (a write-back finishes the job)
         releasePrograms()
         val tex = ArrayList<Int>()
         for (s in state) tex += listOf(s.p0, s.p1, s.paper)
         for (b in brush) tex += listOf(b.b0, b.b1)
         wet?.forEach { tex += listOf(it.w0, it.w1, it.flux) }
-        tex += listOf(delta, bakeTex, fluidBake, waterBake, run, in0, in1, lutTex, lookTex, groundTex, empty, actTex, mid0, mid1, terrain) + bead.toList()
+        tex += listOf(delta, bakeTex, fluidBake, waterBake, run, lutTex, lookTex, groundTex, empty, actTex, mid0, mid1, terrain) + bead.toList() + inTex.toList()
         tex.filter { it != 0 }.toIntArray().let { if (it.isNotEmpty()) MediaTex.deleteTex(*it) }
         val fbos = ArrayList<Int>()
         for (s in state) fbos += s.fbo
         for (b in brush) fbos += b.fbo
-        fbos += listOf(pFbo0, pFbo1, deltaFbo, bakeFbo, inFbo, lookFbo, groundFbo, readFbo, drawFbo, actFbo, terrainFbo) + beadFbo.toList() + fluxFbo.toList() + updFbo.toList() +
-            wetCopyFbo.toList() + eraseWetFbo.toList()
+        fbos += listOf(pFbo0, pFbo1, deltaFbo, bakeFbo, lookFbo, groundFbo, readFbo, drawFbo, actFbo, terrainFbo) + inFbos.toList() + beadFbo.toList() + fluxFbo.toList() +
+            updFbo.toList() + wetCopyFbo.toList() + eraseWetFbo.toList()
         fbos.filter { it != 0 }.toIntArray().let { if (it.isNotEmpty()) MediaTex.deleteFbo(*it) }
         GLES30.glDeleteBuffers(2, intArrayOf(quadBuf, dabBuf), 0)
         GLES30.glDeleteVertexArrays(3, intArrayOf(quadVao, dabVao, emptyVao), 0)
@@ -1576,6 +1786,20 @@ private const val LOOK_NEAR_REACH = 4   // 3, and one for coarse water's half-re
 private const val PASTE_DAB_REACH = 9
 /** The most water a frame simulates in the atlas, px x steps: what the window's 1024 px square does at 4 steps. */
 private const val WET_PX_STEPS = 4.0 * 1024 * 1024
+/** A water job's stages, in the order a step runs them (MediaLayerEngine.runJob). */
+private const val STAGE_BEAD0 = 0
+private const val STAGE_BEAD1 = 1
+private const val STAGE_BEAD2 = 2
+private const val STAGE_FLUX = 3
+private const val STAGE_UPDATE = 4
+private const val STAGE_PAINT = 5
+/**
+ * Each stage's cost per px of its band, in flat-flux px: the Note 9 crowd bench 10-21 (passes by atlas row): flux ~15 ns,
+ * update ~25 ns a px; the bead's three passes are on the half grid and light.
+ */
+private val JOB_WEIGHT = doubleArrayOf(0.4, 0.4, 0.4, 1.0, 1.7, 1.0)
+/** A sliced job's band: this many tile rows of its stage's own grid. */
+private const val BAND_TILES = 1
 /** How far jb_wet_update.frag reads from its pixel (full-resolution cells): the 3-cell ring of its sizing test, and one. */
 private const val UPDATE_REACH = 4
 /** How far jb_wet_bead.frag reads, full-resolution cells: its blur's 12 half cells (24 + the half cell's two), and one. */

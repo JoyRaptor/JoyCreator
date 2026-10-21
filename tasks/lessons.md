@@ -1124,3 +1124,12 @@ as `TIME * knob` are "rate" and the host integrates them.
   of it (drawn per wet tile with overlapping halos). Measure the whole frame by stage first, then pick the lever.
 - **The owner's eye is the judge of a quality trade.** A faster water that looks blobbier is not shipped as the default; keep it
   selectable and say plainly why it lost.
+
+## 2026-10-21 (afternoon) — JoyBrush Lead: water jobs
+- **A "fast" build can be fast because it skipped the work.** The first water-jobs build drew the dabs' look only when a job
+  started (the dirty rect was taken there), so its 30-59 ms frames hid marks that did not show. Count what each frame draws
+  (px, pieces) beside its time before believing a win.
+- **Bench phase timers glFinish around every section**: many small calls (one look piece each) inflate the bench far beyond
+  the real cost. Batch the calls (one renderLook for all pieces) and the bench and the phone both speed up.
+- **Halo only where the body changes.** Input not yet in the water changes colour, not paint body: its look needs no
+  shading halo; 200-450 k px a frame fell to 50-70 k.

@@ -14,6 +14,11 @@ uniform sampler2D u_p1;          // S·X rgb, openness
 uniform sampler2D u_paperState;  // R crush, G dry flake volume V (mm), B Σ V·flake reflectance
 uniform sampler2D u_w0;          // water: w (mm), s (capillary saturation)
 uniform sampler2D u_w1;          // pigment still in the water: K rgb, S
+uniform sampler2D u_inA0;        // brush input the water has not taken in yet (WATER_JOBS_20261021), two buffers:
+uniform sampler2D u_inA1;        //   *0 = (dw mm, dK rgb), *1 = (dS, solubility weight)
+uniform sampler2D u_inB0;
+uniform sampler2D u_inB1;
+uniform float u_inputPending;    // 1 while either buffer holds dabs: the look adds them, so a mark shows before the water runs
 uniform sampler2D u_paperBake;   // the layer's paper bake: .b = the normalised height paint fills against
 uniform sampler2D u_ground;      // the app (u_look = 1): the pixels the media lies on, premultiplied RGBA8 (JB-2.40 §Q1)
 uniform vec2 u_targetSize;       // layer size, LAYER px
@@ -57,6 +62,19 @@ void main() {
     vec4 wa = jb_bilinearL(u_w0, lp);
     vec4 wp = jb_bilinearL(u_w1, lp);
 #endif
+    if (u_inputPending > 0.5) {
+        // The brush's water and pigment as the water's first step will take them in (jb_wet_update.frag): a thirsty brush
+        // takes water away, never below none.
+#ifdef JB_WET_COARSE
+        vec4 i0 = jb_bilinearLS(u_inA0, lp * 0.5, 7) + jb_bilinearLS(u_inB0, lp * 0.5, 7);
+        vec4 i1 = jb_bilinearLS(u_inA1, lp * 0.5, 7) + jb_bilinearLS(u_inB1, lp * 0.5, 7);
+#else
+        vec4 i0 = jb_bilinearL(u_inA0, lp) + jb_bilinearL(u_inB0, lp);
+        vec4 i1 = jb_bilinearL(u_inA1, lp) + jb_bilinearL(u_inB1, lp);
+#endif
+        wa.r = max(0.0, wa.r + i0.r);
+        wp += vec4(max(i0.gba, 0.0), max(i1.r, 0.0));
+    }
     // A flat look does not use the paper's surface vector. Keep the real
     // surface for relief and the height debug view.
     vec4 s = vec4(0.0);

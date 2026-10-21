@@ -74,6 +74,8 @@ class MediaCanvas(
      * is today's water exactly. Set from any thread; read on the GL thread each frame.
      */
     @Volatile var waterAB = WaterAB()
+    /** Water jobs in the atlas (WATER_JOBS_20261021): the brush at the screen's pace. Off = every frame runs its water whole. */
+    @Volatile var waterJobs = true
     private val schedule = WaterSchedule()
     private val quiet = WaterQuiet(WetConstants().minMm.toFloat())
     /** Option S: the water stood still long enough; it is not simulated again until a stroke, a tilt or an undo. */
@@ -175,6 +177,8 @@ class MediaCanvas(
         val e = ensure(needsWater) ?: return unsupported ?: LayerBudget.windowRefusal(needsWater)
         val w = window!!
         return try {
+            // The last stroke's dabs the water had not taken in yet go into its own stores first (water jobs; its layer).
+            (w as? MediaAtlas)?.payOwedStores(paint.mediaPaper(), DOC_PX_PER_MM, water())
             // JB-2.40 slice 3: the stroke paints the plane under its first touch (an animation frame, or the shared plane).
             w.place(layerId, paint.mediaPlaneAt(layerId, x, y), x, y)
             w.wakeWater()
@@ -201,6 +205,7 @@ class MediaCanvas(
     fun beginErase(layerId: String, x: Double, y: Double, nowMs: Long): String? {
         val e = ensure(false) ?: return unsupported ?: LayerBudget.windowRefusal(false)
         val w = window!!
+        (w as? MediaAtlas)?.payOwedStores(paint.mediaPaper(), DOC_PX_PER_MM, water())
         w.place(layerId, paint.mediaPlaneAt(layerId, x, y), x, y)
         paint.beginMediaStroke()
         e.beginStroke()
@@ -260,6 +265,13 @@ class MediaCanvas(
         val st = stroke
         e.frameRealMs = if (lastFrameAt > 0L) (nowMs - lastFrameAt).coerceIn(0L, 1000L).toFloat() else 0f
         lastFrameAt = nowMs
+        // Water jobs (WATER_JOBS_20261021): in the atlas the water does what the frame's budget allows and the brush shows at
+        // once; the window runs every frame's water whole, as always.
+        val budget = if (w is MediaAtlas && waterJobs) jobBudget.next(e.frameRealMs) else Double.POSITIVE_INFINITY
+        // The water's steps take most of it, the water's look the rest (its parts drawn into the look texture until it is spent).
+        e.waterBudget = budget * WATER_SHARE
+        if (budget.isFinite()) MediaPhases.timer?.invoke("water.budget k (count)", budget / 1000)
+        if (w is MediaAtlas) w.lookBudget = budget * (1 - WATER_SHARE)
         // Water left lying in the window (a layer switch, a reopen, a window that was released and reloaded) starts to run
         // again when the paper tilts, not only at the next stroke. Water an undo stopped stays stopped.
         if (tilted && st == null && !e.wetActive && !e.asleep && !waterStoppedByUndo) w.wakeWater()
@@ -370,6 +382,9 @@ class MediaCanvas(
         try { window?.flush() } catch (x: RuntimeException) { android.util.Log.w("JoyBrushMedia", "flush after a refused frame: ${x.message}") }
     }
 
+    /** The water's work per frame in the atlas (water jobs), steered by the frame time. */
+    private val jobBudget = cc.joycreator.joybrush.core.media.WaterJobBudget()
+
     /** When the last frame was drawn (ms; the water's wet-age clock, MediaLayerEngine.frameRealMs). */
     private var lastFrameAt = 0L
 
@@ -444,8 +459,13 @@ class MediaCanvas(
             if (l !== look) flatArea = flatArea?.let { a -> floatArrayOf(minOf(a[0], r[0]), minOf(a[1], r[1]), maxOf(a[2], r[2]), maxOf(a[3], r[3])) } ?: r.copyOf()
             made.renderLook(r, paint.mediaPaper(), l, DOC_PX_PER_MM); Unit
         }
+        val renderAll = { rs: List<FloatArray> ->
+            val l = lookNow()
+            if (l !== look) for (r in rs) flatArea = flatArea?.let { a -> floatArrayOf(minOf(a[0], r[0]), minOf(a[1], r[1]), maxOf(a[2], r[2]), maxOf(a[3], r[3])) } ?: r.copyOf()
+            made.renderLook(rs, paint.mediaPaper(), l, DOC_PX_PER_MM); Unit
+        }
         val dry = { rects: List<FloatArray> -> made.dryTilesNow(rects, paint.mediaPaper(), DOC_PX_PER_MM, water()) }
-        window = (if (atlas) MediaAtlas(paint, made, render, dry) else MediaWindow(paint, made, render)).also { it.stats = stats }
+        window = (if (atlas) MediaAtlas(paint, made, render, dry, renderAll) else MediaWindow(paint, made, render)).also { it.stats = stats }
         return made
     }
 
@@ -727,3 +747,6 @@ private const val QUIET_QUERY_FRAMES = 8
 
 /** The most parts a frame is drawn in by the window patch; a frame needing more runs as before (MediaCanvas.run). */
 private const val MAX_WINDOW_PARTS = 8
+
+/** The share of a frame's water budget its steps get; the water's look gets the rest (WATER_JOBS_20261021). */
+private const val WATER_SHARE = 0.6

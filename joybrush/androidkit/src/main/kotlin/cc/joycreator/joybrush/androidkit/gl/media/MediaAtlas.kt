@@ -171,6 +171,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
      * components dry in place, farthest from the pen first; then the oldest drip loses its far end. Refused only when this
      * frame itself cannot fit.
      */
+    private var lastSimLog = 0L
     private fun admitWater(waterRect: FloatArray, frame: Set<Long>, pen: FloatArray, now: Long): Set<Long> {
         val domain = tilesOf(waterRect, 0)
         val reads = tilesOf(waterRect, MediaAtlasPlacement.WET_REACH)
@@ -178,6 +179,10 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         val held = pinned.mapTo(HashSet()) { it.tileKey }
         val look = lookHalo + MediaAtlasPlacement.LOOK_REACH
         var must = water.mustStay(domain, reads, look)
+        if (now - lastSimLog > 1000) {   // measurement (2026-10-20): what the water passes draw vs what the water needs
+            lastSimLog = now
+            android.util.Log.i(TAG, "water: ${domain.count { slots.resident(page(it)) != null }} resident tiles in its rectangle, ${water.mustStay(domain, reads, 0).size} hold water or are within its reach, ${must.size} kept with the look")
+        }
         if (MediaAtlasPlacement.fits(slots.capacity, frame + must, held)) return must
         val plan = water.plan(domain, reads, frame, held, slots.capacity, (pen[0] + pen[2]) / 2.0, (pen[1] + pen[3]) / 2.0, now, look)
             ?: run { android.util.Log.w(TAG, "water refused: frame ${frame.size}, water must stay ${must.size}, held ${held.size}, capacity ${slots.capacity}"); null }
@@ -441,8 +446,10 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         val r = floatArrayOf(floor(out[0]), floor(out[1]), ceil(out[2]), ceil(out[3]))
         if (hold && lookInParts) { writeLookInParts(id, r); return }
         if (!hold) {
-            val missing = tilesOf(r, MediaAtlasPlacement.LOOK_REACH).count { slots.resident(page(it)) == null }
-            if (missing > 0) android.util.Log.w(TAG, "look of a water tile with $missing of its reads not here (should not happen)")
+            val missingKeys = tilesOf(r, MediaAtlasPlacement.LOOK_REACH).filter { slots.resident(page(it)) == null }
+            if (missingKeys.isNotEmpty()) android.util.Log.w(TAG, "look of a water tile with ${missingKeys.size} of its reads not here (should not happen): " +
+                "rect ${r.joinToString(",") { it.toInt().toString() }}, missing ${missingKeys.joinToString { "(${Tiles.tx(it)},${Tiles.ty(it)})" }}, " +
+                "water state there ${missingKeys.joinToString { water.state(it)?.name ?: "none" }}, held ${missingKeys.count { it in waterHeld }}")
         } else try { need(r, MediaAtlasPlacement.LOOK_REACH) } catch (e: MediaRoomException) {
             // The look of what was painted still shows; only its shading reach is cut short (logged, never silent).
             android.util.Log.w("JoyBrushMediaAtlas", "look reach not resident: ${e.message}")

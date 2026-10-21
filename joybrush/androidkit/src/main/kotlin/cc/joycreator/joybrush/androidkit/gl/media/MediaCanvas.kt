@@ -334,6 +334,20 @@ class MediaCanvas(
     /** The context these GL names came from is gone: forget them without deleting (they died with it). */
     fun forget() { engine = null; window = null; stroke = null; heldBytes = 0L; warm = null }
 
+    /** The atlas grid last made (see [ensure]). */
+    private var lastGrid: Pair<Int, Int>? = null
+
+    /**
+     * A frame the atlas could not hold even split in time ([MediaRoomException], said in words by the caller): the stroke ends
+     * where it got to, as its one undo step (the caller closes it), and the engine and its water stay as they are.
+     */
+    fun dropRefusedStroke() {
+        stroke ?: return
+        engine?.endStroke()
+        stroke = null
+        try { window?.flush() } catch (x: RuntimeException) { android.util.Log.w("JoyBrushMedia", "flush after a refused frame: ${x.message}") }
+    }
+
     /** An engine whose programs are being compiled ahead (no textures yet): the next media stroke's engine takes it over. */
     private var warm: MediaLayerEngine? = null
 
@@ -384,8 +398,13 @@ class MediaCanvas(
         warm = null
         try {
             if (atlas) {
-                // Slot scaling (the Lead, Oct 18): as many slots as 20 % of what is free pays for, 16 to 64, near square.
-                val (cols, rows) = MediaAtlasPlacement.slotGrid(avail)
+                // Slot scaling (MediaAtlasPlacement.slotGrid: a share of what is free, 24 to 48, near square). An atlas made again
+                // keeps at least the size it had while the phone still has room for it: sized afresh each time, it shrank as the
+                // app's own memory grew (30 -> 25 slots on the Note 9, 2026-10-20) and refused more.
+                val fresh = MediaAtlasPlacement.slotGrid(avail)
+                val kept = lastGrid?.takeIf { (c, r) -> c * r > fresh.first * fresh.second && avail > 2L * c * r * MediaAtlasPlacement.BYTES_PER_SLOT }
+                val (cols, rows) = kept ?: fresh
+                lastGrid = cols to rows
                 android.util.Log.i("JoyBrushMediaMemory", "atlas $cols x $rows slots (available=$avail)")
                 made.init(cols * Tiles.SIZE, rows * Tiles.SIZE)
             } else made.init(MediaWindowMath.PX, MediaWindowMath.PX)

@@ -1153,8 +1153,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                     noteBenchError("media frame", e)
                     // What the stroke already painted stays, as its one undo step; a step left open made the NEXT media
                     // stroke crash ("a media stroke inside another stroke", Note 9 2026-10-20, after a refused atlas frame).
+                    val refused = e is cc.joycreator.joybrush.androidkit.gl.MediaRoomException
+                    if (refused) mediaCanvas.dropRefusedStroke()   // the engine and its water stay
                     if (engine.mediaStrokeInProgress) { engine.endMediaStroke(); reportMediaHistory() }
-                    mediaCanvas.release()
+                    if (!refused) mediaCanvas.release()
                     post { if (drawing && (mediaStroke || mediaErase)) cancelStroke(); onRefused?.invoke(e.message ?: "The pencil, watercolour or oil stroke could not be painted") }
                 }
                 frameStats.afterMedia()

@@ -15,8 +15,10 @@ brush, we need water to be a wonderful experience"). Codex's review reached the 
   1. *coarse update* (water): move, mingle, input, dry, soak, wick, as today; then for settle and lift it reads its F x F
      children's paint and paper and computes each child's deposit d_i and lift l_i with the SAME function the fine pass uses,
      and changes the water by their mean;
-  2. *fine paint* (full resolution): each pixel recomputes its own d_i and l_i from its parent cell's water as it was at the
-     start of the step (nearest parent, not interpolated: conservation) and its own paint and paper, and applies them.
+  2. *fine paint* (full resolution): each pixel recomputes its own d_i and l_i from its parent cell's water and its own
+     paint and paper, and applies them. Settle and lift act on the water as it stands MID-step (after move, input, dry and
+     soak), so the coarse pass also writes those mid-step values (pigment in the water; depth, edge factor, dry-out) as two
+     more targets, and the fine pass reads its parent's (nearest, not interpolated: conservation).
   Same inputs, same code, so the pigment that leaves the water is the pigment that lands on the paper, to the bit.
 - Granulation stays fine (k_i uses the pixel's own paper height). The dark edge forms where the coarse water thins, 2 px
   wide at F = 2 (0.1 mm on the Note 9 at 100 %).

@@ -338,7 +338,7 @@ class StrokeCodecAdversarialCorpusTest {
             assertPreservedExact(expected, back, tag)
             // Re-saving upgrades to v3 (16 bytes: colour + weight + seq) and stays stable.
             val resaved = StrokeCodec.encode(back)
-            assertEquals(5, resaved[4].toInt() and 0xFF, "$tag resaved as v5")
+            assertEquals(6, resaved[4].toInt() and 0xFF, "$tag resaved as v6")
             assertEquals(v1.size + 16, resaved.size, "$tag v3 is sixteen bytes longer")
             assertPreservedExact(back, StrokeCodec.decode(resaved), "$tag resaved")
         }
@@ -374,12 +374,12 @@ class StrokeCodecAdversarialCorpusTest {
         val wrongMagic = good.copyOf().also { "XXXX".encodeToByteArray().copyInto(it, 0) }
         assertTrue(messageOf { StrokeCodec.decode(wrongMagic) }.contains("magic"), "bad magic")
 
-        // Boundaries of the supported [OLDEST_VERSION, VERSION] = [1, 5]: 0 below, 6 above.
+        // Boundaries of the supported [OLDEST_VERSION, VERSION] = [1, 6]: 0 below, 7 above.
         assertEquals("unsupported stroke version 0", messageOf {
             StrokeCodec.decode(good.copyOf().also { it[4] = 0; it[5] = 0 })
         })
-        assertEquals("unsupported stroke version 6", messageOf {
-            StrokeCodec.decode(good.copyOf().also { it[4] = 6; it[5] = 0 })
+        assertEquals("unsupported stroke version 7", messageOf {
+            StrokeCodec.decode(good.copyOf().also { it[4] = 7; it[5] = 0 })
         })
         assertEquals("unsupported stroke version 65535", messageOf {
             StrokeCodec.decode(good.copyOf().also { it[4] = 0xFF.toByte(); it[5] = 0xFF.toByte() })
@@ -387,7 +387,7 @@ class StrokeCodecAdversarialCorpusTest {
 
         // Every unknown flag bit refuses, because the sample layout would otherwise misread.
         // Flags are a little-endian u16 at bytes 6..7; the record below stores 0b111.
-        for (mask in listOf(0x80, 0x0100, 0x0200, 0x8000, 0xFFFF)) {
+        for (mask in listOf(0x0100, 0x0200, 0x8000, 0xFFFF)) {
             val probe = good.copyOf()
             val flags = 0b111 or mask
             probe[6] = (flags and 0xFF).toByte()
@@ -455,8 +455,8 @@ class StrokeCodecAdversarialCorpusTest {
         assertTrue(messageOf {
             StrokeCodec.decode(good.copyOf().also { it[it.size - 1] = 9 })
         }.contains("tool"), "mutated tool refused")
-        assertEquals("unsupported stroke version 6", messageOf {
-            StrokeCodec.decode(good.copyOf().also { it[4] = 6; it[5] = 0 })
+        assertEquals("unsupported stroke version 7", messageOf {
+            StrokeCodec.decode(good.copyOf().also { it[4] = 7; it[5] = 0 })
         })
     }
 }

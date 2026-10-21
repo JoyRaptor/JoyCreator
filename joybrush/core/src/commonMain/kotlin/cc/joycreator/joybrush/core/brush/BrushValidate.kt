@@ -117,6 +117,7 @@ object BrushValidate {
                 p.tip.fade != null || p.color.dynamics != null)) {
             out += "Unibrush screen-width wires need their renderer adapter; use length-based stroke ends"
         }
+        p.stabilizer?.let { out += it.problems() }
         p.tip.dual?.let { dual ->
             out += DualTips.problems(dual)
             if (p.engine != "stamp") out += "Dual tips need engine stamp"

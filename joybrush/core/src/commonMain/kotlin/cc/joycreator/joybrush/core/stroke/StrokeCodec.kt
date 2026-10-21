@@ -32,6 +32,7 @@ import cc.joycreator.joybrush.core.io.ByteWriter
  * | 3 | …`widthScale`, **`seq` (i64), [`groupId` (utf8) only when the group flag is set]**, `sampleCount`, samples. Header flag bit 3 = locked (no payload), bit 4 = has a groupId. |
  * | 4 | v3 fields, then an optional captured-source block (flag bit 5), then `sampleCount`, samples. |
  * | 5 | v4 fields, then optional `secondaryColorArgb` (u32, flag bit 6), then `sampleCount`, samples. |
+ * | 6 | v5 fields, then optional actual stabilizer (flag bit 7), then `sampleCount`, samples. |
  *
  * v3 (JB-5.20 D1, 5.20a) puts a line in its cel's time order (`seq`) and carries the two owner/UI fields. `locked` and
  * `groupId` cost nothing when they are not used: the flag bits are 0 and no bytes are written. A v1/v2 recording read
@@ -45,18 +46,18 @@ import cc.joycreator.joybrush.core.io.ByteWriter
  * v4+ records reject trailers; lists containing any v4+ record also reject outer trailers. Legacy
  * v1-v3 records and legacy-only lists retain their historical trailer policy.
  *
- * [VERSION] is 5 and [OLDEST_VERSION] is 1: the writer always writes the newest, and the reader
+ * [VERSION] is 6 and [OLDEST_VERSION] is 1: the writer always writes the newest, and the reader
  * accepts every version in between, because a recording written by the build that drew it must
  * still open. The magic stays [MAGIC] — it names the FORMAT FAMILY ("a Joy Brush stroke"), and a
- * v5 recording is still one. A version outside the range is refused by number, as JB-0.04's
- * decision 4 says: this build does not know what a v6 recording means, and guessing is how a
+ * v6 recording is still one. A version outside the range is refused by number, as JB-0.04's
+ * decision 4 says: this build does not know what a v7 recording means, and guessing is how a
  * drawing is destroyed.
  */
 object StrokeCodec {
     const val MAGIC = "JBS1"
 
     /** The newest recording this build writes, and the newest it reads. */
-    const val VERSION: Int = 5
+    const val VERSION: Int = 6
 
     /** The oldest recording this build reads. See the table above. */
     const val OLDEST_VERSION: Int = 1
@@ -71,6 +72,7 @@ object StrokeCodec {
     private const val FLAG_GROUP = 1 shl 4    // v3
     private const val FLAG_CAPTURED = 1 shl 5 // v4
     private const val FLAG_SECONDARY_COLOR = 1 shl 6 // v5
+    private const val FLAG_STABILIZER = 1 shl 7 // v6; header flags are u16
     private const val SAMPLE_FLAGS = FLAG_TILT or FLAG_AZIMUTH or FLAG_BARREL
     private const val V3_FLAGS = FLAG_LOCKED or FLAG_GROUP
 
@@ -84,6 +86,7 @@ object StrokeCodec {
         // Decode refuses a negative seq, so a recording that said one would be a drawing that cannot be reopened.
         if (record.seq < 0) throw StrokeCodecException("stroke \"${record.id}\" has seq ${record.seq}; a seq is never negative")
         requireCaptured(record)
+        record.stabilizer?.let { requireStabilizer(it) }
         val w = ByteWriter()
         w.bytes(MAGIC_BYTES)
         w.u16(VERSION)
@@ -96,6 +99,7 @@ object StrokeCodec {
         if (record.groupId != null) flags = flags or FLAG_GROUP
         if (record.capturedPhysicalSource != null) flags = flags or FLAG_CAPTURED or SAMPLE_FLAGS
         if (record.secondaryColorArgb != null) flags = flags or FLAG_SECONDARY_COLOR
+        if (record.stabilizer != null) flags = flags or FLAG_STABILIZER
         w.u16(flags)
 
         w.utf8(record.id)
@@ -109,6 +113,7 @@ object StrokeCodec {
         record.groupId?.let { w.utf8(it) }
         record.capturedPhysicalSource?.let { writeCaptured(w, it) }
         record.secondaryColorArgb?.let { writeInt(w, it) }
+        record.stabilizer?.let { writeStabilizer(w,it) }
         w.u32(record.samples.size.toLong())
 
         val tilt = flags and FLAG_TILT != 0
@@ -141,7 +146,8 @@ object StrokeCodec {
         // samples would come back as plausible rubbish. Refuse rather than guess.
         // The locked / group bits exist from version 3; in a v1/v2 recording they are as unknown as any other.
         val known = SAMPLE_FLAGS or (if (version >= 3) V3_FLAGS else 0) or
-            (if (version >= 4) FLAG_CAPTURED else 0) or (if (version >= 5) FLAG_SECONDARY_COLOR else 0)
+            (if (version >= 4) FLAG_CAPTURED else 0) or (if (version >= 5) FLAG_SECONDARY_COLOR else 0) or
+            (if (version >= 6) FLAG_STABILIZER else 0)
         if (flags and known.inv() != 0) {
             throw StrokeCodecException("unsupported stroke flags 0x${flags.toString(16)}")
         }
@@ -183,6 +189,7 @@ object StrokeCodec {
         val locked = version >= 3 && flags and FLAG_LOCKED != 0
         val captured = if (flags and FLAG_CAPTURED != 0) readCaptured(r, bytes) else null
         val secondaryColorArgb = if (flags and FLAG_SECONDARY_COLOR != 0) r.u32().toInt() else null
+        val stabilizer = if (flags and FLAG_STABILIZER != 0) readStabilizer(r) else null
 
         val count = r.u32()
         val sampleBytes = MIN_SAMPLE_BYTES + (if (flags and FLAG_TILT != 0) 4 else 0) +
@@ -206,8 +213,26 @@ object StrokeCodec {
             samples.add(PenSample(x, y, timeMs, pressure, t, a, b, tool))
         }
         if (version >= 4 && r.remaining != 0) throw StrokeCodecException("trailing bytes in v$version stroke")
-        return StrokeRecord(id, brushId, seed, smoothing, screenPerDoc, samples, colorArgb, widthScale, seq, locked, groupId, captured, secondaryColorArgb)
+        return StrokeRecord(id, brushId, seed, smoothing, screenPerDoc, samples, colorArgb, widthScale, seq, locked, groupId, captured, secondaryColorArgb, stabilizer)
             .also { requireCaptured(it) }
+    }
+
+    // v6 optional payload: u8 mode code, f32 strength, f32 screen radius, u16 window.
+    private fun writeStabilizer(w: ByteWriter, spec: cc.joycreator.joybrush.core.input.StabilizerSpec) {
+        w.u8(spec.mode.code); w.f32(spec.strength); w.f32(spec.radiusPx); w.u16(spec.windowSize)
+    }
+
+    private fun requireStabilizer(spec: cc.joycreator.joybrush.core.input.StabilizerSpec) {
+        val errors = spec.problems()
+        if (errors.isNotEmpty()) throw StrokeCodecException(errors.joinToString("; "))
+    }
+
+    private fun readStabilizer(r: ByteReader): cc.joycreator.joybrush.core.input.StabilizerSpec {
+        val code = r.u8()
+        val mode = cc.joycreator.joybrush.core.input.StabilizerMode.entries.firstOrNull { it.code == code }
+            ?: throw StrokeCodecException("unsupported stabilizer mode $code")
+        return cc.joycreator.joybrush.core.input.StabilizerSpec(mode,r.f32(),r.f32(),r.u16())
+            .also { requireStabilizer(it) }
     }
 
     /** The version a recording says it is, without decoding the rest; for [decodeAll]'s file-order rule. */

@@ -28,6 +28,24 @@ class StampPreviewTest {
         return StampPreview.build(shown, CannedStroke.pen(w, h, shown.size.base))
     }
 
+    @Test fun previewUsesTheFrozenActualFilterAcrossAllModesAndWholeStrokeEnds() {
+        val samples=CannedStroke.pen(800,100,18f)
+        for(mode in cc.joycreator.joybrush.core.input.StabilizerMode.entries) for(shaped in listOf(false,true)) {
+            val actual=cc.joycreator.joybrush.core.input.StabilizerSpec(mode,.8f,30f,9)
+            val p=brush().copy(line=if(shaped) cc.joycreator.joybrush.core.brush.LineStyleSpec(taperIn=2f,taperOut=3f) else null,
+                stabilizer=cc.joycreator.joybrush.core.input.StabilizerSpec(cc.joycreator.joybrush.core.input.StabilizerMode.off,0f))
+            val prepared=StampPreview.build(p,samples,actualStabilizer=actual)
+            val record=cc.joycreator.joybrush.core.stroke.StrokeRecord("p",p.id,CannedStroke.SEED,p.smoothing,1f,samples,
+                secondaryColorArgb=0xffffffff.toInt(),stabilizer=actual)
+            val expected=cc.joycreator.joybrush.core.vector.InkReplay.replay(record,p)
+            assertEquals(expected.dabs,prepared.dabs,"mode=$mode shaped=$shaped")
+            assertEquals(expected.strokeOpacity,prepared.strokeOpacity)
+        }
+        val p=brush()
+        val pulled=cc.joycreator.joybrush.core.input.StabilizerSpec(cc.joycreator.joybrush.core.input.StabilizerMode.pulledString,.8f,30f,9)
+        assertTrue(StampPreview.build(p,samples,actualStabilizer=pulled).dabs != StampPreview.build(p,samples).dabs)
+    }
+
     @Test fun legacyWireAndNeutralLineSectionsKeepTheirCannedStrokePreview() {
         val plain = brush().copy(smoothing=.8f)
         val samples = CannedStroke.pen(800,100,plain.size.base)

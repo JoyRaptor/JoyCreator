@@ -61,6 +61,8 @@ data class StrokeRecord(
     val groupId: String? = null,
     val capturedPhysicalSource: CapturedPhysicalSource? = null,
     val secondaryColorArgb: Int? = null,
+    /** v6: actual resolved contact settings. Null retains historical record.smoothing. */
+    val stabilizer: cc.joycreator.joybrush.core.input.StabilizerSpec? = null,
 ) {
     init {
         require(samples.none { it.predicted }) { "predicted points are never recorded" }

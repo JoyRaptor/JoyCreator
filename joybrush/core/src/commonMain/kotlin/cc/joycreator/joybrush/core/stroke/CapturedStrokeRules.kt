@@ -61,7 +61,7 @@ object CapturedStrokeRules {
 
     private fun sameRecipe(a: StrokeRecord, b: StrokeRecord): Boolean =
         a.id == b.id && a.seq == b.seq && a.brushId == b.brushId && a.seed == b.seed &&
-            a.colorArgb == b.colorArgb && a.secondaryColorArgb == b.secondaryColorArgb &&
+            a.colorArgb == b.colorArgb && a.secondaryColorArgb == b.secondaryColorArgb && a.stabilizer == b.stabilizer &&
             a.smoothing.toRawBits() == b.smoothing.toRawBits() &&
             a.screenPerDoc.toRawBits() == b.screenPerDoc.toRawBits() && a.widthScale.toRawBits() == b.widthScale.toRawBits() &&
             a.samples.size == b.samples.size && a.samples.indices.all { i ->
@@ -81,6 +81,7 @@ object CapturedStrokeRules {
     fun problems(record: StrokeRecord): List<String> {
         if (record.capturedPhysicalSource == null) return emptyList()
         val out = ArrayList<String>()
+        record.stabilizer?.let { out += it.problems().map { reason -> "captured stroke: $reason" } }
         if (record.id.isBlank()) out += "captured stroke id is blank"
         if (record.brushId.isBlank()) out += "captured stroke brush id is blank"
         if (record.groupId?.isBlank() == true) out += "captured stroke group id is blank"

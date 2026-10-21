@@ -42,15 +42,25 @@ object StampPreview {
     fun build(shown: BrushPreset, samples: List<PenSample>,
               colors: StrokeColors = StrokeColors(0xFF000000.toInt(), 0xFFFFFFFF.toInt()),
               sampledTips: cc.joycreator.joybrush.core.brush.SampledTipSet? = null,
-              dualMask: cc.joycreator.joybrush.core.brush.DualMask? = null): Prepared {
+              dualMask: cc.joycreator.joybrush.core.brush.DualMask? = null,
+              actualStabilizer: cc.joycreator.joybrush.core.input.StabilizerSpec? = null): Prepared {
         val ends = cc.joycreator.joybrush.core.vector.LineStyle.of(shown.line)
-        if (!ends.isWire && (ends.tapers || ends.dashes)) {
+        require(actualStabilizer == null || (shown.engine == "stamp" && !ends.isWire)) { "Actual stabilizer preview needs a non-wire stamp recipe" }
+        if (actualStabilizer != null || (!ends.isWire && (ends.tapers || ends.dashes))) {
             val record = cc.joycreator.joybrush.core.stroke.StrokeRecord(
                 "preview", shown.id, CannedStroke.SEED, shown.smoothing, 1f, samples,
-                colorArgb = colors.primaryArgb, secondaryColorArgb = colors.secondaryArgb)
-            val replay = cc.joycreator.joybrush.core.vector.InkReplay.replayAdmitted(record, shown,
-                sampledTips, dualMask,
-                cc.joycreator.joybrush.core.vector.ShapedReplayLimits(4096, 32768, 65536, 131072)) {}
+                colorArgb = colors.primaryArgb, secondaryColorArgb = colors.secondaryArgb, stabilizer = actualStabilizer)
+            val replay = if (shown.line != null)
+                cc.joycreator.joybrush.core.vector.InkReplay.replayAdmitted(record, shown,
+                    sampledTips, dualMask,
+                    cc.joycreator.joybrush.core.vector.ShapedReplayLimits(4096, 32768, 65536, 131072)) {}
+            else {
+                require(samples.size <= 4096) { "Preview exceeds its raw-sample allowance" }
+                var admitted = 0
+                cc.joycreator.joybrush.core.vector.InkReplay.replayAdmitted(record, shown, sampledTips, dualMask) {
+                    require(++admitted <= 131072) { "Preview exceeds its final-dab allowance" }
+                }
+            }
             return Prepared(replay.dabs, replay.strokeOpacity,
                 TipShape(shown.tip.aspect, shown.tip.corner, shown.tip.taper, replay.strokeHardness,
                     shown.tip.minPx, sampled = replay.dabs.firstOrNull()?.sampled,

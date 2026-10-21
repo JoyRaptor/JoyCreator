@@ -10,6 +10,7 @@ additional D5 owned leaves: core/brush/{SampledTip,SampledTipSet,ImageMask,Brush
 additional D5 import leaf: core importers AbrImport/ProcreateImport/KritaImport and new MaterializedImports.kt; androidkit/MaterializedBrushImports.kt; corresponding materialized import tests. Opt-in APIs preserve existing import compatibility.
 additional D6 owned leaves: core/brush/{DualTip,StampTipResources}.kt; gl/{DualMaskTextures,StampTipResolver}.kt; shared jb_dual.glsl; dual replay/bounds/resource/GPU fixtures and tests. Lead adapters remain exact held patches only.
 additional D7 owned leaves: core/vector/{ShapedReplay,StrokeLiftTransaction}.kt; androidkit/preview/StampPreview.kt; corresponding tests. D7 LineShaper and live publication remain held proposals; no canonical engine/view/lines edits. Helpers draft D8 fill/codec, D9 UI/store/catalog in disjoint C:/Temp folders; no helper builds/device access.
+additional D8 owned leaves: core/input/{StabilizerSpec,StrokeStabilizer}.kt; record/capture/codec identity; owned FillPen/InkTiles/LineSvg filters; actual-stabilizer preview and tests. Android fill/View adapters held only. D9 helpers remain disjoint outside drafts.
 # October14 ACTIVE Lead: C:/Temp/jb-live-current, lead/jb-live-current, sourceccb4913bf includes originbb4df6c64.
 # Prior C:/Temp/jb-live-lines is frozen/backed-up b203e760; original owner folder/worktrees preserved.
 # Core2273/backend514/native193 green; sourceccbAPK PASS1m33 with current Note9 capture/bake diagnostics. Later factory guards backend-verified only.

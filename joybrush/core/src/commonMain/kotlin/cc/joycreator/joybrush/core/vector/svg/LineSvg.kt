@@ -103,7 +103,7 @@ object LineSvg {
             val blend = blendOf(preset.blend)!!
             if (preset.engine == ENGINE_FILL) {
                 items.add(SvgWriter.Fill(seq, record.id,
-                    FillPen.outline(record.samples, record.smoothing, record.screenPerDoc),
+                    FillPen.outline(record.samples, record.smoothing, record.screenPerDoc, record.stabilizer),
                     record.colorArgb, alphaOf(record.colorArgb), blend))
                 continue
             }

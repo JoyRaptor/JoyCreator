@@ -129,6 +129,7 @@ import kotlinx.serialization.ExperimentalSerializationApi
     val dynamics: ColorDynamicsSpec? = null,
 )
 
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable data class BrushPreset(
     val format: String = "joybrush.brush",
     val version: Int = BRUSH_VERSION,
@@ -161,4 +162,7 @@ import kotlinx.serialization.ExperimentalSerializationApi
     val author: String = "",
     val sourceFormat: String = "native", // "native" | "abr" | "procreate" | "myb" | "kpp"
     val extensions: Map<String, String> = emptyMap(), // lossless storage of imported raw settings
+    /** v18: suggestion only; actual contact settings belong to the raw stroke record. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val stabilizer: cc.joycreator.joybrush.core.input.StabilizerSpec? = null,
 )

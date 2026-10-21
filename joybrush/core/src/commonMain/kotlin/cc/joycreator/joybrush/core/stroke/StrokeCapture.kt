@@ -15,6 +15,7 @@ class StrokeCapture(
     private val screenPerDoc: Float,
     private val colorArgb: Int,
     private val secondaryColorArgb: Int? = null,
+    private val stabilizer: cc.joycreator.joybrush.core.input.StabilizerSpec? = null,
 ) {
     private val samples = ArrayList<PenSample>()
     private var ended = false
@@ -23,6 +24,7 @@ class StrokeCapture(
         require(id.isNotBlank() && brushId.isNotBlank()) { "A recording needs stroke and frozen brush identities" }
         require(smoothing.isFinite() && smoothing in 0f..1f) { "A recording needs valid live smoothing" }
         require(screenPerDoc.isFinite() && screenPerDoc > 0f) { "A recording needs the live contact zoom" }
+        require(stabilizer == null || stabilizer.problems().isEmpty()) { "A recording needs valid actual stabilizer settings" }
     }
 
     fun add(placedRaw: PenSample) {
@@ -39,7 +41,7 @@ class StrokeCapture(
         samples.clear()
         return raw.takeIf { it.isNotEmpty() }?.let {
             StrokeRecord(id, brushId, seed, smoothing, screenPerDoc, it, colorArgb,
-                secondaryColorArgb = secondaryColorArgb)
+                secondaryColorArgb = secondaryColorArgb, stabilizer = stabilizer)
         }
     }
 

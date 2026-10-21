@@ -36,7 +36,7 @@ class ColorStrokeRecordingTest {
     private fun paletteOffset(bytes: ByteArray): Int {
         val r = ByteReader(bytes)
         assertContentEquals("JBS1".encodeToByteArray(), r.bytes(4))
-        assertEquals(5, r.u16())
+        assertEquals(6, r.u16())
         val flags = r.u16()
         r.utf8(); r.utf8(); r.i64(); r.f32(); r.f32(); r.u32(); r.f32(); r.i64()
         if (flags and 16 != 0) r.utf8()
@@ -117,7 +117,7 @@ class ColorStrokeRecordingTest {
             StrokeCodec.decode(bytes.copyOf(at + available))
         }
         assertFailsWith<StrokeCodecException> {
-            StrokeCodec.decode(bytes.copyOf().also { it[6] = (it[6].toInt() or 128).toByte() })
+            StrokeCodec.decode(bytes.copyOf().also { it[7] = (it[7].toInt() or 1).toByte() })
         }
         assertFailsWith<StrokeCodecException> { StrokeCodec.decode(bytes + byteArrayOf(0)) }
         assertFailsWith<StrokeCodecException> { StrokeCodec.decodeAll(StrokeCodec.encodeAll(listOf(r)) + byteArrayOf(0)) }

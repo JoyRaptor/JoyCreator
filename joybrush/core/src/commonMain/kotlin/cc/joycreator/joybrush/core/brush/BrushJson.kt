@@ -29,12 +29,15 @@ const val BRUSH_FORMAT = "joybrush.brush"
  *  - **15** added seeded colour dynamics and frozen stroke palettes — [VERSION_COLOR_DYNAMICS].
  *  - **16** added sampled tip sets and frozen PNG resources — [VERSION_SAMPLED_TIPS].
  *  - **17** added secondary shape/image masks — [VERSION_DUAL_TIP].
+ *  - **18** added per-brush stabilizer suggestions — [VERSION_STABILIZER].
  *
  * A word needs the version that introduced it, NOT the newest one: a fill pen is still a version-2
  * file, so a build that predates smudge can open it. [BrushJson.wordsNeedingVersion] carries the
  * per-word number.
  */
-const val BRUSH_VERSION = 17
+const val BRUSH_VERSION = 18
+
+const val VERSION_STABILIZER = 18
 
 const val VERSION_DUAL_TIP = 17
 
@@ -202,6 +205,7 @@ object BrushJson {
         if (p.color.dynamics != null) out += VersionedWord("color.dynamics", VERSION_COLOR_DYNAMICS)
         if (p.tip.sampled != null) out += VersionedWord("tip.sampled", VERSION_SAMPLED_TIPS)
         if (p.tip.dual != null) out += VersionedWord("tip.dual", VERSION_DUAL_TIP)
+        if (p.stabilizer != null) out += VersionedWord("stabilizer", VERSION_STABILIZER)
         if (p.tip.fade != null) out += VersionedWord("tip.fade", VERSION_TIP_PROFILE)
         if (p.engine == ENGINE_MEDIA) out += VersionedWord("engine \"$ENGINE_MEDIA\"", VERSION_MEDIA)
         else if (p.media != null) out += VersionedWord("media", VERSION_MEDIA)

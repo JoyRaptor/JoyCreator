@@ -178,7 +178,7 @@ object InkReplay {
         }
         val dabber = BrushDabber(preset, record.seed, StrokeColors(record.colorArgb, record.secondaryColorArgb ?: -1), sampledTips, dualMask)
         val placer = DabPlacer(spacing = dabber.spacing, look = dabber::look)
-        val smoother = StrokeSmoother(record.smoothing, record.screenPerDoc)
+        val smoother = cc.joycreator.joybrush.core.input.StrokeStabilizer(record.stabilizer, record.smoothing, record.screenPerDoc)
         val scatter = SplitMix(record.seed xor Scatter.SALT)
         val scale = widthScaleOf(record.widthScale)
         val placed: (Dab) -> Unit = { dab ->
@@ -216,6 +216,8 @@ object InkReplay {
         brush == null ->
             "stroke \"${record.id}\" was drawn with brush \"${record.brushId}\", " +
                 "which is not in this document's library"
+        record.stabilizer != null && brush.engine == cc.joycreator.joybrush.core.brush.ENGINE_WATERCOLOUR ->
+            "stroke \"${record.id}\" uses recorded stabilizer settings that this watercolor brush cannot replay"
         brush.tip.dual != null && (dualMask == null || !dualMask.matches(brush.tip.dual, record.seed)) ->
             "stroke \"${record.id}\" needs its prepared frozen dual-tip mask and seed"
         brush.tip.sampled != null && (sampledTips == null || !sampledTips.matches(brush.tip.sampled)) ->
@@ -246,7 +248,7 @@ object InkReplay {
      * samples over one bad float.
      */
     private fun placedDabs(record: StrokeRecord, preset: BrushPreset, dabber: BrushDabber): List<Dab> {
-        val smoother = StrokeSmoother(record.smoothing, record.screenPerDoc)
+        val smoother = cc.joycreator.joybrush.core.input.StrokeStabilizer(record.stabilizer, record.smoothing, record.screenPerDoc)
         val out = ArrayList<PenSample>(record.samples.size)
         // The brush's own pressure and tilt curves come first, as in `JbCanvasView.feedOne`: the record keeps what the pen
         // said, and the brush decides what it hears, so a line re-brushed to a brush with other curves is heard anew.

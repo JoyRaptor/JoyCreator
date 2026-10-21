@@ -88,7 +88,7 @@ object InkTiles {
             if (preset.engine != ENGINE_FILL && preset.paperGrain.enabled) omitted.add(Omission(index, record.id, PAPER_GRAIN))
             val replayed = InkReplay.replay(record, preset, sampled, dual)
             marks.add(Mark(record, preset, replayed.dabs,
-                if (preset.engine == ENGINE_FILL) FillPen.outline(record.samples, record.smoothing, record.screenPerDoc)
+                if (preset.engine == ENGINE_FILL) FillPen.outline(record.samples, record.smoothing, record.screenPerDoc, record.stabilizer)
                 else emptyList(),
                 tipOf(preset, replayed.strokeHardness), replayed.strokeOpacity))
         }

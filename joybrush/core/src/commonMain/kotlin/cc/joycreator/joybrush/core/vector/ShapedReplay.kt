@@ -103,7 +103,7 @@ object ShapedReplay {
         val dabber = BrushDabber(preset, record.seed,
             StrokeColors(record.colorArgb, record.secondaryColorArgb ?: -1), sampled, dual)
         val placer = DabPlacer(spacing = dabber.spacing, look = dabber::look)
-        val smoother = StrokeSmoother(record.smoothing, record.screenPerDoc)
+        val smoother = cc.joycreator.joybrush.core.input.StrokeStabilizer(record.stabilizer, record.smoothing, record.screenPerDoc)
         var smoothed = 0
         var placed = 0
         val placedSink: (Dab) -> Unit = { dab ->

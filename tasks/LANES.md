@@ -1,7 +1,7 @@
 # LANES.md — live file-lock board for parallel agents
 
 ## UNIBRUSH_20261018
-status: ACTIVE — D1–D5 engine checkpoints verified; D6 dual masks/resources in isolated worktree; latest owner brief supersedes historical brush-contact claim.
+status: ACTIVE — D1–D6 engine checkpoints verified/pushed; D7 whole-stroke admission/preview and lift protocol pending checks. D8 stabilizer and D9 sheet/modes/store drafts outside. Latest owner brief supersedes historical brush-contact claim.
 worktree: C:/Temp/jb-codex-unibrush; branch codex/unibrush; base origin/lead/layer-ops 107748a78.
 files: core/brush/{BrushPreset,BrushJson,BrushValidate,BrushDabber,TipRotation,BrushBehaviors,TipProfiles,TipQuad,QuadMath}.kt; core/paint/{Dab,DabPlacer,TipMath}.kt; gl/StampPass.kt; shared stamp/profile/quad shaders; corresponding Unibrush tests/fixtures; tasks/todo.md; tasks/joybrush/AGENT_BOARD.md. Review helper completed bounded QuadMath leaf and now audits read-only.
 DEVICE: none. Builds take jb-gradle.lock; no Lead engine/view/lines or helper media edits.
@@ -9,6 +9,7 @@ additional D4 owned files: core/brush/ColorDynamics.kt; core/stroke/{StrokeRecor
 additional D5 owned leaves: core/brush/{SampledTip,SampledTipSet,ImageMask,BrushAssetPaths,FrozenBrushPngs,FrozenBrushRegistry}.kt; androidkit/io/JbArchive and immutable frozen asset storage; gl/{PngSamplePreflight,AndroidSamplePngDecoder,SampledMaskTextures,AndroidSampleMaskGl}.kt; corresponding sample/asset/archive tests. Parent owns dab/CPU/GPU integration, helpers own new PNG/resource and archive leaves. Protected Lead files remain held patches only.
 additional D5 import leaf: core importers AbrImport/ProcreateImport/KritaImport and new MaterializedImports.kt; androidkit/MaterializedBrushImports.kt; corresponding materialized import tests. Opt-in APIs preserve existing import compatibility.
 additional D6 owned leaves: core/brush/{DualTip,StampTipResources}.kt; gl/{DualMaskTextures,StampTipResolver}.kt; shared jb_dual.glsl; dual replay/bounds/resource/GPU fixtures and tests. Lead adapters remain exact held patches only.
+additional D7 owned leaves: core/vector/{ShapedReplay,StrokeLiftTransaction}.kt; androidkit/preview/StampPreview.kt; corresponding tests. D7 LineShaper and live publication remain held proposals; no canonical engine/view/lines edits. Helpers draft D8 fill/codec, D9 UI/store/catalog in disjoint C:/Temp folders; no helper builds/device access.
 # October14 ACTIVE Lead: C:/Temp/jb-live-current, lead/jb-live-current, sourceccb4913bf includes originbb4df6c64.
 # Prior C:/Temp/jb-live-lines is frozen/backed-up b203e760; original owner folder/worktrees preserved.
 # Core2273/backend514/native193 green; sourceccbAPK PASS1m33 with current Note9 capture/bake diagnostics. Later factory guards backend-verified only.

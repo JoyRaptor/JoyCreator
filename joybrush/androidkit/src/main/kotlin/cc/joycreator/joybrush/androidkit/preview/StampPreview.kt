@@ -43,6 +43,20 @@ object StampPreview {
               colors: StrokeColors = StrokeColors(0xFF000000.toInt(), 0xFFFFFFFF.toInt()),
               sampledTips: cc.joycreator.joybrush.core.brush.SampledTipSet? = null,
               dualMask: cc.joycreator.joybrush.core.brush.DualMask? = null): Prepared {
+        val ends = cc.joycreator.joybrush.core.vector.LineStyle.of(shown.line)
+        if (!ends.isWire && (ends.tapers || ends.dashes)) {
+            val record = cc.joycreator.joybrush.core.stroke.StrokeRecord(
+                "preview", shown.id, CannedStroke.SEED, shown.smoothing, 1f, samples,
+                colorArgb = colors.primaryArgb, secondaryColorArgb = colors.secondaryArgb)
+            val replay = cc.joycreator.joybrush.core.vector.InkReplay.replayAdmitted(record, shown,
+                sampledTips, dualMask,
+                cc.joycreator.joybrush.core.vector.ShapedReplayLimits(4096, 32768, 65536, 131072)) {}
+            return Prepared(replay.dabs, replay.strokeOpacity,
+                TipShape(shown.tip.aspect, shown.tip.corner, shown.tip.taper, replay.strokeHardness,
+                    shown.tip.minPx, sampled = replay.dabs.firstOrNull()?.sampled,
+                    dual = replay.dabs.firstOrNull()?.dual),
+                replay.strokeGrain, accumulateOf(shown), blendOf(shown), smudgeOf(shown))
+        }
         val dabber = BrushDabber(shown, CannedStroke.SEED, colors, sampledTips, dualMask)
         val placer = DabPlacer(spacing = dabber.spacing, look = dabber::look)
         val placed = placer.add(samples.map { shown.response.apply(it) })

@@ -1,0 +1,17 @@
+--- a/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/JbCanvasView.kt
++++ b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/JbCanvasView.kt
+@@ -1654,6 +1654,14 @@
+         onBeforeStroke?.invoke()
+         val b = brush
+         var p = preset
++        // A provisional native stroke cannot be the final source for length-based ends.
++        // Keep this admission closed until the recorded owner supplies the actual lift adapter.
++        val wholeStroke = cc.joycreator.joybrush.core.vector.LineStyle.of(p?.line)
++        if (wholeStroke.tapers || wholeStroke.dashes) {
++            drawing = false
++            onRefused?.invoke("Stroke-end brushes need the recorded drawing connection.")
++            return
++        }
+         // The resolver's dual bake and the dabber/record must share this one contact seed.
+         val contactSeed = watercolourPreviewSeed ?: SystemClock.uptimeMillis()
+         val contactPngs = try {

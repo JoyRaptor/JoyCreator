@@ -190,6 +190,15 @@ object InkReplay {
         return Replayed(out, dabber.strokeHardness, dabber.strokeOpacity, dabber.strokeGrain)
     }
 
+    /** Whole-stroke ends need two-pass metrics; the renderer supplies explicit work allowances. */
+    fun replayAdmitted(record: StrokeRecord, brush: BrushPreset?, sampledTips: SampledTipSet?,
+        dualMask: cc.joycreator.joybrush.core.brush.DualMask?, limits: ShapedReplayLimits,
+        admit: (Dab) -> Unit): Replayed {
+        refusal(record, brush, sampledTips, dualMask)?.let { throw InkReplayException(it) }
+        require(brush!!.line != null) { "Whole-stroke work allowances require a shaped stroke recipe" }
+        return ShapedReplay.replayAdmitted(record,brush,sampledTips,dualMask,limits,admit)
+    }
+
     /**
      * Every problem that stops [record] from being drawn, in words. Empty = it draws.
      *

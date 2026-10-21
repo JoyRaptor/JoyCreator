@@ -28,6 +28,33 @@ class StampPreviewTest {
         return StampPreview.build(shown, CannedStroke.pen(w, h, shown.size.base))
     }
 
+    @Test fun legacyWireAndNeutralLineSectionsKeepTheirCannedStrokePreview() {
+        val plain = brush().copy(smoothing=.8f)
+        val samples = CannedStroke.pen(800,100,plain.size.base)
+        val expected = StampPreview.build(plain,samples)
+        for(style in listOf(cc.joycreator.joybrush.core.brush.LineStyleSpec(),
+            cc.joycreator.joybrush.core.brush.LineStyleSpec(screenWidthPx=1f))) {
+            val actual = StampPreview.build(plain.copy(line=style),samples)
+            assertEquals(expected.dabs,actual.dabs)
+            assertEquals(expected.tip,actual.tip)
+        }
+    }
+
+    @Test fun wholeStrokePreviewUsesTheFinalTaperAndDashWithFrozenPaletteAndSeed() {
+        val p = brush().copy(line = cc.joycreator.joybrush.core.brush.LineStyleSpec(
+            taperIn=2f,taperOut=4f,dashOn=3f,dashOff=1f),
+            color = ColorJitter(dynamics=ColorDynamicsSpec(hueRangeDegrees=25f,secondaryMix=.3f)))
+        val samples = CannedStroke.pen(800,100,p.size.base)
+        val colors = StrokeColors(0xffae1234.toInt(),0xff1234ae.toInt())
+        val actual = StampPreview.build(p,samples,colors)
+        val record = cc.joycreator.joybrush.core.stroke.StrokeRecord("preview",p.id,CannedStroke.SEED,
+            p.smoothing,1f,samples,colorArgb=colors.primaryArgb,secondaryColorArgb=colors.secondaryArgb)
+        val expected = cc.joycreator.joybrush.core.vector.InkReplay.replay(record,p)
+        assertEquals(expected.dabs,actual.dabs)
+        assertEquals(expected.strokeOpacity,actual.strokeOpacity)
+        assertTrue(actual.dabs != StampPreview.build(p.copy(line=null),samples,colors).dabs)
+    }
+
     @Test fun theSameBrushAndBoxGiveTheSameDabsEveryTime() {
         for (p in BrushLibrary.builtIn().filter { PreviewPlan.kindOf(it) == PreviewKind.STAMP }) {
             val a = build(p)

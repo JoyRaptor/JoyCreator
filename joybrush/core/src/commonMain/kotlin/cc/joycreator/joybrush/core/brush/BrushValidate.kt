@@ -112,20 +112,22 @@ object BrushValidate {
         // 6/7 — the tip's shape limits.
         if (p.tip.taper !in 0f..1f) out += "tip.taper ${p.tip.taper} is outside 0..1"
         if (p.tip.aspect !in -1f..1f) out += "tip.aspect ${p.tip.aspect} is outside -1..1"
+        if (p.line?.screenWidthPx?.let { it > 0f } == true &&
+            (p.tip.sampled != null || p.tip.dual != null || p.tip.quad != null || p.tip.profile != null ||
+                p.tip.fade != null || p.color.dynamics != null)) {
+            out += "Unibrush screen-width wires need their renderer adapter; use length-based stroke ends"
+        }
         p.tip.dual?.let { dual ->
             out += DualTips.problems(dual)
             if (p.engine != "stamp") out += "Dual tips need engine stamp"
-            if (p.line != null) out += "This build cannot combine stroke-end shaping with dual tips"
             if (p.tip.source != "procedural" && p.tip.sampled == null) out += "Dual tips need a procedural or resolved sampled primary tip"
         }
         p.tip.sampled?.let { sampled ->
             out += SampledTips.problems(sampled)
             if (p.engine != "stamp") out += "Sampled tip sets need engine stamp"
-            if (p.line != null) out += "This build cannot combine stroke-end shaping with sampled tip sets"
         }
         if (p.tip.profile != null || p.tip.fade != null || p.tip.quad != null) {
             if (p.engine != "stamp") out += "Unibrush shapes, profiles and fade need engine stamp"
-            if (p.line != null) out += "This build cannot combine stroke-end shaping with Unibrush shapes, profiles or fade"
         }
         p.tip.fade?.let { fade ->
             if (fade.amount.base !in 0f..1f) out += "tip.fade.amount.base must be 0..1"
@@ -244,7 +246,6 @@ object BrushValidate {
             )) if (value !in range) out += "color.dynamics.$name must be in $range"
             if (color.isActive) {
                 if (p.engine != "stamp" || (p.tip.source != "procedural" && p.tip.sampled == null)) out += "Colour dynamics need a procedural or resolved sampled stamp tip"
-                if (p.line != null) out += "This build cannot combine stroke-end shaping with colour dynamics"
             }
         }
 

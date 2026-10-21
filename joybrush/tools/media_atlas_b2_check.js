@@ -46,7 +46,7 @@ function srcSet(...defs) {
   const o = {}; for (const [k, f] of Object.entries(FILES)) o[k] = defs.length ? define(expand(f), ...defs) : expand(f);
   o.quadPlain = defs.length ? define(expand(FILES.quad), ...defs, 'JB_PLAIN_TARGET') : o.quad;
   // MediaLayerEngine's atlas build of every pass drawn slot by slot (ATLAS_NBR).
-  if (defs.includes('JB_ATLAS')) for (const k of ['apply', 'copy', 'bake', 'flux', 'update', 'pasteDab', 'bead', 'eraseApply', 'render']) o[k] = define(expand(FILES[k]), ...defs, 'JB_ATLAS_NBR');
+  if (defs.includes('JB_ATLAS')) for (const k of ['apply', 'bake', 'flux', 'update', 'pasteDab', 'bead', 'render']) o[k] = define(expand(FILES[k]), ...defs, 'JB_ATLAS_NBR');
   if (defs.includes('JB_ATLAS')) o.pasteBrush = define(expand(FILES.pasteBrush), ...defs, 'JB_ATLAS_NBR', 'JB_ATLAS_NBR5');
   return o;
 }

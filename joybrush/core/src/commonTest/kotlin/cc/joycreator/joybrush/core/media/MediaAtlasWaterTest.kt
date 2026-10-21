@@ -118,4 +118,18 @@ class MediaAtlasWaterTest {
         w.observe(k(1, 1), 0.2f, 0.5f, 2.5f, 3300, minMm, flowEps = 1f, extent = intArrayOf(256, 256, 448, 448))
         assertTrue(w.plan(domain, domain, setOf(k(3, 3)), emptySet(), capacity = 2, penX = 900.0, penY = 900.0, nowMs = 3400)!!.all { it.drain })
     }
+
+    @Test fun waterNotMeasuredYetStillGivesWayToTheStrokeBeingPainted() {
+        // Just after the engine is made again every tile of old water is UNKNOWN (stored, not measured): nothing measured can
+        // settle, and the stroke under the pen was refused frame after frame until that water dried (Note 9, 2026-10-20).
+        val w = MediaAtlasWater()
+        val old = block(4, 0, 7, 1)
+        for (t in old) w.entered(t, nowMs = 0, stored = true)
+        val frame = setOf(k(0, 0))
+        val domain = old + frame
+        val plan = w.plan(domain, domain, frame, emptySet(), capacity = 4, penX = 10.0, penY = 10.0, nowMs = 100)
+        assertTrue(plan != null, "old water gives way")
+        assertTrue(plan!!.flatMap { it.keys }.none { it in frame }, "never what the pen paints")
+        assertEquals(k(7, 1), plan.first().keys.first(), "farthest from the pen first")
+    }
 }

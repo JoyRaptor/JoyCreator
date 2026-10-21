@@ -54,7 +54,7 @@ function srcSet(read, ...defs) {
   const o = {}; for (const [k, f] of Object.entries(FILES)) o[k] = defs.length ? define(expand(f, read), ...defs) : expand(f, read);
   o.quadPlain = defs.length ? define(expand(FILES.quad, read), ...defs, 'JB_PLAIN_TARGET') : o.quad;   // the paste brush's cells
   // MediaLayerEngine's atlas build of every pass drawn slot by slot (ATLAS_NBR).
-  if (defs.includes('JB_ATLAS')) for (const k of ['apply', 'copy', 'bake', 'flux', 'update', 'pasteDab', 'bead', 'eraseApply', 'render']) o[k] = define(expand(FILES[k], read), ...defs, 'JB_ATLAS_NBR', ...(process.env.JB_X ? process.env.JB_X.split(',') : []));
+  if (defs.includes('JB_ATLAS')) for (const k of ['apply', 'bake', 'flux', 'update', 'pasteDab', 'bead', 'render']) o[k] = define(expand(FILES[k], read), ...defs, 'JB_ATLAS_NBR', ...(process.env.JB_X ? process.env.JB_X.split(',') : []));
   if (defs.includes('JB_ATLAS')) o.pasteBrush = define(expand(FILES.pasteBrush, read), ...defs, 'JB_ATLAS_NBR', 'JB_ATLAS_NBR5');
   return o;
 }

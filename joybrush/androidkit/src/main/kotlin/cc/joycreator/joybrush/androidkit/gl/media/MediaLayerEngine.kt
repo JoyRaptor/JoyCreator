@@ -97,7 +97,9 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     private val programTable: List<ProgramSpec> = listOf(
         ProgramSpec({ progDab = it }, "jb_dry_dab.vert", "jb_dry_dab.frag", "media dry dab"),
         ProgramSpec({ progApply = it }, "jb_media_quad.vert", "jb_media_apply.frag", "media apply", atlasDefs = ATLAS_NBR),
-        ProgramSpec({ progCopy = it }, "jb_media_quad.vert", "jb_media_copy.frag", "media copy", atlasDefs = ATLAS_NBR),
+        // Copy and erase read only their own cell: no neighbours, so one instanced draw for every slot (2026-10-20: drawn slot by
+        // slot with the 3x3 handed over, the copies were most of an oil or knife step's cost in the atlas).
+        ProgramSpec({ progCopy = it }, "jb_media_quad.vert", "jb_media_copy.frag", "media copy"),
         ProgramSpec({ progRender = it }, "jb_media_screen.vert", "jb_media_render.frag", "media render", atlasDefs = ATLAS_NBR),
         ProgramSpec({ progBake = it }, "jb_media_quad.vert", "jb_media_bake.frag", "media bake", atlasDefs = ATLAS_NBR),
         ProgramSpec({ progWetDab = it }, "jb_wet_dab.vert", "jb_wet_dab.frag", "media wet dab"),
@@ -107,7 +109,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         ProgramSpec({ progPasteBrush = it }, "jb_media_quad.vert", "jb_paste_brush.frag", "media paste brush", plain = true, atlasDefs = ATLAS_NBR5),
         ProgramSpec({ progBead = it }, "jb_media_quad.vert", "jb_wet_bead.frag", "media wet bead", atlasDefs = ATLAS_NBR),
         ProgramSpec({ progEraseDab = it }, "jb_media_erase_dab.vert", "jb_media_erase_dab.frag", "media erase dab"),
-        ProgramSpec({ progErase = it }, "jb_media_quad.vert", "jb_media_erase_apply.frag", "media erase", atlasDefs = ATLAS_NBR),
+        ProgramSpec({ progErase = it }, "jb_media_quad.vert", "jb_media_erase_apply.frag", "media erase"),
         ProgramSpec({ progActivity = it }, "jb_media_screen.vert", "jb_wet_activity.frag", "media wet activity"),
     ) + if (!atlasMode) emptyList() else listOf(
         // The quadrant reads pay nothing for walls; these do, and only run while one exists (jb_media_atlas.glsl).

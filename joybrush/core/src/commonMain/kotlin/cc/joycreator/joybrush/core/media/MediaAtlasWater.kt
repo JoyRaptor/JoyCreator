@@ -171,9 +171,14 @@ class MediaAtlasWater(val quietMs: Long = 2000) {
                 // D2: the oldest water's measured tile farthest from the pen (a drip's tail; a long wet stroke's trail is one
                 // such "drip", the pen at its young end), taken out of the water. Never a tile this frame paints.
                 fun known(k: Long) = k !in frame && tiles[k]?.state.let { it != null && it != State.UNKNOWN }
-                val oldest = components(domain).filter { c -> c.any(::known) }
-                    .minByOrNull { c -> c.filter(::known).minOf { tiles[it]?.firstWetMs ?: Long.MAX_VALUE } } ?: return null
-                val tail = oldest.filter(::known).maxBy { dist(it, penX, penY) }
+                // Last resort (2026-10-20): water not measured yet (all of it, just after the engine was made again) gives way
+                // too, or a crowded drawing refused every frame until its old water dried (the Note 9 stopped painting).
+                fun mayGo(k: Long) = k !in frame && holdsWater(k)
+                val anyKnown = domain.any { known(it) && holdsWater(it) }   // a tile this plan dried is known but holds nothing
+                val pickable: (Long) -> Boolean = if (anyKnown) ::known else ::mayGo
+                val oldest = components(domain).filter { c -> c.any(pickable) }
+                    .minByOrNull { c -> c.filter(pickable).minOf { tiles[it]?.firstWetMs ?: Long.MAX_VALUE } } ?: return null
+                val tail = oldest.filter(pickable).maxBy { dist(it, penX, penY) }
                 actions += Action(listOf(tail), true); dry(tail); excluded.add(tail)
             }
             return actions

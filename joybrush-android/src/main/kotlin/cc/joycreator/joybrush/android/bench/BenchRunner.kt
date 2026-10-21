@@ -26,10 +26,12 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
     // The atlas switch is process-wide: a run that changed it puts it back, so the app after a bench draws as shipped.
     private val atlasBefore = canvas.mediaAtlasEnabled
     private val coarseBefore = cc.joycreator.joybrush.androidkit.gl.media.MediaLayerEngine.coarseWaterDefault
+    private val rowsBefore = cc.joycreator.joybrush.androidkit.gl.media.MediaLayerEngine.atlasRowPasses
     private val onDone: () -> Unit = {
         if (spec.atlas != null) canvas.mediaAtlasEnabled = atlasBefore
         cc.joycreator.joybrush.core.media.PasteSpacing.fixed = null
         if (spec.coarseWater != null) cc.joycreator.joybrush.androidkit.gl.media.MediaLayerEngine.coarseWaterDefault = coarseBefore
+        if (spec.atlasRows != null) cc.joycreator.joybrush.androidkit.gl.media.MediaLayerEngine.atlasRowPasses = rowsBefore
         finished()
     }
 
@@ -48,6 +50,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
                val pasteSpacing: Double? = null,
                /** Coarse water on or off for this run (`jb_coarse_water`); none = as shipped. */
                val coarseWater: Boolean? = null,
+               /** The atlas's scattered passes by row (`jb_atlas_rows` 0 one pass, 1 scissor per row, 2 and a flush, shipped); none = as shipped. */
+               val atlasRows: Int? = null,
                /** How long after the surface the first case starts (`jb_start_ms`): measures a cold first stroke. */
                val startMs: Long = 1500L)
 
@@ -64,6 +68,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
         spec.atlas?.let { canvas.mediaAtlasEnabled = it; Log.i(TAG, "media atlas: $it") }
         spec.pasteSpacing?.let { cc.joycreator.joybrush.core.media.PasteSpacing.fixed = it; Log.i(TAG, "paste spacing: $it") }
         spec.coarseWater?.let { cc.joycreator.joybrush.androidkit.gl.media.MediaLayerEngine.coarseWaterDefault = it; Log.i(TAG, "coarse water: $it") }
+        spec.atlasRows?.let { cc.joycreator.joybrush.androidkit.gl.media.MediaLayerEngine.atlasRowPasses = it; Log.i(TAG, "atlas rows: $it") }
         spec.water?.let { canvas.mediaWaterAB = cc.joycreator.joybrush.android.WaterTest.of(it).ab; Log.i(TAG, "water test: $it") }
         if ("matrix" in spec.cases) { MatrixBench(canvas, spec, onDone).start(); return }
         val all = BrushLibrary.builtIn()
@@ -339,6 +344,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
                 atlas = if (intent.hasExtra("jb_media_atlas")) intent.getBooleanExtra("jb_media_atlas", false) else null,
                 pasteSpacing = intent.getStringExtra("jb_paste_spacing")?.toDoubleOrNull(),
                 coarseWater = if (intent.hasExtra("jb_coarse_water")) intent.getBooleanExtra("jb_coarse_water", true) else null,
+                atlasRows = if (intent.hasExtra("jb_atlas_rows")) intent.getIntExtra("jb_atlas_rows", 0) else null,
                 startMs = intent.getLongExtra("jb_start_ms", 1500L).coerceIn(0L, 60_000L))
         }
     }

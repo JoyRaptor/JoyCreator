@@ -1552,6 +1552,10 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
          * the owner preferred and, once the look was drawn once per tile, was not reliably faster. Kept for a later choice.
          */
         @Volatile @JvmStatic var coarseWaterDefault = false
+        /** The bench's `jb_atlas_rows` A/B: MediaAtlasGl.rowPasses (2 shipped, 0 = one pass). */
+        @JvmStatic var atlasRowPasses: Int
+            get() = MediaAtlasGl.rowPasses
+            set(v) { MediaAtlasGl.rowPasses = v }
     }
 
     private fun union(a: FloatArray?, b: FloatArray): FloatArray =

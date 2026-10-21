@@ -81,6 +81,16 @@ class MediaAtlasDraw {
         return dabCount
     }
 
+    /**
+     * Makes [count] instances of [src] (laid out as [rect], 8 floats each), those at [index] 0 until [count], the current
+     * [rect] instances, as if [rects] had made them: a pass drawn group by group ([MediaAtlasGl.drawRect]).
+     */
+    fun load(src: FloatArray, index: IntArray, count: Int) {
+        if (8 * count > rect.size) rect = FloatArray(8 * count)
+        for (i in 0 until count) src.copyInto(rect, i * 8, index[i] * 8, index[i] * 8 + 8)
+        rectCount = count
+    }
+
     /** The parts of the last [rects] at least a reach in from their tile's edges ([split]), as [rect] instances. */
     var inner = FloatArray(8 * 16); private set
     var innerCount = 0; private set

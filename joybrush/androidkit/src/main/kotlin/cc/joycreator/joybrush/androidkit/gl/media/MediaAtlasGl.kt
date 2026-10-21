@@ -213,9 +213,47 @@ internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: I
         // pass cost in proportion to the ATLAS, not to what it drew (2026-10-20: update, bead and look per pixel about half
         // as much with 4 x 6 slots as with 6 x 6). A scissor round the slots the pass draws bounds that.
         val scissor = !GLES30.glIsEnabled(GLES30.GL_SCISSOR_TEST)
+        if (scissor && rowPasses > 0 && n >= ROWS_MIN && scattered(n)) { drawByRows(n, shift); return }
         if (scissor) { scissorRound(n, shift); GLES30.glEnable(GLES30.GL_SCISSOR_TEST) }
         try { drawRects(n, shift) } finally { if (scissor) GLES30.glDisable(GLES30.GL_SCISSOR_TEST) }
     }
+
+    /** True when the box round the pass's [n] instances is over [ROWS_WASTE] times what they cover (slots far apart). */
+    private fun scattered(n: Int): Boolean {
+        val r = draw.rect
+        var x0 = Float.MAX_VALUE; var y0 = Float.MAX_VALUE; var x1 = -Float.MAX_VALUE; var y1 = -Float.MAX_VALUE; var covered = 0f
+        for (i in 0 until n) {
+            val o = i * 8
+            val dx = r[o] - r[o + 2] * 256f; val dy = r[o + 1] - r[o + 3] * 256f   // shift does not matter for the ratio
+            x0 = minOf(x0, dx + r[o + 4]); y0 = minOf(y0, dy + r[o + 5]); x1 = maxOf(x1, dx + r[o + 6]); y1 = maxOf(y1, dy + r[o + 7])
+            covered += (r[o + 6] - r[o + 4]) * (r[o + 7] - r[o + 5])
+        }
+        return (x1 - x0) * (y1 - y0) > ROWS_WASTE * covered
+    }
+
+    /**
+     * A pass over slots far apart in the atlas, drawn one atlas row at a time, each under a scissor round that row's instances
+     * and flushed ([rowPasses] 2), so each row is a render pass of its own: this tiled GPU loads and stores a pass's whole
+     * scissored area, and one box round slots scattered over the atlas was 45-90 % of it while the water was in ~18 of 48
+     * slots. Measured on the Note 9 (10-21, six wet strokes on one drawing, flat): frames 293-482 ms -> 252-300 ms, update
+     * and flux per pixel -25 to -40 %. A scissor per row without the flush (1) did nothing: the driver keeps one pass.
+     */
+    private fun drawByRows(n: Int, shift: Int) {
+        val all = draw.rect.copyOf(n * 8)
+        if (rowIndex.size < n) rowIndex = IntArray(n * 2)
+        val rows = (0 until n).groupBy { all[it * 8 + 1].toInt() }
+        GLES30.glEnable(GLES30.GL_SCISSOR_TEST)
+        try {
+            for ((_, members) in rows.entries.sortedBy { it.key }) {
+                for ((k, i) in members.withIndex()) rowIndex[k] = i
+                draw.load(all, rowIndex, members.size)
+                scissorRound(members.size, shift)
+                drawRects(members.size, shift)
+                if (rowPasses == 2) GLES30.glFlush()
+            }
+        } finally { GLES30.glDisable(GLES30.GL_SCISSOR_TEST) }
+    }
+    private var rowIndex = IntArray(64)
 
     /** The scissor round the texels the last [MediaAtlasDraw.rects] write (whole pixels). */
     private fun scissorRound(n: Int, shift: Int) {
@@ -348,6 +386,12 @@ internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: I
     }
 
     companion object {
+        /** 0 = one scissor round every slot a pass draws; 1 = a scissor per atlas row (no gain); 2 = and a flush after each. */
+        @Volatile @JvmStatic var rowPasses = 2
+        /** Fewer instances than this: one pass (a flush costs more than a small pass loses). */
+        private const val ROWS_MIN = 4
+        /** Draw by rows when the box round the instances is over this many times what they cover. */
+        private const val ROWS_WASTE = 1.4f
         /** New media engines draw through the atlas (identity layout). Off until B2; the debug bench may turn it on for an A/B. */
         @Volatile var enabled = false
     }

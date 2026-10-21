@@ -25,7 +25,11 @@ import cc.joycreator.joybrush.core.brush.BrushPreset
 class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, private val finished: () -> Unit) {
     // The atlas switch is process-wide: a run that changed it puts it back, so the app after a bench draws as shipped.
     private val atlasBefore = canvas.mediaAtlasEnabled
-    private val onDone: () -> Unit = { if (spec.atlas != null) canvas.mediaAtlasEnabled = atlasBefore; finished() }
+    private val onDone: () -> Unit = {
+        if (spec.atlas != null) canvas.mediaAtlasEnabled = atlasBefore
+        cc.joycreator.joybrush.core.media.PasteSpacing.fixed = null
+        finished()
+    }
 
     class Spec(val cases: List<String>, val brushes: List<String>, val runs: Int, val clear: Boolean, val legacy: Boolean,
                /** Per case (same order as [cases]): the colour to paint it in, or none to keep the brush's. */
@@ -38,6 +42,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
                val water: String? = null,
                /** The media atlas on or off for this run (`jb_media_atlas`); none = as shipped. */
                val atlas: Boolean? = null,
+               /** Every paste stroke at this step spacing (`jb_paste_spacing`, 1 = shipped hops); none = as the phone keeps up. */
+               val pasteSpacing: Double? = null,
                /** How long after the surface the first case starts (`jb_start_ms`): measures a cold first stroke. */
                val startMs: Long = 1500L)
 
@@ -52,6 +58,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
             shipped.copy(dt = shipped.dt * shipped.substeps / n, substeps = n)
         }
         spec.atlas?.let { canvas.mediaAtlasEnabled = it; Log.i(TAG, "media atlas: $it") }
+        spec.pasteSpacing?.let { cc.joycreator.joybrush.core.media.PasteSpacing.fixed = it; Log.i(TAG, "paste spacing: $it") }
         spec.water?.let { canvas.mediaWaterAB = cc.joycreator.joybrush.android.WaterTest.of(it).ab; Log.i(TAG, "water test: $it") }
         if ("matrix" in spec.cases) { MatrixBench(canvas, spec, onDone).start(); return }
         val all = BrushLibrary.builtIn()
@@ -325,6 +332,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
                 matrixBoards = list(intent.getStringExtra("jb_matrix_boards")), matrixFrom = intent.getIntExtra("jb_matrix_from", 0),
                 matrixTo = intent.getIntExtra("jb_matrix_to", Int.MAX_VALUE), water = intent.getStringExtra("jb_water"),
                 atlas = if (intent.hasExtra("jb_media_atlas")) intent.getBooleanExtra("jb_media_atlas", false) else null,
+                pasteSpacing = intent.getStringExtra("jb_paste_spacing")?.toDoubleOrNull(),
                 startMs = intent.getLongExtra("jb_start_ms", 1500L).coerceIn(0L, 60_000L))
         }
     }

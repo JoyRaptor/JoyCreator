@@ -295,6 +295,9 @@ object PasteSpacing {
     const val FAST_MS = 28L
     private const val STEP = 1.2
 
+    /** Bench only (`jb_paste_spacing`): every paste stroke at this spacing, to see what wider hops look like. */
+    var fixed: Double? = null
+
     fun next(spacing: Double, frameMs: Long): Double = when {
         frameMs > SLOW_MS -> min(MAX, spacing * STEP)
         frameMs < FAST_MS -> max(1.0, spacing / STEP)

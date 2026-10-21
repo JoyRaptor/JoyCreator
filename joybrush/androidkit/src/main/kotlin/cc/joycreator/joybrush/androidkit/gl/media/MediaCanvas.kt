@@ -265,7 +265,7 @@ class MediaCanvas(
         if (st != null) {
             stats?.let { if (it.recording) it.mediaFrames++ }
             // A phone behind the pen paints the steps to come further apart (PasteSpacing), instead of falling further behind.
-            st.paste?.let { p -> if (st.lastFrameMs > 0) p.spacing = PasteSpacing.next(p.spacing, nowMs - st.lastFrameMs) }
+            st.paste?.let { p -> PasteSpacing.fixed?.let { p.spacing = it } ?: run { if (st.lastFrameMs > 0) p.spacing = PasteSpacing.next(p.spacing, nowMs - st.lastFrameMs) } }
             st.lastFrameMs = nowMs
             run(e, w, st)
             w.touched(nowMs)

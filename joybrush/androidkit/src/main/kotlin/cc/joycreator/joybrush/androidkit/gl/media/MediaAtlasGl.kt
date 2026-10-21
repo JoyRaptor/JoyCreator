@@ -188,6 +188,36 @@ internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: I
         val table = if (skip.isEmpty()) slotOf else { x: Int, y: Int -> if (Tiles.key(x, y) in skip) -1 else slotOf(x, y) }
         val n = draw.rects(rect[0], rect[1], rect[2], rect[3], shift, nx, table)
         if (n == 0) return
+        // The Note 9's GPU renders in tiles and loads and stores its whole target for each pass that has no scissor: an atlas
+        // pass cost in proportion to the ATLAS, not to what it drew (2026-10-20: update, bead and look per pixel about half
+        // as much with 4 x 6 slots as with 6 x 6). A scissor round the slots the pass draws bounds that.
+        val scissor = !GLES30.glIsEnabled(GLES30.GL_SCISSOR_TEST)
+        if (scissor) { scissorRound(n, shift); GLES30.glEnable(GLES30.GL_SCISSOR_TEST) }
+        try { drawRects(n, shift) } finally { if (scissor) GLES30.glDisable(GLES30.GL_SCISSOR_TEST) }
+    }
+
+    /** The scissor round the texels the last [MediaAtlasDraw.rects] write (whole pixels). */
+    private fun scissorRound(n: Int, shift: Int) {
+        val side = 1 shl shift
+        var x0 = Int.MAX_VALUE; var y0 = Int.MAX_VALUE; var x1 = Int.MIN_VALUE; var y1 = Int.MIN_VALUE
+        val r = draw.rect
+        for (i in 0 until n) {
+            val o = i * 8
+            val dx = r[o] - r[o + 2] * side; val dy = r[o + 1] - r[o + 3] * side
+            x0 = minOf(x0, kotlin.math.floor(dx + r[o + 4]).toInt()); y0 = minOf(y0, kotlin.math.floor(dy + r[o + 5]).toInt())
+            x1 = maxOf(x1, ceil(dx + r[o + 6]).toInt()); y1 = maxOf(y1, ceil(dy + r[o + 7]).toInt())
+        }
+        GLES30.glScissor(x0, y0, x1 - x0, y1 - y0)
+        scissorPx += ((x1 - x0).toLong() * (y1 - y0)) shl (2 * (MediaAtlasDraw.SHIFT - shift)); scissorPasses++
+        if (scissorPasses % 500 == 0L) {
+            android.util.Log.i("JoyBrushMediaAtlas", "scissor: the last 500 passes drew under ${100 * scissorPx / (500L * nx * ny * 65536)} % of the atlas on average")
+            scissorPx = 0
+        }
+    }
+    /** Measurement: the scissored area of the passes drawn so far, in px (MediaAtlas logs it against the atlas's). */
+    var scissorPx = 0L; var scissorPasses = 0L
+
+    private fun drawRects(n: Int, shift: Int) {
         val u = bank
         val own = u?.own
         if (u != null && own != null && u.has("u_nbrSlot")) { drawSplit(u, own, shift); return }

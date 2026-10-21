@@ -145,6 +145,9 @@ internal object MediaUniforms {
         u.f4("u_rect", rect); u.f2("u_targetSize", w.toFloat(), h.toFloat())
     }
 
+    /** jb_wet_update.frag's wet-age clock: real seconds per simulated second (1 = the water keeps up with the clock). */
+    fun wetAgeScale(u: UniformBank, scale: Float) = u.f1("u_ageScale", scale)
+
     /** jb_wet_bead.frag, after [common]. */
     fun bead(u: UniformBank, rect: FloatArray, beadW: Int, beadH: Int, sigma: Double, pass: Int, w0: Int, src: Int, axisX: Float, axisY: Float) {
         u.f4("u_rect", rect); u.f2("u_targetSize", beadW.toFloat(), beadH.toFloat()); u.f1("u_sigma", sigma)

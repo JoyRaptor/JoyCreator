@@ -95,7 +95,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         if (layerId == null || staleDrawing()) return
         flush()
         for (r in slots.residents()) if (r.dirty) writeBackSlot(r.slot, r.page.tileKey)
-        pinned.clear(); admitted = false; slots.clear(); media.setResidency(emptyMap())
+        pinned.clear(); admitted = false; slots.clear(); media.setResidency(emptyMap()); media.waterPaused = emptySet()
         resetWater()
         media.sleep()
         layerId = null
@@ -178,11 +178,18 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         for (k in domain) if (water.state(k) == null) water.entered(k, now, storedWater(k))
         val held = pinned.mapTo(HashSet()) { it.tileKey }
         val look = lookHalo + MediaAtlasPlacement.LOOK_REACH
+        // While the pen paints, only the pools by it run; every other pool is set aside whole, kept as it is, and may leave the
+        // atlas. With the pen up they run again, nearest first, as far as there is room (2026-10-21: the owner's crowded
+        // drawing ran every pool on the page in every frame, and ran out of room).
+        val (newlyPaused, _) = water.schedule(domain, reads, frame, held, painting = frame.isNotEmpty(), capacity = slots.capacity,
+            penX = (pen[0] + pen[2]) / 2.0, penY = (pen[1] + pen[3]) / 2.0, lookReach = look)
+        if (newlyPaused.isNotEmpty()) media.holdStill(newlyPaused.mapNotNull { k -> slots.resident(page(k))?.let { media.slotTexel(it.slot) } })
+        media.waterPaused = water.paused.toSet()
         var must = water.mustStay(domain, reads, look)
         if (now - lastSimLog > 1000) {   // measurement (2026-10-20): what the water passes draw vs what the water needs
             lastSimLog = now
             android.util.Log.i(TAG, "water: ${domain.count { slots.resident(page(it)) != null }} resident tiles in its rectangle, ${water.mustStay(domain, reads, 0).size} hold water or are within its reach, ${must.size} kept with the look; " +
-                "of the ${domain.count(water::holdsWater)} wet, ${water.stillCount(domain, now, 500)} still for 0.5 s, ${water.stillCount(domain, now, 2000)} for 2 s")
+                "of the ${domain.count(water::holdsWater)} wet, ${water.stillCount(domain, now, 500)} still for 0.5 s, ${water.stillCount(domain, now, 2000)} for 2 s; ${water.paused.size} paused")
         }
         if (MediaAtlasPlacement.fits(slots.capacity, frame + must, held)) return must
         val plan = water.plan(domain, reads, frame, held, slots.capacity, (pen[0] + pen[2]) / 2.0, (pen[1] + pen[3]) / 2.0, now, look)
@@ -219,7 +226,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
     private fun storedWater(key: Long): Boolean = paint.mediaTile(layerId!!, "w0", key, plane) != null
 
     private fun resetWater() {
-        water.reset(); waterHeld = emptySet(); media.waterSkip = emptySet(); querySlots = null; framesSinceQuery = 0
+        water.reset(); waterHeld = emptySet(); media.waterSkip = emptySet(); media.waterPaused = emptySet(); querySlots = null; framesSinceQuery = 0
     }
 
     /** The water passes' ask: after admission it is held by the water's rules; outside a frame (the Dry button), the same rules. */
@@ -541,7 +548,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
 
     /** Nothing here has anywhere to go (the layer went, or the drawing did): drop it all, unwritten (no slot written back). */
     private fun forget() {
-        layerId = null; dryPending = false; pendingStores.clear(); pendingRect = null; pinned.clear(); admitted = false; slots.clear(); media.setResidency(emptyMap())
+        layerId = null; dryPending = false; pendingStores.clear(); pendingRect = null; pinned.clear(); admitted = false; slots.clear(); media.setResidency(emptyMap()); media.waterPaused = emptySet()
         resetWater()
         media.takeDirty(); media.takeDirtyStores(); media.stopWater()
     }

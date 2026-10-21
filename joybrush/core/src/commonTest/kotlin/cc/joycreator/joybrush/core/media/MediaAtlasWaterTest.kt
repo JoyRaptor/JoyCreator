@@ -137,4 +137,38 @@ class MediaAtlasWaterTest {
         assertEquals(old.toSet(), plan.flatMap { it.keys }.toSet(), "the old pool, whole")
         assertTrue(plan.none { it.drain })
     }
+
+    @Test fun whilePaintingOnlyThePoolsByThePenRunTheRestPauseWhole() {
+        // Three pools on one row: by the pen (tiles 0-1), close by (3), far (7-8). The owner's crowded drawing ran them all.
+        val w = MediaAtlasWater()
+        val domain = block(0, 0, 9, 0)
+        w.touched(listOf(k(0, 0), k(1, 0)), 0); w.touched(listOf(k(3, 0)), 0); w.touched(listOf(k(7, 0), k(8, 0)), 0)
+        val frame = setOf(k(1, 0), k(2, 0))
+        val (paused, resumed) = w.schedule(domain, domain, frame, emptySet(), painting = true, capacity = 99, penX = 1.5 * 256, penY = 128.0)
+        assertEquals(setOf(k(7, 0), k(8, 0)), paused, "the far pool pauses, whole")
+        assertTrue(resumed.isEmpty())
+        assertEquals(setOf(k(7, 0), k(8, 0)), w.paused)
+        assertTrue(k(8, 0) !in w.mustStay(domain, block(0, 0, 4, 0)), "a paused pool need not stay")
+        // The pen lifts: everything runs again.
+        val (p2, r2) = w.schedule(domain, domain, emptySet(), emptySet(), painting = false, capacity = 99, penX = 1.5 * 256, penY = 128.0)
+        assertTrue(p2.isEmpty()); assertEquals(setOf(k(7, 0), k(8, 0)), r2); assertTrue(w.paused.isEmpty())
+    }
+
+    @Test fun withThePenUpTheNearestPoolsRunFirstAsFarAsRoomAllows() {
+        val w = MediaAtlasWater()
+        val domain = block(0, 0, 9, 0)
+        w.touched(listOf(k(0, 0)), 0); w.touched(listOf(k(4, 0)), 0); w.touched(listOf(k(8, 0)), 0)
+        // Each lone wet tile keeps itself and its neighbours: 2 or 3 tiles. Room for the two nearest the pen only.
+        w.schedule(domain, domain, emptySet(), emptySet(), painting = false, capacity = 5, penX = 10.0, penY = 128.0)
+        assertEquals(setOf(k(8, 0)), w.paused, "the farthest waits")
+        assertTrue(k(0, 0) !in w.paused && k(4, 0) !in w.paused)
+    }
+
+    @Test fun thePoolUnderThePenNeverPausesEvenShortOfRoom() {
+        val w = MediaAtlasWater()
+        val domain = block(0, 0, 9, 0)
+        w.touched(listOf(k(0, 0), k(1, 0), k(2, 0)), 0)
+        w.schedule(domain, domain, setOf(k(1, 0)), emptySet(), painting = true, capacity = 1, penX = 300.0, penY = 128.0)
+        assertTrue(w.paused.isEmpty(), "too big for the room, but it is what the pen paints: the host refuses or splits, never pauses it")
+    }
 }

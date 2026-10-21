@@ -911,13 +911,38 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         // B3: tiles the water left (a drip's dried tail, MediaAtlasWater.excluded) are not simulated, as beyond the 4 cm cap.
         // The water beside such a tile sees a wall there (zero gradient, no flow), as at the window's edge: no dry front.
         val a = atlas
-        if (a != null) { a.skip = waterSkip; a.setWalls(waterSkip); a.wallsOn = waterSkip.isNotEmpty() }
+        if (a != null) { a.skip = waterSkip + waterPaused; a.setWalls(waterSkip); a.wallsOn = waterSkip.isNotEmpty() }
         try { wetFrameInner(batch, paper, pxPerMm, wc0, substeps, evapOverride, maxWetSeconds) }
         finally { if (a != null) { a.skip = emptySet(); a.wallsOn = false } }
     }
 
     /** Tiles out of the water's simulation (Media Atlas v2 B3, set by the host): the water passes draw nothing there. */
     var waterSkip: Set<Long> = emptySet()
+
+    /**
+     * How long the frame being drawn took to come round on the clock (ms; the canvas sets it, 0 = unknown). The water runs at
+     * a fixed step whatever the phone manages, so a slow frame leaves it behind the clock; its wet age is kept in real time
+     * from this ([wetFrame]), so the older-water-dries-faster rule (WetConstants.dryAfter) means seconds on the clock.
+     */
+    var frameRealMs = 0f
+
+    /** Tiles of whole pools set aside while the pen works elsewhere (MediaAtlasWater.schedule): left exactly as they are. */
+    var waterPaused: Set<Long> = emptySet()
+
+    /**
+     * Pools just set aside keep their state exactly: both halves of every ping-pong pair get the current values at these
+     * atlas slots (texel origins), so the frames they sit out, some of an odd number of water steps (the brush-first frame
+     * takes one), cannot leave them reading a half that is a step behind when they run again.
+     */
+    fun holdStill(slotOrigins: List<Pair<Int, Int>>) {
+        val ws = wet ?: return
+        val s = MediaAtlasDraw.SIDE
+        val a = ws[wc]; val b = ws[1 - wc]
+        for ((x, y) in slotOrigins) {
+            for ((src, dst) in listOf(a.w0 to b.w0, a.w1 to b.w1, a.flux to b.flux, state[0].p0 to state[1].p0,
+                    state[0].p1 to state[1].p1, state[0].paper to state[1].paper)) blit(src, x, y, x + s, y + s, dst, x, y, x + s, y + s)
+        }
+    }
 
     private fun wetFrameInner(batch: DabBatch?, paper: MediaPaperGl, pxPerMm: Double, wc0: WetConstants, substeps: Int?,
                               evapOverride: Double?, maxWetSeconds: Double) {
@@ -966,6 +991,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         val area = (rect[2] - rect[0]).toDouble() * (rect[3] - rect[1])
         val ran = if (free && area * steps > WET_PX_STEPS) max(1, (WET_PX_STEPS / area).toInt()) else steps
         MediaPhases.timer?.invoke("wet.kpx (count)", area / 1000.0 * ran)
+        val ageScale = if (frameRealMs > 0f) (frameRealMs / 1000f / (ran * wc0.dt).toFloat()).coerceIn(1f, 60f) else 1f
         stores += WATER_WRITES
         touch(rect)
         wetSince = union(wetSince, rect)
@@ -1001,6 +1027,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
             common(pu); wetFrameUniforms.apply(pu)
             MediaUniforms.wetUpdate(pu, a.w0, a.w1, b.flux, run, src.p0, src.p1, bakeTex, waterBake, fluidBake, in0, in1,
                 if (k == 0 && useInput) 1 else 0, rect, w, h)
+            MediaUniforms.wetAgeScale(pu, ageScale)
             mediaTrace("JB.media.wet.update") { quad(rect) }
             wc = bi
         }

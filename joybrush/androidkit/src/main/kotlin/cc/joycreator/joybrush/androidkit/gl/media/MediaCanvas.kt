@@ -258,6 +258,8 @@ class MediaCanvas(
         }
         e.slope = slope
         val st = stroke
+        e.frameRealMs = if (lastFrameAt > 0L) (nowMs - lastFrameAt).coerceIn(0L, 1000L).toFloat() else 0f
+        lastFrameAt = nowMs
         // Water left lying in the window (a layer switch, a reopen, a window that was released and reloaded) starts to run
         // again when the paper tilts, not only at the next stroke. Water an undo stopped stays stopped.
         if (tilted && st == null && !e.wetActive && !e.asleep && !waterStoppedByUndo) w.wakeWater()
@@ -367,6 +369,9 @@ class MediaCanvas(
         stroke = null
         try { window?.flush() } catch (x: RuntimeException) { android.util.Log.w("JoyBrushMedia", "flush after a refused frame: ${x.message}") }
     }
+
+    /** When the last frame was drawn (ms; the water's wet-age clock, MediaLayerEngine.frameRealMs). */
+    private var lastFrameAt = 0L
 
     /** An engine whose programs are being compiled ahead (no textures yet): the next media stroke's engine takes it over. */
     private var warm: MediaLayerEngine? = null

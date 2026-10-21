@@ -34,13 +34,20 @@ class MediaAtlasWater(val quietMs: Long = 2000) {
     /** Tiles taken out of the simulation (D2: a drip's dried tail): the water passes skip them until the brush comes back. */
     val excluded: MutableSet<Long> = LinkedHashSet()
 
+    /**
+     * Tiles of whole pools set aside while the pen works elsewhere ([schedule]): their water is kept exactly as it was, not
+     * simulated, not held in the atlas, and runs on when the pen comes near or lifts. A pool is paused whole or not at all,
+     * so no water ever meets a still edge.
+     */
+    val paused: MutableSet<Long> = LinkedHashSet()
+
     fun state(key: Long): State? = tiles[key]?.state
 
     /** Where the water lies in [key] (layer px, x0 y0 x1 y1, half-open), or null when it holds none. */
     fun extent(key: Long): IntArray? = tiles[key]?.takeIf { holdsWater(key) }?.let { it.ext ?: rectOf(key) }
 
     /** The water stopped (dried, undone, layer left): forget everything. */
-    fun reset() { tiles.clear(); excluded.clear() }
+    fun reset() { tiles.clear(); excluded.clear(); paused.clear() }
 
     /**
      * A tile entered the water's domain. Water reaches a tile only from the brush ([touched]), from its own stores
@@ -130,6 +137,7 @@ class MediaAtlasWater(val quietMs: Long = 2000) {
         val readable = reads.toHashSet()
         val out = LinkedHashSet<Long>()
         for (k in domain) {
+            if (k in paused) continue   // set aside whole ([schedule]): kept in its stores, not in the atlas
             val e = extent(k) ?: continue
             out += k
             val g = grow(e, READ + MARGIN)
@@ -148,6 +156,34 @@ class MediaAtlasWater(val quietMs: Long = 2000) {
     /** [key]'s water was measured and has not flowed (nor spread) for [stillMs]. Not measured yet = not still. */
     fun still(key: Long, nowMs: Long, stillMs: Long): Boolean =
         tiles[key]?.let { it.state != State.UNKNOWN && nowMs - it.lastFlowMs >= stillMs } == true
+
+    /**
+     * Which pools run this frame (2026-10-21; the owner's crowded drawing ran every pool on the page in every frame, 0.4-0.6 s
+     * frames): while [painting], the pools within a tile of [frame] (this frame's own tiles), every other pool paused whole;
+     * with the pen up, every pool, nearest the pen first, as far as [capacity] allows (with [held] and [frame]); short of
+     * room, the farthest running pools pause, never one the frame touches. Updates [paused]; returns the tiles paused now
+     * that ran before (the host keeps their state as it is) and those running now that were paused.
+     */
+    fun schedule(domain: Collection<Long>, reads: Collection<Long>, frame: Set<Long>, held: Set<Long>, painting: Boolean,
+                 capacity: Int, penX: Double, penY: Double, lookReach: Int = 0): Pair<Set<Long>, Set<Long>> {
+        val comps = components(domain, withPaused = true)
+        val was = paused.toSet()
+        paused.clear()   // decided afresh below; [mustStay] counts what runs
+        val near = HashSet<Long>()
+        for (k in frame) for (dy in -1..1) for (dx in -1..1) near += Tiles.key(Tiles.tx(k) + dx, Tiles.ty(k) + dy)
+        val touching = comps.filter { c -> c.any { it in near } }
+        val others = comps.filter { c -> c.none { it in near } }.sortedBy { c -> c.minOf { dist(it, penX, penY) } }
+        val running = ArrayList(touching)
+        if (!painting) running += others
+        fun fits() = (frame + held + mustStay(running.flatten(), reads, lookReach)).size <= capacity
+        while (!fits() && running.size > touching.size) running.removeAt(running.size - 1)
+        val nowPaused = comps.filter { it !in running }.flatten().toSet()
+        paused.addAll(nowPaused)
+        // Pools outside [domain] (the water's rectangle) stay as they were.
+        val inDomain = domain.toHashSet()
+        for (k in was) if (k !in inDomain) paused.add(k)
+        return nowPaused.filterTo(HashSet()) { it !in was } to was.filterTo(HashSet()) { it !in paused }
+    }
 
     /** One way to make room ([plan]): dry [keys] in place; [drain] = also take them out of the simulation (D2). */
     data class Action(val keys: List<Long>, val drain: Boolean)
@@ -191,8 +227,8 @@ class MediaAtlasWater(val quietMs: Long = 2000) {
     }
 
     /** Connected groups of the tiles in [domain] that hold water (8-neighbours whose water comes within [MARGIN]), key order. */
-    fun components(domain: Collection<Long>): List<List<Long>> {
-        val water = domain.filter { holdsWater(it) }.toHashSet()
+    fun components(domain: Collection<Long>, withPaused: Boolean = false): List<List<Long>> {
+        val water = domain.filter { holdsWater(it) && (withPaused || it !in paused) }.toHashSet()
         val seen = HashSet<Long>()
         val out = ArrayList<List<Long>>()
         for (start in domain.filter { it in water }.sorted()) {

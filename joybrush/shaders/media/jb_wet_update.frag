@@ -33,6 +33,8 @@ uniform float u_edgeEvap;       // extra drying at a thin edge (× evap)
 uniform float u_dryAfterS;      // older water dries faster: from this wet age (sim s) ...
 uniform float u_dryRampS;       // ... ramping in over this long ...
 uniform float u_dryBoost;       // ... to evaporation × (1 + this); 0 = off
+uniform float u_ageScale;       // real seconds per simulated second this step (a slow phone runs the water slower than the
+                                // clock): wet age counts real time, so "older water dries faster" means older on the clock
 uniform float u_absorb;         // 1/s
 uniform float u_capMm;          // water the paper holds when saturated (mm)
 uniform float u_wick;           // capillary spread (cells²/s)
@@ -119,7 +121,7 @@ void main() {
     }
 
     bool wet = w > u_minMm;
-    if (wet) age += u_dt;
+    if (wet) age += u_dt * max(u_ageScale, 1.0);
 
     // --- dry: faster where the wet area is thin and near its edge
     // A cell with no water left (w == 0 here) is dry whatever its surroundings say: the ring below only feeds the edge

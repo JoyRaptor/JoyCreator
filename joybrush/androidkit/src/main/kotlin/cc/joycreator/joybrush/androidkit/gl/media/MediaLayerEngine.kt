@@ -957,7 +957,12 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         // further than a long drip past the paint, nor past this window (WetSpread, the tested cap).
         val rect = simRect() ?: return
         wetRect = rect
-        MediaPhases.timer?.invoke("wet.kpx (count)", ((rect[2] - rect[0]) * (rect[3] - rect[1]) / 1000.0) * steps)
+        // The atlas has no window to stop the water, so a wide wash can ask for more than the window ever drew in a frame
+        // (2026-10-21, tilted Wash on the Note 9: up to 18.9 M px-steps against the window's 4.2 M, frames of 3 s). Past
+        // that, this frame takes fewer steps: the water runs a little slower for a moment instead of the frame stalling.
+        val area = (rect[2] - rect[0]).toDouble() * (rect[3] - rect[1])
+        val ran = if (free && area * steps > WET_PX_STEPS) max(1, (WET_PX_STEPS / area).toInt()) else steps
+        MediaPhases.timer?.invoke("wet.kpx (count)", area / 1000.0 * ran)
         stores += WATER_WRITES
         touch(rect)
         wetSince = union(wetSince, rect)
@@ -974,7 +979,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         // so state[0]'s values for the ring around the rectangle are copied into state[1] once, before the first substep.
         needWater(rect, MediaAtlasPlacement.WET_REACH)
         if (steps > 1) mediaTrace("JB.media.wet.ring") { copyP0Ring(rect, ringCells(wc0, beadCells)) }
-        for (k in 0 until steps) {
+        for (k in 0 until ran) {
             val a = ws[wc]
             val bi = 1 - wc
             val b = ws[bi]
@@ -997,7 +1002,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
             wc = bi
         }
         // An odd number of substeps (the dry-now frame) leaves the result in state[1]: one copy, as every substep used to make.
-        if ((steps and 1) == 1) mediaTrace("JB.media.wet.tail") { copyRect(state[1], pFbo0, rect) }
+        if ((ran and 1) == 1) mediaTrace("JB.media.wet.tail") { copyRect(state[1], pFbo0, rect) }
         if (useInput) {
             if (inFull || inRect == null) { clearFbo(inFbo); inFull = false }
             else if (free) atlas!!.clearRect(inFbo, inRect)
@@ -1010,7 +1015,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
                 GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
             }
         }
-        wetIdle += steps * wc0.dt
+        wetIdle += ran * wc0.dt
         if (wetIdle > maxWetSeconds) dryNow(paper, pxPerMm)
     }
 
@@ -1369,6 +1374,8 @@ private val ATLAS_NBR = listOf("JB_ATLAS_NBR")
 private val ATLAS_OWN = listOf("JB_ATLAS_NBR", "JB_ATLAS_OWN")
 /** How far jb_paste_dab.frag reads (full-resolution cells): its surface taps 8 px away, read bilinearly (cells c-8 .. c+9). */
 private const val PASTE_DAB_REACH = 9
+/** The most water a frame simulates in the atlas, px x steps: what the window's 1024 px square does at 4 steps. */
+private const val WET_PX_STEPS = 4.0 * 1024 * 1024
 /** How far jb_wet_update.frag reads from its pixel (full-resolution cells): the 3-cell ring of its sizing test, and one. */
 private const val UPDATE_REACH = 4
 /** How far jb_wet_bead.frag reads, full-resolution cells: its blur's 12 half cells (24 + the half cell's two), and one. */

@@ -37,7 +37,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
 
     private val tile get() = Tiles.SIZE
     // The window's reservation already pays for these slots (the same textures): the byte budget is one unit per slot.
-    private val slots = MediaAtlasSlots(media.slotCount, 1L, media.slotCount.toLong())
+    private val slots = MediaAtlasSlots(media.slotCount, 1L, media.slotCount.toLong(), media.slotColumns)
     /** Pages held for the frame in progress (released at [flush]): a later pass of the same frame may still read them. */
     private val pinned = LinkedHashSet<MediaAtlasPage>()
     /** Load water as it comes in (a stroke) or leave it asleep (an undo reloading tiles, the Lead's rule). */
@@ -423,10 +423,21 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
             if (admitted && media.wetActive) {
                 // The water's rectangle is mostly tiles that did not change (dry, maybe not even here): the look is redone
                 // where the frame drew and where water lies (its extent), whose every read is held (MediaAtlasWater.mustStay).
+                // Water that has stopped changes its look only slowly (drying): those tiles are redone a few a frame, the rest
+                // every frame, with the ring round them that water reaching them before the next measurement could wet
+                // (2026-10-21: the look over every wet tile each frame was the atlas's largest pass on a wide wash).
                 for (r in frameDirty) writeLook(id, r, hold = false)
+                val now = nowMs()
+                val moving = waterHeld.filterTo(HashSet()) { !water.still(it, now, LOOK_STILL_MS) }
+                val near = HashSet<Long>(moving)
+                for (k in moving) for (dy in -1..1) for (dx in -1..1) near += Tiles.key(Tiles.tx(k) + dx, Tiles.ty(k) + dy)
+                val stillOnes = waterHeld.filter { it !in near }.sortedBy { lookAt[it] ?: 0L }.take(LOOK_STILL_PER_FRAME)
                 for (k in waterHeld) {
+                    if (k !in near && k !in stillOnes) continue
                     val e = water.extent(k) ?: continue
-                    if (slots.resident(page(k)) != null) writeLook(id, floatArrayOf(e[0].toFloat(), e[1].toFloat(), e[2].toFloat(), e[3].toFloat()), hold = false)
+                    if (slots.resident(page(k)) == null) continue
+                    writeLook(id, floatArrayOf(e[0].toFloat(), e[1].toFloat(), e[2].toFloat(), e[3].toFloat()), hold = false)
+                    lookAt[k] = now
                 }
             } else writeLook(id, rect)
         }
@@ -438,6 +449,9 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
     }
 
     private fun keysIn(r: FloatArray): List<Long> = tilesOf(r, 0)
+
+    /** When each water tile's look was last redone (still water is redone [LOOK_STILL_PER_FRAME] a frame, oldest first). */
+    private val lookAt = HashMap<Long, Long>()
 
     /** [hold] false: everything the look reads is known to be here already (it must not be held: the frame is admitted). */
     private fun writeLook(id: String, dirty: FloatArray, hold: Boolean = true) {
@@ -603,6 +617,9 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
          * extent stops changing (MediaAtlasWater.observe).
          */
         const val FLOW_EPS = 1.0f
+        /** Water that has not flowed for this long is still: its look is redone only [LOOK_STILL_PER_FRAME] tiles a frame. */
+        const val LOOK_STILL_MS = 500L
+        const val LOOK_STILL_PER_FRAME = 2
         /** Water deeper than this (mm) is water (WetConstants.minMm). */
         val WET_MIN_MM = cc.joycreator.joybrush.core.media.WetConstants().minMm.toFloat()
     }

@@ -1110,3 +1110,5 @@ as `TIME * knob` are "rate" and the host integrates them.
 - **Never edit the worktree while a build of it runs** (the build picks up half the change). Wait for the APK copy, or build in
   another worktree.
 - **The bench screenshot is the FIRST brush's.** Put the brush to judge first in the list.
+- **A failed build leaves the last APK in place.** `build && cp apk` still copied a stale APK when the wrapper's exit code was 0;
+  copy only after `grep -q "BUILD SUCCESSFUL"` on the build log, and delete the copy name first.

@@ -414,6 +414,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     val textureWidth: Int get() = w
     /** How many slots the atlas hands out (B2: one of them is staging). The last physical slot is the ZERO slot, never a tile's. */
     val slotCount: Int get() = (w / MediaAtlasDraw.SIDE) * (h / MediaAtlasDraw.SIDE) - 1
+    /** Slots per atlas row (MediaAtlasSlots keeps a frame's pages together by it). */
+    val slotColumns: Int get() = w / MediaAtlasDraw.SIDE
     fun slotTexel(slot: Int): Pair<Int, Int> = requireNotNull(atlas) { "not an atlas engine" }.slotTexel(slot)
     fun setResidency(map: Map<Long, Int>) { requireNotNull(atlas) { "not an atlas engine" }.setResidency(map) }
     fun toLayerPx(docX: Double, docY: Double): Pair<Float, Float> = ((docX - originX) * scale).toFloat() to ((docY - originY) * scale).toFloat()

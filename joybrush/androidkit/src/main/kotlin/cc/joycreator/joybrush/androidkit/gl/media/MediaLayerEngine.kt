@@ -465,7 +465,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     private fun full(): FloatArray { fullRect[0] = 0f; fullRect[1] = 0f; fullRect[2] = w.toFloat(); fullRect[3] = h.toFloat(); return fullRect }
 
     /** Instanced dabs: window = one draw of [batch]; atlas = each dab once per slot its box (a doc-px [reach] round its centre) touches. */
-    private fun dabs(batch: DabBatch, clip: FloatArray? = null, reach: (FloatArray, Int) -> Float) {
+    private fun dabs(batch: DabBatch, reach: (FloatArray, Int) -> Float) {
         val a = atlas
         if (a != null) {
             val box = { d: FloatArray, i: Int, out: FloatArray ->
@@ -474,7 +474,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
                 val r = reach(d, o) * scale + 2f
                 out[0] = cx - r; out[1] = cy - r; out[2] = cx + r; out[3] = cy + r
             }
-            if (free && clip != null) a.drawDabs(batch, box, clip) else a.drawDabs(batch, box)
+            a.drawDabs(batch, box)
             return
         }
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, dabBuf)
@@ -941,9 +941,11 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
             GLES30.glBlendEquation(GLES30.GL_FUNC_ADD)
             val du = progWetDab.use()
             common(du); MediaUniforms.wetDab(du, ws[wc].w0, bakeTex, w, h, pxPerMm, wc0.fullMm)
+            val clip = inRect?.takeIf { free }
+            if (clip != null) du.f4("u_dabClip", floor(clip[0]), floor(clip[1]), ceil(clip[2]), ceil(clip[3])) else du.f4("u_dabClip", 0f, 0f, 0f, 0f)
             // half-length, half-width (mm) at floats 4-5, plus the vertex shader's 0.08 mm.
             val ppm = pxPerMm.toFloat()
-            mediaTrace("JB.media.wet.input") { dabs(batch, inRect) { d, o -> (hypot(d[o + 4], d[o + 5]) + 0.1f) * ppm } }
+            mediaTrace("JB.media.wet.input") { dabs(batch) { d, o -> (hypot(d[o + 4], d[o + 5]) + 0.1f) * ppm } }
             GLES30.glDisable(GLES30.GL_BLEND)
             GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
             useInput = true

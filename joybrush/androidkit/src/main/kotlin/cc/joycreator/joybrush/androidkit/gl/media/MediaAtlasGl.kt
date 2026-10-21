@@ -252,20 +252,6 @@ internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: I
      */
     fun drawDabs(batch: DabBatch, boxOf: (FloatArray, Int, FloatArray) -> Unit) = drawDabs(batch, boxOf, slotOf)
 
-    /**
-     * [batch]'s dabs where the window build scissored them to layer-px [clip] (the wet brush input): one draw per slot,
-     * each under that slot's own scissor, its dabs in order. One scissor cannot cover slots that lie apart.
-     */
-    fun drawDabs(batch: DabBatch, boxOf: (FloatArray, Int, FloatArray) -> Unit, clip: FloatArray) {
-        forEachPart(clip) { slot, tx, ty, x0, y0, x1, y1 ->
-            val (ax, ay) = slotTexel(slot)
-            GLES30.glEnable(GLES30.GL_SCISSOR_TEST)
-            GLES30.glScissor(ax + x0 - tx * MediaAtlasDraw.SIDE, ay + y0 - ty * MediaAtlasDraw.SIDE, x1 - x0, y1 - y0)
-            drawDabs(batch, boxOf) { x, y -> if (x == tx && y == ty) slot else -1 }
-        }
-        GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
-    }
-
     private fun drawDabs(batch: DabBatch, boxOf: (FloatArray, Int, FloatArray) -> Unit, table: (Int, Int) -> Int) {
         val n = draw.dabs(batch.dabs, batch.count, nx, table) { i, out -> boxOf(batch.dabs, i, out) }
         if (n == 0) return

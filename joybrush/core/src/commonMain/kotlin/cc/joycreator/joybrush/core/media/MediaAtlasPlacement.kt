@@ -40,7 +40,7 @@ object MediaAtlasPlacement {
     const val BYTES_PER_SLOT = BYTES_PER_PX * 256 * 256
 
     /**
-     * Slot scaling (the Lead, October 18): an atlas of clamp(floor([SHARE] × [availBytes] / [BYTES_PER_SLOT]), [MIN_SLOTS], [MAX_SLOTS]) slots,
+     * Slot scaling (the Lead, October 18): an atlas of clamp(floor(([availBytes] − [RESERVE_BYTES]) / [BYTES_PER_SLOT]), [MIN_SLOTS], [MAX_SLOTS]) slots,
      * rounded down to a near-square grid (columns, rows; rows at most two more than columns), sized once when the atlas is
      * made from what the phone says is free. A Note 9 with 2.76 GB available gets 6 × 6 = 36 (517 MB): about four
      * running pools of watercolour and a frame, so D2 is a last resort, not something a normal wash meets.
@@ -53,17 +53,18 @@ object MediaAtlasPlacement {
     const val MIN_SLOTS = 24
 
     /**
-     * The share of free memory an atlas takes (2026-10-20, was 0.20): a 3.5 s watercolour scribble across the Note 9 keeps 24-27
-     * tiles of running water at once, and with 22 slots every frame dried tails early, split itself and took 0.8-2.6 s. 0.35 of
-     * the 1.58 GB free that day is 36 slots (517 MB), what the Lead sized on 10-18 for a phone with 2.76 GB free.
+     * What an atlas leaves the rest of the phone (2026-10-20, was a 0.35 share of what is free): it takes what is free beyond
+     * this. A tilted Wash on the Note 9 keeps about 40 tiles of water and what it reads at once; with the share, a day with
+     * 1.39 GB free gave 5 x 6 slots and the wash was refused, a day with 1.88 GB gave 6 x 7 and it ran (same bench, same
+     * hour). 700 MB is about half of what the Note 9 has free with a drawing open, more than twice Android's low-memory line.
      */
-    const val SHARE = 0.35
+    const val RESERVE_BYTES = 700L shl 20
 
     /** The most slots (689 MB): with plenty free the share would reach 900 MB of graphics memory, more than any stroke needs. */
     const val MAX_SLOTS = 48
 
     fun slotGrid(availBytes: Long): Pair<Int, Int> {
-        val n = (SHARE * availBytes / BYTES_PER_SLOT).toLong().coerceIn(MIN_SLOTS.toLong(), MAX_SLOTS.toLong()).toInt()
+        val n = ((availBytes - RESERVE_BYTES) / BYTES_PER_SLOT).coerceIn(MIN_SLOTS.toLong(), MAX_SLOTS.toLong()).toInt()
         val cols = kotlin.math.sqrt(n.toDouble()).toInt()
         return cols to minOf(cols + 2, n / cols)
     }

@@ -398,7 +398,7 @@ class MediaCanvas(
         warm = null
         try {
             if (atlas) {
-                // Slot scaling (MediaAtlasPlacement.slotGrid: a share of what is free, 24 to 48, near square). An atlas made again
+                // Slot scaling (MediaAtlasPlacement.slotGrid: what is free beyond a reserve for the phone, 24 to 48, near square). An atlas made again
                 // keeps at least the size it had while the phone still has room for it: sized afresh each time, it shrank as the
                 // app's own memory grew (30 -> 25 slots on the Note 9, 2026-10-20) and refused more.
                 val fresh = MediaAtlasPlacement.slotGrid(avail)

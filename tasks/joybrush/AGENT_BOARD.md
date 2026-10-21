@@ -1,5 +1,12 @@
 # Joy Brush shared agent board
 
+## Unibrush D7 — 2026-10-21 — engine verified
+
+Source8be06b4cf passes full core2629 (four optional skips) and backend1099, zero failures/errors.
+reviews/UNIBRUSH_D7_20261021.{md,json} records proof and limits. Seven engine slices verified;
+actual Lead physical publisher/activation and Note9 acceptance remain pending. Continuing D8.
+
+
 ## Unibrush D7 source — 2026-10-21 — validation queued
 
 Source 8be06b4cf is pushed to codex/unibrush and draft PR #1. It adds bounded two-pass

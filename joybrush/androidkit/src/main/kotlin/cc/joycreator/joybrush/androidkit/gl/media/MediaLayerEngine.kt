@@ -104,7 +104,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         ProgramSpec({ progBake = it }, "jb_media_quad.vert", "jb_media_bake.frag", "media bake", atlasDefs = ATLAS_NBR),
         ProgramSpec({ progWetDab = it }, "jb_wet_dab.vert", "jb_wet_dab.frag", "media wet dab"),
         ProgramSpec({ progFlux = it }, "jb_media_quad.vert", "jb_wet_flux.frag", "media wet flux", atlasDefs = ATLAS_NBR,
-            ownReach = 128 /* none until set each frame ([fluxReach]) */),
+            ownReach = 128 /* none until set each frame ([fluxReach]) */, ownDefine = "JB_ATLAS_NEAR"),
         ProgramSpec({ progUpdate = it }, "jb_media_quad.vert", "jb_wet_update.frag", "media wet update", atlasDefs = ATLAS_NBR,
             ownReach = UPDATE_REACH),
         ProgramSpec({ progPasteDab = it }, "jb_media_quad.vert", "jb_paste_dab.frag", "media paste dab", atlasDefs = ATLAS_NBR,
@@ -124,7 +124,9 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     private class ProgramSpec(val set: (MediaProgram) -> Unit, val vert: String, val frag: String, val label: String, val plain: Boolean = false,
                               /** More defines for the atlas build only (the look's JB_ATLAS_NBR). */ val atlasDefs: List<String> = emptyList(),
                               /** >= 0: how far the pass reads (full-res layer px): its tiles' insides are drawn by its OWN build. */
-                              val ownReach: Int = -1)
+                              val ownReach: Int = -1,
+                              /** The twin's define: JB_ATLAS_OWN, or JB_ATLAS_NEAR (its far reads keep the quadrant address). */
+                              val ownDefine: String = "JB_ATLAS_OWN")
 
     /** The programs compiled so far, in [programTable]'s order (what [releasePrograms] deletes). */
     private val programs = ArrayList<MediaProgram>()
@@ -138,7 +140,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         val spec = programTable.getOrNull(programs.size) ?: return false
         val defs = if (atlasMode) listOf("JB_ATLAS") + spec.atlasDefs else emptyList()
         val made = MediaProgram(shaders, "media/${spec.vert}", "media/${spec.frag}", spec.label, if (spec.plain && atlasMode) defs + "JB_PLAIN_TARGET" else defs,
-            if (atlasMode && !atlasBroken) spec.ownReach else -1)
+            if (atlasMode && !atlasBroken) spec.ownReach else -1, spec.ownDefine)
         programs += made
         spec.set(made)
         return programs.size < programTable.size
@@ -465,7 +467,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     private fun full(): FloatArray { fullRect[0] = 0f; fullRect[1] = 0f; fullRect[2] = w.toFloat(); fullRect[3] = h.toFloat(); return fullRect }
 
     /** Instanced dabs: window = one draw of [batch]; atlas = each dab once per slot its box (a doc-px [reach] round its centre) touches. */
-    private fun dabs(batch: DabBatch, reach: (FloatArray, Int) -> Float) {
+    private fun dabs(batch: DabBatch, clip: FloatArray? = null, reach: (FloatArray, Int) -> Float) {
         val a = atlas
         if (a != null) {
             val box = { d: FloatArray, i: Int, out: FloatArray ->
@@ -474,7 +476,9 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
                 val r = reach(d, o) * scale + 2f
                 out[0] = cx - r; out[1] = cy - r; out[2] = cx + r; out[3] = cy + r
             }
-            a.drawDabs(batch, box)
+            // Wet input: each slot under its own scissor. One draw clipped in the shader instead cost the tilted Wash 70 ms a
+            // frame against 10 (2026-10-20): unscissored, a blended pass makes this GPU load and store its whole target.
+            if (free && clip != null) a.drawDabs(batch, box, clip) else a.drawDabs(batch, box)
             return
         }
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, dabBuf)
@@ -941,11 +945,9 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
             GLES30.glBlendEquation(GLES30.GL_FUNC_ADD)
             val du = progWetDab.use()
             common(du); MediaUniforms.wetDab(du, ws[wc].w0, bakeTex, w, h, pxPerMm, wc0.fullMm)
-            val clip = inRect?.takeIf { free }
-            if (clip != null) du.f4("u_dabClip", floor(clip[0]), floor(clip[1]), ceil(clip[2]), ceil(clip[3])) else du.f4("u_dabClip", 0f, 0f, 0f, 0f)
             // half-length, half-width (mm) at floats 4-5, plus the vertex shader's 0.08 mm.
             val ppm = pxPerMm.toFloat()
-            mediaTrace("JB.media.wet.input") { dabs(batch) { d, o -> (hypot(d[o + 4], d[o + 5]) + 0.1f) * ppm } }
+            mediaTrace("JB.media.wet.input") { dabs(batch, inRect) { d, o -> (hypot(d[o + 4], d[o + 5]) + 0.1f) * ppm } }
             GLES30.glDisable(GLES30.GL_BLEND)
             GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
             useInput = true
@@ -982,7 +984,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
             GLES30.glViewport(0, 0, w, h)
             val fu = fluxProgram().use()
             common(fu); wetFrameUniforms.apply(fu)
-            fu.ownReach = fluxReach(wc0, beadCells, pxPerMm * scale)
+            fu.ownReach = fluxReach(wc0, beadCells)
             MediaUniforms.wetFlux(fu, bead[0], src.p0, a.w0, a.flux, bakeTex, fluidBake, waterBake, rect, w, h)
             mediaTrace("JB.media.wet.flux") { quad(rect) }
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, updFbo[bi * 2 + 1 - (k and 1)])
@@ -1020,16 +1022,12 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     }
 
     /**
-     * How far the flux pass reads from its pixel (full-resolution cells), for the part of each tile its OWN build draws
-     * (MediaAtlasGl.drawSplit). From jb_wet_flux.frag: the tilted drip taps beadAt(c + o + out1), |o| <= 2 L with
-     * L = dripGap / 2 in cells and |out1| one mm, read bilinearly at half resolution (+3 full cells); the paper slope d cells
-     * away; the bead slope (+-2, +3); the neighbours (+-1). Plus one for rounding.
+     * How far the flux pass's NEAR reads go from its pixel (full-resolution cells), for the part of each tile its NEAR build
+     * draws (MediaAtlasGl.drawSplit). From jb_wet_flux.frag: the paper slope d cells away, the bead and its slope (+-2,
+     * read bilinearly at half resolution: +3), the neighbours (+-1); plus one for rounding. The drip taps, a drip gap and a
+     * millimetre away, are jb_bilinearLSFar reads and keep the quadrant address.
      */
-    private fun fluxReach(wc0: WetConstants, beadCells: Double, cellsPerMm: Double): Int {
-        val drip = ceil(wc0.dripGap * cellsPerMm + cellsPerMm).toInt() + 3
-        val steer = max(2, (wc0.steerScale * beadCells).toInt())
-        return max(max(drip, steer), 5) + 1
-    }
+    private fun fluxReach(wc0: WetConstants, beadCells: Double): Int = max(max(2, (wc0.steerScale * beadCells).toInt()), 5) + 1
 
     /** How far beyond the rectangle the flux pass reads p0.a: one cell, or the paper-slope distance when tilted, and some margin. */
     private fun ringCells(wc0: WetConstants, beadCells: Double): Int = max(4, ceil(wc0.steerScale * beadCells).toInt() + 3)

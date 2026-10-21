@@ -154,7 +154,7 @@ highp ivec2 jb_atS(highp ivec2 q, highp int shift, out bool ok) {
     // is outside [lo, lo + 256): one unsigned compare per axis. Half-resolution fields (shift 7) sit at half the
     // full-resolution origins.
     highp int down = JB_SLOT_SHIFT - shift;
-#ifdef JB_ATLAS_OWN
+#if defined(JB_ATLAS_OWN) || defined(JB_ATLAS_NEAR)
     ok = true;
     return q + (jbO >> down);
 #else
@@ -288,6 +288,29 @@ vec4 jb_bilinearLS(sampler2D t, vec2 px, highp int shift) {
 #endif
 }
 vec4 jb_bilinearL(sampler2D t, vec2 px) { return jb_bilinearLS(t, px, JB_SLOT_SHIFT); }
+
+// jb_bilinearLS for a read that may be farther from its fragment than the pass's split reach (the flux's drip taps). In
+// the NEAR build (MediaAtlasGl.drawSplit: drawn per slot over the part of each tile its NEAR reads cannot leave) these
+// keep the quadrant address the NBR build gives every read, so they read the same texels; everywhere else it is
+// jb_bilinearLS.
+#if defined(JB_ATLAS) && defined(JB_ATLAS_NEAR)
+highp ivec2 jb_atSFar(highp ivec2 q, highp int shift) {
+    highp int down = JB_SLOT_SHIFT - shift;
+    highp uvec2 rel = uvec2((q << down) - jbLo);
+    bool sx = rel.x >= 256u, sy = rel.y >= 256u;
+    return q + ((sy ? (sx ? jbOXY : jbOY) : (sx ? jbOX : jbO)) >> down);
+}
+vec4 jb_bilinearLSFar(sampler2D t, vec2 px, highp int shift) {
+    vec2 p = px - 0.5;
+    highp ivec2 i = ivec2(floor(p));
+    vec2 f = p - vec2(i);
+    vec4 v00 = texelFetch(t, jb_atSFar(i, shift), 0), v10 = texelFetch(t, jb_atSFar(i + ivec2(1, 0), shift), 0);
+    vec4 v01 = texelFetch(t, jb_atSFar(i + ivec2(0, 1), shift), 0), v11 = texelFetch(t, jb_atSFar(i + ivec2(1, 1), shift), 0);
+    return mix(mix(v00, v10, f.x), mix(v01, v11, f.x), f.y);
+}
+#else
+vec4 jb_bilinearLSFar(sampler2D t, vec2 px, highp int shift) { return jb_bilinearLS(t, px, shift); }
+#endif
 
 // The cell under layer px [lp] for a single-texel read. The window build clamps into the window (its edge texel stands
 // for everything beyond); the atlas floors (no edge: what is not resident reads as zero).

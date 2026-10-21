@@ -211,7 +211,9 @@ internal class UniformBank(private val slots: Map<String, UniformSlot>, private 
  * only.
  */
 class MediaProgram(shaders: ShaderLibrary, vert: String, frag: String, label: String, defines: List<String> = emptyList(),
-                   /** >= 0: also build the OWN-tile twin (JB_ATLAS_OWN) for a pass reading this far ([UniformBank.own]). */ ownReach: Int = -1) {
+                   /** >= 0: also build the OWN-tile twin ([ownDefine]) for a pass reading this far ([UniformBank.own]). */ ownReach: Int = -1,
+                   /** JB_ATLAS_OWN, or JB_ATLAS_NEAR: only the reads within the reach take the own tile (jb_bilinearLSFar). */
+                   ownDefine: String = "JB_ATLAS_OWN") {
     val program = GlProgram(shaders.source(vert, defines), shaders.source(frag, defines), label)
 
     private val bank: UniformBank
@@ -231,7 +233,7 @@ class MediaProgram(shaders: ShaderLibrary, vert: String, frag: String, label: St
         }
         bank = UniformBank(slots, GlUniformSink, label)
         bank.self = this
-        if (ownReach >= 0) { bank.own = MediaProgram(shaders, vert, frag, "$label (own tile)", defines + "JB_ATLAS_OWN"); bank.ownReach = ownReach }
+        if (ownReach >= 0) { bank.own = MediaProgram(shaders, vert, frag, "$label (own tile)", defines + ownDefine); bank.ownReach = ownReach }
     }
 
     /** Makes this program current and returns its uniform bank. */

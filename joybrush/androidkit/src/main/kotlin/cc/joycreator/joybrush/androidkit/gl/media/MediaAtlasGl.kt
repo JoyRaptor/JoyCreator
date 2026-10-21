@@ -235,8 +235,20 @@ internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: I
         if (ni > 0) {
             val ou = own.use()
             u.copyInto(ou)
-            GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, ni * 32, upload.upload(draw.inner, ni * 8), GLES30.GL_STREAM_DRAW)
-            GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, ni)
+            val inner = draw.inner
+            GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, ni * 32, upload.upload(inner, ni * 8), GLES30.GL_STREAM_DRAW)
+            if (!ou.has("u_nbrSlot")) GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, ni)
+            else {
+                // The NEAR build: its far reads still need the tile's neighbours, slot by slot.
+                for (i in 0 until ni) {
+                    val tx = inner[i * 8 + 2].toInt(); val ty = inner[i * 8 + 3].toInt()
+                    neighbours(tx, ty, nbrSlots, wallsOn)
+                    nbrTile[0] = tx; nbrTile[1] = ty; ou.i2v("u_nbrTile", nbrTile); ou.i2v("u_nbrSlot", nbrSlots)
+                    for (k in 0 until 2) GLES30.glVertexAttribPointer(1 + k, 4, GLES30.GL_FLOAT, false, 32, i * 32 + k * 16)
+                    GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, 1)
+                }
+                for (k in 0 until 2) GLES30.glVertexAttribPointer(1 + k, 4, GLES30.GL_FLOAT, false, 32, k * 16)
+            }
             u.self!!.use()
             u.rebindTextures()
         }
@@ -251,6 +263,20 @@ internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: I
      * it may be generous: a copy outside its slot draws nothing (jb_outsideSlot).
      */
     fun drawDabs(batch: DabBatch, boxOf: (FloatArray, Int, FloatArray) -> Unit) = drawDabs(batch, boxOf, slotOf)
+
+    /**
+     * [batch]'s dabs where the window build scissored them to layer-px [clip] (the wet brush input): one draw per slot,
+     * each under that slot's own scissor, its dabs in order. One scissor cannot cover slots that lie apart.
+     */
+    fun drawDabs(batch: DabBatch, boxOf: (FloatArray, Int, FloatArray) -> Unit, clip: FloatArray) {
+        forEachPart(clip) { slot, tx, ty, x0, y0, x1, y1 ->
+            val (ax, ay) = slotTexel(slot)
+            GLES30.glEnable(GLES30.GL_SCISSOR_TEST)
+            GLES30.glScissor(ax + x0 - tx * MediaAtlasDraw.SIDE, ay + y0 - ty * MediaAtlasDraw.SIDE, x1 - x0, y1 - y0)
+            drawDabs(batch, boxOf) { x, y -> if (x == tx && y == ty) slot else -1 }
+        }
+        GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+    }
 
     private fun drawDabs(batch: DabBatch, boxOf: (FloatArray, Int, FloatArray) -> Unit, table: (Int, Int) -> Int) {
         val n = draw.dabs(batch.dabs, batch.count, nx, table) { i, out -> boxOf(batch.dabs, i, out) }

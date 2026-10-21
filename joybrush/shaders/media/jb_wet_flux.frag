@@ -82,6 +82,10 @@ float pinHold(ivec2 q, float s) {
 float beadAt(vec2 cell) {
     return jb_bilinearLS(u_bead, (cell + 0.5) * 0.5, 7).r;
 }
+// The same, for the drip taps up to a drip gap and a millimetre away (beyond the NEAR build's reach: jb_bilinearLSFar).
+float beadAtFar(vec2 cell) {
+    return jb_bilinearLSFar(u_bead, (cell + 0.5) * 0.5, 7).r;
+}
 vec2 beadSlope(vec2 cell) {
     return vec2(beadAt(cell + vec2(2.0, 0.0)) - beadAt(cell - vec2(2.0, 0.0)),
                 beadAt(cell + vec2(0.0, 2.0)) - beadAt(cell - vec2(0.0, 2.0))) / (4.0 * u_cellMm);
@@ -149,12 +153,12 @@ void main() {
             // the new highest point and the edge unzipped into a wide curtain.
             vec2 t = vec2(-nOut.y, nOut.x), out1 = nOut / u_cellMm;
             float L = 0.5 * u_dripGapMm / u_cellMm;
-            float e0 = wb / sz, emax = 0.0, r0 = beadAt(vec2(c) + out1), rmax = 0.0;
+            float e0 = wb / sz, emax = 0.0, r0 = beadAtFar(vec2(c) + out1), rmax = 0.0;
             for (int k = -2; k <= 2; k++) {
                 if (k == 0) continue;
                 vec2 o = t * (L * float(k));
-                emax = max(emax, beadAt(vec2(c) + o) / runSizingAt(docPx + o / u_layerScale));
-                rmax = max(rmax, beadAt(vec2(c) + o + out1));
+                emax = max(emax, beadAtFar(vec2(c) + o) / runSizingAt(docPx + o / u_layerScale));
+                rmax = max(rmax, beadAtFar(vec2(c) + o + out1));
             }
             float peak = smoothstep(-0.02, 0.02, e0 - emax);
             float pouring = smoothstep(0.01, 0.03, r0);

@@ -26,21 +26,12 @@ flat in vec4 v_i0;
 uniform vec2 u_layerOrigin;
 uniform float u_layerScale;
 uniform float u_pxPerMm;
-#ifdef JB_ATLAS
-// The simulated rectangle the dabs are clipped to (layer px, whole pixels: x0, y0, x1, y1; x1 <= x0 = no clip). The window
-// scissors to it; slots lie apart, so one scissor cannot, and per slot it was one upload and draw of every dab per tile.
-uniform vec4 u_dabClip;
-#endif
 
 layout(location = 0) out vec4 o_in0;   // Δw, ΔK rgb
 layout(location = 1) out vec4 o_in1;   // ΔS, solubility weight, -, -
 
 void main() {
     if (jb_outsideSlot()) discard;
-#ifdef JB_ATLAS
-    vec2 cl = vec2(jb_cell());
-    if (u_dabClip.z > u_dabClip.x && (cl.x < u_dabClip.x || cl.y < u_dabClip.y || cl.x >= u_dabClip.z || cl.y >= u_dabClip.w)) discard;
-#endif
     // Brush frame from the exact cell centre (not interpolated): the same bits in any slot (Media Atlas v2 B2).
     vec2 docPx = u_layerOrigin + jb_fragPx() / u_layerScale;
     vec2 rel = (docPx - v_i0.xy) / u_pxPerMm;

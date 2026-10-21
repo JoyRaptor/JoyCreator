@@ -56,11 +56,12 @@ object SampleStroke {
      */
     fun dabs(preset: BrushPreset, width: Float, height: Float, displaySize: Float,
              colors: StrokeColors = StrokeColors(0xFF000000.toInt(), 0xFFFFFFFF.toInt()),
-             sampledTips: cc.joycreator.joybrush.core.brush.SampledTipSet? = null): List<Dab> {
+             sampledTips: cc.joycreator.joybrush.core.brush.SampledTipSet? = null,
+             dualMask: cc.joycreator.joybrush.core.brush.DualMask? = null): List<Dab> {
         val size = min(preset.size.base, displaySize).coerceAtLeast(1f)
         val shown = ToolMemory.sized(preset, size, preset.opacity.base)
         if (shown.engine == ENGINE_TUFT) return tuftDabs(shown, path(width, height, inset = size / 2f + 1f).map { shown.response.apply(it) })
-        val dabber = BrushDabber(shown, SEED, colors, sampledTips)
+        val dabber = BrushDabber(shown, SEED, colors, sampledTips, dualMask)
         val placer = DabPlacer(spacing = dabber.spacing, look = dabber::look)
         val placed = placer.add(path(width, height, inset = size / 2f + 1f).map { shown.response.apply(it) })
         return Scatter.expand(placed, shown.scatter, SplitMix(SEED xor SCATTER_SALT)) { dab ->

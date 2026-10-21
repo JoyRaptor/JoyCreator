@@ -85,7 +85,7 @@ object LineSvg {
                     "stroke \"${record.id}\" uses an image tip; an outline can only follow a procedural tip"
                 brush!!.color.dynamics?.isActive == true ->
                     "stroke \"${record.id}\" varies its colour and needs image export; one SVG fill cannot preserve it"
-                brush!!.tip.quad != null || brush.tip.profile != null || brush.tip.fade != null ->
+                brush!!.tip.dual != null || brush.tip.quad != null || brush.tip.profile != null || brush.tip.fade != null ->
                     "stroke \"${record.id}\" uses Unibrush shape or softness and needs image export; this SVG outline cannot preserve it"
                 blendOf(brush.blend) == null ->
                     "stroke \"${record.id}\" uses blend \"${brush.blend}\", which this export cannot write as an SVG fill"

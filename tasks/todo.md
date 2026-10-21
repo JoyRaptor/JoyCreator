@@ -90,7 +90,8 @@ Isolated branch codex/unibrush starts at lead/layer-ops as authorized in the han
 - [x] D4 engine: seeded colour dynamics, frozen palette/codec, CPU/GPU/replay checks. Lead patch held; app/phone acceptance pending.
 - [x] D5 engine: sampled image sets, frozen archive resources, real PNG imports and CPU/GPU/replay checks.
 - [ ] D5 Lead application integration/activation, combined app and Note9 proof (held patches only).
-- [ ] D6: dual-tip masking; shader checks.
+- [x] D6 engine: seeded dual-tip masks, frozen sources, CPU/GPU/replay and resource lifecycle checks.
+- [ ] D6 Lead application integration/activation and Note9 acceptance (held adapters only).
 - [ ] D7: stroke-end taper parity; Lead integration if required.
 - [ ] D8: stabilizer suggestions/settings and exact raw-record replay; Lead record integration.
 - [ ] D9: Unibrush sheet, shape editor, modes, New brush, live preview; owner phone review.

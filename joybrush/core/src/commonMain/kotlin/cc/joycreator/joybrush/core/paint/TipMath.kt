@@ -34,12 +34,13 @@ object TipMath {
     fun coverage(dx: Float, dy: Float, radiusPx: Float, angle: Float, tip: TipShape): Float {
         if (tip.quad?.let { QuadMath.prepare(it).empty } == true) return 0f
         val g = Geometry(radiusPx, angle, tip)
+        fun dual(coverage: Float): Float = if (tip.dual == null) coverage else g.dualCoverage(dx, dy, coverage)
         val imageCoverage = if (tip.sampled != null) g.imageCoverage(dx, dy) else 1f
         if (imageCoverage <= 0f) return 0f
         // A PNG defines its own silhouette. Only an explicitly chosen profile/quad masks it.
         if (tip.sampled != null && tip.quad == null && tip.profile == null) {
             val result = imageCoverage * g.fade
-            return if (tip.fadeAmount > 0f) result * g.directionalFade(dx, dy, tip.fadeAmount, tip.fadeAngle) else result
+            return dual(if (tip.fadeAmount > 0f) result * g.directionalFade(dx, dy, tip.fadeAmount, tip.fadeAngle) else result)
         }
         val d = g.d(dx, dy)
         // fwidth(d) exactly as the GPU forms it: forward differences one pixel along x and y.
@@ -55,8 +56,8 @@ object TipMath {
         val mix = tip.profileMix.coerceIn(0f, 1f)
         val cov = if (mix > 0f) first + (radial(tip.profileB) - first) * mix else first
         val legacy = cov * g.fade * imageCoverage
-        if (!(tip.fadeAmount > 0f)) return legacy
-        return legacy * g.directionalFade(dx, dy, tip.fadeAmount, tip.fadeAngle)
+        if (!(tip.fadeAmount > 0f)) return dual(legacy)
+        return dual(legacy * g.directionalFade(dx, dy, tip.fadeAmount, tip.fadeAngle))
     }
 
     /** The tip's normalised superellipse distance field (the part of jb_tipCoverage before antialiasing). */
@@ -97,6 +98,14 @@ object TipMath {
             val along = (qy / hy * .5f + .5f).coerceIn(0f, 1f)
             val widthScale = max(1f - tip.taper.coerceIn(0f, 1f) * along, 1e-3f)
             return checkNotNull(tip.sampled).mask.sample(qx / (hx * widthScale), qy / hy)
+        }
+
+        fun dualCoverage(dx: Float, dy: Float, coverage: Float): Float {
+            val qx = c * dx + s * dy + shift
+            val qy = -s * dx + c * dy
+            val along = (qy / hy * .5f + .5f).coerceIn(0f, 1f)
+            val widthScale = max(1f - tip.taper.coerceIn(0f, 1f) * along, 1e-3f)
+            return checkNotNull(tip.dual).apply(coverage, qx / (hx * widthScale), qy / hy)
         }
 
         fun directionalFade(dx: Float, dy: Float, amount: Float, angle: Float): Float {

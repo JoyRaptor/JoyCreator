@@ -191,7 +191,7 @@ object FrozenBrushAssets {
         ?: refuse("Frozen image manifest needs an integer")
     private fun checkSetPixels(brush: BrushPreset, refs: List<Ref>) {
         val byPath = refs.associateBy { it.path }
-        val ordered = brush.tip.sampled?.images ?: refs.map { it.path }
+        val ordered = BrushAssetPaths.ordered(brush)
         need(ordered.sumOf { path -> byPath.getValue(path).let { it.width.toLong() * it.height } } <= MAX_SET_PIXELS,
             "Frozen sampled set exceeds its ordered image pixel budget")
     }

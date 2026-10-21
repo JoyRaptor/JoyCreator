@@ -2,6 +2,7 @@
 // Coverage times flow only; the caller supplies either cap or carried colour.
 // Texture reads stay behind uniform branches so implicit derivatives are valid.
 #include "jb_sample.glsl"
+#include "jb_dual.glsl"
 #include "jb_grain.glsl"
 #include "jb_paper.glsl"
 #include "jb_tile_paper.glsl"
@@ -55,7 +56,7 @@ float jb_contactCoverage() {
     float tilt = live ? v_pen.y : u_tiltAmount;
     vec2 lean = live ? v_pen.zw : u_leanDir;
     vec2 dabOffset = v_offset;
-    if (u_sampleEnabled != 0 && v_sample.x > 0.5) {
+    if ((u_sampleEnabled != 0 && v_sample.x > 0.5) || u_dualMode != 0) {
         // Rasterizers snap quad vertices to a subpixel grid. Reconstruct image coordinates from
         // the target pixel centre so those vertex roundings cannot shift sharp native texels.
         float scale = u_scale > 0.0 ? u_scale : 1.0;
@@ -64,6 +65,7 @@ float jb_contactCoverage() {
     vec2 contactOffset = dabOffset + (live ? v_pen.x : 0.0) * v_radius * vec2(cos(v_angle), sin(v_angle));
     JbTip t = JbTip(v_radius, v_angle, aspect, u_corner, u_taper, hardness, u_minPx);
     float tipCov = jb_sampledTipCoverage(contactOffset, t, v_fade.x, v_fade.y, v_quad01, v_quad23, v_quadMeta);
+    tipCov = jb_dualTipCoverage(tipCov, contactOffset, t);
     float d = tipCov * v_flow;
 
     bool tipOn = u_tipGrainPitchPx > 0.0;

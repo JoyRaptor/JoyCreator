@@ -36,7 +36,7 @@ class StampPassUniformsParityTest {
 
     private class Rec : UniformSink {
         val values = TreeMap<String, String>()
-        val units = IntArray(4) { -1 }
+        val units = IntArray(5) { -1 }
         private val names = HashMap<Int, String>()
         fun loc(name: String): Int = name.hashCode().also { names[it] = name }
         private fun put(loc: Int, v: String) { values[names.getValue(loc)] = v }
@@ -49,7 +49,7 @@ class StampPassUniformsParityTest {
         override fun bindTexture(unit: Int, tex: Int) { units[unit] = tex }
         fun snapshot(exclude: Set<String> = emptySet()): String =
             values.filterKeys { it !in exclude }.entries.joinToString("\n") { "${it.key} = ${it.value}" } +
-                "\nunits=" + units.mapIndexed { i, v -> if (i == 3 && "u_sampleEnabled" in exclude) -1 else v }.joinToString(",")
+                "\nunits=" + units.mapIndexed { i, v -> if ((i == 3 && "u_sampleEnabled" in exclude) || (i == 4 && "u_dualMode" in exclude)) -1 else v }.joinToString(",")
     }
 
     /** Grain pictures: every asset loads to a stable id except the ones named missing. */
@@ -242,11 +242,13 @@ class StampPassUniformsParityTest {
                 val dabs = dabsOf(rnd)
                 legacy.addDabsUniforms(old, 256, dabs)
                 pass.setStrokeUniforms(new, new::loc, look, dabs[dabs.size - 1], 256, 1f)
-                assertEquals(old.snapshot(), new.snapshot(exclude = setOf("u_scale", "u_tipProfile", "u_tipProfileB", "u_stampBaseColor", "u_sampleEnabled", "u_sampleMasks")), "stroke $stroke: uniforms and pictures")
+                assertEquals(old.snapshot(), new.snapshot(exclude = setOf("u_scale", "u_tipProfile", "u_tipProfileB", "u_stampBaseColor", "u_sampleEnabled", "u_sampleMasks", "u_dualMode", "u_dualMask", "u_dualInvPeriod")), "stroke $stroke: uniforms and pictures")
                 assertEquals("1f ${1f.toRawBits()}", new.values["u_scale"], "the live path draws at scale 1")
                 assertEquals("1i 0", new.values["u_tipProfile"], "legacy strokes reset the profile mode")
                 assertEquals("1i 0", new.values["u_tipProfileB"], "legacy strokes reset the second profile mode")
                 assertEquals("1i 0", new.values["u_sampleEnabled"], "legacy strokes reset image sampling")
+                assertEquals("1i 0", new.values["u_dualMode"], "legacy strokes reset dual coverage")
+                assertEquals(grains.placeholder,new.units[4])
                 assertEquals(grains.placeholder, new.units[3], "the disabled image sampler never borrows a render target")
                 assertEquals(floats(legacy.fillInstances(dabs)), floats(pass.pack(dabs, look)), "stroke $stroke: instance floats")
                 batches++
@@ -265,6 +267,6 @@ class StampPassUniformsParityTest {
         control.addDabsUniforms(c1, 256, dabs)
         pass.setStrokeUniforms(c2, c2::loc, pass.lookFor(tip, grain, null, null, null, RectPx(1, 2, 3, 4), null), dabs[0], 256, 1f)
         assertEquals("1i 0", c2.values["u_tipProfile"], "the legacy control resets the profile mode")
-        assertNotEquals(c1.snapshot(), c2.snapshot(exclude = setOf("u_scale", "u_tipProfile", "u_tipProfileB", "u_stampBaseColor", "u_sampleEnabled", "u_sampleMasks")), "the comparison sees a changed uniform")
+        assertNotEquals(c1.snapshot(), c2.snapshot(exclude = setOf("u_scale", "u_tipProfile", "u_tipProfileB", "u_stampBaseColor", "u_sampleEnabled", "u_sampleMasks", "u_dualMode", "u_dualMask", "u_dualInvPeriod")), "the comparison sees a changed uniform")
     }
 }

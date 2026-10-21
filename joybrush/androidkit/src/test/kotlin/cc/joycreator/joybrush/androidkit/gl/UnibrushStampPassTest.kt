@@ -272,4 +272,29 @@ class UnibrushStampPassTest {
         pass.setStrokeUniforms(gl,gl::loc,look(pass),Dab(1f,2f,3f),256,1f)
         assertEquals(listOf(0f,0f,0f),gl.triples["u_stampBaseColor"])
     }
+
+    @Test fun dualMaskNeedsItsOwnBindingResetsOnLegacyAndAddsNoInstanceFloats() {
+        val pass=StampPass(Grains()); val gl=Rec()
+        val mask=cc.joycreator.joybrush.core.brush.DualTips.bake(
+            cc.joycreator.joybrush.core.brush.DualTipSpec(),23)
+        val tip=TipShape(dual=mask)
+        val stroke=pass.lookFor(tip,GrainMath.StrokeGrain(GrainMath.GrainUniforms.OFF,GrainMath.GrainUniforms.OFF),
+            null,null,null,null,null,dualBinding=DualMaskBinding(mask,41))
+        val dab=Dab(1f,2f,3f,dual=mask)
+        pass.setStrokeUniforms(gl,gl::loc,stroke,dab,256,1f)
+        assertEquals(1,gl.integers["u_dualMode"])
+        assertEquals(4,gl.integers["u_dualMask"])
+        assertEquals(41,gl.textures[4]); assertEquals(1f/mask.period,gl.scalars["u_dualInvPeriod"])
+        assertEquals(17,pass.packForDraw(listOf(dab),stroke).limit())
+        assertFailsWith<IllegalStateException> {
+            pass.setStrokeUniforms(gl,gl::loc,look(pass,tip),dab,256,1f)
+        }
+        val other=cc.joycreator.joybrush.core.brush.DualTips.bake(
+            cc.joycreator.joybrush.core.brush.DualTipSpec(),24)
+        assertFailsWith<IllegalStateException> {
+            pass.setStrokeUniforms(gl,gl::loc,stroke,dab.copy(dual=other),256,1f)
+        }
+        pass.setStrokeUniforms(gl,gl::loc,look(pass),Dab(1f,2f,3f),256,1f)
+        assertEquals(0,gl.integers["u_dualMode"]); assertEquals(7,gl.textures[4])
+    }
 }

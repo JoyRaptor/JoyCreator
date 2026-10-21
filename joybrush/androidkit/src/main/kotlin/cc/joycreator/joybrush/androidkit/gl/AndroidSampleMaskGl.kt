@@ -19,7 +19,7 @@ class AndroidSampleMaskGl : SampleMaskGl {
         if (error != GLES30.GL_NO_ERROR) throw BrushException("$operation failed with GL error $error")
     }
 
-    override fun uploadR8(texture: Int, width: Int, height: Int, bytes: ByteArray, contextCurrent: () -> Boolean) {
+    override fun uploadR8(texture: Int, width: Int, height: Int, bytes: ByteArray, repeat: Boolean, contextCurrent: () -> Boolean) {
         if (width <= 0 || height <= 0 || width.toLong() * height != bytes.size.toLong())
             throw BrushException("R8 upload needs exactly one byte for each atlas pixel")
         val upload = ByteBuffer.allocateDirect(bytes.size).order(ByteOrder.nativeOrder())
@@ -41,8 +41,9 @@ class AndroidSampleMaskGl : SampleMaskGl {
                 GLES30.GL_RED, GLES30.GL_UNSIGNED_BYTE, upload)
             GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_LINEAR)
             GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_LINEAR)
-            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE)
-            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_T, GLES30.GL_CLAMP_TO_EDGE)
+            val wrap = if (repeat) GLES30.GL_REPEAT else GLES30.GL_CLAMP_TO_EDGE
+            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, wrap)
+            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_T, wrap)
             checkError("sampled-tip R8 storage")
         } finally {
             if (contextCurrent()) {

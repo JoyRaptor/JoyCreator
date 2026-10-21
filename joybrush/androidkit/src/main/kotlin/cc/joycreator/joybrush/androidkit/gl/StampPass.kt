@@ -66,6 +66,7 @@ internal class StampPass(private val grains: GrainSource) {
         val baseColor: ColorDab = ColorDab(0f, 0f, 0f),
         val sampledSet: SampledTipSet? = null,
         val sampledBinding: SampledAtlasBinding? = null,
+        val dualBinding: DualMaskBinding? = null,
     )
 
     /**
@@ -83,6 +84,7 @@ internal class StampPass(private val grains: GrainSource) {
         baseColor: ColorDab = ColorDab(0f, 0f, 0f),
         sampledSet: SampledTipSet? = tip.sampled?.set,
         sampledBinding: SampledAtlasBinding? = null,
+        dualBinding: DualMaskBinding? = null,
     ): StrokeLook {
         // A grain whose picture is missing is drawn as OFF: a missing picture must never read as "paint
         // everywhere". The picture is bound per batch in addDabs, but resolved here, once per stroke.
@@ -113,6 +115,7 @@ internal class StampPass(private val grains: GrainSource) {
             baseColor = baseColor,
             sampledSet = sampledSet,
             sampledBinding = sampledBinding,
+            dualBinding = dualBinding,
         )
     }
 
@@ -138,6 +141,15 @@ internal class StampPass(private val grains: GrainSource) {
         gl.uniform1i(loc("u_sampleEnabled"), if (binding != null) 1 else 0)
         gl.uniform1i(loc("u_sampleMasks"), 3)
         gl.bindTexture(3, binding?.texture ?: grains.placeholder)
+        val dual = newest.dual ?: look.tip.dual
+        val dualBinding = look.dualBinding
+        check((dual == null && dualBinding == null) || (dual != null && dualBinding?.mask === dual)) {
+            "Dual stamps need the matching prepared frozen mask"
+        }
+        gl.uniform1i(loc("u_dualMode"), dual?.mode?.code ?: 0)
+        gl.uniform1f(loc("u_dualInvPeriod"), dual?.let { 1f / it.period } ?: 0f)
+        gl.uniform1i(loc("u_dualMask"), 4)
+        gl.bindTexture(4, dualBinding?.texture ?: grains.placeholder)
         if (binding != null) for (i in 0 until binding.size) {
             val rect = binding.rect(i)
             gl.uniform4f(loc("u_sampleRects[$i]"), rect.u0, rect.v0, rect.u1, rect.v1)
@@ -321,6 +333,11 @@ internal class StampPass(private val grains: GrainSource) {
      * the stamp VAO and the target, and set the stroke uniforms ([setStrokeUniforms]) for this batch.
      */
     fun drawInto(gl: UniformSink, loc: (String) -> Int, look: StrokeLook, vbo: Int, originDocX: Float, originDocY: Float, list: List<Dab>) {
+        val dual = list.lastOrNull()?.dual ?: look.tip.dual
+        check(list.all { (it.dual ?: look.tip.dual) === dual } &&
+            ((dual == null && look.dualBinding == null) || (dual != null && look.dualBinding?.mask === dual))) {
+            "A dual batch must use one matching prepared frozen mask"
+        }
         val profile = list.lastOrNull()?.profile ?: look.tip.profile
         require(list.all { (it.profile ?: look.tip.profile) == profile }) { "A stamp batch must use one radial profile" }
         val profileB = list.lastOrNull()?.let { if (it.quad != null) it.profileB else look.tip.profileB }

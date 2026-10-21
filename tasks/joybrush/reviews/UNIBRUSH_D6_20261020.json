@@ -1,0 +1,942 @@
+{
+  "pass": true,
+  "compiled": [
+    "production stamp",
+    "production shared smudge",
+    "guarded dual bypass/flow-order/pixel-centre controls"
+  ],
+  "tolerance": 0.00784313725490196,
+  "controlThreshold": 0.01568627450980392,
+  "probeConvention": "even/even fragment centres; actual CPU forward derivatives; both MRT attachments RGBA8",
+  "parity": {
+    "cases": 24,
+    "failedCases": 0,
+    "channelProbes": 196608,
+    "max": 0.00510185050980394,
+    "rms": 0.0003680478983901705
+  },
+  "cases": [
+    {
+      "name": "shape-mode1-variant0",
+      "max": 0.0034633025882352952,
+      "rms": 0.0003081837503850502,
+      "probes": 8192,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 26,
+        "y": 38,
+        "attachment": 0,
+        "channel": 3,
+        "gpu": 0.1411764705882353,
+        "cpu": 0.137713168
+      }
+    },
+    {
+      "name": "shape-mode1-variant1",
+      "max": 0.001966848210098038,
+      "rms": 0.0001759935404198069,
+      "probes": 8192,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 28,
+        "y": 46,
+        "attachment": 1,
+        "channel": 0,
+        "gpu": 0.00784313725490196,
+        "cpu": 0.009809985464999999
+      }
+    },
+    {
+      "name": "shape-mode1-variant2",
+      "max": 0.0028497236078431354,
+      "rms": 0.0005743697925646571,
+      "probes": 8192,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 30,
+        "y": 36,
+        "attachment": 0,
+        "channel": 0,
+        "gpu": 0.17254901960784313,
+        "cpu": 0.169699296
+      }
+    },
+    {
+      "name": "shape-mode1-variant3",
+      "max": 0.0023428328081568604,
+      "rms": 0.00023008961475310958,
+      "probes": 8192,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 34,
+        "y": 28,
+        "attachment": 1,
+        "channel": 2,
+        "gpu": 0.027450980392156862,
+        "cpu": 0.025108147584000002
+      }
+    },
+    {
+      "name": "shape-mode2-variant0",
+      "max": 0.0026244458039215157,
+      "rms": 0.0002476186962072202,
+      "probes": 8192,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 28,
+        "y": 38,
+        "attachment": 0,
+        "channel": 3,
+        "gpu": 0.28627450980392155,
+        "cpu": 0.28365006400000004
+      }
+    },
+    {
+      "name": "shape-mode2-variant1",
+      "max": 0.0019435216715686238,
+      "rms": 0.000196335488382245,
+      "probes": 8192,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 30,
+        "y": 48,
+        "attachment": 0,
+        "channel": 0,
+        "gpu": 0.07450980392156863,
+        "cpu": 0.07256628225
+      }
+    },
+    {
+      "name": "shape-mode2-variant2",
+      "max": 0.0042948723199999995,
+      "rms": 0.0005220814885101172,
+      "probes": 8192,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 30,
+        "y": 36,
+        "attachment": 0,
+        "channel": 3,
+        "gpu": 0,
+        "cpu": 0.0042948723199999995
+      }
+    },
+    {
+      "name": "shape-mode2-variant3",
+      "max": 0.0019541207843137287,
+      "rms": 0.00020578500450381735,
+      "probes": 8192,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 24,
+        "y": 30,
+        "attachment": 0,
+        "channel": 3,
+        "gpu": 0.2549019607843137,
+        "cpu": 0.25294784
+      }
+    },
+    {
+      "name": "shape-mode3-variant0",
+      "max": 0.00194039525709804,
+      "rms": 0.0003018757310132155,
+      "probes": 8192,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 36,
+        "y": 28,
+        "attachment": 1,
+        "channel": 1,
+        "gpu": 0.00784313725490196,
+        "cpu": 0.009783532512
+      }
+    },
+    {
+      "name": "shape-mode3-variant1",
+      "max": 0.0021744031960784227,
+      "rms": 0.00017181407366968635,
+      "probes": 8192,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 28,
+        "y": 46,
+        "attachment": 0,
+        "channel": 3,
+        "gpu": 0.08627450980392157,
+        "cpu": 0.08844891299999999
+      }
+    },
+    {
+      "name": "shape-mode3-variant2",
+      "max": 0.00510185050980394,
+      "rms": 0.0005782935670225113,
+      "probes": 8192,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 24,
+        "y": 46,
+        "attachment": 0,
+        "channel": 3,
+        "gpu": 0.1843137254901961,
+        "cpu": 0.18941557600000003
+      }
+    },
+    {
+      "name": "shape-mode3-variant3",
+      "max": 0.0019902629019607765,
+      "rms": 0.00023053360706221538,
+      "probes": 8192,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 32,
+        "y": 28,
+        "attachment": 0,
+        "channel": 3,
+        "gpu": 0.24313725490196078,
+        "cpu": 0.241146992
+      }
+    },
+    {
+      "name": "image-mode1-variant0",
+      "max": 0.0020080100392156908,
+      "rms": 0.00033616683282616637,
+      "probes": 8192,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 32,
+        "y": 28,
+        "attachment": 0,
+        "channel": 3,
+        "gpu": 0.2627450980392157,
+        "cpu": 0.260737088
+      }
+    },
+    {
+      "name": "image-mode1-variant1",
+      "max": 0.001962111754901961,
+      "rms": 0.00022875101495225321,
+      "probes": 8192,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 14,
+        "y": 28,
+        "attachment": 0,
+        "channel": 3,
+        "gpu": 0.00784313725490196,
+        "cpu": 0.0058810254999999995
+      }
+    },
+    {
+      "name": "image-mode1-variant2",
+      "max": 0.002085687231372535,
+      "rms": 0.000682186933818361,
+      "probes": 8192,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 38,
+        "y": 12,
+        "attachment": 0,
+        "channel": 0,
+        "gpu": 0.09019607843137255,
+        "cpu": 0.08811039120000001
+      }
+    },
+    {
+      "name": "image-mode1-variant3",
+      "max": 0.00195598853960784,
+      "rms": 0.0002449640504929012,
+      "probes": 8192,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 34,
+        "y": 28,
+        "attachment": 1,
+        "channel": 1,
+        "gpu": 0.03137254901960784,
+        "cpu": 0.029416560480000003
+      }
+    },
+    {
+      "name": "image-mode2-variant0",
+      "max": 0.002219058785882355,
+      "rms": 0.0002519474685467519,
+      "probes": 8192,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 32,
+        "y": 24,
+        "attachment": 1,
+        "channel": 2,
+        "gpu": 0.12941176470588237,
+        "cpu": 0.12719270592
+      }
+    },
+    {
+      "name": "image-mode2-variant1",
+      "max": 0.0019600837352941186,
+      "rms": 0.00019215632153788092,
+      "probes": 8192,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 20,
+        "y": 40,
+        "attachment": 0,
+        "channel": 3,
+        "gpu": 0.023529411764705882,
+        "cpu": 0.0254894955
+      }
+    },
+    {
+      "name": "image-mode2-variant2",
+      "max": 0.0024099837647058794,
+      "rms": 0.00048815238684779875,
+      "probes": 8192,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 48,
+        "y": 18,
+        "attachment": 0,
+        "channel": 3,
+        "gpu": 0.023529411764705882,
+        "cpu": 0.021119428000000003
+      }
+    },
+    {
+      "name": "image-mode2-variant3",
+      "max": 0.001996513411764704,
+      "rms": 0.00015055374151478566,
+      "probes": 8192,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 30,
+        "y": 34,
+        "attachment": 0,
+        "channel": 3,
+        "gpu": 0.058823529411764705,
+        "cpu": 0.056827016
+      }
+    },
+    {
+      "name": "image-mode3-variant0",
+      "max": 0.002084060705882365,
+      "rms": 0.0003698084941870152,
+      "probes": 8192,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 30,
+        "y": 20,
+        "attachment": 0,
+        "channel": 3,
+        "gpu": 0.07058823529411765,
+        "cpu": 0.07267229600000001
+      }
+    },
+    {
+      "name": "image-mode3-variant1",
+      "max": 0.0019568754405490194,
+      "rms": 0.0002285850050795248,
+      "probes": 8192,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 22,
+        "y": 44,
+        "attachment": 1,
+        "channel": 2,
+        "gpu": 0.00392156862745098,
+        "cpu": 0.005878444068
+      }
+    },
+    {
+      "name": "image-mode3-variant2",
+      "max": 0.0022595433568627366,
+      "rms": 0.0007019933094370918,
+      "probes": 8192,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 22,
+        "y": 52,
+        "attachment": 0,
+        "channel": 0,
+        "gpu": 0.050980392156862744,
+        "cpu": 0.04872084880000001
+      }
+    },
+    {
+      "name": "image-mode3-variant3",
+      "max": 0.0020119995011764757,
+      "rms": 0.00029213954786224815,
+      "probes": 8192,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 30,
+        "y": 30,
+        "attachment": 1,
+        "channel": 1,
+        "gpu": 0.09411764705882353,
+        "cpu": 0.09612964656
+      }
+    }
+  ],
+  "controls": {
+    "wrongOff": {
+      "relevantCases": 24,
+      "detectedCases": 24,
+      "max": 0.6745098039215687,
+      "witnesses": [
+        {
+          "name": "shape-mode1-variant0",
+          "pixels": 60,
+          "max": 0.6745098039215687
+        },
+        {
+          "name": "shape-mode1-variant1",
+          "pixels": 38,
+          "max": 0.23137254901960785
+        },
+        {
+          "name": "shape-mode1-variant2",
+          "pixels": 252,
+          "max": 0.6745098039215687
+        },
+        {
+          "name": "shape-mode1-variant3",
+          "pixels": 31,
+          "max": 0.25882352941176473
+        },
+        {
+          "name": "shape-mode2-variant0",
+          "pixels": 68,
+          "max": 0.6509803921568628
+        },
+        {
+          "name": "shape-mode2-variant1",
+          "pixels": 29,
+          "max": 0.24313725490196078
+        },
+        {
+          "name": "shape-mode2-variant2",
+          "pixels": 306,
+          "max": 0.5764705882352941
+        },
+        {
+          "name": "shape-mode2-variant3",
+          "pixels": 33,
+          "max": 0.32941176470588235
+        },
+        {
+          "name": "shape-mode3-variant0",
+          "pixels": 55,
+          "max": 0.6745098039215687
+        },
+        {
+          "name": "shape-mode3-variant1",
+          "pixels": 36,
+          "max": 0.23137254901960785
+        },
+        {
+          "name": "shape-mode3-variant2",
+          "pixels": 229,
+          "max": 0.6745098039215687
+        },
+        {
+          "name": "shape-mode3-variant3",
+          "pixels": 28,
+          "max": 0.25882352941176473
+        },
+        {
+          "name": "image-mode1-variant0",
+          "pixels": 113,
+          "max": 0.6627450980392157
+        },
+        {
+          "name": "image-mode1-variant1",
+          "pixels": 60,
+          "max": 0.23137254901960785
+        },
+        {
+          "name": "image-mode1-variant2",
+          "pixels": 501,
+          "max": 0.6545274975215687
+        },
+        {
+          "name": "image-mode1-variant3",
+          "pixels": 58,
+          "max": 0.25111625421176476
+        },
+        {
+          "name": "image-mode2-variant0",
+          "pixels": 96,
+          "max": 0.6150790361568628
+        },
+        {
+          "name": "image-mode2-variant1",
+          "pixels": 47,
+          "max": 0.24313725490196078
+        },
+        {
+          "name": "image-mode2-variant2",
+          "pixels": 456,
+          "max": 0.5363435472156862
+        },
+        {
+          "name": "image-mode2-variant3",
+          "pixels": 49,
+          "max": 0.31774897190588236
+        },
+        {
+          "name": "image-mode3-variant0",
+          "pixels": 59,
+          "max": 0.6627450980392157
+        },
+        {
+          "name": "image-mode3-variant1",
+          "pixels": 34,
+          "max": 0.23137254901960785
+        },
+        {
+          "name": "image-mode3-variant2",
+          "pixels": 224,
+          "max": 0.6507424559215687
+        },
+        {
+          "name": "image-mode3-variant3",
+          "pixels": 20,
+          "max": 0.25098039215686274
+        }
+      ],
+      "required": true
+    },
+    "wrongMode": {
+      "relevantCases": 24,
+      "detectedCases": 24,
+      "max": 0.6745098039215687,
+      "witnesses": [
+        {
+          "name": "shape-mode1-variant0",
+          "pixels": 120,
+          "max": 0.6745098039215687
+        },
+        {
+          "name": "shape-mode1-variant1",
+          "pixels": 63,
+          "max": 0.24317159999999996
+        },
+        {
+          "name": "shape-mode1-variant2",
+          "pixels": 522,
+          "max": 0.6745098039215687
+        },
+        {
+          "name": "shape-mode1-variant3",
+          "pixels": 61,
+          "max": 0.330758688
+        },
+        {
+          "name": "shape-mode2-variant0",
+          "pixels": 123,
+          "max": 0.6731414400000001
+        },
+        {
+          "name": "shape-mode2-variant1",
+          "pixels": 62,
+          "max": 0.24313725490196078
+        },
+        {
+          "name": "shape-mode2-variant2",
+          "pixels": 526,
+          "max": 0.672596928
+        },
+        {
+          "name": "shape-mode2-variant3",
+          "pixels": 61,
+          "max": 0.32941176470588235
+        },
+        {
+          "name": "shape-mode3-variant0",
+          "pixels": 7,
+          "max": 0.1374545934117647
+        },
+        {
+          "name": "shape-mode3-variant1",
+          "pixels": 4,
+          "max": 0.05315479535294117
+        },
+        {
+          "name": "shape-mode3-variant2",
+          "pixels": 31,
+          "max": 0.19212526996078433
+        },
+        {
+          "name": "shape-mode3-variant3",
+          "pixels": 3,
+          "max": 0.1263852494117647
+        },
+        {
+          "name": "image-mode1-variant0",
+          "pixels": 96,
+          "max": 0.6627450980392157
+        },
+        {
+          "name": "image-mode1-variant1",
+          "pixels": 51,
+          "max": 0.23137254901960785
+        },
+        {
+          "name": "image-mode1-variant2",
+          "pixels": 431,
+          "max": 0.6431372549019608
+        },
+        {
+          "name": "image-mode1-variant3",
+          "pixels": 46,
+          "max": 0.25098039215686274
+        },
+        {
+          "name": "image-mode2-variant0",
+          "pixels": 119,
+          "max": 0.6642750720000001
+        },
+        {
+          "name": "image-mode2-variant1",
+          "pixels": 59,
+          "max": 0.24313725490196078
+        },
+        {
+          "name": "image-mode2-variant2",
+          "pixels": 511,
+          "max": 0.6425925600000001
+        },
+        {
+          "name": "image-mode2-variant3",
+          "pixels": 61,
+          "max": 0.3176470588235294
+        },
+        {
+          "name": "image-mode3-variant0",
+          "pixels": 85,
+          "max": 0.19415057098039218
+        },
+        {
+          "name": "image-mode3-variant1",
+          "pixels": 43,
+          "max": 0.07462941833333332
+        },
+        {
+          "name": "image-mode3-variant2",
+          "pixels": 418,
+          "max": 0.19825404486274512
+        },
+        {
+          "name": "image-mode3-variant3",
+          "pixels": 46,
+          "max": 0.18576256266666671
+        }
+      ],
+      "required": true
+    },
+    "wrongPeriod": {
+      "relevantCases": 24,
+      "detectedCases": 24,
+      "max": 0.6745098039215687,
+      "witnesses": [
+        {
+          "name": "shape-mode1-variant0",
+          "pixels": 61,
+          "max": 0.6745098039215687
+        },
+        {
+          "name": "shape-mode1-variant1",
+          "pixels": 33,
+          "max": 0.23137254901960785
+        },
+        {
+          "name": "shape-mode1-variant2",
+          "pixels": 286,
+          "max": 0.6470588235294118
+        },
+        {
+          "name": "shape-mode1-variant3",
+          "pixels": 32,
+          "max": 0.307451888
+        },
+        {
+          "name": "shape-mode2-variant0",
+          "pixels": 60,
+          "max": 0.6731414400000001
+        },
+        {
+          "name": "shape-mode2-variant1",
+          "pixels": 32,
+          "max": 0.23280362
+        },
+        {
+          "name": "shape-mode2-variant2",
+          "pixels": 274,
+          "max": 0.6489864000000001
+        },
+        {
+          "name": "shape-mode2-variant3",
+          "pixels": 30,
+          "max": 0.3058823529411765
+        },
+        {
+          "name": "shape-mode3-variant0",
+          "pixels": 57,
+          "max": 0.6745098039215687
+        },
+        {
+          "name": "shape-mode3-variant1",
+          "pixels": 32,
+          "max": 0.23137254901960785
+        },
+        {
+          "name": "shape-mode3-variant2",
+          "pixels": 275,
+          "max": 0.6470588235294118
+        },
+        {
+          "name": "shape-mode3-variant3",
+          "pixels": 30,
+          "max": 0.307451888
+        },
+        {
+          "name": "image-mode1-variant0",
+          "pixels": 84,
+          "max": 0.39126570400000005
+        },
+        {
+          "name": "image-mode1-variant1",
+          "pixels": 36,
+          "max": 0.17556451256764705
+        },
+        {
+          "name": "image-mode1-variant2",
+          "pixels": 334,
+          "max": 0.36877918400000004
+        },
+        {
+          "name": "image-mode1-variant3",
+          "pixels": 36,
+          "max": 0.193695176
+        },
+        {
+          "name": "image-mode2-variant0",
+          "pixels": 75,
+          "max": 0.5019607843137255
+        },
+        {
+          "name": "image-mode2-variant1",
+          "pixels": 43,
+          "max": 0.1955976225
+        },
+        {
+          "name": "image-mode2-variant2",
+          "pixels": 306,
+          "max": 0.5294117647058824
+        },
+        {
+          "name": "image-mode2-variant3",
+          "pixels": 31,
+          "max": 0.24313725490196078
+        },
+        {
+          "name": "image-mode3-variant0",
+          "pixels": 73,
+          "max": 0.5007919200000001
+        },
+        {
+          "name": "image-mode3-variant1",
+          "pixels": 43,
+          "max": 0.19516610525980393
+        },
+        {
+          "name": "image-mode3-variant2",
+          "pixels": 305,
+          "max": 0.5288191999999999
+        },
+        {
+          "name": "image-mode3-variant3",
+          "pixels": 31,
+          "max": 0.241146992
+        }
+      ],
+      "required": true
+    },
+    "wrongClamp": {
+      "relevantCases": 6,
+      "detectedCases": 6,
+      "max": 0.32606370400000007,
+      "witnesses": [
+        {
+          "name": "shape-mode1-variant2",
+          "pixels": 189,
+          "max": 0.32606370400000007
+        },
+        {
+          "name": "shape-mode2-variant2",
+          "pixels": 186,
+          "max": 0.3254901960784314
+        },
+        {
+          "name": "shape-mode3-variant2",
+          "pixels": 188,
+          "max": 0.32606370400000007
+        },
+        {
+          "name": "image-mode1-variant2",
+          "pixels": 179,
+          "max": 0.22424492674509805
+        },
+        {
+          "name": "image-mode2-variant2",
+          "pixels": 154,
+          "max": 0.3058823529411765
+        },
+        {
+          "name": "image-mode3-variant2",
+          "pixels": 153,
+          "max": 0.3064558608627452
+        }
+      ],
+      "required": true
+    },
+    "wrongFlowOrder": {
+      "relevantCases": 16,
+      "detectedCases": 14,
+      "max": 0.15046589249999998,
+      "witnesses": [
+        {
+          "name": "shape-mode2-variant0",
+          "pixels": 1,
+          "max": 0.05792255200000001
+        },
+        {
+          "name": "shape-mode2-variant1",
+          "pixels": 2,
+          "max": 0.0553250215
+        },
+        {
+          "name": "shape-mode2-variant2",
+          "pixels": 5,
+          "max": 0.06673377207843138
+        },
+        {
+          "name": "shape-mode3-variant0",
+          "pixels": 1,
+          "max": 0.05625053176470585
+        },
+        {
+          "name": "shape-mode3-variant1",
+          "pixels": 2,
+          "max": 0.056649126215686296
+        },
+        {
+          "name": "shape-mode3-variant2",
+          "pixels": 5,
+          "max": 0.06756140345098038
+        },
+        {
+          "name": "image-mode2-variant0",
+          "pixels": 28,
+          "max": 0.09430359482352942
+        },
+        {
+          "name": "image-mode2-variant1",
+          "pixels": 20,
+          "max": 0.15046589249999998
+        },
+        {
+          "name": "image-mode2-variant2",
+          "pixels": 110,
+          "max": 0.10265610274509804
+        },
+        {
+          "name": "image-mode2-variant3",
+          "pixels": 4,
+          "max": 0.04363571303529412
+        },
+        {
+          "name": "image-mode3-variant0",
+          "pixels": 29,
+          "max": 0.09691089254901958
+        },
+        {
+          "name": "image-mode3-variant1",
+          "pixels": 20,
+          "max": 0.14903482501960785
+        },
+        {
+          "name": "image-mode3-variant2",
+          "pixels": 110,
+          "max": 0.10521694745098042
+        },
+        {
+          "name": "image-mode3-variant3",
+          "pixels": 4,
+          "max": 0.045511547764705895
+        }
+      ],
+      "required": true
+    },
+    "interpolatedPixels": {
+      "relevantCases": 12,
+      "detectedCases": 2,
+      "max": 0.02919814582352942,
+      "witnesses": [
+        {
+          "name": "shape-mode2-variant1",
+          "pixels": 1,
+          "max": 0.02787404110784314
+        },
+        {
+          "name": "shape-mode3-variant1",
+          "pixels": 1,
+          "max": 0.02919814582352942
+        }
+      ],
+      "required": false
+    }
+  },
+  "legacyDisabledDifferingBytes": 0,
+  "transport": {
+    "pass": true,
+    "dabs": 3,
+    "differingByAttachment": [
+      0,
+      0
+    ],
+    "wrongOffsetDifferingBytes": {
+      "sample": 2590,
+      "fade": 3434,
+      "quad": 4442,
+      "rgb": 1765
+    },
+    "wrongDrawOrderBytes": 634,
+    "coveredPixels": 767,
+    "layout": "17n prefix + 2n fade + 12n quad + 4n RGB + 4n sample; dual uniform texture4; identical MRT draw order"
+  }
+}

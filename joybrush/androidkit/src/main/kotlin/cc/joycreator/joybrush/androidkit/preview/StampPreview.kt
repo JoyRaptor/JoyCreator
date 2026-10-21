@@ -41,8 +41,9 @@ object StampPreview {
 
     fun build(shown: BrushPreset, samples: List<PenSample>,
               colors: StrokeColors = StrokeColors(0xFF000000.toInt(), 0xFFFFFFFF.toInt()),
-              sampledTips: cc.joycreator.joybrush.core.brush.SampledTipSet? = null): Prepared {
-        val dabber = BrushDabber(shown, CannedStroke.SEED, colors, sampledTips)
+              sampledTips: cc.joycreator.joybrush.core.brush.SampledTipSet? = null,
+              dualMask: cc.joycreator.joybrush.core.brush.DualMask? = null): Prepared {
+        val dabber = BrushDabber(shown, CannedStroke.SEED, colors, sampledTips, dualMask)
         val placer = DabPlacer(spacing = dabber.spacing, look = dabber::look)
         val placed = placer.add(samples.map { shown.response.apply(it) })
         val dabs = Scatter.expand(placed, shown.scatter, SplitMix(CannedStroke.SEED xor CannedStroke.SCATTER_SALT)) { dab ->
@@ -59,6 +60,7 @@ object StampPreview {
                 aspect = shown.tip.aspect, corner = shown.tip.corner, taper = shown.tip.taper,
                 hardness = dabber.strokeHardness, minPx = shown.tip.minPx,
                 sampled = dabs.firstOrNull()?.sampled,
+                dual = dabs.firstOrNull()?.dual,
             ),
             grain = dabber.strokeGrain,
             accumulate = accumulateOf(shown),

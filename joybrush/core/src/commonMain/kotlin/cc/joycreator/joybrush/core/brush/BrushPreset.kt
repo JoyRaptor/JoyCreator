@@ -61,6 +61,8 @@ import kotlinx.serialization.ExperimentalSerializationApi
     /** v16: resolved from immutable PNG resources; absence preserves the legacy tip. */
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val sampled: SampledTipSpec? = null,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val dual: DualTipSpec? = null,
 )
 
 /** Paper grain image/scale are ignored since JB-9.03: the document paper decides (R10 P4).

@@ -11,6 +11,7 @@ import java.util.zip.CRC32
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
@@ -109,7 +110,8 @@ class SampledMaskTexturesTest {
         val binds = mutableListOf<Pair<Int, Int>>()
         override fun maxTextureSize() = max
         override fun genTexture(): Int { val texture = next++; generated.add(texture); return texture }
-        override fun uploadR8(texture: Int, width: Int, height: Int, bytes: ByteArray, contextCurrent: () -> Boolean) {
+        override fun uploadR8(texture: Int, width: Int, height: Int, bytes: ByteArray, repeat: Boolean, contextCurrent: () -> Boolean) {
+            assertFalse(repeat, "Sampled atlas and placeholder uploads must retain clamp mode")
             assertTrue(contextCurrent()); uploads.add(Triple(texture, width to height, bytes.copyOf()))
             afterUpload?.invoke()
             if (failUpload) throw BrushException("injected upload failure")

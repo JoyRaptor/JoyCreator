@@ -30,7 +30,12 @@ import kotlin.math.max
  * drawing, in order.
  */
 class BrushDabber(val preset: BrushPreset, seed: Long, colors: StrokeColors? = null,
-                  sampledTips: SampledTipSet? = null) {
+                  sampledTips: SampledTipSet? = null, dualMask: DualMask? = null) {
+
+    private val dual = preset.tip.dual?.let { recipe ->
+        dualMask?.takeIf { it.matches(recipe, seed) }
+            ?: throw BrushException("The dual tip needs its prepared frozen mask and stroke seed")
+    }
 
     private val samples = preset.tip.sampled?.let { spec ->
         sampledTips?.takeIf { it.matches(spec) }
@@ -184,6 +189,7 @@ class BrushDabber(val preset: BrushPreset, seed: Long, colors: StrokeColors? = n
             profile = quadSpec?.a?.profile ?: preset.tip.profile,
             profileB = quadSpec?.b?.let { it.profile ?: preset.tip.profile }, profileMix = morph,
             quad = quadSpec?.let { TipQuads.interpolate(it.a, it.b, morph) },
+            dual = dual,
             fadeAmount = fadeAmount, fadeAngle = fadeAngle,
             aspect = quadAspect ?: dynamicAspect ?: Float.NaN,
             anchor = preset.tip.anchorDynamics?.let { unit(Dynamics.eval(it, inputs), 0f) } ?: Float.NaN,

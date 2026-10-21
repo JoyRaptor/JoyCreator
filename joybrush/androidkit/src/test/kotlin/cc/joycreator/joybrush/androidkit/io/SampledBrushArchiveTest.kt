@@ -64,6 +64,21 @@ class SampledBrushArchiveTest {
         assertFalse(a.second.contentEquals(b.second))
     }
 
+    @Test fun aProceduralPrimaryStillArchivesAndRestoresItsDualImage() {
+        val original=contents()
+        val id=original.brushes.keys.single()
+        val pen=original.brushes.getValue(id)
+        val c=original.copy(brushes=mapOf(id to pen.copy(tip=pen.tip.copy(sampled=null,
+            dual=DualTipSpec(shape=null,image=DualImageSpec("tips/one.png",invert=true))))))
+        val loaded=JbArchive.read(ByteArrayInputStream(encoded(c)))
+        assertNull(loaded.brushes.getValue(id).tip.sampled)
+        assertEquals(c.brushes.getValue(id).tip.dual,loaded.brushes.getValue(id).tip.dual)
+        assertContentEquals(c.brushAssets.getValue(id).requirePng("tips/one.png"),
+            loaded.brushAssets.getValue(id).requirePng("tips/one.png"))
+        assertContentEquals(encoded(loaded).let { entries(it).single { FrozenBrushAssets.isBlobEntry(it.first) }.second },
+            c.brushAssets.getValue(id).requirePng("tips/one.png"))
+    }
+
     @Test fun missingCorruptExtraAndMismatchedAssetsRefuseOnRealArchiveRead() {
         val original = entries(encoded(contents()))
         val blob = original.single { FrozenBrushAssets.isBlobEntry(it.first) }

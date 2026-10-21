@@ -112,6 +112,12 @@ object BrushValidate {
         // 6/7 — the tip's shape limits.
         if (p.tip.taper !in 0f..1f) out += "tip.taper ${p.tip.taper} is outside 0..1"
         if (p.tip.aspect !in -1f..1f) out += "tip.aspect ${p.tip.aspect} is outside -1..1"
+        p.tip.dual?.let { dual ->
+            out += DualTips.problems(dual)
+            if (p.engine != "stamp") out += "Dual tips need engine stamp"
+            if (p.line != null) out += "This build cannot combine stroke-end shaping with dual tips"
+            if (p.tip.source != "procedural" && p.tip.sampled == null) out += "Dual tips need a procedural or resolved sampled primary tip"
+        }
         p.tip.sampled?.let { sampled ->
             out += SampledTips.problems(sampled)
             if (p.engine != "stamp") out += "Sampled tip sets need engine stamp"

@@ -1,0 +1,501 @@
+--- a/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/gl/GlPaintEngine.kt
++++ b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/gl/GlPaintEngine.kt
+@@ -251,37 +251,52 @@
+     /** The grain pictures (JB-1.05c): loaded on first use, dropped on a context loss. */
+     private val grains = GrainTextures()
+     // GL-thread owner; the UI keeps its own independent CPU resolver.
+-    private val sampledResolver = SampledTipResolver()
++    private val stampTipResolver = StampTipResolver()
+     private val sampledMasks = SampledMaskTextures(AndroidSampleMaskGl(), { physicalContextEpoch })
+     private var sampledBinding: SampledAtlasBinding? = null
+-
+-    private fun resolveRecordedSamples(preset: BrushPreset,
+-        pngs: cc.joycreator.joybrush.core.brush.FrozenBrushPngs?) = sampledResolver.resolve(preset, pngs)
++    private val dualMasks = DualMaskTextures(AndroidSampleMaskGl(), { physicalContextEpoch })
++    private var dualBinding: DualMaskBinding? = null
++
++    private fun resolveRecordedTips(preset: BrushPreset,
++        pngs: cc.joycreator.joybrush.core.brush.FrozenBrushPngs?, seed: Long) =
++        stampTipResolver.resolve(preset, pngs, seed)
+
+     private fun publishedBrushPngs(id: String): cc.joycreator.joybrush.core.brush.FrozenBrushPngs? =
+         (publishedPaint?.recorded ?: recordedScene?.snapshotState())?.brushAssets?.get(id)
+
+-    private fun endSampledMasks() {
+-        val binding = sampledBinding
+-        sampledBinding = null
+-        // Drop the live UI-owned decoded set at stroke end; the recorded resolver
+-        // independently retains at most its own last bounded decoded set.
+-        if (look.sampledSet != null || look.tip.sampled != null) {
++    private fun endStampTipMasks() {
++        val atlas = sampledBinding
++        val dual = dualBinding
++        sampledBinding = null; dualBinding = null
++        // Drop live decoded sources and the seed-specific bake before retiring their GL names.
++        if (look.sampledSet != null || look.tip.sampled != null || look.tip.dual != null || look.dualBinding != null) {
+             val previous = look
+-            look = StampPass.StrokeLook(previous.tip.copy(sampled = null), previous.grain,
++            look = StampPass.StrokeLook(previous.tip.copy(sampled = null, dual = null), previous.grain,
+                 previous.tipGrainTex, previous.paperGrainTex, previous.surface, previous.paperScale,
+                 previous.paperResponse, previous.paperInfluence, previous.tilePaperRect,
+                 previous.fluidTexture, previous.baseColor)
+         }
+-        if (binding != null) sampledMasks.end(binding)
+-    }
+-
+-    /** CPU resource inventory is separate from the mutable render-tile budget. */
++        var failure: Throwable? = null
++        fun cleanup(action: () -> kotlin.Unit) {
++            try { action() } catch (error: Throwable) {
++                val first = failure
++                if (first == null) failure = error else if (first !== error) first.addSuppressed(error)
++            }
++        }
++        if (atlas != null) cleanup { sampledMasks.end(atlas) }
++        if (dual != null) cleanup { dualMasks.end(dual) }
++        failure?.let { throw it }
++    }
++
++    /** Conservative stamp resources; mutable tile bytes remain a separate budget family. */
+     internal fun heldSampledResourceBytes(): Pair<Long, Long> =
+-        (sampledResolver.heldMaskBytes() + (look.sampledSet?.let { set ->
++        (stampTipResolver.heldMaskBytes() + (look.sampledSet?.let { set ->
+             (0 until set.size).sumOf { set.mask(it).width.toLong() * set.mask(it).height }
+-        } ?: 0L)) to
+-        (sampledBinding?.let { it.width.toLong() * it.height } ?: 0L)
++        } ?: 0L) + (look.tip.dual?.let { it.width.toLong() * it.height } ?: 0L)) to
++        ((sampledBinding?.let { it.width.toLong() * it.height } ?: 0L) +
++            // Include a failed-retirement name after end/cancel too. Charging the placeholder
++            // at a full mask is conservative and keeps this owner inventory authoritative.
++            dualMasks.heldTextureHandles().size.toLong() * DualMaskTextures.SIDE * DualMaskTextures.SIDE)
+
+     private val paperBackground = PaperBackground(shaders)
+     private var resolvedPaper: ResolvedPaper? = null
+@@ -732,6 +747,7 @@
+         GLES30.glTexSubImage2D(GLES30.GL_TEXTURE_2D, 0, 0, 0, 1, 1, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, white)
+         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
+         sampledMasks.create()
++        dualMasks.create()
+         grains.create()
+     }
+
+@@ -773,9 +789,10 @@
+         // a layer, so nothing is released twice and nothing is left pointing at a dead name.
+         // Dead stroke names are abandoned, not returned to a pool that can trim/delete them.
+         strokeTiles.clear()
+-        sampledBinding = null
++        sampledBinding = null; dualBinding = null
+         sampledMasks.forget()
+-        sampledResolver.clear()
++        dualMasks.forget()
++        stampTipResolver.clear()
+         stampColors.abandonContext() // dead names never meet replacement-context deletes
+         cancelStroke()
+         layers.clear()
+@@ -837,8 +854,14 @@
+         GLES30.glDeleteVertexArrays(4, intArrayOf(dabVao, tileVao, smudgeVao, tuftVao), 0)
+         GLES30.glDeleteFramebuffers(3, intArrayOf(fbo, readFbo, copyFbo), 0)
+         wcPass?.release(); wcPass = null
+-        sampledMasks.release()
+-        sampledResolver.clear()
++        var tipRetirementFailure: Throwable? = null
++        try { sampledMasks.release() } catch (error: Throwable) { tipRetirementFailure = error }
++        try { dualMasks.release() } catch (error: Throwable) {
++            val first = tipRetirementFailure
++            if (first == null) tipRetirementFailure = error else if (first !== error) first.addSuppressed(error)
++        }
++        stampTipResolver.clear()
++        tipRetirementFailure?.let { throw it }
+         grains.release()
+         compositor.release()
+         boardCompositor.release()
+@@ -2314,7 +2337,7 @@
+      * GPU's own preconditions for a line ([prepareRecordedLine]) must hold. Pure checks, nothing is rendered.
+      */
+     private fun lineReplayRefusal(record: StrokeRecord, preset: BrushPreset?): String? {
+-        if (preset?.tip?.sampled != null) return "picture lines need the resource-bearing recorded scene"
++        if (preset?.tip?.sampled != null || preset?.tip?.dual != null) return "picture and dual lines need the resource-bearing recorded scene"
+         InkReplay.refusal(record, preset)?.let { return it }
+         val p = preset ?: return "no brush"
+         if (BrushValidate.validate(p).isNotEmpty()) return "its frozen brush is not valid"
+@@ -2910,14 +2933,18 @@
+      * The returned RGBA8 units include stroke opacity once and retain the brush's operator separately.
+      * Caller owns every returned texture until it is committed or discarded. Final cel clipping is the composer's job.
+      */
+-    internal fun prepareRecordedLine(layerId: String, record: StrokeRecord, preset: BrushPreset): RecordedLineUnit =
+-        prepareRecordedLine(layerId, record, preset, null,
+-            resolveRecordedSamples(preset, publishedBrushPngs(record.brushId)))
++    internal fun prepareRecordedLine(layerId: String, record: StrokeRecord, preset: BrushPreset): RecordedLineUnit {
++        require(preset.tip.sampled == null && preset.tip.dual == null) {
++            "Picture and dual recipes need the resource-bearing recorded callback"
++        }
++        return prepareRecordedLine(layerId, record, preset, null,
++            resolveRecordedTips(preset, publishedBrushPngs(record.brushId), record.seed))
++    }
+
+     /** Only the same synchronous admission call may supply its already transcribed recipe. */
+     private fun prepareRecordedLine(layerId: String, record: StrokeRecord, preset: BrushPreset,
+                                     admittedReplay: InkReplay.Replayed?,
+-                                    samples: cc.joycreator.joybrush.core.brush.SampledTipSet?): RecordedLineUnit {
++                                    tips: cc.joycreator.joybrush.core.brush.StampTipResources): RecordedLineUnit {
+         recordedLinePreparationCalls++
+         check(ready) { "The drawing context is not ready for recorded replay" }
+         check(!strokeInProgress && !wcFading) { "Finish the current stroke before replaying a line" }
+@@ -2928,13 +2955,16 @@
+         require(BrushValidate.validate(preset).isEmpty()) { "This frozen brush cannot be replayed" }
+         require(preset.engine == "stamp" || preset.engine == ENGINE_WATERCOLOUR) { "This line engine is not connected to GPU replay yet" }
+         require(preset.engine != "stamp" || preset.tip.source == "procedural" ||
+-            (preset.tip.sampled != null && samples?.matches(preset.tip.sampled) == true)) {
++            (preset.tip.sampled?.let { tips.sampled?.matches(it) } == true)) {
+             "Image replay needs the complete frozen sampled-tip set"
+         }
+         require(preset.line == null) { "Whole-stroke shaping is not connected to live recording yet" }
+         require(preset.blend in setOf("normal", "erase", "behind", "multiply", "screen")) { "This line operator is not connected to GPU composition yet" }
+         require(paperWarnings.isEmpty()) { "Recorded replay needs the document's actual paper resources" }
+-        val replay = admittedReplay ?: InkReplay.replay(record, preset, samples)
++        require(preset.tip.dual?.let { tips.dual?.matches(it, record.seed) == true } ?: true) {
++            "Recorded dual replay needs its exact frozen recipe and stroke seed"
++        }
++        val replay = admittedReplay ?: InkReplay.replay(record, preset, tips.sampled, tips.dual)
+         // Older grain brushes used the newest contact of each native event batch as a uniform.
+         // Raw samples alone do not retain those batch boundaries, so varying legacy pose cannot
+         // be transcribed as one draw without changing the grain. Modern contacts carry it per dab.
+@@ -2949,7 +2979,8 @@
+             }
+         }
+         val tip = TipShape(aspect = preset.tip.aspect, corner = preset.tip.corner, taper = preset.tip.taper,
+-            hardness = replay.strokeHardness, minPx = preset.tip.minPx, sampled = replay.dabs.firstOrNull()?.sampled)
++            hardness = replay.strokeHardness, minPx = preset.tip.minPx, sampled = replay.dabs.firstOrNull()?.sampled,
++            dual = replay.dabs.firstOrNull()?.dual)
+         val targets = LinkedHashMap<Long, Int>()
+         val physical = physicalContextEpoch
+         // Free RGBA8 pool entries are intentionally available as fresh replay outputs.
+@@ -3061,20 +3092,25 @@
+     }
+
+     /** Diagnostic profile only. No Scene, live input, save or recovery capability is granted. */
+-    private fun capturedRecipeLease(layerId: String, input: StrokeRecord, preset: BrushPreset): CapturedRecipeLease =
+-        capturedRecipeLease(layerId, input, preset, null, null, resolveRecordedSamples(preset, publishedBrushPngs(input.brushId)))
++    private fun capturedRecipeLease(layerId: String, input: StrokeRecord, preset: BrushPreset): CapturedRecipeLease {
++        require(preset.tip.sampled == null && preset.tip.dual == null) {
++            "Picture and dual capture need the resource-bearing recorded callback"
++        }
++        return capturedRecipeLease(layerId, input, preset, null, null,
++            resolveRecordedTips(preset, publishedBrushPngs(input.brushId), input.seed))
++    }
+
+     private fun capturedRecipeLease(layerId: String, input: StrokeRecord, preset: BrushPreset,
+                                     residentPlanes: Map<Pair<String, String?>, RecordedCel<Int>>?,
+                                     workingTileBudgetBytes: Long?,
+-                                    samples: cc.joycreator.joybrush.core.brush.SampledTipSet?): CapturedRecipeLease {
++                                    tips: cc.joycreator.joybrush.core.brush.StampTipResources): CapturedRecipeLease {
+         val record = cc.joycreator.joybrush.core.stroke.CapturedStrokeRules.snapshot(input)
+         require(record.capturedPhysicalSource != null &&
+             cc.joycreator.joybrush.core.stroke.CapturedStrokeRules.problems(record).isEmpty()) { "Invalid captured recipe" }
+         require(record.brushId == preset.id && BrushValidate.validate(preset).isEmpty()) { "Captured diagnostic needs its valid frozen brush" }
+         require(preset.engine == "stamp" || preset.engine == ENGINE_WATERCOLOUR) { "Unsupported captured diagnostic engine" }
+         require((preset.engine != "stamp" || preset.tip.source == "procedural" ||
+-            (preset.tip.sampled != null && samples?.matches(preset.tip.sampled) == true)) && preset.line == null) {
++            (preset.tip.sampled?.let { tips.sampled?.matches(it) } == true)) && preset.line == null) {
+             "Captured diagnostic needs its complete unshaped recipe and frozen image set"
+         }
+         require(workingTileBudgetBytes != null || (record.samples.size in 1..64 && record.samples.all { kotlin.math.abs(it.x) <= 4096f && kotlin.math.abs(it.y) <= 4096f } &&
+@@ -3108,12 +3144,15 @@
+         // Private evaluate-recipe boundary. All recipe/sample bits are retained. The temporary
+         // ordinary view never enters source/history/archive or escapes as a captured appearance.
+         val recipe = record.copy(capturedPhysicalSource = null)
++        require(preset.tip.dual?.let { tips.dual?.matches(it, recipe.seed) == true } ?: true) {
++            "Captured dual replay needs its exact frozen recipe and stroke seed"
++        }
+         // This CPU admission uses the SAME dab generator and tile allocator geometry as replay.
+         // It bounds even WC's own size/dynamics/scatter before the first source GPU allocation.
+         // Reuse this exact admitted descriptor for GPU replay. Retained CPU history is not bounded here.
+         val footprint = workingTileBudgetBytes?.let { RecordedReplayTilePlan.Accumulator(replayTileLimit(it), size) }
+-        val replay = if (footprint == null) InkReplay.replay(recipe, preset, samples)
+-            else InkReplay.replayAdmitted(recipe, preset, samples, footprint::add)
++        val replay = if (footprint == null) InkReplay.replay(recipe, preset, tips.sampled, tips.dual)
++            else InkReplay.replayAdmitted(recipe, preset, tips.sampled, tips.dual, footprint::add)
+         val admittedKeys = footprint?.snapshot() ?: capturedDiagnosticSourceKeys(replay.dabs)
+         val limits = if (workingTileBudgetBytes == null)
+             cc.joycreator.joybrush.core.stroke.CapturedSourceCopyPlan.Limits()
+@@ -3136,7 +3175,7 @@
+         val priorStaged = recordedWorkingTiles.snapshot(physical).keys
+         var cleanupProtected = protectedRecordedTextureHandles() + priorStaged
+         val discardName = IntArray(1)
+-        val unit = prepareRecordedLine(layerId, recipe, preset, replay, samples)
++        val unit = prepareRecordedLine(layerId, recipe, preset, replay, tips)
+         var handedOff = false
+         fun current() = ready && !forgettingGraphicsContext && physicalContextEpoch == physical && graphicsEpoch == graphics
+         try {
+@@ -3787,7 +3826,7 @@
+         check(owners.map { it.address }.toSet().size == owners.size) { "Duplicate cold owner address" }
+         val forbidden = buildSet {
+             addAll(undo.heldTextures()); addAll(freeLayerTex); addAll(freeStrokeTex)
+-            addAll(freeSmudgeTex); addAll(freeFloatTex); addAll(strokeTiles.values); addAll(stampColors.heldTextureHandles()); addAll(sampledMasks.heldTextureHandles())
++            addAll(freeSmudgeTex); addAll(freeFloatTex); addAll(strokeTiles.values); addAll(stampColors.heldTextureHandles()); addAll(sampledMasks.heldTextureHandles()); addAll(dualMasks.heldTextureHandles())
+             for (layer in layers.values) {
+                 addAll(layer.projected.values); addAll(layer.visibleProjection?.values.orEmpty())
+                 layer.mask?.let { addAll(it.projected.values); addAll(it.visibleProjection?.values.orEmpty()) }
+@@ -3845,7 +3884,7 @@
+             layer.mask?.let { addAll(it.ownedTextures()); addAll(it.visibleProjection?.values.orEmpty()) }
+         }
+         addAll(strokeTiles.values)
+-        addAll(stampColors.heldTextureHandles()); addAll(sampledMasks.heldTextureHandles())
++        addAll(stampColors.heldTextureHandles()); addAll(sampledMasks.heldTextureHandles()); addAll(dualMasks.heldTextureHandles())
+         mediaStroke?.forEach { change -> change.before?.let(::add); change.after?.let(::add) }
+         addAll(undo.heldTextures())
+         addAll(recordedScene?.heldCacheTextures().orEmpty())
+@@ -4172,6 +4211,7 @@
+         strokeTiles.values.forEach(::nonbase)
+         stampColors.heldTextureHandles().forEach(::nonbase)
+         sampledMasks.heldTextureHandles().forEach(::nonbase)
++        dualMasks.heldTextureHandles().forEach(::nonbase)
+         mediaStroke?.forEach { change -> change.before?.let(::nonbase); change.after?.let(::nonbase) }
+         cursor.undoSteps.forEach { step ->
+             step.changes.forEach { it.before?.let(::nonbase) }; step.slabs.forEach { it.before?.texture?.let(::nonbase) }
+@@ -4318,22 +4358,22 @@
+                 check(contextCurrent()) { "Recorded renderer context changed before line replay" }
+                 // This callback receives the CANDIDATE scene's immutable resources, including
+                 // newly frozen images that have not been published into the old root.
+-                val samples = resolveRecordedSamples(preset, pngs)
++                val tips = resolveRecordedTips(preset, pngs, record.seed)
+                 val priorStaged = stagedBeforeCallback()
+                 var admittedKeys: Set<Long>? = null
+                 val rendered = if (record.capturedPhysicalSource == null) {
+                     var admittedReplay: InkReplay.Replayed? = null
+                     if (capturedWorkingTileBudgetBytes != null) {
+                         val footprint = RecordedReplayTilePlan.Accumulator(replayTileLimit(capturedWorkingTileBudgetBytes), size)
+-                        admittedReplay = InkReplay.replayAdmitted(record, preset, samples, footprint::add)
++                        admittedReplay = InkReplay.replayAdmitted(record, preset, tips.sampled, tips.dual, footprint::add)
+                         val keys = footprint.snapshot()
+                         admittedKeys = keys
+                         admitPeak(RecordedWorkingTilePlan.replay(keys.size, tileSize = size))
+                     }
+-                    prepareRecordedLine(address.layerId, record, preset, admittedReplay, samples)
++                    prepareRecordedLine(address.layerId, record, preset, admittedReplay, tips)
+                 } else {
+                     checkNotNull(capturedWorkingTileBudgetBytes) { "Captured source replay needs explicit admission" }
+-                    val lease = capturedRecipeLease(address.layerId, record, preset, planes, capturedWorkingTileBudgetBytes, samples)
++                    val lease = capturedRecipeLease(address.layerId, record, preset, planes, capturedWorkingTileBudgetBytes, tips)
+                     var placed: RecordedLineUnit? = null
+                     try {
+                         val result = copyCapturedRecipe(lease, CapturedCopyMetrics())
+@@ -4439,7 +4479,8 @@
+                     record.brushId == preset.id && BrushValidate.validate(preset).isEmpty() &&
+                     preset.blend == "normal" && preset.line == null &&
+                     (preset.engine == ENGINE_WATERCOLOUR || (preset.engine == "stamp" &&
+-                        (preset.tip.source == "procedural" || (preset.tip.sampled != null && pngs != null))))
++                        (preset.tip.source == "procedural" || (preset.tip.sampled != null && pngs != null)))) &&
++                    (cc.joycreator.joybrush.core.brush.BrushAssetPaths.required(preset).isEmpty() || pngs != null)
+             }
+         }
+     }
+@@ -4633,8 +4674,8 @@
+                                   smudge: SmudgeParams? = null, tuft: TuftShading? = null,
+                                   watercolour: WatercolourSpec? = null, watercolourSeed: Long = 0L) {
+         check(!resettingJointPaint && !forgettingGraphicsContext) { "Finish graphics retirement before preparing stroke buffers" }
+-        require(tip.sampled == null || (smudge == null && tuft == null && watercolour == null)) {
+-            "Sampled tips require the ordinary stamp path"
++        require((tip.sampled == null && tip.dual == null) || (smudge == null && tuft == null && watercolour == null)) {
++            "Sampled and dual tips require the ordinary stamp path"
+         }
+         settleWatercolourFade()
+         cancelStroke()
+@@ -4668,12 +4709,13 @@
+         sampledBinding = tip.sampled?.let { image ->
+             sampledMasks.begin(image.set.atlas(sampledMasks.maxTextureSize))
+         }
++        dualBinding = tip.dual?.let(dualMasks::begin)
+         // The stroke's look (tip, grain pictures, paper), resolved once per stroke: StampPass.lookFor.
+         val p = loadedPaper?.paper
+         val surface = p?.surface
+         look = stamp.lookFor(tip, grain, p, tuft?.paperResponse, tuft?.paperPitchPx, strokeTileRect, fluidTexture,
+             baseColor = cc.joycreator.joybrush.core.brush.ColorDab(colR, colG, colB),
+-            sampledSet = tip.sampled?.set, sampledBinding = sampledBinding)
++            sampledSet = tip.sampled?.set, sampledBinding = sampledBinding, dualBinding = dualBinding)
+         val tooth = if (tuft == null) null else if (p == null) grains.textureFor(tuft.paperAsset) else surfaceTexture
+         tuftPaperTex = tooth ?: grains.placeholder
+         this.tuft = tuft?.let {
+@@ -5523,7 +5565,7 @@
+             expected.recorded.cacheTextures() + freeLayerTex + freeStrokeTex + freeSmudgeTex + freeFloatTex +
+             listOfNotNull(clearTex, whiteTex, thumbTex, tuftPaperTex, lookTexture, surfaceTexture, fluidTexture,
+                 look.tipGrainTex, look.paperGrainTex, look.fluidTexture, compositor.target, compositor.backdrop,
+-                boardCompositor.target, boardCompositor.backdrop) + grains.heldTextureHandles() + sampledMasks.heldTextureHandles() +
++                boardCompositor.target, boardCompositor.backdrop) + grains.heldTextureHandles() + sampledMasks.heldTextureHandles() + dualMasks.heldTextureHandles() +
+             boardPreview.heldTextureHandles() + paperBackground.heldTextureHandles() + wcPass?.heldTextureHandles().orEmpty()
+         require(slabNames.distinct().size == slabNames.size && slabNames.none { it == 0 || it in floatNames || it in forbidden }) {
+             "Snapshot slabs must retain exclusive physical RGBA8 source ownership"
+@@ -6308,7 +6350,9 @@
+     }
+
+     private fun releaseStrokeTiles() {
+-        endSampledMasks()
++        var tipFailure: Throwable? = null
++        try { endStampTipMasks() } catch (error: Throwable) { tipFailure = error }
++        try {
+         stampColors.clear()
+         // Back into the pool it came from: a smudge's RGBA tiles and a stamp's single-channel tiles are not interchangeable.
+         if (strokeIsRgba) { freeSmudgeTex.addAll(strokeTiles.values); trimPool(freeSmudgeTex, 16) }
+@@ -6316,6 +6360,11 @@
+         strokeTiles.clear()
+         periodicPickup.values.forEach { if (it != 0) recycleLayerTex(it) }
+         periodicPickup.clear(); strokeReads.clear()
++        } catch (error: Throwable) {
++            val first = tipFailure
++            if (first == null) throw error else if (first !== error) first.addSuppressed(error)
++        }
++        tipFailure?.let { throw it }
+     }
+
+     private fun recycleLayerTex(tex: Int) {
+--- a/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/gl/RecordedPromotionExternalTextureInventory.kt
++++ b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/gl/RecordedPromotionExternalTextureInventory.kt
+@@ -63,7 +63,7 @@
+         for ((fieldName, groupName) in listOf(
+             "grains" to "grains", "boardPreview" to "boardPreview",
+             "paperBackground" to "paperBackground", "wcPass" to "watercolourPass",
+-            "stampColors" to "stampColorMoments", "sampledMasks" to "sampledMasks",
++            "stampColors" to "stampColorMoments", "sampledMasks" to "sampledMasks", "dualMasks" to "dualMasks",
+         )) groups[groupName] = handles(field(engine, fieldName), "heldTextureHandles")
+         val look = field(engine, "look")
+         if (look != null) {
+--- a/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/JbCanvasView.kt
++++ b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/JbCanvasView.kt
+@@ -159,8 +159,8 @@
+
+     /** Stable immutable bundle per library brush; called once at contact on the UI thread. */
+     var brushPngs: ((BrushPreset) -> cc.joycreator.joybrush.core.brush.FrozenBrushPngs?)? = null
+-    private val sampledTips = cc.joycreator.joybrush.androidkit.gl.SampledTipResolver()
+-    private var strokeSampled: cc.joycreator.joybrush.core.brush.SampledTipSet? = null
++    private val stampTips = cc.joycreator.joybrush.androidkit.gl.StampTipResolver()
++    private var strokeTips: cc.joycreator.joybrush.core.brush.StampTipResources? = null
+
+     /**
+      * True once the person has moved the smoothing slider, and only then does the slider beat the
+@@ -394,8 +394,8 @@
+             p.line != null -> "Diagnostic capture does not support line shaping"
+             p.engine == ENGINE_WATERCOLOUR && (erase || p.blend == "erase") -> "Diagnostic capture does not support watercolor erasers"
+             p.blend !in setOf("normal", "erase", BLEND_MULTIPLY, BLEND_SCREEN) -> "Diagnostic capture does not support the ${p.blend} blend"
+-            p.tip.source != "procedural" || (p.tipTexture.enabled && p.tipTexture.source == "image") ||
+-                (p.paperGrain.enabled && p.paperGrain.source == "image") -> "Diagnostic capture does not freeze image brush assets"
++            p.tip.sampled != null || p.tip.dual != null || p.tip.source != "procedural" || (p.tipTexture.enabled && p.tipTexture.source == "image") ||
++                (p.paperGrain.enabled && p.paperGrain.source == "image") -> "Diagnostic capture does not carry image or dual-tip resources"
+             tileBoardId != null -> "Diagnostic capture does not support tiling"
+             layer != null && layer.kind != LayerKind.PAINT -> "Diagnostic capture needs a paint layer"
+             layer?.animatedIn != null || layer?.regions?.isNotEmpty() == true -> "Diagnostic capture does not resolve region or animated cel ownership"
+@@ -674,6 +674,8 @@
+
+     /** Why this stroke can't be kept as an editable line, as the end of a sentence; null = it can. */
+     private fun lineRefusal(p: BrushPreset?, erase: Boolean, amount: Float): String? {
++        if (p?.tip?.sampled != null || p?.tip?.dual != null)
++            return "picture and dual tips need the recorded drawing path"
+         val layer = boardDocument?.layers?.firstOrNull { it.id == activeLayer }
+         return LineAdmission.lineRefusal(p, erase, amount, view.zoom, tileBoardId != null,
+             layer?.cels?.any { it.floatTiles.isNotEmpty() } == true)
+@@ -1598,7 +1600,7 @@
+         drawing = false
+         mediaStroke = false; mediaErase = false; mediaBegun = false
+         smoother = null; placer = null; tracker = null
+-        strokePreset = null; strokeDabber = null; strokeSampled = null; contactColors = null; strokeWatercolour = null; scatterRng = null; strokeErase = false; strokeTuft = null
++        strokePreset = null; strokeDabber = null; strokeTips = null; contactColors = null; strokeWatercolour = null; scatterRng = null; strokeErase = false; strokeTuft = null
+         onGl {
+             mediaCanvas.end()
+             reportHistory()
+@@ -1652,17 +1654,19 @@
+         onBeforeStroke?.invoke()
+         val b = brush
+         var p = preset
++        // The resolver's dual bake and the dabber/record must share this one contact seed.
++        val contactSeed = watercolourPreviewSeed ?: SystemClock.uptimeMillis()
+         val contactPngs = try {
+-            p?.takeIf { it.tip.sampled != null }?.let { brushPngs?.invoke(it) }
++            p?.takeIf { cc.joycreator.joybrush.core.brush.BrushAssetPaths.required(it).isNotEmpty() }?.let { brushPngs?.invoke(it) }
+         } catch (e: Exception) {
+             drawing = false; onRefused?.invoke(e.message ?: "The brush image could not be read"); return
+         }
+-        strokeSampled = try {
++        strokeTips = try {
+             p?.let {
+                 require(it.tip.source == "procedural" || it.tip.sampled != null) {
+                     "This image brush needs a materialized sampled tip"
+                 }
+-                sampledTips.resolve(it, contactPngs)
++                stampTips.resolve(it, contactPngs, contactSeed)
+             }
+         } catch (e: Exception) {
+             drawing = false; onRefused?.invoke(e.message ?: "The brush image could not be read"); return
+@@ -1772,22 +1776,22 @@
+                     if (erase) StrokeBlend.ERASE else StrokeBlend.NORMAL, b.tip)
+             }
+         } else if (p.engine == ENGINE_WATERCOLOUR && !erase) {
+-            strokeSeed=watercolourPreviewSeed ?: SystemClock.uptimeMillis()
++            strokeSeed=contactSeed
+             strokeWatercolour=WatercolourDabber(p.watercolourRuntime(),strokeSeed)
+             placer=null
+         } else if (p.engine == ENGINE_TUFT) {
+             // R9: the tuft brush lays footprints, not dabs. Its speed is judged in screen px, so it is told the zoom.
+             // Begun on the GL thread with its first footprints, like a file brush.
+-            strokeSeed = SystemClock.uptimeMillis()
++            strokeSeed = contactSeed
+             strokeTuft = TuftStroke(p, strokeSeed, screenPerDoc = view.zoom)
+             placer = null
+         } else {
+             // One dabber per stroke: it holds the random stream, the speed filter and the tip
+             // direction, and the placer asks it exactly once per dab. The placer's own cap stays 1
+             // -- a WASH dab carries its own opacity as its cap, and a BUILD_UP dab wants 1.
+-            val seed = SystemClock.uptimeMillis()
++            val seed = contactSeed
+             strokeSeed = seed
+-            val d = BrushDabber(p, seed, colors = contactColors, sampledTips = strokeSampled)
++            val d = BrushDabber(p, seed, colors = contactColors, sampledTips = strokeTips?.sampled, dualMask = strokeTips?.dual)
+             strokeDabber = d
+             scatterRng = SplitMix(seed xor SCATTER_SALT)
+             placer = DabPlacer(spacing = d.spacing, look = d::look)
+@@ -1850,6 +1854,7 @@
+             hardness = if (d == null) p.tip.hardness.base else d.strokeHardness,
+             minPx = p.tip.minPx,
+             sampled = first?.sampled,
++            dual = first?.dual,
+         ).let { base -> first?.tipShape(base) ?: base }
+         glBegan = true
+         // The grain the file asked for, with its depth as evaluated at the first dab (JB-1.05c). The
+@@ -1951,7 +1956,7 @@
+         lineContact = null
+         drawing = false
+         smoother = null; placer = null; tracker = null
+-        strokePreset = null; strokeDabber = null; strokeSampled = null; contactColors = null; strokeWatercolour = null; scatterRng = null; strokeErase = false; strokeTuft = null
++        strokePreset = null; strokeDabber = null; strokeTips = null; contactColors = null; strokeWatercolour = null; scatterRng = null; strokeErase = false; strokeTuft = null
+         boardStrokeWork { engine.setPendingLine(line, lineBrushes, lineAssets); engine.endStroke(); reportHistory() }
+         flushPaperVisits()
+         onStrokeEnded?.invoke()
+@@ -1969,7 +1974,7 @@
+         fillSerial++; fillSamples.clear(); fillPoints.clear(); onFillPreview?.invoke(null)
+         drawing = false
+         smoother = null; placer = null; tracker = null
+-        strokePreset = null; strokeDabber = null; strokeSampled = null; contactColors = null; strokeWatercolour = null; scatterRng = null; strokeErase = false; strokeTuft = null
++        strokePreset = null; strokeDabber = null; strokeTips = null; contactColors = null; strokeWatercolour = null; scatterRng = null; strokeErase = false; strokeTuft = null
+         onGl { engine.cancelStroke() }
+         flushPaperVisits()
+         onStrokeEnded?.invoke()
+--- a/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/io/ColdRecordedLoadPlan.kt
++++ b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/io/ColdRecordedLoadPlan.kt
+@@ -202,7 +202,7 @@
+             "Unsupported cold line header or samples")
+         // Saved looks permit deferred image decode. Structural brush validation and the exact
+         // PNG manifest were admitted above; dynamic replay still needs a resolved set on first edit.
+-        need(if (brush.tip.sampled != null) brush.engine == "stamp" else InkReplay.refusal(record, brush) == null,
++        need(if (brush.tip.sampled != null || brush.tip.dual != null) brush.engine == "stamp" else InkReplay.refusal(record, brush) == null,
+             "Unsupported cold line engine")
+         need(brush.line == null && !brush.tipTexture.enabled && !brush.paperGrain.enabled,
+             "Cold lines do not support shaping or explicit grain yet")
+@@ -292,6 +292,10 @@
+                 b.items(it.curve.size); it.curve.forEach { point -> b.items(point.size) }
+             } }
+             profile(p.tip.profile)
++            p.tip.dual?.let { dual ->
++                b.text(dual.image?.image)
++                dual.shape?.let { shape -> b.items(shape.points.size); profile(shape.profile) }
++            }
+             listOfNotNull(p.tip.quad?.a, p.tip.quad?.b).forEach { shape ->
+                 b.items(shape.points.size); profile(shape.profile)
+             }

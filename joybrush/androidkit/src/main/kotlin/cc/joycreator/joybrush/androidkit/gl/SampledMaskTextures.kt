@@ -9,7 +9,7 @@ import cc.joycreator.joybrush.core.brush.SampleMaskLimits
 interface SampleMaskGl {
     fun maxTextureSize(): Int
     fun genTexture(): Int
-    fun uploadR8(texture: Int, width: Int, height: Int, bytes: ByteArray, contextCurrent: () -> Boolean)
+    fun uploadR8(texture: Int, width: Int, height: Int, bytes: ByteArray, repeat: Boolean = false, contextCurrent: () -> Boolean)
     fun bindTexture(unit: Int, texture: Int)
     fun deleteTexture(texture: Int)
     fun checkError(operation: String)

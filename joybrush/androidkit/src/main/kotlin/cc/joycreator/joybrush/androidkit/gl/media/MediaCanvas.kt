@@ -22,6 +22,7 @@ import cc.joycreator.joybrush.core.media.MediaSpline
 import cc.joycreator.joybrush.core.media.MediaStores
 import cc.joycreator.joybrush.core.media.MediaWindowMath
 import cc.joycreator.joybrush.core.media.PasteBrush
+import cc.joycreator.joybrush.core.media.PasteSpacing
 import cc.joycreator.joybrush.core.media.PasteStroke
 import cc.joycreator.joybrush.core.media.StickMaterial
 import cc.joycreator.joybrush.core.media.THINNER
@@ -136,6 +137,8 @@ class MediaCanvas(
         var penX = 0.0
         var penY = 0.0
         var reachPx = 0.0
+        /** When this stroke's last frame was drawn (0: none yet), for [PasteSpacing]. */
+        var lastFrameMs = 0L
         /** Eraser dabs waiting for the next frame: x, y, radius, strength (then 16 unused floats each). */
         val eraseDabs = ArrayList<Dab>()
     }
@@ -261,6 +264,9 @@ class MediaCanvas(
         if (tilted && st == null && waterAsleep && !waterStoppedByUndo) { waterAsleep = false; quiet.reset(nowMs) }
         if (st != null) {
             stats?.let { if (it.recording) it.mediaFrames++ }
+            // A phone behind the pen paints the steps to come further apart (PasteSpacing), instead of falling further behind.
+            st.paste?.let { p -> if (st.lastFrameMs > 0) p.spacing = PasteSpacing.next(p.spacing, nowMs - st.lastFrameMs) }
+            st.lastFrameMs = nowMs
             run(e, w, st)
             w.touched(nowMs)
             quiet.reset(nowMs)

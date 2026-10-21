@@ -181,7 +181,8 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         var must = water.mustStay(domain, reads, look)
         if (now - lastSimLog > 1000) {   // measurement (2026-10-20): what the water passes draw vs what the water needs
             lastSimLog = now
-            android.util.Log.i(TAG, "water: ${domain.count { slots.resident(page(it)) != null }} resident tiles in its rectangle, ${water.mustStay(domain, reads, 0).size} hold water or are within its reach, ${must.size} kept with the look")
+            android.util.Log.i(TAG, "water: ${domain.count { slots.resident(page(it)) != null }} resident tiles in its rectangle, ${water.mustStay(domain, reads, 0).size} hold water or are within its reach, ${must.size} kept with the look; " +
+                "of the ${domain.count(water::holdsWater)} wet, ${water.stillCount(domain, now, 500)} still for 0.5 s, ${water.stillCount(domain, now, 2000)} for 2 s")
         }
         if (MediaAtlasPlacement.fits(slots.capacity, frame + must, held)) return must
         val plan = water.plan(domain, reads, frame, held, slots.capacity, (pen[0] + pen[2]) / 2.0, (pen[1] + pen[3]) / 2.0, now, look)

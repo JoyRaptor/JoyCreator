@@ -957,6 +957,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         // further than a long drip past the paint, nor past this window (WetSpread, the tested cap).
         val rect = simRect() ?: return
         wetRect = rect
+        MediaPhases.timer?.invoke("wet.kpx (count)", ((rect[2] - rect[0]) * (rect[3] - rect[1]) / 1000.0) * steps)
         stores += WATER_WRITES
         touch(rect)
         wetSince = union(wetSince, rect)

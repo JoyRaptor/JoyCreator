@@ -152,6 +152,16 @@ class PasteStroke(
     private var travelled = 0.0   // mm since touchdown: the hairs can only trail over the path already drawn
     private var lastStepT = 0.0
 
+    /**
+     * The hops times this (1 = the shipped 0.3 mm). A phone that falls behind the pen widens them ([PasteSpacing]), each
+     * hop sliding as far, so a millimetre of stroke still trades the same paint in fewer steps. Steps cost the same however
+     * far apart, so a slow frame meant more of them in the next frame, and slower still: on the Note 9 an oil stroke that
+     * fell behind stayed 2-3x behind (2026-10-20). Blades widen less ([PasteSpacing.BLADE_MAX]): a thin edge needs hops
+     * finer than its width.
+     */
+    var spacing = 1.0
+        set(v) { field = v.coerceIn(1.0, PasteSpacing.MAX) }
+
     fun add(s: MediaSample) {
         val prev = last
         last = s
@@ -178,7 +188,7 @@ class PasteStroke(
             } else { dirX = tx; dirY = ty; hasDir = true }
         }
         // Small hops: a thin blade edge needs hops finer than its width (else a zip of ribs).
-        val stepMm = if (b.blade) min(0.3, 0.6 * half * 0.35) else 0.3
+        val stepMm = if (b.blade) min(0.3, 0.6 * half * 0.35) * min(spacing, PasteSpacing.BLADE_MAX) else 0.3 * spacing
         val stepPx = max(1 / layerScale, stepMm * pxPerMm / layerScale)
         fun interp(w: Double) = MediaSample(
             prev.x + dx * w, prev.y + dy * w, prev.p + (s.p - prev.p) * w, prev.tilt + (s.tilt - prev.tilt) * w,
@@ -271,4 +281,23 @@ class PasteStroke(
     }
 
     fun take(): List<PasteStep> = ArrayList(steps).also { steps.clear() }
+}
+
+/**
+ * How far apart a paste stroke's steps are while the phone keeps up or not ([PasteStroke.spacing]): from the time between
+ * two drawn frames, wider when a frame took more than [SLOW_MS], back toward the shipped hops when one took less than
+ * [FAST_MS]. A phone that keeps up never leaves 1.
+ */
+object PasteSpacing {
+    const val MAX = 2.0
+    const val BLADE_MAX = 1.5
+    const val SLOW_MS = 45L
+    const val FAST_MS = 28L
+    private const val STEP = 1.2
+
+    fun next(spacing: Double, frameMs: Long): Double = when {
+        frameMs > SLOW_MS -> min(MAX, spacing * STEP)
+        frameMs < FAST_MS -> max(1.0, spacing / STEP)
+        else -> spacing
+    }
 }

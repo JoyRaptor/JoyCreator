@@ -142,6 +142,10 @@ class MediaAtlasWater(val quietMs: Long = 2000) {
         return out
     }
 
+    /** Of [domain]'s tiles holding water, how many have not flowed for [stillMs] (measurement, for the log). */
+    fun stillCount(domain: Collection<Long>, nowMs: Long, stillMs: Long): Int =
+        domain.count { k -> holdsWater(k) && tiles[k]?.let { it.state != State.UNKNOWN && nowMs - it.lastFlowMs >= stillMs } == true }
+
     /** One way to make room ([plan]): dry [keys] in place; [drain] = also take them out of the simulation (D2). */
     data class Action(val keys: List<Long>, val drain: Boolean)
 

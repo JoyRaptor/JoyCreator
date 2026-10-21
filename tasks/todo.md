@@ -92,7 +92,7 @@ Isolated branch codex/unibrush starts at lead/layer-ops as authorized in the han
 - [ ] D5 Lead application integration/activation, combined app and Note9 proof (held patches only).
 - [x] D6 engine: seeded dual-tip masks, frozen sources, CPU/GPU/replay and resource lifecycle checks.
 - [ ] D6 Lead application integration/activation and Note9 acceptance (held adapters only).
-- [ ] D7: stroke-end taper parity; Lead integration if required.
+- [ ] D7: source8be06b4cf implements bounded stroke-end replay/lift protocol/preview; tests queued. Actual Lead publisher and Note9 parity remain pending.
 - [ ] D8: stabilizer suggestions/settings and exact raw-record replay; Lead record integration.
 - [ ] D9: Unibrush sheet, shape editor, modes, New brush, live preview; owner phone review.
 - [ ] D10: measured Note 9 performance and soft-dab optimizations.

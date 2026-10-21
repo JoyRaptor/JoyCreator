@@ -1,5 +1,27 @@
 # Joy Brush shared agent board
 
+## Unibrush D7 source — 2026-10-21 — validation queued
+
+Source 8be06b4cf is pushed to codex/unibrush and draft PR #1. It adds bounded two-pass
+whole-stroke taper/dash admission, lift ownership protocol and final shaped previews.
+Eleven new core tests and two preview regression tests are present but NOT yet executed;
+the canonical run waits for the machine-wide Lead build lock. Legacy wire/neutral preview
+routing remains unchanged after review. This is a source backup, not a green checkpoint.
+
+The D4→D5→D6 held engine/View/scene combination compiles in disposable
+C:/Temp/jb-unibrush-d6-shadow. Backend test compilation found one old internal cold-plan
+constructor call; patches/UNIBRUSH_D6_COLD_TEST.patch supplies the missing asset map.
+That held test correction is not a canonical Lead edit; execution is still pending.
+A 768MiB copied-project core-test attempt exhausted heap; no runtime failure is claimed.
+Subsequent checks use the previously proven 1024MiB heap and serial resource admission.
+
+D7 live activation needs Lead's private preview lease, prepared atomic publication receipt,
+retryable post-publication retirement and first-scene promotion boundary. Exact evidence and
+an admission gate are in patches/UNIBRUSH_D7_HOST.md and its adjacent patches. Native
+endStroke is not presented as the final publisher. No phone, performance or owner acceptance.
+D8 actual-stabilizer/codec/fill proposals and D9 mode/store/sheet drafts continue outside the
+canonical build source while checks are queued. No merges/conflict resolution/media edits.
+
 ## Unibrush D3 — 2026-10-19 — ready for Lead review
 
 Source adf5936b3 adds four ordered tip handles, exact circular corner fillets and A/B morph

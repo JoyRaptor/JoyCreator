@@ -377,7 +377,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         for (store in MediaStores.PAYLOAD) {
             val src = paint.mediaTile(id, store, key, plane) ?: continue
             if (store == "w0") wetHere = true
-            for (dst in media.loadTargets(store)) media.blit(src, 0, 0, tile, tile, dst, ax, ay, ax + tile, ay + tile)
+            media.loadStoreTile(store, src, ax, ay)
         }
         val look = paint.mediaTile(id, MEDIA_LOOK, key, plane)
         look?.let { media.blit(it, 0, 0, tile, tile, media.lookTexture(), ax, ay, ax + tile, ay + tile) }
@@ -406,8 +406,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         val (ax, ay) = media.slotTexel(slot)
         val targets = paint.writableMediaTiles(id, listOf(key), stores, plane)
         for (store in stores) {
-            val src = media.current(store) ?: continue
-            media.blit(src, ax, ay, ax + tile, ay + tile, targets.getValue(store).getValue(key), 0, 0, tile, tile)
+            media.writeStoreTile(store, targets.getValue(store).getValue(key), ax, ay)
         }
         if (key in groundFromLook) {
             val g = paint.writableMediaTiles(id, listOf(key), listOf(MediaStores.GROUND), plane).getValue(MediaStores.GROUND).getValue(key)
@@ -432,11 +431,12 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
                 // where the frame drew and where water lies (its extent), whose every read is held (MediaAtlasWater.mustStay).
                 // Every wet tile's look every frame. Redoing still water's look only a few tiles a frame (10-21 night) left
                 // tiles showing different moments side by side: a straight edge on screen. No tile-shaped decisions on water.
-                for (r in frameDirty) writeLook(id, r, hold = false)
+                val changed = ArrayList<FloatArray>(frameDirty)
                 for (k in waterHeld) {
                     val e = water.extent(k) ?: continue
-                    if (slots.resident(page(k)) != null) writeLook(id, floatArrayOf(e[0].toFloat(), e[1].toFloat(), e[2].toFloat(), e[3].toFloat()), hold = false)
+                    if (slots.resident(page(k)) != null) changed += floatArrayOf(e[0].toFloat(), e[1].toFloat(), e[2].toFloat(), e[3].toFloat())
                 }
+                writeLookOnce(id, changed)
             } else writeLook(id, rect)
         }
         if (media.wetActive) measureWater() else if (querySlots != null || framesSinceQuery != 0) resetWater()
@@ -447,6 +447,39 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
     }
 
     private fun keysIn(r: FloatArray): List<Long> = tilesOf(r, 0)
+
+    /**
+     * The look of everything [changed] (each grown by its halo), drawn ONCE per tile: the part of each tile inside the grown
+     * rects that touch it. Drawn rect by rect, the water's tiles and their halos overlapped and the same pixels were drawn up
+     * to four times a frame (10-21: the look was 60 % of a crowded wet frame). Everything it reads is held (the frame is
+     * admitted, MediaAtlasWater.mustStay).
+     */
+    private fun writeLookOnce(id: String, changed: List<FloatArray>) {
+        val h = lookHalo.toFloat()
+        val parts = LinkedHashMap<Long, FloatArray>()
+        for (c in changed) {
+            val g = floatArrayOf(floor(c[0] - h), floor(c[1] - h), ceil(c[2] + h), ceil(c[3] + h))
+            for (key in keysIn(g)) {
+                if (slots.resident(page(key)) == null) continue
+                val tx0 = (Tiles.tx(key) * tile).toFloat(); val ty0 = (Tiles.ty(key) * tile).toFloat()
+                val x0 = maxOf(g[0], tx0); val y0 = maxOf(g[1], ty0); val x1 = minOf(g[2], tx0 + tile); val y1 = minOf(g[3], ty0 + tile)
+                if (x1 <= x0 || y1 <= y0) continue
+                val p = parts[key]
+                if (p == null) parts[key] = floatArrayOf(x0, y0, x1, y1)
+                else { p[0] = minOf(p[0], x0); p[1] = minOf(p[1], y0); p[2] = maxOf(p[2], x1); p[3] = maxOf(p[3], y1) }
+            }
+        }
+        if (parts.isEmpty()) return
+        // The parts never overlap (each inside its own tile): all drawn, then each copied out once.
+        for (r in parts.values) renderLook(r)
+        val targets = paint.writableMediaTiles(id, parts.keys, listOf(MEDIA_LOOK), plane).getValue(MEDIA_LOOK)
+        for ((key, r) in parts) {
+            val (ax, ay) = media.slotTexel(slots.resident(page(key))!!.slot)
+            val tx0 = Tiles.tx(key) * tile; val ty0 = Tiles.ty(key) * tile
+            val x0 = r[0].toInt(); val y0 = r[1].toInt(); val x1 = r[2].toInt(); val y1 = r[3].toInt()
+            media.blit(media.lookTexture(), ax + x0 - tx0, ay + y0 - ty0, ax + x1 - tx0, ay + y1 - ty0, targets.getValue(key), x0 - tx0, y0 - ty0, x1 - tx0, y1 - ty0)
+        }
+    }
 
     /** [hold] false: everything the look reads is known to be here already (it must not be held: the frame is admitted). */
     private fun writeLook(id: String, dirty: FloatArray, hold: Boolean = true) {
@@ -525,8 +558,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
             val res = slots.resident(page(key))!!
             val (ax, ay) = media.slotTexel(res.slot)
             for (store in stores) {
-                val src = media.current(store) ?: continue
-                media.blit(src, ax, ay, ax + tile, ay + tile, targets.getValue(store).getValue(key), 0, 0, tile, tile)
+                media.writeStoreTile(store, targets.getValue(store).getValue(key), ax, ay)
             }
             grounds[key]?.let { media.blit(media.groundTexture(), ax, ay, ax + tile, ay + tile, it, 0, 0, tile, tile) }
             slots.clean(res.page)

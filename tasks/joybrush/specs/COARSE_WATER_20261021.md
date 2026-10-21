@@ -41,3 +41,18 @@ brush, we need water to be a wonderful experience"). Codex's review reached the 
   the PC harness (SwiftShader) and on the device probe.
 - Visual: the owner's S-zigzag and sweep replayed, F = 1 vs F = 2 side by side, flat and tilted, at 100 % and zoomed in.
 - Speed: crowd.sh (six wet strokes on one drawing), latency p50/p95 and frame p95.
+
+## Result on the Note 9 (2026-10-21, same day)
+- Built whole (water on 2 x 2 cells, paint/paper/look full resolution); device probe atlas == window, scrambled == window, 0 px,
+  with coarse water on and off.
+- Crowd bench (six wet strokes on one drawing, atlas): the water's flux fell from 150-214 ms to 23-40 ms a frame and the bead
+  pass went, but the update stayed (it does four children's settle per cell) and the paint pass added 25-55 ms. Frames ~15-25 %
+  faster at first; once the look was drawn once per tile (below), coarse vs full was within run-to-run noise.
+- The owner compared bench shots: the full-resolution water "looks much better" (the fine beading where water pools in the
+  paper's tooth; coarse averages the tooth under each cell and pools come out as soft blobs).
+- Decision: OFF by default (`MediaLayerEngine.coarseWaterDefault = false`), kept whole behind the bench extra
+  `jb_coarse_water` for a later water-detail choice (e.g. zoomed out, where a cell is under a screen pixel).
+- Found on the way: granulation never reached the shaders in the app (u_gran was always 0; the lab passed it, the port did
+  not). Now `MediaLayerEngine.wetGran` = the newest wet brush's `gran`.
+- Found on the way: the atlas look drew each wet tile's water extent plus a 53 px halo separately, so the same pixels were drawn
+  up to four times a frame; now drawn once per tile (`MediaAtlas.writeLookOnce`).

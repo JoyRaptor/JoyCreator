@@ -196,6 +196,11 @@ internal class WetFrameUniforms {
         names[count] = name; values[count] = v; count++
     }
 
+    /** Multiplies the loaded value of [name] by [factor] (coarse water: per-cell rates for cells [wf] pixels wide). */
+    fun scale(name: String, factor: Double) {
+        for (i in 0 until count) if (names[i] == name) values[i] *= factor
+    }
+
     fun apply(u: UniformBank) {
         for (i in 0 until count) u.f1(names[i]!!, values[i])
         u.f2("u_slope", slope[0], slope[1])

@@ -175,7 +175,7 @@ internal object MediaAtlasProbe {
             report.put("glError", GLES30.glGetError())
             report.put("pass", atlasBad == 0L && scrambledBad == 0L && pasteBad == 0L && brokenSeen > 0L && !vacuous)
         } catch (e: Throwable) {
-            report.put("pass", false).put("error", e.toString())
+            report.put("pass", false).put("error", e.toString()).put("at", e.stackTrace.take(8).joinToString(" < ") { "${it.fileName}:${it.lineNumber}" })
         } finally {
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
             GLES30.glDeleteFramebuffers(1, intArrayOf(read), 0)
@@ -190,18 +190,21 @@ internal object MediaAtlasProbe {
     /** Every state plane as raw float bits, and the look as RGBA8 bytes widened to ints; [slots]: put scrambled tiles back. */
     private fun snapshot(e: MediaLayerEngine, fbo: Int, look: Int, slots: IntArray? = null): Map<String, IntArray> {
         val out = LinkedHashMap<String, IntArray>()
-        for ((name, tex) in e.stateTextures().toSortedMap()) out[name] = unscramble(readFloatBits(fbo, tex), slots)
+        for ((name, tex) in e.stateTextures().toSortedMap()) {
+            val size = SIZE / e.stateTexelPx(name)   // coarse water's planes are at half resolution
+            out[name] = unscramble(readFloatBits(fbo, tex, size), slots, size)
+        }
         out["look"] = unscramble(readBytes(fbo, look), slots)
         return out
     }
 
     /** Layer layout from slot layout: tile t's 256² block copied from slot [slots] [t]'s place (4 ints per texel). */
-    private fun unscramble(a: IntArray, slots: IntArray?): IntArray {
+    private fun unscramble(a: IntArray, slots: IntArray?, size: Int = SIZE): IntArray {
         if (slots == null) return a
-        val o = IntArray(a.size); val side = 256; val n = SIZE / side
+        val o = IntArray(a.size); val side = 256 * size / SIZE; val n = size / side
         for (t in slots.indices) {
             val tx = t % n; val ty = t / n; val sx = slots[t] % n; val sy = slots[t] / n
-            for (row in 0 until side) System.arraycopy(a, ((sy * side + row) * SIZE + sx * side) * 4, o, ((ty * side + row) * SIZE + tx * side) * 4, side * 4)
+            for (row in 0 until side) System.arraycopy(a, ((sy * side + row) * size + sx * side) * 4, o, ((ty * side + row) * size + tx * side) * 4, side * 4)
         }
         return o
     }
@@ -212,11 +215,11 @@ internal object MediaAtlasProbe {
         check(GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER) == GLES30.GL_FRAMEBUFFER_COMPLETE) { "probe readback target incomplete" }
     }
 
-    private fun readFloatBits(fbo: Int, tex: Int): IntArray {
+    private fun readFloatBits(fbo: Int, tex: Int, size: Int = SIZE): IntArray {
         attach(fbo, tex)
-        val b = ByteBuffer.allocateDirect(SIZE * SIZE * 16).order(ByteOrder.nativeOrder())
-        GLES30.glReadPixels(0, 0, SIZE, SIZE, GLES30.GL_RGBA, GLES30.GL_FLOAT, b)
-        val ints = IntArray(SIZE * SIZE * 4); b.asIntBuffer().get(ints); return ints
+        val b = ByteBuffer.allocateDirect(size * size * 16).order(ByteOrder.nativeOrder())
+        GLES30.glReadPixels(0, 0, size, size, GLES30.GL_RGBA, GLES30.GL_FLOAT, b)
+        val ints = IntArray(size * size * 4); b.asIntBuffer().get(ints); return ints
     }
 
     private fun readBytes(fbo: Int, tex: Int): IntArray {

@@ -233,8 +233,7 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
         for (key in keys) {
             val (wx, wy) = (Tiles.tx(key) - tx) * tile to (Tiles.ty(key) - ty) * tile
             for (store in stores) {
-                val src = media.current(store) ?: continue
-                media.blit(src, wx, wy, wx + tile, wy + tile, targets.getValue(store).getValue(key), 0, 0, tile, tile)
+                media.writeStoreTile(store, targets.getValue(store).getValue(key), wx, wy)
             }
             grounds[key]?.let { media.blit(media.groundTexture(), wx, wy, wx + tile, wy + tile, it, 0, 0, tile, tile) }
         }
@@ -340,7 +339,7 @@ class MediaWindow(private val paint: GlPaintEngine, val media: MediaLayerEngine,
         val (wx, wy) = (Tiles.tx(key) - tx) * tile to (Tiles.ty(key) - ty) * tile
         for (store in MediaStores.PAYLOAD) {
             val src = paint.mediaTile(layer, store, key, plane) ?: continue
-            for (dst in media.loadTargets(store)) media.blit(src, 0, 0, tile, tile, dst, wx, wy, wx + tile, wy + tile)
+            media.loadStoreTile(store, src, wx, wy)
         }
         val look = paint.mediaTile(layer, MEDIA_LOOK, key, plane)
         look?.let { media.blit(it, 0, 0, tile, tile, media.lookTexture(), wx, wy, wx + tile, wy + tile) }

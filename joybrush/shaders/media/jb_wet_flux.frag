@@ -14,6 +14,7 @@ precision highp int;
 #include "media/jb_media_common.glsl"
 #include "media/jb_media_atlas.glsl"
 
+
 uniform sampler2D u_w0;       // w (mm), s (0..1 capillary saturation), wet age, -
 uniform sampler2D u_flux;     // outflow L, R, D, U (mm per second, per cell)
 uniform sampler2D u_paperBake;// .b = height 0..1, .a = E[h²]
@@ -56,12 +57,41 @@ in vec2 v_docPx;
 layout(location = 0) out vec4 o_flux;   // the slow levelling flow (kept from step to step: viscosity)
 layout(location = 1) out vec4 o_run;    // running water this step (mm/s), signed along x and y
 
+// JB_WET_COARSE (tasks/joybrush/specs/COARSE_WATER_20261021.md): the water lives on a grid of 2 x 2 pixel cells; this pass
+// runs per cell, reads the water fields at that resolution (the atlas's half-resolution slots, shift 7, like the bead), and
+// the ground under the water from u_terrain (per cell: paper relief x tooth + paint body, and absorbency, averaged from its
+// four pixels each frame, jb_wet_terrain.frag). Without it, every read below is exactly what it was.
+#ifdef JB_WET_COARSE
+const highp int JB_W_SHIFT = 7;
+const float JB_BEAD_SCALE = 1.0;   // the bead field's cells are the water's cells
+uniform sampler2D u_terrain;
+#else
+const highp int JB_W_SHIFT = 8;
+const float JB_BEAD_SCALE = 0.5;   // the bead field is at half the water's resolution
+#endif
+vec4 wf(sampler2D t, highp ivec2 q) { return jb_fetchS(t, q, JB_W_SHIFT); }
+// The ground the water stands on at cell q: paper relief (mm) plus paint body (mm).
+float groundAt(ivec2 q) {
+#ifdef JB_WET_COARSE
+    return wf(u_terrain, q).r;
+#else
+    return jb_fetch(u_waterBake, q).r * u_toothMm + jb_fetch(u_p0, q).a;
+#endif
+}
+float absorbAt(ivec2 q) {
+#ifdef JB_WET_COARSE
+    return wf(u_terrain, q).g;
+#else
+    return jb_fetch(u_fluidBake, q).r;
+#endif
+}
+
 float H(ivec2 q, out float w, out float s) {
-    vec4 a = jb_fetch(u_w0, q);
+    vec4 a = wf(u_w0, q);
     w = a.r; s = a.g;
     // The water's surface: paper, plus any paint body under it (water pools between impasto ridges and runs
     // round blobs), plus the water itself.
-    return jb_fetch(u_waterBake, q).r * u_toothMm + jb_fetch(u_p0, q).a + w;
+    return groundAt(q) + w;
 }
 
 float pinHold(ivec2 q, float s) {
@@ -69,7 +99,7 @@ float pinHold(ivec2 q, float s) {
     // water surface already includes the tooth, so a front stalls against bumps and runs along trenches.
     // On damp paper the hold mostly breaks, but not evenly: the front fingers along thirstier fibres,
     // which is what draws a bloom's cauliflower edge.
-    float absorb = jb_fetch(u_fluidBake, q).r;
+    float absorb = absorbAt(q);
     float dry = 1.0 - smoothstep(0.0, u_dampS, s);
     float dampHold = 0.35 * (1.0 - absorb) * (1.0 - absorb);
     return u_pinMm * (dry * (1.4 - 0.8 * absorb) + (1.0 - dry) * dampHold);
@@ -80,11 +110,11 @@ float pinHold(ivec2 q, float s) {
 // Read by hand (four texel taps, the jb_bilinear weights at the half-resolution cell), not by the sampler's LINEAR filter:
 // the atlas addresses every tap, and both builds must do the same arithmetic.
 float beadAt(vec2 cell) {
-    return jb_bilinearLS(u_bead, (cell + 0.5) * 0.5, 7).r;
+    return jb_bilinearLS(u_bead, (cell + 0.5) * JB_BEAD_SCALE, 7).r;
 }
 // The same, for the drip taps up to a drip gap and a millimetre away (beyond the NEAR build's reach: jb_bilinearLSFar).
 float beadAtFar(vec2 cell) {
-    return jb_bilinearLSFar(u_bead, (cell + 0.5) * 0.5, 7).r;
+    return jb_bilinearLSFar(u_bead, (cell + 0.5) * JB_BEAD_SCALE, 7).r;
 }
 vec2 beadSlope(vec2 cell) {
     return vec2(beadAt(cell + vec2(2.0, 0.0)) - beadAt(cell - vec2(2.0, 0.0)),
@@ -98,10 +128,7 @@ vec2 paperSlope(ivec2 c, ivec2 size) {
     ivec2 ql = jb_clampCell(c - ivec2(d, 0), size), qr = jb_clampCell(c + ivec2(d, 0), size);
     ivec2 qb = jb_clampCell(c - ivec2(0, d), size), qt = jb_clampCell(c + ivec2(0, d), size);
     // Paper relief and paint body both steer: a drip runs round a blob of paint.
-    float l = jb_fetch(u_waterBake, ql).r * u_toothMm + jb_fetch(u_p0, ql).a;
-    float r = jb_fetch(u_waterBake, qr).r * u_toothMm + jb_fetch(u_p0, qr).a;
-    float b = jb_fetch(u_waterBake, qb).r * u_toothMm + jb_fetch(u_p0, qb).a;
-    float t = jb_fetch(u_waterBake, qt).r * u_toothMm + jb_fetch(u_p0, qt).a;
+    float l = groundAt(ql), r = groundAt(qr), b = groundAt(qb), t = groundAt(qt);
     return vec2(r - l, t - b) / (2.0 * float(d) * u_cellMm);
 }
 
@@ -127,7 +154,7 @@ void main() {
     float w, s;
     float h0 = H(c, w, s);
     if (w <= 0.0) { o_flux = vec4(0.0); o_run = vec4(0.0); return; }
-    vec4 prev = jb_fetch(u_flux, c);
+    vec4 prev = wf(u_flux, c);
     ivec2 nb[4] = ivec2[4](ivec2(-1, 0), ivec2(1, 0), ivec2(0, -1), ivec2(0, 1));
     float sl = length(u_slope);
     float tilted = smoothstep(0.0, 0.15, sl);

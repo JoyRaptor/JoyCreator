@@ -49,8 +49,14 @@ void main() {
     }
     vec4 p0 = jb_bilinearL(u_p0, lp);
     vec4 p1 = jb_bilinearL(u_p1, lp);
+#ifdef JB_WET_COARSE
+    // Coarse water (COARSE_WATER_20261021): the water and what floats in it, read smoothly from its 2 x 2 pixel cells.
+    vec4 wa = jb_bilinearLS(u_w0, lp * 0.5, 7);
+    vec4 wp = jb_bilinearLS(u_w1, lp * 0.5, 7);
+#else
     vec4 wa = jb_bilinearL(u_w0, lp);
     vec4 wp = jb_bilinearL(u_w1, lp);
+#endif
     // A flat look does not use the paper's surface vector. Keep the real
     // surface for relief and the height debug view.
     vec4 s = vec4(0.0);
@@ -82,8 +88,13 @@ void main() {
     // Gradients over ±1 layer px, in units per mm (lpm layer px per mm); crush is in tooth units.
     vec2 dC = vec2(crushAt(lp + vec2(1, 0)) - crushAt(lp - vec2(1, 0)),
                    crushAt(lp + vec2(0, 1)) - crushAt(lp - vec2(0, 1))) * 0.5 * u_layerScale;
+#ifdef JB_WET_COARSE
+    vec2 dW = vec2(jb_bilinearLS(u_w0, (lp + vec2(1, 0)) * 0.5, 7).r - jb_bilinearLS(u_w0, (lp - vec2(1, 0)) * 0.5, 7).r,
+                   jb_bilinearLS(u_w0, (lp + vec2(0, 1)) * 0.5, 7).r - jb_bilinearLS(u_w0, (lp - vec2(0, 1)) * 0.5, 7).r) * 0.5 * u_layerScale;
+#else
     vec2 dW = vec2(jb_bilinearL(u_w0, lp + vec2(1, 0)).r - jb_bilinearL(u_w0, lp - vec2(1, 0)).r,
                    jb_bilinearL(u_w0, lp + vec2(0, 1)).r - jb_bilinearL(u_w0, lp - vec2(0, 1)).r) * 0.5 * u_layerScale;
+#endif
     // Paint body: its thickness is real relief (mm), lit like the paper.
     vec2 dT = vec2(jb_bilinearL(u_p0, lp + vec2(1, 0)).a - jb_bilinearL(u_p0, lp - vec2(1, 0)).a,
                    jb_bilinearL(u_p0, lp + vec2(0, 1)).a - jb_bilinearL(u_p0, lp - vec2(0, 1)).a) * 0.5 * u_layerScale;

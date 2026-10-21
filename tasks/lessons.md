@@ -1112,3 +1112,15 @@ as `TIME * knob` are "rate" and the host integrates them.
 - **The bench screenshot is the FIRST brush's.** Put the brush to judge first in the list.
 - **A failed build leaves the last APK in place.** `build && cp apk` still copied a stale APK when the wrapper's exit code was 0;
   copy only after `grep -q "BUILD SUCCESSFUL"` on the build log, and delete the copy name first.
+
+## 2026-10-21 — JoyBrush Lead: coarse water, and a knob that was never wired
+- **A brush knob can be dead end to end and nobody notices.** Watercolour granulation (`WetBrush.gran`, with a slider) never
+  reached the shader: `u_gran` was absent from `wetUniforms` and an unset uniform reads 0. The lab set it per scenario; the
+  Kotlin port dropped it. The owner spotted it by eye. When porting a shader, list its uniforms and grep that every one is set.
+- **Kotlin `a + if (c) x else y + z` puts `+ z` inside the else.** Two conditional program lists appended without parentheses
+  meant the window engine never built the coarse programs (NPE only on device). Parenthesise each `if` in a `+` chain.
+- **Have the device probe report WHERE it failed** (file:line of the top frames): "NullPointerException" alone cost a build.
+- **Per-stage timing before believing a cost model.** Coarse water cut the flux 5x, yet the frame barely moved: the look was 60 %
+  of it (drawn per wet tile with overlapping halos). Measure the whole frame by stage first, then pick the lever.
+- **The owner's eye is the judge of a quality trade.** A faster water that looks blobbier is not shipped as the default; keep it
+  selectable and say plainly why it lost.

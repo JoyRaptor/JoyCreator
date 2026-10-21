@@ -54,21 +54,26 @@ class MediaAtlasDraw {
      * Instances of [count] dabs packed [DabBatch.FLOATS] each in [src]; [box] writes dab i's layer-px bounding box (x0, y0,
      * x1, y1, full resolution) into its array. Each dab is emitted once per resident slot its box touches, dabs in order.
      */
-    fun dabs(src: FloatArray, count: Int, slotsX: Int, slotOf: (Int, Int) -> Int, box: (Int, FloatArray) -> Unit): Int {
+    fun dabs(src: FloatArray, count: Int, slotsX: Int, slotOf: (Int, Int) -> Int, box: (Int, FloatArray) -> Unit): Int =
+        dabs(src, count, slotsX, SHIFT, slotOf, box)
+
+    /** [dabs] into a target at [shift] (7: the half-resolution water of coarse water): boxes in that target's px. */
+    fun dabs(src: FloatArray, count: Int, slotsX: Int, shift: Int, slotOf: (Int, Int) -> Int, box: (Int, FloatArray) -> Unit): Int {
         require(count >= 0 && count * DabBatch.FLOATS <= src.size) { "dab batch is shorter than its count" }
         dabCount = 0
         val b = scratch
         for (i in 0 until count) {
             box(i, b)
             if (!(b[2] >= b[0] && b[3] >= b[1])) continue
-            val tx0 = floorDiv(b[0], SIDE); val ty0 = floorDiv(b[1], SIDE); val tx1 = floorDiv(b[2], SIDE); val ty1 = floorDiv(b[3], SIDE)
+            val side = 1 shl shift
+            val tx0 = floorDiv(b[0], side); val ty0 = floorDiv(b[1], side); val tx1 = floorDiv(b[2], side); val ty1 = floorDiv(b[3], side)
             for (ty in ty0..ty1) for (tx in tx0..tx1) {
                 val slot = slotOf(tx, ty)
                 if (slot < 0) continue
                 val o = dabCount * DAB_FLOATS
                 if (o + DAB_FLOATS > dabs.size) dabs = dabs.copyOf(dabs.size * 2)
                 src.copyInto(dabs, o, i * DabBatch.FLOATS, (i + 1) * DabBatch.FLOATS)
-                dabs[o + DabBatch.FLOATS] = ((slot % slotsX) shl SHIFT).toFloat(); dabs[o + DabBatch.FLOATS + 1] = ((slot / slotsX) shl SHIFT).toFloat()
+                dabs[o + DabBatch.FLOATS] = ((slot % slotsX) shl shift).toFloat(); dabs[o + DabBatch.FLOATS + 1] = ((slot / slotsX) shl shift).toFloat()
                 dabs[o + DabBatch.FLOATS + 2] = tx.toFloat(); dabs[o + DabBatch.FLOATS + 3] = ty.toFloat()
                 dabCount++
             }

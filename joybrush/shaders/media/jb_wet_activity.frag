@@ -9,10 +9,16 @@ uniform sampler2D u_w0;   // w (mm), s (0..1), wet time (s), outflow (mm/s)
 
 out vec4 o_act;           // max w, max s, max outflow, 0
 
+#ifdef JB_WET_COARSE
+const int JB_ACT_CELLS = 8;    // coarse water: a 16 px block is 8 x 8 cells (the output is laid out as without it)
+#else
+const int JB_ACT_CELLS = 16;
+#endif
+
 void main() {
-    ivec2 base = ivec2(gl_FragCoord.xy) * 16;
+    ivec2 base = ivec2(gl_FragCoord.xy) * JB_ACT_CELLS;
     vec3 m = vec3(0.0);
-    for (int y = 0; y < 16; y++) for (int x = 0; x < 16; x++) {
+    for (int y = 0; y < JB_ACT_CELLS; y++) for (int x = 0; x < JB_ACT_CELLS; x++) {
         vec4 a = texelFetch(u_w0, base + ivec2(x, y), 0);
         m = max(m, vec3(a.r, a.g, a.a));
     }

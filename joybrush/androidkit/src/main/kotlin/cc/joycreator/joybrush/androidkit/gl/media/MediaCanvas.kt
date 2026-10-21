@@ -385,7 +385,7 @@ class MediaCanvas(
     fun prewarmStep(): Boolean {
         if (engine != null || unsupported != null) return false
         val atlas = MediaAtlasGl.enabled
-        warm?.let { if (it.atlasMode != atlas) { it.releasePrograms(); warm = null } }
+        warm?.let { if (it.atlasMode != atlas || it.coarseWater != MediaLayerEngine.coarseWaterDefault) { it.releasePrograms(); warm = null } }
         return try {
             val e = warm ?: MediaLayerEngine(shaders, atlasMode = atlas).also { warm = it }
             e.compileNext()
@@ -418,7 +418,7 @@ class MediaCanvas(
         if (e != null) return e
         // Media Atlas v2 B2 (off by default, MediaAtlasGl.enabled): the same textures as the window, tiles placed freely.
         val atlas = MediaAtlasGl.enabled
-        val made = warm?.takeIf { it.atlasMode == atlas } ?: MediaLayerEngine(shaders, atlasMode = atlas)
+        val made = warm?.takeIf { it.atlasMode == atlas && it.coarseWater == MediaLayerEngine.coarseWaterDefault } ?: MediaLayerEngine(shaders, atlasMode = atlas)
         if (warm !== made) warm?.releasePrograms()
         warm = null
         try {
@@ -426,8 +426,9 @@ class MediaCanvas(
                 // Slot scaling (MediaAtlasPlacement.slotGrid: what is free beyond a reserve for the phone, 24 to 48, near square). An atlas made again
                 // keeps at least the size it had while the phone still has room for it: sized afresh each time, it shrank as the
                 // app's own memory grew (30 -> 25 slots on the Note 9, 2026-10-20) and refused more.
-                val fresh = MediaAtlasPlacement.slotGrid(avail)
-                val kept = lastGrid?.takeIf { (c, r) -> c * r > fresh.first * fresh.second && avail > 2L * c * r * MediaAtlasPlacement.BYTES_PER_SLOT }
+                val perSlot = if (MediaLayerEngine.coarseWaterDefault) MediaAtlasPlacement.BYTES_PER_SLOT_COARSE else MediaAtlasPlacement.BYTES_PER_SLOT
+                val fresh = MediaAtlasPlacement.slotGrid(avail, perSlot)
+                val kept = lastGrid?.takeIf { (c, r) -> c * r > fresh.first * fresh.second && avail > 2L * c * r * perSlot }
                 val (cols, rows) = kept ?: fresh
                 lastGrid = cols to rows
                 android.util.Log.i("JoyBrushMediaMemory", "atlas $cols x $rows slots (available=$avail)")
@@ -464,6 +465,7 @@ class MediaCanvas(
                 // A clear brush (water, thirsty) carries at least its own load of water whatever the level says (lab).
                 val wetness = if (brush.clear) level.copy(load = max(level.load, brush.load)) else level
                 val wet = WetStroke(brush, paintFromColor(color), DOC_PX_PER_MM, seed, wetness)
+                e.wetGran = brush.gran
                 Stroke(layerId, seed, MediaSpline(sink = wet::add), wet = wet)
             }
             else -> {

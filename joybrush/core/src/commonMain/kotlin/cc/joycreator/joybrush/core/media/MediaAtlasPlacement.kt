@@ -40,6 +40,14 @@ object MediaAtlasPlacement {
     const val BYTES_PER_SLOT = BYTES_PER_PX * 256 * 256
 
     /**
+     * The same with coarse water (COARSE_WATER_20261021: the water's fields at a quarter of the pixels, plus its mid-step
+     * pair and terrain): paint 96, water 20 + run 1 + input 4 + mid-step 8 + terrain 2, bead 4, delta 8, bakes 11, ground
+     * and look 8 = 162 B per layer px.
+     */
+    const val BYTES_PER_PX_COARSE = 162L
+    const val BYTES_PER_SLOT_COARSE = BYTES_PER_PX_COARSE * 256 * 256
+
+    /**
      * Slot scaling (the Lead, October 18): an atlas of clamp(floor(([availBytes] − [RESERVE_BYTES]) / [BYTES_PER_SLOT]), [MIN_SLOTS], [MAX_SLOTS]) slots,
      * rounded down to a near-square grid (columns, rows; rows at most two more than columns), sized once when the atlas is
      * made from what the phone says is free. A Note 9 with 2.76 GB available gets 6 × 6 = 36 (517 MB): about four
@@ -63,8 +71,10 @@ object MediaAtlasPlacement {
     /** The most slots (689 MB): with plenty free the share would reach 900 MB of graphics memory, more than any stroke needs. */
     const val MAX_SLOTS = 48
 
-    fun slotGrid(availBytes: Long): Pair<Int, Int> {
-        val n = ((availBytes - RESERVE_BYTES) / BYTES_PER_SLOT).coerceIn(MIN_SLOTS.toLong(), MAX_SLOTS.toLong()).toInt()
+    fun slotGrid(availBytes: Long, bytesPerSlot: Long = BYTES_PER_SLOT): Pair<Int, Int> {
+        // The most is [MAX_SLOTS] full-resolution slots' worth of memory (cheaper slots, more of them: 64 with coarse water).
+        val most = MAX_SLOTS.toLong() * BYTES_PER_SLOT / bytesPerSlot
+        val n = ((availBytes - RESERVE_BYTES) / bytesPerSlot).coerceIn(MIN_SLOTS.toLong(), most).toInt()
         val cols = kotlin.math.sqrt(n.toDouble()).toInt()
         return cols to minOf(cols + 2, n / cols)
     }

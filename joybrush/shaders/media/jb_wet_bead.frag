@@ -25,12 +25,17 @@ void main() {
     jb_atlasBegin();
     ivec2 c = jb_cell();             // half-resolution cell
     if (u_pass == 0) {
+#ifdef JB_WET_COARSE
+        // Coarse water (COARSE_WATER_20261021): its cells are this field's cells.
+        o_bead = vec4(jb_fetchS(u_w0, c, 7).r, 0.0, 0.0, 1.0);
+#else
         ivec2 size = textureSize(u_w0, 0);
         float s = 0.0;
         for (int j = 0; j < 2; j++)
             for (int i = 0; i < 2; i++)
                 s += jb_fetch(u_w0, jb_clampCell(c * 2 + ivec2(i, j), size)).r;
         o_bead = vec4(0.25 * s, 0.0, 0.0, 1.0);
+#endif
         return;
     }
     ivec2 size = textureSize(u_src, 0);

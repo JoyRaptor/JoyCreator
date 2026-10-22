@@ -1410,8 +1410,34 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     // ── Lifecycle ────────────────────────────────────────────────────
 
+    /** A finger is down on the editor window (drawers included; dialogs are other windows). */
+    private boolean editorTouchDown;
+    /** An undo baseline capture that came due mid-gesture; runs after the finger lifts. */
+    @Nullable private Runnable baselineRefreshAfterTouch;
+
     @Override
     public boolean dispatchTouchEvent(@NonNull MotionEvent ev) {
+        int action = ev.getActionMasked();
+        if (action == MotionEvent.ACTION_DOWN) editorTouchDown = true;
+        try {
+            return dispatchEditorTouchEvent(ev);
+        } finally {
+            if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+                editorTouchDown = false;
+                // Posted only now, so it queues behind anything the lift itself posted (a
+                // click is one): the gesture's edit records before the capture runs.
+                releaseHeldBaselineRefresh();
+            }
+        }
+    }
+
+    private void releaseHeldBaselineRefresh() {
+        if (baselineRefreshAfterTouch == null) return;
+        autoSaveHandler.post(baselineRefreshAfterTouch);
+        baselineRefreshAfterTouch = null;
+    }
+
+    private boolean dispatchEditorTouchEvent(@NonNull MotionEvent ev) {
         // §3a eyedropper — one-shot, and it must be taken HERE. Five sibling overlay layers
         // sit above the PiP view in the layout and the text layer swallows preview taps, so a
         // dropper armed inside that view is never called at all. Disarms whatever the outcome:
@@ -1615,11 +1641,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
 
             @Override
-            public void scheduleBaselineRefresh(@NonNull Runnable r) {
+            public void scheduleBaselineRefresh(@NonNull Runnable r, long delayMs) {
                 // Post to the main looper so the rolling baseline is captured AFTER the current
                 // edit handler unwinds — i.e. it reflects the final post-edit state regardless
                 // of whether the call site recorded before or after mutating (audit 1.6).
-                autoSaveHandler.post(r);
+                if (delayMs <= 0) {
+                    autoSaveHandler.post(r);
+                    return;
+                }
+                // The throttle's trailing edge: held while a finger is down, released by
+                // dispatchTouchEvent once the gesture has recorded its own edit.
+                autoSaveHandler.postDelayed(() -> {
+                    if (editorTouchDown) baselineRefreshAfterTouch = r;
+                    else r.run();
+                }, delayMs);
             }
         });
 
@@ -2221,6 +2256,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         hideTransitionPreview();
         // M-COMP-2: park the overlay decoder while backgrounded.
         if (overlayVideoLayer != null) overlayVideoLayer.pausePlayback();
+        // A touch cut off by leaving may never deliver its lift.
+        editorTouchDown = false;
+        releaseHeldBaselineRefresh();
         // Save project on pause (e.g. user switches away) — force-flush undo history.
         saveProjectNow(true);
     }
@@ -13608,14 +13646,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * The service handles the Transformer lifecycle and survives Activity destruction.
      */
     /**
-     * Free as much editor-held memory as possible right before an in-process
-     * export: drop the (potentially huge) in-memory undo snapshots, recycle
-     * filmstrip thumbnails, and release the preview player's hardware decoder.
-     * This directly attacks the OOM / codec-starvation that killed exports of
-     * large projects. The preview is re-acquired in {@link #hideExportProgress()}.
+     * Free editor-held memory right before an export: recycle filmstrip thumbnails and
+     * release the preview player's hardware decoder. The preview is re-acquired in
+     * {@link #hideExportProgress()}.
+     *
+     * <p>The undo snapshots stay. They used to be dropped here too, from when the export ran
+     * in this process, but those snapshots are what the undo history saves to disk: leaving
+     * the editor after any export dropped every step made since it was opened, so after
+     * reopening, the first undo press reverted an older step instead (Note 9, 2026-10-22:
+     * 48 steps recorded, 46 came back). The export has its own process and heap now, and the
+     * snapshots are capped by the undo manager's own budget while editing anyway.</p>
      */
     private void prepareMemoryForExport() {
-        if (undoManager != null) undoManager.releaseSnapshotMemory();
         if (editorTimeline != null) editorTimeline.releaseThumbnailMemory();
         if (playerManager != null) playerManager.releaseForExport();
         previewReleasedForExport = true;

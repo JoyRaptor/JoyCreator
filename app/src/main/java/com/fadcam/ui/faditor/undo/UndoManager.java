@@ -55,6 +55,9 @@ public class UndoManager {
     private String baselineSnapshot;
     private boolean baselineRefreshScheduled;
     private boolean baselineRefreshForce;
+    // Bumped by every post. A posted refresh whose number is no longer current was superseded
+    // (by a forced one after undo/redo, or by resetBaseline) and does nothing when it runs.
+    private int baselineRefreshSeq;
     private long lastBaselineCaptureMs = -SNAPSHOT_MIN_INTERVAL_MS;
     // Total chars of retained project-JSON snapshots across the undo stack.
     // maxHistory alone is not enough of a cap: a large project serializes to
@@ -178,8 +181,13 @@ public class UndoManager {
          * edit's before-state. Deferring it one tick is what makes the baseline correct
          * regardless of whether the call site recorded before or after mutating the model
          * (audit 1.6). The implementation may run {@code r} on the main thread.
+         *
+         * <p>{@code delayMs > 0} is the throttle's trailing edge: run {@code r} no sooner than
+         * that, and never while a finger is down on the editor. A capture taken mid-drag would
+         * hand the drag's own entry a half-dragged before-state; held until the finger lifts,
+         * the drag records first and the capture sees its finished result.</p>
          */
-        void scheduleBaselineRefresh(@NonNull Runnable r);
+        void scheduleBaselineRefresh(@NonNull Runnable r, long delayMs);
     }
 
     // ── Construction ─────────────────────────────────────────────────
@@ -348,6 +356,7 @@ public class UndoManager {
             // baseline must not throttle-suppress the first edit's after-state.
             lastBaselineCaptureMs = clockNow() - SNAPSHOT_MIN_INTERVAL_MS;
         }
+        baselineRefreshSeq++; // a refresh still posted is superseded by this capture
         baselineRefreshScheduled = false;
         baselineRefreshForce = false;
     }
@@ -356,14 +365,22 @@ public class UndoManager {
      * Ask the restorer to run {@link #refreshBaselineNow()} on the tick after the current edit
      * handler completes. Deduped by {@link #baselineRefreshScheduled} so a burst of edits posts
      * at most one refresh (it captures the latest state). {@code force} bypasses the throttle —
-     * used after undo/redo, which are discrete and must leave an exact baseline behind.
+     * used after undo/redo, which are discrete and must leave an exact baseline behind — and
+     * does not wait behind a deferred refresh: the next edit records against the baseline at once.
      */
     private void scheduleBaselineRefresh(boolean force) {
         if (snapshotRestorer == null) return;
         if (force) baselineRefreshForce = true;
-        if (baselineRefreshScheduled) return;
+        if (baselineRefreshScheduled && !force) return;
+        postBaselineRefresh(0);
+    }
+
+    private void postBaselineRefresh(long delayMs) {
         baselineRefreshScheduled = true;
-        snapshotRestorer.scheduleBaselineRefresh(this::refreshBaselineNow);
+        final int seq = ++baselineRefreshSeq;
+        snapshotRestorer.scheduleBaselineRefresh(() -> {
+            if (seq == baselineRefreshSeq) refreshBaselineNow();
+        }, delayMs);
     }
 
     /** Deferred: capture the current project state as the baseline for the next edit. */
@@ -373,8 +390,14 @@ public class UndoManager {
         baselineRefreshForce = false;
         if (snapshotRestorer == null) return;
         long now = clockNow();
-        if (!force && now - lastBaselineCaptureMs < SNAPSHOT_MIN_INTERVAL_MS) {
-            FLog.d(TAG, "BASELINE refresh throttled (" + (now - lastBaselineCaptureMs) + "ms)");
+        long wait = SNAPSHOT_MIN_INTERVAL_MS - (now - lastBaselineCaptureMs);
+        if (!force && wait > 0) {
+            // Throttled: DEFER the capture to the end of the window, never drop it. Dropped, the
+            // baseline stayed at this edit's before-state until some LATER edit refreshed it, so
+            // that later edit, however much later, recorded the same before-state: after a
+            // restart one undo press reverted both, and this edit's own row was gone.
+            FLog.d(TAG, "BASELINE refresh deferred " + wait + "ms");
+            postBaselineRefresh(wait);
             return;
         }
         String snap = snapshotRestorer.captureSnapshot();
@@ -425,31 +448,6 @@ public class UndoManager {
                 if (e.snapshotAfter != null) counted.add(e.snapshotAfter);
             }
         }
-    }
-
-    /**
-     * Free the in-memory full-project JSON snapshots held by entries that can be
-     * undone via their {@link EditAction} anyway (in-session entries). Call this
-     * before a memory-heavy operation (e.g. export) to reclaim potentially
-     * hundreds of MB of heap. In-session undo/redo is unaffected (it replays the
-     * action); only this app session's cross-session-undo persistence is reduced.
-     * Snapshot-only entries loaded from disk keep their snapshots.
-     */
-    public void releaseSnapshotMemory() {
-        int freed = 0;
-        for (HistoryEntry e : undoStack) {
-            if (e.action != null) {
-                if (e.snapshotBefore != null) { e.snapshotBefore = null; freed++; }
-                if (e.snapshotAfter != null) { e.snapshotAfter = null; freed++; }
-            }
-        }
-        for (HistoryEntry e : redoStack) {
-            if (e.action != null) {
-                if (e.snapshotBefore != null) { e.snapshotBefore = null; freed++; }
-                if (e.snapshotAfter != null) { e.snapshotAfter = null; freed++; }
-            }
-        }
-        FLog.d(TAG, "releaseSnapshotMemory: cleared " + freed + " in-session snapshots");
     }
 
     // ── Undo / Redo ──────────────────────────────────────────────────

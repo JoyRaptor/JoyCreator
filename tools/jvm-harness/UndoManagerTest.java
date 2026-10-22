@@ -57,14 +57,22 @@ public class UndoManagerTest {
 
     static final class FakeRestorer implements UndoManager.SnapshotRestorer {
         final Model m;
-        Runnable pending;            // at most one (UndoManager dedups its scheduling)
+        Runnable pending;            // the newest post; any older one is superseded (a no-op)
+        long dueAt;
         int captures = 0, restores = 0;
         FakeRestorer(Model m) { this.m = m; }
         public String captureSnapshot() { captures++; return m.state; }
         public void restoreFromSnapshot(String json) { restores++; m.state = json; }
-        public void scheduleBaselineRefresh(Runnable r) { pending = r; }
-        /** Simulate the looper firing the posted baseline refresh AFTER the handler unwinds. */
-        void tick() { Runnable r = pending; pending = null; if (r != null) r.run(); }
+        public void scheduleBaselineRefresh(Runnable r, long delayMs) {
+            pending = r;
+            dueAt = SystemClock.NOW + delayMs;
+        }
+        /** Simulate the looper firing the posted baseline refresh AFTER the handler unwinds,
+         *  once its delay (the throttle's trailing edge) has passed. */
+        void tick() {
+            if (pending == null || SystemClock.NOW < dueAt) return;
+            Runnable r = pending; pending = null; r.run();
+        }
     }
 
     static final class FakeAction implements EditAction {
@@ -243,6 +251,55 @@ public class UndoManagerTest {
             eq("3i one undo reverts the whole burst to pre-burst", "B1", reopened.state);
             um2.undo();
             eq("3j next undo reverts edit1", "B0", reopened.state);
+
+            // ── 3k. The burst's after-state is captured LATER, not dropped (Note 9, 2026-10-22).
+            // The throttled refresh used to return without rescheduling, so the baseline stayed
+            // B1 until some later edit: edit4, however much later, recorded B1 as well and was
+            // merged into the burst, so after a restart one press reverted edit2..edit4.
+            advance(2000); r.tick();                          // the trailing edge: baseline := B3
+            m.state = "B4";
+            um.recordAction(new FakeAction(m, "edit4", "B3", "B4"));
+            advance(20); r.tick();
+            List<HistoryEntry> persist4 = um.getUndoHistoryForPersist();
+            eqI("3k edit4 is a step of its own: 3 persisted", 3, persist4.size());
+            eq("3l THE FIX: edit4's before is the post-burst state", "B3",
+               persist4.get(2).getSnapshotBefore());
+            Model reopened4 = new Model("B4");
+            UndoManager um4 = restart(um, reopened4, hr);
+            um4.undo();
+            eq("3m one press after a restart reverts exactly edit4", "B3", reopened4.state);
+            eq("3n ...and its row is edit4", "edit4", um4.peekRedoDescription());
+        }
+
+        // ── 3o. undo while the trailing capture is pending must not wait behind it ───────
+        // The undo leaves the screen at a new state at once; the next edit records against
+        // whatever the baseline is then, so the forced refresh supersedes the deferred one.
+        {
+            Model m = new Model("U0");
+            UndoManager um = new UndoManager();
+            FakeRestorer r = new FakeRestorer(m);
+            um.setSnapshotRestorer(r);
+            um.resetBaseline();
+            advance(2000);
+            m.state = "U1";
+            um.recordAction(new FakeAction(m, "a", "U0", "U1"));
+            advance(20); r.tick();                            // baseline := U1
+            advance(300);
+            m.state = "U2";
+            um.recordAction(new FakeAction(m, "b", "U1", "U2"));
+            advance(20); r.tick();                            // throttled: deferred ~1.2s
+            eqB("3o control: a deferred capture is pending", true, r.pending != null);
+            Runnable deferred = r.pending;
+            um.undo();                                        // b undone by action: U2 -> U1
+            advance(20); r.tick();                            // the FORCED refresh runs now
+            eqB("3p nothing left pending", true, r.pending == null);
+            int captured = r.captures;
+            advance(2000); deferred.run();                    // the looper still fires the old post
+            eqI("3p2 ...and the superseded deferred post captures nothing", captured, r.captures);
+            m.state = "U3";
+            um.recordAction(new FakeAction(m, "c", "U1", "U3"));
+            eq("3q the edit after the undo records the post-undo state", "U1",
+               um.getUndoHistoryForPersist().get(1).getSnapshotBefore());
         }
 
         // ── 4. AI checkpoint: undo after a restart restores the PRE-AI state ───────────────

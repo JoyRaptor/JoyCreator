@@ -1140,3 +1140,10 @@ as `TIME * knob` are "rate" and the host integrates them.
   function" on click, unseen until the owner hit it four days later. Edit code with the Write/Edit tools or a script
   FILE written by them, then run `node --check` on the result and grep it for bare 4-7 digit calls
   (`[^A-Za-z0-9_.'"#x][0-9]{4,7}\(`).
+## 2026-10-22 — Studio: undo steps lost after an export
+- **Before freeing a field to save memory, grep who saves it to disk.** Export start nulled every in-session undo snapshot
+  (a leftover from in-process export); the undo sidecar saves exactly those snapshots, so leaving the editor after any
+  export dropped every step of the session (48 recorded, 46 reloaded) and the first undo after reopening reverted an
+  older edit. Repro on the phone: `releaseSnapshotMemory: cleared 3` in logcat, then `Loaded 38` instead of 41.
+- **A throttle defers, it never drops.** A baseline capture skipped as "too soon" left the baseline stale until some later
+  edit, so that edit (however much later) shared the previous edit's before-state and a reopened history merged the two.

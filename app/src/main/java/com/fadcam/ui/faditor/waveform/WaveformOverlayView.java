@@ -50,6 +50,14 @@ public class WaveformOverlayView extends View {
     /** A VisLab look's preview is drawn at most this many pixels on its long side, then scaled. */
     private static final float VIS_PREVIEW_MAX = 720f;
     private final RectF visDst = new RectF();
+    /** Where a source's transcript is (the editor answers live, so a new transcript shows at once). */
+    public interface TranscriptSource {
+        @Nullable com.fadcam.ui.faditor.transcript.Transcript forSource(@NonNull String sourceRef);
+    }
+    @Nullable private TranscriptSource transcripts;
+    /** Per item: the transcript words last handed to its look, by key (rebuilt only on a change). */
+    private final Map<String, com.fadcam.vislab.studio.StudioWords> visWords = new HashMap<>();
+    private final Map<String, Long> visWordsKey = new HashMap<>();
     @Nullable private Paint visPaint;
     private boolean looksAsked;
 
@@ -135,6 +143,27 @@ public class WaveformOverlayView extends View {
         invalidate();
     }
 
+    /** Where each source's transcript is: the words a lyrics look shows (S5). */
+    public void setTranscriptSource(@Nullable TranscriptSource src) {
+        this.transcripts = src;
+        invalidate();
+    }
+
+    /** The clip's transcript words for a VisLab item, rebuilt only when a word changed. */
+    @Nullable
+    private com.fadcam.vislab.studio.StudioWords visWordsFor(@NonNull WaveformOverlayInstance o) {
+        String ref = o.getAudioSourceRef();
+        com.fadcam.ui.faditor.transcript.Transcript t =
+                ref != null && transcripts != null ? transcripts.forSource(ref) : null;
+        long key = com.fadcam.vislab.studio.StudioWords.keyOf(t);
+        Long had = visWordsKey.get(o.getId());
+        if (had == null || had != key) {
+            visWordsKey.put(o.getId(), key);
+            visWords.put(o.getId(), com.fadcam.vislab.studio.StudioWords.of(t));
+        }
+        return visWords.get(o.getId());
+    }
+
     /** A VisLab look's file text, or null (gone: the classic style draws instead). */
     @Nullable
     private String visLookJson(@NonNull String id) {
@@ -188,7 +217,7 @@ public class WaveformOverlayView extends View {
                 vis = StudioVis.get(getContext()).previewFrame(StudioVis.previewKey(o.getId()), visJson,
                         ref != null ? sourceUris.get(ref) : null, o.mapToSourceMs(playheadMs), playheadMs,
                         Math.max(1, Math.round(rw * s)), Math.max(1, Math.round(rh * s)),
-                        o.visReactAt(playheadMs), this::invalidate);
+                        com.fadcam.vislab.studio.VisControls.at(o, playheadMs), visWordsFor(o), this::invalidate);
             }
             // Placeholder until the audio finishes extracting, then the live render.
             // renderReusable returns a shared, reused bitmap (no per-frame allocation);

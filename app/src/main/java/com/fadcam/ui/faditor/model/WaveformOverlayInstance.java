@@ -132,6 +132,8 @@ public class WaveformOverlayInstance implements LinkFollower {
     public boolean usesVisLab() { return visLook != null || visKeys.anyLookKeyIsVisLab(); }
 
     public float visReactAt(long timelineMs) { return visKeys.reactAt(localTime(timelineMs)); }
+    /** Any VisLab value ({@code VisLabKeys.VALUES}) at {@code timelineMs}. */
+    public float visValueAt(@NonNull String key, long timelineMs) { return visKeys.at(key, localTime(timelineMs)); }
     public float visFadeAt(long timelineMs) { return visKeys.fadeAt(localTime(timelineMs)); }
 
     /** Normalized placement in canvas coords [0,1]. */

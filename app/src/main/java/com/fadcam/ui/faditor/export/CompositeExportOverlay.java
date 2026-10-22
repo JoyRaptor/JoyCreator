@@ -289,6 +289,8 @@ public class CompositeExportOverlay extends BitmapOverlay {
          *  classic style only. Filled by the slot builder. */
         @Nullable public java.util.Map<String, String> visLooks;
         @Nullable public android.net.Uri visUri;
+        /** The source's transcript words for a lyrics look (S5), as they were at export start. */
+        @Nullable public com.fadcam.vislab.studio.StudioWords visWords;
 
         public WaveformSlot(@NonNull WaveformOverlayInstance instance, @NonNull WaveformData data,
                             @NonNull WaveformStyle style, int outW, int outH, float density) {
@@ -1132,7 +1134,8 @@ public class CompositeExportOverlay extends BitmapOverlay {
                 // a broken look) = the classic style below, at its own strength.
                 wfBmp = com.fadcam.vislab.studio.StudioVis.get(context).renderBlocking(
                         com.fadcam.vislab.studio.StudioVis.exportKey(ws.instance.getId()),
-                        visJson, ws.visUri, wsMs, timelineMs, sw, sh, ws.instance.visReactAt(timelineMs));
+                        visJson, ws.visUri, wsMs, timelineMs, sw, sh,
+                        com.fadcam.vislab.studio.VisControls.at(ws.instance, timelineMs), ws.visWords);
                 if (wfBmp != null) visFade = ws.instance.visFadeAt(timelineMs);
             }
             if (wfBmp == null) wfBmp = waveRenderer.render(ws.data, ws.style,

@@ -14778,6 +14778,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
         }
         waveformOverlayView.setSourceUris(sourceUris);
+        waveformOverlayView.setTranscriptSource(this::visualizerTranscript);   // lyrics looks (S5)
         java.util.Set<String> needed = new java.util.HashSet<>();
         for (com.fadcam.ui.faditor.model.WaveformOverlayInstance o : overlays) {
             String ref = o.getAudioSourceRef();
@@ -20383,6 +20384,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
     }
 
+    /** The transcript of a visualizer's source clip (either kind), or null: what a lyrics look shows. */
+    @Nullable
+    private com.fadcam.ui.faditor.transcript.Transcript visualizerTranscript(@Nullable String ref) {
+        if (ref == null || project == null) return null;
+        Clip c = findClipById(ref);
+        if (c != null) return c.getTranscript();
+        for (AudioClip ac : project.getTimeline().getAudioClips()) {
+            if (ac != null && ref.equals(ac.getId())) return ac.getTranscript();
+        }
+        return null;
+    }
+
     /** Resolve a visualizer's {@code audioSourceRef} against BOTH clip kinds, or null. */
     @Nullable
     private VizSource resolveVizSource(@Nullable String ref) {
@@ -20576,6 +20589,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         startActivity(new android.content.Intent(FaditorEditorActivity.this,
                                 com.fadcam.vislab.room.VisLabActivity.class)
                                 .putExtra(com.fadcam.vislab.room.VisLabActivity.EXTRA_LOOK, lookId));
+                    }
+                    @Override public boolean hasTranscriptWords() {
+                        com.fadcam.ui.faditor.transcript.Transcript t =
+                                visualizerTranscript(overlay.getAudioSourceRef());
+                        return t != null && !t.words.isEmpty();
                     }
                 });
     }

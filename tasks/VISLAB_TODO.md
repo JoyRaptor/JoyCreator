@@ -126,8 +126,21 @@ Web pilot: `preview_start vislab-web`, page `tools/vislab-web/index.html#<look-i
         export (PNG) and an 8 s range export draw the same look at the same place, moving with the
         music (ripples on kicks). Export runs in its own process: the warm-up covers it. Cost on the
         Note 9: ~49-55 ms per exported frame for a 1080-wide item.
-  - [ ] S4 small editor: Reactivity, Fade (opacity) and the look's key knobs, keyframable.
-        (Look keys, Reactivity, Fade DONE and phone-tested 10-22; the per-look key knobs are what is left.)
+  - [x] S4 small editor: Reactivity, Fade (opacity) and the look's key knobs, keyframable.
+        (Look keys, Reactivity, Fade DONE and phone-tested 10-22.)
+        10-22 later: the key knobs BUILT as four look-wide controls, keyframable like the rest:
+        Bright (x every layer's Brightness), Colour (+ every layer's Colour shift; palettes wrap),
+        Size (x every layer's size in its own space, the common "size") and Speed (x every rate knob,
+        on the travelled path so it never jumps; once a speed was hosted it stays on that path).
+        Owner's own list (10-18: brightness, size, colour shift, speed). Look-wide rather than
+        hand-picked per look: works for every look and every future element (KnobSet finds them by
+        knob id: "brightness", "palShift", "size", rate knobs). Code: `KnobSet.host`,
+        `VisRenderer.setLookControls`, `vislab/studio/VisControls`, `model/VisLabKeys` (VALUES:
+        vis_react, vis_fade, vis_bright, vis_hue, vis_size, vis_speed; json react/fade/bright/hue/
+        size/speed). PHONE-TESTED 10-22 (Note 9): Size 250% made the transcript word "pipsqueak"
+        large and readable in a strip-shaped item (preview and export); Colour 50% shifted the
+        word's colour; Bright 0% hid it; Speed 0% froze Halo Drop's drifting wash, 300% reshaped it
+        frame to frame; each drag one undo. Paused frames cannot show Speed (no time passes).
         Owner 10-22: the LOOK itself gets a keyframe too (which VisLab look shows from when),
         at the top of the editor. A held (step) key: the look changes at the key, no blend.
         10-22: BUILT. `model/VisLabKeys` on the item (look keys incl. Classic, Reactivity 0-2, Fade 0-1,
@@ -141,7 +154,19 @@ Web pilot: `preview_start vislab-web`, page `tools/vislab-web/index.html#<look-i
         PHONE-TESTED 10-22: look keys (key at 0 s, Lyric Flight keyed at 4 s, held between, undo
         removes it), React 0 / 100 / 200 % visibly calm / as set / wild on a paused frame, Fade 50 %
         half see-through, each drag one undo. Lyric Flight draws nothing in Studio until S5 (no words).
-  - [ ] S5 the transcript's words feed a look's Words layer.
+  - [x] S5 the transcript's words feed a look's Words layer.
+        10-22 BUILT: `vislab/studio/StudioWords` (unstruck words in source seconds + a change key);
+        preview asks the editor live (`WaveformOverlayView.setTranscriptSource` ->
+        `FaditorEditorActivity.visualizerTranscript`), export snapshots them into
+        `WaveformSlot.visWords`; `StudioVis` keeps one WordFeed per item, rebuilt only when the key
+        changes, timed by `setWordsTime(sourceMs / 1000)`. A look's own typed words still win. With no
+        transcript, the VisLab section says to make one (Transcript, in the toolbar).
+        PHONE-TESTED 10-22: Lyric Flight on BundlingFontTest's cat clip shows "this", "she",
+        "is name", "pipsqueak" as they are spoken; a single-frame export at 7 s shows "pipsqueak"
+        too; the hint stays hidden when the clip has a transcript.
+        Seen while testing (Studio, not VisLab): leaving the editor through the export-complete
+        screen loses the last in-session undo steps on reopen (the project itself keeps them), so
+        an undo after reopening reaches further back than expected.
 ## E. Audit 10-18 (tasks/audits/2026-10-18/; details in the handoff, section 7)
 
 - [ ] **Audit R1-R3** floating visualiser: fixed 10-18 (`VisOverlayService`, `OverlaySound`, `AnnotationService`).

@@ -33,10 +33,24 @@ public final class KnobSet {
     private final double[] dist;
     private final double[] distAt;
     private final boolean[] distOn;
+    /**
+     * Studio's look-wide key knobs ({@link #host}): x Brightness, + Colour shift, x every speed,
+     * x size. Untouched at 1 / 0 / 1 / 1 (the room never sets them).
+     */
+    private float hostBright = 1f, hostHue = 0f, hostRate = 1f, hostSize = 1f;
+    /** Once a host speed was set, speeds keep the travelled path, so going back to 1 never jumps. */
+    private boolean rateHosted;
+    /** 0 none, 1 Brightness, 2 Colour shift, 3 size: which host value moves knob i. */
+    private final byte[] role;
 
     private KnobSet(@NonNull List<VisKnob> knobs) {
         this.knobs = knobs;
         int n = knobs.size();
+        role = new byte[n];
+        for (int i = 0; i < n; i++) {
+            String id = knobs.get(i).id;
+            role[i] = (byte) ("brightness".equals(id) ? 1 : "palShift".equals(id) ? 2 : "size".equals(id) ? 3 : 0);
+        }
         base = new float[n];
         modSig = new int[n][];
         modAmt = new float[n][];
@@ -87,6 +101,19 @@ public final class KnobSet {
         return s;
     }
 
+    /**
+     * Studio's look-wide key knobs for this set, applied from the next {@link #eval}: every
+     * Brightness x {@code bright}, every Colour shift + {@code hue} (the palette wraps), every
+     * speed x {@code rate} (smoothly: on the travelled path), every size x {@code size}.
+     */
+    public void host(float bright, float hue, float rate, float size) {
+        hostBright = bright;
+        hostHue = hue;
+        hostRate = rate;
+        hostSize = size;
+        if (rate != 1f) rateHosted = true;
+    }
+
     /** Evaluate every knob for this frame. {@code signals} null = no music (bases only). */
     public void eval(@Nullable Signals signals) {
         eval(signals, 1f);
@@ -104,8 +131,18 @@ public final class KnobSet {
                 for (int j = 0; j < ms.length; j++) v += signals.v[ms[j]] * amt[j] * range * react;
                 v = Math.max(k.min - range, Math.min(k.max + range, v));
             }
+            switch (role[i]) {
+                case 1: v *= hostBright; break;
+                case 2: v += hostHue; break;
+                case 3: v *= hostSize; break;
+                default: break;
+            }
+            if (k.rate) v *= hostRate;
             values[i] = v;
-            if (k.slot >= 0) params[k.slot] = k.rate && ms != null && signals != null ? travelled(i, v, signals.time) : v;
+            if (k.slot >= 0) {
+                boolean travels = k.rate && signals != null && (ms != null || rateHosted);
+                params[k.slot] = travels ? travelled(i, v, signals.time) : v;
+            }
         }
     }
 

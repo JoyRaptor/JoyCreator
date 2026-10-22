@@ -144,6 +144,20 @@ public final class VisRenderer {
     private boolean heardScaled;
     private float heardBassAcc, heardLevelAcc, lastBassAcc = Float.NaN, lastLevelAcc = Float.NaN;
 
+    private volatile float lookBright = 1f, lookHue = 0f, lookSize = 1f, lookSpeed = 1f;
+
+    /**
+     * Studio's look-wide key knobs (not part of the look): every layer's Brightness x
+     * {@code bright}, Colour shift + {@code hue}, size x {@code size} and every running motion
+     * x {@code speed} (smoothly). The room never sets them: 1, 0, 1, 1 changes nothing.
+     */
+    public void setLookControls(float bright, float hue, float size, float speed) {
+        lookBright = Math.max(0f, bright);
+        lookHue = hue;
+        lookSize = Math.max(0.05f, size);
+        lookSpeed = Math.max(0f, speed);
+    }
+
     /**
      * How strongly the look hears the music: 0 as if silent, 1 as it is, 2 twice as loud
      * (Studio's keyframable Reactivity on a visualizer; not part of the look). It scales what the
@@ -407,7 +421,12 @@ public final class VisRenderer {
         GLES30.glDisable(GLES30.GL_DEPTH_TEST);
         GLES30.glDisable(GLES30.GL_CULL_FACE);
         GLES30.glBlendEquation(GLES30.GL_FUNC_ADD);
-        for (CompiledScene.Layer L : compiled.layers) L.eval(signals);
+        float lb = lookBright, lh = lookHue, ls = lookSize, lsp = lookSpeed;
+        for (CompiledScene.Layer L : compiled.layers) {
+            L.knobs.host(lb, lh, lsp, 1f);     // a type's own "size" is not the layer's size
+            L.common.host(1f, 0f, lsp, ls);
+            L.eval(signals);
+        }
 
         // 2. living layers on the absolute 60 Hz grid
         if (gpu != null) gpu.begin(0);

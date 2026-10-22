@@ -62,6 +62,9 @@ public final class VisLabStyleTab {
 
         /** Open the VisLab room on this look. */
         void openVisLab(@NonNull String lookId);
+
+        /** True when the visualizer's source clip has a transcript (a lyrics look's words). */
+        boolean hasTranscriptWords();
     }
 
     private static final long ON_KEY_MS = 66;   // as Studio's own keyed rows
@@ -196,9 +199,26 @@ public final class VisLabStyleTab {
         LinearLayout v = new LinearLayout(c);
         v.setOrientation(LinearLayout.VERTICAL);
         v.setPadding(Ui.dp(c, 14), Ui.dp(c, 4), Ui.dp(c, 14), Ui.dp(c, 10));
+        // A lyrics look shows the clip's transcript: say where the words come from while there are none.
+        if (StudioWords.lookNeedsSongWords(VisLabSession.get(c).lookJson(lookId))) {
+            TextView note = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.note(c,
+                    "This look shows the clip's words. Make a transcript (Transcript, in the toolbar) and they appear here.");
+            v.addView(note);
+            rowRefresh.add(() -> note.setVisibility(host.hasTranscriptWords() ? View.GONE : View.VISIBLE));
+        }
         rowRefresh.add(PipDrawerTabs.addPropRow(c, v, valueProp(VisLabKeys.REACT, "React", 0f, 2f,   // Reactivity; the row's label fits ~7 letters
                 x -> Math.round(x * 100f) + "%"), rowHost));
         rowRefresh.add(PipDrawerTabs.addPropRow(c, v, valueProp(VisLabKeys.FADE, "Fade", 0f, 1f,
+                x -> Math.round(x * 100f) + "%"), rowHost));
+        // The look's own key knobs, look-wide (every layer's Brightness / Colour shift / size /
+        // speeds together): what most looks need in a timeline, with the rest in VisLab.
+        rowRefresh.add(PipDrawerTabs.addPropRow(c, v, valueProp(VisLabKeys.BRIGHT, "Bright", 0f, 2f,
+                x -> Math.round(x * 100f) + "%"), rowHost));
+        rowRefresh.add(PipDrawerTabs.addPropRow(c, v, valueProp(VisLabKeys.HUE, "Colour", 0f, 1f,
+                x -> Math.round(x * 100f) + "%"), rowHost));
+        rowRefresh.add(PipDrawerTabs.addPropRow(c, v, valueProp(VisLabKeys.SIZE, "Size", 0.25f, 2.5f,
+                x -> Math.round(x * 100f) + "%"), rowHost));
+        rowRefresh.add(PipDrawerTabs.addPropRow(c, v, valueProp(VisLabKeys.SPEED, "Speed", 0f, 3f,
                 x -> Math.round(x * 100f) + "%"), rowHost));
         TextView edit = Ui.text(c, "Edit in VisLab", 12f, Studio.INK, false, 600);
         edit.setGravity(Gravity.CENTER);
@@ -220,14 +240,12 @@ public final class VisLabStyleTab {
     private ObjectMenuSheet.Prop valueProp(@NonNull String key, @NonNull String label, float min, float max,
                                            @NonNull ObjectMenuSheet.ValueFormat fmt) {
         VisLabKeys k = wf.getVisKeys();
-        boolean react = VisLabKeys.REACT.equals(key);
-        ObjectMenuSheet.Getter get = ms -> react ? wf.visReactAt(ms) : wf.visFadeAt(ms);
+        ObjectMenuSheet.Getter get = ms -> wf.visValueAt(key, ms);
         return new ObjectMenuSheet.Prop(key, label, min, max, fmt, get,
                 (v, ms) -> {
                     KeyframeTrack tr = k.keys().get(key);
                     if (tr != null && !tr.isEmpty()) tr.put(local(ms), v, Easing.EASE_IN_OUT);
-                    else if (react) k.setReact(v);
-                    else k.setFade(v);
+                    else k.set(key, v);
                     host.changed();
                 },
                 ms -> nearKey(k.keys().get(key), local(ms)) != null,

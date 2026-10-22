@@ -67,6 +67,14 @@ public final class StudioVis {
         @Nullable SoundClock sound;
         double lastTime = Double.NaN;
         long usedAt;
+        /** The clip's transcript words for the look's Words layers (S5), and their key. */
+        @Nullable com.fadcam.vislab.words.WordFeed feed;
+        long wordsKey;
+
+        void release() {
+            renderer.release();
+            if (feed != null) feed.release();   // safe twice: the renderer may hold it too
+        }
 
         Item(@NonNull VisRenderer r) {
             renderer = r;
@@ -78,21 +86,24 @@ public final class StudioVis {
         @Nullable final Uri uri;
         final long sourceMs, timelineMs;
         final int w, h;
-        final float react;
+        @NonNull final VisControls ctl;
+        @Nullable final StudioWords words;
 
-        Request(String lookJson, @Nullable Uri uri, long sourceMs, long timelineMs, int w, int h, float react) {
+        Request(String lookJson, @Nullable Uri uri, long sourceMs, long timelineMs, int w, int h,
+                @NonNull VisControls ctl, @Nullable StudioWords words) {
+            this.words = words;
             this.lookJson = lookJson;
             this.uri = uri;
             this.sourceMs = sourceMs;
             this.timelineMs = timelineMs;
             this.w = w;
             this.h = h;
-            this.react = react;
+            this.ctl = ctl;
         }
 
         boolean same(@NonNull Request o) {
             return sourceMs == o.sourceMs && timelineMs == o.timelineMs && w == o.w && h == o.h
-                    && react == o.react
+                    && ctl.same(o.ctl) && wordsKey(words) == wordsKey(o.words)
                     && (uri == null ? o.uri == null : uri.equals(o.uri))
                     && lookJson.equals(o.lookJson);
         }
@@ -121,18 +132,19 @@ public final class StudioVis {
     }
 
     /**
-     * Export: the look for item {@code key} at this moment, {@code w} x {@code h}, every music
-     * link scaled by {@code react} (the item's Reactivity). Blocks (up to 2 s). Returns a new
+     * Export: the look for item {@code key} at this moment, {@code w} x {@code h}, with the item's
+     * VisLab values {@code ctl} (React, Bright, Colour, Size, Speed) and its clip's words. Blocks (up to 2 s). Returns a new
      * Bitmap, or null when VisLab cannot draw here (no ES 3, a broken look). Never call on the
      * main thread while the main thread waits for you.
      */
     @Nullable
     public Bitmap renderBlocking(@NonNull String key, @NonNull String lookJson, @Nullable Uri uri,
-                                 long sourceMs, long timelineMs, int w, int h, float react) {
+                                 long sourceMs, long timelineMs, int w, int h, @NonNull VisControls ctl,
+                                 @Nullable StudioWords words) {
         if (w <= 0 || h <= 0) return null;
         final Bitmap[] out = new Bitmap[1];
         CountDownLatch done = new CountDownLatch(1);
-        Request r = new Request(lookJson, uri, sourceMs, timelineMs, w, h, react);
+        Request r = new Request(lookJson, uri, sourceMs, timelineMs, w, h, ctl, words);
         gl.handler().post(() -> {
             try {
                 out[0] = draw(key, r);
@@ -156,9 +168,10 @@ public final class StudioVis {
      */
     @Nullable
     public Bitmap previewFrame(@NonNull String key, @NonNull String lookJson, @Nullable Uri uri,
-                               long sourceMs, long timelineMs, int w, int h, float react,
+                               long sourceMs, long timelineMs, int w, int h, @NonNull VisControls ctl,
+                               @Nullable StudioWords words,
                                @Nullable Runnable onReady) {
-        Request want = new Request(lookJson, uri, sourceMs, timelineMs, w, h, react);
+        Request want = new Request(lookJson, uri, sourceMs, timelineMs, w, h, ctl, words);
         boolean queue;
         synchronized (pending) {
             // The same moment again (a redraw while paused, or the invalidate onReady asked
@@ -218,7 +231,7 @@ public final class StudioVis {
             while (i.hasNext()) {
                 Map.Entry<String, Item> e = i.next();
                 if (!e.getKey().startsWith("preview:")) continue;
-                e.getValue().renderer.release();
+                e.getValue().release();
                 i.remove();
             }
         });
@@ -229,6 +242,10 @@ public final class StudioVis {
         synchronized (latest) {
             latest.keySet().removeIf(k -> k.startsWith("preview:"));
         }
+    }
+
+    private static long wordsKey(@Nullable StudioWords w) {
+        return w == null ? 0 : w.key;
     }
 
     // GL thread: let go of items nobody has drawn for a while.
@@ -242,7 +259,7 @@ public final class StudioVis {
             while (i.hasNext()) {
                 Item it = i.next().getValue();
                 if (now - it.usedAt < IDLE_MS) continue;
-                it.renderer.release();
+                it.release();
                 i.remove();
             }
             if (!items.isEmpty()) sweepLater();
@@ -261,7 +278,7 @@ public final class StudioVis {
                 vr.init();
                 vr.setTransparent(true);   // sits on the video, like Studio's own visualisers
                 vr.setForceFrame(1);       // soft edges inside the item's box, never a hard seam
-                vr.setWords(null);         // S5: the transcript's words
+                vr.setWords(null);         // until the clip's transcript gives words (below)
                 vr.setImageSource(new com.fadcam.vislab.room.Pictures(app));   // pictures as in the room
                 it = new Item(vr);
                 items.put(key, it);
@@ -281,7 +298,21 @@ public final class StudioVis {
             double dt = Double.isNaN(it.lastTime) ? 1.0 / 30 : Math.max(0, Math.min(0.1, t - it.lastTime));
             it.lastTime = t;
             int fbo = gl.framebuffer(r.w, r.h);
-            it.renderer.setReactivity(r.react);
+            it.renderer.setReactivity(r.ctl.react);
+            it.renderer.setLookControls(r.ctl.bright, r.ctl.hue, r.ctl.size, r.ctl.speed);
+            // The clip's transcript, timed on the clip's own clock (S5); rebuilt only on a change.
+            long wk = wordsKey(r.words);
+            if (wk != it.wordsKey) {
+                it.wordsKey = wk;
+                if (r.words == null) {
+                    it.renderer.setWords(null);
+                } else {
+                    if (it.feed == null) it.feed = new com.fadcam.vislab.words.WordFeed(app);
+                    it.feed.setWords(r.words.words, 0);
+                    it.renderer.setWords(it.feed);
+                }
+            }
+            it.renderer.setWordsTime(r.sourceMs / 1000.0);
             it.renderer.render(f, t, dt, fbo, r.w, r.h);
             Bitmap out = Bitmap.createBitmap(r.w, r.h, Bitmap.Config.ARGB_8888);
             gl.readInto(out);

@@ -5364,6 +5364,10 @@ public class ExportManager {
                 }
                 slot.visLooks = looks;
                 slot.visUri = wfUri;
+                // A lyrics look shows the source clip's transcript (S5), as the preview does.
+                com.fadcam.ui.faditor.transcript.Transcript tr = srcClip != null ? srcClip.getTranscript()
+                        : srcAudioClip != null ? srcAudioClip.getTranscript() : null;
+                slot.visWords = com.fadcam.vislab.studio.StudioWords.of(tr);
             }
             slots.add(slot);
             FLog.d(TAG, "buildWaveformSlots: added slot for waveform " + woi.getId()

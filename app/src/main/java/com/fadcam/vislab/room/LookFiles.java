@@ -194,13 +194,15 @@ final class LookFiles {
 
     /** Move a look's file to the folder's Trash (restorable there); in the fallback, delete it. */
     @WorkerThread
-    static void trash(@NonNull Home h, @NonNull String rel) {
+    static boolean trash(@NonNull Home h, @NonNull String rel) {
         try {
-            if (h.fs.stat(rel) == null) return;
+            if (h.fs.stat(rel) == null) return true;   // already gone
             if (h.folder != null) h.folder.trash(rel, System.currentTimeMillis());
             else h.fs.delete(rel);
+            return true;
         } catch (IOException | RuntimeException e) {
             FLog.w(TAG, "Couldn't move " + rel + " to Trash", e);
+            return false;
         }
     }
 

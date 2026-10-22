@@ -284,6 +284,11 @@ public class CompositeExportOverlay extends BitmapOverlay {
          *  timeline in hand. */
         @Nullable public com.fadcam.ui.faditor.model.Clip hostClip;
         public long hostStartMs;
+        /** VisLab looks on this visualizer (VISLAB_SPEC section 7): every look it shows (look id
+         *  -> file text; its look keys pick one per frame) and the source they hear. Null = the
+         *  classic style only. Filled by the slot builder. */
+        @Nullable public java.util.Map<String, String> visLooks;
+        @Nullable public android.net.Uri visUri;
 
         public WaveformSlot(@NonNull WaveformOverlayInstance instance, @NonNull WaveformData data,
                             @NonNull WaveformStyle style, int outW, int outH, float density) {
@@ -1117,7 +1122,20 @@ public class CompositeExportOverlay extends BitmapOverlay {
                 linkAlpha = Math.max(0f, Math.min(1f, ws.instance.animatedOpacity(timelineMs)));
                 if (linkAlpha <= 0.004f) continue;   // parent faded out: nothing to draw
             }
-            Bitmap wfBmp = waveRenderer.render(ws.data, ws.style,
+            Bitmap wfBmp = null;
+            float visFade = 1f;
+            String visId = ws.visLooks != null ? ws.instance.visLookAt(timelineMs) : null;
+            String visJson = visId != null ? ws.visLooks.get(visId) : null;
+            if (visJson != null) {
+                // A VisLab look: the renderer the preview used (StudioVis, its own GL thread),
+                // at this frame, with the item's keyframable Reactivity and Fade. Null (no ES 3,
+                // a broken look) = the classic style below, at its own strength.
+                wfBmp = com.fadcam.vislab.studio.StudioVis.get(context).renderBlocking(
+                        com.fadcam.vislab.studio.StudioVis.exportKey(ws.instance.getId()),
+                        visJson, ws.visUri, wsMs, timelineMs, sw, sh, ws.instance.visReactAt(timelineMs));
+                if (wfBmp != null) visFade = ws.instance.visFadeAt(timelineMs);
+            }
+            if (wfBmp == null) wfBmp = waveRenderer.render(ws.data, ws.style,
                     sw, sh, wsMs, ws.density,
                     ws.instance.getJustify(), ws.instance.getDataMode(),
                     ws.instance.isHorizontalMirror(),
@@ -1140,7 +1158,7 @@ public class CompositeExportOverlay extends BitmapOverlay {
             Paint wfPaint = null;
             // FADE_KNOBS §2.5: the visualizer's own fade knobs multiply in too — the
             // piggyback envelope and the instance's fades COMPOSE (both are multipliers).
-            float ownFade = ws.instance.fadeFactorAt(timelineMs) * linkAlpha;
+            float ownFade = ws.instance.fadeFactorAt(timelineMs) * linkAlpha * visFade;
             if (ownFade <= 0.004f) {
                 wfBmp.recycle();
                 continue; // fully faded by its own knobs — nothing to draw

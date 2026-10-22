@@ -118,6 +118,22 @@ public class WaveformOverlayInstance implements LinkFollower {
     public void setVisLook(@Nullable String lookId) { this.visLook = lookId; }
     public boolean isVisLab() { return visLook != null; }
 
+    /** The VisLab values, each keyframable: the look over time, Reactivity, Fade (S4). */
+    @NonNull private final VisLabKeys visKeys = new VisLabKeys();
+
+    @NonNull public VisLabKeys getVisKeys() { return visKeys; }
+
+    /** The VisLab look drawn at {@code timelineMs} (its held look keys win), or null = classic. */
+    @Nullable public String visLookAt(long timelineMs) {
+        return visKeys.lookAt(visLook, localTime(timelineMs));
+    }
+
+    /** True when a VisLab look draws at any moment (the base look or a look key). */
+    public boolean usesVisLab() { return visLook != null || visKeys.anyLookKeyIsVisLab(); }
+
+    public float visReactAt(long timelineMs) { return visKeys.reactAt(localTime(timelineMs)); }
+    public float visFadeAt(long timelineMs) { return visKeys.fadeAt(localTime(timelineMs)); }
+
     /** Normalized placement in canvas coords [0,1]. */
     private float centerX = 0.5f;
     private float centerY = 0.5f;

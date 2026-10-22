@@ -2231,6 +2231,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (project != null) com.fadcam.joyfolder.studio.ShareInbox.clearOpenProject(project.getId());
         playheadHandler.removeCallbacks(playheadUpdater);
         autoSaveHandler.removeCallbacks(autoSaveRunnable);
+        com.fadcam.vislab.studio.StudioVis.releasePreviewIfRunning();   // VisLab looks' renderers
         if (silenceDetector != null) silenceDetector.shutdown();
         // Do NOT kill a transcription that is still running. This shutdown() is what threw away
         // a 20-minute Whisper/Accurate run when the user closed the editor on it (2026-07-28) —
@@ -14763,9 +14764,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (overlays.isEmpty()) return;
         // Refresh each overlay's source-time mapping from its driving clip (trim in-point + speed)
         // so the visualizer reads the correct part of the waveform for trimmed/sped clips.
+        java.util.Map<String, Uri> sourceUris = new java.util.HashMap<>();   // what VisLab looks hear
         for (com.fadcam.ui.faditor.model.WaveformOverlayInstance o : overlays) {
             String ref = o.getAudioSourceRef();
             VizSource src = resolveVizSource(ref);
+            if (src != null && src.uri != null) sourceUris.put(ref, src.uri);
             if (src != null) {
                 o.setSourceMapping(src.inMs, src.speed);
                 Clip spine = ref != null ? findClipById(ref) : null;
@@ -14774,6 +14777,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 }
             }
         }
+        waveformOverlayView.setSourceUris(sourceUris);
         java.util.Set<String> needed = new java.util.HashSet<>();
         for (com.fadcam.ui.faditor.model.WaveformOverlayInstance o : overlays) {
             String ref = o.getAudioSourceRef();
@@ -20542,9 +20546,43 @@ public class FaditorEditorActivity extends AppCompatActivity {
         showVisualizerObjectDrawer(overlay);
     }
 
-    /** The Style tab's content: the Rolodex (style and gradient carousels, mode toggles, layers). */
+    /**
+     * The Style tab's content. VisLab looks are a section of it (VISLAB_SPEC section 7, owner
+     * 10-18: integrate, not override): the look row on top (Classic and every VisLab look, with
+     * a keyframe for which look shows from when); Classic shows the Rolodex below as it always
+     * did, a VisLab look its keyframable Reactivity and Fade and "Edit in VisLab".
+     */
     @NonNull
     private View buildVisualizerStyleTab(
+            @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance overlay) {
+        return com.fadcam.vislab.studio.VisLabStyleTab.build(this, overlay,
+                new com.fadcam.vislab.studio.VisLabStyleTab.Host() {
+                    @Override public long playheadMs() { return Math.max(0, lastPlayheadAbsoluteMs); }
+                    @Override public void seek(long timelineMs) {
+                        if (editorTimeline != null) editorTimeline.seekToTimelineMs(timelineMs);
+                    }
+                    @Override public void changed() {
+                        refreshVizAfterMenuWrite();
+                        scheduleAutoSave();
+                    }
+                    @Override public void recordUndo(@NonNull String label, @NonNull Runnable redo,
+                                                     @NonNull Runnable undo) {
+                        undoManager.recordAction(new EditActions.LambdaAction(label, redo, undo));
+                    }
+                    @NonNull @Override public View classicRolodex() {
+                        return buildClassicVisualizerStyle(overlay);
+                    }
+                    @Override public void openVisLab(@NonNull String lookId) {
+                        startActivity(new android.content.Intent(FaditorEditorActivity.this,
+                                com.fadcam.vislab.room.VisLabActivity.class)
+                                .putExtra(com.fadcam.vislab.room.VisLabActivity.EXTRA_LOOK, lookId));
+                    }
+                });
+    }
+
+    /** The classic styles: the Rolodex (style and gradient carousels, mode toggles, layers). */
+    @NonNull
+    private View buildClassicVisualizerStyle(
             @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance overlay) {
         java.util.List<com.fadcam.ui.faditor.model.WaveformStyle> styles =
                 com.fadcam.ui.faditor.waveform.WaveformStyleIO.loadBuiltins(this);

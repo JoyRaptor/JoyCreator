@@ -31,6 +31,19 @@ Open:
      reopen: the item should draw Halo Drop. Expect first-run bugs in the GL bridge (it has never
      run): check `adb logcat -s VisStudio VisStudioGl`.
    - S2, S4, S5: not started.
+   - **10-22 update (read this over the lines above):** S1, S2, S3 and most of S4 (look keys,
+     Reactivity, Fade) are BUILT, PHONE-TESTED on the Note 9 and committed; details and results
+     are in VISLAB_TODO section C. Reactivity scales what the look hears (not only its music
+     links). Still open: S4's per-look key knobs, S5 (transcript words: a lyrics look draws
+     nothing in Studio until then), R1 (needs a screen recording) and R2 (needs Android 12+).
+     Files: `vislab/studio/VisLabStyleTab` (new), `StudioVisExport`
+     (new), `model/VisLabKeys` (new), `StudioVis`, `WaveformOverlayView`,
+     `FaditorEditorActivity` (`buildVisualizerStyleTab` / `buildClassicVisualizerStyle`, the
+     preview Uri map, onDestroy), `ExportManager`, `ExportService`, `CompositeExportOverlay`,
+     `WaveformOverlayInstance`, `ProjectStorage`, `VisRenderer` (`setReactivity`), plus the
+     V1-V9 audit fixes. Phone test path used 10-22: Library -> Projects -> BundlingFontTest ->
+     hold the visualiser -> Style tab (a project whose full-frame image layers sit above the
+     visualiser hides it: visualisers draw under image overlays).
 2. **D2: the hour-long heat test** (owner deferred it): floating visualiser over a game while a
    screen recording runs, an hour, on the Note 9. Log `adb logcat -s VisTextureView:I` (it prints
    `fps N scale X% heat N ...` once a second) and `dumpsys thermalservice` every minute. Report:
@@ -168,7 +181,9 @@ carousels and mode toggles ("swap the knobs"); "Classic" brings them back. Hover
   export the clip; the exported video shows the same look at the same place, moving with the
   same music (compare a frame of each). Scrub: no crash, picture settles within a moment.
 
-**S4. Small editor (keyframable).** In the VisLab section: Reactivity (0-2) and Fade (0-1) as
+**S4. Small editor (keyframable).** Owner 10-22: at the TOP of the VisLab section, the look
+itself is keyframable (which VisLab look shows from when): a held key per change, the look
+switches at the key with no blend. Then Reactivity (0-2) and Fade (0-1) as
 item properties stored in the item's `KeyframeSet` under names like `vis.react` / `vis.fade`
 (read with `keyframes.valueAt(name, localTime(t), default)`), each slider with Studio's keyframe
 helper button (copy the Transform tab's wiring). Apply them per frame: Reactivity -> for now set

@@ -577,9 +577,12 @@
         // (the song's own clock when there is one, so words land when they are sung).
         // The layer's own words (typed, kept in the look as "text") win over the song's.
         const text = typeof layer.text === 'string' ? layer.text.trim() : '';
-        if (text && !this.typed && global.WordFeed) this.typed = new global.WordFeed();
-        if (text && this.typed && this.typedText !== text) { this.typed.setTyped(text, 0, 0.6); this.typedText = text; }
-        const feed = text ? this.typed : this.words;
+        // One feed per typed text: one shared feed swapped between two texts rebuilt the glyph atlas
+        // every frame (audit 10-18 V2). Same as VisRenderer.typedFeed.
+        if (!this.typedFeeds) this.typedFeeds = new Map();
+        let tf = text ? this.typedFeeds.get(text) : null;
+        if (text && !tf && global.WordFeed) { tf = new global.WordFeed(); tf.setTyped(text, 0, 0.6); this.typedFeeds.set(text, tf); }
+        const feed = text ? tf : this.words;
         if (!feed) return;
         const now = text ? this.time : (this.wordsTime != null ? this.wordsTime : this.time);   // the feed takes off its own offset
         // Words a path, a behaviour and a letter style (see words.frag). Keep each word in view as

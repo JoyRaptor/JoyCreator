@@ -391,6 +391,7 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
     @Override
     public void onBrand(@Nullable String[] stops) {
         view.renderer().setBrandPalette(stops);
+        view.requestRedraw();
     }
 
     // KnobPanel.Host
@@ -433,6 +434,7 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
     public void brand(@Nullable String[] stops) {
         session.roomBrand(stops);
         view.renderer().setBrandPalette(stops);
+        view.requestRedraw();
     }
 
     @Nullable

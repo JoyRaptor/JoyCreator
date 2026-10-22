@@ -112,6 +112,10 @@ public final class VisLabSession {
     /** + look id: a fingerprint of the factory text last copied out (the "untouched copy" check). */
     private static final String PREF_FACTORY = "factory_";
     private static final long SYNC_DELAY_MS = 800;
+    /** A write that failed is tried again after this, doubling up to a minute (audit 10-18 V1). */
+    private static final long RETRY_FIRST_MS = 2000, RETRY_MAX_MS = 60_000;
+    private long retryMs = RETRY_FIRST_MS;
+    private boolean toldFailure;
     private static final int MAX_UNDO = 60;
     private static volatile VisLabSession instance;
 
@@ -120,6 +124,8 @@ public final class VisLabSession {
     private int current;
     @Nullable private String[] brand;
     @Nullable private Listener room;
+    /** Waiting for the folder's looks (main thread). */
+    private final List<Runnable> onLoaded = new ArrayList<>();
     private final ArrayList<Snap> undo = new ArrayList<>(), redo = new ArrayList<>();
     private final Handler main = new Handler(Looper.getMainLooper());
     /** Built-in id -> its factory text, exactly as a file holds it. */
@@ -195,6 +201,11 @@ public final class VisLabSession {
             int i = indexOf(id);
             return i < 0 ? null : looks.get(i).toJson();
         });
+    }
+
+    /** True once the person's folder has been read (their own looks are in the list). */
+    public boolean isLoaded() {
+        return onMain(() -> loaded);
     }
 
     /** The knob registry (types.json) as shipped. */
@@ -481,6 +492,19 @@ public final class VisLabSession {
 
     // ------------------------------------------------------------------ room side (main thread)
 
+    /**
+     * Run {@code r} on the main thread once the person's folder has been read (at once if it has):
+     * a host that starts early (the floating visualiser on a cold start) can then pick the look
+     * the person chose, which may be one of their own (audit 10-18 V9).
+     */
+    public void whenLoaded(@NonNull Runnable r) {
+        onMain(() -> {
+            if (loaded) main.post(r);
+            else onLoaded.add(r);
+            return null;
+        });
+    }
+
     void bind(@Nullable Listener l) {
         room = l;
         if (l != null && !looks.isEmpty()) {
@@ -661,14 +685,21 @@ public final class VisLabSession {
         JoyFolderHome.io().execute(() -> write(jobs, gone));
     }
 
-    /** Folder thread: do the writes {@link #sync} asked for, in order. */
+    /**
+     * Folder thread: do the writes {@link #sync} asked for, in order. A write or trash that fails
+     * is NOT counted as kept: the main thread forgets it was sent (unless a newer edit replaced it)
+     * and tries again later, and the person hears once (audit 10-18 V1: it was acknowledged before
+     * the disk was touched, so a failed save was never retried and the old file won on restart).
+     */
     private void write(@NonNull List<Job> jobs, @NonNull List<String> gone) {
         LookFiles.Home h = home;
         if (h == null) return;
         SharedPreferences.Editor ed = prefs().edit();
+        List<Job> failed = new ArrayList<>();
+        Map<String, String> failedGone = new HashMap<>();   // id -> file still to trash
         for (String id : gone) {
             String rel = files.remove(id);
-            if (rel != null) LookFiles.trash(h, rel);
+            if (rel != null && !LookFiles.trash(h, rel)) failedGone.put(id, rel);
         }
         for (Job j : jobs) {
             String rel = files.get(j.id);
@@ -682,12 +713,41 @@ public final class VisLabSession {
                 else ed.remove(PREF_FACTORY + j.id);
             } catch (IOException | RuntimeException e) {
                 FLog.w(TAG, "Couldn't keep look " + j.id, e);
+                failed.add(j);
             }
         }
         ed.apply();
         LookFiles.saveIndex(h);
         main.post(() -> {
-            if (room != null) room.onKept();
+            if (failed.isEmpty() && failedGone.isEmpty()) {
+                retryMs = RETRY_FIRST_MS;
+                toldFailure = false;
+                if (room != null) room.onKept();
+                return;
+            }
+            for (Job j : failed) {
+                // Only if no newer edit was sent since: then this text is still what must be kept.
+                if (j.text.equals(sent.get(j.id))) {
+                    sent.remove(j.id);
+                    if (j.oldName != null) sentName.put(j.id, j.oldName);
+                    else sentName.remove(j.id);
+                }
+            }
+            for (Map.Entry<String, String> g : failedGone.entrySet()) {
+                // Still gone (not brought back by undo): remember it so the next sync trashes it again.
+                if (indexOf(g.getKey()) < 0 && !sent.containsKey(g.getKey())) {
+                    files.put(g.getKey(), g.getValue());
+                    sent.put(g.getKey(), "");
+                }
+            }
+            if (!toldFailure) {
+                toldFailure = true;
+                android.widget.Toast.makeText(app, "Couldn't save a look to your Joy Creator folder yet. Trying again.",
+                        android.widget.Toast.LENGTH_LONG).show();
+            }
+            main.removeCallbacks(syncSoon);
+            main.postDelayed(syncSoon, retryMs);
+            retryMs = Math.min(RETRY_MAX_MS, retryMs * 2);
         });
     }
 
@@ -795,6 +855,9 @@ public final class VisLabSession {
         undo.clear();
         redo.clear();
         loaded = true;
+        List<Runnable> waiting = new ArrayList<>(onLoaded);
+        onLoaded.clear();
+        for (Runnable r : waiting) main.post(r);
         // The last look picked wins (it may be one of the person's own, only known now).
         String last = prefs().getString(PREF_LAST, null);
         int i = last == null ? -1 : indexOf(last);

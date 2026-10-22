@@ -161,7 +161,14 @@ public class VisOverlayService extends Service implements OverlayControls.Action
         List<String> ids = session.lookIds();
         String want = prefs.getString("look", "halo-drop");
         lookId = ids.contains(want) ? want : (ids.isEmpty() ? null : ids.get(0));
-        showLook();
+        showLook(false);   // a stand-in until the folder is read must not replace the person's choice
+        // Once the folder is read: the look the person chose (it may be their own), as saved in
+        // their folder (a customised built-in included). Audit 10-18 V9.
+        session.whenLoaded(() -> {
+            if (instance != this) return;
+            if (session.lookIds().contains(want)) lookId = want;
+            showLook(true);
+        });
         setFull(prefs.getBoolean("full", false));
     }
 
@@ -270,6 +277,8 @@ public class VisOverlayService extends Service implements OverlayControls.Action
         view = new VisTextureView(this);
         view.renderer().setTransparent(true);   // see-through over whatever is below
         view.renderer().setWords(null);         // no sample lyrics over someone's screen
+        // The look's pictures (the Joy emblem, a picked logo), as in the room (audit 10-18 V6).
+        view.renderer().setImageSource(new com.fadcam.vislab.room.Pictures(this));
         box.addView(view, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         controls = new OverlayControls(this, this);
         controls.setVisibility(View.GONE);
@@ -518,6 +527,10 @@ public class VisOverlayService extends Service implements OverlayControls.Action
     // ------------------------------------------------------------------ looks + sound
 
     private void showLook() {
+        showLook(true);
+    }
+
+    private void showLook(boolean remember) {
         if (lookId == null) return;
         String json = session.lookJson(lookId);
         if (json == null) return;
@@ -525,7 +538,7 @@ public class VisOverlayService extends Service implements OverlayControls.Action
         view.setScene(s);
         view.renderer().setBrandPalette(session.brand());
         controls.setLook(s.name());
-        prefs.edit().putString("look", lookId).apply();
+        if (remember) prefs.edit().putString("look", lookId).apply();
     }
 
     @Override

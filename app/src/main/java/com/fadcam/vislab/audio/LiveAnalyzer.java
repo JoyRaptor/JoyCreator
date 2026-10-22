@@ -19,6 +19,11 @@ public final class LiveAnalyzer {
     @Nullable private volatile SoundSource source;
     private FeatureExtractor extractor;
     private int extractorRate;
+    /** Live sources: how long no new sample has arrived (seconds). Audit 10-18 V8: the last window
+     *  of sound used to drive the art for ever after a source went quiet (a paused recording). */
+    private long lastWritten = -1;
+    private double quiet;
+    private static final double STALE = 0.25;
 
     public LiveAnalyzer(@NonNull PcmRing ring) {
         this.ring = ring;
@@ -44,8 +49,23 @@ public final class LiveAnalyzer {
         }
         SoundSource s = source;
         long head = s != null ? s.playheadFrame() : -1;
-        if (head >= 0) ring.readEndingAt(head, l, r, FFT);
-        else ring.readLatest(l, r, FFT);
+        if (head >= 0) {
+            ring.readEndingAt(head, l, r, FFT);   // a song: the speaker's playhead decides
+        } else {
+            long written = ring.framesWritten();
+            if (written != lastWritten) {
+                lastWritten = written;
+                quiet = 0;
+            } else {
+                quiet += dt;
+            }
+            if (quiet > STALE) {
+                java.util.Arrays.fill(l, 0f);       // nothing new: it is silent now
+                java.util.Arrays.fill(r, 0f);
+            } else {
+                ring.readLatest(l, r, FFT);
+            }
+        }
         for (int i = 0; i < FFT; i++) mono[i] = 0.5f * (l[i] + r[i]);
         float[] db = spectrum.analyze(mono);
         return extractor.update(db, l, ring.isStereo() ? r : null, dt);

@@ -78,6 +78,15 @@ public class VisTextureView extends TextureView implements TextureView.SurfaceTe
     private int frames, slow, fast;
     private long statsStartNs;
     private final Features silence = new Features();
+    /**
+     * Paused: the picture holds still and costs nothing (audit 10-18 V3: it kept rendering every
+     * vsync, analysing sound, and echo looks brightened because their trails were re-lit each
+     * frame). One frame is drawn on pausing, then only when the look is edited, the size changes or
+     * {@link #requestRedraw()} asks.
+     */
+    private volatile boolean redraw = true;
+    private int drawnEdits = -1, drawnW = -1, drawnH = -1;
+    private final Features held = new Features();
     private final HeatGuard heat;
     /** While the phone runs hot: a quarter of the pixels, so it cools without slowing down. */
     private static final float HOT_SCALE = 0.5f;
@@ -91,7 +100,7 @@ public class VisTextureView extends TextureView implements TextureView.SurfaceTe
         renderer = VisLab.get(context).newRenderer();
         heat = new HeatGuard(context);
         renderer.setWords(com.fadcam.vislab.words.WordFeed.withDemo(context));   // until a transcript gives words
-        renderer.setTypedWords(new com.fadcam.vislab.words.WordFeed(context));   // a Words layer's own words
+        renderer.setTypedWordsMaker(() -> new com.fadcam.vislab.words.WordFeed(context));   // a Words layer's own words
         renderer.setProfiling((context.getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0);
         setOpaque(false);
         setSurfaceTextureListener(this);
@@ -104,6 +113,7 @@ public class VisTextureView extends TextureView implements TextureView.SurfaceTe
 
     public void setScene(@Nullable VisScene s) {
         scene = s;
+        redraw = true;
         renderer.setScene(s);
         ceilingUntilNs = 0;   // a new look may be lighter: let it climb
         ceilingStrikes = 0;
@@ -119,7 +129,14 @@ public class VisTextureView extends TextureView implements TextureView.SurfaceTe
     }
 
     public void setPaused(boolean p) {
+        if (paused && !p) lastFrameNs = 0;   // no giant first step after a pause
         paused = p;
+        redraw = true;
+    }
+
+    /** Draw once more while paused (a change the scene's edit count does not show: brand colours). */
+    public void requestRedraw() {
+        redraw = true;
     }
 
     public boolean isPaused() {
@@ -215,14 +232,29 @@ public class VisTextureView extends TextureView implements TextureView.SurfaceTe
     };
 
     private void drawFrame(long nowNs) {
+        if (paused) {
+            VisScene s = scene;
+            int edits = s != null ? s.edits() : 0;
+            if (!redraw && edits == drawnEdits && surfW == drawnW && surfH == drawnH) return;
+            redraw = false;
+            drawnEdits = edits;
+            drawnW = surfW;
+            drawnH = surfH;
+        }
         double dt = lastFrameNs == 0 ? 1.0 / 60 : (nowNs - lastFrameNs) / 1e9;
         lastFrameNs = nowNs;
         dt = Math.max(0, Math.min(0.1, dt));
         if (!EGL14.eglMakeCurrent(display, surface, surface, context)) return;
         applyBufferSize();
         FeatureSource src = source;
-        Features f = src != null ? src.next(paused ? 0 : dt) : silence;
-        if (!paused) clock += dt;
+        Features f;
+        if (paused) {
+            f = held;   // the sound as it was when paused: no analysis while paused
+        } else {
+            f = src != null ? src.next(dt) : silence;
+            f.copyTo(held);
+            clock += dt;
+        }
         try {
             // The buffer we draw into may still be the old size for a frame after a change.
             EGL14.eglQuerySurface(display, surface, EGL14.EGL_WIDTH, eglWH, 0);
@@ -234,7 +266,7 @@ public class VisTextureView extends TextureView implements TextureView.SurfaceTe
             Log.w(TAG, "frame failed", e);
         }
         EGL14.eglSwapBuffers(display, surface);
-        keepSmooth(dt, nowNs);
+        if (!paused) keepSmooth(dt, nowNs);
     }
 
     /** Ask for a window buffer of view size x scale; Android stretches it to the view. */

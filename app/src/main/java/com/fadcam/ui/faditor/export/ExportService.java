@@ -559,7 +559,11 @@ public class ExportService extends Service {
         // Collected BEFORE the early return: the 12:17 run proved a cached remux skips
         // the whole warm phase, which silently skipped the probe AND the pre-trims too.
         final List<Clip> needsPreTrim = collectWindowsNeedingPreTrim(exportProject);
-        if (!audioOnly && frameTimeMs == null
+        // VisLab looks on visualizers: the person's own looks read and each one's sound copied
+        // (PcmSidecar) first, or the first seconds would draw deaf (VISLAB_SPEC section 7).
+        final boolean needsVisLab = !audioOnly && com.fadcam.vislab.studio.StudioVisExport
+                .needsWarm(this, exportProject.getTimeline());
+        if (!audioOnly && frameTimeMs == null && !needsVisLab
                 && needsRemux.isEmpty() && needsReverse.isEmpty() && needsPreTrim.isEmpty()) {
             // Common case: nothing to warm — behave exactly as before. (Video exports
             // always warm: the decode probe is cheap insurance even with zero bakes.)
@@ -632,6 +636,14 @@ public class ExportService extends Service {
                     }
                 } catch (Exception e) {
                     FLog.w(TAG, "Pre-trim threw for a clip window", e);
+                }
+            }
+            if (needsVisLab) {
+                try {
+                    com.fadcam.vislab.studio.StudioVisExport.warm(ExportService.this,
+                            exportProject.getTimeline());
+                } catch (RuntimeException e) {
+                    FLog.w(TAG, "VisLab warm-up threw (its looks may start deaf)", e);
                 }
             }
             // FIX-3: cold-baseline decode probe on the same background thread, AFTER

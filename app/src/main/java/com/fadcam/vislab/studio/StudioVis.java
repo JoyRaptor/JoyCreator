@@ -5,6 +5,7 @@ import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -16,6 +17,7 @@ import com.fadcam.vislab.gl.VisRenderer;
 import com.fadcam.vislab.model.VisScene;
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -36,12 +38,16 @@ import java.util.concurrent.TimeUnit;
  * and {@link SoundClock}. The look draws see-through with soft edges, so it sits on the video
  * like Studio's own visualisers.
  *
- * <p>Status 10-18: built and compiled, NOT yet wired into Studio's preview / export or tested
- * on the phone; the wiring is S3 in the handoff.</p>
+ * <p>Keys: the preview uses {@link #previewKey}, the export {@link #exportKey}, so an export
+ * running after the editor closed keeps its own renderers. An item not drawn for
+ * {@link #IDLE_MS} lets go of its renderer (an ended export, a deleted item); its last preview
+ * picture stays until {@link #releasePreview}.</p>
  */
 public final class StudioVis {
 
     private static final String TAG = "VisStudio";
+    /** An item not drawn for this long lets go of its renderer and sound (GL thread). */
+    private static final long IDLE_MS = 20_000;
     @Nullable private static StudioVis instance;
 
     private final Context app;
@@ -50,6 +56,9 @@ public final class StudioVis {
     private final Map<String, Item> items = new HashMap<>();   // GL thread only
     private final Map<String, Bitmap> latest = new HashMap<>(); // guarded by itself
     private final Map<String, Request> pending = new HashMap<>(); // guarded by itself
+    /** The last moment the preview asked for, per item (guarded by {@link #pending}). */
+    private final Map<String, Request> asked = new HashMap<>();
+    private boolean sweeping;   // GL thread
 
     private static final class Item {
         final VisRenderer renderer;
@@ -57,6 +66,7 @@ public final class StudioVis {
         @Nullable Uri uri;
         @Nullable SoundClock sound;
         double lastTime = Double.NaN;
+        long usedAt;
 
         Item(@NonNull VisRenderer r) {
             renderer = r;
@@ -68,14 +78,23 @@ public final class StudioVis {
         @Nullable final Uri uri;
         final long sourceMs, timelineMs;
         final int w, h;
+        final float react;
 
-        Request(String lookJson, @Nullable Uri uri, long sourceMs, long timelineMs, int w, int h) {
+        Request(String lookJson, @Nullable Uri uri, long sourceMs, long timelineMs, int w, int h, float react) {
             this.lookJson = lookJson;
             this.uri = uri;
             this.sourceMs = sourceMs;
             this.timelineMs = timelineMs;
             this.w = w;
             this.h = h;
+            this.react = react;
+        }
+
+        boolean same(@NonNull Request o) {
+            return sourceMs == o.sourceMs && timelineMs == o.timelineMs && w == o.w && h == o.h
+                    && react == o.react
+                    && (uri == null ? o.uri == null : uri.equals(o.uri))
+                    && lookJson.equals(o.lookJson);
         }
     }
 
@@ -89,18 +108,31 @@ public final class StudioVis {
         return instance;
     }
 
+    /** The key for an item's picture in the editor's preview. */
+    @NonNull
+    public static String previewKey(@NonNull String itemId) {
+        return "preview:" + itemId;
+    }
+
+    /** The key for an item's picture in an export (its own renderer: the preview may be live). */
+    @NonNull
+    public static String exportKey(@NonNull String itemId) {
+        return "export:" + itemId;
+    }
+
     /**
-     * Export: the look for item {@code key} at this moment, {@code w} x {@code h}. Blocks (up to
-     * 2 s). Returns a new Bitmap, or null when VisLab cannot draw here (no ES 3, a broken look).
-     * Never call on the main thread while the main thread waits for you.
+     * Export: the look for item {@code key} at this moment, {@code w} x {@code h}, every music
+     * link scaled by {@code react} (the item's Reactivity). Blocks (up to 2 s). Returns a new
+     * Bitmap, or null when VisLab cannot draw here (no ES 3, a broken look). Never call on the
+     * main thread while the main thread waits for you.
      */
     @Nullable
     public Bitmap renderBlocking(@NonNull String key, @NonNull String lookJson, @Nullable Uri uri,
-                                 long sourceMs, long timelineMs, int w, int h) {
+                                 long sourceMs, long timelineMs, int w, int h, float react) {
         if (w <= 0 || h <= 0) return null;
         final Bitmap[] out = new Bitmap[1];
         CountDownLatch done = new CountDownLatch(1);
-        Request r = new Request(lookJson, uri, sourceMs, timelineMs, w, h);
+        Request r = new Request(lookJson, uri, sourceMs, timelineMs, w, h, react);
         gl.handler().post(() -> {
             try {
                 out[0] = draw(key, r);
@@ -124,11 +156,26 @@ public final class StudioVis {
      */
     @Nullable
     public Bitmap previewFrame(@NonNull String key, @NonNull String lookJson, @Nullable Uri uri,
-                               long sourceMs, long timelineMs, int w, int h, @Nullable Runnable onReady) {
+                               long sourceMs, long timelineMs, int w, int h, float react,
+                               @Nullable Runnable onReady) {
+        Request want = new Request(lookJson, uri, sourceMs, timelineMs, w, h, react);
         boolean queue;
         synchronized (pending) {
+            // The same moment again (a redraw while paused, or the invalidate onReady asked
+            // for): what is there, or on its way, is already that moment. No render loop.
+            Request last = asked.get(key);
+            boolean have;
+            synchronized (latest) {
+                have = latest.containsKey(key);
+            }
+            if (last != null && last.same(want) && (have || pending.containsKey(key))) {
+                synchronized (latest) {
+                    return latest.get(key);
+                }
+            }
+            asked.put(key, want);
             queue = !pending.containsKey(key);
-            pending.put(key, new Request(lookJson, uri, sourceMs, timelineMs, w, h));
+            pending.put(key, want);
         }
         if (queue) {
             gl.handler().post(() -> {
@@ -155,15 +202,51 @@ public final class StudioVis {
         }
     }
 
-    /** Forget every item's renderer and picture (the editor closed). */
-    public void releaseAll() {
-        gl.handler().post(() -> {
-            for (Item it : items.values()) it.renderer.release();
-            items.clear();
-        });
-        synchronized (latest) {
-            latest.clear();
+    /** {@link #releasePreview} if VisLab has drawn in Studio at all (never starts its GL thread). */
+    public static void releasePreviewIfRunning() {
+        StudioVis s;
+        synchronized (StudioVis.class) {
+            s = instance;
         }
+        if (s != null) s.releasePreview();
+    }
+
+    /** The editor closed: forget the preview's renderers and pictures (an export keeps its own). */
+    public void releasePreview() {
+        gl.handler().post(() -> {
+            Iterator<Map.Entry<String, Item>> i = items.entrySet().iterator();
+            while (i.hasNext()) {
+                Map.Entry<String, Item> e = i.next();
+                if (!e.getKey().startsWith("preview:")) continue;
+                e.getValue().renderer.release();
+                i.remove();
+            }
+        });
+        synchronized (pending) {
+            pending.keySet().removeIf(k -> k.startsWith("preview:"));
+            asked.keySet().removeIf(k -> k.startsWith("preview:"));
+        }
+        synchronized (latest) {
+            latest.keySet().removeIf(k -> k.startsWith("preview:"));
+        }
+    }
+
+    // GL thread: let go of items nobody has drawn for a while.
+    private void sweepLater() {
+        if (sweeping) return;
+        sweeping = true;
+        gl.handler().postDelayed(() -> {
+            sweeping = false;
+            long now = SystemClock.uptimeMillis();
+            Iterator<Map.Entry<String, Item>> i = items.entrySet().iterator();
+            while (i.hasNext()) {
+                Item it = i.next().getValue();
+                if (now - it.usedAt < IDLE_MS) continue;
+                it.renderer.release();
+                i.remove();
+            }
+            if (!items.isEmpty()) sweepLater();
+        }, IDLE_MS);
     }
 
     // ------------------------------------------------------------------ GL thread
@@ -179,9 +262,12 @@ public final class StudioVis {
                 vr.setTransparent(true);   // sits on the video, like Studio's own visualisers
                 vr.setForceFrame(1);       // soft edges inside the item's box, never a hard seam
                 vr.setWords(null);         // S5: the transcript's words
+                vr.setImageSource(new com.fadcam.vislab.room.Pictures(app));   // pictures as in the room
                 it = new Item(vr);
                 items.put(key, it);
             }
+            it.usedAt = SystemClock.uptimeMillis();
+            sweepLater();
             if (!r.lookJson.equals(it.lookJson)) {
                 it.renderer.setScene(VisScene.parse(r.lookJson));
                 it.lookJson = r.lookJson;
@@ -195,6 +281,7 @@ public final class StudioVis {
             double dt = Double.isNaN(it.lastTime) ? 1.0 / 30 : Math.max(0, Math.min(0.1, t - it.lastTime));
             it.lastTime = t;
             int fbo = gl.framebuffer(r.w, r.h);
+            it.renderer.setReactivity(r.react);
             it.renderer.render(f, t, dt, fbo, r.w, r.h);
             Bitmap out = Bitmap.createBitmap(r.w, r.h, Bitmap.Config.ARGB_8888);
             gl.readInto(out);

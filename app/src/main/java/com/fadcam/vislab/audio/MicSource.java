@@ -24,6 +24,9 @@ public final class MicSource implements SoundSource {
     private volatile boolean running;
     private Thread thread;
     private AudioRecord record;
+    /** Context from the last start, to take the microphone again after a pause. */
+    private Context context;
+    private boolean heldOff;
 
     public MicSource(@NonNull PcmRing ring) {
         this.ring = ring;
@@ -37,6 +40,7 @@ public final class MicSource implements SoundSource {
     @Override
     public boolean start(@NonNull Context context) {
         if (running) return true;
+        this.context = context.getApplicationContext();
         if (!hasPermission(context)) return false;
         int min = AudioRecord.getMinBufferSize(RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
         if (min <= 0) return false;
@@ -99,8 +103,21 @@ public final class MicSource implements SoundSource {
         return -1;   // live: always the newest
     }
 
+    /**
+     * Paused (the room's pause button, or the room going behind Joybot or another app): let go of
+     * the microphone, and take it again on resume. Audit 10-18 V5: it stayed open, listening, with
+     * the privacy dot on, while nothing was drawn.
+     */
     @Override
     public void setPaused(boolean paused) {
-        // The microphone has no pause; the picture freezes in the view instead.
+        if (paused) {
+            if (running) {
+                stop();
+                heldOff = true;
+            }
+        } else if (heldOff) {
+            heldOff = false;
+            if (context != null) start(context);
+        }
     }
 }

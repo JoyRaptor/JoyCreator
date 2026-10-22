@@ -102,19 +102,59 @@ Web pilot: `preview_start vislab-web`, page `tools/vislab-web/index.html#<look-i
   - Sound: `ui/faditor/waveform/PcmSidecar` (whole-source PCM, 22050 Hz mono, `open(ctx, uri)`,
     `frameAt`), used by scrubbing. Transcripts: `Clip.getActiveNamedTranscript`, words in source ms.
   Build order (tick each):
-  - [ ] S1 the item can carry a VisLab look (`visLook` id), saved and loaded, undoable.
-        10-18: field + save/load BUILT (not phone-tested; no UI sets it yet; undo comes with S2).
-  - [ ] S2 Rolodex section "VisLab looks"; choosing one swaps the classic knobs out (Classic brings them back).
-  - [ ] S3 one renderer for preview and export: offscreen ES 3 on its own thread -> Bitmap; sound from an
+  - [x] S1 the item can carry a VisLab look (`visLook` id), saved and loaded, undoable.
+        PHONE-TESTED 10-22 (Note 9): picked in the Style tab, survived a reinstall + reopen, one undo.
+  - [x] S2 Rolodex section "VisLab looks"; choosing one swaps the classic knobs out (Classic brings them back).
+        10-22: `vislab/studio/VisLabStyleTab`, hooked in `FaditorEditorActivity.buildVisualizerStyleTab`
+        (the old Rolodex is now `buildClassicVisualizerStyle`). Look row on top: Studio's `‹ ◆ ›` + chips
+        Classic / every look, the one at the playhead solid cyan, scrolled into view on open.
+        PHONE-TESTED 10-22: pick -> body swaps to the VisLab values; one undo per pick.
+  - [x] S3 one renderer for preview and export: offscreen ES 3 on its own thread -> Bitmap; sound from an
         offline 60 Hz feature track of the source (PcmSidecar -> FeatureExtractor), cached.
         10-18: core BUILT and compiling (`vislab/studio/OffscreenGl`, `SoundClock`, `StudioVis`; a
         replay-after-seek clock instead of a stored track); NOT wired into preview/export, never run.
+        10-22: WIRED. Preview: `WaveformOverlayView` (`setSourceUris`, `StudioVis.previewFrame`, drawn
+        scaled from at most 720 px, repeat requests for the same moment coalesced so a paused preview
+        never loops). Export: `WaveformSlot.visLooks`/`visUri` from `ExportManager.buildWaveformSlots`,
+        `CompositeExportOverlay` renders with `renderBlocking` (classic style if it returns null).
+        `ExportService` warm-up waits for the person's looks and bakes each VisLab item's sound first
+        (`vislab/studio/StudioVisExport`). Preview and export keep separate renderers
+        (`previewKey`/`exportKey`); idle renderers are let go after 20 s; the editor's onDestroy calls
+        `releasePreviewIfRunning`.
+        PHONE-TESTED 10-22: Halo Drop plays in the preview with the clip's song (the sound copy is made
+        on first pick), the Joy emblem picture shows, a paused preview does not loop; single-frame
+        export (PNG) and an 8 s range export draw the same look at the same place, moving with the
+        music (ripples on kicks). Export runs in its own process: the warm-up covers it. Cost on the
+        Note 9: ~49-55 ms per exported frame for a 1080-wide item.
   - [ ] S4 small editor: Reactivity, Fade (opacity) and the look's key knobs, keyframable.
+        (Look keys, Reactivity, Fade DONE and phone-tested 10-22; the per-look key knobs are what is left.)
+        Owner 10-22: the LOOK itself gets a keyframe too (which VisLab look shows from when),
+        at the top of the editor. A held (step) key: the look changes at the key, no blend.
+        10-22: BUILT. `model/VisLabKeys` on the item (look keys incl. Classic, Reactivity 0-2, Fade 0-1,
+        their own KeyframeSet so they never arm the pose), saved as `"vis"` in project.json.
+        Reactivity = `VisRenderer.setReactivity`: it scales what the look HEARS (levels, hits, spectrum,
+        waveform, history; running totals by scaled steps, so a change never jumps), not just the music
+        links: a phone test showed link-only scaling left most of a look (bars, spectrum reads) as loud
+        as before. The row is labelled "React" (the drawer's label column fits ~7 letters). Fade = the
+        picture's alpha in preview and export. Rows use `PipDrawerTabs.addPropRow` (diamond, ease on
+        hold, one undo per drag). Still owed: the look's own key knobs (3-4 per look family).
+        PHONE-TESTED 10-22: look keys (key at 0 s, Lyric Flight keyed at 4 s, held between, undo
+        removes it), React 0 / 100 / 200 % visibly calm / as set / wild on a paused frame, Fade 50 %
+        half see-through, each drag one undo. Lyric Flight draws nothing in Studio until S5 (no words).
   - [ ] S5 the transcript's words feed a look's Words layer.
 ## E. Audit 10-18 (tasks/audits/2026-10-18/; details in the handoff, section 7)
 
-- [ ] **Audit R1-R3** floating visualiser: fixed 10-18 (`VisOverlayService`, `OverlaySound`, `AnnotationService`), NOT phone-checked yet.
-- [ ] **Audit V1-V9** VisLab: open, for the next agent.
+- [ ] **Audit R1-R3** floating visualiser: fixed 10-18 (`VisOverlayService`, `OverlaySound`, `AnnotationService`).
+      R3 PHONE-TESTED 10-22 (close by its X -> the recorder menu reads Off). R1 owed: needs a screen
+      recording running (the owner taps Android's "Start now"). R2 owed: needs an Android 12+ phone
+      (the Note 9 is Android 10).
+- [x] **Audit V1-V9** VisLab: fixed 10-22. PHONE-TESTED on the Note 9: V3 (paused = pixel-identical
+      frames, no renders; an edit while paused redraws once), V5 (the mic closes on pause, reopens on
+      play: `dumpsys audio`), V2 (two Words layers with different typed words each draw their own,
+      55 fps), V6 (the Joy emblem shows in the floating visualiser and in Studio), V9 (the person's own
+      look comes back after a force-stop). V1 (failed write retried), V4, V7, V8 are code-checked
+      only (no visible symptom to provoke on the phone); the normal save path was seen working
+      (a look file edited then undone came back byte-identical).
 
 ## D. Speed, heat, sharing
 
@@ -125,6 +165,18 @@ Web pilot: `preview_start vislab-web`, page `tools/vislab-web/index.html#<look-i
 - [x] **D3. Republish the web look book** with today's looks: `node tools/vislab-web/build.mjs`, then
   - DONE 10-18: rebuilt (39 looks, 44 shaders, with the Lab parts, typed words and the spiral fix) and republished as version 3 of https://claude.ai/artifact/Kc5e3auEwB8KQorH92hUXU (private until shared from its Share menu).
   the Artifact update (the pilot page).
+
+## F. Later (owner questions, 10-22)
+
+- [ ] **Element packs (third-party / plugins).** Today: a look (`.vis.json`) and a part
+  (`.vispart.json`) are the person's own files; the 26 elements live in the app. 21 of them are
+  "fullscreen" kind = one `types.json` entry + one `.frag` (no Java; the editor builds itself;
+  `VisRenderer` line ~594 `program("fullscreen.vert", t.frag)`). The other 5 (particles, slime,
+  rd, words, image) are engines with Java. Proposed: a pack = a folder in `Supplies/` with its own
+  `types.json`-format list + `.frag` files, merged into the registry at load; fullscreen/instanced
+  kinds only; OFF until the person turns it on; a test compile + one timed draw on load (GpuTimer);
+  HeatGuard covers it; a look naming a missing element keeps it (LookValidator keep-unknown) and
+  says which pack it needs. Shaders cannot touch files or the network, but can hang the GPU.
 
 ## Done this window (newest first)
 

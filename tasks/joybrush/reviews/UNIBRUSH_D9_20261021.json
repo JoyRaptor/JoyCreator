@@ -10,11 +10,11 @@
       "log": "C:/Temp/jb-unibrush-d9-clean-tests.log"
     },
     "app": {
-      "tests": 335,
+      "tests": 351,
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "log": "C:/Temp/jb-unibrush-d9-app-final.log"
+      "log": "C:/Temp/jb-unibrush-palette-cache-app.log"
     },
     "backend": {
       "tests": 1145,
@@ -25,8 +25,30 @@
     }
   },
   "heldCombined": {
-    "status": "PREPARED_NOT_RUN",
-    "root": "C:/Temp/jb-unibrush-d6-shadow"
+    "status": "DISPOSABLE_COMBINED_VERIFIED",
+    "root": "C:/Temp/jb-unibrush-d6-shadow",
+    "core": {
+      "tests": 2680,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 4,
+      "log": "C:/Temp/jb-unibrush-d9-combined-tests.log"
+    },
+    "backend": {
+      "tests": 1154,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "log": "C:/Temp/jb-unibrush-d9-combined-tests.log"
+    },
+    "app": {
+      "tests": 358,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "log": "C:/Temp/jb-unibrush-palette-held-app.log"
+    },
+    "limits": "Sequential full-suite runs against combined held engine/View/Activity/Drawer/BenchRunner sources; JVM/Robolectric proof, not device GL or physical publication acceptance."
   },
   "shippingEnabled": false,
   "phone": "NOT_RUN",
@@ -37,7 +59,8 @@
     "append-only UUID user mode store and exact frozen PNG closure",
     "bounded image picker and packaged grain catalog",
     "immutable resource-aware real-engine previews and single-resource serial scheduler",
-    "capability-gated host controller and persisted stabilizer policy"
+    "capability-gated host controller and persisted stabilizer policy",
+    "Persisted secondary palette with guarded live picker and exact preview colour snapshots"
   ],
   "limitations": [
     "Actual Lead scene publisher, canvas integration and merge remain pending",

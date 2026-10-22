@@ -1,7 +1,7 @@
 # LANES.md — live file-lock board for parallel agents
 
 ## UNIBRUSH_20261018
-status: ACTIVE — D1–D8 engine checkpoints verified/pushed. D9 owned modes/resources/store/sheet/profile/preview/host sources under verification. Lead live scene integration and D10 performance remain pending. Latest owner brief supersedes historical brush-contact claim.
+status: ACTIVE — D1–D9 owned checkpoints verified/pushed through a8858ec60. Combined held adapters verified core2680/backend1154/app358. D10 bounded soft-circle shader/debug helpers committed d723f5a63; actual half-resolution owner/phone performance and Lead live scene integration pending. Latest owner brief supersedes historical brush-contact claim.
 worktree: C:/Temp/jb-codex-unibrush; branch codex/unibrush; base origin/lead/layer-ops 107748a78.
 files: core/brush/{BrushPreset,BrushJson,BrushValidate,BrushDabber,TipRotation,BrushBehaviors,TipProfiles,TipQuad,QuadMath}.kt; core/paint/{Dab,DabPlacer,TipMath}.kt; gl/StampPass.kt; shared stamp/profile/quad shaders; corresponding Unibrush tests/fixtures; tasks/todo.md; tasks/joybrush/AGENT_BOARD.md. Review helper completed bounded QuadMath leaf and now audits read-only.
 DEVICE: none. Builds take jb-gradle.lock; no Lead engine/view/lines or helper media edits.
@@ -12,6 +12,7 @@ additional D6 owned leaves: core/brush/{DualTip,StampTipResources}.kt; gl/{DualM
 additional D7 owned leaves: core/vector/{ShapedReplay,StrokeLiftTransaction}.kt; androidkit/preview/StampPreview.kt; corresponding tests. D7 LineShaper and live publication remain held proposals; no canonical engine/view/lines edits. Helpers draft D8 fill/codec, D9 UI/store/catalog in disjoint C:/Temp folders; no helper builds/device access.
 additional D8 owned leaves: core/input/{StabilizerSpec,StrokeStabilizer}.kt; record/capture/codec identity; owned FillPen/InkTiles/LineSvg filters; actual-stabilizer preview and tests. Android fill/View adapters held only. D9 helpers remain disjoint outside drafts.
 additional D9 owned leaves: core/brush/{UnibrushModes,BrushRecipeEdits,QuadEditorGeometry,FalloffCurveEditing}.kt; BrushShelf family; androidkit UnibrushResources/UnibrushCanvasPort, brush user-mode store/PNG draft/picker/durability/grain catalog, preview request/fingerprint/renderer; app chrome Unibrush sheet/editors/controller/preference/resource-preview scheduler/cache/key; corresponding tests. Activity/View hooks remain held patches. No canonical Lead file changes or phone actions.
+additional D10 owned leaves: shared jb_dab.vert bounded soft-circle extent, portable joybrush/tools/unibrush_d10 GPU proof/fixtures, app bench BenchOverrides helper/tests. BenchRunner/Activity timing hooks remain held patches; no canonical protected source edits or phone measurements.
 # October14 ACTIVE Lead: C:/Temp/jb-live-current, lead/jb-live-current, sourceccb4913bf includes originbb4df6c64.
 # Prior C:/Temp/jb-live-lines is frozen/backed-up b203e760; original owner folder/worktrees preserved.
 # Core2273/backend514/native193 green; sourceccbAPK PASS1m33 with current Note9 capture/bake diagnostics. Later factory guards backend-verified only.

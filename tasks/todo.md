@@ -96,9 +96,11 @@ Isolated branch codex/unibrush starts at lead/layer-ops as authorized in the han
 - [ ] D7 actual Lead publisher integration and Note9 live/replay parity.
 - [x] D8 engine: actual stabilizer settings, raw-codec/filter/fill/SVG/preview replay; core2657/backend1100 green.
 - [ ] D8 actual View/fill adapter integration and Note9 acceptance.
-- [x] D9 owned sheet, shape/profile editors, eleven modes, New brush/store, bounded PNG picker and resource-aware previews; core2678/backend1145/app335 green.
-- [ ] D9 combined held adapter integration, Lead activation and owner phone review.
-- [ ] D10: measured Note 9 performance and soft-dab optimizations.
+- [x] D9 owned sheet, shape/profile editors, eleven modes, New brush/store, bounded PNG picker and resource-aware previews; core2678/backend1145/app351 green (including secondary palette and D10 debug helpers).
+- [x] D9 disposable combined held adapter compilation/tests: core2680/backend1154/app358 green.
+- [ ] D9 Lead activation/integration and owner phone review.
+- [x] D10 bounded large-circle raster extent and debug benchmark helpers: d723f5a63; PC GPU174 cases/110 eligible/zero failures.
+- [ ] D10 automatic spacing policy, Lead half-resolution runtime and measured Note9 performance.
 
 Review: each slice receives a separate commit and AGENT_BOARD note before Lead integration.
 No merge/conflict resolution, shared-main edits, or phone use during the D1 engine work.

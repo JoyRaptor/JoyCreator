@@ -10,6 +10,7 @@ import cc.joycreator.joybrush.core.input.StabilizerPreference
 /** Owned capability boundary. Only the Lead-integrated View implements it; no fallback resource renderer. */
 interface UnibrushCanvasPort {
     var stabilizerPreference: StabilizerPreference
+    var secondaryColorArgb: Int?
     var brushPngs: ((BrushPreset) -> FrozenBrushPngs?)?
     fun renderBrushPreview(snapshot: BrushPreviewRequest, onRetired: (() -> Unit)?,
         onBitmap: (Bitmap?) -> Unit): BrushPreviewTicket

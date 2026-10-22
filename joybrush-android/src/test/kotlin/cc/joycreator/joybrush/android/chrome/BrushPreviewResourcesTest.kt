@@ -186,4 +186,23 @@ class BrushPreviewResourcesTest {
             assertEquals(1, released)
         } finally { dir.deleteRecursively() }
     }
+    @Test fun secondaryColourHasItsOwnImmutablePreviewAndCacheFlight() {
+        val dir=java.nio.file.Files.createTempDirectory("preview_palette").toFile()
+        try {
+            val ui=Manual(); val io=Manual(); val maker=Maker()
+            val cache=BrushPreviewCache(dir,maker,codec,ui,io)
+            val red=BrushPreviewRequest.snapshot(brush(),64,32,
+                BrushPreviewStyle(secondaryInk=0xFFFF0000.toInt()),pngs(3))
+            val blue=BrushPreviewRequest.snapshot(brush(),64,32,
+                red.style.copy(secondaryInk=0xFF0000FF.toInt()),pngs(3))
+            assertNotEquals(BrushPreviewKey.of(red),BrushPreviewKey.of(blue))
+            cache.request(red) {}; cache.request(blue) {}; cache.request(red) {}
+            io.drain(); ui.drain()
+            assertEquals(2,maker.calls.size)
+            assertEquals(listOf(0xFFFF0000.toInt(),0xFF0000FF.toInt()),
+                maker.calls.map{it.snapshot.style.secondaryInk})
+            maker.calls[0].done("red"); maker.calls[1].done("blue")
+            assertEquals(0L,cache.inFlightResourceBytes)
+        } finally { dir.deleteRecursively() }
+    }
 }

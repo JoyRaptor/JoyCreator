@@ -873,3 +873,25 @@ Protected canonical Lead/View/scene/media sources remain untouched. Unadapted le
 CPU paths retain explicit dual-context refusals. No app activation, merge, phone feel or
 performance claim. Next: compile held adapters/tests in a disposable source copy while
 continuing D7 owned finalization; D8/D9 drafts are preserved outside the repository.
+
+
+## Unibrush integration checkpoint — 2026-10-21 (Codex)
+
+D1–D9 owned source through a8858ec60 is compiled and verified. The secondary-palette follow-up
+adds Studio picker live preview/confirmed persistence, stale-callback and cancel rollback,
+actual foreground/secondary preview colours, and a saved-mode recovery selection guard.
+Final owned full app351 passes; core2678/backend1145 remain green, with four optional core skips.
+Disposable combined held engine/View/Activity/Drawer/BenchRunner sources pass core2680 (four
+existing optional skips), backend1154 and app358, all zero failures/errors. Exact held follow-ups
+preserve old first-dab primary colour and unmarked native taper/dash behavior; modern whole-stroke
+ends remain refused until the actual recorded lift publisher exists. D9_LEAD.md gives patch order.
+
+D10 source d723f5a63: bounded fully soft canonical-circle raster extent and debug bench helpers.
+Actual PC production-shader GPU174 cases/110 eligible/zero failures; eligible <=1 RGBA8 level,
+excluded cases/transport exact; all four broken controls detected. This proves PC parity only.
+D10_20261021.md, D10_PLAN.md and GPU JSON record exact scope and remaining format/device gates.
+
+**Not complete:** Lead real scene/lift publisher, half-resolution allocation/display/commit/replay,
+safe automatic spacing policy, activation/merge, Note9 measurements and owner all-mode raster/
+editable-line review. Shipping stays OFF. No protected canonical engine/View/lines/Activity/media
+edits, conflict resolutions, phone installs or data clearing. No benchmark result is fabricated.

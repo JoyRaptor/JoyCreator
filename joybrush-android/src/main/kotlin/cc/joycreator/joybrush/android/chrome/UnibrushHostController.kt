@@ -33,6 +33,8 @@ class UnibrushHostController(
     private val store=createAndroidUserModeStore(activity)
     private val builtins=UnibrushResources()
     private val preferenceStore=StabilizerPreferenceStore(prefs)
+    private val paletteStore=UnibrushPalettePreferenceStore(prefs)
+    private val secondaryInk=UnibrushSecondaryInkSession({port.secondaryColorArgb},{port.secondaryColorArgb=it},{ paletteStore.secondaryColorArgb=it })
     private val base:List<BrushPreset>
     private var users:List<BrushPreset> = emptyList()
     @Volatile private var session:DraftBrushImageSession?=null
@@ -71,13 +73,14 @@ class UnibrushHostController(
         require(shipped.filter{it.id in reserved}.all{isFamily(it)}){"A historical preset occupies a reserved Unibrush id"}
         base=shipped+modes.filter{mode->shipped.none{it.id==mode.id}}
         port.stabilizerPreference=preferenceStore.load()
+        port.secondaryColorArgb=paletteStore.secondaryColorArgb
         publishLibrary()
     }
     fun isFamily(p:BrushPreset)=p.engine=="stamp"&&p.extensions[UnibrushModes.FAMILY_KEY] in setOf("builtin","user")
     fun isReady(p:BrushPreset):Boolean=session?.current()?.let{
         it.recipe.id==p.id&&it.resources.paths==BrushAssetPaths.required(p).toSet()
     }?:false
-    fun cancelSelection(){selectionRevision++;selectionWork?.cancel(true);selectionWork=null;cancelPick()}
+    fun cancelSelection(){secondaryInk.cancel();selectionRevision++;selectionWork?.cancel(true);selectionWork=null;cancelPick()}
     fun library():List<BrushPreset> {
         val edited=session?.current()?.recipe
         return (base+users).map{p->edited?.takeIf{it.id==p.id}?:p}
@@ -101,6 +104,7 @@ class UnibrushHostController(
             ?:throw BrushException("This mode needs its complete frozen PNG resources")
     }
     fun select(p:BrushPreset, selected:((BrushPreset)->Unit)?=null) {
+        secondaryInk.cancel()
         val revision=++selectionRevision
         selectionWork?.cancel(true);selectionWork=null
         popovers.close()
@@ -146,11 +150,12 @@ class UnibrushHostController(
     }
     private fun requestPreview(p:BrushPreset,w:Int,h:Int,style:BrushPreviewStyle,pen:PreviewPenOverride?,ready:(Bitmap)->Unit):PreviewCancel {
         val preset=BrushJson.decodeChecked(BrushJson.encode(p))
+        val paletteStyle=style.copy(secondaryInk=port.secondaryColorArgb?:0xFFFFFFFF.toInt())
         val actual=BrushPreviewRequest.defaultActualStabilizer(preset,port.stabilizerPreference.copy(),
             if(canvas.smoothingFromUser)canvas.smoothing else preset.smoothing)
         if(BrushAssetPaths.required(preset).isEmpty())
-            return cache.request(BrushPreviewRequest.snapshot(preset,w,h,style.copy(),null,actual,pen),ready)
-        return resourceLane.enqueue(ResourcePreview(preset,w,h,style.copy(),actual,pen?.copy()),ready)
+            return cache.request(BrushPreviewRequest.snapshot(preset,w,h,paletteStyle,null,actual,pen),ready)
+        return resourceLane.enqueue(ResourcePreview(preset,w,h,paletteStyle,actual,pen?.copy()),ready)
     }
     /** Activity maker signals the exact cache snapshot; terminal is independent of nullable delivery. */
     fun previewStarted(snapshot:BrushPreviewRequest)=resourceLane.started(snapshot)
@@ -181,20 +186,29 @@ class UnibrushHostController(
             onPreviewInput={pressure,tilt->previewPen=PreviewPenOverride(pressure,tilt);redrawPreview(epoch)},
             chooseAssets={request,done->chooseImages(request,done,epoch)},
             editProfilePoints={profile,done->UnibrushProfileDialogs.show(kit,profile,done)},
+            onChooseSecondaryColour={chooseSecondaryColour(epoch)},
         )
         sheet=view
         canvas.onPenReading={p,t,o->if(epoch==sheetRevision)view.showReading(p,t,o)}
         popovers.showSheet(view,600f,alignEnd(),onClosed={
-            if(epoch==sheetRevision){sheetRevision++;sheet=null;previewImage=null;previewAsk?.cancel();previewAsk=null;canvas.onPenReading=null;cancelPick()}
+            if(epoch==sheetRevision){sheetRevision++;sheet=null;previewImage=null;previewAsk?.cancel();previewAsk=null;canvas.onPenReading=null;cancelPick();secondaryInk.cancel()}
         },modal=false)
         image.post{redrawPreview(epoch)}
+    }
+    private fun chooseSecondaryColour(epoch:Long) {
+        if (destroyed||epoch!=sheetRevision) return
+        val choice=secondaryInk.begin{!destroyed&&epoch==sheetRevision}
+        com.fadcam.ui.faditor.tools.ColorPickerDialog.show(activity,"Second colour",choice.initialArgb,false,
+            {live->if(live!=null){choice.preview(live);redrawPreview(epoch)}},
+            {picked->if(picked!=null)try{choice.confirm(picked);redrawPreview(epoch)}catch(error:Exception){say(error)}},
+            null,{choice.cancel();redrawPreview(epoch)})
     }
     private fun redrawPreview(epoch:Long) {
         val image=previewImage?:return
         if(epoch!=sheetRevision||image.width<=0||image.height<=0)return
         val pair=session?.current()?:return
         previewAsk?.cancel()
-        try{previewAsk=requestPreview(pair.recipe,image.width,image.height,BrushPreviewStyle(ink=kit.p.drawerInk),previewPen){bitmap->
+        try{previewAsk=requestPreview(pair.recipe,image.width,image.height,BrushPreviewStyle(ink=canvas.strokeColor,secondaryInk=port.secondaryColorArgb?:0xFFFFFFFF.toInt()),previewPen){bitmap->
             if(epoch==sheetRevision&&previewImage===image)image.setImageBitmap(bitmap)
         }}catch(error:Exception){say(error)}
     }
@@ -305,7 +319,8 @@ class UnibrushHostController(
                     savingMode=false
                     if(error is UserModeStoreException&&error.publishedId!=null){
                         dialog.dismiss();saveDialog=null
-                        start{loaded->if(loaded)library().firstOrNull{it.id==error.publishedId}?.let{select(it)}}
+                        // Refresh an already-published mode, but never replace a later owner selection.
+                        start{loaded->if(loaded&&epoch==sheetRevision)library().firstOrNull{it.id==error.publishedId}?.let{select(it)}}
                     }else dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled=true
                     say(error)
                 }}
@@ -348,6 +363,7 @@ class UnibrushHostController(
         AlertDialog.Builder(activity).setTitle("Stabilizer").setView(scroll).setPositiveButton("Done",null).show()
     }
     fun close() {
+        secondaryInk.cancel()
         destroyed=true;selectionRevision++;sheetRevision++;previewAsk?.cancel();previewAsk=null
         selectionWork?.cancel(true);selectionWork=null
         resourceLane.close()

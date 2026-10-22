@@ -35,6 +35,7 @@ class UnibrushSettingsView(
     private val onPreviewInput: (pressure: Float, tiltRadians: Float) -> Unit,
     private val chooseAssets: ((UnibrushAssetRequest, (List<String>?) -> Unit) -> Unit)? = null,
     private val editProfilePoints: ((TipProfileSpec, (TipProfileSpec?) -> Unit) -> Unit)? = null,
+    private val onChooseSecondaryColour: (() -> Unit)? = null,
 ) : LinearLayout(kit.context) {
     private enum class Page { Quick, Tip, All }
     private var model = initial
@@ -368,15 +369,22 @@ class UnibrushSettingsView(
         curves += curve; body.addView(curve, LayoutParams(MATCH, WRAP))
     }
 
+    private fun secondaryColourControl() {
+        val choose = onChooseSecondaryColour ?: return
+        body.addView(chip("Second colour", "Choose the background colour used by Secondary colour mix") {
+            finishEditing()
+            if (!closed) try { choose() } catch (error: Exception) { showError(error.message ?: "The second colour could not be chosen") }
+        })
+    }
     private fun colorLife() {
-        section("Colour life")
+        section("Colour life"); secondaryColourControl()
         number("Colour life", 0f, 1f, { maxOf((it.color.dynamics?.hueRangeDegrees ?: 0f) / 30f, (it.color.dynamics?.saturationRange ?: 0f) / .2f) }, { p, v ->
             val c = p.color.dynamics ?: ColorDynamicsSpec()
             p.copy(color = p.color.copy(dynamics = c.copy(hueRangeDegrees = v * 30f, saturationRange = v * .2f)))
         }, format = ::percent)
     }
     private fun colorControls() {
-        section("Colour")
+        section("Colour"); secondaryColourControl()
         toggle("Colour dynamics", { model.color.dynamics != null }) { on -> structural { p -> p.copy(color = p.color.copy(dynamics = if (on) ColorDynamicsSpec() else null)) } }
         if (model.color.dynamics == null) return
         choices("Colour timing", ColorMode.entries, { readable(it.name) }, { model.color.dynamics!!.mode }) { v -> edit(true) { p -> p.copy(color = p.color.copy(dynamics = p.color.dynamics!!.copy(mode = v))) } }

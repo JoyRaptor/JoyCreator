@@ -86,4 +86,16 @@ class UnibrushSettingsViewTest {
         assertEquals(before, view.currentRecipe())
         assertNull(view.currentRecipe().tip.sampled)
     }
+    @Test fun secondColourPickerIsAvailableInQuickAndAllWithoutChangingTheRecipe() {
+        val recipe=UnibrushModes.presets().first()
+        var picked=0
+        val view=UnibrushSettingsView(ChromeKit(context), recipe, StabilizerPreference(), View(context),
+            {_,_->}, {}, {}, {}, {_,_->}, onChooseSecondaryColour={picked++})
+        for(page in listOf("quick", "all")) {
+            click(view, "Show $page brush settings")
+            click(view, "Choose the background colour used by Secondary colour mix")
+        }
+        assertEquals(2,picked)
+        assertEquals(recipe,view.currentRecipe())
+    }
 }

@@ -118,12 +118,12 @@ or current zoom. Do not activate a schema/extension policy before its compatibil
 
 ## First owned optimization candidate: tighter modern-circle quad
 
-`TIGHT_CIRCLE_EXTENT_CANDIDATE.patch` is an OUTSIDE, uncompiled/unrendered experiment touching only
-jb_dab.vert. After the first actual PC GPU run exposed3 failures, its bounded proposal recognizes
-only exact canonical modern unit-circle quad, normalized depth1, live aspect0/anchor0, taper0,
-fully soft Gaussian profile without profile mix, exact target scale1 or.5, no primary sampled
-stamp, radius>=256, and minPx not expanding past r. GPU_FINDINGS.md records the rejected unbounded
-candidate; no canonical candidate has landed and the bounded replacement still needs its GPU run.
+The original unbounded experiment failed three PC GPU comparisons. The production bounded
+replacement is now committed in d723f5a63, with174 actual GPU cases/110 eligible/zero failures.
+It recognizes exact canonical modern unit-circle quad, normalized depth1, live aspect0/anchor0,
+taper0, fully soft Gaussian without profile mix, target scale1 or.5, no primary sampled stamp,
+radius256–2048 and no expanding minPx. Final evidence is UNIBRUSH_D10_GPU_20261021.json;
+the portable harness retains the rejected unbounded version as a required broken control.
 All other data uses the existing extent expression untouched; disabled legacy attrs cannot enter.
 It changes no dabs, flow, cap, profile evaluation, colour moments, grain, masks or VBO layout.
 Dual modes only remove primary coverage, so they need no additional extent; native images fall back.

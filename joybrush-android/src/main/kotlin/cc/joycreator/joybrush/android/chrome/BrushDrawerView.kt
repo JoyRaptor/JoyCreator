@@ -225,6 +225,7 @@ class BrushDrawerView(
 
         fun nameOf(k: BrushShelf.Kind): String = when (k) {
             BrushShelf.Kind.ALL -> "All"
+            BrushShelf.Kind.UNIBRUSH -> "Unibrush"
             BrushShelf.Kind.PENCILS -> "Pencils"
             BrushShelf.Kind.INKS -> "Inks & pens"
             BrushShelf.Kind.MARKERS -> "Markers"

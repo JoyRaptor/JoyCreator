@@ -96,7 +96,8 @@ Isolated branch codex/unibrush starts at lead/layer-ops as authorized in the han
 - [ ] D7 actual Lead publisher integration and Note9 live/replay parity.
 - [x] D8 engine: actual stabilizer settings, raw-codec/filter/fill/SVG/preview replay; core2657/backend1100 green.
 - [ ] D8 actual View/fill adapter integration and Note9 acceptance.
-- [ ] D9: Unibrush sheet, shape editor, modes, New brush, live preview; owner phone review.
+- [x] D9 owned sheet, shape/profile editors, eleven modes, New brush/store, bounded PNG picker and resource-aware previews; core2678/backend1145/app335 green.
+- [ ] D9 combined held adapter integration, Lead activation and owner phone review.
 - [ ] D10: measured Note 9 performance and soft-dab optimizations.
 
 Review: each slice receives a separate commit and AGENT_BOARD note before Lead integration.

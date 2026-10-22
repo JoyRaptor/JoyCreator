@@ -19,7 +19,7 @@ import cc.joycreator.joybrush.core.stroke.StrokeEdit
 object BrushShelf {
 
     /** In the order the drawer lists them. [ALL] is not a kind a brush has: it is the shelf that holds every brush. */
-    enum class Kind { ALL, PENCILS, INKS, MARKERS, PAINT, WATERCOLOUR, OILS, AIRBRUSH, SMUDGE, FILL, ERASERS, IMPORTED }
+    enum class Kind { ALL, PENCILS, INKS, MARKERS, PAINT, WATERCOLOUR, OILS, AIRBRUSH, SMUDGE, FILL, ERASERS, IMPORTED, UNIBRUSH }
 
     /** Words in a built-in brush's id or name that say what it is. Checked in this order, so "pencil" wins over "pen". */
     private val WORDS: List<Pair<String, Kind>> = listOf(
@@ -36,6 +36,7 @@ object BrushShelf {
     )
 
     fun kindOf(p: BrushPreset): Kind = when {
+        p.engine == "stamp" && p.extensions["unibrush.family"] in setOf("builtin", "user") -> Kind.UNIBRUSH
         // What it DOES outranks where it came from: an imported eraser is found with the erasers.
         p.blend == "erase" -> Kind.ERASERS
         p.engine == ENGINE_SMUDGE || p.engine == ENGINE_PUSH -> Kind.SMUDGE
@@ -64,7 +65,7 @@ object BrushShelf {
     fun makesLines(p: BrushPreset): Boolean {
         if (!StrokeEdit.drawsInkLines(p.engine) || p.blend == "erase") return false
         return when (kindOf(p)) {
-            Kind.PENCILS, Kind.INKS, Kind.MARKERS, Kind.FILL -> true
+            Kind.PENCILS, Kind.INKS, Kind.MARKERS, Kind.FILL, Kind.UNIBRUSH -> true
             else -> false
         }
     }
@@ -78,7 +79,7 @@ object BrushShelf {
         val grouped = library.groupBy { kindOf(it) }
         val out = ArrayList<Pair<Kind, List<BrushPreset>>>()
         out.add(Kind.ALL to library)
-        for (k in Kind.entries) {
+        for (k in listOf(Kind.UNIBRUSH) + Kind.entries.filter { it != Kind.UNIBRUSH }) {
             val list = grouped[k] ?: continue
             out.add(k to list)
         }

@@ -1,5 +1,17 @@
 # Joy Brush shared agent board
 
+
+## Unibrush D9 — 2026-10-21 — owned implementation verified
+
+Full canonical core2678 (four existing optional skips)/backend1145/app335: zero failures/errors.
+reviews/UNIBRUSH_D9_20261021.{md,json} records proof, Windows conservative cleanup and limits.
+Eleven modes, shape/profile settings, append-only user Save As, bounded PNG picker/resources,
+actual preference and exact real-engine previews are implemented; callback/cancellation regressions
+are covered. D8/D9 held adapters apply textually in a disposable copy, combined checks are next.
+No canonical Lead engine/View/lines/Activity or Helper media edits. Shipping OFF, no device work.
+D10 bounded soft-circle candidate passed156 PC GPU cases; it remains outside until separately landed.
+Actual half-resolution runtime, Note9 speed/feel, Lead scene publication/merge remain uncompleted.
+
 ## Unibrush D8 — 2026-10-21 — engine verified
 
 Source1758d9f44 passes full core2657 (four optional skips)/backend1100, zero failures/errors.

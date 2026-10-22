@@ -53,19 +53,36 @@ internal interface PreviewWork {
 class BrushPreviewRenderer(private val memory: () -> Pair<Long, Long>) {
 
     class Request(
-        val preset: BrushPreset,
-        val width: Int,
-        val height: Int,
-        val style: BrushPreviewStyle,
+        val snapshot: BrushPreviewRequest,
         val ticket: BrushPreviewTicket,
-        /** Called on the GL thread; null when no picture could be made. */
+        /** Optional snapshot lifetime callback, after queue/active ownership drops, including cancellation. */
+        private val onRetired: (() -> Unit)?,
+        /** Called on the GL thread; null when no picture could be made. Legacy cancel suppresses delivery. */
         val done: (Bitmap?) -> Unit,
-    )
+    ) {
+        private val callbacks = PreviewCallbackBoundary(done, onRetired) { error ->
+            Log.w(TAG, "brush preview callback failed", error)
+        }
+        internal fun deliver(bitmap: Bitmap?) = callbacks.deliver(bitmap)
+        internal fun retire() = callbacks.retire()
+        constructor(snapshot: BrushPreviewRequest, ticket: BrushPreviewTicket, done: (Bitmap?) -> Unit) :
+            this(snapshot, ticket, null, done)
+        /** Existing callers keep the constructor and trailing callback. */
+        constructor(preset: BrushPreset, width: Int, height: Int, style: BrushPreviewStyle,
+                    ticket: BrushPreviewTicket, done: (Bitmap?) -> Unit) :
+            this(BrushPreviewRequest.snapshot(preset, width, height, style), ticket, done)
+        val preset get() = snapshot.preset
+        val width get() = snapshot.width
+        val height get() = snapshot.height
+        val style get() = snapshot.style
+    }
 
     private val queue = ArrayDeque<Request>()
     private var pumping = false
     private var active: Pair<Request, PreviewWork>? = null
     private val shaders = ShaderLibrary()
+    // This owner is GL-thread-only. Never share the live View's UI resolver.
+    private val stampTips = cc.joycreator.joybrush.androidkit.gl.StampTipResolver()
     private var paint: GlPaintEngine? = null
     private var media: MediaLayerEngine? = null
     private var mediaW = 0
@@ -79,7 +96,7 @@ class BrushPreviewRenderer(private val memory: () -> Pair<Long, Long>) {
      */
     fun submit(r: Request): Boolean {
         if (r.width !in MIN_PX..MAX_PX || r.height !in MIN_PX..MAX_PX || r.ticket.cancelled) {
-            r.done(null)
+            try { r.deliver(null) } finally { r.retire() }
             return false
         }
         queue.addLast(r)
@@ -108,7 +125,8 @@ class BrushPreviewRenderer(private val memory: () -> Pair<Long, Long>) {
                 }
                 if (finished) {
                     active = null
-                    deliver(req, work.bitmap)
+                    if (req.snapshot.pngs != null) stampTips.clear() // Drop encoded source ownership before the lease retires.
+                    try { deliver(req, work.bitmap) } finally { req.retire() }
                 }
                 steps++
                 if ((System.nanoTime() - began) / 1_000_000.0 >= BUDGET_MS) break
@@ -137,10 +155,11 @@ class BrushPreviewRenderer(private val memory: () -> Pair<Long, Long>) {
         active = null
         pumping = false
         paint = null
+        stampTips.clear()
         media = null
         mediaW = 0
         mediaH = 0
-        for (r in waiting) r.done(null)
+        for (r in waiting) try { r.deliver(null) } finally { r.retire() }
     }
 
     // ---- inside ----
@@ -148,21 +167,21 @@ class BrushPreviewRenderer(private val memory: () -> Pair<Long, Long>) {
     private fun next(): Pair<Request, PreviewWork>? {
         while (true) {
             val req = queue.removeFirstOrNull() ?: return null
-            if (req.ticket.cancelled) continue
+            if (req.ticket.cancelled) { req.retire(); continue }
             val work = try {
                 start(req)
             } catch (t: Throwable) {
                 Log.w(TAG, "preview of ${req.preset.id} could not start", t)
                 null
             }
-            if (work == null) { req.done(null); continue }
+            if (work == null) { if (req.snapshot.pngs != null) stampTips.clear(); try { req.deliver(null) } finally { req.retire() }; continue }
             return req to work
         }
     }
 
     private fun deliver(req: Request, bitmap: Bitmap?) {
         if (req.ticket.cancelled) { bitmap?.recycle(); return }
-        req.done(bitmap)
+        req.deliver(bitmap)
     }
 
     private fun start(req: Request): PreviewWork? {
@@ -224,7 +243,8 @@ class BrushPreviewRenderer(private val memory: () -> Pair<Long, Long>) {
 
         // A smudge begins carrying the colour it begins on.
         val argb = if (kind == PreviewKind.SMUDGE) req.style.bandLeft else ink
-        val samples = CannedStroke.pen(w, h, shown.size.base)
+        val canned = CannedStroke.pen(w, h, shown.size.base)
+        val samples = req.snapshot.penOverride?.apply(canned) ?: canned
         when (kind) {
             PreviewKind.WATERCOLOUR -> {
                 val seed = shown.watercolour?.sampleSeeds?.firstOrNull() ?: CannedStroke.SEED
@@ -247,8 +267,10 @@ class BrushPreviewRenderer(private val memory: () -> Pair<Long, Long>) {
                 e.addTuftStamps(stamps)
             }
             else -> {
+                val resources = stampTips.resolve(shown, req.snapshot.pngs, CannedStroke.SEED)
                 val p = StampPreview.build(shown, samples,
-                    cc.joycreator.joybrush.core.brush.StrokeColors(argb, req.style.secondaryInk))
+                    cc.joycreator.joybrush.core.brush.StrokeColors(argb, req.style.secondaryInk),
+                    resources.sampled, resources.dual, req.snapshot.actualStabilizer)
                 e.beginStroke(LAYER, argb, p.strokeOpacity, p.accumulate, p.blend, p.tip, p.grain, p.smudge)
                 e.addDabs(p.dabs)
             }
@@ -328,6 +350,7 @@ class BrushPreviewRenderer(private val memory: () -> Pair<Long, Long>) {
     // ---- housekeeping ----
 
     private fun releaseGl() {
+        stampTips.clear()
         media?.let { runCatching { it.release() } }
         media = null
         mediaW = 0

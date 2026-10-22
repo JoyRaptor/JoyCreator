@@ -1133,3 +1133,10 @@ as `TIME * knob` are "rate" and the host integrates them.
   the real cost. Batch the calls (one renderLook for all pieces) and the bench and the phone both speed up.
 - **Halo only where the body changes.** Input not yet in the water changes colour, not paint body: its look needs no
   shading halo; 200-450 k px a frame fell to 50-70 k.
+## 2026-10-22 — VisLab: a shell ate the web pilot's $$
+- **Never pass JavaScript (or any text with `$$`, `$(`, backticks) through a shell command or an unquoted heredoc.**
+  A 10-18 edit to `tools/vislab-web/vislab-app.js` went through bash, which expanded `$$` (the pilot's query helper) into
+  its process number: `53436('.pill', input)`. Every choice button (Order, Look, Colour by) then threw "is not a
+  function" on click, unseen until the owner hit it four days later. Edit code with the Write/Edit tools or a script
+  FILE written by them, then run `node --check` on the result and grep it for bare 4-7 digit calls
+  (`[^A-Za-z0-9_.'"#x][0-9]{4,7}\(`).

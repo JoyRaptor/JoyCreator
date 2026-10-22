@@ -12,7 +12,7 @@ class VectorBoardOwnershipTest {
             Layer("ink", "Lines", LayerKind.PAINT, cels = listOf(Cel("vectors", strokesFile = "ink.bin")))))
 
     @Test fun mixedLayersShareBoardOwnershipAndRetainLineRecordMetadata() {
-        val created = RegionDocumentOps.create(mixed(), "Loop", RectPx(-5, 10, 100, 90), ::ids)
+        val created = RegionDocumentOps.create(mixed(), "Loop", RectPx(-5, 10, 100, 90), ::ids, animate = null)
         val first = created.doc
         assertTrue(DocOps.validate(first).isEmpty())
         assertEquals(listOf(LayerKind.PAINT, LayerKind.PAINT), first.layers.map { it.kind })
@@ -32,14 +32,15 @@ class VectorBoardOwnershipTest {
         }
         val held = RegionDocumentOps.setHeld(copied.doc, first.boards.last().id, "ink", true)
         assertTrue(DocOps.validate(held.doc).isEmpty())
-        assertEquals("ink", held.copies.single().layerId)
+        assertTrue(held.copies.isEmpty())
+        assertEquals("ink", held.transfers.single().layerId)
         assertTrue(RegionDocumentOps.paintPlan(held.doc, "ink").frames.isEmpty())
         val unheld = RegionDocumentOps.setHeld(held.doc, first.boards.last().id, "ink", false)
         assertTrue(DocOps.validate(unheld.doc).isEmpty())
     }
 
     @Test fun cloningPreservesLinksAndKindsWithoutAliasingStoredContent() {
-        val first = RegionDocumentOps.create(mixed(), "Loop", RectPx(10, 10, 90, 90), ::ids).doc
+        val first = RegionDocumentOps.create(mixed(), "Loop", RectPx(10, 10, 90, 90), ::ids, animate = null).doc
         val linked = RegionDocumentOps.addFrame(first, first.boards.last().id, NewFrame.LINK, ::ids).doc
         for (source in linked.layers) {
             val clone = LayerContentClone.plan(source, "copy-${source.id}", "Copy", ::ids)
@@ -53,7 +54,7 @@ class VectorBoardOwnershipTest {
     }
 
     @Test fun rasterExportsRefusePaintLineRecordsBeforeReadingAnyPayload() {
-        val doc = RegionDocumentOps.create(mixed(), "Loop", RectPx(10, 10, 90, 90), ::ids).doc
+        val doc = RegionDocumentOps.create(mixed(), "Loop", RectPx(10, 10, 90, 90), ::ids, animate = null).doc
         assertEquals(LayerKind.PAINT, doc.layers.last().kind)
         assertTrue(doc.layers.last().cels.any { it.strokesFile == "ink.bin" }, "the refused content is v10 PAINT line metadata")
         var reads = 0

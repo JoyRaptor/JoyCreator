@@ -53,6 +53,59 @@ class BoardChromeViewTest {
         assertEquals(1L, view.layoutBuildCount)
     }
 
+    @Test fun selectedEndChipPunchesItsIconThroughCyanWithoutErasingTheArtworkBelow() {
+        val view=view()
+        val chip=Chrome.Element("end-hold",Chrome.Shape.CHIP,Chrome.Rect(20f,20f,160f,48f),
+            colour=Chrome.Colour.CYAN,radiusPx=14f,text="Hold",font=Chrome.Font.SANS,sizeSp=11f,glyph="once")
+        view.submit(Chrome.Layout(listOf(chip),emptyList(),false,false,false))
+        val image=Bitmap.createBitmap(548,1126,Bitmap.Config.ARGB_8888)
+        image.eraseColor(android.graphics.Color.RED)
+        view.draw(Canvas(image))
+        assertEquals(0xff22d3ee.toInt(),image.getPixel(26,34))
+        val icon=(30 until 42).flatMap { x -> (28 until 40).map { y -> image.getPixel(x,y) } }
+        assertTrue("The selected icon exposes the original red artwork",icon.count {it==android.graphics.Color.RED}>3)
+        assertEquals(android.graphics.Color.RED,image.getPixel(200,34))
+        view.submit(Chrome.Layout(listOf(chip.copy(colour=Chrome.Colour.CHROME)),emptyList(),false,false,false))
+        image.eraseColor(android.graphics.Color.RED); view.draw(Canvas(image))
+        assertFalse((30 until 42).any { x -> (28 until 40).any { y -> image.getPixel(x,y)==android.graphics.Color.RED } })
+    }
+
+    @Test fun overlapBodyTapReportsTheActualPointAndCancelledTapDoesNotSelect() {
+        val view=view(); val points=mutableListOf<Chrome.Point>()
+        view.host=object:BoardChromeView.Host { override fun overlapTap(point:Chrome.Point) { points+=point } }
+        view.show(input().copy(kind=BoardKind.ANIMATION,overlaps=listOf(Chrome.Rect(150f,130f,300f,210f))))
+        frame()
+        assertTrue(touch(view,MotionEvent.ACTION_DOWN,200f,160f))
+        assertTrue(touch(view,MotionEvent.ACTION_UP,200f,160f))
+        assertEquals(listOf(Chrome.Point(200f,160f)),points)
+        assertTrue(touch(view,MotionEvent.ACTION_DOWN,210f,170f))
+        touch(view,MotionEvent.ACTION_CANCEL,210f,170f)
+        assertEquals(1,points.size)
+    }
+
+    @Test fun animationClipsChromeRendersLightAndDarkPaperReviewArtifacts() {
+        val passive=view(); val selected=view()
+        val other=Chrome.Rect(180f,140f,410f,270f)
+        val shared=Chrome.Rect(180f,140f,324f,226f)
+        val outputs=java.io.File("build/reports/animation-clips").apply {mkdirs()}
+        for((name,background,ink) in listOf(
+            Triple("light",android.graphics.Color.rgb(245,240,230),cc.joycreator.joybrush.core.chrome.IconInk.DARK),
+            Triple("dark",android.graphics.Color.rgb(25,27,32),cc.joycreator.joybrush.core.chrome.IconInk.LIGHT))) {
+            passive.paperInk=ink; selected.paperInk=ink
+            passive.show(input().copy(kind=BoardKind.ANIMATION,name="Background",board=other,overlaps=listOf(shared)))
+            selected.show(input().copy(kind=BoardKind.ANIMATION,name="Character",selected=true,end="hold",holds=listOf(1,2,1),overlaps=listOf(shared)))
+            frame()
+            val image=Bitmap.createBitmap(548,450,Bitmap.Config.ARGB_8888)
+            image.eraseColor(background)
+            val canvas=Canvas(image)
+            passive.draw(canvas); selected.draw(canvas)
+            val file=java.io.File(outputs,"chrome-$name.png")
+            file.outputStream().use {assertTrue(image.compress(Bitmap.CompressFormat.PNG,100,it))}
+            assertTrue(file.length()>1000)
+            image.recycle()
+        }
+    }
+
     @Test fun passiveBoardAndGapsLetPaintingReceiveDown() {
         val view = view(); view.show(input()); frame()
         assertFalse(touch(view, MotionEvent.ACTION_DOWN, 200f, 150f))

@@ -14,7 +14,7 @@ data class LayerContentClone(val layer: Layer, val copies: List<CelClone>) {
                 CelClone(cel.id, fresh)
             }
             val addresses = copies.associate { it.fromCelId to it.toCelId }
-            fun remap(cel: Cel) = Cel(addresses.getValue(cel.id))
+            fun remap(cel: Cel) = Cel(addresses.getValue(cel.id),parts=cel.parts.map { it.copy(celId=addresses.getValue(it.celId)) })
             return LayerContentClone(source.copy(id = id, name = name,
                 cels = source.cels.map(::remap), mask = source.mask?.let(::remap),
                 sharedCelId = source.sharedCelId?.let(addresses::getValue),

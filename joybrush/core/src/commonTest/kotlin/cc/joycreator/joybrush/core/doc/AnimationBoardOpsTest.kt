@@ -79,15 +79,15 @@ class AnimationBoardOpsTest {
             assertEquals(x + 18, after.get(first, x, 0)); assertEquals(x + 38, after.get(second, x, 0))
         }
         assertEquals(0, after.get(first, -2, 0)); assertEquals(99, after.get("shared", -2, 0))
-        assertEquals(77, after.get("shared", 4, 0)); assertEquals(255, after.get("mask", -2, 0, 255))
-        assertEquals(23, after.get("mask", 0, 0, 255)); assertEquals(27, after.get("mask", 3, 0, 255))
+        assertEquals(77, after.get("shared", 4, 0)); assertEquals(23, after.get("mask", -2, 0, 255))
+        assertEquals(255, after.get("mask", 0, 0, 255)); assertEquals(255, after.get("mask", 3, 0, 255))
         assertEquals(doc.layers, change.doc.layers)
         assertEquals(doc.boards.last().frames, change.doc.boards.last().frames)
         assertEquals(doc.boards.last().currentFrameId, change.doc.boards.last().currentFrameId)
         assertEquals(RegionChange(doc), AnimationBoardOps.moveAll(doc, id, -2, -1))
     }
 
-    @Test fun `held artwork moves shared and dormant frame addresses while neighbor content survives`() {
+    @Test fun `held artwork stays shared and dormant frames stay while neighbor content survives`() {
         var doc = source(); val id = doc.activeBoardId!!; val frame = cel(doc)
         doc = RegionDocumentOps.setHeld(doc, id, "paint", true).doc
         doc = RegionDocumentOps.create(doc, "Neighbor", RectPx(20, 0, 3, 3), ::ids).doc
@@ -96,10 +96,10 @@ class AnimationBoardOpsTest {
         before.put(neighborCel, 20, 0, 7); before.put("shared", 20, 0, 8)
         val change = AnimationBoardOps.moveAll(doc, id, 4, -1)
         val after = before.apply(change)
-        assertEquals(5, after.get("shared", 4, 0)); assertEquals(0, after.get("shared", -2, 0))
-        assertEquals(6, after.get(frame, 4, 0)); assertEquals(0, after.get(frame, -2, 0))
+        assertEquals(0, after.get("shared", 4, 0)); assertEquals(5, after.get("shared", -2, 0))
+        assertEquals(0, after.get(frame, 4, 0)); assertEquals(6, after.get(frame, -2, 0))
         assertEquals(7, after.get(neighborCel, 20, 0)); assertEquals(8, after.get("shared", 20, 0))
-        assertFailsWith<DocException> { AnimationBoardOps.moveAll(doc, id, 20, 0) }
+        assertTrue(DocOps.validate(AnimationBoardOps.moveAll(doc, id, 20, 0).doc).isEmpty(),"a still layer does not own a competing timeline")
     }
 
     @Test fun `duplicate creates independent frame cels preserving links timing current selection held and masks`() {
@@ -123,7 +123,7 @@ class AnimationBoardOpsTest {
         assertEquals(6, after.get(cel(doc), -2, 0))
         assertTrue(change.clears.isEmpty() && change.drops.isEmpty())
         assertEquals(change.doc, DocJson.decode(DocJson.encode(change.doc)))
-        assertFailsWith<DocException> { AnimationBoardOps.duplicate(doc, id, -2, -1, ::ids) }
+        assertTrue(DocOps.validate(AnimationBoardOps.duplicate(doc, id, -2, -1, ::ids).doc).isEmpty(), "held clips may overlap")
         assertFailsWith<DocException> { AnimationBoardOps.duplicate(doc, id, 5, -1) { id } }
     }
 

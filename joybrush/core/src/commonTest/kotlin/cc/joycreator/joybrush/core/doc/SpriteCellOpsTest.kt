@@ -38,11 +38,11 @@ class SpriteCellOpsTest {
     @Test fun `both animation boundaries preserve hidden shared art other frames held and linked addresses`() {
         var doc = base().copy(layers = base().layers + Layer("hidden", "Hidden", LayerKind.PAINT,
             visible = false, locked = true, cels = listOf(Cel("hidden-shared"))))
-        doc = RegionDocumentOps.create(doc, "Left", RectPx(-250, -1, 12, 2), ::ids).doc
+        doc = RegionDocumentOps.create(doc, "Left", RectPx(-250, -1, 12, 2), ::ids, animate = null).doc
         val leftId = doc.boards.last().id
         doc = RegionDocumentOps.addFrame(doc, leftId, NewFrame.BLANK, ::ids).doc
         doc = RegionDocumentOps.addFrame(doc, leftId, NewFrame.LINK, ::ids).doc
-        doc = RegionDocumentOps.create(doc, "Right", RectPx(6, 0, 9, 2), ::ids).doc
+        doc = RegionDocumentOps.create(doc, "Right", RectPx(6, 0, 9, 2), ::ids, animate = null).doc
         val rightId = doc.boards.last().id
         doc = RegionDocumentOps.addFrame(doc, rightId, NewFrame.BLANK, ::ids).doc
         doc = doc.copy(layers = doc.layers.map { layer ->

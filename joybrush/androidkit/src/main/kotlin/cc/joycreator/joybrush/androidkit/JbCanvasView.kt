@@ -1,5 +1,6 @@
 package cc.joycreator.joybrush.androidkit
 
+import cc.joycreator.joybrush.core.doc.AnimationBoardOps
 import android.content.Context
 import cc.joycreator.joybrush.androidkit.gl.media.MediaCanvas
 import cc.joycreator.joybrush.core.brush.BLEND_MULTIPLY
@@ -549,6 +550,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
 
     /** Called on the UI thread when something the person tried is refused, with the reason in words. */
     var onRefused: ((String) -> Unit)? = null
+    var onCombineClipsRequired: ((String,String) -> Unit)? = null
 
     /** Called on the UI thread with a calm sentence about something the app did on its own, which is not a refusal. */
     var onNotice: ((String) -> Unit)? = null
@@ -747,6 +749,18 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         val before = stackUi
         val upper = before[id] ?: return
         val lower = before.layers.getOrNull(before.indexOf(id) - 1)
+        val doc=boardDocument
+        if(doc != null && lower != null) {
+            val up=doc.layers.firstOrNull { it.id == id }?.regions.orEmpty().filterNot { it.held }
+            val down=doc.layers.firstOrNull { it.id == lower.id }?.regions.orEmpty().filterNot { it.held }
+            for(a in up) for(b in down) if(a.boardId != b.boardId) {
+                val ab=doc.boards.first { it.id == a.boardId }; val bb=doc.boards.first { it.id == b.boardId }
+                if(AnimationBoardOps.overlaps(ab.rect,bb.rect)) {
+                    onRefused?.invoke("Combine these clips first: ${ab.name} and ${bb.name}")
+                    onCombineClipsRequired?.invoke(ab.id,bb.id); return
+                }
+            }
+        }
         // On an animation board, only the frame being worked on merges (owner, 2026-10-18).
         val frameBoard = animationBoardId?.takeIf { b -> boardDocument?.boards?.any { it.id == b && it.kind == BoardKind.ANIMATION } == true }
         onBeforeHistoryChange?.invoke()
@@ -804,10 +818,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             when (plan) {
                 is cc.joycreator.joybrush.androidkit.layers.FlattenPlan.Result.Refused -> post { onRefused?.invoke(plan.sentence) }
                 is cc.joycreator.joybrush.androidkit.layers.FlattenPlan.Result.Flatten -> try {
-                    engine.flattenStep(plan.targetId, plan.merged, plan.discarded, before, plan.after)
+                    val combined=engine.flattenStep(plan.targetId, plan.merged, plan.discarded, before, plan.after)
                     reportHistory(); publishLines()
                     val name = before[plan.targetId]?.name ?: "one layer"
-                    post { adopt(plan.after); onNotice?.invoke("Flattened into \"$name\". Undo brings the layers back.") }
+                    post { adopt(plan.after); combined?.let { onNotice?.invoke(it) }; onNotice?.invoke("Flattened into \"$name\". Undo brings the layers back.") }
                 } catch (e: Exception) {
                     post { onRefused?.invoke(e.message ?: "The layers could not be flattened") }
                 }
@@ -2505,6 +2519,13 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         }
     }
 
+    fun previewClipMove(boardId: String?, rect: cc.joycreator.joybrush.core.doc.RectPx?) {
+        onGl {
+            if(!engine.strokeInProgress) try { engine.setClipMovePreview(boardId,rect) }
+            catch(e:Exception) { post { onRefused?.invoke(e.message ?: "This clip could not be previewed") } }
+        }
+    }
+
     /** One serialized metadata/pixel transaction; no board changes while a brush owns its frame plan. */
     fun editBoards(edit: (JbDocument)->cc.joycreator.joybrush.core.doc.RegionChange) {
         onBeforeHistoryChange?.invoke()
@@ -2623,6 +2644,21 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     }
 
     /** Debug adapter arithmetic check on a throwaway engine; it never reads/writes the drawing. */
+    fun runAnimationClipsProbe(ready: (String) -> Unit) {
+        if (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) {
+            ready("{\"passed\":false,\"error\":\"Animation clips probe is debug only\"}")
+            return
+        }
+        val directory=java.io.File(context.cacheDir,"animation-clips-proof-${java.util.UUID.randomUUID()}")
+        onGl {
+            val report=try {
+                org.json.JSONObject(cc.joycreator.joybrush.androidkit.gl.AnimationClipsProbe.run(directory))
+                    .put("directory",directory.absolutePath).toString()
+            } catch(e:Throwable) { org.json.JSONObject().put("passed",false).put("error",e.toString()).toString() }
+            post { ready(report) }
+        }
+    }
+
     /** Media Atlas v2 B1's device proof (debug bench only): window and atlas media engines through the same frames. */
     fun runMediaAtlasProbe(ready: (String) -> Unit) {
         if (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) {

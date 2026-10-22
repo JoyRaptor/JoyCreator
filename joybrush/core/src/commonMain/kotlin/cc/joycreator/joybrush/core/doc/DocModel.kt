@@ -23,7 +23,7 @@ const val DOC_FORMAT = "joybrush.document"
  * 4: the paper carries a look, a tint and two sliders (JB-9.05, R10).
  * 3: a layer may carry a [Layer.mask] and be [Layer.clip]ped (JB-2.23, Lead ruling R48).
  */
-const val DOC_VERSION = 12 // v12: Board.end (ANIMATION_CLIPS C3). v11: recorded physical capture domain and exact integer placement.
+const val DOC_VERSION = 13 // v13: component cel links. v12: Board.end (ANIMATION_CLIPS C3).
 
 /**
  * The engine's tile size, NOT a second copy of it. `Cel.tiles` holds keys the engine wrote with
@@ -273,7 +273,13 @@ object SlabOps {
     @EncodeDefault(EncodeDefault.Mode.NEVER) val slabs: List<SlabRef> = emptyList(),
     /** v10 (JB-5.20 D3/D14): tiles with a saved look, `<key>.look.rgba`. Only tiles that lines cross. */
     @EncodeDefault(EncodeDefault.Mode.NEVER) val looks: List<String> = emptyList(),
+    /** v13: disjoint world-space portions borrowed from other cels in this layer. Outside these
+     * rectangles this cel's own physical paint is used. References share drawings, never copies;
+     * they have no transform, so the ordinary physical-plane stroke routing remains authoritative. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val parts: List<CelPart> = emptyList(),
 )
+
+@Serializable data class CelPart(val celId: String, val rect: RectPx)
 
 @Serializable data class Layer(
     val id: String,

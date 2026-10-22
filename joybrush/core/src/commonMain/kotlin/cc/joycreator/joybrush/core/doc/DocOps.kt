@@ -118,6 +118,11 @@ object DocOps {
             }
         }
 
+        for(layer in doc.layers) {
+            if(layer.cels.any { it.parts.isNotEmpty() } && doc.version<13) out += "Linked component drawings need document version 13"
+            out += CelParts.errors(layer)
+        }
+
         // 6 & 7 — a layer is either static (one cel) or animated in exactly one ANIMATION board.
         for (l in doc.layers) {
             if (l.regions.isNotEmpty()) {
@@ -136,7 +141,7 @@ object DocOps {
                     }
                     val frameIds = board.frames.mapTo(HashSet()) { it.id }
                     if (region.frameCel.keys != frameIds) out += "layer \"${l.id}\" region \"${board.id}\" does not map every frame exactly"
-                    for (cel in region.frameCel.values) {
+                    for (cel in try { CelParts.reachable(l,region.frameCel.values) } catch(e:DocException) { region.frameCel.values.toSet() }) {
                         if (cel !in celIds || cel == l.sharedCelId) out += "layer \"${l.id}\" region \"${board.id}\" has an invalid frame cel \"$cel\""
                         val previous = owner.put(cel,board.id)
                         if (previous != null && previous != board.id) out += "layer \"${l.id}\" shares a frame cel between boards"

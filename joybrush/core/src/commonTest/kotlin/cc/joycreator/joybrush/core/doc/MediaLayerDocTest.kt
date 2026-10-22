@@ -35,7 +35,7 @@ class MediaLayerDocTest {
         assertEquals(doc, back)
         assertEquals(listOf("0_0", "1_0"), back.layers.last().cels.single().floatTiles)
         assertEquals("lines.bin", back.layers.last().cels.single().strokesFile)
-        assertEquals(11, DOC_VERSION, "Captured physical source extends the document format")
+        assertEquals(13, DOC_VERSION, "Saved clip end behaviour and linked component drawings extend the document format")
     }
 
     @Test fun aVersion8MediaLayerOpensAsPaintWithItsPayload() {

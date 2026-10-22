@@ -35,6 +35,7 @@ data class AnimExportPlan(
      * `RegionRenderer` does and the same one `OraExport` makes).
      */
     val rect: RectPx,
+    val end: String = cc.joycreator.joybrush.core.doc.BoardEnd.LOOP,
 ) {
     val totalMs: Int get() = delayMs.sum()
     val frameCount: Int get() = frameIds.size
@@ -230,6 +231,7 @@ object AnimExport {
             fps = board.fps,
             baseName = safeBaseName(baseName),
             rect = board.rect,
+            end = cc.joycreator.joybrush.core.doc.BoardEnd.of(board.end),
         )
     }
 

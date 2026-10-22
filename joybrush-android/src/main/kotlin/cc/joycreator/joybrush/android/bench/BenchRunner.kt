@@ -22,7 +22,9 @@ import cc.joycreator.joybrush.core.brush.BrushPreset
  * unsaved drawing and never restores or writes the working file (the activity's job), so the person's drawing is
  * never touched.
  */
-class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, private val onDone: () -> Unit) {
+class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
+    private val clips: cc.joycreator.joybrush.android.board.BoardRuntimeController? = null,
+    private val onDone: () -> Unit) {
 
     class Spec(val cases: List<String>, val brushes: List<String>, val runs: Int, val clear: Boolean, val legacy: Boolean,
                /** Per case (same order as [cases]): the colour to paint it in, or none to keep the brush's. */
@@ -41,6 +43,24 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
         canvas.mediaWetQuality = spec.wetSubsteps?.let { n ->
             val shipped = cc.joycreator.joybrush.core.media.WetConstants()
             shipped.copy(dt = shipped.dt * shipped.substeps / n, substeps = n)
+        }
+        if ("animationClips" in spec.cases) {
+            fun runProof() {
+                if(!canvas.surfaceReady || canvas.width==0) { ui.postDelayed({ runProof() },200); return }
+                canvas.runAnimationClipsProbe { result ->
+                    val report=try { org.json.JSONObject(result) } catch(e:Exception) { org.json.JSONObject().put("passed",false).put("error",result) }
+                    logRecordedReport(report.put("case","animationClips"),"fixture","animationClips",0)
+                    onDone()
+                }
+            }
+            runProof(); return
+        }
+        if ("playAll" in spec.cases) {
+            PlayAllBench(canvas,clips) {
+                if(spec.holdMs>0) { Log.i(TAG,"hold ${spec.holdMs}"); ui.postDelayed({ onDone() },spec.holdMs) }
+                else onDone()
+            }.start()
+            return
         }
         if ("matrix" in spec.cases) { MatrixBench(canvas, spec, onDone).start(); return }
         val all = BrushLibrary.builtIn()

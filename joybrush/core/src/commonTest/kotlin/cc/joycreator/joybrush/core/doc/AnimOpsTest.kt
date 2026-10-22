@@ -547,10 +547,9 @@ class AnimOpsTest {
         assertEquals(3, starts.size, "one start per frame, in play order")
         assertEquals(0.0, starts[0], 0.0)
         assertEquals(250.0, starts[1], 0.0, "f1 is held for three ticks")
-        assertEquals(250.0 + tickMs, starts[2], 0.0, "then f2 is held for one")
-        // The total is the last start plus one more tick, walked by the same expression in the same
-        // order, so this is exact and not "close enough".
-        assertEquals(starts[2] + tickMs, AnimOps.totalDurationMs(board), 0.0)
+        assertEquals(4000.0 / board.fps, starts[2], 0.0, "then f2 is held for one")
+        // Starts and end convert cumulative exposures; adding floating durations can drift by an ulp.
+        assertEquals(5000.0 / board.fps, AnimOps.totalDurationMs(board), 0.0)
     }
 
     @Test

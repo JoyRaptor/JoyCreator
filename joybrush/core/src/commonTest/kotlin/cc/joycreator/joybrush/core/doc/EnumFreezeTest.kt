@@ -101,7 +101,8 @@ class EnumFreezeTest {
         // 8 is the media layer (MEDIA_ENGINE_PLAN §4): LayerKind.MEDIA and Cel.floatTiles.
         // 9 is one layer kind (R51, JB-2.40): float tiles on PAINT cels; MEDIA stays in the enum, read as PAINT.
         // 11 is the persisted captured physical domain and integer appearance placement.
-        assertEquals(11, DOC_VERSION)
+        // 12 adds saved clip end behaviour; 13 adds linked component drawings (Cel.parts).
+        assertEquals(13, DOC_VERSION)
         // 6 is `paper` (JB-9.09): the three numbers each brush carries about how it feels the document
         // paper. Read as BRUSH_VERSION rather than typed, so the bump is one edit here and one there.
         // 8 is `engine: "media"` and its `media` section (MEDIA_ENGINE_PLAN §4).

@@ -1,6 +1,7 @@
 package cc.joycreator.joybrush.androidkit.gl.lines
 
 import cc.joycreator.joybrush.androidkit.lines.LinePlane
+import cc.joycreator.joybrush.core.doc.CelParts
 import cc.joycreator.joybrush.core.doc.JbDocument
 import cc.joycreator.joybrush.core.doc.RectPx
 import cc.joycreator.joybrush.core.doc.RegionChange
@@ -59,8 +60,9 @@ internal object BoardItemFlatten {
         val own = (before.layers + after.layers).firstOrNull { it.id == p.layerId }?.let { l ->
             val shared = l.sharedCelId ?: l.cels.singleOrNull()?.id
             if (p.celId == null || p.celId == shared) null
-            else (before.layers + after.layers).filter { it.id == p.layerId }.flatMap { it.regions }
-                .firstOrNull { p.celId in it.frameCel.values }?.boardId
+            else (before.layers + after.layers).filter { it.id == p.layerId }.flatMap { meta ->
+                    meta.regions.map { it.boardId to CelParts.reachable(meta,it.frameCel.values) }
+                }.firstOrNull { p.celId in it.second }?.first
         }
         val x = boards(before); val y = boards(after)
         val out = ArrayList<RectPx>()

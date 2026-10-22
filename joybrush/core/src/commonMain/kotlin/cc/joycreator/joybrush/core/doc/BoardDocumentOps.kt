@@ -24,8 +24,10 @@ object BoardDocumentOps {
      * A new Animation board (a clip, ANIMATION_CLIPS C2) animates only the active layer (or [animate] when given); every
      * other layer is still there and its pixels stay on the shared canvas. "Animates in this board" adds more layers.
      */
-    fun createAnimation(doc: JbDocument, name: String, rect: RectPx, ids: () -> String,
-                        animate: Set<String>? = (doc.activeLayerId ?: doc.layers.lastOrNull()?.id)?.let { setOf(it) }): RegionChange {
+    fun createAnimation(doc: JbDocument, name: String, rect: RectPx, ids: () -> String): RegionChange =
+        createAnimation(doc,name,rect,ids,(doc.activeLayerId ?: doc.layers.lastOrNull()?.id)?.let { setOf(it) })
+
+    fun createAnimation(doc: JbDocument, name: String, rect: RectPx, ids: () -> String, animate: Set<String>?): RegionChange {
         checkRect(rect)
         checkName(name)
         return RegionDocumentOps.create(doc, name.trim(), rect, ids, animate)
@@ -48,7 +50,7 @@ object BoardDocumentOps {
     /** ANIMATION_CLIPS C3: what the clip does when it reaches its last frame (a [BoardEnd] word), saved with the drawing. */
     fun setEnd(doc: JbDocument, boardId: String, end: String): JbDocument {
         require(end in BoardEnd.ALL) { "unknown end behaviour $end" }
-        return update(doc, boardId) { it.copy(end = end) }
+        return update(doc.copy(version=maxOf(doc.version,12)), boardId) { it.copy(end = end) }
     }
 
     /** Typing dimensions anchors the top-left, per H1. */

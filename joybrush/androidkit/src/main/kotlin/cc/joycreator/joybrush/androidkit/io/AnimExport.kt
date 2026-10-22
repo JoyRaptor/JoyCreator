@@ -266,7 +266,7 @@ object AnimExportRunner {
     // ---------------------------------------------------------------- the encoders
 
     /**
-     * The GIF: `GifEncoder` with `loop = true` and the plan's delays, untouched.
+     * The GIF follows the saved end mode; ping-pong repeats the interior drawings in reverse.
      *
      * The encoder owns the unit. Its centisecond rounding (`(ms + 5) / 10`, floored at 2 cs) is
      * `GifEncoder.delayCentiseconds` and this file does not know what it is: the plan's
@@ -274,8 +274,9 @@ object AnimExportRunner {
      * that rule here would be a second answer to a question the encoder has already answered.
      */
     private fun gif(plan: AnimExportPlan, cells: List<ByteArray>): AnimFile {
-        val encoder = GifEncoder(plan.width, plan.height, loop = true)
-        for ((i, rgba) in cells.withIndex()) encoder.addFrame(rgba, plan.delayMs[i])
+        val encoder = GifEncoder(plan.width, plan.height, loop = plan.end in listOf("loop", "pingpong"))
+        val order=cells.indices.toList() + if(plan.end == "pingpong" && cells.size > 2) (cells.lastIndex-1 downTo 1).toList() else emptyList()
+        for (i in order) encoder.addFrame(cells[i], plan.delayMs[i])
         return AnimFile(
             name = "${plan.baseName}.${AnimFormat.GIF.extension}",
             mime = AnimFormat.GIF.mime,
@@ -313,7 +314,7 @@ object AnimExportRunner {
             // repeat of that cell's index. `Clip` HAS a `weights` field now (JB-4.03c) and this row
             // does not write one — that is Question 1 of the JB-3.06c spec, not a fact about the
             // field. A repeat is a repeat, not a mistake, and it is what the app's own KDoc means.
-            clips = listOf(AnimExport.sheetClip(plan, plan.baseName, CLIP_TYPE)),
+            clips = listOf(AnimExport.sheetClip(plan, plan.baseName, when(plan.end) { "hold", "blank" -> "once"; "pingpong" -> "pingpong"; else -> "loop" })),
             cellNames = AnimExport.sheetCellNames(plan),
         )
         val png = PngWriter.encode(packed.width, packed.height, packed.rgba)

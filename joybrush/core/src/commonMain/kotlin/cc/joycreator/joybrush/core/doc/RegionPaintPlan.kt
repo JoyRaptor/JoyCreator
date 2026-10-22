@@ -3,10 +3,10 @@ package cc.joycreator.joybrush.core.doc
 import cc.joycreator.joybrush.core.paint.Tiles
 
 /** A physical paint plane. Shared pixels have no board/frame; linked frames may share a cel. */
-data class RegionPlane(val celId: String, val boardId: String? = null, val frameId: String? = null)
+data class RegionPlane(val celId: String, val boardId: String? = null, val frameId: String? = null, val blank: Boolean = false)
 
 /** The current frame of one region in one layer. Held layers omit that board from their plan. */
-data class RegionFrame(val boardId: String, val rect: RectPx, val frameId: String, val celId: String)
+data class RegionFrame(val boardId: String, val rect: RectPx, val frameId: String, val celId: String, val blank: Boolean = false)
 
 /** Half-open, top-left-origin tile-local pixels; also suitable for a renderer's clip uniform. */
 data class RegionTileRect(val x: Int, val y: Int, val w: Int, val h: Int) {
@@ -30,23 +30,52 @@ data class RegionTileSlice(val plane: RegionPlane, val rect: RegionTileRect)
  * the shared cel and each board's saved current frame/cel. Legacy whole-layer cels must not be
  * passed here without migration. No pixels, GL handles or persisted model are owned by this plan.
  */
-class RegionPaintPlan(sharedCelId: String, frames: List<RegionFrame>) {
+class RegionPaintPlan(sharedCelId: String, frames: List<RegionFrame>, roots: List<RegionFrame> = frames) {
     val shared = RegionPlane(sharedCelId)
+    /** Physical, disjoint fragments. A logical board/frame can have several component cels. */
     val frames: List<RegionFrame> = frames.toList()
+    /** Original logical roots, one per board, for frame commands rather than physical writes. */
+    val roots: List<RegionFrame> = roots.toList()
+    val physicalCelIds: Set<String> = this.frames.mapTo(linkedSetOf(sharedCelId)) { it.celId }
+    fun coversCel(celId: String): Boolean = celId in physicalCelIds
 
     init {
         require(sharedCelId.isNotBlank()) { "Shared cel ID is empty" }
-        val boards = HashSet<String>()
-        val cels = hashSetOf(sharedCelId)
+        // Logical roots stay unambiguous even when a component drawing resolves to several
+        // physical pieces. The two-argument constructor therefore retains its original strictness.
+        val rootByBoard = HashMap<String, RegionFrame>()
+        val rootCels = HashSet<String>()
+        for ((i, root) in this.roots.withIndex()) {
+            require(root.boardId.isNotBlank() && root.frameId.isNotBlank() && root.celId.isNotBlank())
+            require(root.rect.w > 0 && root.rect.h > 0) { "Animation region has no area" }
+            require(rootByBoard.put(root.boardId, root) == null) { "A board has two current frames" }
+            require(root.celId != sharedCelId && rootCels.add(root.celId)) { "Different paint regions share a logical cel" }
+            for (j in 0 until i) require(!overlap(root.rect, this.roots[j].rect)) { "Animation regions overlap" }
+        }
+        val boards = HashMap<String, String>()
+        val cels = HashMap<String, String>()
+        val covered = HashMap<String, Long>()
         for ((i, frame) in this.frames.withIndex()) {
             require(frame.boardId.isNotBlank() && frame.frameId.isNotBlank() && frame.celId.isNotBlank())
             require(frame.rect.w > 0 && frame.rect.h > 0) { "Animation region has no area" }
-            require(boards.add(frame.boardId)) { "A board has two current frames" }
-            require(cels.add(frame.celId)) { "Different paint regions share a physical cel" }
+            val root = requireNotNull(rootByBoard[frame.boardId]) { "A physical drawing has no logical frame" }
+            require(frame.frameId == root.frameId && frame.blank == root.blank) { "A physical drawing disagrees with its logical frame" }
+            require(frame.rect.x.toLong() >= root.rect.x && frame.rect.y.toLong() >= root.rect.y &&
+                frame.rect.x.toLong() + frame.rect.w <= root.rect.x.toLong() + root.rect.w &&
+                frame.rect.y.toLong() + frame.rect.h <= root.rect.y.toLong() + root.rect.h) { "A physical drawing exceeds its logical frame" }
+            covered[frame.boardId] = covered.getOrElse(frame.boardId) { 0L } + frame.rect.w.toLong() * frame.rect.h
+            val previousFrame = boards.put(frame.boardId, frame.frameId)
+            require(previousFrame == null || previousFrame == frame.frameId) { "A board has two current frames" }
+            require(frame.celId != sharedCelId) { "An animation region borrows the shared cel" }
+            val previousBoard = cels.put(frame.celId, frame.boardId)
+            require(previousBoard == null || previousBoard == frame.boardId) { "Different paint regions share a physical cel" }
             for (j in 0 until i) {
                 val previous = this.frames[j]
                 require(!overlap(frame.rect, previous.rect)) { "Animation regions overlap" }
             }
+        }
+        for (root in this.roots) require(covered[root.boardId] == root.rect.w.toLong() * root.rect.h) {
+            "Physical drawings do not cover their logical frame"
         }
     }
 
@@ -98,7 +127,7 @@ class RegionPaintPlan(sharedCelId: String, frames: List<RegionFrame>) {
             a.x.toLong() < b.x.toLong() + b.w && b.x.toLong() < a.x.toLong() + a.w &&
                 a.y.toLong() < b.y.toLong() + b.h && b.y.toLong() < a.y.toLong() + a.h
 
-        private fun RegionFrame.plane() = RegionPlane(celId, boardId, frameId)
+        private fun RegionFrame.plane() = RegionPlane(celId, boardId, frameId, blank)
 
         private fun subtract(source: RegionTileRect, cut: RegionTileRect): List<RegionTileRect> {
             val l = maxOf(source.x, cut.x); val t = maxOf(source.y, cut.y)

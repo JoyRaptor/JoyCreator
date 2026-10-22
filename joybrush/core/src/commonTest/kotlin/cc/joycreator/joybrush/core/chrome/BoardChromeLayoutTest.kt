@@ -20,8 +20,8 @@ class BoardChromeLayoutTest {
     private val b=BoardChromeLayout.Rect(100f,100f,324f,226f)
     private fun input(kind:BoardKind=BoardKind.ANIMATION)=BoardChromeLayout.Input(b,1f,kind)
     private fun element(i:BoardChromeLayout.Input,id:String)=BoardChromeLayout.layout(i).elements.first { it.id==id }
-    @Test fun restIsIconOnlyForEveryKind(){for(k in listOf(BoardKind.ANIMATION,BoardKind.CANVAS,BoardKind.SPRITE)){
-        val l=BoardChromeLayout.layout(input(k));assertEquals(listOf("kind"),l.elements.map {it.id});val r=l.elements.single().rect
+    @Test fun restKeepsAnimationOutlineAndEveryKindHasItsTab(){for(k in listOf(BoardKind.ANIMATION,BoardKind.CANVAS,BoardKind.SPRITE)){
+        val l=BoardChromeLayout.layout(input(k));assertEquals(if(k==BoardKind.ANIMATION)listOf("clip-outline","kind") else listOf("kind"),l.elements.map {it.id});val r=l.elements.first {it.id=="kind"}.rect
         assertEquals(18f,r.width);assertEquals(73f,r.cx);assertEquals(119f,r.cy)
     }}
     @Test fun onlyAnimationPastFrameOneHasRestNumber(){assertEquals("3",element(input().copy(currentFrame=3),"rest-frame").text)
@@ -30,32 +30,117 @@ class BoardChromeLayoutTest {
     @Test fun bracketsAt48DpIncludingBoundary(){for(k in listOf(BoardKind.ANIMATION,BoardKind.CANVAS,BoardKind.SPRITE)){
         val near=input(k).copy(pen=BoardChromeLayout.Point(52f,100f));val arms=BoardChromeLayout.layout(near).elements.filter {it.id.startsWith("bracket")}
         assertEquals(8,arms.size);assertEquals(.45f,arms.first().alpha);assertEquals(1f,arms.first().strokePx);assertEquals(14f,arms.first().rect.width);assertEquals(98f,arms.first().rect.left)
-        assertEquals(1,BoardChromeLayout.layout(near.copy(pen=BoardChromeLayout.Point(51.99f,100f))).elements.size)
+        assertEquals(if(k==BoardKind.ANIMATION)2 else 1,BoardChromeLayout.layout(near.copy(pen=BoardChromeLayout.Point(51.99f,100f))).elements.size)
     }}
     @Test fun bracketFadeAfterLeaving(){val i=input().copy(approachWasNear=true,approachExitElapsedMs=150);assertEquals(.225f,element(i,"bracket-0-h").alpha)
-        assertEquals(1,BoardChromeLayout.layout(i.copy(approachExitElapsedMs=300)).elements.size)}
+        assertEquals(2,BoardChromeLayout.layout(i.copy(approachExitElapsedMs=300)).elements.size)}
     @Test fun pillExactSizesAndNoHop(){val i=input().copy(selected=true);val p=element(i,"pill");assertEquals(34f,p.rect.width);assertEquals(148f,p.rect.height);assertEquals(56f,p.rect.left);assertEquals(100f,p.rect.top);assertEquals(17f,p.radiusPx)
         assertEquals(128f,element(input(BoardKind.CANVAS).copy(selected=true),"pill").rect.height)
         assertEquals(p.rect,element(i.copy(penDown=true),"pill").rect)}
     @Test fun typographyAndBaselines(){val i=input().copy(selected=true,currentFrame=2,holds=listOf(1,1,1));val t=element(i,"title");assertEquals(93f,t.baselinePx);assertEquals(12f,t.sizeSp);assertEquals(700,t.weight);assertEquals(BoardChromeLayout.Font.ARCHIVO,t.font)
         val size=element(i,"size");assertEquals(92f,size.baselinePx);assertEquals(b.right,size.rect.right);assertEquals(9f,size.sizeSp);assertEquals(.6f,size.alpha)
         assertEquals(18f,element(i,"frame").sizeSp);assertEquals(900,element(i,"frame").weight);assertEquals(8.5f,element(i,"frame-prev").sizeSp);assertEquals(.45f,element(i,"frame-next").alpha)}
-    @Test fun densityConvertsOnce(){val i=input().copy(board=BoardChromeLayout.Rect(200f,200f,648f,452f),density=2f,selected=true);assertEquals(68f,element(i,"pill").rect.width);assertEquals(112f,element(i,"pill").rect.left);assertEquals(272f,element(i,"peg-tab").rect.width)}
+    @Test fun densityConvertsOnce(){val i=input().copy(board=BoardChromeLayout.Rect(200f,200f,648f,452f),density=2f,selected=true);assertEquals(68f,element(i,"pill").rect.width);assertEquals(112f,element(i,"pill").rect.left);assertEquals(408f,element(i,"peg-tab").rect.width)}
     @Test fun selectionAndHandlesNeverCoverPixels(){val i=input(BoardKind.CANVAS).copy(selected=true,locked=false);val l=BoardChromeLayout.layout(i)
         l.elements.filter {it.id.startsWith("handle")}.forEach {assertFalse(it.rect.intersects(b));if(it.id.startsWith("handle-ring"))assertEquals(1.5f,it.strokePx) else assertEquals(8f,it.rect.width)}
         for(id in listOf("keyline","selection","selection-halo")){val e=l.elements.first {it.id==id};assertTrue(e.rect.left+e.strokePx/2<=b.left);assertTrue(e.rect.top+e.strokePx/2<=b.top)}
         assertEquals(8,l.controls.count {it.id.startsWith("handle-")})}
-    @Test fun fixedAnimationHasNailAndNoHandles(){val i=input().copy(selected=true,locked=false,holds=listOf(1,1));assertEquals(5f,element(i,"nail").rect.width);assertEquals("lockC",element(i,"lock").glyph)
-        assertFalse(BoardChromeLayout.layout(i).elements.any {it.id.startsWith("handle")});assertEquals(BoardChromeLabels.FIXED,BoardChromeLayout.layout(i).controls.first {it.id=="lock"}.tooltip)}
+    @Test fun multiFrameClipCanUnlockAndMoveWhileItsSizeStaysFixed(){val i=input().copy(selected=true,locked=false,holds=listOf(1,1));assertEquals(5f,element(i,"nail").rect.width);assertEquals("lockO",element(i,"lock").glyph)
+        val l=BoardChromeLayout.layout(i)
+        assertFalse(l.elements.any {it.id.startsWith("handle")});assertTrue(l.controls.first {it.id=="lock"}.tooltip.contains("drag the clip"))
+        assertEquals(4,l.controls.count {it.id.startsWith("clip-move")})
+        assertFalse(BoardChromeLayout.layout(i.copy(locked=true)).controls.any {it.id.startsWith("clip-move")})}
     @Test fun penFadeAndFoldNumbers(){assertEquals(1f,BoardChromeLayout.drawingAlpha(true,0));assertEquals(.56f,BoardChromeLayout.drawingAlpha(true,60),.00001f);assertEquals(.12f,BoardChromeLayout.drawingAlpha(true,120),.00001f)
         assertEquals(.12f,BoardChromeLayout.drawingAlpha(false,0));assertEquals(.56f,BoardChromeLayout.drawingAlpha(false,150),.00001f);assertEquals(1f,BoardChromeLayout.drawingAlpha(false,300))
         val i=input().copy(selected=true,penDown=true);val l=BoardChromeLayout.layout(i);assertTrue(l.folded);assertFalse(l.elements.any {it.id=="peg-tab"});assertEquals(.35f,element(i,"cell-0").alpha);assertEquals(2f,element(i,"cell-0").rect.width);assertEquals(12f,element(i,"cell-0").rect.height)
         assertFalse(BoardChromeLayout.layout(i.copy(penDown=false,penLiftElapsedMs=300)).folded)}
     @Test fun wheelEveryNineDpWithBounds(){assertEquals(2,BoardChromeLayout.wheelFrame(1,8.99f,1f,9)+1);assertEquals(2,BoardChromeLayout.wheelFrame(1,9f,1f,9));assertEquals(3,BoardChromeLayout.wheelFrame(4,-18f,2f,9));assertEquals(1,BoardChromeLayout.wheelFrame(1,-99f,1f,9));assertEquals(9,BoardChromeLayout.wheelFrame(1,999f,1f,9))}
     @Test fun typedSizeKeepsTopLeft(){assertEquals(RectPx(3,7,500,800),BoardChromeLayout.typedSize(RectPx(3,7,20,40),500,800));assertFailsWith<IllegalArgumentException>{BoardChromeLayout.typedSize(RectPx(0,0,1,1),0,10)}}
-    @Test fun pegTabAndControlsExact(){val i=input().copy(selected=true,onion=true,playing=true);val p=element(i,"peg-tab");assertEquals(136f,p.rect.width);assertEquals(24f,p.rect.height);assertEquals(234f,p.rect.top);assertEquals(listOf(11f,11f,3f,3f),p.cornerRadiiPx)
+    @Test fun pegTabAndControlsExact(){val i=input().copy(selected=true,onion=true,playing=true);val p=element(i,"peg-tab");assertEquals(204f,p.rect.width);assertEquals(24f,p.rect.height);assertEquals(234f,p.rect.top);assertEquals(listOf(11f,11f,3f,3f),p.cornerRadiiPx)
         assertEquals(32f,element(i,"peg-onion").rect.width);assertEquals(12f,element(i,"peg-onion").rect.height);assertEquals(17f,element(i,"peg-play").rect.width);assertEquals(44f,element(i,"peg-play").rect.cx-element(i,"peg-onion").rect.cx);assertEquals(9f,element(i,"onion").rect.width)
         assertEquals(255f,element(i,"sprocket-0-0").clip!!.top);assertEquals(BoardChromeLayout.Colour.CYAN,element(i,"peg-onion").colour);assertEquals("pause",element(i,"play").glyph)}
+    @Test fun endChoicesAreLabeledChipsWithOnlyTheSavedChoiceSolidCyan() {
+        for(mode in BoardEnd.ALL) {
+            val i=input().copy(selected=true,end=mode)
+            val l=BoardChromeLayout.layout(i)
+            val chips=l.elements.filter { it.shape==BoardChromeLayout.Shape.CHIP }
+            assertEquals(listOf("Loop","Ping-pong","Hold","Blank"),chips.map {it.text})
+            assertEquals(listOf("end-$mode"),chips.filter {it.colour==BoardChromeLayout.Colour.CYAN}.map {it.id})
+            assertTrue(chips.all {it.glyph.isNotEmpty() && it.strokePx==0f})
+            assertTrue(chips.all {it.rect.top>element(i,"cell-0").rect.bottom})
+            assertTrue(l.controls.filter {it.id.startsWith("end-")}.all {it.tooltip.isNotBlank() && it.hit.height>=40f})
+            assertFalse(l.controls.any {it.id=="loop"})
+        }
+        assertEquals(BoardChromeLayout.Colour.CYAN,element(input().copy(selected=true,end="future-mode"),"end-loop").colour)
+    }
+    @Test fun narrowScreensWrapEndChipsWithoutClippingTheirLabelsOrHitTargets() {
+        val screen=BoardChromeLayout.Rect(0f,0f,240f,800f)
+        val l=BoardChromeLayout.layout(input().copy(selected=true,screen=screen))
+        val chips=l.controls.filter {it.id.startsWith("end-")}
+        assertEquals(2,chips.map {it.visual.top}.distinct().size)
+        assertTrue(chips.all {it.hit.left>=screen.left && it.hit.right<=screen.right})
+        assertTrue(chips.all {it.visual.width==100f})
+    }
+    @Test fun playAllIsASeparateLabeledButtonAndStopShowsTheLiveState() {
+        val idle=input().copy(selected=true)
+        assertEquals("Play all",element(idle,"play-all-label").text)
+        val live=idle.copy(playingAll=true)
+        assertEquals("Stop all",element(live,"play-all-label").text)
+        assertEquals("play",element(live,"play").glyph)
+        assertEquals(BoardChromeLayout.Colour.PINK,element(live,"play-all-face").colour)
+        assertEquals("Stop all clips",BoardChromeLayout.layout(live).controls.first {it.id=="play-all"}.tooltip)
+    }
+    @Test fun transportStaysInsideViewportWhenTheClipTouchesOrLeavesAnEdge() {
+        val screen=BoardChromeLayout.Rect(0f,0f,548f,800f)
+        for(board in listOf(BoardChromeLayout.Rect(-300f,100f,-100f,200f),BoardChromeLayout.Rect(500f,100f,700f,200f),
+            BoardChromeLayout.Rect(100f,-300f,300f,-200f),BoardChromeLayout.Rect(100f,900f,300f,1000f))) {
+            val l=BoardChromeLayout.layout(input().copy(selected=true,board=board,screen=screen))
+            for(id in listOf("onion","play","play-all")) {
+                val hit=l.controls.first {it.id==id}.hit
+                assertTrue(hit.left>=screen.left && hit.right<=screen.right,"$id stays horizontally reachable")
+                assertTrue(hit.top>=screen.top && hit.bottom<=screen.bottom,"$id stays vertically reachable")
+            }
+        }
+    }
+    @Test fun compactTransportWrapsTheLabeledAllButtonInsteadOfClippingIt() {
+        val screen=BoardChromeLayout.Rect(0f,0f,180f,480f)
+        val l=BoardChromeLayout.layout(input().copy(selected=true,screen=screen))
+        val controls=l.controls.filter {it.id in listOf("onion","play","play-all")}
+        assertEquals(120f,l.elements.first {it.id=="peg-tab"}.rect.width)
+        assertTrue(controls.all {it.hit.left>=screen.left && it.hit.right<=screen.right})
+        assertTrue(controls.all {it.hit.top>=screen.top && it.hit.bottom<=screen.bottom})
+        assertTrue(controls.first {it.id=="play-all"}.visual.top>controls.first {it.id=="play"}.hit.bottom)
+        assertEquals("Play all",l.elements.first {it.id=="play-all-label"}.text)
+    }
+    @Test fun endHeadingAndEveryWrappedRowRemainVisibleWithoutCoveringTransportOrStrip() {
+        for(width in listOf(180f,240f,548f)) {
+            val screen=BoardChromeLayout.Rect(0f,0f,width,480f)
+            for(board in listOf(BoardChromeLayout.Rect(100f,-300f,300f,-200f),BoardChromeLayout.Rect(100f,100f,300f,200f),
+                BoardChromeLayout.Rect(100f,340f,300f,440f),BoardChromeLayout.Rect(100f,500f,300f,600f))) {
+                val l=BoardChromeLayout.layout(input().copy(selected=true,board=board,screen=screen))
+                val heading=l.elements.first {it.id=="end-heading"}.rect
+                val chips=l.controls.filter {it.id.startsWith("end-")}
+                val block=BoardChromeLayout.Rect(heading.left,heading.top,heading.right,chips.maxOf {it.hit.bottom})
+                assertTrue(block.top>=screen.top && block.bottom<=screen.bottom,"All rows visible at $width dp and $board")
+                assertTrue(chips.all {it.hit.left>=screen.left && it.hit.right<=screen.right})
+                for(control in l.controls.filter {it.id in listOf("onion","play","play-all")}) {
+                    assertFalse(block.intersects(control.hit),"End choices stay distinct from ${control.id}")
+                }
+                val strip=l.elements.first {it.id=="sprocket-0-0"}.clip!!
+                assertFalse(block.intersects(strip),"End choices stay distinct from visible frames")
+            }
+        }
+    }
+    @Test fun overlapSelectionUsesOnlyTheSharedAreaAndNeverStealsClipControls() {
+        val shared=BoardChromeLayout.Rect(150f,120f,280f,200f)
+        val passive=BoardChromeLayout.layout(input().copy(overlaps=listOf(shared)))
+        assertEquals(shared,passive.controls.first {it.id.startsWith("clip-overlap-")}.hit)
+        assertEquals("clip-overlap-0",BoardChromeLayout.hit(passive,BoardChromeLayout.Point(200f,160f))?.id)
+        assertNull(BoardChromeLayout.hit(passive,BoardChromeLayout.Point(300f,160f)))
+        val active=BoardChromeLayout.layout(input().copy(selected=true,locked=false,overlaps=listOf(b)))
+        val edge=active.controls.first {it.id=="clip-move-right"}.visual
+        assertEquals("clip-move-right",BoardChromeLayout.hit(active,BoardChromeLayout.Point(edge.cx,edge.cy))?.id)
+    }
     @Test fun stripHoldsSprocketsAndInsertion(){val i=input().copy(selected=true,holds=listOf(1,2,1),currentFrame=2,insertionIndex=2,liftedFrame=3);assertEquals(40f,element(i,"cell-0").rect.width);assertEquals(84f,element(i,"cell-1").rect.width);assertEquals(44f,element(i,"cell-1").rect.left-element(i,"cell-0").rect.left);assertEquals(26f,element(i,"cell-0").rect.height)
         assertEquals(4f,element(i,"sprocket-0-0").rect.width);assertEquals(9f,element(i,"sprocket-0-1").rect.left-element(i,"sprocket-0-0").rect.left);assertEquals("×2",element(i,"hold-1").text);assertEquals(1.5f,element(i,"cell-1").strokePx);assertEquals(2f,element(i,"insertion").rect.width);assertEquals(1.1f,element(i,"cell-2").scale);assertEquals(-2f,element(i,"cell-2").rotationDeg)
         assertEquals(b.left+b.width*.82f,BoardChromeLayout.layout(i).stripFadeStartPx);assertTrue(element(i,"add-cell").dashed)}

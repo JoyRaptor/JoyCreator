@@ -5,17 +5,16 @@ import cc.joycreator.joybrush.core.doc.Board
 
 /** How a board plays once it reaches the end of its range. ONCE stops on the last frame (a clip's "hold"). */
 enum class PlayMode {
-    LOOP, PING_PONG, ONCE;
+    LOOP, PING_PONG, ONCE, HOLD, BLANK;
 
     companion object {
         /**
-         * The mode a clip's saved [cc.joycreator.joybrush.core.doc.Board.end] plays with (ANIMATION_CLIPS C3). "blank"
-         * plays as ONCE until the renderer can show a clip as empty past its end (C4); Combine already writes it as
-         * empty frames.
+         * The mode of the clip's saved end behaviour. ONCE remains the compatibility spelling of HOLD.
          */
         fun of(end: String): PlayMode = when (cc.joycreator.joybrush.core.doc.BoardEnd.of(end)) {
             cc.joycreator.joybrush.core.doc.BoardEnd.PING_PONG -> PING_PONG
-            cc.joycreator.joybrush.core.doc.BoardEnd.HOLD, cc.joycreator.joybrush.core.doc.BoardEnd.BLANK -> ONCE
+            cc.joycreator.joybrush.core.doc.BoardEnd.HOLD -> ONCE
+            cc.joycreator.joybrush.core.doc.BoardEnd.BLANK -> BLANK
             else -> LOOP
         }
     }
@@ -38,7 +37,7 @@ enum class PlayMode {
  */
 class PlaybackClock(
     board: Board,
-    val mode: PlayMode = PlayMode.LOOP,
+    val mode: PlayMode = PlayMode.of(board.end),
     firstFrame: Int = 0,
     lastFrame: Int = board.frames.size - 1,
     speed: Float = 1f,
@@ -107,7 +106,7 @@ class PlaybackClock(
     }
 
     /**
-     * The period the range repeats on: [cycleMs] under PING_PONG, and [rangeMs] under the other two.
+     * The period the range repeats on: [cycleMs] under PING_PONG, and [rangeMs] under the remaining modes.
      *
      * They are the same number for LOOP and ONCE only because their ranges are too short to ping-pong;
      * for a four-frame range the cycle is a range and a half. Using [cycleMs] for LOOP would wrap the
@@ -124,9 +123,12 @@ class PlaybackClock(
      */
     fun frameIndexAt(elapsedMs: Double): Int = first + slotAt(positionOf(elapsedMs))
 
+    /** A blank clip suppresses only its animated layers, preserving shared artwork outside it. */
+    fun isBlank(elapsedMs: Double): Boolean = mode == PlayMode.BLANK && isFinished(elapsedMs)
+
     /** ONCE: true once the last frame's time has passed. LOOP and PING_PONG never finish. */
     fun isFinished(elapsedMs: Double): Boolean =
-        mode == PlayMode.ONCE && boardTimeOf(elapsedMs) >= rangeMs
+        (mode == PlayMode.ONCE || mode == PlayMode.HOLD || mode == PlayMode.BLANK) && boardTimeOf(elapsedMs) >= rangeMs
 
     /**
      * Where the sound should be, in ms of the BOARD's own timeline (0 = board frame 0), or `null`
@@ -173,10 +175,11 @@ class PlaybackClock(
     fun nextChangeMs(elapsedMs: Double): Double {
         // One frame cannot change. The contract asks for "the smallest wall time at which
         // frameIndexAt changes", and for this range that set is empty rather than merely far away.
-        if (count == 1) return Double.POSITIVE_INFINITY
+        if (isFinished(elapsedMs)) return Double.POSITIVE_INFINITY
+        if (count == 1) return if (mode == PlayMode.BLANK) rangeMs / rate else Double.POSITIVE_INFINITY
         val clean = cleanElapsed(elapsedMs)
         val board = clean * rate
-        if (mode == PlayMode.ONCE && board >= rangeMs) return Double.POSITIVE_INFINITY
+        if ((mode == PlayMode.ONCE || mode == PlayMode.HOLD || mode == PlayMode.BLANK) && board >= rangeMs) return Double.POSITIVE_INFINITY
         val cyclePos = board % periodMs
         // ONE RULE, two comparisons. A FORWARD boundary is a frame START, so the incoming frame is
         // already up at it and the next change is the start after it — strictly greater. A BACKWARD
@@ -235,7 +238,7 @@ class PlaybackClock(
      */
     private fun positionOf(elapsedMs: Double): Double {
         val board = boardTimeOf(elapsedMs)
-        if (mode == PlayMode.ONCE) {
+        if (mode == PlayMode.ONCE || mode == PlayMode.HOLD || mode == PlayMode.BLANK) {
             return if (board >= rangeMs) rangeMs - END_EPSILON_MS else board
         }
         val cyclePos = board % periodMs

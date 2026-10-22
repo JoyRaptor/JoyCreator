@@ -21,6 +21,7 @@ import cc.joycreator.joybrush.core.doc.Board
 import cc.joycreator.joybrush.core.doc.Frame
 import cc.joycreator.joybrush.core.doc.RectPx
 import cc.joycreator.joybrush.core.doc.BoardKind
+import cc.joycreator.joybrush.core.doc.BoardEnd
 import com.fadcam.ui.type.Type
 import com.fadcam.ui.faditor.sprite.RollDragController
 import com.fadcam.ui.faditor.sprite.FilmStrip
@@ -52,6 +53,7 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
                       density: Float, finished: Boolean) {}
         fun stripHoldCancelled(boardId: String, frameId: String) {}
         fun hoverLoop(playing: Boolean, restoreFrame: Int?) {}
+        fun overlapTap(point: Chrome.Point) {}
         /** Draw the board's region art into the supplied, already clipped screen rectangle. */
         fun art(canvas: Canvas, element: Chrome.Element) {}
         /** Optional Frost snapshot, already blurred by the shared Frost provider. */
@@ -237,6 +239,7 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
                 requestLayout()
             }
             target.isEnabled = control.enabled
+            target.isSelected=control.id.startsWith("end-") && control.id=="end-${BoardEnd.of(input?.end)}"
             if (target.contentDescription != control.tooltip) target.contentDescription = control.tooltip
             // Compat tooltips take the long-click listener on API 24–25. Native hover tooltips
             // preserve the board menu, FPS and add-frame holds on API 26+ (including Note 9).
@@ -405,6 +408,7 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
                 canvas.drawText(e.text, x, e.baselinePx, paint)
             }
             Chrome.Shape.GLYPH -> drawGlyph(canvas, e)
+            Chrome.Shape.CHIP -> drawChip(canvas,e)
         }
         canvas.restoreToCount(transformSave)
         if (fadeLayer >= 0) {
@@ -412,6 +416,32 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
             fadeMask(canvas, e)
         }
         canvas.restoreToCount(save)
+    }
+
+    /** Isolate the chip before punching its contents out: artwork underneath is never erased. */
+    private fun drawChip(canvas: Canvas,e: Chrome.Element) {
+        val selected=e.colour==Chrome.Colour.CYAN
+        val layer=canvas.saveLayer(e.rect.left,e.rect.top,e.rect.right,e.rect.bottom,null)
+        paint.reset(); paint.isAntiAlias=true; paint.style=Paint.Style.FILL
+        paint.color=colour(e.colour); paint.alpha=(e.alpha*255).roundToInt()
+        canvas.drawRoundRect(RectF(e.rect.left,e.rect.top,e.rect.right,e.rect.bottom),e.radiusPx,e.radiusPx,paint)
+        if(!selected) {
+            paint.color=colour(Chrome.Colour.DIM); paint.alpha=(e.alpha*.35f*255).roundToInt()
+            paint.style=Paint.Style.STROKE; paint.strokeWidth=input?.density ?: resources.displayMetrics.density
+            canvas.drawRoundRect(RectF(e.rect.left,e.rect.top,e.rect.right,e.rect.bottom),e.radiusPx,e.radiusPx,paint)
+        }
+        paint.style=Paint.Style.FILL; paint.color=colour(Chrome.Colour.INK); paint.alpha=255
+        paint.xfermode=if(selected) PorterDuffXfermode(PorterDuff.Mode.DST_OUT) else null
+        val density=input?.density ?: resources.displayMetrics.density
+        val icon=Chrome.Rect(e.rect.left+10*density,e.rect.cy-6*density,e.rect.left+22*density,e.rect.cy+6*density)
+        drawGlyph(canvas,e.copy(rect=icon,haloPx=0f,shadowPx=0f))
+        paint.typeface=Type.body(context,e.weight)
+        paint.textSize=e.sizeSp*resources.displayMetrics.scaledDensity
+        paint.textAlign=Paint.Align.CENTER
+        val labelLeft=e.rect.left+27*density
+        canvas.drawText(e.text,(labelLeft+e.rect.right-5*density)/2,e.rect.cy-(paint.fontMetrics.ascent+paint.fontMetrics.descent)/2,paint)
+        paint.xfermode=null
+        canvas.restoreToCount(layer)
     }
 
     private fun fadeMask(canvas: Canvas, e: Chrome.Element) {
@@ -649,7 +679,12 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
         }
         init {
             isClickable = true; isFocusable = true
-            setOnClickListener { host.action(id, false) }
+            setOnClickListener {
+                if(id.startsWith("clip-overlap-")) {
+                    val r=layout.controls.firstOrNull { it.id==id }?.visual
+                    host.overlapTap(if(Chrome.containsHit(layout,id,lastPoint))lastPoint else Chrome.Point(r?.cx ?: 0f,r?.cy ?: 0f))
+                } else host.action(id, false)
+            }
             setOnLongClickListener {
                 held = true
                 val frameIndex = if (id.startsWith("cell-")) id.removePrefix("cell-").toIntOrNull() else null
@@ -677,6 +712,7 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
                 MotionEvent.ACTION_DOWN -> { from = point; lastPoint = point; startFrame = input?.currentFrame ?: 1; dragging = false; held = false; tapEligible = true; beginStrip(point) }
                 MotionEvent.ACTION_MOVE -> {
                     if (!Chrome.containsHit(layout, id, point)) tapEligible = false
+                    if(id.startsWith("clip-overlap-") && kotlin.math.hypot(point.x-from.x,point.y-from.y)>android.view.ViewConfiguration.get(context).scaledTouchSlop) tapEligible=false
                     val frameIndex = if (id.startsWith("cell-")) id.removePrefix("cell-").toIntOrNull() else null
                     if (stripIdentity != null) {
                         if (dragging || kotlin.math.abs(point.x - from.x) > android.view.ViewConfiguration.get(context).scaledTouchSlop) {
@@ -690,7 +726,7 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
                     } else if (id == "wheel") {
                         dragging = true
                         input?.let { host.frame(Chrome.wheelFrame(startFrame, from.y - point.y, it.density, it.holds.size)) }
-                    } else if (id.startsWith("handle-") || id.startsWith("sprite-cell-")) {
+                    } else if (id.startsWith("handle-") || id.startsWith("clip-move") || id.startsWith("sprite-cell-")) {
                         dragging = true; host.drag(id, from, point, false)
                     }
                     lastPoint = point

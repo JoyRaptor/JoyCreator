@@ -58,6 +58,249 @@ class BoardRuntimeControllerTest {
         view.host.drag("handle-4",Chrome.Point(0f,0f),Chrome.Point(20f,10f),true)
         assertTrue(host.queued.isEmpty())
     }
+    @Test fun playAllUsesOnePreviewMapAndSinglePlayCancelsItWithoutWritingSavedFrames() {
+        val host=Host(document()); var d=host.document
+        val layer=Layer("other","Other",LayerKind.PAINT,cels=listOf(Cel("other-shared")))
+        d=d.copy(layers=d.layers+layer,activeLayerId="other")
+        d=BoardDocumentOps.createAnimation(d,"Other clip",RectPx(400,100,100,100)) { UUID.randomUUID().toString() }.doc
+        host.document=d
+        val (controller,parent)=setup(host)
+        controller.playAll()
+        val ids=d.boards.filter { it.kind==BoardKind.ANIMATION }.map { it.id }.toSet()
+        assertEquals(ids,host.previews.last().keys)
+        val view=(0 until parent.childCount).map { parent.getChildAt(it) }.filterIsInstance<BoardChromeView>().first { it.sceneIdentity?.boardId in ids }
+        view.host.action("play",false)
+        assertEquals(1,host.previews.last().size)
+        assertEquals(d,host.document)
+        controller.stopPreview()
+        assertTrue(host.previews.last().isEmpty())
+    }
+    @Test fun clipEdgeDragMovesEveryDrawingInOneEditAndLockBlocksIt() {
+        val host=Host(document()); val id=host.document.boards.last().id
+        host.document=RegionDocumentOps.addFrame(host.document,id,NewFrame.BLANK) { UUID.randomUUID().toString() }.doc
+        val (controller,parent)=setup(host); controller.select(id)
+        val view=(0 until parent.childCount).map { parent.getChildAt(it) }.filterIsInstance<BoardChromeView>().single { it.sceneIdentity?.boardId==id }
+        host.deferEdits=true
+        view.host.drag("clip-move-top",Chrome.Point(0f,0f),Chrome.Point(30f,20f),false)
+        assertTrue(host.queued.isEmpty())
+        assertEquals(id to RectPx(130,120,200,100),host.clipMoves.last())
+        view.host.drag("clip-move-top",Chrome.Point(0f,0f),Chrome.Point(30f,20f),true)
+        val change=host.queued.single()(host.document)
+        assertEquals(RectPx(130,120,200,100),change.doc.boards.last().rect)
+        assertEquals(2,change.transfers.size)
+        assertEquals(null to null,host.clipMoves.last())
+        host.queued.clear()
+        host.document=BoardDocumentOps.setLocked(host.document,id,true); controller.documentChanged(host.document)
+        view.host.drag("clip-move-top",Chrome.Point(0f,0f),Chrome.Point(30f,20f),true)
+        assertTrue(host.queued.isEmpty())
+    }
+    @Test fun savedHoldAndBlankKeepTheirTerminalPreviewAndRestartWithoutMovingSavedCursor() {
+        for(end in listOf("hold","blank")) {
+            var d=document(); val id=d.boards.last().id
+            d=RegionDocumentOps.addFrame(d,id,NewFrame.BLANK) { UUID.randomUUID().toString() }.doc
+            d=d.copy(boards=d.boards.map { b -> if(b.id==id) b.copy(fps=20f,end=end,
+                frames=b.frames.mapIndexed { index,frame -> frame.copy(holdFrames=index+1) },
+                currentFrameId=b.frames.first().id) else b })
+            val host=Host(d); val (controller,parent)=setup(host)
+            val view=boardView(parent,id)
+            view.host.action("play",false)
+            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(200))
+            val terminal=if(end=="blank") RegionDocumentOps.BLANK_PREVIEW else d.boards.last().frames.last().id
+            assertEquals(mapOf(id to terminal),host.previews.last())
+            val count=host.previews.size
+            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(200))
+            assertEquals(count,host.previews.size)
+            assertEquals(d,host.document); assertTrue(host.queued.isEmpty())
+            view.host.action("play",false) // Stop retains the saved editing cursor.
+            assertTrue(host.previews.last().isEmpty())
+            view.host.action("play",false)
+            assertEquals(mapOf(id to d.boards.last().frames.first().id),host.previews.last())
+            controller.stop()
+        }
+    }
+    @Test fun playAllAndHoverReplaceEachOtherAndStaleHoverExitCannotStopPlayAll() {
+        var d=document(); val first=d.boards.last().id
+        d=RegionDocumentOps.addFrame(d,first,NewFrame.BLANK) { UUID.randomUUID().toString() }.doc
+        d=BoardDocumentOps.createAnimation(d,"Second",RectPx(400,100,100,100)) { UUID.randomUUID().toString() }.doc
+        d=d.copy(boards=d.boards.map { if(it.id==first) it.copy(fps=20f,end="blank") else it })
+        val host=Host(d); val (controller,parent)=setup(host); val view=boardView(parent,first)
+        val clipIds=d.boards.filter { it.kind==BoardKind.ANIMATION }.map { it.id }.toSet()
+        controller.playAll()
+        assertEquals(clipIds,host.previews.last().keys)
+        view.host.hoverLoop(true,null)
+        assertEquals(setOf(first),host.previews.last().keys)
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(150))
+        assertEquals(mapOf(first to RegionDocumentOps.BLANK_PREVIEW),host.previews.last())
+        controller.playAll()
+        assertEquals(clipIds,host.previews.last().keys)
+        view.host.hoverLoop(false,null)
+        assertEquals(clipIds,host.previews.last().keys)
+        assertEquals(d,host.document)
+        controller.stop()
+    }
+    @Test fun playAllStopRestoresTheSelectedClipsOnionSetting() {
+        val host=Host(document()); val (controller,parent)=setup(host); val id=host.document.boards.last().id
+        controller.select(id); val view=boardView(parent,id)
+        view.host.action("onion",false)
+        assertEquals(id,host.onions.last())
+        controller.playAll(); assertNull(host.onions.last())
+        controller.stopPreview(); assertEquals(id,host.onions.last())
+        view.host.action("play",false); assertNull(host.onions.last())
+        controller.stopPreview(); assertEquals(id,host.onions.last())
+        controller.stop()
+    }
+    @Test fun removingAPlayingClipNeverRestoresOnionForItsDeletedId() {
+        val host=Host(document()); val (controller,parent)=setup(host); val id=host.document.boards.last().id
+        controller.select(id); boardView(parent,id).host.action("onion",false)
+        controller.playAll()
+        host.document=AnimationBoardOps.remove(host.document,id).doc
+        val count=host.onions.size
+        controller.documentChanged(host.document)
+        assertTrue(host.onions.drop(count).all {it==null})
+        assertNull(controller.selectedBoardId)
+        controller.stop()
+    }
+    @Test fun clipMoveCancelRestoresScopeAndChromeAndNeverQueuesAnEdit() {
+        val host=Host(document()); val (controller,parent)=setup(host); val id=host.document.boards.last().id
+        controller.select(id); val view=boardView(parent,id)
+        val original=shownInput(view).board
+        host.deferEdits=true
+        view.host.drag("clip-move-top",Chrome.Point(0f,0f),Chrome.Point(30f,20f),false)
+        assertEquals(RectPx(130,120,200,100),host.scope)
+        assertNotEquals(original,shownInput(view).board)
+        view.host.cancel("clip-move-top")
+        assertEquals(null to null,host.clipMoves.last())
+        assertEquals(host.document.boards.last().rect,host.scope)
+        assertEquals(original,shownInput(view).board)
+        assertTrue(host.queued.isEmpty())
+        controller.stop()
+    }
+    @Test fun clipMoveOverlapRefusesOncePerGestureAndCanRecoverBeforeRelease() {
+        var d=document(); val id=d.boards.last().id
+        d=BoardDocumentOps.createAnimation(d,"Neighbour",RectPx(400,100,100,100)) { UUID.randomUUID().toString() }.doc
+        val host=Host(d); val (controller,parent)=setup(host); controller.select(id)
+        val view=boardView(parent,id); host.deferEdits=true
+        repeat(3) { view.host.drag("clip-move-top",Chrome.Point(0f,0f),Chrome.Point(250f,0f),false) }
+        assertEquals(1,host.messages.size)
+        assertTrue(host.messages.single().contains("Paint"))
+        assertTrue(host.messages.single().contains("Animation"))
+        assertTrue(host.messages.single().contains("Neighbour"))
+        assertTrue(host.queued.isEmpty()); assertEquals(d.boards.first { it.id==id }.rect,host.scope)
+        view.host.drag("clip-move-top",Chrome.Point(0f,0f),Chrome.Point(40f,20f),true)
+        assertEquals(1,host.queued.size)
+        assertEquals(RectPx(140,120,200,100),host.queued.single()(d).doc.boards.first { it.id==id }.rect)
+        host.queued.clear()
+        view.host.drag("clip-move-top",Chrome.Point(0f,0f),Chrome.Point(250f,0f),true)
+        assertEquals(2,host.messages.size)
+        assertTrue(host.queued.isEmpty())
+        controller.stop()
+    }
+    @Test fun clipMoveQueuesOneEditForDistinctDrawingsBeforeClearingPreviewAndKeepsStillLayers() {
+        var d=document(); val id=d.boards.last().id
+        d=RegionDocumentOps.addFrame(d,id,NewFrame.LINK) { UUID.randomUUID().toString() }.doc
+        d=RegionDocumentOps.addFrame(d,id,NewFrame.BLANK) { UUID.randomUUID().toString() }.doc
+        d=d.copy(layers=d.layers+Layer("still","Still",LayerKind.PAINT,cels=listOf(Cel("still-cel"))))
+        val host=Host(d); val (controller,parent)=setup(host); controller.select(id)
+        val view=boardView(parent,id); host.deferEdits=true
+        repeat(3) { view.host.drag("clip-move-top",Chrome.Point(0f,0f),Chrome.Point(30f,20f),false) }
+        assertTrue(host.queued.isEmpty())
+        view.host.drag("clip-move-top",Chrome.Point(0f,0f),Chrome.Point(30f,20f),true)
+        assertEquals(1,host.queued.size)
+        assertEquals(listOf("edit","clear"),host.clipMoveOrder.takeLast(2))
+        val change=host.queued.single()(d)
+        assertEquals(2,change.transfers.size)
+        assertTrue(change.transfers.all { it.layerId=="paint" })
+        assertEquals(d.layers.last(),change.doc.layers.last())
+        assertEquals(d,host.document)
+        controller.stop()
+    }
+    @Test fun selectingEitherOverlappingClipBringsItsChromeToTheTop() {
+        var d=document(); val first=d.boards.last().id
+        d=d.copy(layers=d.layers+Layer("other","Other",LayerKind.PAINT,cels=listOf(Cel("other-cel"))),activeLayerId="other")
+        d=BoardDocumentOps.createAnimation(d,"Second",RectPx(150,100,100,100)) { UUID.randomUUID().toString() }.doc
+        val host=Host(d); val (controller,parent)=setup(host)
+        for(id in listOf(first,d.boards.last().id)) {
+            controller.select(id)
+            assertSame(boardView(parent,id),parent.getChildAt(parent.childCount-1))
+        }
+        controller.stop()
+    }
+    @Test fun endChipClickSavesItsChoiceAndReopenedChromeReadsIt() {
+        val host=Host(document()); val (controller,parent)=setup(host); val id=host.document.boards.last().id
+        controller.select(id); val view=boardView(parent,id)
+        for(end in BoardEnd.ALL) {
+            val target=boardControl(view,when(end) {
+                "loop" -> "Loop:"; "pingpong" -> "Ping-pong:"; "hold" -> "Hold:"; else -> "Blank:"
+            })
+            target.performClick()
+            assertEquals(end,host.document.boards.last().end)
+            host.document=DocJson.decode(DocJson.encode(host.document))
+            controller.documentChanged(host.document)
+            assertEquals(end,shownInput(view).end)
+            assertTrue(target.isSelected)
+        }
+        controller.stop()
+    }
+    @Test fun playAllChromeButtonStartsAndStopsAllClipsWithoutEdits() {
+        val host=Host(document()); val (controller,parent)=setup(host); val id=host.document.boards.last().id
+        controller.select(id); val view=boardView(parent,id); val saved=host.document
+        val target=boardControl(view,"Play all clips together")
+        target.performClick()
+        assertTrue(shownInput(view).playingAll)
+        assertFalse("The single-clip button still offers Play during Play all",shownInput(view).playing)
+        assertEquals(setOf(id),host.previews.last().keys)
+        assertEquals("Stop all clips",target.contentDescription.toString())
+        target.performClick()
+        assertFalse(shownInput(view).playingAll)
+        assertTrue(host.previews.last().isEmpty()); assertEquals(saved,host.document)
+        controller.stop()
+    }
+    @Test fun fingerTapsCycleEveryOverlappingClipWhilePenKeepsThePaintingGap() {
+        var d=document(); val first=d.boards.last().id
+        for((layerId,x) in listOf("other" to 150,"third" to 175)) {
+            d=d.copy(layers=d.layers+Layer(layerId,layerId,LayerKind.PAINT,cels=listOf(Cel("$layerId-shared"))),activeLayerId=layerId)
+            d=BoardDocumentOps.createAnimation(d,"$layerId clip",RectPx(x,100,100,100)) {UUID.randomUUID().toString()}.doc
+        }
+        val host=Host(d); val (controller,parent)=setup(host)
+        val order=d.boards.filter {it.kind==BoardKind.ANIMATION}.map {it.id}.reversed()
+        val top=boardView(parent,order.first()); val shared=shownInput(top).overlaps.first()
+        parent.measure(View.MeasureSpec.makeMeasureSpec(548,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(1126,View.MeasureSpec.EXACTLY))
+        parent.layout(0,0,548,1126)
+        val at=floatArrayOf(shared.cx,shared.cy)
+        top.matrix.mapPoints(at); at[0]+=top.left; at[1]+=top.top
+        for(id in order+order.first()) {
+            assertTrue(penTouch(parent,MotionEvent.ACTION_DOWN,at[0],at[1],MotionEvent.TOOL_TYPE_FINGER))
+            assertTrue(penTouch(parent,MotionEvent.ACTION_UP,at[0],at[1],MotionEvent.TOOL_TYPE_FINGER))
+            assertEquals(id,controller.selectedBoardId)
+            assertSame(boardView(parent,id),parent.getChildAt(parent.childCount-1))
+            shownInput(boardView(parent,id))
+        }
+        assertFalse(penTouch(parent,MotionEvent.ACTION_DOWN,at[0],at[1],MotionEvent.TOOL_TYPE_STYLUS))
+        assertEquals(d,host.document)
+        assertEquals(first,order.last())
+        controller.stop()
+    }
+    @Test fun combiningFromBoardMenuKeepsNewClipSelectedAndExplainsDifferentSpeeds() {
+        var d=document(); val first=d.boards.last().id
+        d=d.copy(layers=d.layers+Layer("other","Other",LayerKind.PAINT,cels=listOf(Cel("other-shared"))),activeLayerId="other")
+        d=BoardDocumentOps.createAnimation(d,"Neighbour",RectPx(150,100,100,100)) {UUID.randomUUID().toString()}.doc
+        d=d.copy(boards=d.boards.map {if(it.id==first)it.copy(fps=24f) else it})
+        val host=Host(d); val (controller,parent)=setup(host); controller.select(first)
+        boardView(parent,first).host.action("kind",true)
+        findButton(ShadowDialog.getLatestDialog(),"Combine with Neighbour").performClick()
+        val confirm=ShadowDialog.getLatestDialog()
+        assertTrue(panelViews(confirm.window!!.decorView).filterIsInstance<android.widget.TextView>().any {
+            it.text.toString().contains("nearest whole number of ticks")
+        })
+        host.deferEdits=true; findButton(confirm,"Combine").performClick()
+        assertEquals(1,host.queued.size)
+        host.document=host.queued.single()(d).doc
+        controller.documentChanged(host.document)
+        assertEquals(host.document.activeBoardId,controller.selectedBoardId)
+        assertEquals(1,host.document.boards.count {it.kind==BoardKind.ANIMATION})
+        assertTrue(host.messages.none {it.startsWith("Only ")})
+        controller.stop()
+    }
     @Test fun tileChromeHidesOtherBoardsAndArmingDoesNotChangeSavedMetadata() {
         val host=Host(document()); val (controller,parent)=setup(host)
         val saved=host.document; controller.select("page")
@@ -216,6 +459,15 @@ class BoardRuntimeControllerTest {
     private fun shownInput(view: BoardChromeView): Chrome.Input {
         shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(30))
         return BoardChromeView::class.java.getDeclaredField("input").apply { isAccessible=true }.get(view) as Chrome.Input
+    }
+    /** Initial Activity layout and the controller's selected scene can settle on successive display frames. */
+    private fun boardControl(view:BoardChromeView,labelPrefix:String): View {
+        repeat(6) {
+            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(20))
+            panelViews(view).singleOrNull {it.contentDescription?.toString()?.startsWith(labelPrefix)==true}?.let {return it}
+        }
+        val state=BoardChromeView::class.java.getDeclaredField("input").apply {isAccessible=true}.get(view) as? Chrome.Input
+        error("Missing '$labelPrefix' target; selected=${state?.selected}, penDown=${state?.penDown}, penLift=${state?.penLiftElapsedMs}, labels=${panelViews(view).mapNotNull {it.contentDescription?.toString()}}")
     }
     @Test fun spriteHandlePreviewsCellAndBoardSizesWithoutHistoryAndCancelRestores() {
         val host=spriteHost(); val (controller,parent)=setup(host); val view=spriteView(controller,parent,host)
@@ -385,6 +637,11 @@ class BoardRuntimeControllerTest {
         return RegionDocumentOps.create(base,"Animation",RectPx(100,100,200,100)) { "id-${++n}" }.doc
     }
     private class Host(var document: JbDocument): BoardRuntimeController.Host {
+        val clipMoves=mutableListOf<Pair<String?,RectPx?>>()
+        val clipMoveOrder=mutableListOf<String>()
+        override fun previewClipMove(boardId:String?,rect:RectPx?) { clipMoves += boardId to rect; clipMoveOrder += if(rect==null) "clear" else "show" }
+        val onions=mutableListOf<String?>()
+        override fun onion(boardId:String?) { onions += boardId }
         var revision = 0L
         val transform = ViewTransform()
         var scope: RectPx? = null
@@ -403,6 +660,7 @@ class BoardRuntimeControllerTest {
         override fun tilePreviewRect(boardId:String,rect:RectPx?) { tilePreviews += boardId to rect; order += if(rect == null) "clear" else "show" }
         override fun edit(change:(JbDocument)->RegionChange) {
             order += "edit"
+            clipMoveOrder += "edit"
             if (deferEdits) queued += change else document = change(document).doc
         }
         override fun selectFrame(boardId:String,frameId:String) { document = RegionDocumentOps.selectFrame(document,boardId,frameId) }
@@ -428,6 +686,8 @@ class BoardRuntimeControllerTest {
         controller.documentChanged(host.document)
         return controller to parent
     }
+    private fun boardView(parent:FrameLayout,id:String) = (0 until parent.childCount)
+        .map { parent.getChildAt(it) }.filterIsInstance<BoardChromeView>().single { it.sceneIdentity?.boardId==id }
     private fun sampledBoardView(parent:FrameLayout,host:Host) = (0 until parent.childCount)
         .map { parent.getChildAt(it) }.filterIsInstance<BoardChromeView>()
         .single { it.sceneIdentity?.boardId == host.document.boards.last().id }
@@ -810,16 +1070,16 @@ class BoardRuntimeControllerTest {
         assertEquals(2,host.thumbnails.size)
     }
 
-    @Test fun hoverAlwaysLoopsAndPauseStopsAllPreviewScheduling() {
+    @Test fun hoverUsesSavedBlankEndAndPauseStopsAllPreviewScheduling() {
         val host = Host(document())
         val id = host.document.boards.last().id
         host.document = RegionDocumentOps.addFrame(host.document,id,NewFrame.BLANK) { UUID.randomUUID().toString() }.doc
+        host.document = BoardDocumentOps.setEnd(host.document,id,"blank")
         val (controller,parent) = setup(host)
         val view = (0 until parent.childCount).map { parent.getChildAt(it) }.filterIsInstance<BoardChromeView>().first { it.sceneIdentity?.boardId == id }
-        view.host.action("loop",false); view.host.action("loop",false) // manual mode ONCE
         view.host.hoverLoop(true,null)
         shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(1))
-        assertTrue(host.previews.last().isNotEmpty())
+        assertEquals(mapOf(id to RegionDocumentOps.BLANK_PREVIEW),host.previews.last())
         controller.stop()
         val count = host.previews.size
         controller.documentChanged(host.document)

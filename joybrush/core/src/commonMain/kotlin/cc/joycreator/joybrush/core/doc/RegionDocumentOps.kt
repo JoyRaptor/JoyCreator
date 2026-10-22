@@ -45,12 +45,17 @@ data class RegionChange(val doc: JbDocument, val copies: List<RegionCopy> = empt
 
 /** Region metadata operations. No legacy conversion, pixel buffers, GPU or history owned here. */
 object RegionDocumentOps {
+    /** Empty string is a transient blank preview, never an ID written to the document. */
+    const val BLANK_PREVIEW = ""
     /**
-     * [animate]: the layers that animate in the new board (ANIMATION_CLIPS C2: the app passes the active layer only);
-     * every other layer is STILL there (a held region), its pixels untouched on the shared canvas. null = every layer
-     * (the original behaviour, kept for callers that want it).
+     * A new clip animates only the active layer (the top layer when there is no saved selection).
+     * Every other layer is STILL there, its pixels untouched on the shared canvas. The explicit
+     * [animate] overload also supports intentionally animating several layers; null means all layers.
      */
-    fun create(doc: JbDocument, name: String, rect: RectPx, ids: () -> String, animate: Set<String>? = null): RegionChange {
+    fun create(doc: JbDocument, name: String, rect: RectPx, ids: () -> String): RegionChange =
+        create(doc,name,rect,ids,(doc.activeLayerId ?: doc.layers.lastOrNull()?.id)?.let { setOf(it) })
+
+    fun create(doc: JbDocument, name: String, rect: RectPx, ids: () -> String, animate: Set<String>?): RegionChange {
         valid(doc)
         BoardDocumentOps.checkRect(rect)
         if (name.isBlank()) throw DocException("Give this board a name")
@@ -100,9 +105,11 @@ object RegionDocumentOps {
         val layers = doc.layers.map { layer ->
             val region = layer.regions.firstOrNull { it.boardId == boardId } ?: return@map layer
             val source = region.frameCel.getValue(sourceId)
-            val cel = if (mode == NewFrame.LINK) source else fresh()
-            if (mode == NewFrame.DUPLICATE) copies += RegionCopy(layer.id,source,cel,board.rect)
-            layer.copy(cels = if (cel == source) layer.cels else layer.cels + Cel(cel),
+            val (clones, added) = if (mode == NewFrame.DUPLICATE) CelParts.clone(layer, listOf(source), fresh)
+                else emptyMap<String, String>() to emptyList<Cel>()
+            val cel = if (mode == NewFrame.LINK) source else if (mode == NewFrame.DUPLICATE) clones.getValue(source) else fresh()
+            if (mode == NewFrame.DUPLICATE) for ((old, copy) in clones) copies += RegionCopy(layer.id, old, copy, board.rect)
+            layer.copy(cels = layer.cels + if (mode == NewFrame.LINK) emptyList() else if (mode == NewFrame.DUPLICATE) added else listOf(Cel(cel)),
                 regions = layer.regions.map { if (it.boardId == boardId) it.copy(frameCel = it.frameCel + (frameId to cel)) else it })
         }
         val frames = board.frames.toMutableList().apply { add(index+1,Frame(frameId)) }
@@ -126,11 +133,11 @@ object RegionDocumentOps {
         val layers = doc.layers.map { layer ->
             val region = layer.regions.firstOrNull { it.boardId == boardId } ?: return@map layer
             val mappings = region.frameCel - frameId
-            val removed = region.frameCel.getValue(frameId)
-            val survives = removed in mappings.values
-            if (!survives) drops += RegionDrop(layer.id, removed)
-            layer.copy(cels = if (survives) layer.cels else layer.cels.filterNot { it.id == removed },
-                regions = layer.regions.map { if (it.boardId == boardId) it.copy(frameCel = mappings) else it })
+            val regions = layer.regions.map { if (it.boardId == boardId) it.copy(frameCel = mappings) else it }
+            val retained = CelParts.reachable(layer, regions.flatMap { it.frameCel.values } + listOfNotNull(layer.sharedCelId))
+            val removed = CelParts.reachable(layer, listOf(region.frameCel.getValue(frameId))) - retained
+            drops += removed.map { RegionDrop(layer.id, it) }
+            layer.copy(cels = layer.cels.filterNot { it.id in removed }, regions = regions)
         }
         val next = doc.copy(layers = layers, boards = doc.boards.map {
             if (it.id == boardId) it.copy(frames = frames, currentFrameId = cursor) else it
@@ -176,9 +183,9 @@ object RegionDocumentOps {
         val next = doc.copy(layers = doc.layers.map { l -> if (l.id == layerId) l.copy(
             regions = l.regions.map { if (it.boardId == boardId) it.copy(held = held) else it }) else l })
         valid(next)
-        if (held) return RegionChange(next, listOf(RegionCopy(layerId, current, shared, target.rect)))
+        if (held) return RegionChange(next, transfers = CelParts.transfers(layer,current,shared,target.rect))
         // Un-holding: the shared art under the board MOVES into the current frame (nothing hides under a board).
-        return RegionChange(next, transfers = listOf(RegionTransfer(layerId, shared, current, target.rect, target.rect)),
+        return RegionChange(next, transfers = CelParts.transfers(layer,shared,current,target.rect),
             clears = listOf(RegionClear(layerId, shared, target.rect)))
     }
 
@@ -207,7 +214,7 @@ object RegionDocumentOps {
     private fun validateOverrides(doc: JbDocument, frameOverrides: Map<String, String>) {
         for ((boardId, frameId) in frameOverrides) {
             val target = doc.boards.firstOrNull { it.id == boardId } ?: throw DocException("No such preview board")
-            if (target.kind != BoardKind.ANIMATION || target.frames.none { it.id == frameId }) {
+            if (target.kind != BoardKind.ANIMATION || frameId != BLANK_PREVIEW && target.frames.none { it.id == frameId }) {
                 throw DocException("Preview frame is not in this animation board")
             }
         }
@@ -219,10 +226,11 @@ object RegionDocumentOps {
         val shared = layer.sharedCelId ?: layer.cels.singleOrNull()?.id ?: throw DocException("No shared content")
         val frames = layer.regions.filterNot { it.held }.map { region ->
             val target = doc.boards.first { it.id == region.boardId }
-            val current = frameOverrides[target.id] ?: target.currentFrameId ?: throw DocException("Select a frame first")
-            RegionFrame(target.id, target.rect, current, region.frameCel.getValue(current))
+            val override = frameOverrides[target.id]
+            val current = override?.takeUnless { it == BLANK_PREVIEW } ?: target.currentFrameId ?: throw DocException("Select a frame first")
+            RegionFrame(target.id, target.rect, current, region.frameCel.getValue(current), blank = override == BLANK_PREVIEW)
         }
-        return RegionPaintPlan(shared, frames)
+        return resolvedPlan(layer, shared, frames)
     }
 
     /** For render callers which validated on open; override only the board owning that frame. */
@@ -236,8 +244,13 @@ object RegionDocumentOps {
                 ?: board.currentFrameId ?: throw DocException("Select a frame first")
             RegionFrame(board.id,board.rect,current,region.frameCel.getValue(current))
         }
-        return RegionPaintPlan(shared,frames)
+        return resolvedPlan(layer, shared, frames)
     }
+
+    private fun resolvedPlan(layer: Layer, shared: String, roots: List<RegionFrame>): RegionPaintPlan =
+        RegionPaintPlan(shared, roots.flatMap { root ->
+            CelParts.resolve(layer, root.celId, root.rect).map { piece -> root.copy(rect = piece.rect, celId = piece.celId) }
+        }, roots)
 
     private fun board(doc: JbDocument,id: String): Board {
         val board = doc.boards.firstOrNull { it.id == id } ?: throw DocException("No such board")

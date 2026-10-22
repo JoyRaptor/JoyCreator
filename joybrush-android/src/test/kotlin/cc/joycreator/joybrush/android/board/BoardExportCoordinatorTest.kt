@@ -7,6 +7,8 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import cc.joycreator.joybrush.androidkit.io.BoardExportRequest
+import cc.joycreator.joybrush.androidkit.io.JbContents
+import cc.joycreator.joybrush.core.export.SceneAnimExportPlan
 import cc.joycreator.joybrush.core.chrome.BoardExportLayout as Export
 import cc.joycreator.joybrush.core.doc.*
 import org.junit.Test
@@ -88,5 +90,29 @@ class BoardExportCoordinatorTest {
             board.currentFrameId!!,board.frames.last().id,board.frames.last().id),false)
         assertEquals(request,BoardExportCoordinator.restore(BoardExportCoordinator.save(request)))
         assertNull(BoardExportCoordinator.restore(android.os.Bundle()))
+    }
+    @Test fun successfulGifWriteReturnsCapIntroducedAfterPickerCadence() {
+        val activity=Robolectric.buildActivity(Activity::class.java).setup().get()
+        val frames=List(599) { Frame("f-$it") }
+        val board=Board("clip","Loop",BoardKind.ANIMATION,RectPx(0,0,1,1),fps=60f,
+            frames=frames,currentFrameId=frames.first().id)
+        val layer=Layer("paint","Paint",LayerKind.PAINT,cels=listOf(Cel("shared"),Cel("drawing")),sharedCelId="shared",
+            regions=listOf(RegionFrames(board.id,frames.associate { it.id to "drawing" })))
+        val doc=JbDocument(id="art",name="Art",boards=listOf(board),layers=listOf(layer))
+        // 599 samples fit the initial picker; a complete cycle at GIF's 50 fps needs 2995 samples.
+        assertFalse(SceneAnimExportPlan.build(doc,true).capped)
+        val request=BoardExportRequest(doc.id,board.id,board.kind,Export.Scope.ANIMATION,Export.Format.GIF,
+            board.currentFrameId,null,null,frames.map { it.id },emptyList(),false,
+            scene=true,fullLoop=true,sceneSignature=BoardExportRequest.sceneSignature(doc))
+        val cache=java.nio.file.Files.createTempDirectory("clip-warning-test").toFile()
+        try {
+            val output=java.io.File(cache,"scene.gif")
+            val warnings=BoardExportCoordinator.write(activity.contentResolver,android.net.Uri.fromFile(output),
+                JbContents(doc,emptyMap(),emptyMap()),request,cache)
+            assertTrue(output.length()>0)
+            assertTrue(warnings.any { it.contains("50 frames per second") })
+            assertTrue(warnings.any { it.contains("capped at 600 frames") })
+            assertEquals(warnings.distinct(),warnings)
+        } finally { cache.deleteRecursively(); activity.finish() }
     }
 }

@@ -45239,7 +45239,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // duplicates removed (audit 1.6) — so a burst of edits inside one baseline
                 // window becomes ONE honest cross-session undo step, not a step + no-ops.
                 List<UndoManager.HistoryEntry> history = undoManager.getUndoHistoryForPersist();
-                if (!history.isEmpty()) {
+                // Empty is saved too once the stack has changed: undoing every step and leaving
+                // used to keep the old file, so reopening offered the undone steps again. Not
+                // before a change, though, when empty can mean the history is not loaded yet.
+                if (!history.isEmpty() || undoManager.hasChangedSinceOpen()) {
                     List<String> descriptions = new ArrayList<>();
                     List<String> snapshots = new ArrayList<>();
                     List<Boolean> aiFlags = new ArrayList<>();

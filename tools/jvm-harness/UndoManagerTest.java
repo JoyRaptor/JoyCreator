@@ -88,6 +88,16 @@ public class UndoManagerTest {
     static long t = 100_000L;
     static void advance(long ms) { t += ms; SystemClock.NOW = t; }
 
+    /** A manager that has recorded one edit on {@code m}. */
+    static UndoManager recordOne(Model m) {
+        UndoManager um = new UndoManager();
+        um.setSnapshotRestorer(new FakeRestorer(m));
+        um.resetBaseline();
+        m.state = m.state + "'";
+        um.recordAction(new FakeAction(m, "edit", "x", m.state));
+        return um;
+    }
+
     /** Rebuild a fresh session from persisted history (the "restart"). Returns the new manager. */
     static UndoManager restart(UndoManager old, Model reopened, FakeRestorer[] outRestorer) {
         List<String> descs = new ArrayList<>(), snaps = new ArrayList<>();
@@ -380,6 +390,35 @@ public class UndoManagerTest {
             eqB("6e stale action's redo succeeds", true, redo2);
             eq("6f ...back at H2", "H2", m.state);
             eqI("6g ...by snapshot restore, not by replaying the orphaned action", restoresBefore + 1, r.restores);
+        }
+
+        // ── 7. Undo EVERY step, leave, reopen (2026-10-22) ────────────────────────────────
+        // The editor used to skip saving an empty history, so the old file survived and the
+        // reopened project offered the undone steps again. It now saves empty once the stack has
+        // changed, and only then: before any change, empty can mean "not loaded yet".
+        {
+            eqB("7a a fresh manager has not changed (a save ahead of the load must not wipe disk)",
+                false, new UndoManager().hasChangedSinceOpen());
+            Model m = new Model("E1");
+            UndoManager um = new UndoManager();
+            FakeRestorer r = new FakeRestorer(m);
+            um.setSnapshotRestorer(r);
+            List<String> d = new ArrayList<>(), s = new ArrayList<>();
+            d.add("old"); s.add("E0");
+            um.loadHistory(d, s, new ArrayList<>());
+            um.resetBaseline();
+            eqB("7b loading the saved history is not a change", false, um.hasChangedSinceOpen());
+            um.undo();
+            eq("7c control: the only step was undone", "E0", m.state);
+            eqI("7d nothing is left to save", 0, um.getUndoHistoryForPersist().size());
+            eqB("7e THE FIX: ...and the change says that empty list must be saved", true,
+                um.hasChangedSinceOpen());
+            Model reopened = new Model("E0");
+            FakeRestorer[] hr = new FakeRestorer[1];
+            UndoManager um2 = restart(um, reopened, hr);
+            eqB("7f reopened: nothing to undo", false, um2.canUndo());
+            eqB("7g a plain edit counts as a change too", true,
+                recordOne(new Model("x")).hasChangedSinceOpen());
         }
 
         // ── amendTopAction: ONE gesture must stay ONE undo press ─────────────────────────

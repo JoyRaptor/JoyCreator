@@ -75,6 +75,9 @@ public class UndoManager {
 
     private final int maxHistory;
 
+    /** See {@link #hasChangedSinceOpen()}. */
+    private boolean changedSinceOpen;
+
     /** Listener for undo/redo state changes (stack empty/non-empty). */
     @Nullable
     private OnStateChangedListener listener;
@@ -259,6 +262,7 @@ public class UndoManager {
         };
         undoStack.pop();
         undoStack.push(new HistoryEntry(combined, top.description, top.snapshotBefore));
+        changedSinceOpen = true;
         notifyListener();
         return true;
     }
@@ -309,6 +313,7 @@ public class UndoManager {
         HistoryEntry entry = new HistoryEntry(action, action.getDescription(), before);
         undoStack.push(entry);
         redoStack.clear();
+        changedSinceOpen = true;
 
         // Trim history if exceeding max
         while (undoStack.size() > maxHistory) {
@@ -469,6 +474,7 @@ public class UndoManager {
 
         HistoryEntry entry = undoStack.peek();
         boolean applied = false;
+        changedSinceOpen = true; // the entry leaves the stack either way
 
         if (entry.action != null) {
             // In-session: precise action-based undo.
@@ -540,6 +546,7 @@ public class UndoManager {
 
         HistoryEntry entry = redoStack.peek();
         boolean applied = false;
+        changedSinceOpen = true;
 
         if (entry.action != null) {
             // In-session: precise action-based redo
@@ -618,6 +625,19 @@ public class UndoManager {
     /** Total number of recorded entries (undo + redo). */
     public int size() {
         return undoStack.size() + redoStack.size();
+    }
+
+    /**
+     * True once an edit, undo, redo or AI step has changed the stacks in this editor visit.
+     * Loading the saved history does not count.
+     *
+     * <p>Tells the editor when an EMPTY undo history must still be saved: undoing every step
+     * has to clear the file, or reopening offers the undone steps again, each one restoring a
+     * state from the far side of edits that were already taken back. Before any change an
+     * empty list means "not loaded yet", and saving it would wipe the history on disk.</p>
+     */
+    public boolean hasChangedSinceOpen() {
+        return changedSinceOpen;
     }
 
     // ── Persistence ──────────────────────────────────────────────────
@@ -756,6 +776,7 @@ public class UndoManager {
 
         undoStack.push(new HistoryEntry(null, description, snapshot, true));
         redoStack.clear();
+        changedSinceOpen = true;
         while (undoStack.size() > maxHistory) {
             ((ArrayDeque<HistoryEntry>) undoStack).removeLast();
         }

@@ -182,8 +182,8 @@ private const val PREF_FLATTEN_HIDDEN = "joybrush.flattenHidden"
 private const val PREF_WATER_TEST = "joybrush.waterTest"
 /** The paint engine for pencil, watercolour and oil: "atlas" (the whole layer) or "window" (the old 1024 px patch). */
 private const val PREF_PAINT_ENGINE = "joybrush.paintEngine"
-/** What a person who never chose gets. */
-private const val DEFAULT_PAINT_ENGINE = "window"
+/** What a person who never chose gets: the atlas since 10-21 (water jobs, the whole layer); the old window one tap away. */
+private const val DEFAULT_PAINT_ENGINE = "atlas"
 // Export (LAYER_OPS §6): the last choices, so the next export is one tap.
 private const val PREF_EXPORT_WHOLE = "joybrush.exportWhole"
 private const val PREF_EXPORT_LAYERED = "joybrush.exportLayered"

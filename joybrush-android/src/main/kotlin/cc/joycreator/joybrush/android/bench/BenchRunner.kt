@@ -28,12 +28,18 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
     private val coarseBefore = cc.joycreator.joybrush.androidkit.gl.media.MediaLayerEngine.coarseWaterDefault
     private val rowsBefore = cc.joycreator.joybrush.androidkit.gl.media.MediaLayerEngine.atlasRowPasses
     private val jobsBefore = canvas.mediaWaterJobs
+    private val budgetBefore = canvas.mediaBudgetBytes
+    // Every refusal a run meets, in the log beside its frames (the canvas tells the person in words; the bench counts them).
+    private val refusedBefore = canvas.onRefused.also { prior -> canvas.onRefused = { m -> Log.i(TAG, "refused: $m"); prior?.invoke(m) } }
     private val onDone: () -> Unit = {
         if (spec.atlas != null) canvas.mediaAtlasEnabled = atlasBefore
         cc.joycreator.joybrush.core.media.PasteSpacing.fixed = null
         if (spec.coarseWater != null) cc.joycreator.joybrush.androidkit.gl.media.MediaLayerEngine.coarseWaterDefault = coarseBefore
         if (spec.atlasRows != null) cc.joycreator.joybrush.androidkit.gl.media.MediaLayerEngine.atlasRowPasses = rowsBefore
         if (spec.waterJobs != null) canvas.mediaWaterJobs = jobsBefore
+        if (spec.mediaBudgetMb != null) canvas.mediaBudgetBytes = budgetBefore
+        if (spec.dropDry != null) cc.joycreator.joybrush.androidkit.gl.media.MediaAtlasDropDry.on = true
+        canvas.onRefused = refusedBefore
         finished()
     }
 
@@ -56,6 +62,10 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
                val atlasRows: Int? = null,
                /** Water jobs in the atlas on or off for this run (`jb_water_jobs`); none = as shipped. */
                val waterJobs: Boolean? = null,
+               /** The drawing's media room for this run, MB (`jb_media_budget_mb`): a long session's limit, reached sooner. */
+               val mediaBudgetMb: Int? = null,
+               /** Dry tiles' water let go between strokes (`jb_drop_dry`); none = as shipped. */
+               val dropDry: Boolean? = null,
                /** How long after the surface the first case starts (`jb_start_ms`): measures a cold first stroke. */
                val startMs: Long = 1500L)
 
@@ -74,6 +84,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
         spec.coarseWater?.let { cc.joycreator.joybrush.androidkit.gl.media.MediaLayerEngine.coarseWaterDefault = it; Log.i(TAG, "coarse water: $it") }
         spec.atlasRows?.let { cc.joycreator.joybrush.androidkit.gl.media.MediaLayerEngine.atlasRowPasses = it; Log.i(TAG, "atlas rows: $it") }
         spec.waterJobs?.let { canvas.mediaWaterJobs = it; Log.i(TAG, "water jobs: $it") }
+        spec.mediaBudgetMb?.let { canvas.mediaBudgetBytes = it.toLong() shl 20; Log.i(TAG, "media room: $it MB") }
+        spec.dropDry?.let { cc.joycreator.joybrush.androidkit.gl.media.MediaAtlasDropDry.on = it; Log.i(TAG, "drop dry water: $it") }
         spec.water?.let { canvas.mediaWaterAB = cc.joycreator.joybrush.android.WaterTest.of(it).ab; Log.i(TAG, "water test: $it") }
         if ("matrix" in spec.cases) { MatrixBench(canvas, spec, onDone).start(); return }
         val all = BrushLibrary.builtIn()
@@ -351,6 +363,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
                 coarseWater = if (intent.hasExtra("jb_coarse_water")) intent.getBooleanExtra("jb_coarse_water", true) else null,
                 atlasRows = if (intent.hasExtra("jb_atlas_rows")) intent.getIntExtra("jb_atlas_rows", 0) else null,
                 waterJobs = if (intent.hasExtra("jb_water_jobs")) intent.getBooleanExtra("jb_water_jobs", true) else null,
+                mediaBudgetMb = intent.getIntExtra("jb_media_budget_mb", -1).takeIf { it > 0 },
+                dropDry = if (intent.hasExtra("jb_drop_dry")) intent.getBooleanExtra("jb_drop_dry", true) else null,
                 startMs = intent.getLongExtra("jb_start_ms", 1500L).coerceIn(0L, 60_000L))
         }
     }

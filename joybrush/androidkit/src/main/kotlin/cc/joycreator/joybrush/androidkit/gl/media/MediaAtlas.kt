@@ -161,7 +161,8 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         keys += lookKeys
         waterHeld = if (waterRect != null) admitWater(waterRect, keys, box ?: waterRect, now) else emptySet()
         keys += waterHeld
-        media.waterSkip = water.excluded.toSet()
+        // Tiles taken out of the water (D2) and tiles set aside (D3) are walls to it and are not simulated.
+        media.waterSkip = water.excluded.toSet() + water.setAside
         lookInParts = false
         try { hold(keys) } catch (r: MediaRoomException) {
             // A frame whose paint fits but not with its look's whole shading ring (one palette-knife step: 20 areas of 18 on the
@@ -191,14 +192,14 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         // atlas. With the pen up they run again, nearest first, as far as there is room (2026-10-21: the owner's crowded
         // drawing ran every pool on the page in every frame, and ran out of room).
         val (newlyPaused, _) = water.schedule(domain, reads, frame, held, painting = frame.isNotEmpty(), capacity = slots.capacity,
-            penX = (pen[0] + pen[2]) / 2.0, penY = (pen[1] + pen[3]) / 2.0, lookReach = look)
+            penX = (pen[0] + pen[2]) / 2.0, penY = (pen[1] + pen[3]) / 2.0, lookReach = look, nowMs = now)
         if (newlyPaused.isNotEmpty()) media.holdStill(newlyPaused.mapNotNull { k -> slots.resident(page(k))?.let { media.slotTexel(it.slot) } })
         media.waterPaused = water.paused.toSet()
         var must = water.mustStay(domain, reads, look)
         if (now - lastSimLog > 1000) {   // measurement (2026-10-20): what the water passes draw vs what the water needs
             lastSimLog = now
             android.util.Log.i(TAG, "water: ${domain.count { slots.resident(page(it)) != null }} resident tiles in its rectangle, ${water.mustStay(domain, reads, 0).size} hold water or are within its reach, ${must.size} kept with the look; " +
-                "of the ${domain.count(water::holdsWater)} wet, ${water.stillCount(domain, now, 500)} still for 0.5 s, ${water.stillCount(domain, now, 2000)} for 2 s; ${water.paused.size} paused")
+                "of the ${domain.count(water::holdsWater)} wet, ${water.stillCount(domain, now, 500)} still for 0.5 s, ${water.stillCount(domain, now, 2000)} for 2 s; ${water.paused.size} paused, ${water.setAside.size} set aside")
         }
         if (MediaAtlasPlacement.fits(slots.capacity, frame + must, held)) return must
         val plan = water.plan(domain, reads, frame, held, slots.capacity, (pen[0] + pen[2]) / 2.0, (pen[1] + pen[3]) / 2.0, now, look)
@@ -455,6 +456,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
             if (rect != null) writeLook(id, rect)
         }
         if (media.wetActive) measureWater() else if (querySlots != null || framesSinceQuery != 0) resetWater()
+        if (MediaAtlasDropDry.on && media.wetActive && !paint.mediaStrokeInProgress) dropDryWater(id)
         if (stores) {
             writeStores(id)
             // Water jobs: dabs the water had not taken in yet are not in what was just written; written in place once they
@@ -657,18 +659,26 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         if (drop) stores.removeAll(MediaStores.WATER)
         val firstTouch = if (stores.isEmpty()) emptyList() else keys.filter { it in groundFromLook }
         val grounds = if (firstTouch.isEmpty()) emptyMap() else paint.writableMediaTiles(id, firstTouch, listOf(MediaStores.GROUND), plane).getValue(MediaStores.GROUND)
-        val targets = if (stores.isEmpty()) emptyMap() else paint.writableMediaTiles(id, keys, stores, plane)
+        // A tile whose water is measured gone gets no water store (it would hold nothing): a drawing's media room is mostly
+        // water while it is wet (2 of a watercolour tile's 4.5 half-MB stores), and it was only let go once ALL of it dried.
+        val (waterStores, restStores) = stores.partition { it in MediaStores.WATER }
+        val wetKeys = keys.filter { !MediaAtlasDropDry.on || !waterDry(it) || paint.mediaTile(id, MediaStores.WATER[0], it, plane) != null }
+        val targets = HashMap<String, Map<Long, Int>>()
+        if (restStores.isNotEmpty()) targets.putAll(paint.writableMediaTiles(id, keys, restStores, plane))
+        if (waterStores.isNotEmpty() && wetKeys.isNotEmpty()) targets.putAll(paint.writableMediaTiles(id, wetKeys, waterStores, plane))
         for (key in keys) {
             val res = slots.resident(page(key))!!
             val (ax, ay) = media.slotTexel(res.slot)
             for (store in stores) {
-                media.writeStoreTile(store, targets.getValue(store).getValue(key), ax, ay)
+                val dst = targets[store]?.get(key) ?: continue
+                media.writeStoreTile(store, dst, ax, ay)
             }
             grounds[key]?.let { media.blit(media.groundTexture(), ax, ay, ax + tile, ay + tile, it, 0, 0, tile, tile) }
             slots.clean(res.page)
         }
         groundFromLook.removeAll(firstTouch.toSet())
         if (drop) dropWater(id)
+        android.util.Log.i(TAG, "media room: ${paint.mediaResidentBytes() shr 20} MB held, ${driedTiles} tiles' dry water let go so far")
     }
 
     private fun reserveStores() {
@@ -677,7 +687,10 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         val keys = keysIn(rect).filter { slots.resident(page(it)) != null }
         val stores = pendingStores.filter { it !in MediaStores.WATER || media.wetActive }
         if (keys.isEmpty() || stores.isEmpty()) return
-        paint.writableMediaTiles(id, keys, stores, plane)
+        val (waterStores, restStores) = stores.partition { it in MediaStores.WATER }
+        if (restStores.isNotEmpty()) paint.writableMediaTiles(id, keys, restStores, plane)
+        val wetKeys = keys.filter { !MediaAtlasDropDry.on || !waterDry(it) || paint.mediaTile(id, MediaStores.WATER[0], it, plane) != null }
+        if (waterStores.isNotEmpty() && wetKeys.isNotEmpty()) paint.writableMediaTiles(id, wetKeys, waterStores, plane)
         val firstTouch = keys.filter { it in groundFromLook }
         if (firstTouch.isNotEmpty()) paint.writableMediaTiles(id, firstTouch, listOf(MediaStores.GROUND), plane)
     }
@@ -690,6 +703,24 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         resetWater()
         media.takeDirty(); media.takeDirtyStores(); media.stopWater()
     }
+
+    /** True when this tile's water is measured gone: no depth, no dampness (MediaAtlasWater: DRY). */
+    private fun waterDry(key: Long): Boolean = water.state(key) == MediaAtlasWater.State.DRY
+
+    /**
+     * Between strokes, while water still runs elsewhere: the water stores of resident tiles measured dry are let go (their
+     * slot's water is nothing already), so a long session does not fill the drawing's media room with water that has gone.
+     * [dropWater] did it only once the last of the water had dried, and a painter who keeps painting never got there:
+     * "this drawing has used it" after ~15 strokes on the owner's Note 9 (2026-10-21).
+     */
+    private fun dropDryWater(id: String) {
+        val dry = heldKeys().filter { waterDry(it) && paint.mediaTile(id, MediaStores.WATER[0], it, plane) != null }
+        if (dry.isEmpty()) return
+        for (store in MediaStores.WATER) paint.dropMediaTiles(id, store, dry.filter { paint.mediaTile(id, store, it, plane) != null }, plane)
+        driedTiles += dry.size
+    }
+    /** Water stores let go by [dropDryWater] (bench). */
+    var driedTiles = 0; private set
 
     private fun dropWater(id: String) {
         val keys = heldKeys()
@@ -767,3 +798,6 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         else -> floatArrayOf(minOf(a[0], b[0]), minOf(a[1], b[1]), maxOf(a[2], b[2]), maxOf(a[3], b[3]))
     }
 }
+
+/** Dry tiles let their water stores go while water runs elsewhere (MediaAtlas.dropDryWater); the bench's `jb_drop_dry` A/B. */
+object MediaAtlasDropDry { @Volatile @JvmStatic var on = true }

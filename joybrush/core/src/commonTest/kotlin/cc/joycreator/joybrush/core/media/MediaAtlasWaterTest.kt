@@ -164,6 +164,23 @@ class MediaAtlasWaterTest {
         assertTrue(k(0, 0) !in w.paused && k(4, 0) !in w.paused)
     }
 
+    @Test fun aPoolUnderThePenTooBigForTheRoomSetsAsideItsFarTilesNotTheStroke() {
+        // One pool ten tiles long; the pen paints at its left end; room for six tiles. It used to be refused.
+        val w = MediaAtlasWater()
+        val domain = block(0, 0, 9, 0)
+        w.touched(domain, 0)
+        val frame = setOf(k(0, 0))
+        val (aside, _) = w.schedule(domain, domain, frame, emptySet(), painting = true, capacity = 6, penX = 128.0, penY = 128.0)
+        assertTrue(w.paused.isEmpty(), "the pool is not paused whole")
+        assertTrue(aside.isNotEmpty() && aside == w.setAside, "its far tiles wait")
+        assertTrue(w.setAside.none { it == k(0, 0) || it == k(1, 0) }, "never what the pen paints, nor beside it")
+        assertTrue(k(9, 0) in w.setAside, "the farthest first")
+        assertTrue((frame + w.mustStay(domain, domain)).size <= 6, "and the rest fits")
+        // Room again: everything runs.
+        val (_, back) = w.schedule(domain, domain, frame, emptySet(), painting = true, capacity = 99, penX = 128.0, penY = 128.0)
+        assertTrue(w.setAside.isEmpty()); assertEquals(aside, back)
+    }
+
     @Test fun thePoolUnderThePenNeverPausesEvenShortOfRoom() {
         val w = MediaAtlasWater()
         val domain = block(0, 0, 9, 0)

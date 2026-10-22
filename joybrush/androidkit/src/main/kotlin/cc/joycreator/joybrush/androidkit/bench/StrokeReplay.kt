@@ -53,7 +53,10 @@ object StrokeReplay {
         "blue1" -> line(w * 0.05f, h * 0.55f, w * 0.45f, h * 0.30f, 900.0)
         "blue2" -> line(w * 0.95f, h * 0.50f, w * 0.60f, h * 0.27f, 900.0)
         "blue3" -> line(w * 0.25f, h * 0.62f, w * 0.75f, h * 0.48f, 900.0)
-        else -> null
+        // A long session (the drawing's media room, 2026-10-21): "band0".."band9", a zigzag across the page in its own tenth.
+        else -> name.removePrefix("band").toIntOrNull()?.takeIf { name.startsWith("band") && it in 0..9 }?.let { i ->
+            zigzag(w * 0.06f, w * 0.94f, h * (0.06f + 0.088f * i), h * (0.06f + 0.088f * i + 0.07f), 6, 1400.0)
+        }
     }
 
     /**

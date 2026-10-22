@@ -352,10 +352,16 @@ class MediaCanvas(
     fun lookWritten(layerId: String, plane: String?, keys: Set<Long>) { window?.lookWritten(layerId, plane, keys) }
 
     /** The layer or the screen changed: write back and let the window go. */
-    fun releaseWindow() { if (stroke == null) { window?.let(::refreshFlat); window?.release(); noteHeld() } }
+    fun releaseWindow() { if (stroke == null) { settleOwed(); window?.let(::refreshFlat); window?.release(); noteHeld() } }
 
     /** The paint-engine switch (atlas or window): write back and let the engine go, so the next stroke makes the other kind. */
-    fun releaseEngine() { if (stroke != null) return; window?.let(::refreshFlat); window?.release(); release(); noteHeld() }
+    fun releaseEngine() { if (stroke != null) return; settleOwed(); window?.let(::refreshFlat); window?.release(); release(); noteHeld() }
+
+    /**
+     * Water jobs: the last stroke's dabs the water had not taken in yet go into its own stores now (before an undo or a redo,
+     * and before the window is let go), so the history and the saved drawing always hold the whole stroke.
+     */
+    fun settleOwed() { if (stroke == null) (window as? MediaAtlas)?.payOwedStores(paint.mediaPaper(), DOC_PX_PER_MM, water()) }
 
     /** GL context lost or the canvas closing. */
     fun release() {

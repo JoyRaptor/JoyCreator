@@ -32,11 +32,12 @@ object MediaAtlasPlacement {
 
     /**
      * What one 256² slot of an atlas costs, every store at its format: paint state 2 × (p0, p1, paper) RGBA32F = 96 B/px,
-     * water 2 × (w0, w1) RGBA32F = 64, flux 2 × RGBA16F = 16, brush input 2 × RGBA16F = 16, paper bake RGBA16F 8, running
-     * water RG16F 4, ground and look RGBA8 4 + 4, water bake R16F 2, fluid bake R8 1, bead 2 × RGBA16F at half size 4:
-     * 219 B per layer px. Measured on the Note 9 (MediaLayerEngine.memoryReport): 14,352,384 bytes per slot, the same.
+     * water 2 × (w0, w1) RGBA32F = 64, flux 2 × RGBA16F = 16, brush input twice (water jobs, 10-21) × (RGBA16F + RG16F) = 24,
+     * paper bake RGBA16F 8, running water RG16F 4, ground and look RGBA8 4 + 4, water bake R16F 2, fluid bake R8 1, bead
+     * 2 × RGBA16F at half size 4: 227 B per layer px. Measured on the Note 9 (MediaLayerEngine.memoryReport) before the input
+     * was doubled: 14,352,384 bytes per slot (219 B); with it doubled at RGBA16F, 15,400,960 (235 B).
      */
-    const val BYTES_PER_PX = 219L
+    const val BYTES_PER_PX = 227L
     const val BYTES_PER_SLOT = BYTES_PER_PX * 256 * 256
 
     /**
@@ -68,8 +69,11 @@ object MediaAtlasPlacement {
      */
     const val RESERVE_BYTES = 700L shl 20
 
-    /** The most slots (689 MB): with plenty free the share would reach 900 MB of graphics memory, more than any stroke needs. */
-    const val MAX_SLOTS = 48
+    /**
+     * The most slots (64 x 14.9 MB = 952 MB, only with that much free beyond the reserve): 48 until 10-21, when a screenful of
+     * wet paint on the Note 9 needed ~35-49 slots with its neighbours and was refused on days with memory to spare.
+     */
+    const val MAX_SLOTS = 64
 
     fun slotGrid(availBytes: Long, bytesPerSlot: Long = BYTES_PER_SLOT): Pair<Int, Int> {
         // The most is [MAX_SLOTS] full-resolution slots' worth of memory (cheaper slots, more of them: 64 with coarse water).

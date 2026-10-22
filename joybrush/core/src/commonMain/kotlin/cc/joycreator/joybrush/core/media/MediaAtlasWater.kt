@@ -41,13 +41,22 @@ class MediaAtlasWater(val quietMs: Long = 2000) {
      */
     val paused: MutableSet<Long> = LinkedHashSet()
 
+    /**
+     * D3 (2026-10-21), the last resort before a stroke is refused: tiles of a pool the pen is painting set aside one by one,
+     * stillest and farthest from the pen first, never within a tile of what the pen paints, until the rest fits. Kept as they
+     * are, not simulated, not held; the water beside them sees a wall (the host's walls) and they run again as soon as there
+     * is room. A still edge can show where moving water meets one (the creases of 10-21), which is why nothing else does this:
+     * it only ever replaces a refusal (paint that stops working), and only far from the pen.
+     */
+    val setAside: MutableSet<Long> = LinkedHashSet()
+
     fun state(key: Long): State? = tiles[key]?.state
 
     /** Where the water lies in [key] (layer px, x0 y0 x1 y1, half-open), or null when it holds none. */
     fun extent(key: Long): IntArray? = tiles[key]?.takeIf { holdsWater(key) }?.let { it.ext ?: rectOf(key) }
 
     /** The water stopped (dried, undone, layer left): forget everything. */
-    fun reset() { tiles.clear(); excluded.clear(); paused.clear() }
+    fun reset() { tiles.clear(); excluded.clear(); paused.clear(); setAside.clear() }
 
     /**
      * A tile entered the water's domain. Water reaches a tile only from the brush ([touched]), from its own stores
@@ -137,11 +146,12 @@ class MediaAtlasWater(val quietMs: Long = 2000) {
         val readable = reads.toHashSet()
         val out = LinkedHashSet<Long>()
         for (k in domain) {
-            if (k in paused) continue   // set aside whole ([schedule]): kept in its stores, not in the atlas
+            if (k in paused || k in setAside) continue   // set aside ([schedule]): kept in its stores, not in the atlas
             val e = extent(k) ?: continue
             out += k
             val g = grow(e, READ + MARGIN)
-            for (n in MediaAtlasPlacement.tiles(g[0].toDouble(), g[1].toDouble(), g[2].toDouble(), g[3].toDouble(), 0)) if (n in readable) out += n
+            // A tile set aside is a wall to the water beside it: read as nothing, so not held for it.
+            for (n in MediaAtlasPlacement.tiles(g[0].toDouble(), g[1].toDouble(), g[2].toDouble(), g[3].toDouble(), 0)) if (n in readable && n !in setAside) out += n
             if (lookReach > 0) {
                 val l = grow(e, lookReach)
                 out += MediaAtlasPlacement.tiles(l[0].toDouble(), l[1].toDouble(), l[2].toDouble(), l[3].toDouble(), 0)
@@ -165,10 +175,12 @@ class MediaAtlasWater(val quietMs: Long = 2000) {
      * that ran before (the host keeps their state as it is) and those running now that were paused.
      */
     fun schedule(domain: Collection<Long>, reads: Collection<Long>, frame: Set<Long>, held: Set<Long>, painting: Boolean,
-                 capacity: Int, penX: Double, penY: Double, lookReach: Int = 0): Pair<Set<Long>, Set<Long>> {
+                 capacity: Int, penX: Double, penY: Double, lookReach: Int = 0, nowMs: Long = 0L): Pair<Set<Long>, Set<Long>> {
         val comps = components(domain, withPaused = true)
         val was = paused.toSet()
+        val wasAside = setAside.toSet()
         paused.clear()   // decided afresh below; [mustStay] counts what runs
+        setAside.clear()
         val near = HashSet<Long>()
         for (k in frame) for (dy in -1..1) for (dx in -1..1) near += Tiles.key(Tiles.tx(k) + dx, Tiles.ty(k) + dy)
         val touching = comps.filter { c -> c.any { it in near } }
@@ -179,10 +191,18 @@ class MediaAtlasWater(val quietMs: Long = 2000) {
         while (!fits() && running.size > touching.size) running.removeAt(running.size - 1)
         val nowPaused = comps.filter { it !in running }.flatten().toSet()
         paused.addAll(nowPaused)
+        // D3: still too much (the pools the pen paints are bigger than the room): their stillest, farthest tiles wait.
+        if (!fits()) {
+            val candidates = running.flatten().filter { it !in near }
+                .sortedWith(compareByDescending<Long> { nowMs > 0 && still(it, nowMs, STILL_MS) }.thenByDescending { dist(it, penX, penY) })
+            for (k in candidates) { if (fits()) break; setAside += k }
+        }
         // Pools outside [domain] (the water's rectangle) stay as they were.
         val inDomain = domain.toHashSet()
         for (k in was) if (k !in inDomain) paused.add(k)
-        return nowPaused.filterTo(HashSet()) { it !in was } to was.filterTo(HashSet()) { it !in paused }
+        for (k in wasAside) if (k !in inDomain) setAside.add(k)
+        val held = paused + setAside
+        return held.filterTo(HashSet()) { it !in was && it !in wasAside } to (was + wasAside).filterTo(HashSet()) { it !in held }
     }
 
     /** One way to make room ([plan]): dry [keys] in place; [drain] = also take them out of the simulation (D2). */
@@ -254,6 +274,8 @@ class MediaAtlasWater(val quietMs: Long = 2000) {
         hypot((Tiles.tx(key) + 0.5) * Tiles.SIZE - penX, (Tiles.ty(key) + 0.5) * Tiles.SIZE - penY)
 
     companion object {
+        /** D3 sets aside tiles still this long first ([still]). */
+        const val STILL_MS = 2000L
         /** How far water reads around itself (layer px): [MediaAtlasPlacement.WET_REACH]. */
         const val READ = MediaAtlasPlacement.WET_REACH
         /** How far water may spread between two measurements (8 frames, the readback's latency): 48 px. */

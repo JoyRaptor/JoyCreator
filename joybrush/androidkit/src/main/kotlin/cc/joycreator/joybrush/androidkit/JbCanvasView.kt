@@ -1202,13 +1202,13 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         onBeforeHistoryChange?.invoke()
         if (drawing) finishStroke()
         val editRevision = paperRevision; val historyRevision = ++paperHistoryRevision
-        onGl { engine.undoStep(); reportHistory(editRevision,historyRevision) }
+        onGl { mediaCanvas.settleOwed(); engine.undoStep(); reportHistory(editRevision,historyRevision) }
     }
     fun redo() {
         onBeforeHistoryChange?.invoke()
         if (drawing) finishStroke()
         val editRevision = paperRevision; val historyRevision = ++paperHistoryRevision
-        onGl { engine.redoStep(); reportHistory(editRevision,historyRevision) }
+        onGl { mediaCanvas.settleOwed(); engine.redoStep(); reportHistory(editRevision,historyRevision) }
     }
     /** Empties the layer being painted on, as one undo step. */
     fun clearCanvas() {

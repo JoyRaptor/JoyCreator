@@ -80,13 +80,15 @@ class MediaAtlasPlacementTest {
         assertTrue(evicted > 0)
     }
     @Test fun theSlotCountScalesWithThePhone() {
-        assertEquals(14_352_384L, MediaAtlasPlacement.BYTES_PER_SLOT, "what the Note 9 reported for one slot")
-        assertEquals(6 to 8, MediaAtlasPlacement.slotGrid(2_756_300_800L), "a Note 9 with 2.76 GB free: the cap of 48, 6 x 8")
-        assertEquals(6 to 7, MediaAtlasPlacement.slotGrid(1_399_918_592L), "the Note 9 with a drawing open, 10-20 tilted bench: 46 -> 6 x 7")
-        assertEquals(4 to 6, MediaAtlasPlacement.slotGrid(1_000_000_000L), "1 GB free: 18 is under the floor, 24 (4 x 6)")
+        // 219 B/px as the Note 9 reported a slot (14,352,384 B), plus the second brush input of water jobs (RGBA16F + RG16F).
+        assertEquals(227L * 256 * 256, MediaAtlasPlacement.BYTES_PER_SLOT)
+        assertEquals(8 to 8, MediaAtlasPlacement.slotGrid(2_756_300_800L), "a Note 9 with 2.76 GB free: the cap of 64, 8 x 8")
+        assertEquals(6 to 7, MediaAtlasPlacement.slotGrid(1_399_918_592L), "the Note 9 with a drawing open, 10-20 tilted bench: 44 -> 6 x 7")
+        assertEquals(4 to 6, MediaAtlasPlacement.slotGrid(1_000_000_000L), "1 GB free: 17 is under the floor, 24 (4 x 6)")
         assertEquals(4 to 6, MediaAtlasPlacement.slotGrid(0L), "never fewer than 24 (MIN_SLOTS), as 4 x 6")
-        assertEquals(6 to 8, MediaAtlasPlacement.slotGrid(1L shl 40), "never more than 48 (MAX_SLOTS)")
+        assertEquals(8 to 8, MediaAtlasPlacement.slotGrid(1L shl 40), "never more than 64 (MAX_SLOTS)")
         assertEquals(4 to 6, MediaAtlasPlacement.slotGrid(MediaAtlasPlacement.RESERVE_BYTES + 19 * MediaAtlasPlacement.BYTES_PER_SLOT), "19 is under the floor: 24")
         assertEquals(6 to 8, MediaAtlasPlacement.slotGrid(MediaAtlasPlacement.RESERVE_BYTES + 48 * MediaAtlasPlacement.BYTES_PER_SLOT), "48 is 6 x 8 (rows up to two more than columns)")
+        assertEquals(8 to 8, MediaAtlasPlacement.slotGrid(MediaAtlasPlacement.RESERVE_BYTES + 64 * MediaAtlasPlacement.BYTES_PER_SLOT), "64 is 8 x 8")
     }
 }

@@ -137,7 +137,7 @@ Web pilot: `preview_start vislab-web`, page `tools/vislab-web/index.html#<look-i
         knob id: "brightness", "palShift", "size", rate knobs). Code: `KnobSet.host`,
         `VisRenderer.setLookControls`, `vislab/studio/VisControls`, `model/VisLabKeys` (VALUES:
         vis_react, vis_fade, vis_bright, vis_hue, vis_size, vis_speed; json react/fade/bright/hue/
-        size/speed). PHONE-TESTED 10-22 (Note 9): Size 250% made the transcript word "pipsqueak"
+        size/speed). PHONE-TESTED 10-22 (Note 9), 345b1f6b3: Size 250% made the transcript word "pipsqueak"
         large and readable in a strip-shaped item (preview and export); Colour 50% shifted the
         word's colour; Bright 0% hid it; Speed 0% froze Halo Drop's drifting wash, 300% reshaped it
         frame to frame; each drag one undo. Paused frames cannot show Speed (no time passes).
@@ -161,7 +161,7 @@ Web pilot: `preview_start vislab-web`, page `tools/vislab-web/index.html#<look-i
         `WaveformSlot.visWords`; `StudioVis` keeps one WordFeed per item, rebuilt only when the key
         changes, timed by `setWordsTime(sourceMs / 1000)`. A look's own typed words still win. With no
         transcript, the VisLab section says to make one (Transcript, in the toolbar).
-        PHONE-TESTED 10-22: Lyric Flight on BundlingFontTest's cat clip shows "this", "she",
+        PHONE-TESTED 10-22, 345b1f6b3: Lyric Flight on BundlingFontTest's cat clip shows "this", "she",
         "is name", "pipsqueak" as they are spoken; a single-frame export at 7 s shows "pipsqueak"
         too; the hint stays hidden when the clip has a transcript.
         Seen while testing (Studio, not VisLab): leaving the editor through the export-complete

@@ -103,12 +103,12 @@ Web pilot: `preview_start vislab-web`, page `tools/vislab-web/index.html#<look-i
     `frameAt`), used by scrubbing. Transcripts: `Clip.getActiveNamedTranscript`, words in source ms.
   Build order (tick each):
   - [x] S1 the item can carry a VisLab look (`visLook` id), saved and loaded, undoable.
-        PHONE-TESTED 10-22 (Note 9): picked in the Style tab, survived a reinstall + reopen, one undo.
+        PHONE-TESTED 10-22 (Note 9), ad63b8db1: picked in the Style tab, survived a reinstall + reopen, one undo.
   - [x] S2 Rolodex section "VisLab looks"; choosing one swaps the classic knobs out (Classic brings them back).
         10-22: `vislab/studio/VisLabStyleTab`, hooked in `FaditorEditorActivity.buildVisualizerStyleTab`
         (the old Rolodex is now `buildClassicVisualizerStyle`). Look row on top: Studio's `‹ ◆ ›` + chips
         Classic / every look, the one at the playhead solid cyan, scrolled into view on open.
-        PHONE-TESTED 10-22: pick -> body swaps to the VisLab values; one undo per pick.
+        PHONE-TESTED 10-22, ad63b8db1: pick -> body swaps to the VisLab values; one undo per pick.
   - [x] S3 one renderer for preview and export: offscreen ES 3 on its own thread -> Bitmap; sound from an
         offline 60 Hz feature track of the source (PcmSidecar -> FeatureExtractor), cached.
         10-18: core BUILT and compiling (`vislab/studio/OffscreenGl`, `SoundClock`, `StudioVis`; a
@@ -148,7 +148,7 @@ Web pilot: `preview_start vislab-web`, page `tools/vislab-web/index.html#<look-i
       R3 PHONE-TESTED 10-22 (close by its X -> the recorder menu reads Off). R1 owed: needs a screen
       recording running (the owner taps Android's "Start now"). R2 owed: needs an Android 12+ phone
       (the Note 9 is Android 10).
-- [x] **Audit V1-V9** VisLab: fixed 10-22. PHONE-TESTED on the Note 9: V3 (paused = pixel-identical
+- [x] **Audit V1-V9** VisLab: fixed 10-22 (ad63b8db1). PHONE-TESTED on the Note 9: V3 (paused = pixel-identical
       frames, no renders; an edit while paused redraws once), V5 (the mic closes on pause, reopens on
       play: `dumpsys audio`), V2 (two Words layers with different typed words each draw their own,
       55 fps), V6 (the Joy emblem shows in the floating visualiser and in Studio), V9 (the person's own

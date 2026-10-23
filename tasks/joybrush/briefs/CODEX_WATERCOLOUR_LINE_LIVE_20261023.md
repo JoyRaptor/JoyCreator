@@ -30,6 +30,14 @@ save/reopen, real pen tilt, the full 1 s fade or the owner's look.
 | L6 | **Look parity.** `tools/watercolour_check.js` against the POC's three sample paths (seeds 78234–78236), then the owner compares side by side on the Note 9 | Owner says yes, or lists changes |
 | L7 | **Speed.** Stroke frames within 16.7 ms p95 on the Note 9 at size 300 / spacing 15%. If not: half-resolution live finish with full resolution at lift, then larger spacing at size (plan §2 W5) | L1's table re-run, before and after |
 
+**Coordination with the UI specialist (`briefs/CODEX_SELECT_LINES_20261023.md`, branch `ui/select-accept`):**
+- L3 is the same job as their G1. Their step A10 (the "bakes to pixels" badge and toasts) builds on L3, so land L3 first.
+- L4 constraint: keep `LineTransform.apply(r, h, Weight)` **source-compatible** (SelectTool and the drag preview call it).
+  Add the wash frame as RECORD DATA that the transform updates, so Select needs no change.
+- Their Ring Bend (G12) waits for L4's wash frame.
+- Their brief stays out of `core/select/LineTransform.kt`, `gl/watercolour/*`, `WatercolourDabber` and the
+  editable-lines admission gate. Those are yours for L3 and L4.
+
 Size guide: L1, L3, L5 and L6 are small to medium; L2 and L4 are medium; L7 depends on L1. Order: L1 → L2 → L3 → L4 → L5
 → L6 → L7.
 

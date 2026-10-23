@@ -38,6 +38,8 @@ class ToolStripView(private val kit: ChromeKit, private val host: Host) : Linear
 
     interface Host {
         fun toolTapped(slot: ToolSlot, anchor: View)
+        /** A tool button was held: the settings of that tool's brush, without the drawer on the way. */
+        fun toolHeld(slot: ToolSlot, anchor: View) {}
         fun sizeNow(): Float
         fun opacityNow(): Float
         fun zoom(): Float
@@ -85,11 +87,12 @@ class ToolStripView(private val kit: ChromeKit, private val host: Host) : Linear
         for ((slot, item) in tools) {
             column.addView(item, LayoutParams(touch, touch))
             kit.label(item, when (slot) {
-                ToolSlot.BRUSH -> "Brush — tap again for the brushes"
-                ToolSlot.SMUDGE -> "Smudge — tap again for the smudge brushes"
-                ToolSlot.ERASER -> "Eraser — tap again for the erasers"
+                ToolSlot.BRUSH -> "Brush — tap again for the brushes, hold for this brush's settings"
+                ToolSlot.SMUDGE -> "Smudge — tap again for the smudge brushes, hold for this one's settings"
+                ToolSlot.ERASER -> "Eraser — tap again for the erasers, hold for this one's settings"
             })
             item.setOnClickListener { host.toolTapped(slot, item) }
+            item.setOnLongClickListener { host.toolHeld(slot, item); true }
         }
         column.addView(select, LayoutParams(touch, touch))
         kit.label(select, "Select — tap a line to pick it, tap again for the one under it, draw a loop, or tap again for Settings")
@@ -164,7 +167,7 @@ class ToolStripView(private val kit: ChromeKit, private val host: Host) : Linear
         else "Colour — tap to pick, or drag onto the drawing to take a colour from it")
         kit.label(tools.getValue(ToolSlot.BRUSH), if (selectionRestyle)
             "Brush — change the selected lines’ brush"
-        else "Brush — tap again for the brushes")
+        else "Brush — tap again for the brushes, hold for this brush's settings")
     }
 
     private fun startSelectionPulse() {

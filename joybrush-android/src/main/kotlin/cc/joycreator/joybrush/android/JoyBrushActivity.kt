@@ -739,6 +739,17 @@ class JoyBrushActivity : Activity() {
             if (tools.active == slot) openBrushes(slot) else { tools = tools.activate(slot); applyTool() }
         }
 
+        override fun toolHeld(slot: ToolSlot, anchor: View) {
+            // Holding the tool takes it up and opens its brush's settings, as holding that brush in the drawer does (owner,
+            // 2026-10-23: tap, then hold in the drawer, was two steps for the commonest edit).
+            if (selectInHand) leaveSelect()
+            if (tools.active != slot) tools = tools.activate(slot)
+            applyTool()
+            popovers.close()
+            val id = tools.current?.brushId
+            brushes.firstOrNull { it.id == id }?.let { openSettings(it) } ?: openBrushes(slot)
+        }
+
         override fun selectTapped(anchor: View) {
             val sel = selection ?: return
             if (selectInHand) { sel.showSettings(anchor); return }   // tapped again: its Settings

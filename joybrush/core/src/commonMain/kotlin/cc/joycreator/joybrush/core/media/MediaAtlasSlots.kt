@@ -10,7 +10,16 @@ data class MediaAtlasPage(val layerId: String, val planeId: String?, val tileKey
  * [bytesPerSlot] includes EVERY working target and its halos; durable payload/undo have a separate budget.
  * No GL objects or durable tile contents are owned here. Live simulation and read dependencies must be pinned.
  */
-class MediaAtlasSlots(val physicalSlots: Int, val bytesPerSlot: Long, workingBudgetBytes: Long) {
+class MediaAtlasSlots(
+    val physicalSlots: Int, val bytesPerSlot: Long, workingBudgetBytes: Long,
+    /**
+     * Slots per atlas row, or 0. With it, a new page goes near the pages held now (pinned: this frame's), and room is made
+     * from one of the [NEAR_CHOICES] least recently used pages, the one nearest them: a frame's pages gather in one corner
+     * of the atlas, so the scissor round a pass (MediaAtlasGl.drawRect) covers less of it. The Note 9's GPU pays per pass
+     * for the area under that scissor (2026-10-21).
+     */
+    private val columns: Int = 0,
+) {
     init {
         require(physicalSlots >= 2) { "atlas needs a resident slot and a staging slot" }
         require(bytesPerSlot > 0 && workingBudgetBytes >= 0)
@@ -37,13 +46,17 @@ class MediaAtlasSlots(val physicalSlots: Int, val bytesPerSlot: Long, workingBud
     fun begin(page: MediaAtlasPage): Admission {
         idle()
         pages[page]?.let { touch(page); return Present(it.slot) }
+        val near = heldCentre()
         val victim = if (pages.size < capacity) {
             null
-        } else {
+        } else if (near == null) {
             pages.values.firstOrNull { it.pins == 0 } ?: return Refused
+        } else {
+            pages.values.asSequence().filter { it.pins == 0 }.take(NEAR_CHOICES).minByOrNull { dist2(it.slot, near) } ?: return Refused
         }
         val occupied = pages.values.mapTo(HashSet()) { it.slot }
-        val slot = (0 until physicalSlots).first { it !in occupied }
+        val free = (0 until physicalSlots).filter { it !in occupied }
+        val slot = if (near == null) free.first() else free.minBy { dist2(it, near) }
         return Reservation(page, slot, victim).also { pending = it }
     }
 
@@ -106,6 +119,23 @@ class MediaAtlasSlots(val physicalSlots: Int, val bytesPerSlot: Long, workingBud
         pages[page] = r
     }
 
+    /** Where the held pages sit (slot column, row), or null (no layout given, or nothing held). */
+    private fun heldCentre(): DoubleArray? {
+        if (columns <= 0) return null
+        var n = 0; var x = 0.0; var y = 0.0
+        for (r in pages.values) if (r.pins > 0) { n++; x += r.slot % columns; y += r.slot / columns }
+        return if (n == 0) null else doubleArrayOf(x / n, y / n)
+    }
+    private fun dist2(slot: Int, c: DoubleArray): Double {
+        val dx = slot % columns - c[0]; val dy = slot / columns - c[1]
+        return dx * dx + dy * dy
+    }
+
     private fun required(page: MediaAtlasPage) = checkNotNull(pages[page]) { "atlas page is not resident" }
     private fun idle() { check(pending == null) { "atlas replacement is already pending" } }
+
+    companion object {
+        /** How many of the least recently used pages may give way for a nearer slot. */
+        const val NEAR_CHOICES = 4
+    }
 }

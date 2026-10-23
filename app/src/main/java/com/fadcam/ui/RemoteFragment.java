@@ -50,6 +50,8 @@ import com.fadcam.ui.bottomsheet.UptimeInfoBottomSheet;
 import com.fadcam.ui.picker.OptionItem;
 import com.fadcam.ui.picker.PickerBottomSheetFragment;
 import com.fadcam.ui.utils.NewFeatureManager;
+import com.fadcam.ui.faditor.Studio;
+import com.fadcam.ui.lobby.SlantDrawable;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 import java.util.ArrayList;
@@ -296,12 +298,12 @@ public class RemoteFragment extends BaseFragment {
         
         // Set up retry button (replaces test link) - hidden by default, shown only on error
         if (usageTestLink != null) {
-            usageTestLink.setText("Retry");
+            usageTestLink.setText(R.string.remote_usage_retry);
             usageTestLink.setVisibility(View.GONE);  // Hidden until error occurs
             usageTestLink.setOnClickListener(v -> {
                 FLog.d(TAG, "User tapped Retry for usage reporting");
                 // Note: retryUsageReporting() has been removed; usage reporting moved to relay server
-                Toast.makeText(requireContext(), "Retrying usage reporting...", Toast.LENGTH_SHORT).show();
+                Toast.makeText(requireContext(), R.string.remote_usage_retry_toast, Toast.LENGTH_SHORT).show();
             });
         }
         
@@ -365,6 +367,8 @@ public class RemoteFragment extends BaseFragment {
         // Copy URL button listener
         androidx.appcompat.widget.TooltipCompat.setTooltipText(copyRootButton, copyRootButton.getContext().getString(R.string.desc_copy_url));
         copyRootButton.setContentDescription(copyRootButton.getContext().getString(R.string.desc_copy_url));
+        // The copy chip wears the Studio's sheared green face, like the Library's New project pill.
+        copyRootButton.setBackground(new SlantDrawable(Studio.GO, Studio.GO_END, remoteDp(8f), remoteDp(3f), false, false));
         copyRootButton.setOnClickListener(v -> {
             String rootUrl = rootUrlText.getText().toString();
             if (!rootUrl.contains("---")) {
@@ -445,12 +449,12 @@ public class RemoteFragment extends BaseFragment {
     private void applyRemoteBarColors() {
         if (getActivity() instanceof MainActivity) {
             MainActivity mainActivity = (MainActivity) getActivity();
-            mainActivity.setBottomNavColor(0xFF000000);
-            mainActivity.setStatusBarColor(0xFF000000);
-            mainActivity.setNavigationBarColor(0xFF000000);
+            mainActivity.setBottomNavColor(Studio.GROUND);
+            mainActivity.setStatusBarColor(Studio.GROUND);
+            mainActivity.setNavigationBarColor(Studio.GROUND);
         }
     }
-    
+
     /** Restore original theme bar colors. */
     private void restoreOriginalBarColors() {
         if (getActivity() instanceof MainActivity) {
@@ -640,8 +644,8 @@ public class RemoteFragment extends BaseFragment {
         
         if (isStreaming) {
                     streamingToggle.setChecked(true);
-            statusText.setText(R.string.stream_active);
-            statusText.setTextColor(0xFF4CAF50); // Green for active
+            statusText.setText(R.string.remote_chip_on_air);
+            applyOnAirChip(true);
             animateStatusIndicator(true);
             
             // Show URL based on streaming mode
@@ -667,8 +671,8 @@ public class RemoteFragment extends BaseFragment {
             }
         } else {
             streamingToggle.setChecked(false);
-            statusText.setText(R.string.stream_inactive);
-            statusText.setTextColor(0xFFFF5252); // Red for inactive
+            statusText.setText(R.string.remote_chip_off_air);
+            applyOnAirChip(false);
             animateStatusIndicator(false);
             
             // Show placeholder URL based on streaming mode
@@ -793,7 +797,7 @@ public class RemoteFragment extends BaseFragment {
         // Update system metrics with NetworkHealth model
         com.fadcam.streaming.model.NetworkHealth networkHealth = manager.getNetworkHealth();
         networkHealthText.setText(capitalize(networkHealth.getStatusString()));
-        networkHealthText.setTextColor(networkHealth.getStatusColorInt());
+        networkHealthText.setTextColor(remoteHealthColour(networkHealth.getStatus()));
         updateRemoteWifiBars(NetworkMonitor.getInstance().getSignalLevel());
         
         String memoryUsage = manager.getMemoryUsage(requireContext());
@@ -815,11 +819,11 @@ public class RemoteFragment extends BaseFragment {
     private void updateRemoteWifiBars(int level) {
         if (wifiBar1 == null) return;
         
-        int activeColor = 0xFF4CAF50; // Green
-        if (level < 2) activeColor = 0xFFFF5252; // Red
-        else if (level < 3) activeColor = 0xFFFFA726; // Orange
+        int activeColor = Studio.GO;
+        if (level < 2) activeColor = Studio.DANGER;
+        else if (level < 3) activeColor = Studio.CAREFUL;
 
-        int inactiveColor = 0xFF444444;
+        int inactiveColor = Studio.OFF;
 
         wifiBar1.setBackgroundColor(level >= 1 ? activeColor : inactiveColor);
         wifiBar2.setBackgroundColor(level >= 2 ? activeColor : inactiveColor);
@@ -827,6 +831,39 @@ public class RemoteFragment extends BaseFragment {
         wifiBar4.setBackgroundColor(level >= 4 ? activeColor : inactiveColor);
     }
     
+    // ── Remote's look: Studio tokens only (the places of truth are studio_tokens.xml / Studio) ──
+
+    private float remoteDp(float v) {
+        return v * getResources().getDisplayMetrics().density;
+    }
+
+    /**
+     * The ON AIR / OFF AIR chip: solid Studio green (sheared) with the words and dot cut out in
+     * black when live, a quiet zinc chip with grey words when idle. Only redrawn when it flips.
+     */
+    private void applyOnAirChip(boolean on) {
+        statusText.setTextColor(on ? Studio.ON_GO : Studio.INK_DIM);
+        View root = getView();
+        View chip = root != null ? root.findViewById(R.id.status_card) : null;
+        if (chip == null || Boolean.valueOf(on).equals(chip.getTag())) return;
+        chip.setTag(on);
+        chip.setBackground(on
+                ? new SlantDrawable(Studio.GO, Studio.GO_END, remoteDp(8f), remoteDp(3f), false, false)
+                : new SlantDrawable(Studio.RAISED, Studio.RAISED, remoteDp(8f), remoteDp(3f), false, false));
+    }
+
+    /** Green = good, ink = fine, amber = careful, red only for poor, faint grey = not measured. */
+    private int remoteHealthColour(com.fadcam.streaming.model.NetworkHealth.Status status) {
+        if (status == null) return Studio.INK_FAINT;
+        switch (status) {
+            case EXCELLENT: return Studio.GO;
+            case GOOD: return Studio.INK;
+            case MODERATE: return Studio.CAREFUL;
+            case POOR: return Studio.DANGER;
+            default: return Studio.INK_FAINT;
+        }
+    }
+
     private String capitalize(String str) {
         if (str == null || str.isEmpty()) return str;
         return str.substring(0, 1).toUpperCase() + str.substring(1);
@@ -1551,7 +1588,7 @@ public class RemoteFragment extends BaseFragment {
         
         if (isLinked) {
             // Linked - show green tint, hide unlinked dot, update status text
-            cloudIcon.setColorFilter(0xFF4CAF50); // Green
+            cloudIcon.setColorFilter(Studio.GO);
             if (cloudUnlinkedDot != null) {
                 cloudUnlinkedDot.setVisibility(View.GONE);
             }
@@ -1559,21 +1596,21 @@ public class RemoteFragment extends BaseFragment {
                 String deviceName = cloudAuthManager.getDeviceName();
                 if (deviceName != null && !deviceName.isEmpty()) {
                     cloudStatusText.setText(deviceName);
-                    cloudStatusText.setTextColor(0xFF4CAF50); // Green
+                    cloudStatusText.setTextColor(Studio.GO);
                 } else {
                     cloudStatusText.setText(R.string.cloud_account_linked);
-                    cloudStatusText.setTextColor(0xFF4CAF50); // Green
+                    cloudStatusText.setTextColor(Studio.GO);
                 }
             }
         } else {
             // Not linked - show red tint (FadCam brand color), show unlinked dot
-            cloudIcon.setColorFilter(0xFFFF4444); // Red
+            cloudIcon.setColorFilter(Studio.INK_DIM);
             if (cloudUnlinkedDot != null) {
                 cloudUnlinkedDot.setVisibility(View.VISIBLE);
             }
             if (cloudStatusText != null) {
                 cloudStatusText.setText(R.string.cloud_account_not_linked);
-                cloudStatusText.setTextColor(0xFF888888); // Gray
+                cloudStatusText.setTextColor(Studio.INK_FAINT);
             }
             // Disable cloud streaming and reset to local mode
             CloudStreamUploader uploader = CloudStreamUploader.getInstance(requireContext());
@@ -1752,7 +1789,7 @@ public class RemoteFragment extends BaseFragment {
         
         if (currentMode == MODE_CLOUD) {
             streamingModeValue.setText(R.string.streaming_mode_cloud);
-            streamingModeValue.setTextColor(0xFF4CAF50); // Green for cloud
+            streamingModeValue.setTextColor(Studio.GO);
             
             // Hide Remote Security section when using FadSec Cloud (no local auth needed)
             if (remoteSecurityHeading != null) {
@@ -1763,7 +1800,7 @@ public class RemoteFragment extends BaseFragment {
             }
         } else {
             streamingModeValue.setText(R.string.streaming_mode_local);
-            streamingModeValue.setTextColor(0xFF888888); // Gray for local
+            streamingModeValue.setTextColor(Studio.INK_DIM);
             
             // Show Remote Security section when using Local Network
             if (remoteSecurityHeading != null) {
@@ -1817,10 +1854,10 @@ public class RemoteFragment extends BaseFragment {
         
         if (enabled) {
             cloudStreamingStatus.setText(R.string.cloud_streaming_status_on);
-            cloudStreamingStatus.setTextColor(0xFF4CAF50); // Green
+            cloudStreamingStatus.setTextColor(Studio.GO);
         } else {
             cloudStreamingStatus.setText(R.string.cloud_streaming_status_off);
-            cloudStreamingStatus.setTextColor(0xFF888888); // Gray
+            cloudStreamingStatus.setTextColor(Studio.INK_FAINT);
         }
     }
     
@@ -1854,7 +1891,9 @@ public class RemoteFragment extends BaseFragment {
             usageWarningBytes.animateSlot(formatBytes(bytesReported), 400);
         }
         if (usageWarningFailures != null) {
-            String failureDisplay = failureCount == 0 ? "No errors" : failureCount + "/50 errors";
+            String failureDisplay = failureCount == 0
+                    ? getString(R.string.remote_usage_no_errors)
+                    : getString(R.string.remote_usage_errors_fmt, failureCount);
             usageWarningFailures.animateSlot(failureDisplay, 400);
         }
         
@@ -1866,29 +1905,29 @@ public class RemoteFragment extends BaseFragment {
         // Update title and colors based on status
         if (usageWarningTitle != null) {
             if ("success".equals(statusIcon)) {
-                usageWarningTitle.setText("Cloud Usage (Active)");
-                usageWarningTitle.setTextColor(0xFF2E7D32);  // Green
+                usageWarningTitle.setText(R.string.remote_usage_title_active);
+                usageWarningTitle.setTextColor(Studio.GO);
             } else if ("error".equals(statusIcon)) {
-                usageWarningTitle.setText("Cloud Usage (Error)");
-                usageWarningTitle.setTextColor(0xFFCC0000);  // Red
+                usageWarningTitle.setText(R.string.remote_usage_title_error);
+                usageWarningTitle.setTextColor(Studio.DANGER);
             } else if ("retry".equals(statusIcon)) {
-                usageWarningTitle.setText("Cloud Usage (Retrying)");
-                usageWarningTitle.setTextColor(0xFFFF6F00);  // Orange
+                usageWarningTitle.setText(R.string.remote_usage_title_retrying);
+                usageWarningTitle.setTextColor(Studio.CAREFUL);
             } else {
-                usageWarningTitle.setText("Cloud Usage");
-                usageWarningTitle.setTextColor(0xFFFFAA44);  // Amber
+                usageWarningTitle.setText(R.string.remote_usage_title_plain);
+                usageWarningTitle.setTextColor(Studio.CAREFUL);
             }
         }
         
         // Update icon colors based on status type
         if ("error".equals(statusIcon)) {
-            if (usageWarningIcon != null) setImageTintColor(usageWarningIcon, 0xFFCC0000); // Red
+            if (usageWarningIcon != null) setImageTintColor(usageWarningIcon, Studio.DANGER);
         } else if ("retry".equals(statusIcon)) {
-            if (usageWarningIcon != null) setImageTintColor(usageWarningIcon, 0xFFFF6F00); // Deep Orange
+            if (usageWarningIcon != null) setImageTintColor(usageWarningIcon, Studio.CAREFUL);
         } else if ("success".equals(statusIcon)) {
-            if (usageWarningIcon != null) setImageTintColor(usageWarningIcon, 0xFF2E7D32); // Green
+            if (usageWarningIcon != null) setImageTintColor(usageWarningIcon, Studio.GO);
         } else {
-            if (usageWarningIcon != null) setImageTintColor(usageWarningIcon, 0xFFFFAA44); // Amber
+            if (usageWarningIcon != null) setImageTintColor(usageWarningIcon, Studio.CAREFUL);
         }
     }
     

@@ -105,6 +105,37 @@ public class WaveformOverlayInstance implements LinkFollower {
      */
     @Nullable private String customStyleJson;
 
+    /**
+     * VisLab (VISLAB_SPEC section 7, owner 10-18: integrate, not override): the id of a VisLab
+     * look this visualizer draws INSTEAD of its waveform style, through
+     * {@code com.fadcam.vislab.studio.StudioVis}. Null = the classic style (styleId /
+     * customStyleJson), which stays selectable. Everything else (time range, transform,
+     * keyframes, links, fades) is shared. Persisted by ProjectStorage (absent = null).
+     */
+    @Nullable private String visLook;
+
+    @Nullable public String getVisLook() { return visLook; }
+    public void setVisLook(@Nullable String lookId) { this.visLook = lookId; }
+    public boolean isVisLab() { return visLook != null; }
+
+    /** The VisLab values, each keyframable: the look over time, Reactivity, Fade (S4). */
+    @NonNull private final VisLabKeys visKeys = new VisLabKeys();
+
+    @NonNull public VisLabKeys getVisKeys() { return visKeys; }
+
+    /** The VisLab look drawn at {@code timelineMs} (its held look keys win), or null = classic. */
+    @Nullable public String visLookAt(long timelineMs) {
+        return visKeys.lookAt(visLook, localTime(timelineMs));
+    }
+
+    /** True when a VisLab look draws at any moment (the base look or a look key). */
+    public boolean usesVisLab() { return visLook != null || visKeys.anyLookKeyIsVisLab(); }
+
+    public float visReactAt(long timelineMs) { return visKeys.reactAt(localTime(timelineMs)); }
+    /** Any VisLab value ({@code VisLabKeys.VALUES}) at {@code timelineMs}. */
+    public float visValueAt(@NonNull String key, long timelineMs) { return visKeys.at(key, localTime(timelineMs)); }
+    public float visFadeAt(long timelineMs) { return visKeys.fadeAt(localTime(timelineMs)); }
+
     /** Normalized placement in canvas coords [0,1]. */
     private float centerX = 0.5f;
     private float centerY = 0.5f;

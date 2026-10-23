@@ -302,6 +302,18 @@ class MatrixBench(private val canvas: JbCanvasView, private val spec: BenchRunne
             val wrapPx = if (kind == Kind.TILE) seen.stripPx else 0
             val verdict = MatrixDiff.verdict(err, refusedText != null, seen.px, steps, exact, kind.label, wrapPx, framePx, sharedInZone)
             val s = stats
+            // Pixel-exact proof between two builds: one hash over every plane of the "after" state (seams included).
+            val afterHash = after?.let { st ->
+                var h = -0x340d631b7bdddcdbL // FNV-1a 64 offset basis
+                for (name in st.planes.keys.sorted()) {
+                    val tiles = st.planes[name].orEmpty()
+                    for (key in tiles.keys.sorted()) {
+                        h = (h xor key) * 0x100000001b3L
+                        for (b in tiles.getValue(key)) h = (h xor (b.toLong() and 0xff)) * 0x100000001b3L
+                    }
+                }
+                java.lang.Long.toHexString(h)
+            }
             fun r2(v: Double) = Math.round(v * 100.0) / 100.0
             return JSONObject().put("case", "matrix").put("idx", job.index).put("brush", preset.id).put("name", preset.name)
                 .put("engine", preset.engine).put("board", kind.label)
@@ -310,7 +322,16 @@ class MatrixBench(private val canvas: JbCanvasView, private val spec: BenchRunne
                 .put("undoSteps", steps).put("undoExact", exact ?: JSONObject.NULL)
                 .put("p50", s?.let { r2(it.busy.p50) } ?: JSONObject.NULL).put("p95", s?.let { r2(it.busy.p95) } ?: JSONObject.NULL)
                 .put("frames", s?.strokeFrames ?: 0)
-                .put("verdict", verdict).put("primed", primed).put("settled", settled).put("settleMs", settleMs)
+                // Where a frame's time goes (as the plain bench reports it): mean/p95 of work, display, and every timed
+                // paint and media section (MediaPhases, set by JbCanvasView while the bench records).
+                .also { j ->
+                    if (s != null) {
+                        fun pct(x: FrameStats.Pct?) = x?.let { JSONObject().put("p50", r2(it.p50)).put("p95", r2(it.p95)).put("max", r2(it.max)).put("mean", r2(it.mean)) } ?: JSONObject.NULL
+                        j.put("workMs", pct(s.work)).put("displayMs", pct(s.display))
+                        j.put("phasesMs", JSONObject().also { ph -> for ((k, v) in s.phases) ph.put(k, pct(v)) })
+                    }
+                }
+                .put("verdict", verdict).put("afterHash", afterHash ?: JSONObject.NULL).put("primed", primed).put("settled", settled).put("settleMs", settleMs)
                 .also {
                     if (kind == Kind.TILE) it.put("wrapPx", wrapPx).put("leakPx", seen.outsidePx)
                     if (kind == Kind.ANIMATION) it.put("framePx", framePx).put("sharedInBoardPx", sharedInZone)

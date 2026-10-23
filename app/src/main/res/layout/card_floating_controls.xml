@@ -10,10 +10,10 @@
     android:padding="4dp">
 
     <!-- Icon -->
-    <TextView android:id="@+id/ivFloatingControlsIcon" android:layout_width="28dp" android:layout_height="28dp" android:text="touch_app" android:textSize="20sp" android:gravity="center" android:fontFamily="@font/materialicons" android:textColor="?attr/sectionHeaderColor" android:layout_marginEnd="4dp" android:layout_gravity="center" />
+    <TextView android:id="@+id/ivFloatingControlsIcon" android:layout_width="28dp" android:layout_height="28dp" android:text="touch_app" android:textSize="20sp" android:gravity="center" android:fontFamily="@font/materialicons" android:textColor="@color/s_ink_dim" android:importantForAccessibility="no" android:layout_marginEnd="4dp" android:layout_gravity="center" />
 
     <!-- Title -->
-    <TextView android:id="@+id/tvFloatingControlsTitle" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/floating_controls_title" android:textSize="13sp" android:textStyle="bold" android:textColor="?attr/homeRailTextPrimary" android:layout_marginStart="4dp" android:layout_gravity="center" />
+    <TextView android:id="@+id/tvFloatingControlsTitle" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/floating_controls_title" android:textSize="13sp" android:textStyle="bold" android:fontFamily="@font/joy_display" android:textColor="@color/s_ink" android:layout_marginStart="4dp" android:layout_gravity="center" />
 
     <!-- Spacer to push switch to right -->
     <View android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />

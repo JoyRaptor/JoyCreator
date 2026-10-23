@@ -26,6 +26,8 @@ object StrokeReplay {
     /** The named cases, each sized to the view. */
     fun case(name: String, w: Int, h: Int): List<Sample>? = when (name) {
         // The owner's complaint (Note 20, 2026-10-08): a large quick C. 270 degrees, radius 35% of the width, 120 ms.
+        // The window patch's proof: a flick across ~1500 px in 120 ms lands in one or two frames, wider than the window.
+        "wideFlick" -> line(w * 0.04f, h * 0.08f, w * 0.96f, h * 0.62f, 120.0)
         "fastC" -> arc(w * 0.5f, h * 0.5f, w * 0.35f, 135.0, -135.0 - 0.0, 120.0)
         // A slower C, same shape: 600 ms.
         "slowC" -> arc(w * 0.5f, h * 0.5f, w * 0.35f, 135.0, -135.0, 600.0)
@@ -51,7 +53,10 @@ object StrokeReplay {
         "blue1" -> line(w * 0.05f, h * 0.55f, w * 0.45f, h * 0.30f, 900.0)
         "blue2" -> line(w * 0.95f, h * 0.50f, w * 0.60f, h * 0.27f, 900.0)
         "blue3" -> line(w * 0.25f, h * 0.62f, w * 0.75f, h * 0.48f, 900.0)
-        else -> null
+        // A long session (the drawing's media room, 2026-10-21): "band0".."band9", a zigzag across the page in its own tenth.
+        else -> name.removePrefix("band").toIntOrNull()?.takeIf { name.startsWith("band") && it in 0..9 }?.let { i ->
+            zigzag(w * 0.06f, w * 0.94f, h * (0.06f + 0.088f * i), h * (0.06f + 0.088f * i + 0.07f), 6, 1400.0)
+        }
     }
 
     /**

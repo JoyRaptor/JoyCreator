@@ -5350,6 +5350,25 @@ public class ExportManager {
                 slot.hostClip = timeline.masterClipById(woi.getAttachedClipId());
                 slot.hostStartMs = hostWin[0];
             }
+            if (woi.usesVisLab()) {
+                // VISLAB_SPEC section 7: VisLab looks draw instead of the style above, which
+                // stays as their stand-in when a look is gone or cannot draw.
+                java.util.Map<String, String> looks = new java.util.HashMap<>();
+                com.fadcam.vislab.room.VisLabSession vis =
+                        com.fadcam.vislab.room.VisLabSession.get(context);
+                for (String id : woi.getVisKeys().lookIds(woi.getVisLook())) {
+                    String json = vis.lookJson(id);
+                    if (json != null) looks.put(id, json);
+                    else FLog.w(TAG, "buildWaveformSlots: VisLab look " + id + " not found for "
+                            + woi.getId() + "; the classic style draws there");
+                }
+                slot.visLooks = looks;
+                slot.visUri = wfUri;
+                // A lyrics look shows the source clip's transcript (S5), as the preview does.
+                com.fadcam.ui.faditor.transcript.Transcript tr = srcClip != null ? srcClip.getTranscript()
+                        : srcAudioClip != null ? srcAudioClip.getTranscript() : null;
+                slot.visWords = com.fadcam.vislab.studio.StudioWords.of(tr);
+            }
             slots.add(slot);
             FLog.d(TAG, "buildWaveformSlots: added slot for waveform " + woi.getId()
                     + " (style=" + woi.getStyleId() + ", clipId=" + woi.getAudioSourceRef()

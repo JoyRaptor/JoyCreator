@@ -14,15 +14,25 @@ uniform sampler2D u_b;       // p1, or w1
 uniform sampler2D u_c;       // paper state (state pass only)
 uniform sampler2D u_cover;   // jb_media_erase_dab.frag
 uniform int u_water;
+uniform int u_wf;            // the water pass: pixels per water cell side (2: coarse water, a cell per 2 x 2 pixels)
 layout(location = 0) out vec4 o_a;
 layout(location = 1) out vec4 o_b;
 layout(location = 2) out vec4 o_c;
 void main() {
+    jb_atlasBegin();
     ivec2 c = jb_cell();
     float keep = 1.0 - clamp(jb_fetch(u_cover, c).r, 0.0, 1.0);
     vec4 a = jb_fetch(u_a, c);
     vec4 b = jb_fetch(u_b, c);
     if (u_water == 1) {
+        if (u_wf > 1) {
+            // Coarse water: c is a water cell; it loses the share of its four pixels the rubber covered.
+            float cover = 0.0;
+            for (int j = 0; j < 2; j++) for (int i = 0; i < 2; i++) cover += clamp(jb_fetch(u_cover, c * 2 + ivec2(i, j)).r, 0.0, 1.0);
+            keep = 1.0 - 0.25 * cover;
+            a = jb_fetchS(u_a, c, 7);
+            b = jb_fetchS(u_b, c, 7);
+        }
         o_a = vec4(a.x * keep, a.y * keep, a.z, a.w * keep);   // water depth, saturation, age kept, outflow
         o_b = b * keep;                                          // pigment still in the water
         o_c = vec4(0.0);

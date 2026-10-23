@@ -15,6 +15,7 @@ layout(location = 0) out vec4 o_a;
 layout(location = 1) out vec4 o_b;
 layout(location = 2) out vec4 o_c;
 void main() {
+    jb_atlasBegin();
     // A texel-centre read of the same cell (what texture(uv) at v_layerPx / size was), through the address function.
     ivec2 c = jb_cell();
     o_a = jb_fetch(u_a, c);

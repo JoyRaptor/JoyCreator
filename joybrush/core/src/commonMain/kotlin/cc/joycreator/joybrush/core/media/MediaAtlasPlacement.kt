@@ -31,6 +31,59 @@ object MediaAtlasPlacement {
     fun dryReach(smearPx: Double): Int = ceil(smearPx).toInt() + 4
 
     /**
+     * What one 256² slot of an atlas costs, every store at its format: paint state 2 × (p0, p1, paper) RGBA32F = 96 B/px,
+     * water 2 × (w0, w1) RGBA32F = 64, flux 2 × RGBA16F = 16, brush input twice (water jobs, 10-21) × (RGBA16F + RG16F) = 24,
+     * paper bake RGBA16F 8, running water RG16F 4, ground and look RGBA8 4 + 4, water bake R16F 2, fluid bake R8 1, bead
+     * 2 × RGBA16F at half size 4: 227 B per layer px. Measured on the Note 9 (MediaLayerEngine.memoryReport) before the input
+     * was doubled: 14,352,384 bytes per slot (219 B); with it doubled at RGBA16F, 15,400,960 (235 B).
+     */
+    const val BYTES_PER_PX = 227L
+    const val BYTES_PER_SLOT = BYTES_PER_PX * 256 * 256
+
+    /**
+     * The same with coarse water (COARSE_WATER_20261021: the water's fields at a quarter of the pixels, plus its mid-step
+     * pair and terrain): paint 96, water 20 + run 1 + input 4 + mid-step 8 + terrain 2, bead 4, delta 8, bakes 11, ground
+     * and look 8 = 162 B per layer px.
+     */
+    const val BYTES_PER_PX_COARSE = 162L
+    const val BYTES_PER_SLOT_COARSE = BYTES_PER_PX_COARSE * 256 * 256
+
+    /**
+     * Slot scaling (the Lead, October 18): an atlas of clamp(floor(([availBytes] − [RESERVE_BYTES]) / [BYTES_PER_SLOT]), [MIN_SLOTS], [MAX_SLOTS]) slots,
+     * rounded down to a near-square grid (columns, rows; rows at most two more than columns), sized once when the atlas is
+     * made from what the phone says is free. A Note 9 with 2.76 GB available gets 6 × 6 = 36 (517 MB): about four
+     * running pools of watercolour and a frame, so D2 is a last resort, not something a normal wash meets.
+     */
+    /**
+     * The fewest slots an atlas gets (2026-10-20): one palette-knife step or one Wash frame needs about 20 tiles at once on
+     * the Note 9, and an atlas of 16 (the window's size) refused them. 24 is 344 MB, about 20 % of what a Note 9 has free
+     * with a drawing open (1.67 GB). Rows may be up to two more than columns, so 24 is 4 x 6 and not rounded down to 20.
+     */
+    const val MIN_SLOTS = 24
+
+    /**
+     * What an atlas leaves the rest of the phone (2026-10-20, was a 0.35 share of what is free): it takes what is free beyond
+     * this. A tilted Wash on the Note 9 keeps about 40 tiles of water and what it reads at once; with the share, a day with
+     * 1.39 GB free gave 5 x 6 slots and the wash was refused, a day with 1.88 GB gave 6 x 7 and it ran (same bench, same
+     * hour). 700 MB is about half of what the Note 9 has free with a drawing open, more than twice Android's low-memory line.
+     */
+    const val RESERVE_BYTES = 700L shl 20
+
+    /**
+     * The most slots (64 x 14.9 MB = 952 MB, only with that much free beyond the reserve): 48 until 10-21, when a screenful of
+     * wet paint on the Note 9 needed ~35-49 slots with its neighbours and was refused on days with memory to spare.
+     */
+    const val MAX_SLOTS = 64
+
+    fun slotGrid(availBytes: Long, bytesPerSlot: Long = BYTES_PER_SLOT): Pair<Int, Int> {
+        // The most is [MAX_SLOTS] full-resolution slots' worth of memory (cheaper slots, more of them: 64 with coarse water).
+        val most = MAX_SLOTS.toLong() * BYTES_PER_SLOT / bytesPerSlot
+        val n = ((availBytes - RESERVE_BYTES) / bytesPerSlot).coerceIn(MIN_SLOTS.toLong(), most).toInt()
+        val cols = kotlin.math.sqrt(n.toDouble()).toInt()
+        return cols to minOf(cols + 2, n / cols)
+    }
+
+    /**
      * Media Atlas v2 B3, the admission rule: a frame needing [keys] fits when they and every tile that must stay ([held]:
      * held for this frame already, or by running water) number no more than [capacity]. Every other resident tile can be
      * written back to make room, so how many tiles a stroke has crossed never matters, only what one frame needs at once.

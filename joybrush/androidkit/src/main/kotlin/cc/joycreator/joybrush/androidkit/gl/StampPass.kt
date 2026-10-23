@@ -256,7 +256,7 @@ internal class StampPass(private val grains: GrainSource) {
      */
     fun putContact(buffer: FloatBuffer, d: Dab, look: StrokeLook) {
         fun resolved(value: Float, fallback: Float) = if (value.isFinite()) value else fallback
-        val live = d.aspect.isFinite() || d.hardness.isFinite() || d.tipDepth.isFinite() || d.paperDepth.isFinite() || d.anchor.isFinite()
+        val live = isLive(d)
         buffer.put(resolved(d.aspect, look.tip.aspect)).put(resolved(d.hardness, look.tip.hardness))
             .put(resolved(d.tipDepth, look.grain.tip.depth)).put(resolved(d.paperDepth, look.grain.paper.depth))
             .put(resolved(d.anchor, 0f)).put(GrainMath.tiltAmount(d.tilt))
@@ -432,6 +432,13 @@ internal class StampPass(private val grains: GrainSource) {
     }
 
     companion object {
+        /**
+         * A dab that carries its own contact (aspect, hardness, depths, anchor): the shader reads its pen lean from the dab,
+         * not the batch's u_tiltAmount / u_leanDir (jb_contact.glsl, v_live).
+         */
+        fun isLive(d: Dab): Boolean =
+            d.aspect.isFinite() || d.hardness.isFinite() || d.tipDepth.isFinite() || d.paperDepth.isFinite() || d.anchor.isFinite()
+
         /** Floats per dab in the instance buffer (S6). */
         const val FLOATS = 17
         const val BYTES = FLOATS * 4

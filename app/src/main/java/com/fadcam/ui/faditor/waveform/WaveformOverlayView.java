@@ -7,6 +7,8 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.DashPathEffect;
 import android.graphics.Paint;
+import android.graphics.RectF;
+import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.AttributeSet;
@@ -19,6 +21,8 @@ import androidx.annotation.Nullable;
 import com.fadcam.ui.faditor.model.WaveformData;
 import com.fadcam.ui.faditor.model.WaveformOverlayInstance;
 import com.fadcam.ui.faditor.model.WaveformStyle;
+import com.fadcam.vislab.room.VisLabSession;
+import com.fadcam.vislab.studio.StudioVis;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -41,6 +45,21 @@ public class WaveformOverlayView extends View {
     private Map<String, WaveformData> dataBySource = Collections.emptyMap();
     private final Map<String, Float> progressBySource = new HashMap<>();
     private long playheadMs = 0;
+    /** audioSourceRef -> the source file, for items with a VisLab look (they hear the source). */
+    private Map<String, Uri> sourceUris = Collections.emptyMap();
+    /** A VisLab look's preview is drawn at most this many pixels on its long side, then scaled. */
+    private static final float VIS_PREVIEW_MAX = 720f;
+    private final RectF visDst = new RectF();
+    /** Where a source's transcript is (the editor answers live, so a new transcript shows at once). */
+    public interface TranscriptSource {
+        @Nullable com.fadcam.ui.faditor.transcript.Transcript forSource(@NonNull String sourceRef);
+    }
+    @Nullable private TranscriptSource transcripts;
+    /** Per item: the transcript words last handed to its look, by key (rebuilt only on a change). */
+    private final Map<String, com.fadcam.vislab.studio.StudioWords> visWords = new HashMap<>();
+    private final Map<String, Long> visWordsKey = new HashMap<>();
+    @Nullable private Paint visPaint;
+    private boolean looksAsked;
 
     /** Callbacks to the host so changes persist / overlays can be removed. */
     public interface OnChangeListener {
@@ -118,6 +137,45 @@ public class WaveformOverlayView extends View {
         invalidate();
     }
 
+    /** Map of audioSourceRef -> the source's Uri (what a VisLab look hears). */
+    public void setSourceUris(@NonNull Map<String, Uri> uris) {
+        this.sourceUris = uris;
+        invalidate();
+    }
+
+    /** Where each source's transcript is: the words a lyrics look shows (S5). */
+    public void setTranscriptSource(@Nullable TranscriptSource src) {
+        this.transcripts = src;
+        invalidate();
+    }
+
+    /** The clip's transcript words for a VisLab item, rebuilt only when a word changed. */
+    @Nullable
+    private com.fadcam.vislab.studio.StudioWords visWordsFor(@NonNull WaveformOverlayInstance o) {
+        String ref = o.getAudioSourceRef();
+        com.fadcam.ui.faditor.transcript.Transcript t =
+                ref != null && transcripts != null ? transcripts.forSource(ref) : null;
+        long key = com.fadcam.vislab.studio.StudioWords.keyOf(t);
+        Long had = visWordsKey.get(o.getId());
+        if (had == null || had != key) {
+            visWordsKey.put(o.getId(), key);
+            visWords.put(o.getId(), com.fadcam.vislab.studio.StudioWords.of(t));
+        }
+        return visWords.get(o.getId());
+    }
+
+    /** A VisLab look's file text, or null (gone: the classic style draws instead). */
+    @Nullable
+    private String visLookJson(@NonNull String id) {
+        VisLabSession s = VisLabSession.get(getContext());
+        String json = s.lookJson(id);
+        if (json == null && !looksAsked) {
+            looksAsked = true;   // the person's own looks may not be read yet: draw again then
+            s.whenLoaded(this::invalidate);
+        }
+        return json;
+    }
+
     /** Report extraction progress (0..1) for a source so its placeholder fills as it decodes. */
     public void setExtractionProgress(@NonNull String sourceRef, float fraction) {
         progressBySource.put(sourceRef, fraction);
@@ -147,11 +205,27 @@ public class WaveformOverlayView extends View {
             // WORLD pose (a visualizer that follows a parent is drawn where the parent takes it).
             int rw = Math.max(1, (int) (o.animatedWidthFraction(playheadMs) * w));
             int rh = Math.max(1, (int) (o.animatedHeightFraction(playheadMs) * h));
+            // A VisLab look (VISLAB_SPEC section 7): StudioVis draws it on its own thread from the
+            // source's sound; this frame shows its newest finished picture (none at first) and
+            // asks for this moment, then invalidates when it is in.
+            String visId = o.visLookAt(playheadMs);   // its look keys can change the look
+            String visJson = visId != null ? visLookJson(visId) : null;
+            Bitmap vis = null;
+            if (visJson != null) {
+                float s = Math.min(1f, VIS_PREVIEW_MAX / Math.max(rw, rh));
+                String ref = o.getAudioSourceRef();
+                vis = StudioVis.get(getContext()).previewFrame(StudioVis.previewKey(o.getId()), visJson,
+                        ref != null ? sourceUris.get(ref) : null, o.mapToSourceMs(playheadMs), playheadMs,
+                        Math.max(1, Math.round(rw * s)), Math.max(1, Math.round(rh * s)),
+                        com.fadcam.vislab.studio.VisControls.at(o, playheadMs), visWordsFor(o), this::invalidate);
+            }
             // Placeholder until the audio finishes extracting, then the live render.
             // renderReusable returns a shared, reused bitmap (no per-frame allocation);
             // it's drawn to the canvas immediately, so the next overlay can reuse it.
-            Bitmap bmp;
-            if (data == null) {
+            Bitmap bmp = null;
+            if (visJson != null) {
+                // drawn below, scaled into the item's box
+            } else if (data == null) {
                 Float prog = o.getAudioSourceRef() != null
                         ? progressBySource.get(o.getAudioSourceRef()) : null;
                 bmp = renderer.renderPlaceholderReusable(style, rw, rh, density,
@@ -172,7 +246,15 @@ public class WaveformOverlayView extends View {
             // FADE_KNOBS §2.5: the knob fade multiplies the visualizer's alpha (§2.2 "same idea
             // for audio" — display fades even though no audio is muted by it).
             float fadeAlpha = o.fadeFactorAt(playheadMs) * o.animatedOpacity(playheadMs);
-            if (fadeAlpha >= 0.999f) {
+            if (visJson != null) {
+                if (vis != null && !vis.isRecycled()) {
+                    if (visPaint == null) visPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+                    float a = fadeAlpha * o.visFadeAt(playheadMs);   // the VisLab Fade, keyframable
+                    visPaint.setAlpha(Math.round(Math.max(0f, Math.min(1f, a)) * 255f));
+                    visDst.set(cx - rw / 2f, cy - rh / 2f, cx + rw / 2f, cy + rh / 2f);
+                    canvas.drawBitmap(vis, null, visDst, visPaint);
+                }
+            } else if (fadeAlpha >= 0.999f) {
                 canvas.drawBitmap(bmp, cx - rw / 2f, cy - rh / 2f, null);
             } else {
                 if (fadePaint == null) fadePaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);

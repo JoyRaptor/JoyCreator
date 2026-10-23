@@ -1,0 +1,1683 @@
+{
+ "pass": false,
+ "layer": 1536,
+ "resident": 15,
+ "totals": {
+  "mismatchedPixels": 18,
+  "planMismatches": 0,
+  "admissionMisses": 0,
+  "settleMidFlowDetected": 42951,
+  "noWallsDetected": 42532,
+  "drainedTails": 81
+ },
+ "longStroke": true,
+ "perScenario": [
+  {
+   "name": "wet Round, one long trail over 36 tiles",
+   "medium": "wet",
+   "frames": 140,
+   "mismatch": {
+    "orderA": {
+     "total": 18,
+     "p0": 5,
+     "where": [
+      {
+       "plane": "p0",
+       "x": 678,
+       "y": 1022,
+       "oracle": [
+        0.2457275390625,
+        0.0982666015625,
+        0.02947998046875,
+        0.0009450912475585938
+       ],
+       "atlas": [
+        0.24560546875,
+        0.0982666015625,
+        0.02947998046875,
+        0.0009450912475585938
+       ]
+      },
+      {
+       "plane": "p0",
+       "x": 677,
+       "y": 1023,
+       "oracle": [
+        0.340087890625,
+        0.1361083984375,
+        0.04083251953125,
+        0.0007734298706054688
+       ],
+       "atlas": [
+        0.340087890625,
+        0.135986328125,
+        0.04083251953125,
+        0.0007734298706054688
+       ]
+      },
+      {
+       "plane": "p0",
+       "x": 678,
+       "y": 1023,
+       "oracle": [
+        0.300537109375,
+        0.1202392578125,
+        0.03607177734375,
+        0.000812530517578125
+       ],
+       "atlas": [
+        0.300537109375,
+        0.12017822265625,
+        0.036041259765625,
+        0.000812530517578125
+       ]
+      },
+      {
+       "plane": "p0",
+       "x": 680,
+       "y": 1023,
+       "oracle": [
+        0.266845703125,
+        0.1068115234375,
+        0.03204345703125,
+        0.0009446144104003906
+       ],
+       "atlas": [
+        0.266845703125,
+        0.10675048828125,
+        0.03204345703125,
+        0.0009446144104003906
+       ]
+      }
+     ],
+     "p1": 2,
+     "paper": 0,
+     "w0": 5,
+     "w1": 6,
+     "look": 0,
+     "lookMissN": 0,
+     "lookMiss": []
+    },
+    "orderB": {
+     "total": 0,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "w0": 0,
+     "w1": 0,
+     "look": 0,
+     "lookMissN": 0,
+     "lookMiss": []
+    },
+    "settleMidFlow": {
+     "total": 0,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "w0": 0,
+     "w1": 0,
+     "look": 0,
+     "lookMissN": 0,
+     "lookMiss": []
+    },
+    "noWalls": {
+     "total": 36876,
+     "p0": 11922,
+     "where": [
+      {
+       "plane": "p0",
+       "x": 763,
+       "y": 192,
+       "oracle": [
+        0.298583984375,
+        0.11907958984375,
+        0.036163330078125,
+        0.0007138252258300781
+       ],
+       "atlas": [
+        0.298583984375,
+        0.119140625,
+        0.03619384765625,
+        0.0007138252258300781
+       ]
+      },
+      {
+       "plane": "p0",
+       "x": 764,
+       "y": 192,
+       "oracle": [
+        0.31640625,
+        0.1260986328125,
+        0.038421630859375,
+        0.0007662773132324219
+       ],
+       "atlas": [
+        0.316650390625,
+        0.126220703125,
+        0.0384521484375,
+        0.0007662773132324219
+       ]
+      },
+      {
+       "plane": "p0",
+       "x": 765,
+       "y": 192,
+       "oracle": [
+        0.32861328125,
+        0.130859375,
+        0.03997802734375,
+        0.0008406639099121094
+       ],
+       "atlas": [
+        0.3291015625,
+        0.1309814453125,
+        0.040008544921875,
+        0.0008406639099121094
+       ]
+      },
+      {
+       "plane": "p0",
+       "x": 766,
+       "y": 192,
+       "oracle": [
+        0.346435546875,
+        0.137939453125,
+        0.042205810546875,
+        0.0009541511535644531
+       ],
+       "atlas": [
+        0.3466796875,
+        0.1380615234375,
+        0.042236328125,
+        0.0009541511535644531
+       ]
+      }
+     ],
+     "p1": 8385,
+     "paper": 0,
+     "w0": 7991,
+     "w1": 4867,
+     "look": 3711,
+     "lookMissN": 0,
+     "lookMiss": [],
+     "lookWhere": [
+      {
+       "tile": 2,
+       "n": 262,
+       "x0": 512,
+       "y0": 194,
+       "x1": 767,
+       "y1": 237,
+       "oracle": [
+        1,
+        12,
+        18,
+        126
+       ],
+       "atlas": [
+        1,
+        13,
+        18,
+        126
+       ],
+       "residentAtEnd": false,
+       "state": "D",
+       "excluded": true
+      },
+      {
+       "tile": 3,
+       "n": 46,
+       "x0": 1017,
+       "y0": 195,
+       "x1": 1023,
+       "y1": 235,
+       "oracle": [
+        76,
+        81,
+        90,
+        188
+       ],
+       "atlas": [
+        76,
+        80,
+        90,
+        188
+       ],
+       "residentAtEnd": false,
+       "state": "D",
+       "excluded": true
+      },
+      {
+       "tile": 7,
+       "n": 105,
+       "x0": 256,
+       "y0": 468,
+       "x1": 511,
+       "y1": 511,
+       "oracle": [
+        120,
+        189,
+        79,
+        250
+       ],
+       "atlas": [
+        120,
+        189,
+        80,
+        250
+       ],
+       "residentAtEnd": false,
+       "state": "D",
+       "excluded": true
+      },
+      {
+       "tile": 8,
+       "n": 42,
+       "x0": 760,
+       "y0": 469,
+       "x1": 767,
+       "y1": 511,
+       "oracle": [
+        13,
+        21,
+        25,
+        154
+       ],
+       "atlas": [
+        13,
+        21,
+        25,
+        155
+       ],
+       "residentAtEnd": false,
+       "state": "D",
+       "excluded": true
+      },
+      {
+       "tile": 9,
+       "n": 35,
+       "x0": 1018,
+       "y0": 469,
+       "x1": 1023,
+       "y1": 511,
+       "oracle": [
+        4,
+        37,
+        46,
+        73
+       ],
+       "atlas": [
+        4,
+        37,
+        46,
+        74
+       ],
+       "residentAtEnd": false,
+       "state": "D",
+       "excluded": true
+      },
+      {
+       "tile": 12,
+       "n": 40,
+       "x0": 195,
+       "y0": 512,
+       "x1": 237,
+       "y1": 517,
+       "oracle": [
+        22,
+        37,
+        41,
+        163
+       ],
+       "atlas": [
+        21,
+        37,
+        41,
+        163
+       ],
+       "residentAtEnd": false,
+       "state": "D",
+       "excluded": true
+      },
+      {
+       "tile": 13,
+       "n": 26,
+       "x0": 256,
+       "y0": 512,
+       "x1": 457,
+       "y1": 760,
+       "oracle": [
+        96,
+        121,
+        155,
+        195
+       ],
+       "atlas": [
+        95,
+        121,
+        156,
+        195
+       ],
+       "residentAtEnd": false,
+       "state": "D",
+       "excluded": true
+      },
+      {
+       "tile": 14,
+       "n": 90,
+       "x0": 512,
+       "y0": 512,
+       "x1": 767,
+       "y1": 767,
+       "oracle": [
+        76,
+        110,
+        124,
+        232
+       ],
+       "atlas": [
+        75,
+        110,
+        124,
+        232
+       ],
+       "residentAtEnd": false,
+       "state": "D",
+       "excluded": true
+      },
+      {
+       "tile": 15,
+       "n": 149,
+       "x0": 768,
+       "y0": 741,
+       "x1": 1023,
+       "y1": 767,
+       "oracle": [
+        3,
+        17,
+        21,
+        116
+       ],
+       "atlas": [
+        3,
+        17,
+        22,
+        116
+       ],
+       "residentAtEnd": false,
+       "state": "D",
+       "excluded": true
+      },
+      {
+       "tile": 20,
+       "n": 197,
+       "x0": 512,
+       "y0": 768,
+       "x1": 767,
+       "y1": 1023,
+       "oracle": [
+        62,
+        70,
+        89,
+        244
+       ],
+       "atlas": [
+        63,
+        70,
+        89,
+        244
+       ],
+       "residentAtEnd": true,
+       "state": "D",
+       "excluded": true
+      },
+      {
+       "tile": 21,
+       "n": 355,
+       "x0": 768,
+       "y0": 768,
+       "x1": 1023,
+       "y1": 1023,
+       "oracle": [
+        13,
+        113,
+        64,
+        189
+       ],
+       "atlas": [
+        13,
+        112,
+        65,
+        191
+       ],
+       "residentAtEnd": true,
+       "state": "D",
+       "excluded": true
+      },
+      {
+       "tile": 19,
+       "n": 15,
+       "x0": 256,
+       "y0": 769,
+       "x1": 260,
+       "y1": 785,
+       "oracle": [
+        0,
+        17,
+        28,
+        140
+       ],
+       "atlas": [
+        0,
+        17,
+        28,
+        141
+       ],
+       "residentAtEnd": true,
+       "state": "D",
+       "excluded": true
+      },
+      {
+       "tile": 25,
+       "n": 345,
+       "x0": 256,
+       "y0": 1024,
+       "x1": 511,
+       "y1": 1059,
+       "oracle": [
+        0,
+        25,
+        40,
+        134
+       ],
+       "atlas": [
+        0,
+        25,
+        40,
+        135
+       ],
+       "residentAtEnd": true,
+       "state": "D",
+       "excluded": true
+      },
+      {
+       "tile": 26,
+       "n": 1707,
+       "x0": 512,
+       "y0": 1024,
+       "x1": 767,
+       "y1": 1073,
+       "oracle": [
+        40,
+        31,
+        89,
+        202
+       ],
+       "atlas": [
+        40,
+        32,
+        92,
+        202
+       ],
+       "residentAtEnd": true,
+       "state": "W",
+       "excluded": false
+      },
+      {
+       "tile": 27,
+       "n": 96,
+       "x0": 768,
+       "y0": 1024,
+       "x1": 1023,
+       "y1": 1062,
+       "oracle": [
+        76,
+        86,
+        94,
+        232
+       ],
+       "atlas": [
+        77,
+        86,
+        95,
+        232
+       ],
+       "residentAtEnd": true,
+       "state": "P",
+       "excluded": false
+      },
+      {
+       "tile": 32,
+       "n": 186,
+       "x0": 512,
+       "y0": 1293,
+       "x1": 523,
+       "y1": 1349,
+       "oracle": [
+        63,
+        78,
+        55,
+        212
+       ],
+       "atlas": [
+        63,
+        79,
+        55,
+        212
+       ],
+       "residentAtEnd": true,
+       "state": "W",
+       "excluded": false
+      },
+      {
+       "tile": 31,
+       "n": 15,
+       "x0": 256,
+       "y0": 1310,
+       "x1": 511,
+       "y1": 1340,
+       "oracle": [
+        107,
+        101,
+        103,
+        254
+       ],
+       "atlas": [
+        106,
+        101,
+        103,
+        254
+       ],
+       "residentAtEnd": true,
+       "state": "D",
+       "excluded": true
+      }
+     ]
+    }
+   },
+   "changed": 1994152,
+   "maxResident": 15,
+   "evictions": {
+    "orderA": 32,
+    "orderB": 32,
+    "settleMidFlow": 32,
+    "noWalls": 32,
+    "deviation": 32
+   },
+   "loads": {
+    "orderA": 47,
+    "orderB": 47,
+    "settleMidFlow": 47,
+    "noWalls": 47,
+    "deviation": 47
+   },
+   "misses": {
+    "orderA": 0,
+    "orderB": 0,
+    "settleMidFlow": 0,
+    "noWalls": 0,
+    "deviation": 0
+   },
+   "planMismatch": {
+    "orderA": 0,
+    "orderB": 0,
+    "settleMidFlow": 0,
+    "noWalls": 0
+   },
+   "settled": {
+    "orderA": 0,
+    "orderB": 0,
+    "settleMidFlow": 0,
+    "noWalls": 0,
+    "deviation": 0
+   },
+   "drained": {
+    "orderA": 39,
+    "orderB": 39,
+    "settleMidFlow": 39,
+    "noWalls": 39,
+    "deviation": 39
+   },
+   "tilesCrossed": 36,
+   "flowTrace": [
+    [
+     7,
+     0.285,
+     5
+    ],
+    [
+     15,
+     0.188,
+     9
+    ],
+    [
+     23,
+     0.151,
+     12
+    ],
+    [
+     31,
+     0.133,
+     11
+    ],
+    [
+     39,
+     0.147,
+     14
+    ],
+    [
+     47,
+     0.147,
+     7
+    ],
+    [
+     55,
+     0.138,
+     7
+    ],
+    [
+     63,
+     0.169,
+     8
+    ],
+    [
+     71,
+     0.135,
+     6
+    ],
+    [
+     79,
+     0.14,
+     9
+    ],
+    [
+     87,
+     0.141,
+     5
+    ],
+    [
+     95,
+     0.147,
+     6
+    ],
+    [
+     103,
+     0.149,
+     8
+    ],
+    [
+     111,
+     0.144,
+     6
+    ],
+    [
+     119,
+     0.138,
+     7
+    ],
+    [
+     127,
+     0.108,
+     8
+    ],
+    [
+     135,
+     0.0809,
+     8
+    ]
+   ],
+   "plans": [
+    [
+     28,
+     "[{\"keys\":[0],\"drain\":true},{\"keys\":[6],\"drain\":true},{\"keys\":[1],\"drain\":true},{\"keys\":[7],\"drain\":true}]"
+    ],
+    [
+     40,
+     "[{\"keys\":[5],\"drain\":true},{\"keys\":[17],\"drain\":true},{\"keys\":[11],\"drain\":true},{\"keys\":[4],\"drain\":true},{\"keys\":[16],\"drain\":true},{\"keys\":[10],\"drain\":true}]"
+    ],
+    [
+     46,
+     "[{\"keys\":[3],\"drain\":true},{\"keys\":[9],\"drain\":true},{\"keys\":[15],\"drain\":true}]"
+    ],
+    [
+     53,
+     "[{\"keys\":[2],\"drain\":true},{\"keys\":[6],\"drain\":true},{\"keys\":[8],\"drain\":true}]"
+    ],
+    [
+     60,
+     "[{\"keys\":[18],\"drain\":true},{\"keys\":[12],\"drain\":true},{\"keys\":[7],\"drain\":true}]"
+    ],
+    [
+     65,
+     "[{\"keys\":[19],\"drain\":true},{\"keys\":[13],\"drain\":true}]"
+    ],
+    [
+     71,
+     "[{\"keys\":[14],\"drain\":true},{\"keys\":[20],\"drain\":true}]"
+    ],
+    [
+     85,
+     "[{\"keys\":[17],\"drain\":true},{\"keys\":[23],\"drain\":true},{\"keys\":[29],\"drain\":true},{\"keys\":[16],\"drain\":true},{\"keys\":[22],\"drain\":true},{\"keys\":[28],\"drain\":true}]"
+    ],
+    [
+     90,
+     "[{\"keys\":[15],\"drain\":true}]"
+    ],
+    [
+     95,
+     "[{\"keys\":[21],\"drain\":true},{\"keys\":[27],\"drain\":true}]"
+    ],
+    [
+     110,
+     "[{\"keys\":[18],\"drain\":true},{\"keys\":[24],\"drain\":true},{\"keys\":[30],\"drain\":true},{\"keys\":[19],\"drain\":true},{\"keys\":[20],\"drain\":true}]"
+    ],
+    [
+     115,
+     "[{\"keys\":[25],\"drain\":true},{\"keys\":[31],\"drain\":true}]"
+    ]
+   ],
+   "deviation": {
+    "lookMean": 1.8043211477774161,
+    "lookP99": 69,
+    "lookP999": 165,
+    "lookMax": 252,
+    "changedPx": 0.11763212415907118,
+    "settled": 0,
+    "drained": 39
+   }
+  },
+  {
+   "name": "wet Round, quiet pools then a new one",
+   "medium": "wet",
+   "frames": 138,
+   "mismatch": {
+    "orderA": {
+     "total": 0,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "w0": 0,
+     "w1": 0,
+     "look": 0,
+     "lookMissN": 0,
+     "lookMiss": []
+    },
+    "orderB": {
+     "total": 0,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "w0": 0,
+     "w1": 0,
+     "look": 0,
+     "lookMissN": 0,
+     "lookMiss": []
+    },
+    "settleMidFlow": {
+     "total": 42947,
+     "p0": 16906,
+     "where": [
+      {
+       "plane": "p0",
+       "x": 226,
+       "y": 254,
+       "oracle": [
+        0.3935546875,
+        0.1513671875,
+        0.056365966796875,
+        0.01013946533203125
+       ],
+       "atlas": [
+        0.461669921875,
+        0.1785888671875,
+        0.06451416015625,
+        0.0101776123046875
+       ]
+      },
+      {
+       "plane": "p0",
+       "x": 227,
+       "y": 254,
+       "oracle": [
+        0.48828125,
+        0.1893310546875,
+        0.0675048828125,
+        0.0101165771484375
+       ],
+       "atlas": [
+        0.54296875,
+        0.211181640625,
+        0.0740966796875,
+        0.01015472412109375
+       ]
+      },
+      {
+       "plane": "p0",
+       "x": 228,
+       "y": 254,
+       "oracle": [
+        0.52001953125,
+        0.2022705078125,
+        0.07122802734375,
+        0.01006317138671875
+       ],
+       "atlas": [
+        0.57177734375,
+        0.2230224609375,
+        0.07745361328125,
+        0.01009368896484375
+       ]
+      },
+      {
+       "plane": "p0",
+       "x": 229,
+       "y": 254,
+       "oracle": [
+        0.51416015625,
+        0.2000732421875,
+        0.0703125,
+        0.00997161865234375
+       ],
+       "atlas": [
+        0.56591796875,
+        0.220947265625,
+        0.0765380859375,
+        0.01000213623046875
+       ]
+      }
+     ],
+     "p1": 14932,
+     "paper": 0,
+     "w0": 0,
+     "w1": 0,
+     "look": 11109,
+     "lookMissN": 0,
+     "lookMiss": [],
+     "lookWhere": [
+      {
+       "tile": 3,
+       "n": 265,
+       "x0": 1019,
+       "y0": 203,
+       "x1": 1023,
+       "y1": 255,
+       "oracle": [
+        10,
+        11,
+        11,
+        99
+       ],
+       "atlas": [
+        0,
+        0,
+        0,
+        0
+       ],
+       "residentAtEnd": false,
+       "state": "D",
+       "excluded": false
+      },
+      {
+       "tile": 4,
+       "n": 601,
+       "x0": 1024,
+       "y0": 203,
+       "x1": 1177,
+       "y1": 255,
+       "oracle": [
+        106,
+        149,
+        85,
+        209
+       ],
+       "atlas": [
+        0,
+        0,
+        0,
+        0
+       ],
+       "residentAtEnd": false,
+       "state": "D",
+       "excluded": false
+      },
+      {
+       "tile": 0,
+       "n": 22,
+       "x0": 223,
+       "y0": 254,
+       "x1": 241,
+       "y1": 255,
+       "oracle": [
+        54,
+        56,
+        78,
+        205
+       ],
+       "atlas": [
+        53,
+        56,
+        78,
+        205
+       ],
+       "residentAtEnd": false,
+       "state": "D",
+       "excluded": false
+      },
+      {
+       "tile": 6,
+       "n": 520,
+       "x0": 206,
+       "y0": 256,
+       "x1": 255,
+       "y1": 309,
+       "oracle": [
+        81,
+        102,
+        88,
+        219
+       ],
+       "atlas": [
+        80,
+        101,
+        89,
+        219
+       ],
+       "residentAtEnd": false,
+       "state": "D",
+       "excluded": false
+      },
+      {
+       "tile": 9,
+       "n": 985,
+       "x0": 1019,
+       "y0": 256,
+       "x1": 1023,
+       "y1": 452,
+       "oracle": [
+        25,
+        6,
+        35,
+        38
+       ],
+       "atlas": [
+        0,
+        0,
+        0,
+        0
+       ],
+       "residentAtEnd": false,
+       "state": "D",
+       "excluded": false
+      },
+      {
+       "tile": 10,
+       "n": 5444,
+       "x0": 1024,
+       "y0": 256,
+       "x1": 1279,
+       "y1": 452,
+       "oracle": [
+        210,
+        214,
+        197,
+        239
+       ],
+       "atlas": [
+        0,
+        0,
+        0,
+        0
+       ],
+       "residentAtEnd": false,
+       "state": "D",
+       "excluded": false
+      },
+      {
+       "tile": 7,
+       "n": 1754,
+       "x0": 256,
+       "y0": 260,
+       "x1": 392,
+       "y1": 344,
+       "oracle": [
+        92,
+        85,
+        130,
+        239
+       ],
+       "atlas": [
+        87,
+        84,
+        128,
+        239
+       ],
+       "residentAtEnd": false,
+       "state": "D",
+       "excluded": false
+      },
+      {
+       "tile": 11,
+       "n": 1517,
+       "x0": 1280,
+       "y0": 289,
+       "x1": 1329,
+       "y1": 344,
+       "oracle": [
+        123,
+        173,
+        55,
+        213
+       ],
+       "atlas": [
+        169,
+        187,
+        40,
+        197
+       ],
+       "residentAtEnd": false,
+       "state": "D",
+       "excluded": false
+      },
+      {
+       "tile": 25,
+       "n": 1,
+       "x0": 256,
+       "y0": 1221,
+       "x1": 256,
+       "y1": 1221,
+       "oracle": [
+        32,
+        64,
+        131,
+        229
+       ],
+       "atlas": [
+        32,
+        63,
+        131,
+        229
+       ],
+       "residentAtEnd": false,
+       "state": "D",
+       "excluded": false
+      }
+     ]
+    },
+    "noWalls": {
+     "total": 0,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "w0": 0,
+     "w1": 0,
+     "look": 0,
+     "lookMissN": 0,
+     "lookMiss": []
+    }
+   },
+   "changed": 647653,
+   "maxResident": 15,
+   "evictions": {
+    "orderA": 21,
+    "orderB": 21,
+    "settleMidFlow": 24,
+    "noWalls": 21,
+    "deviation": 21
+   },
+   "loads": {
+    "orderA": 36,
+    "orderB": 36,
+    "settleMidFlow": 39,
+    "noWalls": 36,
+    "deviation": 36
+   },
+   "misses": {
+    "orderA": 0,
+    "orderB": 0,
+    "settleMidFlow": 0,
+    "noWalls": 0,
+    "deviation": 0
+   },
+   "planMismatch": {
+    "orderA": 0,
+    "orderB": 0,
+    "settleMidFlow": 4,
+    "noWalls": 0
+   },
+   "settled": {
+    "orderA": 1,
+    "orderB": 1,
+    "settleMidFlow": 3,
+    "noWalls": 1,
+    "deviation": 1
+   },
+   "drained": {
+    "orderA": 10,
+    "orderB": 10,
+    "settleMidFlow": 0,
+    "noWalls": 10,
+    "deviation": 10
+   },
+   "tilesCrossed": 36,
+   "flowTrace": [
+    [
+     7,
+     0.464,
+     4
+    ],
+    [
+     15,
+     0.537,
+     6
+    ],
+    [
+     23,
+     0.385,
+     7
+    ],
+    [
+     31,
+     0.48,
+     6
+    ],
+    [
+     39,
+     0.327,
+     8
+    ],
+    [
+     47,
+     0.232,
+     4
+    ],
+    [
+     55,
+     0.179,
+     4
+    ],
+    [
+     63,
+     0.314,
+     4
+    ],
+    [
+     71,
+     0.33,
+     4
+    ],
+    [
+     79,
+     0.355,
+     4
+    ],
+    [
+     87,
+     0.294,
+     4
+    ],
+    [
+     95,
+     0.227,
+     4
+    ],
+    [
+     103,
+     0.249,
+     4
+    ],
+    [
+     111,
+     0.21,
+     4
+    ],
+    [
+     119,
+     0.594,
+     1
+    ],
+    [
+     127,
+     0.374,
+     4
+    ],
+    [
+     135,
+     0.262,
+     4
+    ]
+   ],
+   "plans": [
+    [
+     24,
+     "[{\"keys\":[1],\"drain\":true},{\"keys\":[0],\"drain\":true},{\"keys\":[7],\"drain\":true},{\"keys\":[6],\"drain\":true}]"
+    ],
+    [
+     40,
+     "[{\"keys\":[5],\"drain\":true},{\"keys\":[4],\"drain\":true},{\"keys\":[11],\"drain\":true},{\"keys\":[10],\"drain\":true}]"
+    ],
+    [
+     116,
+     "[{\"keys\":[30],\"drain\":true},{\"keys\":[24],\"drain\":true},{\"keys\":[25,31],\"drain\":false}]"
+    ]
+   ],
+   "deviation": {
+    "lookMean": 2.5503452442310475,
+    "lookP99": 93,
+    "lookP999": 180,
+    "lookMax": 254,
+    "changedPx": 0.05087407430013021,
+    "settled": 1,
+    "drained": 10
+   }
+  },
+  {
+   "name": "wet Round, nine separate pools",
+   "medium": "wet",
+   "frames": 138,
+   "mismatch": {
+    "orderA": {
+     "total": 0,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "w0": 0,
+     "w1": 0,
+     "look": 0,
+     "lookMissN": 0,
+     "lookMiss": []
+    },
+    "orderB": {
+     "total": 0,
+     "p0": 0,
+     "p1": 0,
+     "paper": 0,
+     "w0": 0,
+     "w1": 0,
+     "look": 0,
+     "lookMissN": 0,
+     "lookMiss": []
+    },
+    "noWalls": {
+     "total": 5656,
+     "p0": 2882,
+     "where": [
+      {
+       "plane": "p0",
+       "x": 689,
+       "y": 256,
+       "oracle": [
+        0.39599609375,
+        0.1602783203125,
+        0.063232421875,
+        0.01410675048828125
+       ],
+       "atlas": [
+        0.398681640625,
+        0.161376953125,
+        0.06353759765625,
+        0.0141143798828125
+       ]
+      },
+      {
+       "plane": "p0",
+       "x": 690,
+       "y": 256,
+       "oracle": [
+        0.454345703125,
+        0.1834716796875,
+        0.07080078125,
+        0.01454925537109375
+       ],
+       "atlas": [
+        0.45556640625,
+        0.1839599609375,
+        0.0709228515625,
+        0.01454925537109375
+       ]
+      },
+      {
+       "plane": "p0",
+       "x": 691,
+       "y": 256,
+       "oracle": [
+        0.490966796875,
+        0.1978759765625,
+        0.07568359375,
+        0.0149688720703125
+       ],
+       "atlas": [
+        0.494384765625,
+        0.19921875,
+        0.07611083984375,
+        0.0149688720703125
+       ]
+      },
+      {
+       "plane": "p0",
+       "x": 692,
+       "y": 256,
+       "oracle": [
+        0.52880859375,
+        0.212646484375,
+        0.0806884765625,
+        0.01537322998046875
+       ],
+       "atlas": [
+        0.53125,
+        0.213623046875,
+        0.08099365234375,
+        0.01537322998046875
+       ]
+      }
+     ],
+     "p1": 2035,
+     "paper": 0,
+     "w0": 0,
+     "w1": 0,
+     "look": 739,
+     "lookMissN": 0,
+     "lookMiss": [],
+     "lookWhere": [
+      {
+       "tile": 8,
+       "n": 64,
+       "x0": 688,
+       "y0": 256,
+       "x1": 767,
+       "y1": 323,
+       "oracle": [
+        0,
+        39,
+        58,
+        76
+       ],
+       "atlas": [
+        0,
+        40,
+        58,
+        76
+       ],
+       "residentAtEnd": false,
+       "state": "D",
+       "excluded": true
+      },
+      {
+       "tile": 9,
+       "n": 1,
+       "x0": 768,
+       "y0": 288,
+       "x1": 768,
+       "y1": 288,
+       "oracle": [
+        9,
+        31,
+        55,
+        162
+       ],
+       "atlas": [
+        9,
+        32,
+        55,
+        162
+       ],
+       "residentAtEnd": false,
+       "state": "D",
+       "excluded": true
+      },
+      {
+       "tile": 14,
+       "n": 13,
+       "x0": 764,
+       "y0": 751,
+       "x1": 767,
+       "y1": 767,
+       "oracle": [
+        40,
+        47,
+        53,
+        198
+       ],
+       "atlas": [
+        40,
+        47,
+        52,
+        198
+       ],
+       "residentAtEnd": true,
+       "state": "D",
+       "excluded": true
+      },
+      {
+       "tile": 15,
+       "n": 146,
+       "x0": 768,
+       "y0": 759,
+       "x1": 835,
+       "y1": 767,
+       "oracle": [
+        7,
+        67,
+        115,
+        171
+       ],
+       "atlas": [
+        7,
+        67,
+        115,
+        170
+       ],
+       "residentAtEnd": false,
+       "state": "D",
+       "excluded": true
+      },
+      {
+       "tile": 19,
+       "n": 489,
+       "x0": 256,
+       "y0": 768,
+       "x1": 379,
+       "y1": 783,
+       "oracle": [
+        10,
+        30,
+        64,
+        200
+       ],
+       "atlas": [
+        10,
+        32,
+        65,
+        199
+       ],
+       "residentAtEnd": true,
+       "state": "D",
+       "excluded": true
+      },
+      {
+       "tile": 20,
+       "n": 26,
+       "x0": 764,
+       "y0": 768,
+       "x1": 767,
+       "y1": 790,
+       "oracle": [
+        72,
+        75,
+        78,
+        235
+       ],
+       "atlas": [
+        72,
+        76,
+        78,
+        235
+       ],
+       "residentAtEnd": true,
+       "state": "D",
+       "excluded": true
+      }
+     ]
+    }
+   },
+   "changed": 1185478,
+   "maxResident": 15,
+   "evictions": {
+    "orderA": 55,
+    "orderB": 55,
+    "noWalls": 55
+   },
+   "loads": {
+    "orderA": 70,
+    "orderB": 70,
+    "noWalls": 70
+   },
+   "misses": {
+    "orderA": 0,
+    "orderB": 0,
+    "noWalls": 0
+   },
+   "planMismatch": {
+    "orderA": 0,
+    "orderB": 0,
+    "noWalls": 0
+   },
+   "settled": {
+    "orderA": 0,
+    "orderB": 0,
+    "noWalls": 0
+   },
+   "drained": {
+    "orderA": 32,
+    "orderB": 32,
+    "noWalls": 32
+   },
+   "tilesCrossed": 36,
+   "flowTrace": [
+    [
+     7,
+     0.467,
+     4
+    ],
+    [
+     15,
+     0.595,
+     1
+    ],
+    [
+     23,
+     0.375,
+     4
+    ],
+    [
+     31,
+     0.479,
+     6
+    ],
+    [
+     39,
+     0.536,
+     6
+    ],
+    [
+     47,
+     0.385,
+     3
+    ],
+    [
+     55,
+     0.489,
+     8
+    ],
+    [
+     63,
+     0.545,
+     7
+    ],
+    [
+     71,
+     0.414,
+     8
+    ],
+    [
+     79,
+     0.475,
+     11
+    ],
+    [
+     87,
+     0.584,
+     6
+    ],
+    [
+     95,
+     0.384,
+     8
+    ],
+    [
+     103,
+     0.492,
+     3
+    ],
+    [
+     111,
+     0.329,
+     5
+    ],
+    [
+     119,
+     0.353,
+     5
+    ],
+    [
+     127,
+     0.318,
+     5
+    ],
+    [
+     135,
+     0.29,
+     4
+    ]
+   ],
+   "plans": [
+    [
+     12,
+     "[{\"keys\":[0],\"drain\":true},{\"keys\":[1],\"drain\":true},{\"keys\":[6],\"drain\":true},{\"keys\":[7],\"drain\":true}]"
+    ],
+    [
+     36,
+     "[{\"keys\":[35],\"drain\":true},{\"keys\":[34],\"drain\":true},{\"keys\":[29],\"drain\":true},{\"keys\":[28],\"drain\":true}]"
+    ],
+    [
+     41,
+     "[{\"keys\":[30],\"drain\":true},{\"keys\":[31],\"drain\":true},{\"keys\":[24],\"drain\":true},{\"keys\":[25],\"drain\":true}]"
+    ],
+    [
+     60,
+     "[{\"keys\":[5],\"drain\":true},{\"keys\":[11],\"drain\":true},{\"keys\":[4],\"drain\":true},{\"keys\":[10],\"drain\":true}]"
+    ],
+    [
+     72,
+     "[{\"keys\":[21],\"drain\":true}]"
+    ],
+    [
+     80,
+     "[{\"keys\":[15],\"drain\":true},{\"keys\":[3],\"drain\":true},{\"keys\":[2],\"drain\":true},{\"keys\":[9],\"drain\":true}]"
+    ],
+    [
+     84,
+     "[{\"keys\":[20],\"drain\":true},{\"keys\":[14],\"drain\":true},{\"keys\":[8],\"drain\":true}]"
+    ],
+    [
+     96,
+     "[{\"keys\":[12],\"drain\":true},{\"keys\":[18],\"drain\":true},{\"keys\":[13],\"drain\":true},{\"keys\":[17],\"drain\":true},{\"keys\":[23],\"drain\":true},{\"keys\":[16],\"drain\":true},{\"keys\":[22],\"drain\":true}]"
+    ],
+    [
+     128,
+     "[{\"keys\":[19],\"drain\":true}]"
+    ]
+   ]
+  }
+ ],
+ "unsetUniforms": []
+}

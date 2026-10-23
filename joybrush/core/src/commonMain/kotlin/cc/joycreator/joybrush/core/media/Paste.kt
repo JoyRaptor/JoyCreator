@@ -152,6 +152,15 @@ class PasteStroke(
     private var travelled = 0.0   // mm since touchdown: the hairs can only trail over the path already drawn
     private var lastStepT = 0.0
 
+    /**
+     * The hops times this (1 = the shipped 0.3 mm). A phone that falls behind the pen widens them, up to 2x ([PasteSpacing]) but only where the stroke runs straight, each
+     * hop sliding as far, so a millimetre of stroke still trades the same paint in fewer steps. Steps cost the same however
+     * far apart, so a slow frame meant more of them in the next frame, and slower still: on the Note 9 an oil stroke that
+     * fell behind stayed 2-3x behind (2026-10-20).
+     */
+    var spacing = 1.0
+        set(v) { field = v.coerceIn(1.0, PasteSpacing.MAX) }
+
     fun add(s: MediaSample) {
         val prev = last
         last = s
@@ -160,6 +169,9 @@ class PasteStroke(
         val dx = s.x - prev.x
         val dy = s.y - prev.y
         val len = hypot(dx, dy)
+        // Where the pen leaves the line the brush is lying along (a curve, a turn) the hops stay fine: wide hops showed there
+        // as scallops of the round brush's hair stamps (Note 9, 2026-10-21); on the straight they did not show.
+        val turning = hasDir && len > 1e-6 && (dirX * dx + dirY * dy) / len < TURN_COS
         if (b.trowel) {
             // The trowel knife steers as it did in v6/v7: it turns with each report and only lays paint as it moves.
             if (len < 1e-6) return
@@ -178,7 +190,7 @@ class PasteStroke(
             } else { dirX = tx; dirY = ty; hasDir = true }
         }
         // Small hops: a thin blade edge needs hops finer than its width (else a zip of ribs).
-        val stepMm = if (b.blade) min(0.3, 0.6 * half * 0.35) else 0.3
+        val stepMm = (if (b.blade) min(0.3, 0.6 * half * 0.35) else 0.3) * (if (turning) 1.0 else spacing)
         val stepPx = max(1 / layerScale, stepMm * pxPerMm / layerScale)
         fun interp(w: Double) = MediaSample(
             prev.x + dx * w, prev.y + dy * w, prev.p + (s.p - prev.p) * w, prev.tilt + (s.tilt - prev.tilt) * w,
@@ -271,4 +283,31 @@ class PasteStroke(
     }
 
     fun take(): List<PasteStep> = ArrayList(steps).also { steps.clear() }
+
+    private companion object {
+        /** A pen heading more than 20 degrees off the brush's line is turning. */
+        val TURN_COS = cos(20 * PI / 180)
+    }
+}
+
+/**
+ * How far apart a paste stroke's steps are while the phone keeps up or not ([PasteStroke.spacing]): from the time between
+ * two drawn frames, wider when a frame took more than [SLOW_MS], back toward the shipped hops when one took less than
+ * [FAST_MS]. A phone that keeps up never leaves 1.
+ */
+object PasteSpacing {
+    /** 3–7 % of these brushes' widths at 1, 6–14 % at 2 (Photoshop's default spacing is 25 %); never wider in a turn. */
+    const val MAX = 2.0
+    const val SLOW_MS = 45L
+    const val FAST_MS = 28L
+    private const val STEP = 1.2
+
+    /** Bench only (`jb_paste_spacing`): every paste stroke at this spacing, to see what wider hops look like. */
+    var fixed: Double? = null
+
+    fun next(spacing: Double, frameMs: Long): Double = when {
+        frameMs > SLOW_MS -> min(MAX, spacing * STEP)
+        frameMs < FAST_MS -> max(1.0, spacing / STEP)
+        else -> spacing
+    }
 }

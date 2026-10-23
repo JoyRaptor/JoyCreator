@@ -161,11 +161,11 @@
     <string name="fadrec_recording_flash">Recording!</string>
     <string name="fadrec_ready_to_record_subtitle">Tap to begin</string>
     <string name="fadrec_permission_denied">Screen recording permission denied</string>
-    <string name="fadrec_mode_title">FadRec • Screen Recording</string>
+    <string name="fadrec_mode_title">Screen Recording</string>
     <string name="fadrec_mute_audio">Mute recording audio</string>
     <string name="fadrec_unmute_audio">Unmute recording audio</string>
     <string name="fadrec_mic_permission_needed_title">Microphone Permission Needed</string>
-    <string name="fadrec_mic_permission_needed_message">FadRec can\'t access your mic. You can record muted - no audio will be saved.</string>
+    <string name="fadrec_mic_permission_needed_message">Joy Creator can\'t access your mic. You can record muted - no audio will be saved.</string>
     <string name="fadrec_record_muted">Record Muted</string>
 
     <!-- FadRec audio source picker -->
@@ -434,7 +434,7 @@
     <string name="media_type_photo">Photo</string>
     <string name="media_type_photo_back">Back</string>
     <string name="media_type_photo_selfie">Selfie</string>
-    <string name="media_type_photo_fadrec">FadRec</string>
+    <string name="media_type_photo_fadrec">Screen</string>
     <string name="photo_capture_saved">Photo saved</string>
     <string name="photo_capture_failed">Could not capture photo</string>
     <string name="photo_capture_preview_unavailable">Preview is not available</string>
@@ -445,8 +445,8 @@
     <string name="records_filter_all">All</string>
     <string name="records_filter_camera">Joy Creator</string>
     <string name="records_filter_dual">Dual</string>
-    <string name="records_filter_screen">FadRec</string>
-    <string name="records_filter_faditor">Faditor</string>
+    <string name="records_filter_screen">Screen</string>
+    <string name="records_filter_faditor">Studio</string>
     <string name="records_filter_stream">Stream</string>
     <string name="records_filter_shot">FadShot</string>
     <string name="records_filter_camera_all">All</string>
@@ -460,28 +460,28 @@
     <string name="records_filter_miniapps_all">All</string>
     <string name="records_filter_shot_back">Back</string>
     <string name="records_filter_shot_selfie">Selfie</string>
-    <string name="records_filter_shot_fadrec">FadRec</string>
+    <string name="records_filter_shot_fadrec">Screen</string>
     <string name="records_filter_checklist_desc">Toggle selection mode</string>
     <string name="records_filter_helper_camera_all">Camera recordings (Back, Front, Dual)</string>
     <string name="records_filter_helper_camera_back">Captured with back camera</string>
     <string name="records_filter_helper_camera_front">Captured with front camera (selfie)</string>
     <string name="records_filter_helper_camera_dual">Captured with dual camera mode</string>
     <string name="records_filter_helper_dual">Dual camera recordings</string>
-    <string name="records_filter_helper_screen">Screen recordings (FadRec)</string>
-    <string name="records_filter_helper_faditor">Edited/Exported videos (Faditor)</string>
-    <string name="records_filter_helper_faditor_all">All Faditor outputs and related files.</string>
+    <string name="records_filter_helper_screen">Screen recordings</string>
+    <string name="records_filter_helper_faditor">Edited/Exported videos (Studio)</string>
+    <string name="records_filter_helper_faditor_all">All Studio outputs and related files.</string>
     <string name="records_filter_helper_faditor_converted">Converted fragmented MP4 into standard seekable MP4 for external players.</string>
     <string name="records_filter_helper_faditor_merge">Merged multiple clips into one output video.</string>
     <string name="records_filter_helper_stream">Saved stream recordings</string>
     <string name="records_filter_helper_shot_all">Captured photos and screenshots</string>
     <string name="records_filter_helper_shot_back">Captured photos with back camera</string>
     <string name="records_filter_helper_shot_selfie">Captured photos with front camera (selfie)</string>
-    <string name="records_filter_helper_shot_fadrec">Captured screenshots (FadRec)</string>
+    <string name="records_filter_helper_shot_fadrec">Captured screenshots</string>
     <string name="records_location_format">Location: %1$s/%2$s</string>
     <string name="records_batch_select_all">Select all</string>
     <string name="records_batch_deselect_all">Deselect all</string>
     <string name="records_batch_save">Save to Gallery</string>
-    <string name="records_batch_faditor">Faditor Automations</string>
+    <string name="records_batch_faditor">Studio Automations</string>
     <string name="records_batch_delete">Delete</string>
     <string name="records_batch_coming_soon">This batch action will be added next.</string>
     <string name="records_batch_select_items_first">Select one or more videos first.</string>
@@ -489,7 +489,7 @@
     <string name="records_batch_fab_label">Batch</string>
     <string name="records_batch_select_all_desc">Select or clear all videos in the current filter.</string>
     <string name="records_batch_save_desc">Copy, move, or export selected videos to another folder.</string>
-    <string name="records_batch_faditor_desc">Run background automations without opening the Faditor tab.</string>
+    <string name="records_batch_faditor_desc">Run background automations without opening the Studio tab.</string>
     <string name="records_batch_delete_desc">Move selected videos to Trash.</string>
     <string name="records_batch_save_queued">%1$d save task(s) added to queue.</string>
     <string name="records_batch_faditor_first_only">Opened first video. %1$d selected; multi-edit queue coming next.</string>
@@ -500,7 +500,7 @@
     <string name="records_batch_custom_export_started">Exporting %1$d videos to selected folder…</string>
     <string name="records_batch_custom_export_invalid_folder">Selected folder is not writable.</string>
     <string name="records_batch_custom_export_done">Export finished. Success: %1$d • Failed: %2$d</string>
-    <string name="records_batch_faditor_sheet_title">Batch Faditor Actions</string>
+    <string name="records_batch_faditor_sheet_title">Batch Studio Actions</string>
     <string name="records_batch_faditor_export_standard">Export to Standard MP4</string>
     <string name="records_batch_faditor_export_standard_desc">Converts fragmented MP4 to seekable standard MP4 for external players.</string>
     <string name="records_batch_faditor_merge">Merge Selected Videos</string>
@@ -508,7 +508,7 @@
     <string name="records_batch_faditor_queued">%1$d batch item(s) queued in background.</string>
     <string name="records_batch_completed">Batch operation completed.</string>
     <string name="records_batch_notif_channel_name">Batch Media Actions</string>
-    <string name="records_batch_notif_channel_desc">Progress and results for Records batch save and Faditor automation tasks.</string>
+    <string name="records_batch_notif_channel_desc">Progress and results for Records batch save and Studio automation tasks.</string>
     <string name="records_batch_starting">Preparing batch operation…</string>
     <string name="records_batch_progress_item">Processing %1$d of %2$d</string>
     <string name="records_batch_progress_counts">Completed %1$d • Skipped %2$d • Failed %3$d</string>
@@ -521,7 +521,7 @@
     <string name="nav_settings">Settings</string>
     <string name="nav_about">About</string>
     <string name="nav_remote">Remote</string>
-    <string name="nav_faditor_mini">Faditor</string>
+    <string name="nav_faditor_mini">Studio</string>
     <string name="nav_lab">Lab</string>
     <string name="button_settings_readme">Read Me</string>
     <string name="setting_cam_title">Camera Selection</string>
@@ -1011,12 +1011,12 @@
     <string name="stop_recording">Stop</string>
     <string name="shortcut_take_photo">Photo</string>
     <string name="shortcut_take_photo_front">Selfie</string>
-    <string name="shortcut_take_screenshot">FadRec</string>
+    <string name="shortcut_take_screenshot">Screenshot</string>
     <string name="screenshot_capture_saved">Screenshot saved</string>
     <string name="screenshot_capture_failed">Could not capture screenshot</string>
     <string name="screenshot_capture_system_saved">Screenshot captured by system. Saved in system screenshots.</string>
-    <string name="screenshot_accessibility_enable_needed">Enable "FadRec Screenshot" in Accessibility to use this shortcut without recording prompt.</string>
-    <string name="screenshot_accessibility_service_desc">Captures a screenshot for the FadRec shortcut and saves it in FadCam/FadShot.</string>
+    <string name="screenshot_accessibility_enable_needed">Enable Joy Creator in Accessibility to use this shortcut without recording prompt.</string>
+    <string name="screenshot_accessibility_service_desc">Captures a screenshot for the screenshot shortcut and saves it in FadCam/FadShot.</string>
     <string name="shortcuts_video_category">Video Recording</string>
     <string name="shortcuts_picture_category">Picture</string>
     <string name="preview_quick_actions_title">Preview quick actions</string>
@@ -1079,12 +1079,12 @@
     <string name="coming_soon_toast">Coming soon! In Sha Allah</string>
     <string name="remote_coming_soon">Remote control for Joy Creator is coming soon.</string>
     <string name="remote_feature_description">Pair Joy Creator clients using a QR code for secure, local-network remote control: start/stop recording, preview, zoom, switch camera, and more—all with end-to-end encryption.</string>
-    <string name="faditor_mini_title">Faditor Mini</string>
+    <string name="faditor_mini_title">Studio</string>
     <string name="faditor_mini_coming_soon">Coming soon — lightweight editor</string>
     <string name="faditor_mini_subtitle">Trim and export your videos with precision</string>
-    <string name="faditor_mini_toast">Faditor Mini — coming soon</string>
+    <string name="faditor_mini_toast">Studio — coming soon</string>
     <string name="faditor_select_video">Select Video</string>
-    <string name="faditor_editor_title">Faditor Mini</string>
+    <string name="faditor_editor_title">Studio</string>
     <string name="faditor_close">Close editor</string>
     <string name="faditor_undo">Undo</string>
     <string name="faditor_redo">Redo</string>
@@ -1510,7 +1510,7 @@
     <string name="faditor_export_filename_label">File name</string>
 
     <!-- Export notification -->
-    <string name="faditor_export_notif_channel">Faditor Export</string>
+    <string name="faditor_export_notif_channel">Studio Export</string>
     <string name="faditor_export_notif_channel_desc">Notifications for ongoing video exports</string>
     <string name="faditor_export_notif_title">Exporting video…</string>
     <string name="faditor_export_notif_error_title">Export Failed</string>
@@ -1553,21 +1553,21 @@
     <string name="faditor_delete_projects_title">Delete projects?</string>
     <string name="faditor_delete_projects_message">Delete %1$d project(s)? This cannot be undone.</string>
     <string name="faditor_delete_confirm">Delete</string>
-    <string name="faditor_version_info">Faditor Mini · Phase 1 · Trim + Export</string>
+    <string name="faditor_version_info">Studio · Phase 1 · Trim + Export</string>
 
     <!-- Faditor Info Bottom Sheet -->
     <string name="faditor_empty_title">No projects yet</string>
     <string name="faditor_empty_desc">Tap \"Start New Project\" to pick a video and begin editing</string>
-    <string name="faditor_info_title">About Faditor Mini</string>
+    <string name="faditor_info_title">About Studio</string>
     <string name="faditor_info_subtitle">Everything you need to know about the built-in editor</string>
     <string name="faditor_info_how_title">How it works</string>
     <string name="faditor_info_how_desc">Pick any video from your device or your Joy Creator recordings. Trim it frame-by-frame using the timeline, then export. All processing happens locally on your device — nothing is uploaded.\n\nYour editing progress is auto-saved every few seconds and whenever you leave the editor, so no work is lost if the app closes unexpectedly.</string>
     <string name="faditor_info_convert_title">Smart conversion</string>
-    <string name="faditor_info_convert_desc">Joy Creator records in a crash-safe format called fragmented MP4 (fMP4). Unlike a standard MP4 which has one finalized container, fMP4 writes video in small independent chunks. This means your footage stays intact even if the app crashes or recording stops suddenly.\n\nHowever, external video players, gallery apps, and file managers will not be able to seek, scrub, or display the correct duration of these files. This is not a bug — it is a deliberate design trade-off for reliability.\n\nIf you plan to store your videos outside Joy Creator — on Google Drive, a computer, or any other location — you must convert them first. Otherwise the files will be unusable for normal playback.\n\nTo convert: simply open the video here in Faditor Mini and tap Export. The converted standard MP4 will appear in your Records tab, ready to save to your gallery or share anywhere. The process is instant and lossless — no re-encoding or quality loss.</string>
+    <string name="faditor_info_convert_desc">Joy Creator records in a crash-safe format called fragmented MP4 (fMP4). Unlike a standard MP4 which has one finalized container, fMP4 writes video in small independent chunks. This means your footage stays intact even if the app crashes or recording stops suddenly.\n\nHowever, external video players, gallery apps, and file managers will not be able to seek, scrub, or display the correct duration of these files. This is not a bug — it is a deliberate design trade-off for reliability.\n\nIf you plan to store your videos outside Joy Creator — on Google Drive, a computer, or any other location — you must convert them first. Otherwise the files will be unusable for normal playback.\n\nTo convert: simply open the video here in Studio and tap Export. The converted standard MP4 will appear in your Records tab, ready to save to your gallery or share anywhere. The process is instant and lossless — no re-encoding or quality loss.</string>
     <string name="faditor_info_export_title">Exported files</string>
     <string name="faditor_info_export_desc">Exported videos are saved to your active storage location (the same one configured in Settings) with the prefix \"Faditor_\" followed by a timestamp. They appear in the Records tab alongside your original recordings.</string>
     <string name="faditor_info_temp_title">Temporary files and cache</string>
-    <string name="faditor_info_temp_desc">When you load an fMP4 video for editing, Faditor detects if the file needs \"remuxing\" — a fast conversion that adds seeking markers without re-encoding. Remuxed files are cached on your device so they can be reused if you edit the same video again, saving time and processing.\n\nYou can see the cache size for each project listed next to its modified date. If your device storage is running low, you can delete unused projects to clear their cached remuxed files.\n\nThese temporary cache files are automatically cleaned up when you delete a project from this tab.</string>
+    <string name="faditor_info_temp_desc">When you load an fMP4 video for editing, Studio detects if the file needs \"remuxing\" — a fast conversion that adds seeking markers without re-encoding. Remuxed files are cached on your device so they can be reused if you edit the same video again, saving time and processing.\n\nYou can see the cache size for each project listed next to its modified date. If your device storage is running low, you can delete unused projects to clear their cached remuxed files.\n\nThese temporary cache files are automatically cleaned up when you delete a project from this tab.</string>
     <string name="faditor_info_projects_title">Recent projects</string>
     <string name="faditor_info_projects_desc">All your editing sessions are shown for quick access. Each project is stored as a small JSON file on your device containing the video URI, trim points, and timestamps — no copies of your videos are made. Projects are auto-saved every few seconds, so your progress is never lost.\n\nYou can delete projects you no longer need using the multi-select checklist icon. Deleting a project only removes the editing session data; your original video files remain untouched.</string>
     <string name="faditor_your_recordings">Your Recordings</string>
@@ -1575,7 +1575,7 @@
     <string name="faditor_no_recordings">No recordings found yet. Start recording with Joy Creator to see your videos here.</string>
     <string name="faditor_video_count">%1$d video(s)</string>
     <string name="faditor_fadcam_source">Joy Creator</string>
-    <string name="faditor_fadrec_source">FadRec</string>
+    <string name="faditor_fadrec_source">Screen</string>
     <string name="faditor_browse_device_desc">Select any video from your device</string>
     <string name="faditor_scanning">Scanning recordings…</string>
     <string name="faditor_source_chooser_desc">Choose a video from your gallery or pick one from your Joy Creator recordings</string>
@@ -1849,7 +1849,7 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
 
     <string name="version_format">v%s</string>
 
-    <string name="edit_with_faditorx">Edit with Faditor Mini</string>
+    <string name="edit_with_faditorx">Edit with Studio</string>
     <string name="remote_coming_soon_badge">Coming Soon</string>
 
     <!-- Update Bottom Sheet Strings -->
@@ -2316,7 +2316,7 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="manage_projects">Manage Projects</string>
     <string name="name_your_project">Name Your Project</string>
     <string name="project_naming_message">Give your project a memorable name and description to organize your recordings</string>
-    <string name="fadrec_projects">FadRec Projects</string>
+    <string name="fadrec_projects">Screen Projects</string>
     <string name="delete_project">Delete Project</string>
     <string name="delete_all">Delete All</string>
     <string name="new_project">New Project</string>
@@ -2540,7 +2540,7 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="preview_enable_hint">Hold to wake up the camera</string>
     <string name="preview_starting">Starting live preview...</string>
     <string name="fadrec_preview_enable_hint">Hold to show preview</string>
-    <string name="fadrec_preview_not_available">Live screen preview is not wired into FadRec yet</string>
+    <string name="fadrec_preview_not_available">Live screen preview is not available yet</string>
     <string name="torch_unavailable">Torch unavailable for this camera</string>
 
     <!-- Motion Lab -->
@@ -2979,7 +2979,7 @@ For the smoothest playback experience, you can use an external player like VLC. 
 
     <!-- Screen Recording -->
     <string name="screen_recording_title">Screen Recording</string>
-    <string name="screen_recording_notif_title">FadRec - Screen Recording</string>
+    <string name="screen_recording_notif_title">Joy Creator - Screen Recording</string>
     <string name="screen_recording_saved">Screen Recording Saved</string>
     <string name="screen_recording_tap_to_view">Tap to view your recording</string>
     <string name="notification_action_stop">Stop</string>
@@ -3093,16 +3093,16 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="screen_rec_resolution_value" translatable="false">1920×1080</string>
     <string name="screen_rec_framerate_value" translatable="false">30 fps</string>
     <string name="screen_rec_bitrate_value" translatable="false">8 Mbps</string>
-    <string name="screen_rec_splitting_value_format">%s (Joy Creator + FadRec)</string>
+    <string name="screen_rec_splitting_value_format">%s (Joy Creator + Screen)</string>
 
     <!-- Settings home tabs -->
     <string name="settings_tab_all">All</string>
     <string name="settings_tab_fadcam" translatable="false">Joy Creator</string>
-    <string name="settings_tab_fadrec" translatable="false">FadRec</string>
+    <string name="settings_tab_fadrec" translatable="false">Screen</string>
 
     <!-- Watermark preview labels -->
     <string name="watermark_preview_fadcam" translatable="false">Joy Creator</string>
-    <string name="watermark_preview_fadrec" translatable="false">FadRec</string>
+    <string name="watermark_preview_fadrec" translatable="false">Screen</string>
     <string name="settings_location_update_interval_5s">5.0 seconds</string>
 
     <!-- Annotation toolbar -->
@@ -3184,7 +3184,7 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="desc_delete_text">Delete text</string>
     <string name="desc_done">Done</string>
     <string name="desc_exposure_compensation">Exposure compensation</string>
-    <string name="desc_fadrec_logo">FadRec Logo</string>
+    <string name="desc_fadrec_logo">Screen recorder logo</string>
     <string name="desc_fast_forward">Fast forward 5 seconds</string>
     <string name="desc_increase">Increase</string>
     <string name="desc_italic">Italic</string>

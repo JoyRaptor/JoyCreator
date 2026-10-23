@@ -1410,8 +1410,34 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     // ── Lifecycle ────────────────────────────────────────────────────
 
+    /** A finger is down on the editor window (drawers included; dialogs are other windows). */
+    private boolean editorTouchDown;
+    /** An undo baseline capture that came due mid-gesture; runs after the finger lifts. */
+    @Nullable private Runnable baselineRefreshAfterTouch;
+
     @Override
     public boolean dispatchTouchEvent(@NonNull MotionEvent ev) {
+        int action = ev.getActionMasked();
+        if (action == MotionEvent.ACTION_DOWN) editorTouchDown = true;
+        try {
+            return dispatchEditorTouchEvent(ev);
+        } finally {
+            if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+                editorTouchDown = false;
+                // Posted only now, so it queues behind anything the lift itself posted (a
+                // click is one): the gesture's edit records before the capture runs.
+                releaseHeldBaselineRefresh();
+            }
+        }
+    }
+
+    private void releaseHeldBaselineRefresh() {
+        if (baselineRefreshAfterTouch == null) return;
+        autoSaveHandler.post(baselineRefreshAfterTouch);
+        baselineRefreshAfterTouch = null;
+    }
+
+    private boolean dispatchEditorTouchEvent(@NonNull MotionEvent ev) {
         // §3a eyedropper — one-shot, and it must be taken HERE. Five sibling overlay layers
         // sit above the PiP view in the layout and the text layer swallows preview taps, so a
         // dropper armed inside that view is never called at all. Disarms whatever the outcome:
@@ -1615,11 +1641,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
 
             @Override
-            public void scheduleBaselineRefresh(@NonNull Runnable r) {
+            public void scheduleBaselineRefresh(@NonNull Runnable r, long delayMs) {
                 // Post to the main looper so the rolling baseline is captured AFTER the current
                 // edit handler unwinds — i.e. it reflects the final post-edit state regardless
                 // of whether the call site recorded before or after mutating (audit 1.6).
-                autoSaveHandler.post(r);
+                if (delayMs <= 0) {
+                    autoSaveHandler.post(r);
+                    return;
+                }
+                // The throttle's trailing edge: held while a finger is down, released by
+                // dispatchTouchEvent once the gesture has recorded its own edit.
+                autoSaveHandler.postDelayed(() -> {
+                    if (editorTouchDown) baselineRefreshAfterTouch = r;
+                    else r.run();
+                }, delayMs);
             }
         });
 
@@ -2221,6 +2256,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         hideTransitionPreview();
         // M-COMP-2: park the overlay decoder while backgrounded.
         if (overlayVideoLayer != null) overlayVideoLayer.pausePlayback();
+        // A touch cut off by leaving may never deliver its lift.
+        editorTouchDown = false;
+        releaseHeldBaselineRefresh();
         // Save project on pause (e.g. user switches away) — force-flush undo history.
         saveProjectNow(true);
     }
@@ -2231,6 +2269,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (project != null) com.fadcam.joyfolder.studio.ShareInbox.clearOpenProject(project.getId());
         playheadHandler.removeCallbacks(playheadUpdater);
         autoSaveHandler.removeCallbacks(autoSaveRunnable);
+        com.fadcam.vislab.studio.StudioVis.releasePreviewIfRunning();   // VisLab looks' renderers
         if (silenceDetector != null) silenceDetector.shutdown();
         // Do NOT kill a transcription that is still running. This shutdown() is what threw away
         // a 20-minute Whisper/Accurate run when the user closed the editor on it (2026-07-28) —
@@ -13607,14 +13646,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * The service handles the Transformer lifecycle and survives Activity destruction.
      */
     /**
-     * Free as much editor-held memory as possible right before an in-process
-     * export: drop the (potentially huge) in-memory undo snapshots, recycle
-     * filmstrip thumbnails, and release the preview player's hardware decoder.
-     * This directly attacks the OOM / codec-starvation that killed exports of
-     * large projects. The preview is re-acquired in {@link #hideExportProgress()}.
+     * Free editor-held memory right before an export: recycle filmstrip thumbnails and
+     * release the preview player's hardware decoder. The preview is re-acquired in
+     * {@link #hideExportProgress()}.
+     *
+     * <p>The undo snapshots stay. They used to be dropped here too, from when the export ran
+     * in this process, but those snapshots are what the undo history saves to disk: leaving
+     * the editor after any export dropped every step made since it was opened, so after
+     * reopening, the first undo press reverted an older step instead (Note 9, 2026-10-22:
+     * 48 steps recorded, 46 came back). The export has its own process and heap now, and the
+     * snapshots are capped by the undo manager's own budget while editing anyway.</p>
      */
     private void prepareMemoryForExport() {
-        if (undoManager != null) undoManager.releaseSnapshotMemory();
         if (editorTimeline != null) editorTimeline.releaseThumbnailMemory();
         if (playerManager != null) playerManager.releaseForExport();
         previewReleasedForExport = true;
@@ -14763,9 +14806,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (overlays.isEmpty()) return;
         // Refresh each overlay's source-time mapping from its driving clip (trim in-point + speed)
         // so the visualizer reads the correct part of the waveform for trimmed/sped clips.
+        java.util.Map<String, Uri> sourceUris = new java.util.HashMap<>();   // what VisLab looks hear
         for (com.fadcam.ui.faditor.model.WaveformOverlayInstance o : overlays) {
             String ref = o.getAudioSourceRef();
             VizSource src = resolveVizSource(ref);
+            if (src != null && src.uri != null) sourceUris.put(ref, src.uri);
             if (src != null) {
                 o.setSourceMapping(src.inMs, src.speed);
                 Clip spine = ref != null ? findClipById(ref) : null;
@@ -14774,6 +14819,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 }
             }
         }
+        waveformOverlayView.setSourceUris(sourceUris);
+        waveformOverlayView.setTranscriptSource(this::visualizerTranscript);   // lyrics looks (S5)
         java.util.Set<String> needed = new java.util.HashSet<>();
         for (com.fadcam.ui.faditor.model.WaveformOverlayInstance o : overlays) {
             String ref = o.getAudioSourceRef();
@@ -20379,6 +20426,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
     }
 
+    /** The transcript of a visualizer's source clip (either kind), or null: what a lyrics look shows. */
+    @Nullable
+    private com.fadcam.ui.faditor.transcript.Transcript visualizerTranscript(@Nullable String ref) {
+        if (ref == null || project == null) return null;
+        Clip c = findClipById(ref);
+        if (c != null) return c.getTranscript();
+        for (AudioClip ac : project.getTimeline().getAudioClips()) {
+            if (ac != null && ref.equals(ac.getId())) return ac.getTranscript();
+        }
+        return null;
+    }
+
     /** Resolve a visualizer's {@code audioSourceRef} against BOTH clip kinds, or null. */
     @Nullable
     private VizSource resolveVizSource(@Nullable String ref) {
@@ -20542,9 +20601,48 @@ public class FaditorEditorActivity extends AppCompatActivity {
         showVisualizerObjectDrawer(overlay);
     }
 
-    /** The Style tab's content: the Rolodex (style and gradient carousels, mode toggles, layers). */
+    /**
+     * The Style tab's content. VisLab looks are a section of it (VISLAB_SPEC section 7, owner
+     * 10-18: integrate, not override): the look row on top (Classic and every VisLab look, with
+     * a keyframe for which look shows from when); Classic shows the Rolodex below as it always
+     * did, a VisLab look its keyframable Reactivity and Fade and "Edit in VisLab".
+     */
     @NonNull
     private View buildVisualizerStyleTab(
+            @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance overlay) {
+        return com.fadcam.vislab.studio.VisLabStyleTab.build(this, overlay,
+                new com.fadcam.vislab.studio.VisLabStyleTab.Host() {
+                    @Override public long playheadMs() { return Math.max(0, lastPlayheadAbsoluteMs); }
+                    @Override public void seek(long timelineMs) {
+                        if (editorTimeline != null) editorTimeline.seekToTimelineMs(timelineMs);
+                    }
+                    @Override public void changed() {
+                        refreshVizAfterMenuWrite();
+                        scheduleAutoSave();
+                    }
+                    @Override public void recordUndo(@NonNull String label, @NonNull Runnable redo,
+                                                     @NonNull Runnable undo) {
+                        undoManager.recordAction(new EditActions.LambdaAction(label, redo, undo));
+                    }
+                    @NonNull @Override public View classicRolodex() {
+                        return buildClassicVisualizerStyle(overlay);
+                    }
+                    @Override public void openVisLab(@NonNull String lookId) {
+                        startActivity(new android.content.Intent(FaditorEditorActivity.this,
+                                com.fadcam.vislab.room.VisLabActivity.class)
+                                .putExtra(com.fadcam.vislab.room.VisLabActivity.EXTRA_LOOK, lookId));
+                    }
+                    @Override public boolean hasTranscriptWords() {
+                        com.fadcam.ui.faditor.transcript.Transcript t =
+                                visualizerTranscript(overlay.getAudioSourceRef());
+                        return t != null && !t.words.isEmpty();
+                    }
+                });
+    }
+
+    /** The classic styles: the Rolodex (style and gradient carousels, mode toggles, layers). */
+    @NonNull
+    private View buildClassicVisualizerStyle(
             @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance overlay) {
         java.util.List<com.fadcam.ui.faditor.model.WaveformStyle> styles =
                 com.fadcam.ui.faditor.waveform.WaveformStyleIO.loadBuiltins(this);
@@ -45141,7 +45239,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // duplicates removed (audit 1.6) — so a burst of edits inside one baseline
                 // window becomes ONE honest cross-session undo step, not a step + no-ops.
                 List<UndoManager.HistoryEntry> history = undoManager.getUndoHistoryForPersist();
-                if (!history.isEmpty()) {
+                // Empty is saved too once the stack has changed: undoing every step and leaving
+                // used to keep the old file, so reopening offered the undone steps again. Not
+                // before a change, though, when empty can mean the history is not loaded yet.
+                if (!history.isEmpty() || undoManager.hasChangedSinceOpen()) {
                     List<String> descriptions = new ArrayList<>();
                     List<String> snapshots = new ArrayList<>();
                     List<Boolean> aiFlags = new ArrayList<>();

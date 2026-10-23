@@ -27,7 +27,7 @@ import java.io.InputStream;
  * {@code image}). Called on the GL thread, once per picture; big pictures are scaled down so
  * a phone photo never costs more than 1024 px of texture.
  */
-final class Pictures implements VisRenderer.ImageSource {
+public final class Pictures implements VisRenderer.ImageSource {
 
     private static final String TAG = "VisPictures";
     private static final int MAX = 1024;
@@ -35,7 +35,7 @@ final class Pictures implements VisRenderer.ImageSource {
     private final Context app;
     @Nullable private Bitmap emblem;
 
-    Pictures(@NonNull Context c) {
+    public Pictures(@NonNull Context c) {
         app = c.getApplicationContext();
     }
 

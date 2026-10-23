@@ -303,7 +303,7 @@
             b.className = 'pill' + (i === cur ? ' on' : '');
             b.textContent = name;
             b.title = d.label + ': ' + name;
-            b.onclick = () => { set(i); if (defs.some((x) => x.showFor && x.showFor[d.id])) { renderDrawer(); return; } 53436('.pill', input).forEach((x, k) => x.classList.toggle('on', k === i)); };
+            b.onclick = () => { set(i); if (defs.some((x) => x.showFor && x.showFor[d.id])) { renderDrawer(); return; } $$('.pill', input).forEach((x, k) => x.classList.toggle('on', k === i)); };
             input.appendChild(b);
           });
         } else if (d.toggle) {

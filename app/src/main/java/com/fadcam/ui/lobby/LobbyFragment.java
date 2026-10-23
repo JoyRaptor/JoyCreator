@@ -1134,6 +1134,11 @@ public class LobbyFragment extends BaseFragment {
         heroArt.setTag(R.id.lobby_thumb_tag, null);
         if (hasContent) {
             heroArt.setBackgroundColor(Studio.SURFACE);
+            // The designed stand-in: opaque old black, a faint wash in the room's colours and the
+            // room's line glyph. A real frame replaces it the moment one decodes (setImageBitmap);
+            // when there is none, or the decode fails, this is what stays. Never see-through.
+            heroArt.setImageDrawable(new LobbyHeroPlaceholder(r.gradA, r.gradB, r.glyph, iconFont,
+                    getResources().getDisplayMetrics().density));
             if (lastDrawing != null) {
                 loadThumbInto(heroArt, lastDrawing.thumbPath);
             } else if (heroPart != null || vizShown != null) {

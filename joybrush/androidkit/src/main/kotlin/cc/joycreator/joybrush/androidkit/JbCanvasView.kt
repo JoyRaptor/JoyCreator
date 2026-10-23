@@ -476,6 +476,31 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         get() = mediaCanvas.wetQuality
         set(v) { mediaCanvas.wetQuality = v }
 
+    /** Debug A/B only: new media engines draw through the media atlas (MediaAtlasGl.enabled; off until it ships). */
+    var mediaAtlasEnabled: Boolean
+        get() = cc.joycreator.joybrush.androidkit.gl.media.MediaAtlasGl.enabled
+        set(v) { cc.joycreator.joybrush.androidkit.gl.media.MediaAtlasGl.enabled = v }
+
+    /**
+     * The owner's paint-engine switch (the ⋯ menu): realistic paint through the media atlas (the whole layer, no window
+     * edge) or the old 1024 px window. Takes effect at once: the engine in use writes back and is let go.
+     */
+    fun setMediaAtlas(on: Boolean) {
+        if (mediaAtlasEnabled == on) return
+        mediaAtlasEnabled = on
+        onGl { mediaCanvas.releaseEngine() }
+    }
+
+    /** Water jobs in the atlas (MediaCanvas.waterJobs; on): the bench's A/B. Any thread. */
+    var mediaWaterJobs: Boolean
+        get() = mediaCanvas.waterJobs
+        set(v) { mediaCanvas.waterJobs = v }
+
+    /** The owner's watercolour comparison (core WaterAB; the default is today's water). Any thread. */
+    var mediaWaterAB: cc.joycreator.joybrush.core.media.WaterAB
+        get() = mediaCanvas.waterAB
+        set(v) { mediaCanvas.waterAB = v }
+
     /** The paper's downhill slope for pencil, watercolour and oil, document space ([0, 0] = flat). Main thread. */
     fun setMediaSlope(x: Float, y: Float) {
         onGl { mediaCanvas.slope = floatArrayOf(x, y) }
@@ -668,6 +693,15 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     }
     private var lineContact: LineContact? = null
 
+    /**
+     * The id of the document this canvas makes when it has none from a file: unique per drawing (a new library drawing,
+     * a fresh bench canvas), kept for every later snapshot of it. Audit 2026-10-18 P1: a shared constant let separate
+     * drawings overwrite one folder copy.
+     */
+    private var freshDocId: String = newDocumentId()
+
+    private fun newDocumentId(): String = "jb-" + java.util.UUID.randomUUID()
+
     /** H8: pen-down freezes the brush against the drawing's kept brushes once per (brush set, brush), not every stroke. */
     private val frozenBrushes = FrozenBrushCache()
 
@@ -767,6 +801,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         val frameBoard = animationBoardId?.takeIf { b -> boardDocument?.boards?.any { it.id == b && it.kind == BoardKind.ANIMATION } == true }
         onBeforeHistoryChange?.invoke()
         onGl {
+            // The realistic-paint window writes its live state back and lets go first, so the merge reads current paint
+            // and nothing stale can flush into the merged layer later (audit 2026-10-18).
+            mediaCanvas.releaseWindow()
             val plan = try {
                 cc.joycreator.joybrush.androidkit.layers.MergeDownPlan.decide(engine.mergeSide(upper, frameBoard), lower?.let { engine.mergeSide(it, frameBoard) })
             } catch (e: Exception) { cc.joycreator.joybrush.androidkit.layers.MergeDownPlan.Result.Refused(e.message ?: "Those layers could not be merged") }
@@ -774,11 +811,12 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                 is cc.joycreator.joybrush.androidkit.layers.MergeDownPlan.Result.Refused -> post { onRefused?.invoke(plan.sentence) }
                 is cc.joycreator.joybrush.androidkit.layers.MergeDownPlan.Result.Merge -> try {
                     val after = if (frameBoard != null) before else before.delete(id)!!.let { it.copy(activeId = lower!!.id) }
-                    engine.mergeDownStep(id, lower!!.id, plan.way, plan.sheetOp, plan.flattenLower, before, after, frameBoard)
+                    val media = engine.mergeDownStep(id, lower!!.id, plan.way, plan.sheetOp, plan.flattenLower, before, after, frameBoard)
                     reportHistory(); publishLines()
                     post {
                         if (frameBoard == null) adopt(after)
-                        (plan.said ?: if (frameBoard != null) "This frame of \"${upper.name}\" merged down; its other frames stay." else null)?.let { onNotice?.invoke(it) }
+                        listOfNotNull(plan.said ?: if (frameBoard != null) "This frame of \"${upper.name}\" merged down; its other frames stay." else null, media)
+                            .joinToString(" ").ifEmpty { null }?.let { onNotice?.invoke(it) }
                     }
                 } catch (e: Exception) {
                     post { onRefused?.invoke(e.message ?: "Those layers could not be merged") }
@@ -794,6 +832,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         val name = stackUi[id]?.name ?: "This layer"
         onBeforeHistoryChange?.invoke()
         onGl {
+            mediaCanvas.releaseWindow()   // its live state written back first; nothing stale flushes into the frozen layer later
             val done = try { engine.freezeLayerStep(id) } catch (e: Exception) { post { onRefused?.invoke(e.message ?: "\"$name\" could not be frozen") }; return@onGl }
             if (done) { reportHistory(); publishLines(); post { onNotice?.invoke("\"$name\" is plain pixels now. Undo brings its lines and paint back.") } }
             else post { onNotice?.invoke("\"$name\" is already plain pixels.") }
@@ -812,6 +851,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         val before = stackUi
         onBeforeHistoryChange?.invoke()
         onGl {
+            mediaCanvas.releaseWindow()   // its live state written back first; nothing stale flushes into the result later
             val plan = try {
                 cc.joycreator.joybrush.androidkit.layers.FlattenPlan.decide(before, discardHidden) { id ->
                     cc.joycreator.joybrush.androidkit.layers.FlattenPlan.Facts(hasFrames = before[id]?.let { engine.mergeSide(it).hasFrames } == true)
@@ -1046,7 +1086,19 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         onToggleUi = { onToggleUi?.invoke() },
     )
 
-    private var penSeen = false
+    /**
+     * A pen has touched or hovered this canvas: from then on one finger navigates, it never paints. Remembered across restarts
+     * (2026-10-21: after a crash it started false, and the owner's fingers, moving the canvas, left daubs of watercolour).
+     */
+    private var penSeen: Boolean
+        get() = penSeenNow ?: context.getSharedPreferences(PEN_PREFS, android.content.Context.MODE_PRIVATE)
+            .getBoolean(PREF_PEN_SEEN, false).also { penSeenNow = it }
+        set(v) {
+            if (v == penSeen) return
+            penSeenNow = v
+            if (v) context.getSharedPreferences(PEN_PREFS, android.content.Context.MODE_PRIVATE).edit().putBoolean(PREF_PEN_SEEN, true).apply()
+        }
+    private var penSeenNow: Boolean? = null
     private var penHovering = false
     private var penUpAt = 0L
     private var drawing = false
@@ -1094,9 +1146,12 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                 post {
                     fillSerial++; onFillPreview?.invoke(null)
                     surfaceReady = true
+                    // A new drawing and a graphics restart compile the media programs before the first stroke too,
+                    // not only a drawing opened from a file (the first stroke after an install paid for all of them).
+                    postDelayed({ pumpMediaPrewarm() }, 400)
                     if (contentLost) {
                         val recover = onGraphicsLost
-                        if (recover != null) recover(retainedContents?.doc?.id ?: DOC_ID)
+                        if (recover != null) recover(retainedContents?.doc?.id ?: freshDocId)
                         else onRefused?.invoke("The graphics restarted. Reopen your saved drawing before continuing; the empty canvas will not be saved.")
                     }
                     onReady?.invoke()
@@ -1112,7 +1167,14 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
             }
             override fun onDrawFrame(gl: GL10?) {
                 frameStats.frameBegin()
-                try { drawFrame() } finally { frameStats.frameEnd() }
+                // Bench only: while the bench records, the paint engine's and the media's sections of this frame are timed
+                // (MediaPhases, glFinish brackets) into its phases. Off (the app): nothing set, nothing timed.
+                val timing = frameStats.recording
+                if (timing) cc.joycreator.joybrush.androidkit.gl.media.MediaPhases.timer = { name, ms -> frameStats.phase(name, ms) }
+                try { drawFrame() } finally {
+                    if (timing) cc.joycreator.joybrush.androidkit.gl.media.MediaPhases.timer = null
+                    frameStats.frameEnd()
+                }
             }
             private fun drawFrame() {
                 while (frameWork.isNotEmpty()) frameWork.removeFirst()()
@@ -1122,7 +1184,12 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                     if (mediaCanvas.frame(SystemClock.uptimeMillis())) { reportMediaHistory(); super@JbCanvasView.requestRender() }
                 } catch (e: Exception) {
                     noteBenchError("media frame", e)
-                    mediaCanvas.release()
+                    // What the stroke already painted stays, as its one undo step; a step left open made the NEXT media
+                    // stroke crash ("a media stroke inside another stroke", Note 9 2026-10-20, after a refused atlas frame).
+                    val refused = e is cc.joycreator.joybrush.androidkit.gl.MediaRoomException
+                    if (refused) mediaCanvas.dropRefusedStroke()   // the engine and its water stay
+                    if (engine.mediaStrokeInProgress) { engine.endMediaStroke(); reportMediaHistory() }
+                    if (!refused) mediaCanvas.release()
                     post { if (drawing && (mediaStroke || mediaErase)) cancelStroke(); onRefused?.invoke(e.message ?: "The pencil, watercolour or oil stroke could not be painted") }
                 }
                 frameStats.afterMedia()
@@ -1151,13 +1218,13 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         onBeforeHistoryChange?.invoke()
         if (drawing) finishStroke()
         val editRevision = paperRevision; val historyRevision = ++paperHistoryRevision
-        onGl { engine.undoStep(); reportHistory(editRevision,historyRevision) }
+        onGl { mediaCanvas.settleOwed(); engine.undoStep(); reportHistory(editRevision,historyRevision) }
     }
     fun redo() {
         onBeforeHistoryChange?.invoke()
         if (drawing) finishStroke()
         val editRevision = paperRevision; val historyRevision = ++paperHistoryRevision
-        onGl { engine.redoStep(); reportHistory(editRevision,historyRevision) }
+        onGl { mediaCanvas.settleOwed(); engine.redoStep(); reportHistory(editRevision,historyRevision) }
     }
     /** Empties the layer being painted on, as one undo step. */
     fun clearCanvas() {
@@ -1247,7 +1314,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
             }
             if (isPenAt(ev, 0)) {
                 penSeen = true
-                if (Build.VERSION.SDK_INT >= 30) requestUnbufferedDispatch(ev)
+                requestUnbufferedDispatch(ev)   // the MotionEvent form exists since API 21 (the Note 9 is 29: it was skipped)
                 pointerId = ev.getPointerId(0)
                 startStroke(eraser = MotionEventSamples.tool(ev, 0) == Tool.ERASER)
                 feed(ev)
@@ -1604,7 +1671,25 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         smoother = null; placer = null; tracker = null
         strokePreset = null; strokeDabber = null; strokeTips = null; contactColors = null; strokeWatercolour = null; scatterRng = null; strokeErase = false; strokeTuft = null
         onGl {
-            mediaCanvas.end()
+            // Said in words, never a crash: what the stroke painted stays (its look), it just could not all be kept.
+            try { mediaCanvas.end() } catch (e: cc.joycreator.joybrush.androidkit.gl.MediaRoomException) {
+                noteBenchError("media end", e)
+                post { onRefused?.invoke(e.message ?: "This pencil, watercolour or oil stroke could not all be kept") }
+            }
+            reportHistory()
+        }
+        flushPaperVisits()
+        onStrokeEnded?.invoke()
+    }
+
+    private fun cancelMediaStroke() {
+        resetSnapper(fresh = false)
+        drawing = false
+        mediaStroke = false; mediaErase = false; mediaBegun = false
+        smoother = null; placer = null; tracker = null
+        strokePreset = null; strokeDabber = null; strokeWatercolour = null; scatterRng = null; strokeErase = false; strokeTuft = null
+        onGl {
+            mediaCanvas.cancel()
             reportHistory()
         }
         flushPaperVisits()
@@ -1721,6 +1806,24 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         // replay as a line; any other stroke is still painted, and the engine keeps it as a pixel slab in time order with
         // the lines. Only realistic media (and a tiled board) stay refused in words. With the switch on, a replayable
         // stroke starts a line.
+        // R51, any brush works on any layer (owner, 2026-10-21: his daughter and his wife found the pen did nothing with a brush
+        // picked): a realistic brush on a layer that holds editable lines first turns them into paint (Freeze: the picture
+        // unchanged, its own undo step, said once), then paints. It used to be refused.
+        if (p?.engine == ENGINE_MEDIA && !eraser && !editingMask && watercolourPreviewSeed == null && tileBoardId == null &&
+            lineSnapshot.holdsItemsOnLayer(activeLayer)) {
+            val id = activeLayer; val name = stackUi.active.name
+            onBeforeHistoryChange?.invoke()
+            onGl {
+                mediaCanvas.releaseWindow()
+                val done = try { engine.freezeLayerStep(id) } catch (e: Exception) { noteBenchError("freeze for media", e); false }
+                if (done) {
+                    reportHistory(); publishLines()
+                    post { onNotice?.invoke("Lines on \"$name\" became paint so pencil, watercolour and oil fit. Undo brings them back.") }
+                }
+            }
+            startMediaStroke(p)
+            return
+        }
         var lineFrozen: FrozenBrushResult? = null
         if (!editingMask && watercolourPreviewSeed == null) {
             val holdsItems = lineSnapshot.holdsItemsOnLayer(activeLayer)
@@ -1996,8 +2099,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         diagnosticContact = null
         lineContact?.capture?.cancel()
         lineContact = null
-        // What a media stroke already painted stays, as one step (water cannot be un-run mid-flow).
-        if (mediaStroke || mediaErase) { finishMediaStroke(); return }
+        // A media stroke given up (a second finger, a cancelled gesture) goes back to before it, as a plain stroke does: no step,
+        // redo kept, and its water gone with it. It used to stay as a step: the owner's finger daubs, 2026-10-21, which a
+        // two-finger-tap undo could not reach (each tap's first finger made and removed a daub of its own).
+        if (mediaStroke || mediaErase) { cancelMediaStroke(); return }
         resetSnapper(fresh = false)
         fillSerial++; fillSamples.clear(); fillPoints.clear(); onFillPreview?.invoke(null)
         drawing = false
@@ -2234,9 +2339,12 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
      * Several PAINT layers are shown in full (JB-2.04). Opening the half that can be shown and dropping
      * the rest is the one thing this must never do.
      */
-    fun load(contents: JbContents, onDone: () -> Unit) {
+    fun load(opened: JbContents, onDone: () -> Unit) {
         lineEditEpoch += 1          // edits handed in before this are about the old drawing (H10)
         frozenBrushes.clear()
+        // A drawing that still carries the once-shared id gets its own now; the next save writes it (audit 2026-10-18).
+        val contents = if (opened.doc.id == LEGACY_SHARED_DOC_ID) opened.copy(doc = opened.doc.copy(id = newDocumentId())) else opened
+        freshDocId = contents.doc.id
         val doc = withoutLineDeclarations(contents.doc)
         val retained = validatedLoadMetadata(contents).let { it.copy(doc = withoutLineDeclarations(it.doc)) }
 
@@ -2277,6 +2385,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         activeLayer = active
         editingMask = false
         onGl(allowLost = true) {
+            // The previous drawing's realistic paint (its media window and any moving water) is discarded first, never
+            // flushed into the new drawing's layers (audit 2026-10-18 P1: a wet wash could paint into the next drawing).
+            if (contentLost) mediaCanvas.forget() else mediaCanvas.release()
             // resetDocument() empties EVERY layer; the file's stack is put back whole, then its pixels.
             engine.resetDocument()
             engine.setStack(stack)
@@ -2478,7 +2589,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                     if (bytes == null || bytes.size != TILE_BYTES) {
                         throw JbArchiveException("a tile of the mask of layer \"${s.name}\" could not be read back from the GPU")
                     }
-                    if (Tiles.isBlank(bytes)) continue
+                    // Kept even when all zero: a mask tile erased to nothing HIDES its area, while a missing one shows
+                    // everything (audit 2026-10-18 P1; BoardSnapshot already keeps them).
                     val name = DocOps.key(Tiles.tx(key), Tiles.ty(key))
                     maskNames.add(name)
                     tiles[Triple(s.id, LayerMask.MASK_CEL, name)] = bytes
@@ -2493,7 +2605,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         val pw = if (pageW > 0) pageW else w
         val ph = if (pageH > 0) pageH else h
         val ids = ArrayDeque(listOf(BOARD_ID, stack.layers[0].id, CEL_ID))
-        val base = DocOps.newDocument(DOC_ID, documentName, pw, ph) { ids.removeFirst() }
+        val base = DocOps.newDocument(freshDocId, documentName, pw, ph) { ids.removeFirst() }
         val template = base.layers[0]
         val templateCel = template.cels[0]
         val docLayers = stack.layers.map { s ->
@@ -2687,7 +2799,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     fun benchFreshDrawing(onDone: () -> Unit) {
         if (drawing) cancelStroke()
         val ids = ArrayDeque(listOf(BOARD_ID, FIRST_LAYER, CEL_ID))
-        val fresh = DocOps.newDocument(DOC_ID, documentName, viewW, viewH) { ids.removeFirst() }.copy(paper = documentPaperState)
+        freshDocId = newDocumentId()
+        val fresh = DocOps.newDocument(freshDocId, documentName, viewW, viewH) { ids.removeFirst() }.copy(paper = documentPaperState)
         onGl(allowLost = true) { mediaCanvas.releaseWindow() }
         load(JbContents(fresh, emptyMap(), emptyMap(), null), onDone)
     }
@@ -3029,10 +3142,20 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
      * After a drawing opens, the pencil, watercolour and oil programs compile one per idle moment (GL thread), so the first
      * realistic stroke starts at once instead of stalling about a second on a Note 9. Never during a stroke.
      */
+    /** One prewarm chain at a time: a surface and a load straight after it ask for it together. Main thread. */
+    private var prewarmPumping = false
+
     private fun pumpMediaPrewarm() {
+        if (prewarmPumping) return
+        prewarmPumping = true
+        pumpMediaPrewarmStep()
+    }
+
+    private fun pumpMediaPrewarmStep() {
         onGl {
-            if (drawing || engine.strokeInProgress) { postDelayed({ pumpMediaPrewarm() }, 500); return@onGl }
-            if (mediaCanvas.prewarmStep()) post { postDelayed({ pumpMediaPrewarm() }, 60) }
+            if (drawing || engine.strokeInProgress) { post { postDelayed({ pumpMediaPrewarmStep() }, 500) }; return@onGl }
+            if (mediaCanvas.prewarmStep()) post { postDelayed({ pumpMediaPrewarmStep() }, 60) }
+            else post { prewarmPumping = false }
         }
     }
 
@@ -3175,6 +3298,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     companion object {
         /** Fingers are ignored for this long after the pen lifts (palm rejection). */
         const val PALM_GRACE_MS = 400L
+        private const val PEN_PREFS = "joybrush.canvas"
+        private const val PREF_PEN_SEEN = "penSeen"
 
         /** Opaque black, the alpha a screen sample is given (the screen has no transparency). */
         private const val OPAQUE_BLACK = -0x1000000
@@ -3187,7 +3312,11 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         const val SCATTER_SALT = 0x5CA7L
 
         /** This screen holds exactly one drawing, so its document id is a constant. */
-        private const val DOC_ID = "joy-brush"
+        /**
+         * The id every drawing used to share (audit 2026-10-18, P1: two drawings with one id could overwrite each other's
+         * folder copy). Never given to a new document any more; a drawing that still carries it gets its own on open.
+         */
+        const val LEGACY_SHARED_DOC_ID = "joy-brush"
         private const val BOARD_ID = "board-1"
         private const val CEL_ID = "cel-1"
 

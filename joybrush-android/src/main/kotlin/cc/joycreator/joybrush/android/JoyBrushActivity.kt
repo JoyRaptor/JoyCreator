@@ -185,6 +185,16 @@ private const val PREF_GUIDES = "guides"
 private const val PREF_EDITABLE_LINES = "joybrush.editableLines"
 /** LAYER_OPS L6: what Flatten does with hidden layers: "ask" (default), "keep" or "discard". */
 private const val PREF_FLATTEN_HIDDEN = "joybrush.flattenHidden"
+private const val PREF_WATER_TEST = "joybrush.waterTest"
+/** The paint engine for pencil, watercolour and oil: "atlas" (the whole layer) or "window" (the old 1024 px patch). */
+private const val PREF_PAINT_ENGINE = "joybrush.paintEngine"
+/** What a person who never chose gets: the atlas since 10-21 (water jobs, the whole layer); the old window one tap away. */
+private const val DEFAULT_PAINT_ENGINE = "atlas"
+// Export (LAYER_OPS §6): the last choices, so the next export is one tap.
+private const val PREF_EXPORT_WHOLE = "joybrush.exportWhole"
+private const val PREF_EXPORT_LAYERED = "joybrush.exportLayered"
+// A fresh key: the older "export_paper" may hold a value of another type from an earlier build.
+private const val PREF_EXPORT_WITH_PAPER = "joybrush.exportPaper"
 
 /** Layer thumbnails are re-drawn this long after the last change, so a burst of strokes costs one refresh. */
 private const val THUMBS_AFTER_MS = 250L
@@ -363,7 +373,9 @@ class JoyBrushActivity : Activity() {
         }
     }
 
-    private data class PngTarget(val documentId: String, val boardId: String, val frameId: String?, val includePaper: Boolean)
+    /** An export on its way to the file picker: [boardId] null = the whole drawing; [layered] = OpenRaster, not PNG. */
+    private data class PngTarget(val documentId: String, val boardId: String?, val frameId: String?, val includePaper: Boolean,
+                                 val layered: Boolean = false)
     private var pendingPng: PngTarget? = null
     private var pendingBoardExport: cc.joycreator.joybrush.androidkit.io.BoardExportRequest? = null
     private var boardBackdrop: cc.joycreator.joybrush.android.board.BoardBackdrop? = null
@@ -421,13 +433,20 @@ class JoyBrushActivity : Activity() {
     /** Pausing the GL thread, once a snapshot has answered or the wait for one is up. */
     private val pauseView = Runnable { pauseViewNow() }
 
+    /** Back closes an open menu first (the smoke test, 2026-10-18: it left the drawing with a layer menu still open). */
+    @Deprecated("Back on a plain Activity")
+    override fun onBackPressed() {
+        if (popovers.isOpen) { popovers.close(); return }
+        @Suppress("DEPRECATION") super.onBackPressed()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         pendingBoardExport = cc.joycreator.joybrush.android.board.BoardExportCoordinator.restore(savedInstanceState?.getBundle("board_export"))
-        savedInstanceState?.getString("png_board")?.let { board ->
-            savedInstanceState.getString("png_document")?.let { document ->
-                pendingPng = PngTarget(document, board, savedInstanceState.getString("png_frame"), savedInstanceState.getBoolean("png_paper"))
-            }
+        savedInstanceState?.getString("png_document")?.let { document ->
+            val board = savedInstanceState.getString("png_board")
+            if (board != null || savedInstanceState.getBoolean("png_whole")) pendingPng = PngTarget(document, board,
+                savedInstanceState.getString("png_frame"), savedInstanceState.getBoolean("png_paper"), savedInstanceState.getBoolean("png_layered"))
         }
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
@@ -443,6 +462,8 @@ class JoyBrushActivity : Activity() {
         }
         kit = ChromeKit(this)
         prefs = getSharedPreferences(CHROME_PREFS, Context.MODE_PRIVATE)
+        canvas.mediaWaterAB = WaterTest.of(prefs.getString(PREF_WATER_TEST, null)).ab
+        canvas.setMediaAtlas(prefs.getString(PREF_PAINT_ENGINE, DEFAULT_PAINT_ENGINE) == "atlas")
         // Each tool as the person left it; the first shipped brush of each kind on a first visit (JB-1.05b, JB-2.01).
         pendingCatalogTools = prefs.getString(PREF_TOOLS, null)
         catalogToolsPending = UnibrushActivation.SHIPPING_ENABLED || pendingCatalogTools?.contains("unibrush.") == true
@@ -617,6 +638,8 @@ class JoyBrushActivity : Activity() {
             outState.putString("png_board", target.boardId)
             outState.putString("png_frame", target.frameId)
             outState.putBoolean("png_paper", target.includePaper)
+            outState.putBoolean("png_whole", target.boardId == null)
+            outState.putBoolean("png_layered", target.layered)
         }
         super.onSaveInstanceState(outState)
     }
@@ -1021,11 +1044,29 @@ class JoyBrushActivity : Activity() {
             prefs.edit().putString(PREF_FLATTEN_HIDDEN, next).apply()
             popovers.close(); moreMenu(anchor)
         })
+        // The owner's watercolour comparison (October 18): steps through the ways the water trades work for speed.
+        val water = WaterTest.of(prefs.getString(PREF_WATER_TEST, null))
+        box.addView(menuRow("Water test: ${water.label}", "${water.about} Tap for the next one") {
+            val next = WaterTest.next(water.id)
+            prefs.edit().putString(PREF_WATER_TEST, next.id).apply()
+            canvas.mediaWaterAB = next.ab
+            popovers.close(); moreMenu(anchor)
+        })
+        // The paint engine (October 20): the atlas paints pencil, watercolour and oil on the whole layer, with no window edge;
+        // the window is the old engine, kept so the two can be compared on the same drawing.
+        val atlasOn = prefs.getString(PREF_PAINT_ENGINE, DEFAULT_PAINT_ENGINE) == "atlas"
+        box.addView(menuRow(if (atlasOn) "Paint engine: Atlas (new)" else "Paint engine: Window (old)",
+            if (atlasOn) "Pencil, watercolour and oil work on the whole layer: no edge where the water stops. Tap for the old window"
+            else "Pencil, watercolour and oil work in a patch near the pen (water stops at its edge). Tap for the new atlas") {
+            prefs.edit().putString(PREF_PAINT_ENGINE, if (atlasOn) "window" else "atlas").apply()
+            canvas.setMediaAtlas(!atlasOn)
+            popovers.close(); moreMenu(anchor)
+        })
         addTiltRows(box)
         box.addView(menuRow("Save a copy…", "Save a copy of this drawing where you choose") { askWhereToSave() })
         box.addView(menuRow("Open…", "Open a drawing from your files") { askWhichToOpen() })
         box.addView(menuRow("Recent drawings…", "Recover one of the last drawings kept before Open") { recentDrawings(anchor) })
-        box.addView(menuRow("Export board…", "Choose a format for the selected board, or the page") { pngOptions(anchor) })
+        box.addView(menuRow("Export…", "Export this board or the whole drawing, as a flat picture or a layered file") { exportMenu(anchor) })
 
         unibrush?.let { controller ->
             box.addView(menuRow("Stabilizer…", "Choose each brush's suggestion or your own canvas stabilizer") {
@@ -1198,6 +1239,7 @@ class JoyBrushActivity : Activity() {
         overlays.addView(tiltPad, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.BOTTOM or Gravity.END))
         tiltPad.setWanted(prefs.getBoolean(PREF_TILT_PAD, false))
         paperTilt.phoneTilt = prefs.getBoolean(PREF_TILT_PHONE, false) && paperTilt.phoneTiltAvailable
+        lockRotationForTilt(paperTilt.phoneTilt)
     }
 
     /** The two switches, in the ⋯ menu beside the other things set once and rarely touched. */
@@ -1214,8 +1256,18 @@ class JoyBrushActivity : Activity() {
                 "Tip the phone to tip the paper; the way you hold it when you switch this on counts as level") {
                 prefs.edit().putBoolean(PREF_TILT_PHONE, !phoneOn).apply()
                 paperTilt.phoneTilt = !phoneOn
+                lockRotationForTilt(!phoneOn)
             })
         }
+    }
+
+    /**
+     * Tipping the phone to run the paint must never turn the screen (owner, 10-19): while "Tilt with phone" is on the
+     * screen stays as it is, whatever the phone's own auto-rotate setting says.
+     */
+    private fun lockRotationForTilt(on: Boolean) {
+        requestedOrientation = if (on) android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LOCKED
+            else android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
     }
 
     /** Owner decision 5: everything movable, and one way back. */
@@ -2026,7 +2078,7 @@ class JoyBrushActivity : Activity() {
                         when (dest) {
                             is SaveDest.Copy -> "Couldn't save the copy. Your drawing is safe. $problem"
                             is SaveDest.Open -> "Couldn't open the drawing. Your previous drawing was kept. $problem"
-                            is SaveDest.Png -> "Couldn't export the PNG. Your drawing is safe. $problem"
+                            is SaveDest.Png -> "Couldn't export. Your drawing is safe. $problem"
                             is SaveDest.BoardExport -> "Couldn't export the board. Your drawing is safe. $problem"
                             is SaveDest.BoardHandoff -> "Couldn't open the board. $problem"
                             is SaveDest.Working -> "The autosave did not work: $problem"
@@ -2042,7 +2094,7 @@ class JoyBrushActivity : Activity() {
                     // working file is up to date: `changes` is left exactly as it was.
                     toast("Copy saved")
                 } else if (problem == null && dest is SaveDest.Png && !destroyed) {
-                    toast("PNG exported")
+                    toast(if (dest.target.layered) "Layered file exported" else "Picture exported")
                 } else if (problem == null && dest is SaveDest.BoardExport && !destroyed) {
                     toast(if(dest.target.folder) "Board files exported into a new folder" else "Board exported")
                 } else if(problem == null && dest is SaveDest.BoardHandoff) {
@@ -2088,15 +2140,15 @@ class JoyBrushActivity : Activity() {
                         is SaveDest.Png -> {
                             // Encode and validate completely before touching the chosen destination.
                             if (contents.doc.id != dest.target.documentId) throw JbArchiveException("the drawing changed; choose the board to export again")
-                            val png = CanvasPng.encodeBoard(contents, dest.target.boardId, dest.target.includePaper, dest.target.frameId)
+                            val bytes = exportBytes(cc.joycreator.joybrush.androidkit.io.ExportPicture.asShown(contents), dest.target)
                             val output = contentResolver.openOutputStream(dest.uri, "wt")
-                                ?: throw JbArchiveException("the PNG destination could not be opened")
-                            output.use { it.write(png) }
+                                ?: throw JbArchiveException("the export destination could not be opened")
+                            output.use { it.write(bytes) }
                         }
                         is SaveDest.BoardExport -> cc.joycreator.joybrush.android.board.BoardExportCoordinator.write(
-                            contentResolver,dest.uri,contents,dest.target,cacheDir)
+                            contentResolver,dest.uri,cc.joycreator.joybrush.androidkit.io.ExportPicture.asShown(contents),dest.target,cacheDir)
                         is SaveDest.BoardHandoff -> {
-                            val prepared=cc.joycreator.joybrush.androidkit.io.BoardExport.stage(contents,
+                            val prepared=cc.joycreator.joybrush.androidkit.io.BoardExport.stage(cc.joycreator.joybrush.androidkit.io.ExportPicture.asShown(contents),
                                 dest.target.copy(format=cc.joycreator.joybrush.core.chrome.BoardExportLayout.Format.SPRITE_SHEET),cacheDir)
                             dest.bundle=prepared.directory
                         }
@@ -2374,6 +2426,63 @@ class JoyBrushActivity : Activity() {
                 popovers.show(box, anchor, Popovers.Side.BELOW, widthDp = 260f)
             }
         }
+    }
+
+    /**
+     * Export (LAYER_OPS §6, the owner's "click it, swap easy"): this board or the whole drawing, a flat picture or a
+     * layered file, with or without the paper. Each choice is remembered, so the next export is one tap.
+     */
+    private fun exportMenu(anchor: View) {
+        val doc = canvas.boardDocument
+        if (doc == null) { canvas.ensureBoardDocument { exportMenu(anchor) }; return }
+        val whole = prefs.getBoolean(PREF_EXPORT_WHOLE, false)
+        val layered = prefs.getBoolean(PREF_EXPORT_LAYERED, false)
+        val paper = prefs.getBoolean(PREF_EXPORT_WITH_PAPER, true)
+        fun pick(key: String, on: Boolean) { prefs.edit().putBoolean(key, on).apply(); exportMenu(anchor) }
+        fun mark(on: Boolean) = if (on) "●  " else "○  "
+        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        box.addView(menuRow(mark(!whole) + "This board", "Export the selected board, or the page when none is selected") {
+            pick(PREF_EXPORT_WHOLE, false) })
+        box.addView(menuRow(mark(whole) + "Whole drawing", "Export everything you have drawn, cropped to it") {
+            pick(PREF_EXPORT_WHOLE, true) })
+        box.addView(menuRow(mark(!layered) + "Flat picture", "One picture with every layer merged (PNG)") {
+            pick(PREF_EXPORT_LAYERED, false) })
+        box.addView(menuRow(mark(layered) + "Layered file", "Every layer kept separate (OpenRaster: opens in Krita, GIMP and MyPaint)") {
+            pick(PREF_EXPORT_LAYERED, true) })
+        // A board's flat picture has its own sheet (PNG, GIF, sprite sheet…) with its own paper switch.
+        val ownSheet = !whole && !layered
+        if (!ownSheet) box.addView(menuRow(if (paper) "☑  Include the paper" else "☐  Include the paper",
+            "Put the paper under the drawing, or leave it transparent") { pick(PREF_EXPORT_WITH_PAPER, !paper) })
+        box.addView(menuRow(if (ownSheet) "Choose a format  ›" else "Export  ›", "Choose where to save it") {
+            if (ownSheet) { pngOptions(anchor); return@menuRow }
+            val boardId = if (whole) null else boardController?.selectedBoardId
+                ?: doc.boards.firstOrNull { it.kind == cc.joycreator.joybrush.core.doc.BoardKind.CANVAS }?.id
+            if (!whole && boardId == null) { toast("Choose a board to export"); return@menuRow }
+            boardController?.stopPreview()
+            pendingPng = PngTarget(doc.id, boardId, null, paper, layered)
+            // The drawing's name as the library shows it ("Drawing 3"), not the document's internal one.
+            val name = if (boardId != null) doc.boards.first { it.id == boardId }.name
+                else workingFile()?.let { f -> cc.joycreator.joybrush.android.library.DrawingLibrary.list(this).firstOrNull { it.file == f.name }?.name } ?: doc.name
+            launch(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                addCategory(Intent.CATEGORY_OPENABLE)
+                type = if (layered) "image/openraster" else "image/png"
+                putExtra(Intent.EXTRA_TITLE, cc.joycreator.joybrush.core.export.AnimExport.safeBaseName(name) + if (layered) ".ora" else ".png")
+            }, REQUEST_EXPORT_PNG)
+        })
+        popovers.show(box, anchor, Popovers.Side.BESIDE, widthDp = 240f)
+    }
+
+    /** The chosen export, encoded in full before the destination is touched. File thread. */
+    private fun exportBytes(shown: JbContents, t: PngTarget): ByteArray {
+        val board = t.boardId
+        if (!t.layered) return if (board == null) CanvasPng.encodeRegion(shown,
+            cc.joycreator.joybrush.androidkit.io.ExportPicture.wholeDrawing(shown), t.includePaper)
+            else CanvasPng.encodeBoard(shown, board, t.includePaper, t.frameId)
+        return java.io.ByteArrayOutputStream().also { out ->
+            if (board == null) cc.joycreator.joybrush.androidkit.io.OraExport.write(out, shown, "", null, t.includePaper,
+                brushLookup = null, region = cc.joycreator.joybrush.androidkit.io.ExportPicture.wholeDrawing(shown))
+            else cc.joycreator.joybrush.androidkit.io.OraExport.write(out, shown, board, t.frameId, t.includePaper)
+        }.toByteArray()
     }
 
     private fun pngOptions(anchor: View, boardId: String? = boardController?.selectedBoardId) {

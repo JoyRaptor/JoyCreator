@@ -12,7 +12,6 @@ import androidx.fragment.app.FragmentActivity;
 import com.fadcam.FLog;
 import com.fadcam.MainActivity;
 import com.fadcam.R;
-import com.fadcam.ui.AboutFragment;
 import com.fadcam.ui.AppearanceSettingsFragment;
 import com.fadcam.ui.AudioSettingsFragment;
 import com.fadcam.ui.DebugLogBottomSheetFragment;
@@ -95,7 +94,8 @@ final class SettingsDestinations {
             case UPDATE_CHECK:       SettingsSwitchSheets.updateCheck(host); break;
             case DEBUG_LOG:          DebugLogBottomSheetFragment.newInstance().show(host.getParentFragmentManager(), "debug_log_tools"); break;
             case SETTINGS_BACKUP:    new PrefsBackupBottomSheetFragment().show(host.getParentFragmentManager(), "prefs_backup"); break;
-            case ABOUT:              over(a, new AboutFragment()); break;
+            // The new About page; the classic one stays reachable from its foot.
+            case ABOUT:              com.fadcam.ui.about.AboutJoyFragment.open(a); break;
             case RATE:               rate(a); break;
             case CLASSIC_SETTINGS:   handOver(a, TAB_CLASSIC_SETTINGS); break;
             default:                 throw new IllegalStateException("no destination for " + key);

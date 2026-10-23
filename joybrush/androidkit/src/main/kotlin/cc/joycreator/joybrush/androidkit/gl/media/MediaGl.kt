@@ -22,6 +22,8 @@ internal interface UniformSink {
     fun uniform1i(loc: Int, a: Int)
     /** Only Media Atlas v2's page-table uniforms are int vectors (the window build declares none). */
     fun uniform4i(loc: Int, a: Int, b: Int, c: Int, d: Int): Unit = throw UnsupportedOperationException("uniform4i")
+    /** And the atlas look's neighbour slots (an ivec2 array, JB_ATLAS_NBR). */
+    fun uniform2iv(loc: Int, count: Int, v: IntArray): Unit = throw UnsupportedOperationException("uniform2iv")
 
     /** Binds [tex] on texture [unit] and leaves unit 0 active again, exactly as the map-based `use` always did. */
     fun bindTexture(unit: Int, tex: Int)
@@ -34,6 +36,7 @@ internal object GlUniformSink : UniformSink {
     override fun uniform4f(loc: Int, a: Float, b: Float, c: Float, d: Float) = GLES30.glUniform4f(loc, a, b, c, d)
     override fun uniform1i(loc: Int, a: Int) = GLES30.glUniform1i(loc, a)
     override fun uniform4i(loc: Int, a: Int, b: Int, c: Int, d: Int) = GLES30.glUniform4i(loc, a, b, c, d)
+    override fun uniform2iv(loc: Int, count: Int, v: IntArray) = GLES30.glUniform2iv(loc, count, v, 0)
     override fun bindTexture(unit: Int, tex: Int) {
         GLES30.glActiveTexture(GLES30.GL_TEXTURE0 + unit)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, tex)
@@ -47,6 +50,8 @@ internal class UniformSlot(val loc: Int, val type: Int, val unit: Int) {
     val f = FloatArray(4)
     var i = 0
     var known = false
+    /** A sampler's texture as last bound through the bank (what [UniformBank.copyInto] binds for the twin). */
+    var tex = 0
 }
 
 /**
@@ -126,7 +131,7 @@ internal class UniformBank(private val slots: Map<String, UniformSlot>, private 
     fun tex(name: String, tex: Int) {
         val s = slots[name] ?: return
         if (s.type != GLES30.GL_SAMPLER_2D) wrongType(name, "a sampler")
-        sink.bindTexture(s.unit, tex)
+        sink.bindTexture(s.unit, tex); s.tex = tex
         writeInt(s, s.unit)
     }
 
@@ -134,7 +139,7 @@ internal class UniformBank(private val slots: Map<String, UniformSlot>, private 
     fun itex(name: String, tex: Int) {
         val s = slots[name] ?: return
         if (s.type != GLES30.GL_INT_SAMPLER_2D) wrongType(name, "an integer sampler")
-        sink.bindTexture(s.unit, tex)
+        sink.bindTexture(s.unit, tex); s.tex = tex
         writeInt(s, s.unit)
     }
     fun i4(name: String, x: Int, y: Int, z: Int, w: Int) {
@@ -143,6 +148,56 @@ internal class UniformBank(private val slots: Map<String, UniformSlot>, private 
         val f = s.f   // small ints are exact as floats: the shadow copy
         if (s.known && f[0] == x.toFloat() && f[1] == y.toFloat() && f[2] == z.toFloat() && f[3] == w.toFloat()) return
         sink.uniform4i(s.loc, x, y, z, w); f[0] = x.toFloat(); f[1] = y.toFloat(); f[2] = z.toFloat(); f[3] = w.toFloat(); s.known = true
+    }
+
+    /** Whether the program declares [name] (and uses it): a JB_ATLAS_NBR program has u_nbrSlot. */
+    fun has(name: String): Boolean = name in slots
+
+    /** An ivec2 or ivec2 array (u_nbrTile, u_nbrSlot), written whole every draw (they change with every tile drawn). */
+    fun i2v(name: String, v: IntArray) {
+        val s = slots[name] ?: return
+        if (s.type != GLES30.GL_INT_VEC2) wrongType(name, "an ivec2 array")
+        sink.uniform2iv(s.loc, v.size / 2, v)
+        // A single ivec2 is remembered (for [copyInto]); an array is not.
+        if (v.size == 2) { s.f[0] = v[0].toFloat(); s.f[1] = v[1].toFloat(); s.known = true } else s.known = false
+    }
+
+    /**
+     * The OWN build of this pass's program (JB_ATLAS_OWN: reads only inside the fragment's own tile) and how far the pass
+     * reads, full-resolution layer px at layer scale 1: MediaAtlasGl.drawRect draws each tile's part at least that far from
+     * its edges with it, in one draw, and only the strips along the edges with this program.
+     */
+    internal var own: MediaProgram? = null
+    internal var ownReach = 0
+    /** The program this bank belongs to (made current again after a draw with [own]). */
+    internal var self: MediaProgram? = null
+
+    /**
+     * Writes everything this bank has written into [o] (another build of the same shader, made current by the caller), and
+     * binds this bank's textures on [o]'s units. Its units may differ from these, so [rebindTextures] puts these back after.
+     */
+    fun copyInto(o: UniformBank) {
+        for ((name, s) in slots) {
+            if (o.slots[name] == null) continue
+            when (s.type) {
+                GLES30.GL_SAMPLER_2D -> if (s.known) o.tex(name, s.tex)
+                GLES30.GL_INT_SAMPLER_2D -> if (s.known) o.itex(name, s.tex)
+                else -> if (s.known) when (s.type) {
+                    GLES30.GL_FLOAT -> o.f1(name, s.f[0])
+                    GLES30.GL_FLOAT_VEC2 -> o.f2(name, s.f[0], s.f[1])
+                    GLES30.GL_FLOAT_VEC3 -> o.f3(name, s.f[0], s.f[1], s.f[2])
+                    GLES30.GL_FLOAT_VEC4 -> o.f4(name, s.f[0], s.f[1], s.f[2], s.f[3])
+                    GLES30.GL_INT, GLES30.GL_BOOL -> o.slots.getValue(name).let { d -> if (d.type == s.type) o.writeInt(d, s.i) }
+                    GLES30.GL_INT_VEC4 -> o.i4(name, s.f[0].toInt(), s.f[1].toInt(), s.f[2].toInt(), s.f[3].toInt())
+                    GLES30.GL_INT_VEC2 -> o.i2v(name, intArrayOf(s.f[0].toInt(), s.f[1].toInt()))
+                }
+            }
+        }
+    }
+
+    /** Binds this bank's textures on its own units again (after [copyInto] bound them for another build's). */
+    fun rebindTextures() {
+        for (s in slots.values) if (s.known && (s.type == GLES30.GL_SAMPLER_2D || s.type == GLES30.GL_INT_SAMPLER_2D)) sink.bindTexture(s.unit, s.tex)
     }
 
     private fun wrongType(name: String, wanted: String): Nothing =
@@ -155,7 +210,10 @@ internal class UniformBank(private val slots: Map<String, UniformSlot>, private 
  * in declaration order. The program's active uniforms and their locations are read once, here, at link time. GL thread
  * only.
  */
-class MediaProgram(shaders: ShaderLibrary, vert: String, frag: String, label: String, defines: List<String> = emptyList()) {
+class MediaProgram(shaders: ShaderLibrary, vert: String, frag: String, label: String, defines: List<String> = emptyList(),
+                   /** >= 0: also build the OWN-tile twin ([ownDefine]) for a pass reading this far ([UniformBank.own]). */ ownReach: Int = -1,
+                   /** JB_ATLAS_OWN, or JB_ATLAS_NEAR: only the reads within the reach take the own tile (jb_bilinearLSFar). */
+                   ownDefine: String = "JB_ATLAS_OWN") {
     val program = GlProgram(shaders.source(vert, defines), shaders.source(frag, defines), label)
 
     private val bank: UniformBank
@@ -174,12 +232,14 @@ class MediaProgram(shaders: ShaderLibrary, vert: String, frag: String, label: St
             slots[name] = UniformSlot(GLES30.glGetUniformLocation(program.id, name), type[0], unit)
         }
         bank = UniformBank(slots, GlUniformSink, label)
+        bank.self = this
+        if (ownReach >= 0) { bank.own = MediaProgram(shaders, vert, frag, "$label (own tile)", defines + ownDefine); bank.ownReach = ownReach }
     }
 
     /** Makes this program current and returns its uniform bank. */
     internal fun use(): UniformBank { program.use(); return bank }
 
-    fun release() = program.release()
+    fun release() { program.release(); bank.own?.release() }
 }
 
 /** Texture and framebuffer helpers for the media engine (GL thread only). */

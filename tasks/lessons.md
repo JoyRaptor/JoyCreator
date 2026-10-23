@@ -1083,3 +1083,67 @@ as `TIME * knob` are "rate" and the host integrates them.
 - **Rule:** (1) never edit a file in another agent's lane: send them the patch and the reason; (2) run
   `git merge-tree --write-tree HEAD <branch>` BEFORE any merge, and start a build only in a later step after `git status`
   shows a clean tree; (3) on a conflict: `git merge --abort`, stop the build, revert or hand off; never resolve it.
+
+## 2026-10-20 — JoyBrush Lead: three small traps from the tile / crash / atlas day
+- **`grep FATAL` on a phone log also matches OTHER apps** (a carrier service crashed during a stress loop and stopped it as
+  if Joy had). Count `Process: com.fadcam` after FATAL, or the exception text itself.
+- **Git Bash paths for Windows programs:** `adb.exe`, `node` and `adb install` want `C:/Temp/...`, not `/c/Temp/...` (adb: "failed to
+  stat"; node: opens `C:\c\Temp\...`). Use `cygpath -m` for anything handed to a Windows binary.
+- **A flaky crash is worth a stress loop plus a diagnostic build, not more reading.** The palette-knife "duplicate after texture
+  ownership" (about 1 run in 8) took two diagnostic APKs: log double releases with both stacks, loop the brushes that trigger it.
+- **The commit hook blocks device serials and the Windows user path** in new files (even in scripts). Resolve the serial with
+  `adb devices -l | grep SM_N960U` and the folders with `$LOCALAPPDATA`.
+- **A hash compare between two builds only judges deterministic cells.** Check the hash of a build against ITSELF on a board the
+  change does not touch first: Sable, Bristle and every media brush differed run to run, so only the stamp brushes could be judged.
+
+## 2026-10-21 — JoyBrush Lead: what made the atlas fast on the Note 9 (and what did not)
+- **On this tiled GPU a pass costs in proportion to its TARGET, not to what it draws.** Same build, atlas capped at 4 x 6 slots
+  instead of 6 x 6: update and bead per pixel about half. A scissor round what the pass draws bounds it (MediaAtlasGl.drawRect).
+  Any big render target here: scissor every pass. One unscissored blended draw (the wet input in one draw, clipped in the
+  shader) cost 70 ms a frame against 10.
+- **Measure per pixel, not per frame.** A pixel counter (`wet.kpx`) showed the atlas simulating FEWER pixels yet costing more;
+  without it the cause looked like the shader. And an engine that does more real work (water the window cut off) is not slower.
+- **A pile-up has a cliff.** Per-step cost 1.35x the window's made oil frames 3x slower: slow frames gather more input, more
+  steps. Cut the per-step cost to parity, or the steps per frame (PasteSpacing), not just the average.
+- **Test the expensive idea's cost before keeping it.** The half-resolution drip field cut the flux 21 % and added a pass
+  costing twice that: dropped. Time both sides on the phone before committing.
+- **Never edit the worktree while a build of it runs** (the build picks up half the change). Wait for the APK copy, or build in
+  another worktree.
+- **The bench screenshot is the FIRST brush's.** Put the brush to judge first in the list.
+- **A failed build leaves the last APK in place.** `build && cp apk` still copied a stale APK when the wrapper's exit code was 0;
+  copy only after `grep -q "BUILD SUCCESSFUL"` on the build log, and delete the copy name first.
+
+## 2026-10-21 — JoyBrush Lead: coarse water, and a knob that was never wired
+- **A brush knob can be dead end to end and nobody notices.** Watercolour granulation (`WetBrush.gran`, with a slider) never
+  reached the shader: `u_gran` was absent from `wetUniforms` and an unset uniform reads 0. The lab set it per scenario; the
+  Kotlin port dropped it. The owner spotted it by eye. When porting a shader, list its uniforms and grep that every one is set.
+- **Kotlin `a + if (c) x else y + z` puts `+ z` inside the else.** Two conditional program lists appended without parentheses
+  meant the window engine never built the coarse programs (NPE only on device). Parenthesise each `if` in a `+` chain.
+- **Have the device probe report WHERE it failed** (file:line of the top frames): "NullPointerException" alone cost a build.
+- **Per-stage timing before believing a cost model.** Coarse water cut the flux 5x, yet the frame barely moved: the look was 60 %
+  of it (drawn per wet tile with overlapping halos). Measure the whole frame by stage first, then pick the lever.
+- **The owner's eye is the judge of a quality trade.** A faster water that looks blobbier is not shipped as the default; keep it
+  selectable and say plainly why it lost.
+
+## 2026-10-21 (afternoon) — JoyBrush Lead: water jobs
+- **A "fast" build can be fast because it skipped the work.** The first water-jobs build drew the dabs' look only when a job
+  started (the dirty rect was taken there), so its 30-59 ms frames hid marks that did not show. Count what each frame draws
+  (px, pieces) beside its time before believing a win.
+- **Bench phase timers glFinish around every section**: many small calls (one look piece each) inflate the bench far beyond
+  the real cost. Batch the calls (one renderLook for all pieces) and the bench and the phone both speed up.
+- **Halo only where the body changes.** Input not yet in the water changes colour, not paint body: its look needs no
+  shading halo; 200-450 k px a frame fell to 50-70 k.
+## 2026-10-22 — VisLab: a shell ate the web pilot's $$
+- **Never pass JavaScript (or any text with `$$`, `$(`, backticks) through a shell command or an unquoted heredoc.**
+  A 10-18 edit to `tools/vislab-web/vislab-app.js` went through bash, which expanded `$$` (the pilot's query helper) into
+  its process number: `53436('.pill', input)`. Every choice button (Order, Look, Colour by) then threw "is not a
+  function" on click, unseen until the owner hit it four days later. Edit code with the Write/Edit tools or a script
+  FILE written by them, then run `node --check` on the result and grep it for bare 4-7 digit calls
+  (`[^A-Za-z0-9_.'"#x][0-9]{4,7}\(`).
+## 2026-10-22 — Studio: undo steps lost after an export
+- **Before freeing a field to save memory, grep who saves it to disk.** Export start nulled every in-session undo snapshot
+  (a leftover from in-process export); the undo sidecar saves exactly those snapshots, so leaving the editor after any
+  export dropped every step of the session (48 recorded, 46 reloaded) and the first undo after reopening reverted an
+  older edit. Repro on the phone: `releaseSnapshotMemory: cleared 3` in logcat, then `Loaded 38` instead of 41.
+- **A throttle defers, it never drops.** A baseline capture skipped as "too soon" left the baseline stale until some later
+  edit, so that edit (however much later) shared the previous edit's before-state and a reopened history merged the two.

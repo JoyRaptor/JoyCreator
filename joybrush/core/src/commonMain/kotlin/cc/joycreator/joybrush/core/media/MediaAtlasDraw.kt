@@ -54,26 +54,82 @@ class MediaAtlasDraw {
      * Instances of [count] dabs packed [DabBatch.FLOATS] each in [src]; [box] writes dab i's layer-px bounding box (x0, y0,
      * x1, y1, full resolution) into its array. Each dab is emitted once per resident slot its box touches, dabs in order.
      */
-    fun dabs(src: FloatArray, count: Int, slotsX: Int, slotOf: (Int, Int) -> Int, box: (Int, FloatArray) -> Unit): Int {
+    fun dabs(src: FloatArray, count: Int, slotsX: Int, slotOf: (Int, Int) -> Int, box: (Int, FloatArray) -> Unit): Int =
+        dabs(src, count, slotsX, SHIFT, slotOf, box)
+
+    /** [dabs] into a target at [shift] (7: the half-resolution water of coarse water): boxes in that target's px. */
+    fun dabs(src: FloatArray, count: Int, slotsX: Int, shift: Int, slotOf: (Int, Int) -> Int, box: (Int, FloatArray) -> Unit): Int {
         require(count >= 0 && count * DabBatch.FLOATS <= src.size) { "dab batch is shorter than its count" }
         dabCount = 0
         val b = scratch
         for (i in 0 until count) {
             box(i, b)
             if (!(b[2] >= b[0] && b[3] >= b[1])) continue
-            val tx0 = floorDiv(b[0], SIDE); val ty0 = floorDiv(b[1], SIDE); val tx1 = floorDiv(b[2], SIDE); val ty1 = floorDiv(b[3], SIDE)
+            val side = 1 shl shift
+            val tx0 = floorDiv(b[0], side); val ty0 = floorDiv(b[1], side); val tx1 = floorDiv(b[2], side); val ty1 = floorDiv(b[3], side)
             for (ty in ty0..ty1) for (tx in tx0..tx1) {
                 val slot = slotOf(tx, ty)
                 if (slot < 0) continue
                 val o = dabCount * DAB_FLOATS
                 if (o + DAB_FLOATS > dabs.size) dabs = dabs.copyOf(dabs.size * 2)
                 src.copyInto(dabs, o, i * DabBatch.FLOATS, (i + 1) * DabBatch.FLOATS)
-                dabs[o + DabBatch.FLOATS] = ((slot % slotsX) shl SHIFT).toFloat(); dabs[o + DabBatch.FLOATS + 1] = ((slot / slotsX) shl SHIFT).toFloat()
+                dabs[o + DabBatch.FLOATS] = ((slot % slotsX) shl shift).toFloat(); dabs[o + DabBatch.FLOATS + 1] = ((slot / slotsX) shl shift).toFloat()
                 dabs[o + DabBatch.FLOATS + 2] = tx.toFloat(); dabs[o + DabBatch.FLOATS + 3] = ty.toFloat()
                 dabCount++
             }
         }
         return dabCount
+    }
+
+    /**
+     * Makes [count] instances of [src] (laid out as [rect], 8 floats each), those at [index] 0 until [count], the current
+     * [rect] instances, as if [rects] had made them: a pass drawn group by group ([MediaAtlasGl.drawRect]).
+     */
+    fun load(src: FloatArray, index: IntArray, count: Int) {
+        if (8 * count > rect.size) rect = FloatArray(8 * count)
+        for (i in 0 until count) src.copyInto(rect, i * 8, index[i] * 8, index[i] * 8 + 8)
+        rectCount = count
+    }
+
+    /** The parts of the last [rects] at least a reach in from their tile's edges ([split]), as [rect] instances. */
+    var inner = FloatArray(8 * 16); private set
+    var innerCount = 0; private set
+    /** ... and what is left of each instance: the strips along its tile's edges, or the whole instance. */
+    var border = FloatArray(8 * 32); private set
+    var borderCount = 0; private set
+
+    /**
+     * Splits the instances of the last [rects] (made with [shift]) by [reach] (pass px): the part of each at least [reach]
+     * in from every edge of its tile goes to [inner], the rest to [border] (up to four strips, or the whole instance when
+     * nothing of it is that far in). A pass reading no farther than [reach] reads only its own tile in [inner], so there it
+     * needs no neighbour addressing (JB_ATLAS_OWN). The new edges are whole pixels and pixel centres sit at halves, so
+     * every pixel of an instance falls in exactly one part; a part's outer edges are the instance's own.
+     */
+    fun split(reach: Int, shift: Int) {
+        val side = 1 shl shift
+        innerCount = 0; borderCount = 0
+        for (i in 0 until rectCount) {
+            val o = i * 8
+            val tx0 = rect[o + 2] * side; val ty0 = rect[o + 3] * side
+            val x0 = rect[o + 4]; val y0 = rect[o + 5]; val x1 = rect[o + 6]; val y1 = rect[o + 7]
+            val ix0 = max(x0, tx0 + reach); val iy0 = max(y0, ty0 + reach)
+            val ix1 = min(x1, tx0 + side - reach); val iy1 = min(y1, ty0 + side - reach)
+            if (!(ix1 > ix0 && iy1 > iy0)) { putBorder(o, x0, y0, x1, y1); continue }
+            if (8 * (innerCount + 1) > inner.size) inner = inner.copyOf(inner.size * 2)
+            put(inner, innerCount++, o, ix0, iy0, ix1, iy1)
+            if (iy0 > y0) putBorder(o, x0, y0, x1, iy0)
+            if (iy1 < y1) putBorder(o, x0, iy1, x1, y1)
+            if (ix0 > x0) putBorder(o, x0, iy0, ix0, iy1)
+            if (ix1 < x1) putBorder(o, ix1, iy0, x1, iy1)
+        }
+    }
+    private fun putBorder(o: Int, x0: Float, y0: Float, x1: Float, y1: Float) {
+        if (8 * (borderCount + 1) > border.size) border = border.copyOf(border.size * 2)
+        put(border, borderCount++, o, x0, y0, x1, y1)
+    }
+    private fun put(to: FloatArray, at: Int, o: Int, x0: Float, y0: Float, x1: Float, y1: Float) {
+        rect.copyInto(to, at * 8, o, o + 4)
+        to[at * 8 + 4] = x0; to[at * 8 + 5] = y0; to[at * 8 + 6] = x1; to[at * 8 + 7] = y1
     }
 
     private val scratch = FloatArray(4)

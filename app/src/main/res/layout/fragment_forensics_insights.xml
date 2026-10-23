@@ -28,7 +28,8 @@
             android:contentDescription="@string/back"
             android:padding="2dp"
             android:src="@drawable/ic_close"
-            android:tint="@android:color/white" />
+            android:tint="@color/s_ink_dim"
+            android:tooltipText="@string/smart_detection_tip_back" />
 
         <TextView
             android:layout_width="wrap_content"
@@ -37,9 +38,9 @@
             android:letterSpacing="0.08"
             android:text="@string/forensics_insights_title"
             android:textAllCaps="true"
-            android:textColor="@android:color/white"
-            android:textSize="18sp"
-            android:textStyle="bold" />
+            android:fontFamily="@font/joy_display"
+            android:textColor="@color/s_ink"
+            android:textSize="19sp" />
     </LinearLayout>
 
     <!-- ═══ Loading indicator ═══ -->
@@ -81,7 +82,7 @@
             android:layout_marginTop="12dp"
             android:gravity="center"
             android:text="@string/intel_no_data"
-            android:textColor="@android:color/darker_gray"
+            android:textColor="@color/s_ink_dim"
             android:textSize="14sp" />
     </LinearLayout>
 
@@ -103,7 +104,7 @@
             android:paddingStart="16dp"
             android:paddingTop="12dp"
             android:paddingEnd="16dp"
-            android:paddingBottom="24dp">
+            android:paddingBottom="76dp">
 
             <!-- SITREP timestamp -->
             <TextView
@@ -112,7 +113,7 @@
                 android:layout_height="wrap_content"
                 android:letterSpacing="0.12"
                 android:textAllCaps="true"
-                android:textColor="@android:color/darker_gray"
+                android:textColor="@color/s_ink_dim"
                 android:textSize="11sp" />
 
             <!-- Time range selector — chip dock -->
@@ -121,9 +122,9 @@
                 android:layout_height="wrap_content"
                 android:layout_gravity="center_horizontal"
                 android:layout_marginTop="10dp"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="4dp"
-                app:cardBackgroundColor="?attr/colorTopBar">
+                app:cardCornerRadius="0dp"
+                app:cardElevation="0dp"
+                app:cardBackgroundColor="@android:color/transparent">
 
                 <HorizontalScrollView
                     android:layout_width="wrap_content"
@@ -144,30 +145,30 @@
                         app:singleSelection="true"
                         app:selectionRequired="true"
                         app:singleLine="true"
-                        app:chipSpacingHorizontal="6dp">
+                        app:chipSpacingHorizontal="3dp">
 
-                        <com.google.android.material.chip.Chip
+                        <com.fadcam.forensics.ui.view.SlantChip
                             android:id="@+id/chip_24h"
                             style="@style/Widget.FadCam.RecordsFilterChip"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/intel_range_24h" />
 
-                        <com.google.android.material.chip.Chip
+                        <com.fadcam.forensics.ui.view.SlantChip
                             android:id="@+id/chip_7d"
                             style="@style/Widget.FadCam.RecordsFilterChip"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/intel_range_7d" />
 
-                        <com.google.android.material.chip.Chip
+                        <com.fadcam.forensics.ui.view.SlantChip
                             android:id="@+id/chip_30d"
                             style="@style/Widget.FadCam.RecordsFilterChip"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/intel_range_30d" />
 
-                        <com.google.android.material.chip.Chip
+                        <com.fadcam.forensics.ui.view.SlantChip
                             android:id="@+id/chip_all"
                             style="@style/Widget.FadCam.RecordsFilterChip"
                             android:layout_width="wrap_content"
@@ -203,7 +204,7 @@
                     android:letterSpacing="0.15"
                     android:text="@string/intel_total_detections"
                     android:textAllCaps="true"
-                    android:textColor="@android:color/darker_gray"
+                    android:textColor="@color/s_ink_dim"
                     android:textSize="11sp" />
 
                 <TextView
@@ -268,7 +269,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_dim"
                         android:textSize="11sp" />
                 </LinearLayout>
             </LinearLayout>
@@ -314,7 +315,7 @@
                             android:layout_height="wrap_content"
                             android:fontFamily="@font/materialicons"
                             android:text="person"
-                            android:textColor="@android:color/darker_gray"
+                            android:textColor="@color/s_ink_dim"
                             android:textSize="24sp" />
 
                         <TextView
@@ -333,7 +334,7 @@
                             android:letterSpacing="0.1"
                             android:text="@string/intel_personnel"
                             android:textAllCaps="true"
-                            android:textColor="@android:color/darker_gray"
+                            android:textColor="@color/s_ink_dim"
                             android:textSize="9sp" />
                     </LinearLayout>
 
@@ -352,7 +353,7 @@
                             android:layout_height="wrap_content"
                             android:fontFamily="@font/materialicons"
                             android:text="directions_car"
-                            android:textColor="@android:color/darker_gray"
+                            android:textColor="@color/s_ink_dim"
                             android:textSize="24sp" />
 
                         <TextView
@@ -371,7 +372,7 @@
                             android:letterSpacing="0.1"
                             android:text="@string/intel_vehicles"
                             android:textAllCaps="true"
-                            android:textColor="@android:color/darker_gray"
+                            android:textColor="@color/s_ink_dim"
                             android:textSize="9sp" />
                     </LinearLayout>
                 </LinearLayout>
@@ -397,7 +398,7 @@
                             android:layout_height="wrap_content"
                             android:fontFamily="@font/materialicons"
                             android:text="pets"
-                            android:textColor="@android:color/darker_gray"
+                            android:textColor="@color/s_ink_dim"
                             android:textSize="24sp" />
 
                         <TextView
@@ -416,7 +417,7 @@
                             android:letterSpacing="0.1"
                             android:text="@string/intel_animals"
                             android:textAllCaps="true"
-                            android:textColor="@android:color/darker_gray"
+                            android:textColor="@color/s_ink_dim"
                             android:textSize="9sp" />
                     </LinearLayout>
 
@@ -435,7 +436,7 @@
                             android:layout_height="wrap_content"
                             android:fontFamily="@font/materialicons"
                             android:text="category"
-                            android:textColor="@android:color/darker_gray"
+                            android:textColor="@color/s_ink_dim"
                             android:textSize="24sp" />
 
                         <TextView
@@ -454,7 +455,7 @@
                             android:letterSpacing="0.1"
                             android:text="@string/intel_objects"
                             android:textAllCaps="true"
-                            android:textColor="@android:color/darker_gray"
+                            android:textColor="@color/s_ink_dim"
                             android:textSize="9sp" />
                     </LinearLayout>
                 </LinearLayout>
@@ -485,7 +486,7 @@
                     android:id="@+id/text_peak_info"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textColor="@android:color/darker_gray"
+                    android:textColor="@color/s_ink_dim"
                     android:textSize="11sp"
                     android:textStyle="italic" />
 
@@ -596,7 +597,7 @@
                     android:paddingStart="4dp"
                     android:paddingBottom="6dp"
                     android:text="@string/intel_zone_desc_v2"
-                    android:textColor="@android:color/darker_gray"
+                    android:textColor="@color/s_ink_dim"
                     android:textSize="10sp" />
 
                 <!-- Row 1: NW  N  NE -->

@@ -64,12 +64,13 @@ public final class JobFile {
     }
 
     /** Rewrites the running job's file. Never the API key: that is read fresh when it carries on. */
-    static void save(@NonNull Context app, @NonNull JoybotAgent.Ask ask, int round) {
+    static void save(@NonNull Context app, @NonNull JoybotAgent.Ask ask, int round,
+                     @NonNull java.util.List<JSONObject> history) {
         if (ask.projectId == null) return;
         try {
             JSONArray h = new JSONArray();
-            synchronized (JoybotAgent.HISTORY) {
-                for (JSONObject m : JoybotAgent.HISTORY) h.put(m);
+            synchronized (history) {
+                for (JSONObject m : history) h.put(m);
             }
             JSONObject o = new JSONObject()
                     .put("projectId", ask.projectId)
@@ -162,15 +163,21 @@ public final class JobFile {
         }
     }
 
-    /** Write beside, then rename: a kill mid-write must not leave half a file. */
+    /**
+     * AtomicFile: the old file stays readable until the new one is complete, so a kill at any
+     * moment leaves one whole file (the delete-then-rename it replaced had a gap with none, audit J10).
+     */
     private static void write(@NonNull File f, @NonNull String s) throws Exception {
         File dir = f.getParentFile();
         if (dir != null && !dir.isDirectory() && !dir.mkdirs()) throw new Exception("no folder " + dir);
-        File tmp = new File(f.getPath() + ".tmp");
-        try (OutputStream out = new FileOutputStream(tmp)) {
+        android.util.AtomicFile af = new android.util.AtomicFile(f);
+        FileOutputStream out = af.startWrite();
+        try {
             out.write(s.getBytes(UTF8));
+            af.finishWrite(out);
+        } catch (Exception e) {
+            af.failWrite(out);
+            throw e;
         }
-        if (f.exists() && !f.delete()) throw new Exception("could not replace " + f);
-        if (!tmp.renameTo(f)) throw new Exception("could not rename " + tmp);
     }
 }

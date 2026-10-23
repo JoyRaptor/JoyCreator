@@ -97,3 +97,32 @@ behind the flag.
   when the atlas is made (as windowFits sizes the window), target 4+ concurrent wet pools on the Note 9. Numbers (bytes
   per slot per store, free memory with a drawing open) are reported before any budget constant changes.
 
+## October 19: the window patch, and the atlas parked
+
+- **Shipped bug, fixed by the window patch (05136a021):** the media window dropped trailing dabs. For a watercolour or oil
+  stroke it centred on the PEN (MediaWindowMath.placeFor puts the pen in its third tile), which can leave 128 px behind a
+  fast pen; a frame's dabs trail back to where the pen was a frame ago (about 450 px in the bench's topScribble), and the
+  ones past the window's edge were clipped: a straight cut through the stroke at a tile line, worst on a slow cold first
+  frame. Now a frame whose dabs the usual follow would clip (MediaWindow.wouldClip, the dabs' own boxes, no margin) first
+  takes one window centred on its dabs (holdWhole: one move, today's path, all its water steps); only a frame no window
+  holds (wider than about 768 px of dabs) is drawn in parts, dabs in order, sharing the frame's water steps. Every other
+  frame runs as before. Note 9, same hour, warm: tilted pen p95 +9%, max +7%; flat within run-to-run noise; no splits on
+  topScribble; the cold first stroke and a 1500 px flick whole; Toast 0, KGSL 0. The window-edge seam at x 768 is nearly
+  gone as a side effect (the window sits over the wash). Tried and dropped on the way: drying the tiles a moving window
+  leaves (tile-shaped hard edges, boxed tilted drips), and splitting every frame over 512 px (pen-down frames 2-5x).
+- **Atlas parked (off by default).** It no longer hangs the GPU or loses the stroke (the look read every texel through the
+  page table: 3dbbb654b), compiles in about 1.5 s cold instead of 106 s (every per-slot pass on its 3x3 neighbour slots,
+  ec5b11f39; the paste brush on 5x5, 034f028de), and B3w is exact (look reach and drain-time loads, c9c7b9254). On the
+  Note 9 flat water runs about 2.3x the window, tilted about 5x: the wet flux pass alone is 3.2-3.7x in its atlas build and
+  none of shared reads, precomputed offsets, no-wall builds or loop unrolling moved it (the stop rule). Finding it needs
+  the Adreno shader profiler or a bisection of the flux body. Open: a screen-sized window (scoped, the owner's call).
+- **Window patch on main (1445af733, after a hotfix):** the first version on main froze the palette knife (604 parts,
+  45 s: paste steps measured by their old full square); main was reverted, and 53be96265 measures a step by docBounds and
+  caps a frame at 8 parts (a frame needing more runs exactly as before). Checked on all 22 media brushes plus the 6 wet
+  tilted, same hour as main: dry and flat wet/paste within noise or better, the knife fixed, tilted wet +13% p95 on
+  single runs. **Known limit:** the cap fires on the big wet brushes on tilted paper (All-round once, Wash twice in one
+  run; and Wash once on FLAT paper in a later run): a slow frame of a big wet brush whose dabs span wider than any window. Those frames still clip their trailing dabs, exactly as
+  before the patch. Rule from now on: any window or media-frame change is phone-checked on the full brush list.
+- **Cold first stroke after an install (b00b82667, the Lead's JbCanvasView):** the prewarm pump only ran when a drawing was
+  LOADED, so a new drawing compiled all 14 media programs inside its first stroke (1.1-1.3 s on the Note 9 after an install).
+  It now also starts when the canvas surface is made: the first stroke 1.5 s after opening ran 268 ms max, as warm.

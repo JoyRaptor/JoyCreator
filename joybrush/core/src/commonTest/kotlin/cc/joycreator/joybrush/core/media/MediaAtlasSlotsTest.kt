@@ -95,4 +95,27 @@ class MediaAtlasSlotsTest {
         assertTrue(s.residents().isEmpty())
         assertFailsWith<IllegalStateException> { s.clean(a) }
     }
+
+    @Test fun withALayoutAFramesPagesGatherNearWhatItHolds() {
+        // 4 columns x 4 rows, 15 pages + staging. Hold the pages in the top-left corner; the oldest unheld pages are far away.
+        val s = MediaAtlasSlots(16, 1, 16, columns = 4)
+        val pages = (0L until 15L).map { page(key = it) }
+        val at = pages.associateWith { commit(s, it) }
+        assertEquals((0 until 15).toList(), at.values.toList(), "an empty atlas fills in order")
+        for (k in listOf(0L, 1L, 4L)) s.pin(pages[k.toInt()])
+        // Least recently used first: make the far corner's pages the oldest, then one near the corner.
+        for (k in listOf(14L, 13L, 11L, 5L)) s.touch(pages[k.toInt()])
+        for (k in listOf(2L, 3L, 6L, 7L, 8L, 9L, 10L, 12L)) s.touch(pages[k.toInt()])
+        val r = assertIs<MediaAtlasSlots.Reservation>(s.begin(page(key = 99)))
+        assertEquals(5, r.victim!!.slot, "of the 4 oldest (slots 14, 13, 11, 5) the one beside the held corner gives way")
+        assertEquals(15, r.slot, "the new page takes the free slot")
+        s.commit(r)
+        val r2 = assertIs<MediaAtlasSlots.Reservation>(s.begin(page(key = 100)))
+        assertEquals(5, r2.slot, "and the next new page lands where that one was, beside the corner")
+        s.cancel(r2)
+        val plain = MediaAtlasSlots(16, 1, 16)
+        pages.forEach { commit(plain, it) }
+        plain.pin(pages[0])
+        assertEquals(1, assertIs<MediaAtlasSlots.Reservation>(plain.begin(page(key = 99))).victim!!.slot, "no layout: least recently used, as before")
+    }
 }

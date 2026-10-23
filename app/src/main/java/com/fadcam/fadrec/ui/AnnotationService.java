@@ -1325,6 +1325,10 @@ public class AnnotationService extends Service {
         View btnVisualiserToggle = toolbarView.findViewById(R.id.btnVisualiserToggle);
         if (btnVisualiserToggle != null) {
             updateVisualiserToggleUi();
+            // Audit 10-18 R3: follow the visualiser however it starts or stops (its own close, the
+            // notification, Joybot), not only this row's taps.
+            com.fadcam.vislab.overlay.VisOverlayService.removeStateListener(visualiserStateListener);
+            com.fadcam.vislab.overlay.VisOverlayService.addStateListener(visualiserStateListener);
             btnVisualiserToggle.setOnClickListener(v -> {
                 com.fadcam.vislab.overlay.VisOverlayService.toggle(this);
                 v.postDelayed(this::updateVisualiserToggleUi, 300);
@@ -1613,6 +1617,8 @@ public class AnnotationService extends Service {
         updateWebcamToggleUi();
     }
 
+    private final Runnable visualiserStateListener = this::updateVisualiserToggleUi;
+
     /** The visualiser row shows On / Off like the webcam row above it. */
     private void updateVisualiserToggleUi() {
         if (toolbarView == null) return;
@@ -1721,6 +1727,7 @@ public class AnnotationService extends Service {
                 .getInstance(this).isMenuAutoPauseEnabled();
         if (isExpanded) {
             updateWebcamToggleUi();
+            updateVisualiserToggleUi();
             if (autoPausePref && recordingState == com.fadcam.fadrec.ScreenRecordingState.IN_PROGRESS) {
                 Intent pauseIntent = new Intent(this, com.fadcam.fadrec.services.ScreenRecordingService.class);
                 pauseIntent.setAction(com.fadcam.Constants.INTENT_ACTION_PAUSE_SCREEN_RECORDING);
@@ -4767,6 +4774,7 @@ public class AnnotationService extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
+        com.fadcam.vislab.overlay.VisOverlayService.removeStateListener(visualiserStateListener);
         FLog.d(TAG, "AnnotationService destroyed");
 
         // Stop recording timer

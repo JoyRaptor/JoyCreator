@@ -65,9 +65,13 @@ public final class VisRenderer {
     private volatile float renderScale = 1f;
     private volatile boolean profile;
     @Nullable private volatile com.fadcam.vislab.words.WordFeed words;
-    /** For a Words layer that carries its own words ("text"): typed, saved in the look. */
-    @Nullable private volatile com.fadcam.vislab.words.WordFeed typed;
-    @Nullable private String typedText;
+    /**
+     * Words layers that carry their own words ("text": typed, saved in the look) get ONE feed per
+     * distinct text, made by the host's maker. One shared feed swapped between two texts rebuilt
+     * the 2048-square glyph atlas twice every frame (audit 10-18 V2). GL thread only.
+     */
+    @Nullable private volatile java.util.function.Supplier<com.fadcam.vislab.words.WordFeed> typedMaker;
+    private final java.util.Map<String, com.fadcam.vislab.words.WordFeed> typedFeeds = new java.util.HashMap<>();
     private volatile double wordsTime = Double.NaN;
     @Nullable private GpuTimer gpu;
     private volatile ImageSource images;
@@ -134,6 +138,86 @@ public final class VisRenderer {
         forceFrame = f;
     }
 
+    private volatile float hostReact = 1f;
+    // The music as the look hears it under a host Reactivity (render thread).
+    private final Features heard = new Features();
+    private boolean heardScaled;
+    private float heardBassAcc, heardLevelAcc, lastBassAcc = Float.NaN, lastLevelAcc = Float.NaN;
+
+    private volatile float lookBright = 1f, lookHue = 0f, lookSize = 1f, lookSpeed = 1f;
+
+    /**
+     * Studio's look-wide key knobs (not part of the look): every layer's Brightness x
+     * {@code bright}, Colour shift + {@code hue}, size x {@code size} and every running motion
+     * x {@code speed} (smoothly). The room never sets them: 1, 0, 1, 1 changes nothing.
+     */
+    public void setLookControls(float bright, float hue, float size, float speed) {
+        lookBright = Math.max(0f, bright);
+        lookHue = hue;
+        lookSize = Math.max(0.05f, size);
+        lookSpeed = Math.max(0f, speed);
+    }
+
+    /**
+     * How strongly the look hears the music: 0 as if silent, 1 as it is, 2 twice as loud
+     * (Studio's keyframable Reactivity on a visualizer; not part of the look). It scales what the
+     * look HEARS, so every part reacts less or more: music links, and the spectrum, waveform and
+     * history the shaders read directly.
+     */
+    public void setReactivity(float r) {
+        hostReact = Math.max(0f, r);
+    }
+
+    /**
+     * {@code f} as heard under {@link #hostReact}: every amount scaled (levels, hits, spectrum,
+     * waveform, history; capped where louder would leave the 0..1 range), never the timing (beat
+     * and bar phase, tempo, kick ages). The two running totals (bass and level travelled) grow by
+     * scaled steps, so a change of Reactivity changes speed, never position. The room never sets
+     * a Reactivity, and until one is set the frame passes through untouched.
+     */
+    @NonNull
+    private Features heard(@NonNull Features f) {
+        float r = hostReact;
+        if (r != 1f) heardScaled = true;
+        if (!heardScaled) return f;
+        f.copyTo(heard);
+        Features h = heard;
+        if (Float.isNaN(lastBassAcc) || f.bassAcc < lastBassAcc || f.levelAcc < lastLevelAcc) {
+            heardBassAcc = f.bassAcc;   // a fresh start or a jump back: no step to scale
+            heardLevelAcc = f.levelAcc;
+        } else {
+            heardBassAcc += (f.bassAcc - lastBassAcc) * r;
+            heardLevelAcc += (f.levelAcc - lastLevelAcc) * r;
+        }
+        lastBassAcc = f.bassAcc;
+        lastLevelAcc = f.levelAcc;
+        h.bassAcc = heardBassAcc;
+        h.levelAcc = heardLevelAcc;
+        h.bass = louder(f.bass, r); h.low = louder(f.low, r); h.mid = louder(f.mid, r);
+        h.high = louder(f.high, r); h.air = louder(f.air, r); h.level = louder(f.level, r);
+        h.voice = louder(f.voice, r); h.energy = louder(f.energy, r);
+        h.kick = louder(f.kick, r); h.snare = louder(f.snare, r); h.hat = louder(f.hat, r);
+        h.beat = louder(f.beat, r); h.punch = louder(f.punch, r);
+        if (r <= 0.001f) h.shockCount = 0;   // silence lands no kicks
+        for (int i = 0; i < Features.NB; i++) {
+            h.spec[i] = louder(f.spec[i], r);
+            h.peak[i] = louder(f.peak[i], r);
+            h.raw[i] = louder(f.raw[i], r);
+        }
+        for (int i = 0; i < h.hist.length; i++) h.hist[i] = louder(f.hist[i], r);
+        for (int i = 0; i < Features.NW; i++) {
+            h.waveL[i] = Math.max(-1f, Math.min(1f, f.waveL[i] * r));
+            h.waveR[i] = Math.max(-1f, Math.min(1f, f.waveR[i] * r));
+        }
+        return h;
+    }
+
+    /** {@code v} scaled by {@code r}; louder never past 1 (or past {@code v}, if it already was). */
+    private static float louder(float v, float r) {
+        float s = v * r;
+        return r > 1f ? Math.min(s, Math.max(v, 1f)) : s;
+    }
+
     /** Internal resolution as a share of the output (0.45..1). */
     public void setRenderScale(float s) {
         renderScale = Math.max(0.3f, Math.min(1f, s));
@@ -162,10 +246,28 @@ public final class VisRenderer {
         words = feed;
     }
 
-    /** The feed that shows a Words layer's own typed words (its "text"); made by the host. */
-    public void setTypedWords(@Nullable com.fadcam.vislab.words.WordFeed feed) {
-        typed = feed;
-        typedText = null;
+    /** How to make a feed for a Words layer's own typed words (its "text"); null = none. */
+    public void setTypedWordsMaker(@Nullable java.util.function.Supplier<com.fadcam.vislab.words.WordFeed> maker) {
+        typedMaker = maker;
+    }
+
+    /** GL thread: the feed for this typed text, made on first use. */
+    @Nullable
+    private com.fadcam.vislab.words.WordFeed typedFeed(@NonNull String text) {
+        com.fadcam.vislab.words.WordFeed f = typedFeeds.get(text);
+        if (f != null) return f;
+        java.util.function.Supplier<com.fadcam.vislab.words.WordFeed> maker = typedMaker;
+        if (maker == null) return null;
+        f = maker.get();
+        f.setTyped(text);
+        typedFeeds.put(text, f);
+        return f;
+    }
+
+    @NonNull
+    private static String typedText(@NonNull CompiledScene.Layer L) {
+        com.google.gson.JsonElement te = L.source.get("text");
+        return te != null && te.isJsonPrimitive() ? te.getAsString().trim() : "";
     }
 
     /**
@@ -245,6 +347,8 @@ public final class VisRenderer {
         gpu = null;
         com.fadcam.vislab.words.WordFeed wf = words;
         if (wf != null) wf.release();
+        for (com.fadcam.vislab.words.WordFeed f : typedFeeds.values()) f.release();
+        typedFeeds.clear();
         if (initialised) {
             GLES30.glDeleteTextures(4, new int[]{texSpec, texWave, texHist, texBlack}, 0);
             GLES30.glDeleteBuffers(1, new int[]{ubo}, 0);
@@ -266,8 +370,8 @@ public final class VisRenderer {
         gpu = null;
         com.fadcam.vislab.words.WordFeed wf = words;
         if (wf != null) wf.contextLost();
-        com.fadcam.vislab.words.WordFeed tf = typed;
-        if (tf != null) tf.contextLost();
+        for (com.fadcam.vislab.words.WordFeed f : typedFeeds.values()) f.contextLost();
+        typedFeeds.clear();
         initialised = false;
         w = h = 0;
     }
@@ -293,6 +397,7 @@ public final class VisRenderer {
      */
     public void render(@NonNull Features f, double timeSec, double dtSec, int fbo, int outWidth, int outHeight) {
         if (!initialised) return;
+        f = heard(f);   // under a host Reactivity (Studio); untouched in the room
         long t0 = SystemClock.elapsedRealtimeNanos();
         lastError = null;
         outFbo = fbo;
@@ -316,7 +421,12 @@ public final class VisRenderer {
         GLES30.glDisable(GLES30.GL_DEPTH_TEST);
         GLES30.glDisable(GLES30.GL_CULL_FACE);
         GLES30.glBlendEquation(GLES30.GL_FUNC_ADD);
-        for (CompiledScene.Layer L : compiled.layers) L.eval(signals);
+        float lb = lookBright, lh = lookHue, ls = lookSize, lsp = lookSpeed;
+        for (CompiledScene.Layer L : compiled.layers) {
+            L.knobs.host(lb, lh, lsp, 1f);     // a type's own "size" is not the layer's size
+            L.common.host(1f, 0f, lsp, ls);
+            L.eval(signals);
+        }
 
         // 2. living layers on the absolute 60 Hz grid
         if (gpu != null) gpu.begin(0);
@@ -453,6 +563,28 @@ public final class VisRenderer {
                         it.remove();
                     }
                 }
+                // A removed picture layer gives its texture back now, not at the next look switch
+                // (audit 10-18 V7: twenty of them could hold ~100 MB of GPU memory).
+                java.util.Iterator<Map.Entry<Object, int[]>> ii = imageTex.entrySet().iterator();
+                while (ii.hasNext()) {
+                    Map.Entry<Object, int[]> en = ii.next();
+                    if (alive.contains(en.getKey())) continue;
+                    GLES30.glDeleteTextures(1, new int[]{en.getValue()[0]}, 0);
+                    imageRef.remove(en.getKey());
+                    ii.remove();
+                }
+                // Typed-word feeds whose text no layer shows any more.
+                java.util.Set<String> texts = new java.util.HashSet<>();
+                for (CompiledScene.Layer L : compiled.layers) {
+                    if (VisType.DRAW_WORDS.equals(L.type.draw)) texts.add(typedText(L));
+                }
+                java.util.Iterator<Map.Entry<String, com.fadcam.vislab.words.WordFeed>> ti = typedFeeds.entrySet().iterator();
+                while (ti.hasNext()) {
+                    Map.Entry<String, com.fadcam.vislab.words.WordFeed> en = ti.next();
+                    if (texts.contains(en.getKey())) continue;
+                    en.getValue().release();
+                    ti.remove();
+                }
                 if (compiled.echo == null) echoFresh = true;
             } catch (RuntimeException e) {
                 lastError = "look: " + e.getMessage();
@@ -557,14 +689,9 @@ public final class VisRenderer {
             drawFullscreen();
         } else if (VisType.DRAW_WORDS.equals(draw)) {
             // The layer's own words (typed, kept in the look) win over the song's.
-            com.google.gson.JsonElement te = L.source.get("text");
-            String text = te != null && te.isJsonPrimitive() ? te.getAsString().trim() : "";
-            com.fadcam.vislab.words.WordFeed feed = text.isEmpty() ? words : typed;
+            String text = typedText(L);
+            com.fadcam.vislab.words.WordFeed feed = text.isEmpty() ? words : typedFeed(text);
             if (feed == null) return;
-            if (!text.isEmpty() && !text.equals(typedText)) {
-                feed.setTyped(text);
-                typedText = text;
-            }
             double now = text.isEmpty() && !Double.isNaN(wordsTime) ? wordsTime : time;
             // Words = a path, a behaviour and a letter style (see words.frag). Keep each word in
             // view as long as its behaviour needs: smoke and sparkle linger after the word, a

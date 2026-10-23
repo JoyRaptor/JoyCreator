@@ -96,7 +96,8 @@ final class OverlaySound {
         return kind;
     }
 
-    private boolean recordingRuns() {
+    /** A screen recording is running, paused or starting (its sound is what we hear then). */
+    boolean recordingRuns() {
         String s = SharedPreferencesManager.getInstance(app).getScreenRecordingState();
         return RecordingTap.isLive() || (s != null && !"NONE".equals(s));
     }

@@ -181,10 +181,12 @@ object OraExport {
         onWarning: (String) -> Unit = {},
         brushLookup: ((String) -> BrushPreset?)?,
         onInkRefusal: (String) -> Unit = { throw JbArchiveException(it) },
+        /** The whole drawing (LAYER_OPS §6): this rectangle instead of [boardId]'s ([ExportPicture.wholeDrawing]). */
+        region: RectPx? = null,
     ) {
         val doc = contents.doc
         RegionRenderer.unsupportedContentReason(doc)?.let { throw JbArchiveException(it) }
-        val rect = boardOf(doc, boardId)
+        val rect = region ?: boardOf(doc, boardId)
         val paper = if (includePaper && !doc.paper.screenTransparent) checkedPaper(doc) else null
         val tiles = tileSource(contents)
         val brushes by lazy { BrushLibrary.builtIn().associateBy { it.id } }

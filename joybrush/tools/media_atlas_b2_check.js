@@ -27,7 +27,7 @@ const ROOT = path.join(__dirname, '..');
 const SHADER_DIR = path.join(ROOT, 'shaders');
 function argVal(name, dflt) { const i = process.argv.indexOf('--' + name); return i >= 0 && i + 1 < process.argv.length ? process.argv[i + 1] : dflt; }
 const QUICK = process.argv.includes('--quick');
-const PPM = 12, LW = 1280, AW = 1024;
+const PPM = 12, LW = 1280, AW = parseInt(argVal('atlas', '1024'), 10);   // --atlas 1536 = 6 x 6 slots (B3 slot scaling)
 
 const INCLUDE_RE = /^#include\s+"([^"]+)"$/;
 function expand(rel, seen = new Set()) {
@@ -45,6 +45,9 @@ const FILES = { quad: 'media/jb_media_quad.vert', flux: 'media/jb_wet_flux.frag'
 function srcSet(...defs) {
   const o = {}; for (const [k, f] of Object.entries(FILES)) o[k] = defs.length ? define(expand(f), ...defs) : expand(f);
   o.quadPlain = defs.length ? define(expand(FILES.quad), ...defs, 'JB_PLAIN_TARGET') : o.quad;
+  // MediaLayerEngine's atlas build of every pass drawn slot by slot (ATLAS_NBR).
+  if (defs.includes('JB_ATLAS')) for (const k of ['apply', 'bake', 'flux', 'update', 'pasteDab', 'bead', 'render']) o[k] = define(expand(FILES[k]), ...defs, 'JB_ATLAS_NBR');
+  if (defs.includes('JB_ATLAS')) o.pasteBrush = define(expand(FILES.pasteBrush), ...defs, 'JB_ATLAS_NBR', 'JB_ATLAS_NBR5');
   return o;
 }
 const SRC = { window: srcSet(), atlas: srcSet('JB_ATLAS') };
@@ -58,7 +61,7 @@ function wetUniformMap(wc) {
     u_runMmPerS: wc.runMmPerS, u_runMm: wc.runMm, u_runHoldMm: wc.runHold * tooth, u_runFilmMm: wc.runFilm, u_runPin: wc.runPin, u_runSizing: wc.runSizing,
     u_dripGapMm: wc.dripGap, u_quietMm: wc.quiet, u_runHoldK: wc.runHoldK, u_runCoherent: wc.runCoherent, u_runCohere: wc.runCohere,
     u_steerScale: wc.steerScale, u_runSteer: wc.runSteer, u_runAlong: wc.runAlong, u_heightMean: heightMean, u_fullMm: wc.fullMm, u_filmMm: wc.filmMm,
-    u_edgeDep: wc.edgeDep, u_mingle: Math.min(0.24 / wc.dt, wc.mingle),
+    u_edgeDep: wc.edgeDep, u_mingle: Math.min(0.24 / wc.dt, wc.mingle), u_noBody: 0,
   };
 }
 const WC = { dt: 1 / 120, substeps: 4, flow: 30, keep: 0.9, pinMm: 0.22, dampS: 0.35, minMm: 0.002, evap: 0.003, edgeEvap: 4, absorb: 0.25, capMm: 0.08, wick: 5,
@@ -199,7 +202,7 @@ const KINDS = ['orderA', 'orderB', 'noRing'];
     return fs.existsSync(edge) ? edge : null;
   })();
   if (!exe) { console.log(JSON.stringify({ pass: false, error: 'no browser' })); process.exit(1); }
-  const browser = await chromium.launch({ executablePath: exe, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+  const browser = await chromium.launch({ executablePath: exe, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });   // SwiftShader only: these compare the atlas with the WINDOW build, two different programs, and a real GPU's compiler may round them apart (Intel d3d11: dry dabs differ by an ulp even at the proven size; the Note 9's Adreno does not)
   let out;
   try {
     const page = await browser.newPage();
@@ -247,13 +250,14 @@ async function PAGE(P) {
         if (v === undefined) { missing.add(name); unit++; continue; }
         gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, v.tex); gl.uniform1i(u.loc, unit); unit++; continue;
       }
-      if (v === undefined) { missing.add(name); continue; }
+      if (v === undefined) { if (!name.startsWith('u_nbr')) missing.add(name); continue; }   // u_nbr*: set per slot in drawRect
       if (u.type === gl.FLOAT) gl.uniform1f(u.loc, +v);
       else if (u.type === gl.INT || u.type === gl.BOOL) gl.uniform1i(u.loc, v | 0);
       else if (u.type === gl.FLOAT_VEC2) gl.uniform2fv(u.loc, v);
       else if (u.type === gl.FLOAT_VEC3) gl.uniform3fv(u.loc, v);
       else if (u.type === gl.FLOAT_VEC4) gl.uniform4fv(u.loc, v);
       else if (u.type === gl.INT_VEC4) gl.uniform4iv(u.loc, v);
+      else if (u.type === gl.INT_VEC2) gl.uniform2iv(u.loc, v);   // the look's u_nbrTile, u_nbrSlot[9]
       else throw new Error('unhandled uniform type for ' + name);
     }
     gl.activeTexture(gl.TEXTURE0);
@@ -354,16 +358,19 @@ async function PAGE(P) {
   // =================================================================================================================
   function makeEngine(kind, seed) {
     const atlas = kind !== 'window', W = atlas ? AW : LW, Pg = PROG[atlas ? 'atlas' : 'window'];
+    // An atlas has one more row of slots below its own: the first is the ZERO slot (u_atlasZero, jb_media_atlas.glsl),
+    // never a tile's and zero in every texture (WebGL zero-fills). Nothing else reads or writes that row.
+    const TH = atlas ? W + 256 : W;
     const sd = seedState(seed);
     const E = { kind, atlas, P: Pg, W, wc: 0, bw: W >> 1, reachOn: kind !== 'noRing', seamReads: 0, maxResident: 0, loads: 0 };
-    const T = (fmt, data) => tex(W, W, fmt, atlas ? null : data);
+    const T = (fmt, data) => tex(W, TH, fmt, atlas ? null : data);
     E.st = [0, 1].map((i) => ({ p0: T('rgba32f', i ? sd.g0 : sd.p0), p1: T('rgba32f', i ? sd.g1 : sd.p1), paper: T('rgba32f', i ? sd.g2 : sd.ps) }));
-    E.ws = [0, 1].map(() => ({ w0: T('rgba32f', sd.w0), w1: T('rgba32f', sd.w1), flux: tex(W, W, 'rgba16f') }));
-    E.run = tex(W, W, 'rg16f'); E.bead = [tex(E.bw, E.bw, 'rgba16f'), tex(E.bw, E.bw, 'rgba16f')];
-    E.in0 = tex(W, W, 'rgba16f'); E.in1 = tex(W, W, 'rgba16f');
-    E.bakeTex = tex(W, W, 'rgba16f'); E.fluidBake = tex(W, W, 'r8'); E.waterBake = tex(W, W, 'r16f');
-    E.delta = tex(W, W, 'rgba16f'); E.cover = tex(W, W, 'rgba16f');
-    E.lookTex = tex(W, W, 'rgba8'); E.ground = tex(W, W, 'rgba8', atlas ? null : groundBytes);
+    E.ws = [0, 1].map(() => ({ w0: T('rgba32f', sd.w0), w1: T('rgba32f', sd.w1), flux: tex(W, TH, 'rgba16f') }));
+    E.run = tex(W, TH, 'rg16f'); E.bead = [tex(E.bw, TH >> 1, 'rgba16f'), tex(E.bw, TH >> 1, 'rgba16f')];
+    E.in0 = tex(W, TH, 'rgba16f'); E.in1 = tex(W, TH, 'rgba16f');
+    E.bakeTex = tex(W, TH, 'rgba16f'); E.fluidBake = tex(W, TH, 'r8'); E.waterBake = tex(W, TH, 'r16f');
+    E.delta = tex(W, TH, 'rgba16f'); E.cover = tex(W, TH, 'rgba16f');
+    E.lookTex = tex(W, TH, 'rgba8'); E.ground = tex(W, TH, 'rgba8', atlas ? null : groundBytes);
     E.bakeFbo = fbo(E.bakeTex, E.fluidBake, E.waterBake); E.beadFbo = E.bead.map((b) => fbo(b));
     E.fluxFbo = [0, 1].map((i) => fbo(E.ws[i].flux, E.run));
     E.updFbo = [0, 1, 2, 3].map((i) => fbo(E.ws[i >> 1].w0, E.ws[i >> 1].w1, E.st[i & 1].p0, E.st[i & 1].p1));
@@ -390,7 +397,7 @@ async function PAGE(P) {
     return E;
   }
   const slotXY = (s, shift) => [(s % SN) << shift, Math.floor(s / SN) << shift];
-  const atlasU = (E, shift) => E.atlas ? { u_atlasTable: { tex: E.table }, u_atlasGrid: [0, 0, GN, GN], u_atlasSlotsX: SN, u_atlasShift: shift, u_atlasWrap: [0, 0, 0, 0], u_atlasWalls: [E.wallsOn ? 1 : 0, 0, 0, 0] } : {};
+  const atlasU = (E, shift) => E.atlas ? { u_atlasTable: { tex: E.table }, u_atlasGrid: [0, 0, GN, GN], u_atlasSlotsX: SN, u_atlasShift: shift, u_atlasWrap: [0, 0, 0, 0], u_atlasWalls: [E.wallsOn ? 1 : 0, 0, 0, 0], u_atlasZero: [0, AW] } : {};
   const COMMON = (E) => ({ u_layerOrigin: [0, 0], u_layerScale: 1, u_targetSize: [E.W, E.W] });
   // tiles a layer-px rect touches (inclusive ranges), clamped to the layer
   function tilesOf(r) {
@@ -443,7 +450,18 @@ async function PAGE(P) {
     }
     if (!inst.length) return;
     gl.bindBuffer(gl.ARRAY_BUFFER, slotBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(inst), gl.STREAM_DRAW);
-    gl.bindVertexArray(atlasQuadVao); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, inst.length / 8);
+    gl.bindVertexArray(atlasQuadVao);
+    const prog = gl.getParameter(gl.CURRENT_PROGRAM), nbrLoc = gl.getUniformLocation(prog, 'u_nbrSlot');
+    if (nbrLoc === null) { gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, inst.length / 8); return; }
+    // JB_ATLAS_NBR (MediaAtlasGl.drawRect): one slot a draw, handed its 3x3 neighbours (walls marked while they are on).
+    const tileLoc = gl.getUniformLocation(prog, 'u_nbrTile');
+    for (let i = 0; i < inst.length / 8; i++) {
+      const tx = inst[i * 8 + 2], ty = inst[i * 8 + 3];
+      gl.uniform2i(tileLoc, tx, ty); gl.uniform2iv(nbrLoc, new Int32Array(nbrOf(E, tx, ty, true)));
+      for (let k = 0; k < 2; k++) gl.vertexAttribPointer(1 + k, 4, gl.FLOAT, false, 32, i * 32 + k * 16);
+      gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, 1);
+    }
+    for (let k = 0; k < 2; k++) gl.vertexAttribPointer(1 + k, 4, gl.FLOAT, false, 32, k * 16);
   }
   // Dabs. [clip] (layer px) is the window build's scissor; the atlas draws each slot's group under that slot's own scissor.
   function drawDabs(E, dabs, box, clip) {
@@ -592,6 +610,10 @@ async function PAGE(P) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, E.brushFbo[nb]); gl.viewport(0, 0, 32, 8);
       use(E.P.pasteBrush, { ...U, ...atlasU(E, 8), u_targetSize: [32, 8], u_rect: [0, 0, 32, 8], u_p0: { tex: E.st[0].p0 }, u_p1: { tex: E.st[0].p1 },
         u_brush0: { tex: E.brush[E.bc][0] }, u_brush1: { tex: E.brush[E.bc][1] } });
+      if (E.atlas) {   // JB_ATLAS_NBR5 (MediaLayerEngine.pasteStep): the 5x5 tiles around the step's middle
+        const ctx = Math.floor((s.rect[0] + s.rect[2]) / 2 / 256), cty = Math.floor((s.rect[1] + s.rect[3]) / 2 / 256), pg = gl.getParameter(gl.CURRENT_PROGRAM);
+        gl.uniform2i(gl.getUniformLocation(pg, 'u_nbrTile'), ctx, cty); gl.uniform2iv(gl.getUniformLocation(pg, 'u_nbrSlot'), new Int32Array(nbrOf(E, ctx, cty, false, 2)));
+      }
       gl.bindVertexArray(quadVao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       E.bc = nb;
       gl.bindFramebuffer(gl.FRAMEBUFFER, E.pFbo[1]); gl.viewport(0, 0, E.W, E.W);
@@ -614,8 +636,18 @@ async function PAGE(P) {
     for (const [t, s] of E.res) {
       if (!scissorSlot(E, s, t, LOOK_RECT)) continue;
       const tx = t % GN, ty = Math.floor(t / GN), [ax, ay] = slotXY(s, 8);
-      use(E.P.render, { ...U, u_pan: [ax - tx * 256, ay - ty * 256] }); gl.drawArrays(gl.TRIANGLES, 0, 3); gl.disable(gl.SCISSOR_TEST);
+      use(E.P.render, { ...U, u_pan: [ax - tx * 256, ay - ty * 256], u_nbrTile: [tx, ty], u_nbrSlot: nbrOf(E, tx, ty) }); gl.drawArrays(gl.TRIANGLES, 0, 3); gl.disable(gl.SCISSOR_TEST);
     }
+  }
+  // MediaAtlasGl.neighbours: the look's 3x3 neighbour slots (JB_ATLAS_NBR), x = -1 where a tile is not here.
+  function nbrOf(E, tx, ty, withWalls = false, rad = 1) {
+    const o = [];
+    for (let dy = -rad; dy <= rad; dy++) for (let dx = -rad; dx <= rad; dx++) {
+      const x = tx + dx, y = ty + dy, inGrid = x >= 0 && y >= 0 && x < GN && y < GN, s = inGrid ? E.res.get(y * GN + x) : undefined;
+      if (withWalls && E.wallsOn && E.walls && inGrid && E.walls.has(y * GN + x)) o.push(-2, -2);
+      else if (s === undefined) o.push(-1, -1); else o.push(...slotXY(s, 8));
+    }
+    return o;
   }
   // ---------- readback ----------
   const rf = gl.createFramebuffer();

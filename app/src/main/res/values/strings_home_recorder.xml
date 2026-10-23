@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The recorder home (lobby "Bits"): words added in the Joy Creator restyle. -->
+<resources>
+    <!-- Stats card captions (small mono caps under/beside the big values). -->
+    <string name="home_rec_label_videos">Videos</string>
+    <string name="home_rec_label_used">Used</string>
+
+    <!-- Buttons floating over the preview. -->
+    <string name="home_rec_shot_label">Photo</string>
+    <string name="home_rec_shot_desc">Take a photo</string>
+    <string name="home_rec_full_label">Full</string>
+    <string name="home_rec_full_desc">Full screen preview</string>
+
+    <!-- Shown over the preview while a recording is paused. -->
+    <string name="home_rec_paused">Recording paused</string>
+
+    <!-- Hover labels for icon-only controls. -->
+    <string name="home_rec_mirror">Mirror front camera</string>
+    <string name="home_rec_sound_source">Sound source</string>
+    <string name="home_rec_live_viz">Live visualizer (hold to change style)</string>
+    <string name="home_rec_dismiss_gps">Dismiss location warning</string>
+</resources>

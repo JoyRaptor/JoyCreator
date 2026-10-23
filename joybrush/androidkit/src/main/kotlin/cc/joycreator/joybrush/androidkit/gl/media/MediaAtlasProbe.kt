@@ -43,11 +43,20 @@ internal object MediaAtlasProbe {
     private const val SIZE = 768
 
     fun probe(shaders: ShaderLibrary, paper: MediaPaperGl): String {
-        val kinds = listOf("window", "atlas", "scrambled", "broken")
-        val engines = kinds.map { k -> MediaLayerEngine(shaders, atlasMode = k != "window", atlasBroken = k == "broken").also { it.init(SIZE, SIZE) } }
+        // pasteCopy: the window with one copy-back per paste step (the path before paired steps): must be the window's bits.
+        // banded: free placement as scrambled, its water in jobs cut into the smallest slices (WATER_JOBS_20261021), each
+        // finished before the next frame: the same passes over the same pixels, band by band, so the window's bits.
+        val kinds = listOf("window", "atlas", "scrambled", "broken", "pasteCopy", "banded")
+        val engines = kinds.map { k ->
+            MediaLayerEngine(shaders, atlasMode = k != "window" && k != "pasteCopy", atlasBroken = k == "broken").also {
+                // An atlas engine gets one more row of slots: its last slot is the zero slot (MediaAtlasGl.zeroSlot), never a tile's.
+                it.init(SIZE, if (it.atlasMode) SIZE + 256 else SIZE); if (k == "pasteCopy") it.pastePairs = false
+                if (k == "banded") { it.waterBudget = 1.0; it.slicedSteps = 0 }
+            }
+        }
         // B2's free placement: the same 3 × 3 tiles, every one in a slot that is not its own (no two neighbours adjacent in
         // the atlas the way they are on the layer). Read back un-shuffled, it must be the window's bits.
-        engines[2].setResidency(SCRAMBLE.withIndex().associate { (t, slot) -> cc.joycreator.joybrush.core.paint.Tiles.key(t % 3, t / 3) to slot })
+        for (i in listOf(2, 5)) engines[i].setResidency(SCRAMBLE.withIndex().associate { (t, slot) -> cc.joycreator.joybrush.core.paint.Tiles.key(t % 3, t / 3) to slot })
         val report = JSONObject().put("probe", "mediaAtlasB1").put("size", SIZE).put("renderer", GLES30.glGetString(GLES30.GL_RENDERER))
         val read = IntArray(1).also { GLES30.glGenFramebuffers(1, it, 0) }[0]
         try {
@@ -56,7 +65,7 @@ internal object MediaAtlasProbe {
             val look = MediaLook(floatArrayOf(0.95f, 0.93f, 0.88f))
             val interior = floatArrayOf(96f, 96f, SIZE - 96f, SIZE - 96f)
             fun compare(name: String, frames: Int) {
-                val snaps = engines.mapIndexed { i, e -> snapshot(e, read, e.renderLook(interior, paper, look, ppm), if (i == 2) SCRAMBLE else null) }
+                val snaps = engines.mapIndexed { i, e -> e.finishWaterJob(); snapshot(e, read, e.renderLook(interior, paper, look, ppm), if (i == 2 || i == 5) SCRAMBLE else null) }
                 val o = JSONObject().put("stroke", name).put("frames", frames)
                 for ((i, k) in kinds.withIndex()) if (i > 0) o.put(k, diff(snaps[0], snaps[i]))
                 o.put("changedFromEmpty", snaps[0].values.sumOf { a -> a.count { it != 0 } })
@@ -99,9 +108,9 @@ internal object MediaAtlasProbe {
                 var frames = 0
                 for (chunk in pts.chunked(5)) {
                     frames++
-                    for ((i, e) in engines.withIndex()) { for (s in chunk) splines[i].add(s); e.wetFrame(wets[i].take(), paper, ppm, WetConstants()) }
+                    for ((i, e) in engines.withIndex()) { for (s in chunk) splines[i].add(s); e.wetFrame(wets[i].take(), paper, ppm, WetConstants()); e.finishWaterJob() }
                 }
-                repeat(10) { frames++; for (e in engines) e.wetFrame(null, paper, ppm, WetConstants()) }
+                repeat(10) { frames++; for (e in engines) { e.wetFrame(null, paper, ppm, WetConstants()); e.finishWaterJob() } }
                 compare(label, frames)
             }
             engines.forEach { it.slope = floatArrayOf(0f, 0f) }
@@ -115,9 +124,23 @@ internal object MediaAtlasProbe {
                 var frames = 0
                 for (chunk in pts.chunked(4)) {
                     frames++
-                    for ((i, e) in engines.withIndex()) { for (s in chunk) splines[i].add(s); for (step in paste[i].take()) e.pasteStep(step, brush, paper, ppm, 11) }
+                    for ((i, e) in engines.withIndex()) { for (s in chunk) splines[i].add(s); for (step in paste[i].take()) e.pasteStep(step, brush, paper, ppm, 11); e.pasteSettle() }
                 }
                 compare("oil round", frames)
+            }
+            // 4b) a palette knife (trowel) back across it: many steps a frame, the paired steps' strips and leftovers
+            run {
+                val brush = PasteBrushes.ALL["Palette knife 1"] ?: PasteBrushes.ALL.values.first()
+                engines.forEach { it.reloadBrush(opaquePaint(doubleArrayOf(0.2, 0.3, 0.75)), brush, 12) }
+                val paste = engines.map { PasteStroke(brush, ppm, 1.0) }
+                val splines = paste.map { p -> MediaSpline(sink = p::add) }
+                val pts = samples(50, 250f, 520f, -20f, 0.5)
+                var frames = 0
+                for (chunk in pts.chunked(5)) {
+                    frames++
+                    for ((i, e) in engines.withIndex()) { for (s in chunk) splines[i].add(s); for (step in paste[i].take()) e.pasteStep(step, brush, paper, ppm, 12); e.pasteSettle() }
+                }
+                compare("palette knife", frames)
             }
             // 5) the eraser across everything, both seams
             run {
@@ -148,11 +171,17 @@ internal object MediaAtlasProbe {
             }
             var scrambledBad = 0L
             for (i in 0 until strokes.length()) scrambledBad += strokes.getJSONObject(i).getJSONObject("scrambled").getLong("pixels")
-            report.put("atlasVsWindowPixels", atlasBad).put("scrambledVsWindowPixels", scrambledBad).put("brokenDetectedPixels", brokenSeen).put("nonvacuous", !vacuous)
+            var bandedBad = 0L
+            for (i in 0 until strokes.length()) bandedBad += strokes.getJSONObject(i).getJSONObject("banded").getLong("pixels")
+            var pasteBad = 0L
+            for (i in 0 until strokes.length()) pasteBad += strokes.getJSONObject(i).getJSONObject("pasteCopy").getLong("pixels")
+            report.put("atlasVsWindowPixels", atlasBad).put("scrambledVsWindowPixels", scrambledBad).put("pastePairsVsCopyPixels", pasteBad)
+                .put("bandedVsWindowPixels", bandedBad)
+                .put("brokenDetectedPixels", brokenSeen).put("nonvacuous", !vacuous)
             report.put("glError", GLES30.glGetError())
-            report.put("pass", atlasBad == 0L && scrambledBad == 0L && brokenSeen > 0L && !vacuous)
+            report.put("pass", atlasBad == 0L && scrambledBad == 0L && pasteBad == 0L && bandedBad == 0L && brokenSeen > 0L && !vacuous)
         } catch (e: Throwable) {
-            report.put("pass", false).put("error", e.toString())
+            report.put("pass", false).put("error", e.toString()).put("at", e.stackTrace.take(8).joinToString(" < ") { "${it.fileName}:${it.lineNumber}" })
         } finally {
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
             GLES30.glDeleteFramebuffers(1, intArrayOf(read), 0)
@@ -167,18 +196,21 @@ internal object MediaAtlasProbe {
     /** Every state plane as raw float bits, and the look as RGBA8 bytes widened to ints; [slots]: put scrambled tiles back. */
     private fun snapshot(e: MediaLayerEngine, fbo: Int, look: Int, slots: IntArray? = null): Map<String, IntArray> {
         val out = LinkedHashMap<String, IntArray>()
-        for ((name, tex) in e.stateTextures().toSortedMap()) out[name] = unscramble(readFloatBits(fbo, tex), slots)
+        for ((name, tex) in e.stateTextures().toSortedMap()) {
+            val size = SIZE / e.stateTexelPx(name)   // coarse water's planes are at half resolution
+            out[name] = unscramble(readFloatBits(fbo, tex, size), slots, size)
+        }
         out["look"] = unscramble(readBytes(fbo, look), slots)
         return out
     }
 
     /** Layer layout from slot layout: tile t's 256² block copied from slot [slots] [t]'s place (4 ints per texel). */
-    private fun unscramble(a: IntArray, slots: IntArray?): IntArray {
+    private fun unscramble(a: IntArray, slots: IntArray?, size: Int = SIZE): IntArray {
         if (slots == null) return a
-        val o = IntArray(a.size); val side = 256; val n = SIZE / side
+        val o = IntArray(a.size); val side = 256 * size / SIZE; val n = size / side
         for (t in slots.indices) {
             val tx = t % n; val ty = t / n; val sx = slots[t] % n; val sy = slots[t] / n
-            for (row in 0 until side) System.arraycopy(a, ((sy * side + row) * SIZE + sx * side) * 4, o, ((ty * side + row) * SIZE + tx * side) * 4, side * 4)
+            for (row in 0 until side) System.arraycopy(a, ((sy * side + row) * size + sx * side) * 4, o, ((ty * side + row) * size + tx * side) * 4, side * 4)
         }
         return o
     }
@@ -189,11 +221,11 @@ internal object MediaAtlasProbe {
         check(GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER) == GLES30.GL_FRAMEBUFFER_COMPLETE) { "probe readback target incomplete" }
     }
 
-    private fun readFloatBits(fbo: Int, tex: Int): IntArray {
+    private fun readFloatBits(fbo: Int, tex: Int, size: Int = SIZE): IntArray {
         attach(fbo, tex)
-        val b = ByteBuffer.allocateDirect(SIZE * SIZE * 16).order(ByteOrder.nativeOrder())
-        GLES30.glReadPixels(0, 0, SIZE, SIZE, GLES30.GL_RGBA, GLES30.GL_FLOAT, b)
-        val ints = IntArray(SIZE * SIZE * 4); b.asIntBuffer().get(ints); return ints
+        val b = ByteBuffer.allocateDirect(size * size * 16).order(ByteOrder.nativeOrder())
+        GLES30.glReadPixels(0, 0, size, size, GLES30.GL_RGBA, GLES30.GL_FLOAT, b)
+        val ints = IntArray(size * size * 4); b.asIntBuffer().get(ints); return ints
     }
 
     private fun readBytes(fbo: Int, tex: Int): IntArray {

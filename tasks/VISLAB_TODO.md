@@ -81,7 +81,8 @@ Web pilot: `preview_start vislab-web`, page `tools/vislab-web/index.html#<look-i
 - [x] **C3. Floating visualiser hears phone audio without recording** (Android's playback
   - DONE 10-18, Note 9 with the owner: speaker button -> Android's question -> Start now -> hearing the phone; Glass Peaks jumped with the demo song playing on the phone; tapping again went back to the microphone and Android released the permission. Apps that forbid capture stay silent.
   capture needs the screen-capture consent) — `vislab/overlay/OverlaySound.java` (NONE/RECORDING/MIC).
-- [ ] **C4. Studio: VisLab looks inside Studio's visualiser** (owner 10-18: build it here, not the
+- [ ] **C4. Studio: VisLab looks inside Studio's visualiser** (full brief for the next agent:
+  `tasks/VISLAB_HANDOFF_20261018_STUDIO.md`) (owner 10-18: build it here, not the
   Studio lane; integrate, not override; "Studio is meant to replace After Effects").
   Owner rulings 10-18: VisLab looks are a **section of the Rolodex** (same visualiser item, classic
   styles stay selectable); a **small editor in Studio** for values worth keyframing (reactivity,
@@ -101,12 +102,85 @@ Web pilot: `preview_start vislab-web`, page `tools/vislab-web/index.html#<look-i
   - Sound: `ui/faditor/waveform/PcmSidecar` (whole-source PCM, 22050 Hz mono, `open(ctx, uri)`,
     `frameAt`), used by scrubbing. Transcripts: `Clip.getActiveNamedTranscript`, words in source ms.
   Build order (tick each):
-  - [ ] S1 the item can carry a VisLab look (`visLook` id), saved and loaded, undoable.
-  - [ ] S2 Rolodex section "VisLab looks"; choosing one swaps the classic knobs out (Classic brings them back).
-  - [ ] S3 one renderer for preview and export: offscreen ES 3 on its own thread -> Bitmap; sound from an
+  - [x] S1 the item can carry a VisLab look (`visLook` id), saved and loaded, undoable.
+        PHONE-TESTED 10-22 (Note 9), ad63b8db1: picked in the Style tab, survived a reinstall + reopen, one undo.
+  - [x] S2 Rolodex section "VisLab looks"; choosing one swaps the classic knobs out (Classic brings them back).
+        10-22: `vislab/studio/VisLabStyleTab`, hooked in `FaditorEditorActivity.buildVisualizerStyleTab`
+        (the old Rolodex is now `buildClassicVisualizerStyle`). Look row on top: Studio's `‹ ◆ ›` + chips
+        Classic / every look, the one at the playhead solid cyan, scrolled into view on open.
+        PHONE-TESTED 10-22, ad63b8db1: pick -> body swaps to the VisLab values; one undo per pick.
+  - [x] S3 one renderer for preview and export: offscreen ES 3 on its own thread -> Bitmap; sound from an
         offline 60 Hz feature track of the source (PcmSidecar -> FeatureExtractor), cached.
-  - [ ] S4 small editor: Reactivity, Fade (opacity) and the look's key knobs, keyframable.
-  - [ ] S5 the transcript's words feed a look's Words layer.
+        10-18: core BUILT and compiling (`vislab/studio/OffscreenGl`, `SoundClock`, `StudioVis`; a
+        replay-after-seek clock instead of a stored track); NOT wired into preview/export, never run.
+        10-22: WIRED. Preview: `WaveformOverlayView` (`setSourceUris`, `StudioVis.previewFrame`, drawn
+        scaled from at most 720 px, repeat requests for the same moment coalesced so a paused preview
+        never loops). Export: `WaveformSlot.visLooks`/`visUri` from `ExportManager.buildWaveformSlots`,
+        `CompositeExportOverlay` renders with `renderBlocking` (classic style if it returns null).
+        `ExportService` warm-up waits for the person's looks and bakes each VisLab item's sound first
+        (`vislab/studio/StudioVisExport`). Preview and export keep separate renderers
+        (`previewKey`/`exportKey`); idle renderers are let go after 20 s; the editor's onDestroy calls
+        `releasePreviewIfRunning`.
+        PHONE-TESTED 10-22: Halo Drop plays in the preview with the clip's song (the sound copy is made
+        on first pick), the Joy emblem picture shows, a paused preview does not loop; single-frame
+        export (PNG) and an 8 s range export draw the same look at the same place, moving with the
+        music (ripples on kicks). Export runs in its own process: the warm-up covers it. Cost on the
+        Note 9: ~49-55 ms per exported frame for a 1080-wide item.
+  - [x] S4 small editor: Reactivity, Fade (opacity) and the look's key knobs, keyframable.
+        (Look keys, Reactivity, Fade DONE and phone-tested 10-22.)
+        10-22 later: the key knobs BUILT as four look-wide controls, keyframable like the rest:
+        Bright (x every layer's Brightness), Colour (+ every layer's Colour shift; palettes wrap),
+        Size (x every layer's size in its own space, the common "size") and Speed (x every rate knob,
+        on the travelled path so it never jumps; once a speed was hosted it stays on that path).
+        Owner's own list (10-18: brightness, size, colour shift, speed). Look-wide rather than
+        hand-picked per look: works for every look and every future element (KnobSet finds them by
+        knob id: "brightness", "palShift", "size", rate knobs). Code: `KnobSet.host`,
+        `VisRenderer.setLookControls`, `vislab/studio/VisControls`, `model/VisLabKeys` (VALUES:
+        vis_react, vis_fade, vis_bright, vis_hue, vis_size, vis_speed; json react/fade/bright/hue/
+        size/speed). PHONE-TESTED 10-22 (Note 9), 345b1f6b3: Size 250% made the transcript word "pipsqueak"
+        large and readable in a strip-shaped item (preview and export); Colour 50% shifted the
+        word's colour; Bright 0% hid it; Speed 0% froze Halo Drop's drifting wash, 300% reshaped it
+        frame to frame; each drag one undo. Paused frames cannot show Speed (no time passes).
+        Owner 10-22: the LOOK itself gets a keyframe too (which VisLab look shows from when),
+        at the top of the editor. A held (step) key: the look changes at the key, no blend.
+        10-22: BUILT. `model/VisLabKeys` on the item (look keys incl. Classic, Reactivity 0-2, Fade 0-1,
+        their own KeyframeSet so they never arm the pose), saved as `"vis"` in project.json.
+        Reactivity = `VisRenderer.setReactivity`: it scales what the look HEARS (levels, hits, spectrum,
+        waveform, history; running totals by scaled steps, so a change never jumps), not just the music
+        links: a phone test showed link-only scaling left most of a look (bars, spectrum reads) as loud
+        as before. The row is labelled "React" (the drawer's label column fits ~7 letters). Fade = the
+        picture's alpha in preview and export. Rows use `PipDrawerTabs.addPropRow` (diamond, ease on
+        hold, one undo per drag). Still owed: the look's own key knobs (3-4 per look family).
+        PHONE-TESTED 10-22: look keys (key at 0 s, Lyric Flight keyed at 4 s, held between, undo
+        removes it), React 0 / 100 / 200 % visibly calm / as set / wild on a paused frame, Fade 50 %
+        half see-through, each drag one undo. Lyric Flight draws nothing in Studio until S5 (no words).
+  - [x] S5 the transcript's words feed a look's Words layer.
+        10-22 BUILT: `vislab/studio/StudioWords` (unstruck words in source seconds + a change key);
+        preview asks the editor live (`WaveformOverlayView.setTranscriptSource` ->
+        `FaditorEditorActivity.visualizerTranscript`), export snapshots them into
+        `WaveformSlot.visWords`; `StudioVis` keeps one WordFeed per item, rebuilt only when the key
+        changes, timed by `setWordsTime(sourceMs / 1000)`. A look's own typed words still win. With no
+        transcript, the VisLab section says to make one (Transcript, in the toolbar).
+        PHONE-TESTED 10-22, 345b1f6b3: Lyric Flight on BundlingFontTest's cat clip shows "this", "she",
+        "is name", "pipsqueak" as they are spoken; a single-frame export at 7 s shows "pipsqueak"
+        too; the hint stays hidden when the clip has a transcript.
+        Seen while testing (Studio, not VisLab): leaving the editor through the export-complete
+        screen loses the last in-session undo steps on reopen (the project itself keeps them), so
+        an undo after reopening reaches further back than expected.
+## E. Audit 10-18 (tasks/audits/2026-10-18/; details in the handoff, section 7)
+
+- [ ] **Audit R1-R3** floating visualiser: fixed 10-18 (`VisOverlayService`, `OverlaySound`, `AnnotationService`).
+      R3 PHONE-TESTED 10-22 (close by its X -> the recorder menu reads Off). R1 owed: needs a screen
+      recording running (the owner taps Android's "Start now"). R2 owed: needs an Android 12+ phone
+      (the Note 9 is Android 10).
+- [x] **Audit V1-V9** VisLab: fixed 10-22 (ad63b8db1). PHONE-TESTED on the Note 9: V3 (paused = pixel-identical
+      frames, no renders; an edit while paused redraws once), V5 (the mic closes on pause, reopens on
+      play: `dumpsys audio`), V2 (two Words layers with different typed words each draw their own,
+      55 fps), V6 (the Joy emblem shows in the floating visualiser and in Studio), V9 (the person's own
+      look comes back after a force-stop). V1 (failed write retried), V4, V7, V8 are code-checked
+      only (no visible symptom to provoke on the phone); the normal save path was seen working
+      (a look file edited then undone came back byte-identical).
+
 ## D. Speed, heat, sharing
 
 - [x] **D1. Crystal and Gyroid Dive** are the slowest looks (`shaders/voronoi.frag`, `raymarch.frag`).
@@ -116,6 +190,63 @@ Web pilot: `preview_start vislab-web`, page `tools/vislab-web/index.html#<look-i
 - [x] **D3. Republish the web look book** with today's looks: `node tools/vislab-web/build.mjs`, then
   - DONE 10-18: rebuilt (39 looks, 44 shaders, with the Lab parts, typed words and the spiral fix) and republished as version 3 of https://claude.ai/artifact/Kc5e3auEwB8KQorH92hUXU (private until shared from its Share menu).
   the Artifact update (the pilot page).
+
+## F. Later (owner questions, 10-22)
+
+- [ ] **Element packs (third-party / plugins).** Today: a look (`.vis.json`) and a part
+  (`.vispart.json`) are the person's own files; the 26 elements live in the app. 21 of them are
+  "fullscreen" kind = one `types.json` entry + one `.frag` (no Java; the editor builds itself;
+  `VisRenderer` line ~594 `program("fullscreen.vert", t.frag)`). The other 5 (particles, slime,
+  rd, words, image) are engines with Java. Proposed: a pack = a folder in `Supplies/` with its own
+  `types.json`-format list + `.frag` files, merged into the registry at load; fullscreen/instanced
+  kinds only; OFF until the person turns it on; a test compile + one timed draw on load (GpuTimer);
+  HeatGuard covers it; a look naming a missing element keeps it (LookValidator keep-unknown) and
+  says which pack it needs. Shaders cannot touch files or the network, but can hang the GPU.
+
+## G. Owner review, 10-22 evening (his words condensed; recommendation after each)
+
+Quick wins (do first):
+- [ ] **G1 Sliders: see where it was, get back to it.** While dragging, a ghost dot marks the value
+  at touch-down and the thumb softly snaps back to it, and to 0, the default and 45/90/180 on angles.
+  ("Really hard to get it back to 0 or 90 or 45.") Room `KnobPanel` + web pilot; propose app-wide.
+- [ ] **G2 Sliders that seem to do nothing.** Many only act on the music (Sensitivity, Kick pump,
+  Kick flash, Bass swell, Pulse...) or only in some modes. Flag music-only knobs in `types.json`
+  (e.g. `"music": true`), show them with a small note badge and dimmed while it is silent/paused,
+  hover label "Acts on the music". Audit mode-only knobs and hide them where they do nothing
+  (`showFor` exists).
+- [ ] **G3 Turning with the sound.** The note on Turn already swings the angle with a sound (answer:
+  kick = punch, bass = slow swell, beat = steady). Add a Place **Spin** (a speed, `"rate"`) so a
+  layer (e.g. Sound City's woven floor) keeps turning and speeds up on the beat, smoothly.
+- [ ] **G4 Words fill the spiral.** (a) a bigger word buffer: `WordFeed.SLOTS` 16 -> ~48 (atlas
+  re-layout: 2 columns or shorter rows; `words.frag` SLOTS too; pilot `vislab-words.js`);
+  (b) **Look behind** knob (now fixed `back = 4.0` in `VisRenderer`); (c) **Shift** along the path
+  (put the words where you want them on the spiral / ribbon); (d) **Fade in / out** for every
+  behaviour (words popping in on the ribbon). Look ahead (`lead`) already exists.
+- [ ] **G5 Studio visualiser: the shared transform box + blend mode.** Move the visualiser from its
+  own older box onto Studio's shared transform box (`studiokit/.../transform/TransformOverlayView`,
+  same as pictures/text: move, corners, rotate handle below). Add **Blend mode** to its drawer,
+  default Normal, the image drawer's list (`layers.BlendMode`), preview and export.
+
+Bigger:
+- [ ] **G6 Split scenes into composable elements.** Aurora is curtains + mountains + stars in one
+  shader (snow is already a separate layer): he wants each on its own (soften the curtains, keep
+  stars crisp with their own twinkle behaviours, mountains he drives past instead of warping).
+  New elements: Aurora curtains, Mountains (ridge silhouette, drive-by scroll), Stars (crisp,
+  twinkle behaviours), plus an audit of other lumped scenes (Nebula has stars; Outrun = sun +
+  mountains + grid + sky; Woven floor's horizon glow). Stacking order + Light/paint gives the
+  occlusion. Keep the combined elements selectable; existing looks unchanged.
+- [ ] **G7 Studio proxies drive look knobs.** In Studio, a VisLab layer's Place (across, up, size,
+  turn) and a picture's own position / size / spin can follow a Studio proxy (dummy) object, so a
+  dummy animates them. Later: any knob driven by any Studio object's property.
+- [ ] **G8 Media inside looks** (he asked for options): (a) Sprite element: a SpriteLab sheet
+  playing inside the look (frame rate, a frame per beat, ping-pong), every effect applies;
+  (b) Video element: a clip decoded into the look; (c) Studio layer reference (precompose): a
+  look's media layer shows another Studio item rendered each frame; (d) VisLab's finishes (echo,
+  bloom, glitch, RGB split, warp) as a Studio effect on any clip or layer. Recommended order:
+  (a), then (c), with (d) as the long-term way to put the effects on anything; (b) if still needed.
+- Answered, no change: the picture's Across/Up/Size place the picture inside its layer; Place
+  moves/turns/scales the whole layer (every element has Place). Two levels allow layered motion
+  (frame the logo with its own knobs, give Place a music-linked bounce or a proxy link).
 
 ## Done this window (newest first)
 

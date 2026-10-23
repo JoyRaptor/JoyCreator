@@ -53,6 +53,9 @@ const FILES = { quad: 'media/jb_media_quad.vert', flux: 'media/jb_wet_flux.frag'
 function srcSet(read, ...defs) {
   const o = {}; for (const [k, f] of Object.entries(FILES)) o[k] = defs.length ? define(expand(f, read), ...defs) : expand(f, read);
   o.quadPlain = defs.length ? define(expand(FILES.quad, read), ...defs, 'JB_PLAIN_TARGET') : o.quad;   // the paste brush's cells
+  // MediaLayerEngine's atlas build of every pass drawn slot by slot (ATLAS_NBR).
+  if (defs.includes('JB_ATLAS')) for (const k of ['apply', 'bake', 'flux', 'update', 'pasteDab', 'bead', 'render']) o[k] = define(expand(FILES[k], read), ...defs, 'JB_ATLAS_NBR', ...(process.env.JB_X ? process.env.JB_X.split(',') : []));
+  if (defs.includes('JB_ATLAS')) o.pasteBrush = define(expand(FILES.pasteBrush, read), ...defs, 'JB_ATLAS_NBR', 'JB_ATLAS_NBR5');
   return o;
 }
 const SRC = { old: srcSet(readOld), new: srcSet(readNew), atlas: srcSet(readNew, 'JB_ATLAS') };
@@ -68,7 +71,7 @@ function wetUniformMap(wc) {
     u_runMmPerS: wc.runMmPerS, u_runMm: wc.runMm, u_runHoldMm: wc.runHold * tooth, u_runFilmMm: wc.runFilm, u_runPin: wc.runPin, u_runSizing: wc.runSizing,
     u_dripGapMm: wc.dripGap, u_quietMm: wc.quiet, u_runHoldK: wc.runHoldK, u_runCoherent: wc.runCoherent, u_runCohere: wc.runCohere,
     u_steerScale: wc.steerScale, u_runSteer: wc.runSteer, u_runAlong: wc.runAlong, u_heightMean: heightMean, u_fullMm: wc.fullMm, u_filmMm: wc.filmMm,
-    u_edgeDep: wc.edgeDep, u_mingle: Math.min(0.24 / wc.dt, wc.mingle),
+    u_edgeDep: wc.edgeDep, u_mingle: Math.min(0.24 / wc.dt, wc.mingle), u_noBody: 0,
   };
 }
 const WC = { dt: 1 / 120, substeps: 4, flow: 30, keep: 0.9, pinMm: 0.22, dampS: 0.35, minMm: 0.002, evap: 0.003, edgeEvap: 4, absorb: 0.25, capMm: 0.08, wick: 5,
@@ -241,15 +244,21 @@ const SCENARIOS = [
     return fs.existsSync(edge) ? edge : null;
   })();
   if (!exe) { console.log(JSON.stringify({ pass: false, error: 'no browser: pass --chrome <exe> or set CHROME' })); process.exit(1); }
-  const browser = await chromium.launch({ executablePath: exe, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+  // --time --cdp <port>: no comparison; the window and atlas builds' frames TIMED on a real GPU (a phone's Chrome over adb).
+  const cdp = argVal('cdp', null);
+  const browser = cdp ? await chromium.connectOverCDP('http://127.0.0.1:' + cdp)
+    : await chromium.launch({ executablePath: exe, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });   // SwiftShader only: these compare the atlas with the WINDOW build, two different programs, and a real GPU's compiler may round them apart (Intel d3d11: dry dabs differ by an ulp even at the proven size; the Note 9's Adreno does not)
   let out;
   try {
-    const page = await browser.newPage();
+    const page = cdp ? await browser.contexts()[0].newPage() : await browser.newPage();
+    page.setDefaultTimeout(1800000);
     page.on('console', (m) => { if (m.type() === 'error') console.error('[page]', m.text()); });
-    out = await page.evaluate(PAGE, { W: SIZE, PPM, SRC, wu: wetUniformMap(WC), WC, scenarios: SCENARIOS });
+    out = await page.evaluate(PAGE, { W: SIZE, PPM, SRC, wu: wetUniformMap(WC), WC, scenarios: SCENARIOS, time: process.argv.includes('--time') });
+    if (cdp) await page.close();
   } finally {
-    await browser.close();
+    await browser.close().catch(() => {});
   }
+  if (out.timing) { console.log(JSON.stringify(out, null, 1)); process.exit(0); }
   if (out.error) { console.log(JSON.stringify({ pass: false, base: BASE, ...out })); process.exit(1); }
   let atlasBad = 0, brokenSeen = 0, errors = 0, compared = 0;
   const brokenByScenario = {};
@@ -297,13 +306,14 @@ async function PAGE(P) {
         if (v === undefined) { missing.add(name); unit++; continue; }
         gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, v.tex); gl.uniform1i(u.loc, unit); unit++; continue;
       }
-      if (v === undefined) { missing.add(name); continue; }
+      if (v === undefined) { if (!name.startsWith('u_nbr')) missing.add(name); continue; }   // u_nbr*: set per slot in drawRect
       if (u.type === gl.FLOAT) gl.uniform1f(u.loc, +v);
       else if (u.type === gl.INT || u.type === gl.BOOL) gl.uniform1i(u.loc, v | 0);
       else if (u.type === gl.FLOAT_VEC2) gl.uniform2fv(u.loc, v);
       else if (u.type === gl.FLOAT_VEC3) gl.uniform3fv(u.loc, v);
       else if (u.type === gl.FLOAT_VEC4) gl.uniform4fv(u.loc, v);
       else if (u.type === gl.INT_VEC4) gl.uniform4iv(u.loc, v);
+      else if (u.type === gl.INT_VEC2) gl.uniform2iv(u.loc, v);   // the look's u_nbrTile, u_nbrSlot[9]
       else throw new Error('unhandled uniform type for ' + name);
     }
     gl.activeTexture(gl.TEXTURE0);
@@ -368,9 +378,30 @@ async function PAGE(P) {
   // Slot s of a pass at resolution side = 1 << shift sits at ((s % N) << shift, floor(s / N) << shift); identity: tile (x, y) -> slot x + y·N.
   const tableIdentity = new Int32Array(N * N), tableBroken = new Int32Array(N * N);
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { tableIdentity[y * N + x] = x + y * N; tableBroken[y * N + x] = (x + 1) % N + y * N; }
-  const atlasU = (E, shift) => E.atlas ? { u_atlasTable: { tex: E.table }, u_atlasGrid: [0, 0, N, N], u_atlasSlotsX: N, u_atlasShift: shift, u_atlasWrap: [0, 0, 0, 0], u_atlasWalls: [E.wallsOn ? 1 : 0, 0, 0, 0] } : {};
+  const atlasU = (E, shift) => E.atlas ? { u_atlasTable: { tex: E.table }, u_atlasGrid: [0, 0, N, N], u_atlasSlotsX: N, u_atlasShift: shift, u_atlasWrap: [0, 0, 0, 0], u_atlasWalls: [E.wallsOn ? 1 : 0, 0, 0, 0], u_atlasZero: [0, H] } : {};
   // A layer-shaped pass over rect r (layer px at the pass's resolution). Window: one quad. Atlas: one instance per slot.
+  // MediaAtlasGl.neighbours: a slot's 3x3 neighbour slots from this engine's table (identity, or the broken control's).
+  function nbrOf(E, tx, ty, rad = 1) {
+    const o = [];
+    for (let dy = -rad; dy <= rad; dy++) for (let dx = -rad; dx <= rad; dx++) {
+      const x = tx + dx, y = ty + dy, s = x >= 0 && y >= 0 && x < N && y < N ? E.tableData[y * N + x] : -1;
+      if (s < 0) o.push(-1, -1); else o.push((s % N) * 256, Math.floor(s / N) * 256);
+    }
+    return o;
+  }
+  // --time: each layer-shaped pass's GPU time, by program, per engine (finished before and after).
+  const passTime = {};
   function drawRect(E, r, shift = 8) {
+    if (!P.time) return drawRectInner(E, r, shift);
+    const prog = gl.getParameter(gl.CURRENT_PROGRAM), name = (Object.entries(E.P).find(([, v]) => v === prog) || ['?'])[0];
+    const fb = gl.getParameter(gl.FRAMEBUFFER_BINDING);
+    sync(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb); const t0 = performance.now();
+    drawRectInner(E, r, shift);
+    sync(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb); const b = ((passTime[E.kind] = passTime[E.kind] || {})[name] = passTime[E.kind][name] || { ms: 0, n: 0 });
+    b.ms += performance.now() - t0; b.n++;
+    gl.useProgram(prog);
+  }
+  function drawRectInner(E, r, shift = 8) {
     if (!E.atlas) { gl.bindVertexArray(quadVao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); return; }
     const side = 1 << shift, inst = [];
     for (let ty = 0; ty < N; ty++) for (let tx = 0; tx < N; tx++) {
@@ -380,7 +411,18 @@ async function PAGE(P) {
     }
     if (!inst.length) return;
     gl.bindBuffer(gl.ARRAY_BUFFER, slotBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(inst), gl.STREAM_DRAW);
-    gl.bindVertexArray(atlasQuadVao); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, inst.length / 8);
+    gl.bindVertexArray(atlasQuadVao);
+    const prog = gl.getParameter(gl.CURRENT_PROGRAM), nbrLoc = gl.getUniformLocation(prog, 'u_nbrSlot');
+    if (nbrLoc === null) { gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, inst.length / 8); return; }
+    // JB_ATLAS_NBR (MediaAtlasGl.drawRect): one slot a draw, handed its 3x3 neighbours (walls marked while they are on).
+    const tileLoc = gl.getUniformLocation(prog, 'u_nbrTile');
+    for (let i = 0; i < inst.length / 8; i++) {
+      const tx = inst[i * 8 + 2], ty = inst[i * 8 + 3];
+      gl.uniform2i(tileLoc, tx, ty); gl.uniform2iv(nbrLoc, new Int32Array(nbrOf(E, tx, ty)));
+      for (let k = 0; k < 2; k++) gl.vertexAttribPointer(1 + k, 4, gl.FLOAT, false, 32, i * 32 + k * 16);
+      gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, 1);
+    }
+    for (let k = 0; k < 2; k++) gl.vertexAttribPointer(1 + k, 4, gl.FLOAT, false, 32, k * 16);
   }
   // Instanced dabs; [box] gives each dab's layer-px bounding box. Atlas: each dab once per slot its box touches, in order.
   function drawDabs(E, dabs, box) {
@@ -448,18 +490,24 @@ async function PAGE(P) {
   const paperU = { u_paperSurface: { tex: paperTex }, u_paperTexelPx: 2, u_paperSize: PS, u_paperHexTexels: 32, u_paperSlopeRange: SLOPE, u_paperRotatable: 1, u_paperHeightMean: 0.5,
     u_paperHBot: 0.2, u_paperHTop: 0.8, u_paperFluid: { tex: fluidTex }, u_paperFluidTexelPx: 0, u_paperFluidSize: 4, u_paperFluidHexTexels: 1 };
   const COMMON = { u_layerOrigin: [0, 0], u_layerScale: 1, u_targetSize: [W, H] };
-  const KINDS = ['old', 'new', 'atlas', 'broken'];
+  const KINDS = P.time ? ['new', 'atlas'] : ['old', 'new', 'atlas', 'broken'];
+  const px1 = new Uint8Array(4), sync = () => { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px1); };
+  const timing = {};
   // ---------- an engine ----------
   function makeEngine(kind, seed) {
     const atlas = kind === 'atlas' || kind === 'broken', Pg = PROG[atlas ? 'atlas' : kind];
     const sd = seedState(seed);
-    const st = [0, 1].map((i) => ({ p0: tex(W, H, 'rgba32f', i ? sd.g0 : sd.p0), p1: tex(W, H, 'rgba32f', i ? sd.g1 : sd.p1), paper: tex(W, H, 'rgba32f', i ? sd.g2 : sd.ps) }));
-    const ws = [0, 1].map(() => ({ w0: tex(W, H, 'rgba32f', sd.w0), w1: tex(W, H, 'rgba32f', sd.w1), flux: tex(W, H, 'rgba16f') }));
-    const run = tex(W, H, 'rg16f'), bw = W >> 1, bh = H >> 1, bead = [tex(bw, bh, 'rgba16f'), tex(bw, bh, 'rgba16f')];
-    const in0 = tex(W, H, 'rgba16f'), in1 = tex(W, H, 'rgba16f');
-    const bakeTex = tex(W, H, 'rgba16f'), fluidBake = tex(W, H, 'r8'), waterBake = tex(W, H, 'r16f');
+    // The atlas builds get one more row of slots: its first is the ZERO slot (u_atlasZero, jb_media_atlas.glsl), never a
+    // tile's and zero in every texture. Readbacks and passes stay on the W x H window above it.
+    const AH = atlas ? H + 256 : H, pad = (d) => { if (!atlas || !d) return d; const o = new d.constructor(W * AH * 4); o.set(d); return o; };
+    const st = [0, 1].map((i) => ({ p0: tex(W, AH, 'rgba32f', pad(i ? sd.g0 : sd.p0)), p1: tex(W, AH, 'rgba32f', pad(i ? sd.g1 : sd.p1)), paper: tex(W, AH, 'rgba32f', pad(i ? sd.g2 : sd.ps)) }));
+    const ws = [0, 1].map(() => ({ w0: tex(W, AH, 'rgba32f', pad(sd.w0)), w1: tex(W, AH, 'rgba32f', pad(sd.w1)), flux: tex(W, AH, 'rgba16f') }));
+    const run = tex(W, AH, 'rg16f'), bw = W >> 1, bh = AH >> 1, bead = [tex(bw, bh, 'rgba16f'), tex(bw, bh, 'rgba16f')];
+    const in0 = tex(W, AH, 'rgba16f'), in1 = tex(W, AH, 'rgba16f');
+    const bakeTex = tex(W, AH, 'rgba16f'), fluidBake = tex(W, AH, 'r8'), waterBake = tex(W, AH, 'r16f');
     const E = { kind, atlas, P: Pg, st, ws, run, bead, in0, in1, bakeTex, fluidBake, waterBake, wc: 0, bw, bh };
-    E.table = tex(N, N, 'r32i', kind === 'broken' ? tableBroken : tableIdentity);
+    E.tableData = kind === 'broken' ? tableBroken : tableIdentity;
+    E.table = tex(N, N, 'r32i', E.tableData);
     E.bakeFbo = fbo(bakeTex, fluidBake, waterBake);
     E.beadFbo = bead.map((b) => fbo(b));
     E.fluxFbo = [0, 1].map((i) => fbo(ws[i].flux, run));
@@ -469,10 +517,10 @@ async function PAGE(P) {
     E.wetCopy = [fbo(ws[0].w0, ws[0].w1, ws[0].flux, run), fbo(ws[1].w0, ws[1].w1, ws[1].flux)];
     E.wFbo = ws.map((w) => fbo(w.w0, w.w1));
     E.inFbo = fbo(in0, in1);
-    E.delta = tex(W, H, 'rgba16f'); E.deltaFbo = fbo(E.delta); clearFbo(E.deltaFbo);
-    E.cover = tex(W, H, 'rgba16f'); E.coverFbo = fbo(E.cover); clearFbo(E.coverFbo);
-    E.lookTex = tex(W, H, 'rgba8'); E.lookFbo = fbo(E.lookTex);
-    E.ground = tex(W, H, 'rgba8', groundBytes);
+    E.delta = tex(W, AH, 'rgba16f'); E.deltaFbo = fbo(E.delta); clearFbo(E.deltaFbo);
+    E.cover = tex(W, AH, 'rgba16f'); E.coverFbo = fbo(E.cover); clearFbo(E.coverFbo);
+    E.lookTex = tex(W, AH, 'rgba8'); E.lookFbo = fbo(E.lookTex);
+    E.ground = tex(W, AH, 'rgba8', pad(groundBytes));
     const r = rngf(seed + 5), cells = (k) => { const a = new Float32Array(32 * 8 * 4); for (let i = 0; i < 32 * 8; i++) { a[i * 4] = k ? 0.3 * r() : 2 * r(); a[i * 4 + 1] = k ? 0 : 1.5 * r(); a[i * 4 + 2] = k ? 0 : r(); a[i * 4 + 3] = k ? 0 : 0.4 * r(); } return a; };
     E.brush = [0, 1].map(() => [tex(32, 8, 'rgba32f', cells(0)), tex(32, 8, 'rgba32f', cells(1))]);
     E.brushFbo = E.brush.map((b) => fbo(b[0], b[1])); E.bc = 0;
@@ -586,7 +634,15 @@ async function PAGE(P) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, E.brushFbo[nb]); gl.viewport(0, 0, 32, 8);
       use(E.P.pasteBrush, { ...U, ...atlasU(E, 8), u_targetSize: [32, 8], u_rect: [0, 0, 32, 8], u_p0: { tex: E.st[0].p0 }, u_p1: { tex: E.st[0].p1 },
         u_brush0: { tex: E.brush[E.bc][0] }, u_brush1: { tex: E.brush[E.bc][1] } });
+      if (E.atlas) {   // JB_ATLAS_NBR5 (MediaLayerEngine.pasteStep): the 5x5 tiles around the step's middle
+        const ctx = Math.floor((s.rect[0] + s.rect[2]) / 2 / 256), cty = Math.floor((s.rect[1] + s.rect[3]) / 2 / 256), pg = gl.getParameter(gl.CURRENT_PROGRAM);
+        gl.uniform2i(gl.getUniformLocation(pg, 'u_nbrTile'), ctx, cty); gl.uniform2iv(gl.getUniformLocation(pg, 'u_nbrSlot'), new Int32Array(nbrOf(E, ctx, cty, 2)));
+      }
+      if (P.time) { const fb = gl.getParameter(gl.FRAMEBUFFER_BINDING); sync(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb); }
+      const tB = performance.now();
       gl.bindVertexArray(quadVao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);   // not layer-shaped: one quad in every build
+      if (P.time) { const fb = gl.getParameter(gl.FRAMEBUFFER_BINDING); sync(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+        const b = ((passTime[E.kind] = passTime[E.kind] || {}).pasteBrush = passTime[E.kind].pasteBrush || { ms: 0, n: 0 }); b.ms += performance.now() - tB; b.n++; }
       E.bc = nb;
       gl.bindFramebuffer(gl.FRAMEBUFFER, E.pFbo[1]); gl.viewport(0, 0, W, H);
       use(E.P.pasteDab, { ...U, ...atlasU(E, 8), u_p0: { tex: E.st[0].p0 }, u_p1: { tex: E.st[0].p1 }, u_brush0: { tex: E.brush[E.bc][0] }, u_brush1: { tex: E.brush[E.bc][1] }, u_rect: s.rect });
@@ -601,8 +657,18 @@ async function PAGE(P) {
     const w = E.ws[E.wc], lamp = [-0.55, 0.55, 0.62], ln = Math.hypot(...lamp);
     use(E.P.render, { ...COMMON, ...paperU, ...atlasU(E, 8), u_p0: { tex: E.st[0].p0 }, u_p1: { tex: E.st[0].p1 }, u_paperState: { tex: E.st[0].paper }, u_ground: { tex: E.ground }, u_paperBake: { tex: E.bakeTex },
       u_w0: { tex: w.w0 }, u_w1: { tex: w.w1 }, u_pan: [0, 0], u_zoom: 1, u_pxPerMm: P.PPM, u_toothMm: 0.09, u_paperColor: [0.95, 0.93, 0.88], u_lamp: lamp.map(v => v / ln),
-      u_relief: 0, u_sheen: 0.06, u_capMm: 0.004, u_mode: 0, u_impasto: 1.4, u_look: 1 });
-    gl.bindVertexArray(emptyVao); gl.drawArrays(gl.TRIANGLES, 0, 3);
+      u_relief: 0, u_sheen: 0.06, u_capMm: 0.004, u_mode: 0, u_impasto: 1.4, u_look: 1, ...(E.atlas ? { u_nbrTile: [0, 0], u_nbrSlot: new Array(18).fill(-1) } : {}) });
+    gl.bindVertexArray(emptyVao);
+    if (!E.atlas) gl.drawArrays(gl.TRIANGLES, 0, 3);
+    else for (let ty = 0; ty < N; ty++) for (let tx = 0; tx < N; tx++) {   // slot by slot with its neighbours, as MediaLayerEngine.renderLook
+      const x0 = Math.max(LOOK_M, tx * 256), y0 = Math.max(LOOK_M, ty * 256), x1 = Math.min(W - LOOK_M, tx * 256 + 256), y1 = Math.min(H - LOOK_M, ty * 256 + 256);
+      if (x1 <= x0 || y1 <= y0) continue;
+      const nb = nbrOf(E, tx, ty);
+      gl.scissor(x0, y0, x1 - x0, y1 - y0);
+      gl.uniform2i(gl.getUniformLocation(E.P.render, 'u_nbrTile'), tx, ty);
+      gl.uniform2iv(gl.getUniformLocation(E.P.render, 'u_nbrSlot'), new Int32Array(nb));
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    }
     gl.disable(gl.SCISSOR_TEST);
   }
   // ---------- readback and comparison ----------
@@ -642,9 +708,19 @@ async function PAGE(P) {
         const Fr = sc.frames[fi];
         for (const k of KINDS) {
           const e = E[k];
+          if (P.time) sync();
+          const t0 = performance.now();
           if (sc.kind === 'wet') wetFrame(e, sc, Fr); else if (sc.kind === 'dry') dryFrame(e, sc, Fr); else if (sc.kind === 'erase') eraseFrame(e, sc, Fr); else pasteFrame(e, sc, Fr);
+          if (P.time) sync();
+          const t1 = performance.now();
           renderLook(e);
+          if (P.time) {
+            sync();
+            const tk = ((timing[sc.name] = timing[sc.name] || {})[k] = timing[sc.name][k] || { sim: [], look: [] });
+            tk.sim.push(+(t1 - t0).toFixed(1)); tk.look.push(+(performance.now() - t1).toFixed(1));
+          }
         }
+        if (P.time) { r.frames++; continue; }
         const snaps = {}; for (const k of KINDS) snaps[k] = snapshot(E[k]);
         if (!first) first = snaps.new;
         for (const k of KINDS.slice(1)) {
@@ -665,6 +741,13 @@ async function PAGE(P) {
     for (const f of OWNED.fbo) gl.deleteFramebuffer(f);
     OWNED = null;
     results.push(r);
+  }
+  if (P.time) {
+    const med = (a) => { const b = [...a].sort((x, y) => x - y); return b[b.length >> 1]; };
+    for (const sc of Object.values(timing)) for (const k of Object.values(sc)) { k.simMedian = med(k.sim.slice(1)); k.lookMedian = med(k.look.slice(1)); }
+    const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+    for (const k of Object.values(passTime)) for (const b of Object.values(k)) b.ms = +b.ms.toFixed(1);
+    return { timing, passTime, renderer: dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : '' };
   }
   return { results, missingUniforms: [...missing].sort() };
 }

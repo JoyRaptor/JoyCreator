@@ -64,6 +64,22 @@ public class VisOverlayService extends Service implements OverlayControls.Action
 
     /** True while the floating visualiser is showing. */
     public static volatile boolean isRunning;
+    /** Told (main thread) whenever the visualiser starts or stops, by any route: its own close,
+     *  the notification, the recording toolbar, Joybot (audit 10-18 R3: the toolbar label went stale). */
+    private static final java.util.List<Runnable> stateListeners = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    public static void addStateListener(@NonNull Runnable r) {
+        stateListeners.add(r);
+    }
+
+    public static void removeStateListener(@NonNull Runnable r) {
+        stateListeners.remove(r);
+    }
+
+    private static void announceState() {
+        android.os.Handler h = new android.os.Handler(android.os.Looper.getMainLooper());
+        for (Runnable r : stateListeners) h.post(r);
+    }
     @Nullable private static volatile VisOverlayService instance;
 
     /**
@@ -124,6 +140,7 @@ public class VisOverlayService extends Service implements OverlayControls.Action
     public void onCreate() {
         super.onCreate();
         isRunning = true;
+        announceState();
         startInForeground();   // first, always: a foreground start that never calls it crashes the app
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !android.provider.Settings.canDrawOverlays(this)) {
             // Samsung titles the same switch "Appear on top": name both so it can be found.
@@ -144,7 +161,14 @@ public class VisOverlayService extends Service implements OverlayControls.Action
         List<String> ids = session.lookIds();
         String want = prefs.getString("look", "halo-drop");
         lookId = ids.contains(want) ? want : (ids.isEmpty() ? null : ids.get(0));
-        showLook();
+        showLook(false);   // a stand-in until the folder is read must not replace the person's choice
+        // Once the folder is read: the look the person chose (it may be their own), as saved in
+        // their folder (a customised built-in included). Audit 10-18 V9.
+        session.whenLoaded(() -> {
+            if (instance != this) return;
+            if (session.lookIds().contains(want)) lookId = want;
+            showLook(true);
+        });
         setFull(prefs.getBoolean("full", false));
     }
 
@@ -183,6 +207,13 @@ public class VisOverlayService extends Service implements OverlayControls.Action
                     android.widget.Toast.LENGTH_LONG).show();
             return;
         }
+        // Audit 10-18 R1: while a recording runs it already hears the phone through the recorder, and
+        // a second screen-capture yes would make Android end that recording.
+        if (sound.recordingRuns()) {
+            android.widget.Toast.makeText(this, "While you record, the visualiser hears the recording",
+                    android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
         if (!com.fadcam.vislab.audio.MicSource.hasPermission(this)) {
             android.widget.Toast.makeText(this, "Allow the microphone for Joy Creator first: Android counts the phone's sound as recording",
                     android.widget.Toast.LENGTH_LONG).show();
@@ -197,6 +228,9 @@ public class VisOverlayService extends Service implements OverlayControls.Action
         Intent data = intent.getParcelableExtra(EXTRA_DATA);
         int code = intent.getIntExtra(EXTRA_CODE, 0);
         if (data == null) return;
+        // A recording started while Android was asking: drop this yes unused (using it would end
+        // the recording; the recording's sound is what we hear now anyway).
+        if (sound.recordingRuns()) return;
         // Android only hands out the projection to a service that runs as a screen-capture one.
         startInForeground(true);
         try {
@@ -225,6 +259,7 @@ public class VisOverlayService extends Service implements OverlayControls.Action
     @Override
     public void onDestroy() {
         isRunning = false;
+        announceState();
         if (instance == this) instance = null;
         ui.removeCallbacks(tuck);
         if (sound != null) sound.stop();
@@ -242,6 +277,8 @@ public class VisOverlayService extends Service implements OverlayControls.Action
         view = new VisTextureView(this);
         view.renderer().setTransparent(true);   // see-through over whatever is below
         view.renderer().setWords(null);         // no sample lyrics over someone's screen
+        // The look's pictures (the Joy emblem, a picked logo), as in the room (audit 10-18 V6).
+        view.renderer().setImageSource(new com.fadcam.vislab.room.Pictures(this));
         box.addView(view, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         controls = new OverlayControls(this, this);
         controls.setVisibility(View.GONE);
@@ -275,6 +312,18 @@ public class VisOverlayService extends Service implements OverlayControls.Action
         resize.setOnTouchListener(new Resize());
     }
 
+    /** The most opaque a pass-through window may be and still let touches reach the app below. */
+    private float passThroughAlpha() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return 1f;
+        try {
+            android.hardware.input.InputManager im = getSystemService(android.hardware.input.InputManager.class);
+            float max = im != null ? im.getMaximumObscuringOpacityForTouch() : 0.8f;
+            return Math.max(0.1f, max - 0.01f);   // just under: equal can still count as obscuring
+        } catch (RuntimeException e) {
+            return 0.79f;
+        }
+    }
+
     private void setFull(boolean on) {
         full = on;
         prefs.edit().putBoolean("full", on).apply();
@@ -285,6 +334,9 @@ public class VisOverlayService extends Service implements OverlayControls.Action
             boxLp.height = WindowManager.LayoutParams.MATCH_PARENT;
             boxLp.x = boxLp.y = 0;
             boxLp.flags |= WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE;
+            // Audit 10-18 R2: Android 12+ blocks touches that pass through another app's window
+            // more opaque than its limit (0.8 by default), so full screen sits just under it.
+            boxLp.alpha = passThroughAlpha();
             view.renderer().setForceFrame(-1);   // the look's own edges: bleed, as it was made
             resize.setVisibility(View.GONE);
             moveControls(true);
@@ -294,6 +346,7 @@ public class VisOverlayService extends Service implements OverlayControls.Action
             boxLp.x = prefs.getInt("x", Math.round(dm.widthPixels * 0.05f));
             boxLp.y = prefs.getInt("y", defaultY(dm));
             boxLp.flags &= ~WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE;
+            boxLp.alpha = 1f;
             view.renderer().setForceFrame(1);    // contained: soft box, never a hard seam
             moveControls(false);
         }
@@ -474,6 +527,10 @@ public class VisOverlayService extends Service implements OverlayControls.Action
     // ------------------------------------------------------------------ looks + sound
 
     private void showLook() {
+        showLook(true);
+    }
+
+    private void showLook(boolean remember) {
         if (lookId == null) return;
         String json = session.lookJson(lookId);
         if (json == null) return;
@@ -481,7 +538,7 @@ public class VisOverlayService extends Service implements OverlayControls.Action
         view.setScene(s);
         view.renderer().setBrandPalette(session.brand());
         controls.setLook(s.name());
-        prefs.edit().putString("look", lookId).apply();
+        if (remember) prefs.edit().putString("look", lookId).apply();
     }
 
     @Override

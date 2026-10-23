@@ -92,4 +92,34 @@ class MediaAtlasDrawTest {
         val many = d.rects(0f, 0f, 256f * 8, 256f * 8, 8, 8, MediaAtlasDraw.identity(8))
         assertEquals(64, many, "the rect buffer grows past its first 16 instances")
     }
+    @Test fun aSplitDrawsEveryPixelOnceAndItsInsideNeverReadsPastItsTile() {
+        val d = MediaAtlasDraw()
+        // Fractional edges across both seams of a scrambled 3 x 3 window, full and half resolution; reaches 0, 9, 54, 200.
+        val scramble = intArrayOf(4, 7, 0, 2, 8, 5, 1, 3, 6)
+        for (shift in listOf(8, 7)) for (reach in listOf(0, 9, 54, 200)) {
+            val side = 1 shl shift
+            val s = side / 256f
+            val n = d.rects(10.25f * s, 200.75f * s, 700.5f * s, 530.0f * s, shift, 3) { x, y -> if (x in 0..2 && y in 0..2) scramble[x + 3 * y] else -1 }
+            val before = rects(d)
+            d.split(reach, shift)
+            for (i in 0 until n) {
+                val r = before[i]
+                val parts = (0 until d.innerCount).map { d.inner.copyOfRange(it * 8, it * 8 + 8).toList() }.filter { it.subList(0, 4) == r.subList(0, 4) } +
+                    (0 until d.borderCount).map { d.border.copyOfRange(it * 8, it * 8 + 8).toList() }.filter { it.subList(0, 4) == r.subList(0, 4) }
+                val all = HashSet<Pair<Int, Int>>()
+                for (p in parts) { val px = centres(p[4], p[5], p[6], p[7]); assertTrue(px.none { it in all }, "parts never overlap"); all += px }
+                assertEquals(centres(r[4], r[5], r[6], r[7]), all, "the parts of an instance cover its pixels, no more, no less (shift $shift, reach $reach)")
+            }
+            val lo = { t: Float -> t * side }
+            for (k in 0 until d.innerCount) {
+                val p = d.inner.copyOfRange(k * 8, k * 8 + 8)
+                for ((x, y) in centres(p[4], p[5], p[6], p[7])) {
+                    assertTrue(x - reach >= lo(p[2]) && x + reach < lo(p[2]) + side && y - reach >= lo(p[3]) && y + reach < lo(p[3]) + side,
+                        "every read within $reach of an inside pixel is in its own tile")
+                }
+            }
+            if (reach == 200) assertEquals(0, d.innerCount, "no inside when the reach is past half a tile")
+            if (reach == 0) assertEquals(0, d.borderCount, "no strips when the pass reads only its own pixel")
+        }
+    }
 }

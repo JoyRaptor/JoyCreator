@@ -14,6 +14,11 @@ uniform sampler2D u_p1;          // S·X rgb, openness
 uniform sampler2D u_paperState;  // R crush, G dry flake volume V (mm), B Σ V·flake reflectance
 uniform sampler2D u_w0;          // water: w (mm), s (capillary saturation)
 uniform sampler2D u_w1;          // pigment still in the water: K rgb, S
+uniform sampler2D u_inA0;        // brush input the water has not taken in yet (WATER_JOBS_20261021), two buffers:
+uniform sampler2D u_inA1;        //   *0 = (dw mm, dK rgb), *1 = (dS, solubility weight)
+uniform sampler2D u_inB0;
+uniform sampler2D u_inB1;
+uniform float u_inputPending;    // 1 while either buffer holds dabs: the look adds them, so a mark shows before the water runs
 uniform sampler2D u_paperBake;   // the layer's paper bake: .b = the normalised height paint fills against
 uniform sampler2D u_ground;      // the app (u_look = 1): the pixels the media lies on, premultiplied RGBA8 (JB-2.40 §Q1)
 uniform vec2 u_targetSize;       // layer size, LAYER px
@@ -41,6 +46,7 @@ float crushAt(vec2 lp) { return jb_bilinearL(u_paperState, lp).r; }
 void main() {
     vec2 docPx = (gl_FragCoord.xy - u_pan) / u_zoom;
     vec2 lp = (docPx - u_layerOrigin) * u_layerScale;
+    jb_atlasBeginAt(ivec2(floor(lp)));
     float lpm = u_pxPerMm * u_layerScale;          // layer px per mm
     if (!jb_insidePx(lp, u_targetSize)) {
         o_color = vec4(0.16, 0.16, 0.17, 1.0);
@@ -48,8 +54,27 @@ void main() {
     }
     vec4 p0 = jb_bilinearL(u_p0, lp);
     vec4 p1 = jb_bilinearL(u_p1, lp);
+#ifdef JB_WET_COARSE
+    // Coarse water (COARSE_WATER_20261021): the water and what floats in it, read smoothly from its 2 x 2 pixel cells.
+    vec4 wa = jb_bilinearLS(u_w0, lp * 0.5, 7);
+    vec4 wp = jb_bilinearLS(u_w1, lp * 0.5, 7);
+#else
     vec4 wa = jb_bilinearL(u_w0, lp);
     vec4 wp = jb_bilinearL(u_w1, lp);
+#endif
+    if (u_inputPending > 0.5) {
+        // The brush's water and pigment as the water's first step will take them in (jb_wet_update.frag): a thirsty brush
+        // takes water away, never below none.
+#ifdef JB_WET_COARSE
+        vec4 i0 = jb_bilinearLS(u_inA0, lp * 0.5, 7) + jb_bilinearLS(u_inB0, lp * 0.5, 7);
+        vec4 i1 = jb_bilinearLS(u_inA1, lp * 0.5, 7) + jb_bilinearLS(u_inB1, lp * 0.5, 7);
+#else
+        vec4 i0 = jb_bilinearL(u_inA0, lp) + jb_bilinearL(u_inB0, lp);
+        vec4 i1 = jb_bilinearL(u_inA1, lp) + jb_bilinearL(u_inB1, lp);
+#endif
+        wa.r = max(0.0, wa.r + i0.r);
+        wp += vec4(max(i0.gba, 0.0), max(i1.r, 0.0));
+    }
     // A flat look does not use the paper's surface vector. Keep the real
     // surface for relief and the height debug view.
     vec4 s = vec4(0.0);
@@ -81,8 +106,13 @@ void main() {
     // Gradients over ±1 layer px, in units per mm (lpm layer px per mm); crush is in tooth units.
     vec2 dC = vec2(crushAt(lp + vec2(1, 0)) - crushAt(lp - vec2(1, 0)),
                    crushAt(lp + vec2(0, 1)) - crushAt(lp - vec2(0, 1))) * 0.5 * u_layerScale;
+#ifdef JB_WET_COARSE
+    vec2 dW = vec2(jb_bilinearLS(u_w0, (lp + vec2(1, 0)) * 0.5, 7).r - jb_bilinearLS(u_w0, (lp - vec2(1, 0)) * 0.5, 7).r,
+                   jb_bilinearLS(u_w0, (lp + vec2(0, 1)) * 0.5, 7).r - jb_bilinearLS(u_w0, (lp - vec2(0, 1)) * 0.5, 7).r) * 0.5 * u_layerScale;
+#else
     vec2 dW = vec2(jb_bilinearL(u_w0, lp + vec2(1, 0)).r - jb_bilinearL(u_w0, lp - vec2(1, 0)).r,
                    jb_bilinearL(u_w0, lp + vec2(0, 1)).r - jb_bilinearL(u_w0, lp - vec2(0, 1)).r) * 0.5 * u_layerScale;
+#endif
     // Paint body: its thickness is real relief (mm), lit like the paper.
     vec2 dT = vec2(jb_bilinearL(u_p0, lp + vec2(1, 0)).a - jb_bilinearL(u_p0, lp - vec2(1, 0)).a,
                    jb_bilinearL(u_p0, lp + vec2(0, 1)).a - jb_bilinearL(u_p0, lp - vec2(0, 1)).a) * 0.5 * u_layerScale;
@@ -113,8 +143,9 @@ void main() {
         for (int i = 1; i <= 10; i++) {
             float d = float(i * i) * 0.5 + 1.0;                       // doc px, spreading out
             vec2 q = lp + ldir * d * u_layerScale;
-            float pq = jb_bilinearL(u_p0, q).a;
-            float tq = (pq + smoothstep(0.004, 0.04, pq) * jb_bilinearL(u_paperBake, q).b * u_toothMm) * u_impasto;
+            // Up to 51 px away: far reads (jb_bilinearLSFar), the rest of the look is near (the atlas's NEAR build).
+            float pq = jb_bilinearLSFar(u_p0, q, JB_SLOT_SHIFT).a;
+            float tq = (pq + smoothstep(0.004, 0.04, pq) * jb_bilinearLSFar(u_paperBake, q, JB_SLOT_SHIFT).b * u_toothMm) * u_impasto;
             float rise = (tq - t0) - d / u_pxPerMm * tanE;            // mm above the light's line
             lit = min(lit, clamp(1.0 - rise / (0.01 + 0.25 * d / u_pxPerMm), 0.0, 1.0));
         }

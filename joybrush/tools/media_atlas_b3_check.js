@@ -26,7 +26,7 @@ const ROOT = path.join(__dirname, '..');
 const SHADER_DIR = path.join(ROOT, 'shaders');
 function argVal(name, dflt) { const i = process.argv.indexOf('--' + name); return i >= 0 && i + 1 < process.argv.length ? process.argv[i + 1] : dflt; }
 const QUICK = process.argv.includes('--quick');
-const PPM = 12, LW = 1536, AW = 1024;
+const PPM = 12, LW = parseInt(argVal('layer', '1536'), 10), AW = parseInt(argVal('atlas', '1024'), 10);   // --atlas 1536 --layer 2048: 35 slots over 64 tiles
 
 const INCLUDE_RE = /^#include\s+"([^"]+)"$/;
 function expand(rel, seen = new Set()) {
@@ -44,6 +44,9 @@ const FILES = { quad: 'media/jb_media_quad.vert', flux: 'media/jb_wet_flux.frag'
 function srcSet(...defs) {
   const o = {}; for (const [k, f] of Object.entries(FILES)) o[k] = defs.length ? define(expand(f), ...defs) : expand(f);
   o.quadPlain = defs.length ? define(expand(FILES.quad), ...defs, 'JB_PLAIN_TARGET') : o.quad;
+  // MediaLayerEngine's atlas build of every pass drawn slot by slot (ATLAS_NBR).
+  if (defs.includes('JB_ATLAS')) for (const k of ['apply', 'bake', 'flux', 'update', 'pasteDab', 'bead', 'render']) o[k] = define(expand(FILES[k]), ...defs, 'JB_ATLAS_NBR');
+  if (defs.includes('JB_ATLAS')) o.pasteBrush = define(expand(FILES.pasteBrush), ...defs, 'JB_ATLAS_NBR', 'JB_ATLAS_NBR5');
   return o;
 }
 const SRC = { window: srcSet(), atlas: srcSet('JB_ATLAS') };
@@ -57,7 +60,7 @@ function wetUniformMap(wc) {
     u_runMmPerS: wc.runMmPerS, u_runMm: wc.runMm, u_runHoldMm: wc.runHold * tooth, u_runFilmMm: wc.runFilm, u_runPin: wc.runPin, u_runSizing: wc.runSizing,
     u_dripGapMm: wc.dripGap, u_quietMm: wc.quiet, u_runHoldK: wc.runHoldK, u_runCoherent: wc.runCoherent, u_runCohere: wc.runCohere,
     u_steerScale: wc.steerScale, u_runSteer: wc.runSteer, u_runAlong: wc.runAlong, u_heightMean: heightMean, u_fullMm: wc.fullMm, u_filmMm: wc.filmMm,
-    u_edgeDep: wc.edgeDep, u_mingle: Math.min(0.24 / wc.dt, wc.mingle),
+    u_edgeDep: wc.edgeDep, u_mingle: Math.min(0.24 / wc.dt, wc.mingle), u_noBody: 0,
   };
 }
 const WC = { dt: 1 / 120, substeps: 4, flow: 30, keep: 0.9, pinMm: 0.22, dampS: 0.35, minMm: 0.002, evap: 0.003, edgeEvap: 4, absorb: 0.25, capMm: 0.08, wick: 5,
@@ -151,8 +154,8 @@ function protoDab(st, p, lean, P, tilted) {
 function buildDry(sc) {
   const frames = [];
   for (let f = 0; f < sc.frames; f++) {
-    const pts = ptsOf(sc, f / sc.frames, (f + 1) / sc.frames, 6);
-    const dabs = []; let dirty = null;
+    const pts = ptsOf(sc, f / sc.frames, (f + 1) / sc.frames, sc.dabsPerFrame || 6);
+    const dabs = [], boxes = []; let dirty = null;
     pts.forEach((p, i) => {
       const P = 0.25 + 0.65 * ((f * 6 + i) % 11) / 10, lean = [Math.cos(sc.lean), Math.sin(sc.lean)];
       // The quad must cover everywhere the stick can press (stickContact does): past the longest zone (L2 = 3.4 mm) and
@@ -161,9 +164,9 @@ function buildDry(sc) {
       const dab = sc.stick ? protoDab(STICKS[sc.stick], p, lean, P, sc.side) : [p.x, p.y, lean[0], lean[1], xMin, xMax, yMax, D, 0.45, 1.6, 3.4, 0.8, 1, 0.6, 0.35, 0.12, p.dx, p.dy, 0.4, P];
       dabs.push(dab);
       const e = (Math.hypot(Math.max(Math.abs(dab[4]), dab[5]), dab[6]) + 0.1) * PPM + 2;
-      dirty = union(dirty, [p.x - e, p.y - e, p.x + e, p.y + e]);
+      dirty = union(dirty, [p.x - e, p.y - e, p.x + e, p.y + e]); boxes.push([p.x - e, p.y - e, p.x + e, p.y + e]);
     });
-    frames.push({ dabs, travel: [pts[pts.length - 1].dx, pts[pts.length - 1].dy], rect: layerRect(dirty, sc.smearMm * PPM + 2) });
+    frames.push({ dabs, boxes, travel: [pts[pts.length - 1].dx, pts[pts.length - 1].dy], rect: layerRect(dirty, sc.smearMm * PPM + 2) });
   }
   const st = STICKS[sc.stick || 'zones'];
   return { kind: 'dry', name: sc.name, seed: sc.seed, smearMm: sc.smearMm, stick: { u_stickBlend: st.blend, u_stickShape: st.shape, u_zoneGrad: st.grads }, frames };
@@ -173,8 +176,9 @@ function buildErase(sc) {
   for (let f = 0; f < sc.frames; f++) {
     const pts = ptsOf(sc, f / sc.frames, (f + 1) / sc.frames, 5);
     const r = sc.radius, dabs = pts.map((p, i) => [p.x, p.y, r, 0.4 + 0.6 * ((f + i) % 4) / 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
-    let dirty = null; for (const p of pts) dirty = union(dirty, [p.x - r - 3, p.y - r - 3, p.x + r + 3, p.y + r + 3]);
-    frames.push({ dabs, rect: layerRect(dirty, 0) });
+    let dirty = null; const boxes = pts.map((p) => [p.x - r - 3, p.y - r - 3, p.x + r + 3, p.y + r + 3]);
+    for (const b of boxes) dirty = union(dirty, b);
+    frames.push({ dabs, boxes, rect: layerRect(dirty, 0) });
   }
   return { kind: 'erase', name: sc.name, seed: sc.seed, frames };
 }
@@ -193,8 +197,12 @@ const FLAT = [0, 0], F = (n) => QUICK ? Math.max(4, n >> 2) : n;
 // Every point at least 215 px inside the layer: its pass rect plus the look's halo and reach (110 px) never meets the
 // layer's edge, where the oracle (a window) clamps its reads and the atlas would read nothing.
 const M0 = 215, M1 = LW - 215;
-const SNAKE = [[M0, 215], [M1, 215], [M1, 490], [M0, 490], [M0, 765], [M1, 765], [M1, 1040], [M0, 1040], [M0, M1], [M1, M1]];
-const LOOP = [[M0, 215], [M1, 215], [M1, 765], [M0, 765], [M0, M1], [M1, M1], [M1, 490], [M0, 490]];   // back over row 1-2 at the end
+// The 1536 layer's paths exactly as proved before; any other layer: rows 275 px apart across it.
+const ROWS = LW === 1536 ? [215, 490, 765, 1040, M1] : Array.from({ length: Math.floor((M1 - 215) / 275) + 1 }, (_, i) => 215 + 275 * i);
+const SNAKE = LW === 1536 ? [[M0, 215], [M1, 215], [M1, 490], [M0, 490], [M0, 765], [M1, 765], [M1, 1040], [M0, 1040], [M0, M1], [M1, M1]]
+  : ROWS.flatMap((y, i) => i % 2 ? [[M1, y], [M0, y]] : [[M0, y], [M1, y]]);
+const LOOP = LW === 1536 ? [[M0, 215], [M1, 215], [M1, 765], [M0, 765], [M0, M1], [M1, M1], [M1, 490], [M0, 490]]   // back over row 1-2 at the end
+  : [...SNAKE, [SNAKE[SNAKE.length - 1][0], ROWS[1]], [M0 + M1 - SNAKE[SNAKE.length - 1][0], ROWS[1]]];   // up to row 2, back across it
 const SCENARIOS = [
   buildDry({ name: 'dry point stick, snake over 36 tiles', path: SNAKE, frames: F(120), seed: 21, lean: 0.6, side: false, smearMm: 0.4 }),
   buildDry({ name: 'Proto Pencil tilted + smear, snake', stick: 'Proto Pencil', path: SNAKE, frames: F(120), seed: 24, lean: 1.9, side: true, smearMm: 0.9 }),
@@ -202,6 +210,9 @@ const SCENARIOS = [
   buildErase({ name: 'eraser, snake', path: SNAKE, frames: F(100), seed: 31, radius: 18 }),
   buildPaste({ name: 'oil round brush, snake', path: SNAKE, frames: F(120), seed: 41, shape: 0, blade: 0, halfW: 2.2, lenMax: 7 }),
   buildPaste({ name: 'palette knife, back over evicted tiles', path: LOOP, frames: F(110), seed: 42, shape: 2, blade: 1, halfW: 3.0, lenMax: 5 }),
+  // Step 6 (the Lead's D3): four frames for the whole snake, each one wider than the atlas holds: split in time, in dab
+  // order, into frames that fit, as a faster phone would have drawn them; the oracle draws the same split.
+  buildDry({ name: 'dry fast flick, frames split in time', path: SNAKE, frames: 4, dabsPerFrame: 60, seed: 25, lean: 0.6, side: false, smearMm: 0.4 }),
 ];
 const KINDS = ['orderA', 'orderB', 'noWriteBack', 'noReplay'];
 
@@ -224,7 +235,7 @@ const KINDS = ['orderA', 'orderB', 'noWriteBack', 'noReplay'];
       let part;
       // A browser that dies under memory pressure (another job on the machine) is retried once; a real failure repeats.
       for (let attempt = 0; attempt < 2; attempt++) {
-        const browser = await chromium.launch({ executablePath: exe, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+        const browser = await chromium.launch({ executablePath: exe, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });   // SwiftShader only: these compare the atlas with the WINDOW build, two different programs, and a real GPU's compiler may round them apart (Intel d3d11: dry dabs differ by an ulp even at the proven size; the Note 9's Adreno does not)
         try {
           const page = await browser.newPage();
           page.on('console', (m) => { if (m.type() === 'error') console.error('[page]', m.text()); });
@@ -256,7 +267,7 @@ const KINDS = ['orderA', 'orderB', 'noWriteBack', 'noReplay'];
     noWb += r.mismatch.noWriteBack?.total ?? 0; noRp += r.mismatch.noReplay?.total ?? 0;
     misses += (r.misses.orderA ?? 0) + (r.misses.orderB ?? 0);
   }
-  const longStrokes = out.results.every(r => r.tilesCrossed >= 30 && (r.evictions.orderA ?? 0) > 0 && r.maxResident <= 15 && r.changed > 200);
+  const longStrokes = out.results.every(r => r.tilesCrossed >= 30 && (r.evictions.orderA ?? 0) > 0 && r.maxResident <= (AW / 256) ** 2 - 1 && r.changed > 200);
   const pass = errors === 0 && exactBad === 0 && misses === 0 && noWb > 0 && noRp > 0 && longStrokes;
   console.log(JSON.stringify({ pass, layer: LW, atlas: AW, resident: 15,
     totals: { mismatchedPixels: exactBad, admissionMisses: misses, noWriteBackDetected: noWb, noReplayDetected: noRp }, longStrokes,
@@ -291,13 +302,14 @@ async function PAGE(P) {
         if (v === undefined) { missing.add(name); unit++; continue; }
         gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, v.tex); gl.uniform1i(u.loc, unit); unit++; continue;
       }
-      if (v === undefined) { missing.add(name); continue; }
+      if (v === undefined) { if (!name.startsWith('u_nbr')) missing.add(name); continue; }   // u_nbr*: set per slot in drawRect
       if (u.type === gl.FLOAT) gl.uniform1f(u.loc, +v);
       else if (u.type === gl.INT || u.type === gl.BOOL) gl.uniform1i(u.loc, v | 0);
       else if (u.type === gl.FLOAT_VEC2) gl.uniform2fv(u.loc, v);
       else if (u.type === gl.FLOAT_VEC3) gl.uniform3fv(u.loc, v);
       else if (u.type === gl.FLOAT_VEC4) gl.uniform4fv(u.loc, v);
       else if (u.type === gl.INT_VEC4) gl.uniform4iv(u.loc, v);
+      else if (u.type === gl.INT_VEC2) gl.uniform2iv(u.loc, v);   // the look's u_nbrTile, u_nbrSlot[9]
       else throw new Error('unhandled uniform type for ' + name);
     }
     gl.activeTexture(gl.TEXTURE0);
@@ -401,16 +413,19 @@ async function PAGE(P) {
   // =================================================================================================================
   function makeEngine(kind, seed) {
     const atlas = kind !== 'window', W = atlas ? AW : LW, Pg = PROG[atlas ? 'atlas' : 'window'];
+    // An atlas has one more row of slots below its own: the first is the ZERO slot (u_atlasZero, jb_media_atlas.glsl),
+    // never a tile's and zero in every texture (WebGL zero-fills). Nothing else reads or writes that row.
+    const TH = atlas ? W + 256 : W;
     const sd = seedState(seed);
     const E = { kind, atlas, P: Pg, W, wc: 0, bw: W >> 1, reachOn: kind !== 'noRing', seamReads: 0, maxResident: 0, loads: 0 };
-    const T = (fmt, data) => tex(W, W, fmt, atlas ? null : data);
+    const T = (fmt, data) => tex(W, TH, fmt, atlas ? null : data);
     E.st = [0, 1].map((i) => ({ p0: T('rgba32f', i ? sd.g0 : sd.p0), p1: T('rgba32f', i ? sd.g1 : sd.p1), paper: T('rgba32f', i ? sd.g2 : sd.ps) }));
-    E.ws = [0, 1].map(() => ({ w0: T('rgba32f', sd.w0), w1: T('rgba32f', sd.w1), flux: tex(W, W, 'rgba16f') }));
-    E.run = tex(W, W, 'rg16f'); E.bead = [tex(E.bw, E.bw, 'rgba16f'), tex(E.bw, E.bw, 'rgba16f')];
-    E.in0 = tex(W, W, 'rgba16f'); E.in1 = tex(W, W, 'rgba16f');
-    E.bakeTex = tex(W, W, 'rgba16f'); E.fluidBake = tex(W, W, 'r8'); E.waterBake = tex(W, W, 'r16f');
-    E.delta = tex(W, W, 'rgba16f'); E.cover = tex(W, W, 'rgba16f');
-    E.lookTex = tex(W, W, 'rgba8'); E.ground = tex(W, W, 'rgba8', atlas ? null : groundBytes);
+    E.ws = [0, 1].map(() => ({ w0: T('rgba32f', sd.w0), w1: T('rgba32f', sd.w1), flux: tex(W, TH, 'rgba16f') }));
+    E.run = tex(W, TH, 'rg16f'); E.bead = [tex(E.bw, TH >> 1, 'rgba16f'), tex(E.bw, TH >> 1, 'rgba16f')];
+    E.in0 = tex(W, TH, 'rgba16f'); E.in1 = tex(W, TH, 'rgba16f');
+    E.bakeTex = tex(W, TH, 'rgba16f'); E.fluidBake = tex(W, TH, 'r8'); E.waterBake = tex(W, TH, 'r16f');
+    E.delta = tex(W, TH, 'rgba16f'); E.cover = tex(W, TH, 'rgba16f');
+    E.lookTex = tex(W, TH, 'rgba8'); E.ground = tex(W, TH, 'rgba8', atlas ? null : groundBytes);
     E.bakeFbo = fbo(E.bakeTex, E.fluidBake, E.waterBake); E.beadFbo = E.bead.map((b) => fbo(b));
     E.fluxFbo = [0, 1].map((i) => fbo(E.ws[i].flux, E.run));
     E.updFbo = [0, 1, 2, 3].map((i) => fbo(E.ws[i >> 1].w0, E.ws[i >> 1].w1, E.st[i & 1].p0, E.st[i & 1].p1));
@@ -445,7 +460,7 @@ async function PAGE(P) {
     return E;
   }
   const slotXY = (s, shift) => [(s % SN) << shift, Math.floor(s / SN) << shift];
-  const atlasU = (E, shift) => E.atlas ? { u_atlasTable: { tex: E.table }, u_atlasGrid: [0, 0, GN, GN], u_atlasSlotsX: SN, u_atlasShift: shift, u_atlasWrap: [0, 0, 0, 0], u_atlasWalls: [E.wallsOn ? 1 : 0, 0, 0, 0] } : {};
+  const atlasU = (E, shift) => E.atlas ? { u_atlasTable: { tex: E.table }, u_atlasGrid: [0, 0, GN, GN], u_atlasSlotsX: SN, u_atlasShift: shift, u_atlasWrap: [0, 0, 0, 0], u_atlasWalls: [E.wallsOn ? 1 : 0, 0, 0, 0], u_atlasZero: [0, AW] } : {};
   const COMMON = (E) => ({ u_layerOrigin: [0, 0], u_layerScale: 1, u_targetSize: [E.W, E.W] });
   // tiles a layer-px rect touches (inclusive ranges), clamped to the layer
   function tilesOf(r) {
@@ -528,7 +543,18 @@ async function PAGE(P) {
     }
     if (!inst.length) return;
     gl.bindBuffer(gl.ARRAY_BUFFER, slotBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(inst), gl.STREAM_DRAW);
-    gl.bindVertexArray(atlasQuadVao); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, inst.length / 8);
+    gl.bindVertexArray(atlasQuadVao);
+    const prog = gl.getParameter(gl.CURRENT_PROGRAM), nbrLoc = gl.getUniformLocation(prog, 'u_nbrSlot');
+    if (nbrLoc === null) { gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, inst.length / 8); return; }
+    // JB_ATLAS_NBR (MediaAtlasGl.drawRect): one slot a draw, handed its 3x3 neighbours (walls marked while they are on).
+    const tileLoc = gl.getUniformLocation(prog, 'u_nbrTile');
+    for (let i = 0; i < inst.length / 8; i++) {
+      const tx = inst[i * 8 + 2], ty = inst[i * 8 + 3];
+      gl.uniform2i(tileLoc, tx, ty); gl.uniform2iv(nbrLoc, new Int32Array(nbrOf(E, tx, ty, true)));
+      for (let k = 0; k < 2; k++) gl.vertexAttribPointer(1 + k, 4, gl.FLOAT, false, 32, i * 32 + k * 16);
+      gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, 1);
+    }
+    for (let k = 0; k < 2; k++) gl.vertexAttribPointer(1 + k, 4, gl.FLOAT, false, 32, k * 16);
   }
   // Dabs. [clip] (layer px) is the window build's scissor; the atlas draws each slot's group under that slot's own scissor.
   function drawDabs(E, dabs, box, clip) {
@@ -677,6 +703,10 @@ async function PAGE(P) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, E.brushFbo[nb]); gl.viewport(0, 0, 32, 8);
       use(E.P.pasteBrush, { ...U, ...atlasU(E, 8), u_targetSize: [32, 8], u_rect: [0, 0, 32, 8], u_p0: { tex: E.st[0].p0 }, u_p1: { tex: E.st[0].p1 },
         u_brush0: { tex: E.brush[E.bc][0] }, u_brush1: { tex: E.brush[E.bc][1] } });
+      if (E.atlas) {   // JB_ATLAS_NBR5 (MediaLayerEngine.pasteStep): the 5x5 tiles around the step's middle
+        const ctx = Math.floor((s.rect[0] + s.rect[2]) / 2 / 256), cty = Math.floor((s.rect[1] + s.rect[3]) / 2 / 256), pg = gl.getParameter(gl.CURRENT_PROGRAM);
+        gl.uniform2i(gl.getUniformLocation(pg, 'u_nbrTile'), ctx, cty); gl.uniform2iv(gl.getUniformLocation(pg, 'u_nbrSlot'), new Int32Array(nbrOf(E, ctx, cty, false, 2)));
+      }
       gl.bindVertexArray(quadVao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       E.bc = nb;
       gl.bindFramebuffer(gl.FRAMEBUFFER, E.pFbo[1]); gl.viewport(0, 0, E.W, E.W);
@@ -699,8 +729,18 @@ async function PAGE(P) {
     for (const [t, s] of E.res) {
       if (!scissorSlot(E, s, t, rect)) continue;
       const tx = t % GN, ty = Math.floor(t / GN), [ax, ay] = slotXY(s, 8);
-      use(E.P.render, { ...U, u_pan: [ax - tx * 256, ay - ty * 256] }); gl.drawArrays(gl.TRIANGLES, 0, 3); gl.disable(gl.SCISSOR_TEST);
+      use(E.P.render, { ...U, u_pan: [ax - tx * 256, ay - ty * 256], u_nbrTile: [tx, ty], u_nbrSlot: nbrOf(E, tx, ty) }); gl.drawArrays(gl.TRIANGLES, 0, 3); gl.disable(gl.SCISSOR_TEST);
     }
+  }
+  // MediaAtlasGl.neighbours: the look's 3x3 neighbour slots (JB_ATLAS_NBR), x = -1 where a tile is not here.
+  function nbrOf(E, tx, ty, withWalls = false, rad = 1) {
+    const o = [];
+    for (let dy = -rad; dy <= rad; dy++) for (let dx = -rad; dx <= rad; dx++) {
+      const x = tx + dx, y = ty + dy, inGrid = x >= 0 && y >= 0 && x < GN && y < GN, s = inGrid ? E.res.get(y * GN + x) : undefined;
+      if (withWalls && E.wallsOn && E.walls && inGrid && E.walls.has(y * GN + x)) o.push(-2, -2);
+      else if (s === undefined) o.push(-1, -1); else o.push(...slotXY(s, 8));
+    }
+    return o;
   }
   // ---------- readback ----------
   const rf = gl.createFramebuffer();
@@ -727,19 +767,43 @@ async function PAGE(P) {
         const O = makeEngine('window', sc.seed * 101 + 7), A = makeEngine(kind, sc.seed * 101 + 7), m = { total: 0 };
         A.oracle = O;
         const first = kind === P.KINDS[0] ? planesOf(O) : null, firstData = first ? Object.fromEntries(Object.entries(first).map(([k, t]) => [k, readF(t)])) : null;
-        for (let fi = 0; fi < sc.frames.length; fi++) {
-          const Fr = sc.frames[fi], parts = frameParts(sc, Fr);
+        // MediaCanvas.runFrame: a frame the atlas cannot hold is split in time, dabs in order (both engines draw the halves).
+        const layerRect = (r, padDoc) => {   // the node side's layerRect (the frame builders), in the page
+          if (!r) return null;
+          const x0 = Math.max(0, Math.floor(r[0] - padDoc)), y0 = Math.max(0, Math.floor(r[1] - padDoc));
+          const x1 = Math.min(LW, Math.ceil(r[2] + padDoc)), y1 = Math.min(LW, Math.ceil(r[3] + padDoc));
+          return x1 > x0 && y1 > y0 ? [x0, y0, x1, y1] : null;
+        };
+        const halves = (Fr) => {
+          const n = Fr.dabs ? Fr.dabs.length : (Fr.steps || []).length; if (n < 2) return null;
+          const m = Math.ceil(n / 2);
+          if (Fr.steps) return [{ steps: Fr.steps.slice(0, m) }, { steps: Fr.steps.slice(m) }];
+          const part = (a, b) => {
+            let d = null; for (const bx of Fr.boxes.slice(a, b)) d = union(d, bx);
+            const last = Fr.dabs[b - 1];
+            return { dabs: Fr.dabs.slice(a, b), boxes: Fr.boxes.slice(a, b), travel: [last[16], last[17]], rect: layerRect(d, sc.kind === 'dry' ? sc.smearMm * P.PPM + 2 : 0) };
+          };
+          return [part(0, m), part(m, n)];
+        };
+        const doFrame = (Fr, fi) => {
+          const parts = frameParts(sc, Fr);
           let box = null; for (const [pr] of parts) if (pr) box = union(box, pr);
           const lookRect = box ? [Math.floor(box[0] - LOOK_HALO), Math.floor(box[1] - LOOK_HALO), Math.ceil(box[2] + LOOK_HALO), Math.ceil(box[3] + LOOK_HALO)] : null;
           // The atlas first: its admission may evict, and the oracle then rounds that tile before ITS frame, as the stores do.
-          admit(A, parts, box);
+          try { admit(A, parts, box); } catch (err) {
+            const h = String(err.message).startsWith('refused') ? halves(Fr) : null;
+            if (!h) throw err;
+            A.splits = (A.splits || 0) + 1;
+            doFrame(h[0], fi); doFrame(h[1], fi); return;
+          }
           for (const e of [A, O]) {
             if (sc.kind === 'dry') dryFrame(e, sc, Fr); else if (sc.kind === 'erase') eraseFrame(e, sc, Fr); else pasteFrame(e, sc, Fr);
             if (lookRect) renderLook(e, lookRect);
           }
           A.pins.clear();
           const ge = gl.getError(); if (ge !== gl.NO_ERROR) throw new Error('GL error 0x' + ge.toString(16) + ' at frame ' + fi + ' (' + kind + ')');
-        }
+        };
+        for (let fi = 0; fi < sc.frames.length; fi++) doFrame(sc.frames[fi], fi);
         // The stroke's end: the atlas writes every resident tile back; the oracle's whole layer goes through f16 likewise.
         writeBack(A);
         quantize(O, 0, 0, LW, LW, false);
@@ -752,7 +816,7 @@ async function PAGE(P) {
         }
         const lo = readB(O.lookTex, 0, 0, LW, LW), la = readB(A.store.look, 0, 0, LW, LW), ld = diffPx(lo, la);
         m.look = ld; m.total += ld;
-        r.mismatch[kind] = m; r.loads[kind] = A.loads; r.evictions[kind] = A.evictions; r.misses[kind] = A.misses;
+        r.mismatch[kind] = m; r.loads[kind] = A.loads; r.evictions[kind] = A.evictions; r.misses[kind] = A.misses; r.splits = Math.max(r.splits || 0, A.splits || 0);
         r.maxResident = Math.max(r.maxResident, A.maxResident); r.tilesCrossed = Math.max(r.tilesCrossed, A.touchedTiles.size);
         if (firstData) { const last = planesOf(O); r.changed = Object.keys(last).reduce((s2, k) => s2 + diffPx(firstData[k], readF(last[k])), 0); }
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);

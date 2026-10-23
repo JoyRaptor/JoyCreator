@@ -7,6 +7,8 @@ import { WET, wetUniforms } from './wet.js';
 import { PASTE_LANES, PASTE_DEPTH, cellCap } from './paste.js';
 
 const DAB_FLOATS = 20;
+// ?ends=cut paints every hair brush with the old clean-cut ends (a brush's own `ends` wins), to compare.
+const PASTE_ENDS = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('ends') : null;
 
 export class MediaEngine {
   static async create(gl, shaderRoot, width, height, origin = [0, 0], scale = 1, opts = {}) {
@@ -325,6 +327,7 @@ export class MediaEngine {
       u_center: [st.x, st.y], u_wDir: st.wDir, u_lDir: st.lDir, u_halfW: st.halfW, u_len: st.len, u_lenMax: st.lenMax,
       u_shape: brush.shape, u_pressure: st.pressure, u_thick: st.thick ?? brush.thickMm, u_scrape: brush.scrape,
       u_fingers: st.fingers ?? brush.fingers ?? 1, u_rag: brush.rag ?? 1, u_arc: brush.arc ?? 0.18, u_sparse: brush.sparse ?? 0,
+      u_ends: !brush.blade && (brush.ends ?? PASTE_ENDS) !== 'cut' ? 1 : 0, u_lift: st.lift ?? 0, u_land: st.land ?? 0,
       u_blade: brush.blade ? 1 : 0, u_fillDips: brush.fillDips ?? 1, u_bladeLoad: st.loadMode ? 1 : 0,
       u_bladeDir: st.bladeDir || [1, 0], u_travel: st.travel || [1, 0], u_bladeLen: st.bladeLen ?? brush.bladeLenMm ?? 1,
       u_bladeHalfW: st.bladeHalf ?? brush.bladeHalfMm ?? 1, u_bladeH0: st.bladeH0 ?? 0, u_bladeTan: st.bladeTan ?? 0, u_bladeBead: brush.bead || 0,

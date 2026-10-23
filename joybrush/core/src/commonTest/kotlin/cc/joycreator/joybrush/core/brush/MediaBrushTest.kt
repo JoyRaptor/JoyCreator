@@ -4,12 +4,14 @@ import cc.joycreator.joybrush.core.chrome.BrushKnobs
 import cc.joycreator.joybrush.core.chrome.BrushShelf
 import cc.joycreator.joybrush.core.chrome.BrushTuning
 import cc.joycreator.joybrush.core.media.EdgeMode
+import cc.joycreator.joybrush.core.media.EndsMode
 import cc.joycreator.joybrush.core.media.PasteBrushes
 import cc.joycreator.joybrush.core.media.Sticks
 import cc.joycreator.joybrush.core.media.WetBrushes
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
@@ -167,6 +169,20 @@ class MediaBrushTest {
         assertTrue("media.thinner" !in scraper && "media.paste.press" !in scraper && "media.paste.thickMm" !in scraper, scraper.toString())
         val trowel = keys("media:paste:Palette knife 1")
         assertTrue("media.belly" !in trowel && "media.paste.hairDepth" !in trowel, trowel.toString())
+        // Stroke ends: every hair brush and the trowel; a blade keeps its sharp edge and has no such knob.
+        assertTrue("media.paste.ends" in oil && "media.paste.ends" in trowel && "media.paste.ends" !in knife && "media.paste.ends" !in scraper)
+    }
+
+    @Test fun strokeEndsSwitchBetweenTheLoadedBrushAndTheOldCut() {
+        val round = byId("media:paste:Oil round")
+        assertTrue(round.media!!.paste!!.loadedEnds, "a shipped hair brush paints a loaded brush's ends")
+        val ends = BrushKnobs.forBrush(round).single { it.key == "media.paste.ends" }
+        assertEquals("loaded brush", ends.show(round))
+        val cut = ends.set(round, 1f)
+        assertEquals(EndsMode.CUT, cut.media!!.paste!!.ends)
+        assertFalse(cut.media!!.paste!!.loadedEnds)
+        assertEquals("clean cut", ends.show(cut))
+        assertFalse(byId("media:paste:Palette knife 2").media!!.paste!!.loadedEnds, "a blade keeps its edge")
     }
 
     @Test fun steppedKnobsSnapToTheirNamedLevels() {

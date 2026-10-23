@@ -18,6 +18,7 @@ import cc.joycreator.joybrush.core.brush.VERSION_PAPER
 import cc.joycreator.joybrush.core.brush.VERSION_PENCIL_BLEND
 import cc.joycreator.joybrush.core.brush.VERSION_RESPONSE
 import cc.joycreator.joybrush.core.media.EdgeMode
+import cc.joycreator.joybrush.core.media.EndsMode
 import cc.joycreator.joybrush.core.media.FaceMode
 import cc.joycreator.joybrush.core.media.PasteBrush
 import cc.joycreator.joybrush.core.media.PressMode
@@ -313,6 +314,10 @@ object BrushKnobs {
             THINNER.map { it.name }, { it.thinner }, { s, i -> s.copy(thinner = i) })
         if (m.isHair) out += stepped("media.belly", "Belly colour", "A second colour deeper in the brush, so a stroke shifts as it runs out.",
             BELLY_MODES, { BELLY_MODES.indexOf(it.belly).coerceAtLeast(0) }, { s, i -> s.copy(belly = BELLY_MODES[i]) })
+        if (!b.blade) out += stepped("media.paste.ends", "Stroke ends",
+            "How a stroke starts and stops: a loaded brush landing and lifting off in streaks, or the clean cut from before.",
+            EndsMode.entries.map { it.label }, { (it.paste?.ends ?: EndsMode.BRUSH).ordinal },
+            { s, i -> s.copy(paste = s.paste?.copy(ends = EndsMode.entries[i])) })
         if (b.blade) {
             out += stepped("media.paste.orient", "Edge", "Where the edge lies: along the pen's lean, across the stroke, or along the stroke.",
                 EdgeMode.entries.map { it.label }, { it.paste?.orient?.ordinal ?: 0 },

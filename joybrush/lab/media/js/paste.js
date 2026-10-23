@@ -76,6 +76,7 @@ export class PasteStroke {
     this.carry = 0;
     this.travelled = 0;       // mm since touchdown: the hairs can only trail over the path already drawn
     this.lastStepT = null;
+    this.peak = 0;            // the pressure the brush was last pressed to (relaxing over ~12 mm): lifting off is easing below it
   }
 
   add(s) {
@@ -130,10 +131,15 @@ export class PasteStroke {
     const lDir = [-dir[0], -dir[1]];          // the tips trail the handle
     const wDir = [-lDir[1], lDir[0]];
     const tr = this.travelled;
+    // The stroke's ends (jb_paste.glsl u_ends): landing = the first stretch of travel, about the brush's width; lift = how
+    // far the pen has eased off the press it last held (a 10 % wobble is nothing, half the pressure is half lifted).
+    this.peak = Math.max(P, P + (this.peak - P) * Math.exp(-slideMm / 12));
+    const lift = smooth(0.1, 0.8, 1 - P / Math.max(this.peak, 1e-3));
+    const land = 1 - smooth(0, 0.6 * (b.widthMm || 1), tr);
     if (b.trowel) {
       // v6/v7 trowel geometry: width barely changes with pressure, length grows with it; tilt does nothing.
       const halfW = b.widthMm / 2 * (0.9 + 0.1 * P), len = b.lenMm * (0.6 + 0.4 * P);
-      this.steps.push({ x: s.x, y: s.y, wDir, lDir, halfW, len, lenMax: b.lenMm * 1.4, pressure: P, slideMm, fingers: 0 });
+      this.steps.push({ x: s.x, y: s.y, wDir, lDir, halfW, len, lenMax: b.lenMm * 1.4, pressure: P, slideMm, fingers: 0, lift, land });
       return;
     }
     if (b.blade) {
@@ -191,7 +197,7 @@ export class PasteStroke {
     const lenMax = Math.max(minLen, b.lenMm * 1.4);
     const len = Math.min(lenMax, Math.max(minLen, Math.min(lenFull, minLen + 0.8 * tr)));
     const th = (thick ?? b.thickMm) * this.body;
-    this.steps.push({ x: s.x, y: s.y, wDir, lDir, halfW, len, lenMax, pressure: P, slideMm, fingers, ...(thick !== undefined || this.body !== 1 ? { thick: th } : {}) });
+    this.steps.push({ x: s.x, y: s.y, wDir, lDir, halfW, len, lenMax, pressure: P, slideMm, fingers, lift, land, ...(thick !== undefined || this.body !== 1 ? { thick: th } : {}) });
   }
 
   take() { const out = this.steps; this.steps = []; return out; }

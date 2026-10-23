@@ -226,6 +226,8 @@ class MediaGoldenTest {
             o["bladeDir"]?.let { nearAll(it.ds(), doubleArrayOf(a.bladeDirX, a.bladeDirY), "$w bladeDir") }
             o["travel"]?.let { nearAll(it.ds(), doubleArrayOf(a.travelX, a.travelY), "$w travel") }
             o["loadMode"]?.let { assertEquals(it.jsonPrimitive.boolean, a.loadMode, "$w loadMode") }
+            // A hair brush's or the trowel's stroke ends (blades carry none: 0 here).
+            near(o["lift"]?.d() ?: 0.0, a.lift, "$w lift"); near(o["land"]?.d() ?: 0.0, a.land, "$w land")
         }
     }
 

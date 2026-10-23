@@ -160,6 +160,7 @@ class MediaUniformsParityTest {
             "u_halfW" to st.halfW, "u_len" to st.len, "u_lenMax" to st.lenMax, "u_shape" to b.shape, "u_pressure" to st.pressure,
             "u_thick" to (st.thick ?: b.thickMm), "u_scrape" to b.scrape, "u_fingers" to (st.fingers ?: b.fingers ?: 1.0),
             "u_rag" to (b.rag ?: 1.0), "u_arc" to (b.arc ?: 0.18), "u_sparse" to (b.sparse ?: 0.0),
+            "u_ends" to (if (b.loadedEnds) 1 else 0), "u_lift" to st.lift, "u_land" to st.land,
             "u_blade" to (if (b.blade) 1 else 0), "u_fillDips" to (b.fillDips ?: 1.0), "u_bladeLoad" to (if (st.loadMode) 1 else 0),
             "u_bladeDir" to doubleArrayOf(st.bladeDirX, st.bladeDirY), "u_travel" to doubleArrayOf(st.travelX, st.travelY),
             "u_bladeLen" to (st.bladeLen ?: b.bladeLenMm.takeIf { it != 0.0 } ?: 1.0),

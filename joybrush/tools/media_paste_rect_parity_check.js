@@ -59,7 +59,8 @@ function parseBrushes() {
   const src = fs.readFileSync(PASTE_KT, 'utf8');
   const defaults = { shape: 0, widthMm: 0, lenMm: 0, thickMm: 0, scrape: 0, hairDepth: 0, ridge: 0, rate: 1, mix: 0, swap: 0.6, loadLenMm: 1, wick: 0, bow: 0, lump: 0, rigid: 0,
     allround: false, tipHalfMm: 0, thinMm: 0, fingers: null, rag: null, arc: null, sparse: null, trowel: false, fillDips: null, blade: false, orient: 'pen', press: null, face: null,
-    edgeHalfMm: null, edgeMinMm: 0, acrossMaxMm: 0, riseMaxMm: null, bladeLenMm: 0, bladeHalfMm: 0, bladeHmax: 0, bead: 0, bladeCap: 0, film: null, clean: false, pressIn: null };
+    edgeHalfMm: null, edgeMinMm: 0, acrossMaxMm: 0, riseMaxMm: null, bladeLenMm: 0, bladeHalfMm: 0, bladeHmax: 0, bead: 0, bladeCap: 0, film: null, clean: false, pressIn: null,
+    ends: null };
   const out = {};
   const re = /"([^"]+)"\s+to\s+PasteBrush\(([^)]*)\)/g;
   let m;
@@ -71,7 +72,7 @@ function parseBrushes() {
       let v = p[1];
       if (v === 'true') v = true; else if (v === 'false') v = false;
       else if (/^-?[\d.]+$/.test(v)) v = parseFloat(v);
-      else if (/^(EdgeMode|PressMode|FaceMode)\./.test(v)) v = v.split('.')[1].toLowerCase();
+      else if (/^(EdgeMode|PressMode|FaceMode|EndsMode)\./.test(v)) v = v.split('.')[1].toLowerCase();
       else throw new Error('Paste.kt brush ' + m[1] + ': cannot parse ' + kv);
       if (!(p[0] in defaults)) throw new Error('Paste.kt brush ' + m[1] + ': unknown field ' + p[0]);
       b[p[0]] = v;
@@ -93,6 +94,9 @@ function legacyBounds(st, b) {
 function unitFrame(ux, uy, vx, vy) {
   return Math.abs(Math.hypot(ux, uy) - 1) < 1e-3 && Math.abs(Math.hypot(vx, vy) - 1) < 1e-3 && Math.abs(ux * vx + uy * vy) < 1e-3;
 }
+// PasteBrush.loadedEnds: a hair brush or the trowel paints a loaded brush's ends unless it says "cut"; a blade never does.
+const LAND_RAG = 2.0;
+function loadedEnds(b) { return !b.blade && b.ends !== 'cut'; }
 function supportBounds(st, b, layerScale) {
   const px = 1 / (PPM * layerScale);
   let U, V, uMin, uMax, vMin, vMax;
@@ -104,7 +108,8 @@ function supportBounds(st, b, layerScale) {
     uMin = -0.3 * 0.35 * half - aaS; uMax = bladeLen + aaS; vMin = -(half + aaS); vMax = half + aaS;
   } else {
     if (!unitFrame(st.wDirX, st.wDirY, st.lDirX, st.lDirY)) return null;
-    const ragMax = b.shape > 1 ? 0.14 * 0.5 + 0.05 * 0.5 : Math.abs(b.rag ?? 1.0) * (0.10 * 0.5 + 0.06 * 0.5);
+    const landed = loadedEnds(b) ? 1 + LAND_RAG * (st.land ?? 0) : 1;   // PasteFootprint.LAND_RAG
+    const ragMax = b.shape > 1 ? 0.14 * 0.5 + 0.05 * 0.5 : landed * Math.abs(b.rag ?? 1.0) * (0.10 * 0.5 + 0.06 * 0.5);
     if (ragMax > 0.5) return null;
     const across = (Math.max(st.halfW, 1e-3) + px) / (1 - ragMax);
     U = [st.wDirX, st.wDirY]; V = [st.lDirX, st.lDirY];
@@ -197,7 +202,7 @@ function buildSequence(cfg) {
   const stepPx = Math.max(1 / cfg.scale, stepMm * PPM / cfg.scale);
   const slideMm = stepPx / PPM;
   const steps = [];
-  let s = 0, travelled = 0;
+  let s = 0, travelled = 0, peak = 0;
   for (let i = 0; i < STEPS; i++) {
     const t = i / (STEPS - 1);
     const ang = cfg.angle + cfg.curve * Math.sin(2 * Math.PI * t * cfg.waves);
@@ -207,6 +212,10 @@ function buildSequence(cfg) {
     const p = cfg.p0 + (cfg.p1 - cfg.p0) * t + 0.15 * Math.sin(7 * t);
     const tilt = cfg.tilt0 + (cfg.tilt1 - cfg.tilt0) * t;
     const st = makeStep(b, cfg.edge, press, cfg._p, dir, p, tilt, cfg.az + 0.8 * t, travelled, slideMm);
+    // PasteStroke's lift and landing (the strokes here ease off and press again, so both run through their range).
+    const pc = Math.max(0, Math.min(1, p));
+    peak = Math.max(pc, pc + (peak - pc) * Math.exp(-slideMm / 12));
+    if (!b.blade) Object.assign(st, { lift: smoothstep(0.1, 0.8, 1 - pc / Math.max(peak, 1e-3)), land: 1 - smoothstep(0, 0.6 * (b.widthMm || 1), travelled) });
     steps.push(st);
   }
   const rects = steps.map(st => {
@@ -249,6 +258,7 @@ function uniformsFor(st, b, scale, origin) {
     u_halfW: st.halfW, u_len: st.len, u_lenMax: st.lenMax, u_shape: b.shape, u_pressure: st.pressure,
     u_thick: st.thick ?? b.thickMm, u_scrape: b.scrape, u_fingers: st.fingers ?? b.fingers ?? 1.0,
     u_rag: b.rag ?? 1.0, u_arc: b.arc ?? 0.18, u_sparse: b.sparse ?? 0.0,
+    u_ends: loadedEnds(b) ? 1 : 0, u_lift: st.lift ?? 0, u_land: st.land ?? 0,
     u_blade: b.blade ? 1 : 0, u_fillDips: b.fillDips ?? 1.0, u_bladeLoad: st.loadMode ? 1 : 0,
     u_bladeDir: [st.bladeDirX ?? 1, st.bladeDirY ?? 0], u_travel: [st.travelX ?? 1, st.travelY ?? 0],
     u_bladeLen: st.bladeLen ?? nz(b.bladeLenMm, 1.0), u_bladeHalfW: st.bladeHalf ?? nz(b.bladeHalfMm, 1.0),

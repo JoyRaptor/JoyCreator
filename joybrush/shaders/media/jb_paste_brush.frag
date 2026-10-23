@@ -95,8 +95,8 @@ void main() {
         float o = 8.0 * u_layerScale;
         float around = 0.25 * (surfaceAt(pos + vec2(o, 0)) + surfaceAt(pos - vec2(o, 0))
                              + surfaceAt(pos + vec2(0, o)) + surfaceAt(pos - vec2(0, o)));
-        float give = u_pressure * mix(0.12, 0.25, u_fillDips) + clamp(load / max(u_cellCap, 1e-6), 0.0, 1.0) * mix(0.3, 2.0 * u_thick + 0.2, u_fillDips);
-        float c = cover * smoothstep(-0.02, 0.02, here - around + give - 0.06 * (1.0 - hair));
+        float give = jb_pasteGive(clamp(load / max(u_cellCap, 1e-6), 0.0, 1.0));
+        float c = cover * smoothstep(-0.02, 0.02, here - around + give - jb_pasteGraze(hair));
 
         float t = p0.a;
         vec3 Kc = t > 1e-6 ? p0.rgb / t : vec3(0.0);
@@ -111,7 +111,7 @@ void main() {
             float sv = load > 1e-6 ? b1.r / load : 0.0;
             b0.rgb -= kv * dep; b1.r -= sv * dep; b0.a -= dep;
         } else {
-            float pick = (t - target) * r * c * open;
+            float pick = (t - target) * r * c * open * jb_pastePlough();
             b0.rgb += Kc * pick; b1.r += dot(Sc, vec3(1.0 / 3.0)) * pick; b0.a += pick;
         }
         // Swap, the brush's side: what went down is replaced in the cell by what came up.

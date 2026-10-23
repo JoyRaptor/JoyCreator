@@ -59,14 +59,14 @@ object StrokeReplay {
         } ?: name.removePrefix("vert").toIntOrNull()?.takeIf { name.startsWith("vert") && it in 0..5 }?.let { i ->
             // The oil brushes' starts and ends (2026-10-23): straight strokes down the page, one per column, the pen pressing
             // in, holding and lifting off as a hand does: light, medium, firm, a quick flick, a slow drag, and medium at one
-            // pressure with no press-in or lift.
-            val x = w * (0.09f + 0.164f * i)
+            // pressure with no press-in or lift. Clear of the tool strip (left) and the layers panel (top right).
+            val x = w * (0.16f + 0.135f * i)
             val ms = doubleArrayOf(800.0, 800.0, 800.0, 320.0, 1800.0, 800.0)[i]
-            stroke(x, h * 0.12f, x, h * 0.80f, ms, floatArrayOf(0.3f, 0.55f, 0.85f, 0.55f, 0.55f, 0.55f)[i], ramps = i != 5)
+            stroke(x, h * 0.22f, x, h * 0.84f, ms, floatArrayOf(0.3f, 0.55f, 0.85f, 0.55f, 0.55f, 0.55f)[i], ramps = i != 5)
         } ?: name.removePrefix("across").toIntOrNull()?.takeIf { name.startsWith("across") && it in 0..2 }?.let { i ->
             // …and strokes across them (new colour over old paint, colour carried from one to the next).
-            val y = h * (0.28f + 0.17f * i)
-            stroke(w * 0.03f, y, w * 0.97f, y, 1300.0, 0.55f, ramps = true)
+            val y = h * (0.36f + 0.17f * i)
+            stroke(w * 0.10f, y, w * 0.90f, y, 1300.0, 0.55f, ramps = true)
         }
     }
 

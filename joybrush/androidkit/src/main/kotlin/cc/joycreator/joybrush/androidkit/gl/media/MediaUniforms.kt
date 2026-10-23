@@ -85,6 +85,7 @@ internal object MediaUniforms {
         u.f1("u_halfW", st.halfW); u.f1("u_len", st.len); u.f1("u_lenMax", st.lenMax); u.f1("u_shape", b.shape); u.f1("u_pressure", st.pressure)
         u.f1("u_thick", st.thick ?: b.thickMm); u.f1("u_scrape", b.scrape); u.f1("u_fingers", st.fingers ?: b.fingers ?: 1.0)
         u.f1("u_rag", b.rag ?: 1.0); u.f1("u_arc", b.arc ?: 0.18); u.f1("u_sparse", b.sparse ?: 0.0)
+        u.f1("u_ends", if (b.loadedEnds) 1 else 0); u.f1("u_lift", st.lift); u.f1("u_land", st.land)
         u.f1("u_blade", if (b.blade) 1 else 0); u.f1("u_fillDips", b.fillDips ?: 1.0); u.f1("u_bladeLoad", if (st.loadMode) 1 else 0)
         u.f2("u_bladeDir", st.bladeDirX, st.bladeDirY); u.f2("u_travel", st.travelX, st.travelY)
         // (not takeIf: its generic receiver would box a Double on every call)

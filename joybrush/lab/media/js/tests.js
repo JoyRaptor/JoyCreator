@@ -159,6 +159,23 @@ export const SHEETS = {
       return s;
     },
   },
+  // Oil starts and ends (owner, 2026-10-23: "they start and stop like a razor-cut perfect line"): every oil brush, one
+  // column each, stroked straight down as a hand does: the pen presses in over 70 ms, holds, and lifts off over the last
+  // 110 ms while still moving. ?p= the held pressure, ?speed= mm/s. The phone's bench case is "vert1" (StrokeReplay).
+  oilends: {
+    size: [1600, 1300],
+    paper: 'canvas_linen',
+    strokes() {
+      const q = new URLSearchParams(location.search), MM = 20, s = [];
+      const P = Number(q.get('p') || 0.55), SPEED = Number(q.get('speed') || 50), LEN = 42;
+      const ms = LEN / SPEED * 1000;
+      const press = u => { const t = u * ms, a = Math.min(1, t / 70), b = Math.min(1, (ms - t) / 110); return 0.05 + (P - 0.05) * (1 - (1 - a) * (1 - a)) * b * b; };
+      const tools = (q.get('tools') || 'Oil round,Oil flat,All-round,Palette knife 1,Palette knife 2,Fan blender').split(',');
+      const col = q.get('color') ? q.get('color').split(',').map(Number) : [0.16, 0.55, 0.36];
+      tools.forEach((tool, i) => s.push({ ...stroke(tool, LEN, line((10 + i * 13) * MM, 50 * MM, (10 + i * 13) * MM, 8 * MM), { p: press, tilt: 35, az: 90 }, SPEED), kind: 'paste', color: col }));
+      return s;
+    },
+  },
   // Isolated side strokes for measuring the fade (2026-10-07): pressures 0.15 0.3 0.5 0.75 1.0, at tilt
   // ?t= (fraction of the pen range), 34 mm apart, barrel to the left so the tip edge is the right edge.
   sidepro: {

@@ -101,9 +101,9 @@ void main() {
     float around = 0.25 * (surfaceAt(layerPx + vec2(o, 0)) + surfaceAt(layerPx - vec2(o, 0))
                          + surfaceAt(layerPx + vec2(0, o)) + surfaceAt(layerPx - vec2(0, o)));
     float fillLoad = clamp(load / max(u_cellCap, 1e-6), 0.0, 1.0);
-    float give = u_pressure * mix(0.12, 0.25, u_fillDips) + fillLoad * mix(0.3, 2.0 * u_thick + 0.2, u_fillDips);
+    float give = jb_pasteGive(fillLoad);
     float edgeW = mix(0.02, 0.03, u_fillDips);
-    float reach = smoothstep(-edgeW, edgeW, here - around + give - 0.06 * (1.0 - hair));
+    float reach = smoothstep(-edgeW, edgeW, here - around + give - jb_pasteGraze(hair));
     float c = cover * reach;
 
     float t = p0.a;
@@ -122,7 +122,7 @@ void main() {
         open = mix(open, 1.0, dep / max(t + dep, 1e-6));
         t += dep;
     } else {
-        float pick = (t - target) * r * c * open;
+        float pick = (t - target) * r * c * open * jb_pastePlough();
         p0.rgb -= Kc * pick; p1.rgb -= Sc * pick;
         t -= pick;
     }

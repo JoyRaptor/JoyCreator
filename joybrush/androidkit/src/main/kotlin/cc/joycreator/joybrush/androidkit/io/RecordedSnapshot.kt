@@ -1,6 +1,7 @@
 package cc.joycreator.joybrush.androidkit.io
 
 import cc.joycreator.joybrush.core.brush.BrushPreset
+import cc.joycreator.joybrush.core.brush.FrozenBrushPngs
 import cc.joycreator.joybrush.core.brush.FrozenBrushRegistry
 import cc.joycreator.joybrush.core.doc.*
 import cc.joycreator.joybrush.core.media.MediaStores
@@ -24,6 +25,7 @@ object RecordedSnapshot {
         paper: Paper = doc.paper,
         mediaKeys: (String, String) -> Map<String, List<Long>> = { _, _ -> emptyMap() },
         mediaRead: (String, String, String, Long) -> ByteArray? = { _, _, _, _ -> null },
+        brushAssets: Map<String, FrozenBrushPngs> = emptyMap(),
     ): JbContents {
         require(DocOps.validate(doc).isEmpty()) { DocOps.validate(doc).joinToString("; ") }
         require(doc.layers.all { it.kind.hasPixels && it.animatedIn == null }) {
@@ -56,6 +58,8 @@ object RecordedSnapshot {
         }
         planes.values.forEach { cc.joycreator.joybrush.core.stroke.CapturedStrokeRules.requireOrdinary(it.records) }
         val frozen = FrozenBrushRegistry.validate(brushes)
+        val images = brushAssets.filterKeys { it in frozen }.toMap()
+        FrozenBrushAssets.prepare(frozen, images, retainEntries = false)
         if (planes.isEmpty() && frozen.isEmpty() && expectedLookKeys.isEmpty()) {
             return BoardSnapshot.capture(doc, keys, read, paper, mediaKeys, mediaRead)
         }
@@ -137,7 +141,7 @@ object RecordedSnapshot {
                 if ((layer.id to cel.id) in prepared) cel else plain(layer.id, cel)) },
             mask = layer.mask?.let { plain(layer.id, it, true) },
         ) })
-        return JbContents(current, pixels, strokes, mediaTiles = media, slabs = upper, looks = looks, brushes = frozen)
+        return JbContents(current, pixels, strokes, mediaTiles = media, slabs = upper, looks = looks, brushes = frozen, brushAssets = images)
     }
 
     private fun name(key: Long): String = DocOps.key(Tiles.tx(key), Tiles.ty(key))

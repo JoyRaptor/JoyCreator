@@ -30,7 +30,16 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
                /** Fewer, longer water substeps per frame (4 = shipped): the same simulated time, less accuracy. */
                val wetSubsteps: Int? = null, val holdMs: Long = 0L, val settleMs: Long = 800L,
                /** The `matrix` case ([MatrixBench]): which board kinds (none = all four) and which cell numbers (from..to) to run. */
-               val matrixBoards: List<String> = emptyList(), val matrixFrom: Int = 0, val matrixTo: Int = Int.MAX_VALUE)
+               val matrixBoards: List<String> = emptyList(), val matrixFrom: Int = 0, val matrixTo: Int = Int.MAX_VALUE,
+               /** Debug-only resolved nominal stamp size; null retains the actual recipe. */
+               val sizeOverridePx: Float? = null) {
+        init {
+            BenchBrushOverride.requireSize(sizeOverridePx)
+            require(sizeOverridePx == null || cases.all { it in setOf("fastC", "slowC", "scribble", "spiral", "topScribble", "blue1", "blue2", "blue3") }) {
+                "The debug size override is supported only by the ordinary MotionEvent replay cases"
+            }
+        }
+    }
 
     private val ui = Handler(Looper.getMainLooper())
     private val jobs = ArrayDeque<Triple<BrushPreset, String, Int>>()
@@ -48,7 +57,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
         for (b in spec.brushes) {
             val p = all.firstOrNull { it.id.equals(b, true) } ?: all.firstOrNull { it.name.equals(b, true) }
             if (p == null) { Log.w(TAG, "no brush '$b'"); continue }
-            for (c in spec.cases) for (r in 1..spec.runs) jobs.addLast(Triple(p, c, r))
+            val effective = BenchBrushOverride.resolve(p, spec.sizeOverridePx)
+            for (c in spec.cases) for (r in 1..spec.runs) jobs.addLast(Triple(effective, c, r))
         }
         waitForSurface()
     }
@@ -130,19 +140,45 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
         }
         val samples = StrokeReplay.case(case, canvas.width, canvas.height)
         if (samples == null) { Log.w(TAG, "no case '$case'"); next(); return }
-        if (spec.clear) canvas.clearCanvas()
-        canvas.preset = spec.wetness?.let { w -> preset.media?.let { m -> preset.copy(media = m.copy(wetness = w)) } } ?: preset
-        spec.colors.getOrNull(spec.cases.indexOf(case))?.let { canvas.colorArgb = it }
-        ui.postDelayed({
-            canvas.startFrameStats {
-                StrokeReplay.play(canvas, samples, canvas.frameStats, onDown = {}, onUp = {
-                    // Keep recording the frames that finish the stroke (the last batch, its write-back).
-                    ui.postDelayed({
-                        canvas.finishFrameStats { s -> report(preset, case, run, samples.size, s); ui.postDelayed({ next() }, spec.settleMs) }
-                    }, TAIL_MS)
-                })
+        val refusals = BenchRefusalObservation({ canvas.onRefused }, { canvas.onRefused = it })
+        var terminal = false
+        val timeout = Runnable {
+            if (!terminal) {
+                terminal = true
+                refusals.close()
+                jobs.clear() // Unknown GL completion: do not dispatch the next stroke.
+                Log.i(TAG, org.json.JSONObject().put("brush", preset.id).put("case", case).put("run", run)
+                    .put("status", "INCONCLUSIVE").put("reason", "Timed out awaiting the frame-stat observation")
+                    .put("refusals", org.json.JSONArray(refusals.snapshot())).put("liftToFinalMs", org.json.JSONObject.NULL).toString())
+                // Stops the instrument if its GL queue eventually resumes; this is NOT a final source receipt.
+                canvas.finishFrameStats { }
+                onDone()
             }
-        }, 300)
+        }
+        fun guarded(block: () -> Unit) {
+            try { block() } catch (failure: Throwable) {
+                terminal = true; ui.removeCallbacks(timeout); refusals.close(); throw failure
+            }
+        }
+        ui.postDelayed(timeout, 30_000L)
+        guarded {
+            if (spec.clear) canvas.clearCanvas()
+            canvas.preset = spec.wetness?.let { w -> preset.media?.let { m -> preset.copy(media = m.copy(wetness = w)) } } ?: preset
+            spec.colors.getOrNull(spec.cases.indexOf(case))?.let { canvas.colorArgb = it }
+            ui.postDelayed({ if (!terminal) guarded {
+                canvas.startFrameStats { if (!terminal) guarded {
+                    StrokeReplay.play(canvas, samples, canvas.frameStats, onDown = {}, onUp = {
+                        ui.postDelayed({ if (!terminal) guarded {
+                            canvas.finishFrameStats { summary -> if (!terminal) {
+                                terminal = true; ui.removeCallbacks(timeout); refusals.close()
+                                report(preset, case, run, samples.size, summary, refusals.snapshot())
+                                ui.postDelayed({ next() }, spec.settleMs)
+                            } }
+                        } }, TAIL_MS)
+                    })
+                } }
+            } }, 300)
+        }
     }
 
     private fun runRecordedCaptureCase(preset: BrushPreset, case: String, run: Int) {
@@ -271,10 +307,21 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
         }
     }
 
-    private fun report(p: BrushPreset, case: String, run: Int, samples: Int, s: FrameStats.Summary) {
+    private fun report(p: BrushPreset, case: String, run: Int, samples: Int, s: FrameStats.Summary, refusals: List<String> = emptyList()) {
         fun f(v: Double) = "%.2f".format(v)
         fun pct(x: FrameStats.Pct?) = if (x == null) "null" else "{\"p50\":${f(x.p50)},\"p95\":${f(x.p95)},\"max\":${f(x.max)},\"mean\":${f(x.mean)}}"
-        Log.i(TAG, "{\"legacy\":${spec.legacy},\"brush\":\"${p.id}\",\"case\":\"$case\",\"run\":$run,\"samples\":$samples," +
+        val encoded = cc.joycreator.joybrush.core.brush.BrushJson.encode(p)
+        val digest = java.security.MessageDigest.getInstance("SHA-256").digest(encoded.toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it.toInt() and 255) }
+        val observation = org.json.JSONObject()
+            .put("status", if (refusals.isNotEmpty() || s.strokeFrames == 0) "INCONCLUSIVE" else "CONTACT_TIMING_ONLY")
+            .put("refusals", org.json.JSONArray(refusals)).put("effectiveBrushSizePx", p.size.base)
+            .put("requestedSizePx", spec.sizeOverridePx ?: org.json.JSONObject.NULL)
+            .put("effectiveSpacing", p.spacing).put("flowBase", p.flow.base).put("brushJsonSha256", digest)
+            .put("liftToFinalMs", org.json.JSONObject.NULL)
+            .put("finalCompletion", "Unavailable: no atomic final-publication receipt on the public bench API")
+            .put("scope", "FrameStats contact timing; no final output, editable lift, or quality acceptance claim")
+        Log.i(TAG, "{\"observation\":$observation,\"legacy\":${spec.legacy},\"brush\":\"${p.id}\",\"case\":\"$case\",\"run\":$run,\"samples\":$samples," +
             "\"frames\":${s.frames},\"strokeFrames\":${s.strokeFrames},\"firstFrameMs\":${f(s.firstFrameMs)}," +
             "\"busyMs\":${pct(s.busy)},\"workMs\":${pct(s.work)},\"mediaMs\":${pct(s.media)},\"displayMs\":${pct(s.display)}," +
             "\"finishMs\":${pct(s.finish)},\"simMs\":${pct(s.sim)},\"flushMs\":${pct(s.flush)},\"gapMs\":${pct(s.gap)},\"latencyMs\":${pct(s.latency)}," +
@@ -312,7 +359,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
                 wetSubsteps = intent.getIntExtra("jb_wet_substeps", -1).takeIf { it in 1..16 },
                 holdMs = intent.getLongExtra("jb_hold_ms", 0L), settleMs = intent.getLongExtra("jb_settle_ms", 800L),
                 matrixBoards = list(intent.getStringExtra("jb_matrix_boards")), matrixFrom = intent.getIntExtra("jb_matrix_from", 0),
-                matrixTo = intent.getIntExtra("jb_matrix_to", Int.MAX_VALUE))
+                matrixTo = intent.getIntExtra("jb_matrix_to", Int.MAX_VALUE),
+                sizeOverridePx = if (intent.hasExtra("jb_bench_size_px")) intent.getFloatExtra("jb_bench_size_px", Float.NaN) else null)
         }
     }
 }

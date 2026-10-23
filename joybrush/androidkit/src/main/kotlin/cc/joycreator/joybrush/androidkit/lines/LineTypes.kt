@@ -1,6 +1,7 @@
 package cc.joycreator.joybrush.androidkit.lines
 
 import cc.joycreator.joybrush.core.brush.BrushPreset
+import cc.joycreator.joybrush.core.brush.FrozenBrushPngs
 import cc.joycreator.joybrush.core.stroke.AddressedStroke
 import cc.joycreator.joybrush.core.stroke.LineAddress
 import cc.joycreator.joybrush.core.stroke.StrokeRecord
@@ -28,9 +29,11 @@ class LineSnapshot(
     val brushRevision: Long = 0L,
     /** Slab tiles held across the drawing (256 KB each): the slab budget's reading. */
     val slabTiles: Int = 0,
+    brushAssets: Map<String, FrozenBrushPngs> = emptyMap(),
 ) {
     val planes: Map<LinePlane, List<StrokeRecord>> = planes.mapValues { it.value.toList() }
     val brushes: Map<String, BrushPreset> = brushes.toMap()
+    val brushAssets: Map<String, FrozenBrushPngs> = brushAssets.toMap()
     val itemPlanes: Set<LinePlane> = (itemPlanes + planes.filterValues { it.isNotEmpty() }.keys).toSet()
 
     /** The plane's lines in drawing order (seq), empty when it has none. */

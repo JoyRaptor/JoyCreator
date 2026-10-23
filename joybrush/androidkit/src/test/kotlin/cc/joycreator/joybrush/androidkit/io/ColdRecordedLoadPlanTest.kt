@@ -271,7 +271,7 @@ class ColdRecordedLoadPlanTest {
 
     @Test fun anInternalCallerCannotManufactureAPreparedPlanWithItsOwnArrays() {
         assertFailsWith<IllegalArgumentException> {
-            ColdRecordedLoadPlan.Prepared(Any(), "not validated", emptyMap(), emptyMap(), null,
+            ColdRecordedLoadPlan.Prepared(Any(), "not validated", emptyMap(), emptyMap(), emptyMap(), null,
                 listOf(byteArrayOf(1)), emptyList(), emptyList(), emptyList(),
                 ColdRecordedLoadPlan.Summary(0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
         }

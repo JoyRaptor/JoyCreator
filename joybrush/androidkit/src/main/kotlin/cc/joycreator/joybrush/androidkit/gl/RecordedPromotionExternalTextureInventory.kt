@@ -63,6 +63,7 @@ internal object RecordedPromotionExternalTextureInventory {
         for ((fieldName, groupName) in listOf(
             "grains" to "grains", "boardPreview" to "boardPreview",
             "paperBackground" to "paperBackground", "wcPass" to "watercolourPass",
+            "stampColors" to "stampColorMoments", "sampledMasks" to "sampledMasks", "dualMasks" to "dualMasks",
         )) groups[groupName] = handles(field(engine, fieldName), "heldTextureHandles")
         val look = field(engine, "look")
         if (look != null) {

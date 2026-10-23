@@ -134,19 +134,32 @@ class InkEditSession(
      * the spec. The alternative, inventing a centreline for a shape, is a ruling about what a fill
      * stroke IS, and it is not this file's to make.
      */
-    fun lines(brushOf: (StrokeRecord) -> BrushPreset?): List<InkLine> {
+    fun lines(brushOf: (StrokeRecord) -> BrushPreset?): List<InkLine> = lines(null, brushOf)
+
+    fun lines(sampledLookup: ((String) -> cc.joycreator.joybrush.core.brush.SampledTipSet?)?,
+        brushOf: (StrokeRecord) -> BrushPreset?): List<InkLine> {
         val out = ArrayList<InkLine>(records.size)
         for (record in records.values) {
             val brush = brushOf(record)
-            if (InkReplay.refusal(record, brush) != null) continue
-            val dabs = InkReplay.dabs(record, brush)
+            val samples = if (brush?.tip?.sampled != null) sampledLookup?.invoke(record.brushId) else null
+            val why = InkReplay.refusal(record, brush, samples)
+            if (why != null) {
+                if (brush?.tip?.sampled != null) throw InkReplayException(why)
+                continue
+            }
+            val dabs = InkReplay.dabs(record, brush, samples)
             if (dabs.isEmpty()) continue
             out.add(
                 InkLine(
                     id = record.id,
                     xs = DoubleArray(dabs.size) { dabs[it].x.toDouble() },
                     ys = DoubleArray(dabs.size) { dabs[it].y.toDouble() },
-                    halfWidths = DoubleArray(dabs.size) { dabs[it].radius.toDouble() },
+                    halfWidths = DoubleArray(dabs.size) {
+                        val dab = dabs[it]
+                        if (dab.sampled == null) dab.radius.toDouble() else
+                            cc.joycreator.joybrush.core.paint.TipMath.extent(dab.radius, dab.anchor,
+                                dab.sampled, dab.aspect).toDouble()
+                    },
                 ),
             )
         }
@@ -176,9 +189,20 @@ class InkEditSession(
         timeMs: Double,
         screenPerDoc: Double,
         brushOf: (StrokeRecord) -> BrushPreset?,
+    ): InkEditResult = tap(x, y, timeMs, screenPerDoc, null, brushOf)
+
+    fun tap(
+        x: Double,
+        y: Double,
+        timeMs: Double,
+        screenPerDoc: Double,
+        sampledLookup: ((String) -> cc.joycreator.joybrush.core.brush.SampledTipSet?)?,
+        brushOf: (StrokeRecord) -> BrushPreset?,
     ): InkEditResult {
         if (!x.isFinite() || !y.isFinite()) return InkEditResult.Refused(TAP_NOT_A_PLACE)
-        val picked = picker.pick(lines(brushOf), x, y, timeMs, screenPerDoc) ?: run {
+        val visible = try { lines(sampledLookup, brushOf) }
+            catch (refused: InkReplayException) { return InkEditResult.Refused(refused.message.orEmpty()) }
+        val picked = picker.pick(visible, x, y, timeMs, screenPerDoc) ?: run {
             chosen.clear()
             return InkEditResult.NoChange
         }
@@ -209,6 +233,15 @@ class InkEditSession(
         x1: Double,
         y1: Double,
         brushOf: (StrokeRecord) -> BrushPreset?,
+    ): InkEditResult = band(x0, y0, x1, y1, null, brushOf)
+
+    fun band(
+        x0: Double,
+        y0: Double,
+        x1: Double,
+        y1: Double,
+        sampledLookup: ((String) -> cc.joycreator.joybrush.core.brush.SampledTipSet?)?,
+        brushOf: (StrokeRecord) -> BrushPreset?,
     ): InkEditResult {
         if (!x0.isFinite() || !y0.isFinite() || !x1.isFinite() || !y1.isFinite()) {
             return InkEditResult.Refused(BAND_NOT_A_RECTANGLE)
@@ -218,7 +251,9 @@ class InkEditSession(
         val top = min(y0, y1)
         val bottom = max(y0, y1)
         var joined = 0
-        for (line in lines(brushOf)) {
+        val visible = try { lines(sampledLookup, brushOf) }
+            catch (refused: InkReplayException) { return InkEditResult.Refused(refused.message.orEmpty()) }
+        for (line in visible) {
             if (!anyDabInside(line, left, top, right, bottom)) continue
             if (!chosen.contains(line.id)) {
                 chosen.add(line.id)
@@ -380,8 +415,11 @@ class InkEditSession(
      * has to be able to say the brush cannot draw an ink line, or a UI that forgot to ask at pick
      * time would read [InkEditResult.NoChange] as permission.
      */
-    fun rebrush(brush: BrushPreset): InkEditResult {
-        val refusal = rebrushRefusal(brush)
+    fun rebrush(brush: BrushPreset): InkEditResult = rebrush(brush, null)
+
+    fun rebrush(brush: BrushPreset,
+        sampledLookup: ((String) -> cc.joycreator.joybrush.core.brush.SampledTipSet?)?): InkEditResult {
+        val refusal = rebrushRefusal(brush, sampledLookup)
         if (refusal != null) return InkEditResult.Refused(refusal)
         if (chosen.isEmpty()) return InkEditResult.NoChange
         return editAll { StrokeEdit.rebrush(it, brush.id) }
@@ -480,7 +518,12 @@ class InkEditSession(
          * explanation, and it is the ONLY copy of these words in the project: the picker and
          * [rebrush] both call this, which is the only way two doors can say one thing.
          */
-        fun rebrushRefusal(brush: BrushPreset): String? = when {
+        fun rebrushRefusal(brush: BrushPreset): String? = rebrushRefusal(brush, null)
+
+        fun rebrushRefusal(brush: BrushPreset,
+            sampledLookup: ((String) -> cc.joycreator.joybrush.core.brush.SampledTipSet?)?): String? = when {
+            brush.tip.sampled != null && sampledLookup?.invoke(brush.id)?.matches(brush.tip.sampled) != true ->
+                "${brush.name} needs its complete frozen sampled-tip images"
             StrokeEdit.drawsInkLines(brush.engine) -> null
             else ->
                 "${brush.name} reads the pixels under the pen, and an ink layer has none — it " +

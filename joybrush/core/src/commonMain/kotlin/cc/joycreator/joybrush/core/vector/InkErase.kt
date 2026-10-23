@@ -176,6 +176,15 @@ object InkErase {
         path: EraserPath,
         mode: InkEraseMode,
         brushOf: (StrokeRecord) -> BrushPreset?,
+    ): InkEraseOutcome = run(celId, records, path, mode, null, brushOf)
+
+    fun run(
+        celId: String,
+        records: List<StrokeRecord>,
+        path: EraserPath,
+        mode: InkEraseMode,
+        sampledLookup: ((String) -> cc.joycreator.joybrush.core.brush.SampledTipSet?)?,
+        brushOf: (StrokeRecord) -> BrushPreset?,
     ): InkEraseOutcome {
         // Refuse before empty-path / no-op shortcuts: an eraser result must never certify that a
         // captured record was considered when this implementation only understands raw samples.
@@ -191,7 +200,7 @@ object InkErase {
         val candidates = ArrayList<Candidate>(records.size)
         val lines = ArrayList<InkLine>(records.size)
         for (record in records) {
-            val candidate = classify(record, brushOf)
+            val candidate = classify(record, sampledLookup, brushOf)
             candidates.add(candidate)
             candidate.line?.let { lines.add(it) }
         }
@@ -269,9 +278,15 @@ object InkErase {
      *     the world. That is not a line at all (JB-5.01), it is not erased, and it is NOT reported:
      *     there is no brush to complain about and nothing the eraser did to it.
      */
-    private fun classify(record: StrokeRecord, brushOf: (StrokeRecord) -> BrushPreset?): Candidate {
+    private fun classify(record: StrokeRecord,
+        sampledLookup: ((String) -> cc.joycreator.joybrush.core.brush.SampledTipSet?)?,
+        brushOf: (StrokeRecord) -> BrushPreset?): Candidate {
         val brush = brushOf(record)
-        val refusal = InkReplay.refusal(record, brush)
+        val samples = if (brush?.tip?.sampled != null) sampledLookup?.invoke(record.brushId) else null
+        val refusal = InkReplay.refusal(record, brush, samples)
+        // No candidate can erase a pixel if a sampled line could not be measured. In
+        // particular an all-unresolved cel must not turn missing images into Untouched.
+        if (refusal != null && brush?.tip?.sampled != null) throw InkReplayException(refusal)
         if (refusal != null) {
             return Candidate(record, null, EMPTY_ARC, EMPTY_ARC, NotReplayed(record.id, record.brushId, refusal))
         }
@@ -282,7 +297,7 @@ object InkErase {
         }
         // The cheap brush check cannot detect a geometry-dependent refusal, such as the dab cap.
         val dabs = try {
-            InkReplay.dabs(record, brush)
+            InkReplay.dabs(record, brush, samples)
         } catch (e: InkReplayException) {
             return Candidate(record, null, EMPTY_ARC, EMPTY_ARC,
                 NotReplayed(record.id, record.brushId, e.message.orEmpty()))
@@ -307,7 +322,9 @@ object InkErase {
             val dab = dabs[i]
             xs[i] = dab.x.toDouble()
             ys[i] = dab.y.toDouble()
-            halfWidths[i] = dab.radius.toDouble()
+            halfWidths[i] = if (dab.sampled == null) dab.radius.toDouble() else
+                cc.joycreator.joybrush.core.paint.TipMath.extent(dab.radius, dab.anchor,
+                    dab.sampled, dab.aspect).toDouble()
         }
         return InkLine(id, xs, ys, halfWidths)
     }

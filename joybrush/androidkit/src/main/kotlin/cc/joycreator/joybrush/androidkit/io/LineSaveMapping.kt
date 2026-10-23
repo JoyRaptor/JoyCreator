@@ -1,6 +1,7 @@
 package cc.joycreator.joybrush.androidkit.io
 
 import cc.joycreator.joybrush.core.brush.BrushPreset
+import cc.joycreator.joybrush.core.brush.FrozenBrushPngs
 import cc.joycreator.joybrush.core.doc.SlabRef
 import cc.joycreator.joybrush.core.stroke.StrokeRecord
 
@@ -34,11 +35,14 @@ class SlabBytes(val op: String, val tiles: Map<String, ByteArray>)
  *  - `strokes.jbs` = the records; `JbDocument.brushes` = the frozen brushes.
  */
 object LineSaveMapping {
-    fun apply(c: JbContents, planes: List<PlaneItems>, brushes: Map<String, BrushPreset>): JbContents {
+    fun apply(c: JbContents, planes: List<PlaneItems>, brushes: Map<String, BrushPreset>,
+              brushAssets: Map<String, FrozenBrushPngs> = c.brushAssets): JbContents {
         // A plane whose cel the document does not have is history only (a deleted layer or frame): it is never written.
         val docCels = c.doc.layers.flatMap { l -> l.cels.map { l.id to it.id } }.toSet()
         val live = planes.filter { (it.layerId to it.celId) in docCels && (it.records.isNotEmpty() || it.slabs.isNotEmpty()) }
         if (live.isEmpty()) return c
+        val images = brushAssets.filterKeys { it in brushes }.toMap()
+        FrozenBrushAssets.prepare(brushes, images, retainEntries = false)
         val tiles = LinkedHashMap(c.tiles)
         val looks = LinkedHashMap(c.looks)
         val strokes = LinkedHashMap(c.strokes)
@@ -89,6 +93,6 @@ object LineSaveMapping {
             })
         }
         val doc = c.doc.copy(layers = layers, brushes = brushes.keys.sorted(), version = maxOf(c.doc.version, 11))
-        return c.copy(doc = doc, tiles = tiles, looks = looks, strokes = strokes, slabs = slabFiles, brushes = brushes)
+        return c.copy(doc = doc, tiles = tiles, looks = looks, strokes = strokes, slabs = slabFiles, brushes = brushes, brushAssets = images)
     }
 }

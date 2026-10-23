@@ -1,5 +1,7 @@
 package cc.joycreator.joybrush.androidkit
 
+import cc.joycreator.joybrush.core.brush.toMaskGray
+
 import android.content.Context
 import cc.joycreator.joybrush.androidkit.gl.media.MediaCanvas
 import cc.joycreator.joybrush.core.brush.BLEND_MULTIPLY
@@ -99,6 +101,7 @@ import cc.joycreator.joybrush.core.paint.DabPlacer
 import cc.joycreator.joybrush.core.paint.StrokeBlend
 import cc.joycreator.joybrush.core.paint.Tiles
 import cc.joycreator.joybrush.core.paint.TipShape
+import cc.joycreator.joybrush.core.paint.tipShape
 import cc.joycreator.joybrush.core.view.ViewTransform
 import java.util.Locale
 import javax.microedition.khronos.egl.EGLConfig
@@ -128,7 +131,7 @@ import javax.microedition.khronos.opengles.GL10
  * through `view.screenToDoc` and the smoother is told the zoom, and the GL draw is handed
  * `view.docToClip` instead of a plain view matrix.
  */
-class JbCanvasView(context: Context) : GLSurfaceView(context) {
+class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPort {
 
     /** The brush in use. Change it between strokes. */
     data class Brush(
@@ -146,6 +149,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
 
     var brush = Brush()
     var smoothing = 0.35f
+    /** Actual settings resolve once for each Unibrush stamp contact, then travel with its raw record. */
+    @Volatile override var stabilizerPreference = cc.joycreator.joybrush.core.input.StabilizerPreference()
 
     /**
      * The brush FILE in use (JB-1.05b), or null for the hard-coded round [Brush] above. Change it
@@ -153,6 +158,11 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
      * stroke comes from one file and one seed.
      */
     @Volatile var preset: BrushPreset? = null
+
+    /** Stable immutable bundle per library brush; called once at contact on the UI thread. */
+    override var brushPngs: ((BrushPreset) -> cc.joycreator.joybrush.core.brush.FrozenBrushPngs?)? = null
+    private val stampTips = cc.joycreator.joybrush.androidkit.gl.StampTipResolver()
+    private var strokeTips: cc.joycreator.joybrush.core.brush.StampTipResources? = null
 
     /**
      * True once the person has moved the smoothing slider, and only then does the slider beat the
@@ -386,8 +396,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             p.line != null -> "Diagnostic capture does not support line shaping"
             p.engine == ENGINE_WATERCOLOUR && (erase || p.blend == "erase") -> "Diagnostic capture does not support watercolor erasers"
             p.blend !in setOf("normal", "erase", BLEND_MULTIPLY, BLEND_SCREEN) -> "Diagnostic capture does not support the ${p.blend} blend"
-            p.tip.source != "procedural" || (p.tipTexture.enabled && p.tipTexture.source == "image") ||
-                (p.paperGrain.enabled && p.paperGrain.source == "image") -> "Diagnostic capture does not freeze image brush assets"
+            p.tip.sampled != null || p.tip.dual != null || p.tip.source != "procedural" || (p.tipTexture.enabled && p.tipTexture.source == "image") ||
+                (p.paperGrain.enabled && p.paperGrain.source == "image") -> "Diagnostic capture does not carry image or dual-tip resources"
             tileBoardId != null -> "Diagnostic capture does not support tiling"
             layer != null && layer.kind != LayerKind.PAINT -> "Diagnostic capture needs a paint layer"
             layer?.animatedIn != null || layer?.regions?.isNotEmpty() == true -> "Diagnostic capture does not resolve region or animated cel ownership"
@@ -416,6 +426,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
 
     /** The colour strokes are drawn in, or null for the brush's own. UI thread. Read when a stroke begins. */
     @Volatile var colorArgb: Int? = null
+    /** Secondary palette color; absent palette information explicitly falls back to white. */
+    @Volatile override var secondaryColorArgb: Int? = null
+    private var contactColors: cc.joycreator.joybrush.core.brush.StrokeColors? = null
 
     /** Called on the UI thread after an eyedropper result has been taken ([colorArgb] is already set). */
     var onColorPicked: ((Int) -> Unit)? = null
@@ -648,7 +661,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     }
 
     /** A pen contact being kept as an editable line: its raw recording and any brush copies frozen for it. */
-    private class LineContact(val capture: StrokeCapture, val brushes: Map<String, BrushPreset>) {
+    private class LineContact(val capture: StrokeCapture, val brushes: Map<String, BrushPreset>,
+                              val assets: Map<String, cc.joycreator.joybrush.core.brush.FrozenBrushPngs>) {
         var samples = 0
         var startArgb: Int? = null
     }
@@ -662,6 +676,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
 
     /** Why this stroke can't be kept as an editable line, as the end of a sentence; null = it can. */
     private fun lineRefusal(p: BrushPreset?, erase: Boolean, amount: Float): String? {
+        if (p?.tip?.sampled != null || p?.tip?.dual != null)
+            return "picture and dual tips need the recorded drawing path"
         val layer = boardDocument?.layers?.firstOrNull { it.id == activeLayer }
         return LineAdmission.lineRefusal(p, erase, amount, view.zoom, tileBoardId != null,
             layer?.cels?.any { it.floatTiles.isNotEmpty() } == true)
@@ -1036,7 +1052,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     private var drawing = false
     private var pointerId = -1
 
-    private var smoother: StrokeSmoother? = null
+    private var smoother: cc.joycreator.joybrush.core.input.StrokeStabilizer? = null
     private var tracker: DirectionTracker? = null
     private var placer: DabPlacer? = null
 
@@ -1586,7 +1602,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         drawing = false
         mediaStroke = false; mediaErase = false; mediaBegun = false
         smoother = null; placer = null; tracker = null
-        strokePreset = null; strokeDabber = null; strokeWatercolour = null; scatterRng = null; strokeErase = false; strokeTuft = null
+        strokePreset = null; strokeDabber = null; strokeTips = null; contactColors = null; strokeWatercolour = null; scatterRng = null; strokeErase = false; strokeTuft = null
         onGl {
             mediaCanvas.end()
             reportHistory()
@@ -1640,6 +1656,45 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         onBeforeStroke?.invoke()
         val b = brush
         var p = preset
+        // New whole-stroke contracts need the recorded lift owner. Historical unmarked
+        // recipes keep their existing native dispatch; a line section/version alone is not opt-in.
+        val modernStamp = p?.let { brush ->
+            brush.engine == "stamp" && (brush.extensions["unibrush.family"] in setOf("builtin", "user") ||
+                brush.tip.angleSource != null || brush.tip.profile != null || brush.tip.fade != null ||
+                brush.tip.quad != null || brush.color.dynamics?.isActive == true ||
+                brush.tip.sampled != null || brush.tip.dual != null)
+        } == true
+        val wholeStroke = cc.joycreator.joybrush.core.vector.LineStyle.of(p?.line)
+        if (modernStamp && (wholeStroke.tapers || wholeStroke.dashes)) {
+            drawing = false
+            onRefused?.invoke("Stroke-end brushes need the recorded drawing connection.")
+            return
+        }
+        val actualStabilizer = try {
+            p?.takeIf { it.engine == "stamp" && it.extensions["unibrush.family"] in setOf("builtin", "user") }?.let {
+                stabilizerPreference.resolve(it.stabilizer, if (smoothingFromUser) smoothing else it.smoothing)
+                    .also { actual -> require(actual.problems().isEmpty()) { actual.problems().joinToString("; ") } }
+            }
+        } catch (e: Exception) {
+            drawing = false; onRefused?.invoke(e.message ?: "The stabilizer settings are unavailable"); return
+        }
+        // The resolver's dual bake and the dabber/record must share this one contact seed.
+        val contactSeed = watercolourPreviewSeed ?: SystemClock.uptimeMillis()
+        val contactPngs = try {
+            p?.takeIf { cc.joycreator.joybrush.core.brush.BrushAssetPaths.required(it).isNotEmpty() }?.let { brushPngs?.invoke(it) }
+        } catch (e: Exception) {
+            drawing = false; onRefused?.invoke(e.message ?: "The brush image could not be read"); return
+        }
+        strokeTips = try {
+            p?.let {
+                require(it.tip.source == "procedural" || it.tip.sampled != null) {
+                    "This image brush needs a materialized sampled tip"
+                }
+                stampTips.resolve(it, contactPngs, contactSeed)
+            }
+        } catch (e: Exception) {
+            drawing = false; onRefused?.invoke(e.message ?: "The brush image could not be read"); return
+        }
         if(p?.engine == ENGINE_FILL && editingMask) {
             drawing=false; onRefused?.invoke("Select the paint layer to use the fill pen; masks are not supported yet."); return
         }
@@ -1684,7 +1739,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 }
                 if (refusal == null) try {
                     val effective = if (erase) p!!.copy(blend = "erase") else p!!
-                    lineFrozen = frozenBrushes.freeze(lineSnapshot.brushRevision, lineSnapshot.brushes, effective) { newLineName("lb") }
+                    lineFrozen = frozenBrushes.freeze(lineSnapshot.brushRevision, lineSnapshot.brushes,
+                        lineSnapshot.brushAssets, effective,
+                        contactPngs ?: cc.joycreator.joybrush.core.brush.FrozenBrushPngs.empty()) { newLineName("lb") }
                     p = lineFrozen.preset   // the live dabber and the record use the same detached definition
                 } catch (e: Exception) {
                     lineFrozen = null       // a brush that can't be frozen is a plain stroke (a slab on a layer with items)
@@ -1705,6 +1762,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         mediaBegun = false
         // JB-2.23: on the mask, the stroke goes to the mask's store and paints GREY — white shows, black hides.
         strokeOnMask = editingMask && stackUi.active.hasMask
+        val primary = (colorArgb ?: b.argb).let { if (strokeOnMask) maskGrey(it) else it }
+        val secondary = (secondaryColorArgb ?: 0xFFFFFFFF.toInt()).let { if (strokeOnMask) maskGrey(it) else it }
+        contactColors = cc.joycreator.joybrush.core.brush.StrokeColors(primary, secondary)
         strokeLayerId = if (strokeOnMask) maskStoreId(activeLayer) else activeLayer
         resetSnapper(fresh = true)
         drawing = true
@@ -1717,7 +1777,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         strokeErase = erase
         // Smoothing is measured in SCREEN px, so it is told the zoom: the slider then means the
         // same thing at every zoom, and the samples stay in document px either way.
-        smoother = StrokeSmoother(amount, screenPerDoc = view.zoom)
+        smoother = cc.joycreator.joybrush.core.input.StrokeStabilizer(actualStabilizer, amount, screenPerDoc = view.zoom)
         val tr = DirectionTracker().also { tracker = it }
         if (p?.engine == ENGINE_FILL && !mediaErase) {
             fillSerial++; fillSamples.clear(); fillPoints.clear(); fillPath=0.0
@@ -1736,26 +1796,26 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             glBegan = true
             val target = strokeLayerId
             if (!mediaErase) boardStrokeWork {
-                engine.beginStroke(target, (colorArgb ?: b.argb).let { if (strokeOnMask) maskGrey(it) else it }, b.opacity, b.accumulate,
+                engine.beginStroke(target, primary, b.opacity, b.accumulate,
                     if (erase) StrokeBlend.ERASE else StrokeBlend.NORMAL, b.tip)
             }
         } else if (p.engine == ENGINE_WATERCOLOUR && !erase) {
-            strokeSeed=watercolourPreviewSeed ?: SystemClock.uptimeMillis()
+            strokeSeed=contactSeed
             strokeWatercolour=WatercolourDabber(p.watercolourRuntime(),strokeSeed)
             placer=null
         } else if (p.engine == ENGINE_TUFT) {
             // R9: the tuft brush lays footprints, not dabs. Its speed is judged in screen px, so it is told the zoom.
             // Begun on the GL thread with its first footprints, like a file brush.
-            strokeSeed = SystemClock.uptimeMillis()
+            strokeSeed = contactSeed
             strokeTuft = TuftStroke(p, strokeSeed, screenPerDoc = view.zoom)
             placer = null
         } else {
             // One dabber per stroke: it holds the random stream, the speed filter and the tip
             // direction, and the placer asks it exactly once per dab. The placer's own cap stays 1
             // -- a WASH dab carries its own opacity as its cap, and a BUILD_UP dab wants 1.
-            val seed = SystemClock.uptimeMillis()
+            val seed = contactSeed
             strokeSeed = seed
-            val d = BrushDabber(p, seed)
+            val d = BrushDabber(p, seed, colors = contactColors, sampledTips = strokeTips?.sampled, dualMask = strokeTips?.dual)
             strokeDabber = d
             scatterRng = SplitMix(seed xor SCATTER_SALT)
             placer = DabPlacer(spacing = d.spacing, look = d::look)
@@ -1765,7 +1825,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         }
         lineContact = lineFrozen?.let { f ->
             try {
-                LineContact(StrokeCapture(newLineName("ln"), f.id, strokeSeed, amount, view.zoom, colorArgb ?: b.argb), f.newEntries)
+                LineContact(StrokeCapture(newLineName("ln"), f.id, strokeSeed, amount, view.zoom, primary, secondaryColorArgb = secondary, stabilizer = actualStabilizer), f.newEntries, f.assets.filterKeys { it in f.newEntries })
             } catch (e: Exception) { null }
         }
         // Lines live under document cels and are saved by the board path: a fresh drawing gets its board document first
@@ -1783,10 +1843,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         }
         if (frozen != null && diagnosticObserver != null) {
             val layer = boardDocument?.layers?.firstOrNull { it.id == strokeLayerId }
-            val argb = colorArgb ?: b.argb
+            val argb = primary
             diagnosticContact = DiagnosticContact(diagnosticObserver, strokeLayerId,
                 layer?.let { it.sharedCelId ?: it.cels.singleOrNull()?.id }, strokeBlend(p, erase), frozen,
-                StrokeCapture("diagnostic-stroke-$diagnosticSerial", frozen.id, strokeSeed, amount, view.zoom, argb))
+                StrokeCapture("diagnostic-stroke-$diagnosticSerial", frozen.id, strokeSeed, amount, view.zoom, argb, secondaryColorArgb = secondary, stabilizer = actualStabilizer))
         }
     }
 
@@ -1802,7 +1862,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
      * dabs. The hard-coded [Brush] branch of [startStroke] has already done this, which is what
      * [glBegan] remembers.
      */
-    private fun beginStrokeNow() {
+    private fun beginStrokeNow(first: Dab? = null) {
         val b = brush
         val p = strokePreset
         val d = strokeDabber
@@ -1817,7 +1877,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             taper = p.tip.taper,
             hardness = if (d == null) p.tip.hardness.base else d.strokeHardness,
             minPx = p.tip.minPx,
-        )
+            sampled = first?.sampled,
+            dual = first?.dual,
+        ).let { base -> first?.tipShape(base) ?: base }
         glBegan = true
         // The grain the file asked for, with its depth as evaluated at the first dab (JB-1.05c). The
         // hard-coded Brush has none.
@@ -1827,7 +1889,11 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         val smudge = if (p != null && p.engine == ENGINE_SMUDGE) SmudgeParams(p.smudge.pickup, p.smudge.load, p.smudge.texturePickup, p.smudge.paint) else null
         // R9: a tuft stroke's whole-stroke shader numbers (streaks, tooth), from the file and this stroke's seed.
         val tuft = if (p != null && strokeTuft != null) TuftStroke.shading(p, strokeSeed) else null
-        val argb = (colorArgb ?: b.argb).let { if (strokeOnMask) maskGrey(it) else it }
+        // Only active colour dynamics need the contact palette. Historical brushes take their
+        // primary on the first real dab, as before the optional colour-dynamics adapter.
+        val argb = if (p?.color?.dynamics?.isActive == true)
+            checkNotNull(contactColors) { "The stroke palette was not frozen at contact" }.primaryArgb
+        else (colorArgb ?: b.argb).let { if (strokeOnMask) maskGrey(it) else it }
         diagnosticContact?.let { it.start = DiagnosticStrokeStart(argb, opacity, tip.hardness) }
         lineContact?.startArgb = argb
         val target = strokeLayerId
@@ -1888,10 +1954,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             }
             val serial=fillSerial
             drawing=false; smoother=null; placer=null; tracker=null
-            strokePreset=null; strokeDabber=null; strokeWatercolour=null; scatterRng=null; strokeErase=false; strokeTuft=null
+            strokePreset=null; strokeDabber=null; contactColors=null; strokeWatercolour=null; scatterRng=null; strokeErase=false; strokeTuft=null
             boardStrokeWork {
                 try {
-                    val mask=FillPenRaster.prepare(samples,amount,zoom)
+                    val mask=FillPenRaster.prepare(samples,amount,zoom,actualStabilizer=null)
                     if(FillPenRaster.fillsEnough(mask,zoom)) {
                         val ownership=engine.boardDocument?.let { RegionDocumentOps.paintPlans(it,emptyMap())[target] }
                         // An armed Tile board fills the repeat: the shape is folded back into the board rectangle (R50).
@@ -1914,11 +1980,12 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         // The line's record carries the colour the stroke actually began with (as the first dab evaluated it).
         val line = lineContact?.let { c -> c.capture.finish()?.let { r -> c.startArgb?.let { r.copy(colorArgb = it) } } }
         val lineBrushes = lineContact?.brushes.orEmpty()
+        val lineAssets = lineContact?.assets.orEmpty()
         lineContact = null
         drawing = false
         smoother = null; placer = null; tracker = null
-        strokePreset = null; strokeDabber = null; strokeWatercolour = null; scatterRng = null; strokeErase = false; strokeTuft = null
-        boardStrokeWork { engine.setPendingLine(line, lineBrushes); engine.endStroke(); reportHistory() }
+        strokePreset = null; strokeDabber = null; strokeTips = null; contactColors = null; strokeWatercolour = null; scatterRng = null; strokeErase = false; strokeTuft = null
+        boardStrokeWork { engine.setPendingLine(line, lineBrushes, lineAssets); engine.endStroke(); reportHistory() }
         flushPaperVisits()
         onStrokeEnded?.invoke()
         diagnosticResult?.let { (observer, result) -> observer(result) }
@@ -1935,7 +2002,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         fillSerial++; fillSamples.clear(); fillPoints.clear(); onFillPreview?.invoke(null)
         drawing = false
         smoother = null; placer = null; tracker = null
-        strokePreset = null; strokeDabber = null; strokeWatercolour = null; scatterRng = null; strokeErase = false; strokeTuft = null
+        strokePreset = null; strokeDabber = null; strokeTips = null; contactColors = null; strokeWatercolour = null; scatterRng = null; strokeErase = false; strokeTuft = null
         onGl { engine.cancelStroke() }
         flushPaperVisits()
         onStrokeEnded?.invoke()
@@ -1967,8 +2034,11 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             return
         }
         val p = strokePreset
-        val dabs = if (p == null) placed else scattered(p, placed)
-        if (!glBegan) beginStrokeNow()
+        val expanded = if (p == null) placed else scattered(p, placed)
+        val dabs = if (strokeOnMask) expanded.map { dab ->
+            dab.color?.let { dab.copy(color = it.toMaskGray()) } ?: dab
+        } else expanded
+        if (!glBegan) beginStrokeNow(dabs.firstOrNull())
         boardStrokeWork { engine.addDabs(dabs) }
     }
 
@@ -2034,7 +2104,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
      * pen that pressed or turned WITHOUT moving releases nothing from the smoother, so a tuft brush is told directly
      * ([TuftStroke.dwell]): pressing grows the blot, and turning the pen swings the belly round its point.
      */
-    private fun feedOne(sm: StrokeSmoother, raw: PenSample, released: MutableList<PenSample>) {
+    private fun feedOne(sm: cc.joycreator.joybrush.core.input.StrokeStabilizer, raw: PenSample, released: MutableList<PenSample>) {
         // Feed supplies post-guide coordinates; capture before response and smoothing alter them.
         if (raw.isPlaceable && !raw.predicted) diagnosticContact?.let { contact ->
             if (contact.sampleCount >= 32768) refuseDiagnosticCapture("Diagnostic capture reached its 32768 raw sample budget")
@@ -2927,9 +2997,28 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     fun renderBrushPreview(preset: BrushPreset, widthPx: Int, heightPx: Int,
                            style: cc.joycreator.joybrush.androidkit.preview.BrushPreviewStyle,
                            onBitmap: (android.graphics.Bitmap?) -> Unit): cc.joycreator.joybrush.androidkit.preview.BrushPreviewTicket {
+        // UI thread: capture the provider and actual policy before onGl can defer this work.
+        val actual = cc.joycreator.joybrush.androidkit.preview.BrushPreviewRequest.defaultActualStabilizer(
+            preset, stabilizerPreference, if (smoothingFromUser) smoothing else preset.smoothing)
+        val pngs = if (cc.joycreator.joybrush.core.brush.BrushAssetPaths.required(preset).isNotEmpty())
+            brushPngs?.invoke(preset) else null
+        return renderBrushPreview(cc.joycreator.joybrush.androidkit.preview.BrushPreviewRequest.snapshot(
+            preset, widthPx, heightPx, style, pngs, actual), onBitmap)
+    }
+
+    /** Already frozen on the UI thread: no provider or preference lookup is allowed in the queued job. */
+    fun renderBrushPreview(snapshot: cc.joycreator.joybrush.androidkit.preview.BrushPreviewRequest,
+                           onBitmap: (android.graphics.Bitmap?) -> Unit): cc.joycreator.joybrush.androidkit.preview.BrushPreviewTicket =
+        renderBrushPreview(snapshot, null, onBitmap)
+
+    /** Retirement is separate from delivery; cancelled legacy callers still receive no bitmap callback. */
+    override fun renderBrushPreview(snapshot: cc.joycreator.joybrush.androidkit.preview.BrushPreviewRequest,
+                           onRetired: (() -> Unit)?,
+                           onBitmap: (android.graphics.Bitmap?) -> Unit): cc.joycreator.joybrush.androidkit.preview.BrushPreviewTicket {
         val ticket = cc.joycreator.joybrush.androidkit.preview.BrushPreviewTicket()
         onGl(allowLost = true) {
-            val request = cc.joycreator.joybrush.androidkit.preview.BrushPreviewRenderer.Request(preset, widthPx, heightPx, style, ticket) { bmp -> post { onBitmap(bmp) } }
+            val request = cc.joycreator.joybrush.androidkit.preview.BrushPreviewRenderer.Request(snapshot, ticket,
+                onRetired = { android.os.Handler(android.os.Looper.getMainLooper()).post { onRetired?.invoke() } }) { bmp -> android.os.Handler(android.os.Looper.getMainLooper()).post { onBitmap(bmp) } }
             if (brushPreviews.submit(request)) pumpBrushPreviews()
         }
         return ticket

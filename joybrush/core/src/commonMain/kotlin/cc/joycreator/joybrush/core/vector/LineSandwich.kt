@@ -155,9 +155,15 @@ object LineSandwich {
      * One drag frame: the tile's look with the line redrawn as [record] (moved, re-weighted, recoloured or re-brushed
      * with [brush]). Null when nothing on the tile is visible, as with [CelComposer.look].
      */
-    fun look(tile: Tile, record: StrokeRecord, brush: BrushPreset?): ByteArray? {
+    fun look(tile: Tile, record: StrokeRecord, brush: BrushPreset?): ByteArray? = look(tile, record, brush, null)
+
+    fun look(tile: Tile, record: StrokeRecord, brush: BrushPreset?,
+        sampledLookup: ((String) -> cc.joycreator.joybrush.core.brush.SampledTipSet?)?): ByteArray? {
+        val prepared = InkTiles.prepare(listOf(record), { brush }, sampledLookup)
+        if (brush?.tip?.sampled != null || sampledLookup != null) {
+            prepared.refusals.firstOrNull()?.let { throw InkReplayException(it.reason) }
+        }
         val px = tile.below.copyOf()
-        val prepared = InkTiles.prepare(listOf(record), { brush })
         val mark = prepared.marks.firstOrNull()
         if (mark != null) {
             InkTiles.buffer(mark, Tiles.tx(tile.key), Tiles.ty(tile.key))?.let { InkTiles.applyOp(mark.brush.blend, it, px) }

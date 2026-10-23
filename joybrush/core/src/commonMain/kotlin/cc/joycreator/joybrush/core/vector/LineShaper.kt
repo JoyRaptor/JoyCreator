@@ -216,6 +216,11 @@ object LineShaper {
      */
     fun densify(dabs: List<Dab>, zoom: Float): List<Dab> {
         if (dabs.size < 2) return dabs
+        // Extra stamps change image selection, seeded masks and stochastic color accumulation.
+        // Profile LUTs are shared per stroke; two different LUTs cannot be interpolated by a Dab.
+        if (dabs.any { it.sampled != null || it.dual != null || it.color != null } ||
+            dabs.zipWithNext().any { (a,b) -> a.profile != b.profile || a.profileB != b.profileB ||
+                (a.quad == null) != (b.quad == null) }) return dabs
         val out = ArrayList<Dab>(dabs.size)
         out.add(dabs[0])
         for (i in 1 until dabs.size) {
@@ -272,7 +277,22 @@ object LineShaper {
         tipDepth = both(a.tipDepth, b.tipDepth, t),
         paperDepth = both(a.paperDepth, b.paperDepth, t),
         anchor = both(a.anchor, b.anchor, t),
+        fadeAmount = both(a.fadeAmount, b.fadeAmount, t),
+        fadeAngle = Angles.lerp(a.fadeAngle, b.fadeAngle, t),
+        profile = a.profile,
+        profileB = a.profileB,
+        profileMix = a.profileMix + (b.profileMix-a.profileMix)*t,
+        quad = if (a.quad != null && b.quad != null) blendQuad(a.quad,b.quad,t) else null,
     )
+
+    private fun blendQuad(a: cc.joycreator.joybrush.core.brush.QuadDab,
+                          b: cc.joycreator.joybrush.core.brush.QuadDab, t: Float): cc.joycreator.joybrush.core.brush.QuadDab {
+        fun lerp(x:Float,y:Float)=x+(y-x)*t
+        return cc.joycreator.joybrush.core.brush.QuadDab(
+            lerp(a.x0,b.x0),lerp(a.y0,b.y0),lerp(a.x1,b.x1),lerp(a.y1,b.y1),
+            lerp(a.x2,b.x2),lerp(a.y2,b.y2),lerp(a.x3,b.x3),lerp(a.y3,b.y3),
+            lerp(a.roundness,b.roundness))
+    }
 
     private fun both(a: Float, b: Float, t: Float): Float =
         if (a.isNaN() || b.isNaN()) Float.NaN else a + (b - a) * t

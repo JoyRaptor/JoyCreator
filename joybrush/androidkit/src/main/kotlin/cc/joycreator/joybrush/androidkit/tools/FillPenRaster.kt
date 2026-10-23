@@ -39,7 +39,11 @@ object FillPenRaster {
      * smoother expands their path or the polygon allocates coverage. Empty/degenerate gestures
      * are ordinary no-ops. Predicted/broken samples never enter a committed shape.
      */
-    fun prepare(samples: List<PenSample>, smoothing: Float, screenPerDoc: Float): SelectionMask {
+    fun prepare(samples: List<PenSample>, smoothing: Float, screenPerDoc: Float,
+                actualStabilizer: cc.joycreator.joybrush.core.input.StabilizerSpec? = null): SelectionMask {
+        require(actualStabilizer == null || actualStabilizer.problems().isEmpty()) {
+            "Fill stroke needs valid recorded stabilizer settings"
+        }
         require(samples.size <= MAX_SAMPLES) { "Fill stroke is too long; draw a smaller shape" }
         val usable = samples.filter { it.isPlaceable && !it.predicted }
         if (usable.size < FillPen.MIN_CORNERS) return SelectionMask.EMPTY
@@ -54,7 +58,7 @@ object FillPenRaster {
             require(path <= MAX_SCREEN_PATH) { "Fill stroke is too long; draw a smaller shape" }
         }
         val amount = if (smoothing.isFinite()) smoothing.coerceIn(0f, 1f) else 0f
-        val outline = FillPen.outline(usable, amount, zoom.toFloat())
+        val outline = FillPen.outline(usable, amount, zoom.toFloat(), actualStabilizer)
         checkBounds(outline)
         return SelectionMask.polygon(outline)
     }

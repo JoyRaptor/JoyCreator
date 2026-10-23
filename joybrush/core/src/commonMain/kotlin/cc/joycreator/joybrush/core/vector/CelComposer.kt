@@ -77,9 +77,12 @@ object CelComposer {
         internal fun withSlabs(slabs: Map<Long, List<Slab>>) = Drawn(Items(items.lines, slabs), marks, refusals)
     }
 
-    fun draw(items: Items, brushLookup: (String) -> BrushPreset?): Drawn {
+    fun draw(items: Items, brushLookup: (String) -> BrushPreset?): Drawn = draw(items, brushLookup, null)
+
+    fun draw(items: Items, brushLookup: (String) -> BrushPreset?,
+        sampledLookup: ((String) -> cc.joycreator.joybrush.core.brush.SampledTipSet?)?): Drawn {
         cc.joycreator.joybrush.core.stroke.CapturedStrokeRules.requireOrdinary(items.lines.map { it.record })
-        val prepared = InkTiles.prepare(items.lines.map { it.record }, brushLookup)
+        val prepared = InkTiles.prepare(items.lines.map { it.record }, brushLookup, sampledLookup)
         val refused = prepared.refusals.map { it.index }.toSet()
         val marks = HashMap<Long, InkTiles.Mark>()
         var next = 0
@@ -237,7 +240,8 @@ object CelComposer {
         } else {
             val tip = TipShape(p.tip.aspect, p.tip.corner, p.tip.taper, p.tip.hardness.base, p.tip.minPx)
             for (dab in mark.dabs) {
-                val e = TipMath.extent(dab.radius, dab.tipShape(tip).anchor) + 1f
+                val shape = dab.tipShape(tip)
+                val e = TipMath.extent(dab.radius, shape.anchor, shape.sampled, shape.aspect) + 1f
                 minX = minOf(minX, dab.x - e); maxX = maxOf(maxX, dab.x + e)
                 minY = minOf(minY, dab.y - e); maxY = maxOf(maxY, dab.y + e)
             }

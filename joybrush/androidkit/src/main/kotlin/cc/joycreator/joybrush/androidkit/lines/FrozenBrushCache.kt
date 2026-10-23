@@ -4,6 +4,8 @@ import cc.joycreator.joybrush.core.brush.BrushJson
 import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.brush.FrozenBrushRegistry
 import cc.joycreator.joybrush.core.brush.FrozenBrushResult
+import cc.joycreator.joybrush.core.brush.FrozenBrushPngs
+import cc.joycreator.joybrush.androidkit.io.FrozenBrushAssets
 
 /**
  * Editable lines v1.2 H8: freezing a brush against the drawing's kept brushes encodes and compares EVERY kept brush, which
@@ -36,5 +38,27 @@ class FrozenBrushCache(
         return result
     }
 
-    fun clear() { results.clear() }
+    // One modern candidate only. Complete results share immutable document bundles, while
+    // canceled contacts cannot accumulate sixteen independent 32MiB image sets in this cache.
+    private class Modern(val key: Key, val candidate: FrozenBrushPngs,
+                         val known: Map<String, FrozenBrushPngs>, val result: FrozenBrushResult)
+    private var modern: Modern? = null
+
+    fun freeze(revision: Long, known: Map<String, BrushPreset>,
+               knownAssets: Map<String, FrozenBrushPngs>, preset: BrushPreset,
+               candidate: FrozenBrushPngs, newId: () -> String): FrozenBrushResult {
+        val key = Key(revision, known.size, BrushJson.encode(preset))
+        modern?.takeIf { it.key == key && it.candidate.sameBytes(candidate) &&
+            it.known.keys == knownAssets.keys && it.known.all { (id, old) -> knownAssets[id]?.sameBytes(old) == true }
+        }?.let { return it.result }
+        // Drop the old candidate before allocating/validating the next complete answer.
+        modern = null
+        val result = FrozenBrushRegistry.freezeWithAssets(known, knownAssets, preset, candidate, newId)
+        computed++
+        FrozenBrushAssets.prepare(result.entries, result.assets, retainEntries = false)
+        modern = Modern(key, candidate, knownAssets.toMap(), result)
+        return result
+    }
+
+    fun clear() { results.clear(); modern = null }
 }

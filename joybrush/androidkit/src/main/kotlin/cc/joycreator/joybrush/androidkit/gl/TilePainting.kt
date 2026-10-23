@@ -60,7 +60,7 @@ internal object TilePainting {
     fun dabs(rect: RectPx, dab: Dab, halo: Double = 0.0): List<Dab> {
         if(dab.radius <= 0f || dab.flow <= 0f || dab.cap <= 0f) return emptyList()
         require(halo >= 0.0 && halo.isFinite()) { "A tile halo must be a finite distance" }
-        val e = TipMath.extent(dab.radius,dab.anchor).toDouble() + halo
+        val e = TipMath.extent(dab.radius,dab.anchor,dab.sampled,dab.aspect).toDouble() + halo
         return translations(rect,dab.x-e,dab.y-e,dab.x+e,dab.y+e,dab.x.toDouble(),dab.y.toDouble())
             .map { (x,y) -> dab.copy(x=dab.x+x,y=dab.y+y) }
     }

@@ -369,8 +369,31 @@ object AnimOps {
         val board = playableBoard(doc, boardId)
         frameIndexOf(board, frameId) // refuses an unknown frame before anything is written
         val hold = holdFrames.coerceIn(MIN_HOLD_FRAMES, MAX_HOLD_FRAMES)
-        val frames = board.frames.map { if (it.id == frameId) it.copy(holdFrames = hold) else it }
+        val frames = board.frames.map {
+            if (it.id == frameId) it.copy(holdFrames = hold, tween = it.tween && hold > 1) else it
+        }
         return withFrames(doc, boardId, frames)
+    }
+
+    /**
+     * Turns frame tweening on or off. A tween only makes sense when the held frame has an in-between
+     * tick after its source drawing, so enabling it on a one-tick frame is refused. Disabling is
+     * always allowed, including when repairing a malformed document. The new saved flag is document
+     * version 14; enabling it upgrades an older in-memory document in the same operation.
+     */
+    fun setTween(doc: JbDocument, boardId: String, frameId: String, tween: Boolean): JbDocument {
+        val board = playableBoard(doc, boardId)
+        val index = frameIndexOf(board, frameId)
+        val frame = board.frames[index]
+        if (tween && frame.holdFrames <= 1) {
+            throw DocException(
+                "board \"$boardId\" frame \"$frameId\" is held for ${frame.holdFrames} frame; " +
+                    "tweening needs a hold longer than 1 frame",
+            )
+        }
+        val frames = board.frames.map { if (it.id == frameId) it.copy(tween = tween) else it }
+        val changed = withFrames(doc, boardId, frames)
+        return if (tween && changed.version < DOC_VERSION) changed.copy(version = DOC_VERSION) else changed
     }
 
     // ------------------------------------------------------------------ moveFrame

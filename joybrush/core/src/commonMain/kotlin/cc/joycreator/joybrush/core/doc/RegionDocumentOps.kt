@@ -150,7 +150,28 @@ object RegionDocumentOps {
         val target = board(doc, boardId)
         if (target.frames.none { it.id == frameId }) throw DocException("That frame is not in this board")
         val next = doc.copy(boards = doc.boards.map {
-            if (it.id == boardId) it.copy(frames = it.frames.map { f -> if (f.id == frameId) f.copy(holdFrames = ticks.coerceIn(1, 999)) else f }) else it
+            if (it.id == boardId) it.copy(frames = it.frames.map { f ->
+                if (f.id == frameId) {
+                    val hold = ticks.coerceIn(1, 999)
+                    f.copy(holdFrames = hold, tween = f.tween && hold > 1)
+                } else f
+            }) else it
+        })
+        valid(next)
+        return next
+    }
+
+    /** Enables or disables the selected region frame's tween toward the next frame in play order. */
+    fun setTween(doc: JbDocument, boardId: String, frameId: String, tween: Boolean): JbDocument {
+        valid(doc)
+        val target = board(doc, boardId)
+        val frame = target.frames.firstOrNull { it.id == frameId }
+            ?: throw DocException("That frame is not in this board")
+        if (tween && frame.holdFrames <= 1) {
+            throw DocException("Tweening needs a hold longer than 1 frame")
+        }
+        val next = doc.copy(version = if (tween && doc.version < DOC_VERSION) DOC_VERSION else doc.version, boards = doc.boards.map {
+            if (it.id == boardId) it.copy(frames = it.frames.map { f -> if (f.id == frameId) f.copy(tween = tween) else f }) else it
         })
         valid(next)
         return next

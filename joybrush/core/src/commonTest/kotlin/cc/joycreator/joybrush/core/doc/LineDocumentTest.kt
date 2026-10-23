@@ -17,7 +17,7 @@ class LineDocumentTest {
         val base = doc(Cel("cel", tiles = listOf("0_0"), floatTiles = listOf("0_0")))
         val old = DocJson.encode(base.copy(version = 9))
         val current = DocJson.encode(base)
-        assertEquals(old.replace("\"version\": 9", "\"version\": 11"), current)
+        assertEquals(old.replace("\"version\": 9", "\"version\": $DOC_VERSION"), current)
         for (word in listOf("slabs", "looks", "brushes")) assertFalse(current.contains("\"$word\""), word)
         assertEquals(base, DocJson.decode(current))
     }

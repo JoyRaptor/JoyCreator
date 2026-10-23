@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Tier** | T1 design by the Lead; 5.40a is T2 and dispatchable now |
-| **Status** | 📝 Design, Lead 2026-10-08 |
+| **Status** | Core math built; saved setting, sampler and scoped scene implemented on `codex/vector-tweens` (2026-10-23). GPU/UI/export integration and device acceptance remain open. |
 | **Needs** | 5.40a: nothing (pure core on `StrokeRecord`s). 5.40b: JB-5.20a. 5.40c: JB-5.20e and the board frame strip |
 | **Reads** | `design/ONE_LAYER_MODEL_BRIEF_20261007.md` §9 (the owner's own note under it); JB-5.20 D15; JB-3.00a (frames are the board's region) |
 
@@ -63,8 +63,12 @@ design tokens (no new hex), with its hover label "Tween to the next frame".
 | Slice | What | Who |
 |---|---|---|
 | 5.40a | Core maths, pure functions on `StrokeRecord`s: arc-length resampling (T5), similarity fit and interpolation (T3), grouping (T4), HSB slide (T6), and `Tween.between(a: List<StrokeRecord>, b: List<StrokeRecord>, t): List<StrokeRecord>` giving the in-between lines in A's order with unmatched lines per T2 | ✅ Lead, 2026-10-08 (taken while Codex was idle): `core/anim/Tween.kt`, the 8 tests in `TweenTest`; a straight-line slide in place of the turn reddens tests 1, 3 and 5 |
-| 5.40b | Doc: `Frame.tween: Boolean` (next DOC_VERSION at landing), validation (a tween needs `holdFrames > 1`), undo | after JB-5.20a |
+| 5.40b | Doc: `Frame.tween: Boolean`, validation (a tween needs `holdFrames > 1`), undo | Setting/setters implemented on `codex/vector-tweens`, schema v14 (v12/v13 reserved for clips); full core/backend pass. Live UI/undo acceptance remains open. |
 | 5.40c | Screen and export: the toggle and the strip colour; playback and export draw the in-betweens through the 5.20 renderer | Lead, after JB-5.20e |
+
+### Integration progress — October 23
+
+`core/anim/TweenFrameSample.kt` supplies tick-quantized samples; `TweenScene.kt` resolves direct frame cels per layer and calls the existing math without changing saved records. These are supporting APIs, not a live player. See `../VECTOR_TWEEN_COMPLETION_20261023.md` and `../handoffs/VECTOR_TWEEN_INTEGRATION_20261023.md` for the ordered checklist and evidence. Copied frames currently copy visible pixels without cloning NativeLines records, so the Engine Lead must preserve those records before the owner workflow is complete. Playback must wake on each held tween tick, and export needs records before ExportPicture removes them. Component-cel integration remains open.
 
 ## 5.40a tests (hand-worked, each able to fail alone)
 

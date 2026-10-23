@@ -55,8 +55,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
             }
             runProof(); return
         }
-        if ("playAll" in spec.cases) {
-            PlayAllBench(canvas,clips) {
+        if ("playAll" in spec.cases || "playAllStatic" in spec.cases) {
+            PlayAllBench(canvas,clips,static="playAllStatic" in spec.cases) {
                 if(spec.holdMs>0) { Log.i(TAG,"hold ${spec.holdMs}"); ui.postDelayed({ onDone() },spec.holdMs) }
                 else onDone()
             }.start()

@@ -470,7 +470,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     }
 
     /** Frame timings for the debug stroke replay (bench/StrokeReplay); records nothing until started. */
-    val frameStats = cc.joycreator.joybrush.androidkit.bench.FrameStats().also { mediaCanvas.stats = it }
+    val frameStats = cc.joycreator.joybrush.androidkit.bench.FrameStats().also { s -> mediaCanvas.stats = s; engine.phaseTimer = { name, ms -> s.phase(name, ms) } }
 
     // Metadata belongs to the opened document, not the GPU's layer projection. Written on GL;
     // the UI reads the immutable document to respect locks before starting a stroke.
@@ -1109,6 +1109,13 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 if (pageW <= 0 || pageH <= 0) { pageW = width; pageH = height }
             }
             override fun onDrawFrame(gl: GL10?) {
+                // Bench only: the first command on the window surface waits for the compositor to hand a buffer back (vsync).
+                // That is idle time, not frame work, so it is timed on its own and kept out of the frame's busy figure.
+                if (frameStats.recording) {
+                    val waited = System.nanoTime()
+                    GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0); GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT); GLES30.glFlush()
+                    frameStats.phase("view:windowBufferWait", (System.nanoTime() - waited) / 1e6)
+                }
                 frameStats.frameBegin()
                 try { drawFrame() } finally { frameStats.frameEnd() }
             }

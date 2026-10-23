@@ -2037,6 +2037,10 @@ class GlPaintEngine(
         if(clipMovePreview != null) setClipMovePreview(null,null)
         val requested = frames.toMap()
         if (requested == framePreviews) return
+        val timer = phaseTimer; val began = if (timer != null) System.nanoTime() else 0L
+        try { applyFramePreviews(doc, requested) } finally { if (timer != null) timer("setFramePreviews", (System.nanoTime() - began) / 1e6) }
+    }
+    private fun applyFramePreviews(doc: JbDocument, requested: Map<String, String>) {
         val plans = RegionDocumentOps.paintPlans(doc, requested)
         for ((id, plan) in plans) {
             val layer = layers.getValue(id)
@@ -2327,10 +2331,17 @@ class GlPaintEngine(
             if(scissor)GLES30.glEnable(GLES30.GL_SCISSOR_TEST) else GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
         }
     }
+    /** Debug bench only: named per-frame timing sections (the canvas wires it to FrameStats.phase). */
+    var phaseTimer: ((String, Double) -> Unit)? = null
+
     private fun projectedTiles(layer: Layer): Map<Long,Int> {
         val plan=layer.plan ?: return physicalDisplayTiles(layer, null)
         if(plan.frames.isEmpty())return physicalDisplayTiles(layer, null)
         layer.visibleProjection?.let{return it}
+        val timer=phaseTimer; val began=if(timer != null) System.nanoTime() else 0L
+        try { return buildProjection(layer,plan) } finally { if(timer != null) timer("project:"+layer.id,(System.nanoTime()-began)/1e6) }
+    }
+    private fun buildProjection(layer: Layer,plan: RegionPaintPlan): Map<Long,Int> {
         val keys=LinkedHashSet<Long>()
         val physical = (listOf<String?>(null) + plan.frames.map { planeOf(layer, it.celId) })
             .distinct().associateWith { cel ->

@@ -542,7 +542,7 @@
       const react = this._react(lc);
       const { params, values } = this._pack(type.params, layer.p, signals, react);
       const soft = clamp(lc.soft || 0, 0, 1), size = Math.max(0.05, lc.size !== undefined ? lc.size : 1);
-      const px0 = lc.x || 0, py0 = lc.y || 0, turn = lc.turn || 0;
+      const px0 = lc.x || 0, py0 = lc.y || 0, turn = (lc.turn || 0) + this._spun(st, lc.spin || 0) * 360;
       const add = layer.add === undefined ? 1 : layer.add;
       const pal = this._palette(layer);
       const res = layer.res !== undefined ? layer.res : (type.res || 1);
@@ -597,6 +597,7 @@
         if (beh === 5) lead = Math.max(lead, 1.3);
         // A ribbon carrying the words away shows the ones already sung, far off: keep those.
         if (path === 0 && values.travel > 0.5) { back = Math.max(lead, back); lead = 1.5; }
+        back += values.back || 0;   // Look behind: keep the sung words longer
         const u = feed.uniforms(now, lead, back);
         common.tex = { uWords: feed.texture(gl) };
         common.uniforms = u;
@@ -661,6 +662,16 @@
 
     // ------------------------------------------------------------------ living layers
     // The controls every layer has (types.json "layer"): opacity, reactivity, softness, place.
+    // Place Spin (turns per second): the turns travelled so far, so a music link or a new speed
+    // speeds it up or slows it down smoothly, never jumping the angle. Same as CompiledScene.
+    _spun(st, speed) {
+      const t = this.time;
+      if (st.spun === undefined || t < st.spunAt) st.spun = speed * t;   // as if it had always turned so
+      else st.spun += speed * (t - st.spunAt);
+      st.spunAt = t;
+      return st.spun % 1;
+    }
+
     _common(layer, signals) {
       return this._pack(this.assets.types.layer ? this.assets.types.layer.params : [], layer, signals).values;
     }

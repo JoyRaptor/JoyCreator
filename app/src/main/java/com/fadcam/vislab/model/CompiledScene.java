@@ -27,7 +27,9 @@ public final class CompiledScene {
         @NonNull public final KnobSet knobs;
         /** The controls every layer has (types.json "layer"): opacity, reactivity, softness, place. */
         @NonNull public final KnobSet common;
-        private final int iOpacity, iReact, iSoft, iX, iY, iSize, iTurn;
+        private final int iOpacity, iReact, iSoft, iX, iY, iSize, iTurn, iSpin;
+        /** Place Spin (turns per second, a speed): turns travelled so far, and when last added to. */
+        private double spun = Double.NaN, spunAt;
         /** 0 = paint (hides what is behind), 1 = light (adds). */
         public final float add;
         /** Draw into the echo trails (true) or crisp above them. */
@@ -54,6 +56,7 @@ public final class CompiledScene {
             iY = layerType.indexOf("y");
             iSize = layerType.indexOf("size");
             iTurn = layerType.indexOf("turn");
+            iSpin = layerType.indexOf("spin");
             add = num(source, "add", 1f);
             JsonElement e = source.get("echo");
             underEcho = !(e != null && e.isJsonPrimitive() && !e.getAsBoolean());
@@ -68,6 +71,15 @@ public final class CompiledScene {
         public void eval(@Nullable Signals s) {
             common.eval(s);
             knobs.eval(s, react());
+            // Spin keeps the turns travelled, so a music link or a new speed speeds it up or slows
+            // it down smoothly, never jumping the angle (as the other speeds do, KnobSet.travelled).
+            if (iSpin >= 0 && s != null) {
+                double t = s.time;
+                float sp = common.values[iSpin];
+                if (Double.isNaN(spun) || t < spunAt) spun = sp * t;   // as if it had always turned so
+                else spun += sp * (t - spunAt);
+                spunAt = t;
+            }
         }
 
         private float v(int i, float fallback) {
@@ -88,7 +100,10 @@ public final class CompiledScene {
         public float size() { return Math.max(0.05f, v(iSize, 1f)); }
 
         /** Degrees. */
-        public float turn() { return v(iTurn, 0f); }
+        public float turn() {
+            float spin = iSpin >= 0 && !Double.isNaN(spun) ? (float) ((spun % 1.0) * 360.0) : 0f;
+            return v(iTurn, 0f) + spin;
+        }
     }
 
     @NonNull public final VisScene scene;
@@ -108,6 +123,8 @@ public final class CompiledScene {
             for (Layer P : prev.layers) {
                 if (P.source != L.source) continue;
                 L.knobs.carryFrom(P.knobs);
+                L.spun = P.spun;   // Spin carries on from where it was
+                L.spunAt = P.spunAt;
                 break;
             }
         }

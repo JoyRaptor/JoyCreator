@@ -74,6 +74,18 @@ button { font: inherit; color: inherit; }
 .row label { color: var(--ink-dim); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .row input[type=range] { width: 100%; accent-color: var(--viz); }
 .row .val { color: var(--ink-faint); font-size: 11px; text-align: right; font-variant-numeric: tabular-nums; }
+/* Slider: the "where it was" ring sits on the track at the value from before the drag; it fades 0.4 s after release. */
+.snapwrap { position: relative; display: flex; align-items: center; min-width: 0; }
+.ghostdot { position: absolute; top: 50%; left: 0; width: 8px; height: 8px; box-sizing: border-box; border: 1.5px solid var(--ink);
+  border-radius: 50%; background: rgba(228,228,231,.28); transform: translate(-50%, -50%); pointer-events: none; opacity: 0; transition: opacity .4s ease; }
+.ghostdot.on { opacity: .8; transition: none; }
+.ghostdot.on.under { opacity: 0; }
+/* Music-only knobs: a small note after the name, and the row dims while nothing plays. */
+.row label.music { display: flex; align-items: center; gap: 3px; }
+.row label.music .nm { overflow: hidden; text-overflow: ellipsis; }
+.row label.music .musicnote { flex: none; color: var(--ink-faint); font-size: 11px; }
+.row.musiconly { transition: opacity .25s ease; }
+.row.musiconly.quiet { opacity: .55; }
 .row select { width: 100%; background: var(--raised); color: var(--ink); border: 0; border-radius: 6px; padding: 4px; }
 .modbtn { border: 0; background: transparent; color: var(--ink-faint); cursor: pointer; border-radius: 6px; height: 24px; }
 .modbtn.has { color: #050507; background: var(--viz); }

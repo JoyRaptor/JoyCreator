@@ -136,6 +136,32 @@ public class WaveformOverlayInstance implements LinkFollower {
     public float visValueAt(@NonNull String key, long timelineMs) { return visKeys.at(key, localTime(timelineMs)); }
     public float visFadeAt(long timelineMs) { return visKeys.fadeAt(localTime(timelineMs)); }
 
+    /**
+     * How the WHOLE visualizer mixes with what is beneath it: the same wire values a picture and a
+     * PiP carry as {@code overlayBlendMode} ({@link BlendModes#ALL}), picked from the same list in
+     * the same drawer tab. "NORMAL" is plain alpha-over, exactly what a visualizer always did.
+     * Persisted by ProjectStorage only when it is not NORMAL (absent = NORMAL), so every older
+     * project loads unchanged.
+     */
+    @NonNull private String overlayBlendMode = BlendModes.NORMAL;
+
+    @NonNull public String getOverlayBlendMode() { return overlayBlendMode; }
+
+    public void setOverlayBlendMode(@Nullable String mode) {
+        this.overlayBlendMode = mode == null ? BlendModes.NORMAL : mode;
+    }
+
+    /**
+     * True when this visualizer must leave the export's Canvas path for a shader, because a blend
+     * against the video has no Canvas expression: a {@code BitmapOverlay} can only alpha-over the
+     * frame. ExportManager asks it to decide which pass a visualizer rides; the Canvas pass is
+     * handed only the visualizers for which this is false, so a visualizer is never drawn twice
+     * (once blended, once plain on top) and never dropped.
+     */
+    public boolean wantsExportBlend() {
+        return BlendModes.modeCode(overlayBlendMode) != 0;
+    }
+
     /** Normalized placement in canvas coords [0,1]. */
     private float centerX = 0.5f;
     private float centerY = 0.5f;

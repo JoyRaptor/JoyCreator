@@ -11,9 +11,10 @@
 in vec2 vUv;
 in vec2 vPos;
 out vec4 o;
-uniform sampler2D uWords;   // 16 slots of 2048 x 128 stacked top to bottom; ink in alpha
-uniform vec4 uWord[16];     // slot, start - now (s), end - now (s), width / height
-uniform vec4 uWordB[16];    // flow - flow now (text heights), order, hash, duration (s)
+uniform sampler2D uWords;   // 48 slots of 2048 x 128 stacked top to bottom; ink in alpha
+uniform vec4 uWord[48];     // slot, start - now (s), end - now (s), width / height
+uniform vec4 uWordB[48];    // flow - flow now (text heights), order, hash, duration (s)
+uniform vec2 uWordWin;      // how far ahead / behind (s) words are kept: where they arrive and leave
 uniform float uWordCount;
 uniform float uFlowNow;     // the words laid end to end so far (text heights): how far we have travelled
 
@@ -45,6 +46,8 @@ uniform float uFlowNow;     // the words laid end to end so far (text heights): 
 #define CLOSEST  uP[6].z   // ribbon: how close the word being sung passes
 #define SIDEK    uP[6].w   // ribbon: how far to the side of you it runs
 #define BEHAVE   uP[7].x   // 0 karaoke, 1 pop, 2 neon flicker, 3 smoke, 4 burst, 5 sparkle
+#define FADEK    uP[7].y   // seconds a word takes to fade in where it arrives and out where it leaves (0 = pop)
+#define SHIFTK   uP[7].z   // slide the words along the path, text heights
 
 // Hosts build one small program per path, behaviour and letter style (defined ahead of this
 // file): one program holding everything ran at 5 fps on the Note 9, because the GPU budgets for
@@ -63,7 +66,7 @@ uniform float uFlowNow;     // the words laid end to end so far (text heights): 
 #define ST LETTERS
 #endif
 
-const float SLOTS = 16.0;
+const float SLOTS = 48.0;
 const float SLOT_W = 16.0;   // a slot is 16 text heights wide
 
 // What the behaviour tells the letters (reset per word by behave()).
@@ -349,9 +352,18 @@ bool inReach(int i, vec2 uv) {
 }
 
 // Draw word i at uv (its box) with its behaviour and letters.
+// Words arrive at the far end of the window (uWordWin.x ahead) and leave at the near end
+// (uWordWin.y behind): Fade (FADEK seconds) softens both, so a word does not pop in or out.
+float edgeFade(int i) {
+    if (FADEK <= 0.001) return 1.0;
+    float ahead = uWord[i].y;   // start - now: how far off it still is
+    float gone = -uWord[i].z;   // now - end: how long ago it ended
+    return clamp((uWordWin.x - ahead) / FADEK, 0.0, 1.0) * clamp((uWordWin.y - gone) / FADEK, 0.0, 1.0);
+}
+
 vec3 drawWord(int i, vec2 uv, float sz, float fade, bool alone, inout float cover) {
     float grey, blur;
-    float f = behave(i, uv, alone, grey, blur) * fade;
+    float f = behave(i, uv, alone, grey, blur) * fade * edgeFade(i);
     if (f <= 0.002) return vec3(0.0);
     return lit(i, uv, f, sz / exp2(blur), grey, cover);
 }
@@ -368,9 +380,9 @@ vec3 along(float f, float v, float fade, float wrap, float sz, float flip, inout
     int hit = -1;
     float best = m;
     float u = 0.0;
-    for (int i = 0; i < 16; i++) {
+    for (int i = 0; i < 48; i++) {
         if (i >= n) break;
-        float local = f - uWordB[i].x;
+        float local = f - (uWordB[i].x + SHIFTK);
         if (wrap > 0.0) local = mod(local, wrap);
         float out_ = max(max(-local, local - uWord[i].w), 0.0);
         if (out_ > best || (hit >= 0 && out_ == best)) continue;
@@ -582,13 +594,13 @@ vec3 street(vec2 p, inout float cover) {
     vec4 signA[2];   // uv, fade, size on screen
     int ns = 0;
     float m = margin();
-    for (int i = 0; i < 16; i++) {
+    for (int i = 0; i < 48; i++) {
         if (i >= n) break;
         vec4 w = uWord[i];
         vec4 b = uWordB[i];
         float sgn = mod(b.y, 2.0) < 0.5 ? -1.0 : 1.0;   // which side of the street
         float len = w.w * Hs;
-        float z0 = 2.2 + b.x * SP;                       // the sign's near end, down the street
+        float z0 = 2.2 + (b.x + SHIFTK) * SP;            // the sign's near end, down the street
         if (z0 + len < 0.25) continue;
         float y0 = 0.5 + hash11(b.z * 17.0) * 0.9;       // its bottom edge, above the road
         vec3 c = wordColour(i);
@@ -636,7 +648,7 @@ vec3 street(vec2 p, inout float cover) {
 vec3 flight(vec2 p, inout float cover) {
     vec3 col = vec3(0.0);
     int n = int(uWordCount);
-    for (int i = 0; i < 16; i++) {
+    for (int i = 0; i < 48; i++) {
         if (i >= n) break;
         vec4 w = uWord[i];
         vec4 b = uWordB[i];
@@ -680,7 +692,7 @@ vec3 standalone(vec2 p, bool centre, inout float cover) {
     vec2 win = window();
     bool burst = BH > 3.5 && BH < 4.5;
     int n = int(uWordCount);
-    for (int i = 0; i < 16; i++) {
+    for (int i = 0; i < 48; i++) {
         if (i >= n) break;
         vec4 w = uWord[i];
         vec4 b = uWordB[i];
@@ -723,7 +735,7 @@ vec3 rising(vec2 p, inout float cover) {
         col += vec3(0.75, 0.78, 0.85) * thread * 0.4 * BANNER;
     }
     int n = int(uWordCount);
-    for (int i = 0; i < 16; i++) {
+    for (int i = 0; i < 48; i++) {
         if (i >= n) break;
         vec4 w = uWord[i];
         float hz = uWordB[i].z;

@@ -30,8 +30,10 @@ import java.util.List;
  * sample lyrics) and the glyph atlas the shader reads. The twin of the web pilot's
  * {@code vislab-words.js}; the contract with {@code words.frag}:
  * <ul>
- *   <li>{@code uWords}: 2048 x 2048, 16 slots of 2048 x 128 stacked top to bottom, white ink, the
- *       word drawn from x = 0 with padding both sides;</li>
+ *   <li>{@code uWords}: 2048 x 6144, one channel (ink in alpha), 48 slots of 2048 x 128 stacked top
+ *       to bottom, the word drawn from x = 0 with padding both sides. 48 so a spiral or a long
+ *       ribbon fills (owner 10-22: 16 left them half empty); one channel keeps the sheet at
+ *       12 MB, under the 16 MB the old 16-slot colour sheet took;</li>
  *   <li>{@code uWord[i]} = (slot, start - now, end - now, width / height) in seconds;</li>
  *   <li>{@code uWordB[i]} = (flow - flow now, order, hash, duration): flow is the words laid end
  *       to end in text heights, so a scene can scroll text along a path and have each word
@@ -42,7 +44,7 @@ import java.util.List;
 public final class WordFeed {
 
     private static final String TAG = "VisWords";
-    public static final int SLOTS = 16;
+    public static final int SLOTS = 48;
     static final int SW = 2048, SH = 128;
     static final float GAP = 0.6f, PAD = 0.25f;   // text heights
     static final float TEXT_PX = 96f;
@@ -194,7 +196,7 @@ public final class WordFeed {
         }
     }
 
-    /** Choose the words around {@code now} (up to 16, nearest first) and fill {@link #u} / {@link #ub}. */
+    /** Choose the words around {@code now} (up to {@link #SLOTS}, nearest first) and fill {@link #u} / {@link #ub}. */
     public void update(double now, double lead, double back) {
         Track k = track;
         if (k != drawnFor) {   // new words: every slot is stale
@@ -259,7 +261,7 @@ public final class WordFeed {
             GLES30.glGenTextures(1, ids, 0);
             tex = ids[0];
             GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, tex);
-            GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D, 0, GLES30.GL_RGBA8, SW, SW, 0, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, null);
+            GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D, 0, GLES30.GL_ALPHA, SW, SLOTS * SH, 0, GLES30.GL_ALPHA, GLES30.GL_UNSIGNED_BYTE, null);
             GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_LINEAR_MIPMAP_LINEAR);
             GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_LINEAR);
             GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE);
@@ -270,7 +272,7 @@ public final class WordFeed {
         }
         if (anyDirty) {
             if (slotBitmap == null) {
-                slotBitmap = Bitmap.createBitmap(SW, SH, Bitmap.Config.ARGB_8888);
+                slotBitmap = Bitmap.createBitmap(SW, SH, Bitmap.Config.ALPHA_8);   // ink only, as the sheet
                 slotCanvas = new Canvas(slotBitmap);
             }
             GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, tex);

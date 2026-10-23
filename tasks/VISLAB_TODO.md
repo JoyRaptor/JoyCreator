@@ -206,23 +206,63 @@ Web pilot: `preview_start vislab-web`, page `tools/vislab-web/index.html#<look-i
 ## G. Owner review, 10-22 evening (his words condensed; recommendation after each)
 
 Quick wins (do first):
-- [ ] **G1 Sliders: see where it was, get back to it.** While dragging, a ghost dot marks the value
+- [x] **G1 Sliders: see where it was, get back to it.** 10-23 BUILT (Sonnet helper: `room/SnapSlider`,
+  `AngleMarks`, `GhostSeekBar`, `KnobPanel`; pilot `vislab-app.js`). PHONE-TESTED: a rough drag on
+  Turn landed on exactly 45.00; mid-drag the ring sat at the start value while the thumb snapped to
+  90.00; one undo per drag. While dragging, a ghost dot marks the value
   at touch-down and the thumb softly snaps back to it, and to 0, the default and 45/90/180 on angles.
   ("Really hard to get it back to 0 or 90 or 45.") Room `KnobPanel` + web pilot; propose app-wide.
-- [ ] **G2 Sliders that seem to do nothing.** Many only act on the music (Sensitivity, Kick pump,
+- [x] **G2 Sliders that seem to do nothing.** 10-23: 66 music-only knobs flagged `"music": true` in
+  `types.json` (Haiku helper, each checked against its shader line; doubtful ones left unflagged:
+  lightning's knobs, floor.chase, lasers.strobe, points.spinBass, plasma.react). Rows show a note
+  badge + hover "Acts on the music: play something to see it" and dim while paused or silent.
+  PHONE-TESTED: Bass swell row normal while playing, dimmed when paused. Mode-only knob audit not done. Many only act on the music (Sensitivity, Kick pump,
   Kick flash, Bass swell, Pulse...) or only in some modes. Flag music-only knobs in `types.json`
   (e.g. `"music": true`), show them with a small note badge and dimmed while it is silent/paused,
   hover label "Acts on the music". Audit mode-only knobs and hide them where they do nothing
   (`showFor` exists).
-- [ ] **G3 Turning with the sound.** The note on Turn already swings the angle with a sound (answer:
+- [x] **G3 Turning with the sound.** 10-23: Place **Spin** (turns per second, a speed: travelled
+  turns in `CompiledScene.Layer` / pilot `_spun`, carried across edits). PHONE-TESTED: Spin 0.25 on
+  the Spiral layer turns the whole layer steadily. The note on Turn already swings the angle with a sound (answer:
   kick = punch, bass = slow swell, beat = steady). Add a Place **Spin** (a speed, `"rate"`) so a
   layer (e.g. Sound City's woven floor) keeps turning and speeds up on the beat, smoothly.
-- [ ] **G4 Words fill the spiral.** (a) a bigger word buffer: `WordFeed.SLOTS` 16 -> ~48 (atlas
+- [x] **G4 Words fill the spiral.** 10-23: 48 word slots (one-channel 2048x6144 sheet, 12 MB, under
+  the old 16 MB), Look ahead up to 12 s, new **Look behind**, **Shift along** (ribbon/spiral/ring/
+  tunnel/street) and **Fade in / out** (`words.frag` `edgeFade`, `uWordWin`). Pilot: Spiral Banner
+  at 59 fps with up to 23 words on screen (was capped at 16). PHONE: the knobs show in the room;
+  their effect not yet judged by the owner. (a) a bigger word buffer: `WordFeed.SLOTS` 16 -> ~48 (atlas
   re-layout: 2 columns or shorter rows; `words.frag` SLOTS too; pilot `vislab-words.js`);
   (b) **Look behind** knob (now fixed `back = 4.0` in `VisRenderer`); (c) **Shift** along the path
   (put the words where you want them on the spiral / ribbon); (d) **Fade in / out** for every
   behaviour (words popping in on the ribbon). Look ahead (`lead`) already exists.
-- [ ] **G5 Studio visualiser: the shared transform box + blend mode.** Move the visualiser from its
+- [ ] **G5b Studio visualiser onto the shared transform box** (split from G5, 10-23; plan by a Sonnet
+  scout, verified against the code by name only). Today's box (inside `WaveformOverlayView`) has no
+  rotate, writes statics only (a keyframed visualiser does not move when dragged), drags have no
+  undo, handles hit-test unrotated, and it keeps its own selection (timeline selection shows no box;
+  `hitsInPreview` is false for visualisers). Plan: new `ui/faditor/transform/VisualizerTransformHost`
+  implementing `TransformOverlayView.Host` directly (free aspect: `AffineTransformHost` is uniform),
+  `writeQuad` -> width/height/rotation/centre, affine only, no bend/flip; in `FaditorEditorActivity`
+  `transformVizId` + `enterVisualizerTransformMode` (model: `enterSpriteTransformMode`), a
+  `vizHandlesTarget` whose writes copy `vizMenuProp`'s setter (linked / armed / static), undo via
+  `snapshotViz` + `recordVizMenuUndo`, branches in `updatePreviewHandlesForSelection`,
+  `hitsInPreview`, `collectSnapFrames`, `selectAt`, `handoffGesture`; `WaveformOverlayView` stops
+  taking touches. Risks: re-tap -> double-tap, hold-to-drawer needs a body-hold hook in the shared
+  box, linked followers (world <-> own pose), model clamps (centre 0..1, size 0.05..1) vs the box's
+  -2..3. Seen on the way: `handoffGesture` omits `transformSpriteId` (first drag on an unselected
+  sprite may do nothing); export draws a visualiser for its whole bound clip without a start/end
+  check (verify); hidden/locked are saved only for attached visualisers (ProjectStorage ~2636);
+  JoyBot's blend action (`LooksActions`) does not cover visualisers.
+- [ ] **G5 Studio visualiser: the shared transform box + blend mode.**
+  10-23: a VisLab look on a clip with no sound data (a silent screen recording) was dropped from
+  export (ExportManager skipped slots without waveform data): now a silent stand-in keeps the
+  slot. Found while phone-testing the blend: the exported frame had no visualiser.
+  Blend PHONE-TESTED so far: the Blend mode tab with the full list (Normal, Darken, Multiply,
+  Screen, Add, Overlay, Difference...), one undo per pick, the "applied when you export" note.
+  Export blend NOT yet seen working (the first test hit the silent-clip drop above).
+  10-23: Blend mode BUILT (Sonnet helper): `overlayBlendMode` on the item (same key as pictures),
+  a Blend mode tab in the drawer (`PipDrawerTabs.blendTab`, one undo per pick), export blends for
+  real through `export/VisualizerBlendGlEffect` (same equations as pictures); preview shows Normal
+  (as pictures and PiPs do; a true preview needs the GL compositor). Normal visualisers unchanged. Move the visualiser from its
   own older box onto Studio's shared transform box (`studiokit/.../transform/TransformOverlayView`,
   same as pictures/text: move, corners, rotate handle below). Add **Blend mode** to its drawer,
   default Normal, the image drawer's list (`layers.BlendMode`), preview and export.
@@ -242,7 +282,10 @@ Bigger:
   playing inside the look (frame rate, a frame per beat, ping-pong), every effect applies;
   (b) Video element: a clip decoded into the look; (c) Studio layer reference (precompose): a
   look's media layer shows another Studio item rendered each frame; (d) VisLab's finishes (echo,
-  bloom, glitch, RGB split, warp) as a Studio effect on any clip or layer. Recommended order:
+  bloom, glitch, RGB split, warp) as a Studio effect on any clip or layer; its natural home is
+  Studio's adjustment layer (owner 10-23: an empty layer whose effects change everything under
+  it, like After Effects, so the effect can be masked, faded in and out, or switched on and off
+  by animating the layer; `export/AdjustmentLayerGlEffect.java` exists). Recommended order:
   (a), then (c), with (d) as the long-term way to put the effects on anything; (b) if still needed.
 - Answered, no change: the picture's Across/Up/Size place the picture inside its layer; Place
   moves/turns/scales the whole layer (every element has Place). Two levels allow layered motion

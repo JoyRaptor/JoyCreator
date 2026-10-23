@@ -238,6 +238,16 @@ public class WaveformOverlayView extends View {
                         o.getFrequencyRangeLowHz(), o.getFrequencyRangeHighHz(),
                         o.getBandCountOverride());
             }
+            // BLEND MODE (o.getOverlayBlendMode()): drawn NORMAL here, on purpose. The export blends
+            // the visualizer against the frame beneath it (VisualizerBlendGlEffect), but this View
+            // is a software layer above the whole video stack: a Paint blend mode on these draws
+            // would blend against this View's own transparent backing store, not the video, so it
+            // would do nothing, and View.setLayerPaint cannot stand in either (Skia's mode list is
+            // not the 26 GLSL equations the export runs, and a hardware layer would break the
+            // immediate-copy bitmap reuse and the glow below). A true preview means feeding the
+            // visualizer's frame into the GL composite (FxPreviewTextureView) as a Pip, which sits
+            // in fx_below_group under this View: a separate piece of work, so the drawer's Blend
+            // tab says "applied when you export" rather than pretending.
             float cx = o.animatedCenterX(playheadMs) * w;
             float cy = o.animatedCenterY(playheadMs) * h;
             canvas.save();

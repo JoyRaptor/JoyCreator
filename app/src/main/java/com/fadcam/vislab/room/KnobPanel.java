@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.view.Gravity;
+import android.view.HapticFeedbackConstants;
 import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -25,6 +26,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -43,6 +46,9 @@ final class KnobPanel extends LinearLayout {
 
         /** The look's tree changed. */
         void edited();
+
+        /** Playing and not silent: the music-only knobs only show anything then. */
+        boolean hearingMusic();
 
         /** Step back / forward. Returns false when there is nothing to step to. */
         boolean undo();
@@ -110,6 +116,20 @@ final class KnobPanel extends LinearLayout {
     @Nullable private String brandName;
     @Nullable private LinearLayout footer;
 
+    private static final String MUSIC_HINT = "Acts on the music: play something to see it";
+    /** How faint a music-only row is while nothing plays. */
+    private static final float QUIET = 0.55f;
+    /** The music-only rows now on show, and whether the sound they need is there. */
+    private final List<View> musicRows = new ArrayList<>();
+    private boolean hearing = true;
+    private final Runnable musicPoll = new Runnable() {
+        @Override
+        public void run() {
+            refreshMusicDim();
+            postDelayed(this, 1000);   // once a second is plenty: no per-frame work
+        }
+    };
+
     KnobPanel(@NonNull Context c, @NonNull VisTypes types, @NonNull Host host) {
         super(c);
         this.types = types;
@@ -148,8 +168,36 @@ final class KnobPanel extends LinearLayout {
         addView(scroll, new LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f));
     }
 
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        postDelayed(musicPoll, 1000);
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        removeCallbacks(musicPoll);
+        super.onDetachedFromWindow();
+    }
+
+    /**
+     * Music-only knobs (types.json "music") do nothing without sound: dim their rows while the
+     * look is paused or the sound is silent. Called about once a second and on pause / play.
+     */
+    void refreshMusicDim() {
+        boolean now = host.hearingMusic();
+        if (now == hearing) return;
+        hearing = now;
+        for (View r : musicRows) {
+            if (isShown()) r.animate().alpha(now ? 1f : QUIET).setDuration(250).start();
+            else r.setAlpha(now ? 1f : QUIET);
+        }
+    }
+
     void rebuild() {
         body.removeAllViews();
+        musicRows.clear();
+        hearing = host.hearingMusic();
         VisScene s = host.scene();
         if (s == null) return;
         if (tab == 0) buildLayers(s);
@@ -688,8 +736,13 @@ final class KnobPanel extends LinearLayout {
         TextView label = Ui.text(c, k.label, 12, Studio.INK_DIM, false, 500);
         label.setSingleLine(true);
         label.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        row.addView(label, new LayoutParams(Ui.dp(c, 98), LayoutParams.WRAP_CONTENT));
+        row.addView(k.music ? musicLabel(c, label) : label, new LayoutParams(Ui.dp(c, 98), LayoutParams.WRAP_CONTENT));
         wrap.addView(row);
+        if (k.music) {
+            Ui.label(wrap, MUSIC_HINT);
+            musicRows.add(wrap);
+            if (!hearing) wrap.setAlpha(QUIET);
+        }
         if (k.options != null || k.toggle) {
             WrapLayout pills = new WrapLayout(c, Ui.dp(c, 5), Ui.dp(c, 5));
             String[] opts = k.options != null ? k.options : new String[]{"Off", "On"};
@@ -711,13 +764,13 @@ final class KnobPanel extends LinearLayout {
             row.addView(pills, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
             return wrap;
         }
-        SeekBar bar = new SeekBar(c);
+        GhostSeekBar bar = new GhostSeekBar(c);
         bar.setMax(1000);
         bar.setProgressTintList(ColorStateList.valueOf(Ui.VIZ_A));
         bar.setThumbTintList(ColorStateList.valueOf(Ui.VIZ_A));
         bar.setProgressBackgroundTintList(ColorStateList.valueOf(Studio.LINE));
         bar.setProgress(Math.round(toSlider(k, base(holder, k)) * 1000));
-        Ui.label(bar, k.label);
+        Ui.label(bar, k.music ? k.label + ". " + MUSIC_HINT : k.label);
         row.addView(bar, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
         TextView val = Ui.text(c, fmt(base(holder, k)), 11, Studio.INK_FAINT, false, 400);
         val.setGravity(Gravity.END);
@@ -739,10 +792,26 @@ final class KnobPanel extends LinearLayout {
             fillMods(c, modBox, k, holder, note);
         });
         bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            /** Made when a drag starts (so "where it was" is the value at touch-down); null for key / TalkBack steps. */
+            @Nullable private SnapSlider snap;
+            private float last = Float.NaN;
+
             @Override
             public void onProgressChanged(SeekBar sb, int p, boolean fromUser) {
                 if (!fromUser) return;
                 float v = fromSlider(k, p / 1000f);
+                if (snap != null) {
+                    // Soft magnet: near 0, the default, the start or an angle mark, stick to it exactly.
+                    int a = snap.pull(p / 1000f);
+                    if (a >= 0) {
+                        v = snap.value(a);
+                        int stuck = Math.round(snap.pos(a) * 1000);
+                        if (stuck != p) sb.setProgress(stuck);
+                        if (snap.entered()) sb.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK);
+                    }
+                }
+                if (v == last) return;   // held on a magnet: nothing changed
+                last = v;
                 setBase(holder, k.id, v);
                 val.setText(fmt(v));
                 host.edited();
@@ -750,14 +819,35 @@ final class KnobPanel extends LinearLayout {
 
             @Override
             public void onStartTrackingTouch(SeekBar sb) {
+                last = base(holder, k);
+                snap = new SnapSlider(k, last);
+                bar.showWas(snap.startPos());
                 host.beginEdit(k.label);
             }
 
             @Override
             public void onStopTrackingTouch(SeekBar sb) {
+                snap = null;
+                bar.hideWas();
             }
         });
         return wrap;
+    }
+
+    /** The knob's name with a small note right after it: this one needs sound to show anything. */
+    @NonNull
+    private static View musicLabel(@NonNull Context c, @NonNull TextView label) {
+        LinearLayout box = new LinearLayout(c);
+        box.setOrientation(HORIZONTAL);
+        box.setGravity(Gravity.CENTER_VERTICAL);
+        label.setMaxWidth(Ui.dp(c, 82));   // room for the note inside the 98dp name column
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(label, MUSIC_HINT);
+        box.addView(label, new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
+        TextView note = Ui.icon(c, "music_note", 12, Studio.INK_FAINT);
+        note.setPadding(Ui.dp(c, 3), 0, 0, 0);
+        Ui.label(note, MUSIC_HINT);
+        box.addView(note, new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
+        return box;
     }
 
     private void fillMods(@NonNull Context c, @NonNull WrapLayout box, @NonNull VisKnob k,
@@ -955,7 +1045,7 @@ final class KnobPanel extends LinearLayout {
         holder.addProperty(k.id, base(holder, k));
     }
 
-    private static float toSlider(@NonNull VisKnob k, float v) {
+    static float toSlider(@NonNull VisKnob k, float v) {
         if (k.log && k.min > 0) return (float) (Math.log(v / k.min) / Math.log(k.max / k.min));
         return k.max == k.min ? 0 : (v - k.min) / (k.max - k.min);
     }

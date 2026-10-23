@@ -7,6 +7,7 @@ import android.graphics.LinearGradient;
 import android.graphics.Shader;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.view.GestureDetector;
 import android.view.Gravity;
 import android.view.MotionEvent;
@@ -33,6 +34,7 @@ import com.fadcam.R;
 import com.fadcam.ui.faditor.Studio;
 import com.fadcam.ui.motion.Motion;
 import com.fadcam.vislab.VisLab;
+import com.fadcam.vislab.audio.Features;
 import com.fadcam.vislab.audio.LiveAnalyzer;
 import com.fadcam.vislab.audio.MicSource;
 import com.fadcam.vislab.audio.PcmRing;
@@ -54,6 +56,10 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
     public static final String EXTRA_LOOK = "vislab_look";
     private static final String DEMO = "vislab/demo/vislab_demo.m4a";
     private static final int SRC_DEMO = 0, SRC_MIC = 1, SRC_SONG = 2;
+    /** Loudness (Features.level, 0..1) above which a frame counts as sound; silence reads 0. */
+    private static final float SOUND_LEVEL = 0.02f;
+    /** A quiet bar in a song is not silence: sound heard this recently still counts. */
+    private static final long SOUND_MEMORY_MS = 1500;
 
     private VisTextureView view;
     private FrameLayout stage;
@@ -67,6 +73,8 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
     private ImageView joy;
     private boolean drawerOpen;
     private boolean paused;
+    /** Uptime of the last frame that had sound in it (set on the render thread). */
+    private volatile long heardAt = -SOUND_MEMORY_MS;
 
     private final PcmRing ring = new PcmRing(96000, 48000);
     private final LiveAnalyzer analyzer = new LiveAnalyzer(ring);
@@ -129,7 +137,9 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
         view = new VisTextureView(this);
         view.setFeatureSource(dt -> {
             view.renderer().setWordsTime(demoSeconds());   // the demo lyrics follow the demo song
-            return analyzer.step(dt);
+            Features f = analyzer.step(dt);
+            if (f.level > SOUND_LEVEL) heardAt = SystemClock.uptimeMillis();
+            return f;
         });
         view.renderer().setImageSource(new Pictures(this));
         stage.addView(view, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
@@ -408,6 +418,11 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
     }
 
     @Override
+    public boolean hearingMusic() {
+        return !paused && SystemClock.uptimeMillis() - heardAt < SOUND_MEMORY_MS;
+    }
+
+    @Override
     public void edited() {
         VisScene s = scene();
         if (s != null) s.touch();
@@ -557,6 +572,7 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
         if (source != null) source.setPaused(p);
         pauseBtn.setText(p ? "play_arrow" : "pause");
         keepAwake(!p);
+        if (panel != null) panel.refreshMusicDim();   // music-only knobs dim the moment it pauses
     }
 
     /** While the visualiser plays, the screen stays on (like a video); paused, it may sleep. */

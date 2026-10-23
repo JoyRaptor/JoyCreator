@@ -173,6 +173,7 @@ public final class VisTypes {
                 min, max, def, num(o, "step", 0f), o.has("log") && o.get("log").getAsBoolean(),
                 toggle, options, str(o, "group", null), showKnob, showValues);
         k.rate = o.has("rate") && o.get("rate").isJsonPrimitive() && o.get("rate").getAsBoolean();
+        k.music = o.has("music") && o.get("music").isJsonPrimitive() && o.get("music").getAsBoolean();
         return k;
     }
 

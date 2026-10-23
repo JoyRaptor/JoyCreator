@@ -2630,6 +2630,11 @@ public class ProjectStorage {
                     }
                     // VisLab look drawn instead of the style (absent = classic style).
                     if (wo.getVisLook() != null) wj.addProperty("visLook", wo.getVisLook());
+                    // How it mixes with what is beneath it (absent = NORMAL; the same key a picture
+                    // and a PiP use, so every older project round-trips byte-identical).
+                    if (!"NORMAL".equals(wo.getOverlayBlendMode())) {
+                        wj.addProperty("overlayBlendMode", wo.getOverlayBlendMode());
+                    }
                     // Its keyframable VisLab values (look keys, Reactivity, Fade); absent = defaults.
                     if (!wo.getVisKeys().isDefault()) wj.add("vis", wo.getVisKeys().toJson());
                     // G5 attach/detach (tolerant, absent = detached — every pre-G5 project)
@@ -3613,6 +3618,10 @@ public class ProjectStorage {
                         }
                         if (wj.has("vis") && wj.get("vis").isJsonObject()) {
                             wo.getVisKeys().readJson(wj.getAsJsonObject("vis"));
+                        }
+                        // Blend against what is beneath (tolerant read, absent = NORMAL).
+                        if (hasValue(wj, "overlayBlendMode")) {
+                            wo.setOverlayBlendMode(wj.get("overlayBlendMode").getAsString());
                         }
                         // G5 attach/detach (tolerant, absent = detached)
                         if (hasValue(wj, "attachedClipId")) {

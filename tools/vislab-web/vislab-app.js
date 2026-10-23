@@ -113,6 +113,16 @@
     let selLayer = 0;
     let tab = 'layers';
     let lastF = null;
+    // Music-only knobs (types.json "music") do nothing without sound: their rows dim while the
+    // look is paused or the sound is silent. heardAt is the time of the last frame with sound.
+    const MUSIC_HINT = 'Acts on the music: play something to see it';
+    const musicRows = [];
+    let heardAt = -1e9;
+    const hearing = () => !paused && performance.now() - heardAt < 1500;
+    function refreshMusicDim() {
+      const h = hearing();
+      musicRows.forEach((r) => r.classList.toggle('quiet', !h));
+    }
 
     function setScene(i) {
       current = (i + working.length) % working.length;
@@ -182,7 +192,7 @@
     };
     $$('[data-start]').forEach((b) => (b.onclick = () => startSource(b.dataset.start)));
     $$('#srcSeg .pill').forEach((b) => (b.onclick = () => startSource(b.dataset.src)));
-    $('#pauseBtn').onclick = () => { paused = !paused; rig.pause(paused); $('#pauseBtn').textContent = paused ? 'Play' : 'Pause'; };
+    $('#pauseBtn').onclick = () => { paused = !paused; rig.pause(paused); $('#pauseBtn').textContent = paused ? 'Play' : 'Pause'; refreshMusicDim(); };
 
     // framing
     function layoutBox() {
@@ -266,6 +276,49 @@
     function baseOf(raw, d) { return raw === undefined || raw === null ? d.def : (typeof raw === 'object' ? (raw.v !== undefined ? raw.v : d.def) : raw); }
     function modsOf(raw) { return raw && typeof raw === 'object' && raw.mod ? raw.mod : null; }
 
+    // The soft magnet on a knob's slider (same rules as the app's SnapSlider): while a pointer drags,
+    // the value sticks to 0, the knob's default, an angle mark (every 45 degrees) or where it started.
+    // Positions are shares of the track, 0..1.
+    const ANGLE_IDS = ['turn', 'rotation', 'roll', 'lean', 'aim', 'dir', 'tilt', 'pitch', 'yaw', 'spin'];
+    const SNAP_IN = 0.025, SNAP_OUT = 0.032, SNAP_APART = 0.005;
+    // An angle knob swings both ways round zero; a range of tens of units is degrees, a turn or two is turns.
+    function angleMarks(d) {
+      if (!ANGLE_IDS.includes(d.id) || d.log || !(d.min < 0 && d.max > 0)) return [];
+      const span = d.max - d.min;
+      let step = (span > 10 ? 360 : 1) / 8;
+      while (step / span < 0.125 - 1e-4) step *= 2;   // a wide range would pack the marks: quarters then
+      const marks = [];
+      for (let i = Math.ceil(d.min / step - 1e-4); i <= Math.floor(d.max / step + 1e-4); i++) marks.push(i * step);
+      return marks;
+    }
+    function makeSnap(d, toS, start) {
+      const at = [], value = [];
+      const add = (v) => {
+        let p = toS(v);
+        if (!isFinite(p) || p < -1e-4 || p > 1 + 1e-4) return;   // not on this track
+        p = Math.max(0, Math.min(1, p));
+        if (at.some((q) => Math.abs(q - p) < SNAP_APART)) return;
+        at.push(p); value.push(v);
+      };
+      // Priority for the rare magnets that fall together: zero, angle marks, default, start.
+      if (d.min <= 0 && d.max >= 0) add(0);
+      angleMarks(d).forEach(add);
+      add(d.def); add(start);
+      const s = toS(start);
+      let held = -1;
+      return {
+        startPos: isFinite(s) ? Math.max(0, Math.min(1, s)) : 0,
+        // The pointer is at pos: the magnet holding it ({ v, pos }) or null. A held magnet keeps its grip a bit longer.
+        pull(pos) {
+          let hit = -1, near = SNAP_IN;
+          at.forEach((q, i) => { const dist = Math.abs(q - pos); if (dist <= near) { near = dist; hit = i; } });
+          if (hit < 0 && held >= 0 && Math.abs(at[held] - pos) <= SNAP_OUT) hit = held;
+          held = hit;
+          return hit < 0 ? null : { v: value[hit], pos: at[hit] };
+        },
+      };
+    }
+
     function knobRows(container, defs, holder, key) {
       // holder[key] is the object of raw knob values (created on first edit).
       let lastGroup = null;
@@ -289,8 +342,18 @@
         };
         const lab = document.createElement('label');
         lab.textContent = d.label; lab.title = d.label;
+        if (d.music) {
+          // Does nothing without sound: a small note right after the name, and the row dims while nothing plays.
+          lab.textContent = ''; lab.className = 'music'; lab.title = MUSIC_HINT;
+          const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = d.label;
+          const note = document.createElement('span'); note.className = 'musicnote'; note.textContent = '♪'; note.title = MUSIC_HINT;
+          lab.appendChild(nm); lab.appendChild(note);
+          row.classList.add('musiconly'); row.title = MUSIC_HINT;
+          row.classList.toggle('quiet', !hearing());
+          musicRows.push(row);
+        }
         row.appendChild(lab);
-        let input, val = document.createElement('span');
+        let input, cell, val = document.createElement('span');
         val.className = 'val';
         if (d.enum) {
           // Choices are fully rounded pills, not a dropdown: every option visible, one tap.
@@ -316,7 +379,7 @@
         } else {
           input = document.createElement('input');
           input.type = 'range';
-          input.title = d.label;
+          input.title = d.music ? d.label + '. ' + MUSIC_HINT : d.label;
           const lg = d.log && d.min > 0;
           const toS = (v) => lg ? Math.log(v / d.min) / Math.log(d.max / d.min) : (v - d.min) / (d.max - d.min);
           const fromS = (s) => { let v = lg ? d.min * Math.pow(d.max / d.min, s) : d.min + s * (d.max - d.min); if (d.step) v = Math.round(v / d.step) * d.step; return v; };
@@ -324,9 +387,42 @@
           input.value = Math.round(toS(baseOf(raw, d)) * 1000);
           const show = (v) => (val.textContent = Math.abs(v) >= 100 ? Math.round(v) : Number(v).toFixed(Math.abs(v) < 0.1 ? 3 : 2));
           show(baseOf(raw, d));
-          input.oninput = () => { const v = fromS(input.value / 1000); set(v); show(v); };
+          // "Where it was": a ring on the track at the value from before the drag, fading 0.4 s after release.
+          // Snapping works only for a pointer drag: a keyboard step is 0.1% and would never get out of a magnet.
+          const ghost = document.createElement('i');
+          ghost.className = 'ghostdot';
+          cell = document.createElement('div');
+          cell.className = 'snapwrap';
+          cell.appendChild(input); cell.appendChild(ghost);
+          let snap = null, last = null;
+          const stop = () => {
+            snap = null;
+            ghost.classList.remove('on', 'under');
+            removeEventListener('pointerup', stop); removeEventListener('pointercancel', stop);
+          };
+          // Under the thumb the ring would only smudge it.
+          const hideUnderThumb = () => ghost.classList.toggle('under', Math.abs(input.value / 1000 - snap.startPos) * input.clientWidth < 9);
+          input.addEventListener('pointerdown', () => {
+            last = baseOf(holder[key] ? holder[key][d.id] : undefined, d);
+            snap = makeSnap(d, toS, last);
+            // The browser's thumb is 16px wide: its centre runs from 8px to 8px short of the far end.
+            ghost.style.left = 'calc(8px + (100% - 16px) * ' + snap.startPos.toFixed(4) + ')';
+            hideUnderThumb();
+            ghost.classList.add('on');
+            addEventListener('pointerup', stop); addEventListener('pointercancel', stop);
+          });
+          input.oninput = () => {
+            let v = fromS(input.value / 1000);
+            if (snap) {
+              const m = snap.pull(input.value / 1000);
+              if (m) { v = m.v; input.value = Math.round(m.pos * 1000); }
+              hideUnderThumb();
+            }
+            if (v === last) return;   // held on a magnet: nothing changed
+            last = v; set(v); show(v);
+          };
         }
-        row.appendChild(input);
+        row.appendChild(cell || input);
         if (d.enum) { container.appendChild(row); continue; }
         row.appendChild(val);
         const mb = document.createElement('button');
@@ -382,6 +478,7 @@
       if (!$('#drawer').classList.contains('open')) return;
       const body = $('#dbody');
       body.innerHTML = '';
+      musicRows.length = 0;
       const scene = working[current];
       if (tab === 'layers') {
         const list = document.createElement('div');
@@ -589,6 +686,7 @@
       let f = rig.read(dt);
       if (!f) f = VisAudio.idleFeatures(idleFx, now / 1000, dt);
       lastF = f;
+      if (f.level > 0.02) heardAt = now;   // sound in this frame (silence reads 0)
       const st = rig.songTime ? rig.songTime() : null;
       engine.wordsTime = words.label === 'demo' && rig.source === 'demo' ? st : (words.label === 'typed' ? engine.time : st);
       try { engine.render(f, paused ? 0 : dt, cw, ch); } catch (e) { fail(e); return; }
@@ -606,6 +704,7 @@
       }
     }
     requestAnimationFrame(frame);
+    setInterval(refreshMusicDim, 1000);   // about once a second is plenty: no per-frame work
     window.__vislab = { engine, rig, words, setScene: (i) => setScene(i), scenes: working, startSource };
     // Dev: pick up edited shaders / looks without restarting the music.
     window.__vislab.reload = async () => {

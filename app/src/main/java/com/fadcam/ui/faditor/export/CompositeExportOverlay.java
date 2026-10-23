@@ -1138,7 +1138,7 @@ public class CompositeExportOverlay extends BitmapOverlay {
                         com.fadcam.vislab.studio.VisControls.at(ws.instance, timelineMs), ws.visWords);
                 if (wfBmp != null) visFade = ws.instance.visFadeAt(timelineMs);
             }
-            if (wfBmp == null) wfBmp = waveRenderer.render(ws.data, ws.style,
+            if (wfBmp == null && ws.data.bucketCount() > 0) wfBmp = waveRenderer.render(ws.data, ws.style,
                     sw, sh, wsMs, ws.density,
                     ws.instance.getJustify(), ws.instance.getDataMode(),
                     ws.instance.isHorizontalMirror(),

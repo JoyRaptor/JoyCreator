@@ -5309,6 +5309,12 @@ public class ExportManager {
                         + fallback.getId() + " uri=" + wfUri);
             }
             WaveformData data = waveformCache.get(wfUri.toString());
+            if (data == null && woi.usesVisLab()) {
+                // A VisLab look draws from its own sound clock (silence when the clip has none),
+                // so a clip with no sound data (a silent screen recording) still exports it; the
+                // classic stand-in simply has nothing to draw.
+                data = new WaveformData(new float[0], new float[0][], 1);
+            }
             if (data == null) {
                 FLog.w(TAG, "buildWaveformSlots: no cached waveform data for uri=" + wfUri
                         + " (key=" + wfUri.toString() + ")");
@@ -5375,6 +5381,47 @@ public class ExportManager {
                     + " uri=" + wfUri + ")");
         }
         return slots;
+    }
+
+    /**
+     * One GPU pass per visualizer that chose a BLEND MODE, so it mixes with the frame beneath it
+     * for real. The final overlay pass is a {@code BitmapOverlay}: it can only alpha-over the
+     * frame, which is Normal and nothing else.
+     *
+     * <p>Each visualizer is drawn into its own frame-sized bitmap by a {@link CompositeExportOverlay}
+     * holding just that slot, so the pixels (size, rotation, keyframed pose, fades, link alpha, the
+     * VisLab or classic renderer) are exactly what the Normal path draws; {@link
+     * VisualizerBlendGlEffect} then blends that bitmap into the frame with the same
+     * {@code BlendModes.GLSL_BLEND_FN} a picture and a PiP use. One pass each, not one for all of
+     * them: each blends against everything beneath it, including the visualizers below it.</p>
+     *
+     * <p>The slots are the per-clip slots the plain path would have drawn on this item (same
+     * audio-source filter), no more and no fewer, so a blend changes how a visualizer mixes and
+     * never where or when it appears. Empty {@code blendSlots} (every project that never picked a
+     * blend) returns at once and adds nothing.</p>
+     */
+    private void addVisualizerBlendEffects(
+            @NonNull List<Effect> out,
+            @NonNull List<CompositeExportOverlay.WaveformSlot> blendSlots,
+            @NonNull Clip clip, @NonNull FaditorProject project, long timelineCursorMs,
+            int overlayW, int overlayH, long overlayOffsetMs, boolean isLoopBeforeItem) {
+        for (CompositeExportOverlay.WaveformSlot slot : blendSlots) {
+            WaveformOverlayInstance woi = slot.instance;
+            CompositeExportOverlay one = new CompositeExportOverlay(
+                    context, timelineCursorMs, clip, overlayW, overlayH,
+                    Collections.emptyList(),
+                    Collections.singletonList(slot),
+                    Collections.emptyList(),
+                    Collections.emptyList(),
+                    project.getSpriteSheets(),
+                    project.getAvatarRigs(),
+                    project.getTimeline().getTotalDurationMs(),
+                    overlayOffsetMs,
+                    isLoopBeforeItem ? 0L : headTransitionMsFor(project.getTimeline(), clip));
+            // Captions belong to the final pass; this one draws its visualizer and nothing else.
+            one.setCaptionsViaGl(true);
+            out.add(new VisualizerBlendGlEffect(one, woi.getOverlayBlendMode()));
+        }
     }
 
     /**
@@ -6153,6 +6200,19 @@ public class ExportManager {
                 }
             }
         }
+        // A visualizer that chose a BLEND MODE leaves the Canvas overlay pass: that bitmap can only
+        // alpha-over the frame, and a blend needs the frame beneath it. It gets its own GPU pass
+        // (addVisualizerBlendEffects, below the final overlay pass), drawn by the SAME
+        // CompositeExportOverlay code, so its pixels are the ones a plain visualizer would draw and
+        // only the mixing differs. WaveformOverlayInstance#wantsExportBlend is the one predicate,
+        // and the Canvas pass is handed exactly the others: never drawn twice, never dropped. A
+        // project that never picked a blend leaves clipBlendSlots empty and clipWaveformSlots
+        // untouched, so its chain and its output are what they always were.
+        final List<CompositeExportOverlay.WaveformSlot> clipBlendSlots = new ArrayList<>();
+        for (CompositeExportOverlay.WaveformSlot slot : clipWaveformSlots) {
+            if (slot.instance.wantsExportBlend()) clipBlendSlots.add(slot);
+        }
+        if (!clipBlendSlots.isEmpty()) clipWaveformSlots.removeAll(clipBlendSlots);
         FLog.d(TAG, "assembleClipVideoEffects clip=" + clip.getId()
                 + " timelineCursorMs=" + timelineCursorMs
                 + " isTransitionItem=" + isTransitionItem
@@ -6413,6 +6473,9 @@ public class ExportManager {
             boolean clipHasWaveformRef = false;
             for (com.fadcam.ui.faditor.model.WaveformOverlayInstance woi
                     : project.getTimeline().getWaveformOverlays()) {
+                // A blended visualizer rides its own GPU pass, not this one: counting it would
+                // add a full-frame Canvas pass that has nothing left to draw.
+                if (woi.wantsExportBlend()) continue;
                 String ref = woi.getAudioSourceRef();
                 if (ref != null && ref.equals(clip.getId())) {
                     clipHasWaveformRef = true;
@@ -7039,7 +7102,15 @@ public class ExportManager {
                 if (!captionsOnGl || canvasWork) {
                     videoEffects.add(new OverlayEffect(Collections.singletonList(overlay)));
                 }
+                // Blended visualizers go ABOVE the plain pass, where a plain visualizer draws (over
+                // text and sprites), and BELOW the GL captions, which the preview keeps on top too.
+                addVisualizerBlendEffects(videoEffects, clipBlendSlots, clip, project,
+                        timelineCursorMs, overlayW, overlayH, overlayOffsetMs, isLoopBeforeItem);
                 if (captionsOnGl) videoEffects.add(new GlCaptionEffect(overlay));
+            } else {
+                // Nothing for the plain pass to draw: a blended visualizer is all this clip has.
+                addVisualizerBlendEffects(videoEffects, clipBlendSlots, clip, project,
+                        timelineCursorMs, overlayW, overlayH, overlayOffsetMs, isLoopBeforeItem);
             }
         } else if (!isTransitionItem) {
             FLog.w(TAG, "assembleClipVideoEffects: cannot infer overlay dimensions for clip "

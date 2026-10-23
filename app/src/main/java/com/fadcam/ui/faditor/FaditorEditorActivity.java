@@ -32223,6 +32223,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 getString(R.string.drawer_title_visualizer), getString(R.string.drawer_tab_transform),   // drawer audit 2026-09-24, V-1
                 R.drawable.ic_transform_24, ctx -> buildVisualizerTransformTab(wf, host)).fitAbove(vizFloor));
+        // BLEND, third: the same one-chip picker and the same list a picture and a PiP offer, so
+        // choosing it changes how the whole visualizer mixes with what is beneath it. The export
+        // blends for real; the preview still shows it Normal (the visualizer layer is a plain View
+        // above the video and cannot blend with it), so previewsLive=false keeps the drawer's
+        // honest "applied when you export" note on the tab rather than hiding the gap.
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
+                getString(R.string.faditor_blend_title), R.drawable.ic_pip_blend_24,
+                ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.blendTab(ctx,
+                        wf::getOverlayBlendMode, mode -> setVisualizerBlend(wf, mode),
+                        this::scheduleAutoSave, false)).fitAbove(vizFloor));
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle> toggles = new java.util.ArrayList<>();
         final Runnable afterToggle = () -> { refreshVizAfterMenuWrite(); scheduleAutoSave(); };
         toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
@@ -32234,6 +32244,24 @@ public class FaditorEditorActivity extends AppCompatActivity {
         com.fadcam.ui.faditor.tools.ObjectDrawer drawer = ensureObjectDrawer();
         drawer.setAccent(com.fadcam.ui.faditor.layers.ObjectPalette.VISUALIZER);
         drawer.show(tabs, toggles, false);
+    }
+
+    /**
+     * A visualizer's blend choice from the drawer's Blend tab: one pick, one undo step. The picker
+     * chip repaints itself and calls back here once per pick (never per drag), so the label and
+     * the record are made in one place. Autosave on the way in and on both undo directions, since
+     * the project file is the only thing the export reads the choice from.
+     */
+    private void setVisualizerBlend(
+            @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance wf, @NonNull String mode) {
+        final String before = wf.getOverlayBlendMode();
+        if (before.equals(mode)) return;
+        wf.setOverlayBlendMode(mode);
+        undoManager.recordAction(new EditActions.LambdaAction(
+                getString(R.string.faditor_blend_title),
+                () -> { wf.setOverlayBlendMode(mode); scheduleAutoSave(); },
+                () -> { wf.setOverlayBlendMode(before); scheduleAutoSave(); }));
+        scheduleAutoSave();
     }
 
     /** The visualizer drawer's Transform tab: Style chip, then position, size and rotation. */

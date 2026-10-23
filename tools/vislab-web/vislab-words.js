@@ -3,17 +3,18 @@
  *
  * The demo song's sample words live in app/src/main/assets/vislab/words/demo-lyrics.json (shared
  * with the app). Contract with the shader (and the app's WordFeed):
- *   uWords        2048 x 2048 texture: 16 slots of 2048 x 128 stacked top to bottom, white ink,
- *                 alpha = ink, the word drawn from x = 0 with padding on both sides.
+ *   uWords        2048 x 6144 texture, one channel (alpha = ink): 48 slots of 2048 x 128 stacked
+ *                 top to bottom, the word drawn from x = 0 with padding on both sides.
  *   uWord[i]      (slot, start - now, end - now, width / height)       seconds; box aspect
  *   uWordB[i]     (flow - flow now, order, hash, duration)              flow in text heights
- *   uWordCount    how many of the 16 are filled
+ *   uWordCount    how many of the 48 are filled
+ *   uWordWin      (lead, back) seconds: where words arrive and leave (Fade softens both)
  * "Flow" is the words laid end to end (each word's width plus a gap), so a scene can scroll text
  * along a spiral or a tunnel wall and have each word arrive at the anchor exactly when it starts.
  */
 (function (global) {
   'use strict';
-  const SLOTS = 16, SW = 2048, SH = 128, GAP = 0.6, PAD = 0.25;   // GAP, PAD in text heights
+  const SLOTS = 48, SW = 2048, SH = 128, GAP = 0.6, PAD = 0.25;   // GAP, PAD in text heights
   const FONT = '800 96px Archivo, system-ui, sans-serif';
 
   class WordFeed {
@@ -88,7 +89,7 @@
       if (!this.tex) {
         this.tex = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, this.tex);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, SW, SW, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.ALPHA, SW, SLOTS * SH, 0, gl.ALPHA, gl.UNSIGNED_BYTE, null);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -105,7 +106,7 @@
           c.textBaseline = 'middle';
           const text = this.slotKey[slot] ? this.slotKey[slot].text : '';
           c.fillText(text, PAD * SH, SH * 0.54);
-          gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, slot * SH, gl.RGBA, gl.UNSIGNED_BYTE, this.canvas);
+          gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, slot * SH, gl.ALPHA, gl.UNSIGNED_BYTE, this.canvas);
         }
         gl.generateMipmap(gl.TEXTURE_2D);
         this.dirty.clear();
@@ -157,7 +158,7 @@
           n++;
         }
       }
-      return { 'uWord[0]': U, 'uWordB[0]': UB, uWordCount: n, uFlowNow: this.flowNow || 0 };
+      return { 'uWord[0]': U, 'uWordB[0]': UB, uWordCount: n, uFlowNow: this.flowNow || 0, uWordWin: [lead, back] };
     }
   }
 

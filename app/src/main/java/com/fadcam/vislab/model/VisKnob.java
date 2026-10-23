@@ -40,6 +40,11 @@ public final class VisKnob {
      * jumps the picture by the whole elapsed time on every beat.
      */
     public boolean rate;
+    /**
+     * Only does something while there is sound ("music": true in types.json): a reaction knob.
+     * The editor badges it with a note and dims it while nothing plays. False when absent.
+     */
+    public boolean music;
 
     public VisKnob(@NonNull String id, @NonNull String label, int slot, float min, float max,
                    float def, float step, boolean log, boolean toggle,

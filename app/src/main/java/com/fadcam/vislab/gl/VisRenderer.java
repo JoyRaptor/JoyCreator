@@ -710,6 +710,7 @@ public final class VisRenderer {
                 back = Math.max(lead, back);
                 lead = 1.5;
             }
+            back += L.knobs.value(t, "back", 0f);   // Look behind: keep the sung words longer
             feed.update(now, lead, back);
             // One small program per scene and letter style: all of them in one ran at 5 fps.
             String defs = "#define WPATH " + path + "\n#define BEHAVIOUR " + beh + "\n#define LETTER_STYLE "
@@ -721,6 +722,8 @@ public final class VisRenderer {
             GLES30.glUniform4fv(p.u("uWordB"), com.fadcam.vislab.words.WordFeed.SLOTS, feed.ub, 0);
             GLES30.glUniform1f(p.u("uWordCount"), feed.count);
             GLES30.glUniform1f(p.u("uFlowNow"), feed.flowNow);
+            // Where words enter and leave the window: Fade softens both (words.frag edgeFade).
+            GLES30.glUniform2f(p.u("uWordWin"), (float) lead, (float) back);
             drawFullscreen();
         } else if (VisType.DRAW_INSTANCED.equals(draw)) {
             GlProgram p = program(t.vert, t.frag);

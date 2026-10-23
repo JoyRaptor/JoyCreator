@@ -169,7 +169,7 @@ class LineArchiveTest {
         val current = LineArchiveFixture.entries(LineArchiveFixture.encoded(pixel)).toMap()
         assertEquals(old.keys, current.keys)
         for (name in old.keys - "document.json") assertContentEquals(old.getValue(name), current.getValue(name), name)
-        assertEquals(old.getValue("document.json").decodeToString().replace("\"version\": 9", "\"version\": 11"), current.getValue("document.json").decodeToString())
+        assertEquals(old.getValue("document.json").decodeToString().replace("\"version\": 9", "\"version\": $DOC_VERSION"), current.getValue("document.json").decodeToString())
         val back = read(LineArchiveFixture.encoded(pixel))
         for ((key, tile) in pixel.mediaTiles) assertContentEquals(tile, back.mediaTiles.getValue(key))
         for ((key, tile) in pixel.tiles) assertContentEquals(tile, back.tiles.getValue(key))

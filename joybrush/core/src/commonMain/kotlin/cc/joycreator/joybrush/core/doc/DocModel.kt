@@ -7,6 +7,7 @@ import kotlinx.serialization.Serializable
 
 const val DOC_FORMAT = "joybrush.document"
 /**
+ * 14: an animation frame may tween toward the next frame; versions 12 and 13 are reserved for the animation clips work.
  * 11: recorded physical capture domains and integer appearance placement in JBS v4. Regional
  *     recorded sources require their persisted domain; legacy source semantics are not inferred.
  * 10: lines in the one layer (R51 Phase 3, JB-5.20a): a PAINT cel may hold editable line records ([Cel.strokesFile]),
@@ -23,7 +24,8 @@ const val DOC_FORMAT = "joybrush.document"
  * 4: the paper carries a look, a tint and two sliders (JB-9.05, R10).
  * 3: a layer may carry a [Layer.mask] and be [Layer.clip]ped (JB-2.23, Lead ruling R48).
  */
-const val DOC_VERSION = 11 // v11: recorded physical capture domain and exact integer placement.
+const val FRAME_TWEEN_DOC_VERSION = 14 // v12/v13 are reserved for animation clips.
+const val DOC_VERSION = 14 // v14: frame tween setting.
 
 /**
  * The engine's tile size, NOT a second copy of it. `Cel.tiles` holds keys the engine wrote with
@@ -104,9 +106,12 @@ const val TILE_SIZE = Tiles.SIZE
  */
 @Serializable enum class BoardKind { CANVAS, ANIMATION, SPRITE, PUPPET, CHARACTER }
 
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable data class Frame(
     val id: String,
     val holdFrames: Int = 1,                // shown for this many ticks of the board's fps
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val tween: Boolean = false,             // tween this held frame toward the next frame (JB-5.40b)
 )
 
 @Serializable data class SpriteGrid(val cols: Int, val rows: Int, val cellW: Int, val cellH: Int)

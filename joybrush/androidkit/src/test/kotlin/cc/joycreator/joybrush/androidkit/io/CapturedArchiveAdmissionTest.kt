@@ -104,7 +104,7 @@ class CapturedArchiveAdmissionTest {
 
     @Test fun currentRegionalNullSourceIsAdmittedOnReadStructureAndWrite() {
         val c = regional(source())
-        assertEquals(11, c.doc.version)
+        assertEquals(DOC_VERSION, c.doc.version)
         val back = read(wire(c))
         JbArchive.requireStructure(c)
         assertEquals(c.strokes.mapValues { it.value.sortedBy { r -> r.seq } }, back.strokes)

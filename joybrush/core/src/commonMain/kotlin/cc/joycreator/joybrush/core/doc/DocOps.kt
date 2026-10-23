@@ -82,6 +82,12 @@ object DocOps {
                 if (f.holdFrames < 1) {
                     out += "board \"${b.id}\" frame \"${f.id}\" is held for ${f.holdFrames} frames"
                 }
+                if (f.tween && f.holdFrames <= 1) {
+                    out += "board \"${b.id}\" frame \"${f.id}\" has tweening on, but tweening needs a hold longer than 1 frame"
+                }
+                if (f.tween && doc.version < FRAME_TWEEN_DOC_VERSION) {
+                    out += "board \"${b.id}\" frame \"${f.id}\" uses tweening, which needs document version $FRAME_TWEEN_DOC_VERSION"
+                }
             }
             // `!in` rather than `<` / `>`, so NaN is caught instead of sailing through both tests.
             if (b.fps !in 1f..60f) out += "board \"${b.id}\" runs at ${b.fps} fps (must be 1 to 60)"

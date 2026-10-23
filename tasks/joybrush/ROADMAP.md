@@ -273,8 +273,8 @@ Phases follow `JOYBRUSH_BLUEPRInT.md` §4. Each phase ends with an owner check (
 | JB-5.12 Ink cels render into tiles (`InkTiles`); RegionRenderer and ORA export draw INK cels | T2 | 5.01 | 🟧 Built | Codex 6dd7d73b; core1735/backend314, no failures |
 | JB-5.13 Fill as a shape: flood region → traced contour → filled stroke record, tucked under the lines | T2 | 5.03a | 🟧 Core built | Codex e8efaa1d; 10 shape tests pass; 2048 timing in MEASURE_R51_JVM |
 | JB-5.14 Measurement bench for brief §11 (bytes per frame, replay time, trace time) on the JVM, then the Note 9 | T2 | 5.12, 5.13 | 🟧 JVM built/measured; device pending | Codex; MEASURE_R51_JVM.md, latest11 bench checks passed |
-| [JB-5.20](specs/JB-5.20_lines_in_the_one_layer.md) Lines in the one layer: a cel holds pixels and stroke records in time order; one undo; select, nudge, Rasterize Down, Flatten Lower, two smudges | T1 | 2.40, 5.12 | 📝 Design written; slices a–f inside | Claude Lead |
-| [JB-5.40](specs/JB-5.40_tweens.md) Tweens: a held frame slides its matched lines into the next frame (rigid turn about the pivot, then the bend; HSB colour) | T1 | 5.20 | 📝 Design; 5.40a ✅ (tween maths) | Lead |
+| [JB-5.20](specs/JB-5.20_lines_in_the_one_layer.md) Lines in the one layer: a cel holds pixels and stroke records in time order; one undo; select, nudge, Rasterize Down, Flatten Lower, two smudges | T1 | 2.40, 5.12 | NativeLines capture/edit/storage and Select present; frame-copy preservation, complete mixed-tool/board support and device acceptance remain. Static slab-only export fix on `codex/vector-tweens`; see VECTOR_TWEEN_COMPLETION_20261023.md. | Engine Lead |
+| [JB-5.40](specs/JB-5.40_tweens.md) Tweens: a held frame slides its matched lines into the next frame (rigid turn about the pivot, then the bend; HSB colour) | T1 | 5.20 | Math built; saved setting / tick sampler / scoped scene on `codex/vector-tweens` (full core/backend pass). GPU playback, controls, export and phone acceptance open. | Engine Lead integration; Codex independent core |
 
 ### Phase 5 — Ink layers
 | Task | Tier | needs | Status | Who |

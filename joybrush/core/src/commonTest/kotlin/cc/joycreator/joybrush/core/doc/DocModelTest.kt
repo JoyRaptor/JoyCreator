@@ -703,7 +703,7 @@ class DocModelTest {
         val doc = fresh().copy(paper = everyPaperField())
         val back = DocJson.decode(DocJson.encode(doc))
         assertEquals(everyPaperField(), back.paper, "a paper must come back exactly as it went in")
-        assertEquals(11, back.version, "v11 retains physical captured source semantics")
+        assertEquals(FRAME_TWEEN_DOC_VERSION, back.version, "v14 retains paper and captured-source semantics and adds frame tweens")
         assertEquals(DOC_VERSION, back.version, "and reads it from the one constant, not a literal here")
     }
 

@@ -1,11 +1,14 @@
 package cc.joycreator.joybrush.androidkit.io
 
 import cc.joycreator.joybrush.core.doc.Cel
+import cc.joycreator.joybrush.core.doc.DocOps
 import cc.joycreator.joybrush.core.doc.LayerKind
 import cc.joycreator.joybrush.core.doc.RectPx
 import cc.joycreator.joybrush.core.doc.TILE_SIZE
 import cc.joycreator.joybrush.core.doc.hasPixels
 import cc.joycreator.joybrush.core.render.MAX_REGION_PX
+import cc.joycreator.joybrush.core.render.SavedCelTileSource
+import cc.joycreator.joybrush.core.render.TileSource
 
 /**
  * What every exporter reads: the picture as the screen shows it, and how far it reaches.
@@ -25,13 +28,36 @@ object ExportPicture {
             }
         }
         if (!lineData) return c
+        // A baked line may leave upper slabs but no line/look. Reading only the bottom tile
+        // would silently lose those strokes. Use exact saved looks where present and compose
+        // slab-only stacks otherwise; validate every physical cel before preparing output.
+        val source = SavedCelTileSource(c.doc,
+            TileSource { layer, cel, tx, ty -> c.tiles[Triple(layer, cel, DocOps.key(tx, ty))] },
+            readLook = { layer, cel, tx, ty -> c.looks[Triple(layer, cel, DocOps.key(tx, ty))] },
+            readSlab = { layer, cel, seq, tx, ty -> c.slabs[SlabKey(layer, cel, DocOps.key(tx, ty), seq)] },
+            hasLineRecords = { layer, cel -> c.strokes[layer to cel]?.isNotEmpty() ?: true })
+        source.validate()
+        val shownTiles = LinkedHashMap(c.tiles)
         val doc = c.doc.copy(layers = c.doc.layers.map { l ->
-            fun shown(cel: Cel) = cel.copy(tiles = (cel.tiles + cel.looks).distinct().sorted(), looks = emptyList(),
-                slabs = emptyList(), strokesFile = cel.strokesFile.takeIf { l.kind == LayerKind.INK && cel !== l.mask })
+            fun shown(cel: Cel): Cel {
+                val keys = (cel.tiles + cel.looks + cel.slabs.map { it.key }).distinct().sorted()
+                val shownKeys = ArrayList<String>(keys.size)
+                for (key in keys) {
+                    val split = key.indexOf('_')
+                    val tile = source.tile(l.id, cel.id, key.substring(0, split).toInt(), key.substring(split + 1).toInt())
+                    val address = Triple(l.id, cel.id, key)
+                    if (tile == null) shownTiles.remove(address) else {
+                        shownTiles[address] = tile
+                        shownKeys += key
+                    }
+                }
+                return cel.copy(tiles = shownKeys, looks = emptyList(), slabs = emptyList(),
+                    strokesFile = cel.strokesFile.takeIf { l.kind == LayerKind.INK && cel !== l.mask })
+            }
             l.copy(cels = l.cels.map(::shown), mask = l.mask?.let(::shown))
         })
         val inkCels = doc.layers.filter { it.kind == LayerKind.INK }.flatMapTo(HashSet()) { l -> l.cels.map { l.id to it.id } }
-        return c.copy(doc = doc, tiles = LinkedHashMap(c.tiles).apply { putAll(c.looks) }, slabs = emptyMap(),
+        return c.copy(doc = doc, tiles = shownTiles, slabs = emptyMap(),
             looks = emptyMap(), strokes = c.strokes.filterKeys { it in inkCels })
     }
 

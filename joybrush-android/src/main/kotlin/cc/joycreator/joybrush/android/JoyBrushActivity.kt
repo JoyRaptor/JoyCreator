@@ -57,6 +57,7 @@ import cc.joycreator.joybrush.android.select.CanvasSelectionHost
 import cc.joycreator.joybrush.android.select.HostUi
 import cc.joycreator.joybrush.android.select.JbHostCanvas
 import cc.joycreator.joybrush.android.select.LineBrushes
+import cc.joycreator.joybrush.android.select.LineSelectionClipboard
 import cc.joycreator.joybrush.android.select.SelectController
 import cc.joycreator.joybrush.android.select.SelectionSync
 import cc.joycreator.joybrush.core.input.PenAction
@@ -2583,8 +2584,15 @@ class JoyBrushActivity : Activity() {
 
         override fun newLineId(): String = host.newLineId()
 
-        // Nothing holds copied lines yet and no picture is made of a selection: say so rather than copy nothing.
-        override fun copySelection(selection: SelectionState.Selection) { selectUi.say("Copy is coming next") }
+        override fun copySelection(selection: SelectionState.Selection) {
+            val lines = selection as? SelectionState.Lines ?: run { selectUi.say("Paint selections can't be copied yet."); return }
+            val selected = host.visibleLines().filter { it.address in lines.ids }
+            if (selected.size != lines.ids.size) { selectUi.say("Those lines changed. Tap again to choose."); return }
+            LineSelectionClipboard.copy(selected.sortedBy { it.record.seq }.map { line ->
+                LineSelectionClipboard.Entry(line.record, host.brushOf(line.record.brushId))
+            })
+            selectUi.say("Lines copied. Tap Paste in Select settings or More.")
+        }
 
         override fun restyleRing(on: Boolean, pulse: Boolean) = strip.setSelectionRestyle(on, pulse)
 

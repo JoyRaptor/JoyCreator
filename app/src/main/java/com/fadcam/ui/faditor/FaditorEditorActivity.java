@@ -761,13 +761,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private ProjectStorage projectStorage;
     private final Handler autoSaveHandler = new Handler(Looper.getMainLooper());
     private static final long AUTO_SAVE_DELAY_MS = 3000;
-    // Undo history persistence re-serializes EVERY snapshot (each a full project JSON),
-    // which is heavy for long projects. It ran on every edit (each cut), causing the
-    // slow-cut lag. Throttle it: the project itself still saves immediately on every
-    // edit; the undo-history backup is written at most this often, and force-flushed
-    // on pause so nothing is lost when leaving the editor.
-    private static final long UNDO_HISTORY_SAVE_THROTTLE_MS = 15000;
-    private long lastUndoHistorySaveMs = 0;
+    // The undo history is saved with every project save that comes after a change to it, so
+    // the two files on disk always describe the same moment and a crash cannot leave the
+    // history behind the project. It used to be written at most every 15 s, from when writing
+    // it meant building one giant string on the UI thread (the slow-cut lag); it now streams
+    // on the background writer, and ProjectStorage merges back-to-back writes into one.
+    private int savedUndoHistoryVersion = -1;
     /**
      * True while the "some parts couldn't be loaded" dialog (load-failure SHAPE fix) is
      * unresolved. Blocks EVERY save so an autosave/onPause can't rotate the current file
@@ -779,9 +778,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private final Runnable autoSaveRunnable = () -> {
         if (loadSkipDialogPending) return; // don't clobber the backup we're offering
         if (project != null && projectStorage != null) {
-            // Goes through saveProjectNow so the undo SIDECAR is written too (throttled by
-            // UNDO_HISTORY_SAVE_THROTTLE_MS above, which is what that constant's comment has
-            // always claimed happens on the ordinary edit path). This used to call
+            // Goes through saveProjectNow so the undo SIDECAR is written too. This used to call
             // projectStorage.saveAsync(project) directly, which advanced project.json and
             // left undo_history.json behind — and edits that only schedule an autosave (the
             // rotate button, for one) never wrote the sidecar at all.
@@ -795,10 +792,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // edit from that day. Same family as audit 1.6, and this app has an OOM-crash
             // history, so the window is real rather than theoretical.
             //
-            // NOTE this narrows the window, it does not close it: a death inside the 15s
-            // throttle still desynchronises the pair. Closing it needs the load-side staleness
-            // check written up in the handoff (it changes what undo offers after a crash,
-            // which is the user's call).
+            // The sidecar's old 15 s throttle kept a window open after this (a death inside
+            // it still desynchronised the pair); since 2026-10-23 every save that follows a
+            // change writes both, in order, on the same background writer.
             saveProjectNow(false);
             FLog.d(TAG, "Project auto-saved");
         }
@@ -45355,9 +45351,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     /**
-     * @param forceUndoHistory when true (e.g. onPause), always flush the undo history;
-     *                         otherwise it is throttled to avoid the per-edit cost of
-     *                         re-serializing every snapshot.
+     * @param forceUndoHistory when true (e.g. onPause), write the project and the undo history
+     *                         synchronously, history changed or not; otherwise both go to the
+     *                         background writer, the history only when it changed.
      */
     private void saveProjectNow(boolean forceUndoHistory) {
         if (project != null && projectStorage != null) {
@@ -45388,15 +45384,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // async save (serialize on UI thread, write on a background thread) so
             // trimming/importing/transitions don't block on disk I/O.
             if (forceUndoHistory) {
+                // Let queued background writes land FIRST: run after these synchronous ones,
+                // an older queued project or history would overwrite the newer one.
+                projectStorage.flushPendingWrites();
                 projectStorage.save(project);
             } else {
                 projectStorage.saveAsync(project);
             }
 
-            // Persist undo history (throttled — see UNDO_HISTORY_SAVE_THROTTLE_MS).
-            long now = android.os.SystemClock.elapsedRealtime();
-            if (forceUndoHistory || now - lastUndoHistorySaveMs > UNDO_HISTORY_SAVE_THROTTLE_MS) {
-                lastUndoHistorySaveMs = now;
+            // Persist undo history with this save whenever it changed since the last write
+            // (see savedUndoHistoryVersion), so after a crash it matches the project on disk.
+            int historyVersion = undoManager.getHistoryVersion();
+            if (forceUndoHistory || historyVersion != savedUndoHistoryVersion) {
+                savedUndoHistoryVersion = historyVersion;
                 // Persist-ready view: oldest-first, snapshot-bearing only, throttle-collapsed
                 // duplicates removed (audit 1.6) — so a burst of edits inside one baseline
                 // window becomes ONE honest cross-session undo step, not a step + no-ops.
@@ -45419,10 +45419,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         projectStorage.saveUndoHistoryAsync(project.getId(), descriptions, snapshots, aiFlags);
                     }
                 }
-            }
-
-            if (forceUndoHistory) {
-                projectStorage.flushPendingWrites();
             }
             FLog.d(TAG, "Project saved: " + project.getId());
         }

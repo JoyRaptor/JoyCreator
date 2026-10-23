@@ -34,12 +34,18 @@ public class UndoManager {
     // was hundreds of MB of heap → GC thrashing/OOM. In-session undo uses precise
     // per-action undo (cheap), so this cap only limits how far back undo reaches.
     private static final int DEFAULT_MAX_HISTORY = 50;
-    // Minimum spacing between full-project snapshot captures. In-session undo never
-    // needs the snapshot (it replays the action); the snapshot only powers
-    // cross-session undo. Capturing one on EVERY edit serialized multi-MB JSON on
-    // the UI thread per trim/transition/move — the dominant per-edit stall. Spacing
-    // captures out keeps cross-session undo functional without the per-edit cost.
+    // Spacing between full-project snapshot captures. In-session undo never needs the
+    // snapshot (it replays the action); the snapshot only powers cross-session undo.
+    // Capturing one on EVERY edit serialized multi-MB JSON on the UI thread per
+    // trim/transition/move — the dominant per-edit stall on a large project. So the spacing
+    // is CAPTURE_SPACING_FACTOR × what the last capture cost, capped at this: captures never
+    // take more than about a tenth of the UI thread. A typical project serializes in a few
+    // ms, so every edit gets its own capture, and its own step after a restart, even when
+    // edits come fast (Note 9, 2026-10-23: 1-31 ms). Only a very large project still spaces
+    // captures out, and there a burst of edits inside one spacing saves as one step.
     private static final long SNAPSHOT_MIN_INTERVAL_MS = 1500;
+    private static final long CAPTURE_SPACING_FACTOR = 10;
+    private long lastCaptureCostMs;
 
     // ── Deferred rolling baseline (audit 1.6) ────────────────────────
     // Cross-session undo restores a per-entry snapshot. That snapshot must be the state
@@ -305,9 +311,11 @@ public class UndoManager {
             // edit of a brand-new project). Best-effort seed. If this call site mutated before
             // recording, this is an after-state, so this ONE entry won't undo across a restart;
             // but it seeds the baseline so every subsequent entry is a true pre-state.
+            long t0 = clockNow();
             before = snapshotRestorer.captureSnapshot();
             baselineSnapshot = before;
             lastBaselineCaptureMs = clockNow();
+            lastCaptureCostMs = lastBaselineCaptureMs - t0;
         }
 
         HistoryEntry entry = new HistoryEntry(action, action.getDescription(), before);
@@ -353,7 +361,8 @@ public class UndoManager {
         if (snapshotRestorer == null) return;
         long t0 = clockNow();
         String snap = snapshotRestorer.captureSnapshot();
-        FLog.d(TAG, "BASELINE reset: " + (clockNow() - t0) + "ms, "
+        lastCaptureCostMs = clockNow() - t0;
+        FLog.d(TAG, "BASELINE reset: " + lastCaptureCostMs + "ms, "
                 + (snap == null ? -1 : snap.length()) + " chars");
         if (snap != null) {
             baselineSnapshot = snap;
@@ -395,7 +404,8 @@ public class UndoManager {
         baselineRefreshForce = false;
         if (snapshotRestorer == null) return;
         long now = clockNow();
-        long wait = SNAPSHOT_MIN_INTERVAL_MS - (now - lastBaselineCaptureMs);
+        long spacing = Math.min(SNAPSHOT_MIN_INTERVAL_MS, CAPTURE_SPACING_FACTOR * lastCaptureCostMs);
+        long wait = spacing - (now - lastBaselineCaptureMs);
         if (!force && wait > 0) {
             // Throttled: DEFER the capture to the end of the window, never drop it. Dropped, the
             // baseline stayed at this edit's before-state until some LATER edit refreshed it, so
@@ -406,7 +416,8 @@ public class UndoManager {
             return;
         }
         String snap = snapshotRestorer.captureSnapshot();
-        FLog.d(TAG, "BASELINE refresh: " + (clockNow() - now) + "ms, "
+        lastCaptureCostMs = clockNow() - now;
+        FLog.d(TAG, "BASELINE refresh: " + lastCaptureCostMs + "ms, "
                 + (snap == null ? -1 : snap.length()) + " chars, force=" + force);
         if (snap != null) {
             baselineSnapshot = snap;
@@ -640,6 +651,17 @@ public class UndoManager {
         return changedSinceOpen;
     }
 
+    /**
+     * Goes up by one with every change to the stacks (edit, undo, redo, AI step, load). The
+     * editor saves the undo history with each project save whose version differs from the
+     * last one it wrote, so the history on disk keeps pace with the project after a crash.
+     */
+    public int getHistoryVersion() {
+        return historyVersion;
+    }
+
+    private int historyVersion;
+
     // ── Persistence ──────────────────────────────────────────────────
 
     /**
@@ -853,6 +875,7 @@ public class UndoManager {
     }
 
     private void notifyListener() {
+        historyVersion++; // every change to either stack passes through here
         if (listener != null) {
             listener.onUndoRedoStateChanged(canUndo(), canRedo());
         }

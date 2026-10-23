@@ -60,8 +60,9 @@ public class UndoManagerTest {
         Runnable pending;            // the newest post; any older one is superseded (a no-op)
         long dueAt;
         int captures = 0, restores = 0;
+        long captureCostMs = 0;      // how long a capture "takes" (the spacing scales with it)
         FakeRestorer(Model m) { this.m = m; }
-        public String captureSnapshot() { captures++; return m.state; }
+        public String captureSnapshot() { captures++; advance(captureCostMs); return m.state; }
         public void restoreFromSnapshot(String json) { restores++; m.state = json; }
         public void scheduleBaselineRefresh(Runnable r, long delayMs) {
             pending = r;
@@ -216,10 +217,12 @@ public class UndoManagerTest {
         // edit2 and edit3 land inside the next 1.5s window, so the refresh is throttled and
         // BOTH receive the same baseline object (B1). Persisting both would make one undo
         // restore B1 (correct) and the other a silent no-op — so the burst collapses to one.
+        // A LARGE project: a capture costs 200 ms, so captures are spaced the full 1.5 s.
         {
             Model m = new Model("B0");
             UndoManager um = new UndoManager();
             FakeRestorer r = new FakeRestorer(m);
+            r.captureCostMs = 200;
             um.setSnapshotRestorer(r);
             um.resetBaseline();                               // baseline = B0
             advance(2000);
@@ -288,6 +291,7 @@ public class UndoManagerTest {
             Model m = new Model("U0");
             UndoManager um = new UndoManager();
             FakeRestorer r = new FakeRestorer(m);
+            r.captureCostMs = 200;                            // large project, as in 3
             um.setSnapshotRestorer(r);
             um.resetBaseline();
             advance(2000);
@@ -310,6 +314,56 @@ public class UndoManagerTest {
             um.recordAction(new FakeAction(m, "c", "U1", "U3"));
             eq("3q the edit after the undo records the post-undo state", "U1",
                um.getUndoHistoryForPersist().get(1).getSnapshotBefore());
+        }
+
+        // ── 3r. A TYPICAL project: every quick edit is its own step (2026-10-23) ──────────
+        // Same edits as 3, faster still (100 ms apart), but a capture costs 3 ms, so the
+        // spacing is 30 ms: each edit gets its own capture, and after a restart each undo
+        // press reverts exactly one edit. 3 is the control: same timing, costly captures.
+        {
+            Model m = new Model("Q0");
+            UndoManager um = new UndoManager();
+            FakeRestorer r = new FakeRestorer(m);
+            r.captureCostMs = 3;
+            um.setSnapshotRestorer(r);
+            um.resetBaseline();
+            advance(2000);
+            for (int i = 1; i <= 3; i++) {
+                m.state = "Q" + i;
+                um.recordAction(new FakeAction(m, "q" + i, "Q" + (i - 1), "Q" + i));
+                advance(20); r.tick();
+                advance(80);
+            }
+            List<HistoryEntry> p = um.getUndoHistoryForPersist();
+            eqI("3r THE FIX: three quick edits, three saved steps", 3, p.size());
+            eq("3s the last one's before is the second's after", "Q2", p.get(2).getSnapshotBefore());
+            Model reopened = new Model("Q3");
+            FakeRestorer[] hr = new FakeRestorer[1];
+            UndoManager um2 = restart(um, reopened, hr);
+            um2.undo();
+            eq("3t restart, press 1 reverts only q3", "Q2", reopened.state);
+            um2.undo();
+            eq("3u press 2 reverts only q2", "Q1", reopened.state);
+            um2.undo();
+            eq("3v press 3 reverts only q1", "Q0", reopened.state);
+        }
+
+        // ── 3w. history version: every stack change moves it, nothing else does ───────────
+        {
+            Model m = new Model("V0");
+            UndoManager um = new UndoManager();
+            FakeRestorer r = new FakeRestorer(m);
+            um.setSnapshotRestorer(r);
+            um.resetBaseline();
+            int v0 = um.getHistoryVersion();
+            advance(2000); r.tick();
+            eqI("3w a baseline capture alone does not change the version", v0, um.getHistoryVersion());
+            m.state = "V1";
+            um.recordAction(new FakeAction(m, "v", "V0", "V1"));
+            int v1 = um.getHistoryVersion();
+            eqB("3x an edit changes it", true, v1 != v0);
+            um.undo();
+            eqB("3y an undo changes it", true, um.getHistoryVersion() != v1);
         }
 
         // ── 4. AI checkpoint: undo after a restart restores the PRE-AI state ───────────────

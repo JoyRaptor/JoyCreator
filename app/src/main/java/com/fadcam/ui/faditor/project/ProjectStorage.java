@@ -26,7 +26,6 @@ import com.google.gson.JsonSerializer;
 
 import java.io.File;
 import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.lang.reflect.Type;
@@ -831,8 +830,13 @@ public class ProjectStorage {
                                    @NonNull List<String> descriptions,
                                    @NonNull List<String> snapshots,
                                    @NonNull List<Boolean> aiFlags) {
+        pendingUndoHistoryWrite.set(null); // an older queued write must not land on top of this one
         return writeUndoHistoryStreaming(projectId, descriptions, snapshots, aiFlags);
     }
+
+    /** The newest queued undo-history write; see {@link #saveUndoHistoryAsync}. */
+    private final java.util.concurrent.atomic.AtomicReference<Runnable> pendingUndoHistoryWrite =
+            new java.util.concurrent.atomic.AtomicReference<>();
 
     /**
      * Async variant of {@link #saveUndoHistory}: the disk write runs on the
@@ -854,8 +858,15 @@ public class ProjectStorage {
         final List<String> descCopy = new ArrayList<>(descriptions);
         final List<String> snapCopy = new ArrayList<>(snapshots);
         final List<Boolean> aiCopy = new ArrayList<>(aiFlags);
-        lastWrite = ioExecutor.submit(
-                () -> writeUndoHistoryStreaming(projectId, descCopy, snapCopy, aiCopy));
+        // Each request queues behind the project save it goes with, but only the newest one
+        // writes: a request that a later one replaced finds the slot changed and skips. A fast
+        // run of edits on a project with a big history writes the file once rather than once
+        // per edit, and the file never gets ahead of the project save it belongs to.
+        final Runnable write = () -> writeUndoHistoryStreaming(projectId, descCopy, snapCopy, aiCopy);
+        pendingUndoHistoryWrite.set(write);
+        lastWrite = ioExecutor.submit(() -> {
+            if (pendingUndoHistoryWrite.compareAndSet(write, null)) write.run();
+        });
     }
 
     /**
@@ -864,6 +875,10 @@ public class ProjectStorage {
      * as one concatenated String first (the old approach) needed a contiguous
      * allocation of the full serialized size and repeatedly OOM-crashed the app
      * on large projects.
+     *
+     * <p>Written to a temp file and then renamed over the old one, as project.json is: the
+     * history is saved with every project save now, so a crash mid-write must leave the old
+     * file or the new one, never a cut-off file that loads as no history at all.</p>
      */
     private boolean writeUndoHistoryStreaming(@NonNull String projectId,
                                               @NonNull List<String> descriptions,
@@ -875,9 +890,12 @@ public class ProjectStorage {
             return false;
         }
         File file = new File(projectDir, UNDO_HISTORY_FILE);
+        File tmp = new File(projectDir, UNDO_HISTORY_FILE + ".tmp");
         int count = Math.min(descriptions.size(), snapshots.size());
-        try (com.google.gson.stream.JsonWriter writer = new com.google.gson.stream.JsonWriter(
-                new java.io.BufferedWriter(new FileWriter(file), 64 * 1024))) {
+        try (java.io.FileOutputStream out = new java.io.FileOutputStream(tmp);
+             com.google.gson.stream.JsonWriter writer = new com.google.gson.stream.JsonWriter(
+                new java.io.BufferedWriter(new java.io.OutputStreamWriter(
+                        out, java.nio.charset.StandardCharsets.UTF_8), 64 * 1024))) {
             writer.beginArray();
             for (int i = 0; i < count; i++) {
                 writer.beginObject();
@@ -892,11 +910,18 @@ public class ProjectStorage {
             }
             writer.endArray();
             writer.flush();
-            return true;
+            out.getFD().sync(); // the bytes reach the disk before the rename does
         } catch (IOException e) {
             FLog.e(TAG, "Failed to save undo history: " + projectId, e);
+            tmp.delete();
             return false;
         }
+        if (!tmp.renameTo(file)) {
+            FLog.e(TAG, "Failed to move undo history into place: " + projectId);
+            tmp.delete();
+            return false;
+        }
+        return true;
     }
 
     /**

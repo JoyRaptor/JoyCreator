@@ -52,6 +52,7 @@ class FrameStats {
     fun start() {
         starts.clear(); busy.clear(); work.clear(); media.clear(); display.clear(); finish.clear(); sim.clear(); flush.clear(); simAcc = 0.0; flushAcc = 0.0
         phaseAcc.clear(); phases.clear(); memory = null
+        synchronized(hitchList) { hitchList.clear() }; lastStartNs = 0L
         synchronized(inputs) { inputs.clear(); downNs = 0L; upNs = 0L }
         mediaWindowMoves = 0; mediaWindowLoads = 0; mediaFrames = 0
         recording = true
@@ -62,6 +63,17 @@ class FrameStats {
     /** UI thread: a pen report was just dispatched. */
     fun noteInput() { if (recording) synchronized(inputs) { inputs += System.nanoTime(); if (downNs == 0L) downNs = inputs.last() } }
     fun noteUp() { synchronized(inputs) { upNs = System.nanoTime() } }
+
+    /**
+     * A frame that took long itself ([busyMs]) or arrived long after the one before ([gapMs]) with the time of day it
+     * happened (uptime ms, the same clock as SystemClock.uptimeMillis) and the garbage collector's running totals then.
+     * A gap with a small busy means the stall was outside the frame (the UI thread, the compositor, a GC pause).
+     */
+    data class Hitch(val atMs: Long, val gapMs: Double, val busyMs: Double, val waitMs: Double, val workMs: Double,
+                     val displayMs: Double, val finishMs: Double, val phases: Map<String, Double>, val gc: LongArray)
+    private val hitchList = ArrayList<Hitch>()
+    private var lastStartNs = 0L
+    fun hitches(): List<Hitch> = hitchList.toList()
 
     fun frameBegin() { if (recording) { t0 = System.nanoTime(); t1 = 0L; t2 = 0L; t3 = 0L } }
     fun afterWork() { if (t0 != 0L) t1 = System.nanoTime() }
@@ -78,6 +90,12 @@ class FrameStats {
         starts += t0
         busy += (end - t0) / 1e6
         work += ms(t0, t1); media += ms(t1, t2); display += ms(t2, t3); finish += (end - end0) / 1e6
+        val gap = if (lastStartNs == 0L) 0.0 else (t0 - lastStartNs) / 1e6
+        lastStartNs = t0
+        if (gap > HITCH_MS || busy.last() > HITCH_MS) synchronized(hitchList) {
+            hitchList += Hitch(android.os.SystemClock.uptimeMillis(), gap, busy.last(), phaseAcc["view:windowBufferWait"] ?: 0.0,
+                work.last(), display.last(), finish.last(), LinkedHashMap(phaseAcc), gcTotals())
+        }
         sim += simAcc; flush += flushAcc; simAcc = 0.0; flushAcc = 0.0
         // Every phase gets one value per frame (0 where it did not run), so it lines up with the frames above.
         for (name in phaseAcc.keys) if (name !in phases) phases[name] = ArrayList(List(starts.size - 1) { 0.0 })
@@ -112,6 +130,13 @@ class FrameStats {
     }
 
     companion object {
+        /** A frame or a gap this long is a hitch (two vsyncs at 60 Hz are 33 ms; this catches one missed vsync with margin). */
+        const val HITCH_MS = 25.0
+
+        /** The runtime's garbage collector totals: [count, ms, blocking count, blocking ms]. Cheap counters, no allocation. */
+        fun gcTotals(): LongArray = arrayOf("art.gc.gc-count", "art.gc.gc-time", "art.gc.blocking-gc-count", "art.gc.blocking-gc-time")
+            .map { android.os.Debug.getRuntimeStat(it)?.toLongOrNull() ?: -1L }.toLongArray()
+
         fun pct(v: List<Double>): Pct {
             if (v.isEmpty()) return Pct(0.0, 0.0, 0.0, 0.0)
             val s = v.sorted()

@@ -697,6 +697,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     fun resumeWater(rect: FloatArray) {
         ensureWet()
         wetRect = union(wetRect, rect); paintRect = union(paintRect, rect); wetIdle = 0.0
+        dabsSinceGrow = true   // not grown for its water yet: the next job grows it
     }
 
     fun beginStroke() { strokeRect = null }
@@ -1098,14 +1099,33 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
             GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
             if (inRect != null) inArea[ib] = union(inArea[ib], inRect) else inAll[ib] = true
             wetIdle = 0.0
+            dabsSinceGrow = true
         }
+        val s0 = waterSteps
+        var grown = false
         if (job == null) {
             // On a tilted paper running water can leave the rectangle: it grows downhill as fast as water can run, never
             // further than a long drip past the paint, nor past this window (WetSpread, the tested cap).
             val rect = simRect() ?: return
-            startJob(rect, steps, paper, pxPerMm, wc0, evapOverride, maxWetSeconds)
+            startJob(rect, steps, paper, pxPerMm, wc0, evapOverride, maxWetSeconds, grown = true)
+            grown = true
         }
-        runJob(waterBudget)
+        var left = waterBudget - runJob(waterBudget)
+        // A sliced job is two steps. With the pen up ([catchUp]) and while the frame's budget lasts, the next starts at once, up
+        // to the steps a whole frame ran before jobs (owner, 2026-10-23: one job a frame ran the water at half its old speed;
+        // tilting no longer made it race). Not while a stroke paints: on the Note 9 that cost wet brushes 25-30 % slower frames
+        // and slowed oil and pencil strokes too (water left by earlier strokes runs under them).
+        // The atlas admitted this call's water grown once by [steps] steps (wetNeed): a job reuses the rectangle while the steps
+        // run on it since it grew fit in that growth and no dabs came since; otherwise it grows, once a call.
+        while (catchUp && job == null && left > 0.0 && waterBudget.isFinite() && waterSteps - s0 < steps) {
+            val ran = jobSteps(steps, sliced = true)
+            val reuse = !dabsSinceGrow && rectSteps + ran <= steps
+            if (!reuse && grown) break
+            val rect = (if (reuse) wetRect else simRect()) ?: break
+            startJob(rect, steps, paper, pxPerMm, wc0, evapOverride, maxWetSeconds, grown = !reuse)
+            if (!reuse) grown = true
+            left -= runJob(left, atLeastOne = false)
+        }
     }
 
     // ---- water jobs (tasks/joybrush/specs/WATER_JOBS_20261021.md) ----
@@ -1123,6 +1143,11 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     }
     private var job: WaterJob? = null
     private var lastJobNs = 0L
+    /** Real time (ms) the water's age has not yet taken in; below 0, steps that ran ahead of the clock. */
+    private var ageOweMs = 0f
+    /** Steps started on [wetRect] since it last grew, and whether dabs landed since: what a job may reuse it for. */
+    private var rectSteps = 0
+    private var dabsSinceGrow = false
 
     /**
      * The water's work this frame, in px x stage weight ([JOB_WEIGHT]): a job runs bands until it is spent (at least one).
@@ -1130,6 +1155,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
      * exactly as the frames before jobs: the same passes in the same order.
      */
     var waterBudget = Double.POSITIVE_INFINITY
+    /** The pen is up (the host's frame has no stroke): the water may run more than one job a frame ([wetFrameInner]). */
+    var catchUp = false
     /** A sliced job's steps (2, even: no paint copy); 0 = the frame's own (the device probe's banded engine, to compare). */
     internal var slicedSteps = 2
     /** A water job is under way (its rectangle must stay resident: [waterJobRect]). */
@@ -1142,27 +1169,45 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
 
     private fun forgetInput() { inArea[0] = null; inArea[1] = null; inAll[0] = false; inAll[1] = false; inNext = 0 }
 
+    /**
+     * A job's steps. The atlas has no window to stop the water, so a wide wash can ask for more than the window ever drew in a
+     * frame (2026-10-21, tilted Wash on the Note 9: up to 18.9 M px-steps against the window's 4.2 M, frames of 3 s). Past
+     * that, a whole-frame job takes fewer steps. A sliced job (a host's budget) takes two whatever its size: the budget
+     * spreads it over frames, and two (even) end in state[0] with no copy.
+     */
+    private fun jobSteps(steps: Int, sliced: Boolean, area: Double = 0.0): Int = when {
+        sliced && steps > 1 && slicedSteps > 0 -> slicedSteps
+        free && area * steps > WET_PX_STEPS -> max(1, (WET_PX_STEPS / area).toInt())
+        else -> steps
+    }
+
+    /** [grown]: [rect] is [wetRect] grown for this job ([wetFrameInner]); otherwise the job reuses the last growth. */
     private fun startJob(rect: FloatArray, steps: Int, paper: MediaPaperGl, pxPerMm: Double, wc0: WetConstants, evapOverride: Double?,
-                         maxWetSeconds: Double) {
+                         maxWetSeconds: Double, grown: Boolean) {
         wetRect = rect
         val sliced = waterBudget.isFinite()
-        // The atlas has no window to stop the water, so a wide wash can ask for more than the window ever drew in a frame
-        // (2026-10-21, tilted Wash on the Note 9: up to 18.9 M px-steps against the window's 4.2 M, frames of 3 s). Past
-        // that, a whole-frame job takes fewer steps. A sliced job (a host's budget) takes two whatever its size: the budget
-        // spreads it over frames, and two (even) end in state[0] with no copy.
         val area = (rect[2] - rect[0]).toDouble() * (rect[3] - rect[1]) / (wf * wf)   // in water cells
-        val ran = when {
-            sliced && steps > 1 && slicedSteps > 0 -> slicedSteps
-            free && area * steps > WET_PX_STEPS -> max(1, (WET_PX_STEPS / area).toInt())
-            else -> steps
-        }
+        val ran = jobSteps(steps, sliced, area)
+        if (grown) { rectSteps = ran; dabsSinceGrow = false } else rectSteps += ran
         MediaPhases.timer?.invoke("wet.kpx (count)", area / 1000.0 * ran)
-        // Wet age in real time: a whole-frame job stands for its frame; a sliced one for the time since the last one started.
+        // Wet age in real time: a whole-frame job stands for its frame. Sliced jobs take in the real time since the last one
+        // started, as owed time: a frame running two jobs ages by its real time, not by it plus the second job's steps.
         val now = System.nanoTime()
+        val simMs = (ran * wc0.dt * 1000).toFloat()
         // No clock from the host (frameRealMs 0: the device probe, a bench replay): the water's own time, as always.
-        val realMs = if (frameRealMs > 0f && sliced && lastJobNs != 0L) min(2000f, (now - lastJobNs) / 1e6f) else frameRealMs
+        val ageScale = when {
+            frameRealMs <= 0f -> 1f
+            sliced -> {
+                // At most 2 s and 60x the job's steps, as before: the rest of a long pause is let go, not carried.
+                ageOweMs = min(min(2000f, 60f * simMs), ageOweMs + if (lastJobNs != 0L) (now - lastJobNs) / 1e6f else frameRealMs)
+                val s = max(1f, ageOweMs / simMs)
+                // Ahead of the clock by at most one frame's steps, so a slower stretch is aged in real time again at once.
+                ageOweMs = max(-steps * wc0.dt.toFloat() * 1000f, ageOweMs - simMs * s)
+                s
+            }
+            else -> (frameRealMs / simMs).coerceIn(1f, 60f)
+        }
         lastJobNs = now
-        val ageScale = if (realMs > 0f) (realMs / 1000f / (ran * wc0.dt).toFloat()).coerceIn(1f, 60f) else 1f
         stores += WATER_WRITES
         touch(rect)
         wetSince = union(wetSince, rect)
@@ -1227,20 +1272,23 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         try { wetFrame(null, paper, pxPerMm, wc0) } finally { waterBudget = budget }
     }
 
-    /** Runs the job's stages, band by band, until [budget] (px x [JOB_WEIGHT]) is spent; at least one band. */
-    private fun runJob(budget: Double, toStep: Boolean = false) {
-        val j = job ?: return
-        if (wet == null) { job = null; return }
+    /**
+     * Runs the job's stages, band by band, until [budget] (px x [JOB_WEIGHT]) is spent; at least one band unless not
+     * [atLeastOne] (a job started on what a frame has left). Returns what it spent.
+     */
+    private fun runJob(budget: Double, toStep: Boolean = false, atLeastOne: Boolean = true): Double {
+        val j = job ?: return 0.0
+        if (wet == null) { job = null; return 0.0 }
         val ws = wet!!
         // B3: tiles the water left (a drip's dried tail, MediaAtlasWater.excluded) or set aside (paused pools) are not
         // simulated; the water beside a tile it left sees a wall there (zero gradient, no flow), as at the window's edge.
         val a = atlas
         if (a != null) { a.skip = j.skip; a.setWalls(j.walls); a.wallsOn = j.walls.isNotEmpty() }
-        try { runJobInner(j, ws, budget, toStep) } finally { if (a != null) { a.skip = emptySet(); a.wallsOn = false } }
+        try { return runJobInner(j, ws, budget, toStep, atLeastOne) } finally { if (a != null) { a.skip = emptySet(); a.wallsOn = false } }
     }
 
-    private fun runJobInner(j: WaterJob, ws: Array<Wet>, budget: Double, toStep: Boolean) {
-        if (toStep && j.stage == 0 && j.band == 0) return
+    private fun runJobInner(j: WaterJob, ws: Array<Wet>, budget: Double, toStep: Boolean, atLeastOne: Boolean): Double {
+        if (toStep && j.stage == 0 && j.band == 0) return 0.0
         var spent = 0.0
         GLES30.glDisable(GLES30.GL_BLEND)
         while (true) {
@@ -1249,7 +1297,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
             val bands = bandsOf(area, shift, j.sliced)
             val band = bands[j.band]
             val cost = bandCost(band, stage)
-            if (spent > 0.0 && spent + cost > budget) return
+            if ((spent > 0.0 || !atLeastOne) && spent + cost > budget) return spent
             runStage(j, ws, stage, area, band)
             spent += cost
             if (++j.band < bands.size) continue
@@ -1260,9 +1308,9 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
             wc = 1 - wc
             if (j.k == 0 && j.useInput) clearInput(j.inIdx)
             waterSteps++
-            if (++j.k < j.steps) { if (toStep) return; continue }
+            if (++j.k < j.steps) { if (toStep) return spent; continue }
             endJob(j)
-            return
+            return spent
         }
     }
 

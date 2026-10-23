@@ -46,12 +46,15 @@ internal object MediaAtlasProbe {
         // pasteCopy: the window with one copy-back per paste step (the path before paired steps): must be the window's bits.
         // banded: free placement as scrambled, its water in jobs cut into the smallest slices (WATER_JOBS_20261021), each
         // finished before the next frame: the same passes over the same pixels, band by band, so the window's bits.
-        val kinds = listOf("window", "atlas", "scrambled", "broken", "pasteCopy", "banded")
+        // catchUp: the atlas with the pen up (MediaLayerEngine.catchUp), each frame's 4 steps as two 2-step jobs, the second
+        // reusing the first's rectangle: the window's one 4-step job, so the window's bits.
+        val kinds = listOf("window", "atlas", "scrambled", "broken", "pasteCopy", "banded", "catchUp")
         val engines = kinds.map { k ->
             MediaLayerEngine(shaders, atlasMode = k != "window" && k != "pasteCopy", atlasBroken = k == "broken").also {
                 // An atlas engine gets one more row of slots: its last slot is the zero slot (MediaAtlasGl.zeroSlot), never a tile's.
                 it.init(SIZE, if (it.atlasMode) SIZE + 256 else SIZE); if (k == "pasteCopy") it.pastePairs = false
                 if (k == "banded") { it.waterBudget = 1.0; it.slicedSteps = 0 }
+                if (k == "catchUp") { it.waterBudget = 1e12; it.slicedSteps = 2; it.catchUp = true }
             }
         }
         // B2's free placement: the same 3 × 3 tiles, every one in a slot that is not its own (no two neighbours adjacent in
@@ -173,13 +176,15 @@ internal object MediaAtlasProbe {
             for (i in 0 until strokes.length()) scrambledBad += strokes.getJSONObject(i).getJSONObject("scrambled").getLong("pixels")
             var bandedBad = 0L
             for (i in 0 until strokes.length()) bandedBad += strokes.getJSONObject(i).getJSONObject("banded").getLong("pixels")
+            var catchUpBad = 0L
+            for (i in 0 until strokes.length()) catchUpBad += strokes.getJSONObject(i).getJSONObject("catchUp").getLong("pixels")
             var pasteBad = 0L
             for (i in 0 until strokes.length()) pasteBad += strokes.getJSONObject(i).getJSONObject("pasteCopy").getLong("pixels")
             report.put("atlasVsWindowPixels", atlasBad).put("scrambledVsWindowPixels", scrambledBad).put("pastePairsVsCopyPixels", pasteBad)
-                .put("bandedVsWindowPixels", bandedBad)
+                .put("bandedVsWindowPixels", bandedBad).put("catchUpVsWindowPixels", catchUpBad)
                 .put("brokenDetectedPixels", brokenSeen).put("nonvacuous", !vacuous)
             report.put("glError", GLES30.glGetError())
-            report.put("pass", atlasBad == 0L && scrambledBad == 0L && pasteBad == 0L && bandedBad == 0L && brokenSeen > 0L && !vacuous)
+            report.put("pass", atlasBad == 0L && scrambledBad == 0L && pasteBad == 0L && bandedBad == 0L && catchUpBad == 0L && brokenSeen > 0L && !vacuous)
         } catch (e: Throwable) {
             report.put("pass", false).put("error", e.toString()).put("at", e.stackTrace.take(8).joinToString(" < ") { "${it.fileName}:${it.lineNumber}" })
         } finally {

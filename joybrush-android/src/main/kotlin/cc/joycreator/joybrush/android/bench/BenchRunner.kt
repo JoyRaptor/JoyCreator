@@ -39,6 +39,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
         if (spec.waterJobs != null) canvas.mediaWaterJobs = jobsBefore
         if (spec.mediaBudgetMb != null) canvas.mediaBudgetBytes = budgetBefore
         if (spec.dropDry != null) cc.joycreator.joybrush.androidkit.gl.media.MediaAtlasDropDry.on = true
+        if (spec.parkUnits != null) cc.joycreator.joybrush.androidkit.gl.media.MediaAtlasPark.units = 0
         canvas.onRefused = refusedBefore
         finished()
     }
@@ -66,6 +67,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
                val mediaBudgetMb: Int? = null,
                /** Dry tiles' water let go between strokes (`jb_drop_dry`); none = as shipped. */
                val dropDry: Boolean? = null,
+               /** The water park's size in tiles for this run (`jb_water_park_units`, ATLAS_ROOM_20261023); none = off, as shipped. */
+               val parkUnits: Int? = null,
                /** How long after the surface the first case starts (`jb_start_ms`): measures a cold first stroke. */
                val startMs: Long = 1500L)
 
@@ -86,6 +89,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
         spec.waterJobs?.let { canvas.mediaWaterJobs = it; Log.i(TAG, "water jobs: $it") }
         spec.mediaBudgetMb?.let { canvas.mediaBudgetBytes = it.toLong() shl 20; Log.i(TAG, "media room: $it MB") }
         spec.dropDry?.let { cc.joycreator.joybrush.androidkit.gl.media.MediaAtlasDropDry.on = it; Log.i(TAG, "drop dry water: $it") }
+        spec.parkUnits?.let { cc.joycreator.joybrush.androidkit.gl.media.MediaAtlasPark.units = it; Log.i(TAG, "water park: $it tiles") }
         spec.water?.let { canvas.mediaWaterAB = cc.joycreator.joybrush.android.WaterTest.of(it).ab; Log.i(TAG, "water test: $it") }
         if ("matrix" in spec.cases) { MatrixBench(canvas, spec, onDone).start(); return }
         val all = BrushLibrary.builtIn()
@@ -365,6 +369,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
                 waterJobs = if (intent.hasExtra("jb_water_jobs")) intent.getBooleanExtra("jb_water_jobs", true) else null,
                 mediaBudgetMb = intent.getIntExtra("jb_media_budget_mb", -1).takeIf { it > 0 },
                 dropDry = if (intent.hasExtra("jb_drop_dry")) intent.getBooleanExtra("jb_drop_dry", true) else null,
+                parkUnits = intent.getIntExtra("jb_water_park_units", -1).takeIf { it >= 0 },
                 startMs = intent.getLongExtra("jb_start_ms", 1500L).coerceIn(0L, 60_000L))
         }
     }

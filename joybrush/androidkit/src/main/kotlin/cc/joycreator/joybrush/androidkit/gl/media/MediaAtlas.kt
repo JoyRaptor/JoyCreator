@@ -52,6 +52,13 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
 
     // ---- B3 steps 3-5: the water, tile by tile (MediaAtlasWater; the Lead's D1/D2) ----
     private val water = MediaAtlasWater()
+    /**
+     * L2, the water park (ATLAS_ROOM_20261023): a tile whose water still runs leaves the atlas into it, exactly, and comes
+     * back exactly (the f16 stores lose its flow and round its state). Off until [MediaAtlasPark.units] > 0.
+     */
+    private var park: MediaWaterPark? = null
+    /** Tile key -> its park unit, for tiles out of the atlas whose exact state waits in [park]. */
+    private val parked = HashMap<Long, Int>()
     /** What the water needs held (its tiles and their 8-neighbours, as last admitted): pinned before anything else loads. */
     private var waterHeld: Set<Long> = emptySet()
     /** This frame's own drawing (its passes' rects, where the brush put water): where the look is recomputed besides the water. */
@@ -104,6 +111,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         flush()
         for (r in slots.residents()) if (r.dirty) writeBackSlot(r.slot, r.page.tileKey)
         pinned.clear(); admitted = false; slots.clear(); media.setResidency(emptyMap()); media.waterPaused = emptySet()
+        unpark()   // the water sleeps from its stores (as before the park)
         resetWater()
         media.sleep()
         layerId = null
@@ -373,7 +381,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
     private val residency by lazy { MediaAtlasResidency(slots, backing) }
     private val backing = object : MediaAtlasBacking {
         override fun load(slot: Int, page: MediaAtlasPage) = mediaTrace("JB.media.atlas.load") { loadSlot(slot, page.tileKey) }
-        override fun writeBack(slot: Int, page: MediaAtlasPage) = mediaTrace("JB.media.atlas.writeBack") { writeBackSlot(slot, page.tileKey); dropFromTable(page.tileKey) }
+        override fun writeBack(slot: Int, page: MediaAtlasPage) = mediaTrace("JB.media.atlas.writeBack") { parkIfLive(slot, page.tileKey); writeBackSlot(slot, page.tileKey); dropFromTable(page.tileKey) }
     }
 
     /** One tile into [slot]: its payload, its look and its ground (its `g`, or its look when it has no payload), its paper. */
@@ -399,6 +407,8 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         // The table must hold the new tile before its paper is baked through it.
         val table = resident().toMutableMap().also { it[key] = slot }
         mediaTrace("JB.media.atlas.table") { media.setResidency(table) }
+        // Parked water comes back exactly, over what the stores just loaded (their f16 copy, no flow).
+        parked.remove(key)?.let { unit -> mediaTrace("JB.media.park.in") { media.unparkSlot(park!!, unit, slot) }; park!!.give(unit) }
         mediaTrace("JB.media.atlas.bake") { media.bakeTile(key, paint.mediaPaper()) }
         if (wetHere && resumeOnLoad) media.resumeWater(tileRect(key))
     }
@@ -407,6 +417,32 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         ((Tiles.tx(key) + 1) * tile).toFloat(), ((Tiles.ty(key) + 1) * tile).toFloat())
 
     private fun dropFromTable(key: Long) { media.setResidency(resident().filterKeys { it != key }) }
+
+    /**
+     * A tile leaving while its water still runs (a pool set aside, then pushed out for room) waits in the park, exactly; its
+     * stores are written back as well (undo and saving read those). Not with brush input waiting there (the park holds none),
+     * nor when the park is off or full: then it leaves as before, through its stores.
+     */
+    private fun parkIfLive(slot: Int, key: Long) {
+        val units = MediaAtlasPark.units
+        if (units <= 0 || !media.wetActive || !media.hasWaterTextures || !water.holdsWater(key) || media.inputPendingIn(key)) return
+        val p = park ?: MediaWaterPark(media.waterCell, units).also { park = it }
+        val unit = p.take() ?: run { android.util.Log.w(TAG, "water park full (${p.capacity} tiles): a running tile leaves through its stores"); return }
+        mediaTrace("JB.media.park.out") { media.parkSlot(key, slot, p, unit) }
+        parked.put(key, unit)?.let(p::give)
+        parkedTotal++
+    }
+
+    /** Parked state that no longer matches the stores (an undo, a look written from outside, the layer let go): forgotten. */
+    private fun unpark(keys: Collection<Long>? = null) {
+        val p = park ?: return
+        val drop = keys?.filter { it in parked } ?: parked.keys.toList()
+        for (k in drop) parked.remove(k)?.let(p::give)
+        if (parked.isEmpty()) { p.release(); park = null }
+    }
+
+    /** Tiles that went into the park since this atlas was made (bench). */
+    var parkedTotal = 0; private set
 
     /** An evicted or released tile's pending stores (and its first ground) into the layer: copy-on-write, as [flush] does. */
     private fun writeBackSlot(slot: Int, key: Long) {
@@ -700,6 +736,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         dropWaterLook()
         storesOwed = false
         layerId = null; dryPending = false; pendingStores.clear(); pendingRect = null; pinned.clear(); admitted = false; slots.clear(); media.setResidency(emptyMap()); media.waterPaused = emptySet()
+        unpark()
         resetWater()
         media.takeDirty(); media.takeDirtyStores(); media.stopWater()
     }
@@ -735,6 +772,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         dropWaterLook()   // drawn from what the undo just replaced
         storesOwed = false   // the stroke they belonged to is undone (its waiting dabs go with it: MediaLayerEngine.stopWater)
         media.stopWater()
+        unpark()   // the water stopped: what the stores hold now is the state
         resumeOnLoad = false
         try { for (r in slots.residents()) loadSlot(r.slot, r.page.tileKey) } finally { resumeOnLoad = true }
         media.takeDirty(); media.takeDirtyStores()
@@ -747,6 +785,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
     override fun lookWritten(layer: String, plane: String?, keys: Set<Long>) {
         if (staleDrawing()) return
         if (layer != layerId || plane != this.plane || media.asleep) return
+        unpark(keys)
         for (key in keys) {
             val res = slots.resident(page(key)) ?: continue
             loadSlot(res.slot, key)
@@ -798,6 +837,12 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         else -> floatArrayOf(minOf(a[0], b[0]), minOf(a[1], b[1]), maxOf(a[2], b[2]), maxOf(a[3], b[3]))
     }
 }
+
+/**
+ * The water park's size in tiles (ATLAS_ROOM_20261023, P1): 0 = off, as shipped; the bench's `jb_water_park_units`. P4 sets it
+ * from the memory the atlas leaves.
+ */
+object MediaAtlasPark { @Volatile @JvmStatic var units = 0 }
 
 /** Dry tiles let their water stores go while water runs elsewhere (MediaAtlas.dropDryWater); the bench's `jb_drop_dry` A/B. */
 object MediaAtlasDropDry { @Volatile @JvmStatic var on = true }

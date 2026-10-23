@@ -170,6 +170,68 @@ residency only).
   - every media brush flat + wet tilted (`ab3.sh`) vs a same-hour baseline: unchanged where it fits.
 - **Owner's eye:** zoomed-out wash at his zoom, tilt-steering, and new strokes into old water. No creases, no refusals.
 
+## 5b. The Lead's four questions (10-23), answered
+
+**1. L2 cost per tile, mid-step.** The 92 B/px is ONE half (a tile at rest between steps).
+- Mid-step, a tile whose block has run holds its a-half (still read as ring by the blocks after it) AND its b-half:
+  - b-half = water 32 + flux 8 + run 4 + paint dst 48 = 92;
+  - the input was eaten by step 0, so it is not in the b-half;
+  - ≈ 184 B/px, 12 MB a tile.
+- L2 is therefore a pool of 6 MB half-units.
+  - A tile at rest takes 1 unit; a finished tile whose a-half is still read takes 2.
+  - A tile's a-half is freed as soon as the last block whose ring covers it has run.
+  - In raster order that is the block below-right, so the doubled set is at most (b + 1) tile rows × the job's width.
+- Peak units = wet tiles + (b + 1) × W. For a 6 × 6 wash at b = 2: 36 + 18 = 54.
+- Fix if that is too much: run blocks column-strip by column-strip, so W is the strip width, not the job width.
+
+**2. One memory budget.**
+- **Today:** L1 = slotGrid(free − 700 MB) at engine creation, everything beyond the reserve.
+- **Split rule:** budget M = free − 700 MB (unchanged), shared between the two levels:
+  - L1 = clamp(⌊0.45 M / 14.9 MB⌋, 24, 64) slots, made at engine creation as now;
+  - L2 = what stays within M, allocated lazily in 6 MB units only when a pool does not fit L1.
+  - Free memory is re-checked before each chunk of 8 units, and allocation never goes past M.
+- **When nothing goes out of core:** L2 is never allocated, so 0.55 M sits unused. To keep today's behaviour there,
+  L1 can instead be made at today's size and the engine re-created smaller (stores convert both ways already) the first
+  time a pool needs L2, between strokes. **The Lead picks** (see the questions at the end).
+- **On the Note 9** (today 34–48 slots, so M ≈ 507–715 MB):
+
+  | | Today | With L2 |
+  |---|---|---|
+  | Wet tiles before whole-pool D1/D2, worst day (M 507 MB) | ~12–16 (4 × 3 wet + ring = 30 of 34) | ~26: L1 24 slots, L2 25 units (150 MB) |
+  | Wet tiles before whole-pool D1/D2, best day (M 715 MB) | ~20 (5 × 4 + ring = 42 of 48) | ~50: L2 59 units |
+  | Factor | 1× | 2–2.5× |
+
+  The doubled set comes off the L2 units in both rows. That is about 1.5 screens of wet paint at 1:1, or one screen
+  at ~0.7× zoom.
+- **Honest limit: L2 alone does NOT make "never refuses" true at 0.5× zoom** (4× the wet tiles of 1:1). Past it, the
+  last resorts are:
+  - (i) whole-pool D1/D2 for quiet or oldest pools;
+  - (ii) a slow tier: pools beyond L2 parked in CPU memory (glReadPixels into a direct buffer; same RAM budget, so
+    only with M left) and run at a reduced rate;
+  - (iii) the handoff's 4C: coarse water below 0.5× zoom (162 B/px, quarter-size water planes).
+  P4 picks among these by measurement and the owner's eye. The refusal itself is removed in any case: (i) is always
+  possible for water that is not under the pen.
+
+**3. Copy cost and the speed out of core (to be measured first: P0/P1's `parkCopy` bench).**
+- **Estimate before measuring:** Adreno 630 sustains ~10 GB/s for a texture copy, so ~1.2 ms per 6 MB half each way.
+- **A 6 × 6 tilted wash (36 wet tiles, 2.36 M px per step), b = 2, 9 blocks:**
+  - loads: 16 a block, with neighbour blocks sharing ring columns → ~100 loads + 36 b-half write-backs ≈ 160 ms of
+    copies a step;
+  - compute: the same step in core ≈ 100–165 ms (scaled from the crowd's 3.6 M px at 150–250 ms), plus ~25 % halo
+    recompute;
+  - **out of core ≈ 290–370 ms a step, against 100–165 in core: about 2.3–2.8× slower than the same pool in core.**
+- **Against real time:**
+  - a step is `wc0.dt` of water time (4 steps = one 30 fps frame of real time, so dt ≈ 8 ms);
+  - in core, this pool already runs at ~1/12–1/20 of real time (the budget slices it, and `u_ageScale` keeps the
+    drying in real time);
+  - out of core: ~1/35–1/45 of real time.
+- So it is **well below 1/4 real time**, and so is today's in-core wash of the same size. The fair yardstick is
+  "out-of-core vs in-core for the same pool". If the measured copy cost puts that ratio above ~3×, I report it before
+  building P2, with these alternatives:
+  - bigger b with column strips;
+  - copying only the planes each role needs (a ring tile needs only its a-half's read planes, about half);
+  - the coarse tier for out-of-core pools.
+
 ## 6. Risks
 
 - **Copy cost.** GPU copies of 6 MB a tile; if `glCopyImageSubData` is slow on Adreno, use a blit pass. P1 measures it

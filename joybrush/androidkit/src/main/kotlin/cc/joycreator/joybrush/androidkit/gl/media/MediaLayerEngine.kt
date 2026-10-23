@@ -4,6 +4,8 @@ import android.opengl.GLES30
 import cc.joycreator.joybrush.androidkit.gl.ShaderLibrary
 import cc.joycreator.joybrush.core.media.MediaAtlasDraw
 import cc.joycreator.joybrush.core.media.MediaAtlasPlacement
+import cc.joycreator.joybrush.core.media.MediaAtlasWater
+import cc.joycreator.joybrush.core.media.WaterParkPlan
 import cc.joycreator.joybrush.core.media.DabBatch
 import cc.joycreator.joybrush.core.media.MediaPaper
 import cc.joycreator.joybrush.core.media.MediaStores
@@ -467,6 +469,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     fun wetInputNeeds(batches: List<DabBatch?>): List<Need> = batches.mapNotNull { b ->
         if (b == null || b.count == 0) null else layerRect(b.dirty, 48.0)?.let { Need(it, MediaAtlasPlacement.WET_REACH, input = true, lookRect = layerRect(b.dirty, 2.0)) }
     }
+    /** The water's cell, layer px across (2 with coarse water). */
+    val waterCell: Int get() = wf
     /** The engine's texture width (layer px at full resolution): the atlas's slots × 256 across. */
     val textureWidth: Int get() = w
     /** How many slots the atlas hands out (B2: one of them is staging). The last physical slot is the ZERO slot, never a tile's. */
@@ -487,6 +491,56 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
             blit(src, cx0 + ox, cy0 + oy, cx1 + ox, cy1 + oy, dst, cx0 + ox, cy0 + oy, cx1 + ox, cy1 + oy)
         }
     }
+    // ---- L2, the water park (tasks/joybrush/specs/ATLAS_ROOM_20261023.md) ----
+    /** True when brush input not yet in the water lies in tile [key] (the park holds no input: such a tile is never parked). */
+    fun inputPendingIn(key: Long): Boolean {
+        if (inAll[0] || inAll[1]) return true
+        val r = MediaAtlasWater.rectOf(key)
+        return inArea.any { a -> a != null && a[0] < r[2] && a[2] > r[0] && a[1] < r[3] && a[3] > r[1] }
+    }
+
+    /**
+     * Tile [key] in atlas [slot] into [park]'s [unit], exactly: the state a water step hands the next (WaterParkPlan), read as
+     * the stores read it ([current]). The running job is finished first (it may read or write this tile).
+     */
+    internal fun parkSlot(key: Long, slot: Int, park: MediaWaterPark, unit: Int) {
+        finishWaterJob()
+        check(!inputPendingIn(key)) { "a tile with brush input not yet in the water is never parked" }
+        val ws = requireNotNull(wet) { "no water to park" }
+        val p = finishedPaint()
+        parkCopy(slot, park, unit, toPark = true, listOf(
+            WaterParkPlan.Plane.P0 to listOf(p.p0), WaterParkPlan.Plane.P1 to listOf(p.p1), WaterParkPlan.Plane.PAPER to listOf(state[0].paper),
+            WaterParkPlan.Plane.W0 to listOf(ws[wc].w0), WaterParkPlan.Plane.W1 to listOf(ws[wc].w1), WaterParkPlan.Plane.FLUX to listOf(ws[wc].flux),
+            WaterParkPlan.Plane.RUN to listOf(run)))
+    }
+
+    /**
+     * [park]'s [unit] into atlas [slot], over what its stores loaded there: both halves of every ping-pong pair get it (as
+     * [holdStill] keeps a pool still), so whichever half the next step reads, it reads the parked state. The host bakes the
+     * slot's paper again (the bakes are not parked).
+     */
+    internal fun unparkSlot(park: MediaWaterPark, unit: Int, slot: Int) {
+        finishWaterJob()
+        ensureWet()
+        val ws = wet!!
+        parkCopy(slot, park, unit, toPark = false, listOf(
+            WaterParkPlan.Plane.P0 to state.map { it.p0 }, WaterParkPlan.Plane.P1 to state.map { it.p1 }, WaterParkPlan.Plane.PAPER to state.map { it.paper },
+            WaterParkPlan.Plane.W0 to ws.map { it.w0 }, WaterParkPlan.Plane.W1 to ws.map { it.w1 }, WaterParkPlan.Plane.FLUX to ws.map { it.flux },
+            WaterParkPlan.Plane.RUN to listOf(run)))
+    }
+
+    private fun parkCopy(slot: Int, park: MediaWaterPark, unit: Int, toPark: Boolean, planes: List<Pair<WaterParkPlan.Plane, List<Int>>>) {
+        val (ax, ay) = slotTexel(slot); val (ux, uy) = park.texel(unit); val s = MediaAtlasDraw.SIDE
+        for ((plane, textures) in planes) {
+            val d = if (plane.water) wf else 1
+            val pt = park.texture(unit, plane)
+            for (t in textures) {
+                if (toPark) blit(t, ax / d, ay / d, (ax + s) / d, (ay + s) / d, pt, ux / d, uy / d, (ux + s) / d, (uy + s) / d)
+                else blit(pt, ux / d, uy / d, (ux + s) / d, (uy + s) / d, t, ax / d, ay / d, (ax + s) / d, (ay + s) / d)
+            }
+        }
+    }
+
     /** Empties one slot of every slot-shaped target (a tile about to be loaded there starts from rest, as a new window did). */
     fun clearSlot(ax: Int, ay: Int) {
         val side = MediaAtlasDraw.SIDE

@@ -48,7 +48,10 @@ internal object MediaAtlasProbe {
         // finished before the next frame: the same passes over the same pixels, band by band, so the window's bits.
         // catchUp: the atlas with the pen up (MediaLayerEngine.catchUp), each frame's 4 steps as two 2-step jobs, the second
         // reusing the first's rectangle: the window's one 4-step job, so the window's bits.
-        val kinds = listOf("window", "atlas", "scrambled", "broken", "pasteCopy", "banded", "catchUp")
+        // parked (ATLAS_ROOM_20261023, P1): free placement as scrambled, and after every wet frame each of its tiles goes into
+        // the water park and comes back in ANOTHER slot (the stores would lose the flow and round the state): the window's bits.
+        val kinds = listOf("window", "atlas", "scrambled", "broken", "pasteCopy", "banded", "catchUp", "parked")
+        val PK = kinds.indexOf("parked")
         val engines = kinds.map { k ->
             MediaLayerEngine(shaders, atlasMode = k != "window" && k != "pasteCopy", atlasBroken = k == "broken").also {
                 // An atlas engine gets one more row of slots: its last slot is the zero slot (MediaAtlasGl.zeroSlot), never a tile's.
@@ -59,7 +62,21 @@ internal object MediaAtlasProbe {
         }
         // B2's free placement: the same 3 × 3 tiles, every one in a slot that is not its own (no two neighbours adjacent in
         // the atlas the way they are on the layer). Read back un-shuffled, it must be the window's bits.
-        for (i in listOf(2, 5)) engines[i].setResidency(SCRAMBLE.withIndex().associate { (t, slot) -> cc.joycreator.joybrush.core.paint.Tiles.key(t % 3, t / 3) to slot })
+        for (i in listOf(2, 5, PK)) engines[i].setResidency(SCRAMBLE.withIndex().associate { (t, slot) -> cc.joycreator.joybrush.core.paint.Tiles.key(t % 3, t / 3) to slot })
+        val park = MediaWaterPark(1, 9, cols = 3, rows = 3)
+        var parkedSlots = SCRAMBLE.copyOf()
+        var parkNs = 0L; var parkTiles = 0
+        // Every tile of the parked engine out to the park and back, each into the slot the next tile had (all of them move).
+        fun parkRoundTrip() {
+            val e = engines[PK]
+            GLES30.glFinish(); val t0 = System.nanoTime()
+            val units = IntArray(9) { t -> park.take()!!.also { u -> e.parkSlot(cc.joycreator.joybrush.core.paint.Tiles.key(t % 3, t / 3), parkedSlots[t], park, u) } }
+            val before = parkedSlots
+            parkedSlots = IntArray(9) { before[(it + 1) % 9] }
+            e.setResidency(parkedSlots.withIndex().associate { (t, slot) -> cc.joycreator.joybrush.core.paint.Tiles.key(t % 3, t / 3) to slot })
+            for (t in 0 until 9) { e.unparkSlot(park, units[t], parkedSlots[t]); park.give(units[t]); e.bakeTile(cc.joycreator.joybrush.core.paint.Tiles.key(t % 3, t / 3), paper) }
+            GLES30.glFinish(); parkNs += System.nanoTime() - t0; parkTiles += 9
+        }
         val report = JSONObject().put("probe", "mediaAtlasB1").put("size", SIZE).put("renderer", GLES30.glGetString(GLES30.GL_RENDERER))
         val read = IntArray(1).also { GLES30.glGenFramebuffers(1, it, 0) }[0]
         try {
@@ -68,7 +85,10 @@ internal object MediaAtlasProbe {
             val look = MediaLook(floatArrayOf(0.95f, 0.93f, 0.88f))
             val interior = floatArrayOf(96f, 96f, SIZE - 96f, SIZE - 96f)
             fun compare(name: String, frames: Int) {
-                val snaps = engines.mapIndexed { i, e -> e.finishWaterJob(); snapshot(e, read, e.renderLook(interior, paper, look, ppm), if (i == 2 || i == 5) SCRAMBLE else null) }
+                val snaps = engines.mapIndexed { i, e ->
+                    e.finishWaterJob()
+                    snapshot(e, read, e.renderLook(interior, paper, look, ppm), if (i == 2 || i == 5) SCRAMBLE else if (i == PK) parkedSlots else null)
+                }
                 val o = JSONObject().put("stroke", name).put("frames", frames)
                 for ((i, k) in kinds.withIndex()) if (i > 0) o.put(k, diff(snaps[0], snaps[i]))
                 o.put("changedFromEmpty", snaps[0].values.sumOf { a -> a.count { it != 0 } })
@@ -112,8 +132,9 @@ internal object MediaAtlasProbe {
                 for (chunk in pts.chunked(5)) {
                     frames++
                     for ((i, e) in engines.withIndex()) { for (s in chunk) splines[i].add(s); e.wetFrame(wets[i].take(), paper, ppm, WetConstants()); e.finishWaterJob() }
+                    parkRoundTrip()
                 }
-                repeat(10) { frames++; for (e in engines) { e.wetFrame(null, paper, ppm, WetConstants()); e.finishWaterJob() } }
+                repeat(10) { frames++; for (e in engines) { e.wetFrame(null, paper, ppm, WetConstants()); e.finishWaterJob() }; parkRoundTrip() }
                 compare(label, frames)
             }
             engines.forEach { it.slope = floatArrayOf(0f, 0f) }
@@ -178,19 +199,24 @@ internal object MediaAtlasProbe {
             for (i in 0 until strokes.length()) bandedBad += strokes.getJSONObject(i).getJSONObject("banded").getLong("pixels")
             var catchUpBad = 0L
             for (i in 0 until strokes.length()) catchUpBad += strokes.getJSONObject(i).getJSONObject("catchUp").getLong("pixels")
+            var parkedBad = 0L
+            for (i in 0 until strokes.length()) parkedBad += strokes.getJSONObject(i).getJSONObject("parked").getLong("pixels")
+            report.put("parkedVsWindowPixels", parkedBad).put("parkRoundTrips", parkTiles / 9)
+                .put("parkCopyMsPerTile", if (parkTiles > 0) parkNs / 1e6 / parkTiles else JSONObject.NULL)   // out AND back, 92 B a texel
             var pasteBad = 0L
             for (i in 0 until strokes.length()) pasteBad += strokes.getJSONObject(i).getJSONObject("pasteCopy").getLong("pixels")
             report.put("atlasVsWindowPixels", atlasBad).put("scrambledVsWindowPixels", scrambledBad).put("pastePairsVsCopyPixels", pasteBad)
                 .put("bandedVsWindowPixels", bandedBad).put("catchUpVsWindowPixels", catchUpBad)
                 .put("brokenDetectedPixels", brokenSeen).put("nonvacuous", !vacuous)
             report.put("glError", GLES30.glGetError())
-            report.put("pass", atlasBad == 0L && scrambledBad == 0L && pasteBad == 0L && bandedBad == 0L && catchUpBad == 0L && brokenSeen > 0L && !vacuous)
+            report.put("pass", atlasBad == 0L && scrambledBad == 0L && pasteBad == 0L && bandedBad == 0L && catchUpBad == 0L && parkedBad == 0L && brokenSeen > 0L && !vacuous)
         } catch (e: Throwable) {
             report.put("pass", false).put("error", e.toString()).put("at", e.stackTrace.take(8).joinToString(" < ") { "${it.fileName}:${it.lineNumber}" })
         } finally {
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
             GLES30.glDeleteFramebuffers(1, intArrayOf(read), 0)
             engines.forEach { runCatching { it.release() } }
+            runCatching { park.release() }
         }
         return report.toString()
     }

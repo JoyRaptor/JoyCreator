@@ -77,3 +77,10 @@ Running: Settings sub-screens restyle (Sonnet); What's New + update sheets + mod
 Open (owner decisions): Viz Lab card; bottom words (Packs/Bits/Finder); Remote/Server Room + Smart Detection; WaveformDebugActivity export; 11 orphan classes; New button behaviour; pill colour; rename "Classic view".
 Open (mine): restyle Home recorder (Bits); fullscreen preview; Home sidebar; audio envelope oddities; voiceovers in project view; rename/trash helpers for sheets/characters; retire AvatarToggleView + eye-colour pref; sweep leftovers (caption presets retest).
 Parked: VisLab (brief in tasks/VISLAB_BRIEF.md); Joy Brush send-into-existing-project.
+
+## Watercolour live integration — October23
+Branch vector/watercolour-live-20261023; C:/Temp/jb-watercolour-live-20261023;
+base origin/joy-creator e5a0f02c0. Owner requested live watercolor spec L1–L7.
+Plan and evidence: tasks/joybrush/reviews/WATERCOLOUR_LIVE_20261023.md.
+Measure L1 first; then prewarm, per-brush admission, wash-frame transforms,
+save/reopen, owner appearance and performance. Shared locks/Lead own sequencing.

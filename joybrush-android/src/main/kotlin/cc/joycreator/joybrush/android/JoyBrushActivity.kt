@@ -511,6 +511,7 @@ class JoyBrushActivity : Activity() {
         canvas.onRefused = { why -> toast(why) }
         canvas.onNotice = { sentence -> toast(sentence) }
         canvas.onGraphicsLost = { documentId -> boardController?.stop(); recoverGraphics(documentId) }
+        JoybotHands.attach(joybotEnv)
         setColumnOpen(prefs.getBoolean(PREF_LAYERS_OPEN, false))
         // The top icons re-read the picture behind them whenever it can have changed under them.
         canvas.onViewMoved = { checkIcons(); guideOverlay.invalidate(); fillPreview.invalidate(); boardController?.refreshTransform(); paperTilt.viewMoved(); selection?.viewMoved() }
@@ -613,6 +614,7 @@ class JoyBrushActivity : Activity() {
     }
 
     override fun onDestroy() {
+        JoybotHands.detach(joybotEnv)
         selection?.detach(); selection = null
         boardBackdrop?.close(); boardBackdrop=null
         boardExports.dismiss()
@@ -1359,6 +1361,20 @@ class JoyBrushActivity : Activity() {
         updateAnimationLayerMarkers()
         column.show(stack, canvas.maxLayers, canvas.editingMask)
         refreshThumbs()
+    }
+
+    /** Joybot's hands (JoybotHands): what this screen lends them. Runs on the UI thread. */
+    private val joybotEnv = object : JoybotEnv {
+        override val canvas: JbCanvasView get() = this@JoyBrushActivity.canvas
+        override fun ready() = !loadingDrawing && !replacingDrawing && !recoveringDrawing && !canvas.needsRecovery && !destroyed
+        override fun brushes(): List<BrushPreset> = tunedBrushes()
+        override fun tools(): ToolMemory = tools
+        override fun setTools(next: ToolMemory) { tools = next; applyTool() }
+        override fun colourChanged() = refreshColour()
+        override fun selectedBoardId(): String? = boardController?.selectedBoardId
+        override fun drawingName(): String? = workingFile()?.let { f ->
+            cc.joycreator.joybrush.android.library.DrawingLibrary.list(this@JoyBrushActivity).firstOrNull { it.file == f.name }?.name
+        }
     }
 
     private fun updateAnimationLayerMarkers() {

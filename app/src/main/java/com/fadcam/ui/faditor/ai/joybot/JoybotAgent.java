@@ -474,7 +474,8 @@ public final class JoybotAgent {
         final java.util.Set<String> families = new java.util.LinkedHashSet<>();
 
         void go() throws Exception {
-            families.addAll(ToolRouter.pick(ask.text, ask.situation.room == IdeaEngine.Room.VISLAB));
+            families.addAll(ToolRouter.pick(ask.text, ask.situation.room == IdeaEngine.Room.VISLAB,
+                    ask.situation.room == IdeaEngine.Room.JOYBRUSH));
             AIChatState.liveAsk = ask.text;
             AIChatState.liveReplyBefore = lastReply();
             JSONObject retained = new JSONObject().put("role", "user").put("content", ask.imageDataUrl == null
@@ -644,7 +645,8 @@ public final class JoybotAgent {
                     continue;
                 }
                 boolean unfinished = claimsAChange(aiText) || HelpBook.wantsChange(ask.text);
-                boolean hasWork = ask.projectId != null || ask.situation.room == IdeaEngine.Room.VISLAB;
+                boolean hasWork = ask.projectId != null || ask.situation.room == IdeaEngine.Room.VISLAB
+                        || ask.situation.room == IdeaEngine.Room.JOYBRUSH;
                 if (!nudged && !changedSomething() && hasWork && !ask.question
                         && !aiText.trim().endsWith("?") && unfinished) {
                     // Nothing in the project changed, yet the reply claims it did (a free model,
@@ -1251,6 +1253,20 @@ public final class JoybotAgent {
 
         /** A compact, just-read picture of the project. Blocking (reads the project). */
         @NonNull
+        /** JoyBrush: the open drawing in words, read just now (the joybrush tools change it). */
+        @NonNull
+        String joyBrushNow() {
+            if (!cc.joycreator.joybrush.android.JoybotHands.isOpen()) {
+                return "No drawing is open in JoyBrush right now (open_room joybrush opens one).\n";
+            }
+            try {
+                return cc.joycreator.joybrush.android.JoybotHands.describe()
+                        + "\n\"This\" / \"it\" means this drawing; the joybrush tools read and change it.\n";
+            } catch (Exception e) {
+                return "";
+            }
+        }
+
         String context() {
             Situation s = ask.situation;
             StringBuilder sb = new StringBuilder("CURRENT PROJECT (read just now; trust it over anything earlier in the chat)\n");
@@ -1258,6 +1274,7 @@ public final class JoybotAgent {
             if (s.room == IdeaEngine.Room.VISLAB) sb.append(visLabNow());
             String pid = ask.projectId;
             if (pid == null) return sb.append("No project is open.\n").toString();
+            if (s.room == IdeaEngine.Room.JOYBRUSH) sb.append(joyBrushNow());
             try {
                 // JoybotStorage: with the editor on screen this is the project open there, edits
                 // made since the chat closed included.

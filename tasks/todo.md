@@ -91,7 +91,7 @@ Parked: VisLab (brief in tasks/VISLAB_BRIEF.md); Joy Brush send-into-existing-pr
 - [x] Finish U1–U8 in this branch: saved end chips, Play all/Stop, overlapping outlines and selection cycling, named Combine/runner controls and direct locked/unlocked drag.
 - [x] Note 9: GPU 8-row proof PASSED (re-run on final build); playAll frame work p95 8.75-11.0 ms (budget met; 17 ms was vsync buffer wait).
 - [x] Rare long frames in playback attributed (startup chrome-raster stall ~90 ms, cold first-run GL stall, isolated single vsyncs); fix for the startup stall left as an owner decision (BoardChromeView pre-warm).
-- [ ] UI gesture checks and GIF duration decode still owed.
+- [x] GIF durations/loop flags decoded from phone files; overlap-tap cycling, chips, Play all/Stop all, stroke undo shown on the Note 9.`r`n- [ ] Still not shown through real touch: clip edge drag, lock, Combine, Flatten, export (engine proven by GPU probe, controller by unit tests).
 
 Review: continuing from existing C1/C2 517a9c61d and partial C3 d232a2b17 on lead/anim-clips.
 October22 handoff: source and unit verification are complete; APK/device acceptance/integration remain. Resume instructions: tasks/joybrush/handoffs/ANIMATION_CLIPS_RESUME_20261022.md. No feature commit or install yet.

@@ -14,6 +14,9 @@ class PlayAllBench(private val canvas: JbCanvasView,
     private val trace: Boolean = false, private val done: () -> Unit) {
     fun start() {
         if(!canvas.surfaceReady || canvas.width==0) { canvas.postDelayed({ start() },200); return }
+        val missZero=System.nanoTime()
+        // Trace case only: every chrome patch rasterized from fixture load on, so a start-of-playback miss can be told from a repeat.
+        if(trace) cc.joycreator.joybrush.android.board.BoardChromeView.missLog={ line -> Log.i(BenchRunner.TAG,String.format("RASTERMISS %.0f %s",(System.nanoTime()-missZero)/1e6,line)) }
         val contents=PlayAllFixture.contents()
         val scheduler=ClipPlaybackScheduler(contents.doc.boards)
         canvas.benchWatch=true; canvas.benchErrors.clear()
@@ -33,6 +36,7 @@ class PlayAllBench(private val canvas: JbCanvasView,
                 fun mark(what: String) { if(tracing) events.put(String.format("%.1f %s",(System.nanoTime()-traceZero)/1e6,what)) }
                 // Only the `playAllTrace` case turns this on: it perturbs the very frames it watches (message logging, a sampler thread).
                 if(trace) {
+                    Log.i(BenchRunner.TAG,String.format("RASTERMISS %.0f PLAYALL-CALLED",(System.nanoTime()-missZero)/1e6))
                     val looper=android.os.Looper.getMainLooper()
                     looper.setMessageLogging { line -> mark(line.take(150)) }
                     val tree=canvas.rootView.viewTreeObserver
@@ -53,6 +57,7 @@ class PlayAllBench(private val canvas: JbCanvasView,
                     }.also { it.isDaemon=true; it.name="JoyBrush-stall-sampler" }.start()
                     canvas.postDelayed({
                         tracing=false; looper.setMessageLogging(null)
+                        cc.joycreator.joybrush.android.board.BoardChromeView.missLog=null
                         val t=canvas.rootView.viewTreeObserver
                         if(t.isAlive) { t.removeOnGlobalLayoutListener(onLayout); t.removeOnPreDrawListener(onPre); t.removeOnDrawListener(onDraw) }
                     },400)

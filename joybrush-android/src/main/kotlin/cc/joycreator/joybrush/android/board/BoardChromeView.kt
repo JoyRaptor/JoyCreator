@@ -103,6 +103,11 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
         private set
     var shadowRasterizations: Long = 0
         private set
+
+    companion object {
+        /** Debug bench only: told about every shadow patch that had to be rasterized (the cache missed). */
+        @JvmStatic var missLog: ((String) -> Unit)? = null
+    }
     private var activeTarget: View? = null
     private var hoveredTarget: View? = null
     private var hover = BoardHoverLoop()
@@ -282,13 +287,19 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
         val rasterViewport = BoardChromeRenderPlan.rasterViewport(e, viewport)
         val key = RasterKey(e.copy(alpha = 1f, rotationDeg = 0f, scale = 1f, transformOrigin = null,
             clip = null, fadeStartPx = null, fadeEndPx = null), paperInk, rasterViewport)
-        val patches = shadows[key] ?: BoardChromeRenderPlan.patches(key.element, rasterViewport).map { bounds ->
-            val bitmap = Bitmap.createBitmap(bounds.width, bounds.height, Bitmap.Config.ARGB_8888)
-            val software = Canvas(bitmap)
-            software.translate(-bounds.left.toFloat(), -bounds.top.toFloat())
-            draw(software, key.element, artwork = false)
-            RasterPatch(bounds, bitmap)
-        }.also { shadowRasterizations++; shadows.put(key, it) }
+        val patches = shadows[key] ?: run {
+            val began = if (missLog != null) System.nanoTime() else 0L
+            BoardChromeRenderPlan.patches(key.element, rasterViewport).map { bounds ->
+                val bitmap = Bitmap.createBitmap(bounds.width, bounds.height, Bitmap.Config.ARGB_8888)
+                val software = Canvas(bitmap)
+                software.translate(-bounds.left.toFloat(), -bounds.top.toFloat())
+                draw(software, key.element, artwork = false)
+                RasterPatch(bounds, bitmap)
+            }.also {
+                shadowRasterizations++; shadows.put(key, it)
+                missLog?.invoke("${e.id} patches=${it.size} bytes=${it.sumOf { p -> p.bitmap.allocationByteCount }} ms=${(System.nanoTime() - began) / 1e6}")
+            }
+        }
         val save = canvas.save()
         e.clip?.let { canvas.clipRect(it.left, it.top, it.right, it.bottom) }
         val fadeLayer = if (e.fadeStartPx != null && e.fadeEndPx != null) {

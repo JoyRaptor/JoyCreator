@@ -611,7 +611,7 @@ class SelectTool(
                 mask = m
                 liftedPixels = host.liftPixels(m, keepSource = false)
                 host.paintClip = m
-                if (liftedPixels == null) host.toast("You can paint inside this selection, but it can’t be moved or edited right now.")
+                if (liftedPixels == null) host.toast("Paint can’t be moved or edited yet. Only lines can.") // honest until paintClip/liftPixels land (G9, G10)
             }
             null -> {}
         }

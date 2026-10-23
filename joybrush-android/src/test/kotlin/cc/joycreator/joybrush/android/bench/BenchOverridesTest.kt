@@ -22,6 +22,22 @@ class BenchOverridesTest {
         try {BenchBrushOverride.resolve(BrushPreset(id="f",name="F",size=Param(256f),engine=ENGINE_FILL),2000f);fail("Ignored override accepted")}
         catch(expected:IllegalArgumentException) {assertTrue(expected.message!!.contains("stamp"))}
     }
+    @Test fun aUnibrushNameFindsThatModeAndEveryOtherNameIsLeftToTheOldLookup() {
+        val modes=UnibrushModes.presets()
+        assertEquals(11,modes.size)
+        for (mode in modes) assertEquals(mode,BenchUnibrush.resolve("unibrush:"+mode.id.removePrefix("unibrush.")))
+        assertEquals("unibrush.texture",BenchUnibrush.resolve("Unibrush:TEXTURE")!!.id)
+        for (other in listOf("ink","soft","unibrush.soft","unibrush","media:wet:Round","media:dry:Proto")) assertNull(other,BenchUnibrush.resolve(other))
+    }
+    @Test fun anUnknownUnibrushSlugRefusesAndNamesEveryValidOne() {
+        for (bad in listOf("unibrush:nope","unibrush:","unibrush:soft2")) {
+            try {BenchUnibrush.resolve(bad);fail("Accepted $bad")}
+            catch(expected:IllegalArgumentException) {
+                for (slug in listOf("soft","hard","calligraphy","taper","fade","texture","round","chisel","living","dry","sparkle"))
+                    assertTrue("$bad: ${expected.message}",expected.message!!.contains("unibrush:$slug"))
+            }
+        }
+    }
     @Test fun refusalLeaseForwardsAndRestoresExactlyTheCallbackItBorrowed() {
         val forwarded=ArrayList<String>()
         val prior:(String)->Unit={forwarded+=it}

@@ -7,6 +7,7 @@ import android.os.Looper
 import android.util.Log
 import cc.joycreator.joybrush.androidkit.BrushLibrary
 import cc.joycreator.joybrush.androidkit.JbCanvasView
+import cc.joycreator.joybrush.androidkit.UnibrushResources
 import cc.joycreator.joybrush.androidkit.bench.FrameStats
 import cc.joycreator.joybrush.androidkit.bench.StrokeReplay
 import cc.joycreator.joybrush.core.brush.BrushPreset
@@ -17,6 +18,8 @@ import cc.joycreator.joybrush.core.brush.BrushPreset
  *
  *     adb shell am start -n com.fadcam.beta/com.fadcam.joybrush.JoyBrushBenchActivity \
  *         --es jb_bench "fastC,scribble" --es jb_bench_brushes "ink,media:dry:Proto" --ei jb_bench_runs 3
+ *
+ * A Unibrush mode, which the app keeps hidden, is asked for as `unibrush:<slug>` (`unibrush:soft`, `unibrush:texture`, ...).
  *
  * Results go to logcat, tag [TAG], one line per run plus a `done` line. In bench mode the screen opens a fresh,
  * unsaved drawing and never restores or writes the working file (the activity's job), so the person's drawing is
@@ -29,6 +32,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
     private val rowsBefore = cc.joycreator.joybrush.androidkit.gl.media.MediaLayerEngine.atlasRowPasses
     private val jobsBefore = canvas.mediaWaterJobs
     private val budgetBefore = canvas.mediaBudgetBytes
+    private val pngsBefore = canvas.brushPngs
     // Every refusal a run meets, in the log beside its frames (the canvas tells the person in words; the bench counts them).
     private val refusedBefore = canvas.onRefused.also { prior -> canvas.onRefused = { m -> Log.i(TAG, "refused: $m"); prior?.invoke(m) } }
     private val onDone: () -> Unit = {
@@ -39,6 +43,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
         if (spec.waterJobs != null) canvas.mediaWaterJobs = jobsBefore
         if (spec.mediaBudgetMb != null) canvas.mediaBudgetBytes = budgetBefore
         if (spec.dropDry != null) cc.joycreator.joybrush.androidkit.gl.media.MediaAtlasDropDry.on = true
+        canvas.brushPngs = pngsBefore
         canvas.onRefused = refusedBefore
         finished()
     }
@@ -99,12 +104,17 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
         if ("matrix" in spec.cases) { MatrixBench(canvas, spec, onDone).start(); return }
         val all = BrushLibrary.builtIn()
         Log.i(TAG, "brushes available: " + all.joinToString(",") { it.id })
+        var unibrush = false
         for (b in spec.brushes) {
-            val p = all.firstOrNull { it.id.equals(b, true) } ?: all.firstOrNull { it.name.equals(b, true) }
+            val mode = try { BenchUnibrush.resolve(b) } catch (e: IllegalArgumentException) { Log.e(TAG, "${e.message}"); continue }
+            val p = mode ?: all.firstOrNull { it.id.equals(b, true) } ?: all.firstOrNull { it.name.equals(b, true) }
             if (p == null) { Log.w(TAG, "no brush '$b'"); continue }
+            if (mode != null) unibrush = true
             val effective = BenchBrushOverride.resolve(p, spec.sizeOverridePx)
             for (c in spec.cases) for (r in 1..spec.runs) jobs.addLast(Triple(effective, c, r))
         }
+        // Texture, Dry and Sparkle draw from PNGs the host controller hands the canvas; it is not running here, so the bench does.
+        if (unibrush) canvas.brushPngs = UnibrushResources()::pngs
         waitForSurface()
     }
 

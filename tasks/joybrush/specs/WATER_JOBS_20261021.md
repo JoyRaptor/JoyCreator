@@ -50,5 +50,4 @@ Crowd (six strokes, atlas): pen-to-frame p50 30-48 ms, p95 80-190 ms; a new stro
 stroke; worst frame 0.4 s. Every brush (ab3 list, atlas, jobs off / on, p50 / p95 ms): Round 194/406 -> 45/65, Wash 260/443
 -> 69/110, tilted Round 102/567 -> 47/95, tilted Wash 480/496 -> 83/148, tilted All-round 447/482 -> 48/88; oil, knives,
 fan and pencils unchanged. Probe: atlas, scrambled, banded == window, 0 px.
-Known: undo within a moment of lifting the pen, then redo, can miss the stroke's last dabs (they were still waiting for the
-water when its stores were written; the in-place write is dropped by the undo).
+Undo or redo within a moment of lifting the pen first writes the stroke's waiting dabs (d0dd9be20, MediaCanvas.settleOwed).

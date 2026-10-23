@@ -1,0 +1,11 @@
+#!/bin/bash
+# ab3.sh <tag> : warm-up strokes, then each media brush, window/atlas interleaved twice (flat), then wet tilted twice.
+cd /c/Temp/lead-1020
+WARM="media:dry:HB,media:wet:Round,media:paste:Oil round"
+B="media:wet:Round,media:wet:Wash,media:paste:Oil flat,media:paste:All-round,media:paste:Palette knife 1,media:paste:Palette knife 2,media:paste:Fan blender,media:dry:HB,media:dry:Proto Pencil"
+T="media:wet:Round,media:wet:Wash,media:wet:All-round"
+for rep in 1 2; do for m in false true; do
+  BRUSH="$WARM,$B" TAG=${1}flat${rep}_$m TIMEOUT=900 EXTRA="--ez jb_media_atlas $m" bash water_profile.sh wp_ab topScribble 1500 today > /dev/null 2>&1
+  BRUSH="$WARM,$T" TAG=${1}tilt${rep}_$m TIMEOUT=900 EXTRA="--ez jb_media_atlas $m --es jb_slope 0,0.5" bash water_profile.sh wp_ab topScribble 1500 today > /dev/null 2>&1
+done; done
+echo AB_DONE

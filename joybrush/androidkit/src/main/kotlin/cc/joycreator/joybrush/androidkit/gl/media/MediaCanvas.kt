@@ -270,6 +270,8 @@ class MediaCanvas(
         val budget = if (w is MediaAtlas && waterJobs) jobBudget.next(e.frameRealMs) else Double.POSITIVE_INFINITY
         // The water's steps take most of it, the water's look the rest (its parts drawn into the look texture until it is spent).
         e.waterBudget = budget * WATER_SHARE
+        // With the pen up the water catches up (more than one job a frame); while a stroke paints, the brush comes first.
+        e.catchUp = st == null
         if (budget.isFinite()) MediaPhases.timer?.invoke("water.budget k (count)", budget / 1000)
         if (w is MediaAtlas) w.lookBudget = budget * (1 - WATER_SHARE)
         // Water left lying in the window (a layer switch, a reopen, a window that was released and reloaded) starts to run

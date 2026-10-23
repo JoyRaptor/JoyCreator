@@ -1111,11 +1111,13 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
             grown = true
         }
         var left = waterBudget - runJob(waterBudget)
-        // A sliced job is two steps. While the frame's budget lasts, the next starts at once, up to the steps a whole frame ran
-        // before jobs (owner, 2026-10-23: one job a frame ran the water at half its old speed; tilting no longer made it race).
+        // A sliced job is two steps. With the pen up ([catchUp]) and while the frame's budget lasts, the next starts at once, up
+        // to the steps a whole frame ran before jobs (owner, 2026-10-23: one job a frame ran the water at half its old speed;
+        // tilting no longer made it race). Not while a stroke paints: on the Note 9 that cost wet brushes 25-30 % slower frames
+        // and slowed oil and pencil strokes too (water left by earlier strokes runs under them).
         // The atlas admitted this call's water grown once by [steps] steps (wetNeed): a job reuses the rectangle while the steps
         // run on it since it grew fit in that growth and no dabs came since; otherwise it grows, once a call.
-        while (job == null && left > 0.0 && waterBudget.isFinite() && waterSteps - s0 < steps) {
+        while (catchUp && job == null && left > 0.0 && waterBudget.isFinite() && waterSteps - s0 < steps) {
             val ran = jobSteps(steps, sliced = true)
             val reuse = !dabsSinceGrow && rectSteps + ran <= steps
             if (!reuse && grown) break
@@ -1153,6 +1155,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
      * exactly as the frames before jobs: the same passes in the same order.
      */
     var waterBudget = Double.POSITIVE_INFINITY
+    /** The pen is up (the host's frame has no stroke): the water may run more than one job a frame ([wetFrameInner]). */
+    var catchUp = false
     /** A sliced job's steps (2, even: no paint copy); 0 = the frame's own (the device probe's banded engine, to compare). */
     internal var slicedSteps = 2
     /** A water job is under way (its rectangle must stay resident: [waterJobRect]). */

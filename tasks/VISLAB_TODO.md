@@ -203,6 +203,51 @@ Web pilot: `preview_start vislab-web`, page `tools/vislab-web/index.html#<look-i
   HeatGuard covers it; a look naming a missing element keeps it (LookValidator keep-unknown) and
   says which pack it needs. Shaders cannot touch files or the network, but can hang the GPU.
 
+## G. Owner review, 10-22 evening (his words condensed; recommendation after each)
+
+Quick wins (do first):
+- [ ] **G1 Sliders: see where it was, get back to it.** While dragging, a ghost dot marks the value
+  at touch-down and the thumb softly snaps back to it, and to 0, the default and 45/90/180 on angles.
+  ("Really hard to get it back to 0 or 90 or 45.") Room `KnobPanel` + web pilot; propose app-wide.
+- [ ] **G2 Sliders that seem to do nothing.** Many only act on the music (Sensitivity, Kick pump,
+  Kick flash, Bass swell, Pulse...) or only in some modes. Flag music-only knobs in `types.json`
+  (e.g. `"music": true`), show them with a small note badge and dimmed while it is silent/paused,
+  hover label "Acts on the music". Audit mode-only knobs and hide them where they do nothing
+  (`showFor` exists).
+- [ ] **G3 Turning with the sound.** The note on Turn already swings the angle with a sound (answer:
+  kick = punch, bass = slow swell, beat = steady). Add a Place **Spin** (a speed, `"rate"`) so a
+  layer (e.g. Sound City's woven floor) keeps turning and speeds up on the beat, smoothly.
+- [ ] **G4 Words fill the spiral.** (a) a bigger word buffer: `WordFeed.SLOTS` 16 -> ~48 (atlas
+  re-layout: 2 columns or shorter rows; `words.frag` SLOTS too; pilot `vislab-words.js`);
+  (b) **Look behind** knob (now fixed `back = 4.0` in `VisRenderer`); (c) **Shift** along the path
+  (put the words where you want them on the spiral / ribbon); (d) **Fade in / out** for every
+  behaviour (words popping in on the ribbon). Look ahead (`lead`) already exists.
+- [ ] **G5 Studio visualiser: the shared transform box + blend mode.** Move the visualiser from its
+  own older box onto Studio's shared transform box (`studiokit/.../transform/TransformOverlayView`,
+  same as pictures/text: move, corners, rotate handle below). Add **Blend mode** to its drawer,
+  default Normal, the image drawer's list (`layers.BlendMode`), preview and export.
+
+Bigger:
+- [ ] **G6 Split scenes into composable elements.** Aurora is curtains + mountains + stars in one
+  shader (snow is already a separate layer): he wants each on its own (soften the curtains, keep
+  stars crisp with their own twinkle behaviours, mountains he drives past instead of warping).
+  New elements: Aurora curtains, Mountains (ridge silhouette, drive-by scroll), Stars (crisp,
+  twinkle behaviours), plus an audit of other lumped scenes (Nebula has stars; Outrun = sun +
+  mountains + grid + sky; Woven floor's horizon glow). Stacking order + Light/paint gives the
+  occlusion. Keep the combined elements selectable; existing looks unchanged.
+- [ ] **G7 Studio proxies drive look knobs.** In Studio, a VisLab layer's Place (across, up, size,
+  turn) and a picture's own position / size / spin can follow a Studio proxy (dummy) object, so a
+  dummy animates them. Later: any knob driven by any Studio object's property.
+- [ ] **G8 Media inside looks** (he asked for options): (a) Sprite element: a SpriteLab sheet
+  playing inside the look (frame rate, a frame per beat, ping-pong), every effect applies;
+  (b) Video element: a clip decoded into the look; (c) Studio layer reference (precompose): a
+  look's media layer shows another Studio item rendered each frame; (d) VisLab's finishes (echo,
+  bloom, glitch, RGB split, warp) as a Studio effect on any clip or layer. Recommended order:
+  (a), then (c), with (d) as the long-term way to put the effects on anything; (b) if still needed.
+- Answered, no change: the picture's Across/Up/Size place the picture inside its layer; Place
+  moves/turns/scales the whole layer (every element has Place). Two levels allow layered motion
+  (frame the logo with its own knobs, give Place a music-linked bounce or a proxy link).
+
 ## Done this window (newest first)
 
 - [x] Every layer: Reactivity, Softness, Place made in its own space; smooth music speeds

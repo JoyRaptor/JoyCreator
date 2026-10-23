@@ -2332,6 +2332,11 @@ class GlPaintEngine(
             onLineNotice?.invoke(KEPT_AS_PIXELS)
             line = null
         }
+        if (line != null) lineAssetRefusal(line)?.let {
+            android.util.Log.i("JoyBrushLines", "kept as pixels: $it")
+            onLineNotice?.invoke(KEPT_AS_PIXELS)
+            line = null
+        }
         // H11: a stroke split across planes (it crossed a frame's edge) is ONE line to Select: the copies share a group.
         val group = line?.record?.groupId ?: if (line != null && written.map { it.celId }.distinct().size > 1) "g-" + UUID.randomUUID() else null
         // Phase 1 (H5): make every copy, unit and record WITHOUT touching NativeLines. On a throw the fresh textures are
@@ -2378,7 +2383,32 @@ class GlPaintEngine(
             slabs.forEach { it.after?.texture?.let(::recycleLayerTex) }
             throw e
         }
-        return PendingItems(slabs, lines, footprints, line?.brushes.orEmpty())
+        return PendingItems(slabs, lines, footprints, line?.brushes.orEmpty(), line?.assets.orEmpty())
+    }
+
+    /**
+     * Why a line whose brush draws from pictures cannot be kept as a line, null = it can: the drawing must hold, with this
+     * line, every picture each of its brushes needs, the same bytes under an id it knows, inside the saved-drawing budget
+     * (FrozenBrushAssets, what a save writes). Checked before anything changes, so a line that would make the drawing
+     * unsaveable, or unopenable, stays pixels instead.
+     */
+    private fun lineAssetRefusal(line: PendingLine): String? {
+        val brushes = nativeLines.brushes() + line.brushes
+        val assets = nativeLines.assets()
+        for ((id, pngs) in line.assets) {
+            if (id !in brushes) return "its brush pictures name no brush"
+            val known = assets[id]
+            if (known != null && !known.sameBytes(pngs)) return "its brush pictures differ from the ones this drawing keeps"
+        }
+        val all = line.assets + assets
+        val preset = brushes[line.record.brushId] ?: return null
+        if (cc.joycreator.joybrush.core.brush.BrushAssetPaths.required(preset).isNotEmpty() && line.record.brushId !in all)
+            return "its brush pictures are missing"
+        if (line.assets.isEmpty()) return null
+        return try {
+            cc.joycreator.joybrush.androidkit.io.FrozenBrushAssets.prepare(brushes.filterKeys { it in all }, all, retainEntries = false)
+            null
+        } catch (e: Exception) { e.message ?: "its brush pictures do not fit the drawing" }
     }
 
     /** Said (on the GL thread) when a stroke meant as a line is kept as pixels instead; the canvas shows it. */
@@ -2414,7 +2444,8 @@ class GlPaintEngine(
 
     /** What a stroke adds to the items of its planes, made but not yet applied ([commitPendingLine] phase 1). */
     private class PendingItems(val slabs: List<UndoLog.SlabChange<Int>>, val lines: List<UndoLog.LineChange>,
-                               val footprints: Map<Pair<LinePlane, String>, Set<Long>>, val brushes: Map<String, BrushPreset>) {
+                               val footprints: Map<Pair<LinePlane, String>, Set<Long>>, val brushes: Map<String, BrushPreset>,
+                               val assets: Map<String, cc.joycreator.joybrush.core.brush.FrozenBrushPngs> = emptyMap()) {
         companion object { val NONE = PendingItems(emptyList(), emptyList(), emptyMap(), emptyMap()) }
     }
 
@@ -2424,7 +2455,7 @@ class GlPaintEngine(
      */
     private fun installPendingItems(items: PendingItems) {
         if (items.slabs.isEmpty() && items.lines.isEmpty()) return
-        nativeLines.addBrushes(items.brushes)
+        nativeLines.addBrushes(items.brushes, items.assets)
         applyItemChanges(items.slabs, items.lines, forward = true, footprints = items.footprints)
     }
 

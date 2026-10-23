@@ -4,6 +4,7 @@ import cc.joycreator.joybrush.androidkit.lines.LinePlane
 import cc.joycreator.joybrush.androidkit.lines.LineSnapshot
 import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.brush.ENGINE_WATERCOLOUR
+import cc.joycreator.joybrush.core.brush.FrozenBrushPngs
 import cc.joycreator.joybrush.core.paint.Tiles
 import cc.joycreator.joybrush.core.stroke.StrokeRecord
 import java.util.TreeMap
@@ -85,17 +86,31 @@ internal class NativeLines(
     var revision = 0L
         private set
 
+    /** A frozen brush's tip pictures (Unibrush Texture, Dry, Sparkle...), by brush id: what its lines are redrawn and saved with. */
+    private val assets = LinkedHashMap<String, FrozenBrushPngs>()
+
     fun brush(id: String): BrushPreset? = brushes[id]
     fun brushes(): Map<String, BrushPreset> = LinkedHashMap(brushes)
+    fun assets(): Map<String, FrozenBrushPngs> = LinkedHashMap(assets)
 
-    /** New frozen copies. An id is a definition for good: a different definition under a known id is refused. */
-    fun addBrushes(entries: Map<String, BrushPreset>) {
+    /**
+     * New frozen copies, with the tip pictures of those that draw from pictures ([newAssets], by brush id). An id is a
+     * definition for good: a different definition, or different picture bytes, under a known id is refused, and a picture
+     * belongs to a brush the drawing holds. Checked whole before anything changes.
+     */
+    fun addBrushes(entries: Map<String, BrushPreset>, newAssets: Map<String, FrozenBrushPngs> = emptyMap()) {
         for ((id, preset) in entries) {
             val known = brushes[id]
             require(known == null || known == preset) { "Frozen brush \"$id\" already means another brush" }
         }
-        if (entries.keys.any { it !in brushes }) { revision++; brushRevision++ }
+        for ((id, pngs) in newAssets) {
+            require(id in entries || id in brushes) { "Frozen brush \"$id\" has pictures but no brush" }
+            val known = assets[id]
+            require(known == null || known.sameBytes(pngs)) { "Frozen brush \"$id\" already has other pictures" }
+        }
+        if (entries.keys.any { it !in brushes } || newAssets.keys.any { it !in assets }) { revision++; brushRevision++ }
         brushes.putAll(entries)
+        for ((id, pngs) in newAssets) assets.putIfAbsent(id, pngs)
     }
 
     /** Grows only when the drawing's kept brushes change (a freeze answer stays good across ordinary line commits). */
@@ -272,7 +287,7 @@ internal class NativeLines(
 
     /** Forget everything (a new drawing). Textures are released by their steps / the caller. */
     fun clear() {
-        planes.clear(); brushes.clear(); extras.clear()
+        planes.clear(); brushes.clear(); assets.clear(); extras.clear()
         revision++; brushRevision++
     }
 
@@ -283,6 +298,7 @@ internal class NativeLines(
         itemPlanes(),
         brushRevision = brushRevision,
         slabTiles = slabTileCount(),
+        brushAssets = assets,
     )
 
     companion object {

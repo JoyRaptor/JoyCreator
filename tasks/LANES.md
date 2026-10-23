@@ -1178,3 +1178,10 @@ files (small hooks only, announced): FaditorEditorActivity (AIChatState reload b
   LobbyFragment (Joybot lines only) · ui/faditor/undo/UndoManager (one overload)
 NOT touching: joybrush/, joybrush-android/, joyfolder/ (reuses ShareInbox as-is).
 DEVICE: none reserved; asks the owner before any install.
+
+## Watercolour live integration — October23
+Branch vector/watercolour-live-20261023; C:/Temp/jb-watercolour-live-20261023;
+base origin/joy-creator e5a0f02c0. Owner requested live watercolor spec L1–L7.
+Plan and evidence: tasks/joybrush/reviews/WATERCOLOUR_LIVE_20261023.md.
+Measure L1 first; then prewarm, per-brush admission, wash-frame transforms,
+save/reopen, owner appearance and performance. Shared locks/Lead own sequencing.

@@ -725,3 +725,10 @@ are requested here; this is the interface boundary for coordinating the upcoming
 
 ## JoyBrush Lead overnight — October15
 Root owns engine/View/Scene integration in C:/Temp/jb-live-current; latest HANDOFF_20261015.md. Actual promotion GPU refused shared-cel legacy alias safely; root correction under full serialized checks, not yet accepted. Pure captured-domain value from isolated jb-captured-source is under focused checks, no format activation. Sol audits cold load-plan read-only. Preserve primary and all source partials; fresh shared Gradle/phone locks and Home gates apply. Independent Claude audit can use the new checkpoint after verified publication; no overlapping hot-file edits requested.
+
+## Watercolour live integration — October23
+Branch vector/watercolour-live-20261023; C:/Temp/jb-watercolour-live-20261023;
+base origin/joy-creator e5a0f02c0. Owner requested live watercolor spec L1–L7.
+Plan and evidence: tasks/joybrush/reviews/WATERCOLOUR_LIVE_20261023.md.
+Measure L1 first; then prewarm, per-brush admission, wash-frame transforms,
+save/reopen, owner appearance and performance. Shared locks/Lead own sequencing.

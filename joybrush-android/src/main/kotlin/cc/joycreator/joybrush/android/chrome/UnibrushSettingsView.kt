@@ -459,7 +459,11 @@ class UnibrushSettingsView(
         section(if (tip) "Tip texture" else "Stroke texture")
         fun get(p: BrushPreset) = if (tip) p.tipTexture else p.paperGrain
         fun put(p: BrushPreset, g: GrainSpec) = if (tip) p.copy(tipTexture = g) else p.copy(paperGrain = g)
-        toggle("${if (tip) "Tip" else "Stroke"} texture", { get(model).enabled }) { v -> structural { p -> put(p, get(p).copy(enabled = v)) } }
+        toggle("${if (tip) "Tip" else "Stroke"} texture", { get(model).enabled }) { v -> structural { p ->
+            val q = put(p, get(p).copy(enabled = v))
+            // With Paper at 0 a stroke texture shows nothing: switched on, it starts at half, catching the tooth by direction.
+            if (!tip && v && q.paper.influence == 0f) q.copy(paper = q.paper.copy(influence = .5f, directional = maxOf(q.paper.directional, .6f))) else q
+        } }
         if (!get(model).enabled) return
         if (tip) {
             choices("Texture source", listOf("cloud", "image"), { if (it == "cloud") "Cloud" else "Image" }, { get(model).source }) { source ->
@@ -475,6 +479,13 @@ class UnibrushSettingsView(
         number("Texture edge", 0f, 1f, { get(it).edge }, { p, v -> put(p, get(p).copy(edge = v)) }, format = ::percent)
         number("Texture tilt gradient", -4f, 4f, { get(it).tiltGradient }, { p, v -> put(p, get(p).copy(tiltGradient = v)) })
         number("Texture radial gradient", 0f, 4f, { get(it).radial }, { p, v -> put(p, get(p).copy(radial = v)) })
+        if (tip) return
+        // How the stroke meets the document's paper (the brush sheet's Paper / Direction / Wet, same words and range).
+        fun paper(title: String, read: (PaperResponse) -> Float, write: (PaperResponse, Float) -> PaperResponse) =
+            number(title, 0f, 1f, { read(it.paper) }, { p, v -> p.copy(paper = write(p.paper, v)) }, format = ::percent)
+        paper("Paper", { it.influence }) { r, v -> r.copy(influence = v) }
+        paper("Direction", { it.directional }) { r, v -> r.copy(directional = v) }
+        paper("Wet", { it.wet }) { r, v -> r.copy(wet = v) }
     }
 
     private fun endsControls() {

@@ -59,7 +59,8 @@ object UnibrushModes {
             // Tip grain rotates with the nib; paper grain reads the document's fixed canvas surface.
             tipTexture = GrainSpec(enabled = true, scale = 1.5f, depth = Param(.45f)),
             paperGrain = GrainSpec(enabled = true, depth = Param(.35f)),
-            paper = PaperResponse(influence = .4f), spacing = .12f), PressureBehavior.both)
+            // Pigment catches the side of each bump of the paper that faces the stroke (owner, 2026-10-23: on by default).
+            paper = PaperResponse(influence = .4f, directional = .6f), spacing = .12f), PressureBehavior.both)
 
         val round = pressure(base("round", "Round", 16f, hardness = .85f), PressureBehavior.both)
 
@@ -79,7 +80,10 @@ object UnibrushModes {
         val dryBase = base("dry", "Dry", 40f, hardness = .65f)
         val dry = pressure(dryBase.copy(tip = dryBase.tip.copy(dual = DualTipSpec(
             shape = null, image = DualImageSpec(DRY_PATH), scale = .28f, spacing = .55f,
-            scatter = .5f, mode = DualMode.multiply)), flow = Param(.65f), spacing = .12f),
+            scatter = .5f, mode = DualMode.multiply)), flow = Param(.65f), spacing = .12f,
+            // A dry brush skips over the paper's tooth and catches the bumps facing its travel, as the bristle brush does.
+            paperGrain = GrainSpec(enabled = true, depth = Param(.35f)),
+            paper = PaperResponse(influence = .6f, directional = .8f)),
             PressureBehavior.ink)
 
         val sparkleBase = base("sparkle", "Sparkle", 20f, roundness = 0f,

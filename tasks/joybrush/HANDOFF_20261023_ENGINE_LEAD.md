@@ -68,6 +68,16 @@ washes, and whatever the owner's hands find. Roughly 1-2 weeks for a strong agen
 
 ## 4. Where I would go next (in order)
 
+**0. Owner's first test of water jobs (10-23): water runs SLOWER than before (tilting hard used to make it race), lines a
+little grainier, still runs out of room zoomed out; seams gone, generally better.**
+- Slower water is a cap I left: a sliced job is 2 steps and `wetFrameInner` starts at most ONE job a frame (`if (job ==
+  null) startJob…; runJob(budget)` returns when the job ends even with budget left), so water gets <= 2 steps (1/60 s) a
+  frame; before it was 4 a frame (real time at 30 fps). Fix: after a job ends with budget left, start the next one in the
+  same frame (loop in `wetFrameInner`, up to ~4 steps a frame or the budget), then re-measure the crowd bench (frames must
+  stay ~50 ms) and let him tilt-test. Quick, do it first.
+- Grainier lines = granulation now works (b64219da1; it was 0 before). Brush advanced settings have a Granulation knob;
+  if he wants the old smoothness, lower the watercolour presets' `gran`, don't unwire it.
+
 **A. Room: the atlas working space** (refusal "This watercolour stroke reaches further than this phone can hold at once").
 The Note 9 gets 34-48 slots depending on free memory AT ENGINE CREATION (1.3-1.9 GB free swings run to run); a wet tile
 needs its 8 neighbours, so ~a 4x4-tile wet area (one screen at 1:1) fills it. The real fix is **out-of-core water**: run a

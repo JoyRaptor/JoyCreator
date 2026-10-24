@@ -25,6 +25,41 @@ import org.robolectric.annotation.Config
 class SelectionSyncTest {
     @org.junit.After fun clearClipboard() { LineSelectionClipboard.clearForTests() }
 
+    @Test fun oldDrawingRefusalCannotCancelTheNewDrawingsDragOrPendingEdit() = oldDrawingAnswerIsIgnored(false)
+    @Test fun oldDrawingSuccessCannotRedrawOrReconcileTheNewDrawing() = oldDrawingAnswerIsIgnored(true)
+
+    private fun oldDrawingAnswerIsIgnored(ok: Boolean) {
+        val b = Bench()
+        b.rig.canvas.supportsLineLift = true
+        b.select("a")
+        assertTrue(b.move(12f)) // drawing A, callback still pending
+        b.tool.end()
+        b.rig.canvas.epoch++
+        b.rig.publish(mapOf(planeP to listOf(lineRecord("a", 1, x0 = 400f), lineRecord("b", 2, y = 30f))))
+        b.select("a")
+        assertTrue(b.move(20f)) // drawing B has its own pending edit
+        val q = b.tool.boxDoc!!.copyOf()
+        for (i in 0 until 4) q[i * 2] += 9f
+        b.tool.beginBox()
+        assertTrue(b.tool.boxTo(q)) // B is now in a second, unfinished drag
+        val shown = b.tool.boxDoc!!.copyOf()
+        val notes = b.rig.ui.notes.toList()
+        val redraws = b.rig.canvas.redraws
+        val overlays = b.rig.ui.overlays
+
+        b.rig.canvas.answer(0, LineEditResult(ok, if (ok) null else "Old drawing refused"))
+
+        assertEquals("old answer must not report into drawing B", notes, b.rig.ui.notes)
+        assertTrue(b.rig.ui.refusals.isEmpty())
+        assertEquals(redraws, b.rig.canvas.redraws)
+        assertEquals(overlays, b.rig.ui.overlays)
+        assertEquals(setOf("a"), b.selectedIds())
+        assertArrayEquals(shown, b.tool.boxDoc!!, 0f)
+        assertTrue("B's accepted edit must stay pending", b.rig.host.editing)
+        assertEquals(420f, b.rig.host.activeLines().first { it.id == "a" }.record.samples.first().x, 0f)
+        b.tool.cancelBox()
+    }
+
     private class Bench {
         val rig = Rig()
         val tool = SelectTool(rig.host, 1f) { true }

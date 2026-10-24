@@ -179,6 +179,7 @@ class SelectController(
     /** K18: the strip calls this when Select is tapped while it is already in the hand. */
     fun showSettings(anchor: View) {
         tool.updateView(canvas.view)
+        preferences.observeLockedLines(host.visibleLines().any { it.locked })
         val settings = SelectSettingsView(kit, picks.fingerSelects, app.paintMakesLines(),
             onFingerSelects = { on -> preferences.fingerSelects = on; picks = picks.copy(fingerSelects = on) },
             onPaintMakesLines = app::setPaintMakesLines,
@@ -188,8 +189,14 @@ class SelectController(
             onSelectAllLines = { popovers.close(); tool.selectAllLines(); refresh() },
             onPasteLines = { popovers.close(); pasteLines() },
             onPickLocked = { on -> preferences.pickLocked = on; picks = picks.copy(pickLocked = on) },
-            onDimRest = { on -> preferences.dimRest = on; picks = picks.copy(fadeRest = if (on) 0.66f else 0f) })
-        popovers.show(settings, anchor, Popovers.Side.BESIDE, widthDp = 260f)
+            onDimRest = { on -> preferences.dimRest = on; picks = picks.copy(fadeRest = if (on) 0.66f else 0f) },
+            showLockedOption = preferences.lockedOptionRevealed)
+        showScrollableMenu(settings, anchor, Popovers.Side.BESIDE, widthDp = 260f)
+    }
+
+    private fun showScrollableMenu(content: View, anchor: View, side: Popovers.Side, widthDp: Float) {
+        val scroll = SelectMenuScrollView(kit.context, content) { popovers.topInsetPx + kit.dpi(12f) }
+        popovers.show(scroll, anchor, side, widthDp)
     }
 
     // ── the touch gate (D12, P8 B) ──
@@ -234,6 +241,7 @@ class SelectController(
         when (s) {
             is SelectionState.Lines -> {
                 val recs = host.visibleLines().filter { it.address in s.ids }
+                preferences.observeLockedLines(recs.any { it.locked })
                 val colours = recs.map { it.record.colorArgb }.distinct().take(2)
                 val icon = recs.firstOrNull()?.let { app.brushIcon(it.record.brushId) } ?: JbIcon.BRUSH
                 row.showLines(colours, icon, 1f, picks.chipsInRow)
@@ -445,7 +453,7 @@ class SelectController(
             }
             item(null, "Invert", "Select the other unlocked lines on this layer") { tool.invertSelection(); refresh() }
         }
-        popovers.show(list, anchor, Popovers.Side.BELOW, widthDp = 220f)
+        showScrollableMenu(list, anchor, Popovers.Side.BELOW, widthDp = 220f)
     }
 
     /** Paste records into the current editable plane, assigning fresh identities and importing their frozen brushes. */

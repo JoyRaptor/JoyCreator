@@ -25,6 +25,7 @@ class SelectSettingsView(
     private val onPasteLines: () -> Unit = {},
     private val onPickLocked: (Boolean) -> Unit = {},
     private val onDimRest: (Boolean) -> Unit = {},
+    showLockedOption: Boolean = false,
 ) : LinearLayout(kit.context) {
     init {
         orientation = VERTICAL
@@ -40,7 +41,7 @@ class SelectSettingsView(
         })
         action("Select all lines", "Select every editable line on this layer", onSelectAllLines)
         if (canPasteLines) action("Paste", "Paste the copied editable lines onto this layer", onPasteLines)
-        toggle("Pick locked lines too", pickLocked, onPickLocked)
+        if (showLockedOption || pickLocked) toggle("Pick locked lines too", pickLocked, onPickLocked)
         toggle("Dim the rest while selecting", dimRest, onDimRest)
     }
 

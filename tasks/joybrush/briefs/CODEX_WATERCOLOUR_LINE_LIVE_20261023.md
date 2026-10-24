@@ -45,3 +45,31 @@ Size guide: L1, L3, L5 and L6 are small to medium; L2 and L4 are medium; L7 depe
 NativeLines, save and replay. Watercolour dabs are SHIPPED assets, referenced by name, so L5 doesn't need U3–U5. But if the
 owner ever loads his own watercolour dabs (R12: his photographed samples), they ride the same U3–U5 path: build it once
 for both.
+
+## L3 addendum: the owner's ruling (2026-10-24) and the UI specialist's reconciliation
+
+Owner, verbatim: "A switch on each brush, badge appears when vector or raster was last used, ability to toggle is
+disabled or hidden from brushes that cannot be vector. smuge brush has the drop feature /rasterize a vector line or
+section it touches, other mode ignores vector lines."
+
+Design source: JB-5.20 D6/D8, JB-5.20e D22/D23 and §K K25 (UI specialist). **Fix e9b6ff9b6 before it lands:**
+1. **Defaults.**
+   - ON for the line brushes: the ten `brushes/lines/*.json` and the watercolour vector brush.
+   - OFF for painting brushes.
+   - Pixels-always brushes (media, smudge, wet, blur, clone, paste) are always false and get NO switch.
+   - **Remove the legacy global fallback** (`joybrush.editableLines`): one old menu tick must not turn every painting
+     brush into lines.
+2. **Storage** stays as built: a per-brush pref keyed by brush id, also read by the badge.
+3. **Place.**
+   - The ⋯ menu row "Brush makes lines" may stay as a shortcut for the current brush.
+   - The real switch, the two-state badge (vector or raster, last used) and the hidden switch with its sentence are the
+     UI specialist's A10, not yours.
+4. **Smudge (engine side; the lead decides who builds it).** D8 is amended: the default Smudge bakes only the TOUCHED
+   SECTION.
+   - Slice the line at the smudge footprint's edges.
+   - Bake the touched piece into pixels; the untouched pieces stay editable lines.
+   - One undo step, then the toast "That line became pixels." with Undo.
+   - The split operation is the same one Slice (D24) needs: build it once.
+   - "Smudge paint only" runs on the pixel slabs and never reads a line.
+   - **Existing bug to fix with it:** today a smudge on a line layer makes a slab that copied the line's pixels, so a
+     moved line leaves a smear ghost.

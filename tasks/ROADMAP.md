@@ -9,6 +9,12 @@ is the whole point of it. If an idea arrives, it goes to INBOX.md.
 
 **AFTER LAUNCH is open.** Reorder it freely, as often as you like. Reordering costs nothing.
 
+**Joy Brush Select update, 2026-10-24:** line-selection A1–A8 are built on `codex/select-lines`;
+integration, final suites and Note 9/UI acceptance remain open. Slice, the editable-lines default UI,
+ring Bend and Phase B have explicit engine/design gates. See the
+[Select delivery rows](joybrush/ROADMAP.md#select-completion-delivery--2026-10-24) and
+[implementation evidence](joybrush/reviews/SELECT_LINES_IMPLEMENTATION_20261024.md).
+
 ---
 
 # PART ONE — BEFORE LAUNCH

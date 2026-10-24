@@ -7,6 +7,25 @@
 
 ---
 
+## Select completion delivery — 2026-10-24
+
+The [Select brief](briefs/CODEX_SELECT_LINES_20261023.md) extends JB-5.20e. Delivery is on
+`codex/select-lines`; Lead integration and UI review are still required.
+
+| Brief slice | Status | Remaining proof or dependency |
+|---|---|---|
+| A1–A4: line clipboard, metadata actions, HSB preview, history reconciliation | Built; app selection regression check passed 122 tests before final review fixes | Final rerun, core/androidkit suites and Note 9 acceptance |
+| A5: settings actions, locked picking, dim preference | Built | White/dark paper screenshots; UI C3 owns the veil |
+| A6: scoped Select all / Rasterize Down / Flatten Lower | Built | Final core tests and phone acceptance; refresh snapshot after flatten included |
+| A7–A8: eyedropper recolour and nudge-before ghost | Built | Phone gesture review and ghost screenshot |
+| A9: Slice | Engine dependency documented; no invalid preset shipped | Zero-width cut admission and atomic split transaction |
+| A10: badge, optional per-brush switch, once-only toasts | Waiting on L3 | Vector candidate exists; owner default is not settled/landed |
+| G12: ring Bend | Waiting on vector L4 | Wash-frame integration and acceptance |
+| Phase B: pixel selection | Not started; gated by brief | Phase A merged, design note and Lead approval |
+
+Evidence and integration commits: [Select implementation review](reviews/SELECT_LINES_IMPLEMENTATION_20261024.md).
+No row above claims owner sign-off, main integration or phone verification.
+
 ## 1. Who are you? Pick your role
 
 The person who started you will usually say it ("you are a design builder"). If not, pick the

@@ -35,7 +35,9 @@ Supporting source: `cc1061634`; separate `LEAD PATCH:` commits are listed in
 | Eyedropper recolour and 20% nudge-before ghost | Built; gesture/ghost tests; phone screenshots owed. |
 
 Latest app selection check: **122 tests, zero failures/errors**, plus Kotlin compile, before the final
-snapshot-publication/refused-edit review fixes. Final rerun and standalone core/androidkit suites are in progress.
+snapshot-publication/refused-edit review fixes. Final rerun and standalone core/androidkit suites remain owed:
+the shared build wrapper could not admit the standalone run while free RAM stayed below its 2.2 GB threshold;
+the waiting request was cancelled before Gradle started. No build is left queued by this lane.
 No phone verification or main integration claimed.
 
 **Still open:** A9 Slice needs zero-width cut admission and an atomic split transaction; A10 badge/switch/toasts

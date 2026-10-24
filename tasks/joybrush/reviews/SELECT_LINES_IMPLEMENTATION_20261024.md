@@ -6,7 +6,7 @@ Branch: `codex/select-lines`. Base: `e5a0f02c0`. Integration belongs to the Engi
 
 | Brief | What the owner can do after integration | Current evidence |
 |---|---|---|
-| A1 | Copy lines across drawings in the same app session; Paste imports their kept brushes, assigns fresh line/group identities and selects the copies. Copies remain in place when their centre is visible, otherwise they centre in the current view. | Source and regression coverage added; final tests pending. Translation uses `LineTransform.apply`, so the vector lane's wash-frame extension is honoured. |
+| A1 | Copy lines across drawings in the same app session; Paste imports their kept brushes, assigns fresh line/group identities and selects the copies. Copies remain in place when their centre is visible, otherwise they centre in the current view. Paste targets the current cel under that destination. | Clipboard/host regression tests passed, including frame boundaries. Translation uses `LineTransform.apply`, so the vector lane's wash-frame extension is honoured. |
 | A2 | Lock/unlock, group/ungroup and invert line selections; choose whether locked lines can be picked. | One replacement transaction per metadata action. Group expansion also respects the locked-line filter. Save codec round-trip coverage added. |
 | A3 | Shift each selected line's hue, saturation or brightness while retaining its own colour relationship. | Preview uses the lifted lines, writes no history, and release commits one edit. Each slider returns to neutral after applying its relative change. |
 | A4 | Undo/refit a moved selection; recover the selection after undoing Delete; retain surviving lines when only part of a selection disappears. | Late snapshots with unchanged selected records preserve an unfinished drag. A drawing epoch prevents selection recovery across Open. |
@@ -18,8 +18,9 @@ Branch: `codex/select-lines`. Base: `e5a0f02c0`. Integration belongs to the Engi
 ## Verification
 
 - Initial draft: `:joybrush-android:compileDebugKotlin` **PASS**, 8m07s, under `lead-build.sh` with a 768 MB Gradle heap. This predates the final review fixes and layer actions; it is not the final compile claim.
-- Final app selection tests: pending.
-- Core and androidkit suites: pending.
+- App selection tests plus Kotlin compile: **PASS**, 122 tests across 18 XML suites, zero failures/errors, 7m13s. This includes destination-cel and exact-layer-scope regressions, but predates the two final review fixes described below. Scratch log: `jb-select-final-tests.log`.
+- Final review fixes: `614c6eb1f` publishes the line snapshot after Flatten Lower; `cc1061634` restores exact addresses after a refused edit instead of expanding their groups. Final rerun is still owed.
+- Core and androidkit full suites: **not run to completion**. The standalone request remained outside Gradle at the shared wrapper's 2.2 GB free-RAM admission check; cancelled before Gradle started. No suite pass is inferred from the app check.
 - Phone: no install or acceptance claim yet.
 
 ## Dependencies to the Lead and vector/UI specialists
@@ -31,9 +32,10 @@ record into two needs an atomic remove-and-add batch with one history step. Addi
 either fail loading or silently behave as a raster eraser. No invalid or misleading preset was added. The Lead needs to
 provide the zero-width cut admission and atomic split transaction before the shelf preset can be made usable.
 
-**A10 / G11 — waits for L3.** The vector lane's `WATERCOLOUR_LIVE_20261023.md` still lists the per-brush/global editable
-default as pending. The badge, per-brush setting and once-only toasts must follow that choice. No default was chosen by
-this lane.
+**A10 / G11 — waits for L3.** The vector specialist reports a per-brush candidate (`e9b6ff9b6`,
+`BrushLinePreferences`, watercolour default ON), with unchanged Select-host callback signatures. The owner default
+is not settled and the candidate is not accepted/landed. The badge, per-brush setting and once-only toasts must follow
+that choice. No default was chosen by this lane.
 
 **Ring Bend / G12 — waits for L4.** `LineTransform.kt` and the watercolour wash-frame implementation remain vector-owned.
 
@@ -44,3 +46,15 @@ design note required by the brief. No pixel engine work is included here.
 
 Supporting Select/core implementation must be applied before the separate `LEAD PATCH:` commits, which name its new
 helpers. The branch as a whole retains all those dependencies. No merge to `joy-creator` is performed by this lane.
+
+- Supporting source: `cc1061634` (apply first).
+- Lead patches, in order: `b87f1273c`, `38e699cd5`, `2e8cf6120`, `6f6460736`, `d192b6197`, `66f180815`, `5e4eb7ffe`, `614c6eb1f`.
+- State/roadmap update: `98d925b70`, plus this follow-up evidence update.
+- Branch pushed; Lead and UI specialist were sent the integration/review request. C1/C2 phone and look review remain open.
+- Latest `origin/joy-creator` inspected at `a94933ad7`; no Select-lane integration was found.
+
+## Cleanup status
+
+The worktree and its current test evidence are retained because integration, final validation and dependent slices
+remain unfinished. No shared phone/build lock was removed. Other specialists' `jb-select-*` folders and older logs
+are not owned by this lane and were not deleted. No build is left queued by this lane.

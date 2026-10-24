@@ -83,6 +83,6 @@ Parked: VisLab (brief in tasks/VISLAB_BRIEF.md); Joy Brush send-into-existing-pr
 - [x] Implement A1–A8 source and the required scoped Lead patches.
 - [ ] Run final app Select tests and core/androidkit suites under the shared build lock.
 - [ ] Complete available Note 9 screenshots and acceptance; distinguish any remaining phone gates.
-- [ ] Publish branch/evidence for Lead and UI review.
+- [x] Publish codex/select-lines and integration/evidence notes for Lead and UI review; update STATE and both roadmaps.
 - [ ] Resolve A9's atomic Slice engine dependency and A10's L3 default dependency before claiming all Phase A complete.
 See tasks/joybrush/reviews/SELECT_LINES_IMPLEMENTATION_20261024.md.

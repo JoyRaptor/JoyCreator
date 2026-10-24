@@ -47,6 +47,7 @@ internal class GlWatercolourLineRenderer(shaders: ShaderLibrary, private val til
             require(outputs.keys.containsAll(keys)) { "Watercolor line look is missing output tiles" }
             pass.recolour(tint,hasPaper,bindPaper)
         }
+        pass.setWashFrame(record.washFrame)
         pass.finishInto(outputs,1f,keys)
         return keys
     }

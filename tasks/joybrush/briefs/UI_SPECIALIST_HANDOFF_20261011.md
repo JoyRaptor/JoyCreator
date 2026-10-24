@@ -245,3 +245,19 @@ Activity still must supply accepted resting-finger context to App.hasRestingThum
 and chain controller.viewMoved() into existing onViewMoved sampling. Current count string
 IDs migrate with LineAddress before all-layer live edits. Real Activity/engine binding,
 Lock/Group/Invert and phone acceptance remain open. No preview/pencil/default/engine edits.
+
+## October24 — Select delivery C1/C2 review
+
+Read cc1061634/status98d925b70 from codex/select-lines in isolated
+C:/Temp/jb-ux-review-20261024, ui/select-review-20261024. The existing staged work in
+C:/Temp/jb-select-ux is preserved. Report: reviews/SELECT_C2_SOURCE_REVIEW_20261024.md.
+C2 static review is complete with notes; rendered C2 acceptance and C1 phone pass remain OPEN.
+
+The expanded D2/More content has no scrolling/height adaptation, so short-window/larger-text
+fit needs correction or proof. Pick locked lines is always shown despite D2's reveal condition.
+Per-brush priority wording remains conditional on real L3/A10 integration. New labelled actions,
+full-pill cut-out choices and single-layer20% nudge ghost follow the source design; source is
+not a screenshot/feel test. White/dark D2, layer-row and ghost captures are still owed after
+Lead integration and final rerun on an identified APK. The report extends the existing C1
+checklist without replacing it. C3 veil remains separate and unimplemented by A5 preference
+wiring. No build/device action, hot-file edit, preview update or phone-acceptance claim.

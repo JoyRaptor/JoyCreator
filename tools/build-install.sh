@@ -59,6 +59,23 @@ export ANDROID_SERIAL="$SANDBOX_SERIAL"
 export JAVA_TOOL_OPTIONS="-Djdk.net.unixdomain.tmpdir=C:\\Windows\\Temp"
 TASK="${1:-:app:installDefaultDebug}"
 
+# PHONE LOCK (DEVICE_CONTROL_RUNBOOK): an install restarts the app under whoever is testing.
+# Refuse while someone else holds a fresh lock (under 30 min). Found 2026-10-24: a Joybot run
+# chained this after a REFUSED claim and reinstalled mid-way through another session's test.
+LOCK="$LOCALAPPDATA/Temp/jb-phone.lock"
+case "$TASK" in *install*)
+  if [ -f "$LOCK" ]; then
+    # phone.ps1 writes the file with a UTF-8 BOM: strip it, or the holder never matches PHONE_OWNER.
+    HOLDER="$(head -1 "$LOCK" | sed 's/^\xEF\xBB\xBF//' | tr -d '\r')"
+    AGE=$(( $(date +%s) - $(stat -c %Y "$LOCK" 2>/dev/null || echo 0) ))
+    if [ -n "$HOLDER" ] && [ "$HOLDER" != "${PHONE_OWNER:-}" ] && [ "$AGE" -lt 1800 ]; then
+      echo "REFUSING to install: the phone is held by '$HOLDER' ($(sed -n 3p "$LOCK" | tr -d '\r'))."
+      echo "Set PHONE_OWNER to your lane after claiming it, or build without installing (assembleDefaultDebug)."
+      exit 1
+    fi
+  fi
+;; esac
+
 ./gradlew.bat --offline "$TASK" 2>&1 | tail -25
 STATUS=${PIPESTATUS[0]}
 [ "$STATUS" -eq 0 ] || { echo "BUILD FAILED ($STATUS)"; exit "$STATUS"; }

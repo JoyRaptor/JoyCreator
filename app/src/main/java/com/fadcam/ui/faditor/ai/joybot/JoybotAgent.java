@@ -541,6 +541,11 @@ public final class JoybotAgent {
                     if (round == 0) finish(false, "I got an empty reply. Try asking again.");
                     // After a confirm card nothing is done yet: "Done." under an unanswered Export
                     // card read as if it had exported (Note 9, 2026-10-15).
+                    // An empty reply after a refusal is not "Done.": nothing changed, so say what stopped it
+                    // (Note 9, 2026-10-23: a locked title, then "Done.").
+                    else if (lastError != null && !changedSomething()) {
+                        finish(false, "Nothing changed: " + shortOf(lastError.replaceFirst("^Error:\\s*", "").split("\n")[0]));
+                    }
                     else finish(true, cardWaiting ? "It's on the card above: tap its button when you're ready." : "Done.");
                     return;
                 }
@@ -647,7 +652,9 @@ public final class JoybotAgent {
                 boolean unfinished = claimsAChange(aiText) || HelpBook.wantsChange(ask.text);
                 boolean hasWork = ask.projectId != null || ask.situation.room == IdeaEngine.Room.VISLAB
                         || ask.situation.room == IdeaEngine.Room.JOYBRUSH;
-                if (!nudged && !changedSomething() && hasWork && !ask.question
+                // A refusal ("it's locked", "ask first") is an honest answer, not a model dodging the
+                // work: don't push it to "make the change now" (it unlocked a title to obey, 10-23).
+                if (!nudged && !changedSomething() && lastError == null && hasWork && !ask.question
                         && !aiText.trim().endsWith("?") && unfinished) {
                     // Nothing in the project changed, yet the reply claims it did (a free model,
                     // Note 9 2026-10-14) or the person asked for a change and got a description
@@ -858,12 +865,14 @@ public final class JoybotAgent {
             } else {
                 com.fadcam.ui.faditor.model.FaditorProject p = new JoybotStorage(app).load(ask.projectId);
                 JoybotEyes.Sight s = p == null ? null
-                        : JoybotEyes.look(app, p, id, args.optLong("atMs", -1), ask.situation.playheadMs);
+                        : JoybotEyes.look(app, p, id, args.optLong("atMs", -1), ask.situation.playheadMs,
+                                args.optBoolean("source", false));
                 if (s == null) {
                     result = "Error: " + (p == null ? "the project could not be read." : JoybotEyes.lastProblem);
                 } else {
                     sight = s;
-                    result = "You are looking at " + s.caption + " The picture is attached to THIS"
+                    JoybotEyes.keepLast(app, s);
+                    result = "You are looking at " + s.caption + "\nThe picture is attached to THIS"
                             + " message only; call look again if you need another view later.";
                 }
             }
@@ -1174,8 +1183,10 @@ public final class JoybotAgent {
             }
             // Drop the oldest whole requests (one person message up to the next) while too big.
             int size = 0;
-            for (JSONObject m : out) size += m.toString().length();
             int first = !out.isEmpty() && "system".equals(out.get(0).optString("role")) ? 1 : 0;
+            // The system message isn't counted: it holds the whole tool manual (sent as tool
+            // definitions instead), and counting it dropped every earlier turn (Note 9, 10-23).
+            for (int i = first; i < out.size(); i++) size += out.get(i).toString().length();
             int ownStart = Math.max(first, own);
             while (size > HISTORY_BUDGET && ownStart > first) {
                 int next = ownStart;   // with no later person message, the rest of the old part goes
@@ -1251,8 +1262,6 @@ public final class JoybotAgent {
             }
         }
 
-        /** A compact, just-read picture of the project. Blocking (reads the project). */
-        @NonNull
         /** JoyBrush: the open drawing in words, read just now (the joybrush tools change it). */
         @NonNull
         String joyBrushNow() {
@@ -1267,14 +1276,16 @@ public final class JoybotAgent {
             }
         }
 
+        /** A compact, just-read picture of the project. Blocking (reads the project). */
+        @NonNull
         String context() {
             Situation s = ask.situation;
             StringBuilder sb = new StringBuilder("CURRENT PROJECT (read just now; trust it over anything earlier in the chat)\n");
             sb.append("Joybot was opened from: ").append(s.room.name().toLowerCase(Locale.US)).append('\n');
             if (s.room == IdeaEngine.Room.VISLAB) sb.append(visLabNow());
+            if (s.room == IdeaEngine.Room.JOYBRUSH) sb.append(joyBrushNow());
             String pid = ask.projectId;
             if (pid == null) return sb.append("No project is open.\n").toString();
-            if (s.room == IdeaEngine.Room.JOYBRUSH) sb.append(joyBrushNow());
             try {
                 // JoybotStorage: with the editor on screen this is the project open there, edits
                 // made since the chat closed included.

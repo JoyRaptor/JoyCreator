@@ -182,6 +182,14 @@ final class OrganiseActions {
         }
         if (a.has("locked")) {
             boolean want = a.bool("locked");
+            if (h.locked() && !want && !PersonSaid.asked("\\bunlock") && !PersonSaid.yesTo("unlock")) {
+                // Locked means "don't change this by accident": only the person unlocks it — in
+                // their own words, or "yes" to Joybot asking (a free model unlocked a title on its
+                // own and moved it, Note 9 2026-10-23).
+                throw new ActionError("Waiting for your OK to unlock it.\nNot done: " + h.describe() + " is locked"
+                        + " and only the person can unlock it. Ask them whether to unlock it and stop; unlock it"
+                        + " only if they say so.");
+            }
             if (h.locked() != want) {
                 h.setLocked(want);
                 changed = true;

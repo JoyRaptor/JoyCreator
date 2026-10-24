@@ -41,6 +41,8 @@ the waiting request was cancelled before Gradle started. No build is left queued
 Coordinator is now preparing an isolated integration and owns the final suites. C2 source follow-up `b590e58c5`
 adds five tests for short windows/large text/Paste, scrolling targets/resize, outside dismissal and persisted reveal.
 These five tests have not been executed by this lane; phone and visual acceptance are still owed.
+Follow-up `2cbfbfb86` hides the per-brush-priority caption unless the host explicitly advertises that capability;
+the current global-only host defaults to false. One caption-gating view test was added, not executed here.
 No phone verification or main integration claimed.
 
 **Still open:** A9 Slice needs zero-width cut admission and an atomic split transaction; A10 badge/switch/toasts

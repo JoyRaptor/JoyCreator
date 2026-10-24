@@ -19,7 +19,7 @@ The [Select brief](briefs/CODEX_SELECT_LINES_20261023.md) extends JB-5.20e. Deli
 | A6: scoped Select all / Rasterize Down / Flatten Lower | Built | Final core tests and phone acceptance; refresh snapshot after flatten included |
 | A7–A8: eyedropper recolour and nudge-before ghost | Built | Phone gesture review and ghost screenshot |
 | A9: Slice | Engine dependency documented; no invalid preset shipped | Zero-width cut admission and atomic split transaction |
-| A10: badge, optional per-brush switch, once-only toasts | Waiting on L3 | Vector candidate exists; owner default is not settled/landed |
+| A10: badge, optional per-brush switch, once-only toasts | Waiting on L3; D2 priority caption now capability-gated (`2cbfbfb86`) | Vector candidate exists; owner default is not settled/landed. Global-only host shows no per-brush promise. |
 | G12: ring Bend | Waiting on vector L4 | Wash-frame integration and acceptance |
 | Phase B: pixel selection | Not started; gated by brief | Phase A merged, design note and Lead approval |
 

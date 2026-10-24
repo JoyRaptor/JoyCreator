@@ -75,3 +75,13 @@ Supporting-only commit **`b590e58c5`**, six Select source/test files, is pushed 
 - `git diff --check` passed. **Tests not executed here.** Coordinator owns final integrated suites and received both
   test class names. No heavy build or phone action was started for this follow-up. C1/C2 native acceptance remains open.
 - A9, A10, G12 and Phase B gates are unchanged. No further Lead-owned source was edited.
+
+### C2 truth follow-up
+
+Supporting-only **`2cbfbfb86`** adds `SelectController.App.perBrushLinesOverrideShelf()` defaulting false, passed
+to the settings view. The unchanged caption “Each brush’s own Editable lines choice takes priority.” is included
+only when true. Current global-only integration therefore makes no per-brush-priority claim. L3/Lead can override
+the capability in its own host patch. The existing D2 heading, choices and styling are unchanged.
+One view test checks default/explicit-false absence, explicit-true presence and unchanged other words.
+`git diff --check` passed; the test remains unexecuted by this lane and is handed to Coordinator's integrated run.
+No Activity/engine/View edit, build or phone action.

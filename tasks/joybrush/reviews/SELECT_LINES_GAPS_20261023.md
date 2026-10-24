@@ -126,3 +126,6 @@ For each: ✅ works and looks like the page / ⚠️ works, looks or feels off /
   reveal lifetime and migration. `git diff --check` passed; tests **not executed** by this lane.
 - Coordinator is preparing isolated integration and owns final app/core/androidkit suites. Commit/test classes sent
   to Coordinator and UI. Phone fit/C1/C2 remain open; C3, A9/A10, G12 and Phase B gates are unchanged.
+- ⚠️ Further C2 truth fix `2cbfbfb86`: per-brush-priority caption is absent unless a default-false App capability is
+  explicitly enabled by the real L3 host. Existing heading/choice/style retained. One view regression added,
+  unexecuted here; Coordinator notified for integrated validation. No hot-file edit or new build/device action.

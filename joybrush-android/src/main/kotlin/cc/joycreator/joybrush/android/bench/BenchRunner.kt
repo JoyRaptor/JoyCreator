@@ -142,7 +142,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
             case == "recordedPromotionColdProbe" || case == "recordedColdPayloadProbe" || case == "recordedColdFailureProbe"
         val capturedCopy = case == "recordedCapturedCopyProbe"
         val capturedJoint = case == "recordedCapturedJointProbe"
-        if (case == "recordedProbe" || bakeOperator != null || jointProbe || promotionProbe || capturedCopy || capturedJoint) {
+        val watercolourEdits = case == "recordedWatercolourEditProbe"
+        if (case == "recordedProbe" || bakeOperator != null || jointProbe || promotionProbe || capturedCopy || capturedJoint || watercolourEdits) {
             val probePreset = if (jointProbe || promotionProbe || capturedCopy || capturedJoint) preset.copy(
                 opacity = cc.joycreator.joybrush.core.brush.Param(0.55f), blend = "normal")
             else if (bakeOperator == null) preset else preset.copy(
@@ -163,13 +164,14 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
                 promotion = promotionProbe, regional = case == "recordedPromotionRegionProbe",
                 coldLoad = case == "recordedPromotionColdProbe", capturedCopy = capturedCopy,
                 coldPayload = case == "recordedColdPayloadProbe", coldFailures = case == "recordedColdFailureProbe",
-                capturedJoint = capturedJoint) { result ->
+                capturedJoint = capturedJoint, watercolourEdits = watercolourEdits) { result ->
                 val report = org.json.JSONObject(result).put("brush", preset.id).put("case", case).put("run", run)
                     .put("fixtureOpacity", probePreset.opacity.base)
                     .put("fixtureBrushVersion", probePreset.version)
                     .put("fixtureBrushSize", probePreset.size.base)
                     .put("fixtureWatercolourSize", probePreset.watercolour?.size ?: org.json.JSONObject.NULL)
-                    .put("proofScope", if (capturedJoint) "Bound captured source Scene, native siblings, exact integer movement and public joint undo/redo; debug throwaway only, no live View/Select/save/recovery or quality claim"
+                    .put("proofScope", if (watercolourEdits) "NativeLines add/lift/tint, actual coverage-cache counters, canonical RGBA8 equality and undo/redo; disposable engine, no View/Select/save/recovery/quality acceptance"
+                        else if (capturedJoint) "Bound captured source Scene, native siblings, exact integer movement and public joint undo/redo; debug throwaway only, no live View/Select/save/recovery or quality claim"
                         else if (capturedCopy) "Disposable complete recipe pooling then captured-domain integer texel copy; no source Scene, live capture, Select, save/recovery, quality or performance claim"
                         else if (promotionProbe) "Actual native-base transfer, physical display and raw/legacy history; no live capture, Select, save/recovery, quality or performance claim"
                         else if (jointProbe) "Actual joint engine root/public undo/redo and canonical GPU sources/looks; no live recording, Select, save, quality or performance claim"

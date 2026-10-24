@@ -7,6 +7,27 @@
 
 ---
 
+## Watercolour editable-line completion — October24
+
+Sample-based vector brush, separate from raster water simulation. Active owner
+assignment: [L1–L7 brief](briefs/CODEX_WATERCOLOUR_LINE_LIVE_20261023.md).
+Evidence/continuation: [completion audit](reviews/WATERCOLOUR_COMPLETION_AUDIT_20261024.md).
+
+| Step / feature | State | Proof still owed |
+|---|---|---|
+| L1 cold/warm OFF/ON, whole-fade benchmark | Measured on Note9 | Preserve20 baseline rows, synthetic/glFinish scope |
+| L2 selected-brush preparation/full fade | Built candidate, tested in Claude branch | Five cold comparisons/full-fade phone check; not landed |
+| L3 per-brush Makes lines, Watercolor default ON | Separate candidate | Integrate/test current-main UI and immediate editable stroke |
+| L4 wash-frame transform and edits | In progress; core/codec tested | Production finish-only recolor; phone move/rotate/rebrush/delete, one Undo each |
+| L5 frozen brush/frame archive | Automated candidate proof | Phone save/reopen pixel hash, graphics restart and first edit |
+| L6 approved POC appearance | Pending acceptance | GPU comparison and owner's phone look/feel approval |
+| L7 Note9 size300/spacing15%, p95<=16.7ms | Baseline fails | Optimize/repeat identical matrix; preserve full-resolution final pooling |
+
+Claude branch lead/wc-live-land1681bfdeb reports green core2559/4 optional skips,
+backend1064/native317 and an APK. These commits are not yet on remote main.
+Task remains in progress, not signed off or waiting only on the owner. Continue
+existing work; retain unfinished temporary source/evidence until acceptance.
+
 ## 1. Who are you? Pick your role
 
 The person who started you will usually say it ("you are a design builder"). If not, pick the

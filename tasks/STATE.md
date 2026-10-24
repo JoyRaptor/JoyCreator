@@ -415,6 +415,22 @@ Music generation. A website. A Play listing. A privacy policy that mentions AI.
 
 ---
 
+## 10.5 JOYBRUSH VECTOR WATERCOLOUR — October24 audit
+
+| Capability | Status | Evidence and limits |
+|---|---|---|
+| Sample-based watercolor, pressure/tilt, pooled pigment and gravity color shifts | 🟡 Built foundation | Renderer on main; original POC owner-approved. Full phone-engine look not signed off. |
+| Cold/warm, complete-fade benchmark | Measured on Note9 | Five cold launches each lines OFF/ON plus warm repeats. Intrusive glFinish, synthetic latency. Warm p95~36–73ms;16.7ms target not passed. |
+| Selected-brush preparation/full fade | 🟡 Candidate branch | Claude's lead/wc-live-land1681bfdeb: core2559 (4 optional skips), backend1064/native317, zero failures. Cold/fade phone acceptance owed; not landed. |
+| Wash travels with line; frame survives archive | 🟡 Candidate branch | Homography, JBS5/legacy tests, GPU mapping and frozen-brush archive test. Actual phone edit/reopen/context proof owed; paper/grain/gravity stay fixed. |
+| Per-brush lines, Watercolor default ON | 🟠 Candidate | Separate e9b6ff9b6 UI patch, not in Claude branch. Recommended reversible default; owner preference unconfirmed. |
+| Finish-only recolor and phone speed | 🟠 In progress | Actual NativeLines path still deposits dabs again. Isolated adapter cache is not production wiring. |
+
+**Not finished; not waiting only on owner testing.** Implementation, integration
+and device proof remain before final owner look/feel approval. Continue on
+vector/watercolour-finish-20261024; preserve unfinished scratch/evidence.
+Details: [completion audit](joybrush/reviews/WATERCOLOUR_COMPLETION_AUDIT_20261024.md).
+
 ## 11. HOW TO MAINTAIN THIS
 
 1. When something is proved on a phone, move it to 🟢 and say what proved it.

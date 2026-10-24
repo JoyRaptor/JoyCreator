@@ -2639,9 +2639,9 @@ class JoyBrushActivity : Activity() {
         strip.showSelect(shown = true, chosen = false)
     }
 
-    /** Whatever is selected ends (undo, redo, a frame change, a layer change, a drawing opened, a clear). */
+    /** Layer changes, opening a drawing and Clear also discard any deleted selection remembered for Undo. */
     private fun endSelection() {
-        selection?.tool?.let { if (it.selection != null) it.end() }
+        selection?.tool?.end()
     }
 
     /** A pen stroke ends a LINE selection (D12); a paint selection stays, for the paint clip. */

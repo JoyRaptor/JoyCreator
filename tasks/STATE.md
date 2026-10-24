@@ -282,6 +282,40 @@ layers, and a floating visualiser over other apps. Lead docs: `tasks/VISLAB_SPEC
 | Element packs from other people (plugins) | 🔵 | Designed in VISLAB_TODO section F |
 | Proxies driving looks, layer reference, echo trails as a Studio effect, true blend preview, video element | 🔵 | `tasks/VISLAB_ROADMAP.md` R8-R12 |
 
+## 5.6 JOY BRUSH ANIMATION CLIPS (2026-10-18 to 10-24)
+
+Several animation clips on one drawing, each with its own speed and ending, playing together, combinable,
+exportable. Spec `tasks/joybrush/specs/ANIMATION_CLIPS_20261018.md`; evidence and numbers
+`tasks/joybrush/reviews/ANIMATION_CLIPS_20261018.md` (+ `animation-clips-evidence/`: real Note 9 screenshots, GIFs, logs).
+Lives on `lead/anim-clips` (finished, 1553c5b45) and on `lead/anim-clips-integrated`, which is that work merged onto
+origin/joy-creator (document versions below); until that branch is fast-forwarded into joy-creator the main line does not have it.
+"Agent phone-tested" = driven on the Note 9 by an agent (GPU proof + screenshots); nothing here is 🟢 until JoyRaptor uses it.
+Test totals before the merge: core 2548, androidkit 1056, Android 330, all passing.
+
+| Feature | Level | Notes |
+|---|---|---|
+| A clip only animates the layer you are on; overlapping clips on one layer are refused with the clips' names (C1/C2) | 🟡 ✔ | `RegionDocumentOps`, `BoardDocumentOps.createAnimation`; unit-tested, hint shown when creating |
+| "When it ends" chips on a clip: Loop, Ping-pong, Hold, Blank, saved with the drawing; selected = solid cyan with cut-out icon, hover labels (C3/U1) | 🟡 ✔ | Document version 12 (`Board.end`); screenshots from the Note 9 10-22; unknown value reads as Loop |
+| Play all / Stop all: every clip plays at once on its own clock, one tap to stop; Hold/Blank end frames stay until Stop (C4/U2) | 🟡 ✔ | `ClipPlaybackScheduler`; Note 9: ~59 fps, frame work p50 5.5 ms, p95 8-9 ms (budget 16.7) with three overlapping clips of 256/512/1024 px |
+| Overlapping clips show both outlines; finger taps on the overlap cycle which clip is selected; stylus still paints (U3/U4) | 🟡 ✔ | Cycling shown on the Note 9 with real touch 10-23 |
+| Combine clips into one (name, faster fps, drawings retimed, end mode), old clips removed, ONE Undo (C5/U5) | 🟡 ✔ | `AnimationCombine`; GPU proof on the Note 9 (pixels exact, one Undo) |
+| Flatten overlapping clips into plain frames, ONE Undo; Merge Down on the current frame keeps the other frames (C6) | 🟡 ✔ | `AnimationFlattenPlan`; GPU proof: framewise pixels, Undo/Redo |
+| Drag a clip by its edge to move all its drawings together, ONE Undo; a locked clip cannot be dragged (C8/U8) | 🟡 | Engine side GPU-proved (preview, cancel, commit, Undo); the touch drag itself was NOT cleanly shown on a phone yet |
+| Same drawing reused in two clips stays one drawing when edited or moved (linked component drawings) | 🟡 ✔ | Document version 13 (`Cel.parts`, `CelParts.kt`); GPU proof incl. across tile boundaries |
+| Export: GIF (loop flag, ping-pong order, up to 50 fps, cumulative timing), PNG timing, whole-scene export Longest / Full loop, 600-frame cap with a warning in the done toast (C7) | 🟡 ✔ | `SceneAnimExportPlan`, `BoardExportCoordinator`; GIFs decoded from the phone 10-23 (loop/ping-pong carry the loop flag, hold/blank do not) |
+| Named hover labels on the runner/Combine controls; Combine names the clips and says what retiming it does (U6/U7) | 🟡 | Robolectric UI proof (`chrome-light.png` / `chrome-dark.png`); not yet checked by hand on a phone |
+| Debug bench cases for all of it: `animationClips` (8-row GPU proof), `playAll`, `playAllStatic`, `playAllTrace` | 🟡 ✔ | `bench/BenchRunner`, `PlayAllBench`, `androidkit/gl/AnimationClipsProbe`; hitch recorder in `FrameStats` |
+
+Document versions in the JoyBrush file: 11 captured physical domain, **12 clip ends, 13 linked drawings, 14 frame tween**
+(another lane reserved 12/13 for this work and took 14; do not reuse them).
+
+**Known limits (clips):**
+- Pressing Play all costs one ~90 ms UI stall while the film strip's small pieces are rasterized the first time (mostly the
+  sprocket holes; 🟡). Not fixed on purpose: fixing it changes how the strip looks, which is JoyRaptor's call.
+- The first Play all after installing a new build can hitch ~190 ms in the graphics queue (cold shaders, probably).
+- A scene GIF carries no loop flag even when clips loop (check against the spec); lock, Combine, Flatten and export were
+  proved by the GPU test, not driven by a finger.
+
 ## 6. AI — the agent
 
 | Feature | Level | Notes |

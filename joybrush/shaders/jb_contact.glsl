@@ -1,7 +1,8 @@
 // jb_contact.glsl: shared stamp and paint contact, including live stylus geometry and paper.
 // Coverage times flow only; the caller supplies either cap or carried colour.
 // Texture reads stay behind uniform branches so implicit derivatives are valid.
-#include "jb_tip.glsl"
+#include "jb_sample.glsl"
+#include "jb_dual.glsl"
 #include "jb_grain.glsl"
 #include "jb_paper.glsl"
 #include "jb_tile_paper.glsl"
@@ -12,6 +13,8 @@ uniform float u_corner;
 uniform float u_taper;
 uniform float u_hardness;
 uniform float u_minPx;
+uniform vec2 u_tileOrigin;
+uniform float u_scale;
 
 // Legacy stroke fallback; v7 contacts override depth independently at each dab.
 uniform float u_tipDepth;
@@ -39,6 +42,10 @@ flat in vec2 v_travel;
 flat in vec4 v_contact;
 flat in vec4 v_pen;
 flat in float v_live;
+flat in vec2 v_fade; // optional tail attribute: amount and local angle
+flat in vec4 v_quad01;
+flat in vec4 v_quad23;
+flat in vec4 v_quadMeta;
 
 float jb_contactCoverage() {
     bool live = v_live > 0.5;
@@ -48,9 +55,17 @@ float jb_contactCoverage() {
     float paperDepth = live ? v_contact.w : u_paperDepth;
     float tilt = live ? v_pen.y : u_tiltAmount;
     vec2 lean = live ? v_pen.zw : u_leanDir;
-    vec2 contactOffset = v_offset + (live ? v_pen.x : 0.0) * v_radius * vec2(cos(v_angle), sin(v_angle));
+    vec2 dabOffset = v_offset;
+    if ((u_sampleEnabled != 0 && v_sample.x > 0.5) || u_dualMode != 0) {
+        // Rasterizers snap quad vertices to a subpixel grid. Reconstruct image coordinates from
+        // the target pixel centre so those vertex roundings cannot shift sharp native texels.
+        float scale = u_scale > 0.0 ? u_scale : 1.0;
+        dabOffset = gl_FragCoord.xy / scale + (u_tileOrigin - v_dabCentre);
+    }
+    vec2 contactOffset = dabOffset + (live ? v_pen.x : 0.0) * v_radius * vec2(cos(v_angle), sin(v_angle));
     JbTip t = JbTip(v_radius, v_angle, aspect, u_corner, u_taper, hardness, u_minPx);
-    float tipCov = jb_tipCoverage(contactOffset, t);
+    float tipCov = jb_sampledTipCoverage(contactOffset, t, v_fade.x, v_fade.y, v_quad01, v_quad23, v_quadMeta);
+    tipCov = jb_dualTipCoverage(tipCov, contactOffset, t);
     float d = tipCov * v_flow;
 
     bool tipOn = u_tipGrainPitchPx > 0.0;
@@ -62,7 +77,7 @@ float jb_contactCoverage() {
     if (tipOn) hTip = jb_tipGrainHeight(contactOffset, v_angle);
     float hPaper = 1.0;
     if (paperOn) {
-        vec2 docPx = v_dabCentre + v_offset;
+        vec2 docPx = v_dabCentre + dabOffset;
         // Old height-only brushes retain the cheap read and exactly the existing height.
         if (u_paperDirectional <= 0.0 && u_paperWet <= 0.0) hPaper = jb_tilePaperHeight(docPx);
         else {

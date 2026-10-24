@@ -14,10 +14,11 @@ data class BrushPreviewStyle(
     val bandLeft: Int = 0xFFE3A33C.toInt(),
     val bandRight: Int = 0xFF3C8FE3.toInt(),
     val mediaInk: Int = 0xFF2E3446.toInt(),
+    val secondaryInk: Int = 0xFFFFFFFF.toInt(),
 ) {
     /** Everything that changes the picture, as one short string: part of the cache key. */
     val key: String
-        get() = listOf(ink, strip, bandLeft, bandRight, mediaInk).joinToString("") { String.format("%08x", it) }
+        get() = listOf(ink, strip, bandLeft, bandRight, mediaInk, secondaryInk).joinToString("") { String.format("%08x", it) }
 }
 
 /** A way to call a queued preview off. Cancelling is safe from any thread and after the preview has been made. */

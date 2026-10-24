@@ -1,0 +1,713 @@
+--- a/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/gl/lines/RecordedScene.kt
++++ b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/gl/lines/RecordedScene.kt
+@@ -3,6 +3,8 @@
+ import cc.joycreator.joybrush.core.brush.BrushJson
+ import cc.joycreator.joybrush.core.brush.BrushPreset
+ import cc.joycreator.joybrush.core.brush.FrozenBrushRegistry
++import cc.joycreator.joybrush.core.brush.FrozenBrushPngs
++import cc.joycreator.joybrush.androidkit.io.FrozenBrushAssets
+ import cc.joycreator.joybrush.core.paint.UndoLog
+ import cc.joycreator.joybrush.core.media.MediaStores
+ import cc.joycreator.joybrush.core.stroke.LineAddress
+@@ -45,6 +47,8 @@
+         fun contextCurrent(): Boolean = true
+         /** Atomic result: fresh owned textures; on throw the renderer cleans its own partial work. */
+         fun line(address: LineAddress, record: StrokeRecord, preset: BrushPreset): Unit<T>
++        fun line(address: LineAddress, record: StrokeRecord, preset: BrushPreset,
++                 pngs: FrozenBrushPngs?): Unit<T> = line(address, record, preset)
+         /**
+          * Clone EVERY cached canonical source tile through normal copy and physical-cel clipping,
+          * after full WC pooling. Its pixels already include brush opacity exactly once: do not
+@@ -71,6 +75,8 @@
+      */
+     interface CapturedSourceRenderer<T : Any> : Renderer<T> {
+         fun admitCapturedSource(address: LineAddress, record: StrokeRecord, preset: BrushPreset): Boolean
++        fun admitCapturedSource(address: LineAddress, record: StrokeRecord, preset: BrushPreset,
++                                pngs: FrozenBrushPngs?): Boolean = admitCapturedSource(address, record, preset)
+     }
+
+     internal class Cached<T : Any>(val record: StrokeRecord, val unit: Unit<T>)
+@@ -85,7 +91,9 @@
+         // Loaded declarations are independent of units. Absence of a plan means unresolved
+         // per-line footprints, not that every line has an authoritative empty footprint.
+         val savedKeys: Map<Pair<String, String?>, Set<Long>>,
++        brushAssets: Map<String, FrozenBrushPngs> = emptyMap(),
+     ) {
++        val brushAssets: Map<String, FrozenBrushPngs> = brushAssets.toMap()
+         internal fun belongsTo(identity: Any): Boolean = owner === identity
+         fun cacheTextures(): Set<T> = (units.values.flatMap { it.unit.tiles.values } +
+             looks.values.flatMap { it.values }).toSet()
+@@ -233,6 +241,7 @@
+     /** Borrowed read-only cel identities used by RecordedEdits; mutation stays on the GL thread. */
+     val planes: Map<Pair<String, String?>, RecordedCel<T>> get() = state.planes
+     val brushes: Map<String, BrushPreset> get() = state.brushes.mapValues { BrushJson.decodeChecked(it.value) }
++    val brushAssets: Map<String, FrozenBrushPngs> get() = state.brushAssets.toMap()
+     fun lookKeys(plane: Pair<String, String?>): Set<Long> = state.looks[plane]?.keys?.toSet().orEmpty()
+     /**
+      * Archive indexes list line-crossed tiles only; plain slab tiles stay in the pixel payload.
+@@ -626,7 +635,8 @@
+      * adapters are intentionally not activated by this method.
+      */
+     fun stageJoint(step: UndoLog.Step<T>, direction: Direction = Direction.NEW,
+-                   frozen: Map<String, BrushPreset>? = null): JointStaged {
++                   frozen: Map<String, BrushPreset>? = null,
++                   frozenAssets: Map<String, FrozenBrushPngs>? = null): JointStaged {
+         require(step.stackBefore == null && step.stackAfter == null && step.paperBefore == null &&
+             step.paperAfter == null && step.documentBefore == null && step.documentAfter == null) {
+             "Joint recorded staging does not yet support structural, paper or document metadata"
+@@ -636,7 +646,7 @@
+         }
+         check(!resetPreparing && !admittingCapturedSource) { "Cannot stage recorded work during reset or source admission" }
+         jointPreparations++
+-        try { return stageJointPrepared(step, direction, frozen) } finally { jointPreparations-- }
++        try { return stageJointPrepared(step, direction, frozen, frozenAssets = frozenAssets) } finally { jointPreparations-- }
+     }
+
+     /**
+@@ -646,7 +656,8 @@
+      */
+     internal fun stageJointProjected(expected: PromotedPublication<T>, fullStep: UndoLog.Step<T>,
+                                     direction: Direction = Direction.NEW,
+-                                    frozen: Map<String, BrushPreset>? = null): JointStaged {
++                                    frozen: Map<String, BrushPreset>? = null,
++                                    frozenAssets: Map<String, FrozenBrushPngs>? = null): JointStaged {
+         require(fullStep.stackBefore == null && fullStep.stackAfter == null && fullStep.paperBefore == null &&
+             fullStep.paperAfter == null && fullStep.documentBefore == null && fullStep.documentAfter == null) {
+             "Joint recorded staging does not yet support structural, paper or document metadata"
+@@ -656,12 +667,13 @@
+         }
+         check(!resetPreparing && !admittingCapturedSource) { "Cannot stage recorded work during reset or source admission" }
+         jointPreparations++
+-        try { return stageJointPrepared(fullStep, direction, frozen, expected) } finally { jointPreparations-- }
++        try { return stageJointPrepared(fullStep, direction, frozen, expected, frozenAssets) } finally { jointPreparations-- }
+     }
+
+     private fun stageJointPrepared(step: UndoLog.Step<T>, direction: Direction,
+                                    frozen: Map<String, BrushPreset>?,
+-                                   expectedPromotion: PromotedPublication<T>? = null): JointStaged {
++                                   expectedPromotion: PromotedPublication<T>? = null,
++                                   frozenAssets: Map<String, FrozenBrushPngs>? = null): JointStaged {
+         if(direction == Direction.NEW) cc.joycreator.joybrush.core.stroke.CapturedStrokeRules.requireNewStep(step)
+         requireSourceKinds(step)
+         val read = boundRead ?: error("Joint recorded staging requires an engine publication binding")
+@@ -714,10 +726,11 @@
+             "The projected recorded sources changed during preparation"
+         }
+         val presets = frozen ?: before.brushes.mapValues { BrushJson.decodeChecked(it.value) }
+-        val saved = validateRender(before, edit.after, presets)
++        val images = checkedAssets(before, presets, frozenAssets ?: before.brushAssets)
++        val saved = validateRender(before, edit.after, presets, images)
+         if (edit.changedPlanes.isEmpty()) {
+             val candidate = if (saved == before.brushes) before else State(sceneIdentity, before.planes,
+-                saved, before.units, before.plans, before.looks, before.savedKeys)
++                saved, before.units, before.plans, before.looks, before.savedKeys, images)
+             checkEpoch(basis.epoch, publication)
+             return JointStaged(publication, candidate, cursor, emptySet(), emptySet(), emptyMap())
+         }
+@@ -726,7 +739,7 @@
+         val warmed = warm(before, edit.changedPlanes, saved, basis.epoch, publication, protected)
+         var built: Built<T>? = null
+         try {
+-            val ready = buildStage(basis, warmed, edit, canonicalPresets, emptySet())
++            val ready = buildStage(basis, warmed, edit, canonicalPresets, emptySet(), frozenAssets = images)
+             built = ready
+             checkEpoch(basis.epoch, publication)
+             return JointStaged(publication, ready.state, cursor, ready.fresh, ready.retired, ready.affected)
+@@ -804,8 +817,9 @@
+     }
+
+     fun stage(edit: RecordedEdits.Prepared<T>, direction: Direction = Direction.NEW,
+-              frozen: Map<String, BrushPreset> = brushes): Staged {
+-        return prepareLocal { stagePrepared(edit, direction, frozen, emptySet()) }
++              frozen: Map<String, BrushPreset> = brushes,
++              frozenAssets: Map<String, FrozenBrushPngs> = brushAssets): Staged {
++        return prepareLocal { stagePrepared(edit, direction, frozen, emptySet(), frozenAssets) }
+     }
+
+     /**
+@@ -884,7 +898,8 @@
+     }
+
+     private fun stagePrepared(edit: RecordedEdits.Prepared<T>, direction: Direction,
+-                              frozen: Map<String, BrushPreset>, freshSources: Set<T>): Staged {
++                              frozen: Map<String, BrushPreset>, freshSources: Set<T>,
++                              frozenAssets: Map<String, FrozenBrushPngs> = brushAssets): Staged {
+         if(direction == Direction.NEW) cc.joycreator.joybrush.core.stroke.CapturedStrokeRules.requireNewStep(edit.step)
+         requireSourceKinds(edit.before)
+         requireSourceKinds(edit.after)
+@@ -903,10 +918,11 @@
+             Direction.NEW -> kotlin.Unit
+         }
+         val basis = basis(state)
+-        val saved = validateRender(basis.before, edit.after, frozen)
++        val images = checkedAssets(basis.before, frozen, frozenAssets)
++        val saved = validateRender(basis.before, edit.after, frozen, images)
+         val warmed = warm(basis.before, edit.changedPlanes, saved, basis.epoch)
+         try {
+-            return staged(basis, warmed, edit, direction, frozen, freshSources)
++            return staged(basis, warmed, edit, direction, frozen, freshSources, images)
+         } catch (failure: Throwable) {
+             releaseInEpoch(warmed.fresh, basis.epoch)
+             throw failure
+@@ -952,7 +968,7 @@
+                 for (record in cel.records) {
+                     val address = LineAddress(cel.layerId, cel.celId, record.id)
+                     checkEpoch(epoch, publication)
+-                    val unit = renderer.line(address, record, BrushJson.decodeChecked(saved.getValue(record.brushId)))
++                    val unit = renderer.line(address, record, BrushJson.decodeChecked(saved.getValue(record.brushId)), before.brushAssets[record.brushId])
+                     // Epoch loss makes returned names unsafe to delete. A same-epoch root switch
+                     // still permits collecting/releasing genuinely fresh output before refusal.
+                     checkGraphicsEpoch(epoch, publication != null)
+@@ -978,7 +994,7 @@
+             checkEpoch(epoch, publication)
+             check(renderer.contextCurrent()) { "The recorded renderer context changed during materialization" }
+             checkEpoch(epoch, publication)
+-            return Warmed(State(sceneIdentity, before.planes, before.brushes, units.toMap(), plans.toMap(), before.looks, before.savedKeys), fresh.toSet())
++            return Warmed(State(sceneIdentity, before.planes, before.brushes, units.toMap(), plans.toMap(), before.looks, before.savedKeys, before.brushAssets), fresh.toSet())
+         } catch (failure: Throwable) {
+             releaseInEpoch(fresh, epoch)
+             throw failure
+@@ -986,8 +1002,9 @@
+     }
+
+     private fun staged(basis: Basis<T>, warmed: Warmed<T>, edit: RecordedEdits.Prepared<T>,
+-                       direction: Direction, frozen: Map<String, BrushPreset>, freshSources: Set<T>): Staged {
+-        val built = buildStage(basis, warmed, edit, frozen, freshSources)
++                       direction: Direction, frozen: Map<String, BrushPreset>, freshSources: Set<T>,
++                       frozenAssets: Map<String, FrozenBrushPngs> = basis.before.brushAssets): Staged {
++        val built = buildStage(basis, warmed, edit, frozen, freshSources, frozenAssets = frozenAssets)
+         try {
+             return Staged(basis.before, built.state, built.fresh, built.retired,
+                 basis.epoch, edit.step, direction, basis.undoHead, basis.redoHead, basis.cursor, built.affected)
+@@ -1002,9 +1019,10 @@
+
+     private fun buildStage(basis: Basis<T>, warmed: Warmed<T>, edit: RecordedEdits.Prepared<T>,
+                            frozen: Map<String, BrushPreset>, freshSources: Set<T>,
+-                           currentBorrowed: (() -> Set<T>)? = null): Built<T> {
++                           currentBorrowed: (() -> Set<T>)? = null,
++                           frozenAssets: Map<String, FrozenBrushPngs> = basis.before.brushAssets): Built<T> {
+         checkEpoch(basis.epoch, basis.publication)
+-        val rendered = render(warmed.state, edit.after, frozen, basis.epoch, basis.publication, basis.protected, currentBorrowed)
++        val rendered = render(warmed.state, edit.after, frozen, basis.epoch, basis.publication, basis.protected, currentBorrowed, frozenAssets)
+         try {
+             checkEpoch(basis.epoch, basis.publication)
+             val transientWarm = warmed.fresh - rendered.state.cacheTextures()
+@@ -1063,7 +1081,8 @@
+     }
+
+     /** No capability callback can cross a local edit, binding, history move or root/context reset. */
+-    private fun admitCapturedSources(planes: Map<Pair<String, String?>, RecordedCel<T>>, saved: Map<String, String>) {
++    private fun admitCapturedSources(planes: Map<Pair<String, String?>, RecordedCel<T>>, saved: Map<String, String>,
++                                     images: Map<String, FrozenBrushPngs>) {
+         val physical = planes.toMap()
+         val captured = physical.values.flatMap { cel -> cel.records.filter { it.capturedPhysicalSource != null }.map {
+             LineAddress(cel.layerId, cel.celId, it.id) to it
+@@ -1094,7 +1113,7 @@
+                 check(renderer.contextCurrent()) { "The captured renderer context is unavailable" }
+                 checkCurrent()
+                 val admitted = capable.admitCapturedSource(address, CapturedStrokeRules.snapshot(record),
+-                    BrushJson.decodeChecked(saved.getValue(record.brushId)))
++                    BrushJson.decodeChecked(saved.getValue(record.brushId)), images[record.brushId])
+                 checkCurrent()
+                 require(admitted) { "The renderer refused this captured physical source" }
+                 check(renderer.contextCurrent()) { "The captured renderer context changed during admission" }
+@@ -1106,7 +1125,9 @@
+     }
+
+     private fun validateRender(before: State<T>, after: Map<Pair<String, String?>, RecordedCel<T>>,
+-                               frozen: Map<String, BrushPreset>): Map<String, String> {
++                               frozen: Map<String, BrushPreset>,
++                               frozenAssets: Map<String, FrozenBrushPngs> = before.brushAssets): Map<String, String> {
++        val images = checkedAssets(before, frozen, frozenAssets)
+         requireSourceKinds(before.planes)
+         requireSourceKinds(after)
+         val saved = FrozenBrushRegistry.validate(frozen).mapValues { BrushJson.encode(it.value) }
+@@ -1121,21 +1142,37 @@
+         // Admit both history endpoints, including records removed by a delete or bake. All
+         // records are checked before warm/render allocates any source; admission grants no save,
+         // cold-loader, Select or other consumer permission outside this renderer instance.
+-        admitCapturedSources(before.planes, saved)
+-        admitCapturedSources(after, saved)
++        admitCapturedSources(before.planes, saved, images)
++        admitCapturedSources(after, saved, images)
+         return saved
++    }
++
++    private fun checkedAssets(before: State<T>, frozen: Map<String, BrushPreset>,
++                              supplied: Map<String, FrozenBrushPngs>): Map<String, FrozenBrushPngs> {
++        val images = supplied.toMap() // Values own their bytes; retain stable bundle identity.
++        FrozenBrushRegistry.validateAssets(frozen, images)
++        require(before.brushAssets.all { (id, old) -> images[id]?.sameBytes(old) == true }) {
++            "Frozen image bytes cannot be replaced or removed while history can reference them"
++        }
++        // Only new bundles can change the archive budget. The scene is also callable without
++        // the UI freeze cache, so keep this final independent admission before callbacks.
++        if (images.keys.any { it !in before.brushAssets })
++            FrozenBrushAssets.prepare(frozen, images, retainEntries = false)
++        return images
+     }
+
+     private fun render(before: State<T>, after: Map<Pair<String, String?>, RecordedCel<T>>,
+                        frozen: Map<String, BrushPreset>, epoch: Long = generation,
+                        publication: Publication<T>? = null, protected: Set<T> = emptySet(),
+-                       currentBorrowed: (() -> Set<T>)? = null): Rendered<T> {
++                       currentBorrowed: (() -> Set<T>)? = null,
++                       frozenAssets: Map<String, FrozenBrushPngs> = before.brushAssets): Rendered<T> {
+         requireSourceKinds(before.planes)
+         requireSourceKinds(after)
+         checkEpoch(epoch, publication)
+         check(renderer.contextCurrent()) { "The recorded renderer context is unavailable" }
+         checkEpoch(epoch, publication)
+-        val saved = validateRender(before, after, frozen)
++        val images = checkedAssets(before, frozen, frozenAssets)
++        val saved = validateRender(before, after, frozen, images)
+         val existing = before.cacheTextures() + slabTextures(before.planes) + slabTextures(after) + history.heldTextures() + protected
+         val fresh = LinkedHashSet<T>()
+         fun own(textures: Collection<T>) {
+@@ -1165,7 +1202,7 @@
+                             renderingRecord(previous.record), renderingRecord(record))) previous.unit
+                     else {
+                         checkEpoch(epoch, publication)
+-                        val rendered = renderer.line(address, record, BrushJson.decodeChecked(saved.getValue(record.brushId)))
++                        val rendered = renderer.line(address, record, BrushJson.decodeChecked(saved.getValue(record.brushId)), images[record.brushId])
+                         checkGraphicsEpoch(epoch, publication != null)
+                         own(rendered.tiles.values)
+                         checkEpoch(epoch, publication)
+@@ -1214,7 +1251,7 @@
+                 looks[plane] = next.toMap()
+             }
+             checkEpoch(epoch, publication)
+-            return Rendered(State(sceneIdentity, after.toMap(), saved, units.toMap(), plans, looks.toMap(), savedKeys), fresh.toSet(), affected.toMap())
++            return Rendered(State(sceneIdentity, after.toMap(), saved, units.toMap(), plans, looks.toMap(), savedKeys, images), fresh.toSet(), affected.toMap())
+         } catch (failure: Throwable) {
+             releaseAfterFailure(failure, fresh, epoch, currentBorrowed)
+             throw failure
+@@ -1245,7 +1282,8 @@
+                                  history: UndoLog<T>, renderer: Renderer<T>,
+                                  savedLookKeys: Map<Pair<String, String?>, Set<Long>>,
+                                  uploadedLooks: Map<Pair<String, String?>, Map<Long, T>>,
+-                                 protectedTextures: Set<T> = emptySet()): RecordedScene<T> {
++                                 protectedTextures: Set<T> = emptySet(),
++                                 frozenAssets: Map<String, FrozenBrushPngs> = emptyMap()): RecordedScene<T> {
+             val scene = RecordedScene(history, renderer)
+             // Detach and validate before calling external context providers. A provider can
+             // reenter history or mutate caller collection backing while answering readiness.
+@@ -1254,7 +1292,8 @@
+             val looks = uploadedLooks.mapValues { it.value.toMap() }
+             val keys = savedLookKeys.mapValues { it.value.toSet() }
+             val protected = protectedTextures.toSet()
+-            val saved = scene.validateRender(scene.state, physical, brushes)
++            val images = scene.checkedAssets(scene.state, brushes, frozenAssets)
++            val saved = scene.validateRender(scene.state, physical, brushes, images)
+             check(renderer.contextCurrent()) { "The recorded renderer context is unavailable" }
+             require(keys.keys == physical.keys && looks.keys == physical.keys) {
+                 "Every physical cel needs an explicit saved look index and uploaded look map"
+@@ -1276,15 +1315,16 @@
+             check(history.snapshotCursor() === cursor) {
+                 "Recorded history changed before saved-look acceptance"
+             }
+-            scene.localState = State(scene.sceneIdentity, physical, saved, emptyMap(), emptyMap(), looks, keys)
++            scene.localState = State(scene.sceneIdentity, physical, saved, emptyMap(), emptyMap(), looks, keys, images)
+             return scene
+         }
+
+         /** Open or promote only after all source units and looks have staged successfully. */
+         fun <T : Any> create(planes: Map<Pair<String, String?>, RecordedCel<T>>, brushes: Map<String, BrushPreset>,
+-                            history: UndoLog<T>, renderer: Renderer<T>): RecordedScene<T> {
++                            history: UndoLog<T>, renderer: Renderer<T>,
++                            frozenAssets: Map<String, FrozenBrushPngs> = emptyMap()): RecordedScene<T> {
+             val scene = RecordedScene(history, renderer)
+-            val rendered = scene.prepareLocal { scene.render(scene.state, planes, brushes) }
++            val rendered = scene.prepareLocal { scene.render(scene.state, planes, brushes, frozenAssets = frozenAssets.toMap()) }
+             scene.localState = rendered.state
+             return scene
+         }
+--- a/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/io/RecordedSnapshot.kt
++++ b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/io/RecordedSnapshot.kt
+@@ -1,6 +1,7 @@
+ package cc.joycreator.joybrush.androidkit.io
+
+ import cc.joycreator.joybrush.core.brush.BrushPreset
++import cc.joycreator.joybrush.core.brush.FrozenBrushPngs
+ import cc.joycreator.joybrush.core.brush.FrozenBrushRegistry
+ import cc.joycreator.joybrush.core.doc.*
+ import cc.joycreator.joybrush.core.media.MediaStores
+@@ -24,6 +25,7 @@
+         paper: Paper = doc.paper,
+         mediaKeys: (String, String) -> Map<String, List<Long>> = { _, _ -> emptyMap() },
+         mediaRead: (String, String, String, Long) -> ByteArray? = { _, _, _, _ -> null },
++        brushAssets: Map<String, FrozenBrushPngs> = emptyMap(),
+     ): JbContents {
+         require(DocOps.validate(doc).isEmpty()) { DocOps.validate(doc).joinToString("; ") }
+         require(doc.layers.all { it.kind.hasPixels && it.animatedIn == null }) {
+@@ -56,6 +58,8 @@
+         }
+         planes.values.forEach { cc.joycreator.joybrush.core.stroke.CapturedStrokeRules.requireOrdinary(it.records) }
+         val frozen = FrozenBrushRegistry.validate(brushes)
++        val images = brushAssets.filterKeys { it in frozen }.toMap()
++        FrozenBrushAssets.prepare(frozen, images, retainEntries = false)
+         if (planes.isEmpty() && frozen.isEmpty() && expectedLookKeys.isEmpty()) {
+             return BoardSnapshot.capture(doc, keys, read, paper, mediaKeys, mediaRead)
+         }
+@@ -137,7 +141,7 @@
+                 if ((layer.id to cel.id) in prepared) cel else plain(layer.id, cel)) },
+             mask = layer.mask?.let { plain(layer.id, it, true) },
+         ) })
+-        return JbContents(current, pixels, strokes, mediaTiles = media, slabs = upper, looks = looks, brushes = frozen)
++        return JbContents(current, pixels, strokes, mediaTiles = media, slabs = upper, looks = looks, brushes = frozen, brushAssets = images)
+     }
+
+     private fun name(key: Long): String = DocOps.key(Tiles.tx(key), Tiles.ty(key))
+--- a/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/io/LineSaveMapping.kt
++++ b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/io/LineSaveMapping.kt
+@@ -1,6 +1,7 @@
+ package cc.joycreator.joybrush.androidkit.io
+
+ import cc.joycreator.joybrush.core.brush.BrushPreset
++import cc.joycreator.joybrush.core.brush.FrozenBrushPngs
+ import cc.joycreator.joybrush.core.doc.SlabRef
+ import cc.joycreator.joybrush.core.stroke.StrokeRecord
+
+@@ -34,11 +35,14 @@
+  *  - `strokes.jbs` = the records; `JbDocument.brushes` = the frozen brushes.
+  */
+ object LineSaveMapping {
+-    fun apply(c: JbContents, planes: List<PlaneItems>, brushes: Map<String, BrushPreset>): JbContents {
++    fun apply(c: JbContents, planes: List<PlaneItems>, brushes: Map<String, BrushPreset>,
++              brushAssets: Map<String, FrozenBrushPngs> = c.brushAssets): JbContents {
+         // A plane whose cel the document does not have is history only (a deleted layer or frame): it is never written.
+         val docCels = c.doc.layers.flatMap { l -> l.cels.map { l.id to it.id } }.toSet()
+         val live = planes.filter { (it.layerId to it.celId) in docCels && (it.records.isNotEmpty() || it.slabs.isNotEmpty()) }
+         if (live.isEmpty()) return c
++        val images = brushAssets.filterKeys { it in brushes }.toMap()
++        FrozenBrushAssets.prepare(brushes, images, retainEntries = false)
+         val tiles = LinkedHashMap(c.tiles)
+         val looks = LinkedHashMap(c.looks)
+         val strokes = LinkedHashMap(c.strokes)
+@@ -89,6 +93,6 @@
+             })
+         }
+         val doc = c.doc.copy(layers = layers, brushes = brushes.keys.sorted(), version = maxOf(c.doc.version, 11))
+-        return c.copy(doc = doc, tiles = tiles, looks = looks, strokes = strokes, slabs = slabFiles, brushes = brushes)
++        return c.copy(doc = doc, tiles = tiles, looks = looks, strokes = strokes, slabs = slabFiles, brushes = brushes, brushAssets = images)
+     }
+ }
+--- a/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/io/ColdRecordedLoadPlan.kt
++++ b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/io/ColdRecordedLoadPlan.kt
+@@ -62,12 +62,15 @@
+         admission: Any,
+         private val documentJson: String,
+         private val brushJson: Map<String, String>,
++        brushAssets: Map<String, FrozenBrushPngs>,
+         private val records: Map<Address, List<StrokeRecord>>,
+         private val thumbnail: ByteArray?,
+         private val payloads: List<ByteArray>,
+         planes: List<Plane>, masks: List<Mask>, uploads: List<Upload>, val summary: Summary,
+     ) {
+         init { require(admission === admissionIdentity) { "Prepare a cold load plan through its admission factory" } }
++        private val images = brushAssets.toMap()
++        fun frozenBrushAssetsCopy(): Map<String, FrozenBrushPngs> = images.toMap()
+         val planes = frozen(planes)
+         val nativePlanes = frozen(planes.filterNot { it.recorded })
+         val recordedPlanes = frozen(planes.filter { it.recorded })
+@@ -102,13 +105,15 @@
+             need(id == brush.id && BrushValidate.validate(brush).isEmpty(), "Invalid frozen cold brush: $id")
+             BrushJson.decodeChecked(BrushJson.encode(brush))
+         }
++        val images = input.brushAssets.toMap()
++        FrozenBrushAssets.prepare(brushes, images, retainEntries = false)
+         val snapshot = input.copy(doc = doc,
+             tiles = input.tiles.mapValues { it.value.copyOf() },
+             strokes = input.strokes.mapValues { copyRecords(it.value) },
+             thumbnailPng = input.thumbnailPng?.copyOf(),
+             mediaTiles = input.mediaTiles.mapValues { it.value.copyOf() },
+             slabs = input.slabs.mapValues { it.value.copyOf() },
+-            looks = input.looks.mapValues { it.value.copyOf() }, brushes = brushes)
++            looks = input.looks.mapValues { it.value.copyOf() }, brushes = brushes, brushAssets = images)
+         JbArchive.requireStructure(snapshot)
+         need(doc.boards.all { it.kind in setOf(BoardKind.CANVAS, BoardKind.ANIMATION, BoardKind.SPRITE) && !it.tiled },
+             "Cold source board type or periodic display is unsupported")
+@@ -140,7 +145,7 @@
+                 val recorded = declaredStroke || cel.slabs.isNotEmpty() || cel.looks.isNotEmpty() || source.isNotEmpty()
+                 need(source.isEmpty() || layer.regions.isEmpty(), "Regional lines need persisted captured physical clipping in $at")
+                 need(!recorded || cel.floatTiles.isEmpty(), "Recorded sources cannot share media ownership in $at")
+-                source.forEach { validateReferenced(it, brushes.getValue(it.brushId)) }
++                source.forEach { validateReferenced(it, brushes.getValue(it.brushId), images[it.brushId]) }
+                 val native = ArrayList<Upload>()
+                 val media = ArrayList<Upload>()
+                 val slabs = ArrayList<Upload>()
+@@ -183,25 +188,29 @@
+         val summary = Summary(budget.uploadBytes, budget.cpuBytes, budget.entries, budget.samples,
+             planes.sumOf { it.recordCount.toLong() }, planes.count { it.recordCount > 0 }, uploads.size,
+             planes.count { !it.recorded }, planes.count { it.recorded }, masks.size)
+-        return Prepared(admissionIdentity, documentJson, brushes.mapValues { BrushJson.encode(it.value) }, records,
++        return Prepared(admissionIdentity, documentJson, brushes.mapValues { BrushJson.encode(it.value) }, images, records,
+             snapshot.thumbnailPng, payloads, planes, masks, uploads, summary)
+     }
+
+     private val OPERATORS = setOf("normal", "erase", "behind", "multiply", "screen")
+     private val builtInWc = WatercolourSpec()
+-    private fun validateReferenced(record: StrokeRecord, brush: BrushPreset) {
++    private fun validateReferenced(record: StrokeRecord, brush: BrushPreset, pngs: FrozenBrushPngs?) {
+         need(record.capturedPhysicalSource == null, "Captured physical sources need a clipping-aware cold loader")
+         need(record.id.isNotBlank(), "A cold line needs its full identity")
+         need(record.smoothing.isFinite() && record.smoothing in 0f..1f && record.screenPerDoc.isFinite() && record.screenPerDoc > 0 &&
+             record.widthScale.isFinite() && record.widthScale in 0.05f..20f && record.samples.all { it.isPlaceable && !it.predicted },
+             "Unsupported cold line header or samples")
+-        need(InkReplay.refusal(record, brush) == null, "Unsupported cold line engine")
++        // Saved looks permit deferred image decode. Structural brush validation and the exact
++        // PNG manifest were admitted above; dynamic replay still needs a resolved set on first edit.
++        need(if (brush.tip.sampled != null) brush.engine == "stamp" else InkReplay.refusal(record, brush) == null,
++            "Unsupported cold line engine")
+         need(brush.line == null && !brush.tipTexture.enabled && !brush.paperGrain.enabled,
+             "Cold lines do not support shaping or explicit grain yet")
+         // Preserve PaperResponse, including shipped legacy Ink. Saved looks allow cold open;
+         // the adapter must resolve exact document paper before uploads. Legacy event-batch and
+         // resource-dependent replay constraints remain first-edit checks, never certified here.
+-        need(brush.tip.source == "procedural", "Cold lines do not resolve external image tips")
++        need(brush.tip.source == "procedural" || (brush.tip.sampled != null && pngs != null),
++            "Cold sampled lines need their validated frozen PNG bundle")
+         when (brush.engine) {
+             "stamp" -> need(brush.blend in OPERATORS, "Unsupported cold stamp operator")
+             ENGINE_WATERCOLOUR -> {
+@@ -261,13 +270,34 @@
+             records.forEach { r -> strings(listOf(r.id, r.brushId, r.groupId)); b.sampleCount(r.samples.size) }
+         }
+         c.thumbnailPng?.let { b.cpu(it.size.toLong()) }
++        b.items(c.brushAssets.size)
++        var largestPng = 0L
++        c.brushAssets.forEach { (id, images) ->
++            b.text(id); b.items(images.paths.size)
++            images.paths.forEach { b.text(it) }
++            b.cpu(images.encodedBytes)
++            // Preflight/manifest preparation owns at most one exported PNG at a time.
++            // The immutable retained owners are shared, never duplicated as a whole document.
++            largestPng = maxOf(largestPng, minOf(images.encodedBytes, 16L * 1024 * 1024))
++        }
++        b.cpu(largestPng + if (c.brushAssets.isEmpty()) 0L else 1024L * 1024)
+         b.items(c.brushes.size); c.brushes.forEach { (id, p) ->
+             b.text(id); b.cpu(16L * 1024)
+             strings(listOf(p.format, p.id, p.name, p.engine, p.tip.source, p.tip.image, p.tipTexture.source, p.tipTexture.image,
+                 p.paperGrain.source, p.paperGrain.image, p.accumulate, p.blend, p.license, p.author, p.sourceFormat))
++            p.tip.sampled?.let { sampled ->
++                b.items(sampled.images.size); sampled.images.forEach { b.text(it) }
++            }
++            fun profile(value: TipProfileSpec?) { value?.let {
++                b.items(it.curve.size); it.curve.forEach { point -> b.items(point.size) }
++            } }
++            profile(p.tip.profile)
++            listOfNotNull(p.tip.quad?.a, p.tip.quad?.b).forEach { shape ->
++                b.items(shape.points.size); profile(shape.profile)
++            }
+             b.items(p.extensions.size); p.extensions.forEach { (k, v) -> b.text(k); b.text(v) }
+             for (param in listOfNotNull(p.size, p.opacity, p.flow, p.tip.angle, p.tip.hardness, p.tipTexture.depth,
+-                p.paperGrain.depth, p.scatter.amount, p.tip.aspectDynamics, p.tip.anchorDynamics)) {
++                p.paperGrain.depth, p.scatter.amount, p.tip.aspectDynamics, p.tip.anchorDynamics, p.tip.fade?.amount, p.tip.quad?.morph)) {
+                 b.text(param.combine); b.items(param.inputs.size); param.inputs.forEach { input ->
+                     b.items(input.curve.size); input.curve.forEach { b.items(it.size) }
+                 }
+--- a/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/lines/LineTypes.kt
++++ b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/lines/LineTypes.kt
+@@ -1,6 +1,7 @@
+ package cc.joycreator.joybrush.androidkit.lines
+
+ import cc.joycreator.joybrush.core.brush.BrushPreset
++import cc.joycreator.joybrush.core.brush.FrozenBrushPngs
+ import cc.joycreator.joybrush.core.stroke.AddressedStroke
+ import cc.joycreator.joybrush.core.stroke.LineAddress
+ import cc.joycreator.joybrush.core.stroke.StrokeRecord
+@@ -28,9 +29,11 @@
+     val brushRevision: Long = 0L,
+     /** Slab tiles held across the drawing (256 KB each): the slab budget's reading. */
+     val slabTiles: Int = 0,
++    brushAssets: Map<String, FrozenBrushPngs> = emptyMap(),
+ ) {
+     val planes: Map<LinePlane, List<StrokeRecord>> = planes.mapValues { it.value.toList() }
+     val brushes: Map<String, BrushPreset> = brushes.toMap()
++    val brushAssets: Map<String, FrozenBrushPngs> = brushAssets.toMap()
+     val itemPlanes: Set<LinePlane> = (itemPlanes + planes.filterValues { it.isNotEmpty() }.keys).toSet()
+
+     /** The plane's lines in drawing order (seq), empty when it has none. */
+--- a/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/lines/FrozenBrushCache.kt
++++ b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/lines/FrozenBrushCache.kt
+@@ -4,6 +4,8 @@
+ import cc.joycreator.joybrush.core.brush.BrushPreset
+ import cc.joycreator.joybrush.core.brush.FrozenBrushRegistry
+ import cc.joycreator.joybrush.core.brush.FrozenBrushResult
++import cc.joycreator.joybrush.core.brush.FrozenBrushPngs
++import cc.joycreator.joybrush.androidkit.io.FrozenBrushAssets
+
+ /**
+  * Editable lines v1.2 H8: freezing a brush against the drawing's kept brushes encodes and compares EVERY kept brush, which
+@@ -36,5 +38,27 @@
+         return result
+     }
+
+-    fun clear() { results.clear() }
++    // One modern candidate only. Complete results share immutable document bundles, while
++    // canceled contacts cannot accumulate sixteen independent 32MiB image sets in this cache.
++    private class Modern(val key: Key, val candidate: FrozenBrushPngs,
++                         val known: Map<String, FrozenBrushPngs>, val result: FrozenBrushResult)
++    private var modern: Modern? = null
++
++    fun freeze(revision: Long, known: Map<String, BrushPreset>,
++               knownAssets: Map<String, FrozenBrushPngs>, preset: BrushPreset,
++               candidate: FrozenBrushPngs, newId: () -> String): FrozenBrushResult {
++        val key = Key(revision, known.size, BrushJson.encode(preset))
++        modern?.takeIf { it.key == key && it.candidate.sameBytes(candidate) &&
++            it.known.keys == knownAssets.keys && it.known.all { (id, old) -> knownAssets[id]?.sameBytes(old) == true }
++        }?.let { return it.result }
++        // Drop the old candidate before allocating/validating the next complete answer.
++        modern = null
++        val result = FrozenBrushRegistry.freezeWithAssets(known, knownAssets, preset, candidate, newId)
++        computed++
++        FrozenBrushAssets.prepare(result.entries, result.assets, retainEntries = false)
++        modern = Modern(key, candidate, knownAssets.toMap(), result)
++        return result
++    }
++
++    fun clear() { results.clear(); modern = null }
+ }
+--- a/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/JbCanvasView.kt
++++ b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/JbCanvasView.kt
+@@ -101,6 +101,7 @@
+ import cc.joycreator.joybrush.core.paint.StrokeBlend
+ import cc.joycreator.joybrush.core.paint.Tiles
+ import cc.joycreator.joybrush.core.paint.TipShape
++import cc.joycreator.joybrush.core.paint.tipShape
+ import cc.joycreator.joybrush.core.view.ViewTransform
+ import java.util.Locale
+ import javax.microedition.khronos.egl.EGLConfig
+@@ -156,6 +157,11 @@
+      */
+     @Volatile var preset: BrushPreset? = null
+
++    /** Stable immutable bundle per library brush; called once at contact on the UI thread. */
++    var brushPngs: ((BrushPreset) -> cc.joycreator.joybrush.core.brush.FrozenBrushPngs?)? = null
++    private val sampledTips = cc.joycreator.joybrush.androidkit.gl.SampledTipResolver()
++    private var strokeSampled: cc.joycreator.joybrush.core.brush.SampledTipSet? = null
++
+     /**
+      * True once the person has moved the smoothing slider, and only then does the slider beat the
+      * brush file's own `smoothing` -- so Ink keeps its 0.35 and Pencil its 0.2 without either of
+@@ -653,7 +659,8 @@
+     }
+
+     /** A pen contact being kept as an editable line: its raw recording and any brush copies frozen for it. */
+-    private class LineContact(val capture: StrokeCapture, val brushes: Map<String, BrushPreset>) {
++    private class LineContact(val capture: StrokeCapture, val brushes: Map<String, BrushPreset>,
++                              val assets: Map<String, cc.joycreator.joybrush.core.brush.FrozenBrushPngs>) {
+         var samples = 0
+         var startArgb: Int? = null
+     }
+@@ -1591,7 +1598,7 @@
+         drawing = false
+         mediaStroke = false; mediaErase = false; mediaBegun = false
+         smoother = null; placer = null; tracker = null
+-        strokePreset = null; strokeDabber = null; contactColors = null; strokeWatercolour = null; scatterRng = null; strokeErase = false; strokeTuft = null
++        strokePreset = null; strokeDabber = null; strokeSampled = null; contactColors = null; strokeWatercolour = null; scatterRng = null; strokeErase = false; strokeTuft = null
+         onGl {
+             mediaCanvas.end()
+             reportHistory()
+@@ -1645,6 +1652,21 @@
+         onBeforeStroke?.invoke()
+         val b = brush
+         var p = preset
++        val contactPngs = try {
++            p?.takeIf { it.tip.sampled != null }?.let { brushPngs?.invoke(it) }
++        } catch (e: Exception) {
++            drawing = false; onRefused?.invoke(e.message ?: "The brush image could not be read"); return
++        }
++        strokeSampled = try {
++            p?.let {
++                require(it.tip.source == "procedural" || it.tip.sampled != null) {
++                    "This image brush needs a materialized sampled tip"
++                }
++                sampledTips.resolve(it, contactPngs)
++            }
++        } catch (e: Exception) {
++            drawing = false; onRefused?.invoke(e.message ?: "The brush image could not be read"); return
++        }
+         if(p?.engine == ENGINE_FILL && editingMask) {
+             drawing=false; onRefused?.invoke("Select the paint layer to use the fill pen; masks are not supported yet."); return
+         }
+@@ -1689,7 +1711,9 @@
+                 }
+                 if (refusal == null) try {
+                     val effective = if (erase) p!!.copy(blend = "erase") else p!!
+-                    lineFrozen = frozenBrushes.freeze(lineSnapshot.brushRevision, lineSnapshot.brushes, effective) { newLineName("lb") }
++                    lineFrozen = frozenBrushes.freeze(lineSnapshot.brushRevision, lineSnapshot.brushes,
++                        lineSnapshot.brushAssets, effective,
++                        contactPngs ?: cc.joycreator.joybrush.core.brush.FrozenBrushPngs.empty()) { newLineName("lb") }
+                     p = lineFrozen.preset   // the live dabber and the record use the same detached definition
+                 } catch (e: Exception) {
+                     lineFrozen = null       // a brush that can't be frozen is a plain stroke (a slab on a layer with items)
+@@ -1763,7 +1787,7 @@
+             // -- a WASH dab carries its own opacity as its cap, and a BUILD_UP dab wants 1.
+             val seed = SystemClock.uptimeMillis()
+             strokeSeed = seed
+-            val d = BrushDabber(p, seed, colors = contactColors)
++            val d = BrushDabber(p, seed, colors = contactColors, sampledTips = strokeSampled)
+             strokeDabber = d
+             scatterRng = SplitMix(seed xor SCATTER_SALT)
+             placer = DabPlacer(spacing = d.spacing, look = d::look)
+@@ -1773,7 +1797,7 @@
+         }
+         lineContact = lineFrozen?.let { f ->
+             try {
+-                LineContact(StrokeCapture(newLineName("ln"), f.id, strokeSeed, amount, view.zoom, primary, secondaryColorArgb = secondary), f.newEntries)
++                LineContact(StrokeCapture(newLineName("ln"), f.id, strokeSeed, amount, view.zoom, primary, secondaryColorArgb = secondary), f.newEntries, f.assets.filterKeys { it in f.newEntries })
+             } catch (e: Exception) { null }
+         }
+         // Lines live under document cels and are saved by the board path: a fresh drawing gets its board document first
+@@ -1810,7 +1834,7 @@
+      * dabs. The hard-coded [Brush] branch of [startStroke] has already done this, which is what
+      * [glBegan] remembers.
+      */
+-    private fun beginStrokeNow() {
++    private fun beginStrokeNow(first: Dab? = null) {
+         val b = brush
+         val p = strokePreset
+         val d = strokeDabber
+@@ -1825,7 +1849,8 @@
+             taper = p.tip.taper,
+             hardness = if (d == null) p.tip.hardness.base else d.strokeHardness,
+             minPx = p.tip.minPx,
+-        )
++            sampled = first?.sampled,
++        ).let { base -> first?.tipShape(base) ?: base }
+         glBegan = true
+         // The grain the file asked for, with its depth as evaluated at the first dab (JB-1.05c). The
+         // hard-coded Brush has none.
+@@ -1922,11 +1947,12 @@
+         // The line's record carries the colour the stroke actually began with (as the first dab evaluated it).
+         val line = lineContact?.let { c -> c.capture.finish()?.let { r -> c.startArgb?.let { r.copy(colorArgb = it) } } }
+         val lineBrushes = lineContact?.brushes.orEmpty()
++        val lineAssets = lineContact?.assets.orEmpty()
+         lineContact = null
+         drawing = false
+         smoother = null; placer = null; tracker = null
+-        strokePreset = null; strokeDabber = null; contactColors = null; strokeWatercolour = null; scatterRng = null; strokeErase = false; strokeTuft = null
+-        boardStrokeWork { engine.setPendingLine(line, lineBrushes); engine.endStroke(); reportHistory() }
++        strokePreset = null; strokeDabber = null; strokeSampled = null; contactColors = null; strokeWatercolour = null; scatterRng = null; strokeErase = false; strokeTuft = null
++        boardStrokeWork { engine.setPendingLine(line, lineBrushes, lineAssets); engine.endStroke(); reportHistory() }
+         flushPaperVisits()
+         onStrokeEnded?.invoke()
+         diagnosticResult?.let { (observer, result) -> observer(result) }
+@@ -1943,7 +1969,7 @@
+         fillSerial++; fillSamples.clear(); fillPoints.clear(); onFillPreview?.invoke(null)
+         drawing = false
+         smoother = null; placer = null; tracker = null
+-        strokePreset = null; strokeDabber = null; contactColors = null; strokeWatercolour = null; scatterRng = null; strokeErase = false; strokeTuft = null
++        strokePreset = null; strokeDabber = null; strokeSampled = null; contactColors = null; strokeWatercolour = null; scatterRng = null; strokeErase = false; strokeTuft = null
+         onGl { engine.cancelStroke() }
+         flushPaperVisits()
+         onStrokeEnded?.invoke()
+@@ -1979,6 +2005,6 @@
+         val dabs = if (strokeOnMask) expanded.map { dab ->
+             dab.color?.let { dab.copy(color = it.toMaskGray()) } ?: dab
+         } else expanded
+-        if (!glBegan) beginStrokeNow()
++        if (!glBegan) beginStrokeNow(dabs.firstOrNull())
+         boardStrokeWork { engine.addDabs(dabs) }
+     }

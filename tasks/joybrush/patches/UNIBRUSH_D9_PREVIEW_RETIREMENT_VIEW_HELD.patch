@@ -1,0 +1,48 @@
+--- a/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/JbCanvasView.kt
++++ b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/JbCanvasView.kt
+@@ -131,7 +131,7 @@
+  * through `view.screenToDoc` and the smoother is told the zoom, and the GL draw is handed
+  * `view.docToClip` instead of a plain view matrix.
+  */
+-class JbCanvasView(context: Context) : GLSurfaceView(context) {
++class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPort {
+ 
+     /** The brush in use. Change it between strokes. */
+     data class Brush(
+@@ -150,7 +150,7 @@
+     var brush = Brush()
+     var smoothing = 0.35f
+     /** Actual settings resolve once for each Unibrush stamp contact, then travel with its raw record. */
+-    @Volatile var stabilizerPreference = cc.joycreator.joybrush.core.input.StabilizerPreference()
++    @Volatile override var stabilizerPreference = cc.joycreator.joybrush.core.input.StabilizerPreference()
+ 
+     /**
+      * The brush FILE in use (JB-1.05b), or null for the hard-coded round [Brush] above. Change it
+@@ -160,7 +160,7 @@
+     @Volatile var preset: BrushPreset? = null
+ 
+     /** Stable immutable bundle per library brush; called once at contact on the UI thread. */
+-    var brushPngs: ((BrushPreset) -> cc.joycreator.joybrush.core.brush.FrozenBrushPngs?)? = null
++    override var brushPngs: ((BrushPreset) -> cc.joycreator.joybrush.core.brush.FrozenBrushPngs?)? = null
+     private val stampTips = cc.joycreator.joybrush.androidkit.gl.StampTipResolver()
+     private var strokeTips: cc.joycreator.joybrush.core.brush.StampTipResources? = null
+ 
+@@ -2998,10 +2998,17 @@
+ 
+     /** Already frozen on the UI thread: no provider or preference lookup is allowed in the queued job. */
+     fun renderBrushPreview(snapshot: cc.joycreator.joybrush.androidkit.preview.BrushPreviewRequest,
++                           onBitmap: (android.graphics.Bitmap?) -> Unit): cc.joycreator.joybrush.androidkit.preview.BrushPreviewTicket =
++        renderBrushPreview(snapshot, null, onBitmap)
++
++    /** Retirement is separate from delivery; cancelled legacy callers still receive no bitmap callback. */
++    override fun renderBrushPreview(snapshot: cc.joycreator.joybrush.androidkit.preview.BrushPreviewRequest,
++                           onRetired: (() -> Unit)?,
+                            onBitmap: (android.graphics.Bitmap?) -> Unit): cc.joycreator.joybrush.androidkit.preview.BrushPreviewTicket {
+         val ticket = cc.joycreator.joybrush.androidkit.preview.BrushPreviewTicket()
+         onGl(allowLost = true) {
+-            val request = cc.joycreator.joybrush.androidkit.preview.BrushPreviewRenderer.Request(snapshot, ticket) { bmp -> post { onBitmap(bmp) } }
++            val request = cc.joycreator.joybrush.androidkit.preview.BrushPreviewRenderer.Request(snapshot, ticket,
++                onRetired = { android.os.Handler(android.os.Looper.getMainLooper()).post { onRetired?.invoke() } }) { bmp -> android.os.Handler(android.os.Looper.getMainLooper()).post { onBitmap(bmp) } }
+             if (brushPreviews.submit(request)) pumpBrushPreviews()
+         }
+         return ticket

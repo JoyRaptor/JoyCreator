@@ -1,0 +1,35 @@
+--- a/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/JbCanvasView.kt
++++ b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/JbCanvasView.kt
+@@ -1656,10 +1656,16 @@
+         onBeforeStroke?.invoke()
+         val b = brush
+         var p = preset
+-        // A provisional native stroke cannot be the final source for length-based ends.
+-        // Keep this admission closed until the recorded owner supplies the actual lift adapter.
++        // New whole-stroke contracts need the recorded lift owner. Historical unmarked
++        // recipes keep their existing native dispatch; a line section/version alone is not opt-in.
++        val modernStamp = p?.let { brush ->
++            brush.engine == "stamp" && (brush.extensions["unibrush.family"] in setOf("builtin", "user") ||
++                brush.tip.angleSource != null || brush.tip.profile != null || brush.tip.fade != null ||
++                brush.tip.quad != null || brush.color.dynamics?.isActive == true ||
++                brush.tip.sampled != null || brush.tip.dual != null)
++        } == true
+         val wholeStroke = cc.joycreator.joybrush.core.vector.LineStyle.of(p?.line)
+-        if (wholeStroke.tapers || wholeStroke.dashes) {
++        if (modernStamp && (wholeStroke.tapers || wholeStroke.dashes)) {
+             drawing = false
+             onRefused?.invoke("Stroke-end brushes need the recorded drawing connection.")
+             return
+@@ -1883,7 +1889,11 @@
+         val smudge = if (p != null && p.engine == ENGINE_SMUDGE) SmudgeParams(p.smudge.pickup, p.smudge.load, p.smudge.texturePickup, p.smudge.paint) else null
+         // R9: a tuft stroke's whole-stroke shader numbers (streaks, tooth), from the file and this stroke's seed.
+         val tuft = if (p != null && strokeTuft != null) TuftStroke.shading(p, strokeSeed) else null
+-        val argb = checkNotNull(contactColors) { "The stroke palette was not frozen at contact" }.primaryArgb
++        // Only active colour dynamics need the contact palette. Historical brushes take their
++        // primary on the first real dab, as before the optional colour-dynamics adapter.
++        val argb = if (p?.color?.dynamics?.isActive == true)
++            checkNotNull(contactColors) { "The stroke palette was not frozen at contact" }.primaryArgb
++        else (colorArgb ?: b.argb).let { if (strokeOnMask) maskGrey(it) else it }
+         diagnosticContact?.let { it.start = DiagnosticStrokeStart(argb, opacity, tip.hardness) }
+         lineContact?.startArgb = argb
+         val target = strokeLayerId

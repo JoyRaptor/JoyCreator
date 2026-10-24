@@ -217,12 +217,21 @@ object KritaImport {
      *   [BrushException]: it is a [RefusedBrush]**, because a refusal that throws away the file is the one
      *   thing a pack importer must not do.
      */
-    fun convertKpp(bytes: ByteArray, idPrefix: String): ImportLibrary {
+    fun convertKpp(bytes: ByteArray, idPrefix: String): ImportLibrary = convertKppImpl(bytes, idPrefix, null)
+
+    /** Opt-in sampled PNG resources; old conversion and opaque extension storage stay unchanged. */
+    fun convertKppWithAssets(bytes: ByteArray, idPrefix: String, codec: ImportedTipPngCodec,
+                             options: MaterializedImportOptions = MaterializedImportOptions()): MaterializedImportLibrary {
+        val session = MaterializedImportSession(codec, options)
+        return session.finish(convertKppImpl(bytes, idPrefix, session))
+    }
+
+    private fun convertKppImpl(bytes: ByteArray, idPrefix: String, materialized: MaterializedImportSession?): ImportLibrary {
         val file = readKppFile(bytes)
         val title = file.title
         val name = title ?: PLACEHOLDER_NAME
         return try {
-            val result = KritaBrush(file, null, null).build(name, brushId(idPrefix, name))
+            val result = KritaBrush(file, null, null, materialized).build(name, brushId(idPrefix, name))
             val warnings =
                 if (title == null) listOf(PLACEHOLDER_NAME_WARNING) + result.warnings else result.warnings
             ImportLibrary(listOf(result.copy(warnings = warnings)), emptyList())
@@ -244,7 +253,15 @@ object KritaImport {
      *   "a `.bundle` with no `brushes/` and no `paintoppresets/` refuses in words rather than importing an
      *   empty library". One bad entry is a [RefusedBrush] and the rest of the bundle still imports.
      */
-    fun convertBundle(bytes: ByteArray, idPrefix: String): ImportLibrary {
+    fun convertBundle(bytes: ByteArray, idPrefix: String): ImportLibrary = convertBundleImpl(bytes, idPrefix, null)
+
+    fun convertBundleWithAssets(bytes: ByteArray, idPrefix: String, codec: ImportedTipPngCodec,
+                                options: MaterializedImportOptions = MaterializedImportOptions()): MaterializedImportLibrary {
+        val session = MaterializedImportSession(codec, options)
+        return session.finish(convertBundleImpl(bytes, idPrefix, session))
+    }
+
+    private fun convertBundleImpl(bytes: ByteArray, idPrefix: String, materialized: MaterializedImportSession?): ImportLibrary {
         val zip = KritaZip.read(bytes)
         val entries = zip.entries
             .filter { isBrushEntry(it.name) }
@@ -273,7 +290,7 @@ object KritaImport {
             }
             try {
                 val file = readKppFile(zip.read(entry))
-                brushes += KritaBrush(file, zip, meta).build(name, brushId(idPrefix, name))
+                brushes += KritaBrush(file, zip, meta, materialized).build(name, brushId(idPrefix, name))
             } catch (e: BrushException) {
                 refused += RefusedBrush(index, name, e.message ?: "it cannot be read")
             }
@@ -397,6 +414,7 @@ object KritaImport {
         private val file: KritaFile,
         private val bundle: KritaZip?,
         private val meta: KritaMeta?,
+        private val materialized: MaterializedImportSession? = null,
     ) {
 
         // The parse happens in the constructor, so a hostile document throws before a single field exists
@@ -1004,7 +1022,13 @@ object KritaImport {
             // **whole**: a prefix of an image is a file that is not the thing it says it is, so `tip.source`
             // stays `"procedural"` and nothing downstream believes there is a picture.
             var size = sizeBase
-            storedTip?.let { stored ->
+            val materializedTip = if (materialized != null) storedTip?.let { materialized.png(it.bytes) } else null
+            if (materializedTip != null) {
+                tip = checkNotNull(materialized).tip(tip)
+                size = materializedTip.dimensions.width.toFloat()
+                warn("the embedded PNG is materialized as a sampled tip")
+            }
+            if (materialized == null) storedTip?.let { stored ->
                 val b64 = kritaBase64Of(stored.bytes)
                 if (extensionChars() + b64.length <= MAX_EXTENSION_BYTES) {
                     extensions[TIP_IMAGE_KEY] = b64
@@ -1091,7 +1115,8 @@ object KritaImport {
             if (problems.isNotEmpty()) {
                 throw BrushException("it would not be a legal brush: " + problems.joinToString("; "))
             }
-            return ImportResult(preset, warnings)
+            val result = ImportResult(preset, warnings)
+            return materialized?.record(result, materializedTip) ?: result
         }
 
         // ---- small helpers -----------------------------------------------------------------------------

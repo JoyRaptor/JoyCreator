@@ -1,0 +1,72 @@
+{
+  "stage": "D9",
+  "status": "CANONICAL_OWNED_VERIFIED",
+  "canonical": {
+    "core": {
+      "tests": 2678,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 4,
+      "log": "C:/Temp/jb-unibrush-d9-clean-tests.log"
+    },
+    "app": {
+      "tests": 351,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "log": "C:/Temp/jb-unibrush-palette-cache-app.log"
+    },
+    "backend": {
+      "tests": 1145,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "log": "C:/Temp/jb-unibrush-d9-clean-tests.log"
+    }
+  },
+  "heldCombined": {
+    "status": "DISPOSABLE_COMBINED_VERIFIED",
+    "root": "C:/Temp/jb-unibrush-d6-shadow",
+    "core": {
+      "tests": 2680,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 4,
+      "log": "C:/Temp/jb-unibrush-d9-combined-tests.log"
+    },
+    "backend": {
+      "tests": 1154,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "log": "C:/Temp/jb-unibrush-d9-combined-tests.log"
+    },
+    "app": {
+      "tests": 358,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "log": "C:/Temp/jb-unibrush-palette-held-app.log"
+    },
+    "limits": "Sequential full-suite runs against combined held engine/View/Activity/Drawer/BenchRunner sources; JVM/Robolectric proof, not device GL or physical publication acceptance."
+  },
+  "shippingEnabled": false,
+  "phone": "NOT_RUN",
+  "performance": "NOT_MEASURED",
+  "scope": [
+    "11 preset modes and frozen code-native PNG masks",
+    "four-point A/B editor, falloff/Bezier editors and Quick/Tip/All sheet",
+    "append-only UUID user mode store and exact frozen PNG closure",
+    "bounded image picker and packaged grain catalog",
+    "immutable resource-aware real-engine previews and single-resource serial scheduler",
+    "capability-gated host controller and persisted stabilizer policy",
+    "Persisted secondary palette with guarded live picker and exact preview colour snapshots"
+  ],
+  "limitations": [
+    "Actual Lead scene publisher, canvas integration and merge remain pending",
+    "Owner phone layout/feel and raster/editable-line acceptance remain pending",
+    "D10 half-resolution buffer and Note9 benchmark remain pending",
+    "Arbitrary imported grain PNGs and new preset archive Activity launcher are not implemented"
+  ],
+  "windowsCleanup": "Actual JDK17 Windows BasicFileAttributes.fileKey is null. Cleanup preserves unconfirmed staging identities and reports suppressed refusal; tests assert this conservative behavior. Existing modes/foreign or replaced paths are never deleted."
+}

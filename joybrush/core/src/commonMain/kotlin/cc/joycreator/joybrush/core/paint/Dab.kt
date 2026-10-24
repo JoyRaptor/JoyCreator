@@ -1,5 +1,7 @@
 package cc.joycreator.joybrush.core.paint
 
+import cc.joycreator.joybrush.core.brush.TipProfileSpec
+
 /**
  * One stamp of the brush tip. Positions and sizes are document pixels (1 document px = 1 tile texel).
  *
@@ -38,6 +40,18 @@ data class Dab(
     val bandWeight0: Float = 0f,
     val bandWeight1: Float = 0f,
     val bandWeight2: Float = 0f,
+    /** Unibrush v13, CPU recipe data; StampPass uploads an optional tail after its legacy prefix. */
+    val fadeAmount: Float = Float.NaN,
+    val fadeAngle: Float = Float.NaN,
+    /** Shared immutable stroke profile; no LUT is allocated or copied per dab. */
+    val profile: TipProfileSpec? = null,
+    val profileB: TipProfileSpec? = null,
+    val profileMix: Float = 0f,
+    val quad: cc.joycreator.joybrush.core.brush.QuadDab? = null,
+    /** v15: resolved straight sRGB; null retains the fixed stroke colour and old buffer path. */
+    val color: cc.joycreator.joybrush.core.brush.ColorDab? = null,
+    val sampled: cc.joycreator.joybrush.core.brush.SampledStamp? = null,
+    val dual: cc.joycreator.joybrush.core.brush.DualMask? = null,
 )
 
 /**
@@ -68,11 +82,29 @@ data class TipShape(
     val hardness: Float = 0.9f,
     val minPx: Float = 1f,
     val anchor: Float = 0f,
+    val profile: TipProfileSpec? = null,
+    val fadeAmount: Float = 0f,
+    /** In the tip's local frame, after the final tip angle/jitter. Radians. */
+    val fadeAngle: Float = 0f,
+    val profileB: TipProfileSpec? = null,
+    val profileMix: Float = 0f,
+    val quad: cc.joycreator.joybrush.core.brush.QuadDab? = null,
+    val sampled: cc.joycreator.joybrush.core.brush.SampledStamp? = null,
+    val dual: cc.joycreator.joybrush.core.brush.DualMask? = null,
 )
 
 /** Resolve live contact values; missing channels use the stroke shape. */
 fun Dab.tipShape(fallback: TipShape): TipShape = fallback.copy(
+    sampled = sampled ?: fallback.sampled,
+    dual = dual ?: fallback.dual,
+    minPx = (sampled ?: fallback.sampled)?.minPx ?: fallback.minPx,
+    profile = profile ?: fallback.profile,
+    profileB = if (quad != null) profileB else fallback.profileB,
+    profileMix = if (quad != null) profileMix else fallback.profileMix,
+    quad = quad ?: fallback.quad,
     aspect = if (aspect.isFinite()) aspect.coerceIn(-1f, 1f) else fallback.aspect,
     hardness = if (hardness.isFinite()) hardness.coerceIn(0f, 1f) else fallback.hardness,
     anchor = if (anchor.isFinite()) anchor.coerceIn(0f, 1f) else fallback.anchor,
+    fadeAmount = if (fadeAmount.isFinite()) fadeAmount.coerceIn(0f, 1f) else fallback.fadeAmount,
+    fadeAngle = if (fadeAngle.isFinite()) fadeAngle else fallback.fadeAngle,
 )

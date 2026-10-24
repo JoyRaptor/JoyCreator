@@ -23,12 +23,30 @@ const val BRUSH_FORMAT = "joybrush.brush"
  *    Written as "the version before + 1": the Lead checks the number against JB-2.40's bump when both land.
  *  - **10** added replayable `engine: "watercolour"` and its dab-array/finish settings — [VERSION_WATERCOLOUR].
  *  - **11** added the pencil's `media.stick.blend`, `media.stick.build` and `media.stick.tuning` — [VERSION_PENCIL_BLEND].
+ *  - **12** added explicit Unibrush tip rotation sources — [VERSION_UNIBRUSH].
+ *  - **13** added Unibrush radial profiles and directional fade — [VERSION_TIP_PROFILE].
+ *  - **14** added four-point tips and A/B shape/profile morph — [VERSION_TIP_QUAD].
+ *  - **15** added seeded colour dynamics and frozen stroke palettes — [VERSION_COLOR_DYNAMICS].
+ *  - **16** added sampled tip sets and frozen PNG resources — [VERSION_SAMPLED_TIPS].
+ *  - **17** added secondary shape/image masks — [VERSION_DUAL_TIP].
+ *  - **18** added per-brush stabilizer suggestions — [VERSION_STABILIZER].
  *
  * A word needs the version that introduced it, NOT the newest one: a fill pen is still a version-2
  * file, so a build that predates smudge can open it. [BrushJson.wordsNeedingVersion] carries the
  * per-word number.
  */
-const val BRUSH_VERSION = 11
+const val BRUSH_VERSION = 18
+
+const val VERSION_STABILIZER = 18
+
+const val VERSION_DUAL_TIP = 17
+
+const val VERSION_SAMPLED_TIPS = 16
+
+const val VERSION_COLOR_DYNAMICS = 15
+
+/** Unibrush D1. Reconcile with the current shared brush version before Lead integration. */
+const val VERSION_UNIBRUSH = 12
 
 /** The brush version that introduced the pencil's edge blend and build-up (`media.stick.blend`, `.build`). */
 const val VERSION_PENCIL_BLEND = 11
@@ -181,6 +199,14 @@ object BrushJson {
         if (p.smudge.paint) out += VersionedWord("smudge.paint", VERSION_CONTACT)
         if (p.tip.aspectDynamics != null) out += VersionedWord("tip.aspectDynamics", VERSION_CONTACT)
         if (p.tip.anchorDynamics != null) out += VersionedWord("tip.anchorDynamics", VERSION_CONTACT)
+        if (p.tip.angleSource != null) out += VersionedWord("tip.angleSource", VERSION_UNIBRUSH)
+        if (p.tip.profile != null) out += VersionedWord("tip.profile", VERSION_TIP_PROFILE)
+        if (p.tip.quad != null) out += VersionedWord("tip.quad", VERSION_TIP_QUAD)
+        if (p.color.dynamics != null) out += VersionedWord("color.dynamics", VERSION_COLOR_DYNAMICS)
+        if (p.tip.sampled != null) out += VersionedWord("tip.sampled", VERSION_SAMPLED_TIPS)
+        if (p.tip.dual != null) out += VersionedWord("tip.dual", VERSION_DUAL_TIP)
+        if (p.stabilizer != null) out += VersionedWord("stabilizer", VERSION_STABILIZER)
+        if (p.tip.fade != null) out += VersionedWord("tip.fade", VERSION_TIP_PROFILE)
         if (p.engine == ENGINE_MEDIA) out += VersionedWord("engine \"$ENGINE_MEDIA\"", VERSION_MEDIA)
         else if (p.media != null) out += VersionedWord("media", VERSION_MEDIA)
         if (p.line != null) out += VersionedWord("line", VERSION_LINES)

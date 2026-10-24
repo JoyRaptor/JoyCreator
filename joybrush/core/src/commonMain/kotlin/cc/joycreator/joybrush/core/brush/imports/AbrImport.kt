@@ -80,7 +80,15 @@ object AbrImport {
      *   section that overruns, a budget). One bad BRUSH is never a `BrushException` — it is a
      *   [RefusedBrush], and the brushes around it still convert.
      */
-    fun convert(bytes: ByteArray, idPrefix: String): ImportLibrary {
+    fun convert(bytes: ByteArray, idPrefix: String): ImportLibrary = convertImpl(bytes, idPrefix, null)
+
+    /** Materialize from the original sampled entries while width, height, depth and encoding exist. */
+    fun convertWithAssets(bytes: ByteArray, idPrefix: String, codec: ImportedTipPngCodec): MaterializedImportLibrary {
+        val session = MaterializedImportSession(codec)
+        return session.finish(convertImpl(bytes, idPrefix, session))
+    }
+
+    private fun convertImpl(bytes: ByteArray, idPrefix: String, materialized: MaterializedImportSession?): ImportLibrary {
         val file = AbrReader.read(bytes)
         val notes = FileNotes()
         val brushes = ArrayList<ImportResult>(file.brushes.size)
@@ -93,7 +101,7 @@ object AbrImport {
                 is AbrBrush.Read -> {
                     val name = entry.descriptor.text("Nm  ")?.takeIf { it.isNotBlank() } ?: "brush ${index + 1}"
                     try {
-                        brushes += BrushImport(file, notes).build(entry.descriptor, name, brushId(idPrefix, name))
+                        brushes += BrushImport(file, notes, materialized).build(entry.descriptor, name, brushId(idPrefix, name))
                     } catch (e: BrushException) {
                         refused += RefusedBrush(index, name, e.message ?: "it cannot be read")
                     }
@@ -177,7 +185,8 @@ private class FileNotes {
  * the tip ([storedTip]) and written at [finish], where the extensions budget is already known, because
  * Decision 4a needs the budget and Decision 4's two-sentence warning needs both facts at once.
  */
-private class BrushImport(private val file: AbrFile, private val notes: FileNotes) {
+private class BrushImport(private val file: AbrFile, private val notes: FileNotes,
+                          private val materialized: MaterializedImportSession? = null) {
 
     private val warnings = ArrayList<String>()
     private val extensions = LinkedHashMap<String, String>()
@@ -210,6 +219,7 @@ private class BrushImport(private val file: AbrFile, private val notes: FileNote
 
     /** Set by [sampled]; written at [finish], once the extensions budget is known (Decision 4/4a). */
     private var storedTip: StoredTip? = null
+    private var sampledSource: AbrTip? = null
 
     private class StoredTip(val fileName: String, val bytes: ByteArray)
 
@@ -292,11 +302,14 @@ private class BrushImport(private val file: AbrFile, private val notes: FileNote
         // `samp` payload, so they are PackBits when the entry says PackBits and raw gray when it says
         // raw. Calling either of them "tip.png" would be a lie written into a file a future writer
         // would materialise.
-        val stored = file.storedBytes(abrTip)
-        storedTip = StoredTip(
-            if (abrTip.compression == AbrReader.COMPRESSION_PACKBITS) "tip.packbits" else "tip.raw",
-            stored,
-        )
+        if (materialized != null) sampledSource = abrTip
+        else {
+            val stored = file.storedBytes(abrTip)
+            storedTip = StoredTip(
+                if (abrTip.compression == AbrReader.COMPRESSION_PACKBITS) "tip.packbits" else "tip.raw",
+                stored,
+            )
+        }
     }
 
     /**
@@ -691,6 +704,17 @@ private class BrushImport(private val file: AbrFile, private val notes: FileNote
             angle = Param(angleBase, angleInputs),
             hardness = Param(hardnessBase),
         )
+        val materializedTip = sampledSource?.let { source ->
+            val session = checkNotNull(materialized)
+            val png = session.alpha(source.width.toInt(), source.height.toInt(), file.grayBytes(source))
+            extensions["abr.sampledSourceWidth"] = source.width.toString()
+            extensions["abr.sampledSourceHeight"] = source.height.toString()
+            extensions["abr.sampledSourceDepth"] = source.depth.toString()
+            tip = session.tip(tip)
+            warn("the original ${source.width}x${source.height} sampled tip is materialized as a PNG alpha mask")
+            if (source.depth == 16) warn("the 16-bit sampled tip is reduced to its high 8 bits for the R8 mask")
+            png
+        }
         storedTip?.let { stored ->
             val b64 = base64Of(stored.bytes)
             val others = extensionChars()
@@ -747,7 +771,8 @@ private class BrushImport(private val file: AbrFile, private val notes: FileNote
         if (problems.isNotEmpty()) {
             throw BrushException("it would not be a legal brush: " + problems.joinToString("; "))
         }
-        return ImportResult(preset, warnings)
+        val result = ImportResult(preset, warnings)
+        return materialized?.record(result, materializedTip) ?: result
     }
 
     private fun extensionChars(): Int {

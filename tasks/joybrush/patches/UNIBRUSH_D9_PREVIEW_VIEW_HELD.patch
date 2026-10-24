@@ -1,0 +1,25 @@
+--- a/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/JbCanvasView.kt
++++ b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/JbCanvasView.kt
+@@ -2987,9 +2987,21 @@
+     fun renderBrushPreview(preset: BrushPreset, widthPx: Int, heightPx: Int,
+                            style: cc.joycreator.joybrush.androidkit.preview.BrushPreviewStyle,
+                            onBitmap: (android.graphics.Bitmap?) -> Unit): cc.joycreator.joybrush.androidkit.preview.BrushPreviewTicket {
++        // UI thread: capture the provider and actual policy before onGl can defer this work.
++        val actual = cc.joycreator.joybrush.androidkit.preview.BrushPreviewRequest.defaultActualStabilizer(
++            preset, stabilizerPreference, if (smoothingFromUser) smoothing else preset.smoothing)
++        val pngs = if (cc.joycreator.joybrush.core.brush.BrushAssetPaths.required(preset).isNotEmpty())
++            brushPngs?.invoke(preset) else null
++        return renderBrushPreview(cc.joycreator.joybrush.androidkit.preview.BrushPreviewRequest.snapshot(
++            preset, widthPx, heightPx, style, pngs, actual), onBitmap)
++    }
++
++    /** Already frozen on the UI thread: no provider or preference lookup is allowed in the queued job. */
++    fun renderBrushPreview(snapshot: cc.joycreator.joybrush.androidkit.preview.BrushPreviewRequest,
++                           onBitmap: (android.graphics.Bitmap?) -> Unit): cc.joycreator.joybrush.androidkit.preview.BrushPreviewTicket {
+         val ticket = cc.joycreator.joybrush.androidkit.preview.BrushPreviewTicket()
+         onGl(allowLost = true) {
+-            val request = cc.joycreator.joybrush.androidkit.preview.BrushPreviewRenderer.Request(preset, widthPx, heightPx, style, ticket) { bmp -> post { onBitmap(bmp) } }
++            val request = cc.joycreator.joybrush.androidkit.preview.BrushPreviewRenderer.Request(snapshot, ticket) { bmp -> post { onBitmap(bmp) } }
+             if (brushPreviews.submit(request)) pumpBrushPreviews()
+         }
+         return ticket

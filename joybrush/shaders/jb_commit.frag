@@ -14,12 +14,24 @@ uniform int u_blend;           // 0 = normal (default), 1 = multiply, 2 = screen
 uniform int u_rgbaStroke; // 1 = colour-varying watercolor, 0 leaves every existing branch unchanged
 uniform int u_smudge;          // >0 = the stroke buffer holds PREMULTIPLIED RGBA carried paint, not a coverage (JB-1.06); 2 = with paint, 3 = a slab unit
 uniform float u_layerOpacity;
+uniform int u_coloredStroke;
+uniform sampler2D u_colorMoments;
 
 in vec2 v_uv;
 out vec4 o_color;
 
 void main() {
     vec4 dst = texture(u_layer, v_uv);
+    if (u_coloredStroke == 1) {
+        float a = texture(u_stroke, v_uv).r * u_strokeScale;
+        vec3 sp = texture(u_colorMoments, v_uv).rgb * u_strokeScale;
+        if (u_erase == 1) { o_color = dst * (1.0 - a) * u_layerOpacity; return; }
+        vec3 rgb = sp + dst.rgb * (1.0 - a);
+        if (u_blend == 1) rgb = sp * dst.rgb + sp * (1.0 - dst.a) + dst.rgb * (1.0 - a);
+        if (u_blend == 2) rgb = sp + dst.rgb * (1.0 - sp);
+        o_color = vec4(rgb, a + dst.a * (1.0 - a)) * u_layerOpacity;
+        return;
+    }
     if(u_rgbaStroke == 1) {
         vec4 src=texture(u_stroke,v_uv)*u_strokeScale;
         if(u_erase == 1) { o_color=dst*(1.0-src.a)*u_layerOpacity; return; }

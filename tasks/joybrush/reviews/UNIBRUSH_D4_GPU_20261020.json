@@ -1,0 +1,35 @@
+{
+  "pass": true,
+  "productionShaders": [
+    "jb_dab.vert + jb_dab.frag",
+    "jb_tile.vert + jb_commit.frag"
+  ],
+  "format": "RGBA8 MRT; ONE/ONE_MINUS_SRC_ALPHA",
+  "prefixFloats": 17,
+  "colorAttribute": 12,
+  "fullCoverage": true,
+  "maxAccumulationError": 0.0016941176470588182,
+  "maxFallbackError": 0.0014580392156862965,
+  "splitDifferentBytes": 0,
+  "flatDifferentBytes": 0,
+  "transport": {
+    "batchedVersusIndividualBytes": 0,
+    "genericOracleDifferentBytes": 0,
+    "wrongOffsetDifferentBytes": 48,
+    "colorStrideBytes": 16,
+    "colorOffset": "n * (68 + 8 + 48)",
+    "maskDifferentBytes": 0,
+    "momentDifferentBytes": 0
+  },
+  "commitCases": 32,
+  "maxCommitError": 0.00196078431372549,
+  "controls": {
+    "wrongBlendDifferentBytes": 80,
+    "wrongMomentAlphaDetected": 24,
+    "wrongSelectorDetected": 24,
+    "guardedProductionMutations": 3
+  },
+  "commitFailures": [],
+  "drawBuffers": 8,
+  "glError": 0
+}

@@ -1,0 +1,104 @@
+{
+  "status": "NOT_RUN",
+  "requiredDevice": "SM-N960U",
+  "measurements": null,
+  "warmupRunsPerRecipe": 1,
+  "measuredRunsPerCase": 5,
+  "order": "reference,candidate,candidate,reference; repeat with matched temperatures",
+  "fixedSeed": 19,
+  "requiredControls": [
+    "same exact sample bytes",
+    "same immutable PNG closure",
+    "same actual stabilizer",
+    "same board/zoom/viewport",
+    "same uncropped footprint"
+  ],
+  "jobs": [
+    {
+      "id": "legacy-ink",
+      "brush": "joybrush.ink",
+      "sizePx": null,
+      "cases": [
+        "spiral",
+        "scribble",
+        "fastC"
+      ],
+      "targetFps": 60,
+      "mustRemainByteExact": true
+    },
+    {
+      "id": "unibrush-line",
+      "brushes": [
+        "unibrush.hard",
+        "unibrush.calligraphy",
+        "unibrush.round",
+        "unibrush.chisel",
+        "unibrush.fade",
+        "unibrush.texture",
+        "unibrush.dry",
+        "unibrush.sparkle",
+        "unibrush.living"
+      ],
+      "sizePx": null,
+      "cases": [
+        "spiral",
+        "scribble"
+      ],
+      "targetFps": 60
+    },
+    {
+      "id": "unibrush-taper",
+      "brush": "unibrush.taper",
+      "cases": [
+        "spiral",
+        "scribble",
+        "slowC"
+      ],
+      "targetFps": 60,
+      "requires": "actual D7 live lift/publication adapter accepted; rejection is inconclusive"
+    },
+    {
+      "id": "soft-2000",
+      "brush": "unibrush.soft",
+      "sizePx": 2000,
+      "cases": [
+        "spiral",
+        "scribble",
+        "topScribble",
+        "slowC"
+      ],
+      "targetFps": 45,
+      "policyVariants": [
+        "reference-full-extent-full-res",
+        "tight-extent-full-res",
+        "approved-spacing-only",
+        "halo-half-res-only",
+        "combined-only-after-independent-passes"
+      ]
+    },
+    {
+      "id": "soft-boundary",
+      "brush": "unibrush.soft",
+      "sizesPx": [
+        511,
+        512,
+        513,
+        2000,
+        4096
+      ],
+      "cases": [
+        "tap",
+        "tile-seam-line",
+        "pressure-ramp",
+        "crossing-scribble"
+      ],
+      "qualityGateOnly": true
+    }
+  ],
+  "caveats": [
+    "Size override exists only in the held BenchRunner patch; no command has measured Soft2000",
+    "Current frame percentiles do not include every post-UP commit frame",
+    "Programmatic modes and resource provider require the accepted D9 host",
+    "No benchmark command was run"
+  ]
+}

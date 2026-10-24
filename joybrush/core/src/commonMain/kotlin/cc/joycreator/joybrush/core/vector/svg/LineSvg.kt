@@ -81,8 +81,12 @@ object LineSvg {
             val why = InkReplay.refusal(record, brush) ?: when {
                 brush!!.engine == ENGINE_WATERCOLOUR ->
                     "stroke \"${record.id}\" is asset-rendered watercolor and needs image export; SVG outlines cannot preserve its dab PNGs or pooling"
-                brush!!.tip.source != "procedural" && brush.engine != ENGINE_FILL ->
+                (brush!!.tip.source != "procedural" || brush.tip.sampled != null) && brush.engine != ENGINE_FILL ->
                     "stroke \"${record.id}\" uses an image tip; an outline can only follow a procedural tip"
+                brush!!.color.dynamics?.isActive == true ->
+                    "stroke \"${record.id}\" varies its colour and needs image export; one SVG fill cannot preserve it"
+                brush!!.tip.dual != null || brush.tip.quad != null || brush.tip.profile != null || brush.tip.fade != null ->
+                    "stroke \"${record.id}\" uses Unibrush shape or softness and needs image export; this SVG outline cannot preserve it"
                 blendOf(brush.blend) == null ->
                     "stroke \"${record.id}\" uses blend \"${brush.blend}\", which this export cannot write as an SVG fill"
                 blendOf(brush.blend) == SvgWriter.Blend.ERASE ->
@@ -99,7 +103,7 @@ object LineSvg {
             val blend = blendOf(preset.blend)!!
             if (preset.engine == ENGINE_FILL) {
                 items.add(SvgWriter.Fill(seq, record.id,
-                    FillPen.outline(record.samples, record.smoothing, record.screenPerDoc),
+                    FillPen.outline(record.samples, record.smoothing, record.screenPerDoc, record.stabilizer),
                     record.colorArgb, alphaOf(record.colorArgb), blend))
                 continue
             }

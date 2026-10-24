@@ -1,5 +1,84 @@
 # Joy Brush shared agent board
 
+
+## Unibrush D9 — 2026-10-21 — owned implementation verified
+
+Full canonical core2678 (four existing optional skips)/backend1145/app335: zero failures/errors.
+reviews/UNIBRUSH_D9_20261021.{md,json} records proof, Windows conservative cleanup and limits.
+Eleven modes, shape/profile settings, append-only user Save As, bounded PNG picker/resources,
+actual preference and exact real-engine previews are implemented; callback/cancellation regressions
+are covered. D8/D9 held adapters apply textually in a disposable copy, combined checks are next.
+No canonical Lead engine/View/lines/Activity or Helper media edits. Shipping OFF, no device work.
+D10 bounded soft-circle candidate passed156 PC GPU cases; it remains outside until separately landed.
+Actual half-resolution runtime, Note9 speed/feel, Lead scene publication/merge remain uncompleted.
+
+## Unibrush D8 — 2026-10-21 — engine verified
+
+Source1758d9f44 passes full core2657 (four optional skips)/backend1100, zero failures/errors.
+reviews/UNIBRUSH_D8_20261021.{md,json} records raw codec, actual-filter/replay/fill/preview proof.
+Eight engine slices verified; held Android adapters, Lead activation and Note9 acceptance pending.
+D9 sheet/modes/store/picker/preview host remains OFF until its actual canvas capability exists.
+
+
+## Unibrush D7 — 2026-10-21 — engine verified
+
+Source8be06b4cf passes full core2629 (four optional skips) and backend1099, zero failures/errors.
+reviews/UNIBRUSH_D7_20261021.{md,json} records proof and limits. Seven engine slices verified;
+actual Lead physical publisher/activation and Note9 acceptance remain pending. Continuing D8.
+
+
+## Unibrush D7 source — 2026-10-21 — validation queued
+
+Source 8be06b4cf is pushed to codex/unibrush and draft PR #1. It adds bounded two-pass
+whole-stroke taper/dash admission, lift ownership protocol and final shaped previews.
+Eleven new core tests and two preview regression tests are present but NOT yet executed;
+the canonical run waits for the machine-wide Lead build lock. Legacy wire/neutral preview
+routing remains unchanged after review. This is a source backup, not a green checkpoint.
+
+The D4→D5→D6 held engine/View/scene combination compiles in disposable
+C:/Temp/jb-unibrush-d6-shadow. Backend test compilation found one old internal cold-plan
+constructor call; patches/UNIBRUSH_D6_COLD_TEST.patch supplies the missing asset map.
+That held test correction is not a canonical Lead edit; execution is still pending.
+A 768MiB copied-project core-test attempt exhausted heap; no runtime failure is claimed.
+Subsequent checks use the previously proven 1024MiB heap and serial resource admission.
+
+D7 live activation needs Lead's private preview lease, prepared atomic publication receipt,
+retryable post-publication retirement and first-scene promotion boundary. Exact evidence and
+an admission gate are in patches/UNIBRUSH_D7_HOST.md and its adjacent patches. Native
+endStroke is not presented as the final publisher. No phone, performance or owner acceptance.
+D8 actual-stabilizer/codec/fill proposals and D9 mode/store/sheet drafts continue outside the
+canonical build source while checks are queued. No merges/conflict resolution/media edits.
+
+## Unibrush D3 — 2026-10-19 — ready for Lead review
+
+Source adf5936b3 adds four ordered tip handles, exact circular corner fillets and A/B morph
+of points/rounding/aspect/radial coverage by Param. Null quad retains every old tip's math.
+Full core2547 (four optional skips), backend1052: zero failures/errors. Actual production
+GPU vs CPU:156 cases/159744 probes, maxerror .0043181251 (<2/255), all six wrong-feature
+controls detected. Extended packing vs individual draws is byte-exact; wrong fade/quad
+offset controls differ2466/2686 bytes. Historical820c62802 shader pixels remain exact.
+See reviews/UNIBRUSH_D3_20261018.md, UNIBRUSH_D3_20261019.json and shader contact sheet.
+No phone/performance/owner acceptance claim. No Lead engine/view/line/helper media edits.
+The D7 LineShaper forwarding adapter still gates new tip fields plus line-style shaping.
+Continuing D4 colour dynamics, preserving WASH cap/coverage semantics with conditional MRT.
+
+## Unibrush D2 — 2026-10-18 — ready for Lead review
+
+Source dc3aca21c on codex/unibrush adds hard/linear/smooth/Gaussian/custom radial profiles,
+tip/canvas/pen-azimuth directional fade and the tilt side-fade recipe. Legacy fields omitted,
+RNG sequence and the 17-float stamp prefix stay exact; optional fade data follows the prefix.
+Full core 2529 (4 optional corpus skips), backend 1050: zero failures/errors. Production shaders
+pass 72 CPU cases / 73728 probes (<1/255 max error), all wrong-profile/fade controls detected.
+Extended three-dab transport matches individual draws byte-for-byte; wrong-offset control differs
+in 2856 bytes. Historical 820c62802 vs new shader: zero differing pixels (old regression controls pass).
+Evidence: tools/unibrush_profile_check.js, tools/stamp_pass_check.js --old-ref 820c62802,
+TipProfileFixtureTest and UnibrushStampPassTest. Local logs C:/Temp/jb-unibrush-d2-tests.log,
+C:/Temp/jb-unibrush-d2-gpu.json. Headless Edge/SwiftShader; no phone/performance acceptance claim.
+No Lead engine/view/lines or helper media edits. New profile/fade with line-style shaping is
+explicitly refused until the D7 Lead adapter forwards the new Dab fields (otherwise LineShaper
+silently drops them). Ordinary raw-sample/seed live vs replay and codec roundtrips pass.
+Continuing D3 four-point shapes/morph. Lead review/integration of D1/D2 is requested.
+
 ## Current Root lane — October15 captured format, then private clipping adapter
 
 Source628424db passes core2402 (4 optional skips), backend786/native203 and exact
@@ -725,3 +804,94 @@ are requested here; this is the interface boundary for coordinating the upcoming
 
 ## JoyBrush Lead overnight — October15
 Root owns engine/View/Scene integration in C:/Temp/jb-live-current; latest HANDOFF_20261015.md. Actual promotion GPU refused shared-cel legacy alias safely; root correction under full serialized checks, not yet accepted. Pure captured-domain value from isolated jb-captured-source is under focused checks, no format activation. Sol audits cold load-plan read-only. Preserve primary and all source partials; fresh shared Gradle/phone locks and Home gates apply. Independent Claude audit can use the new checkpoint after verified publication; no overlapping hot-file edits requested.
+# Unibrush D1 — 2026-10-18 — ready for Lead review
+
+Branch `codex/unibrush`, worktree `C:/Temp/jb-codex-unibrush`, base `lead/layer-ops` 107748a78 per owner handoff.
+Engine/model commit **820c62802**: explicit fixed/stroke/penAzimuth/penBarrel sources, 1.5 mm (30 doc px)
+distance smoothing for new sources, offset and existing seeded jitter; pressure width/ink/both/none and tilt
+angle/flatten/size/none recipe APIs. Null angleSource keeps the old hybrid followDirection byte-for-byte;
+legacy files do not acquire the new JSON key. Brush version **12**, reconcile with current main at integration.
+Missing sensors hold the last valid heading (fixed offset before any reading); Note 9 has no barrel sensor.
+
+**Proof:** full `:core:jvmTest` 2521 tests / 0 failures / 0 errors / 4 optional corpus skips, serialized/offline
+under the shared lock. 88 legacy configurations / 7128 dabs match the unmodified 107748a78 SHA-256
+`2fa83c231a3938bbcb5695597204c6a980db2bf47056d81a557dd2f1bf08a8d3`. 64 source/behavior combinations
+match streamed live placement after raw codec roundtrip with nonlinear response and a changed-seed control.
+Independent read-only review found custom-recipe edge cases; they are fixed/tested. Nonrepresentable custom
+recipes raise BrushException; D9 must show that message rather than silently reset other inputs.
+
+**Not proved:** GPU/phone/feel/performance. Sheet chips remain D9; tilt side-fade comes with D2. No Lead
+canvas/engine/lines or helper media edits, no main merge and no phone commands. D2 profiles/fade now in progress;
+its small Lead adapter changes will be supplied as held patches. Lead review/integration of D1 is requested.
+
+## Unibrush D4 — 2026-10-20 — engine verified, Lead adapter held
+
+Commit **b8a6c4ec8** on codex/unibrush adds explicit seeded colour dynamics (brush v15), frozen
+primary/secondary palette capture (raw codec v5), live/replay parity and CPU/GPU RGB-moment
+accumulation. Existing brushes keep their fixed-colour arithmetic and independent random streams.
+Full serialized offline checks: core **2577/0 failures/0 errors/4 optional skips**, backend
+**1059/0/0/0**, 8m24s. Production GPU: 32 blend/opacity/backdrop cases, max error .0019607843;
+batched versus individual/full-tail VBO and separate MRT targets are byte-identical. All broken
+controls detect faults. Historical 820c62802 shaders still match legacy pixels exactly.
+
+Review: reviews/UNIBRUSH_D4_20261020.md. Exact held patch and integration note:
+patches/UNIBRUSH_D4_LEAD.patch / .md. It passes git apply --check against our untouched Lead base;
+it has NOT been applied, compiled as a combined app or phone-tested. Lead must reconcile palette,
+MRT ownership/inventories, mask conversion and commit binding against current main. No Lead
+engine/View/line or helper media source changed; no merge/conflict resolution/phone action.
+D1–D4 engine checkpoints are ready for review. D5 sampled tips/resources are now in progress;
+full spec, app integration, Note9 performance and owner feel acceptance remain unfinished.
+
+## Unibrush D5 checkpoint — 2026-10-20 (Codex)
+
+Source/evidence: **5990e272f**, branch codex/unibrush. Explicit v16 sampled-tip sets,
+real PNG imports, immutable byte-aware frozen brushes and archive resources are implemented.
+Core2607 passed (4 optional corpus skips). Backend1082 executed: one new assertion expected
+an unsorted fixture; corrected to documented drawing order, all7 archive tests then passed.
+No runtime source changed after that full backend run. Stamp/smudge/tuft/paper shader regression
+and156 profile/quad cases pass. Sample GPU18 cases/18432 probes/max .00229069451, all9 broken
+controls detected; full image/fade/quad/RGB VBO equals individual draws on both MRT targets.
+Historical pre-Unibrush legacy shader pixels remain exact.
+
+**Held only:** tasks/joybrush/patches/UNIBRUSH_D5_{ENGINE,VIEW}.patch plus proposed test patch,
+with documented remaining activation gates. D4 then bothD5 patches apply in an outside scratch
+tree. Protected canonical Lead/scene/View/media files are untouched. No combined app compile,
+merge, Note9 performance/feel or full spec completion is claimed. Lead must activate resource-
+bearing live scene contact; legacy NativeLines continues explicit image refusal. D6 begins next.
+
+## Unibrush D6 checkpoint — 2026-10-20 (Codex)
+
+Source/evidence **df41a3f0f**, codex/unibrush. Seeded static shape/image dual masks,
+combined frozen PNG closure, matching seed/recipe admission and current-context R8
+ownership are implemented. Core2618/0/0/4 optional skips; backend1097/0/0/0.
+Production GPU24 cases/196608 MRT channel probes/max .00510185051 (<2/255), all
+required off/mode/period/clamp/flow-order controls detect; complete VBO/MRT transport
+is exact, reversed-order and wrong-offset controls differ. Disabled dual is byteexact.
+
+**Still held:** D6 Lead patch applies after D4 and bothD5 patches in outside scratch.
+Protected canonical Lead/View/scene/media sources remain untouched. Unadapted legacy
+CPU paths retain explicit dual-context refusals. No app activation, merge, phone feel or
+performance claim. Next: compile held adapters/tests in a disposable source copy while
+continuing D7 owned finalization; D8/D9 drafts are preserved outside the repository.
+
+
+## Unibrush integration checkpoint — 2026-10-21 (Codex)
+
+D1–D9 owned source through a8858ec60 is compiled and verified. The secondary-palette follow-up
+adds Studio picker live preview/confirmed persistence, stale-callback and cancel rollback,
+actual foreground/secondary preview colours, and a saved-mode recovery selection guard.
+Final owned full app351 passes; core2678/backend1145 remain green, with four optional core skips.
+Disposable combined held engine/View/Activity/Drawer/BenchRunner sources pass core2680 (four
+existing optional skips), backend1154 and app358, all zero failures/errors. Exact held follow-ups
+preserve old first-dab primary colour and unmarked native taper/dash behavior; modern whole-stroke
+ends remain refused until the actual recorded lift publisher exists. D9_LEAD.md gives patch order.
+
+D10 source d723f5a63: bounded fully soft canonical-circle raster extent and debug bench helpers.
+Actual PC production-shader GPU174 cases/110 eligible/zero failures; eligible <=1 RGBA8 level,
+excluded cases/transport exact; all four broken controls detected. This proves PC parity only.
+D10_20261021.md, D10_PLAN.md and GPU JSON record exact scope and remaining format/device gates.
+
+**Not complete:** Lead real scene/lift publisher, half-resolution allocation/display/commit/replay,
+safe automatic spacing policy, activation/merge, Note9 measurements and owner all-mode raster/
+editable-line review. Shipping stays OFF. No protected canonical engine/View/lines/Activity/media
+edits, conflict resolutions, phone installs or data clearing. No benchmark result is fabricated.

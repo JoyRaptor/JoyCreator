@@ -1,0 +1,18 @@
+{
+  "source": "1758d9f44",
+  "core": {
+    "tests": 2657,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 4
+  },
+  "androidBackend": {
+    "tests": 1100,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "log": "C:/Temp/jb-unibrush-d8-tests.log",
+  "leadIntegration": false,
+  "phoneAcceptance": false
+}

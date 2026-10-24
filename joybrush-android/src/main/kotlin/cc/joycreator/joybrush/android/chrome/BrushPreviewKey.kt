@@ -16,7 +16,7 @@ import java.security.MessageDigest
 object BrushPreviewKey {
 
     /** Bump when the renderer's pictures change (a new reference paper, a new canned stroke): every stored preview is then stale. */
-    const val RENDERER_VERSION = 1
+    const val RENDERER_VERSION = 2
 
     private const val ID_MAX = 48
     private val HASH = Regex("[0-9a-f]{16}")
@@ -32,7 +32,14 @@ object BrushPreviewKey {
 
     fun of(preset: BrushPreset, width: Int, height: Int, style: BrushPreviewStyle): Key {
         val text = try { BrushJson.encode(preset) } catch (e: Exception) { preset.toString() }
-        return Key(idPart(preset.id), hash("v$RENDERER_VERSION|${style.key}|$text"), width, height)
+        return Key(idPart(preset.id), hash("v$RENDERER_VERSION|${style.key}|$text|none|legacy|canned"), width, height)
+    }
+
+    /** Key retains digests and scalar text only, never a PNG owner or request. */
+    fun of(request: cc.joycreator.joybrush.androidkit.preview.BrushPreviewRequest): Key {
+        val text = BrushJson.encode(request.preset)
+        val payload = "v$RENDERER_VERSION|${request.style.key}|$text|${request.resourceFingerprint}|${request.actualStabilizerKey}|${request.penOverride?.key ?: "canned"}"
+        return Key(idPart(request.preset.id), hash(payload), request.width, request.height)
     }
 
     /**

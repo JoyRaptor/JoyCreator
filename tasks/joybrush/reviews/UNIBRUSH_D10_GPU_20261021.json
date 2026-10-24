@@ -1,0 +1,8234 @@
+{
+  "pass": true,
+  "diagnostics": [
+    {
+      "name": "circle-r256.5-s0.125",
+      "scope": "one first dab; actual production contact in RGBA32F; independent double unit-circle truth at even/even forward derivatives; diagnostics do not replace strict production parity",
+      "variants": {
+        "reference": {
+          "probes": 1692,
+          "maxInterpolationErrorDocPx": 0.1892547607421875,
+          "maxDirectErrorDocPx": 0,
+          "maxContactCoverageErrorVsCpu": 0.0006198049602770817,
+          "missingNonzeroCpuSupport": 0,
+          "worst": {
+            "x": 34,
+            "y": 46,
+            "actualCoverage": 0.3122136890888214,
+            "cpuCoverage": 0.31159388412854433,
+            "interpolatedOffset": [
+              76.753662109375,
+              -11.25054931640625
+            ],
+            "directGpuOffset": [
+              76.92999267578125,
+              -11.25
+            ],
+            "cpuOffset": [
+              76.92999267578125,
+              -11.25
+            ],
+            "d": 0.30311198284951807,
+            "aa": 0.03381379900846643
+          }
+        },
+        "unbounded": {
+          "probes": 1020,
+          "maxInterpolationErrorDocPx": 0.2198486328125,
+          "maxDirectErrorDocPx": 0,
+          "maxContactCoverageErrorVsCpu": 0.0003708588026014037,
+          "missingNonzeroCpuSupport": 0,
+          "worst": {
+            "x": 20,
+            "y": 32,
+            "actualCoverage": 0.17884454131126404,
+            "cpuCoverage": 0.17847368250866263,
+            "interpolatedOffset": [
+              -35.0032958984375,
+              -123.14862060546875
+            ],
+            "directGpuOffset": [
+              -35.07000732421875,
+              -123.25
+            ],
+            "cpuOffset": [
+              -35.07000732421875,
+              -123.25
+            ],
+            "d": 0.4995804039272158,
+            "aa": 0.03754110781224951
+          }
+        },
+        "candidate": {
+          "probes": 1692,
+          "maxInterpolationErrorDocPx": 0.1892547607421875,
+          "maxDirectErrorDocPx": 0,
+          "maxContactCoverageErrorVsCpu": 0.0006198049602770817,
+          "missingNonzeroCpuSupport": 0,
+          "worst": {
+            "x": 34,
+            "y": 46,
+            "actualCoverage": 0.3122136890888214,
+            "cpuCoverage": 0.31159388412854433,
+            "interpolatedOffset": [
+              76.753662109375,
+              -11.25054931640625
+            ],
+            "directGpuOffset": [
+              76.92999267578125,
+              -11.25
+            ],
+            "cpuOffset": [
+              76.92999267578125,
+              -11.25
+            ],
+            "d": 0.30311198284951807,
+            "aa": 0.03381379900846643
+          }
+        }
+      }
+    },
+    {
+      "name": "deep-AA-floor-s64",
+      "scope": "one first dab; actual production contact in RGBA32F; independent double unit-circle truth at even/even forward derivatives; diagnostics do not replace strict production parity",
+      "variants": {
+        "reference": {
+          "probes": 2304,
+          "maxInterpolationErrorDocPx": 0.0003662109375,
+          "maxDirectErrorDocPx": 0.0001220703125,
+          "maxContactCoverageErrorVsCpu": 0.41812043272592814,
+          "missingNonzeroCpuSupport": 0,
+          "worst": {
+            "x": 50,
+            "y": 0,
+            "actualCoverage": 0.4223392903804779,
+            "cpuCoverage": 0.00421885765454979,
+            "interpolatedOffset": [
+              2048.08984375,
+              -0.742431640625
+            ],
+            "directGpuOffset": [
+              2048.09033203125,
+              -0.7421875
+            ],
+            "cpuOffset": [
+              2048.0902099609375,
+              -0.7421875
+            ],
+            "d": 1.000044113495112,
+            "aa": 0.0001
+          }
+        },
+        "unbounded": {
+          "probes": 1440,
+          "maxInterpolationErrorDocPx": 0.0003662109375,
+          "maxDirectErrorDocPx": 0.0001220703125,
+          "maxContactCoverageErrorVsCpu": 0.4180202192686773,
+          "missingNonzeroCpuSupport": 0,
+          "worst": {
+            "x": 50,
+            "y": 2,
+            "actualCoverage": 0.42224666476249695,
+            "cpuCoverage": 0.004226445493819699,
+            "interpolatedOffset": [
+              2048.090576171875,
+              -0.7108154296875
+            ],
+            "directGpuOffset": [
+              2048.09033203125,
+              -0.7109375
+            ],
+            "cpuOffset": [
+              2048.0902099609375,
+              -0.7109375
+            ],
+            "d": 1.0000441080820381,
+            "aa": 0.0001
+          }
+        },
+        "candidate": {
+          "probes": 2304,
+          "maxInterpolationErrorDocPx": 0.0003662109375,
+          "maxDirectErrorDocPx": 0.0001220703125,
+          "maxContactCoverageErrorVsCpu": 0.41812043272592814,
+          "missingNonzeroCpuSupport": 0,
+          "worst": {
+            "x": 50,
+            "y": 0,
+            "actualCoverage": 0.4223392903804779,
+            "cpuCoverage": 0.00421885765454979,
+            "interpolatedOffset": [
+              2048.08984375,
+              -0.742431640625
+            ],
+            "directGpuOffset": [
+              2048.09033203125,
+              -0.7421875
+            ],
+            "cpuOffset": [
+              2048.0902099609375,
+              -0.7421875
+            ],
+            "d": 1.000044113495112,
+            "aa": 0.0001
+          }
+        }
+      }
+    },
+    {
+      "name": "deep-AA-floor-s256",
+      "scope": "one first dab; actual production contact in RGBA32F; independent double unit-circle truth at even/even forward derivatives; diagnostics do not replace strict production parity",
+      "variants": {
+        "reference": {
+          "probes": 2304,
+          "maxInterpolationErrorDocPx": 0.0001220703125,
+          "maxDirectErrorDocPx": 0.0001220703125,
+          "maxContactCoverageErrorVsCpu": 0.4188585983778657,
+          "missingNonzeroCpuSupport": 0,
+          "worst": {
+            "x": 58,
+            "y": 0,
+            "actualCoverage": 0.4219141900539398,
+            "cpuCoverage": 0.0030555916760741006,
+            "interpolatedOffset": [
+              2048.09228515625,
+              -0.185546875
+            ],
+            "directGpuOffset": [
+              2048.09228515625,
+              -0.185546875
+            ],
+            "cpuOffset": [
+              2048.0921630859375,
+              -0.185546875
+            ],
+            "d": 1.0000450056107155,
+            "aa": 0.0001
+          }
+        },
+        "unbounded": {
+          "probes": 2160,
+          "maxInterpolationErrorDocPx": 0.0001220703125,
+          "maxDirectErrorDocPx": 0.0001220703125,
+          "maxContactCoverageErrorVsCpu": 0.41891516318575756,
+          "missingNonzeroCpuSupport": 0,
+          "worst": {
+            "x": 58,
+            "y": 0,
+            "actualCoverage": 0.42197075486183167,
+            "cpuCoverage": 0.0030555916760741006,
+            "interpolatedOffset": [
+              2048.092041015625,
+              -0.185546875
+            ],
+            "directGpuOffset": [
+              2048.09228515625,
+              -0.185546875
+            ],
+            "cpuOffset": [
+              2048.0921630859375,
+              -0.185546875
+            ],
+            "d": 1.0000450056107155,
+            "aa": 0.0001
+          }
+        },
+        "candidate": {
+          "probes": 2304,
+          "maxInterpolationErrorDocPx": 0.0001220703125,
+          "maxDirectErrorDocPx": 0.0001220703125,
+          "maxContactCoverageErrorVsCpu": 0.4188585983778657,
+          "missingNonzeroCpuSupport": 0,
+          "worst": {
+            "x": 58,
+            "y": 0,
+            "actualCoverage": 0.4219141900539398,
+            "cpuCoverage": 0.0030555916760741006,
+            "interpolatedOffset": [
+              2048.09228515625,
+              -0.185546875
+            ],
+            "directGpuOffset": [
+              2048.09228515625,
+              -0.185546875
+            ],
+            "cpuOffset": [
+              2048.0921630859375,
+              -0.185546875
+            ],
+            "d": 1.0000450056107155,
+            "aa": 0.0001
+          }
+        }
+      }
+    }
+  ],
+  "backend": "PC WebGL2 SwiftShader; no Note9 FPS claim",
+  "cases": [
+    {
+      "name": "circle-r256-s0.125",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 2918,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "circle-r256-s0.5",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 7487,
+      "maxByte": 1,
+      "changedBytes": 491,
+      "rmsByte": 0.06663139257776211,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "circle-r256-s1",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 860,
+      "rmsByte": 0.08818350763333538,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "circle-r256-s2",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "circle-r256-s16",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "circle-r256-s64",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "circle-r256-s256",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "circle-r256.5-s0.125",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 2921,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "circle-r256.5-s0.5",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 7491,
+      "maxByte": 1,
+      "changedBytes": 54,
+      "rmsByte": 0.02209708691207961,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "circle-r256.5-s1",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 1243,
+      "rmsByte": 0.10601656000536129,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "circle-r256.5-s2",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "circle-r256.5-s16",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "circle-r256.5-s64",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "circle-r256.5-s256",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "circle-r1000-s0.125",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 7178,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "circle-r1000-s0.5",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 305,
+      "rmsByte": 0.05251556757727144,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "circle-r1000-s1",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 103,
+      "rmsByte": 0.030518048318137057,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "circle-r1000-s2",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "circle-r1000-s16",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "circle-r1000-s64",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "circle-r1000-s256",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "circle-r2048-s0.125",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "circle-r2048-s0.5",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 39,
+      "rmsByte": 0.01877891289304161,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "circle-r2048-s1",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 74,
+      "rmsByte": 0.025867472961373855,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "circle-r2048-s2",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "circle-r2048-s16",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "circle-r2048-s64",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "circle-r2048-s256",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "tile-edge-255.5,256.5-0,0",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 855,
+      "rmsByte": 0.08792678654236527,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "tile-edge--256.5,-0.5-0,0",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 855,
+      "rmsByte": 0.08792678654236527,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "tile-edge-4096.25,-4096.75-0,0",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 855,
+      "rmsByte": 0.08792678654236527,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "tile-edge-255.5,256.5-0.25,0.25",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 860,
+      "rmsByte": 0.08818350763333538,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "tile-edge--256.5,-0.5-0.25,0.25",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 860,
+      "rmsByte": 0.08818350763333538,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "tile-edge-4096.25,-4096.75-0.25,0.25",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 860,
+      "rmsByte": 0.08818350763333538,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "tile-edge-255.5,256.5-0.5,0.5",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 798,
+      "rmsByte": 0.08494534599114631,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "tile-edge--256.5,-0.5-0.5,0.5",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 798,
+      "rmsByte": 0.08494534599114631,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "tile-edge-4096.25,-4096.75-0.5,0.5",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 798,
+      "rmsByte": 0.08494534599114631,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "tile-edge-255.5,256.5-0.75,0.75",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 788,
+      "rmsByte": 0.0844114290357168,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "tile-edge--256.5,-0.5-0.75,0.75",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 788,
+      "rmsByte": 0.0844114290357168,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "tile-edge-4096.25,-4096.75-0.75,0.75",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 788,
+      "rmsByte": 0.0844114290357168,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "profile0-h0",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "profile0-h0.9",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "profile0-h1",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "profile1-h0",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "profile1-h0.9",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "profile1-h1",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "profile2-h0",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "profile2-h0.9",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "profile2-h1",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "profile3-h0",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "profile3-h0.9",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "profile3-h1",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "profile4-h0",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 445,
+      "rmsByte": 0.06343342328626775,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "profile4-h0.9",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "profile4-h1",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "profile5-h0",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "profile5-h0.9",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "profile5-h1",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "deep-AA-floor-s64",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 5952,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "deep-AA-floor-s256",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "dual1",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 4266,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "dual2",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 2100,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "dual3",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "commit-clear-blend0",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 848,
+      "rmsByte": 0.08756611258971175,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "commit-clear-blend1",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 848,
+      "rmsByte": 0.08756611258971175,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "commit-clear-blend2",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 848,
+      "rmsByte": 0.08756611258971175,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "commit-opaque-blend0",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 874,
+      "rmsByte": 0.08889838273952853,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "commit-opaque-blend1",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 786,
+      "rmsByte": 0.08430423987624294,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "commit-opaque-blend2",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 722,
+      "rmsByte": 0.08079914082097289,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "commit-checker-blend0",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 860,
+      "rmsByte": 0.08818350763333538,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "commit-checker-blend1",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 783,
+      "rmsByte": 0.08414320011147662,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "commit-checker-blend2",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 774,
+      "rmsByte": 0.08365822085525526,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "minPx-equal-diameter",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 860,
+      "rmsByte": 0.08818350763333538,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "below-radius-cutoff",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "legacy-no-quad",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "disabled-attribute-default",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "aspect-razor",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 2143,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "anchor-left",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "taper",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "expanded-minPx",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "rotated-square",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 8069,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "triangle",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9211,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "translated-circle",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 6273,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "native1x1",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "native1x64",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 1797,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "profile-morph",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r256-s0.5-a0-p0",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 7358,
+      "maxByte": 1,
+      "changedBytes": 536,
+      "rmsByte": 0.06961783908251187,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r256-s0.5-a0-p0.25",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 7346,
+      "maxByte": 1,
+      "changedBytes": 538,
+      "rmsByte": 0.06974760217569675,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r256-s0.5-a0-p0.5",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 7332,
+      "maxByte": 1,
+      "changedBytes": 559,
+      "rmsByte": 0.07109581676890024,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r256-s0.5-a0-p0.75",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 7314,
+      "maxByte": 1,
+      "changedBytes": 613,
+      "rmsByte": 0.07445063070274849,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r256-s0.5-a0.7853981633974483-p0",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 7448,
+      "maxByte": 1,
+      "changedBytes": 657,
+      "rmsByte": 0.07707629472369136,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r256-s0.5-a0.7853981633974483-p0.25",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 7432,
+      "maxByte": 1,
+      "changedBytes": 681,
+      "rmsByte": 0.07847145402770501,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r256-s0.5-a0.7853981633974483-p0.5",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 7419,
+      "maxByte": 1,
+      "changedBytes": 545,
+      "rmsByte": 0.07019988409429073,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r256-s0.5-a0.7853981633974483-p0.75",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 7396,
+      "maxByte": 1,
+      "changedBytes": 560,
+      "rmsByte": 0.07115938031916388,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r256-s1-a0-p0",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 632,
+      "rmsByte": 0.07559562867040709,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r256-s1-a0-p0.25",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 588,
+      "rmsByte": 0.07291666666666667,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r256-s1-a0-p0.5",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 616,
+      "rmsByte": 0.07463258770904402,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r256-s1-a0-p0.75",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 538,
+      "rmsByte": 0.06974760217569675,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r256-s1-a0.7853981633974483-p0",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 620,
+      "rmsByte": 0.07487450921127717,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r256-s1-a0.7853981633974483-p0.25",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 608,
+      "rmsByte": 0.07414637675021744,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r256-s1-a0.7853981633974483-p0.5",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 563,
+      "rmsByte": 0.07134973120845318,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r256-s1-a0.7853981633974483-p0.75",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 657,
+      "rmsByte": 0.07707629472369136,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r256.5-s0.5-a0-p0",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 7363,
+      "maxByte": 1,
+      "changedBytes": 64,
+      "rmsByte": 0.024056261216234408,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r256.5-s0.5-a0-p0.25",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 7353,
+      "maxByte": 1,
+      "changedBytes": 55,
+      "rmsByte": 0.022300751004626963,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r256.5-s0.5-a0-p0.5",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 7336,
+      "maxByte": 1,
+      "changedBytes": 45,
+      "rmsByte": 0.020171788261496962,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r256.5-s0.5-a0-p0.75",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 7322,
+      "maxByte": 1,
+      "changedBytes": 58,
+      "rmsByte": 0.022900878399779376,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r256.5-s0.5-a0.7853981633974483-p0",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 7453,
+      "maxByte": 1,
+      "changedBytes": 57,
+      "rmsByte": 0.02270259866427434,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r256.5-s0.5-a0.7853981633974483-p0.25",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 7440,
+      "maxByte": 1,
+      "changedBytes": 74,
+      "rmsByte": 0.025867472961373855,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r256.5-s0.5-a0.7853981633974483-p0.5",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 7428,
+      "maxByte": 1,
+      "changedBytes": 39,
+      "rmsByte": 0.01877891289304161,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r256.5-s0.5-a0.7853981633974483-p0.75",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 7411,
+      "maxByte": 1,
+      "changedBytes": 50,
+      "rmsByte": 0.021262931794992865,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r256.5-s1-a0-p0",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 1077,
+      "rmsByte": 0.0986838297994605,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r256.5-s1-a0-p0.25",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 1138,
+      "rmsByte": 0.10144000804160792,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r256.5-s1-a0-p0.5",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 1131,
+      "rmsByte": 0.10112754082785208,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r256.5-s1-a0-p0.75",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 1092,
+      "rmsByte": 0.09936866681426516,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r256.5-s1-a0.7853981633974483-p0",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 1258,
+      "rmsByte": 0.10665432328755327,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r256.5-s1-a0.7853981633974483-p0.25",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 1274,
+      "rmsByte": 0.10733042719495647,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r256.5-s1-a0.7853981633974483-p0.5",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 1219,
+      "rmsByte": 0.1049880807829226,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r256.5-s1-a0.7853981633974483-p0.75",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 1160,
+      "rmsByte": 0.10241584169272656,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r1000-s0.5-a0-p0",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 244,
+      "rmsByte": 0.046971351591905144,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r1000-s0.5-a0-p0.25",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 233,
+      "rmsByte": 0.045900361341674606,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r1000-s0.5-a0-p0.5",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 257,
+      "rmsByte": 0.048206400614287576,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r1000-s0.5-a0-p0.75",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 259,
+      "rmsByte": 0.048393610641549845,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r1000-s0.5-a0.7853981633974483-p0",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 291,
+      "rmsByte": 0.051296134384354715,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r1000-s0.5-a0.7853981633974483-p0.25",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 306,
+      "rmsByte": 0.05260158822063583,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r1000-s0.5-a0.7853981633974483-p0.5",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 301,
+      "rmsByte": 0.05217006667123861,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r1000-s0.5-a0.7853981633974483-p0.75",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 256,
+      "rmsByte": 0.048112522432468816,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r1000-s1-a0-p0",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 74,
+      "rmsByte": 0.025867472961373855,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r1000-s1-a0-p0.25",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 87,
+      "rmsByte": 0.028047733370492208,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r1000-s1-a0-p0.5",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 77,
+      "rmsByte": 0.0263866044332824,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r1000-s1-a0-p0.75",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 58,
+      "rmsByte": 0.022900878399779376,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r1000-s1-a0.7853981633974483-p0",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 68,
+      "rmsByte": 0.024796626487996007,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r1000-s1-a0.7853981633974483-p0.25",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 89,
+      "rmsByte": 0.028368289302722557,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r1000-s1-a0.7853981633974483-p0.5",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 66,
+      "rmsByte": 0.024429248749080364,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r1000-s1-a0.7853981633974483-p0.75",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 74,
+      "rmsByte": 0.025867472961373855,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r2048-s0.5-a0-p0",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 41,
+      "rmsByte": 0.019254403656960795,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r2048-s0.5-a0-p0.25",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 40,
+      "rmsByte": 0.01901814435781827,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r2048-s0.5-a0-p0.5",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 35,
+      "rmsByte": 0.01778984507979097,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r2048-s0.5-a0-p0.75",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 50,
+      "rmsByte": 0.021262931794992865,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r2048-s0.5-a0.7853981633974483-p0",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 40,
+      "rmsByte": 0.01901814435781827,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r2048-s0.5-a0.7853981633974483-p0.25",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 42,
+      "rmsByte": 0.01948779888944761,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r2048-s0.5-a0.7853981633974483-p0.5",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 41,
+      "rmsByte": 0.019254403656960795,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r2048-s0.5-a0.7853981633974483-p0.75",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 34,
+      "rmsByte": 0.01753386274021194,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r2048-s1-a0-p0",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 48,
+      "rmsByte": 0.020833333333333332,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r2048-s1-a0-p0.25",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 51,
+      "rmsByte": 0.02147450846675865,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r2048-s1-a0-p0.5",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 79,
+      "rmsByte": 0.02672709083045252,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r2048-s1-a0-p0.75",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 57,
+      "rmsByte": 0.02270259866427434,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r2048-s1-a0.7853981633974483-p0",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 64,
+      "rmsByte": 0.024056261216234408,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r2048-s1-a0.7853981633974483-p0.25",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 59,
+      "rmsByte": 0.023097456068836928,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r2048-s1-a0.7853981633974483-p0.5",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 80,
+      "rmsByte": 0.02689571768199595,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "bounded-phase-r2048-s1-a0.7853981633974483-p0.75",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 48,
+      "rmsByte": 0.020833333333333332,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "scale-boundary-0.4999",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 7490,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "scale-boundary-0.5",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 7491,
+      "maxByte": 1,
+      "changedBytes": 54,
+      "rmsByte": 0.02209708691207961,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "scale-boundary-0.5001",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 7494,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "scale-boundary-0.9999",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "scale-boundary-1",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 1243,
+      "rmsByte": 0.10601656000536129,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "scale-boundary-1.0001",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "radius-boundary-r255.999-s0.5",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 7487,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "radius-boundary-r255.999-s1",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "radius-boundary-r2048.001-s0.5",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "radius-boundary-r2048.001-s1",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "radius-boundary-r4096-s0.5",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "radius-boundary-r4096-s1",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "radius-boundary-r1000000-s0.5",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "radius-boundary-r1000000-s1",
+      "eligible": false,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 0,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 0,
+      "changedBytes": 0,
+      "rmsByte": 0,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "soft-overdraw-r256-s0.5-step0",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 6042,
+      "maxByte": 1,
+      "changedBytes": 1082,
+      "rmsByte": 0.09891263564752859,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "soft-overdraw-r256-s0.5-step3.5",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 8716,
+      "maxByte": 1,
+      "changedBytes": 1006,
+      "rmsByte": 0.09537556732514146,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "soft-overdraw-r256-s1-step0",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 7949,
+      "maxByte": 1,
+      "changedBytes": 1863,
+      "rmsByte": 0.12979099785809492,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "soft-overdraw-r256-s1-step3.5",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 2209,
+      "rmsByte": 0.14133053464537715,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "soft-overdraw-r1000-s0.5-step0",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 647,
+      "rmsByte": 0.07648746795802322,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "soft-overdraw-r1000-s0.5-step3.5",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 735,
+      "rmsByte": 0.08152331167967983,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "soft-overdraw-r1000-s1-step0",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 146,
+      "rmsByte": 0.03633411377857005,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "soft-overdraw-r1000-s1-step3.5",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 202,
+      "rmsByte": 0.04273796397601101,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "soft-overdraw-64-s0.5",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 932,
+      "rmsByte": 0.09180072268334921,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    },
+    {
+      "name": "soft-overdraw-64-s1",
+      "eligible": true,
+      "predicate": {
+        "pass": true,
+        "flags": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "pass": true,
+      "allowedByteError": 1,
+      "referenceCoveredPixels": 9216,
+      "maxByte": 1,
+      "changedBytes": 254,
+      "rmsByte": 0.04792421438139674,
+      "bytes": 110592,
+      "transport": {
+        "maxByte": 0,
+        "changedBytes": 0,
+        "rmsByte": 0,
+        "bytes": 110592
+      }
+    }
+  ],
+  "summary": {
+    "cases": 174,
+    "eligible": 110,
+    "failed": 0,
+    "nonempty": 174
+  },
+  "controls": {
+    "wrongPredicate": {
+      "detected": 7,
+      "maxByte": 240,
+      "witnesses": [
+        {
+          "name": "deep-AA-floor-s64",
+          "maxByte": 14,
+          "changedBytes": 2338
+        },
+        {
+          "name": "deep-AA-floor-s256",
+          "maxByte": 36,
+          "changedBytes": 7497
+        },
+        {
+          "name": "anchor-left",
+          "maxByte": 165,
+          "changedBytes": 90818
+        },
+        {
+          "name": "expanded-minPx",
+          "maxByte": 27,
+          "changedBytes": 86912
+        },
+        {
+          "name": "rotated-square",
+          "maxByte": 240,
+          "changedBytes": 76951
+        },
+        {
+          "name": "translated-circle",
+          "maxByte": 240,
+          "changedBytes": 29591
+        },
+        {
+          "name": "native1x1",
+          "maxByte": 149,
+          "changedBytes": 92160
+        }
+      ]
+    },
+    "tooSmall": {
+      "detected": 110,
+      "maxByte": 146,
+      "witnesses": [
+        {
+          "name": "circle-r256-s0.5",
+          "maxByte": 52,
+          "changedBytes": 37397
+        },
+        {
+          "name": "circle-r256-s1",
+          "maxByte": 52,
+          "changedBytes": 69954
+        },
+        {
+          "name": "circle-r256.5-s0.5",
+          "maxByte": 52,
+          "changedBytes": 37256
+        },
+        {
+          "name": "circle-r256.5-s1",
+          "maxByte": 52,
+          "changedBytes": 69911
+        },
+        {
+          "name": "circle-r1000-s0.5",
+          "maxByte": 49,
+          "changedBytes": 88156
+        },
+        {
+          "name": "circle-r1000-s1",
+          "maxByte": 38,
+          "changedBytes": 87563
+        },
+        {
+          "name": "circle-r2048-s0.5",
+          "maxByte": 36,
+          "changedBytes": 87553
+        },
+        {
+          "name": "circle-r2048-s1",
+          "maxByte": 32,
+          "changedBytes": 87552
+        },
+        {
+          "name": "tile-edge-255.5,256.5-0,0",
+          "maxByte": 52,
+          "changedBytes": 69857
+        },
+        {
+          "name": "tile-edge--256.5,-0.5-0,0",
+          "maxByte": 52,
+          "changedBytes": 69857
+        },
+        {
+          "name": "tile-edge-4096.25,-4096.75-0,0",
+          "maxByte": 52,
+          "changedBytes": 69857
+        },
+        {
+          "name": "tile-edge-255.5,256.5-0.25,0.25",
+          "maxByte": 52,
+          "changedBytes": 69913
+        },
+        {
+          "name": "tile-edge--256.5,-0.5-0.25,0.25",
+          "maxByte": 52,
+          "changedBytes": 69913
+        },
+        {
+          "name": "tile-edge-4096.25,-4096.75-0.25,0.25",
+          "maxByte": 52,
+          "changedBytes": 69913
+        },
+        {
+          "name": "tile-edge-255.5,256.5-0.5,0.5",
+          "maxByte": 52,
+          "changedBytes": 69811
+        },
+        {
+          "name": "tile-edge--256.5,-0.5-0.5,0.5",
+          "maxByte": 52,
+          "changedBytes": 69811
+        },
+        {
+          "name": "tile-edge-4096.25,-4096.75-0.5,0.5",
+          "maxByte": 52,
+          "changedBytes": 69811
+        },
+        {
+          "name": "tile-edge-255.5,256.5-0.75,0.75",
+          "maxByte": 52,
+          "changedBytes": 70447
+        },
+        {
+          "name": "tile-edge--256.5,-0.5-0.75,0.75",
+          "maxByte": 52,
+          "changedBytes": 70447
+        },
+        {
+          "name": "tile-edge-4096.25,-4096.75-0.75,0.75",
+          "maxByte": 52,
+          "changedBytes": 70447
+        },
+        {
+          "name": "profile4-h0",
+          "maxByte": 52,
+          "changedBytes": 73235
+        },
+        {
+          "name": "dual1",
+          "maxByte": 28,
+          "changedBytes": 21825
+        },
+        {
+          "name": "dual2",
+          "maxByte": 25,
+          "changedBytes": 16853
+        },
+        {
+          "name": "dual3",
+          "maxByte": 52,
+          "changedBytes": 65986
+        },
+        {
+          "name": "commit-clear-blend0",
+          "maxByte": 52,
+          "changedBytes": 73729
+        },
+        {
+          "name": "commit-clear-blend1",
+          "maxByte": 52,
+          "changedBytes": 73729
+        },
+        {
+          "name": "commit-clear-blend2",
+          "maxByte": 52,
+          "changedBytes": 73729
+        },
+        {
+          "name": "commit-opaque-blend0",
+          "maxByte": 52,
+          "changedBytes": 61713
+        },
+        {
+          "name": "commit-opaque-blend1",
+          "maxByte": 52,
+          "changedBytes": 64382
+        },
+        {
+          "name": "commit-opaque-blend2",
+          "maxByte": 52,
+          "changedBytes": 63346
+        },
+        {
+          "name": "commit-checker-blend0",
+          "maxByte": 52,
+          "changedBytes": 69954
+        },
+        {
+          "name": "commit-checker-blend1",
+          "maxByte": 52,
+          "changedBytes": 64811
+        },
+        {
+          "name": "commit-checker-blend2",
+          "maxByte": 52,
+          "changedBytes": 72250
+        },
+        {
+          "name": "minPx-equal-diameter",
+          "maxByte": 52,
+          "changedBytes": 69954
+        },
+        {
+          "name": "bounded-phase-r256-s0.5-a0-p0",
+          "maxByte": 49,
+          "changedBytes": 35278
+        },
+        {
+          "name": "bounded-phase-r256-s0.5-a0-p0.25",
+          "maxByte": 49,
+          "changedBytes": 35847
+        },
+        {
+          "name": "bounded-phase-r256-s0.5-a0-p0.5",
+          "maxByte": 48,
+          "changedBytes": 35702
+        },
+        {
+          "name": "bounded-phase-r256-s0.5-a0-p0.75",
+          "maxByte": 48,
+          "changedBytes": 35623
+        },
+        {
+          "name": "bounded-phase-r256-s0.5-a0.7853981633974483-p0",
+          "maxByte": 54,
+          "changedBytes": 36661
+        },
+        {
+          "name": "bounded-phase-r256-s0.5-a0.7853981633974483-p0.25",
+          "maxByte": 54,
+          "changedBytes": 37174
+        },
+        {
+          "name": "bounded-phase-r256-s0.5-a0.7853981633974483-p0.5",
+          "maxByte": 54,
+          "changedBytes": 37001
+        },
+        {
+          "name": "bounded-phase-r256-s0.5-a0.7853981633974483-p0.75",
+          "maxByte": 54,
+          "changedBytes": 36801
+        },
+        {
+          "name": "bounded-phase-r256-s1-a0-p0",
+          "maxByte": 49,
+          "changedBytes": 67843
+        },
+        {
+          "name": "bounded-phase-r256-s1-a0-p0.25",
+          "maxByte": 49,
+          "changedBytes": 67903
+        },
+        {
+          "name": "bounded-phase-r256-s1-a0-p0.5",
+          "maxByte": 49,
+          "changedBytes": 67642
+        },
+        {
+          "name": "bounded-phase-r256-s1-a0-p0.75",
+          "maxByte": 50,
+          "changedBytes": 68333
+        },
+        {
+          "name": "bounded-phase-r256-s1-a0.7853981633974483-p0",
+          "maxByte": 55,
+          "changedBytes": 69231
+        },
+        {
+          "name": "bounded-phase-r256-s1-a0.7853981633974483-p0.25",
+          "maxByte": 54,
+          "changedBytes": 69320
+        },
+        {
+          "name": "bounded-phase-r256-s1-a0.7853981633974483-p0.5",
+          "maxByte": 54,
+          "changedBytes": 69176
+        },
+        {
+          "name": "bounded-phase-r256-s1-a0.7853981633974483-p0.75",
+          "maxByte": 55,
+          "changedBytes": 69957
+        },
+        {
+          "name": "bounded-phase-r256.5-s0.5-a0-p0",
+          "maxByte": 49,
+          "changedBytes": 34926
+        },
+        {
+          "name": "bounded-phase-r256.5-s0.5-a0-p0.25",
+          "maxByte": 49,
+          "changedBytes": 35487
+        },
+        {
+          "name": "bounded-phase-r256.5-s0.5-a0-p0.5",
+          "maxByte": 48,
+          "changedBytes": 35314
+        },
+        {
+          "name": "bounded-phase-r256.5-s0.5-a0-p0.75",
+          "maxByte": 48,
+          "changedBytes": 35212
+        },
+        {
+          "name": "bounded-phase-r256.5-s0.5-a0.7853981633974483-p0",
+          "maxByte": 54,
+          "changedBytes": 36160
+        },
+        {
+          "name": "bounded-phase-r256.5-s0.5-a0.7853981633974483-p0.25",
+          "maxByte": 54,
+          "changedBytes": 36762
+        },
+        {
+          "name": "bounded-phase-r256.5-s0.5-a0.7853981633974483-p0.5",
+          "maxByte": 54,
+          "changedBytes": 36616
+        },
+        {
+          "name": "bounded-phase-r256.5-s0.5-a0.7853981633974483-p0.75",
+          "maxByte": 54,
+          "changedBytes": 36488
+        },
+        {
+          "name": "bounded-phase-r256.5-s1-a0-p0",
+          "maxByte": 49,
+          "changedBytes": 67933
+        },
+        {
+          "name": "bounded-phase-r256.5-s1-a0-p0.25",
+          "maxByte": 49,
+          "changedBytes": 67970
+        },
+        {
+          "name": "bounded-phase-r256.5-s1-a0-p0.5",
+          "maxByte": 48,
+          "changedBytes": 67789
+        },
+        {
+          "name": "bounded-phase-r256.5-s1-a0-p0.75",
+          "maxByte": 49,
+          "changedBytes": 68423
+        },
+        {
+          "name": "bounded-phase-r256.5-s1-a0.7853981633974483-p0",
+          "maxByte": 55,
+          "changedBytes": 69378
+        },
+        {
+          "name": "bounded-phase-r256.5-s1-a0.7853981633974483-p0.25",
+          "maxByte": 54,
+          "changedBytes": 69453
+        },
+        {
+          "name": "bounded-phase-r256.5-s1-a0.7853981633974483-p0.5",
+          "maxByte": 54,
+          "changedBytes": 69372
+        },
+        {
+          "name": "bounded-phase-r256.5-s1-a0.7853981633974483-p0.75",
+          "maxByte": 55,
+          "changedBytes": 69994
+        },
+        {
+          "name": "bounded-phase-r1000-s0.5-a0-p0",
+          "maxByte": 47,
+          "changedBytes": 87490
+        },
+        {
+          "name": "bounded-phase-r1000-s0.5-a0-p0.25",
+          "maxByte": 47,
+          "changedBytes": 87486
+        },
+        {
+          "name": "bounded-phase-r1000-s0.5-a0-p0.5",
+          "maxByte": 47,
+          "changedBytes": 87477
+        },
+        {
+          "name": "bounded-phase-r1000-s0.5-a0-p0.75",
+          "maxByte": 47,
+          "changedBytes": 87460
+        },
+        {
+          "name": "bounded-phase-r1000-s0.5-a0.7853981633974483-p0",
+          "maxByte": 52,
+          "changedBytes": 88105
+        },
+        {
+          "name": "bounded-phase-r1000-s0.5-a0.7853981633974483-p0.25",
+          "maxByte": 52,
+          "changedBytes": 88090
+        },
+        {
+          "name": "bounded-phase-r1000-s0.5-a0.7853981633974483-p0.5",
+          "maxByte": 52,
+          "changedBytes": 88073
+        },
+        {
+          "name": "bounded-phase-r1000-s0.5-a0.7853981633974483-p0.75",
+          "maxByte": 52,
+          "changedBytes": 88061
+        },
+        {
+          "name": "bounded-phase-r1000-s1-a0-p0",
+          "maxByte": 34,
+          "changedBytes": 87558
+        },
+        {
+          "name": "bounded-phase-r1000-s1-a0-p0.25",
+          "maxByte": 34,
+          "changedBytes": 87556
+        },
+        {
+          "name": "bounded-phase-r1000-s1-a0-p0.5",
+          "maxByte": 34,
+          "changedBytes": 87552
+        },
+        {
+          "name": "bounded-phase-r1000-s1-a0-p0.75",
+          "maxByte": 34,
+          "changedBytes": 87558
+        },
+        {
+          "name": "bounded-phase-r1000-s1-a0.7853981633974483-p0",
+          "maxByte": 38,
+          "changedBytes": 87595
+        },
+        {
+          "name": "bounded-phase-r1000-s1-a0.7853981633974483-p0.25",
+          "maxByte": 38,
+          "changedBytes": 87592
+        },
+        {
+          "name": "bounded-phase-r1000-s1-a0.7853981633974483-p0.5",
+          "maxByte": 38,
+          "changedBytes": 87586
+        },
+        {
+          "name": "bounded-phase-r1000-s1-a0.7853981633974483-p0.75",
+          "maxByte": 38,
+          "changedBytes": 87581
+        },
+        {
+          "name": "bounded-phase-r2048-s0.5-a0-p0",
+          "maxByte": 34,
+          "changedBytes": 87501
+        },
+        {
+          "name": "bounded-phase-r2048-s0.5-a0-p0.25",
+          "maxByte": 34,
+          "changedBytes": 87502
+        },
+        {
+          "name": "bounded-phase-r2048-s0.5-a0-p0.5",
+          "maxByte": 33,
+          "changedBytes": 87503
+        },
+        {
+          "name": "bounded-phase-r2048-s0.5-a0-p0.75",
+          "maxByte": 33,
+          "changedBytes": 87507
+        },
+        {
+          "name": "bounded-phase-r2048-s0.5-a0.7853981633974483-p0",
+          "maxByte": 38,
+          "changedBytes": 87552
+        },
+        {
+          "name": "bounded-phase-r2048-s0.5-a0.7853981633974483-p0.25",
+          "maxByte": 38,
+          "changedBytes": 87553
+        },
+        {
+          "name": "bounded-phase-r2048-s0.5-a0.7853981633974483-p0.5",
+          "maxByte": 38,
+          "changedBytes": 87551
+        },
+        {
+          "name": "bounded-phase-r2048-s0.5-a0.7853981633974483-p0.75",
+          "maxByte": 38,
+          "changedBytes": 87549
+        },
+        {
+          "name": "bounded-phase-r2048-s1-a0-p0",
+          "maxByte": 27,
+          "changedBytes": 87552
+        },
+        {
+          "name": "bounded-phase-r2048-s1-a0-p0.25",
+          "maxByte": 27,
+          "changedBytes": 87552
+        },
+        {
+          "name": "bounded-phase-r2048-s1-a0-p0.5",
+          "maxByte": 27,
+          "changedBytes": 87552
+        },
+        {
+          "name": "bounded-phase-r2048-s1-a0-p0.75",
+          "maxByte": 27,
+          "changedBytes": 87552
+        },
+        {
+          "name": "bounded-phase-r2048-s1-a0.7853981633974483-p0",
+          "maxByte": 32,
+          "changedBytes": 87552
+        },
+        {
+          "name": "bounded-phase-r2048-s1-a0.7853981633974483-p0.25",
+          "maxByte": 32,
+          "changedBytes": 87552
+        },
+        {
+          "name": "bounded-phase-r2048-s1-a0.7853981633974483-p0.5",
+          "maxByte": 32,
+          "changedBytes": 87552
+        },
+        {
+          "name": "bounded-phase-r2048-s1-a0.7853981633974483-p0.75",
+          "maxByte": 32,
+          "changedBytes": 87552
+        },
+        {
+          "name": "scale-boundary-0.5",
+          "maxByte": 52,
+          "changedBytes": 37256
+        },
+        {
+          "name": "scale-boundary-1",
+          "maxByte": 52,
+          "changedBytes": 69911
+        },
+        {
+          "name": "soft-overdraw-r256-s0.5-step0",
+          "maxByte": 100,
+          "changedBytes": 26259
+        },
+        {
+          "name": "soft-overdraw-r256-s0.5-step3.5",
+          "maxByte": 35,
+          "changedBytes": 57930
+        },
+        {
+          "name": "soft-overdraw-r256-s1-step0",
+          "maxByte": 98,
+          "changedBytes": 55904
+        },
+        {
+          "name": "soft-overdraw-r256-s1-step3.5",
+          "maxByte": 31,
+          "changedBytes": 70595
+        },
+        {
+          "name": "soft-overdraw-r1000-s0.5-step0",
+          "maxByte": 86,
+          "changedBytes": 82579
+        },
+        {
+          "name": "soft-overdraw-r1000-s0.5-step3.5",
+          "maxByte": 78,
+          "changedBytes": 88805
+        },
+        {
+          "name": "soft-overdraw-r1000-s1-step0",
+          "maxByte": 64,
+          "changedBytes": 82637
+        },
+        {
+          "name": "soft-overdraw-r1000-s1-step3.5",
+          "maxByte": 78,
+          "changedBytes": 92032
+        },
+        {
+          "name": "soft-overdraw-64-s0.5",
+          "maxByte": 146,
+          "changedBytes": 82579
+        },
+        {
+          "name": "soft-overdraw-64-s1",
+          "maxByte": 115,
+          "changedBytes": 82637
+        }
+      ]
+    },
+    "noAaFloor": {
+      "detected": 2,
+      "maxByte": 108,
+      "witnesses": [
+        {
+          "name": "deep-AA-floor-s64",
+          "maxByte": 108,
+          "changedBytes": 13920
+        },
+        {
+          "name": "deep-AA-floor-s256",
+          "maxByte": 108,
+          "changedBytes": 55776
+        }
+      ]
+    },
+    "unbounded": {
+      "detected": 2,
+      "maxByte": 36,
+      "witnesses": [
+        {
+          "name": "deep-AA-floor-s64",
+          "maxByte": 14,
+          "changedBytes": 2338
+        },
+        {
+          "name": "deep-AA-floor-s256",
+          "maxByte": 36,
+          "changedBytes": 7497
+        }
+      ]
+    }
+  },
+  "targetFormats": "RGBA8 cap-density + RGBA8 RGB moments; RGBA8 committed output. Does not certify phone R16F/RGBA16F format path.",
+  "proof": "actual full/candidate production stamp + MRT cap/moment + production tile/commit; all pixels; real split VBO; predicate via transform feedback; batch/single exact",
+  "policy": "eligible max1 RGBA8 level, ineligible exact; every broken control must differ by >2 levels",
+  "sourceSha256": {
+    "reference": "1d8f8eca82bd79e3919cab821dc17d847c8e536f56cfa40d40fc6087ffc0c228",
+    "candidate": "f7e6e52b232fa751dd0ab3c8becdb207e1f5a73d3a33028628d7dd7db6777e9b",
+    "stamp": "a97b4d0305c408e91e8bc00ffeee5eb99f600a808098bb3e0ceee29cd3cc98a3",
+    "commit": "aa7162eaeb4b1a9180b24fc8fb156f98af7283a21c58078370a61a8e136ce4cf"
+  },
+  "playwright": "C:\\Users\\JoyRaptor\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\node\\node_modules\\playwright-core\\index.js",
+  "repo": "C:\\Temp\\jb-codex-unibrush",
+  "candidate": "C:\\Temp\\jb-codex-unibrush\\joybrush\\shaders\\jb_dab.vert"
+}

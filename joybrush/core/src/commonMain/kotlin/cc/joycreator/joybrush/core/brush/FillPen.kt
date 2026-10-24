@@ -37,10 +37,24 @@ object FillPen {
      * Consecutive duplicate points are dropped on both sides: a pen that stands still, or reports
      * the same reading twice, must not turn into a zero-length edge the fill rule has to think about.
      */
-    fun outline(samples: List<PenSample>, smoothing: Float, screenPerDoc: Float): List<Pt> {
+    fun outline(samples: List<PenSample>, smoothing: Float, screenPerDoc: Float,
+                actualStabilizer: cc.joycreator.joybrush.core.input.StabilizerSpec? = null): List<Pt> {
+        require(actualStabilizer == null || actualStabilizer.problems().isEmpty()) {
+            "Fill outline needs valid recorded stabilizer settings"
+        }
         val usable = withoutConsecutiveDuplicates(samples)
         if (usable.size < MIN_CORNERS) return emptyList()
-        val centre = StrokeSmoother.smoothAll(usable, smoothing, screenPerDoc)
+        // Null preserves the exact historical pre-dedup + smoother path.
+        val centre = if (actualStabilizer == null) StrokeSmoother.smoothAll(usable, smoothing, screenPerDoc)
+        else {
+            val filter = cc.joycreator.joybrush.core.input.StrokeStabilizer(actualStabilizer, smoothing, screenPerDoc)
+            val released = ArrayList<PenSample>()
+            // Actual modes hear every original raw event: dropping dwell samples here would
+            // change moving-average windows and speed-sensitive smoothing on a re-brushed line.
+            for (sample in samples) filter.addTo(sample) { released.add(it) }
+            filter.finishTo { released.add(it) }
+            released
+        }
         val out = ArrayList<Pt>(centre.size)
         for (s in centre) {
             val p = Pt(s.x.toDouble(), s.y.toDouble())

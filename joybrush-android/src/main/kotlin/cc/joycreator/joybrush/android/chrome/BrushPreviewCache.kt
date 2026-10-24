@@ -1,6 +1,7 @@
 package cc.joycreator.joybrush.android.chrome
 
 import cc.joycreator.joybrush.androidkit.preview.BrushPreviewStyle
+import cc.joycreator.joybrush.androidkit.preview.BrushPreviewRequest
 import cc.joycreator.joybrush.core.brush.BrushPreset
 import java.io.File
 import java.util.concurrent.Executor
@@ -13,11 +14,19 @@ fun interface PreviewCancel {
 /** What the drawer asks for a brush's picture. [onReady] runs on the UI thread, at once if the picture is in memory. */
 fun interface PreviewSource<V : Any> {
     fun request(preset: BrushPreset, width: Int, height: Int, style: BrushPreviewStyle, onReady: (V) -> Unit): PreviewCancel
+    fun request(snapshot: BrushPreviewRequest, onReady: (V) -> Unit): PreviewCancel {
+        check(!snapshot.requiresResourceAwareMaker) { "This preview source does not accept frozen resources or pen settings" }
+        return request(snapshot.preset, snapshot.width, snapshot.height, snapshot.style, onReady)
+    }
 }
 
 /** Makes a picture on a miss: `done` is called on the UI thread, with null if none could be made. */
 fun interface PreviewMaker<V : Any> {
     fun make(preset: BrushPreset, width: Int, height: Int, style: BrushPreviewStyle, done: (V?) -> Unit): PreviewCancel
+    fun make(snapshot: BrushPreviewRequest, done: (V?) -> Unit): PreviewCancel {
+        check(!snapshot.requiresResourceAwareMaker) { "This preview maker does not accept frozen resources or pen settings" }
+        return make(snapshot.preset, snapshot.width, snapshot.height, snapshot.style, done)
+    }
 }
 
 /** How a picture goes to and from a file, and what it costs in memory. */
@@ -53,7 +62,7 @@ class BrushPreviewCache<V : Any>(
 
     private class Waiter<V : Any>(val onReady: (V) -> Unit)
 
-    private inner class Flight(val key: BrushPreviewKey.Key, val preset: BrushPreset, val style: BrushPreviewStyle) {
+    private inner class Flight(val key: BrushPreviewKey.Key, var snapshot: BrushPreviewRequest?) {
         val waiters = ArrayList<Waiter<V>>()
         var making: PreviewCancel? = null
     }
@@ -63,15 +72,22 @@ class BrushPreviewCache<V : Any>(
     /** How many pictures are being fetched or made right now (for tests). */
     val inFlight: Int get() = flights.size
 
+    /** Encoded resources owned by pending flights; retained pictures own none. */
+    val inFlightResourceBytes: Long get() = flights.values.sumOf { it.snapshot?.pngs?.encodedBytes ?: 0L }
+
     /** Pictures held in memory (for tests). */
     val inMemory: Int get() = memory.size
 
     override fun request(preset: BrushPreset, width: Int, height: Int, style: BrushPreviewStyle, onReady: (V) -> Unit): PreviewCancel {
-        val key = BrushPreviewKey.of(preset, width, height, style)
+        return request(BrushPreviewRequest.snapshot(preset, width, height, style), onReady)
+    }
+
+    override fun request(snapshot: BrushPreviewRequest, onReady: (V) -> Unit): PreviewCancel {
+        val key = BrushPreviewKey.of(snapshot)
         memory[key.stem]?.let { onReady(it); return PreviewCancel { } }
         val waiter = Waiter(onReady)
         val existing = flights[key.stem]
-        val flight = existing ?: Flight(key, preset, style).also { flights[key.stem] = it }
+        val flight = existing ?: Flight(key, snapshot).also { flights[key.stem] = it }
         flight.waiters.add(waiter)
         if (existing == null) io.execute { fetch(flight) }
         return PreviewCancel { leave(flight, waiter) }
@@ -99,33 +115,48 @@ class BrushPreviewCache<V : Any>(
         }
         // Everyone gave up while the folder was read: nothing to make.
         if (flights[f.key.stem] !== f) return
-        f.making = maker.make(f.preset, f.key.width, f.key.height, f.style) { picture -> madeBy(f, picture) }
+        val snapshot = f.snapshot ?: return
+        val cancellation = try {
+            maker.make(snapshot) { picture -> madeBy(f, picture) }
+        } catch (failure: Throwable) {
+            finish(f)
+            throw failure
+        }
+        // A maker may finish synchronously; do not reattach its cancellation owner afterward.
+        if (flights[f.key.stem] === f) f.making = cancellation else cancellation.cancel()
     }
 
     /** UI thread: the maker is done. A picture is kept even when nobody waits for it any more. */
     private fun madeBy(f: Flight, picture: V?) {
         if (picture == null) {
-            if (flights[f.key.stem] === f) flights.remove(f.key.stem)
+            finish(f)
             return
         }
         memory.put(f.key.stem, picture)
-        io.execute { store(f.key, picture) }
+        val key = f.key
+        io.execute { store(key, picture) }
         arrive(f, picture)
     }
 
     private fun arrive(f: Flight, picture: V) {
-        if (flights[f.key.stem] === f) flights.remove(f.key.stem)
         val waiting = f.waiters.toList()
-        f.waiters.clear()
+        finish(f)
         for (w in waiting) w.onReady(picture)
     }
 
     private fun leave(f: Flight, w: Waiter<V>) {
         if (!f.waiters.remove(w) || f.waiters.isNotEmpty()) return
         // The last one has gone: call the work off, and let the next request start it afresh.
+        val cancellation = f.making
+        finish(f)
+        cancellation?.cancel()
+    }
+
+    private fun finish(f: Flight) {
         if (flights[f.key.stem] === f) flights.remove(f.key.stem)
-        f.making?.cancel()
+        f.snapshot = null
         f.making = null
+        f.waiters.clear()
     }
 
     /** IO thread: write the picture, then throw out what the folder no longer needs. */

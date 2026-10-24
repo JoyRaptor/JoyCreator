@@ -3,6 +3,12 @@ package cc.joycreator.joybrush.androidkit.gl
 import android.opengl.GLES30
 import cc.joycreator.joybrush.androidkit.gl.media.UniformSink
 import cc.joycreator.joybrush.core.brush.PaperResponse
+import cc.joycreator.joybrush.core.brush.TipProfile
+import cc.joycreator.joybrush.core.brush.TipProfileSpec
+import cc.joycreator.joybrush.core.brush.TipProfiles
+import cc.joycreator.joybrush.core.brush.QuadMath
+import cc.joycreator.joybrush.core.brush.ColorDab
+import cc.joycreator.joybrush.core.brush.SampledTipSet
 import cc.joycreator.joybrush.core.doc.RectPx
 import cc.joycreator.joybrush.core.grain.GrainMath
 import cc.joycreator.joybrush.core.paint.Dab
@@ -57,6 +63,10 @@ internal class StampPass(private val grains: GrainSource) {
         /** A tile board's rect, so translated copies sample the same periodic surface; null on an ordinary board. */
         val tilePaperRect: RectPx?,
         val fluidTexture: Int?,
+        val baseColor: ColorDab = ColorDab(0f, 0f, 0f),
+        val sampledSet: SampledTipSet? = null,
+        val sampledBinding: SampledAtlasBinding? = null,
+        val dualBinding: DualMaskBinding? = null,
     )
 
     /**
@@ -71,6 +81,10 @@ internal class StampPass(private val grains: GrainSource) {
         tuftPaperPitchPx: Float?,
         tilePaperRect: RectPx?,
         fluidTexture: Int?,
+        baseColor: ColorDab = ColorDab(0f, 0f, 0f),
+        sampledSet: SampledTipSet? = tip.sampled?.set,
+        sampledBinding: SampledAtlasBinding? = null,
+        dualBinding: DualMaskBinding? = null,
     ): StrokeLook {
         // A grain whose picture is missing is drawn as OFF: a missing picture must never read as "paint
         // everywhere". The picture is bound per batch in addDabs, but resolved here, once per stroke.
@@ -98,6 +112,10 @@ internal class StampPass(private val grains: GrainSource) {
             paperInfluence = influence,
             tilePaperRect = tilePaperRect,
             fluidTexture = fluidTexture,
+            baseColor = baseColor,
+            sampledSet = sampledSet,
+            sampledBinding = sampledBinding,
+            dualBinding = dualBinding,
         )
     }
 
@@ -114,8 +132,52 @@ internal class StampPass(private val grains: GrainSource) {
         gl.uniform1f(loc("u_corner"), look.tip.corner)
         gl.uniform1f(loc("u_taper"), look.tip.taper)
         gl.uniform1f(loc("u_hardness"), look.tip.hardness)
-        gl.uniform1f(loc("u_minPx"), look.tip.minPx)
+        gl.uniform1f(loc("u_minPx"), (newest.sampled ?: look.tip.sampled)?.minPx ?: look.tip.minPx)
+        gl.uniform3f(loc("u_stampBaseColor"), look.baseColor.r, look.baseColor.g, look.baseColor.b)
+        setProfileUniforms(gl, loc, newest.profile ?: look.tip.profile)
+        setProfileUniforms(gl, loc, if (newest.quad != null) newest.profileB else look.tip.profileB, secondary = true)
         setGrainUniforms(gl, loc, look, newest)
+        val binding = look.sampledBinding
+        gl.uniform1i(loc("u_sampleEnabled"), if (binding != null) 1 else 0)
+        gl.uniform1i(loc("u_sampleMasks"), 3)
+        gl.bindTexture(3, binding?.texture ?: grains.placeholder)
+        val dual = newest.dual ?: look.tip.dual
+        val dualBinding = look.dualBinding
+        check((dual == null && dualBinding == null) || (dual != null && dualBinding?.mask === dual)) {
+            "Dual stamps need the matching prepared frozen mask"
+        }
+        gl.uniform1i(loc("u_dualMode"), dual?.mode?.code ?: 0)
+        gl.uniform1f(loc("u_dualInvPeriod"), dual?.let { 1f / it.period } ?: 0f)
+        gl.uniform1i(loc("u_dualMask"), 4)
+        gl.bindTexture(4, dualBinding?.texture ?: grains.placeholder)
+        if (binding != null) for (i in 0 until binding.size) {
+            val rect = binding.rect(i)
+            gl.uniform4f(loc("u_sampleRects[$i]"), rect.u0, rect.v0, rect.u1, rect.v1)
+        }
+    }
+
+    private var cachedProfile: TipProfileSpec? = null
+    private var profileSamples: FloatArray? = null
+    private var cachedProfileB: TipProfileSpec? = null
+    private var profileSamplesB: FloatArray? = null
+
+    /** Reset even for legacy strokes so a preceding custom brush cannot leak its profile. */
+    internal fun setProfileUniforms(gl: UniformSink, loc: (String) -> Int, profile: TipProfileSpec?, secondary: Boolean = false) {
+        val suffix = if (secondary) "B" else ""
+        gl.uniform1i(loc("u_tipProfile$suffix"), profile?.kind?.code ?: 0)
+        if (profile?.kind != TipProfile.custom) return
+        if (secondary && cachedProfileB !== profile) {
+            cachedProfileB = profile
+            profileSamplesB = TipProfiles.samples(profile)
+        } else if (!secondary && cachedProfile !== profile) {
+            cachedProfile = profile
+            profileSamples = TipProfiles.samples(profile)
+        }
+        val values = (if (secondary) profileSamplesB else profileSamples)!!
+        for (i in 0 until 64) {
+            val k = i * 4
+            gl.uniform4f(loc("u_tipProfileLut$suffix[$i]"), values[k], values[k + 1], values[k + 2], values[k + 3])
+        }
     }
 
     /** JB-9.03: the fixed document surface; both brush programs bind it on unit 1. */
@@ -205,13 +267,60 @@ internal class StampPass(private val grains: GrainSource) {
      * [list] packed as [FLOATS] floats per dab, ready to upload: x, y, radius, angle, flow, cap, travel x/y, then
      * [putContact]'s nine. Returned flipped; valid until the next call.
      */
-    fun pack(list: List<Dab>, look: StrokeLook): FloatBuffer {
-        val need = list.size * FLOATS
+    fun pack(list: List<Dab>, look: StrokeLook): FloatBuffer = packInternal(list, look, false)
+
+    /** The original interleaved prefix is untouched; the optional tail is a separate attribute. */
+    internal fun packForDraw(list: List<Dab>, look: StrokeLook): FloatBuffer =
+        packInternal(list, look, hasFade(list, look), hasQuad(list, look), list.any { it.color != null }, hasSamples(list, look))
+
+    private fun hasSamples(list: List<Dab>, look: StrokeLook): Boolean =
+        look.tip.sampled != null || list.any { it.sampled != null }
+
+    private fun hasQuad(list: List<Dab>, look: StrokeLook): Boolean =
+        look.tip.quad != null || list.any { it.quad != null }
+
+    private fun hasFade(list: List<Dab>, look: StrokeLook): Boolean =
+        look.tip.fadeAmount > 0f || list.any { it.fadeAmount.isFinite() && it.fadeAmount > 0f }
+
+    private fun packInternal(list: List<Dab>, look: StrokeLook, fade: Boolean, quad: Boolean = false, color: Boolean = false, sampled: Boolean = false): FloatBuffer {
+        val need = list.size * (FLOATS + (if (fade) 2 else 0) + (if (quad) 12 else 0) + (if (color) 4 else 0) + (if (sampled) 4 else 0))
         if (instanceData.capacity() < need) instanceData = newFloats(need * 2)
         instanceData.clear()
         for (d in list) {
             instanceData.put(d.x).put(d.y).put(d.radius).put(d.angle).put(d.flow).put(d.cap).put(d.travelX).put(d.travelY)
             putContact(instanceData, d, look)
+        }
+        if (fade) for (d in list) {
+            instanceData.put(if (d.fadeAmount.isFinite()) d.fadeAmount.coerceIn(0f, 1f) else look.tip.fadeAmount)
+                .put(if (d.fadeAngle.isFinite()) d.fadeAngle else look.tip.fadeAngle)
+        }
+        if (quad) for (d in list) {
+            val shape = (d.quad ?: look.tip.quad)?.let { QuadMath.prepare(it) }
+            for (i in 0 until 4) {
+                instanceData.put(if (shape != null && i < shape.count) shape.x(i) else 0f)
+                    .put(if (shape != null && i < shape.count) shape.y(i) else 0f)
+            }
+            val kind = when {
+                shape == null -> 0f
+                shape.empty -> 1f
+                shape.circle -> 5f
+                else -> shape.count.toFloat()
+            }
+            instanceData.put(shape?.roundness ?: 0f).put(shape?.normalizationScale ?: 1f)
+                .put(if (d.quad != null) d.profileMix else look.tip.profileMix).put(kind)
+        }
+        if (color) for (d in list) {
+            val ink = d.color
+            require(ink == null || (ink.r in 0f..1f && ink.g in 0f..1f && ink.b in 0f..1f)) {
+                "A colored dab needs finite straight RGB in 0..1"
+            }
+            instanceData.put(ink?.r ?: 0f).put(ink?.g ?: 0f).put(ink?.b ?: 0f).put(if (ink == null) 0f else 1f)
+        }
+        if (sampled) for (d in list) {
+            val image = d.sampled ?: look.tip.sampled
+            instanceData.put(image?.let { it.index + 1f } ?: 0f)
+                .put(image?.mask?.width?.toFloat() ?: 0f).put(image?.mask?.height?.toFloat() ?: 0f)
+                .put(image?.minPx ?: 0f)
         }
         instanceData.flip()
         return instanceData
@@ -224,11 +333,86 @@ internal class StampPass(private val grains: GrainSource) {
      * the stamp VAO and the target, and set the stroke uniforms ([setStrokeUniforms]) for this batch.
      */
     fun drawInto(gl: UniformSink, loc: (String) -> Int, look: StrokeLook, vbo: Int, originDocX: Float, originDocY: Float, list: List<Dab>) {
+        val dual = list.lastOrNull()?.dual ?: look.tip.dual
+        check(list.all { (it.dual ?: look.tip.dual) === dual } &&
+            ((dual == null && look.dualBinding == null) || (dual != null && look.dualBinding?.mask === dual))) {
+            "A dual batch must use one matching prepared frozen mask"
+        }
+        val profile = list.lastOrNull()?.profile ?: look.tip.profile
+        require(list.all { (it.profile ?: look.tip.profile) == profile }) { "A stamp batch must use one radial profile" }
+        val profileB = list.lastOrNull()?.let { if (it.quad != null) it.profileB else look.tip.profileB }
+        require(list.all { (if (it.quad != null) it.profileB else look.tip.profileB) == profileB }) { "A stamp batch must use one second radial profile" }
         gl.uniform2f(loc("u_tileOrigin"), originDocX, originDocY)
-        val data = pack(list, look)
+        val fade = hasFade(list, look)
+        val quad = hasQuad(list, look)
+        val color = list.any { it.color != null }
+        val sampled = hasSamples(list, look)
+        if (sampled) {
+            val set = checkNotNull(look.sampledSet) { "Sampled stamps need their frozen image set" }
+            val binding = checkNotNull(look.sampledBinding) { "Sampled stamps need their prepared atlas" }
+            require(binding.size == set.size && list.all { d ->
+                val image = d.sampled ?: look.tip.sampled
+                image != null && image.set === set && image.minPx == (list.last().sampled ?: look.tip.sampled)?.minPx &&
+                    binding.rect(image.index).imageWidth == image.mask.width && binding.rect(image.index).imageHeight == image.mask.height
+            }) { "A sampled batch must use one prepared frozen image set" }
+        }
+        val data = packInternal(list, look, fade, quad, color, sampled)
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, vbo)
-        GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, list.size * BYTES, data, GLES30.GL_STREAM_DRAW)
-        GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, list.size)
+        GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, data.remaining() * 4, data, GLES30.GL_STREAM_DRAW)
+        if (fade) {
+            GLES30.glEnableVertexAttribArray(8)
+            GLES30.glVertexAttribPointer(8, 2, GLES30.GL_FLOAT, false, 8, list.size * BYTES)
+            GLES30.glVertexAttribDivisor(8, 1)
+        } else {
+            GLES30.glDisableVertexAttribArray(8)
+            GLES30.glVertexAttrib2f(8, 0f, 0f)
+        }
+        for (attribute in 9..11) {
+            if (quad) {
+                GLES30.glEnableVertexAttribArray(attribute)
+                GLES30.glVertexAttribPointer(attribute, 4, GLES30.GL_FLOAT, false, 48,
+                    list.size * (BYTES + if (fade) 8 else 0) + (attribute - 9) * 16)
+                GLES30.glVertexAttribDivisor(attribute, 1)
+            } else {
+                GLES30.glDisableVertexAttribArray(attribute)
+                GLES30.glVertexAttrib4f(attribute, 0f, 0f, 0f, 0f)
+            }
+        }
+        if (color) {
+            GLES30.glEnableVertexAttribArray(12)
+            GLES30.glVertexAttribPointer(12, 4, GLES30.GL_FLOAT, false, 16,
+                list.size * (BYTES + (if (fade) 8 else 0) + (if (quad) 48 else 0)))
+            GLES30.glVertexAttribDivisor(12, 1)
+        } else {
+            GLES30.glDisableVertexAttribArray(12)
+            GLES30.glVertexAttrib4f(12, 0f, 0f, 0f, 0f)
+        }
+        if (sampled) {
+            GLES30.glEnableVertexAttribArray(13)
+            GLES30.glVertexAttribPointer(13, 4, GLES30.GL_FLOAT, false, 16,
+                list.size * (BYTES + (if (fade) 8 else 0) + (if (quad) 48 else 0) + (if (color) 16 else 0)))
+            GLES30.glVertexAttribDivisor(13, 1)
+        } else {
+            GLES30.glDisableVertexAttribArray(13)
+            GLES30.glVertexAttrib4f(13, 0f, 0f, 0f, 0f)
+        }
+        try {
+            GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLE_STRIP, 0, 4, list.size)
+        } finally {
+            GLES30.glDisableVertexAttribArray(13)
+            GLES30.glVertexAttribDivisor(13, 0)
+            GLES30.glVertexAttrib4f(13, 0f, 0f, 0f, 0f)
+            GLES30.glDisableVertexAttribArray(12)
+            GLES30.glVertexAttribDivisor(12, 0)
+            GLES30.glVertexAttrib4f(12, 0f, 0f, 0f, 0f)
+            for (attribute in 9..11) {
+                GLES30.glDisableVertexAttribArray(attribute)
+                GLES30.glVertexAttribDivisor(attribute, 0)
+                GLES30.glVertexAttrib4f(attribute, 0f, 0f, 0f, 0f)
+            }
+            GLES30.glDisableVertexAttribArray(8)
+            GLES30.glVertexAttrib2f(8, 0f, 0f)
+        }
     }
 
     /**

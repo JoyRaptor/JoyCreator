@@ -9,6 +9,7 @@ import cc.joycreator.joybrush.core.brush.GrainSpec
 import cc.joycreator.joybrush.core.brush.InputCurve
 import cc.joycreator.joybrush.core.brush.Param
 import cc.joycreator.joybrush.core.brush.ScatterSpec
+import cc.joycreator.joybrush.core.brush.SampleCoverage
 import cc.joycreator.joybrush.core.brush.TipSpec
 
 /**
@@ -130,14 +131,27 @@ object ProcreateImport {
      *   `.brush` opened on its own gets **no** set prefix, because there is no set (Decision 16).
      * @throws BrushException if the file cannot be read, or if its one brush cannot be built.
      */
-    fun convertBrush(bytes: ByteArray, idPrefix: String): ImportLibrary {
+    fun convertBrush(bytes: ByteArray, idPrefix: String): ImportLibrary = convertBrushImpl(bytes, idPrefix, null)
+
+    /**
+     * Procreate shape sources use white for opaque and black for transparent; A*Y preserves that.
+     * https://help.procreate.com/articles/HqcYCo-kyle-t-webster-s-brush-making-masterclass
+     * The explicit options let a caller intentionally import an alpha-only source instead.
+     */
+    fun convertBrushWithAssets(bytes: ByteArray, idPrefix: String, codec: ImportedTipPngCodec,
+                              options: MaterializedImportOptions = MaterializedImportOptions(SampleCoverage.luminance, true)): MaterializedImportLibrary {
+        val session = MaterializedImportSession(codec, options)
+        return session.finish(convertBrushImpl(bytes, idPrefix, session))
+    }
+
+    private fun convertBrushImpl(bytes: ByteArray, idPrefix: String, materialized: MaterializedImportSession?): ImportLibrary {
         val zip = Zip.read(bytes)
         val notes = PackNotes()
         val archive = zip.find(ARCHIVE_NAME)
             ?: throw BrushException("this .brush has no $ARCHIVE_NAME, so it holds no brush")
         val root = KeyedArchive.read(zip.read(archive)).root()
         val name = nameOf(root, 0)
-        val result = ProcreateBrush(zip, notes, hasDual(zip), "").build(root, name, brushId(idPrefix, name))
+        val result = ProcreateBrush(zip, notes, hasDual(zip), "", materialized).build(root, name, brushId(idPrefix, name))
         return ImportLibrary(listOf(result.withPackNotes(notes)), emptyList())
     }
 
@@ -151,7 +165,16 @@ object ProcreateImport {
      * A fault in one folder is that folder's [RefusedBrush] and the rest of the pack still imports;
      * a fault in the pack itself (not a zip, no brushes, a budget) throws.
      */
-    fun convertBrushSet(bytes: ByteArray, idPrefix: String): ImportLibrary {
+    fun convertBrushSet(bytes: ByteArray, idPrefix: String): ImportLibrary = convertBrushSetImpl(bytes, idPrefix, null)
+
+    /** The same ordered pack conversion, with real PNG assets beside each converted definition. */
+    fun convertBrushSetWithAssets(bytes: ByteArray, idPrefix: String, codec: ImportedTipPngCodec,
+                                 options: MaterializedImportOptions = MaterializedImportOptions(SampleCoverage.luminance, true)): MaterializedImportLibrary {
+        val session = MaterializedImportSession(codec, options)
+        return session.finish(convertBrushSetImpl(bytes, idPrefix, session))
+    }
+
+    private fun convertBrushSetImpl(bytes: ByteArray, idPrefix: String, materialized: MaterializedImportSession?): ImportLibrary {
         val zip = Zip.read(bytes)
         val notes = PackNotes()
         val brushes = ArrayList<ImportResult>()
@@ -170,7 +193,7 @@ object ProcreateImport {
                 val root = KeyedArchive.read(zip.read(entry)).root()
                 val own = nameOf(root, index)
                 val name = if (setName == null) own else setName + SET_SEPARATOR + own
-                brushes += ProcreateBrush(zip, notes, hasDual(zip, folder.prefix), folder.prefix)
+                brushes += ProcreateBrush(zip, notes, hasDual(zip, folder.prefix), folder.prefix, materialized)
                     .build(root, name, brushId(idPrefix, name))
             } catch (e: BrushException) {
                 refused += RefusedBrush(index, folder.uuid, e.message ?: "it cannot be read")
@@ -695,6 +718,7 @@ private class ProcreateBrush(
      * what goes wrong without it.
      */
     private val folder: String,
+    private val materialized: MaterializedImportSession? = null,
 ) {
 
     private val warnings = ArrayList<String>()
@@ -1187,9 +1211,14 @@ private class ProcreateBrush(
             angle = Param(angleBase),
             followDirection = followDirection,
         )
+        val materializedTip = if (materialized != null) storedTip?.let { materialized.png(it.bytes) } else null
+        if (materializedTip != null) {
+            tip = checkNotNull(materialized).tip(tip)
+            warn("the archive's Shape.png is materialized as a sampled PNG tip")
+        }
         // R40's store, written now that the extensions budget is known. Over the cap the image is
         // dropped **whole**: a prefix of an image is a file that is not the thing it says it is.
-        storedTip?.let { stored ->
+        if (materialized == null) storedTip?.let { stored ->
             val b64 = procreateBase64Of(stored.bytes)
             if (extensionChars() + b64.length <= MAX_EXTENSION_BYTES) {
                 extensions[TIP_IMAGE_KEY] = b64
@@ -1279,7 +1308,8 @@ private class ProcreateBrush(
         if (problems.isNotEmpty()) {
             throw BrushException("it would not be a legal brush: " + problems.joinToString("; "))
         }
-        return ImportResult(preset, warnings)
+        val result = ImportResult(preset, warnings)
+        return materialized?.record(result, materializedTip) ?: result
     }
 
     // ---- small helpers -----------------------------------------------------------------------------

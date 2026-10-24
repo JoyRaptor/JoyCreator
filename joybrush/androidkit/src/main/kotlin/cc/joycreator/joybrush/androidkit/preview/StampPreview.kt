@@ -9,6 +9,7 @@ import cc.joycreator.joybrush.core.brush.DabInputs
 import cc.joycreator.joybrush.core.brush.ENGINE_SMUDGE
 import cc.joycreator.joybrush.core.brush.Scatter
 import cc.joycreator.joybrush.core.brush.SplitMix
+import cc.joycreator.joybrush.core.brush.StrokeColors
 import cc.joycreator.joybrush.core.grain.GrainMath
 import cc.joycreator.joybrush.core.input.PenSample
 import cc.joycreator.joybrush.core.paint.Accumulate
@@ -38,8 +39,35 @@ object StampPreview {
         val smudge: SmudgeParams?,
     )
 
-    fun build(shown: BrushPreset, samples: List<PenSample>): Prepared {
-        val dabber = BrushDabber(shown, CannedStroke.SEED)
+    fun build(shown: BrushPreset, samples: List<PenSample>,
+              colors: StrokeColors = StrokeColors(0xFF000000.toInt(), 0xFFFFFFFF.toInt()),
+              sampledTips: cc.joycreator.joybrush.core.brush.SampledTipSet? = null,
+              dualMask: cc.joycreator.joybrush.core.brush.DualMask? = null,
+              actualStabilizer: cc.joycreator.joybrush.core.input.StabilizerSpec? = null): Prepared {
+        val ends = cc.joycreator.joybrush.core.vector.LineStyle.of(shown.line)
+        require(actualStabilizer == null || (shown.engine == "stamp" && !ends.isWire)) { "Actual stabilizer preview needs a non-wire stamp recipe" }
+        if (actualStabilizer != null || (!ends.isWire && (ends.tapers || ends.dashes))) {
+            val record = cc.joycreator.joybrush.core.stroke.StrokeRecord(
+                "preview", shown.id, CannedStroke.SEED, shown.smoothing, 1f, samples,
+                colorArgb = colors.primaryArgb, secondaryColorArgb = colors.secondaryArgb, stabilizer = actualStabilizer)
+            val replay = if (shown.line != null)
+                cc.joycreator.joybrush.core.vector.InkReplay.replayAdmitted(record, shown,
+                    sampledTips, dualMask,
+                    cc.joycreator.joybrush.core.vector.ShapedReplayLimits(4096, 32768, 65536, 131072)) {}
+            else {
+                require(samples.size <= 4096) { "Preview exceeds its raw-sample allowance" }
+                var admitted = 0
+                cc.joycreator.joybrush.core.vector.InkReplay.replayAdmitted(record, shown, sampledTips, dualMask) {
+                    require(++admitted <= 131072) { "Preview exceeds its final-dab allowance" }
+                }
+            }
+            return Prepared(replay.dabs, replay.strokeOpacity,
+                TipShape(shown.tip.aspect, shown.tip.corner, shown.tip.taper, replay.strokeHardness,
+                    shown.tip.minPx, sampled = replay.dabs.firstOrNull()?.sampled,
+                    dual = replay.dabs.firstOrNull()?.dual),
+                replay.strokeGrain, accumulateOf(shown), blendOf(shown), smudgeOf(shown))
+        }
+        val dabber = BrushDabber(shown, CannedStroke.SEED, colors, sampledTips, dualMask)
         val placer = DabPlacer(spacing = dabber.spacing, look = dabber::look)
         val placed = placer.add(samples.map { shown.response.apply(it) })
         val dabs = Scatter.expand(placed, shown.scatter, SplitMix(CannedStroke.SEED xor CannedStroke.SCATTER_SALT)) { dab ->
@@ -55,6 +83,8 @@ object StampPreview {
             tip = TipShape(
                 aspect = shown.tip.aspect, corner = shown.tip.corner, taper = shown.tip.taper,
                 hardness = dabber.strokeHardness, minPx = shown.tip.minPx,
+                sampled = dabs.firstOrNull()?.sampled,
+                dual = dabs.firstOrNull()?.dual,
             ),
             grain = dabber.strokeGrain,
             accumulate = accumulateOf(shown),

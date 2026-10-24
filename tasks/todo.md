@@ -49,7 +49,7 @@ Rule: nothing below marked DECISION gets built until the owner picks.
 - [ ] Sweep leftovers: caption motion "Type - word" stuck; caption hide-eye / outline swatch no visible response; Invert effect not visible on an image overlay; Puppet RECORDING tab button column clipped.
 - [ ] Lobby: reads off the main thread; "N ITEMS" count to match Library; recording card opens the recording.
 
-## JoyBrush engine continuation — October 16 (Codex Lead)
+## JoyBrush engine continuation â€” October 16 (Codex Lead)
 
 - [x] Bound canonical-source bake through actual engine publication and public undo/redo;
   source 97d0a51c full backend 876 and native 203 passed.
@@ -81,3 +81,54 @@ Running: Settings sub-screens restyle (Sonnet); What's New + update sheets + mod
 Open (owner decisions): Viz Lab card; bottom words (Packs/Bits/Finder); Remote/Server Room + Smart Detection; WaveformDebugActivity export; 11 orphan classes; New button behaviour; pill colour; rename "Classic view".
 Open (mine): restyle Home recorder (Bits); fullscreen preview; Home sidebar; audio envelope oddities; voiceovers in project view; rename/trash helpers for sheets/characters; retire AvatarToggleView + eye-colour pref; sweep leftovers (caption presets retest).
 Parked: VisLab (brief in tasks/VISLAB_BRIEF.md); Joy Brush send-into-existing-project.
+
+# Unibrush â€” 2026-10-18
+
+Owner brief: tasks/joybrush/briefs/CODEX_DIGITAL_PEN_BRIEF_20261018.md. Section 0 wins.
+Isolated branch codex/unibrush starts at lead/layer-ops as authorized in the handoff.
+
+- [x] D1 engine/model: explicit rotation sources; legacy dab compatibility; pressure/tilt recipe APIs; JVM proof. Sheet controls are D9; side-fade is D2.
+- [ ] D1 Lead review/integration and phone acceptance.
+- [x] D2 engine: radial profiles and directional fade; CPU/GPU/transport checks. Lead integration and phone acceptance pending.
+- [x] D3 engine: four-point shapes, rounding and A/B morph; CPU/GPU/replay checks. Lead integration and phone acceptance pending.
+- [x] D4 engine: seeded colour dynamics, frozen palette/codec, CPU/GPU/replay checks. Lead patch held; app/phone acceptance pending.
+- [x] D5 engine: sampled image sets, frozen archive resources, real PNG imports and CPU/GPU/replay checks.
+- [ ] D5 Lead application integration/activation, combined app and Note9 proof (held patches only).
+- [x] D6 engine: seeded dual-tip masks, frozen sources, CPU/GPU/replay and resource lifecycle checks.
+- [ ] D6 Lead application integration/activation and Note9 acceptance (held adapters only).
+- [x] D7 engine: bounded stroke-end replay/lift protocol/final preview; core2629/backend1099 green.
+- [ ] D7 actual Lead publisher integration and Note9 live/replay parity.
+- [x] D8 engine: actual stabilizer settings, raw-codec/filter/fill/SVG/preview replay; core2657/backend1100 green.
+- [ ] D8 actual View/fill adapter integration and Note9 acceptance.
+- [x] D9 owned sheet, shape/profile editors, eleven modes, New brush/store, bounded PNG picker and resource-aware previews; core2678/backend1145/app351 green (including secondary palette and D10 debug helpers).
+- [x] D9 disposable combined held adapter compilation/tests: core2680/backend1154/app358 green.
+- [ ] D9 Lead activation/integration and owner phone review.
+- [x] D10 bounded large-circle raster extent and debug benchmark helpers: d723f5a63; PC GPU174 cases/110 eligible/zero failures.
+- [ ] D10 automatic spacing policy, Lead half-resolution runtime and measured Note9 performance.
+
+Review: each slice receives a separate commit and AGENT_BOARD note before Lead integration.
+No merge/conflict resolution, shared-main edits, or phone use during the D1 engine work.
+
+D1 review: full core 2521 tests / 0 failures / 0 errors / 4 optional corpus skips (2026-10-18).
+Unmodified 107748a78 baseline fingerprint and new dabber agree across 88 recipes / 7128 dabs:
+2fa83c231a3938bbcb5695597204c6a980db2bf47056d81a557dd2f1bf08a8d3.
+64 behavior/source combinations replay the streamed live dabs after raw-record codec roundtrip,
+with nonlinear response curves and a changed-seed control. No GPU, phone, feel or performance claim.
+
+D2 review: core 2529 tests (4 optional corpus skips), Android backend 1050 tests; no failures/errors.
+Production shaders match CPU in 72 cases / 73728 probes (max error < 1/255), with all three
+wrong-profile/fade controls detected. Three-dab extended buffer matches individual draws byte-for-byte;
+wrong-offset control differs in 2856 bytes. Historical 820c62802 vs new shader: zero differing pixels.
+Headless Edge/SwiftShader only; Note 9 feel/performance and editable-line adapter remain pending.
+
+D3 review (2026-10-19): core 2547 (4 optional skips), backend 1052, no failures/errors.
+156 CPU/GPU cases / 159744 probes pass below 2/255 (max .0043181251); all six controls detected.
+Extended VBO is byte-identical to individual draws; both wrong-offset controls differ.
+Historical old shader comparison remains exact. Shader contact sheet inspected; no phone claim.
+See tasks/joybrush/reviews/UNIBRUSH_D3_20261018.md and accompanying 20261019 evidence.
+
+D5 review (2026-10-20): core2607 passed (4 optional skips); backend1082 executed,
+with one new test assertion corrected to the archive's documented sequence ordering. All seven
+archive tests pass on rerun. Sample GPU18 cases/18432 probes/zero failures/max .00229069451;
+nine broken controls detect; full VBO/MRT transport exact; legacy shader pixels unchanged.
+Held adapters apply after D4 in outside scratch only. App/Note9 acceptance remains pending.

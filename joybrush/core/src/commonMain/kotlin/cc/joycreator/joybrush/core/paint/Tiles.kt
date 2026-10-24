@@ -34,7 +34,7 @@ object Tiles {
 
     /** Every tile a dab can touch (its full rotated extent). */
     fun touchedBy(d: Dab, size: Int = SIZE): List<Long> {
-        val e = TipMath.extent(d.radius, d.anchor)
+        val e = TipMath.extent(d.radius, d.anchor, d.sampled, d.aspect)
         val x0 = floor((d.x - e) / size).toInt()
         val x1 = floor((d.x + e) / size).toInt()
         val y0 = floor((d.y - e) / size).toInt()

@@ -1,6 +1,8 @@
 package cc.joycreator.joybrush.core.brush
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 
 /**
  * The dynamic inputs a brush may respond to, read in declaration order. The constant NAME is the
@@ -29,6 +31,7 @@ import kotlinx.serialization.Serializable
 @Serializable data class InputCurve(val input: BrushInput, val curve: List<List<Float>>) // [[x,y],…]
 @Serializable data class Param(val base: Float, val inputs: List<InputCurve> = emptyList(), val combine: String = "multiply")
 
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable data class TipSpec(
     val source: String = "procedural",   // "procedural" | "image"
     val image: String? = null,           // path inside the brush folder when source == image
@@ -43,6 +46,23 @@ import kotlinx.serialization.Serializable
     val aspectDynamics: Param? = null,
     /** 0 = centred; 1 = positive-X endpoint at the pen, long side trailing (brush v7). */
     val anchorDynamics: Param? = null,
+    /** v12: null preserves the old followDirection hybrid exactly, including lean/barrel priority.
+     * Explicit sources ignore followDirection. Omitted for legacy brushes on re-save. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val angleSource: TipAngleSource? = null,
+    /** v13: absent uses the exact pre-Unibrush radial coverage. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val profile: TipProfileSpec? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val fade: TipFadeSpec? = null,
+    /** v14: explicit four-handle shape. Null retains every old superellipse/taper exactly. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val quad: TipQuadSpec? = null,
+    /** v16: resolved from immutable PNG resources; absence preserves the legacy tip. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val sampled: SampledTipSpec? = null,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val dual: DualTipSpec? = null,
 )
 
 /** Paper grain image/scale are ignored since JB-9.03: the document paper decides (R10 P4).
@@ -102,8 +122,14 @@ import kotlinx.serialization.Serializable
 
 @Serializable data class ScatterSpec(val amount: Param = Param(0f), val count: Int = 1, val countJitter: Float = 0f, val bothAxes: Boolean = true)
 
-@Serializable data class ColorJitter(val hue: Float = 0f, val saturation: Float = 0f, val value: Float = 0f, val perStroke: Boolean = false)
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable data class ColorJitter(val hue: Float = 0f, val saturation: Float = 0f, val value: Float = 0f, val perStroke: Boolean = false,
+    /** v15: explicit opt-in; old stored/imported jitter never changes its historical rendering. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val dynamics: ColorDynamicsSpec? = null,
+)
 
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable data class BrushPreset(
     val format: String = "joybrush.brush",
     val version: Int = BRUSH_VERSION,
@@ -136,4 +162,7 @@ import kotlinx.serialization.Serializable
     val author: String = "",
     val sourceFormat: String = "native", // "native" | "abr" | "procreate" | "myb" | "kpp"
     val extensions: Map<String, String> = emptyMap(), // lossless storage of imported raw settings
+    /** v18: suggestion only; actual contact settings belong to the raw stroke record. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val stabilizer: cc.joycreator.joybrush.core.input.StabilizerSpec? = null,
 )

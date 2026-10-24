@@ -36,6 +36,9 @@ import cc.joycreator.joybrush.core.input.PenSample
  * @property capturedPhysicalSource (v4) an immutable capture-space pixel domain and exact integer
  *   placement. Null retains ordinary stroke semantics. A captured record keeps the FULL original
  *   recipe and samples; the domain clips the resulting source image, never the trajectory.
+ * @property secondaryColorArgb (v5) the frozen secondary straight sRGB color for modern color
+ *   dynamics. Null records predate a frozen palette; replay uses opaque white if re-brushed with
+ *   a modern color recipe. Recolor replaces the primary only and retains this secondary.
  *
  * The record stays a PLAIN VALUE: `widthScale` is not checked or clamped here. [StrokeEdit] and
  * [StrokeCodec] put ordinary widths in range. Captured records instead require valid original
@@ -57,6 +60,9 @@ data class StrokeRecord(
     val locked: Boolean = false,
     val groupId: String? = null,
     val capturedPhysicalSource: CapturedPhysicalSource? = null,
+    val secondaryColorArgb: Int? = null,
+    /** v6: actual resolved contact settings. Null retains historical record.smoothing. */
+    val stabilizer: cc.joycreator.joybrush.core.input.StabilizerSpec? = null,
 ) {
     init {
         require(samples.none { it.predicted }) { "predicted points are never recorded" }

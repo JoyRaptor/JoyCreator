@@ -299,9 +299,14 @@ layers, and a floating visualiser over other apps. Lead docs: `tasks/VISLAB_SPEC
 | Image generation | 🔵 | Endpoint verified live: POST openrouter.ai/api/v1/images |
 | Video generation | 🔵 | First post-launch feature |
 | Share-in from other apps | 🟢 | Built 2026-10-13, Note 9-proven: "Share to Joy Creator" saves beside the open project (else Assets, else the top) and "Add to" drops it on the timeline. |
-| Multi-provider support | 🔵 | ai_provider pref ✔ **declared and never used** |
-| Streaming replies | 🔵 | Currently a frozen "Thinking…" |
+| Multi-provider support | 🟡 ✔ | Built (Joybot lane, 10-15/17): several AI accounts (OpenRouter, OpenAI, any compatible address), switch in the model picker; a no-credit account says so plainly. OpenAI itself untested: the owner's account had no API credit. |
+| Streaming replies | 🟡 ✔ | Built: replies stream in, with a 75 s "went quiet" cut-off. Agent-checked on the Note 9 with free models. |
 | Joybot sprite and states | ⚪ | INBOX.md — needs its own session |
+| **Joybot as a harness** (one list of actions, native tool calls, tool routing) | 🟡 ✔ | Joybot lane 10-15→10-24: typed actions for Studio, the app (rooms, Library, Trash, new project from a recording), VisLab (looks, knobs, layers, brand, save/rename/revert/delete, floating visualiser). One request = one undo. Agent-checked on the Note 9 with free models; not yet used by JoyRaptor. Handoff: `tasks/joybot/JOYBOT_HANDOFF_20261015.md`. |
+| Joybot audit fixes (Codex audit 10-18) | 🟡 ✔ | All 12 fixed + 4 more found on the phone (`tasks/audits/2026-10-18/joybot_fixes.md`). Note 9 agent checks 5/6 green; the VisLab one is folded into the VisLab session's 10-24 test. Locked items stay locked unless the person says "unlock" or "yes"; delete/revert ask first. |
+| Joybot sees the finished video (`look`) | 🟡 ✔ | 95c7cd868 (side session): titles, layers, grade and effects at any moment, as exported. Agent-checked once on the Note 9. |
+| Joybot draws in JoyBrush | 🟡 | ff36f19eb (side session): layers, frames, brush/colour, shapes. Phone test and push owed (10-24). |
+| Free-model task benchmark | 🔵 | Side session running 10-24: measured success per free model; nothing claimed until it reports. |
 
 ---
 

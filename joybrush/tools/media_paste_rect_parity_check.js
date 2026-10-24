@@ -95,7 +95,7 @@ function unitFrame(ux, uy, vx, vy) {
   return Math.abs(Math.hypot(ux, uy) - 1) < 1e-3 && Math.abs(Math.hypot(vx, vy) - 1) < 1e-3 && Math.abs(ux * vx + uy * vy) < 1e-3;
 }
 // PasteBrush.loadedEnds: a hair brush or the trowel paints a loaded brush's ends unless it says "cut"; a blade never does.
-const LAND_RAG = 2.0;
+const LAND_RAG = 2.0, LAND_SPLAY = 0.14;
 function loadedEnds(b) { return !b.blade && b.ends !== 'cut'; }
 function supportBounds(st, b, layerScale) {
   const px = 1 / (PPM * layerScale);
@@ -111,7 +111,7 @@ function supportBounds(st, b, layerScale) {
     const landed = loadedEnds(b) ? 1 + LAND_RAG * (st.land ?? 0) : 1;   // PasteFootprint.LAND_RAG
     const ragMax = b.shape > 1 ? 0.14 * 0.5 + 0.05 * 0.5 : landed * Math.abs(b.rag ?? 1.0) * (0.10 * 0.5 + 0.06 * 0.5);
     if (ragMax > 0.5) return null;
-    const across = (Math.max(st.halfW, 1e-3) + px) / (1 - ragMax);
+    const across = (Math.max(st.halfW * (loadedEnds(b) ? 1 + LAND_SPLAY * (st.land ?? 0) : 1), 1e-3) + px) / (1 - ragMax);   // PasteFootprint.LAND_SPLAY
     U = [st.wDirX, st.wDirY]; V = [st.lDirX, st.lDirY];
     uMin = -across; uMax = across; vMin = -px; vMax = st.len + px;
   }
@@ -258,7 +258,7 @@ function uniformsFor(st, b, scale, origin) {
     u_halfW: st.halfW, u_len: st.len, u_lenMax: st.lenMax, u_shape: b.shape, u_pressure: st.pressure,
     u_thick: st.thick ?? b.thickMm, u_scrape: b.scrape, u_fingers: st.fingers ?? b.fingers ?? 1.0,
     u_rag: b.rag ?? 1.0, u_arc: b.arc ?? 0.18, u_sparse: b.sparse ?? 0.0,
-    u_ends: loadedEnds(b) ? 1 : 0, u_lift: st.lift ?? 0, u_land: st.land ?? 0,
+    u_ends: loadedEnds(b) ? 1 : 0, u_lift: st.lift ?? 0, u_land: st.land ?? 0, u_cover: 0, u_carry: 0,
     u_blade: b.blade ? 1 : 0, u_fillDips: b.fillDips ?? 1.0, u_bladeLoad: st.loadMode ? 1 : 0,
     u_bladeDir: [st.bladeDirX ?? 1, st.bladeDirY ?? 0], u_travel: [st.travelX ?? 1, st.travelY ?? 0],
     u_bladeLen: st.bladeLen ?? nz(b.bladeLenMm, 1.0), u_bladeHalfW: st.bladeHalf ?? nz(b.bladeHalfMm, 1.0),

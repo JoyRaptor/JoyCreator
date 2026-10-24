@@ -86,6 +86,8 @@ internal object MediaUniforms {
         u.f1("u_thick", st.thick ?: b.thickMm); u.f1("u_scrape", b.scrape); u.f1("u_fingers", st.fingers ?: b.fingers ?: 1.0)
         u.f1("u_rag", b.rag ?: 1.0); u.f1("u_arc", b.arc ?: 0.18); u.f1("u_sparse", b.sparse ?: 0.0)
         u.f1("u_ends", if (b.loadedEnds) 1 else 0); u.f1("u_lift", st.lift); u.f1("u_land", st.land)
+        // Covers (new colour over wet paint) and carry (the dirty brush): lab prototypes, off until the owner picks.
+        u.f1("u_cover", 0); u.f1("u_carry", 0)
         u.f1("u_blade", if (b.blade) 1 else 0); u.f1("u_fillDips", b.fillDips ?: 1.0); u.f1("u_bladeLoad", if (st.loadMode) 1 else 0)
         u.f2("u_bladeDir", st.bladeDirX, st.bladeDirY); u.f2("u_travel", st.travelX, st.travelY)
         // (not takeIf: its generic receiver would box a Double on every call)

@@ -80,13 +80,14 @@ void main() {
     float a = ((float(cell.x) + 0.5) / JB_LANES) * 2.0 - 1.0;
     float delta = (float(cell.y) + 0.5) / JB_DEPTH;
     float b = u_len - delta * u_lenMax;
+    jb_cap = u_cellCap * jb_pasteProf(delta);   // how full this cell holds (it trades from its own depth)
     u_hairLen = jb_vnoise1((a + 1.0) * 8.0, uint(u_seed) + 41u);
     float cover = u_active > 0.5 && u_shape < 2.5 ? jb_pasteCover(a, b, 0.02, 0.05) : 0.0;
     if (cover > 0.0) {
-        vec2 docPos = u_center + (a * u_halfW * u_wDir + b * u_lDir) * u_pxPerMm;
+        vec2 docPos = u_center + (a * jb_pasteHalfW() * u_wDir + b * u_lDir) * u_pxPerMm;
         vec2 pos = (docPos - u_layerOrigin) * u_layerScale;          // layer px
         // The cell is a strip of hair: read the paint across its width.
-        vec2 side = u_wDir * (u_halfW / JB_LANES) * u_pxPerMm * u_layerScale;
+        vec2 side = u_wDir * (jb_pasteHalfW() / JB_LANES) * u_pxPerMm * u_layerScale;
         vec4 p0 = (jb_bilinearL(u_p0, pos - side) + jb_bilinearL(u_p0, pos) + jb_bilinearL(u_p0, pos + side)) / 3.0;
         vec4 p1 = (jb_bilinearL(u_p1, pos - side) + jb_bilinearL(u_p1, pos) + jb_bilinearL(u_p1, pos + side)) / 3.0;
         float load = b0.a;
@@ -95,15 +96,17 @@ void main() {
         float o = 8.0 * u_layerScale;
         float around = 0.25 * (surfaceAt(pos + vec2(o, 0)) + surfaceAt(pos - vec2(o, 0))
                              + surfaceAt(pos + vec2(0, o)) + surfaceAt(pos - vec2(0, o)));
-        float give = jb_pasteGive(clamp(load / max(u_cellCap, 1e-6), 0.0, 1.0));
-        float c = cover * smoothstep(-0.02, 0.02, here - around + give - jb_pasteGraze(hair));
+        float give = jb_pasteGive(clamp(load / max(jb_cap, 1e-6), 0.0, 1.0));
+        float rise = 0.0;
+        if (u_ends > 0.5 && u_lift > 0.0) rise = surfaceAt(pos - u_lDir * (3.0 * u_layerScale)) - surfaceAt(pos + u_lDir * (3.0 * u_layerScale));
+        float c = cover * smoothstep(-0.02, 0.02, here - around + give - jb_pasteGraze(hair) + jb_pasteCatch(rise));
 
         float t = p0.a;
         vec3 Kc = t > 1e-6 ? p0.rgb / t : vec3(0.0);
         vec3 Sc = t > 1e-6 ? p1.rgb / t : vec3(0.0);
         float open = p1.a;
         float valley = (1.0 - jb_fetch(u_paperBake, jb_cellAt(pos, u_layerSize)).b) * u_toothMm;
-        float target = jb_pasteTarget(a, load, hair, b, valley, docPos);
+        float target = jb_pasteRide(jb_pasteTarget(a, load, hair, b, valley, docPos), t, open, clamp(load / max(jb_cap, 1e-6), 0.0, 1.0));
         float r = 1.0 - exp(-u_rate * u_slideMm / max(u_len, 0.2));
         if (target > t) {
             float dep = min((jb_pasteFast(target, t, valley) * jb_pasteRateFast() + (target - t - jb_pasteFast(target, t, valley)) * r) * c, load);
@@ -115,7 +118,7 @@ void main() {
             b0.rgb += Kc * pick; b1.r += dot(Sc, vec3(1.0 / 3.0)) * pick; b0.a += pick;
         }
         // Swap, the brush's side: what went down is replaced in the cell by what came up.
-        float sw = jb_pasteSwapRate(hair) * r * c * open * smoothstep(0.0, 0.2 * u_cellCap, b0.a);
+        float sw = jb_pasteSwapRate(hair) * r * c * open * smoothstep(0.0, 0.2 * jb_cap, b0.a);
         if (b0.a > 1e-6 && t > 1e-6 && sw > 0.0) {
             // Per unit of canvas area the cell trades a layer t thick; relative to the cell's own amount.
             float ex = min(1.0, sw * t / max(b0.a, 1e-6));
@@ -129,6 +132,25 @@ void main() {
             vec3 kv = mix(b0.rgb / b0.a, Kc, m);
             float sv = mix(b1.r / b0.a, dot(Sc, vec3(1.0 / 3.0)), m);
             b0.rgb = kv * b0.a; b1.r = sv * b0.a;
+        }
+    }
+    // Feed (u_carry): paint runs down the hair from the cell nearer the ferrule into this one, and from this one into the
+    // one below it, each as that pair's shortfall asks (jb_pasteFeed, the same numbers from both cells' old state).
+    if (u_carry > 0.0) {
+        int j = cell.y;
+        vec4 own = texelFetch(u_brush0, cell, 0);
+        vec4 own1 = texelFetch(u_brush1, cell, 0);
+        float capOwn = u_cellCap * jb_pasteProf((float(j) + 0.5) / JB_DEPTH);
+        if (j < int(JB_DEPTH) - 1) {
+            vec4 up = texelFetch(u_brush0, cell + ivec2(0, 1), 0);
+            vec4 up1 = texelFetch(u_brush1, cell + ivec2(0, 1), 0);
+            float f = jb_pasteFeed(up.a, u_cellCap * jb_pasteProf((float(j) + 1.5) / JB_DEPTH), own.a, capOwn);
+            if (f > 0.0) { b0 += up * (f / up.a); b1 += up1 * (f / up.a); }
+        }
+        if (j > 0) {
+            vec4 dn = texelFetch(u_brush0, cell - ivec2(0, 1), 0);
+            float f = jb_pasteFeed(own.a, capOwn, dn.a, u_cellCap * jb_pasteProf((float(j) - 0.5) / JB_DEPTH));
+            if (f > 0.0) { b0 -= own * (f / own.a); b1 -= own1 * (f / own.a); }
         }
     }
     // Wick: paint creeps between neighbouring cells, mostly along the hair (tip ↔ belly).

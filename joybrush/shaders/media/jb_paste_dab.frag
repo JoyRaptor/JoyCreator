@@ -80,17 +80,18 @@ void main() {
         o_p1 = vec4(max(p1.rgb, vec3(0.0)), clamp(open, 0.0, 1.0));
         return;
     }
-    float a = dot(rel, u_wDir) / max(u_halfW, 1e-3);
+    float a = dot(rel, u_wDir) / max(jb_pasteHalfW(), 1e-3);
     a *= 1.0 - jb_pasteRag(docPx);
     float b = dot(rel, u_lDir);
     float px = 1.0 / (u_pxPerMm * u_layerScale);   // one LAYER px, in mm
     u_hairLen = jb_vnoise1((a + 1.0) * 8.0, uint(u_seed) + 41u);
-    float cover = jb_pasteCover(a, b, px / max(u_halfW, 1e-3), px);
+    float cover = jb_pasteCover(a, b, px / max(jb_pasteHalfW(), 1e-3), px);
     if (cover <= 0.0) return;
 
     vec4 b0, b1;
     jb_pasteRead(a, b, b0, b1);
     float load = b0.a;
+    jb_cap = u_cellCap * jb_pasteProf(jb_pasteDepth(a, b));   // how full a cell this deep holds
     float hair = jb_pasteHair(a, docPx);
 
     // Scumble: a nearly dry brush, lightly held, only catches the high points. A loaded brush's paint flows
@@ -100,10 +101,13 @@ void main() {
     float o = 8.0 * u_layerScale;
     float around = 0.25 * (surfaceAt(layerPx + vec2(o, 0)) + surfaceAt(layerPx - vec2(o, 0))
                          + surfaceAt(layerPx + vec2(0, o)) + surfaceAt(layerPx - vec2(0, o)));
-    float fillLoad = clamp(load / max(u_cellCap, 1e-6), 0.0, 1.0);
+    float fillLoad = clamp(load / max(jb_cap, 1e-6), 0.0, 1.0);
     float give = jb_pasteGive(fillLoad);
     float edgeW = mix(0.02, 0.03, u_fillDips);
-    float reach = smoothstep(-edgeW, edgeW, here - around + give - jb_pasteGraze(hair));
+    // Lifting off, the dry paint keys to the tooth's faces rising toward the travel (-u_lDir), a few px either side.
+    float rise = 0.0;
+    if (u_ends > 0.5 && u_lift > 0.0) rise = surfaceAt(layerPx - u_lDir * (3.0 * u_layerScale)) - surfaceAt(layerPx + u_lDir * (3.0 * u_layerScale));
+    float reach = smoothstep(-edgeW, edgeW, here - around + give - jb_pasteGraze(hair) + jb_pasteCatch(rise));
     float c = cover * reach;
 
     float t = p0.a;
@@ -114,11 +118,14 @@ void main() {
     float open = p1.a;
 
     float valley = (1.0 - jb_fetch(u_paperBake, jb_cellAt(layerPx, u_targetSize)).b) * u_toothMm;
-    float target = jb_pasteTarget(a, load, hair, b, valley, docPx);
+    float target = jb_pasteRide(jb_pasteTarget(a, load, hair, b, valley, docPx), t, open, fillLoad);
     float r = 1.0 - exp(-u_rate * u_slideMm / max(u_len, 0.2));
     if (target > t) {
         float dep = (jb_pasteFast(target, t, valley) * jb_pasteRateFast() + (target - t - jb_pasteFast(target, t, valley)) * r) * c;
-        p0.rgb += Kb * dep; p1.rgb += vec3(Sb * dep);
+        if (u_cover > 0.0 && t > 1e-6) {
+            float w = jb_pasteCoat(dep, t, Sb);
+            p0.rgb = mix(Kc, Kb, w) * (t + dep); p1.rgb = mix(Sc, vec3(Sb), w) * (t + dep);
+        } else { p0.rgb += Kb * dep; p1.rgb += vec3(Sb * dep); }
         open = mix(open, 1.0, dep / max(t + dep, 1e-6));
         t += dep;
     } else {
@@ -128,7 +135,7 @@ void main() {
     }
     // Swap: along some hairs the brush's paint goes down and the wet paint there comes up into the brush
     // (same volume both ways). Colours stay separate, as streaks.
-    float sw = jb_pasteSwapRate(hair) * r * c * open * smoothstep(0.0, 0.2 * u_cellCap, load);
+    float sw = jb_pasteSwapRate(hair) * r * c * open * smoothstep(0.0, 0.2 * jb_cap, load);
     if (t > 1e-6 && sw > 0.0) {
         float ex = min(sw, 1.0);
         vec3 kv = mix(p0.rgb / t, Kb, ex);
@@ -136,7 +143,7 @@ void main() {
         p0.rgb = kv * t; p1.rgb = sv * t;
     }
     // Stir: the wet paint under a loaded brush takes on some of the brush's paint (same thickness).
-    float m = u_mix * r * c * open * smoothstep(0.0, 0.2 * u_cellCap, load);
+    float m = u_mix * r * c * open * smoothstep(0.0, 0.2 * jb_cap, load);
     if (t > 1e-6 && m > 0.0) {
         vec3 kv = mix(p0.rgb / t, Kb, m);
         vec3 sv = mix(p1.rgb / t, vec3(Sb), m);

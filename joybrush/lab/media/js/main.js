@@ -49,6 +49,9 @@ function applyTuning() {
   if (qs.get('texel')) globalThis.__TEXEL_SCALE = Number(qs.get('texel'));
   Object.assign(ZONES, parse(qs.get('zones')));
   Object.assign(WET, parse(qs.get('wet')));
+  // ?pb=swap:0.9,mix:0.05 retunes every oil brush on a test sheet (oil specialist, 2026-10-23: preset A/B without editing).
+  const pb = parse(qs.get('pb'));
+  if (Object.keys(pb).length) for (const k of Object.keys(PASTE_BRUSHES)) if (!PASTE_BRUSHES[k].blade) Object.assign(PASTE_BRUSHES[k], pb);
 }
 
 async function main() {
@@ -100,6 +103,16 @@ async function main() {
       let sum = 0;
       for (let i = 0; i < w * h; i++) sum += (0.2126 * px[i * 4] + 0.7152 * px[i * 4 + 1] + 0.0722 * px[i * 4 + 2]) / 255;
       return Math.max(0, 1 - sum / (w * h) / ref);
+    };
+    // Mean displayed colour (0..255 sRGB) of a doc-px box: how much of a new colour shows over old paint (oil layering).
+    window.__rgb = (x0, y0, x1, y1) => {
+      draw();
+      const w = Math.max(1, Math.round(x1 - x0)), h = Math.max(1, Math.round(y1 - y0));
+      const px = new Uint8Array(w * h * 4);
+      gl.readPixels(Math.round(x0), Math.round(y0), w, h, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      const s = [0, 0, 0];
+      for (let i = 0; i < w * h; i++) for (let c = 0; c < 3; c++) s[c] += px[i * 4 + c];
+      return s.map(v => +(v / (w * h)).toFixed(1));
     };
     window.__row = (x0, x1, y, band = 6) => {
       const out = [];

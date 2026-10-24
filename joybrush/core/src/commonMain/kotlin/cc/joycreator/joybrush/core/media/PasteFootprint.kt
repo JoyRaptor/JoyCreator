@@ -68,6 +68,9 @@ object PasteFootprint {
     /** How much more ragged a loaded brush is where it lands (jb_paste.glsl `JB_LAND_RAG`, times `u_land`). */
     const val LAND_RAG = 2.0
 
+    /** How much wider a loaded brush planted hard splays its hairs (jb_paste.glsl `JB_LAND_SPLAY`, times `u_land`). */
+    const val LAND_SPLAY = 0.14
+
     /** `rag` is divided out of the across axis; beyond this the bound explodes, so use the legacy square instead. */
     private const val MAX_RAG = 0.5
 
@@ -111,7 +114,7 @@ object PasteFootprint {
         val landed = if (b.loadedEnds) 1.0 + LAND_RAG * st.land else 1.0
         val ragMax = if (b.shape > 1) 0.14 * 0.5 + 0.05 * 0.5 else landed * abs(b.rag ?: 1.0) * (0.10 * 0.5 + 0.06 * 0.5)
         if (ragMax > MAX_RAG) return null
-        val halfW = max(st.halfW, 1e-3)
+        val halfW = max(st.halfW * (if (b.loadedEnds) 1.0 + LAND_SPLAY * st.land else 1.0), 1e-3)
         val across = (halfW + px) / (1.0 - ragMax)
         return OrientedBox(
             st.wDirX, st.wDirY, st.lDirX, st.lDirY,

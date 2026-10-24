@@ -40,6 +40,15 @@ export function cellCap(brush) {
   return brush.thickMm * brush.rate * brush.loadLenMm / brush.lenMm;
 }
 
+// The share of a full cell the loading tray puts in depth row j: the belly a little fuller than the tip; with `carry`
+// (jb_paste.glsl jb_pasteProf) the hairs hold 0.06 and the belly near the ferrule most of the load, which then feeds them.
+export function pasteRowShare(j, carry = 0) {
+  const base = 0.8 + 0.4 * j / (PASTE_DEPTH - 1);
+  if (!carry) return base;
+  const d = (j + 0.5) / PASTE_DEPTH, t = Math.min(1, Math.max(0, (d - 0.7) / 0.3));
+  return base + ((0.06 + 5.6 * t * t * (3 - 2 * t)) - base) * carry;
+}
+
 // Blade angle to the paper from the pen's tilt fraction t (same S-curve idea as the pencil): near upright
 // only the point reaches the paint; the edge lies down over the last part of the tilt range.
 // How a blade's edge lies, tapped through on the canvas bar (owner, 2026-10-07):

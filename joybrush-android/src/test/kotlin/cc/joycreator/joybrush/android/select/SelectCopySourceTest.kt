@@ -4,9 +4,9 @@ import android.graphics.Color
 import cc.joycreator.joybrush.android.JoyBrushActivity
 import cc.joycreator.joybrush.androidkit.JbCanvasView
 import cc.joycreator.joybrush.androidkit.gl.GlPaintEngine
-import cc.joycreator.joybrush.androidkit.gl.lines.NativeLines
 import cc.joycreator.joybrush.androidkit.lines.LinePlane
 import cc.joycreator.joybrush.core.select.SelectionState
+import cc.joycreator.joybrush.core.stroke.StrokeRecord
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Test
@@ -40,10 +40,13 @@ class SelectCopySourceTest {
                 .get(surface) as GlPaintEngine
             engine.addLayer("lower"); engine.addLayer("upper")
             val native = GlPaintEngine::class.java.getDeclaredField("nativeLines").also { it.isAccessible = true }
-                .get(engine) as NativeLines
-            native.addBrushes(mapOf("lb-1" to frozenInk))
-            native.put(lower, red.id, red, emptySet())
-            native.put(upper, blue.id, blue, emptySet())
+                .get(engine)
+            native.javaClass.getDeclaredMethod("addBrushes", Map::class.java).also { it.isAccessible = true }
+                .invoke(native, mapOf("lb-1" to frozenInk))
+            val put = native.javaClass.getDeclaredMethod("put", LinePlane::class.java, String::class.java,
+                StrokeRecord::class.java, Set::class.java).also { it.isAccessible = true }
+            put.invoke(native, lower, red.id, red, emptySet<Long>())
+            put.invoke(native, upper, blue.id, blue, emptySet<Long>())
         }
         val activity = Robolectric.buildActivity(JoyBrushActivity::class.java).get()
         JoyBrushActivity::class.java.getDeclaredField("canvas").also { it.isAccessible = true }.set(activity, surface)

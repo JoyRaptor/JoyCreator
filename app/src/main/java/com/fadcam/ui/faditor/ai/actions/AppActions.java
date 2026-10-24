@@ -40,6 +40,7 @@ public final class AppActions {
         add(r, "navigate", NavigateActions::register);
         add(r, "library", LibraryActions::register);
         add(r, "vislab", VisLabActions::register);
+        add(r, "joybrush", JoyBrushActions::register);
         return r;
     }
 

@@ -273,6 +273,7 @@ class JoyBrushActivity : Activity() {
     private lateinit var hud: ValueHud
     private lateinit var reference: ReferenceView
     private lateinit var pinBtn: TopButton
+    private lateinit var joybotBtn: TopButton
     private lateinit var layersBtn: TopButton
     private lateinit var guidesBtn: TopButton
     private lateinit var guideOverlay: GuideOverlayView
@@ -511,6 +512,7 @@ class JoyBrushActivity : Activity() {
         canvas.onRefused = { why -> toast(why) }
         canvas.onNotice = { sentence -> toast(sentence) }
         canvas.onGraphicsLost = { documentId -> boardController?.stop(); recoverGraphics(documentId) }
+        JoybotHands.attach(joybotEnv)
         setColumnOpen(prefs.getBoolean(PREF_LAYERS_OPEN, false))
         // The top icons re-read the picture behind them whenever it can have changed under them.
         canvas.onViewMoved = { checkIcons(); guideOverlay.invalidate(); fillPreview.invalidate(); boardController?.refreshTransform(); paperTilt.viewMoved(); selection?.viewMoved() }
@@ -613,6 +615,7 @@ class JoyBrushActivity : Activity() {
     }
 
     override fun onDestroy() {
+        JoybotHands.detach(joybotEnv)
         selection?.detach(); selection = null
         boardBackdrop?.close(); boardBackdrop=null
         boardExports.dismiss()
@@ -653,6 +656,11 @@ class JoyBrushActivity : Activity() {
         undoBtn = TopButton(kit, JbIcon.UNDO, "Undo (or tap with two fingers)").apply { setOnClickListener { canvas.undo() } }
         redoBtn = TopButton(kit, JbIcon.REDO, "Redo (or tap with three fingers)").apply { setOnClickListener { canvas.redo() } }
         guidesBtn = TopButton(kit, JbIcon.GUIDES, "Guides — grid, perspective, ruler").apply { setOnClickListener { guidesPanel(this) } }
+        joybotBtn = TopButton(kit, JbIcon.JOYBOT, "Joybot — ask it to add layers, frames, set the brush or draw a shape").apply {
+            setOnClickListener {
+                startActivity(Intent().setClassName(packageName, "com.fadcam.ui.faditor.ai.ChatAssistantActivity").putExtra("chat_room", "JOYBRUSH"))
+            }
+        }
         pinBtn = TopButton(kit, JbIcon.PIN, "Pin a reference picture — hold for its options").apply {
             setOnClickListener { pinTapped() }
             setOnLongClickListener { referenceMenu(); true }
@@ -666,8 +674,8 @@ class JoyBrushActivity : Activity() {
         val touch = kit.dpi(ChromeKit.TOUCH_DP)
         for (b in listOf(home, undoBtn, redoBtn)) topBar.addView(b, LinearLayout.LayoutParams(touch, touch))
         topBar.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
-        for (b in listOf(guidesBtn, pinBtn, layersBtn, more)) topBar.addView(b, LinearLayout.LayoutParams(touch, touch))
-        topButtons.addAll(listOf(home, undoBtn, redoBtn, guidesBtn, pinBtn, layersBtn, more))
+        for (b in listOf(joybotBtn, guidesBtn, pinBtn, layersBtn, more)) topBar.addView(b, LinearLayout.LayoutParams(touch, touch))
+        topButtons.addAll(listOf(home, undoBtn, redoBtn, joybotBtn, guidesBtn, pinBtn, layersBtn, more))
 
         // "Done" for adjusting guides: a pill at the top centre while the handles are out.
         guideDone = pillButton("Done", "Finish moving the guides") { setAdjustingGuides(false) }.apply { visibility = View.GONE }
@@ -1359,6 +1367,20 @@ class JoyBrushActivity : Activity() {
         updateAnimationLayerMarkers()
         column.show(stack, canvas.maxLayers, canvas.editingMask)
         refreshThumbs()
+    }
+
+    /** Joybot's hands (JoybotHands): what this screen lends them. Runs on the UI thread. */
+    private val joybotEnv = object : JoybotEnv {
+        override val canvas: JbCanvasView get() = this@JoyBrushActivity.canvas
+        override fun ready() = !loadingDrawing && !replacingDrawing && !recoveringDrawing && !canvas.needsRecovery && !destroyed
+        override fun brushes(): List<BrushPreset> = tunedBrushes()
+        override fun tools(): ToolMemory = tools
+        override fun setTools(next: ToolMemory) { tools = next; applyTool() }
+        override fun colourChanged() = refreshColour()
+        override fun selectedBoardId(): String? = boardController?.selectedBoardId
+        override fun drawingName(): String? = workingFile()?.let { f ->
+            cc.joycreator.joybrush.android.library.DrawingLibrary.list(this@JoyBrushActivity).firstOrNull { it.file == f.name }?.name
+        }
     }
 
     private fun updateAnimationLayerMarkers() {

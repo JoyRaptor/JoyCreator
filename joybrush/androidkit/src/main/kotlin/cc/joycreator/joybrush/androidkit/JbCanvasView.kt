@@ -23,6 +23,7 @@ import android.opengl.GLSurfaceView
 import android.os.Build
 import android.os.Looper
 import android.os.SystemClock
+import android.view.InputDevice
 import android.view.MotionEvent
 import cc.joycreator.joybrush.androidkit.diag.BlendSelfCheck
 import cc.joycreator.joybrush.androidkit.gl.FillRequest
@@ -1198,17 +1199,60 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         renderMode = RENDERMODE_WHEN_DIRTY
     }
 
+    // ── one request = one undo (Joybot): steps made for one request token undo and redo together ──
+    private class UndoGroup(val top: Any, val size: Int, val token: String)
+    private var groupStartDepth = -1
+    private var groupStartTop: Any? = null
+    private val undoGroups = ArrayList<UndoGroup>()
+    private val redoGroups = ArrayList<UndoGroup>()
+
+    /** Queued behind earlier work, in order: remembers where the history stands before one action of a request. */
+    fun beginUndoGroup() { onGl { groupStartDepth = engine.undo.undoDepth; groupStartTop = engine.undo.peekUndo() } }
+
+    /**
+     * After that action's work: every step it made joins [token]'s group when the group is the newest thing in the history
+     * (a step made since, by anyone, closes the group), else starts one. A null token leaves the steps ordinary.
+     */
+    fun endUndoGroup(token: String?) {
+        onGl {
+            val start = groupStartDepth; val startTop = groupStartTop; groupStartDepth = -1; groupStartTop = null
+            val made = engine.undo.undoDepth - start
+            val top = engine.undo.peekUndo()
+            if (token != null && start >= 0 && made > 0 && top != null) {
+                val last = undoGroups.lastOrNull()
+                if (last != null && last.token == token && last.top === startTop) {
+                    undoGroups.removeAt(undoGroups.lastIndex); undoGroups.add(UndoGroup(top, last.size + made, token))
+                } else undoGroups.add(UndoGroup(top, made, token))
+                redoGroups.clear()
+                if (undoGroups.size > 40) undoGroups.removeAt(0)
+            }
+        }
+    }
+
+    /** GL thread. A grouped step is matched by identity, so any step made since (or trimmed away) simply makes it ordinary. */
+    private fun undoOneOrGroup() {
+        val g = undoGroups.lastOrNull()?.takeIf { it.top === engine.undo.peekUndo() }
+        repeat(g?.size ?: 1) { engine.undoStep() }
+        if (g != null) { undoGroups.remove(g); engine.undo.peekRedo()?.let { redoGroups.add(UndoGroup(it, g.size, g.token)) } }
+    }
+
+    private fun redoOneOrGroup() {
+        val g = redoGroups.lastOrNull()?.takeIf { it.top === engine.undo.peekRedo() }
+        repeat(g?.size ?: 1) { engine.redoStep() }
+        if (g != null) { redoGroups.remove(g); engine.undo.peekUndo()?.let { undoGroups.add(UndoGroup(it, g.size, g.token)) } }
+    }
+
     fun undo() {
         onBeforeHistoryChange?.invoke()
         if (drawing) finishStroke()
         val editRevision = paperRevision; val historyRevision = ++paperHistoryRevision
-        onGl { mediaCanvas.settleOwed(); engine.undoStep(); reportHistory(editRevision,historyRevision) }
+        onGl { mediaCanvas.settleOwed(); undoOneOrGroup(); reportHistory(editRevision,historyRevision) }
     }
     fun redo() {
         onBeforeHistoryChange?.invoke()
         if (drawing) finishStroke()
         val editRevision = paperRevision; val historyRevision = ++paperHistoryRevision
-        onGl { mediaCanvas.settleOwed(); engine.redoStep(); reportHistory(editRevision,historyRevision) }
+        onGl { mediaCanvas.settleOwed(); redoOneOrGroup(); reportHistory(editRevision,historyRevision) }
     }
     /** Empties the layer being painted on, as one undo step. */
     fun clearCanvas() {
@@ -1273,6 +1317,40 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             return true
         }
         return false
+    }
+
+    /**
+     * Joybot's hand: one stroke through [docPoints] (document px), made as a pen would make it (same brush, same history step,
+     * same refusals), so a drawn shape is a real stroke the person can undo. UI thread. The pen it plays does not count as a pen
+     * the person used: fingers keep drawing for someone who has only ever used fingers. False when the stroke did not start.
+     */
+    fun drawStrokeAsPen(docPoints: List<Pair<Float, Float>>, pressure: Float = 0.7f): Boolean {
+        if (docPoints.size < 2 || drawing || contentLost) return false
+        val savedSeen = penSeen; val savedUp = penUpAt
+        val t0 = SystemClock.uptimeMillis()
+        val props = arrayOf(MotionEvent.PointerProperties().apply { id = 0; toolType = MotionEvent.TOOL_TYPE_STYLUS })
+        fun event(i: Int, action: Int): MotionEvent {
+            val (sx, sy) = view.docToScreen(docPoints[i].first, docPoints[i].second)
+            val coords = arrayOf(MotionEvent.PointerCoords().apply { x = sx; y = sy; this.pressure = pressure; size = 0.05f })
+            return MotionEvent.obtain(t0, t0 + i * 6L, action, 1, props, coords, 0, 0, 1f, 1f, 0, 0, InputDevice.SOURCE_STYLUS, 0)
+        }
+        try {
+            var ok = false
+            for (i in docPoints.indices) {
+                val action = if (i == 0) MotionEvent.ACTION_DOWN else if (i == docPoints.lastIndex) MotionEvent.ACTION_UP else MotionEvent.ACTION_MOVE
+                val e = event(i, action)
+                try { onTouchEvent(e) } finally { e.recycle() }
+                if (i == 0) { ok = drawing; if (!ok) return false }
+            }
+            return ok
+        } finally {
+            if (drawing) cancelStroke()
+            penUpAt = savedUp
+            if (!savedSeen) {   // the setter only ever writes true: put the remembered pen back as it was
+                penSeenNow = false
+                context.getSharedPreferences(PEN_PREFS, android.content.Context.MODE_PRIVATE).edit().putBoolean(PREF_PEN_SEEN, false).apply()
+            }
+        }
     }
 
     /** True once a pen has touched or hovered this canvas: from then on fingers navigate or use the tool finger (H1). */

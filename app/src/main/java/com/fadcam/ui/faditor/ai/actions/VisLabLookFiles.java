@@ -134,7 +134,7 @@ final class VisLabLookFiles {
      * Goes on only when the person said yes in a later message than the one where Joybot asked.
      * Otherwise remembers that this request asked, and tells the model to ask and stop.
      */
-    private static void askedFirst(@NonNull Args a, @NonNull String key, @NonNull String name,
+    static void askedFirst(@NonNull Args a, @NonNull String key, @NonNull String name,
                                    @NonNull String question) throws ActionError {
         String now = VisLabActions.group();
         String asked = ASKED.get(key);

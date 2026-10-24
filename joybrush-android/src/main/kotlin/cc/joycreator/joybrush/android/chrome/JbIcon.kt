@@ -25,6 +25,8 @@ enum class JbIcon(val path: String, private val evenOdd: Boolean = false) {
     MORE("M5 10A2 2 0 1 0 5 14 2 2 0 1 0 5 10ZM12 10A2 2 0 1 0 12 14 2 2 0 1 0 12 10ZM19 10A2 2 0 1 0 19 14 2 2 0 1 0 19 10Z"),
     LAYERS("M12 2.5L22 8 12 13.5 2 8ZM4.3 11.7L12 15.9 19.7 11.7 22 13 12 18.5 2 13Z"),
     GUIDES("M3 21V3L21 21ZM7 17H13.5L7 10.5Z"),
+    /** Joybot: ask for help; a four-point spark. */
+    JOYBOT("M12 2L14.6 9.4 22 12 14.6 14.6 12 22 9.4 14.6 2 12 9.4 9.4Z"),
     /** JB-5.20e: the Select tool, an arrow trailing a dotted loop (tap picks a line, a drag draws a loop). */
     SELECT("M3.5 2.5V17.6L7.6 13.8 10.3 20 13.1 18.8 10.4 12.7H15.9ZM17.54 15.72A1.15 1.15 0 1 0 19.84 15.72A1.15 1.15 0 1 0 17.54 15.72ZM19.37 18.15A1.15 1.15 0 1 0 21.67 18.15A1.15 1.15 0 1 0 19.37 18.15ZM18.69 21.12A1.15 1.15 0 1 0 20.99 21.12A1.15 1.15 0 1 0 18.69 21.12ZM15.98 22.50A1.15 1.15 0 1 0 18.28 22.50A1.15 1.15 0 1 0 15.98 22.50Z"),
     /** JB-5.20e: Duplicate: a copy on top, which becomes the selection. */

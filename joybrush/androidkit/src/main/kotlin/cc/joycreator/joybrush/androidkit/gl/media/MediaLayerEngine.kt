@@ -6,6 +6,7 @@ import cc.joycreator.joybrush.core.media.MediaAtlasDraw
 import cc.joycreator.joybrush.core.media.MediaAtlasPlacement
 import cc.joycreator.joybrush.core.media.MediaAtlasWater
 import cc.joycreator.joybrush.core.media.WaterParkPlan
+import cc.joycreator.joybrush.core.media.WaterBlocks
 import cc.joycreator.joybrush.core.media.DabBatch
 import cc.joycreator.joybrush.core.media.MediaPaper
 import cc.joycreator.joybrush.core.media.MediaStores
@@ -315,7 +316,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         eraseWetFbo = IntArray(0)
         groundTex = 0; groundFbo = 0
         delta = 0; deltaFbo = 0; bakeTex = 0; fluidBake = 0; waterBake = 0; bakeFbo = 0; bakedPaper = null
-        wet = null; run = 0; inTex = IntArray(0); inFbos = IntArray(0); forgetInput(); job = null; lookTex = 0; lookFbo = 0
+        wet = null; run = 0; inTex = IntArray(0); inFbos = IntArray(0); forgetInput(); dropJob(); lookTex = 0; lookFbo = 0
         mid0 = 0; mid1 = 0; terrain = 0; terrainFbo = 0
         bead = IntArray(0); beadFbo = IntArray(0); fluxFbo = IntArray(0); updFbo = IntArray(0); wetCopyFbo = IntArray(0)
         pFbo0 = 0; pFbo1 = 0
@@ -392,7 +393,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     }
 
     fun clearAll() {
-        job = null
+        dropJob()
         for (s in state) clearFbo(s.fbo)
         if (groundFbo != 0) clearFbo(groundFbo)
         if (deltaFbo != 0) clearFbo(deltaFbo)
@@ -527,6 +528,44 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
             WaterParkPlan.Plane.P0 to state.map { it.p0 }, WaterParkPlan.Plane.P1 to state.map { it.p1 }, WaterParkPlan.Plane.PAPER to state.map { it.paper },
             WaterParkPlan.Plane.W0 to ws.map { it.w0 }, WaterParkPlan.Plane.W1 to ws.map { it.w1 }, WaterParkPlan.Plane.FLUX to ws.map { it.flux },
             WaterParkPlan.Plane.RUN to listOf(run)))
+    }
+
+    /**
+     * Block hosts (P2), inside a running job: the slot's current half (the state step k reads: paint state[k mod 2], water
+     * [wc]) or its next half (what the step writes) into the park, exactly. The paper is one plane, the running water too.
+     */
+    internal fun parkHalf(slot: Int, park: MediaWaterPark, unit: Int, next: Boolean) {
+        val ws = requireNotNull(wet) { "no water to park" }
+        val k = job?.k ?: 0
+        val p = state[(k + (if (next) 1 else 0)) and 1]; val water = ws[(wc + (if (next) 1 else 0)) and 1]
+        parkCopy(slot, park, unit, toPark = true, listOf(
+            WaterParkPlan.Plane.P0 to listOf(p.p0), WaterParkPlan.Plane.P1 to listOf(p.p1), WaterParkPlan.Plane.PAPER to listOf(state[0].paper),
+            WaterParkPlan.Plane.W0 to listOf(water.w0), WaterParkPlan.Plane.W1 to listOf(water.w1), WaterParkPlan.Plane.FLUX to listOf(water.flux),
+            WaterParkPlan.Plane.RUN to listOf(run)))
+    }
+
+    /**
+     * Block hosts (P2): a parked state into [slot] as the CURRENT half, inside a running job. [both]: into the other half too
+     * (a tile the step does not write all of, or one staying resident past the step). [ringOnly]: only what the passes read
+     * round a block (w0, w1, flux, p0): a borrowed copy, let go before anything else reads the slot.
+     */
+    internal fun loadHalf(park: MediaWaterPark, unit: Int, slot: Int, both: Boolean, ringOnly: Boolean) {
+        ensureWet()
+        val ws = wet!!
+        val k = job?.k ?: 0
+        val cp = state[k and 1]; val op = state[(k + 1) and 1]; val cw = ws[wc]; val ow = ws[1 - wc]
+        fun pick(cur: Int, other: Int) = if (both) listOf(cur, other) else listOf(cur)
+        val planes = ArrayList<Pair<WaterParkPlan.Plane, List<Int>>>()
+        planes += WaterParkPlan.Plane.W0 to pick(cw.w0, ow.w0)
+        planes += WaterParkPlan.Plane.W1 to pick(cw.w1, ow.w1)
+        planes += WaterParkPlan.Plane.FLUX to pick(cw.flux, ow.flux)
+        planes += WaterParkPlan.Plane.P0 to pick(cp.p0, op.p0)
+        if (!ringOnly) {
+            planes += WaterParkPlan.Plane.P1 to pick(cp.p1, op.p1)
+            planes += WaterParkPlan.Plane.PAPER to state.map { it.paper }
+            planes += WaterParkPlan.Plane.RUN to listOf(run)
+        }
+        parkCopy(slot, park, unit, toPark = false, planes)
     }
 
     private fun parkCopy(slot: Int, park: MediaWaterPark, unit: Int, toPark: Boolean, planes: List<Pair<WaterParkPlan.Plane, List<Int>>>) {
@@ -740,7 +779,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     fun stopWater() {
         // Undo (or the layer going): the state is about to be replaced, so the job is dropped, not finished, and the brush
         // input still waiting goes too (it belonged to what was undone).
-        job = null
+        dropJob()
         if (inFbos.isNotEmpty()) { for (f in inFbos) clearFbo(f); forgetInput() }
         wetRect = null; paintRect = null; wetIdle = 0.0
         wet?.let { ws -> for (x in ws) { val f = MediaTex.fbo(x.flux); clearFbo(f); MediaTex.deleteFbo(f) } }
@@ -1192,10 +1231,20 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     private class WaterJob(val rect: FloatArray, val cells: FloatArray, val steps: Int, val wc0: WetConstants, val beadCells: Double,
                            val inIdx: Int, val useInput: Boolean, val ageScale: Float, val paper: MediaPaperGl,
                            val pxPerMm: Double, val maxWetSeconds: Double, val stages: List<Int>, val hr: FloatArray?, val sigma: Double,
-                           val skip: Set<Long>, val walls: Set<Long>, val sliced: Boolean) {
+                           val skip: Set<Long>, val walls: Set<Long>, val sliced: Boolean,
+                           /** ATLAS_ROOM P2: run block by block ([runBlocks]), each block every stage; null = by bands. */
+                           val blocks: List<WaterBlocks.Block>? = null, val ring: Int = 0) {
         var k = 0; var stage = 0; var band = 0
     }
+
+    // ---- ATLAS_ROOM_20261023 P2: a job too big for the working atlas runs block by block ----
+    /** Set by a host that can keep a job's tiles a block at a time (the atlas); null = every job runs whole, by bands. */
+    internal var blockHost: WaterBlockHost? = null
+    /** A block's side, in tiles. */
+    internal var blockSide = 1
     private var job: WaterJob? = null
+    /** The job goes (finished, dropped or the engine sleeps); a block host lets go of what it borrowed for it. */
+    private fun dropJob() { val j = job; job = null; if (j?.blocks != null) blockHost?.jobDone() }
     private var lastJobNs = 0L
     /** Real time (ms) the water's age has not yet taken in; below 0, steps that ran ahead of the clock. */
     private var ageOweMs = 0f
@@ -1270,6 +1319,9 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         loadWetFrame(paper, wc0, evapOverride, pxPerMm)
         val cells = waterRect(rect)
         val tilted = hypot(slope[0].toDouble(), slope[1].toDouble()) > 1e-4
+        val skip = waterSkip + waterPaused
+        val cellsI = intArrayOf(floor(cells[0]).toInt(), floor(cells[1]).toInt(), ceil(cells[2]).toInt(), ceil(cells[3]).toInt())
+        val host = blockHost?.takeIf { free && wf == 1 && !it.fitsWhole(cellsI, skip) }
         GLES30.glDisable(GLES30.GL_BLEND)
         // The paint planes (p0, p1) used to be written to state[1] by every update and copied back to state[0] by a
         // whole extra pass. The update reads them at its OWN pixel only, so instead the substeps alternate: substep k reads
@@ -1277,11 +1329,11 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         // The flux pass also reads p0.a at the neighbours (the water's surface, and the paper's slope d cells away when
         // tilted); inside the rectangle those are the previous substep's output, and beyond it the paint never changes,
         // so state[0]'s values for the ring around the rectangle are copied into state[1] once, before the first substep.
-        needWater(rect, MediaAtlasPlacement.WET_REACH)
+        if (host == null) needWater(rect, MediaAtlasPlacement.WET_REACH)
         // Coarse water: the flux reads the ground from the terrain (once a job, as far round as it reads), not the paint, so
-        // there is no paint ring to keep in step.
+        // there is no paint ring to keep in step. Blocks copy the ring as each comes in ([runBlocks]).
         if (wf > 1) mediaTrace("JB.media.wet.terrain") { terrainPass(cells, fluxReach(wc0, beadCells / wf) + 2, paper) }
-        else if (ran > 1) mediaTrace("JB.media.wet.ring") { copyP0Ring(rect, ringCells(wc0, beadCells)) }
+        else if (ran > 1 && host == null) mediaTrace("JB.media.wet.ring") { copyP0Ring(rect, ringCells(wc0, beadCells)) }
         // The running bead's field (tilted): 2x2 average of the water, then a Gaussian along x and y, on the half grid.
         val sigma = min(4.8, max(1.0, 0.25 * beadCells))
         val hr = if (!tilted) null else {
@@ -1298,8 +1350,12 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         // The job eats the input drawn so far; dabs from now on go to the other buffer.
         val ib = inNext
         inNext = 1 - ib
+        val blocks = host?.let {
+            val hrI = hr?.let { h -> intArrayOf(floor(h[0]).toInt(), floor(h[1]).toInt(), ceil(h[2]).toInt(), ceil(h[3]).toInt()) }
+            WaterBlocks.plan(cellsI, hrI, wf, blockSide, skip)
+        }
         job = WaterJob(rect, cells, ran, wc0, beadCells, ib, inArea[ib] != null || inAll[ib], ageScale, paper, pxPerMm,
-            maxWetSeconds, stages, hr, sigma, waterSkip + waterPaused, waterSkip, sliced)
+            maxWetSeconds, stages, hr, sigma, skip, waterSkip, sliced, blocks, ringCells(wc0, beadCells))
     }
 
     /** Runs every pass the running job has left, now (anything that reads or writes what the job does calls it first). */
@@ -1332,7 +1388,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
      */
     private fun runJob(budget: Double, toStep: Boolean = false, atLeastOne: Boolean = true): Double {
         val j = job ?: return 0.0
-        if (wet == null) { job = null; return 0.0 }
+        if (wet == null) { dropJob(); return 0.0 }
         val ws = wet!!
         // B3: tiles the water left (a drip's dried tail, MediaAtlasWater.excluded) or set aside (paused pools) are not
         // simulated; the water beside a tile it left sees a wall there (zero gradient, no flow), as at the window's edge.
@@ -1342,6 +1398,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     }
 
     private fun runJobInner(j: WaterJob, ws: Array<Wet>, budget: Double, toStep: Boolean, atLeastOne: Boolean): Double {
+        if (j.blocks != null) return runBlocks(j, j.blocks, ws, budget, toStep, atLeastOne)
         if (toStep && j.stage == 0 && j.band == 0) return 0.0
         var spent = 0.0
         GLES30.glDisable(GLES30.GL_BLEND)
@@ -1368,8 +1425,59 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         }
     }
 
+    /**
+     * A step block by block: the host brings each block's tiles in ([WaterBlockHost.enter]), every stage runs over the block's
+     * own rect for it (WaterBlocks: the update over the block, the flux and the bead field over what that reads), the host
+     * takes the block's new half ([WaterBlockHost.leave]). The stages' uniforms describe the whole job, as bands do. A block
+     * is one item of the budget. The water flips once every block has run.
+     */
+    private fun runBlocks(j: WaterJob, blocks: List<WaterBlocks.Block>, ws: Array<Wet>, budget: Double, toStep: Boolean, atLeastOne: Boolean): Double {
+        if (toStep && j.band == 0) return 0.0
+        val host = requireNotNull(blockHost) { "a job in blocks lost its host" }
+        var spent = 0.0
+        while (true) {
+            val bl = blocks[j.band]
+            val cost = j.stages.sumOf { st -> blockRect(j, bl, st)?.let { bandCost(it, st) } ?: 0.0 }
+            if ((spent > 0.0 || !atLeastOne) && spent + cost > budget) return spent
+            mediaTrace("JB.media.wet.block.enter") { host.enter(bl, j.k) }
+            // Paint beyond the job's rectangle never changes: its ring in the other half, for the flux of odd steps (startJob's
+            // copy, made here for what is resident now: blitLayer copies resident slots only).
+            if (j.k == 0 && j.steps > 1) mediaTrace("JB.media.wet.ring") { copyP0Ring(j.rect, j.ring) }
+            GLES30.glDisable(GLES30.GL_BLEND)
+            for (st in j.stages) {
+                val r = blockRect(j, bl, st) ?: continue
+                runStage(j, ws, st, stageArea(j, st).first, r)
+            }
+            mediaTrace("JB.media.wet.block.leave") { host.leave(bl, j.k) }
+            spent += cost
+            if (++j.band < blocks.size) continue
+            j.band = 0
+            // A water step is done: the water flips, and the input it ate leaves its buffer.
+            wc = 1 - wc
+            if (j.k == 0 && j.useInput) clearInput(j.inIdx)
+            waterSteps++
+            j.k++
+            host.stepDone(j.k)
+            if (j.k < j.steps) { if (toStep) return spent; continue }
+            endJob(j)
+            return spent
+        }
+    }
+
+    /** [bl]'s rect for [stage], inside the stage's own area (the job's float edges kept exactly); null = nothing to draw. */
+    private fun blockRect(j: WaterJob, bl: WaterBlocks.Block, stage: Int): FloatArray? {
+        val r = when (stage) {
+            STAGE_BEAD0, STAGE_BEAD1, STAGE_BEAD2 -> bl.bead ?: return null
+            STAGE_FLUX -> bl.flux
+            else -> bl.update
+        }
+        val a = stageArea(j, stage).first
+        val x0 = max(r[0].toFloat(), a[0]); val y0 = max(r[1].toFloat(), a[1]); val x1 = min(r[2].toFloat(), a[2]); val y1 = min(r[3].toFloat(), a[3])
+        return if (x1 > x0 && y1 > y0) floatArrayOf(x0, y0, x1, y1) else null
+    }
+
     private fun endJob(j: WaterJob) {
-        job = null
+        dropJob()
         // An odd number of substeps (the dry-now frame) leaves the paint in state[1]: one copy, as every substep used to make.
         if ((j.steps and 1) == 1) mediaTrace("JB.media.wet.tail") { copyRect(state[1], pFbo0, j.rect) }
         wetIdle += j.steps * j.wc0.dt
@@ -1834,7 +1942,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     }
 
     fun release() {
-        job = null   // everything goes; what was worth keeping was written back before (a write-back finishes the job)
+        dropJob()   // everything goes; what was worth keeping was written back before (a write-back finishes the job)
         releasePrograms()
         val tex = ArrayList<Int>()
         for (s in state) tex += listOf(s.p0, s.p1, s.paper)

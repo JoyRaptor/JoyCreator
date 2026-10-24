@@ -2815,6 +2815,20 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
 
     /** Debug adapter arithmetic check on a throwaway engine; it never reads/writes the drawing. */
     /** Media Atlas v2 B1's device proof (debug bench only): window and atlas media engines through the same frames. */
+    /** ATLAS_ROOM P2's device proof (debug only): water run block by block through a small atlas == the window's, bit for bit. */
+    fun runMediaAtlasBlockedProbe(ready: (String) -> Unit) {
+        if (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) {
+            ready("{\"pass\":false,\"error\":\"Media atlas probe is debug only\"}")
+            return
+        }
+        onGl {
+            val report = try {
+                cc.joycreator.joybrush.androidkit.gl.media.MediaAtlasBlockedProbe.probe(cc.joycreator.joybrush.androidkit.gl.ShaderLibrary(), engine.mediaPaper())
+            } catch (e: Throwable) { "{\"pass\":false,\"error\":" + org.json.JSONObject.quote(e.toString()) + "}" }
+            post { ready(report) }
+        }
+    }
+
     fun runMediaAtlasProbe(ready: (String) -> Unit) {
         if (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) {
             ready("{\"pass\":false,\"error\":\"Media atlas probe is debug only\"}")

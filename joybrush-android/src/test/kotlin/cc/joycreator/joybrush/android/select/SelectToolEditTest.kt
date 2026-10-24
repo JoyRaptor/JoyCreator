@@ -18,6 +18,50 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
 class SelectToolEditTest {
+    @Test fun oversizedPaintCoverageIsRefusedBeforeRasterisationOrHostLift() {
+        val host = Host()
+        val tool = SelectTool(host, 1f) { true }
+        tool.state.loop(listOf(Pt(0.0, 0.0), Pt(2304.0, 0.0), Pt(2304.0, 2048.0), Pt(0.0, 2048.0)),
+            emptyList(), emptyList(), SelectionState.Reading(take = SelectionState.Take.PIXELS), adding = false)
+        tool.reread(SelectionState.Reading(take = SelectionState.Take.PIXELS))
+        assertNull(tool.selection)
+        assertNull(host.paintClip)
+        assertEquals(0, host.pixelLifts)
+        assertTrue(host.notes.single().contains("too many tiles"))
+    }
+
+    @Test fun oversizedPixelTransformIsRefusedBeforePreviewOrCommit() {
+        val pixels = Pixels()
+        val host = Host(pixels = pixels)
+        val tool = SelectTool(host, 1f) { true }
+        selectPaint(tool)
+        val clip = host.paintClip
+        tool.beginBox()
+        val oversized = tool.boxDoc!!.map { it * 100f }.toFloatArray()
+        assertFalse(tool.boxTo(oversized))
+        assertEquals(Homography.IDENTITY, pixels.previewTransform)
+        assertEquals(0, pixels.commits)
+        assertSame(clip, host.paintClip)
+        tool.cancelBox()
+    }
+
+    @Test fun pixelCommitRechecksCoverageBeforeTheHostCanPublish() {
+        val pixels = Pixels()
+        val host = Host(pixels = pixels)
+        val tool = SelectTool(host, 1f) { true }
+        selectPaint(tool)
+        val clip = host.paintClip
+        val original = tool.boxDoc!!.copyOf()
+        tool.beginBox()
+        // A stale or external overlay can mutate this public array after boxTo's admission.
+        val changed = tool.boxDoc!!
+        for (i in changed.indices) changed[i] *= 100f
+        assertFalse(tool.commitBox())
+        assertEquals(0, pixels.commits)
+        assertSame(clip, host.paintClip)
+        assertArrayEquals(original, tool.boxDoc!!, 0f)
+    }
+
     @Test fun nudgeHoldsTheBeforeShapeOnlyUntilTheGestureEnds() {
         val host = Host(mutableListOf(record("a")))
         val tool = SelectTool(host, 1f) { true }
@@ -84,6 +128,7 @@ class SelectToolEditTest {
         var lineLift: Lines? = null
         var rejectReplacements = false
         var provideLineLift = true
+        val notes = mutableListOf<String>()
         private fun lines() = records.map { r ->
             val xs = r.samples.map { it.x.toDouble() }.toDoubleArray()
             val ys = r.samples.map { it.y.toDouble() }.toDoubleArray()
@@ -119,7 +164,7 @@ class SelectToolEditTest {
         override fun dimRest(alpha: Float) {}
         override fun adjustColour(hueDeg: Float, saturation: Float, brightness: Float, done: Boolean) {}
         override fun penButtonTap(screenX: Float, screenY: Float) {}
-        override fun toast(text: String, action: String?, onAction: (() -> Unit)?) {}
+        override fun toast(text: String, action: String?, onAction: (() -> Unit)?) { notes += text }
         override fun invalidate() {}
     }
 

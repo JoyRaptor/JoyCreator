@@ -355,9 +355,10 @@ class SelectionMask internal constructor(internal val tiles: Map<Long, ByteArray
  * The largest bounding box a polygon may have, in either axis. Beyond it [SelectionMask.polygon]
  * returns [SelectionMask.EMPTY] and the caller says "selection too large".
  *
- * 16384 is 64 x 64 tiles, so a legal mask is at most 4 MB of coverage — the same spirit as
- * `render.MAX_REGION_PX` and `fill.MAX_FILL_PX`, and stated here rather than imported so that this
- * file stays arithmetic with no dependency on either of them.
+ * This is an extent/address guard, NOT a memory budget: 64 x 64 coverage tiles can cost256MiB,
+ * or about264MiB when the bounds straddle an extra row and column. Interactive callers must
+ * apply [SelectionMaskAdmission] before rasterising; the low-level arithmetic keeps its existing
+ * extent contract for other callers.
  */
 internal const val MAX_SELECT_SPAN = 16384
 

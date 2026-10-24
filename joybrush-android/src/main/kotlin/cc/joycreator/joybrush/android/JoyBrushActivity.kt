@@ -58,6 +58,7 @@ import cc.joycreator.joybrush.android.select.HostUi
 import cc.joycreator.joybrush.android.select.JbHostCanvas
 import cc.joycreator.joybrush.android.select.LineBrushes
 import cc.joycreator.joybrush.android.select.LineSelectionClipboard
+import cc.joycreator.joybrush.android.select.SelectLayerMenu
 import cc.joycreator.joybrush.android.select.SelectController
 import cc.joycreator.joybrush.android.select.SelectionSync
 import cc.joycreator.joybrush.core.input.PenAction
@@ -1529,6 +1530,19 @@ class JoyBrushActivity : Activity() {
             if (layer.locked) "Let this layer's paint, lines and mask change again"
             else "Keep this layer's paint, lines and mask from changing; its opacity, blend and visibility still change") {
             canvas.setLayerLocked(id, !layer.locked)
+        })
+        val selectionRows = SelectLayerMenu.model(id, canvas.layers, canvas.lineSnapshot,
+            (selection?.tool?.selection as? SelectionState.Lines)?.ids.orEmpty(),
+            selectionHost?.visibleLines().orEmpty(), selection?.tool?.state?.pickLocked == true, canvas.boardDocument)
+        if (selectionRows.selectAll.isNotEmpty()) box.addView(menuRow("Select all lines", "Select every pickable line on this layer") {
+            popovers.close(); canvas.selectLayer(id)
+            selection?.tool?.let { it.updateView(canvas.view); it.selectAddresses(selectionRows.selectAll) }
+        })
+        if (selectionRows.bake.isNotEmpty()) box.addView(menuRow("Rasterize Down", "Turn the selected lines on this layer, or all its lines, into pixels. Undo brings them back") {
+            popovers.close(); selectionHost?.bakeLines(selectionRows.bake)
+        })
+        if (selectionRows.flattenLower) box.addView(menuRow("Flatten Lower", "Turn this layer and every layer below into one pixel layer. Undo brings them back") {
+            popovers.close(); canvas.flattenLower(id)
         })
         box.addView(menuRow("Duplicate", "Make a copy of this layer above it") { canvas.duplicateLayer(id) })
         if (canvas.layers.indexOf(id) > 0) {

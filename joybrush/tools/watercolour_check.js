@@ -45,6 +45,8 @@ async function gpuChecks({ vert, frag, finishVert, finishFrag, mixFrag, assets, 
   const compile = (type, code) => { const s = gl.createShader(type); gl.shaderSource(s, code); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw Error(gl.getShaderInfoLog(s)); return s; };
   const program = (vs, fs) => { const p = gl.createProgram(); gl.attachShader(p, compile(gl.VERTEX_SHADER, vs)); gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw Error(gl.getProgramInfoLog(p)); return p; };
   const dab = program(vert, frag), finish = program(finishVert, finishFrag);
+  // A moved line's wash uses the variant built with JB_WASH_FRAME (as WatercolourPass does); everything else the original.
+  const finishFramed = program(finishVert, finishFrag.replace(/^(#version[^\n]*\n)/, '$1#define JB_WASH_FRAME\n'));
   const fade = program(finishVert, mixFrag);
   const fadeWrongAmount = program(finishVert, mixFrag.replace('clamp(u_amount,0.0,1.0)', '1.0'));
   const fadeWrongAlpha = program(finishVert, mixFrag.replace('clamp(u_amount,0.0,1.0));', 'clamp(u_amount,0.0,1.0)); o_color.a=1.0-(1.0-texture(u_plain,uv).a)*(1.0-texture(u_pooled,uv).a);'));
@@ -73,6 +75,7 @@ async function gpuChecks({ vert, frag, finishVert, finishFrag, mixFrag, assets, 
   let tint = [.31, .68, .88]; const decode = x => x <= .04045 ? x / 12.92 : ((x + .055) / 1.055) ** 2.4, encode = x => x <= .0031308 ? 12.92 * x : 1.055 * x ** (1 / 2.4) - .055;
   const config = { edgeWidth: 3, edgePool: .65, edgeAlpha: .72, gravityWidth: 36, gravityPool: .57, paperCut: .5, pooling: 1 };
   function finished(p, origin, n, neighbours, tileSize, s = config, scale = 1) {
+    if (s.docToWash && p === finish) p = finishFramed;
     const out = target(n, false); gl.disable(gl.BLEND); gl.useProgram(p); gl.bindVertexArray(vao);
     const u = name => gl.getUniformLocation(p, name), f = (name, v) => gl.uniform1f(u(name), v);
     gl.uniform2f(u('u_tileOrigin'), ...origin); f('u_outputDocSize', n / scale); f('u_scale', scale); gl.uniform1i(u('u_bandTileSize'), tileSize);
@@ -80,7 +83,6 @@ async function gpuChecks({ vert, frag, finishVert, finishFrag, mixFrag, assets, 
     bind(p, 'u_backdrop', 9, s.backdrop || black); bind(p, 'u_fineGrain', 10, s.fineGrain || black); bind(p, 'u_paperSurface', 11, s.paperTexture || paper);
     const ps=s.paperSpec;f('u_paperTexelPx', ps?ps.texelPx:1); f('u_paperSize', ps?ps.size:1); f('u_paperHexTexels', ps?ps.hexTexels:16); f('u_paperSlopeRange', ps?ps.slopeRange:.1); f('u_paperHeightMean', ps?(ps.heightMean??.5):height);
     gl.uniform1i(u('u_paperRotatable'), ps&&ps.rotatable?1:0); gl.uniform4f(u('u_tilePaperRect'), ...(s.tileRect || [0,0,0,0])); gl.uniform1i(u('u_hasPaper'), 1);
-    gl.uniform1i(u('u_hasWashFrame'), s.docToWash ? 1 : 0);
     if(s.docToWash) gl.uniformMatrix3fv(u('u_docToWash'),false,new Float32Array(s.docToWash));
     gl.uniform3f(u('u_tintSrgb'), ...tint); gl.uniform3f(u('u_tintLinear'), ...tint.map(decode)); gl.uniform2f(u('u_gravityDirection'), 0, 1);
     for (const name of ['edgeWidth', 'edgePool', 'edgeAlpha', 'gravityWidth', 'gravityPool', 'paperCut', 'pooling']) f('u_' + name, s[name]);

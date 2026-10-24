@@ -30,8 +30,12 @@ uniform vec2 u_gravityDirection; // document coordinates, down = (0,+1)
 uniform float u_pooling;        // 0 live/unpooled, 1 finished, smoothstep fade between
 uniform float u_backdropWorld;
 uniform vec2 u_backdropOffset;  // document pixels, frozen from the record seed
-uniform int u_hasWashFrame;    // zero preserves the original sampling path exactly
+#ifdef JB_WASH_FRAME
+// The framed variant only (a moved line's wash follows it). Live strokes and unmoved lines use the program compiled
+// without JB_WASH_FRAME, which is the original sampling path exactly: on the Note 9 the untaken framed code in the same
+// program cost ordinary strokes ~1.7x (watercolour dabs 42 -> 74 ms a frame, Lead A/B 2026-10-24).
 uniform mat3 u_docToWash;
+#endif
 uniform float u_textureStrength;
 uniform float u_textureContrast;
 uniform int u_textureInvert;
@@ -74,6 +78,7 @@ float wc_coverage(vec2 doc) {
 vec3 wc_encode(vec3 linear) {
     return mix(1.055*pow(max(linear,vec3(0.0)),vec3(1.0/2.4))-0.055,linear*12.92,lessThanEqual(linear,vec3(0.0031308)));
 }
+#ifdef JB_WASH_FRAME
 float wc_washReadGrad(vec2 doc,vec2 dx,vec2 dy) {
     vec3 p=u_docToWash*vec3(doc,1.0);
     // A projective frame can have a pole outside its painted samples but inside
@@ -97,6 +102,7 @@ float wc_framedTileWash(vec2 doc) {
     float d=wc_washReadGrad(q-period,dx,dy);
     return clamp(0.5+dot(w,vec4(a,b,c,d)-0.5)*inversesqrt(dot(w,w)),0.0,1.0);
 }
+#endif
 void main() {
     float alpha=wc_coverage(v_docPx);
     // The unpooled result is retained conceptually; the tint/coverage blend below is premultiplied.
@@ -117,12 +123,13 @@ void main() {
     // carries no texture break. Unarmed, both reads are the original lines, untouched.
     bool tiled=u_tilePaperRect.z > 0.0 && u_tilePaperRect.w > 0.0;
     float wash;
-    if(u_hasWashFrame == 1) {
-        if(tiled) wash=wc_framedTileWash(v_docPx);
-        else wash=wc_washReadGrad(v_docPx,dFdx(v_docPx),dFdy(v_docPx));
-    }
-    else if(tiled) wash=jb_tileTextureR(u_backdrop,v_docPx,u_backdropOffset,u_backdropWorld,0.5);
+#ifdef JB_WASH_FRAME
+    if(tiled) wash=wc_framedTileWash(v_docPx);
+    else wash=wc_washReadGrad(v_docPx,dFdx(v_docPx),dFdy(v_docPx));
+#else
+    if(tiled) wash=jb_tileTextureR(u_backdrop,v_docPx,u_backdropOffset,u_backdropWorld,0.5);
     else wash=texture(u_backdrop,(v_docPx+u_backdropOffset)/u_backdropWorld).r;
+#endif
     wash=clamp((wash-0.5)*u_textureContrast+0.5,0.0,1.0);
     if(u_textureInvert == 0) wash=1.0-wash;
     float mask=mix(1.0,wash,u_textureStrength);

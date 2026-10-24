@@ -12,7 +12,16 @@ class SelectPreferences(context: Context) {
 
     var pickLocked: Boolean
         get() = preferences.getBoolean("pick_locked", false)
-        set(value) { preferences.edit().putBoolean("pick_locked", value).apply() }
+        set(value) { preferences.edit().putBoolean("pick_locked", value).putBoolean("locked_option_revealed", true).apply() }
+
+    /** D2: reveal after encountering a lock, and never strand an existing persisted choice. */
+    val lockedOptionRevealed: Boolean
+        get() = preferences.getBoolean("locked_option_revealed", false) || preferences.contains("pick_locked")
+
+    fun observeLockedLines(hasLocked: Boolean) {
+        if (hasLocked && !lockedOptionRevealed)
+            preferences.edit().putBoolean("locked_option_revealed", true).apply()
+    }
 
     var dimRest: Boolean
         get() = preferences.getBoolean("dim_rest", true)

@@ -279,6 +279,36 @@ exactly this), so stale slot contents never reach the water.
 separate probe pairs a 5 x 5-tile window with an atlas that has L1 = 9 slots + zero + the park, b = 1. Strokes go
 through the middle 3 x 3, including the tilted wash, and the comparison covers the interior.
 
+## 5e. P2c: the real atlas as the block host (design, 10-24)
+
+The probe's `ProbeBlockHost` owns its whole world. In the app, `MediaAtlas` must be the host, inside its own rules:
+slots, LRU, pins, stores, undo, look.
+
+**Gap found in P1.** `MediaAtlasResidency.ensure` writes back a victim only when it is DIRTY. So a running pool
+whose stores were just written (clean) and is then evicted never reaches `parkIfLive`: it comes back from its f16
+stores without its flow. The fix: a backing hook for every victim (`evicted(slot, page)`, default no-op) that parks
+live water whether or not the victim is dirty.
+
+**Inside a block job, nothing may finish the job** (re-entry). `parkSlot` / `writeStoreTile` call
+`finishWaterJob` / `finishWaterStep`, so during a block step an eviction:
+- parks with `parkHalf`: current, plus next if the tile's block has run this step;
+- skips the store write-back (the park holds the truth; the tile stays marked for its stores).
+
+**Ownership.** `MediaAtlas` implements `WaterBlockHost`:
+- **fitsWhole:** the job's tiles + ring + what the frame holds ≤ slots. Then today's path, unchanged.
+- **enter:** own tiles loaded FULL (park if parked, else stores, as `loadSlot`); ring tiles that are not resident
+  borrowed ring-only; all pinned until `leave`.
+- **leave:** own tiles are done this step.
+- **stepDone:** borrowed copies dropped without write-back, park next → current.
+- **jobDone:** borrowed copies dropped.
+- **Admission:** water that does not fit no longer refuses. `admitWater` returns only the frame's own tiles, and the
+  job runs in blocks (D1, quiet pools drying whole, stays; D2 is no longer needed for room).
+
+**Owed with P2c (P3).**
+- The look of parked water: drawn per block while its tiles are resident, into the look texture, copied out together.
+- Stores at a stroke's end for parked tiles, written from the park.
+- Undo, release and forget drop the parks (as P1).
+
 ## 6. Risks
 
 - **Copy cost.** GPU copies of 6 MB a tile; if `glCopyImageSubData` is slow on Adreno, use a blit pass. P1 measures it

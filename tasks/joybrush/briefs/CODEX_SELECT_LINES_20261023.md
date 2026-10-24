@@ -47,6 +47,11 @@ wired. This brief is the missing part, lines first (Phase A), then paint selecti
 - **Copy text:** the owner's words in the spec are verbatim; use them.
 - **Identity:** write "JoyRaptor" or "the owner" in repo files, never a personal name or email (a git hook blocks it).
 - **Never** resolve a merge conflict: re-apply on the new base.
+- **Phone proof = the Select bench** (`bench/SelectBench.kt`, on origin/ui/select-accept until the lead merges it):
+  `bash tasks/joybrush/ui-scripts/select_bench.sh <out-dir>` on the Note 9 runs a synthetic S Pen through the real
+  window and checks the drawing (selection, line positions, undo steps), saving a screenshot per step. Add a bench
+  step for what you built (same pattern) and attach its JSON lines and screenshots to the evidence note. It needs the
+  phone lock; when the owner has reserved the phone, wait.
 - **Each step ends with:**
   - tests green;
   - a short evidence note appended to `reviews/SELECT_LINES_GAPS_20261023.md` §5 (what, commit, tests, phone screenshot

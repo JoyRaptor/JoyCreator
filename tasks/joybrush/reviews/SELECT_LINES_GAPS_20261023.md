@@ -92,3 +92,30 @@ For each: ✅ works and looks like the page / ⚠️ works, looks or feels off /
 13. Save, close, reopen: lines still editable.
 
 ## 5. Evidence log (append one entry per finished step)
+
+### 2026-10-24 — UI specialist: the Select bench on the Note 9 (C1)
+
+Bench: `bench/SelectBench.kt` + `SelectGestures.kt`, script `ui-scripts/select_bench.sh` (synthetic TOOL_TYPE_STYLUS
+through the window root; checks the drawing model; screenshots). Build = origin/joy-creator + ui/select-accept.
+
+| Step | Run 1 | Run 3 (after fixes) |
+|---|---|---|
+| draw 5 editable ink lines (5 undo steps) | ✅ | ✅ |
+| Select on the strip | ✅ | ✅ |
+| tap picks; row ABOVE the box; box shown | ✅ (row under the strip ⚠️) | ✅ row clear of chrome |
+| tap the same spot again → the line under it; count pill | ❌ box swallowed the tap | ✅ |
+| tap empty paper ends | ✅ | ✅ |
+| lasso → Lines/Paint, Whole/Touch, layer chips | ✅ (bar under the round button ⚠️) | ✅ bar clear of chrome |
+| pen drag moves, ONE step; undo puts it back | ✅ | ✅ (D20 keep-selection still owed: A4) |
+| rotate knob BELOW the box, 90° | ✅ | ✅ |
+| two fingers anywhere scale 1.5× (P8 B) | ✅ | ✅ |
+| Delete / Duplicate / Flip H, one step each | ✅ | ✅ |
+| tip dots on pen hover (K16) | ❌ bench line ends sat on box corners | ✅ |
+| Nudge bends | ✅ | ✅ |
+| one finger pans (K18) | ❌ bench measured the wrong state | re-scoped: Brush in hand (D1.1: with Select in hand a finger picks and loops) |
+
+Fixed from what the bench showed (commits f2d1b7f4d, 4f35f422f): tap-through for an unmoved box-body tap
+(SelectBoxHost/SelectTool.tapFromBox); `SelectPlacement` keeps the row, bar and count clear of the strip, top bar, layer
+column and round button; row/bar/pill ink follows the 88 % paper backing; chosen chips' cut-out reads on light/kraft
+paper (filled dark there, true cut-out on dark paper); the count pill never sits on the box edge. Unit: all Select
+suites green (+ SelectToolEditTest 2, SelectPlacementTest 4). Evidence: C:/Temp/jb-select-ux-ops/run1..run3.

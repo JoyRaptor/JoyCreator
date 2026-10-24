@@ -279,10 +279,10 @@ class SelectController(
             row.x = x; row.y = y; placed = true; break
         }
         if (!placed) { row.x = (cx - rw / 2f).coerceIn(gap, maxOf(gap, root.width - rw - gap)); row.y = ys.first() }
-        placeCount(RectF(row.x, row.y, row.x + rw, row.y + rh), chrome, top)
+        placeCount(RectF(row.x, row.y, row.x + rw, row.y + rh), chrome, top, bottom)
     }
 
-    private fun placeCount(rowRect: RectF?, chrome: List<RectF> = emptyList(), boxTop: Float = Float.NaN) {
+    private fun placeCount(rowRect: RectF?, chrome: List<RectF> = emptyList(), boxTop: Float = Float.NaN, boxBottom: Float = Float.NaN) {
         val pick = tool.countPick
         if (tool.selection !is SelectionState.Lines || pick == null || pick.total < 2 || tool.nudging || boxMoving) {
             count.visibility = View.GONE
@@ -305,7 +305,9 @@ class SelectController(
         val blocks = chrome + listOfNotNull(rowRect)
         val squeezed = SelectPlacement.hits(pill(aboveY), blocks) ||
             (!boxTop.isNaN() && pill(aboveY).let { it.bottom > boxTop - kit.dp(4f) && it.top < boxTop + kit.dp(4f) })
-        count.y = if (squeezed) (py + kit.dp(3f)).coerceIn(minY, maxY) else aboveY
+        // Below: the visible pill starts 6 dp under the box's bottom edge (never on it), and never above the tap.
+        val belowY = maxOf(py + kit.dp(3f), if (boxBottom.isNaN()) Float.NEGATIVE_INFINITY else boxBottom + kit.dp(6f - 11f))
+        count.y = if (squeezed) belowY.coerceIn(minY, maxY) else aboveY
     }
 
     /** K3: white or black icons by the brightness behind the row and the bar (IconContrast, the top bar's sampler). */

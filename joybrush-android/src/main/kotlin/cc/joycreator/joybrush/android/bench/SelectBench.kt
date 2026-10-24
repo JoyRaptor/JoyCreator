@@ -215,14 +215,26 @@ class SelectBench(private val canvas: JbCanvasView, private val finished: () -> 
                 }
             }
         }
-        step("fingerPans") { next ->
-            val sel = lines()
-            val (x0, _) = canvas.view.docToScreen(0f, 0f)
-            // Clear paper, away from the lines and the bar at the bottom (the Nudge slider lives there).
-            g.stroke(listOf(SelectGestures.P(0.08f * w, 0.50f * h), SelectGestures.P(0.35f * w, 0.50f * h)), 300, pen = false) {
-                val (x1, _) = canvas.view.docToScreen(0f, 0f)
-                report("fingerPans", abs(x1 - x0) > 20f && lines() == sel, JSONObject().put("panPx", x1 - x0).put("selectionKept", lines() == sel))
-                next()
+        step("fingerPansWithBrush") { next ->
+            // K18 / P10 B: once the pen has been seen, one finger PANS while another tool is in hand (with the Select
+            // tool in hand a finger picks and loops like the pen, D1.1, as on the owner's page).
+            val brush = g.labelled("Brush")
+            if (brush == null) { report("fingerPansWithBrush", false, JSONObject().put("why", "no Brush button")); next(); return@step }
+            g.tapView(brush) {
+                val before = all()
+                val (x0, _) = canvas.view.docToScreen(0f, 0f)
+                undoDepth { d0 ->
+                    // Clear paper, away from the lines and the bar at the bottom.
+                    g.stroke(listOf(SelectGestures.P(0.08f * w, 0.50f * h), SelectGestures.P(0.35f * w, 0.50f * h)), 300, pen = false, settleMs = 600) {
+                        val (x1, _) = canvas.view.docToScreen(0f, 0f)
+                        undoDepth { d1 ->
+                            val drew = d1 != d0 || all() != before
+                            report("fingerPansWithBrush", abs(x1 - x0) > 20f && !drew && tool?.selectToolInHand == false,
+                                JSONObject().put("panPx", x1 - x0).put("drew", drew).put("brushInHand", tool?.selectToolInHand == false))
+                            next()
+                        }
+                    }
+                }
             }
         }
         step("end") { next ->

@@ -733,10 +733,14 @@ class GlPaintEngine(
         // in the question: init is also how a second init on a live context is recovered from, and
         // what the caller needs to be told is that the DRAWING did not survive — not that init ran
         // twice. An engine with nothing in it has nothing to announce.
-        val had = heldTextureNames() > 0 || undo.canUndo || undo.canRedo || recordedScene?.hasContent == true
+        val had = heldTextureNames() > 0 || undo.canUndo || undo.canRedo || recordedScene?.hasContent == true ||
+            lift?.let { it.originals.values.any { texture -> texture != null } || it.lifted.isNotEmpty() } == true
         val alreadyForgetting = forgettingGraphicsContext
         forgettingGraphicsContext = true
         try {
+        // Preview names belong to the dead context too. Do NOT endLift here: it would restore
+        // old originals into current stores and recycle/delete names the new context can reuse.
+        lift = null; liftMatrix = null; liftProg = null
         resetJointPaint(RecordedScene.ResetMode.CONTEXT_LOST)
         recordedScene?.forget(); recordedScene = null
         wcPass?.forget(); wcPass = null; wcSpec = null; wcFading = false; wcPrepared = false

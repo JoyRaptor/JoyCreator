@@ -4,10 +4,14 @@ import cc.joycreator.joybrush.core.paint.Accumulate
 import cc.joycreator.joybrush.core.paint.StrokeBlend
 import cc.joycreator.joybrush.core.paint.TipShape
 import cc.joycreator.joybrush.core.paint.UndoLog
+import cc.joycreator.joybrush.androidkit.lines.LinePlane
+import cc.joycreator.joybrush.core.stroke.LineAddress
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.test.assertNull
+import kotlin.test.assertFailsWith
 
 /**
  * JB-0.07 review F1: a GL context loss used to leave the engine holding the OLD texture names, so
@@ -163,5 +167,52 @@ class GlContextLossTest {
         assertEquals(0, engine.compositor.targetFbo)
         assertEquals(0, engine.compositor.backdropFbo)
         assertEquals(0, engine.compositor.width, "a stale size would make ensure() think the new context already has targets")
+    }
+
+    /** No real GL calls: a dead-context lift must be abandoned before replacement allocation. */
+    @Test
+    fun contextLossAbandonsTheLiftBeforeNewNamesCanBeAllocated() {
+        val engine = GlPaintEngine().also { it.reInit() }
+        plantDeadLift(engine)
+        assertTrue(engine.lifting)
+        assertEquals(0, engine.heldTextureNames(), "the fixture must hold its originals only in the lift")
+
+        engine.initWith {
+            assertFalse(engine.lifting, "replacement allocation can reuse old preview texture names")
+            assertNull(field(engine, "liftMatrix"))
+            engine.addLayer(layer)
+        }
+        assertTrue(engine.lostContent, "set-aside drawing pixels were lost too")
+        engine.endLift()
+        assertTrue(engine.tileKeys(layer).isEmpty(), "late lift cleanup restored dead originals into the new layer")
+        assertEquals(0, engine.heldTextureNames(), "late cleanup recycled a dead preview name")
+    }
+
+    @Test
+    fun failedReplacementCannotLeaveADeadLiftForTheNextInit() {
+        val engine = GlPaintEngine().also { it.reInit() }
+        plantDeadLift(engine)
+        assertFailsWith<IllegalStateException> { engine.initWith { error("replacement failed") } }
+        assertFalse(engine.ready)
+        assertFalse(engine.lifting)
+        assertNull(field(engine, "liftMatrix"))
+        engine.reInit()
+        assertFalse(engine.lostContent)
+        engine.endLift()
+        assertEquals(0, engine.heldTextureNames())
+    }
+
+    private fun field(engine: GlPaintEngine, name: String): Any? =
+        GlPaintEngine::class.java.getDeclaredField(name).apply { isAccessible = true }.get(engine)
+
+    private fun plantDeadLift(engine: GlPaintEngine) {
+        val type = GlPaintEngine::class.java.declaredClasses.single { it.simpleName == "Lift" }
+        val value = type.declaredConstructors.single().apply { isAccessible = true }.newInstance(
+            setOf(LineAddress(layer, null, "old-line")),
+            mapOf((LinePlane(layer, null) to 7L) to 404),
+            listOf(405), listOf(7L to 406))
+        GlPaintEngine::class.java.getDeclaredField("lift").apply { isAccessible = true }.set(engine, value)
+        GlPaintEngine::class.java.getDeclaredField("liftMatrix").apply { isAccessible = true }
+            .set(engine, floatArrayOf(1f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f))
     }
 }

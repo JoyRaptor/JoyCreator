@@ -26,6 +26,7 @@ class SelectSettingsView(
     private val onPickLocked: (Boolean) -> Unit = {},
     private val onDimRest: (Boolean) -> Unit = {},
     showLockedOption: Boolean = false,
+    perBrushLinesOverrideShelf: Boolean = false,
 ) : LinearLayout(kit.context) {
     init {
         orientation = VERTICAL
@@ -33,7 +34,7 @@ class SelectSettingsView(
         choices("Pans", "Selects", fingerSelects, onFingerSelects)
         heading("Paint and Airbrush make")
         choices("Pixels", "Editable lines", paintMakesLines, onPaintMakesLines)
-        addView(TextView(context).apply {
+        if (perBrushLinesOverrideShelf) addView(TextView(context).apply {
             text = "Each brush’s own Editable lines choice takes priority."
             textSize = 11f
             setTextColor(kit.p.drawerDim)

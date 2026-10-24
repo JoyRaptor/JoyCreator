@@ -37,7 +37,7 @@ class PasteFootprintTest {
     /** `jb_pasteCover(a, b, px / halfW, px) > 0` for the hair/trowel/edge path, with `rag` and the flat lead noise given. */
     private fun hairCovers(st: PasteStep, br: PasteBrush, px: Double, wMm: Double, lMm: Double, rag: Double, leadNoise: Double): Boolean {
         // A loaded brush planted hard splays its hairs wider (jb_paste.glsl jb_pasteHalfW; at most LAND_SPLAY x u_land).
-        val hw = max(st.halfW * (if (br.loadedEnds) 1 + PasteFootprint.LAND_SPLAY * st.land else 1.0), 1e-3)
+        val hw = max(st.halfW * (if (br.loadedEnds && br.shape <= 1) 1 + PasteFootprint.LAND_SPLAY * st.land else 1.0), 1e-3)
         val a = wMm / hw * (1 - rag)            // dab.frag 77-78
         var b = lMm                             // dab.frag 79
         val aaA = px / hw; val aaB = px          // dab.frag 82

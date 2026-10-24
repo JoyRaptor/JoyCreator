@@ -134,8 +134,9 @@ void main() {
             b0.rgb = kv * b0.a; b1.r = sv * b0.a;
         }
     }
-    // Feed (u_carry): paint runs down the hair from the cell nearer the ferrule into this one, and from this one into the
-    // one below it, each as that pair's shortfall asks (jb_pasteFeed, the same numbers from both cells' old state).
+    // Seep (u_carry): paint moves along the hair between this cell and its neighbours nearer the ferrule and nearer the
+    // tip, each pair by how full the two are (jb_pasteSeep, the same number from both cells' old state). Its colour is the
+    // giving cell's one mixed paint.
     if (u_carry > 0.0) {
         int j = cell.y;
         vec4 own = texelFetch(u_brush0, cell, 0);
@@ -144,13 +145,16 @@ void main() {
         if (j < int(JB_DEPTH) - 1) {
             vec4 up = texelFetch(u_brush0, cell + ivec2(0, 1), 0);
             vec4 up1 = texelFetch(u_brush1, cell + ivec2(0, 1), 0);
-            float f = jb_pasteFeed(up.a, u_cellCap * jb_pasteProf((float(j) + 1.5) / JB_DEPTH), own.a, capOwn);
+            float f = jb_pasteSeep(up.a, u_cellCap * jb_pasteProf((float(j) + 1.5) / JB_DEPTH), own.a, capOwn);
             if (f > 0.0) { b0 += up * (f / up.a); b1 += up1 * (f / up.a); }
+            else if (f < 0.0) { b0 += own * (f / own.a); b1 += own1 * (f / own.a); }
         }
         if (j > 0) {
             vec4 dn = texelFetch(u_brush0, cell - ivec2(0, 1), 0);
-            float f = jb_pasteFeed(own.a, capOwn, dn.a, u_cellCap * jb_pasteProf((float(j) - 0.5) / JB_DEPTH));
-            if (f > 0.0) { b0 -= own * (f / own.a); b1 -= own1 * (f / own.a); }
+            vec4 dn1 = texelFetch(u_brush1, cell - ivec2(0, 1), 0);
+            float g = jb_pasteSeep(own.a, capOwn, dn.a, u_cellCap * jb_pasteProf((float(j) - 0.5) / JB_DEPTH));
+            if (g > 0.0) { b0 -= own * (g / own.a); b1 -= own1 * (g / own.a); }
+            else if (g < 0.0) { b0 -= dn * (g / dn.a); b1 -= dn1 * (g / dn.a); }
         }
     }
     // Wick: paint creeps between neighbouring cells, mostly along the hair (tip ↔ belly).
@@ -161,13 +165,14 @@ void main() {
         vec4 lf = texelFetch(u_brush0, clamp(cell - ivec2(1, 0), ivec2(0), sz - 1), 0);
         vec4 rt = texelFetch(u_brush0, clamp(cell + ivec2(1, 0), ivec2(0), sz - 1), 0);
         vec4 own = texelFetch(u_brush0, cell, 0);
-        b0 += u_wick * ((up + dn - 2.0 * own) + 0.25 * (lf + rt - 2.0 * own));
+        // With carry the seep above is the flow along the hair (by fullness); the wick keeps only its sideways creep.
+        b0 += u_wick * ((1.0 - u_carry) * (up + dn - 2.0 * own) + 0.25 * (lf + rt - 2.0 * own));
         vec4 up1 = texelFetch(u_brush1, clamp(cell + ivec2(0, 1), ivec2(0), sz - 1), 0);
         vec4 dn1 = texelFetch(u_brush1, clamp(cell - ivec2(0, 1), ivec2(0), sz - 1), 0);
         vec4 lf1 = texelFetch(u_brush1, clamp(cell - ivec2(1, 0), ivec2(0), sz - 1), 0);
         vec4 rt1 = texelFetch(u_brush1, clamp(cell + ivec2(1, 0), ivec2(0), sz - 1), 0);
         vec4 own1 = texelFetch(u_brush1, cell, 0);
-        b1 += u_wick * ((up1 + dn1 - 2.0 * own1) + 0.25 * (lf1 + rt1 - 2.0 * own1));
+        b1 += u_wick * ((1.0 - u_carry) * (up1 + dn1 - 2.0 * own1) + 0.25 * (lf1 + rt1 - 2.0 * own1));
     }
     if (any(isnan(b0)) || any(isnan(b1))) { b0 = texelFetch(u_brush0, cell, 0); b1 = texelFetch(u_brush1, cell, 0); }
     o_b0 = max(b0, vec4(0.0));

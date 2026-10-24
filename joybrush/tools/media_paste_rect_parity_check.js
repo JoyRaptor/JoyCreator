@@ -87,8 +87,14 @@ const nz = (v, d) => (v === null || v === undefined || v === 0) ? d : v;
 
 // ---- JS port of PasteFootprint.kt (pinned to Kotlin by the anchors below) ----
 const SAFETY_PAD_PX = 2.0;
+// PasteFootprint.landWiden: a loaded hair brush's landing square widens with its splay and its more ragged edge (1 otherwise).
+function landWiden(st, b) {
+  if (!loadedEnds(b) || b.shape > 1 || !(st.land > 0)) return 1;
+  const rag0 = Math.abs(b.rag ?? 1.0) * (0.10 * 0.5 + 0.06 * 0.5);
+  return (1 + LAND_SPLAY * st.land) * (1 - rag0) / Math.max(1 - rag0 * (1 + LAND_RAG * st.land), 0.5);
+}
 function legacyBounds(st, b) {
-  const r = (b.blade ? (st.bladeLen ?? b.bladeLenMm) + b.bladeHalfMm + 1.5 : Math.hypot(st.halfW, st.lenMax) + 0.3) * PPM;
+  const r = (b.blade ? (st.bladeLen ?? b.bladeLenMm) + b.bladeHalfMm + 1.5 : Math.hypot(st.halfW * landWiden(st, b), st.lenMax) + 0.3) * PPM;
   return [st.x - r, st.y - r, st.x + r, st.y + r];
 }
 function unitFrame(ux, uy, vx, vy) {
@@ -111,7 +117,7 @@ function supportBounds(st, b, layerScale) {
     const landed = loadedEnds(b) ? 1 + LAND_RAG * (st.land ?? 0) : 1;   // PasteFootprint.LAND_RAG
     const ragMax = b.shape > 1 ? 0.14 * 0.5 + 0.05 * 0.5 : landed * Math.abs(b.rag ?? 1.0) * (0.10 * 0.5 + 0.06 * 0.5);
     if (ragMax > 0.5) return null;
-    const across = (Math.max(st.halfW * (loadedEnds(b) ? 1 + LAND_SPLAY * (st.land ?? 0) : 1), 1e-3) + px) / (1 - ragMax);   // PasteFootprint.LAND_SPLAY
+    const across = (Math.max(st.halfW * (loadedEnds(b) && b.shape <= 1 ? 1 + LAND_SPLAY * (st.land ?? 0) : 1), 1e-3) + px) / (1 - ragMax);   // PasteFootprint.LAND_SPLAY
     U = [st.wDirX, st.wDirY]; V = [st.lDirX, st.lDirY];
     uMin = -across; uMax = across; vMin = -px; vMax = st.len + px;
   }

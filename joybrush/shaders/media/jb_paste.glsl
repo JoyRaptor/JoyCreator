@@ -75,7 +75,7 @@ const float JB_LAND_SPLAY = 0.14; // a firm landing splays the hairs this much w
 // How firmly the brush is landing (u_ends): 0 lightly or once it has travelled, 1 planted hard.
 float jb_pasteFirmLand() { return u_ends > 0.5 ? u_land * smoothstep(0.4, 0.9, u_pressure) : 0.0; }
 // The brush's half-width in play: planted hard, the hairs splay out (both passes map lanes through it).
-float jb_pasteHalfW() { return u_ends > 0.5 ? u_halfW * (1.0 + JB_LAND_SPLAY * jb_pasteFirmLand()) : u_halfW; }
+float jb_pasteHalfW() { return u_ends > 0.5 && u_shape < 1.5 ? u_halfW * (1.0 + JB_LAND_SPLAY * jb_pasteFirmLand()) : u_halfW; }
 const float JB_FEED = 0.25;
 const float JB_CATCH = 1.4;      // how strongly a lifting brush's dry paint keys to the tooth's rising faces
 const float JB_HAIR_SHARE = 0.06;   // u_carry: what the hairs that touch hold, of a full cell
@@ -86,11 +86,15 @@ const float JB_BELLY_SHARE = 5.6;   // ... and the belly near the ferrule on top
 float jb_pasteProf(float depth) { return mix(1.0, JB_HAIR_SHARE + JB_BELLY_SHARE * smoothstep(0.7, 1.0, depth), u_carry); }
 // The full amount of the cell being read here (set per fragment: u_cellCap * jb_pasteProf(its depth)).
 float jb_cap = 1.0;
-// Paint flowing down the hair from a cell nearer the ferrule into the one below it (u_carry): a share of the lower cell's
-// shortfall, as full as the upper cell is, never more than half of what it holds. Both cells compute it from the same old
-// state, so it is conservative.
-float jb_pasteFeed(float src, float capSrc, float dst, float capDst) {
-    return JB_FEED * u_carry * clamp(1.0 - dst / max(capDst, 1e-6), 0.0, 1.0) * min(clamp(src / max(capSrc, 1e-6), 0.0, 1.0) * capDst, 0.5 * src);
+// Paint seeping along the hair between neighbouring depth cells (u_carry): plain diffusion of how full each is (its amount
+// over what its depth holds), so a cell that has laid paint down draws from the fuller one next to it and an overfull one
+// gives back. Signed: > 0 runs from `up` (the cell nearer the ferrule) into `own`. Both cells compute it from the same old
+// state (conservative); never more than a quarter of what the giving cell holds. PATENT GUARD (R8, US 8,462,173): this is
+// the ONLY flow between depth cells; it knows nothing of where a cell's paint came from, and nothing is laid "picked-up
+// first": a cell lays its one mixed paint (tasks/joybrush/specs/OIL_CARRY_20261024.md).
+float jb_pasteSeep(float up, float capUp, float own, float capOwn) {
+    float f = JB_FEED * u_carry * (up / max(capUp, 1e-6) - own / max(capOwn, 1e-6)) * min(capUp, capOwn);
+    return f >= 0.0 ? min(f, 0.25 * up) : max(f, -0.25 * own);
 }
 
 // How far the hair splays past (or falls short of) the nominal side here: paint squeezed out, stray

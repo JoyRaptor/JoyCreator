@@ -5,6 +5,7 @@ import cc.joycreator.joybrush.core.shape.Pt
 import cc.joycreator.joybrush.core.stroke.StrokeRecord
 import cc.joycreator.joybrush.core.stroke.SourcePlacement
 import cc.joycreator.joybrush.core.stroke.CapturedStrokeRules
+import cc.joycreator.joybrush.core.stroke.StrokeWashFrame
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
@@ -31,8 +32,9 @@ import kotlin.math.sqrt
  *   Dab SPACING is the brush's own (widthScale is applied after placement), so a line scaled ×2 with SCALE replays
  *   with twice as many dabs: the same line for an opaque ink, a denser one for a translucent stamp that builds up.
  *   Spacing by size × widthScale would be a replay change, flagged to the lead 2026-10-11 (LineTransformTest pins today).
- * - Everything else (id, seed, brush, colour, smoothing, and any field added later, such as `seq`) is kept: the result is
- *   a `copy` of the record. JB-5.20 D1: editing a line keeps its place in time.
+ * - Everything else (id, seed, brush, colour, smoothing, and fields such as `seq`) is kept. The wash frame is composed
+ *   with the same map so `washFrame⁻¹(documentPoint)` remains invariant for corresponding points. A missing frame is
+ *   the legacy identity and is initialized on an ordinary transform. JB-5.20 D1: editing keeps the line's time position.
  */
 object LineTransform {
 
@@ -53,7 +55,8 @@ object LineTransform {
                 dx != dx.toInt().toDouble() || dy != dy.toInt().toDouble()) return null
             return translateCaptured(r, dx.toInt(), dy.toInt())
         }
-        if (r.samples.isEmpty()) return r
+        val washFrame = (r.washFrame ?: StrokeWashFrame.IDENTITY).transformed(h) ?: return null
+        if (r.samples.isEmpty()) return r.copy(washFrame = washFrame)
         val out = ArrayList<PenSample>(r.samples.size)
         for (s in r.samples) {
             val q = h.apply(Pt(s.x.toDouble(), s.y.toDouble()))
@@ -74,6 +77,7 @@ object LineTransform {
             samples = out,
             screenPerDoc = (r.screenPerDoc / s).toFloat(),
             widthScale = if (weight == Weight.SCALE) (r.widthScale * s).toFloat() else r.widthScale,
+            washFrame = washFrame,
         )
     }
 

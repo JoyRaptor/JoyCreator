@@ -6,6 +6,10 @@ import cc.joycreator.joybrush.core.brush.TipSpec
 import cc.joycreator.joybrush.core.input.PenSample
 import cc.joycreator.joybrush.core.shape.Pt
 import cc.joycreator.joybrush.core.stroke.StrokeRecord
+import cc.joycreator.joybrush.core.stroke.StrokeWashFrame
+import cc.joycreator.joybrush.core.stroke.CaptureDomain
+import cc.joycreator.joybrush.core.stroke.CapturedPhysicalSource
+import cc.joycreator.joybrush.core.stroke.SourcePlacement
 import cc.joycreator.joybrush.core.vector.InkReplay
 import kotlin.math.PI
 import kotlin.math.abs
@@ -39,7 +43,19 @@ class LineTransformTest {
             assertTrue(close(a.x + 15f, b.x) && close(a.y - 4f, b.y), "sample $i moved by the move")
             assertEquals(a.copy(x = b.x, y = b.y), b, "sample $i: pressure, tilt, lean, barrel, time kept")
         }
-        assertEquals(r.copy(samples = out.samples), out, "id, seed, brush, colour, smoothing, zoom and weight kept")
+        assertEquals(r.copy(samples = out.samples, washFrame = StrokeWashFrame.IDENTITY.transformed(Homography.translate(15.0, -4.0))), out,
+            "id, seed, brush, colour, smoothing, zoom, weight and translated wash frame")
+    }
+
+    @Test
+    fun capturedIntegerMoveKeepsItsFrozenFastPathAndDoesNotComposeWashFrame() {
+        val frame = StrokeWashFrame(1.0, 0.25, 3.0, -0.5, 1.0, 8.0, 0.0, 0.0, 1.0)
+        val r = record().copy(capturedPhysicalSource = CapturedPhysicalSource(CaptureDomain()), washFrame = frame)
+        val moved = assertNotNull(LineTransform.apply(r, Homography.translate(4.0, -7.0), LineTransform.Weight.SCALE))
+        assertEquals(r.samples, moved.samples)
+        assertEquals(frame, moved.washFrame)
+        assertEquals(SourcePlacement(4, -7), moved.capturedPhysicalSource!!.placement)
+        assertEquals(r.copy(capturedPhysicalSource = r.capturedPhysicalSource!!.copy(placement = SourcePlacement(4, -7))), moved)
     }
 
     @Test
@@ -114,5 +130,38 @@ class LineTransformTest {
         // w = x - 50 is zero at x = 50, which the line crosses (x 10..126): that sample lands nowhere.
         val vanishing = Homography(doubleArrayOf(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, -50.0))
         assertNull(LineTransform.apply(r.copy(samples = r.samples.map { it.copy(x = 50f) }), vanishing, LineTransform.Weight.SCALE))
+    }
+
+    @Test
+    fun legacyWashCoordinatesStayFixedAcrossSelectMapsAndChains() {
+        val maps = listOf(
+            Homography.translate(15.0, -4.0),
+            Homography.rotate(0.37, Pt(40.0, 15.0)),
+            Homography.scale(1.7, 0.65, Pt(0.0, 0.0)),
+            Homography(doubleArrayOf(1.0, 0.2, 3.0, -0.1, 1.0, 7.0, 0.0, 0.0, 1.0)),
+            Homography(doubleArrayOf(1.1, 0.07, 5.0, -0.03, 0.9, 8.0, 0.001, -0.0006, 1.0)),
+        )
+        var current = record()
+        assertNull(current.washFrame, "legacy record uses identity sampling before its first transform")
+        for ((index, h) in maps.withIndex()) {
+            val before = current
+            val after = assertNotNull(LineTransform.apply(before, h, LineTransform.Weight.SCALE), "map $index")
+            val frame = assertNotNull(after.washFrame, "ordinary transform initializes the legacy identity")
+            for (i in before.samples.indices) {
+                val oldPoint = Pt(before.samples[i].x.toDouble(), before.samples[i].y.toDouble())
+                val newPoint = Pt(after.samples[i].x.toDouble(), after.samples[i].y.toDouble())
+                val a = (before.washFrame ?: StrokeWashFrame.IDENTITY).localOf(oldPoint)
+                val b = frame.localOf(newPoint)
+                assertTrue(abs(a.x - b.x) < 0.002 && abs(a.y - b.y) < 0.002,
+                    "map $index sample $i changed wash coordinate: $a -> $b")
+            }
+            current = after
+        }
+    }
+
+    @Test
+    fun aSingularSelectMapIsRefusedWhenItCannotCarryAnInvertibleWashFrame() {
+        val collapsed = Homography.scale(0.0, 1.0, Pt(0.0, 0.0))
+        assertNull(LineTransform.apply(record(), collapsed, LineTransform.Weight.SCALE))
     }
 }

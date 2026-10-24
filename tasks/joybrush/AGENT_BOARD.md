@@ -669,6 +669,17 @@ check is the part that matters - removing the one fold turns **15 of 54 red**, i
 reason I ran `javac`/`java` by hand with a forward-slash argfile. The argfile detail matters: a
 backslash path in a `javac` argfile is silently eaten and javac reports an `InvalidPathException`
 naming a path you never typed.
+## Select lines delivery — 2026-10-24, codex/select-lines
+
+A1–A8 source is pushed, supporting implementation `cc1061634`. Lead must integrate it before the hot-file patches
+listed in `reviews/SELECT_LINES_IMPLEMENTATION_20261024.md`; latest main inspected is `a94933ad7`, no Select integration.
+App Select/compile check passed 122 tests before the last two review fixes. Final rerun and full core/androidkit
+suites remain owed; low RAM prevented the standalone wrapper from admitting Gradle. No build is left queued.
+UI specialist: C1/C2 review, D2 white/dark, layer rows and nudge-ghost screenshots are still open; C3 veil remains yours.
+Lead: Slice needs zero-width cut admission + atomic split transaction. A10 waits a settled L3 default; vector L3/L4
+are candidates, not acceptance. Phase B is gated by Phase A integration and approved design. No phone install claimed.
+STATE and both roadmaps are updated. Keep this worktree/evidence until integration and validation are finished.
+
 ## JOYBRUSH_BOARD_CONNECTIONS_20261006
 status: ACTIVE — root resumes board wiring from verified integration 8566f643.
 worktree: C:/Temp/jb-region-routing; branch codex/region-routing.

@@ -92,3 +92,28 @@ For each: ✅ works and looks like the page / ⚠️ works, looks or feels off /
 13. Save, close, reopen: lines still editable.
 
 ## 5. Evidence log (append one entry per finished step)
+
+### 2026-10-24 — Codex line-selection delivery, built and awaiting acceptance
+
+- ⚠️ **A1 / G2 lines:** session clipboard, frozen-brush import, fresh line/group identities, one Add batch,
+  destination-cel routing, location/centring and selection box implemented in `cc1061634`.
+  Clipboard and host tests pass; undo/redo coverage exercises a recorded transaction, not a phone gesture.
+- ⚠️ **A2–A4 / G3–G5:** Lock/Group/Invert, locked picking, relative HSB preview and history reconciliation built.
+  Tests cover codec retention, preview without history, one release edit, move/Delete/creation undo, drawing epochs,
+  partial survival and delayed snapshots. Exact-address refused-edit recovery received a final fix after the last run.
+- ⚠️ **A5–A6 / G6/G8:** settings and scoped layer rows built. Core policy tests added; full core/androidkit suites
+  still owed. Flatten Lower uses one existing engine transaction and a final snapshot-publication fix (`614c6eb1f`).
+  White/dark settings and layer-menu screenshots are still owed. C3's outside veil stays with the UI specialist.
+- ⚠️ **A7–A8 / G13/G14:** eyedropper final-sample recolour and 20% before-nudge ghost built; gesture/ghost
+  regression tests pass. Real phone gestures and ghost screenshot are not claimed.
+- ✅ **Executed evidence only:** app Select tests and Kotlin compile passed, 122 tests, zero failures/errors,
+  7m13s. This run predates final snapshot/refused-edit fixes; it is not final-branch acceptance.
+- ⚠️ **Remaining validation:** final app rerun and standalone `:core:jvmTest :androidkit:test`. The wrapper's
+  2.2 GB free-RAM gate did not admit the standalone request; it was cancelled before Gradle started.
+- ⚠️ **A9/G16:** no invalid Slice preset shipped. Zero-width cut admission and an atomic remove/add split are
+  engine dependencies; details in `SELECT_LINES_IMPLEMENTATION_20261024.md`.
+- ⚠️ **A10/G11 and G12:** vector per-brush/default and wash-frame candidates exist but are not settled/accepted;
+  badge/toasts and ring Bend remain gated. Phase B remains gated by Phase A integration and an approved design note.
+- Branch `codex/select-lines` pushed. Supporting source `cc1061634` precedes the individual Lead patches during
+  cherry-pick integration; exact order is in the implementation review. Lead/UI notified. No main merge, no Note 9
+  install, no phone acceptance and no owner sign-off claimed. STATE and both roadmaps now include these statuses.

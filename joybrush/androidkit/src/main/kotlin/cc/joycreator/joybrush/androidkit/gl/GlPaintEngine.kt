@@ -2944,7 +2944,7 @@ class GlPaintEngine(
                 if (preset.accumulate == "buildup") Accumulate.BUILD_UP else Accumulate.WASH,
                 StrokeBlend.NORMAL, tip, replay.strokeGrain,
                 watercolour = if (preset.engine == ENGINE_WATERCOLOUR) preset.watercolourRuntime() else null,
-                watercolourSeed = record.seed)
+                watercolourSeed = record.seed, watercolourWashFrame = record.washFrame)
             requireRecordedGrainAssets(replay.strokeGrain, look, loadedPaper?.paper)
             addDabs(replay.dabs)
             paintWaitingTileStroke()
@@ -4584,7 +4584,8 @@ class GlPaintEngine(
                                   blend: StrokeBlend, tip: TipShape,
                                   grain: GrainMath.StrokeGrain,
                                   smudge: SmudgeParams? = null, tuft: TuftShading? = null,
-                                  watercolour: WatercolourSpec? = null, watercolourSeed: Long = 0L) {
+                                  watercolour: WatercolourSpec? = null, watercolourSeed: Long = 0L,
+                                  watercolourWashFrame: cc.joycreator.joybrush.core.stroke.StrokeWashFrame? = null) {
         check(!resettingJointPaint && !forgettingGraphicsContext) { "Finish graphics retirement before preparing stroke buffers" }
         settleWatercolourFade()
         cancelStroke()
@@ -4635,6 +4636,7 @@ class GlPaintEngine(
                     GLES30.glActiveTexture(GLES30.GL_TEXTURE1)
                     GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,frozenSurface)
                 }
+                pass.setWashFrame(watercolourWashFrame)
             } catch (e: Throwable) { cancelStroke(); throw e }
         }
     }
@@ -4721,6 +4723,19 @@ class GlPaintEngine(
         val pass = requireNotNull(wcPass)
         pass.add(bands) { null }
         pass.finishInto(strokeTiles,0f,outputs)
+    }
+
+    /** Selected-brush warmup on this GL context; never clears or settles an active stroke. */
+    fun prepareWatercolour(options: WatercolourSpec): Boolean {
+        if (!ready || strokeInProgress || wcFading) return false
+        val existing = wcPass
+        val pass = existing ?: WatercolourPass(shaders, size).also { wcPass = it }
+        try { pass.prepare(options) }
+        catch (e: Throwable) {
+            if (existing == null) { pass.release(); wcPass = null }
+            throw e
+        }
+        return true
     }
 
     /** Cosmetic cached-image fade. Return true only when its final commit changes undo/history. */

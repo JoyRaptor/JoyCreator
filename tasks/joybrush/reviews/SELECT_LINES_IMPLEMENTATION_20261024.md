@@ -58,3 +58,20 @@ helpers. The branch as a whole retains all those dependencies. No merge to `joy-
 The worktree and its current test evidence are retained because integration, final validation and dependent slices
 remain unfinished. No shared phone/build lock was removed. Other specialists' `jb-select-*` folders and older logs
 are not owned by this lane and were not deleted. No build is left queued by this lane.
+
+## C2 source follow-up — 2026-10-24
+
+Coordinator requested the two bounded fixes from UI review `3e0d41e5d` while preparing isolated integration.
+Supporting-only commit **`b590e58c5`**, six Select source/test files, is pushed and sent to Coordinator/UI.
+
+- D2 and More use `SelectMenuScrollView`: height is bounded by the parent's measured constraint with the top-bar
+  reserve and placement gaps deducted. Rows retain their natural heights and full pills; the original `Popovers`
+  surface and outside-tap catcher are unchanged. This does not change general app popovers.
+- D2's locked option starts hidden, reveals when a locked line is encountered, and remains available after unlocking,
+  turning the setting off, switching drawings or reopening. Existing persisted `pick_locked` values, including false,
+  retain the control so migration cannot strand a preference.
+- Five tests added: settings at 240dp/1.8 font scale with Paste and last-choice reachability; nine More-length rows
+  with minimum targets and resize; outside dismissal without action; reveal/off/reopen; legacy false preference.
+- `git diff --check` passed. **Tests not executed here.** Coordinator owns final integrated suites and received both
+  test class names. No heavy build or phone action was started for this follow-up. C1/C2 native acceptance remains open.
+- A9, A10, G12 and Phase B gates are unchanged. No further Lead-owned source was edited.

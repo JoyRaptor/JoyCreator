@@ -117,3 +117,12 @@ For each: ✅ works and looks like the page / ⚠️ works, looks or feels off /
 - Branch `codex/select-lines` pushed. Supporting source `cc1061634` precedes the individual Lead patches during
   cherry-pick integration; exact order is in the implementation review. Lead/UI notified. No main merge, no Note 9
   install, no phone acceptance and no owner sign-off claimed. STATE and both roadmaps now include these statuses.
+
+### 2026-10-24 — C2 bounded source follow-up
+
+- ⚠️ Supporting-only `b590e58c5`: D2/More bounded scrolling preserves full rows and existing outside dismissal;
+  locked picking reveals after a lock and retains persisted access after off/unlock/reopen, including legacy false.
+- Five regression tests added for short-window/large-text/Paste reachability, row targets/resize, outside dismissal,
+  reveal lifetime and migration. `git diff --check` passed; tests **not executed** by this lane.
+- Coordinator is preparing isolated integration and owns final app/core/androidkit suites. Commit/test classes sent
+  to Coordinator and UI. Phone fit/C1/C2 remain open; C3, A9/A10, G12 and Phase B gates are unchanged.

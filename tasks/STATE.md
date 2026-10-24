@@ -31,13 +31,16 @@ Supporting source: `cc1061634`; separate `LEAD PATCH:` commits are listed in
 | Lock/Unlock, Group/Ungroup, Invert and Pick locked lines too | Built; metadata codec round-trip and exact layer-scope tests. |
 | Relative HSB with live preview and one edit on release | Built; preview/history and multiple-colour tests. |
 | Selection retained/refitted through history; Delete undo restores it | Built; history, refused-edit, drawing-epoch and delayed-snapshot tests. |
-| Select settings, scoped layer actions and Flatten Lower | Built; core policy tests. Dim preference is wired; the outside veil belongs to UI C3. |
+| Select settings, scoped layer actions and Flatten Lower | Built; core policy tests. Settings/More have bounded scrolling; locked picking is revealed after a lock and remains available. Dim preference is wired; the outside veil belongs to UI C3. |
 | Eyedropper recolour and 20% nudge-before ghost | Built; gesture/ghost tests; phone screenshots owed. |
 
 Latest app selection check: **122 tests, zero failures/errors**, plus Kotlin compile, before the final
 snapshot-publication/refused-edit review fixes. Final rerun and standalone core/androidkit suites remain owed:
 the shared build wrapper could not admit the standalone run while free RAM stayed below its 2.2 GB threshold;
 the waiting request was cancelled before Gradle started. No build is left queued by this lane.
+Coordinator is now preparing an isolated integration and owns the final suites. C2 source follow-up `b590e58c5`
+adds five tests for short windows/large text/Paste, scrolling targets/resize, outside dismissal and persisted reveal.
+These five tests have not been executed by this lane; phone and visual acceptance are still owed.
 No phone verification or main integration claimed.
 
 **Still open:** A9 Slice needs zero-width cut admission and an atomic split transaction; A10 badge/switch/toasts

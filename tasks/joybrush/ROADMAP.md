@@ -15,7 +15,7 @@ The [Select brief](briefs/CODEX_SELECT_LINES_20261023.md) extends JB-5.20e. Deli
 | Brief slice | Status | Remaining proof or dependency |
 |---|---|---|
 | A1–A4: line clipboard, metadata actions, HSB preview, history reconciliation | Built; app selection regression check passed 122 tests before final review fixes | Final rerun, core/androidkit suites and Note 9 acceptance |
-| A5: settings actions, locked picking, dim preference | Built | White/dark paper screenshots; UI C3 owns the veil |
+| A5: settings actions, locked picking, dim preference | Built; C2 overflow/reveal source follow-up `b590e58c5` | Coordinator's integrated tests, short-window/large-text and white/dark screenshots; UI C3 owns the veil |
 | A6: scoped Select all / Rasterize Down / Flatten Lower | Built | Final core tests and phone acceptance; refresh snapshot after flatten included |
 | A7–A8: eyedropper recolour and nudge-before ghost | Built | Phone gesture review and ghost screenshot |
 | A9: Slice | Engine dependency documented; no invalid preset shipped | Zero-width cut admission and atomic split transaction |

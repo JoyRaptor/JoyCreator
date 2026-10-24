@@ -679,6 +679,9 @@ UI specialist: C1/C2 review, D2 white/dark, layer rows and nudge-ghost screensho
 Lead: Slice needs zero-width cut admission + atomic split transaction. A10 waits a settled L3 default; vector L3/L4
 are candidates, not acceptance. Phase B is gated by Phase A integration and approved design. No phone install claimed.
 STATE and both roadmaps are updated. Keep this worktree/evidence until integration and validation are finished.
+Coordinator has since picked up isolated integration. Supporting-only C2 follow-up `b590e58c5` fixes bounded
+D2/More scrolling and persistent locked-option reveal; five new tests await the coordinator's integrated suites.
+No heavy build or device action was started here for that follow-up. UI notified; native C1/C2 remain open.
 
 ## JOYBRUSH_BOARD_CONNECTIONS_20261006
 status: ACTIVE — root resumes board wiring from verified integration 8566f643.

@@ -2843,7 +2843,12 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                                coldPayload: Boolean = false,
                                coldFailures: Boolean = false,
                                capturedJoint: Boolean = false,
+                               watercolourEdits: Boolean = false,
                                ready: (String) -> Unit) {
+        require(!watercolourEdits || (!bake && !openCold && !joint && !promotion && !coldLoad && !regional &&
+            !capturedCopy && !coldPayload && !coldFailures && !capturedJoint)) {
+            "Watercolor edit testing requires its independent disposable engine"
+        }
         require(!capturedJoint || (!bake && !openCold && !joint && !promotion && !coldLoad && !regional && !capturedCopy && !coldPayload && !coldFailures)) {
             "Captured joint testing requires its independent disposable engine"
         }
@@ -2871,7 +2876,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 probe.setDocumentPaper(paper)
                 probe.addLayer("recorded-probe")
                 val frozen = cc.joycreator.joybrush.core.brush.FrozenBrushRegistry.freeze(emptyMap(), preset) { "probe-frozen" }
-                val value = if (capturedJoint) cc.joycreator.joybrush.androidkit.gl.RecordedCapturedJointProbe.run(
+                val value = if (watercolourEdits) cc.joycreator.joybrush.androidkit.gl.WatercolourEditProbe.run(
+                    probe, "recorded-probe", frozen.preset, record.copy(brushId = frozen.id))
+                else if (capturedJoint) cc.joycreator.joybrush.androidkit.gl.RecordedCapturedJointProbe.run(
                     probe, "recorded-probe", frozen.preset, record.copy(brushId = frozen.id))
                 else if (capturedCopy) org.json.JSONObject(probe.runCapturedCopyDiagnostic(
                     "recorded-probe", record.copy(brushId = frozen.id), frozen.preset))

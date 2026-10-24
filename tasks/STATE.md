@@ -443,8 +443,9 @@ Music generation. A website. A Play listing. A privacy policy that mentions AI.
 | Cold/warm, complete-fade benchmark | Measured on Note9 | Five cold launches each lines OFF/ON plus warm repeats. Intrusive glFinish, synthetic latency. Warm p95~36–73ms;16.7ms target not passed. |
 | Selected-brush preparation/full fade | 🟡 Candidate branch | Claude's lead/wc-live-land1681bfdeb: core2559 (4 optional skips), backend1064/native317, zero failures. Cold/fade phone acceptance owed; not landed. |
 | Wash travels with line; frame survives archive | 🟡 Candidate branch | Homography, JBS5/legacy tests, GPU mapping and frozen-brush archive test. Actual phone edit/reopen/context proof owed; paper/grain/gravity stay fixed. |
-| Per-brush lines, Watercolor default ON | 🟠 Candidate | Separate e9b6ff9b6 UI patch, not in Claude branch. Recommended reversible default; owner preference unconfirmed. |
-| Finish-only recolor and phone speed | 🟠 In progress | Actual NativeLines path still deposits dabs again. Isolated adapter cache is not production wiring. |
+| Per-brush lines, Watercolor default ON | 🟠 Candidate restored | Included on vector/watercolour-finish-20261024. Recommended reversible default; new-base tests and phone proof owed. |
+| Finish-only recolor | 🟠 Implemented, unverified | NativeLines selection now primes bounded coverage for one selected line up to32 tiles. Tint re-finishes it; large/multi-selection replays normally. Full recipe key, resource accounting and context lifecycle included; new tests/GPU proof pending. |
+| Note9 speed | 🟠 Not accepted | L1 warm p95~36–73ms exceeds16.7ms. Optimization and remeasurement still required. |
 
 **Not finished; not waiting only on owner testing.** Implementation, integration
 and device proof remain before final owner look/feel approval. Continue on

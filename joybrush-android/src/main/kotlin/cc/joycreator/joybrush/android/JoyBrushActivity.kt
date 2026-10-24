@@ -550,6 +550,7 @@ class JoyBrushActivity : Activity() {
         canvas.onEyedrop = { state -> ring.setState(state) }
         canvas.onColorPicked = { argb ->
             ColorRecents.push(this, argb)
+            if (linesSelected()) recolourSelection(argb)
             refreshColour()
         }
         updateHistoryButtons(false, false)

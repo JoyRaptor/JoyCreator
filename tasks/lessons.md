@@ -1147,3 +1147,10 @@ as `TIME * knob` are "rate" and the host integrates them.
   older edit. Repro on the phone: `releaseSnapshotMemory: cleared 3` in logcat, then `Loaded 38` instead of 41.
 - **A throttle defers, it never drops.** A baseline capture skipped as "too soon" left the baseline stale until some later
   edit, so that edit (however much later) shared the previous edit's before-state and a reopened history merged the two.
+
+## October 24 — A refused phone claim must stop everything after it
+- **Never chain an install after `phone.ps1 claim` with `;`.** The claim was REFUSED (another session was mid-test),
+  the chain carried on, and `build-install.sh` reinstalled the app under them. Check the claim's answer first
+  (`claim ... && install`), and read `phone.ps1 who` before every phone step after a long gap.
+- `build-install.sh` now refuses to install while someone else holds a fresh lock (it strips the BOM PowerShell
+  writes, so the holder's own name still matches `PHONE_OWNER`).

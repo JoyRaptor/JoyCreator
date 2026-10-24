@@ -150,15 +150,9 @@ final class VisLabLookFiles {
                 + " and stop: \"" + question + "\" If they say yes, call again with confirmed=true.");
     }
 
-    private static final java.util.regex.Pattern YES = java.util.regex.Pattern.compile(
-            "(?i)^\\W*(yes|yeah|yep|yup|y|ok|okay|sure|go ahead|do it|please do|confirm(ed)?|delete it|revert it)\\b.*");
-
     /** The person's message is a yes, and Joybot's message before it asked about this look. */
     private static boolean answeredYes(@NonNull String lookName) {
-        String said = com.fadcam.ui.faditor.ai.AIChatState.liveAsk;
-        String before = com.fadcam.ui.faditor.ai.AIChatState.liveReplyBefore;
-        return said != null && before != null && YES.matcher(said.trim()).matches()
-                && before.toLowerCase(java.util.Locale.ROOT).contains(lookName.toLowerCase(java.util.Locale.ROOT));
+        return PersonSaid.yesTo(lookName);
     }
 
     @NonNull

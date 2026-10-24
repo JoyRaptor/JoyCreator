@@ -56,8 +56,8 @@ public final class ItemLocks {
 
     @NonNull
     private static String sentence(@NonNull String what) {
-        return what + " is locked, so it wasn't changed. Ask the person whether to unlock it (set_layer_flags"
-                + " locked=false) before changing it.";
+        return what + " is locked, so it wasn't changed.\nAsk the person whether they want it unlocked, and stop"
+                + " there: don't unlock it yourself.";
     }
 
     /** "“Title” (text)" when {@code id} is a locked item or on a locked row; null otherwise. */

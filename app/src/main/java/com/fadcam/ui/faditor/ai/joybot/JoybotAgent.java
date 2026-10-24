@@ -540,6 +540,11 @@ public final class JoybotAgent {
                     if (round == 0) finish(false, "I got an empty reply. Try asking again.");
                     // After a confirm card nothing is done yet: "Done." under an unanswered Export
                     // card read as if it had exported (Note 9, 2026-10-15).
+                    // An empty reply after a refusal is not "Done.": nothing changed, so say what stopped it
+                    // (Note 9, 2026-10-23: a locked title, then "Done.").
+                    else if (lastError != null && !changedSomething()) {
+                        finish(false, "Nothing changed: " + shortOf(lastError.replaceFirst("^Error:\\s*", "").split("\n")[0]));
+                    }
                     else finish(true, cardWaiting ? "It's on the card above: tap its button when you're ready." : "Done.");
                     return;
                 }
@@ -645,7 +650,9 @@ public final class JoybotAgent {
                 }
                 boolean unfinished = claimsAChange(aiText) || HelpBook.wantsChange(ask.text);
                 boolean hasWork = ask.projectId != null || ask.situation.room == IdeaEngine.Room.VISLAB;
-                if (!nudged && !changedSomething() && hasWork && !ask.question
+                // A refusal ("it's locked", "ask first") is an honest answer, not a model dodging the
+                // work: don't push it to "make the change now" (it unlocked a title to obey, 10-23).
+                if (!nudged && !changedSomething() && lastError == null && hasWork && !ask.question
                         && !aiText.trim().endsWith("?") && unfinished) {
                     // Nothing in the project changed, yet the reply claims it did (a free model,
                     // Note 9 2026-10-14) or the person asked for a change and got a description
@@ -1172,8 +1179,10 @@ public final class JoybotAgent {
             }
             // Drop the oldest whole requests (one person message up to the next) while too big.
             int size = 0;
-            for (JSONObject m : out) size += m.toString().length();
             int first = !out.isEmpty() && "system".equals(out.get(0).optString("role")) ? 1 : 0;
+            // The system message isn't counted: it holds the whole tool manual (sent as tool
+            // definitions instead), and counting it dropped every earlier turn (Note 9, 10-23).
+            for (int i = first; i < out.size(); i++) size += out.get(i).toString().length();
             int ownStart = Math.max(first, own);
             while (size > HISTORY_BUDGET && ownStart > first) {
                 int next = ownStart;   // with no later person message, the rest of the old part goes

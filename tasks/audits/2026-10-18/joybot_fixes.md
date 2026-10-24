@@ -38,3 +38,20 @@ checks at the bottom before calling these done.
 4. Lock a text, ask Joybot to move it → refused with "ask whether to unlock".
 5. Floating video at 0–10 s: "make it end at 10 s" → unchanged (not 1 ms).
 6. VisLab: "hit harder on the kick" → still one change, one undo.
+
+## Phone checks, Note 9 (2026-10-23/24)
+
+| Check | Result |
+|---|---|
+| 1 Studio change + one undo | ✅ "FONT TEST red" in one step; the card's Undo restored the exact colour |
+| 2 Stop then Send | ✅ the stopped request never continued; the new one ran alone. Stop landing mid-tool not reproduced (the tool finished first) |
+| 3 One chat per project | ✅ project B's chat showed none of A's run; A's finished run was waiting in A's chat ("While you were away…") |
+| 4 Locked text | ✅ after 4 fixes (c473b0171, 9304277c2): refuses and asks; "yes" unlocks + moves; one Undo restores both |
+| 5 Floating video "end at its current end" | ✅ out point stayed 4069 ms (not 1 ms); the reply quoted the real bounds |
+| 6 VisLab change + one undo | ⏳ not run: a `gradlew -t installDefaultDebug` watcher (started 08:13 on 10-24) reinstalls the app on every file change, which closed VisLab mid-check. Run it when builds are quiet |
+
+Bugs found by these checks and fixed: a free model unlocked a locked item on its own (unlock now needs the person's own
+words or "yes"; `PersonSaid`); the J9 history budget counted the system message and dropped every earlier turn; a
+refusal triggered the "make the change now" nudge and an empty reply then said "Done."; the refusal told the model
+never to unlock, so it refused even after the person's yes. Also `tools/build-install.sh` now refuses to install over
+another lane's phone lock.

@@ -863,12 +863,14 @@ public final class JoybotAgent {
             } else {
                 com.fadcam.ui.faditor.model.FaditorProject p = new JoybotStorage(app).load(ask.projectId);
                 JoybotEyes.Sight s = p == null ? null
-                        : JoybotEyes.look(app, p, id, args.optLong("atMs", -1), ask.situation.playheadMs);
+                        : JoybotEyes.look(app, p, id, args.optLong("atMs", -1), ask.situation.playheadMs,
+                                args.optBoolean("source", false));
                 if (s == null) {
                     result = "Error: " + (p == null ? "the project could not be read." : JoybotEyes.lastProblem);
                 } else {
                     sight = s;
-                    result = "You are looking at " + s.caption + " The picture is attached to THIS"
+                    JoybotEyes.keepLast(app, s);
+                    result = "You are looking at " + s.caption + "\nThe picture is attached to THIS"
                             + " message only; call look again if you need another view later.";
                 }
             }

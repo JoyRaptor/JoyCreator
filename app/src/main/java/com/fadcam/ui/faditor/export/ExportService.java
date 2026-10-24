@@ -551,7 +551,7 @@ public class ExportService extends Service {
         //     so export never disagrees with a preview that showed true reverse.
         // Both are skipped entirely for the common case (no fMP4, no ping-pong) → export immediately.
         final FaditorProject exportProject = project;
-        final List<File> needsRemux = collectSourcesNeedingRemux(exportProject);
+        final List<File> needsRemux = collectSourcesNeedingRemux(this, exportProject);
         final List<Clip> needsReverse = collectClipsNeedingReverse(exportProject);
         // 2026-09-22 pre-trim: every non-image file:// window from a BIG source gets its
         // own small flat file, so no item boundary ever seeks deep into a GB file on a hot
@@ -830,10 +830,11 @@ public class ExportService extends Service {
      * (normal/imported projects), in which export proceeds with no background work.
      */
     @NonNull
-    private List<File> collectSourcesNeedingRemux(@NonNull FaditorProject project) {
+    static List<File> collectSourcesNeedingRemux(@NonNull Context context,
+                                                 @NonNull FaditorProject project) {
         List<File> result = new ArrayList<>();
         if (project.getTimeline() == null) return result;
-        FragmentedMp4Remuxer remuxer = new FragmentedMp4Remuxer(this);
+        FragmentedMp4Remuxer remuxer = new FragmentedMp4Remuxer(context);
         Set<String> seen = new LinkedHashSet<>();
         // PiP clips too: their picture and their audio open the source at the clip's in-point,
         // and a raw fragmented recording cannot seek there ("Illegal clipping: not seekable to

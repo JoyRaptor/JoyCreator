@@ -15,6 +15,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.fadcam.FLog;
+import com.fadcam.ui.faditor.export.ComposedFrame;
 import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.FaditorProject;
 import com.fadcam.ui.faditor.model.TextOverlayItem;
@@ -69,14 +70,20 @@ public final class JoybotEyes {
     /**
      * A picture of the item with this id: a sprite sheet (numbered grid), a sprite layer (its
      * sheet), a picture layer, a video clip or layer (a frame — {@code atMs} into it, or its
-     * middle when negative). "playhead" means the main video's frame at {@code playheadMs}.
+     * middle when negative). "playhead" (or "frame") means the finished video at {@code atMs} on
+     * the timeline, or at {@code playheadMs} when atMs is negative: the composed frame the export
+     * draws, titles and layers and all — or, with {@code source}, just the main clip's raw frame.
+     * Blocks (a composed frame is a short render): call it off the main thread.
      */
     @Nullable
     public static Sight look(@NonNull Context app, @NonNull FaditorProject p, @NonNull String id,
-                             long atMs, long playheadMs) {
+                             long atMs, long playheadMs, boolean source) {
         lastProblem = "";
         try {
-            if ("playhead".equalsIgnoreCase(id)) return playhead(app, p, playheadMs);
+            if ("playhead".equalsIgnoreCase(id) || "frame".equalsIgnoreCase(id)) {
+                long at = atMs >= 0 ? atMs : playheadMs;
+                return source ? playhead(app, p, at) : composed(app, p, at);
+            }
             SpriteSheet sheet = p.spriteSheetById(id);
             if (sheet != null) return sheet(app, sheet);
             for (SpriteOverlayItem s : p.getTimeline().getSpriteOverlays()) {
@@ -94,12 +101,31 @@ public final class JoybotEyes {
             Clip c = p.getTimeline().findClipById(id);
             if (c != null) return clipFrame(app, c, atMs);
             lastProblem = "Nothing with id '" + id + "' that I can look at (sprite sheets, sprite"
-                    + " layers, picture layers, video clips, or \"playhead\").";
+                    + " layers, picture layers, video clips, or \"playhead\" for the finished video).";
             return null;
         } catch (Throwable t) {
             FLog.w(TAG, "look failed for " + id, t);
             lastProblem = "I couldn't open that picture: " + t.getMessage();
             return null;
+        }
+    }
+
+    /**
+     * The picture Joybot was last shown, kept in the app's cache (joybot/last_look.jpg, one file,
+     * overwritten), so "what did it actually see?" can be answered on a phone afterwards.
+     */
+    public static void keepLast(@NonNull Context app, @NonNull Sight s) {
+        try {
+            int comma = s.dataUrl.indexOf(',');
+            byte[] jpeg = android.util.Base64.decode(s.dataUrl.substring(comma + 1), android.util.Base64.NO_WRAP);
+            java.io.File dir = new java.io.File(app.getCacheDir(), "joybot");
+            if (!dir.isDirectory() && !dir.mkdirs()) return;
+            try (java.io.FileOutputStream out = new java.io.FileOutputStream(new java.io.File(dir, "last_look.jpg"))) {
+                out.write(jpeg);
+            }
+            FLog.i(TAG, "look " + s.width + "x" + s.height + ": " + s.caption);
+        } catch (Exception e) {
+            FLog.w(TAG, "could not keep the last look", e);
         }
     }
 
@@ -227,9 +253,44 @@ public final class JoybotEyes {
         }
     }
 
+    /**
+     * The finished video at {@code timelineMs}: the export's own compositor (audit 2026-10-18), so
+     * a title, a picture over a face or a visualizer behind text is in the picture. The ids of what
+     * is on screen ride in the caption. If it can't be drawn, the raw frame comes back, captioned
+     * as raw, so the model never reads a missing title into it.
+     */
+    @Nullable
+    private static Sight composed(@NonNull Context app, @NonNull FaditorProject p, long timelineMs) {
+        if (timelineMs < 0) {
+            lastProblem = "I don't know where the playhead is: pass atMs (milliseconds on the timeline).";
+            return null;
+        }
+        long total = p.getTimeline().getTotalDurationMs();
+        if (total <= 0) { lastProblem = "The video is empty."; return null; }
+        long at = Math.min(timelineMs, total - 1);
+        String onScreen = com.fadcam.ui.faditor.ai.actions.InspectActions.onScreenAt(p, at);
+        Bitmap b = ComposedFrame.render(app, p, at);
+        if (b == null) {
+            String why = ComposedFrame.lastProblem;
+            Sight raw = playhead(app, p, at);
+            if (raw == null) { lastProblem = why; return null; }
+            return new Sight(raw.dataUrl, raw.width, raw.height, "ONLY the raw main clip (" + raw.caption
+                    + ") — the finished frame could not be drawn (" + why + "), so titles, pictures,"
+                    + " sprites, visualizers, grade and crop are NOT in this picture. Don't judge them from it.");
+        }
+        StringBuilder cap = new StringBuilder("the finished video at ").append(clock(at)).append(" (")
+                .append(at).append(" ms on the timeline")
+                .append(at != timelineMs ? ", the last frame; " + timelineMs + " ms is past the end" : "")
+                .append("), drawn exactly as the export draws it: every title, picture, sprite,")
+                .append(" visualizer, grade, crop and effect is in it.");
+        if (onScreen.isEmpty()) cap.append(" Nothing is on the timeline there.");
+        else cap.append(" On the timeline at that moment (kind | id | name | time | ...):\n").append(onScreen.trim());
+        return encode(b, cap.toString());
+    }
+
     @Nullable
     private static Sight playhead(@NonNull Context app, @NonNull FaditorProject p, long playheadMs) {
-        if (playheadMs < 0) { lastProblem = "I don't know where the playhead is (open me from the editor)."; return null; }
+        if (playheadMs < 0) { lastProblem = "I don't know where the playhead is: pass atMs (milliseconds on the timeline)."; return null; }
         long at = 0;
         for (int i = 0; i < p.getTimeline().getClipCount(); i++) {
             Clip c = p.getTimeline().getClip(i);

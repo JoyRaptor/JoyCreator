@@ -1031,6 +1031,64 @@ public class ExportManager {
                                   long frameTimeMs,
                                   boolean jpeg,
                                   @NonNull ExportListener listener) {
+        startFrameRender(project, frameTimeMs, listener, true,
+                (tempVideo, compMs, result) -> finishSingleFrame(project, tempVideo, compMs,
+                        jpeg, result, listener));
+    }
+
+    /** One composed frame as pixels, for {@link #renderFrame}. */
+    public interface FrameCallback {
+        /** On a worker thread; the receiver owns (and recycles) the bitmap. */
+        void onFrame(@NonNull Bitmap frame);
+        void onError(@NonNull Exception error);
+    }
+
+    /**
+     * Joybot's eyes (audit 2026-10-18): the same composed frame {@link #exportSingleFrame}
+     * saves — titles, overlays, grade, crop, visualizers, effects — handed back as a bitmap
+     * instead of written to the exports folder. Call on a thread with a Looper (Transformer
+     * calls back there); {@link #cancel} on that same thread stops it. No progress polling:
+     * the poller lives on the main thread and Transformer only answers its own thread.
+     */
+    public void renderFrame(@NonNull FaditorProject project, long frameTimeMs,
+                            @NonNull FrameCallback callback) {
+        ExportListener errors = new ExportListener() {
+            @Override public void onExportStarted(@NonNull String outputPath) {}
+            @Override public void onExportProgress(float progress) {}
+            @Override public void onExportProgressDetailed(float p, int ii, int ic, long b, long e) {}
+            @Override public void onExportFinalizing() {}
+            @Override public void onChunkPhase(@NonNull String p) {}
+            @Override public void onExportCompleted(@NonNull String outputPath,
+                                                    @NonNull ExportResult result) {}
+            @Override public void onExportError(@NonNull Exception error) {
+                callback.onError(error);
+            }
+        };
+        startFrameRender(project, frameTimeMs, errors, false, (tempVideo, compMs, result) -> {
+            try {
+                Bitmap frame = extractFrame(tempVideo, compMs);
+                isExporting = false;
+                callback.onFrame(frame);
+            } catch (Exception e) {
+                isExporting = false;
+                FLog.e(TAG, "Frame render finalize failed", e);
+                callback.onError(e);
+            } finally {
+                deleteQuietly(tempVideo);
+            }
+        });
+    }
+
+    /** What a single-frame render does with its encoded temp video (on its own thread). */
+    private interface FrameFinisher {
+        void finish(@NonNull File tempVideo, long compTargetMs, @NonNull ExportResult result);
+    }
+
+    private void startFrameRender(@NonNull FaditorProject project,
+                                  long frameTimeMs,
+                                  @NonNull ExportListener listener,
+                                  boolean pollProgress,
+                                  @NonNull FrameFinisher finisher) {
         if (isExporting) {
             FLog.w(TAG, "Export already in progress");
             return;
@@ -1104,8 +1162,8 @@ public class ExportManager {
                 @Override
                 public void onCompleted(@NonNull Composition c, @NonNull ExportResult result) {
                     stopProgressPolling();
-                    new Thread(() -> finishSingleFrame(project, tempVideo, compTargetMs,
-                            jpeg, result, listener), "faditor-frame-finalize").start();
+                    new Thread(() -> finisher.finish(tempVideo, compTargetMs, result),
+                            "faditor-frame-finalize").start();
                 }
 
                 @Override
@@ -1121,7 +1179,7 @@ public class ExportManager {
             });
             transformer = builder.build();
             transformer.start(composition, tempVideo.getPath());
-            startProgressPolling();
+            if (pollProgress) startProgressPolling();
             FLog.d(TAG, "Single-frame export started → " + tempVideo.getPath());
             listener.onExportStarted(tempVideo.getPath());
         } catch (Exception e) {
@@ -1151,38 +1209,7 @@ public class ExportManager {
                                    @NonNull ExportListener listener) {
         Bitmap frame = null;
         try {
-            android.media.MediaMetadataRetriever mmr = new android.media.MediaMetadataRetriever();
-            try {
-                mmr.setDataSource(tempVideo.getPath());
-                String durStr = mmr.extractMetadata(
-                        android.media.MediaMetadataRetriever.METADATA_KEY_DURATION);
-                long durMs = -1L;
-                if (durStr != null) {
-                    try { durMs = Long.parseLong(durStr); } catch (NumberFormatException ignored) {}
-                }
-                long atMs = targetCompMs;
-                if (durMs > 0) atMs = Math.min(atMs, Math.max(0L, durMs - 5L));
-                frame = mmr.getFrameAtTime(atMs * 1000L,
-                        android.media.MediaMetadataRetriever.OPTION_CLOSEST);
-                if (frame == null) {
-                    // Sync fallback: better a neighbouring keyframe than nothing.
-                    frame = mmr.getFrameAtTime(atMs * 1000L,
-                            android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
-                }
-            } finally {
-                try { mmr.release(); } catch (Exception ignored) {}
-            }
-            if (frame == null || frame.isRecycled()) {
-                throw new IllegalStateException("frame extraction returned no bitmap at "
-                        + targetCompMs + "ms of " + tempVideo.getName());
-            }
-            // Some devices decode video frames as RGB_565 — compressing THAT to PNG bakes
-            // 16-bit colour banding into a "lossless" file. Normalize once, here.
-            if (frame.getConfig() != Bitmap.Config.ARGB_8888) {
-                Bitmap argb = frame.copy(Bitmap.Config.ARGB_8888, false);
-                frame.recycle();
-                frame = argb;
-            }
+            frame = extractFrame(tempVideo, targetCompMs);
 
             // Same destination rule as a video export: generateOutputPath honours the
             // custom file name and the custom-storage (SAF) mode; copyTempToSaf below
@@ -1224,6 +1251,45 @@ public class ExportManager {
         } finally {
             deleteQuietly(tempVideo);
         }
+    }
+
+    /** The requested frame of a single-frame render's temp video, as ARGB_8888. */
+    @NonNull
+    private static Bitmap extractFrame(@NonNull File tempVideo, long targetCompMs) {
+        Bitmap frame;
+        android.media.MediaMetadataRetriever mmr = new android.media.MediaMetadataRetriever();
+        try {
+            mmr.setDataSource(tempVideo.getPath());
+            String durStr = mmr.extractMetadata(
+                    android.media.MediaMetadataRetriever.METADATA_KEY_DURATION);
+            long durMs = -1L;
+            if (durStr != null) {
+                try { durMs = Long.parseLong(durStr); } catch (NumberFormatException ignored) {}
+            }
+            long atMs = targetCompMs;
+            if (durMs > 0) atMs = Math.min(atMs, Math.max(0L, durMs - 5L));
+            frame = mmr.getFrameAtTime(atMs * 1000L,
+                    android.media.MediaMetadataRetriever.OPTION_CLOSEST);
+            if (frame == null) {
+                // Sync fallback: better a neighbouring keyframe than nothing.
+                frame = mmr.getFrameAtTime(atMs * 1000L,
+                        android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+            }
+        } finally {
+            try { mmr.release(); } catch (Exception ignored) {}
+        }
+        if (frame == null || frame.isRecycled()) {
+            throw new IllegalStateException("frame extraction returned no bitmap at "
+                    + targetCompMs + "ms of " + tempVideo.getName());
+        }
+        // Some devices decode video frames as RGB_565 — compressing THAT to PNG bakes
+        // 16-bit colour banding into a "lossless" file. Normalize once, here.
+        if (frame.getConfig() != Bitmap.Config.ARGB_8888) {
+            Bitmap argb = frame.copy(Bitmap.Config.ARGB_8888, false);
+            frame.recycle();
+            frame = argb;
+        }
+        return frame;
     }
 
     private static void deleteQuietly(@Nullable File f) {

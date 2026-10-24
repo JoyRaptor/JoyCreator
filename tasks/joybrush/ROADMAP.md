@@ -17,8 +17,8 @@ Evidence/continuation: [completion audit](reviews/WATERCOLOUR_COMPLETION_AUDIT_2
 |---|---|---|
 | L1 cold/warm OFF/ON, whole-fade benchmark | Measured on Note9 | Preserve20 baseline rows, synthetic/glFinish scope |
 | L2 selected-brush preparation/full fade | Built candidate, tested in Claude branch | Five cold comparisons/full-fade phone check; not landed |
-| L3 per-brush Makes lines, Watercolor default ON | Separate candidate | Integrate/test current-main UI and immediate editable stroke |
-| L4 wash-frame transform and edits | In progress; core/codec tested | Production finish-only recolor; phone move/rotate/rebrush/delete, one Undo each |
+| L3 per-brush Makes lines, Watercolor default ON | Restored onto current-main candidate | Test current-main UI and immediate editable stroke |
+| L4 wash-frame transform and edits | Core/codec tested; production recolor cache implemented, unverified | Single selected line <=32 tiles reuses coverage; large/multi-selection falls back. New tests/GPU proof; phone move/rotate/rebrush/delete, one Undo each |
 | L5 frozen brush/frame archive | Automated candidate proof | Phone save/reopen pixel hash, graphics restart and first edit |
 | L6 approved POC appearance | Pending acceptance | GPU comparison and owner's phone look/feel approval |
 | L7 Note9 size300/spacing15%, p95<=16.7ms | Baseline fails | Optimize/repeat identical matrix; preserve full-resolution final pooling |

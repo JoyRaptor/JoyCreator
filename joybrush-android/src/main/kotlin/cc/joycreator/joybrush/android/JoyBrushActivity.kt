@@ -526,7 +526,7 @@ class JoyBrushActivity : Activity() {
         // JbCanvasView reports this on the UI thread via post(), after every committed stroke,
         // undo, redo and clear. Undo and Redo start disabled -- there is no history yet.
         // Undo, redo, a frame change and a board edit all change the lines under a selection: it ends first.
-        canvas.onBeforeHistoryChange = { popovers.close(); boardController?.stopPreview() }
+        canvas.onBeforeHistoryChange = { popovers.close(); boardController?.stopPreview(); selection?.beforeHistoryChange() }
         canvas.onPaperChanged = { p -> refreshPaper(p) }
         refreshPaper(canvas.documentPaper)
         canvas.onHistoryChanged = { canUndo, canRedo ->

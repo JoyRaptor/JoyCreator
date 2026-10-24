@@ -12,6 +12,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.widget.FrameLayout
 import cc.joycreator.joybrush.androidkit.gl.TileLimits
+import cc.joycreator.joybrush.core.anim.ClipPlaybackScheduler
 import cc.joycreator.joybrush.core.anim.PlaybackClock
 import cc.joycreator.joybrush.core.anim.PlayMode
 import cc.joycreator.joybrush.core.anim.FilmStrip
@@ -33,6 +34,7 @@ class BoardRuntimeController(private val context: Context, private val parent: F
         fun ensureDocument(ready: (JbDocument) -> Unit)
         fun edit(change: (JbDocument) -> RegionChange)
         fun selectFrame(boardId: String, frameId: String)
+        fun previewClipMove(boardId: String?, rect: RectPx?) {}
         fun preview(frames: Map<String, String>)
         fun tile(boardId: String?, ready: (String?) -> Unit) { ready(boardId) }
         fun onion(boardId: String?) {}
@@ -45,6 +47,7 @@ class BoardRuntimeController(private val context: Context, private val parent: F
         fun frost(canvas: Canvas, view: View) {}
         fun refusal(message: String)
         fun export(boardId: String) {}
+        fun exportScene() {}
         fun selectionChanged(bounds: RectPx?)
         fun thumbnails(boardId: String, frames: List<String>, width: Int, height: Int, ready: (Map<String, IntArray>) -> Unit)
         fun spriteThumbnails(boardId: String, cells: List<Int>, width: Int, height: Int, ready: (Map<Int, IntArray>) -> Unit) { ready(emptyMap()) }
@@ -57,7 +60,6 @@ class BoardRuntimeController(private val context: Context, private val parent: F
     private var session = BoardSession()
     private val views = linkedMapOf<String, BoardChromeView>()
     private val scroll = mutableMapOf<String, Int>()
-    private val modes = mutableMapOf<String, PlayMode>()
     private val fpsPanels = mutableSetOf<String>()
     private val onionBoards = mutableSetOf<String>()
     private var pendingTile: String? = null
@@ -74,6 +76,7 @@ class BoardRuntimeController(private val context: Context, private val parent: F
         /** Tile boards only: the newest dragged rectangle this phone can preview and paint into, and whether the latest one was held back to it. */
         var lastFit: RectPx? = null
         var clamped = false
+        var refused = false
     }
     private var geometryDrag: GeometryDrag? = null
     private var geometryPreview: Board? = null
@@ -90,6 +93,7 @@ class BoardRuntimeController(private val context: Context, private val parent: F
     private var spriteArtEpoch = 0L
     private var contentRevision = Long.MIN_VALUE
     private var pendingSelection: String? = null
+    private var pendingClipHint = false
     private val art = object : LruCache<Pair<String, String>, Bitmap>(8 * 1024 * 1024) {
         override fun sizeOf(key: Pair<String, String>, value: Bitmap) = value.allocationByteCount
     }
@@ -98,8 +102,13 @@ class BoardRuntimeController(private val context: Context, private val parent: F
     private var placementEpoch = 0L
     private var playingBoard: String? = null
     private var clock: PlaybackClock? = null
+    private var allClips: ClipPlaybackScheduler? = null
+    private var previewFrames: Map<String, String> = emptyMap()
     private var started = 0L
     private var previewFrame: String? = null
+    private var overlapTapPoint: Chrome.Point? = null
+    private var overlapTapOrder: List<String> = emptyList()
+    private var overlapTapIndex = 0
     private var pen: Pair<Float, Float>? = null
     private var penDown = false
     private var penChanged = SystemClock.uptimeMillis() - 1000
@@ -124,11 +133,15 @@ class BoardRuntimeController(private val context: Context, private val parent: F
     }
 
     fun documentChanged(value: JbDocument) {
+        overlapTapPoint=null; overlapTapOrder=emptyList()
+        // The engine already owns the new document. Never restore onion on a removed clip while stopping playback.
+        onionBoards.retainAll(value.boards.filter {it.kind==BoardKind.ANIMATION}.map {it.id}.toSet())
         if(doc?.id != value.id) { inkEpoch++; inkPending=false; inkSignature="" }
         stopPreview()
         if (geometryDrag != null || spriteDrag != null) views.values.forEach { it.stopInteractions() }
         geometryDrag = null; geometryPreview = null; spriteDrag = null; spriteTarget = null
         clearTilePreview()
+        host.previewClipMove(null,null)
         val previous = doc
         val newDocument = previous != null && previous.id != value.id
         val revision = host.contentRevision()
@@ -138,8 +151,8 @@ class BoardRuntimeController(private val context: Context, private val parent: F
             previous.layers.map { it.id to it.regions } != value.layers.map { it.id to it.regions }
         if (newDocument) {
             cancelInteractions()
-            session = BoardSession(); pendingSelection = null
-            scroll.clear(); modes.clear(); fpsPanels.clear(); lifted = null; gap = null
+            session = BoardSession(); pendingSelection = null; pendingClipHint=false
+            scroll.clear(); fpsPanels.clear(); lifted = null; gap = null
             spritePixels.clear(); spriteSubGrids.clear()
             spriteRolls.clear()
             onionBoards.clear(); pendingTile=null; tileEpoch++; host.tile(null) {}; host.onion(null)
@@ -162,9 +175,17 @@ class BoardRuntimeController(private val context: Context, private val parent: F
         }
         contentRevision = revision
         session = session.reconcile(value)
-        onionBoards.retainAll(value.boards.filter { it.kind == BoardKind.ANIMATION }.map { it.id }.toSet())
         pendingSelection?.takeIf { id -> value.boards.any { it.id == id } }?.let {
             session = session.select(value, it); pendingSelection = null
+            if(pendingClipHint && value.boards.first { b -> b.id == it }.kind == BoardKind.ANIMATION) {
+                val prefs=context.getSharedPreferences("joybrush-clips",Context.MODE_PRIVATE)
+                if(!prefs.getBoolean("active-layer-hint",false)) {
+                    val name=value.layers.firstOrNull { l -> l.id == value.activeLayerId }?.name ?: "the active layer"
+                    host.refusal("Only $name animates here. Tap the runner on a layer to add it.")
+                    prefs.edit().putBoolean("active-layer-hint",true).apply()
+                }
+            }
+            pendingClipHint=false
         }
         views.keys.filter { id -> value.boards.none { it.id == id } }.toList().forEach {
             spritePixels.remove(it); spriteSubGrids.remove(it)
@@ -185,13 +206,34 @@ class BoardRuntimeController(private val context: Context, private val parent: F
 
     fun select(id: String?) {
         val current = doc ?: return
+        overlapTapPoint=null; overlapTapOrder=emptyList()
         stopPreview()
         session = session.select(current, id)
         host.selectionChanged(selectedBounds)
         refreshOnion()
         refreshTransform()
     }
-    private fun refreshOnion() = host.onion(session.selectedBoardId?.takeIf { active && it in onionBoards && playingBoard == null })
+    private fun refreshOnion() = host.onion(session.selectedBoardId?.takeIf { active && it in onionBoards && playingBoard == null && allClips == null })
+
+    /** Keep one stable stack across repeated taps, even though each selection comes to the front. */
+    private fun selectOverlappingClip(point: Chrome.Point) {
+        if(!active) return
+        val current=doc ?: return
+        val t=host.transform()
+        val margin=ceil(hypot(parent.width.toDouble(),parent.height.toDouble())).toInt()
+        val x=(point.x-t.panX-margin)/t.zoom; val y=(point.y-t.panY-margin)/t.zoom
+        val ids=current.boards.filter { it.kind==BoardKind.ANIMATION && x>=it.rect.x && y>=it.rect.y &&
+            x<it.rect.x.toLong()+it.rect.w && y<it.rect.y.toLong()+it.rect.h }.map { it.id }.toSet()
+        if(ids.size<2) return
+        val same=overlapTapPoint?.let { hypot(point.x-it.x,point.y-it.y)<=12*context.resources.displayMetrics.density }==true && overlapTapOrder.toSet()==ids
+        val order=if(same) overlapTapOrder else (parent.childCount-1 downTo 0).mapNotNull {
+            (parent.getChildAt(it) as? BoardChromeView)?.sceneIdentity?.boardId?.takeIf { id -> id in ids }
+        }
+        if(order.isEmpty()) return
+        val index=if(same)(overlapTapIndex+1)%order.size else 0
+        select(order[index])
+        overlapTapPoint=point; overlapTapOrder=order; overlapTapIndex=index
+    }
     fun tileChanged(id: String?) {
         if(id != null) {
             val current=doc ?: return
@@ -218,10 +260,11 @@ class BoardRuntimeController(private val context: Context, private val parent: F
             if(!roll.isEmpty) spriteRolls[id]=roll.focused(c.frameIndexAt((SystemClock.uptimeMillis()-spriteStarted).toDouble()))
         } } }
         spritePlaying = null; spriteClock = null; spritePlayingCell = null
-        val hadPreview = playingBoard != null
-        playingBoard = null; clock = null; previewFrame = null
+        val hadPreview = playingBoard != null || allClips != null || previewFrames.isNotEmpty()
+        playingBoard = null; clock = null; allClips = null; previewFrame = null; previewFrames = emptyMap()
         if (hadPreview) host.preview(emptyMap())
         if (cancelHover) views.values.forEach { it.cancelHoverPreview() }
+        refreshOnion()
     }
 
     fun stop() {
@@ -246,6 +289,7 @@ class BoardRuntimeController(private val context: Context, private val parent: F
         holdPreview = null; lifted = null; gap = null; liftScene = null
         geometryDrag = null; geometryPreview = null; spriteDrag = null; spriteTarget = null
         clearTilePreview()
+        host.previewClipMove(null,null)
         parent.removeCallbacks(fade)
         parent.removeCallbacks(refreshAgain)
         parent.removeCallbacks(armedTick)
@@ -320,7 +364,13 @@ class BoardRuntimeController(private val context: Context, private val parent: F
             val left = t.panX + margin + b.rect.x * t.zoom
             val top = t.panY + margin + b.rect.y * t.zoom
             val rect = Chrome.Rect(left, top, left + b.rect.w * t.zoom, top + b.rect.h * t.zoom)
-            val cursor = if (playingBoard == b.id) previewFrame else b.currentFrameId
+            val overlaps=if(b.kind!=BoardKind.ANIMATION) emptyList() else current.boards.filter { it.kind==BoardKind.ANIMATION && it.id!=b.id }.mapNotNull { other ->
+                val r=Chrome.Rect(t.panX+margin+other.rect.x*t.zoom,t.panY+margin+other.rect.y*t.zoom,
+                    t.panX+margin+(other.rect.x.toLong()+other.rect.w)*t.zoom,t.panY+margin+(other.rect.y.toLong()+other.rect.h)*t.zoom)
+                Chrome.Rect(maxOf(rect.left,r.left),maxOf(rect.top,r.top),minOf(rect.right,r.right),minOf(rect.bottom,r.bottom))
+                    .takeIf { it.width>0 && it.height>0 }
+            }
+            val cursor = previewFrames[b.id]?.takeIf { it.isNotEmpty() } ?: b.currentFrameId
             val index = b.frames.indexOfFirst { it.id == cursor }.coerceAtLeast(0)
             val holds = b.frames.map { f -> holdPreview?.takeIf { it.first == b.id && it.second == f.id }?.third ?: f.holdFrames }
             val p = pen?.let { Chrome.Point(t.panX + margin + it.first * t.zoom, t.panY + margin + it.second * t.zoom) }
@@ -339,18 +389,20 @@ class BoardRuntimeController(private val context: Context, private val parent: F
                 screen = Chrome.Rect(margin.toFloat(), margin.toFloat(), (margin + parent.width).toFloat(), (margin + parent.height).toFloat()),
                 stripScrollPx = (scroll[b.id] ?: 0).toFloat(), liftedFrame = lifted?.takeIf { session.selectedBoardId == b.id },
                 insertionIndex = gap?.takeIf { session.selectedBoardId == b.id }, playing = playingBoard == b.id || spritePlaying == b.id,
-                loopGlyph = when (modes[b.id] ?: PlayMode.LOOP) { PlayMode.LOOP -> "loop"; PlayMode.PING_PONG -> "ping-pong"; PlayMode.ONCE -> "once" },
+                loopGlyph = when (PlayMode.of(b.end)) { PlayMode.LOOP -> "loop"; PlayMode.PING_PONG -> "ping-pong"; PlayMode.ONCE, PlayMode.HOLD -> "once"; PlayMode.BLANK -> "blank" },
                 showFps = b.id in fpsPanels, fps = b.fps.roundToInt(), columns = b.grid?.cols ?: 1,
                 rows = b.grid?.rows ?: 1, cellWidth = b.grid?.cellW ?: b.rect.w, cellHeight = b.grid?.cellH ?: b.rect.h,
                 gridByPixels = spritePixels[b.id] == true, subGrid = spriteSubGrids[b.id] ?: 2,
                 spriteOrder = if(b.locked) spriteRolls[b.id]?.entries?.map { it.cell }.orEmpty() else emptyList(),
                 playingCell = if(spritePlaying == b.id) spritePlayingCell else spriteRolls[b.id]?.let { it.entries.getOrNull(it.cursor)?.cell },
                 liftedCell = spriteDrag?.takeIf { it.board.id == b.id }?.cell, targetCell = spriteTarget?.takeIf { spriteDrag?.board?.id == b.id },
-                liftedCellOffset = spriteLiftOffset, reducedMotion = reducedMotion, wiggleElapsedMs = now)
+                liftedCellOffset = spriteLiftOffset, reducedMotion = reducedMotion, wiggleElapsedMs = now,
+                end=b.end,playingAll=allClips!=null,overlaps=overlaps)
             v.show(penFades.getOrPut(b.id) { BoardChromePenFade() }.apply(input, now))
             if (b.kind == BoardKind.ANIMATION && session.selectedBoardId == b.id) requestArt(b, rect.width, density)
             if (b.kind == BoardKind.SPRITE && session.selectedBoardId == b.id && geometryPreview == null) requestSpriteArt(b)
         }
+        session.selectedBoardId?.let { views[it]?.bringToFront() }
         requestPaperInk()
         if(session.selectedBoardId != null) host.refreshBackdrop { views.values.forEach { it.invalidate() } }
         parent.removeCallbacks(armedTick)
@@ -434,7 +486,8 @@ class BoardRuntimeController(private val context: Context, private val parent: F
         }
     }
     /** [tilePreview] false keeps the live tile rectangle on screen: a finishing drag clears it only after its edit is queued. */
-    private fun clearGeometry(tilePreview: Boolean = true) {
+    private fun clearGeometry(tilePreview: Boolean = true, clipPreview: Boolean = true) {
+        if(clipPreview) host.previewClipMove(null,null)
         geometryDrag = null; geometryPreview = null
         if(tilePreview) clearTilePreview()
         host.selectionChanged(selectedBounds); refreshTransform()
@@ -508,14 +561,16 @@ class BoardRuntimeController(private val context: Context, private val parent: F
     private fun adapter(id: String) = object : BoardChromeView.Host {
         override fun acceptsPointer(control: String, event: MotionEvent): Boolean {
             if (!active) return false
-            if (!control.startsWith("sprite-cell-")) return true
-            val b = board(id) ?: return false
-            // Unlocked fingers and every pen keep painting. Locked fingers build the roll/swap.
             val tool=event.getToolType(0)
             val finger=tool == MotionEvent.TOOL_TYPE_FINGER ||
                 (tool == MotionEvent.TOOL_TYPE_UNKNOWN && event.isFromSource(android.view.InputDevice.SOURCE_TOUCHSCREEN))
+            if(control.startsWith("clip-overlap-")) return finger
+            if (!control.startsWith("sprite-cell-")) return true
+            val b = board(id) ?: return false
+            // Unlocked fingers and every pen keep painting. Locked fingers build the roll/swap.
             return b.kind == BoardKind.SPRITE && b.locked && finger
         }
+        override fun overlapTap(point: Chrome.Point) = selectOverlappingClip(point)
         override fun action(control: String, held: Boolean) {
             val b = board(id) ?: return
             when (control) {
@@ -531,10 +586,12 @@ class BoardRuntimeController(private val context: Context, private val parent: F
                         else changeSpriteGrid(b,documentId,g.copy(cellW=w,cellH=h))
                     }
                 }
-                "lock" -> if (b.kind == BoardKind.ANIMATION && b.frames.size > 1) moveBoardForm(b,allFrames=true) else metadata { BoardDocumentOps.setLocked(it, id, !b.locked) }
+                "lock" -> metadata { BoardDocumentOps.setLocked(it, id, !b.locked) }
                 "add" -> if (held) frameMenu(id) else add(id, NewFrame.DUPLICATE)
                 "play" -> if (held) { if (!fpsPanels.add(id)) fpsPanels.remove(id); refreshTransform() } else togglePlay(id)
-                "loop" -> { modes[id] = PlayMode.values()[((modes[id] ?: PlayMode.LOOP).ordinal + 1) % 3]; stopPreview(); refreshTransform() }
+                "play-all" -> if(allClips!=null) { stopPreview(); refreshTransform() } else playAll()
+                "loop" -> endMenu(b)
+                "end-loop", "end-pingpong", "end-hold", "end-blank" -> metadata { BoardDocumentOps.setEnd(it,id,control.removePrefix("end-")) }
                 "fps-minus", "fps-plus" -> metadata { d -> d.copy(boards = d.boards.map { if (it.id == id) it.copy(fps = (it.fps + if (control == "fps-plus") 1 else -1).coerceIn(1f, 60f)) else it }) }
                 "feature" -> if(b.kind == BoardKind.SPRITE) {
                     if(!b.locked) host.refusal("Lock the board to rearrange cells") else {
@@ -581,8 +638,8 @@ class BoardRuntimeController(private val context: Context, private val parent: F
         }
         override fun stripHoldCancelled(boardId: String, frameId: String) { holdPreview = null; refreshTransform() }
         override fun hoverLoop(playing: Boolean, restoreFrame: Int?) {
-            if (playing) startPlay(id, PlayMode.LOOP, hover = true)
-            else { stopPreview(cancelHover = false); refreshTransform() }
+            if (playing) startPlay(id, hover = true)
+            else if(playingBoard == id) { stopPreview(cancelHover = false); refreshTransform() }
         }
         override fun drag(control: String, from: Chrome.Point, to: Chrome.Point, finished: Boolean) {
             val b = board(id) ?: return
@@ -605,8 +662,10 @@ class BoardRuntimeController(private val context: Context, private val parent: F
                 } else refreshTransform()
                 return
             }
-            val handle = control.removePrefix("handle-").toIntOrNull() ?: return
-            if(b.locked || (b.kind == BoardKind.ANIMATION && b.frames.size > 1)) return
+            val moving = control.startsWith("clip-move")
+            val handle = if(moving) 8 else control.removePrefix("handle-").toIntOrNull() ?: return
+            if(b.locked) return
+            if(b.kind == BoardKind.ANIMATION && b.frames.size > 1 && !control.startsWith("clip-move")) return
             val gesture=geometryDrag ?: GeometryDrag(doc!!.id,b,handle,host.transform().zoom).also { geometryDrag=it; stopPreview() }
             if(gesture.board != b || gesture.documentId != doc?.id) { clearGeometry(); return }
             // An armed tile board resizes live: the screen repeats the proposed rectangle while the edge moves.
@@ -614,32 +673,40 @@ class BoardRuntimeController(private val context: Context, private val parent: F
             // the SAVED rectangle; so the engine drops the preview the moment a stroke begins (setTilePreviewRect).
             val tile = b.kind == BoardKind.CANVAS && session.armedBoardId == id
             try {
-                var rect=resized(gesture.board.rect,handle,((to.x-from.x)/gesture.zoom).roundToInt(),((to.y-from.y)/gesture.zoom).roundToInt())
+                val dx=((to.x-from.x)/gesture.zoom).roundToInt(); val dy=((to.y-from.y)/gesture.zoom).roundToInt()
+                var rect=if(moving) b.rect.copy(x=Math.addExact(b.rect.x,dx),y=Math.addExact(b.rect.y,dy)) else resized(gesture.board.rect,handle,dx,dy)
                 if(tile) {
                     // Never offer a rectangle arming would refuse (and so switch tiling off): hold the last one that fits.
                     gesture.clamped = !TileLimits.fits(rect)
                     if(gesture.clamped) rect = gesture.lastFit ?: gesture.board.rect else gesture.lastFit = rect
                 }
-                val preview=resizeBoard(doc!!,id,rect).doc.boards.first { it.id == id }
+                fun change(live: JbDocument) = if(moving && b.kind == BoardKind.ANIMATION) AnimationBoardOps.moveAll(live,id,rect.x,rect.y) else resizeBoard(live,id,rect)
+                val preview=(if(moving && b.kind == BoardKind.ANIMATION) AnimationBoardOps.previewMove(doc!!,id,rect.x,rect.y) else change(doc!!).doc).boards.first { it.id == id }
                 if(finished) {
-                    clearGeometry(tilePreview=false)
+                    clearGeometry(tilePreview=false,clipPreview=false)
                     if(preview != b) edit { live ->
                         if(live.id != gesture.documentId || live.boards.firstOrNull { it.id == id } != b) throw DocException("The board changed; resize again")
-                        resizeBoard(live,id,rect)
+                        change(live)
                     }
-                    // Queued behind the edit above, so the screen moves from the dragged tile straight to the committed one.
+                    // Clear live pixels after the edit is queued, so the drag goes straight to its committed picture.
+                    host.previewClipMove(null,null)
                     clearTilePreview()
                     if(gesture.clamped) host.refusal("The tile can't be larger than this on this phone.")
                 } else {
                     geometryPreview=preview; host.selectionChanged(preview.rect)
+                    if(moving && b.kind == BoardKind.ANIMATION) host.previewClipMove(id,preview.rect)
                     if(tile) { tilePreviewShown=id; host.tilePreviewRect(id,rect) }
                     refreshTransform()
                 }
-            } catch(e:IllegalArgumentException) { clearGeometry(); host.refusal(e.message ?: "Choose a smaller board size") }
-              catch(e:DocException) { clearGeometry(); host.refusal(e.message ?: "Choose a smaller board size") }
+            } catch(e:Exception) {
+                geometryPreview=null; host.previewClipMove(null,null); host.selectionChanged(b.rect); refreshTransform()
+                if(!gesture.refused) { gesture.refused=true; host.refusal(e.message ?: "Choose a smaller board size") }
+                if(finished) clearGeometry()
+            }
         }
+
         override fun cancel(control: String) {
-            if(control.startsWith("handle-")) clearGeometry()
+            if(control.startsWith("handle-") || control.startsWith("clip-move")) clearGeometry()
             if(control.startsWith("sprite-cell-")) { spriteDrag=null; spriteTarget=null; refreshTransform() }
         }
         override fun frost(canvas: Canvas, element: Chrome.Element) { views[id]?.let { host.frost(canvas,it) } }
@@ -715,19 +782,45 @@ class BoardRuntimeController(private val context: Context, private val parent: F
             4 -> b.currentFrameId?.let { frame -> edit { RegionDocumentOps.deleteFrame(it, id, frame) } }
         } }
     }
+    fun offerCombine(a: String, b: String) {
+        val first=board(a) ?: return; val second=board(b) ?: return
+        panels.confirm("Combine ${first.name} and ${second.name}?", "The clips become one timeline. Drawings at the slower speed use the nearest whole number of ticks. Undo brings both clips back.", "Combine") {
+            combineClips(a,b)
+        }
+    }
+    private fun combineClips(a: String,b: String) {
+        val newId=UUID.randomUUID().toString()
+        pendingSelection=newId; pendingClipHint=false
+        edit { d ->
+            var first=true
+            AnimationBoardOps.combine(d,a,b) { if(first) { first=false; newId } else UUID.randomUUID().toString() }
+        }
+    }
+    private fun endMenu(b: Board) {
+        panels.menu("When ${b.name} ends", listOf("Loop", "Ping-pong", "Hold", "Blank")) { n ->
+            metadata { BoardDocumentOps.setEnd(it,b.id,BoardEnd.ALL[n]) }
+        }
+    }
     private fun boardMenu(id: String) {
         val b=board(id) ?: return
-        val labels=listOf("Select","Duplicate board","Remove board","Move…") +
-            if(b.kind == BoardKind.ANIMATION) listOf("Frames…","Move all frames…") else emptyList()
-        panels.menu(b.name,labels) { n -> when(n) {
-            0 -> select(id)
-            1 -> if(b.kind == BoardKind.ANIMATION) moveBoardForm(b,duplicate=true) else edit { BoardDocumentOps.duplicatePassive(it,id) { UUID.randomUUID().toString() } }
-            2 -> if(b.kind == BoardKind.ANIMATION) panels.confirm("Remove ${b.name}?",
+        val candidates=doc?.boards.orEmpty().filter { b.kind == BoardKind.ANIMATION && it.kind == BoardKind.ANIMATION && it.id != id && AnimationBoardOps.touches(b.rect,it.rect) }
+        val base=listOf("Select","Duplicate board","Remove board","Move…") +
+            if(b.kind == BoardKind.ANIMATION) listOf("Frames…","Move all frames…","When it ends…") else emptyList()
+        panels.menu(b.name,base + candidates.map { "Combine with ${it.name}" }) { n -> when {
+            n >= base.size -> {
+                val other=candidates[n-base.size]
+                val apply = { combineClips(id,other.id) }
+                if(b.fps != other.fps) panels.confirm("Combine clips?", "Drawings at the slower speed are held for the nearest whole number of ticks at ${maxOf(b.fps,other.fps)} fps.", "Combine") { apply() } else apply()
+            }
+            n == 0 -> select(id)
+            n == 1 -> if(b.kind == BoardKind.ANIMATION) moveBoardForm(b,duplicate=true) else edit { BoardDocumentOps.duplicatePassive(it,id) { UUID.randomUUID().toString() } }
+            n == 2 -> if(b.kind == BoardKind.ANIMATION) panels.confirm("Remove ${b.name}?",
                 "Keep the current frame on the page and remove the other frames. You can undo this.","Remove") { edit { AnimationBoardOps.remove(it,id) } }
                 else metadata { BoardDocumentOps.remove(it,id) }
-            3 -> moveBoardForm(b)
-            4 -> frameMenu(id)
-            5 -> moveBoardForm(b,allFrames=true)
+            n == 3 -> moveBoardForm(b,allFrames=b.kind == BoardKind.ANIMATION)
+            n == 4 -> frameMenu(id)
+            n == 5 -> moveBoardForm(b,allFrames=true)
+            n == 6 -> endMenu(b)
         } }
     }
     private fun moveBoardForm(b: Board, allFrames: Boolean=false, duplicate: Boolean=false) {
@@ -748,17 +841,17 @@ class BoardRuntimeController(private val context: Context, private val parent: F
                     }
                 }
             }
-            if(allFrames) panels.confirm("Move every frame?","Move this board's artwork and masks together. You can undo the whole move.","Move") { apply() } else apply()
+            apply()
         }
     }
     fun showMenu() {
         host.ensureDocument { d ->
             if (doc == null || doc?.id != d.id) documentChanged(d)
-            val labels = arrayOf("New Image board…", "New Animation board…", "New Sprite board…", "New Tile board…", "Page (clear selection)") + d.boards.map { it.name }
+            val labels = arrayOf("New Image board…", "New Animation board…", "New Sprite board…", "New Tile board…", "Page (clear selection)") + listOf(if(allClips != null) "Stop all clips" else "Play all clips", "Export Play all…") + d.boards.map { it.name }
             panels.menu("Boards",labels.toList()) { n -> when {
                 n < 3 -> beginPlacement(listOf(BoardKind.CANVAS, BoardKind.ANIMATION, BoardKind.SPRITE)[n])
                 n == 3 -> beginPlacement(BoardKind.CANVAS,true)
-                n == 4 -> { armTile(null); select(null) }; else -> select(d.boards[n - 5].id)
+                n == 4 -> { armTile(null); select(null) }; n == 5 -> if(allClips != null) { stopPreview(); refreshTransform() } else playAll(); n == 6 -> { stopPreview(); host.exportScene() }; else -> select(d.boards[n - 7].id)
             } }
         }
     }
@@ -812,7 +905,7 @@ class BoardRuntimeController(private val context: Context, private val parent: F
             val cols = if (kind == BoardKind.SPRITE) values[1].toIntOrNull() else 1
             val rows = if (kind == BoardKind.SPRITE) values[2].toIntOrNull() else 1
             if (cols == null || rows == null || cols < 1 || rows < 1 || rect.w % cols != 0 || rect.h % rows != 0) { host.refusal("Choose a whole grid of cells within this rectangle"); return@textForm }
-            val id = UUID.randomUUID().toString(); pendingSelection = id
+            val id = UUID.randomUUID().toString(); pendingSelection = id; pendingClipHint=kind==BoardKind.ANIMATION
             if(tile) pendingTile=id
             edit { d -> var first = true; val ids = { if (first) { first = false; id } else UUID.randomUUID().toString() }
                 when(kind) {
@@ -828,19 +921,33 @@ class BoardRuntimeController(private val context: Context, private val parent: F
         panels.form(title,fields,done)
     }
     private fun togglePlay(id: String) { if (playingBoard == id) { stopPreview(); refreshTransform() } else startPlay(id) }
-    private fun startPlay(id: String, mode: PlayMode = modes[id] ?: PlayMode.LOOP, hover: Boolean = false) {
+    private fun startPlay(id: String, mode: PlayMode = PlayMode.of(doc?.boards?.firstOrNull { it.id == id }?.end ?: "loop"), hover: Boolean = false) {
         if (!active) return
         val b = board(id) ?: return; if (b.frames.isEmpty()) return
-        stopPreview(cancelHover = !hover); playingBoard = id; clock = PlaybackClock(b, mode); started = SystemClock.uptimeMillis(); tick.run()
+        stopPreview(cancelHover = !hover); playingBoard = id; clock = PlaybackClock(b, mode); started = SystemClock.uptimeMillis(); refreshOnion(); tick.run()
+    }
+    fun playAll() {
+        if(!active) return
+        val clips=doc?.boards.orEmpty().filter { it.kind == BoardKind.ANIMATION && it.frames.isNotEmpty() }
+        if(clips.isEmpty()) { host.refusal("Add an Animation clip to play"); return }
+        stopPreview(); allClips=ClipPlaybackScheduler(clips); started=SystemClock.uptimeMillis(); host.onion(null); tick.run()
     }
     private val tick = object : Runnable {
         override fun run() {
             if (!active) return
-            val id = playingBoard ?: return; val b = board(id) ?: return; val c = clock ?: return
             val elapsed = (SystemClock.uptimeMillis() - started).toDouble()
-            previewFrame = b.frames.getOrNull(c.frameIndexAt(elapsed))?.id
-            previewFrame?.let { host.preview(mapOf(id to it)) }; refreshTransform()
-            if (c.isFinished(elapsed)) { stopPreview(); refreshTransform() } else parent.postDelayed(this, (c.nextChangeMs(elapsed) - elapsed).toLong().coerceIn(16,250))
+            val all=allClips
+            val next: Double
+            val frames: Map<String,String>
+            if(all != null) { frames=all.framesAt(elapsed); next=all.nextChangeMs(elapsed) }
+            else {
+                val id=playingBoard ?: return; val b=board(id) ?: return; val c=clock ?: return
+                previewFrame=if(c.isBlank(elapsed)) RegionDocumentOps.BLANK_PREVIEW else b.frames[c.frameIndexAt(elapsed)].id
+                frames=mapOf(id to previewFrame!!); next=c.nextChangeMs(elapsed)
+            }
+            if(frames != previewFrames) { previewFrames=frames; host.preview(frames); refreshTransform() }
+            // Hold / Blank retain their final preview. Stop, paint, a different play or document change clears it.
+            if(next.isFinite()) parent.postDelayed(this,ceil(next-elapsed).toLong().coerceIn(1,250))
         }
     }
     companion object {

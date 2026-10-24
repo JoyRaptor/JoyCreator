@@ -38,7 +38,6 @@ class FlattenPlanTest {
         assertIs<Result.Flatten>(FlattenPlan.decide(one, discardHidden = true, none), "one visible layer plus hidden ones to discard")
         val locked = assertIs<Result.Refused>(FlattenPlan.decide(stack.withLocked("b", true), false, none))
         assertTrue(locked.sentence.contains("Ink"))
-        val frames = assertIs<Result.Refused>(FlattenPlan.decide(stack, false) { Facts(hasFrames = it == "b") })
-        assertTrue(frames.sentence.contains("animation"))
+        assertIs<Result.Flatten>(FlattenPlan.decide(stack, false) { Facts(hasFrames = it == "b") }, "Animation is sampled frame by frame by the engine")
     }
 }

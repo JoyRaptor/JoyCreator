@@ -59,7 +59,8 @@ class RegionFrameEditingTest {
         val blank = RegionDocumentOps.addFrame(first, a.id, NewFrame.BLANK, ::ids).doc
         val current = blank.layers.single().regions.single().frameCel.getValue(blank.boards.last().currentFrameId!!)
         val held = RegionDocumentOps.setHeld(blank, a.id, "layer", true)
-        assertEquals(listOf(RegionCopy("layer", current, "shared", a.rect)), held.copies)
+        assertTrue(held.copies.isEmpty())
+        assertEquals(listOf(RegionTransfer("layer", current, "shared", a.rect, a.rect)), held.transfers)
         assertEquals(blank.layers.single().regions.single().frameCel, held.doc.layers.single().regions.single().frameCel)
         assertTrue(RegionDocumentOps.setHeld(held.doc, a.id, "layer", true).copies.isEmpty())
         val unheld = RegionDocumentOps.setHeld(held.doc, a.id, "layer", false)

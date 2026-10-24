@@ -384,6 +384,7 @@ class GlPaintEngine(
         var sharedCel: String? = null
         var plan: RegionPaintPlan? = null
         val projected = HashMap<Long, Int>()
+        val moveProjected = HashMap<Pair<String?,Long>, Int>()
         var visibleProjection: Map<Long,Int>? = null
         /**
          * The media payload by store name ([MediaStores.PAYLOAD]): float state and ground, only on tiles a media stroke
@@ -397,7 +398,7 @@ class GlPaintEngine(
         val celFloats = HashMap<String, HashMap<String, HashMap<Long, Int>>>()
         /** Every plane's payload: null = the shared plane ([floats]), else a frame cel id. */
         fun planes(): List<Pair<String?, HashMap<String, HashMap<Long, Int>>>> = listOf<Pair<String?, HashMap<String, HashMap<Long, Int>>>>(null to floats) + celFloats.map { it.key to it.value }
-        fun ownedTextures(): Set<Int> = (tiles.values + cels.values.flatMap { it.values } + projected.values +
+        fun ownedTextures(): Set<Int> = (tiles.values + cels.values.flatMap { it.values } + projected.values + moveProjected.values +
             planes().flatMap { (_, p) -> p.values.flatMap { it.values } }).toSet()
         /** JB-2.23: this layer's mask, a second tile store whose missing tiles are WHITE (full coverage). */
         var mask: Layer? = null
@@ -495,6 +496,7 @@ class GlPaintEngine(
         }
         private set(value) { localBoardDocument = value }
     private var framePreviews: Map<String, String> = emptyMap()
+    private var clipMovePreview: Pair<String,RectPx>? = null
     private val boardPreview = GlBoardPreview()
     private var boardArtOnly = false
     private var boardCropRendering = false
@@ -747,6 +749,7 @@ class GlPaintEngine(
         cancelStroke()
         layers.clear()
         boardDocument = null
+        clipMovePreview = null
         framePreviews = emptyMap()
         tileBoardId=null; tilePreviewRect=null; onionBoardId=null; strokeTileRect=null
         undo.clear()
@@ -1095,8 +1098,19 @@ class GlPaintEngine(
         // On an animation frame only that frame's cels merge (owner, 2026-10-18); the upper layer stays with its other frames.
         val frameMode = frameBoardId != null
         if (!frameMode) require(u.plan?.frames.isNullOrEmpty() && l.plan?.frames.isNullOrEmpty()) { "Pick the animation board to merge the frame you're on." }
-        val uCel = if (frameMode) u.plan?.frames?.firstOrNull { it.boardId == frameBoardId }?.celId ?: error("No frame of that layer here") else u.sharedCel
-        val lCel = if (frameMode) l.plan?.frames?.firstOrNull { it.boardId == frameBoardId }?.celId ?: error("No frame of that layer here") else l.sharedCel
+        val uCel = if (frameMode) u.plan?.roots?.firstOrNull { it.boardId == frameBoardId }?.celId ?: error("No frame of that layer here") else u.sharedCel
+        val lCel = if (frameMode) l.plan?.roots?.firstOrNull { it.boardId == frameBoardId }?.celId ?: error("No frame of that layer here") else l.sharedCel
+        if(frameMode) {
+            val metadata=boardDocument!!
+            val complex=metadata.layers.filter { it.id == upperId || it.id == lowerId }.any { meta ->
+                val root=if(meta.id==upperId) uCel!! else lCel!!
+                val region=meta.regions.first { it.boardId==frameBoardId }
+                val current=metadata.boards.first { it.id==frameBoardId }.currentFrameId
+                val others=CelParts.reachable(meta,region.frameCel.filterKeys { it!=current }.values)
+                meta.cels.first { it.id==root }.parts.isNotEmpty() || CelParts.reachable(meta,listOf(root)).any { it in others }
+            }
+            if(complex) { mergeComponentFrame(u,l,frameBoardId!!,sheetOp,flattenLower); return }
+        }
         val uPlane = linePlane(u, uCel); val lPlane = linePlane(l, lCel)
         val uTiles = planeTiles(u, uCel); val lTiles = planeTiles(l, lCel)
         val oldDoc = boardDocument
@@ -1216,6 +1230,102 @@ class GlPaintEngine(
         return said
     }
 
+    /** Merge the selected linked drawing through its physical ownership fragments, keeping lower lines as sheets. */
+    private fun mergeComponentFrame(u: Layer, l: Layer, boardId: String, sheetOp: String, flattenLower: Boolean) {
+        val original=boardDocument ?: error("No drawing")
+        val lowerCopy=AnimationBoardOps.isolateFrame(original,boardId,l.id,false) { UUID.randomUUID().toString() }
+        val upperEmpty=AnimationBoardOps.isolateFrame(lowerCopy.doc,boardId,u.id,true) { UUID.randomUUID().toString() }
+        val next=upperEmpty.doc
+        val cloneSources=lowerCopy.copies.associate { it.toCelId to it.fromCelId }
+        val drops=lowerCopy.drops+upperEmpty.drops
+        val uPlan=u.plan ?: error("No upper frame")
+        val lPlan=RegionDocumentOps.paintPlan(next,l.id)
+        val hadUpperLines=uPlan.frames.filter { it.boardId==boardId }.any { nativeLines.lines(linePlane(u,it.celId)).isNotEmpty() }
+        val copiedFootprints=HashMap<Pair<LinePlane,String>,Set<Long>>()
+        val scratch=ArrayList<Int>(); val made=ArrayList<Int>()
+        val pending=LinkedHashMap<Triple<String,String,Long>,UndoLog.TileChange<Int>>()
+        val sheets=LinkedHashMap<Pair<String,Long>,Int>()
+        var items=LineItems.Changes.NONE
+        var itemsApplied=false; var published=false
+        var graphicsTouched=false
+        fun admitTile() {
+            if((made.size.toLong()+scratch.size+1)*size*size*4>boardSnapshotAllowanceBytes) error("This frame needs more merge memory")
+            graphicsTouched=true
+        }
+        fun mutableTile(owner: Layer, cel: String, key: Long): Int {
+            val address=Triple(owner.id,cel,key)
+            return pending[address]?.after ?: run {
+                admitTile()
+                val old=owner.cels[cel]?.get(key); val source=old ?: if(owner.id==l.id) cloneSources[cel]?.let { owner.cels[it]?.get(key) } else null; val target=newLayerTile()
+                try { initializeTile(target,source,false) } catch(e:Throwable) { recycleLayerTex(target); throw e }
+                made += target; pending[address]=UndoLog.TileChange(owner.id,key,old,target,cel); target
+            }
+        }
+        fun clipped(source: Int, rects: List<RegionTileRect>): Int {
+            admitTile()
+            val target=newLayerTile()
+            try { initializeTile(target,null,false); rects.forEach { copyTextureRect(source,target,it) } }
+            catch(e:Throwable) { recycleLayerTex(target); throw e }
+            scratch += target; return target
+        }
+        try {
+            val upper=projectedTiles(u); val lower=projectedTiles(l)
+            for(copy in lowerCopy.copies) {
+                for(key in l.cels[copy.fromCelId].orEmpty().keys) mutableTile(l,copy.toCelId,key)
+                if(!flattenLower) {
+                    val from=linePlane(l,copy.fromCelId); val to=linePlane(l,copy.toCelId)
+                    items += LineItems.copyOf(nativeLines,from,l.id,copy.toCelId) { tex -> admitTile(); copyOfTile(tex).also(made::add) }
+                    for(record in nativeLines.lines(from)) copiedFootprints[to to record.id]=nativeLines.footprint(from,record.id)
+                }
+            }
+            for((key,tex) in upper) {
+                val own=uPlan.tileSlices(key).filter { it.plane.boardId==boardId }.map { it.rect }
+                if(own.isEmpty()) continue
+                val source=clipped(tex,own)
+                admitTile()
+                val result=compositeTile(u,key,source,lower[key] ?: clearTex,lower[key],u.blend).also { scratch += it }
+                val slices=lPlan.tileSlices(key).filter { it.plane.boardId==boardId }
+                val appearance=if(!flattenLower && slices.any { key in nativeLines.crossedKeys(linePlane(l,cloneSources.getValue(it.plane.celId))) })
+                    run { admitTile(); compositeTile(u,key,source,clearTex,lower[key],BlendMode.NORMAL).also { scratch += it } } else null
+                for(slice in slices) {
+                    val cel=slice.plane.celId; val target=mutableTile(l,cel,key)
+                    copyTextureRect(result,target,slice.rect)
+                    if(appearance != null && key in nativeLines.crossedKeys(linePlane(l,cloneSources.getValue(cel)))) {
+                        val sheet=sheets.getOrPut(cel to key) {
+                            admitTile()
+                            val t=newLayerTile(); try { initializeTile(t,null,false) } catch(e:Throwable) { recycleLayerTex(t); throw e }
+                            made += t; t
+                        }
+                        copyTextureRect(appearance,sheet,slice.rect)
+                    }
+                }
+            }
+            for((at,tex) in sheets) {
+                val seq=nativeLines.nextSeq(linePlane(l,cloneSources.getValue(at.first)))
+                items += LineItems.Changes(listOf(UndoLog.SlabChange(l.id,at.first,at.second,seq,null,UndoLog.SlabValue(tex,sheetOp))),emptyList())
+            }
+            // The upper current frame is now an empty detached cel; reclaim only graph pieces no other frame uses.
+            for(drop in drops) {
+                val owner=layers.getValue(drop.layerId)
+                for((key,tex) in owner.cels[drop.celId].orEmpty())
+                    pending[Triple(owner.id,drop.celId,key)]=UndoLog.TileChange(owner.id,key,tex,null,drop.celId)
+                items += LineItems.removal(nativeLines,linePlane(owner,drop.celId),owner.id,drop.celId)
+            }
+            val step=UndoLog.Step(pending.values.toList(),documentBefore=original,documentAfter=next,lines=items.lines,slabs=items.slabs)
+            applyItemChanges(items.slabs,items.lines,true,footprints=copiedFootprints); itemsApplied=true
+            published=true; pending.values.forEach { put(it.layerId,it.key,it.after,it.celId) }
+            invalidateProjection(u); invalidateProjection(l); setBoardDocument(next); undo.push(step)
+            if(hadUpperLines) onLineNotice?.invoke("Lines on ${u.name} became paint while merging linked drawings; ${l.name} keeps its lines.")
+        } catch(e:Throwable) {
+            if(published) { pending.values.forEach { put(it.layerId,it.key,it.before,it.celId) }; setBoardDocument(original) }
+            if(itemsApplied) applyItemChanges(items.slabs,items.lines,false)
+            made.forEach(::recycleLayerTex); invalidateProjection(u); invalidateProjection(l); throw e
+        } finally {
+            scratch.forEach(::recycleLayerTex)
+            if(graphicsTouched) { GLES30.glDisable(GLES30.GL_SCISSOR_TEST); GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0) }
+        }
+    }
+
     /**
      * Flatten (LAYER_OPS L6): every layer in [merged] (the visible ones, bottom to top) frozen into [targetId] as plain
      * pixels, and the layers in [discarded] (hidden ones the person chose to drop) taken out, as ONE undo step; [after] is
@@ -1247,12 +1357,14 @@ class GlPaintEngine(
         return true
     }
 
-    fun flattenStep(targetId: String, merged: List<String>, discarded: List<String>, before: LayerStack, after: LayerStack) {
+    fun flattenStep(targetId: String, merged: List<String>, discarded: List<String>, before: LayerStack, after: LayerStack): String? {
+        if (boardDocument?.layers?.any { it.id in (merged+discarded) && it.regions.isNotEmpty() } == true)
+            return flattenAnimationStep(targetId, merged, discarded, before, after)
         requireLocalPaint()
         settleLift()
         settleWatercolourFade()
         checkStrokeEnded("a layer change during a stroke would be undone out of order")
-        val target = layers[targetId] ?: return
+        val target = layers[targetId] ?: return null
         val order = layers.values.toList()
         val inMerge = merged.toSet()
         require(order.filter { it.id in inMerge }.all { it.plan?.frames.isNullOrEmpty() }) { "Flattening layers that have animation frames is coming next." }
@@ -1315,6 +1427,161 @@ class GlPaintEngine(
         next?.let(::setBoardDocument)
         undo.push(UndoLog.Step(tileChanges, before, after, documentBefore = oldDoc, documentAfter = next,
             lines = items.lines, slabs = items.slabs))
+            return null
+    }
+
+    /** C6: sample the original clips into a prepared result, then publish ONE document/history step.
+     * No intermediate Combine is published, so any allocation or render failure leaves the old drawing intact. */
+    private fun flattenAnimationStep(targetId: String, merged: List<String>, discarded: List<String>, before: LayerStack, after: LayerStack): String? {
+        requireLocalPaint(); settleLift(); settleWatercolourFade(); checkStrokeEnded("Lift the pen before flattening")
+        val original=boardDocument ?: error("No drawing is attached")
+        require(framePreviews.isEmpty()) { "Stop playback before flattening" }
+        val plan=AnimationFlattenPlan.build(original,merged.toSet()) { UUID.randomUUID().toString() }
+        val targetMeta=plan.doc.layers.first { it.id == targetId }
+        val fresh={ UUID.randomUUID().toString() }
+        val shared=targetMeta.sharedCelId ?: targetMeta.cels.single().id
+        val cels=arrayListOf(Cel(shared))
+        val regions=plan.doc.boards.filter { it.kind == BoardKind.ANIMATION }.map { b ->
+            val animates=plan.doc.layers.any { l -> l.id in merged && l.regions.any { it.boardId == b.id && !it.held } }
+            val tuples=HashMap<List<String?>,String>()
+            val mapping=b.frames.associate { f ->
+                val tuple=plan.doc.layers.filter { it.id in merged }.map { l ->
+                    l.regions.firstOrNull { it.boardId == b.id && !it.held }?.frameCel?.get(f.id) ?: l.sharedCelId
+                }
+                f.id to tuples.getOrPut(tuple) { fresh().also { cels += Cel(it) } }
+            }
+            RegionFrames(b.id,mapping,held=!animates)
+        }
+        val replacement=targetMeta.copy(cels=cels,sharedCelId=shared,regions=regions,mask=null)
+        val next=documentForStack(plan.doc,after,mapOf(targetId to replacement))
+        val targetPlan=RegionDocumentOps.paintPlan(next,targetId)
+        val order=layers.values.toList()
+        val regroupedKept=plan.doc.layers.filter { l -> l.id !in merged && l.id !in discarded && l.regions != original.layers.first { it.id == l.id }.regions }.map { it.id }.toSet()
+        val remainingBoards=plan.doc.boards.map { it.id }.toSet()
+        // A still kept layer only receives held-region metadata. Its shared drawing and editable
+        // items do not participate in Flatten and must remain exactly as they were.
+        val recomposedHidden=regroupedKept.filter { id -> original.layers.first { it.id==id }.regions.any { !it.held && it.boardId !in remainingBoards } }.toSet()
+        val affected=(merged+discarded).toSet()+regroupedKept
+        val hiddenTouched=regroupedKept.associateWith { id ->
+            val old=original.layers.first { it.id == id }; val replacement=next.layers.first { it.id==id }
+            val removedRoots=old.regions.filter { it.boardId !in remainingBoards }.flatMap { it.frameCel.values }
+            val retained=CelParts.reachable(replacement,replacement.regions.flatMap { it.frameCel.values }+listOfNotNull(replacement.sharedCelId))
+            val retired=CelParts.reachable(old,removedRoots)-retained
+            retired+if(id in recomposedHidden) listOfNotNull(old.sharedCelId) else emptyList()
+        }
+        val frozenKeptNames=recomposedHidden.mapNotNull { id ->
+            val layer=layers.getValue(id)
+            val freezes=nativeLines.itemPlanes().any { plane -> plane.layerId==id && engineCel(layer,plane) in hiddenTouched.getValue(id) &&
+                (nativeLines.lines(plane).isNotEmpty() || nativeLines.slabSeqs(plane).isNotEmpty()) }
+            layer.name.takeIf { freezes }
+        }
+        val oldPreview=framePreviews
+        val made=ArrayList<Int>()
+        val staged=LinkedHashMap<Triple<String,String,Long>,Int>()
+        var items=LineItems.Changes.NONE
+        var published=false
+        var itemsApplied=false
+        var graphicsTouched=false
+        val changes=LinkedHashMap<Triple<String,String?,Long>,UndoLog.TileChange<Int>>()
+        fun remember(c: UndoLog.TileChange<Int>) { changes[Triple(c.layerId,c.celId,c.key)]=c }
+        fun collect(planes: Map<String,Map<Long,Int>>, cel: String, crop: RectPx?) {
+            val keys=LinkedHashSet<Long>(); merged.forEach { keys += planes[it].orEmpty().keys }
+            for(key in keys) {
+                val slices=if(crop == null) targetPlan.tileSlices(key).filter { it.plane == targetPlan.shared }.map { it.rect }
+                    else RegionTransferTiles.sparseSlices(crop,crop,sequenceOf(key),emptySequence()).filter { it.destinationKey == key }.map { it.destination }.toList()
+                if(slices.isEmpty()) continue
+                if((made.size.toLong()+2)*size*size*4 > boardSnapshotAllowanceBytes) throw IllegalArgumentException("Flatten needs more memory; shorten the clips or flatten fewer layers")
+                graphicsTouched=true
+                var out: Int?=null
+                try {
+                    for((index,l) in order.withIndex()) {
+                        if(l.id !in merged || !l.visible || l.isMask) continue
+                        val src=planes[l.id]?.get(key) ?: continue
+                        val base=LayerMask.clipBase(index) { order[it].clip }?.let { order[it] }
+                        if(base != null && !base.visible) continue
+                        val baseTex=if(base != null) planes[base.id]?.get(key) ?: continue else null
+                        val painted=compositeTile(l,key,src,out ?: clearTex,baseTex,l.blend,base?.mask?.tiles?.get(key))
+                        out?.let(::recycleLayerTex); out=painted
+                    }
+                    val source=out ?: continue
+                    val bounded=newLayerTile()
+                    try { initializeTile(bounded,null,false); slices.forEach { copyTextureRect(source,bounded,it) } }
+                    catch(e:Throwable) { recycleLayerTex(bounded); throw e }
+                    made += bounded; staged[Triple(targetId,cel,key)]=bounded
+                } finally { out?.let(::recycleLayerTex) }
+            }
+        }
+        fun retainRaw(l: Layer, cel: String, source: Map<Long,Int>, outputPlan: RegionPaintPlan, crop: RectPx?) {
+            for((key,tex) in source) {
+                val address=Triple(l.id,cel,key)
+                if(address in staged) continue // linked drawings are prepared once
+                val slices=if(crop == null) outputPlan.tileSlices(key).filter { it.plane == outputPlan.shared }.map { it.rect }
+                    else RegionTransferTiles.sparseSlices(crop,crop,sequenceOf(key),emptySequence()).map { it.destination }.toList()
+                if(slices.isEmpty()) continue
+                if((made.size.toLong()+1)*size*size*4>boardSnapshotAllowanceBytes) throw IllegalArgumentException("Flatten needs more memory; shorten the clips first")
+                graphicsTouched=true
+                val bounded=newLayerTile()
+                try { initializeTile(bounded,null,false); slices.forEach { copyTextureRect(tex,bounded,it) } }
+                catch(e:Throwable) { recycleLayerTex(bounded); throw e }
+                made += bounded; staged[address]=bounded
+            }
+        }
+        try {
+            collect(order.associate { it.id to physicalDisplayTiles(it,null) },shared,null)
+            for(b in plan.doc.boards.filter { it.kind == BoardKind.ANIMATION }) {
+                val region=regions.first { it.boardId == b.id }
+                if(region.held) continue
+                val rendered=HashSet<String>()
+                for(frame in b.frames) {
+                    if(!rendered.add(region.frameCel.getValue(frame.id))) continue
+                    setFramePreviews(plan.samples.getValue(b.id to frame.id))
+                    collect(order.associate { it.id to projectedTiles(it) },region.frameCel.getValue(frame.id),b.rect)
+                }
+            }
+            for(id in recomposedHidden) {
+                val meta=next.layers.first { it.id == id }; val l=layers.getValue(id)
+                val outputPlan=RegionDocumentOps.paintPlan(next,id)
+                retainRaw(l,requireNotNull(meta.sharedCelId),physicalDisplayTiles(l,null),outputPlan,null)
+                for(region in meta.regions.filter { !it.held && original.boards.none { b -> b.id == it.boardId } }) {
+                    val b=next.boards.first { it.id == region.boardId }
+                    for(f in b.frames) {
+                        setFramePreviews(plan.samples.getValue(b.id to f.id))
+                        retainRaw(l,region.frameCel.getValue(f.id),projectedTiles(l),outputPlan,b.rect)
+                    }
+                }
+            }
+            setFramePreviews(oldPreview)
+            // Snapshot all original planes, masks and live media before replacing any store.
+            for(l in order.filter { it.id in affected }) {
+                val stores=if(l.sharedCel == null) mapOf<String?,Map<Long,Int>>(null to l.tiles) else l.cels
+                for((cel,tiles) in stores) if(l.id !in regroupedKept || cel in hiddenTouched.getValue(l.id)) for((k,t) in tiles) remember(UndoLog.TileChange(l.id,k,t,null,cel))
+                if(l.id !in regroupedKept) l.mask?.let { m -> for((k,t) in m.tiles) remember(UndoLog.TileChange(m.id,k,t,null)) }
+                for((cel,payload) in l.planes()) if(l.id !in regroupedKept || (cel ?: l.sharedCel) in hiddenTouched.getValue(l.id)) for((store,tiles) in payload) for((k,t) in tiles)
+                    remember(UndoLog.TileChange(MediaStores.id(l.id,store),k,t,null,cel))
+                for(plane in nativeLines.itemPlanes().filter { it.layerId == l.id && (l.id !in regroupedKept || engineCel(l,it) in hiddenTouched.getValue(l.id)) })
+                    items += LineItems.removal(nativeLines,plane,l.id,engineCel(l,plane))
+            }
+            for((at,t) in staged) remember(UndoLog.TileChange(at.first,at.third,layers.getValue(at.first).cels[at.second]?.get(at.third),t,at.second))
+            val step=UndoLog.Step(changes.values.toList(),before,after,documentBefore=original,documentAfter=next,lines=items.lines,slabs=items.slabs)
+            applyItemChanges(items.slabs,items.lines,forward=true); itemsApplied=true
+            published=true
+            changes.values.forEach { put(it.layerId,it.key,it.after,it.celId) }
+            order.forEach(::invalidateProjection)
+            applyStack(after); setBoardDocument(next)
+            undo.push(step)
+        } catch(e:Throwable) {
+            if(published) {
+                changes.values.forEach { put(it.layerId,it.key,it.before,it.celId) }
+                applyStack(before); setBoardDocument(original)
+            }
+            if(itemsApplied) applyItemChanges(items.slabs,items.lines,forward=false)
+            made.forEach(::recycleLayerTex)
+            throw e
+        } finally { setFramePreviews(oldPreview); if(graphicsTouched) GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0) }
+        val notices=ArrayList<String>()
+        if(plan.combinedNames.isNotEmpty()) notices += "Combined ${plan.combinedNames.joinToString()} before flattening; Undo brings the clips and layers back."
+        if(frozenKeptNames.isNotEmpty()) notices += "Lines and sheets on kept layers ${frozenKeptNames.joinToString()} became pixels while combining their clips; Undo restores them."
+        return notices.takeIf { it.isNotEmpty() }?.joinToString(" ")
     }
 
     /**
@@ -1760,6 +2027,7 @@ class GlPaintEngine(
         layers.clear()
         boardDocument = null
         tilePreviewRect = null
+        clipMovePreview = null
         framePreviews = emptyMap()
     }
 
@@ -1771,10 +2039,11 @@ class GlPaintEngine(
         requireLocalPaint()
         settleLift()
         checkStrokeEnded("A board cannot change during a stroke")
+        if(clipMovePreview != null) { clipMovePreview=null; layers.values.forEach(::invalidateProjection) }
         val errors=DocOps.validate(doc); require(errors.isEmpty()) { errors.joinToString("; ") }
         require(doc.layers.all { it.kind.hasPixels && it.animatedIn==null }) { "This renderer paints raster layers" }
         val previews = framePreviews.filter { (boardId, frameId) ->
-            doc.boards.any { it.id == boardId && it.kind == BoardKind.ANIMATION && it.frames.any { f -> f.id == frameId } }
+            doc.boards.any { it.id == boardId && it.kind == BoardKind.ANIMATION && (frameId == RegionDocumentOps.BLANK_PREVIEW || it.frames.any { f -> f.id == frameId }) }
         }
         // Validate all plans before changing any live layer.
         val plans = RegionDocumentOps.paintPlans(doc, previews)
@@ -1797,14 +2066,31 @@ class GlPaintEngine(
         if(doc.boards.none { it.id == onionBoardId && it.kind == BoardKind.ANIMATION }) onionBoardId=null
     }
 
+    /** C8: display-only translated cels while dragging. Physical stores, saved geometry and Undo stay unchanged. */
+    fun setClipMovePreview(boardId: String?, destination: RectPx?) {
+        checkStrokeEnded("Lift the pen before moving a clip")
+        val doc=boardDocument ?: return
+        val requested=if(boardId != null && destination != null) boardId to destination else null
+        if(requested == clipMovePreview) return
+        val preview=if(requested == null) doc else AnimationBoardOps.previewMove(doc,requested.first,requested.second.x,requested.second.y)
+        val plans=RegionDocumentOps.paintPlans(preview,emptyMap())
+        for((id,plan) in plans) { val l=layers.getValue(id); invalidateProjection(l); l.plan=plan }
+        clipMovePreview=requested
+    }
+
     /** Switch display planes only. Paint always begins on the document's saved frame. */
     fun setFramePreviews(frames: Map<String, String>) {
         requireLocalPaint()
         checkStrokeEnded("Playback cannot change during a stroke")
         val doc = boardDocument
         if (doc == null) { require(frames.isEmpty()) { "No board document is attached" }; return }
+        if(clipMovePreview != null) setClipMovePreview(null,null)
         val requested = frames.toMap()
         if (requested == framePreviews) return
+        val timer = phaseTimer; val began = if (timer != null) System.nanoTime() else 0L
+        try { applyFramePreviews(doc, requested) } finally { if (timer != null) timer("setFramePreviews", (System.nanoTime() - began) / 1e6) }
+    }
+    private fun applyFramePreviews(doc: JbDocument, requested: Map<String, String>) {
         val plans = RegionDocumentOps.paintPlans(doc, requested)
         for ((id, plan) in plans) {
             val layer = layers.getValue(id)
@@ -1822,6 +2108,7 @@ class GlPaintEngine(
     fun applyBoardChange(change: RegionChange): String? {
         requireLocalPaint()
         checkStrokeEnded("Check failed.")
+        if(clipMovePreview != null) setClipMovePreview(null,null)
         val before=boardDocument ?: error("No board document is attached")
         val errors=DocOps.validate(change.doc); require(errors.isEmpty()){errors.joinToString("; ")}
         require(change.doc.layers.map{it.id}==before.layers.map{it.id}) { "Board edits cannot replace the layer stack" }
@@ -1895,6 +2182,7 @@ class GlPaintEngine(
         }
         val pending=LinkedHashMap<Pair<String,Pair<String?,Long>>,UndoLog.TileChange<Int>>()
         var published=false
+        var graphicsTouched=false
         fun checkRoom(address: Pair<String, Pair<String?, Long>>, original: Int?) {
             memory.observe(address, original, true)
         }
@@ -1906,6 +2194,7 @@ class GlPaintEngine(
             val old=pending[address]
             val original=old?.before ?: layer.cels[cel]?.get(key)
             checkRoom(address, original)
+            graphicsTouched=true
             val made=newLayerTile()
             try {
                 initializeTile(made,old?.after ?: original,false)
@@ -1928,6 +2217,7 @@ class GlPaintEngine(
             val old = pending[address]
             val target = old?.after ?: run {
                 checkRoom(address, original)
+                graphicsTouched=true
                 val made = newLayerTile()
                 try { initializeTile(made, original, layer.isMask) }
                 catch (e: Throwable) { recycleLayerTex(made); throw e }
@@ -2013,7 +2303,7 @@ class GlPaintEngine(
             if(published) { pending.values.forEach{c->put(c.layerId,c.key,c.before,c.celId)}; setBoardDocument(before) }
             pending.values.forEach { c->c.after?.let(::recycleLayerTex) }
             throw e
-        } finally { GLES30.glDisable(GLES30.GL_SCISSOR_TEST); GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0) }
+        } finally { if(graphicsTouched) { GLES30.glDisable(GLES30.GL_SCISSOR_TEST); GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0) } }
         // Only lines that stay as pixels are said; a dropped frame's lines went with the frame the person deleted.
         return BoardItemFlatten.sentence(flatten.flattened.mapNotNull { p -> before.layers.firstOrNull { it.id == p.layerId }?.name })
     }
@@ -2055,7 +2345,8 @@ class GlPaintEngine(
     private fun planeTiles(layer: Layer,celId: String?): HashMap<Long,Int> =
         if(celId==null)layer.tiles else layer.cels.getOrPut(celId){HashMap()}
     private fun invalidateProjection(layer: Layer) {
-        layer.projected.values.forEach(::recycleLayerTex); layer.projected.clear(); layer.visibleProjection=null
+        layer.projected.values.forEach(::recycleLayerTex); layer.projected.clear();
+        layer.moveProjected.values.forEach(::recycleLayerTex); layer.moveProjected.clear(); layer.visibleProjection=null
     }
     /** Display borrows source bases or actual line looks; it never adopts a look as pixel truth. */
     private fun physicalDisplayTiles(layer: Layer, cel: String?): Map<Long, Int> {
@@ -2092,20 +2383,46 @@ class GlPaintEngine(
             if(scissor)GLES30.glEnable(GLES30.GL_SCISSOR_TEST) else GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
         }
     }
+    /** Debug bench only: named per-frame timing sections (the canvas wires it to FrameStats.phase). */
+    var phaseTimer: ((String, Double) -> Unit)? = null
+
     private fun projectedTiles(layer: Layer): Map<Long,Int> {
         val plan=layer.plan ?: return physicalDisplayTiles(layer, null)
         if(plan.frames.isEmpty())return physicalDisplayTiles(layer, null)
         layer.visibleProjection?.let{return it}
+        val timer=phaseTimer; val began=if(timer != null) System.nanoTime() else 0L
+        try { return buildProjection(layer,plan) } finally { if(timer != null) timer("project:"+layer.id,(System.nanoTime()-began)/1e6) }
+    }
+    private fun buildProjection(layer: Layer,plan: RegionPaintPlan): Map<Long,Int> {
         val keys=LinkedHashSet<Long>()
         val physical = (listOf<String?>(null) + plan.frames.map { planeOf(layer, it.celId) })
-            .distinct().associateWith { physicalDisplayTiles(layer, it) }
+            .distinct().associateWith { cel ->
+                val source=physicalDisplayTiles(layer,cel)
+                val move=clipMovePreview
+                val frame=plan.frames.firstOrNull { it.boardId == move?.first && planeOf(layer,it.celId) == cel }
+                if(move == null || frame == null) source else {
+                    val old=boardDocument!!.boards.first { it.id == move.first }.rect
+                    try {
+                        for(slice in RegionTransferTiles.sparseSlices(old,move.second,source.keys.asSequence(),emptySequence())) {
+                            val tex=source[slice.sourceKey] ?: continue
+                            if((layer.moveProjected.size.toLong()+1)*size*size*4>boardSnapshotAllowanceBytes) error("This clip needs more preview memory")
+                            val target=layer.moveProjected.getOrPut(cel to slice.destinationKey) {
+                                val made=newLayerTile()
+                                try { initializeTile(made,null,false); made } catch(e:Throwable) { recycleLayerTex(made); throw e }
+                            }
+                            copyTextureRectTranslated(tex,target,slice.source,slice.destination)
+                        }
+                        layer.moveProjected.filterKeys { it.first==cel }.mapKeys { it.key.second }
+                    } catch(e:Throwable) { invalidateProjection(layer); throw e }
+                }
+            }
         keys.addAll(physical[null].orEmpty().keys)
         plan.frames.forEach { keys.addAll(physical[planeOf(layer, it.celId)].orEmpty().keys) }
         val result=LinkedHashMap<Long,Int>()
         for(key in keys) {
             val slices=plan.tileSlices(key)
-            if(slices.size==1) { physical[planeOf(layer,slices[0].plane.celId)]?.get(key)?.let{result[key]=it}; continue }
-            val sources=slices.mapNotNull { slice -> physical[planeOf(layer,slice.plane.celId)]?.get(key)?.let{slice.rect to it} }
+            if(slices.size==1) { if (slices[0].plane.blank) continue; physical[planeOf(layer,slices[0].plane.celId)]?.get(key)?.let{result[key]=it}; continue }
+            val sources=slices.filterNot { it.plane.blank }.mapNotNull { slice -> physical[planeOf(layer,slice.plane.celId)]?.get(key)?.let{slice.rect to it} }
             if(sources.isEmpty())continue
             val tex=layer.projected.getOrPut(key) {
                 val made=newLayerTile()
@@ -2177,7 +2494,7 @@ class GlPaintEngine(
     private fun clipPlan(layer: Layer, plane: LinePlane): RegionPaintPlan? {
         val plan = layer.plan ?: return null
         val cel = plane.celId ?: return plan
-        if (cel == plan.shared.celId || plan.frames.any { it.celId == cel }) return plan
+        if (plan.coversCel(cel)) return plan
         val doc = boardDocument ?: return plan
         if (clipPlanDoc !== doc || clipPlanBase !== plan) { clipPlans.clear(); clipPlanDoc = doc; clipPlanBase = plan }
         return clipPlans.getOrPut(layer.id to cel) {
@@ -4589,6 +4906,7 @@ class GlPaintEngine(
         settleWatercolourFade()
         cancelStroke()
         tilePreviewRect=null
+        if(clipMovePreview != null) setClipMovePreview(null,null)
         if (framePreviews.isNotEmpty()) setFramePreviews(emptyMap())
         strokeTravel.reset()
         strokeLayer = storeOf(layerId) ?: error("no layer $layerId")
@@ -5025,6 +5343,7 @@ class GlPaintEngine(
             val live = boardDocument
             if (opposite != null && live != null) BoardHistory.restore(target, opposite, live) else target
         }
+        if(clipMovePreview != null) setClipMovePreview(null,null)
         if (framePreviews.isNotEmpty()) setFramePreviews(emptyMap())
         s.changes.forEach { put(it.layerId, it.key, it.before, it.celId) }
         reconcileAgreements(s.changes)
@@ -5053,6 +5372,7 @@ class GlPaintEngine(
             val live = boardDocument
             if (opposite != null && live != null) BoardHistory.restore(target, opposite, live) else target
         }
+        if(clipMovePreview != null) setClipMovePreview(null,null)
         if (framePreviews.isNotEmpty()) setFramePreviews(emptyMap())
         s.changes.forEach { put(it.layerId, it.key, it.after, it.celId) }
         reconcileAgreements(s.changes)
@@ -5728,6 +6048,7 @@ class GlPaintEngine(
 
     fun beginMediaStroke() {
         requireLocalPaint()
+        if(clipMovePreview != null) setClipMovePreview(null,null)
         settleWatercolourFade()
         check(mediaStroke == null && !strokeInProgress) { "a media stroke inside another stroke would be undone out of order" }
         mediaStroke = ArrayList()

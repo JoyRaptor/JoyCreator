@@ -143,6 +143,24 @@ class BoardExportCoordinator(private val activity: Activity,
         container.post { refresh() }
     }
 
+    fun showScene(doc: JbDocument) {
+        dismiss()
+        val board=doc.boards.firstOrNull { it.kind == BoardKind.ANIMATION } ?: return refusal("Add an Animation clip to export Play all")
+        panels.menu("Export Play all",listOf("Longest clip", "Full loop (up to 600 frames)")) { length ->
+            try {
+                val plan=cc.joycreator.joybrush.core.export.SceneAnimExportPlan.build(doc,length == 1)
+                panels.menu(if(plan.capped) "Full loop capped at 600 frames" else "${plan.previews.size} frames",listOf("GIF (up to 50 fps)", "PNG frames")) { format ->
+                    val request=BoardExportRequest(doc.id,board.id,board.kind,Export.Scope.ANIMATION,
+                        if(format == 0) Export.Format.GIF else Export.Format.PNG_FRAMES,
+                        board.currentFrameId,null,null,board.frames.map { it.id },emptyList(),
+                        doc.paper.includeInExport && !doc.paper.screenTransparent,
+                        scene=true,fullLoop=length == 1,sceneSignature=BoardExportRequest.sceneSignature(doc))
+                    dismiss(); choose(request,if(format == 0) "Play all.gif" else "Play all","image/${if(format == 0) "gif" else "png"}")
+                }
+            } catch(e:Exception) { refusal(e.message ?: "Could not prepare Play all export") }
+        }
+    }
+
     companion object {
         fun save(request: BoardExportRequest) = Bundle().apply {
             putString("document",request.documentId); putString("board",request.boardId)
@@ -150,25 +168,29 @@ class BoardExportCoordinator(private val activity: Activity,
             putString("frame",request.frameId); putString("start",request.startId); putString("end",request.endId)
             putStringArrayList("frames",ArrayList(request.frameIds)); putStringArrayList("images",ArrayList(request.imageIds))
             putBoolean("paper",request.includePaper)
+            putBoolean("scene",request.scene); putBoolean("fullLoop",request.fullLoop); putString("sceneSignature",request.sceneSignature)
         }
         fun restore(bundle: Bundle?): BoardExportRequest? = try {
             bundle?.let { BoardExportRequest(it.getString("document")!!,it.getString("board")!!,
                 BoardKind.valueOf(it.getString("kind")!!),Export.Scope.valueOf(it.getString("scope")!!),Export.Format.valueOf(it.getString("format")!!),
                 it.getString("frame"),it.getString("start"),it.getString("end"),it.getStringArrayList("frames")!!.toList(),
-                it.getStringArrayList("images")!!.toList(),it.getBoolean("paper")) }
+                it.getStringArrayList("images")!!.toList(),it.getBoolean("paper"),it.getBoolean("scene"),it.getBoolean("fullLoop"),it.getString("sceneSignature")) }
         } catch(_: Exception) { null }
 
-        /** A fresh subfolder avoids overwriting files from earlier exports or somebody else's work. */
+        /** A fresh subfolder avoids overwriting files from earlier exports or somebody else's work.
+         * Return actual encoder warnings for the host's UI-thread completion message. A GIF can
+         * acquire a Full loop cap only after its cadence is reduced, after the picker was shown. */
         fun write(resolver: ContentResolver, uri: Uri, contents: JbContents, request: BoardExportRequest, cache: File,
-            progress: (Int,Int) -> Unit = { _, _ -> }) {
-            BoardExport.stage(contents,request,cache,onFrame = progress).use { staged ->
+            progress: (Int,Int) -> Unit = { _, _ -> }): List<String> {
+            val warnings=linkedSetOf<String>()
+            BoardExport.stage(contents,request,cache,onWarning = { warnings.add(it) },onFrame = progress).use { staged ->
                 if(!request.folder) {
                     require(staged.files.size == 1)
                     val output = resolver.openOutputStream(uri,"wt") ?: throw JbArchiveException("the export destination could not be opened")
                     output.use { out -> staged.files.single().file.inputStream().use { it.copyTo(out) } }
                 } else {
                     val parent = DocumentsContract.buildDocumentUriUsingTree(uri,DocumentsContract.getTreeDocumentId(uri))
-                    val base = AnimExport.safeBaseName(contents.doc.boards.first { it.id == request.boardId }.name)
+                    val base = if(request.scene) "Play all" else AnimExport.safeBaseName(contents.doc.boards.first { it.id == request.boardId }.name)
                     val folder = DocumentsContract.createDocument(resolver,parent,DocumentsContract.Document.MIME_TYPE_DIR,
                         "$base export ${UUID.randomUUID().toString().take(8)}") ?: throw JbArchiveException("the export folder could not be created")
                     var written = 0
@@ -187,6 +209,7 @@ class BoardExportCoordinator(private val activity: Activity,
                     }
                 }
             }
+            return warnings.toList()
         }
     }
 }

@@ -50,7 +50,7 @@ class BoardTransactionMemoryTest {
     private fun twelveFrames(): JbDocument {
         val base = DocOps.newDocument("doc", "Budget", 512, 512, ::ids)
         val second = base.layers.single().copy(id = "second", cels = listOf(Cel("second-cel")))
-        var doc = RegionDocumentOps.create(base.copy(layers = base.layers + second), "Animation", RectPx(0, 0, 512, 512), ::ids).doc
+        var doc = RegionDocumentOps.create(base.copy(layers = base.layers + second), "Animation", RectPx(0, 0, 512, 512), ::ids, animate = null).doc
         repeat(11) { doc = RegionDocumentOps.addFrame(doc, doc.boards.last().id, NewFrame.BLANK, ::ids).doc }
         return doc
     }

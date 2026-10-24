@@ -11,6 +11,9 @@ class BoardChromePenFade {
 
     fun apply(input: BoardChromeLayout.Input, nowMs: Long): BoardChromeLayout.Input {
         require(nowMs >= 0 && (lastTime == null || nowMs >= lastTime!!))
+        // A new resting scene has no local lift event. Anchor its age to the supplied pen state,
+        // not app uptime: treating uptime zero as a lift can leave transport folded on startup.
+        if(lastTime==null && !input.penDown) since=nowMs-input.penLiftElapsedMs.coerceAtLeast(0)
         lastTime = nowMs
         if (down != input.penDown) {
             startAlpha = BoardChromeLayout.drawingAlpha(down, nowMs-since, startAlpha)

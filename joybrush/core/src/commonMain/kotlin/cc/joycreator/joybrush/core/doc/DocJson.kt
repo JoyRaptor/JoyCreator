@@ -63,7 +63,9 @@ object DocJson {
             brushes = doc.brushes.sorted(),
             layers = doc.layers.map { l ->
                 l.copy(cels = l.cels.map { c ->
-                    if (c.slabs.size < 2) c else c.copy(slabs = c.slabs.sortedWith(compareBy({ it.key }, { it.seq })))
+                    if (c.slabs.size < 2 && c.parts.size < 2) c else c.copy(
+                        slabs = c.slabs.sortedWith(compareBy({ it.key }, { it.seq })),
+                        parts = c.parts.sortedWith(compareBy({ it.rect.y }, { it.rect.x }, { it.rect.h }, { it.rect.w }, { it.celId })))
                 }, frameCel = l.frameCel.entries.sortedBy { it.key }.associate { it.key to it.value }, regions = l.regions.map { region ->
                     region.copy(frameCel = region.frameCel.entries.sortedBy { it.key }.associate { it.key to it.value })
                 })
@@ -79,7 +81,9 @@ object DocJson {
      */
     fun decode(text: String): JbDocument = try {
         refuseUnknownKeys(json.parseToJsonElement(text))
-        inkAsPaint(mediaAsPaint(json.decodeFromString(JbDocument.serializer(), text)))
+        inkAsPaint(mediaAsPaint(json.decodeFromString(JbDocument.serializer(), text))).let { doc ->
+            doc.copy(boards = doc.boards.map { it.copy(end = BoardEnd.of(it.end)) })
+        }
     } catch (e: SerializationException) {
         throw DocException("document.json cannot be read: ${e.message}")
     } catch (e: IllegalArgumentException) {

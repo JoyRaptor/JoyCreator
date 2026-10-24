@@ -4,9 +4,10 @@ import cc.joycreator.joybrush.core.doc.*
 import cc.joycreator.joybrush.core.paint.Tiles
 
 /** Projects one bounded tile at a time. Masks remain independent; no image-wide tile cache. */
-internal class RegionTileSource(doc: JbDocument, private val source: TileSource, frameId: String?) : TileSource {
+internal class RegionTileSource(doc: JbDocument, private val source: TileSource, frameId: String?, frameOverrides: Map<String, String> = emptyMap()) : TileSource {
     private val plans = doc.layers.filter { it.regions.isNotEmpty() }.associate { layer ->
-        layer.id to RegionDocumentOps.paintPlanUnchecked(doc, layer.id, frameId)
+        layer.id to if (frameOverrides.isEmpty()) RegionDocumentOps.paintPlanUnchecked(doc, layer.id, frameId)
+            else RegionDocumentOps.paintPlan(doc, layer.id, frameOverrides)
     }
 
     init {
@@ -24,6 +25,7 @@ internal class RegionTileSource(doc: JbDocument, private val source: TileSource,
         val slices = plan.tileSlices(Tiles.key(tx, ty))
         if (slices.size == 1 && slices.single().plane == plan.shared) return source.tile(layerId, celId, tx, ty)
         for (slice in slices) {
+            if (slice.plane.blank) continue
             val id = slice.plane.celId
             val bytes = if (fetched.containsKey(id)) fetched[id] else source.tile(layerId, id, tx, ty).also { fetched[id] = it }
             if (bytes == null) continue

@@ -464,18 +464,16 @@ object AnimOps {
      */
     fun totalDurationMs(board: Board): Double {
         val fps = playableSchedule(board)
-        var total = 0.0
-        for (frame in board.frames) total += durationMs(frame, fps)
-        return total
+        return board.frames.sumOf { it.holdFrames.toLong() } * 1000.0 / fps
     }
 
     /**
      * When each frame of [board] starts, in play order — the same order as [Board.frames], so the
      * index of a start is the index of its frame.
      *
-     * A frame's own length is worked out as `holdFrames × 1000 / fps`, multiplying before dividing,
-     * so the values add up exactly to [totalDurationMs]: both walk the same expression in the same
-     * order, and the last start plus the last frame's length IS the total.
+     * Every boundary converts the cumulative integer exposure count with `ticks × 1000 / fps`.
+     * This is also [totalDurationMs]'s end boundary. Adding floating frame lengths drifts by ulps,
+     * making a sample at tick 11 miss drawing 11 even when playback and export have the same fps.
      *
      * Refuses anything [playableSchedule] refuses, which is why a hold of zero never reaches the
      * arithmetic below: two frames would otherwise be given the SAME start, and [frameAt] would
@@ -484,18 +482,15 @@ object AnimOps {
     fun frameStartsMs(board: Board): List<Double> {
         val fps = playableSchedule(board)
         val starts = ArrayList<Double>(board.frames.size)
-        var at = 0.0
+        var ticks = 0L
         for (frame in board.frames) {
-            starts.add(at)
-            at += durationMs(frame, fps)
+            starts.add(ticks * 1000.0 / fps)
+            ticks += frame.holdFrames
         }
         return starts
     }
 
     // ------------------------------------------------------------------ the small parts
-
-    /** The length of [frame] in ms. Multiply before dividing, so `holdFrames = 3` at 12 fps is 250. */
-    private fun durationMs(frame: Frame, fps: Double): Double = frame.holdFrames * 1000.0 / fps
 
     /**
      * [board]'s fps as a [Double], refused unless [board] is something whose schedule can honestly be

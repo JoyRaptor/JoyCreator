@@ -34,7 +34,7 @@ class AnimationBoardOperationCorpusTest {
     )
 
     private fun singleFrame(rect: RectPx = RectPx(-4, -2, 8, 4)): JbDocument =
-        RegionDocumentOps.create(baseDoc(), "Animation", rect, ::ids).doc
+        RegionDocumentOps.create(baseDoc(), "Animation", rect, ::ids, animate = null).doc
 
     private fun sharedCel(doc: JbDocument, layerId: String): String =
         requireNotNull(doc.layers.first { it.id == layerId }.sharedCelId)
@@ -143,13 +143,10 @@ class AnimationBoardOperationCorpusTest {
             assertEquals(dest, transfers.single().destinationRect)
             assertEquals(origin, movedOne.clears.first { it.layerId == layer.id }.rect)
         }
-        // Two paint masks travel independently; the line-record layer has no mask.
-        assertEquals(2, movedOne.maskTransfers.size)
-        assertEquals(2, movedOne.maskClears.size)
-        for (t in movedOne.maskTransfers) {
-            assertEquals(origin, t.sourceRect)
-            assertEquals(dest, t.destinationRect)
-        }
+        // C8 moves the clip's drawings; masks are world-space coverage and stay stationary.
+        assertTrue(movedOne.maskTransfers.isEmpty())
+        assertTrue(movedOne.maskClears.isEmpty())
+        assertEquals(one.layers.map { it.mask }, movedOne.doc.layers.map { it.mask })
         // Many frames with LINK then BLANK: each layer has two unique cels, moved once each.
         var multi = RegionDocumentOps.addFrame(one, id, NewFrame.LINK, ::ids).doc
         multi = RegionDocumentOps.addFrame(multi, id, NewFrame.BLANK, ::ids).doc
@@ -266,7 +263,7 @@ class AnimationBoardOperationCorpusTest {
     @Test fun `overlap is refused for resize move and duplicate`() {
         val doc = singleFrame()
         val id = doc.activeBoardId!!
-        val neighbor = RegionDocumentOps.create(doc, "Neighbor", RectPx(20, 0, 8, 4), ::ids).doc
+        val neighbor = RegionDocumentOps.create(doc, "Neighbor", RectPx(20, 0, 8, 4), ::ids, animate = null).doc
         val neighborId = neighbor.activeBoardId!!
         assertTrue(DocOps.validate(neighbor).isEmpty())
         val snapshot = neighbor
@@ -292,7 +289,7 @@ class AnimationBoardOperationCorpusTest {
         doc = RegionDocumentOps.addFrame(doc, id, NewFrame.LINK, ::ids).doc
         doc = RegionDocumentOps.selectFrame(doc, id, secondFrame)
         doc = RegionDocumentOps.setHeld(doc, id, "paint", true).doc
-        doc = RegionDocumentOps.create(doc, "Neighbor", RectPx(20, 0, 8, 4), ::ids).doc
+        doc = RegionDocumentOps.create(doc, "Neighbor", RectPx(20, 0, 8, 4), ::ids, animate = null).doc
         val neighborId = doc.activeBoardId!!
         val snapshot = doc
         val change = AnimationBoardOps.remove(doc, id)

@@ -39,9 +39,9 @@ class RegionFrameSequenceCorpusTest {
     private class Fixture(var doc: JbDocument, val boardA: String, val boardB: String)
 
     private fun twoBoard(ids: () -> String): Fixture {
-        var doc = RegionDocumentOps.create(base(), "A", rectA, ids).doc
+        var doc = RegionDocumentOps.create(base(), "A", rectA, ids, animate = null).doc
         val boardA = doc.boards.last().id
-        doc = RegionDocumentOps.create(doc, "B", rectB, ids).doc
+        doc = RegionDocumentOps.create(doc, "B", rectB, ids, animate = null).doc
         return Fixture(doc, boardA, doc.boards.last().id)
     }
 
@@ -226,8 +226,8 @@ class RegionFrameSequenceCorpusTest {
             val currentCel = mapping.getValue("layer-a").getValue(boardA).getValue(currentA)
             val result = RegionDocumentOps.setHeld(doc, boardA, "layer-a", true)
             assertEquals(
-                listOf(RegionCopy("layer-a", currentCel, sharedOf.getValue("layer-a"), rectA)),
-                result.copies,
+                listOf(RegionTransfer("layer-a", currentCel, sharedOf.getValue("layer-a"), rectA, rectA)),
+                result.transfers,
             )
             doc = result.doc
             held.getValue("layer-a")[boardA] = true

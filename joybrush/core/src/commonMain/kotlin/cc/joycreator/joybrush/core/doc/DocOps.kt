@@ -110,15 +110,23 @@ object DocOps {
         if (regional) {
             if (doc.version < 6) out += "region animation needs document version 6"
             val animated = doc.boards.filter { it.kind == BoardKind.ANIMATION }
-            for ((i, a) in animated.withIndex()) for (b in animated.take(i)) {
-                if (a.rect.x.toLong() < b.rect.x.toLong()+b.rect.w && b.rect.x.toLong() < a.rect.x.toLong()+a.rect.w &&
-                    a.rect.y.toLong() < b.rect.y.toLong()+b.rect.h && b.rect.y.toLong() < a.rect.y.toLong()+a.rect.h) {
-                    out += "animation boards \"${a.id}\" and \"${b.id}\" overlap"
+            // ANIMATION_CLIPS C1: clips may overlap when no layer animates in both; one layer's frames never overlap.
+            fun overlaps(a: Board, b: Board) = a.rect.x.toLong() < b.rect.x.toLong()+b.rect.w && b.rect.x.toLong() < a.rect.x.toLong()+a.rect.w &&
+                a.rect.y.toLong() < b.rect.y.toLong()+b.rect.h && b.rect.y.toLong() < a.rect.y.toLong()+a.rect.h
+            for (layer in doc.layers) {
+                val mine = layer.regions.filterNot { it.held }.mapNotNull { r -> animated.firstOrNull { it.id == r.boardId } }
+                for ((i, a) in mine.withIndex()) for (b in mine.take(i)) if (overlaps(a, b)) {
+                    out += "layer \"${layer.name}\" animates in two overlapping boards, \"${b.name}\" and \"${a.name}\""
                 }
             }
             for (board in animated) if (board.currentFrameId == null || board.frames.none { it.id == board.currentFrameId }) {
                 out += "animation board \"${board.id}\" has no valid current frame"
             }
+        }
+
+        for(layer in doc.layers) {
+            if(layer.cels.any { it.parts.isNotEmpty() } && doc.version<13) out += "Linked component drawings need document version 13"
+            out += CelParts.errors(layer)
         }
 
         // 6 & 7 — a layer is either static (one cel) or animated in exactly one ANIMATION board.
@@ -139,7 +147,7 @@ object DocOps {
                     }
                     val frameIds = board.frames.mapTo(HashSet()) { it.id }
                     if (region.frameCel.keys != frameIds) out += "layer \"${l.id}\" region \"${board.id}\" does not map every frame exactly"
-                    for (cel in region.frameCel.values) {
+                    for (cel in try { CelParts.reachable(l,region.frameCel.values) } catch(e:DocException) { region.frameCel.values.toSet() }) {
                         if (cel !in celIds || cel == l.sharedCelId) out += "layer \"${l.id}\" region \"${board.id}\" has an invalid frame cel \"$cel\""
                         val previous = owner.put(cel,board.id)
                         if (previous != null && previous != board.id) out += "layer \"${l.id}\" shares a frame cel between boards"

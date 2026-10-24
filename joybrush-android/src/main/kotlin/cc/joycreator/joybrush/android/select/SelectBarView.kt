@@ -174,6 +174,9 @@ class SelectBarView(private val kit: ChromeKit, private val chips: Chips) : Line
                 cv.saveLayer(null, cut)
                 content(cv, 0xFF000000.toInt())
                 cv.restoreToCount(base)
+                // On light or mid paper (kraft) the paper seen through the cut is pale against the cyan and the word
+                // fades (Select bench, 10-24): fill the cut dark, so the chosen chip reads at a glance on every paper.
+                if (this@SelectBarView.ink == IconInk.DARK) content(cv, 0xFF121214.toInt())
                 return
             }
             if (alone) {

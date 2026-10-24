@@ -63,6 +63,7 @@ class SelectBoxHost(
     override fun videoRect(): RectF = bounds()
 
     override fun writeQuad(quad8: FloatArray): Boolean {
+        tapAt = null
         val v = view()
         val doc = FloatArray(8)
         for (i in 0 until 4) {
@@ -115,7 +116,21 @@ class SelectBoxHost(
         tool.cancelBox()
         gestureQuad = null
         settle()
+        val t = tapAt; tapAt = null
+        if (t != null && android.os.SystemClock.uptimeMillis() - tapTime < TAP_MS) tool.tapFromBox(t[0], t[1])
     }
+
+    /** Canvas px of a single contact the box took on its body, or null: if it lifts without moving, it was a tap. */
+    private var tapAt: FloatArray? = null
+    private var tapTime = 0L
+
+    /** The controller's touch gate saw the box take a body contact ([single] = the only finger or pen on the screen). */
+    fun noteBodyContact(x: Float, y: Float, single: Boolean) {
+        tapAt = if (single) floatArrayOf(x, y) else null
+        tapTime = android.os.SystemClock.uptimeMillis()
+    }
+
+    private companion object { const val TAP_MS = 300L }
 
     /** The controller calls this when a selection changes or ends, so a move that was taken away never leaves the row hidden. */
     fun settle() { gestureQuad = null; if (moving) { moving = false; onGesture?.invoke(false) } }

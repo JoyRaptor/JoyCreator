@@ -748,3 +748,38 @@ and chain controller.viewMoved() alongside existing canvas.onViewMoved handling.
 palm inference or false default thumb provider. The current string candidates must migrate
 with the rest of Select to ranked LineAddress entries before all-layer live binding.
 Exact standalone32 core/56 native proof and integrated review are in reviews/UX_COUNT_20261013.md.
+
+### K25 — A lines switch on each brush; the badge shows the mode last used; smudge drops a section (owner, 2026-10-24)
+
+> A switch on each brush, badge appears when vector or raster was last used, ability to toggle is disabled or hidden from brushes that cannot be vector. smuge brush has the drop feature /rasterize a vector line or section it touches, other mode ignores vector lines. ux specialist already desighned this behavior in detail ask it whats up
+
+- **Switch:** "Editable lines" in each brush's own hold-for-settings sheet (JB-5.20 D6), stored per brush (the
+  per-brush tool preference keyed by brush id, `BrushLinePreferences`). The ⋯ menu row for the current brush is a
+  shortcut to the same flag, never a second setting. Defaults: ON for the line brushes (Inks & pens, the line set and
+  the watercolour vector brush), OFF for painting brushes; no global fallback.
+- **Brushes that can never be lines** (media pencil/watercolour/oil, smudge, push, wet, blur, clone, paste) show NO
+  switch (a dead knob is worse than none), only D22's sentence: *"Makes pixels: this brush blends with what's under it,
+  so its strokes can't be picked as lines."*
+- **Badge = the brush's current mode** (what it was last used as), on every drawer tile, bottom-right, 12dp box,
+  ~80% of the drawer's ink. It replaces D22's pixels-only badge:
+  - raster: P9 C's dotted corner, dots r1.3 at (10,2) (10,6) (10,10) (6,6) (6,10) (2,10) in a 12x12 box;
+  - vector: a node-curve, stroke 1.3 `M2.5 9.5 C2.5 4 9.5 8 9.5 2.5`, round caps, with 2.2 x 2.2 square nodes centred on
+    both ends.
+  Pixels-always brushes always wear the raster mark. Hover label: "Makes editable lines" or D22's sentence.
+- **Smudge, two brushes** (JB-5.20 D8, AMENDED): *Smudge* drops what it touches: the touched line is first SPLIT at
+  the smudge footprint's edges (the same engine split as Slice, D24), only the touched piece is baked into pixels at its
+  own seq, the untouched pieces stay editable lines; one undo step; D23's toast *"That line became pixels."* with Undo.
+  D8's "never part of a line" rule was against baking part of a line while keeping its whole record (the ghost); a
+  split first removes the ghost. *Smudge paint only* ignores lines: it runs on the pixel slabs and never reads a line.
+- Builders: engine default + split (watercolour Codex brief L3 addendum, the lead reviews); the sheet switch, both
+  badge marks, the no-switch sentence and the toasts (Codex Select brief A10); the look is checked by the UI specialist.
+
+### K26 — Editable lines sit over the layer's realistic paint (owner, 2026-10-24)
+
+> yes, editable lines sit over realistic. i dont see any other way it would be becaus if we had seperate layers for differnt types it would be the same thing except a ux headache because the user would have to be keeping track of where everything was going instead of us
+
+- One layer holds both; its lines always draw above its realistic (media) paint. A realistic stroke made after a line
+  shows UNDER that line. The engine side is the lead's (media lane).
+- When it lands, the refusal "realistic pencil, watercolour and oil can't share a layer with lines yet" goes away.
+- One more one-time toast joins D23 (same surface, one pref): the first realistic stroke on a layer that holds lines
+  says *"Lines stay on top of realistic paint on the same layer."* Nothing else mentions it.

@@ -518,6 +518,13 @@ public class TransformOverlayView extends View {
         invalidate();
     }
 
+    /** Where the spin knob is now, in this view's px; false while no box shows. Debug benches find it to drag it. */
+    public boolean rotateHandlePosition(float[] outXY) {
+        if (getVisibility() != VISIBLE || !haveQuad) return false;
+        outXY[0] = rotateHandle[0]; outXY[1] = rotateHandle[1];
+        return true;
+    }
+
     /** Where the floating spin arc sits: outside the TOP edge (or the BOTTOM, see [rotateKnobBelow]), on its OUTWARD normal. */
     private void computeRotateHandle() {
         rotateEdge = rotateKnobBelow ? TransformQuad.BOTTOM : TransformQuad.TOP;

@@ -134,6 +134,37 @@ class SelectToolEditTest {
         assertTrue(tool.boxTo(q))
     }
 
+    private fun cross(): Host = Host(mutableListOf(
+        StrokeRecord("a", "brush", 7L, 0f, 1f, listOf(PenSample(0f, 50f, 0.0), PenSample(100f, 50f, 1.0))),
+        StrokeRecord("b", "brush", 7L, 0f, 1f, listOf(PenSample(50f, 0f, 0.0), PenSample(50f, 100f, 1.0)))))
+
+    private fun boxOf(tool: SelectTool) = SelectBoxHost(tool, { cc.joycreator.joybrush.core.view.ViewTransform() },
+        { android.graphics.RectF(0f, 0f, 200f, 200f) })
+
+    /** D3 on the phone (Select bench, 10-24): tapping a selected line again lands on the box's body; it must still cycle. */
+    @Test fun anUnmovedTapTheBoxTookPicksTheLineUnderneath() {
+        val tool = SelectTool(cross(), 1f) { true }
+        val box = boxOf(tool)
+        tool.tapFromBox(50f, 50f)
+        val first = (tool.selection as SelectionState.Lines).ids
+        box.noteBodyContact(50f, 50f, single = true)
+        box.cancelGesture()
+        val second = (tool.selection as SelectionState.Lines).ids
+        assertEquals(1, first.size)
+        assertEquals(1, second.size)
+        assertNotEquals(first, second)
+    }
+
+    @Test fun aBodyContactThatWasOneOfTwoNeverPicks() {
+        val tool = SelectTool(cross(), 1f) { true }
+        val box = boxOf(tool)
+        tool.tapFromBox(50f, 50f)
+        val first = (tool.selection as SelectionState.Lines).ids
+        box.noteBodyContact(50f, 50f, single = false)
+        box.cancelGesture()
+        assertEquals(first, (tool.selection as SelectionState.Lines).ids)
+    }
+
     @Test fun committedMoveThenReweightUsesMovedSamples() {
         val original = record("a")
         val host = Host(mutableListOf(original))

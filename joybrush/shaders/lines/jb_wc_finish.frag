@@ -30,6 +30,8 @@ uniform vec2 u_gravityDirection; // document coordinates, down = (0,+1)
 uniform float u_pooling;        // 0 live/unpooled, 1 finished, smoothstep fade between
 uniform float u_backdropWorld;
 uniform vec2 u_backdropOffset;  // document pixels, frozen from the record seed
+uniform int u_hasWashFrame;    // zero preserves the original sampling path exactly
+uniform mat3 u_docToWash;
 uniform float u_textureStrength;
 uniform float u_textureContrast;
 uniform int u_textureInvert;
@@ -72,6 +74,29 @@ float wc_coverage(vec2 doc) {
 vec3 wc_encode(vec3 linear) {
     return mix(1.055*pow(max(linear,vec3(0.0)),vec3(1.0/2.4))-0.055,linear*12.92,lessThanEqual(linear,vec3(0.0031308)));
 }
+float wc_washReadGrad(vec2 doc,vec2 dx,vec2 dy) {
+    vec3 p=u_docToWash*vec3(doc,1.0);
+    // A projective frame can have a pole outside its painted samples but inside
+    // an otherwise empty output tile. Keep those fragments finite as well.
+    if(abs(p.z)<1e-8) return 0.5;
+    vec3 gx=u_docToWash*vec3(dx,0.0), gy=u_docToWash*vec3(dy,0.0);
+    vec2 ux=(gx.xy*p.z-p.xy*gx.z)/(p.z*p.z*u_backdropWorld);
+    vec2 uy=(gy.xy*p.z-p.xy*gy.z)/(p.z*p.z*u_backdropWorld);
+    return textureGrad(u_backdrop,(p.xy/p.z+u_backdropOffset)/u_backdropWorld,ux,uy).r;
+}
+float wc_framedTileWash(vec2 doc) {
+    // Board blending stays in document space. Transform each periodic candidate,
+    // using its own projective derivative rather than differentiating wrapped UVs.
+    vec2 q;
+    vec4 w=jb_tilePeriodicWeights(doc,q);
+    vec2 period=u_tilePaperRect.zw;
+    vec2 dx=dFdx(doc), dy=dFdy(doc);
+    float a=wc_washReadGrad(q,dx,dy);
+    float b=wc_washReadGrad(q-vec2(period.x,0.0),dx,dy);
+    float c=wc_washReadGrad(q-vec2(0.0,period.y),dx,dy);
+    float d=wc_washReadGrad(q-period,dx,dy);
+    return clamp(0.5+dot(w,vec4(a,b,c,d)-0.5)*inversesqrt(dot(w,w)),0.0,1.0);
+}
 void main() {
     float alpha=wc_coverage(v_docPx);
     // The unpooled result is retained conceptually; the tint/coverage blend below is premultiplied.
@@ -92,7 +117,11 @@ void main() {
     // carries no texture break. Unarmed, both reads are the original lines, untouched.
     bool tiled=u_tilePaperRect.z > 0.0 && u_tilePaperRect.w > 0.0;
     float wash;
-    if(tiled) wash=jb_tileTextureR(u_backdrop,v_docPx,u_backdropOffset,u_backdropWorld,0.5);
+    if(u_hasWashFrame == 1) {
+        if(tiled) wash=wc_framedTileWash(v_docPx);
+        else wash=wc_washReadGrad(v_docPx,dFdx(v_docPx),dFdy(v_docPx));
+    }
+    else if(tiled) wash=jb_tileTextureR(u_backdrop,v_docPx,u_backdropOffset,u_backdropWorld,0.5);
     else wash=texture(u_backdrop,(v_docPx+u_backdropOffset)/u_backdropWorld).r;
     wash=clamp((wash-0.5)*u_textureContrast+0.5,0.0,1.0);
     if(u_textureInvert == 0) wash=1.0-wash;

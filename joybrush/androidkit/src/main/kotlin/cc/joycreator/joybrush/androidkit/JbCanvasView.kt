@@ -153,6 +153,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
      * stroke comes from one file and one seed.
      */
     @Volatile var preset: BrushPreset? = null
+        set(value) {
+            field = value
+            if (value?.engine == ENGINE_WATERCOLOUR) requestWatercolourPrewarm()
+        }
 
     /**
      * True once the person has moved the smoothing slider, and only then does the slider beat the
@@ -3056,7 +3060,46 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     /** One prewarm chain at a time: a surface and a load straight after it ask for it together. Main thread. */
     private var prewarmPumping = false
 
+    /** Coalesced selected-brush warmup, owned by the UI thread; GL names remain engine/context owned. */
+    private var watercolourPrewarmQueued = false
+
+    private fun requestWatercolourPrewarm() {
+        post {
+            if (watercolourPrewarmQueued) return@post
+            watercolourPrewarmQueued = true
+            pumpWatercolourPrewarm()
+        }
+    }
+
+    private fun pumpWatercolourPrewarm() {
+        val selected = preset
+        if (!surfaceReady || contentLost || selected?.engine != ENGINE_WATERCOLOUR) {
+            watercolourPrewarmQueued = false
+            return
+        }
+        if (drawing) { postDelayed({ pumpWatercolourPrewarm() }, 60); return }
+        val epoch = graphicsEpoch
+        onGl(allowLost = true) {
+            var retry = false
+            try {
+                if (!contentLost && epoch == graphicsEpoch && preset === selected && engine.ready) {
+                    retry = !engine.prepareWatercolour(selected.watercolourRuntime())
+                }
+            } catch (e: Exception) {
+                // Warmup is optional; an actual stroke still uses the ordinary refusal/recovery path.
+                android.util.Log.w("JoyBrushWatercolour", "Brush preparation failed", e)
+            } finally {
+                post {
+                    watercolourPrewarmQueued = false
+                    if (!contentLost && (retry || epoch != graphicsEpoch || preset !== selected))
+                        postDelayed({ requestWatercolourPrewarm() }, 60)
+                }
+            }
+        }
+    }
+
     private fun pumpMediaPrewarm() {
+        requestWatercolourPrewarm()
         if (prewarmPumping) return
         prewarmPumping = true
         pumpMediaPrewarmStep()
@@ -3177,6 +3220,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         val actualTile=engine.tileBoardId
         if(actualTile != tileBoardId) post { tileBoardId=actualTile; onTileBoardChanged?.invoke(actualTile) }
         if (contentChanged) boardContentRevision++
+        // The fade will publish its one completed history step from watercolourFrame.
+        // setBoardDocument below is a transaction fence and would otherwise settle it immediately.
+        if (engine.watercolourAnimating) return
         engine.boardDocument?.let{doc->
             val current=syncBoardLayers(doc)
             engine.setBoardDocument(current)

@@ -85,3 +85,33 @@ frame distribution. All runs remain in the table rather than discarding it.
 | True | 10 | same-process-warm | 10.62 | 18.07 / 45.83 | 11.28 / 45.76 | 531 | 567.22 | 24.6 / 24.8 |
 
 L1 measurement complete, performance NOT accepted. Ordinary fade observations~1.2s (first~2.2s); line fade~0.5–0.66s. Source trace: UP calls reportHistory; with a board document that calls setBoardDocument, whose checkStrokeEnded settles watercolor immediately. Keep history publication from collapsing the cosmetic tail. Existing media prewarm does not compile/upload vector watercolor programs/assets; live WatercolourPass.begin still pays those lazily. L2 must prepare selected resources non-destructively, with graphics-context ownership and GL state preserved. Full-resolution pooling remains unchanged.
+
+## Candidate source after L1 (not yet accepted)
+
+- b5965f3e3 + d3973ede0: immutable wash homography, source-compatible Select
+  transform, JBS5 optional frame, v1–v4 fixtures/refusals and archive/frozen-brush
+  edit test. The binary stroke version is the refusal gate; final format numbering
+  remains Lead-reviewed at landing. Captured source recipe equality includes the
+  frame while integer source placement preserves it unchanged.
+- d35fbea79: non-destructive selected-brush GL preparation with caller-state restore;
+  defer history publication until full pooling fade; transport wash in the actual
+  prepareRecordedLine/live WatercolourPass path (the older standalone watercolor
+  line renderer is not the current NativeLines production route).
+- e9b6ff9b6: per-brush preferences, Watercolor lines by default, with explicit pixel
+  override. The owner did not answer the optional preference question; this uses
+  the brief's recommended reversible default, not a claim of owner approval.
+  Activity patches are separate LEAD PATCH commits for shared-file integration.
+- GPU harness now checks wash translation, rotation, mutation sensitivity,
+  projective Tile periodicity, and world-fixed paper/grain/gravity. These new GPU
+  cases are UNRUN. JS syntax check passes.
+
+The first combined check failed at a new RecordedCel test's missing generic type
+(now corrected) and an external Media3 common/classes.jar held by another process.
+No jar/cache deletion or process termination was attempted. A standalone engine
+recheck was deferred because the shared Gradle slot had been acquired by the Lead
+wrapper for Select tests. Thus these candidate changes are NOT compile/device
+accepted; the last installed watercolor artifact was the diagnostic baseline.
+Repeated tint edits in the actual NativeLines path still re-deposit dabs: the
+existing isolated renderer's recolour cache is not yet wired into that production
+path. This L4 requirement remains open, as do phone edits/reopen/context-loss,
+owner appearance approval and the16.7ms target. No completion claim is made.

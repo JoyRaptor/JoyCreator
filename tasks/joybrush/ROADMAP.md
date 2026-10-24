@@ -20,7 +20,7 @@ Evidence/continuation: [completion audit](reviews/WATERCOLOUR_COMPLETION_AUDIT_2
 | L3 per-brush Makes lines, Watercolor default ON | Restored onto current-main candidate | Test current-main UI and immediate editable stroke |
 | L4 wash-frame transform and edits | Current core2559/backend1068 pass; production recolor cache compiles/key tests pass | Single selected line <=32 tiles reuses coverage; large/multi-selection falls back. Device pixel/cache proof; phone move/rotate/rebrush/delete, one Undo each |
 | L5 frozen brush/frame archive | Automated candidate proof | Phone save/reopen pixel hash, graphics restart and first edit |
-| L6 approved POC appearance | Pending acceptance | GPU comparison and owner's phone look/feel approval |
+| L6 approved POC appearance | GPU technical gates pass; six POC appearance comparisons fail | Preserve failed original references and full-resolution controls; owner's phone look/feel approval still owed |
 | L7 Note9 size300/spacing15%, p95<=16.7ms | Baseline fails | Optimize/repeat identical matrix; preserve full-resolution final pooling |
 
 Claude branch lead/wc-live-land1681bfdeb reports green core2559/4 optional skips,

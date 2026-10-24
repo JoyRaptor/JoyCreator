@@ -122,7 +122,7 @@ All of these **stay in the website / F-Droid build.** Decision already made and 
 | fix_audio chain (highpass → denoise → compress → loudnorm) | 🟢 ✔ | Works. **Not exposed as a button — only reachable by asking the chatbot.** |
 | Voiceover recording | 🟢 ~ | audio/VoiceoverRecorder |
 | Audio ducking | 🟡 | **Rebuilt** (2026-10-15 code read): lane menu "Duck under…" → Ducker + DuckApplier write ordinary volume points that export reads. Joybot's `set_ducking` mirrors it (needs the voice clip's transcript). The old set_clip_duck stays removed. Not seen on a phone by this lane. |
-| Visualizer studio | 🔵 ~ | feature-visualizer-studio-spec.md, Tier 3 planned |
+| Visualizer studio | 🟢 | Superseded by VisLab (section 5.5): music visuals in their own room, inside Studio and floating over other apps. |
 
 ---
 
@@ -244,6 +244,35 @@ as four separate chips two could be armed at once with reorder silently winning.
 > from the UI.** Ship what has been driven.
 
 ---
+
+## 5.5 VISLAB — the music visualiser lab (2026-10-17 to 10-23)
+
+GPU visuals that react to music: a room to build looks in, the same looks inside Studio as video
+layers, and a floating visualiser over other apps. Lead docs: `tasks/VISLAB_SPEC.md`,
+`tasks/VISLAB_TODO.md` (checklist with code places), `tasks/VISLAB_ROADMAP.md` (what is next).
+"Agent phone-tested" = driven on the Note 9 by an agent with screenshots; 🟢 = JoyRaptor used it.
+
+| Feature | Level | Notes |
+|---|---|---|
+| VisLab room: 39 looks, play to the demo song / mic / a song file | 🟢 ✔ | `vislab/room/VisLabActivity`; GLES 3 engine `vislab/gl/VisRenderer`, 44 shaders shared with the web pilot |
+| Live sound analysis (bass..air, kick / snare / hat, beat and bar, spectrum, history) | 🟢 ✔ | `vislab/audio/FeatureExtractor`; frame-for-frame parity test with the pilot (`tools/jvm-harness/run-vislab.sh`) |
+| The Lab: build a look from nothing, 26 elements, stack layers, every knob music-linkable (the ♪) | 🟢 ✔ | `room/KnobPanel`; looks saved as hand-editable `Supplies/Looks/<Name>.vis.json` in his folder |
+| Parts shelf: save a layer as a part, reuse it in any look | 🟡 ✔ | `.vispart.json`; agent phone-tested 10-18 |
+| Per-layer Opacity, Reactivity, Softness, Place (made in its own space), colours | 🟢 ✔ | |
+| Words as art: 9 paths x 6 behaviours x 6 letter styles; the song's words or your own typed words | 🟢 ✔ | `words/WordFeed` + `words.frag`; 48 words at once (10-23), Look ahead / behind, Shift along, Fade in/out |
+| Sliders: ghost dot where it started, soft snap to start / 0 / default / 45-90° | 🟡 ✔ | 10-23, agent phone-tested (`room/SnapSlider`, `GhostSeekBar`) |
+| Knobs that only act on the music: ♪ badge, dim while silent | 🟡 ✔ | 66 flagged in `types.json` (`"music": true`); agent phone-tested 10-23 |
+| Place Spin: a layer keeps turning, speeds up smoothly with the music | 🟡 ✔ | 10-23, agent phone-tested |
+| Heat guard (halves resolution when the phone runs hot) | 🟡 ✔ | `view/HeatGuard`; seen working 10-18; hour-long heat test still owed |
+| Floating visualiser over other apps: box or full screen, any look, hears a recording / the phone's sound / the mic | 🟢 ✔ | `vislab/overlay/VisOverlayService`; recorder menu's Visualiser switch |
+| VisLab looks inside Studio: the visualiser's Style tab, look row + keyframe for which look shows when | 🟢 ✔ | `vislab/studio/VisLabStyleTab`, `StudioVis` (own GL thread), preview = export |
+| Keyframable React / Fade / Bright / Colour / Size / Speed on a Studio visualiser | 🟡 ✔ | `model/VisLabKeys`; agent phone-tested 10-22 |
+| Lyrics looks in Studio show the clip's own transcript | 🟡 ✔ | `vislab/studio/StudioWords`; agent phone-tested 10-22 (preview + export) |
+| Blend mode on a Studio visualiser (Difference, Screen, Multiply...) | 🟡 ✔ | Real in export (`export/VisualizerBlendGlEffect`), Normal in preview; agent phone-tested 10-23 |
+| Web look book (desktop pilot of every look and the editor) | 🟢 ✔ | `tools/vislab-web`; published as a private Claude artifact (v5) |
+| Joybot can pick, edit and save looks | 🟡 ✔ | Joybot lane (`ai/actions/VisLab*`) |
+| Element packs from other people (plugins) | 🔵 | Designed in VISLAB_TODO section F |
+| Font per Words layer; composable Aurora / Mountains / Stars; VisLab effects on Studio clips and adjustment layers; MIDI as a sound source; sprite element; proxies driving looks | 🔵 | `tasks/VISLAB_ROADMAP.md` R1-R12, building from 10-23 |
 
 ## 6. AI — the agent
 

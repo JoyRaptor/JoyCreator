@@ -290,6 +290,17 @@ Bigger:
   it, like After Effects, so the effect can be masked, faded in and out, or switched on and off
   by animating the layer; `export/AdjustmentLayerGlEffect.java` exists). Recommended order:
   (a), then (c), with (d) as the long-term way to put the effects on anything; (b) if still needed.
+- [ ] **G9 A font per Words layer** (owner 10-23). Words are drawn live from a font into the glyph
+  sheet (`WordFeed`: one Paint, `Type.display(EXTRA)`; pilot `vislab-words.js` FONT = Archivo 800),
+  so any font works: add a "Font" choice on the Words layer (by name, from Studio's
+  `ui/faditor/text/FontLibrary` incl. imported fonts; missing font -> the default, said once),
+  `WordFeed` per (text, font). Studio's per-letter text animations could later become more
+  VisLab letter styles; the GPU paths/behaviours stay (they are what keeps 48 words fast).
+- [ ] **G10 MIDI as a sound source** (owner 10-23 asked how the music plays). Today every source is
+  analysed audio (the demo song is `assets/vislab/demo/vislab_demo.m4a`, a recording of the
+  pilot's procedural 124 bpm synth song). A MIDI file (or one beside a song) would give exact
+  events: every kick/snare/note with pitch and velocity, perfect beat sync, a lyric track (.kar)
+  for timed words. Claude can read and write MIDI and tracker (.mod/.xm) files in code.
 - Answered, no change: the picture's Across/Up/Size place the picture inside its layer; Place
   moves/turns/scales the whole layer (every element has Place). Two levels allow layered motion
   (frame the logo with its own knobs, give Place a music-linked bounce or a proxy link).

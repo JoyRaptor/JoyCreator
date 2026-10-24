@@ -671,10 +671,11 @@ public final class JoybotAgent {
                                     + " {\"tool\":...,\"args\":{...}}, no other words."));
                     continue;
                 }
-                if (toolRan && lastError != null && !changedSomething() && claimsAChange(aiText)) {
+                if (lastError != null && !changedSomething() && claimsAChange(aiText)) {
                     // Every attempt failed and nothing was written, yet the reply says "Done!"
                     // (a free model, three failed label_sprite_cells, Note 9 2026-10-15). Say what
-                    // really happened instead.
+                    // really happened instead. Not only after a tool ran: unreadable arguments run
+                    // nothing, and "I removed the transition." reached the person (benchmark 10-24).
                     finish(false, "That didn't work, so nothing changed. The last error was: "
                             + shortOf(lastError.replaceFirst("^Error:\\s*", "")));
                     return;

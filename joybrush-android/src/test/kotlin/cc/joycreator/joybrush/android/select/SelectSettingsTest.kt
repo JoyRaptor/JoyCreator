@@ -17,6 +17,20 @@ class SelectSettingsTest {
     private fun descendants(v: View): List<View> = listOf(v) +
         if (v is ViewGroup) (0 until v.childCount).flatMap { descendants(v.getChildAt(it)) } else emptyList()
 
+    @Test fun perBrushPriorityCaptionRequiresAnExplicitHostCapability() {
+        val kit = ChromeKit(RuntimeEnvironment.getApplication())
+        fun words(view: View) = descendants(view).filterIsInstance<android.widget.TextView>().map { it.text.toString() }
+        val caption = "Each brush’s own Editable lines choice takes priority."
+        val ordinary = SelectSettingsView(kit, false, false, {}, {})
+        val unsupported = SelectSettingsView(kit, false, false, {}, {}, perBrushLinesOverrideShelf = false)
+        val supported = SelectSettingsView(kit, false, false, {}, {}, perBrushLinesOverrideShelf = true)
+        assertFalse(caption in words(ordinary))
+        assertFalse(caption in words(unsupported))
+        assertEquals(1, words(supported).count { it == caption })
+        assertTrue("Paint and Airbrush make" in words(ordinary))
+        assertEquals(words(ordinary), words(supported).filterNot { it == caption })
+    }
+
     @Test fun lockedOptionAppearsAfterALockAndRemainsAvailableAfterTurningItOff() {
         val context = RuntimeEnvironment.getApplication()
         context.getSharedPreferences("joybrush_select", Context.MODE_PRIVATE).edit().clear().commit()

@@ -58,9 +58,11 @@ class SelectController(
         fun copySelection(selection: SelectionState.Selection)
         /** K8/K22: strip width, colour and brush affect selected lines; pulse their selection rings briefly on entry. */
         fun restyleRing(on: Boolean, pulse: Boolean)
-        /** K18/Q2: persisted shelf default; a brush's own Editable lines setting takes priority. */
+        /** K18/Q2: the shelf choice, persisted by the host. */
         fun paintMakesLines(): Boolean
         fun setPaintMakesLines(on: Boolean)
+        /** Enable the explanatory caption only after the host implements per-brush priority (L3). */
+        fun perBrushLinesOverrideShelf(): Boolean = false
         /** Accepted resting finger across canvas/chrome while the pen owns the count; exclude rejected palms. */
         fun hasRestingThumbForCount(): Boolean
     }
@@ -190,7 +192,8 @@ class SelectController(
             onPasteLines = { popovers.close(); pasteLines() },
             onPickLocked = { on -> preferences.pickLocked = on; picks = picks.copy(pickLocked = on) },
             onDimRest = { on -> preferences.dimRest = on; picks = picks.copy(fadeRest = if (on) 0.66f else 0f) },
-            showLockedOption = preferences.lockedOptionRevealed)
+            showLockedOption = preferences.lockedOptionRevealed,
+            perBrushLinesOverrideShelf = app.perBrushLinesOverrideShelf())
         showScrollableMenu(settings, anchor, Popovers.Side.BESIDE, widthDp = 260f)
     }
 

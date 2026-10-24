@@ -19,6 +19,29 @@ because a stale watcher or a dropped transport had been leaving OLD builds on th
 
 ---
 
+## Joy Brush Select lines — 2026-10-24
+
+**BUILT on `codex/select-lines`, awaiting Lead integration and UI/Note 9 acceptance.**
+Supporting source: `cc1061634`; separate `LEAD PATCH:` commits are listed in
+`joybrush/reviews/SELECT_LINES_IMPLEMENTATION_20261024.md`. This is not a claim that the installed app has these features.
+
+| Capability | State and evidence |
+|---|---|
+| Session Copy/Paste across drawings, fresh line/group IDs, frozen brushes, destination cel and automatic centring | Built; clipboard and host regression tests. |
+| Lock/Unlock, Group/Ungroup, Invert and Pick locked lines too | Built; metadata codec round-trip and exact layer-scope tests. |
+| Relative HSB with live preview and one edit on release | Built; preview/history and multiple-colour tests. |
+| Selection retained/refitted through history; Delete undo restores it | Built; history, refused-edit, drawing-epoch and delayed-snapshot tests. |
+| Select settings, scoped layer actions and Flatten Lower | Built; core policy tests. Dim preference is wired; the outside veil belongs to UI C3. |
+| Eyedropper recolour and 20% nudge-before ghost | Built; gesture/ghost tests; phone screenshots owed. |
+
+Latest app selection check: **122 tests, zero failures/errors**, plus Kotlin compile, before the final
+snapshot-publication/refused-edit review fixes. Final rerun and standalone core/androidkit suites are in progress.
+No phone verification or main integration claimed.
+
+**Still open:** A9 Slice needs zero-width cut admission and an atomic split transaction; A10 badge/switch/toasts
+wait for a settled L3 editable-lines default; ring Bend waits for vector L4. Phase B pixel selections require
+Phase A integration, a design note and Lead approval before code. This is not waiting solely on JoyRaptor.
+
 ## The proof levels — this is the point of the document
 
 | | Means | Consequence |

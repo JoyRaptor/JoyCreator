@@ -1,0 +1,227 @@
+{
+  "schemaVersion": 7,
+  "id": "bench-proj",
+  "name": "Bench Trip",
+  "createdAt": 1792783073535,
+  "lastModified": 1792783073535,
+  "timeline": {
+    "clips": [
+      {
+        "id": "c-beach",
+        "sourceUri": "file:///bench/media/beach.mp4",
+        "imageClip": false,
+        "inPointMs": 0,
+        "outPointMs": 10000,
+        "sourceDurationMs": 10000,
+        "speedMultiplier": 1.0,
+        "audioMuted": false,
+        "volumeLevel": 1.0,
+        "rotationDegrees": 0,
+        "flipHorizontal": false,
+        "flipVertical": false,
+        "cropPreset": "none",
+        "cropLeft": 0.0,
+        "cropTop": 0.0,
+        "cropRight": 1.0,
+        "cropBottom": 1.0,
+        "displayName": "beach.mp4",
+        "captionsEnabled": false,
+        "captionStyleId": "pop",
+        "captionCenterX": 0.5,
+        "captionCenterY": 0.82,
+        "captionSizeFraction": 0.06
+      },
+      {
+        "id": "c-city",
+        "sourceUri": "file:///bench/media/city.mp4",
+        "imageClip": false,
+        "inPointMs": 0,
+        "outPointMs": 10000,
+        "sourceDurationMs": 10000,
+        "speedMultiplier": 1.0,
+        "audioMuted": false,
+        "volumeLevel": 1.0,
+        "rotationDegrees": 0,
+        "flipHorizontal": false,
+        "flipVertical": false,
+        "cropPreset": "none",
+        "cropLeft": 0.0,
+        "cropTop": 0.0,
+        "cropRight": 1.0,
+        "cropBottom": 1.0,
+        "displayName": "city.mp4",
+        "captionsEnabled": false,
+        "captionStyleId": "pop",
+        "captionCenterX": 0.5,
+        "captionCenterY": 0.82,
+        "captionSizeFraction": 0.06
+      }
+    ],
+    "audioClips": [
+      {
+        "id": "a-music",
+        "sourceUri": "file:///bench/media/music.mp3",
+        "sourceDurationMs": 20000,
+        "inPointMs": 0,
+        "outPointMs": 20000,
+        "offsetMs": 0,
+        "layerId": "audio",
+        "volumeLevel": 1.0,
+        "pan": 0.0,
+        "muted": false,
+        "label": "music.mp3",
+        "captionsEnabled": false,
+        "captionStyleId": "pop",
+        "captionCenterX": 0.5,
+        "captionCenterY": 0.82,
+        "captionSizeFraction": 0.06,
+        "captionAnimPreset": "NONE",
+        "captionAnimGranularity": "WORD",
+        "captionAnimInPct": 0.0,
+        "captionAnimOutPct": 0.0
+      }
+    ],
+    "textOverlays": [
+      {
+        "id": "t-title",
+        "text": "Title",
+        "colorInt": -1,
+        "centerX": 0.5,
+        "centerY": 0.5,
+        "sizeFraction": 0.1,
+        "rotationDeg": 0.0,
+        "textAnimGranularity": "LETTER",
+        "endMs": 10000
+      },
+      {
+        "id": "t-draft",
+        "text": "draft",
+        "colorInt": -256,
+        "centerX": 0.5,
+        "centerY": 0.85,
+        "sizeFraction": 0.06,
+        "rotationDeg": 0.0,
+        "textAnimGranularity": "LETTER",
+        "endMs": 20000
+      },
+      {
+        "id": "i-logo",
+        "text": "",
+        "colorInt": -1,
+        "centerX": 0.85,
+        "centerY": 0.15,
+        "sizeFraction": 0.2,
+        "rotationDeg": 0.0,
+        "textAnimGranularity": "LETTER",
+        "imageUri": "file:///bench/media/logo.png",
+        "endMs": 20000
+      }
+    ],
+    "transitions": [
+      {
+        "type": "CROSS_DISSOLVE",
+        "durationMs": 500,
+        "clipIndex": 0
+      }
+    ],
+    "rippleMode": "ripple",
+    "layers": {
+      "masterTrack": {
+        "id": "master",
+        "kind": "MASTER",
+        "name": "Master",
+        "zIndex": 0,
+        "collapsed": false,
+        "hidden": false,
+        "locked": false,
+        "muted": false,
+        "items": [
+          {
+            "id": "c-beach",
+            "timelineStartMs": 0,
+            "zHint": 0,
+            "blendMode": "NORMAL",
+            "payloadKind": "clip",
+            "payloadId": "c-beach"
+          },
+          {
+            "id": "c-city",
+            "timelineStartMs": 10000,
+            "zHint": 0,
+            "blendMode": "NORMAL",
+            "payloadKind": "clip",
+            "payloadId": "c-city"
+          }
+        ]
+      },
+      "layers": [
+        {
+          "id": "text",
+          "kind": "TEXT",
+          "name": "Text",
+          "zIndex": 0,
+          "collapsed": false,
+          "hidden": false,
+          "locked": false,
+          "muted": false,
+          "items": [
+            {
+              "id": "t-title",
+              "timelineStartMs": 0,
+              "zHint": 0,
+              "blendMode": "NORMAL",
+              "payloadKind": "textOverlay",
+              "payloadId": "t-title"
+            },
+            {
+              "id": "t-draft",
+              "timelineStartMs": 0,
+              "zHint": 0,
+              "blendMode": "NORMAL",
+              "payloadKind": "textOverlay",
+              "payloadId": "t-draft"
+            },
+            {
+              "id": "i-logo",
+              "timelineStartMs": 0,
+              "zHint": 0,
+              "blendMode": "NORMAL",
+              "payloadKind": "textOverlay",
+              "payloadId": "i-logo"
+            }
+          ]
+        }
+      ],
+      "audioTracks": [
+        {
+          "id": "audio",
+          "kind": "AUDIO",
+          "name": "Audio",
+          "zIndex": 0,
+          "collapsed": false,
+          "hidden": false,
+          "locked": false,
+          "muted": false,
+          "items": [
+            {
+              "id": "a-music",
+              "timelineStartMs": 0,
+              "zHint": 0,
+              "blendMode": "NORMAL",
+              "payloadKind": "audioClip",
+              "payloadId": "a-music"
+            }
+          ]
+        }
+      ],
+      "trackDefs": []
+    }
+  },
+  "canvasPreset": "original",
+  "exportSettings": {
+    "resolution": "ORIGINAL",
+    "quality": "HIGH",
+    "format": "MP4",
+    "cleanAudio": false
+  }
+}

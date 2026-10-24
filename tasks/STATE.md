@@ -327,7 +327,7 @@ an agent with screenshots and timings; 🟢 = JoyRaptor used it.
 | Joybot audit fixes (Codex audit 10-18) | 🟡 ✔ | All 12 fixed + 4 more found on the phone (`tasks/audits/2026-10-18/joybot_fixes.md`). Note 9 agent checks 5/6 green; the VisLab one is folded into the VisLab session's 10-24 test. Locked items stay locked unless the person says "unlock" or "yes"; delete/revert ask first. |
 | Joybot sees the finished video (`look`) | 🟡 ✔ | 95c7cd868 (side session): titles, layers, grade and effects at any moment, as exported. Agent-checked once on the Note 9. |
 | Joybot draws in JoyBrush | 🟡 | ff36f19eb (side session): layers, frames, brush/colour, shapes. Phone test and push owed (10-24). |
-| Free-model task benchmark | 🔵 | Side session running 10-24: measured success per free model; nothing claimed until it reports. |
+| Free-model task benchmark | 🟡 ✔ | 10-24: `bash tools/jvm-harness/run-joybot-bench.sh` runs the real agent on the PC against 53 tasks (Studio, VisLab, audit faults); 53/53 with the fake model after fixing a false "done" it found (f5a342ae9). Free models live: ready, not run (no OpenRouter key on the PC). `tasks/joybot/BENCHMARK_2026-10-24.md`. |
 
 ---
 

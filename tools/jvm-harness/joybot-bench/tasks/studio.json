@@ -1,0 +1,358 @@
+[
+  {
+    "id": "studio-title-red",
+    "title": "“Make the title red”",
+    "words": "make the title red",
+    "reference": [
+      {"calls": [{"name": "set_text_style", "args": {"text": "t-title", "color": "#FF0000"}}]},
+      {"text": "Done — the title is red now."}
+    ],
+    "expect": {
+      "require": [{"path": "timeline.textOverlays[t-title].colorInt", "eq": "#FF0000"}],
+      "undoSteps": 1, "ok": true
+    }
+  },
+  {
+    "id": "studio-title-words",
+    "title": "“Change the title to say Summer Trip”",
+    "words": "change the title to say Summer Trip",
+    "reference": [
+      {"calls": [{"name": "set_text_words", "args": {"text": "t-title", "words": "Summer Trip"}}]},
+      {"text": "The title now says Summer Trip."}
+    ],
+    "expect": {
+      "require": [{"path": "timeline.textOverlays[t-title].text", "eq": "Summer Trip"}],
+      "undoSteps": 1, "ok": true
+    }
+  },
+  {
+    "id": "studio-title-bigger",
+    "title": "“Make the title bigger”",
+    "words": "make the title bigger",
+    "reference": [
+      {"calls": [{"name": "set_text_style", "args": {"text": "t-title", "size": 0.15}}]},
+      {"text": "The title is bigger now."}
+    ],
+    "expect": {
+      "require": [{"path": "timeline.textOverlays[t-title].sizeFraction", "moreThanBefore": true}],
+      "undoSteps": 1, "ok": true
+    }
+  },
+  {
+    "id": "studio-title-top",
+    "title": "“Move the title to the top of the screen”",
+    "words": "move the title to the top of the screen",
+    "reference": [
+      {"calls": [{"name": "set_layer_transform", "args": {"layer": "t-title", "y": 0.15}}]},
+      {"text": "Moved the title up to the top."}
+    ],
+    "expect": {
+      "require": [{"path": "timeline.textOverlays[t-title].centerY", "lt": 0.35}],
+      "allow": ["timeline.textOverlays[t-title].centerX"],
+      "undoSteps": 1, "ok": true
+    }
+  },
+  {
+    "id": "studio-logo-corner",
+    "title": "“Put the logo in the top left corner”",
+    "words": "put the logo in the top left corner",
+    "reference": [
+      {"calls": [{"name": "set_layer_transform", "args": {"layer": "i-logo", "x": 0.15, "y": 0.15}}]},
+      {"text": "The logo is in the top left corner now."}
+    ],
+    "expect": {
+      "require": [
+        {"path": "timeline.textOverlays[i-logo].centerX", "lt": 0.35},
+        {"path": "timeline.textOverlays[i-logo].centerY", "lt": 0.35}
+      ],
+      "undoSteps": 1, "ok": true
+    }
+  },
+  {
+    "id": "studio-selected-this",
+    "title": "“Make this red” with the draft note selected",
+    "words": "make this red",
+    "selected": "t-draft",
+    "reference": [
+      {"calls": [{"name": "set_text_style", "args": {"text": "t-draft", "color": "#FF0000"}}]},
+      {"text": "Made it red."}
+    ],
+    "expect": {
+      "require": [{"path": "timeline.textOverlays[t-draft].colorInt", "eq": "#FF0000"}],
+      "undoSteps": 1, "ok": true
+    }
+  },
+  {
+    "id": "studio-mute-city",
+    "title": "“Mute the city clip”",
+    "words": "mute the city clip",
+    "reference": [
+      {"calls": [{"name": "set_clip_muted", "args": {"clipId": "c-city", "muted": true}}]},
+      {"text": "The city clip is muted."}
+    ],
+    "expect": {
+      "require": [{"path": "timeline.clips[c-city].audioMuted", "eq": true}],
+      "undoSteps": 1, "ok": true
+    }
+  },
+  {
+    "id": "studio-speed-beach",
+    "title": "“Make the beach clip twice as fast”",
+    "words": "make the beach clip twice as fast",
+    "reference": [
+      {"calls": [{"name": "set_clip_speed", "args": {"clipId": "c-beach", "speed": 2.0}}]},
+      {"text": "The beach clip plays twice as fast now."}
+    ],
+    "expect": {
+      "require": [{"path": "timeline.clips[c-beach].speedMultiplier", "eq": 2.0}],
+      "allow": ["timeline.layers.masterTrack.items[c-city].timelineStartMs", "timeline.clips[c-beach].**",
+                "timeline.textOverlays[*].endMs", "timeline.textOverlays[*].startMs", "timeline.audioClips[a-music].**",
+                "timeline.layers.**.timelineStartMs"],
+      "undoSteps": 1, "ok": true
+    }
+  },
+  {
+    "id": "studio-wipe",
+    "title": "“Change the transition between the clips to a wipe”",
+    "words": "change the transition between the two clips to a wipe",
+    "reference": [
+      {"calls": [{"name": "set_transition", "args": {"seam": "1", "type": "WIPE_LEFT"}}]},
+      {"text": "The cut now wipes from one clip to the next."}
+    ],
+    "expect": {
+      "require": [{"path": "timeline.transitions[0].type", "contains": "WIPE"}],
+      "allow": ["timeline.transitions[0].**"],
+      "undoSteps": 1, "ok": true
+    }
+  },
+  {
+    "id": "studio-remove-transition",
+    "title": "“Take the transition out between the clips”",
+    "words": "take the transition out between the two clips",
+    "reference": [
+      {"calls": [{"name": "remove_transitions", "args": {"seams": [0]}}]},
+      {"text": "Removed the transition; it's a straight cut now."}
+    ],
+    "expect": {
+      "require": [{"path": "timeline.transitions[0]", "absent": true}],
+      "allow": ["timeline.transitions"],
+      "undoSteps": 1, "ok": true
+    }
+  },
+  {
+    "id": "studio-add-the-end",
+    "title": "“Add a text that says The End for the last 3 seconds”",
+    "words": "add a text that says The End for the last 3 seconds",
+    "reference": [
+      {"calls": [{"name": "add_text_overlay", "args": {"text": "The End", "centerX": 0.5, "centerY": 0.5, "sizeFraction": 0.1, "startMs": 17000, "endMs": 20000}}]},
+      {"text": "Added “The End” over the last three seconds."}
+    ],
+    "expect": {
+      "require": [
+        {"path": "timeline.textOverlays[*].text", "eq": "The End", "any": true},
+        {"path": "timeline.textOverlays[*].startMs", "gt": 15000, "any": true}
+      ],
+      "allowNew": ["timeline.textOverlays", "timeline.layers.layers[text].items", "timeline.layers.layers"],
+      "undoSteps": 1, "ok": true
+    }
+  },
+  {
+    "id": "studio-delete-draft",
+    "title": "“Delete the draft note”",
+    "words": "delete the draft note",
+    "reference": [
+      {"calls": [{"name": "remove_text_overlay", "args": {"overlayId": "t-draft"}}]},
+      {"text": "Deleted the draft note."}
+    ],
+    "expect": {
+      "require": [{"path": "timeline.textOverlays[t-draft]", "absent": true}],
+      "allow": ["timeline.layers.layers[text].items[t-draft]"],
+      "undoSteps": 1, "ok": true
+    }
+  },
+  {
+    "id": "studio-title-time",
+    "title": "“Show the title from 2 to 5 seconds”",
+    "words": "show the title from 2 seconds to 5 seconds",
+    "reference": [
+      {"calls": [{"name": "set_item_time", "args": {"id": "t-title", "startMs": 2000, "endMs": 5000}}]},
+      {"text": "The title now shows from 0:02 to 0:05."}
+    ],
+    "expect": {
+      "require": [
+        {"path": "timeline.textOverlays[t-title].startMs", "eq": 2000},
+        {"path": "timeline.textOverlays[t-title].endMs", "eq": 5000}
+      ],
+      "allow": ["timeline.layers.layers[text].items[t-title].timelineStartMs"],
+      "undoSteps": 1, "ok": true
+    }
+  },
+  {
+    "id": "studio-title-fade",
+    "title": "“Fade the title in over one second”",
+    "words": "fade the title in over one second",
+    "reference": [
+      {"calls": [{"name": "set_fades", "args": {"ids": ["t-title"], "fadeInMs": 1000}}]},
+      {"text": "The title fades in over a second now."}
+    ],
+    "expect": {
+      "require": [{"path": "timeline.textOverlays[t-title].*ade*n*", "eq": 1000, "any": true}],
+      "allow": ["timeline.textOverlays[t-title].**"],
+      "undoSteps": 1, "ok": true
+    }
+  },
+  {
+    "id": "studio-vertical",
+    "title": "“Make it vertical for TikTok”",
+    "words": "make it vertical for TikTok",
+    "reference": [
+      {"calls": [{"name": "set_canvas_preset", "args": {"preset": "9:16"}}]},
+      {"text": "The video is 9:16 now, ready for TikTok."}
+    ],
+    "expect": {
+      "require": [{"path": "canvasPreset", "eq": "9:16"}],
+      "undoSteps": 1, "ok": true
+    }
+  },
+  {
+    "id": "studio-music-half",
+    "title": "“Turn the music down to half”",
+    "words": "turn the music down to half",
+    "reference": [
+      {"calls": [{"name": "set_audio_volume", "args": {"audioClipId": "a-music", "volume": 0.5}}]},
+      {"text": "The music is at half volume now."}
+    ],
+    "expect": {
+      "require": [{"path": "timeline.audioClips[a-music].volumeLevel", "eq": 0.5}],
+      "undoSteps": 1, "ok": true
+    }
+  },
+  {
+    "id": "studio-duplicate-logo",
+    "title": "“Duplicate the logo”",
+    "words": "duplicate the logo",
+    "reference": [
+      {"calls": [{"name": "duplicate_layer", "args": {"layer": "i-logo"}}]},
+      {"text": "Made a copy of the logo."}
+    ],
+    "expect": {
+      "require": [{"path": "timeline.textOverlays[*].imageUri", "count": 2}],
+      "allow": ["schemaVersion", "timeline.layers.trackDefs"],
+      "allowNew": ["timeline.textOverlays", "timeline.layers.layers[text].items", "timeline.layers.layers", "timeline.layers.trackDefs"],
+      "undoSteps": 1, "ok": true
+    }
+  },
+  {
+    "id": "studio-lock-logo",
+    "title": "“Lock the logo so I don't move it by accident”",
+    "words": "lock the logo so I don't move it by accident",
+    "reference": [
+      {"calls": [{"name": "set_layer_flags", "args": {"layer": "i-logo", "locked": true}}]},
+      {"text": "The logo is locked."}
+    ],
+    "expect": {
+      "require": [{"path": "timeline.textOverlays[i-logo].objLocked", "eq": true}],
+      "undoSteps": 1, "ok": true
+    }
+  },
+  {
+    "id": "studio-hide-draft",
+    "title": "“Hide the draft note”",
+    "words": "hide the draft note",
+    "reference": [
+      {"calls": [{"name": "set_layer_flags", "args": {"layer": "t-draft", "hidden": true}}]},
+      {"text": "The draft note is hidden."}
+    ],
+    "expect": {
+      "require": [{"path": "timeline.textOverlays[t-draft]", "changed": true}],
+      "allow": ["timeline.textOverlays[t-draft].**"],
+      "undoSteps": 1, "ok": true
+    }
+  },
+  {
+    "id": "studio-delete-city",
+    "title": "“Delete the city clip”",
+    "words": "delete the city clip",
+    "reference": [
+      {"calls": [{"name": "delete_clip", "args": {"clipId": "c-city"}}]},
+      {"text": "Deleted the city clip."}
+    ],
+    "expect": {
+      "require": [{"path": "timeline.clips[c-city]", "absent": true}],
+      "allow": ["timeline.layers.masterTrack.items[c-city]", "timeline.transitions", "timeline.textOverlays[*].endMs",
+                "timeline.audioClips[a-music].**"],
+      "undoSteps": 1, "ok": true
+    }
+  },
+  {
+    "id": "studio-rename-clip",
+    "title": "“Rename the first clip to Intro”",
+    "words": "rename the first clip to Intro",
+    "reference": [
+      {"calls": [{"name": "rename_clip", "args": {"clipId": "c-beach", "newName": "Intro"}}]},
+      {"text": "The first clip is called Intro now."}
+    ],
+    "expect": {
+      "require": [{"path": "timeline.clips[c-beach].*", "eq": "Intro", "any": true}],
+      "allow": ["timeline.clips[c-beach].**"],
+      "undoSteps": 1, "ok": true
+    }
+  },
+  {
+    "id": "studio-two-step",
+    "title": "“Make the title red and the draft note blue” (two changes, one undo)",
+    "words": "make the title red and the draft note blue",
+    "reference": [
+      {"calls": [{"name": "set_text_style", "args": {"text": "t-title", "color": "#FF0000"}}]},
+      {"calls": [{"name": "set_text_style", "args": {"text": "t-draft", "color": "#0000FF"}}]},
+      {"text": "The title is red and the draft note is blue."}
+    ],
+    "expect": {
+      "require": [
+        {"path": "timeline.textOverlays[t-title].colorInt", "eq": "#FF0000"},
+        {"path": "timeline.textOverlays[t-draft].colorInt", "eq": "#0000FF"}
+      ],
+      "undoSteps": 1, "ok": true
+    }
+  },
+  {
+    "id": "studio-question-length",
+    "title": "“How long is my video?” (a question: nothing may change)",
+    "words": "how long is my video?",
+    "reference": [
+      {"text": "Your video is 0:20 long — two 10-second clips."}
+    ],
+    "expect": {"unchanged": true, "undoSteps": 0, "reply": {"mentions": ["20"]}}
+  },
+  {
+    "id": "studio-ambiguous-logo",
+    "title": "“Make the logo bigger” with TWO logos (should ask which)",
+    "fixture": "studio-two-logos",
+    "words": "make the logo bigger",
+    "reference": [
+      {"text": "You have two logos — logo-light.png in the top right and logo-dark.png in the top left. Which one should I make bigger?"}
+    ],
+    "expect": {"unchanged": true, "undoSteps": 0, "reply": {"asks": true}}
+  },
+  {
+    "id": "studio-locked-title",
+    "title": "“Move the title to the top” but the title is locked (must not move or unlock it)",
+    "fixture": "studio-locked",
+    "words": "move the title to the top",
+    "reference": [
+      {"calls": [{"name": "set_layer_transform", "args": {"layer": "t-title", "y": 0.15}}]},
+      {"text": "The title is locked, so I left it where it is. Want me to unlock it first?"}
+    ],
+    "expect": {"unchanged": true, "undoSteps": 0}
+  },
+  {
+    "id": "studio-cant-do",
+    "title": "“Draw a moustache on the person in the beach clip” (not possible: be honest, change nothing)",
+    "words": "draw a moustache on the person in the beach clip",
+    "reference": [
+      {"text": "I can't draw on the video itself in Studio yet, so I haven't changed anything. You could paint one in JoyBrush and add it as a picture layer."},
+      {"text": "There is no tool that draws on a clip, so I still haven't changed anything."}
+    ],
+    "expect": {"unchanged": true, "undoSteps": 0}
+  }
+]

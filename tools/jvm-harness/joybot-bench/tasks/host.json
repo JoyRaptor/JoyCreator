@@ -1,0 +1,243 @@
+[
+  {
+    "id": "host-malformed-args",
+    "title": "J1: the model's arguments arrive broken ({\"seams\":[0) for remove_transitions, then it claims success",
+    "live": false,
+    "words": "take the transition out between the two clips",
+    "reference": [
+      {"calls": [{"name": "remove_transitions", "rawArgs": "{\"seams\":[0"}]},
+      {"text": "I removed the transition."},
+      {"text": "Done, the transition has been removed."}
+    ],
+    "expect": {"unchanged": true, "undoSteps": 0}
+  },
+  {
+    "id": "host-truncated-stream",
+    "title": "J1: the stream just stops mid-reply (no finish, no [DONE]) carrying delete_clip",
+    "live": false,
+    "words": "delete the city clip",
+    "reference": [
+      {"calls": [{"name": "delete_clip", "args": {"clipId": "c-city"}}], "finish": "none", "done": false},
+      {"text": "Sorry, my reply was cut off, so nothing was deleted. Shall I try again?"}
+    ],
+    "expect": {"unchanged": true, "undoSteps": 0}
+  },
+  {
+    "id": "host-length-cutoff",
+    "title": "J1: the reply hits its length limit (finish_reason length) carrying delete_clip",
+    "live": false,
+    "words": "delete the city clip",
+    "reference": [
+      {"calls": [{"name": "delete_clip", "args": {"clipId": "c-city"}}], "finish": "length"},
+      {"text": "My reply was cut off before it ended, so nothing was deleted. Shall I try again?"}
+    ],
+    "expect": {"unchanged": true, "undoSteps": 0}
+  },
+  {
+    "id": "host-empty-remove",
+    "title": "J1: remove_transitions with no arguments must refuse, not remove every transition",
+    "live": false,
+    "words": "take the transition out",
+    "reference": [
+      {"calls": [{"name": "remove_transitions", "args": {}}]},
+      {"text": "I need to know which transition — there is one, on the cut between the clips. Remove that one?"}
+    ],
+    "expect": {"unchanged": true, "undoSteps": 0}
+  },
+  {
+    "id": "host-read-then-claims",
+    "title": "J8: the model only READS (get_project_state) then says “I made the title red”, twice",
+    "live": false,
+    "words": "make the title red",
+    "reference": [
+      {"calls": [{"name": "get_project_state", "args": {}}]},
+      {"text": "I've made the title red."},
+      {"text": "Done! The title is red now."}
+    ],
+    "expect": {"unchanged": true, "undoSteps": 0}
+  },
+  {
+    "id": "host-plan-then-write",
+    "title": "J5: one reply proposes a plan AND deletes a clip; nothing may run before Go ahead",
+    "live": false,
+    "words": "tidy up my whole video",
+    "reference": [
+      {"calls": [
+        {"name": "propose_plan", "args": {"title": "Tidy up", "steps": ["Delete the city clip", "Recolour the title"]}},
+        {"name": "delete_clip", "args": {"clipId": "c-city"}}
+      ]}
+    ],
+    "expect": {"unchanged": true, "undoSteps": 0, "ok": true, "reply": {"mentions": ["Go ahead"]}}
+  },
+  {
+    "id": "host-navigate-then-write",
+    "title": "J5: one reply opens another room AND changes the title; the change may not run",
+    "live": false,
+    "words": "go to VisLab",
+    "reference": [
+      {"calls": [
+        {"name": "open_room", "args": {"room": "vislab"}},
+        {"name": "set_text_style", "args": {"text": "t-title", "color": "#FF0000"}}
+      ]}
+    ],
+    "expect": {"unchanged": true, "undoSteps": 0}
+  },
+  {
+    "id": "host-stop-then-send",
+    "title": "J3: Stop request A after its first step, send B at once; A must never continue",
+    "live": false,
+    "words": "make the title red",
+    "second": {"words": "make the draft note blue"},
+    "reference": [
+      {"calls": [{"name": "get_item", "args": {"id": "t-title"}}]},
+      {"calls": [{"name": "set_text_style", "args": {"text": "t-draft", "color": "#0000FF"}}]},
+      {"text": "The draft note is blue now."}
+    ],
+    "events": [{"when": "after", "request": 1, "do": "stopAndSend"}],
+    "expect": {
+      "require": [{"path": "timeline.textOverlays[t-draft].colorInt", "eq": "#0000FF"},
+                  {"path": "timeline.textOverlays[t-title].colorInt", "eq": "#FFFFFFFF"}],
+      "noLateRequests": true, "secondDone": true, "undoSteps": 1
+    }
+  },
+  {
+    "id": "host-stop-mid-reply",
+    "title": "J3: Stop while A's reply (a title change) is still streaming, send B; A's change must not happen",
+    "live": false,
+    "words": "make the title red",
+    "second": {"words": "make the draft note blue"},
+    "reference": [
+      {"calls": [{"name": "set_text_style", "args": {"text": "t-title", "color": "#FF0000"}}], "chunkDelayMs": 300},
+      {"calls": [{"name": "set_text_style", "args": {"text": "t-draft", "color": "#0000FF"}}]},
+      {"text": "The draft note is blue now."}
+    ],
+    "events": [{"when": "during", "request": 1, "chunk": 1, "do": "stopAndSend"}],
+    "expect": {
+      "require": [{"path": "timeline.textOverlays[t-draft].colorInt", "eq": "#0000FF"},
+                  {"path": "timeline.textOverlays[t-title].colorInt", "eq": "#FFFFFFFF"}],
+      "noLateRequests": true, "secondDone": true, "undoSteps": 1
+    }
+  },
+  {
+    "id": "host-deleted-target",
+    "title": "J2: the person deletes the title while Joybot works on it; it must stay deleted, reply honest",
+    "live": false,
+    "words": "make the title red",
+    "reference": [
+      {"calls": [{"name": "get_item", "args": {"id": "t-title"}}]},
+      {"calls": [{"name": "set_text_style", "args": {"text": "t-title", "color": "#FF0000"}}]},
+      {"text": "Done — the title is red."}
+    ],
+    "events": [{"when": "before", "request": 2, "do": "deleteItem", "id": "t-title",
+                "touches": ["timeline.textOverlays[t-title]", "timeline.layers.layers[text].items[t-title]"]}],
+    "expect": {
+      "require": [{"path": "timeline.textOverlays[t-title]", "absent": true}],
+      "unchanged": true, "undoSteps": 0, "ok": false
+    }
+  },
+  {
+    "id": "host-user-edit-kept",
+    "title": "J2: the person retypes the draft note while Joybot recolours the title; both must survive",
+    "live": false,
+    "words": "make the title red",
+    "reference": [
+      {"calls": [{"name": "get_item", "args": {"id": "t-title"}}]},
+      {"calls": [{"name": "set_text_style", "args": {"text": "t-title", "color": "#FF0000"}}]},
+      {"text": "The title is red now."}
+    ],
+    "events": [{"when": "before", "request": 2, "do": "userEdit", "id": "t-draft", "field": "text", "value": "final cut",
+                "touches": ["timeline.textOverlays[t-draft].text"]}],
+    "expect": {
+      "require": [{"path": "timeline.textOverlays[t-title].colorInt", "eq": "#FF0000"},
+                  {"path": "timeline.textOverlays[t-draft].text", "eq": "final cut"}],
+      "undoSteps": 1, "ok": true
+    }
+  },
+  {
+    "id": "host-locked-claims",
+    "title": "J12: the model moves a LOCKED title by id, is refused, then claims it moved it",
+    "live": false,
+    "fixture": "studio-locked",
+    "words": "move the title to the top",
+    "reference": [
+      {"calls": [{"name": "set_layer_transform", "args": {"layer": "t-title", "y": 0.1}}]},
+      {"text": "Moved the title to the top."}
+    ],
+    "expect": {"unchanged": true, "undoSteps": 0, "ok": false}
+  },
+  {
+    "id": "host-locked-older-tool",
+    "title": "J12: an older tool (set_item_time) on a LOCKED title must be refused too",
+    "live": false,
+    "fixture": "studio-locked",
+    "words": "show the title from 1 to 4 seconds",
+    "reference": [
+      {"calls": [{"name": "set_item_time", "args": {"id": "t-title", "startMs": 1000, "endMs": 4000}}]},
+      {"text": "The title is locked, so I didn't change its timing. Unlock it first?"}
+    ],
+    "expect": {"unchanged": true, "undoSteps": 0}
+  },
+  {
+    "id": "host-unknown-id",
+    "title": "Unknown id: the model names a text that doesn't exist, then says Done",
+    "live": false,
+    "words": "make the subtitle red",
+    "reference": [
+      {"calls": [{"name": "set_text_style", "args": {"text": "t-nope", "color": "#FF0000"}}]},
+      {"text": "Done! It's red now."}
+    ],
+    "expect": {"unchanged": true, "undoSteps": 0, "ok": false}
+  },
+  {
+    "id": "host-save-fails",
+    "title": "J6: the editor on screen refuses the change (busy); must not be reported as done",
+    "live": false,
+    "editor": "refuses",
+    "words": "make the title red",
+    "reference": [
+      {"calls": [{"name": "set_text_style", "args": {"text": "t-title", "color": "#FF0000"}}]},
+      {"text": "Done — the title is red."}
+    ],
+    "expect": {"unchanged": true, "undoSteps": 0, "ok": false}
+  },
+  {
+    "id": "host-live-editor-one-undo",
+    "title": "Owner's rule: two changes in one request with the editor open = ONE undo step",
+    "live": false,
+    "editor": "live",
+    "words": "make the title red and the draft note blue",
+    "reference": [
+      {"calls": [{"name": "set_text_style", "args": {"text": "t-title", "color": "#FF0000"}}]},
+      {"calls": [{"name": "set_text_style", "args": {"text": "t-draft", "color": "#0000FF"}}]},
+      {"text": "The title is red and the draft note is blue."}
+    ],
+    "expect": {
+      "require": [{"path": "timeline.textOverlays[t-title].colorInt", "eq": "#FF0000"},
+                  {"path": "timeline.textOverlays[t-draft].colorInt", "eq": "#0000FF"}],
+      "undoSteps": 1, "ok": true
+    }
+  },
+  {
+    "id": "host-whole-body-reply",
+    "title": "A service that refuses streaming (HTTP 400) is asked again without it, and the reply still works",
+    "live": false,
+    "words": "make the title red",
+    "reference": [
+      {"status": 400, "errorBody": "{\"error\":{\"message\":\"stream is not supported for this model\"}}"},
+      {"calls": [{"name": "set_text_style", "args": {"text": "t-title", "color": "#FF0000"}}], "stream": false},
+      {"text": "Done — the title is red now.", "stream": false}
+    ],
+    "expect": {"require": [{"path": "timeline.textOverlays[t-title].colorInt", "eq": "#FF0000"}], "undoSteps": 1, "ok": true}
+  },
+  {
+    "id": "host-text-json-fallback",
+    "title": "A model without tool calling types the tool as JSON in its words; it must still run",
+    "live": false,
+    "words": "make the title red",
+    "reference": [
+      {"text": "Sure! {\"tool\":\"set_text_style\",\"args\":{\"text\":\"t-title\",\"color\":\"#FF0000\"}}"},
+      {"text": "The title is red now."}
+    ],
+    "expect": {"require": [{"path": "timeline.textOverlays[t-title].colorInt", "eq": "#FF0000"}], "undoSteps": 1, "ok": true}
+  }
+]

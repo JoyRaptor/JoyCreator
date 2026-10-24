@@ -1,0 +1,120 @@
+[
+  {
+    "id": "vislab-add-lasers",
+    "title": "VisLab: “Add some lasers to this look”",
+    "room": "vislab", "look": "neon-bars",
+    "words": "add some lasers to this look",
+    "reference": [
+      {"calls": [{"name": "vislab_change", "args": {"add_layers": ["lasers as Lasers"]}}]},
+      {"text": "Added a lasers layer on top of Neon Bars."}
+    ],
+    "expect": {
+      "require": [{"path": "looks.neon-bars.layers[*].type", "eq": "lasers", "any": true}],
+      "allow": ["looks.neon-bars.layers[*]"],
+      "undoSteps": 1, "ok": true
+    }
+  },
+  {
+    "id": "vislab-pick-look",
+    "title": "VisLab: “Show me the Outrun look”",
+    "room": "vislab", "look": "neon-bars",
+    "words": "show me the Outrun look",
+    "reference": [
+      {"calls": [{"name": "vislab_pick_look", "args": {"look": "Outrun"}}]},
+      {"text": "Outrun is on screen now."}
+    ],
+    "expect": {"require": [{"path": "current", "eq": "outrun"}], "undoSteps": 1, "ok": true}
+  },
+  {
+    "id": "vislab-rename",
+    "title": "VisLab: “Rename this look to Party Bars”",
+    "room": "vislab", "look": "neon-bars",
+    "words": "rename this look to Party Bars",
+    "reference": [
+      {"calls": [{"name": "vislab_rename", "args": {"name": "Party Bars"}}]},
+      {"text": "It's called Party Bars now."}
+    ],
+    "expect": {"require": [{"path": "looks.neon-bars.name", "eq": "Party Bars"}], "undoSteps": 1, "ok": true}
+  },
+  {
+    "id": "vislab-remove-sparks",
+    "title": "VisLab: “Get rid of the sparks”",
+    "room": "vislab", "look": "neon-bars",
+    "words": "get rid of the sparks",
+    "reference": [
+      {"calls": [{"name": "vislab_change", "args": {"remove_layers": ["Tip sparks"]}}]},
+      {"text": "The sparks are gone; just the bars now."}
+    ],
+    "expect": {
+      "require": [{"path": "looks.neon-bars.layers[1]", "absent": true},
+                  {"path": "looks.neon-bars.layers[0].type", "eq": "spectrum"}],
+      "allow": ["looks.neon-bars.layers[1]"],
+      "undoSteps": 1, "ok": true
+    }
+  },
+  {
+    "id": "vislab-more-bars",
+    "title": "VisLab: “Use 96 bars instead of 48”",
+    "room": "vislab", "look": "neon-bars",
+    "words": "use 96 bars instead of 48",
+    "reference": [
+      {"calls": [{"name": "vislab_change", "args": {"changes": ["Bars.count = 96"]}}]},
+      {"text": "The look has 96 bars now."}
+    ],
+    "expect": {"require": [{"path": "looks.neon-bars.layers[0].p.count", "eq": 96}], "undoSteps": 1, "ok": true}
+  },
+  {
+    "id": "vislab-kick",
+    "title": "VisLab: “Make the bars jump harder on the kick”",
+    "room": "vislab", "look": "neon-bars",
+    "words": "make the bars jump harder on the kick",
+    "reference": [
+      {"calls": [{"name": "vislab_change", "args": {"changes": ["Bars.height = 0.6 + kick 0.5"]}}]},
+      {"text": "The bars now jump with every kick."}
+    ],
+    "expect": {
+      "require": [{"path": "looks.neon-bars.layers[0]", "changed": true}],
+      "allow": ["looks.neon-bars.layers[0].**"],
+      "undoSteps": 1, "ok": true
+    }
+  },
+  {
+    "id": "vislab-brand",
+    "title": "VisLab: “Use my brand colours …” (five colours)",
+    "room": "vislab", "look": "neon-bars",
+    "words": "use my brand colours on every look: #111111 #333333 #FF0000 #FF8800 #FFFFFF",
+    "reference": [
+      {"calls": [{"name": "vislab_brand", "args": {"colors": ["#111111", "#333333", "#FF0000", "#FF8800", "#FFFFFF"]}}]},
+      {"text": "Every look now uses your five brand colours."}
+    ],
+    "expect": {"require": [{"path": "brand", "contains": "FF8800"}], "undoSteps": 1, "ok": true}
+  },
+  {
+    "id": "vislab-question",
+    "title": "VisLab: “What layers does this look have?” (a question: nothing may change)",
+    "room": "vislab", "look": "neon-bars",
+    "words": "what layers does this look have?",
+    "reference": [
+      {"calls": [{"name": "vislab_describe", "args": {}}]},
+      {"text": "Neon Bars has two layers: the Bars (spectrum) at the back and Tip sparks (particles) on top."}
+    ],
+    "expect": {"unchanged": true, "undoSteps": 0, "reply": {"mentions": ["bars", "spark"]}}
+  },
+  {
+    "id": "vislab-two-step",
+    "title": "VisLab: “Add lasers and make the bars taller” (two changes, one undo)",
+    "room": "vislab", "look": "neon-bars",
+    "words": "add lasers and make the bars taller",
+    "reference": [
+      {"calls": [{"name": "vislab_change", "args": {"add_layers": ["lasers as Lasers"]}}]},
+      {"calls": [{"name": "vislab_change", "args": {"changes": ["Bars.height = 0.9"]}}]},
+      {"text": "Added lasers and made the bars taller."}
+    ],
+    "expect": {
+      "require": [{"path": "looks.neon-bars.layers[*].type", "eq": "lasers", "any": true},
+                  {"path": "looks.neon-bars.layers[0].p.height", "moreThanBefore": true}],
+      "allow": ["looks.neon-bars.layers[*]"],
+      "undoSteps": 1, "ok": true
+    }
+  }
+]

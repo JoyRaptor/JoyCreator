@@ -1,5 +1,11 @@
 # Launch plan (drafted 2026-10-15 from six read-only audits in tasks/audits/)
 
+## Owner request October24: audit and finish vector watercolour
+- [x] Audit Claude continuation and update STATE/roadmap with proof levels.
+- [ ] Finish/integrate/verify remaining L2–L7 in isolated vector/watercolour-finish-20261024.
+- [ ] Preserve source/evidence now; remove lane temporary files only after completion.
+Evidence: joybrush/reviews/WATERCOLOUR_COMPLETION_AUDIT_20261024.md.
+
 ## Owner request October 23: finish vector/tween parent plans
 - [ ] Complete the ordered implementation and acceptance work in `tasks/joybrush/VECTOR_TWEEN_COMPLETION_20261023.md` (isolated `codex/vector-tweens`; existing external lane work preserved).
 - [x] Independent core/schema/export slice implemented; full core2552 (4 optional skips) and backend1061 green. Owner retained engine hot files with Engine Lead; copied-frame/GPU/UI/phone completion remains with that lane.

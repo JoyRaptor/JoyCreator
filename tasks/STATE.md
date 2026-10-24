@@ -106,6 +106,7 @@ All of these **stay in the website / F-Droid build.** Decision already made and 
 | Sprites on the transform surface | 🟡 ✔ | SPEC Z slice 1 step 2, 2026-09-13. They used the legacy handle overlay until now. |
 | Transform (affine handles, rotation dial, pivot) | 🟢 | **Complete 2026-09-10.** Shipped alongside Bend. |
 | Undo (one press = one step) | 🟢 ~ | JoyRaptor's ruling. Batch operations collapse to one undo. |
+| Undo history after closing and reopening a project | 🟡 ✔ | 2026-10-22 to 10-24, agent-checked on the Note 9, not yet used by JoyRaptor. Phone-proved: steps made before an export now survive leaving (2301d5cfa: 41 recorded, 41 back, was 38), two quick edits no longer drag the next edit into one press (2301d5cfa), and undoing everything then leaving clears the saved history (58aaacd03). **Phone test owed** for b2a85dff7 (type-checked and harness-tested only; the C: drive was full on 10-24): every quick edit keeps its own step on a typical project, and the history is saved with every project save, so a crash leaves it matching the project. Test project on the Note 9: "Redo test clip". |
 | Export (out-of-process) | 🟢 ~ | Own process so an editor crash cannot kill an export. Proved 2026-07-30. |
 | Single-frame export (JPG/PNG) | 🟡 ~ | todo.md is this spec, marked partly done |
 

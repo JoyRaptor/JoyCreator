@@ -1,6 +1,6 @@
 # JOY BRUSH — ROADMAP AnD TASK BOARD (the one file to point an agent at)
 
-> **October 9 current entry point:** read [CURRENT_HANDOFF.md](CURRENT_HANDOFF.md) first. Its live queue, capability boundaries and shared claim protocol override historical readiness and Claude-only lead assignments below. Do not claim stale rows directly. This file remains the full product/spec index.
+> **October 24 current entry point:** read [LEAD_PLAN_20261023.md](LEAD_PLAN_20261023.md) (lanes, who owns which files, what is in flight, what is owed) and `tasks/STATE.md` §5.6 (what the engine has and how proven). The "Current wave" table at the top of §6 is the live queue. [CURRENT_HANDOFF.md](CURRENT_HANDOFF.md) (October 9) and the older rows below are history and the full spec index; do not claim a stale row without asking the Engine Lead.
 
 > **Agent: this file is your whole briefing.** Read it top to bottom, then do what §2 says.
 > You do not need to read the rest of the repo unless your task's spec tells you to.
@@ -103,6 +103,23 @@ A task only moves to `🟩 Reviewed (xr)` when no BLOCKER or MAJOR finding is op
 ## 6. The board
 
 Columns: **Task** (link to spec) · **Tier** · **needs** · **Status** · **Who** (model, date).
+
+### Current wave (Engine Lead, 2026-10-24; updated at each landing)
+| Task | Tier | needs | Status | Who |
+|---|---|---|---|---|
+| Water catches up with the pen up (water jobs ran at half speed; owner 10-23) | T1 | water jobs | 🟩 On main (edc30cd9a, d649565f7); agent phone-tested, owner use owed | Engine Lead |
+| Hold Brush / Smudge / Eraser = that brush's settings (owner 10-23) | T2 | — | 🟩 On main (4c831a601) | Engine Lead |
+| Atlas room: water parks and runs in pieces instead of "ran out of room" (handoff 4A, `specs/ATLAS_ROOM_20261023.md`) | T1 | atlas | 🟨 P1 built, bit-exact on the Note 9; P2 written; ring-clamp bug fix on helper1/ring-fix | Opus helper |
+| [Unibrush finish](specs/UNIBRUSH_FINISH_20261023.md): 11 stamp modes, editable lines included, then switch on | T1 | Codex D4-D10 | 🟨 U1-U5 🟧 built (all modes paint on the Note 9; picture lines save, reopen, redraw); U6-U12 left | Engine Lead |
+| [Watercolour vector brush live](briefs/CODEX_WATERCOLOUR_LINE_LIVE_20261023.md) L1-L7 | T1 | 5.20 | 🟨 L1/L2/L4 🟧 built (suites + 42 GPU cases green), landing; L3 = K25; L6: owner keeps the crisp look | Codex + Engine Lead |
+| Editable lines per brush (owner ruling K25: switch in the hold sheet, drawer badge, line brushes ON) | T2 | L3 | 🟦 Ruled; Codex e9b6ff9b6 + UI specialist A10 | UI specialist + Codex |
+| Editable lines sit over the layer's realistic paint (owner ruling K26, 10-24) | T1 | 5.20, 2.40 | 🟦 Ruled; Engine Lead to spec and build | Engine Lead |
+| Select + editable lines, Phase A (`reviews/SELECT_LINES_GAPS_20261023.md`) | T2 | 5.20e | 🟨 Codex, local (`codex/select-lines`); SelectBench written | UI specialist + Codex |
+| Oil realism: stroke ends, colour loading ("Covers"), dirty brush (`specs/OIL_CARRY_20261024.md`) | T1 | paste | 🟨 Job 1 🟧 built, phone checks next; jobs 2-3 designed | Oil specialist |
+| 🔴 Duplicating an animation frame drops its editable lines | T1 | 5.20 | ⛔ Bug; next after Unibrush lines | Engine Lead |
+| 🔴 Smudge on a line layer leaves a ghost; ruling: split the line, bake only the touched piece (D8/D24) | T1 | 5.20 | ⚪ Ruled | Engine Lead |
+| Tween playback, controls, reverse, export (`handoffs/VECTOR_TWEEN_INTEGRATION_20261023.md`) | T1 | 5.40 | ⚪ Next wave | Engine Lead |
+| 🟠 Symmetry tool (lead/symmetry-merge, ~10 commits never landed) | T1 | — | 🟠 Orphan: recover | Engine Lead |
 Phases follow `JOYBRUSH_BLUEPRInT.md` §4. Each phase ends with an owner check (T3).
 
 > **App-file work is serialised (Lead, 2026-09-29):** `D.02a → D.02 → D.02c / D.05`, **one at a time.**
@@ -273,8 +290,8 @@ Phases follow `JOYBRUSH_BLUEPRInT.md` §4. Each phase ends with an owner check (
 | JB-5.12 Ink cels render into tiles (`InkTiles`); RegionRenderer and ORA export draw INK cels | T2 | 5.01 | 🟧 Built | Codex 6dd7d73b; core1735/backend314, no failures |
 | JB-5.13 Fill as a shape: flood region → traced contour → filled stroke record, tucked under the lines | T2 | 5.03a | 🟧 Core built | Codex e8efaa1d; 10 shape tests pass; 2048 timing in MEASURE_R51_JVM |
 | JB-5.14 Measurement bench for brief §11 (bytes per frame, replay time, trace time) on the JVM, then the Note 9 | T2 | 5.12, 5.13 | 🟧 JVM built/measured; device pending | Codex; MEASURE_R51_JVM.md, latest11 bench checks passed |
-| [JB-5.20](specs/JB-5.20_lines_in_the_one_layer.md) Lines in the one layer: a cel holds pixels and stroke records in time order; one undo; select, nudge, Rasterize Down, Flatten Lower, two smudges | T1 | 2.40, 5.12 | NativeLines capture/edit/storage and Select present; frame-copy preservation, complete mixed-tool/board support and device acceptance remain. Static slab-only export fix on `codex/vector-tweens`; see VECTOR_TWEEN_COMPLETION_20261023.md. | Engine Lead |
-| [JB-5.40](specs/JB-5.40_tweens.md) Tweens: a held frame slides its matched lines into the next frame (rigid turn about the pivot, then the bend; HSB colour) | T1 | 5.20 | Math built; saved setting / tick sampler / scoped scene on `codex/vector-tweens` (full core/backend pass). GPU playback, controls, export and phone acceptance open. | Engine Lead integration; Codex independent core |
+| [JB-5.20](specs/JB-5.20_lines_in_the_one_layer.md) Lines in the one layer: a cel holds pixels and stroke records in time order; one undo; select, nudge, Rasterize Down, Flatten Lower, two smudges | T1 | 2.40, 5.12 | NativeLines capture/edit/storage and Select present; frame-copy preservation, complete mixed-tool/board support and device acceptance remain. Static slab-only export fix ON MAIN (59d1f1d63). Owner 10-24: per-brush lines (K25), lines sit over realistic paint (K26). Bug: duplicating a frame drops its lines. | Engine Lead |
+| [JB-5.40](specs/JB-5.40_tweens.md) Tweens: a held frame slides its matched lines into the next frame (rigid turn about the pivot, then the bend; HSB colour) | T1 | 5.20 | Math built; saved setting (doc v14) / tick sampler / scoped scene ON MAIN 59d1f1d63 (10-24, core 2552 / androidkit 1061 green). GPU playback, controls, export and phone acceptance open. | Engine Lead integration; Codex independent core |
 
 ### Phase 5 — Ink layers
 | Task | Tier | needs | Status | Who |

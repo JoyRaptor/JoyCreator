@@ -842,7 +842,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                     is cc.joycreator.joybrush.core.select.SelectionLayerActions.Lower.Plan -> {
                         mediaCanvas.releaseWindow()
                         engine.flattenStep(plan.targetId, plan.merged, plan.discarded, before, plan.after)
-                        reportHistory()
+                        reportHistory(); publishLines()
                         post { adopt(plan.after); onNotice?.invoke("Flattened this layer and the layers below. Undo brings them back.") }
                     }
                 }

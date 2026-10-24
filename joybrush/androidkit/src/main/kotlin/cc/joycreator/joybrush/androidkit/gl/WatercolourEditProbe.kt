@@ -7,6 +7,7 @@ import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.stroke.AddressedStroke
 import cc.joycreator.joybrush.core.stroke.LineAddress
 import cc.joycreator.joybrush.core.stroke.StrokeRecord
+import cc.joycreator.joybrush.core.stroke.StrokeWashFrame
 import java.nio.ByteBuffer
 import org.json.JSONArray
 import org.json.JSONObject
@@ -76,6 +77,9 @@ internal object WatercolourEditProbe {
         }
         fun compare(expected: Map<Long, ByteArray?>, label: String) {
             check(expected.keys == keys) { "$label key mismatch expected=${expected.keys.size} actual=${keys.size}" }
+            val actualKeys = engine.tileKeys(layerId).toSet() + engine.nativeLines.lines(plane)
+                .flatMap { engine.nativeLines.footprint(plane, it.id) }
+            check(actualKeys == keys) { "$label leaked or lost tiles outside the complete expected footprint" }
             for (key in keys.sorted()) {
                 val actual = engine.readTile(layerId, key)
                 val reference = expected[key]
@@ -86,14 +90,17 @@ internal object WatercolourEditProbe {
                     "$label RGBA8/tile-presence mismatch at tile $key"
                 }
                 rows.put(JSONObject().put("phase", label).put("key", key.toString())
-                    .put("exactRgba8", reference != null).put("present", actual != null))
+                    .put("matchedRgba8", true).put("normalizedTransparent", reference == null || actual == null)
+                    .put("present", actual != null))
             }
         }
 
         try {
             check(preset.engine == "watercolour") { "probe requires a watercolor preset" }
             check(input.brushId == preset.id) { "record brush does not match supplied preset" }
-            val original = input.copy(samples = input.samples.toList())
+            val original = input.copy(samples = input.samples.toList(), washFrame = input.washFrame ?:
+                StrokeWashFrame(1.0, 0.0, 17.0, 0.0, 1.0, 29.0, 0.0, 0.0, 1.0))
+            report.put("fixtureHasWashFrame", true)
             val tintA = original.copy(colorArgb = 0xFFB44D73.toInt())
             val tintB = original.copy(colorArgb = 0xFF3C9A72.toInt())
             phase = "read_fbo"
@@ -127,13 +134,22 @@ internal object WatercolourEditProbe {
             initialDepth = engine.undo.undoDepth
 
             phase = "prime_selected_line_cache"
+            val depositionBeforeLift = engine.watercolourLineDepositionCalls
             engine.beginLift(setOf(address))
             check(engine.lifting) { "single-line lift did not start" }
             engine.endLift()
             check(!engine.lifting) { "single-line lift did not end" }
             depositionBefore = engine.watercolourLineDepositionCalls
             finishBefore = engine.watercolourLineFinishOnlyCalls
-            check(depositionBefore >= 1L) { "single-line lift did not deposit/prime retained watercolor coverage" }
+            check(depositionBefore == depositionBeforeLift + 1) { "single-line lift did not deposit/prime retained watercolor coverage once" }
+            report.put("liftDepositionDelta", depositionBefore - depositionBeforeLift)
+
+            phase = "noop_original_colour"
+            engine.editLines(LineEdit.Replace(listOf(AddressedStroke(address, installed))))
+            check(engine.undo.undoDepth == initialDepth) { "unchanged color added a history step" }
+            check(engine.watercolourLineDepositionCalls == depositionBefore &&
+                engine.watercolourLineFinishOnlyCalls == finishBefore) { "unchanged color unnecessarily rendered the line" }
+            compare(controls.getValue("original"), "noop_original_colour")
 
             phase = "tint_a"
             val installedTintA = tintA.copy(seq = installed.seq)
@@ -167,6 +183,30 @@ internal object WatercolourEditProbe {
             check(engine.undo.undoDepth == afterTintDepth) { "redo did not restore history depth" }
             check(engine.nativeLines.record(plane, original.id) == installedTintB) { "redo did not restore second tint record" }
             compare(controls.getValue("tintB"), "redo_tint_b")
+
+            phase = "multi_selection_fallback"
+            val sibling = original.copy(id = "${input.id}-sibling", seed = original.seed + 1,
+                samples = original.samples.map { it.copy(x = it.x + 2048f) })
+            val siblingAddress = LineAddress(layerId, null, sibling.id)
+            val siblingControl = canonical(sibling.copy(id = "${sibling.id}-control"))
+            check(keys.intersect(siblingControl.keys).isEmpty()) { "fallback fixture must have disjoint line footprints" }
+            engine.editLines(LineEdit.Add(listOf(AddressedStroke(siblingAddress, sibling))))
+            val beforeFallbackDeposition = engine.watercolourLineDepositionCalls
+            val beforeFallbackFinish = engine.watercolourLineFinishOnlyCalls
+            engine.beginLift(setOf(address, siblingAddress))
+            engine.endLift()
+            val fallbackTint = installedTintB.copy(colorArgb = 0xFF4964CB.toInt())
+            val fallbackControl = canonical(fallbackTint.copy(id = "${input.id}-fallback-control"))
+            val beforeFallbackUndo = engine.undo.undoDepth
+            val beforeFallbackPreparations = engine.recordedLinePreparationCalls
+            engine.editLines(LineEdit.Replace(listOf(AddressedStroke(address, fallbackTint))))
+            check(engine.undo.undoDepth == beforeFallbackUndo + 1) { "fallback tint did not add one history step" }
+            check(engine.recordedLinePreparationCalls > beforeFallbackPreparations) { "fallback failed to prepare the changed line" }
+            check(engine.watercolourLineDepositionCalls == beforeFallbackDeposition &&
+                engine.watercolourLineFinishOnlyCalls == beforeFallbackFinish) { "multi-selection used the single-line cache" }
+            keys = fallbackControl.keys + siblingControl.keys
+            compare(fallbackControl + siblingControl, "multi_selection_fallback")
+            report.put("multiSelectionFallbackExact", true).put("noopColourAddsHistory", false)
 
             report.put("passed", true).put("phase", "complete").put("footprintTiles", keys.size)
                 .put("initialUndoDepth", initialDepth).put("afterTwoTintsUndoDepth", afterTintDepth)

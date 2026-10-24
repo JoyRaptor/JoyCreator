@@ -204,6 +204,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     private val inArea = arrayOfNulls<FloatArray>(2)
     /** Buffer b may hold dabs anywhere (drawn with no rectangle to clip to): its clear is whole. */
     private val inAll = BooleanArray(2)
+    /** The tiles buffer b's dabs touch (their batch's box + 48 px, layer tiles): what must not leave while it waits. */
+    private val inTiles = arrayOf(HashSet<Long>(), HashSet<Long>())
     /** Coarse water: the water mid-step for the paint step (jb_wet_coarse.glsl), and the ground under each cell. */
     private var mid0 = 0; private var mid1 = 0; private var terrain = 0; private var terrainFbo = 0
     private var wc = 0
@@ -494,11 +496,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     }
     // ---- L2, the water park (tasks/joybrush/specs/ATLAS_ROOM_20261023.md) ----
     /** True when brush input not yet in the water lies in tile [key] (the park holds no input: such a tile is never parked). */
-    fun inputPendingIn(key: Long): Boolean {
-        if (inAll[0] || inAll[1]) return true
-        val r = MediaAtlasWater.rectOf(key)
-        return inArea.any { a -> a != null && a[0] < r[2] && a[2] > r[0] && a[1] < r[3] && a[3] > r[1] }
-    }
+    fun inputPendingIn(key: Long): Boolean = inAll[0] || inAll[1] || key in inTiles[0] || key in inTiles[1]
 
     /**
      * Tile [key] in atlas [slot] into [park]'s [unit], exactly: the state a water step hands the next (WaterParkPlan), read as
@@ -1191,6 +1189,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
             GLES30.glDisable(GLES30.GL_BLEND)
             GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
             if (inRect != null) inArea[ib] = union(inArea[ib], inRect) else inAll[ib] = true
+            r?.let { inTiles[ib] += MediaAtlasPlacement.tiles(it[0].toDouble(), it[1].toDouble(), it[2].toDouble(), it[3].toDouble(), 0) }
             wetIdle = 0.0
             dabsSinceGrow = true
         }
@@ -1270,7 +1269,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     /** Some brush input is not yet in the water (the look shows it: [renderLook]). */
     val inputPending get() = inArea[0] != null || inArea[1] != null || inAll[0] || inAll[1]
 
-    private fun forgetInput() { inArea[0] = null; inArea[1] = null; inAll[0] = false; inAll[1] = false; inNext = 0 }
+    private fun forgetInput() { inArea[0] = null; inArea[1] = null; inAll[0] = false; inAll[1] = false; inTiles[0].clear(); inTiles[1].clear(); inNext = 0 }
 
     /**
      * A job's steps. The atlas has no window to stop the water, so a wide wash can ask for more than the window ever drew in a
@@ -1496,7 +1495,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
             GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
             GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
         }
-        inArea[ib] = null; inAll[ib] = false
+        inArea[ib] = null; inAll[ib] = false; inTiles[ib].clear()
     }
 
     /** The rectangle a stage draws over and its target's slot shift. */
@@ -1626,9 +1625,14 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
 
     /** state[0].p0 -> state[1].p0 over the ring of [ring] cells around [rect] (blit: exact). */
     private fun copyP0Ring(rect: FloatArray, ring: Int) {
-        val rx0 = max(0, floor(rect[0]).toInt()); val ry0 = max(0, floor(rect[1]).toInt())
-        val rx1 = min(w, ceil(rect[2]).toInt()); val ry1 = min(h, ceil(rect[3]).toInt())
-        val ox0 = max(0, rx0 - ring); val oy0 = max(0, ry0 - ring); val ox1 = min(w, rx1 + ring); val oy1 = min(h, ry1 + ring)
+        // Free placement: rect is layer px and the texture is slots, so nothing is clamped to the texture's size. Latent with a
+        // whole job (the cells within the copy's reach of the job's edge are dry, so their flux is 0 whatever p0 they read);
+        // it matters in blocks, where what is resident and where it lies no longer follow one rectangle (ATLAS_ROOM 10-24).
+        val lo = if (free) Int.MIN_VALUE / 2 else 0
+        val wx = if (free) Int.MAX_VALUE / 2 else w; val hy = if (free) Int.MAX_VALUE / 2 else h
+        val rx0 = max(lo, floor(rect[0]).toInt()); val ry0 = max(lo, floor(rect[1]).toInt())
+        val rx1 = min(wx, ceil(rect[2]).toInt()); val ry1 = min(hy, ceil(rect[3]).toInt())
+        val ox0 = max(lo, rx0 - ring); val oy0 = max(lo, ry0 - ring); val ox1 = min(wx, rx1 + ring); val oy1 = min(hy, ry1 + ring)
         fun strip(x0: Int, y0: Int, x1: Int, y1: Int) {
             if (x1 > x0 && y1 > y0) blitLayer(state[0].p0, state[1].p0, x0, y0, x1, y1)
         }

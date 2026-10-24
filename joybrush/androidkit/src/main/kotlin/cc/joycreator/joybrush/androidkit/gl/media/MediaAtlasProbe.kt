@@ -94,13 +94,13 @@ internal object MediaAtlasProbe {
             val look = MediaLook(floatArrayOf(0.95f, 0.93f, 0.88f))
             val interior = floatArrayOf(96f, 96f, SIZE - 96f, SIZE - 96f)
             fun compare(name: String, frames: Int) {
-                val snaps = engines.mapIndexed { i, e ->
-                    e.finishWaterJob()
-                    snapshot(e, read, e.renderLook(interior, paper, look, ppm), if (i == 2 || i == 5) SCRAMBLE else if (i == PK) parkedSlots else null)
-                }
+                // Each engine against the window as it is read: holding every engine's planes at once ran past the heap (10-24).
+                fun snap(i: Int): Map<String, IntArray> { val e = engines[i]; e.finishWaterJob()
+                    return snapshot(e, read, e.renderLook(interior, paper, look, ppm), if (i == 2 || i == 5) SCRAMBLE else if (i == PK) parkedSlots else null) }
+                val base = snap(0)
                 val o = JSONObject().put("stroke", name).put("frames", frames)
-                for ((i, k) in kinds.withIndex()) if (i > 0) o.put(k, diff(snaps[0], snaps[i]))
-                o.put("changedFromEmpty", snaps[0].values.sumOf { a -> a.count { it != 0 } })
+                for ((i, k) in kinds.withIndex()) if (i > 0) o.put(k, diff(base, snap(i)))
+                o.put("changedFromEmpty", base.values.sumOf { a -> a.count { it != 0 } })
                 strokes.put(o)
             }
             // A path through the middle tile and across both seam lines, kept off the window's edge.

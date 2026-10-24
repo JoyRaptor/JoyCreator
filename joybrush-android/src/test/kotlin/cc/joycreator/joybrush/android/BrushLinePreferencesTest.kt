@@ -3,6 +3,7 @@ package cc.joycreator.joybrush.android
 import android.content.Context
 import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.brush.ENGINE_WATERCOLOUR
+import cc.joycreator.joybrush.core.brush.Param
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -13,8 +14,8 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
 class BrushLinePreferencesTest {
-    private val water = BrushPreset(id = "water", name = "Water", engine = ENGINE_WATERCOLOUR)
-    private val ink = BrushPreset(id = "ink", name = "Ink")
+    private val water = BrushPreset(id = "water", name = "Water", size = Param(12f), engine = ENGINE_WATERCOLOUR)
+    private val ink = BrushPreset(id = "ink", name = "Ink", size = Param(12f))
     private fun preferences() = RuntimeEnvironment.getApplication()
         .getSharedPreferences("brush-line-test", Context.MODE_PRIVATE).also { it.edit().clear().commit() }
 

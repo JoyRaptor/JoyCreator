@@ -656,7 +656,11 @@ class JoyBrushActivity : Activity() {
         undoBtn = TopButton(kit, JbIcon.UNDO, "Undo (or tap with two fingers)").apply { setOnClickListener { canvas.undo() } }
         redoBtn = TopButton(kit, JbIcon.REDO, "Redo (or tap with three fingers)").apply { setOnClickListener { canvas.redo() } }
         guidesBtn = TopButton(kit, JbIcon.GUIDES, "Guides — grid, perspective, ruler").apply { setOnClickListener { guidesPanel(this) } }
-        joybotBtn = TopButton(kit, JbIcon.JOYBOT, "Joybot — ask it to add layers, frames, set the brush or draw a shape").apply {
+        joybotBtn = TopButton(kit, JbIcon.GUIDES, "Joybot — ask it to add layers, frames, set the brush or draw a shape").apply {
+            // Joybot's own art lives in the app (the Studio's button uses it): regular face, smiling while pressed.
+            fun face(name: String) = resources.getIdentifier(name, "drawable", packageName).takeIf { it != 0 }?.let { androidx.core.content.ContextCompat.getDrawable(this@JoyBrushActivity, it)?.mutate() }
+            val neutral = face("joybot_neutral"); val smile = face("joybot_smile")
+            if (neutral != null && smile != null) faces = neutral to smile
             setOnClickListener {
                 startActivity(Intent().setClassName(packageName, "com.fadcam.ui.faditor.ai.ChatAssistantActivity").putExtra("chat_room", "JOYBRUSH"))
             }

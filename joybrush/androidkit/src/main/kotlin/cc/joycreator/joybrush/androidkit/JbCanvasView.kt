@@ -826,6 +826,29 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     /** Are any layers hidden? Flatten asks what to do with them (keep, or discard), unless the person chose to be remembered. */
     val hasHiddenLayers: Boolean get() = stackUi.layers.any { !it.visible }
 
+    /** D21: this layer and everything below become plain pixels, as ONE existing flatten transaction. */
+    fun flattenLower(id: String) {
+        if (penIsDown()) return
+        val before = stackUi
+        onBeforeHistoryChange?.invoke()
+        onGl {
+            try {
+                check(engine.stack(before.activeId) == before) { "Those layers changed. Open the layer menu again." }
+                when (val plan = cc.joycreator.joybrush.core.select.SelectionLayerActions.flattenLower(before, id) {
+                    engine.mergeSide(before[it]!!).hasFrames
+                }) {
+                    is cc.joycreator.joybrush.core.select.SelectionLayerActions.Lower.Refused -> post { onRefused?.invoke(plan.sentence) }
+                    is cc.joycreator.joybrush.core.select.SelectionLayerActions.Lower.Plan -> {
+                        mediaCanvas.releaseWindow()
+                        engine.flattenStep(plan.targetId, plan.merged, plan.discarded, before, plan.after)
+                        reportHistory()
+                        post { adopt(plan.after); onNotice?.invoke("Flattened this layer and the layers below. Undo brings them back.") }
+                    }
+                }
+            } catch (e: Exception) { post { onRefused?.invoke(e.message ?: "Those layers could not be flattened.") } }
+        }
+    }
+
     /**
      * Flatten (LAYER_OPS L6): every visible layer frozen into one layer of plain pixels, the picture unchanged, ONE undo
      * step; [discardHidden] drops hidden layers in the same step. Lines, slabs and pencil/watercolour/oil state are baked.

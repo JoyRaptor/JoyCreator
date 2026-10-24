@@ -1,6 +1,8 @@
 # Launch plan (drafted 2026-10-15 from six read-only audits in tasks/audits/)
 
 ## Owner request October 23: finish vector/tween parent plans
+- [x] October 24: audit primary and newer lead integration branches; refresh shared STATE and roadmaps with proof levels.
+- [ ] Compile and integrate the October 24 forward exposure wakeup helper; shared runner deferred for insufficient RAM (546 MiB available, 2800 MiB required). Previous green results do not cover this helper.
 - [ ] Complete the ordered implementation and acceptance work in `tasks/joybrush/VECTOR_TWEEN_COMPLETION_20261023.md` (isolated `codex/vector-tweens`; existing external lane work preserved).
 - [x] Independent core/schema/export slice implemented; full core2552 (4 optional skips) and backend1061 green. Owner retained engine hot files with Engine Lead; copied-frame/GPU/UI/phone completion remains with that lane.
 

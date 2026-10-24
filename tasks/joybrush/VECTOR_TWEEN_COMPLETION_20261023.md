@@ -4,6 +4,23 @@ Owner requested completion of the parent plans behind the editable-vector and tw
 
 ## Parent plan chain
 
+### October 24 return checkpoint
+
+Primary `fb8042841` lacks this slice. Lead picked it up as `59d1f1d63`; local
+`lead/anim-clips-integrated` at `151b92621` also includes clip merge `6a4c471eb`
+with schema v12/v13/v14. Earlier clip-build GPU/phone/GIF proof exists; it does not
+prove merged vector tweens. Frame duplication still copies pixels without NativeLines;
+live tween consumers and component-cel resolution remain absent.
+
+- [x] Reconcile source, primary and lead integration branches before resuming.
+- [x] Update primary STATE.md, global roadmap, JoyBrush roadmap and integration handoff.
+- [x] Write forward exposure wakeup helper beside the sampler using cumulative tick boundaries.
+- [ ] Compile the new helper: shared runner deferred (RAM546 MiB available; minimum2800 MiB).
+- [ ] Bind the helper through the lead's range/speed/ping-pong playback policy and GPU consumer.
+
+The existing passing suites below cover commit2896cf2d5, not the October24 helper.
+Keep source worktrees and successful-run evidence while integration remains open.
+
 - Product roadmap Phase 5 -> R51 / `design/ONE_LAYER_MODEL_BRIEF_20261007.md` -> JB-5.20 one-layer editable strokes -> JB-5.20e selection -> NativeLines v1/v1.2 hardening.
 - `specs/VECTOR_RENDER_DESIGN.md` -> replay fidelity, ten line presets, zoom rendering, line lab, SVG export.
 - R51 Phase 4 -> `specs/JB-5.40_tweens.md` -> existing `core/anim/Tween.kt` -> missing saved frame setting and runtime/export consumers.

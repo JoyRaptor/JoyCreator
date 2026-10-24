@@ -1,8 +1,29 @@
 # Vector / animation tween integration — October 23, 2026
 
+## Return audit — October 24, 2026 (supersedes branch/clip status below)
+
+- Primary inspected at `fb8042841` remains document v11 and does not contain the tween commit.
+- Lead has picked up `2896cf2d5` as `59d1f1d63` on clean `lead/vector-tweens-1`.
+- Clean `lead/anim-clips-integrated` at `151b92621` contains both that commit and clip merge
+  `6a4c471eb`, preserving v12/v13/v14. The old frozen/dirty clip status below is historical.
+- Clip review now includes an 8-row GPU proof, phone playback/end modes, performance and GIF
+  decoding. These are earlier clip-build results, not combined integration or vector-tween proof.
+- NativeLines copying on frame duplication remains missing. No production consumers of the
+  tween scene/sampler were found in any of these three trees. Component cels are not yet resolved
+  by TweenScene. The engineering checklist below remains open.
+- Continued independent work: `TweenFrameSample.nextChangeTimeMs` now computes forward
+  exposure wakeups from cumulative tick boundaries. **SOURCE ONLY:** shared compile runner
+  deferred on October 24 (RAM546 MiB available, required2800 MiB). The prior passing suites below
+  do not cover this addition; range/speed/ping-pong and runtime binding remain with integration.
+- Refreshed primary `tasks/STATE.md`, `tasks/ROADMAP.md` and `tasks/joybrush/ROADMAP.md`.
+  No merge, hot-file edits, phone action or new device acceptance occurred. Retain source worktrees
+  and evidence because the complete parent task is not finished and not waiting solely on owner.
+
 Owner requested completion of the parent vector/tween plans. Owner confirmed in this chat that the Engine Lead retains `GlPaintEngine.kt`, `JbCanvasView.kt`, and `JoyBrushActivity.kt`. This continuation does not edit those files. Independent work is on `codex/vector-tweens` in `C:/Temp/jb-vector-tweens`, based on `ff36f19eb`. Full core/backend verification and Android consumer compilation passed. This is ready for lead review; main-branch integration and phone acceptance remain open.
 
 ## Parent plans
+
+Independent source commit: `2896cf2d5` on `codex/vector-tweens`. The source worktree is clean after commit. Root released its lane and shared build slot; the owner reserved engine hot files with the existing lead.
 
 1. `ROADMAP.md` Phase 5 -> R51 / `design/ONE_LAYER_MODEL_BRIEF_20261007.md` -> `specs/JB-5.20_lines_in_the_one_layer.md` -> `specs/JB-5.20e_select_ui.md` -> NativeLines v1 / v1.2 hardening.
 2. `specs/VECTOR_RENDER_DESIGN.md` -> ten line brushes, taper/dash/wire behavior, sharp zoom rendering, edit cache, SVG and phone proofs.

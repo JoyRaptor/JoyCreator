@@ -444,7 +444,7 @@ Music generation. A website. A Play listing. A privacy policy that mentions AI.
 | Selected-brush preparation/full fade | 🟡 Candidate branch | Claude's lead/wc-live-land1681bfdeb: core2559 (4 optional skips), backend1064/native317, zero failures. Cold/fade phone acceptance owed; not landed. |
 | Wash travels with line; frame survives archive | 🟡 Candidate branch | Homography, JBS5/legacy tests, GPU mapping and frozen-brush archive test. Actual phone edit/reopen/context proof owed; paper/grain/gravity stay fixed. |
 | Per-brush lines, Watercolor default ON | 🟠 Candidate restored | Included on vector/watercolour-finish-20261024. Recommended reversible default; new-base tests and phone proof owed. |
-| Finish-only recolor | 🟠 Implemented, unverified | NativeLines selection now primes bounded coverage for one selected line up to32 tiles. Tint re-finishes it; large/multi-selection replays normally. Full recipe key, resource accounting and context lifecycle included; new tests/GPU proof pending. |
+| Finish-only recolor | 🟠 Built, host tests pass | NativeLines selection primes bounded coverage for one selected line up to32 tiles. Tint re-finishes it; large/multi-selection replays normally. Current core2559/4 optional skips and backend1068 pass, including4 cache-key tests; device pixel/cache proof pending. |
 | Note9 speed | 🟠 Not accepted | L1 warm p95~36–73ms exceeds16.7ms. Optimization and remeasurement still required. |
 
 **Not finished; not waiting only on owner testing.** Implementation, integration

@@ -262,8 +262,9 @@ class GlPaintEngine(
         pngs: cc.joycreator.joybrush.core.brush.FrozenBrushPngs?, seed: Long) =
         stampTipResolver.resolve(preset, pngs, seed)
 
+    /** A line brush's tip pictures: the recorded scene's while one is bound, else the live lines' own (Unibrush U5). */
     private fun publishedBrushPngs(id: String): cc.joycreator.joybrush.core.brush.FrozenBrushPngs? =
-        (publishedPaint?.recorded ?: recordedScene?.snapshotState())?.brushAssets?.get(id)
+        (publishedPaint?.recorded ?: recordedScene?.snapshotState())?.brushAssets?.get(id) ?: nativeLines.asset(id)
 
     private fun endStampTipMasks() {
         val atlas = sampledBinding
@@ -2327,7 +2328,8 @@ class GlPaintEngine(
         if (layer.isMask || written.isEmpty()) return PendingItems.NONE
         // H12: a line is kept only if it can be redrawn later; otherwise it stays pixels (a slab where the plane holds
         // items), said once, rather than becoming a line that would come back wrong or not at all.
-        if (line != null) lineReplayRefusal(line.record, line.brushes[line.record.brushId] ?: nativeLines.brush(line.record.brushId))?.let {
+        if (line != null) lineReplayRefusal(line.record, line.brushes[line.record.brushId] ?: nativeLines.brush(line.record.brushId),
+                line.assets[line.record.brushId] ?: nativeLines.asset(line.record.brushId))?.let {
             android.util.Log.i("JoyBrushLines", "kept as pixels: $it")
             onLineNotice?.invoke(KEPT_AS_PIXELS)
             line = null
@@ -2418,18 +2420,22 @@ class GlPaintEngine(
      * H12: why the just-drawn line [record] could not be redrawn later, null = it can: the CPU replay must succeed and the
      * GPU's own preconditions for a line ([prepareRecordedLine]) must hold. Pure checks, nothing is rendered.
      */
-    private fun lineReplayRefusal(record: StrokeRecord, preset: BrushPreset?): String? {
-        if (preset?.tip?.sampled != null || preset?.tip?.dual != null) return "picture and dual lines need the resource-bearing recorded scene"
+    private fun lineReplayRefusal(record: StrokeRecord, preset: BrushPreset?,
+                                  pngs: cc.joycreator.joybrush.core.brush.FrozenBrushPngs?): String? {
         InkReplay.refusal(record, preset)?.let { return it }
         val p = preset ?: return "no brush"
         if (BrushValidate.validate(p).isNotEmpty()) return "its frozen brush is not valid"
         if (p.engine != "stamp" && p.engine != ENGINE_WATERCOLOUR) return "the ${p.engine} engine is not replayed"
-        if (p.engine == "stamp" && p.tip.source != "procedural") return "picture tips are not replayed"
+        if (p.engine == "stamp" && p.tip.source != "procedural" && p.tip.sampled == null) return "picture tips are not replayed"
+        // Unibrush U5: a picture or dual tip replays from the line's own frozen pictures (exactly as prepareRecordedLine will).
+        val tips = try { resolveRecordedTips(p, pngs, record.seed) } catch (e: Exception) { return e.message ?: "its brush pictures cannot be read" }
+        p.tip.sampled?.let { if (tips.sampled?.matches(it) != true) return "its brush pictures are incomplete" }
+        p.tip.dual?.let { if (tips.dual?.matches(it, record.seed) != true) return "its dual tip does not match its pictures" }
         if (p.line != null) return "whole-stroke shaping is not replayed"
         if (p.blend !in NativeLines.OPERATORS) return "the ${p.blend} operator is not composed"
         if (p.blend == "behind") return "a stroke paints behind as plain paint, so a behind line would redraw differently"
         if (paperWarnings.isNotEmpty()) return "the paper's resources are missing"
-        val replay = try { InkReplay.replay(record, p) } catch (e: Exception) { return e.message ?: "the replay refused" }
+        val replay = try { InkReplay.replay(record, p, tips.sampled, tips.dual) } catch (e: Exception) { return e.message ?: "the replay refused" }
         if (p.version < VERSION_CONTACT &&
             (replay.strokeGrain.tip.enabled || replay.strokeGrain.paper.enabled || !replay.strokeGrain.paperResponse.isDefault)) {
             val first = replay.dabs.firstOrNull()
@@ -2633,7 +2639,9 @@ class GlPaintEngine(
     class LineSave(val records: Map<LinePlane, List<StrokeRecord>>, val crossed: Map<LinePlane, Set<Long>>,
                    val bases: Map<Pair<LinePlane, Long>, ByteArray>, val brushes: Map<String, BrushPreset>,
                    /** v1.2 H13: each plane's pixel slabs, seq to (operator, bytes per tile). A plane of slabs alone has no records. */
-                   val slabs: Map<LinePlane, Map<Long, Pair<String, Map<Long, ByteArray>>>> = emptyMap())
+                   val slabs: Map<LinePlane, Map<Long, Pair<String, Map<Long, ByteArray>>>> = emptyMap(),
+                   /** Unibrush U4: the kept brushes' tip pictures, by brush id (what their lines are redrawn with). */
+                   val assets: Map<String, cc.joycreator.joybrush.core.brush.FrozenBrushPngs> = emptyMap())
 
     /** GL thread. A deleted layer's or frame's lines are history only and are not saved. */
     fun lineSave(): LineSave {
@@ -2660,7 +2668,7 @@ class GlPaintEngine(
             }
             if (planeSlabs.isNotEmpty()) slabs[plane] = planeSlabs
         }
-        return LineSave(records, crossed, bases, nativeLines.brushes(), slabs)
+        return LineSave(records, crossed, bases, nativeLines.brushes(), slabs, nativeLines.assets())
     }
 
     /**
@@ -2670,8 +2678,9 @@ class GlPaintEngine(
     fun loadLines(records: Map<LinePlane, List<StrokeRecord>>, bases: Map<Pair<LinePlane, Long>, ByteArray>,
                   brushes: Map<String, BrushPreset>,
                   slabs: Map<LinePlane, Map<Long, Pair<String, Map<Long, ByteArray>>>> = emptyMap(),
-                  compose: Map<LinePlane, Set<Long>> = emptyMap()) {
-        nativeLines.addBrushes(brushes)
+                  compose: Map<LinePlane, Set<Long>> = emptyMap(),
+                  brushAssets: Map<String, cc.joycreator.joybrush.core.brush.FrozenBrushPngs> = emptyMap()) {
+        nativeLines.addBrushes(brushes, brushAssets.filterKeys { it in brushes })
         for ((plane, list) in records) for (r in list.sortedBy { it.seq }) nativeLines.put(plane, r.id, r)
         for ((at, bytes) in bases) nativeLines.setBase(at.first, at.second, uploadTile(newLayerTile(), bytes))
         for ((plane, bySeq) in slabs) for ((seq, slab) in bySeq) for ((key, bytes) in slab.second) {
@@ -3018,9 +3027,7 @@ class GlPaintEngine(
      * Caller owns every returned texture until it is committed or discarded. Final cel clipping is the composer's job.
      */
     internal fun prepareRecordedLine(layerId: String, record: StrokeRecord, preset: BrushPreset): RecordedLineUnit {
-        require(preset.tip.sampled == null && preset.tip.dual == null) {
-            "Picture and dual recipes need the resource-bearing recorded callback"
-        }
+        // Picture and dual tips resolve from the line's frozen pictures (U5); missing ones refuse in the resolver.
         return prepareRecordedLine(layerId, record, preset, null,
             resolveRecordedTips(preset, publishedBrushPngs(record.brushId), record.seed))
     }

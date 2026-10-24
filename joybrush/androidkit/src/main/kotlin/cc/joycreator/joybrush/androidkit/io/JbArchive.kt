@@ -346,6 +346,16 @@ object JbArchive {
         }
 
         val assetEntries = FrozenBrushAssets.prepare(frozen, contents.brushAssets, retainEntries, pngVerifier)
+        // Unibrush U4: the brush pictures must read back exactly as they are about to be written, or this save is refused
+        // and the file the person has stays: lines whose pictures come back wrong would not redraw after reopening.
+        if (assetEntries.isNotEmpty()) {
+            val back = try {
+                FrozenBrushAssets.reopen(assetEntries.firstOrNull { it.first == FrozenBrushAssets.MANIFEST_ENTRY }?.second,
+                    assetEntries.filter { it.first != FrozenBrushAssets.MANIFEST_ENTRY }.toMap(), frozen, pngVerifier)
+            } catch (e: Exception) { throw JbArchiveException("the drawing's brush pictures would not read back: ${brief(e)}") }
+            if (back.keys != contents.brushAssets.keys || back.any { (id, pngs) -> !pngs.sameBytes(contents.brushAssets.getValue(id)) })
+                throw JbArchiveException("the drawing's brush pictures would not read back as they are")
+        }
 
         // Media state, both directions, as for paint tiles: every file is declared, and every declared tile has state.
         val mediaDeclared = declaredMediaTiles(doc)

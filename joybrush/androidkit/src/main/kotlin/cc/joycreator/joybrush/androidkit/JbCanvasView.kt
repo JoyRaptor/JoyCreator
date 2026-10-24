@@ -710,8 +710,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
 
     /** Why this stroke can't be kept as an editable line, as the end of a sentence; null = it can. */
     private fun lineRefusal(p: BrushPreset?, erase: Boolean, amount: Float): String? {
-        if (p?.tip?.sampled != null || p?.tip?.dual != null)
-            return "picture and dual tips need the recorded drawing path"
+        // Picture and dual tips are lines too (Unibrush U3-U5): their frozen pictures travel with the line, its save and its
+        // redraw; the engine keeps the stroke as pixels if they cannot.
         val layer = boardDocument?.layers?.firstOrNull { it.id == activeLayer }
         return LineAdmission.lineRefusal(p, erase, amount, view.zoom, tileBoardId != null,
             layer?.cels?.any { it.floatTiles.isNotEmpty() } == true)
@@ -2400,7 +2400,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
             // they agree with.
             for ((k, bytes) in contents.mediaTiles) engine.writeMediaTile(k.layerId, k.store, tileKeyOf(k.key), bytes, k.celId)
             engine.agreeAllPayloads()
-            engine.loadLines(lineRecords, lineBases, contents.brushes, lineSlabs, lineCompose)
+            engine.loadLines(lineRecords, lineBases, contents.brushes, lineSlabs, lineCompose, contents.brushAssets)
             post { postDelayed({ pumpMediaPrewarm() }, 400) }
             retainedContents = retained
             contentLost = false
@@ -2437,6 +2437,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         if (doc.brushes.toSet() != contents.brushes.keys) return "this drawing's kept brushes do not match what it lists"
         if (contents.strokes.values.any { lines -> lines.any { it.brushId !in contents.brushes } })
             return "a line in this drawing names a brush the drawing does not keep"
+        // Unibrush U4: every kept brush that draws from pictures has all of them, or its lines could not be redrawn.
+        try { cc.joycreator.joybrush.androidkit.io.FrozenBrushAssets.prepare(contents.brushes, contents.brushAssets, retainEntries = false) }
+        catch (e: Exception) { return "this drawing's brush pictures are incomplete: ${e.message}" }
         if (doc.layers.isEmpty()) return "this drawing has no layers"
         if(doc.boards.any{it.kind !in listOf(BoardKind.CANVAS,BoardKind.ANIMATION,BoardKind.SPRITE)})
             return "This renderer does not show puppet or character boards yet"
@@ -2508,7 +2511,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                 bases = save.crossed[plane].orEmpty().mapNotNull { k -> save.bases[plane to k]?.takeUnless { Tiles.isBlank(it) }?.let { name(k) to it } }.toMap(),
                 slabs = save.slabs[plane].orEmpty().mapValues { (_, s) -> SlabBytes(s.first, s.second.mapKeys { name(it.key) }) })
         }
-        return LineSaveMapping.apply(c, planes, save.brushes)
+        return LineSaveMapping.apply(c, planes, save.brushes, save.assets)
     }
 
     /**

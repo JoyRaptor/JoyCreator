@@ -92,6 +92,7 @@ internal class NativeLines(
     fun brush(id: String): BrushPreset? = brushes[id]
     fun brushes(): Map<String, BrushPreset> = LinkedHashMap(brushes)
     fun assets(): Map<String, FrozenBrushPngs> = LinkedHashMap(assets)
+    fun asset(id: String): FrozenBrushPngs? = assets[id]
 
     /**
      * New frozen copies, with the tip pictures of those that draw from pictures ([newAssets], by brush id). An id is a

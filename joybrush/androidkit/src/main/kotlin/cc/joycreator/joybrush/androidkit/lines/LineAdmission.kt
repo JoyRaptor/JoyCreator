@@ -25,7 +25,8 @@ object LineAdmission {
         p.engine == ENGINE_WATERCOLOUR && (erase || p.blend == "erase") -> "the watercolour eraser can't be kept as a line yet"
         // A live stroke paints "behind" as plain paint (StrokeBlend has no behind), so a line would redraw differently.
         !erase && p.blend == "behind" -> "paint-behind brushes can't be kept as lines yet"
-        p.line != null -> "brushes that shape the whole stroke can't be kept as lines yet"
+        // Tapers and dashes are kept (Unibrush U6: the stroke is shaped at the lift and its line replays shaped).
+        cc.joycreator.joybrush.core.vector.LineStyle.of(p.line).isWire -> "screen-width wire brushes can't be kept as lines yet"
         !erase && p.blend !in setOf("normal", "erase", "behind", BLEND_MULTIPLY, BLEND_SCREEN) -> "the ${p.blend} blend can't be kept as a line yet"
         p.engine == "stamp" && p.tip.source != "procedural" -> "picture-tip brushes can't be kept as lines yet"
         tiledBoard -> "lines don't work on a tiled board yet"

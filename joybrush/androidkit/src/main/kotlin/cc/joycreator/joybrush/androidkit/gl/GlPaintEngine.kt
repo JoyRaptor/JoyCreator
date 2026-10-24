@@ -2431,7 +2431,8 @@ class GlPaintEngine(
         val tips = try { resolveRecordedTips(p, pngs, record.seed) } catch (e: Exception) { return e.message ?: "its brush pictures cannot be read" }
         p.tip.sampled?.let { if (tips.sampled?.matches(it) != true) return "its brush pictures are incomplete" }
         p.tip.dual?.let { if (tips.dual?.matches(it, record.seed) != true) return "its dual tip does not match its pictures" }
-        if (p.line != null) return "whole-stroke shaping is not replayed"
+        // Unibrush U6: tapers and dashes replay (InkReplay shapes them); a screen-width wire is drawn by its renderer.
+        if (cc.joycreator.joybrush.core.vector.LineStyle.of(p.line).isWire) return "a screen-width wire is not replayed"
         if (p.blend !in NativeLines.OPERATORS) return "the ${p.blend} operator is not composed"
         if (p.blend == "behind") return "a stroke paints behind as plain paint, so a behind line would redraw differently"
         if (paperWarnings.isNotEmpty()) return "the paper's resources are missing"
@@ -3049,7 +3050,7 @@ class GlPaintEngine(
             (preset.tip.sampled?.let { tips.sampled?.matches(it) } == true)) {
             "Image replay needs the complete frozen sampled-tip set"
         }
-        require(preset.line == null) { "Whole-stroke shaping is not connected to live recording yet" }
+        require(!cc.joycreator.joybrush.core.vector.LineStyle.of(preset.line).isWire) { "Screen-width wires are not connected to GPU replay yet" }
         require(preset.blend in setOf("normal", "erase", "behind", "multiply", "screen")) { "This line operator is not connected to GPU composition yet" }
         require(paperWarnings.isEmpty()) { "Recorded replay needs the document's actual paper resources" }
         require(preset.tip.dual?.let { tips.dual?.matches(it, record.seed) == true } ?: true) {

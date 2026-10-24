@@ -693,6 +693,14 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     }
     private var lineContact: LineContact? = null
 
+    /** Unibrush U6: this stroke is redrawn shaped at the lift; [shapeCapture] records it when no line is being made. */
+    private var shapeAtLift = false
+    private var shapeCapture: StrokeCapture? = null
+
+    /** How the stroke in progress was begun ([beginStrokeNow]): what the lift's shaped redraw begins with again. */
+    private class StrokeBegin(val target: String, val argb: Int, val accumulate: Accumulate, val blend: StrokeBlend, val tip: TipShape)
+    private var strokeBegin: StrokeBegin? = null
+
     /**
      * The id of the document this canvas makes when it has none from a file: unique per drawing (a new library drawing,
      * a fresh bench canvas), kept for every later snapshot of it. Audit 2026-10-18 P1: a shared constant let separate
@@ -1750,11 +1758,14 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                 brush.tip.sampled != null || brush.tip.dual != null)
         } == true
         val wholeStroke = cc.joycreator.joybrush.core.vector.LineStyle.of(p?.line)
-        if (modernStamp && (wholeStroke.tapers || wholeStroke.dashes)) {
+        // Unibrush U6: a modern stamp that shapes the whole stroke (Taper, dashes) draws plainly while the pen is down and
+        // is redrawn shaped at the lift from its own recording ([shapeCapture], LiftShape). A screen-width wire is not.
+        if (modernStamp && wholeStroke.isWire) {
             drawing = false
-            onRefused?.invoke("Stroke-end brushes need the recorded drawing connection.")
+            onRefused?.invoke("Screen-width wire brushes are not connected to drawing yet.")
             return
         }
+        shapeAtLift = modernStamp && cc.joycreator.joybrush.core.vector.LiftShape.wanted(p)
         val actualStabilizer = try {
             p?.takeIf { it.engine == "stamp" && it.extensions["unibrush.family"] in setOf("builtin", "user") }?.let {
                 stabilizerPreference.resolve(it.stabilizer, if (smoothingFromUser) smoothing else it.smoothing)
@@ -1931,6 +1942,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                 LineContact(StrokeCapture(newLineName("ln"), f.id, strokeSeed, amount, view.zoom, primary, secondaryColorArgb = secondary, stabilizer = actualStabilizer), f.newEntries, f.assets.filterKeys { it in f.newEntries })
             } catch (e: Exception) { null }
         }
+        // A shaped stroke that is not becoming a line still needs its recording to be redrawn shaped at the lift.
+        shapeCapture = if (shapeAtLift && lineContact == null && p != null) try {
+            StrokeCapture("shape-stroke", p.id, strokeSeed, amount, view.zoom, primary, secondaryColorArgb = secondary, stabilizer = actualStabilizer)
+        } catch (e: Exception) { null } else null
         // Lines live under document cels and are saved by the board path: a fresh drawing gets its board document first
         // (queued before this stroke's own GL work, as the media path does).
         if (lineContact != null && boardDocument == null) {
@@ -1999,6 +2014,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         else (colorArgb ?: b.argb).let { if (strokeOnMask) maskGrey(it) else it }
         diagnosticContact?.let { it.start = DiagnosticStrokeStart(argb, opacity, tip.hardness) }
         lineContact?.startArgb = argb
+        strokeBegin = StrokeBegin(strokeLayerId, argb, accumulate, strokeBlend(p, eraseBlend), tip)
         val target = strokeLayerId
         val watercolorOptions=strokeWatercolour?.spec
         val watercolorSeed=strokeSeed
@@ -2085,10 +2101,35 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         val lineBrushes = lineContact?.brushes.orEmpty()
         val lineAssets = lineContact?.assets.orEmpty()
         lineContact = null
+        // Unibrush U6: the record the shaped redraw replays (the line's own, else this stroke's shape recording), with what
+        // the stroke was drawn with, taken before the stroke's state is let go below.
+        val shapeRecord = if (!shapeAtLift) null
+            else line ?: shapeCapture?.finish()?.let { r -> strokeBegin?.let { r.copy(colorArgb = it.argb) } ?: r }
+        val shapePreset = strokePreset; val shapeTips = strokeTips; val begin = strokeBegin
+        shapeCapture = null; shapeAtLift = false; strokeBegin = null
         drawing = false
         smoother = null; placer = null; tracker = null
         strokePreset = null; strokeDabber = null; strokeTips = null; contactColors = null; strokeWatercolour = null; scatterRng = null; strokeErase = false; strokeTuft = null
-        boardStrokeWork { engine.setPendingLine(line, lineBrushes, lineAssets); engine.endStroke(); reportHistory() }
+        boardStrokeWork {
+            var keptLine = line
+            if (shapeRecord != null && shapePreset != null && begin != null) {
+                val shaped = cc.joycreator.joybrush.core.vector.LiftShape.shaped(shapeRecord, shapePreset, shapeTips?.sampled, shapeTips?.dual)
+                if (shaped != null && shaped.dabs.isNotEmpty()) {
+                    // The plain stroke goes and the shaped one takes its place in the same step: one undo, never two.
+                    engine.cancelStroke()
+                    val first = shaped.dabs.first()
+                    val tip = first.tipShape(begin.tip.copy(hardness = shaped.strokeHardness, sampled = first.sampled, dual = first.dual))
+                    engine.beginStroke(begin.target, begin.argb, shaped.strokeOpacity, begin.accumulate, begin.blend, tip,
+                        shaped.strokeGrain, null, null, null, 0L)
+                    engine.addDabs(shaped.dabs)
+                } else {
+                    // Too long to shape within its allowances: kept as drawn, as pixels (a line would redraw shaped and differ).
+                    keptLine = null
+                    post { onRefused?.invoke("This stroke was too long to shape its ends; it is kept as drawn.") }
+                }
+            }
+            engine.setPendingLine(keptLine, lineBrushes, lineAssets); engine.endStroke(); reportHistory()
+        }
         flushPaperVisits()
         onStrokeEnded?.invoke()
         diagnosticResult?.let { (observer, result) -> observer(result) }
@@ -2099,6 +2140,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         diagnosticContact = null
         lineContact?.capture?.cancel()
         lineContact = null
+        shapeCapture?.cancel(); shapeCapture = null; shapeAtLift = false; strokeBegin = null
         // A media stroke given up (a second finger, a cancelled gesture) goes back to before it, as a plain stroke does: no step,
         // redo kept, and its water gone with it. It used to stay as a step: the owner's finger daubs, 2026-10-21, which a
         // two-finger-tap undo could not reach (each tap's first finger made and removed a daub of its own).
@@ -2216,6 +2258,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
             else { contact.capture.add(raw); contact.sampleCount++ }
         }
         if (raw.isPlaceable && !raw.predicted) lineContact?.let { it.capture.add(raw); it.samples++ }
+        if (raw.isPlaceable && !raw.predicted) shapeCapture?.add(raw)
         // The watercolor dabber owns the POC's pressure/tilt/path filters. Never smooth or curve it twice.
         if(strokeWatercolour != null) { if(raw.isPlaceable && !raw.predicted) released.add(raw); return }
         if (strokePreset?.engine == ENGINE_FILL && !mediaErase) {

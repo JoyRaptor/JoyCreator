@@ -294,20 +294,30 @@ class StrokeCaptureDispatchTest {
         assertNull(captured(out).record.stabilizer)
     }
 
-    @Test fun strokeEndsRefuseBeforeStartingNativePaintUntilTheRecordedPublisherIsConnected() {
+    @Test fun strokeEndsDrawPlainlyAndAreShapedFromTheirOwnRecordingAtTheLift() {
+        // Unibrush U6: Taper and dashes are no longer refused; the stroke draws and is redrawn shaped at the lift.
         for(family in listOf("builtin","user")) for(style in listOf(
             LineStyleSpec(taperOut=1f),LineStyleSpec(dashOn=1f,dashOff=.5f))) {
             val view=surface();view.preset=view.preset!!.copy(line=style,extensions=mapOf("unibrush.family" to family))
             val refused=ArrayList<String>();view.onRefused={refused.add(it)}
-            val out=observe(view);begin(view)
-            assertFalse(view.strokeInProgress)
-            assertTrue(refused.single().contains("recorded drawing connection"))
-            assertTrue(out.isEmpty());assertFalse(get(view,"glBegan") as Boolean)
-            assertNull(get(view,"smoother"));assertNull(get(view,"strokeTips"))
+            begin(view)
+            assertTrue(view.strokeInProgress);assertTrue(refused.isEmpty())
+            assertTrue(get(view,"shapeAtLift") as Boolean)
+            assertTrue(get(view,"shapeCapture") != null)   // no line is being made, so the stroke records itself for the lift
+            view.cancelInterruptedStroke()
         }
     }
 
-    @Test fun unmarkedModernTipFieldsAndActiveColourWithEndsRefuseBeforeResourceOrNativeWork() {
+    @Test fun aScreenWidthWireIsStillRefusedBeforeAnyNativeWork() {
+        val view=surface();view.preset=view.preset!!.copy(line=LineStyleSpec(taperOut=1f,screenWidthPx=1.5f),
+            extensions=mapOf("unibrush.family" to "builtin"))
+        val refused=ArrayList<String>();view.onRefused={refused.add(it)}
+        val out=observe(view);begin(view)
+        assertFalse(view.strokeInProgress);assertTrue(refused.single().contains("wire"))
+        assertTrue(out.isEmpty());assertFalse(get(view,"glBegan") as Boolean);assertNull(get(view,"smoother"))
+    }
+
+    @Test fun unmarkedModernTipFieldsAndActiveColourWithEndsAreShapedAtTheLiftNotRefused() {
         val base=surface().preset!!
         val modern=listOf(
             base.copy(tip=TipSpec(angleSource=TipAngleSource.fixed)),
@@ -315,15 +325,14 @@ class StrokeCaptureDispatchTest {
             base.copy(tip=TipSpec(fade=TipFadeSpec())),
             base.copy(tip=TipSpec(quad=TipQuadSpec())),
             base.copy(color=ColorJitter(dynamics=ColorDynamicsSpec(hueRangeDegrees=1f))),
-            base.copy(tip=TipSpec(sampled=SampledTipSpec(listOf("missing.png")))),
             base.copy(tip=TipSpec(dual=DualTipSpec())))
         for(feature in modern) for(style in listOf(LineStyleSpec(taperOut=1f),LineStyleSpec(dashOn=1f,dashOff=.5f))) {
             val view=surface();view.preset=view.preset!!.copy(tip=feature.tip,color=feature.color,line=style)
             val refused=ArrayList<String>();view.onRefused={refused.add(it)}
-            val out=observe(view);begin(view)
-            assertFalse(view.strokeInProgress);assertTrue(refused.single().contains("recorded drawing connection"))
-            assertTrue(out.isEmpty());assertNull(get(view,"strokeTips"));assertNull(get(view,"smoother"))
-            assertFalse(get(view,"glBegan") as Boolean);assertEquals(0L,get(view,"diagnosticSerial"))
+            begin(view)
+            assertTrue(refused.none { it.contains("recorded drawing connection") })
+            assertTrue(view.strokeInProgress);assertTrue(get(view,"shapeAtLift") as Boolean)
+            view.cancelInterruptedStroke()
         }
     }
 

@@ -86,3 +86,9 @@ Parked: VisLab (brief in tasks/VISLAB_BRIEF.md); Joy Brush send-into-existing-pr
 - [ ] Publish branch/evidence for Lead and UI review.
 - [ ] Resolve A9's atomic Slice engine dependency and A10's L3 default dependency before claiming all Phase A complete.
 See tasks/joybrush/reviews/SELECT_LINES_IMPLEMENTATION_20261024.md.
+
+## UX Select delivery review — October24 (C1/C2)
+- [x] Read delivered cc1061634 / status98d925b70 against owner-locked page and K24; preserve other lane's staged work.
+- [x] Review D2, More/HSB, layer rows and nudge ghost source; record concrete mismatches without claiming rendered/phone acceptance.
+- [x] Publish C2 source findings and C1 screenshot/gesture gates in the specialist handoff; leave C3 separate.
+Review: SELECT_C2_SOURCE_REVIEW_20261024.md records source fit/reveal notes and six acceptance captures. No tests, screenshots or device actions performed; final integration and C1/C2 visual acceptance remain open.

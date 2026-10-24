@@ -1,0 +1,91 @@
+# Select delivery C2 review and C1 gates — October24
+
+Reviewed supporting implementation cc1061634 and status98d925b70 on codex/select-lines.
+Review worktree C:/Temp/jb-ux-review-20261024, branch ui/select-review-20261024.
+The existing C:/Temp/jb-select-ux has staged benchmark/gesture/overlay work belonging to
+the UI lane; it was left untouched. No build, installation, phone action or preview edit.
+
+## Verdict
+
+C2 SOURCE REVIEW COMPLETE WITH NOTES; C2 VISUAL ACCEPTANCE AND C1 PHONE PASS OPEN.
+The delivery contains the A1–A8 source paths and uses the existing approved presentation
+primitives. That does not prove their native appearance or gesture feel. The delivery's
+reported122 passing app tests predate its final two fixes; final app/core/androidkit gates
+are the builder/Lead's responsibility and were not rerun or independently claimed here.
+The implementation note still correctly marks final verification pending.
+
+Use K24 as the final presentation authority: solid gradient/cut-out switches, visible
+contents inside gradient rings for tools/swatches/layers, full pills, borderless88% paper
+floating chrome. The brief's shorthand “never an outline” does not reverse the owner's
+explicit ring choice. The old page's palette/default trial text cannot reopen K23/K24.
+The approved page is a reference only; the owner ended preview editing.
+
+## Findings
+
+1. **P2 — expanded popovers need an overflow path before small-window acceptance.**
+   SelectSettingsView.kt:15 is a plain vertical LinearLayout. It now holds four40dp choice
+   rows, their headings, explanatory text and one/two40dp actions (:29–44). Popovers.show
+   directly attaches content (:52) and only clamps its position (:126,:152); it supplies
+   no scrolling or available-height content adaptation. More now has additional actions
+   too. In a window shorter than the content plus top reserve, moving the box cannot make
+   the bottom controls reachable. This is a source-derived overflow risk, not a claim that
+   the Note9 portrait screenshot failed. Add a bounded scrollable content area or equivalent
+   fit behavior; check all actions with Paste present, a short window and larger system text.
+   Preserve pill hit targets and the ordinary outside-tap dismissal behavior.
+
+2. **Minor D2 source mismatch — locked-line option is unconditional.**
+   Spec D2 says “Pick locked lines too” appears once a line has been locked. Settings :43
+   always constructs it and Controller.showSettings passes its current preference only,
+   not a reveal condition. Resolve this against D2 before marking exact page parity. Do
+   not silently reinterpret the final styling or remove a persisted way back when resolving it.
+
+3. **Existing L3/A10 gate, not new acceptance:** Settings :36 promises each brush's own
+   Editable lines choice takes priority. The delivery itself says the admission/default
+   choice remains unsettled. That sentence must be true in the integrated implementation
+   before A10/D2 is accepted. Keep provisional Q2/Proko/vector-versus-raster quality decisions
+   separate from a screenshot of an ON switch.
+
+## Source checks that agree with the design
+
+- D2 adds Select all lines, conditional Paste, Pick locked lines and Dim the rest. Every
+  action/choice has kit.label text. Choice height40dp and radius20dp preserve full pills;
+  chosen words use DST_OUT over SelectAccent. Controller wires persisted finger/pick-locked/
+  dim preferences and closes D2 before Select all/Paste. A5 only wires fadeRest; it does not
+  implement the C3 veil (CanvasSelectionHost.dimRest is still empty).
+- More adds Lock/Unlock, Group/Ungroup, Invert and Paste using the existing labelled menu
+  row pattern. HSB remains the three existing sliders; it previews relative changes and
+  returns each slider to neutral after its final edit. Actual cancellations/history and
+  readable white/dark appearance still need the integrated pass.
+- Layer rows are conditional in Activity:1511–1518 from SelectLayerMenu.model, with plain
+  labels and Undo wording. Their new scope rules remain model/engine proof; source presence
+  does not show how the rows fit or whether the actual transaction works on the phone.
+- Nudge stores original selected geometry at drag START (SelectTool:661), converts full
+  widths through live view zoom (:168), and draws before other overlay marks using ONE
+  saveLayerAlpha(...,51) (SelectOverlayView:47–64). This is the correct20% group alpha,
+  rather than independently raising opacity at every overlap. END/CANCEL/new selection
+  clear the ghost (:640,:672,:704). This is a centreline/weight ghost; it does not establish
+  texture-perfect watercolor/picture-tip replay or prove phone rendering at two zooms.
+
+## Evidence owed before C1/C2 close
+
+Lead first integrates supporting source and its dependent LEAD PATCH commits, checks the
+two final fixes, and names the APK's exact revision/hash. A branch screenshot from another
+APK cannot establish acceptance. Then use the existing13-step C1 checklist in
+SELECT_LINES_GAPS_20261023.md §4, retaining per-gesture one-step Undo and save/reopen checks.
+Keep white/dark paper, ordinary and reduced motion, pen/button/finger routing in that pass.
+
+Minimum additional delivery captures/checks:
+
+| Capture | What must be visible/observed |
+| --- | --- |
+| D2 on white and dark paper | All four actions/preferences and existing two settings; Paste absent/present correctly; full pills/cut-out text, readable labels, no clipped bottom controls. Repeat a short-window/larger-text fit check. |
+| Layer menu, applicable/inapplicable cases | Select all lines, scoped Rasterize Down, Flatten Lower in their correct place; unavailable rows absent; actual one-step result/Undo preserves layers above and restores lines. |
+| Nudge before/mid-drag/after | Original shape remains stationary at20% while the edited shape moves; two zooms; crossing lines do not become a darker ghost from repeated compositing; release/cancel removes it. |
+| More and HSB | Contextual Lock/Unlock, Group/Ungroup, Invert, Paste and Adjust; different selected colours retain relative hues; preview/cancel/final release and Undo match the drawing and neutral sliders. |
+| Colour drag-off | One successful recolour; returning to the dot/cancelling changes nothing; the no-selection eyedropper still behaves normally. |
+| History and reopen | Move→Undo/Redo keeps/refits selection, Delete→Undo recovers it, surviving subsets remain selected, Open cannot resurrect old addresses; save/reopen preserves lock/group data. |
+
+Use only the sandbox Note9 under the current device runbook/lock and readiness check;
+never change rotation settings or use monkey. No Note20 work. No device run is initiated
+by this review. C3 outside veil remains separate and unfinished; A9 Slice and A10/L3 plus
+Phase B approval gates remain open. The agreed cyan/full-pill/borderless look is unchanged.

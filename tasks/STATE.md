@@ -245,16 +245,17 @@ as four separate chips two could be armed at once with reorder silently winning.
 
 ---
 
-## 5.5 VISLAB — the music visualiser lab (2026-10-17 to 10-23)
+## 5.5 VISLAB — the music visualiser lab (2026-10-17 to 10-24)
 
 GPU visuals that react to music: a room to build looks in, the same looks inside Studio as video
 layers, and a floating visualiser over other apps. Lead docs: `tasks/VISLAB_SPEC.md`,
 `tasks/VISLAB_TODO.md` (checklist with code places), `tasks/VISLAB_ROADMAP.md` (what is next).
 "Agent phone-tested" = driven on the Note 9 by an agent with screenshots; 🟢 = JoyRaptor used it.
+"Built, phone test owed" = compiled and its JVM tests pass, not yet seen on a phone.
 
 | Feature | Level | Notes |
 |---|---|---|
-| VisLab room: 39 looks, play to the demo song / mic / a song file | 🟢 ✔ | `vislab/room/VisLabActivity`; GLES 3 engine `vislab/gl/VisRenderer`, 44 shaders shared with the web pilot |
+| VisLab room: 41 looks, play to the demo song / mic / a song file | 🟢 ✔ | `vislab/room/VisLabActivity`; GLES 3 engine `vislab/gl/VisRenderer`, 47 shaders shared with the web pilot |
 | Live sound analysis (bass..air, kick / snare / hat, beat and bar, spectrum, history) | 🟢 ✔ | `vislab/audio/FeatureExtractor`; frame-for-frame parity test with the pilot (`tools/jvm-harness/run-vislab.sh`) |
 | The Lab: build a look from nothing, 26 elements, stack layers, every knob music-linkable (the ♪) | 🟢 ✔ | `room/KnobPanel`; looks saved as hand-editable `Supplies/Looks/<Name>.vis.json` in his folder |
 | Parts shelf: save a layer as a part, reuse it in any look | 🟡 ✔ | `.vispart.json`; agent phone-tested 10-18 |
@@ -271,8 +272,15 @@ layers, and a floating visualiser over other apps. Lead docs: `tasks/VISLAB_SPEC
 | Blend mode on a Studio visualiser (Difference, Screen, Multiply...) | 🟡 ✔ | Real in export (`export/VisualizerBlendGlEffect`), Normal in preview; agent phone-tested 10-23 |
 | Web look book (desktop pilot of every look and the editor) | 🟢 ✔ | `tools/vislab-web`; published as a private Claude artifact (v5) |
 | Joybot can pick, edit and save looks | 🟡 ✔ | Joybot lane (`ai/actions/VisLab*`) |
+| Font per Words layer: each Words layer in any app font or his imported ones | 🟡 | Built, phone test owed (R1). `words/VisFonts`; one glyph sheet per text + font |
+| Parts instead of lumped scenes: Stars (crisp, twinkle / pulse to the beat / sparkle on hi-hats, shooting stars), Aurora curtains, Mountains (ranges you drive past, snow caps, bass lift) | 🟡 | Built, phone test owed (R2); look "Aurora Parts" = Northern Lights rebuilt from parts; checked in the look book |
+| Knobs hide when the current mode makes them do nothing | 🟡 | Built, phone test owed (R6): `showFor` on 66 more knobs |
+| Sprite element: a Sprite Lab sheet playing inside a look, its own speed / a frame per beat / per kick / the loudness picking the frame / one held, back and forth, one of the sheet's animations | 🟡 | Built, phone test owed (R7). `gl/SpriteLayers`, `room/Sprites`, `room/SheetShelf`; frames drawn by Sprite Lab's own renderer, so alignment matches; look "Record Hop" |
+| MIDI as a sound source: a .mid file drives a look with exact kicks, snares, hats, notes and tempo; .kar lyrics become the song's words; a built-in synth plays it | 🟡 | Built, phone test owed (R5). `vislab/audio/Midi*`; `tools/jvm-harness/run-midi.sh` |
+| VisLab finishes as Studio effects on any clip or adjustment layer: Lens split, Scanlines, Zoom blur, Glitch tear, VHS, CRT bend, Kaleidoscope, Mirror, Shake, Wet floor (keyframable) | 🟡 | Built, phone test owed (R4). `studiokit/.../fx/FxVisLabDefs` |
+| Studio visualiser on the shared transform box: move, free resize, spin arc, snapping, keyed writes, hold or double-tap opens its drawer | 🟡 | Built, phone test owed (R3). `transform/VisualizerTransformHost` |
 | Element packs from other people (plugins) | 🔵 | Designed in VISLAB_TODO section F |
-| Font per Words layer; composable Aurora / Mountains / Stars; VisLab effects on Studio clips and adjustment layers; MIDI as a sound source; sprite element; proxies driving looks | 🔵 | `tasks/VISLAB_ROADMAP.md` R1-R12, building from 10-23 |
+| Proxies driving looks, layer reference, echo trails as a Studio effect, true blend preview, video element | 🔵 | `tasks/VISLAB_ROADMAP.md` R8-R12 |
 
 ## 6. AI — the agent
 

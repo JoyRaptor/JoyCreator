@@ -100,7 +100,9 @@ public class VisTextureView extends TextureView implements TextureView.SurfaceTe
         renderer = VisLab.get(context).newRenderer();
         heat = new HeatGuard(context);
         renderer.setWords(com.fadcam.vislab.words.WordFeed.withDemo(context));   // until a transcript gives words
-        renderer.setTypedWordsMaker(() -> new com.fadcam.vislab.words.WordFeed(context));   // a Words layer's own words
+        // A Words layer's own words, and any layer's words in its own font.
+        renderer.setWordsMaker(font -> new com.fadcam.vislab.words.WordFeed(context,
+                com.fadcam.vislab.words.VisFonts.typeface(context, font)));
         renderer.setProfiling((context.getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0);
         setOpaque(false);
         setSurfaceTextureListener(this);

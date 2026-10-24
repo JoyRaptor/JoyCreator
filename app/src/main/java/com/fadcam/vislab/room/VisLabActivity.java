@@ -37,11 +37,13 @@ import com.fadcam.vislab.VisLab;
 import com.fadcam.vislab.audio.Features;
 import com.fadcam.vislab.audio.LiveAnalyzer;
 import com.fadcam.vislab.audio.MicSource;
+import com.fadcam.vislab.audio.MidiSource;
 import com.fadcam.vislab.audio.PcmRing;
 import com.fadcam.vislab.audio.SongPlayer;
 import com.fadcam.vislab.audio.SoundSource;
 import com.fadcam.vislab.model.VisScene;
 import com.fadcam.vislab.view.VisTextureView;
+import com.fadcam.vislab.words.WordFeed;
 
 import java.util.List;
 
@@ -80,6 +82,13 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
     private final LiveAnalyzer analyzer = new LiveAnalyzer(ring);
     @Nullable private SoundSource source;
     private int sourceKind = SRC_DEMO;
+    /**
+     * The words layers read: the demo song's sample lyrics (the room's own copy, so they can be
+     * swapped back after a MIDI file's), and a MIDI file's own lyrics when it has some.
+     */
+    private WordFeed demoWords;
+    @Nullable private WordFeed midiWords;
+    private boolean wordsFollowMidi;
 
     private ActivityResultLauncher<String> askMic;
     private ActivityResultLauncher<String[]> pickSong;
@@ -136,12 +145,15 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
         stage = new FrameLayout(this);
         view = new VisTextureView(this);
         view.setFeatureSource(dt -> {
-            view.renderer().setWordsTime(demoSeconds());   // the demo lyrics follow the demo song
+            view.renderer().setWordsTime(wordsSeconds());   // the demo lyrics follow the demo song, a .kar its own
             Features f = analyzer.step(dt);
             if (f.level > SOUND_LEVEL) heardAt = SystemClock.uptimeMillis();
             return f;
         });
+        demoWords = WordFeed.withDemo(this);
+        view.renderer().setWords(demoWords);
         view.renderer().setImageSource(new Pictures(this));
+        view.renderer().setSpriteSource(new Sprites(this));
         stage.addView(view, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         root.addView(stage, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         GestureDetector swipe = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
@@ -241,14 +253,17 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
         sources = new SlantRow(this, Ui.VIZ_A, Ui.VIZ_B);
         sources.add("music_note", "Demo song", "Play the built-in demo song");
         sources.add("mic", "Microphone", "Listen to the room through the microphone");
-        sources.add("library_music", "A song", "Pick a song from this phone");
+        sources.add("library_music", "A song", "Pick a song or a MIDI file from this phone");
         sources.setSelected(SRC_DEMO);
         sources.setOnPick(i -> {
             if (i == SRC_MIC) {
                 if (MicSource.hasPermission(this)) useSource(SRC_MIC, null);
                 else askMic.launch(Manifest.permission.RECORD_AUDIO);
             } else if (i == SRC_SONG) {
-                pickSong.launch(new String[]{"audio/*"});
+                // audio/* already takes .mid / .midi / .kar where the phone knows them as audio/midi;
+                // the rest are for providers that call a MIDI file something else (the file's own
+                // first bytes decide what it really is, see MidiSource.isMidi).
+                pickSong.launch(new String[]{"audio/*", "audio/midi", "audio/x-midi", "application/x-midi", "application/octet-stream"});
             } else {
                 useSource(SRC_DEMO, null);
             }
@@ -536,14 +551,55 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
         pickPicture.launch(new String[]{"image/*"});
     }
 
+    @Override
+    public void pickSheet(@NonNull com.google.gson.JsonObject layer) {
+        // Reading every project's sheets is slow: off the main thread, then the chooser.
+        new Thread(() -> {
+            List<SheetShelf.Entry> sheets = SheetShelf.list(this);
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                com.google.gson.JsonElement now = layer.get("sheet");
+                String nowId = now != null && now.isJsonObject() && now.getAsJsonObject().has("id")
+                        ? now.getAsJsonObject().get("id").getAsString() : null;
+                LookSheets.chooseSheet(this, sheets, nowId, pick -> {
+                    beginEdit("Sprite sheet");
+                    if (pick == null) layer.remove("sheet");
+                    else layer.add("sheet", pick.sheet.deepCopy());
+                    layer.remove("clip");
+                    edited();
+                    panel.rebuild();
+                });
+            });
+        }, "VisSheetShelf").start();
+    }
+
     // ------------------------------------------------------------------ sound
 
-    /** Where the demo song is, seconds (its sample lyrics are timed to it); NaN for other sound. */
-    private double demoSeconds() {
+    /**
+     * Where the song is, seconds, for words timed to it: the demo song's sample lyrics, or a MIDI
+     * file's own lyrics (.kar); NaN for other sound (the words then run on the look's clock).
+     */
+    private double wordsSeconds() {
         SoundSource s = source;
-        if (sourceKind != SRC_DEMO || s == null) return Double.NaN;
+        if (s == null) return Double.NaN;
+        if (wordsFollowMidi && s instanceof MidiSource) return ((MidiSource) s).songSeconds();
+        if (sourceKind != SRC_DEMO) return Double.NaN;
         long f = s.playheadFrame();
         return f < 0 ? Double.NaN : f / (double) Math.max(1, ring.sampleRate());
+    }
+
+    /** A MIDI file with lyrics sings them; any other sound keeps the demo lyrics, as before. */
+    private void chooseWords(@NonNull SoundSource s) {
+        List<WordFeed.Word> w = s instanceof MidiSource ? ((MidiSource) s).words() : null;
+        if (w != null && !w.isEmpty()) {
+            if (midiWords == null) midiWords = new WordFeed(this);
+            midiWords.setWords(w, ((MidiSource) s).loopSeconds());
+            view.renderer().setWords(midiWords);
+            wordsFollowMidi = true;
+        } else {
+            view.renderer().setWords(demoWords);
+            wordsFollowMidi = false;
+        }
     }
 
     private void useSource(int kind, @Nullable Uri song) {
@@ -551,8 +607,9 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
         source = null;
         SoundSource s;
         if (kind == SRC_MIC) s = new MicSource(ring);
-        else if (kind == SRC_SONG && song != null) s = SongPlayer.ofUri(ring, song);
-        else s = SongPlayer.ofAsset(ring, DEMO);
+        else if (kind == SRC_SONG && song != null) {
+            s = MidiSource.isMidi(this, song) ? new MidiSource(ring, song) : SongPlayer.ofUri(ring, song);
+        } else s = SongPlayer.ofAsset(ring, DEMO);
         if (!s.start(this)) {
             Toast.makeText(this, kind == SRC_MIC ? "The microphone is busy or not allowed." : "That song could not be opened.",
                     Toast.LENGTH_LONG).show();
@@ -561,6 +618,7 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
         }
         source = s;
         sourceKind = kind;
+        chooseWords(s);
         analyzer.setSource(s);
         sources.setSelected(kind);
         setPaused(false);

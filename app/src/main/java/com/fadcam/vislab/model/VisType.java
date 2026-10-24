@@ -18,6 +18,8 @@ import java.util.Map;
  *   <li>{@code instanced}: {@link #verts} vertices per instance, instance count from {@link #instances}</li>
  *   <li>{@code particles}, {@code slime}, {@code rd}: living layers with their own state</li>
  *   <li>{@code image}: fullscreen with a picture bound as {@code uImage}</li>
+ *   <li>{@code sprite}: fullscreen with a sprite sheet bound as {@code uSheet} and this frame's
+ *       place in it as {@code uCell}</li>
  * </ul></p>
  */
 public final class VisType {
@@ -28,6 +30,8 @@ public final class VisType {
     public static final String DRAW_SLIME = "slime";
     public static final String DRAW_RD = "rd";
     public static final String DRAW_IMAGE = "image";
+    /** A sprite sheet playing frame by frame (see vislab/gl/SpriteLayers). */
+    public static final String DRAW_SPRITE = "sprite";
     /** Timed words drawn from a glyph atlas (see vislab/words/WordFeed). */
     public static final String DRAW_WORDS = "words";
 

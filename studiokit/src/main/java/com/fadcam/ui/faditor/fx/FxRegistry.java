@@ -525,6 +525,11 @@ public final class FxRegistry {
                 FxParam.flt("x", "Offset X", -1f, 1f, 0f),
                 FxParam.flt("y", "Offset Y", -1f, 1f, 0f)));
 
+        // VisLab's finish effects (Glitch Tear, VHS, Scanlines, CRT Bend, Kaleidoscope, Mirror,
+        // Zoom Blur, Shake, Wet Floor, Lens Color Split), kept in their own class so this one
+        // stays readable. They go through the same validate() below as everything above.
+        FxVisLabDefs.addTo(defs);
+
         ALL = Collections.unmodifiableList(defs);
 
         Map<String, FxEffectDef> byId = new LinkedHashMap<>();

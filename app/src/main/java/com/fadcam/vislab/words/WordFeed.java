@@ -96,8 +96,19 @@ public final class WordFeed {
     /** How far the words have flowed so far, text heights (a scene can travel with them). */
     public float flowNow;
 
+    /** The words as last set, their period, and how many times they were set (font variants
+     *  copy them and catch up when this count moves on). */
+    @NonNull private volatile List<Word> source = Collections.emptyList();
+    private volatile double sourcePeriod;
+    private volatile int version;
+
     public WordFeed(@NonNull Context c) {
-        Typeface t = Type.display(c.getApplicationContext(), Type.EXTRA);
+        this(c, null);
+    }
+
+    /** Words drawn in {@code face} (null = VisLab's display font; see {@link VisFonts}). */
+    public WordFeed(@NonNull Context c, @Nullable Typeface face) {
+        Typeface t = face != null ? face : Type.display(c.getApplicationContext(), Type.EXTRA);
         paint.setTypeface(t != null ? t : Typeface.DEFAULT_BOLD);
         paint.setTextSize(TEXT_PX);
         paint.setColor(Color.WHITE);
@@ -125,6 +136,9 @@ public final class WordFeed {
 
     /** Timed words; {@code period} > 0 repeats them every {@code period} seconds. Any thread. */
     public void setWords(@NonNull List<Word> list, double period) {
+        source = new ArrayList<>(list);
+        sourcePeriod = period;
+        version++;
         Word[] w = list.toArray(new Word[0]);
         java.util.Arrays.sort(w, (a, b) -> Double.compare(a.start, b.start));
         float[] aspect = new float[w.length], flow = new float[w.length];
@@ -137,6 +151,21 @@ public final class WordFeed {
             }
         }
         track = new Track(w, aspect, flow, period, f);
+    }
+
+    /** The words as last set (a copy is safe to keep). */
+    @NonNull
+    public List<Word> words() {
+        return source;
+    }
+
+    public double period() {
+        return sourcePeriod;
+    }
+
+    /** Moves on every {@link #setWords}. */
+    public int version() {
+        return version;
     }
 
     /** Seconds per word for words the person typed. */

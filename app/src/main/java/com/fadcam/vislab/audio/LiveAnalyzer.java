@@ -68,6 +68,8 @@ public final class LiveAnalyzer {
         }
         for (int i = 0; i < FFT; i++) mono[i] = 0.5f * (l[i] + r[i]);
         float[] db = spectrum.analyze(mono);
-        return extractor.update(db, l, ring.isStereo() ? r : null, dt);
+        Features f = extractor.update(db, l, ring.isStereo() ? r : null, dt);
+        if (s != null && head >= 0) s.refine(f, head, dt);   // a MIDI file says exactly what is playing
+        return f;
     }
 }

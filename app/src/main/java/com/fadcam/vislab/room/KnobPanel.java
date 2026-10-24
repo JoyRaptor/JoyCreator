@@ -61,6 +61,9 @@ final class KnobPanel extends LinearLayout {
         /** Let the person choose a picture for this image layer (a logo, album art). */
         void pickPicture(@NonNull JsonObject layer);
 
+        /** Let the person choose which Sprite Lab sheet this Sprite layer plays. */
+        void pickSheet(@NonNull JsonObject layer);
+
         // This look's own actions: the footer under every tab.
 
         /** Where the look's file is in the Joy Creator folder, or null before its first write. */
@@ -338,7 +341,10 @@ final class KnobPanel extends LinearLayout {
                     L.addProperty("echo", on);
                     host.edited();
                 }));
-        if (VisType.DRAW_WORDS.equals(t.draw)) yourWords(c, L);
+        if (VisType.DRAW_WORDS.equals(t.draw)) {
+            yourWords(c, L);
+            wordsFont(c, L);
+        }
         layerColours(c, s, L);
         if (VisType.DRAW_IMAGE.equals(t.draw)) {
             boolean own = L.has("image") && L.get("image").isJsonPrimitive() && !L.get("image").getAsString().isEmpty();
@@ -370,6 +376,7 @@ final class KnobPanel extends LinearLayout {
             }
             body.addView(row);
         }
+        if (VisType.DRAW_SPRITE.equals(t.draw)) spriteSheet(c, L);
         buildKnobs(t, knobsOf(L));
         String group = null;
         for (VisKnob k : types.layer.knobs) {
@@ -571,6 +578,113 @@ final class KnobPanel extends LinearLayout {
         mlp.leftMargin = Ui.dp(c, 6);
         row.addView(mine, mlp);
         body.addView(row);
+    }
+
+    /**
+     * The font this Words layer draws in (roadmap R1): VisLab's own, Studio's text fonts and the
+     * person's imported fonts, each pill written in its own font so it can be chosen by eye.
+     */
+    private void wordsFont(@NonNull Context c, @NonNull JsonObject L) {
+        JsonElement fe = L.get("font");
+        String font = fe != null && fe.isJsonPrimitive() ? fe.getAsString() : "";
+        LinearLayout row = new LinearLayout(c);
+        row.setOrientation(HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setMinimumHeight(Ui.dp(c, 36));
+        row.addView(Ui.text(c, "Font", 12, Studio.INK_DIM, false, 500), new LayoutParams(Ui.dp(c, 98), LayoutParams.WRAP_CONTENT));
+        android.widget.HorizontalScrollView scroll = new android.widget.HorizontalScrollView(c);
+        scroll.setHorizontalScrollBarEnabled(false);
+        LinearLayout pills = new LinearLayout(c);
+        pills.setOrientation(HORIZONTAL);
+        TextView chosen = null;
+        for (String[] f : com.fadcam.vislab.words.VisFonts.choices(c)) {
+            String key = f[0];
+            boolean on = key.equals(font);
+            TextView p = pill(c, f[1], on);
+            p.setTypeface(com.fadcam.vislab.words.VisFonts.typeface(c, key));
+            Ui.label(p, "Draw this layer's words in " + f[1]);
+            p.setOnClickListener(v -> {
+                if (key.equals(font)) return;
+                Motion.press(v);
+                host.beginEdit("Font");
+                if (key.isEmpty()) L.remove("font");
+                else L.addProperty("font", key);
+                host.edited();
+                rebuild();
+            });
+            LayoutParams lp = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+            if (pills.getChildCount() > 0) lp.leftMargin = Ui.dp(c, 6);
+            pills.addView(p, lp);
+            if (on) chosen = p;
+        }
+        scroll.addView(pills);
+        row.addView(scroll, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
+        body.addView(row);
+        TextView show = chosen;
+        if (show != null) scroll.post(() -> scroll.scrollTo(Math.max(0, show.getLeft() - Ui.dp(c, 24)), 0));
+    }
+
+    /**
+     * A Sprite layer's sheet (a Sprite Lab sheet, or the built-in Joy record) and, when the sheet
+     * has animations, which one plays: every frame, or one of them.
+     */
+    private void spriteSheet(@NonNull Context c, @NonNull JsonObject L) {
+        JsonElement se = L.get("sheet");
+        JsonObject sheet = se != null && se.isJsonObject() ? se.getAsJsonObject() : null;
+        LinearLayout row = new LinearLayout(c);
+        row.setOrientation(HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setMinimumHeight(Ui.dp(c, 36));
+        row.addView(Ui.text(c, "Sheet", 12, Studio.INK_DIM, false, 500), new LayoutParams(Ui.dp(c, 98), LayoutParams.WRAP_CONTENT));
+        TextView pick = pill(c, SheetShelf.nameOf(sheet), false);
+        Ui.label(pick, "Choose which Sprite Lab sheet this layer plays");
+        pick.setOnClickListener(v -> {
+            Motion.press(v);
+            host.pickSheet(L);
+        });
+        row.addView(pick);
+        body.addView(row);
+        java.util.LinkedHashMap<String, String> clips = SheetShelf.clips(sheet);
+        if (clips.isEmpty()) return;
+        JsonElement ce = L.get("clip");
+        String clip = ce != null && ce.isJsonPrimitive() ? ce.getAsString() : "";
+        LinearLayout crow = new LinearLayout(c);
+        crow.setOrientation(HORIZONTAL);
+        crow.setGravity(Gravity.CENTER_VERTICAL);
+        crow.setMinimumHeight(Ui.dp(c, 36));
+        crow.addView(Ui.text(c, "Animation", 12, Studio.INK_DIM, false, 500), new LayoutParams(Ui.dp(c, 98), LayoutParams.WRAP_CONTENT));
+        android.widget.HorizontalScrollView scroll = new android.widget.HorizontalScrollView(c);
+        scroll.setHorizontalScrollBarEnabled(false);
+        LinearLayout pills = new LinearLayout(c);
+        pills.setOrientation(HORIZONTAL);
+        java.util.List<String[]> choices = new java.util.ArrayList<>();
+        choices.add(new String[]{"", "Every frame"});
+        for (java.util.Map.Entry<String, String> e : clips.entrySet()) choices.add(new String[]{e.getKey(), e.getValue()});
+        TextView chosen = null;
+        for (String[] ch : choices) {
+            String id = ch[0];
+            boolean on = id.equals(clip);
+            TextView p = pill(c, ch[1], on);
+            Ui.label(p, id.isEmpty() ? "Play every frame of the sheet" : "Play the sheet's " + ch[1] + " animation");
+            p.setOnClickListener(v -> {
+                if (id.equals(clip)) return;
+                Motion.press(v);
+                host.beginEdit("Animation");
+                if (id.isEmpty()) L.remove("clip");
+                else L.addProperty("clip", id);
+                host.edited();
+                rebuild();
+            });
+            LayoutParams lp = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+            if (pills.getChildCount() > 0) lp.leftMargin = Ui.dp(c, 6);
+            pills.addView(p, lp);
+            if (on) chosen = p;
+        }
+        scroll.addView(pills);
+        crow.addView(scroll, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
+        body.addView(crow);
+        TextView show = chosen;
+        if (show != null) scroll.post(() -> scroll.scrollTo(Math.max(0, show.getLeft() - Ui.dp(c, 24)), 0));
     }
 
     /**

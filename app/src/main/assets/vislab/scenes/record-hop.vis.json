@@ -1,0 +1,62 @@
+{
+  "format": "joy.vis/1",
+  "id": "record-hop",
+  "name": "Record Hop",
+  "family": "Game FX",
+  "description": "A sprite that hops a frame on every beat, inside a ring of sound under the stars. Pick your own Sprite Lab sheet on the Sprite layer.",
+  "palette": [
+    "#FAA03D",
+    "#FC6818",
+    "#FF3CAC",
+    "#784BA0",
+    "#2B86C5"
+  ],
+  "background": "#07060A",
+  "layers": [
+    {
+      "type": "stars",
+      "name": "Stars",
+      "p": {
+        "density": 0.3,
+        "twinkle": 2,
+        "colour": 0.4,
+        "shoot": 0.1
+      }
+    },
+    {
+      "type": "spectrum",
+      "name": "Ring",
+      "p": {
+        "radial": 1,
+        "mode": 0,
+        "count": 90,
+        "y": 0,
+        "size": 0.4,
+        "height": 0.2,
+        "fill": 0.5,
+        "glow": 0.4,
+        "mirror": 1,
+        "brightness": 0.6
+      }
+    },
+    {
+      "type": "sprite",
+      "name": "Sprite",
+      "add": 0,
+      "p": {
+        "play": 1,
+        "size": 0.34,
+        "pump": 0.3,
+        "halo": 0.5,
+        "palShift": 0.1
+      }
+    }
+  ],
+  "post": {
+    "p": {
+      "bloom": 0.6,
+      "vignette": 0.4,
+      "grain": 0.1
+    }
+  }
+}

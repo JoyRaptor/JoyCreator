@@ -279,7 +279,12 @@ public final class StudioVis {
                 vr.setTransparent(true);   // sits on the video, like Studio's own visualisers
                 vr.setForceFrame(1);       // soft edges inside the item's box, never a hard seam
                 vr.setWords(null);         // until the clip's transcript gives words (below)
+                // A Words layer's own typed words and any layer's font (typed words drew nothing
+                // in Studio before: no maker was set).
+                vr.setWordsMaker(font -> new com.fadcam.vislab.words.WordFeed(app,
+                        com.fadcam.vislab.words.VisFonts.typeface(app, font)));
                 vr.setImageSource(new com.fadcam.vislab.room.Pictures(app));   // pictures as in the room
+                vr.setSpriteSource(new com.fadcam.vislab.room.Sprites(app));    // and sprite sheets
                 it = new Item(vr);
                 items.put(key, it);
             }

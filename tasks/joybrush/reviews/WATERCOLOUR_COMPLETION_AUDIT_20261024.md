@@ -69,3 +69,25 @@ condition yet: unfinished source and evidence are still needed.
   the shared build slot was occupied/reserved. No Gradle run began for this
   candidate; the check did not pass or fail any test.
 - Original L1 review, design note and20-row JSON are retained in this branch.
+
+## Owner-reserved verification window, October24 afternoon
+
+The owner made RAM and Note9 available. A fresh guarded run on0b02e9e06
+completed successfully in6m22: core2559 tests, zero failures/errors,4 optional
+skips; backend1068 tests, zero failures/errors/skips. All four new geometry-key
+tests pass. The production Engine cache code compiles. These are new results,
+not inherited from Claude's earlier branch. Raw log is retained locally as
+`C:/Temp/jb-watercolour-ops/finish-core-backend-20261024.log`.
+
+Note9 reservation watercolor-finish acquired from stale lock; initial battery
+23.3C. Existing installed APK backed up and SHA256 recorded before any install:
+da2104ee437b1a686c28f11a0aded19ec85228391e811f3b8c3c849636a30fc3.
+Coordinator paused the known idle automatic-install watcher for this window.
+No device/project data were cleared. Select has one bounded focused test slot
+between this successful standalone run and the next watercolor root/APK build.
+
+New diagnostic candidate df16e4833 adds `recordedWatercolourEditProbe`: a fresh
+disposable engine exercises actual NativeLines add/lift/two tints/undo/redo,
+counts deposition versus finish-only calls, and compares all footprint tiles
+against independent ordinary GPU replay. At this entry it has not been compiled
+or run. This is additional engine evidence, not live UI/save/context acceptance.

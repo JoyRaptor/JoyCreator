@@ -42,8 +42,10 @@ import java.util.Map;
  *   <li>{@code get_item} — every setting a person can change on one item (the drawer's values).</li>
  *   <li>{@code find_words} — where words are said in a transcript, with the time and the sentence.</li>
  * </ul>
+ *
+ * <p>{@link #onScreenAt} lists the same lines for one moment: the ids beside Joybot's look.</p>
  */
-final class InspectActions {
+public final class InspectActions {
     private InspectActions() { }
 
     private static final String FAMILY = "inspect";
@@ -136,6 +138,22 @@ final class InspectActions {
         String row = rows.get(it.id);
         if (row != null) sb.append(" | row \"").append(row).append('"');
         for (String f : flags(it)) sb.append(" | ").append(f);
+        return sb.toString();
+    }
+
+    /**
+     * Everything that can show in the picture at {@code ms} (not audio), one list_items line each:
+     * the ids a look's caption carries so the model can act on what it saw. Empty when nothing is
+     * there.
+     */
+    @NonNull
+    public static String onScreenAt(@NonNull FaditorProject p, long ms) {
+        Map<String, String> rows = rowNames(p);
+        StringBuilder sb = new StringBuilder();
+        for (Item it : collect(p)) {
+            if ("audio".equals(it.kind) || ms < it.start || ms >= it.end) continue;
+            sb.append(listLine(it, rows)).append('\n');
+        }
         return sb.toString();
     }
 

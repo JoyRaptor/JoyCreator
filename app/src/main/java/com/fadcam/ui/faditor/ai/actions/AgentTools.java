@@ -29,12 +29,38 @@ public final class AgentTools {
                     "The steps, each one short plain sentence a non-technical person understands")
             .build();
 
+    /**
+     * {@code look}'s exact schema for tool-calling models. Its time had been an open argument
+     * described in prose, and a free model asked "is the title readable at 0:03?" looked at the
+     * playhead instead (Note 9, 2026-10-24). The numbered text list keeps describing it (42g).
+     */
+    @NonNull
+    static final ActionSpec LOOK = ActionSpec.of("look", "See the finished video or a thing in the project")
+            .help("SEE something: the picture comes back with the next message. id \"playhead\" (the"
+                    + " default) is the FINISHED video exactly as it exports (titles, pictures, sprites,"
+                    + " visualizers, grade, crop, effects) with the ids of what is on screen: use it for \"is the"
+                    + " title readable\", \"does the picture cover the face\", \"is the visualizer behind the"
+                    + " text\", and look again after a change to check it. Any other id shows that one thing: a"
+                    + " sprite sheet (cells numbered for label_sprite_cells / author_sprite_animation), a sprite"
+                    + " or picture layer, or a clip's raw frame. Look first, then act; don't guess from names.")
+            .wing("JOYBOT", "inspect")
+            .effect(ActionSpec.Effect.READ)
+            .text("id", false, "\"playhead\" for the finished video (default), or the id of a sprite sheet,"
+                    + " sprite layer, picture layer or clip")
+            .param("atMs", ActionSpec.Type.INT, false, "WHEN, in milliseconds. With playhead: the time on the"
+                    + " timeline, so 0:03 is 3000 (leave it out only for the playhead's own time). With a clip:"
+                    + " time into that clip (default its middle)")
+            .flag("source", false, "With playhead: only the main clip's raw frame, no layers (quicker)")
+            .build();
+
     @NonNull
     public static List<String> nativeToolsJson() {
         List<String> out = new ArrayList<>();
-        out.add("{\"type\":\"function\",\"function\":{\"name\":" + ActionSpec.quote(PLAN.tool)
-                + ",\"description\":" + ActionSpec.quote(PLAN.description())
-                + ",\"parameters\":" + PLAN.schemaJson() + "}}");
+        for (ActionSpec s : new ActionSpec[]{PLAN, LOOK}) {
+            out.add("{\"type\":\"function\",\"function\":{\"name\":" + ActionSpec.quote(s.tool)
+                    + ",\"description\":" + ActionSpec.quote(s.description())
+                    + ",\"parameters\":" + s.schemaJson() + "}}");
+        }
         return out;
     }
 

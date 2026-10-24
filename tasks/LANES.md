@@ -1,4 +1,5 @@
 # LANES.md — live file-lock board for parallel agents
+# 2026-10-23 ACTIVE Codex lines-selection Swath A: C:/Temp/jb-codex-select, codex/select-lines. Own only assigned `joybrush-android/.../android/select/*`, `androidkit/select/*`, allowed `core/select/*` (excluding LineTransform.kt), `core/chrome/*`, and their tests. Lead-owned JoyBrushActivity.kt changes are separate `LEAD PATCH:` commits; notify Lead before each hot-file hunk. Vector watercolour/LineTransform/admission files excluded. Phase B paint selection is not claimed.
 # October14 ACTIVE Lead: C:/Temp/jb-live-current, lead/jb-live-current, sourceccb4913bf includes originbb4df6c64.
 # Prior C:/Temp/jb-live-lines is frozen/backed-up b203e760; original owner folder/worktrees preserved.
 # Core2273/backend514/native193 green; sourceccbAPK PASS1m33 with current Note9 capture/bake diagnostics. Later factory guards backend-verified only.

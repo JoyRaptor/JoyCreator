@@ -18,6 +18,22 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
 class SelectToolEditTest {
+    @Test fun nudgeHoldsTheBeforeShapeOnlyUntilTheGestureEnds() {
+        val host = Host(mutableListOf(record("a")))
+        val tool = SelectTool(host, 1f) { true }
+        selectLines(tool, host)
+        tool.nudging = true
+        val view = cc.joycreator.joybrush.core.view.ViewTransform()
+        val down = android.view.MotionEvent.obtain(0, 0, android.view.MotionEvent.ACTION_DOWN, 20f, 10f, 0)
+        assertTrue(tool.down(down, 0, view)); down.recycle()
+        val move = android.view.MotionEvent.obtain(0, 10, android.view.MotionEvent.ACTION_MOVE, 20f, 30f, 0)
+        tool.event(move, view); move.recycle()
+        val ghost = tool.nudgeBeforeScreen().single()
+        assertEquals(10f, ghost.points[1], 0f)
+        val up = android.view.MotionEvent.obtain(0, 20, android.view.MotionEvent.ACTION_UP, 20f, 30f, 0)
+        tool.event(up, view); up.recycle()
+        assertTrue(tool.nudgeBeforeScreen().isEmpty())
+    }
     private class Pixels : LiftedPixels {
         var commits = 0
         var commitResult = true

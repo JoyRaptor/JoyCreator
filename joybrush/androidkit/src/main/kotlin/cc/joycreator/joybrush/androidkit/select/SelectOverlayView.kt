@@ -35,12 +35,34 @@ class SelectOverlayView(context: Context, private val tool: SelectTool) : View(c
     override fun onTouchEvent(event: android.view.MotionEvent?): Boolean = false
 
     override fun onDraw(c: Canvas) {
+        drawBeforeNudge(c)
         drawGlow(c)
         drawAnts(c)
         drawLoop(c)
         drawRing(c)
         drawTips(c)
         drawCrosshair(c)
+    }
+
+    private fun drawBeforeNudge(c: Canvas) {
+        val ghosts = tool.nudgeBeforeScreen()
+        if (ghosts.isEmpty()) return
+        val layer = c.saveLayerAlpha(null, 51)
+        line.pathEffect = null
+        for (ghost in ghosts) {
+            val points = ghost.points
+            val widths = ghost.widths
+            line.color = ghost.argb
+            if (widths.size == 1) {
+                line.strokeWidth = maxOf(1f, widths[0])
+                c.drawPoint(points[0], points[1], line)
+            }
+            for (i in 1 until widths.size) {
+                line.strokeWidth = maxOf(1f, (widths[i - 1] + widths[i]) / 2f)
+                c.drawLine(points[(i - 1) * 2], points[(i - 1) * 2 + 1], points[i * 2], points[i * 2 + 1], line)
+            }
+        }
+        c.restoreToCount(layer)
     }
 
     /** A cyan rim around each glowing line: the overlay sits over the canvas, so the line's own width is cut back out. */

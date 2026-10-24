@@ -6,6 +6,8 @@ import cc.joycreator.joybrush.core.stroke.StrokeRecord
 import cc.joycreator.joybrush.core.stroke.LineAddress
 import cc.joycreator.joybrush.core.stroke.AddressedStroke
 import cc.joycreator.joybrush.core.vector.InkLine
+import cc.joycreator.joybrush.androidkit.lines.LinePlane
+import cc.joycreator.joybrush.core.brush.BrushPreset
 
 /**
  * JB-5.20e — everything the Select tool asks of the canvas and the engine. The UI lane owns this interface; the Lead
@@ -16,6 +18,8 @@ import cc.joycreator.joybrush.core.vector.InkLine
  * through that same history whatever is lifted (Lead, 2026-10-11).
  */
 interface SelectionHost {
+    /** Changes when another drawing is opened; selection identities never cross that boundary. */
+    val selectionEpoch: Int get() = 0
 
     /**
      * One line of a cel (JB-5.20a): its record, the picker's view of its geometry (from `InkReplay`, as
@@ -40,6 +44,18 @@ interface SelectionHost {
 
     /** The active layer's current cel's lines, in drawing order (seq). Empty until 5.20a/5.20d land. */
     fun activeLines(): List<Line>
+
+    /** The plane a newly pasted line belongs to, including when it is currently empty. */
+    fun activeLinePlane(): LinePlane? = activeLines().firstOrNull()?.address?.let { LinePlane(it.layerId, it.celId) }
+
+    /** The active layer's cel owning the paste destination, which may lie inside an animation frame. */
+    fun linePlaneAt(docX: Float, docY: Float): LinePlane? = activeLinePlane()
+
+    /** A frozen brush definition available in this drawing, or null when it cannot be resolved. */
+    fun brushPreset(brushId: String): BrushPreset? = null
+
+    /** Freeze a brush definition into the active drawing and return the id its new lines should use. */
+    fun importBrush(preset: BrushPreset): String? = null
 
     /** Every visible layer's current cel's lines, for the All layers chip. */
     fun visibleLines(): List<Line>

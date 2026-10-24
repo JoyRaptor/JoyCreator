@@ -31,6 +31,7 @@ class SelectRowView(private val kit: ChromeKit, private val actions: Actions) : 
 
     interface Actions {
         fun colour(anchor: View)
+        fun colourTouch(view: View, event: MotionEvent): Boolean = false
         fun brush(anchor: View)
         /** The weight chip dragged: [factor] from where the drag began; [done] on lift (ONE undo step). */
         fun weight(factor: Float, done: Boolean)
@@ -74,7 +75,9 @@ class SelectRowView(private val kit: ChromeKit, private val actions: Actions) : 
     fun showLines(colours: List<Int>, brushIcon: JbIcon, weight: Float, chips: Boolean) {
         removeAllViews(); items.clear()
         if (chips) {
-            add(Item(Kind.COLOUR).also { it.colours = colours }, "Recolour the selected lines") { actions.colour(it) }
+            val colour = Item(Kind.COLOUR).also { it.colours = colours }
+            add(colour, "Recolour the selected lines. Drag off to pick a colour from the canvas") { actions.colour(it) }
+            colour.setOnTouchListener { view, event -> actions.colourTouch(view, event) }
             add(Item(Kind.ICON, brushIcon), "Swap the selected lines to another line brush") { actions.brush(it) }
         }
         val w = Item(Kind.WEIGHT, JbIcon.WEIGHT)

@@ -139,6 +139,22 @@ class SelectionStateTest {
     }
 
     @Test
+    fun groupExpansionAlsoRespectsThePickLockedChoiceForLoopsAndTaps() {
+        val items = object : SelectionState.Items {
+            override fun locked(id: LineAddress) = id == address("b")
+            override fun group(id: LineAddress) = if (id == address("a") || id == address("b")) "pair" else null
+        }
+        val s = SelectionState(items = items)
+        s.choose(address("a"), adding = false, at = null, lines = lines)
+        assertEquals(addresses("a"), ids(s))
+        s.loop(square(-10.0, 48.0, 110.0, 51.0), lines, lines, SelectionState.Reading(reach = LineLasso.Reach.TOUCHING), false)
+        assertEquals(addresses("a"), ids(s))
+        s.pickLocked = true
+        s.choose(address("a"), adding = false, at = null, lines = lines)
+        assertEquals(addresses("a", "b"), ids(s))
+    }
+
+    @Test
     fun aGroupComesTogether() {
         val items = object : SelectionState.Items { override fun group(id: LineAddress) = if (id == address("a") || id == address("far")) "g1" else null }
         val s = SelectionState(items = items)
@@ -150,6 +166,18 @@ class SelectionStateTest {
         assertEquals(addresses("c"), ids(s), "and taking one back out takes the group out")
         s.loop(square(-10.0, 290.0, 110.0, 310.0), lines, lines, SelectionState.Reading(), adding = false)
         assertEquals(addresses("far", "a"), ids(s), "a loop around one member takes the group")
+    }
+
+    @Test
+    fun directLineSelectionExpandsGroupsAndAnEmptySetClears() {
+        val items = object : SelectionState.Items {
+            override fun group(id: LineAddress) = if (id == address("a") || id == address("far")) "pair" else null
+        }
+        val s = SelectionState(items = items)
+        s.selectLines(listOf(address("a")), lines)
+        assertEquals(addresses("a", "far"), ids(s))
+        s.selectLines(emptyList(), lines)
+        assertNull(s.current)
     }
 
     @Test

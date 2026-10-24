@@ -41,7 +41,7 @@ class SelectionState(
         val groups = ids.mapNotNull { items.group(it) }.toSet()
         if (groups.isEmpty()) return ids.toSet()
         val out = ids.toMutableSet()
-        for (l in scope) if (items.group(l.address) in groups) out.add(l.address)
+        for (l in scope) if ((pickLocked || !items.locked(l.address)) && items.group(l.address) in groups) out.add(l.address)
         return out
     }
 
@@ -76,6 +76,13 @@ class SelectionState(
         private set
 
     fun clear() { current = null }
+
+    /** Select known addresses; callers restoring identities or a layer scope can keep that exact set. */
+    fun selectLines(ids: Collection<LineAddress>, scope: List<SelectionLine>, expandGroups: Boolean = true) {
+        current = ids.takeIf { it.isNotEmpty() }?.let {
+            Lines(if (expandGroups) withGroups(it, scope) else it.toSet(), null, null, null)
+        }
+    }
 
     /**
      * A tap at ([x], [y]). [insideBox] says whether the point is inside the live box (D6). [adding] is the owner's

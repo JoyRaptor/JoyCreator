@@ -17,26 +17,23 @@ object SelectionSync {
      * they really are, and a stale loop is dropped. A line that is gone drops out of the selection.
      */
     fun afterRefusedEdit(tool: SelectTool) {
-        val selected = tool.selection as? SelectionState.Lines ?: return
+        val selected = tool.selection as? SelectionState.Lines ?: run { tool.restoreDeletedSelectionIfPresent(); return }
         val ids = selected.ids.toList()
-        val at = selected.pick ?: SelectionState.Pick(FAR, FAR)   // no spot to cycle from
         tool.end()
-        for (id in ids) {
-            val now = tool.selection as? SelectionState.Lines
-            if (now != null && id in now.ids) continue   // a group already brought it back
-            tool.chooseFromOrder(listOf(id), 0, adding = now != null, at = at)
-        }
+        tool.selectAddresses(ids)
     }
 
     /**
-     * The drawing's lines changed from outside this tool (a stroke, an undo, a layer hidden, a drawing opened). A selection
-     * that names a line that is no longer there ends; nothing else about it is guessed at.
+     * The drawing's lines changed from outside this tool (a stroke, an undo, a layer hidden, a drawing opened). Keep the
+     * selected addresses that still resolve, refit the box, and end only when none remain. After Delete, an undo can bring
+     * the held addresses back and restore the selection.
      */
     fun afterLinesChanged(tool: SelectTool, host: SelectionHost) {
-        val selected = tool.selection as? SelectionState.Lines ?: return
-        val there = host.visibleLines().mapTo(HashSet()) { it.address }
-        if (selected.ids.any { it !in there }) tool.end()
+        when (tool.selection) {
+            is SelectionState.Lines -> tool.reconcileLineSelection()
+            null -> tool.restoreDeletedSelectionIfPresent()
+            is SelectionState.Pixels -> Unit
+        }
     }
 
-    private const val FAR = -1.0e9
 }

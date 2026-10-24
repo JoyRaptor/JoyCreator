@@ -34,10 +34,12 @@ internal class FakeCanvas : HostCanvas {
     var active: List<LinePlane> = emptyList()
     var visible: List<LinePlane> = emptyList()
     val submitted = ArrayList<Pair<LineEdit, (LineEditResult) -> Unit>>()
+    val previews = ArrayList<List<cc.joycreator.joybrush.core.stroke.AddressedStroke>>()
     /** When set, the canvas answers inside submitLineEdit, as it does for "Lift the pen". */
     var answerAtOnce: LineEditResult? = null
     var redraws = 0
     var epoch = 0
+    var supportsLineLift = false
 
     override val lineSnapshot: LineSnapshot get() = snapshot
     override val lineEditEpoch: Int get() = epoch
@@ -48,6 +50,8 @@ internal class FakeCanvas : HostCanvas {
         answerAtOnce?.let(done)
     }
     override fun redraw() { redraws++ }
+    override fun beginLineLift(ids: Set<cc.joycreator.joybrush.core.stroke.LineAddress>): Boolean = supportsLineLift
+    override fun previewLineLift(records: List<cc.joycreator.joybrush.core.stroke.AddressedStroke>) { previews += records.toList() }
 
     /** The engine answers the [n]th edit sent. */
     fun answer(n: Int, result: LineEditResult) = submitted[n].second(result)

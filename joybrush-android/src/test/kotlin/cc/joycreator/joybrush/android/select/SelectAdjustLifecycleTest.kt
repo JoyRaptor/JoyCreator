@@ -54,6 +54,7 @@ class SelectAdjustLifecycleTest {
             override fun hasRestingThumbForCount() = false
         })
         val hue: SeekBar
+        private var eventTime = 0L
         init {
             rig.canvas.supportsLineLift = true
             assertTrue(controller.tool.selectAddresses(before.map { it.address }))
@@ -70,7 +71,8 @@ class SelectAdjustLifecycleTest {
             root.layout(0, 0, 400, 800)
         }
         fun touch(action: Int, fraction: Float) {
-            val event = MotionEvent.obtain(0L, 10L + action, action, hue.width * fraction, hue.height / 2f, 0)
+            eventTime += 16L
+            val event = MotionEvent.obtain(0L, eventTime, action, hue.width * fraction, hue.height / 2f, 0)
             hue.dispatchTouchEvent(event)
             event.recycle()
         }

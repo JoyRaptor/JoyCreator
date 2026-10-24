@@ -27,6 +27,7 @@ import cc.joycreator.joybrush.androidkit.lines.LineSnapshot
 import cc.joycreator.joybrush.androidkit.gl.lines.NativeBaseTransferProof
 import cc.joycreator.joybrush.androidkit.gl.lines.PromotedBaseProjection
 import cc.joycreator.joybrush.androidkit.gl.watercolour.WatercolourPass
+import cc.joycreator.joybrush.androidkit.gl.watercolour.GlWatercolourLineRenderer
 import cc.joycreator.joybrush.androidkit.gl.media.GlUniformSink
 import cc.joycreator.joybrush.androidkit.gl.media.mediaTrace
 import cc.joycreator.joybrush.androidkit.io.PaperResources
@@ -579,6 +580,17 @@ class GlPaintEngine(
     /** True while the stroke buffer holds RGBA carried paint (a smudge) instead of a single coverage channel. */
     private var strokeIsRgba = false
     private var wcPass: WatercolourPass? = null
+    // One selected line only; other lines replayed to compose its background cannot evict it.
+    private var wcLineRenderer: GlWatercolourLineRenderer? = null
+    private var wcLineSelection: Pair<String, String>? = null
+    private var wcLineReplay: InkReplay.Replayed? = null
+    internal var watercolourLineDepositionCalls = 0L
+        private set
+    internal var watercolourLineFinishOnlyCalls = 0L
+        private set
+    private val wcLineCacheTiles = 32
+    private fun wcLineCacheReservation(): Long = if (wcLineSelection == null) 0L
+        else (wcLineCacheTiles + 1L) * size * size * 8L
     private var wcSpec: WatercolourSpec? = null
     private var wcPrepared = false
     private var wcFading = false
@@ -740,6 +752,7 @@ class GlPaintEngine(
         resetJointPaint(RecordedScene.ResetMode.CONTEXT_LOST)
         recordedScene?.forget(); recordedScene = null
         wcPass?.forget(); wcPass = null; wcSpec = null; wcFading = false; wcPrepared = false
+        wcLineRenderer?.forget(); wcLineRenderer = null; wcLineSelection = null; wcLineReplay = null
         // The stroke goes with its buffer, and the layers with their tiles: the stroke was never in
         // a layer, so nothing is released twice and nothing is left pointing at a dead name.
         // Dead stroke names are abandoned, not returned to a pool that can trim/delete them.
@@ -804,6 +817,7 @@ class GlPaintEngine(
         GLES30.glDeleteVertexArrays(4, intArrayOf(dabVao, tileVao, smudgeVao, tuftVao), 0)
         GLES30.glDeleteFramebuffers(3, intArrayOf(fbo, readFbo, copyFbo), 0)
         wcPass?.release(); wcPass = null
+        wcLineRenderer?.release(); wcLineRenderer = null; wcLineSelection = null; wcLineReplay = null
         grains.release()
         compositor.release()
         boardCompositor.release()
@@ -2469,7 +2483,8 @@ class GlPaintEngine(
         if (byPlane.isEmpty()) return
         // H7: each baked line's unit is rendered and kept (it becomes the slab): estimate them before rendering any.
         val unitTiles = byPlane.entries.sumOf { (plane, baked) -> baked.sumOf { nativeLines.footprint(plane, it.id).size.toLong() } }
-        LineEditBudget.refusal(LineEditBudget.bytes(unitTiles, 0L))?.let { throw IllegalStateException(it) }
+        LineEditBudget.refusal(LineEditBudget.bytes(unitTiles, 0L) + wcLineCacheReservation())
+            ?.let { throw IllegalStateException(it) }
         val units = ArrayList<RecordedLineUnit>()
         var committed = false
         try {
@@ -2638,7 +2653,8 @@ class GlPaintEngine(
             }
             composedTiles += 2L * affected.size   // the composed tile and, at most, a new base
         }
-        LineEditBudget.refusal(LineEditBudget.bytes(unitTiles, composedTiles))?.let { throw IllegalStateException(it) }
+        LineEditBudget.refusal(LineEditBudget.bytes(unitTiles, composedTiles) + wcLineCacheReservation())
+            ?.let { throw IllegalStateException(it) }
         try {
             for ((plane, newList) in next) {
                 val layer = layers.getValue(plane.layerId)
@@ -2746,6 +2762,30 @@ class GlPaintEngine(
         settleLift()
         settleWatercolourFade()
         check(!strokeInProgress && !wcFading && !mediaStrokeInProgress) { "Finish the stroke before moving lines" }
+        val selected = ids.singleOrNull()?.let { address ->
+            val layer = layers[address.layerId] ?: return@let null
+            val plane = LinePlane(address.layerId, address.celId ?: layer.sharedCel)
+            val record = nativeLines.record(plane, address.recordId) ?: return@let null
+            val brush = nativeLines.brush(record.brushId) ?: return@let null
+            if (brush.engine == ENGINE_WATERCOLOUR && nativeLines.footprint(plane, record.id).size <= wcLineCacheTiles)
+                address.layerId to address.recordId else null
+        }
+        // Lift also retains units, a rest-of-plane and the selected preview. Refuse before allocating.
+        var liftUnitTiles = 0L
+        var liftComposedTiles = 0L
+        for ((plane, addresses) in ids.groupBy { LinePlane(it.layerId, it.celId ?: layers[it.layerId]?.sharedCel) }) {
+            val keys = addresses.flatMapTo(LinkedHashSet()) { nativeLines.footprint(plane, it.recordId) }
+            val records = keys.flatMap { nativeLines.linesAt(plane, it) }.distinctBy { it.id }
+            liftUnitTiles += records.sumOf { nativeLines.footprint(plane, it.id).size.toLong() }
+            liftComposedTiles += 2L * keys.size
+        }
+        val reserve = if (selected == null) 0L else (wcLineCacheTiles + 1L) * size * size * 8L
+        LineEditBudget.refusal(LineEditBudget.bytes(liftUnitTiles, liftComposedTiles) + reserve)
+            ?.let { throw IllegalStateException(it) }
+        if (selected != wcLineSelection) {
+            wcLineRenderer?.release(); wcLineRenderer = null; wcLineReplay = null
+            wcLineSelection = selected
+        }
         if (ids.isEmpty()) return
         val originals = LinkedHashMap<Pair<LinePlane, Long>, Int?>()
         val rest = ArrayList<Int>()
@@ -2907,7 +2947,9 @@ class GlPaintEngine(
         require(preset.line == null) { "Whole-stroke shaping is not connected to live recording yet" }
         require(preset.blend in setOf("normal", "erase", "behind", "multiply", "screen")) { "This line operator is not connected to GPU composition yet" }
         require(paperWarnings.isEmpty()) { "Recorded replay needs the document's actual paper resources" }
-        val replay = admittedReplay ?: InkReplay.replay(record, preset)
+        val cachedReplay = if (wcLineSelection == (layerId to record.id) &&
+            wcLineRenderer?.canReuse(record, preset) == true) wcLineReplay else null
+        val replay = admittedReplay ?: cachedReplay ?: InkReplay.replay(record, preset)
         // Older grain brushes used the newest contact of each native event batch as a uniform.
         // Raw samples alone do not retain those batch boundaries, so varying legacy pose cannot
         // be transcribed as one draw without changing the grain. Modern contacts carry it per dab.
@@ -2940,15 +2982,38 @@ class GlPaintEngine(
             GLES30.glPixelStorei(GLES30.GL_UNPACK_ROW_LENGTH, 0)
             GLES30.glPixelStorei(GLES30.GL_UNPACK_SKIP_ROWS, 0)
             GLES30.glPixelStorei(GLES30.GL_UNPACK_SKIP_PIXELS, 0)
+            val cacheKeys = if (preset.engine == ENGINE_WATERCOLOUR &&
+                wcLineSelection == (layerId to record.id))
+                (if (cachedReplay != null) wcLineRenderer!!.touchedTiles(record, preset)
+                 else Tiles.bucket(replay.dabs, size).keys).takeIf { it.size <= wcLineCacheTiles } else null
             beginStrokeBuffer(layerId, record.colorArgb, replay.strokeOpacity,
                 if (preset.accumulate == "buildup") Accumulate.BUILD_UP else Accumulate.WASH,
                 StrokeBlend.NORMAL, tip, replay.strokeGrain,
                 watercolour = if (preset.engine == ENGINE_WATERCOLOUR) preset.watercolourRuntime() else null,
-                watercolourSeed = record.seed, watercolourWashFrame = record.washFrame)
+                watercolourSeed = record.seed, watercolourWashFrame = record.washFrame,
+                startWatercolourPass = cacheKeys == null)
             requireRecordedGrainAssets(replay.strokeGrain, look, loadedPaper?.paper)
-            addDabs(replay.dabs)
-            paintWaitingTileStroke()
-            if (wcSpec != null) wcPass?.finishInto(strokeTiles, 1f)
+            if (cacheKeys != null) {
+                val renderer = wcLineRenderer ?: GlWatercolourLineRenderer(shaders, size).also { wcLineRenderer = it }
+                GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
+                for (key in cacheKeys) strokeTiles.getOrPut(key) { newStrokeTile() }
+                val frozenLook = look
+                val frozenSurface = surfaceTexture ?: grains.placeholder
+                val reused = renderer.canReuse(record, preset)
+                renderer.render(record, preset, strokeTiles,
+                    surfaceTexture != null && loadedPaper?.paper?.surface != null) { program ->
+                    stamp.setPaperSurfaceUniforms(GlUniformSink, program::loc, frozenLook)
+                    GLES30.glActiveTexture(GLES30.GL_TEXTURE1)
+                    GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, frozenSurface)
+                }
+                wcLineReplay = replay
+                if (reused) watercolourLineFinishOnlyCalls++ else watercolourLineDepositionCalls++
+            } else {
+                // Large lines and multi-selection retain the exact ordinary replay without unbounded coverage.
+                addDabs(replay.dabs)
+                paintWaitingTileStroke()
+                if (wcSpec != null) wcPass?.finishInto(strokeTiles, 1f)
+            }
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
             GLES30.glViewport(0, 0, size, size)
             GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
@@ -3765,6 +3830,7 @@ class GlPaintEngine(
             addAll(listOfNotNull(lookTexture,surfaceTexture,fluidTexture,look.fluidTexture))
             addAll(grains.heldTextureHandles()); addAll(boardPreview.heldTextureHandles())
             addAll(paperBackground.heldTextureHandles()); addAll(wcPass?.heldTextureHandles().orEmpty())
+            addAll(wcLineRenderer?.heldTextureHandles().orEmpty())
             remove(0)
         }
         check(current()) { "Cold root changed during inspection" }
@@ -3827,6 +3893,7 @@ class GlPaintEngine(
         addAll(boardPreview.heldTextureHandles())
         addAll(paperBackground.heldTextureHandles())
         addAll(wcPass?.heldTextureHandles().orEmpty())
+        addAll(wcLineRenderer?.heldTextureHandles().orEmpty())
         add(look.tipGrainTex); add(look.paperGrainTex); look.fluidTexture?.let(::add)
         remove(0)
     }
@@ -4161,6 +4228,7 @@ class GlPaintEngine(
         boardPreview.heldTextureHandles().forEach(::nonbase)
         paperBackground.heldTextureHandles().forEach(::nonbase)
         wcPass?.heldTextureHandles()?.forEach(::nonbase)
+        wcLineRenderer?.heldTextureHandles()?.forEach(::nonbase)
         return result
     }
 
@@ -4585,7 +4653,8 @@ class GlPaintEngine(
                                   grain: GrainMath.StrokeGrain,
                                   smudge: SmudgeParams? = null, tuft: TuftShading? = null,
                                   watercolour: WatercolourSpec? = null, watercolourSeed: Long = 0L,
-                                  watercolourWashFrame: cc.joycreator.joybrush.core.stroke.StrokeWashFrame? = null) {
+                                  watercolourWashFrame: cc.joycreator.joybrush.core.stroke.StrokeWashFrame? = null,
+                                  startWatercolourPass: Boolean = true) {
         check(!resettingJointPaint && !forgettingGraphicsContext) { "Finish graphics retirement before preparing stroke buffers" }
         settleWatercolourFade()
         cancelStroke()
@@ -4625,8 +4694,8 @@ class GlPaintEngine(
                 it.copy(paperAsset=surface.file,paperPitchPx=if(look.paperInfluence>0f)surface.texelPx*p.scale else 0f,tooth=it.tooth)
             else it
         }
-        if (watercolour != null) {
-            this.accumulate = Accumulate.BUILD_UP
+        if (watercolour != null) this.accumulate = Accumulate.BUILD_UP
+        if (watercolour != null && startWatercolourPass) {
             val frozenLook = look
             val frozenSurface = surfaceTexture ?: grains.placeholder
             val pass = wcPass ?: WatercolourPass(shaders, size).also { wcPass = it }
@@ -5233,6 +5302,9 @@ class GlPaintEngine(
         wcPass?.heldWorkingTileBytes()?.forEach { (name, bytes) ->
             result[name] = maxOf(result[name] ?: 0L, bytes)
         }
+        wcLineRenderer?.heldWorkingTileBytes()?.forEach { (name, bytes) ->
+            result[name] = maxOf(result[name] ?: 0L, bytes)
+        }
         recordedPendingTileBytes.forEach { (name, bytes) ->
             result[name] = maxOf(result[name] ?: 0L, bytes)
         }
@@ -5521,7 +5593,8 @@ class GlPaintEngine(
             listOfNotNull(clearTex, whiteTex, thumbTex, tuftPaperTex, lookTexture, surfaceTexture, fluidTexture,
                 look.tipGrainTex, look.paperGrainTex, look.fluidTexture, compositor.target, compositor.backdrop,
                 boardCompositor.target, boardCompositor.backdrop) + grains.heldTextureHandles() +
-            boardPreview.heldTextureHandles() + paperBackground.heldTextureHandles() + wcPass?.heldTextureHandles().orEmpty()
+            boardPreview.heldTextureHandles() + paperBackground.heldTextureHandles() + wcPass?.heldTextureHandles().orEmpty() +
+            wcLineRenderer?.heldTextureHandles().orEmpty()
         require(slabNames.distinct().size == slabNames.size && slabNames.none { it == 0 || it in floatNames || it in forbidden }) {
             "Snapshot slabs must retain exclusive physical RGBA8 source ownership"
         }

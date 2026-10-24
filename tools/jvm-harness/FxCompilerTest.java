@@ -47,6 +47,7 @@ public class FxCompilerTest {
         serializationRoundTrip();
         costModel();
         spatialUnitsAreResolutionIndependent();
+        visLabFinishes();
 
         System.out.println(failed == 0 ? "ALL GREEN (" + passed + "/" + (passed + failed) + ")"
                 : "FAILURES: " + failed + " (passed " + passed + ")");
@@ -60,9 +61,9 @@ public class FxCompilerTest {
     static void registryIsValid() {
         List<String> problems = FxRegistry.validate();
         check("the registry self-check passes: " + problems, problems.isEmpty());
-        check("all 17 effects are present (12 v1 + Solid Color + Gradient + Brightness + the legacy "
-                        + "grade's two halves, color_grade and film)",
-                FxRegistry.all().size() == 17);
+        check("all 27 effects are present (12 v1 + Solid Color + Gradient + Brightness + the legacy "
+                        + "grade's two halves, color_grade and film, + VisLab's ten finishes)",
+                FxRegistry.all().size() == 27);
     }
 
     static void everyEffectCompilesToBothBackends() {
@@ -661,6 +662,24 @@ public class FxCompilerTest {
     }
 
     // ── plumbing ────────────────────────────────────────────────────────────
+
+    /**
+     * VisLab's ten finishes (roadmap R4) are registered with the capability their body needs: a
+     * remap moves where the picture is read, a sampler reads neighbours, Scanlines only the colour.
+     * Every one also goes through everyEffectCompilesToBothBackends like the rest.
+     */
+    static void visLabFinishes() {
+        String[][] want = {
+                {"glitch_tear", "UV_REMAP"}, {"kaleidoscope", "UV_REMAP"}, {"mirror", "UV_REMAP"},
+                {"shake", "UV_REMAP"}, {"zoom_blur", "SAMPLER"}, {"lens_split", "SAMPLER"},
+                {"vhs", "SAMPLER"}, {"crt_bend", "SAMPLER"}, {"wet_floor", "SAMPLER"},
+                {"scanlines", "POINTWISE"}};
+        for (String[] w : want) {
+            FxEffectDef d = FxRegistry.get(w[0]);
+            check("VisLab finish " + w[0] + " is registered", d != null);
+            if (d != null) check(w[0] + " is " + w[1], d.capability.name().equals(w[1]));
+        }
+    }
 
     static void check(String what, boolean ok) {
         if (ok) { passed++; System.out.println("  ok   " + what); }

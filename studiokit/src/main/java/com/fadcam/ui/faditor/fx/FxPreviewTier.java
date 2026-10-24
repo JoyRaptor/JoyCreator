@@ -68,7 +68,12 @@ public final class FxPreviewTier {
      */
     public static boolean canExportOn(@NonNull FxEffectDef def, @NonNull Subject subject) {
         if (subject == Subject.LAYER) return canExport(def);
-        return def.capability != FxEffectDef.Capability.SAMPLER;
+        // UV_REMAP is refused here too. A remap only changes WHERE the next pass samples, so it
+        // needs a finished image to move, exactly as a SAMPLER does: the per-object path splices
+        // in the first fused (pointwise/generator) pass only and drops every remap and sampler
+        // pass. Offering Mirror or Kaleidoscope on a PiP would add a card that renders nothing.
+        return def.capability == FxEffectDef.Capability.POINTWISE
+                || def.capability == FxEffectDef.Capability.GENERATOR;
     }
 
     /**

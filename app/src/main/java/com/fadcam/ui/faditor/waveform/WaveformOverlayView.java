@@ -9,11 +9,9 @@ import android.graphics.DashPathEffect;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.net.Uri;
-import android.os.Handler;
-import android.os.Looper;
 import android.util.AttributeSet;
-import android.view.MotionEvent;
 import android.view.View;
+import android.view.MotionEvent;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -34,6 +32,12 @@ import java.util.Map;
  * player view) so an overlay's normalized placement maps straight to pixels. Driven by the
  * playhead — {@link #setPlayheadMs(long)} re-renders each active overlay at its current local
  * time via {@link WaveformStyleRenderer}, so it animates with playback and scrubbing.
+ *
+ * <p><b>This view only DRAWS.</b> It takes no touches: a visualiser is selected, moved, resized and
+ * turned on Studio's shared transform box ({@code TransformOverlayView}, hosted by
+ * {@code VisualizerTransformHost}) like every other object, and a touch that lands here falls
+ * through to the views beneath. The older dashed box it used to carry is kept below, drawn only
+ * for an overlay handed to {@link #setSelected}, which the editor no longer does.</p>
  */
 public class WaveformOverlayView extends View {
 
@@ -61,39 +65,12 @@ public class WaveformOverlayView extends View {
     @Nullable private Paint visPaint;
     private boolean looksAsked;
 
-    /** Callbacks to the host so changes persist / overlays can be removed. */
-    public interface OnChangeListener {
-        void onWaveformChanged();
-        void onWaveformDeleted(@NonNull WaveformOverlayInstance overlay);
-        /** Re-tapping an already-selected visualizer — open the style chooser. */
-        default void onWaveformTapped(@NonNull WaveformOverlayInstance overlay) {}
-        /**
-         * Hold on a visualizer — open its settings drawer (gesture contract §4.5).
-         * Deletion is NOT on this gesture: it lives on the timeline row's trash-can
-         * badge. The default used to fall through to an instant, confirm-less delete,
-         * which meant a hold anywhere near a visualizer could destroy it; it now
-         * routes to the same place a re-tap goes.
-         */
-        default void onWaveformLongPressed(@NonNull WaveformOverlayInstance overlay) {
-            onWaveformTapped(overlay);
-        }
-    }
-
     private final Paint selectionPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint handlePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     /** Fade-knob alpha paint (FADE_KNOBS §2.5) — lazily created, only when a fade is active. */
     @androidx.annotation.Nullable private Paint fadePaint;
-    private final Handler handler = new Handler(Looper.getMainLooper());
-    @Nullable private OnChangeListener changeListener;
+    /** The overlay the older dashed box is drawn on; nothing in the editor sets it any more. */
     @Nullable private WaveformOverlayInstance selected;
-    private int dragMode = 0; // 0 none, 1 move, 2 pinch-resize, 3 handle-resize
-    private float downX, downY, startCenterX, startCenterY, startW, startH, startDist;
-    private boolean movedSinceDown;
-    private boolean reTapSelected; // the down hit was already the selected overlay
-    @Nullable private Runnable longPressRunnable;
-    // Handle resize state: which handle (1..8) + the fixed bounding-box edges at touch start.
-    private int resizeHandle = 0; // 1=TL 2=TR 3=BL 4=BR 5=T 6=B 7=L 8=R
-    private float resizeStartLeft, resizeStartTop, resizeStartRight, resizeStartBottom;
 
     public WaveformOverlayView(Context context) {
         this(context, null);
@@ -116,8 +93,13 @@ public class WaveformOverlayView extends View {
         setLayerType(View.LAYER_TYPE_SOFTWARE, null);
     }
 
-    public void setOnChangeListener(@Nullable OnChangeListener l) {
-        this.changeListener = l;
+    /**
+     * Draw the older dashed selection box (with its eight dots) on {@code overlay}, or on nothing.
+     * Drawing only: the box takes no touches. The editor selects on the shared transform box now.
+     */
+    public void setSelected(@Nullable WaveformOverlayInstance overlay) {
+        this.selected = overlay;
+        invalidate();
     }
 
     /** Add/replace a user style not in the built-in set (from the Studio). */
@@ -288,213 +270,9 @@ public class WaveformOverlayView extends View {
         }
     }
 
-    // ── Touch: select / move / pinch-resize / long-press delete ──────
-
+    /** Preview drawing yields all gestures to the shared transform controls beneath it. */
     @Override
-    public boolean onTouchEvent(MotionEvent e) {
-        int w = getWidth(), h = getHeight();
-        if (w <= 0 || h <= 0) return false;
-        switch (e.getActionMasked()) {
-            case MotionEvent.ACTION_DOWN: {
-                float tx = e.getX(), ty = e.getY();
-                // First: if an overlay is already selected, check for a resize-handle hit.
-                if (selected != null && playheadMs >= selected.getStartMs() && playheadMs <= selected.getEndMs()) {
-                    int handle = hitTestHandle(tx, ty, w, h, selected);
-                    if (handle > 0) {
-                        dragMode = 3;
-                        resizeHandle = handle;
-                        movedSinceDown = false;
-                        float cx = selected.animatedCenterX(playheadMs) * w;
-                        float cy = selected.animatedCenterY(playheadMs) * h;
-                        float rw = selected.animatedWidthFraction(playheadMs) * w;
-                        float rh = selected.animatedHeightFraction(playheadMs) * h;
-                        resizeStartLeft = cx - rw / 2f;
-                        resizeStartTop = cy - rh / 2f;
-                        resizeStartRight = cx + rw / 2f;
-                        resizeStartBottom = cy + rh / 2f;
-                        cancelPendingLongPress();
-                        return true;
-                    }
-                }
-                WaveformOverlayInstance hit = hitTest(tx, ty, w, h);
-                if (hit == null) {
-                    if (selected != null) { selected = null; invalidate(); }
-                    return false; // let the touch fall through to the views below
-                }
-                reTapSelected = (hit == selected);
-                selected = hit;
-                dragMode = 1;
-                movedSinceDown = false;
-                downX = tx;
-                downY = ty;
-                // World position at the grab: the drag moves what the eye sees.
-                startCenterX = hit.animatedCenterX(playheadMs);
-                startCenterY = hit.animatedCenterY(playheadMs);
-                scheduleLongPress(hit);
-                invalidate();
-                return true;
-            }
-            case MotionEvent.ACTION_POINTER_DOWN: {
-                if (selected != null && e.getPointerCount() >= 2) {
-                    cancelPendingLongPress();
-                    dragMode = 2;
-                    startDist = spacing(e);
-                    startW = selected.getWidthFraction();
-                    startH = selected.getHeightFraction();
-                }
-                return true;
-            }
-            case MotionEvent.ACTION_MOVE: {
-                if (selected == null) return false;
-                if (dragMode == 3) {
-                    doHandleResize(e.getX(), e.getY(), w, h);
-                    movedSinceDown = true;
-                } else if (dragMode == 2 && e.getPointerCount() >= 2) {
-                    float d = spacing(e);
-                    float s = startDist > 0 ? d / startDist : 1f;
-                    selected.setSize(startW * s, startH * s);
-                    movedSinceDown = true;
-                } else                 if (dragMode == 1) {
-                    float dx = (e.getX() - downX) / w;
-                    float dy = (e.getY() - downY) / h;
-                    if (Math.abs(e.getX() - downX) > 8 || Math.abs(e.getY() - downY) > 8) {
-                        movedSinceDown = true;
-                        cancelPendingLongPress();
-                    }
-                    if (selected.isLinked()) {
-                        float[] own = new float[2];
-                        selected.worldToOwn(startCenterX + dx, startCenterY + dy, playheadMs, own);
-                        selected.setCenter(own[0], own[1]);
-                    } else {
-                        selected.setCenter(startCenterX + dx, startCenterY + dy);
-                    }
-                }
-                // A follower is placed by its parent; clamping its own pose would fight that.
-                if (!selected.isLinked()) clampToCanvas(selected);
-                invalidate();
-                return true;
-            }
-            case MotionEvent.ACTION_POINTER_UP:
-                dragMode = 0; // require a fresh press to continue (avoids post-pinch jump)
-                return true;
-            case MotionEvent.ACTION_UP:
-            case MotionEvent.ACTION_CANCEL: {
-                cancelPendingLongPress();
-                if (selected != null && changeListener != null) {
-                    if (movedSinceDown) {
-                        changeListener.onWaveformChanged();
-                    } else if (reTapSelected && e.getActionMasked() == MotionEvent.ACTION_UP) {
-                        // Clean re-tap on an already-selected visualizer → open the style chooser.
-                        changeListener.onWaveformTapped(selected);
-                    }
-                }
-                dragMode = 0;
-                return true;
-            }
-            default:
-                return selected != null;
-        }
-    }
-
-    private void scheduleLongPress(@NonNull WaveformOverlayInstance target) {
-        cancelPendingLongPress();
-        longPressRunnable = () -> {
-            if (!movedSinceDown && selected == target && changeListener != null) {
-                performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
-                changeListener.onWaveformLongPressed(target);
-            }
-        };
-        handler.postDelayed(longPressRunnable, 500);
-    }
-
-    private void cancelPendingLongPress() {
-        if (longPressRunnable != null) {
-            handler.removeCallbacks(longPressRunnable);
-            longPressRunnable = null;
-        }
-    }
-
-    private static float spacing(@NonNull MotionEvent e) {
-        float dx = e.getX(0) - e.getX(1);
-        float dy = e.getY(0) - e.getY(1);
-        return (float) Math.hypot(dx, dy);
-    }
-
-    @Nullable
-    private WaveformOverlayInstance hitTest(float x, float y, int w, int h) {
-        for (int i = overlays.size() - 1; i >= 0; i--) {
-            WaveformOverlayInstance o = overlays.get(i);
-            if (playheadMs < o.getStartMs() || playheadMs > o.getEndMs()) continue;
-            float cx = o.animatedCenterX(playheadMs) * w, cy = o.animatedCenterY(playheadMs) * h;
-            float rw = o.animatedWidthFraction(playheadMs) * w;
-            float rh = o.animatedHeightFraction(playheadMs) * h;
-            if (x >= cx - rw / 2f && x <= cx + rw / 2f && y >= cy - rh / 2f && y <= cy + rh / 2f) {
-                return o;
-            }
-        }
-        return null;
-    }
-
-    /** Hit-test the 8 resize handles of the selected overlay. Returns 1..8 or 0 if no hit. */
-    private int hitTestHandle(float x, float y, int w, int h, @NonNull WaveformOverlayInstance o) {
-        float cx = o.animatedCenterX(playheadMs) * w, cy = o.animatedCenterY(playheadMs) * h;
-        float rw = o.animatedWidthFraction(playheadMs) * w;
-        float rh = o.animatedHeightFraction(playheadMs) * h;
-        float left = cx - rw / 2f, top = cy - rh / 2f;
-        float right = cx + rw / 2f, bottom = cy + rh / 2f;
-        float midX = (left + right) / 2f, midY = (top + bottom) / 2f;
-        float tol = 20f * density; // touch target radius
-        float[][] hp = {
-            {left, top}, {right, top}, {left, bottom}, {right, bottom}, // 1..4 corners
-            {midX, top}, {midX, bottom}, {left, midY}, {right, midY}     // 5..8 edges
-        };
-        for (int i = 0; i < hp.length; i++) {
-            if (Math.abs(x - hp[i][0]) <= tol && Math.abs(y - hp[i][1]) <= tol) return i + 1;
-        }
-        return 0;
-    }
-
-    /** Resize the selected overlay based on which handle is being dragged + current touch. */
-    private void doHandleResize(float tx, float ty, int w, int h) {
-        float left = resizeStartLeft, top = resizeStartTop;
-        float right = resizeStartRight, bottom = resizeStartBottom;
-        switch (resizeHandle) {
-            case 1: left = tx; top = ty; break;                          // TL
-            case 2: right = tx; top = ty; break;                          // TR
-            case 3: left = tx; bottom = ty; break;                        // BL
-            case 4: right = tx; bottom = ty; break;                        // BR
-            case 5: top = ty; break;                                      // T
-            case 6: bottom = ty; break;                                    // B
-            case 7: left = tx; break;                                     // L
-            case 8: right = tx; break;                                     // R
-            default: return;
-        }
-        left = Math.max(0, left);
-        top = Math.max(0, top);
-        right = Math.min(w, right);
-        bottom = Math.min(h, bottom);
-        if (right <= left) right = left + 4 * density;
-        if (bottom <= top) bottom = top + 4 * density;
-        float newW = (right - left) / w;
-        float newH = (bottom - top) / h;
-        if (selected.isLinked()) {
-            // Handles are drawn in the picture; a follower stores its own pose.
-            float[] own = new float[2];
-            selected.worldToOwn((left + right) / 2f / w, (top + bottom) / 2f / h, playheadMs, own);
-            selected.setSize(selected.worldSizeToOwn(newW, playheadMs),
-                    selected.worldSizeToOwn(newH, playheadMs));
-            selected.setCenter(own[0], own[1]);
-            return;
-        }
-        selected.setSize(newW, newH);
-        selected.setCenter((left + right) / 2f / w, (top + bottom) / 2f / h);
-    }
-
-    private void clampToCanvas(@NonNull WaveformOverlayInstance o) {
-        float hw = o.getWidthFraction() / 2f;
-        float hh = o.getHeightFraction() / 2f;
-        float cx = Math.max(hw, Math.min(1f - hw, o.getCenterX()));
-        float cy = Math.max(hh, Math.min(1f - hh, o.getCenterY()));
-        o.setCenter(cx, cy);
+    public boolean onTouchEvent(MotionEvent event) {
+        return false;
     }
 }

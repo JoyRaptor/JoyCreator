@@ -205,6 +205,8 @@ public class TransformOverlayView extends View {
     public void setHost(@Nullable Host h, @NonNull HandleModel model) {
         host = h;
         handles = model;
+        // A body-hold hook is installed for ONE object (see setOnBodyHold): a new host starts without.
+        onBodyHold = null;
         cancelGesture();
         cancelBendDrag();
         bendMode = false;
@@ -1856,6 +1858,37 @@ public class TransformOverlayView extends View {
         if (h != null) openRing(h.kind == HandleModel.Kind.CORNER, h.index, h.x, h.y);
     };
 
+    // ── Body hold (OPT-IN) ───────────────────────────────────────────────
+    //
+    // Holding a finger still on the BODY of the selected object (not on a handle) runs a host-supplied
+    // action — the Studio's visualiser opens its drawer on a hold, as every other object does from the
+    // timeline. OFF BY DEFAULT: with no hook set nothing is posted and the body behaves exactly as it
+    // always has (a held body still just waits for a drag). The hook belongs to the HOST that was
+    // installed when it was set: setHost clears it, so a hook one object installed can never fire for
+    // the next object selected.
+
+    /** Run when a finger rests on the body past the hold time without moving. Null = no body hold. */
+    @Nullable private Runnable onBodyHold;
+
+    public void setOnBodyHold(@Nullable Runnable r) {
+        onBodyHold = r;
+        if (r == null) removeCallbacks(bodyHold);
+    }
+
+    private final Runnable bodyHold = () -> {
+        Runnable r = onBodyHold;
+        if (r == null || dragKind != HandleModel.Kind.BODY || moved || pinching) return;
+        Host h = host;
+        // The hold is the whole gesture: nothing moved, so there is nothing to commit and the lift
+        // that follows must not count as a tap (it would pair into a double-tap).
+        cancelGesture();
+        if (h != null) h.cancelGesture();
+        hudEndedAtMs = SystemClock.uptimeMillis();
+        performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
+        invalidate();
+        r.run();
+    };
+
     // ── Two fingers from anywhere: the HOLD ─────────────────────────────
     //
     // JoyRaptor, 2026-09-24, on the old helper: "so long as an object was selected and I had two
@@ -2292,6 +2325,8 @@ public class TransformOverlayView extends View {
             dragIndex = 0;
             grabOffsetX = 0f;
             grabOffsetY = 0f;
+            // Opt-in only: nothing is posted unless the host asked for a body hold.
+            if (onBodyHold != null) postDelayed(bodyHold, LONG_PRESS_MS);
         }
         h.beginGesture();
         setHud(null, x, y);
@@ -2313,6 +2348,7 @@ public class TransformOverlayView extends View {
         if (!moved && Math.hypot(x - downX, y - downY) > dp(MOVE_SLOP_DP)) {
             moved = true;
             removeCallbacks(longPress);
+            removeCallbacks(bodyHold);
             // A drag is not half of a double-tap (TEXT_REPAIR_PASS, 2026-09-23).
             lastBodyTapUpMs = 0L;
         }
@@ -2486,6 +2522,7 @@ public class TransformOverlayView extends View {
         snapGuideX = Float.NaN;
         snapGuideY = Float.NaN;
         removeCallbacks(longPress);
+        removeCallbacks(bodyHold);
         dragKind = null;
         dragPointerId = -1;
         moved = false;
@@ -2688,6 +2725,7 @@ public class TransformOverlayView extends View {
     private void startPinch(@NonNull Host h, @NonNull MotionEvent e) {
         if (e.getPointerCount() < 2) return;
         removeCallbacks(longPress);
+        removeCallbacks(bodyHold);
         // D.02a T2: a THIRD finger mid-pinch (a palm edge, a knuckle) must not start a second gesture: it used to call
         // beginGesture again (a new undo snapshot, moved reset), so whatever the pinch had done fell outside any undo step.
         // Keep the gesture and `moved`; only pick the pair again and re-seed the pinch from the object as it is now.
@@ -2889,6 +2927,7 @@ public class TransformOverlayView extends View {
     @Override
     protected void onDetachedFromWindow() {
         removeCallbacks(longPress);
+        removeCallbacks(bodyHold);
         clearHold();
         forwarding = false;
         forwardTarget = null;

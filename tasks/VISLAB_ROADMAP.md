@@ -31,15 +31,18 @@ phone-first, one-handed; save usage: cheap helpers for scoped work, the lead for
 
 ## Status
 
+`[~]` = built, type-checked and its JVM tests pass, phone test still owed. `[x]` only after the
+Note 9 test. Every `[~]` row was compiled together on 10-24 (Studio + effects + VisLab, exit 0).
+
 | | Item | Size | Who | State |
 |---|---|---|---|---|
-| R1 | Font per Words layer (G9) | S | lead | [ ] |
-| R2 | Split lumped scenes into elements (G6) | M | lead (taste) | [ ] |
-| R3 | Studio visualiser on the shared transform box (G5b) | L | Sonnet | [ ] |
-| R4 | VisLab finishes as Studio effects (G8d, "special effects") | L | Sonnet | [ ] |
-| R5 | MIDI as a sound source (G10) | M | Sonnet | [ ] |
-| R6 | Hide knobs that do nothing in the current mode (G2b) | S | Haiku audit + lead | [ ] |
-| R7 | Sprite element: a SpriteLab sheet inside a look (G8a) | M | Sonnet | [ ] |
+| R1 | Font per Words layer (G9) | S | lead | [~] font pills on Words layers; Studio typed words fixed too |
+| R2 | Split lumped scenes into elements (G6) | M | lead (taste) | [~] Stars, Aurora curtains, Mountains + look "Aurora Parts"; look book checked; Outrun / Nebula audit still owed |
+| R3 | Studio visualiser on the shared transform box (G5b) | L | Sonnet + lead | [~] VisualizerTransformHost, body hold opens the drawer, spin arc below (reset for other objects) |
+| R4 | VisLab finishes as Studio effects (G8d, "special effects") | L | Sonnet + lead | [~] 10 effects in FxVisLabDefs; run-fx 157 pass (3 gradient-ramp failures predate this) |
+| R5 | MIDI as a sound source (G10) | M | Sonnet + lead | [~] MidiFile / MidiFeatures / MidiSource / MidiSynth; .kar words; run-midi 15/15 |
+| R6 | Hide knobs that do nothing in the current mode (G2b) | S | Haiku audit + lead | [~] showFor on 66 knobs; run-vislab passes |
+| R7 | Sprite element: a SpriteLab sheet inside a look (G8a) | M | lead | [~] Sprite element + look "Record Hop"; run-sprite 11/11; pilot draws the built-in sheet |
 | R8 | Studio proxies drive a look's Place and picture (G7) | M | Sonnet | [ ] |
 | R9 | Layer reference: a look shows another Studio item (G8c) | L | lead | [ ] |
 | R10 | Echo trails as a Studio effect (stateful feedback) | M | lead | [ ] |
@@ -90,6 +93,16 @@ any element is dead in the mode it is shown in.
 **R7 Sprite element.** Like the picture element, but a SpriteLab sheet that plays: its own frame
 rate, a frame per beat, or held; every effect and Place apply. Done when: a sheet animates inside a
 look in the room and in a Studio export.
+*As built (10-24):* type `sprite` (`shaders/sprite.frag`, draw kind `sprite`). Play: Its own
+speed / A frame per beat / A frame per kick / Loudness picks / Hold one frame, plus Back and forth.
+The layer keeps the whole Sprite Lab sheet in the look (`"sheet"`, its picture links made full by
+`vislab/room/SheetShelf`) and an animation id (`"clip"`). `vislab/room/Sprites` draws the
+frames through Sprite Lab's own `SpriteSheetRenderer` (slicing, background key, per-frame
+alignment) into an even grid with gutters (`SpriteAtlas`); `vislab/gl/SpriteLayers` holds the
+texture and a `SpriteClock` per layer. No sheet = the built-in Joy record (8 frames). Knob panel:
+Sheet pill (chooser of every Sprite Lab sheet in projects and the character library) and an
+Animation pill row when the sheet has animations. Phone test owed: pick a real sheet, each Play
+mode, reopen the look, a Studio export.
 
 **R8 Proxies drive looks.** In Studio, a VisLab layer's Place (across, up, size, turn) and a
 picture element's position / size / spin can follow a Studio proxy (dummy) object, like other
@@ -106,4 +119,8 @@ real in export), through the GL preview compositor.
 
 ## Log (newest first)
 
+- 2026-10-24: R7 built (lead). Helpers for R3/R4/R5 were cut off by the usage limit; their partial
+  work was reviewed and finished by the lead (tests added: run-midi.sh, FxCompilerTest
+  visLabFinishes). R3: spin arc placement reset when a non-visualiser is selected. All R1-R7
+  compiled together; phone test of R1-R7 next (needs a build that holds them).
 - 2026-10-23: roadmap written; R1-R6 started.

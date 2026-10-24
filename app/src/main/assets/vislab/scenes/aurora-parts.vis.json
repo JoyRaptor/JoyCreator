@@ -1,0 +1,101 @@
+{
+  "format": "joy.vis/1",
+  "id": "aurora-parts",
+  "name": "Aurora Parts",
+  "family": "Calm",
+  "description": "Northern Lights built from parts: crisp stars, soft curtains, mountains you drive past, falling snow. Change any one without touching the others.",
+  "palette": [
+    "#3CFFB4",
+    "#23D5C7",
+    "#3E8BFF",
+    "#8B5CFF",
+    "#E0AAFF"
+  ],
+  "background": "#02040A",
+  "layers": [
+    {
+      "type": "stars",
+      "name": "Stars",
+      "p": {
+        "density": 0.45,
+        "size": 1,
+        "brightness": 1.3,
+        "twinkle": 1,
+        "twSpeed": 0.8,
+        "drift": 0.03,
+        "depth": 2,
+        "colour": 0.15,
+        "shoot": 0.25,
+        "glow": 0.7
+      }
+    },
+    {
+      "type": "curtains",
+      "name": "Curtains",
+      "res": 0.5,
+      "soft": 0.35,
+      "p": {
+        "speed": 0.5,
+        "scale": 1.3,
+        "brightness": 1.1,
+        "baseY": -0.2,
+        "wavy": {
+          "v": 0.8,
+          "mod": {
+            "voice": 0.3
+          }
+        },
+        "layers": 4,
+        "shimmer": 1,
+        "horizon": 0.2,
+        "rays": 0.8,
+        "tall": 0.9
+      }
+    },
+    {
+      "type": "mountains",
+      "name": "Mountains",
+      "add": 0,
+      "p": {
+        "layers": 3,
+        "height": 0.85,
+        "baseY": -1.0,
+        "rough": 0.55,
+        "speed": 0.12,
+        "peaks": 1.1,
+        "rim": 0.7,
+        "haze": 0.55,
+        "snow": 0.35,
+        "brightness": 1
+      }
+    },
+    {
+      "type": "particles",
+      "name": "Snow",
+      "p": {
+        "count": 3000,
+        "emitter": 3,
+        "speed": 0.02,
+        "dirMode": 4,
+        "gravity": 0.02,
+        "life": 6,
+        "size": 0.0025,
+        "look": 7,
+        "brightness": 0.5,
+        "twinkle": 0.6,
+        "fadeIn": 0.3,
+        "fadeOut": 0.4,
+        "colorMode": 2,
+        "punch": 0
+      }
+    }
+  ],
+  "post": {
+    "p": {
+      "bloom": 0.9,
+      "vignette": 0.45,
+      "grain": 0.15,
+      "saturation": 1.1
+    }
+  }
+}

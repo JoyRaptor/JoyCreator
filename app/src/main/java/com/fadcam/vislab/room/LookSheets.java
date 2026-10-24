@@ -103,6 +103,41 @@ final class LookSheets {
     }
 
     /**
+     * Which sheet a Sprite layer plays: the built-in Joy record first, then every Sprite Lab sheet
+     * on the phone with where it lives. {@code onPick} gets null for the built-in one.
+     */
+    static void chooseSheet(@NonNull Context c, @NonNull java.util.List<SheetShelf.Entry> sheets,
+                            @Nullable String currentId, @NonNull Consumer<SheetShelf.Entry> onPick) {
+        BottomSheetDialog d = sheet(c);
+        LinearLayout root = column(c, d, "Sprite sheet", null);
+        LinearLayout list = new LinearLayout(c);
+        list.setOrientation(LinearLayout.VERTICAL);
+        list.addView(SheetKit.row(c, "album", "Joy record (built in)", currentId == null, SheetKit.Trail.CHECK, v -> {
+            d.dismiss();
+            onPick.accept(null);
+        }).view);
+        for (SheetShelf.Entry e : sheets) {
+            com.google.gson.JsonElement id = e.sheet.get("id");
+            boolean on = currentId != null && id != null && currentId.equals(id.getAsString());
+            SheetKit.Row r = SheetKit.row(c, "grid_view", e.name + "  ·  " + e.where, on, SheetKit.Trail.CHECK, v -> {
+                d.dismiss();
+                onPick.accept(e);
+            });
+            SheetKit.label(r.view, "Play " + e.name + " (from " + e.where + ")");
+            list.addView(r.view);
+        }
+        if (sheets.isEmpty()) {
+            root.addView(SheetKit.subtitle(c, "No Sprite Lab sheets yet. Make one in Sprite Lab and it shows up here."));
+        }
+        android.widget.ScrollView scroll = new android.widget.ScrollView(c);
+        scroll.addView(list);
+        root.addView(scroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                Math.min(SheetKit.dp(c, 64) * (sheets.size() + 1), SheetKit.dp(c, 420))));
+        d.setContentView(SheetKit.fitNavBar(root));
+        d.show();
+    }
+
+    /**
      * "Revert Sound City to default?" / what it replaces, with Keep and the red button at the far
      * end, so a thumb resting where it tapped lands on Keep.
      */

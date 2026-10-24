@@ -365,6 +365,8 @@
       this._ensureTargets(w, h);
       dt = clamp(dt, 0, 0.25);
       this.time += dt;
+      this.lastF = f;     // for layers that keep time themselves (sprites)
+      this.lastDt = dt;
       this.frame++;
       const signals = VisEngine.signalsOf(f, this.time);
       this._uploadTextures(f);
@@ -547,7 +549,7 @@
       const pal = this._palette(layer);
       const res = layer.res !== undefined ? layer.res : (type.res || 1);
       const draw = type.draw;
-      const fullscreenLike = draw === 'fullscreen' || draw === 'image' || draw === 'slime' || draw === 'rd' || draw === 'words';
+      const fullscreenLike = draw === 'fullscreen' || draw === 'image' || draw === 'sprite' || draw === 'slime' || draw === 'rd' || draw === 'words';
       let dst = target;
       let px = pxScene;
       // Moved / sized / turned needs nothing here: the layer is MADE in that space (view below,
@@ -570,6 +572,37 @@
         const img = this._imageTex(layer, st);
         common.tex = { uImage: img.tex };
         common.uniforms = { uImageAspect: img.aspect };
+        this._use(this.program('fullscreen.vert', type.frag), common);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+      } else if (draw === 'sprite') {
+        // A sprite sheet playing frame by frame; the frame is chosen here as SpriteClock.java does.
+        // The pilot has only the built-in sheet (the Joy record bouncing).
+        const sh = this._spriteSheet();
+        const n = sh.order.length;
+        const ck = st.sprite || (st.sprite = { travelled: 0, beats: 0, kicks: 0, lastPhase: -1, lastKick: NaN });
+        const f = this.lastF || {};
+        const ph = f.beatPhase || 0;
+        const kick = f.shocks && f.shocks[0] !== undefined ? f.shocks[0] : 99;
+        if (ck.lastPhase >= 0 && ph < ck.lastPhase - 0.5) ck.beats++;
+        ck.lastPhase = ph;
+        if (!Number.isNaN(ck.lastKick) && kick < ck.lastKick - 1e-4) ck.kicks++;
+        ck.lastKick = kick;
+        ck.travelled += (this.lastDt || 0) * sh.fps * (values.speed !== undefined ? values.speed : 1);
+        const mode = Math.round(values.play || 0), bounce = (values.bounce || 0) > 0.5;
+        const wrap = (i) => {
+          if (n <= 1) return 0;
+          if (!bounce) return ((i % n) + n) % n;
+          const p = 2 * n - 2, k = ((i % p) + p) % p;
+          return k < n ? k : p - k;
+        };
+        let at;
+        if (mode === 3) at = Math.round(clamp(f.level || 0, 0, 1) * (n - 1));
+        else if (mode === 4) at = Math.round(clamp(values.frame || 0, 0, 1) * (n - 1));
+        else at = wrap(mode === 1 ? ck.beats : mode === 2 ? ck.kicks : Math.floor(ck.travelled));
+        const slot = sh.order[at], step = sh.cell + 2 * sh.gutter;
+        const col = slot % sh.cols, row = Math.floor(slot / sh.cols);
+        common.tex = { uSheet: sh.tex };
+        common.uniforms = { uCell: [(col * step + sh.gutter) / sh.w, (row * step + sh.gutter) / sh.h, sh.cell / sh.w, sh.cell / sh.h], uCellAspect: 1 };
         this._use(this.program('fullscreen.vert', type.frag), common);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
       } else if (draw === 'words') {
@@ -631,6 +664,48 @@
         this._use(this.program('fullscreen.vert', 'soften.frag'), { tex: { uSrc: dst.tex }, opacity, px: 0, uniforms: { uSoft: soft } });
         gl.drawArrays(gl.TRIANGLES, 0, 3);
       } else if (dst !== target) this._blit(dst.tex, target, opacity);
+    }
+
+    // The built-in sprite sheet, as Sprites.java draws it: the Joy record bouncing, 8 frames in a
+    // 4 x 2 grid with a clear gutter round each frame.
+    _spriteSheet() {
+      if (this.spriteSheet) return this.spriteSheet;
+      const gl = this.gl, cell = 256, gutter = 4, cols = 4, rows = 2, step = cell + 2 * gutter;
+      const c = document.createElement('canvas');
+      c.width = cols * step; c.height = rows * step;
+      const g = c.getContext('2d');
+      for (let i = 0; i < 8; i++) {
+        const lift = Math.abs(Math.sin(i / 8 * Math.PI));
+        const sx = 1.1 - 0.16 * lift, sy = 0.88 + 0.18 * lift, r = 86;
+        const ox = (i % cols) * step + gutter + cell / 2, oy = Math.floor(i / cols) * step + gutter + cell / 2 + 34 - 60 * lift;
+        g.save();
+        g.translate(ox, oy + r * (1 - sy));
+        g.scale(sx, sy);
+        const grd = g.createLinearGradient(-r, -r, r, r);
+        grd.addColorStop(0, '#faa03d'); grd.addColorStop(1, '#fc6818');
+        g.fillStyle = grd; g.beginPath(); g.arc(0, 0, r, 0, Math.PI * 2); g.fill();
+        g.fillStyle = '#0b0b0e'; g.beginPath(); g.arc(0, 0, r * 0.83, 0, Math.PI * 2); g.fill();
+        g.strokeStyle = 'rgba(250,160,61,0.35)'; g.lineWidth = 2;
+        for (let q = r * 0.5; q < r * 0.82; q += 6) { g.beginPath(); g.arc(0, 0, q, 0, Math.PI * 2); g.stroke(); }
+        g.strokeStyle = 'rgba(255,255,255,0.78)'; g.lineWidth = 5; g.lineCap = 'round';
+        const a0 = (i * 45 - 20) * Math.PI / 180;
+        g.beginPath(); g.arc(0, 0, r * 0.7, a0, a0 + 40 * Math.PI / 180); g.stroke();
+        g.fillStyle = '#faa03d'; g.font = '800 52px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.fillText('JOY', 0, 2);
+        g.restore();
+      }
+      const t = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, t);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      gl.generateMipmap(gl.TEXTURE_2D);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      this.spriteSheet = { tex: t, w: c.width, h: c.height, cell, gutter, cols, fps: 8, order: [0, 1, 2, 3, 4, 5, 6, 7] };
+      return this.spriteSheet;
     }
 
     _imageTex(layer, st) {

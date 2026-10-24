@@ -53,6 +53,15 @@ public final class VisRenderer {
         @Nullable Bitmap bitmap(@Nullable String ref);
     }
 
+    /** Supplies sprite sheets for Sprite layers, drawn into a GPU-ready grid. Called on the GL thread. */
+    public interface SpriteSource {
+        /**
+         * @param sheet the layer's {@code sheet} (a Sprite Lab sheet), or null for the built-in one
+         * @param clip  the layer's {@code clip} (one of the sheet's animations), or "" for every frame
+         */
+        @Nullable SpriteAtlas atlas(@Nullable com.google.gson.JsonObject sheet, @NonNull String clip);
+    }
+
     private final ShaderLib lib;
     private final VisTypes types;
 
@@ -67,14 +76,33 @@ public final class VisRenderer {
     @Nullable private volatile com.fadcam.vislab.words.WordFeed words;
     /**
      * Words layers that carry their own words ("text": typed, saved in the look) get ONE feed per
-     * distinct text, made by the host's maker. One shared feed swapped between two texts rebuilt
-     * the 2048-square glyph atlas twice every frame (audit 10-18 V2). GL thread only.
+     * distinct text and font, made by the host's maker (font key -> an empty feed in that font).
+     * One shared feed swapped between two texts rebuilt the glyph sheet twice every frame (audit
+     * 10-18 V2). A layer showing the SONG's words in its own font gets a copy of the song's feed in
+     * that font, kept in step with it. GL thread only.
      */
-    @Nullable private volatile java.util.function.Supplier<com.fadcam.vislab.words.WordFeed> typedMaker;
+    @Nullable private volatile java.util.function.Function<String, com.fadcam.vislab.words.WordFeed> wordsMaker;
     private final java.util.Map<String, com.fadcam.vislab.words.WordFeed> typedFeeds = new java.util.HashMap<>();
+    private final java.util.Map<String, SongCopy> songFeeds = new java.util.HashMap<>();
+
+    /** The song's words in another font, and which version of which song feed it copied. */
+    private static final class SongCopy {
+        final com.fadcam.vislab.words.WordFeed feed;
+        @Nullable com.fadcam.vislab.words.WordFeed of;
+        int version = -1;
+
+        SongCopy(@NonNull com.fadcam.vislab.words.WordFeed feed) {
+            this.feed = feed;
+        }
+    }
     private volatile double wordsTime = Double.NaN;
     @Nullable private GpuTimer gpu;
     private volatile ImageSource images;
+    private volatile SpriteSource spriteSource;
+    private final SpriteLayers sprites = new SpriteLayers();
+    /** This frame's sound and step, for layers that keep time on the CPU (sprites). */
+    private Features frameF = new Features();
+    private double frameDt;
     private volatile boolean resetRequested;
 
     // ---- GL state ----
@@ -231,6 +259,10 @@ public final class VisRenderer {
         images = src;
     }
 
+    public void setSpriteSource(@Nullable SpriteSource src) {
+        spriteSource = src;
+    }
+
     /** Forget all memory (particles, trails, echo) so the next frame starts clean (a seek). */
     public void reset() {
         resetRequested = true;
@@ -246,22 +278,54 @@ public final class VisRenderer {
         words = feed;
     }
 
-    /** How to make a feed for a Words layer's own typed words (its "text"); null = none. */
-    public void setTypedWordsMaker(@Nullable java.util.function.Supplier<com.fadcam.vislab.words.WordFeed> maker) {
-        typedMaker = maker;
+    /**
+     * How to make an empty word feed in a font (the font key a Words layer keeps, "" = the
+     * default; see VisFonts). Needed for a layer's own typed words and for any font but the
+     * default; null = only the song's words, in the default font.
+     */
+    public void setWordsMaker(@Nullable java.util.function.Function<String, com.fadcam.vislab.words.WordFeed> maker) {
+        wordsMaker = maker;
     }
 
-    /** GL thread: the feed for this typed text, made on first use. */
+    /** GL thread: the feed for this typed text in this font, made on first use. */
     @Nullable
-    private com.fadcam.vislab.words.WordFeed typedFeed(@NonNull String text) {
-        com.fadcam.vislab.words.WordFeed f = typedFeeds.get(text);
+    private com.fadcam.vislab.words.WordFeed typedFeed(@NonNull String text, @NonNull String font) {
+        String key = text + '\u0001' + font;
+        com.fadcam.vislab.words.WordFeed f = typedFeeds.get(key);
         if (f != null) return f;
-        java.util.function.Supplier<com.fadcam.vislab.words.WordFeed> maker = typedMaker;
+        java.util.function.Function<String, com.fadcam.vislab.words.WordFeed> maker = wordsMaker;
         if (maker == null) return null;
-        f = maker.get();
+        f = maker.apply(font);
         f.setTyped(text);
-        typedFeeds.put(text, f);
+        typedFeeds.put(key, f);
         return f;
+    }
+
+    /** GL thread: the song's words in {@code font} ("" = the song's feed itself). */
+    @Nullable
+    private com.fadcam.vislab.words.WordFeed songFeed(@NonNull String font) {
+        com.fadcam.vislab.words.WordFeed base = words;
+        if (font.isEmpty() || base == null) return base;
+        SongCopy copy = songFeeds.get(font);
+        if (copy == null) {
+            java.util.function.Function<String, com.fadcam.vislab.words.WordFeed> maker = wordsMaker;
+            if (maker == null) return base;
+            copy = new SongCopy(maker.apply(font));
+            songFeeds.put(font, copy);
+        }
+        if (copy.of != base || copy.version != base.version()) {
+            copy.of = base;
+            copy.version = base.version();
+            copy.feed.setWords(base.words(), base.period());
+        }
+        return copy.feed;
+    }
+
+    /** A Words layer's font key ("" = the default). */
+    @NonNull
+    private static String fontOf(@NonNull CompiledScene.Layer L) {
+        com.google.gson.JsonElement fe = L.source.get("font");
+        return fe != null && fe.isJsonPrimitive() ? fe.getAsString().trim() : "";
     }
 
     @NonNull
@@ -349,6 +413,8 @@ public final class VisRenderer {
         if (wf != null) wf.release();
         for (com.fadcam.vislab.words.WordFeed f : typedFeeds.values()) f.release();
         typedFeeds.clear();
+        for (SongCopy s : songFeeds.values()) s.feed.release();
+        songFeeds.clear();
         if (initialised) {
             GLES30.glDeleteTextures(4, new int[]{texSpec, texWave, texHist, texBlack}, 0);
             GLES30.glDeleteBuffers(1, new int[]{ubo}, 0);
@@ -365,6 +431,7 @@ public final class VisRenderer {
         living.clear();
         imageTex.clear();
         imageRef.clear();
+        sprites.contextLost();
         main = half = echoA = echoB = null;
         bloom.free();
         gpu = null;
@@ -372,6 +439,8 @@ public final class VisRenderer {
         if (wf != null) wf.contextLost();
         for (com.fadcam.vislab.words.WordFeed f : typedFeeds.values()) f.contextLost();
         typedFeeds.clear();
+        for (SongCopy s : songFeeds.values()) s.feed.contextLost();
+        songFeeds.clear();
         initialised = false;
         w = h = 0;
     }
@@ -382,6 +451,7 @@ public final class VisRenderer {
         for (int[] t : imageTex.values()) GLES30.glDeleteTextures(1, new int[]{t[0]}, 0);
         imageTex.clear();
         imageRef.clear();
+        sprites.free();
         brokenLayers.clear();
         echoFresh = true;
     }
@@ -415,6 +485,8 @@ public final class VisRenderer {
         ensureTargets(nw, nh);
         double dt = Math.max(0, Math.min(0.25, dtSec));
         time = timeSec;
+        frameF = f;
+        frameDt = dt;
         signals.set(f, time);
         uploadTextures(f);
         GLES30.glBindVertexArray(vao);
@@ -573,10 +645,15 @@ public final class VisRenderer {
                     imageRef.remove(en.getKey());
                     ii.remove();
                 }
-                // Typed-word feeds whose text no layer shows any more.
+                sprites.prune(alive);
+                // Word feeds (typed text, or the song's words in a font) no layer shows any more.
                 java.util.Set<String> texts = new java.util.HashSet<>();
+                java.util.Set<String> fonts = new java.util.HashSet<>();
                 for (CompiledScene.Layer L : compiled.layers) {
-                    if (VisType.DRAW_WORDS.equals(L.type.draw)) texts.add(typedText(L));
+                    if (!VisType.DRAW_WORDS.equals(L.type.draw)) continue;
+                    String text = typedText(L);
+                    if (text.isEmpty()) fonts.add(fontOf(L));
+                    else texts.add(text + '\u0001' + fontOf(L));
                 }
                 java.util.Iterator<Map.Entry<String, com.fadcam.vislab.words.WordFeed>> ti = typedFeeds.entrySet().iterator();
                 while (ti.hasNext()) {
@@ -584,6 +661,13 @@ public final class VisRenderer {
                     if (texts.contains(en.getKey())) continue;
                     en.getValue().release();
                     ti.remove();
+                }
+                java.util.Iterator<Map.Entry<String, SongCopy>> si = songFeeds.entrySet().iterator();
+                while (si.hasNext()) {
+                    Map.Entry<String, SongCopy> en = si.next();
+                    if (fonts.contains(en.getKey())) continue;
+                    en.getValue().feed.release();
+                    si.remove();
                 }
                 if (compiled.echo == null) echoFresh = true;
             } catch (RuntimeException e) {
@@ -660,7 +744,7 @@ public final class VisRenderer {
         if (opacity <= 0.001f) return;
         String draw = t.draw;
         boolean fullscreenLike = VisType.DRAW_FULLSCREEN.equals(draw) || VisType.DRAW_IMAGE.equals(draw)
-                || VisType.DRAW_SLIME.equals(draw) || VisType.DRAW_RD.equals(draw) || VisType.DRAW_WORDS.equals(draw);
+                || VisType.DRAW_SPRITE.equals(draw) || VisType.DRAW_SLIME.equals(draw) || VisType.DRAW_RD.equals(draw) || VisType.DRAW_WORDS.equals(draw);
         GlTarget dst = target;
         float px = pxScene;
         // Moved / sized / turned needs nothing here: the layer is made in that space (useDrawn).
@@ -687,10 +771,19 @@ public final class VisRenderer {
             tex(p, "uImage", img[0], unit);
             GLES30.glUniform1f(p.u("uImageAspect"), img[2] > 0 ? (float) img[1] / img[2] : 1f);
             drawFullscreen();
+        } else if (VisType.DRAW_SPRITE.equals(draw)) {
+            SpriteLayers.Frame fr = sprites.frame(L, spriteSource, frameF, frameDt);
+            GlProgram p = program("fullscreen.vert", t.frag);
+            int unit = useDrawn(p, L, px, drawOpacity);
+            tex(p, "uSheet", fr.tex, unit);
+            GLES30.glUniform4f(p.u("uCell"), fr.rect[0], fr.rect[1], fr.rect[2], fr.rect[3]);
+            GLES30.glUniform1f(p.u("uCellAspect"), fr.aspect);
+            drawFullscreen();
         } else if (VisType.DRAW_WORDS.equals(draw)) {
             // The layer's own words (typed, kept in the look) win over the song's.
             String text = typedText(L);
-            com.fadcam.vislab.words.WordFeed feed = text.isEmpty() ? words : typedFeed(text);
+            String font = fontOf(L);
+            com.fadcam.vislab.words.WordFeed feed = text.isEmpty() ? songFeed(font) : typedFeed(text, font);
             if (feed == null) return;
             double now = text.isEmpty() && !Double.isNaN(wordsTime) ? wordsTime : time;
             // Words = a path, a behaviour and a letter style (see words.frag). Keep each word in

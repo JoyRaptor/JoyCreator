@@ -10924,7 +10924,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // freeze the handles on a keyframed spine transform while the picture moved under them.
         if (transformOverlay != null
                 && (transformItemId != null || transformSpineClipId != null || transformPipClipId != null
-                        || transformSpriteId != null)) {
+                        || transformSpriteId != null || transformVizId != null)) {
             transformOverlay.refresh();
         }
         refreshLinkTethers();
@@ -14761,44 +14761,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         waveformOverlayView.setOverlays(overlays);
         waveformOverlayView.setData(waveformDataBySource);
         waveformOverlayView.setPlayheadMs(editorTimeline.getPlayheadPositionMs());
-        waveformOverlayView.setOnChangeListener(
-                new com.fadcam.ui.faditor.waveform.WaveformOverlayView.OnChangeListener() {
-                    @Override
-                    public void onWaveformChanged() {
-                        scheduleAutoSave();
-                    }
-
-                    @Override
-                    public void onWaveformDeleted(
-                            @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance overlay) {
-                        project.getTimeline().removeWaveformOverlay(overlay);
-                        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_remove_visualizer),
-                                () -> { project.getTimeline().removeWaveformOverlay(overlay); syncTimelineOverlays(); refreshWaveformOverlays(); },
-                                () -> { project.getTimeline().addWaveformOverlay(overlay); syncTimelineOverlays(); refreshWaveformOverlays(); }));
-                        waveformOverlayView.setOverlays(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleWaveformOverlays(project.getTimeline())); // §4.5 per-object eye
-                        waveformOverlayView.invalidate();
-                        syncTimelineOverlays();
-                        scheduleAutoSave();
-                        Toast.makeText(FaditorEditorActivity.this, R.string.studio_toast_visualizer_removed, Toast.LENGTH_SHORT).show();
-                    }
-
-                    @Override
-                    public void onWaveformTapped(
-                            @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance overlay) {
-                        showVisualizerStylePicker(overlay);
-                    }
-
-                    @Override
-                    public void onWaveformLongPressed(
-                            @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance overlay) {
-                        // Gesture contract §4.5: hold opens the visualizer's SETTINGS DRAWER.
-                        // It used to raise a two-item menu whose second item deleted the
-                        // visualizer — one stray hold plus one stray tap and the object was
-                        // gone. Deletion now lives only on the timeline row's trash-can badge,
-                        // which is a deliberate, aimed target; hold is purely "let me edit it".
-                        showVisualizerStylePicker(overlay);
-                    }
-                });
+        // NO TOUCH LISTENER (G5b). WaveformOverlayView no longer takes touches: a visualiser is
+        // selected, moved, resized and turned on the shared transform box
+        // (enterVisualizerTransformMode), whose double-tap and hold open the settings drawer
+        // (gesture contract §4.5: hold is purely "let me edit it" — deleting lives only on the
+        // timeline row's trash-can badge, a deliberate aimed target). The old callbacks here saved
+        // a drag (now the undo record does) and opened the drawer (now the box does).
         // The z juggling that used to live here is gone. It raised the waveform overlay "so it
         // receives touches" and then put the caption layers back, gated on the project having a
         // visualizer at all — which made the captions' z depend on something unrelated to them.
@@ -26698,6 +26666,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private final java.util.Map<String, com.fadcam.ui.faditor.transform.HandleModel>
             spriteTransformRoles = new java.util.HashMap<>();
 
+    /**
+     * VISUALISER transform surface (G5b): the visualiser the shared box is up on, or null. A visualiser
+     * has no per-object handle roles to remember (it is affine-only, so every handle is plain Scale),
+     * hence no roles map.
+     */
+    @Nullable private String transformVizId;
+
     /** PiP transform surface — separate from image/text and spine (SPEC D). */
     @Nullable private String transformPipClipId;
     private final java.util.Map<String, com.fadcam.ui.faditor.transform.HandleModel>
@@ -26753,6 +26728,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         }
                     });
         }
+        // Only a visualiser hangs the spin arc below its box, and it says so after this call: going
+        // straight from a visualiser to a picture, text or sprite must not carry that over.
+        transformOverlay.setRotateKnobBelow(false);
         return transformOverlay;
     }
 
@@ -26783,6 +26761,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         transformSpineClipId = null;
         transformPipClipId = null;
         transformSpriteId = null;
+        transformVizId = null;
         // THE ORDINARY HANDLES SURRENDER THE PICTURE, NOT THE PREVIEW.
         //
         // Their TARGET goes null, which is what makes them draw nothing and grab nothing -- the
@@ -26898,6 +26877,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         transformSpineClipId = null;
         transformPipClipId = null;
         transformSpriteId = null;
+        transformVizId = null;
         ensurePreviewHandlesOverlay().setTarget(null);
         if (previewHandlesOverlay != null) {
             previewHandlesOverlay.setPointHandles(null);
@@ -26994,6 +26974,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         transformItemId = null;
         transformSpineClipId = null;
         transformPipClipId = null;
+        transformVizId = null;
         ensurePreviewHandlesOverlay().setTarget(null);
         if (previewHandlesOverlay != null) {
             previewHandlesOverlay.setPointHandles(null);
@@ -27082,6 +27063,117 @@ public class FaditorEditorActivity extends AppCompatActivity {
         refreshSpriteAfterHandleWrite();
     }
 
+    /**
+     * G5b — put a VISUALISER on the same transform surface as everything else.
+     *
+     * <p>Selecting one, from the timeline or by tapping it in the preview, puts the shared box on it:
+     * move, corner and edge resize with width and height independent, the spin arc, snapping, and the
+     * two-finger hold. Its own older box inside {@code WaveformOverlayView} no longer takes touches.
+     * Writes go through {@code VisualizerTransformHost}: a visualiser with keyframes is KEYED at the
+     * playhead, a linked one is moved in world space and stored in its own pose. Undo is
+     * {@link #snapshotViz} before and {@link #recordVizMenuUndo} after — once per gesture.
+     *
+     * <p>Affine only, because the preview and the export both draw a rotated rectangle and nothing
+     * else: Tilt, Free, bend and flip are never offered. A double-tap and a HOLD on the body both open
+     * the visualiser's drawer.
+     */
+    private void enterVisualizerTransformMode(
+            @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance wf) {
+        if (transformVizId != null && transformVizId.equals(wf.getId())
+                && transformOverlay != null && transformOverlay.host() != null
+                && transformOverlay.host()
+                        instanceof com.fadcam.ui.faditor.transform.VisualizerTransformHost) {
+            transformOverlay.refresh();
+            return;
+        }
+        transformVizId = wf.getId();
+        transformItemId = null;
+        transformSpineClipId = null;
+        transformPipClipId = null;
+        transformSpriteId = null;
+        ensurePreviewHandlesOverlay().setTarget(null);
+        if (previewHandlesOverlay != null) {
+            previewHandlesOverlay.setPointHandles(null);
+            previewHandlesOverlay.setVisibility(View.VISIBLE);
+        }
+        com.fadcam.ui.faditor.transform.TransformOverlayView v = ensureTransformOverlay();
+        v.setHost(new com.fadcam.ui.faditor.transform.VisualizerTransformHost(
+                wf, vizTransformBridge(wf)), new com.fadcam.ui.faditor.transform.HandleModel());
+        v.setAffineOnly(true);
+        v.setBendAvailable(false);
+        v.setBendVisible(false);
+        // The spin arc BELOW the box (the app-wide rule). exitTransformMode puts it back, so
+        // pictures, text and sprites keep the placement they have today.
+        v.setRotateKnobBelow(true);
+        // Double-tap and hold open the visualiser's drawer, as a picture's double-tap opens its own.
+        // Set AFTER setHost, which clears a body-hold hook so none outlives the object it was for.
+        v.setOnDoubleTap(() -> showVisualizerStylePicker(wf));
+        v.setOnBodyHold(() -> showVisualizerStylePicker(wf));
+        v.bringToFront();
+        v.refresh();
+    }
+
+    /** What the visualiser's transform host needs from the editor. */
+    @NonNull
+    private com.fadcam.ui.faditor.transform.VisualizerTransformHost.Bridge vizTransformBridge(
+            @NonNull final com.fadcam.ui.faditor.model.WaveformOverlayInstance wf) {
+        return new com.fadcam.ui.faditor.transform.VisualizerTransformHost.Bridge() {
+            /** The one snapshot a whole gesture undoes to, taken at its first touch. */
+            @Nullable private VizTransformState before;
+
+            @NonNull @Override
+            public android.graphics.RectF canvasRect() { return vizCanvasRect(); }
+
+            // The CORRECTED overlay clock, as every other transform host uses: it is what the
+            // picture is drawn at, so it is also where a keyed write must land.
+            @Override public long clockMs() { return overlayClockMs(lastPlayheadAbsoluteMs); }
+
+            @Override public boolean showsAt(long t) {
+                return project != null && wf.isVisibleAt(t)
+                        && project.getTimeline().getWaveformOverlays().contains(wf);
+            }
+
+            @Override public void beginGesture() { before = snapshotViz(wf); }
+
+            @Override public void commitGesture(@NonNull String what) {
+                VizTransformState b = before;
+                before = null;
+                // ONE GESTURE, ONE UNDO STEP, however many writes the drag made; nothing is
+                // recorded when nothing changed.
+                if (b != null) recordVizMenuUndo(wf, b, what + " visualizer");
+                syncTimelineOverlays();
+                if (objectMenuSheet != null && objectMenuSheet.isShowing()) {
+                    objectMenuSheet.onPlayheadChanged(lastPlayheadAbsoluteMs);
+                }
+            }
+
+            @Override public void cancelGesture() { before = null; }
+
+            @Override public void posed() { refreshVizAfterHandleWrite(); }
+        };
+    }
+
+    /**
+     * The frame a visualiser is drawn in, in the transform surface's pixels. It is the visualiser
+     * layer's own bounds (that layer is sized to the canvas and shares the transform surface's
+     * parent), so the box can never sit anywhere but on the picture it belongs to.
+     */
+    @NonNull
+    private android.graphics.RectF vizCanvasRect() {
+        View w = waveformOverlayView;
+        if (w != null && w.getWidth() > 0 && w.getHeight() > 0) {
+            return new android.graphics.RectF(w.getLeft(), w.getTop(), w.getRight(), w.getBottom());
+        }
+        return computeCanvasRect();
+    }
+
+    /** Light per-drag-frame refresh for a visualiser: repaint it, the open drawer's rows, the box. */
+    private void refreshVizAfterHandleWrite() {
+        if (waveformOverlayView != null) waveformOverlayView.invalidate();
+        refreshOpenDrawerRows();
+        if (transformOverlay != null) transformOverlay.refresh();
+    }
+
     // ── SPEC D: PIP TRANSFORM — affine-only (no pin channel in preview or export)
     private void enterPipTransformMode(@NonNull Clip clip) {
         if (transformPipClipId != null && transformPipClipId.equals(clip.getId())
@@ -27099,6 +27191,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         transformItemId = null;
         transformSpineClipId = null;
         transformSpriteId = null;
+        transformVizId = null;
         ensurePreviewHandlesOverlay().setTarget(null);
         if (previewHandlesOverlay != null) {
             previewHandlesOverlay.setPointHandles(null);
@@ -27228,6 +27321,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         transformSpineClipId = clip.getId();
         transformPipClipId = null;
         transformSpriteId = null;
+        transformVizId = null;
         // Same surrender the image path makes, for the same reason: the ordinary handles overlay
         // keeps its VISIBILITY (it is the preview's one hit-test surface) and loses its TARGET,
         // so exactly one view is reading MotionEvents over the picture.
@@ -27314,19 +27408,23 @@ public class FaditorEditorActivity extends AppCompatActivity {
     /** Close the transform surface. The caller decides what the preview shows next. */
     private void exitTransformMode() {
         if (transformItemId == null && transformSpineClipId == null && transformPipClipId == null
-                && transformSpriteId == null && transformOverlay == null) {
+                && transformSpriteId == null && transformVizId == null && transformOverlay == null) {
             return;
         }
         transformItemId = null;
         transformSpineClipId = null;
         transformPipClipId = null;
         transformSpriteId = null;
+        transformVizId = null;
         if (transformOverlay != null) {
             // setHost(null) also sets the view GONE, so nothing of it remains -- no orphaned
             // handles, and nothing left in the preview reading a MotionEvent but the ordinary
             // overlay again.
             transformOverlay.setHost(null, new com.fadcam.ui.faditor.transform.HandleModel());
             transformOverlay.setOnDoubleTap(null);
+            // The spin arc goes back to where every other object keeps it (a visualiser put it
+            // below its box); setHost has already dropped the visualiser's body-hold hook.
+            transformOverlay.setRotateKnobBelow(false);
         }
         // The marionette belongs to the picture that WAS selected. It used to stay in the corner
         // after the selection moved to text, a sprite or nothing — clutter, and with two rigged
@@ -27657,7 +27755,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // pose) and any text box under the finger (a second, competing mover). Selecting
                 // a PiP or spine clip consumes the tap exactly as selecting an image does.
                 return transformItemId != null || transformPipClipId != null || transformSpineClipId != null
-                        || transformSpriteId != null
+                        || transformSpriteId != null || transformVizId != null
                         || (previewHandlesOverlay != null && previewHandlesOverlay.hasTarget());
             }
 
@@ -27684,8 +27782,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // only about transformItemId returned false for both, so the first tap-drag on an
                 // unselected PiP or spine clip was a DEAD drag — exactly the SPEC B stutter this
                 // hook exists to end, alive on two of the four object types.
+                // A SPRITE and a VISUALISER (G5b) live on the transform surface too. The sprite was
+                // missing from this list, so the first tap-drag on an unselected sprite was a dead
+                // drag: the stream was consumed here and the surface that owns the object never saw it.
                 if (v == null || (transformItemId == null && transformPipClipId == null
-                        && transformSpineClipId == null)) {
+                        && transformSpineClipId == null && transformSpriteId == null
+                        && transformVizId == null)) {
                     return false;
                 }
                 v.dispatchTouchEvent(e);
@@ -27703,12 +27805,23 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (project == null) return;
         long t = Math.max(0, lastPlayheadAbsoluteMs);
         String self = transformItemId != null ? transformItemId
-                : transformSpriteId != null ? transformSpriteId : transformPipClipId;
+                : transformSpriteId != null ? transformSpriteId
+                : transformVizId != null ? transformVizId : transformPipClipId;
         for (com.fadcam.ui.faditor.compositor.LayerPreviewController.VisualItem v
                 : com.fadcam.ui.faditor.compositor.LayerPreviewController
                         .orderedVisualItems(project.getTimeline())) {
             com.fadcam.ui.faditor.layers.TimedItem item = v.item;
             if (item.getId().equals(self)) continue;
+            if (item.getWaveform() != null) {
+                // A visualiser is an object the eye sees too (G5b): its drawn box, turned as drawn.
+                com.fadcam.ui.faditor.model.WaveformOverlayInstance wf = item.getWaveform();
+                android.graphics.RectF vr = new android.graphics.RectF();
+                if (wf.isVisibleAt(t) && com.fadcam.ui.faditor.transform.VisualizerTransformHost
+                        .rotatedBounds(wf, vizCanvasRect(), t, vr)) {
+                    out.add(vr);
+                }
+                continue;
+            }
             com.fadcam.ui.faditor.overlay.PreviewHandlesOverlay.Target tg;
             if (item.getTextOverlay() != null) tg = textHandlesTarget(item.getTextOverlay());
             else if (item.getSprite() != null) tg = spriteHandlesTarget(item.getSprite());
@@ -27736,6 +27849,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private boolean hitsInPreview(@NonNull com.fadcam.ui.faditor.layers.TimedItem item,
                                   float x, float y, long timeMs) {
+        if (item.getWaveform() != null) {
+            // A VISUALISER (G5b) is picked like any object: its drawn box, turned as drawn. The
+            // ordered list applies hidden lanes but not a visualiser's own eye, so that is asked here.
+            com.fadcam.ui.faditor.model.WaveformOverlayInstance wf = item.getWaveform();
+            return wf.isVisibleAt(timeMs) && com.fadcam.ui.faditor.transform.VisualizerTransformHost
+                    .hit(wf, vizCanvasRect(), timeMs, x, y);
+        }
         com.fadcam.ui.faditor.overlay.PreviewHandlesOverlay.Target t;
         if (item.getTextOverlay() != null) {
             // Pass-through is the same question for an image overlay as it is for a PiP: "stop
@@ -27811,9 +27931,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     /**
-     * G4 routing from {@code onItemSelectionChanged}: text/image, sprite and PiP get handle
-     * targets; audio/visualizer/caption → handles hidden (an audio clip has no canvas box, and
-     * the other two are drawn by layers that own their own gesture surfaces).
+     * G4 routing from {@code onItemSelectionChanged}: text/image, sprite, visualiser and PiP get
+     * handle targets; audio/caption → handles hidden (an audio clip has no canvas box, and a
+     * caption is drawn by a layer that owns its own gesture surface).
      */
     private void updatePreviewHandlesForSelection(
             @Nullable com.fadcam.ui.faditor.layers.TimedItem item) {
@@ -27850,6 +27970,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     || !transformSpriteId.equals(item.getSprite().getId()))) {
             exitTransformMode();
         }
+        // And a VISUALISER (G5b): its box belongs to it alone, whatever is selected next.
+        if (transformVizId != null
+                && (item == null || item.getWaveform() == null
+                    || !transformVizId.equals(item.getWaveform().getId()))) {
+            exitTransformMode();
+        }
         if (item != null && item.getTextOverlay() != null
                 && item.getTextOverlay().isImage()) {
             // AN IMAGE OVERLAY'S HANDLES *ARE* THE TRANSFORM SURFACE. JoyRaptor, 2026-09-04: "when I
@@ -27880,6 +28006,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // SPEC Z slice 1: sprites used to stop here, on the legacy handle overlay. They get
             // the same surface, the same ring and the same grammar as every other object now.
             enterSpriteTransformMode(item.getSprite());
+        } else if (item != null && item.getWaveform() != null) {
+            // G5b: a visualiser used to stop here and keep its own older box inside
+            // WaveformOverlayView, so picking one on the timeline showed no box at all. It gets the
+            // same surface, the same rotate arc and the same snapping as everything else now.
+            enterVisualizerTransformMode(item.getWaveform());
         } else if (item != null && item.getClip() != null && item.getClip().isOverlayClip()) {
             // SPEC D: PiP now gets the transform surface, affine-only — neither PipFrameOverlay
             // (export) nor FxPreviewTextureView.Pip (preview) can draw a corner-pinned PiP today.
@@ -28353,7 +28484,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         if (transformOverlay != null
                 && (transformItemId != null || transformSpineClipId != null || transformPipClipId != null
-                        || transformSpriteId != null)) {
+                        || transformSpriteId != null || transformVizId != null)) {
             transformOverlay.refresh();
         }
     }
@@ -32512,6 +32643,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void refreshVizAfterMenuWrite() {
         if (waveformOverlayView != null) waveformOverlayView.invalidate();
         syncTimelineOverlays();
+        // The shared box (G5b) follows a drawer write and an undo, or it would stand where the
+        // visualiser WAS until the next touch or playhead move.
+        if (transformOverlay != null && transformVizId != null) transformOverlay.refresh();
     }
 
     /** Visualizer twin of {@link #setOverlayRangeEdgeAtPlayhead} (one undo step + toast). */
@@ -37994,7 +38128,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // re-synced the quad.
         if (transformOverlay != null
                 && (transformItemId != null || transformSpineClipId != null || transformPipClipId != null
-                        || transformSpriteId != null)) {
+                        || transformSpriteId != null || transformVizId != null)) {
             transformOverlay.refresh();
         }
     }

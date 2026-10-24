@@ -279,6 +279,7 @@ public class VisOverlayService extends Service implements OverlayControls.Action
         view.renderer().setWords(null);         // no sample lyrics over someone's screen
         // The look's pictures (the Joy emblem, a picked logo), as in the room (audit 10-18 V6).
         view.renderer().setImageSource(new com.fadcam.vislab.room.Pictures(this));
+        view.renderer().setSpriteSource(new com.fadcam.vislab.room.Sprites(this));
         box.addView(view, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         controls = new OverlayControls(this, this);
         controls.setVisibility(View.GONE);

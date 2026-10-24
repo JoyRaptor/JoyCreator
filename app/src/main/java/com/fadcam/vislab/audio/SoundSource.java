@@ -19,4 +19,16 @@ public interface SoundSource {
      * live source where the newest audio is what is heard.
      */
     long playheadFrame();
+
+    /**
+     * Called each frame, right after the analysis, with the frame being heard. A source that knows
+     * exactly what it is playing (a MIDI file knows every kick) overwrites the guessed values in
+     * {@code f}; everything else leaves it alone, which is what this default does, so the
+     * analysis of a microphone, a phone's audio or a recorded song is untouched.
+     *
+     * @param playheadFrame the same value {@link #playheadFrame()} gave for this frame (always >= 0 here)
+     * @param dt            seconds since the last frame
+     */
+    default void refine(@NonNull Features f, long playheadFrame, double dt) {
+    }
 }

@@ -258,7 +258,10 @@ Quick wins (do first):
   slot. Found while phone-testing the blend: the exported frame had no visualiser.
   Blend PHONE-TESTED so far: the Blend mode tab with the full list (Normal, Darken, Multiply,
   Screen, Add, Overlay, Difference...), one undo per pick, the "applied when you export" note.
-  Export blend NOT yet seen working (the first test hit the silent-clip drop above).
+  Export blend PHONE-TESTED 10-23 (2cda719a2): Halo Drop set to Difference on a silent screen
+  recording ("no audio track") exported as a single frame through `VisualizerBlendGlEffect`: the
+  emblem's colours flip against the icon beneath (orange -> blue, glow -> green), and the silent-clip
+  fix kept the visualiser in the export. Test edits undone (3 steps, restored from disk).
   10-23: Blend mode BUILT (Sonnet helper): `overlayBlendMode` on the item (same key as pictures),
   a Blend mode tab in the drawer (`PipDrawerTabs.blendTab`, one undo per pick), export blends for
   real through `export/VisualizerBlendGlEffect` (same equations as pictures); preview shows Normal

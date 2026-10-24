@@ -261,3 +261,10 @@ not a screenshot/feel test. White/dark D2, layer-row and ghost captures are stil
 Lead integration and final rerun on an identified APK. The report extends the existing C1
 checklist without replacing it. C3 veil remains separate and unimplemented by A5 preference
 wiring. No build/device action, hot-file edit, preview update or phone-acceptance claim.
+
+Follow-up b590e58c5: reviewed the source-only repair and all five new regression scenarios.
+D2/More now have a bounded scroll wrapper retaining row targets; the locked-line option
+reveals persistently after encountering a lock and preserves legacy/off choices. Initial
+source findings1/2 are addressed. Coordinator owns executing integrated checks; this review
+ran no tests and does not close native visual/C1 phone gates. Details are appended in the
+same C2 report. No production files changed in the UX review branch.

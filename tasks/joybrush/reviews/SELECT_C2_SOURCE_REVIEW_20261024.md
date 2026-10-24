@@ -8,6 +8,8 @@ the UI lane; it was left untouched. No build, installation, phone action or prev
 ## Verdict
 
 C2 SOURCE REVIEW COMPLETE WITH NOTES; C2 VISUAL ACCEPTANCE AND C1 PHONE PASS OPEN.
+Follow-up: source findings1/2 below are addressed in b590e58c5; reviewed without executing
+the new tests. Their original observations remain below as review history, not current blockers.
 The delivery contains the A1–A8 source paths and uses the existing approved presentation
 primitives. That does not prove their native appearance or gesture feel. The delivery's
 reported122 passing app tests predate its final two fixes; final app/core/androidkit gates
@@ -44,6 +46,27 @@ The approved page is a reference only; the owner ended preview editing.
    choice remains unsettled. That sentence must be true in the integrated implementation
    before A10/D2 is accepted. Keep provisional Q2/Proko/vector-versus-raster quality decisions
    separate from a screenshot of an ON switch.
+
+## Follow-up source review — b590e58c5
+
+Both settings and More now route through showScrollableMenu. SelectMenuScrollView caps
+content height against the parent measure minus reserved top/gap space and lets the child
+keep its natural height; it does not shrink40dp choices. The shared Popovers outside catcher
+is unchanged. Source finding1 is addressed; actual root-layout measurement, scrolling and
+touch reachability still require the coordinator's integrated checks and the phone capture.
+
+Settings now receives a reveal condition. SelectPreferences retains revelation after a
+locked line is encountered, preserves any existing pick_locked preference (including false),
+and never hides an enabled setting's Off control. Controller checks visible locked records
+on opening settings and selected locked records on refresh. Source finding2 is addressed;
+the persistent way back survives unlock/off/reopen in the supplied regression scenarios.
+
+Read all five added tests: short window with1.8 text scale and Paste reaches the last choice;
+long menu row targets and resize; outside dismissal without action; reveal lifetime; and
+legacy false migration. These are meaningful source checks, not executed evidence here.
+The More-height test uses a representative list rather than opening Controller's actual More;
+the final root-hierarchy/phone pass must still cover that production path. No new material
+source issue was found in this bounded diff. L3/A10 truth, C3 and all visual/phone gates remain.
 
 ## Source checks that agree with the design
 

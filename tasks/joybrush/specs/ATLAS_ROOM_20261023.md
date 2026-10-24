@@ -232,6 +232,53 @@ residency only).
   - copying only the planes each role needs (a ring tile needs only its a-half's read planes, about half);
   - the coarse tier for out-of-core pools.
 
+## 5c. P1 result (Note 9, 10-23 19:02)
+
+- Probe kind `parked`: every wet frame, all 9 tiles went to the park and came back in another slot.
+  - p0, p1, paper, w0 and w1 were **bit-exact** on every stroke.
+  - The look differed only because the probe left the ground behind. In the app the ground comes back from its `g`
+    store; the probe now carries it, and a re-run is pending.
+- Copy cost: **3.59 ms per tile, out and back**. That is 7 blits out, 13 in (both halves), plus the tile's paper bake:
+  about 4.8 GB/s.
+- The Lead accepted it: out of core only runs where main refuses today.
+
+## 5d. P2 in detail (what each pass reads, from the shaders)
+
+| Pass | Reads | Beyond its own pixel |
+|---|---|---|
+| bead 0 | w0 (a) | 2 x 2 px |
+| bead 1, 2 | bead | ±r half cells in x, then y |
+| flux | w0 (a), flux (a), p0 (src), bakes, bead | up to `fluxReach`, far drip taps up to ~48 px |
+| update | w0, w1 (a), flux (b), run, p0, p1 (src) own, bakes, input own | ±1 and the radius-3 ring |
+
+**A block's stage rects.** Each stage's rect is intersected with the stage's own area, as today:
+- update = block ∩ cells;
+- flux = (block + 4) ∩ cells;
+- bead 2 = (flux / 2 + bead read reach) ∩ hr;
+- bead 1 = (bead 2 + r in y) ∩ hr;
+- bead 0 = (bead 1 + r in x) ∩ hr.
+
+Uniforms keep describing the whole area, as bands do. Inside hr the bead values are identical to the global pass.
+Within r of hr's edge both modes blur stale data, but the flux never reads there (the margin m = 3 + 2r exists for
+exactly this), so stale slot contents never reach the water.
+
+**What each tile needs loaded:**
+
+| Tile | Planes | B/px |
+|---|---|---|
+| The block's own tiles | everything, into the a-half only | 92 |
+| Ring tiles | w0, w1, flux (a-half), p0 (src) | 56 |
+
+- Ring tiles skip p1, paper and run: no pass reads p1 or paper beyond its own pixel, and run is written by this
+  block's flux before the update reads it.
+- Bakes are made again for every load.
+- The paint halves follow the step's parity (src = state[k & 1]), the water halves follow `wc`.
+- The P0 ring copy (`copyP0Ring`) becomes per load: a ring tile's p0 goes into both paint halves.
+
+**Probe `blocked`.** The 3 x 3 probe world cannot force eviction (a centre block's ring is the whole world). So a
+separate probe pairs a 5 x 5-tile window with an atlas that has L1 = 9 slots + zero + the park, b = 1. Strokes go
+through the middle 3 x 3, including the tilted wash, and the comparison covers the interior.
+
 ## 6. Risks
 
 - **Copy cost.** GPU copies of 6 MB a tile; if `glCopyImageSubData` is slow on Adreno, use a blit pass. P1 measures it

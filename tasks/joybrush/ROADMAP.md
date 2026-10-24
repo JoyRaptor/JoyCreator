@@ -352,3 +352,11 @@ Phases follow `JOYBRUSH_BLUEPRInT.md` §4. Each phase ends with an owner check (
 
 ### Brush specialist test slice — October 2
 JB-1.22 adaptive media contacts: Built in `codex/brush-contact`. Brush v7 live contact/depth, long tilted Pencil, Bristle and spatial-pickup Flat Paint; existing Sable retained. Core 1499/0, androidkit 225/0, WebGL contact and legacy/paper parity checks pass. This advances the tip/belly portion of JB-6.03; JB-6.01/6.02 fluid work remains open. See `BRUSH_SPECIALIST_HANDOFF_20261002.md` for the usable standalone test package and exact remaining OpenCode work. Device feel and owner sign-off remain required.
+
+### October24 coordinator integration follow-up
+| Item | State |
+|---|---|
+| Select A1–A8 + ordered adapters + C2 menu/reveal repairs | Built in lead/select-integration-20261024; final suites/main integration/phone acceptance open |
+| Selection preview context replacement and bounded paint-mask admission | Source fixes + regression cases authored; execution pending |
+| PhaseB pixel ownership/budget/context design | Written for Engine Lead review; no implementation approval |
+| Slice, badge/toasts/default integration, Bend, veil, real paint selection | Remaining gates; see HANDOFF_20261024_COORDINATOR.md |

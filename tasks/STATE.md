@@ -489,3 +489,9 @@ Details: tasks/joybrush/INTEGRATION_20260930.md.
 > **Saved region model, 2026-10-02:** origin/joy-creator 82a16eba adds v6 board cursors and per-layer shared/region cels. Core 1470/0 and Android file tests 225/0 before latest clean paper merge. Blank/copy/link operations return bounded pixel instructions; GPU/undo/preview/export adapters and phone proof remain owed. Existing test art is disposable; no conversion work.
 
 > **Region CPU rendering, 2026-10-02:** origin/joy-creator 0f4e57cd connects export rendering to board-local frame/shared tile slices, including holds, masks and clip bases. Combined core1481/0, Android file/export225/0; no device proof. GPU paint/undo adapter remains next. Shared AGENT_BOARD.md now published on origin.
+
+### JoyBrush Select coordinator candidate — October24
+- Built on isolated current-main base a94933ad7: A1–A8 delivery + ordered Lead adapters, C2 bounded menus/locked-option reveal, per-brush caption capability gate. Not merged/installed; final suites and C1/C2 rendered/phone checks open.
+- Additional source safety fixes d8ddf2ebe/9805dbff6 abandon stale selection-preview handles before context replacement and bound paint-mask coverage before allocation/transform/commit. New regression cases authored, not executed. Pixel lift/clip remains gated; corrected toast makes no painting-inside promise.
+- PhaseB design proposal now exists at tasks/joybrush/specs/SELECT_PIXELS_DESIGN_20261023.md; Engine Lead review + PhaseA integration required before implementation. A9/A10/C3 remain open.
+- Verification deferred to owner-reserved watercolor RAM/phone window; root holds no resource claim or waiting build. Full handoff: HANDOFF_20261024_COORDINATOR.md. Historical test counts do not verify this candidate.

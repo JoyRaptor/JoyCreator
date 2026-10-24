@@ -84,9 +84,9 @@ Parked: VisLab (brief in tasks/VISLAB_BRIEF.md); Joy Brush send-into-existing-pr
 
 ## Lead Coordinator — Select integration, October24
 - [x] Read current engine handoff, Select implementation/order and C2 source review; preserve old lead and specialist checkouts.
-- [ ] Apply supporting Select source before individually reviewed Lead patches on latest main; preserve Joybot/Studio/media changes.
-- [ ] Review clipboard/scope/history correctness independently and fix concrete findings.
-- [ ] Adopt bounded popover/reveal follow-up from Select builder; keep A9/A10/C3/PhaseB gates explicit.
+- [x] Apply supporting Select source before individually reviewed Lead patches on latest main; preserve Joybot/Studio/media changes.
+- [x] Review clipboard/scope/history correctness independently and fix concrete findings.
+- [x] Adopt bounded popover/reveal follow-up from Select builder; keep A9/A10/C3/PhaseB gates explicit.
 - [ ] Run resource-admitted exact-source core/backend/app checks, independently count XML, then preserve APK if accepted.
 - [ ] Coordinate exact integrated APK phone/render acceptance with UI/watercolor lanes; retain drawing data and current locks.
 - [ ] Publish review/checkpoint and accurate STATE/roadmap statuses without claiming unfinished gates complete.

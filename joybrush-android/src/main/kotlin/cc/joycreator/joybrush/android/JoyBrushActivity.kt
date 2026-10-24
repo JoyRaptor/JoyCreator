@@ -525,7 +525,7 @@ class JoyBrushActivity : Activity() {
         // JbCanvasView reports this on the UI thread via post(), after every committed stroke,
         // undo, redo and clear. Undo and Redo start disabled -- there is no history yet.
         // Undo, redo, a frame change and a board edit all change the lines under a selection: it ends first.
-        canvas.onBeforeHistoryChange = { popovers.close(); boardController?.stopPreview(); endSelection() }
+        canvas.onBeforeHistoryChange = { popovers.close(); boardController?.stopPreview() }
         canvas.onPaperChanged = { p -> refreshPaper(p) }
         refreshPaper(canvas.documentPaper)
         canvas.onHistoryChanged = { canUndo, canRedo ->
@@ -2549,8 +2549,8 @@ class JoyBrushActivity : Activity() {
         // The strip opens with a brush in hand, so the tool must too: SelectTool starts with Select in hand, which would
         // swallow the first pen strokes after opening until a brush was tapped (found by the device matrix, 2026-10-18).
         controller.selectToolInHand = selectInHand
-        // Lines that changed from outside the tool (a stroke, an undo, a drawing opened): a selection naming a line that
-        // is gone ends. The tool's own edits are already in the host's lists, so they pass.
+        // Lines that changed from outside the tool (a stroke, an undo, a drawing opened): keep surviving selected lines,
+        // drop missing ones, and refit the box. The tool's own edits are already in the host's lists, so they pass.
         canvas.onLinesChanged = { SelectionSync.afterLinesChanged(controller.tool, host) }
         strip.showSelect(shown = true, chosen = false)
     }

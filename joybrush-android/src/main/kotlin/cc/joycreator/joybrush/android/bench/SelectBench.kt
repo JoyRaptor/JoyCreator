@@ -58,7 +58,9 @@ class SelectBench(private val canvas: JbCanvasView, private val finished: () -> 
         step("draw") { next ->
             val lines = listOf(
                 pts(0.15f, 0.30f, 0.85f, 0.30f), pts(0.15f, 0.40f, 0.85f, 0.40f), pts(0.50f, 0.22f, 0.50f, 0.55f),
-                pts(0.20f, 0.65f, 0.45f, 0.75f), pts(0.55f, 0.65f, 0.80f, 0.75f))
+                pts(0.20f, 0.65f, 0.45f, 0.75f),
+                // L5 is an S: its ends sit on the box's sides, not its corners (where the corner handles hide tip dots).
+                listOf(0.55f to 0.66f, 0.62f to 0.62f, 0.70f to 0.78f, 0.80f to 0.74f).map { (x, y) -> SelectGestures.P(x * w, y * h) })
             fun draw(i: Int) {
                 if (i == lines.size) { ui.postDelayed({
                     val got = host?.activeLines().orEmpty()
@@ -80,7 +82,8 @@ class SelectBench(private val canvas: JbCanvasView, private val finished: () -> 
                 val sel = lines()
                 val row = g.find<SelectRowView>().firstOrNull()
                 val box = g.find<TransformOverlayView>().firstOrNull()
-                report("tapPick", sel == setOf(ids.getOrNull(3)), JSONObject().put("selected", sel.size)
+                report("tapPick", sel == setOf(ids.getOrNull(3)) && clearOfChrome(row), JSONObject().put("selected", sel.size)
+                    .put("rowClearOfChrome", clearOfChrome(row))
                     .put("isL4", sel == setOf(ids.getOrNull(3))).put("rowShown", row != null && row.alpha > 0.9f)
                     .put("rowAboveBox", row != null && box != null && rowAbove(row)).put("boxShown", box != null))
                 shot("02_tap_pick"); hold(next)
@@ -110,8 +113,8 @@ class SelectBench(private val canvas: JbCanvasView, private val finished: () -> 
             g.stroke(loop, 700, pen = true, settleMs = 700) {
                 val sel = lines()
                 val bar = g.find<SelectBarView>().firstOrNull()
-                report("lasso", sel == setOfNotNull(ids.getOrNull(3), ids.getOrNull(4)),
-                    JSONObject().put("selected", sel.size).put("barShown", bar != null))
+                report("lasso", sel == setOfNotNull(ids.getOrNull(3), ids.getOrNull(4)) && clearOfChrome(bar),
+                    JSONObject().put("selected", sel.size).put("barShown", bar != null).put("barClearOfChrome", clearOfChrome(bar)))
                 shot("04_lasso_bar"); hold(next)
             }
         }
@@ -193,7 +196,7 @@ class SelectBench(private val canvas: JbCanvasView, private val finished: () -> 
                 g.hover(listOf(SelectGestures.P(ex + 40f, ey + 40f), SelectGestures.P(ex + 4f, ey + 4f)), 300) {
                     val dots = tool?.tipDots().orEmpty().size
                     report("tipDots", dots > 0, JSONObject().put("dots", dots))
-                    shot("07_tip_dots"); g.hoverExit(SelectGestures.P(ex, ey)); hold(next)
+                    shot("07_tip_dots"); hold { g.hoverExit(SelectGestures.P(ex, ey)); next() }
                 }
             }
         }
@@ -214,9 +217,10 @@ class SelectBench(private val canvas: JbCanvasView, private val finished: () -> 
         }
         step("fingerPans") { next ->
             val sel = lines()
-            val (x0, y0) = tool?.viewTransform?.docToScreen(0f, 0f) ?: (0f to 0f)
-            g.stroke(listOf(SelectGestures.P(0.3f * w, 0.92f * h), SelectGestures.P(0.6f * w, 0.92f * h)), 300, pen = false) {
-                val (x1, _) = tool?.viewTransform?.docToScreen(0f, 0f) ?: (0f to 0f)
+            val (x0, _) = canvas.view.docToScreen(0f, 0f)
+            // Clear paper, away from the lines and the bar at the bottom (the Nudge slider lives there).
+            g.stroke(listOf(SelectGestures.P(0.08f * w, 0.50f * h), SelectGestures.P(0.35f * w, 0.50f * h)), 300, pen = false) {
+                val (x1, _) = canvas.view.docToScreen(0f, 0f)
                 report("fingerPans", abs(x1 - x0) > 20f && lines() == sel, JSONObject().put("panPx", x1 - x0).put("selectionKept", lines() == sel))
                 next()
             }
@@ -334,6 +338,18 @@ class SelectBench(private val canvas: JbCanvasView, private val finished: () -> 
     private fun fromView(v: View, x: Float, y: Float): Pair<Float, Float> {
         val a = IntArray(2); v.getLocationInWindow(a); val c = IntArray(2); canvas.getLocationInWindow(c)
         return (x + a[0] - c[0]) to (y + a[1] - c[1])
+    }
+
+    /** The row or bar covers none of Joy Brush's own controls (strip, top bar, layer column, round button). */
+    private fun clearOfChrome(v: View?): Boolean {
+        if (v == null) return false
+        val root = canvas.rootView as? android.view.ViewGroup ?: return true
+        val mine = g.all(v).toSet() + g.find<SelectRowView>() + g.find<SelectBarView>() + g.find<SelectCountView>() +
+            g.find<TransformOverlayView>() + canvas
+        val a = IntArray(2).also { v.getLocationInWindow(it) }; val o = IntArray(2).also { root.getLocationInWindow(it) }
+        val r = android.graphics.RectF((a[0] - o[0]).toFloat(), (a[1] - o[1]).toFloat(), (a[0] - o[0] + v.width).toFloat(), (a[1] - o[1] + v.height).toFloat())
+        val chrome = cc.joycreator.joybrush.android.select.SelectPlacement.chromeRects(root, mine, 12f * canvas.resources.displayMetrics.density)
+        return chrome.none { android.graphics.RectF.intersects(it, r) }
     }
 
     /** K1: the actions row sits ABOVE the selection. */

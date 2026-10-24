@@ -176,7 +176,14 @@ class SelectTool(
         override fun onTip(x: Float, y: Float) = tipAt(x, y) != null
     }
 
-    private val router = SelectRouter(routerEnv, Intents(), SystemClock::uptimeMillis)
+    private val intents = Intents()
+    private val router = SelectRouter(routerEnv, intents, SystemClock::uptimeMillis)
+
+    /**
+     * A tap the box took on its BODY and never moved (the box owns body contacts so a drag can move the selection): it
+     * picks exactly as a tap anywhere else does, so tapping a selected line again gives the one under it (D3).
+     */
+    fun tapFromBox(x: Float, y: Float) = intents.tap(x, y, addArmed)
 
     // ── CanvasTool ──
 

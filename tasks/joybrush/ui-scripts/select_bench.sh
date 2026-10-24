@@ -22,15 +22,24 @@ adb -s $S logcat -c
 adb -s $S shell am start -n com.fadcam.beta/com.fadcam.joybrush.JoyBrushBenchActivity --es jb_bench select > /dev/null
 : > "$OUT/results.jsonl"
 end=$((SECONDS + 240))
-adb -s $S logcat -v raw -s JoyBrushPerf:I | tr -d '\r' | while IFS= read -r line; do
-  case "$line" in
-    SHOT\ *) n=${line#SHOT }; adb -s $S exec-out screencap -p > "$OUT/$n.png"; echo "shot $n" ;;
-    \{\"selectBench\"*|*\"selectBench\"*) echo "$line" >> "$OUT/results.jsonl"; echo "$line" ;;
-    refused:*) echo "$line" | tee -a "$OUT/refusals.txt" ;;
-    done*) echo "bench done"; break ;;
-  esac
-  [ $SECONDS -gt $end ] && { echo "TIMEOUT"; break; }
+# Poll the log (a live `logcat | while read` pipe buffers in Git Bash and never sees the end): each SHOT is caught well
+# inside the bench's 1.2 s hold.
+seen=0; finished=0
+while [ $finished -eq 0 ] && [ $SECONDS -le $end ]; do
+  mapfile -t lines < <(adb -s $S logcat -d -v raw -s JoyBrushPerf:I | tr -d '\r')
+  for ((i = seen; i < ${#lines[@]}; i++)); do
+    line=${lines[$i]}
+    case "$line" in
+      SHOT\ *) n=${line#SHOT }; adb -s $S exec-out screencap -p > "$OUT/$n.png"; echo "shot $n" ;;
+      *\"selectBench\"*) echo "$line" >> "$OUT/results.jsonl" ;;
+      refused:*) echo "$line" >> "$OUT/refusals.txt" ;;
+      done*) finished=1 ;;
+    esac
+  done
+  seen=${#lines[@]}
+  sleep 0.3
 done
+[ $finished -eq 1 ] && echo "bench done" || echo "TIMEOUT"
 echo "temp_after_C $(temp)" | tee -a "$OUT/temps.txt"
 python - "$OUT/results.jsonl" <<'EOF'
 import json, sys

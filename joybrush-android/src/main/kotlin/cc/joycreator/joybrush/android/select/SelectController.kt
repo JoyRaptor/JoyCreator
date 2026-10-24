@@ -179,7 +179,13 @@ class SelectController(
             kind == HandleModel.Kind.BODY -> if (tool.tipDots().any { kotlin.math.hypot(it[0] - e.x, it[1] - e.y) <= kit.dp(16f) }) SelectRouter.BoxHit.TIP else SelectRouter.BoxHit.BODY
             else -> SelectRouter.BoxHit.HANDLE
         }
-        return SelectRouter.boxTakes(hit, if (pen) SelectRouter.Kind.PEN else SelectRouter.Kind.FINGER, button, tool.selectToolInHand)
+        val takes = SelectRouter.boxTakes(hit, if (pen) SelectRouter.Kind.PEN else SelectRouter.Kind.FINGER, button, tool.selectToolInHand)
+        // A body contact the box takes may be a TAP: the box host hands an unmoved one back to the picker (D3 cycling).
+        if (takes && hit == SelectRouter.BoxHit.BODY && (pen || tool.fingerSelects)) {
+            val at = IntArray(2).also { canvas.getLocationOnScreen(it) }
+            boxHost.noteBodyContact(e.rawX - at[0], e.rawY - at[1], e.pointerCount == 1 && !button)
+        }
+        return takes
     }
 
     // ── keeping everything in step ──
@@ -239,28 +245,44 @@ class SelectController(
         )
     }
 
-    /** K2: the row 12 dp above the box; below it (past the rotate handle) only when there is no room above. */
+    /**
+     * K2: the row 12 dp above the box; below it (past the rotate handle) only when there is no room above. The row, the
+     * bar and the count keep clear of Joy Brush's own controls (the strip, the top bar, the layer column, the round
+     * button): each slides along its band to the nearest free gap.
+     */
     private fun place() {
-        placeCount()
+        val chrome = SelectPlacement.chromeRects(root, setOf(canvas, overlay, box, row, bar, count), kit.dp(12f))
+        val gap = kit.dp(6f)
         val q = FloatArray(8)
-        if (!boxHost.readQuad(q)) return
+        val bw = (bar.width.takeIf { it > 0 } ?: bar.measuredWidth).toFloat()
+        val bh = kit.dp(40f)
+        var by = root.height - kit.dp(12f) - bh
+        var bx = SelectPlacement.freeX(by, by + bh, (root.width - bw) / 2f, bw, root.width.toFloat(), gap, chrome)
+        if (bx == null) {
+            // No gap wide enough on the bottom band: lift the bar above what fills it.
+            by = (chrome.filter { it.bottom > by && it.top < by + bh }.minOfOrNull { it.top } ?: by) - gap - bh
+            bx = (root.width - bw) / 2f
+        }
+        bar.x = bx; bar.y = by
+        if (!boxHost.readQuad(q)) { placeCount(null); return }
         val top = minOf(q[1], q[3], q[5], q[7])
         val bottom = maxOf(q[1], q[3], q[5], q[7])
         val cx = (q[0] + q[2] + q[4] + q[6]) / 4f
-        val rw = row.width.takeIf { it > 0 } ?: row.measuredWidth
+        val rw = (row.width.takeIf { it > 0 } ?: row.measuredWidth).toFloat()
         val rh = kit.dp(44f)
-        var y = top - kit.dp(12f) - rh
-        if (y < kit.dp(TOP_RESERVE_DP)) y = bottom + kit.dp(46f + 10f + 12f)
-        y = y.coerceAtMost(root.height - kit.dp(60f) - rh)
-        val minX = kit.dp(6f)
-        row.x = (cx - rw / 2f).coerceIn(minX, maxOf(minX, root.width - rw - minX))
-        row.y = y
-        val bw = bar.width.takeIf { it > 0 } ?: bar.measuredWidth
-        bar.x = (root.width - bw) / 2f
-        bar.y = root.height - kit.dp(12f) - kit.dp(40f)
+        val above = top - kit.dp(12f) - rh
+        val below = (bottom + kit.dp(46f + 10f + 12f)).coerceAtMost(by - gap - rh)
+        val ys = if (above >= kit.dp(TOP_RESERVE_DP)) listOf(above, below) else listOf(below)
+        var placed = false
+        for (y in ys) {
+            val x = SelectPlacement.freeX(y, y + rh, cx - rw / 2f, rw, root.width.toFloat(), gap, chrome) ?: continue
+            row.x = x; row.y = y; placed = true; break
+        }
+        if (!placed) { row.x = (cx - rw / 2f).coerceIn(gap, maxOf(gap, root.width - rw - gap)); row.y = ys.first() }
+        placeCount(RectF(row.x, row.y, row.x + rw, row.y + rh), chrome, top)
     }
 
-    private fun placeCount() {
+    private fun placeCount(rowRect: RectF?, chrome: List<RectF> = emptyList(), boxTop: Float = Float.NaN) {
         val pick = tool.countPick
         if (tool.selection !is SelectionState.Lines || pick == null || pick.total < 2 || tool.nudging || boxMoving) {
             count.visibility = View.GONE
@@ -275,8 +297,15 @@ class SelectController(
         count.x = (px + kit.dp(18f)).coerceIn(margin, maxOf(margin, root.width - count.measuredWidth - margin))
         val minY = kit.dp(TOP_RESERVE_DP + 4f)
         // The 22dp visible pill is centred in a 44dp contact target; keep both clear of the top/footer.
-        count.y = (py - kit.dp(36f + 11f)).coerceIn(minY,
-            maxOf(minY, root.height - kit.dp(58f) - count.measuredHeight))
+        val maxY = maxOf(minY, root.height - kit.dp(58f) - count.measuredHeight)
+        val aboveY = (py - kit.dp(36f + 11f)).coerceIn(minY, maxY)
+        // Above-right of the tap (the page's place), unless that squeezes it between the row and the box's top edge
+        // (a thin box, found by the Select bench): then below-right, beside the rotate handle.
+        val pill = { y: Float -> RectF(count.x, y + kit.dp(11f), count.x + count.measuredWidth, y + kit.dp(33f)) }
+        val blocks = chrome + listOfNotNull(rowRect)
+        val squeezed = SelectPlacement.hits(pill(aboveY), blocks) ||
+            (!boxTop.isNaN() && pill(aboveY).let { it.bottom > boxTop - kit.dp(4f) && it.top < boxTop + kit.dp(4f) })
+        count.y = if (squeezed) (py + kit.dp(3f)).coerceIn(minY, maxY) else aboveY
     }
 
     /** K3: white or black icons by the brightness behind the row and the bar (IconContrast, the top bar's sampler). */
@@ -295,7 +324,9 @@ class SelectController(
             if (generation != inkGeneration || colours.size < views.size * 9) return@sampleScreen
             for ((n, v) in views.withIndex()) {
                 if (v.visibility != View.VISIBLE || bounds[n] != RectF(v.x, v.y, v.x + v.width, v.y + v.height)) continue
-                val samples = IntArray(9) { colours[n * 9 + it] }
+                // The row, bar and pill wear the paper at 88%: the ink is for that backing, the drawing only tints it.
+                val paper = app.paperArgb() or (0xFF shl 24)
+                val samples = IntArray(9) { androidx.core.graphics.ColorUtils.blendARGB(colours[n * 9 + it], paper, 0xE0 / 255f) }
                 if (v === row) { rowInk = IconContrast.inkFor(samples, rowInk); row.ink = rowInk!! }
                 if (v === bar) { barInk = IconContrast.inkFor(samples, barInk); bar.ink = barInk!! }
                 if (v === count) { countInk = IconContrast.inkFor(samples, countInk); count.ink = countInk!! }

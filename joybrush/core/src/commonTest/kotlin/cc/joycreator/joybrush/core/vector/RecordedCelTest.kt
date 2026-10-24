@@ -94,7 +94,7 @@ class RecordedCelTest {
 
         val movedFrame = assertNotNull(frame.transformed(Homography.translate(30.0, -12.0)))
         val moved = original.copy(washFrame = movedFrame)
-        val step = UndoLog.Step(emptyList(), lines = listOf(
+        val step = UndoLog.Step<Int>(emptyList(), lines = listOf(
             UndoLog.LineChange("layer", null, original.id, line(original), line(moved))))
         val after = cel.apply(step, true)
         assertEquals(moved, after.records.single(), "line edit publishes frame data")

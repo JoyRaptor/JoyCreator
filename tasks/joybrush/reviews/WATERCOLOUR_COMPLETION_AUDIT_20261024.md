@@ -91,3 +91,31 @@ disposable engine exercises actual NativeLines add/lift/two tints/undo/redo,
 counts deposition versus finish-only calls, and compares all footprint tiles
 against independent ordinary GPU replay. At this entry it has not been compiled
 or run. This is additional engine evidence, not live UI/save/context acceptance.
+
+### GPU and first APK attempt
+
+The guarded real-shader SwiftShader check ran against the original POC. New
+wash translation, rotation, fixed paper/grain/gravity and projective periodic
+wash tests all have zero differing bytes. Seam/optics/paper/mutation controls
+pass. Six appearance checks FAIL: approved and isolated originals at all three
+seeds. Approved painted meanDeltaE is13.12/11.52/6.61; the instrumented
+full-resolution reference controls are1.94/1.99/2.03. This is POC-vs-shader
+appearance, not cache-vs-ordinary-native replay. It is not appearance acceptance,
+and no threshold or full-resolution pooling setting was changed. Numerical
+report: [GPU evidence](evidence/WATERCOLOUR_GPU_20261024.json); comparison images
+remain in local `C:/Temp/jb-watercolour-ops/finish-gpu-20261024/`.
+
+Root native/APK run on43c43e88b FAILED in2m24 with two separate causes: shared
+Media3 datasource Javac output write error, and two L3 test fixtures missing the
+required BrushPreset.size. Production Activity/View and the first disposable
+diagnostic compiled, but no native tests/APK passed. Fixture correction is
+dba359907. Next run uses the dependency's official externalBuildDir property
+to keep outputs private, without deleting shared caches or stopping daemons.
+
+After the frozen build closed, diagnostic3bc09c8a1 adds complete actual-key
+union checks, before/after-lift deposition delta, no-op history/render checks,
+a nonidentity wash frame and exact multi-selection fallback controls. It is
+still unrun. Large-line fallback, live UI edits, archive/context-loss, cold
+comparisons and speed remain owed. Build slot was handed to Select for one
+bounded app/diagnostic check before the next watercolor retry. Phone reserved;
+existing APK backed up, no candidate installed yet.

@@ -18,6 +18,8 @@ class FrameStats {
         private set
 
     private val starts = ArrayList<Long>()       // frame start, uptime ns
+    /** GPU-finished frame end, uptime ns; kept only for an active recording. */
+    private val ends = ArrayList<Long>()
     private val busy = ArrayList<Double>()
     private val work = ArrayList<Double>()
     private val media = ArrayList<Double>()
@@ -50,7 +52,7 @@ class FrameStats {
 
     /** GL thread. */
     fun start() {
-        starts.clear(); busy.clear(); work.clear(); media.clear(); display.clear(); finish.clear(); sim.clear(); flush.clear(); simAcc = 0.0; flushAcc = 0.0
+        starts.clear(); ends.clear(); busy.clear(); work.clear(); media.clear(); display.clear(); finish.clear(); sim.clear(); flush.clear(); simAcc = 0.0; flushAcc = 0.0
         phaseAcc.clear(); phases.clear(); memory = null
         synchronized(inputs) { inputs.clear(); downNs = 0L; upNs = 0L }
         mediaWindowMoves = 0; mediaWindowLoads = 0; mediaFrames = 0
@@ -76,6 +78,7 @@ class FrameStats {
         val end = System.nanoTime()
         fun ms(a: Long, b: Long) = if (a == 0L || b == 0L) 0.0 else (b - a) / 1e6
         starts += t0
+        ends += end
         busy += (end - t0) / 1e6
         work += ms(t0, t1); media += ms(t1, t2); display += ms(t2, t3); finish += (end - end0) / 1e6
         sim += simAcc; flush += flushAcc; simAcc = 0.0; flushAcc = 0.0
@@ -94,8 +97,15 @@ class FrameStats {
         /** Per media phase over the stroke's frames (MediaPhases); empty unless a media stroke ran. */
         val phases: Map<String, Pct> = emptyMap(),
         val memory: String? = null,
+        /** Frames from the first frame after down through the last recorded frame (including an opt-in fade tail). */
+        val fullSpanFrames: Int = 0,
+        val fullSpanBusy: Pct = Pct(0.0, 0.0, 0.0, 0.0),
+        /** End of the last recorded frame, including its glFinish, relative to UP; this is not the exact fade commit time. */
+        val finalRecordedFrameEndAfterUpMs: Double = -1.0,
     )
     data class Pct(val p50: Double, val p95: Double, val max: Double, val mean: Double)
+
+    data class FullSpan(val frameIndices: List<Int>, val busy: Pct, val finalRecordedFrameEndAfterUpMs: Double)
 
     fun snapshot(): Summary {
         val (down, up, ins) = synchronized(inputs) { Triple(downNs, upNs, inputs.toList()) }
@@ -106,12 +116,21 @@ class FrameStats {
         val lat = ins.mapNotNull { t -> starts.firstOrNull { it >= t }?.let { (it - t) / 1e6 } }
         val first = starts.firstOrNull { it >= down }?.let { (it - down) / 1e6 } ?: -1.0
         fun sel(v: List<Double>) = pct(inStroke.map { v[it] })
+        val fullSpan = fullSpan(starts, ends, busy, down, up)
         return Summary(starts.size, inStroke.size, sel(busy), sel(work), sel(media), sel(display), sel(finish), sel(sim), sel(flush),
             pct(gaps), pct(lat), first, gaps.count { it > 17.5 }, gaps.count { it > 34.0 },
-            mediaWindowMoves, mediaWindowLoads, mediaFrames, phases.mapValues { (_, v) -> sel(v) }, memory)
+            mediaWindowMoves, mediaWindowLoads, mediaFrames, phases.mapValues { (_, v) -> sel(v) }, memory,
+            fullSpan.frameIndices.size, fullSpan.busy, fullSpan.finalRecordedFrameEndAfterUpMs)
     }
 
     companion object {
+        /** Pure timing fold used by snapshot and unit tests. Times are monotonic nanoseconds. */
+        fun fullSpan(startsNs: List<Long>, endsNs: List<Long>, busyMs: List<Double>, downNs: Long, upNs: Long): FullSpan {
+            val indices = startsNs.indices.filter { startsNs[it] >= downNs && it < endsNs.size && it < busyMs.size }
+            val lastEndAfterUp = if (upNs == 0L) -1.0 else indices.lastOrNull()?.let { (endsNs[it] - upNs) / 1e6 } ?: -1.0
+            return FullSpan(indices, pct(indices.map { busyMs[it] }), lastEndAfterUp)
+        }
+
         fun pct(v: List<Double>): Pct {
             if (v.isEmpty()) return Pct(0.0, 0.0, 0.0, 0.0)
             val s = v.sorted()

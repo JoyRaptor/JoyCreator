@@ -12,6 +12,7 @@ import cc.joycreator.joybrush.core.stroke.LineAddress
 import cc.joycreator.joybrush.core.stroke.SourcePlacement
 import cc.joycreator.joybrush.core.stroke.StrokeCodec
 import cc.joycreator.joybrush.core.stroke.StrokeRecord
+import cc.joycreator.joybrush.core.stroke.StrokeWashFrame
 import cc.joycreator.joybrush.core.vector.CelComposer
 import cc.joycreator.joybrush.core.vector.RecordedCel
 import cc.joycreator.joybrush.core.vector.RecordedEdits
@@ -140,9 +141,11 @@ class CapturedRecordHistoryTest {
     }
 
     @Test fun integerMoveChangesOnlyPlacementAndRoundTripsBackToOriginal() {
-        val before = record()
+        val frame = StrokeWashFrame(1.2, 0.1, 20.0, -0.05, 0.9, 4.0, 0.0002, -0.0001, 1.0)
+        val before = record().copy(washFrame = frame)
         val moved = assertNotNull(LineTransform.translateCaptured(before, -257, 513))
         assertEquals(SourcePlacement(-247, 493), moved.capturedPhysicalSource!!.placement)
+        assertEquals(frame, moved.washFrame, "captured appearance placement is independent of wash texture frame")
         exact(before, moved.copy(capturedPhysicalSource = before.capturedPhysicalSource))
         assertSame(before.capturedPhysicalSource!!.domain, moved.capturedPhysicalSource!!.domain)
         exact(before, assertNotNull(LineTransform.translateCaptured(moved, 257, -513)))
@@ -204,6 +207,7 @@ class CapturedRecordHistoryTest {
         val invalid = listOf(before.copy(brushId = "other"), before.copy(seed = before.seed + 1),
             before.copy(smoothing = 0.5f), before.copy(screenPerDoc = 3f), before.copy(widthScale = 2f),
             before.copy(colorArgb = 0xFF000000.toInt()), before.copy(seq = 99),
+            before.copy(washFrame = StrokeWashFrame(1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)),
             before.copy(samples = before.samples.dropLast(1)),
             before.copy(capturedPhysicalSource = source.copy(domain = CaptureDomain())),
             before.copy(capturedPhysicalSource = null))

@@ -70,16 +70,24 @@ class CapturedStrokeCodecTest {
         return w.toByteArray()
     }
 
+    /** A captured v4 record has the established v4 header/metadata followed by its capture block. */
+    private fun capturedV4(): ByteArray = StrokeCodec.encode(captured()).also {
+        // A null wash frame means the v5 writer emits the identical record body; only the version differs.
+        it[4] = 4
+        it[5] = 0
+    }
+
     private fun refuses(bytes: ByteArray, contains: String) {
         val e = assertFailsWith<StrokeCodecException> { StrokeCodec.decode(bytes) }
         assertTrue(e.message.orEmpty().contains(contains), e.message)
     }
 
-    @Test fun ordinaryWriterIsV4WithCapturedFlagClear() {
+    @Test fun ordinaryWriterIsV5WithCapturedAndWashFrameFlagsClear() {
         val bytes = StrokeCodec.encode(ordinary())
-        assertEquals(4, StrokeCodec.VERSION)
-        assertEquals(4, bytes[4].toInt())
+        assertEquals(5, StrokeCodec.VERSION)
+        assertEquals(5, bytes[4].toInt())
         assertEquals(0, bytes[6].toInt() and 32)
+        assertEquals(0, bytes[6].toInt() and 64)
         assertEquals(ordinary(), StrokeCodec.decode(bytes))
     }
 
@@ -149,9 +157,10 @@ class CapturedStrokeCodecTest {
     }
 
     @Test fun legacyLayoutsDefaultNullAndRetainWidthRepair() {
-        for (version in 1..3) {
+        for (version in 1..4) {
             val back = StrokeCodec.decode(legacy(version))
             assertNull(back.capturedPhysicalSource)
+            assertNull(back.washFrame)
             assertEquals(1f, back.widthScale)
             assertEquals(if (version >= 3) 19L else 0L, back.seq)
         }
@@ -165,27 +174,42 @@ class CapturedStrokeCodecTest {
         assertEquals(emptyList(), StrokeCodec.decodeAll(byteArrayOf(0, 0, 0, 0, 99)))
     }
 
-    @Test fun v4OrdinaryAndCapturedRecordTrailersRefused() {
+    @Test fun v4AndV5OrdinaryAndCapturedRecordTrailersRefused() {
+        refuses(legacy(4) + byteArrayOf(99), "trailing")
+        refuses(capturedV4() + byteArrayOf(99), "trailing")
         refuses(StrokeCodec.encode(ordinary()) + byteArrayOf(99), "trailing")
         refuses(StrokeCodec.encode(captured()) + byteArrayOf(99), "trailing")
     }
 
+    @Test fun capturedV4FixtureRetainsCaptureAndDefaultsWashFrameToNull() {
+        val bytes = capturedV4()
+        assertEquals(4, bytes[4].toInt())
+        assertEquals(captured(), StrokeCodec.decode(bytes))
+        assertNull(StrokeCodec.decode(bytes).washFrame)
+    }
+
     @Test fun mixedListOuterTrailerRefusedInEitherOrder() {
-        val v4 = StrokeCodec.encode(ordinary())
+        val v4 = legacy(4)
         for (bytes in listOf(listWire(legacy(3), v4), listWire(v4, legacy(1)))) {
             assertEquals(2, StrokeCodec.decodeAll(bytes).size)
             assertFailsWith<StrokeCodecException> { StrokeCodec.decodeAll(bytes + byteArrayOf(99)) }
         }
     }
 
-    @Test fun v4ListDoesNotPermitInnerRecordTrailer() {
+    @Test fun v4AndV5ListsDoNotPermitInnerRecordTrailer() {
+        assertFailsWith<StrokeCodecException> {
+            StrokeCodec.decodeAll(listWire(legacy(4) + byteArrayOf(0)))
+        }
+        assertFailsWith<StrokeCodecException> {
+            StrokeCodec.decodeAll(listWire(capturedV4() + byteArrayOf(0)))
+        }
         assertFailsWith<StrokeCodecException> {
             StrokeCodec.decodeAll(listWire(StrokeCodec.encode(captured()) + byteArrayOf(0)))
         }
     }
 
     @Test fun mixedListRetainsLegacyInnerTrailerPolicy() {
-        val back = StrokeCodec.decodeAll(listWire(legacy(2) + byteArrayOf(99), StrokeCodec.encode(captured())))
+        val back = StrokeCodec.decodeAll(listWire(legacy(2) + byteArrayOf(99), capturedV4()))
         assertEquals(1L, back[0].seq)
         assertEquals(captured(), back[1])
     }
@@ -194,8 +218,8 @@ class CapturedStrokeCodecTest {
         for (version in 1..3) refuses(legacy(version).also { it[6] = 32 }, "flags")
     }
 
-    @Test fun unknownV4HeaderFlagRefused() {
-        refuses(wire().also { it[6] = (it[6].toInt() or 64).toByte() }, "flags")
+    @Test fun washFrameFlagIsUnknownInV4() {
+        refuses(legacy(4).also { it[6] = (it[6].toInt() or 64).toByte() }, "flags")
     }
 
     @Test fun unknownCapturedSourceVersionRefused() { refuses(wire(block(version = 2)), "source version") }

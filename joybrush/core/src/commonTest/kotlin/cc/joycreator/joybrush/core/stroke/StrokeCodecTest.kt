@@ -64,7 +64,8 @@ class StrokeCodecTest {
         w.i64(record.seed)
         w.f32(record.smoothing)
         w.f32(record.screenPerDoc)
-        if (version == 2) { w.u32(record.colorArgb.toLong() and 0xFFFF_FFFFL); w.f32(record.widthScale) }
+        if (version >= 2) { w.u32(record.colorArgb.toLong() and 0xFFFF_FFFFL); w.f32(record.widthScale) }
+        if (version >= 3) w.i64(record.seq)
         w.u32(record.samples.size.toLong())
         for (s in record.samples) {
             w.f64(s.timeMs)
@@ -91,6 +92,47 @@ class StrokeCodecTest {
         // a negative seed must come back negative
         val neg = record(listOf(sample(0, allChannels = false)), seed = -4_294_967_296L)
         assertEquals(neg, StrokeCodec.decode(StrokeCodec.encode(neg)))
+    }
+
+    @Test
+    fun washFrameV5RoundTripsAndLegacyVersionsDefaultToIdentity() {
+        val frame = StrokeWashFrame(1.125, 0.25, 41.5, -0.125, 0.875, -12.25, 0.00075, -0.0005, 1.0)
+        val original = record(emptyList()).copy(washFrame = frame)
+        val bytes = StrokeCodec.encode(original)
+        assertEquals(5, bytes[4].toInt() and 0xFF)
+        assertEquals(0b0100_0000, flagsOf(bytes) and 0b0100_0000)
+        val back = StrokeCodec.decode(bytes)
+        assertEquals(frame, back.washFrame)
+        assertContentEquals(bytes, StrokeCodec.encode(back))
+        assertEquals(frame.m00.toRawBits(), back.washFrame!!.m00.toRawBits())
+
+        for (version in 1..4) {
+            val old = StrokeCodec.decode(encodeLegacy(record(emptyList()), version))
+            assertEquals(null, old.washFrame, "version $version defaults to legacy identity")
+        }
+    }
+
+    @Test
+    fun washFrameV5FlagAndPayloadAreValidated() {
+        val record = record(emptyList()).copy(washFrame = StrokeWashFrame.IDENTITY)
+        val good = StrokeCodec.encode(record)
+        val frameOffset = good.size - 4 - 9 * 8
+
+        val nonFinite = good.copyOf()
+        ByteWriter().apply { f64(Double.NaN) }.toByteArray().copyInto(nonFinite, frameOffset)
+        assertTrue(messageOf { StrokeCodec.decode(nonFinite) }.contains("finite"))
+
+        val singular = good.copyOf()
+        ByteWriter().apply {
+            f64(1.0); f64(0.0); f64(0.0)
+            f64(2.0); f64(0.0); f64(0.0)
+            f64(0.0); f64(0.0); f64(1.0)
+        }.toByteArray().copyInto(singular, frameOffset)
+        assertTrue(messageOf { StrokeCodec.decode(singular) }.contains("invertible"))
+
+        val legacyV4 = encodeLegacy(record.copy(washFrame = null), 4)
+        legacyV4[6] = (legacyV4[6].toInt() or 0x40).toByte()
+        assertTrue(messageOf { StrokeCodec.decode(legacyV4) }.contains("flags"))
     }
 
     // --- 2. only some channels exist -------------------------------------------------------
@@ -204,10 +246,10 @@ class StrokeCodecTest {
         val wrongMagic = good.copyOf().also { "XXXX".encodeToByteArray().copyInto(it, 0) }
         assertTrue(messageOf { StrokeCodec.decode(wrongMagic) }.contains("magic"))
 
-        // Version 4 is what this build writes, so it is of course not refused. A version from the
+        // Version 5 is what this build writes, so it is of course not refused. A version from the
         // future is, by number, because its layout is not this one.
-        val v5 = good.copyOf().also { it[4] = 5; it[5] = 0 }
-        assertEquals("unsupported stroke version 5", messageOf { StrokeCodec.decode(v5) })
+        val v6 = good.copyOf().also { it[4] = 6; it[5] = 0 }
+        assertEquals("unsupported stroke version 6", messageOf { StrokeCodec.decode(v6) })
         val v0 = good.copyOf().also { it[4] = 0; it[5] = 0 }
         assertEquals("unsupported stroke version 0", messageOf { StrokeCodec.decode(v0) })
         val far = good.copyOf().also { it[4] = 0xFF.toByte(); it[5] = 0xFF.toByte() }
@@ -257,12 +299,12 @@ class StrokeCodecTest {
     // --- 11. version 2: the colour and the weight -----------------------------------------------
 
     @Test
-    fun aV4OrdinaryRecordingKeepsTheV2ColourAndWeightLayout() {
+    fun aV5OrdinaryRecordingKeepsTheV2ColourAndWeightLayout() {
         val r = record(List(60) { sample(it, allChannels = true) })
             .copy(colorArgb = 0x80FF8000.toInt(), widthScale = 2.5f)
         val bytes = StrokeCodec.encode(r)
-        assertEquals(4, bytes[4].toInt() and 0xFF, "the writer stamps its own version")
-        assertEquals(4, StrokeCodec.VERSION)
+        assertEquals(5, bytes[4].toInt() and 0xFF, "the writer stamps its own version")
+        assertEquals(5, StrokeCodec.VERSION)
         assertEquals(r, StrokeCodec.decode(bytes))
 
         // The two fields sit exactly where the layout says: colour then weight, between
@@ -297,10 +339,10 @@ class StrokeCodecTest {
         assertEquals(0xFF000000.toInt(), back.colorArgb)
         assertEquals(1f, back.widthScale, "…and at the brush's own size")
 
-        // And the moment it is saved again it is a v3 recording, defaults and all — so the next save
+        // And the moment it is saved again it is a v5 recording, defaults and all — so the next save
         // makes the file readable by a build that has never heard of version 1.
         val resaved = StrokeCodec.encode(back)
-        assertEquals(4, resaved[4].toInt() and 0xFF)
+        assertEquals(5, resaved[4].toInt() and 0xFF)
         assertEquals(back, StrokeCodec.decode(resaved))
 
         // Several at once, through the archive's own entry point.

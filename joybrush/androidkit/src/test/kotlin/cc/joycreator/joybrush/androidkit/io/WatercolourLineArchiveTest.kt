@@ -13,12 +13,12 @@ class WatercolourLineArchiveTest {
     @Test fun aFramedWashReopensAndEditsUsingOnlyItsFrozenBrush() {
         val brush = BrushPreset(id = "archived-private-wash", name = "Archived wash",
             version = VERSION_WATERCOLOUR, engine = ENGINE_WATERCOLOUR,
-            size = Param(300f), watercolour = WatercolourSpec())
+            size = Param(4f), watercolour = WatercolourSpec(size = 4.0))
         val frame = assertNotNull(StrokeWashFrame.IDENTITY.transformed(Homography.translate(17.0, -23.0)))
         val fixture = LineArchiveFixture.linesOnly()
         val source = fixture.copy(doc = fixture.doc.copy(brushes = listOf(brush.id)),
             brushes = mapOf(brush.id to brush),
-            strokes = fixture.strokes.mapValues { (_, rs) -> rs.map { it.copy(brushId = brush.id, washFrame = frame) } })
+            strokes = fixture.strokes.mapValues { (_, rs) -> rs.map { it.copy(brushId = brush.id, washFrame = frame, locked = false) } })
         val encoded = LineArchiveFixture.encoded(source)
         var externalLookups = 0
         val reopened = JbArchive.read(ByteArrayInputStream(encoded)) {

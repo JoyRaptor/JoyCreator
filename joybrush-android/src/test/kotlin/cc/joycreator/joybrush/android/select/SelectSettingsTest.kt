@@ -17,6 +17,41 @@ class SelectSettingsTest {
     private fun descendants(v: View): List<View> = listOf(v) +
         if (v is ViewGroup) (0 until v.childCount).flatMap { descendants(v.getChildAt(it)) } else emptyList()
 
+    @Test fun lockedOptionAppearsAfterALockAndRemainsAvailableAfterTurningItOff() {
+        val context = RuntimeEnvironment.getApplication()
+        context.getSharedPreferences("joybrush_select", Context.MODE_PRIVATE).edit().clear().commit()
+        val prefs = SelectPreferences(context)
+        fun menu() = SelectSettingsView(ChromeKit(context), false, false, {}, {},
+            pickLocked = prefs.pickLocked, onPickLocked = { prefs.pickLocked = it },
+            showLockedOption = prefs.lockedOptionRevealed)
+        fun lockedChoices(view: View) = descendants(view).filter {
+            it.contentDescription?.startsWith("Pick locked lines too:") == true
+        }
+        assertTrue(lockedChoices(menu()).isEmpty())
+        prefs.observeLockedLines(false)
+        assertFalse(prefs.lockedOptionRevealed)
+        prefs.observeLockedLines(true)
+        assertTrue(SelectPreferences(context).lockedOptionRevealed)
+        val shown = menu()
+        lockedChoices(shown).first { it.contentDescription.toString().endsWith(": on") }.performClick()
+        assertTrue(SelectPreferences(context).pickLocked)
+        lockedChoices(shown).first { it.contentDescription.toString().endsWith(": off") }.performClick()
+        assertFalse(SelectPreferences(context).pickLocked)
+        prefs.observeLockedLines(false)
+        assertEquals(2, lockedChoices(menu()).size)
+    }
+
+    @Test fun legacyPersistedOffChoiceStillHasAWayBack() {
+        val context = RuntimeEnvironment.getApplication()
+        context.getSharedPreferences("joybrush_select", Context.MODE_PRIVATE).edit().clear()
+            .putBoolean("pick_locked", false).commit()
+        assertTrue(SelectPreferences(context).lockedOptionRevealed)
+        assertFalse(SelectPreferences(context).pickLocked)
+        // A caller supplying an enabled persisted choice also cannot hide its off control.
+        val menu = SelectSettingsView(ChromeKit(context), false, false, {}, {}, pickLocked = true)
+        assertTrue(descendants(menu).any { it.contentDescription == "Pick locked lines too: off" })
+    }
+
     @Test fun defaultsPanAndPixelsAndChangesReachTheirOwnSetting() {
         val context = RuntimeEnvironment.getApplication()
         context.getSharedPreferences("joybrush_select", Context.MODE_PRIVATE).edit().clear().commit()

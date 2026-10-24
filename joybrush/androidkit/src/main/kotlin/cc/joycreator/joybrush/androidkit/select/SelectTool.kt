@@ -11,6 +11,7 @@ import cc.joycreator.joybrush.core.select.LineLasso
 import cc.joycreator.joybrush.core.select.LineTransform
 import cc.joycreator.joybrush.core.select.SelectRouter
 import cc.joycreator.joybrush.core.select.SelectionMask
+import cc.joycreator.joybrush.core.select.SelectionMaskAdmission
 import cc.joycreator.joybrush.core.select.SelectionState
 import cc.joycreator.joybrush.core.select.SelectionLine
 import cc.joycreator.joybrush.core.stroke.LineAddress
@@ -255,6 +256,8 @@ class SelectTool(
     fun boxTo(quadDoc: FloatArray): Boolean {
         if (!canTransform || quad0 == null) return false
         val h = homographyTo(quadDoc) ?: return false
+        val pixels = state.current as? SelectionState.Pixels
+        if (pixels != null && refusePixelMask(pixels.loop.map(h::apply))) return false
         boxDoc = quadDoc.copyOf()
         liftedLines?.setTransform(h)
         liftedPixels?.setTransform(h)
@@ -280,7 +283,10 @@ class SelectTool(
                     false
                 } else commitLines(after.filterNotNull())
             }
-            is SelectionState.Pixels -> liftedPixels?.commit() ?: false
+            is SelectionState.Pixels -> {
+                val pixels = state.current as SelectionState.Pixels
+                if (refusePixelMask(pixels.loop.map(h::apply))) false else liftedPixels?.commit() ?: false
+            }
             null -> false
         }
         startRecords = emptyList()
@@ -713,11 +719,13 @@ class SelectTool(
         when (val s = state.current) {
             is SelectionState.Lines -> liftedLines = host.liftLines(s.ids)
             is SelectionState.Pixels -> {
-                val m = SelectionMask.polygon(s.loop)
-                mask = m
-                liftedPixels = host.liftPixels(m, keepSource = false)
-                host.paintClip = m
-                if (liftedPixels == null) host.toast("You can paint inside this selection, but it can’t be moved or edited right now.")
+                if (refusePixelMask(s.loop)) state.clear() else {
+                    val m = SelectionMask.polygon(s.loop)
+                    mask = m
+                    liftedPixels = host.liftPixels(m, keepSource = false)
+                    host.paintClip = m
+                    if (liftedPixels == null) host.toast("This paint selection can’t be moved or edited right now.")
+                }
             }
             null -> {}
         }
@@ -725,6 +733,14 @@ class SelectTool(
         selectionStart = selectedRecords()
         refitBox()
         listener?.selectionChanged()
+    }
+
+    /** The span limit alone permits hundreds of MiB of coverage; refuse before rasterisation. */
+    private fun refusePixelMask(loop: List<Pt>): Boolean {
+        val refusal = SelectionMaskAdmission.preflightPolygon(loop) as? SelectionMaskAdmission.Result.Refused
+            ?: return false
+        host.toast(refusal.reason + ".")
+        return true
     }
 
     private fun releaseLift() {

@@ -56,8 +56,11 @@ public final class ItemLocks {
 
     @NonNull
     private static String sentence(@NonNull String what) {
-        return what + " is locked, so it wasn't changed.\nAsk the person whether they want it unlocked, and stop"
-                + " there: don't unlock it yourself.";
+        // The unlock action itself only goes ahead on the person's own yes (PersonSaid), so this can
+        // say plainly what to do after it: "don't unlock it yourself" made a model refuse even after
+        // the person said yes (Note 9, 2026-10-24).
+        return what + " is locked, so it wasn't changed.\nAsk the person whether to unlock it, and stop there."
+                + " When they say yes, unlock it (set_layer_flags locked=false), then make the change they asked for.";
     }
 
     /** "“Title” (text)" when {@code id} is a locked item or on a locked row; null otherwise. */

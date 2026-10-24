@@ -773,3 +773,13 @@ Exact standalone32 core/56 native proof and integrated review are in reviews/UX_
   split first removes the ghost. *Smudge paint only* ignores lines: it runs on the pixel slabs and never reads a line.
 - Builders: engine default + split (watercolour Codex brief L3 addendum, the lead reviews); the sheet switch, both
   badge marks, the no-switch sentence and the toasts (Codex Select brief A10); the look is checked by the UI specialist.
+
+### K26 — Editable lines sit over the layer's realistic paint (owner, 2026-10-24)
+
+> yes, editable lines sit over realistic. i dont see any other way it would be becaus if we had seperate layers for differnt types it would be the same thing except a ux headache because the user would have to be keeping track of where everything was going instead of us
+
+- One layer holds both; its lines always draw above its realistic (media) paint. A realistic stroke made after a line
+  shows UNDER that line. The engine side is the lead's (media lane).
+- When it lands, the refusal "realistic pencil, watercolour and oil can't share a layer with lines yet" goes away.
+- One more one-time toast joins D23 (same surface, one pref): the first realistic stroke on a layer that holds lines
+  says *"Lines stay on top of realistic paint on the same layer."* Nothing else mentions it.

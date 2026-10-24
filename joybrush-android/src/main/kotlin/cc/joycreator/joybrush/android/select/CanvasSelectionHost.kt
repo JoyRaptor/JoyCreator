@@ -1,5 +1,6 @@
 package cc.joycreator.joybrush.android.select
 
+import cc.joycreator.joybrush.core.select.SelectionColour
 import cc.joycreator.joybrush.androidkit.JbCanvasView
 import cc.joycreator.joybrush.androidkit.lines.LineEdit
 import cc.joycreator.joybrush.androidkit.lines.LineEditResult
@@ -10,6 +11,8 @@ import cc.joycreator.joybrush.androidkit.select.LiftedPixels
 import cc.joycreator.joybrush.androidkit.select.SelectionHost
 import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.brush.FrozenBrushRegistry
+import cc.joycreator.joybrush.core.doc.RegionDocumentOps
+import cc.joycreator.joybrush.core.doc.RegionPaintPlan
 import cc.joycreator.joybrush.core.select.Homography
 import cc.joycreator.joybrush.core.select.SelectionMask
 import cc.joycreator.joybrush.core.stroke.AddressedStroke
@@ -27,6 +30,7 @@ interface HostCanvas {
     /** The engine's lines as of its last change. A new object whenever they changed. */
     val lineSnapshot: LineSnapshot
     fun activeLinePlanes(): List<LinePlane>
+    fun linePlaneAt(docX: Float, docY: Float): LinePlane? = activeLinePlanes().firstOrNull()
     fun visibleLinePlanes(): List<LinePlane>
     /** Runs [edit] as ONE undo step on the GL thread; [done] comes back on the UI thread (it may also come back at once). */
     fun submitLineEdit(edit: LineEdit, done: (LineEditResult) -> Unit)
@@ -47,6 +51,14 @@ class JbHostCanvas(private val canvas: JbCanvasView) : HostCanvas {
     // Not memoised here on purpose: the canvas owns what "the current planes" are (frames, layers, visibility), and a copy
     // kept on this side would go stale the day it changes how it works them out.
     override fun activeLinePlanes(): List<LinePlane> = canvas.activeLinePlanes()
+    override fun linePlaneAt(docX: Float, docY: Float): LinePlane? {
+        if (!docX.isFinite() || !docY.isFinite()) return null
+        val allowed = activeLinePlanes()
+        val doc = canvas.boardDocument ?: return allowed.firstOrNull()
+        val plan = try { RegionDocumentOps.paintPlans(doc, emptyMap())[canvas.activeLayerId] }
+            catch (_: IllegalArgumentException) { return null }
+        return pastePlaneAt(plan ?: return null, allowed, docX, docY)
+    }
     override fun visibleLinePlanes(): List<LinePlane> = canvas.visibleLinePlanes()
     override fun submitLineEdit(edit: LineEdit, done: (LineEditResult) -> Unit) = canvas.submitLineEdit(edit, done)
     override fun redraw() = canvas.invalidate()
@@ -54,6 +66,13 @@ class JbHostCanvas(private val canvas: JbCanvasView) : HostCanvas {
     override fun setLineLiftTransform(rowMajor: DoubleArray?) = canvas.setLineLiftTransform(rowMajor)
     override fun previewLineLift(records: List<AddressedStroke>) = canvas.previewLineLift(records)
     override fun endLineLift() = canvas.endLineLift()
+}
+
+/** Resolve against the canvas's allowed planes as well as the region plan, so a stale/locked cel is never a target. */
+internal fun pastePlaneAt(plan: RegionPaintPlan, allowed: List<LinePlane>, x: Float, y: Float): LinePlane? {
+    if (!x.isFinite() || !y.isFinite()) return null
+    val cel = plan.planeAt(kotlin.math.floor(x.toDouble()).toLong(), kotlin.math.floor(y.toDouble()).toLong()).celId
+    return allowed.firstOrNull { it.celId == cel }
 }
 
 /** What the host needs of the screen around it. */
@@ -91,13 +110,15 @@ interface HostUi {
  * LIVE DRAG (v1.1): [liftLines] lifts the lines out of their plane's tiles and the engine draws them through the box's
  * homography until [LiftedLines.commit] (one undo step, then lifted again at identity) or [LiftedLines.release].
  *
- * NOT YET: no paint lift, no colour adjustment, and [paintClip] is kept but nothing paints through it (Rasterize Down is v1.2 H3).
+ * Paint lift and dimming are not backed here; [paintClip] is kept but nothing paints through it. Line colour adjustment
+ * previews through the active lift and commits one replacement edit on release.
  */
 class CanvasSelectionHost(
     private val canvas: HostCanvas,
     private val ui: HostUi,
     private val newBrushId: () -> String = { randomId("lb") },
 ) : SelectionHost {
+    override val selectionEpoch: Int get() = canvas.lineEditEpoch
 
     // ── reading ──
 
@@ -143,6 +164,8 @@ class CanvasSelectionHost(
     private class Geometry(val line: InkLine?)
 
     private val geometry = HashMap<GeometryKey, Geometry>()
+    private var activeLift: HostLift? = null
+    private var colourBase: List<AddressedStroke>? = null
 
     private fun geometryFor(key: GeometryKey): InkLine? =
         (geometry[key] ?: Geometry(replay(key.record, key.brush)).also { geometry[key] = it }).line
@@ -176,6 +199,9 @@ class CanvasSelectionHost(
     private var editsVersion = 0
 
     private fun planeOf(a: LineAddress) = LinePlane(a.layerId, a.celId)
+
+    override fun activeLinePlane(): LinePlane? = canvas.activeLinePlanes().firstOrNull()
+    override fun linePlaneAt(docX: Float, docY: Float): LinePlane? = canvas.linePlaneAt(docX, docY)
 
     /** The drawing the in-flight edits were made against; a new one (an open) drops them (v1.2 H10). */
     private var pendingEpoch = canvas.lineEditEpoch
@@ -213,6 +239,15 @@ class CanvasSelectionHost(
     private fun find(a: LineAddress): StrokeRecord? = effective(planeOf(a)).firstOrNull { it.id == a.recordId }
 
     private fun brushFor(id: String): BrushPreset? = canvas.lineSnapshot.brush(id) ?: staged[id]
+
+    override fun brushPreset(brushId: String): BrushPreset? = brushFor(brushId)
+
+    override fun importBrush(preset: BrushPreset): String? = try {
+        freezeBrush(preset)
+    } catch (e: Exception) {
+        ui.say("That line's brush can't be brought into this drawing.")
+        null
+    }
 
     // ── brushes a re-brush introduces ──
 
@@ -335,10 +370,10 @@ class CanvasSelectionHost(
     override fun liftLines(ids: Set<LineAddress>): LiftedLines? {
         if (ids.isEmpty() || ids.any { find(it) == null }) return null
         if (!canvas.beginLineLift(ids)) return null
-        return HostLift(ids.toSet())
+        return HostLift(ids.toSet()).also { activeLift = it; colourBase = null }
     }
 
-    private inner class HostLift(private var ids: Set<LineAddress>) : LiftedLines {
+    private inner class HostLift(var ids: Set<LineAddress>) : LiftedLines {
         private var live = true
         override fun setTransform(h: Homography) { if (live) canvas.setLineLiftTransform(h.m) }
         override fun preview(records: List<AddressedStroke>) {
@@ -352,13 +387,15 @@ class CanvasSelectionHost(
             canvas.endLineLift()
             val ok = replaceLines(after)
             ids = after.map { it.address }.toSet()
-            if (!canvas.beginLineLift(ids)) live = false
+            if (!canvas.beginLineLift(ids)) { live = false; activeLift = null }
             return ok
         }
         override fun release() {
             if (!live) return
             live = false
             canvas.endLineLift()
+            if (activeLift === this) activeLift = null
+            colourBase = null
         }
     }
 
@@ -375,7 +412,25 @@ class CanvasSelectionHost(
 
     override fun dimRest(alpha: Float) {}
 
-    override fun adjustColour(hueDeg: Float, saturation: Float, brightness: Float, done: Boolean) {}
+    override val canAdjustColour: Boolean get() = activeLift != null
+
+    override fun adjustColour(hueDeg: Float, saturation: Float, brightness: Float, done: Boolean) {
+        val lift = activeLift ?: return
+        val before = colourBase ?: lift.ids.mapNotNull { address ->
+            find(address)?.let { AddressedStroke(address, it) }
+        }.also { colourBase = it }
+        if (before.isEmpty()) { colourBase = null; return }
+        val after = before.map { entry ->
+            entry.copy(record = entry.record.copy(colorArgb = SelectionColour.shift(entry.record.colorArgb, hueDeg, saturation, brightness)))
+        }
+        lift.preview(after)
+        canvas.redraw()
+        if (done) {
+            colourBase = null
+            if (after != before) lift.commit(after) else lift.preview(before)
+        }
+    }
+
 
     override fun penButtonTap(screenX: Float, screenY: Float) = ui.penButtonTap(screenX, screenY)
 

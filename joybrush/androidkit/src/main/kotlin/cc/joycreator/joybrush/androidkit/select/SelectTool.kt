@@ -86,6 +86,8 @@ class SelectTool(
     /** The canvas's view, as of the last event (the overlays draw through it). */
     val viewTransform: cc.joycreator.joybrush.core.view.ViewTransform get() = view
 
+    fun updateView(value: cc.joycreator.joybrush.core.view.ViewTransform) { view = value }
+
     /** The glowing lines in screen px: each a polyline (x, y pairs) and its half-width in px. */
     fun glowScreen(): List<Pair<FloatArray, Float>> {
         if (glowIds.isEmpty()) return emptyList()
@@ -156,6 +158,24 @@ class SelectTool(
     /** The selected lines as they were when the selection was made (the ring's Reset). */
     private var selectionStart: List<AddressedStroke> = emptyList()
     private var lastPreviewAt = 0L
+    private var deletedForUndo: Set<LineAddress>? = null
+    private var selectedEpoch = host.selectionEpoch
+    private var beforeNudge: List<SelectionHost.Line> = emptyList()
+
+    data class BeforeLine(val points: FloatArray, val widths: FloatArray, val argb: Int)
+
+    /** The original centreline and weight, held for the duration of one nudge drag. */
+    fun nudgeBeforeScreen(): List<BeforeLine> = beforeNudge.map { line ->
+        val g = line.geometry
+        val points = FloatArray(g.xs.size * 2)
+        val widths = FloatArray(g.xs.size)
+        for (i in g.xs.indices) {
+            val (x, y) = view.docToScreen(g.xs[i].toFloat(), g.ys[i].toFloat())
+            points[2 * i] = x; points[2 * i + 1] = y
+            widths[i] = (2 * g.halfWidths[i] * view.zoom).toFloat()
+        }
+        BeforeLine(points, widths, line.record.colorArgb)
+    }
     private val handler = Handler(Looper.getMainLooper())
     private val tick = Runnable { router.tick() }
 
@@ -181,6 +201,7 @@ class SelectTool(
 
     override fun down(ev: MotionEvent, pointerIndex: Int, view: cc.joycreator.joybrush.core.view.ViewTransform): Boolean {
         this.view = view
+        deletedForUndo = null
         val id = ev.getPointerId(pointerIndex)
         val kind = kindOf(ev, pointerIndex)
         if (router.busy) return router.otherDown(id, kind)
@@ -307,6 +328,13 @@ class SelectTool(
 
     fun rebrush(brushId: String): Boolean = editRecords { StrokeEdit.rebrush(it, brushId) }
 
+    fun lockSelection(locked: Boolean): Boolean = editRecords { it.copy(locked = locked) }
+
+    fun groupSelection(groupId: String?): Boolean {
+        if (groupId != null && groupId.isBlank()) return false
+        return editRecords { it.copy(groupId = groupId) }
+    }
+
     /** No Fill control is offered when the engine refused this lift. */
     val canFill: Boolean get() = state.current is SelectionState.Pixels && liftedPixels != null
 
@@ -351,12 +379,17 @@ class SelectTool(
 
     fun deleteSelection(): Boolean {
         cancelWeight()
+        val deleted = state.current as? SelectionState.Lines
         val ok = when (val s = state.current) {
             is SelectionState.Lines -> if (selectionSourcesAvailable(s.ids)) host.deleteLines(s.ids) else false
             is SelectionState.Pixels -> liftedPixels?.clear() ?: false
             null -> false
         }
-        if (ok) end()
+        if (ok && deleted != null) {
+            deletedForUndo = deleted.ids.toSet()
+            state.clear()
+            onSelectionChanged(keepDeletedForUndo = true)
+        } else if (ok) end()
         return ok
     }
 
@@ -408,6 +441,70 @@ class SelectTool(
         val said = state.reread(reading, geometries(activeLines()), geometries(lines))
         if (said == null) onSelectionChanged() else host.toast(said)
         return said
+    }
+
+    /** Select every pickable line on the active layer. */
+    fun selectAllLines(): Boolean {
+        lines = visibleLines()
+        val selected = activeLines().filter { state.pickLocked || !it.locked }.map { it.address }
+        return selectAddresses(selected)
+    }
+
+    /** Replace the current selection with the active layer's pickable lines not already selected. */
+    fun invertSelection(): Boolean {
+        val selected = (state.current as? SelectionState.Lines)?.ids.orEmpty()
+        val remaining = activeLines().filter { (state.pickLocked || !it.locked) && it.address !in selected }
+            .map { it.address }
+        return selectAddresses(remaining)
+    }
+
+    /** Select an exact set of addresses that are currently visible. Used after Paste and history reconciliation. */
+    fun selectAddresses(ids: Collection<LineAddress>): Boolean {
+        lines = visibleLines()
+        val scope = geometries(lines)
+        val available = scope.mapTo(HashSet()) { it.address }
+        val kept = ids.filter { it in available }.distinct()
+        state.selectLines(kept, scope, expandGroups = false)
+        onSelectionChanged()
+        return kept.isNotEmpty()
+    }
+
+    /** Refresh a live selection after history or the active frame changes. Missing lines drop out individually. */
+    fun reconcileLineSelection(): Boolean {
+        if (selectedEpoch != host.selectionEpoch) { end(); return false }
+        val selected = state.current as? SelectionState.Lines ?: return false
+        val previous = selectedRecords()
+        val fresh = visibleLines()
+        val latest = fresh.filter { it.address in selected.ids }.map { AddressedStroke(it.address, it.record) }
+        lines = fresh
+        val available = lines.mapTo(HashSet()) { it.address }
+        val kept = selected.ids.filter { it in available }
+        if (kept.isEmpty()) { end(); return false }
+        // A delayed reply about our own completed edit must not interrupt the next drag.
+        if (kept.toSet() == selected.ids && latest == previous) return true
+        state.selectLines(kept, geometries(lines), expandGroups = false)
+        onSelectionChanged()
+        return true
+    }
+
+    /** Undo after Delete can bring the just-deleted selection back, if any of its lines reappeared. */
+    fun restoreDeletedSelectionIfPresent(): Boolean {
+        if (selectedEpoch != host.selectionEpoch) { deletedForUndo = null; return false }
+        if (state.current != null) return false
+        val wanted = deletedForUndo ?: return false
+        lines = visibleLines()
+        val available = lines.mapTo(HashSet()) { it.address }
+        val restored = wanted.filter { it in available }
+        if (restored.isEmpty()) return false
+        state.selectLines(restored, geometries(lines), expandGroups = false)
+        onSelectionChanged()
+        return true
+    }
+
+    /** Publish a completed Add edit and make its new lines the live selection. */
+    fun addAndSelect(records: List<AddressedStroke>): Boolean {
+        if (records.isEmpty() || !host.addLines(records)) return false
+        return selectAddresses(records.map { it.address })
     }
 
     /** Step the selection to candidate [i] of the tap's order (the count scrubber, K11), adding when ＋ is on (K12). */
@@ -540,6 +637,7 @@ class SelectTool(
         override fun tip(phase: SelectRouter.Phase, x: Float, y: Float) = bend(phase, x, y, tip = if (phase == SelectRouter.Phase.START) tipAt(x, y) else tipGrab)
 
         override fun cancelled() {
+            beforeNudge = emptyList()
             lassoScreen = null; crosshairAt = null; glowIds = emptyList()
             if (bendGrab != null) { liftedLines?.preview(startRecords); bendGrab = null; host.invalidate() }
             startRecords = emptyList(); tipGrab = null; ringAt = null
@@ -559,6 +657,8 @@ class SelectTool(
             SelectRouter.Phase.START -> {
                 cancelWeight()
                 startRecords = selectedRecords()
+                val ids = startRecords.mapTo(HashSet()) { it.address }
+                beforeNudge = if (tip == null) lines.filter { it.address in ids } else emptyList()
                 tipGrab = tip
                 bendGrab = if (tip != null) tipPoint(tip) else floatArrayOf(dx, dy)
                 if (tip == null) ringAt = floatArrayOf(x, y)
@@ -569,6 +669,7 @@ class SelectTool(
             }
             SelectRouter.Phase.END -> {
                 ringAt = null
+                beforeNudge = emptyList()
                 val gap = 2f * density / view.zoom
                 commitLines(bent(dx, dy).mapIndexed { i, entry ->
                     if (entry == startRecords[i]) entry
@@ -576,6 +677,7 @@ class SelectTool(
                 })
                 bendGrab = null; tipGrab = null; startRecords = emptyList()
                 refitBox()
+                listener?.overlayChanged()
             }
         }
     }
@@ -595,7 +697,11 @@ class SelectTool(
 
     // ── what changes when the selection does ──
 
-    private fun onSelectionChanged(pick: CountPick? = null, order: List<LineAddress> = emptyList(), session: CountSession? = null) {
+    private fun onSelectionChanged(pick: CountPick? = null, order: List<LineAddress> = emptyList(), session: CountSession? = null,
+                                   keepDeletedForUndo: Boolean = false) {
+        if (!keepDeletedForUndo) deletedForUndo = null
+        selectedEpoch = host.selectionEpoch
+        beforeNudge = emptyList()
         countPick = if (state.current is SelectionState.Lines) pick else null
         countOrder = if (countPick != null) order.toList() else emptyList()
         countSession = if (countPick != null) session else null

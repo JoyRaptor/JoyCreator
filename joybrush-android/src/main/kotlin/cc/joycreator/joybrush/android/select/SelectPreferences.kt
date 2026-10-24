@@ -9,4 +9,12 @@ class SelectPreferences(context: Context) {
     var fingerSelects: Boolean
         get() = preferences.getBoolean("finger_selects", false)
         set(value) { preferences.edit().putBoolean("finger_selects", value).apply() }
+
+    var pickLocked: Boolean
+        get() = preferences.getBoolean("pick_locked", false)
+        set(value) { preferences.edit().putBoolean("pick_locked", value).apply() }
+
+    var dimRest: Boolean
+        get() = preferences.getBoolean("dim_rest", true)
+        set(value) { preferences.edit().putBoolean("dim_rest", value).apply() }
 }

@@ -54,7 +54,7 @@ class SelectController(
         fun brushIcon(brushId: String): JbIcon
         /** A fresh line id (Duplicate). */
         fun newLineId(): String
-        /** Copy: a picture for other apps, and the lines for pasting here. */
+        /** Copy selected lines and their frozen brushes into the in-app session clipboard. */
         fun copySelection(selection: SelectionState.Selection)
         /** K8/K22: strip width, colour and brush affect selected lines; pulse their selection rings briefly on entry. */
         fun restyleRing(on: Boolean, pulse: Boolean)
@@ -73,10 +73,15 @@ class SelectController(
         val plusChip: Boolean = true,         // P6 A
         val fadeRest: Float = 0.66f,          // P2 A
         val fingerSelects: Boolean = false,   // K18 (P10 B default)
+        val pickLocked: Boolean = false,
     )
 
     private val preferences = SelectPreferences(kit.context)
-    var picks = Picks(fingerSelects = preferences.fingerSelects)
+    var picks = Picks(
+        fingerSelects = preferences.fingerSelects,
+        pickLocked = preferences.pickLocked,
+        fadeRest = if (preferences.dimRest) 0.66f else 0f,
+    )
         set(value) { field = value; applyPicks(); refresh() }
 
     private val toast = SelectToast(kit, root, app::paperArgb, canvas::sampleScreen)
@@ -97,6 +102,11 @@ class SelectController(
     private var inkGeneration = 0L
     private var boxMoving = false
     private var ringWasOn = false
+    private val colourDrag = SelectColourDrag(kit.dp(1f), move = { rawX, rawY, finger ->
+        val at = IntArray(2)
+        canvas.getLocationOnScreen(at)
+        canvas.dragEyedropMove(rawX - at[0], rawY - at[1], finger)
+    }, end = canvas::dragEyedropEnd)
 
     /** Whether the strip's Select tool is the one in the hand. */
     var selectToolInHand: Boolean
@@ -104,6 +114,7 @@ class SelectController(
         set(value) { tool.selectToolInHand = value; refresh() }
 
     fun attach() {
+        tool.updateView(canvas.view)
         val at = root.indexOfChild(canvas) + 1
         val match = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
         root.addView(overlay, at, match)
@@ -148,6 +159,7 @@ class SelectController(
 
     /** Chain from canvas.onViewMoved alongside existing chrome sampling; keep picks anchored to the drawing. */
     fun viewMoved() {
+        tool.updateView(canvas.view)
         inkGeneration++
         box.refresh()
         overlay.invalidate()
@@ -161,11 +173,22 @@ class SelectController(
     /** The strip's pulsing width control opens the same selection-weight slider as the floating row. */
     fun showWeightSlider(anchor: View) = RowActions().weightSlider(anchor)
 
+    /** Cancel an unfinished preview before Undo/Redo, retaining the selected line identities. */
+    fun beforeHistoryChange() { tool.cancel(); tool.cancelBox() }
+
     /** K18: the strip calls this when Select is tapped while it is already in the hand. */
     fun showSettings(anchor: View) {
+        tool.updateView(canvas.view)
         val settings = SelectSettingsView(kit, picks.fingerSelects, app.paintMakesLines(),
             onFingerSelects = { on -> preferences.fingerSelects = on; picks = picks.copy(fingerSelects = on) },
-            onPaintMakesLines = app::setPaintMakesLines)
+            onPaintMakesLines = app::setPaintMakesLines,
+            pickLocked = picks.pickLocked,
+            dimRest = picks.fadeRest > 0f,
+            canPasteLines = LineSelectionClipboard.hasLines,
+            onSelectAllLines = { popovers.close(); tool.selectAllLines(); refresh() },
+            onPasteLines = { popovers.close(); pasteLines() },
+            onPickLocked = { on -> preferences.pickLocked = on; picks = picks.copy(pickLocked = on) },
+            onDimRest = { on -> preferences.dimRest = on; picks = picks.copy(fadeRest = if (on) 0.66f else 0f) })
         popovers.show(settings, anchor, Popovers.Side.BESIDE, widthDp = 260f)
     }
 
@@ -187,6 +210,7 @@ class SelectController(
     private fun applyPicks() {
         tool.crosshair = picks.crosshair
         tool.fingerSelects = picks.fingerSelects
+        tool.state.pickLocked = picks.pickLocked
     }
 
     private fun refresh() {
@@ -320,6 +344,7 @@ class SelectController(
     // ── the row ──
 
     private inner class RowActions : SelectRowView.Actions {
+        override fun colourTouch(view: View, event: MotionEvent): Boolean = colourDrag.onTouch(view, event)
         override fun colour(anchor: View) {
             app.openColour(anchor, canvas.strokeColor) { argb -> tool.recolour(argb); refresh() }
         }
@@ -350,7 +375,7 @@ class SelectController(
     private fun showMore(anchor: View) {
         val s = tool.selection ?: return
         val list = LinearLayout(kit.context).apply { orientation = LinearLayout.VERTICAL }
-        fun item(icon: JbIcon, text: String, label: String, run: () -> Unit) {
+        fun item(icon: JbIcon?, text: String, label: String, run: () -> Unit) {
             val t = TextView(kit.context).apply {
                 this.text = text
                 textSize = 14f
@@ -358,23 +383,80 @@ class SelectController(
                 gravity = android.view.Gravity.CENTER_VERTICAL
                 minHeight = kit.dpi(40f)
                 setTextColor(kit.p.drawerInk)
-                val d = icon.drawable(kit.p.drawerInk)
-                d.setBounds(0, 0, kit.dpi(20f), kit.dpi(20f))
+                val d = icon?.drawable(kit.p.drawerInk)
+                d?.setBounds(0, 0, kit.dpi(20f), kit.dpi(20f))
                 setCompoundDrawables(d, null, null, null)
-                compoundDrawablePadding = kit.dpi(10f)
+                compoundDrawablePadding = if (d == null) 0 else kit.dpi(10f)
                 setOnClickListener { popovers.close(); run() }
             }
             kit.label(t, label)
             list.addView(t)
         }
-        item(JbIcon.PAPERCLIP, "Copy", "Copy: a picture for other apps, and the lines for pasting here") { app.copySelection(s) }
+        if (s is SelectionState.Lines) item(JbIcon.PAPERCLIP, "Copy", "Copy the selected lines for pasting in this drawing or another") { app.copySelection(s) }
+        if (LineSelectionClipboard.hasLines) item(JbIcon.PAPERCLIP, "Paste", "Paste the copied editable lines onto this layer") { pasteLines() }
         if (host.canAdjustColour) item(JbIcon.ADJUST, "Adjust colour", "Adjust colour: hue, saturation and brightness") { showAdjust(anchor) }
         if (s is SelectionState.Lines) {
             item(JbIcon.RASTER, "Rasterize Down", "Turn the selected lines into pixels. The picture stays the same; they stop being editable") { tool.rasterizeDown(); refresh() }
         }
-        // Lock and Group arrive with 5.20a's StrokeRecord.locked / groupId; Invert with H5's paint lift. Not shown before
-        // they work (a control that does nothing is worse than a missing one).
+        if (s is SelectionState.Lines) {
+            val selected = host.visibleLines().filter { it.address in s.ids }
+            val locked = selected.isNotEmpty() && selected.all { it.record.locked }
+            item(JbIcon.LOCK, if (locked) "Unlock" else "Lock", if (locked) "Let these lines be selected and edited" else "Keep these lines from being selected") {
+                tool.lockSelection(!locked); refresh()
+            }
+            val group = selected.map { it.record.groupId }.distinct().singleOrNull()
+            val oneGroup = group != null && selected.all { it.record.groupId == group }
+            item(null, if (oneGroup) "Ungroup" else "Group", if (oneGroup) "Let these lines move separately" else "Move and select these lines together") {
+                val id = if (oneGroup) null else CanvasSelectionHost.randomId("group")
+                tool.groupSelection(id); refresh()
+            }
+            item(null, "Invert", "Select the other unlocked lines on this layer") { tool.invertSelection(); refresh() }
+        }
         popovers.show(list, anchor, Popovers.Side.BELOW, widthDp = 220f)
+    }
+
+    /** Paste records into the current editable plane, assigning fresh identities and importing their frozen brushes. */
+    private fun pasteLines() {
+        tool.updateView(canvas.view)
+        val copied = LineSelectionClipboard.snapshot()
+        if (copied.isEmpty()) return
+        if (host.activeLinePlane() == null) { host.toast("Choose an editable layer before pasting lines."); return }
+        val existing = host.visibleLines().mapTo(HashSet()) { it.record.id }
+        val ids = ArrayList<String>(copied.size)
+        repeat(copied.size) {
+            var id: String? = null
+            repeat(64) { if (id == null) app.newLineId().takeIf { it !in existing && it !in ids }?.let { found -> id = found } }
+            if (id == null) { host.toast("Those lines could not be pasted."); return }
+            ids += id!!
+        }
+        val brushIds = HashMap<cc.joycreator.joybrush.core.brush.BrushPreset, String>()
+        val destinationBrushIds = ArrayList<String>(copied.size)
+        val points = copied.flatMap { it.record.samples }
+        val x0 = points.minOfOrNull { it.x } ?: 0f
+        val x1 = points.maxOfOrNull { it.x } ?: 0f
+        val y0 = points.minOfOrNull { it.y } ?: 0f
+        val y1 = points.maxOfOrNull { it.y } ?: 0f
+        val cx = (x0 + x1) / 2f
+        val cy = (y0 + y1) / 2f
+        val (screenX, screenY) = tool.viewTransform.docToScreen(cx, cy)
+        val (viewX, viewY) = if (screenX in 0f..canvas.width.toFloat() && screenY in 0f..canvas.height.toFloat())
+            cx to cy else tool.viewTransform.screenToDoc(canvas.width / 2f, canvas.height / 2f)
+        val dx = viewX - cx
+        val dy = viewY - cy
+        val plane = host.linePlaneAt(viewX, viewY)
+            ?: run { host.toast("Choose an editable layer before pasting lines."); return }
+        for (i in copied.indices) {
+            val entry = copied[i]
+            val preset = entry.brush ?: host.brushPreset(entry.record.brushId)
+                ?: run { host.toast("A copied line's brush is missing."); return }
+            val brushId = brushIds.getOrPut(preset) {
+                host.importBrush(preset) ?: run { host.toast("That line's brush can't be brought into this drawing."); return }
+            }
+            destinationBrushIds += brushId
+        }
+        val destination = try { LineSelectionClipboard.paste(copied, plane, ids, destinationBrushIds, dx, dy) }
+        catch (_: IllegalArgumentException) { host.toast("Those lines are too far from this view to paste."); return }
+        if (!tool.addAndSelect(destination)) host.toast("Those lines could not be pasted.") else refresh()
     }
 
     /** K17: hue, saturation and brightness, live, ONE step on release. */
@@ -387,10 +469,17 @@ class SelectController(
             seek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(s: SeekBar, p: Int, fromUser: Boolean) {
                     if (!fromUser) return
-                    values[i] = map(p); host.adjustColour(values[0], values[1], values[2], done = false)
+                    values[0] = 0f; values[1] = 1f; values[2] = 1f
+                    values[i] = map(p)
+                    host.adjustColour(values[0], values[1], values[2], done = false)
                 }
-                override fun onStartTrackingTouch(s: SeekBar) {}
-                override fun onStopTrackingTouch(s: SeekBar) { host.adjustColour(values[0], values[1], values[2], done = true) }
+                override fun onStartTrackingTouch(s: SeekBar) { values[0] = 0f; values[1] = 1f; values[2] = 1f }
+                override fun onStopTrackingTouch(s: SeekBar) {
+                    host.adjustColour(values[0], values[1], values[2], done = true)
+                    tool.reconcileLineSelection()
+                    values[0] = 0f; values[1] = 1f; values[2] = 1f
+                    s.progress = start
+                }
             })
             kit.label(seek, name)
             list.addView(label); list.addView(seek)

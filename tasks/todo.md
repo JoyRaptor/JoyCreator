@@ -77,3 +77,12 @@ Running: Settings sub-screens restyle (Sonnet); What's New + update sheets + mod
 Open (owner decisions): Viz Lab card; bottom words (Packs/Bits/Finder); Remote/Server Room + Smart Detection; WaveformDebugActivity export; 11 orphan classes; New button behaviour; pill colour; rename "Classic view".
 Open (mine): restyle Home recorder (Bits); fullscreen preview; Home sidebar; audio envelope oddities; voiceovers in project view; rename/trash helpers for sheets/characters; retire AvatarToggleView + eye-colour pref; sweep leftovers (caption presets retest).
 Parked: VisLab (brief in tasks/VISLAB_BRIEF.md); Joy Brush send-into-existing-project.
+
+## Select lines — codex/select-lines, 2026-10-24
+- [x] Isolate the assigned branch and record lane ownership.
+- [x] Implement A1–A8 source and the required scoped Lead patches.
+- [ ] Run final app Select tests and core/androidkit suites under the shared build lock.
+- [ ] Complete available Note 9 screenshots and acceptance; distinguish any remaining phone gates.
+- [ ] Publish branch/evidence for Lead and UI review.
+- [ ] Resolve A9's atomic Slice engine dependency and A10's L3 default dependency before claiming all Phase A complete.
+See tasks/joybrush/reviews/SELECT_LINES_IMPLEMENTATION_20261024.md.

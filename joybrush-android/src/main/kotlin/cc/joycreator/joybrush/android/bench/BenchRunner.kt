@@ -88,6 +88,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
         spec.dropDry?.let { cc.joycreator.joybrush.androidkit.gl.media.MediaAtlasDropDry.on = it; Log.i(TAG, "drop dry water: $it") }
         spec.water?.let { canvas.mediaWaterAB = cc.joycreator.joybrush.android.WaterTest.of(it).ab; Log.i(TAG, "water test: $it") }
         if ("matrix" in spec.cases) { MatrixBench(canvas, spec, onDone).start(); return }
+        if ("select" in spec.cases) { SelectBench(canvas, onDone).start(); return }
         val all = BrushLibrary.builtIn()
         Log.i(TAG, "brushes available: " + all.joinToString(",") { it.id })
         for (b in spec.brushes) {

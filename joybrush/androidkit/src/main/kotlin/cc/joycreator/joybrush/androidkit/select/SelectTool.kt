@@ -31,7 +31,8 @@ import kotlin.math.hypot
  * Every edit is ONE undo step through the host; picking, cycling, previews and chips are never steps (spec D20).
  */
 class SelectTool(
-    private val host: SelectionHost,
+    /** Read by the debug Select bench (bench/SelectBench) to check the drawing; everything else goes through the tool. */
+    val host: SelectionHost,
     /** Screen px per dp. */
     private val density: Float,
     /** JbCanvasView.penHasBeenSeen. */

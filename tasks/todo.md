@@ -93,3 +93,4 @@ See tasks/joybrush/reviews/SELECT_LINES_IMPLEMENTATION_20261024.md.
 - [x] Publish C2 source findings and C1 screenshot/gesture gates in the specialist handoff; leave C3 separate.
 Review: SELECT_C2_SOURCE_REVIEW_20261024.md records source fit/reveal notes and six acceptance captures. No tests, screenshots or device actions performed; final integration and C1/C2 visual acceptance remain open.
 - [x] Review b590e58c5 repair and all five new regression scenarios without running builds; source findings1/2 addressed, coordinator retains integrated validation.
+- [x] Review2cbfbfb86 capability-gated caption in frozen79f2d4dba; no enabling production override, no material bounded-source issue, no executed validation or broader engine approval claimed.

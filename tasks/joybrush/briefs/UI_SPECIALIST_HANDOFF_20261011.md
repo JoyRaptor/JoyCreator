@@ -268,3 +268,11 @@ reveals persistently after encountering a lock and preserves legacy/off choices.
 source findings1/2 are addressed. Coordinator owns executing integrated checks; this review
 ran no tests and does not close native visual/C1 phone gates. Details are appended in the
 same C2 report. No production files changed in the UX review branch.
+
+Caption follow-up2cbfbfb86 / frozen candidate79f2d4dba: source review finds no material
+issue. New App capability defaults false and has no enabling production override in the
+candidate, so unsupported per-brush-priority wording stays hidden. Read its regression
+source but ran no test. All three initial C2 source notes are now addressed; integrated
+validation, visual/C1 phone evidence and underlying L3/A10 remain open. Candidate engine
+context-loss/paint-mask changes are outside this bounded review and remain unexecuted per
+coordinator delivery. No Phase B implementation approval is inferred from its design note.

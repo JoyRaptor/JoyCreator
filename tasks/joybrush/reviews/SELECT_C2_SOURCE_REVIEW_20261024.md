@@ -10,6 +10,10 @@ the UI lane; it was left untouched. No build, installation, phone action or prev
 C2 SOURCE REVIEW COMPLETE WITH NOTES; C2 VISUAL ACCEPTANCE AND C1 PHONE PASS OPEN.
 Follow-up: source findings1/2 below are addressed in b590e58c5; reviewed without executing
 the new tests. Their original observations remain below as review history, not current blockers.
+Caption follow-up: 2cbfbfb86 addresses the premature per-brush-priority sentence in finding3;
+all three source notes are addressed. The underlying L3/A10 behavior and visual acceptance
+remain open. Coordinator candidate79f2d4dba is a frozen integration candidate, not main or
+a phone-accepted APK.
 The delivery contains the A1–A8 source paths and uses the existing approved presentation
 primitives. That does not prove their native appearance or gesture feel. The delivery's
 reported122 passing app tests predate its final two fixes; final app/core/androidkit gates
@@ -67,6 +71,23 @@ legacy false migration. These are meaningful source checks, not executed evidenc
 The More-height test uses a representative list rather than opening Controller's actual More;
 the final root-hierarchy/phone pass must still cover that production path. No new material
 source issue was found in this bounded diff. L3/A10 truth, C3 and all visual/phone gates remain.
+
+## Caption/candidate source review — 2cbfbfb86 / 79f2d4dba
+
+The caption now requires App.perBrushLinesOverrideShelf(), default false, passed explicitly
+to Settings. Candidate79f2d4dba has no production override enabling it, so the sentence is
+hidden until a host implements and explicitly enables actual per-brush priority. Existing
+shelf controls remain. Read the new regression: default/explicit false hide the sentence,
+true adds exactly one, and the remaining text is unchanged. No material issue found in
+this bounded change; this is test-source review, not an executed test result.
+
+Candidate retains the exact b590 menu wrapper/preferences source. The coordinator's new
+context-loss and paint-mask preflight changes were reported UNEXECUTED and are outside
+this caption review; no approval or test result for them is implied. Do not rebase or edit
+the frozen candidate while its builder validates it. Current candidate still has null
+liftPixels and empty dimRest; C3 and Phase B are not implemented by a preference or design
+proposal. Phase B still requires Lead's implementation approval. No build/phone lock,
+device action, watcher control, preview edit or production source change by UX.
 
 ## Source checks that agree with the design
 

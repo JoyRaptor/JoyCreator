@@ -1181,7 +1181,7 @@ NOT touching: joybrush/, joybrush-android/, joyfolder/ (reuses ShareInbox as-is)
 DEVICE: none reserved; asks the owner before any install.
 
 ## JOYBRUSH_UX_C2_REVIEW_20261024
-status: source review COMPLETE; findings1/2 addressed by reviewed b590e58c5; integrated tests and C1/C2 visual/phone acceptance OPEN.
+status: source review COMPLETE; findings1/2 addressed by b590e58c5, caption note addressed by2cbfbfb86 (checked in frozen79f2d4dba); integrated tests and C1/C2 visual/phone acceptance OPEN.
 worktree: C:/Temp/jb-ux-review-20261024; branch ui/select-review-20261024; delivered baseline98d925b70/supporting cc1061634.
 files: SELECT_C2_SOURCE_REVIEW_20261024.md, UI specialist handoff, lane and todo only. Preserved existing staged UI bench/gesture work in C:/Temp/jb-select-ux.
 No production edit, build, preview change, installation or phone lock. Lead/builder retain integration/final test gates. C3 remains separate.

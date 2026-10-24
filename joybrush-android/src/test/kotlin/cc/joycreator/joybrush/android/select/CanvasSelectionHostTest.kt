@@ -18,6 +18,19 @@ import org.junit.Test
 /** The Select host over a stand-in canvas: what it reads, what it checks before sending, and what it shows meanwhile. */
 class CanvasSelectionHostTest {
 
+    @Test fun pasteTargetsTheCurrentAnimationCelAtItsDestination() {
+        val shared = cc.joycreator.joybrush.androidkit.lines.LinePlane("L", "shared")
+        val frame = cc.joycreator.joybrush.androidkit.lines.LinePlane("L", "frame-cel")
+        val plan = cc.joycreator.joybrush.core.doc.RegionPaintPlan("shared", listOf(
+            cc.joycreator.joybrush.core.doc.RegionFrame("board", cc.joycreator.joybrush.core.doc.RectPx(10, 20, 100, 80), "frame", "frame-cel"),
+        ))
+        assertEquals(frame, pastePlaneAt(plan, listOf(shared, frame), 10f, 20f))
+        assertEquals(shared, pastePlaneAt(plan, listOf(shared, frame), 9.9f, 20f))
+        assertEquals(shared, pastePlaneAt(plan, listOf(shared, frame), 110f, 20f))
+        assertNull(pastePlaneAt(plan, listOf(shared), 50f, 50f))
+        assertNull(pastePlaneAt(plan, listOf(shared, frame), Float.NaN, 50f))
+    }
+
     @Test fun theFixtureBrushIsAValidBrush() {
         assertEquals(emptyList<String>(), BrushValidate.validate(frozenInk))
     }
@@ -296,6 +309,29 @@ class CanvasSelectionHostTest {
         rig.host.dimRest(0.5f)
         rig.host.adjustColour(10f, 1f, 1f, true)
         assertTrue(rig.canvas.submitted.isEmpty())
+    }
+
+    @Test fun adjustColourPreviewsWithoutHistoryThenCommitsOneRelativeHsbEdit() {
+        val rig = Rig(mapOf(planeP to listOf(
+            lineRecord("a", 1).copy(colorArgb = 0xFFFF0000.toInt()),
+            lineRecord("b", 2, y = 30f).copy(colorArgb = 0xFF0000FF.toInt()),
+        )))
+        rig.canvas.supportsLineLift = true
+        val addresses = setOf(planeP.address("a"), planeP.address("b"))
+        assertNotNull(rig.host.liftLines(addresses))
+        assertTrue(rig.host.canAdjustColour)
+
+        rig.host.adjustColour(60f, 0.5f, 1.2f, done = false)
+        assertTrue("live slider preview writes no history", rig.canvas.submitted.isEmpty())
+        val preview = rig.canvas.previews.last().associateBy { it.record.id }
+        assertEquals(0xFFFFFF80.toInt(), preview.getValue("a").record.colorArgb)
+        assertEquals(0xFFFF80FF.toInt(), preview.getValue("b").record.colorArgb)
+
+        rig.host.adjustColour(60f, 0.5f, 1.2f, done = true)
+        assertEquals("release is one history edit for both lines", 1, rig.canvas.submitted.size)
+        val edit = rig.canvas.submitted.single().first as LineEdit.Replace
+        assertEquals(2, edit.after.size)
+        assertEquals(preview.mapValues { it.value.record.colorArgb }, edit.after.associate { it.record.id to it.record.colorArgb })
     }
 
     @Test fun rasterizeDownIsOneBakeEditAndTheLinesLeaveSelectAtOnce() {

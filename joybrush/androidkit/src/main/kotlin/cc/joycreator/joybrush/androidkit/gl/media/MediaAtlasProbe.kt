@@ -69,13 +69,16 @@ internal object MediaAtlasProbe {
         // The ground is not parked: in the app a tile's ground comes back from its `g` store as it loads (exact RGBA8). The
         // probe has no stores, so it carries each tile's ground across itself, through this 3 x 3-tile stand-in.
         val groundStore = MediaTex.make(SIZE, SIZE, GLES30.GL_RGBA8, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, GLES30.GL_NEAREST)
+        // The look likewise (the app loads it from the tile's look store): a slot's look outside the interior was another tile's.
+        val lookStore = MediaTex.make(SIZE, SIZE, GLES30.GL_RGBA8, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, GLES30.GL_NEAREST)
         // Every tile of the parked engine out to the park and back, each into the slot the next tile had (all of them move).
         fun parkRoundTrip() {
             val e = engines[PK]
             GLES30.glFinish(); val t0 = System.nanoTime()
             val units = IntArray(9) { t -> park.take()!!.also { u -> e.parkSlot(cc.joycreator.joybrush.core.paint.Tiles.key(t % 3, t / 3), parkedSlots[t], park, u) } }
             for (t in 0 until 9) { val (ax, ay) = e.slotTexel(parkedSlots[t]); val gx = (t % 3) * 256; val gy = (t / 3) * 256
-                e.blit(e.groundTexture(), ax, ay, ax + 256, ay + 256, groundStore, gx, gy, gx + 256, gy + 256) }
+                e.blit(e.groundTexture(), ax, ay, ax + 256, ay + 256, groundStore, gx, gy, gx + 256, gy + 256)
+                e.blit(e.lookTexture(), ax, ay, ax + 256, ay + 256, lookStore, gx, gy, gx + 256, gy + 256) }
             val before = parkedSlots
             parkedSlots = IntArray(9) { before[(it + 1) % 9] }
             e.setResidency(parkedSlots.withIndex().associate { (t, slot) -> cc.joycreator.joybrush.core.paint.Tiles.key(t % 3, t / 3) to slot })
@@ -83,6 +86,7 @@ internal object MediaAtlasProbe {
                 e.unparkSlot(park, units[t], parkedSlots[t]); park.give(units[t]); e.bakeTile(cc.joycreator.joybrush.core.paint.Tiles.key(t % 3, t / 3), paper)
                 val (ax, ay) = e.slotTexel(parkedSlots[t]); val gx = (t % 3) * 256; val gy = (t / 3) * 256
                 e.blit(groundStore, gx, gy, gx + 256, gy + 256, e.groundTexture(), ax, ay, ax + 256, ay + 256)
+                e.blit(lookStore, gx, gy, gx + 256, gy + 256, e.lookTexture(), ax, ay, ax + 256, ay + 256)
             }
             GLES30.glFinish(); parkNs += System.nanoTime() - t0; parkTiles += 9
         }
@@ -226,7 +230,7 @@ internal object MediaAtlasProbe {
             GLES30.glDeleteFramebuffers(1, intArrayOf(read), 0)
             engines.forEach { runCatching { it.release() } }
             runCatching { park.release() }
-            runCatching { MediaTex.deleteTex(groundStore) }
+            runCatching { MediaTex.deleteTex(groundStore, lookStore) }
         }
         return report.toString()
     }

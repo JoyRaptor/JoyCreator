@@ -497,6 +497,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     // ---- L2, the water park (tasks/joybrush/specs/ATLAS_ROOM_20261023.md) ----
     /** True when brush input not yet in the water lies in tile [key] (the park holds no input: such a tile is never parked). */
     fun inputPendingIn(key: Long): Boolean = inAll[0] || inAll[1] || key in inTiles[0] || key in inTiles[1]
+    /** Bench: where brush input waits (a host that cannot make room says why). */
+    internal fun inputReport(): String = "inAll=${inAll.toList()} inTiles=${inTiles.map { b -> b.map { "(${Tiles.tx(it)},${Tiles.ty(it)})" } }} inNext=$inNext
 
     /**
      * Tile [key] in atlas [slot] into [park]'s [unit], exactly: the state a water step hands the next (WaterParkPlan), read as

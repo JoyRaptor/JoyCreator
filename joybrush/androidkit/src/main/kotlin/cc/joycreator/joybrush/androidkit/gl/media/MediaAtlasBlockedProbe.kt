@@ -193,7 +193,9 @@ internal class ProbeBlockHost(private val e: MediaLayerEngine, private val park:
     private fun makeRoom(need: Set<Long>) {
         while (slotOf.size >= capacity) {
             val victim = slotOf.keys.firstOrNull { it !in need && !e.inputPendingIn(it) }
-                ?: error("the probe's atlas is too small: need ${need.size}, resident ${slotOf.size} of $capacity")
+                ?: error("the probe's atlas is too small: need ${need.map { "(${Tiles.tx(it)},${Tiles.ty(it)})" }}, resident " +
+                    slotOf.keys.map { "(${Tiles.tx(it)},${Tiles.ty(it)})${if (it in need) "n" else ""}${if (e.inputPendingIn(it)) "i" else ""}" } +
+                    " of $capacity; ${e.inputReport()}")
             evict(victim)
         }
     }

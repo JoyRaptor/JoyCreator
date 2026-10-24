@@ -283,6 +283,26 @@ layers, and a floating visualiser over other apps. Lead docs: `tasks/VISLAB_SPEC
 | Element packs from other people (plugins) | 🔵 | Designed in VISLAB_TODO section F |
 | Proxies driving looks, layer reference, echo trails as a Studio effect, true blend preview, video element | 🔵 | `tasks/VISLAB_ROADMAP.md` R8-R12 |
 
+## 5.6 JOYBRUSH ENGINE — realistic media, editable lines, Unibrush (Engine Lead, updated 2026-10-24)
+
+Live plan, lanes and code places: `tasks/joybrush/LEAD_PLAN_20261023.md`. "Agent phone-tested" = driven on the Note 9 by
+an agent with screenshots and timings; 🟢 = JoyRaptor used it.
+
+| What | Level | Proof / what is left |
+|---|---|---|
+| Watercolour/oil/pencil on the atlas (one layer, no seams), water jobs (brush first, water catches up) | 🟡 | Owner tested water jobs 10-23 (slower water, grainier lines). Water now catches up with the pen up (main 10-23, agent phone-tested); his Note 20 does not have it yet |
+| "Ran out of room" on big zoomed-out washes | 🔴 | Being fixed (helper: park + run in pieces; first half bit-exact on the Note 9) |
+| Hold Brush / Smudge / Eraser button = that brush's settings | 🟡 | On main 10-23, agent-installed; owner use owed |
+| Frame tweens: saved setting, sampler (Codex) | 🟡 | On main 10-24, no controls yet; playback/export wiring is Engine Lead work |
+| Watercolour vector brush (lines that redraw with the wash) | 🟡 | Live-path fixes built and tested (42/42 GPU cases); Note 9 check, then main. Owner keeps the crisp look (10-24) |
+| Editable lines per brush (owner ruling K25) | 🔵 | Switch per brush in the hold sheet, drawer badge; line brushes ON, painting brushes OFF |
+| Lines over realistic paint on one layer (owner ruling K26, 10-24) | 🔵 | Engine Lead to build; refused today |
+| Unibrush (11 new stamp modes) | 🟡 hidden | Paint correctly on the Note 9; picture lines save/reopen/redraw; Taper, Select edits, lines acceptance, speed owed, then switch-on |
+| Oil realism: stroke ends, colour loading, dirty brush | 🟡 | Oil specialist; new stroke ends in phone checks; loading/dirty brush designed |
+| Duplicate an animation frame | 🔴 | Keeps the picture, drops its editable lines (Engine Lead, next after Unibrush lines) |
+| Smudge on a layer with lines | 🔴 | A moved line leaves a smear ghost; ruling: split the line, bake only the touched piece |
+| Symmetry tool | 🟠 | ~10 commits on lead/symmetry-merge never landed. Recover |
+
 ## 6. AI — the agent
 
 | Feature | Level | Notes |

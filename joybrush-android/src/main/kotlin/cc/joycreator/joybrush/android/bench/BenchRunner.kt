@@ -69,7 +69,9 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
                /** How long after the surface the first case starts (`jb_start_ms`): measures a cold first stroke. */
                val startMs: Long = 1500L,
                /** Every oil brush's stroke ends for this run (`jb_paste_ends` "brush" or "cut"); none = the brush's own. */
-               val pasteEnds: cc.joycreator.joybrush.core.media.EndsMode? = null)
+               val pasteEnds: cc.joycreator.joybrush.core.media.EndsMode? = null,
+               /** Every oil brush's Covers and Carries for this run (`jb_paste_cover`, `jb_paste_carry`, 0..1); none = the brush's own. */
+               val pasteCover: Double? = null, val pasteCarry: Double? = null)
 
     private val ui = Handler(Looper.getMainLooper())
     private val jobs = ArrayDeque<Triple<BrushPreset, String, Int>>()
@@ -84,6 +86,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
         spec.atlas?.let { canvas.mediaAtlasEnabled = it; Log.i(TAG, "media atlas: $it") }
         spec.pasteSpacing?.let { cc.joycreator.joybrush.core.media.PasteSpacing.fixed = it; Log.i(TAG, "paste spacing: $it") }
         spec.pasteEnds?.let { Log.i(TAG, "paste ends: ${it.id}") }
+        if (spec.pasteCover != null || spec.pasteCarry != null) Log.i(TAG, "paste cover: ${spec.pasteCover} carry: ${spec.pasteCarry}")
         spec.coarseWater?.let { cc.joycreator.joybrush.androidkit.gl.media.MediaLayerEngine.coarseWaterDefault = it; Log.i(TAG, "coarse water: $it") }
         spec.atlasRows?.let { cc.joycreator.joybrush.androidkit.gl.media.MediaLayerEngine.atlasRowPasses = it; Log.i(TAG, "atlas rows: $it") }
         spec.waterJobs?.let { canvas.mediaWaterJobs = it; Log.i(TAG, "water jobs: $it") }
@@ -179,7 +182,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
         val samples = StrokeReplay.case(case, canvas.width, canvas.height)
         if (samples == null) { Log.w(TAG, "no case '$case'"); next(); return }
         if (spec.clear) canvas.clearCanvas()
-        val ended = spec.pasteEnds?.let { e -> preset.media?.let { m -> m.paste?.let { pb -> preset.copy(media = m.copy(paste = pb.copy(ends = e))) } } } ?: preset
+        val ended = preset.media?.let { m -> m.paste?.takeIf { spec.pasteEnds != null || spec.pasteCover != null || spec.pasteCarry != null }?.let { pb ->
+            preset.copy(media = m.copy(paste = pb.copy(ends = spec.pasteEnds ?: pb.ends, cover = spec.pasteCover ?: pb.cover, carry = spec.pasteCarry ?: pb.carry))) } } ?: preset
         canvas.preset = spec.wetness?.let { w -> ended.media?.let { m -> ended.copy(media = m.copy(wetness = w)) } } ?: ended
         spec.colors.getOrNull(spec.cases.indexOf(case))?.let { canvas.colorArgb = it }
         ui.postDelayed({
@@ -370,7 +374,9 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
                 mediaBudgetMb = intent.getIntExtra("jb_media_budget_mb", -1).takeIf { it > 0 },
                 dropDry = if (intent.hasExtra("jb_drop_dry")) intent.getBooleanExtra("jb_drop_dry", true) else null,
                 startMs = intent.getLongExtra("jb_start_ms", 1500L).coerceIn(0L, 60_000L),
-                pasteEnds = cc.joycreator.joybrush.core.media.EndsMode.of(intent.getStringExtra("jb_paste_ends")))
+                pasteEnds = cc.joycreator.joybrush.core.media.EndsMode.of(intent.getStringExtra("jb_paste_ends")),
+                pasteCover = intent.getStringExtra("jb_paste_cover")?.toDoubleOrNull()?.coerceIn(0.0, 1.0),
+                pasteCarry = intent.getStringExtra("jb_paste_carry")?.toDoubleOrNull()?.coerceIn(0.0, 1.0))
         }
     }
 }

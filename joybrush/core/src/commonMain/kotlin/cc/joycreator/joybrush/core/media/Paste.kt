@@ -71,6 +71,14 @@ const val PASTE_DEPTH = 8
     val bladeHalfMm: Double = 0.0, val bladeHmax: Double = 0.0, val bead: Double = 0.0, val bladeCap: Double = 0.0,
     val film: Double? = null, val clean: Boolean = false, val pressIn: Double? = null,
     val ends: EndsMode? = null,
+    /**
+     * 0..1 (owner, 2026-10-23: new colour over old paint): pressed lightly, the loaded brush rides on wet paint and lays an
+     * opaque coat on top (jb_paste.glsl u_cover). 0 = as before. Like [ends], an older build ignores the word.
+     */
+    val cover: Double = 0.0,
+    /** 0..1 (the dirty brush): the hairs that touch hold little and the belly feeds them, so picked-up colour is laid back
+     *  within a few centimetres (u_carry; the loading tray fills to [pasteRowShare]). 0 = as before. */
+    val carry: Double = 0.0,
 ) {
     /** Whether this brush paints a loaded brush's ends ([EndsMode]); a rigid blade keeps its sharp edge. */
     val loadedEnds: Boolean get() = !blade && ends != EndsMode.CUT
@@ -119,6 +127,18 @@ fun opaquePaint(rgb: DoubleArray): OpaquePaint {
         s * (1 - r) * (1 - r) / (2 * r)
     }
     return OpaquePaint(k, s)
+}
+
+/**
+ * The share of a full cell ([cellCap]) the loading tray puts in depth row [j] (0 tip .. PASTE_DEPTH - 1 at the ferrule): the
+ * belly a little fuller than the tip; with [carry] the touching hairs hold 0.06 and the belly near the ferrule most of the
+ * load (jb_paste.glsl `jb_pasteProf`; lab paste.js `pasteRowShare`). Exactly the old factor at carry 0.
+ */
+fun pasteRowShare(j: Int, carry: Double = 0.0): Double {
+    val base = 0.8 + 0.4 * j / (PASTE_DEPTH - 1)
+    if (carry == 0.0) return base
+    val d = (j + 0.5) / PASTE_DEPTH
+    return base + ((0.06 + 5.6 * smoothstep(0.7, 1.0, d)) - base) * carry
 }
 
 fun cellCap(brush: PasteBrush): Double =

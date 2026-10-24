@@ -105,6 +105,7 @@ out.paste = { PASTE_BRUSHES: paste.PASTE_BRUSHES, LANES: paste.PASTE_LANES, DEPT
 out.opaquePaint = [[0.75, 0.25, 0.22], [0.02, 0.02, 0.02], [1, 1, 1]].map(c => ({ c, p: paste.opaquePaint(c) }));
 out.cellCap = Object.fromEntries(Object.entries(paste.PASTE_BRUSHES).map(([k, b]) => [k, paste.cellCap(b)]));
 out.bladeTan = [0, 0.25, 0.5, 0.75, 1].map(t => [t, paste.bladeTan(t)]);
+out.pasteRowShare = [0, 0.5, 1].map(c => [c, Array.from({ length: paste.PASTE_DEPTH }, (_, j) => paste.pasteRowShare(j, c))]);
 const runPaste = (name, smp, opts = {}) => {
   const ps = new paste.PasteStroke(paste.PASTE_BRUSHES[name], 20, 1, opts);
   if (opts.body) ps.body = opts.body;

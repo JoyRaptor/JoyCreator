@@ -341,6 +341,13 @@ object BrushKnobs {
             paste("mix", "Mixing", "How much the brush picks up the paint it passes over and mixes it in.", 0.0, 1.0, "%", { it.mix }, { x, v -> x.copy(mix = v) }),
             paste("lump", "Lumps", "Lumps and uneven body in the paint it lays.", 0.0, 1.0, "%", { it.lump }, { x, v -> x.copy(lump = v) }),
         )
+        // New colour over wet paint, and the dirty brush (owner, 2026-10-23): a hair brush's and the trowel's, not a blade's.
+        val layering = listOf(
+            paste("cover", "Covers", "Pressed lightly, a loaded brush lays its colour on top of wet paint instead of stirring into it.",
+                0.0, 1.0, "%", { it.cover }, { x, v -> x.copy(cover = v) }),
+            paste("carry", "Carries", "The brush picks up the wet colours it passes through and lays them back a little further on.",
+                0.0, 1.0, "%", { it.carry }, { x, v -> x.copy(carry = v) }),
+        )
         if (b.blade) return listOf(
             paste("bladeLenMm", "Blade length", "How much of the edge lies down when the pen lies flat.", 4.0, 40.0, " mm",
                 { it.bladeLenMm }, { x, v -> x.copy(bladeLenMm = v) }),
@@ -363,7 +370,7 @@ object BrushKnobs {
             paste("widthMm", "Width", "How wide the brush is.", 1.0, 20.0, " mm", { it.widthMm }, { x, v -> x.copy(widthMm = v) }),
             paste("lenMm", "Length", "How long the hairs or the knife are.", 1.0, 20.0, " mm", { it.lenMm }, { x, v -> x.copy(lenMm = v) }),
             paste("ridge", "Ridges", "Ridges of paint left at the stroke's edges.", 0.0, 1.0, "%", { it.ridge }, { x, v -> x.copy(ridge = v) }),
-        ) + paint + hair
+        ) + paint + layering + hair
     }
 
     private fun media(p: BrushPreset): List<Knob> {

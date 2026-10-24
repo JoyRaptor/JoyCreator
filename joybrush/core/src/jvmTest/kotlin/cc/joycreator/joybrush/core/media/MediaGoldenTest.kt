@@ -198,6 +198,9 @@ class MediaGoldenTest {
             near(o["p"]!!.jsonObject["S"]!!.d(), p.s, "opaque S")
         }
         for (row in g["bladeTan"]!!.jsonArray) near(row.jsonArray[1].d(), bladeTan(row.jsonArray[0].d()), "bladeTan")
+        // The loading tray's depth shares (carry 0 = the old belly-fuller-than-tip factor), lab and app alike.
+        for (row in g["pasteRowShare"]!!.jsonArray) { val c = row.jsonArray[0].d()
+            row.jsonArray[1].jsonArray.forEachIndexed { j, v -> near(v.d(), pasteRowShare(j, c), "pasteRowShare $c row $j") } }
     }
 
     private fun runPaste(stroke: PasteStroke, input: String): List<PasteStep> {

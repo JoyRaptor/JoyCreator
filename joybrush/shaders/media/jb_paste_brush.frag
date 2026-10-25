@@ -98,7 +98,7 @@ void main() {
                              + surfaceAt(pos + vec2(0, o)) + surfaceAt(pos - vec2(0, o)));
         float give = jb_pasteGive(clamp(load / max(jb_cap, 1e-6), 0.0, 1.0));
         float rise = 0.0;
-        if (u_ends > 0.5 && u_lift > 0.0) rise = surfaceAt(pos - u_lDir * (3.0 * u_layerScale)) - surfaceAt(pos + u_lDir * (3.0 * u_layerScale));
+        if (u_ends > 0.5 && u_lift > 0.0 && u_shape < 1.5) rise = surfaceAt(pos - u_lDir * (3.0 * u_layerScale)) - surfaceAt(pos + u_lDir * (3.0 * u_layerScale));
         float c = cover * smoothstep(-0.02, 0.02, here - around + give - jb_pasteGraze(hair) + jb_pasteCatch(rise));
 
         float t = p0.a;

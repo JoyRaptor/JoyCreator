@@ -188,10 +188,12 @@ export const SHEETS = {
       const tool = q.get('tool') || 'Oil round';
       const A = [0.15, 0.25, 0.65], B = [0.95, 0.78, 0.12];
       const env2 = (peak) => u => 0.05 + (peak - 0.05) * Math.min(1, u * 10) * Math.min(1, (1 - u) * 8);
-      for (let k = 0; k < 5; k++) s.push({ ...stroke(tool, 70, line(5 * MM, (46 - k * 2.2) * MM, 75 * MM, (46 - k * 2.2) * MM), { p: env2(0.6), tilt: 35, az: 180 }, 50), kind: 'paste', color: A });
+      for (let k = 0; k < 5; k++) s.push({ ...stroke(tool, 65, line(5 * MM, (46 - k * 2.2) * MM, 70 * MM, (46 - k * 2.2) * MM), { p: env2(0.6), tilt: 35, az: 180 }, 50), kind: 'paste', color: A });
       [[15, 1, 0.55], [30, 2, 0.55], [45, 3, 0.55], [60, 1, 0.3]].forEach(([x, n, p]) => {
         for (let i = 0; i < n; i++) s.push({ ...stroke(tool, 36, line(x * MM, 50 * MM, x * MM, 14 * MM), { p: env2(p), tilt: 35, az: 90 }, 50), kind: 'paste', color: B });
       });
+      // The reference: the same yellow stroke on bare canvas (its middle is the clean colour every score is against).
+      s.push({ ...stroke(tool, 36, line(76 * MM, 50 * MM, 76 * MM, 14 * MM), { p: env2(0.55), tilt: 35, az: 90 }, 50), kind: 'paste', color: B });
       return s;
     },
   },

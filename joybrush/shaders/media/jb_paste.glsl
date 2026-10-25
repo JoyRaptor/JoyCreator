@@ -227,6 +227,7 @@ float jb_pasteGive(float fillLoad) {
 float jb_pasteGraze(float hair) { return (0.06 + (u_ends > 0.5 && u_shape < 1.5 ? 0.22 * u_lift : 0.0)) * (1.0 - hair); }
 // A lifting brush's dry paint catches on the faces of the paper's tooth that rise toward it as it travels (rise: the
 // surface ahead minus behind, mm), so the end skips and speckles against the paper instead of running on as strands.
+// Callers read `rise` only for hair brushes (u_shape < 1.5): the two extra surface reads cost a big trowel +55 % (10-24 A/B).
 float jb_pasteCatch(float rise) { return u_ends > 0.5 && u_shape < 1.5 ? JB_CATCH * u_lift * rise : 0.0; }
 // Riding on wet paint (u_cover): pressed lightly, a loaded brush sits on the wet layer instead of sinking to its target,
 // and lays up to a coat above what is there; pressed hard, or on paint already piled thick, it digs in as before. Both

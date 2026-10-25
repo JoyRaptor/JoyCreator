@@ -187,6 +187,14 @@ Ordered by current thinking. Reorder freely.
 - Supporter tier via Play Billing
 - F-Droid submission
 
+## Select lines continuation — October 25
+
+Select lines continuation (October 25): canonical Copy/Paste safeguards, per-brush
+K25 sheet/drawer bindings, and hardened phone acceptance are built in isolated
+`codex/select-bench-20261025`. Runner/validator: 38 offline tests passed; new Android
+source and Note 9 acceptance pending. A9 runtime and D23 publication hooks remain open.
+Details: `tasks/joybrush/reviews/SELECT_LINES_PROGRESS_20261025.md`.
+
 ## Parked, deliberately
 
 On-device LLM. Hosted AI credits. WASM or native plugins. Music generation. iOS.

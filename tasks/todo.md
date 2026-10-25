@@ -94,3 +94,14 @@ Parked: VisLab (brief in tasks/VISLAB_BRIEF.md); Joy Brush send-into-existing-pr
 - [ ] Adopt reviewed canonical Copy admission separately when builder delivers; preserve source-domain refusals and owner K25/L3 gates.
 - [ ] Integrate guarded bench runner +offline evidence validator; exact-APK per-step phone evidence remains owed.
 - [ ] Run appropriate exact-source suites/build after resource admission; keep original9ace receipts and checkouts.
+
+## Select specialist continuation — October 25
+- [x] Finish canonical Copy Activity/View/clipboard bridge and stale-drawing guards.
+- [x] Guard Paste preparation memory and roll back newly staged brush definitions.
+- [x] Add explicit drawing-switch/Paste and injected allocation-failure regressions (execution owed).
+- [x] Harden select_bench.sh and extend actual UI Copy/Paste/Group/Lock cases; 38 offline tests passed.
+- [x] Bind K25 per-brush sheet switch/pixel reason and native 12 dp drawer badges; retire old D2 global controls (Android execution owed).
+- [ ] Run combined exact-source Android checks and build under shared RAM/lock admission.
+- [ ] Run matching Note 9 bench after each step and add remaining A1–A10 captures/cases.
+- [ ] Obtain actual D23 successful-publication hooks; A9/runtime and other engine dependencies stay open.
+- [x] Update STATE and both roadmaps with built versus verified status; clean only this lane's bytecode cache.

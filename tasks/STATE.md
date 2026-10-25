@@ -1,5 +1,12 @@
 # STATE — what Joy Creator actually has, and how proven it is
 
+**Select lines, October 25, 2026:** canonical Copy/Paste safeguards and K25 per-brush
+sheet/badge bindings are built on isolated `codex/select-bench-20261025`, not yet
+Android-compiled or device-verified. The hardened 20-case/11-capture runner has
+38 passing offline tests (mocked device + validator). Exact-source APK/Note 9
+acceptance is pending resource admission and device connection; D23 engine-success
+hooks and A9 remain open. See `tasks/joybrush/reviews/SELECT_LINES_PROGRESS_20261025.md`.
+
 **Purpose:** stop the rediscovery tax. This is the one file that says what exists.
 Every agent reads it first. Every promotional claim comes from it. The help doc and
 Joybot's knowledge are generated from it.

@@ -146,4 +146,16 @@ class GlLineCopyTest {
             assertFalse(e.undo.canUndo)
         }
     }
+
+    @Test fun copyKeepsEditableRecipeAndDoesNotBakeSourceLayerStyle() {
+        val e = engine("layer"); val p = LinePlane("layer", null)
+        val original = record("a", 1).copy(colorArgb = 0xFF123456.toInt())
+        put(e, p, original)
+        e.setLayerOpacity("layer", 0.25f)
+        e.setLayerBlend("layer", BlendMode.MULTIPLY)
+        val payload = assertIs<LineCopyResult.Ready>(e.prepareLineCopy(request(e), Long.MAX_VALUE)).payload
+        assertEquals(original, payload.entries.single().record)
+        assertEquals(brush, payload.entries.single().brush())
+        assertFalse(e.undo.canUndo)
+    }
 }

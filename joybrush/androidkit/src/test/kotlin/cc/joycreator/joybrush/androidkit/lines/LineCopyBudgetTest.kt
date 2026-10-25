@@ -95,4 +95,20 @@ class LineCopyBudgetTest {
         armed = true
         assertNull(LineCopyRequest.capture(snapshot(racing), listOf(item(racing)), Long.MAX_VALUE))
     }
+
+    @Test fun decodeAllowanceAccountsForManySmallObjectsBeforeAnyRawCopy() {
+        val dense = brush.copy(extensions = (0 until 2000).associate { "key-$it" to "" })
+        val wire = assertNotNull(LineCopyBudget.brushUpperBound(dense))
+        val allowance = assertNotNull(LineCopyBudget.brushDecodeBytes(wire))
+        assertTrue(allowance >= wire * 8L + 64L * 1024)
+        var armed = false
+        val r = record.copy(samples = object : AbstractList<PenSample>() {
+            override val size = 1
+            override fun get(index: Int): PenSample = if (armed) error("heap admission must precede raw copy") else record.samples.first()
+        })
+        armed = true
+        val source = LineSnapshot(1L, mapOf(plane to listOf(r)), mapOf(dense.id to dense), sourceDocumentGeneration = 0L)
+        val heapEnoughOnlyForWire = 8L * 1024 * 1024 + wire * 3L
+        assertNull(LineCopyRequest.capture(source, listOf(item(r)), heapEnoughOnlyForWire))
+    }
 }

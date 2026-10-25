@@ -32,6 +32,8 @@ class LineCopyItem private constructor(
     val address: cc.joycreator.joybrush.core.stroke.LineAddress,
     val record: StrokeRecord,
     private val brushJson: String,
+    /** Conservative decode allowance, not a claim that JSON bytes equal retained heap. */
+    val brushDecodeAllowance: Long,
     val proof: LineCopyProof,
 ) {
     /** Decode a separate brush value; mutating a caller's collections cannot alter this payload. */
@@ -39,9 +41,10 @@ class LineCopyItem private constructor(
 
     companion object {
         internal fun freeze(address: cc.joycreator.joybrush.core.stroke.LineAddress, record: StrokeRecord,
-                            admittedSamples: Int, brushJson: String, proof: LineCopyProof): LineCopyItem? {
+                            admittedSamples: Int, brushJson: String, brushDecodeAllowance: Long,
+                            proof: LineCopyProof): LineCopyItem? {
             val frozen = freezeSamples(record, admittedSamples) ?: return null
-            return LineCopyItem(address, frozen, brushJson, proof)
+            return LineCopyItem(address, frozen, brushJson, brushDecodeAllowance, proof)
         }
     }
 }
@@ -125,7 +128,7 @@ object LineCopyBudget {
         for (id in brushIds) {
             val preset = brushes[id] ?: return null
             if (needsAssets(preset)) return null
-            val cost = brushUpperBound(preset) ?: return null
+            val cost = brushDecodeBytes(brushUpperBound(preset) ?: return null) ?: return null
             if (cost > MAX_BYTES - total) return null
             total += cost
         }
@@ -135,6 +138,30 @@ object LineCopyBudget {
     /** Request, accepted replacement and previous clipboard may coexist; reserve space for all three. */
     fun heapAdmits(bytes: Long, available: Long): Boolean =
         bytes in 1..MAX_BYTES && available >= bytes * 3L + HEAP_RESERVE
+
+    /** JSON characters do not bound Map nodes, strings or decoded parameter objects one for one. */
+    fun brushDecodeBytes(jsonUpperBound: Long): Long? =
+        if (jsonUpperBound in 1L..MAX_BRUSH_BYTES) 64L * 1024 + jsonUpperBound * 8L else null
+
+    /** Fresh Paste admission without decoding a brush or cloning/translating any samples. */
+    fun estimateCopied(entries: List<LineCopyItem>): Long? {
+        if (entries.isEmpty() || entries.size > MAX_LINES) return null
+        var total = 256L
+        val seen = HashSet<Pair<LineCopyProof, String>>()
+        for (entry in entries) {
+            val r = entry.record
+            val strings = r.id.length.toLong() + r.brushId.length + (r.groupId?.length ?: 0)
+            val raw = 512L + strings * 6L + r.samples.size.toLong() * SAMPLE_BYTES
+            if (raw > MAX_BYTES - total) return null
+            total += raw
+            if (seen.add(entry.proof to r.brushId)) {
+                val brush = entry.brushDecodeAllowance
+                if (brush <= 0L || brush > MAX_BYTES - total) return null
+                total += brush
+            }
+        }
+        return total
+    }
 
     fun needsAssets(p: BrushPreset): Boolean = p.sourceFormat != "native" || p.tip.source != "procedural" ||
         p.tip.image != null || p.tipTexture.source != "cloud" || p.tipTexture.image != null ||

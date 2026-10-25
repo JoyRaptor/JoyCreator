@@ -2207,19 +2207,23 @@ class GlPaintEngine(
         if (!LineCopyBudget.heapAdmits(bytes, availableHeapBytes)) return refused("Copy fewer lines at once.")
         return try {
             val frozen = LinkedHashMap<String, String>()
+            val decodeBudgets = HashMap<String, Long>()
             for (record in ordered.map { it.record }) if (record.brushId !in frozen) {
                 val preset = snapshot.brush(record.brushId) ?: return refused("A copied line's brush is missing.")
                 val json = cc.joycreator.joybrush.core.brush.BrushJson.encode(preset)
                 if (json.encodeToByteArray().size > LineCopyBudget.MAX_BRUSH_BYTES)
                     return refused("That brush is too large to copy.")
                 cc.joycreator.joybrush.core.brush.BrushJson.decodeChecked(json)
+                decodeBudgets[record.brushId] = LineCopyBudget.brushDecodeBytes(
+                    LineCopyBudget.brushUpperBound(preset) ?: return refused("That brush is too large to copy."))
+                    ?: return refused("That brush is too large to copy.")
                 frozen[record.brushId] = json
             }
             val proof = LineCopyProof(documentGeneration, snapshot.revision, owners)
             val expectedCounts = request.expected.associate { it.address to it.record.samples.size }
             val copied = ordered.map {
                 LineCopyItem.freeze(it.address, it.record, expectedCounts.getValue(it.address),
-                    frozen.getValue(it.record.brushId), proof)
+                    frozen.getValue(it.record.brushId), decodeBudgets.getValue(it.record.brushId), proof)
                     ?: return refused("Those lines changed. Tap Copy again.")
             }
             LineCopyResult.Ready(LineCopyPayload(proof, copied, bytes))

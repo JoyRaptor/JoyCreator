@@ -30,18 +30,62 @@ class PhoneClaim:
     def __init__(self, path: Path, lane: str, run_id: str):
         self.path = path
         self.content = f"{lane}\n{time.strftime('%Y-%m-%d %H:%M:%S')}\nSelect bench {run_id}\n".encode()
+        self.identity = None
 
     def acquire(self):
         self.path.parent.mkdir(parents=True, exist_ok=True)
         try:
             with self.path.open("xb") as stream:
                 stream.write(self.content)
+                stat = os.fstat(stream.fileno())
+                self.identity = stat.st_dev, stat.st_ino
         except FileExistsError:
             raise RunError("Phone is claimed; coordinate with its owner.") from None
 
     def release(self):
-        if self.path.exists() and self.path.read_bytes() == self.content:
-            self.path.unlink()
+        # This runner targets Windows. Delete the verified open file, not a pathname which could be replaced
+        # between read and unlink. Failure to pin/identify/delete the same file retains the claim.
+        return self.identity is not None and release_windows_claim(self.path, self.identity, self.content)
+
+
+def release_windows_claim(path: Path, identity: tuple[int, int], content: bytes) -> bool:
+    if os.name != "nt":
+        return False
+    import ctypes
+    from ctypes import wintypes
+    import msvcrt
+
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    create = kernel.CreateFileW
+    create.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, wintypes.LPVOID,
+                       wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
+    create.restype = wintypes.HANDLE
+    dispose = kernel.SetFileInformationByHandle
+    dispose.argtypes = [wintypes.HANDLE, ctypes.c_int, wintypes.LPVOID, wintypes.DWORD]
+    dispose.restype = wintypes.BOOL
+    close = kernel.CloseHandle
+    close.argtypes = [wintypes.HANDLE]
+    close.restype = wintypes.BOOL
+    # READ|DELETE access; share READ only pins identity against replacement/writes until close.
+    # OPEN_REPARSE_POINT also prevents following a replacement symlink to a different target.
+    handle = create(str(path), 0x80000000 | 0x10000, 1, None, 3, 0x00200000, None)
+    if handle == ctypes.c_void_p(-1).value:
+        return False
+    try:
+        descriptor = msvcrt.open_osfhandle(handle, os.O_RDONLY | os.O_BINARY)
+    except OSError:
+        close(handle)
+        return False
+    try:
+        with os.fdopen(descriptor, "rb") as stream:
+            stat = os.fstat(stream.fileno())
+            if (stat.st_dev, stat.st_ino) != identity or stream.read(len(content) + 1) != content:
+                return False
+            # FileDispositionInfo acts on this verified handle. Closing deletes only this object.
+            delete_on_close = ctypes.c_ubyte(1)
+            return bool(dispose(handle, 4, ctypes.byref(delete_on_close), ctypes.sizeof(delete_on_close)))
+    except OSError:
+        return False
 
 
 def artifact(receipt: Path):
@@ -158,6 +202,8 @@ def run(out: Path, lane: str, receipt: Path):
                         if seen[event] != line:
                             raise RunError("Bench reused an event identity for different content.")
                         continue
+                    if completed:
+                        raise RunError("Bench emitted a new event after terminal completion.")
                     if event != len(seen):
                         raise RunError("Bench log is incomplete or out of order.")
                     seen[event] = line
@@ -187,7 +233,8 @@ def run(out: Path, lane: str, receipt: Path):
         print(f"PASS: complete exact-artifact evidence in {out}")
     finally:
         if not launched or completed:
-            claim.release()
+            if not claim.release():
+                print("Phone claim was not safely released; its identity/content or access changed. Inspect before cleanup.", file=sys.stderr)
         else:
             print("Phone claim retained: unresolved launched bench; coordinate cleanup with this lane.", file=sys.stderr)
 

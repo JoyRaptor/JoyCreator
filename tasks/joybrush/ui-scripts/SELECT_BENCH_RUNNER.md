@@ -21,7 +21,11 @@ This runner hashes that preserved APK and requires the installed APK to match be
 after completion. A receipt is not independent proof that its author built the stated source.
 The candidate must include `jb_select_run_id` support; older APKs deliberately fail acceptance.
 
-The runner claims `jb-phone.lock` exclusively and releases only its own unchanged token. A failed
+The Windows runner claims `jb-phone.lock` exclusively and releases only its own unchanged token and
+captured file identity. Cleanup pins the file against replacement/writes, verifies it through that
+open handle, and requests deletion of that object on close. If access or identity is uncertain it
+leaves the claim for inspection. Other platforms deliberately do not auto-release through a racy
+pathname unlink. A failed
 preflight releases the claim. After an uncertain launch, timeout, or lost adb connection, it retains
 the claim because a bench may still be driving the phone. The owning lane must inspect and resolve
 that running state before explicitly releasing its own claim; never remove another lane's claim.
@@ -29,12 +33,16 @@ that running state before explicitly releasing its own claim; never remove anoth
 Every row, screenshot request, and terminal event carries a fresh run ID and consecutive event
 number. Old logcat runs are ignored. Missing/reordered events, missing/failed steps, incomplete PNGs,
 timeouts, and APK changes all return nonzero. The manifest is the exact expected step/PNG set.
-The existing offline validator checks completeness after terminal evidence; its 29 tests are separate
-from the runner's nine mocked-device tests. Neither suite is phone evidence.
+New matching events after terminal evidence are rejected before a report is written or a screenshot
+is captured. Identical already-seen logcat events remain harmless polling repeats. The existing offline
+validator checks completeness after terminal evidence; its 29 tests are separate from the runner's
+14 tests (mocked device plus actual Windows lock-file operations). Neither suite is phone evidence.
 
 The Android bench taps real Select UI actions for Copy/Paste, Group, and Lock, checks published
 records and undo counts, and captures each resulting state. It preserves the owner's process-session
-clipboard on ordinary completion. These cases supplement the existing picking/gesture/action checks;
+clipboard on ordinary completion and Activity pause/destroy abort. Abort cancels pending synthetic
+gestures with CANCEL, restores once, and emits no successful completion event; late callbacks cannot
+resume the bench. These cases supplement the existing picking/gesture/action checks;
 they do not yet cover all A1–A10 acceptance. A10 sheets/badges/toasts, HSB, recolour, layer actions,
 and nudge ghost acceptance remain explicitly open until added and run on the matching candidate.
 

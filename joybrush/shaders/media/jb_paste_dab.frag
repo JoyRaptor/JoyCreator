@@ -107,7 +107,7 @@ void main() {
     // Lifting off, the dry paint keys to the tooth's faces rising toward the travel (-u_lDir), a few px either side.
     float rise = 0.0;
     if (u_ends > 0.5 && u_lift > 0.0 && u_shape < 1.5) rise = surfaceAt(layerPx - u_lDir * (3.0 * u_layerScale)) - surfaceAt(layerPx + u_lDir * (3.0 * u_layerScale));
-    float reach = smoothstep(-edgeW, edgeW, here - around + give - jb_pasteGraze(hair) + jb_pasteCatch(rise));
+    float reach = smoothstep(-edgeW, edgeW, here - around + give - jb_pasteGraze(hair)) * jb_pasteDry(jb_pasteTip(a), here - around, rise, u_toothMm);
     float c = cover * reach;
 
     float t = p0.a;

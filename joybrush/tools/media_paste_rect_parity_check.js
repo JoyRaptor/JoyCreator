@@ -221,7 +221,7 @@ function buildSequence(cfg) {
     // PasteStroke's lift and landing (the strokes here ease off and press again, so both run through their range).
     const pc = Math.max(0, Math.min(1, p));
     peak = Math.max(pc, pc + (peak - pc) * Math.exp(-slideMm / 12));
-    if (!b.blade) Object.assign(st, { lift: smoothstep(0.1, 0.8, 1 - pc / Math.max(peak, 1e-3)), land: 1 - smoothstep(0, 0.6 * (b.widthMm || 1), travelled) });
+    if (!b.blade) Object.assign(st, { lift: smoothstep(0.03, 0.95, 1 - pc / Math.max(peak, 1e-3)), land: 1 - smoothstep(0, 0.6 * (b.widthMm || 1), travelled) });
     steps.push(st);
   }
   const rects = steps.map(st => {

@@ -245,7 +245,7 @@ class PasteStroke(
         // The stroke's ends (jb_paste.glsl u_ends): landing = the first stretch of travel, about the brush's width; lift = how
         // far the pen has eased off the press it last held (a 10 % wobble is nothing, half the pressure is half lifted).
         peak = max(p, p + (peak - p) * exp(-slideMm / 12.0))
-        val lift = smoothstep(0.1, 0.8, 1 - p / max(peak, 1e-3))
+        val lift = smoothstep(0.03, 0.95, 1 - p / max(peak, 1e-3))
         val land = 1 - smoothstep(0.0, 0.6 * (if (b.widthMm != 0.0) b.widthMm else 1.0), tr)
         if (b.trowel) {
             // v6/v7 trowel geometry: width barely changes with pressure, length grows with it; tilt does nothing.

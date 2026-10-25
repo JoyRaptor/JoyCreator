@@ -143,7 +143,7 @@ export class PasteStroke {
     // The stroke's ends (jb_paste.glsl u_ends): landing = the first stretch of travel, about the brush's width; lift = how
     // far the pen has eased off the press it last held (a 10 % wobble is nothing, half the pressure is half lifted).
     this.peak = Math.max(P, P + (this.peak - P) * Math.exp(-slideMm / 12));
-    const lift = smooth(0.1, 0.8, 1 - P / Math.max(this.peak, 1e-3));
+    const lift = smooth(0.03, 0.95, 1 - P / Math.max(this.peak, 1e-3));
     const land = 1 - smooth(0, 0.6 * (b.widthMm || 1), tr);
     if (b.trowel) {
       // v6/v7 trowel geometry: width barely changes with pressure, length grows with it; tilt does nothing.

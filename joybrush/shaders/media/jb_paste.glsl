@@ -77,7 +77,7 @@ float jb_pasteFirmLand() { return u_ends > 0.5 ? u_land * smoothstep(0.4, 0.9, u
 // The brush's half-width in play: planted hard, the hairs splay out (both passes map lanes through it).
 float jb_pasteHalfW() { return u_ends > 0.5 && u_shape < 1.5 ? u_halfW * (1.0 + JB_LAND_SPLAY * jb_pasteFirmLand()) : u_halfW; }
 const float JB_FEED = 0.25;
-const float JB_CATCH = 1.4;      // how strongly a lifting brush's dry paint keys to the tooth's rising faces
+const float JB_CATCH = 1.0;      // how much the tooth's face rising toward the travel counts against its height (jb_pasteDry)
 const float JB_HAIR_SHARE = 0.06;   // u_carry: what the hairs that touch hold, of a full cell
 const float JB_BELLY_SHARE = 5.6;   // ... and the belly near the ferrule on top of that (the load's average stays ~0.9)      // per step: how fast the belly refills a cell below it (u_carry), of that cell's shortfall
 
@@ -170,7 +170,7 @@ float jb_pasteCover(float a, float b, float aaA, float aaB) {
     // Lifting off, the weak and short runs leave the canvas first, one after another (any hair brush, whatever its fingers);
     // landing lightly, only the long ones reach it until the press builds, so a swept landing starts in streaks.
     if (u_ends > 0.5 && u_shape < 1.5) {
-        float thr = max(0.62 * u_lift, 0.5 * u_land * (1.0 - smoothstep(0.12, 0.45, u_pressure)));
+        float thr = max(0.3 * u_lift, 0.5 * u_land * (1.0 - smoothstep(0.12, 0.45, u_pressure)));
         if (thr > 0.0) side *= smoothstep(thr - 0.05, thr + 0.05, jb_pasteTip(a));
     }
     // The ends ramp over at least one step of travel: each step then blends into the next and the stroke
@@ -221,14 +221,22 @@ float jb_pasteTarget(float a, float load, float hair, float b, float valleyMm, v
 // Shared by the canvas pass and the brush pass (they must agree on what is touched).
 float jb_pasteGive(float fillLoad) {
     float give = u_pressure * mix(0.12, 0.25, u_fillDips) + fillLoad * mix(0.3, 2.0 * u_thick + 0.2, u_fillDips);
-    return u_ends > 0.5 && u_shape < 1.5 ? give * exp(-6.0 * u_lift) : give;
+    return u_ends > 0.5 && u_shape < 1.5 ? give * (1.0 - 0.6 * u_lift) : give;
 }
-// The weaker hairs graze less, so a lifting brush's dry end keeps a little of the hair's streak as it breaks up.
-float jb_pasteGraze(float hair) { return (0.06 + (u_ends > 0.5 && u_shape < 1.5 ? 0.22 * u_lift : 0.0)) * (1.0 - hair); }
-// A lifting brush's dry paint catches on the faces of the paper's tooth that rise toward it as it travels (rise: the
-// surface ahead minus behind, mm), so the end skips and speckles against the paper instead of running on as strands.
-// Callers read `rise` only for hair brushes (u_shape < 1.5): the two extra surface reads cost a big trowel +55 % (10-24 A/B).
-float jb_pasteCatch(float rise) { return u_ends > 0.5 && u_shape < 1.5 ? JB_CATCH * u_lift * rise : 0.0; }
+float jb_pasteGraze(float hair) { return 0.06 * (1.0 - hair); }
+// A lifting hair brush's dry end (Lead, 10-25: a middle zone of broken streaks that keep each bristle's line, thinning
+// gradually, speckle growing toward the tip): every point has a catch score, mostly its run of hair's strength (the
+// streaks), then how high the tooth stands there (relief: the surface here minus around, mm) and whether its face rises
+// toward the travel (rise: ahead minus behind). As the pen eases off, the score a point needs climbs with u_lift, so the
+// share that takes paint falls steadily: whole streaks, broken streaks, the strongest hairs on the tooth's tops, specks.
+// Callers read `rise` only for hair brushes: the two extra surface reads cost a big trowel +55 % (10-24 A/B).
+float jb_pasteDry(float tip, float relief, float rise, float toothMm) {
+    if (u_ends < 0.5 || u_shape > 1.5 || u_lift <= 0.0) return 1.0;
+    float tooth = max(0.5 * toothMm, 1e-3);   // (u_toothMm is declared by the passes, after this file)
+    float score = 0.55 * tip + 0.3 * clamp(0.5 + relief / tooth, 0.0, 1.0) + 0.15 * clamp(0.5 + JB_CATCH * rise / tooth, 0.0, 1.0);
+    float need = 0.22 + 0.62 * u_lift;
+    return smoothstep(need - 0.07, need + 0.07, score);
+}
 // Riding on wet paint (u_cover): pressed lightly, a loaded brush sits on the wet layer instead of sinking to its target,
 // and lays up to a coat above what is there; pressed hard, or on paint already piled thick, it digs in as before. Both
 // passes call it with what they read of the canvas, so the brush loses what the canvas gains.

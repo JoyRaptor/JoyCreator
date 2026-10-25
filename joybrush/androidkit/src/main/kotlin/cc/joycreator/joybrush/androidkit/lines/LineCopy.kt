@@ -61,6 +61,7 @@ class LineCopyRequest private constructor(
     companion object {
         fun capture(snapshot: LineSnapshot, expected: List<AddressedStroke>, availableHeapBytes: Long): LineCopyRequest? {
             val generation = snapshot.sourceDocumentGeneration ?: return null
+            if (generation < 0L || snapshot.revision < 0L || snapshot.brushRevision < 0L) return null
             val bytes = LineCopyBudget.estimate(expected, snapshot.brushes) ?: return null
             if (!LineCopyBudget.heapAdmits(bytes, availableHeapBytes)) return null
             if (expected.map { it.address }.toSet().size != expected.size) return null

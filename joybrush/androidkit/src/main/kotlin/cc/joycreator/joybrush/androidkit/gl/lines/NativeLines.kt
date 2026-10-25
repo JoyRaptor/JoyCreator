@@ -276,13 +276,14 @@ internal class NativeLines(
         revision++; brushRevision++
     }
 
-    fun snapshot(): LineSnapshot = LineSnapshot(
+    fun snapshot(sourceDocumentGeneration: Long? = null): LineSnapshot = LineSnapshot(
         revision,
         planes.filterValues { it.records.isNotEmpty() }.mapValues { it.value.records.toList() },
         brushes,
         itemPlanes(),
         brushRevision = brushRevision,
         slabTiles = slabTileCount(),
+        sourceDocumentGeneration = sourceDocumentGeneration,
     )
 
     companion object {

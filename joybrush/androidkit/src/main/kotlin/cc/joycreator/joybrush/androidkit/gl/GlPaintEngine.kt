@@ -2176,10 +2176,7 @@ class GlPaintEngine(
         pendingLine = record?.let { PendingLine(it, newBrushes) }
     }
 
-    fun lineSnapshot(): LineSnapshot {
-        val s = nativeLines.snapshot()
-        return LineSnapshot(s.revision, s.planes, s.brushes, s.itemPlanes, s.brushRevision, s.slabTiles, documentGeneration)
-    }
+    fun lineSnapshot(): LineSnapshot = nativeLines.snapshot(documentGeneration)
 
     /** GL-thread metadata-only admission. No dabs, GL calls, document edits, or history are produced. */
     fun prepareLineCopy(request: LineCopyRequest, availableHeapBytes: Long): LineCopyResult {

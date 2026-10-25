@@ -18,6 +18,7 @@ class LineCopyBudgetTest {
 
     @Test fun unknownSnapshotGenerationIsRefused() {
         assertNull(LineCopyRequest.capture(snapshot(generation = null), listOf(item()), Long.MAX_VALUE))
+        assertNull(LineCopyRequest.capture(snapshot(generation = -1L), listOf(item()), Long.MAX_VALUE))
     }
 
     @Test fun oversizedSamplesRefuseBeforeAnySampleIsReadOrCopied() {

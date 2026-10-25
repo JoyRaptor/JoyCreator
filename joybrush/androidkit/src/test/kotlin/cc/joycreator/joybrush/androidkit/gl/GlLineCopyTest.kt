@@ -114,7 +114,7 @@ class GlLineCopyTest {
             val e = engine("layer"); put(e, LinePlane("layer", null), record("a", 1))
             val layers = GlPaintEngine::class.java.getDeclaredField("localLayers").also { it.isAccessible = true }
                 .get(e) as Map<*, *>
-            val layer = layers.getValue("layer")!!
+            val layer = layers.values.single()!!
             when (kind) {
                 "hidden" -> e.setLayerVisible("layer", false)
                 "clip" -> layer.javaClass.getDeclaredField("clip").also { it.isAccessible = true }.setBoolean(layer, true)

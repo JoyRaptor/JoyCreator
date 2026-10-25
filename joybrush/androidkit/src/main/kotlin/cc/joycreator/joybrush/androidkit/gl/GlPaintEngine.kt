@@ -24,6 +24,12 @@ import cc.joycreator.joybrush.androidkit.gl.lines.NativeLines
 import cc.joycreator.joybrush.androidkit.lines.LineEdit
 import cc.joycreator.joybrush.androidkit.lines.LinePlane
 import cc.joycreator.joybrush.androidkit.lines.LineSnapshot
+import cc.joycreator.joybrush.androidkit.lines.LineCopyBudget
+import cc.joycreator.joybrush.androidkit.lines.LineCopyItem
+import cc.joycreator.joybrush.androidkit.lines.LineCopyPayload
+import cc.joycreator.joybrush.androidkit.lines.LineCopyProof
+import cc.joycreator.joybrush.androidkit.lines.LineCopyRequest
+import cc.joycreator.joybrush.androidkit.lines.LineCopyResult
 import cc.joycreator.joybrush.androidkit.gl.lines.NativeBaseTransferProof
 import cc.joycreator.joybrush.androidkit.gl.lines.PromotedBaseProjection
 import cc.joycreator.joybrush.androidkit.gl.watercolour.WatercolourPass
@@ -2152,7 +2158,74 @@ class GlPaintEngine(
         pendingLine = record?.let { PendingLine(it, newBrushes) }
     }
 
-    fun lineSnapshot(): LineSnapshot = nativeLines.snapshot()
+    fun lineSnapshot(): LineSnapshot {
+        val s = nativeLines.snapshot()
+        return LineSnapshot(s.revision, s.planes, s.brushes, s.itemPlanes, s.brushRevision, s.slabTiles, documentGeneration)
+    }
+
+    /** GL-thread metadata-only admission. No dabs, GL calls, document edits, or history are produced. */
+    fun prepareLineCopy(request: LineCopyRequest, availableHeapBytes: Long): LineCopyResult {
+        fun refused(words: String) = LineCopyResult.Refused(words)
+        val snapshot = nativeLines.snapshot()
+        if (request.documentGeneration != documentGeneration || request.revision != snapshot.revision ||
+            request.brushRevision != snapshot.brushRevision)
+            return refused("Those lines changed. Tap Copy again.")
+        if (strokeInProgress || wcFading || mediaStrokeInProgress || framePreviews.isNotEmpty())
+            return refused("Finish the stroke and stop playback before copying lines.")
+        if (tileBoardId != null) return refused("Copying lines on a tiled board isn't available yet.")
+        val byLayer = request.expected.groupBy { it.address.layerId }.toMutableMap()
+        val ordered = ArrayList<cc.joycreator.joybrush.core.stroke.AddressedStroke>(request.expected.size)
+        val owners = LinkedHashSet<LinePlane>()
+        // Layer order is canonical here. A seq is local to one physical plane, never a cross-layer z index.
+        for (layer in layers.values) {
+            val selected = byLayer.remove(layer.id) ?: continue
+            if (layer.isMask || !layer.visible) return refused("Those lines aren't visible on a paint layer now.")
+            if (layer.mask != null || layer.clip)
+                return refused("Lines clipped by a mask or another layer can't be copied yet.")
+            val plan = layer.plan
+            if (plan != null && plan.frames.isNotEmpty())
+                return refused("Lines clipped by animation regions can't be copied yet.")
+            for (wanted in selected.sortedBy { it.record.seq }) {
+                val plane = LinePlane(wanted.address.layerId, wanted.address.celId)
+                if (plan == null) {
+                    if (layer.sharedCel != null || layer.cels.isNotEmpty() || plane.celId != null)
+                        return refused("That line's source plane can't be verified for Copy yet.")
+                } else if (plane.celId != plan.shared.celId || layer.sharedCel != plan.shared.celId ||
+                    layer.cels[plan.shared.celId] !== layer.tiles) {
+                    return refused("That line's source plane can't be verified for Copy yet.")
+                }
+                val record = nativeLines.record(plane, wanted.address.recordId)
+                    ?: return refused("Those lines changed. Tap Copy again.")
+                if (record != wanted.record) return refused("Those lines changed. Tap Copy again.")
+                if (record.capturedPhysicalSource != null)
+                    return refused("Copying this line's captured source isn't available yet.")
+                ordered += cc.joycreator.joybrush.core.stroke.AddressedStroke(wanted.address, record)
+                owners += plane
+            }
+        }
+        if (byLayer.isNotEmpty() || ordered.size != request.expected.size)
+            return refused("Those lines changed. Tap Copy again.")
+        val bytes = LineCopyBudget.estimate(ordered, snapshot.brushes)
+            ?: return refused("Copy fewer lines, using brushes without imported or picture-tip assets.")
+        if (!LineCopyBudget.heapAdmits(bytes, availableHeapBytes)) return refused("Copy fewer lines at once.")
+        return try {
+            val frozen = LinkedHashMap<String, String>()
+            for (record in ordered.map { it.record }) if (record.brushId !in frozen) {
+                val preset = snapshot.brush(record.brushId) ?: return refused("A copied line's brush is missing.")
+                val json = cc.joycreator.joybrush.core.brush.BrushJson.encode(preset)
+                if (json.encodeToByteArray().size > LineCopyBudget.MAX_BRUSH_BYTES)
+                    return refused("That brush is too large to copy.")
+                frozen[record.brushId] = json
+            }
+            val proof = LineCopyProof(documentGeneration, snapshot.revision, owners)
+            val copied = ordered.map { LineCopyItem(it.address, it.record, frozen.getValue(it.record.brushId), proof) }
+            LineCopyResult.Ready(LineCopyPayload(proof, copied, bytes))
+        } catch (_: OutOfMemoryError) {
+            refused("Copy fewer lines at once.")
+        } catch (_: Exception) {
+            refused("Those lines couldn't be frozen for Copy.")
+        }
+    }
 
     /** A layer's plane in line terms: the engine's celId, with the shared plane under its document cel id once known. */
     private fun linePlane(layer: Layer, celId: String?): LinePlane = LinePlane(layer.id, celId ?: layer.sharedCel)

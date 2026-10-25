@@ -27,6 +27,12 @@ object LineSelectionClipboard {
 
     fun snapshot(): List<LineCopyItem> = copied?.entries.orEmpty()
 
+    /** A debug bench uses a second unsaved drawing and restores the owner's process-session clipboard on completion. */
+    internal fun preserveForBench(): () -> Unit {
+        val before = copied
+        return { copied = before }
+    }
+
     internal const val MEMORY_REFUSAL = "Not enough memory to paste those lines. Try fewer lines."
     fun canPaste(entries: List<LineCopyItem>, availableHeapBytes: Long): Boolean =
         LineCopyBudget.estimateCopied(entries)?.let { LineCopyBudget.heapAdmits(it, availableHeapBytes) } == true

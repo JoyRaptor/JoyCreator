@@ -26,25 +26,34 @@ import kotlin.math.hypot
  * A fresh unsaved drawing, five ink lines drawn by a synthetic S Pen, then each step does what a person would (pen taps,
  * loops and drags; finger taps on the real strip, row and box) and checks the DRAWING, not the pixels: which lines are
  * selected, where their points went, how many undo steps were written. One JSON line per step on logcat tag
- * [BenchRunner.TAG] (`{"selectBench":…,"pass":…}`); a `SHOT <name>` line asks the host script for a screenshot and the
- * bench holds [SHOT_MS] for it. A step that can't run says why and the bench goes on. Never saves.
+ * [BenchRunner.TAG] (`{"selectBench":…,"pass":…}`); a `selectBenchShot` JSON event asks the host script for a screenshot and the
+ * bench holds [SHOT_MS] for it. Every event carries the host's unique run ID and sequence. A failed step says why.
+ * Never saves. Use ui-scripts/select_bench.sh to bind source/APK/device evidence.
  */
-class SelectBench(private val canvas: JbCanvasView, private val finished: () -> Unit) {
+class SelectBench(private val canvas: JbCanvasView, private val runId: String, private val finished: () -> Unit) {
     private val ui = Handler(Looper.getMainLooper())
     private val g = SelectGestures(canvas)
     private val tool get() = canvas.tool as? SelectTool
     private fun activeLines() = tool?.benchActiveLines().orEmpty()
     private val editableBefore = canvas.editableLines
+    private val restoreClipboard = cc.joycreator.joybrush.android.select.LineSelectionClipboard.preserveForBench()
     private val steps = ArrayDeque<Pair<String, (() -> Unit) -> Unit>>()
     private var passed = 0
     private var failed = 0
+    private var event = 0
     /** The five lines' addresses in drawing order, L1..L5. */
     private var ids: List<LineAddress> = emptyList()
     private val w get() = canvas.width.toFloat()
     private val h get() = canvas.height.toFloat()
 
     fun start() {
-        if (tool == null) { Log.w(TAG, "select bench: the canvas has no Select tool"); finished(); return }
+        if (!runId.matches(Regex("[0-9a-f]{32}"))) {
+            Log.w(TAG, "Select acceptance requires a unique jb_select_run_id"); finished(); return
+        }
+        if (tool == null) {
+            report("setup", false, JSONObject().put("why", "the canvas has no Select tool"))
+            done(); return
+        }
         step("setup") { next ->
             canvas.benchFreshDrawing {
                 canvas.editableLines = true
@@ -186,6 +195,68 @@ class SelectBench(private val canvas: JbCanvasView, private val finished: () -> 
         rowAction("delete", "Delete") { before, after -> after.size == before.size - 1 && ids[3] !in after }
         rowAction("duplicate", "Duplicate") { before, after -> after.size == before.size + 1 && lines().none { it in before } }
         rowAction("flipH", "Flip horizontal") { _, _ -> true }
+        step("copyPaste") { next ->
+            val source = ids[3]
+            val before = all()
+            val recipe = record(source)
+            val (x, y) = screenMid(3)
+            g.tap(x, y, pen = true, settleMs = 600) {
+                undoDepth { d0 ->
+                    moreAction("copyPaste", "Copy the selected lines", next) {
+                        undoDepth { copiedDepth ->
+                            settingsAction("copyPaste", "Paste the copied editable lines", next) {
+                                undoDepth { pastedDepth ->
+                                    val added = all() - before
+                                    val pasted = added.singleOrNull()?.let { record(it) }
+                                    report("copyPaste", recipe != null && pasted != null && added.size == 1 &&
+                                        pasted.samples == recipe.samples && pasted.colorArgb == recipe.colorArgb &&
+                                        pasted.id != recipe.id && copiedDepth == d0 && pastedDepth == d0 + 1 && lines() == added,
+                                        JSONObject().put("added", added.size).put("copySteps", copiedDepth - d0)
+                                            .put("pasteSteps", pastedDepth - copiedDepth))
+                                    shot("09_copy_pasted")
+                                    hold { if (pastedDepth > d0) canvas.undo(); ui.postDelayed(next, 650) }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        step("group") { next ->
+            settingsAction("group", "Select every editable line", next) {
+                val selected = lines()
+                undoDepth { d0 ->
+                    moreAction("group", "Move and select these lines together", next) {
+                        undoDepth { d1 ->
+                            val groups = selected.map { record(it)?.groupId }
+                            report("group", selected.size == 5 && groups.all { it != null } &&
+                                groups.distinct().size == 1 && d1 == d0 + 1,
+                                JSONObject().put("selected", selected.size).put("steps", d1 - d0))
+                            shot("10_grouped")
+                            hold { if (d1 > d0) canvas.undo(); ui.postDelayed(next, 650) }
+                        }
+                    }
+                }
+            }
+        }
+        step("lock") { next ->
+            val (x, y) = screenMid(3)
+            // A clear tap ends the previous multi-selection before choosing L4 alone.
+            g.tap(.05f * w, .9f * h, pen = true) {
+                g.tap(x, y, pen = true, settleMs = 600) {
+                    undoDepth { d0 ->
+                        moreAction("lock", "Keep these lines from being selected", next) {
+                            undoDepth { d1 ->
+                                report("lock", record(ids[3])?.locked == true && d1 == d0 + 1,
+                                    JSONObject().put("locked", record(ids[3])?.locked).put("steps", d1 - d0))
+                                shot("11_locked")
+                                hold { if (d1 > d0) canvas.undo(); ui.postDelayed(next, 650) }
+                            }
+                        }
+                    }
+                }
+            }
+        }
         step("tipDots") { next ->
             val l = activeLines().firstOrNull { it.address == ids.getOrNull(4) }
             val s = tool?.viewTransform
@@ -237,7 +308,7 @@ class SelectBench(private val canvas: JbCanvasView, private val finished: () -> 
             }
         }
         step("end") { next ->
-            Log.i(TAG, JSONObject().put("selectBench", "summary").put("passed", passed).put("failed", failed).toString())
+            emit(JSONObject().put("selectBench", "summary").put("passed", passed).put("failed", failed))
             canvas.editableLines = editableBefore
             next()
         }
@@ -246,10 +317,33 @@ class SelectBench(private val canvas: JbCanvasView, private val finished: () -> 
 
     // ── steps ──
 
+    private fun record(id: LineAddress) = canvas.lineSnapshot.planes[
+        cc.joycreator.joybrush.androidkit.lines.LinePlane(id.layerId, id.celId)]?.firstOrNull { it.id == id.recordId }
+
+    private fun moreAction(name: String, label: String, failed: () -> Unit, done: () -> Unit) {
+        val more = g.labelled("More actions for the selected lines")
+        if (more == null) { report(name, false, JSONObject().put("why", "More action unavailable")); failed(); return }
+        g.tapView(more) { tapAction(name, label, failed, done) }
+    }
+
+    private fun settingsAction(name: String, label: String, failed: () -> Unit, done: () -> Unit) {
+        val select = g.labelled("Select —")
+        if (select == null || tool?.selectToolInHand != true) {
+            report(name, false, JSONObject().put("why", "Select settings unavailable")); failed(); return
+        }
+        g.tapView(select) { tapAction(name, label, failed, done) }
+    }
+
+    private fun tapAction(name: String, label: String, failed: () -> Unit, done: () -> Unit) {
+        val action = g.labelled(label)
+        if (action == null) { report(name, false, JSONObject().put("why", "No shown action: $label")); failed(); return }
+        g.tapView(action, settleMs = 900, done = done)
+    }
+
     private fun step(name: String, body: (() -> Unit) -> Unit) { steps.addLast(name to body) }
 
     private fun run() {
-        val (name, body) = steps.removeFirstOrNull() ?: run { Log.i(TAG, "done"); finished(); return }
+        val (name, body) = steps.removeFirstOrNull() ?: run { done(); return }
         if (ids.size < 5 && name !in setOf("setup", "draw", "end")) {
             report(name, false, JSONObject().put("why", "the five lines were not drawn as editable lines")); ui.post { run() }; return
         }
@@ -282,10 +376,16 @@ class SelectBench(private val canvas: JbCanvasView, private val finished: () -> 
 
     private fun report(step: String, pass: Boolean, detail: JSONObject) {
         if (pass) passed++ else failed++
-        Log.i(TAG, detail.put("selectBench", step).put("pass", pass).toString())
+        emit(detail.put("selectBench", step).put("pass", pass))
     }
 
-    private fun shot(name: String) = Log.i(TAG, "SHOT $name")
+    private fun emit(row: JSONObject) { Log.i(TAG, row.put("runId", runId).put("event", event++).toString()) }
+    private fun shot(name: String) = emit(JSONObject().put("selectBenchShot", "$name.png"))
+    private fun done() {
+        restoreClipboard()
+        finished()
+        emit(JSONObject().put("selectBenchDone", true))
+    }
     private fun hold(next: () -> Unit) = ui.postDelayed(next, SHOT_MS)
 
     private fun undoDepth(then: (Int) -> Unit) = canvas.benchState(readPixels = false) { s, _ -> then(s?.undoDepth ?: -1) }

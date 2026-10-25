@@ -57,9 +57,12 @@ class SelectBench(private val canvas: JbCanvasView, private val runId: String, p
         step("setup") { next ->
             canvas.benchFreshDrawing {
                 canvas.editableLines = true
-                BrushLibrary.builtIn().firstOrNull { it.id.equals("ink", true) }?.let { canvas.preset = it }
+                val ink = BrushLibrary.builtIn().firstOrNull { it.id == "joybrush.ink" }
+                    ?: BrushLibrary.builtIn().firstOrNull { it.id == "ink" }
+                if (ink != null) canvas.preset = ink
                 canvas.colorArgb = 0xFF141414.toInt()
-                report("setup", !(tool?.selectToolInHand ?: true), JSONObject().put("brushInHand", !(tool?.selectToolInHand ?: true)))
+                report("setup", ink != null && !(tool?.selectToolInHand ?: true),
+                    JSONObject().put("brushInHand", !(tool?.selectToolInHand ?: true)).put("brushId", ink?.id))
                 next()
             }
         }

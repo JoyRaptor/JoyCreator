@@ -81,3 +81,10 @@ Running: Settings sub-screens restyle (Sonnet); What's New + update sheets + mod
 Open (owner decisions): Viz Lab card; bottom words (Packs/Bits/Finder); Remote/Server Room + Smart Detection; WaveformDebugActivity export; 11 orphan classes; New button behaviour; pill colour; rename "Classic view".
 Open (mine): restyle Home recorder (Bits); fullscreen preview; Home sidebar; audio envelope oddities; voiceovers in project view; rename/trash helpers for sheets/characters; retire AvatarToggleView + eye-colour pref; sweep leftovers (caption presets retest).
 Parked: VisLab (brief in tasks/VISLAB_BRIEF.md); Joy Brush send-into-existing-project.
+
+## Coordinator current-main Select reconciliation — October24
+- [ ] Reapply A1–A8/C2/safety/cancel/stale patches onto main7d2 while retaining UI placement/ink/chips/bench changes.
+- [ ] Preserve narrow bench observation APIs without reopening mutable host; fix clean-UP/CANCEL contract with real overlay evidence.
+- [ ] Adopt reviewed canonical Copy admission separately when builder delivers; preserve source-domain refusals and owner K25/L3 gates.
+- [ ] Integrate guarded bench runner +offline evidence validator; exact-APK per-step phone evidence remains owed.
+- [ ] Run appropriate exact-source suites/build after resource admission; keep original9ace receipts and checkouts.

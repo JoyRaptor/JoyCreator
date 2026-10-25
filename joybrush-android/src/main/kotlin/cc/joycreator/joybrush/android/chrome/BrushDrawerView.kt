@@ -45,7 +45,16 @@ class BrushDrawerView(
     private val onSettings: ((BrushPreset) -> Unit)? = null,
     /** Where each row's real picture comes from. Null keeps the stand-in only (a screen with no canvas to draw on). */
     private val previews: PreviewSource<Bitmap>? = null,
+    /**
+     * Select's swap list (JB-5.20e D25): the pictures draw the SELECTED lines' colour on the drawing's paper ([Swap.paper]
+     * behind each picture), every brush the selection uses wears the ring, and a quiet footer says why some are missing.
+     * Null keeps the ordinary drawer.
+     */
+    private val swap: Swap? = null,
 ) : LinearLayout(kit.context) {
+
+    /** What the swap list draws with: the selected lines' [ink], the drawing's [paper], the brushes they [use] now. */
+    class Swap(val ink: Int, val paper: Int, val use: (BrushPreset) -> Boolean, val footer: String)
 
     private val shelves = BrushShelf.shelves(library)
     private val kinds = LinearLayout(context).apply { orientation = VERTICAL }
@@ -56,7 +65,8 @@ class BrushDrawerView(
     private val maxH = (resources.displayMetrics.heightPixels * 0.45f).roundToInt()
 
     /** The look the pictures are drawn in: the drawer ink, and the eraser strip tinted with it. */
-    private val previewStyle = BrushPreviewStyle(ink = kit.p.drawerInk, strip = ColorUtils.setAlphaComponent(kit.p.drawerInk, 0x59))
+    private val previewStyle = swap?.let { BrushPreviewStyle(ink = it.ink or (0xFF shl 24), strip = ColorUtils.setAlphaComponent(it.ink, 0x59)) }
+        ?: BrushPreviewStyle(ink = kit.p.drawerInk, strip = ColorUtils.setAlphaComponent(kit.p.drawerInk, 0x59))
 
     /** One row picture: asked for once, when it first comes near the screen. [shelf] says which showing of the shelf it belongs to. */
     private class Slot(val preset: BrushPreset, val img: ImageView, val shelf: Int) {
@@ -109,6 +119,14 @@ class BrushDrawerView(
         strokes.removeAllViews()
         val list = shelves.firstOrNull { it.first == kind }?.second ?: return
         for (p in list) strokes.addView(row(p), LayoutParams(LayoutParams.MATCH_PARENT, kit.dpi(ROW_DP)).apply { bottomMargin = kit.dpi(2f) })
+        swap?.let { s ->
+            strokes.addView(TextView(context).apply {
+                text = s.footer
+                textSize = 10.5f
+                setTextColor(kit.p.drawerDim)
+                setPadding(kit.dpi(8f), kit.dpi(6f), kit.dpi(8f), kit.dpi(4f))
+            }, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+        }
     }
 
     /** The pictures of the rows that are on screen (and one row beyond), asked for from the top. */
@@ -163,11 +181,13 @@ class BrushDrawerView(
                 override fun getOutline(view: View, outline: Outline) = outline.setRoundRect(0, 0, view.width, view.height, radius)
             }
             clipToOutline = true
+            // The swap list shows the line on its own paper, so a dark line reads on the dark drawer (D25).
+            swap?.let { setBackgroundColor(it.paper or (0xFF shl 24)) }
         }
         box.addView(img, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT).apply {
             topMargin = kit.dpi(LABEL_DP)
         })
-        if (p.id == currentId) box.background = ring(10f)
+        if (p.id == currentId || swap?.use?.invoke(p) == true) box.background = ring(10f)
         kit.label(box, if (onSettings != null) "${p.name}. Hold for its settings" else p.name)
         box.setOnClickListener { onPick(p) }
         onSettings?.let { open -> box.setOnLongClickListener { open(p); true } }

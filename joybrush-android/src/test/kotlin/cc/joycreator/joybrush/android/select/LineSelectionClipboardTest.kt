@@ -7,15 +7,22 @@ import cc.joycreator.joybrush.core.vector.RecordedCel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [28])
 class LineSelectionClipboardTest {
     @org.junit.After fun clearClipboard() { LineSelectionClipboard.clearForTests() }
     @Test fun copiedLinesPasteAsOneNewBatchIntoAnotherLayerAndUndoRedoTogether() {
         LineSelectionClipboard.clearForTests()
         val sourceSamples = lineRecord("original", 8).samples.toMutableList()
         val source = lineRecord("original", 8).copy(samples = sourceSamples, locked = true, groupId = "pair")
-        LineSelectionClipboard.copy(listOf(LineSelectionClipboard.Entry(source, frozenInk)))
+        assertTrue(LineSelectionClipboard.accept(canonicalCopyPayload(listOf(source))))
         sourceSamples.clear()
 
         val entries = LineSelectionClipboard.snapshot()
@@ -39,10 +46,7 @@ class LineSelectionClipboardTest {
     }
 
     @Test fun pasteIsOneUndoStepAndRedoRestoresTheSameFreshLines() {
-        val entries = listOf(
-            LineSelectionClipboard.Entry(lineRecord("source-a", 1), frozenInk),
-            LineSelectionClipboard.Entry(lineRecord("source-b", 2, y = 30f), frozenInk),
-        )
+        val entries = canonicalCopyPayload(listOf(lineRecord("source-a", 1), lineRecord("source-b", 2, y = 30f))).entries
         val plane = LinePlane("destination", "frame-1")
         val pasted = LineSelectionClipboard.paste(entries, plane, listOf("new-a", "new-b"), listOf("brush", "brush"), 0f, 0f)
         assertEquals("generated ids never collide", 2, pasted.map { it.record.id }.toSet().size)
@@ -62,10 +66,28 @@ class LineSelectionClipboardTest {
     }
 
     @Test fun pastedGroupMembersStayTogetherWithAFreshGroupIdentity() {
-        val entries = listOf("a", "b").map {
-            LineSelectionClipboard.Entry(lineRecord(it, 1).copy(groupId = "source-group"), frozenInk)
-        }
+        val entries = canonicalCopyPayload(listOf("a", "b").mapIndexed { i, id ->
+            lineRecord(id, i + 1L).copy(groupId = "source-group")
+        }).entries
         val records = LineSelectionClipboard.paste(entries, planeP, listOf("new-a", "new-b"), listOf("brush", "brush"), 0f, 0f) { "pasted-group" }
         assertEquals(listOf("pasted-group", "pasted-group"), records.map { it.record.groupId })
+    }
+
+    @Test fun lowHeapPasteRefusesBeforeTransformAndKeepsTheClipboard() {
+        assertTrue(LineSelectionClipboard.accept(canonicalCopyPayload(listOf(lineRecord("source", 1)))))
+        val before = LineSelectionClipboard.snapshot()
+        assertFalse(LineSelectionClipboard.canPaste(before, 1L))
+        assertThrows(IllegalArgumentException::class.java) {
+            LineSelectionClipboard.paste(before, planeP, listOf("fresh"), listOf("brush"), 10f, 10f, availableHeapBytes = 1L)
+        }
+        assertTrue(before === LineSelectionClipboard.snapshot())
+        assertEquals(10f, before.single().record.samples.first().x, 0f)
+    }
+
+    @Test fun pasteCannotReuseASourceIdentity() {
+        val source = canonicalCopyPayload(listOf(lineRecord("source", 1))).entries
+        assertThrows(IllegalArgumentException::class.java) {
+            LineSelectionClipboard.paste(source, planeP, listOf("source"), listOf("brush"), 0f, 0f)
+        }
     }
 }

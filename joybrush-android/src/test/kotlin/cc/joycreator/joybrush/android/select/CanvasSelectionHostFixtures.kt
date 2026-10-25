@@ -9,6 +9,11 @@ import cc.joycreator.joybrush.core.brush.Param
 import cc.joycreator.joybrush.core.brush.TipSpec
 import cc.joycreator.joybrush.core.input.PenSample
 import cc.joycreator.joybrush.core.stroke.StrokeRecord
+import cc.joycreator.joybrush.androidkit.gl.GlPaintEngine
+import cc.joycreator.joybrush.androidkit.lines.LineCopyPayload
+import cc.joycreator.joybrush.androidkit.lines.LineCopyRequest
+import cc.joycreator.joybrush.androidkit.lines.LineCopyResult
+import cc.joycreator.joybrush.core.stroke.AddressedStroke
 
 /** Shared by the Select-host tests: a stand-in canvas and screen, and a few frozen lines. */
 internal val planeP = LinePlane("L", null)
@@ -20,6 +25,27 @@ internal fun testBrush(id: String, name: String = "Ink", engine: String = "stamp
 )
 
 internal val frozenInk = testBrush("lb-1")
+
+/** Obtain the same engine-issued metadata payload as production Copy; never forge an unbounded UI Boolean. */
+internal fun canonicalCopyPayload(records: List<StrokeRecord>, brushes: Map<String, BrushPreset> = mapOf("lb-1" to frozenInk)): LineCopyPayload {
+    val engine = GlPaintEngine()
+    seedCanonicalLines(engine, mapOf(planeP to records), brushes)
+    val snapshot = engine.lineSnapshot()
+    val request = checkNotNull(LineCopyRequest.capture(snapshot, records.map { AddressedStroke(planeP.address(it.id), it) }, Long.MAX_VALUE))
+    val result = engine.prepareLineCopy(request, Long.MAX_VALUE)
+    check(result is LineCopyResult.Ready) { "Canonical copy fixture refused: $result" }
+    return result.payload
+}
+
+internal fun seedCanonicalLines(engine: GlPaintEngine, planes: Map<LinePlane, List<StrokeRecord>>,
+                                brushes: Map<String, BrushPreset> = mapOf("lb-1" to frozenInk)) {
+    planes.keys.map { it.layerId }.distinct().forEach { if (it !in engine.layerIds()) engine.addLayer(it) }
+    val native = GlPaintEngine::class.java.getDeclaredField("nativeLines").also { it.isAccessible = true }.get(engine)
+    native.javaClass.getDeclaredMethod("addBrushes", Map::class.java).also { it.isAccessible = true }.invoke(native, brushes)
+    val put = native.javaClass.getDeclaredMethod("put", LinePlane::class.java, String::class.java,
+        StrokeRecord::class.java, Set::class.java).also { it.isAccessible = true }
+    planes.forEach { (plane, records) -> records.forEach { put.invoke(native, plane, it.id, it, emptySet<Long>()) } }
+}
 
 /** A flat line of 20 samples, 2 px apart, from ([x0], [y]). */
 internal fun lineRecord(id: String, seq: Long, x0: Float = 10f, y: Float = 10f, brushId: String = "lb-1") = StrokeRecord(

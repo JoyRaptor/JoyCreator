@@ -29,6 +29,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
     private val rowsBefore = cc.joycreator.joybrush.androidkit.gl.media.MediaLayerEngine.atlasRowPasses
     private val jobsBefore = canvas.mediaWaterJobs
     private val budgetBefore = canvas.mediaBudgetBytes
+    private val editableLinesBefore = canvas.editableLines
     // Every refusal a run meets, in the log beside its frames (the canvas tells the person in words; the bench counts them).
     private val refusedBefore = canvas.onRefused.also { prior -> canvas.onRefused = { m -> Log.i(TAG, "refused: $m"); prior?.invoke(m) } }
     private val onDone: () -> Unit = {
@@ -38,6 +39,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
         if (spec.atlasRows != null) cc.joycreator.joybrush.androidkit.gl.media.MediaLayerEngine.atlasRowPasses = rowsBefore
         if (spec.waterJobs != null) canvas.mediaWaterJobs = jobsBefore
         if (spec.mediaBudgetMb != null) canvas.mediaBudgetBytes = budgetBefore
+        if (spec.editableLines != null) canvas.editableLines = editableLinesBefore
         if (spec.dropDry != null) cc.joycreator.joybrush.androidkit.gl.media.MediaAtlasDropDry.on = true
         canvas.onRefused = refusedBefore
         finished()
@@ -67,12 +69,17 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
                /** Dry tiles' water let go between strokes (`jb_drop_dry`); none = as shipped. */
                val dropDry: Boolean? = null,
                /** How long after the surface the first case starts (`jb_start_ms`): measures a cold first stroke. */
-               val startMs: Long = 1500L)
+               val startMs: Long = 1500L,
+               /** Keep FrameStats through watercolour idle confirmation; opt-in diagnostic tail (`jb_full_tail`). */
+               val fullTail: Boolean = false,
+               /** Temporary canvas-only editable-lines override (`jb_editable_lines`); never writes preferences. */
+               val editableLines: Boolean? = null)
 
     private val ui = Handler(Looper.getMainLooper())
     private val jobs = ArrayDeque<Triple<BrushPreset, String, Int>>()
 
     fun start() {
+        spec.editableLines?.let { canvas.editableLines = it; Log.i(TAG, "editable lines override: $it") }
         canvas.mediaLegacyWindow = spec.legacy
         spec.slope?.let { canvas.setMediaSlope(it[0], it[1]) }
         canvas.mediaWetQuality = spec.wetSubsteps?.let { n ->
@@ -136,7 +143,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
             case == "recordedPromotionColdProbe" || case == "recordedColdPayloadProbe" || case == "recordedColdFailureProbe"
         val capturedCopy = case == "recordedCapturedCopyProbe"
         val capturedJoint = case == "recordedCapturedJointProbe"
-        if (case == "recordedProbe" || bakeOperator != null || jointProbe || promotionProbe || capturedCopy || capturedJoint) {
+        val watercolourEdits = case == "recordedWatercolourEditProbe"
+        if (case == "recordedProbe" || bakeOperator != null || jointProbe || promotionProbe || capturedCopy || capturedJoint || watercolourEdits) {
             val probePreset = if (jointProbe || promotionProbe || capturedCopy || capturedJoint) preset.copy(
                 opacity = cc.joycreator.joybrush.core.brush.Param(0.55f), blend = "normal")
             else if (bakeOperator == null) preset else preset.copy(
@@ -157,13 +165,14 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
                 promotion = promotionProbe, regional = case == "recordedPromotionRegionProbe",
                 coldLoad = case == "recordedPromotionColdProbe", capturedCopy = capturedCopy,
                 coldPayload = case == "recordedColdPayloadProbe", coldFailures = case == "recordedColdFailureProbe",
-                capturedJoint = capturedJoint) { result ->
+                capturedJoint = capturedJoint, watercolourEdits = watercolourEdits) { result ->
                 val report = org.json.JSONObject(result).put("brush", preset.id).put("case", case).put("run", run)
                     .put("fixtureOpacity", probePreset.opacity.base)
                     .put("fixtureBrushVersion", probePreset.version)
                     .put("fixtureBrushSize", probePreset.size.base)
                     .put("fixtureWatercolourSize", probePreset.watercolour?.size ?: org.json.JSONObject.NULL)
-                    .put("proofScope", if (capturedJoint) "Bound captured source Scene, native siblings, exact integer movement and public joint undo/redo; debug throwaway only, no live View/Select/save/recovery or quality claim"
+                    .put("proofScope", if (watercolourEdits) "NativeLines add/lift/tint, actual coverage-cache counters, canonical RGBA8 equality and undo/redo; disposable engine, no View/Select/save/recovery/quality acceptance"
+                        else if (capturedJoint) "Bound captured source Scene, native siblings, exact integer movement and public joint undo/redo; debug throwaway only, no live View/Select/save/recovery or quality claim"
                         else if (capturedCopy) "Disposable complete recipe pooling then captured-domain integer texel copy; no source Scene, live capture, Select, save/recovery, quality or performance claim"
                         else if (promotionProbe) "Actual native-base transfer, physical display and raw/legacy history; no live capture, Select, save/recovery, quality or performance claim"
                         else if (jointProbe) "Actual joint engine root/public undo/redo and canonical GPU sources/looks; no live recording, Select, save, quality or performance claim"
@@ -182,13 +191,88 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
         ui.postDelayed({
             canvas.startFrameStats {
                 StrokeReplay.play(canvas, samples, canvas.frameStats, onDown = {}, onUp = {
-                    // Keep recording the frames that finish the stroke (the last batch, its write-back).
-                    ui.postDelayed({
-                        canvas.finishFrameStats { s -> report(preset, case, run, samples.size, s); ui.postDelayed({ next() }, spec.settleMs) }
-                    }, TAIL_MS)
+                    if (spec.fullTail) waitForFullTail(preset, case, run, samples.size)
+                    else ui.postDelayed({ finishStats(preset, case, run, samples.size, TailObservation(false, null)) }, TAIL_MS)
                 })
             }
         }, 300)
+    }
+
+    private data class TailObservation(val enabled: Boolean, val observedIdleAfterUpMs: Long?)
+
+    /** Polls existing idle telemetry only; never settles or cancels the watercolour fade. */
+    private fun waitForFullTail(preset: BrushPreset, case: String, run: Int, samples: Int) {
+        val upAtMs = android.os.SystemClock.uptimeMillis()
+        val deadline = upAtMs + FULL_TAIL_TIMEOUT_MS
+        var consecutiveIdle = 0
+        var phase = "idle_observation"
+        var terminal = false // Poll callbacks and the watchdog are serialized on the UI thread.
+        lateinit var deadlineWatchdog: Runnable
+
+        fun stopWithoutSummary() {
+            // The GL queue may be stalled too. Ask it to stop recording, but do not wait or invent metrics.
+            canvas.finishFrameStats { }
+            jobs.clear()
+            onDone()
+        }
+
+        fun fail(reason: String, errorClass: String? = null) {
+            if (terminal) return
+            terminal = true
+            ui.removeCallbacks(deadlineWatchdog)
+            val errorField = errorClass?.let { ",\"errorClass\":\"$it\"" } ?: ""
+            val scope = when {
+                reason == "full_tail_telemetry_error" -> "recorded-down-through-telemetry-error"
+                phase == "idle_observation" -> "recorded-down-through-timeout-no-idle-confirmation"
+                else -> "idle-confirmed-but-frame-stats-snapshot-did-not-complete"
+            }
+            Log.e(TAG, "{\"error\":\"$reason\",\"phase\":\"$phase\"$errorField," +
+                "\"measurementScope\":\"$scope\",\"tailPollIntervalMs\":$FULL_TAIL_POLL_MS," +
+                "\"tailTimeoutMs\":$FULL_TAIL_TIMEOUT_MS,\"tailIdleConfirmations\":$FULL_TAIL_IDLE_CONFIRMATIONS," +
+                "\"editableLines\":${canvas.editableLines}}")
+            stopWithoutSummary()
+        }
+
+        deadlineWatchdog = Runnable { fail("full_tail_deadline") }
+        ui.postAtTime(deadlineWatchdog, deadline)
+
+        fun poll() {
+            if (terminal || phase != "idle_observation") return
+            canvas.benchState(readPixels = false) { state, error ->
+                if (terminal || phase != "idle_observation") return@benchState
+                if (error != null || state == null) {
+                    fail("full_tail_telemetry_error", error?.javaClass?.simpleName ?: "missing_state")
+                    return@benchState
+                }
+                consecutiveIdle = if (state.idle && !canvas.strokeInProgress) consecutiveIdle + 1 else 0
+                val now = android.os.SystemClock.uptimeMillis()
+                when {
+                    consecutiveIdle >= FULL_TAIL_IDLE_CONFIRMATIONS -> {
+                        phase = "stats_snapshot"
+                        // Replace the idle-observation watchdog with a snapshot watchdog at the same absolute deadline.
+                        ui.removeCallbacks(deadlineWatchdog)
+                        ui.postAtTime(deadlineWatchdog, deadline)
+                        canvas.finishFrameStats { summary ->
+                            if (terminal) return@finishFrameStats
+                            terminal = true
+                            ui.removeCallbacks(deadlineWatchdog)
+                            report(preset, case, run, samples, summary, TailObservation(true, now - upAtMs))
+                            ui.postDelayed({ next() }, spec.settleMs)
+                        }
+                    }
+                    now >= deadline -> fail("full_tail_deadline")
+                    else -> ui.postDelayed({ poll() }, FULL_TAIL_POLL_MS)
+                }
+            }
+        }
+        ui.postDelayed({ poll() }, FULL_TAIL_POLL_MS)
+    }
+
+    private fun finishStats(preset: BrushPreset, case: String, run: Int, samples: Int, tail: TailObservation) {
+        canvas.finishFrameStats { s ->
+            report(preset, case, run, samples, s, tail)
+            ui.postDelayed({ next() }, spec.settleMs)
+        }
     }
 
     private fun runRecordedCaptureCase(preset: BrushPreset, case: String, run: Int) {
@@ -317,8 +401,9 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
         }
     }
 
-    private fun report(p: BrushPreset, case: String, run: Int, samples: Int, s: FrameStats.Summary) {
-        fun f(v: Double) = "%.2f".format(v)
+    private fun report(p: BrushPreset, case: String, run: Int, samples: Int, s: FrameStats.Summary,
+                       tail: TailObservation = TailObservation(false, null)) {
+        fun f(v: Double) = String.format(java.util.Locale.US, "%.2f", v)
         fun pct(x: FrameStats.Pct?) = if (x == null) "null" else "{\"p50\":${f(x.p50)},\"p95\":${f(x.p95)},\"max\":${f(x.max)},\"mean\":${f(x.mean)}}"
         Log.i(TAG, "{\"legacy\":${spec.legacy},\"brush\":\"${p.id}\",\"case\":\"$case\",\"run\":$run,\"samples\":$samples," +
             "\"frames\":${s.frames},\"strokeFrames\":${s.strokeFrames},\"firstFrameMs\":${f(s.firstFrameMs)}," +
@@ -326,6 +411,15 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
             "\"finishMs\":${pct(s.finish)},\"simMs\":${pct(s.sim)},\"flushMs\":${pct(s.flush)},\"gapMs\":${pct(s.gap)},\"latencyMs\":${pct(s.latency)}," +
             "\"gapsOver17\":${s.over17},\"gapsOver34\":${s.over34},\"mediaFrames\":${s.mediaFrames}," +
             "\"windowMoves\":${s.mediaWindowMoves},\"windowLoads\":${s.mediaWindowLoads}," +
+            "\"editableLines\":${canvas.editableLines},\"fullTail\":${tail.enabled}," +
+            "\"tailPollIntervalMs\":${if (tail.enabled) FULL_TAIL_POLL_MS else "null"}," +
+            "\"tailTimeoutMs\":${if (tail.enabled) FULL_TAIL_TIMEOUT_MS else "null"}," +
+            "\"tailIdleConfirmations\":${if (tail.enabled) FULL_TAIL_IDLE_CONFIRMATIONS else "null"}," +
+            "\"observedIdleAfterUpMs\":${tail.observedIdleAfterUpMs ?: "null"}," +
+            "\"tailTimedOut\":false," +
+            "\"measurementScope\":\"${if (tail.enabled) "recorded-down-through-two-idle-confirmations" else "stroke-plus-fixed-250ms-tail"}\"," +
+            "\"fullSpanFrames\":${s.fullSpanFrames},\"fullSpanBusyMs\":${pct(s.fullSpanBusy)}," +
+            "\"finalRecordedFrameEndAfterUpMs\":${f(s.finalRecordedFrameEndAfterUpMs)}," +
             "\"phasesMs\":{" + s.phases.entries.joinToString(",") { (k, v) -> "\"$k\":${pct(v)}" } + "}," +
             "\"memory\":${s.memory ?: "null"},\"device\":${deviceMemory()}}")
     }
@@ -343,6 +437,9 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
         const val TAG = "JoyBrushPerf"
         private const val TAIL_MS = 250L
         private const val SETTLE_MS = 800L
+        private const val FULL_TAIL_POLL_MS = 100L
+        private const val FULL_TAIL_TIMEOUT_MS = 5_000L
+        private const val FULL_TAIL_IDLE_CONFIRMATIONS = 2
 
         /** The bench request in [intent], or null: debug builds only, and only when asked for. */
         fun spec(intent: Intent?, info: ApplicationInfo): Spec? {
@@ -366,7 +463,9 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
                 waterJobs = if (intent.hasExtra("jb_water_jobs")) intent.getBooleanExtra("jb_water_jobs", true) else null,
                 mediaBudgetMb = intent.getIntExtra("jb_media_budget_mb", -1).takeIf { it > 0 },
                 dropDry = if (intent.hasExtra("jb_drop_dry")) intent.getBooleanExtra("jb_drop_dry", true) else null,
-                startMs = intent.getLongExtra("jb_start_ms", 1500L).coerceIn(0L, 60_000L))
+                startMs = intent.getLongExtra("jb_start_ms", 1500L).coerceIn(0L, 60_000L),
+                fullTail = intent.getBooleanExtra("jb_full_tail", false),
+                editableLines = if (intent.hasExtra("jb_editable_lines")) intent.getBooleanExtra("jb_editable_lines", false) else null)
         }
     }
 }

@@ -3,6 +3,8 @@ package cc.joycreator.joybrush.core.vector
 import cc.joycreator.joybrush.core.input.PenSample
 import cc.joycreator.joybrush.core.paint.UndoLog
 import cc.joycreator.joybrush.core.stroke.StrokeRecord
+import cc.joycreator.joybrush.core.stroke.StrokeWashFrame
+import cc.joycreator.joybrush.core.select.Homography
 import kotlin.test.*
 
 class RecordedCelTest {
@@ -26,7 +28,7 @@ class RecordedCelTest {
     @Test fun oneStepRestoresLinesAndSlabsTogetherAndIgnoresSameIdsElsewhere() {
         val base = RecordedCel.fromPixels("layer", "frame", mapOf(1L to 101))
         val r = record()
-        val step = UndoLog.Step(emptyList(), lines = listOf(
+        val step = UndoLog.Step<Int>(emptyList(), lines = listOf(
             UndoLog.LineChange("layer", "frame", r.id, null, line(r)),
             UndoLog.LineChange("other", "frame", r.id, null, line(r))), slabs = listOf(
             UndoLog.SlabChange("layer", "frame", 1L, 2L, null, value(202)),
@@ -82,5 +84,21 @@ class RecordedCelTest {
                 RecordedCel.PixelSlab(0L, value(101)), RecordedCel.PixelSlab(2L, value(101)))))
         }
         assertFailsWith<IllegalArgumentException> { RecordedCel.fromPixels("layer", null, mapOf(1L to 101, 2L to 101)) }
+    }
+
+    @Test fun washFrameSurvivesCelSnapshotsAndLineUndoRedo() {
+        val frame = StrokeWashFrame(1.2, 0.1, 20.0, -0.05, 0.9, 4.0, 0.0002, -0.0001, 1.0)
+        val original = record().copy(washFrame = frame)
+        val cel = RecordedCel<Int>("layer", null, listOf(original))
+        assertEquals(frame, cel.records.single().washFrame, "physical cel snapshot retains the frame")
+
+        val movedFrame = assertNotNull(frame.transformed(Homography.translate(30.0, -12.0)))
+        val moved = original.copy(washFrame = movedFrame)
+        val step = UndoLog.Step<Int>(emptyList(), lines = listOf(
+            UndoLog.LineChange("layer", null, original.id, line(original), line(moved))))
+        val after = cel.apply(step, true)
+        assertEquals(moved, after.records.single(), "line edit publishes frame data")
+        assertEquals(original, after.apply(step, false).records.single(), "undo restores prior frame")
+        assertEquals(moved, after.apply(step, false).apply(step, true).records.single(), "redo restores edited frame")
     }
 }

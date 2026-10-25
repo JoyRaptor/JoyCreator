@@ -4,8 +4,8 @@ import cc.joycreator.joybrush.androidkit.gl.GlProgram
 import cc.joycreator.joybrush.androidkit.gl.ShaderLibrary
 import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.brush.ENGINE_WATERCOLOUR
+import cc.joycreator.joybrush.core.brush.WatercolourSpec
 import cc.joycreator.joybrush.core.brush.watercolourRuntime
-import cc.joycreator.joybrush.core.input.PenSample
 import cc.joycreator.joybrush.core.paint.Tiles
 import cc.joycreator.joybrush.core.stroke.StrokeRecord
 import cc.joycreator.joybrush.core.vector.InkReplay
@@ -19,14 +19,17 @@ import cc.joycreator.joybrush.core.vector.InkReplay
 internal class GlWatercolourLineRenderer(shaders: ShaderLibrary, private val tileSize: Int = Tiles.SIZE,
                                         renderScale: Float = 1f) {
     private val pass = WatercolourPass(shaders,tileSize,renderScale)
-    private var prepared: Geometry? = null
-    private data class Geometry(val samples: List<PenSample>,val seed:Long,val widthScale:Float,
-                                val brush:cc.joycreator.joybrush.core.brush.WatercolourSpec)
+    private var prepared: WatercolourLineGeometryKey? = null
     private var keys: Set<Long> = emptySet()
+
+    /** True when retained coverage can be used to finish this record without depositing dabs again. */
+    fun canReuse(record: StrokeRecord, preset: BrushPreset): Boolean =
+        preset.engine == ENGINE_WATERCOLOUR && prepared == WatercolourLineGeometryKey.of(record, preset)
 
     /** Output targets must cover [touchedTiles]; missing targets are refused, not silently omitted. */
     fun touchedTiles(record: StrokeRecord,preset:BrushPreset): Set<Long> {
         require(preset.engine == ENGINE_WATERCOLOUR)
+        if (canReuse(record, preset)) return keys
         return InkReplay.dabs(record,preset).flatMap { Tiles.touchedBy(it,tileSize) }.toSet()
     }
     fun render(record:StrokeRecord,preset:BrushPreset,outputs:Map<Long,Int>,hasPaper:Boolean,
@@ -34,12 +37,15 @@ internal class GlWatercolourLineRenderer(shaders: ShaderLibrary, private val til
         require(preset.engine == ENGINE_WATERCOLOUR)
         InkReplay.refusal(record,preset)?.let { throw cc.joycreator.joybrush.core.vector.InkReplayException(it) }
         val spec=preset.watercolourRuntime()
-        val identity=Geometry(record.samples.toList(),record.seed,record.widthScale,spec)
+        val identity=WatercolourLineGeometryKey.of(record,preset)
         val tint=floatArrayOf(((record.colorArgb ushr 16)and 255)/255f,((record.colorArgb ushr 8)and 255)/255f,(record.colorArgb and 255)/255f)
         if(identity != prepared) {
             val dabs=InkReplay.dabs(record,preset)
             val buckets=Tiles.bucket(dabs,tileSize)
             require(outputs.keys.containsAll(buckets.keys)) { "Watercolor line look is missing output tiles" }
+            // begin clears old coverage before allocating the replacement. If preparation or dab
+            // drawing fails, do not leave the old key claiming that its bands are still available.
+            prepared=null; keys=emptySet()
             pass.begin(spec,record.seed,tint,hasPaper,bindPaper)
             pass.add(buckets) { null }
             keys=buckets.keys.toSet(); prepared=identity
@@ -47,9 +53,19 @@ internal class GlWatercolourLineRenderer(shaders: ShaderLibrary, private val til
             require(outputs.keys.containsAll(keys)) { "Watercolor line look is missing output tiles" }
             pass.recolour(tint,hasPaper,bindPaper)
         }
+        pass.setWashFrame(record.washFrame)
         pass.finishInto(outputs,1f,keys)
         return keys
     }
+    /** Prepare the existing pass resources without replacing its cached line coverage. */
+    fun prepare(spec: WatercolourSpec) = pass.prepare(spec)
+
+    /** Borrowed pass resources; ownership and GL-context lifecycle remain with the engine. */
+    internal fun heldTextureHandles(): Set<Int> = pass.heldTextureHandles()
+
+    /** Resident tile allocations held by this pass, including bounded reusable free tiles. */
+    internal fun heldWorkingTileBytes(): Map<Int, Long> = pass.heldWorkingTileBytes()
+
     fun forget() { pass.forget(); prepared=null; keys=emptySet() }
     fun release() { pass.release(); prepared=null; keys=emptySet() }
 }

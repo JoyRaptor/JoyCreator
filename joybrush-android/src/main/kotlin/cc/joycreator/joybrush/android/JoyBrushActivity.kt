@@ -2607,10 +2607,22 @@ class JoyBrushActivity : Activity() {
             val lines = selection as? SelectionState.Lines ?: run { selectUi.say("Paint selections can't be copied yet."); return }
             val selected = host.visibleLines().filter { it.address in lines.ids }
             if (selected.size != lines.ids.size) { selectUi.say("Those lines changed. Tap again to choose."); return }
-            LineSelectionClipboard.copy(selected.sortedBy { it.record.seq }.map { line ->
-                LineSelectionClipboard.Entry(line.record, host.brushOf(line.record.brushId))
-            })
-            selectUi.say("Lines copied. Tap Paste in Select settings or More.")
+            val sourceCanvas = canvas
+            val epoch = sourceCanvas.lineEditEpoch
+            sourceCanvas.requestLineCopy(sourceCanvas.lineSnapshot, selected.map {
+                cc.joycreator.joybrush.core.stroke.AddressedStroke(it.address, it.record)
+            }) { result ->
+                if (isFinishing || isDestroyed || canvas !== sourceCanvas || sourceCanvas.lineEditEpoch != epoch)
+                    return@requestLineCopy
+                when (result) {
+                    is cc.joycreator.joybrush.androidkit.lines.LineCopyResult.Ready -> {
+                        if (LineSelectionClipboard.accept(result.payload))
+                            selectUi.say("Lines copied. Tap Paste in Select settings or More.")
+                        else selectUi.say("Those lines couldn't be copied.")
+                    }
+                    is cc.joycreator.joybrush.androidkit.lines.LineCopyResult.Refused -> selectUi.say(result.message)
+                }
+            }
         }
 
         override fun restyleRing(on: Boolean, pulse: Boolean) = strip.setSelectionRestyle(on, pulse)

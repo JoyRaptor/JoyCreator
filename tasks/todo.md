@@ -83,7 +83,7 @@ Open (mine): restyle Home recorder (Bits); fullscreen preview; Home sidebar; aud
 Parked: VisLab (brief in tasks/VISLAB_BRIEF.md); Joy Brush send-into-existing-project.
 
 ## Coordinator current-main Select reconciliation — October24
-- [ ] Reapply A1–A8/C2/safety/cancel/stale patches onto main7d2 while retaining UI placement/ink/chips/bench changes.
+- [x] Reapply A1–A8/C2/safety/cancel/stale patches onto main7d2 while retaining UI placement/ink/chips/bench changes (source only; new combined Android tests owed).
 - [ ] Preserve narrow bench observation APIs without reopening mutable host; fix clean-UP/CANCEL contract with real overlay evidence.
 - [ ] Adopt reviewed canonical Copy admission separately when builder delivers; preserve source-domain refusals and owner K25/L3 gates.
 - [ ] Integrate guarded bench runner +offline evidence validator; exact-APK per-step phone evidence remains owed.

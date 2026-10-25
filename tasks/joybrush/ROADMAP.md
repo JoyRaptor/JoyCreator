@@ -16,15 +16,17 @@ Evidence/continuation: [completion audit](reviews/WATERCOLOUR_COMPLETION_AUDIT_2
 | Step / feature | State | Proof still owed |
 |---|---|---|
 | L1 cold/warm OFF/ON, whole-fade benchmark | Measured on Note9 | Preserve20 baseline rows, synthetic/glFinish scope |
-| L2 selected-brush preparation/full fade | Built candidate, tested in Claude branch | Five cold comparisons/full-fade phone check; not landed |
-| L3 per-brush Makes lines, Watercolor default ON | Restored onto current-main candidate | Test current-main UI and immediate editable stroke |
+| L2 selected-brush preparation/full fade | Source on main | Five cold comparisons/full-fade phone check still owed |
+| L3 per-brush settings / K25 | Corrected current-main candidate; old8c019 held out | Per-ID only, exact defaults/pixel-only guards; eight policy tests await RAM, then Lead review/A10/phone. Shared Slice+smudge section-bake remains separately assigned by Lead |
 | L4 wash-frame transform and edits | Current core2559/backend1068 pass; production recolor cache compiles/key tests pass | Single selected line <=32 tiles reuses coverage; large/multi-selection falls back. Device pixel/cache proof; phone move/rotate/rebrush/delete, one Undo each |
 | L5 frozen brush/frame archive | Automated candidate proof | Phone save/reopen pixel hash, graphics restart and first edit |
 | L6 approved POC appearance | Pending acceptance | GPU comparison and owner's phone look/feel approval |
 | L7 Note9 size300/spacing15%, p95<=16.7ms | Baseline fails | Optimize/repeat identical matrix; preserve full-resolution final pooling |
 
-Claude branch lead/wc-live-land1681bfdeb reports green core2559/4 optional skips,
-backend1064/native317 and an APK. These commits are not yet on remote main.
+Current mainf79efc378 includes the earlier wash/cache/prewarm source and the
+Lead's ordinary-vs-moved-wash shader program split. Latest corrected policy
+candidate: [October25 handoff](reviews/WATERCOLOUR_K25_20261025.md). Earlier
+suite/APK counts remain tied to their recorded source, not this new policy.
 Task remains in progress, not signed off or waiting only on the owner. Continue
 existing work; retain unfinished temporary source/evidence until acceptance.
 

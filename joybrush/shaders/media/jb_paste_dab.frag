@@ -85,6 +85,7 @@ void main() {
     float b = dot(rel, u_lDir);
     float px = 1.0 / (u_pxPerMm * u_layerScale);   // one LAYER px, in mm
     u_hairLen = jb_vnoise1((a + 1.0) * 8.0, uint(u_seed) + 41u);
+    if (u_ends > 0.5) jb_tip = jb_pasteTip(a);
     float cover = jb_pasteCover(a, b, px / max(jb_pasteHalfW(), 1e-3), px);
     if (cover <= 0.0) return;
 
@@ -99,15 +100,16 @@ void main() {
     // "holes that ignore new strokes", 2026-10-06).
     float here = surfaceAt(layerPx);
     float o = 8.0 * u_layerScale;
-    float around = 0.25 * (surfaceAt(layerPx + vec2(o, 0)) + surfaceAt(layerPx - vec2(o, 0))
-                         + surfaceAt(layerPx + vec2(0, o)) + surfaceAt(layerPx - vec2(0, o)));
+    float sR = surfaceAt(layerPx + vec2(o, 0)), sL = surfaceAt(layerPx - vec2(o, 0));
+    float sU = surfaceAt(layerPx + vec2(0, o)), sD = surfaceAt(layerPx - vec2(0, o));
+    float around = 0.25 * (sR + sL + sU + sD);
     float fillLoad = clamp(load / max(jb_cap, 1e-6), 0.0, 1.0);
     float give = jb_pasteGive(fillLoad);
     float edgeW = mix(0.02, 0.03, u_fillDips);
-    // Lifting off, the dry paint keys to the tooth's faces rising toward the travel (-u_lDir), a few px either side.
-    float rise = 0.0;
-    if (u_ends > 0.5 && u_lift > 0.0 && u_shape < 1.5) rise = surfaceAt(layerPx - u_lDir * (3.0 * u_layerScale)) - surfaceAt(layerPx + u_lDir * (3.0 * u_layerScale));
-    float reach = smoothstep(-edgeW, edgeW, here - around + give - jb_pasteGraze(hair)) * jb_pasteDry(jb_pasteTip(a), here - around, rise, u_toothMm);
+    // Lifting off, the dry paint keys to the tooth's faces rising toward the travel (-u_lDir): the surface 3 px ahead minus
+    // 3 px behind, from the slope across the four reads above.
+    float rise = 0.375 * ((sL - sR) * u_lDir.x + (sD - sU) * u_lDir.y);
+    float reach = smoothstep(-edgeW, edgeW, here - around + give - jb_pasteGraze(hair)) * jb_pasteDry(jb_tip, here - around, rise, u_toothMm);
     float c = cover * reach;
 
     float t = p0.a;

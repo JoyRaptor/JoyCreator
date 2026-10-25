@@ -82,6 +82,7 @@ void main() {
     float b = u_len - delta * u_lenMax;
     jb_cap = u_cellCap * jb_pasteProf(delta);   // how full this cell holds (it trades from its own depth)
     u_hairLen = jb_vnoise1((a + 1.0) * 8.0, uint(u_seed) + 41u);
+    if (u_ends > 0.5) jb_tip = jb_pasteTip(a);
     float cover = u_active > 0.5 && u_shape < 2.5 ? jb_pasteCover(a, b, 0.02, 0.05) : 0.0;
     if (cover > 0.0) {
         vec2 docPos = u_center + (a * jb_pasteHalfW() * u_wDir + b * u_lDir) * u_pxPerMm;
@@ -94,12 +95,12 @@ void main() {
         float hair = jb_pasteHair(a, docPos);
         float here = surfaceAt(pos);
         float o = 8.0 * u_layerScale;
-        float around = 0.25 * (surfaceAt(pos + vec2(o, 0)) + surfaceAt(pos - vec2(o, 0))
-                             + surfaceAt(pos + vec2(0, o)) + surfaceAt(pos - vec2(0, o)));
+        float sR = surfaceAt(pos + vec2(o, 0)), sL = surfaceAt(pos - vec2(o, 0));
+        float sU = surfaceAt(pos + vec2(0, o)), sD = surfaceAt(pos - vec2(0, o));
+        float around = 0.25 * (sR + sL + sU + sD);
         float give = jb_pasteGive(clamp(load / max(jb_cap, 1e-6), 0.0, 1.0));
-        float rise = 0.0;
-        if (u_ends > 0.5 && u_lift > 0.0 && u_shape < 1.5) rise = surfaceAt(pos - u_lDir * (3.0 * u_layerScale)) - surfaceAt(pos + u_lDir * (3.0 * u_layerScale));
-        float c = cover * smoothstep(-0.02, 0.02, here - around + give - jb_pasteGraze(hair)) * jb_pasteDry(jb_pasteTip(a), here - around, rise, u_toothMm);
+        float rise = 0.375 * ((sL - sR) * u_lDir.x + (sD - sU) * u_lDir.y);   // as the canvas pass
+        float c = cover * smoothstep(-0.02, 0.02, here - around + give - jb_pasteGraze(hair)) * jb_pasteDry(jb_tip, here - around, rise, u_toothMm);
 
         float t = p0.a;
         vec3 Kc = t > 1e-6 ? p0.rgb / t : vec3(0.0);

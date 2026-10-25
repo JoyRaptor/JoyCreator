@@ -112,6 +112,9 @@ float jb_pasteRag(vec2 docPx) {
 // A run of hair's own length and strength (0 short and weak .. 1 long and strong): clumps plus single hairs, fixed
 // to the brush (lane a), so the same hairs land last, lift last and leave the longest streaks.
 float jb_pasteTip(float a) { return 0.6 * u_hairLen + 0.4 * jb_vnoise1((a + 1.0) * 27.0, uint(u_seed) + 43u); }
+// This fragment's run of hair (jb_pasteTip), set once by each pass right after u_hairLen when u_ends is on (it was
+// worked out three times a pixel: +20-30 % paste time a step on the Note 9, 10-25 A/B).
+float jb_tip = 0.5;
 
 // Footprint coverage at brush coords (a, b): 1 inside, soft 1-px edge, shaped by the brush.
 // No edge of a hair brush is ever a straight line (the owner, 2026-10-07: "a perfectly sharp cutoff when
@@ -123,10 +126,10 @@ float jb_pasteCover(float a, float b, float aaA, float aaB) {
     // its own pace, so the runs end one after another. Only ever INSIDE the footprint (PasteFootprint's box holds).
     float tail = 0.0;
     if (u_ends > 0.5 && u_shape < 2.5) {
-        float tip = jb_pasteTip(a);
+        float tip = jb_tip;
         float rough = u_shape > 1.5 ? 0.35 : 1.0;   // the trowel's edge is straight; only the paint at it tears
         b -= rough * (0.16 * u_halfW * (1.0 - tip) + u_lift * u_len * 0.85 * (1.0 - tip) * (1.0 - tip));
-        tail = rough * min(0.6 * u_len, 0.45 * u_halfW * (1.0 - tip) + 0.15 * u_halfW * jb_vnoise1((a + 1.0) * 61.0, uint(u_seed) + 44u));
+        tail = rough * min(0.6 * u_len, 0.45 * u_halfW * (1.0 - tip) + 0.15 * u_halfW * fract(tip * 7.31));
         if (b < -aaB) return 0.0;
     }
     float t = clamp(b / max(u_len, 1e-3), 0.0, 1.0);
@@ -171,7 +174,7 @@ float jb_pasteCover(float a, float b, float aaA, float aaB) {
     // landing lightly, only the long ones reach it until the press builds, so a swept landing starts in streaks.
     if (u_ends > 0.5 && u_shape < 1.5) {
         float thr = max(0.3 * u_lift, 0.5 * u_land * (1.0 - smoothstep(0.12, 0.45, u_pressure)));
-        if (thr > 0.0) side *= smoothstep(thr - 0.05, thr + 0.05, jb_pasteTip(a));
+        if (thr > 0.0) side *= smoothstep(thr - 0.05, thr + 0.05, jb_tip);
     }
     // The ends ramp over at least one step of travel: each step then blends into the next and the stroke
     // never shows a line per step.
@@ -229,7 +232,7 @@ float jb_pasteGraze(float hair) { return 0.06 * (1.0 - hair); }
 // streaks), then how high the tooth stands there (relief: the surface here minus around, mm) and whether its face rises
 // toward the travel (rise: ahead minus behind). As the pen eases off, the score a point needs climbs with u_lift, so the
 // share that takes paint falls steadily: whole streaks, broken streaks, the strongest hairs on the tooth's tops, specks.
-// Callers read `rise` only for hair brushes: the two extra surface reads cost a big trowel +55 % (10-24 A/B).
+// `rise` comes from the four surface reads the passes already make for `around` (two extra reads cost a big trowel +55 %).
 float jb_pasteDry(float tip, float relief, float rise, float toothMm) {
     if (u_ends < 0.5 || u_shape > 1.5 || u_lift <= 0.0) return 1.0;
     float tooth = max(0.5 * toothMm, 1e-3);   // (u_toothMm is declared by the passes, after this file)

@@ -45,6 +45,8 @@ not a replacement of the Coordinator's checkout.
   and correctly returned **1**, requiring the new candidate's successful-build receipt.
   Log: `C:/Temp/jb-select-bench-preflight-20261025.log`. This is a preflight refusal,
   not a benchmark run or phone acceptance. Fresh adb inventory contained no devices.
+  The A10 checkpoint invocation likewise returned 1 before launch; its separate log is
+  `C:/Temp/jb-select-a10-preflight-20261025.log`. Neither invocation held a phone claim.
 - Earlier Coordinator evidence stays attached to its exact source: 25 HSB/Sync cases
   passed on `9ace0963c`; backend `ca141cce5` ran 21 cases with three fixture-constructor
   failures (Engine 8 and Reply 5 passed). The fixture fix `1edcfff89` was adopted but

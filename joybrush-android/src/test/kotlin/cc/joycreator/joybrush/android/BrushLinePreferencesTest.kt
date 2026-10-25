@@ -84,11 +84,12 @@ class BrushLinePreferencesTest {
     }
 
     @Test fun paintingPencilsAndMarkersDoNotInheritTheOldShelfDefaults() {
-        val mode = BrushLinePreferences(preferences())
+        val prefs = preferences()
+        val mode = BrushLinePreferences(prefs)
         assertFalse(mode.enabled(paint.copy(id = "joybrush.pencil", name = "Pencil")))
         assertFalse(mode.enabled(paint.copy(id = "joybrush.marker", name = "Marker")))
         mode.set(paint, true)
-        assertTrue(BrushLinePreferences(preferences()).enabled(paint))
+        assertTrue(BrushLinePreferences(prefs).enabled(paint))
     }
 
     @Test fun inkAndPenSubstringsDoNotTurnAPaintingBrushIntoLines() {

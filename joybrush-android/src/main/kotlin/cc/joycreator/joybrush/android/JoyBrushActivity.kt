@@ -2646,6 +2646,8 @@ class JoyBrushActivity : Activity() {
         val ids = (selection?.tool?.selection as? SelectionState.Lines)?.ids ?: return null
         val records = host.activeLines().filter { it.address in ids }.map { it.record }.sortedBy { it.seq }
         val first = records.firstOrNull() ?: return null
+        // Matched by NAME: a line's brush is a frozen copy with its own id, so its id never equals the library's. If a frozen
+        // brush ever keeps its source id, match on that instead.
         val inUse = records.mapNotNull { host.brushOf(it.brushId)?.name }.toSet()
         return BrushDrawerView.Swap(first.colorArgb, canvas.paperArgb, { it.name in inUse },
             "Only brushes that keep lines editable are shown.")

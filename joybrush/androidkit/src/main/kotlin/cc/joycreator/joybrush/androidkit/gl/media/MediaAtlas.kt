@@ -59,6 +59,18 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
     private var park: MediaWaterPark? = null
     /** Tile key -> its park unit, for tiles out of the atlas whose exact state waits in [park]. */
     private val parked = HashMap<Long, Int>()
+    /** In a block step (P2): tiles out of the atlas whose block ran this step, their next half (current is in [parked]). */
+    private val parkedNext = HashMap<Long, Int>()
+    /** This frame's water did not fit whole (park on): its job runs in blocks instead of being refused. */
+    private var outOfCore = false
+    /** The water's tiles this frame: what blocks own; the rest of its rectangle is dry and beyond its reach. */
+    private var waterDomainKeys: Set<Long> = emptySet()
+    /** Pages a block holds while its passes run, besides the frame's own [pinned]. */
+    private val blockPinned = LinkedHashSet<MediaAtlasPage>()
+    /** Tiles whose block has run in the step under way. */
+    private val doneThisStep = HashSet<Long>()
+    /** Blocks run, tiles moved in for them (bench). */
+    var blocksRun = 0; private set
     /** What the water needs held (its tiles and their 8-neighbours, as last admitted): pinned before anything else loads. */
     private var waterHeld: Set<Long> = emptySet()
     /** This frame's own drawing (its passes' rects, where the brush put water): where the look is recomputed besides the water. */
@@ -151,6 +163,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         if (staleDrawing() || layerId == null || needs.isEmpty()) return
         val now = nowMs()
         if (!media.wetActive && needs.none { it.water }) resetWater()
+        outOfCore = false
         val keys = LinkedHashSet<Long>()
         frameDirty.clear()
         frameInput.clear()
@@ -209,7 +222,15 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
             android.util.Log.i(TAG, "water: ${domain.count { slots.resident(page(it)) != null }} resident tiles in its rectangle, ${water.mustStay(domain, reads, 0).size} hold water or are within its reach, ${must.size} kept with the look; " +
                 "of the ${domain.count(water::holdsWater)} wet, ${water.stillCount(domain, now, 500)} still for 0.5 s, ${water.stillCount(domain, now, 2000)} for 2 s; ${water.paused.size} paused, ${water.setAside.size} set aside")
         }
+        waterDomainKeys = water.mustStay(domain, reads, 0)
         if (MediaAtlasPlacement.fits(slots.capacity, frame + must, held)) return must
+        // ATLAS_ROOM P2: with the park on, water too wide for the atlas runs block by block (each block and its ring here in
+        // turn, the rest parked exactly) instead of drying old water or refusing: slower when there is a lot of it, never refused.
+        if (MediaAtlasPark.units > 0) {
+            if (!outOfCore) android.util.Log.i(TAG, "water out of core: must stay ${must.size} + frame ${frame.size} > ${slots.capacity} slots; in blocks")
+            outOfCore = true
+            return emptySet()
+        }
         val plan = water.plan(domain, reads, frame, held, slots.capacity, (pen[0] + pen[2]) / 2.0, (pen[1] + pen[3]) / 2.0, now, look)
             ?: run { android.util.Log.w(TAG, "water refused: frame ${frame.size}, water must stay ${must.size}, held ${held.size}, capacity ${slots.capacity}"); null }
             ?: throw MediaRoomException("This watercolour stroke reaches further than this phone can hold at once. " +
@@ -381,7 +402,8 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
     private val residency by lazy { MediaAtlasResidency(slots, backing) }
     private val backing = object : MediaAtlasBacking {
         override fun load(slot: Int, page: MediaAtlasPage) = mediaTrace("JB.media.atlas.load") { loadSlot(slot, page.tileKey) }
-        override fun writeBack(slot: Int, page: MediaAtlasPage) = mediaTrace("JB.media.atlas.writeBack") { parkIfLive(slot, page.tileKey); writeBackSlot(slot, page.tileKey); dropFromTable(page.tileKey) }
+        override fun writeBack(slot: Int, page: MediaAtlasPage) = mediaTrace("JB.media.atlas.writeBack") { writeBackSlot(slot, page.tileKey); dropFromTable(page.tileKey) }
+        override fun evicted(slot: Int, page: MediaAtlasPage) = parkIfLive(slot, page.tileKey)
     }
 
     /** One tile into [slot]: its payload, its look and its ground (its `g`, or its look when it has no payload), its paper. */
@@ -407,8 +429,12 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         // The table must hold the new tile before its paper is baked through it.
         val table = resident().toMutableMap().also { it[key] = slot }
         mediaTrace("JB.media.atlas.table") { media.setResidency(table) }
-        // Parked water comes back exactly, over what the stores just loaded (their f16 copy, no flow).
-        parked.remove(key)?.let { unit -> mediaTrace("JB.media.park.in") { media.unparkSlot(park!!, unit, slot) }; park!!.give(unit) }
+        // Parked water comes back exactly, over what the stores just loaded (their f16 copy, no flow). Inside a block step
+        // (nothing may finish the job) into the current half and the other: the stores' paint first in both halves too.
+        if (media.waterInBlocks) {
+            media.mirrorPaint(slot)
+            parked.remove(key)?.let { unit -> mediaTrace("JB.media.park.in") { media.loadHalf(park!!, unit, slot, both = true, ringOnly = false) }; park!!.give(unit) }
+        } else parked.remove(key)?.let { unit -> mediaTrace("JB.media.park.in") { media.unparkSlot(park!!, unit, slot) }; park!!.give(unit) }
         mediaTrace("JB.media.atlas.bake") { media.bakeTile(key, paint.mediaPaper()) }
         if (wetHere && resumeOnLoad) media.resumeWater(tileRect(key))
     }
@@ -425,20 +451,90 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
      */
     private fun parkIfLive(slot: Int, key: Long) {
         val units = MediaAtlasPark.units
-        if (units <= 0 || !media.wetActive || !media.hasWaterTextures || !water.holdsWater(key) || media.inputPendingIn(key)) return
+        if (units <= 0 || !media.wetActive || !media.hasWaterTextures || media.inputPendingIn(key)) return
+        val inBlocks = media.waterInBlocks
+        // In a block step every tile the water owns carries the step's state; outside one, live water only.
+        if (if (inBlocks) key !in waterDomainKeys else !water.holdsWater(key)) return
         val p = park ?: MediaWaterPark(media.waterCell, units).also { park = it }
         val unit = p.take() ?: run { android.util.Log.w(TAG, "water park full (${p.capacity} tiles): a running tile leaves through its stores"); return }
-        mediaTrace("JB.media.park.out") { media.parkSlot(key, slot, p, unit) }
+        if (inBlocks) {
+            // Inside the job (nothing may finish it): its current half, and its next half if its block has run this step.
+            mediaTrace("JB.media.park.out") { media.parkHalf(slot, p, unit, next = false) }
+            if (key in doneThisStep) {
+                val n = p.take() ?: run { p.give(unit); android.util.Log.w(TAG, "water park full mid-step"); return }
+                media.parkHalf(slot, p, n, next = true)
+                parkedNext.put(key, n)?.let(p::give)
+            }
+        } else mediaTrace("JB.media.park.out") { media.parkSlot(key, slot, p, unit) }
         parked.put(key, unit)?.let(p::give)
         parkedTotal++
+    }
+
+    /**
+     * The atlas as a block host (ATLAS_ROOM P2): a job whose water did not fit this frame ([outOfCore]) runs block by block,
+     * each block's tiles and their ring brought in (from the park, or their stores) and held while its passes run.
+     */
+    private val blocks = object : WaterBlockHost {
+        override fun fitsWhole(cells: IntArray, skip: Set<Long>): Boolean = !outOfCore
+        override fun dry(cells: IntArray): Set<Long> {
+            val all = MediaAtlasPlacement.tiles(cells[0].toDouble(), cells[1].toDouble(), cells[2].toDouble(), cells[3].toDouble(), 0)
+            return all.filterTo(HashSet()) { it !in waterDomainKeys }
+        }
+        override fun enter(block: cc.joycreator.joybrush.core.media.WaterBlocks.Block, k: Int) {
+            blocksRun++
+            val need = (block.own + block.ring).toSet()
+            // Brush input not yet in the water never leaves (the park holds none).
+            for (r in slots.residents()) if (media.inputPendingIn(r.page.tileKey)) pinBlock(r.page)
+            if (!MediaAtlasPlacement.fits(slots.capacity, need, (pinned + blockPinned).mapTo(HashSet()) { it.tileKey }))
+                throw MediaRoomException("A block of water and its ring do not fit beside what the frame holds (${need.size} areas of ${slots.capacity}).")
+            for (key in need) {
+                val p = page(key)
+                if (slots.resident(p) == null) {
+                    resumeOnLoad = false
+                    try { residency.ensure(p) ?: throw MediaRoomException("There is no room for this water's block right now.") } finally { resumeOnLoad = true }
+                    media.setResidency(resident())
+                } else slots.touch(p)
+                pinBlock(p)
+            }
+            // The look of the block's own tiles, now that they and what their look reads are here: the last finished step.
+            layerId?.let { id -> writeLookOnce(id, emptyList(), block.own.map(::tileRect)) }
+        }
+        override fun leave(block: cc.joycreator.joybrush.core.media.WaterBlocks.Block, k: Int) {
+            doneThisStep += block.own
+            for (key in block.own) slots.resident(page(key))?.let { slots.markDirty(it.page) }
+            unpinBlocks()
+        }
+        override fun stepDone(k: Int) {
+            val p = park
+            for ((t, u) in parkedNext) { val old = parked.put(t, u); if (old != null && p != null) p.give(old) }
+            parkedNext.clear(); doneThisStep.clear()
+        }
+        override fun jobDone() {
+            unpinBlocks()
+            val p = park
+            if (p != null) for (u in parkedNext.values) p.give(u)
+            parkedNext.clear(); doneThisStep.clear()
+        }
+    }
+
+    init { media.blockHost = blocks }   // after [blocks] is made (initialisers run in order)
+
+    private fun pinBlock(p: MediaAtlasPage) {
+        if (p in pinned || p in blockPinned || slots.resident(p) == null) return
+        slots.pin(p); blockPinned += p
+    }
+
+    private fun unpinBlocks() {
+        for (p in blockPinned) if (slots.resident(p) != null) slots.unpin(p)
+        blockPinned.clear()
     }
 
     /** Parked state that no longer matches the stores (an undo, a look written from outside, the layer let go): forgotten. */
     private fun unpark(keys: Collection<Long>? = null) {
         val p = park ?: return
-        val drop = keys?.filter { it in parked } ?: parked.keys.toList()
-        for (k in drop) parked.remove(k)?.let(p::give)
-        if (parked.isEmpty()) { p.release(); park = null }
+        val drop = keys?.filter { it in parked || it in parkedNext } ?: (parked.keys + parkedNext.keys).toList()
+        for (k in drop) { parked.remove(k)?.let(p::give); parkedNext.remove(k)?.let(p::give) }
+        if (parked.isEmpty() && parkedNext.isEmpty()) { p.release(); park = null }
     }
 
     /** Tiles that went into the park since this atlas was made (bench). */

@@ -724,7 +724,9 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
 
     /** [store]'s current state at (x, y) (see [loadStoreTile]) into the stored tile [dst]; coarse water fills each cell's pixels. */
     fun writeStoreTile(store: String, dst: Int, x: Int, y: Int) {
-        finishWaterStep()   // a finished step is a whole state ([current] reads it)
+        // A finished step is a whole state ([current] reads it). A job in blocks is never finished from here (this runs inside
+        // it when a block's tile leaves): its current halves are the last finished step for every tile already.
+        if (job?.blocks == null) finishWaterStep()
         val src = current(store) ?: return
         val t = Tiles.SIZE
         if (store in WATER_STORES && wf > 1) blit(src, x / wf, y / wf, (x + t) / wf, (y + t) / wf, dst, 0, 0, t, t)
@@ -1265,6 +1267,20 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     internal var slicedSteps = 2
     /** A water job is under way (its rectangle must stay resident: [waterJobRect]). */
     val waterJobRunning get() = job != null
+    /** A water job runs block by block now (ATLAS_ROOM P2): nothing may finish it from inside ([WaterBlockHost]). */
+    internal val waterInBlocks get() = job?.blocks != null
+    /** Block hosts: the step [k] a running job is on (paint state[k mod 2] is current), 0 with none. */
+    internal val jobStep get() = job?.k ?: 0
+
+    /**
+     * Block hosts: a slot just loaded from its stores (paint in state[0], water in both halves) at rest in BOTH paint halves, so
+     * whichever the running step reads as current it reads the stores. No job is finished (this runs inside one).
+     */
+    internal fun mirrorPaint(slot: Int) {
+        val (ax, ay) = slotTexel(slot); val s = MediaAtlasDraw.SIDE
+        for ((a, b) in listOf(state[0].p0 to state[1].p0, state[0].p1 to state[1].p1, state[0].paper to state[1].paper))
+            blit(a, ax, ay, ax + s, ay + s, b, ax, ay, ax + s, ay + s)
+    }
     val waterJobRect: FloatArray? get() = job?.rect
     /** Counts finished water steps (the host redraws the water's look when it moves). */
     var waterSteps = 0L; private set
@@ -1353,7 +1369,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         inNext = 1 - ib
         val blocks = host?.let {
             val hrI = hr?.let { h -> intArrayOf(floor(h[0]).toInt(), floor(h[1]).toInt(), ceil(h[2]).toInt(), ceil(h[3]).toInt()) }
-            WaterBlocks.plan(cellsI, hrI, wf, blockSide, skip)
+            WaterBlocks.plan(cellsI, hrI, wf, blockSide, skip + it.dry(cellsI))
         }
         job = WaterJob(rect, cells, ran, wc0, beadCells, ib, inArea[ib] != null || inAll[ib], ageScale, paper, pxPerMm,
             maxWetSeconds, stages, hr, sigma, skip, waterSkip, sliced, blocks, ringCells(wc0, beadCells))

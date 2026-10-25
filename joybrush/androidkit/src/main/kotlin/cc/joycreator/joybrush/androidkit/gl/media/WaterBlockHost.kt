@@ -11,6 +11,11 @@ import cc.joycreator.joybrush.core.media.WaterBlocks
 internal interface WaterBlockHost {
     /** Whether a job over [cells] (water cells) can run whole: every tile it touches, and its ring, resident at once. */
     fun fitsWhole(cells: IntArray, skip: Set<Long>): Boolean
+    /**
+     * Tiles of a job over [cells] that hold no water and lie beyond its reach: no block owns them (a whole job never ran them
+     * either: they were not resident, so its passes drew nothing there). Not walls: a block's ring still reads them.
+     */
+    fun dry(cells: IntArray): Set<Long> = emptySet()
     /** Before [block]'s passes in step [k]. */
     fun enter(block: WaterBlocks.Block, k: Int)
     /** After them: the block's own tiles hold their next half now. */

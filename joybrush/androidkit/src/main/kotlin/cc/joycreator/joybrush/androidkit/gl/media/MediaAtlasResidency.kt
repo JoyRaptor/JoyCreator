@@ -13,6 +13,8 @@ import cc.joycreator.joybrush.core.media.MediaAtlasSlots
 interface MediaAtlasBacking {
     fun load(slot: Int, page: MediaAtlasPage)
     fun writeBack(slot: Int, page: MediaAtlasPage)
+    /** Every victim, dirty or not, before [writeBack] (ATLAS_ROOM: a tile with running water parks whether or not it is dirty). */
+    fun evicted(slot: Int, page: MediaAtlasPage) {}
 }
 
 /** Fakeable load/write-back ordering. This does not replace MediaWindow or allocate real GL textures yet. */
@@ -24,6 +26,7 @@ class MediaAtlasResidency(val slots: MediaAtlasSlots, private val backing: Media
         is MediaAtlasSlots.Reservation -> {
             try {
                 backing.load(admission.slot, page)
+                admission.victim?.let { backing.evicted(it.slot, it.page) }
                 admission.victim?.takeIf { it.dirty }?.let { backing.writeBack(it.slot, it.page) }
             } catch (failure: Throwable) {
                 slots.cancel(admission)

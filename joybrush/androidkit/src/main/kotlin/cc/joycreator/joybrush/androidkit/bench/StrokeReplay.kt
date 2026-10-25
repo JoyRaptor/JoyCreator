@@ -50,6 +50,9 @@ object StrokeReplay {
             x to y
         }
         // …then lines that start on dry paper and run into it, crossing it a little.
+        // The atlas room (ATLAS_ROOM_20261023): a dense wash over the whole screen, more wet tiles than the Note 9's atlas holds
+        // at once (what zoomed-out painting meets): main refuses it; out of core it must run, slower.
+        "wideWash" -> zigzag(w * 0.04f, w * 0.96f, h * 0.04f, h * 0.96f, 16, 6000.0)
         "blue1" -> line(w * 0.05f, h * 0.55f, w * 0.45f, h * 0.30f, 900.0)
         "blue2" -> line(w * 0.95f, h * 0.50f, w * 0.60f, h * 0.27f, 900.0)
         "blue3" -> line(w * 0.25f, h * 0.62f, w * 0.75f, h * 0.48f, 900.0)

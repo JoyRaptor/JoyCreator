@@ -31,7 +31,8 @@ import kotlin.math.sin
 internal object MediaAtlasBlockedProbe {
     private const val SIDE = 256
     private const val WORLD = 5
-    private const val CAPACITY = 15
+    // Every slot but the zero slot: a tilted Wash frame's input pins up to 12 tiles (its tiles stay until the water takes it).
+    private const val CAPACITY = 19
 
     fun probe(shaders: ShaderLibrary, paper: MediaPaperGl): String {
         val report = JSONObject().put("probe", "atlasRoomBlocked").put("world", WORLD).put("capacity", CAPACITY)

@@ -461,7 +461,10 @@ class SelectController(
 
     /** Paste records into the current editable plane, assigning fresh identities and importing their frozen brushes. */
     private fun pasteLines() {
-        val destination = try { host.prepareWithBrushStaging { preparePastedLines() } }
+        val destination = try {
+            if (host is CanvasSelectionHost) host.prepareWithBrushStaging { preparePastedLines() }
+            else preparePastedLines()
+        }
         catch (_: OutOfMemoryError) { host.toast(LineSelectionClipboard.MEMORY_REFUSAL); null }
             ?: return
         // Publication is outside the preparation catch: an error after submission cannot be reported as no edit.

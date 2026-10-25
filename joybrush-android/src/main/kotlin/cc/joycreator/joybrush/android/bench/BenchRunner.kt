@@ -79,6 +79,10 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
 
     private val ui = Handler(Looper.getMainLooper())
     private val jobs = ArrayDeque<Triple<BrushPreset, String, Int>>()
+    private var selectBench: SelectBench? = null
+
+    /** Only Select owns synthetic UI gestures; abort them when its Activity leaves the foreground. */
+    fun abortSelect() { if (selectBench?.abort() == true) onDone() }
 
     fun start() {
         spec.editableLines?.let { canvas.editableLines = it; Log.i(TAG, "editable lines override: $it") }
@@ -97,7 +101,10 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
         spec.dropDry?.let { cc.joycreator.joybrush.androidkit.gl.media.MediaAtlasDropDry.on = it; Log.i(TAG, "drop dry water: $it") }
         spec.water?.let { canvas.mediaWaterAB = cc.joycreator.joybrush.android.WaterTest.of(it).ab; Log.i(TAG, "water test: $it") }
         if ("matrix" in spec.cases) { MatrixBench(canvas, spec, onDone).start(); return }
-        if ("select" in spec.cases) { SelectBench(canvas, spec.selectRunId, onDone).start(); return }
+        if ("select" in spec.cases) {
+            selectBench = SelectBench(canvas, spec.selectRunId, onDone).also { it.start() }
+            return
+        }
         val all = BrushLibrary.builtIn()
         Log.i(TAG, "brushes available: " + all.joinToString(",") { it.id })
         for (b in spec.brushes) {

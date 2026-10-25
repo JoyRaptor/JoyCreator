@@ -175,7 +175,6 @@ private const val PREF_TILT_PHONE = "tilt_phone"
 /** JB-2.12, Lead ruling R49: the guides are remembered by the app, never by the drawing. */
 private const val PREF_GUIDES = "guides"
 
-/** NATIVE_LINES_V1: the "Editable lines" switch. Off until chosen; the app remembers it, the drawing does not. */
 /** LAYER_OPS L6: what Flatten does with hidden layers: "ask" (default), "keep" or "discard". */
 private const val PREF_FLATTEN_HIDDEN = "joybrush.flattenHidden"
 private const val PREF_WATER_TEST = "joybrush.waterTest"
@@ -973,10 +972,11 @@ class JoyBrushActivity : Activity() {
         val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         box.addView(menuRow("Boards…", "Create or select an Image, Animation or Sprite board") { popovers.close(); boardController?.showMenu() })
         val linesOn = canvas.editableLines
-        box.addView(menuRow(if (linesOn) "Brush makes lines  ✓" else "Brush makes lines",
+        val linesBrushId = canvas.preset?.id
+        if (BrushLinePreferences.canSwitch(canvas.preset)) box.addView(menuRow(if (linesOn) "Brush makes lines  ✓" else "Brush makes lines",
             if (linesOn) "Eligible strokes from this brush stay editable with Select. Tap to use pixels"
             else "This brush uses pixels. Tap to keep eligible strokes as editable lines") {
-            setEditableLines(!linesOn)
+            if (canvas.preset?.id == linesBrushId) setEditableLines(!linesOn)
         })
         val flattenPref = prefs.getString(PREF_FLATTEN_HIDDEN, "ask") ?: "ask"
         box.addView(menuRow("Hidden layers on Flatten: ${mapOf("ask" to "Ask", "keep" to "Keep", "discard" to "Discard")[flattenPref]}",
@@ -2596,8 +2596,9 @@ class JoyBrushActivity : Activity() {
         override fun hasRestingThumbForCount(): Boolean = false
     }
 
-    /** The current brush's line preference; legacy global preferences remain the fallback for other brushes. */
+    /** K25: the current brush's flag, also used by the brush sheet and badge; no global fallback. */
     private fun setEditableLines(on: Boolean) {
+        if (!BrushLinePreferences.canSwitch(canvas.preset)) return
         if (canvas.editableLines == on) return
         canvas.editableLines = on
         BrushLinePreferences(prefs).set(canvas.preset, on)

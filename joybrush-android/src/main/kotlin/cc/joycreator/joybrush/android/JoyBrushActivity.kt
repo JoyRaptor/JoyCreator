@@ -565,12 +565,14 @@ class JoyBrushActivity : Activity() {
         if (bench != null) {
             benchMode = true
             finishStartup(false)
-            cc.joycreator.joybrush.android.bench.BenchRunner(canvas, bench) { finish() }.start()
+            activeBench = cc.joycreator.joybrush.android.bench.BenchRunner(canvas, bench) { finish() }.also { it.start() }
             return
         }
         // Where the person left off, if they left off anywhere.
         restoreWorkingFile()
     }
+
+    private var activeBench: cc.joycreator.joybrush.android.bench.BenchRunner? = null
 
     override fun onResume() {
         super.onResume()
@@ -584,6 +586,7 @@ class JoyBrushActivity : Activity() {
     }
 
     override fun onPause() {
+        activeBench?.abortSelect()
         paperTilt.onPause()
         boardController?.stop()
         popovers.close()
@@ -616,6 +619,7 @@ class JoyBrushActivity : Activity() {
     }
 
     override fun onDestroy() {
+        activeBench?.abortSelect(); activeBench = null
         JoybotHands.detach(joybotEnv)
         selection?.detach(); selection = null
         boardBackdrop?.close(); boardBackdrop=null

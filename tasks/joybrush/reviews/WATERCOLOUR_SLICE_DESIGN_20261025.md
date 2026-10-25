@@ -41,5 +41,26 @@ change the Lead's shader/program selection or the K26 media adapter. Reshape,
 rebrush and serialized source-frame behavior need explicit domain decisions.
 
 The planner itself changes no StrokeRecord fields, codecs, renderer, admission
-gate or UI. New ownership helper source is being authored outside the checkout
-while serial build windows remain available. No runtime capability is claimed.
+gate or UI. No runtime capability is claimed.
+
+## Ownership candidate, unverified
+
+977dbdac1 adds the pure LineSliceOwnership helper and scalar oracle tests;
+987630925 isolates the default identity frame from the mutable shared
+Homography.IDENTITY array and adds boundary-refusal regressions. There are ten
+ownership test cases authored, not executed. Do not transfer the earlier ten
+planner results to them.
+
+The helper snapshots geometry and one inverse source frame, chooses earliest
+fractional parameter on equal squared distance, and assigns a single half-open
+span even outside the optical halo. Independent straight-line grid expectations
+check the parameter and span, then the scalar premultiplied oracle checks
+reconstruction and a single multiply application. Fractional half-masks are an
+explicit failing counterexample, not a supported runtime mode.
+
+The numeric domain is deliberately bounded: non-finite queries, singular or
+pole-crossing maps, and squared projection/distance overflow or underflow are
+refused rather than guessed. Ordinary float document coordinates remain within
+these arithmetic bounds; support for arbitrary finite Double magnitudes is not
+claimed. This candidate still does not persist domains or activate renderer,
+Slice, smudge, rebrush or reshape behavior.

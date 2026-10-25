@@ -17,20 +17,6 @@ class SelectSettingsTest {
     private fun descendants(v: View): List<View> = listOf(v) +
         if (v is ViewGroup) (0 until v.childCount).flatMap { descendants(v.getChildAt(it)) } else emptyList()
 
-    @Test fun perBrushPriorityCaptionRequiresAnExplicitHostCapability() {
-        val kit = ChromeKit(RuntimeEnvironment.getApplication())
-        fun words(view: View) = descendants(view).filterIsInstance<android.widget.TextView>().map { it.text.toString() }
-        val caption = "Each brush’s own Editable lines choice takes priority."
-        val ordinary = SelectSettingsView(kit, false, false, {}, {})
-        val unsupported = SelectSettingsView(kit, false, false, {}, {}, perBrushLinesOverrideShelf = false)
-        val supported = SelectSettingsView(kit, false, false, {}, {}, perBrushLinesOverrideShelf = true)
-        assertFalse(caption in words(ordinary))
-        assertFalse(caption in words(unsupported))
-        assertEquals(1, words(supported).count { it == caption })
-        assertTrue("Paint and Airbrush make" in words(ordinary))
-        assertEquals(words(ordinary), words(supported).filterNot { it == caption })
-    }
-
     @Test fun lockedOptionAppearsAfterALockAndRemainsAvailableAfterTurningItOff() {
         val context = RuntimeEnvironment.getApplication()
         context.getSharedPreferences("joybrush_select", Context.MODE_PRIVATE).edit().clear().commit()
@@ -66,35 +52,34 @@ class SelectSettingsTest {
         assertTrue(descendants(menu).any { it.contentDescription == "Pick locked lines too: off" })
     }
 
-    @Test fun defaultsPanAndPixelsAndChangesReachTheirOwnSetting() {
+    @Test fun fingerAndLineActionsRemainButGlobalLineModeControlsAreRetired() {
         val context = RuntimeEnvironment.getApplication()
         context.getSharedPreferences("joybrush_select", Context.MODE_PRIVATE).edit().clear().commit()
         val preferences = SelectPreferences(context)
         assertFalse(preferences.fingerSelects)
         assertFalse(preferences.pickLocked)
         assertTrue(preferences.dimRest)
-        var shelfLines = false
-        var shelfWrites = 0
-        val menu = SelectSettingsView(ChromeKit(context), preferences.fingerSelects, shelfLines,
-            { preferences.fingerSelects = it }, { shelfLines = it; shelfWrites++ })
-        val choices = descendants(menu).filter { it.isClickable && it.contentDescription in setOf("Pans", "Selects", "Pixels", "Editable lines") }
-        assertEquals(4, choices.size)
+        var obsoleteCallbackCalls = 0
+        val menu = SelectSettingsView(ChromeKit(context), preferences.fingerSelects, false,
+            { preferences.fingerSelects = it }, { obsoleteCallbackCalls++ })
+        val legacyEnabledMenu = SelectSettingsView(ChromeKit(context), preferences.fingerSelects, true,
+            { preferences.fingerSelects = it }, { obsoleteCallbackCalls++ }, perBrushLinesOverrideShelf = true)
+        val choices = descendants(menu).filter { it.isClickable && it.contentDescription in setOf("Pans", "Selects") }
+        assertEquals(2, choices.size)
         assertTrue(choices.all { !it.contentDescription.isNullOrBlank() })
         assertTrue(descendants(menu).any { it.contentDescription == "Select every editable line on this layer" })
         assertFalse(descendants(menu).any { it.contentDescription == "Paste the copied editable lines onto this layer" })
+        for (view in listOf(menu, legacyEnabledMenu)) {
+            assertFalse(descendants(view).any { it.contentDescription in setOf("Editable lines", "Pixels") })
+            assertFalse(descendants(view).filterIsInstance<android.widget.TextView>()
+                .any { it.text.toString().contains("Editable lines") || it.text.toString().contains("Pixels") })
+        }
         fun choice(label: String) = choices.first { it.contentDescription == label }
         assertTrue(choice("Pans").isSelected)
-        assertTrue(choice("Pixels").isSelected)
         choice("Selects").performClick()
         assertTrue(SelectPreferences(context).fingerSelects)
-        assertEquals(0, shelfWrites)
         assertFalse(choice("Pans").isSelected)
-        choice("Editable lines").performClick()
-        assertTrue(shelfLines)
-        assertTrue(choice("Editable lines").isSelected)
-        assertEquals(1, shelfWrites)
-        choice("Pixels").performClick()
-        assertFalse(shelfLines)
+        assertEquals(0, obsoleteCallbackCalls)
         assertTrue(preferences.fingerSelects)
         choice("Pans").performClick()
         assertFalse(SelectPreferences(context).fingerSelects)

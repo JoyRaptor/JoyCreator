@@ -45,6 +45,8 @@ class BrushDrawerView(
     private val onSettings: ((BrushPreset) -> Unit)? = null,
     /** Where each row's real picture comes from. Null keeps the stand-in only (a screen with no canvas to draw on). */
     private val previews: PreviewSource<Bitmap>? = null,
+    /** Effective current mode from the shared per-brush policy; never inferred from shelf or name. */
+    private val editableLines: (BrushPreset) -> Boolean = { false },
 ) : LinearLayout(kit.context) {
 
     private val shelves = BrushShelf.shelves(library)
@@ -168,7 +170,14 @@ class BrushDrawerView(
             topMargin = kit.dpi(LABEL_DP)
         })
         if (p.id == currentId) box.background = ring(10f)
-        kit.label(box, if (onSettings != null) "${p.name}. Hold for its settings" else p.name)
+        val makesLines = editableLines(p)
+        val mode = if (makesLines) cc.joycreator.joybrush.android.select.BrushModeBadge.LINES_LABEL
+            else cc.joycreator.joybrush.android.select.BrushModeBadge.PIXELS_LABEL
+        kit.label(box, (if (onSettings != null) "${p.name}. Hold for its settings. " else "${p.name}. ") + mode)
+        box.addView(cc.joycreator.joybrush.android.select.BrushModeBadge(kit, makesLines),
+            FrameLayout.LayoutParams(kit.dpi(12f), kit.dpi(12f), Gravity.END or Gravity.BOTTOM).apply {
+                marginEnd = kit.dpi(6f); bottomMargin = kit.dpi(6f)
+            })
         box.setOnClickListener { onPick(p) }
         onSettings?.let { open -> box.setOnLongClickListener { open(p); true } }
         // The stand-in needs the row's real width; it is drawn once the row is laid out, and the real picture is asked for.

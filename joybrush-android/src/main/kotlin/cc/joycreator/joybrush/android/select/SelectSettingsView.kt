@@ -12,6 +12,7 @@ import cc.joycreator.joybrush.android.chrome.ChromeKit
 
 /** D2 / K18: Select settings and line actions, with selected words cut out of the locked cyan gradient. */
 @SuppressLint("ViewConstructor")
+@Suppress("UNUSED_PARAMETER") // Preserve existing host call compatibility while retiring the global controls (K25).
 class SelectSettingsView(
     private val kit: ChromeKit,
     fingerSelects: Boolean,
@@ -32,14 +33,6 @@ class SelectSettingsView(
         orientation = VERTICAL
         heading("One finger, after using the pen")
         choices("Pans", "Selects", fingerSelects, onFingerSelects)
-        heading("Paint and Airbrush make")
-        choices("Pixels", "Editable lines", paintMakesLines, onPaintMakesLines)
-        if (perBrushLinesOverrideShelf) addView(TextView(context).apply {
-            text = "Each brush’s own Editable lines choice takes priority."
-            textSize = 11f
-            setTextColor(kit.p.drawerDim)
-            setPadding(kit.dpi(6f), kit.dpi(8f), kit.dpi(6f), kit.dpi(4f))
-        })
         action("Select all lines", "Select every editable line on this layer", onSelectAllLines)
         if (canPasteLines) action("Paste", "Paste the copied editable lines onto this layer", onPasteLines)
         if (showLockedOption || pickLocked) toggle("Pick locked lines too", pickLocked, onPickLocked)

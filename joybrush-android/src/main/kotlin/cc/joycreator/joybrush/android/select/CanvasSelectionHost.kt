@@ -254,6 +254,17 @@ class CanvasSelectionHost(
     /** Frozen copies made for a re-brush that the engine's snapshot does not hold yet, by id. */
     private val staged = LinkedHashMap<String, BrushPreset>()
 
+    /** Paste preparation is local. A failed preparation must not retain its imported definitions. */
+    internal fun <T> prepareWithBrushStaging(build: () -> T?): T? {
+        val before = staged.keys.toHashSet()
+        var ready = false
+        try {
+            return build().also { ready = it != null }
+        } finally {
+            if (!ready) staged.keys.retainAll(before)
+        }
+    }
+
     /**
      * Freezes the library brush [preset] into the drawing (an identical copy already there is reused) and returns the id a
      * record names it by. The copy rides along on whichever edit first uses it. Throws `BrushException` for a brush that

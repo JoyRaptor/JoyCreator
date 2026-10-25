@@ -1,0 +1,13 @@
+{
+  "schema": "joybrush-slice-pure-planning-validation-v1",
+  "sourceRevision": "a8b63e0105c3dc9b35efa4f083f09bb52d04b8c3",
+  "planningCommit": "82391bb71",
+  "suite": "cc.joycreator.joybrush.core.vector.LineSlicePlanTest",
+  "tests": 10,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "build": "SUCCESSFUL",
+  "duration": "2m",
+  "scope": "Pure planning only. No codec, renderer, runtime Slice/smudge, pixel equality, save or device acceptance."
+}

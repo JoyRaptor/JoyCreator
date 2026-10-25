@@ -35,9 +35,13 @@ false, ignore stale stored ON flags and cannot write a switch.
 ## Verification and remaining work
 
 Read-only source review found no concrete issue; git diff --check passes.
-The focused eight-test native run was REFUSED before Gradle began:824MiB free,
-2253MiB required. This is not a passing or failing test run. The owner has a RAM
-request; there is no waiting build wrapper, build claim or phone reservation.
+The initial focused eight-test run onfda29f68c compiled and executed:seven passed,
+one failed. The failed painting-override test accidentally used its clearing
+helper when recreating the preferences wrapper. Fixture correction ba341098b
+reuses the same preferences object. The corrected rerun has not executed:
+fresh admission attempts were refused below2253MiB (latest532MiB). There is no
+waiting build wrapper, build claim or phone reservation. No eight-test passing
+result is claimed.
 
 Earlier evidence remains tied to its own source:
 
@@ -59,3 +63,12 @@ A10 and phone proof are separate. Smudge's shared Slice + touched-section bake
 (one Undo, no smear ghost) remains an engine task whose assignment the Lead
 decides. K26 realistic paint below editable lines remains Lead-owned; the old
 refusal must not be removed without the composition adapter.
+
+## Shared Slice planning checkpoint
+
+Pure LineSlicePlan source82391bb71 passed ten focused core tests on exact
+a8b63e0105c3dc9b35efa4f083f09bb52d04b8c3:zero failures/errors/skips,
+BUILD SUCCESSFUL in2m. Its original recipe/sample/frame snapshots, zero-width
+crossings, half-open endpoint ownership, touched-dot support and early
+input/pair/piece refusal are checked. No runtime/schema/GPU activation occurred.
+See [Slice design and gates](WATERCOLOUR_SLICE_DESIGN_20261025.md).

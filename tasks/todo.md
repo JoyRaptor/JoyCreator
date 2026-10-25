@@ -95,3 +95,10 @@ Review: SELECT_C2_SOURCE_REVIEW_20261024.md records source fit/reveal notes and 
 - [x] Review b590e58c5 repair and all five new regression scenarios without running builds; source findings1/2 addressed, coordinator retains integrated validation.
 - [x] Review2cbfbfb86 capability-gated caption in frozen79f2d4dba; no enabling production override, no material bounded-source issue, no executed validation or broader engine approval claimed.
 - [x] Read settled K25/K26 and current UI benchmark/placement hunks; document no published reusable badge renderer, exact reuse constraints and a new cancel-versus-clean-tap handback finding. Report to Coordinator; no frozen source/device/build changes.
+
+## UX C3 outside fade dependency — October25
+- [x] Read D17/page, current lifted-source renderer and UI dim callback seam at dfda430d3.
+- [x] Prove why a geometry/alpha-hole Canvas overlay is insufficient for semi-alpha/texture; send exact dependency to Coordinator.
+- [x] Record accepted Lead-owned display-hook/lifecycle/non-display isolation contract and eight-case test matrix in specialist handoff.
+- [ ] Review actual hook and semi-alpha/texture/preview/isolation evidence before closing C3.
+Review: dependency handoff complete, C3 implementation remains OPEN; no production changes, build, GPU/phone run or Phase B approval.

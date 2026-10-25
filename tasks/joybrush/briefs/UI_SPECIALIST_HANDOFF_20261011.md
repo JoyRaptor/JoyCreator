@@ -296,3 +296,17 @@ and actual overlay UP/CANCEL regressions before acceptance. Reported to Coordina
 No source repair/bench/device action by this review; watercolor owns the phone window,
 candidate55b06 is frozen for validation. A10/L3 actual engine adoption, C3 and combined
 C1/C2 proof remain open; earlier source tests/runs do not prove this new integration.
+
+### October25 — C3 exact dependency accepted by Coordinator
+
+Report: reviews/SELECT_C3_DEPENDENCY_CONTRACT_20261025.md (source dfda430d3).
+An above-GL paper veil with a geometry/alpha hole cannot preserve real semi-transparent,
+textured or transformed selected strokes. The report proves the mismatch numerically and
+names the existing rest/lift draw seam. Coordinator accepted no approximate UI veil and
+assigned the display-only engine pass, real source-alpha replay and non-display exclusions
+to Engine Lead. Existing Controller dimRest calls alone cannot count as implementation.
+
+The report gives the bridge/lifecycle contract and eight bounded composition, preview,
+paper, isolation and exact-source phone cases. No code/build/device action by UI. C3 stays
+OPEN until the actual hook plus semi-alpha/texture/preview evidence lands; Phase B is not
+approved by this dependency note. Locked styling and K25/K26 remain intact.

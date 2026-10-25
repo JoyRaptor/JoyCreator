@@ -1186,3 +1186,8 @@ worktree: C:/Temp/jb-ux-review-20261024; branch ui/select-review-20261024; deliv
 files: SELECT_C2_SOURCE_REVIEW_20261024.md, UI specialist handoff, lane and todo only. Preserved existing staged UI bench/gesture work in C:/Temp/jb-select-ux.
 No production edit, build, preview change, installation or phone lock. Lead/builder retain integration/final test gates. C3 remains separate.
 Later K25/UI handoff: SELECT_UI_HUNKS_A10_HANDOFF_20261024.md lists ordered UI/benchmark integration and exact badge reuse recommendation. Clean body-UP versus CANCEL replay edge is OPEN and acknowledged/delegated by Coordinator; no repair or build by UX, frozen55b06 preserved. K25 supersedes global-fallback controls/old priority caption.
+
+## JOYBRUSH_UX_C3_CONTRACT_20261025
+status: dependency/test-matrix handoff COMPLETE; C3 implementation/acceptance OPEN.
+worktree: C:/Temp/jb-ux-review-20261024, ui/select-review-20261024; read source dfda430d3 without edits.
+Coordinator accepted the exact engine dependency: fade unselected background toward paper before the real selected lift, exclude non-display outputs. Above-GL geometry/alpha holes are not a faithful implementation. Engine Lead owns hook/source-alpha replay; UI owns later appearance review. Eight planned cases in SELECT_C3_DEPENDENCY_CONTRACT_20261025.md; no executable tests/builds/device actions run.

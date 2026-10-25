@@ -5,6 +5,7 @@ import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.stroke.AddressedStroke
 import cc.joycreator.joybrush.core.stroke.StrokeRecord
 import java.util.Collections
+import cc.joycreator.joybrush.core.input.PenSample
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.AbstractEncoder
@@ -17,7 +18,7 @@ sealed interface LineCopyResult {
     data class Refused(val message: String) : LineCopyResult
 }
 
-/** Only the engine can issue this proof, after checking each real plane's ownership and current records. */
+/** Module-internal issuance: the engine checks each real plane before creating this proof. Not request authority. */
 class LineCopyProof internal constructor(
     val documentGeneration: Long,
     val revision: Long,
@@ -27,15 +28,22 @@ class LineCopyProof internal constructor(
 }
 
 /** Frozen value data from one accepted source. Clients cannot replace records while retaining the proof. */
-class LineCopyItem internal constructor(
+class LineCopyItem private constructor(
     val address: cc.joycreator.joybrush.core.stroke.LineAddress,
-    record: StrokeRecord,
+    val record: StrokeRecord,
     private val brushJson: String,
     val proof: LineCopyProof,
 ) {
-    val record: StrokeRecord = record.copy(samples = Collections.unmodifiableList(ArrayList(record.samples)))
     /** Decode a separate brush value; mutating a caller's collections cannot alter this payload. */
     fun brush(): BrushPreset = BrushJson.decodeChecked(brushJson)
+
+    companion object {
+        internal fun freeze(address: cc.joycreator.joybrush.core.stroke.LineAddress, record: StrokeRecord,
+                            admittedSamples: Int, brushJson: String, proof: LineCopyProof): LineCopyItem? {
+            val frozen = freezeSamples(record, admittedSamples) ?: return null
+            return LineCopyItem(address, frozen, brushJson, proof)
+        }
+    }
 }
 
 class LineCopyPayload internal constructor(
@@ -54,18 +62,32 @@ class LineCopyRequest private constructor(
     expected: List<AddressedStroke>,
     val estimatedRetainedBytes: Long,
 ) {
-    val expected: List<AddressedStroke> = Collections.unmodifiableList(expected.map { item ->
-        item.copy(record = item.record.copy(samples = Collections.unmodifiableList(ArrayList(item.record.samples))))
-    })
+    val expected: List<AddressedStroke> = Collections.unmodifiableList(expected)
 
     companion object {
         fun capture(snapshot: LineSnapshot, expected: List<AddressedStroke>, availableHeapBytes: Long): LineCopyRequest? {
             val generation = snapshot.sourceDocumentGeneration ?: return null
             if (generation < 0L || snapshot.revision < 0L || snapshot.brushRevision < 0L) return null
-            val bytes = LineCopyBudget.estimate(expected, snapshot.brushes) ?: return null
-            if (!LineCopyBudget.heapAdmits(bytes, availableHeapBytes)) return null
-            if (expected.map { it.address }.toSet().size != expected.size) return null
-            return LineCopyRequest(generation, snapshot.revision, snapshot.brushRevision, expected, bytes)
+            val count = expected.size
+            if (count == 0 || count > LineCopyBudget.MAX_LINES) return null
+            return try {
+                // Bound collection growth too; never delegate a live producer's collection.toArray().
+                val refs = ArrayList<AddressedStroke>(count)
+                for (i in 0 until count) refs += expected[i]
+                if (expected.size != count) return null
+                val sizes = IntArray(count) { refs[it].record.samples.size }
+                val bytes = LineCopyBudget.estimateCounted(refs, snapshot.brushes, sizes) ?: return null
+                if (!LineCopyBudget.heapAdmits(bytes, availableHeapBytes)) return null
+                if (refs.map { it.address }.toSet().size != count) return null
+                val frozen = ArrayList<AddressedStroke>(count)
+                for (i in 0 until count) {
+                    val record = freezeSamples(refs[i].record, sizes[i]) ?: return null
+                    frozen += refs[i].copy(record = record)
+                }
+                LineCopyRequest(generation, snapshot.revision, snapshot.brushRevision, frozen, bytes)
+            } catch (_: IndexOutOfBoundsException) { null }
+              catch (_: ConcurrentModificationException) { null }
+              catch (_: OutOfMemoryError) { null }
         }
     }
 }
@@ -81,12 +103,21 @@ object LineCopyBudget {
 
     fun estimate(records: List<AddressedStroke>, brushes: Map<String, BrushPreset>): Long? {
         if (records.isEmpty() || records.size > MAX_LINES) return null
+        return try { estimateCounted(records, brushes, IntArray(records.size) { records[it].record.samples.size }) }
+        catch (_: IndexOutOfBoundsException) { null }
+        catch (_: ConcurrentModificationException) { null }
+    }
+
+    internal fun estimateCounted(records: List<AddressedStroke>, brushes: Map<String, BrushPreset>, counts: IntArray): Long? {
+        if (counts.isEmpty() || counts.size > MAX_LINES || records.size != counts.size) return null
         var total = 256L
         val brushIds = LinkedHashSet<String>()
-        for ((_, r) in records) {
+        for (i in counts.indices) {
+            val r = records[i].record
+            if (counts[i] < 0) return null
             if (r.capturedPhysicalSource != null) return null
             val strings = r.id.length.toLong() + r.brushId.length + (r.groupId?.length ?: 0)
-            val cost = 512L + strings * 6L + r.samples.size.toLong() * SAMPLE_BYTES
+            val cost = 512L + strings * 6L + counts[i].toLong() * SAMPLE_BYTES
             if (cost > MAX_BYTES - total) return null
             total += cost
             brushIds += r.brushId
@@ -105,9 +136,9 @@ object LineCopyBudget {
     fun heapAdmits(bytes: Long, available: Long): Boolean =
         bytes in 1..MAX_BYTES && available >= bytes * 3L + HEAP_RESERVE
 
-    fun needsAssets(p: BrushPreset): Boolean = p.sourceFormat != "native" || p.tip.source == "image" ||
-        p.tip.image != null || p.tipTexture.source == "image" || p.tipTexture.image != null ||
-        p.paperGrain.source == "image" || p.paperGrain.image != null ||
+    fun needsAssets(p: BrushPreset): Boolean = p.sourceFormat != "native" || p.tip.source != "procedural" ||
+        p.tip.image != null || p.tipTexture.source != "cloud" || p.tipTexture.image != null ||
+        p.paperGrain.source != "cloud" || p.paperGrain.image != null ||
         p.engine !in setOf("stamp", "fill", "tuft", cc.joycreator.joybrush.core.brush.ENGINE_WATERCOLOUR)
 
     fun brushUpperBound(preset: BrushPreset): Long? = try {
@@ -144,4 +175,16 @@ object LineCopyBudget {
         override fun encodeNull() { add(4L) }
         override fun encodeNotNullMark() { add(1L) }
     }
+}
+
+/** Producer-owned records are immutable; still bound and recheck ordinary collection races at the boundary. */
+private fun freezeSamples(record: StrokeRecord, admitted: Int): StrokeRecord? {
+    if (admitted < 0 || admitted.toLong() * 128L > LineCopyBudget.MAX_BYTES || record.samples.size != admitted) return null
+    return try {
+        val samples = ArrayList<PenSample>(admitted)
+        for (i in 0 until admitted) samples += record.samples[i]
+        if (record.samples.size != admitted) null
+        else record.copy(samples = Collections.unmodifiableList(samples))
+    } catch (_: IndexOutOfBoundsException) { null }
+      catch (_: ConcurrentModificationException) { null }
 }

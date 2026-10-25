@@ -58,5 +58,36 @@ class LineCopyBudgetTest {
         assertTrue(LineCopyBudget.needsAssets(brush.copy(tip = brush.tip.copy(source = "image", image = "custom.png"))))
         assertTrue(LineCopyBudget.needsAssets(brush.copy(sourceFormat = "abr")))
         assertFalse(LineCopyBudget.needsAssets(brush))
+        assertTrue(LineCopyBudget.needsAssets(brush.copy(tip = brush.tip.copy(source = "unknown"))))
+        assertTrue(LineCopyBudget.needsAssets(brush.copy(tipTexture = brush.tipTexture.copy(source = "unknown"))))
+    }
+
+    @Test fun aGrowingSampleListRefusesRatherThanTruncatingOrFollowingItsNewSize() {
+        val backing = mutableListOf(PenSample(1f, 2f, 0.0), PenSample(3f, 4f, 1.0))
+        var reads = 0
+        val racing = record.copy(samples = object : AbstractList<PenSample>() {
+            override val size get() = backing.size
+            override fun get(index: Int): PenSample {
+                reads++
+                if (reads == 1) backing += PenSample(5f, 6f, 2.0)
+                return backing[index]
+            }
+        })
+        assertNull(LineCopyRequest.capture(snapshot(racing), listOf(item(racing)), Long.MAX_VALUE))
+        assertEquals(2, reads)
+        assertEquals(3, backing.size)
+    }
+
+    @Test fun aShrinkingSampleListRefusesWithoutReturningAPartialRequest() {
+        val backing = mutableListOf(PenSample(1f, 2f, 0.0), PenSample(3f, 4f, 1.0))
+        var reads = 0
+        val racing = record.copy(samples = object : AbstractList<PenSample>() {
+            override val size get() = backing.size
+            override fun get(index: Int): PenSample {
+                if (++reads == 1) backing.removeAt(1)
+                return backing[index]
+            }
+        })
+        assertNull(LineCopyRequest.capture(snapshot(racing), listOf(item(racing)), Long.MAX_VALUE))
     }
 }

@@ -1185,3 +1185,4 @@ status: source review COMPLETE; findings1/2 addressed by b590e58c5, caption note
 worktree: C:/Temp/jb-ux-review-20261024; branch ui/select-review-20261024; delivered baseline98d925b70/supporting cc1061634.
 files: SELECT_C2_SOURCE_REVIEW_20261024.md, UI specialist handoff, lane and todo only. Preserved existing staged UI bench/gesture work in C:/Temp/jb-select-ux.
 No production edit, build, preview change, installation or phone lock. Lead/builder retain integration/final test gates. C3 remains separate.
+Later K25/UI handoff: SELECT_UI_HUNKS_A10_HANDOFF_20261024.md lists ordered UI/benchmark integration and exact badge reuse recommendation. Clean body-UP versus CANCEL replay edge is OPEN and acknowledged/delegated by Coordinator; no repair or build by UX, frozen55b06 preserved. K25 supersedes global-fallback controls/old priority caption.

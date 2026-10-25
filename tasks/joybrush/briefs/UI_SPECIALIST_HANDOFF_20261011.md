@@ -276,3 +276,23 @@ source but ran no test. All three initial C2 source notes are now addressed; int
 validation, visual/C1 phone evidence and underlying L3/A10 remain open. Candidate engine
 context-loss/paint-mask changes are outside this bounded review and remain unexecuted per
 coordinator delivery. No Phase B implementation approval is inferred from its design note.
+
+### Current UI hunks and A10/K25 handoff
+
+Read43d8588ef and current K25/K26 on origin/ui/select-accept. New report:
+reviews/SELECT_UI_HUNKS_A10_HANDOFF_20261024.md. No reusable K25 mode renderer is published;
+builder can implement its exact12dp raster dots/vector curve-square-nodes directly in a
+small native Select helper, driven by the real per-brush L3 flag. JbIcon.RASTER is a
+different24px Rasterize Down action. No new appearance/default choice is needed from owner.
+
+Ordered UI integration:9b32f3fe6 benchmark/accessors; f2d1b7f4d geometry/placement/contrast
+and body-tap handback;4f35f422f below-box count and correctly scoped finger-pan bench;
+43d8588ef evidence/bench instructions. Reapply overlapping Controller/Tool/BenchRunner
+hunks preserving A1–A8/C2; never replace them wholesale with this older UI branch.
+
+New material edge: f2 BoxHost.cancelGesture replays tapFromBox even though TOV calls that
+hook for both clean uncommitted UP and actual CANCEL. Require clean-UP-only tap handback
+and actual overlay UP/CANCEL regressions before acceptance. Reported to Coordinator.
+No source repair/bench/device action by this review; watercolor owns the phone window,
+candidate55b06 is frozen for validation. A10/L3 actual engine adoption, C3 and combined
+C1/C2 proof remain open; earlier source tests/runs do not prove this new integration.

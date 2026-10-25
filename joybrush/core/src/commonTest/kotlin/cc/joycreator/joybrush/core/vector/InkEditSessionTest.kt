@@ -1,5 +1,7 @@
 package cc.joycreator.joybrush.core.vector
 
+import cc.joycreator.joybrush.core.brush.DualTips
+import cc.joycreator.joybrush.core.brush.DualTipSpec
 import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.brush.ENGINE_FILL
 import cc.joycreator.joybrush.core.brush.FillPen
@@ -808,5 +810,14 @@ class InkEditSessionTest {
         assertContentEquals(reshaped.ys, fatter.ys, "…nor in y")
         assertEquals(reshaped.pointCount, fatter.pointCount, "…and re-spaces nothing")
         assertTrue(fatter.halfWidths.all { it == 6.0 }, "3 x 2 = 6 on every dab, and that is the ONLY difference")
+    }
+
+    @Test fun aDualTipLineIsALineWithItsStrokesMaskAndRefusedLoudlyWithout() {
+        // Unibrush U7: a dual-tip line (Dry) used to be silently not a line to Select; it needs its stroke's own mask.
+        val p = BrushPreset(id = "dry", name = "Dry", size = Param(10f), tip = TipSpec(dual = DualTipSpec()))
+        val r = StrokeRecord("a", p.id, 91, .3f, 1f, listOf(PenSample(0f, 0f, 0.0, 1f), PenSample(30f, 5f, 16.0, 1f), PenSample(60f, 8f, 32.0, 1f)))
+        val mask = DualTips.bake(p.tip.dual!!, r.seed)
+        assertEquals(1, InkEditSession(listOf(r), r.id).lines(null, { mask }) { p }.size)
+        assertFailsWith<InkReplayException> { InkEditSession(listOf(r), r.id).lines(null, null) { p } }
     }
 }

@@ -54,4 +54,12 @@ class LineBrushesTest {
         )
         assertEquals(listOf("ink", "marker"), LineBrushes.forPicker(library).map { it.id })
     }
+
+    @Test fun pictureTipAndTaperedBrushesCanBeALineButAScreenWidthWireCannot() {
+        // Unibrush U6/U7: picture tips are frozen with their pictures when picked; tapers replay shaped.
+        assertNull(LineBrushes.refusal(testBrush("texture").copy(tip = testBrush("texture").tip.copy(
+            sampled = cc.joycreator.joybrush.core.brush.SampledTipSpec(listOf("tips/one.png"))))))
+        assertNull(LineBrushes.refusal(testBrush("taper").copy(line = cc.joycreator.joybrush.core.brush.LineStyleSpec(taperOut = 3f))))
+        assertNotNull(LineBrushes.refusal(testBrush("wire").copy(line = cc.joycreator.joybrush.core.brush.LineStyleSpec(screenWidthPx = 1.5f))))
+    }
 }

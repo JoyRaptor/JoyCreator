@@ -137,17 +137,26 @@ class InkEditSession(
     fun lines(brushOf: (StrokeRecord) -> BrushPreset?): List<InkLine> = lines(null, brushOf)
 
     fun lines(sampledLookup: ((String) -> cc.joycreator.joybrush.core.brush.SampledTipSet?)?,
+        brushOf: (StrokeRecord) -> BrushPreset?): List<InkLine> = lines(sampledLookup, null, brushOf)
+
+    /**
+     * [dualLookup]: a dual-tip line's mask for ITS stroke (it is baked from the record's seed), as the engine's replay uses.
+     * Without it a dual-tip line (Unibrush Dry) was silently not a line to Select (Unibrush U7).
+     */
+    fun lines(sampledLookup: ((String) -> cc.joycreator.joybrush.core.brush.SampledTipSet?)?,
+        dualLookup: ((StrokeRecord) -> cc.joycreator.joybrush.core.brush.DualMask?)?,
         brushOf: (StrokeRecord) -> BrushPreset?): List<InkLine> {
         val out = ArrayList<InkLine>(records.size)
         for (record in records.values) {
             val brush = brushOf(record)
             val samples = if (brush?.tip?.sampled != null) sampledLookup?.invoke(record.brushId) else null
-            val why = InkReplay.refusal(record, brush, samples)
+            val dual = if (brush?.tip?.dual != null) dualLookup?.invoke(record) else null
+            val why = InkReplay.refusal(record, brush, samples, dual)
             if (why != null) {
-                if (brush?.tip?.sampled != null) throw InkReplayException(why)
+                if (brush?.tip?.sampled != null || brush?.tip?.dual != null) throw InkReplayException(why)
                 continue
             }
-            val dabs = InkReplay.dabs(record, brush, samples)
+            val dabs = InkReplay.dabs(record, brush, samples, dual)
             if (dabs.isEmpty()) continue
             out.add(
                 InkLine(

@@ -65,9 +65,12 @@ sealed class LineEdit {
      * Same addresses and seqs (recolour, re-brush, re-weight, reshape, transform). [brushes] = frozen copies a
      * re-brush introduces (FrozenBrushRegistry.freeze against [LineSnapshot.brushes]); records name them by id.
      */
-    data class Replace(val after: List<AddressedStroke>, val brushes: Map<String, BrushPreset> = emptyMap()) : LineEdit()
+    data class Replace(val after: List<AddressedStroke>, val brushes: Map<String, BrushPreset> = emptyMap(),
+                       /** Unibrush U7: the tip pictures of [brushes] that draw from pictures, by brush id. */
+                       val assets: Map<String, cc.joycreator.joybrush.core.brush.FrozenBrushPngs> = emptyMap()) : LineEdit()
     /** New lines on top, at vacant addresses (duplicate, paste); the engine assigns their seqs. */
-    data class Add(val records: List<AddressedStroke>, val brushes: Map<String, BrushPreset> = emptyMap()) : LineEdit()
+    data class Add(val records: List<AddressedStroke>, val brushes: Map<String, BrushPreset> = emptyMap(),
+                   val assets: Map<String, cc.joycreator.joybrush.core.brush.FrozenBrushPngs> = emptyMap()) : LineEdit()
     data class Delete(val ids: Set<LineAddress>) : LineEdit()
     /** Rasterize Down (v1.2 H3): each line becomes a pixel slab at its own seq and its record goes; the pixels stay. */
     data class Bake(val ids: Set<LineAddress>) : LineEdit()

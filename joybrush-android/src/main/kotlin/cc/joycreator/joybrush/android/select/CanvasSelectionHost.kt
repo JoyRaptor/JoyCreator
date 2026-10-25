@@ -8,8 +8,12 @@ import cc.joycreator.joybrush.androidkit.lines.LineSnapshot
 import cc.joycreator.joybrush.androidkit.select.LiftedLines
 import cc.joycreator.joybrush.androidkit.select.LiftedPixels
 import cc.joycreator.joybrush.androidkit.select.SelectionHost
+import cc.joycreator.joybrush.core.brush.BrushAssetPaths
+import cc.joycreator.joybrush.core.brush.BrushException
 import cc.joycreator.joybrush.core.brush.BrushPreset
+import cc.joycreator.joybrush.core.brush.FrozenBrushPngs
 import cc.joycreator.joybrush.core.brush.FrozenBrushRegistry
+import cc.joycreator.joybrush.core.brush.StampTipResources
 import cc.joycreator.joybrush.core.select.Homography
 import cc.joycreator.joybrush.core.select.SelectionMask
 import cc.joycreator.joybrush.core.stroke.AddressedStroke
@@ -38,6 +42,13 @@ interface HostCanvas {
     fun endLineLift() {}
     /** Moves when another drawing is opened: edits still in flight were about the old one (v1.2 H10). */
     val lineEditEpoch: Int get() = 0
+    /**
+     * Unibrush U7: a picture or dual-tip line's tips, from the drawing's own frozen pictures (its stroke's seed bakes the
+     * dual mask). Null = not available here: such a line is then not a line to Select, as before.
+     */
+    fun lineTips(record: StrokeRecord, brush: BrushPreset): StampTipResources? = null
+    /** The pictures a library brush draws from (re-brushing a line to it freezes them into the drawing). */
+    fun brushPngs(preset: BrushPreset): FrozenBrushPngs? = null
 }
 
 class JbHostCanvas(private val canvas: JbCanvasView) : HostCanvas {
@@ -54,6 +65,13 @@ class JbHostCanvas(private val canvas: JbCanvasView) : HostCanvas {
     override fun setLineLiftTransform(rowMajor: DoubleArray?) = canvas.setLineLiftTransform(rowMajor)
     override fun previewLineLift(records: List<AddressedStroke>) = canvas.previewLineLift(records)
     override fun endLineLift() = canvas.endLineLift()
+
+    /** One tip resolver per brush: it keeps that brush's decoded pictures and bakes each stroke's dual mask (UI thread). */
+    private val tipResolvers = HashMap<String, cc.joycreator.joybrush.androidkit.gl.StampTipResolver>()
+    override fun lineTips(record: StrokeRecord, brush: BrushPreset): StampTipResources =
+        tipResolvers.getOrPut(brush.id) { cc.joycreator.joybrush.androidkit.gl.StampTipResolver() }
+            .resolve(brush, canvas.lineSnapshot.brushAssets[record.brushId], record.seed)
+    override fun brushPngs(preset: BrushPreset): FrozenBrushPngs? = canvas.brushPngs?.invoke(preset)
 }
 
 /** What the host needs of the screen around it. */
@@ -154,13 +172,16 @@ class CanvasSelectionHost(
 
     /** `InkEditSession.lines` on this one record: the picker's own geometry. Null = it is not a line (logged). */
     private fun replay(record: StrokeRecord, brush: BrushPreset?): InkLine? {
-        val refusal = InkReplay.refusal(record, brush)
+        // A picture or dual-tip line replays with its own frozen pictures, exactly as the engine redraws it (Unibrush U7).
+        val tips = if (brush != null && BrushAssetPaths.required(brush).isNotEmpty()) try { canvas.lineTips(record, brush) }
+            catch (e: Exception) { ui.log("Select skips line ${record.id}: ${e.message}"); return null } else null
+        val refusal = InkReplay.refusal(record, brush, tips?.sampled, tips?.dual)
         if (refusal != null) {
             ui.log("Select skips line ${record.id}: $refusal")
             return null
         }
         return try {
-            InkEditSession(listOf(record), record.id).lines { brush }.singleOrNull()
+            InkEditSession(listOf(record), record.id).lines({ tips?.sampled }, { tips?.dual }) { brush }.singleOrNull()
                 ?: run { ui.log("Select skips line ${record.id}: it draws no dabs"); null }
         } catch (e: Exception) {
             ui.log("Select skips line ${record.id}: ${e.message}")
@@ -218,6 +239,8 @@ class CanvasSelectionHost(
 
     /** Frozen copies made for a re-brush that the engine's snapshot does not hold yet, by id. */
     private val staged = LinkedHashMap<String, BrushPreset>()
+    /** The staged copies' pictures (brushes that draw from pictures), riding with the same edit. */
+    private val stagedAssets = LinkedHashMap<String, FrozenBrushPngs>()
 
     /**
      * Freezes the library brush [preset] into the drawing (an identical copy already there is reused) and returns the id a
@@ -227,21 +250,41 @@ class CanvasSelectionHost(
     fun freezeBrush(preset: BrushPreset): String {
         pruneStaged()
         val known = canvas.lineSnapshot.brushes + staged
-        val result = FrozenBrushRegistry.freeze(known, preset, newBrushId)
-        for ((id, p) in result.newEntries) staged[id] = p
+        if (BrushAssetPaths.required(preset).isEmpty()) {
+            val result = FrozenBrushRegistry.freeze(known, preset, newBrushId)
+            for ((id, p) in result.newEntries) staged[id] = p
+            return result.id
+        }
+        // A brush that draws from pictures freezes them too, so its lines save, reopen and redraw (Unibrush U7).
+        val pngs = canvas.brushPngs(preset) ?: throw BrushException("${preset.name}'s pictures are not available here")
+        val result = FrozenBrushRegistry.freezeWithAssets(known, canvas.lineSnapshot.brushAssets + stagedAssets, preset, pngs, newBrushId)
+        val added = result.newEntries
+        for ((id, p) in added) staged[id] = p
+        for ((id, a) in result.assets) if (id in added) stagedAssets[id] = a
         return result.id
     }
 
     /** The brush a record names, for the row's brush icon. */
     fun brushOf(brushId: String): BrushPreset? = brushFor(brushId)
 
-    private fun pruneStaged() { staged.keys.removeAll(canvas.lineSnapshot.brushes.keys) }
+    private fun pruneStaged() {
+        staged.keys.removeAll(canvas.lineSnapshot.brushes.keys)
+        stagedAssets.keys.removeAll(canvas.lineSnapshot.brushAssets.keys)
+    }
 
     /** The staged copies these records name that the snapshot lacks: they travel with the edit. */
     private fun brushesFor(records: List<StrokeRecord>): Map<String, BrushPreset> {
         val held = canvas.lineSnapshot.brushes
         val out = LinkedHashMap<String, BrushPreset>()
         for (r in records) if (r.brushId !in held) staged[r.brushId]?.let { out[r.brushId] = it }
+        return out
+    }
+
+    /** The staged pictures these records' brushes need that the snapshot lacks. */
+    private fun assetsFor(records: List<StrokeRecord>): Map<String, FrozenBrushPngs> {
+        val held = canvas.lineSnapshot.brushAssets
+        val out = LinkedHashMap<String, FrozenBrushPngs>()
+        for (r in records) if (r.brushId !in held) stagedAssets[r.brushId]?.let { out[r.brushId] = it }
         return out
     }
 
@@ -255,7 +298,7 @@ class CanvasSelectionHost(
         if (after.map { it.address }.toSet().size != after.size) return refuse("Those lines can't be changed together.")
         if (after.any { find(it.address) == null }) return refuse(GONE)
         checkDrawable(after)?.let { return refuse(it) }
-        return submit(LineEdit.Replace(after, brushesFor(after.map { it.record })))
+        return submit(LineEdit.Replace(after, brushesFor(after.map { it.record }), assetsFor(after.map { it.record })))
     }
 
     override fun addLines(records: List<AddressedStroke>): Boolean {
@@ -265,7 +308,7 @@ class CanvasSelectionHost(
         if (records.any { planeOf(it.address) !in planes }) return refuse("That layer can't take lines right now.")
         if (records.any { find(it.address) != null }) return refuse("A line with that name is already there.")
         checkDrawable(records)?.let { return refuse(it) }
-        return submit(LineEdit.Add(records, brushesFor(records.map { it.record })))
+        return submit(LineEdit.Add(records, brushesFor(records.map { it.record }), assetsFor(records.map { it.record })))
     }
 
     override fun deleteLines(ids: Set<LineAddress>): Boolean {

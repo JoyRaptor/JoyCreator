@@ -2719,6 +2719,23 @@ class GlPaintEngine(
         }
         fun brushOf(r: StrokeRecord): BrushPreset =
             brushes[r.brushId] ?: nativeLines.brush(r.brushId) ?: throw IllegalArgumentException("This line's brush is missing from the drawing")
+        // Unibrush U7: a re-brush or paste to a brush that draws from pictures brings them; the drawing must then hold every
+        // picture each written line needs, the same bytes under ids it knows, inside the saved-drawing budget: refused before
+        // anything changes, as a new line's pictures are (lineAssetRefusal).
+        val assets = when (edit) { is LineEdit.Replace -> edit.assets; is LineEdit.Add -> edit.assets; else -> emptyMap() }
+        val written = when (edit) { is LineEdit.Replace -> edit.after.map { it.record }; is LineEdit.Add -> edit.records.map { it.record }; else -> emptyList() }
+        for ((id, pngs) in assets) {
+            require(id in brushes || nativeLines.brush(id) != null) { "Brush pictures name no brush" }
+            require(nativeLines.asset(id)?.sameBytes(pngs) != false) { "These brush pictures differ from the ones this drawing keeps" }
+        }
+        for (r in written) {
+            val needs = cc.joycreator.joybrush.core.brush.BrushAssetPaths.required(brushOf(r)).isNotEmpty()
+            require(!needs || r.brushId in assets || nativeLines.asset(r.brushId) != null) { "This line's brush pictures are missing" }
+        }
+        if (assets.isNotEmpty()) {
+            val all = assets + nativeLines.assets()
+            cc.joycreator.joybrush.androidkit.io.FrozenBrushAssets.prepare((nativeLines.brushes() + brushes).filterKeys { it in all }, all, retainEntries = false)
+        }
         // The next list of every plane the edit touches.
         val next = LinkedHashMap<LinePlane, MutableList<StrokeRecord>>()
         val nextSeq = HashMap<LinePlane, Long>()
@@ -2749,7 +2766,7 @@ class GlPaintEngine(
             }
             is LineEdit.Bake -> error("Rasterize Down is handled above")
         }
-        if (brushes.isNotEmpty()) nativeLines.addBrushes(brushes)
+        if (brushes.isNotEmpty() || assets.isNotEmpty()) nativeLines.addBrushes(brushes, assets)
         val tileChanges = ArrayList<UndoLog.TileChange<Int>>()
         val slabChanges = ArrayList<UndoLog.SlabChange<Int>>()
         val lineChanges = ArrayList<UndoLog.LineChange>()

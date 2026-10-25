@@ -18,7 +18,7 @@ placement, gesture bench and truthful paint-selection toast. A mask cherry-pick
 conflict was aborted; the scoped changes were reapplied on the new base without
 editing conflict markers or taking stale whole files.
 
-Code `dfda430d3e9b8391239ba095e528bf8ae630de49` adds:
+Code checkpoint `dfda430d3e9b8391239ba095e528bf8ae630de49` adds:
 
 - A default-preserving `Host.endUncommittedGesture(cleanBodyTap)` reason. Only a
   clean unmoved body UP can replay a Select pick; CANCEL, holds, handles and
@@ -28,7 +28,8 @@ Code `dfda430d3e9b8391239ba095e528bf8ae630de49` adds:
 - Private SelectTool host ownership and a public narrow bench observation API
   returning detached address/geometry only. A mutation regression is authored.
 
-The new Android source has NOT been compiled/tested. Root's focused admission
+Current code `3de0c1c1f` also carries the clean f79 main merge and source-only
+canonical Copy metadata admission below. The new Android source has NOT been compiled/tested. Root's focused admission
 refused at 2071 MiB, below the 2200 MiB guard, before starting any wrapper or
 taking a lock. There is no queued root job. Later free RAM fell to 518 MiB.
 The owner RAM question remains pending; do not waive admission thresholds.
@@ -53,11 +54,16 @@ The owner RAM question remains pending; do not waive admission thresholds.
 
 - Select builder: `C:/Temp/jb-codex-select`, `codex/select-lines`. Owns canonical
   Copy DTO/budget/Engine/View/Activity, then hardened runner/run IDs and A10.
-  Commits5833df849,8eca2ccc9,4f1a72a06,671b55766 are pending final review and
-  execution, NOT adopted here. Root reviewed metadata ordering/ownership design;
-  Luna reviewed the first DTO/budget and found estimate/copy collection races
-  subsequently addressed by671b. The follow-up engine audit hit a usage limit;
-  it did not complete and supplies no independent approval.
+  Commits5833df849,8eca2ccc9,4f1a72a06,671b55766 were reviewed and adopted as
+  643c097f1,eed4ea987,4e3e5fb29,3de0c1c1f, SOURCE ONLY and unexecuted. Root and
+  Luna checked canonical ordering, conservative physical-domain ownership,
+  generation/brush revisions, bounded sample freezing and no-history behavior by
+  inspection. The first follow-up audit hit a usage limit; after reset the retry
+  completed, finding no clear Copy fixture compile bug by inspection. Neither
+  audit is test proof. Clipboard semantics copy editable stroke recipes, as A1
+  specifies; source-layer opacity/blend are not transferred to the destination.
+  Later View terminal bridge481b40f5c has been reviewed by root but is not adopted
+  yet. Clipboard/Activity and real bridge regression evidence remain owed.
 - Root owns this candidate's TOV terminal reason, SelectBoxHost and narrow bench
   observation. No peer edits this worktree during validation.
 - Vector specialist: `C:/Temp/jb-watercolour-finish-20261024`, latest reported
@@ -69,6 +75,8 @@ The owner RAM question remains pending; do not waive admission thresholds.
   contract is paper veil before selected RGBA lift in both screen paths, explicitly
   excluded from save/snapshot/export, no source/history writes. Engine Lead must
   review/own those hot paths. Do not implement an approximate veil as completion.
+  UX dependency/test matrix is published as8f91cf936, at
+  `tasks/joybrush/reviews/SELECT_C3_DEPENDENCY_CONTRACT_20261025.md` in its branch.
 
 K25 requires per-brush preference, no legacy global fallback, eligible exact line
 defaults and pixels-always refusal/no switch. K26 lines-over-realistic and atomic

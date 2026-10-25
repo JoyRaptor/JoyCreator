@@ -19,11 +19,26 @@ class SelectGestures(private val canvas: View) {
     private val ui = Handler(Looper.getMainLooper())
     private val root: View get() = canvas.rootView
     private val at = IntArray(2)
+    private var stopped = false
+    private var contact: MotionEvent? = null
+
+    /** Cancel a synthetic contact, never finish it as an UP, and discard every remaining scheduled gesture. */
+    fun cancel() {
+        if (stopped) return
+        stopped = true
+        ui.removeCallbacksAndMessages(null)
+        contact?.let { last ->
+            contact = null
+            last.action = MotionEvent.ACTION_CANCEL
+            try { root.dispatchTouchEvent(last) } finally { last.recycle() }
+        }
+    }
 
     class P(val x: Float, val y: Float)
 
     /** One pointer along [path] (canvas px) over [ms], 120 reports a second; [done] runs [settleMs] after the lift. */
     fun stroke(path: List<P>, ms: Long, pen: Boolean, settleMs: Long = 350, done: () -> Unit) {
+        if (stopped) return
         val pts = resample(path, ms)
         val base = SystemClock.uptimeMillis() + 30
         pts.forEachIndexed { i, (p, t) ->
@@ -47,6 +62,7 @@ class SelectGestures(private val canvas: View) {
 
     /** The pen hovering (no contact) along [path]: enter, moves, then it stays (no exit) so hover read-outs can be checked. */
     fun hover(path: List<P>, ms: Long, settleMs: Long = 250, done: () -> Unit) {
+        if (stopped) return
         val pts = resample(path, ms)
         val base = SystemClock.uptimeMillis() + 30
         pts.forEachIndexed { i, (p, t) ->
@@ -61,6 +77,7 @@ class SelectGestures(private val canvas: View) {
 
     /** The pen leaving the screen after [hover]. */
     fun hoverExit(p: P) {
+        if (stopped) return
         val now = SystemClock.uptimeMillis()
         val ev = obtain(now, now, MotionEvent.ACTION_HOVER_EXIT, listOf(p), pen = true)
         root.dispatchGenericMotionEvent(ev); ev.recycle()
@@ -68,6 +85,7 @@ class SelectGestures(private val canvas: View) {
 
     /** Two fingers about ([cx],[cy]) on a horizontal line, apart [from] → [to] px, over [ms]. */
     fun pinch(cx: Float, cy: Float, from: Float, to: Float, ms: Long, settleMs: Long = 400, done: () -> Unit) {
+        if (stopped) return
         val n = (ms * 120 / 1000).toInt().coerceAtLeast(4)
         val base = SystemClock.uptimeMillis() + 30
         fun pair(k: Int): List<P> { val d = (from + (to - from) * k / n) / 2f; return listOf(P(cx - d, cy), P(cx + d, cy)) }
@@ -101,8 +119,12 @@ class SelectGestures(private val canvas: View) {
     }
 
     private fun send(down: Long, t: Long, action: Int, ps: List<P>, pen: Boolean) {
+        if (stopped) return
         val ev = obtain(down, t, action, ps, pen)
-        root.dispatchTouchEvent(ev); ev.recycle()
+        contact?.recycle()
+        contact = if (ev.actionMasked == MotionEvent.ACTION_UP || ev.actionMasked == MotionEvent.ACTION_CANCEL) null
+            else MotionEvent.obtain(ev)
+        try { root.dispatchTouchEvent(ev) } finally { ev.recycle() }
     }
 
     private fun obtain(down: Long, t: Long, action: Int, ps: List<P>, pen: Boolean): MotionEvent {

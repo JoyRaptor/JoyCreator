@@ -7,6 +7,8 @@ import cc.joycreator.joybrush.androidkit.JbCanvasView
 import cc.joycreator.joybrush.androidkit.gl.GlPaintEngine
 import cc.joycreator.joybrush.androidkit.lines.LineCopyResult
 import cc.joycreator.joybrush.androidkit.lines.LinePlane
+import cc.joycreator.joybrush.androidkit.lines.LineEdit
+import cc.joycreator.joybrush.androidkit.select.SelectTool
 import cc.joycreator.joybrush.core.select.SelectionState
 import cc.joycreator.joybrush.core.stroke.AddressedStroke
 import java.time.Duration
@@ -100,6 +102,28 @@ class SelectCopySourceTest {
         b.copy(); b.runMetadataQueue()
         assertFalse(LineSelectionClipboard.hasLines)
         assertFalse(b.engine.undo.canUndo)
+    }
+
+    @Test fun acceptedCopySurvivesDrawingEpochSwitchAndPastesIntoAnEmptyDestination() {
+        val source = Bench()
+        source.copy(); source.runMetadataQueue()
+        val copied = LineSelectionClipboard.snapshot()
+        assertEquals(2, copied.size)
+        source.field("lineEditEpoch").setInt(source.surface, source.surface.lineEditEpoch + 1)
+
+        val destination = Rig(mapOf(planeP to emptyList()), brushes = emptyMap())
+        val brushIds = copied.map { destination.host.importBrush(it.brush())!! }
+        val batch = LineSelectionClipboard.paste(copied, planeP,
+            listOf("destination-red", "destination-blue"), brushIds, 0f, 0f)
+        val tool = SelectTool(destination.host, 1f) { true }
+        assertTrue(tool.addAndSelect(batch))
+        val edit = destination.canvas.submitted.single().first as LineEdit.Add
+        assertEquals(listOf(Color.RED, Color.BLUE), edit.records.map { it.record.colorArgb })
+        assertEquals(setOf("destination-red", "destination-blue"),
+            (tool.selection as SelectionState.Lines).ids.map { it.recordId }.toSet())
+        assertTrue(edit.brushes.isNotEmpty())
+        assertSame(copied, LineSelectionClipboard.snapshot())
+        assertFalse(source.engine.undo.canUndo)
     }
 
     @Test fun anUnprovedCopyPreservesThePreviousClipboard() {

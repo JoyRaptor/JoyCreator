@@ -47,6 +47,11 @@ wired. This brief is the missing part, lines first (Phase A), then paint selecti
 - **Copy text:** the owner's words in the spec are verbatim; use them.
 - **Identity:** write "JoyRaptor" or "the owner" in repo files, never a personal name or email (a git hook blocks it).
 - **Never** resolve a merge conflict: re-apply on the new base.
+- **Phone proof = the Select bench** (`bench/SelectBench.kt`, on origin/ui/select-accept until the lead merges it):
+  `bash tasks/joybrush/ui-scripts/select_bench.sh <out-dir>` on the Note 9 runs a synthetic S Pen through the real
+  window and checks the drawing (selection, line positions, undo steps), saving a screenshot per step. Add a bench
+  step for what you built (same pattern) and attach its JSON lines and screenshots to the evidence note. It needs the
+  phone lock; when the owner has reserved the phone, wait.
 - **Each step ends with:**
   - tests green;
   - a short evidence note appended to `reviews/SELECT_LINES_GAPS_20261023.md` §5 (what, commit, tests, phone screenshot
@@ -66,7 +71,7 @@ wired. This brief is the missing part, lines first (Phase A), then paint selecti
 | A7 | **Eyedropper from the colour chip.** Dragging off the row's colour dot (or the strip swatch while lines are selected) picks a colour and RECOLOURS the selection, one step (D15). Act:550-553 hunk as LEAD PATCH | G13 | Test: pick → one step; a plain eyedropper with nothing selected is unchanged |
 | A8 | **Nudge "before" ghost.** While nudging, the line's pre-nudge shape shows at 20% in the overlay until release (D13) | G14 | Screenshot |
 | A9 | **Slice** (D24): an eraser preset at width 0 named Slice in the eraser shelf, if it isn't there. Check the shipped brush assets first | G16 | The preset exists; a slice line splits a line into two selectable lines (or note why not, for the lead) |
-| A10 | **Badge and the two toasts** (D22, D23). WAIT until the lead or the watercolour brief's L3 has built the owner's choice of editable-lines default (per-brush switch, or global ON), then:<br>• the 10dp pixel badge (P9 C, dotted corner) on brushes that can't make lines, with the D22 hover sentence;<br>• the per-brush switch's UI in that brush's hold-for-settings sheet, if he chose per-brush;<br>• the two one-time toasts, verbatim, through `SelectToast`, one pref each | G11 | Screenshots; each toast shows once per install |
+| A10 | **Per-brush lines switch, badge and toasts** (owner ruling 10-24, spec K25 + D6/D22/D23; wait for L3's engine default). (a) In each brush's hold-for-settings sheet: an "Editable lines" switch reading/writing the same per-brush pref L3 uses (`BrushLinePreferences`, brush id key). Brushes that can never be lines (media, smudge, wet, blur, clone, paste) show NO switch, only the D22 sentence. (b) The drawer badge shows each brush's CURRENT mode (what it was last used as): raster = the P9 C dotted corner, vector = a small node-curve; the UI specialist supplies both glyphs; pixels-always brushes always wear the raster mark. (c) The two D23 toasts, verbatim, one pref each, through `SelectToast` | G11 | Screenshots of the sheet (switch on/off, a no-switch brush) and the drawer on white and dark paper; each toast once per install |
 
 **Not in Phase A:** Bend on the ring (G12) touches `LineTransform.kt`; it comes after the watercolour brief's L4 lands.
 The resting thumb for the count (G15) is the lead's, later.

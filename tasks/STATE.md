@@ -46,8 +46,10 @@ the current global-only host defaults to false. One caption-gating view test was
 No phone verification or main integration claimed.
 
 **Still open:** A9 Slice needs zero-width cut admission and an atomic split transaction; A10 badge/switch/toasts
-wait for a settled L3 editable-lines default; ring Bend waits for vector L4. Phase B pixel selections require
+follow the settled K25 per-brush ruling and wait for L3 engine-default integration/acceptance; ring Bend waits for vector L4. Phase B pixel selections require
 Phase A integration, a design note and Lead approval before code. This is not waiting solely on JoyRaptor.
+Owner now requires `tasks/joybrush/ui-scripts/select_bench.sh <out>` on the Note 9 after each step, with model JSON
+and screenshots. The bench must be included in the exact tested APK; older UI-only runs do not prove this delivery.
 
 ## The proof levels — this is the point of the document
 

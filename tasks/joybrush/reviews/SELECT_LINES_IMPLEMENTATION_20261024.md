@@ -33,9 +33,11 @@ either fail loading or silently behave as a raster eraser. No invalid or mislead
 provide the zero-width cut admission and atomic split transaction before the shelf preset can be made usable.
 
 **A10 / G11 — waits for L3.** The vector specialist reports a per-brush candidate (`e9b6ff9b6`,
-`BrushLinePreferences`, watercolour default ON), with unchanged Select-host callback signatures. The owner default
-is not settled and the candidate is not accepted/landed. The badge, per-brush setting and once-only toasts must follow
-that choice. No default was chosen by this lane.
+`BrushLinePreferences`, watercolour default ON), with unchanged Select-host callback signatures. **Updated owner
+ruling K25 is now settled:** each brush has its own flag; defaults are ON for the line set/watercolour vector brush,
+OFF for painting brushes, no global fallback, and no switch on pixels-always brushes. The current-mode badge has
+both raster and vector forms. Engine-default integration/acceptance is still required before A10 is accepted;
+the earlier claim that the owner's choice was pending is superseded.
 
 **Ring Bend / G12 — waits for L4.** `LineTransform.kt` and the watercolour wash-frame implementation remain vector-owned.
 

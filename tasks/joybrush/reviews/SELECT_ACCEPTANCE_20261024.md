@@ -21,9 +21,9 @@ Do not edit the frozen checkout during an admitted build. Admission thresholds: 
 
 | Check | State | Evidence |
 |---|---|---|
-| Focused `SelectionMaskAdmissionTest` and `GlContextLossTest` | Pending | New core mask and backend context-preview regressions |
+| Focused `SelectionMaskAdmissionTest` and `GlContextLossTest` | PASS on `79f2d4dba` | 6 + 8 tests; zero failures/errors/skips; closed 4m11s log; Coordinator independently counted testcase nodes |
 | Full standalone `:core:jvmTest :androidkit:test` | Pending | Fresh XML totals, failures/errors/skips and closed log owed |
-| App `*Select*`, including host/history and new menu tests; Kotlin compile | Pending | Fresh XML and closed log owed |
+| App `*Select*`, including host/history and new menu/probe tests; Kotlin compile | Fixture compile failure on `24ba90ea9`; retry owed | Production compiled; missing test runner import stopped test compilation after 1m07s; no behavioral tests executed. One-line fixture fix `28e45e7ef`. |
 | Assemble Default Debug | Pending | Exact source, APK hash and build log owed |
 | Install Note 9 with `-r` | Pending | Home first; compare installed hash/update time; no data clearing |
 
@@ -49,3 +49,31 @@ they do not establish physical S Pen pressure, tilt, palm rejection or the owner
 
 A9 Slice, A10/L3 badges/toasts, ring Bend/L4, C3 veil and Phase B design approval remain separate open gates.
 No acceptance is inferred from the preparatory baseline or from another lane's APK.
+
+Owner's updated instruction: read A10/K25 from `origin/ui/select-accept` (read at `43d8588ef`) and run
+`tasks/joybrush/ui-scripts/select_bench.sh <out>` after every step. Its exact source/script must be in the candidate;
+it opens an unsaved second Joy Brush screen, drives synthetic S Pen/window events, records model JSON and captures
+requested PNGs. Bench evidence is currently owed for this integrated delivery, and does not substitute for new
+A1–A10 assertions: extend the bench for each new feature. Preserve the phone lock and current watercolor handoff.
+
+## Additional source findings and probes
+
+Tests-only `f6331f3ed`, corrections `cef0039f4` and `28e45e7ef`, exercise the actual Controller/SeekBar lifecycle,
+real host/tool callbacks after a drawing switch, and Activity's actual copy callback with overlapping layer records.
+No production fix is inferred from these test additions, and they have not yet executed successfully.
+
+- HSB `onStopTrackingTouch` does not currently distinguish cancellation; dismissing an unfinished preview also has
+  no explicit rollback. Probe cancellation/dismiss/old-UP-after-Open against a successful one-step UP control.
+- A pending host callback lacks its originating drawing epoch. Probe old success/refusal while drawing B has both
+  a pending edit and an unfinished drag, requiring no new UI notice, redraw, refit or lost pending edit.
+- Activity globally sorts copied records by `seq`, but sequences are local to physical planes. Probe identical
+  opaque red-under/blue-over lines with lower seq100 and upper seq1 through actual Copy and Paste.
+- **A1 frame/region fidelity is BLOCKED.** Engine commit keeps a whole raw recipe in each written physical plane,
+  relying on that plane's clipping domain. Copying record/brush alone into one unbounded plane may duplicate full
+  recipes and reveal clipped portions. Destination-cel tests do not establish source-domain preservation.
+  Minimum safe admission must prove the exact source addresses/records and unbounded ownership on the GL side,
+  tied to drawing epoch/document generation, and carry immutable proof with the copied payload. UI board metadata
+  alone may be stale. Unknown/clipped source domains must refuse until a domain-preserving adapter exists.
+
+The integration checkout remains frozen during every admitted build. Production changes require deliberate
+Coordinator unfreeze after precise fixture/behavior evidence; Lead-owned bridges remain separate patch commits.

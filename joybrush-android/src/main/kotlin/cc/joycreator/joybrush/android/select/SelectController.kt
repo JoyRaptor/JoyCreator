@@ -464,8 +464,11 @@ class SelectController(
         tool.updateView(canvas.view)
         val copied = LineSelectionClipboard.snapshot()
         if (copied.isEmpty()) return
+        val available = Runtime.getRuntime().let { it.maxMemory() - (it.totalMemory() - it.freeMemory()) }
+        if (!LineSelectionClipboard.canPaste(copied, available)) { host.toast(LineSelectionClipboard.MEMORY_REFUSAL); return }
         if (host.activeLinePlane() == null) { host.toast("Choose an editable layer before pasting lines."); return }
         val existing = host.visibleLines().mapTo(HashSet()) { it.record.id }
+        existing += copied.map { it.record.id }
         val ids = ArrayList<String>(copied.size)
         repeat(copied.size) {
             var id: String? = null
@@ -474,6 +477,7 @@ class SelectController(
             ids += id!!
         }
         val brushIds = HashMap<cc.joycreator.joybrush.core.brush.BrushPreset, String>()
+        val sourceBrushes = HashMap<String, cc.joycreator.joybrush.core.brush.BrushPreset>()
         val destinationBrushIds = ArrayList<String>(copied.size)
         val points = copied.flatMap { it.record.samples }
         val x0 = points.minOfOrNull { it.x } ?: 0f
@@ -491,15 +495,18 @@ class SelectController(
             ?: run { host.toast("Choose an editable layer before pasting lines."); return }
         for (i in copied.indices) {
             val entry = copied[i]
-            val preset = entry.brush ?: host.brushPreset(entry.record.brushId)
-                ?: run { host.toast("A copied line's brush is missing."); return }
+            val preset = try { sourceBrushes.getOrPut(entry.record.brushId) { entry.brush() } }
+                catch (_: Exception) { host.toast("A copied line's brush couldn't be read."); return }
             val brushId = brushIds.getOrPut(preset) {
                 host.importBrush(preset) ?: run { host.toast("That line's brush can't be brought into this drawing."); return }
             }
             destinationBrushIds += brushId
         }
         val destination = try { LineSelectionClipboard.paste(copied, plane, ids, destinationBrushIds, dx, dy) }
-        catch (_: IllegalArgumentException) { host.toast("Those lines are too far from this view to paste."); return }
+        catch (e: IllegalArgumentException) {
+            host.toast(if (e.message == LineSelectionClipboard.MEMORY_REFUSAL) e.message!! else "Those lines are too far from this view to paste.")
+            return
+        }
         if (!tool.addAndSelect(destination)) host.toast("Those lines could not be pasted.") else refresh()
     }
 

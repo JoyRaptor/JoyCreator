@@ -73,7 +73,9 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
                /** Keep FrameStats through watercolour idle confirmation; opt-in diagnostic tail (`jb_full_tail`). */
                val fullTail: Boolean = false,
                /** Temporary canvas-only editable-lines override (`jb_editable_lines`); never writes preferences. */
-               val editableLines: Boolean? = null)
+               val editableLines: Boolean? = null,
+               /** Select evidence identity; the host ignores all other runs in logcat. */
+               val selectRunId: String = "")
 
     private val ui = Handler(Looper.getMainLooper())
     private val jobs = ArrayDeque<Triple<BrushPreset, String, Int>>()
@@ -95,7 +97,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
         spec.dropDry?.let { cc.joycreator.joybrush.androidkit.gl.media.MediaAtlasDropDry.on = it; Log.i(TAG, "drop dry water: $it") }
         spec.water?.let { canvas.mediaWaterAB = cc.joycreator.joybrush.android.WaterTest.of(it).ab; Log.i(TAG, "water test: $it") }
         if ("matrix" in spec.cases) { MatrixBench(canvas, spec, onDone).start(); return }
-        if ("select" in spec.cases) { SelectBench(canvas, onDone).start(); return }
+        if ("select" in spec.cases) { SelectBench(canvas, spec.selectRunId, onDone).start(); return }
         val all = BrushLibrary.builtIn()
         Log.i(TAG, "brushes available: " + all.joinToString(",") { it.id })
         for (b in spec.brushes) {
@@ -465,7 +467,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
                 dropDry = if (intent.hasExtra("jb_drop_dry")) intent.getBooleanExtra("jb_drop_dry", true) else null,
                 startMs = intent.getLongExtra("jb_start_ms", 1500L).coerceIn(0L, 60_000L),
                 fullTail = intent.getBooleanExtra("jb_full_tail", false),
-                editableLines = if (intent.hasExtra("jb_editable_lines")) intent.getBooleanExtra("jb_editable_lines", false) else null)
+                editableLines = if (intent.hasExtra("jb_editable_lines")) intent.getBooleanExtra("jb_editable_lines", false) else null,
+                selectRunId = intent.getStringExtra("jb_select_run_id").orEmpty())
         }
     }
 }

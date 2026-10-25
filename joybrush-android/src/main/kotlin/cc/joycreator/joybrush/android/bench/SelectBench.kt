@@ -187,6 +187,22 @@ class SelectBench(private val canvas: JbCanvasView, private val finished: () -> 
         rowAction("delete", "Delete") { before, after -> after.size == before.size - 1 && ids[3] !in after }
         rowAction("duplicate", "Duplicate") { before, after -> after.size == before.size + 1 && lines().none { it in before } }
         rowAction("flipH", "Flip horizontal") { _, _ -> true }
+        step("swapList") { next ->
+            // D25: the row's Brush opens the swap list, drawing the selected line's colour on the drawing's paper.
+            val (x, y) = screenMid(3)
+            g.tap(x, y, pen = true, settleMs = 600) {
+                val b = g.labelled("Swap the selected lines")
+                if (b == null) { report("swapList", false, JSONObject().put("why", "no Brush button in the row")); next(); return@tap }
+                g.tapView(b, settleMs = 1500) {
+                    val drawer = g.find<cc.joycreator.joybrush.android.chrome.BrushDrawerView>().firstOrNull()
+                    val footer = drawer != null && g.all(drawer).any { (it as? android.widget.TextView)?.text?.startsWith("Only brushes that keep") == true }
+                    report("swapList", drawer != null && footer, JSONObject().put("drawerShown", drawer != null).put("footer", footer))
+                    shot("09_swap_list")
+                    // The sheet is modal: a tap anywhere outside it closes it and goes no further.
+                    hold { g.tap(0.5f * w, 0.12f * h, pen = false, settleMs = 500) { next() } }
+                }
+            }
+        }
         step("tipDots") { next ->
             val l = host?.activeLines()?.firstOrNull { it.address == ids.getOrNull(4) }
             val s = tool?.viewTransform

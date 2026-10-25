@@ -13,6 +13,8 @@ data class LineSliceOwner(val parameter: Double, val spanIndex: Int, val span: L
  * points outside the stroke's optical halo. Ties in squared distance select the earliest
  * fractional point parameter. Boundaries belong to the following half-open span; the final
  * endpoint belongs to the final span, and a dot's only span owns parameter zero.
+ * Finite inputs outside representable squared-distance/projection arithmetic are refused,
+ * including underflowing nonzero segments or residuals; no ownership is guessed for them.
  *
  * This is pure geometric bookkeeping. Ownership is binary and one-hot; it is not an alpha mask,
  * does not assert pigment or rendered-pixel equivalence, and does not define runtime slicing,
@@ -21,7 +23,7 @@ data class LineSliceOwner(val parameter: Double, val spanIndex: Int, val span: L
  */
 class LineSliceOwnership(
     plan: LineSlicePlan,
-    sourceToDocument: Homography = Homography.IDENTITY,
+    sourceToDocument: Homography = Homography(doubleArrayOf(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)),
     limits: Limits = Limits(),
 ) {
     /** Query work is linear in the source point count and refused above this deterministic cap. */

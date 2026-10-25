@@ -133,6 +133,24 @@ class LineSliceOwnershipTest {
         assertFailsWith<IllegalArgumentException> { projective.ownerAtDocument(Pt(1.0, 0.0)) }
     }
 
+    @Test fun defaultFrameIsFreshEvenIfTheSharedIdentityArrayWasModified() {
+        val previous = Homography.IDENTITY.m.copyOf()
+        try {
+            Homography.IDENTITY.m[2] = 1000.0
+            val ownership = LineSliceOwnership(plan(line(doubleArrayOf(0.0, 1.0))))
+            assertEquals(.25, ownership.ownerAtDocument(Pt(.25, 0.0)).parameter, 1e-12)
+        } finally {
+            previous.copyInto(Homography.IDENTITY.m)
+        }
+    }
+
+    @Test fun nonzeroUnderflowingGeometryAndDistancesAreRefusedInsteadOfGuessingOwners() {
+        val tiny = LineSliceOwnership(plan(line(doubleArrayOf(0.0, 1e-200))))
+        assertFailsWith<IllegalArgumentException> { tiny.ownerAtCanonical(Pt(5e-201, 0.0)) }
+        val ordinary = LineSliceOwnership(plan(line(doubleArrayOf(0.0, 1.0))))
+        assertFailsWith<IllegalArgumentException> { ordinary.ownerAtCanonical(Pt(.5, 1e-200)) }
+    }
+
     private data class Rgba(val r: Double, val g: Double, val b: Double, val a: Double) {
         fun scale(value: Double) = Rgba(r * value, g * value, b * value, a * value)
     }

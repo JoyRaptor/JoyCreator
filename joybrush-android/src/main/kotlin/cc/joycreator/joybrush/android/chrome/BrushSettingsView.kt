@@ -37,6 +37,9 @@ class BrushSettingsView(
     private val onReset: () -> Unit,
     private val onTest: () -> Unit,
     private val onDone: () -> Unit,
+    /** Null means this engine always makes pixels and must not offer a switch. */
+    editableLines: Boolean? = null,
+    private val onEditableLinesChanged: (Boolean) -> Unit = {},
 ) : LinearLayout(kit.context) {
 
     private var positions = start
@@ -92,6 +95,24 @@ class BrushSettingsView(
         addView(preview, LayoutParams(MATCH, kit.dpi(PREVIEW_DP)).apply { setMargins(kit.dpi(4f), 0, kit.dpi(4f), kit.dpi(4f)) })
 
         val list = LinearLayout(context).apply { orientation = VERTICAL }
+        if (editableLines == null) {
+            list.addView(text(cc.joycreator.joybrush.android.select.BrushModeBadge.PIXELS_LABEL, 12f).apply {
+                setPadding(kit.dpi(6f), kit.dpi(8f), kit.dpi(6f), kit.dpi(8f))
+            }, LayoutParams(MATCH, WRAP))
+        } else {
+            list.addView(android.widget.Switch(context).apply {
+                text = "Editable lines"
+                textSize = 13f
+                setTextColor(kit.p.drawerInk)
+                thumbTintList = ColorStateList.valueOf(kit.p.drawerInk)
+                trackTintList = ColorStateList.valueOf(kit.ink(.25f))
+                minHeight = kit.dpi(ChromeKit.TOUCH_DP)
+                setPadding(kit.dpi(6f), 0, kit.dpi(6f), 0)
+                isChecked = editableLines
+                kit.label(this, "Editable lines")
+                setOnCheckedChangeListener { _, on -> onEditableLinesChanged(on) }
+            }, LayoutParams(MATCH, WRAP))
+        }
         // How the brush hears the pen: what it reads now, and the two curves that shape it.
         val hearing = LinearLayout(context).apply { orientation = HORIZONTAL; gravity = Gravity.TOP }
         hearing.addView(penDot, LayoutParams(0, WRAP, 0.8f))

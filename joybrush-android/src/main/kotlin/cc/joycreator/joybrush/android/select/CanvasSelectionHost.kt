@@ -193,7 +193,7 @@ class CanvasSelectionHost(
 
     // ── what is there now: the snapshot with the edits still in flight on top ──
 
-    private class Pending(val edit: LineEdit)
+    private class Pending(val edit: LineEdit, val epoch: Int)
 
     private val pending = ArrayList<Pending>()
     private var editsVersion = 0
@@ -328,7 +328,7 @@ class CanvasSelectionHost(
     /** Sends [edit] and shows it at once. False only when the canvas answered before returning, with no. */
     private fun submit(edit: LineEdit): Boolean {
         dropPendingIfReloaded()
-        val entry = Pending(edit)
+        val entry = Pending(edit, canvas.lineEditEpoch)
         pending += entry
         editsVersion++
         var returned = false
@@ -342,6 +342,7 @@ class CanvasSelectionHost(
         }
         returned = true
         val result = early ?: return true
+        if (entry.epoch != canvas.lineEditEpoch) { dropPendingIfReloaded(); return false }
         pending.remove(entry)
         editsVersion++
         if (result.ok) return true
@@ -350,6 +351,8 @@ class CanvasSelectionHost(
 
     /** The engine's answer, on the UI thread: the edit drops off the lists (the snapshot holds it now, if it happened). */
     private fun answered(entry: Pending, result: LineEditResult) {
+        dropPendingIfReloaded()
+        if (entry.epoch != canvas.lineEditEpoch) return
         pending.remove(entry)
         editsVersion++
         pruneStaged()
@@ -363,7 +366,7 @@ class CanvasSelectionHost(
     }
 
     /** True while an edit is on its way to the engine. */
-    val editing: Boolean get() = pending.isNotEmpty()
+    val editing: Boolean get() { dropPendingIfReloaded(); return pending.isNotEmpty() }
 
     // ── live drag (v1.1) ──
 

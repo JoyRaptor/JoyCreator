@@ -474,22 +474,49 @@ class SelectController(
     private fun showAdjust(anchor: View) {
         val list = LinearLayout(kit.context).apply { orientation = LinearLayout.VERTICAL }
         val values = floatArrayOf(0f, 1f, 1f)
+        val epoch = host.selectionEpoch
+        var owner = tool.selection
+        var previewing = false
+        val controls = ArrayList<Pair<SeekBar, Int>>()
+        fun current() = host.selectionEpoch == epoch && tool.selection === owner
+        fun neutralValues() { values[0] = 0f; values[1] = 1f; values[2] = 1f }
+        fun resetControls() {
+            neutralValues()
+            controls.forEach { (seek, neutral) -> seek.progress = neutral }
+        }
+        fun cancelPreview() {
+            if (previewing && current()) host.adjustColour(0f, 1f, 1f, done = true)
+            previewing = false
+            resetControls()
+        }
         fun slider(name: String, max: Int, start: Int, map: (Int) -> Float, i: Int) {
             val label = TextView(kit.context).apply { text = name; textSize = 12f; setTextColor(kit.p.drawerInk) }
             val seek = SeekBar(kit.context).apply { this.max = max; progress = start }
+            controls += seek to start
+            seek.setOnTouchListener { _, event ->
+                if (event.actionMasked == MotionEvent.ACTION_CANCEL) cancelPreview()
+                false // SeekBar still receives the terminal event; its stop callback must see no active preview.
+            }
             seek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(s: SeekBar, p: Int, fromUser: Boolean) {
-                    if (!fromUser) return
-                    values[0] = 0f; values[1] = 1f; values[2] = 1f
+                    if (!fromUser || !current()) return
+                    previewing = true
+                    neutralValues()
                     values[i] = map(p)
                     host.adjustColour(values[0], values[1], values[2], done = false)
                 }
-                override fun onStartTrackingTouch(s: SeekBar) { values[0] = 0f; values[1] = 1f; values[2] = 1f }
+                override fun onStartTrackingTouch(s: SeekBar) {
+                    cancelPreview()
+                    previewing = current()
+                }
                 override fun onStopTrackingTouch(s: SeekBar) {
-                    host.adjustColour(values[0], values[1], values[2], done = true)
-                    tool.reconcileLineSelection()
-                    values[0] = 0f; values[1] = 1f; values[2] = 1f
-                    s.progress = start
+                    if (previewing && current()) {
+                        host.adjustColour(values[0], values[1], values[2], done = true)
+                        previewing = false
+                        tool.reconcileLineSelection()
+                        owner = tool.selection
+                        resetControls()
+                    } else cancelPreview()
                 }
             })
             kit.label(seek, name)
@@ -498,7 +525,7 @@ class SelectController(
         slider("Hue", 360, 180, { (it - 180).toFloat() }, 0)
         slider("Saturation", 200, 100, { it / 100f }, 1)
         slider("Brightness", 200, 100, { it / 100f }, 2)
-        popovers.show(list, anchor, Popovers.Side.BELOW, widthDp = 240f)
+        popovers.show(list, anchor, Popovers.Side.BELOW, widthDp = 240f, onClosed = ::cancelPreview)
     }
 
     // ── the bar ──

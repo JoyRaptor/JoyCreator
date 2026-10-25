@@ -18,6 +18,24 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
 class SelectToolEditTest {
+    @Test fun benchGeometryCannotMutateTheHostOrAnotherObservation() {
+        val base = Host(mutableListOf(record("a")))
+        val source = base.activeLines()
+        val host = object : SelectionHost by base { override fun activeLines() = source }
+        val tool = SelectTool(host, 1f) { true }
+        val before = source.single().geometry
+        val observed = tool.benchActiveLines().single()
+        assertEquals(source.single().address, observed.address)
+        assertNotSame(before, observed.geometry)
+        observed.geometry.xs[0] += 1000.0
+        observed.geometry.ys[0] += 1000.0
+        observed.geometry.halfWidths[0] += 1000.0
+        assertEquals(10.0, before.xs[0], 0.0)
+        assertEquals(10.0, before.ys[0], 0.0)
+        assertEquals(1.0, before.halfWidths[0], 0.0)
+        assertEquals(before, tool.benchActiveLines().single().geometry)
+    }
+
     @Test fun oversizedPaintCoverageIsRefusedBeforeRasterisationOrHostLift() {
         val host = Host()
         val tool = SelectTool(host, 1f) { true }
@@ -209,7 +227,7 @@ class SelectToolEditTest {
         tool.tapFromBox(50f, 50f)
         val first = (tool.selection as SelectionState.Lines).ids
         box.noteBodyContact(50f, 50f, single = true)
-        box.cancelGesture()
+        box.endUncommittedGesture(cleanBodyTap = true)
         val second = (tool.selection as SelectionState.Lines).ids
         assertEquals(1, first.size)
         assertEquals(1, second.size)

@@ -112,15 +112,18 @@ class SelectBoxHost(
         onGesture?.invoke(false)
     }
 
-    override fun cancelGesture() {
+    override fun cancelGesture() = endUncommittedGesture(false)
+
+    override fun endUncommittedGesture(cleanBodyTap: Boolean) {
+        val t = tapAt.takeIf { cleanBodyTap }
+        tapAt = null
         tool.cancelBox()
         gestureQuad = null
         settle()
-        val t = tapAt; tapAt = null
         if (t != null && android.os.SystemClock.uptimeMillis() - tapTime < TAP_MS) tool.tapFromBox(t[0], t[1])
     }
 
-    /** Canvas px of a single contact the box took on its body, or null: if it lifts without moving, it was a tap. */
+    /** Canvas px of a single body contact. Only the overlay's clean body-UP reason may replay it. */
     private var tapAt: FloatArray? = null
     private var tapTime = 0L
 

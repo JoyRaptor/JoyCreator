@@ -32,13 +32,20 @@ import kotlin.math.hypot
  * Every edit is ONE undo step through the host; picking, cycling, previews and chips are never steps (spec D20).
  */
 class SelectTool(
-    /** Read by the debug Select bench (bench/SelectBench) to check the drawing; everything else goes through the tool. */
-    val host: SelectionHost,
+    private val host: SelectionHost,
     /** Screen px per dp. */
     private val density: Float,
     /** JbCanvasView.penHasBeenSeen. */
     private val penSeen: () -> Boolean,
 ) : CanvasTool {
+
+    /** Detached observation for the cross-module debug bench; no host editing or raw recipes escape. */
+    data class BenchLine(val address: LineAddress, val geometry: cc.joycreator.joybrush.core.vector.InkLine)
+
+    fun benchActiveLines(): List<BenchLine> = host.activeLines().map { line ->
+        val g = line.geometry
+        BenchLine(line.address, g.copy(xs = g.xs.copyOf(), ys = g.ys.copyOf(), halfWidths = g.halfWidths.copyOf()))
+    }
 
     /** What the Select UI listens to (the controller in joybrush-android). */
     interface Listener {

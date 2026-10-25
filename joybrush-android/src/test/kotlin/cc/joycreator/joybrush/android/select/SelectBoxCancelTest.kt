@@ -65,6 +65,7 @@ class SelectBoxCancelTest {
         var cancels = 0
         override fun commitGesture(what: String) { commits++; box.commitGesture(what) }
         override fun cancelGesture() { cancels++; box.cancelGesture() }
+        override fun endUncommittedGesture(cleanBodyTap: Boolean) { cancels++; box.endUncommittedGesture(cleanBodyTap) }
     }
 
     private data class Fixture(

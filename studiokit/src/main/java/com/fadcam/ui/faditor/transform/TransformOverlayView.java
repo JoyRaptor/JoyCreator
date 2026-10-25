@@ -134,6 +134,13 @@ public class TransformOverlayView extends View {
         default void cancelGesture() { }
 
         /**
+         * An uncommitted single-contact gesture ended. Only a clean, unmoved body UP is a tap;
+         * cancellation, handles, holds and pinches must never be replayed as a body tap.
+         * Existing Studio hosts keep their cancellation behavior unless they opt into the reason.
+         */
+        default void endUncommittedGesture(boolean cleanBodyTap) { cancelGesture(); }
+
+        /**
          * The object's absolute rotation right now, in degrees.
          *
          * <p>Canonical, in {@code (-180, 180]}. The model is allowed to hold a raw winding — SPEC A
@@ -2393,7 +2400,7 @@ public class TransformOverlayView extends View {
                     : kind == HandleModel.Kind.ROTATE ? "Rotate"
                     : "Distort");
         } else {
-            if (was) h.cancelGesture();
+            if (was) h.endUncommittedGesture(clean && !didMove && kind == HandleModel.Kind.BODY);
         }
         if (cleanStyle && was && !didMove && clean && kind == HandleModel.Kind.CORNER && !affineOnly) {
             togglePin(tapIndex); // K6: a tap pins a corner (its FREE role); tapped again, it lets go

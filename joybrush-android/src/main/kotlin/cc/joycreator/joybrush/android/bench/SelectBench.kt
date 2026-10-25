@@ -10,7 +10,6 @@ import cc.joycreator.joybrush.android.select.SelectRowView
 import cc.joycreator.joybrush.androidkit.BrushLibrary
 import cc.joycreator.joybrush.androidkit.JbCanvasView
 import cc.joycreator.joybrush.androidkit.select.SelectTool
-import cc.joycreator.joybrush.androidkit.select.SelectionHost
 import cc.joycreator.joybrush.core.select.SelectionState
 import cc.joycreator.joybrush.core.stroke.LineAddress
 import com.fadcam.ui.faditor.transform.TransformOverlayView
@@ -34,7 +33,7 @@ class SelectBench(private val canvas: JbCanvasView, private val finished: () -> 
     private val ui = Handler(Looper.getMainLooper())
     private val g = SelectGestures(canvas)
     private val tool get() = canvas.tool as? SelectTool
-    private val host: SelectionHost? get() = tool?.host
+    private fun activeLines() = tool?.benchActiveLines().orEmpty()
     private val editableBefore = canvas.editableLines
     private val steps = ArrayDeque<Pair<String, (() -> Unit) -> Unit>>()
     private var passed = 0
@@ -63,7 +62,7 @@ class SelectBench(private val canvas: JbCanvasView, private val finished: () -> 
                 listOf(0.55f to 0.66f, 0.62f to 0.62f, 0.70f to 0.78f, 0.80f to 0.74f).map { (x, y) -> SelectGestures.P(x * w, y * h) })
             fun draw(i: Int) {
                 if (i == lines.size) { ui.postDelayed({
-                    val got = host?.activeLines().orEmpty()
+                    val got = activeLines()
                     ids = got.map { it.address }
                     undoDepth { d -> report("draw", got.size == 5, JSONObject().put("lines", got.size).put("undoDepth", d)); shot("01_drawn"); hold(next) }
                 }, 600); return }
@@ -188,7 +187,7 @@ class SelectBench(private val canvas: JbCanvasView, private val finished: () -> 
         rowAction("duplicate", "Duplicate") { before, after -> after.size == before.size + 1 && lines().none { it in before } }
         rowAction("flipH", "Flip horizontal") { _, _ -> true }
         step("tipDots") { next ->
-            val l = host?.activeLines()?.firstOrNull { it.address == ids.getOrNull(4) }
+            val l = activeLines().firstOrNull { it.address == ids.getOrNull(4) }
             val s = tool?.viewTransform
             if (l == null || s == null) { report("tipDots", false, JSONObject().put("why", "no L5")); next(); return@step }
             g.tap(screenMid(4).first, screenMid(4).second, pen = true, settleMs = 500) {
@@ -294,11 +293,11 @@ class SelectBench(private val canvas: JbCanvasView, private val finished: () -> 
     // ── the drawing ──
 
     private fun lines(): Set<LineAddress> = (tool?.selection as? SelectionState.Lines)?.ids.orEmpty()
-    private fun all(): Set<LineAddress> = host?.activeLines().orEmpty().map { it.address }.toSet()
-    private fun line(id: LineAddress) = host?.activeLines()?.firstOrNull { it.address == id }
+    private fun all(): Set<LineAddress> = activeLines().map { it.address }.toSet()
+    private fun line(id: LineAddress) = activeLines().firstOrNull { it.address == id }
 
     /** Each line's mean point, document px. */
-    private fun centres(): Map<LineAddress, Pair<Float, Float>> = host?.activeLines().orEmpty().associate { l ->
+    private fun centres(): Map<LineAddress, Pair<Float, Float>> = activeLines().associate { l ->
         l.address to (l.geometry.xs.average().toFloat() to l.geometry.ys.average().toFloat()) }
 
     private fun sel(before: Map<LineAddress, Pair<Float, Float>>, after: Map<LineAddress, Pair<Float, Float>>) =

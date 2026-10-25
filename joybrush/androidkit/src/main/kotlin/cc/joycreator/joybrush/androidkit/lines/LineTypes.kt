@@ -28,6 +28,8 @@ class LineSnapshot(
     val brushRevision: Long = 0L,
     /** Slab tiles held across the drawing (256 KB each): the slab budget's reading. */
     val slabTiles: Int = 0,
+    /** Issued with the snapshot by its engine. Null is unknown, never proof of an unbounded copy source. */
+    val sourceDocumentGeneration: Long? = null,
 ) {
     val planes: Map<LinePlane, List<StrokeRecord>> = planes.mapValues { it.value.toList() }
     val brushes: Map<String, BrushPreset> = brushes.toMap()

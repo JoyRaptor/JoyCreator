@@ -38,6 +38,32 @@ hole yields C=(0.5,0,0), leaving the background entirely unfaded there. Neither 
 Full strength means keeping selected source RGBA/operator intact; a translucent stroke's
 final colour can legitimately change when its background fades.
 
+### Applicability: the algebra is normal source-over only
+
+It is NOT proof for multiply, screen, erase, behind, source-layer opacity/blend/masks or
+cross-layer selection. Coordinator's additional review was checked against published main
+f79efc378c8b16f61ec5f58a7d7214b2c0ab9bd4: beginLift/previewLift compose selected operators
+into a transparent intermediate, while drawLiftOverlay uses GL_ONE/GL_ONE_MINUS_SRC_ALPHA
+and u_layerOpacity=1. That flattened RGBA is not a general replacement for applying the
+original operator to its real destination. A veil inserted before it cannot repair lost
+operator/layer semantics. “Reuse the lift” below is a seam candidate, not an assertion that
+the legacy lift is generally operator-correct.
+
+For example, erase rendered into transparent black cannot retain the operation needed to
+erase a nontransparent destination. Multiply/screen/behind also depend on the destination;
+unit layer opacity cannot stand in for a partially transparent source layer. These are
+same-source legacy-lift concerns separate from adding C3, and require Lead's review.
+
+**Admission note:** any initial C3 gate needs an explicit proven envelope. A candidate
+restricted envelope is normal source-over selected sources on one physical plane, normal
+source-layer blend, opacity1 and no unproved layer mask/clip semantics, with intrinsic
+stroke alpha/texture preserved. This is a proposal for Lead, not a gate implemented here.
+Do not advertise broader support until the operator/layer/cross-plane cases below pass
+against the correct ordered canonical composition. Outside a proven envelope, leave the
+fade unapplied or refuse its activation under Lead's policy; never flatten an unsupported
+operator to normal or treat unchanged legacy-lift behavior as a new C3 pass. This fallback
+does not certify the existing selection renderer itself.
+
 ## Existing source seam and minimal Lead-owned hook
 
 At dfda430d3, GlPaintEngine.kt:
@@ -57,7 +83,9 @@ Minimal dependency for Engine Lead review:
 1. An explicitly **screen-presentation-only** fade pass between finished unselected
    background and drawLiftOverlay in both screen paths. Fade to the current paper RGB,
    not black or cyan; source-over premultiplication must be correct. Use the existing real
-   lift/preview rendering, not geometry repainted by the UI or a GL-to-bitmap readback.
+   lift/preview rendering only within its proven operator/layer envelope, not geometry
+   repainted by the UI or a GL-to-bitmap readback. The present flattened lift is not a
+   generally correct source-alpha/operator replay contract.
 2. A Lead-owned View/Host bridge for existing dimRest(alpha), bound to the live selection/
    lift and document/graphics generation. Reject nonfinite inputs safely, clamp strength,
    and request presentation redraw. Current committed sources/undo/dirty state stay untouched.
@@ -94,11 +122,15 @@ cannot prove source/history/export isolation.
 | Textured/variable-width sources | Native textured line and full-resolution vector watercolor, including transparent gaps and partially covered pixels; no centreline/box hole or stale original contour. This is appearance/composition proof, not an S-tier quality claim. |
 | Live selection preview | Translate, scale/rotate, weight/colour preview and nudge/tip. Veil stays under the latest real preview at different zooms; cancel restores it, commit rebases it, and old/new tile regions do not leave a bright/dim trail. Existing20% nudge ghost remains20%, not multiplied by the fade. |
 | Both draw paths and layer semantics | Exercise direct screen path and needsComposite path; multiple selected addresses, layer masks/clips/opacity and a line over realistic paint. If a source mode is unsupported, refuse honestly rather than flatten/simplify its operator. |
+| Destination-dependent operators | Parameterize normal, multiply, screen, erase and behind against coloured and semi-transparent destinations, overlapping selected/unselected sources and original seq. Compare to ordered canonical background→fade→operator replay, not to the potentially wrong lifted baseline alone. Include mutants that flatten each operator into transparent RGBA and force source-over; they must fail or hit an explicit admission refusal. |
+| Source-layer and cross-layer state | Test layer opacity0/0.5/1, source-layer blend, masks/clips, and selected sources sharing a tile across two physical layers/cels. Retain per-layer alpha and ordered ownership; catch the unit-opacity1/global-over simplification. Repeat transform/preview/commit/cancel. Any unproved combination remains outside the admitted C3 envelope. |
 | Toggle/lifecycle/refusal | Off is identical to baseline. Selecting, toggling, changing paper, clearing and reopening do not add undo steps, dirty the document or alter records. Missing/failed lift, stale queued state, context loss and detach cannot leave the whole canvas faded. |
 | Non-display isolation | With selection/dimming ON, compare canonical tile bytes, history/dirty state, copy/export, thumbnails, saved looks, archive/Working/recovery against OFF. They remain exactly equivalent under each existing caller's contract. Include a negative control that deliberately applies the screen veil offscreen. |
 | Exact-source Note9 evidence | After Root's admitted validation and phone handoff, extend/run the hardened select_bench.sh on the identified combined APK. Preserve JSON, white/dark/kraft PNGs, source/APK identity, temperature and failures. No Note20, no monkey, no rotation setting changes. Synthetic bench proof does not replace physical pen-feel acceptance. |
 
 Acceptance requires the actual hook plus semi-alpha, texture and live-preview evidence,
-alongside persistence/export isolation. UI can review the resulting look and update C1/C2/C3
+alongside persistence/export isolation and an explicit proven operator/layer admission
+envelope. The expanded matrix has ten groups; no group was executed by this review.
+UI can review the resulting look and update C1/C2/C3
 status after Lead supplies those results. Until then C3 is an explicit engine dependency;
 no approximate UI implementation is being presented as finished work.

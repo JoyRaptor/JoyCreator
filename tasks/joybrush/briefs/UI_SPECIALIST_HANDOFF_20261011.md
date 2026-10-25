@@ -310,3 +310,11 @@ The report gives the bridge/lifecycle contract and eight bounded composition, pr
 paper, isolation and exact-source phone cases. No code/build/device action by UI. C3 stays
 OPEN until the actual hook plus semi-alpha/texture/preview evidence lands; Phase B is not
 approved by this dependency note. Locked styling and K25/K26 remain intact.
+
+Additional C3 admission review: verified mainf79efc378 shows flattened selected RGBA,
+source-over lift drawing and u_layerOpacity1. The handoff's algebra proves normal
+source-over ONLY, not multiply/screen/erase/behind or source-layer opacity/blend/mask and
+cross-layer semantics. Expanded matrix now has ten groups, including those destination-
+dependent cases and broken flatten/unit-opacity controls. Proposed conservative initial
+envelope is documented for Lead; no gate is implemented or general lift correctness claimed.
+Existing same-source legacy lift issues remain separate from C3 completion.

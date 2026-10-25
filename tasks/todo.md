@@ -102,3 +102,4 @@ Review: SELECT_C2_SOURCE_REVIEW_20261024.md records source fit/reveal notes and 
 - [x] Record accepted Lead-owned display-hook/lifecycle/non-display isolation contract and eight-case test matrix in specialist handoff.
 - [ ] Review actual hook and semi-alpha/texture/preview/isolation evidence before closing C3.
 Review: dependency handoff complete, C3 implementation remains OPEN; no production changes, build, GPU/phone run or Phase B approval.
+- [x] Append mainf79efc378 operator/layer limitation, explicit proposed admission envelope and ten-group matrix; no general legacy-lift correctness or new test claim.

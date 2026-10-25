@@ -41,14 +41,33 @@ class SelectBench(private val canvas: JbCanvasView, private val runId: String, p
     private var passed = 0
     private var failed = 0
     private var event = 0
+    private var active = true
+
+    /** Lifecycle interruption is not successful terminal evidence. Safe to call again after ordinary completion. */
+    fun abort(): Boolean {
+        if (!active) return false
+        cleanup()
+        return true
+    }
+
+    private fun cleanup() {
+        if (!active) return
+        active = false
+        ui.removeCallbacksAndMessages(null)
+        try { g.cancel() } finally {
+            restoreClipboard()
+            canvas.editableLines = editableBefore
+        }
+    }
     /** The five lines' addresses in drawing order, L1..L5. */
     private var ids: List<LineAddress> = emptyList()
     private val w get() = canvas.width.toFloat()
     private val h get() = canvas.height.toFloat()
 
     fun start() {
+        if (!active) return
         if (!runId.matches(Regex("[0-9a-f]{32}"))) {
-            Log.w(TAG, "Select acceptance requires a unique jb_select_run_id"); finished(); return
+            Log.w(TAG, "Select acceptance requires a unique jb_select_run_id"); cleanup(); finished(); return
         }
         if (tool == null) {
             report("setup", false, JSONObject().put("why", "the canvas has no Select tool"))
@@ -56,6 +75,7 @@ class SelectBench(private val canvas: JbCanvasView, private val runId: String, p
         }
         step("setup") { next ->
             canvas.benchFreshDrawing {
+                if (!active) return@benchFreshDrawing
                 canvas.editableLines = true
                 val ink = BrushLibrary.builtIn().firstOrNull { it.id == "joybrush.ink" }
                     ?: BrushLibrary.builtIn().firstOrNull { it.id == "ink" }
@@ -346,6 +366,7 @@ class SelectBench(private val canvas: JbCanvasView, private val runId: String, p
     private fun step(name: String, body: (() -> Unit) -> Unit) { steps.addLast(name to body) }
 
     private fun run() {
+        if (!active) return
         val (name, body) = steps.removeFirstOrNull() ?: run { done(); return }
         if (ids.size < 5 && name !in setOf("setup", "draw", "end")) {
             report(name, false, JSONObject().put("why", "the five lines were not drawn as editable lines")); ui.post { run() }; return
@@ -382,16 +403,19 @@ class SelectBench(private val canvas: JbCanvasView, private val runId: String, p
         emit(detail.put("selectBench", step).put("pass", pass))
     }
 
-    private fun emit(row: JSONObject) { Log.i(TAG, row.put("runId", runId).put("event", event++).toString()) }
+    private fun emit(row: JSONObject) { if (active) Log.i(TAG, row.put("runId", runId).put("event", event++).toString()) }
     private fun shot(name: String) = emit(JSONObject().put("selectBenchShot", "$name.png"))
     private fun done() {
-        restoreClipboard()
+        if (!active) return
+        // Emit terminal evidence only after local cleanup succeeds, and before Activity.finish triggers teardown.
+        val terminal = JSONObject().put("selectBenchDone", true).put("runId", runId).put("event", event++)
+        cleanup()
+        Log.i(TAG, terminal.toString())
         finished()
-        emit(JSONObject().put("selectBenchDone", true))
     }
     private fun hold(next: () -> Unit) = ui.postDelayed(next, SHOT_MS)
 
-    private fun undoDepth(then: (Int) -> Unit) = canvas.benchState(readPixels = false) { s, _ -> then(s?.undoDepth ?: -1) }
+    private fun undoDepth(then: (Int) -> Unit) = canvas.benchState(readPixels = false) { s, _ -> if (active) then(s?.undoDepth ?: -1) }
 
     // ── the drawing ──
 

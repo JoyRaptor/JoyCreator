@@ -33,7 +33,8 @@ published branch is lead/select-reconcile-20261024; subsequent local source rema
 - [ ] Latest combined phone/performance/artist acceptance; historical proof is source-specific.
 - [ ] K25 per-brush policy: corrected candidate plus8 tests; first run7/8, one fixture
   cleared its own preferences before asserting reopen. Fixture correction awaits rerun.
-- [ ] K25 drawer badge/sheet/shortcut matching and always-pixel behavior acceptance.
+- [x] K25 drawer badge/sheet/shortcut source integrated at12ec2d080 after review.
+- [ ] K25 combined policy/UI test execution and always-pixel device acceptance.
 - [x] Bounded pure Slice planning exacta8b63e010 passed10/0/0/0.
 - [ ] Shared Slice and touched-section Smudge runtime:
   seed/phase/domain preservation, atomic undo and no-ghost runtime remain substantial work.

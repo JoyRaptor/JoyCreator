@@ -1,5 +1,16 @@
 # JoyBrush coordinator — October 25
 
+Newest source12ec2d080 additionally integrates reviewed K25 policy, fixture fix,
+guarded current-brush shortcut, sheet switch/no-switch D22 text and exact drawer
+badges (0f39decaa/8e3c061d5/03984c5f9/61d3e852f/12ec2d080). Source only: no new
+Android execution or phone acceptance. Old held8c is not an ancestor/dependency.
+Clipboard epoch-switch probe adoptedbc99ad127; concrete-host typing correction
+adoptedd9ba29e64. The next app focus must cover the Select package AND
+BrushLinePreferencesTest AND chrome.BrushLineModeUiTest; private init is prepared.
+Runner e8+98 remains unadopted pending abort clipboard cleanup and terminal-order
+corrections. Luna independently ran its offline38 tests +bash syntax successfully;
+this is no phone proof. Receipt source/APK mapping still needs an actual build gate.
+
 Latest: code1ed44ddb0 now includes reviewed canonical Copy/Paste wiring,
 decoded-brush allowance, stale Activity-result suppression and pre-publication
 Paste OOM refusal/selective brush rollback (source only, unexecuted). Adopted

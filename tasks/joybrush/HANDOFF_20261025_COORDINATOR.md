@@ -1,5 +1,21 @@
 # JoyBrush coordinator — October 25
 
+Latest: code1ed44ddb0 now includes reviewed canonical Copy/Paste wiring,
+decoded-brush allowance, stale Activity-result suppression and pre-publication
+Paste OOM refusal/selective brush rollback (source only, unexecuted). Adopted
+be4e23b47/39e25bb87/96ee90e32/76dc605eb as3c326c693/c05d315ed/ed9446065/1ed44ddb0.
+Exactca141 backend closed FAILED3m45:21/3fail/0error/skip; Engine8 and Reply5
+passed, Budget5/8. Three producer fixtures ran during StrokeRecord construction;
+fixture-only correction1edcfff89 adopted0c77938c6, not rerun yet. App attempts
+failed before tasks (ABI task-name heuristic, then private init in included build).
+Private init is now root-build scoped and covers the whole Select package with
+no CLI class filters; no queued wrapper. Latest813MiB RAM refuses admission.
+Vector pure Slice exacta8b63e010 passed10/0/0/0; no runtime/schema/GPU activation.
+Vector corrected K25 eight-case rerun has next slot IF freshly admitted.
+Owner set root Sol6.1 medium and grants specialists Luna for scoped work while
+they own hard decisions/review. Relayed to Select/Vector/UX; no high helper active.
+See reviews/JOYBRUSH_CHECKLIST_20261025.md for broader recovered specialist state.
+
 Continue in `C:/Temp/jb-select-reconcile-20261024`, branch
 `lead/select-reconcile-20261024`. Preserve all other checkouts, including the
 stale primary. Claude Engine Lead owns integration and renderer/program hot files;

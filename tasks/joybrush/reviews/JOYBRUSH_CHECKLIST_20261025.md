@@ -15,12 +15,14 @@ Current fetched main is f79efc378; several useful specialist branches are unmerg
   1edcfff89; adopted as0c77938c6, not rerun yet. Production record validation remains intact.
 - [ ] New real-overlay UP/CANCEL/pinch/drag regression tests and detached bench API:
   source written; Android test run pending. Prior invocations stopped at ABI configuration.
-- [ ] Final clipboard/Activity routing, stale-result suppression and real View bridge tests.
+- [x] Clipboard/Activity routing, stale-result suppression and Paste OOM rollback source
+  reviewed/integrated at1ed44ddb0 (not yet executed).
+- [ ] Real View/Activity and Paste-failure regression execution and final acceptance.
 - [ ] Hardened exact-APK per-step Select bench, full combined suites/APK and phone acceptance.
 - [ ] C3 outside fade: accurate source/alpha/operator presentation hook, then GPU/visual proof.
 - [ ] Phase B pixel selections: design is proposed; production implementation not accepted.
 
-Root review candidate: C:/Temp/jb-select-reconcile-20261024, current code0c77938c6 (fixture-only change after productionca141cce5).
+Root review candidate: C:/Temp/jb-select-reconcile-20261024, current code1ed44ddb0.
 Original verified and red checkpoints/logs remain separately preserved. Root's latest
 published branch is lead/select-reconcile-20261024; subsequent local source remains safe.
 
@@ -32,7 +34,8 @@ published branch is lead/select-reconcile-20261024; subsequent local source rema
 - [ ] K25 per-brush policy: corrected candidate plus8 tests; first run7/8, one fixture
   cleared its own preferences before asserting reopen. Fixture correction awaits rerun.
 - [ ] K25 drawer badge/sheet/shortcut matching and always-pixel behavior acceptance.
-- [ ] Shared Slice and touched-section Smudge: bounded pure planning approved, being built;
+- [x] Bounded pure Slice planning exacta8b63e010 passed10/0/0/0.
+- [ ] Shared Slice and touched-section Smudge runtime:
   seed/phase/domain preservation, atomic undo and no-ghost runtime remain substantial work.
 - [ ] K26 lines over realistic paint on the same layer: real compositor/media connection.
 - [ ] Unibrush U6 taper/U7 picture-line Select/rebrush code exists on lead-uni@a5e98f5c3;

@@ -120,9 +120,9 @@ class SelectionSyncTest {
     }
 
     @Test fun copiedLinesPasteIntoAnEmptyDrawingWithTheirFrozenBrushAndBecomeSelected() {
-        LineSelectionClipboard.copy(listOf(LineSelectionClipboard.Entry(lineRecord("source", 8), frozenInk)))
+        assertTrue(LineSelectionClipboard.accept(canonicalCopyPayload(listOf(lineRecord("source", 8)))))
         val rig = Rig(mapOf(planeP to emptyList()), brushes = emptyMap())
-        val brush = rig.host.importBrush(LineSelectionClipboard.snapshot().single().brush!!)!!
+        val brush = rig.host.importBrush(LineSelectionClipboard.snapshot().single().brush())!!
         val batch = LineSelectionClipboard.paste(LineSelectionClipboard.snapshot(), rig.host.activeLinePlane()!!,
             listOf("fresh"), listOf(brush), 0f, 0f)
         val tool = SelectTool(rig.host, 1f) { true }

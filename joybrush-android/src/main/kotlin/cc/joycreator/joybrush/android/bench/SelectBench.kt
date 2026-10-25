@@ -218,8 +218,11 @@ class SelectBench(private val canvas: JbCanvasView, private val finished: () -> 
         step("fingerPansWithBrush") { next ->
             // K18 / P10 B: once the pen has been seen, one finger PANS while another tool is in hand (with the Select
             // tool in hand a finger picks and loops like the pen, D1.1, as on the owner's page).
+            // While lines are selected the strip's Brush re-brushes THEM (K8): end the selection first (a pen tap on
+            // clear paper, D6), then pick the Brush up.
+            g.tap(0.20f * w, 0.88f * h, pen = true, settleMs = 500) {
             val brush = g.labelled("Brush")
-            if (brush == null) { report("fingerPansWithBrush", false, JSONObject().put("why", "no Brush button")); next(); return@step }
+            if (brush == null) { report("fingerPansWithBrush", false, JSONObject().put("why", "no Brush button")); next(); return@tap }
             g.tapView(brush) {
                 val before = all()
                 val (x0, _) = canvas.view.docToScreen(0f, 0f)
@@ -235,6 +238,7 @@ class SelectBench(private val canvas: JbCanvasView, private val finished: () -> 
                         }
                     }
                 }
+            }
             }
         }
         step("end") { next ->

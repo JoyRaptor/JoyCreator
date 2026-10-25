@@ -22,6 +22,7 @@ import cc.joycreator.joybrush.core.doc.RegionDocumentOps
 import android.opengl.GLSurfaceView
 import android.os.Build
 import android.os.Looper
+import android.os.Handler
 import android.os.SystemClock
 import android.view.MotionEvent
 import cc.joycreator.joybrush.androidkit.diag.BlendSelfCheck
@@ -644,6 +645,70 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         val shared = meta.sharedCelId ?: meta.cels.singleOrNull()?.id ?: return emptyList()
         val frames = try { RegionDocumentOps.paintPlans(doc, emptyMap())[layerId]?.frames.orEmpty() } catch (e: Exception) { emptyList() }
         return listOf(LinePlane(layerId, shared)) + frames.map { LinePlane(layerId, it.celId) }
+    }
+
+    private var pendingLineCopy: cc.joycreator.joybrush.androidkit.lines.LineCopyReply? = null // UI thread only
+
+    /** Main thread. Copies only engine-proved source metadata and always resolves exactly one callback. */
+    fun requestLineCopy(snapshot: cc.joycreator.joybrush.androidkit.lines.LineSnapshot,
+                        expected: List<cc.joycreator.joybrush.core.stroke.AddressedStroke>,
+                        done: (cc.joycreator.joybrush.androidkit.lines.LineCopyResult) -> Unit) {
+        val epoch = lineEditEpoch
+        val graphics = graphicsEpoch
+        if (pendingLineCopy?.isFinished == false) {
+            done(cc.joycreator.joybrush.androidkit.lines.LineCopyResult.Refused("Copy is still running. Wait a moment."))
+            return
+        }
+        lateinit var reply: cc.joycreator.joybrush.androidkit.lines.LineCopyReply
+        reply = cc.joycreator.joybrush.androidkit.lines.LineCopyReply(
+            { epoch == lineEditEpoch && graphics == graphicsEpoch && !contentLost }) { result ->
+            if (pendingLineCopy === reply) pendingLineCopy = null
+            done(result)
+        }
+        pendingLineCopy = reply
+        fun availableHeap(): Long = Runtime.getRuntime().let { it.maxMemory() - (it.totalMemory() - it.freeMemory()) }
+        val request = try {
+            cc.joycreator.joybrush.androidkit.lines.LineCopyRequest.capture(snapshot, expected, availableHeap())
+        } catch (_: Exception) { null } catch (_: OutOfMemoryError) { null }
+        if (request == null) {
+            reply.finish(cc.joycreator.joybrush.androidkit.lines.LineCopyResult.Refused(
+                "Those lines aren't ready for Copy. Try a smaller selection without imported or picture-tip brushes."))
+            return
+        }
+        val pending = java.util.concurrent.atomic.AtomicReference<cc.joycreator.joybrush.androidkit.lines.LineCopyRequest?>(request)
+        val ui = Handler(Looper.getMainLooper())
+        val timeout = Runnable {
+            pending.set(null) // A stopped renderer must not retain cloned samples until another frame eventually runs.
+            reply.finish(cc.joycreator.joybrush.androidkit.lines.LineCopyResult.Refused("Copy didn't finish. Tap Copy again."))
+        }
+        fun postResult(result: cc.joycreator.joybrush.androidkit.lines.LineCopyResult) {
+            if (reply.isFinished) { pending.set(null); return }
+            ui.post {
+                try { reply.finish(result) }
+                finally { pending.set(null); if (reply.isFinished) ui.removeCallbacks(timeout) }
+            }
+        }
+        // Use the main Handler rather than View.postDelayed: detached surfaces must still resolve the request.
+        ui.postDelayed(timeout, 5_000L)
+        try {
+            // Ordinary onGl silently drops old-context blocks. Metadata admission must instead report refusal.
+            onGl(allowLost = true) {
+                val admitted = pending.getAndSet(null) ?: return@onGl
+                if (reply.isFinished) return@onGl
+                val result = if (epoch != lineEditEpoch || graphics != graphicsEpoch || contentLost) {
+                    cc.joycreator.joybrush.androidkit.lines.LineCopyResult.Refused("That drawing changed before Copy finished.")
+                } else try {
+                    engine.prepareLineCopy(admitted, availableHeap())
+                } catch (_: OutOfMemoryError) {
+                    cc.joycreator.joybrush.androidkit.lines.LineCopyResult.Refused("Copy fewer lines at once.")
+                } catch (_: Exception) {
+                    cc.joycreator.joybrush.androidkit.lines.LineCopyResult.Refused("Those lines couldn't be copied.")
+                }
+                postResult(result)
+            }
+        } catch (_: Exception) {
+            postResult(cc.joycreator.joybrush.androidkit.lines.LineCopyResult.Refused("Those lines couldn't be copied."))
+        }
     }
 
     /** Runs [edit] on the GL thread as ONE undo step; [done] runs on the UI thread with what happened. */

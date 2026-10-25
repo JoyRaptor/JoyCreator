@@ -2663,7 +2663,10 @@ class JoyBrushActivity : Activity() {
             val id = try { host.freezeBrush(brush) } catch (e: Exception) { null }
             if (id != null) onPicked(id) else toast("That brush can't be kept as a line.")
         }, previews = brushPreviews, swap = swapLook(host))
-        popovers.showSheet(drawer, maxWidthDp = 600f, alignEnd = placement.edge == StripPlacement.Edge.RIGHT)
+        // The drawer is see-through: the selection's row and bar step aside while it is open (D25).
+        selection?.coveredBySheet(true)
+        popovers.showSheet(drawer, maxWidthDp = 600f, alignEnd = placement.edge == StripPlacement.Edge.RIGHT,
+            onClosed = { selection?.coveredBySheet(false) })
     }
 
     /**

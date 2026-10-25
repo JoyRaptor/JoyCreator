@@ -8,6 +8,7 @@ import cc.joycreator.joybrush.core.brush.WatercolourSpec
 import cc.joycreator.joybrush.core.doc.RegionTileRect
 import cc.joycreator.joybrush.core.paint.Dab
 import cc.joycreator.joybrush.core.paint.Tiles
+import cc.joycreator.joybrush.core.stroke.StrokeWashFrame
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
@@ -42,10 +43,69 @@ internal class WatercolourPass(private val shaders: ShaderLibrary, private val d
     private var finishVao = 0
     private var dab: GlProgram? = null
     private var finish: GlProgram? = null
+    /** The finish built with JB_WASH_FRAME: only for a line whose wash was moved with it; compiled the first time one is drawn. */
+    private var finishFramed: GlProgram? = null
+    private fun framedFinish(): GlProgram = finishFramed ?: GlProgram(shaders.source("lines/jb_wc_finish.vert"),
+        shaders.source("lines/jb_wc_finish.frag", listOf("JB_WASH_FRAME")), "watercolor finish (moved wash)").also { finishFramed = it }
     private var mix: GlProgram? = null
     private var data = floats(8 * 256)
     private var internal = GLES30.GL_RGBA16F
     private var type = GLES30.GL_HALF_FLOAT
+    private var docToWash: FloatArray? = null
+
+    /** Finish-only placement; changing it never deposits the dabs again. */
+    fun setWashFrame(frame: StrokeWashFrame?) {
+        docToWash = frame?.takeUnless { it == StrokeWashFrame.IDENTITY }?.let {
+            val m = requireNotNull(it.toHomography().inverse()).m
+            floatArrayOf(m[0].toFloat(), m[3].toFloat(), m[6].toFloat(),
+                m[1].toFloat(), m[4].toFloat(), m[7].toFloat(),
+                m[2].toFloat(), m[5].toFloat(), m[8].toFloat()).also { matrix ->
+                require(matrix.all { v -> v.isFinite() }) { "This wash placement exceeds the phone's coordinate range" }
+            }
+        }
+    }
+
+    /** Idle GL-thread preparation. Does not replace the active stroke, its bands, or its finish inputs. */
+    fun prepare(options: WatercolourSpec) {
+        fun get(name: Int) = IntArray(1).also { GLES30.glGetIntegerv(name, it, 0) }[0]
+        val active = get(GLES30.GL_ACTIVE_TEXTURE)
+        GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
+        val tex2d = get(GLES30.GL_TEXTURE_BINDING_2D)
+        val array = get(GLES30.GL_TEXTURE_BINDING_2D_ARRAY)
+        val draw = get(GLES30.GL_DRAW_FRAMEBUFFER_BINDING)
+        val read = get(GLES30.GL_READ_FRAMEBUFFER_BINDING)
+        val vertex = get(GLES30.GL_VERTEX_ARRAY_BINDING)
+        val buffer = get(GLES30.GL_ARRAY_BUFFER_BINDING)
+        val unpackBuffer = get(GLES30.GL_PIXEL_UNPACK_BUFFER_BINDING)
+        val pixelNames = intArrayOf(GLES30.GL_UNPACK_ALIGNMENT, GLES30.GL_UNPACK_ROW_LENGTH,
+            GLES30.GL_UNPACK_SKIP_ROWS, GLES30.GL_UNPACK_SKIP_PIXELS, GLES30.GL_UNPACK_IMAGE_HEIGHT,
+            GLES30.GL_UNPACK_SKIP_IMAGES)
+        val pixels = pixelNames.map(::get)
+        val scissor = GLES30.glIsEnabled(GLES30.GL_SCISSOR_TEST)
+        val clear = FloatArray(4).also { GLES30.glGetFloatv(GLES30.GL_COLOR_CLEAR_VALUE, it, 0) }
+        val colourMask = BooleanArray(4).also { GLES30.glGetBooleanv(GLES30.GL_COLOR_WRITEMASK, it, 0) }
+        try {
+            GLES30.glColorMask(true, true, true, true)
+            GLES30.glBindBuffer(GLES30.GL_PIXEL_UNPACK_BUFFER, 0)
+            pixelNames.forEach { GLES30.glPixelStorei(it, if (it == GLES30.GL_UNPACK_ALIGNMENT) 1 else 0) }
+            ensureObjects()
+            textures.forSpec(options)
+        } finally {
+            pixelNames.forEachIndexed { i, name -> GLES30.glPixelStorei(name, pixels[i]) }
+            GLES30.glBindBuffer(GLES30.GL_PIXEL_UNPACK_BUFFER, unpackBuffer)
+            GLES30.glBindVertexArray(vertex)
+            GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, buffer)
+            GLES30.glBindFramebuffer(GLES30.GL_DRAW_FRAMEBUFFER, draw)
+            GLES30.glBindFramebuffer(GLES30.GL_READ_FRAMEBUFFER, read)
+            if (scissor) GLES30.glEnable(GLES30.GL_SCISSOR_TEST) else GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+            GLES30.glClearColor(clear[0], clear[1], clear[2], clear[3])
+            GLES30.glColorMask(colourMask[0], colourMask[1], colourMask[2], colourMask[3])
+            GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
+            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, tex2d)
+            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D_ARRAY, array)
+            GLES30.glActiveTexture(active)
+        }
+    }
 
     fun recolour(color: FloatArray, paperPresent: Boolean, bindPaper: (GlProgram) -> Unit) {
         tint=color.copyOf(); hasPaper=paperPresent; paper=bindPaper
@@ -55,6 +115,7 @@ internal class WatercolourPass(private val shaders: ShaderLibrary, private val d
         clearStroke()
         ensureObjects()
         spec = options; tint = color.copyOf(); paper = bindPaper; hasPaper = paperPresent
+        setWashFrame(null)
         images = textures.forSpec(options)
         val d = WatercolourDabber(options, seed)
         val world = 1254.0 * options.textureScale
@@ -123,7 +184,8 @@ internal class WatercolourPass(private val shaders: ShaderLibrary, private val d
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0); GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
     }
     fun finishInto(outputs: Map<Long,Int>, pooling: Float, keys: Collection<Long> = outputs.keys) {
-        val p = requireNotNull(finish); val asset = requireNotNull(images)
+        // The original finish unless this line's wash was moved with it (see JB_WASH_FRAME in jb_wc_finish.frag).
+        val p = if (docToWash == null) requireNotNull(finish) else framedFinish(); val asset = requireNotNull(images)
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbo); GLES30.glViewport(0,0,size,size)
         GLES30.glDisable(GLES30.GL_SCISSOR_TEST); GLES30.glDisable(GLES30.GL_BLEND); p.use()
         paper?.invoke(p)
@@ -137,6 +199,7 @@ internal class WatercolourPass(private val shaders: ShaderLibrary, private val d
         f("u_gravityWidth",spec.gravityWidth); f("u_gravityPool",spec.gravityPool); GLES30.glUniform2f(p.loc("u_gravityDirection"),0f,1f)
         GLES30.glUniform1f(p.loc("u_pooling"),pooling)
         f("u_backdropWorld",1254.0*spec.textureScale); GLES30.glUniform2f(p.loc("u_backdropOffset"),offset[0],offset[1])
+        docToWash?.let { GLES30.glUniformMatrix3fv(p.loc("u_docToWash"),1,false,it,0) }
         f("u_textureStrength",spec.texture); f("u_textureContrast",spec.textureContrast)
         GLES30.glUniform1i(p.loc("u_textureInvert"),if(spec.backdropInverted)1 else 0); f("u_grain",spec.grain)
         GLES30.glUniform1i(p.loc("u_backdrop"),12); bind(12,asset.backdrop)
@@ -195,11 +258,11 @@ internal class WatercolourPass(private val shaders: ShaderLibrary, private val d
         return Collections.unmodifiableMap(result)
     }
 
-    fun forget() { bands.clear(); plain.clear(); pooled.clear(); free.clear(); textures.forget(); empty=0; fbo=0; quad=0; instance=0; vao=0; finishVao=0; unitVbo=0; dab=null; finish=null; mix=null; images=null; paper=null }
+    fun forget() { bands.clear(); plain.clear(); pooled.clear(); free.clear(); textures.forget(); empty=0; fbo=0; quad=0; instance=0; vao=0; finishVao=0; unitVbo=0; dab=null; finish=null; finishFramed=null; mix=null; images=null; paper=null }
     fun release() {
         val names=(bands.values+plain.values+pooled.values+free+listOf(empty)).filter { it!=0 }.distinct().toIntArray()
         if(names.isNotEmpty())GLES30.glDeleteTextures(names.size,names,0)
-        textures.release(); dab?.release(); finish?.release(); mix?.release()
+        textures.release(); dab?.release(); finish?.release(); finishFramed?.release(); mix?.release()
         if(fbo!=0) GLES30.glDeleteFramebuffers(1,intArrayOf(fbo),0)
         if(quad!=0)GLES30.glDeleteBuffers(3,intArrayOf(quad,instance,unitVbo),0)
         if(vao!=0)GLES30.glDeleteVertexArrays(2,intArrayOf(vao,finishVao),0)

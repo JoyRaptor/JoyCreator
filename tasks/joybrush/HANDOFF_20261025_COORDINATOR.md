@@ -7,7 +7,11 @@ this branch is a review candidate, not a release or phone acceptance.
 
 ## Source checkpoint
 
-Base `7d2d88f85` was freshly fetched from origin/joy-creator on this continuation.
+Initial base `7d2d88f85` was freshly fetched from origin/joy-creator on this continuation.
+Later main advanced to `f79efc378` (Lead's separate ordinary/wash-frame shaders).
+It was merged cleanly into this isolated candidate, preserving the existing
+context-loss/lift abandonment and flatten-lower adapters. No shader/program
+selection changes were authored by root. This combined source still needs tests.
 Scoped A1–A8/C2, mask/context safety, colour cancellation and stale-callback fixes
 are reapplied, retaining main's placement, paper-aware ink, chosen chips, count
 placement, gesture bench and truthful paint-selection toast. A mask cherry-pick

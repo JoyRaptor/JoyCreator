@@ -1,0 +1,2733 @@
+{
+  "schema": "joybrush-l1-watercolour-live-measurement-v1",
+  "startedAtUtc": "2026-10-24T03:01:11.770229-04:00",
+  "apkSha256": "d9d09ce43fa4d1b309fb9ce2249d3dd42118afc0cea4adc947109f5c96f6fcda",
+  "sourceRevision": "2d25701d236fd72c079ade2e6d0fe0247f9c3f04",
+  "package": "com.fadcam.beta",
+  "deviceModel": "SM-N960U",
+  "operatingConditions": {
+    "deviceModel": "SM-N960U",
+    "androidRelease": "10",
+    "androidBuildId": "QP1A.190711.020.N960USQU9FVG2",
+    "screenState": "operator-confirmed ready; runner does not wake, unlock, rotate, or change display settings",
+    "foregroundAtFirstLaunch": "home",
+    "batteryBefore": {
+      "batteryTempC": 23.7,
+      "batteryLevel": "100",
+      "batteryScale": "100",
+      "batteryVoltage": "4181",
+      "batteryStatus": "5",
+      "batteryHealth": "2"
+    },
+    "batteryAfter": {
+      "batteryTempC": 24.8,
+      "batteryLevel": "100",
+      "batteryScale": "100",
+      "batteryVoltage": "4182",
+      "batteryStatus": "5",
+      "batteryHealth": "2"
+    }
+  },
+  "measurementScope": {
+    "latency": "synthetic dispatch-to-frame-start latency; benchmark instrumentation uses intrusive glFinish",
+    "fade": "observedIdleAfterUpMs is a polling upper bound, not an exact fade-commit timestamp",
+    "processes": "each launch is force-stopped before launch; run 1 is process-cold and run 2 is same-process warm"
+  },
+  "plan": [
+    {
+      "launch": 1,
+      "editableLines": false,
+      "processCold": true,
+      "runs": [
+        1,
+        2
+      ]
+    },
+    {
+      "launch": 2,
+      "editableLines": true,
+      "processCold": true,
+      "runs": [
+        1,
+        2
+      ]
+    },
+    {
+      "launch": 3,
+      "editableLines": false,
+      "processCold": true,
+      "runs": [
+        1,
+        2
+      ]
+    },
+    {
+      "launch": 4,
+      "editableLines": true,
+      "processCold": true,
+      "runs": [
+        1,
+        2
+      ]
+    },
+    {
+      "launch": 5,
+      "editableLines": false,
+      "processCold": true,
+      "runs": [
+        1,
+        2
+      ]
+    },
+    {
+      "launch": 6,
+      "editableLines": true,
+      "processCold": true,
+      "runs": [
+        1,
+        2
+      ]
+    },
+    {
+      "launch": 7,
+      "editableLines": false,
+      "processCold": true,
+      "runs": [
+        1,
+        2
+      ]
+    },
+    {
+      "launch": 8,
+      "editableLines": true,
+      "processCold": true,
+      "runs": [
+        1,
+        2
+      ]
+    },
+    {
+      "launch": 9,
+      "editableLines": false,
+      "processCold": true,
+      "runs": [
+        1,
+        2
+      ]
+    },
+    {
+      "launch": 10,
+      "editableLines": true,
+      "processCold": true,
+      "runs": [
+        1,
+        2
+      ]
+    }
+  ],
+  "launches": [
+    {
+      "ordinal": 1,
+      "editableLines": false,
+      "processCold": true,
+      "pid": "9924",
+      "startResponse": "Starting: Intent { cmp=com.fadcam.beta/com.fadcam.joybrush.JoyBrushBenchActivity (has extras) }",
+      "rawLog": "launch_01_off.log",
+      "batteryBefore": {
+        "batteryTempC": 23.7,
+        "batteryLevel": "100",
+        "batteryScale": "100",
+        "batteryVoltage": "4181",
+        "batteryStatus": "5",
+        "batteryHealth": "2"
+      },
+      "batteryAfter": {
+        "batteryTempC": 23.8,
+        "batteryLevel": "100",
+        "batteryScale": "100",
+        "batteryVoltage": "4180",
+        "batteryStatus": "5",
+        "batteryHealth": "2"
+      },
+      "rows": [
+        {
+          "legacy": false,
+          "brush": "joybrush.watercolour",
+          "case": "topScribble",
+          "run": 1,
+          "samples": 841,
+          "frames": 57,
+          "strokeFrames": 3,
+          "firstFrameMs": 138.74,
+          "busyMs": {
+            "p50": 1484.82,
+            "p95": 1484.82,
+            "max": 1614.91,
+            "mean": 1378.73
+          },
+          "workMs": {
+            "p50": 1480.01,
+            "p95": 1480.01,
+            "max": 1611.39,
+            "mean": 1374.7
+          },
+          "mediaMs": {
+            "p50": 0.02,
+            "p95": 0.02,
+            "max": 0.02,
+            "mean": 0.02
+          },
+          "displayMs": {
+            "p50": 3.66,
+            "p95": 3.66,
+            "max": 4.76,
+            "mean": 3.96
+          },
+          "finishMs": {
+            "p50": 0.01,
+            "p95": 0.01,
+            "max": 0.01,
+            "mean": 0.01
+          },
+          "simMs": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "flushMs": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "gapMs": {
+            "p50": 1492.14,
+            "p95": 1492.14,
+            "max": 1617.64,
+            "mean": 1554.89
+          },
+          "latencyMs": {
+            "p50": 797.54,
+            "p95": 1466.81,
+            "max": 1615.36,
+            "mean": 756.94
+          },
+          "gapsOver17": 2,
+          "gapsOver34": 2,
+          "mediaFrames": 0,
+          "windowMoves": 0,
+          "windowLoads": 0,
+          "editableLines": false,
+          "fullTail": true,
+          "tailPollIntervalMs": 100,
+          "tailTimeoutMs": 5000,
+          "tailIdleConfirmations": 2,
+          "observedIdleAfterUpMs": 2217,
+          "tailTimedOut": false,
+          "measurementScope": "recorded-down-through-two-idle-confirmations",
+          "fullSpanFrames": 53,
+          "fullSpanBusyMs": {
+            "p50": 15.9,
+            "p95": 514.04,
+            "max": 1614.91,
+            "mean": 101.79
+          },
+          "finalRecordedFrameEndAfterUpMs": 2219.93,
+          "phasesMs": {
+            "JB.paint.draw": {
+              "p50": 3.27,
+              "p95": 3.27,
+              "max": 3.86,
+              "mean": 3.47
+            },
+            "JB.paint.dabs": {
+              "p50": 1006.12,
+              "p95": 1006.12,
+              "max": 1442.01,
+              "mean": 854.93
+            },
+            "JB.paint.commit": {
+              "p50": 0.0,
+              "p95": 0.0,
+              "max": 0.0,
+              "mean": 0.0
+            }
+          },
+          "memory": null,
+          "device": {
+            "availMem": 3566301184,
+            "totalMem": 7948890112,
+            "threshold": 226492416,
+            "lowMemory": false,
+            "memoryClassMb": 256,
+            "largeMemoryClassMb": 512,
+            "nativeHeapAllocated": 19035144
+          },
+          "processState": "process-cold",
+          "processCold": true
+        },
+        {
+          "legacy": false,
+          "brush": "joybrush.watercolour",
+          "case": "topScribble",
+          "run": 2,
+          "samples": 841,
+          "frames": 196,
+          "strokeFrames": 147,
+          "firstFrameMs": 7.35,
+          "busyMs": {
+            "p50": 16.75,
+            "p95": 65.7,
+            "max": 345.01,
+            "mean": 25.13
+          },
+          "workMs": {
+            "p50": 12.69,
+            "p95": 61.58,
+            "max": 340.51,
+            "mean": 20.52
+          },
+          "mediaMs": {
+            "p50": 0.02,
+            "p95": 0.03,
+            "max": 0.09,
+            "mean": 0.02
+          },
+          "displayMs": {
+            "p50": 4.08,
+            "p95": 7.15,
+            "max": 12.63,
+            "mean": 4.54
+          },
+          "finishMs": {
+            "p50": 0.01,
+            "p95": 0.01,
+            "max": 0.02,
+            "mean": 0.01
+          },
+          "simMs": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "flushMs": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "gapMs": {
+            "p50": 17.64,
+            "p95": 56.65,
+            "max": 128.7,
+            "mean": 23.95
+          },
+          "latencyMs": {
+            "p50": 12.07,
+            "p95": 74.29,
+            "max": 127.78,
+            "mean": 19.68
+          },
+          "gapsOver17": 75,
+          "gapsOver34": 17,
+          "mediaFrames": 0,
+          "windowMoves": 0,
+          "windowLoads": 0,
+          "editableLines": false,
+          "fullTail": true,
+          "tailPollIntervalMs": 100,
+          "tailTimeoutMs": 5000,
+          "tailIdleConfirmations": 2,
+          "observedIdleAfterUpMs": 1228,
+          "tailTimedOut": false,
+          "measurementScope": "recorded-down-through-two-idle-confirmations",
+          "fullSpanFrames": 194,
+          "fullSpanBusyMs": {
+            "p50": 16.1,
+            "p95": 46.54,
+            "max": 345.01,
+            "mean": 22.75
+          },
+          "finalRecordedFrameEndAfterUpMs": 1231.08,
+          "phasesMs": {
+            "JB.paint.draw": {
+              "p50": 3.6,
+              "p95": 6.86,
+              "max": 11.03,
+              "mean": 4.11
+            },
+            "JB.paint.dabs": {
+              "p50": 12.23,
+              "p95": 50.54,
+              "max": 119.48,
+              "mean": 17.89
+            },
+            "JB.paint.commit": {
+              "p50": 0.0,
+              "p95": 0.0,
+              "max": 311.86,
+              "mean": 2.12
+            }
+          },
+          "memory": null,
+          "device": {
+            "availMem": 3538386944,
+            "totalMem": 7948890112,
+            "threshold": 226492416,
+            "lowMemory": false,
+            "memoryClassMb": 256,
+            "largeMemoryClassMb": 512,
+            "nativeHeapAllocated": 23967776
+          },
+          "processState": "same-process-warm",
+          "processCold": false
+        }
+      ]
+    },
+    {
+      "ordinal": 2,
+      "editableLines": true,
+      "processCold": true,
+      "pid": "10183",
+      "startResponse": "Starting: Intent { cmp=com.fadcam.beta/com.fadcam.joybrush.JoyBrushBenchActivity (has extras) }",
+      "rawLog": "launch_02_on.log",
+      "batteryBefore": {
+        "batteryTempC": 23.8,
+        "batteryLevel": "100",
+        "batteryScale": "100",
+        "batteryVoltage": "4180",
+        "batteryStatus": "5",
+        "batteryHealth": "2"
+      },
+      "batteryAfter": {
+        "batteryTempC": 23.9,
+        "batteryLevel": "100",
+        "batteryScale": "100",
+        "batteryVoltage": "4182",
+        "batteryStatus": "5",
+        "batteryHealth": "2"
+      },
+      "rows": [
+        {
+          "legacy": false,
+          "brush": "joybrush.watercolour",
+          "case": "topScribble",
+          "run": 1,
+          "samples": 841,
+          "frames": 123,
+          "strokeFrames": 115,
+          "firstFrameMs": 14.51,
+          "busyMs": {
+            "p50": 17.65,
+            "p95": 81.31,
+            "max": 237.03,
+            "mean": 29.62
+          },
+          "workMs": {
+            "p50": 13.43,
+            "p95": 74.25,
+            "max": 233.85,
+            "mean": 25.05
+          },
+          "mediaMs": {
+            "p50": 0.01,
+            "p95": 0.02,
+            "max": 0.04,
+            "mean": 0.01
+          },
+          "displayMs": {
+            "p50": 4.11,
+            "p95": 7.4,
+            "max": 9.77,
+            "mean": 4.51
+          },
+          "finishMs": {
+            "p50": 0.01,
+            "p95": 0.01,
+            "max": 0.02,
+            "mean": 0.01
+          },
+          "simMs": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "flushMs": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "gapMs": {
+            "p50": 18.31,
+            "p95": 83.9,
+            "max": 238.35,
+            "mean": 30.18
+          },
+          "latencyMs": {
+            "p50": 14.83,
+            "p95": 151.89,
+            "max": 237.45,
+            "mean": 35.11
+          },
+          "gapsOver17": 64,
+          "gapsOver34": 20,
+          "mediaFrames": 0,
+          "windowMoves": 0,
+          "windowLoads": 0,
+          "editableLines": true,
+          "fullTail": true,
+          "tailPollIntervalMs": 100,
+          "tailTimeoutMs": 5000,
+          "tailIdleConfirmations": 2,
+          "observedIdleAfterUpMs": 587,
+          "tailTimedOut": false,
+          "measurementScope": "recorded-down-through-two-idle-confirmations",
+          "fullSpanFrames": 121,
+          "fullSpanBusyMs": {
+            "p50": 17.56,
+            "p95": 82.24,
+            "max": 373.04,
+            "mean": 31.73
+          },
+          "finalRecordedFrameEndAfterUpMs": 589.3,
+          "phasesMs": {
+            "JB.paint.draw": {
+              "p50": 3.71,
+              "p95": 7.06,
+              "max": 9.32,
+              "mean": 4.13
+            },
+            "JB.paint.dabs": {
+              "p50": 13.16,
+              "p95": 71.93,
+              "max": 208.86,
+              "mean": 22.88
+            },
+            "JB.paint.commit": {
+              "p50": 0.0,
+              "p95": 0.0,
+              "max": 0.0,
+              "mean": 0.0
+            }
+          },
+          "memory": null,
+          "device": {
+            "availMem": 3546329088,
+            "totalMem": 7948890112,
+            "threshold": 226492416,
+            "lowMemory": false,
+            "memoryClassMb": 256,
+            "largeMemoryClassMb": 512,
+            "nativeHeapAllocated": 20141664
+          },
+          "processState": "process-cold",
+          "processCold": true
+        },
+        {
+          "legacy": false,
+          "brush": "joybrush.watercolour",
+          "case": "topScribble",
+          "run": 2,
+          "samples": 841,
+          "frames": 119,
+          "strokeFrames": 114,
+          "firstFrameMs": 282.18,
+          "busyMs": {
+            "p50": 19.75,
+            "p95": 73.46,
+            "max": 395.33,
+            "mean": 30.63
+          },
+          "workMs": {
+            "p50": 14.97,
+            "p95": 68.79,
+            "max": 393.26,
+            "mean": 26.3
+          },
+          "mediaMs": {
+            "p50": 0.02,
+            "p95": 0.03,
+            "max": 0.08,
+            "mean": 0.02
+          },
+          "displayMs": {
+            "p50": 4.11,
+            "p95": 6.15,
+            "max": 9.31,
+            "mean": 4.25
+          },
+          "finishMs": {
+            "p50": 0.01,
+            "p95": 0.01,
+            "max": 0.04,
+            "mean": 0.01
+          },
+          "simMs": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "flushMs": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "gapMs": {
+            "p50": 20.74,
+            "p95": 66.94,
+            "max": 192.3,
+            "mean": 28.45
+          },
+          "latencyMs": {
+            "p50": 15.98,
+            "p95": 161.31,
+            "max": 282.18,
+            "mean": 35.74
+          },
+          "gapsOver17": 83,
+          "gapsOver34": 19,
+          "mediaFrames": 0,
+          "windowMoves": 0,
+          "windowLoads": 0,
+          "editableLines": true,
+          "fullTail": true,
+          "tailPollIntervalMs": 100,
+          "tailTimeoutMs": 5000,
+          "tailIdleConfirmations": 2,
+          "observedIdleAfterUpMs": 537,
+          "tailTimedOut": false,
+          "measurementScope": "recorded-down-through-two-idle-confirmations",
+          "fullSpanFrames": 117,
+          "fullSpanBusyMs": {
+            "p50": 19.75,
+            "p95": 73.46,
+            "max": 395.33,
+            "mean": 30.45
+          },
+          "finalRecordedFrameEndAfterUpMs": 539.02,
+          "phasesMs": {
+            "JB.paint.draw": {
+              "p50": 3.71,
+              "p95": 5.73,
+              "max": 9.12,
+              "mean": 3.9
+            },
+            "JB.paint.dabs": {
+              "p50": 14.42,
+              "p95": 61.49,
+              "max": 181.11,
+              "mean": 22.34
+            },
+            "JB.paint.commit": {
+              "p50": 0.0,
+              "p95": 0.0,
+              "max": 376.17,
+              "mean": 3.3
+            }
+          },
+          "memory": null,
+          "device": {
+            "availMem": 3566948352,
+            "totalMem": 7948890112,
+            "threshold": 226492416,
+            "lowMemory": false,
+            "memoryClassMb": 256,
+            "largeMemoryClassMb": 512,
+            "nativeHeapAllocated": 24005728
+          },
+          "processState": "same-process-warm",
+          "processCold": false
+        }
+      ]
+    },
+    {
+      "ordinal": 3,
+      "editableLines": false,
+      "processCold": true,
+      "pid": "10373",
+      "startResponse": "Starting: Intent { cmp=com.fadcam.beta/com.fadcam.joybrush.JoyBrushBenchActivity (has extras) }",
+      "rawLog": "launch_03_off.log",
+      "batteryBefore": {
+        "batteryTempC": 23.9,
+        "batteryLevel": "100",
+        "batteryScale": "100",
+        "batteryVoltage": "4182",
+        "batteryStatus": "5",
+        "batteryHealth": "2"
+      },
+      "batteryAfter": {
+        "batteryTempC": 23.9,
+        "batteryLevel": "100",
+        "batteryScale": "100",
+        "batteryVoltage": "4182",
+        "batteryStatus": "5",
+        "batteryHealth": "2"
+      },
+      "rows": [
+        {
+          "legacy": false,
+          "brush": "joybrush.watercolour",
+          "case": "topScribble",
+          "run": 1,
+          "samples": 841,
+          "frames": 181,
+          "strokeFrames": 131,
+          "firstFrameMs": 181.08,
+          "busyMs": {
+            "p50": 16.85,
+            "p95": 55.82,
+            "max": 165.66,
+            "mean": 24.88
+          },
+          "workMs": {
+            "p50": 12.85,
+            "p95": 52.59,
+            "max": 161.56,
+            "mean": 20.38
+          },
+          "mediaMs": {
+            "p50": 0.01,
+            "p95": 0.02,
+            "max": 0.12,
+            "mean": 0.01
+          },
+          "displayMs": {
+            "p50": 4.3,
+            "p95": 7.31,
+            "max": 9.11,
+            "mean": 4.45
+          },
+          "finishMs": {
+            "p50": 0.01,
+            "p95": 0.01,
+            "max": 0.14,
+            "mean": 0.01
+          },
+          "simMs": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "flushMs": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "gapMs": {
+            "p50": 17.64,
+            "p95": 54.61,
+            "max": 166.73,
+            "mean": 25.23
+          },
+          "latencyMs": {
+            "p50": 13.58,
+            "p95": 102.53,
+            "max": 181.08,
+            "mean": 26.12
+          },
+          "gapsOver17": 69,
+          "gapsOver34": 16,
+          "mediaFrames": 0,
+          "windowMoves": 0,
+          "windowLoads": 0,
+          "editableLines": false,
+          "fullTail": true,
+          "tailPollIntervalMs": 100,
+          "tailTimeoutMs": 5000,
+          "tailIdleConfirmations": 2,
+          "observedIdleAfterUpMs": 1240,
+          "tailTimedOut": false,
+          "measurementScope": "recorded-down-through-two-idle-confirmations",
+          "fullSpanFrames": 178,
+          "fullSpanBusyMs": {
+            "p50": 16.22,
+            "p95": 53.34,
+            "max": 344.76,
+            "mean": 24.26
+          },
+          "finalRecordedFrameEndAfterUpMs": 1246.93,
+          "phasesMs": {
+            "JB.paint.draw": {
+              "p50": 3.85,
+              "p95": 7.07,
+              "max": 8.94,
+              "mean": 4.11
+            },
+            "JB.paint.dabs": {
+              "p50": 12.48,
+              "p95": 51.32,
+              "max": 158.28,
+              "mean": 19.89
+            },
+            "JB.paint.commit": {
+              "p50": 0.0,
+              "p95": 0.0,
+              "max": 0.0,
+              "mean": 0.0
+            }
+          },
+          "memory": null,
+          "device": {
+            "availMem": 3533533184,
+            "totalMem": 7948890112,
+            "threshold": 226492416,
+            "lowMemory": false,
+            "memoryClassMb": 256,
+            "largeMemoryClassMb": 512,
+            "nativeHeapAllocated": 17828640
+          },
+          "processState": "process-cold",
+          "processCold": true
+        },
+        {
+          "legacy": false,
+          "brush": "joybrush.watercolour",
+          "case": "topScribble",
+          "run": 2,
+          "samples": 841,
+          "frames": 206,
+          "strokeFrames": 158,
+          "firstFrameMs": 11.27,
+          "busyMs": {
+            "p50": 17.57,
+            "p95": 48.29,
+            "max": 355.31,
+            "mean": 23.13
+          },
+          "workMs": {
+            "p50": 13.48,
+            "p95": 43.68,
+            "max": 350.27,
+            "mean": 18.84
+          },
+          "mediaMs": {
+            "p50": 0.02,
+            "p95": 0.04,
+            "max": 0.12,
+            "mean": 0.02
+          },
+          "displayMs": {
+            "p50": 3.92,
+            "p95": 6.02,
+            "max": 9.62,
+            "mean": 4.21
+          },
+          "finishMs": {
+            "p50": 0.01,
+            "p95": 0.01,
+            "max": 0.02,
+            "mean": 0.01
+          },
+          "simMs": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "flushMs": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "gapMs": {
+            "p50": 18.77,
+            "p95": 48.68,
+            "max": 95.28,
+            "mean": 22.26
+          },
+          "latencyMs": {
+            "p50": 11.05,
+            "p95": 44.26,
+            "max": 92.3,
+            "mean": 14.42
+          },
+          "gapsOver17": 91,
+          "gapsOver34": 15,
+          "mediaFrames": 0,
+          "windowMoves": 0,
+          "windowLoads": 0,
+          "editableLines": false,
+          "fullTail": true,
+          "tailPollIntervalMs": 100,
+          "tailTimeoutMs": 5000,
+          "tailIdleConfirmations": 2,
+          "observedIdleAfterUpMs": 1198,
+          "tailTimedOut": false,
+          "measurementScope": "recorded-down-through-two-idle-confirmations",
+          "fullSpanFrames": 204,
+          "fullSpanBusyMs": {
+            "p50": 16.44,
+            "p95": 44.14,
+            "max": 355.31,
+            "mean": 21.41
+          },
+          "finalRecordedFrameEndAfterUpMs": 1221.35,
+          "phasesMs": {
+            "JB.paint.draw": {
+              "p50": 3.45,
+              "p95": 5.59,
+              "max": 9.29,
+              "mean": 3.74
+            },
+            "JB.paint.dabs": {
+              "p50": 12.96,
+              "p95": 39.31,
+              "max": 87.71,
+              "mean": 16.36
+            },
+            "JB.paint.commit": {
+              "p50": 0.0,
+              "p95": 0.0,
+              "max": 316.4,
+              "mean": 2.0
+            }
+          },
+          "memory": null,
+          "device": {
+            "availMem": 3566108672,
+            "totalMem": 7948890112,
+            "threshold": 226492416,
+            "lowMemory": false,
+            "memoryClassMb": 256,
+            "largeMemoryClassMb": 512,
+            "nativeHeapAllocated": 21637712
+          },
+          "processState": "same-process-warm",
+          "processCold": false
+        }
+      ]
+    },
+    {
+      "ordinal": 4,
+      "editableLines": true,
+      "processCold": true,
+      "pid": "10621",
+      "startResponse": "Starting: Intent { cmp=com.fadcam.beta/com.fadcam.joybrush.JoyBrushBenchActivity (has extras) }",
+      "rawLog": "launch_04_on.log",
+      "batteryBefore": {
+        "batteryTempC": 23.9,
+        "batteryLevel": "100",
+        "batteryScale": "100",
+        "batteryVoltage": "4182",
+        "batteryStatus": "5",
+        "batteryHealth": "2"
+      },
+      "batteryAfter": {
+        "batteryTempC": 24.0,
+        "batteryLevel": "100",
+        "batteryScale": "100",
+        "batteryVoltage": "4179",
+        "batteryStatus": "5",
+        "batteryHealth": "2"
+      },
+      "rows": [
+        {
+          "legacy": false,
+          "brush": "joybrush.watercolour",
+          "case": "topScribble",
+          "run": 1,
+          "samples": 841,
+          "frames": 111,
+          "strokeFrames": 103,
+          "firstFrameMs": 15.83,
+          "busyMs": {
+            "p50": 27.03,
+            "p95": 64.73,
+            "max": 394.11,
+            "mean": 36.31
+          },
+          "workMs": {
+            "p50": 21.88,
+            "p95": 59.5,
+            "max": 391.99,
+            "mean": 31.76
+          },
+          "mediaMs": {
+            "p50": 0.01,
+            "p95": 0.03,
+            "max": 0.04,
+            "mean": 0.01
+          },
+          "displayMs": {
+            "p50": 4.2,
+            "p95": 7.37,
+            "max": 9.48,
+            "mean": 4.5
+          },
+          "finishMs": {
+            "p50": 0.01,
+            "p95": 0.01,
+            "max": 0.02,
+            "mean": 0.01
+          },
+          "simMs": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "flushMs": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "gapMs": {
+            "p50": 27.79,
+            "p95": 65.84,
+            "max": 216.98,
+            "mean": 33.79
+          },
+          "latencyMs": {
+            "p50": 17.22,
+            "p95": 104.04,
+            "max": 215.74,
+            "mean": 27.93
+          },
+          "gapsOver17": 73,
+          "gapsOver34": 36,
+          "mediaFrames": 0,
+          "windowMoves": 0,
+          "windowLoads": 0,
+          "editableLines": true,
+          "fullTail": true,
+          "tailPollIntervalMs": 100,
+          "tailTimeoutMs": 5000,
+          "tailIdleConfirmations": 2,
+          "observedIdleAfterUpMs": 546,
+          "tailTimedOut": false,
+          "measurementScope": "recorded-down-through-two-idle-confirmations",
+          "fullSpanFrames": 109,
+          "fullSpanBusyMs": {
+            "p50": 25.65,
+            "p95": 64.73,
+            "max": 394.11,
+            "mean": 34.67
+          },
+          "finalRecordedFrameEndAfterUpMs": 547.8,
+          "phasesMs": {
+            "JB.paint.draw": {
+              "p50": 3.81,
+              "p95": 6.82,
+              "max": 9.12,
+              "mean": 4.11
+            },
+            "JB.paint.dabs": {
+              "p50": 20.92,
+              "p95": 53.58,
+              "max": 154.2,
+              "mean": 25.77
+            },
+            "JB.paint.commit": {
+              "p50": 0.0,
+              "p95": 0.0,
+              "max": 376.38,
+              "mean": 3.65
+            }
+          },
+          "memory": null,
+          "device": {
+            "availMem": 3537981440,
+            "totalMem": 7948890112,
+            "threshold": 226492416,
+            "lowMemory": false,
+            "memoryClassMb": 256,
+            "largeMemoryClassMb": 512,
+            "nativeHeapAllocated": 20679824
+          },
+          "processState": "process-cold",
+          "processCold": true
+        },
+        {
+          "legacy": false,
+          "brush": "joybrush.watercolour",
+          "case": "topScribble",
+          "run": 2,
+          "samples": 841,
+          "frames": 155,
+          "strokeFrames": 148,
+          "firstFrameMs": 6.41,
+          "busyMs": {
+            "p50": 17.26,
+            "p95": 45.44,
+            "max": 100.99,
+            "mean": 22.81
+          },
+          "workMs": {
+            "p50": 13.61,
+            "p95": 40.7,
+            "max": 94.16,
+            "mean": 17.93
+          },
+          "mediaMs": {
+            "p50": 0.01,
+            "p95": 0.03,
+            "max": 0.08,
+            "mean": 0.02
+          },
+          "displayMs": {
+            "p50": 4.69,
+            "p95": 8.22,
+            "max": 9.37,
+            "mean": 4.81
+          },
+          "finishMs": {
+            "p50": 0.01,
+            "p95": 0.01,
+            "max": 0.02,
+            "mean": 0.01
+          },
+          "simMs": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "flushMs": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "gapMs": {
+            "p50": 18.03,
+            "p95": 44.05,
+            "max": 103.79,
+            "mean": 23.21
+          },
+          "latencyMs": {
+            "p50": 11.86,
+            "p95": 52.01,
+            "max": 103.59,
+            "mean": 15.94
+          },
+          "gapsOver17": 77,
+          "gapsOver34": 14,
+          "mediaFrames": 0,
+          "windowMoves": 0,
+          "windowLoads": 0,
+          "editableLines": true,
+          "fullTail": true,
+          "tailPollIntervalMs": 100,
+          "tailTimeoutMs": 5000,
+          "tailIdleConfirmations": 2,
+          "observedIdleAfterUpMs": 614,
+          "tailTimedOut": false,
+          "measurementScope": "recorded-down-through-two-idle-confirmations",
+          "fullSpanFrames": 153,
+          "fullSpanBusyMs": {
+            "p50": 17.04,
+            "p95": 47.19,
+            "max": 427.63,
+            "mean": 25.07
+          },
+          "finalRecordedFrameEndAfterUpMs": 623.16,
+          "phasesMs": {
+            "JB.paint.draw": {
+              "p50": 4.24,
+              "p95": 8.03,
+              "max": 9.23,
+              "mean": 4.5
+            },
+            "JB.paint.dabs": {
+              "p50": 13.36,
+              "p95": 39.74,
+              "max": 91.33,
+              "mean": 17.46
+            },
+            "JB.paint.commit": {
+              "p50": 0.0,
+              "p95": 0.0,
+              "max": 0.0,
+              "mean": 0.0
+            }
+          },
+          "memory": null,
+          "device": {
+            "availMem": 3565064192,
+            "totalMem": 7948890112,
+            "threshold": 226492416,
+            "lowMemory": false,
+            "memoryClassMb": 256,
+            "largeMemoryClassMb": 512,
+            "nativeHeapAllocated": 23018528
+          },
+          "processState": "same-process-warm",
+          "processCold": false
+        }
+      ]
+    },
+    {
+      "ordinal": 5,
+      "editableLines": false,
+      "processCold": true,
+      "pid": "10794",
+      "startResponse": "Starting: Intent { cmp=com.fadcam.beta/com.fadcam.joybrush.JoyBrushBenchActivity (has extras) }",
+      "rawLog": "launch_05_off.log",
+      "batteryBefore": {
+        "batteryTempC": 24.0,
+        "batteryLevel": "100",
+        "batteryScale": "100",
+        "batteryVoltage": "4179",
+        "batteryStatus": "5",
+        "batteryHealth": "2"
+      },
+      "batteryAfter": {
+        "batteryTempC": 24.2,
+        "batteryLevel": "100",
+        "batteryScale": "100",
+        "batteryVoltage": "4180",
+        "batteryStatus": "5",
+        "batteryHealth": "2"
+      },
+      "rows": [
+        {
+          "legacy": false,
+          "brush": "joybrush.watercolour",
+          "case": "topScribble",
+          "run": 1,
+          "samples": 841,
+          "frames": 141,
+          "strokeFrames": 92,
+          "firstFrameMs": 177.05,
+          "busyMs": {
+            "p50": 21.46,
+            "p95": 77.84,
+            "max": 330.19,
+            "mean": 38.67
+          },
+          "workMs": {
+            "p50": 18.48,
+            "p95": 72.78,
+            "max": 325.3,
+            "mean": 33.8
+          },
+          "mediaMs": {
+            "p50": 0.01,
+            "p95": 0.03,
+            "max": 0.16,
+            "mean": 0.02
+          },
+          "displayMs": {
+            "p50": 4.65,
+            "p95": 7.59,
+            "max": 8.61,
+            "mean": 4.81
+          },
+          "finishMs": {
+            "p50": 0.01,
+            "p95": 0.02,
+            "max": 0.02,
+            "mean": 0.01
+          },
+          "simMs": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "flushMs": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "gapMs": {
+            "p50": 22.04,
+            "p95": 78.56,
+            "max": 141.21,
+            "mean": 36.61
+          },
+          "latencyMs": {
+            "p50": 22.9,
+            "p95": 87.81,
+            "max": 177.05,
+            "mean": 31.04
+          },
+          "gapsOver17": 53,
+          "gapsOver34": 40,
+          "mediaFrames": 0,
+          "windowMoves": 0,
+          "windowLoads": 0,
+          "editableLines": false,
+          "fullTail": true,
+          "tailPollIntervalMs": 100,
+          "tailTimeoutMs": 5000,
+          "tailIdleConfirmations": 2,
+          "observedIdleAfterUpMs": 1199,
+          "tailTimedOut": false,
+          "measurementScope": "recorded-down-through-two-idle-confirmations",
+          "fullSpanFrames": 138,
+          "fullSpanBusyMs": {
+            "p50": 16.36,
+            "p95": 76.17,
+            "max": 330.19,
+            "mean": 31.07
+          },
+          "finalRecordedFrameEndAfterUpMs": 1226.9,
+          "phasesMs": {
+            "JB.paint.draw": {
+              "p50": 4.08,
+              "p95": 7.13,
+              "max": 8.2,
+              "mean": 4.37
+            },
+            "JB.paint.dabs": {
+              "p50": 18.12,
+              "p95": 70.34,
+              "max": 132.61,
+              "mean": 29.76
+            },
+            "JB.paint.commit": {
+              "p50": 0.0,
+              "p95": 0.0,
+              "max": 303.25,
+              "mean": 3.3
+            }
+          },
+          "memory": null,
+          "device": {
+            "availMem": 3543416832,
+            "totalMem": 7948890112,
+            "threshold": 226492416,
+            "lowMemory": false,
+            "memoryClassMb": 256,
+            "largeMemoryClassMb": 512,
+            "nativeHeapAllocated": 18089952
+          },
+          "processState": "process-cold",
+          "processCold": true
+        },
+        {
+          "legacy": false,
+          "brush": "joybrush.watercolour",
+          "case": "topScribble",
+          "run": 2,
+          "samples": 841,
+          "frames": 201,
+          "strokeFrames": 149,
+          "firstFrameMs": 6.03,
+          "busyMs": {
+            "p50": 17.52,
+            "p95": 42.61,
+            "max": 106.71,
+            "mean": 22.82
+          },
+          "workMs": {
+            "p50": 13.15,
+            "p95": 37.42,
+            "max": 96.41,
+            "mean": 18.12
+          },
+          "mediaMs": {
+            "p50": 0.02,
+            "p95": 0.04,
+            "max": 0.27,
+            "mean": 0.02
+          },
+          "displayMs": {
+            "p50": 4.06,
+            "p95": 7.7,
+            "max": 19.03,
+            "mean": 4.61
+          },
+          "finishMs": {
+            "p50": 0.01,
+            "p95": 0.01,
+            "max": 0.02,
+            "mean": 0.01
+          },
+          "simMs": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "flushMs": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "gapMs": {
+            "p50": 18.04,
+            "p95": 41.83,
+            "max": 108.78,
+            "mean": 23.33
+          },
+          "latencyMs": {
+            "p50": 12.2,
+            "p95": 60.81,
+            "max": 104.59,
+            "mean": 17.1
+          },
+          "gapsOver17": 81,
+          "gapsOver34": 16,
+          "mediaFrames": 0,
+          "windowMoves": 0,
+          "windowLoads": 0,
+          "editableLines": false,
+          "fullTail": true,
+          "tailPollIntervalMs": 100,
+          "tailTimeoutMs": 5000,
+          "tailIdleConfirmations": 2,
+          "observedIdleAfterUpMs": 1283,
+          "tailTimedOut": false,
+          "measurementScope": "recorded-down-through-two-idle-confirmations",
+          "fullSpanFrames": 198,
+          "fullSpanBusyMs": {
+            "p50": 16.2,
+            "p95": 39.76,
+            "max": 346.45,
+            "mean": 22.59
+          },
+          "finalRecordedFrameEndAfterUpMs": 1286.53,
+          "phasesMs": {
+            "JB.paint.draw": {
+              "p50": 3.6,
+              "p95": 6.77,
+              "max": 18.6,
+              "mean": 4.18
+            },
+            "JB.paint.dabs": {
+              "p50": 12.71,
+              "p95": 36.47,
+              "max": 93.15,
+              "mean": 17.57
+            },
+            "JB.paint.commit": {
+              "p50": 0.0,
+              "p95": 0.0,
+              "max": 0.0,
+              "mean": 0.0
+            }
+          },
+          "memory": null,
+          "device": {
+            "availMem": 3575726080,
+            "totalMem": 7948890112,
+            "threshold": 226492416,
+            "lowMemory": false,
+            "memoryClassMb": 256,
+            "largeMemoryClassMb": 512,
+            "nativeHeapAllocated": 21162816
+          },
+          "processState": "same-process-warm",
+          "processCold": false
+        }
+      ]
+    },
+    {
+      "ordinal": 6,
+      "editableLines": true,
+      "processCold": true,
+      "pid": "10982",
+      "startResponse": "Starting: Intent { cmp=com.fadcam.beta/com.fadcam.joybrush.JoyBrushBenchActivity (has extras) }",
+      "rawLog": "launch_06_on.log",
+      "batteryBefore": {
+        "batteryTempC": 24.2,
+        "batteryLevel": "100",
+        "batteryScale": "100",
+        "batteryVoltage": "4180",
+        "batteryStatus": "5",
+        "batteryHealth": "2"
+      },
+      "batteryAfter": {
+        "batteryTempC": 24.2,
+        "batteryLevel": "100",
+        "batteryScale": "100",
+        "batteryVoltage": "4180",
+        "batteryStatus": "5",
+        "batteryHealth": "2"
+      },
+      "rows": [
+        {
+          "legacy": false,
+          "brush": "joybrush.watercolour",
+          "case": "topScribble",
+          "run": 1,
+          "samples": 841,
+          "frames": 102,
+          "strokeFrames": 94,
+          "firstFrameMs": 15.89,
+          "busyMs": {
+            "p50": 28.09,
+            "p95": 75.25,
+            "max": 221.65,
+            "mean": 36.01
+          },
+          "workMs": {
+            "p50": 24.46,
+            "p95": 70.55,
+            "max": 218.93,
+            "mean": 31.49
+          },
+          "mediaMs": {
+            "p50": 0.01,
+            "p95": 0.03,
+            "max": 0.03,
+            "mean": 0.02
+          },
+          "displayMs": {
+            "p50": 4.21,
+            "p95": 7.11,
+            "max": 9.09,
+            "mean": 4.46
+          },
+          "finishMs": {
+            "p50": 0.01,
+            "p95": 0.01,
+            "max": 0.01,
+            "mean": 0.01
+          },
+          "simMs": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "flushMs": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "gapMs": {
+            "p50": 28.7,
+            "p95": 76.85,
+            "max": 222.69,
+            "mean": 36.94
+          },
+          "latencyMs": {
+            "p50": 19.87,
+            "p95": 104.98,
+            "max": 222.22,
+            "mean": 31.57
+          },
+          "gapsOver17": 59,
+          "gapsOver34": 42,
+          "mediaFrames": 0,
+          "windowMoves": 0,
+          "windowLoads": 0,
+          "editableLines": true,
+          "fullTail": true,
+          "tailPollIntervalMs": 100,
+          "tailTimeoutMs": 5000,
+          "tailIdleConfirmations": 2,
+          "observedIdleAfterUpMs": 529,
+          "tailTimedOut": false,
+          "measurementScope": "recorded-down-through-two-idle-confirmations",
+          "fullSpanFrames": 100,
+          "fullSpanBusyMs": {
+            "p50": 25.39,
+            "p95": 92.94,
+            "max": 363.67,
+            "mean": 37.69
+          },
+          "finalRecordedFrameEndAfterUpMs": 530.51,
+          "phasesMs": {
+            "JB.paint.draw": {
+              "p50": 3.8,
+              "p95": 6.17,
+              "max": 8.84,
+              "mean": 4.07
+            },
+            "JB.paint.dabs": {
+              "p50": 23.71,
+              "p95": 65.53,
+              "max": 153.26,
+              "mean": 28.85
+            },
+            "JB.paint.commit": {
+              "p50": 0.0,
+              "p95": 0.0,
+              "max": 0.0,
+              "mean": 0.0
+            }
+          },
+          "memory": null,
+          "device": {
+            "availMem": 3532480512,
+            "totalMem": 7948890112,
+            "threshold": 226492416,
+            "lowMemory": false,
+            "memoryClassMb": 256,
+            "largeMemoryClassMb": 512,
+            "nativeHeapAllocated": 19406848
+          },
+          "processState": "process-cold",
+          "processCold": true
+        },
+        {
+          "legacy": false,
+          "brush": "joybrush.watercolour",
+          "case": "topScribble",
+          "run": 2,
+          "samples": 841,
+          "frames": 159,
+          "strokeFrames": 152,
+          "firstFrameMs": 6.71,
+          "busyMs": {
+            "p50": 16.32,
+            "p95": 52.67,
+            "max": 116.56,
+            "mean": 22.2
+          },
+          "workMs": {
+            "p50": 12.52,
+            "p95": 46.86,
+            "max": 112.97,
+            "mean": 17.5
+          },
+          "mediaMs": {
+            "p50": 0.01,
+            "p95": 0.03,
+            "max": 0.09,
+            "mean": 0.02
+          },
+          "displayMs": {
+            "p50": 4.17,
+            "p95": 7.46,
+            "max": 10.94,
+            "mean": 4.65
+          },
+          "finishMs": {
+            "p50": 0.01,
+            "p95": 0.01,
+            "max": 0.02,
+            "mean": 0.01
+          },
+          "simMs": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "flushMs": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "gapMs": {
+            "p50": 17.01,
+            "p95": 51.56,
+            "max": 118.14,
+            "mean": 22.75
+          },
+          "latencyMs": {
+            "p50": 11.35,
+            "p95": 59.18,
+            "max": 117.75,
+            "mean": 16.75
+          },
+          "gapsOver17": 63,
+          "gapsOver34": 12,
+          "mediaFrames": 0,
+          "windowMoves": 0,
+          "windowLoads": 0,
+          "editableLines": true,
+          "fullTail": true,
+          "tailPollIntervalMs": 100,
+          "tailTimeoutMs": 5000,
+          "tailIdleConfirmations": 2,
+          "observedIdleAfterUpMs": 582,
+          "tailTimedOut": false,
+          "measurementScope": "recorded-down-through-two-idle-confirmations",
+          "fullSpanFrames": 157,
+          "fullSpanBusyMs": {
+            "p50": 16.32,
+            "p95": 59.48,
+            "max": 398.83,
+            "mean": 24.27
+          },
+          "finalRecordedFrameEndAfterUpMs": 590.67,
+          "phasesMs": {
+            "JB.paint.draw": {
+              "p50": 3.81,
+              "p95": 7.08,
+              "max": 10.71,
+              "mean": 4.36
+            },
+            "JB.paint.dabs": {
+              "p50": 12.09,
+              "p95": 45.63,
+              "max": 109.67,
+              "mean": 17.01
+            },
+            "JB.paint.commit": {
+              "p50": 0.0,
+              "p95": 0.0,
+              "max": 0.0,
+              "mean": 0.0
+            }
+          },
+          "memory": null,
+          "device": {
+            "availMem": 3571412992,
+            "totalMem": 7948890112,
+            "threshold": 226492416,
+            "lowMemory": false,
+            "memoryClassMb": 256,
+            "largeMemoryClassMb": 512,
+            "nativeHeapAllocated": 22789296
+          },
+          "processState": "same-process-warm",
+          "processCold": false
+        }
+      ]
+    },
+    {
+      "ordinal": 7,
+      "editableLines": false,
+      "processCold": true,
+      "pid": "11193",
+      "startResponse": "Starting: Intent { cmp=com.fadcam.beta/com.fadcam.joybrush.JoyBrushBenchActivity (has extras) }",
+      "rawLog": "launch_07_off.log",
+      "batteryBefore": {
+        "batteryTempC": 24.2,
+        "batteryLevel": "100",
+        "batteryScale": "100",
+        "batteryVoltage": "4180",
+        "batteryStatus": "5",
+        "batteryHealth": "2"
+      },
+      "batteryAfter": {
+        "batteryTempC": 24.4,
+        "batteryLevel": "100",
+        "batteryScale": "100",
+        "batteryVoltage": "4180",
+        "batteryStatus": "5",
+        "batteryHealth": "2"
+      },
+      "rows": [
+        {
+          "legacy": false,
+          "brush": "joybrush.watercolour",
+          "case": "topScribble",
+          "run": 1,
+          "samples": 841,
+          "frames": 168,
+          "strokeFrames": 121,
+          "firstFrameMs": 180.2,
+          "busyMs": {
+            "p50": 17.44,
+            "p95": 77.06,
+            "max": 326.6,
+            "mean": 29.36
+          },
+          "workMs": {
+            "p50": 13.63,
+            "p95": 72.2,
+            "max": 320.55,
+            "mean": 24.87
+          },
+          "mediaMs": {
+            "p50": 0.01,
+            "p95": 0.02,
+            "max": 0.06,
+            "mean": 0.01
+          },
+          "displayMs": {
+            "p50": 4.26,
+            "p95": 7.47,
+            "max": 9.71,
+            "mean": 4.45
+          },
+          "finishMs": {
+            "p50": 0.01,
+            "p95": 0.01,
+            "max": 0.09,
+            "mean": 0.01
+          },
+          "simMs": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "flushMs": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "gapMs": {
+            "p50": 17.73,
+            "p95": 71.43,
+            "max": 168.38,
+            "mean": 27.69
+          },
+          "latencyMs": {
+            "p50": 15.09,
+            "p95": 112.14,
+            "max": 180.2,
+            "mean": 29.43
+          },
+          "gapsOver17": 63,
+          "gapsOver34": 23,
+          "mediaFrames": 0,
+          "windowMoves": 0,
+          "windowLoads": 0,
+          "editableLines": false,
+          "fullTail": true,
+          "tailPollIntervalMs": 100,
+          "tailTimeoutMs": 5000,
+          "tailIdleConfirmations": 2,
+          "observedIdleAfterUpMs": 1191,
+          "tailTimedOut": false,
+          "measurementScope": "recorded-down-through-two-idle-confirmations",
+          "fullSpanFrames": 166,
+          "fullSpanBusyMs": {
+            "p50": 16.25,
+            "p95": 60.14,
+            "max": 326.6,
+            "mean": 25.8
+          },
+          "finalRecordedFrameEndAfterUpMs": 1236.73,
+          "phasesMs": {
+            "JB.paint.draw": {
+              "p50": 3.76,
+              "p95": 7.26,
+              "max": 9.44,
+              "mean": 4.12
+            },
+            "JB.paint.dabs": {
+              "p50": 12.95,
+              "p95": 63.46,
+              "max": 158.38,
+              "mean": 21.7
+            },
+            "JB.paint.commit": {
+              "p50": 0.0,
+              "p95": 0.0,
+              "max": 313.4,
+              "mean": 2.59
+            }
+          },
+          "memory": null,
+          "device": {
+            "availMem": 3493883904,
+            "totalMem": 7948890112,
+            "threshold": 226492416,
+            "lowMemory": false,
+            "memoryClassMb": 256,
+            "largeMemoryClassMb": 512,
+            "nativeHeapAllocated": 17865200
+          },
+          "processState": "process-cold",
+          "processCold": true
+        },
+        {
+          "legacy": false,
+          "brush": "joybrush.watercolour",
+          "case": "topScribble",
+          "run": 2,
+          "samples": 841,
+          "frames": 207,
+          "strokeFrames": 158,
+          "firstFrameMs": 5.97,
+          "busyMs": {
+            "p50": 17.37,
+            "p95": 50.7,
+            "max": 337.46,
+            "mean": 23.29
+          },
+          "workMs": {
+            "p50": 13.02,
+            "p95": 44.94,
+            "max": 333.21,
+            "mean": 18.55
+          },
+          "mediaMs": {
+            "p50": 0.02,
+            "p95": 0.03,
+            "max": 0.09,
+            "mean": 0.02
+          },
+          "displayMs": {
+            "p50": 4.33,
+            "p95": 6.62,
+            "max": 12.59,
+            "mean": 4.66
+          },
+          "finishMs": {
+            "p50": 0.01,
+            "p95": 0.01,
+            "max": 0.01,
+            "mean": 0.01
+          },
+          "simMs": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "flushMs": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "gapMs": {
+            "p50": 18.54,
+            "p95": 43.84,
+            "max": 99.42,
+            "mean": 22.31
+          },
+          "latencyMs": {
+            "p50": 11.37,
+            "p95": 45.15,
+            "max": 98.15,
+            "mean": 14.61
+          },
+          "gapsOver17": 96,
+          "gapsOver34": 14,
+          "mediaFrames": 0,
+          "windowMoves": 0,
+          "windowLoads": 0,
+          "editableLines": false,
+          "fullTail": true,
+          "tailPollIntervalMs": 100,
+          "tailTimeoutMs": 5000,
+          "tailIdleConfirmations": 2,
+          "observedIdleAfterUpMs": 1180,
+          "tailTimedOut": false,
+          "measurementScope": "recorded-down-through-two-idle-confirmations",
+          "fullSpanFrames": 204,
+          "fullSpanBusyMs": {
+            "p50": 16.5,
+            "p95": 41.23,
+            "max": 337.46,
+            "mean": 21.47
+          },
+          "finalRecordedFrameEndAfterUpMs": 1182.99,
+          "phasesMs": {
+            "JB.paint.draw": {
+              "p50": 3.86,
+              "p95": 6.33,
+              "max": 12.36,
+              "mean": 4.22
+            },
+            "JB.paint.dabs": {
+              "p50": 12.74,
+              "p95": 37.62,
+              "max": 90.22,
+              "mean": 16.18
+            },
+            "JB.paint.commit": {
+              "p50": 0.0,
+              "p95": 0.0,
+              "max": 306.34,
+              "mean": 1.94
+            }
+          },
+          "memory": null,
+          "device": {
+            "availMem": 3521081344,
+            "totalMem": 7948890112,
+            "threshold": 226492416,
+            "lowMemory": false,
+            "memoryClassMb": 256,
+            "largeMemoryClassMb": 512,
+            "nativeHeapAllocated": 21965984
+          },
+          "processState": "same-process-warm",
+          "processCold": false
+        }
+      ]
+    },
+    {
+      "ordinal": 8,
+      "editableLines": true,
+      "processCold": true,
+      "pid": "11724",
+      "startResponse": "Starting: Intent { cmp=com.fadcam.beta/com.fadcam.joybrush.JoyBrushBenchActivity (has extras) }",
+      "rawLog": "launch_08_on.log",
+      "batteryBefore": {
+        "batteryTempC": 24.4,
+        "batteryLevel": "100",
+        "batteryScale": "100",
+        "batteryVoltage": "4180",
+        "batteryStatus": "5",
+        "batteryHealth": "2"
+      },
+      "batteryAfter": {
+        "batteryTempC": 24.6,
+        "batteryLevel": "100",
+        "batteryScale": "100",
+        "batteryVoltage": "4180",
+        "batteryStatus": "5",
+        "batteryHealth": "2"
+      },
+      "rows": [
+        {
+          "legacy": false,
+          "brush": "joybrush.watercolour",
+          "case": "topScribble",
+          "run": 1,
+          "samples": 841,
+          "frames": 127,
+          "strokeFrames": 120,
+          "firstFrameMs": 16.16,
+          "busyMs": {
+            "p50": 20.86,
+            "p95": 77.77,
+            "max": 473.78,
+            "mean": 31.94
+          },
+          "workMs": {
+            "p50": 16.41,
+            "p95": 71.14,
+            "max": 468.76,
+            "mean": 27.3
+          },
+          "mediaMs": {
+            "p50": 0.01,
+            "p95": 0.02,
+            "max": 0.06,
+            "mean": 0.01
+          },
+          "displayMs": {
+            "p50": 4.33,
+            "p95": 7.71,
+            "max": 9.18,
+            "mean": 4.58
+          },
+          "finishMs": {
+            "p50": 0.01,
+            "p95": 0.01,
+            "max": 0.02,
+            "mean": 0.01
+          },
+          "simMs": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "flushMs": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "gapMs": {
+            "p50": 21.7,
+            "p95": 75.03,
+            "max": 221.27,
+            "mean": 29.13
+          },
+          "latencyMs": {
+            "p50": 14.42,
+            "p95": 102.53,
+            "max": 219.59,
+            "mean": 26.58
+          },
+          "gapsOver17": 76,
+          "gapsOver34": 20,
+          "mediaFrames": 0,
+          "windowMoves": 0,
+          "windowLoads": 0,
+          "editableLines": true,
+          "fullTail": true,
+          "tailPollIntervalMs": 100,
+          "tailTimeoutMs": 5000,
+          "tailIdleConfirmations": 2,
+          "observedIdleAfterUpMs": 624,
+          "tailTimedOut": false,
+          "measurementScope": "recorded-down-through-two-idle-confirmations",
+          "fullSpanFrames": 125,
+          "fullSpanBusyMs": {
+            "p50": 20.81,
+            "p95": 73.07,
+            "max": 473.78,
+            "mean": 31.03
+          },
+          "finalRecordedFrameEndAfterUpMs": 627.65,
+          "phasesMs": {
+            "JB.paint.draw": {
+              "p50": 3.88,
+              "p95": 7.47,
+              "max": 8.97,
+              "mean": 4.22
+            },
+            "JB.paint.dabs": {
+              "p50": 16.15,
+              "p95": 59.31,
+              "max": 149.65,
+              "mean": 21.77
+            },
+            "JB.paint.commit": {
+              "p50": 0.0,
+              "p95": 0.0,
+              "max": 420.47,
+              "mean": 3.5
+            }
+          },
+          "memory": null,
+          "device": {
+            "availMem": 3555115008,
+            "totalMem": 7948890112,
+            "threshold": 226492416,
+            "lowMemory": false,
+            "memoryClassMb": 256,
+            "largeMemoryClassMb": 512,
+            "nativeHeapAllocated": 21226560
+          },
+          "processState": "process-cold",
+          "processCold": true
+        },
+        {
+          "legacy": false,
+          "brush": "joybrush.watercolour",
+          "case": "topScribble",
+          "run": 2,
+          "samples": 841,
+          "frames": 165,
+          "strokeFrames": 159,
+          "firstFrameMs": 5.97,
+          "busyMs": {
+            "p50": 16.81,
+            "p95": 52.12,
+            "max": 380.1,
+            "mean": 23.39
+          },
+          "workMs": {
+            "p50": 13.13,
+            "p95": 47.38,
+            "max": 378.14,
+            "mean": 18.96
+          },
+          "mediaMs": {
+            "p50": 0.02,
+            "p95": 0.03,
+            "max": 0.09,
+            "mean": 0.02
+          },
+          "displayMs": {
+            "p50": 4.14,
+            "p95": 6.5,
+            "max": 9.26,
+            "mean": 4.36
+          },
+          "finishMs": {
+            "p50": 0.01,
+            "p95": 0.01,
+            "max": 0.01,
+            "mean": 0.01
+          },
+          "simMs": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "flushMs": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "gapMs": {
+            "p50": 17.64,
+            "p95": 52.87,
+            "max": 102.26,
+            "mean": 22.05
+          },
+          "latencyMs": {
+            "p50": 10.86,
+            "p95": 47.45,
+            "max": 99.43,
+            "mean": 14.58
+          },
+          "gapsOver17": 82,
+          "gapsOver34": 13,
+          "mediaFrames": 0,
+          "windowMoves": 0,
+          "windowLoads": 0,
+          "editableLines": true,
+          "fullTail": true,
+          "tailPollIntervalMs": 100,
+          "tailTimeoutMs": 5000,
+          "tailIdleConfirmations": 2,
+          "observedIdleAfterUpMs": 509,
+          "tailTimedOut": false,
+          "measurementScope": "recorded-down-through-two-idle-confirmations",
+          "fullSpanFrames": 163,
+          "fullSpanBusyMs": {
+            "p50": 16.79,
+            "p95": 51.43,
+            "max": 380.1,
+            "mean": 23.06
+          },
+          "finalRecordedFrameEndAfterUpMs": 516.56,
+          "phasesMs": {
+            "JB.paint.draw": {
+              "p50": 3.77,
+              "p95": 6.32,
+              "max": 9.0,
+              "mean": 4.05
+            },
+            "JB.paint.dabs": {
+              "p50": 12.72,
+              "p95": 43.39,
+              "max": 94.69,
+              "mean": 16.26
+            },
+            "JB.paint.commit": {
+              "p50": 0.0,
+              "p95": 0.0,
+              "max": 351.7,
+              "mean": 2.21
+            }
+          },
+          "memory": null,
+          "device": {
+            "availMem": 3586134016,
+            "totalMem": 7948890112,
+            "threshold": 226492416,
+            "lowMemory": false,
+            "memoryClassMb": 256,
+            "largeMemoryClassMb": 512,
+            "nativeHeapAllocated": 24541728
+          },
+          "processState": "same-process-warm",
+          "processCold": false
+        }
+      ]
+    },
+    {
+      "ordinal": 9,
+      "editableLines": false,
+      "processCold": true,
+      "pid": "12096",
+      "startResponse": "Starting: Intent { cmp=com.fadcam.beta/com.fadcam.joybrush.JoyBrushBenchActivity (has extras) }",
+      "rawLog": "launch_09_off.log",
+      "batteryBefore": {
+        "batteryTempC": 24.6,
+        "batteryLevel": "100",
+        "batteryScale": "100",
+        "batteryVoltage": "4180",
+        "batteryStatus": "5",
+        "batteryHealth": "2"
+      },
+      "batteryAfter": {
+        "batteryTempC": 24.6,
+        "batteryLevel": "100",
+        "batteryScale": "100",
+        "batteryVoltage": "4180",
+        "batteryStatus": "5",
+        "batteryHealth": "2"
+      },
+      "rows": [
+        {
+          "legacy": false,
+          "brush": "joybrush.watercolour",
+          "case": "topScribble",
+          "run": 1,
+          "samples": 841,
+          "frames": 188,
+          "strokeFrames": 139,
+          "firstFrameMs": 173.34,
+          "busyMs": {
+            "p50": 16.29,
+            "p95": 63.66,
+            "max": 139.97,
+            "mean": 23.43
+          },
+          "workMs": {
+            "p50": 12.23,
+            "p95": 58.75,
+            "max": 136.9,
+            "mean": 19.21
+          },
+          "mediaMs": {
+            "p50": 0.01,
+            "p95": 0.02,
+            "max": 0.07,
+            "mean": 0.01
+          },
+          "displayMs": {
+            "p50": 3.66,
+            "p95": 7.9,
+            "max": 11.31,
+            "mean": 4.17
+          },
+          "finishMs": {
+            "p50": 0.01,
+            "p95": 0.02,
+            "max": 0.02,
+            "mean": 0.01
+          },
+          "simMs": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "flushMs": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "gapMs": {
+            "p50": 16.95,
+            "p95": 65.92,
+            "max": 140.89,
+            "mean": 23.97
+          },
+          "latencyMs": {
+            "p50": 12.78,
+            "p95": 85.35,
+            "max": 173.34,
+            "mean": 23.36
+          },
+          "gapsOver17": 56,
+          "gapsOver34": 23,
+          "mediaFrames": 0,
+          "windowMoves": 0,
+          "windowLoads": 0,
+          "editableLines": false,
+          "fullTail": true,
+          "tailPollIntervalMs": 100,
+          "tailTimeoutMs": 5000,
+          "tailIdleConfirmations": 2,
+          "observedIdleAfterUpMs": 1219,
+          "tailTimedOut": false,
+          "measurementScope": "recorded-down-through-two-idle-confirmations",
+          "fullSpanFrames": 186,
+          "fullSpanBusyMs": {
+            "p50": 16.03,
+            "p95": 52.2,
+            "max": 320.13,
+            "mean": 23.09
+          },
+          "finalRecordedFrameEndAfterUpMs": 1242.14,
+          "phasesMs": {
+            "JB.paint.draw": {
+              "p50": 3.32,
+              "p95": 7.62,
+              "max": 11.09,
+              "mean": 3.86
+            },
+            "JB.paint.dabs": {
+              "p50": 11.92,
+              "p95": 57.09,
+              "max": 134.06,
+              "mean": 18.67
+            },
+            "JB.paint.commit": {
+              "p50": 0.0,
+              "p95": 0.0,
+              "max": 0.0,
+              "mean": 0.0
+            }
+          },
+          "memory": null,
+          "device": {
+            "availMem": 3541143552,
+            "totalMem": 7948890112,
+            "threshold": 226492416,
+            "lowMemory": false,
+            "memoryClassMb": 256,
+            "largeMemoryClassMb": 512,
+            "nativeHeapAllocated": 17806736
+          },
+          "processState": "process-cold",
+          "processCold": true
+        },
+        {
+          "legacy": false,
+          "brush": "joybrush.watercolour",
+          "case": "topScribble",
+          "run": 2,
+          "samples": 841,
+          "frames": 225,
+          "strokeFrames": 174,
+          "firstFrameMs": 4.1,
+          "busyMs": {
+            "p50": 16.35,
+            "p95": 35.75,
+            "max": 74.55,
+            "mean": 19.41
+          },
+          "workMs": {
+            "p50": 12.08,
+            "p95": 33.35,
+            "max": 68.96,
+            "mean": 14.86
+          },
+          "mediaMs": {
+            "p50": 0.02,
+            "p95": 0.03,
+            "max": 0.09,
+            "mean": 0.02
+          },
+          "displayMs": {
+            "p50": 4.12,
+            "p95": 7.84,
+            "max": 11.15,
+            "mean": 4.48
+          },
+          "finishMs": {
+            "p50": 0.01,
+            "p95": 0.01,
+            "max": 0.04,
+            "mean": 0.01
+          },
+          "simMs": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "flushMs": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "gapMs": {
+            "p50": 17.02,
+            "p95": 35.78,
+            "max": 77.15,
+            "mean": 19.96
+          },
+          "latencyMs": {
+            "p50": 10.38,
+            "p95": 36.02,
+            "max": 74.63,
+            "mean": 12.62
+          },
+          "gapsOver17": 80,
+          "gapsOver34": 11,
+          "mediaFrames": 0,
+          "windowMoves": 0,
+          "windowLoads": 0,
+          "editableLines": false,
+          "fullTail": true,
+          "tailPollIntervalMs": 100,
+          "tailTimeoutMs": 5000,
+          "tailIdleConfirmations": 2,
+          "observedIdleAfterUpMs": 1262,
+          "tailTimedOut": false,
+          "measurementScope": "recorded-down-through-two-idle-confirmations",
+          "fullSpanFrames": 222,
+          "fullSpanBusyMs": {
+            "p50": 16.2,
+            "p95": 35.31,
+            "max": 342.51,
+            "mean": 19.96
+          },
+          "finalRecordedFrameEndAfterUpMs": 1265.5,
+          "phasesMs": {
+            "JB.paint.draw": {
+              "p50": 3.67,
+              "p95": 7.42,
+              "max": 10.93,
+              "mean": 4.12
+            },
+            "JB.paint.dabs": {
+              "p50": 11.7,
+              "p95": 32.87,
+              "max": 67.44,
+              "mean": 14.43
+            },
+            "JB.paint.commit": {
+              "p50": 0.0,
+              "p95": 0.0,
+              "max": 0.0,
+              "mean": 0.0
+            }
+          },
+          "memory": null,
+          "device": {
+            "availMem": 3611881472,
+            "totalMem": 7948890112,
+            "threshold": 226492416,
+            "lowMemory": false,
+            "memoryClassMb": 256,
+            "largeMemoryClassMb": 512,
+            "nativeHeapAllocated": 21032400
+          },
+          "processState": "same-process-warm",
+          "processCold": false
+        }
+      ]
+    },
+    {
+      "ordinal": 10,
+      "editableLines": true,
+      "processCold": true,
+      "pid": "12368",
+      "startResponse": "Starting: Intent { cmp=com.fadcam.beta/com.fadcam.joybrush.JoyBrushBenchActivity (has extras) }",
+      "rawLog": "launch_10_on.log",
+      "batteryBefore": {
+        "batteryTempC": 24.6,
+        "batteryLevel": "100",
+        "batteryScale": "100",
+        "batteryVoltage": "4180",
+        "batteryStatus": "5",
+        "batteryHealth": "2"
+      },
+      "batteryAfter": {
+        "batteryTempC": 24.8,
+        "batteryLevel": "100",
+        "batteryScale": "100",
+        "batteryVoltage": "4182",
+        "batteryStatus": "5",
+        "batteryHealth": "2"
+      },
+      "rows": [
+        {
+          "legacy": false,
+          "brush": "joybrush.watercolour",
+          "case": "topScribble",
+          "run": 1,
+          "samples": 841,
+          "frames": 135,
+          "strokeFrames": 127,
+          "firstFrameMs": 15.96,
+          "busyMs": {
+            "p50": 20.01,
+            "p95": 66.22,
+            "max": 215.54,
+            "mean": 26.68
+          },
+          "workMs": {
+            "p50": 16.1,
+            "p95": 64.04,
+            "max": 212.78,
+            "mean": 22.13
+          },
+          "mediaMs": {
+            "p50": 0.01,
+            "p95": 0.02,
+            "max": 0.42,
+            "mean": 0.02
+          },
+          "displayMs": {
+            "p50": 4.27,
+            "p95": 7.4,
+            "max": 9.42,
+            "mean": 4.5
+          },
+          "finishMs": {
+            "p50": 0.01,
+            "p95": 0.01,
+            "max": 0.02,
+            "mean": 0.01
+          },
+          "simMs": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "flushMs": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "gapMs": {
+            "p50": 20.67,
+            "p95": 60.14,
+            "max": 216.52,
+            "mean": 27.19
+          },
+          "latencyMs": {
+            "p50": 13.76,
+            "p95": 103.04,
+            "max": 214.55,
+            "mean": 25.56
+          },
+          "gapsOver17": 76,
+          "gapsOver34": 16,
+          "mediaFrames": 0,
+          "windowMoves": 0,
+          "windowLoads": 0,
+          "editableLines": true,
+          "fullTail": true,
+          "tailPollIntervalMs": 100,
+          "tailTimeoutMs": 5000,
+          "tailIdleConfirmations": 2,
+          "observedIdleAfterUpMs": 663,
+          "tailTimedOut": false,
+          "measurementScope": "recorded-down-through-two-idle-confirmations",
+          "fullSpanFrames": 133,
+          "fullSpanBusyMs": {
+            "p50": 19.99,
+            "p95": 69.98,
+            "max": 454.5,
+            "mean": 29.49
+          },
+          "finalRecordedFrameEndAfterUpMs": 665.12,
+          "phasesMs": {
+            "JB.paint.draw": {
+              "p50": 3.86,
+              "p95": 6.9,
+              "max": 9.2,
+              "mean": 4.14
+            },
+            "JB.paint.dabs": {
+              "p50": 15.78,
+              "p95": 55.37,
+              "max": 150.78,
+              "mean": 20.29
+            },
+            "JB.paint.commit": {
+              "p50": 0.0,
+              "p95": 0.0,
+              "max": 0.0,
+              "mean": 0.0
+            }
+          },
+          "memory": null,
+          "device": {
+            "availMem": 3559829504,
+            "totalMem": 7948890112,
+            "threshold": 226492416,
+            "lowMemory": false,
+            "memoryClassMb": 256,
+            "largeMemoryClassMb": 512,
+            "nativeHeapAllocated": 20560848
+          },
+          "processState": "process-cold",
+          "processCold": true
+        },
+        {
+          "legacy": false,
+          "brush": "joybrush.watercolour",
+          "case": "topScribble",
+          "run": 2,
+          "samples": 841,
+          "frames": 157,
+          "strokeFrames": 150,
+          "firstFrameMs": 10.62,
+          "busyMs": {
+            "p50": 18.07,
+            "p95": 45.83,
+            "max": 96.93,
+            "mean": 22.07
+          },
+          "workMs": {
+            "p50": 14.26,
+            "p95": 40.35,
+            "max": 94.07,
+            "mean": 17.77
+          },
+          "mediaMs": {
+            "p50": 0.02,
+            "p95": 0.03,
+            "max": 0.03,
+            "mean": 0.02
+          },
+          "displayMs": {
+            "p50": 3.94,
+            "p95": 7.0,
+            "max": 9.28,
+            "mean": 4.23
+          },
+          "finishMs": {
+            "p50": 0.01,
+            "p95": 0.01,
+            "max": 0.02,
+            "mean": 0.01
+          },
+          "simMs": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "flushMs": {
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+            "mean": 0.0
+          },
+          "gapMs": {
+            "p50": 19.18,
+            "p95": 46.97,
+            "max": 97.72,
+            "mean": 22.88
+          },
+          "latencyMs": {
+            "p50": 11.28,
+            "p95": 45.76,
+            "max": 93.3,
+            "mean": 14.86
+          },
+          "gapsOver17": 92,
+          "gapsOver34": 14,
+          "mediaFrames": 0,
+          "windowMoves": 0,
+          "windowLoads": 0,
+          "editableLines": true,
+          "fullTail": true,
+          "tailPollIntervalMs": 100,
+          "tailTimeoutMs": 5000,
+          "tailIdleConfirmations": 2,
+          "observedIdleAfterUpMs": 531,
+          "tailTimedOut": false,
+          "measurementScope": "recorded-down-through-two-idle-confirmations",
+          "fullSpanFrames": 155,
+          "fullSpanBusyMs": {
+            "p50": 18.33,
+            "p95": 53.05,
+            "max": 384.31,
+            "mean": 24.28
+          },
+          "finalRecordedFrameEndAfterUpMs": 567.22,
+          "phasesMs": {
+            "JB.paint.draw": {
+              "p50": 3.55,
+              "p95": 6.79,
+              "max": 9.02,
+              "mean": 3.9
+            },
+            "JB.paint.dabs": {
+              "p50": 13.76,
+              "p95": 39.32,
+              "max": 92.32,
+              "mean": 17.27
+            },
+            "JB.paint.commit": {
+              "p50": 0.0,
+              "p95": 0.0,
+              "max": 0.0,
+              "mean": 0.0
+            }
+          },
+          "memory": null,
+          "device": {
+            "availMem": 3600154624,
+            "totalMem": 7948890112,
+            "threshold": 226492416,
+            "lowMemory": false,
+            "memoryClassMb": 256,
+            "largeMemoryClassMb": 512,
+            "nativeHeapAllocated": 22545584
+          },
+          "processState": "same-process-warm",
+          "processCold": false
+        }
+      ]
+    }
+  ],
+  "completed": true,
+  "updatedAtUtc": "2026-10-24T03:04:27.164758-04:00",
+  "completedAtUtc": "2026-10-24T03:04:27.811476-04:00"
+}

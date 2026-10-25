@@ -435,6 +435,23 @@ Music generation. A website. A Play listing. A privacy policy that mentions AI.
 
 ---
 
+## 10.5 JOYBRUSH VECTOR WATERCOLOUR — October24 audit
+
+| Capability | Status | Evidence and limits |
+|---|---|---|
+| Sample-based watercolor, pressure/tilt, pooled pigment and gravity color shifts | 🟡 Built foundation | Renderer on main; original POC owner-approved. Full phone-engine look not signed off. |
+| Cold/warm, complete-fade benchmark | Measured on Note9 | Five cold launches each lines OFF/ON plus warm repeats. Intrusive glFinish, synthetic latency. Warm p95~36–73ms;16.7ms target not passed. |
+| Selected-brush preparation/full fade | 🟡 Candidate branch | Claude's lead/wc-live-land1681bfdeb: core2559 (4 optional skips), backend1064/native317, zero failures. Cold/fade phone acceptance owed; not landed. |
+| Wash travels with line; frame survives archive | 🟡 Candidate branch | Homography, JBS5/legacy tests, GPU mapping and frozen-brush archive test. Actual phone edit/reopen/context proof owed; paper/grain/gravity stay fixed. |
+| Per-brush lines, Watercolor default ON | 🟠 Candidate restored | Included on vector/watercolour-finish-20261024. Recommended reversible default; new-base tests and phone proof owed. |
+| Finish-only recolor | 🟠 Built, host tests pass | NativeLines selection primes bounded coverage for one selected line up to32 tiles. Tint re-finishes it; large/multi-selection replays normally. Current core2559/4 optional skips and backend1068 pass, including4 cache-key tests; device pixel/cache proof pending. |
+| Note9 speed | 🟠 Not accepted | L1 warm p95~36–73ms exceeds16.7ms. Optimization and remeasurement still required. |
+
+**Not finished; not waiting only on owner testing.** Implementation, integration
+and device proof remain before final owner look/feel approval. Continue on
+vector/watercolour-finish-20261024; preserve unfinished scratch/evidence.
+Details: [completion audit](joybrush/reviews/WATERCOLOUR_COMPLETION_AUDIT_20261024.md).
+
 ## 11. HOW TO MAINTAIN THIS
 
 1. When something is proved on a phone, move it to 🟢 and say what proved it.

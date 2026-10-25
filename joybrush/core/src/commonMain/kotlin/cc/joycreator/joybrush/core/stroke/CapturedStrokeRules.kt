@@ -63,6 +63,7 @@ object CapturedStrokeRules {
         a.id == b.id && a.seq == b.seq && a.brushId == b.brushId && a.seed == b.seed &&
             a.colorArgb == b.colorArgb && a.smoothing.toRawBits() == b.smoothing.toRawBits() &&
             a.screenPerDoc.toRawBits() == b.screenPerDoc.toRawBits() && a.widthScale.toRawBits() == b.widthScale.toRawBits() &&
+            a.washFrame == b.washFrame &&
             a.samples.size == b.samples.size && a.samples.indices.all { i ->
                 val x = a.samples[i]; val y = b.samples[i]
                 x.x.toRawBits() == y.x.toRawBits() && x.y.toRawBits() == y.y.toRawBits() &&

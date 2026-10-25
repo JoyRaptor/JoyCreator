@@ -461,19 +461,27 @@ class SelectController(
 
     /** Paste records into the current editable plane, assigning fresh identities and importing their frozen brushes. */
     private fun pasteLines() {
+        val destination = try { host.prepareWithBrushStaging { preparePastedLines() } }
+        catch (_: OutOfMemoryError) { host.toast(LineSelectionClipboard.MEMORY_REFUSAL); null }
+            ?: return
+        // Publication is outside the preparation catch: an error after submission cannot be reported as no edit.
+        if (!tool.addAndSelect(destination)) host.toast("Those lines could not be pasted.") else refresh()
+    }
+
+    private fun preparePastedLines(): List<cc.joycreator.joybrush.core.stroke.AddressedStroke>? {
         tool.updateView(canvas.view)
         val copied = LineSelectionClipboard.snapshot()
-        if (copied.isEmpty()) return
+        if (copied.isEmpty()) return null
         val available = Runtime.getRuntime().let { it.maxMemory() - (it.totalMemory() - it.freeMemory()) }
-        if (!LineSelectionClipboard.canPaste(copied, available)) { host.toast(LineSelectionClipboard.MEMORY_REFUSAL); return }
-        if (host.activeLinePlane() == null) { host.toast("Choose an editable layer before pasting lines."); return }
+        if (!LineSelectionClipboard.canPaste(copied, available)) { host.toast(LineSelectionClipboard.MEMORY_REFUSAL); return null }
+        if (host.activeLinePlane() == null) { host.toast("Choose an editable layer before pasting lines."); return null }
         val existing = host.visibleLines().mapTo(HashSet()) { it.record.id }
         existing += copied.map { it.record.id }
         val ids = ArrayList<String>(copied.size)
         repeat(copied.size) {
             var id: String? = null
             repeat(64) { if (id == null) app.newLineId().takeIf { it !in existing && it !in ids }?.let { found -> id = found } }
-            if (id == null) { host.toast("Those lines could not be pasted."); return }
+            if (id == null) { host.toast("Those lines could not be pasted."); return null }
             ids += id!!
         }
         val brushIds = HashMap<cc.joycreator.joybrush.core.brush.BrushPreset, String>()
@@ -492,22 +500,22 @@ class SelectController(
         val dx = viewX - cx
         val dy = viewY - cy
         val plane = host.linePlaneAt(viewX, viewY)
-            ?: run { host.toast("Choose an editable layer before pasting lines."); return }
+            ?: run { host.toast("Choose an editable layer before pasting lines."); return null }
         for (i in copied.indices) {
             val entry = copied[i]
             val preset = try { sourceBrushes.getOrPut(entry.record.brushId) { entry.brush() } }
-                catch (_: Exception) { host.toast("A copied line's brush couldn't be read."); return }
+                catch (_: Exception) { host.toast("A copied line's brush couldn't be read."); return null }
             val brushId = brushIds.getOrPut(preset) {
-                host.importBrush(preset) ?: run { host.toast("That line's brush can't be brought into this drawing."); return }
+                host.importBrush(preset) ?: run { host.toast("That line's brush can't be brought into this drawing."); return null }
             }
             destinationBrushIds += brushId
         }
         val destination = try { LineSelectionClipboard.paste(copied, plane, ids, destinationBrushIds, dx, dy) }
         catch (e: IllegalArgumentException) {
             host.toast(if (e.message == LineSelectionClipboard.MEMORY_REFUSAL) e.message!! else "Those lines are too far from this view to paste.")
-            return
+            return null
         }
-        if (!tool.addAndSelect(destination)) host.toast("Those lines could not be pasted.") else refresh()
+        return destination
     }
 
     /** K17: hue, saturation and brightness, live, ONE step on release. */

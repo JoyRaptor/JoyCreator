@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os
 import struct
 import tempfile
 import unittest
@@ -132,6 +133,25 @@ class RunnerTests(unittest.TestCase):
         with self.assertRaisesRegex(runner.RunError, "does not match"):
             runner.artifact(self.receipt)
 
+    def test_replaced_file_with_identical_token_is_not_deleted(self):
+        claim = runner.PhoneClaim(self.lock, "lane", "original")
+        claim.acquire()
+        replacement = self.root / "foreign-claim"
+        replacement.write_bytes(claim.content)
+        os.replace(replacement, self.lock)
+        self.assertFalse(claim.release())
+        self.assertEqual(claim.content, self.lock.read_bytes())
+
+    @unittest.skipUnless(os.name == "nt", "Windows handle-pinned cleanup")
+    def test_cleanup_retains_claim_when_delete_access_cannot_be_pinned(self):
+        claim = runner.PhoneClaim(self.lock, "lane", "pinned")
+        claim.acquire()
+        with self.lock.open("rb"):
+            self.assertFalse(claim.release())
+            self.assertTrue(self.lock.exists())
+        self.assertTrue(claim.release())
+        self.assertFalse(self.lock.exists())
+
     def test_wrong_installed_hash_refuses_launch_and_releases_own_claim(self):
         adb = FakeAdb("0" * 64)
         out = self.root / "wrong-hash-out"
@@ -218,6 +238,76 @@ class RunnerTests(unittest.TestCase):
             with self.assertRaisesRegex(runner.RunError, "incomplete or out of order"):
                 self.run_patched(self.root / "event-gap-out", adb)
         self.assertTrue(self.lock.exists())
+
+    def test_new_report_after_done_is_rejected_without_writing_it(self):
+        run_id = "0123456789abcdef0123456789abcdef"
+        own = [
+            {"selectBench": "setup", "runId": run_id, "pass": True},
+            {"selectBenchShot": "01_setup.png", "runId": run_id},
+            {"selectBench": "pick", "runId": run_id, "pass": True},
+            {"selectBench": "summary", "runId": run_id, "passed": 2, "failed": 0},
+            {"selectBenchDone": True, "runId": run_id},
+            {"selectBench": "late-report", "runId": run_id, "pass": True},
+        ]
+        rows = [
+            {"selectBench": "foreign", "runId": "foreign-run", "event": 0},
+            *[dict(row, event=index) for index, row in enumerate(own)],
+        ]
+        adb = FakeAdb(self.digest, rows)
+        out = self.root / "post-done-report-out"
+        with patch.object(runner.uuid, "uuid4", return_value=type("UUID", (), {"hex": run_id})()):
+            with self.assertRaisesRegex(runner.RunError, "after terminal completion"):
+                self.run_patched(out, adb)
+
+        saved = [json.loads(line) for line in (out / "results.jsonl").read_text(encoding="utf-8").splitlines()]
+        self.assertEqual(["setup", "pick", "summary"], [row["selectBench"] for row in saved])
+        self.assertFalse(self.lock.exists())  # A terminal event was observed, so the claim is releasable.
+
+    def test_new_screenshot_after_done_is_rejected_before_capture(self):
+        self.shots.append("02_late.png")
+        self.write_manifest()
+        run_id = "0123456789abcdef0123456789abcdef"
+        own = [
+            {"selectBench": "setup", "runId": run_id, "pass": True},
+            {"selectBenchShot": "01_setup.png", "runId": run_id},
+            {"selectBench": "pick", "runId": run_id, "pass": True},
+            {"selectBench": "summary", "runId": run_id, "passed": 2, "failed": 0},
+            {"selectBenchDone": True, "runId": run_id},
+            {"selectBenchShot": "02_late.png", "runId": run_id},
+        ]
+        rows = [
+            {"selectBench": "foreign", "runId": "foreign-run", "event": 0},
+            *[dict(row, event=index) for index, row in enumerate(own)],
+        ]
+        adb = FakeAdb(self.digest, rows)
+        out = self.root / "post-done-shot-out"
+        with patch.object(runner.uuid, "uuid4", return_value=type("UUID", (), {"hex": run_id})()):
+            with self.assertRaisesRegex(runner.RunError, "after terminal completion"):
+                self.run_patched(out, adb)
+
+        self.assertTrue((out / "01_setup.png").is_file())
+        self.assertFalse((out / "02_late.png").exists())
+        self.assertEqual(2, sum(call[0] == "exec-out" for call in adb.calls))  # Baseline plus pre-done shot.
+        self.assertFalse(self.lock.exists())
+
+    def test_exact_duplicate_after_done_is_deduplicated(self):
+        run_id = "0123456789abcdef0123456789abcdef"
+        own = [
+            {"selectBench": "setup", "runId": run_id, "pass": True},
+            {"selectBenchShot": "01_setup.png", "runId": run_id},
+            {"selectBench": "pick", "runId": run_id, "pass": True},
+            {"selectBench": "summary", "runId": run_id, "passed": 2, "failed": 0},
+            {"selectBenchDone": True, "runId": run_id},
+        ]
+        rows = [
+            {"selectBench": "foreign", "runId": "foreign-run", "event": 0},
+            *[dict(row, event=index) for index, row in enumerate(own)],
+            dict(own[-1], event=len(own) - 1),
+        ]
+        adb = FakeAdb(self.digest, rows)
+        with patch.object(runner.uuid, "uuid4", return_value=type("UUID", (), {"hex": run_id})()):
+            self.run_patched(self.root / "duplicate-done-out", adb)
+        self.assertFalse(self.lock.exists())
 
 
 if __name__ == "__main__":

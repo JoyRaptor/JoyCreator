@@ -3,7 +3,8 @@
 **Select lines, October 25, 2026:** canonical Copy/Paste safeguards and K25 per-brush
 sheet/badge bindings are built on isolated `codex/select-bench-20261025`, not yet
 Android-compiled or device-verified. The hardened 20-case/11-capture runner has
-38 passing offline tests (mocked device + validator). Exact-source APK/Note 9
+43 passing offline tests (mocked device/Windows lock files + validator), including
+post-terminal rejection and identity-safe cleanup. Exact-source APK/Note 9
 acceptance is pending resource admission and device connection; D23 engine-success
 hooks and A9 remain open. See `tasks/joybrush/reviews/SELECT_LINES_PROGRESS_20261025.md`.
 

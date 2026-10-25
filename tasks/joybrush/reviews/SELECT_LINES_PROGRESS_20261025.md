@@ -35,8 +35,9 @@ not a replacement of the Coordinator's checkout.
 
 ## Evidence and limits
 
-- Offline runner tests: **9 passed** with mocked ADB. Existing offline validator:
-  **29 passed**, independently rerun together (38 total). Bash syntax and exact
+- Offline runner tests: **14 passed** with mocked ADB and real temporary Windows
+  lock-file operations. Existing offline validator: **29 passed**, independently
+  rerun together (43 total). Bash syntax and exact
   20-case manifest/source names checked. These are not Android or device evidence.
 - New Copy/Paste, benchmark, and A10 Kotlin source/tests **have not been compiled
   or executed** at this checkpoint. Available RAM remained below the 2200 MiB focused
@@ -68,3 +69,16 @@ not a replacement of the Coordinator's checkout.
 - Preserve worktrees and evidence while unfinished. Only this lane's Python bytecode
   cache was removed; no shared builds, watcher processes, other lanes' files, or logs
   were deleted.
+
+## Coordinator review follow-up
+
+Interrupted Select benches now restore the captured clipboard/canvas mode once via
+Activity pause/destroy, cancel their current synthetic contact with CANCEL, discard
+queued gestures, and suppress late metadata continuations. Two Android regression
+fixtures cover abort idempotence and partial-contact cancellation; execution is owed.
+Host collection rejects new matching reports/SHOT requests after terminal evidence.
+Windows claim cleanup verifies token and captured file identity under a pinned open
+handle, then deletes that object on close. Changed identities/tokens or sharing/access
+uncertainty leave the claim intact. Receipt generation from a successful frozen build
+remains a separate required gate; the runner cannot independently prove its author's
+source-to-APK assertion.

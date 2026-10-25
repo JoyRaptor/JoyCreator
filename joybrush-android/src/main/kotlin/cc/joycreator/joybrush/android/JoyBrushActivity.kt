@@ -175,8 +175,6 @@ private const val PREF_TILT_PHONE = "tilt_phone"
 /** JB-2.12, Lead ruling R49: the guides are remembered by the app, never by the drawing. */
 private const val PREF_GUIDES = "guides"
 
-/** NATIVE_LINES_V1: the "Editable lines" switch. Off until chosen; the app remembers it, the drawing does not. */
-private const val PREF_EDITABLE_LINES = "joybrush.editableLines"
 /** LAYER_OPS L6: what Flatten does with hidden layers: "ask" (default), "keep" or "discard". */
 private const val PREF_FLATTEN_HIDDEN = "joybrush.flattenHidden"
 private const val PREF_WATER_TEST = "joybrush.waterTest"
@@ -445,7 +443,7 @@ class JoyBrushActivity : Activity() {
             prefs.edit().putString(PREF_TUNING, BrushTuning.encode(tuning)).remove(PREF_TUFT).apply()
         }
         placement = StripPlacement.decode(prefs.getString(PREF_STRIP, null))
-        canvas.editableLines = prefs.getBoolean(PREF_EDITABLE_LINES, false)
+        canvas.editableLines = BrushLinePreferences(prefs).enabled(canvas.preset)
         val overlays = buildOverlays()
         overlaysView = overlays
 
@@ -846,6 +844,7 @@ class JoyBrushActivity : Activity() {
     private fun applyTool() {
         val tuned = tunedBrushes()
         canvas.preset = tools.presetFrom(tuned) ?: tuned.firstOrNull()
+        canvas.editableLines = BrushLinePreferences(prefs).enabled(canvas.preset)
         strip.showTools(tools.slots.keys, if (selectInHand) null else tools.active)
         showStripValues()
         prefs.edit().putString(PREF_TOOLS, tools.encode()).apply()
@@ -977,10 +976,11 @@ class JoyBrushActivity : Activity() {
         val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         box.addView(menuRow("Boards…", "Create or select an Image, Animation or Sprite board") { popovers.close(); boardController?.showMenu() })
         val linesOn = canvas.editableLines
-        box.addView(menuRow(if (linesOn) "Editable lines  ✓" else "Editable lines",
-            if (linesOn) "Editable lines are on: new strokes stay lines you can pick with Select, then move, recolour and re-brush. Tap to turn off"
-            else "Editable lines are off: new strokes are plain pixels. Tap to keep new strokes as lines you can pick with Select") {
-            setEditableLines(!linesOn)
+        val linesBrushId = canvas.preset?.id
+        if (BrushLinePreferences.canSwitch(canvas.preset)) box.addView(menuRow(if (linesOn) "Brush makes lines  ✓" else "Brush makes lines",
+            if (linesOn) "Eligible strokes from this brush stay editable with Select. Tap to use pixels"
+            else "This brush uses pixels. Tap to keep eligible strokes as editable lines") {
+            if (canvas.preset?.id == linesBrushId) setEditableLines(!linesOn)
         })
         val flattenPref = prefs.getString(PREF_FLATTEN_HIDDEN, "ask") ?: "ask"
         box.addView(menuRow("Hidden layers on Flatten: ${mapOf("ask" to "Ask", "keep" to "Keep", "discard" to "Discard")[flattenPref]}",
@@ -2600,12 +2600,13 @@ class JoyBrushActivity : Activity() {
         override fun hasRestingThumbForCount(): Boolean = false
     }
 
-    /** The "Editable lines" switch: the canvas keeps new strokes as lines, and the app remembers the choice. */
+    /** K25: the current brush's flag, also used by the brush sheet and badge; no global fallback. */
     private fun setEditableLines(on: Boolean) {
+        if (!BrushLinePreferences.canSwitch(canvas.preset)) return
         if (canvas.editableLines == on) return
         canvas.editableLines = on
-        prefs.edit().putBoolean(PREF_EDITABLE_LINES, on).apply()
-        toast(if (on) "Editable lines on: new strokes stay lines you can select" else "Editable lines off: new strokes are plain pixels")
+        BrushLinePreferences(prefs).set(canvas.preset, on)
+        toast(if (on) "This brush keeps eligible strokes as editable lines" else "This brush paints pixels")
     }
 
     private fun linesSelected(): Boolean = selection?.tool?.selection is SelectionState.Lines
@@ -2764,6 +2765,7 @@ class JoyBrushActivity : Activity() {
                 // Straight onto the view, with no undo step and no GL round trip: the person is
                 // mid-session, judging a brush, and a brush is not drawing content.
                 canvas.preset = preset
+                canvas.editableLines = BrushLinePreferences(prefs).enabled(preset)
                 toast("Reloaded ${preset.name}")
             },
             { file, problems ->

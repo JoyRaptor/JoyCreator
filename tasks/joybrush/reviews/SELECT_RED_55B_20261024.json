@@ -1,0 +1,67 @@
+{
+  "source": "55b06a3db7ba933f6a9ef6b77464e38c649538ef",
+  "logSha256": "2AA6BF76CECC85D6F27DB9BD66E01E58F27048299BDFF6B47C15862029C27196",
+  "closedFailed": true,
+  "totalTests": 27.0,
+  "totalFailures": 7.0,
+  "rows": [
+    {
+      "suite": "cc.joycreator.joybrush.android.select.SelectAdjustLifecycleTest",
+      "tests": 4,
+      "failures": 3,
+      "errors": 0,
+      "skips": 0,
+      "xmlSha256": "14A7A96041A47141C6F84CA5AAB126C581803B84704729AF213D8C4FB97540BE",
+      "failedCases": [
+        {
+          "name": "oldSliderUpAfterOpenCannotEditTheNewSelection",
+          "reason": "java.lang.AssertionError: an old gesture cannot edit drawing B"
+        },
+        {
+          "name": "dismissRollsBackAnUnfinishedPreviewWithoutHistory",
+          "reason": "java.lang.AssertionError: dismiss must restore the lifted colours expected:<[AddressedStroke(address=LineAddress(layerId=L, celId=null, recordId=a), record=StrokeRecord(id=a, brush"
+        },
+        {
+          "name": "cancelRestoresOriginalRecordsAndMakesNoHistoryStep",
+          "reason": "java.lang.AssertionError: ACTION_CANCEL must not commit"
+        }
+      ]
+    },
+    {
+      "suite": "cc.joycreator.joybrush.android.select.SelectCopySourceTest",
+      "tests": 2,
+      "failures": 2,
+      "errors": 0,
+      "skips": 0,
+      "xmlSha256": "6E20C0B4A9E90CA2984BFE758CA5FB22CAB102A44165A433167E035DD0E6CEB1",
+      "failedCases": [
+        {
+          "name": "copyAndPastePreserveLayerOverlapDespiteLocalSequenceNumbers",
+          "reason": "java.lang.AssertionError: expected:<[red-under, blue-over]> but was:<[blue-over, red-under]>"
+        },
+        {
+          "name": "unknownCanonicalSourceCannotBeCopiedFromOnlyAUiSnapshot",
+          "reason": "java.lang.AssertionError: a UI-only snapshot cannot prove an unbounded source"
+        }
+      ]
+    },
+    {
+      "suite": "cc.joycreator.joybrush.android.select.SelectionSyncTest",
+      "tests": 21,
+      "failures": 2,
+      "errors": 0,
+      "skips": 0,
+      "xmlSha256": "978B867DB2BB31310A967D35099DC1A1C8C9595D9AB5049F787762C0C43F9CB7",
+      "failedCases": [
+        {
+          "name": "oldDrawingSuccessCannotRedrawOrReconcileTheNewDrawing",
+          "reason": "java.lang.AssertionError: expected:<5> but was:<6>"
+        },
+        {
+          "name": "oldDrawingRefusalCannotCancelTheNewDrawingsDragOrPendingEdit",
+          "reason": "java.lang.AssertionError: old answer must not report into drawing B expected:<[]> but was:<[Old drawing refused]>"
+        }
+      ]
+    }
+  ]
+}

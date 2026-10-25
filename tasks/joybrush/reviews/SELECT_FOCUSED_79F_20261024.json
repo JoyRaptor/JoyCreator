@@ -1,0 +1,26 @@
+{
+  "source": "79f2d4dba49f5bf93f9f950eff1bc297a7828234",
+  "logSha256": "8C73E9324F4A98452028A475E5DFF2A1141ECF13C5D4501B3ABE83AF198E0751",
+  "closedSuccess": true,
+  "actualTestcases": 14.0,
+  "suites": [
+    {
+      "suite": "cc.joycreator.joybrush.core.select.SelectionMaskAdmissionTest",
+      "cases": 6,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "xmlSha256": "9299CA15ED9B2D429BD2E13EF90E673BAE3ED5A81914DC604D82F0895A4C07FC",
+      "xmlWritten": "2026-10-24T17:09:56.6369565-04:00"
+    },
+    {
+      "suite": "cc.joycreator.joybrush.androidkit.gl.GlContextLossTest",
+      "cases": 8,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "xmlSha256": "4E2253726029C219B9B939902C05790ECBFC903FF9BD2D61E81151E0F11413D9",
+      "xmlWritten": "2026-10-24T17:11:30.1272428-04:00"
+    }
+  ]
+}

@@ -2212,10 +2212,16 @@ class GlPaintEngine(
                 val json = cc.joycreator.joybrush.core.brush.BrushJson.encode(preset)
                 if (json.encodeToByteArray().size > LineCopyBudget.MAX_BRUSH_BYTES)
                     return refused("That brush is too large to copy.")
+                cc.joycreator.joybrush.core.brush.BrushJson.decodeChecked(json)
                 frozen[record.brushId] = json
             }
             val proof = LineCopyProof(documentGeneration, snapshot.revision, owners)
-            val copied = ordered.map { LineCopyItem(it.address, it.record, frozen.getValue(it.record.brushId), proof) }
+            val expectedCounts = request.expected.associate { it.address to it.record.samples.size }
+            val copied = ordered.map {
+                LineCopyItem.freeze(it.address, it.record, expectedCounts.getValue(it.address),
+                    frozen.getValue(it.record.brushId), proof)
+                    ?: return refused("Those lines changed. Tap Copy again.")
+            }
             LineCopyResult.Ready(LineCopyPayload(proof, copied, bytes))
         } catch (_: OutOfMemoryError) {
             refused("Copy fewer lines at once.")

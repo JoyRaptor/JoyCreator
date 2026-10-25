@@ -69,6 +69,23 @@ class GlLineCopyTest {
         assertIs<LineCopyResult.Refused>(e.prepareLineCopy(absent, Long.MAX_VALUE))
     }
 
+    @Test fun changedSamplesAndBrushRevisionCannotReuseAnExpectation() {
+        val e = engine("layer"); val p = LinePlane("layer", null)
+        val samples = record("a", 1).samples.toMutableList()
+        put(e, p, record("a", 1).copy(samples = samples))
+        val original = request(e)
+        samples[0] = samples[0].copy(x = 99f) // no revision bump: value comparison must catch it too
+        assertIs<LineCopyResult.Refused>(e.prepareLineCopy(original, Long.MAX_VALUE))
+        val old = e.lineSnapshot()
+        native(e).addBrushes(mapOf("other" to brush.copy(id = "other")))
+        val now = e.lineSnapshot()
+        val staleBrushHeader = LineSnapshot(now.revision, now.planes, now.brushes, now.itemPlanes,
+            brushRevision = old.brushRevision, sourceDocumentGeneration = now.sourceDocumentGeneration)
+        val expected = now.planes.flatMap { (plane, records) -> records.map { AddressedStroke(plane.address(it.id), it) } }
+        val stale = assertNotNull(LineCopyRequest.capture(staleBrushHeader, expected, Long.MAX_VALUE))
+        assertIs<LineCopyResult.Refused>(e.prepareLineCopy(stale, Long.MAX_VALUE))
+    }
+
     @Test fun aNativeRecordOnAnUnknownPhysicalCelIsNotAnUnboundedProof() {
         val e = engine("layer"); val p = LinePlane("layer", "unknown")
         put(e, p, record("a", 1))

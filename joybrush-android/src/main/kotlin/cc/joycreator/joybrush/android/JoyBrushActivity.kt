@@ -886,7 +886,7 @@ class JoyBrushActivity : Activity() {
             tools = tools.pick(held)
             applyTool()
             brushes.firstOrNull { it.id == held.id }?.let { openSettings(it) }
-        }, previews = brushPreviews)
+        }, previews = brushPreviews, editableLines = { BrushLinePreferences(prefs).enabled(it) })
         // Full width on a phone (the Note 9 at its dense setting is ~548 dp); capped on a tablet so strokes stay readable.
         popovers.showSheet(drawer, maxWidthDp = 600f, alignEnd = placement.edge == StripPlacement.Edge.RIGHT)
     }
@@ -1116,6 +1116,10 @@ class JoyBrushActivity : Activity() {
                 canvas.drawStrokes(strokes)
             },
             onDone = { popovers.close() },
+            editableLines = if (BrushLinePreferences.canSwitch(brush)) BrushLinePreferences(prefs).enabled(brush) else null,
+            onEditableLinesChanged = { on ->
+                if (canvas.preset?.id == brush.id) setEditableLines(on)
+            },
         )
         // The pen dot and the curves' markers follow the pen on the drawing and on the preview alike.
         val reading: (Float, Float, Float) -> Unit = { p, t, o -> view.showReading(p, t, o) }
@@ -2686,7 +2690,7 @@ class JoyBrushActivity : Activity() {
             val brush = ToolMemory.sized(picked, memory?.sizePx ?: picked.size.base, memory?.opacity ?: picked.opacity.base)
             val id = try { host.freezeBrush(brush) } catch (e: Exception) { null }
             if (id != null) onPicked(id) else toast("That brush can't be kept as a line.")
-        }, previews = brushPreviews)
+        }, previews = brushPreviews, editableLines = { BrushLinePreferences(prefs).enabled(it) })
         popovers.showSheet(drawer, maxWidthDp = 600f, alignEnd = placement.edge == StripPlacement.Edge.RIGHT)
     }
 

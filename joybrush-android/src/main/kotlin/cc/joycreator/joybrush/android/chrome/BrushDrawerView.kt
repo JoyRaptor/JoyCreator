@@ -65,7 +65,11 @@ class BrushDrawerView(
     private val maxH = (resources.displayMetrics.heightPixels * 0.45f).roundToInt()
 
     /** The look the pictures are drawn in: the drawer ink, and the eraser strip tinted with it. */
-    private val previewStyle = swap?.let { BrushPreviewStyle(ink = it.ink or (0xFF shl 24), strip = ColorUtils.setAlphaComponent(it.ink, 0x59)) }
+    private val previewStyle = swap?.let {
+        val ink = it.ink or (0xFF shl 24)
+        // mediaInk too: the watercolour line and the media brushes draw with it (the Note 9 swap list showed a white wash).
+        BrushPreviewStyle(ink = ink, strip = ColorUtils.setAlphaComponent(it.ink, 0x59), mediaInk = ink)
+    }
         ?: BrushPreviewStyle(ink = kit.p.drawerInk, strip = ColorUtils.setAlphaComponent(kit.p.drawerInk, 0x59))
 
     /** One row picture: asked for once, when it first comes near the screen. [shelf] says which showing of the shelf it belongs to. */

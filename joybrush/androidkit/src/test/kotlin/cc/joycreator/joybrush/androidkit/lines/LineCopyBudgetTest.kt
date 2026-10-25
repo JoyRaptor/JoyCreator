@@ -22,10 +22,12 @@ class LineCopyBudgetTest {
     }
 
     @Test fun oversizedSamplesRefuseBeforeAnySampleIsReadOrCopied() {
+        var armed = false
         val oversized = record.copy(samples = object : AbstractList<PenSample>() {
-            override val size = Int.MAX_VALUE
-            override fun get(index: Int): PenSample = error("admission must precede copying")
+            override val size get() = if (armed) Int.MAX_VALUE else 1
+            override fun get(index: Int): PenSample = if (armed) error("admission must precede copying") else record.samples.first()
         })
+        armed = true // StrokeRecord's own predicted-sample invariant must finish before the admission probe is armed.
         assertNull(LineCopyRequest.capture(snapshot(oversized), listOf(item(oversized)), Long.MAX_VALUE))
     }
 
@@ -65,14 +67,15 @@ class LineCopyBudgetTest {
     @Test fun aGrowingSampleListRefusesRatherThanTruncatingOrFollowingItsNewSize() {
         val backing = mutableListOf(PenSample(1f, 2f, 0.0), PenSample(3f, 4f, 1.0))
         var reads = 0
+        var armed = false
         val racing = record.copy(samples = object : AbstractList<PenSample>() {
             override val size get() = backing.size
             override fun get(index: Int): PenSample {
-                reads++
-                if (reads == 1) backing += PenSample(5f, 6f, 2.0)
+                if (armed && ++reads == 1) backing += PenSample(5f, 6f, 2.0)
                 return backing[index]
             }
         })
+        armed = true
         assertNull(LineCopyRequest.capture(snapshot(racing), listOf(item(racing)), Long.MAX_VALUE))
         assertEquals(2, reads)
         assertEquals(3, backing.size)
@@ -81,13 +84,15 @@ class LineCopyBudgetTest {
     @Test fun aShrinkingSampleListRefusesWithoutReturningAPartialRequest() {
         val backing = mutableListOf(PenSample(1f, 2f, 0.0), PenSample(3f, 4f, 1.0))
         var reads = 0
+        var armed = false
         val racing = record.copy(samples = object : AbstractList<PenSample>() {
             override val size get() = backing.size
             override fun get(index: Int): PenSample {
-                if (++reads == 1) backing.removeAt(1)
+                if (armed && ++reads == 1) backing.removeAt(1)
                 return backing[index]
             }
         })
+        armed = true
         assertNull(LineCopyRequest.capture(snapshot(racing), listOf(item(racing)), Long.MAX_VALUE))
     }
 }

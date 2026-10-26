@@ -109,3 +109,9 @@ See tasks/joybrush/HANDOFF_20261026_COORDINATOR.md for exact source/evidence lim
 - [ ] Run focused backend compile/tests after current Select device slot resolves.
 - [ ] Review/adopt prepared direct-cel copy and clock/export contracts separately.
 No live frame-copy/tween activation or GPU/context-loss proof from this prerequisite.
+
+## Select pixel More capability — October26
+- [x] Omit More from pixel selection row when the current menu has no available actions; re-check menu content before opening to handle stale capabilities.
+- [x] Hide empty pixel action rows, avoid a trailing separator, and test zero-capability, supported More routing, and retained fill/delete/flip callbacks.
+- [x] Parent source review; add real Controller/Popover tests for absent capabilities, available HSB/Paste and stale clipboard/capability clicks. Nine cases total remain UNEXECUTED.
+- [ ] Coordinator-run focused verification and integrated phone acceptance; no local heavy job or device action.

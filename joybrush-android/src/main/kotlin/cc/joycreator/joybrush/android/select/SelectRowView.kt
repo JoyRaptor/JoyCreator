@@ -97,7 +97,7 @@ class SelectRowView(private val kit: ChromeKit, private val actions: Actions) : 
     }
 
     /** A paint selection's row. [fillArgb] colours the bucket's paint (K10). */
-    fun showPixels(fillArgb: Int, canFill: Boolean = true, canEdit: Boolean = true) {
+    fun showPixels(fillArgb: Int, canFill: Boolean = true, canEdit: Boolean = true, canMore: Boolean) {
         removeAllViews(); items.clear()
         if (canFill) add(Item(Kind.FILL).also { it.colours = listOf(fillArgb) }, "Fill the selection with the current colour") { actions.fill() }
         // Pixel duplication needs an engine-backed copy/lift transaction; the tool currently duplicates lines only.
@@ -106,9 +106,9 @@ class SelectRowView(private val kit: ChromeKit, private val actions: Actions) : 
             sep()
             add(Item(Kind.ICON, JbIcon.FLIP_H), "Flip horizontal") { actions.flip(true) }
             add(Item(Kind.ICON, JbIcon.FLIP_V), "Flip vertical") { actions.flip(false) }
-            sep()
+            if (canMore) sep()
         }
-        add(Item(Kind.ICON, JbIcon.MORE), "More actions for the selected paint") { actions.more(it) }
+        if (canMore) add(Item(Kind.ICON, JbIcon.MORE), "More actions for the selected paint") { actions.more(it) }
         recolour()
     }
 

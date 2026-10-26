@@ -116,10 +116,13 @@ class WatercolourOrdinaryFixtureTest {
         assertTrue(first.washFrame!!.m02 != 0.0 || first.washFrame!!.m12 != 0.0)
         assertTrue(first.samples.any { it.x < 0f && it.y < 0f })
         assertTrue(first.samples.any { it.x >= 0f && it.y >= 0f })
+        assertTrue(first.samples.any { it.x < 256f && it.x + 37f >= 256f },
+            "the diagnostic's +37px move must cross another positive tile edge")
         assertTrue(first.samples.zipWithNext().all { (a, b) -> a.timeMs < b.timeMs })
         assertFalse(first.samples.any { it.predicted })
         assertEquals(24, prepared.metadata()["fixtureRawSamples"])
         assertEquals(78234L, prepared.metadata()["fixtureSeed"])
+        assertTrue(prepared.overrides.isEmpty(), "an already neutral fixture needs no invented override")
     }
 
     @Test fun invalidSourceNonWatercolourAndUnsupportedOperatorRefuseBeforeAllocation() {
@@ -135,6 +138,18 @@ class WatercolourOrdinaryFixtureTest {
         assertFailsWith<IllegalArgumentException> {
             WatercolourOrdinaryFixture.prepare(
                 source(size = 0f, watercolour = WatercolourSpec(size = 0.0)), newId = ::allocate,
+            )
+        }
+        assertFailsWith<IllegalArgumentException> {
+            // grain is an override field: validation must still reject its corrupt original.
+            WatercolourOrdinaryFixture.prepare(
+                source(watercolour = WatercolourSpec(grain = Double.NaN)), newId = ::allocate,
+            )
+        }
+        assertFailsWith<IllegalArgumentException> {
+            // Valid general brush size, outside the deliberately narrower ordinary-probe fixture.
+            WatercolourOrdinaryFixture.prepare(
+                source(size = .5f, watercolour = WatercolourSpec(size = .5)), newId = ::allocate,
             )
         }
         assertFailsWith<IllegalArgumentException> {

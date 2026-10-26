@@ -41,6 +41,18 @@ APK, restored owned keys and unchanged12 saved roots before pinned own-claim rel
 The host now consumes ACKs while one bounded launch is pending, reads a finite recent
 main-log tail and audits operation timings. Missing sequence/terminal still fails.
 
-⚠️ Current-APK global20 regression is next after the coordinator's shared PC job.
+✅ The SAME installed APK also passed current global20 regression,20 PASS/0 FAIL,
+host exit0, run b52e984014e24f69b4762f65abb81d5c. Host HEAD340fb7cac differs from b7aa
+only in documentation. Evidence `bench-global20-f7f75869a-run1` and corresponding
+`guard-global20-f7f75869a-run1/receipt.json`. Eleven distinct ACK audits matched PNG
+hashes; all11 images personally reviewed with correct stage registration. Owned
+tools/Ink keys and all12 saved root hashes unchanged; temp31.5→31.5C, exact installed
+SHA unchanged and claim released. Actual Brush-in-hand pan283.49997px, drew=false.
+
+Visual limits retained: after90-degree rotation the knob appears left of its box;
+the below-box position was checked before rotation. Later copied/grouped/locked
+line geometry is partly offscreen; lock semantics use model/history evidence, no
+distinct lock mark is visually asserted. No post-pan PNG or physical feel acceptance.
+
 D23 actual publication facts/atomic Smudge split remain separate engine work under
 the contract proposal; this UI result does not finish or activate those operations.

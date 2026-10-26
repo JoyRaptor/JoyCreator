@@ -2617,10 +2617,13 @@ class JoyBrushActivity : Activity() {
             if (selected.size != lines.ids.size) { selectUi.say("Those lines changed. Tap again to choose."); return }
             val sourceCanvas = canvas
             val epoch = sourceCanvas.lineEditEpoch
+            val benchCopyStillActive = activeBench?.selectCopyGuard
+            if (benchCopyStillActive?.invoke() == false) return
             sourceCanvas.requestLineCopy(sourceCanvas.lineSnapshot, selected.map {
                 cc.joycreator.joybrush.core.stroke.AddressedStroke(it.address, it.record)
             }) { result ->
-                if (isFinishing || isDestroyed || canvas !== sourceCanvas || sourceCanvas.lineEditEpoch != epoch)
+                if (isFinishing || isDestroyed || canvas !== sourceCanvas || sourceCanvas.lineEditEpoch != epoch ||
+                    benchCopyStillActive?.invoke() == false)
                     return@requestLineCopy
                 when (result) {
                     is cc.joycreator.joybrush.androidkit.lines.LineCopyResult.Ready -> {

@@ -6,4 +6,4 @@ HERE=$(cd -- "$(dirname -- "$0")" && pwd)
 . "/c/+Projects/Screenrecorder/FadCam/tools/devices.local.sh"
 export SANDBOX_SERIAL
 export PATH="/c/Users/JoyRaptor/AppData/Local/Android/Sdk/platform-tools:$PATH"
-exec python "$HERE/run_select_bench.py" "${1:?out dir}" "${2:-Select lines specialist}"
+exec python -B "$HERE/run_select_bench.py" "${1:?out dir}" "${2:-Select lines specialist}"

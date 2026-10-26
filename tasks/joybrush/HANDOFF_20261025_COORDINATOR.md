@@ -1,3 +1,24 @@
+## Current checkpoint (supersedes older status below)
+
+Reviewed code c5050e1a1 now integrates the hardened Select runner, abort/gesture
+cleanup, Activity lifecycle wiring, per-brush Activity regression fixtures, and
+session-bound Copy callbacks. A captured Select session must still be active when
+its Copy result arrives. Normal non-benchmark Copy retains its existing behavior.
+The actual abort path also calls finish(); the explicit session guard and tests
+prove the separate non-finishing case rather than assuming finish() is insufficient.
+
+Adopted builder e8e69c33f through 853bdd377 selectively; all Android/backend source
+matches builder frozen e9d2a4176. Its focused Android job is currently owned by
+Select, not root, under the shared lock. Require closed log and independently
+counted fresh XML before reporting success. Offline runner/validator 43 passed on
+builder 6280d6e91; Python is unchanged. No new APK or phone acceptance is claimed.
+Private root init now also includes ActivityBinding and bench Cleanup test classes.
+Root has no queued heavy job or phone claim. Do not launch a competing build.
+
+A Luna helper owns only the minimal parked FULL/ring ownership repair in isolated
+C:/Temp/jb-atlas-room-repair-20261025. No Atlas activation, shader edits, heavy jobs
+or phone action is authorized to that helper. Root reviews correctness/integration.
+
 # JoyBrush coordinator — October 25
 
 Newest source12ec2d080 additionally integrates reviewed K25 policy, fixture fix,
@@ -136,3 +157,4 @@ Synthetic gestures do not establish physical S Pen feel or manual save acceptanc
 Existing persistent goal remains unfinished even though its historical tool status
 is usageLimited. No duplicate goal or completion. The old five-hour automation
 was found PAUSED and was kept PAUSED; do not reactivate without owner direction.
+

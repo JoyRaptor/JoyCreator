@@ -1,3 +1,10 @@
+Current source update: root c5050e1a1 includes the hardened per-run/per-APK runner,
+clipboard abort cleanup, exact-session late Copy guard, and K25 Activity fixtures.
+Android/backend source matches builder e9d2a4176; Select owns its running focused
+Android job. Source adoption is complete; execution and phone acceptance remain
+unchecked until the actual results arrive. Older source references below are
+historical checkpoints. Atlas parked ownership repair is a bounded Luna task,
+not an activated or verified renderer change.
 # JoyBrush reconstruction — October 25
 
 This reconstructs preserved source, receipts and handoffs while Claude is unavailable.
@@ -89,3 +96,4 @@ No precise credit savings are claimed. One admitted heavy job machine-wide; exac
 fresh XML counts and source/APK-bound phone evidence are required. Keep owner files and
 old worktrees intact. No purchasing credits, consuming resets or waiting for Claude approval
 on already-authorized work.
+

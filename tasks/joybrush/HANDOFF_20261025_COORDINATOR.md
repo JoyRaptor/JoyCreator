@@ -1,3 +1,27 @@
+## Note9 installation and first acceptance run
+
+Select installed exact52e559d04 APK; installedSHA matches preserved
+F66A39230C982FD73B001F5A3E5A5DDA5AC320683B04459E6BD89E920264E6B1.
+Install lane sent KEYCODE_HOME under its claim, then verified actual launcher
+before installation; do not attribute that Home action to owner. No rotation,
+keyguard, uninstall/clear or drawing edits. Root independently compared12 unchanged
+saved-data manifest entries, including current.joybrush/.bak and drawing-* copies.
+Installation receipt/screenshots: C:/Temp/jb-select-acceptance-20261025/install-52e559d04.
+
+First exact-APK run completed19 PASS/1 FAIL, honest script exit1; run ID
+f5fb6dbce8ba4cb1814f0472e97d8674. CopyPaste/Group/Lock/pick/transform/nudge passed.
+fingerPansWithBrush reported pan0/drewfalse/brushInHandfalse: Brush while lines
+are selected intentionally routes to restyle (stripHost line752), not tool-taking.
+Keep red evidence at C:/Temp/jb-select-acceptance-20261025/bench-52e559d04-run1.
+All11 PNG artifacts exist; no physical S Pen/appearance acceptance implied.
+Select reports post-bench all12 hashes still unchanged and claim released.
+
+Root approved a minimal bench-only correction: actual UI Nudge off, visible empty
+paper clear with no-selection assertion, then unique ToolStrip Brush with actual
+tool-taking assertion, before unchanged finger pan/no-draw/history checks. No
+product behavior change or relaxed expectations. New exact-source compile/test,
+APK hash and device rerun are required; current overall acceptance is RED.
+
 ## Exact APK checkpoint
 
 Frozen52e559d047c2a60da1783b80a3e48b52c837823d APK build CLOSED SUCCESS3m25s
@@ -217,6 +241,7 @@ Synthetic gestures do not establish physical S Pen feel or manual save acceptanc
 Existing persistent goal remains unfinished even though its historical tool status
 is usageLimited. No duplicate goal or completion. The old five-hour automation
 was found PAUSED and was kept PAUSED; do not reactivate without owner direction.
+
 
 
 

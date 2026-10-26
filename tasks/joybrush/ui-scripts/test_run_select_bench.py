@@ -35,6 +35,7 @@ class FakeAdb:
         self.audit_present_when_acked = None
         self.launches = 0
         self.screencap = png_bytes()
+        self.preference_xml = "<map />"
 
     def ready(self):
         return "SM-N960U", 29
@@ -49,6 +50,10 @@ class FakeAdb:
 
     def call(self, *args, binary=False, timeout=12):
         self.calls.append(args)
+        if args == ("shell", "run-as", runner.PACKAGE, "cat", "shared_prefs/joybrush_chrome.xml"):
+            if isinstance(self.preference_xml, list):
+                return self.preference_xml.pop(0)
+            return self.preference_xml
         if args[:3] == ("shell", "am", "start"):
             self.launches += 1
             return "Starting: Intent"
@@ -172,7 +177,33 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual("selectA10", launch[launch.index("jb_bench") + 1])
         self.assertEqual("selectA10", json.loads((out / "build.json").read_text())["benchCase"])
         self.assertEqual(1, len(adb.acks))
+        self.assertTrue(json.loads((out / "owned-preferences.json").read_text())["unchanged"])
         self.assertFalse(self.lock.exists())
+
+    def test_owned_preferences_preserve_absence_false_and_exact_tools_string(self):
+        raw = '<map><string name="tools"> a &amp; b </string><boolean name="joybrush.brushMakesLines.joybrush.ink" value="false"/><string name="unrelated">private</string></map>'
+        owned = runner.owned_a10_preferences(raw)
+        self.assertEqual({"present": True, "type": "string", "value": " a & b "}, owned["tools"])
+        self.assertEqual("false", owned["joybrush.brushMakesLines.joybrush.ink"]["value"])
+        self.assertEqual(2, len(owned))
+        self.assertEqual({"present": False}, runner.owned_a10_preferences('<map/>')["tools"])
+
+    def test_a10_changed_owned_preference_fails_after_terminal_and_releases_claim(self):
+        run_id = "0123456789abcdef0123456789abcdef"
+        adb = FakeAdb(self.digest, self.a10_rows(run_id))
+        adb.preference_xml = ['<map/>', '<map><boolean name="joybrush.brushMakesLines.joybrush.ink" value="true"/></map>']
+        out = self.root / "a10-changed-prefs"
+        with patch.object(runner.uuid, "uuid4", return_value=type("UUID", (), {"hex": run_id})()):
+            with self.assertRaisesRegex(runner.RunError, "not restored exactly"):
+                self.run_patched(out, adb, case="selectA10")
+        self.assertFalse(json.loads((out / "owned-preferences.json").read_text())["unchanged"])
+        self.assertFalse(self.lock.exists())
+
+    def test_owned_preferences_reject_duplicate_owned_key_or_entity(self):
+        for raw in ['<map><string name="tools"/><string name="tools"/></map>',
+                    '<!DOCTYPE map [<!ENTITY a "value">]><map/>']:
+            with self.assertRaises(runner.RunError):
+                runner.owned_a10_preferences(raw)
 
     def test_a10_wrong_case_event_is_rejected_before_capture_or_ack(self):
         run_id = "0123456789abcdef0123456789abcdef"

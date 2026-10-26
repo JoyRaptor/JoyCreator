@@ -12,6 +12,7 @@ import subprocess
 import sys
 import time
 import uuid
+import xml.etree.ElementTree as ET
 
 from validate_select_bench import EvidenceError, read_json, validate, validate_png
 
@@ -21,6 +22,44 @@ HERE = Path(__file__).resolve().parent
 HEX40 = re.compile(r"[0-9a-f]{40}")
 HEX64 = re.compile(r"[0-9a-f]{64}")
 CASES = {"select": "select_bench_manifest.json", "selectA10": "select_a10_bench_manifest.json"}
+A10_PREF_KEYS = frozenset(("tools", "joybrush.brushMakesLines.joybrush.ink"))
+
+
+def owned_a10_preferences(raw: str):
+    """Keep only owned keys, including their exact presence/type/value; never log unrelated prefs."""
+    if len(raw.encode("utf-8")) > 2 * 1024 * 1024 or "<!DOCTYPE" in raw or "<!ENTITY" in raw:
+        raise RunError("Preference XML is oversized or contains unsupported declarations.")
+    try:
+        root = ET.fromstring(raw)
+    except ET.ParseError:
+        raise RunError("Cannot parse owned preference evidence.") from None
+    if root.tag != "map":
+        raise RunError("Preference evidence is not a SharedPreferences map.")
+    result = {key: {"present": False} for key in sorted(A10_PREF_KEYS)}
+    for entry in root:
+        key = entry.get("name")
+        if key not in A10_PREF_KEYS:
+            continue
+        if result[key]["present"]:
+            raise RunError("Owned preference occurs more than once.")
+        if entry.tag == "string":
+            if len(entry):
+                raise RunError("Owned string preference has unsupported children.")
+            value = entry.text or ""
+        elif entry.tag in ("boolean", "int", "long", "float") and not len(entry):
+            value = entry.get("value")
+            if value is None:
+                raise RunError("Owned scalar preference lacks a value.")
+        elif entry.tag == "set" and all(child.tag == "string" and not len(child) for child in entry):
+            value = sorted(child.text or "" for child in entry)
+        else:
+            raise RunError("Owned preference has an unsupported value type.")
+        result[key] = {"present": True, "type": entry.tag, "value": value}
+    return result
+
+
+def read_a10_preferences(adb):
+    return owned_a10_preferences(adb.call("shell", "run-as", PACKAGE, "cat", "shared_prefs/joybrush_chrome.xml"))
 
 
 class RunError(Exception):
@@ -172,6 +211,9 @@ def run(out: Path, lane: str, receipt: Path, case: str = "select"):
         installed = adb.installed_hash()
         if installed != expected:
             raise RunError("Installed APK differs from preserved build; no bench launched.")
+        prefs_before = read_a10_preferences(adb) if case == "selectA10" else None
+        if prefs_before is not None:
+            (out / "owned-preferences.json").write_text(json.dumps({"before": prefs_before}, indent=2) + "\n", encoding="utf-8")
         # Kept outside manifested step PNGs; this baseline is for manual Home/readiness review.
         (out / "before.png.evidence").write_bytes(adb.call("exec-out", "screencap", "-p", binary=True))
         (out / "temps.txt").write_text(f"temp_before_C {adb.temperature()}\n", encoding="utf-8")
@@ -252,6 +294,12 @@ def run(out: Path, lane: str, receipt: Path, case: str = "select"):
             temps.write(f"temp_after_C {adb.temperature()}\n")
         if after_hash != expected:
             raise RunError("Installed APK changed during acceptance; evidence rejected.")
+        if prefs_before is not None:
+            prefs_after = read_a10_preferences(adb)
+            (out / "owned-preferences.json").write_text(json.dumps(
+                {"before": prefs_before, "after": prefs_after, "unchanged": prefs_before == prefs_after}, indent=2) + "\n", encoding="utf-8")
+            if prefs_before != prefs_after:
+                raise RunError("A10 owned preferences were not restored exactly.")
         validate(out, manifest, run_id)
         print(f"PASS: complete exact-artifact evidence in {out}")
     finally:

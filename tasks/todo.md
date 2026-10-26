@@ -114,3 +114,8 @@ Review: A10_SWITCH_STYLE_20261026.md names exact source and four unexecuted test
 - [x] Preserve role/checkable/checked/label assertions and callback counts; leave production unchanged.
 - [x] Prepare focused test-only fix for Coordinator's four-test rerun; no local build/test/device job.
 Review: stock positive control runs first within the existing accessibility test; both controls verify Off/On/Off role, label, checkable/checked state and 0/1/2 callbacks. Source reviewed and diff checked only; execution is owed in Coordinator's reserved slot.
+
+## UX A10 attached accessibility fixture — October26
+- [x] Diagnose failed stock positive control against actual cached API28 framework and Robolectric4.17 bytecode; avoid another unsupported node-initialization guess.
+- [x] Attach stock/styled native controls to the same visible Robolectric Activity; assert real attachment and retain native node factory plus all state/label/role/callback requirements.
+- [x] Record source-only correction and exact diagnosis; leave production unchanged and Coordinator owns the next focused rerun after heavy-job release.

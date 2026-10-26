@@ -109,3 +109,33 @@ accessibility override or assertion removal; all three rendering tests are uncha
 The stock positive control and correction are SOURCE ONLY, not locally executed.
 Coordinator owns the four-test rerun on unchanged production; no local test/build or
 device job was started. Passing positive control and corrected fixture remain owed.
+
+## October26 — actual API28 attachment diagnosis and replacement fixture
+
+Coordinator's9f2 rerun failed the stock Switch positive control at className=null;
+the other three rendering cases again passed. Explicit node allocation was insufficient.
+The earlier fixture explanation was incomplete: attachment is required by the real
+API28 framework, not merely by Robolectric's node factory.
+
+Read-only javap inspection used the actual cached
+`org/robolectric/android-all-instrumented/9-robolectric-4913185-2-i7` jar.
+View.onInitializeAccessibilityNodeInfo dispatches to the internal implementation;
+View.onInitializeAccessibilityNodeInfoInternal begins by returning when mAttachInfo
+is null (bytecode offsets0–7). Only later does it call getAccessibilityClassName and
+setClassName (offsets329/332). Switch.getAccessibilityClassName returns the native
+Switch name. ShadowView from cached shadows-framework4.17 declares no replacement
+accessibility initializer. Thus calling the public initializer on a detached stock
+control reproduces the missing base className; it does not demonstrate an unsupported
+node model or product defect.
+
+Replacement fixture: create/setup a real Robolectric Activity, construct stock Switch
+and SelectPillSwitch with its context, add both to the same vertical LinearLayout,
+setContentView and make the Activity visible. Require isAttachedToWindow before
+testing either control. Stock is checked first. Restore createAccessibilityNodeInfo;
+preserve Switch role, label, checkable, exact Off/On/Off checked values and0/1/2
+callbacks. Recycle nodes and close the Activity lifecycle in finally blocks. Product
+files and the other three render tests are unchanged.
+
+This correction is source-reviewed only, not executed locally. Coordinator owns the
+next focused four-case rerun after its separate heavy-job release. Physical attached
+device accessibility and broader A10 visual acceptance remain separate gates.

@@ -2290,9 +2290,11 @@ class GlPaintEngine(
     private var clipPlanBase: RegionPaintPlan? = null
 
     private fun copyOfTile(source: Int): Int {
-        val copy = newLayerTile()
-        initializeTile(copy, source, false)
-        return copy
+        return allocateInitializedTexture(
+            allocate = { newLayerTile() },
+            initialize = { initializeTile(it, source, false) },
+            release = { recycleLayerTex(it) },
+        )
     }
 
     /**

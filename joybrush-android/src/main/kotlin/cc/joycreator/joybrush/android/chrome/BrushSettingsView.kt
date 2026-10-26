@@ -100,12 +100,10 @@ class BrushSettingsView(
                 setPadding(kit.dpi(6f), kit.dpi(8f), kit.dpi(6f), kit.dpi(8f))
             }, LayoutParams(MATCH, WRAP))
         } else {
-            list.addView(android.widget.Switch(context).apply {
+            list.addView(cc.joycreator.joybrush.android.select.SelectPillSwitch(kit).apply {
                 text = "Editable lines"
                 textSize = 13f
                 setTextColor(kit.p.drawerInk)
-                thumbTintList = ColorStateList.valueOf(kit.p.drawerInk)
-                trackTintList = ColorStateList.valueOf(kit.ink(.25f))
                 minHeight = kit.dpi(ChromeKit.TOUCH_DP)
                 setPadding(kit.dpi(6f), 0, kit.dpi(6f), 0)
                 isChecked = editableLines

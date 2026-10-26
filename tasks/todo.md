@@ -102,3 +102,10 @@ Parked: VisLab (brief in tasks/VISLAB_BRIEF.md); Joy Brush send-into-existing-pr
 - [ ] Review isolated Atlas borrowed/FULL ownership candidate before compile/GPU activation gates.
 - [ ] Compile isolated ordinary-WC diagnostic separately after current acceptance slot resolves.
 See tasks/joybrush/HANDOFF_20261026_COORDINATOR.md for exact source/evidence limits.
+
+## Frame-copy prerequisite — October26
+- [x] Review allocation-before-tracking leak in copyOfTile.
+- [x] Guard initialized texture ownership and add four thrown-failure regressions (source only).
+- [ ] Run focused backend compile/tests after current Select device slot resolves.
+- [ ] Review/adopt prepared direct-cel copy and clock/export contracts separately.
+No live frame-copy/tween activation or GPU/context-loss proof from this prerequisite.

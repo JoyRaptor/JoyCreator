@@ -25,9 +25,10 @@ and current history head and perform that step's undo together, or refuse. A sep
 precheck followed by unguarded undo is forbidden. Stale/hidden/disposed actions do
 nothing; a newer edit refuses the old action rather than undoing unrelated work.
 
-Ten prepared tests cover renderer confirmation, duplicate/same-operation kinds,
+Eleven prepared tests cover renderer confirmation, duplicate/same-operation kinds,
 queue cancellation, document switch, failed show, synchronous/reentrant finish,
-failed persistence, stale/new-history Undo, valid/disposed Undo and independent
+failed persistence, a disappeared old-context renderer not hiding a fresh offer,
+stale/new-history Undo, valid/disposed Undo and independent
 real SharedPreferences keys without unrelated edits. UNCOMPILED/UNRUN pending the
 shared focused slot. These are pure renderer-contract tests, never engine/GPU or
 actual SelectToast presentation evidence.

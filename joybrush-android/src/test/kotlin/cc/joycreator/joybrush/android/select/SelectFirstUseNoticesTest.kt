@@ -138,6 +138,20 @@ class SelectFirstUseNoticesTest {
         assertEquals(setOf(pixels), f.store.seen)
     }
 
+    @Test fun newDocumentOfferCannotBeHiddenByAnOldRendererThatNeverCallsBack() {
+        val f = Fixture()
+        f.notices.offer(f.receipt(pixels))
+        val old = f.renderer.calls.single()
+        f.document = Any()
+        assertTrue(f.notices.offer(f.receipt(pixels)))
+        assertEquals(1, old.cancels)
+        assertEquals(2, f.renderer.calls.size)
+        old.shown()
+        assertTrue(f.store.seen.isEmpty())
+        f.renderer.calls.last().shown()
+        assertEquals(setOf(pixels), f.store.seen)
+    }
+
     @Test fun synchronousFinishedBeforeShowReturnsDoesNotAcceptLateShown() {
         val f = Fixture()
         f.renderer.synchronousFinish = true

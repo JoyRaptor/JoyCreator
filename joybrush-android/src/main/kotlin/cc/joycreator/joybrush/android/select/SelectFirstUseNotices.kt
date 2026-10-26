@@ -72,6 +72,9 @@ internal class SelectFirstUseNotices(
     /** Suppress repeated/in-flight offers (including the same operation) without consuming a preference. */
     fun offer(receipt: SelectNoticeReceipt): Boolean {
         val kind = receipt.kind
+        // A vanished renderer may never deliver another callback after a document switch.
+        // Do not let its old in-flight kind hide the first valid offer in the new context.
+        current?.takeIf { !contextIsCurrent(it.receipt) }?.let { finish(it, cancel = true) }
         if (!alive || !contextIsCurrent(receipt) || kind in presented || kind in pendingKinds) return false
         val seen = try { store.seen(kind) } catch (_: Exception) { onStoreFailure(kind); return false }
         if (seen) return false

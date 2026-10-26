@@ -110,3 +110,9 @@ Review: dependency handoff complete, C3 implementation remains OPEN; no producti
 - [x] Publish source findings and pending visual/engine gates; no build/phone/window ownership change.
 - [x] Independently inspect all 11 d11 final screenshots with a second Luna review; report state registration and bounded visual findings to Coordinator.
 Review: SELECT_D11_VISUAL_REVIEW_20261026.md records the new run's screenshots and reported 20/0 behavior result. No screenshot verdict transferred from earlier runs. A10 repair execution, other paper/theme states, physical pen feel and C3 remain open.
+
+## UX functional completion — owner authorization October26
+- [x] Audit current canonical4b9ed850c control wiring and locked requirements with two bounded Luna read-only reviews.
+- [x] Report concrete ready/blocked UX entries and stale roadmap facts to Coordinator; preserve their roadmap/hot-file ownership.
+- [ ] Repair concrete isolated non-hotfile gaps where found and publish exact source for integration; reserve builds/phone proof through Coordinator.
+- [ ] Close each remaining requirement only against actual source/test/device evidence; brush fidelity remains deferred to separate owner sessions.

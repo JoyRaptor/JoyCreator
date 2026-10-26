@@ -1,5 +1,13 @@
 # JOY BRUSH — ROADMAP AnD TASK BOARD (the one file to point an agent at)
 
+## Historical feature-base notice — October 26, 2026
+
+This checkout preserves an older product/spec catalogue. The live wing-wide roadmap and owners are
+`C:/Temp/jb-select-reconcile-20261024/tasks/joybrush/ROADMAP.md` and its AGENT_START_20261026.md.
+Only the affected milestone below is refreshed for this isolated checkpoint; reconcile its status
+into the current coordinator row, never replace the current board with this older file.
+
+
 > **October 24 current entry point:** read [LEAD_PLAN_20261023.md](LEAD_PLAN_20261023.md) (lanes, who owns which files, what is in flight, what is owed) and `tasks/STATE.md` §5.6 (what the engine has and how proven). The "Current wave" table at the top of §6 is the live queue. [CURRENT_HANDOFF.md](CURRENT_HANDOFF.md) (October 9) and the older rows below are history and the full spec index; do not claim a stale row without asking the Engine Lead.
 
 > **Agent: this file is your whole briefing.** Read it top to bottom, then do what §2 says.
@@ -312,7 +320,7 @@ Phases follow `JOYBRUSH_BLUEPRInT.md` §4. Each phase ends with an owner check (
 | JB-5.13 Fill as a shape: flood region → traced contour → filled stroke record, tucked under the lines | T2 | 5.03a | 🟧 Core built | Codex e8efaa1d; 10 shape tests pass; 2048 timing in MEASURE_R51_JVM |
 | JB-5.14 Measurement bench for brief §11 (bytes per frame, replay time, trace time) on the JVM, then the Note 9 | T2 | 5.12, 5.13 | 🟧 JVM built/measured; device pending | Codex; MEASURE_R51_JVM.md, latest11 bench checks passed |
 | [JB-5.20](specs/JB-5.20_lines_in_the_one_layer.md) Lines in the one layer: a cel holds pixels and stroke records in time order; one undo; select, nudge, Rasterize Down, Flatten Lower, two smudges | T1 | 2.40, 5.12 | NativeLines capture/edit/storage and Select present; frame-copy preservation, complete mixed-tool/board support and device acceptance remain. Static slab-only export fix ON MAIN (59d1f1d63). Owner 10-24: per-brush lines (K25), lines sit over realistic paint (K26). Bug: duplicating a frame drops its lines. | Engine Lead |
-| [JB-5.40](specs/JB-5.40_tweens.md) Tweens: a held frame slides its matched lines into the next frame (rigid turn about the pivot, then the bend; HSB colour) | T1 | 5.20 | Math built; saved setting (doc v14) / tick sampler / scoped scene ON MAIN 59d1f1d63 (10-24, core 2552 / androidkit 1061 green). GPU playback, controls, export and phone acceptance open. | Engine Lead integration; Codex independent core |
+| [JB-5.40](specs/JB-5.40_tweens.md) Tweens: a held frame slides its matched lines into the next frame (rigid turn about the pivot, then the bend; HSB colour) | T1 | 5.20 | Isolated direct-cel source verified: helper e5fa12086 3 tests; clock/export f7ed34f16 6+30 tests, zero failures/errors/skips. Actual duplicate transaction, GPU replay, controls/export binding, clip reconciliation and phone proof OPEN with root. | Root integration; tween specialist bounded source |
 
 ### Phase 5 — Ink layers
 | Task | Tier | needs | Status | Who |

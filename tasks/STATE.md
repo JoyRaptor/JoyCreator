@@ -1,11 +1,13 @@
 # STATE — what Joy Creator actually has, and how proven it is
 
 **Select lines, October 25, 2026:** canonical Copy/Paste safeguards and K25 per-brush
-sheet/badge bindings are built on isolated `codex/select-bench-20261025`, not yet
-Android-compiled or device-verified. The hardened 20-case/11-capture runner has
+sheet/badge bindings are built on isolated `codex/select-bench-20261025`. Frozen
+`e9d2a4176` compiled and passed 171 focused Android cases (zero failures/errors/skips),
+including Copy lifecycle, Paste refusal, policy, sheets and drawer bindings. Phone
+verification and corrected backend Copy cases remain pending. The hardened 20-case/11-capture runner has
 43 passing offline tests (mocked device/Windows lock files + validator), including
 post-terminal rejection and identity-safe cleanup. Exact-source APK/Note 9
-acceptance is pending resource admission and device connection; D23 engine-success
+acceptance is pending exact APK build/resource admission; Note 9 is now connected. D23 engine-success
 hooks and A9 remain open. See `tasks/joybrush/reviews/SELECT_LINES_PROGRESS_20261025.md`.
 
 **Purpose:** stop the rediscovery tax. This is the one file that says what exists.

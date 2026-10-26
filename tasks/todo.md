@@ -103,7 +103,8 @@ Parked: VisLab (brief in tasks/VISLAB_BRIEF.md); Joy Brush send-into-existing-pr
 - [x] Add interrupted-bench lifecycle cleanup, idempotent clipboard restore, gesture CANCEL and late-callback suppression (Android execution owed).
 - [x] Guard already queued Activity/View Copy replies with the captured Select bench session; abort/completion regressions keep the Activity alive (execution owed).
 - [x] Bind K25 per-brush sheet switch/pixel reason and native 12 dp drawer badges; retire old D2 global controls (Android execution owed).
-- [ ] Run combined exact-source Android checks and build under shared RAM/lock admission.
+- [x] Focused app Kotlin compilation and 171 Android tests passed on frozen e9d2a4176 (0 failures/errors/skips).
+- [ ] Run corrected backend Copy checks, remaining appropriate suites and exact APK build under shared RAM/lock admission.
 - [ ] Run matching Note 9 bench after each step and add remaining A1–A10 captures/cases.
 - [ ] Obtain actual D23 successful-publication hooks; A9/runtime and other engine dependencies stay open.
 - [x] Update STATE and both roadmaps with built versus verified status; clean only this lane's bytecode cache.

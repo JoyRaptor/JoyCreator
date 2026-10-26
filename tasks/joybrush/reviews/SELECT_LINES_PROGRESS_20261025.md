@@ -5,7 +5,7 @@ based on the Coordinator's frozen `0c77938c6`. The original `codex/select-lines`
 delivery remains at `50109f2a6`; the newer branch contains clean scoped adoption,
 not a replacement of the Coordinator's checkout.
 
-## Built source, verification pending
+## Built source, focused Android verification passed
 
 - Canonical Copy crosses the actual Activity → View → GL metadata boundary. It
   preserves layer order, requires engine-issued source proof, refuses unknown or
@@ -39,9 +39,15 @@ not a replacement of the Coordinator's checkout.
   lock-file operations. Existing offline validator: **29 passed**, independently
   rerun together (43 total). Bash syntax and exact
   20-case manifest/source names checked. These are not Android or device evidence.
-- New Copy/Paste, benchmark, and A10 Kotlin source/tests **have not been compiled
-  or executed** at this checkpoint. Available RAM remained below the 2200 MiB focused
-  build admission floor. No competing Gradle job or phone claim was started here.
+- After the owner reconnected the Note 9 and freed RAM, frozen `e9d2a4176` was
+  admitted at 3359 MiB. The root-scoped focused app run **passed in 4m 5s**:
+  **171 actual tests, zero failures/errors/skips**, independently counted from 23
+  fresh XML suites and confirmed by the Coordinator. Core/androidkit/app production
+  and app test Kotlin compiled. New cases include CopySource9, PasteFailure2,
+  BenchCleanup2, ActivityBinding3, ChromeMode3 and policy8. Receipt and copied XML:
+  `C:/Temp/jb-select-acceptance-20261025/app-e9d2a4176/receipt.json`; closed log:
+  `C:/Temp/jb-select-app-e9d2a4176-20261025.log`. The wrapper exited, released the
+  shared lock, and no competing job/phone claim was started by this lane.
 - `select_bench.sh C:/Temp/jb-select-acceptance-20261025/runner-preflight` was invoked
   and correctly returned **1**, requiring the new candidate's successful-build receipt.
   Log: `C:/Temp/jb-select-bench-preflight-20261025.log`. This is a preflight refusal,
@@ -52,12 +58,13 @@ not a replacement of the Coordinator's checkout.
   passed on `9ace0963c`; backend `ca141cce5` ran 21 cases with three fixture-constructor
   failures (Engine 8 and Reply 5 passed). The fixture fix `1edcfff89` was adopted but
   not rerun here. None of those counts is transferred to this candidate.
-- K25 policy `f87402bc4` and fixture fix `ba341098b` are source dependencies only:
-  the prior eight-case run had one fixture assertion failure, fixed but not rerun.
+- K25 policy `f87402bc4` and fixture fix `ba341098b` are now verified in this
+  integrated candidate by all eight policy tests; this does not claim execution of
+  Vector's separate full candidate. Corrected backend Copy tests still need their own run.
 
 ## Remaining
 
-- Coordinator's exact-source app/backend/core verification, candidate APK, and real
+- Broader exact-source backend/core verification, candidate APK, and real
   Note 9 `select_bench.sh <out>` after each step. A10 sheet on/off/no-switch and both
   paper-tone drawer captures remain owed; any benchmark preference toggles must restore
   the exact prior per-brush key presence/value on completion.
@@ -75,7 +82,7 @@ not a replacement of the Coordinator's checkout.
 Interrupted Select benches now restore the captured clipboard/canvas mode once via
 Activity pause/destroy, cancel their current synthetic contact with CANCEL, discard
 queued gestures, and suppress late metadata continuations. Two Android regression
-fixtures cover abort idempotence and partial-contact cancellation; execution is owed.
+fixtures cover abort idempotence and partial-contact cancellation; both passed in the focused run.
 Host collection rejects new matching reports/SHOT requests after terminal evidence.
 Windows claim cleanup verifies token and captured file identity under a pinned open
 handle, then deletes that object on close. Changed identities/tokens or sharing/access
@@ -89,4 +96,4 @@ restoration; late Ready/refusal callbacks cannot change the clipboard or show a 
 Normal non-benchmark requests capture no such guard. Two additional actual Activity/View
 metadata regressions keep the Activity alive and drawing epoch unchanged while testing
 abort/completion, so they do not depend on `isFinishing` or drawing-switch protection.
-Both new Kotlin cases remain unexecuted under the same resource gate.
+Both new queued-Copy cases passed in SelectCopySourceTest's nine-case focused result.

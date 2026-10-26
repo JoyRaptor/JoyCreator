@@ -14,12 +14,20 @@ JVM collection mutation refusal, independent texture-copy results with preserved
 and precise caller-owned cleanup after a partial callback failure. They do not call the live engine
 frame-copy transaction or a GPU. They do not prove graphics allocation cleanup or brush replay.
 
-## Source still awaiting execution
+## Executed exposure/export checks
 
-- `a28c57c9b`: current-board canonical export comparison before renderer/sink, captured range
-  IDs and eligible transition selection; regression source for changed holds/modes/range/order.
-- `f7ed34f16`: six playback exposure checks covering ranges, unequal/reversed holds, exact tick
-  boundaries, speed and huge-time scheduling.
+Coordinator's frozen `f7ed34f16cc0ed3ef0519af563958a69dd53dee3` proof checkout
+`C:/Temp/jb-tween-export-proof-20261026` closed successfully (reported3m49s). This chat
+independently read HEAD and both XMLs: PlaybackExposureTest **6**, AnimExportTest **30**;
+zero failures/errors/skips. This includes `a28c57c9b` canonical stale-plan fixes/regressions.
+
+Durable XMLs: `TWEEN_EXPOSURE_20261026.xml` SHA256
+`9FF0658941E1589DA6B07C821CA498B46FD2A49433573AD795927293E414D537`;
+`TWEEN_EXPORT_20261026.xml` SHA256
+`FC10A0887CCE6B26A633A0FF76E911C71CBEBD28A26D972B09D5BC3F933FCF62`.
+
+## Still awaiting integration
+
 - Source GPU export callbacks still need actual GL-thread/context/lifetime binding by the lead.
 - Source component work remains separate on151b92621-based branch, not current candidate.
 
@@ -31,7 +39,8 @@ admission and hot-file integration. Source review/diff checks are not executable
 - [x] Preserve direct-cel source on current approved coordinator base8e7692c83.
 - [x] Coordinate ownership; keep engine/UI files with lead.
 - [x] Execute bounded immutable plane-copy checks on exact source (coordinator; XML inspected).
-- [ ] Execute new clock and canonical export regressions and compile the integrated app consumer.
+- [x] Execute six clock and thirty canonical export suite checks on exact source (coordinator; XML inspected).
+- [ ] Compile the actual combined engine/UI app consumer after integration.
 - [ ] Bind independent frame-copy/history publication and failure cleanup in the engine.
 - [ ] Bind transient frozen-brush rendering, player/strip and original-record export callbacks.
 - [ ] Reconcile clip schema/runtime/component consumers without weakening strict archive parsing.

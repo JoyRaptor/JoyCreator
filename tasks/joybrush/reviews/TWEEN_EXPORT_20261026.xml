@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cc.joycreator.joybrush.androidkit.io.AnimExportTest" tests="30" skipped="0" failures="0" errors="0" timestamp="2026-10-26T06:42:17.367Z" hostname="GUN-SAMSUNG" time="21.656">
+  <properties/>
+  <testcase name="everyFrameIsTheBoardsOwnRect" classname="cc.joycreator.joybrush.androidkit.io.AnimExportTest" time="0.187"/>
+  <testcase name="staleTweenPlansRefuseWhenLoopPlanIsChangedToOnce" classname="cc.joycreator.joybrush.androidkit.io.AnimExportTest" time="0.017"/>
+  <testcase name="anInterruptedSequenceHasNoManifestAndSaysHowFarItGot" classname="cc.joycreator.joybrush.androidkit.io.AnimExportTest" time="0.021"/>
+  <testcase name="anOversizedBoardIsRefusedBeforeAnyFrameIsRendered" classname="cc.joycreator.joybrush.androidkit.io.AnimExportTest" time="0.007"/>
+  <testcase name="aFileWithAWrongEighthByteIsNotAPng" classname="cc.joycreator.joybrush.androidkit.io.AnimExportTest" time="0.0"/>
+  <testcase name="theBudgetAcceptsExactlyTheCapAndRefusesOnePixelOver" classname="cc.joycreator.joybrush.androidkit.io.AnimExportTest" time="1.191"/>
+  <testcase name="aSequenceIsNumberedFromOneWithFourDigits" classname="cc.joycreator.joybrush.androidkit.io.AnimExportTest" time="0.004"/>
+  <testcase name="theSignatureIsEightBytesAndTheLoopWalksAllOfIt" classname="cc.joycreator.joybrush.androidkit.io.AnimExportTest" time="0.001"/>
+  <testcase name="gifDecodesToThePlanAtTheEncodersOwnCentiseconds" classname="cc.joycreator.joybrush.androidkit.io.AnimExportTest" time="0.014"/>
+  <testcase name="aFlagWithoutAnInRangeTweenTargetRemainsAStaticExport" classname="cc.joycreator.joybrush.androidkit.io.AnimExportTest" time="0.002"/>
+  <testcase name="theLoopExtensionIsPresentAndTheFrameCountMatchesThePlan" classname="cc.joycreator.joybrush.androidkit.io.AnimExportTest" time="0.011"/>
+  <testcase name="aLongSequenceIsAcceptedWhateverItsFrameCount" classname="cc.joycreator.joybrush.androidkit.io.AnimExportTest" time="0.299"/>
+  <testcase name="theBudgetIsTwiceTheRenderersPixelBudget" classname="cc.joycreator.joybrush.androidkit.io.AnimExportTest" time="0.001"/>
+  <testcase name="anInvisibleLayerIsStillRendered" classname="cc.joycreator.joybrush.androidkit.io.AnimExportTest" time="0.288"/>
+  <testcase name="theManifestIsWrittenLastAndOnlyAfterEveryFrame" classname="cc.joycreator.joybrush.androidkit.io.AnimExportTest" time="0.005"/>
+  <testcase name="staleTweenPlansRefuseBeforeRendererOrSinkAfterHoldChange" classname="cc.joycreator.joybrush.androidkit.io.AnimExportTest" time="0.001"/>
+  <testcase name="staleTweenPlansRefuseWhenBoardFramesAreReordered" classname="cc.joycreator.joybrush.androidkit.io.AnimExportTest" time="0.0"/>
+  <testcase name="aPaperColourThatIsNotAColourIsRefusedInWords" classname="cc.joycreator.joybrush.androidkit.io.AnimExportTest" time="0.002"/>
+  <testcase name="aFailedSingleFileExportLeavesNothingToWrite" classname="cc.joycreator.joybrush.androidkit.io.AnimExportTest" time="0.009"/>
+  <testcase name="aFileTooShortToHoldASignatureIsRefusedInWords" classname="cc.joycreator.joybrush.androidkit.io.AnimExportTest" time="0.0"/>
+  <testcase name="theEncodedSizeIsCheckedBeforeEitherFileIsWritten" classname="cc.joycreator.joybrush.androidkit.io.AnimExportTest" time="0.018"/>
+  <testcase name="everyFormatConsumesTheSamePlan" classname="cc.joycreator.joybrush.androidkit.io.AnimExportTest" time="0.03"/>
+  <testcase name="tweenPlansWithoutRangeIdentityRefuseBeforeRendering" classname="cc.joycreator.joybrush.androidkit.io.AnimExportTest" time="0.001"/>
+  <testcase name="anExportOverThePixelBudgetIsRefusedBeforeAnyFrameIsRendered" classname="cc.joycreator.joybrush.androidkit.io.AnimExportTest" time="19.412"/>
+  <testcase name="aPlanForAnotherBoardIsRefusedInWords" classname="cc.joycreator.joybrush.androidkit.io.AnimExportTest" time="0.001"/>
+  <testcase name="paperFollowsTheDocumentsOwnSettingAndWritesNothingBack" classname="cc.joycreator.joybrush.androidkit.io.AnimExportTest" time="0.086"/>
+  <testcase name="texturedPaperIsAskedInBoundedBlocksPerFrameAndIsNotLoadedWhenExcluded" classname="cc.joycreator.joybrush.androidkit.io.AnimExportTest" time="0.04"/>
+  <testcase name="theBudgetIsTheSameForEveryColumnCountOnATwoDimensionalFormat" classname="cc.joycreator.joybrush.androidkit.io.AnimExportTest" time="0.0"/>
+  <testcase name="theSidecarNamesEveryCellAndPointsAtTheSheetBesideIt" classname="cc.joycreator.joybrush.androidkit.io.AnimExportTest" time="0.004"/>
+  <testcase name="staleTweenPlansRefuseWhenTheirCapturedRangeChanges" classname="cc.joycreator.joybrush.androidkit.io.AnimExportTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

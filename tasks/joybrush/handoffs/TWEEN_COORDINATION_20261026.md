@@ -32,8 +32,13 @@ ACK APK job, available RAM about1.1 GiB. Current device candidate stays frozen.
   `0a65e19ca` on the151-based branch; scene previews and samples use the same exposure lookup.
 - Lead found stale plan count/order validation in961 insufficient after a hold change. Fix
   `a28c57c9b` captures range IDs and regenerates the complete current canonical plan before
-  callbacks; regression source awaits execution. Timing check source `f7ed34f16` also awaits
-  execution. The151-based correctness port is `9d7adea3f`, preserving saved clip end semantics.
+  callbacks. Exact `f7ed34f16` proof passed6 clock and30 export tests, zero failures/errors/skips;
+  both XMLs/hash independently inspected. The151-based correctness port is `9d7adea3f`,
+  preserving saved clip end semantics; that component-aware branch remains unverified.
+- Runtime marker/validator source `61d093144` is separate on `codex/frame-duplicate-contract-20261026`
+  from7dd2fe264. Only DUPLICATE sets an appended optional RegionChange marker; pure validation
+  reconstructs the exact canonical duplicate and compares full metadata/op lists. Marker alone
+  is untrusted; no schema/codec/engine activation. Source tests await admission.
 
 ## Required hot-file work, in order
 
@@ -75,6 +80,9 @@ ACK APK job, available RAM about1.1 GiB. Current device candidate stays frozen.
    contents/sample/rect/paper. Missing renderer must refuse an active tween, never emit held pixels
    while claiming a tween export. Preserve static saved-look path for untweened exports. Enforce
    expanded output count/memory caps before bytes. The GPU callback must not modify saved cels.
+   Callbacks execute synchronously on the export caller/save writer. The adapter must explicitly
+   own or marshal to a valid GL context, retain snapshot/source texture leases through the work,
+   and release transient outputs afterward; a callback parameter alone provides no GL-thread safety.
 
 ## Separate animation-clips dependency milestone
 

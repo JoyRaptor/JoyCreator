@@ -71,6 +71,19 @@ class SelectBenchCleanupTest {
         }
     }
 
+    @Test fun actualRunnerDispatchRejectsAnUnidentifiedA10RunWithoutStartingGestures() {
+        val canvas = JbCanvasView(RuntimeEnvironment.getApplication()).also { canvases += it }
+        var finishes = 0
+        val runner = BenchRunner(canvas, BenchRunner.Spec(listOf("selectA10"), emptyList(), 1, true, false,
+            selectRunId = "invalid")) { finishes++ }
+        assertNull(runner.selectCopyGuard)
+        runner.start()
+        assertEquals(1, finishes)
+        assertFalse(requireNotNull(runner.selectCopyGuard).invoke())
+        runner.abortSelect()
+        assertEquals("a completed invalid run cannot finish twice on lifecycle interruption", 1, finishes)
+    }
+
     @Test fun runnerA10AbortInvalidatesCopyThenCancelsContactBeforeDurableSubsetRestore() {
         val context = RuntimeEnvironment.getApplication()
         val prefs = context.getSharedPreferences("joybrush_chrome", Context.MODE_PRIVATE)

@@ -1,11 +1,12 @@
 package cc.joycreator.joybrush.android.select
 
+import android.app.Activity
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Rect
 import android.view.View
-import android.view.accessibility.AccessibilityNodeInfo
+import android.widget.LinearLayout
 import android.widget.Switch
 import cc.joycreator.joybrush.android.chrome.ChromeKit
 import org.junit.Assert.assertEquals
@@ -14,6 +15,7 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
@@ -91,25 +93,41 @@ class SelectPillSwitchTest {
     }
 
     @Test fun nativeSwitchLabelAndAccessibilityReflectCheckedState() {
-        // Positive control first: stock and styled Switch use the same detached-view fixture.
-        assertNativeAccessibilityAndCallbacks(Switch(context).apply {
-            text = "Editable lines"
-            textOn = "On"
-            textOff = "Off"
-            showText = false
-        })
-        val switch = SelectPillSwitch(kit).apply { text = "Editable lines" }
+        val controller = Robolectric.buildActivity(Activity::class.java).setup()
+        try {
+            val activity = controller.get()
+            val activityKit = ChromeKit(activity)
+            val stock = Switch(activity).apply {
+                text = "Editable lines"
+                textOn = "On"
+                textOff = "Off"
+                showText = false
+            }
+            val switch = SelectPillSwitch(activityKit).apply { text = "Editable lines" }
+            activity.setContentView(LinearLayout(activity).apply {
+                orientation = LinearLayout.VERTICAL
+                addView(stock)
+                addView(switch)
+            })
+            controller.visible()
 
-        assertEquals("Editable lines", switch.text.toString())
-        assertFalse(switch.showText)
-        assertEquals("On", switch.textOn.toString())
-        assertEquals("Off", switch.textOff.toString())
-        assertTrue("track has the approved 56 dp minimum", switch.switchMinWidth >= kit.dpi(56f))
-        assertFalse("pill track must not be split around the absent thumb", switch.splitTrack)
-        assertNativeAccessibilityAndCallbacks(switch)
+            // API28 View initializes node className only when mAttachInfo is present.
+            // Positive control first, in the same real window as the styled Switch.
+            assertNativeAccessibilityAndCallbacks(stock)
+            assertEquals("Editable lines", switch.text.toString())
+            assertFalse(switch.showText)
+            assertEquals("On", switch.textOn.toString())
+            assertEquals("Off", switch.textOff.toString())
+            assertTrue("track has the approved 56 dp minimum", switch.switchMinWidth >= activityKit.dpi(56f))
+            assertFalse("pill track must not be split around the absent thumb", switch.splitTrack)
+            assertNativeAccessibilityAndCallbacks(switch)
+        } finally {
+            controller.pause().stop().destroy()
+        }
     }
 
     private fun assertNativeAccessibilityAndCallbacks(switch: Switch) {
+        assertTrue("native accessibility fixture must have window attachment", switch.isAttachedToWindow)
         var callbacks = 0
         switch.setOnCheckedChangeListener { _, _ -> callbacks++ }
         assertEquals(0, callbacks)
@@ -124,10 +142,8 @@ class SelectPillSwitchTest {
 
     @Suppress("DEPRECATION")
     private fun assertAccessibilityState(switch: Switch, checked: Boolean) {
-        // Explicit initialization avoids Robolectric's uninitialized node for a detached View.
-        val node = AccessibilityNodeInfo.obtain()
+        val node = switch.createAccessibilityNodeInfo()
         try {
-            switch.onInitializeAccessibilityNodeInfo(node)
             assertEquals(Switch::class.java.name, node.className)
             assertTrue(node.isCheckable)
             assertEquals(checked, node.isChecked)

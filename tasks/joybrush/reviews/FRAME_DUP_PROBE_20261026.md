@@ -12,7 +12,7 @@ this report and affected roadmap row/patch. No engine, View or BenchRunner edits
   nonempty pigment, recipe/brush closure and independent target deletion.
 - [x] Author one-step duplicate/delete undo and redo checks, including source immutability.
 - [x] Review source/API use and exact same-coordinate oracle; diff whitespace check passed.
-- [ ] Publish exact checkpoint; no job or device execution grant.
+- [x] Commit source checkpoint `7b23ce906`; publish dedicated branch with scoped roadmap patch.
 
 Deferred gates: low-budget refusal/allocation-cleanup execution, injected publication
 failure, archive/save/reopen, captured/joint ownership, watercolor and owner appearance.

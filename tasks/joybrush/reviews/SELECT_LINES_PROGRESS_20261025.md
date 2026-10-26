@@ -127,3 +127,24 @@ protocol1 waits for run/event-specific host ACK after durable PNG save/validatio
 with a20-second asynchronous timeout, foreground checks and typed shot audit.
 The seven new Android gate fixtures and the revised bench need compilation/execution
 and a new exact APK/device run. All run1 evidence is retained; no green phone claim.
+
+## October26 ACK candidate
+
+Frozen36b0e07f3 compiled and passed178 Android cases, zero failures/errors/skips,
+including ShotGate7. Its canonical2048 MiB APK build passed in1m6s, with ARM64 SHA
+`3ec0fedbfcf3f5c06bcc075eac00df70a90c332a90b78770d823523c8c10e300`.
+The install required pre-existing launcher Home and sent no Home action. Installed
+SHA/update-time checks passed and all12 saved root hashes remained identical.
+
+`C:/Temp/jb-select-acceptance-20261026/bench-36b0e07f3-run1` then completed19/1,
+with11 typed ACK/hash/foreground audit entries. The08 Nudge image now shows the held
+Nudge state, rather than Home; all images still require explicit visual review.
+The failure is an honest precondition: Nudge intentionally hides the action row,
+and its return affordance is the bottom bar's Back-to-box chip. The next bench-only
+correction targets that exact visible chip, then asserts Nudge off and no selection
+before taking Brush. Its pan path stays beyond the left strip with the original
+.27w distance and unchanged pan/no-draw/history assertions. A real Controller
+Nudge→Back regression is authored for the next focused run. No product behavior changed.
+
+Post-bench data receipt confirms all12 hashes unchanged, including current.joybrush
+and its backup; terminal cleanup released the phone claim and left actual Home.

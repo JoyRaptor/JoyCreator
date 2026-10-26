@@ -21,6 +21,19 @@ ACK APK job, available RAM about1.1 GiB. Current device candidate stays frozen.
   selective port; it does not change saved schema, old clock APIs, Select/Copy or engine files.
 - Component-aware counterpart is preserved separately as `35a9d23b1` on the151-based branch.
   Lead requested the copy helper be frozen for an independent ownership review; it is frozen.
+- Independent review found mutable recipe-list aliasing and JVM-cast footprint mutation in the
+  initial helper. Fix `d73f5b9c7` freezes raw sample lists and the exposed footprint map/sets.
+  Lead-requested ownership regression source `e5fa12086` was run by the coordinator:3 passed,
+  zero failures/errors/skips. Exact proof XML/hash independently inspected here. This does not
+  prove live engine transaction/graphics cleanup; no executions were launched by this chat.
+- Direct export subset: `961bdf6f7` on current-base branch. Explicit callback overloads preserve
+  old trailing-progress signatures; static PNG bypasses tween expansion; GIF delay rounding is
+  cumulative and refuses sub20ms exposures. Component-aware export source is preserved as
+  `0a65e19ca` on the151-based branch; scene previews and samples use the same exposure lookup.
+- Lead found stale plan count/order validation in961 insufficient after a hold change. Fix
+  `a28c57c9b` captures range IDs and regenerates the complete current canonical plan before
+  callbacks; regression source awaits execution. Timing check source `f7ed34f16` also awaits
+  execution. The151-based correctness port is `9d7adea3f`, preserving saved clip end semantics.
 
 ## Required hot-file work, in order
 
@@ -82,7 +95,10 @@ clip's exposure independently, respecting held layers and blank end modes.
 
 ## Proof status
 
-October26 continuation is **source only**; no new compile/test/device claim. Earlier2552 core /
+October26 continuation is **source only except bounded helper proof**: coordinator executed3
+PreparedLinePlaneCopy checks on exacte5fa12086, independently inspected XML SHA256
+`AA46812C31F4DEA102403028F88C5051E1EFD1964D52CFF47CBE4C6CA9D42500`.
+See reviews/TWEEN_RETURN_20261026.md. No new integration/device claim. Earlier2552 core /
 1061 backend and Android compilation evidence belongs to2896cf2d5, not this new source. Earlier
 clip GPU/phone proof belongs to its original build, not the merged current Select/tween combination.
 Before completion: admitted compile; owner-requested checks; engine copy/undo/rollback and

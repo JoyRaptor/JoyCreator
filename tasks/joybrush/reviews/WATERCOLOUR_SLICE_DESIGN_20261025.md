@@ -13,7 +13,8 @@ separately reviewed. This is not a completed Slice or smudge feature.
   before unbounded input-tail traversal. Captured sources remain refused.
 - [x] Ten focused core tests pass on a8b63e010, including tangent/vertex/end,
   overlap/repeats, tiny spans, unknown sensor channels and budget failures.
-- [ ] Pure exclusive ownership predicate and independent scalar alpha oracle.
+- [x] Pure exclusive ownership predicate and independent scalar alpha oracle:
+  ten tests pass on8e56aea95; no native pixel/runtime acceptance implied.
 - [ ] Source geometry/frame/replay-version provenance and persistence design.
 - [ ] Canonical full optical finish followed by source ownership, with exact
   full-tile RGBA identity proof and negative/self-crossing/halo cases.
@@ -43,13 +44,14 @@ rebrush and serialized source-frame behavior need explicit domain decisions.
 The planner itself changes no StrokeRecord fields, codecs, renderer, admission
 gate or UI. No runtime capability is claimed.
 
-## Ownership candidate, unverified
+## Ownership candidate, pure tests verified
 
 977dbdac1 adds the pure LineSliceOwnership helper and scalar oracle tests;
 987630925 isolates the default identity frame from the mutable shared
 Homography.IDENTITY array and adds boundary-refusal regressions. There are ten
-ownership test cases authored, not executed. Do not transfer the earlier ten
-planner results to them.
+ownership test cases. All ten executed on exact8e56aea956f07327d3c39c6972034f1fcf7fd576:
+zero failures/errors/skips, BUILD SUCCESSFUL in2m16s. The shared build lock was
+released after closure. Evidence: evidence/SLICE_OWNERSHIP_20261025.json.
 
 The helper snapshots geometry and one inverse source frame, chooses earliest
 fractional parameter on equal squared distance, and assigns a single half-open
@@ -105,3 +107,26 @@ respect to other content. A single commit publishes the staged change and record
 one Undo/redo; any budget, bake or publication failure leaves both source lines
 and pixels untouched. These transaction and ordering requirements remain open
 implementation work, not consequences of passing the scalar ownership oracle.
+
+## Coordinator review gates
+
+The coordinator reviewed the proposal and requires document-scoped immutable
+source identities with content/version validation. Copy must allocate distinct
+editable section identities without sharing mutable state accidentally.
+Recolour is a per-section derived finish variant; it must never mutate the
+shared original recipe or recolour siblings.
+
+Chronological composition remains the hard activation blocker. For example,
+over opaque white, half-alpha red followed by half-alpha blue yields straight
+RGB (0.5,0.25,0.75); reversing them yields (0.75,0.25,0.5). Moving baked red to a
+base slab or top slab can therefore change the picture despite exact source
+pixels. A future ordered pixel contribution at the original optical position,
+or a larger explicitly proven bake closure, is required. The oracle must include
+intervening translucent, multiply and erase content; the current scalar ownership
+suite does not prove this mixed-content ordering.
+
+Unchanged-grid sibling domains apply the original operator once. Moving sections
+can make sibling optical domains overlap; whether they then glaze independently
+or share another operator rule must be decided explicitly. No once-per-source
+claim carries over automatically to moved overlap. All initial integer-placement,
+captured/media/mask and editing guards remain until native, archive and Undo proof.

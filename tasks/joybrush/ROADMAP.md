@@ -17,8 +17,8 @@ Evidence/continuation: [completion audit](reviews/WATERCOLOUR_COMPLETION_AUDIT_2
 |---|---|---|
 | L1 cold/warm OFF/ON, whole-fade benchmark | Measured on Note9 | Preserve20 baseline rows, synthetic/glFinish scope |
 | L2 selected-brush preparation/full fade | Source on main | Five cold comparisons/full-fade phone check still owed |
-| L3 per-brush settings / K25 | Corrected current-main candidate; old8c019 held out | Per-ID only, exact defaults/pixel-only guards; eight policy tests await RAM, then Lead review/A10/phone. Shared Slice+smudge section-bake remains separately assigned by Lead |
-| K25 / D24 shared Slice planning | Pure core planner built; ten tests pass | Ownership/pixel oracle, source-domain persistence, atomic split+bake+smudge and no-ghost phone proof remain; no runtime activation |
+| L3 per-brush settings / K25 | Corrected policy tested in integrated candidate; old8c019 held out | Identical policy/test files pass8 in Select e9d2a4176 app171/0/0/0; final adoption and phone acceptance remain. Shared Slice+smudge section-bake is separate |
+| K25 / D24 shared Slice planning | Pure planner10 and ownership10 tests pass | Ordered pixel contribution, immutable source-domain persistence, native pixel oracle, atomic split+bake+smudge and no-ghost phone proof remain; no runtime activation |
 | L4 wash-frame transform and edits | Current core2559/backend1068 pass; production recolor cache compiles/key tests pass | Single selected line <=32 tiles reuses coverage; large/multi-selection falls back. Device pixel/cache proof; phone move/rotate/rebrush/delete, one Undo each |
 | L5 frozen brush/frame archive | Automated candidate proof | Phone save/reopen pixel hash, graphics restart and first edit |
 | L6 approved POC appearance | Pending acceptance | GPU comparison and owner's phone look/feel approval |

@@ -38,10 +38,12 @@ Read-only source review found no concrete issue; git diff --check passes.
 The initial focused eight-test run onfda29f68c compiled and executed:seven passed,
 one failed. The failed painting-override test accidentally used its clearing
 helper when recreating the preferences wrapper. Fixture correction ba341098b
-reuses the same preferences object. The corrected rerun has not executed:
-fresh admission attempts were refused below2253MiB (latest532MiB). There is no
-waiting build wrapper, build claim or phone reservation. No eight-test passing
-result is claimed.
+reuses the same preferences object. Select's integrated e9d2a417604c19138aa15a4e7f094edf0945dc33
+run now passes all eight policy tests (app total171, zero failures/errors/skips).
+Git blob comparison confirms both policy and corrected test files are identical
+to this branch. Receipt: C:/Temp/jb-select-acceptance-20261025/app-e9d2a4176/receipt.json.
+This is integrated-source proof for those files, not this branch's complete APK
+or phone acceptance. No redundant policy-only run was performed.
 
 Earlier evidence remains tied to its own source:
 
@@ -58,8 +60,8 @@ The previous phone baseline/claim and installed APK identity are stale after
 other lanes' work. Recheck watcher, lock, model and installed hash before testing.
 Do not install the older held-policy APK. Preserve source/evidence scratch.
 
-L3/K25 is not complete: focused tests and Lead review/adoption are still owed;
-A10 and phone proof are separate. Smudge's shared Slice + touched-section bake
+L3/K25 is not complete: corrected policy tests pass in Select's integrated
+candidate; final adoption and phone proof remain separate. Smudge's shared Slice + touched-section bake
 (one Undo, no smear ghost) remains an engine task whose assignment the Lead
 decides. K26 realistic paint below editable lines remains Lead-owned; the old
 refusal must not be removed without the composition adapter.
@@ -72,3 +74,9 @@ BUILD SUCCESSFUL in2m. Its original recipe/sample/frame snapshots, zero-width
 crossings, half-open endpoint ownership, touched-dot support and early
 input/pair/piece refusal are checked. No runtime/schema/GPU activation occurred.
 See [Slice design and gates](WATERCOLOUR_SLICE_DESIGN_20261025.md).
+
+Exclusive ownership source987630925 also passed ten focused tests on exact
+8e56aea956f07327d3c39c6972034f1fcf7fd576, zero failures/errors/skips in2m16s.
+This proves the pure predicate/scalar oracle only. Source-domain persistence,
+chronological pixel contribution, runtime transaction and native/phone proof
+remain open; the coordinator has not authorized schema/runtime activation.

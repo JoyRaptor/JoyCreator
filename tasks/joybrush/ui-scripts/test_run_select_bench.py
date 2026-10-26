@@ -3,7 +3,9 @@ import json
 import os
 import re
 import struct
+import subprocess
 import tempfile
+import threading
 import unittest
 import zlib
 from pathlib import Path
@@ -36,6 +38,8 @@ class FakeAdb:
         self.launches = 0
         self.screencap = png_bytes()
         self.preference_xml = "<map />"
+        self.launch_wait_for_ack = None
+        self.launch_error = None
 
     def ready(self):
         return "SM-N960U", 29
@@ -56,6 +60,10 @@ class FakeAdb:
             return self.preference_xml
         if args[:3] == ("shell", "am", "start"):
             self.launches += 1
+            if self.launch_error is not None:
+                raise self.launch_error
+            if self.launch_wait_for_ack is not None and not self.launch_wait_for_ack.wait(3):
+                raise runner.RunError("Fake launch starved the first screenshot ACK")
             return "Starting: Intent"
         if args and args[0] == "exec-out":
             self.actions.append("capture")
@@ -69,6 +77,8 @@ class FakeAdb:
                 raise AssertionError(f"Unexpected fake screenshot ACK call: {args!r}")
             self.actions.append("ack")
             self.acks.append(args)
+            if self.launch_wait_for_ack is not None:
+                self.launch_wait_for_ack.set()
             self.audit_present_when_acked = self.audit_path.exists() if self.audit_path is not None else None
             return ""
         if args and args[0] == "logcat":
@@ -178,6 +188,40 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual("selectA10", json.loads((out / "build.json").read_text())["benchCase"])
         self.assertEqual(1, len(adb.acks))
         self.assertTrue(json.loads((out / "owned-preferences.json").read_text())["unchanged"])
+        self.assertFalse(self.lock.exists())
+
+    def test_pending_launch_does_not_starve_first_a10_screenshot_ack(self):
+        run_id = "0123456789abcdef0123456789abcdef"
+        adb = FakeAdb(self.digest, self.a10_rows(run_id))
+        adb.launch_wait_for_ack = threading.Event()
+        with patch.object(runner.uuid, "uuid4", return_value=type("UUID", (), {"hex": run_id})()):
+            self.run_patched(self.root / "pending-launch-out", adb, case="selectA10")
+        self.assertTrue(adb.launch_wait_for_ack.is_set())
+        self.assertEqual(1, len(adb.acks))
+        self.assertEqual(1, adb.launches)
+        self.assertFalse(self.lock.exists())
+
+    def test_failed_async_launch_without_terminal_retains_claim(self):
+        adb = FakeAdb(self.digest)
+        adb.launch_error = runner.RunError("Launch transport timed out")
+        with self.assertRaisesRegex(runner.RunError, "Launch transport timed out"):
+            self.run_patched(self.root / "async-launch-failed", adb)
+        self.assertTrue(self.lock.exists())
+
+    def test_launch_transport_has_a_real_finite_subprocess_deadline(self):
+        adb = runner.Adb("FAKE")
+        with patch.object(runner.subprocess, "run", side_effect=subprocess.TimeoutExpired("adb", 45)) as call:
+            with self.assertRaisesRegex(runner.RunError, "timed out"):
+                adb.call("shell", "am", "start", "-n", runner.ACTIVITY, timeout=45)
+        self.assertEqual(45, call.call_args.kwargs["timeout"])
+
+    def test_failed_launch_after_exact_terminal_can_release_claim_but_is_not_success(self):
+        run_id = "0123456789abcdef0123456789abcdef"
+        adb = FakeAdb(self.digest, self.a10_rows(run_id))
+        adb.launch_error = runner.RunError("Launch transport timed out")
+        with patch.object(runner.uuid, "uuid4", return_value=type("UUID", (), {"hex": run_id})()):
+            with self.assertRaisesRegex(runner.RunError, "Launch transport timed out"):
+                self.run_patched(self.root / "async-launch-terminal-failed", adb, case="selectA10")
         self.assertFalse(self.lock.exists())
 
     def test_owned_preferences_preserve_absence_false_and_exact_tools_string(self):

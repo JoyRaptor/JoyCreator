@@ -238,3 +238,21 @@ Root focused frame717f6c326 job admitted2649MiB/noJava, exec97793/log
 C:/Temp/jb-lead-ops/frame-live-717f6c326-20261026.log, exclusive sharedlock. Frozen
 source, coreFrameDuplicatePlan +backendBoardTransactionMemory/PreparedLinePlaneCopy/
 InitializedTexture filters. No parallel heavy/GPU. Actual completion still pending.
+
+## Independent A10 visuals and global20 on exact f7
+
+UX personally viewed all5 A10 registered images: cyanOn/neutralOff, exactD22/noSwitch,
+whitecanvas sixdot and darkcanvas nodecurve badges pass their stated scope. Existing
+enabled black toolbar glyphs on darkcanvas are a separate confirmed readability bug;
+UX owns isolated contrast fix using approved tokens. Blank Pencil preview is triage,
+not a drawing/brushquality verdict. No ownerLIVE/C3/D23/physicalfeel inference.
+Global20 run b52e984014e24f69b4762f65abb81d5c CLOSED20/0/exit0, sourcef7/hostb7aa,
+APK5d99/prefs/12savedroots unchanged, ownclaimreleased. Root offlinevalidator VALID;
+Select personally reviewing11captures; no rootphone/GPU in progress.
+
+UX owns next ONE focused combined app job from currentcanonical with menu9 source
+cdf0adb40 selectively integrated, prior190 regressions requested; actualresult pending.
+WC source dispatch e670257df handed back clean/pushed,6fixture+2routing testsUNRUN;
+root source review bounded okay, no actual WC probe yet. Tween owns new standalone
+frameGPUprobe file from717f6c326; root owns later dispatcher integration. No jobs
+except explicit UX admission; no queuedwaitingwrappers. Preserve all old evidence.

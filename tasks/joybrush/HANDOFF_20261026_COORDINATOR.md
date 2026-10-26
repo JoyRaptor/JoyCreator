@@ -224,3 +224,17 @@ error checks. Tween source review found and root fixed unconditional whole-base
 copy bug. New helper5/core6/backend entry+budget cases await focusedproof; actual
 GPU/undo/rollback/save and captured/joint pathways remain open. No activation.
 Unibrush and clips peers resumed bounded read-only source/evidence recovery audits.
+
+## A10 run3 functional device gate GREEN, visual review pending
+
+ExactAPKf7/5d99, hostb7aa05fd6 (bounded main4096logtail +classifieddiagnostics),
+run eaaea09e705240e0b3f6891d3935bd05:6PASS0FAIL/exit0,5ACKimages, restoredownedprefs,
+12savedroots unchanged, claimreleased. Root offlinevalidator independently VALID.
+Evidence bench-a10-f7f75869a-run3 and guard-a10-f7f75869a-run3/receipt.json under
+C:/Temp/jb-select-acceptance-20261026. UX independently reviewing all5images; preserve
+redruns1/2. Global20 on this exactAPK is held until current PC slot handback.
+
+Root focused frame717f6c326 job admitted2649MiB/noJava, exec97793/log
+C:/Temp/jb-lead-ops/frame-live-717f6c326-20261026.log, exclusive sharedlock. Frozen
+source, coreFrameDuplicatePlan +backendBoardTransactionMemory/PreparedLinePlaneCopy/
+InitializedTexture filters. No parallel heavy/GPU. Actual completion still pending.

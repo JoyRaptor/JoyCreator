@@ -1,3 +1,14 @@
+## Full regression checkpoint
+
+Exact52e559d047c2a60da1783b80a3e48b52c837823d full standalone core+androidkit
+run CLOSED SUCCESS in3m35s. Root independently counted all actual testcase XML:
+core2572 /0 failures/errors /4 skipped (AbrRealFilesTest optional real fixtures),
+androidkit1093 /0 failures/errors/skips. This is3661 executed passing cases and
+4 skips across353 suites; no new Android UI, APK or phone claim follows from it.
+Independent hashed receipt: C:/Temp/jb-select-acceptance-20261024/full-52e559d04-root-count.json.
+Closed logSHA18DBB32F88D77B7C60B2DF582045B08E412F635B95B89A50907CB99470D6B7F8.
+Select owns the next exact APK build if freshly admitted at3200MiB; root no queue.
+
 ## Current verification checkpoint
 
 Corrected backend Copy focus CLOSED SUCCESS in51s on frozen
@@ -192,6 +203,7 @@ Synthetic gestures do not establish physical S Pen feel or manual save acceptanc
 Existing persistent goal remains unfinished even though its historical tool status
 is usageLimited. No duplicate goal or completion. The old five-hour automation
 was found PAUSED and was kept PAUSED; do not reactivate without owner direction.
+
 
 
 

@@ -1,3 +1,5 @@
+> HISTORICAL / SUPERSEDED October 26, 2026. Do not claim tasks, use old checkout/build rules or infer current completion from this file. Start at [Current roadmap](../ROADMAP.md) and [October26 ledger](../HANDOFF_20261026_COORDINATOR.md). Older instructions below are preserved evidence only.
+
 Verified update: exact e9d2a4176 focused Android run closed SUCCESS in4m5s.
 Root independently counted 171 tests /0 failures/errors/skips from23 fresh XML
 suites. Root Android+joybrush tree objects are identical to the tested builder.

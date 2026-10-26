@@ -3,8 +3,8 @@
 ## Current source and ownership
 
 Root checkout C:/Temp/jb-select-reconcile-20261024, branch
-lead/select-reconcile-20261024, code aa0a982a2 (docs7dd2fe264 before this update).
-Current production module source matches tested builder d11da3d4b; see the green device checkpoint below.
+lead/select-reconcile-20261024, current integrated code 4b9ed850c.
+The d11 device proof covers the earlier Select baseline, not the entire current4b9 candidate.
 Fresh origin was f79efc378 on October25; fetch before integration. Preserved stale
 primary local joy-creator fb8042841 is NOT current origin. Never reset/copy it over
 this isolated integration. Preserve all original/helper worktrees and dirty files.
@@ -149,3 +149,22 @@ clocktestsf7 source reviewed; Luna owns next focused proof job from immutable
 C:/Temp/jb-tween-export-proof-20261026. No other queued job/phone claim. New A10
 acceptance class remains source-only in Select's separate branch until styled
 candidate validated. Preserve strict source, archive, activation and one-job gates.
+
+## October26 current reconciliation — supersedes earlier pending notes
+
+- Current code4b9ed850c merges97c49ab34. Texture cleanup four backend cases passed
+  on070; all179 existing Android regressions passed on070; all four native Switch
+  cases passed on97 after a test-only attached-window correction. Main production
+  trees070/97 are identical. Do not claim a literal183-suite rerun or current APK.
+- Ordinary watercolor probe is compiled/integrated but unwired/unrun. Separate
+  fixture2d6f64998 has six unrun tests and an acceptance matrix in its isolated branch.
+- Tween isolated e5fa helper3 and f7ed export30/clock6 passed independently counted
+  XML. These do not establish live duplication/playback/export. Marker61d093144
+  and replay-aware watercolor fidelity remain separate source review/test gates.
+- Select A10 class03ff28540 and host1a46eb4ff are source candidates, NOT integrated
+  into runtime. Host offline52 tests pass; no Android/phone behavior implied.
+- Atlas395570fa2 isolated residency8 passed, NOT activated. Durable writeback,
+  actual GLES/commit ownership and P3/P4 still gate integration.
+- The refreshed ROADMAP.md and AGENT_START_20261026.md replace old live queues and
+  stale primary/build instructions. ROADMAP_ARCHIVE_20261026.md preserves history.
+  Unknown oil/Unibrush/symmetry/peer completion is explicitly audit work, not done.

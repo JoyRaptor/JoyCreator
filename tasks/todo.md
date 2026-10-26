@@ -109,3 +109,11 @@ See tasks/joybrush/HANDOFF_20261026_COORDINATOR.md for exact source/evidence lim
 - [ ] Run focused backend compile/tests after current Select device slot resolves.
 - [ ] Review/adopt prepared direct-cel copy and clock/export contracts separately.
 No live frame-copy/tween activation or GPU/context-loss proof from this prerequisite.
+
+## Roadmap freshness — October26 owner request
+- [x] Luna read-only stale-entry/ownership audit; root reconciles newer Switch evidence.
+- [x] Replace active roadmap with bounded current states, owners, gates and open audits.
+- [x] Preserve old board as historical archive and redirect stale entry documents.
+- [x] Add operational agent-start contract and correct coordinator source/test scopes.
+- [x] Validate local links and have Luna review the new dispatch instructions.
+- [ ] Publish reviewed documentation checkpoint and notify domain owners.

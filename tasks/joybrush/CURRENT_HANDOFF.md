@@ -1,3 +1,5 @@
+> HISTORICAL / SUPERSEDED October 26, 2026. Do not claim tasks, use old checkout/build rules or infer current completion from this file. Start at [Current roadmap](ROADMAP.md) and [agent start](AGENT_START_20261026.md). Older instructions below are preserved evidence only.
+
 # JoyBrush lead handoff — October 9, 2026
 
 > **2026-10-17 night: read [HANDOFF_20261017_LEAD.md](HANDOFF_20261017_LEAD.md) FIRST** (Claude lead handoff: what is on

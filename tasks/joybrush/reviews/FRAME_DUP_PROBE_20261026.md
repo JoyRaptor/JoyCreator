@@ -76,3 +76,9 @@ The version1 source had coverage gaps, not executed false-pass evidence:
 No mock GPU result, new engine hook or generic transform behavior was introduced. Existing
 four CPU oracle tests and new probe changes remain uncompiled/unrun. Low-budget/injected
 failure cleanup, resource retirement counts and archive/save/reopen remain separate gates.
+
+Source follow-up commit: `11ca8c132`. The code-only handoff patch
+`handoffs/FRAME_DUP_PROBE_ADVERSARIAL_20261026.patch` is deliberately zero-context to avoid
+whitespace-only context lines in the saved patch. On the unchanged version1 file use
+`git apply --check --unidiff-zero` before `git apply --unidiff-zero`; reconcile if the lead has
+already changed it. Reverse-check against version2 passed; no source compilation was run.

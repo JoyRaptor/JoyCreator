@@ -2,18 +2,9 @@ diff --git a/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidk
 index 69c5b2674..222106d81 100644
 --- a/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/gl/FrameDuplicateProbe.kt
 +++ b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/gl/FrameDuplicateProbe.kt
-@@ -33,6 +33,7 @@ internal object FrameDuplicateProbe {
-         var phase = "admission"
-         var lineChangedPixels = 0L
-         var deletedPixels = 0L
+@@ -35,0 +36 @@ internal object FrameDuplicateProbe {
 +        var readbackState: IntArray? = null
-         var serial = 0
-         fun fresh() = "frame-probe-${++serial}"
-         fun include(extra: Collection<Long>) {
-@@ -69,6 +70,25 @@ internal object FrameDuplicateProbe {
-             require(liveLayer.opacity == 1f && liveLayer.visible && !liveLayer.locked &&
-                 liveLayer.blend == BlendMode.NORMAL && !liveLayer.hasMask && !liveLayer.clip)
-             checkGl("admission")
+@@ -71,0 +73,19 @@ internal object FrameDuplicateProbe {
 +            // readCelTile uses a tightly packed client buffer. Inherited PBO/row/skip state
 +            // must never redirect that read or overrun its allocation on the shared context.
 +            val readbackEnums = intArrayOf(GLES30.GL_PIXEL_PACK_BUFFER_BINDING, GLES30.GL_PACK_ALIGNMENT,
@@ -33,26 +24,14 @@ index 69c5b2674..222106d81 100644
 +            GLES30.glPixelStorei(GLES30.GL_PACK_SKIP_ROWS, 0)
 +            GLES30.glPixelStorei(GLES30.GL_PACK_SKIP_PIXELS, 0)
 +            checkGl("normalize readback state")
- 
-             phase = "board_setup"
-             val base = JbDocument(id = "frame-probe-doc", name = "Disposable frame probe",
-@@ -82,21 +102,32 @@ internal object FrameDuplicateProbe {
-             val board = before.boards.single { it.kind == BoardKind.ANIMATION }
-             val sourceCel = before.layers.single().regions.single().frameCel.getValue(board.currentFrameId!!)
-             val sourcePlane = LinePlane(layerId, sourceCel)
+@@ -84,0 +105,2 @@ internal object FrameDuplicateProbe {
 +            val sharedCel = checkNotNull(before.layers.single().sharedCelId)
 +            val sharedPlane = LinePlane(layerId, sharedCel)
-             val preset = BrushPreset(id = "frame-probe-ink", name = "Probe Ink", size = Param(21f),
-                 opacity = Param(1f), flow = Param(1f), smoothing = 0f)
-             val input = StrokeRecord(id = "frame-probe-line", brushId = preset.id, seed = 684723L,
-                 smoothing = 0f, screenPerDoc = 1f, colorArgb = 0xFF266DB5.toInt(), samples = listOf(
+@@ -89 +111,2 @@ internal object FrameDuplicateProbe {
 -                    PenSample(-45f, -22f, 0.0, 0.8f, 0.2f, -0.4f),
 +                    PenSample(-280f, -270f, 0.0, 0.9f, 0.25f, -0.5f),
 +                    PenSample(-45f, -22f, 10.0, 0.8f, 0.2f, -0.4f),
-                     PenSample(35f, 31f, 20.0, 0.6f, 0.3f, -0.2f),
-                     PenSample(190f, 152f, 40.0, 1f, 0.1f, 0.3f),
-                     PenSample(310f, 280f, 60.0, 0.7f, 0.4f, 0.5f)))
-             val estimate = engine.nativeLines.estimate(input, preset)
+@@ -94,4 +117,12 @@ internal object FrameDuplicateProbe {
 -            // Deliberately seed a whole edge tile: unowned pixels must not become target bases.
 -            val seeded = mapOf(Tiles.key(-1, -1) to ByteArray(Tiles.SIZE * Tiles.SIZE * 4).also { bytes ->
 -                for (offset in bytes.indices step 4) {
@@ -69,57 +48,33 @@ index 69c5b2674..222106d81 100644
 +                        bytes[offset + 2] = (x * 5 + y * 17 + 95).toByte()
 +                        bytes[offset + 3] = -1
 +                    }
-                 }
+@@ -99 +130 @@ internal object FrameDuplicateProbe {
 -            })
 +            }
-             include(FrameDuplicatePixels.halo(estimate + seeded.keys))
-             for ((key, bytes) in seeded) engine.writeCelTile(layerId, sourceCel, key, bytes)
-             val seededSnapshot = read(sourceCel)
-@@ -124,9 +155,20 @@ internal object FrameDuplicateProbe {
-             check(engine.nativeLines.bases(sourcePlane).isNotEmpty()) { "Fixture did not exercise base copying" }
-             val sourceRecords = engine.nativeLines.lines(sourcePlane).toList()
-             val sourceBases = engine.nativeLines.bases(sourcePlane)
+@@ -126,0 +158 @@ internal object FrameDuplicateProbe {
 +            check(outsideKey in sourceBases) { "Fixture did not exercise wholly outside base copying" }
-             val sourceFootprint = engine.nativeLines.footprint(sourcePlane, input.id).toSet()
+@@ -127,0 +160,6 @@ internal object FrameDuplicateProbe {
 +            val sourceStep = checkNotNull(engine.undo.peekUndo())
 +            val sourceTileHandles = sourceStep.changes.filter { it.layerId == layerId && it.celId == sourceCel &&
 +                it.after != null }.associate { it.key to checkNotNull(it.after) }
 +            check(sourceTileHandles.keys == engine.celTileKeys(layerId, sourceCel).toSet()) {
 +                "Add history does not cover all live source tile handles; independence cannot be proved"
 +            }
-             fun sourceUnchanged(label: String) {
-                 compare(sourceCel, sourceSnapshot, "$label/source")
+@@ -129,0 +168,4 @@ internal object FrameDuplicateProbe {
 +                compare(sharedCel, emptyMap(), "$label/shared")
 +                check(!engine.nativeLines.hasItems(sharedPlane) && engine.nativeLines.bases(sharedPlane).isEmpty()) {
 +                    "$label changed shared plane items"
 +                }
-                 val records = engine.nativeLines.lines(sourcePlane)
-                 check(records.size == sourceRecords.size && records.zip(sourceRecords).all {
-                     (a, b) -> CapturedStrokeRules.sameRecord(a, b)
-@@ -146,14 +188,18 @@ internal object FrameDuplicateProbe {
-             val targetAddress = LineAddress(layerId, targetCel, input.id)
-             val depth = engine.undo.undoDepth
-             report.put("boardId", board.id).put("sourceCel", sourceCel).put("targetCel", targetCel)
+@@ -149 +191 @@ internal object FrameDuplicateProbe {
 -                .put("duplicateStartingDepth", depth).put("fixtureVersion", 1)
 +                .put("duplicateStartingDepth", depth).put("fixtureVersion", 2)
-             engine.applyBoardChange(change)
-             check(engine.boardDocument == change.doc && engine.undo.undoDepth == depth + 1)
-             fun targetRecord() {
+@@ -152,0 +195 @@ internal object FrameDuplicateProbe {
 +                check(engine.boardDocument == change.doc) { "Unexpected document/frame mutation" }
-                 check(engine.nativeLines.lines(targetPlane).size == 1 &&
-                     CapturedStrokeRules.sameRecord(engine.nativeLines.record(targetPlane, input.id), original)) {
-                     "Target IDs, seq, seed, brush or full raw recipe differ"
-                 }
+@@ -156,0 +200,3 @@ internal object FrameDuplicateProbe {
 +                check(engine.nativeLines.footprint(targetPlane, input.id) == sourceFootprint) {
 +                    "Target lost the source footprint"
 +                }
-             }
-             targetRecord()
-             val sourceHandles = engine.nativeLines.bases(sourcePlane).values.toSet()
-@@ -162,6 +208,13 @@ internal object FrameDuplicateProbe {
-                 "Source and target bases share handles"
-             }
-             check(engine.nativeLines.bases(targetPlane).size == engine.nativeLines.bases(sourcePlane).size)
+@@ -164,0 +211,7 @@ internal object FrameDuplicateProbe {
 +            val duplicateStep = checkNotNull(engine.undo.peekUndo())
 +            val copiedHandles = duplicateStep.changes.mapNotNull { it.after } +
 +                duplicateStep.slabs.mapNotNull { it.after?.texture }
@@ -127,29 +82,11 @@ index 69c5b2674..222106d81 100644
 +                copiedHandles.none { it in sourceTileHandles.values || it in sourceHandles }) {
 +                "Duplicate outputs alias each other or live source handles"
 +            }
-             report.put("independentBaseTextures", targetHandles.size)
-             compare(targetCel, expectedCopy, phase)
-             sourceUnchanged(phase)
-@@ -169,6 +222,7 @@ internal object FrameDuplicateProbe {
-             phase = "independent_target_delete"
-             engine.editLines(LineEdit.Delete(setOf(targetAddress)))
-             check(engine.undo.undoDepth == depth + 2 && !engine.nativeLines.hasItems(targetPlane))
+@@ -171,0 +225 @@ internal object FrameDuplicateProbe {
 +            check(engine.boardDocument == change.doc)
-             val deleted = read(targetCel)
-             deletedPixels = FrameDuplicatePixels.changed(expectedCopy, deleted)
-             check(deletedPixels > 0) { "Target delete changed no pixels" }
-@@ -187,6 +241,7 @@ internal object FrameDuplicateProbe {
-             targetRecord(); compare(targetCel, expectedCopy, phase); sourceUnchanged(phase)
-             phase = "redo_target_delete"
-             check(engine.redoStep() && engine.undo.undoDepth == depth + 2)
+@@ -189,0 +244 @@ internal object FrameDuplicateProbe {
 +            check(engine.boardDocument == change.doc)
-             check(!engine.nativeLines.hasItems(targetPlane))
-             compare(targetCel, expectedDeleted, phase); sourceUnchanged(phase)
-             checkGl("complete")
-@@ -194,6 +249,23 @@ internal object FrameDuplicateProbe {
-         } catch (failure: Throwable) {
-             report.put("passed", false).put("phase", phase)
-                 .put("failure", failure.javaClass.simpleName + ": " + (failure.message ?: "no message"))
+@@ -196,0 +252,17 @@ internal object FrameDuplicateProbe {
 +        } finally {
 +            readbackState?.let { state ->
 +                try {
@@ -167,6 +104,3 @@ index 69c5b2674..222106d81 100644
 +                        .put("cleanupFailure", cleanup.javaClass.simpleName + ": " + (cleanup.message ?: "no message"))
 +                }
 +            }
-         }
-         return report.put("tileUnion", keys.size).put("tileChecks", rows)
-             .put("lineChangedPixels", lineChangedPixels).put("deleteChangedPixels", deletedPixels)

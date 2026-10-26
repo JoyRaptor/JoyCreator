@@ -1,3 +1,17 @@
+## Exact APK checkpoint
+
+Frozen52e559d047c2a60da1783b80a3e48b52c837823d APK build CLOSED SUCCESS3m25s
+at1536MiB heap after prior768MiB D8 merge failure. Root independently hashed:
+APK F66A39230C982FD73B001F5A3E5A5DDA5AC320683B04459E6BD89E920264E6B1.
+Closed log6D44800E287F2BE4DA96F36D99EBE888AE536166D19376B6EC4D0F48E94A2E3C.
+Artifact C:/Temp/jb-select-acceptance-20261025/JoyBrush-select-52e559d04-arm64.apk;
+source/build receipt apk-build-52e559d04.json beside it. No root install or phone
+claim. Select owns fresh readiness/installation verification and subsequent
+self-claiming bench. Lobby is not launcher Home: require fresh Home gate before
+installation or launch, retain owner-data hashes and exact installed APK proof.
+Build success alone establishes no phone behavior. Standalone ordinary-WC probe
+d2af35da1 remains isolated, source-reviewed but uncompiled/unrun/not adopted.
+
 ## Full regression checkpoint
 
 Exact52e559d047c2a60da1783b80a3e48b52c837823d full standalone core+androidkit
@@ -203,6 +217,7 @@ Synthetic gestures do not establish physical S Pen feel or manual save acceptanc
 Existing persistent goal remains unfinished even though its historical tool status
 is usageLimited. No duplicate goal or completion. The old five-hour automation
 was found PAUSED and was kept PAUSED; do not reactivate without owner direction.
+
 
 
 

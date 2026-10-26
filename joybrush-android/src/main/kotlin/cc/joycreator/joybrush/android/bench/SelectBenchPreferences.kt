@@ -50,7 +50,8 @@ internal class SelectBenchPreferences(prefs: SharedPreferences, keys: Set<String
                 }
             }
         }
-        editor.apply()
+        // Debug-only cleanup must be durable before the host receives terminal evidence.
+        check(editor.commit()) { "Could not persist the owned benchmark preference restoration" }
         restored = true
     }
 

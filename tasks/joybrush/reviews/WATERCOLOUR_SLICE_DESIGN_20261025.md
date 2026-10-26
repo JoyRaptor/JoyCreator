@@ -64,3 +64,44 @@ refused rather than guessed. Ordinary float document coordinates remain within
 these arithmetic bounds; support for arbitrary finite Double magnitudes is not
 claimed. This candidate still does not persist domains or activate renderer,
 Slice, smudge, rebrush or reshape behavior.
+
+## Proposed persistence and activation boundary (review required)
+
+This is a design proposal, not an implemented record or archive format. A section
+needs a stable source identity, the complete original recipe and raw samples,
+canonical centreline geometry, an ownership-rule/replay version, its owned
+parameter interval, and one source-to-document placement. Sibling sections must
+reference the same immutable source. A section's editable id must remain distinct
+from that shared source identity. Repeated cuts partition an existing interval;
+they must not replay a shortened trajectory or create a new random seed.
+
+The ownership placement and StrokeWashFrame have different purposes. The former
+maps the canonical finished source and its partition; the latter locates the wash
+texture within that source's original recipe. Moving a section carries its source
+placement, while the original wash recipe stays fixed. Applying a transform twice
+to raw samples and placement would be incorrect. Until a filtered transformed
+source has an explicit sampling contract, initial exact acceptance should be
+limited to the unchanged source grid and integer translations. General projective
+placement is not established by the pure inverse-coordinate test.
+
+Initial sections should refuse reshape, rebrush and width changes: these alter
+the canonical optical source or ownership geometry. Recolour could become a
+source-preserving finish edit only after native full-tile comparison, including
+edge alpha, gravity pooling and multiply. Unsupported capturedPhysicalSource,
+media and already-masked inputs retain their current guards. Do not reinterpret
+the existing translation-only CaptureDomain as this new section type.
+
+Archive work must separately specify budgets, immutable shared-source snapshots,
+duplicate-id rejection, missing/unknown version refusal, and frozen old-version
+fixtures. No codec bump or new StrokeRecord field is authorized by this proposal.
+Retained section sequence and blend operation must preserve the original optical
+application once; sibling ordering at the same original sequence requires an
+explicit model decision rather than assigning artificial new chronological seqs.
+
+Smudge admission must gather all intersected optical owners, stage the retained
+domains and touched pixels together, and exclude retained line projection from
+pickup. The pixel slab must preserve the original chronological placement with
+respect to other content. A single commit publishes the staged change and records
+one Undo/redo; any budget, bake or publication failure leaves both source lines
+and pixels untouched. These transaction and ordering requirements remain open
+implementation work, not consequences of passing the scalar ownership oracle.

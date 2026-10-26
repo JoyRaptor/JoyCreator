@@ -98,3 +98,20 @@ unknown-key refusal remains; no silent parts/end flattening.
 UX chat resumes read-only C2 audit with Luna. Run1 screenshots are invalid for
 per-step visual acceptance; A10 source/tests exist but phone visuals remain owed.
 C3 renderer hook is still a real engine dependency, not implemented by a UI veil.
+
+## Latest bounded results and slot handoff
+
+- Atlas isolated395570fa2 compiled and passed8 actual residency tests,0 failures/
+  errors/skips, closed2m33s; root exec99730 exit0/lock released. Real GLES ledger,
+  commit allocator guarantee, durable atomic stores and production activation remain
+  unproved. Branch lead/atlas-room-repair-20261025 has detailed checkpoint note.
+- New ACK36b0e07f3 APK3EC0FEDBFCF3F5C06BCC075EAC00DF70A90C332A90B78770D823523C8C10E300
+  was built/installed. Root independently checked artifact/log hashes and12 unchanged
+  installation archive entries. UX viewed all11 new images: state registration now
+  matches, unlike old52 screenshots. Only tan-paper/basic Select visuals are covered.
+- New run still19PASS/1 failed setup: row is intentionally hidden during Nudge.
+  Bench-only actual bar Back-to-box correction plus real Controller regression
+  adoptedd7795c0ed asrootaa0a982a2; NOT YET EXECUTED. Finger stroke moved beyond
+  tool strip without changing distance/pan/no-draw/history criteria. Preserve redrun.
+- Select owns next focused app179 then fresh3200 canonical2048 APK and rerun ifgreen.
+  Root has no job/queue/phoneclaim. Tween and UX candidates remain isolated/source-only.

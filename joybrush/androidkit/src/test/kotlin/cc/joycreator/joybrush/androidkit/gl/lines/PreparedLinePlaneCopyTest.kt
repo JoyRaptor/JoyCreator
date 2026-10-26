@@ -113,6 +113,45 @@ class PreparedLinePlaneCopyTest {
     }
 
     @Test
+    fun borrowedSourceHandlesFreezeEveryBaseAndSlabSlotIncludingAliases() {
+        val lines = NativeLines { _: StrokeRecord, _: BrushPreset? -> emptySet() }
+        // A texture can be borrowed by more than one owned slot; every slot still needs a distinct copy.
+        lines.setBase(source, tile(0), 700)
+        lines.setBase(source, tile(1), 700)
+        lines.setSlab(source, 2L, tile(1), 700, "erase")
+        lines.setSlab(source, 2L, tile(2), 701, "erase")
+        lines.setSlab(source, 4L, tile(0), 702, "normal")
+        val prepared = PreparedLinePlaneCopy.capture(lines, source, destination)
+        val frozenHandles = listOf(700, 700, 700, 701, 702)
+
+        assertEquals(frozenHandles, prepared.borrowedSourceTextures)
+        assertEquals(prepared.textureCount, prepared.borrowedSourceTextures.size)
+        @Suppress("UNCHECKED_CAST")
+        val mutation = runCatching {
+            (prepared.borrowedSourceTextures as MutableList<Int>).add(999)
+        }
+        assertTrue(mutation.isFailure, "The borrowed-handle snapshot must refuse mutation through a JVM cast")
+        assertEquals(frozenHandles, prepared.borrowedSourceTextures)
+
+        lines.setBase(source, tile(0), 800)
+        lines.setBase(source, tile(1), 801)
+        lines.setSlab(source, 2L, tile(1), 802, "erase")
+        lines.setSlab(source, 2L, tile(2), 803, "erase")
+        lines.setSlab(source, 4L, tile(0), 804, "normal")
+        assertTrue(lines.textures().containsAll(setOf(800, 801, 802, 803, 804)))
+
+        // Observe the helper's ordinary source-copy requests only; no GPU copy or lease release occurs here.
+        val observedSourceHandles = mutableListOf<Int>()
+        prepared.materialize { handle ->
+            observedSourceHandles += handle
+            10_000 + observedSourceHandles.size
+        }
+        assertEquals(frozenHandles, observedSourceHandles)
+        assertTrue(observedSourceHandles.none { it in setOf(800, 801, 802, 803, 804) })
+        assertEquals(setOf(800, 801, 802, 803, 804), lines.textures())
+    }
+
+    @Test
     fun partialTextureCopyFailureLeavesCallerTrackedOutputsCleanAndSourceUntouched() {
         val lines = populated()
         val before = snapshot(lines, source)

@@ -33,6 +33,20 @@ internal class PreparedLinePlaneCopy private constructor(
     val textureCount: Int = bases.size + slabs.sumOf { it.tiles.size }
 
     /**
+     * Borrowed source handle for EACH new base/slab texture that materialize will copy, in the
+     * same order. Duplicates deliberately remain: each entry needs its own destination texture.
+     * The caller deduplicates the retained originals together with visible-raster source handles
+     * when reserving the shared transaction allowance. This immutable snapshot grants no lease;
+     * the engine must retain the original handles until copying completes.
+     */
+    val borrowedSourceTextures: List<Int> = Collections.unmodifiableList(
+        ArrayList<Int>(textureCount).apply {
+            addAll(bases.values)
+            for (slab in slabs) addAll(slab.tiles.values)
+        },
+    )
+
+    /**
      * Copies prepared textures and constructs additions for the SAME UndoLog.Step as the board
      * document/pixel changes. The caller owns every texture returned by [copyTexture], including
      * ones allocated before an exception, and must release them on failure before publication.

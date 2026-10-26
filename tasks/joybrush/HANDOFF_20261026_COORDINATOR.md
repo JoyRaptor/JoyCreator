@@ -198,3 +198,29 @@ invalid-ID dispatch and late Copy publication guards covered. Runtime source is
 integrated; APK/phone A10 proof and D23 real publication notices remain owed.
 Select owns next ONE canonical2048 APK attempt with fresh3200 admission; no phone
 install grant yet. Root ordinary-WC/frame/Atlas work remains source-only meanwhile.
+
+## Cross-wing feature map, docs publication and active proof work
+
+STATE.md now mandates major feature availability/proof/help/reuse updates; Studio
+CaptionAnimator/text/caption source discovery is explicit. Peer updates are required
+in STATE for noteworthy user-facing capabilities, roadmap for broad milestones,
+handoff for granular detail. Documentation-only upstream joy-creator advanced to
+6e26fd98a; production CODE baseline remainsf79efc378 (no engine activation by docs).
+Coordinatora9312fc6b includes current STATE; new docs commits may follow.
+
+Exactf7 APK5d99f3f5fb947129c9f85eb90bcc1f2e413013f28a01ffceb667a36082635132
+builtSUCCESS4m51; root matched artifact/log hashes. Select installed exacthash,
+savedroots unchanged. A10 run1 blocked host launch/ACK; run2 captured firstrealON
+sheet but later transport timeout; preserve red. Hostasync launch tests59 then
+bounded-logcat/per-call diagnostics60 passed offline, no deviceacceptance inferred.
+Select owns exact-run terminal/claim/prefs/archive resolution and bounded retries.
+No competing phone/GPU actions. Confirm slot handback before next heavyjob.
+
+Root isolated framecandidate717f6c326 in C:/Temp/jb-frame-live-integration-20261026
+is clean/pushed remoteequal, UNCOMPILED/UNRUN. Canonical duplicate validator wired,
+ordinary NativeLines independent copy prepared, budgets include retained originals
+and new copies, bases clipped/cleared to actual boarddomain with completeness/GL
+error checks. Tween source review found and root fixed unconditional whole-base
+copy bug. New helper5/core6/backend entry+budget cases await focusedproof; actual
+GPU/undo/rollback/save and captured/joint pathways remain open. No activation.
+Unibrush and clips peers resumed bounded read-only source/evidence recovery audits.

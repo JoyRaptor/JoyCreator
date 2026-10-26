@@ -1,9 +1,13 @@
 # Ordered optical contributions — proposal, no runtime activation
 
-Reviewed against watercolor e04944c32 and canonical fb8042841. The relevant
-RecordedCel, RecordedTilePlan, RecordedScene, NativeLines and CelComposer files
-are unchanged between those sources. Canonical GlPaintEngine removes the held
-selected-line cache hookup; this proposal does not assume that hookup is live.
+Reviewed against watercolor e04944c32 and cross-checked against preserved stale
+primary fb8042841. The latter is NOT current canonical main: fresh origin is
+f79efc378, already integrated into coordinator f6b8242f5 (module-equivalent to
+tested52e559d04). RecordedCel, RecordedTilePlan, RecordedScene, NativeLines and
+CelComposer match the compared references. GlPaintEngine differs through the
+reviewed watercolor/cache and Copy work; do not treat the stale primary's lack
+of hooks as a later upstream removal or restore/remove code from that comparison.
+This proposal does not establish runtime cache activation or diagnostic validity.
 
 ## Existing seams to reuse
 
@@ -107,3 +111,4 @@ demonstrates why overlapping children applying multiply separately differs from
 grouped application. It does not import production code, validate a Kotlin API,
 simulate smudge or prove GPU/save/Undo behavior. Native full-tile comparisons
 with intervening translucent/multiply/erase content remain mandatory.
+

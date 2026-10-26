@@ -371,3 +371,36 @@ Phases follow `JOYBRUSH_BLUEPRInT.md` §4. Each phase ends with an owner check (
 
 ### Brush specialist test slice — October 2
 JB-1.22 adaptive media contacts: Built in `codex/brush-contact`. Brush v7 live contact/depth, long tilted Pencil, Bristle and spatial-pickup Flat Paint; existing Sable retained. Core 1499/0, androidkit 225/0, WebGL contact and legacy/paper parity checks pass. This advances the tip/belly portion of JB-6.03; JB-6.01/6.02 fluid work remains open. See `BRUSH_SPECIALIST_HANDOFF_20261002.md` for the usable standalone test package and exact remaining OpenCode work. Device feel and owner sign-off remain required.
+
+## Select lines verification checkpoint — October 26, 2026
+
+✅ On the Note 9, Select's canonical twenty-case gesture bench passed 20/20 on
+exact source d11da3d4b and APK SHA-256
+58e7bbcf52002a0b255be01619b96cc2c586bb2384145647aa59ac0dac99f3b0.
+This covers picking/cycling/lasso, move/undo/rotate/pinch, delete/duplicate/flip,
+Copy/Paste, grouping/locking, tip dots/Nudge and finger pan with Brush in hand.
+All 11 run-bound ACK screenshots were manually reviewed. Twelve saved root files,
+including current.joybrush and its backup, retained identical hashes. Run ID
+66b2bea7a44c4eaca7e99b5fb53d2ac3; evidence retained at
+C:/Temp/jb-select-acceptance-20261026/bench-d11da3d4b-run1.
+The same frozen source passed 179 focused Android tests without failures/skips.
+This automated gesture run does not prove physical pen feel or all UI states.
+
+✅ The next styled A10 native Switch has separate desktop proof: 4/4 attached-window
+rendering/accessibility checks on 97c49ab34, production identical to 070a99885.
+That source's prior 179 regressions and three rendering checks passed; its original
+detached accessibility fixture failure is preserved and was corrected in tests.
+These counts are not a new installed APK or A10 phone acceptance.
+
+⚠️ A10 sheet ON/OFF, no-switch pixel brush and drawer on white/dark canvas coverage
+is prepared separately on 4b9ed850c-based 03ff28540 plus host 1a46eb4ff.
+Six typed reports / five ACK captures; host runner and validator passed 52 offline
+cases. Android wiring, compile/lifecycle proof and exact-source phone run remain
+pending. See SELECT_A10_PHONE_COVERAGE_20261026.md and
+SELECT_D23_PUBLICATION_CONTRACT_20261026.md under tasks/joybrush/reviews.
+
+⚠️ D23 first-use notices require engine-owned successful-publication facts. Actual
+atomic Smudge split/bake is not enabled; pointer release and whole-layer Freeze
+cannot stand in for it. A9's permitted dependency note remains the honest Slice
+status. Phase B needs Lead approval; it is not activated by this checkpoint.
+Temporary proof files/APKs are retained while acceptance remains unfinished.

@@ -109,3 +109,13 @@ See tasks/joybrush/HANDOFF_20261026_COORDINATOR.md for exact source/evidence lim
 - [ ] Run focused backend compile/tests after current Select device slot resolves.
 - [ ] Review/adopt prepared direct-cel copy and clock/export contracts separately.
 No live frame-copy/tween activation or GPU/context-loss proof from this prerequisite.
+
+## Select A10 completion — October 26
+- [x] Preserve and manually review d11 Note 9 global20 green proof; saved files unchanged.
+- [x] Port A10 draft onto reviewed styled base in an isolated checkout.
+- [x] Add separate typed A10 host manifest/case checks; 52 offline tests pass.
+- [x] Propose engine publication facts and D23 negative/Undo test matrix to Lead.
+- [ ] Lead integration and actual Android lifecycle/compile checks.
+- [ ] Exact successful APK / Note 9 A10 and regression evidence / saved-key receipts.
+- [ ] D23 truthful engine success integration or explicit engine dependency status.
+- [ ] Final status/roadmap update and disposable owned temporary cleanup after adoption.

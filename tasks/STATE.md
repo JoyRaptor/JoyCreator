@@ -501,3 +501,36 @@ Details: tasks/joybrush/INTEGRATION_20260930.md.
 > **Saved region model, 2026-10-02:** origin/joy-creator 82a16eba adds v6 board cursors and per-layer shared/region cels. Core 1470/0 and Android file tests 225/0 before latest clean paper merge. Blank/copy/link operations return bounded pixel instructions; GPU/undo/preview/export adapters and phone proof remain owed. Existing test art is disposable; no conversion work.
 
 > **Region CPU rendering, 2026-10-02:** origin/joy-creator 0f4e57cd connects export rendering to board-local frame/shared tile slices, including holds, masks and clip bases. Combined core1481/0, Android file/export225/0; no device proof. GPU paint/undo adapter remains next. Shared AGENT_BOARD.md now published on origin.
+
+## Select lines verification checkpoint — October 26, 2026
+
+✅ On the Note 9, Select's canonical twenty-case gesture bench passed 20/20 on
+exact source d11da3d4b and APK SHA-256
+58e7bbcf52002a0b255be01619b96cc2c586bb2384145647aa59ac0dac99f3b0.
+This covers picking/cycling/lasso, move/undo/rotate/pinch, delete/duplicate/flip,
+Copy/Paste, grouping/locking, tip dots/Nudge and finger pan with Brush in hand.
+All 11 run-bound ACK screenshots were manually reviewed. Twelve saved root files,
+including current.joybrush and its backup, retained identical hashes. Run ID
+66b2bea7a44c4eaca7e99b5fb53d2ac3; evidence retained at
+C:/Temp/jb-select-acceptance-20261026/bench-d11da3d4b-run1.
+The same frozen source passed 179 focused Android tests without failures/skips.
+This automated gesture run does not prove physical pen feel or all UI states.
+
+✅ The next styled A10 native Switch has separate desktop proof: 4/4 attached-window
+rendering/accessibility checks on 97c49ab34, production identical to 070a99885.
+That source's prior 179 regressions and three rendering checks passed; its original
+detached accessibility fixture failure is preserved and was corrected in tests.
+These counts are not a new installed APK or A10 phone acceptance.
+
+⚠️ A10 sheet ON/OFF, no-switch pixel brush and drawer on white/dark canvas coverage
+is prepared separately on 4b9ed850c-based 03ff28540 plus host 1a46eb4ff.
+Six typed reports / five ACK captures; host runner and validator passed 52 offline
+cases. Android wiring, compile/lifecycle proof and exact-source phone run remain
+pending. See SELECT_A10_PHONE_COVERAGE_20261026.md and
+SELECT_D23_PUBLICATION_CONTRACT_20261026.md under tasks/joybrush/reviews.
+
+⚠️ D23 first-use notices require engine-owned successful-publication facts. Actual
+atomic Smudge split/bake is not enabled; pointer release and whole-layer Freeze
+cannot stand in for it. A9's permitted dependency note remains the honest Slice
+status. Phase B needs Lead approval; it is not activated by this checkpoint.
+Temporary proof files/APKs are retained while acceptance remains unfinished.

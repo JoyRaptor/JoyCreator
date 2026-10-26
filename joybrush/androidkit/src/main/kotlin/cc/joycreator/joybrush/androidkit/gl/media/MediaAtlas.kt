@@ -406,8 +406,9 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
     private val backing = object : MediaAtlasBacking {
         override fun load(slot: Int, page: MediaAtlasPage) = mediaTrace("JB.media.atlas.load") { loadSlot(slot, page.tileKey) }
         override fun writeBack(slot: Int, page: MediaAtlasPage) = mediaTrace("JB.media.atlas.writeBack") {
-            if (borrowedBlockTiles.remove(page.tileKey)) dropFromTable(page.tileKey)
-            else { writeBackSlot(slot, page.tileKey); dropFromTable(page.tileKey) }
+            writeBackSlot(slot, page.tileKey)
+            borrowedBlockTiles.remove(page.tileKey)
+            dropFromTable(page.tileKey)
         }
         override fun evicted(slot: Int, page: MediaAtlasPage) = parkIfLive(slot, page.tileKey)
     }
@@ -557,9 +558,10 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
     }
 
     private fun dropBorrowedBlockTile(key: Long) {
+        val resident = slots.resident(page(key))
+        if (resident != null) check(resident.pins == 0) { "a borrowed block tile is still pinned" }
         borrowedBlockTiles.remove(key)
-        val resident = slots.resident(page(key)) ?: return
-        check(resident.pins == 0) { "a borrowed block tile is still pinned" }
+        if (resident == null) return
         // Dirty-region accounting can include a ring tile, but its borrowed planes are incomplete and must never be saved.
         if (resident.dirty) slots.clean(resident.page)
         // remove() has no backing write; the park remains the canonical water owner.
@@ -569,13 +571,13 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
 
     /** Parked state that no longer matches the stores (an undo, a look written from outside, the layer let go): forgotten. */
     private fun unpark(keys: Collection<Long>? = null) {
-        val p = park ?: return
-        val drop = keys?.filter { it in parked || it in parkedNext } ?: (parked.keys + parkedNext.keys).toList()
+        val p = park
+        val drop = keys?.toList() ?: (parked.keys + parkedNext.keys + borrowedBlockTiles).toSet().toList()
         for (k in drop) {
-            parked.remove(k)?.let(p::give); parkedNext.remove(k)?.let(p::give)
+            if (p != null) { parked.remove(k)?.let(p::give); parkedNext.remove(k)?.let(p::give) }
             if (k in borrowedBlockTiles) dropBorrowedBlockTile(k)
         }
-        if (parked.isEmpty() && parkedNext.isEmpty()) { p.release(); park = null }
+        if (p != null && parked.isEmpty() && parkedNext.isEmpty()) { p.release(); park = null }
     }
 
     /** Tiles that went into the park since this atlas was made (bench). */
@@ -583,6 +585,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
 
     /** An evicted or released tile's pending stores (and its first ground) into the layer: copy-on-write, as [flush] does. */
     private fun writeBackSlot(slot: Int, key: Long) {
+        if (key in borrowedBlockTiles) return
         val id = layerId ?: return
         val stores = pendingStores.filter { it !in MediaStores.WATER || media.wetActive }
         if (stores.isEmpty()) return
@@ -823,7 +826,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         val stores = pendingStores.toMutableList()
         pendingStores.clear()
         if (rect == null || stores.isEmpty()) return
-        val keys = keysIn(rect).filter { slots.resident(page(it)) != null }
+        val keys = keysIn(rect).filter { slots.resident(page(it)) != null && it !in borrowedBlockTiles }
         if (keys.isEmpty()) return
         val water = stores.filter { it in MediaStores.WATER }
         val dried = water.isNotEmpty() && !media.wetActive
@@ -857,7 +860,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
     private fun reserveStores() {
         val id = layerId ?: return
         val rect = pendingRect ?: return
-        val keys = keysIn(rect).filter { slots.resident(page(it)) != null }
+        val keys = keysIn(rect).filter { slots.resident(page(it)) != null && it !in borrowedBlockTiles }
         val stores = pendingStores.filter { it !in MediaStores.WATER || media.wetActive }
         if (keys.isEmpty() || stores.isEmpty()) return
         val (waterStores, restStores) = stores.partition { it in MediaStores.WATER }

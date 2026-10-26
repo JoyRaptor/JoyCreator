@@ -4,6 +4,9 @@ import cc.joycreator.joybrush.core.doc.AnimOps
 import cc.joycreator.joybrush.core.doc.Board
 import cc.joycreator.joybrush.core.doc.DocException
 import cc.joycreator.joybrush.core.doc.RectPx
+import cc.joycreator.joybrush.core.anim.PlayMode
+import cc.joycreator.joybrush.core.anim.PlaybackClock
+import cc.joycreator.joybrush.core.anim.TweenFrameSample
 import kotlin.math.floor
 
 // `Clip`, `PackedSheet` and `SpritePacker` are in THIS package, so they need no import — adding one
@@ -36,6 +39,8 @@ data class AnimExportPlan(
      */
     val rect: RectPx,
     val end: String = cc.joycreator.joybrush.core.doc.BoardEnd.LOOP,
+    /** One shared playback sample per exported exposure when this plan expands tween ticks. */
+    val tweenSamples: List<TweenFrameSample>? = null,
 ) {
     val totalMs: Int get() = delayMs.sum()
     val frameCount: Int get() = frameIds.size
@@ -223,7 +228,7 @@ object AnimExport {
             delays.add(roundHalfUpMs(end - starts[i]))
         }
 
-        return AnimExportPlan(
+        val basePlan = AnimExportPlan(
             frameIds = board.frames.subList(lo, hi + 1).map { it.id },
             delayMs = delays,
             width = board.rect.w,
@@ -233,6 +238,33 @@ object AnimExport {
             rect = board.rect,
             end = cc.joycreator.joybrush.core.doc.BoardEnd.of(board.end),
         )
+        // Keep the established one-cell-per-source-frame path byte-for-byte for ordinary clips.
+        // Tween plans instead use the playback clock's integer exposure samples, including range,
+        // loop and ping-pong policy, and cumulative tick-boundary rounding for every delay.
+        if (board.frames.subList(lo, hi + 1).none { it.tween && it.holdFrames > 1 }) return basePlan
+        val clock = PlaybackClock(board, PlayMode.of(board.end), lo, hi)
+        val ticks = board.frames.subList(lo, hi + 1).sumOf { it.holdFrames.toLong() } +
+            if (PlayMode.of(board.end) == PlayMode.PING_PONG && hi - lo + 1 > 2) {
+                board.frames.subList(lo + 1, hi).sumOf { it.holdFrames.toLong() }
+            } else 0L
+        if (ticks > MAX_TWEEN_EXPOSURES) {
+            throw DocException("This animation needs more than $MAX_TWEEN_EXPOSURES tween exposures; shorten its holds or export a smaller range")
+        }
+        val samples = ArrayList<TweenFrameSample>(ticks.toInt())
+        val expandedIds = ArrayList<String>(ticks.toInt())
+        val expandedDelays = ArrayList<Int>(ticks.toInt())
+        var previousBoundary = 0L
+        for (tick in 0 until ticks) {
+            val timeMs = tick.toDouble() * 1000.0 / board.fps
+            val sample = clock.exposureAt(timeMs).sample
+                ?: throw DocException("board \"${board.id}\" became blank before its animation export finished")
+            samples += sample
+            expandedIds += sample.frameId
+            val boundary = floor((tick + 1).toDouble() * 1000.0 / board.fps + 0.5).toLong()
+            expandedDelays += (boundary - previousBoundary).toInt().coerceAtLeast(1)
+            previousBoundary = boundary
+        }
+        return basePlan.copy(frameIds = expandedIds, delayMs = expandedDelays, tweenSamples = samples)
     }
 
     /**
@@ -295,4 +327,7 @@ object AnimExport {
 
     /** The named fallback, so a test can assert it and a person can recognise it. */
     private const val FALLBACK_NAME = "Animation"
+
+    /** Matches scene-export's existing 100,000 exposure ceiling. */
+    const val MAX_TWEEN_EXPOSURES = 100_000
 }

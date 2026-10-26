@@ -2,6 +2,7 @@ package cc.joycreator.joybrush.androidkit.io
 
 import cc.joycreator.joybrush.core.doc.DocException
 import cc.joycreator.joybrush.core.doc.DocOps
+import cc.joycreator.joybrush.core.doc.Board
 import cc.joycreator.joybrush.core.doc.RectPx
 import cc.joycreator.joybrush.core.export.AnimExport
 import cc.joycreator.joybrush.core.export.AnimExportPlan
@@ -11,6 +12,7 @@ import cc.joycreator.joybrush.core.render.MAX_REGION_PX
 import cc.joycreator.joybrush.core.render.RegionException
 import cc.joycreator.joybrush.core.render.RegionRenderer
 import cc.joycreator.joybrush.core.render.TileSource
+import cc.joycreator.joybrush.core.anim.TweenFrameSample
 
 // `JbContents`, `JbArchiveException` and `PngWriter` are all in THIS package, so they need no import.
 
@@ -68,6 +70,9 @@ fun interface AnimFileSink {
     fun write(name: String, mime: String, bytes: ByteArray)
 }
 
+/** Renders one tween-aware exposure without changing the captured project or its saved cursor. */
+typealias TweenExposureRenderer = (contents: JbContents, sample: TweenFrameSample, rect: RectPx, includePaper: Boolean) -> ByteArray
+
 /**
  * The three encoders, and nothing else. Which frames, in what order, held for how long and at what
  * size is `AnimExportPlan`, which is a pure function of the board; this object renders those frames
@@ -112,6 +117,7 @@ object AnimExportRunner {
      * @throws IllegalArgumentException for [AnimFormat.PNG_SEQUENCE], which is written by
      *   [writeSequence] and nowhere else — a sheet or a GIF is one file and a sequence is many.
      */
+    /** Compatibility entry point. Keep [onFrame] as the last parameter for trailing lambdas. */
     fun encodeOne(
         format: AnimFormat,
         contents: JbContents,
@@ -122,12 +128,31 @@ object AnimExportRunner {
         paperRenderer: ((RectPx) -> ByteArray)? = null,
         onWarning: (String) -> Unit = {},
         onFrame: (done: Int, total: Int) -> Unit = { _, _ -> },
+    ): List<AnimFile> = encodeOne(
+        format, contents, boardId, plan, includePaper, cols, paperRenderer, onWarning, onFrame, null,
+    )
+
+    fun encodeOne(
+        format: AnimFormat,
+        contents: JbContents,
+        boardId: String,
+        plan: AnimExportPlan,
+        includePaper: Boolean,
+        cols: Int = AnimExport.sheetCols(plan.frameCount),
+        paperRenderer: ((RectPx) -> ByteArray)? = null,
+        onWarning: (String) -> Unit = {},
+        onFrame: (done: Int, total: Int) -> Unit = { _, _ -> },
+        tweenRenderer: TweenExposureRenderer?,
     ): List<AnimFile> {
         val doc = contents.doc
-        RegionRenderer.unsupportedContentReason(doc)?.let { throw JbArchiveException(it) }
         val board = doc.boards.firstOrNull { it.id == boardId }
             ?: throw DocException("this document has no board called \"$boardId\"")
         checkPlanFitsBoard(boardId, board.frames.map { it.id }, plan.frameIds)
+        checkTweenSamples(board, plan, tweenRenderer)
+        if (plan.tweenSamples == null || tweenRenderer == null) {
+            RegionRenderer.unsupportedContentReason(doc)?.let { throw JbArchiveException(it) }
+        }
+        if (format == AnimFormat.GIF && plan.tweenSamples != null) gifTweenDelayCentiseconds(boardId, plan)
         checkRegionFits(boardId, plan.width, plan.height)
         checkExportFits(boardId, format, plan, cols)
         val paper = if (includePaper && !doc.paper.screenTransparent) checkedPaper(doc.paper.color) else null
@@ -152,7 +177,10 @@ object AnimExportRunner {
             // once for the whole region, which costs a re-rasterisation per frame and buys back the
             // region-sized paper array that used to sit beside every frame in `cells` — for a GIF
             // that list holds the whole animation, so the saving is the larger of the two.
-            val pixels = RegionRenderer.render(
+            val pixels = plan.tweenSamples?.get(i)?.let { sample ->
+                tweenRenderer!!.invoke(contents, sample, plan.rect, includePaper)
+                    .also { checkTweenPixels(boardId, plan, it) }
+            } ?: RegionRenderer.render(
                 doc, tileSource(contents), plan.rect, frameId,
                 if (renderer == null) paper else null, renderer,
             )
@@ -191,6 +219,7 @@ object AnimExportRunner {
      * @throws JbArchiveException naming how far it got when [sink] refuses a file, so the export
      *   button can show `"Exported 19 of 40 frames — frame 20 could not be written."`
      */
+    /** Compatibility entry point. Keep [onFrame] as the last parameter for trailing lambdas. */
     fun writeSequence(
         contents: JbContents,
         boardId: String,
@@ -200,12 +229,29 @@ object AnimExportRunner {
         paperRenderer: ((RectPx) -> ByteArray)? = null,
         onWarning: (String) -> Unit = {},
         onFrame: (done: Int, total: Int) -> Unit = { _, _ -> },
+    ): List<String> = writeSequence(
+        contents, boardId, plan, includePaper, sink, paperRenderer, onWarning, onFrame, null,
+    )
+
+    fun writeSequence(
+        contents: JbContents,
+        boardId: String,
+        plan: AnimExportPlan,
+        includePaper: Boolean,
+        sink: AnimFileSink,
+        paperRenderer: ((RectPx) -> ByteArray)? = null,
+        onWarning: (String) -> Unit = {},
+        onFrame: (done: Int, total: Int) -> Unit = { _, _ -> },
+        tweenRenderer: TweenExposureRenderer?,
     ): List<String> {
         val doc = contents.doc
-        RegionRenderer.unsupportedContentReason(doc)?.let { throw JbArchiveException(it) }
         val board = doc.boards.firstOrNull { it.id == boardId }
             ?: throw DocException("this document has no board called \"$boardId\"")
         checkPlanFitsBoard(boardId, board.frames.map { it.id }, plan.frameIds)
+        checkTweenSamples(board, plan, tweenRenderer)
+        if (plan.tweenSamples == null || tweenRenderer == null) {
+            RegionRenderer.unsupportedContentReason(doc)?.let { throw JbArchiveException(it) }
+        }
         checkRegionFits(boardId, plan.width, plan.height)
         // There is no `format` and no `cols` in scope here, so both are spelled out. `sheetCols` is
         // this file's own default for `encodeOne`'s `cols` and `decodedPixels` returns at the
@@ -221,13 +267,17 @@ object AnimExportRunner {
         val total = plan.frameCount
         for ((i, frameId) in plan.frameIds.withIndex()) {
             val name = sequenceName(i + 1)
+            val pixels = plan.tweenSamples?.get(i)?.let { sample ->
+                tweenRenderer!!.invoke(contents, sample, plan.rect, includePaper)
+                    .also { checkTweenPixels(boardId, plan, it) }
+            } ?: RegionRenderer.render(
+                doc, tiles, plan.rect, frameId,
+                if (renderer == null) paper else null, renderer,
+            )
             val bytes = PngWriter.encode(
                 plan.width,
                 plan.height,
-                RegionRenderer.render(
-                    doc, tiles, plan.rect, frameId,
-                    if (renderer == null) paper else null, renderer,
-                ),
+                pixels,
             )
             try {
                 sink.write(name, AnimFormat.PNG_SEQUENCE.mime, bytes)
@@ -275,8 +325,10 @@ object AnimExportRunner {
      */
     private fun gif(plan: AnimExportPlan, cells: List<ByteArray>): AnimFile {
         val encoder = GifEncoder(plan.width, plan.height, loop = plan.end in listOf("loop", "pingpong"))
-        val order=cells.indices.toList() + if(plan.end == "pingpong" && cells.size > 2) (cells.lastIndex-1 downTo 1).toList() else emptyList()
-        for (i in order) encoder.addFrame(cells[i], plan.delayMs[i])
+        val tweenDelays = if (plan.tweenSamples == null) null else gifTweenDelayCentiseconds(plan.baseName, plan)
+        val order=if (plan.tweenSamples != null) cells.indices.toList() else
+            cells.indices.toList() + if(plan.end == "pingpong" && cells.size > 2) (cells.lastIndex-1 downTo 1).toList() else emptyList()
+        for (i in order) encoder.addFrame(cells[i], tweenDelays?.get(i)?.times(10) ?: plan.delayMs[i])
         return AnimFile(
             name = "${plan.baseName}.${AnimFormat.GIF.extension}",
             mime = AnimFormat.GIF.mime,
@@ -314,7 +366,11 @@ object AnimExportRunner {
             // repeat of that cell's index. `Clip` HAS a `weights` field now (JB-4.03c) and this row
             // does not write one — that is Question 1 of the JB-3.06c spec, not a fact about the
             // field. A repeat is a repeat, not a mistake, and it is what the app's own KDoc means.
-            clips = listOf(AnimExport.sheetClip(plan, plan.baseName, when(plan.end) { "hold", "blank" -> "once"; "pingpong" -> "pingpong"; else -> "loop" })),
+            clips = listOf(AnimExport.sheetClip(plan, plan.baseName, when {
+                plan.end == "hold" || plan.end == "blank" -> "once"
+                plan.end == "pingpong" && plan.tweenSamples == null -> "pingpong"
+                else -> "loop"
+            })),
             cellNames = AnimExport.sheetCellNames(plan),
         )
         val png = PngWriter.encode(packed.width, packed.height, packed.rgba)
@@ -366,6 +422,81 @@ object AnimExportRunner {
                         "for it cannot be made. The board was probably edited after it was planned.",
                 )
             }
+        }
+    }
+
+    private fun checkTweenSamples(board: Board, plan: AnimExportPlan, renderer: TweenExposureRenderer?) {
+        val boardId = board.id
+        if (plan.delayMs.size != plan.frameIds.size || plan.delayMs.any { it < 1 }) {
+            throw DocException("board \"$boardId\" has an incomplete animation export timing plan")
+        }
+        val samples = plan.tweenSamples ?: run {
+            if (board.frames.any { it.id in plan.frameIds && it.tween && it.holdFrames > 1 }) {
+                throw DocException("board \"$boardId\" needs a new tween export plan")
+            }
+            return
+        }
+        if (samples.size != plan.frameIds.size) {
+            throw DocException("board \"$boardId\" has an incomplete tween export plan")
+        }
+        for (index in samples.indices) {
+            val sample = samples[index]
+            val source = board.frames.getOrNull(sample.frameIndex)
+            if (sample.frameId != plan.frameIds[index] || source == null || source.id != sample.frameId ||
+                sample.tickOffset < 0L || sample.tickOffset >= source.holdFrames.toLong()) {
+                throw DocException("board \"$boardId\" has a tween sample that does not match export frame ${index + 1}")
+            }
+            val first = sample.rangeFirstFrameIndex
+            val last = sample.rangeLastFrameIndex ?: board.frames.lastIndex
+            if (first !in board.frames.indices || last !in first..board.frames.lastIndex || sample.frameIndex !in first..last) {
+                throw DocException("board \"$boardId\" has a tween sample outside its playback range")
+            }
+            val expectedTarget = if (source.tween && source.holdFrames > 1) when {
+                sample.frameIndex < last -> sample.frameIndex + 1
+                sample.loops -> first
+                else -> null
+            } else null
+            if (sample.nextFrameIndex != expectedTarget || sample.nextFrameId != expectedTarget?.let(board.frames::get)?.id ||
+                sample.fraction != if (expectedTarget == null) 0.0 else sample.tickOffset.toDouble() / source.holdFrames) {
+                throw DocException("board \"$boardId\" has a stale tween target in export frame ${index + 1}")
+            }
+        }
+        if (renderer == null) {
+            throw DocException("board \"$boardId\" uses tween exposures; its export needs the live tween renderer")
+        }
+    }
+
+    /** Cumulative millisecond boundaries are rounded once into GIF centiseconds. */
+    private fun gifTweenDelayCentiseconds(boardId: String, plan: AnimExportPlan): List<Int> {
+        if (plan.delayMs.size != plan.frameIds.size || plan.delayMs.isEmpty()) {
+            throw DocException("board \"$boardId\" has an incomplete tween GIF timing plan")
+        }
+        val delays = ArrayList<Int>(plan.delayMs.size)
+        var elapsedMs = 0L
+        var previousCs = 0L
+        for ((index, delay) in plan.delayMs.withIndex()) {
+            elapsedMs += delay.toLong()
+            val boundaryCs = floor(elapsedMs / 10.0 + 0.5).toLong()
+            val delayCs = boundaryCs - previousCs
+            if (delayCs < 2L) {
+                throw DocException(
+                    "board \"$boardId\" has tween exposures shorter than GIF's 20 ms minimum; " +
+                        "export PNG frames to preserve their timing",
+                )
+            }
+            if (delayCs > 65_535L) {
+                throw DocException("board \"$boardId\" has a tween exposure too long for GIF; export PNG frames")
+            }
+            delays += delayCs.toInt()
+            previousCs = boundaryCs
+        }
+        return delays
+    }
+
+    private fun checkTweenPixels(boardId: String, plan: AnimExportPlan, pixels: ByteArray) {
+        val expected = plan.width.toLong() * plan.height.toLong() * 4L
+        if (expected > Int.MAX_VALUE || pixels.size.toLong() != expected) {
+            throw JbArchiveException("the tween renderer returned the wrong pixel size for board \"$boardId\"")
         }
     }
 

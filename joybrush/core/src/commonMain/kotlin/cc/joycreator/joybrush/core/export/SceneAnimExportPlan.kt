@@ -8,7 +8,9 @@ import kotlin.math.roundToLong
 
 /** Scene sampling follows the same clocks as Play all; it never retimes the source drawings. */
 data class SceneAnimExportPlan(val rect: RectPx, val fps: Float, val previews: List<Map<String,String>>,
-    val capped: Boolean, val fullLoop: Boolean, val loops: Boolean = fullLoop) {
+    val capped: Boolean, val fullLoop: Boolean, val loops: Boolean = fullLoop,
+    /** Per-output-exposure board samples when at least one clip contains active tween timing. */
+    val tweenSamples: List<Map<String, TweenFrameSample>>? = null) {
     fun delayMsAt(i: Int): Int = (((i+1)*1000.0/fps).roundToInt()-(i*1000.0/fps).roundToInt()).coerceAtLeast(1)
     companion object {
         const val MAX_FRAMES = 600
@@ -46,8 +48,20 @@ data class SceneAnimExportPlan(val rect: RectPx, val fps: Float, val previews: L
             val count=if(fullLoop) length.coerceAtMost(MAX_FRAMES.toLong()).toInt() else length.toInt()
             val rect=clips.map { it.rect }.reduce(AnimationBoardOps::union)
             val scheduler=ClipPlaybackScheduler(clips)
-            val frames=List(count) { scheduler.framesAt(it*1000.0/fps) }
-            return SceneAnimExportPlan(rect,fps,frames,capped,fullLoop,fullLoop && looping.isNotEmpty())
+            val times=List(count) { it*1000.0/fps }
+            val exposureRows = if (clips.any { board -> board.frames.any { it.tween && it.holdFrames > 1 } }) {
+                val clocks = clips.associate { board -> board.id to PlaybackClock(board, PlayMode.of(board.end)) }
+                times.map { time -> clocks.mapValues { (_, clock) -> clock.exposureAt(time) } }
+            } else null
+            // Do not mix legacy frame-boundary lookup with integer tween exposure lookup: at an
+            // exact ping-pong seam their boundary conventions differ. One sample owns both views.
+            val frames = exposureRows?.map { row -> row.mapValues { (_, exposure) ->
+                exposure.sample?.frameId ?: RegionDocumentOps.BLANK_PREVIEW
+            } } ?: times.map(scheduler::framesAt)
+            val samples = exposureRows?.map { row -> row.mapNotNull { (boardId, exposure) ->
+                exposure.sample?.let { boardId to it }
+            }.toMap() }
+            return SceneAnimExportPlan(rect,fps,frames,capped,fullLoop,fullLoop && looping.isNotEmpty(),samples)
         }
     }
 }

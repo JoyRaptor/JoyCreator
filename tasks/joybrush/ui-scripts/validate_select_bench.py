@@ -218,7 +218,7 @@ def validate_png(path: Path) -> None:
         raise EvidenceError(f"{path.name}: cannot read ({e})")
 
 
-def validate_results(path: Path, steps: list[str], run_id: str) -> None:
+def validate_results(path: Path, steps: list[str], run_id: str, case: str | None = None) -> None:
     try:
         size = path.stat().st_size
         if size > MAX_RESULTS:
@@ -238,6 +238,8 @@ def validate_results(path: Path, steps: list[str], run_id: str) -> None:
                     raise EvidenceError(f"results.jsonl:{line_no}: invalid JSON/UTF-8 ({e})")
                 if not isinstance(record, dict):
                     raise EvidenceError(f"results.jsonl:{line_no}: report must be an object")
+                if case is not None and record.get("benchCase") != case:
+                    raise EvidenceError(f"results.jsonl:{line_no}: benchCase mismatch")
                 name = record.get("selectBench")
                 if not isinstance(name, str):
                     raise EvidenceError(f"results.jsonl:{line_no}: missing selectBench name")
@@ -282,7 +284,14 @@ def validate(out_dir: Path, manifest_path: Path, run_id: str) -> None:
     if not run_id or run_id.strip() != run_id:
         raise EvidenceError("run-id must be nonempty and trimmed")
     steps, screenshots = load_manifest(manifest_path)
-    validate_results(out_dir / "results.jsonl", steps, run_id)
+    case = read_json(manifest_path, MAX_MANIFEST).get("benchCase")
+    if case is not None:
+        if case != "selectA10":
+            raise EvidenceError("manifest: unsupported benchCase")
+        build = require_object(read_json(out_dir / "build.json", MAX_BUILD), "build.json")
+        if build.get("benchCase") != case:
+            raise EvidenceError("build.json: benchCase mismatch")
+    validate_results(out_dir / "results.jsonl", steps, run_id, case)
     validate_build(out_dir / "build.json", run_id)
     validate_temps(out_dir / "temps.txt")
     for name in screenshots:

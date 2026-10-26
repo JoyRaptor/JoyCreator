@@ -322,8 +322,8 @@ class SelectBench(private val canvas: JbCanvasView, private val runId: String, p
                 val before = all()
                 val (x0, _) = canvas.view.docToScreen(0f, 0f)
                 undoDepth { d0 ->
-                    // Clear paper, away from the lines and the bar at the bottom.
-                    g.stroke(listOf(SelectGestures.P(0.08f * w, 0.50f * h), SelectGestures.P(0.35f * w, 0.50f * h)), 300, pen = false, settleMs = 600) {
+                    // Plain canvas beyond the left tool strip; preserve the original .27w pan distance.
+                    g.stroke(listOf(SelectGestures.P(0.18f * w, 0.50f * h), SelectGestures.P(0.45f * w, 0.50f * h)), 300, pen = false, settleMs = 600) {
                         val (x1, _) = canvas.view.docToScreen(0f, 0f)
                         undoDepth { d1 ->
                             val drew = d1 != d0 || all() != before
@@ -350,10 +350,10 @@ class SelectBench(private val canvas: JbCanvasView, private val runId: String, p
                 }
             }
             if (tool?.nudging == true) {
-                val row = g.find<SelectRowView>().singleOrNull()
-                val nudge = row?.let { g.labelled("Push or pull", it) }
-                if (nudge == null) { fail("no uniquely scoped Nudge control"); return@step }
-                g.tapView(nudge) {
+                val bar = g.find<SelectBarView>().singleOrNull()
+                val backToBox = bar?.let { g.labelled("Back to moving and resizing the selection", it) }
+                if (backToBox == null) { fail("no uniquely scoped Nudge return-to-box control"); return@step }
+                g.tapView(backToBox) {
                     if (tool?.nudging != false) fail("Nudge remained active") else clearSelection()
                 }
             } else clearSelection()

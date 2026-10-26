@@ -3,8 +3,8 @@
 ## Current source and ownership
 
 Root checkout C:/Temp/jb-select-reconcile-20261024, branch
-lead/select-reconcile-20261024, code f84504944 (docs e0c23caf4 before this update).
-Current production module source matches tested builder36b0e07f3d70800843a842619c7db7a9b62582cb.
+lead/select-reconcile-20261024, code aa0a982a2 (docs7dd2fe264 before this update).
+Current production module source matches tested builder d11da3d4b; see the green device checkpoint below.
 Fresh origin was f79efc378 on October25; fetch before integration. Preserved stale
 primary local joy-creator fb8042841 is NOT current origin. Never reset/copy it over
 this isolated integration. Preserve all original/helper worktrees and dirty files.
@@ -115,3 +115,37 @@ C3 renderer hook is still a real engine dependency, not implemented by a UI veil
   tool strip without changing distance/pan/no-draw/history criteria. Preserve redrun.
 - Select owns next focused app179 then fresh3200 canonical2048 APK and rerun ifgreen.
   Root has no job/queue/phoneclaim. Tween and UX candidates remain isolated/source-only.
+
+## Green bounded Select device checkpoint; next candidate still under validation
+
+Frozen d11da3d4b APK58E7BBCF52002A0B255BE01619B96CC2C586BB2384145647AA59AC0DAC99F3B0
+passed179 Android cases then CLOSED canonical ACK bench20PASS/0FAIL/exit0 on Note9.
+Run66b2bea7a44c4eaca7e99b5fb53d2ac3 at
+C:/Temp/jb-select-acceptance-20261026/bench-d11da3d4b-run1.
+Root independently ran offline completeness validator, counted20 reports/11 unique
+ACK captures with matching hashes. Select verified installedSHA before/after and12
+saved roots unchanged including current/.bak; phone claim released. UX and Luna
+independently reviewed all11 exact final PNGs: correctly registered tan-paper stages.
+Pan283.49997/drewfalse/brushInHandtrue. Bounds: partly-offscreen pasted line; lock
+semantics from model, no distinct visual lock mark; no post-pan PNG, white/dark,
+A10 sheet/badge, physical pen, C3 or universal UI acceptance implied.
+
+NEXT isolated candidate lead/frame-copy-integration-20261026, checkout
+C:/Temp/jb-frame-copy-integration-20261026, source070a99885 then TEST-ONLY9f2b1dbca:
+- Narrow exception-safe texture-copy ownership guard +4 backend tests PASSED; all
+  backend production/test Kotlin including ordinaryWC probe compiled SUCCESS2m7.
+- Reviewed A10 cyan-pill production3paths and4native tests; app070 CLOSED183/1fail,
+  all179prior regressions +3native renders passed. Failure is detached accessibility
+  node class null. Test-only9f explicit initialization still failed STOCK Switch
+  positive control (4/1fail,38s). Production tree hashes identical to070. UX is
+  investigating framework fixture; don't alter product or call UI fully accepted.
+- Original red XML/logs preserved under C:/Temp/jb-lead-ops/evidence/app-070a99885-red
+  and switch-9f2b1dbca-red. Candidate remains NOT merged into canonical/NOT installed.
+- OrdinaryWC probe is compiled but UNWIRED/unrun; no native pooling/frame/Undo proof.
+
+Tween helper e5fa12086 independently passed3 metadata/ownership cases on isolated
+proof checkout; no caller-engine/GPU activation. Corrected canonical exporta28 and
+clocktestsf7 source reviewed; Luna owns next focused proof job from immutable
+C:/Temp/jb-tween-export-proof-20261026. No other queued job/phone claim. New A10
+acceptance class remains source-only in Select's separate branch until styled
+candidate validated. Preserve strict source, archive, activation and one-job gates.

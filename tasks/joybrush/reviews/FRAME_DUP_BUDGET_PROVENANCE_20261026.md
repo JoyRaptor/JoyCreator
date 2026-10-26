@@ -38,3 +38,29 @@ exclusive destination; published/local RecordedScene and captured streams remain
 with an explicit refusal rather than flattening. Full runtime/GPU/undo/save/phone proof remains.
 
 Next gate: source review, one lead-admitted exact-source helper run, then root engine integration.
+
+## Engine source review — candidate 717f6c326
+
+Read-only review of the lead-owned isolated frame-live candidate found two physical-domain
+issues, both **reviewed fixed in source** at `717f6c326cc4ba7c8ca50505f16af9645dfd79d3`:
+
+- Whole base textures could disagree with the board-clipped initial visible copy. The lead
+  added `materializeWithClippedBases`: initialize each independent base transparent, then copy
+  only its tile's intersection with the owning board. Raw trajectories stay intact; lines and
+  slabs retain their existing plane clips and operators. For this same-rectangle envelope,
+  RegionTransferTiles produces equal source/destination keys and tile-local rectangles, so
+  copyTextureRect's identical source/destination coordinates match the visible-copy path.
+- Outside-board keys produce no copy slices. Their transparent initialization now checks
+  framebuffer completeness and GL error immediately, even when no later blit occurs. The
+  exception-safe allocation guard releases a failed output before it reaches publication.
+
+The source retains per-output tracking, shared texture admission and one item/document/pixel
+history step. This is inspection evidence, not executed atomicity or pixel-fidelity proof.
+All FIVE current helper tests on the lead candidate are unrun. Prior three-test execution
+does not cover provenance, clipped-base callbacks or the new engine consumer. GPU edge/negative
+coordinate pixels, injected allocation/publication rollback, undo/redo, save/reopen and device
+behavior remain open. Existing rollback assumes restoration calls succeed; empty destination
+maps may remain after failure. Captured/RecordedScene duplication remains explicitly refused.
+
+No source edits, builds, queued jobs or phone actions were performed during this review.
+Root owns current STATE refresh; no user-facing activation or LIVE promotion is proposed.

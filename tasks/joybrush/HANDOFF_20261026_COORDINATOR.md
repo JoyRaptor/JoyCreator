@@ -3,7 +3,7 @@
 ## Current source and ownership
 
 Root checkout C:/Temp/jb-select-reconcile-20261024, branch
-lead/select-reconcile-20261024, current integrated code 4b9ed850c.
+lead/select-reconcile-20261024, current integrated code 88205e57c (A10 merge; later commits may be documentation only).
 The d11 device proof covers the earlier Select baseline, not the entire current4b9 candidate.
 Fresh origin was f79efc378 on October25; fetch before integration. Preserved stale
 primary local joy-creator fb8042841 is NOT current origin. Never reset/copy it over

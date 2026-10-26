@@ -7,7 +7,7 @@ Older plans and board rows are historical; they do not grant ownership or build 
 ## Source and ownership
 
 - Coordinator: `C:/Temp/jb-select-reconcile-20261024`, branch
-  `lead/select-reconcile-20261024`, integrated code `4b9ed850c`.
+  `lead/select-reconcile-20261024`, integrated code `88205e57c` (A10 runtime; verify current HEAD).
 - Verify `git status`, `git log -1`, worktrees and fresh remote refs before work.
   The recorded upstream checkpoint is `origin/joy-creator@f79efc378`; a fresh fetch
   may advance it. Do not assume either local primary or this dated SHA is newest.

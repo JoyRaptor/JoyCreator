@@ -37,7 +37,7 @@ branch is not production activation; merging must retain its outstanding gates.
 ## Current source layout
 
 - Canonical coordinator: `C:/Temp/jb-select-reconcile-20261024`, published branch
-  `lead/select-reconcile-20261024`; current code checkpoint `4b9ed850c`.
+  `lead/select-reconcile-20261024`; current code checkpoint `88205e57c` (A10 runtime; verify current HEAD).
 - Recorded production upstream `origin/joy-creator@f79efc378`, freshly fetched
   October26. Feature integration continues separately until its gates pass.
 - Primary `C:/+Projects/Screenrecorder/FadCam` and original helper worktrees are

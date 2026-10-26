@@ -1,6 +1,6 @@
 # JoyBrush roadmap — current completion board
 
-Refreshed October 26, 2026 against coordinator code **4b9ed850c** and exact-source
+Refreshed October 26, 2026 against integrated coordinator code **88205e57c** and exact-source
 receipts. This is the one file to point a new agent at. Read
 [Agent start](AGENT_START_20261026.md) before editing or running jobs.
 [Current evidence ledger](HANDOFF_20261026_COORDINATOR.md) supplies detailed receipts.

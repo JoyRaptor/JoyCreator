@@ -125,3 +125,10 @@ No live frame-copy/tween activation or GPU/context-loss proof from this prerequi
 - [ ] Review copied-handle provenance helper followup and compile core/backend focused tests after Select releases slot.
 - [ ] Integrate actual ordinary native-line plane copy with source closure/physical ownership checks, atomic joint publication/undo and cleanup.
 - [ ] Prove GPU pixels/independence/undo/save/reload; captured and recorded publication remain guarded.
+
+## Isolated frame duplicate probe — October26
+- [x] Read STATE, roadmap and assigned source; isolate from717f6c326.
+- [x] Author debug-only ordinary Ink duplicate/independent Delete/Undo GPU oracle and four CPU oracle tests; source only.
+- [ ] Coordinator-admitted compilation/tests and actual debug dispatch/device execution.
+- [ ] Low-budget refusal/cleanup, injected atomicity failure and archive/save/reopen proof.
+- [ ] Watercolor and captured/joint paths remain separate guarded milestones.

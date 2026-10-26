@@ -1,3 +1,20 @@
+## Screenshot protocol source checkpoint
+
+Root reviewed/adopted61b59a412 asf84504944 (debug bench/runner/test files only).
+Exact run/event ACK now holds each screenshot state, consumes own marker with
+bounded asynchronous timeout/cancel; shot request queues behind GL metadata and
+two UI vsyncs. Host checks foreground, writes/fsyncs/validates PNG before ACK and
+records typed capture audit. This still requires manual visual registration review.
+Finger-pan setup now exits scoped Nudge, clears selection through actual empty
+paper, then takes uniquely scoped ToolStrip Brush with explicit preconditions.
+Product/engine/Activity behavior is unchanged.
+Root independently reran46 offline tests PASS0.614s (17 runner+29 validator),
+using FakeAdb and temporary test claims only; no actual phone action/claim.
+Seven new Kotlin ACK fixtures remain UNEXECUTED. Select has next one admitted
+focused app job including the new gate class, then canonical2048MiB/fresh3200 APK
+if green. Root no queued heavy job or phone claim. Prior red run1 remains intact;
+overall new device/visual acceptance is not complete.
+
 ## Screenshot evidence correction
 
 Root visually inspected run1 08_nudged.png: it is launcher Home. Per-state PNG
@@ -254,6 +271,7 @@ Synthetic gestures do not establish physical S Pen feel or manual save acceptanc
 Existing persistent goal remains unfinished even though its historical tool status
 is usageLimited. No duplicate goal or completion. The old five-hour automation
 was found PAUSED and was kept PAUSED; do not reactivate without owner direction.
+
 
 
 

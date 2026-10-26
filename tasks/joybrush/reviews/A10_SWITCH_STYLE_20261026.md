@@ -1,0 +1,92 @@
+# A10 Editable lines switch — source-only styling repair
+
+Worktree C:/Temp/jb-ux-a10-style-20261026, branch ui/a10-switch-style-20261026.
+Base d56834cdc1859c07e0d9ce0f3e20500d7f2ef26f; production base is the coordinator's
+f84504944 / tested36b0e07f3-equivalent modules. Original UX/review/Select/coordinator
+worktrees and the frozen phone candidate were not edited.
+
+## Change
+
+BrushSettingsView's Editable lines row keeps its native Switch semantics, left label,
+text sizing/padding, minimum row height and callback. Its grey thumb/track is replaced
+by SelectPillSwitch: a native Switch subclass with a56×32dp full-pill track. On uses
+the existing SelectAccent diagonal cyan shader and a true DST_OUT On word. Off uses
+the same neutral fill/drawer ink as the approved Select choices. There is no outline,
+new palette, global preference, separate selection model or settings layout rewrite.
+
+Native label, checked state, accessibility role, focus/click behavior and listener
+dispatch remain with Android Switch. No thumb splits the pill. Initial isChecked is
+still assigned before the existing listener; construction does not write preferences.
+The null/always-pixel branch and its exact D22 sentence are unchanged. Activity's same
+per-id BrushLinePreferences binding and stale-current-brush guard are untouched.
+
+Source delta:
+- BrushSettingsView.kt: constructor substitution and removal of its two monochrome tint
+  assignments for this row only. Other knob/slider tints remain.
+- New select/SelectPillSwitch.kt: stateful palette track, local drawable bounds, isolated
+  cutout/group alpha and normal native Switch On/Off accessibility text.
+- New select/SelectPillSwitchTest.kt: four native-graphics Robolectric scenarios below.
+
+## Review and unexecuted tests
+
+Luna implemented the scoped component/tests; UX reviewed and corrected group-alpha
+handling, glyph-free gradient sample points, bitmap bounds, native checked-callback
+expectations and accessibility-text handling. Low-alpha ARGB8888 colour assertions allow
+documented premultiplication rounding rather than requiring impossible exact RGB recovery.
+
+The four test scenarios cover checked gradient/corners/cutout, neutral Off and two native
+click transitions, native accessibility label/checkable/checked behavior, and drawable
+alpha in both states without filling the cutout. They draw the actual widget's installed
+track, not a duplicate renderer. Existing BrushLineModeUiTest covers initial no-write,
+same callbacks and exact no-switch text; policy/Activity binding regressions remain relevant.
+
+**UNEXECUTED:** no Gradle/compile/test, APK, device, screenshot or benchmark run was made
+for this repair. Only source review and git diff whitespace checks were performed. Do not
+transfer the178 passing tests from36b0e07f3 onto this new component. Coordinator must assign
+a fresh shared validation slot; no queued wrapper/build/phone claim is held by UX.
+Suggested bounded gate: new SelectPillSwitch tests plus existing BrushLineModeUi,
+BrushLinePreferences and BrushLineActivityBinding tests, using the required resource runner.
+Runtime native Switch sizing/track drawing and exact integrated phone appearance remain
+unverified until those gates run. White/dark and paper-preview badge readability also
+remain unknown; this track repair does not change or validate the badges.
+
+## Separate current C1/C2 evidence audit
+
+Readonly review of the actual new run, not the rejected old52 screenshots:
+C:/Temp/jb-select-acceptance-20261026/bench-36b0e07f3-run1,
+run eef75be8c55846c9a0d22bd3d4eac645, source36b0e07f3,
+installed APK SHA2563ec0fedbfcf3f5c06bcc075eac00df70a90c332a90b78770d823523c8c10e300.
+Luna inspected all11 PNGs; UX directly reviewed02/03/04/08/09/10/11. The named images now
+show their expected states. Typed ACK/foreground/hash data supports registration but does
+not replace visual review. Tan-paper row/bar/count placement, paper backing, selected
+cyan pills, count2/2 and Nudge bar/Box are readable in the inspected frames.
+
+| Image | Bounded observation |
+| --- | --- |
+| 01_drawn | Five ink strokes; no inferred acceptance of later controls. |
+| 02_tap_pick | One diagonal selected, row above the box, full box/rotate knob. |
+| 03_cycle_count | Horizontal line selected,2/2 count clear of its lower box edge. |
+| 04_lasso_bar | Two lines in the box, selected cyan Lines2/filter chips, bar clear of chrome. |
+| 05_moved /06_rotated | Moved/rotated selection presentation; behavioral one-step results are recorded separately. |
+| 07_tip_dots | Blue endpoint indicator visible on selected zigzag. |
+| 08_nudged | Bent zigzag and Nudge slider/Box state. This is after release, so it does NOT prove the during-drag20% ghost. |
+| 09_copy_pasted | One selected diagonal partly outside the viewport. Model reports one added record/one step; the cropped image alone cannot prove record identity. |
+| 10_grouped |5 lines selected with a large enclosing box; group metadata comes from the separate behavioral check. |
+| 11_locked | Selected line/box still shown; locked=true is behavioral data, not a visible unlocked-menu/locked-edit test. No new lock icon requirement is invented. |
+
+Results report19 PASS/1 FAIL. fingerPansWithBrush stops at precondition “no uniquely scoped
+Nudge control” before panning: the preceding step has already entered Nudge, whose row is
+hidden. The visible Box chip is the mode-exit control; the benchmark scopes Push-or-pull
+in the hidden row instead. This is an untested pan outcome, not proof that finger panning
+itself failed or passed. Coordinator received this finding; its builder owns the correction.
+
+The current receipt has178/0/0/0 across24 suites. Luna independently checked all24 copied
+XML names/counts/SHA256s against root-count and receipt, confirming the aggregate. Those
+records bind the copies to their manifests; XML alone does not prove arbitrary source/APK
+identity. Receipt/XML path: C:/Temp/jb-select-acceptance-20261026/app-36b0e07f3.
+Root count: C:/Temp/jb-select-acceptance-20261024/app-36b0e07f3-root-count.json.
+
+C1/C2 remain partial: no white/dark sheet/badge, D2/More/HSB/real layer-menu captures,
+mid-drag ghost, full save/reopen or physical S Pen-feel acceptance in this image set.
+C3 still needs the Lead-owned correct source/operator display hook. K26 and Slice/smudge
+publication notices retain their engine dependencies. No existing evidence was modified.

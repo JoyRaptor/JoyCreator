@@ -245,3 +245,21 @@ Activity still must supply accepted resting-finger context to App.hasRestingThum
 and chain controller.viewMoved() into existing onViewMoved sampling. Current count string
 IDs migrate with LineAddress before all-layer live edits. Real Activity/engine binding,
 Lock/Group/Invert and phone acceptance remain open. No preview/pencil/default/engine edits.
+
+## October26 — A10 switch repair and new ACK visual audit
+
+Source-only repair in C:/Temp/jb-ux-a10-style-20261026, ui/a10-switch-style-20261026,
+fromd56834cdc: existing Editable lines row uses a native Switch subclass with the approved
+full-pill cyan/cutout On and neutral Off track. Three source/test paths only; no Activity,
+engine/View, preferences, badge, copied artwork or existing checkout edits. Four rendering/
+native-state tests are written but UNEXECUTED; no source-specific green compile/test/APK
+or phone claim. Coordinator must assign validation. Read reviews/A10_SWITCH_STYLE_20261026.md.
+
+Separate readonly audit: new actual ACK run eef75be8, bench-36b0e07f3-run1 on October26,
+has11 images whose named states now correlate, reviewed by Luna (all) and UX (seven).
+Tan-paper placement/selected controls read clearly; white/dark/A10/HSB/menus and during-drag
+ghost remain unshown. Results19PASS/1FAIL: finger-pan precondition targets hidden Nudge row
+instead of visible Box mode exit, so the pan outcome is not tested. Coordinator notified.
+Exact178-test receipt/XML-copy hashes independently checked; those passes predate this
+new styling source. C1/C2 remain partial and C3 remains an engine dependency. No phone,
+build, rotation, watcher or evidence-directory action from UX.

@@ -1179,3 +1179,9 @@ files (small hooks only, announced): FaditorEditorActivity (AIChatState reload b
   LobbyFragment (Joybot lines only) · ui/faditor/undo/UndoManager (one overload)
 NOT touching: joybrush/, joybrush-android/, joyfolder/ (reuses ShareInbox as-is).
 DEVICE: none reserved; asks the owner before any install.
+
+## JOYBRUSH_UX_A10_SWITCH_STYLE_20261026
+status: SOURCE_ONLY, reviewed implementation and four UNEXECUTED render/state tests; awaiting coordinator validation/integration.
+worktree: C:/Temp/jb-ux-a10-style-20261026; branch ui/a10-switch-style-20261026; base d56834cdc (codef845/36b0 module equivalent).
+source: BrushSettingsView Editable lines row only; new select/SelectPillSwitch.kt and its test. Native state/accessibility, single per-brush binding, initial no-write, exact no-switch sentence and stale brush guard preserved. No engine/View/Activity/global preference/badge edits.
+Evidence: reviews/A10_SWITCH_STYLE_20261026.md also records bounded11-image ACK audit and178 copied-XML manifest audit from separate frozen source. New styling is NOT covered by those passes. No build/phone/queued claim; original worktrees/evidence untouched.

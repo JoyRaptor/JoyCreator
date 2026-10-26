@@ -33,3 +33,13 @@ selected cache, original grainy look, physical fade, View save/recovery or speed
 
 UX currently owns the next focused app slot. No competing heavy/phone job starts
 from this candidate until explicit resource/slot admission.
+
+## Adversarial fixture followup
+
+Adopted probe11ca8c132 after source review: fixtureVersion2 uses patterned negative,
+edge and wholly outside base tiles; demands actual zero-slice base membership,
+shared-plane immutability, exact footprints/document, source handle-history coverage
+and no visible/base aliasing. Captures/normalizes/restores pack/PBO and framebuffer
+state; cleanup failure cannot pass. These controls are unrun on this combined source.
+The report's remaining-gates list excludes dispatch/device execution itself because
+it describes gates still owed AFTER a successful diagnostic; no native run is yet claimed.

@@ -1,0 +1,87 @@
+# JoyBrush coordinator — October 26, 2026
+
+## Current source and ownership
+
+Root checkout C:/Temp/jb-select-reconcile-20261024, branch
+lead/select-reconcile-20261024, code f84504944 (docs e0c23caf4 before this update).
+Current production module source matches tested builder36b0e07f3d70800843a842619c7db7a9b62582cb.
+Fresh origin was f79efc378 on October25; fetch before integration. Preserved stale
+primary local joy-creator fb8042841 is NOT current origin. Never reset/copy it over
+this isolated integration. Preserve all original/helper worktrees and dirty files.
+Root has only untracked Python __pycache__ from offline tests; tracked source clean.
+
+## Verified evidence
+
+- [x] Canonical Copy/Paste/epoch/rollback and Select integration reviewed/adopted.
+- [x] Frozen52e559d04 full core2572 cases,4 optional ABR skips,0 failures/errors;
+  backend1093 cases,0 failures/errors/skips. Independently counted XML.
+- [x] Frozen52e559d04 focused Copy backend23/0/0/0, including corrected budget fixtures.
+- [x] Frozen36b0e07f3 focused Android178/0/0/0 across24 fresh suites, closed SUCCESS1m14s.
+  Includes Select, policy8, chrome3, ActivityBinding3, Cleanup2 and new ShotGate7.
+  Root independently counted XML/hashes:
+  C:/Temp/jb-select-acceptance-20261024/app-36b0e07f3-root-count.json.
+- [x] Current screenshot protocol offline46 tests passed independently; FakeAdb and
+  temporary file locks only, not phone behavior.
+- [x] Vector pure Slice ownership10/0/0/0 on8e56aea95 and planner10 earlier. These
+  are pure bookkeeping proof, not activated Slice/smudge/native/save behavior.
+
+## Device acceptance remains incomplete
+
+Old exact52e559d04 APK F66A39230C982FD73B001F5A3E5A5DDA5AC320683B04459E6BD89E920264E6B1
+was built/installed and independently hashed. All12 saved root manifest entries,
+including current.joybrush/.bak and drawing-* working copies, were unchanged.
+First bench run1 returned19 PASS/1 FAIL. Brush while selected correctly restyles
+lines; bench must clear selection before taking Brush. Red run1 is preserved.
+Its screenshot timing is INVALID: root viewed08_nudged.png showing launcher Home.
+No per-state visual acceptance from those11 images.
+
+Current debug-only code fixes both issues: actual UI Nudge off/selection clear/
+ToolStrip Brush preconditions, and run/event-specific screenshot ACK with bounded
+asynchronous wait. Host saves/fsyncs/validates PNG then ACKs; manual review of every
+PNG still required. No product/engine/Activity behavior change in this patch.
+
+- [ ] New exact ACK-enabled APK with successful source/build/hash receipt.
+- [ ] Fresh Note9 identity/API29/unlocked/Home, installed hash, foreground/watcher
+  checks, exclusive phone lock and pre/post Working/all archive hashes.
+- [ ] New run-bound complete bench,11 correctly registered images manually reviewed;
+  no inference of physical S Pen feel or general pencil/artist quality.
+Select chat owns the next exact APK/device lane; root has no heavy job, queue or
+phone claim. RAM snapshot at resume was1242MiB, too low for build; no queued wrapper.
+Do not repeat RAM questions merely because an old snapshot is low.
+
+## Other isolated work and remaining frontier gates
+
+- Atlas repair branch lead/atlas-room-repair-20261025, checkout
+  C:/Temp/jb-atlas-room-repair-20261025, code34b27b6f8/docs427adc166: borrowed ring
+  vs FULL ownership, promotion and writeback cleanup source only. Unmerged and
+  uncompiled. Luna is reviewing actual host failure/lifecycle paths. Require real
+  forced-capacity host GPU/raw-plane parity and P3 save/undo/phase/P4 exhaustion
+  proof before activation. Never merge dirty lead-atlas-exp shader experiments.
+- Standalone ordinary watercolor diagnostic isolated atd2af35da1 in
+  C:/Temp/jb-watercolour-ordinary-20261025. Reviewed source, UNCOMPILED/unrun and not
+  adopted into this exact acceptance candidate. No beginLift/cache claims; actual
+  translation source-pixel oracle, nonvacuous tint, undo/redo. Grain/paperCut0 narrow
+  fixture excludes owner grainy-preset and physical fade/quality acceptance.
+- Ordered contribution/Slice design docs adopted; no schema/runtime approval.
+  Preserve original event seq/operator; disjoint-only initial design. Multi-event
+  carried smudge chronology and moved overlap remain separate unresolved rules.
+  Existing flat seq uniqueness, captured/media/mask guards and ordinary smudge stay.
+- C3 outside fade requires correct renderer/operator hook; no alpha-hole shortcut.
+- Unibrush/symmetry/oil/tweens/Atlas and peer reconstruction checkboxes remain in
+  tasks/joybrush/reviews/JOYBRUSH_CHECKLIST_20261025.md; historical test claims are
+  bounded to their exact source. Do not mark these finished from compilation.
+
+## Resource/model rules
+
+User set coordinator Sol6.1 medium. Use Luna for scoped gruntwork/tests/docs;
+domain leads/root review hard correctness. No high helper by default. Exactly one
+heavy job machine-wide under exclusive CreateNew jb-gradle.lock with fresh
+RAM/job/watcher admission: focused2200MiB, full2800, APK3200 (canonical2048 heap).
+Pause only proven owned watcher tree; no unrelated apps/JVM kills. Watcher restore
+is one Hidden assemble-only canonical watcher, never auto-install. Respect phone
+lock, stale-claim rules and unresolved launched completion. Never uninstall/clear,
+change rotation, monkey-launch, modify owner drawings or buy usage/reset credits.
+
+Persistent goal remains unfinished with historical usageLimited status; continue
+it, never duplicate/falsely complete. Five-hour automation was PAUSED; preserve.
+Stay quiet for unchanged/non-actionable state; report meaningful results/failures.

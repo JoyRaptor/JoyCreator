@@ -51,10 +51,6 @@
 - **No Laziness**: Find root causes. No temporary fixes. Senior developer standards.
 - **Minimal Impact**: Changes should only touch what's necessary. Avoid introducing bugs.
 
----
-## Phone rule (owner, 2026-10-19)
-- **Never launch the app with `adb shell monkey`**: it turns the owner's screen-rotation lock OFF on the phone (see tasks/DEVICE_CONTROL_RUNBOOK.md). Launch with `am start -n <activity>` (resolve it with `cmd package resolve-activity --brief`). Never change the phone's rotation settings.
-
 ## JoyBrush roadmap and Git hygiene (owner, 2026-10-26)
 
 - `tasks/STATE.md` is the required cross-wing major-feature catalogue for marketing,
@@ -63,7 +59,6 @@
   entry point, actual branch/availability, proof/limits, reusable engine/source and
   help link (or explicitly pending). Keep minutiae in handoffs. Agent phone checks
   or compilation do not silently become owner LIVE or promotional approval.
-
 - `tasks/joybrush/ROADMAP.md` is the mandatory project-wide source for broad
   milestones, current ownership, dependencies and remaining acceptance gates.
   Read it at session start. Update the affected milestone after every achievement
@@ -88,3 +83,7 @@
 - Before handoff, state exact source/base, local/remote synchronization, owned dirty
   paths, current jobs/locks and next action. Historical plans must be clearly marked
   superseded and point to the current roadmap instead of advertising stale queues.
+
+---
+## Phone rule (owner, 2026-10-19)
+- **Never launch the app with `adb shell monkey`**: it turns the owner's screen-rotation lock OFF on the phone (see tasks/DEVICE_CONTROL_RUNBOOK.md). Launch with `am start -n <activity>` (resolve it with `cmd package resolve-activity --brief`). Never change the phone's rotation settings.

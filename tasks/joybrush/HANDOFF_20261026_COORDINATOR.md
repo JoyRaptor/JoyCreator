@@ -198,3 +198,61 @@ invalid-ID dispatch and late Copy publication guards covered. Runtime source is
 integrated; APK/phone A10 proof and D23 real publication notices remain owed.
 Select owns next ONE canonical2048 APK attempt with fresh3200 admission; no phone
 install grant yet. Root ordinary-WC/frame/Atlas work remains source-only meanwhile.
+
+## Cross-wing feature map, docs publication and active proof work
+
+STATE.md now mandates major feature availability/proof/help/reuse updates; Studio
+CaptionAnimator/text/caption source discovery is explicit. Peer updates are required
+in STATE for noteworthy user-facing capabilities, roadmap for broad milestones,
+handoff for granular detail. Documentation-only upstream joy-creator advanced to
+6e26fd98a; production CODE baseline remainsf79efc378 (no engine activation by docs).
+Coordinatora9312fc6b includes current STATE; new docs commits may follow.
+
+Exactf7 APK5d99f3f5fb947129c9f85eb90bcc1f2e413013f28a01ffceb667a36082635132
+builtSUCCESS4m51; root matched artifact/log hashes. Select installed exacthash,
+savedroots unchanged. A10 run1 blocked host launch/ACK; run2 captured firstrealON
+sheet but later transport timeout; preserve red. Hostasync launch tests59 then
+bounded-logcat/per-call diagnostics60 passed offline, no deviceacceptance inferred.
+Select owns exact-run terminal/claim/prefs/archive resolution and bounded retries.
+No competing phone/GPU actions. Confirm slot handback before next heavyjob.
+
+Root isolated framecandidate717f6c326 in C:/Temp/jb-frame-live-integration-20261026
+is clean/pushed remoteequal, UNCOMPILED/UNRUN. Canonical duplicate validator wired,
+ordinary NativeLines independent copy prepared, budgets include retained originals
+and new copies, bases clipped/cleared to actual boarddomain with completeness/GL
+error checks. Tween source review found and root fixed unconditional whole-base
+copy bug. New helper5/core6/backend entry+budget cases await focusedproof; actual
+GPU/undo/rollback/save and captured/joint pathways remain open. No activation.
+Unibrush and clips peers resumed bounded read-only source/evidence recovery audits.
+
+## A10 run3 functional device gate GREEN, visual review pending
+
+ExactAPKf7/5d99, hostb7aa05fd6 (bounded main4096logtail +classifieddiagnostics),
+run eaaea09e705240e0b3f6891d3935bd05:6PASS0FAIL/exit0,5ACKimages, restoredownedprefs,
+12savedroots unchanged, claimreleased. Root offlinevalidator independently VALID.
+Evidence bench-a10-f7f75869a-run3 and guard-a10-f7f75869a-run3/receipt.json under
+C:/Temp/jb-select-acceptance-20261026. UX independently reviewing all5images; preserve
+redruns1/2. Global20 on this exactAPK is held until current PC slot handback.
+
+Root focused frame717f6c326 job admitted2649MiB/noJava, exec97793/log
+C:/Temp/jb-lead-ops/frame-live-717f6c326-20261026.log, exclusive sharedlock. Frozen
+source, coreFrameDuplicatePlan +backendBoardTransactionMemory/PreparedLinePlaneCopy/
+InitializedTexture filters. No parallel heavy/GPU. Actual completion still pending.
+
+## Independent A10 visuals and global20 on exact f7
+
+UX personally viewed all5 A10 registered images: cyanOn/neutralOff, exactD22/noSwitch,
+whitecanvas sixdot and darkcanvas nodecurve badges pass their stated scope. Existing
+enabled black toolbar glyphs on darkcanvas are a separate confirmed readability bug;
+UX owns isolated contrast fix using approved tokens. Blank Pencil preview is triage,
+not a drawing/brushquality verdict. No ownerLIVE/C3/D23/physicalfeel inference.
+Global20 run b52e984014e24f69b4762f65abb81d5c CLOSED20/0/exit0, sourcef7/hostb7aa,
+APK5d99/prefs/12savedroots unchanged, ownclaimreleased. Root offlinevalidator VALID;
+Select personally reviewing11captures; no rootphone/GPU in progress.
+
+UX owns next ONE focused combined app job from currentcanonical with menu9 source
+cdf0adb40 selectively integrated, prior190 regressions requested; actualresult pending.
+WC source dispatch e670257df handed back clean/pushed,6fixture+2routing testsUNRUN;
+root source review bounded okay, no actual WC probe yet. Tween owns new standalone
+frameGPUprobe file from717f6c326; root owns later dispatcher integration. No jobs
+except explicit UX admission; no queuedwaitingwrappers. Preserve all old evidence.

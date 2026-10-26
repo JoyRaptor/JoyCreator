@@ -6,16 +6,19 @@ Joybot's knowledge are generated from it.
 
 **Joy Brush owner check, 2026-10-01:** JoyRaptor reports drawing, colour picking, erasing,
 closing and reopening work on the Note. Treat these ordinary workflows as device-verified.
-The newly wired Recent drawings, preservation-before-Open, backup fallback and PNG export
-are compile/test-verified separately; their phone checks remain owed. Details:
+Recent drawings, preservation-before-Open, backup fallback and PNG export have
+separate proof scopes; the later October1 recovery/device notes at the end of this
+file supersede the initial compile-only snapshot. Do not infer PNG export proof
+from a recovery check. Details:
 `tasks/joybrush/INTEGRATION_20260930.md`.
 
-**Last full pass:** 2026-09-09 (Claude/Opus, launch-planning session)
-**Last touched:** 2026-09-16 evening — the puppet UI finish sweep (`tasks/PUPPET_FINISH_LEDGER.md`):
+**Last full pass:** 2026-09-09 (historical; not a current whole-product audit).
+**Latest scoped refresh:** 2026-10-26 — JoyBrush feature families, cross-wing reuse map and mandatory update policy.
+**Historical update:** 2026-09-16 evening — the puppet UI finish sweep (`tasks/PUPPET_FINISH_LEDGER.md`):
 nine dead knobs found and resolved, the tape made draggable, easing fitted from the recording, and
 three defects JoyRaptor reported on device. Also `tools/phone.sh deploy` / `doctor`, which exist
 because a stale watcher or a dropped transport had been leaving OLD builds on the phone.
-**Scale:** 710 Java files, ~349,000 lines, schema v13
+**Historical September scale (not recounted):** 710 Java files, ~349,000 lines, schema v13
 
 ---
 
@@ -47,6 +50,31 @@ Anything unmarked is a reading that should be challenged.
 
 ---
 
+
+## Shared feature map — read before building or writing help
+
+STATE is the required cross-wing catalogue of major user-visible capabilities.
+Marketing uses the proof level, Joybot maps help to stable feature IDs, and builders
+inspect reusable source before starting another implementation. A source link is
+not a help article or a guarantee that a component can be embedded unchanged.
+
+| Feature ID / user capability | Where / availability | Reuse and help mapping |
+|---|---|---|
+| `studio.text-animation` — animated titles, words and timers | Studio text overlays; existing inherited LIVE claim below, not newly retested | [Animated-text contract](SPEC_TEXT_ANIMATION.md); shared [CaptionAnimator](../app/src/main/java/com/fadcam/ui/faditor/transcript/CaptionAnimator.java), [TextOverlayItem](../app/src/main/java/com/fadcam/ui/faditor/model/TextOverlayItem.java), [picker](../app/src/main/java/com/fadcam/ui/faditor/TextAnimPickerPopover.java), [export](../app/src/main/java/com/fadcam/ui/faditor/export/CompositeExportOverlay.java). Reuse media-time evaluation, persistence and preview/export conventions; do not build a second animation clock. User-help mapping pending. |
+| `studio.caption-animation` — animated transcript phrases | Studio captions; see transcription/text entries for exact proof | Same CaptionAnimator and phrase grouping in `ui/faditor/transcript`; text and captions share machinery. Check source-time vs timeline-time adapter before reuse. Help mapping pending. |
+| `shared.transforms` — move/resize/rotate/pivot, mesh and corner-pin families | Studio surfaces; individual media types have different proof/limits below | `ui/faditor/transform`, SpriteMeshDraw and export paths; see editor/Bend entries. Reuse adapters and shared geometry, not assumptions that every media type is already supported. Help mapping pending. |
+| `vislab.studio-bridge` — music visuals in Studio and reusable look elements | VisLab room / Studio visualiser / floating visualiser; individual levels in section5.5 | `vislab/studio`, `vislab/gl`, Studio export/transform adapters and Sprite Lab renderer. Reuse existing text/font/sprite machinery across wings; new combinations require their own proof. Help mapping pending. |
+| `joybrush.editable-lines` — select, edit, Copy/Paste and Nudge drawings | JoyBrush Select; agent-device-verified bounded baseline on integration branch, owner acceptance separate | [Current roadmap](joybrush/ROADMAP.md), [source/evidence](joybrush/HANDOFF_20261026_COORDINATOR.md); `joybrush-android/.../select` hosts and `joybrush/androidkit` line engine. Pixel PhaseB and outside-selection fade remain incomplete. Help mapping pending. |
+| `joybrush.brush-mode` — choose editable lines per brush | Hold brush settings / drawer badge; integration built and automated checks passed, A10 phone proof pending | BrushLinePreferences, BrushModeBadge and settings Switch. Pixel-only brushes remain pixels; do not present this as accepted on all devices. Help mapping pending. |
+| `joybrush.frame-tweens` — frame in-betweens and animation | Foundation exists; live duplication/playback/export integration unfinished | `joybrush/core/anim`, PlaybackClock and isolated tween contracts; see roadmap. Do not advertise complete editable-line frame duplication or tween playback yet. Help mapping pending. |
+
+When a major feature is built, update its main section and this map if it introduces
+another reusable family. State where users find it, which branch/build exposes it,
+what is proved, what is missing, reusable engine/source links, and the help mapping
+(or explicitly pending). Keep minor fixes/test counts in handoffs. Never infer LIVE
+from compilation, an isolated branch, synthetic checks or agent-only device testing.
+
+---
 ## 1. RECORDING (the FadCam inheritance)
 
 | Feature | Level | Notes |
@@ -283,26 +311,29 @@ layers, and a floating visualiser over other apps. Lead docs: `tasks/VISLAB_SPEC
 | Element packs from other people (plugins) | 🔵 | Designed in VISLAB_TODO section F |
 | Proxies driving looks, layer reference, echo trails as a Studio effect, true blend preview, video element | 🔵 | `tasks/VISLAB_ROADMAP.md` R8-R12 |
 
-## 5.6 JOYBRUSH ENGINE — realistic media, editable lines, Unibrush (Engine Lead, updated 2026-10-24)
+## 5.6 JOYBRUSH ENGINE — current feature families (October26)
 
-Live plan, lanes and code places: `tasks/joybrush/LEAD_PLAN_20261023.md`. "Agent phone-tested" = driven on the Note 9 by
-an agent with screenshots and timings; 🟢 = JoyRaptor used it.
+[Mandatory roadmap](joybrush/ROADMAP.md) owns broad progress;
+[lead handoff](joybrush/HANDOFF_20261026_COORDINATOR.md) binds exact source/evidence.
+Current integration is `lead/select-reconcile-20261024`; production `joy-creator`
+receives documentation separately. Do not infer feature deployment from these docs.
+Agent phone checks stay distinct from owner LIVE/creative acceptance.
 
-| What | Level | Proof / what is left |
+| What users can do / feature family | Level | Availability and remaining limits |
 |---|---|---|
-| Watercolour/oil/pencil on the atlas (one layer, no seams), water jobs (brush first, water catches up) | 🟡 | Owner tested water jobs 10-23 (slower water, grainier lines). Water now catches up with the pen up (main 10-23, agent phone-tested); his Note 20 does not have it yet |
-| "Ran out of room" on big zoomed-out washes | 🔴 | Being fixed (helper: park + run in pieces; first half bit-exact on the Note 9) |
-| Hold Brush / Smudge / Eraser button = that brush's settings | 🟡 | On main 10-23, agent-installed; owner use owed |
-| Frame tweens: saved setting, sampler (Codex) | 🟡 | On main 10-24, no controls yet; playback/export wiring is Engine Lead work |
-| Watercolour vector brush (lines that redraw with the wash) | 🟡 | Live-path fixes built and tested (42/42 GPU cases); Note 9 check, then main. Owner keeps the crisp look (10-24) |
-| Editable lines per brush (owner ruling K25) | 🔵 | Switch per brush in the hold sheet, drawer badge; line brushes ON, painting brushes OFF |
-| Lines over realistic paint on one layer (owner ruling K26, 10-24) | 🔵 | Engine Lead to build; refused today |
-| Unibrush (11 new stamp modes) | 🟡 hidden | Paint correctly on the Note 9; picture lines save/reopen/redraw; Taper, Select edits, lines acceptance, speed owed, then switch-on |
-| Oil realism: stroke ends, colour loading, dirty brush | 🟡 | Oil specialist; new stroke ends in phone checks; loading/dirty brush designed |
-| Duplicate an animation frame | 🔴 | Keeps the picture, drops its editable lines (Engine Lead, next after Unibrush lines) |
-| Smudge on a layer with lines | 🔴 | A moved line leaves a smear ghost; ruling: split the line, bake only the touched piece |
-| Symmetry tool | 🟠 | ~10 commits on lead/symmetry-merge never landed. Recover |
-
+| Paint watercolor/oil/pencil on the atlas; water catches up after pen-up | 🟡 | Existing main foundation and earlier agent checks; preserve approved full-resolution watercolor pooling. Current combined performance/quality acceptance is not complete. |
+| Large washes beyond resident atlas room | 🔴 | Isolated park/residency repair passed bounded tests; real GL ownership, atomic durable stores and capacity/save/undo proof still gate activation. |
+| Hold Brush / Smudge / Eraser to open that brush's settings | 🟡 | Existing main code and earlier agent installation; owner use not newly claimed. |
+| Select editable lines, move/resize/Nudge, Copy/Paste and finger-pan | 🟡 agent-device checked | Bounded exact-APK Select workflow passed on Note9; current A10 extension is integrated and automated-tested. Full white/dark, physical pen, outside fade and pixel-selection feature family remain separate gates. |
+| Choose editable lines per brush; see drawer badge | 🟡 built integration | K25 policy and native settings switch integrated and automated-tested. Dedicated A10 device check pending. Always-pixel media stay pixels; D23 first-use notices need actual engine publication/consumption signals. |
+| Watercolor editable lines with frozen wash coordinates | 🟡 foundation | Geometry/archive/render groundwork exists. Separate ordinary replay/undo diagnostic is compiled but not yet wired/run; current save/reopen/recovery and original-preset appearance acceptance remain owed. See section10.5. |
+| Lines over realistic paint on one layer (K26) | 🔵 / guarded | Ordered compositor/media integration and proof remain; do not advertise the whole live source/undo/save connection complete. |
+| Frame tween settings and sampling | 🟡 foundation | Saved setting/sampler exist; tested isolated helpers do not establish live playback, controls or export. Clips foundation remains separately unmerged into coordinator. |
+| Duplicate an animation frame without losing editable lines | 🔴 | Existing path keeps pixels but loses editability. Canonical-operation validation/copy ownership prerequisites are under integration; actual independent live copy, undo and save proof remain. |
+| Smudge only the touched piece of a line | 🔴 | Ordered section/Slice design and pure planning exist; atomic touched-only bake/no-ghost runtime remains incomplete. |
+| Unibrush stamp families and picture lines | 🟡 hidden / audit needed | Preserved specialist code and historical checks; recover exact current taper/edit/acceptance/speed/activation gates before claiming completion. |
+| Oil stroke ends, colour loading and dirty brush | 🟡 isolated / audit needed | Preserved Covers/Carries specialist code; reconcile current source and device/artist proof. Defaults remain0; older stroke-end receipts do not prove later loading/carry work. |
+| Symmetry | 🟠 | Preserved feature branches; current integration, all-media behavior and acceptance remain recovery/audit work. |
 ## 6. AI — the agent
 
 | Feature | Level | Notes |
@@ -426,39 +457,45 @@ demo project, a display typeface. All listed in design record 07 with sizes.
 
 ---
 
-## 10. WHAT DOES NOT EXIST (so nobody re-discovers the absence)
+## 10. HISTORICAL GAPS — recheck before assuming a feature is absent
+
+The following September inventory has NOT had a current whole-product audit.
+Treat these as discovery questions, not current marketing statements or permission
+to rebuild an existing engine. Check the feature map, source and peer branches first:
 
 Text-to-image. Text-to-video. Text-to-speech or voice cloning. Voice enhancement.
 On-device LLM. Hosted AI credits. Template gallery. Pack manager UI. Community pack index.
 Music generation. A website. A Play listing. A privacy policy that mentions AI.
-**A backup of this repository anywhere but JoyRaptor's PC.**
+The earlier claim that this repository has no off-PC backup is superseded:
+GitHub `JoyRaptor/JoyCreator` has published branches. That does not establish a
+backup of every dirty worktree, ignored asset or local evidence; see Git hygiene.
 
 ---
 
-## 10.5 JOYBRUSH VECTOR WATERCOLOUR — October24 audit
+## 10.5 JOYBRUSH VECTOR WATERCOLOUR — current acceptance limits
 
-| Capability | Status | Evidence and limits |
-|---|---|---|
-| Sample-based watercolor, pressure/tilt, pooled pigment and gravity color shifts | 🟡 Built foundation | Renderer on main; original POC owner-approved. Full phone-engine look not signed off. |
-| Cold/warm, complete-fade benchmark | Measured on Note9 | Five cold launches each lines OFF/ON plus warm repeats. Intrusive glFinish, synthetic latency. Warm p95~36–73ms;16.7ms target not passed. |
-| Selected-brush preparation/full fade | 🟡 Candidate branch | Claude's lead/wc-live-land1681bfdeb: core2559 (4 optional skips), backend1064/native317, zero failures. Cold/fade phone acceptance owed; not landed. |
-| Wash travels with line; frame survives archive | 🟡 Candidate branch | Homography, JBS5/legacy tests, GPU mapping and frozen-brush archive test. Actual phone edit/reopen/context proof owed; paper/grain/gravity stay fixed. |
-| Per-brush lines, Watercolor default ON | 🟠 Candidate restored | Included on vector/watercolour-finish-20261024. Recommended reversible default; new-base tests and phone proof owed. |
-| Finish-only recolor | 🟠 Built, host tests pass | NativeLines selection primes bounded coverage for one selected line up to32 tiles. Tint re-finishes it; large/multi-selection replays normally. Current core2559/4 optional skips and backend1068 pass, including4 cache-key tests; device pixel/cache proof pending. |
-| Note9 speed | 🟠 Not accepted | L1 warm p95~36–73ms exceeds16.7ms. Optimization and remeasurement still required. |
+Sample-based editable watercolor is a distinct family from raster water simulation.
+Preserve the owner-approved crisp, high-resolution pooling. That approval does not
+establish every current engine/edit/save/performance path.
 
-**Not finished; not waiting only on owner testing.** Implementation, integration
-and device proof remain before final owner look/feel approval. Continue on
-vector/watercolour-finish-20261024; preserve unfinished scratch/evidence.
-Details: [completion audit](joybrush/reviews/WATERCOLOUR_COMPLETION_AUDIT_20261024.md).
+| Capability | Current evidence / limit |
+|---|---|
+| Pressure/tilt, pooled pigment and frozen wash-frame foundations | Code and earlier scoped GPU/archive proofs exist; current whole-family device/creative acceptance remains incomplete. |
+| Ordinary line move/replay/tint/Undo | Dedicated diagnostic compiled in integration, but dispatch/native execution pending. Debug grain/paperCut0 isolates transported optics; it cannot establish original grainy-preset appearance. Selected-cache probe is a separate test. |
+| Per-brush editable mode | Integrated and automated-tested; dedicated current A10 phone proof pending. |
+| Saved/cold first-bake and recovery | Separate snapshot/cold-loader groundwork exists; real View save/reopen/graphics restart/recovery/edit matrix still owed. |
+| Full fade and Note9 speed | Historical synthetic/glFinish measurements exceeded16.7ms; no new performance acceptance claimed. Repeat identical cold/warm/fade matrix before a speed claim. |
 
+Use the [current roadmap](joybrush/ROADMAP.md), not the superseded October24 branch
+assignments, for next work and exact [lead evidence](joybrush/HANDOFF_20261026_COORDINATOR.md).
 ## 11. HOW TO MAINTAIN THIS
 
-1. When something is proved on a phone, move it to 🟢 and say what proved it.
+1. Every noteworthy built feature MUST update STATE: user benefit/entry point, actual availability/branch, proof/limits, reusable source and help mapping. Owner phone use may justify 🟢; agent-only phone checks stay explicitly labeled and do not silently become owner LIVE.
 2. When a spec is written, add a 🔵 line. Do not write the spec until it is scheduled.
 3. When an idea appears it goes in INBOX.md — **not** into a new SPEC_*.md.
 4. When a defect is found, add it to section 9 with its severity.
-5. LEDGER.md keeps the story. This file keeps the score. Both stay.
+5. Before a new feature, read this cross-wing map and inspect existing engines/adapters. Reuse Studio/VisLab/JoyBrush machinery when appropriate; absence from your local wing is not proof it does not exist elsewhere.
+6. Roadmap records broad achievements, handoffs/LEDGER hold working detail, STATE records major discoverable capabilities. Update all affected records at a coherent checkpoint and publish small reviewed patches; no stale whole-file replacement.
 
 > **Joy Brush Note 9 agent check, 2026-10-01:** Open A/B and Recent recovery passed on the phone.
 > The safety copy of the owner's drawing matches every original archive entry byte-for-byte.

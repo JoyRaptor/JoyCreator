@@ -117,3 +117,8 @@ No live frame-copy/tween activation or GPU/context-loss proof from this prerequi
 - [x] Add operational agent-start contract and correct coordinator source/test scopes.
 - [x] Validate local links and have Luna review the new dispatch instructions.
 - [x] Publish reviewed documentation checkpoint0686a51d9; local HEAD equals GitHub branch SHA; notify domain owners.
+
+## UX menu integration verification — October26
+- [x] Selectively adopt only reviewed cdf Controller/Row/tests/report on current f628 canonical docs+A10 base; preserve current roadmap.
+- [x] Primary review exact delta and all showPixels callers; no stale Activity/engine/bench replacement.
+- [x] Run approved focused retry after recorded harness/import fixes: actual199/29suites/0 failures/errors/skips on e955; bind XML/source/log hashes, release slot and report exact result.

@@ -249,10 +249,15 @@ class SelectController(
                 val icon = recs.firstOrNull()?.let { app.brushIcon(it.record.brushId) } ?: JbIcon.BRUSH
                 row.showLines(colours, icon, 1f, picks.chipsInRow)
             }
-            is SelectionState.Pixels -> row.showPixels(canvas.strokeColor, canFill = tool.canFill, canEdit = tool.canTransform)
+            is SelectionState.Pixels -> row.showPixels(
+                canvas.strokeColor,
+                canFill = tool.canFill,
+                canEdit = tool.canTransform,
+                canMore = LineSelectionClipboard.hasLines || host.canAdjustColour,
+            )
             null -> {}
         }
-        row.visibility = if (s != null && !tool.nudging) View.VISIBLE else View.GONE
+        row.visibility = if (s != null && !tool.nudging && row.childCount > 0) View.VISIBLE else View.GONE
         if (row.visibility == View.VISIBLE) { row.alpha = 1f; row.isEnabled = true }
         bar.visibility = if (s != null) View.VISIBLE else View.GONE
         if (s != null) bar.show(barModel(s))
@@ -456,6 +461,7 @@ class SelectController(
             }
             item(null, "Invert", "Select the other unlocked lines on this layer") { tool.invertSelection(); refresh() }
         }
+        if (list.childCount == 0) return
         showScrollableMenu(list, anchor, Popovers.Side.BELOW, widthDp = 220f)
     }
 

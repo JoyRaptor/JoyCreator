@@ -37,3 +37,19 @@ separator-assertion review. Added only that import; no product change. Both red 
 preserved at C:/Temp/jb-lead-ops/ux-menu-53364b741-20261026.log and
 ux-menu-53364b741-corrected-20261026.log. Neither attempt executed tests or provides a
 fresh XML pass. Coordinator granted one focused retry on the corrected frozen source.
+
+## Executed focused proof
+
+Corrected sourcee955cd61709e3cd1509485905029d150b462ca9f completed SUCCESS1m3s,
+wrapperexit0. Actual testcase nodes:199 across29 suites,0 failures/errors/skips.
+This includes all27 prior f7 suites (190 cases), SelectPixelMenuTest5 and
+SelectRowCapabilityTest4. No source changes were made while the job ran.
+
+Receipt: `C:/Temp/jb-lead-ops/ux-menu-e955cd617-count.json`.
+Copied XML/hash set: `C:/Temp/jb-lead-ops/evidence/ux-menu-e955cd617`.
+Log: `C:/Temp/jb-lead-ops/ux-menu-e955cd617-20261026.log`.
+The private init enumerated those29 suite names, skipped non-target included roots,
+and bound512MiB tests/CPU2/one worker. Canonical lead-build performed fresh2200MiB
+admission/exclusive locking. Job and shared slot explicitly released to Coordinator.
+Product repair is ready for Coordinator's selective integration; no new APK/phone
+or PhaseB feature completion is inferred. Both earlier red logs remain preserved.

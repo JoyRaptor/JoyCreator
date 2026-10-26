@@ -121,4 +121,4 @@ No live frame-copy/tween activation or GPU/context-loss proof from this prerequi
 ## UX menu integration verification — October26
 - [x] Selectively adopt only reviewed cdf Controller/Row/tests/report on current f628 canonical docs+A10 base; preserve current roadmap.
 - [x] Primary review exact delta and all showPixels callers; no stale Activity/engine/bench replacement.
-- [ ] Run the one granted focused app attempt (prior190 plus menu9), bind fresh XML/source/log hashes, report actual result.
+- [x] Run approved focused retry after recorded harness/import fixes: actual199/29suites/0 failures/errors/skips on e955; bind XML/source/log hashes, release slot and report exact result.

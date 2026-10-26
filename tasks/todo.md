@@ -108,3 +108,9 @@ See tasks/joybrush/HANDOFF_20261026_COORDINATOR.md for exact source/evidence lim
 - [x] Review Luna's scoped control/render tests and preserve initial no-write, single per-brush preference, exact no-switch reason and current-brush callback guard.
 - [x] Publish exact source diff/handoff as UNEXECUTED; no Gradle, phone or queued wrapper before a fresh assigned slot.
 Review: A10_SWITCH_STYLE_20261026.md names exact source and four unexecuted tests; new registered ACK images reviewed separately, with finger-pan precondition still red and broad C1/C2/C3 gates explicit. No existing acceptance result transferred to this new style.
+
+## UX A10 accessibility fixture repair — October26
+- [x] Add stock Android Switch positive control using the same explicitly initialized accessibility-node fixture before the styled switch.
+- [x] Preserve role/checkable/checked/label assertions and callback counts; leave production unchanged.
+- [x] Prepare focused test-only fix for Coordinator's four-test rerun; no local build/test/device job.
+Review: stock positive control runs first within the existing accessibility test; both controls verify Off/On/Off role, label, checkable/checked state and 0/1/2 callbacks. Source reviewed and diff checked only; execution is owed in Coordinator's reserved slot.

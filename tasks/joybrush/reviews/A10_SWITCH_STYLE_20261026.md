@@ -90,3 +90,22 @@ C1/C2 remain partial: no white/dark sheet/badge, D2/More/HSB/real layer-menu cap
 mid-drag ghost, full save/reopen or physical S Pen-feel acceptance in this image set.
 C3 still needs the Lead-owned correct source/operator display hook. K26 and Slice/smudge
 publication notices retain their engine dependencies. No existing evidence was modified.
+
+## October26 — combined070 accessibility fixture correction
+
+Coordinator reports combined070 app run:183 cases,1 failure,0 errors/skips. All179
+existing regressions and the three new native-render cases passed. The sole failure
+was a null className from detached createAccessibilityNodeInfo in the accessibility
+test; this establishes no product styling failure.
+
+The focused correction changes only SelectPillSwitchTest plus this record/todo.
+The existing accessibility test first exercises stock android.widget.Switch, then
+SelectPillSwitch, with the same explicitly obtained AccessibilityNodeInfo passed to
+onInitializeAccessibilityNodeInfo. Each node is recycled. Both controls assert native
+Switch className, checkable, exact checked state and label in Off/On/Off states, with
+callback counts0/1/2. Existing styled layout/On/Off assertions remain. No production
+accessibility override or assertion removal; all three rendering tests are unchanged.
+
+The stock positive control and correction are SOURCE ONLY, not locally executed.
+Coordinator owns the four-test rerun on unchanged production; no local test/build or
+device job was started. Passing positive control and corrected fixture remain owed.

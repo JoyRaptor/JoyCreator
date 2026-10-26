@@ -50,3 +50,29 @@ receipt belongs to exact717f6c326, not these additions. Raw receipt:
 No new major user-facing feature is activated; root retains STATE ownership and the existing
 frame-tweens feature remains unfinished. The isolated FRAME-DUP roadmap row records source-only
 probe availability. Small row patch must be reconciled with the current canonical board.
+
+## Adversarial review follow-up — fixture version 2 (SOURCE ONLY)
+
+The version1 source had coverage gaps, not executed false-pass evidence:
+
+- Its one uniform negative edge tile did not force the entirely outside-board zero-slice
+  base initialization path and could hide a wrong offset in copied base pixels. Version2
+  seeds spatially patterned tiles at(-2,-2),(-1,-1),(1,1), extends the raw path through the
+  outside tile and requires that tile to appear in actual NativeLines bases. Missing coverage
+  refuses the probe instead of quietly skipping that gate.
+- Pixel independence plus distinct base handles did not reject shared visible source handles
+  under copy-on-write editing. Version2 extracts source visible handles from the actual Add
+  history step, requires complete live-key coverage, and rejects duplicate outputs aliasing
+  one another or any source visible/base handle.
+- The shared canvas was not compared. Every source-immutability checkpoint now also checks
+  shared pixels/items remain empty. Target footprint and document invariants are checked after
+  copy/restoration and final deletion; exact depth/pixel checks still gate undo/redo.
+- Engine readback assumes a packed client buffer. Version2 captures and normalizes PBO,
+  alignment, row length and skip state before readback, then restores them and separate read/draw
+  framebuffer bindings in finally. Cleanup GL failure forces passed=false. This does not destroy
+  the caller-owned disposable engine or restore every drawing state; dispatcher must still
+  reclaim the engine in finally and restore/rebind its rendering state before returning to UI.
+
+No mock GPU result, new engine hook or generic transform behavior was introduced. Existing
+four CPU oracle tests and new probe changes remain uncompiled/unrun. Low-budget/injected
+failure cleanup, resource retirement counts and archive/save/reopen remain separate gates.

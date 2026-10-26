@@ -1,0 +1,28 @@
+# Pixel menu capability repair — source-only
+
+Base4b9ed850c, branch ui/control-completion-20261026, isolated checkout
+C:/Temp/jb-ux-control-completion-20261026. Coordinator approved exclusive Controller/
+Row scope. Owner requests functional UX completion; PhaseB engine work remains open.
+
+Current production pixel lift is unavailable. The fallback selection row still
+offered More with no clipboard/colour capability; clicking it opened an empty popup.
+Controller now supplies explicit menu availability to showPixels, hides an empty
+action row, and rechecks that menu items exist before opening a popup. Row omits
+unavailable More and its trailing separator. Existing supported Fill/Delete/Flip,
+Paste, HSB and line actions retain their callbacks. No fake pixel operation was added.
+
+Four row tests exercise zero actions, unavailable More, available More callback,
+and exact Fill/Delete/Flip callbacks. Five real Controller/Popover tests exercise
+empty fallback, available colour menu, revoked colour capability, canonical copied
+lines enabling Paste, and cleared clipboard at click time. Clipboard proof uses the
+existing canonical engine fixture; no new production or test-only access seam.
+
+Primary reviewed both Luna changes, corrected a JUnit import, replaced a vacuous
+separator assertion and added canonical clipboard cases. Diff check passed. All nine
+tests are UNEXECUTED; no Gradle, phone, preview or saved-data action occurred. Root
+owns focused verification/integration and exact installed-candidate acceptance.
+
+PhaseB lift/mask/preview/commit/cancel, Fill/move/delete/flip/duplicate/copy/invert/
+HSB/painting clip, joint history and device/data proof remain engine dependencies.
+C3, Slice/smudge, K26 and A10 theme/phone proof remain separately open. This repair
+prevents empty controls; it does not complete those features.

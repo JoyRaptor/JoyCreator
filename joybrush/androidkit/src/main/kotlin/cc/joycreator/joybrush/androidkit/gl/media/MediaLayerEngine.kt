@@ -549,12 +549,12 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
      * (a tile the step does not write all of, or one staying resident past the step). [ringOnly]: only what the passes read
      * round a block (w0, w1, flux, p0): a borrowed copy, let go before anything else reads the slot.
      */
-    internal fun loadHalf(park: MediaWaterPark, unit: Int, slot: Int, both: Boolean, ringOnly: Boolean) {
+    internal fun loadHalf(park: MediaWaterPark, unit: Int, slot: Int, both: Boolean, ringOnly: Boolean, asNext: Boolean = false) {
         ensureWet()
         val ws = wet!!
         val k = job?.k ?: 0
         val cp = state[k and 1]; val op = state[(k + 1) and 1]; val cw = ws[wc]; val ow = ws[1 - wc]
-        fun pick(cur: Int, other: Int) = if (both) listOf(cur, other) else listOf(cur)
+        fun pick(cur: Int, other: Int) = if (both) listOf(cur, other) else listOf(if (asNext) other else cur)
         val planes = ArrayList<Pair<WaterParkPlan.Plane, List<Int>>>()
         planes += WaterParkPlan.Plane.W0 to pick(cw.w0, ow.w0)
         planes += WaterParkPlan.Plane.W1 to pick(cw.w1, ow.w1)

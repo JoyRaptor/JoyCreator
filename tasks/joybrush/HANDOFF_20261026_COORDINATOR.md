@@ -185,3 +185,16 @@ Select owns ONE focused Android attempt on frozenf7f75869a (production matches
 4b8a2cfdd), fresh>=2200 resource admission/exclusiveCreateNew lock, no APK/phone.
 Root launches no parallel heavy work. Existing179/Switch4 plus Preferences/Cleanup/
 Copy additions are requested; actual completion/XML still pending. No success claim.
+
+## A10 runtime integration — focused gate GREEN
+
+Merged frozenf7f75869a from Select's isolated branch. Root independently counted
+27 fresh XML suites:190 tests,0failures/errors/skips, log CLOSEDsuccess3m12 exit0;
+sharedlock released. LogSHA42FDEB4A2686E475CCDE772451CB260C2710F17C6218520B7708CDDD70CA1DC2.
+Receipt C:/Temp/jb-select-acceptance-20261026/app-f7f75869a/receipt.json.
+Separate selectA10 Runner dispatch uses existing abortSelect lifecycle calls;
+Activity/View source unchanged. Actual CANCEL/durable selective preference restore,
+invalid-ID dispatch and late Copy publication guards covered. Runtime source is
+integrated; APK/phone A10 proof and D23 real publication notices remain owed.
+Select owns next ONE canonical2048 APK attempt with fresh3200 admission; no phone
+install grant yet. Root ordinary-WC/frame/Atlas work remains source-only meanwhile.

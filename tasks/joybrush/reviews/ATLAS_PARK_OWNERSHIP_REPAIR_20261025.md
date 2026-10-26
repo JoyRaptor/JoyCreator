@@ -55,13 +55,20 @@ returning them to the allocator; victim units taken during the attempt are
 tracked, and replaced old units are deferred until post-publication commit.
 Failure restores the maps and temporary table, returns newly taken units, and
 releases a pool created only by the failed admission. The existing A1
-MediaAtlasResidency test harness now injects load, eviction, and write-back
-callback failures and checks rollback/retry lifecycle ordering; these tests
-have not been run in this source-only pass.
+MediaAtlasResidency test harness now injects begin, load, eviction, write-back,
+and rollback failures and checks cancellation, suppression of cleanup errors,
+and retry ordering; these tests have not been run in this source-only pass.
+They exercise the real generic residency lifecycle, not the GL-backed
+MediaAtlas park ledger, so they do not prove its unit accounting.
 
-This is park ownership and atlas-table rollback only. It does NOT make
-`writeBackSlot`/`writableMediaTiles` durable writes atomic if a store or GPU
-write partially succeeds before throwing; that needs separate COW transaction
-work. No real MediaAtlas GL host or forced-capacity ownership test is added.
+The original MediaAtlasBacking contract remains: writeBack must atomically
+publish durable COW state and leave old durable bytes unchanged if it fails.
+The GL-backed MediaAtlas writer's atomicity remains unproven. The post-slot
+commit hook also promises no throw/no allocation. Releases are gathered and
+ownership-validated before slot publication, and commit loops use indexes, but
+`ArrayDeque<Int>` boxing/add behavior is not proven allocation-free or
+infallible. Both durable writeback atomicity and commit-hook behavior remain
+mandatory proofs before activation.
+No real MediaAtlas GL host or forced-capacity ownership test is added.
 Compilation, Android tests, GPU/save gates, and P3/P4 resolution remain
 outstanding; no activation or production-safety claim follows from this patch.

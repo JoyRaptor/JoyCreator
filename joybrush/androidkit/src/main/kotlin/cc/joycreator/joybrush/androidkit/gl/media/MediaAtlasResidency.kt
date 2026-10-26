@@ -6,10 +6,11 @@ import cc.joycreator.joybrush.core.media.MediaAtlasSlots
 /**
  * A1 boundary for a future GL backend. All callbacks run on the owning GL thread.
  * load overwrites ALL stores/targets in a free staging slot, including absent state and ground/look semantics.
- * writeBack reads a resident slot and publishes its durable COW state/ground/look. Callbacks must not reenter residency
- * mutations. Admission hooks bracket staging ownership; rollback must undo backend ownership and temporary table changes.
- * commitAdmission runs after slot publication and must not throw or allocate. This boundary does not make durable store writes
- * atomic if a backend writeBack partially mutates its external store before throwing.
+ * writeBack reads a resident slot and atomically publishes its durable COW state/ground/look; on failure, old durable bytes
+ * and resident pixels must remain unchanged. Callbacks must not reenter residency mutations. Admission hooks bracket staging
+ * ownership; rollback must undo backend ownership and temporary table changes. commitAdmission runs after slot publication
+ * and must not throw or allocate. MediaAtlas's GL-backed commit implementation has not yet been proven to meet that constraint;
+ * keep it unactivated until its allocator/commit behavior and durable writeBack atomicity are established.
  */
 interface MediaAtlasBacking {
     /** Begins backend bookkeeping before any staging load or victim mutation. */
@@ -18,6 +19,8 @@ interface MediaAtlasBacking {
     fun writeBack(slot: Int, page: MediaAtlasPage)
     /** Every victim, dirty or not, before [writeBack] (ATLAS_ROOM: a tile with running water parks whether or not it is dirty). */
     fun evicted(slot: Int, page: MediaAtlasPage) {}
+    /** Validates or pre-stages fallible backend releases before the slot mapping is published. */
+    fun prepareCommitAdmission(page: MediaAtlasPage, victim: MediaAtlasSlots.Resident?) {}
     /** Called after [MediaAtlasSlots.commit] published the new resident; must not throw or allocate. */
     fun commitAdmission(page: MediaAtlasPage, victim: MediaAtlasSlots.Resident?) {}
     /** Best-effort restoration of backend ownership after any pre-publication callback fails. */
@@ -39,6 +42,7 @@ class MediaAtlasResidency(val slots: MediaAtlasSlots, private val backing: Media
                 backing.load(admission.slot, page)
                 admission.victim?.let { backing.evicted(it.slot, it.page) }
                 admission.victim?.takeIf { it.dirty }?.let { backing.writeBack(it.slot, it.page) }
+                backing.prepareCommitAdmission(page, admission.victim)
                 val slot = slots.commit(admission)
                 published = true
                 backing.commitAdmission(page, admission.victim)

@@ -29,6 +29,9 @@ internal class MediaWaterPark(private val wf: Int, private val maxUnits: Int, pr
 
     fun give(unit: Int) { require(unit in 0 until capacity && unit !in free) { "unit $unit is not in use" }; free.addLast(unit) }
 
+    /** Fallible ownership validation for callers that must prepare release before publishing another mapping. */
+    fun checkCanGive(unit: Int) { check(unit in 0 until capacity && unit !in free) { "unit $unit is not in use" } }
+
     /** [plane]'s texture holding [unit]. */
     fun texture(unit: Int, plane: WaterParkPlan.Plane): Int = chunks[unit / perChunk][plane.ordinal]
 

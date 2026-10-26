@@ -432,6 +432,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
             dropFromTable(page.tileKey)
         }
         override fun evicted(slot: Int, page: MediaAtlasPage) = parkIfLive(slot, page.tileKey)
+        override fun prepareCommitAdmission(page: MediaAtlasPage, victim: MediaAtlasSlots.Resident?) = prepareParkAdmissionCommit()
         override fun commitAdmission(page: MediaAtlasPage, victim: MediaAtlasSlots.Resident?) = commitParkAdmission()
         override fun rollbackAdmission(page: MediaAtlasPage, victim: MediaAtlasSlots.Resident?) = rollbackParkAdmission()
     }
@@ -508,9 +509,33 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
             parked.remove(consume)?.let(p::give)
             parkedNext.remove(consume)?.let(p::give)
         }
-        if (p != null) for (unit in a.deferredUnits) p.give(unit)
+        if (p != null) {
+            var i = 0
+            while (i < a.deferredUnits.size) { p.give(a.deferredUnits[i]); i++ }
+        }
         a.takenUnits.clear()
         parkAdmission = null
+    }
+
+    /** Do allocation and ownership checks before MediaAtlasSlots publishes the incoming page. */
+    private fun prepareParkAdmissionCommit() {
+        val a = checkNotNull(parkAdmission) { "atlas park admission is missing" }
+        val key = a.consumeOnCommit
+        val current = key?.let { parked[it] }
+        val next = key?.let { parkedNext[it] }
+        val count = (if (current != null) 1 else 0) + (if (next != null) 1 else 0) + a.deferredUnits.size
+        if (count == 0) return
+        val release = IntArray(count)
+        var at = 0
+        if (current != null) release[at++] = current
+        if (next != null) release[at++] = next
+        var d = 0
+        while (d < a.deferredUnits.size) { release[at++] = a.deferredUnits[d++] }
+        val pool = checkNotNull(park) { "parked units have no pool" }
+        for (i in 0 until count) {
+            pool.checkCanGive(release[i])
+            for (j in 0 until i) check(release[j] != release[i]) { "park unit ${release[i]} would be released twice" }
+        }
     }
 
     /** Restore park ownership and the pre-admission texture table; never publishes failed staging pixels. */
@@ -535,7 +560,10 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
             parkedTotal = a.parkedTotalBefore
             attempt { media.setResidency(a.residencyBefore) }
             val pool = a.createdPark ?: a.previousPark
-            if (pool != null) for (unit in a.takenUnits) attempt { pool.give(unit) }
+            if (pool != null) {
+                var i = 0
+                while (i < a.takenUnits.size) { val unit = a.takenUnits[i++]; attempt { pool.give(unit) } }
+            }
             a.takenUnits.clear()
             a.createdPark?.let { attempt { it.release() } }
         } finally {

@@ -19,12 +19,17 @@ class MediaAtlasResidencyTest {
         var failLoad = false
         var failWrite = false
         var failEvicted = false
+        var failPrepare = false
+        var failBegin = false
+        var failRollback = false
         var observe: (() -> Unit)? = null
+        var observePrepare: (() -> Unit)? = null
         var observeCommit: (() -> Unit)? = null
         val admissions = mutableListOf<String>()
 
         override fun beginAdmission(page: MediaAtlasPage, victim: MediaAtlasSlots.Resident?) {
             admissions += "begin:${page.tileKey}:${victim?.page?.tileKey}"
+            if (failBegin) { failBegin = false; error("begin failed") }
         }
 
         override fun commitAdmission(page: MediaAtlasPage, victim: MediaAtlasSlots.Resident?) {
@@ -34,6 +39,7 @@ class MediaAtlasResidencyTest {
 
         override fun rollbackAdmission(page: MediaAtlasPage, victim: MediaAtlasSlots.Resident?) {
             admissions += "rollback:${page.tileKey}:${victim?.page?.tileKey}"
+            if (failRollback) { failRollback = false; error("rollback failed") }
         }
 
         override fun load(slot: Int, page: MediaAtlasPage) {
@@ -55,6 +61,11 @@ class MediaAtlasResidencyTest {
 
         override fun evicted(slot: Int, page: MediaAtlasPage) {
             if (failEvicted) { failEvicted = false; error("eviction failed") }
+        }
+
+        override fun prepareCommitAdmission(page: MediaAtlasPage, victim: MediaAtlasSlots.Resident?) {
+            observePrepare?.invoke()
+            if (failPrepare) { failPrepare = false; error("prepare failed") }
         }
     }
 
@@ -128,7 +139,7 @@ class MediaAtlasResidencyTest {
     }
 
     @Test fun callbackFailuresRollbackAdmissionAndRetryPublishesOnce() {
-        for (failurePoint in listOf("load", "evicted", "write")) {
+        for (failurePoint in listOf("load", "evicted", "write", "prepare")) {
             val f = fixture(1); val old = page(1); val incoming = page(2)
             val oldSlot = f.residency.ensure(old)!!
             f.backing.pixels[oldSlot] = "old-live"
@@ -137,6 +148,7 @@ class MediaAtlasResidencyTest {
                 "load" -> f.backing.failLoad = true
                 "evicted" -> f.backing.failEvicted = true
                 "write" -> f.backing.failWrite = true
+                "prepare" -> f.backing.failPrepare = true
             }
 
             assertFailsWith<IllegalStateException> { f.residency.ensure(incoming) }
@@ -150,9 +162,50 @@ class MediaAtlasResidencyTest {
                 assertEquals(incoming, f.slots.residents().single().page, failurePoint)
                 assertNull(f.slots.resident(old), failurePoint)
             }
+            f.backing.observePrepare = {
+                assertEquals(old, f.slots.residents().single().page, failurePoint)
+                assertNull(f.slots.resident(incoming), failurePoint)
+            }
             f.residency.ensure(incoming)
             assertEquals(incoming, f.slots.residents().single().page, failurePoint)
             assertEquals("commit:2:1", f.backing.admissions.last(), failurePoint)
         }
+    }
+
+    @Test fun beginFailureCancelsReservationWithoutCallingRollback() {
+        val f = fixture(1); val old = page(1); val incoming = page(2)
+        val slot = f.residency.ensure(old)!!
+        f.slots.markDirty(old)
+        f.backing.failBegin = true
+
+        assertFailsWith<IllegalStateException> { f.residency.ensure(incoming) }
+        assertEquals(old, f.slots.residents().single().page)
+        assertEquals(slot, f.slots.resident(old)!!.slot)
+        assertTrue(f.slots.resident(old)!!.dirty)
+        assertNull(f.slots.resident(incoming))
+        assertEquals("begin:2:1", f.backing.admissions.last())
+        assertTrue(f.backing.admissions.none { it.startsWith("rollback:2:") })
+
+        f.residency.ensure(incoming)
+        assertEquals(incoming, f.slots.residents().single().page)
+    }
+
+    @Test fun rollbackFailureIsSuppressedWithoutReplacingOriginalAndReservationCanRetry() {
+        val f = fixture(1); val old = page(1); val incoming = page(2)
+        val oldSlot = f.residency.ensure(old)!!
+        f.slots.markDirty(old)
+        f.backing.failLoad = true
+        f.backing.failRollback = true
+
+        val failure = assertFailsWith<IllegalStateException> { f.residency.ensure(incoming) }
+        assertEquals("load failed", failure.message)
+        assertEquals("rollback failed", failure.suppressed.single().message)
+        assertEquals(old, f.slots.residents().single().page)
+        assertEquals(oldSlot, f.slots.resident(old)!!.slot)
+        assertTrue(f.slots.resident(old)!!.dirty)
+        assertNull(f.slots.resident(incoming))
+
+        f.residency.ensure(incoming)
+        assertEquals(incoming, f.slots.residents().single().page)
     }
 }

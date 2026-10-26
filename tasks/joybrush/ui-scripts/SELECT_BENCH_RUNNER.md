@@ -36,7 +36,16 @@ timeouts, and APK changes all return nonzero. The manifest is the exact expected
 New matching events after terminal evidence are rejected before a report is written or a screenshot
 is captured. Identical already-seen logcat events remain harmless polling repeats. The existing offline
 validator checks completeness after terminal evidence; its 29 tests are separate from the runner's
-14 tests (mocked device plus actual Windows lock-file operations). Neither suite is phone evidence.
+17 tests (mocked device plus actual Windows lock-file operations). Neither suite is phone evidence.
+
+Screenshot protocol1 holds the Android state until the host durably writes and validates the PNG,
+then ACKs the exact run/event via `cache/select-bench-<runId>-<event>.ack` using `run-as`.
+The app waits asynchronously for at most20 seconds and consumes only that marker. Stale, wrong-run,
+wrong-event or duplicate markers cannot advance it. Abort clears its own pending marker and cancels
+continuations. Missing ACK fails the run, never implies successful visual acceptance. Before each
+capture the host verifies JoyBrushActivity is resumed; it records identity/hash in `shots.jsonl`.
+The app requests current GL metadata and two UI vsyncs before emitting the held screenshot request.
+Manual review of every image remains required: ACK proves capture before advancement, not image content.
 
 The Android bench taps real Select UI actions for Copy/Paste, Group, and Lock, checks published
 records and undo counts, and captures each resulting state. It preserves the owner's process-session

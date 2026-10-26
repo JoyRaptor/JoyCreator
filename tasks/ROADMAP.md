@@ -191,9 +191,11 @@ Ordered by current thinking. Reorder freely.
 
 Select lines continuation (October 25): canonical Copy/Paste safeguards, per-brush
 K25 sheet/drawer bindings, and hardened phone acceptance are built in isolated
-`codex/select-bench-20261025`. Runner/validator: 43 offline tests passed. Frozen
+`codex/select-bench-20261025`. Runner/validator: 46 offline tests passed. Frozen
 e9d2a4176: 171 Android cases passed with zero failures/errors/skips. Corrected backend
-Copy cases, exact APK and Note 9 acceptance remain pending. A9 runtime and D23 publication hooks remain open.
+Copy23/0 and full core2572 (four skips)/androidkit1093/0 also passed. Exact APK built
+and installed; first Note 9 bench19/1 with misregistered screenshots is retained as
+red evidence. Diagnostic precondition/ACK fixes need rebuild/rerun. A9 runtime and D23 publication hooks remain open.
 Details: `tasks/joybrush/reviews/SELECT_LINES_PROGRESS_20261025.md`.
 
 ## Parked, deliberately

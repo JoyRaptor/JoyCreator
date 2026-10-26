@@ -97,3 +97,33 @@ Normal non-benchmark requests capture no such guard. Two additional actual Activ
 metadata regressions keep the Activity alive and drawing epoch unchanged while testing
 abort/completion, so they do not depend on `isFinishing` or drawing-switch protection.
 Both new queued-Copy cases passed in SelectCopySourceTest's nine-case focused result.
+
+## Exact APK and first phone run
+
+Frozen52e559d04 passed the corrected backend focus23/0/0/0, then full core2572
+cases (zero failures/errors, four skips) and full androidkit1093/0/0/0. Receipts
+and copied XML are in `C:/Temp/jb-select-acceptance-20261025/{backend,full}-52e559d04/`.
+The first APK attempt's768 MiB heap failed at D8 merge; the1536 MiB retry passed
+in3m25s without source changes. The preserved ARM64 APK SHA-256 is
+`f66a39230c982fd73b001f5a3e5a5dda5ac320683b04459e6bd89e920264e6b1`.
+Build receipt: `C:/Temp/jb-select-acceptance-20261025/apk-build-52e559d04.json`.
+
+Install verified that same digest and changed update time. The lane sent Home under
+its install claim, then verified actual launcher Home before installation; this was
+not an owner-provided Home state. All12 root file hashes matched before/after install
+and bench, explicitly including `current.joybrush`, `current.joybrush.bak` and the
+`drawing-*` working copies/backups. No rotation, uninstall, data-clear or owner drawing edit.
+
+`bench-52e559d04-run1` completed with19 behavioral PASS/1 FAIL and script exit1.
+Copy/Paste, Group, Lock and all selection/transform/nudge assertions passed. The
+finger-pan case tapped Brush while selection restyle was still active, so it never
+took Brush. A bench-only fix now leaves Nudge, clears selection through empty-paper
+UI and scopes the Brush target to ToolStripView, with explicit precondition failures.
+
+Run1's11 PNG containers are valid but **per-step visual acceptance is rejected**:
+08_nudged shows launcher Home and01_drawn already shows a later selection. The old
+1.2-second hold was shorter than real adb collection latency. New debug screenshot
+protocol1 waits for run/event-specific host ACK after durable PNG save/validation,
+with a20-second asynchronous timeout, foreground checks and typed shot audit.
+The seven new Android gate fixtures and the revised bench need compilation/execution
+and a new exact APK/device run. All run1 evidence is retained; no green phone claim.

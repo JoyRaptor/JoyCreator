@@ -215,6 +215,20 @@ class RunnerTests(unittest.TestCase):
                 adb.call("shell", "am", "start", "-n", runner.ACTIVITY, timeout=45)
         self.assertEqual(45, call.call_args.kwargs["timeout"])
 
+    def test_transport_timeout_audit_names_operation_without_serial_or_arguments(self):
+        adb = runner.Adb("PRIVATE_SERIAL")
+        adb.trace_path = self.root / "adb-audit.jsonl"
+        with patch.object(runner.subprocess, "run", side_effect=subprocess.TimeoutExpired("adb", 8)):
+            with self.assertRaisesRegex(runner.RunError, "ADB logcat unavailable or timed out") as caught:
+                adb.call("logcat", "-s", "PRIVATE_ARGUMENT", timeout=8)
+        text = adb.trace_path.read_text()
+        self.assertNotIn("PRIVATE", text + str(caught.exception))
+        row = json.loads(text)
+        self.assertEqual("logcat", row["operation"])
+        self.assertEqual(8, row["deadlineSeconds"])
+        self.assertEqual("unavailable-or-timeout", row["outcome"])
+        self.assertGreaterEqual(row["elapsedSeconds"], 0)
+
     def test_failed_launch_after_exact_terminal_can_release_claim_but_is_not_success(self):
         run_id = "0123456789abcdef0123456789abcdef"
         adb = FakeAdb(self.digest, self.a10_rows(run_id))
@@ -355,6 +369,9 @@ class RunnerTests(unittest.TestCase):
         saved = [json.loads(line) for line in (out / "results.jsonl").read_text(encoding="utf-8").splitlines()]
         self.assertEqual(["setup", "pick", "summary"], [row["selectBench"] for row in saved])
         self.assertTrue(all(row["runId"] == run_id for row in saved))
+        log_reads = [call for call in adb.calls if call[0] == "logcat"]
+        self.assertTrue(log_reads)
+        self.assertTrue(all(call[call.index("-t") + 1] == "4096" for call in log_reads))
         self.assertEqual(2, sum(call[0] == "exec-out" for call in adb.calls))  # Baseline plus matching shot.
         self.assertEqual(["cache/select-bench-" + run_id + "-1.ack"], [call[4] for call in adb.acks])
         self.assertEqual(["capture", "foreground", "capture", "png-validated", "ack"], adb.actions)

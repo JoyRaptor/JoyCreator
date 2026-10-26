@@ -11,6 +11,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import threading
 import time
 import uuid
 import xml.etree.ElementTree as ET
@@ -150,15 +151,32 @@ class Adb:
         if not serial or not re.fullmatch(r"[A-Za-z0-9_.:-]+", serial):
             raise RunError("Missing or invalid private SANDBOX_SERIAL.")
         self.serial = serial
+        self.trace_path = None
+        self.trace_lock = threading.Lock()
 
     def call(self, *args, binary=False, timeout=12):
+        operation = str(args[0]) if args else "unknown"
+        if operation in ("shell", "exec-out") and len(args) > 1:
+            operation += " " + str(args[1]).split()[0]
+        started = time.monotonic()
+        outcome = "error"
         try:
-            result = subprocess.run(["adb", "-s", self.serial, *args], capture_output=True, timeout=timeout)
-        except (OSError, subprocess.TimeoutExpired):
-            raise RunError("ADB unavailable or timed out (device identity withheld).") from None
-        if result.returncode:
-            raise RunError("ADB operation failed (device identity withheld).")
-        return result.stdout if binary else result.stdout.decode("utf-8").replace("\r", "").strip()
+            try:
+                result = subprocess.run(["adb", "-s", self.serial, *args], capture_output=True, timeout=timeout)
+            except (OSError, subprocess.TimeoutExpired):
+                outcome = "unavailable-or-timeout"
+                raise RunError(f"ADB {operation} unavailable or timed out (device identity withheld).") from None
+            if result.returncode:
+                raise RunError(f"ADB {operation} failed (device identity withheld).")
+            outcome = "ok"
+            return result.stdout if binary else result.stdout.decode("utf-8").replace("\r", "").strip()
+        finally:
+            if self.trace_path is not None:
+                row = dict(operation=operation, elapsedSeconds=round(time.monotonic() - started, 4),
+                           deadlineSeconds=timeout, outcome=outcome)
+                with self.trace_lock:
+                    with self.trace_path.open("a", encoding="utf-8") as trace:
+                        trace.write(json.dumps(row, separators=(",", ":")) + "\n")
 
     def installed_hash(self):
         paths = self.call("shell", "pm", "path", PACKAGE).splitlines()
@@ -203,6 +221,7 @@ def run(out: Path, lane: str, receipt: Path, case: str = "select"):
     manifest = HERE / CASES[case]
     expected_shots = set(read_json(manifest, 262144)["screenshots"])
     adb = Adb(os.environ.get("SANDBOX_SERIAL", ""))
+    adb.trace_path = out / "adb-calls.jsonl"
     claim = PhoneClaim(Path(os.environ["LOCALAPPDATA"]) / "Temp" / "jb-phone.lock", lane, run_id)
     launched = False
     completed = False
@@ -235,7 +254,10 @@ def run(out: Path, lane: str, receipt: Path, case: str = "select"):
         deadline = time.monotonic() + 240
         with (out / "results.jsonl").open("x", encoding="utf-8") as results:
             while not completed and time.monotonic() < deadline:
-                log = adb.call("logcat", "-d", "-v", "raw", "-s", "JoyBrushPerf:I", timeout=8)
+                # Bound the scan of the phone's historical buffer. Reading all history can
+                # stall beyond the ACK window even when the current app is responsive.
+                # Sequence checks still reject an event lost from this finite tail.
+                log = adb.call("logcat", "-b", "main", "-d", "-t", "4096", "-v", "raw", "-s", "JoyBrushPerf:I", timeout=8)
                 for line in log.splitlines():
                     if not line.startswith("{"):
                         continue

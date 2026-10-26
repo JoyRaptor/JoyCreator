@@ -117,3 +117,11 @@ No live frame-copy/tween activation or GPU/context-loss proof from this prerequi
 - [x] Add operational agent-start contract and correct coordinator source/test scopes.
 - [x] Validate local links and have Luna review the new dispatch instructions.
 - [x] Publish reviewed documentation checkpoint0686a51d9; local HEAD equals GitHub branch SHA; notify domain owners.
+
+## Frame duplicate live prerequisite — October26
+- [x] Root/Luna source review of canonical marker validator; adopt61d093 as64d957.
+- [x] Add actual engine-before-document marker validation and pre-mutation regression (source only).
+- [x] Reserve base/slab copy destinations plus deduplicated retained source handles inside board allowance; three source-only budget tests.
+- [ ] Review copied-handle provenance helper followup and compile core/backend focused tests after Select releases slot.
+- [ ] Integrate actual ordinary native-line plane copy with source closure/physical ownership checks, atomic joint publication/undo and cleanup.
+- [ ] Prove GPU pixels/independence/undo/save/reload; captured and recorded publication remain guarded.

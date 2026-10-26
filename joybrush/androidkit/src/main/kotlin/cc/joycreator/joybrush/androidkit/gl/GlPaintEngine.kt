@@ -1847,6 +1847,9 @@ class GlPaintEngine(
         requireLocalPaint()
         checkStrokeEnded("Check failed.")
         val before=boardDocument ?: error("No board document is attached")
+        // A runtime marker is untrusted input. Validate against the actual engine
+        // document before preparing any texture, item, document or history change.
+        cc.joycreator.joybrush.core.doc.FrameDuplicatePlan.validate(before, change)
         val errors=DocOps.validate(change.doc); require(errors.isEmpty()){errors.joinToString("; ")}
         require(change.doc.layers.map{it.id}==before.layers.map{it.id}) { "Board edits cannot replace the layer stack" }
         require(change.doc.layers.all { it.kind.hasPixels && it.animatedIn == null }) {

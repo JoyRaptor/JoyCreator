@@ -13,7 +13,7 @@ import sys
 import time
 import uuid
 
-from validate_select_bench import EvidenceError, read_json, validate
+from validate_select_bench import EvidenceError, read_json, validate, validate_png
 
 PACKAGE = "com.fadcam.beta"
 ACTIVITY = PACKAGE + "/com.fadcam.joybrush.JoyBrushBenchActivity"
@@ -211,11 +211,29 @@ def run(out: Path, lane: str, receipt: Path):
                         results.write(line + "\n"); results.flush()
                         print(row["selectBench"], row.get("pass", "summary"), flush=True)
                     elif "selectBenchShot" in row:
+                        if type(row.get("shotProtocol")) is not int or row["shotProtocol"] != 1:
+                            raise RunError("Screenshot request has an unsupported protocol.")
                         name = row["selectBenchShot"]
                         if name not in expected_shots or name in shots:
                             raise RunError("Unexpected or repeated screenshot request.")
-                        (out / name).write_bytes(adb.call("exec-out", "screencap", "-p", binary=True))
+                        resumed = adb.call("shell", "dumpsys", "activity", "activities")
+                        if not any("mResumedActivity" in line and f"{PACKAGE}/" in line and "JoyBrushActivity" in line
+                                   for line in resumed.splitlines()):
+                            raise RunError("Select bench left the foreground; screenshot refused.")
+                        path = out / name
+                        with path.open("wb") as image:
+                            image.write(adb.call("exec-out", "screencap", "-p", binary=True))
+                            image.flush()
+                            os.fsync(image.fileno())
+                        validate_png(path)
+                        adb.call("shell", "run-as", PACKAGE, "touch", f"cache/select-bench-{run_id}-{event}.ack")
                         shots.add(name)
+                        audit = dict(runId=run_id, event=event, name=name, shotProtocol=1,
+                                     sha256=hashlib.sha256(path.read_bytes()).hexdigest(), foregroundConfirmed=True)
+                        with (out / "shots.jsonl").open("a", encoding="utf-8") as journal:
+                            journal.write(json.dumps(audit, separators=(",", ":")) + "\n")
+                            journal.flush()
+                            os.fsync(journal.fileno())
                     elif row.get("selectBenchDone") is True:
                         completed = True
                 if not completed:

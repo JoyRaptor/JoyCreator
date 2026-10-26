@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import re
 import struct
 import tempfile
 import unittest
@@ -22,11 +23,16 @@ def png_bytes(width=2, height=2):
 
 
 class FakeAdb:
-    def __init__(self, installed_hash, log_rows=(), log_error=None):
+    def __init__(self, installed_hash, log_rows=(), log_error=None, foreground=True):
         self.hashes = list(installed_hash) if isinstance(installed_hash, list) else [installed_hash]
         self.log_rows = list(log_rows)
         self.log_error = log_error
+        self.foreground = foreground
         self.calls = []
+        self.actions = []
+        self.acks = []
+        self.audit_path = None
+        self.audit_present_when_acked = None
         self.launches = 0
         self.screencap = png_bytes()
 
@@ -47,7 +53,19 @@ class FakeAdb:
             self.launches += 1
             return "Starting: Intent"
         if args and args[0] == "exec-out":
+            self.actions.append("capture")
             return self.screencap if binary else self.screencap.decode()
+        if args == ("shell", "dumpsys", "activity", "activities"):
+            self.actions.append("foreground")
+            return ("mResumedActivity: ActivityRecord{abc com.fadcam.beta/com.fadcam.joybrush.JoyBrushActivity}" if self.foreground
+                    else "mResumedActivity: ActivityRecord{abc com.fadcam.beta/com.fadcam.joybrush.OtherActivity}")
+        if args[:4] == ("shell", "run-as", runner.PACKAGE, "touch"):
+            if len(args) != 5 or not re.fullmatch(r"cache/select-bench-[0-9a-f]{32}-\d+\.ack", args[4]):
+                raise AssertionError(f"Unexpected fake screenshot ACK call: {args!r}")
+            self.actions.append("ack")
+            self.acks.append(args)
+            self.audit_present_when_acked = self.audit_path.exists() if self.audit_path is not None else None
+            return ""
         if args and args[0] == "logcat":
             if self.log_error is not None:
                 raise self.log_error
@@ -200,16 +218,37 @@ class RunnerTests(unittest.TestCase):
     def test_only_exact_matching_run_is_written_and_foreign_events_are_ignored(self):
         rows = lambda run_id: self.terminal_rows(run_id, [
             {"selectBench": "setup", "runId": run_id, "pass": True},
-            {"selectBenchShot": "01_setup.png", "runId": run_id},
+            {"selectBenchShot": "01_setup.png", "shotProtocol": 1, "runId": run_id},
             {"selectBench": "pick", "runId": run_id, "pass": True},
         ], {"selectBench": "summary", "runId": run_id, "passed": 2, "failed": 0})
         out = self.root / "matching-out"
-        adb, run_id = self.run_terminal_log(out, rows)
+        adb = FakeAdb(self.digest, rows("0123456789abcdef0123456789abcdef"))
+        adb.audit_path = out / "shots.jsonl"
+        original_validate_png = runner.validate_png
+        def tracked_validate(path):
+            adb.actions.append("png-validated")
+            return original_validate_png(path)
+        with patch.object(runner.uuid, "uuid4", return_value=type("UUID", (), {"hex": "0123456789abcdef0123456789abcdef"})()):
+            with patch.object(runner, "validate_png", side_effect=tracked_validate):
+                self.run_patched(out, adb)
+        run_id = "0123456789abcdef0123456789abcdef"
 
         saved = [json.loads(line) for line in (out / "results.jsonl").read_text(encoding="utf-8").splitlines()]
         self.assertEqual(["setup", "pick", "summary"], [row["selectBench"] for row in saved])
         self.assertTrue(all(row["runId"] == run_id for row in saved))
         self.assertEqual(2, sum(call[0] == "exec-out" for call in adb.calls))  # Baseline plus matching shot.
+        self.assertEqual(["cache/select-bench-" + run_id + "-1.ack"], [call[4] for call in adb.acks])
+        self.assertEqual(["capture", "foreground", "capture", "png-validated", "ack"], adb.actions)
+        self.assertFalse(adb.audit_present_when_acked)
+        audit_rows = [json.loads(line) for line in (out / "shots.jsonl").read_text(encoding="utf-8").splitlines()]
+        self.assertEqual([{
+            "runId": run_id,
+            "event": 1,
+            "name": "01_setup.png",
+            "shotProtocol": 1,
+            "sha256": hashlib.sha256((out / "01_setup.png").read_bytes()).hexdigest(),
+            "foregroundConfirmed": True,
+        }], audit_rows)
         self.assertTrue((out / "01_setup.png").is_file())
         self.assertFalse(self.lock.exists())
 
@@ -239,11 +278,70 @@ class RunnerTests(unittest.TestCase):
                 self.run_patched(self.root / "event-gap-out", adb)
         self.assertTrue(self.lock.exists())
 
+    def test_shot_protocol_is_mandatory_and_requires_integer_version_one(self):
+        run_id = "0123456789abcdef0123456789abcdef"
+        bad_protocols = [{}, {"shotProtocol": True}, {"shotProtocol": 2}]
+        for index, protocol in enumerate(bad_protocols):
+            with self.subTest(protocol=protocol):
+                shot = {"runId": run_id, "event": 1, "selectBenchShot": "01_setup.png", **protocol}
+                adb = FakeAdb(self.digest, [
+                    {"runId": run_id, "event": 0, "selectBench": "setup", "pass": True},
+                    shot,
+                ])
+                out = self.root / f"bad-shot-protocol-{index}"
+                with patch.object(runner.uuid, "uuid4", return_value=type("UUID", (), {"hex": run_id})()):
+                    with self.assertRaisesRegex(runner.RunError, "unsupported protocol"):
+                        self.run_patched(out, adb)
+                self.assertEqual([], adb.acks)
+                self.assertEqual(1, sum(call[0] == "exec-out" for call in adb.calls))  # Baseline only.
+                self.assertTrue(self.lock.exists())
+                self.lock.unlink()
+
+    def test_corrupt_png_is_not_acknowledged(self):
+        run_id = "0123456789abcdef0123456789abcdef"
+        adb = FakeAdb(self.digest, [
+            {"runId": run_id, "event": 0, "selectBench": "setup", "pass": True},
+            {"runId": run_id, "event": 1, "selectBenchShot": "01_setup.png", "shotProtocol": 1},
+        ])
+        adb.screencap = b"corrupt png bytes"
+        out = self.root / "corrupt-png-out"
+        original_validate_png = runner.validate_png
+        def tracked_validate(path):
+            adb.actions.append("png-validated")
+            return original_validate_png(path)
+        with patch.object(runner.uuid, "uuid4", return_value=type("UUID", (), {"hex": run_id})()):
+            with patch.object(runner, "validate_png", side_effect=tracked_validate):
+                with self.assertRaisesRegex(runner.EvidenceError, "invalid PNG signature"):
+                    self.run_patched(out, adb)
+
+        self.assertTrue((out / "01_setup.png").is_file())
+        self.assertEqual([], adb.acks)
+        self.assertEqual(["capture", "foreground", "capture", "png-validated"], adb.actions)
+        self.assertTrue(self.lock.exists())
+
+    def test_nonforeground_bench_is_not_captured_or_acknowledged(self):
+        run_id = "0123456789abcdef0123456789abcdef"
+        adb = FakeAdb(self.digest, [
+            {"runId": run_id, "event": 0, "selectBench": "setup", "pass": True},
+            {"runId": run_id, "event": 1, "selectBenchShot": "01_setup.png", "shotProtocol": 1},
+        ], foreground=False)
+        out = self.root / "wrong-foreground-out"
+        with patch.object(runner.uuid, "uuid4", return_value=type("UUID", (), {"hex": run_id})()):
+            with self.assertRaisesRegex(runner.RunError, "left the foreground"):
+                self.run_patched(out, adb)
+
+        self.assertEqual(1, sum(call[0] == "exec-out" for call in adb.calls))  # Baseline only.
+        self.assertFalse((out / "01_setup.png").exists())
+        self.assertEqual([], adb.acks)
+        self.assertEqual(["capture", "foreground"], adb.actions)
+        self.assertFalse((out / "shots.jsonl").exists())
+        self.assertTrue(self.lock.exists())
+
     def test_new_report_after_done_is_rejected_without_writing_it(self):
         run_id = "0123456789abcdef0123456789abcdef"
         own = [
             {"selectBench": "setup", "runId": run_id, "pass": True},
-            {"selectBenchShot": "01_setup.png", "runId": run_id},
+            {"selectBenchShot": "01_setup.png", "shotProtocol": 1, "runId": run_id},
             {"selectBench": "pick", "runId": run_id, "pass": True},
             {"selectBench": "summary", "runId": run_id, "passed": 2, "failed": 0},
             {"selectBenchDone": True, "runId": run_id},
@@ -269,7 +367,7 @@ class RunnerTests(unittest.TestCase):
         run_id = "0123456789abcdef0123456789abcdef"
         own = [
             {"selectBench": "setup", "runId": run_id, "pass": True},
-            {"selectBenchShot": "01_setup.png", "runId": run_id},
+            {"selectBenchShot": "01_setup.png", "shotProtocol": 1, "runId": run_id},
             {"selectBench": "pick", "runId": run_id, "pass": True},
             {"selectBench": "summary", "runId": run_id, "passed": 2, "failed": 0},
             {"selectBenchDone": True, "runId": run_id},
@@ -288,13 +386,14 @@ class RunnerTests(unittest.TestCase):
         self.assertTrue((out / "01_setup.png").is_file())
         self.assertFalse((out / "02_late.png").exists())
         self.assertEqual(2, sum(call[0] == "exec-out" for call in adb.calls))  # Baseline plus pre-done shot.
+        self.assertEqual(["cache/select-bench-" + run_id + "-1.ack"], [call[4] for call in adb.acks])
         self.assertFalse(self.lock.exists())
 
     def test_exact_duplicate_after_done_is_deduplicated(self):
         run_id = "0123456789abcdef0123456789abcdef"
         own = [
             {"selectBench": "setup", "runId": run_id, "pass": True},
-            {"selectBenchShot": "01_setup.png", "runId": run_id},
+            {"selectBenchShot": "01_setup.png", "shotProtocol": 1, "runId": run_id},
             {"selectBench": "pick", "runId": run_id, "pass": True},
             {"selectBench": "summary", "runId": run_id, "passed": 2, "failed": 0},
             {"selectBenchDone": True, "runId": run_id},

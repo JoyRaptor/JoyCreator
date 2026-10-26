@@ -42,6 +42,8 @@ class SelectBench(private val canvas: JbCanvasView, private val runId: String, p
     private var failed = 0
     private var event = 0
     private var active = true
+    /** A captured predicate belongs to this exact bench session and exposes no mutable bench state. */
+    internal val acceptsCopyResult: () -> Boolean = { active }
 
     /** Lifecycle interruption is not successful terminal evidence. Safe to call again after ordinary completion. */
     fun abort(): Boolean {

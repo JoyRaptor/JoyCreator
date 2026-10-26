@@ -3,6 +3,8 @@ package cc.joycreator.joybrush.android.select
 import android.graphics.Color
 import android.os.Looper
 import cc.joycreator.joybrush.android.JoyBrushActivity
+import cc.joycreator.joybrush.android.bench.BenchRunner
+import cc.joycreator.joybrush.android.bench.SelectBench
 import cc.joycreator.joybrush.androidkit.JbCanvasView
 import cc.joycreator.joybrush.androidkit.gl.GlPaintEngine
 import cc.joycreator.joybrush.androidkit.lines.LineCopyResult
@@ -64,6 +66,15 @@ class SelectCopySourceTest {
         fun copy() = app.copySelection(SelectionState.Lines(setOf(lower.address(red.id), upper.address(blue.id)), null, null, null))
         fun expected() = planes.flatMap { (p, rs) -> rs.map { AddressedStroke(p.address(it.id), it) } }
         fun field(name: String) = JbCanvasView::class.java.getDeclaredField(name).also { it.isAccessible = true }
+
+        fun installSelectBench(): Pair<BenchRunner, SelectBench> {
+            // Keep the Activity alive: the regression must prove the session guard independently of finish().
+            val select = SelectBench(surface, "0123456789abcdef0123456789abcdef") {}
+            val runner = BenchRunner(surface, BenchRunner.Spec(listOf("select"), emptyList(), 1, true, false)) {}
+            BenchRunner::class.java.getDeclaredField("selectBench").also { it.isAccessible = true }.set(runner, select)
+            JoyBrushActivity::class.java.getDeclaredField("activeBench").also { it.isAccessible = true }.set(activity, runner)
+            return runner to select
+        }
 
         fun runMetadataQueue() {
             val done = CountDownLatch(1)
@@ -144,6 +155,33 @@ class SelectCopySourceTest {
         b.runMetadataQueue()
         assertSame(before, LineSelectionClipboard.snapshot())
         assertEquals(notices, ShadowToast.shownToastCount())
+        assertFalse(b.engine.undo.canUndo)
+    }
+
+    @Test fun queuedActivityCopyCannotOverwriteRestoredClipboardAfterBenchmarkAbort() =
+        queuedBenchmarkCopyIsDropped(complete = false)
+
+    @Test fun queuedActivityCopyCannotOverwriteRestoredClipboardAfterBenchmarkCompletion() =
+        queuedBenchmarkCopyIsDropped(complete = true)
+
+    private fun queuedBenchmarkCopyIsDropped(complete: Boolean) {
+        assertTrue(LineSelectionClipboard.accept(canonicalCopyPayload(listOf(lineRecord("owner-clipboard", 1)))))
+        val before = LineSelectionClipboard.snapshot()
+        val b = Bench()
+        val (runner, select) = b.installSelectBench()
+        val epoch = b.surface.lineEditEpoch
+        val notices = ShadowToast.shownToastCount()
+        b.copy()
+        if (complete) {
+            SelectBench::class.java.getDeclaredMethod("done").also { it.isAccessible = true }.invoke(select)
+        } else runner.abortSelect()
+        assertFalse("session invalidation must not rely on finishing the Activity", b.activity.isFinishing)
+        assertFalse(b.activity.isDestroyed)
+        assertEquals(epoch, b.surface.lineEditEpoch)
+        assertSame(before, LineSelectionClipboard.snapshot())
+        b.runMetadataQueue()
+        assertSame("late Ready must not replace the restored owner clipboard", before, LineSelectionClipboard.snapshot())
+        assertEquals("late Copy must not add a success/refusal toast", notices, ShadowToast.shownToastCount())
         assertFalse(b.engine.undo.canUndo)
     }
 

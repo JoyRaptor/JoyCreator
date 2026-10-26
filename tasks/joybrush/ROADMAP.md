@@ -1,5 +1,13 @@
 # JOY BRUSH — ROADMAP AnD TASK BOARD (the one file to point an agent at)
 
+## Historical feature-base notice — October 26, 2026
+
+This checkout preserves an older product/spec catalogue. The live wing-wide roadmap and owners are
+`C:/Temp/jb-select-reconcile-20261024/tasks/joybrush/ROADMAP.md` and its AGENT_START_20261026.md.
+Only the affected milestone below is refreshed for this isolated checkpoint; reconcile its status
+into the current coordinator row, never replace the current board with this older file.
+
+
 > **October 9 current entry point:** read [CURRENT_HANDOFF.md](CURRENT_HANDOFF.md) first. Its live queue, capability boundaries and shared claim protocol override historical readiness and Claude-only lead assignments below. Do not claim stale rows directly. This file remains the full product/spec index.
 
 > **Agent: this file is your whole briefing.** Read it top to bottom, then do what §2 says.
@@ -274,7 +282,7 @@ Phases follow `JOYBRUSH_BLUEPRInT.md` §4. Each phase ends with an owner check (
 | JB-5.13 Fill as a shape: flood region → traced contour → filled stroke record, tucked under the lines | T2 | 5.03a | 🟧 Core built | Codex e8efaa1d; 10 shape tests pass; 2048 timing in MEASURE_R51_JVM |
 | JB-5.14 Measurement bench for brief §11 (bytes per frame, replay time, trace time) on the JVM, then the Note 9 | T2 | 5.12, 5.13 | 🟧 JVM built/measured; device pending | Codex; MEASURE_R51_JVM.md, latest11 bench checks passed |
 | [JB-5.20](specs/JB-5.20_lines_in_the_one_layer.md) Lines in the one layer: a cel holds pixels and stroke records in time order; one undo; select, nudge, Rasterize Down, Flatten Lower, two smudges | T1 | 2.40, 5.12 | NativeLines capture/edit/storage and Select present; frame-copy preservation, complete mixed-tool/board support and device acceptance remain. Static slab-only export fix on `codex/vector-tweens`; see VECTOR_TWEEN_COMPLETION_20261023.md. | Engine Lead |
-| [JB-5.40](specs/JB-5.40_tweens.md) Tweens: a held frame slides its matched lines into the next frame (rigid turn about the pivot, then the bend; HSB colour) | T1 | 5.20 | Math built; saved setting / tick sampler / scoped scene on `codex/vector-tweens` (full core/backend pass). GPU playback, controls, export and phone acceptance open. | Engine Lead integration; Codex independent core |
+| [JB-5.40](specs/JB-5.40_tweens.md) Tweens: a held frame slides its matched lines into the next frame (rigid turn about the pivot, then the bend; HSB colour) | T1 | 5.20 | Preserved component-aware scene/export source 35a9d23b1 / 0a65e19ca / 9d7adea3f on parallel clip schema v12/v13/v14. UNVERIFIED on this branch; direct-cel isolated tests do not prove components. Current Select/Copy schema/runtime reconciliation and GPU/UI/phone gates OPEN. | Root integration; tween specialist bounded source |
 
 ### Phase 5 — Ink layers
 | Task | Tier | needs | Status | Who |

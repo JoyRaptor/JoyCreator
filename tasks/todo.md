@@ -1,5 +1,17 @@
 # Launch plan (drafted 2026-10-15 from six read-only audits in tasks/audits/)
 
+## Vector tween completion continuation — October 26
+
+- [x] Recheck primary/source/integration branches and coordinate reserved engine files with lead.
+- [ ] Compile earlier forward exposure helper on integrated clip/tween schema base.
+- [ ] Resolve component-cel fragments without losing clips or line identity.
+- [ ] Extend playback clock with quantized exposures and wakeups across saved end modes/ranges/speed.
+- [ ] Connect transient line rendering and original-record animated exports.
+- [ ] Preserve independent editable NativeLines data through frame duplication (lead-owned engine).
+- [ ] Wire saved toggle/strip UI only after rendering works (lead-owned UI).
+- [ ] Record actual integrated build/device evidence, update STATE/roadmaps, remove obsolete own temporary files.
+
+
 ## Owner request October 23: finish vector/tween parent plans
 - [ ] Complete the ordered implementation and acceptance work in `tasks/joybrush/VECTOR_TWEEN_COMPLETION_20261023.md` (isolated `codex/vector-tweens`; existing external lane work preserved).
 - [x] Independent core/schema/export slice implemented; full core2552 (4 optional skips) and backend1061 green. Owner retained engine hot files with Engine Lead; copied-frame/GPU/UI/phone completion remains with that lane.

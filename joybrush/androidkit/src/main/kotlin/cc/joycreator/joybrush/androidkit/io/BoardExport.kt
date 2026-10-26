@@ -2,6 +2,8 @@ package cc.joycreator.joybrush.androidkit.io
 
 import cc.joycreator.joybrush.core.chrome.BoardExportLayout as Export
 import cc.joycreator.joybrush.core.doc.*
+import cc.joycreator.joybrush.core.anim.PlayMode
+import cc.joycreator.joybrush.core.anim.TweenFrameSample
 import cc.joycreator.joybrush.core.export.AnimExport
 import cc.joycreator.joybrush.core.export.SpritePacker
 import cc.joycreator.joybrush.core.render.RegionRenderer
@@ -16,6 +18,7 @@ data class BoardExportRequest(
     val scope: Export.Scope, val format: Export.Format, val frameId: String?,
     val startId: String?, val endId: String?, val frameIds: List<String>,
     val imageIds: List<String>, val includePaper: Boolean,
+    val playMode: PlayMode = PlayMode.LOOP,
 ) {
     val folder: Boolean get() = scope == Export.Scope.ALL_IMAGES ||
         format == Export.Format.PNG_FRAMES || format == Export.Format.SPRITE_SHEET
@@ -42,10 +45,15 @@ class StagedBoardExport internal constructor(val directory: File, val files: Lis
 
 /** Runs on the existing save writer. All outputs finish locally before a SAF destination is opened. */
 object BoardExport {
+    /** Preserve the existing trailing progress lambda and defaults. */
     fun stage(contents: JbContents, request: BoardExportRequest, cache: File,
-        onWarning: (String) -> Unit = {}, onFrame: (Int, Int) -> Unit = { _, _ -> }): StagedBoardExport {
+        onWarning: (String) -> Unit = {}, onFrame: (Int, Int) -> Unit = { _, _ -> }): StagedBoardExport =
+        stage(contents, request, cache, onWarning, onFrame, null)
+
+    fun stage(contents: JbContents, request: BoardExportRequest, cache: File,
+        onWarning: (String) -> Unit = {}, onFrame: (Int, Int) -> Unit = { _, _ -> },
+        tweenRenderer: ((JbContents, TweenFrameSample, RectPx, Boolean) -> ByteArray)?): StagedBoardExport {
         val doc = contents.doc
-        RegionRenderer.unsupportedContentReason(doc)?.let { throw JbArchiveException(it) }
         DocOps.validate(doc).takeIf { it.isNotEmpty() }?.let { throw JbArchiveException(it.joinToString("; ")) }
         if (doc.id != request.documentId) throw JbArchiveException("the drawing changed; choose the board again")
         val board = doc.boards.singleOrNull { it.id == request.boardId }
@@ -66,6 +74,7 @@ object BoardExport {
             val base = AnimExport.safeBaseName(board.name)
             when {
                 request.scope == Export.Scope.ALL_IMAGES -> {
+                    RegionRenderer.unsupportedContentReason(doc)?.let { throw JbArchiveException(it) }
                     require(board.kind == BoardKind.CANVAS && request.format == Export.Format.PNG)
                     val images = request.imageIds.map { id -> doc.boards.singleOrNull { it.id == id && it.kind == BoardKind.CANVAS }
                         ?: throw JbArchiveException("an image board changed; choose all image boards again") }
@@ -79,33 +88,43 @@ object BoardExport {
                 }
                 board.kind == BoardKind.ANIMATION -> {
                     require(request.scope in listOf(Export.Scope.ANIMATION, Export.Scope.RANGE, Export.Scope.FRAME))
-                    val plan = when (request.scope) {
-                        Export.Scope.ANIMATION -> AnimExport.plan(board, base)
-                        else -> {
-                            val first = board.frames.indexOfFirst { it.id == if(request.scope == Export.Scope.FRAME) request.frameId else request.startId }
-                            val last = board.frames.indexOfFirst { it.id == if(request.scope == Export.Scope.FRAME) request.frameId else request.endId }
-                            if (first < 0 || last < first) throw JbArchiveException("that frame range no longer exists")
-                            AnimExport.planRange(board, first, last, base)
+                    if (request.format == Export.Format.PNG) {
+                        require(request.scope == Export.Scope.FRAME)
+                        RegionRenderer.unsupportedContentReason(doc)?.let { throw JbArchiveException(it) }
+                        sink.write("$base.png", "image/png", CanvasPng.encodeBoard(contents, board.id,
+                            request.includePaper, request.frameId, onWarning = onWarning))
+                    } else {
+                        val plan = when (request.scope) {
+                            Export.Scope.ANIMATION -> AnimExport.plan(board, base, request.playMode)
+                            else -> {
+                                val first = board.frames.indexOfFirst { it.id == if(request.scope == Export.Scope.FRAME) request.frameId else request.startId }
+                                val last = board.frames.indexOfFirst { it.id == if(request.scope == Export.Scope.FRAME) request.frameId else request.endId }
+                                if (first < 0 || last < first) throw JbArchiveException("that frame range no longer exists")
+                                AnimExport.planRange(board, first, last, base, request.playMode)
+                            }
                         }
-                    }
-                    when (request.format) {
-                        Export.Format.PNG -> {
-                            require(request.scope == Export.Scope.FRAME)
-                            sink.write("$base.png", "image/png", CanvasPng.encodeBoard(contents, board.id,
-                                request.includePaper, request.frameId, onWarning = onWarning))
+                        val callbackFormat = request.format in listOf(Export.Format.PNG_FRAMES, Export.Format.GIF, Export.Format.SPRITE_SHEET)
+                        if (plan.tweenSamples == null || tweenRenderer == null || !callbackFormat) {
+                            RegionRenderer.unsupportedContentReason(doc)?.let { throw JbArchiveException(it) }
                         }
-                        Export.Format.PNG_FRAMES -> AnimExportRunner.writeSequence(contents, board.id, plan,
-                            request.includePaper, sink, onWarning = onWarning, onFrame = onFrame)
-                        Export.Format.GIF, Export.Format.SPRITE_SHEET -> AnimExportRunner.encodeOne(
-                            if(request.format == Export.Format.GIF) AnimFormat.GIF else AnimFormat.SPRITE_SHEET,
-                            contents, board.id, plan, request.includePaper, onWarning = onWarning, onFrame = onFrame
-                        ).forEach { sink.write(it.name, it.mime, it.bytes) }
-                        else -> throw JbArchiveException("that destination is not connected yet")
+                        when (request.format) {
+                            Export.Format.PNG_FRAMES -> AnimExportRunner.writeSequence(contents, board.id, plan,
+                                request.includePaper, sink, onWarning = onWarning, onFrame = onFrame, tweenRenderer = tweenRenderer)
+                            Export.Format.GIF, Export.Format.SPRITE_SHEET -> AnimExportRunner.encodeOne(
+                                if(request.format == Export.Format.GIF) AnimFormat.GIF else AnimFormat.SPRITE_SHEET,
+                                contents, board.id, plan, request.includePaper, onWarning = onWarning, onFrame = onFrame,
+                                tweenRenderer = tweenRenderer,
+                            ).forEach { sink.write(it.name, it.mime, it.bytes) }
+                            else -> throw JbArchiveException("that destination is not connected yet")
+                        }
                     }
                 }
-                board.kind == BoardKind.CANVAS && request.scope == Export.Scope.BOARD && request.format == Export.Format.PNG ->
+                board.kind == BoardKind.CANVAS && request.scope == Export.Scope.BOARD && request.format == Export.Format.PNG -> {
+                    RegionRenderer.unsupportedContentReason(doc)?.let { throw JbArchiveException(it) }
                     sink.write("$base.png", "image/png", CanvasPng.encodeBoard(contents, board.id, request.includePaper, onWarning = onWarning))
+                }
                 board.kind == BoardKind.SPRITE && request.scope == Export.Scope.BOARD && request.format == Export.Format.SPRITE_SHEET -> {
+                    RegionRenderer.unsupportedContentReason(doc)?.let { throw JbArchiveException(it) }
                     val grid = board.grid ?: throw JbArchiveException("this Sprite board has no grid")
                     val count = grid.cols.toLong()*grid.rows
                     val pixels = count*grid.cellW*grid.cellH

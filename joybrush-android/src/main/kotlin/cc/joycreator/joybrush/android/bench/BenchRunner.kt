@@ -166,7 +166,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
         val capturedCopy = case == "recordedCapturedCopyProbe"
         val capturedJoint = case == "recordedCapturedJointProbe"
         val watercolourEdits = case == "recordedWatercolourEditProbe"
-        if (case == "recordedProbe" || bakeOperator != null || jointProbe || promotionProbe || capturedCopy || capturedJoint || watercolourEdits) {
+        val watercolourOrdinary = case == "recordedWatercolourOrdinaryProbe"
+        if (case == "recordedProbe" || bakeOperator != null || jointProbe || promotionProbe || capturedCopy || capturedJoint || watercolourEdits || watercolourOrdinary) {
             val probePreset = if (jointProbe || promotionProbe || capturedCopy || capturedJoint) preset.copy(
                 opacity = cc.joycreator.joybrush.core.brush.Param(0.55f), blend = "normal")
             else if (bakeOperator == null) preset else preset.copy(
@@ -187,13 +188,16 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
                 promotion = promotionProbe, regional = case == "recordedPromotionRegionProbe",
                 coldLoad = case == "recordedPromotionColdProbe", capturedCopy = capturedCopy,
                 coldPayload = case == "recordedColdPayloadProbe", coldFailures = case == "recordedColdFailureProbe",
-                capturedJoint = capturedJoint, watercolourEdits = watercolourEdits) { result ->
+                capturedJoint = capturedJoint, watercolourEdits = watercolourEdits,
+                watercolourOrdinary = watercolourOrdinary) { result ->
                 val report = org.json.JSONObject(result).put("brush", preset.id).put("case", case).put("run", run)
+                if (!watercolourOrdinary) report
                     .put("fixtureOpacity", probePreset.opacity.base)
                     .put("fixtureBrushVersion", probePreset.version)
                     .put("fixtureBrushSize", probePreset.size.base)
                     .put("fixtureWatercolourSize", probePreset.watercolour?.size ?: org.json.JSONObject.NULL)
-                    .put("proofScope", if (watercolourEdits) "NativeLines add/lift/tint, actual coverage-cache counters, canonical RGBA8 equality and undo/redo; disposable engine, no View/Select/save/recovery/quality acceptance"
+                report.put("proofScope", if (watercolourOrdinary) "Ordinary NativeLines Add/Replace, independent integer source-pixel translation, tint and Undo/redo; derived frozen grain/paperCut0 fixture. No selected lift/cache, physical fade, View save/recovery or owner-preset quality claim"
+                        else if (watercolourEdits) "NativeLines add/lift/tint, actual coverage-cache counters, canonical RGBA8 equality and undo/redo; disposable engine, no View/Select/save/recovery/quality acceptance"
                         else if (capturedJoint) "Bound captured source Scene, native siblings, exact integer movement and public joint undo/redo; debug throwaway only, no live View/Select/save/recovery or quality claim"
                         else if (capturedCopy) "Disposable complete recipe pooling then captured-domain integer texel copy; no source Scene, live capture, Select, save/recovery, quality or performance claim"
                         else if (promotionProbe) "Actual native-base transfer, physical display and raw/legacy history; no live capture, Select, save/recovery, quality or performance claim"

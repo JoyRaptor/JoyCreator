@@ -2933,6 +2933,30 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                                capturedJoint: Boolean = false,
                                watercolourEdits: Boolean = false,
                                ready: (String) -> Unit) {
+        runRecordedReplayProbe(preset, record, bake, openCold, joint, promotion, coldLoad,
+            regional, capturedCopy, coldPayload, coldFailures, capturedJoint, watercolourEdits,
+            watercolourOrdinary = false, ready = ready)
+    }
+
+    /** Explicit opt-in overload; the original positional/callback signature remains available. */
+    fun runRecordedReplayProbe(preset: BrushPreset, record: cc.joycreator.joybrush.core.stroke.StrokeRecord,
+                               bake: Boolean = false,
+                               openCold: Boolean = false,
+                               joint: Boolean = false,
+                               promotion: Boolean = false,
+                               coldLoad: Boolean = false,
+                               regional: Boolean = false,
+                               capturedCopy: Boolean = false,
+                               coldPayload: Boolean = false,
+                               coldFailures: Boolean = false,
+                               capturedJoint: Boolean = false,
+                               watercolourEdits: Boolean = false,
+                               watercolourOrdinary: Boolean,
+                               ready: (String) -> Unit) {
+        require(!watercolourOrdinary || (!bake && !openCold && !joint && !promotion && !coldLoad && !regional &&
+            !capturedCopy && !coldPayload && !coldFailures && !capturedJoint && !watercolourEdits)) {
+            "Ordinary watercolor testing requires its independent disposable engine"
+        }
         require(!watercolourEdits || (!bake && !openCold && !joint && !promotion && !coldLoad && !regional &&
             !capturedCopy && !coldPayload && !coldFailures && !capturedJoint)) {
             "Watercolor edit testing requires its independent disposable engine"
@@ -2963,8 +2987,13 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 probe.init()
                 probe.setDocumentPaper(paper)
                 probe.addLayer("recorded-probe")
-                val frozen = cc.joycreator.joybrush.core.brush.FrozenBrushRegistry.freeze(emptyMap(), preset) { "probe-frozen" }
-                val value = if (watercolourEdits) cc.joycreator.joybrush.androidkit.gl.WatercolourEditProbe.run(
+                val ordinary = if (watercolourOrdinary)
+                    cc.joycreator.joybrush.androidkit.gl.WatercolourOrdinaryFixture.prepare(preset) else null
+                val frozen = ordinary?.frozen ?:
+                    cc.joycreator.joybrush.core.brush.FrozenBrushRegistry.freeze(emptyMap(), preset) { "probe-frozen" }
+                val value = if (ordinary != null) cc.joycreator.joybrush.androidkit.gl.WatercolourOrdinaryProbe.run(
+                    probe, "recorded-probe", frozen.preset, ordinary.record())
+                else if (watercolourEdits) cc.joycreator.joybrush.androidkit.gl.WatercolourEditProbe.run(
                     probe, "recorded-probe", frozen.preset, record.copy(brushId = frozen.id))
                 else if (capturedJoint) cc.joycreator.joybrush.androidkit.gl.RecordedCapturedJointProbe.run(
                     probe, "recorded-probe", frozen.preset, record.copy(brushId = frozen.id))
@@ -2981,6 +3010,12 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 else cc.joycreator.joybrush.androidkit.gl.RecordedReplayProbe.json(
                     cc.joycreator.joybrush.androidkit.gl.RecordedReplayProbe.run(probe, "recorded-probe",
                         frozen.preset, record.copy(brushId = frozen.id)))
+                if (ordinary != null) {
+                    value.put("fixture", org.json.JSONObject(ordinary.metadata()))
+                        .put("fixtureFrozenBrushJson", frozen.bytes.decodeToString())
+                        .put("fixtureFrozenBrushSha256", java.security.MessageDigest.getInstance("SHA-256")
+                            .digest(frozen.bytes).joinToString("") { "%02x".format(it.toInt() and 255) })
+                }
                 probe.release()
                 val error = android.opengl.GLES30.glGetError()
                 value.put("engineReleaseGlError", error)

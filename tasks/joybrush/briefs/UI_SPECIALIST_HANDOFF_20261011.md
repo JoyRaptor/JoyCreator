@@ -318,3 +318,14 @@ cross-layer semantics. Expanded matrix now has ten groups, including those desti
 dependent cases and broken flatten/unit-opacity controls. Proposed conservative initial
 envelope is documented for Lead; no gate is implemented or general lift correctness claimed.
 Existing same-source legacy lift issues remain separate from C3 completion.
+
+### October26 — d11 final screenshot registration reviewed
+
+Report: reviews/SELECT_D11_VISUAL_REVIEW_20261026.md. Primary specialist and Luna each
+inspected all 11 final PNGs for run66b2bea7a44c4eaca7e99b5fb53d2ac3, sourced11da3d4b.
+All show the expected tan-canvas stages; no Home/stale registration or new obvious
+blocking visual issue. Results report20/0. Final finger-pan result has no post-pan PNG;
+lock behavior is metadata, and the pasted diagonal is partly outside the viewport.
+Coordinator retains independent receipts/events/hash/validator verification; Select
+retains postdata/claim release. No device/build/source/preview action by this review.
+White/dark, A10 repair rendering, physical pen feel and C3 remain separate open gates.

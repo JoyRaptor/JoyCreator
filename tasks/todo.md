@@ -103,3 +103,10 @@ Review: SELECT_C2_SOURCE_REVIEW_20261024.md records source fit/reveal notes and 
 - [ ] Review actual hook and semi-alpha/texture/preview/isolation evidence before closing C3.
 Review: dependency handoff complete, C3 implementation remains OPEN; no production changes, build, GPU/phone run or Phase B approval.
 - [x] Append mainf79efc378 operator/layer limitation, explicit proposed admission envelope and ten-group matrix; no general legacy-lift correctness or new test claim.
+
+## UX continuation — October26
+- [x] Use Luna for a read-only current evidence inventory; independently read exact-source receipts and reject temporally invalid images for C2 acceptance.
+- [x] Review current K25 badge/sheet source and validated evidence boundaries; report the grey-on/grey-off Editable lines switch to Coordinator. Authorized repair delivered separately as fd0fd52dd; frozen for later integration/verification.
+- [x] Publish source findings and pending visual/engine gates; no build/phone/window ownership change.
+- [x] Independently inspect all 11 d11 final screenshots with a second Luna review; report state registration and bounded visual findings to Coordinator.
+Review: SELECT_D11_VISUAL_REVIEW_20261026.md records the new run's screenshots and reported 20/0 behavior result. No screenshot verdict transferred from earlier runs. A10 repair execution, other paper/theme states, physical pen feel and C3 remain open.

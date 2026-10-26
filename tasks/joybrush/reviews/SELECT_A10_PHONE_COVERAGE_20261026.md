@@ -2,8 +2,11 @@
 
 Current source-only integration on `codex/select-a10-wired-20261026`, based on
 canonical cfd42929e (styled candidate gate passed). BenchRunner dispatch and its
-existing Activity lifecycle abort/Copy guard now include A10. New Android code/tests
-are not compiled or run and no new APK is device-verified. The existing d11
+existing Activity lifecycle abort/Copy guard now include A10. Sourcef7f75869a compiled
+and passed190 focused Android cases/0 failures/errors/skips (closed3m12s). Exact APK
+build succeeded4m51s; SHA5d99f3f5fb947129c9f85eb90bcc1f2e413013f28a01ffceb667a36082635132.
+Both receipts are under `C:/Temp/jb-select-acceptance-20261026`. No new APK is yet
+device-verified. The existing d11
 twenty-case proof remains separate.
 
 The separate `selectA10` case will use these six reports and five ACK-held captures:
@@ -39,7 +42,7 @@ abort/CANCEL ordering and actual Activity/View queued-Copy regression sources ar
 prepared. The host supports `SELECT_BENCH_CASE=selectA10` through the canonical script,
 rejects wrong-case events before ACK, and compares exact owned preference keys
 pre/post. Debug restoration synchronously commits before terminal evidence. Offline
-host55 passed; no Android result is inferred. Still required: Lead review, focused
-compilation/tests, exact APK receipt/install, canonical script and manual captures,
+host55 passed. Android190 and exact APK build now passed on frozenf7; Lead independently
+counted the fresh XML. Still required: exact APK install, canonical script and manual captures,
 saved-data/owned-preference receipts. Existing run/event ACK foreground/PNG/identity/
 timeout checks remain. No D23 or underlying live-stroke publication claim.

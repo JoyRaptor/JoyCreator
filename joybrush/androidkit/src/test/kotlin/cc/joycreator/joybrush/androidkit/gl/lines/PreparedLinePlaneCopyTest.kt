@@ -113,6 +113,24 @@ class PreparedLinePlaneCopyTest {
     }
 
     @Test
+    fun physicalBaseCopyReceivesItsTileKeyWhileRawRecipeAndSlabOperatorsStayIntact() {
+        val lines = populated()
+        val prepared = PreparedLinePlaneCopy.capture(lines, source, destination)
+        val baseCalls = ArrayList<Pair<Long, Int>>()
+        val slabCalls = ArrayList<Int>()
+        val output = prepared.materializeWithClippedBases(
+            copyTexture = { slabCalls += it; it + 100 },
+            copyBase = { key, texture -> baseCalls += key to texture; texture + 1000 },
+        )
+        assertEquals(listOf(tile(0) to 10, tile(1) to 11), baseCalls)
+        assertEquals(listOf(21, 22), slabCalls)
+        assertEquals(listOf(1010, 1011), output.slabs.filter { it.seq == 0L }.map { it.after!!.texture })
+        assertEquals(listOf("erase", "erase"), output.slabs.filter { it.seq == 2L }.map { it.after!!.op })
+        assertEquals(lines.record(source, "stroke"), output.lines.single().after!!.record)
+        assertEquals(4, prepared.borrowedSourceTextures.size)
+    }
+
+    @Test
     fun borrowedSourceHandlesFreezeEveryBaseAndSlabSlotIncludingAliases() {
         val lines = NativeLines { _: StrokeRecord, _: BrushPreset? -> emptySet() }
         // A texture can be borrowed by more than one owned slot; every slot still needs a distinct copy.

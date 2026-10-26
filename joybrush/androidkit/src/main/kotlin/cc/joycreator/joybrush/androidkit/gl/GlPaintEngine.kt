@@ -1949,6 +1949,10 @@ class GlPaintEngine(
         }
         val pending=LinkedHashMap<Pair<String,Pair<String?,Long>>,UndoLog.TileChange<Int>>()
         val itemTextures = ArrayList<Int>(editableCopies.sumOf { it.textureCount })
+        fun trackItemTexture(made: Int): Int {
+            try { itemTextures.add(made) } catch (e: Throwable) { recycleLayerTex(made); throw e }
+            return made
+        }
         var published=false
         fun checkRoom(address: Pair<String, Pair<String?, Long>>, original: Int?) {
             memory.observe(address, original, true)
@@ -2001,12 +2005,30 @@ class GlPaintEngine(
             }
         }
         try {
-            for (copy in editableCopies) items += copy.materialize { source ->
-                val made = copyOfTile(source)
-                // copyOfTile owns initialization failure; tracking failure still
-                // belongs here so even boxing/allocation failure cannot leak it.
-                try { itemTextures.add(made) } catch (e: Throwable) { recycleLayerTex(made); throw e }
-                made
+            for (copy in editableCopies) {
+                val rect = checkNotNull(duplicateCopies).single {
+                    it.layerId == copy.source.layerId && it.toCelId == copy.destination.celId
+                }.rect
+                items += copy.materializeWithClippedBases(
+                    copyTexture = { source -> trackItemTexture(copyOfTile(source)) },
+                    copyBase = { key, source ->
+                        // Bases are unconditional source pixels, unlike masked
+                        // lines/slabs. Clear the entire independent tile, then
+                        // copy only the board-owned intersection. Outside-board
+                        // keys remain transparent without trimming raw recipes.
+                        val made = allocateInitializedTexture(::newLayerTile, { target ->
+                            initializeTile(target, null, false)
+                            check(GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER) ==
+                                GLES30.GL_FRAMEBUFFER_COMPLETE) { "Frame base clear framebuffer is incomplete" }
+                            check(GLES30.glGetError() == GLES30.GL_NO_ERROR) { "Frame base clear failed" }
+                            for (slice in RegionTransferTiles.sparseSlices(rect, rect,
+                                    sequenceOf(key), emptySequence())) {
+                                copyTextureRect(source, target, slice.source)
+                            }
+                        }, ::recycleLayerTex)
+                        trackItemTexture(made)
+                    },
+                )
             }
             for (clear in change.clears) {
                 val layer = layers.getValue(clear.layerId)

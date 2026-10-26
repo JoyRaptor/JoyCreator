@@ -34,3 +34,15 @@ wiring alone is not atomicity evidence. Captured/joint support remains a separat
 guarded dependency. No new phone behavior or feature completion is claimed.
 
 Select owns current phone lane; no competing Gradle/GPU job is started here.
+
+## Physical-base review correction
+
+Tween source review found whole copied base tiles can extend outside board ownership;
+line/slab replay clips later, but base pixels are unconditional. New key-aware base
+copy clears each independent tile then copies only board-rectangle intersection,
+including negative/origin tile boundaries via existing sparseSlices coordinates.
+Outside-only keys remain transparent. Raw stroke trajectories remain unchanged.
+Framebuffer completeness and GL error are checked even when there are zero slices,
+so silent failed clear is not accepted as a transparent pooled tile. A fifth helper
+test checks dispatch/recipe integrity only, not GPU pixels. Review confirms matching
+source/destination local coordinates for SAME-RECT copies. Actual GL proof remains owed.

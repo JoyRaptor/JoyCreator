@@ -54,7 +54,11 @@ internal class PreparedLinePlaneCopy private constructor(
      * information for undo/redo after that first publication. Source handles are borrowed and
      * remain valid only while the caller retains the source texture ownership through copying.
      */
-    fun materialize(copyTexture: (Int) -> Int): LineItems.Changes {
+    fun materialize(copyTexture: (Int) -> Int): LineItems.Changes =
+        materializeWithClippedBases(copyTexture) { _, texture -> copyTexture(texture) }
+
+    /** Bases have no later line-domain mask: the engine must copy their physical owned rect. */
+    fun materializeWithClippedBases(copyTexture: (Int) -> Int, copyBase: (Long, Int) -> Int): LineItems.Changes {
         val outputSlabs = ArrayList<UndoLog.SlabChange<Int>>(textureCount)
         val outputLines = records.map { record ->
             UndoLog.LineChange(destination.layerId, destination.celId, record.id,
@@ -62,7 +66,7 @@ internal class PreparedLinePlaneCopy private constructor(
         }
         for ((key, texture) in bases) {
             outputSlabs += UndoLog.SlabChange(destination.layerId, destination.celId, key, 0L,
-                null, UndoLog.SlabValue(copyTexture(texture), "normal"))
+                null, UndoLog.SlabValue(copyBase(key, texture), "normal"))
         }
         for (slab in slabs) for ((key, texture) in slab.tiles) {
             outputSlabs += UndoLog.SlabChange(destination.layerId, destination.celId, key, slab.seq,

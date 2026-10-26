@@ -1,0 +1,36 @@
+# Direct-cel editable frame copy — isolated source candidate
+
+Base315a1decf, marker61d093144 adopted64d9579ef; root entry/budget prerequisite
+88977040c. Current followup includes PreparedLinePlaneCopy with provenancef66183d85
+and actual ordinary-native engine wiring. UNCOMPILED / UNRUN / NOT ACTIVATED.
+
+## Implemented in source
+
+- Validate untrusted DUPLICATE marker against actual engine document before board
+  preparation. Canonical generator establishes same board/rect and fresh exclusive
+  target cel. Unmarked LINK/BLANK/Hold retain the existing path.
+- Refuse active selection lift, local/joint recorded artwork and captured recipes
+  instead of treating NativeLines as their authoritative source. Validate frozen
+  per-record brush identity/definition before preparing copies.
+- Snapshot native line records, sequence/operators, bases/slabs and widened
+  footprints. Copy independent base/slab textures and retain visible raster copies
+  in the same existing board history step; source remains engine-owned throughout.
+- Reserve item destinations plus deduplicated retained source handles in the same
+  board allowance. Visible source handles are also charged, not only destination
+  raster snapshots. Track/reclaim item copies on failure, including tracking failure.
+
+## Proof still owed
+
+Six marker core tests, four newly added budget/engine-entry regressions, all prior
+board-budget cases and updated four helper tests must compile/run on this exact
+candidate. Previous helper3 proof is not proof of this new helper/runtime source.
+Root and tween specialist source review are pending completion.
+
+Real GL oracle must prove exact source/target pixels, independent editing, scoped
+IDs/sequences/brushes/footprints, one undo/redo, failure cleanup, low-memory refusal,
+board-edge clipping, save/reload and ownership. Review existing board publication/
+rollback, metadata/payload listeners and history retirement failure paths; source
+wiring alone is not atomicity evidence. Captured/joint support remains a separate
+guarded dependency. No new phone behavior or feature completion is claimed.
+
+Select owns current phone lane; no competing Gradle/GPU job is started here.

@@ -168,3 +168,20 @@ candidate validated. Preserve strict source, archive, activation and one-job gat
 - The refreshed ROADMAP.md and AGENT_START_20261026.md replace old live queues and
   stale primary/build instructions. ROADMAP_ARCHIVE_20261026.md preserves history.
   Unknown oil/Unibrush/symmetry/peer completion is explicitly audit work, not done.
+
+## Stale manual auto-install loop — owner-authorized removal, October26
+
+Fresh audit found primary GradleWrapperMain -t installDefaultDebug, cmd35044 /
+wrapper3968, interactive PowerShell4308; unlike canonical assemble-only watcher it
+bypassed shared lock. Owner explicitly authorized stopping that exact tree while
+preserving shell/files. Initial child kill restarted as cmd75336/wrapper107820.
+Root attached to the exact console and sent Ctrl+C; loop ended, shell4308 retained.
+Associated primary daemon59336 was then stopped (identity and log verified); no
+other JVM/app killed. Fresh snapshot: no Java wrapper/daemon,3175MiB, lock absent.
+An automatic stale install had been observed in daemon log before cancellation;
+prior APK identity/readiness receipts must be rechecked before later device probes.
+
+Select owns ONE focused Android attempt on frozenf7f75869a (production matches
+4b8a2cfdd), fresh>=2200 resource admission/exclusiveCreateNew lock, no APK/phone.
+Root launches no parallel heavy work. Existing179/Switch4 plus Preferences/Cleanup/
+Copy additions are requested; actual completion/XML still pending. No success claim.

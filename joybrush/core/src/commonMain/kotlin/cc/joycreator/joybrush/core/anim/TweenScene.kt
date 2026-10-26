@@ -43,8 +43,14 @@ data class TweenScene(
             if (board.frames.map { it.id }.toSet().size != board.frames.size) {
                 throw DocException("Board \"$boardId\" has duplicate frame IDs")
             }
-            if (board.frames.isEmpty() || sample.frameIndex !in board.frames.indices) {
+            if (board.frames.isEmpty()) {
                 throw DocException("Tween sample does not name a frame on board \"$boardId\"")
+            }
+            val rangeLast = sample.rangeLastFrameIndex ?: board.frames.lastIndex
+            if (sample.rangeFirstFrameIndex !in board.frames.indices ||
+                rangeLast !in board.frames.indices || rangeLast < sample.rangeFirstFrameIndex ||
+                sample.frameIndex !in sample.rangeFirstFrameIndex..rangeLast) {
+                throw DocException("Tween sample playback range is invalid on board \"$boardId\"")
             }
             val sourceFrame = board.frames[sample.frameIndex]
             if (sourceFrame.id != sample.frameId) {
@@ -65,14 +71,18 @@ data class TweenScene(
             val targetFrameId = sample.nextFrameId
             val targetFrame = if (targetFrameId == null) {
                 if (sample.nextFrameIndex != null) throw DocException("Tween sample has an index without a target frame")
-                if (sourceFrame.tween && sourceFrame.holdFrames > 1 && sample.frameIndex < board.frames.lastIndex) {
+                val shouldHaveTarget = sourceFrame.tween && sourceFrame.holdFrames > 1 &&
+                    (sample.frameIndex < rangeLast || sample.loops)
+                if (shouldHaveTarget) {
                     throw DocException("Tween sample is missing the next frame on board \"$boardId\"")
                 }
                 null
             } else {
                 val targetIndex = sample.nextFrameIndex
                     ?: throw DocException("Tween sample target frame has no index")
-                val expectedIndex = (sample.frameIndex + 1) % board.frames.size
+                val expectedIndex = if (sample.frameIndex < rangeLast) sample.frameIndex + 1
+                    else if (sample.loops) sample.rangeFirstFrameIndex
+                    else throw DocException("Tween sample has a target beyond its playback range on board \"$boardId\"")
                 if (targetIndex != expectedIndex || board.frames.getOrNull(targetIndex)?.id != targetFrameId) {
                     throw DocException("Tween sample target is not the next frame on board \"$boardId\"")
                 }

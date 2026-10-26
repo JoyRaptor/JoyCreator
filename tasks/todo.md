@@ -119,3 +119,4 @@ Review: stock positive control runs first within the existing accessibility test
 - [x] Diagnose failed stock positive control against actual cached API28 framework and Robolectric4.17 bytecode; avoid another unsupported node-initialization guess.
 - [x] Attach stock/styled native controls to the same visible Robolectric Activity; assert real attachment and retain native node factory plus all state/label/role/callback requirements.
 - [x] Record source-only correction and exact diagnosis; leave production unchanged and Coordinator owns the next focused rerun after heavy-job release.
+- [x] Independently read Coordinator's97c49ab34 Switch4 XML and match receipt SHA256:4/0/0/0. Close bounded desktop fixture/render checks; retain phone/theme/A10/C3 gates.

@@ -139,3 +139,27 @@ files and the other three render tests are unchanged.
 This correction is source-reviewed only, not executed locally. Coordinator owns the
 next focused four-case rerun after its separate heavy-job release. Physical attached
 device accessibility and broader A10 visual acceptance remain separate gates.
+
+## October26 — bounded desktop verification passed
+
+Coordinator adopted the attached fixture as97c49ab343c4b554768400d308d0083a536fcd66.
+Its focused Switch4 run completed successfully in39s:4 tests,0 failures,0 errors,
+0 skipped. Specialist independently read the actual XML and matched its SHA256 to
+the Coordinator receipt:
+`F91AA57E8DCCA997D11E334969CE2993DBF50575B1753C39456C862C9325F8D4`.
+
+Receipt: `C:/Temp/jb-lead-ops/switch-attached-97c49ab34-root-count.json`.
+XML: `C:/Temp/jb-frame-copy-integration-20261026/joybrush-android/build/test-results/testDebugUnitTest/TEST-cc.joycreator.joybrush.android.select.SelectPillSwitchTest.xml`.
+Log: `C:/Temp/jb-lead-ops/switch-attached-20261026.log`.
+
+All three native pixel-render scenarios pass, as does the attached stock/styled
+native-node test: Switch role, label, checkable/checked Off/On/Off states and exact
+callback counts. This closes the desktop fixture and these bounded rendering checks.
+Coordinator reports the prior179 regressions green on production-identical070 and
+backend4 green; those were not rerun or independently recounted in this UI update.
+Coordinator merged the reviewed candidate as canonical4b9ed850c.
+
+No new phone evidence exists for this change. Physical attached-device accessibility,
+white/dark paper and A10 sheet/switch/badge appearance remain pending, as does C3.
+The earlier d11 tan-canvas review remains separately scoped. No source/build/device
+actions were performed by this docs update.

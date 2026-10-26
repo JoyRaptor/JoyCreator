@@ -5,6 +5,7 @@ import cc.joycreator.joybrush.androidkit.lines.LineEdit
 import cc.joycreator.joybrush.androidkit.lines.LinePlane
 import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.brush.watercolourRuntime
+import cc.joycreator.joybrush.core.doc.BlendMode
 import cc.joycreator.joybrush.core.paint.Tiles
 import cc.joycreator.joybrush.core.select.Homography
 import cc.joycreator.joybrush.core.select.LineTransform
@@ -33,6 +34,8 @@ internal object WatercolourOrdinaryProbe {
         var phase = "admission"
         var fbo = 0
         var initialDepth = -1
+        var tintControlChangedPixels = 0L
+        var tintActualChangedPixels = 0L
         val plane = LinePlane(layerId, null)
         val address = LineAddress(layerId, null, input.id)
 
@@ -120,6 +123,19 @@ internal object WatercolourOrdinaryProbe {
             }
             check(engine.nativeLines.brush(expected.brushId) == preset) { "Frozen brush changed" }
         }
+        fun changedPigmentPixels(before: Map<Long, ByteArray>, after: (Long) -> ByteArray?): Long {
+            var changed = 0L
+            for (key in keys) {
+                val a = before[key] ?: continue
+                val b = after(key) ?: continue
+                for (offset in 0 until BYTES step 4) {
+                    if (a[offset + 3] != 0.toByte() && b[offset + 3] != 0.toByte() &&
+                        (a[offset] != b[offset] || a[offset + 1] != b[offset + 1] ||
+                            a[offset + 2] != b[offset + 2])) changed++
+                }
+            }
+            return changed
+        }
         fun replace(record: StrokeRecord, depth: Int, expected: Map<Long, ByteArray>) {
             engine.editLines(LineEdit.Replace(listOf(AddressedStroke(address, record))))
             check(engine.undo.undoDepth == depth) { "$phase must create exactly one Undo step" }
@@ -128,7 +144,12 @@ internal object WatercolourOrdinaryProbe {
         }
 
         try {
-            require(engine.ready && layerId in engine.layerIds() && engine.boardDocument == null)
+            require(engine.ready && engine.layerIds() == listOf(layerId) && engine.boardDocument == null)
+            val layer = checkNotNull(engine.stack(layerId)[layerId])
+            require(layer.opacity == 1f && layer.visible && layer.blend == BlendMode.NORMAL &&
+                !layer.hasMask && !layer.clip && !layer.locked) {
+                "Needs one visible, opaque, normal, unlocked layer without mask or clipping"
+            }
             require(!engine.strokeInProgress && !engine.watercolourAnimating && !engine.lifting)
             require(!engine.undo.canUndo && !engine.undo.canRedo)
             require(engine.tileKeys(layerId).isEmpty() && !engine.nativeLines.hasItems(plane)) {
@@ -166,6 +187,8 @@ internal object WatercolourOrdinaryProbe {
             // as the translation reference. Unexpected installed keys are still checked below.
             canonical(moved, readPixels = false)
             val tintPixels = canonical(tinted)
+            tintControlChangedPixels = changedPigmentPixels(movedPixels) { tintPixels[it] }
+            check(tintControlChangedPixels > 0L) { "Tint control changes no alpha-bearing RGB pixels" }
             check(originalPixels.values.any { bytes -> bytes.indices.any { it % 4 == 3 && bytes[it] != 0.toByte() } }) {
                 "Original source has no nonzero-alpha pixels"
             }
@@ -185,6 +208,10 @@ internal object WatercolourOrdinaryProbe {
             replace(atMoved, initialDepth + 1, movedPixels)
             phase = "tint"
             replace(atTint, initialDepth + 2, tintPixels)
+            // Moved pixels were compared to the actual installed line immediately before tint.
+            // Now require actual tinted RGB to differ where pigment is present in BOTH images.
+            tintActualChangedPixels = changedPigmentPixels(movedPixels) { engine.readTile(layerId, it) }
+            check(tintActualChangedPixels > 0L) { "Actual tint changes no alpha-bearing RGB pixels" }
             for ((label, expectedRecord, expectedPixels) in listOf(
                 Triple("undo_tint", atMoved, movedPixels), Triple("undo_move", atOrigin, originalPixels))) {
                 phase = label
@@ -218,5 +245,7 @@ internal object WatercolourOrdinaryProbe {
             }
         }
         return report.put("tileUnion", keys.size).put("tileChecks", rows)
+            .put("tintControlChangedPixels", tintControlChangedPixels)
+            .put("tintActualChangedPixels", tintActualChangedPixels)
     }
 }

@@ -22,6 +22,9 @@ ordinary replay discovers its actual/halo keys before Add, but supplies no pixel
 to the translation reference; observed current
 tiles/footprints can only enlarge it. Null and all-zero tiles are equivalent;
 all bytes of transparent, old-position and halo/estimate tiles are checked.
+The independent tint control and the actual installed tint must each change
+RGB at at least one pixel whose alpha is nonzero in both before/after images.
+The report records both changed-pixel counts; invisible/no-op tint cannot pass.
 
 Admission is deliberately narrow: no captured/board/mask/media inputs, normal or
 multiply on transparent backing, 1..2048 finite raw samples within +/-4096px,
@@ -30,6 +33,14 @@ world-fixed canvas paper/fine grain intentionally do not travel with a wash, so
 they cannot be included in an exact translated-source oracle. The probe refuses
 such presets rather than silently rewriting the frozen recipe. Wash texture,
 pooling and gravity remain whatever the caller's frozen fixture specifies.
+The engine must have exactly one layer; its stack state must be opacity1,
+visible, normal blend, unlocked, without mask or clip. These checks precede any
+render or Add. readTile reads the layer's own premultiplied visible-tile storage,
+not the final screen compositor's layer opacity/mask/style result; the guard
+still refuses non-neutral layer state to keep the disposable fixture explicit.
+No claim applies to the owner's grainy preset or physical grain/paper quality:
+paperCut=0 and grain=0 isolate transported wash optics only. Generic canvas
+compositing and multi-layer styling are outside this diagnostic's acceptance.
 
 Prerequisites: root reviews source; compile androidkit and matching debug APK
 under the shared lock/resource guard; root later wires a separate truthful debug

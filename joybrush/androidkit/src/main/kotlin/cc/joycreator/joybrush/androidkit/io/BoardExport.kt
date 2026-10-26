@@ -93,6 +93,12 @@ object BoardExport {
                         onFrame(i+1, images.size)
                     }
                 }
+                board.kind == BoardKind.ANIMATION && request.format == Export.Format.PNG -> {
+                    require(request.scope == Export.Scope.FRAME)
+                    RegionRenderer.unsupportedContentReason(doc)?.let { throw JbArchiveException(it) }
+                    sink.write("$base.png", "image/png", CanvasPng.encodeBoard(contents, board.id,
+                        request.includePaper, request.frameId, onWarning = onWarning))
+                }
                 board.kind == BoardKind.ANIMATION -> {
                     require(request.scope in listOf(Export.Scope.ANIMATION, Export.Scope.RANGE, Export.Scope.FRAME))
                     val plan = when (request.scope) {

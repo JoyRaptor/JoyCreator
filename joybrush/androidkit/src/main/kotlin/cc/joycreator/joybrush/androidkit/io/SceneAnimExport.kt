@@ -96,6 +96,13 @@ object SceneAnimExportRunner {
         if (samples.size != plan.previews.size || !plan.fps.isFinite() || plan.fps !in 1f..60f) {
             throw DocException("The scene tween export plan has incomplete timing data")
         }
+        if (!plan.samplingMaxFps.isFinite() || plan.samplingMaxFps !in 1f..60f) {
+            throw DocException("The scene tween export plan has an invalid sampling ceiling")
+        }
+        val expected = SceneAnimExportPlan.build(doc, plan.fullLoop, plan.samplingMaxFps)
+        if (expected != plan) {
+            throw DocException("The clips changed after this tween export was planned; plan the scene export again")
+        }
         if (renderer == null) throw DocException("This scene uses tween exposures; its export needs the live tween renderer")
         for (index in samples.indices) {
             val preview = plan.previews[index]

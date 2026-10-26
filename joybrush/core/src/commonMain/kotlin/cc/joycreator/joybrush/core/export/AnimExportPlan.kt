@@ -41,6 +41,8 @@ data class AnimExportPlan(
     val end: String = cc.joycreator.joybrush.core.doc.BoardEnd.LOOP,
     /** One shared playback sample per exported exposure when this plan expands tween ticks. */
     val tweenSamples: List<TweenFrameSample>? = null,
+    val rangeFirstFrameId: String? = null,
+    val rangeLastFrameId: String? = null,
 ) {
     val totalMs: Int get() = delayMs.sum()
     val frameCount: Int get() = frameIds.size
@@ -237,11 +239,13 @@ object AnimExport {
             baseName = safeBaseName(baseName),
             rect = board.rect,
             end = cc.joycreator.joybrush.core.doc.BoardEnd.of(board.end),
+            rangeFirstFrameId = board.frames[lo].id,
+            rangeLastFrameId = board.frames[hi].id,
         )
         // Keep the established one-cell-per-source-frame path byte-for-byte for ordinary clips.
         // Tween plans instead use the playback clock's integer exposure samples, including range,
         // loop and ping-pong policy, and cumulative tick-boundary rounding for every delay.
-        if (board.frames.subList(lo, hi + 1).none { it.tween && it.holdFrames > 1 }) return basePlan
+        if (!hasActiveTweenTransition(board, lo, hi, PlayMode.of(board.end))) return basePlan
         val clock = PlaybackClock(board, PlayMode.of(board.end), lo, hi)
         val ticks = board.frames.subList(lo, hi + 1).sumOf { it.holdFrames.toLong() } +
             if (PlayMode.of(board.end) == PlayMode.PING_PONG && hi - lo + 1 > 2) {
@@ -265,6 +269,13 @@ object AnimExport {
             previousBoundary = boundary
         }
         return basePlan.copy(frameIds = expandedIds, delayMs = expandedDelays, tweenSamples = samples)
+    }
+
+    /** Whether this selected range contains a real source-to-target tween edge. */
+    fun hasActiveTweenTransition(board: Board, first: Int, last: Int, mode: PlayMode): Boolean {
+        if (first !in board.frames.indices || last !in first..board.frames.lastIndex) return false
+        if ((first until last).any { index -> board.frames[index].tween && board.frames[index].holdFrames > 1 }) return true
+        return mode == PlayMode.LOOP && last > first && board.frames[last].tween && board.frames[last].holdFrames > 1
     }
 
     /**

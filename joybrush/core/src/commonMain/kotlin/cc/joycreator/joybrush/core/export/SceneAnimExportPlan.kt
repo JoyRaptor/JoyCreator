@@ -10,7 +10,9 @@ import kotlin.math.roundToLong
 data class SceneAnimExportPlan(val rect: RectPx, val fps: Float, val previews: List<Map<String,String>>,
     val capped: Boolean, val fullLoop: Boolean, val loops: Boolean = fullLoop,
     /** Per-output-exposure board samples when at least one clip contains active tween timing. */
-    val tweenSamples: List<Map<String, TweenFrameSample>>? = null) {
+    val tweenSamples: List<Map<String, TweenFrameSample>>? = null,
+    /** Requested sampling ceiling, retained so changed clips cannot validate against an old cadence. */
+    val samplingMaxFps: Float = 60f) {
     fun delayMsAt(i: Int): Int = (((i+1)*1000.0/fps).roundToInt()-(i*1000.0/fps).roundToInt()).coerceAtLeast(1)
     companion object {
         const val MAX_FRAMES = 600
@@ -61,7 +63,7 @@ data class SceneAnimExportPlan(val rect: RectPx, val fps: Float, val previews: L
             val samples = exposureRows?.map { row -> row.mapNotNull { (boardId, exposure) ->
                 exposure.sample?.let { boardId to it }
             }.toMap() }
-            return SceneAnimExportPlan(rect,fps,frames,capped,fullLoop,fullLoop && looping.isNotEmpty(),samples)
+            return SceneAnimExportPlan(rect,fps,frames,capped,fullLoop,fullLoop && looping.isNotEmpty(),samples,maxFps)
         }
     }
 }

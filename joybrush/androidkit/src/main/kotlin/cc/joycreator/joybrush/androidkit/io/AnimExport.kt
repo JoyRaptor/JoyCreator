@@ -147,6 +147,7 @@ object AnimExportRunner {
         val board = doc.boards.firstOrNull { it.id == boardId }
             ?: throw DocException("this document has no board called \"$boardId\"")
         checkPlanFitsBoard(boardId, board.frames.map { it.id }, plan.frameIds)
+        checkPlanMatchesCurrentBoard(board, plan)
         checkTweenSamples(board, plan, tweenRenderer)
         if (plan.tweenSamples == null || tweenRenderer == null) {
             RegionRenderer.unsupportedContentReason(doc)?.let { throw JbArchiveException(it) }
@@ -244,6 +245,7 @@ object AnimExportRunner {
         val board = doc.boards.firstOrNull { it.id == boardId }
             ?: throw DocException("this document has no board called \"$boardId\"")
         checkPlanFitsBoard(boardId, board.frames.map { it.id }, plan.frameIds)
+        checkPlanMatchesCurrentBoard(board, plan)
         checkTweenSamples(board, plan, tweenRenderer)
         if (plan.tweenSamples == null || tweenRenderer == null) {
             RegionRenderer.unsupportedContentReason(doc)?.let { throw JbArchiveException(it) }
@@ -421,7 +423,7 @@ object AnimExportRunner {
             throw DocException("board \"${board.id}\" has an incomplete animation export timing plan")
         }
         val samples = plan.tweenSamples ?: run {
-            if (plan.frameIds.any { id -> board.frames.firstOrNull { it.id == id }?.let { it.tween && it.holdFrames > 1 } == true }) {
+            if (planHasActiveTweenTransition(board, plan)) {
                 throw DocException("board \"${board.id}\" has tween frames but no exposure samples in its export plan")
             }
             return
@@ -449,6 +451,46 @@ object AnimExportRunner {
             }
         }
         if (renderer == null) throw DocException("board \"${board.id}\" uses tween exposures; its export needs the live tween renderer")
+    }
+
+    /** Rebuilds builder-owned plans from their captured endpoint IDs before any rendering begins. */
+    private fun checkPlanMatchesCurrentBoard(board: Board, plan: AnimExportPlan) {
+        val endpointCount = listOf(plan.rangeFirstFrameId, plan.rangeLastFrameId).count { it != null }
+        val activeTween = planHasActiveTweenTransition(board, plan)
+        val needsIdentity = endpointCount > 0 || plan.tweenSamples != null || plan.playMode != PlayMode.LOOP || activeTween
+        if (!needsIdentity) return // Legacy hand-built, non-tween loop plans remain source-compatible.
+        if (endpointCount != 2) {
+            throw DocException("board \"${board.id}\" has a tween export plan without its original frame range")
+        }
+        val first = board.frames.indexOfFirst { it.id == plan.rangeFirstFrameId }
+        val last = board.frames.indexOfFirst { it.id == plan.rangeLastFrameId }
+        if (first < 0 || last < first) {
+            throw DocException("board \"${board.id}\" changed the selected export range; plan the export again")
+        }
+        val current = AnimExport.planRange(board, first, last, plan.baseName, plan.playMode)
+        val same = current.frameIds == plan.frameIds && current.delayMs == plan.delayMs &&
+            current.tweenSamples == plan.tweenSamples && current.width == plan.width && current.height == plan.height &&
+            current.rect == plan.rect && current.fps == plan.fps && current.baseName == plan.baseName &&
+            current.playMode == plan.playMode && current.rangeFirstFrameId == plan.rangeFirstFrameId &&
+            current.rangeLastFrameId == plan.rangeLastFrameId
+        if (!same) {
+            throw DocException("board \"${board.id}\" changed after this animation export was planned; plan the export again")
+        }
+    }
+
+    private fun planHasActiveTweenTransition(board: Board, plan: AnimExportPlan): Boolean {
+        val firstId = plan.rangeFirstFrameId
+        val lastId = plan.rangeLastFrameId
+        if (firstId != null && lastId != null) {
+            val first = board.frames.indexOfFirst { it.id == firstId }
+            val last = board.frames.indexOfFirst { it.id == lastId }
+            return AnimExport.hasActiveTweenTransition(board, first, last, plan.playMode)
+        }
+        val indexes = plan.frameIds.map { id -> board.frames.indexOfFirst { it.id == id } }
+        val first = indexes.firstOrNull()?.takeIf { it >= 0 } ?: return false
+        val expected = (first..(first + indexes.lastIndex)).toList()
+        if (indexes == expected) return AnimExport.hasActiveTweenTransition(board, first, indexes.last(), plan.playMode)
+        return plan.frameIds.any { id -> board.frames.firstOrNull { it.id == id }?.let { it.tween && it.holdFrames > 1 } == true }
     }
 
     private fun checkTweenPixels(boardId: String, plan: AnimExportPlan, pixels: ByteArray) {

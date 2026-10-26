@@ -42,6 +42,9 @@ data class AnimExportPlan(
     val playMode: PlayMode = PlayMode.LOOP,
     /** One shared playback sample per exposure when this plan expands tweened holds. */
     val tweenSamples: List<TweenFrameSample>? = null,
+    /** Selected source-range endpoints; null on older manually assembled static plans. */
+    val rangeFirstFrameId: String? = null,
+    val rangeLastFrameId: String? = null,
 ) {
     val totalMs: Int get() = delayMs.sum()
     val frameCount: Int get() = frameIds.size
@@ -238,8 +241,10 @@ object AnimExport {
             baseName = safeBaseName(baseName),
             rect = board.rect,
             playMode = mode,
+            rangeFirstFrameId = board.frames.getOrNull(lo)?.id,
+            rangeLastFrameId = board.frames.getOrNull(hi)?.id,
         )
-        if (board.frames.subList(lo, hi + 1).none { it.tween && it.holdFrames > 1 }) return basePlan
+        if (!hasActiveTweenTransition(board, lo, hi, mode)) return basePlan
 
         val clock = PlaybackClock(board, mode, lo, hi)
         val forwardTicks = board.frames.subList(lo, hi + 1).sumOf { it.holdFrames.toLong() }
@@ -264,6 +269,13 @@ object AnimExport {
             previousBoundary = boundary
         }
         return basePlan.copy(frameIds = expandedIds, delayMs = expandedDelays, tweenSamples = samples)
+    }
+
+    /** Whether this selected range contains a real source-to-target tween edge. */
+    fun hasActiveTweenTransition(board: Board, first: Int, last: Int, mode: PlayMode): Boolean {
+        if (first !in board.frames.indices || last !in first..board.frames.lastIndex) return false
+        if ((first until last).any { index -> board.frames[index].tween && board.frames[index].holdFrames > 1 }) return true
+        return mode == PlayMode.LOOP && last > first && board.frames[last].tween && board.frames[last].holdFrames > 1
     }
 
     /**

@@ -11,6 +11,7 @@ import cc.joycreator.joybrush.core.doc.Layer
 import cc.joycreator.joybrush.core.doc.LayerKind
 import cc.joycreator.joybrush.core.doc.Paper
 import cc.joycreator.joybrush.core.doc.RectPx
+import cc.joycreator.joybrush.core.anim.PlayMode
 import cc.joycreator.joybrush.core.export.AnimExport
 import cc.joycreator.joybrush.core.export.AnimExportPlan
 import cc.joycreator.joybrush.core.render.MAX_REGION_PX
@@ -1021,6 +1022,78 @@ class AnimExportTest {
         assertFailsWith<DocException> {
             AnimExportRunner.encodeOne(AnimFormat.GIF, contents, BOARD, wrong, false)
         }
+    }
+
+    @Test
+    fun staleTweenPlansRefuseBeforeRendererOrSinkAfterHoldChange() {
+        val original = tweenBoard(listOf("f0", "f1"), listOf(2, 2), setOf(0))
+        val plan = AnimExport.planRange(original, 0, 1, "Board")
+        val changed = original.copy(frames = listOf(Frame("f0", 3, true), Frame("f1", 2)))
+        assertStaleTweenPlanRefused(changed, plan)
+    }
+
+    @Test
+    fun staleTweenPlansRefuseWhenLoopPlanIsChangedToOnce() {
+        val original = tweenBoard(listOf("f0", "f1"), listOf(2, 2), setOf(1))
+        val loopPlan = AnimExport.plan(original, "Board", PlayMode.LOOP)
+        assertStaleTweenPlanRefused(original, loopPlan.copy(playMode = PlayMode.ONCE))
+    }
+
+    @Test
+    fun staleTweenPlansRefuseWhenTheirCapturedRangeChanges() {
+        val original = tweenBoard(listOf("f0", "f1", "f2"), listOf(2, 2, 1), setOf(0))
+        val plan = AnimExport.planRange(original, 0, 1, "Board")
+        assertStaleTweenPlanRefused(original, plan.copy(rangeLastFrameId = "f2"))
+    }
+
+    @Test
+    fun tweenPlansWithoutRangeIdentityRefuseBeforeRendering() {
+        val original = tweenBoard(listOf("f0", "f1"), listOf(2, 2), setOf(0))
+        val plan = AnimExport.plan(original, "Board").copy(rangeFirstFrameId = null, rangeLastFrameId = null)
+        assertStaleTweenPlanRefused(original, plan)
+    }
+
+    @Test
+    fun staleTweenPlansRefuseWhenBoardFramesAreReordered() {
+        val original = tweenBoard(listOf("f0", "f1", "f2"), listOf(2, 2, 1), setOf(0))
+        val plan = AnimExport.plan(original, "Board")
+        val reordered = original.copy(frames = listOf(original.frames[1], original.frames[0], original.frames[2]))
+        assertStaleTweenPlanRefused(reordered, plan)
+    }
+
+    @Test
+    fun aFlagWithoutAnInRangeTweenTargetRemainsAStaticExport() {
+        val onceBoard = tweenBoard(listOf("f0", "f1"), listOf(2, 2), setOf(1))
+        val oncePlan = AnimExport.planRange(onceBoard, 1, 1, "Board", PlayMode.ONCE)
+        assertTrue(oncePlan.tweenSamples == null)
+        val onceContents = contentsFor(doc(board = onceBoard, frames = onceBoard.frames.map { it.id }))
+        assertEquals(1, AnimExportRunner.encodeOne(AnimFormat.GIF, onceContents, BOARD, oncePlan, false).size)
+
+        val selfLoopBoard = tweenBoard(listOf("f0", "f1"), listOf(2, 2), setOf(0))
+        val loopPlan = AnimExport.planRange(selfLoopBoard, 0, 0, "Board", PlayMode.LOOP)
+        assertTrue(loopPlan.tweenSamples == null, "a one-frame loop targets itself and has no interpolation edge")
+        val loopContents = contentsFor(doc(board = selfLoopBoard, frames = selfLoopBoard.frames.map { it.id }))
+        assertEquals(1, AnimExportRunner.encodeOne(AnimFormat.GIF, loopContents, BOARD, loopPlan, false).size)
+    }
+
+    private fun assertStaleTweenPlanRefused(currentBoard: Board, stalePlan: AnimExportPlan) {
+        val current = contentsFor(doc(board = currentBoard, frames = currentBoard.frames.map { it.id }))
+        var renders = 0
+        val renderer: TweenExposureRenderer = { _, _, rect, _ ->
+            renders++
+            ByteArray(rect.w * rect.h * 4)
+        }
+        val sink = RecordingSink()
+        assertFailsWith<DocException> {
+            AnimExportRunner.writeSequence(current, BOARD, stalePlan, false, sink, tweenRenderer = renderer)
+        }
+        assertEquals(0, renders, "stale plan validation happens before the transient renderer")
+        assertEquals(0, sink.files.size, "stale plan validation happens before the file sink")
+    }
+
+    private fun tweenBoard(ids: List<String>, hs: List<Int>, tweenIndices: Set<Int>): Board {
+        val base = board(ids = ids, hs = hs)
+        return base.copy(frames = ids.mapIndexed { index, id -> Frame(id, hs[index], index in tweenIndices) })
     }
 
     @Test

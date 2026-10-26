@@ -85,6 +85,9 @@ Detailed substeps and working context belong in handoffs; summarize their effect
 here with source SHA, evidence scope, remaining gate and owner. Specialists send
 small row updates from isolated branches for coordinator reconciliation/publication;
 never overwrite this board with an older full copy. Dates alone do not supersede evidence.
+Noteworthy built user-facing capabilities must also update `tasks/STATE.md` with
+availability/proof limits, help mapping and cross-wing reusable source. Marketing,
+Joybot helpers and builders use that feature map; handoffs hold the granular detail.
 If an agent finds contradictory docs, use this board plus exact source/receipts;
 report the contradiction and fix the entry instead of following an older queue.
 Do not mark the persistent engine goal complete until its live/save/recovery gates

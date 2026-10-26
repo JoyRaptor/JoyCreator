@@ -108,7 +108,3 @@ No precise credit savings are claimed. One admitted heavy job machine-wide; exac
 fresh XML counts and source/APK-bound phone evidence are required. Keep owner files and
 old worktrees intact. No purchasing credits, consuming resets or waiting for Claude approval
 on already-authorized work.
-
-
-
-

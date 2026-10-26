@@ -57,6 +57,13 @@
 
 ## JoyBrush roadmap and Git hygiene (owner, 2026-10-26)
 
+- `tasks/STATE.md` is the required cross-wing major-feature catalogue for marketing,
+  Joybot/help mapping and engine reuse. Read it before designing a feature. After
+  a noteworthy capability is built or materially changes, update its user benefit,
+  entry point, actual branch/availability, proof/limits, reusable engine/source and
+  help link (or explicitly pending). Keep minutiae in handoffs. Agent phone checks
+  or compilation do not silently become owner LIVE or promotional approval.
+
 - `tasks/joybrush/ROADMAP.md` is the mandatory project-wide source for broad
   milestones, current ownership, dependencies and remaining acceptance gates.
   Read it at session start. Update the affected milestone after every achievement

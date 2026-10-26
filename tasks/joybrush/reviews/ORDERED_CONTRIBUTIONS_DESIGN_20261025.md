@@ -111,4 +111,3 @@ demonstrates why overlapping children applying multiply separately differs from
 grouped application. It does not import production code, validate a Kotlin API,
 simulate smudge or prove GPU/save/Undo behavior. Native full-tile comparisons
 with intervening translucent/multiply/erase content remain mandatory.
-

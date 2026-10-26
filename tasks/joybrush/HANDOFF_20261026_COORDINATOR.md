@@ -85,3 +85,16 @@ change rotation, monkey-launch, modify owner drawings or buy usage/reset credits
 Persistent goal remains unfinished with historical usageLimited status; continue
 it, never duplicate/falsely complete. Five-hour automation was PAUSED; preserve.
 Stay quiet for unchanged/non-actionable state; report meaningful results/failures.
+
+## Active peer sequencing correction
+
+Ancestry verified: tween foundation59d1f1d63 is in current coordinator; animation
+clips merge6a4c471eb is NOT. Clips remain in parallel integration151b92621.
+Do not label them already merged into this candidate. Tween chat owns isolated
+core adapters, direct-cel/exposure subset first; component consumer is deferred
+until root separately reconciles clip foundations. Root owns engine/View/Activity
+hot files; no parallel edits or broad copy from old151 branch. Strict DocJson
+unknown-key refusal remains; no silent parts/end flattening.
+UX chat resumes read-only C2 audit with Luna. Run1 screenshots are invalid for
+per-step visual acceptance; A10 source/tests exist but phone visuals remain owed.
+C3 renderer hook is still a real engine dependency, not implemented by a UI veil.

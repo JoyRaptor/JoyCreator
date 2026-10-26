@@ -91,8 +91,8 @@ C:/Temp/jb-atlas-room-repair-20261025; it has no repair edits yet.
 - [x] Saved tween setting/sampler/export-slab groundwork landed at59d1f1d63.
 - [ ] Preserve editable lines on frame duplication, generated in-between live display,
   controls/scheduling and export connections, then exact-source device acceptance.
-- [x] Animation-clips source is merged on main; older handoff suites were green.
-- [ ] Reconstruct/complete its exact current APK and phone acceptance rather than infer
+- [x] Animation-clips source is preserved in parallel integration151b92621 / merge6a4c471eb; older handoff suites were green.
+- [ ] Reconcile clip foundations into current coordinator (6a is not its ancestor), then reconstruct/complete exact APK and phone acceptance rather than infer
   it from the older pre-integration handoff.
 - [x] Recovered symmetry feature refs and bounded old ink mirror/radial/kaleidoscope proof.
 - [ ] Symmetry latest source integration and current-source acceptance: tilt/scatter,
@@ -106,6 +106,7 @@ No precise credit savings are claimed. One admitted heavy job machine-wide; exac
 fresh XML counts and source/APK-bound phone evidence are required. Keep owner files and
 old worktrees intact. No purchasing credits, consuming resets or waiting for Claude approval
 on already-authorized work.
+
 
 
 

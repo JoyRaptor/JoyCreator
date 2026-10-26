@@ -82,3 +82,11 @@ handle, then deletes that object on close. Changed identities/tokens or sharing/
 uncertainty leave the claim intact. Receipt generation from a successful frozen build
 remains a separate required gate; the runner cannot independently prove its author's
 source-to-APK assertion.
+
+Queued Activity/View Copy results now capture a read-only predicate for the exact
+Select benchmark session. Abort and ordinary completion invalidate it before clipboard
+restoration; late Ready/refusal callbacks cannot change the clipboard or show a toast.
+Normal non-benchmark requests capture no such guard. Two additional actual Activity/View
+metadata regressions keep the Activity alive and drawing epoch unchanged while testing
+abort/completion, so they do not depend on `isFinishing` or drawing-switch protection.
+Both new Kotlin cases remain unexecuted under the same resource gate.

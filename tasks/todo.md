@@ -101,6 +101,7 @@ Parked: VisLab (brief in tasks/VISLAB_BRIEF.md); Joy Brush send-into-existing-pr
 - [x] Add explicit drawing-switch/Paste and injected allocation-failure regressions (execution owed).
 - [x] Harden select_bench.sh and extend actual UI Copy/Paste/Group/Lock cases; 43 offline tests passed, including post-terminal rejection and Windows lock identity cleanup.
 - [x] Add interrupted-bench lifecycle cleanup, idempotent clipboard restore, gesture CANCEL and late-callback suppression (Android execution owed).
+- [x] Guard already queued Activity/View Copy replies with the captured Select bench session; abort/completion regressions keep the Activity alive (execution owed).
 - [x] Bind K25 per-brush sheet switch/pixel reason and native 12 dp drawer badges; retire old D2 global controls (Android execution owed).
 - [ ] Run combined exact-source Android checks and build under shared RAM/lock admission.
 - [ ] Run matching Note 9 bench after each step and add remaining A1–A10 captures/cases.

@@ -7,6 +7,7 @@ import android.view.View
 import cc.joycreator.joybrush.android.select.SelectBarView
 import cc.joycreator.joybrush.android.select.SelectCountView
 import cc.joycreator.joybrush.android.select.SelectRowView
+import cc.joycreator.joybrush.android.chrome.ToolStripView
 import cc.joycreator.joybrush.androidkit.BrushLibrary
 import cc.joycreator.joybrush.androidkit.JbCanvasView
 import cc.joycreator.joybrush.androidkit.select.SelectTool
@@ -27,7 +28,8 @@ import kotlin.math.hypot
  * loops and drags; finger taps on the real strip, row and box) and checks the DRAWING, not the pixels: which lines are
  * selected, where their points went, how many undo steps were written. One JSON line per step on logcat tag
  * [BenchRunner.TAG] (`{"selectBench":…,"pass":…}`); a `selectBenchShot` JSON event asks the host script for a screenshot and the
- * bench holds [SHOT_MS] for it. Every event carries the host's unique run ID and sequence. A failed step says why.
+ * bench holds that state until a matching cache ACK, with a bounded asynchronous timeout. Every event carries the
+ * host's unique run ID and sequence. A failed step says why.
  * Never saves. Use ui-scripts/select_bench.sh to bind source/APK/device evidence.
  */
 class SelectBench(private val canvas: JbCanvasView, private val runId: String, private val finished: () -> Unit) {
@@ -42,6 +44,7 @@ class SelectBench(private val canvas: JbCanvasView, private val runId: String, p
     private var failed = 0
     private var event = 0
     private var active = true
+    private var shotGate: SelectBenchShotGate? = null
     /** A captured predicate belongs to this exact bench session and exposes no mutable bench state. */
     internal val acceptsCopyResult: () -> Boolean = { active }
 
@@ -56,6 +59,7 @@ class SelectBench(private val canvas: JbCanvasView, private val runId: String, p
         if (!active) return
         active = false
         ui.removeCallbacksAndMessages(null)
+        shotGate?.cancel()
         try { g.cancel() } finally {
             restoreClipboard()
             canvas.editableLines = editableBefore
@@ -313,9 +317,8 @@ class SelectBench(private val canvas: JbCanvasView, private val runId: String, p
         step("fingerPansWithBrush") { next ->
             // K18 / P10 B: once the pen has been seen, one finger PANS while another tool is in hand (with the Select
             // tool in hand a finger picks and loops like the pen, D1.1, as on the owner's page).
-            val brush = g.labelled("Brush")
-            if (brush == null) { report("fingerPansWithBrush", false, JSONObject().put("why", "no Brush button")); next(); return@step }
-            g.tapView(brush) {
+            fun fail(why: String) { report("fingerPansWithBrush", false, JSONObject().put("precondition", why)); next() }
+            fun panWithBrush() {
                 val before = all()
                 val (x0, _) = canvas.view.docToScreen(0f, 0f)
                 undoDepth { d0 ->
@@ -331,6 +334,29 @@ class SelectBench(private val canvas: JbCanvasView, private val runId: String, p
                     }
                 }
             }
+            fun takeBrush() {
+                val strip = g.find<ToolStripView>().singleOrNull()
+                val brush = strip?.let { g.labelled("Brush —", it) }
+                if (brush == null) { fail("no uniquely scoped ToolStrip Brush button"); return }
+                g.tapView(brush) {
+                    if (tool?.selectToolInHand != false) fail("ToolStrip tap did not take Brush")
+                    else panWithBrush()
+                }
+            }
+            fun clearSelection() {
+                // Same visible empty-paper point already exercised by tapEmptyEnds; no selected line footprint here.
+                g.tap(.50f * w, .88f * h, pen = true, settleMs = 600) {
+                    if (tool?.selection != null) fail("empty-paper tap did not clear selection") else takeBrush()
+                }
+            }
+            if (tool?.nudging == true) {
+                val row = g.find<SelectRowView>().singleOrNull()
+                val nudge = row?.let { g.labelled("Push or pull", it) }
+                if (nudge == null) { fail("no uniquely scoped Nudge control"); return@step }
+                g.tapView(nudge) {
+                    if (tool?.nudging != false) fail("Nudge remained active") else clearSelection()
+                }
+            } else clearSelection()
         }
         step("end") { next ->
             emit(JSONObject().put("selectBench", "summary").put("passed", passed).put("failed", failed))
@@ -406,7 +432,20 @@ class SelectBench(private val canvas: JbCanvasView, private val runId: String, p
     }
 
     private fun emit(row: JSONObject) { if (active) Log.i(TAG, row.put("runId", runId).put("event", event++).toString()) }
-    private fun shot(name: String) = emit(JSONObject().put("selectBenchShot", "$name.png"))
+    private fun shot(name: String) {
+        if (!active) return
+        val gate = shotGate ?: SelectBenchShotGate(canvas.context.cacheDir, runId, ui).also { shotGate = it }
+        if (!gate.expect(event)) { screenshotFailed("invalid or stale screenshot expectation"); return }
+        // Queue behind current GL metadata work, then two UI vsyncs before advertising the stable held state.
+        // Final visual review still verifies that the presented GL surface matches the expected state.
+        canvas.benchState(readPixels = false) { _, _ ->
+            if (active) canvas.rootView.postOnAnimation {
+                if (active) canvas.rootView.postOnAnimation {
+                    if (active) emit(JSONObject().put("selectBenchShot", "$name.png").put("shotProtocol", 1))
+                }
+            }
+        }
+    }
     private fun done() {
         if (!active) return
         // Emit terminal evidence only after local cleanup succeeds, and before Activity.finish triggers teardown.
@@ -415,7 +454,18 @@ class SelectBench(private val canvas: JbCanvasView, private val runId: String, p
         Log.i(TAG, terminal.toString())
         finished()
     }
-    private fun hold(next: () -> Unit) = ui.postDelayed(next, SHOT_MS)
+    private fun hold(next: () -> Unit) {
+        if (!active) return
+        val gate = shotGate ?: run { screenshotFailed("no screenshot expectation"); return }
+        gate.await(onReady = { if (active) next() }, onTimeout = { screenshotFailed("screenshot ACK timed out or could not be consumed") })
+    }
+
+    private fun screenshotFailed(why: String) {
+        if (!active) return
+        report("screenshotAck", false, JSONObject().put("why", why))
+        steps.clear()
+        done() // Resolved cleanup, but missing/failed reports make host validation fail.
+    }
 
     private fun undoDepth(then: (Int) -> Unit) = canvas.benchState(readPixels = false) { s, _ -> if (active) then(s?.undoDepth ?: -1) }
 
@@ -501,6 +551,5 @@ class SelectBench(private val canvas: JbCanvasView, private val runId: String, p
 
     companion object {
         const val TAG = BenchRunner.TAG
-        private const val SHOT_MS = 1200L
     }
 }

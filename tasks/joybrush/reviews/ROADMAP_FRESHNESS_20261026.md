@@ -41,3 +41,23 @@ Untracked coordinator `ui-scripts/__pycache__/` is generated local residue and i
 excluded from this docs commit. It is not unique source and has not been staged.
 Broader oil/Unibrush/symmetry/peer status remains OPEN AUDIT until actual evidence
 is recovered. New agents have explicit read-only tasks instead of stale Ready claims.
+
+## Bounded worktree inventory and publication receipt
+
+Luna counted135 registered worktrees;50 had nonempty status during the read-only
+scan. These are active/preserved changes, not50 disposable folders. Key checked
+clean tracked branches included frame-copy, Select A10, watercolor ordinary/finish,
+Atlas repair and UX style. Proof-only branches without upstreams need owner review;
+absence of an upstream alone does not prove their commits are absent on GitHub.
+The scan races active peer work: use fresh exact branch status before action.
+
+Primary fb8042841 was ahead7/behind42 of fetched origin/joy-creator, with25 staged,
+369 unstaged and85 untracked status entries. Preserve it; no automatic pull/reset.
+Dirty UX, tween, Unibrush, experimental Atlas and symmetry worktrees are reserved
+for their owners; source/evidence recovery precedes any cleanup. Specialist reports
+and exact fresh heads supersede earlier count-scan snapshots.
+
+Roadmap/policy checkpoint0686a51d9ca02ea7b44d1da2d2c9facf83aefa8a was pushed to
+origin/lead/select-reconcile-20261024; root independently compared rev-parse HEAD
+with ls-remote and found exact equality. The branch is the canonical integration
+source, not a claim that all features are merged into production joy-creator.

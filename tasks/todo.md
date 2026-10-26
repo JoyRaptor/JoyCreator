@@ -116,4 +116,4 @@ No live frame-copy/tween activation or GPU/context-loss proof from this prerequi
 - [x] Preserve old board as historical archive and redirect stale entry documents.
 - [x] Add operational agent-start contract and correct coordinator source/test scopes.
 - [x] Validate local links and have Luna review the new dispatch instructions.
-- [ ] Publish reviewed documentation checkpoint and notify domain owners.
+- [x] Publish reviewed documentation checkpoint0686a51d9; local HEAD equals GitHub branch SHA; notify domain owners.

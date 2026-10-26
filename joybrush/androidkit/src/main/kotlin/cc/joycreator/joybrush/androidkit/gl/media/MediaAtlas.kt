@@ -125,7 +125,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         if (layerId == null || staleDrawing()) return
         flush()
         for (r in slots.residents()) if (r.dirty) writeBackSlot(r.slot, r.page.tileKey)
-        pinned.clear(); admitted = false; slots.clear(); media.setResidency(emptyMap()); media.waterPaused = emptySet()
+        pinned.clear(); admitted = false; slots.clear(); borrowedBlockTiles.clear(); media.setResidency(emptyMap()); media.waterPaused = emptySet()
         unpark()   // the water sleeps from its stores (as before the park)
         resetWater()
         media.sleep()
@@ -405,7 +405,10 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
     private val residency by lazy { MediaAtlasResidency(slots, backing) }
     private val backing = object : MediaAtlasBacking {
         override fun load(slot: Int, page: MediaAtlasPage) = mediaTrace("JB.media.atlas.load") { loadSlot(slot, page.tileKey) }
-        override fun writeBack(slot: Int, page: MediaAtlasPage) = mediaTrace("JB.media.atlas.writeBack") { writeBackSlot(slot, page.tileKey); dropFromTable(page.tileKey) }
+        override fun writeBack(slot: Int, page: MediaAtlasPage) = mediaTrace("JB.media.atlas.writeBack") {
+            if (borrowedBlockTiles.remove(page.tileKey)) dropFromTable(page.tileKey)
+            else { writeBackSlot(slot, page.tileKey); dropFromTable(page.tileKey) }
+        }
         override fun evicted(slot: Int, page: MediaAtlasPage) = parkIfLive(slot, page.tileKey)
     }
 
@@ -459,7 +462,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
      * nor when the park is off or full: then it leaves as before, through its stores.
      */
     private fun parkIfLive(slot: Int, key: Long) {
-        if (key in borrowedBlockTiles) { borrowedBlockTiles.remove(key); return }
+        if (key in borrowedBlockTiles) return
         val units = MediaAtlasPark.units
         if (units <= 0 || !media.wetActive || !media.hasWaterTextures || media.inputPendingIn(key)) return
         val inBlocks = media.waterInBlocks
@@ -497,6 +500,8 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
             for (r in slots.residents()) if (media.inputPendingIn(r.page.tileKey)) pinBlock(r.page)
             if (!MediaAtlasPlacement.fits(slots.capacity, need, (pinned + blockPinned).mapTo(HashSet()) { it.tileKey }))
                 throw MediaRoomException("A block of water and its ring do not fit beside what the frame holds (${need.size} areas of ${slots.capacity}).")
+            // A prior ring visit supplied read-only planes. Promotion needs canonical parked halves, not that partial copy.
+            for (key in block.own) if (key in borrowedBlockTiles) dropBorrowedBlockTile(key)
             for (key in need) {
                 val p = page(key)
                 if (slots.resident(p) == null) {
@@ -547,22 +552,29 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
 
     /** Discard borrowed atlas copies without touching their canonical parked current half. */
     private fun dropBorrowedBlockTiles() {
-        for (key in borrowedBlockTiles.toList()) {
-            val page = page(key)
-            if (slots.resident(page) != null) {
-                check(slots.resident(page)!!.pins == 0) { "a borrowed block tile is still pinned" }
-                slots.remove(page)
-                dropFromTable(key)
-            }
-        }
+        for (key in borrowedBlockTiles.toList()) dropBorrowedBlockTile(key)
         borrowedBlockTiles.clear()
+    }
+
+    private fun dropBorrowedBlockTile(key: Long) {
+        borrowedBlockTiles.remove(key)
+        val resident = slots.resident(page(key)) ?: return
+        check(resident.pins == 0) { "a borrowed block tile is still pinned" }
+        // Dirty-region accounting can include a ring tile, but its borrowed planes are incomplete and must never be saved.
+        if (resident.dirty) slots.clean(resident.page)
+        // remove() has no backing write; the park remains the canonical water owner.
+        slots.remove(resident.page)
+        dropFromTable(key)
     }
 
     /** Parked state that no longer matches the stores (an undo, a look written from outside, the layer let go): forgotten. */
     private fun unpark(keys: Collection<Long>? = null) {
         val p = park ?: return
         val drop = keys?.filter { it in parked || it in parkedNext } ?: (parked.keys + parkedNext.keys).toList()
-        for (k in drop) { parked.remove(k)?.let(p::give); parkedNext.remove(k)?.let(p::give) }
+        for (k in drop) {
+            parked.remove(k)?.let(p::give); parkedNext.remove(k)?.let(p::give)
+            if (k in borrowedBlockTiles) dropBorrowedBlockTile(k)
+        }
         if (parked.isEmpty() && parkedNext.isEmpty()) { p.release(); park = null }
     }
 
@@ -860,7 +872,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
     private fun forget() {
         dropWaterLook()
         storesOwed = false
-        layerId = null; dryPending = false; pendingStores.clear(); pendingRect = null; pinned.clear(); admitted = false; slots.clear(); media.setResidency(emptyMap()); media.waterPaused = emptySet()
+        layerId = null; dryPending = false; pendingStores.clear(); pendingRect = null; pinned.clear(); admitted = false; slots.clear(); borrowedBlockTiles.clear(); media.setResidency(emptyMap()); media.waterPaused = emptySet()
         unpark()
         resetWater()
         media.takeDirty(); media.takeDirtyStores(); media.stopWater()

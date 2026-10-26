@@ -46,6 +46,37 @@ class BoardTransactionMemoryTest {
     }
 
     private var serial = 0
+
+    @Test fun itemCopiesShareRetainedOriginalUnionButEachDestinationCostsStorage() {
+        val memory = BoardTransactionMemory<String>(9 * tileBytes, tileBytes, true, "Duplicating this frame")
+        memory.observe("visible", 10, true)
+        memory.reserveItemCopies(listOf(10, 20, 20))
+        assertEquals(2, memory.originalCount)
+        assertEquals(1, memory.stagedCount)
+        assertEquals(7 * tileBytes, memory.peakBytes) // two originals + visible + three copies + scratch
+        memory.reserveItemCopies(listOf(10, 20))
+        assertEquals(9 * tileBytes, memory.peakBytes)
+    }
+
+    @Test fun itemCopyBudgetRefusesBeforeTheCallerCanAllocate() {
+        val memory = BoardTransactionMemory<String>(4 * tileBytes, tileBytes, true, "Duplicating this frame")
+        memory.observe("visible", 10, true)
+        var allocationReached = false
+        val error = assertFailsWith<IllegalArgumentException> {
+            memory.reserveItemCopies(listOf(20)) // two originals + visible + copy + scratch = five
+            allocationReached = true
+        }
+        assertFalse(allocationReached)
+        assertTrue(error.message.orEmpty().startsWith("Duplicating this frame"))
+        assertEquals(5 * tileBytes, memory.peakBytes)
+    }
+
+    @Test fun emptyItemReservationDoesNotManufactureScratchOrOriginals() {
+        val memory = BoardTransactionMemory<String>(0, tileBytes, true, "Duplicating this frame")
+        memory.reserveItemCopies(emptyList())
+        assertEquals(0L, memory.peakBytes)
+        assertEquals(0, memory.originalCount)
+    }
     private fun ids() = "board-budget-${++serial}"
     private fun twelveFrames(): JbDocument {
         val base = DocOps.newDocument("doc", "Budget", 512, 512, ::ids)
@@ -90,6 +121,20 @@ class BoardTransactionMemoryTest {
             assertTrue(e.undo.canRedo)
             assertEquals(held, e.heldTextureNames())
         }
+    }
+
+    @Test fun forgedDuplicateMarkerRefusesBeforeLiveBoardOrHistoryChange() {
+        val doc = twelveFrames()
+        val e = engine(doc)
+        val held = e.heldTextureNames()
+        val duplicate = RegionDocumentOps.addFrame(doc, doc.boards.last().id, NewFrame.DUPLICATE, ::ids)
+        val forged = duplicate.copy(frameDuplicate = checkNotNull(duplicate.frameDuplicate)
+            .copy(sourceFrameId = "not-the-current-frame"))
+        assertFailsWith<DocException> { e.applyBoardChange(forged) }
+        assertEquals(doc, e.boardDocument)
+        assertEquals(0, e.undo.undoDepth)
+        assertTrue(e.undo.canRedo)
+        assertEquals(held, e.heldTextureNames())
     }
 
     @Test fun maskOnlyTransferRefusesBeforeAllocationOrHistoryChange() {

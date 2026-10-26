@@ -19,6 +19,7 @@ import cc.joycreator.joybrush.androidkit.gl.lines.BoardItemFlatten
 import cc.joycreator.joybrush.androidkit.gl.lines.LineBake
 import cc.joycreator.joybrush.androidkit.gl.lines.LineEditBudget
 import cc.joycreator.joybrush.androidkit.gl.lines.LineItems
+import cc.joycreator.joybrush.androidkit.gl.lines.PreparedLinePlaneCopy
 import cc.joycreator.joybrush.androidkit.layers.MergeDownPlan
 import cc.joycreator.joybrush.androidkit.gl.lines.NativeLines
 import cc.joycreator.joybrush.androidkit.lines.LineEdit
@@ -1847,11 +1848,33 @@ class GlPaintEngine(
         requireLocalPaint()
         checkStrokeEnded("Check failed.")
         val before=boardDocument ?: error("No board document is attached")
+        // A runtime marker is untrusted input. Validate against the actual engine
+        // document before preparing the board transaction's textures/items/history.
+        val duplicateCopies = cc.joycreator.joybrush.core.doc.FrameDuplicatePlan.validate(before, change)
+        if (duplicateCopies != null) check(lift == null) {
+            "Finish moving the selection before duplicating this frame"
+        }
         val errors=DocOps.validate(change.doc); require(errors.isEmpty()){errors.joinToString("; ")}
         require(change.doc.layers.map{it.id}==before.layers.map{it.id}) { "Board edits cannot replace the layer stack" }
         require(change.doc.layers.all { it.kind.hasPixels && it.animatedIn == null }) {
             "This renderer paints raster layers"
         }
+        val editableCopies = duplicateCopies.orEmpty().mapNotNull { copy ->
+            // The joint/captured publisher needs its own transaction adapter. A
+            // NativeLines snapshot must never stand in for that authoritative source.
+            check(recordedScene == null) { "Duplicating recorded artwork needs the joint board publisher" }
+            val source = LinePlane(copy.layerId, copy.fromCelId)
+            if (!nativeLines.hasItems(source) && nativeLines.bases(source).isEmpty()) return@mapNotNull null
+            for (record in nativeLines.lines(source)) {
+                require(record.capturedPhysicalSource == null) { "Duplicating captured line sources is not available yet" }
+                val brush = checkNotNull(nativeLines.brush(record.brushId)) { "Missing frozen frame brush" }
+                require(brush.id == record.brushId && BrushValidate.validate(brush).isEmpty()) {
+                    "Invalid frozen frame brush"
+                }
+            }
+            PreparedLinePlaneCopy.capture(nativeLines, source, LinePlane(copy.layerId, copy.toCelId))
+        }
+        val copiedFootprints = editableCopies.flatMap { it.footprints.entries }.associate { it.toPair() }
         // Editable lines (v1.2 H4): planes whose pixels this edit rewrites, or whose region moves, lose their items in
         // this same step; their tiles stay, so the lines become those pixels. Nothing is applied until the edit publishes.
         val flatten = BoardItemFlatten.plan(nativeLines.itemPlanes(), change, before) { nativeLines.crossedKeys(it) }
@@ -1862,6 +1885,7 @@ class GlPaintEngine(
         val memory = BoardTransactionMemory<Pair<String, Pair<String?, Long>>>(
             boardSnapshotAllowanceBytes, size.toLong() * size * 4, change.copies.isNotEmpty(),
             BoardTransactionMemory.operation(before, change))
+        for (copy in editableCopies) memory.reserveItemCopies(copy.borrowedSourceTextures)
         val planned = HashSet<Pair<String, Pair<String?, Long>>>()
         fun stagedKeys(id: String, cel: String?) = planned.asSequence().filter {
             it.first == id && it.second.first == cel
@@ -1897,6 +1921,12 @@ class GlPaintEngine(
             val layer = layers[copy.layerId] ?: error("No layer ${copy.layerId}")
             val source = layer.cels[copy.fromCelId] ?: error("No source cel ${copy.fromCelId}")
             destinationAllowed(copy.layerId, copy.toCelId)
+            if (duplicateCopies != null) for (slice in RegionTransferTiles.sparseSlices(
+                    copy.rect, copy.rect, source.keys.asSequence(), emptySequence())) {
+                source[slice.sourceKey]?.let { texture ->
+                    memory.observe(copy.layerId to (copy.fromCelId to slice.sourceKey), texture, false)
+                }
+            }
             preflight(layer, source, layer.cels[copy.toCelId].orEmpty(), copy.fromCelId, copy.toCelId,
                 copy.rect, copy.rect, stagedSource = true)
         }
@@ -1918,6 +1948,11 @@ class GlPaintEngine(
                 memory.observe(layer.id to (drop.celId to key), store[key], false)
         }
         val pending=LinkedHashMap<Pair<String,Pair<String?,Long>>,UndoLog.TileChange<Int>>()
+        val itemTextures = ArrayList<Int>(editableCopies.sumOf { it.textureCount })
+        fun trackItemTexture(made: Int): Int {
+            try { itemTextures.add(made) } catch (e: Throwable) { recycleLayerTex(made); throw e }
+            return made
+        }
         var published=false
         fun checkRoom(address: Pair<String, Pair<String?, Long>>, original: Int?) {
             memory.observe(address, original, true)
@@ -1970,6 +2005,31 @@ class GlPaintEngine(
             }
         }
         try {
+            for (copy in editableCopies) {
+                val rect = checkNotNull(duplicateCopies).single {
+                    it.layerId == copy.source.layerId && it.toCelId == copy.destination.celId
+                }.rect
+                items += copy.materializeWithClippedBases(
+                    copyTexture = { source -> trackItemTexture(copyOfTile(source)) },
+                    copyBase = { key, source ->
+                        // Bases are unconditional source pixels, unlike masked
+                        // lines/slabs. Clear the entire independent tile, then
+                        // copy only the board-owned intersection. Outside-board
+                        // keys remain transparent without trimming raw recipes.
+                        val made = allocateInitializedTexture(::newLayerTile, { target ->
+                            initializeTile(target, null, false)
+                            check(GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER) ==
+                                GLES30.GL_FRAMEBUFFER_COMPLETE) { "Frame base clear framebuffer is incomplete" }
+                            check(GLES30.glGetError() == GLES30.GL_NO_ERROR) { "Frame base clear failed" }
+                            for (slice in RegionTransferTiles.sparseSlices(rect, rect,
+                                    sequenceOf(key), emptySequence())) {
+                                copyTextureRect(source, target, slice.source)
+                            }
+                        }, ::recycleLayerTex)
+                        trackItemTexture(made)
+                    },
+                )
+            }
             for (clear in change.clears) {
                 val layer = layers.getValue(clear.layerId)
                 for (slice in RegionTransferTiles.sparseSlices(clear.rect, clear.rect, emptySequence(),
@@ -2025,7 +2085,7 @@ class GlPaintEngine(
             published=true
             pending.values.forEach { c->put(c.layerId,c.key,c.after,c.celId) }
             setBoardDocument(change.doc)
-            applyItemChanges(items.slabs, items.lines, forward = true); itemsApplied = true
+            applyItemChanges(items.slabs, items.lines, forward = true, footprints = copiedFootprints); itemsApplied = true
             // JB-2.40 slice 3a: payloads are per plane now, so a layer gaining frames keeps them; only tiles whose pixels a
             // board edit moved lose theirs (settled: the look stays, it just can't be re-wetted until slice 3b carries it).
             if(before!=change.doc || pending.isNotEmpty() || items.lines.isNotEmpty() || items.slabs.isNotEmpty())
@@ -2036,6 +2096,7 @@ class GlPaintEngine(
             if(itemsApplied) applyItemChanges(items.slabs, items.lines, forward = false)
             if(published) { pending.values.forEach{c->put(c.layerId,c.key,c.before,c.celId)}; setBoardDocument(before) }
             pending.values.forEach { c->c.after?.let(::recycleLayerTex) }
+            itemTextures.forEach(::recycleLayerTex)
             throw e
         } finally { GLES30.glDisable(GLES30.GL_SCISSOR_TEST); GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0) }
         // Only lines that stay as pixels are said; a dropped frame's lines went with the frame the person deleted.

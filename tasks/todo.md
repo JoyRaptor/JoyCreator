@@ -117,3 +117,10 @@ No live frame-copy/tween activation or GPU/context-loss proof from this prerequi
 - [x] Add operational agent-start contract and correct coordinator source/test scopes.
 - [x] Validate local links and have Luna review the new dispatch instructions.
 - [x] Publish reviewed documentation checkpoint0686a51d9; local HEAD equals GitHub branch SHA; notify domain owners.
+
+## Combined native proof candidate — October26
+- [x] Preserve current A10 base and selectively integrate frame717, ordinary WC e670 and frame probe7b code.
+- [x] Add distinct disposable native frame dispatch and non-debug refusal regression (source only).
+- [ ] Focused backend and app compile/test after UX slot handback.
+- [ ] Exact APK assembly with fresh3200 admission, then authorized independently parsed GPU probes.
+- [ ] Later archive/recovery/failure and watercolor frame-copy gates; no activation from compilation.

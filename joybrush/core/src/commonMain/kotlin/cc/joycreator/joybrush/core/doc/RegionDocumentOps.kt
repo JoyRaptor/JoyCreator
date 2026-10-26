@@ -39,9 +39,13 @@ private fun checkTransferRects(source: RectPx, destination: RectPx) {
     }
 }
 
+/** Runtime-only proof tag for the canonical fresh-frame duplicate transaction. */
+data class FrameDuplicate(val boardId: String, val sourceFrameId: String, val targetFrameId: String)
+
 data class RegionChange(val doc: JbDocument, val copies: List<RegionCopy> = emptyList(), val drops: List<RegionDrop> = emptyList(),
     val transfers: List<RegionTransfer> = emptyList(), val maskTransfers: List<RegionMaskTransfer> = emptyList(),
-    val clears: List<RegionClear> = emptyList(), val maskClears: List<RegionMaskClear> = emptyList())
+    val clears: List<RegionClear> = emptyList(), val maskClears: List<RegionMaskClear> = emptyList(),
+    val frameDuplicate: FrameDuplicate? = null)
 
 /** Region metadata operations. No legacy conversion, pixel buffers, GPU or history owned here. */
 object RegionDocumentOps {
@@ -102,7 +106,8 @@ object RegionDocumentOps {
             if (it.id == boardId) it.copy(frames = frames,currentFrameId = frameId) else it
         })
         valid(next)
-        return RegionChange(next,copies)
+        return RegionChange(next, copies,
+            frameDuplicate = if (mode == NewFrame.DUPLICATE) FrameDuplicate(boardId, sourceId, frameId) else null)
     }
 
     /** Last-frame deletion is refused; linked cels survive while another frame names them. */

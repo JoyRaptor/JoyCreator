@@ -19,10 +19,14 @@ internal class BoardTransactionMemory<A>(
 ) {
     private val originals = HashSet<Int>()
     private val staged = HashSet<A>()
+    private var copiedItemTextures = 0L
     val originalCount: Int get() = originals.size
     val stagedCount: Int get() = staged.size
     val peakBytes: Long get() {
-        val tiles = originals.size.toLong() + staged.size + if (replacementScratch && staged.isNotEmpty()) 1 else 0
+        val addressed = originals.size.toLong() + staged.size +
+            if (replacementScratch && (staged.isNotEmpty() || copiedItemTextures != 0L)) 1 else 0
+        if (copiedItemTextures > Long.MAX_VALUE - addressed) return Long.MAX_VALUE
+        val tiles = addressed + copiedItemTextures
         return if (tileBytes <= 0L || tiles > Long.MAX_VALUE / tileBytes) Long.MAX_VALUE else tiles * tileBytes
     }
 
@@ -30,6 +34,22 @@ internal class BoardTransactionMemory<A>(
     fun observe(address: A, original: Int?, createsTexture: Boolean) {
         original?.let(originals::add)
         if (createsTexture) staged.add(address)
+        checkAllowance()
+    }
+
+    /**
+     * Reserve independent editable base/slab copies in the SAME board allowance.
+     * Each list entry creates one destination texture; borrowed source handles are
+     * retained only once across these copies and ordinary pixel snapshots. Call
+     * once per prepared copy before any GPU allocation, never after publication.
+     */
+    fun reserveItemCopies(sourceTextures: List<Int>) {
+        originals.addAll(sourceTextures)
+        copiedItemTextures = Math.addExact(copiedItemTextures, sourceTextures.size.toLong())
+        checkAllowance()
+    }
+
+    private fun checkAllowance() {
         require(peakBytes <= allowanceBytes) {
             "$operation needs at least ${mib(peakBytes)} MiB of tile snapshots, above the configured " +
                 "${mib(allowanceBytes.coerceAtLeast(0))} MiB allowance. ${suggestion(operation)}"

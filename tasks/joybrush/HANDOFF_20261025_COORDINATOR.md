@@ -1,3 +1,16 @@
+## Screenshot evidence correction
+
+Root visually inspected run1 08_nudged.png: it is launcher Home. Per-state PNG
+registration is invalid despite structural PNG/CRC completeness. All11 run1 PNGs
+lose per-step visual acceptance; preserve run-bound behavioral19/1 separately.
+The benchmark advanced on fixed1.2s holds while host logcat/capture was slower.
+Root approved a narrow debug run/event-specific screenshot ACK design: state held
+until host durably saves validated PNG and acknowledges exact event, bounded
+asynchronous timeout/abort, stale/wrong-run ACK refusal, own marker cleanup only.
+UI/GL stable presentation and manual review remain required; ACK alone proves no
+pixel/appearance semantics. Select owns patch plus meaningful protocol regressions
+before a new exact candidate build/rerun. No production behavior change authorized.
+
 ## Note9 installation and first acceptance run
 
 Select installed exact52e559d04 APK; installedSHA matches preserved
@@ -241,6 +254,7 @@ Synthetic gestures do not establish physical S Pen feel or manual save acceptanc
 Existing persistent goal remains unfinished even though its historical tool status
 is usageLimited. No duplicate goal or completion. The old five-hour automation
 was found PAUSED and was kept PAUSED; do not reactivate without owner direction.
+
 
 
 

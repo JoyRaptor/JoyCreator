@@ -4,6 +4,7 @@ import cc.joycreator.joybrush.androidkit.lines.LinePlane
 import cc.joycreator.joybrush.core.paint.UndoLog
 import cc.joycreator.joybrush.core.stroke.StrokeRecord
 import cc.joycreator.joybrush.core.vector.CelComposer
+import java.util.Collections
 
 /**
  * Immutable preparation for an independent copy of one entire editable plane. The engine must
@@ -20,9 +21,14 @@ internal class PreparedLinePlaneCopy private constructor(
     private val records: List<StrokeRecord>,
     private val bases: Map<Long, Int>,
     private val slabs: List<Slab>,
-    val footprints: Map<Pair<LinePlane, String>, Set<Long>>,
+    footprints: Map<Pair<LinePlane, String>, Set<Long>>,
 ) {
     private data class Slab(val seq: Long, val op: String, val tiles: Map<Long, Int>)
+
+    // Kotlin read-only collection types alone do not prevent mutation through JVM casts.
+    val footprints: Map<Pair<LinePlane, String>, Set<Long>> = Collections.unmodifiableMap(
+        footprints.mapValues { (_, keys) -> Collections.unmodifiableSet(HashSet(keys)) },
+    )
 
     val textureCount: Int = bases.size + slabs.sumOf { it.tiles.size }
 
@@ -31,7 +37,8 @@ internal class PreparedLinePlaneCopy private constructor(
      * document/pixel changes. The caller owns every texture returned by [copyTexture], including
      * ones allocated before an exception, and must release them on failure before publication.
      * Use [footprints] in LineItems.apply when publishing; NativeLines retains the extra footprint
-     * information for undo/redo after that first publication.
+     * information for undo/redo after that first publication. Source handles are borrowed and
+     * remain valid only while the caller retains the source texture ownership through copying.
      */
     fun materialize(copyTexture: (Int) -> Int): LineItems.Changes {
         val outputSlabs = ArrayList<UndoLog.SlabChange<Int>>(textureCount)
@@ -56,7 +63,12 @@ internal class PreparedLinePlaneCopy private constructor(
             require(!lines.hasItems(destination) && lines.bases(destination).isEmpty()) {
                 "An editable frame copy cannot overwrite an existing plane"
             }
-            val records = lines.lines(source).toList()
+            // StrokeRecord's PenSample values and capture/wash frames are immutable, but its
+            // caller-supplied samples List need not be. Freeze that list as at the Select copy
+            // boundary, so later source-list edits cannot change the prepared recipe.
+            val records = lines.lines(source).map { record ->
+                record.copy(samples = Collections.unmodifiableList(ArrayList(record.samples)))
+            }
             val footprints = records.associate { record ->
                 (destination to record.id) to lines.footprint(source, record.id).toSet()
             }

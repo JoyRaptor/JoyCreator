@@ -1,3 +1,5 @@
+> SUPERSEDED October26: start at [ROADMAP.md](ROADMAP.md) and [AGENT_START_20261026.md](AGENT_START_20261026.md). Historical queue and checkout/build instructions below are not current.
+
 # JoyBrush lead handoff — October 9, 2026
 
 > **2026-10-17 night: read [HANDOFF_20261017_LEAD.md](HANDOFF_20261017_LEAD.md) FIRST** (Claude lead handoff: what is on

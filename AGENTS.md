@@ -54,3 +54,30 @@
 ---
 ## Phone rule (owner, 2026-10-19)
 - **Never launch the app with `adb shell monkey`**: it turns the owner's screen-rotation lock OFF on the phone (see tasks/DEVICE_CONTROL_RUNBOOK.md). Launch with `am start -n <activity>` (resolve it with `cmd package resolve-activity --brief`). Never change the phone's rotation settings.
+
+## JoyBrush roadmap and Git hygiene (owner, 2026-10-26)
+
+- `tasks/joybrush/ROADMAP.md` is the mandatory project-wide source for broad
+  milestones, current ownership, dependencies and remaining acceptance gates.
+  Read it at session start. Update the affected milestone after every achievement
+  on it, including a completed spec, integration or verification gate. This is part
+  of completing the work, not optional documentation or a secondary board.
+- Keep granular substeps, logs and ongoing lead context in dated handoffs/reviews.
+  The roadmap summarizes their effect and links evidence; do not paste every test
+  assertion into it. Unrun source and isolated proofs must not become feature-done.
+- Use one canonical roadmap on the coordinator branch. Specialists update their
+  isolated branch's affected row with their achievement and send the small docs
+  patch to the coordinator. Reconcile against the current row; never replace the
+  whole board from a stale checkout. The coordinator publishes the merged update.
+- Before edits, inspect checkout/branch/status and fetch remote state when online.
+  Preserve dirty/staged work and use an isolated branch. After a coherent reviewed
+  checkpoint, commit explicit owned paths, push its branch and verify local HEAD
+  equals the remote branch SHA. Report failures or offline/unpushed work honestly.
+- Do not force-push shared branches, auto-pull stale primary folders, delete old
+  worktrees/evidence or reset local changes to make the tree look tidy. Inventory
+  unique commits and evidence before cleanup. Never commit local caches, generated
+  APK/build output, secrets or owner media. Keep necessary raw evidence in its
+  designated location and durable receipts/paths in the handoff.
+- Before handoff, state exact source/base, local/remote synchronization, owned dirty
+  paths, current jobs/locks and next action. Historical plans must be clearly marked
+  superseded and point to the current roadmap instead of advertising stale queues.

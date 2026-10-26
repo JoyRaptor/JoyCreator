@@ -3,7 +3,7 @@ Root independently counted 171 tests /0 failures/errors/skips from23 fresh XML
 suites. Root Android+joybrush tree objects are identical to the tested builder.
 - [x] Real overlay UP/CANCEL/pinch/drag, Activity/View Copy and Paste failure tests.
 - [x] Per-brush policy8, chrome3 and ActivityBinding3, benchmark Cleanup2.
-- [ ] Corrected backend Copy budget/engine/reply rerun.
+- [x] Corrected backend Copy budget/engine/reply: actual23/0/0/0 on52e559d04, independently counted.
 - [ ] Combined APK and exact installed-candidate phone acceptance.
 - [ ] Atlas ownership repair source34b27b6f8: isolated source only, no build/GPU proof.
 
@@ -106,5 +106,6 @@ No precise credit savings are claimed. One admitted heavy job machine-wide; exac
 fresh XML counts and source/APK-bound phone evidence are required. Keep owner files and
 old worktrees intact. No purchasing credits, consuming resets or waiting for Claude approval
 on already-authorized work.
+
 
 

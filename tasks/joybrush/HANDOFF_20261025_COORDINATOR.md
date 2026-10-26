@@ -1,3 +1,20 @@
+## Current verification checkpoint
+
+Corrected backend Copy focus CLOSED SUCCESS in51s on frozen
+52e559d047c2a60da1783b80a3e48b52c837823d. Root independently counted actual XML
+23 tests (Engine9/Budget9/Reply5), zero failures/errors/skips and matched closed-log
+SHA256 AB6FB1E5A0E9002D7BE346B17E2B67457A383D4295728DE1A10F763A3FE5550E.
+Root Android/backend module source is identical. Independent receipt:
+C:/Temp/jb-select-acceptance-20261024/backend-52e559d04-root-count.json.
+This supersedes older ca141 budget failures/pending-rerun entries below.
+
+Ownership10 pure core run on8e56aea95 also independently counted10/0/0/0;
+logSHA E12BCEFFE6FBABDA21815AFDBA0BCF3A56A10DFE26107BC2BFEA81B32D7BA05A.
+Its design/evidence docs are adopted at60db36a81; runtime/code not adopted.
+Select owns the next exact APK slot IF fresh3200MiB admission permits. Root has no
+queued job or phone claim. Build success, exact APK mapping and fresh Note9 readiness
+are still required; desktop passes do not establish device behavior.
+
 ## Verification update — focused Android run closed
 
 Exact builder e9d2a417604c19138aa15a4e7f094edf0945dc33 completed successfully in
@@ -175,5 +192,6 @@ Synthetic gestures do not establish physical S Pen feel or manual save acceptanc
 Existing persistent goal remains unfinished even though its historical tool status
 is usageLimited. No duplicate goal or completion. The old five-hour automation
 was found PAUSED and was kept PAUSED; do not reactivate without owner direction.
+
 
 

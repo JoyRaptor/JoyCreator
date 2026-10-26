@@ -118,12 +118,12 @@ class RunnerTests(unittest.TestCase):
             active.append(patch.object(runner.time, "monotonic", side_effect=monotonic))
         return active
 
-    def run_patched(self, out, adb, monotonic=None):
+    def run_patched(self, out, adb, monotonic=None, case="select"):
         patches = self.patches(adb, monotonic)
         try:
             for item in patches:
                 item.start()
-            return runner.run(out, "test lane", self.receipt)
+            return runner.run(out, "test lane", self.receipt, case)
         finally:
             for item in reversed(patches):
                 item.stop()
@@ -141,6 +141,50 @@ class RunnerTests(unittest.TestCase):
         self.lock.write_bytes(b"replacement foreign claim\n")
         claim.release()
         self.assertEqual(b"replacement foreign claim\n", self.lock.read_bytes())
+
+    def test_unknown_case_refuses_before_claim_or_adb(self):
+        adb = FakeAdb(self.digest)
+        with self.assertRaisesRegex(runner.RunError, "Unsupported Select bench case"):
+            self.run_patched(self.root / "unknown-case", adb, case="../arbitrary")
+        self.assertFalse(self.lock.exists())
+        self.assertEqual([], adb.calls)
+
+    def a10_rows(self, run_id):
+        manifest = json.loads(self.manifest.read_text())
+        manifest["benchCase"] = "selectA10"
+        (self.root / "select_a10_bench_manifest.json").write_text(json.dumps(manifest))
+        own = [
+            {"selectBench": "setup", "pass": True},
+            {"selectBenchShot": "01_setup.png", "shotProtocol": 1},
+            {"selectBench": "pick", "pass": True},
+            {"selectBench": "summary", "passed": 2, "failed": 0},
+            {"selectBenchDone": True},
+        ]
+        return [dict(row, runId=run_id, event=i, benchCase="selectA10") for i, row in enumerate(own)]
+
+    def test_a10_launch_uses_separate_case_and_manifest(self):
+        run_id = "0123456789abcdef0123456789abcdef"
+        adb = FakeAdb(self.digest, self.a10_rows(run_id))
+        out = self.root / "a10-out"
+        with patch.object(runner.uuid, "uuid4", return_value=type("UUID", (), {"hex": run_id})()):
+            self.run_patched(out, adb, case="selectA10")
+        launch = next(call for call in adb.calls if call[:3] == ("shell", "am", "start"))
+        self.assertEqual("selectA10", launch[launch.index("jb_bench") + 1])
+        self.assertEqual("selectA10", json.loads((out / "build.json").read_text())["benchCase"])
+        self.assertEqual(1, len(adb.acks))
+        self.assertFalse(self.lock.exists())
+
+    def test_a10_wrong_case_event_is_rejected_before_capture_or_ack(self):
+        run_id = "0123456789abcdef0123456789abcdef"
+        rows = self.a10_rows(run_id)
+        rows[1]["benchCase"] = "select"
+        adb = FakeAdb(self.digest, rows)
+        with patch.object(runner.uuid, "uuid4", return_value=type("UUID", (), {"hex": run_id})()):
+            with self.assertRaisesRegex(runner.RunError, "requested A10 case"):
+                self.run_patched(self.root / "wrong-case", adb, case="selectA10")
+        self.assertEqual([], adb.acks)
+        self.assertEqual(["capture"], adb.actions)  # Home baseline only.
+        self.assertTrue(self.lock.exists())  # Launched state is unresolved.
 
     def test_artifact_rejects_unsuccessful_build_and_apk_hash_mismatch(self):
         self.write_receipt(successful=False)

@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "benchCase": "selectA10",
+  "steps": ["a10Setup", "a10LinesOn", "a10LinesOff", "a10PixelsOnly", "a10DrawerWhite", "a10DrawerDark"],
+  "screenshots": ["12_a10_lines_on.png", "13_a10_lines_off.png", "14_a10_pixels_only.png", "15_a10_white_canvas_ink_pixels.png", "16_a10_dark_canvas_ink_lines.png"]
+}

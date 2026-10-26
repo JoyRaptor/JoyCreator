@@ -20,6 +20,7 @@ ACTIVITY = PACKAGE + "/com.fadcam.joybrush.JoyBrushBenchActivity"
 HERE = Path(__file__).resolve().parent
 HEX40 = re.compile(r"[0-9a-f]{40}")
 HEX64 = re.compile(r"[0-9a-f]{64}")
+CASES = {"select": "select_bench_manifest.json", "selectA10": "select_a10_bench_manifest.json"}
 
 
 class RunError(Exception):
@@ -151,13 +152,15 @@ class Adb:
         return model, int(api)
 
 
-def run(out: Path, lane: str, receipt: Path):
+def run(out: Path, lane: str, receipt: Path, case: str = "select"):
+    if case not in CASES:
+        raise RunError("Unsupported Select bench case; use select or selectA10.")
     if out.exists() and any(out.iterdir()):
         raise RunError("Use a fresh empty output directory.")
     out.mkdir(parents=True, exist_ok=True)
     source, expected = artifact(receipt)
     run_id = uuid.uuid4().hex
-    manifest = HERE / "select_bench_manifest.json"
+    manifest = HERE / CASES[case]
     expected_shots = set(read_json(manifest, 262144)["screenshots"])
     adb = Adb(os.environ.get("SANDBOX_SERIAL", ""))
     claim = PhoneClaim(Path(os.environ["LOCALAPPDATA"]) / "Temp" / "jb-phone.lock", lane, run_id)
@@ -173,11 +176,11 @@ def run(out: Path, lane: str, receipt: Path):
         (out / "before.png.evidence").write_bytes(adb.call("exec-out", "screencap", "-p", binary=True))
         (out / "temps.txt").write_text(f"temp_before_C {adb.temperature()}\n", encoding="utf-8")
         build = dict(source40hex=source, expectedApkSha256=expected, installedApkSha256=installed,
-                     runId=run_id, deviceModel=model, deviceApi=api)
+                     runId=run_id, deviceModel=model, deviceApi=api, benchCase=case)
         (out / "build.json").write_text(json.dumps(build, indent=2) + "\n", encoding="utf-8")
         # Interrupted am start may still launch: retain the claim until terminal evidence exists.
         launched = True
-        launch = adb.call("shell", "am", "start", "-n", ACTIVITY, "--es", "jb_bench", "select", "--es", "jb_select_run_id", run_id)
+        launch = adb.call("shell", "am", "start", "-n", ACTIVITY, "--es", "jb_bench", case, "--es", "jb_select_run_id", run_id)
         if "Error:" in launch or "Exception" in launch:
             raise RunError("Bench launch not confirmed; claim retained for inspection.")
         seen = {}
@@ -195,6 +198,8 @@ def run(out: Path, lane: str, receipt: Path):
                         continue
                     if not isinstance(row, dict) or row.get("runId") != run_id:
                         continue
+                    if case == "selectA10" and row.get("benchCase") != case:
+                        raise RunError("Bench event does not match the requested A10 case.")
                     event = row.get("event")
                     if type(event) is not int or event < 0:
                         raise RunError("Bench event lacks a valid sequence identity.")
@@ -266,7 +271,7 @@ def main():
         receipt = os.environ.get("SELECT_BENCH_BUILD_RECEIPT")
         if not receipt:
             raise RunError("Set SELECT_BENCH_BUILD_RECEIPT to the successful exact-source APK receipt.")
-        run(args.out, args.lane, Path(receipt))
+        run(args.out, args.lane, Path(receipt), os.environ.get("SELECT_BENCH_CASE", "select"))
     except (RunError, EvidenceError, OSError, ValueError, KeyError, IndexError) as error:
         print(f"FAIL: {error}", file=sys.stderr)
         return 1

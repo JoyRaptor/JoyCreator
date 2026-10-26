@@ -26,3 +26,14 @@ PhaseB lift/mask/preview/commit/cancel, Fill/move/delete/flip/duplicate/copy/inv
 HSB/painting clip, joint history and device/data proof remain engine dependencies.
 C3, Slice/smudge, K26 and A10 theme/phone proof remain separately open. This repair
 prevents empty controls; it does not complete those features.
+
+## Integration attempts
+
+Current A10/docs basef628 selectively integrated as53364b741. First attempt stopped
+at private-init wrong-root guard11s before compilation (included builds also run init
+scripts); corrected harness skips non-target roots. Second attempt compiled production
+but stopped at test compilation3m46: missing assertTrue import introduced during primary
+separator-assertion review. Added only that import; no product change. Both red logs
+preserved at C:/Temp/jb-lead-ops/ux-menu-53364b741-20261026.log and
+ux-menu-53364b741-corrected-20261026.log. Neither attempt executed tests or provides a
+fresh XML pass. Coordinator granted one focused retry on the corrected frozen source.

@@ -1,0 +1,15 @@
+{
+  "schema": "joybrush-slice-pure-ownership-validation-v1",
+  "sourceRevision": "8e56aea956f07327d3c39c6972034f1fcf7fd576",
+  "ownershipCommit": "987630925",
+  "suite": "cc.joycreator.joybrush.core.vector.LineSliceOwnershipTest",
+  "tests": 10,
+  "actualTestcaseCount": 10,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "build": "SUCCESSFUL",
+  "duration": "2m 16s",
+  "logSha256": "e12bceffe6fbabda21815afdba0bcf3a56a10dfe26107bc2bfea81b32d7ba05a",
+  "scope": "Pure canonical ownership and scalar alpha oracle only. No native pixel parity, schema, runtime Slice/smudge, mixed-content ordering, save/Undo or device acceptance."
+}

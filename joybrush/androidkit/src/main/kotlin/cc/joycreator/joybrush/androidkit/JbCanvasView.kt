@@ -170,6 +170,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     @Volatile private var documentPaperState = Paper()
     @Volatile var paper: ResolvedPaper = PaperState.resolve(documentPaperState, PaperResources.catalogue)
         set(v) {
+            val backdropChanged = field != v
             field = v
             documentPaperState = documentPaperState.copy(textureId=v.surface?.id,lookId=v.look?.id,
                 textureScale=v.scale,color=paperHex(v.baseArgb),tint=if(v.tintSet)paperHex(v.baseArgb) else null,
@@ -179,8 +180,15 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 onGl { engine.setDocumentPaper(next) }
             }
             requestRender()
+            // Runtime fixtures and resolved-paper changes also change icon contrast, without a paper history visit.
+            if (backdropChanged) {
+                if (Looper.myLooper() == Looper.getMainLooper()) onPaperBackdropChanged?.invoke()
+                else post { onPaperBackdropChanged?.invoke() }
+            }
         }
     val documentPaper: Paper get() = documentPaperState
+    /** Display invalidation only; observers sample after the next rendered frame. Always delivered on the UI thread. */
+    var onPaperBackdropChanged: (() -> Unit)? = null
     var onPaperChanged: ((Paper) -> Unit)? = null
     var onBeforeHistoryChange: (() -> Unit)? = null
     @Volatile private var paperRevision = 0L

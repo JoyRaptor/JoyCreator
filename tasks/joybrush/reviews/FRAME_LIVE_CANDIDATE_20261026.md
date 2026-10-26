@@ -2,7 +2,7 @@
 
 Base315a1decf, marker61d093144 adopted64d9579ef; root entry/budget prerequisite
 88977040c. Current followup includes PreparedLinePlaneCopy with provenancef66183d85
-and actual ordinary-native engine wiring. UNCOMPILED / UNRUN / NOT ACTIVATED.
+and actual ordinary-native engine wiring. Focused compile/tests PASSED on717f6c326; GPU/runtime acceptance NOT PROVED / NOT ACTIVATED.
 
 ## Implemented in source
 
@@ -46,3 +46,7 @@ Framebuffer completeness and GL error are checked even when there are zero slice
 so silent failed clear is not accepted as a transparent pooled tile. A fifth helper
 test checks dispatch/recipe integrity only, not GPU pixels. Review confirms matching
 source/destination local coordinates for SAME-RECT copies. Actual GL proof remains owed.
+
+## Exact focused gate —717f6c326
+
+ClosedSUCCESS4m48/exit0/sharedlockreleased. Independently counted26 tests: core6, boardbudget/entry11, initializedtexture4, preparedcopy5; all0failures/errors/skips. All backend production/test Kotlin compiled. Receipt FRAME_LIVE_717F_TEST_RECEIPT_20261026.json; rawXML C:/Temp/jb-lead-ops/evidence/frame-live-717f6c326. This supersedes only the unrun focused checks above. Actual GL, independent edits, atomic rollback/undo/redo, clipping pixel oracle and save/reload remain owed; do not activate from compilation.

@@ -1,0 +1,39 @@
+{
+  "source": "717f6c326cc4ba7c8ca50505f16af9645dfd79d3",
+  "suites": [
+    {
+      "suite": "cc.joycreator.joybrush.core.doc.FrameDuplicatePlanTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xmlSha256": "1F581E3835E04F857BF8B30859C7C9F43CC5820C08362D96796406BC6E439CFE"
+    },
+    {
+      "suite": "cc.joycreator.joybrush.androidkit.gl.BoardTransactionMemoryTest",
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xmlSha256": "D0C39794A2D78C9597DE8BFADD5F13062CEE3878468336FE5FF344126CD9DBFF"
+    },
+    {
+      "suite": "cc.joycreator.joybrush.androidkit.gl.InitializedTextureTest",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xmlSha256": "615F95218F364B959DE8027FD3B1D1A71A876D46D3BFFEE84DCF99EDE49BAB13"
+    },
+    {
+      "suite": "cc.joycreator.joybrush.androidkit.gl.lines.PreparedLinePlaneCopyTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xmlSha256": "8B81E0E121ACF94F36704263443354637DF50FEAB8ABA8E30CBC638BCA645FB7"
+    }
+  ],
+  "logSha256": "1AE486781928F7C48C1D5430E421F569805C2418AC16D7D84C071FD9D0310AD0",
+  "sharedLockAfter": false
+}

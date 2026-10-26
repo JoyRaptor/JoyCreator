@@ -20,6 +20,19 @@ enum class PlayMode {
     }
 }
 
+/** One integer tween exposure and the wall time at which its next exposure tick begins. */
+data class PlaybackExposureSample(
+    /** Null after a BLANK clip reaches its end. */
+    val sample: TweenFrameSample?,
+    /** Absolute wall time for the next tick exposure, or infinity when this sample is settled. */
+    val nextWakeupMs: Double,
+    val isBlank: Boolean,
+    /** True when [sample] is on the interior PING_PONG return leg. */
+    val isReverse: Boolean,
+    /** True when the selected range wraps after its final frame. */
+    val isLoop: Boolean,
+)
+
 /**
  * Playback as a pure function of elapsed time — never a counter that adds frame lengths, which is
  * the one thing that makes frames slowly slide away from the sound (JB-3.05a, blueprint §7).
@@ -47,10 +60,16 @@ class PlaybackClock(
     private val last: Int
     private val count: Int
     private val rate: Double
+    private val fps: Double
     private val rangeStarts: List<Double>
+    private val rangeTickStarts: List<Long>
+    private val rangeTicks: Long
+    private val currentFrames = board.frames
     private val rangeStartMs: Double
     private val backSpanMs: Double
     private val cycleMs: Double
+    private val backTicks: Long
+    private val cycleTicks: Long
 
     /** Length of one pass through the range at speed 1, ms. */
     val rangeMs: Double
@@ -70,6 +89,7 @@ class PlaybackClock(
         count = hi - lo + 1
 
         rate = if (speed.isFinite()) speed.coerceIn(MIN_SPEED, MAX_SPEED).toDouble() else 1.0
+        fps = board.fps.toDouble()
 
         // Every frame length in this class comes from AnimOps, which is where the 1..60 fps rule
         // lives and which is what a frame's length is DEFINED to be. Re-deriving holdFrames * 1000 /
@@ -84,11 +104,18 @@ class PlaybackClock(
         rangeStartMs = boardStarts[lo]
         val rangeEndMs = if (hi < frames - 1) boardStarts[hi + 1] else AnimOps.totalDurationMs(board)
         val starts = ArrayList<Double>(count + 1)
+        val tickStarts = ArrayList<Long>(count + 1)
+        var ticks = 0L
         for (k in lo..hi) {
             starts.add(boardStarts[k] - rangeStartMs)
+            tickStarts.add(ticks)
+            ticks += board.frames[k].holdFrames.toLong()
         }
         starts.add(rangeEndMs - rangeStartMs)
+        tickStarts.add(ticks)
         rangeStarts = starts
+        rangeTickStarts = tickStarts
+        rangeTicks = ticks
         rangeMs = starts[count]
 
         // The backward leg plays the range's interior in reverse: it starts at the LAST frame's start
@@ -98,10 +125,14 @@ class PlaybackClock(
         // start drops a whole frame and gives `A B C D B`.
         if (count >= 3) {
             backSpanMs = rangeStarts[count - 1] - rangeStarts[1]
+            backTicks = rangeTickStarts[count - 1] - rangeTickStarts[1]
             cycleMs = rangeMs + backSpanMs
+            cycleTicks = rangeTicks + backTicks
         } else {
             backSpanMs = 0.0
+            backTicks = 0L
             cycleMs = rangeMs
+            cycleTicks = rangeTicks
         }
     }
 
@@ -122,6 +153,113 @@ class PlaybackClock(
      * half-speed board reaches a frame boundary at twice the wall time.
      */
     fun frameIndexAt(elapsedMs: Double): Int = first + slotAt(positionOf(elapsedMs))
+
+    /**
+     * Samples one integer exposure on this same clock. Unlike [frameIndexAt], this API is tick
+     * quantized: each exposure is selected by cumulative integer tick boundaries, then converted to
+     * ms as `ticks * 1000 / fps`. This keeps tween fractions stable between polls and avoids the
+     * millisecond-position rounding that the legacy frame clock intentionally preserves.
+     *
+     * On a PING_PONG return leg, the forward source frames are replayed in reverse order, excluding
+     * the two endpoints: for `A B C D`, one integer cycle is `A B ... D C ... B`, then it wraps to
+     * `A`. A reverse
+     * sample keeps its normal forward successor and counts its within-hold offset down from `n-1`
+     * through `0`; it does not invent a reverse tween target. A range's last source never targets a
+     * frame outside that range, except LOOP, where it targets the range's first frame.
+     *
+     * `nextWakeupMs` is the next tick boundary at which this integer sample may change. ONCE/HOLD
+     * settle on the last occupied tick; BLANK wakes once at the clip end to publish the blank state.
+     */
+    fun exposureAt(elapsedMs: Double): PlaybackExposureSample {
+        val elapsed = cleanElapsed(elapsedMs)
+        val finiteEnd = mode == PlayMode.ONCE || mode == PlayMode.HOLD || mode == PlayMode.BLANK
+        val rawBoardTime = elapsed * rate
+        // A cyclic clock's unplaceable infinite position restarts at zero, as the legacy modulo
+        // path does. A finite-end clock treats overflow as having passed its end.
+        val boardTime = when {
+            rawBoardTime.isFinite() -> rawBoardTime
+            finiteEnd && rawBoardTime > 0.0 -> Double.POSITIVE_INFINITY
+            else -> 0.0
+        }
+        val absoluteTick = tickAtOrBefore(boardTime)
+        val blank = mode == PlayMode.BLANK && absoluteTick >= rangeTicks
+        if (blank) return PlaybackExposureSample(null, Double.POSITIVE_INFINITY, true, false, false)
+        val slot: Int
+        val offset: Long
+        val reverse: Boolean
+        when (mode) {
+            PlayMode.PING_PONG -> {
+                if (count < 3) {
+                    val phase = absoluteTick % rangeTicks
+                    slot = slotForTick(phase)
+                    offset = phase - rangeTickStarts[slot]
+                    reverse = false
+                } else {
+                    val phase = absoluteTick % cycleTicks
+                    if (phase < rangeTicks) {
+                        slot = slotForTick(phase)
+                        offset = phase - rangeTickStarts[slot]
+                        reverse = false
+                    } else {
+                        var remaining = phase - rangeTicks
+                        var found = 1
+                        for (k in count - 2 downTo 1) {
+                            val hold = rangeTickStarts[k + 1] - rangeTickStarts[k]
+                            if (remaining < hold) {
+                                found = k
+                                break
+                            }
+                            remaining -= hold
+                        }
+                        slot = found
+                        val hold = rangeTickStarts[slot + 1] - rangeTickStarts[slot]
+                        offset = hold - 1L - remaining
+                        reverse = true
+                    }
+                }
+            }
+            PlayMode.LOOP -> {
+                val phase = absoluteTick % rangeTicks
+                slot = slotForTick(phase)
+                offset = phase - rangeTickStarts[slot]
+                reverse = false
+            }
+            else -> {
+                val phase = absoluteTick.coerceAtMost(rangeTicks - 1L)
+                slot = slotForTick(phase)
+                offset = phase - rangeTickStarts[slot]
+                reverse = false
+            }
+        }
+
+        val index = first + slot
+        val frame = currentFrames[index]
+        val hold = frame.holdFrames.toLong()
+        val targetIndex = when {
+            !frame.tween || hold <= 1L -> null
+            index < last -> index + 1
+            mode == PlayMode.LOOP -> first
+            else -> null
+        }
+        val sample = TweenFrameSample(
+            frameId = frame.id,
+            frameIndex = index,
+            nextFrameId = targetIndex?.let(currentFrames::get)?.id,
+            nextFrameIndex = targetIndex,
+            tickOffset = offset,
+            fraction = if (targetIndex == null) 0.0 else offset.toDouble() / hold,
+            rangeFirstFrameIndex = first,
+            rangeLastFrameIndex = if (last == currentFrames.lastIndex) null else last,
+            loops = mode == PlayMode.LOOP,
+        )
+
+        val nextWakeup = when {
+            mode == PlayMode.BLANK -> exposureWakeupAt(absoluteTick, elapsed, boardTime)
+            finiteEnd && absoluteTick >= rangeTicks - 1L -> Double.POSITIVE_INFINITY
+            else -> exposureWakeupAt(absoluteTick, elapsed, boardTime)
+        }
+        return PlaybackExposureSample(sample, nextWakeup, false, reverse, mode == PlayMode.LOOP)
+    }
 
     /** A blank clip suppresses only its animated layers, preserving shared artwork outside it. */
     fun isBlank(elapsedMs: Double): Boolean = mode == PlayMode.BLANK && isFinished(elapsedMs)
@@ -282,6 +420,41 @@ class PlaybackClock(
         }
         return slot
     }
+
+    /** The selected frame slot containing this integer tick, using cumulative holds. */
+    private fun slotForTick(tick: Long): Int {
+        var slot = 0
+        for (k in 1 until count) {
+            if (rangeTickStarts[k] > tick) break
+            slot = k
+        }
+        return slot
+    }
+
+    private fun exposureWakeupAt(absoluteTick: Long, elapsed: Double, boardTime: Double): Double {
+        if (absoluteTick >= Long.MAX_VALUE - 1L) return Double.POSITIVE_INFINITY
+        val boundaryMs = (absoluteTick + 1L).toDouble() * 1000.0 / fps
+        val next = elapsed + (boundaryMs - boardTime) / rate
+        // At enormous elapsed values Double may no longer distinguish adjacent ticks. Never
+        // return a past/current wakeup that would spin the UI scheduler without advancing.
+        return if (next > elapsed) next else Double.POSITIVE_INFINITY
+    }
+
+    /** Greatest integer board tick whose cumulative boundary is no later than [timeMs]. */
+    private fun tickAtOrBefore(timeMs: Double): Long {
+        if (timeMs <= 0.0) return 0L
+        val maximum = Long.MAX_VALUE - 1L
+        if (tickBoundaryMs(maximum) <= timeMs) return maximum
+        var low = 0L // tick zero's boundary is at or before every positive time
+        var high = maximum // known to be after timeMs
+        while (low + 1L < high) {
+            val middle = low + (high - low) / 2L
+            if (tickBoundaryMs(middle) <= timeMs) low = middle else high = middle
+        }
+        return low
+    }
+
+    private fun tickBoundaryMs(tick: Long): Double = tick.toDouble() * 1000.0 / fps
 
     private fun boardTimeOf(elapsedMs: Double): Double = cleanElapsed(elapsedMs) * rate
 

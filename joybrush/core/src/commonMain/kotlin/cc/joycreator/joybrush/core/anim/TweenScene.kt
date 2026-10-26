@@ -1,7 +1,10 @@
 package cc.joycreator.joybrush.core.anim
 
 import cc.joycreator.joybrush.core.doc.BoardKind
+import cc.joycreator.joybrush.core.doc.Board
+import cc.joycreator.joybrush.core.doc.CelParts
 import cc.joycreator.joybrush.core.doc.DocException
+import cc.joycreator.joybrush.core.doc.Frame
 import cc.joycreator.joybrush.core.doc.JbDocument
 import cc.joycreator.joybrush.core.stroke.StrokeRecord
 
@@ -21,20 +24,14 @@ data class TweenScene(
     val layers: List<TweenLayerScene>,
 ) {
     companion object {
-        /**
-         * Build the editable-line view for [sample]. Each layer resolves its own region cels and is tweened
-         * independently, so record IDs never match across layers. A null record list is an error only when that
-         * cel declares a `strokesFile`; cels without a stream contribute no lines.
-         *
-         * The source frame remains the pixel/raster source. At t=0, or when the two frame addresses resolve to the
-         * same physical cel, source records are returned unchanged and target records are not loaded.
-         */
-        fun build(
-            doc: JbDocument,
-            boardId: String,
-            sample: TweenFrameSample,
-            strokeSource: (layerId: String, celId: String) -> List<StrokeRecord>?,
-        ): TweenScene {
+        internal data class SampleContext(
+            val board: Board,
+            val sourceFrame: Frame,
+            val targetFrame: Frame?,
+        )
+
+        /** Validate that a sampled exposure still addresses the document's current frame order and timing. */
+        internal fun validateSample(doc: JbDocument, boardId: String, sample: TweenFrameSample): SampleContext {
             val board = doc.boards.firstOrNull { it.id == boardId }
                 ?: throw DocException("No such board \"$boardId\"")
             if (board.kind != BoardKind.ANIMATION) {
@@ -43,8 +40,14 @@ data class TweenScene(
             if (board.frames.map { it.id }.toSet().size != board.frames.size) {
                 throw DocException("Board \"$boardId\" has duplicate frame IDs")
             }
-            if (board.frames.isEmpty() || sample.frameIndex !in board.frames.indices) {
+            if (board.frames.isEmpty()) {
                 throw DocException("Tween sample does not name a frame on board \"$boardId\"")
+            }
+            val rangeLast = sample.rangeLastFrameIndex ?: board.frames.lastIndex
+            if (sample.rangeFirstFrameIndex !in board.frames.indices ||
+                rangeLast !in board.frames.indices || rangeLast < sample.rangeFirstFrameIndex ||
+                sample.frameIndex !in sample.rangeFirstFrameIndex..rangeLast) {
+                throw DocException("Tween sample playback range is invalid on board \"$boardId\"")
             }
             val sourceFrame = board.frames[sample.frameIndex]
             if (sourceFrame.id != sample.frameId) {
@@ -62,18 +65,21 @@ data class TweenScene(
                 throw DocException("Tween sample fraction does not match its frame tick")
             }
 
-            val targetFrameId = sample.nextFrameId
-            val targetFrame = if (targetFrameId == null) {
+            val targetFrame = if (sample.nextFrameId == null) {
                 if (sample.nextFrameIndex != null) throw DocException("Tween sample has an index without a target frame")
-                if (sourceFrame.tween && sourceFrame.holdFrames > 1 && sample.frameIndex < board.frames.lastIndex) {
+                val shouldHaveTarget = sourceFrame.tween && sourceFrame.holdFrames > 1 &&
+                    (sample.frameIndex < rangeLast || sample.loops)
+                if (shouldHaveTarget) {
                     throw DocException("Tween sample is missing the next frame on board \"$boardId\"")
                 }
                 null
             } else {
                 val targetIndex = sample.nextFrameIndex
                     ?: throw DocException("Tween sample target frame has no index")
-                val expectedIndex = (sample.frameIndex + 1) % board.frames.size
-                if (targetIndex != expectedIndex || board.frames.getOrNull(targetIndex)?.id != targetFrameId) {
+                val expectedIndex = if (sample.frameIndex < rangeLast) sample.frameIndex + 1
+                    else if (sample.loops) sample.rangeFirstFrameIndex
+                    else throw DocException("Tween sample has a target beyond its playback range on board \"$boardId\"")
+                if (targetIndex != expectedIndex || board.frames.getOrNull(targetIndex)?.id != sample.nextFrameId) {
                     throw DocException("Tween sample target is not the next frame on board \"$boardId\"")
                 }
                 if (!sourceFrame.tween || sourceFrame.holdFrames <= 1) {
@@ -81,6 +87,35 @@ data class TweenScene(
                 }
                 board.frames[targetIndex]
             }
+            return SampleContext(board, sourceFrame, targetFrame)
+        }
+
+        /** Build a component-aware scene with renderer-visible ownership rectangles. */
+        fun buildComponents(
+            doc: JbDocument,
+            boardId: String,
+            sample: TweenFrameSample,
+            strokeSource: (layerId: String, celId: String) -> List<StrokeRecord>?,
+        ): TweenComponentScene = buildComponentTweenScene(doc, boardId, sample, strokeSource)
+
+        /**
+         * Build the editable-line view for [sample]. Each layer resolves its own region cels and is tweened
+         * independently, so record IDs never match across layers. A null record list is an error only when that
+         * cel declares a `strokesFile`; cels without a stream contribute no lines.
+         *
+         * The source frame remains the pixel/raster source. At t=0, or when the two frame addresses resolve to the
+         * same physical cel, source records are returned unchanged and target records are not loaded.
+         */
+        fun build(
+            doc: JbDocument,
+            boardId: String,
+            sample: TweenFrameSample,
+            strokeSource: (layerId: String, celId: String) -> List<StrokeRecord>?,
+        ): TweenScene {
+            val context = validateSample(doc, boardId, sample)
+            val board = context.board
+            val sourceFrame = context.sourceFrame
+            val targetFrame = context.targetFrame
 
             val fraction = sample.fraction.toFloat()
             val sceneLayers = ArrayList<TweenLayerScene>()
@@ -98,6 +133,13 @@ data class TweenScene(
                     ?: throw DocException("Layer \"${layer.id}\" has no cel \"$sourceCelId\"")
                 val targetCel = if (targetCelId == sourceCelId) sourceCel else layer.cels.firstOrNull { it.id == targetCelId }
                     ?: throw DocException("Layer \"${layer.id}\" has no cel \"$targetCelId\"")
+
+                val rootsToCheck = if (fraction == 0f) listOf(sourceCelId) else listOf(sourceCelId, targetCelId)
+                if (CelParts.reachable(layer, rootsToCheck).any { id ->
+                        layer.cels.first { it.id == id }.parts.isNotEmpty()
+                    }) {
+                    throw DocException("Layer \"${layer.id}\" uses linked drawing pieces; resolve it with TweenScene.buildComponents")
+                }
 
                 val from = readDeclaredLines(layer.id, sourceCel.id, sourceCel.strokesFile, strokeSource)
                 val records = if (fraction == 0f || sourceCelId == targetCelId) from

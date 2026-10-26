@@ -17,6 +17,11 @@ data class TweenFrameSample(
     val tickOffset: Long,
     /** `tickOffset / holdFrames` when interpolating, otherwise zero. */
     val fraction: Double,
+    /** Playback range, inclusive; null end means the document's final frame. */
+    val rangeFirstFrameIndex: Int = 0,
+    val rangeLastFrameIndex: Int? = null,
+    /** Only looping playback may interpolate the final range frame into the range's first. */
+    val loops: Boolean = false,
 ) {
     companion object {
         /**
@@ -56,6 +61,7 @@ data class TweenFrameSample(
                 nextFrameIndex = targetIndex,
                 tickOffset = offset,
                 fraction = if (targetIndex == null) 0.0 else offset.toDouble() / frame.holdFrames,
+                loops = loop,
             )
         }
 
@@ -98,6 +104,37 @@ data class TweenFrameSample(
                 if (boundaryMs(mid, rate) <= effectiveTimeMs) low = mid else high = mid
             }
             return atTick(frames, low, loop)
+        }
+
+        /**
+         * Absolute board-timeline time of the next scheduled exposure. Tween holds wake on each
+         * integer tick; ordinary holds sleep until the next frame. Uses the same cumulative tick
+         * boundaries as [atTimeMs], including fractional fps and loop seams. This is a forward
+         * timeline primitive, not a replacement for PlaybackClock's speed/range/end policy.
+         *
+         * A non-looping final frame has no further changes. Positive infinity and times so large
+         * that Double can no longer represent the next boundary also return positive infinity.
+         */
+        fun nextChangeTimeMs(
+            frames: List<Frame>,
+            fps: Float,
+            timeMs: Double,
+            loop: Boolean = false,
+        ): Double {
+            val sample = atTimeMs(frames, fps, timeMs, loop)
+            if (timeMs == Double.POSITIVE_INFINITY) return Double.POSITIVE_INFINITY
+            if (!loop && sample.frameIndex == frames.lastIndex && sample.nextFrameId == null) {
+                return Double.POSITIVE_INFINITY
+            }
+            val cleanTime = if (!timeMs.isFinite() || timeMs < 0.0) 0.0 else timeMs
+            val duration = boundaryMs(validateAndCountTicks(frames), fps.toDouble())
+            val position = if (loop) cleanTime % duration else cleanTime
+            var frameStart = 0L
+            for (index in 0 until sample.frameIndex) frameStart += frames[index].holdFrames.toLong()
+            val nextTick = frameStart + if (sample.nextFrameId != null) sample.tickOffset + 1L
+                else frames[sample.frameIndex].holdFrames.toLong()
+            val next = (cleanTime - position) + boundaryMs(nextTick, fps.toDouble())
+            return if (next > cleanTime) next else Double.POSITIVE_INFINITY
         }
 
         private fun validateAndCountTicks(frames: List<Frame>): Long {

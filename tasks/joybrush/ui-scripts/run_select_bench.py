@@ -12,6 +12,7 @@ import subprocess
 import sys
 import time
 import uuid
+import xml.etree.ElementTree as ET
 
 from validate_select_bench import EvidenceError, read_json, validate, validate_png
 
@@ -20,6 +21,45 @@ ACTIVITY = PACKAGE + "/com.fadcam.joybrush.JoyBrushBenchActivity"
 HERE = Path(__file__).resolve().parent
 HEX40 = re.compile(r"[0-9a-f]{40}")
 HEX64 = re.compile(r"[0-9a-f]{64}")
+CASES = {"select": "select_bench_manifest.json", "selectA10": "select_a10_bench_manifest.json"}
+A10_PREF_KEYS = frozenset(("tools", "joybrush.brushMakesLines.joybrush.ink"))
+
+
+def owned_a10_preferences(raw: str):
+    """Keep only owned keys, including their exact presence/type/value; never log unrelated prefs."""
+    if len(raw.encode("utf-8")) > 2 * 1024 * 1024 or "<!DOCTYPE" in raw or "<!ENTITY" in raw:
+        raise RunError("Preference XML is oversized or contains unsupported declarations.")
+    try:
+        root = ET.fromstring(raw)
+    except ET.ParseError:
+        raise RunError("Cannot parse owned preference evidence.") from None
+    if root.tag != "map":
+        raise RunError("Preference evidence is not a SharedPreferences map.")
+    result = {key: {"present": False} for key in sorted(A10_PREF_KEYS)}
+    for entry in root:
+        key = entry.get("name")
+        if key not in A10_PREF_KEYS:
+            continue
+        if result[key]["present"]:
+            raise RunError("Owned preference occurs more than once.")
+        if entry.tag == "string":
+            if len(entry):
+                raise RunError("Owned string preference has unsupported children.")
+            value = entry.text or ""
+        elif entry.tag in ("boolean", "int", "long", "float") and not len(entry):
+            value = entry.get("value")
+            if value is None:
+                raise RunError("Owned scalar preference lacks a value.")
+        elif entry.tag == "set" and all(child.tag == "string" and not len(child) for child in entry):
+            value = sorted(child.text or "" for child in entry)
+        else:
+            raise RunError("Owned preference has an unsupported value type.")
+        result[key] = {"present": True, "type": entry.tag, "value": value}
+    return result
+
+
+def read_a10_preferences(adb):
+    return owned_a10_preferences(adb.call("shell", "run-as", PACKAGE, "cat", "shared_prefs/joybrush_chrome.xml"))
 
 
 class RunError(Exception):
@@ -151,13 +191,15 @@ class Adb:
         return model, int(api)
 
 
-def run(out: Path, lane: str, receipt: Path):
+def run(out: Path, lane: str, receipt: Path, case: str = "select"):
+    if case not in CASES:
+        raise RunError("Unsupported Select bench case; use select or selectA10.")
     if out.exists() and any(out.iterdir()):
         raise RunError("Use a fresh empty output directory.")
     out.mkdir(parents=True, exist_ok=True)
     source, expected = artifact(receipt)
     run_id = uuid.uuid4().hex
-    manifest = HERE / "select_bench_manifest.json"
+    manifest = HERE / CASES[case]
     expected_shots = set(read_json(manifest, 262144)["screenshots"])
     adb = Adb(os.environ.get("SANDBOX_SERIAL", ""))
     claim = PhoneClaim(Path(os.environ["LOCALAPPDATA"]) / "Temp" / "jb-phone.lock", lane, run_id)
@@ -169,15 +211,18 @@ def run(out: Path, lane: str, receipt: Path):
         installed = adb.installed_hash()
         if installed != expected:
             raise RunError("Installed APK differs from preserved build; no bench launched.")
+        prefs_before = read_a10_preferences(adb) if case == "selectA10" else None
+        if prefs_before is not None:
+            (out / "owned-preferences.json").write_text(json.dumps({"before": prefs_before}, indent=2) + "\n", encoding="utf-8")
         # Kept outside manifested step PNGs; this baseline is for manual Home/readiness review.
         (out / "before.png.evidence").write_bytes(adb.call("exec-out", "screencap", "-p", binary=True))
         (out / "temps.txt").write_text(f"temp_before_C {adb.temperature()}\n", encoding="utf-8")
         build = dict(source40hex=source, expectedApkSha256=expected, installedApkSha256=installed,
-                     runId=run_id, deviceModel=model, deviceApi=api)
+                     runId=run_id, deviceModel=model, deviceApi=api, benchCase=case)
         (out / "build.json").write_text(json.dumps(build, indent=2) + "\n", encoding="utf-8")
         # Interrupted am start may still launch: retain the claim until terminal evidence exists.
         launched = True
-        launch = adb.call("shell", "am", "start", "-n", ACTIVITY, "--es", "jb_bench", "select", "--es", "jb_select_run_id", run_id)
+        launch = adb.call("shell", "am", "start", "-n", ACTIVITY, "--es", "jb_bench", case, "--es", "jb_select_run_id", run_id)
         if "Error:" in launch or "Exception" in launch:
             raise RunError("Bench launch not confirmed; claim retained for inspection.")
         seen = {}
@@ -195,6 +240,8 @@ def run(out: Path, lane: str, receipt: Path):
                         continue
                     if not isinstance(row, dict) or row.get("runId") != run_id:
                         continue
+                    if case == "selectA10" and row.get("benchCase") != case:
+                        raise RunError("Bench event does not match the requested A10 case.")
                     event = row.get("event")
                     if type(event) is not int or event < 0:
                         raise RunError("Bench event lacks a valid sequence identity.")
@@ -247,6 +294,12 @@ def run(out: Path, lane: str, receipt: Path):
             temps.write(f"temp_after_C {adb.temperature()}\n")
         if after_hash != expected:
             raise RunError("Installed APK changed during acceptance; evidence rejected.")
+        if prefs_before is not None:
+            prefs_after = read_a10_preferences(adb)
+            (out / "owned-preferences.json").write_text(json.dumps(
+                {"before": prefs_before, "after": prefs_after, "unchanged": prefs_before == prefs_after}, indent=2) + "\n", encoding="utf-8")
+            if prefs_before != prefs_after:
+                raise RunError("A10 owned preferences were not restored exactly.")
         validate(out, manifest, run_id)
         print(f"PASS: complete exact-artifact evidence in {out}")
     finally:
@@ -266,7 +319,7 @@ def main():
         receipt = os.environ.get("SELECT_BENCH_BUILD_RECEIPT")
         if not receipt:
             raise RunError("Set SELECT_BENCH_BUILD_RECEIPT to the successful exact-source APK receipt.")
-        run(args.out, args.lane, Path(receipt))
+        run(args.out, args.lane, Path(receipt), os.environ.get("SELECT_BENCH_CASE", "select"))
     except (RunError, EvidenceError, OSError, ValueError, KeyError, IndexError) as error:
         print(f"FAIL: {error}", file=sys.stderr)
         return 1

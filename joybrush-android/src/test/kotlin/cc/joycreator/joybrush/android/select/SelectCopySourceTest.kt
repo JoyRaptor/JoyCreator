@@ -5,6 +5,7 @@ import android.os.Looper
 import cc.joycreator.joybrush.android.JoyBrushActivity
 import cc.joycreator.joybrush.android.bench.BenchRunner
 import cc.joycreator.joybrush.android.bench.SelectBench
+import cc.joycreator.joybrush.android.bench.SelectBrushModeBench
 import cc.joycreator.joybrush.androidkit.JbCanvasView
 import cc.joycreator.joybrush.androidkit.gl.GlPaintEngine
 import cc.joycreator.joybrush.androidkit.lines.LineCopyResult
@@ -182,6 +183,40 @@ class SelectCopySourceTest {
         b.runMetadataQueue()
         assertSame("late Ready must not replace the restored owner clipboard", before, LineSelectionClipboard.snapshot())
         assertEquals("late Copy must not add a success/refusal toast", notices, ShadowToast.shownToastCount())
+        assertFalse(b.engine.undo.canUndo)
+    }
+
+    @Test fun queuedActivityCopyCannotOverwriteClipboardAfterA10AbortAndPreferenceRestore() = queuedA10CopyIsDropped(false)
+
+    @Test fun queuedActivityCopyCannotOverwriteClipboardAfterA10CompletionAndPreferenceRestore() = queuedA10CopyIsDropped(true)
+
+    private fun queuedA10CopyIsDropped(complete: Boolean) {
+        assertTrue(LineSelectionClipboard.accept(canonicalCopyPayload(listOf(lineRecord("owner-a10-copy", 1)))))
+        val before = LineSelectionClipboard.snapshot()
+        val b = Bench()
+        val prefs = b.surface.context.getSharedPreferences("joybrush_chrome", android.content.Context.MODE_PRIVATE)
+        val key = "joybrush.brushMakesLines.joybrush.ink"
+        prefs.edit().putString("tools", "owner-a10-tools").remove(key).commit()
+        val a10 = SelectBrushModeBench(b.surface, "0123456789abcdef0123456789abcdef") {}
+        val runner = BenchRunner(b.surface, BenchRunner.Spec(listOf("selectA10"), emptyList(), 1, true, false)) {}
+        BenchRunner::class.java.getDeclaredField("selectBrushModeBench").also { it.isAccessible = true }.set(runner, a10)
+        JoyBrushActivity::class.java.getDeclaredField("activeBench").also { it.isAccessible = true }.set(b.activity, runner)
+        prefs.edit().putString("tools", "during-a10-tools").putBoolean(key, true).commit()
+        val epoch = b.surface.lineEditEpoch
+        val notices = ShadowToast.shownToastCount()
+        b.copy()  // Real Activity/View queue; completion is deliberately held until after session invalidation.
+        if (complete) SelectBrushModeBench::class.java.getDeclaredMethod("finish").also { it.isAccessible = true }.invoke(a10)
+        else runner.abortSelect()
+        assertFalse(b.activity.isFinishing)
+        assertFalse(b.activity.isDestroyed)
+        assertEquals(epoch, b.surface.lineEditEpoch)
+        assertEquals("owner-a10-tools", prefs.getString("tools", null))
+        assertFalse(prefs.contains(key))
+        b.runMetadataQueue()
+        assertSame(before, LineSelectionClipboard.snapshot())
+        assertEquals(notices, ShadowToast.shownToastCount())
+        assertEquals("owner-a10-tools", prefs.getString("tools", null))
+        assertFalse(prefs.contains(key))
         assertFalse(b.engine.undo.canUndo)
     }
 

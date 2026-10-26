@@ -9,6 +9,7 @@ import cc.joycreator.joybrush.android.select.LineSelectionClipboard
 import cc.joycreator.joybrush.android.select.canonicalCopyPayload
 import cc.joycreator.joybrush.android.select.lineRecord
 import cc.joycreator.joybrush.androidkit.JbCanvasView
+import cc.joycreator.joybrush.androidkit.BrushLibrary
 import java.time.Duration
 import org.junit.After
 import org.junit.Assert.*
@@ -62,10 +63,85 @@ class SelectBenchCleanupTest {
 
     private class TouchRoot(context: Context) : FrameLayout(context) {
         val actions = ArrayList<Int>()
+        var onCancel: (() -> Unit)? = null
         override fun dispatchTouchEvent(event: MotionEvent): Boolean {
             actions += event.actionMasked
+            if (event.actionMasked == MotionEvent.ACTION_CANCEL) onCancel?.invoke()
             return true
         }
+    }
+
+    @Test fun actualRunnerDispatchRejectsAnUnidentifiedA10RunWithoutStartingGestures() {
+        val canvas = JbCanvasView(RuntimeEnvironment.getApplication()).also { canvases += it }
+        var finishes = 0
+        val runner = BenchRunner(canvas, BenchRunner.Spec(listOf("selectA10"), emptyList(), 1, true, false,
+            selectRunId = "invalid")) { finishes++ }
+        assertNull(runner.selectCopyGuard)
+        runner.start()
+        assertEquals(1, finishes)
+        assertFalse(requireNotNull(runner.selectCopyGuard).invoke())
+        runner.abortSelect()
+        assertEquals("a completed invalid run cannot finish twice on lifecycle interruption", 1, finishes)
+    }
+
+    @Test fun runnerA10AbortInvalidatesCopyThenCancelsContactBeforeDurableSubsetRestore() {
+        val context = RuntimeEnvironment.getApplication()
+        val prefs = context.getSharedPreferences("joybrush_chrome", Context.MODE_PRIVATE)
+        val key = "joybrush.brushMakesLines.joybrush.ink"
+        prefs.edit().remove(key).putString("tools", "owner-tools").commit()
+        val canvas = JbCanvasView(context).also { canvases += it }
+        val originalBrush = BrushLibrary.builtIn().first()
+        canvas.preset = originalBrush
+        canvas.editableLines = true
+        val originalPaper = canvas.documentPaper
+        val bench = SelectBrushModeBench(canvas, "0123456789abcdef0123456789abcdef") {}
+        var finishes = 0
+        val runner = BenchRunner(canvas, BenchRunner.Spec(listOf("selectA10"), emptyList(), 1, true, false)) { finishes++ }
+        BenchRunner::class.java.getDeclaredField("selectBrushModeBench").also { it.isAccessible = true }.set(runner, bench)
+        val guard = requireNotNull(runner.selectCopyGuard)
+        assertTrue(guard())
+        val root = TouchRoot(context)
+        root.addView(canvas, FrameLayout.LayoutParams(500, 500))
+        root.measure(View.MeasureSpec.makeMeasureSpec(500, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(500, View.MeasureSpec.EXACTLY))
+        root.layout(0, 0, 500, 500)
+        prefs.edit().putString("tools", "bench-tools").putBoolean(key, true).putString("unrelated", "new-value").commit()
+        canvas.preset = BrushLibrary.builtIn().last()
+        canvas.editableLines = false
+        canvas.paper = canvas.paper.copy(baseArgb = 0xFF151515.toInt())
+        val clipboard = canonicalCopyPayload(listOf(lineRecord("unrelated-copy", 1)))
+        assertTrue(LineSelectionClipboard.accept(clipboard))
+        val copied = LineSelectionClipboard.snapshot()
+        val gestures = SelectBrushModeBench::class.java.getDeclaredField("gestures")
+            .also { it.isAccessible = true }.get(bench) as SelectGestures
+        var completed = false
+        gestures.stroke(listOf(SelectGestures.P(20f, 40f), SelectGestures.P(460f, 40f)), 100, pen = false) { completed = true }
+        Shadows.shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(100))
+        assertTrue(root.actions.contains(MotionEvent.ACTION_DOWN))
+        root.onCancel = {
+            assertFalse("late Copy must be blocked before cancellation callbacks", guard())
+            assertEquals("bench-tools", prefs.getString("tools", null))
+        }
+        runner.abortSelect()
+        assertEquals(MotionEvent.ACTION_CANCEL, root.actions.last())
+        assertFalse(root.actions.contains(MotionEvent.ACTION_UP))
+        assertFalse(guard())
+        assertEquals("owner-tools", prefs.getString("tools", null))
+        assertFalse(prefs.contains(key))
+        assertEquals("new-value", prefs.getString("unrelated", null))
+        assertSame(originalBrush, canvas.preset)
+        assertTrue(canvas.editableLines)
+        assertEquals(originalPaper, canvas.documentPaper)
+        assertSame("A10 never restores over an unrelated clipboard", copied, LineSelectionClipboard.snapshot())
+        assertEquals(1, finishes)
+        val actions = root.actions.toList()
+        prefs.edit().putString("tools", "after-abort").commit()
+        runner.abortSelect()
+        Shadows.shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(2))
+        assertEquals(actions, root.actions)
+        assertFalse(completed)
+        assertEquals(1, finishes)
+        assertEquals("after-abort", prefs.getString("tools", null))
     }
 
     @Test fun cancellingAnInFlightSyntheticStrokeSendsCancelAndDropsAllFutureEvents() {

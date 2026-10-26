@@ -35,6 +35,7 @@ class FakeAdb:
         self.audit_present_when_acked = None
         self.launches = 0
         self.screencap = png_bytes()
+        self.preference_xml = "<map />"
 
     def ready(self):
         return "SM-N960U", 29
@@ -49,6 +50,10 @@ class FakeAdb:
 
     def call(self, *args, binary=False, timeout=12):
         self.calls.append(args)
+        if args == ("shell", "run-as", runner.PACKAGE, "cat", "shared_prefs/joybrush_chrome.xml"):
+            if isinstance(self.preference_xml, list):
+                return self.preference_xml.pop(0)
+            return self.preference_xml
         if args[:3] == ("shell", "am", "start"):
             self.launches += 1
             return "Starting: Intent"
@@ -118,12 +123,12 @@ class RunnerTests(unittest.TestCase):
             active.append(patch.object(runner.time, "monotonic", side_effect=monotonic))
         return active
 
-    def run_patched(self, out, adb, monotonic=None):
+    def run_patched(self, out, adb, monotonic=None, case="select"):
         patches = self.patches(adb, monotonic)
         try:
             for item in patches:
                 item.start()
-            return runner.run(out, "test lane", self.receipt)
+            return runner.run(out, "test lane", self.receipt, case)
         finally:
             for item in reversed(patches):
                 item.stop()
@@ -141,6 +146,76 @@ class RunnerTests(unittest.TestCase):
         self.lock.write_bytes(b"replacement foreign claim\n")
         claim.release()
         self.assertEqual(b"replacement foreign claim\n", self.lock.read_bytes())
+
+    def test_unknown_case_refuses_before_claim_or_adb(self):
+        adb = FakeAdb(self.digest)
+        with self.assertRaisesRegex(runner.RunError, "Unsupported Select bench case"):
+            self.run_patched(self.root / "unknown-case", adb, case="../arbitrary")
+        self.assertFalse(self.lock.exists())
+        self.assertEqual([], adb.calls)
+
+    def a10_rows(self, run_id):
+        manifest = json.loads(self.manifest.read_text())
+        manifest["benchCase"] = "selectA10"
+        (self.root / "select_a10_bench_manifest.json").write_text(json.dumps(manifest))
+        own = [
+            {"selectBench": "setup", "pass": True},
+            {"selectBenchShot": "01_setup.png", "shotProtocol": 1},
+            {"selectBench": "pick", "pass": True},
+            {"selectBench": "summary", "passed": 2, "failed": 0},
+            {"selectBenchDone": True},
+        ]
+        return [dict(row, runId=run_id, event=i, benchCase="selectA10") for i, row in enumerate(own)]
+
+    def test_a10_launch_uses_separate_case_and_manifest(self):
+        run_id = "0123456789abcdef0123456789abcdef"
+        adb = FakeAdb(self.digest, self.a10_rows(run_id))
+        out = self.root / "a10-out"
+        with patch.object(runner.uuid, "uuid4", return_value=type("UUID", (), {"hex": run_id})()):
+            self.run_patched(out, adb, case="selectA10")
+        launch = next(call for call in adb.calls if call[:3] == ("shell", "am", "start"))
+        self.assertEqual("selectA10", launch[launch.index("jb_bench") + 1])
+        self.assertEqual("selectA10", json.loads((out / "build.json").read_text())["benchCase"])
+        self.assertEqual(1, len(adb.acks))
+        self.assertTrue(json.loads((out / "owned-preferences.json").read_text())["unchanged"])
+        self.assertFalse(self.lock.exists())
+
+    def test_owned_preferences_preserve_absence_false_and_exact_tools_string(self):
+        raw = '<map><string name="tools"> a &amp; b </string><boolean name="joybrush.brushMakesLines.joybrush.ink" value="false"/><string name="unrelated">private</string></map>'
+        owned = runner.owned_a10_preferences(raw)
+        self.assertEqual({"present": True, "type": "string", "value": " a & b "}, owned["tools"])
+        self.assertEqual("false", owned["joybrush.brushMakesLines.joybrush.ink"]["value"])
+        self.assertEqual(2, len(owned))
+        self.assertEqual({"present": False}, runner.owned_a10_preferences('<map/>')["tools"])
+
+    def test_a10_changed_owned_preference_fails_after_terminal_and_releases_claim(self):
+        run_id = "0123456789abcdef0123456789abcdef"
+        adb = FakeAdb(self.digest, self.a10_rows(run_id))
+        adb.preference_xml = ['<map/>', '<map><boolean name="joybrush.brushMakesLines.joybrush.ink" value="true"/></map>']
+        out = self.root / "a10-changed-prefs"
+        with patch.object(runner.uuid, "uuid4", return_value=type("UUID", (), {"hex": run_id})()):
+            with self.assertRaisesRegex(runner.RunError, "not restored exactly"):
+                self.run_patched(out, adb, case="selectA10")
+        self.assertFalse(json.loads((out / "owned-preferences.json").read_text())["unchanged"])
+        self.assertFalse(self.lock.exists())
+
+    def test_owned_preferences_reject_duplicate_owned_key_or_entity(self):
+        for raw in ['<map><string name="tools"/><string name="tools"/></map>',
+                    '<!DOCTYPE map [<!ENTITY a "value">]><map/>']:
+            with self.assertRaises(runner.RunError):
+                runner.owned_a10_preferences(raw)
+
+    def test_a10_wrong_case_event_is_rejected_before_capture_or_ack(self):
+        run_id = "0123456789abcdef0123456789abcdef"
+        rows = self.a10_rows(run_id)
+        rows[1]["benchCase"] = "select"
+        adb = FakeAdb(self.digest, rows)
+        with patch.object(runner.uuid, "uuid4", return_value=type("UUID", (), {"hex": run_id})()):
+            with self.assertRaisesRegex(runner.RunError, "requested A10 case"):
+                self.run_patched(self.root / "wrong-case", adb, case="selectA10")
+        self.assertEqual([], adb.acks)
+        self.assertEqual(["capture"], adb.actions)  # Home baseline only.
+        self.assertTrue(self.lock.exists())  # Launched state is unresolved.
 
     def test_artifact_rejects_unsuccessful_build_and_apk_hash_mismatch(self):
         self.write_receipt(successful=False)

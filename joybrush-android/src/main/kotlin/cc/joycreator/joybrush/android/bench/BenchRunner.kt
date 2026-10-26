@@ -80,11 +80,17 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
     private val ui = Handler(Looper.getMainLooper())
     private val jobs = ArrayDeque<Triple<BrushPreset, String, Int>>()
     private var selectBench: SelectBench? = null
+    private var selectBrushModeBench: SelectBrushModeBench? = null
     /** Null for ordinary/non-Select work; a request captures the exact Select session's read-only guard. */
-    internal val selectCopyGuard: (() -> Boolean)? get() = selectBench?.acceptsCopyResult
+    internal val selectCopyGuard: (() -> Boolean)? get() =
+        selectBench?.acceptsCopyResult ?: selectBrushModeBench?.acceptsCopyResult
 
     /** Only Select owns synthetic UI gestures; abort them when its Activity leaves the foreground. */
-    fun abortSelect() { if (selectBench?.abort() == true) onDone() }
+    fun abortSelect() {
+        val selectStopped = selectBench?.abort() == true
+        val a10Stopped = selectBrushModeBench?.abort() == true
+        if (selectStopped || a10Stopped) onDone()
+    }
 
     fun start() {
         spec.editableLines?.let { canvas.editableLines = it; Log.i(TAG, "editable lines override: $it") }
@@ -105,6 +111,11 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
         if ("matrix" in spec.cases) { MatrixBench(canvas, spec, onDone).start(); return }
         if ("select" in spec.cases) {
             selectBench = SelectBench(canvas, spec.selectRunId, onDone).also { it.start() }
+            return
+        }
+        if ("selectA10" in spec.cases) {
+            selectBrushModeBench = SelectBrushModeBench(canvas, spec.selectRunId, onDone)
+            selectBrushModeBench?.start()
             return
         }
         val all = BrushLibrary.builtIn()

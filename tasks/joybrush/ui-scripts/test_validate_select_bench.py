@@ -70,6 +70,35 @@ class ValidatorTests(unittest.TestCase):
     def test_accepts_complete_consistent_baseline(self):
         validate(self.out, self.manifest, self.run_id)
 
+    def make_a10(self):
+        manifest = json.loads(self.manifest.read_text())
+        manifest["benchCase"] = "selectA10"
+        self.manifest.write_text(json.dumps(manifest))
+        build_path = self.out / "build.json"
+        build = json.loads(build_path.read_text())
+        build["benchCase"] = "selectA10"
+        build_path.write_text(json.dumps(build))
+        self.mutate_results([dict(row, benchCase="selectA10") for row in self.valid_rows()])
+
+    def test_accepts_separate_a10_case(self):
+        self.make_a10()
+        validate(self.out, self.manifest, self.run_id)
+
+    def test_a10_rejects_mismatched_build_case(self):
+        self.make_a10()
+        path = self.out / "build.json"
+        build = json.loads(path.read_text())
+        build["benchCase"] = "select"
+        path.write_text(json.dumps(build))
+        self.assert_invalid("build.json: benchCase mismatch")
+
+    def test_a10_rejects_missing_case_on_summary(self):
+        self.make_a10()
+        rows = self.valid_rows()
+        del rows[-1]["benchCase"]
+        self.mutate_results(rows)
+        self.assert_invalid("results.jsonl:.*benchCase mismatch")
+
     def test_rejects_missing_step_report(self):
         rows = self.valid_rows()
         self.mutate_results(rows[:1] + rows[2:])

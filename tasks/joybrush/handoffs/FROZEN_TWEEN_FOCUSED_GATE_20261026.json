@@ -1,0 +1,42 @@
+{
+  "status": "PREPARED_NOT_EXECUTED",
+  "source_commit": "2ab6cd4c4",
+  "source_checkpoint": "1400e14ea3db279d65d8735f059c92260cd9cc44",
+  "test_class": "cc.joycreator.joybrush.core.anim.WatercolourTweenTest",
+  "expected_test_names": [
+    "pureTranslationCarriesGeometryAndWashAndKeepsLegacyNullEndpointExact",
+    "explicitWashFrameTranslationMatchesLineTransformComposition",
+    "onlyPureTranslationsAndMatchingRecipesAreAccepted",
+    "frozenLookupUsesActualPresetEngineAndRejectsMissingOrMismatchedDefinitions",
+    "genericInkKeepsLegacyTweenMathEvenWhenItsWashFrameDiffers",
+    "invalidFractionIsExplicitAndCapturedRefusalRemainsUnchanged",
+    "translationPreservesUnknownSensorNanPayloadAndRejectsPayloadChanges"
+  ],
+  "expected_counts": {
+    "tests": 7,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "source_blobs": {
+    "WatercolourTween.kt": "4fd532421c7cfc8a80bc95314b41c2b4f32425dd",
+    "WatercolourTweenTest.kt": "4ce7497a97423298f6b3a08cbf043e3e5096aa35"
+  },
+  "inner_gradle_arguments": [
+    "-p",
+    "joybrush",
+    ":core:jvmTest",
+    "--tests",
+    "cc.joycreator.joybrush.core.anim.WatercolourTweenTest",
+    "--no-daemon",
+    "--max-workers=1"
+  ],
+  "forbidden_inferences": [
+    "native GPU fidelity",
+    "live consumer wiring",
+    "save/reopen proof",
+    "captured-source support",
+    "generic matrix interpolation activation",
+    "owner acceptance"
+  ]
+}

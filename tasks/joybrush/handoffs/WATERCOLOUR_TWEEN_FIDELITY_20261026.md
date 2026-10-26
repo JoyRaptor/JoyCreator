@@ -64,3 +64,8 @@ GPU wash-local sampling checks must demonstrate the pose approach before broader
 - [ ] Review the rigid-pose proposal and its numerical acceptance/tie policies separately.
 - [ ] Bind replay-aware scene/engine/export consumers with immutable source/asset/context leases.
 - [ ] Prove native rendered parity and failure/refusal UX; no native look claim from this source.
+
+Focused seven-test metadata gate is now prepared in
+[FROZEN_TWEEN_FOCUSED_GATE_20261026.md](FROZEN_TWEEN_FOCUSED_GATE_20261026.md), with exact
+source blobs and a machine-readable expected-method manifest. This is preparation only;
+execution requires lead admission after UX handback. No test, GPU or activation claim changes.

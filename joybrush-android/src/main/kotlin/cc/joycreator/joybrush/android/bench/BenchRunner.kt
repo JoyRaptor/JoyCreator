@@ -80,6 +80,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
     private val ui = Handler(Looper.getMainLooper())
     private val jobs = ArrayDeque<Triple<BrushPreset, String, Int>>()
     private var selectBench: SelectBench? = null
+    /** Null for ordinary/non-Select work; a request captures the exact Select session's read-only guard. */
+    internal val selectCopyGuard: (() -> Boolean)? get() = selectBench?.acceptsCopyResult
 
     /** Only Select owns synthetic UI gestures; abort them when its Activity leaves the foreground. */
     fun abortSelect() { if (selectBench?.abort() == true) onDone() }

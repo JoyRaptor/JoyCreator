@@ -64,6 +64,26 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
     /** Ring-only copies are temporary reads; their canonical water state remains owned by the park. */
     private val borrowedBlockTiles = HashSet<Long>()
     private var loadingBorrowedBlockTile: Long? = null
+    private data class ParkOwnership(
+        val key: Long,
+        val parked: Int?,
+        val parkedNext: Int?,
+        val borrowed: Boolean,
+        val groundFromLook: Boolean,
+    )
+    private class ParkAdmission(
+        val incoming: ParkOwnership,
+        val victim: ParkOwnership?,
+        val residencyBefore: Map<Long, Int>,
+        val previousPark: MediaWaterPark?,
+        val parkedTotalBefore: Int,
+    ) {
+        val takenUnits = ArrayList<Int>(2)
+        val deferredUnits = ArrayList<Int>(2)
+        var consumeOnCommit: Long? = null
+        var createdPark: MediaWaterPark? = null
+    }
+    private var parkAdmission: ParkAdmission? = null
     /** This frame's water did not fit whole (park on): its job runs in blocks instead of being refused. */
     private var outOfCore = false
     /** The water's tiles this frame: what blocks own; the rest of its rectangle is dry and beyond its reach. */
@@ -404,6 +424,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
 
     private val residency by lazy { MediaAtlasResidency(slots, backing) }
     private val backing = object : MediaAtlasBacking {
+        override fun beginAdmission(page: MediaAtlasPage, victim: MediaAtlasSlots.Resident?) = beginParkAdmission(page.tileKey, victim?.page?.tileKey)
         override fun load(slot: Int, page: MediaAtlasPage) = mediaTrace("JB.media.atlas.load") { loadSlot(slot, page.tileKey) }
         override fun writeBack(slot: Int, page: MediaAtlasPage) = mediaTrace("JB.media.atlas.writeBack") {
             writeBackSlot(slot, page.tileKey)
@@ -411,6 +432,8 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
             dropFromTable(page.tileKey)
         }
         override fun evicted(slot: Int, page: MediaAtlasPage) = parkIfLive(slot, page.tileKey)
+        override fun commitAdmission(page: MediaAtlasPage, victim: MediaAtlasSlots.Resident?) = commitParkAdmission()
+        override fun rollbackAdmission(page: MediaAtlasPage, victim: MediaAtlasSlots.Resident?) = rollbackParkAdmission()
     }
 
     /** One tile into [slot]: its payload, its look and its ground (its `g`, or its look when it has no payload), its paper. */
@@ -443,10 +466,17 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
             if (loadingBorrowedBlockTile == key) {
                 borrowedBlockTiles += key
                 parked[key]?.let { unit -> mediaTrace("JB.media.park.ring") { media.loadHalf(park!!, unit, slot, both = false, ringOnly = true) } }
+            } else if (parkAdmission != null) {
+                parkAdmission!!.consumeOnCommit = key
+                parked[key]?.let { unit -> mediaTrace("JB.media.park.in") { media.loadHalf(park!!, unit, slot, both = true, ringOnly = false) } }
+                parkedNext[key]?.let { unit -> mediaTrace("JB.media.park.next.in") { media.loadHalf(park!!, unit, slot, both = false, ringOnly = false, asNext = true) } }
             } else {
                 parked.remove(key)?.let { unit -> mediaTrace("JB.media.park.in") { media.loadHalf(park!!, unit, slot, both = true, ringOnly = false) }; park!!.give(unit) }
                 parkedNext.remove(key)?.let { unit -> mediaTrace("JB.media.park.next.in") { media.loadHalf(park!!, unit, slot, both = false, ringOnly = false, asNext = true) }; park!!.give(unit) }
             }
+        } else if (parkAdmission != null) {
+            parkAdmission!!.consumeOnCommit = key
+            parked[key]?.let { unit -> mediaTrace("JB.media.park.in") { media.unparkSlot(park!!, unit, slot) } }
         } else parked.remove(key)?.let { unit -> mediaTrace("JB.media.park.in") { media.unparkSlot(park!!, unit, slot) }; park!!.give(unit) }
         mediaTrace("JB.media.atlas.bake") { media.bakeTile(key, paint.mediaPaper()) }
         if (wetHere && resumeOnLoad) media.resumeWater(tileRect(key))
@@ -456,6 +486,72 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         ((Tiles.tx(key) + 1) * tile).toFloat(), ((Tiles.ty(key) + 1) * tile).toFloat())
 
     private fun dropFromTable(key: Long) { media.setResidency(resident().filterKeys { it != key }) }
+
+    private fun beginParkAdmission(incoming: Long, victim: Long?) {
+        check(parkAdmission == null) { "atlas park admission is already active" }
+        fun snapshot(key: Long) = ParkOwnership(key, parked[key], parkedNext[key], key in borrowedBlockTiles, key in groundFromLook)
+        parkAdmission = ParkAdmission(
+            incoming = snapshot(incoming),
+            victim = victim?.let(::snapshot),
+            residencyBefore = resident(),
+            previousPark = park,
+            parkedTotalBefore = parkedTotal,
+        )
+    }
+
+    /** Commit consumed incoming park units and old units replaced by this victim, after slot publication. */
+    private fun commitParkAdmission() {
+        val a = checkNotNull(parkAdmission) { "atlas park admission is missing" }
+        val p = park
+        val consume = a.consumeOnCommit
+        if (consume != null && p != null) {
+            parked.remove(consume)?.let(p::give)
+            parkedNext.remove(consume)?.let(p::give)
+        }
+        if (p != null) for (unit in a.deferredUnits) p.give(unit)
+        a.takenUnits.clear()
+        parkAdmission = null
+    }
+
+    /** Restore park ownership and the pre-admission texture table; never publishes failed staging pixels. */
+    private fun rollbackParkAdmission() {
+        val a = checkNotNull(parkAdmission) { "atlas park admission is missing" }
+        var cleanupFailure: Throwable? = null
+        fun attempt(block: () -> Unit) {
+            try { block() } catch (failure: Throwable) {
+                val first = cleanupFailure
+                if (first == null) cleanupFailure = failure else if (first !== failure) first.addSuppressed(failure)
+            }
+        }
+        try {
+            fun restore(o: ParkOwnership) {
+                parked.remove(o.key); o.parked?.let { parked[o.key] = it }
+                parkedNext.remove(o.key); o.parkedNext?.let { parkedNext[o.key] = it }
+                borrowedBlockTiles.remove(o.key); if (o.borrowed) borrowedBlockTiles += o.key
+                groundFromLook.remove(o.key); if (o.groundFromLook) groundFromLook += o.key
+            }
+            restore(a.incoming); a.victim?.let(::restore)
+            park = a.previousPark
+            parkedTotal = a.parkedTotalBefore
+            attempt { media.setResidency(a.residencyBefore) }
+            val pool = a.createdPark ?: a.previousPark
+            if (pool != null) for (unit in a.takenUnits) attempt { pool.give(unit) }
+            a.takenUnits.clear()
+            a.createdPark?.let { attempt { it.release() } }
+        } finally {
+            parkAdmission = null
+        }
+        cleanupFailure?.let { throw it }
+    }
+
+    private fun takeParkUnit(pool: MediaWaterPark): Int? = pool.take()?.also { parkAdmission?.takenUnits?.add(it) }
+
+    private fun giveParkUnit(pool: MediaWaterPark, unit: Int) {
+        val a = parkAdmission
+        if (a == null) pool.give(unit)
+        else if (a.takenUnits.remove(unit)) pool.give(unit)
+        else a.deferredUnits += unit
+    }
 
     /**
      * A tile leaving while its water still runs (a pool set aside, then pushed out for room) waits in the park, exactly; its
@@ -469,18 +565,18 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         val inBlocks = media.waterInBlocks
         // In a block step every tile the water owns carries the step's state; outside one, live water only.
         if (if (inBlocks) key !in waterDomainKeys else !water.holdsWater(key)) return
-        val p = park ?: MediaWaterPark(media.waterCell, units).also { park = it }
-        val unit = p.take() ?: run { android.util.Log.w(TAG, "water park full (${p.capacity} tiles): a running tile leaves through its stores"); return }
+        val p = park ?: MediaWaterPark(media.waterCell, units).also { park = it; parkAdmission?.createdPark = it }
+        val unit = takeParkUnit(p) ?: run { android.util.Log.w(TAG, "water park full (${p.capacity} tiles): a running tile leaves through its stores"); return }
         if (inBlocks) {
             // Inside the job (nothing may finish it): its current half, and its next half if its block has run this step.
             mediaTrace("JB.media.park.out") { media.parkHalf(slot, p, unit, next = false) }
             if (key in doneThisStep) {
-                val n = p.take() ?: run { p.give(unit); android.util.Log.w(TAG, "water park full mid-step"); return }
+                val n = takeParkUnit(p) ?: run { giveParkUnit(p, unit); android.util.Log.w(TAG, "water park full mid-step"); return }
                 media.parkHalf(slot, p, n, next = true)
-                parkedNext.put(key, n)?.let(p::give)
+                parkedNext.put(key, n)?.let { giveParkUnit(p, it) }
             }
         } else mediaTrace("JB.media.park.out") { media.parkSlot(key, slot, p, unit) }
-        parked.put(key, unit)?.let(p::give)
+        parked.put(key, unit)?.let { giveParkUnit(p, it) }
         parkedTotal++
     }
 

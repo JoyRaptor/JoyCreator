@@ -18,7 +18,23 @@ class MediaAtlasResidencyTest {
         val events = mutableListOf<String>()
         var failLoad = false
         var failWrite = false
+        var failEvicted = false
         var observe: (() -> Unit)? = null
+        var observeCommit: (() -> Unit)? = null
+        val admissions = mutableListOf<String>()
+
+        override fun beginAdmission(page: MediaAtlasPage, victim: MediaAtlasSlots.Resident?) {
+            admissions += "begin:${page.tileKey}:${victim?.page?.tileKey}"
+        }
+
+        override fun commitAdmission(page: MediaAtlasPage, victim: MediaAtlasSlots.Resident?) {
+            admissions += "commit:${page.tileKey}:${victim?.page?.tileKey}"
+            observeCommit?.invoke()
+        }
+
+        override fun rollbackAdmission(page: MediaAtlasPage, victim: MediaAtlasSlots.Resident?) {
+            admissions += "rollback:${page.tileKey}:${victim?.page?.tileKey}"
+        }
 
         override fun load(slot: Int, page: MediaAtlasPage) {
             events += "load:${page.tileKey}"
@@ -35,6 +51,10 @@ class MediaAtlasResidencyTest {
             val next = pixels[slot] ?: error("missing physical contents")
             if (failWrite) { failWrite = false; error("atomic write-back failed") }
             durable[page] = next
+        }
+
+        override fun evicted(slot: Int, page: MediaAtlasPage) {
+            if (failEvicted) { failEvicted = false; error("eviction failed") }
         }
     }
 
@@ -105,5 +125,34 @@ class MediaAtlasResidencyTest {
         f.residency.ensure(next)
         assertEquals(listOf("load:2"),f.backing.events)
         assertEquals(next,f.slots.residents().single().page)
+    }
+
+    @Test fun callbackFailuresRollbackAdmissionAndRetryPublishesOnce() {
+        for (failurePoint in listOf("load", "evicted", "write")) {
+            val f = fixture(1); val old = page(1); val incoming = page(2)
+            val oldSlot = f.residency.ensure(old)!!
+            f.backing.pixels[oldSlot] = "old-live"
+            f.slots.markDirty(old)
+            when (failurePoint) {
+                "load" -> f.backing.failLoad = true
+                "evicted" -> f.backing.failEvicted = true
+                "write" -> f.backing.failWrite = true
+            }
+
+            assertFailsWith<IllegalStateException> { f.residency.ensure(incoming) }
+            assertEquals(old, f.slots.residents().single().page, failurePoint)
+            assertTrue(f.slots.resident(old)!!.dirty, failurePoint)
+            assertNull(f.slots.resident(incoming), failurePoint)
+            assertEquals("begin:2:1", f.backing.admissions[2], failurePoint)
+            assertEquals("rollback:2:1", f.backing.admissions[3], failurePoint)
+
+            f.backing.observeCommit = {
+                assertEquals(incoming, f.slots.residents().single().page, failurePoint)
+                assertNull(f.slots.resident(old), failurePoint)
+            }
+            f.residency.ensure(incoming)
+            assertEquals(incoming, f.slots.residents().single().page, failurePoint)
+            assertEquals("commit:2:1", f.backing.admissions.last(), failurePoint)
+        }
     }
 }

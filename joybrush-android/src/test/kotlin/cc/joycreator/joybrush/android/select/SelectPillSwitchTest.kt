@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Rect
 import android.view.View
+import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Switch
 import cc.joycreator.joybrush.android.chrome.ChromeKit
 import org.junit.Assert.assertEquals
@@ -90,9 +91,14 @@ class SelectPillSwitchTest {
     }
 
     @Test fun nativeSwitchLabelAndAccessibilityReflectCheckedState() {
-        var callbacks = 0
+        // Positive control first: stock and styled Switch use the same detached-view fixture.
+        assertNativeAccessibilityAndCallbacks(Switch(context).apply {
+            text = "Editable lines"
+            textOn = "On"
+            textOff = "Off"
+            showText = false
+        })
         val switch = SelectPillSwitch(kit).apply { text = "Editable lines" }
-        switch.setOnCheckedChangeListener { _, _ -> callbacks++ }
 
         assertEquals("Editable lines", switch.text.toString())
         assertFalse(switch.showText)
@@ -100,18 +106,36 @@ class SelectPillSwitchTest {
         assertEquals("Off", switch.textOff.toString())
         assertTrue("track has the approved 56 dp minimum", switch.switchMinWidth >= kit.dpi(56f))
         assertFalse("pill track must not be split around the absent thumb", switch.splitTrack)
+        assertNativeAccessibilityAndCallbacks(switch)
+    }
+
+    private fun assertNativeAccessibilityAndCallbacks(switch: Switch) {
+        var callbacks = 0
+        switch.setOnCheckedChangeListener { _, _ -> callbacks++ }
         assertEquals(0, callbacks)
-        val node = switch.createAccessibilityNodeInfo()
-        assertEquals(Switch::class.java.name, node.className.toString())
-        assertTrue(node.isCheckable)
-        assertFalse(node.isChecked)
-        // Native Switch may append its On/Off accessibility text to the visible label.
-        assertTrue(node.text.toString().contains("Editable lines"))
+        assertAccessibilityState(switch, checked = false)
         switch.isChecked = true
-        val checkedNode = switch.createAccessibilityNodeInfo()
-        assertTrue(checkedNode.isChecked)
-        assertTrue(checkedNode.isCheckable)
+        assertAccessibilityState(switch, checked = true)
         assertEquals("native CompoundButton listener reports a genuine checked transition", 1, callbacks)
+        switch.isChecked = false
+        assertAccessibilityState(switch, checked = false)
+        assertEquals("native CompoundButton listener reports the return transition", 2, callbacks)
+    }
+
+    @Suppress("DEPRECATION")
+    private fun assertAccessibilityState(switch: Switch, checked: Boolean) {
+        // Explicit initialization avoids Robolectric's uninitialized node for a detached View.
+        val node = AccessibilityNodeInfo.obtain()
+        try {
+            switch.onInitializeAccessibilityNodeInfo(node)
+            assertEquals(Switch::class.java.name, node.className)
+            assertTrue(node.isCheckable)
+            assertEquals(checked, node.isChecked)
+            // Native Switch may append its On/Off accessibility text to the visible label.
+            assertTrue(node.text.toString().contains("Editable lines"))
+        } finally {
+            node.recycle()
+        }
     }
 
     @Test fun drawableAlphaAppliesToOffAndCheckedTrackWithoutFillingTheCutout() {

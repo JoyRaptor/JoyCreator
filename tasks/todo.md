@@ -117,3 +117,8 @@ No live frame-copy/tween activation or GPU/context-loss proof from this prerequi
 - [x] Add operational agent-start contract and correct coordinator source/test scopes.
 - [x] Validate local links and have Luna review the new dispatch instructions.
 - [x] Publish reviewed documentation checkpoint0686a51d9; local HEAD equals GitHub branch SHA; notify domain owners.
+
+## UX A10 final visual evidence — October26
+- [x] Independently inspect all five registered A10run3 images and compare manifest/receipt; report bounded acceptance.
+- [x] Separate dark top-button contrast and blank media preview findings from accepted A10 mode targets; no brush-quality claim.
+- [ ] Prepare narrow contrast invalidation repair/regression separately from frozen menu build; Coordinator owns hot-file seam approval.

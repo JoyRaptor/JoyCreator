@@ -1,3 +1,21 @@
+## Verification update — focused Android run closed
+
+Exact builder e9d2a417604c19138aa15a4e7f094edf0945dc33 completed successfully in
+4m5s. Root independently counted 23 fresh XML suites, 171 actual testcase elements,
+zero failures/errors/skips. Root current Android tree db26730334d4bfd0f461ff579ad5dc1144b9f967
+and joybrush tree a4ff749b08550a14ce03a6df7e1dfc75c7f16ccb exactly match that source.
+Receipt: C:/Temp/jb-select-acceptance-20261024/app-e9d2a4176-root-count.json.
+This covers all Select-package tests, policy8, chrome3, ActivityBinding3 and bench
+Cleanup2. Corrected backend Copy budget/engine/reply focus is still pending.
+No APK or phone/GPU acceptance is claimed. Shared build lock was absent after close;
+Vector has next one fresh-resource-admitted ownership10 run, avoiding policy rerun.
+
+Atlas repair source34b27b6f8 (docs427adc166) is published on isolated
+lead/atlas-room-repair-20261025. Root requested promotion, all-writeback and
+invalidation follow-ups to Luna's initial candidate. It remains unmerged and
+uncompiled, with explicit real-host forced-capacity/GPU/P3/P4 gates in
+ATLAS_PARK_OWNERSHIP_REPAIR_20261025.md in that branch. No activation claim.
+
 ## Current checkpoint (supersedes older status below)
 
 Reviewed code c5050e1a1 now integrates the hardened Select runner, abort/gesture
@@ -157,4 +175,5 @@ Synthetic gestures do not establish physical S Pen feel or manual save acceptanc
 Existing persistent goal remains unfinished even though its historical tool status
 is usageLimited. No duplicate goal or completion. The old five-hour automation
 was found PAUSED and was kept PAUSED; do not reactivate without owner direction.
+
 

@@ -1,3 +1,13 @@
+Verified update: exact e9d2a4176 focused Android run closed SUCCESS in4m5s.
+Root independently counted 171 tests /0 failures/errors/skips from23 fresh XML
+suites. Root Android+joybrush tree objects are identical to the tested builder.
+- [x] Real overlay UP/CANCEL/pinch/drag, Activity/View Copy and Paste failure tests.
+- [x] Per-brush policy8, chrome3 and ActivityBinding3, benchmark Cleanup2.
+- [ ] Corrected backend Copy budget/engine/reply rerun.
+- [ ] Combined APK and exact installed-candidate phone acceptance.
+- [ ] Atlas ownership repair source34b27b6f8: isolated source only, no build/GPU proof.
+
+Older unchecked execution entries below are superseded only for these named tests.
 Current source update: root c5050e1a1 includes the hardened per-run/per-APK runner,
 clipboard abort cleanup, exact-session late Copy guard, and K25 Activity fixtures.
 Android/backend source matches builder e9d2a4176; Select owns its running focused
@@ -96,4 +106,5 @@ No precise credit savings are claimed. One admitted heavy job machine-wide; exac
 fresh XML counts and source/APK-bound phone evidence are required. Keep owner files and
 old worktrees intact. No purchasing credits, consuming resets or waiting for Claude approval
 on already-authorized work.
+
 

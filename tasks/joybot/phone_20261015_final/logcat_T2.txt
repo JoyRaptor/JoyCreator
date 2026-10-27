@@ -1,0 +1,31 @@
+﻿
+10-15 20:34:26.592 24859 24859 I UndoManager: Recorded AI checkpoint: AI edits (undo=7, redo=0)
+10-15 20:34:26.593 24859 24859 I UndoManager: Project swapped under the undo stack: actions invalidated, 0 
+unrestorable entr(ies) dropped (undo=7, redo=0)
+10-15 20:34:26.679 24859 24859 D UndoManager: BASELINE reset: 12ms, 33380 chars
+10-15 20:35:06.103 24859 26015 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by 
+nvidia/nemotron-3-super-120b-a12b:free
+10-15 20:35:32.193 24859 26015 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by 
+nvidia/nemotron-3-super-120b-a12b:free
+10-15 20:35:36.801 24859 26015 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by 
+nvidia/nemotron-3-ultra-550b-a55b:free
+10-15 20:35:39.282 24859 26015 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by 
+cohere/north-mini-code:free
+10-15 20:35:48.140 24859 26015 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by 
+nvidia/nemotron-3-ultra-550b-a55b:free
+10-15 20:35:54.875 24859 26015 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by 
+cohere/north-mini-code:free
+10-15 20:35:59.759 24859 26015 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by 
+nvidia/nemotron-3.5-super-vl:free
+10-15 20:36:04.930 24859 26015 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by 
+cohere/north-mini-code:free
+10-15 20:36:07.564 24859 26015 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by 
+poolside/laguna-xs-2.1:free
+10-15 20:36:18.609 24859 26015 E JoybotAgent: request failed\njava.net.SocketTimeoutException: timeout
+10-15 20:37:24.317 24859 24859 I UndoManager: Recorded AI checkpoint: Joybot: Add gentle transitions and chapter 
+titles (undo=8, redo=0)
+10-15 20:37:24.318 24859 24859 I UndoManager: Project swapped under the undo stack: actions invalidated, 0 
+unrestorable entr(ies) dropped (undo=8, redo=0)
+10-15 20:37:24.413 24859 24859 D UndoManager: BASELINE reset: 3ms, 36554 chars
+
+

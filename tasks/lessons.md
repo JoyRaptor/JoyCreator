@@ -1160,3 +1160,5 @@ source handlers and old checklists are not evidence that an installed phone buil
   (`claim ... && install`), and read `phone.ps1 who` before every phone step after a long gap.
 - `build-install.sh` now refuses to install while someone else holds a fresh lock (it strips the BOM PowerShell
   writes, so the holder's own name still matches `PHONE_OWNER`).
+- **Never commit with `-c core.hooksPath=`** (or `--no-verify`): it skips `.githooks/pre-commit`, the guard that keeps
+  the owner's personal identifiers out of the repo. A 10-24 push did; the guard was run on it afterwards (clean).

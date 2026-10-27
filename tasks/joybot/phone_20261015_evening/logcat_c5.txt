@@ -1,0 +1,34 @@
+﻿10-15 19:16:48.365 24598 24598 D UndoManager: History cleared
+10-15 19:16:48.366 24598 24598 D UndoManager: Loaded 5 history entries from disk
+10-15 19:16:48.399 24598 24598 D UndoManager: BASELINE reset: 31ms, 32947 chars
+10-15 19:17:30.374 24598 25429 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by nvidia/nemotron-3-super-120b-a12b:free
+10-15 19:17:33.038 24598 25429 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by nvidia/nemotron-3.5-super-vl:free
+10-15 19:17:34.783 24598 25429 I JoybotAgent: reply: native tools on, 0 native call(s), text 66 chars, served by cohere/north-mini-code:free
+10-15 19:17:46.390 24598 24598 I UndoManager: Recorded AI checkpoint: Joybot: “change the font of the hello 2 text to…” (undo=6, redo=0)
+10-15 19:17:46.391 24598 24598 I UndoManager: Project swapped under the undo stack: actions invalidated, 0 unrestorable entr(ies) dropped (undo=6, redo=0)
+10-15 19:17:46.415 24598 24598 D UndoManager: BASELINE reset: 4ms, 32985 chars
+10-15 19:17:59.856 24598 24598 D UndoManager: Undone (snapshot): Joybot: “change the font of the hello 2 text to…”
+10-15 19:17:59.856 24598 24598 D UndoManager: (undo=5, redo=1)
+10-15 19:18:00.065 24598 24598 D UndoManager: BASELINE refresh: 3ms, 32947 chars, force=true
+10-15 19:18:38.266 24598 25429 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by nvidia/nemotron-3.5-lightning:free
+10-15 19:18:42.272 24598 25429 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by nvidia/nemotron-3-super-120b-a12b:free
+10-15 19:18:55.859 24598 25429 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by nvidia/nemotron-3.5-lightning:free
+10-15 19:22:38.803 24598 25429 E JoybotAgent: request failed\nokhttp3.internal.http2.StreamResetException: stream was reset: CANCEL
+10-15 19:22:38.803 24598 25429 E JoybotAgent: 	at okhttp3.internal.http2.Http2Stream$FramingSource.read(Http2Stream.kt:398)
+10-15 19:22:38.803 24598 25429 E JoybotAgent: 	at okhttp3.internal.connection.Exchange$ResponseBodySource.read(Exchange.kt:346)
+10-15 19:22:38.803 24598 25429 E JoybotAgent: 	at okio.RealBufferedSource.indexOf(RealBufferedSource.kt:457)
+10-15 19:22:38.803 24598 25429 E JoybotAgent: 	at okio.RealBufferedSource.indexOf(RealBufferedSource.kt:121)
+10-15 19:22:38.803 24598 25429 E JoybotAgent: 	at okio.RealBufferedSource.readUtf8Line(RealBufferedSource.kt:336)
+10-15 19:22:38.803 24598 25429 E JoybotAgent: 	at com.fadcam.ui.faditor.ai.joybot.JoybotAgent$Run.read(JoybotAgent.java:725)
+10-15 19:22:38.803 24598 25429 E JoybotAgent: 	at com.fadcam.ui.faditor.ai.joybot.JoybotAgent$Run.complete(JoybotAgent.java:677)
+10-15 19:22:38.803 24598 25429 E JoybotAgent: 	at com.fadcam.ui.faditor.ai.joybot.JoybotAgent$Run.go(JoybotAgent.java:360)
+10-15 19:22:38.803 24598 25429 E JoybotAgent: 	at com.fadcam.ui.faditor.ai.joybot.JoybotAgent.lambda$ask$2(JoybotAgent.java:260)
+10-15 19:22:38.803 24598 25429 E JoybotAgent: 	at com.fadcam.ui.faditor.ai.joybot.JoybotAgent$$ExternalSyntheticLambda0.run(D8$$SyntheticClass:0)
+10-15 19:22:38.803 24598 25429 E JoybotAgent: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1167)
+10-15 19:22:38.803 24598 25429 E JoybotAgent: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:641)
+10-15 19:22:38.803 24598 25429 E JoybotAgent: 	at java.lang.Thread.run(Thread.java:919)
+10-15 19:24:14.066 24598 25429 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by poolside/laguna-s-2.1:free
+10-15 19:24:16.858 24598 25429 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by poolside/laguna-s-2.1:free
+10-15 19:24:28.693 24598 25429 I JoybotAgent: reply: native tools on, 1 native call(s), text 3 chars, served by dots-studio/dots-3-note-preview:free
+10-15 19:24:33.545 24598 25429 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by poolside/laguna-s-2.1:free
+10-15 19:24:36.485 24598 25429 I JoybotAgent: reply: native tools on, 0 native call(s), text 253 chars, served by cohere/north-mini-code:free

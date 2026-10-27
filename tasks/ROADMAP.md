@@ -2,6 +2,25 @@
 
 **Companion files:** STATE.md (what exists), ORPHANS.md (started and stopped, still wanted), INBOX.md (unsorted ideas), LEDGER.md (the story).
 
+## Built feature register — timeline marks, 2026-10-24
+
+**Status: BUILT; focused verification passed; final phone/owner acceptance pending.**
+The owner approved `SPEC_TIMELINE_MARKS_20261023.md`; this closes the old undecided
+bookmarks/playhead-chip idea in `road_map.md` without adding a new launch prerequisite.
+
+- [x] Named gradient bookmarks: timestamp tap/drop and hold/open; compact centered wheel,
+  animated navigation, one-line times, color/name/time edits, shared Studio artwork/icons.
+- [x] Named In/Out regions, independent export selection and an optional active loop target.
+- [x] Atomic marker metadata, legacy compatibility, and saved undo/redo.
+- [x] Separate named queued composition-range exports, including audio-first M4A ranges.
+- [x] Native APK built/packaged; 68 focused current-source JVM assertions passed.
+- [ ] Complete Note 9 save/reopen, undo/redo, wheel gestures, loop and exported-file checks.
+- [ ] Owner approval of the native widget's appearance and feel.
+
+October 24 return audit corrected duplicate wheel touch handlers; native inspection also
+found the canvas bitmap's intrinsic height inflating the menu. Corrected sizing preserves
+the original untinted image. Keep BUILT distinct from owner-proven LIVE (see STATE.md).
+
 Two lists, deliberately unequal.
 
 **BEFORE LAUNCH is closed.** Nothing gets added to it without something coming out. That
@@ -12,6 +31,26 @@ is the whole point of it. If an idea arrives, it goes to INBOX.md.
 ---
 
 # PART ONE — BEFORE LAUNCH
+
+> **JoyBrush update, October26:** source for range-aware exposure timing, independent editable
+> plane-copy preparation and transient-render export routes is committed on
+> `codex/tween-direct-20261026`, based on lead-approved8e7692c83. Three bounded ownership checks
+> passed on exact source, followed by6 timing/30 export tests on frozenf7ed34f16. The duplicate
+> marker prerequisite is written; live engine integration and new device proof remain owed.
+> Engine/GPU/UI integration remains
+> with the lead, and clip/component reconciliation is a separate prerequisite. Detailed source
+> hashes and proof limits are in [STATE](STATE.md) and the
+> [coordination contract](joybrush/handoffs/TWEEN_COORDINATION_20261026.md).
+
+> **JoyBrush vector/tween status, 2026-10-24 (existing scope; no launch-scope addition):**
+> Saved tween state/sampling/transient line scenes and slab-only static export fixes are built
+> and tested in `2896cf2d5`, picked up as `59d1f1d63`. They are included in the local animation
+> clips integration branch (`6a4c471eb`), but absent from primary HEAD `fb8042841`.
+> The October 24 forward exposure wakeup helper is source-only; compilation was deferred for
+> insufficient RAM. Still open: editable frame-copy identity, GPU in-betweens, playback/controls,
+> component-cel resolution, animated export and phone acceptance. This is engineering work,
+> not a completed feature waiting solely on JoyRaptor. Detailed rows and proof levels:
+> [JoyBrush roadmap](joybrush/ROADMAP.md) and [STATE](STATE.md).
 
 > **2026-09-16 evening — puppeteering is FINISHED as designed, and still almost entirely
 > unproven on a phone.** The UI sweep is done: every function that was designed, mocked up or

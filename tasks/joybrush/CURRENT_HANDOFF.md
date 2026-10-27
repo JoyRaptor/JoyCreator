@@ -1,7 +1,8 @@
 # JoyBrush lead handoff — October 9, 2026
 
-> **2026-10-17 night: read [HANDOFF_20261017_LEAD.md](HANDOFF_20261017_LEAD.md) FIRST** (Claude lead handoff: what is on
-> joy-creator, open branches, decisions, remaining list, working rules), then [LEAD_PLAN_20261016.md](LEAD_PLAN_20261016.md).
+> **2026-10-16: Claude (session "JoyBrush Lead & Orchestration Engine") is JoyBrush Lead again; Codex's automation
+> is paused. Read [LEAD_PLAN_20261016.md](LEAD_PLAN_20261016.md) first. It supersedes everything below and the Codex
+> HANDOFF_2026101x trail (kept as history).**
 
 > **NEWEST: read [HANDOFF_20261013.md](HANDOFF_20261013.md) first (verified integration checkpoint), then HANDOFF_20261012.md and HANDOFF_20261011.md. Codex is the owner-appointed Lead during Claude cooldown.**
 
@@ -39,10 +40,10 @@ Example (from any checkout, passing the canonical document explicitly):
 | JB-NOW-02 | frontier | Blocked | — | Dry-window architecture; depends on 01 and approved implementation slices |
 | JB-NOW-03 | frontier | Blocked | — | Physical tilt/memory diagnostic; lead must reserve device and approve measurement plan |
 | JB-NOW-04 | frontier | Blocked | — | JB-2.40 adoption; depends on architecture reconciliation and scoped ownership |
-| JB-NOW-05 | mid | Doing | opencode-coordinator-mid-05 | 2026-10-09T16:59:00Z; Isolated free-only worker; base e1c58836cdcf6d4c5e7cea610bb9c3e79b2d32c7; exact contract owned paths; tests pending |
+| JB-NOW-05 | mid | Review | opencode-coordinator-mid-05 | 2026-10-11T19:40:50Z; f6ea4e19698f03e6c2be271c1e651dba905cdd48; actual27 Python unittest PASS including CLI smoke; adversarial tag attribution repair; synthetic only/no device or gate policy claim; basee1c58836 |
 | JB-NOW-06 | frontier | Blocked | — | JB-5.20/5.40 product wiring; depends on JB-2.40 gates |
-| JB-NOW-07 | mid | Doing | opencode-coordinator-mid-07 | 2026-10-09T16:59:05Z; Isolated free-only worker; base e1c58836cdcf6d4c5e7cea610bb9c3e79b2d32c7; exact contract owned paths; tests pending |
-| JB-NOW-08 | mid | Doing | opencode-coordinator-mid-08 | 2026-10-09T16:59:10Z; Isolated free-only worker; base e1c58836cdcf6d4c5e7cea610bb9c3e79b2d32c7; exact contract owned paths; tests pending |
+| JB-NOW-07 | mid | Review | opencode-coordinator-mid-07 | 2026-10-11T19:50:20Z; 9a27ba4ceefc864d445416b121d6dde3f0125f14; actual23 Python testsPASS/CLI smoke; strictCSV+physicalline adversarial repair; CPU slice durations only/synthetic; basee1c58836 |
+| JB-NOW-08 | mid | Review | opencode-coordinator-mid-08 | 2026-10-11T19:59:46Z; 5b98cd7eeef83ab70c053fcc95e3cc896f5dd956; actual3 targetedcoreJVMtests0fail/error/skip PASS2m29s; 12realplanner workloads5warmups10reps; desktopmetadata only/noGLphone speedup; basee1c58836 |
 | JB-NOW-09 | mid | Blocked | opencode-orchestrator-mid-09 | 2026-10-09T17:39:33Z; commit ca3d7fc5 compiles; fuzz seed 20261009 op60 push double-releases handle 51 in prod UndoLog (39 releases vs 38 unique); regression retained on branch; no prod edit per contract |
 | JB-NOW-10 | mid | Review | opencode-orchestrator-mid-10 | 2026-10-09T17:39:24Z; commit 3c2b9935; StrokeCodecAdversarialCorpusTest 9 tests pass :core:jvmTest; limits CPU-only no GPU |
 | JB-NOW-11 | mid | Review | opencode-orchestrator-mid-11 | 2026-10-09T17:39:24Z; commit ec8e9d3c; MediaPlainBakePartitionTest 9 tests pass :core:jvmTest; limits CPU-only |

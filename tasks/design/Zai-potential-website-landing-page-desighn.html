@@ -1,0 +1,948 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#050507">
+<meta name="description" content="Joy Creator — a video studio for Android. Recording, a real editor, puppets, offline captions and an AI that edits the actual timeline.">
+<title>Joy Creator — a video studio for Android</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+
+<style>
+/* ===========================================================
+   JOY CREATOR — SHOWCASE
+   One page. Seven rooms, one gradient pair each, taken from the
+   Swatch Room mapping. Every screenshot is a framed placeholder:
+   the copy, motion and structure are real; the captures drop in.
+   Motion follows the app's own system: ease-out (0.23,1,0.32,1),
+   260ms cross-fades with a 2px blur, 140ms presses, stagger 40–60ms,
+   nothing on ease-in, reduced-motion honoured.
+   =========================================================== */
+:root{
+  color-scheme:dark;
+  --bg:#050507; --bg2:#0a0a0d;
+  --panel:#111114; --panel2:#161619;
+  --ctl:#1c1c22; --ctl2:#26262e;
+  --line:#232329; --line2:#3a3a46;
+  --ink:#ececf1; --dim:#a1a1aa; --dimmer:#6e6e7a; --dimmest:#4b4b55;
+
+  --sel:#22d3ee; --live:#f43f8e;
+
+  /* room gradient pairs — the Swatch Room's final mapping */
+  --studio-a:#35f6bf;  --studio-b:#97fe8b;
+  --capture-a:#fa3d5d; --capture-b:#ff008c;
+  --shop-a:#ff008c;    --shop-b:#cc27ff;
+  --avatar-a:#cc27ff;  --avatar-b:#8c3dfa;
+  --library-a:#4397fd; --library-b:#55e0f9;
+  --sound-a:#faa03d;   --sound-b:#fc6818;
+  --finder-a:#f9f462;  --finder-b:#ffc341;
+  --remote-a:#5c43fd;  --remote-b:#4397fd;
+  --bot-a:#cc27ff;     --bot-b:#5c43fd;
+
+  /* the section in view drives these (JS) — progress bar, rules, diamonds */
+  --ra:var(--capture-a); --rb:var(--capture-b);
+
+  /* motion tokens, straight from ui/motion/Motion */
+  --ease-out:cubic-bezier(.23,1,.32,1);
+  --ease-inout:cubic-bezier(.77,0,.175,1);
+  --d-press:140ms; --d-swap:260ms;
+
+  --f-disp:'Archivo','Helvetica Neue',Arial,sans-serif;
+  --f-body:'IBM Plex Sans','Segoe UI',system-ui,sans-serif;
+  --f-mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+
+  --gut:24px; --maxw:1160px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:76px}
+html,body{background:var(--bg)}
+body{
+  margin:0;font-family:var(--f-body);color:var(--ink);
+  font-size:15.5px;line-height:1.6;-webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+h1,h2,h3{font-family:var(--f-disp);margin:0;letter-spacing:-.03em;text-wrap:balance}
+p{margin:0}
+a{color:inherit;text-decoration:none}
+img{max-width:100%}
+button{font:inherit;cursor:pointer}
+::selection{background:var(--live);color:#0a0a0c}
+:focus-visible{outline:2px solid var(--sel);outline-offset:3px;border-radius:4px}
+.wrap{max-width:var(--maxw);margin:0 auto;padding-inline:var(--gut)}
+
+.skip{position:absolute;left:-9999px;top:0;background:var(--ink);color:#0a0a0c;
+  padding:10px 16px;border-radius:0 0 10px 0;z-index:200;font-size:13px;font-weight:600}
+.skip:focus{left:0}
+
+/* ---------- reveal-on-scroll ---------- */
+.rv{opacity:0;transform:translateY(16px);
+  transition:opacity .6s var(--ease-out),transform .6s var(--ease-out);
+  transition-delay:var(--d,0ms)}
+.rv.in{opacity:1;transform:none}
+
+/* ---------- progress hairline (the export bar, repurposed) ---------- */
+.progress{position:fixed;top:0;left:0;right:0;height:2px;z-index:120;background:rgba(255,255,255,.05)}
+.progress i{display:block;height:100%;transform:scaleX(0);transform-origin:0 50%;
+  background:linear-gradient(90deg,var(--ra),var(--rb));will-change:transform}
+
+/* ---------- nav ---------- */
+.nav{position:sticky;top:0;z-index:100;border-bottom:1px solid var(--line);
+  background:color-mix(in srgb,var(--bg) 84%,transparent);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.nvin{max-width:var(--maxw);margin:0 auto;padding:0 var(--gut);height:58px;
+  display:flex;align-items:center;gap:26px}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--f-disp);
+  font-weight:900;font-size:14px;letter-spacing:-.02em;white-space:nowrap}
+.bdia{width:9px;height:9px;transform:rotate(45deg);flex:0 0 auto;
+  background:linear-gradient(135deg,var(--capture-a),var(--bot-b))}
+.nlinks{display:flex;gap:22px;margin-left:auto}
+.nlinks a{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--dimmer);transition:color var(--d-press) var(--ease-out)}
+.nlinks a:hover{color:var(--ink)}
+.nlinks a.on{color:var(--sel)}
+.navcta{margin-left:18px;flex:0 0 auto}
+
+/* ---------- buttons ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  padding:13px 24px;border-radius:999px;border:1px solid transparent;
+  font-weight:600;font-size:14.5px;line-height:1;white-space:nowrap;
+  transition:transform var(--d-press) var(--ease-out),background .18s var(--ease-out),border-color .18s}
+.btn:active{transform:scale(.97)}
+.btn-pri{background:var(--ink);color:#0a0a0c}
+.btn-pri:hover{background:#fff}
+.btn-ghost{background:var(--ctl);color:var(--ink);border-color:var(--line2)}
+.btn-ghost:hover{background:var(--ctl2)}
+.btn-sm{padding:9px 16px;font-size:12.5px}
+
+/* ===========================================================
+   HERO
+   =========================================================== */
+.hero{position:relative;overflow:hidden}
+.hero::before{content:"";position:absolute;inset:0;pointer-events:none;
+  background-image:radial-gradient(rgba(255,255,255,.05) 1px,transparent 1px);
+  background-size:26px 26px;
+  -webkit-mask-image:radial-gradient(80% 70% at 58% 40%,#000,transparent 78%);
+          mask-image:radial-gradient(80% 70% at 58% 40%,#000,transparent 78%)}
+.herobg{position:absolute;inset:0;pointer-events:none}
+.hbg{position:absolute;inset:0;opacity:0;transition:opacity .6s var(--ease-out)}
+.hbg.on{opacity:1}
+.hbg[data-g="capture"]{background:
+  radial-gradient(90% 70% at 74% 16%, color-mix(in srgb,var(--capture-a) 19%,transparent), transparent 62%),
+  radial-gradient(70% 60% at 16% 84%, color-mix(in srgb,var(--capture-b) 13%,transparent), transparent 64%)}
+.hbg[data-g="library"]{background:
+  radial-gradient(90% 70% at 24% 18%, color-mix(in srgb,var(--library-a) 17%,transparent), transparent 62%),
+  radial-gradient(70% 60% at 80% 80%, color-mix(in srgb,var(--library-b) 11%,transparent), transparent 64%)}
+.hbg[data-g="studio"]{background:
+  radial-gradient(90% 70% at 76% 22%, color-mix(in srgb,var(--studio-a) 15%,transparent), transparent 62%),
+  radial-gradient(70% 60% at 20% 80%, color-mix(in srgb,var(--studio-b) 9%,transparent), transparent 64%)}
+.hbg[data-g="shop"]{background:
+  radial-gradient(90% 70% at 24% 24%, color-mix(in srgb,var(--shop-a) 17%,transparent), transparent 62%),
+  radial-gradient(70% 60% at 78% 76%, color-mix(in srgb,var(--shop-b) 13%,transparent), transparent 64%)}
+.hbg[data-g="sound"]{background:
+  radial-gradient(90% 70% at 70% 18%, color-mix(in srgb,var(--sound-a) 15%,transparent), transparent 62%),
+  radial-gradient(70% 60% at 24% 82%, color-mix(in srgb,var(--sound-b) 11%,transparent), transparent 64%)}
+.hbg[data-g="bot"]{background:
+  radial-gradient(90% 70% at 24% 20%, color-mix(in srgb,var(--bot-a) 17%,transparent), transparent 62%),
+  radial-gradient(70% 60% at 78% 78%, color-mix(in srgb,var(--bot-b) 13%,transparent), transparent 64%)}
+.hbg[data-g="remote"]{background:
+  radial-gradient(90% 70% at 70% 20%, color-mix(in srgb,var(--remote-a) 15%,transparent), transparent 62%),
+  radial-gradient(70% 60% at 22% 80%, color-mix(in srgb,var(--remote-b) 11%,transparent), transparent 64%)}
+
+.hero .wrap{position:relative;display:grid;grid-template-columns:minmax(0,1.02fr) minmax(0,.98fr);
+  gap:56px;align-items:center;padding-block:84px 72px}
+.kick{font-family:var(--f-mono);font-size:11px;letter-spacing:.24em;text-transform:uppercase;
+  color:var(--dimmer);display:flex;align-items:center;gap:10px}
+.kick::before{content:"";width:8px;height:8px;transform:rotate(45deg);flex:0 0 auto;
+  background:linear-gradient(135deg,var(--ra),var(--rb))}
+.hero h1{font-size:clamp(46px,7.4vw,90px);font-weight:900;line-height:.96;letter-spacing:-.045em;margin-top:22px}
+.hero h1 span{display:block}
+#heroEm{font-style:normal;padding-right:.06em;
+  background:linear-gradient(92deg,var(--hga,var(--capture-a)),var(--hgb,var(--capture-b)));
+  -webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;color:transparent}
+.rot{margin-top:22px;font-size:16.5px;color:var(--dimmer);min-height:1.7em}
+.rotline{display:inline-block;color:var(--ink);font-weight:600;
+  transition:opacity var(--d-swap) var(--ease-out),filter var(--d-swap) var(--ease-out)}
+.hacts{display:flex;gap:12px;margin-top:32px;flex-wrap:wrap}
+.hstats{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;margin-top:34px;
+  font-family:var(--f-mono);font-size:10.5px;letter-spacing:.18em;color:var(--dimmer)}
+.tdia{width:7px;height:7px;transform:rotate(45deg);flex:0 0 auto;
+  background:linear-gradient(135deg,var(--ra),var(--rb));opacity:.85}
+.hstats .tdia{width:5px;height:5px;opacity:.5}
+.scue{display:flex;align-items:center;gap:12px;margin-top:58px;
+  font-family:var(--f-mono);font-size:9.5px;letter-spacing:.32em;color:var(--dimmest)}
+.scue i{width:1px;height:34px;background:var(--line2);position:relative;overflow:hidden;display:block}
+.scue i::after{content:"";position:absolute;left:0;top:-45%;width:100%;height:45%;
+  background:var(--ra);animation:drip 2.2s var(--ease-inout) infinite}
+@keyframes drip{to{top:112%}}
+
+/* ===========================================================
+   TICKER
+   =========================================================== */
+.ticker{overflow:hidden;border-block:1px solid var(--line);background:var(--bg2);padding:15px 0}
+.tin{display:flex;width:max-content;animation:tick 42s linear infinite}
+.ticker:hover .tin{animation-play-state:paused}
+.tseq{display:flex;align-items:center;gap:34px;padding-right:34px;flex:0 0 auto}
+.tseq span{font-family:var(--f-disp);font-weight:800;font-size:14px;letter-spacing:.08em;
+  color:var(--dimmer);white-space:nowrap}
+.tseq span:nth-of-type(odd){color:var(--ink)}
+@keyframes tick{to{transform:translateX(-50%)}}
+
+/* ===========================================================
+   SECTIONS
+   =========================================================== */
+section{padding-block:96px 10px;position:relative}
+.shead{display:grid;grid-template-columns:auto 1fr;gap:8px 18px;align-items:baseline}
+.snum{font-family:var(--f-mono);font-size:12px;color:var(--ra);letter-spacing:.08em}
+.shead h2{font-size:clamp(30px,4.4vw,46px);font-weight:800;line-height:1.05;letter-spacing:-.03em;margin-top:10px}
+.shead h2 em{font-style:normal;padding-right:.05em;
+  background:linear-gradient(92deg,var(--ra),var(--rb));
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+.gradrule{grid-column:1/-1;height:2px;border-radius:2px;margin-top:20px;
+  background:linear-gradient(90deg,var(--ra),var(--rb));
+  transform:scaleX(0);transform-origin:left;transition:transform .9s var(--ease-out) .12s}
+.shead.in .gradrule{transform:scaleX(1)}
+
+.act{display:grid;grid-template-columns:minmax(0,10fr) minmax(0,11fr);gap:64px;align-items:start;margin-top:48px}
+@media (min-width:1000px){.copy{position:sticky;top:96px}}
+.dek{font-size:16.5px;color:var(--dim);max-width:56ch;margin-top:2px}
+.dek b,.dek em{font-style:normal;color:var(--ink);font-weight:600}
+
+/* prose feature list — diamonds, not cards */
+.feat{list-style:none;margin:30px 0 0;padding:0;display:flex;flex-direction:column;gap:20px}
+.feat li{display:grid;grid-template-columns:20px 1fr;gap:14px;align-items:start}
+.feat .dia{width:9px;height:9px;transform:rotate(45deg);margin-top:7px;
+  background:linear-gradient(135deg,var(--ra),var(--rb))}
+.feat b{display:block;font-family:var(--f-disp);font-weight:700;font-size:15.5px;
+  letter-spacing:-.015em;line-height:1.3}
+.feat p{margin-top:4px;font-size:14px;color:var(--dim);line-height:1.62}
+.feat p em{font-style:normal;color:var(--ink);font-weight:600}
+.smallnote{margin-top:26px;font-family:var(--f-mono);font-size:11px;letter-spacing:.06em;
+  color:var(--dimmer);line-height:1.7;max-width:52ch}
+.smallnote b{color:var(--dim)}
+
+/* ---------- screenshot slots ---------- */
+.shots{display:flex;flex-direction:column;gap:26px;position:relative}
+.shots::before{content:"";position:absolute;inset:-8% -14%;pointer-events:none;z-index:0;
+  background:radial-gradient(46% 38% at 55% 26%,color-mix(in srgb,var(--ra) 11%,transparent),transparent 70%)}
+.shots>*{position:relative;z-index:1}
+.row{display:grid;gap:22px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));align-items:start}
+.shot{margin:0}
+figcaption{margin-top:12px;font-size:12.5px;color:var(--dim);line-height:1.55;max-width:44ch}
+.fig-phone{width:100%;max-width:345px;margin-inline:auto}
+.slot{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;padding:28px 22px;overflow:hidden;
+  background:#0c0c10;border:1px solid var(--line);border-radius:18px;
+  transition:transform .18s var(--ease-out),border-color .18s var(--ease-out)}
+.slot::before{content:"";position:absolute;inset:0;
+  background:repeating-linear-gradient(135deg,rgba(255,255,255,.022) 0 10px,transparent 10px 20px)}
+.shot:hover .slot{transform:translateY(-3px);border-color:var(--line2)}
+/* to drop a real capture: <img> as a child of .slot fills the frame and the labels vanish */
+.slot img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2}
+.slot:has(img) .put,.slot:has(img) .fmt,.slot:has(img) .sic,.slot:has(img) .stag{display:none}
+.r-phone{aspect-ratio:9/19.5;border-radius:24px;
+  box-shadow:0 30px 80px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.04)}
+.r-sq{aspect-ratio:1/1}
+.r-wide{aspect-ratio:16/9}
+.fig-wide{width:100%;max-width:820px;margin-inline:auto}
+.r-mini{aspect-ratio:1/1;border-radius:12px;padding:14px 10px}
+.stk{position:absolute;width:16px;height:16px;border:0 solid var(--ra);z-index:1;
+  transition:width .18s var(--ease-out),height .18s var(--ease-out),border-color .18s}
+.stk.tl{top:10px;left:10px;border-top-width:2px;border-left-width:2px}
+.stk.tr{top:10px;right:10px;border-top-width:2px;border-right-width:2px}
+.stk.bl{bottom:10px;left:10px;border-bottom-width:2px;border-left-width:2px}
+.stk.br{bottom:10px;right:10px;border-bottom-width:2px;border-right-width:2px}
+.shot:hover .stk{width:23px;height:23px;border-color:var(--rb)}
+.stag{position:absolute;top:12px;left:15px;z-index:1;font-family:var(--f-mono);
+  font-size:8.5px;letter-spacing:.18em;color:var(--dimmest)}
+.sic{position:relative;z-index:1;width:26px;height:26px;color:var(--dimmest);
+  fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.put{position:relative;z-index:1;margin:12px auto 0;max-width:27ch;
+  font-family:var(--f-mono);font-size:12px;line-height:1.6;color:var(--dimmer)}
+.put b{color:var(--ink);font-weight:600}
+.fmt{position:relative;z-index:1;margin-top:9px;font-family:var(--f-mono);
+  font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--dimmest)}
+.r-mini .stag{font-size:7.5px}
+.r-mini .put{font-size:10.5px;margin-top:7px}
+.r-mini .fmt{font-size:8px;margin-top:6px}
+.rowcap{margin-top:12px;font-size:12.5px;color:var(--dim);line-height:1.55}
+.row5{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+
+/* ===========================================================
+   FREE / GET
+   =========================================================== */
+#free .wrap,#get .wrap{max-width:940px;text-align:center}
+#free .kick,#get .kick{justify-content:center}
+.flines{display:flex;flex-direction:column;gap:8px;margin-top:40px}
+.fl{font-family:var(--f-disp);font-weight:900;letter-spacing:-.04em;line-height:1.04;
+  font-size:clamp(34px,6vw,64px)}
+.fl.ever{font-size:clamp(48px,9.5vw,112px);margin-top:14px;padding-right:.08em;
+  background:linear-gradient(92deg,var(--studio-a),var(--studio-b));
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+.fpara{margin:36px auto 0;max-width:58ch;color:var(--dim);font-size:16px}
+.fpara b{color:var(--ink);font-weight:600}
+.facts{display:flex;gap:12px;justify-content:center;margin-top:30px;flex-wrap:wrap}
+
+.getpanel{margin-top:48px;border-radius:24px;border:1px solid transparent;
+  padding:clamp(34px,5vw,64px) clamp(22px,4vw,56px);
+  background:
+    linear-gradient(180deg,var(--panel),#0d0d11) padding-box,
+    linear-gradient(120deg,var(--capture-a),var(--shop-b) 30%,var(--bot-b) 55%,var(--library-b) 78%,var(--studio-a)) border-box}
+.getpanel h2{font-size:clamp(32px,5vw,52px);font-weight:900;letter-spacing:-.035em;line-height:1.02}
+.getpanel .sub{margin:18px auto 0;max-width:52ch;color:var(--dim);font-size:15.5px}
+.getpanel .sub b{color:var(--ink);font-weight:600}
+.gacts{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:34px}
+.gnote{margin-top:16px;font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--dimmest)}
+.chips{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:34px}
+.chip{font-family:var(--f-mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--dim);padding:8px 14px;border:1px solid var(--line2);border-radius:999px}
+
+/* ---------- toast (placeholder feedback — no dead clicks) ---------- */
+.toast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,14px);opacity:0;z-index:150;
+  pointer-events:none;background:var(--panel2);border:1px solid var(--line2);color:var(--ink);
+  font-family:var(--f-mono);font-size:12px;padding:11px 18px;border-radius:999px;
+  box-shadow:0 12px 40px rgba(0,0,0,.6);
+  transition:opacity .22s var(--ease-out),transform .22s var(--ease-out)}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
+/* ---------- footer ---------- */
+footer{border-top:1px solid var(--line);margin-top:96px;padding:52px 0 64px;
+  color:var(--dimmer);font-size:12.5px;line-height:1.8}
+footer b{color:var(--dim);font-weight:600}
+footer .mono{font-family:var(--f-mono);font-size:11px;letter-spacing:.06em}
+
+/* ---------- responsive ---------- */
+@media (max-width:980px){
+  .hero .wrap{grid-template-columns:1fr;gap:48px;padding-block:64px 56px}
+  .heroShot{max-width:360px;margin-inline:auto;width:100%}
+  .nlinks{display:none}
+  .navcta{margin-left:auto}
+  .act{grid-template-columns:1fr;gap:44px}
+  section{padding-block:72px 8px}
+}
+@media (max-width:560px){
+  .row5{gap:8px}
+  .hacts .btn{flex:1 1 auto}
+}
+
+/* ---------- reduced motion: fewer and gentler, not zero ---------- */
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *{animation-duration:1ms!important;transition-duration:1ms!important}
+  .tin{animation:none}
+  .rotline{filter:none!important}
+  .scue i::after{animation:none}
+}
+</style>
+
+<noscript><style>
+  .rv{opacity:1!important;transform:none!important}
+  .gradrule{transform:scaleX(1)!important}
+</style></noscript>
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<!-- drawn glyphs only — no emoji anywhere on this page -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-img" viewBox="0 0 24 24">
+    <rect x="3.2" y="4.4" width="17.6" height="15.2" rx="2.4"/>
+    <circle cx="9" cy="9.6" r="1.7" fill="currentColor" stroke="none"/>
+    <path d="M4.4 17.4 9.8 12l3.4 3.2 2.6-2.4 3.8 3.6"/>
+  </symbol>
+</defs></svg>
+
+<div class="progress" aria-hidden="true"><i id="progI"></i></div>
+
+<header class="nav">
+  <div class="nvin">
+    <a class="brand" href="#top"><i class="bdia"></i>JOY CREATOR</a>
+    <nav class="nlinks" aria-label="Sections">
+      <a href="#lobby" data-sec="lobby">Lobby</a>
+      <a href="#capture" data-sec="capture">Capture</a>
+      <a href="#editor" data-sec="editor">Editor</a>
+      <a href="#animate" data-sec="animate">Animate</a>
+      <a href="#sound" data-sec="sound">Sound</a>
+      <a href="#joybot" data-sec="joybot">Joybot</a>
+      <a href="#remote" data-sec="remote">Remote</a>
+      <a href="#free" data-sec="free">Free</a>
+    </nav>
+    <a class="btn btn-pri btn-sm navcta" href="#get">Get it</a>
+  </div>
+</header>
+
+<main id="main">
+
+<!-- ═══════════ HERO ═══════════ -->
+<section class="hero" id="top" data-room="capture">
+  <div class="herobg" aria-hidden="true">
+    <div class="hbg on" data-g="capture"></div>
+    <div class="hbg" data-g="library"></div>
+    <div class="hbg" data-g="studio"></div>
+    <div class="hbg" data-g="shop"></div>
+    <div class="hbg" data-g="sound"></div>
+    <div class="hbg" data-g="bot"></div>
+    <div class="hbg" data-g="remote"></div>
+  </div>
+  <div class="wrap">
+    <div>
+      <p class="kick rv">Joy Creator · a video studio for Android</p>
+      <h1>
+        <span class="rv" style="--d:60ms">The whole studio,</span>
+        <span class="rv" style="--d:120ms"><em id="heroEm">in your pocket.</em></span>
+      </h1>
+      <p class="rot rv" style="--d:200ms">It does <span class="rotline" id="rot">screen recording with your face on it</span></p>
+      <div class="hacts rv" style="--d:280ms">
+        <a class="btn btn-pri" href="#get">Get Joy Creator</a>
+        <a class="btn btn-ghost" href="#capture">See what it does</a>
+      </div>
+      <div class="hstats rv" style="--d:360ms">
+        <span>55 AI TOOLS</span><i class="tdia"></i>
+        <span>35+ TRANSITIONS</span><i class="tdia"></i>
+        <span>2 OFFLINE ENGINES</span><i class="tdia"></i>
+        <span>0 ADS</span><i class="tdia"></i>
+        <span>0 WATERMARKS</span>
+      </div>
+      <div class="scue rv" style="--d:440ms"><i></i>SCROLL</div>
+    </div>
+    <div class="heroShot rv" style="--d:220ms" data-slots="hero"></div>
+  </div>
+</section>
+
+<!-- ═══════════ TICKER ═══════════ -->
+<div class="ticker" aria-hidden="true">
+  <div class="tin" id="tin">
+    <div class="tseq">
+      <span>MULTITRACK TIMELINE</span><i class="tdia"></i>
+      <span>KEYFRAMES + EASING</span><i class="tdia"></i>
+      <span>CHROMA KEY</span><i class="tdia"></i>
+      <span>MASKS</span><i class="tdia"></i>
+      <span>35+ GL TRANSITIONS</span><i class="tdia"></i>
+      <span>YOUR OWN .GLSL SHADERS</span><i class="tdia"></i>
+      <span>MESH BEND</span><i class="tdia"></i>
+      <span>SPRITE SHEETS</span><i class="tdia"></i>
+      <span>PUPPETS</span><i class="tdia"></i>
+      <span>OFFLINE CAPTIONS</span><i class="tdia"></i>
+      <span>BEAT DETECTION</span><i class="tdia"></i>
+      <span>VOICEOVER</span><i class="tdia"></i>
+      <span>55 AI TOOLS</span><i class="tdia"></i>
+      <span>DUAL CAMERA</span><i class="tdia"></i>
+      <span>REMOTE CAMERA</span><i class="tdia"></i>
+      <span>NO WATERMARK</span><i class="tdia"></i>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ 01 LOBBY ═══════════ -->
+<section id="lobby" data-room="library">
+  <div class="wrap">
+    <header class="shead rv">
+      <span class="snum">01</span>
+      <div>
+        <p class="kick">The front door</p>
+        <h2>It opens <em>where you left off.</em></h2>
+      </div>
+      <i class="gradrule"></i>
+    </header>
+    <div class="act">
+      <div class="copy">
+        <p class="dek rv">The lobby is a router over every room: a marquee of places, your recents
+        with colour-coded corners, an export that reports as a <b>two-pixel hairline</b> instead of a
+        shouting dialog — and Joybot's single line, which only ever says something it actually
+        verified about <em>your</em> project.</p>
+        <ul class="feat">
+          <li><i class="dia"></i><div><b>Rooms on a marquee</b><p>Swipe the titles, land anywhere. The whole app is one house; the lobby is how you walk it.</p></div></li>
+          <li><i class="dia"></i><div><b>Carry on</b><p>Recents mix projects, recordings, exports and photos by recency, so the thing you touched last is the thing you tap first.</p></div></li>
+          <li><i class="dia"></i><div><b>The hairline</b><p>An export in progress is a quiet bar at the very top. It never takes the screen hostage.</p></div></li>
+          <li><i class="dia"></i><div><b>Joybot's line</b><p>One sentence about your real work. If it has nothing true to say, it says nothing — which is the feature working.</p></div></li>
+        </ul>
+      </div>
+      <div class="shots" data-slots="lobby"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 02 CAPTURE ═══════════ -->
+<section id="capture" data-room="capture">
+  <div class="wrap">
+    <header class="shead rv">
+      <span class="snum">02</span>
+      <div>
+        <p class="kick">Capture</p>
+        <h2>Record anything. <em>Even with the screen off.</em></h2>
+      </div>
+      <i class="gradrule"></i>
+    </header>
+    <div class="act">
+      <div class="copy">
+        <p class="dek rv">A recorder first, an editor second, a studio overall. Joy Creator kept a
+        screen-recorder's <b>years-proven core</b> and pointed it at creators: put your face on a
+        tutorial, run two lenses at once, and let the recording outlive your screen.</p>
+        <ul class="feat">
+          <li><i class="dia"></i><div><b>Screen off, still rolling</b><p>Background video recording that keeps going when the display doesn't. <em>The core that started it all.</em></p></div></li>
+          <li><i class="dia"></i><div><b>Face cam over screen recording</b><p>A floating webcam composited while the screen records. <em>The tutorial feature nobody else ships.</em></p></div></li>
+          <li><i class="dia"></i><div><b>Two cameras, one take</b><p>Front and back together with dual capture — reactions, unboxings, walk-and-talks.</p></div></li>
+          <li><i class="dia"></i><div><b>Gets out of your way</b><p>Controls auto-hide. Watermark if you want one. Motion detection on watch, and a live audio visualiser while you roll.</p></div></li>
+          <li><i class="dia"></i><div><b>Stills on the side</b><p>Photo capture and screenshots, straight into the same library your edits pull from.</p></div></li>
+        </ul>
+      </div>
+      <div class="shots" data-slots="capture"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 03 EDITOR ═══════════ -->
+<section id="editor" data-room="studio">
+  <div class="wrap">
+    <header class="shead rv">
+      <span class="snum">03</span>
+      <div>
+        <p class="kick">The editor</p>
+        <h2>A real editor. <em>Not a template machine.</em></h2>
+      </div>
+      <i class="gradrule"></i>
+    </header>
+    <div class="act">
+      <div class="copy">
+        <p class="dek rv">Multi-track layers on a timeline that <b>never stacks two things by accident</b>.
+        Keyframes with easing you choose. Masks. Chroma key proved on a real phone, preview and export
+        alike. And an export that runs in <em>its own process</em> — the app can crash; your render won't.</p>
+        <ul class="feat">
+          <li><i class="dia"></i><div><b>Layers on lanes</b><p>Video, text, sprites, picture-in-picture and adjustment layers — each gets its own lane, guarded so adds never collide.</p></div></li>
+          <li><i class="dia"></i><div><b>Keyframes + easing</b><p>Arm it, play it, key it at the playhead. Undo is one press, one step — a batch lands as a single undo.</p></div></li>
+          <li><i class="dia"></i><div><b>Chroma key &amp; masks</b><p>Green screen that survived device proof end to end, with masks over the top.</p></div></li>
+          <li><i class="dia"></i><div><b>35+ GL transitions — plus yours</b><p>Drop <em>.glsl</em> files in a folder and they register and run. The pack loader already works.</p></div></li>
+          <li><i class="dia"></i><div><b>Bend &amp; corner-pin</b><p>Mesh-warp images and sprites, pin text to any quad — all live on the canvas, preview and export agreeing.</p></div></li>
+          <li><i class="dia"></i><div><b>Text that performs</b><p>Animated type down to per-character odometers, with effects that survive the export.</p></div></li>
+          <li><i class="dia"></i><div><b>Out-of-process export</b><p>Renders survive the app — and single-frame stills are there when you need one.</p></div></li>
+        </ul>
+      </div>
+      <div class="shots" data-slots="editor"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 04 ANIMATE ═══════════ -->
+<section id="animate" data-room="shop">
+  <div class="wrap">
+    <header class="shead rv">
+      <span class="snum">04</span>
+      <div>
+        <p class="kick">Animation</p>
+        <h2>Draw it. Rig it. <em>Perform it.</em></h2>
+      </div>
+      <i class="gradrule"></i>
+    </header>
+    <div class="act">
+      <div class="copy">
+        <p class="dek rv">Sprite Lab turns a sheet of frames into <b>named cells and saved animations
+        the engine truly plays</b>. Then go further: trace any flat PNG, drop pins, and puppeteer it —
+        the mesh bends smooth, hair dangles, and <em>your face can drive the mouth</em>.</p>
+        <ul class="feat">
+          <li><i class="dia"></i><div><b>Sprite Lab</b><p>Slice, align, name, save. Animations loop, ping-pong and hold on the timeline — and travel as a <em>.sprite.json</em> any machine can read.</p></div></li>
+          <li><i class="dia"></i><div><b>Perform, don't program</b><p>Tap a cell while it plays and you're recording a take, right at the playhead. <em>No arming step. Ever.</em></p></div></li>
+          <li><i class="dia"></i><div><b>Puppets from a flat PNG</b><p>Trace → pins → bend. Per-triangle depth so a hand can pass in front of the body, and the mesh stays smooth as detail rises.</p></div></li>
+          <li><i class="dia"></i><div><b>Physics in the rig</b><p>IK, dangle chains for hair and tails, motion smoothing — and it all bakes to keyframes.</p></div></li>
+          <li><i class="dia"></i><div><b>It watches you</b><p>MediaPipe face landmarks and spectral visemes, computed on-device. The puppet mouths along.</p></div></li>
+        </ul>
+      </div>
+      <div class="shots" data-slots="animate"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 05 SOUND & SPEECH ═══════════ -->
+<section id="sound" data-room="sound">
+  <div class="wrap">
+    <header class="shead rv">
+      <span class="snum">05</span>
+      <div>
+        <p class="kick">Sound &amp; speech</p>
+        <h2>Captions that <em>never touch the internet.</em></h2>
+      </div>
+      <i class="gradrule"></i>
+    </header>
+    <div class="act">
+      <div class="copy">
+        <p class="dek rv">Two offline engines listen — <b>Vosk for timing, whisper.cpp for wording</b> —
+        and a merge pass takes the best of both into one transcript. Then strike the fillers, retime a
+        word, pick a caption style, and export. <em>No key, no upload, no bill.</em> This is the thing
+        nothing else on Android does.</p>
+        <ul class="feat">
+          <li><i class="dia"></i><div><b>Two engines, one transcript</b><p>A genuine merge of Vosk timing with Whisper wording, entirely on your phone.</p></div></li>
+          <li><i class="dia"></i><div><b>Five animated caption styles</b><p>Pop, zoom, bounce, boxed, hot — pick one and the words do the performing.</p></div></li>
+          <li><i class="dia"></i><div><b>Fix the take, not just the text</b><p>Filler-word strike and word-level retiming, right on the timeline.</p></div></li>
+          <li><i class="dia"></i><div><b>Music, measured</b><p>Waveforms with beat and onset detection wired to snapping; loudness normalised to EBU R128.</p></div></li>
+          <li><i class="dia"></i><div><b>One-tap audio chain</b><p>High-pass → denoise → compress → loudnorm. Plus voiceover, recorded in-app.</p></div></li>
+        </ul>
+      </div>
+      <div class="shots" data-slots="sound"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 06 JOYBOT ═══════════ -->
+<section id="joybot" data-room="bot">
+  <div class="wrap">
+    <header class="shead rv">
+      <span class="snum">06</span>
+      <div>
+        <p class="kick">Joybot</p>
+        <h2>An AI that edits <em>the actual timeline.</em></h2>
+      </div>
+      <i class="gradrule"></i>
+    </header>
+    <div class="act">
+      <div class="copy">
+        <p class="dek rv">Not a chatbot bolted to a sidebar. Joybot wields <b>55 real tools that mutate
+        your project</b> through a validate-everything-then-apply contract — it proposes, you confirm,
+        and the whole edit lands as <em>one undo step</em>.</p>
+        <ul class="feat">
+          <li><i class="dia"></i><div><b>55 tools, one timeline</b><p>Captions written from your offline transcript, b-roll found and placed, silences removed — on the real project, not a copy.</p></div></li>
+          <li><i class="dia"></i><div><b>Proposal cards</b><p>Nothing changes until you say so. Read the plan, tap apply.</p></div></li>
+          <li><i class="dia"></i><div><b>It sees</b><p>Send a frame, get direction. Vision is built in.</p></div></li>
+          <li><i class="dia"></i><div><b>Slides without a subscription</b><p>Generated sequences rendered to video on-device — deterministic, no service in the middle.</p></div></li>
+          <li><i class="dia"></i><div><b>Works while you sleep</b><p>Background jobs survive closing the app. <em>Bring your own key</em> — your prompts go to your provider, never to us. Joy Creator runs no servers.</p></div></li>
+        </ul>
+      </div>
+      <div class="shots" data-slots="joybot"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 07 REMOTE ═══════════ -->
+<section id="remote" data-room="remote">
+  <div class="wrap">
+    <header class="shead rv">
+      <span class="snum">07</span>
+      <div>
+        <p class="kick">Remote &amp; the rest</p>
+        <h2>Your second phone <em>is a camera.</em></h2>
+      </div>
+      <i class="gradrule"></i>
+    </header>
+    <div class="act">
+      <div class="copy">
+        <p class="dek rv">Another phone on your Wi-Fi becomes a remote camera you frame and fire from
+        where you're standing. <b>Everything stays on your network.</b> Then the Finder's on-device
+        markers surface the moments worth keeping, and the gadget drawer carries the small useful things.</p>
+        <ul class="feat">
+          <li><i class="dia"></i><div><b>Remote camera</b><p>A second phone streams to you over your own Wi-Fi. No cloud, no account, nothing leaves the room.</p></div></li>
+          <li><i class="dia"></i><div><b>The Finder</b><p>Automatic markers on long recordings — on-device detection finds the keepers for you.</p></div></li>
+          <li><i class="dia"></i><div><b>Also in the box</b><p>A clock widget, QR and meter gadgets, and <em>whole projects as a zip</em> you can move, back up, or hand to a friend.</p></div></li>
+        </ul>
+        <p class="smallnote rv"><b>Portrait or landscape, both real.</b> The app is built one-handed in
+        portrait and works in landscape — the slots on this page lean portrait because that's how it
+        gets used.</p>
+      </div>
+      <div class="shots" data-slots="remote"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ FREE ═══════════ -->
+<section id="free" data-room="studio">
+  <div class="wrap">
+    <p class="kick rv">The deal</p>
+    <div class="flines">
+      <p class="fl rv" style="--d:40ms">No ads.</p>
+      <p class="fl rv" style="--d:110ms">No subscription.</p>
+      <p class="fl rv" style="--d:180ms">No watermark.</p>
+      <p class="fl rv" style="--d:250ms">No export paywall.</p>
+      <p class="fl ever rv" style="--d:340ms">Ever.</p>
+    </div>
+    <p class="fpara rv" style="--d:120ms">Joy Creator is built by <b>one person, between naps, with three
+    toddlers underfoot</b> — it's how this family eats. If it's useful to you, chip in. Either way,
+    the app stays whole and free: the Play build trims a few recorder extras, F-Droid keeps everything,
+    and the editor is identical in both.</p>
+    <div class="facts rv" style="--d:200ms">
+      <a class="btn btn-ghost" href="#" data-todo="Placeholder — wire this to your support page.">Support the build</a>
+    </div>
+    <div class="shots" style="margin-top:56px" data-slots="free"></div>
+  </div>
+</section>
+
+<!-- ═══════════ GET ═══════════ -->
+<section id="get" data-room="capture">
+  <div class="wrap">
+    <div class="getpanel rv">
+      <p class="kick">Free, today</p>
+      <h2 style="margin-top:16px">Put a studio in your pocket.</h2>
+      <p class="sub">One install. <b>No account, no scan of your files, no "pro" tier.</b> Your projects
+      are folders you can open, zip and keep — transcription never leaves the phone, and the exporter
+      never asks for money.</p>
+      <div class="gacts">
+        <a class="btn btn-pri" href="#" data-todo="Placeholder — point this at the real APK.">Download APK</a>
+        <a class="btn btn-ghost" href="#" data-todo="Placeholder — point this at the F-Droid listing.">F-Droid</a>
+        <a class="btn btn-ghost" href="#" data-todo="Placeholder — point this at the Play listing.">Google Play</a>
+      </div>
+      <p class="gnote">Buttons are placeholders — point them at the real artifacts</p>
+      <div class="chips">
+        <span class="chip">Android</span>
+        <span class="chip">AMOLED-native</span>
+        <span class="chip">Portrait &amp; landscape</span>
+        <span class="chip">Offline core</span>
+        <span class="chip">Your files stay yours</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <p><b>Joy Creator</b> — a video studio for Android. Every number on this page is counted from the
+    app itself: 55 tools, 35+ transitions, two offline engines, five caption styles. Nothing invented.</p>
+    <p class="mono" style="margin-top:10px">EVERY FRAMED SLOT ABOVE IS A PLACEHOLDER. To drop a real
+    capture: add an <b>img:</b> path to that slot in the SLOTS list at the bottom of this file — or
+    drop an &lt;img&gt; inside the frame. Framing, glow and caption carry over automatically.</p>
+    <p class="mono" style="margin-top:10px">Design language: Archivo · IBM Plex · one gradient per room ·
+    motion on the 260ms curve. © 2026 Joy Creator.</p>
+  </div>
+</footer>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ═══════════════════════════════════════════════════════════════
+   SLOT DATA — the one list you edit when captures arrive.
+   Add  img:"my-shot.jpg"  to any entry and the frame fills itself;
+   the "Put a shot of…" label disappears, the caption stays.
+   r: "phone" (portrait 9:19.5) · "sq" (1:1) · "wide" (16:9)
+   ═══════════════════════════════════════════════════════════════ */
+var SLOTS = {
+  hero: [
+    [ { r:"phone", t:"your hero shot — the lobby, or the one frame that sells the whole app",
+        fmt:"portrait · 1170 × 2532 · jpg / gif / mp4",
+        cap:"Framed and waiting. Drop a portrait capture in and it carries the whole page." } ]
+  ],
+  lobby: [
+    [ { r:"phone", t:"the lobby with the marquee mid-swap and the recents below",
+        fmt:"portrait · 1170 × 2532",
+        cap:"The front door: rooms on a marquee, your work front and centre, Joybot's one honest line." } ]
+  ],
+  capture: [
+    [ { r:"phone", t:"the recorder mid-capture with the controls auto-hidden",
+        fmt:"portrait · 1170 × 2532",
+        cap:"Background recording that outlives the screen — controls hidden, watermark optional." } ],
+    [ { r:"sq", t:"the webcam overlay floating over a screen recording", fmt:"square · 1440 × 1440",
+        cap:"The exclusive: your face composited over the screen while it rolls." },
+      { r:"sq", t:"dual camera — front and back lenses in one take", fmt:"square · 1440 × 1440",
+        cap:"Two cameras, one frame, one take." } ]
+  ],
+  editor: [
+    [ { r:"phone", t:"the timeline with several layers and the playhead mid-scrub",
+        fmt:"portrait · 1170 × 2532",
+        cap:"Multitrack layers, each with its own lane — nothing stacks by accident." },
+      { r:"sq", t:"the keyframe graph with an ease curve applied", fmt:"square · 1440 × 1440",
+        cap:"Keyframes with easing you choose; a batch lands as one undo." } ],
+    [ { r:"wide", t:"a five-second clip of a GL transition sweeping between two clips",
+        fmt:"wide · 1920 × 1080 · mp4 / gif",
+        cap:"35+ transitions built in — plus your own .glsl shaders: drop them in a folder and they register." } ],
+    [ { r:"sq", t:"an image mid mesh-bend, handles live", fmt:"square · 1440 × 1440",
+        cap:"Bend, squash and corner-pin, straight on the canvas." },
+      { r:"sq", t:"animated text mid-odometer, character by character", fmt:"square · 1440 × 1440",
+        cap:"Type that performs — animated text presets." } ]
+  ],
+  animate: [
+    [ { r:"phone", t:"a rigged puppet bending mid-pose", fmt:"portrait · 1170 × 2532",
+        cap:"Trace a PNG, drop pins, perform. Per-triangle depth so a hand passes in front of the body." },
+      { r:"sq", t:"Sprite Lab with named cells and a saved clip", fmt:"square · 1440 × 1440",
+        cap:"Named cells, saved animations the engine truly plays — loop, ping-pong, hold." } ],
+    [ { r:"sq", t:"the puppet tape — a recorded take drawn as long diamonds", fmt:"square · 1440 × 1440",
+        cap:"Key at the playhead while it plays; the take is the animation." },
+      { r:"sq", t:"face tracking driving visemes in real time", fmt:"square · 1440 × 1440",
+        cap:"MediaPipe landmarks + spectral visemes, computed on-device." } ]
+  ],
+  sound: [
+    [ { r:"phone", t:"waveforms under the timeline with detected beats marked",
+        fmt:"portrait · 1170 × 2532",
+        cap:"Beat and onset detection wired to snapping; the fix-audio chain one tap away." } ],
+    [ { r:"styles", styles:["pop","zoom","bounce","boxed","hot"],
+        cap:"Five animated caption styles, one slot each — the same line, five ways." } ]
+  ],
+  joybot: [
+    [ { r:"phone", t:"Joybot proposing an edit — the confirm card showing", fmt:"portrait · 1170 × 2532",
+        cap:"55 real timeline tools. It proposes, you confirm, the whole edit lands as one undo." } ],
+    [ { r:"sq", t:"before / after — a multi-step edit applied in one tap", fmt:"square · 1440 × 1440",
+        cap:"Validate-all-then-apply. Never a half-applied mess." } ]
+  ],
+  remote: [
+    [ { r:"phone", t:"phone B framed as a camera, aimed from phone A", fmt:"portrait · 1170 × 2532",
+        cap:"A second phone over your own Wi-Fi — no cloud, no account, nothing leaves the room." } ],
+    [ { r:"sq", t:"the Finder surfacing auto-marked moments in a long recording", fmt:"square · 1440 × 1440",
+        cap:"On-device detection finds the keepers for you." } ]
+  ],
+  free: [
+    [ { r:"wide", t:"your single best exported frame, full-bleed", fmt:"wide · 1920 × 1080",
+        cap:"No watermark anywhere on it. Yours, not ours." } ]
+  ]
+};
+
+/* ───────────── render the slots ───────────── */
+var slotN = 0;
+function pad2(n){ return (n<10?"0":"")+n; }
+
+function slotFig(it){
+  slotN++;
+  var map = { phone:["r-phone","PORTRAIT"], sq:["r-sq","SQUARE"], wide:["r-wide","WIDE"] };
+  var m = map[it.r] || map.sq;
+  var f = document.createElement("figure");
+  f.className = "shot rv" + (it.r==="phone" ? " fig-phone" : it.r==="wide" ? " fig-wide" : "");
+  f.innerHTML =
+    '<div class="slot '+m[0]+'">' +
+      '<i class="stk tl"></i><i class="stk tr"></i><i class="stk bl"></i><i class="stk br"></i>' +
+      '<span class="stag">SLOT '+pad2(slotN)+' · '+m[1]+'</span>' +
+      (it.img ? '<img src="'+it.img+'" alt="'+(it.cap||it.t||"")+'"/>'
+              : '<svg class="sic" aria-hidden="true"><use href="#i-img"/></svg>' +
+                '<p class="put">Put a shot of <b>'+it.t+'</b> here</p>' +
+                '<span class="fmt">'+(it.fmt||"")+'</span>') +
+    '</div>' +
+    (it.cap ? '<figcaption>'+it.cap+'</figcaption>' : '');
+  return f;
+}
+
+function stylesRow(it){
+  var w = document.createElement("div");
+  var r = document.createElement("div"); r.className = "row5";
+  it.styles.forEach(function(s,i){
+    slotN++;
+    var f = document.createElement("figure");
+    f.className = "shot rv"; f.style.setProperty("--d",(i*55)+"ms");
+    f.innerHTML =
+      '<div class="slot r-mini">' +
+        '<i class="stk tl"></i><i class="stk tr"></i><i class="stk bl"></i><i class="stk br"></i>' +
+        '<span class="stag">SLOT '+pad2(slotN)+'</span>' +
+        (it.img ? '<img src="'+it.img+'" alt=""/>'
+                : '<p class="put">the <b>'+s+'</b> style</p><span class="fmt">caption</span>') +
+      '</div>';
+    r.appendChild(f);
+  });
+  w.appendChild(r);
+  if (it.cap){ var c = document.createElement("p"); c.className="rowcap"; c.textContent = it.cap; w.appendChild(c); }
+  return w;
+}
+
+Object.keys(SLOTS).forEach(function(key){
+  var host = document.querySelector('[data-slots="'+key+'"]');
+  if (!host) return;
+  SLOTS[key].forEach(function(row){
+    if (!row.length){ return; }
+    if (row.length===1 && row[0].r==="styles"){ host.appendChild(stylesRow(row[0])); return; }
+    if (row.length===1){ host.appendChild(slotFig(row[0])); return; }
+    var d = document.createElement("div"); d.className = "row";
+    row.forEach(function(it){ d.appendChild(slotFig(it)); });
+    host.appendChild(d);
+  });
+});
+
+/* ───────────── stagger the prose lists ───────────── */
+document.querySelectorAll(".feat").forEach(function(ul){
+  Array.prototype.forEach.call(ul.children, function(li,i){
+    li.classList.add("rv");
+    li.style.setProperty("--d",(i*55)+"ms");
+  });
+});
+
+/* ───────────── reveal on scroll ───────────── */
+var ro = new IntersectionObserver(function(es){
+  es.forEach(function(e){
+    if (e.isIntersecting){ e.target.classList.add("in"); ro.unobserve(e.target); }
+  });
+},{ threshold:.12, rootMargin:"0px 0px -7% 0px" });
+document.querySelectorAll(".rv").forEach(function(x){ ro.observe(x); });
+
+/* ───────────── hero: the room-breathing pitch ───────────── */
+var LINES = [
+  { t:"screen recording with your face on it",        g:"capture" },
+  { t:"background video — even with the screen off",  g:"library" },
+  { t:"a real editor: layers, masks, keyframes",      g:"studio"  },
+  { t:"puppets that bend a flat PNG",                 g:"shop"    },
+  { t:"captions that never touch the internet",       g:"sound"   },
+  { t:"55 AI tools that edit the real timeline",      g:"bot"     },
+  { t:"your second phone, as a camera",               g:"remote"  }
+];
+var rot = document.getElementById("rot"),
+    em  = document.getElementById("heroEm"),
+    hbgs = Array.prototype.slice.call(document.querySelectorAll(".hbg")),
+    li = 0;
+setInterval(function(){
+  li = (li + 1) % LINES.length;
+  var L = LINES[li];
+  rot.style.opacity = "0"; rot.style.filter = "blur(2px)";
+  setTimeout(function(){
+    rot.textContent = L.t;
+    em.style.setProperty("--hga","var(--"+L.g+"-a)");
+    em.style.setProperty("--hgb","var(--"+L.g+"-b)");
+    hbgs.forEach(function(h){ h.classList.toggle("on", h.dataset.g === L.g); });
+    rot.style.opacity = "1"; rot.style.filter = "blur(0)";
+  }, 260);
+}, 3400);
+
+/* ───────────── scroll progress + room handoff + nav ───────────── */
+var progI = document.getElementById("progI"), ticking = false;
+function onScroll(){
+  if (ticking) return;
+  ticking = true;
+  requestAnimationFrame(function(){
+    var h = document.documentElement;
+    var p = h.scrollTop / Math.max(1, h.scrollHeight - h.clientHeight);
+    progI.style.transform = "scaleX(" + p + ")";
+    ticking = false;
+  });
+}
+addEventListener("scroll", onScroll, { passive:true });
+onScroll();
+
+var rootStyle = document.documentElement.style;
+var navLinks = document.querySelectorAll(".nlinks a");
+var so = new IntersectionObserver(function(es){
+  es.forEach(function(e){
+    if (!e.isIntersecting) return;
+    var cs = getComputedStyle(e.target);
+    var ra = cs.getPropertyValue("--ra").trim(),
+        rb = cs.getPropertyValue("--rb").trim();
+    if (ra && rb){ rootStyle.setProperty("--ra", ra); rootStyle.setProperty("--rb", rb); }
+    var id = e.target.id;
+    navLinks.forEach(function(a){ a.classList.toggle("on", a.dataset.sec === id); });
+  });
+},{ rootMargin:"-42% 0px -52% 0px", threshold:0 });
+document.querySelectorAll("section[data-room]").forEach(function(s){ so.observe(s); });
+
+/* ───────────── ticker: duplicate the sequence for a seamless loop ───────────── */
+var tin = document.getElementById("tin");
+if (tin){
+  var seq = tin.querySelector(".tseq");
+  var clone = seq.cloneNode(true);
+  clone.setAttribute("aria-hidden","true");
+  tin.appendChild(clone);
+}
+
+/* ───────────── placeholder buttons speak up instead of dying ───────────── */
+var toast = document.getElementById("toast"), toastT = null;
+function showToast(msg){
+  toast.textContent = msg;
+  toast.classList.add("show");
+  clearTimeout(toastT);
+  toastT = setTimeout(function(){ toast.classList.remove("show"); }, 2800);
+}
+document.querySelectorAll("[data-todo]").forEach(function(a){
+  a.addEventListener("click", function(ev){
+    ev.preventDefault();
+    showToast(a.dataset.todo);
+  });
+});
+
+})();
+</script>
+</body>
+</html>

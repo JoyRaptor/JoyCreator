@@ -11,6 +11,10 @@ are compile/test-verified separately; their phone checks remain owed. Details:
 `tasks/joybrush/INTEGRATION_20260930.md`.
 
 **Last full pass:** 2026-09-09 (Claude/Opus, launch-planning session)
+**Timeline marks update, 2026-10-24:** named gradient bookmarks, the native marker wheel,
+loop regions, and named batch range exports are **BUILT**. Focused current-source JVM checks:
+68 assertions passed. Native Note 9 tap/drop and hold/open confirmed; compact sizing and drag
+settling corrections are under final device checks. Detailed proof and remaining gates below.
 **Last touched:** 2026-09-16 evening — the puppet UI finish sweep (`tasks/PUPPET_FINISH_LEDGER.md`):
 nine dead knobs found and resolved, the tape made draggable, easing fitted from the recording, and
 three defects JoyRaptor reported on device. Also `tools/phone.sh deploy` / `doctor`, which exist
@@ -20,6 +24,57 @@ because a stale watcher or a dropped transport had been leaving OLD builds on th
 ---
 
 ## The proof levels — this is the point of the document
+
+### JoyBrush vector / tween return audit — 2026-10-24
+
+**October 26 continuation:** the lead's approved candidate is now `8e7692c83` on
+`lead/select-reconcile-20261024`. It contains the v14 tween foundation, but not the
+separate animation-clips schema/runtime merge. Direct-cel continuation is isolated on
+`codex/tween-direct-20261026`. Independent helpers now have focused executable proof;
+the live feature remains unbound. Lead retains engine/UI integration and build/device gates.
+
+- Exposure clock with selected ranges, speed and reversed ping-pong tick offsets;
+  scoped scene validation: `f5b05489e`.
+- Independent editable-plane copy preparation, preserving base/slab operators, IDs/seq and
+  widened footprints; immutable recipe/collection fix: `d73f5b9c7`. Live duplication still needs
+  engine classification, admission, atomic publication/undo and allocation-failure cleanup.
+- Animation export tick plans and explicit transient GPU callback routes: `961bdf6f7`.
+  Static frame PNG avoids tween expansion; GIF timing rounds cumulatively and refuses sub20ms
+  exposures. The GPU callback is not bound by the current UI; this is not finished tween export.
+- Lead-requested ownership regression source `e5fa12086`: **3 tests passed**, zero failures,
+  errors or skips on the coordinator's exact frozen proof checkout. XML/hash independently
+  inspected here; this proves helper metadata/ownership, not live engine/GPU publication.
+- Canonical stale-export fix `a28c57c9b` regenerates the complete expected exposure sequence
+  before callbacks. Exact `f7ed34f16` proof: **6 clock tests and 30 export tests passed**, zero
+  failures/errors/skips; XMLs/hash independently inspected. This is not GPU/app/device proof.
+- Runtime duplicate marker/structural validator `61d093144` is a separate, unexecuted direct-cel
+  prerequisite; it changes no serialized schema. A separate guarded watercolour wash-translation
+  replay entry is under source review; broader rotation/nonrigid wash support remains open.
+- Component-aware scenes and clip export are preserved separately as `35a9d23b1` / `0a65e19ca`
+  on the151b92621-based branch; do not transplant them over the current candidate's schema.
+
+Current ownership/dependency contract: `tasks/joybrush/handoffs/TWEEN_COORDINATION_20261026.md`.
+Durable proof: `tasks/joybrush/reviews/TWEEN_RETURN_20261026.md` and its helper XML.
+The older primary/source evidence below remains historical; earlier passing suites do not
+verify these additions. The task remains engineering work, not only owner acceptance.
+
+Primary checkout inspected at `fb8042841`. **The vector/tween parent task is unfinished;
+engineering integration remains, not only owner acceptance.** Primary still has JoyBrush
+document v11; the newer integration branches below must not be described as shipped here.
+
+| Feature | Status and evidence |
+|---|---|
+| Saved frame tween flag, v14 validation/operations, quantized exposure sampler, layer/cel-scoped transient line scenes | **BUILT; tested on source branch.** `codex/vector-tweens` commit `2896cf2d5`, picked up as `59d1f1d63` on `lead/vector-tweens-1`. Prior full run: core 2552 tests (4 optional skips), backend 1061, zero failures/errors; Android consumer compilation passed. No live tween GPU/UI binding or phone acceptance. |
+| Static PNG/OpenRaster export after all lines have been rasterized, including ordered upper slabs and completely erased stacks | **BUILT; tested on the same source commit.** Real export decode checks passed. Ordinary static line exports already used saved looks; this fixes the remaining slab-only/transparent cases. |
+| Next forward tween exposure wakeup helper | **SOURCE ONLY, 2026-10-24.** `TweenFrameSample.nextChangeTimeMs` in `C:/Temp/jb-vector-tweens`; compile deferred by the shared runner (546 MiB available RAM, 2800 MiB required). Earlier green results do not cover this addition. Range/speed/ping-pong and UI consumers remain integration work. |
+| Animation clips C1-C8 / U1-U8 | **Integrated on a local lead branch, not current primary.** `lead/anim-clips-integrated`, merge `6a4c471eb`, state ledger `151b92621`; includes tween helper commit and retains schema v12/v13/v14. Historical clip build has 8-row GPU proof, phone Play-all/end-mode and decoded-GIF evidence. Those checks do not prove the newly merged combination or vector tweening. See that branch's `reviews/ANIMATION_CLIPS_20261018.md`; UI drag/lock/Combine/Flatten/export acceptance remains partial. |
+| Editable vector frame duplicates | **OPEN engineering defect.** `RegionCopy` duplicates visible pixels without the NativeLines records/base/slabs/footprints needed for independent editable copies and stable matching IDs. |
+| Actual tween preview/playback/strip controls/animated export | **OPEN.** No runtime consumers of TweenScene/TweenFrameSample were found in primary, lead/vector-tweens-1 or lead/anim-clips-integrated. Clip component cels also need explicit tween resolution. |
+| Remaining parent vector work | **OPEN / separate lanes.** Sharp zoom rendering and GPU edit cache, accessible mixed SVG export, supported brush admission and Unibrush frozen assets/replay; phone save/reopen/context-loss, latency and owner look acceptance. |
+
+Owner reserves `GlPaintEngine`, `JbCanvasView`, and `JoyBrushActivity` for the Engine Lead.
+Source worktrees and passing-run evidence are retained while integration is open. Full ordered
+status: `tasks/joybrush/handoffs/VECTOR_TWEEN_INTEGRATION_20261023.md`.
 
 | | Means | Consequence |
 |---|---|---|
@@ -108,6 +163,8 @@ All of these **stay in the website / F-Droid build.** Decision already made and 
 | Undo (one press = one step) | 🟢 ~ | JoyRaptor's ruling. Batch operations collapse to one undo. |
 | Export (out-of-process) | 🟢 ~ | Own process so an editor crash cannot kill an export. Proved 2026-07-30. |
 | Single-frame export (JPG/PNG) | 🟡 ~ | todo.md is this spec, marked partly done |
+| Named gradient bookmarks and marker wheel | 🟡 ✔ | **BUILT 2026-10-24.** Timestamp tap drops; hold opens the compact, flickable wheel. Named/time/color editing, shared Studio gradients and icons, cyan editing focus, animated center/paddles, matching playhead color. Legacy offsets preserved; atomic versioned sidecar; complete saved undo/redo. 68 focused JVM assertions pass; Note 9 tap/drop and hold/open observed. Owner styling/gesture acceptance still pending. |
+| Named In/Out regions, looping and batch range exports | 🟡 ✔ | **BUILT 2026-10-24.** Capture either endpoint first; one optional loop target; independent per-region export selection; individually named queued outputs of the finished composition. Video-backed and audio-first M4A range paths. Model/store/loop/export-plan checks pass; actual device loop/export timing checks remain owed. Spec: `SPEC_TIMELINE_MARKS_20261023.md`. |
 
 ---
 
@@ -408,6 +465,23 @@ Music generation. A website. A Play listing. A privacy policy that mentions AI.
 **A backup of this repository anywhere but JoyRaptor's PC.**
 
 ---
+
+## 10.5 JOYBRUSH VECTOR WATERCOLOUR — October24 audit
+
+| Capability | Status | Evidence and limits |
+|---|---|---|
+| Sample-based watercolor, pressure/tilt, pooled pigment and gravity color shifts | 🟡 Built foundation | Renderer on main; original POC owner-approved. Full phone-engine look not signed off. |
+| Cold/warm, complete-fade benchmark | Measured on Note9 | Five cold launches each lines OFF/ON plus warm repeats. Intrusive glFinish, synthetic latency. Warm p95~36–73ms;16.7ms target not passed. |
+| Selected-brush preparation/full fade | 🟡 Candidate branch | Claude's lead/wc-live-land1681bfdeb: core2559 (4 optional skips), backend1064/native317, zero failures. Cold/fade phone acceptance owed; not landed. |
+| Wash travels with line; frame survives archive | 🟡 Candidate branch | Homography, JBS5/legacy tests, GPU mapping and frozen-brush archive test. Actual phone edit/reopen/context proof owed; paper/grain/gravity stay fixed. |
+| Per-brush lines / K25 | 🟠 Corrected candidate, untested | Old8c019c2bb held out. Fresh f79 main candidate f87402bc4 +3043aaf14 uses per-ID only, explicit line defaults, painting OFF, pixel-only no switch. Eight tests await RAM admission; A10 and smudge section-bake/phone proof remain separate. |
+| Finish-only recolor | 🟠 Built, host tests pass | NativeLines selection primes bounded coverage for one selected line up to32 tiles. Tint re-finishes it; large/multi-selection replays normally. Current core2559/4 optional skips and backend1068 pass, including4 cache-key tests; device pixel/cache proof pending. |
+| Note9 speed | 🟠 Not accepted | L1 warm p95~36–73ms exceeds16.7ms. Optimization and remeasurement still required. |
+
+**Not finished; not waiting only on owner testing.** Implementation, integration
+and device proof remain before final owner look/feel approval. Continue on
+vector/watercolour-finish-20261024; preserve unfinished scratch/evidence.
+Details: [completion audit](joybrush/reviews/WATERCOLOUR_COMPLETION_AUDIT_20261024.md).
 
 ## 11. HOW TO MAINTAIN THIS
 

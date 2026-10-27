@@ -1,0 +1,163 @@
+﻿
+10-15 20:13:15.701 17765 17765 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-15 20:13:15.705 17765 17765 I AndroidRuntime: Using default boot image
+10-15 20:13:15.705 17765 17765 I AndroidRuntime: Leaving lock profiling enabled
+10-15 20:13:15.707 17765 17765 D AndroidRuntime: Add Rsu properties.
+10-15 20:13:15.707 17765 17765 D AndroidRuntime: propertySet: couldn't set property (it is from app)
+10-15 20:13:15.707 17765 17765 D AndroidRuntime: readRSUProperty: could not set the property!!
+10-15 20:13:15.707 17765 17765 D AndroidRuntime: readRSUProperty: end
+10-15 20:13:15.707 17765 17765 D AndroidRuntime: addProductProperty
+10-15 20:13:15.707 17765 17765 D AndroidRuntime: addProductProperty: pBrand1 != NULL
+10-15 20:13:15.707 17765 17765 D AndroidRuntime: addProductProperty: else
+10-15 20:13:15.865 17765 17765 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-15 20:13:15.879 17765 17765 D AndroidRuntime: Shutting down VM
+10-15 20:13:27.378 17825 17825 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-15 20:13:27.382 17825 17825 I AndroidRuntime: Using default boot image
+10-15 20:13:27.382 17825 17825 I AndroidRuntime: Leaving lock profiling enabled
+10-15 20:13:27.384 17825 17825 D AndroidRuntime: Add Rsu properties.
+10-15 20:13:27.384 17825 17825 D AndroidRuntime: propertySet: couldn't set property (it is from app)
+10-15 20:13:27.384 17825 17825 D AndroidRuntime: readRSUProperty: could not set the property!!
+10-15 20:13:27.384 17825 17825 D AndroidRuntime: readRSUProperty: end
+10-15 20:13:27.384 17825 17825 D AndroidRuntime: addProductProperty
+10-15 20:13:27.384 17825 17825 D AndroidRuntime: addProductProperty: pBrand1 != NULL
+10-15 20:13:27.384 17825 17825 D AndroidRuntime: addProductProperty: else
+10-15 20:13:27.521 17825 17825 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-15 20:13:27.584 17825 17825 D AndroidRuntime: Shutting down VM
+10-15 20:13:28.918 17894 17894 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-15 20:13:28.922 17894 17894 I AndroidRuntime: Using default boot image
+10-15 20:13:28.922 17894 17894 I AndroidRuntime: Leaving lock profiling enabled
+10-15 20:13:28.924 17894 17894 D AndroidRuntime: Add Rsu properties.
+10-15 20:13:28.924 17894 17894 D AndroidRuntime: propertySet: couldn't set property (it is from app)
+10-15 20:13:28.924 17894 17894 D AndroidRuntime: readRSUProperty: could not set the property!!
+10-15 20:13:28.924 17894 17894 D AndroidRuntime: readRSUProperty: end
+10-15 20:13:28.924 17894 17894 D AndroidRuntime: addProductProperty
+10-15 20:13:28.924 17894 17894 D AndroidRuntime: addProductProperty: pBrand1 != NULL
+10-15 20:13:28.924 17894 17894 D AndroidRuntime: addProductProperty: else
+10-15 20:13:29.064 17894 17894 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-15 20:13:31.072 17894 17894 D AndroidRuntime: Shutting down VM
+10-15 20:13:38.096 17926 17926 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-15 20:13:38.101 17926 17926 I AndroidRuntime: Using default boot image
+10-15 20:13:38.101 17926 17926 I AndroidRuntime: Leaving lock profiling enabled
+10-15 20:13:38.103 17926 17926 D AndroidRuntime: Add Rsu properties.
+10-15 20:13:38.103 17926 17926 D AndroidRuntime: propertySet: couldn't set property (it is from app)
+10-15 20:13:38.103 17926 17926 D AndroidRuntime: readRSUProperty: could not set the property!!
+10-15 20:13:38.103 17926 17926 D AndroidRuntime: readRSUProperty: end
+10-15 20:13:38.103 17926 17926 D AndroidRuntime: addProductProperty
+10-15 20:13:38.103 17926 17926 D AndroidRuntime: addProductProperty: pBrand1 != NULL
+10-15 20:13:38.103 17926 17926 D AndroidRuntime: addProductProperty: else
+10-15 20:13:38.263 17926 17926 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-15 20:13:38.280 17926 17926 D AndroidRuntime: Shutting down VM
+10-15 20:13:51.023 14648 15360 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by 
+nvidia/nemotron-3-super-120b-a12b:free
+10-15 20:13:53.139 14648 15360 I JoybotAgent: reply: native tools on, 0 native call(s), text 0 chars
+10-15 20:15:13.562 18073 18073 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-15 20:15:13.567 18073 18073 I AndroidRuntime: Using default boot image
+10-15 20:15:13.567 18073 18073 I AndroidRuntime: Leaving lock profiling enabled
+10-15 20:15:13.569 18073 18073 D AndroidRuntime: Add Rsu properties.
+10-15 20:15:13.569 18073 18073 D AndroidRuntime: propertySet: couldn't set property (it is from app)
+10-15 20:15:13.569 18073 18073 D AndroidRuntime: readRSUProperty: could not set the property!!
+10-15 20:15:13.569 18073 18073 D AndroidRuntime: readRSUProperty: end
+10-15 20:15:13.569 18073 18073 D AndroidRuntime: addProductProperty
+10-15 20:15:13.569 18073 18073 D AndroidRuntime: addProductProperty: pBrand1 != NULL
+10-15 20:15:13.569 18073 18073 D AndroidRuntime: addProductProperty: else
+10-15 20:15:13.735 18073 18073 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-15 20:15:13.756 18073 18073 D AndroidRuntime: Shutting down VM
+10-15 20:15:15.099 18089 18089 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-15 20:15:15.104 18089 18089 I AndroidRuntime: Using default boot image
+10-15 20:15:15.104 18089 18089 I AndroidRuntime: Leaving lock profiling enabled
+10-15 20:15:15.106 18089 18089 D AndroidRuntime: Add Rsu properties.
+10-15 20:15:15.106 18089 18089 D AndroidRuntime: propertySet: couldn't set property (it is from app)
+10-15 20:15:15.106 18089 18089 D AndroidRuntime: readRSUProperty: could not set the property!!
+10-15 20:15:15.106 18089 18089 D AndroidRuntime: readRSUProperty: end
+10-15 20:15:15.106 18089 18089 D AndroidRuntime: addProductProperty
+10-15 20:15:15.106 18089 18089 D AndroidRuntime: addProductProperty: pBrand1 != NULL
+10-15 20:15:15.106 18089 18089 D AndroidRuntime: addProductProperty: else
+10-15 20:15:15.260 18089 18089 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-15 20:15:15.750 18089 18089 D AndroidRuntime: Shutting down VM
+10-15 20:15:24.395 18119 18119 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-15 20:15:24.400 18119 18119 I AndroidRuntime: Using default boot image
+10-15 20:15:24.400 18119 18119 I AndroidRuntime: Leaving lock profiling enabled
+10-15 20:15:24.402 18119 18119 D AndroidRuntime: Add Rsu properties.
+10-15 20:15:24.402 18119 18119 D AndroidRuntime: propertySet: couldn't set property (it is from app)
+10-15 20:15:24.402 18119 18119 D AndroidRuntime: readRSUProperty: could not set the property!!
+10-15 20:15:24.402 18119 18119 D AndroidRuntime: readRSUProperty: end
+10-15 20:15:24.402 18119 18119 D AndroidRuntime: addProductProperty
+10-15 20:15:24.402 18119 18119 D AndroidRuntime: addProductProperty: pBrand1 != NULL
+10-15 20:15:24.402 18119 18119 D AndroidRuntime: addProductProperty: else
+10-15 20:15:24.569 18119 18119 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-15 20:15:24.588 18119 18119 D AndroidRuntime: Shutting down VM
+10-15 20:15:25.920 18149 18149 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-15 20:15:25.925 18149 18149 I AndroidRuntime: Using default boot image
+10-15 20:15:25.925 18149 18149 I AndroidRuntime: Leaving lock profiling enabled
+10-15 20:15:25.927 18149 18149 D AndroidRuntime: Add Rsu properties.
+10-15 20:15:25.927 18149 18149 D AndroidRuntime: propertySet: couldn't set property (it is from app)
+10-15 20:15:25.927 18149 18149 D AndroidRuntime: readRSUProperty: could not set the property!!
+10-15 20:15:25.927 18149 18149 D AndroidRuntime: readRSUProperty: end
+10-15 20:15:25.927 18149 18149 D AndroidRuntime: addProductProperty
+10-15 20:15:25.927 18149 18149 D AndroidRuntime: addProductProperty: pBrand1 != NULL
+10-15 20:15:25.927 18149 18149 D AndroidRuntime: addProductProperty: else
+10-15 20:15:26.099 18149 18149 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-15 20:15:26.602 18149 18149 D AndroidRuntime: Shutting down VM
+10-15 20:15:37.199 18185 18185 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-15 20:15:37.203 18185 18185 I AndroidRuntime: Using default boot image
+10-15 20:15:37.203 18185 18185 I AndroidRuntime: Leaving lock profiling enabled
+10-15 20:15:37.205 18185 18185 D AndroidRuntime: Add Rsu properties.
+10-15 20:15:37.205 18185 18185 D AndroidRuntime: propertySet: couldn't set property (it is from app)
+10-15 20:15:37.205 18185 18185 D AndroidRuntime: readRSUProperty: could not set the property!!
+10-15 20:15:37.205 18185 18185 D AndroidRuntime: readRSUProperty: end
+10-15 20:15:37.205 18185 18185 D AndroidRuntime: addProductProperty
+10-15 20:15:37.205 18185 18185 D AndroidRuntime: addProductProperty: pBrand1 != NULL
+10-15 20:15:37.205 18185 18185 D AndroidRuntime: addProductProperty: else
+10-15 20:15:37.362 18185 18185 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-15 20:15:37.406 18185 18185 D AndroidRuntime: Shutting down VM
+10-15 20:15:38.731 18286 18286 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-15 20:15:38.735 18286 18286 I AndroidRuntime: Using default boot image
+10-15 20:15:38.735 18286 18286 I AndroidRuntime: Leaving lock profiling enabled
+10-15 20:15:38.737 18286 18286 D AndroidRuntime: Add Rsu properties.
+10-15 20:15:38.737 18286 18286 D AndroidRuntime: propertySet: couldn't set property (it is from app)
+10-15 20:15:38.737 18286 18286 D AndroidRuntime: readRSUProperty: could not set the property!!
+10-15 20:15:38.737 18286 18286 D AndroidRuntime: readRSUProperty: end
+10-15 20:15:38.737 18286 18286 D AndroidRuntime: addProductProperty
+10-15 20:15:38.737 18286 18286 D AndroidRuntime: addProductProperty: pBrand1 != NULL
+10-15 20:15:38.737 18286 18286 D AndroidRuntime: addProductProperty: else
+10-15 20:15:38.864 18286 18286 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-15 20:15:41.442 18286 18286 D AndroidRuntime: Shutting down VM
+10-15 20:15:48.795 18668 18668 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-15 20:15:48.799 18668 18668 I AndroidRuntime: Using default boot image
+10-15 20:15:48.799 18668 18668 I AndroidRuntime: Leaving lock profiling enabled
+10-15 20:15:48.801 18668 18668 D AndroidRuntime: Add Rsu properties.
+10-15 20:15:48.801 18668 18668 D AndroidRuntime: propertySet: couldn't set property (it is from app)
+10-15 20:15:48.801 18668 18668 D AndroidRuntime: readRSUProperty: could not set the property!!
+10-15 20:15:48.801 18668 18668 D AndroidRuntime: readRSUProperty: end
+10-15 20:15:48.801 18668 18668 D AndroidRuntime: addProductProperty
+10-15 20:15:48.801 18668 18668 D AndroidRuntime: addProductProperty: pBrand1 != NULL
+10-15 20:15:48.801 18668 18668 D AndroidRuntime: addProductProperty: else
+10-15 20:15:48.939 18668 18668 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-15 20:15:48.961 18668 18668 D AndroidRuntime: Shutting down VM
+10-15 20:15:51.349 14648 15360 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by 
+liquid/lfm-2.5-2.6b:free
+10-15 20:15:57.456 14648 15360 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by 
+liquid/lfm-2.5-2.6b:free
+10-15 20:16:44.173 14648 15360 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by 
+cohere/north-mini-code:free
+10-15 20:16:49.982 14648 15360 I JoybotAgent: reply: native tools on, 1 native call(s), text 3 chars, served by 
+dots-studio/dots-3-note-preview:free
+10-15 20:16:57.691 14648 15360 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by 
+nvidia/nemotron-3.5-super-vl:free
+10-15 20:17:01.150 14648 15360 I JoybotAgent: reply: native tools on, 0 native call(s), text 683 chars, served by 
+liquid/lfm-2.5-2.6b:free
+10-15 20:17:12.499 19087 19087 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-15 20:17:12.510 19087 19087 I AndroidRuntime: Using default boot image
+10-15 20:17:12.510 19087 19087 I AndroidRuntime: Leaving lock profiling enabled
+10-15 20:17:12.512 19087 19087 D AndroidRuntime: Add Rsu properties.
+10-15 20:17:12.512 19087 19087 D AndroidRuntime: propertySet: couldn't set property (it is from app)
+10-15 20:17:12.512 19087 19087 D AndroidRuntime: readRSUProperty: could not set the property!!
+10-15 20:17:12.512 19087 19087 D AndroidRuntime: readRSUProperty: end
+10-15 20:17:12.513 19087 19087 D AndroidRuntime: addProductProperty
+10-15 20:17:12.513 19087 19087 D AndroidRuntime: addProductProperty: pBrand1 != NULL
+10-15 20:17:12.513 19087 19087 D AndroidRuntime: addProductProperty: else
+10-15 20:17:12.812 19087 19087 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-15 20:17:12.838 19087 19087 D AndroidRuntime: Shutting down VM
+10-15 20:17:12.889 14648 14648 I SpriteLab: back from Joybot: modified=false for null
+
+

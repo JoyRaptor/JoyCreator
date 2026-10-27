@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cc.joycreator.joybrush.androidkit.gl.lines.PreparedLinePlaneCopyTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-10-26T06:31:33.024Z" hostname="GUN-SAMSUNG" time="0.062">
+  <properties/>
+  <testcase name="partialTextureCopyFailureLeavesCallerTrackedOutputsCleanAndSourceUntouched" classname="cc.joycreator.joybrush.androidkit.gl.lines.PreparedLinePlaneCopyTest" time="0.055"/>
+  <testcase name="materializingTwiceCopiesEveryBaseAndSlabAndKeepsRecordsAndOperators" classname="cc.joycreator.joybrush.androidkit.gl.lines.PreparedLinePlaneCopyTest" time="0.004"/>
+  <testcase name="captureFreezesTheActualMutableSampleListAndFootprintViewsRejectJvmMutation" classname="cc.joycreator.joybrush.androidkit.gl.lines.PreparedLinePlaneCopyTest" time="0.002"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,40 @@
+﻿10-15 19:17:14.486 25355 25355 I AndroidRuntime: Leaving lock profiling enabled
+10-15 19:17:14.488 25355 25355 D AndroidRuntime: Add Rsu properties.
+10-15 19:17:14.488 25355 25355 D AndroidRuntime: propertySet: couldn't set property (it is from app)
+10-15 19:17:14.488 25355 25355 D AndroidRuntime: readRSUProperty: could not set the property!!
+10-15 19:17:14.488 25355 25355 D AndroidRuntime: readRSUProperty: end
+10-15 19:17:14.488 25355 25355 D AndroidRuntime: addProductProperty
+10-15 19:17:14.488 25355 25355 D AndroidRuntime: addProductProperty: pBrand1 != NULL
+10-15 19:17:14.488 25355 25355 D AndroidRuntime: addProductProperty: else
+10-15 19:17:14.618 25355 25355 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-15 19:17:17.220 25355 25355 D AndroidRuntime: Shutting down VM
+10-15 19:17:25.581 25412 25412 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-15 19:17:25.585 25412 25412 I AndroidRuntime: Using default boot image
+10-15 19:17:25.586 25412 25412 I AndroidRuntime: Leaving lock profiling enabled
+10-15 19:17:25.587 25412 25412 D AndroidRuntime: Add Rsu properties.
+10-15 19:17:25.587 25412 25412 D AndroidRuntime: propertySet: couldn't set property (it is from app)
+10-15 19:17:25.587 25412 25412 D AndroidRuntime: readRSUProperty: could not set the property!!
+10-15 19:17:25.587 25412 25412 D AndroidRuntime: readRSUProperty: end
+10-15 19:17:25.588 25412 25412 D AndroidRuntime: addProductProperty
+10-15 19:17:25.588 25412 25412 D AndroidRuntime: addProductProperty: pBrand1 != NULL
+10-15 19:17:25.588 25412 25412 D AndroidRuntime: addProductProperty: else
+10-15 19:17:25.738 25412 25412 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-15 19:17:25.756 25412 25412 D AndroidRuntime: Shutting down VM
+10-15 19:17:30.374 24598 25429 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by nvidia/nemotron-3-super-120b-a12b:free
+10-15 19:17:33.038 24598 25429 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by nvidia/nemotron-3.5-super-vl:free
+10-15 19:17:34.783 24598 25429 I JoybotAgent: reply: native tools on, 0 native call(s), text 66 chars, served by cohere/north-mini-code:free
+10-15 19:17:46.037 25525 25525 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-15 19:17:46.042 25525 25525 I AndroidRuntime: Using default boot image
+10-15 19:17:46.042 25525 25525 I AndroidRuntime: Leaving lock profiling enabled
+10-15 19:17:46.044 25525 25525 D AndroidRuntime: Add Rsu properties.
+10-15 19:17:46.044 25525 25525 D AndroidRuntime: propertySet: couldn't set property (it is from app)
+10-15 19:17:46.044 25525 25525 D AndroidRuntime: readRSUProperty: could not set the property!!
+10-15 19:17:46.044 25525 25525 D AndroidRuntime: readRSUProperty: end
+10-15 19:17:46.044 25525 25525 D AndroidRuntime: addProductProperty
+10-15 19:17:46.044 25525 25525 D AndroidRuntime: addProductProperty: pBrand1 != NULL
+10-15 19:17:46.044 25525 25525 D AndroidRuntime: addProductProperty: else
+10-15 19:17:46.212 25525 25525 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-15 19:17:46.241 25525 25525 D AndroidRuntime: Shutting down VM
+10-15 19:17:46.390 24598 24598 I UndoManager: Recorded AI checkpoint: Joybot: “change the font of the hello 2 text to…” (undo=6, redo=0)
+10-15 19:17:46.391 24598 24598 I UndoManager: Project swapped under the undo stack: actions invalidated, 0 unrestorable entr(ies) dropped (undo=6, redo=0)
+10-15 19:17:46.415 24598 24598 D UndoManager: BASELINE reset: 4ms, 32985 chars

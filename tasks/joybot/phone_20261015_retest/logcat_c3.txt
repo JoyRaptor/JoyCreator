@@ -1,0 +1,12 @@
+﻿10-15 19:35:13.892 30963 31961 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by nvidia/nemotron-3-super-120b-a12b:free
+10-15 19:35:46.575 30963 31961 I JoybotAgent: reply: native tools on, 1 native call(s), text 3 chars, served by dots-studio/dots-3-note-preview:free
+10-15 19:36:08.370 30963 31961 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by cohere/north-mini-code:free
+10-15 19:36:11.268 30963 31961 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by cohere/north-mini-code:free
+10-15 19:36:15.766 30963 31961 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free
+10-15 19:36:19.002 30963 31961 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by nvidia/nemotron-3.5-super-vl:free
+10-15 19:36:28.986 30963 31961 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by nvidia/nemotron-3.5-lightning:free
+10-15 19:36:33.801 30963 31961 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by nvidia/nemotron-3.5-lightning:free
+10-15 19:36:37.138 30963 31961 I JoybotAgent: reply: native tools on, 0 native call(s), text 303 chars, served by nvidia/nemotron-3.5-super-vl:free
+10-15 19:36:54.049 30963 30963 I UndoManager: Recorded AI checkpoint: Joybot: Add gentle transitions and chapter titles (undo=6, redo=0)
+10-15 19:36:54.050 30963 30963 I UndoManager: Project swapped under the undo stack: actions invalidated, 0 unrestorable entr(ies) dropped (undo=6, redo=0)
+10-15 19:36:54.126 30963 30963 D UndoManager: BASELINE reset: 4ms, 35389 chars

@@ -1,11 +1,63 @@
 # JOY BRUSH — ROADMAP AnD TASK BOARD (the one file to point an agent at)
 
+## Vector / tween checkpoint — 2026-10-24
+
+**October26 continuation (source only):** approved coordinator8e7692c83 already contains the
+v14 tween foundation. Direct-cel branch `codex/tween-direct-20261026` now has exposure clock
+and range validation (`f5b05489e`), immutable editable-plane copy preparation (`d73f5b9c7`),
+callback-based tween export plans/routes (`961bdf6f7`), and ownership checks (`e5fa12086`:
+3 passed on exact source, zero failures/errors/skips). Exact `f7ed34f16` proof also passed6
+clock/30 export tests, including canonical export fix `a28c57c9b`. Runtime duplicate marker
+and validator `61d093144` await execution. GPU publication, copy transaction,
+UI/strip and device acceptance remain OPEN with the Engine Lead; build/phone slot is lead-controlled.
+Clip-dependent scene/export work stays separate (`35a9d23b1` / `0a65e19ca`) until schema/runtime
+reconciliation. See [current coordination contract](handoffs/TWEEN_COORDINATION_20261026.md).
+
+These statuses supersede historical completion claims for the affected slices below. Primary
+`fb8042841` does not contain `59d1f1d63`. Source readiness and product completion are separate.
+
+| Plan / deliverable | Current state | Next work / proof |
+|---|---|---|
+| JB-5.40 saved setting, schema v14, operations, exposure sampler and transient line-scene core | BUILT and source-tested: `2896cf2d5`, picked up as `59d1f1d63`; core2552/backend1061 green, Android consumer compiled | Lead integration, clip-aware consumer and live rendering; not phone-verified |
+| JB-5.40 forward exposure wakeup helper (`nextChangeTimeMs`) | SOURCE ONLY in codex/vector-tweens, October 24 | Compile deferred: available RAM546 MiB < required2800 MiB. Does not replace range/speed/ping-pong policy or wire the player |
+| JB-5.20 saved static export after rasterizing the last line; erased stacks | BUILT and export-decode tested in `2896cf2d5` / `59d1f1d63` | Integrate with current primary; ordinary saved-look vector exports already existed |
+| Animation clips / component cels, schema v12/v13 under v14 | LOCAL LEAD INTEGRATION `6a4c471eb`, ledger `151b92621`; earlier clip branch has GPU/phone evidence | Combined-branch proof; remaining UI gesture acceptance. Does not complete tween component resolution |
+| JB-5.20 D15 independent editable frame copies | OPEN engineering | Copy NativeLines records/base/slabs/footprints and preserve matching IDs in the same undo transaction |
+| JB-5.40 GPU preview, every-exposure scheduling, toggle/strip and animated export | OPEN engineering | Bind frozen brush replay, source raster, shared time samples and export before normalization removes records |
+| VECTOR_RENDER_DESIGN zoom pyramid/live overlay, GPU sandwich cache, mixed SVG and brush completion | OPEN parent requirements / coordinated lanes | Complete scoped integration and measure on device; Unibrush asset/replay belongs to existing lead lane |
+| Device save/reopen/context loss, latency and owner brush look | ACCEPTANCE OWED | Perform after the relevant source is integrated; do not infer it from JVM results |
+
+Ordered engineering handoff: [VECTOR_TWEEN_INTEGRATION_20261023.md](handoffs/VECTOR_TWEEN_INTEGRATION_20261023.md).
+Engine hot files remain reserved to the Engine Lead by the owner. Temporary source/evidence
+must be retained while the task is incomplete.
+
 > **October 9 current entry point:** read [CURRENT_HANDOFF.md](CURRENT_HANDOFF.md) first. Its live queue, capability boundaries and shared claim protocol override historical readiness and Claude-only lead assignments below. Do not claim stale rows directly. This file remains the full product/spec index.
 
 > **Agent: this file is your whole briefing.** Read it top to bottom, then do what §2 says.
 > You do not need to read the rest of the repo unless your task's spec tells you to.
 
 ---
+
+## Watercolour editable-line completion — October24
+
+Sample-based vector brush, separate from raster water simulation. Active owner
+assignment: [L1–L7 brief](briefs/CODEX_WATERCOLOUR_LINE_LIVE_20261023.md).
+Evidence/continuation: [completion audit](reviews/WATERCOLOUR_COMPLETION_AUDIT_20261024.md).
+
+| Step / feature | State | Proof still owed |
+|---|---|---|
+| L1 cold/warm OFF/ON, whole-fade benchmark | Measured on Note9 | Preserve20 baseline rows, synthetic/glFinish scope |
+| L2 selected-brush preparation/full fade | Built candidate, tested in Claude branch | Five cold comparisons/full-fade phone check; not landed |
+| L3 per-brush settings / K25 | Corrected current-main candidate; old8c019 held out | Per-ID only, exact defaults/pixel-only guards; eight policy tests await RAM, then Lead review/A10/phone. Shared Slice+smudge section-bake remains separately assigned by Lead |
+| L4 wash-frame transform and edits | Current core2559/backend1068 pass; production recolor cache compiles/key tests pass | Single selected line <=32 tiles reuses coverage; large/multi-selection falls back. Device pixel/cache proof; phone move/rotate/rebrush/delete, one Undo each |
+| L5 frozen brush/frame archive | Automated candidate proof | Phone save/reopen pixel hash, graphics restart and first edit |
+| L6 approved POC appearance | Pending acceptance | GPU comparison and owner's phone look/feel approval |
+| L7 Note9 size300/spacing15%, p95<=16.7ms | Baseline fails | Optimize/repeat identical matrix; preserve full-resolution final pooling |
+
+Claude branch lead/wc-live-land1681bfdeb reports green core2559/4 optional skips,
+backend1064/native317 and an APK. These commits are not yet on remote main.
+Task remains in progress, not signed off or waiting only on the owner. Continue
+existing work; retain unfinished temporary source/evidence until acceptance.
 
 ## 1. Who are you? Pick your role
 
@@ -274,7 +326,7 @@ Phases follow `JOYBRUSH_BLUEPRInT.md` §4. Each phase ends with an owner check (
 | JB-5.13 Fill as a shape: flood region → traced contour → filled stroke record, tucked under the lines | T2 | 5.03a | 🟧 Core built | Codex e8efaa1d; 10 shape tests pass; 2048 timing in MEASURE_R51_JVM |
 | JB-5.14 Measurement bench for brief §11 (bytes per frame, replay time, trace time) on the JVM, then the Note 9 | T2 | 5.12, 5.13 | 🟧 JVM built/measured; device pending | Codex; MEASURE_R51_JVM.md, latest11 bench checks passed |
 | [JB-5.20](specs/JB-5.20_lines_in_the_one_layer.md) Lines in the one layer: a cel holds pixels and stroke records in time order; one undo; select, nudge, Rasterize Down, Flatten Lower, two smudges | T1 | 2.40, 5.12 | 📝 Design written; slices a–f inside | Claude Lead |
-| [JB-5.40](specs/JB-5.40_tweens.md) Tweens: a held frame slides its matched lines into the next frame (rigid turn about the pivot, then the bend; HSB colour) | T1 | 5.20 | 📝 Design; 5.40a ✅ (tween maths) | Lead |
+| [JB-5.40](specs/JB-5.40_tweens.md) Tweens: a held frame slides its matched lines into the next frame (rigid turn about the pivot, then the bend; HSB colour) | T1 | 5.20 | PARTIAL: maths + saved state/sampler/scene source-tested (`2896cf2d5` / `59d1f1d63`); October24 wakeup helper `3cac9d3af` source-only. GPU/UI/export/clip-aware consumers and device proof OPEN; see checkpoint above | Engine Lead retains hot files |
 
 ### Phase 5 — Ink layers
 | Task | Tier | needs | Status | Who |

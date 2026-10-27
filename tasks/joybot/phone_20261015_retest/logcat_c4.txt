@@ -1,0 +1,12 @@
+﻿10-15 19:38:20.885 30963 31961 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by liquid/lfm-2.5-2.6b:free
+10-15 19:38:25.093 30963 31961 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by liquid/lfm-2.5-2.6b:free
+10-15 19:38:30.444 30963 31961 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by cohere/north-mini-code:free
+10-15 19:38:32.180 31114 31114 I AndroidRuntime: VM exiting with result code 0, cleanup skipped.
+10-15 19:38:46.525  3299  3299 D UndoManager: History cleared
+10-15 19:38:46.526  3299  3299 D UndoManager: Loaded 6 history entries from disk
+10-15 19:38:46.564  3299  3299 D UndoManager: BASELINE reset: 36ms, 36449 chars
+10-15 19:39:10.668  3299  3805 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by nvidia/nemotron-3.5-super-vl:free
+10-15 19:39:20.405  3299  3805 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by nvidia/nemotron-3.5-super-vl:free
+10-15 19:39:24.634  3299  3805 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by nvidia/nemotron-3.5-lightning:free
+10-15 19:39:27.330  3299  3805 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by poolside/laguna-xs-2.1:free
+10-15 19:39:45.387  3299  3805 I JoybotAgent: reply: native tools on, 0 native call(s), text 454 chars, served by nvidia/nemotron-3-ultra-550b-a55b:free

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="cc.joycreator.joybrush.core.anim.PlaybackExposureTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-10-26T06:40:51.682Z" hostname="GUN-SAMSUNG" time="0.077">
+  <properties/>
+  <testcase name="exactCumulativeBoundariesSelectUnevenHoldsAt24Fps[jvm]" classname="cc.joycreator.joybrush.core.anim.PlaybackExposureTest" time="0.065"/>
+  <testcase name="pingPongReversesInteriorTickOffsetsWithoutRepeatingEndpoints[jvm]" classname="cc.joycreator.joybrush.core.anim.PlaybackExposureTest" time="0.006"/>
+  <testcase name="oneAndTwoFramePingPongRangesDoNotCreateAReverseLeg[jvm]" classname="cc.joycreator.joybrush.core.anim.PlaybackExposureTest" time="0.004"/>
+  <testcase name="selectedRangeLoopsToItsFirstFrameAndOnceStopsAtItsLast[jvm]" classname="cc.joycreator.joybrush.core.anim.PlaybackExposureTest" time="0.0"/>
+  <testcase name="hugeElapsedCannotReturnAnImmediateBusyWakeup[jvm]" classname="cc.joycreator.joybrush.core.anim.PlaybackExposureTest" time="0.0"/>
+  <testcase name="speedScalesTickWakeupsInWallTime[jvm]" classname="cc.joycreator.joybrush.core.anim.PlaybackExposureTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

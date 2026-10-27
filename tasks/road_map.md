@@ -1,5 +1,17 @@
 # Joy Creator (formerly FadCam/Faditor) — Autonomous Roadmap
 
+## 2026-10-24 update — timeline bookmarks and regions
+
+**BUILT; focused checks passed; final phone/owner verification pending.** The bookmarks /
+playhead-chip decision repeated in the historical sections below was approved October 23
+and implemented in `SPEC_TIMELINE_MARKS_20261023.md`. Includes named gradient bookmarks,
+timestamp tap/drop and hold/open, compact animated wheel and side paddles, named In/Out
+regions, optional looping, independent export selection, individually named queued region
+exports (video and audio-only), atomic metadata and persistent undo/redo. Current-source
+model/store/loop/export-plan verification passes **68 assertions**. Note 9 tap/drop and
+hold/open are confirmed; remaining phone checks and owner feel approval are tracked in
+`ROADMAP.md` and `STATE.md`. Historical "fold in vs drop" notes are superseded by this entry.
+
 ## 🎯 2026-07-12 TRUTH SWEEP (supersedes the 07-06 block below; HEAD `1d0e4e2`)
 The 07-06 block understates reality by ~6 days of shipping (39 commits landed 2026-07-11 alone).
 **The editor is functionally complete + export-proven.** This block is the authoritative "what's

@@ -1,0 +1,4 @@
+10-18 12:16:00.913  5747 17369 D ScreenRecordingService: MediaProjection stopped externally
+10-18 12:16:00.913  5747 17369 D ScreenRecordingService: handleStopRecording: Stopping screen recording
+10-18 12:16:01.023  5747 17369 I ScreenRecordingService: Recording stopped. Duration: 61.6 seconds
+10-18 12:16:01.254  5747  5747 D ScreenRecordingService: ScreenRecordingService destroyed

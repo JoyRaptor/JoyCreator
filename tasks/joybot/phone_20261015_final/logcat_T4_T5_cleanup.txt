@@ -1,0 +1,19 @@
+﻿
+10-15 20:42:40.119 24859 24859 I UndoManager: Project swapped under the undo stack: actions invalidated, 0 
+unrestorable entr(ies) dropped (undo=8, redo=0)
+10-15 20:42:40.181 24859 24859 D UndoManager: BASELINE reset: 3ms, 36554 chars
+10-15 20:44:21.903 24859 26015 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by 
+nvidia/nemotron-3.5-super-vl:free
+10-15 20:44:24.395 24859 26015 I JoybotAgent: reply: native tools on, 0 native call(s), text 313 chars, served by 
+liquid/lfm-2.5-2.6b:free
+10-15 20:45:08.698 24859 24859 D UndoManager: Undone (snapshot): Joybot: Add gentle transitions and chapter titles
+10-15 20:45:08.699 24859 24859 D UndoManager: (undo=7, redo=1)
+10-15 20:45:08.873 24859 24859 D UndoManager: BASELINE refresh: 3ms, 33380 chars, force=true
+10-15 20:45:20.724 24859 24859 D UndoManager: Undone (snapshot): AI edits
+10-15 20:45:20.725 24859 24859 D UndoManager: (undo=6, redo=2)
+10-15 20:45:20.869 24859 24859 D UndoManager: BASELINE refresh: 3ms, 33380 chars, force=true
+10-15 20:45:30.207 24859 24859 D UndoManager: Undone (snapshot): Joybot: “name every cell of this sheet with the…”
+10-15 20:45:30.207 24859 24859 D UndoManager: (undo=5, redo=3)
+10-15 20:45:30.457 24859 24859 D UndoManager: BASELINE refresh: 4ms, 32947 chars, force=true
+
+

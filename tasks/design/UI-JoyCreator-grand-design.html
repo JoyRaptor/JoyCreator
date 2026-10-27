@@ -1,0 +1,247 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Joy Creator — Grand Design</title><style>
+:root{--ground:#000;--surface:#0D0D10;--panel:#111114;--raised:#1C1C22;--pressed:#26262E;--line:#2C2C35;
+--ink:#E4E4E7;--dim:#A1A1AA;--faint:#71717A;--off:#4B4B55;--label:#C4C4CE;
+--armed:#22D3EE;--live:#F43F8E;--careful:#FBBF24;--dgr:#FA3D5D;--dis:#33333C;
+--go:#35F6BF;--go2:#97FE8B;--ongo:#050507;--scr:rgba(0,0,0,.64);
+--rCapA:#FA3D5D;--rCapB:#FF008C;--rSprA:#FF008C;--rSprB:#CC27FF;--rAvA:#CC27FF;--rAvB:#8C3DFA;
+--rLibA:#4397FD;--rLibB:#55E0F9;--rSndA:#FAA03D;--rSndB:#FC6818;--rFinA:#F9F462;--rFinB:#FFC341;
+--rRemA:#5C43FD;--rRemB:#4397FD;--rBotA:#CC27FF;--rBotB:#5C43FD;}
+*{box-sizing:border-box}body{margin:0;background:var(--ground);color:var(--ink);font:14px/1.5 system-ui,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:Archivo,"Arial Black",system-ui,sans-serif;letter-spacing:-.02em;margin:0}
+.wrap{max-width:1240px;margin:0 auto;padding:0 20px}
+.mast{padding:44px 0 22px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#0b0b10,var(--ground))}
+.kick{font:11px ui-monospace,Menlo,monospace;color:var(--faint);letter-spacing:.18em}
+.mast h1{font-size:clamp(34px,6vw,58px);font-weight:900}.mast h1 em{font-style:normal;background:linear-gradient(100deg,var(--go),var(--go2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.mast p{color:var(--dim);max-width:70ch}.mast p b{color:var(--ink)}
+.arch{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0 4px}
+.arch button{font:inherit;font-size:12px;font-weight:600;padding:8px 14px;border-radius:999px;background:var(--raised);border:1px solid var(--line);color:var(--dim);cursor:pointer}
+.arch button[aria-pressed="true"]{background:var(--ink);color:#000;border-color:var(--ink)}
+.flow{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:22px 0;font:12px ui-monospace,Menlo,monospace;color:var(--dim);line-height:2}
+.flow b{color:var(--go)}.flow i{font-style:normal;color:var(--armed)}.flow s{text-decoration:none;color:var(--live)}
+section{padding:34px 0}h2{font-size:26px;font-weight:800}h2 span{font:11px ui-monospace,monospace;color:var(--off);margin-right:10px}
+.dek{color:var(--dim);max-width:70ch;margin:8px 0 20px}.dek b{color:var(--ink)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:22px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.card header{padding:14px 16px;border-bottom:1px solid var(--line)}
+.card header h3{font-size:16px}.card header .tag{font:10px ui-monospace,monospace;color:var(--faint);letter-spacing:.1em}
+.card header p{font-size:12px;color:var(--dim);margin:6px 0 0}
+.meta{padding:10px 16px;font-size:11.5px;color:var(--dim);border-top:1px solid var(--line);line-height:1.7}
+.meta b{color:var(--ink)}.meta .from{color:var(--armed)}.meta .to{color:var(--go)}.meta .st{color:var(--careful)}
+.phone{width:300px;margin:14px auto;border-radius:28px;border:1px solid #3a3a46;background:#000;overflow:hidden;font-size:12px;box-shadow:0 18px 50px rgba(0,0,0,.6)}
+.sbar{height:20px;display:flex;justify-content:space-between;padding:0 14px;font:9px ui-monospace,monospace;color:var(--faint);align-items:center}
+.strip{height:3px;background:var(--raised)}.strip i{display:block;height:100%;background:linear-gradient(90deg,var(--go),var(--go2))}
+.liveline{margin:0 10px 6px;border-radius:10px;padding:7px 10px;display:flex;gap:8px;align-items:center;background:linear-gradient(135deg,rgba(255,255,255,.10),rgba(255,255,255,.03));border:1px solid rgba(255,255,255,.12);font-size:10px}
+.pulse{width:7px;height:7px;border-radius:50%;background:var(--live);flex:0 0 auto}
+.top{height:36px;display:flex;align-items:center;gap:8px;padding:0 12px}
+.brand{font-weight:900;font-size:13px}.orb{width:24px;height:24px;border-radius:50%;background:linear-gradient(140deg,var(--rBotA),var(--rBotB));display:grid;place-items:center;color:#fff;font-size:12px}
+.mq{display:flex;gap:10px;padding:4px 12px;align-items:baseline;white-space:nowrap;overflow:hidden}
+.mq b{font-size:22px;font-weight:900}.mq span{color:var(--off);font-size:12px}
+.hero{height:120px;position:relative;background:repeating-linear-gradient(45deg,#1a1a20 0 8px,#121217 8px 16px)}
+.hbar{position:absolute;left:0;right:0;bottom:0;height:3px}
+.hmeta{display:flex;align-items:center;gap:8px;padding:10px 12px 2px}.hmeta b{font-size:13px}
+.act{margin-left:auto;font-size:11px;font-weight:700;padding:7px 13px;border-radius:999px;color:#000;background:linear-gradient(110deg,var(--go),var(--go2))}
+.act.pk{color:#fff;background:linear-gradient(110deg,var(--rCapA),var(--rCapB))}
+.rowline{display:flex;gap:7px;padding:10px 12px 0}.rch{flex:1;background:var(--raised);border:1px solid var(--line);border-radius:10px;padding:8px 2px;text-align:center;font-size:8.5px;color:var(--dim)}
+.botline{display:flex;gap:7px;align-items:center;padding:10px 12px 0;font-size:10px;color:var(--dim)}
+.floor{display:flex;justify-content:space-between;padding:10px 12px 12px;font-size:10px;color:var(--faint)}
+.chips{display:flex;gap:5px;padding:8px 12px;flex-wrap:wrap}.chip{font-size:10px;padding:6px 11px;border-radius:999px;background:var(--raised);border:1px solid var(--line);color:var(--dim)}
+.chip.on{background:var(--armed);color:#000;font-weight:700;border-color:var(--armed)}
+.list{padding:6px 12px;display:flex;flex-direction:column;gap:6px}
+.it{background:var(--raised);border:1px solid var(--line);border-radius:10px;padding:9px 10px;display:flex;gap:9px;align-items:center}
+.th{width:34px;height:34px;border-radius:8px;flex:0 0 auto;background:repeating-linear-gradient(45deg,#22222a 0 5px,#141419 5px 10px)}
+.btn{font-size:11px;font-weight:700;padding:9px 14px;border-radius:999px;background:linear-gradient(110deg,var(--go),var(--go2));color:#000;text-align:center}
+.ghost{background:var(--raised);color:var(--dim);border:1px solid var(--line)}
+.sheetrow{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:9px 10px;display:flex;gap:8px;align-items:center}
+.dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto}
+.tl{padding:8px 0}.lane{height:26px;display:flex;align-items:center;position:relative}.lane.b{background:#0d0d10}
+.clip{position:absolute;top:4px;bottom:4px;border-radius:4px;font-size:8px;font-weight:700;color:#0d0d11;display:flex;align-items:center;padding-left:5px}
+.ph{position:absolute;top:0;bottom:0;left:55%;width:2px;background:var(--live)}
+.kbd{font:10px ui-monospace,monospace;background:var(--raised);border:1px solid var(--line);border-radius:6px;padding:2px 7px}
+.note{border-left:2px solid var(--armed);padding:2px 0 2px 12px;color:var(--dim);font-size:13px;margin:16px 0;max-width:72ch}
+footer{padding:30px 0 80px;color:var(--faint);font-size:12px;border-top:1px solid var(--line);margin-top:20px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style></head><body>
+<div class="mast"><div class="wrap">
+<div class="kick">JOY CREATOR · GRAND DESIGN v1 · 22 SEP 2026 · BUILT FROM NAV_SPEC.md</div>
+<h1>One stack, <em>every screen</em></h1>
+<p>Every destination from <b>APP_MANIFEST.md</b>, redrawn in the unified language (fill pills, glass over video, room gradients, one filled action per view). Each card says <b>where it comes from, where it goes, and which states matter</b> — point at any of them and say "X changes on Y". Archetype buttons dim the screens that archetype never needs.</p>
+<div class="arch" id="arch">
+<button data-a="all" aria-pressed="true">All</button>
+<button data-a="A" aria-pressed="false">A · Capture-first</button>
+<button data-a="B" aria-pressed="false">B · Animate</button>
+<button data-a="C" aria-pressed="false">C · Audio</button>
+<button data-a="D" aria-pressed="false">D · Organize/Watch</button>
+<button data-a="E" aria-pressed="false">E · Multicam</button>
+</div>
+<div class="flow">
+Launch → <b>Lobby</b> → marquee/hero/recents/New/floor/search/strip<br>
+<i>FROM</i> Capture → (record → <s>live strip</s>) → Library · <i>FROM</i> Library → (open in Studio) → Editor · <i>FROM</i> Editor → (export → <s>live strip</s>) → Library<br>
+Sprites/Avatar/Viz ↔ Editor (dual-entry, durable) · Story Board → (rough-cut) → Editor · Search → any · Joybot ↔ any · Back → <b>Lobby</b> (editor-back = Studio list)
+</div></div></div>
+<main class="wrap">
+
+<section><h2><span>01–03</span>Lobby · Search · Live strip</h2>
+<p class="dek">The front door. <b>01</b> is the 80%-there screen being finished, not replaced. <b>02</b> absorbs every rare destination. <b>03</b> is how background work is never lost.</p>
+<div class="grid">
+<div class="card" data-use="A B C D E"><header><h3>01 · Lobby</h3><span class="tag">FROM launch/back · TO any room</span><p>Marquee dial + hero (real frame, 3dp room bar) + recents + New sheared chips + Joybot verified-only line + floor 5 fixed (hold-to-fan) + live strip.</p></header>
+<div class="phone"><div class="sbar"><span>9:41</span><span>◍ ▲ ▮</span></div><div class="strip"><i style="width:62%"></i></div>
+<div class="top"><span class="brand">Joy Creator</span><span style="margin-left:auto;font:9px ui-monospace,monospace;color:var(--faint)">227 GB free</span><span class="orb">◕</span></div>
+<div class="mq"><b>Studio</b><span>Capture</span><span>Sprites</span><span>Viz</span></div>
+<div class="hero"><span class="hbar" style="background:linear-gradient(90deg,var(--go),var(--go2))"></span></div>
+<div class="hmeta"><span><b>ZA_CONTROL</b><br><span style="font:8px ui-monospace,monospace;color:var(--faint)">6 LAYERS · 0:47 · 2H AGO</span></span><span class="act">▶ Carry on</span></div>
+<div class="rowline"><span class="rch">🎥<br>Recording</span><span class="rch">◻<br>Project</span><span class="rch">★<br>Character</span><span class="rch">📥<br>Import</span></div>
+<div class="botline"><span class="orb" style="width:18px;height:18px;font-size:10px">◕</span><span>3 clips have no captions. <b>Fix?</b></span></div>
+<div class="floor"><span>Finder</span><span>Remote</span><span>Bits*</span><span>Packs?</span><span>Setup</span></div></div>
+<div class="meta"><b>States:</b> <span class="st">export hairline ONLY today (record/AI/transcribe = new)</span> · hero per room · Joybot VERIFIED-only · hold-to-fan = NEW (zero code today). <b>Target:</b> floor fan + palette + 4-job strip. *Bits→Capture today (misroute). ?Packs undefined.</div></div>
+<div class="card" data-use="A B C D E"><header><h3>02 · Search palette</h3><span class="tag">FROM swipe-down / magnifier · TO any</span><p>Replaces dead searchView. Finds rooms, all settings, projects, recordings, actions. Recency-ranked, offline.</p></header>
+<div class="phone"><div class="sbar"><span>9:41</span><span>◍ ▲ ▮</span></div>
+<div style="padding:10px 12px"><div class="sheetrow"><span style="color:var(--faint)">⌕</span><span>bit…</span></div>
+<div class="list" style="padding:8px 0 12px"><div class="it"><span class="dot" style="background:var(--go)"></span><span><b>Bitrate</b><br><span style="color:var(--faint);font-size:10px">Video settings · Capture link</span></span></div>
+<div class="it"><span class="dot" style="background:var(--armed)"></span><span><b>Bits — Torch</b><br><span style="color:var(--faint);font-size:10px">Gadget · shortcut exists</span></span></div>
+<div class="it"><span class="dot" style="background:var(--live)"></span><span><b>ZA_CONTROL</b><br><span style="color:var(--faint);font-size:10px">Project · 2h ago</span></span></div></div></div></div>
+<div class="meta"><b>States:</b> empty (recent) · results · no-match (offers Joybot ask). <b>Decision:</b> build (recommended) or cut magnifier.</div></div>
+<div class="card" data-use="A B C D E"><header><h3>03 · Live strip states</h3><span class="tag">PERSISTENT · tap returns</span><p>One strip, stacked when &gt;1. Hairline always, expands on tap. Survives leaving editor.</p></header>
+<div class="phone"><div class="sbar"><span>9:41</span><span>◍ ▲ ▮</span></div><div class="strip"><i style="width:62%"></i></div>
+<div style="padding:8px 0 12px;display:flex;flex-direction:column;gap:6px"><div class="liveline"><span class="pulse"></span><span><b>Exporting ZA_CONTROL</b> · 4K · 2 min</span></div>
+<div class="liveline"><span class="pulse" style="background:var(--dgr)"></span><span><b>● Recording</b> · back cam · 12:04</span></div>
+<div class="liveline"><span class="pulse" style="background:var(--rBotB)"></span><span><b>Joybot job</b> · captions · 40%</span></div></div></div>
+<div class="meta"><b>States:</b> hairline / expanded / stacked / done (outline, full opacity — never half-alpha). Tap = return to source.</div></div>
+</div></section>
+
+<section><h2><span>04–06</span>Capture · Library · Projects</h2>
+<p class="dek">Archetype A lives in <b>04</b>, D lives in <b>05</b>, B/C enter through <b>06</b>. Storage card keeps all 3 tappers (camera / estimate / ring).</p>
+<div class="grid">
+<div class="card" data-use="A E"><header><h3>04 · Capture home</h3><span class="tag">FROM lobby/hero/New · TO library (via record)</span><p>Viewfinder + start/stop/pause + torch + AF/EV/zoom chips. Hold fans 7 modes. Settings = LINKS.</p></header>
+<div class="phone"><div class="sbar"><span>9:41</span><span>◍ ▲ ▮</span></div>
+<div class="hero" style="height:150px"><span style="position:absolute;left:10px;top:8px;font:8px ui-monospace,monospace;background:rgba(0,0,0,.5);padding:3px 8px;border-radius:99px">● LIVE · BACK</span><span style="position:absolute;left:10px;bottom:8px;display:flex;gap:4px"><span class="kbd">AF</span><span class="kbd">EV ±0</span><span class="kbd">FHD30</span></span><span class="hbar" style="background:linear-gradient(90deg,var(--rCapA),var(--rCapB))"></span></div>
+<div class="hmeta"><span><b>Back camera</b><br><span style="font:8px ui-monospace,monospace;color:var(--faint)">FHD30 · 2D 21H LEFT</span></span><span class="act pk">● Record</span></div>
+<div class="list"><div class="it"><span class="th"></span><span><b>Rear · 4K60 → Video settings</b><br><span style="color:var(--faint);font-size:10px">estimate → color sheet · ring → customize · photo: idle vs mid-record grab</span></span></div></div>
+<div style="padding:0 12px;font-size:10px;color:var(--faint)">Screen stack (FadRec) differs: MediaProjection flow, no torch/AF/zoom, floating-controls + annotations, mute/viz arming.</div></div>
+<div class="meta"><b>From:</b> <span class="from">lobby, New Recording, floor Bits, shortcuts</span>. <b>To:</b> <span class="to">Library (clip lands), fullscreen, sidebar, linked settings</span>. <b>States:</b> idle/recording/paused, torch, zoom HUD, GPS warn, iris preview.</div></div>
+<div class="card" data-use="D A E"><header><h3>05 · Library — Records</h3><span class="tag">FROM lobby door/search · TO player/studio/trash</span><p>7 chips + 4 sub-rows + batch bar + deletion dock. Photos via SHOT filter.</p></header>
+<div class="phone"><div class="sbar"><span>9:41</span><span>◍ ▲ ▮</span></div>
+<div class="top"><span class="brand">Library</span><span style="margin-left:auto;font-size:10px;color:var(--faint)">128 items</span></div>
+<div class="chips"><span class="chip on">All</span><span class="chip">Camera</span><span class="chip">Screen</span><span class="chip">Faditor</span><span class="chip">Stream</span><span class="chip">Shot</span><span class="chip">MiniApps</span></div>
+<div class="list"><div class="it"><span class="th"></span><span><b>Screen_0915</b><br><span style="color:var(--faint);font-size:10px">12:04 · 4K</span></span></div>
+<div class="it"><span class="th"></span><span><b>Export_0916</b><br><span style="color:var(--faint);font-size:10px">VIDEO · 4K</span></span></div>
+<div class="it"><span class="th"></span><span><b>Joybot</b><br><span style="color:var(--faint);font-size:10px">SPRITE · 5 clips</span></span></div></div></div>
+<div class="meta"><b>From:</b> <span class="from">lobby, Capture (new clip), search</span>. <b>To:</b> <span class="to">player/viewer, Studio (Open in Faditor), Trash, sort sheet</span>. <b>States:</b> skeleton/empty/selection-batch/deleting-dock.</div></div>
+<div class="card" data-use="B C D"><header><h3>06 · Projects (Studio list)</h3><span class="tag">FROM lobby Studio/bot · TO editor</span><p>MERGED home for Faditor + legacy FadRec projects. Tap opens, long-press multi-delete.</p></header>
+<div class="phone"><div class="sbar"><span>9:41</span><span>◍ ▲ ▮</span></div>
+<div class="top"><span class="brand">Studio</span><span class="act" style="margin-left:auto">+ New</span></div>
+<div class="list"><div class="it"><span class="th"></span><span><b>ZA_CONTROL</b><br><span style="color:var(--faint);font-size:10px">6 layers · 0:47</span></span></div>
+<div class="it"><span class="th"></span><span><b>Lyric mix v3</b><br><span style="color:var(--faint);font-size:10px">audio · 3:12</span></span></div></div></div>
+<div class="meta"><b>From:</b> <span class="from">lobby, bot line, search</span>. <b>To:</b> <span class="to">editor, file picker, export dock → player</span>. <b>States:</b> empty (demo project CTA), selection, export-progress.</div></div>
+</div></section>
+
+<section><h2><span>07–09</span>Player · Trash · Remote / Multicam</h2>
+<p class="dek">Watch (D), tidy (D), and the E room. Remote keeps its imagery re-skinned, logic untouched.</p>
+<div class="grid">
+<div class="card" data-use="D E"><header><h3>07 · Player / Viewer</h3><span class="tag">FROM library/storyboard · TO editor/share</span><p>ExoPlayer + frag-MP4 path, speed, waveform, resume. Viewer mirrors for photos.</p></header>
+<div class="phone"><div class="sbar"><span>9:41</span><span>◍ ▲ ▮</span></div>
+<div class="hero" style="height:150px"></div>
+<div class="hmeta"><span><b>Screen_0915</b><br><span style="font:8px ui-monospace,monospace;color:var(--faint)">12:04 · resume 03:11</span></span><span class="act">Open in Studio</span></div>
+<div class="chips"><span class="chip">1× ramp</span><span class="chip">Wave</span><span class="chip">Info</span><span class="chip ghost">Timeout</span></div></div>
+<div class="meta"><b>States:</b> loading-frag-index / playing / gestures (vol/bright/seek/zoom) / quick-speed / resume / background-audio / forensics deep-link. NO share / NO open-in-Studio (no backend — do not add without one).</div></div>
+<div class="card" data-use="D"><header><h3>08 · Trash</h3><span class="tag">FROM library menu · TO restore/delete</span><p>ALL/VIDEOS/SNAPSHOTS filters, auto-delete info, applock.</p></header>
+<div class="phone"><div class="sbar"><span>9:41</span><span>◍ ▲ ▮</span></div>
+<div class="top"><span class="brand">Trash</span><span style="margin-left:auto;font-size:10px;color:var(--faint)">30 days</span></div>
+<div class="chips"><span class="chip on">All</span><span class="chip">Videos</span><span class="chip">Evidence</span></div>
+<div class="list"><div class="it"><span class="th"></span><span><b>old_take.mp4</b><br><span style="color:var(--faint);font-size:10px">9 days left</span></span></div></div>
+<div style="padding:10px 12px 14px"><div class="btn">Restore selected</div></div></div>
+<div class="meta"><b>States:</b> empty / selection / restoring / empty-all confirm.</div></div>
+<div class="card" data-use="E A"><header><h3>09 · Remote + Multicam</h3><span class="tag">FROM floor/lobby · TO capture source</span><p>LAN HLS toggle + URL + modes + clients + quality + auth + cloud. Watch = start/stop.</p></header>
+<div class="phone"><div class="sbar"><span>9:41</span><span>◍ ▲ ▮</span></div>
+<div class="top"><span class="brand">Remote</span><span class="chip on" style="margin-left:auto">ON AIR</span></div>
+<div class="list"><div class="it"><span class="dot" style="background:var(--go)"></span><span><b>http://192.168.1.5:8080</b><br><span style="color:var(--faint);font-size:10px">copy · endpoints · 2 clients</span></span></div>
+<div class="it"><span class="dot" style="background:var(--armed)"></span><span><b>Clients · quality · uptime</b><br><span style="color:var(--faint);font-size:10px">endpoints · battery · data · auth</span></span></div>
+<div class="it"><span class="dot" style="background:var(--careful)"></span><span><b>Streaming mode · cloud</b><br><span style="color:var(--faint);font-size:10px">local/cloud · 2nd-camera + trigger = NEW work</span></span></div></div></div>
+<div class="meta"><b>To:</b> <span class="to">browser view, Capture (2nd camera), Story Board (markers)</span>. Facelift: root + imagery only.</div></div>
+</div></section>
+
+<section><h2><span>10–12</span>Studio editor · SpriteLab · Avatar/Puppet</h2>
+<p class="dek">The 20%-done room and its durable siblings. Editor keeps NO global nav — transport + tool row are sacred.</p>
+<div class="grid">
+<div class="card" data-use="B C"><header><h3>10 · Studio editor</h3><span class="tag">FROM projects/carry-on/batch · TO export/library</span><p>Timeline + transport (44dp) + contextual tool row + drawer (scrim 64% + blur, 46dp rows, drawer ink). Drawers ×15 finished LAST.</p></header>
+<div class="phone"><div class="sbar"><span>9:41</span><span>◍ ▲ ▮</span></div>
+<div class="hero" style="height:110px"><span style="position:absolute;left:0;right:0;top:0;background:var(--scr);backdrop-filter:blur(20px);border-radius:0 0 12px 12px;padding:7px 10px;font-size:10px">◉ Joybot · NORMAL · FROST/CLEAR · ✕<br><span style="color:var(--label)">walk · idle · wave · fps 8</span></span></div>
+<div class="top" style="height:32px"><span class="kbd">00:12</span><span>◉</span><span>⤾</span><span style="margin-left:auto">⏯</span><span class="kbd">00:47</span></div>
+<div class="tl"><div class="lane"><span class="clip" style="left:5%;right:30%;background:#26A69A">IMG</span><span class="ph"></span></div>
+<div class="lane b"><span class="clip" style="left:40%;right:5%;background:#8C3DFA;color:#fff">FONT TEST</span><span class="ph"></span></div>
+<div class="lane" style="height:32px"><span class="clip" style="left:10%;right:15%;background:#FFB74D;box-shadow:0 0 0 1.5px var(--armed)">walk · 5</span><span class="ph"></span></div></div>
+<div class="chips"><span class="chip on">Frames</span><span class="chip">Move</span><span class="chip">Opacity</span><span class="chip">⋯ 23 more</span></div></div>
+<div class="meta"><b>States:</b> nothing-selected (Add row) / clip-selected (context row) / audio-selected (Extract/Sound/Clean) / broken (amber ring + relink) / transcript tab / all-tools sheet. <b>0ms:</b> play/undo/split/keying.</div></div>
+<div class="card" data-use="B"><header><h3>11 · SpriteLab (durable)</h3><span class="tag">FROM lobby + in-editor · TO studio bake</span><p>Pattern for ALL durable modules: outside store + dual entry + .sprite.json + bake.</p></header>
+<div class="phone"><div class="sbar"><span>9:41</span><span>◍ ▲ ▮</span></div>
+<div class="top"><span class="brand">SpriteLab</span><span class="chip on" style="margin-left:auto">Grid</span></div>
+<div class="hero" style="height:100px"></div>
+<div class="chips"><span class="chip on">walk</span><span class="chip">idle</span><span class="chip">wave</span><span class="chip">+ clip</span></div>
+<div style="padding:0 12px 14px"><div class="btn">Bake sheet + JSON</div></div></div>
+<div class="meta"><b>States:</b> slice/align/onion/clips/export. Nearly complete — icons from HTML via genicons.</div></div>
+<div class="card" data-use="B"><header><h3>12 · Avatar / Puppet (durable)</h3><span class="tag">FROM lobby + in-editor · TO rig use</span><p>Rig store outside editor; pins/bones/IK/dangle inside. Largest 🟡 — drive before promoting.</p></header>
+<div class="phone"><div class="sbar"><span>9:41</span><span>◍ ▲ ▮</span></div>
+<div class="top"><span class="brand">Avatar</span><span class="chip on" style="margin-left:auto">Rig</span></div>
+<div class="hero" style="height:130px"><span style="position:absolute;left:50%;top:40%;width:8px;height:8px;background:var(--armed);border-radius:50%"></span><span style="position:absolute;left:60%;top:55%;width:8px;height:8px;background:var(--armed);border-radius:50%"></span></div>
+<div class="chips"><span class="chip on">Pins</span><span class="chip">Bones</span><span class="chip">Dangle</span><span class="chip">Bake</span></div></div>
+<div class="meta"><b>States:</b> place/pose/record-take/bake-to-keys. Puppet bubble = live use in recordings.</div></div>
+</div></section>
+
+<section><h2><span>13–15</span>Sound/VizLab · Story Board · Bits</h2>
+<p class="dek">C's home (durable store + live widget), E's home (reskinned evidence), and the merged gadget surface.</p>
+<div class="grid">
+<div class="card" data-use="C"><header><h3>13 · VizLab / Sound (durable)</h3><span class="tag">FROM lobby + audio drawer · TO studio + live</span><p>Visualiser styles as durable assets: use in Studio, leave on as widget, decorate recordings.</p></header>
+<div class="phone"><div class="sbar"><span>9:41</span><span>◍ ▲ ▮</span></div>
+<div class="hero" style="height:110px;background:linear-gradient(180deg,#1a0f08,#0d0d10)"></div>
+<div class="hmeta"><span><b>Fire bars</b><br><span style="font:8px ui-monospace,monospace;color:var(--faint)">32 BANDS · BEAT-LOCKED</span></span><span class="act" style="background:linear-gradient(110deg,var(--rSndA),var(--rSndB))">Use</span></div>
+<div class="chips"><span class="chip">Transcript</span><span class="chip">Clean</span><span class="chip on">Visualiser</span><span class="chip">Beats</span></div></div>
+<div class="meta"><b>States:</b> style shelf / live widget mode / beat-lock / transcript (filler struck, pink = playing). BUILD store+widget, then room.</div></div>
+<div class="card" data-use="E B"><header><h3>14 · Story Board (was Evidence)</h3><span class="tag">FROM floor Finder · TO editor rough-cut</span><p>Pin/tag/sequence snapshots+notes pre-edit. Auto-markers from motion/noise → timeline + chapters.</p></header>
+<div class="phone"><div class="sbar"><span>9:41</span><span>◍ ▲ ▮</span></div>
+<div class="top"><span class="brand">Story Board</span><span style="margin-left:auto;font-size:10px;color:var(--faint)">12 snapshots</span></div>
+<div class="list"><div class="it"><span class="th"></span><span><b>Back door · person</b><br><span style="color:var(--faint);font-size:10px">21:14 · auto-marker → chapter</span></span></div>
+<div class="it"><span class="th"></span><span><b>Parking lot</b><br><span style="color:var(--faint);font-size:10px">pinned note: use wide cut</span></span></div></div>
+<div style="padding:0 12px 14px"><div class="btn">Send rough-cut to Studio</div></div></div>
+<div class="meta"><b>States:</b> snapshots/activity/overview/session/people. Gated by Smart-Detection toggle. Dossier mood kept, de-spied.</div></div>
+<div class="card" data-use="A D"><header><h3>15 · Bits (merged gadgets)</h3><span class="tag">FROM floor/sidebar/search · TO tool/shortcut</span><p>Torch + QR real. 8 stubs CUT-or-COMMIT. Shortcuts + clock config live here too.</p></header>
+<div class="phone"><div class="sbar"><span>9:41</span><span>◍ ▲ ▮</span></div>
+<div class="top"><span class="brand">Bits</span></div>
+<div class="list"><div class="it"><span class="dot" style="background:var(--go)"></span><span><b>Torch</b><br><span style="color:var(--faint);font-size:10px">steady/strobe/SOS · shortcut</span></span></div>
+<div class="it"><span class="dot" style="background:var(--armed)"></span><span><b>QR scan / make</b></span></div>
+<div class="it" style="opacity:.5"><span class="dot" style="background:var(--dis)"></span><span><b>9 stubs: compass · sound · sensors · speed · level · steps · metal · parking · QR-make</b><br><span style="color:var(--faint);font-size:10px">CUT or COMMIT — no stub facelift (QR scan is FULL, QR-make is stub)</span></span></div></div></div>
+<div class="meta"><b>States:</b> tool open / coming-soon sheet (only until cut decision) / shortcut pinned.</div></div>
+</div></section>
+
+<section><h2><span>16–18</span>Setup hub · Module (Video) · Joybot + Onboarding</h2>
+<p class="dek">Single-source settings with reference links. Video shown as the module pattern every other setting copies.</p>
+<div class="grid">
+<div class="card" data-use="A B C D E"><header><h3>16 · Setup hub</h3><span class="tag">FROM floor/search · TO module overlays</span><p>Grouped single scroll. OWNS all fragments; rooms LINK. 9 themes → JoyCreator + 1 dark alt.</p></header>
+<div class="phone"><div class="sbar"><span>9:41</span><span>◍ ▲ ▮</span></div>
+<div class="top"><span class="brand">Setup</span></div>
+<div class="list"><div class="it"><span><b>Capture</b><br><span style="color:var(--faint);font-size:10px">Video · Audio · Dual · Screen</span></span></div>
+<div class="it"><span><b>Library</b><br><span style="color:var(--faint);font-size:10px">Storage · Player</span></span></div>
+<div class="it"><span><b>Studio &amp; Sound</b><br><span style="color:var(--faint);font-size:10px">Editor · VizLab · Watermark</span></span></div>
+<div class="it"><span><b>System</b><br><span style="color:var(--faint);font-size:10px">Appearance · Security · Notifications · Shortcuts</span></span></div>
+<div class="it"><span><b>About · Help · Updates</b></span></div></div></div>
+<div class="meta"><b>States:</b> grouped hub / module overlay (back = hub) / search jumps straight to module.</div></div>
+<div class="card" data-use="A E"><header><h3>17 · Module: Video settings</h3><span class="tag">SOURCE in hub · LINKED from Capture</span><p>Same instance both places via OverlayNavUtil. Camera/res/fps/codec/bitrate/orient/zoom/split/location/dual.</p></header>
+<div class="phone"><div class="sbar"><span>9:41</span><span>◍ ▲ ▮</span></div>
+<div class="top"><span>‹ Setup</span><span class="brand" style="margin-left:8px">Video</span></div>
+<div class="list"><div class="it"><span><b>Camera</b><br><span style="color:var(--faint);font-size:10px">Back · 4K60</span></span></div>
+<div class="it"><span><b>Bitrate</b><br><span style="color:var(--faint);font-size:10px">Auto · 40 Mbps</span></span></div>
+<div class="it"><span><b>Dual-cam</b><br><span style="color:var(--faint);font-size:10px">PiP · link ›</span></span></div></div>
+<div style="padding:0 12px 14px;font-size:10px;color:var(--faint)">Opened from: Setup hub AND Capture camera row — one source.</div></div>
+<div class="meta"><b>Pattern for:</b> Audio, DualCam, ScreenRec, Watermark, Storage, Security, MotionLab, Smart Detection, Player, Shortcuts.</div></div>
+<div class="card" data-use="A B C D E"><header><h3>18 · Joybot + First run</h3><span class="tag">ORB everywhere · onboarding once</span><p>Chat + 55 tools + routing. First run: 7-phrase slideshow (3000/560/260), promise, Support, key offer.</p></header>
+<div class="phone"><div class="sbar"><span>9:41</span><span>◍ ▲ ▮</span></div>
+<div class="list"><div class="it"><span class="orb" style="width:26px;height:26px">◕</span><span><b>Cut the ums?</b><br><span style="color:var(--faint);font-size:10px">uses your transcript · Apply / Edit</span></span></div>
+<div class="it" style="margin-left:18px"><span><b>Take me to bitrate</b><br><span style="color:var(--faint);font-size:10px">routing is the cheapest tool</span></span></div></div>
+<div style="padding:10px 12px 14px"><div class="btn">Start creating</div></div></div>
+<div class="meta"><b>States:</b> chat / proposal card / job-running (strip) / claymation greeting → flattens to orb (needs spritesheets).</div></div>
+</div></section>
+
+</main>
+<div class="note wrap" style="margin-top:10px"><b>How to review:</b> archetype buttons dim what that user never opens. Every card above names FROM/TO + states — reply "on 09, the 2nd camera row should…" and it maps to <span class="kbd">RemoteFragment</span>. Open decisions D1–D7 in NAV_SPEC §8 still stand.</div>
+<footer><div class="wrap">Grand Design v1 · drawn from NAV_SPEC.md + APP_MANIFEST.md · tokens: studio_tokens.xml (46) · motion: Marquee §04 · <b>Block</b> on D2/D3/D4 before build (cut-or-commit list).</div></footer>
+<script>(function(){var b=document.querySelectorAll("#arch button"),c=document.querySelectorAll(".card");b.forEach(function(x){x.addEventListener("click",function(){b.forEach(function(o){o.setAttribute("aria-pressed",String(o===x))});var a=x.dataset.a;c.forEach(function(cd){var u=(cd.dataset.use||"").split(" ");cd.style.opacity=(a==="all"||u.indexOf(a)>=0)?"1":".28"})})})})();
+</script></body></html>

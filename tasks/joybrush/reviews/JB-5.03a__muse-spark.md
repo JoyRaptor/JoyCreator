@@ -1,0 +1,19 @@
+# Adversarial review — JB-5.03a Stroke record v2 + line edits (reshape / re-weight / re-brush / re-color)
+
+- Reviewer: muse-spark (cross-reviewer; builder was an unrelated subagent — different family; exclusive `stroke/` lane per R15).
+- Task status: 🟧 Built. Commit reviewed: `dcca7341`.
+- Spec reviewed: `tasks/joybrush/specs/JB-5.03a_stroke_edits.md` (contract, decisions 1–5, tests 1–8, Do-not + builder Questions 1–6).
+- §5b checks: diff touches only the spec's owner area (`stroke/StrokeRecord.kt` two fields, `StrokeCodec.kt` version 2, `StrokeCodecTest.kt` edits, NEW `StrokeEdit.kt` + `StrokeEditTest.kt`), board row, spec questions — no existing field moved/renamed per "Do not". Suites run by me in a clean HEAD worktree: `StrokeCodecTest` 14/14 + `StrokeEditTest` 11/11, 0 failures; `:androidkit:test` BUILD SUCCESSFUL (104/104) — which closes the builder's Q1 (see Verified 1).
+- Severity scale per §5b: BLOCKER / MAJOR / MINOR.
+
+## Findings: none on the built code. Verified instead (including closing the one open verification)
+
+1. **Q1 closed — `JbArchiveTest` IS green, not just "should be".** The builder was not permitted the second command; I ran it: `JbArchiveTest` 32/32 with six-arg records decoding to black/1 defaults through `encodeAll`/`decodeAll` (the codec's own header versions the strokes; the archive needs no separate stroke-format bump — the builder's reading confirmed by execution).
+2. **Codec byte-exact:** `VERSION = 2`, magic stays `JBS1`; encode order `screenPerDoc, colorArgb(u32), widthScale(f32), count` with the offsets pinned arithmetically in-test (`countOffset`, `colorOffset`, +8 size formula); always writes v2; honest v1 builder (omits the 8 bytes, not a patched v2) decodes to black/1 with resave stamping 2; v3/v0/65535 refused with the version named. v1 `count`-right-after-`screenPerDoc` agrees on both sides — no v1-read breakage possible.
+3. **Reshape per Decision 3:** `(1−(s/R)²)²` both directions via `abs()` on cumulative Float arc (NaN/Inf segments contribute 0, never poison); `radius ≤ 0`/non-finite → grab alone; non-finite dx/dy/grab or empty → record unchanged; ends move like any sample (no special case); grab = nearest placeable with deterministic first-wins ties; 100-sample/50-grab/10-dx/20-radius test asserts exact-10 at grab, zero past R, closed-form ±1e-3, one-side monotonic, and full field-identity elsewhere. The 1e-4 mirror tolerance is documented float-accumulation (different accumulated-sum pairs), with the sharp closed-form assertion alongside — correctly pinned, not sloppily.
+4. **Reweight/rebrush/recolor/id:** single-sourced 0.05..20 bounds shared with the codec; non-finite factor → unchanged; `2 then 0.5 → 1 ±1e-6`, `1000 → 20`, NaN width → repaired downstream; all four edits `copy` preserving `id` AND `seed` (rebrush keeps scatter put — pinned).
+5. **Q3/Q4/Q5 recorded as specified, correctly addressed to the Lead:** decoder-repairs/encoder-verbatim (a hand-built out-of-range record doesn't round-trip — by Decision 2's letter; rule which end may normalise); `VERSION = 2` + `OLDEST_VERSION = 1` two-bounds style (no freeze test outside the area to collide with, unlike `BRUSH_VERSION`); radius-0 ≡ sub-pixel-radius behaviour as specified.
+6. **Q2 endorsed to the Lead (keep (a)):** the extra `INK_ENGINES`/`drawsInkLines` (5 lines + 1 test, inside the owner area, no `Do not` violation) is the only place in core naming R20's set, with refusal correctly left to JB-5.03's session (which owns the sentence + `Refused` result). The (b)-move needs a `LayerKind` in scope that doesn't exist here; (c)-drop loses the list. Keep.
+
+## Recommendation
+No send-back. No BLOCKER, MAJOR, or MINOR open. This is the spec's re-brush promise made concrete (fill-pen ↔ pencil both directions ride on `seed`-kept rebrush) — JB-5.03 inherits sound primitives.

@@ -77,3 +77,39 @@ Running: Settings sub-screens restyle (Sonnet); What's New + update sheets + mod
 Open (owner decisions): Viz Lab card; bottom words (Packs/Bits/Finder); Remote/Server Room + Smart Detection; WaveformDebugActivity export; 11 orphan classes; New button behaviour; pill colour; rename "Classic view".
 Open (mine): restyle Home recorder (Bits); fullscreen preview; Home sidebar; audio envelope oddities; voiceovers in project view; rename/trash helpers for sheets/characters; retire AvatarToggleView + eye-colour pref; sweep leftovers (caption presets retest).
 Parked: VisLab (brief in tasks/VISLAB_BRIEF.md); Joy Brush send-into-existing-project.
+
+## Adversarial audit — 2026-10-18
+- [x] Locate active repository, read coordination rules, establish checked-out scope (24fc23790 plus existing working changes).
+- [x] Dispatch read-only JoyBot, VisLab and JoyBrush reviewers.
+- [x] Trace screen-recorder toggle and Studio integration failure paths.
+- [x] Verify reviewer findings against reachable code and focused non-build checks; owner-authorized Note 9 pause/recorder checks and isolated brush microbench.
+- [x] Deliver prioritized findings, JoyBot capability assessment, and performance recommendations in tasks/audits/2026-10-18/README.md.
+Review constraints: no application edits, Gradle invocations, installs, merges, or model-service calls. Device testing became owner-authorized during the audit; phone returned Home, capture/visualiser stopped, lock released. Review: 28 findings (14 P1 / 14 P2), 424 agent helper checks plus Viz tests/probes; phone confirms pause load, capture interruption and stale toggle; 13 JoyBrush files unchanged after unsaved benches.
+
+## Timeline marks and regions — owner-approved October 23, 2026
+- [x] October 24 return audit: check current code/build/device evidence and locate remaining gaps.
+- [x] Correct duplicate wheel touch handler so settling waits until release.
+- [ ] Refresh focused marker checks and build evidence after the correction.
+- [ ] Record exact BUILT/verified/pending status in STATE.md and both roadmaps.
+- [ ] Remove only this task's obsolete temporary files after preserving durable results.
+- [x] Preserve existing bookmark offsets; implement versioned named gradient points and regions.
+- [x] Native compact popup: texture, shared icons, one-line times, cyan editing, smooth centered wheel.
+- [x] Wire timestamp tap/hold, ruler marks, matching playhead colors, and undo/reload.
+- [x] Connect active-region looping and selected-region export through existing composition/queue.
+- [x] Compile/package and prove new symbols in the actual APK.
+- [ ] Note 9 interaction, playback, and export acceptance when separately requested/available.
+Spec: SPEC_TIMELINE_MARKS_20261023.md. User approval given in this chat; native build authorized.
+
+Review October 24: saved undo payloads include complete marker metadata without changing normal
+project/export JSON. Popup tap and long-press dispatch is explicit; landscape and larger text
+retain reachable controls. Audio-first range export pads the mixed editor clock before clipping.
+Initial APK attempts reached Java compilation, exposing an unfinished pre-existing draw-only
+WaveformOverlayView refactor: obsolete gesture methods referenced removed fields. Completed
+that removal, retaining the shared transform ownership described by the file. Build slot is
+shared; no phone verification or install has been claimed. No test suites run in this continuation.
+
+Build result: the shared primary-checkout `:app:assembleDefaultDebug` completed successfully
+October 24 at 03:15 (3m 15s). Confirmed all six new marker/popup/loop-export integration symbols
+in packaged DEX. Stable copy: `JoyCreator-timeline-marks-debug.apk` in this chat's visualization
+folder. SHA-256: `ADB9F172FEE70CD3C533B5124E1A0D9651317FA59680D4BB21D25811DE2BE728`.
+Phone interaction, actual loop timing, and exported file playback remain unverified.

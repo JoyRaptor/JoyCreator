@@ -1,0 +1,28 @@
+﻿10-15 19:15:43.303 27259 27259 I AndroidRuntime: VM exiting with result code 0, cleanup skipped.
+10-15 19:16:46.070 24719 24719 D AndroidRuntime: propertySet: couldn't set property (it is from app)
+10-15 19:16:48.365 24598 24598 D UndoManager: History cleared
+10-15 19:16:48.366 24598 24598 D UndoManager: Loaded 5 history entries from disk
+10-15 19:16:48.399 24598 24598 D UndoManager: BASELINE reset: 31ms, 32947 chars
+10-15 19:16:59.687 24894 24894 D AndroidRuntime: propertySet: couldn't set property (it is from app)
+10-15 19:17:12.859 25204 25204 D AndroidRuntime: propertySet: couldn't set property (it is from app)
+10-15 19:17:14.488 25355 25355 D AndroidRuntime: propertySet: couldn't set property (it is from app)
+10-15 19:17:25.587 25412 25412 D AndroidRuntime: propertySet: couldn't set property (it is from app)
+10-15 19:17:30.374 24598 25429 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by nvidia/nemotron-3-super-120b-a12b:free
+10-15 19:17:33.038 24598 25429 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by nvidia/nemotron-3.5-super-vl:free
+10-15 19:17:34.783 24598 25429 I JoybotAgent: reply: native tools on, 0 native call(s), text 66 chars, served by cohere/north-mini-code:free
+10-15 19:17:46.044 25525 25525 D AndroidRuntime: propertySet: couldn't set property (it is from app)
+10-15 19:17:46.390 24598 24598 I UndoManager: Recorded AI checkpoint: Joybot: “change the font of the hello 2 text to…” (undo=6, redo=0)
+10-15 19:17:46.391 24598 24598 I UndoManager: Project swapped under the undo stack: actions invalidated, 0 unrestorable entr(ies) dropped (undo=6, redo=0)
+10-15 19:17:46.415 24598 24598 D UndoManager: BASELINE reset: 4ms, 32985 chars
+10-15 19:17:59.658 25637 25637 D AndroidRuntime: propertySet: couldn't set property (it is from app)
+10-15 19:17:59.856 24598 24598 D UndoManager: Undone (snapshot): Joybot: “change the font of the hello 2 text to…”
+10-15 19:17:59.856 24598 24598 D UndoManager: (undo=5, redo=1)
+10-15 19:18:00.065 24598 24598 D UndoManager: BASELINE refresh: 3ms, 32947 chars, force=true
+10-15 19:18:16.940 25763 25763 D AndroidRuntime: propertySet: couldn't set property (it is from app)
+10-15 19:18:21.562 25839 25839 D AndroidRuntime: propertySet: couldn't set property (it is from app)
+10-15 19:18:23.148 25937 25937 D AndroidRuntime: propertySet: couldn't set property (it is from app)
+10-15 19:18:36.064 26016 26016 D AndroidRuntime: propertySet: couldn't set property (it is from app)
+10-15 19:18:38.266 24598 25429 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by nvidia/nemotron-3.5-lightning:free
+10-15 19:18:42.272 24598 25429 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by nvidia/nemotron-3-super-120b-a12b:free
+10-15 19:18:55.859 24598 25429 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by nvidia/nemotron-3.5-lightning:free
+10-15 19:19:04.862 26134 26134 D AndroidRuntime: propertySet: couldn't set property (it is from app)

@@ -1,0 +1,8 @@
+﻿10-15 19:41:00.681  3299  3805 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by nvidia/nemotron-3-super-120b-a12b:free
+10-15 19:41:12.776  3299  3805 I JoybotAgent: reply: native tools on, 1 native call(s), text 623 chars, served by dots-studio/dots-3-note-preview:free
+10-15 19:41:22.197  3299  3805 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by nvidia/nemotron-3-super-120b-a12b:free
+10-15 19:41:27.268  3299  3805 I JoybotAgent: reply: native tools on, 1 native call(s), text 3 chars, served by dots-studio/dots-3-note-preview:free
+10-15 19:41:30.048  3299  3805 I JoybotAgent: reply: native tools on, 1 native call(s), text 3 chars, served by dots-studio/dots-3-note-preview:free
+10-15 19:41:33.367  3299  3805 I JoybotAgent: reply: native tools on, 1 native call(s), text 0 chars, served by cohere/north-mini-code:free
+10-15 19:41:35.030  3299  3805 I JoybotAgent: reply: native tools on, 0 native call(s), text 100 chars, served by cohere/north-mini-code:free
+10-15 19:41:54.019  3299  3299 I SpriteLab: back from Joybot: modified=false for null

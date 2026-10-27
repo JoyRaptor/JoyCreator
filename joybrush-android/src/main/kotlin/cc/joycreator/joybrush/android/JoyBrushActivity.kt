@@ -273,6 +273,7 @@ class JoyBrushActivity : Activity() {
     private lateinit var hud: ValueHud
     private lateinit var reference: ReferenceView
     private lateinit var pinBtn: TopButton
+    private lateinit var joybotBtn: TopButton
     private lateinit var layersBtn: TopButton
     private lateinit var guidesBtn: TopButton
     private lateinit var guideOverlay: GuideOverlayView
@@ -655,6 +656,15 @@ class JoyBrushActivity : Activity() {
         undoBtn = TopButton(kit, JbIcon.UNDO, "Undo (or tap with two fingers)").apply { setOnClickListener { canvas.undo() } }
         redoBtn = TopButton(kit, JbIcon.REDO, "Redo (or tap with three fingers)").apply { setOnClickListener { canvas.redo() } }
         guidesBtn = TopButton(kit, JbIcon.GUIDES, "Guides — grid, perspective, ruler").apply { setOnClickListener { guidesPanel(this) } }
+        joybotBtn = TopButton(kit, JbIcon.GUIDES, "Joybot — ask it to add layers, frames, set the brush or draw a shape").apply {
+            // Joybot's own art lives in the app (the Studio's button uses it): regular face, smiling while pressed.
+            fun face(name: String) = resources.getIdentifier(name, "drawable", packageName).takeIf { it != 0 }?.let { androidx.core.content.ContextCompat.getDrawable(this@JoyBrushActivity, it)?.mutate() }
+            val neutral = face("joybot_neutral"); val smile = face("joybot_smile")
+            if (neutral != null && smile != null) faces = neutral to smile
+            setOnClickListener {
+                startActivity(Intent().setClassName(packageName, "com.fadcam.ui.faditor.ai.ChatAssistantActivity").putExtra("chat_room", "JOYBRUSH"))
+            }
+        }
         pinBtn = TopButton(kit, JbIcon.PIN, "Pin a reference picture — hold for its options").apply {
             setOnClickListener { pinTapped() }
             setOnLongClickListener { referenceMenu(); true }
@@ -668,8 +678,8 @@ class JoyBrushActivity : Activity() {
         val touch = kit.dpi(ChromeKit.TOUCH_DP)
         for (b in listOf(home, undoBtn, redoBtn)) topBar.addView(b, LinearLayout.LayoutParams(touch, touch))
         topBar.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
-        for (b in listOf(guidesBtn, pinBtn, layersBtn, more)) topBar.addView(b, LinearLayout.LayoutParams(touch, touch))
-        topButtons.addAll(listOf(home, undoBtn, redoBtn, guidesBtn, pinBtn, layersBtn, more))
+        for (b in listOf(joybotBtn, guidesBtn, pinBtn, layersBtn, more)) topBar.addView(b, LinearLayout.LayoutParams(touch, touch))
+        topButtons.addAll(listOf(home, undoBtn, redoBtn, joybotBtn, guidesBtn, pinBtn, layersBtn, more))
 
         // "Done" for adjusting guides: a pill at the top centre while the handles are out.
         guideDone = pillButton("Done", "Finish moving the guides") { setAdjustingGuides(false) }.apply { visibility = View.GONE }

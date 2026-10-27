@@ -1,0 +1,1189 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Five Front Doors</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+
+<style>
+/* ===========================================================
+   JOY CREATOR — FIVE FRONT DOORS
+   Built to JoyRaptor's picks, 16 Sep 2026:
+     old black ground · SpritePop greys for separation
+     pills · flat controls · frosted glass for anything that POPS
+     greys fade density, colour guides the eye
+   Single-theme on purpose: the product is a dark studio and the
+   swatches only read true on its own ground. Everything painted.
+   =========================================================== */
+:root{
+  /* ground + separation — zinc, via SpritePop */
+  --bg:#050507;
+  --bg2:#0a0a0d;
+  --panel:#111114;
+  --panel2:#161619;
+  --ctl:#1c1c22;
+  --ctl2:#26262e;
+  --line:#2c2c35;
+  --line2:#3a3a46;
+  --ink:#e4e4e7;
+  --dim:#a1a1aa;
+  --dimmer:#71717a;
+
+  /* the four states — global, never reused as a room colour */
+  --sel:#22d3ee;
+  --live:#f43f8e;
+  --warn:#fbbf24;
+  --danger:#fa3d5d;
+
+  /* room gradients — the swapper rewrites these */
+  --r-studio-a:#35f6bf;  --r-studio-b:#97fe8b;
+  --r-capture-a:#fa3d5d; --r-capture-b:#ff008c;
+  --r-shop-a:#ff008c;    --r-shop-b:#cc27ff;
+  --r-library-a:#4397fd; --r-library-b:#55e0f9;
+  --r-sound-a:#faa03d;   --r-sound-b:#fc6818;
+  --r-finder-a:#97fe8b;  --r-finder-b:#ceff5b;
+  --r-remote-a:#55e0f9;  --r-remote-b:#35f6bf;
+  --r-bot-a:#5c43fd;     --r-bot-b:#ff008c;
+  --r-grey-a:#71717a;    --r-grey-b:#52525b;
+
+  --f-disp:'Archivo','Helvetica Neue',Arial,sans-serif;
+  --f-body:'IBM Plex Sans','Segoe UI',system-ui,sans-serif;
+  --f-mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+
+  --gut:20px;
+  --maxw:1080px;
+}
+*{box-sizing:border-box}
+html,body{background:var(--bg)}
+body{margin:0;font-family:var(--f-body);color:var(--ink);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:var(--f-disp);margin:0;letter-spacing:-.02em;text-wrap:balance}
+p{margin:0}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.wrap{max-width:var(--maxw);margin:0 auto;padding-inline:var(--gut)}
+
+/* ---------- masthead ---------- */
+.mast{padding-block:52px 32px;border-bottom:1px solid var(--line);position:relative;overflow:hidden;
+  background:radial-gradient(900px 320px at 10% -30%, rgba(53,246,191,.16), transparent 70%),
+             radial-gradient(800px 300px at 90% -20%, rgba(255,0,140,.14), transparent 70%), var(--bg);}
+.mast .eyebrow{font-family:var(--f-mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--dimmer);margin-bottom:12px}
+.mast h1{font-size:clamp(36px,6.6vw,62px);font-weight:900;line-height:.96;letter-spacing:-.04em}
+.mast h1 em{font-style:normal;background:linear-gradient(100deg,var(--r-studio-a),var(--r-studio-b));-webkit-background-clip:text;background-clip:text;color:transparent}
+.mast p{max-width:62ch;margin-top:15px;color:var(--dim);font-size:16px}
+.mast p b{color:var(--ink);font-weight:600}
+
+section{padding-block:56px 0;scroll-margin-top:16px}
+.shead{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;margin-bottom:8px}
+.snum{font-family:var(--f-mono);font-size:11.5px;color:var(--sel);border:1px solid color-mix(in srgb,var(--sel) 45%,transparent);border-radius:6px;padding:3px 8px}
+.shead h2{font-size:clamp(24px,4vw,34px);font-weight:800}
+.sdek{color:var(--dim);max-width:66ch;margin:12px 0 26px}
+.sdek b{color:var(--ink);font-weight:600}
+hr.rule{border:0;border-top:1px solid var(--line);margin-top:56px}
+
+/* ---------- the shared language strip ---------- */
+.langstrip{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.lz{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:9px}
+.lz .sample{height:60px;border-radius:10px;border:1px solid var(--line)}
+.lz b{font-size:13.5px;font-weight:700}
+.lz span{font-size:12.2px;color:var(--dim);line-height:1.45}
+.lz code{font-family:var(--f-mono);font-size:10.5px;color:var(--dimmer)}
+
+/* ---------- inventory ---------- */
+details.inv{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:0;overflow:hidden}
+details.inv>summary{cursor:pointer;padding:16px 18px;font-weight:700;font-family:var(--f-disp);font-size:16px;list-style:none;display:flex;align-items:center;gap:10px}
+details.inv>summary::-webkit-details-marker{display:none}
+details.inv>summary::before{content:"▸";color:var(--sel);transition:transform .15s}
+details.inv[open]>summary::before{transform:rotate(90deg)}
+details.inv>summary span{margin-left:auto;font-family:var(--f-mono);font-size:11px;color:var(--dimmer);font-weight:400}
+.invbody{padding:0 18px 18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:16px}
+.invgrp h4{font-size:11px;font-family:var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--dimmer);margin-bottom:7px}
+.invgrp ul{margin:0;padding-left:16px;font-size:12.8px;color:var(--dim);line-height:1.7}
+.invgrp ul b{color:var(--ink);font-weight:600}
+
+/* ---------- swapper ---------- */
+.swapper{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-top:20px}
+.swapper h4{font-size:14px;font-weight:700;margin-bottom:4px}
+.swapper p{font-size:12.6px;color:var(--dim);margin-bottom:14px}
+.swaprow{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:10px}
+.swapcell{display:flex;align-items:center;gap:9px;background:var(--ctl);border:1px solid var(--line);border-radius:10px;padding:7px 9px}
+.swapcell .nm{font-size:12px;font-weight:600;flex:1;min-width:0}
+.swapcell select{background:var(--bg2);color:var(--ink);border:1px solid var(--line2);border-radius:7px;font:inherit;font-size:11px;padding:4px 5px;max-width:92px}
+.swapcell i{width:26px;height:18px;border-radius:5px;flex:0 0 auto;border:1px solid var(--line2)}
+.warnbox{border-left:2px solid var(--warn);padding:2px 0 2px 15px;color:var(--dim);font-size:13.6px;margin-top:18px;max-width:68ch}
+.warnbox b{color:var(--ink);font-weight:600}
+
+/* ---------- concept tabs ---------- */
+.tabs{position:sticky;top:0;z-index:30;background:color-mix(in srgb,var(--bg) 90%,transparent);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-block:1px solid var(--line);margin-top:34px}
+.tabsin{display:flex;gap:6px;overflow-x:auto;padding-block:11px;scrollbar-width:none}
+.tabsin::-webkit-scrollbar{display:none}
+.tabsin button{flex:0 0 auto;font:inherit;font-size:12.5px;padding:8px 15px;border-radius:999px;cursor:pointer;
+  background:var(--ctl);border:1px solid transparent;color:var(--dim);white-space:nowrap}
+.tabsin button[aria-pressed="true"]{background:var(--ink);color:var(--bg);font-weight:700}
+
+/* ---------- concept block ---------- */
+.concept{padding-block:40px 0}
+.chead{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;margin-bottom:22px}
+.ctag{font-family:var(--f-mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--dimmer);
+  border:1px solid var(--line2);border-radius:6px;padding:4px 9px;flex:0 0 auto;margin-top:6px}
+.chead h3{font-size:clamp(25px,4.4vw,36px);font-weight:900;letter-spacing:-.03em}
+.chead .prin{flex-basis:100%;color:var(--ink);font-size:16px;max-width:64ch;margin-top:4px}
+.chead .prin b{color:var(--sel);font-weight:700}
+
+.stage{display:grid;grid-template-columns:auto 1fr;gap:34px;align-items:start}
+@media(max-width:860px){.stage{grid-template-columns:1fr}}
+
+.pros{display:flex;flex-direction:column;gap:16px}
+.pro,.con{border-left:2px solid var(--r-studio-a);padding-left:14px}
+.con{border-left-color:var(--danger)}
+.pro h5,.con h5{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--dimmer);margin:0 0 5px}
+.pro p,.con p{font-size:13.6px;color:var(--dim)}
+.pro p b,.con p b{color:var(--ink);font-weight:600}
+
+/* manifest */
+.manifest{margin-top:26px;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--panel)}
+.manifest h4{padding:14px 16px;font-size:14px;font-weight:700;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:9px}
+.manifest h4 span{margin-left:auto;font-family:var(--f-mono);font-size:10.5px;color:var(--dimmer);font-weight:400}
+.mtablewrap{overflow-x:auto}
+table.m{width:100%;border-collapse:collapse;font-size:12.6px;min-width:520px}
+table.m th{text-align:left;font-family:var(--f-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--dimmer);
+  font-weight:400;padding:9px 16px;border-bottom:1px solid var(--line);background:var(--panel2)}
+table.m td{padding:9px 16px;border-bottom:1px solid var(--line);color:var(--dim);vertical-align:top}
+table.m tr:last-child td{border-bottom:0}
+table.m td:first-child{color:var(--ink);font-weight:600;white-space:nowrap}
+.depth{font-family:var(--f-mono);font-size:10px;padding:2px 7px;border-radius:999px;white-space:nowrap}
+.d0{background:color-mix(in srgb,var(--r-studio-a) 20%,transparent);color:var(--r-studio-a)}
+.d1{background:color-mix(in srgb,var(--sel) 18%,transparent);color:var(--sel)}
+.d2{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
+.d3{background:color-mix(in srgb,var(--dimmer) 26%,transparent);color:var(--dim)}
+
+/* =========================================================
+   PHONE
+   ========================================================= */
+.phonewrap{display:flex;flex-direction:column;gap:10px;align-items:center}
+.phone{
+  width:min(390px,100%);aspect-ratio:390/812;border-radius:34px;overflow:hidden;position:relative;
+  background:var(--bg);border:1px solid var(--line2);
+  box-shadow:0 26px 70px rgba(0,0,0,.6);
+  font-size:13px;display:flex;flex-direction:column;
+  container-type:inline-size;
+}
+.phcap{font-family:var(--f-mono);font-size:10.5px;color:var(--dimmer);letter-spacing:.08em;text-align:center}
+
+.statusbar{height:30px;flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:0 18px;
+  font-size:11px;color:var(--dim);font-family:var(--f-mono)}
+.phbody{flex:1;overflow:hidden;position:relative;display:flex;flex-direction:column}
+
+/* common phone chrome */
+.topbar{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:8px 16px 12px}
+.brand{font-family:var(--f-disp);font-weight:900;font-size:17px;letter-spacing:-.03em}
+.brand small{display:block;font-family:var(--f-mono);font-size:8px;letter-spacing:.2em;color:var(--dimmer);font-weight:400;margin-top:-2px}
+.ico{width:34px;height:34px;border-radius:999px;background:var(--ctl);display:grid;place-items:center;font-size:14px;color:var(--dim);flex:0 0 auto}
+.botorb{width:36px;height:36px;border-radius:999px;display:grid;place-items:center;font-size:16px;flex:0 0 auto;
+  background:linear-gradient(135deg,var(--r-bot-a),var(--r-bot-b));color:#fff;
+  box-shadow:0 0 0 1px rgba(255,255,255,.14), 0 4px 16px color-mix(in srgb,var(--r-bot-a) 45%,transparent)}
+
+/* the frosted live strip — JoyRaptor's favourite ground, doing a real job */
+.livestrip{
+  margin:0 16px 12px;border-radius:14px;padding:10px 13px;display:flex;align-items:center;gap:11px;
+  background:linear-gradient(135deg,rgba(255,255,255,.10),rgba(255,255,255,.035));
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.16), 0 4px 18px rgba(0,0,0,.4);
+  border:1px solid rgba(255,255,255,.10);flex:0 0 auto;
+}
+.livestrip .pulse{width:8px;height:8px;border-radius:999px;background:var(--live);flex:0 0 auto;
+  box-shadow:0 0 0 4px color-mix(in srgb,var(--live) 25%,transparent)}
+.livestrip .tx{flex:1;min-width:0}
+.livestrip .tx b{display:block;font-size:11.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.livestrip .tx span{font-size:10px;color:var(--dim)}
+.livestrip .bar{height:3px;border-radius:999px;background:rgba(255,255,255,.14);margin-top:5px;overflow:hidden}
+.livestrip .bar i{display:block;height:100%;width:62%;background:var(--r-studio-a);border-radius:999px}
+.livestrip .pct{font-family:var(--f-mono);font-size:12px;font-weight:600;color:var(--r-studio-a)}
+
+/* ---- L1 floor plan ---- */
+.plan{flex:1;display:grid;gap:9px;padding:0 16px 12px;
+  grid-template-columns:repeat(3,1fr);
+  grid-template-rows:1.55fr 1.05fr .78fr auto;}
+.tile{border-radius:16px;padding:12px;position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;
+  border:1px solid var(--line);background:var(--panel);}
+.tile .wash{position:absolute;inset:0;opacity:.20}
+.tile .glyph{position:absolute;top:10px;left:12px;font-size:17px;filter:drop-shadow(0 1px 3px rgba(0,0,0,.6))}
+.tile .nm{position:relative;font-family:var(--f-disp);font-weight:800;font-size:15px;letter-spacing:-.02em}
+.tile .sub{position:relative;font-size:10px;color:var(--dim);margin-top:1px;line-height:1.3}
+.tile.big{grid-column:span 2}
+.tile.big .nm{font-size:20px}
+.tile.sm .nm{font-size:12.5px}
+.tile.sm .sub{font-size:9px}
+.tile .thumb{position:absolute;inset:0;background:
+  repeating-linear-gradient(45deg,#1a1a20 0 7px,#141419 7px 14px);opacity:.85}
+.tile .chipline{position:relative;display:flex;gap:4px;margin-top:6px}
+.tile .chipline i{width:19px;height:19px;border-radius:5px;background:var(--ctl2);border:1px solid var(--line2);display:grid;place-items:center;font-size:9px;font-style:normal}
+.tile .cnt{position:absolute;top:10px;right:11px;font-family:var(--f-mono);font-size:9.5px;color:var(--ink);
+  background:rgba(0,0,0,.42);border-radius:999px;padding:2px 7px;backdrop-filter:blur(6px)}
+.tile .reddot{position:absolute;top:11px;right:12px;width:11px;height:11px;border-radius:999px;background:var(--live);box-shadow:0 0 0 3px color-mix(in srgb,var(--live) 26%,transparent)}
+.utilstrip{grid-column:span 3;display:flex;gap:7px}
+.utilstrip button{flex:1;font:inherit;font-size:9.5px;color:var(--dim);background:var(--ctl);border:1px solid var(--line);
+  border-radius:11px;padding:8px 2px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px}
+.utilstrip button em{font-style:normal;font-size:13px}
+
+/* ---- L2 marquee ---- */
+.mq{flex:1;display:flex;flex-direction:column;padding:0 16px 12px;gap:13px;overflow:hidden}
+.mqask{font-family:var(--f-disp);font-size:25px;font-weight:900;letter-spacing:-.035em;line-height:1.05}
+.mqask span{color:var(--dimmer);display:block;font-size:12px;font-weight:500;font-family:var(--f-body);letter-spacing:0;margin-bottom:5px}
+.verbs{display:flex;gap:7px;overflow-x:auto;padding-bottom:3px;scrollbar-width:none;flex:0 0 auto}
+.verbs::-webkit-scrollbar{display:none}
+.verbs button{flex:0 0 auto;font:inherit;font-size:13px;font-weight:600;padding:9px 17px;border-radius:999px;cursor:pointer;
+  background:var(--ctl);border:1px solid var(--line);color:var(--dim)}
+.verbs button[aria-pressed="true"]{color:#08080a;border-color:transparent;font-weight:700}
+.answers{display:flex;flex-direction:column;gap:7px;flex:1;overflow:hidden}
+.ans{display:flex;align-items:center;gap:11px;background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:11px 12px}
+.ans .g{width:34px;height:34px;border-radius:10px;flex:0 0 auto;display:grid;place-items:center;font-size:15px}
+.ans .tx b{display:block;font-size:13px;font-weight:600}
+.ans .tx span{font-size:10.5px;color:var(--dim)}
+.ans .ch{margin-left:auto;color:var(--dimmer);font-size:14px}
+.mqfoot{display:flex;gap:7px;flex:0 0 auto}
+.mqfoot button{flex:1;font:inherit;font-size:10.5px;color:var(--dim);background:var(--ctl);border:1px solid var(--line);border-radius:11px;padding:9px 4px;cursor:pointer}
+
+/* ---- L3 bench ---- */
+.bench{flex:1;display:flex;flex-direction:column;gap:13px;padding:0 16px 8px;overflow:hidden}
+.hero{border-radius:17px;overflow:hidden;border:1px solid var(--line);background:var(--panel);flex:0 0 auto}
+.hero .shot{height:126px;position:relative;background:repeating-linear-gradient(45deg,#17171d 0 8px,#121217 8px 16px)}
+.hero .shot .frostbtn{position:absolute;right:11px;bottom:11px;border-radius:999px;padding:7px 15px;font-size:11.5px;font-weight:700;color:#08080a;
+  background:linear-gradient(120deg,var(--r-studio-a),var(--r-studio-b));box-shadow:0 4px 16px color-mix(in srgb,var(--r-studio-a) 40%,transparent)}
+.hero .shot .lanes{position:absolute;left:0;right:0;bottom:0;height:24px;display:flex;flex-direction:column;gap:2px;padding:0 0 4px}
+.hero .shot .lanes i{height:3px;border-radius:999px;margin-left:8px}
+.hero .meta{padding:11px 13px}
+.hero .meta b{font-size:14px;font-weight:700;display:block}
+.hero .meta span{font-size:10.5px;color:var(--dim);font-family:var(--f-mono)}
+.shelfhead{display:flex;align-items:baseline;gap:8px;flex:0 0 auto}
+.shelfhead b{font-size:11px;font-family:var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--dimmer);font-weight:400}
+.shelfhead em{margin-left:auto;font-style:normal;font-size:10.5px;color:var(--sel)}
+.shelf{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;flex:0 0 auto;padding-bottom:2px}
+.shelf::-webkit-scrollbar{display:none}
+.pcard{flex:0 0 auto;width:96px;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:var(--panel)}
+.pcard .t{height:56px;background:repeating-linear-gradient(45deg,#17171d 0 7px,#121217 7px 14px)}
+.pcard .n{padding:6px 8px;font-size:10px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pcard .n span{display:block;font-family:var(--f-mono);font-size:8.5px;color:var(--dimmer);font-weight:400}
+.startrow{display:flex;gap:7px;flex:0 0 auto}
+.startrow button{flex:1;font:inherit;font-size:9.5px;font-weight:600;color:var(--ink);border:0;border-radius:12px;padding:10px 3px;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;gap:4px}
+.startrow button em{font-style:normal;font-size:15px}
+.shopshelf{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;flex:0 0 auto}
+.shopshelf::-webkit-scrollbar{display:none}
+.shopshelf i{flex:0 0 auto;width:46px;height:46px;border-radius:11px;background:var(--ctl);border:1px solid var(--line);
+  display:grid;place-items:center;font-size:17px;font-style:normal}
+.benchnav{flex:0 0 auto;display:flex;justify-content:space-around;padding:8px 6px 4px;border-top:1px solid var(--line);margin:0 -16px;padding-inline:16px}
+.benchnav i{font-style:normal;display:grid;place-items:center;gap:3px;font-size:15px;color:var(--dimmer)}
+.benchnav i s{text-decoration:none;font-size:8.5px;font-family:var(--f-body)}
+
+/* ---- L4 thumb deck ---- */
+.deckwrap{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.decktop{flex:1;padding:0 16px;display:flex;flex-direction:column;gap:11px;overflow:hidden}
+.deckrecent{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none}
+.deckrecent::-webkit-scrollbar{display:none}
+.deck{
+  flex:0 0 auto;height:310px;position:relative;margin-top:4px;
+  background:radial-gradient(120% 92% at 88% 106%, rgba(255,255,255,.055), transparent 62%);
+  border-top:1px solid var(--line);
+}
+.deck .handle{width:42px;height:4px;border-radius:999px;background:var(--line2);margin:8px auto 0}
+.deck .arcnote{position:absolute;left:16px;top:18px;font-family:var(--f-mono);font-size:9px;color:var(--dimmer);letter-spacing:.1em;text-transform:uppercase}
+.dk{position:absolute;width:62px;height:62px;border-radius:999px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  border:1px solid var(--line);background:var(--panel);color:var(--ink);font-size:9px;font-weight:600}
+.dk em{font-style:normal;font-size:19px;line-height:1}
+.dk.on{border-color:transparent}
+.dkmain{position:absolute;right:20px;bottom:22px;width:104px;height:104px;border-radius:999px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:3px;color:#08080a;font-weight:800;font-size:12px;
+  background:linear-gradient(135deg,var(--r-studio-a),var(--r-studio-b));
+  box-shadow:0 0 0 6px color-mix(in srgb,var(--r-studio-a) 12%,transparent), 0 10px 32px color-mix(in srgb,var(--r-studio-a) 38%,transparent)}
+.dkmain em{font-style:normal;font-size:26px;line-height:1}
+.dkmain span{font-family:var(--f-mono);font-size:8px;font-weight:600;opacity:.75}
+
+/* ---- L5 stage ---- */
+.stagephone{flex:1;position:relative;overflow:hidden}
+.stagebg{position:absolute;inset:0;
+  background:
+    radial-gradient(70% 50% at 30% 22%, color-mix(in srgb,var(--r-capture-a) 34%,transparent), transparent 72%),
+    radial-gradient(64% 46% at 76% 74%, color-mix(in srgb,var(--r-shop-b) 30%,transparent), transparent 72%),
+    repeating-linear-gradient(45deg,#121217 0 9px,#0d0d11 9px 18px);}
+.stagegrain{position:absolute;inset:0;opacity:.35;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/></filter><rect width='140' height='140' filter='url(%23n)' opacity='.3'/></svg>")}
+.frostcard{
+  position:absolute;border-radius:16px;
+  background:linear-gradient(135deg,rgba(255,255,255,.11),rgba(255,255,255,.04));
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border:1px solid rgba(255,255,255,.13);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.18), 0 8px 26px rgba(0,0,0,.45);
+}
+.stagecont{left:14px;top:14px;right:14px;padding:11px 13px;display:flex;align-items:center;gap:11px}
+.stagecont .t{width:40px;height:40px;border-radius:10px;background:repeating-linear-gradient(45deg,#1b1b22 0 6px,#141419 6px 12px);flex:0 0 auto;border:1px solid rgba(255,255,255,.1)}
+.stagecont b{font-size:12.5px;font-weight:700;display:block}
+.stagecont span{font-size:10px;color:#cfcfd6;font-family:var(--f-mono)}
+.stagecont .go{margin-left:auto;font-size:11px;font-weight:700;color:#08080a;background:linear-gradient(120deg,var(--r-studio-a),var(--r-studio-b));border-radius:999px;padding:6px 13px}
+.stagetools{right:14px;top:74px;width:46px;padding:7px 0;display:flex;flex-direction:column;align-items:center;gap:3px}
+.stagetools i{width:34px;height:34px;border-radius:999px;display:grid;place-items:center;font-style:normal;font-size:14px;color:#e7e7ec}
+.stagedock{left:14px;right:14px;bottom:14px;padding:11px 10px 12px}
+.dockrooms{display:flex;gap:6px;justify-content:space-between}
+.dockrooms button{flex:1;border:0;background:transparent;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;
+  font:inherit;font-size:8.5px;font-weight:600;color:#c9c9d2;padding:4px 0;border-radius:11px}
+.dockrooms button em{font-style:normal;width:32px;height:32px;border-radius:999px;display:grid;place-items:center;font-size:15px;
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1)}
+.dockrooms button.on{color:#fff}
+.dockpull{width:40px;height:4px;border-radius:999px;background:rgba(255,255,255,.22);margin:0 auto 9px}
+.stagecapchips{position:absolute;left:14px;bottom:126px;display:flex;gap:6px}
+.stagecapchips i{font-style:normal;font-family:var(--f-mono);font-size:9.5px;color:#e7e7ec;padding:5px 10px;border-radius:999px;
+  background:rgba(10,10,14,.5);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.12)}
+
+/* footer */
+footer{padding-block:48px 60px;color:var(--dimmer);font-size:12.5px;border-top:1px solid var(--line);margin-top:56px}
+footer b{color:var(--dim)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="mast"><div class="wrap">
+  <div class="eyebrow">Joy Creator · design record 02 · 17 Sep 2026</div>
+  <h1>Five <em>Front Doors</em></h1>
+  <p>Five different theories of what a lobby <b>is</b> — not five skins of one layout. Same language, same inventory, same 25 destinations. What changes is <b>what organises the screen</b>. Every concept carries a manifest showing where all 25 landed, so nothing quietly evaporates.</p>
+</div></div>
+
+<main class="wrap">
+
+<!-- ============ THE LANGUAGE ============ -->
+<section>
+  <div class="shead"><span class="snum">01</span><h2>The language, settled</h2></div>
+  <p class="sdek">From your picks. All five concepts are built from exactly these parts — which is the point: <b>if they still feel different, the difference is structural, not cosmetic.</b></p>
+
+  <div class="langstrip">
+    <div class="lz">
+      <div class="sample" style="background:#050507"></div>
+      <b>Old black is the ground</b>
+      <span>Your art is the brightest thing on screen. Nothing competes with the frame.</span>
+      <code>#050507</code>
+    </div>
+    <div class="lz">
+      <div class="sample" style="background:linear-gradient(90deg,#111114,#1c1c22,#26262e,#2c2c35)"></div>
+      <b>Zinc greys separate</b>
+      <span>Low contrast against black, so a dense screen stops being noisy. Greys recede; they never announce.</span>
+      <code>#111114 · #1C1C22 · #26262E · #2C2C35</code>
+    </div>
+    <div class="lz">
+      <div class="sample" style="background:var(--ctl);display:flex;align-items:center;justify-content:center;gap:6px">
+        <span style="font-size:10px;padding:5px 12px;border-radius:999px;background:#26262e;color:#a1a1aa">Flip</span>
+        <span style="font-size:10px;padding:5px 12px;border-radius:999px;background:var(--sel);color:#08080a;font-weight:600">Snap</span>
+      </div>
+      <b>Pills, flat</b>
+      <span>No bevel, no shadow, no border on a control. Shape carries the affordance; fill carries the state.</span>
+      <code>radius 999 · no elevation</code>
+    </div>
+    <div class="lz">
+      <div class="sample" style="background:radial-gradient(60% 90% at 30% 30%,#ff008c,transparent 70%),radial-gradient(60% 90% at 70% 70%,#35f6bf,transparent 70%),#101014;position:relative;display:grid;place-items:center">
+        <span style="position:absolute;inset:11px;border-radius:9px;background:linear-gradient(135deg,rgba(255,255,255,.12),rgba(255,255,255,.04));backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.14);box-shadow:inset 0 1px 0 rgba(255,255,255,.2)"></span>
+      </div>
+      <b>Frosted = anything that pops</b>
+      <span>Dialogs, warnings, the export strip, notifications. <b>You never left the thing you're building</b> — it's still there, just muted.</span>
+      <code>blur 18–20px · white 4–11%</code>
+    </div>
+    <div class="lz">
+      <div class="sample" style="background:var(--panel);position:relative;display:grid;place-items:center">
+        <span style="font-family:var(--f-mono);font-size:9px;color:var(--dim);letter-spacing:.1em">SOLID ◉ ── ○ FROSTED</span>
+      </div>
+      <b>Drawers get a switch</b>
+      <span>Frosted looks superb and is hostile when you're lining something up. One toggle, remembered per drawer. Your call, every time.</span>
+      <code>a preference, not a style</code>
+    </div>
+    <div class="lz">
+      <div class="sample" style="display:flex">
+        <span style="flex:1;background:var(--sel)"></span><span style="flex:1;background:var(--live)"></span>
+        <span style="flex:1;background:var(--warn)"></span><span style="flex:1;background:var(--danger)"></span>
+      </div>
+      <b>Four colours mean the same thing everywhere</b>
+      <span>Selected · Live · Careful · Destroys. A room may never borrow one. Learn them once.</span>
+      <code>#22D3EE · #F43F8E · #FBBF24 · #FA3D5D</code>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ============ INVENTORY ============ -->
+<section>
+  <div class="shead"><span class="snum">02</span><h2>What a lobby has to hold</h2></div>
+  <p class="sdek">Counted out of the code, not remembered. <b>This is the checklist every concept below is scored against.</b> Open it once so the manifests mean something.</p>
+
+  <details class="inv">
+    <summary>The full inventory <span>25 destinations · 10 gadgets · 4 live states</span></summary>
+    <div class="invbody">
+      <div class="invgrp"><h4>Capture · 7</h4><ul>
+        <li><b>Camera</b> — back, front, quality, orientation</li>
+        <li><b>Screen</b> — with webcam, annotation, pages</li>
+        <li><b>Voice</b></li><li><b>Both cameras</b> at once</li>
+        <li><b>Photo / grab</b></li><li><b>On movement</b> (Motion Lab)</li>
+        <li><b>Another phone</b> (Remote, over Wi-Fi)</li>
+      </ul></div>
+      <div class="invgrp"><h4>Studio · 1 room, 26 tools</h4><ul>
+        <li>Timeline, layers, keyframes</li>
+        <li>26 tools in a reorderable row</li>
+        <li>15 drawers · transcript panel · transitions</li>
+        <li>Transform · masks · chroma · GL</li>
+        <li>Export (out of process)</li>
+      </ul></div>
+      <div class="invgrp"><h4>Workshop · 5</h4><ul>
+        <li><b>Sprite Lab</b> (full screen)</li>
+        <li><b>Avatar Studio</b></li>
+        <li><b>Puppet rigs</b></li>
+        <li><b>Visualiser styles</b> (savable today)</li>
+        <li><b>Packs</b> — transitions, LUTs, fonts</li>
+      </ul></div>
+      <div class="invgrp"><h4>Library · 5</h4><ul>
+        <li>Recordings — <b>7 filters, 3 sub-filter rows</b></li>
+        <li>Projects — recent, rename, batch</li>
+        <li>Photos · Trash</li>
+        <li>Player &amp; viewer</li>
+        <li>Sort, view mode, hide thumbnails</li>
+      </ul></div>
+      <div class="invgrp"><h4>Other rooms · 4</h4><ul>
+        <li><b>Finder</b> — markers, detection events</li>
+        <li><b>Sound</b> — transcript, waveform, visualiser</li>
+        <li><b>Remote</b> — phone as a camera</li>
+        <li><b>Joybot</b> — 55 tools, jobs, proposals</li>
+      </ul></div>
+      <div class="invgrp"><h4>Settings · 15 screens</h4><ul>
+        <li>Video · Audio · Watermark · Screen rec</li>
+        <li>Theme · Player · Storage · Notifications</li>
+        <li>Security · Shortcuts &amp; widgets</li>
+        <li>Motion Lab · Forensics · Mini apps</li>
+        <li>Language · Backup · Debug · About</li>
+      </ul></div>
+      <div class="invgrp"><h4>Gadgets · 10</h4><ul>
+        <li>Torch · QR scan · QR make</li>
+        <li>Compass · Sound meter · Speedometer</li>
+        <li>Level · Pedometer · Metal detector</li>
+        <li>Parking marker</li>
+      </ul></div>
+      <div class="invgrp"><h4>Live states · 4</h4><ul>
+        <li><b>Recording</b> — must be escapable from anywhere</li>
+        <li><b>Exporting</b> — survives leaving the editor</li>
+        <li><b>AI job</b> — survives app close</li>
+        <li><b>Transcribing</b></li>
+      </ul></div>
+      <div class="invgrp"><h4>Edges · 5</h4><ul>
+        <li>What's new · Tips · About</li>
+        <li>Support / Ko-fi</li>
+        <li>Update channel</li>
+        <li>Onboarding &amp; first run</li>
+        <li>Wear OS (its own surface)</li>
+      </ul></div>
+    </div>
+  </details>
+
+  <div class="swapper">
+    <h4>Room colours — swap them and feel it</h4>
+    <p>You asked to be able to change your mind later. Here it is live: every phone below repaints. In the build this is one table in one file.</p>
+    <div class="swaprow" id="swaprow"></div>
+    <div class="warnbox"><b>The honest cost of your seven gradients.</b> Three sit next to each other on the wheel — Studio (aqua→lime), Finder (lime→yellow-green) and Remote (cyan→aqua). Side by side on the same screen they will read as one family. Studio is locked, so the fix is to move Finder and Remote outward. Try Finder on <b>Golden yellow</b> and Remote on <b>Indigo</b> in the swapper and see whether you miss the greens.</div>
+  </div>
+</section>
+
+<div class="tabs"><div class="wrap"><div class="tabsin" id="tabs">
+  <button type="button" data-c="plan"  aria-pressed="true">01 · Floor Plan</button>
+  <button type="button" data-c="mq"    aria-pressed="false">02 · Marquee</button>
+  <button type="button" data-c="bench" aria-pressed="false">03 · Bench</button>
+  <button type="button" data-c="deck"  aria-pressed="false">04 · Thumb Deck</button>
+  <button type="button" data-c="stage" aria-pressed="false">05 · Stage</button>
+</div></div></div>
+
+<!-- ======================================================== -->
+<!-- 01 FLOOR PLAN -->
+<!-- ======================================================== -->
+<section class="concept" data-c="plan">
+  <div class="chead">
+    <span class="ctag">organised by place</span>
+    <h3>The Floor Plan</h3>
+    <p class="prin">Your mansion, literally. Rooms are tiles; <b>size means importance and position never changes</b>, so after a week your thumb knows where Studio is without reading. The lobby is the navigation — there is no nav bar under it.</p>
+  </div>
+
+  <div class="stage">
+    <div class="phonewrap">
+      <div class="phone">
+        <div class="statusbar"><span>9:41</span><span>◍ ▲ ▮</span></div>
+        <div class="phbody">
+          <div class="topbar">
+            <div class="brand">Joy Creator<small>STUDIO</small></div>
+            <div style="margin-left:auto"></div>
+            <div class="ico">⌕</div>
+            <div class="botorb">◕</div>
+          </div>
+          <div class="livestrip">
+            <span class="pulse"></span>
+            <div class="tx"><b>Exporting ZA_CONTROL</b><span>4K · about 2 min left</span>
+              <div class="bar"><i></i></div></div>
+            <span class="pct">62%</span>
+          </div>
+          <div class="plan">
+            <div class="tile big" data-room="studio">
+              <div class="thumb"></div>
+              <div class="wash" style="background:linear-gradient(140deg,var(--r-studio-a),var(--r-studio-b))"></div>
+              <span class="glyph">🎬</span><span class="cnt">5 projects</span>
+              <div class="nm">Studio</div><div class="sub">ZA_CONTROL · 6 layers · edited 2h ago</div>
+            </div>
+            <div class="tile" data-room="capture">
+              <div class="wash" style="background:linear-gradient(150deg,var(--r-capture-a),var(--r-capture-b))"></div>
+              <span class="glyph">🎥</span><span class="reddot"></span>
+              <div class="nm">Capture</div><div class="sub">Camera · Screen<br>Voice · Remote</div>
+            </div>
+
+            <div class="tile" data-room="shop">
+              <div class="wash" style="background:linear-gradient(140deg,var(--r-shop-a),var(--r-shop-b))"></div>
+              <span class="glyph">🤹</span>
+              <div class="nm">Workshop</div><div class="sub">Sprites · Rigs · Packs</div>
+              <div class="chipline"><i>★</i><i>◔</i><i>◑</i><i>+</i></div>
+            </div>
+            <div class="tile big" data-room="library">
+              <div class="wash" style="background:linear-gradient(120deg,var(--r-library-a),var(--r-library-b))"></div>
+              <span class="glyph">📚</span><span class="cnt">128 · 1 photo</span>
+              <div class="nm">Library</div><div class="sub">Recordings, projects, photos, trash</div>
+            </div>
+
+            <div class="tile sm" data-room="sound">
+              <div class="wash" style="background:linear-gradient(140deg,var(--r-sound-a),var(--r-sound-b))"></div>
+              <span class="glyph">🔊</span><div class="nm">Sound</div><div class="sub">Words · waves</div>
+            </div>
+            <div class="tile sm" data-room="finder">
+              <div class="wash" style="background:linear-gradient(140deg,var(--r-finder-a),var(--r-finder-b))"></div>
+              <span class="glyph">🔍</span><div class="nm">Finder</div><div class="sub">Markers</div>
+            </div>
+            <div class="tile sm" data-room="remote">
+              <div class="wash" style="background:linear-gradient(140deg,var(--r-remote-a),var(--r-remote-b))"></div>
+              <span class="glyph">📡</span><div class="nm">Remote</div><div class="sub">2nd phone</div>
+            </div>
+
+            <div class="utilstrip">
+              <button type="button"><em>🧰</em>Gadgets</button>
+              <button type="button"><em>📦</em>Packs</button>
+              <button type="button"><em>⚙️</em>Settings</button>
+              <button type="button"><em>✦</em>What's new</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="phcap">tap a tile in the swapper above to retint</div>
+    </div>
+
+    <div class="pros">
+      <div class="pro"><h5>What it's best at</h5><p><b>Everything is one tap.</b> No question to answer, no second tier, no nav bar stealing 80px. Muscle memory forms fast because nothing ever moves. It also scales honestly — the drawing engine gets a tile, and you can see it cost something.</p></div>
+      <div class="pro"><h5>The quiet win</h5><p>The Studio tile <b>carries your last project's name and thumbnail</b>, so the most common action in the app — "keep going" — is the biggest target on screen without the lobby being about projects.</p></div>
+      <div class="con"><h5>What it costs</h5><p>A grid of tiles is a well-worn shape; without the illustration work it can read as a launcher. <b>It needs real art to stop looking generic</b> — which is the one thing you can make and I can't.</p></div>
+      <div class="con"><h5>Where it strains</h5><p>Eleven tiles is near the ceiling. A twelfth room means re-cutting the grid, and small tiles at the bottom get treated as second-class whether or not they are.</p></div>
+    </div>
+  </div>
+
+  <div class="manifest">
+    <h4>Placement manifest <span>25 / 25 placed</span></h4>
+    <div class="mtablewrap"><table class="m">
+      <tr><th>Thing</th><th>Where it went</th><th>Depth</th></tr>
+      <tr><td>Studio</td><td>Big tile, top-left. Opens straight into the last project.</td><td><span class="depth d0">on screen</span></td></tr>
+      <tr><td>26 editor tools</td><td>Inside the Studio, unchanged tool row</td><td><span class="depth d1">1 tap</span></td></tr>
+      <tr><td>Camera / Screen / Voice</td><td>Capture tile → three big pills</td><td><span class="depth d1">1 tap</span></td></tr>
+      <tr><td>Both cameras, On movement</td><td>Capture tile, second row</td><td><span class="depth d1">1 tap</span></td></tr>
+      <tr><td>Photo / grab</td><td>Capture tile, and a long-press shortcut on the tile itself</td><td><span class="depth d1">1 tap</span></td></tr>
+      <tr><td>Sprite Lab</td><td>Workshop tile → first bench. Also still reachable from the editor drawer.</td><td><span class="depth d1">1 tap</span></td></tr>
+      <tr><td>Avatar Studio</td><td>Workshop tile → second bench</td><td><span class="depth d1">1 tap</span></td></tr>
+      <tr><td>Puppet rigs</td><td>Workshop tile → third bench, and in-place in the Studio</td><td><span class="depth d1">1 tap</span></td></tr>
+      <tr><td>Visualiser styles</td><td>Workshop tile → fourth bench</td><td><span class="depth d1">1 tap</span></td></tr>
+      <tr><td>Packs</td><td>Utility strip, and inside Workshop</td><td><span class="depth d0">on screen</span></td></tr>
+      <tr><td>Recordings + 7 filters</td><td>Library tile. Filters stay as the chip row they already are.</td><td><span class="depth d1">1 tap</span></td></tr>
+      <tr><td>Projects, Photos, Trash</td><td>Library tile, segmented at the top</td><td><span class="depth d2">2 taps</span></td></tr>
+      <tr><td>Player / viewer</td><td>Opens from any item</td><td><span class="depth d2">2 taps</span></td></tr>
+      <tr><td>Finder (was Smart Detection)</td><td>Small tile, bottom row</td><td><span class="depth d0">on screen</span></td></tr>
+      <tr><td>Sound</td><td>Small tile. Also every audio tool stays where it is in the Studio.</td><td><span class="depth d0">on screen</span></td></tr>
+      <tr><td>Remote</td><td>Small tile, and listed inside Capture as a source</td><td><span class="depth d0">on screen</span></td></tr>
+      <tr><td>Joybot</td><td>Orb, top-right. Present on every screen in the app.</td><td><span class="depth d0">on screen</span></td></tr>
+      <tr><td>10 gadgets</td><td>Utility strip → Gadgets. <b>Deliberately grey — they are not studio tools.</b></td><td><span class="depth d1">1 tap</span></td></tr>
+      <tr><td>15 settings screens</td><td>Utility strip → Settings, grouped as today</td><td><span class="depth d1">1 tap</span></td></tr>
+      <tr><td>Search</td><td>Magnifier, top bar. Searches projects, clips, transcripts and markers together.</td><td><span class="depth d0">on screen</span></td></tr>
+      <tr><td>Recording in progress</td><td>Frosted strip replaces the export strip; tap returns to the recorder</td><td><span class="depth d0">on screen</span></td></tr>
+      <tr><td>Export in progress</td><td>Frosted strip, shown above. Survives leaving the editor.</td><td><span class="depth d0">on screen</span></td></tr>
+      <tr><td>AI job / transcription</td><td>Same strip, stacked when more than one runs</td><td><span class="depth d0">on screen</span></td></tr>
+      <tr><td>What's new · Tips · About · Support</td><td>Utility strip → What's new</td><td><span class="depth d1">1 tap</span></td></tr>
+      <tr><td>Onboarding</td><td>Before the lobby, once</td><td><span class="depth d3">first run</span></td></tr>
+    </table></div>
+  </div>
+</section>
+
+<!-- ======================================================== -->
+<!-- 02 MARQUEE -->
+<!-- ======================================================== -->
+<section class="concept" data-c="mq" hidden>
+  <div class="chead">
+    <span class="ctag">organised by intent</span>
+    <h3>The Marquee</h3>
+    <p class="prin">The app asks the question you were already asking. <b>Verbs, not rooms</b> — Record, Edit, Animate, Listen, Find, Ask — and the answer list underneath rewrites itself. Nobody has to learn where anything lives, because nothing has a place; it has a purpose.</p>
+  </div>
+
+  <div class="stage">
+    <div class="phonewrap">
+      <div class="phone">
+        <div class="statusbar"><span>9:41</span><span>◍ ▲ ▮</span></div>
+        <div class="phbody">
+          <div class="topbar">
+            <div class="brand">Joy Creator<small>STUDIO</small></div>
+            <div style="margin-left:auto"></div>
+            <div class="ico">⌕</div>
+            <div class="botorb">◕</div>
+          </div>
+          <div class="mq">
+            <div class="mqask"><span>Wednesday evening</span>What are you making?</div>
+            <div class="verbs" id="mqverbs">
+              <button type="button" data-v="record" aria-pressed="true" style="background:linear-gradient(120deg,var(--r-capture-a),var(--r-capture-b))">Record</button>
+              <button type="button" data-v="edit" aria-pressed="false">Edit</button>
+              <button type="button" data-v="animate" aria-pressed="false">Animate</button>
+              <button type="button" data-v="listen" aria-pressed="false">Listen</button>
+              <button type="button" data-v="find" aria-pressed="false">Find</button>
+              <button type="button" data-v="ask" aria-pressed="false">Ask</button>
+            </div>
+            <div class="answers" id="mqanswers"></div>
+            <div class="mqfoot">
+              <button type="button">📚 Library</button>
+              <button type="button">🧰 Gadgets</button>
+              <button type="button">⚙️ Settings</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="phcap">tap the verbs — the answers really change</div>
+    </div>
+
+    <div class="pros">
+      <div class="pro"><h5>What it's best at</h5><p><b>It teaches the app.</b> A twelve-year-old and a stranger both understand it in four seconds, and neither has to know the word "Faditor" ever existed. It is also the only concept where <b>Animate</b> gets equal billing with Edit — which matches what you actually build.</p></div>
+      <div class="pro"><h5>The quiet win</h5><p>Verbs absorb new features without a redesign. Live-avatar streaming is a new line under Record, not a new tile and not a new argument about the grid.</p></div>
+      <div class="con"><h5>What it costs</h5><p><b>Two taps to almost everything, forever.</b> On day 400 you still answer a question you answered on day 1. That is a real tax on the person who uses it daily — you.</p></div>
+      <div class="con"><h5>Where it strains</h5><p>Library, Gadgets and Settings are nouns and don't fit the grammar, so they sit in a footer strip and look bolted on. And "Edit" pointing at one giant room hides how much is in there.</p></div>
+    </div>
+  </div>
+
+  <div class="manifest">
+    <h4>Placement manifest <span>25 / 25 placed</span></h4>
+    <div class="mtablewrap"><table class="m">
+      <tr><th>Thing</th><th>Where it went</th><th>Depth</th></tr>
+      <tr><td>Camera / Screen / Voice</td><td>Record → first three answers</td><td><span class="depth d2">2 taps</span></td></tr>
+      <tr><td>Both cameras, On movement, Another phone</td><td>Record → answers four to six</td><td><span class="depth d2">2 taps</span></td></tr>
+      <tr><td>Photo / grab</td><td>Record → seventh answer</td><td><span class="depth d2">2 taps</span></td></tr>
+      <tr><td>Studio</td><td>Edit → "Carry on with ZA_CONTROL" is the first answer</td><td><span class="depth d2">2 taps</span></td></tr>
+      <tr><td>26 editor tools</td><td>Inside the Studio</td><td><span class="depth d2">2 taps</span></td></tr>
+      <tr><td>New project</td><td>Edit → "Start something new"</td><td><span class="depth d2">2 taps</span></td></tr>
+      <tr><td>Sprite Lab</td><td>Animate → first answer</td><td><span class="depth d2">2 taps</span></td></tr>
+      <tr><td>Avatar Studio · Puppet rigs</td><td>Animate → answers two and three</td><td><span class="depth d2">2 taps</span></td></tr>
+      <tr><td>Live avatar</td><td>Animate → "Be a character on camera"</td><td><span class="depth d2">2 taps</span></td></tr>
+      <tr><td>Transcript · Waveform · Visualiser</td><td>Listen → three answers</td><td><span class="depth d2">2 taps</span></td></tr>
+      <tr><td>Visualiser styles</td><td>Listen → "Make a visualiser"</td><td><span class="depth d2">2 taps</span></td></tr>
+      <tr><td>Finder / detection markers</td><td>Find → "Moments in my footage"</td><td><span class="depth d2">2 taps</span></td></tr>
+      <tr><td>Search (projects, clips, words, markers)</td><td>Find → the search field is the first answer. Also the top-bar magnifier.</td><td><span class="depth d1">1 tap</span></td></tr>
+      <tr><td>Joybot</td><td>Ask → is the whole verb. Plus the orb everywhere.</td><td><span class="depth d0">on screen</span></td></tr>
+      <tr><td>Library + 7 filters</td><td>Footer strip. <b>Demoted — the honest cost of a verb grammar.</b></td><td><span class="depth d1">1 tap</span></td></tr>
+      <tr><td>Projects · Photos · Trash</td><td>Library → segmented</td><td><span class="depth d2">2 taps</span></td></tr>
+      <tr><td>Packs</td><td>Animate → "Get more pieces", and inside Settings</td><td><span class="depth d2">2 taps</span></td></tr>
+      <tr><td>10 gadgets</td><td>Footer strip → Gadgets</td><td><span class="depth d1">1 tap</span></td></tr>
+      <tr><td>15 settings screens</td><td>Footer strip → Settings</td><td><span class="depth d1">1 tap</span></td></tr>
+      <tr><td>Remote</td><td>Record → "Use another phone"; no room of its own</td><td><span class="depth d2">2 taps</span></td></tr>
+      <tr><td>Recording / exporting / AI job</td><td>Frosted strip pushes in above the question and pushes it down</td><td><span class="depth d0">on screen</span></td></tr>
+      <tr><td>Recent work</td><td>Edit → the answer list <em>is</em> the recents list</td><td><span class="depth d2">2 taps</span></td></tr>
+      <tr><td>What's new · Tips · About · Support</td><td>Settings → App</td><td><span class="depth d2">2 taps</span></td></tr>
+      <tr><td>Onboarding</td><td>Before the lobby. <b>The verbs double as the tour.</b></td><td><span class="depth d3">first run</span></td></tr>
+      <tr><td>Wear OS</td><td>Untouched, its own surface</td><td><span class="depth d3">separate</span></td></tr>
+    </table></div>
+  </div>
+</section>
+
+<!-- ======================================================== -->
+<!-- 03 BENCH -->
+<!-- ======================================================== -->
+<section class="concept" data-c="bench" hidden>
+  <div class="chead">
+    <span class="ctag">organised by the work</span>
+    <h3>The Bench</h3>
+    <p class="prin">The lobby <b>is</b> your work in progress. You open the app and the thing you were making is already there, scrubbable, one tap from carrying on. Tools are reached <em>through</em> the work rather than beside it — the way a music studio opens the session, not the instrument cupboard.</p>
+  </div>
+
+  <div class="stage">
+    <div class="phonewrap">
+      <div class="phone">
+        <div class="statusbar"><span>9:41</span><span>◍ ▲ ▮</span></div>
+        <div class="phbody">
+          <div class="topbar">
+            <div class="brand">Joy Creator<small>STUDIO</small></div>
+            <div style="margin-left:auto"></div>
+            <div class="ico">⌕</div>
+            <div class="botorb">◕</div>
+          </div>
+          <div class="bench">
+            <div class="hero">
+              <div class="shot">
+                <div class="lanes">
+                  <i style="background:var(--r-library-a);width:72%"></i>
+                  <i style="background:var(--r-shop-a);width:48%"></i>
+                  <i style="background:var(--r-sound-a);width:88%"></i>
+                </div>
+                <span class="frostbtn">Carry on ▸</span>
+              </div>
+              <div class="meta"><b>ZA_CONTROL</b><span>6 layers · 0:47 · 2 hours ago</span></div>
+            </div>
+
+            <div class="shelfhead"><b>Recent</b><em>See all 5</em></div>
+            <div class="shelf">
+              <div class="pcard"><div class="t"></div><div class="n">ZA_VERIFY<span>Sep 13</span></div></div>
+              <div class="pcard"><div class="t"></div><div class="n">BundlingFont<span>Sep 13</span></div></div>
+              <div class="pcard"><div class="t"></div><div class="n">FADE_8B<span>Sep 5</span></div></div>
+              <div class="pcard"><div class="t"></div><div class="n">Untitled<span>Sep 16</span></div></div>
+            </div>
+
+            <div class="shelfhead"><b>Start something</b></div>
+            <div class="startrow">
+              <button type="button" style="background:linear-gradient(140deg,var(--r-capture-a),var(--r-capture-b));color:#fff"><em>🎥</em>Record</button>
+              <button type="button" style="background:linear-gradient(140deg,var(--r-library-a),var(--r-library-b));color:#08080a"><em>📥</em>Import</button>
+              <button type="button" style="background:linear-gradient(140deg,var(--r-shop-a),var(--r-shop-b));color:#fff"><em>🤹</em>Animate</button>
+              <button type="button" style="background:var(--ctl);border:1px solid var(--line)"><em>◻︎</em>Blank</button>
+            </div>
+
+            <div class="shelfhead"><b>Your things</b><em>Workshop</em></div>
+            <div class="shopshelf">
+              <i>🤖</i><i>🦕</i><i>★</i><i>🎚️</i><i>📦</i><i>+</i>
+            </div>
+
+            <div class="benchnav">
+              <i style="color:var(--r-studio-a)">◉<s>Bench</s></i>
+              <i>📚<s>Library</s></i><i>🔍<s>Finder</s></i><i>🧰<s>Gadgets</s></i><i>⚙️<s>Settings</s></i>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="phcap">the hero carries real lane colours from the project</div>
+    </div>
+
+    <div class="pros">
+      <div class="pro"><h5>What it's best at</h5><p><b>Fastest possible resume.</b> For a two-hour documentary edited in fifteen-minute fragments around childcare, this is the only concept that respects that the app is opened forty times per project. One tap, exactly where you left it.</p></div>
+      <div class="pro"><h5>The quiet win</h5><p>The hero's lane stripes are <b>the real colours from the real project</b>, so you recognise the session before you read its name. "Your things" quietly makes the Workshop a first-class idea without spending a tile on it.</p></div>
+      <div class="con"><h5>What it costs</h5><p><b>Day one is empty.</b> A stranger opens it to a placeholder and an invitation, which is the worst first impression of the five. It needs the demo project to exist before it can ship.</p></div>
+      <div class="con"><h5>Where it strains</h5><p>Capture gets demoted to a button on a row — and Capture is currently the entire app. That is either the correction you wanted or a step too far, and it's worth being deliberate about which.</p></div>
+    </div>
+  </div>
+
+  <div class="manifest">
+    <h4>Placement manifest <span>25 / 25 placed</span></h4>
+    <div class="mtablewrap"><table class="m">
+      <tr><th>Thing</th><th>Where it went</th><th>Depth</th></tr>
+      <tr><td>Studio</td><td><b>Is the hero.</b> "Carry on" opens the last project directly.</td><td><span class="depth d0">on screen</span></td></tr>
+      <tr><td>26 editor tools</td><td>Inside the Studio</td><td><span class="depth d1">1 tap</span></td></tr>
+      <tr><td>Recent projects</td><td>Shelf, second block. "See all" for the full list.</td><td><span class="depth d0">on screen</span></td></tr>
+      <tr><td>Camera / Screen / Voice / Both / Movement</td><td>Start something → Record → a sheet of six sources</td><td><span class="depth d2">2 taps</span></td></tr>
+      <tr><td>Remote</td><td>Same sheet, sixth source</td><td><span class="depth d2">2 taps</span></td></tr>
+      <tr><td>Photo / grab</td><td>Same sheet</td><td><span class="depth d2">2 taps</span></td></tr>
+      <tr><td>Import a file</td><td>Start something → Import</td><td><span class="depth d1">1 tap</span></td></tr>
+      <tr><td>Sprite Lab · Avatar · Puppets · Visualiser</td><td>"Your things" shelf — each saved item opens its own bench. The <b>+</b> makes a new one.</td><td><span class="depth d1">1 tap</span></td></tr>
+      <tr><td>Start a new animation</td><td>Start something → Animate</td><td><span class="depth d1">1 tap</span></td></tr>
+      <tr><td>Packs</td><td>"Your things" shelf, box glyph</td><td><span class="depth d1">1 tap</span></td></tr>
+      <tr><td>Library + 7 filters</td><td>Nav bar, second slot</td><td><span class="depth d1">1 tap</span></td></tr>
+      <tr><td>Projects · Photos · Trash</td><td>Library → segmented</td><td><span class="depth d2">2 taps</span></td></tr>
+      <tr><td>Finder / markers</td><td>Nav bar, third slot</td><td><span class="depth d1">1 tap</span></td></tr>
+      <tr><td>Sound</td><td><b>No room.</b> Audio tools live in the Studio where they are used; visualiser styles sit in "Your things".</td><td><span class="depth d1">1 tap</span></td></tr>
+      <tr><td>Joybot</td><td>Orb, top-right, everywhere</td><td><span class="depth d0">on screen</span></td></tr>
+      <tr><td>10 gadgets</td><td>Nav bar, fourth slot</td><td><span class="depth d1">1 tap</span></td></tr>
+      <tr><td>15 settings screens</td><td>Nav bar, fifth slot</td><td><span class="depth d1">1 tap</span></td></tr>
+      <tr><td>Search</td><td>Top-bar magnifier</td><td><span class="depth d0">on screen</span></td></tr>
+      <tr><td>Recording in progress</td><td>Frosted strip <b>replaces the hero</b> — the live thing is always the hero</td><td><span class="depth d0">on screen</span></td></tr>
+      <tr><td>Export / AI job / transcription</td><td>Frosted strip pinned under the top bar</td><td><span class="depth d0">on screen</span></td></tr>
+      <tr><td>Rename / delete a project</td><td>Long-press any card</td><td><span class="depth d1">1 tap</span></td></tr>
+      <tr><td>What's new · Tips · About · Support</td><td>Settings → App</td><td><span class="depth d2">2 taps</span></td></tr>
+      <tr><td>Empty state (day one)</td><td>Hero becomes "Make your first thing" with the four start buttons enlarged</td><td><span class="depth d0">on screen</span></td></tr>
+      <tr><td>Onboarding</td><td>Before the lobby, then the demo project loads into the hero</td><td><span class="depth d3">first run</span></td></tr>
+      <tr><td>Wear OS</td><td>Untouched</td><td><span class="depth d3">separate</span></td></tr>
+    </table></div>
+  </div>
+</section>
+
+<!-- ======================================================== -->
+<!-- 04 THUMB DECK -->
+<!-- ======================================================== -->
+<section class="concept" data-c="deck" hidden>
+  <div class="chead">
+    <span class="ctag">organised by the hand</span>
+    <h3>The Thumb Deck</h3>
+    <p class="prin">Built around the fact that you use this <b>one-handed, holding a baby.</b> The bottom third is a reachable arc — every room sits inside a thumb sweep, the primary action sits at the natural resting point, and the top two thirds are pure content you never have to reach into. The deck slides away when you want the screen.</p>
+  </div>
+
+  <div class="stage">
+    <div class="phonewrap">
+      <div class="phone">
+        <div class="statusbar"><span>9:41</span><span>◍ ▲ ▮</span></div>
+        <div class="phbody">
+          <div class="topbar">
+            <div class="brand">Joy Creator<small>STUDIO</small></div>
+            <div style="margin-left:auto"></div>
+            <div class="botorb">◕</div>
+          </div>
+          <div class="deckwrap">
+            <div class="decktop">
+              <div class="livestrip" style="margin:0 0 2px">
+                <span class="pulse"></span>
+                <div class="tx"><b>Exporting ZA_CONTROL</b><span>about 2 min left</span>
+                  <div class="bar"><i></i></div></div>
+                <span class="pct">62%</span>
+              </div>
+              <div class="shelfhead"><b>Carry on</b></div>
+              <div class="deckrecent">
+                <div class="pcard" style="width:116px"><div class="t" style="height:66px"></div><div class="n">ZA_CONTROL<span>2h ago</span></div></div>
+                <div class="pcard" style="width:116px"><div class="t" style="height:66px"></div><div class="n">ZA_VERIFY<span>Sep 13</span></div></div>
+                <div class="pcard" style="width:116px"><div class="t" style="height:66px"></div><div class="n">FADE_8B<span>Sep 5</span></div></div>
+              </div>
+              <div class="shelfhead"><b>Your things</b><em>Workshop</em></div>
+              <div class="shopshelf"><i>🤖</i><i>🦕</i><i>★</i><i>🎚️</i><i>📦</i></div>
+            </div>
+
+            <div class="deck">
+              <div class="handle"></div>
+              <div class="arcnote">within reach</div>
+              <span class="dk on" style="left:16px;bottom:150px;background:linear-gradient(140deg,var(--r-capture-a),var(--r-capture-b));color:#fff"><em>🎥</em>Capture</span>
+              <span class="dk" style="left:58px;bottom:56px"><em>📚</em>Library</span>
+              <span class="dk" style="left:130px;bottom:14px"><em>🤹</em>Shop</span>
+              <span class="dk" style="left:16px;bottom:236px"><em>🔍</em>Finder</span>
+              <span class="dk" style="left:92px;bottom:206px"><em>🧰</em>Bits</span>
+              <span class="dk" style="left:150px;bottom:118px"><em>⚙️</em>Setup</span>
+              <span class="dkmain"><em>🎬</em>Studio<span>ZA_CONTROL</span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="phcap">mirrors for left-handers · long-press any disc fans out its sources</div>
+    </div>
+
+    <div class="pros">
+      <div class="pro"><h5>What it's best at</h5><p><b>Nobody else on Android does this.</b> Every destination is inside one thumb sweep on a 6.7-inch phone, which is a genuine differentiator and directly serves the way you actually work. The big disc is Studio because Studio is what you open.</p></div>
+      <div class="pro"><h5>The quiet win</h5><p>Long-press fans a disc into its sources without leaving the deck — hold Capture and camera, screen, voice, both and remote arc out under your thumb. That is <b>one tap plus a hold</b> to any capture mode, beating every other concept.</p></div>
+      <div class="con"><h5>What it costs</h5><p><b>Radial menus have a bad reputation for a reason</b> — they are hard to label, hard to hit accurately, and unfamiliar. This is the highest-risk concept here and the one most likely to need two rounds of tuning on a real phone.</p></div>
+      <div class="con"><h5>Where it strains</h5><p>It spends a third of the screen on navigation, which the Floor Plan spends on rooms and the Bench spends on your work. It also has to mirror for left-handed use, doubling the layout work.</p></div>
+    </div>
+  </div>
+
+  <div class="manifest">
+    <h4>Placement manifest <span>25 / 25 placed</span></h4>
+    <div class="mtablewrap"><table class="m">
+      <tr><th>Thing</th><th>Where it went</th><th>Depth</th></tr>
+      <tr><td>Studio</td><td>The large disc, at the thumb's resting point. Opens the last project.</td><td><span class="depth d0">on screen</span></td></tr>
+      <tr><td>26 editor tools</td><td>Inside the Studio</td><td><span class="depth d1">1 tap</span></td></tr>
+      <tr><td>Camera / Screen / Voice / Both / Movement / Remote</td><td>Hold the Capture disc — six sources fan out under the thumb</td><td><span class="depth d1">hold</span></td></tr>
+      <tr><td>Photo / grab</td><td>Seventh in the same fan</td><td><span class="depth d1">hold</span></td></tr>
+      <tr><td>Sprite Lab · Avatar · Puppets · Visualiser</td><td>Hold the Shop disc — four benches fan out</td><td><span class="depth d1">hold</span></td></tr>
+      <tr><td>Saved sheets &amp; rigs</td><td>"Your things" shelf in the content area</td><td><span class="depth d1">1 tap</span></td></tr>
+      <tr><td>Packs</td><td>Shop fan, fifth</td><td><span class="depth d1">hold</span></td></tr>
+      <tr><td>Recent projects</td><td>"Carry on" strip, top of the content area</td><td><span class="depth d0">on screen</span></td></tr>
+      <tr><td>Library + 7 filters</td><td>Library disc</td><td><span class="depth d1">1 tap</span></td></tr>
+      <tr><td>Projects · Photos · Trash</td><td>Hold the Library disc</td><td><span class="depth d1">hold</span></td></tr>
+      <tr><td>Finder / markers</td><td>Finder disc</td><td><span class="depth d1">1 tap</span></td></tr>
+      <tr><td>Sound</td><td><b>Folded into Studio and Shop.</b> No disc — six is the ceiling before the arc gets unhittable.</td><td><span class="depth d2">2 taps</span></td></tr>
+      <tr><td>Joybot</td><td>Orb top-right, and a double-tap anywhere on the deck</td><td><span class="depth d0">on screen</span></td></tr>
+      <tr><td>10 gadgets</td><td>"Bits" disc</td><td><span class="depth d1">1 tap</span></td></tr>
+      <tr><td>15 settings screens</td><td>"Setup" disc</td><td><span class="depth d1">1 tap</span></td></tr>
+      <tr><td>Search</td><td>Pull the deck handle down — a search field rises with it</td><td><span class="depth d1">1 drag</span></td></tr>
+      <tr><td>Recording in progress</td><td>The Capture disc turns into a live timer and pulses</td><td><span class="depth d0">on screen</span></td></tr>
+      <tr><td>Export / AI job / transcription</td><td>Frosted strip at the top of the content area</td><td><span class="depth d0">on screen</span></td></tr>
+      <tr><td>Deck away</td><td>Handle collapses the deck to a 28px lip for full-screen browsing</td><td><span class="depth d0">on screen</span></td></tr>
+      <tr><td>Left-handed</td><td>Whole arc mirrors. A setting, and offered during onboarding.</td><td><span class="depth d2">setting</span></td></tr>
+      <tr><td>Remote</td><td>Capture fan; also its own screen from Settings</td><td><span class="depth d1">hold</span></td></tr>
+      <tr><td>What's new · Tips · About · Support</td><td>Setup disc → App</td><td><span class="depth d2">2 taps</span></td></tr>
+      <tr><td>Empty state</td><td>The big disc reads "Make something" and opens the Capture fan</td><td><span class="depth d0">on screen</span></td></tr>
+      <tr><td>Onboarding</td><td>Before the lobby; teaches the hold gesture explicitly</td><td><span class="depth d3">first run</span></td></tr>
+      <tr><td>Wear OS</td><td>Untouched</td><td><span class="depth d3">separate</span></td></tr>
+    </table></div>
+  </div>
+</section>
+
+<!-- ======================================================== -->
+<!-- 05 STAGE -->
+<!-- ======================================================== -->
+<section class="concept" data-c="stage" hidden>
+  <div class="chead">
+    <span class="ctag">organised by what you're looking at</span>
+    <h3>The Stage</h3>
+    <p class="prin">The screen is <b>always showing something real</b> — the live camera, your last frame, your newest export — and the controls float over it in frosted glass. This is your "you never left the thing you're building" made into the whole app rather than just its dialogs. The lobby is a viewport with a dock.</p>
+  </div>
+
+  <div class="stage">
+    <div class="phonewrap">
+      <div class="phone">
+        <div class="statusbar"><span>9:41</span><span>◍ ▲ ▮</span></div>
+        <div class="phbody">
+          <div class="stagephone">
+            <div class="stagebg"></div>
+            <div class="stagegrain"></div>
+
+            <div class="frostcard stagecont">
+              <div class="t"></div>
+              <div><b>ZA_CONTROL</b><span>6 layers · 0:47</span></div>
+              <span class="go">Carry on</span>
+            </div>
+
+            <div class="frostcard stagetools">
+              <i>⌕</i><i style="background:linear-gradient(135deg,var(--r-bot-a),var(--r-bot-b));color:#fff">◕</i><i>⚙</i>
+            </div>
+
+            <div class="stagecapchips">
+              <i>AF</i><i>EV ±0</i><i>1.0×</i><i>FHD 30</i>
+            </div>
+
+            <div class="frostcard stagedock">
+              <div class="dockpull"></div>
+              <div class="dockrooms">
+                <button type="button" class="on"><em style="background:linear-gradient(140deg,var(--r-capture-a),var(--r-capture-b));border-color:transparent">🎥</em>Capture</button>
+                <button type="button"><em>🎬</em>Studio</button>
+                <button type="button"><em>🤹</em>Shop</button>
+                <button type="button"><em>📚</em>Library</button>
+                <button type="button"><em>🔍</em>Finder</button>
+                <button type="button"><em>⋯</em>More</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="phcap">shown on Capture — the preview is live. On Studio it becomes your last frame.</div>
+    </div>
+
+    <div class="pros">
+      <div class="pro"><h5>What it's best at</h5><p><b>It is the only concept that is never abstract.</b> There is always a picture — yours — and the chrome is a thin frosted layer on top of it. It is also the most photogenic by a distance, which matters for store screenshots and a demo video.</p></div>
+      <div class="pro"><h5>The quiet win</h5><p>Switching rooms changes what the viewport shows rather than replacing the screen, so the app feels like <b>one continuous place</b> instead of six destinations. That is closer to what you described than any of the others.</p></div>
+      <div class="con"><h5>What it costs</h5><p><b>Frosted glass over moving video is the hardest thing on this page to keep legible</b>, and it costs GPU on a phone that is also encoding. It needs a solid fallback and a "quiet the background" switch, which is the same toggle you already asked for on drawers.</p></div>
+      <div class="con"><h5>Where it strains</h5><p>Six dock slots and a "More" is a nav bar wearing a nicer coat — Gadgets, Settings, Sound and Remote all end up behind that ⋯. And keeping a camera warm on the lobby costs battery you may want for a two-hour record.</p></div>
+    </div>
+  </div>
+
+  <div class="manifest">
+    <h4>Placement manifest <span>25 / 25 placed</span></h4>
+    <div class="mtablewrap"><table class="m">
+      <tr><th>Thing</th><th>Where it went</th><th>Depth</th></tr>
+      <tr><td>Studio</td><td>Dock slot 2, and the frosted "Carry on" card is always on the stage</td><td><span class="depth d0">on screen</span></td></tr>
+      <tr><td>26 editor tools</td><td>Inside the Studio</td><td><span class="depth d1">1 tap</span></td></tr>
+      <tr><td>Camera</td><td>Dock slot 1. <b>The viewport is the live preview</b> — AF, exposure, zoom and quality as frosted chips.</td><td><span class="depth d0">on screen</span></td></tr>
+      <tr><td>Screen / Voice / Both / Movement / Remote</td><td>Pull the dock up — capture sources as a frosted sheet</td><td><span class="depth d1">1 drag</span></td></tr>
+      <tr><td>Photo / grab</td><td>Shutter appears on the stage when Capture is the room</td><td><span class="depth d0">on screen</span></td></tr>
+      <tr><td>Sprite Lab · Avatar · Puppets · Visualiser</td><td>Shop slot. The viewport becomes the character you last worked on.</td><td><span class="depth d1">1 tap</span></td></tr>
+      <tr><td>Packs</td><td>Shop → pulled sheet</td><td><span class="depth d2">2 taps</span></td></tr>
+      <tr><td>Library + 7 filters</td><td>Library slot. The viewport becomes your newest export.</td><td><span class="depth d1">1 tap</span></td></tr>
+      <tr><td>Projects · Photos · Trash</td><td>Library → pulled sheet, segmented</td><td><span class="depth d2">2 taps</span></td></tr>
+      <tr><td>Finder / markers</td><td>Finder slot. The viewport becomes the marked frame.</td><td><span class="depth d1">1 tap</span></td></tr>
+      <tr><td>Sound</td><td><b>Behind ⋯.</b> The honest cost of a six-slot dock.</td><td><span class="depth d2">2 taps</span></td></tr>
+      <tr><td>Remote</td><td>Behind ⋯, and in the capture sheet</td><td><span class="depth d2">2 taps</span></td></tr>
+      <tr><td>10 gadgets</td><td>Behind ⋯</td><td><span class="depth d2">2 taps</span></td></tr>
+      <tr><td>15 settings screens</td><td>Gear, top-right rail</td><td><span class="depth d1">1 tap</span></td></tr>
+      <tr><td>Joybot</td><td>Top-right rail, gradient orb</td><td><span class="depth d0">on screen</span></td></tr>
+      <tr><td>Search</td><td>Top-right rail, magnifier</td><td><span class="depth d0">on screen</span></td></tr>
+      <tr><td>Recording in progress</td><td>The stage <b>is</b> the recording. Dock shrinks to a timer and a stop.</td><td><span class="depth d0">on screen</span></td></tr>
+      <tr><td>Export / AI job / transcription</td><td>Frosted strip slides under the Carry on card</td><td><span class="depth d0">on screen</span></td></tr>
+      <tr><td>"Quiet the background"</td><td>Hold the dock — the viewport dims to flat black and frost turns solid</td><td><span class="depth d1">hold</span></td></tr>
+      <tr><td>Low-power fallback</td><td>Camera not kept warm; viewport shows a still until Capture is chosen</td><td><span class="depth d2">setting</span></td></tr>
+      <tr><td>Recent projects</td><td>Pull the Carry on card down — recents fan under it</td><td><span class="depth d1">1 drag</span></td></tr>
+      <tr><td>What's new · Tips · About · Support</td><td>Settings → App</td><td><span class="depth d2">2 taps</span></td></tr>
+      <tr><td>Empty state</td><td>Viewport shows the demo project; Carry on reads "Open the demo"</td><td><span class="depth d0">on screen</span></td></tr>
+      <tr><td>Onboarding</td><td>Before the lobby. The intro's fading lines already run on a stage like this.</td><td><span class="depth d3">first run</span></td></tr>
+      <tr><td>Wear OS</td><td>Untouched</td><td><span class="depth d3">separate</span></td></tr>
+    </table></div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<section>
+  <div class="shead"><span class="snum">06</span><h2>If you want one opinion</h2></div>
+  <p class="sdek">You said you might combine parts, so here is where I think the seams are — the three pieces that would still be right whichever shell wins.</p>
+  <div class="langstrip">
+    <div class="lz" style="border-color:color-mix(in srgb,var(--r-studio-a) 40%,var(--line))">
+      <b>The Floor Plan's geography</b>
+      <span>Fixed positions, size means importance, no nav bar. It's the only one where nothing ever moves, and that is what makes a thumb fast. <b>Start here.</b></span>
+    </div>
+    <div class="lz" style="border-color:color-mix(in srgb,var(--r-studio-a) 40%,var(--line))">
+      <b>The Bench's hero</b>
+      <span>Put the Bench's real project card — thumbnail, lane colours, Carry on — into the Floor Plan's big Studio tile. You get one-tap resume without giving up the map.</span>
+    </div>
+    <div class="lz" style="border-color:color-mix(in srgb,var(--r-studio-a) 40%,var(--line))">
+      <b>The Deck's hold gesture</b>
+      <span>Hold a tile to fan out its sources. Cheap to add, keeps every tile one tap, and makes seven capture modes reachable without a second screen.</span>
+    </div>
+    <div class="lz">
+      <b>What I'd leave</b>
+      <span>The Marquee's question — lovely for a stranger, a tax on you forever. Consider it for <b>first run only</b>: ask once, then never again.</span>
+    </div>
+    <div class="lz">
+      <b>What I'd test before trusting</b>
+      <span>The Stage. It is the most beautiful and the most expensive, and the frosted-over-video legibility question can only be answered on a real phone with real footage.</span>
+    </div>
+    <div class="lz">
+      <b>The swap you floated</b>
+      <span>Capture ↔ Workshop colours. Try it in the swapper. My read: <b>pink belongs to Capture</b> because pink already means "live" in the Studio, and violet suits a room about characters.</span>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p>Inventory counted against the code at <b>HEAD on joy-creator</b>, 17 Sep 2026. Colours are JoyRaptor's picks from design record 01. The four state colours and the zinc ramp come from <b>SPEC_20260910_SPRITELAB_UI §1</b>, read off app.spritepop.art.</p>
+  <p style="margin-top:9px">Room mapping is deliberately swappable — <b>one table, one file</b> — per the ruling that it must be easy to change later.</p>
+</footer>
+
+</main>
+
+<script>
+(function(){
+  "use strict";
+
+  var ROOMS = [
+    {k:"studio",  n:"Studio"},
+    {k:"capture", n:"Capture"},
+    {k:"shop",    n:"Workshop"},
+    {k:"library", n:"Library"},
+    {k:"sound",   n:"Sound"},
+    {k:"finder",  n:"Finder"},
+    {k:"remote",  n:"Remote"},
+    {k:"bot",     n:"Joybot"}
+  ];
+
+  var GRADS = [
+    {n:"Aqua → Lime",        a:"#35f6bf", b:"#97fe8b"},
+    {n:"Red-pink → Pink",    a:"#fa3d5d", b:"#ff008c"},
+    {n:"Pink → Violet",      a:"#ff008c", b:"#cc27ff"},
+    {n:"Blue → Cyan",        a:"#4397fd", b:"#55e0f9"},
+    {n:"Orange → Deep",      a:"#faa03d", b:"#fc6818"},
+    {n:"Lime → Yellow",      a:"#97fe8b", b:"#ceff5b"},
+    {n:"Cyan → Aqua",        a:"#55e0f9", b:"#35f6bf"},
+    {n:"Indigo → Pink",      a:"#5c43fd", b:"#ff008c"},
+    {n:"Indigo → Blue",      a:"#5c43fd", b:"#4397fd"},
+    {n:"Golden → Amber",     a:"#f9f462", b:"#ffc341"},
+    {n:"Violet → Indigo",    a:"#cc27ff", b:"#5c43fd"},
+    {n:"Grey",               a:"#71717a", b:"#52525b"}
+  ];
+
+  var DEFAULTS = {studio:0, capture:1, shop:2, library:3, sound:4, finder:5, remote:6, bot:7};
+
+  function applyRoom(key, gi){
+    var g = GRADS[gi];
+    document.documentElement.style.setProperty("--r-"+key+"-a", g.a);
+    document.documentElement.style.setProperty("--r-"+key+"-b", g.b);
+    var sw = document.getElementById("sw-"+key);
+    if (sw) sw.style.background = "linear-gradient(120deg,"+g.a+","+g.b+")";
+  }
+
+  (function buildSwapper(){
+    var host = document.getElementById("swaprow");
+    ROOMS.forEach(function(r){
+      var cell = document.createElement("div");
+      cell.className = "swapcell";
+
+      var chip = document.createElement("i");
+      chip.id = "sw-" + r.k;
+
+      var nm = document.createElement("span");
+      nm.className = "nm"; nm.textContent = r.n;
+
+      var sel = document.createElement("select");
+      sel.setAttribute("aria-label", r.n + " colour");
+      GRADS.forEach(function(g,i){
+        var o = document.createElement("option");
+        o.value = String(i); o.textContent = g.n;
+        sel.appendChild(o);
+      });
+      sel.value = String(DEFAULTS[r.k]);
+      sel.addEventListener("change", function(){ applyRoom(r.k, parseInt(sel.value,10)); });
+
+      cell.appendChild(chip); cell.appendChild(nm); cell.appendChild(sel);
+      host.appendChild(cell);
+      applyRoom(r.k, DEFAULTS[r.k]);
+    });
+  })();
+
+  /* ---- concept tabs ---- */
+  Array.prototype.forEach.call(document.querySelectorAll("#tabs button"), function(btn){
+    btn.addEventListener("click", function(){
+      var want = btn.getAttribute("data-c");
+      Array.prototype.forEach.call(document.querySelectorAll("#tabs button"), function(o){
+        o.setAttribute("aria-pressed", String(o === btn));
+      });
+      Array.prototype.forEach.call(document.querySelectorAll(".concept"), function(s){
+        s.hidden = s.getAttribute("data-c") !== want;
+      });
+      var t = document.querySelector(".tabs");
+      if (t) window.scrollTo({ top: t.offsetTop, behavior: "smooth" });
+    });
+  });
+
+  /* ---- marquee verbs ---- */
+  var ANSWERS = {
+    record:[
+      {g:"capture", i:"📷", b:"Camera",        s:"Back or front · FHD 30 · portrait"},
+      {g:"capture", i:"🖥️", b:"My screen",     s:"With your face, or your character, in the corner"},
+      {g:"capture", i:"🎙️", b:"Just my voice", s:"Straight into a new project"},
+      {g:"capture", i:"⧉",  b:"Both cameras",  s:"Front and back at once"},
+      {g:"remote",  i:"📡", b:"Another phone", s:"Use a second phone as a camera over Wi-Fi"},
+      {g:"finder",  i:"👁️", b:"When something moves", s:"Start on its own · person, vehicle or pet"}
+    ],
+    edit:[
+      {g:"studio",  i:"▶",  b:"Carry on with ZA_CONTROL", s:"6 layers · 0:47 · 2 hours ago"},
+      {g:"studio",  i:"✚",  b:"Start something new",      s:"Blank canvas, pick a size"},
+      {g:"library", i:"📥", b:"From a file",              s:"Video, photo, audio or a folder"},
+      {g:"studio",  i:"🗂️", b:"All 5 projects",           s:"Rename, duplicate, free up space"}
+    ],
+    animate:[
+      {g:"shop",    i:"★",  b:"Sprite Lab",        s:"Slice a sheet, name the frames, save a clip"},
+      {g:"shop",    i:"🦕", b:"Bend a drawing",    s:"Pin it, bone it, act it out"},
+      {g:"shop",    i:"🤖", b:"Avatar Studio",     s:"A rig that follows your face or your voice"},
+      {g:"capture", i:"🎭", b:"Be a character on camera", s:"Live, over a screen recording"},
+      {g:"shop",    i:"📦", b:"Get more pieces",   s:"Transitions, looks and fonts you dropped in"}
+    ],
+    listen:[
+      {g:"sound",   i:"💬", b:"Write down what was said", s:"Offline · no key · word-level timing"},
+      {g:"sound",   i:"🎚️", b:"Clean up the audio",       s:"Hiss, rumble, levels — one tap"},
+      {g:"sound",   i:"〰️", b:"Make a visualiser",        s:"Save the look, use it anywhere"},
+      {g:"sound",   i:"♪",  b:"Find the beat",            s:"Snap cuts and keys to the music"}
+    ],
+    find:[
+      {g:"library", i:"⌕",  b:"Search everything",  s:"Projects, clips, spoken words, markers"},
+      {g:"finder",  i:"🔍", b:"Moments in my footage", s:"People, pets, vehicles — found on this phone"},
+      {g:"finder",  i:"⚑",  b:"Markers I dropped",  s:"Tapped while recording"},
+      {g:"library", i:"🗑️", b:"Trash",              s:"Deleted in the last 30 days"}
+    ],
+    ask:[
+      {g:"bot",     i:"◕",  b:"Joybot",             s:"55 things it can do to your timeline"},
+      {g:"bot",     i:"✂",  b:"Cut the ums",        s:"Uses the transcript you already have"},
+      {g:"bot",     i:"📑", b:"Make chapters",      s:"From what was said and what was seen"},
+      {g:"bot",     i:"🖼️", b:"Make me a picture",  s:"Needs a key · costs what it costs, no margin"}
+    ]
+  };
+
+  function renderAnswers(v){
+    var host = document.getElementById("mqanswers");
+    if (!host) return;
+    host.innerHTML = "";
+    (ANSWERS[v] || []).forEach(function(a){
+      var row = document.createElement("div");
+      row.className = "ans";
+      row.innerHTML =
+        '<span class="g" style="background:linear-gradient(140deg,var(--r-'+a.g+'-a),var(--r-'+a.g+'-b));color:#08080a">'+a.i+'</span>' +
+        '<span class="tx"><b>'+a.b+'</b><span>'+a.s+'</span></span>' +
+        '<span class="ch">›</span>';
+      host.appendChild(row);
+    });
+  }
+  renderAnswers("record");
+
+  Array.prototype.forEach.call(document.querySelectorAll("#mqverbs button"), function(btn){
+    btn.addEventListener("click", function(){
+      var v = btn.getAttribute("data-v");
+      Array.prototype.forEach.call(document.querySelectorAll("#mqverbs button"), function(o){
+        var on = (o === btn);
+        o.setAttribute("aria-pressed", String(on));
+        var vk = o.getAttribute("data-v");
+        var map = {record:"capture", edit:"studio", animate:"shop", listen:"sound", find:"finder", ask:"bot"};
+        o.style.background = on
+          ? "linear-gradient(120deg,var(--r-"+map[vk]+"-a),var(--r-"+map[vk]+"-b))"
+          : "var(--ctl)";
+        o.style.color = on ? "#08080a" : "var(--dim)";
+      });
+      renderAnswers(v);
+    });
+  });
+})();
+</script>
+
+</body></html>

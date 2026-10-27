@@ -1,4 +1,12 @@
 # LANES.md — live file-lock board for parallel agents
+
+## JOYBRUSH_VECTOR_TWEENS_20261023_CODEX
+October26 separate fidelity slice ACTIVE: C:/Temp/jb-tween-wash-fidelity-20261026 fromf7ed34f16. Root owns NEW core/anim/WatercolourTween.kt and envelope/proposal docs; Luna only WatercolourTweenTest.kt. Frozen-brush-aware replay entry, strict differing-frame WC translation envelope, legacy Ink math unchanged. No schema/GPU/UI/engine activation or heavy jobs. Marker61d093144 is separate ready-for-review prerequisite.
+October26 lead-assigned next prerequisite ACTIVE: C:/Temp/jb-frame-duplicate-contract-20261026, codex/frame-duplicate-contract-20261026 from7dd2fe264. Only core/doc/RegionDocumentOps.kt appended runtime marker, NEW pure frame-duplicate validator and focused source tests. No engine/View/Activity/codec/model-schema edits, no build/phone/queue; root coordinates admission with lead. Marker alone untrusted; structural validation required. Existing direct/component branches preserved.
+Continuation 2026-10-26: ACTIVE coordination. Direct candidate C:/Temp/jb-tween-direct-20261026 from approved8e7692c83: sourcef5b05489e, helper-fixd73f5b9c7, exports961bdf6f7, contract1a07a379c. Helper frozen for lead review; Luna owns ONLY new PreparedLinePlaneCopyTest.kt source at lead request, no executions. Clip-dependent source preserved separately C:/Temp/jb-tween-runtime-20261026:35a9d23b1/0a65e19ca. Root owns docs only pending review; no hotfile edits. Lead explicitly retains GlPaintEngine/JbCanvasView/JoyBrushActivity and all heavy/phone jobs; no builds/phone/queued wrappers here. Contract tasks/joybrush/handoffs/TWEEN_COORDINATION_20261026.md. October24 status below is historical.
+status: IDLE 2026-10-24 — return audit and primary STATE/roadmaps/handoff refreshed. Tested source2896cf2d5 picked up as59d1f1d63 and included in local clip merge6a4c471eb; neither is in primaryfb8042841. New forward wakeup helper commit3cac9d3af is SOURCE ONLY: shared compile runner deferred for RAM546MiB < required2800MiB. Integration and engineering work remain, not only owner acceptance.
+files: none. Source/evidence retained in C:/Temp/jb-vector-tweens; only obsolete own failed/intermediate logs removed. No engine hot-file edits, merge or phone actions.
+DEVICE: none. Owner confirmed Engine Lead keeps GlPaintEngine/JbCanvasView/JoyBrushActivity; no edits to those files, no installs or phone actions. Shared build slot released.
 # October14 ACTIVE Lead: C:/Temp/jb-live-current, lead/jb-live-current, sourceccb4913bf includes originbb4df6c64.
 # Prior C:/Temp/jb-live-lines is frozen/backed-up b203e760; original owner folder/worktrees preserved.
 # Core2273/backend514/native193 green; sourceccbAPK PASS1m33 with current Note9 capture/bake diagnostics. Later factory guards backend-verified only.
@@ -1167,6 +1175,14 @@ owns ONLY isolated RecordedScene.kt internal projected staging/new tests in
 C:/Temp/jb-promotion-inventory. No concurrent engine edits or helper builds/device/Git.
 Claude independent reviewer: AUDIT_CHECKPOINT_20261014.md; storage/Joybot files untouched.
 
+## SPEC_20261013_FILE_MANAGEMENT (Claude, cross-cutting account — the Joy Creator folder)
+status: ACTIVE (2026-10-13 21:05 — finishing the folder: one Trash (TrashFragment/TrashAdapter + JoyTrashBridge), moved-file healing, recordings/exports into the folder, share-in, entry points)
+files added this round: app/.../ui/TrashFragment.java · app/.../ui/TrashAdapter.java · utils/RecordingStoragePaths.java · data/FastFileScanner.java (planned) · export/ExportManager.java (output location only, planned)
+files (new): studiokit/src/main/java/com/fadcam/joyfolder/** · app/src/main/java/com/fadcam/joyfolder/** · tools/joyfolder-tests/**
+files (small hooks only): app/.../faditor/project/ProjectStorage.java (after-save + delete hooks) ·
+  app/.../ui/StorageSettingsFragment.java (one entry row) · app/.../ui/FaditorMiniFragment.java (one banner) · app/src/main/AndroidManifest.xml (one activity)
+NOT touching: Lobby, Onboarding, Settings home, RecordingService, AssetResolver, anything JoyBrush (brief goes to the JoyBrush lanes).
+
 ## JOYBOT_20261014 (Claude, JoyBot specialist — cross-cutting account)
 status: ACTIVE (2026-10-15 evening) — F2 action registry (13 families) + F3/F4 Director mode + F5/F7/F8/F9 + M7 built; core flows phone-tested on the Note 9 10-15 night (see JOYBOT_PLAN B6); see the "Update — 2026-10-15 evening" section of tasks/joybot/JOYBOT_HANDOFF_20261015.md. Plan: tasks/joybot/JOYBOT_PLAN_20261014.md.
 files (10-15 evening, small, outside ai/): FaditorEditorActivity.swapInProject (1 line: loadedSlideClipId = null) · ui/faditor/sprite/SpriteSheetEditorActivity (Joybot button + reload after Joybot) · ui/RecordsFragment + res/layout/fragment_records.xml (Joybot button) · new app/.../ai/actions/** · tools/jvm-harness/ActionRegistryTest.java + run-actions.sh.
@@ -1178,3 +1194,52 @@ files (small hooks only, announced): FaditorEditorActivity (AIChatState reload b
   LobbyFragment (Joybot lines only) · ui/faditor/undo/UndoManager (one overload)
 NOT touching: joybrush/, joybrush-android/, joyfolder/ (reuses ShareInbox as-is).
 DEVICE: none reserved; asks the owner before any install.
+
+## VISLAB_20261016 (Claude, VisLab / visualiser engine specialist)
+status: ACTIVE (2026-10-17 19:15; shared-file hooks DONE and pushed d02e90943: manifest service, ScreenRecordingPipeline 1 line, AnnotationService + annotation_toolbar_unified Visualiser row, FileKind .vis.json. Touching only vislab/** now. Spec: tasks/VISLAB_SPEC.md)
+files (new, owned): app/src/main/java/com/fadcam/vislab/** . app/src/main/assets/vislab/** . tools/vislab-web/** . tasks/VISLAB_SPEC.md . tools/jvm-harness/Vis*Test.java + run-vislab.sh
+files (small hooks, will announce here before touching): ui/lobby/LobbyFragment (Viz Lab enterRoom only) . fadrec/ui/FloatingControlsService + its menu layout (one Visualiser toggle) . AndroidManifest (one activity, one service) . export/CompositeExportOverlay + ExportManager (visualiser slot only) . FaditorEditorActivity (visualiser drawer only)
+NOT touching: old waveform/ renderer (kept as-is, selectable), joybrush/, joyfolder/, ai/.
+DEVICE: Note 9 only, asks nothing of the owner's drawings; HOME before any install.
+
+## ADVERSARIAL_AUDIT_20261018
+status: IDLE; audit complete; reports in tasks/audits/2026-10-18/README.md.
+files: tasks/audits/2026-10-18/**; appended audit section in tasks/todo.md only. No production edits.
+DEVICE: released; phone at Android Home, no capture/visualiser projection. Three runtime bugs confirmed; unsaved brush benches preserved 13 existing JoyBrush files.
+
+## ANIMATION_CLIPS_20261018_CODEX
+status: ACTIVE — owner-requested continuation in C:/Temp/jb-clips, lead/anim-clips, base d232a2b17.
+files: animation core/model/component links (DOC_VERSION13), playback, region plans, GlPaintEngine/JbCanvasView board integration, BoardRuntimeController/exports, bench and focused tests.
+Source is WIP / NOT ready to integrate. Root is finishing transitive component-link persistence and serial verification; helper drafts are retained after usage limits. No brush/shader algorithms or device use. Builds use jb-gradle.lock; do not deploy or copy this dirty checkout.
+
+ANIMATION_CLIPS_20261018_CODEX update 2026-10-19: owner explicitly requests full spec completion, including U1–U8. Isolated C:/Temp/jb-clips source is frozen for full core/backend/native regression; root owns serial build slot. Note9 acceptance is requested NEXT after sonnet-helper-1 water A/B profile releases jb-phone.lock. No concurrent phone commands, install or input will occur while that lease is held. New disposable animationClips GPU/archive/GIF probe and playAll benchmark need this phone pass; owner artwork must stay untouched. No integration/deployment by other lanes until root publishes verified source and evidence.
+ANIMATION_CLIPS_20261018_CODEX 10-19 final acceptance: root currently owns jb-phone.lock (ANIMATION_CLIPS_20261019-1792435784649), Note9 at HOME, installed APK backed up. All animation/UI source frozen. Waiting NEXT for jb-gradle.lock currently owned codex-unibrush before final serial core/backend/native tests + watcher-only APK build. Please leave next build slot for animation acceptance; no concurrent wrappers. No owner drawing opened.
+
+## SYMMETRY_20261019 (owner-requested; opencode/MiniMax M3.1 orchestrating)
+status: ACTIVE 2026-10-19. Worktree C:/Temp/jb-symmetry (branch lead/symmetry-1019, base b41857e49). Plan:
+       tasks/joybrush/specs/SYMMETRY_IMPLEMENTATION_PLAN_20261019_MINIMAX_M31.md (corrected after the
+       DeepSeek/Muse cross-review). Sub-lanes: lead/symmetry-a1 (guide model+maths+persistence),
+       lead/symmetry-a2 (brush angle-frame + scatter across-negation), later lead/symmetry-b (fan-out,
+       androidkit) and lead/symmetry-c (widget/overlay, joybrush-android).
+files: joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/guide/{Guide,GuideSettings,GuideLines,GuideSnapper}.kt
+       joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/guide/SymmetryMath.kt (NEW)
+       joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/brush/{AngleFrame,BrushDabber,Scatter}.kt
+       joybrush/core/src/commonTest/kotlin/cc/joycreator/joybrush/core/guide/*   joybrush/core/src/commonTest/kotlin/cc/joycreator/joybrush/core/brush/*
+       (later) joybrush/androidkit/.../JbCanvasView.kt  joybrush/androidkit/.../gl/GlPaintEngine.kt
+       (later) joybrush-android/.../chrome/{GuideOverlayView,SymmetryWidgetView}.kt  joybrush-android/.../JoyBrushActivity.kt
+NOTE: builds take the machine-wide jb-gradle.lock via tasks/joybrush/lead-scripts/lead-build.sh ONLY. No bare
+      gradlew. No device action (no install, no am start, no monkey) without the owner/Lead's go-ahead and the
+      DEVICE token free. Path-limited commits only; never a bare git commit; never touch another lane's files.
+
+ANIMATION_CLIPS_20261018_CODEX HANDOFF 2026-10-22: owner requested pickup instructions. C:/Temp/jb-clips remains dirty lead/anim-clips at d232a2b17 with C1-C8/U1-U8 implemented; final core2548/backend1056/Android330 checks pass (4 optional core skips). APK/device acceptance/integration remain. Full resume document: tasks/joybrush/handoffs/ANIMATION_CLIPS_RESUME_20261022.md (also in feature checkout). Both shared locks absent at inspection; old Oct19 ownership/request-next-slot statements above are historical and superseded. Current primary -t installDefaultDebug watcher must be coordinated before another build or install. No resources reserved or device input performed for this handoff.
+
+## STUDIO_UNDO_HISTORY_PERSIST_20261022 (Claude, side session of the VisLab session)
+status: IDLE 2026-10-24 08:50 - pushed b2a85dff7 (quick edits keep their own step; history saved with every project save) + 0dc68f0ef (STATE row). Type-checked and harness-tested; PHONE TEST OWED (C: drive full, build impossible). Main folder NOT fast-forwarded: it has 6 local commits not on origin + uncommitted FaditorEditorActivity changes (not mine).
+files: none.
+DEVICE: not held. When there is disk space: build origin, then on 'Redo test clip' do 3 quick rotates + reopen (3 steps), and 2 edits + autosave + am force-stop + reopen (history matches).
+
+## TWEEN_PLAYBACK_EXPOSURE_20261026
+status: ACTIVE 2026-10-26 — isolated core integer exposure API for tween playback.
+worktree: C:/Temp/jb-tween-runtime-20261026, branch codex/tween-runtime-20261026, base 151b92621.
+files: joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/anim/PlaybackClock.kt; new adjacent tween exposure adapter if needed.
+Scope: precise integer samples and next tick wakeup for holds using cumulative AnimOps tick boundaries; LOOP/PING_PONG/ONCE/HOLD/BLANK, selected ranges, speed. No TweenFrameSample/TweenScene, UI, engine, builds, tests, commits or device work.

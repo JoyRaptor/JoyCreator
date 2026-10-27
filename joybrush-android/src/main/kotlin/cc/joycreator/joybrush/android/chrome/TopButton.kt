@@ -24,6 +24,10 @@ class TopButton(private val kit: ChromeKit, icon: JbIcon, label: String) : View(
     var ink: IconInk = IconInk.LIGHT
         set(value) { if (field != value) { field = value; inkChanged() } }
 
+    /** Joybot's own two faces (the app's art): the regular one, and the smiling one while pressed. Null = the vector icon. */
+    var faces: Pair<android.graphics.drawable.Drawable, android.graphics.drawable.Drawable>? = null
+        set(value) { field = value; inkChanged() }
+
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val drawable = icon.drawable(kit.p.drawerInk)
 
@@ -41,6 +45,11 @@ class TopButton(private val kit: ChromeKit, icon: JbIcon, label: String) : View(
         } else {
             drawable.color = kit.p.drawerInk
             drawable.shadow(kit.dp(3f), kit.dp(1f), ColorUtils.setAlphaComponent(kit.p.ground, SHADOW_ALPHA))
+        }
+        faces?.let { (a, b) ->
+            // The art is white line art on transparency: it wears the ink the picture behind asks for.
+            val tint = android.graphics.PorterDuffColorFilter(if (ink == IconInk.DARK) kit.p.ground else kit.p.drawerInk, android.graphics.PorterDuff.Mode.SRC_IN)
+            a.colorFilter = tint; b.colorFilter = tint
         }
         applyEnabled()
         invalidate()
@@ -66,6 +75,14 @@ class TopButton(private val kit: ChromeKit, icon: JbIcon, label: String) : View(
             c.drawCircle(cx, cy, kit.dp(17f), paint)
         }
         // Pressed: the icon dips a little, the way a key goes down. No wash: there is no chip to wash.
+        faces?.let { (neutral, smile) ->
+            val f = kit.dp(13f).let { if (isPressed) it - kit.dp(1.5f) else it }
+            val d = if (isPressed) smile else neutral
+            d.alpha = if (isEnabled) 255 else DISABLED_ALPHA
+            d.setBounds(Math.round(cx - f), Math.round(cy - f), Math.round(cx + f), Math.round(cy + f))
+            d.draw(c)
+            return
+        }
         val h = if (isPressed) kit.dp(9.5f) else kit.dp(11f)
         drawable.setBounds(Math.round(cx - h), Math.round(cy - h), Math.round(cx + h), Math.round(cy + h))
         drawable.draw(c)

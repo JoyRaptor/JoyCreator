@@ -8,7 +8,7 @@ and it is gone. And the owner looks at the main folder, so when it lags behind G
 "missing" that are really built.
 
 ## Done when
-- [x] Every unsaved edit in the main folder is on GitHub (done 10-27: `rescue/main-folder-20261027`, `11885d640`).
+- [x] Every unsaved edit in the main folder is on GitHub (done 10-27: `rescue/main-folder-20261027`, `94a5f7e69`).
 - [ ] Each piece in the rescue branch is either landed on `joy-creator` or recorded as obsolete here.
 - [ ] The main folder's `joy-creator` equals `origin/joy-creator`, with its working tree clean (or holding only
       a live session's in-progress work, named on the BOARD).

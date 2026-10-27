@@ -15,7 +15,7 @@ bookmarks, In/Out regions, looping a region and exporting just a region: everyda
 
 ## Where it stands
 Built by a Codex session on 10-23/24 in the main folder and **never committed**. Saved on 10-27 in
-`rescue/main-folder-20261027` (`11885d640`). Codex's own notes (in that branch's `tasks/todo.md` and
+`rescue/main-folder-20261027` (`94a5f7e69`). Codex's own notes (in that branch's `tasks/todo.md` and
 `tasks/road_map.md`) say:
 - 68 focused checks pass (migration, save-failure protection, saved undo, loop boundaries, export planning);
 - built into an APK on 10-24 and the new code confirmed inside it;

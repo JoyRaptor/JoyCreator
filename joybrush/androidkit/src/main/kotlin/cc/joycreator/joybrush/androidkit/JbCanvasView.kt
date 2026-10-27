@@ -170,6 +170,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     @Volatile private var documentPaperState = Paper()
     @Volatile var paper: ResolvedPaper = PaperState.resolve(documentPaperState, PaperResources.catalogue)
         set(v) {
+            val backdropChanged = field != v
             field = v
             documentPaperState = documentPaperState.copy(textureId=v.surface?.id,lookId=v.look?.id,
                 textureScale=v.scale,color=paperHex(v.baseArgb),tint=if(v.tintSet)paperHex(v.baseArgb) else null,
@@ -179,8 +180,15 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 onGl { engine.setDocumentPaper(next) }
             }
             requestRender()
+            // Runtime fixtures and resolved-paper changes also change icon contrast, without a paper history visit.
+            if (backdropChanged) {
+                if (Looper.myLooper() == Looper.getMainLooper()) onPaperBackdropChanged?.invoke()
+                else post { onPaperBackdropChanged?.invoke() }
+            }
         }
     val documentPaper: Paper get() = documentPaperState
+    /** Display invalidation only; observers sample after the next rendered frame. Always delivered on the UI thread. */
+    var onPaperBackdropChanged: (() -> Unit)? = null
     var onPaperChanged: ((Paper) -> Unit)? = null
     var onBeforeHistoryChange: (() -> Unit)? = null
     @Volatile private var paperRevision = 0L
@@ -2983,49 +2991,58 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         val paper = documentPaperState
         onGl {
             val probe = GlPaintEngine()
-            val report = try {
-                probe.init()
-                probe.setDocumentPaper(paper)
-                probe.addLayer("recorded-probe")
-                val ordinary = if (watercolourOrdinary)
-                    cc.joycreator.joybrush.androidkit.gl.WatercolourOrdinaryFixture.prepare(preset) else null
-                val frozen = ordinary?.frozen ?:
-                    cc.joycreator.joybrush.core.brush.FrozenBrushRegistry.freeze(emptyMap(), preset) { "probe-frozen" }
-                val value = if (ordinary != null) cc.joycreator.joybrush.androidkit.gl.WatercolourOrdinaryProbe.run(
-                    probe, "recorded-probe", frozen.preset, ordinary.record())
-                else if (watercolourEdits) cc.joycreator.joybrush.androidkit.gl.WatercolourEditProbe.run(
-                    probe, "recorded-probe", frozen.preset, record.copy(brushId = frozen.id))
-                else if (capturedJoint) cc.joycreator.joybrush.androidkit.gl.RecordedCapturedJointProbe.run(
-                    probe, "recorded-probe", frozen.preset, record.copy(brushId = frozen.id))
-                else if (capturedCopy) org.json.JSONObject(probe.runCapturedCopyDiagnostic(
-                    "recorded-probe", record.copy(brushId = frozen.id), frozen.preset))
-                else if (promotion) cc.joycreator.joybrush.androidkit.gl.RecordedPromotionProbe.run(
-                    probe, "recorded-probe", frozen.preset, record.copy(brushId = frozen.id), regional, coldLoad, coldPayload, coldFailures)
-                else if (joint) cc.joycreator.joybrush.androidkit.gl.RecordedJointProbe.json(
-                    cc.joycreator.joybrush.androidkit.gl.RecordedJointProbe.run(probe, "recorded-probe",
-                        frozen.preset, record.copy(brushId = frozen.id), openCold = openCold))
-                else if (bake) cc.joycreator.joybrush.androidkit.gl.RecordedBakeProbe.json(
-                    cc.joycreator.joybrush.androidkit.gl.RecordedBakeProbe.run(probe, "recorded-probe",
-                        frozen.preset, record.copy(brushId = frozen.id), openCold = openCold))
-                else cc.joycreator.joybrush.androidkit.gl.RecordedReplayProbe.json(
-                    cc.joycreator.joybrush.androidkit.gl.RecordedReplayProbe.run(probe, "recorded-probe",
-                        frozen.preset, record.copy(brushId = frozen.id)))
-                if (ordinary != null) {
-                    value.put("fixture", org.json.JSONObject(ordinary.metadata()))
-                        .put("fixtureFrozenBrushJson", frozen.bytes.decodeToString())
-                        .put("fixtureFrozenBrushSha256", java.security.MessageDigest.getInstance("SHA-256")
-                            .digest(frozen.bytes).joinToString("") { "%02x".format(it.toInt() and 255) })
+            var result: org.json.JSONObject? = null
+            try {
+                result = try {
+                    probe.init()
+                    probe.setDocumentPaper(paper)
+                    probe.addLayer("recorded-probe")
+                    val ordinary = if (watercolourOrdinary)
+                        cc.joycreator.joybrush.androidkit.gl.WatercolourOrdinaryFixture.prepare(preset) else null
+                    val frozen = ordinary?.frozen ?:
+                        cc.joycreator.joybrush.core.brush.FrozenBrushRegistry.freeze(emptyMap(), preset) { "probe-frozen" }
+                    val value = if (ordinary != null) cc.joycreator.joybrush.androidkit.gl.WatercolourOrdinaryProbe.run(
+                        probe, "recorded-probe", frozen.preset, ordinary.record())
+                    else if (watercolourEdits) cc.joycreator.joybrush.androidkit.gl.WatercolourEditProbe.run(
+                        probe, "recorded-probe", frozen.preset, record.copy(brushId = frozen.id))
+                    else if (capturedJoint) cc.joycreator.joybrush.androidkit.gl.RecordedCapturedJointProbe.run(
+                        probe, "recorded-probe", frozen.preset, record.copy(brushId = frozen.id))
+                    else if (capturedCopy) org.json.JSONObject(probe.runCapturedCopyDiagnostic(
+                        "recorded-probe", record.copy(brushId = frozen.id), frozen.preset))
+                    else if (promotion) cc.joycreator.joybrush.androidkit.gl.RecordedPromotionProbe.run(
+                        probe, "recorded-probe", frozen.preset, record.copy(brushId = frozen.id), regional, coldLoad, coldPayload, coldFailures)
+                    else if (joint) cc.joycreator.joybrush.androidkit.gl.RecordedJointProbe.json(
+                        cc.joycreator.joybrush.androidkit.gl.RecordedJointProbe.run(probe, "recorded-probe",
+                            frozen.preset, record.copy(brushId = frozen.id), openCold = openCold))
+                    else if (bake) cc.joycreator.joybrush.androidkit.gl.RecordedBakeProbe.json(
+                        cc.joycreator.joybrush.androidkit.gl.RecordedBakeProbe.run(probe, "recorded-probe",
+                            frozen.preset, record.copy(brushId = frozen.id), openCold = openCold))
+                    else cc.joycreator.joybrush.androidkit.gl.RecordedReplayProbe.json(
+                        cc.joycreator.joybrush.androidkit.gl.RecordedReplayProbe.run(probe, "recorded-probe",
+                            frozen.preset, record.copy(brushId = frozen.id)))
+                    if (ordinary != null) {
+                        value.put("fixture", org.json.JSONObject(ordinary.metadata()))
+                            .put("fixtureFrozenBrushJson", frozen.bytes.decodeToString())
+                            .put("fixtureFrozenBrushSha256", java.security.MessageDigest.getInstance("SHA-256")
+                                .digest(frozen.bytes).joinToString("") { "%02x".format(it.toInt() and 255) })
+                    }
+                    value
+                } catch (error: Exception) {
+                    org.json.JSONObject().put("passed", false)
+                        .put("failure", error.message ?: error.javaClass.simpleName)
                 }
-                probe.release()
-                val error = android.opengl.GLES30.glGetError()
-                value.put("engineReleaseGlError", error)
-                if (error != android.opengl.GLES30.GL_NO_ERROR) value.put("passed", false)
-                value.toString()
-            } catch (error: Exception) {
-                org.json.JSONObject().put("passed", false).put("failure", error.message ?: error.javaClass.simpleName).toString()
             } finally {
-                if (probe.ready) probe.release()
+                // A cleanup failure is a failed diagnostic, not a lost callback/bench continuation.
+                try {
+                    probe.release()
+                    val error = android.opengl.GLES30.glGetError()
+                    result?.put("engineReleaseGlError", error)
+                    if (error != android.opengl.GLES30.GL_NO_ERROR) result?.put("passed", false)
+                } catch (error: Exception) {
+                    result?.put("passed", false)?.put("releaseFailure", error.message ?: error.javaClass.simpleName)
+                }
             }
+            val report = checkNotNull(result).toString()
             post { ready(report) }
         }
     }

@@ -52,16 +52,25 @@ internal object MediaSeamProbe {
             engine.setDocumentPaper(paper)
             engine.addLayer(LAYER)
             var now = 1_000L
-            for (i in 0 until 6) {
+            val warnings = ArrayList<String>()
+            engine.onMediaWarning = { warnings += it }
+            fun idle() { var n = 0; while (n < 600) { now += FRAME_MS; n++; if (!canvas.frame(now)) break } }
+            fun stroke(i: Int) {
                 val pts = path(i)
                 canvas.begin(LAYER, preset, COLOURS[i % COLOURS.size], null, pts[0].x, pts[0].y, now)?.let { throw IllegalStateException("refused: $it") }
                 for (chunk in pts.chunked(SAMPLES_PER_FRAME)) { canvas.add(chunk); now += FRAME_MS; canvas.frame(now) }
                 canvas.end()
-                var n = 0; while (n < 600) { now += FRAME_MS; n++; if (!canvas.frame(now)) break }
+                idle()
             }
+            // As the owner paints: strokes, an undo and a redo, an undo, then strokes across what is left.
+            for (i in 0 until 3) stroke(i)
+            canvas.settleOwed(); engine.undoStep(); idle()
+            canvas.settleOwed(); engine.redoStep(); idle()
+            canvas.settleOwed(); engine.undoStep(); idle()
+            for (i in 3 until 6) stroke(i)
             canvas.releaseWindow()
             val tiles = engine.tileKeys(LAYER).associateWith { checkNotNull(engine.readTile(LAYER, it)) }
-            return measure(tiles)
+            return measure(tiles).put("droppedPayloads", warnings.count { "outside the media funnel" in it })
         } finally {
             runCatching { canvas.release() }
             if (engine.ready) runCatching { engine.release() }

@@ -2187,6 +2187,11 @@ class GlPaintEngine(
         return readTextureTile(physicalDisplayTiles(layer, planeOf(layer, celId))[key])
     }
 
+    /** Live source lease probe only: one leased texture read back as RGBA8 bytes (as [readTile]). */
+    internal fun readLiveSourceTile(tex: Int): ByteArray? = readTextureTile(tex)
+    /** Live source lease probe only: the history position, compared by identity (a publication would move it). */
+    internal fun liveSourceHistoryCursor(): Any? = undo.snapshotCursor()
+
     private fun readTextureTile(tex: Int?): ByteArray? {
         if(tex==null)return null
         val buf=tileReadback; buf.clear()

@@ -21,6 +21,7 @@ from run_select_bench import ACTIVITY, PACKAGE, Adb, PhoneClaim, RunError
 CASES = {
     "nativeFrameDuplicateProbe": "joybrush.ink",
     "recordedWatercolourOrdinaryProbe": "joybrush.watercolour",
+    "liveSourceLeaseProbe": "joybrush.ink",
     "mediaAtlasLedgerProbe": "media:wet:Wash,media:paste:Oil round,media:dry:HB",
 }
 # Every place a person's drawings or projects live on the sandbox. A probe must leave each file byte-identical.

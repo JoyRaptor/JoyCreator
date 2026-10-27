@@ -54,6 +54,9 @@ object BoardExport {
         onWarning: (String) -> Unit = {}, onFrame: (Int, Int) -> Unit = { _, _ -> },
         tweenRenderer: ((JbContents, TweenFrameSample, RectPx, Boolean) -> ByteArray)?): StagedBoardExport {
         val doc = contents.doc
+        // Refuse before the cache exists. Only a tween renderer can draw what the region renderer cannot; with none, the
+        // whole export is refused here (each branch below checks again for its own content).
+        if (tweenRenderer == null) RegionRenderer.unsupportedContentReason(doc)?.let { throw JbArchiveException(it) }
         DocOps.validate(doc).takeIf { it.isNotEmpty() }?.let { throw JbArchiveException(it.joinToString("; ")) }
         if (doc.id != request.documentId) throw JbArchiveException("the drawing changed; choose the board again")
         val board = doc.boards.singleOrNull { it.id == request.boardId }

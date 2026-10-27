@@ -20605,6 +20605,50 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                 visualizerTranscript(overlay.getAudioSourceRef());
                         return t != null && !t.words.isEmpty();
                     }
+                    @NonNull @Override public java.util.List<String[]> followTargets() {
+                        java.util.List<String[]> out = new java.util.ArrayList<>();
+                        if (project == null) return out;
+                        int dummies = 0, texts = 0, sprites = 0, vizs = 0;
+                        java.util.List<String[]> rest = new java.util.ArrayList<>();
+                        for (com.fadcam.ui.faditor.model.LinkFollower f
+                                : project.getTimeline().linkFollowers()) {
+                            if (f == overlay) continue;
+                            if (f instanceof com.fadcam.ui.faditor.model.TextOverlayItem) {
+                                com.fadcam.ui.faditor.model.TextOverlayItem t =
+                                        (com.fadcam.ui.faditor.model.TextOverlayItem) f;
+                                if (t.isProxy()) {
+                                    out.add(new String[]{f.getId(), "Dummy " + (++dummies)});
+                                    continue;
+                                }
+                                String s = t.getText() == null ? "" : t.getText().trim();
+                                if (s.length() > 18) s = s.substring(0, 18) + "...";
+                                rest.add(new String[]{f.getId(),
+                                        "Text " + (++texts) + (s.isEmpty() ? "" : " \"" + s + "\"")});
+                            } else if (f instanceof com.fadcam.ui.faditor.sprite.SpriteOverlayItem) {
+                                rest.add(new String[]{f.getId(), "Sprite " + (++sprites)});
+                            } else if (f instanceof com.fadcam.ui.faditor.model.WaveformOverlayInstance) {
+                                rest.add(new String[]{f.getId(), "Visualizer " + (++vizs)});
+                            }
+                        }
+                        out.addAll(rest);
+                        return out;
+                    }
+                    @androidx.annotation.Nullable @Override
+                    public com.fadcam.ui.faditor.model.SpaceLink followLinkTo(@NonNull String parentId) {
+                        if (project == null) return null;
+                        com.fadcam.ui.faditor.model.LinkFollower p =
+                                project.getTimeline().linkFollowerById(parentId);
+                        if (p == null || p == overlay) return null;
+                        android.graphics.RectF cr = computeCanvasRect();
+                        float aspect = cr.height() > 1f ? cr.width() / cr.height() : 1f;
+                        com.fadcam.ui.faditor.model.SpaceLink l = com.fadcam.ui.faditor.model.SpaceLink.capture(
+                                p, Math.max(0, lastPlayheadAbsoluteMs), aspect);
+                        l.parentRef = p;
+                        return l;
+                    }
+                    @Override public void followsChanged() {
+                        if (project != null) project.getTimeline().resolveSpaceLinks();
+                    }
                 });
     }
 

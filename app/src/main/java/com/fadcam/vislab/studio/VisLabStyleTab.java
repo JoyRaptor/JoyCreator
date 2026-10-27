@@ -65,6 +65,17 @@ public final class VisLabStyleTab {
 
         /** True when the visualizer's source clip has a transcript (a lyrics look's words). */
         boolean hasTranscriptWords();
+
+        /** Objects a layer could follow, as {id, name} pairs: dummies first, never this visualizer. */
+        @NonNull
+        List<String[]> followTargets();
+
+        /** A link to object {@code parentId} as it stands at the playhead (nothing moves), or null. */
+        @Nullable
+        com.fadcam.ui.faditor.model.SpaceLink followLinkTo(@NonNull String parentId);
+
+        /** The follows changed: find their objects again, repaint, save. */
+        void followsChanged();
     }
 
     private static final long ON_KEY_MS = 66;   // as Studio's own keyed rows
@@ -220,6 +231,7 @@ public final class VisLabStyleTab {
                 x -> Math.round(x * 100f) + "%"), rowHost));
         rowRefresh.add(PipDrawerTabs.addPropRow(c, v, valueProp(VisLabKeys.SPEED, "Speed", 0f, 3f,
                 x -> Math.round(x * 100f) + "%"), rowHost));
+        addFollowRow(v, lookId);
         TextView edit = Ui.text(c, "Edit in VisLab", 12f, Studio.INK, false, 600);
         edit.setGravity(Gravity.CENTER);
         edit.setMinHeight(Ui.dp(c, 36));
@@ -233,6 +245,157 @@ public final class VisLabStyleTab {
         lp.gravity = Gravity.START;
         v.addView(edit, lp);
         return v;
+    }
+
+    // ------------------------------------------------------------------ follow (R8)
+
+    /** "Follow": which layers of the look move with a Studio object (a dummy, a text, a sprite...). */
+    private void addFollowRow(@NonNull LinearLayout v, @NonNull String lookId) {
+        LinearLayout row = new LinearLayout(c);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        TextView label = Ui.text(c, "Follow", 12f, Studio.INK, false, 600);
+        row.addView(label, new LinearLayout.LayoutParams(Ui.dp(c, 56), LinearLayout.LayoutParams.WRAP_CONTENT));
+        TextView pick = Ui.text(c, "", 12f, Studio.INK, false, 600);
+        pick.setGravity(Gravity.CENTER);
+        pick.setMinHeight(Ui.dp(c, 36));
+        pick.setPadding(Ui.dp(c, 14), Ui.dp(c, 8), Ui.dp(c, 14), Ui.dp(c, 8));
+        pick.setBackground(Ui.round(Studio.RAISED, Ui.dp(c, 999)));
+        Ui.label(pick, "Make a layer of this look move with a dummy, text or sprite");
+        pick.setOnClickListener(x -> chooseFollowLayer(lookId));
+        row.addView(pick);
+        LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        rp.topMargin = Ui.dp(c, 8);
+        v.addView(row, rp);
+
+        // What they carry: Move, Size, Turn. Applies to every following layer, one undo step.
+        LinearLayout flags = new LinearLayout(c);
+        flags.setOrientation(LinearLayout.HORIZONTAL);
+        flags.setPadding(Ui.dp(c, 56), Ui.dp(c, 4), 0, 0);
+        TextView[] chip = new TextView[3];
+        String[] names = {"Move", "Size", "Turn"};
+        String[] tips = {"The layer moves with the object", "The layer grows and shrinks with it",
+                "The layer turns with it"};
+        for (int i = 0; i < 3; i++) {
+            final int which = i;
+            chip[i] = Ui.text(c, names[i], 12f, Studio.INK, false, 600);
+            chip[i].setGravity(Gravity.CENTER);
+            chip[i].setMinHeight(Ui.dp(c, 32));
+            chip[i].setPadding(Ui.dp(c, 12), Ui.dp(c, 6), Ui.dp(c, 12), Ui.dp(c, 6));
+            Ui.label(chip[i], tips[i]);
+            chip[i].setOnClickListener(x -> {
+                State before = snap();
+                boolean now = !followFlag(which);
+                for (com.fadcam.ui.faditor.model.SpaceLink l : wf.getVisKeys().follows().values()) {
+                    if (which == 0) l.position = now;
+                    else if (which == 1) l.scale = now;
+                    else l.rotation = now;
+                    l.invalidate();
+                }
+                commit("Layer follow", before);
+            });
+            LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            cp.rightMargin = Ui.dp(c, 6);
+            flags.addView(chip[i], cp);
+        }
+        v.addView(flags);
+        rowRefresh.add(() -> {
+            int n = wf.getVisKeys().follows().size();
+            pick.setText(n == 0 ? "Pick a layer..." : n + (n == 1 ? " layer follows" : " layers follow") + "...");
+            flags.setVisibility(n == 0 ? View.GONE : View.VISIBLE);
+            for (int i = 0; i < 3; i++) {
+                boolean on = followFlag(i);
+                chip[i].setBackground(Ui.round(on ? Studio.ARMED : Studio.RAISED, Ui.dp(c, 999)));
+                chip[i].setTextColor(on ? Studio.GROUND : Studio.INK_DIM);
+            }
+        });
+    }
+
+    /** Is switch {@code which} (0 Move, 1 Size, 2 Turn) on for the following layers? On when any is. */
+    private boolean followFlag(int which) {
+        for (com.fadcam.ui.faditor.model.SpaceLink l : wf.getVisKeys().follows().values()) {
+            if (which == 0 ? l.position : which == 1 ? l.scale : l.rotation) return true;
+        }
+        return false;
+    }
+
+    /** Step 1: which layer of the look. */
+    private void chooseFollowLayer(@NonNull String lookId) {
+        List<String> layers = layerNames(lookId);
+        if (layers.isEmpty()) return;
+        String[] items = new String[layers.size()];
+        for (int i = 0; i < items.length; i++) {
+            com.fadcam.ui.faditor.model.SpaceLink l = wf.getVisKeys().followOf(i);
+            items[i] = (i + 1) + "  " + layers.get(i)
+                    + (l != null && l.active() ? "  (follows " + targetName(l.parentId) + ")" : "");
+        }
+        new androidx.appcompat.app.AlertDialog.Builder(c)
+                .setTitle("Which layer should follow?")
+                .setItems(items, (d, which) -> chooseFollowTarget(which, layers.get(which)))
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    /** Step 2: what it follows (or "Nothing" to let go). */
+    private void chooseFollowTarget(int layer, @NonNull String layerName) {
+        List<String[]> targets = host.followTargets();
+        boolean has = wf.getVisKeys().followOf(layer) != null;
+        if (targets.isEmpty() && !has) {
+            new androidx.appcompat.app.AlertDialog.Builder(c)
+                    .setTitle("Nothing to follow yet")
+                    .setMessage("Add a dummy, a text or a sprite to the project first, then a layer can follow it.")
+                    .setPositiveButton(android.R.string.ok, null)
+                    .show();
+            return;
+        }
+        List<String> items = new ArrayList<>();
+        for (String[] t : targets) items.add(t[1]);
+        if (has) items.add("Nothing: let this layer go");
+        new androidx.appcompat.app.AlertDialog.Builder(c)
+                .setTitle(layerName + " follows...")
+                .setItems(items.toArray(new String[0]), (d, which) -> {
+                    State before = snap();
+                    if (which < targets.size()) {
+                        com.fadcam.ui.faditor.model.SpaceLink link = host.followLinkTo(targets.get(which)[0]);
+                        if (link == null) return;
+                        wf.getVisKeys().putFollow(layer, link);
+                    } else {
+                        wf.getVisKeys().removeFollow(layer);
+                    }
+                    host.followsChanged();
+                    commit("Layer follow", before);
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    @NonNull
+    private String targetName(@NonNull String id) {
+        for (String[] t : host.followTargets()) if (t[0].equals(id)) return t[1];
+        return "something that is gone";
+    }
+
+    /** The look's layers, in drawing order, by what they are ("Spectrum", "Words"...). */
+    @NonNull
+    private List<String> layerNames(@NonNull String lookId) {
+        List<String> out = new ArrayList<>();
+        try {
+            String json = VisLabSession.get(c).lookJson(lookId);
+            if (json == null) return out;
+            com.google.gson.JsonArray arr = com.google.gson.JsonParser.parseString(json)
+                    .getAsJsonObject().getAsJsonArray("layers");
+            if (arr == null) return out;
+            for (com.google.gson.JsonElement e : arr) {
+                String t = e.isJsonObject() && e.getAsJsonObject().has("type")
+                        ? e.getAsJsonObject().get("type").getAsString() : "layer";
+                out.add(t.isEmpty() ? "Layer" : Character.toUpperCase(t.charAt(0)) + t.substring(1));
+            }
+        } catch (RuntimeException ignored) {
+            // an unreadable look has no layers to offer
+        }
+        return out;
     }
 
     /** Reactivity or Fade as a keyframable row: a key at the playhead once its track has keys. */

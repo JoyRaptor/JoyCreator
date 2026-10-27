@@ -298,6 +298,7 @@ class JoyBrushActivity : Activity() {
     private val topButtons = ArrayList<TopButton>()
     private var iconsInked = false
     private var iconCheckPending = false
+    private var iconBackdropGeneration = 0L
     private lateinit var overlaysView: FrameLayout
     private lateinit var boardOverlay: FrameLayout
     private var boardController: BoardRuntimeController? = null
@@ -525,7 +526,8 @@ class JoyBrushActivity : Activity() {
         // undo, redo and clear. Undo and Redo start disabled -- there is no history yet.
         // Undo, redo, a frame change and a board edit all change the lines under a selection: it ends first.
         canvas.onBeforeHistoryChange = { popovers.close(); boardController?.stopPreview(); selection?.beforeHistoryChange() }
-        canvas.onPaperChanged = { p -> refreshPaper(p) }
+        canvas.onPaperBackdropChanged = { checkIcons() }
+        canvas.onPaperChanged = { p -> refreshPaper(p); checkIcons() }
         refreshPaper(canvas.documentPaper)
         canvas.onHistoryChanged = { canUndo, canRedo ->
             updateHistoryButtons(canUndo, canRedo)
@@ -626,6 +628,9 @@ class JoyBrushActivity : Activity() {
         boardExports.dismiss()
         boardController?.stop()
         destroyed = true
+        if (::canvas.isInitialized) canvas.onPaperBackdropChanged = null
+        ui.removeCallbacks(iconCheck)
+        iconCheckPending = false
         paperPreviewRevision++
         paperPreviewWorker.shutdownNow()
         ui.removeCallbacks(idleSave)
@@ -1820,6 +1825,8 @@ class JoyBrushActivity : Activity() {
      * moves a second, and one read per settle is plenty to keep a black icon off black paint.
      */
     private fun checkIcons() {
+        if (destroyed) return
+        iconBackdropGeneration++
         if (iconCheckPending) return
         iconCheckPending = true
         ui.postDelayed(iconCheck, ICON_CHECK_MS)
@@ -1835,6 +1842,8 @@ class JoyBrushActivity : Activity() {
      * pinned reference answering for any point it covers; then [IconContrast] picks each icon's ink.
      */
     private fun readIcons() {
+        if (destroyed) return
+        val generation = iconBackdropGeneration
         val buttons = topButtons.filter { it.isShown && it.width > 0 }
         if (buttons.isEmpty()) return
         val here = IntArray(2)
@@ -1853,6 +1862,7 @@ class JoyBrushActivity : Activity() {
             }
         }
         canvas.sampleScreen(pts) { colours ->
+            if (destroyed || generation != iconBackdropGeneration) return@sampleScreen
             val per = GRID * GRID
             for ((n, b) in buttons.withIndex()) {
                 val samples = IntArray(per) { m ->

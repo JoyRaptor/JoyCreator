@@ -37,6 +37,8 @@ class BrushSettingsView(
     private val onReset: () -> Unit,
     private val onTest: () -> Unit,
     private val onDone: () -> Unit,
+    /** Wipes what the person drew on the preview (null: no Clear button). */
+    private val onClear: (() -> Unit)? = null,
     /** Null means this engine always makes pixels and must not offer a switch. */
     editableLines: Boolean? = null,
     private val onEditableLinesChanged: (Boolean) -> Unit = {},
@@ -87,11 +89,13 @@ class BrushSettingsView(
             onReset()
             refresh()
         })
+        onClear?.let { clear -> head.addView(button("Clear", "Wipe what you drew on the preview; the sample strokes stay") { clear() }) }
         head.addView(button("Test", "Draw a sheet of test strokes on the drawing with this brush. One undo removes them") { onTest() })
         head.addView(button("Done", "Close the brush settings") { onDone() })
         addView(head, LayoutParams(MATCH, WRAP).apply { setMargins(kit.dpi(6f), 0, 0, kit.dpi(2f)) })
 
-        kit.label(preview, "Live preview of ${base.name}: the same strokes, redrawn as you move a slider. You can draw on it too")
+        kit.label(preview, "Live preview of ${base.name}: a swoosh, then pressure, tilt, speed and turn one at a time, redrawn as " +
+            "you move a slider. Draw on it too: your strokes are redrawn with every change")
         addView(preview, LayoutParams(MATCH, kit.dpi(PREVIEW_DP)).apply { setMargins(kit.dpi(4f), 0, kit.dpi(4f), kit.dpi(4f)) })
 
         val list = LinearLayout(context).apply { orientation = VERTICAL }
@@ -225,7 +229,7 @@ class BrushSettingsView(
 
     companion object {
         /** The live preview's height, dp. */
-        const val PREVIEW_DP = 130f
+        const val PREVIEW_DP = 180f
         private const val STEPS = 100
         private const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
         private const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT

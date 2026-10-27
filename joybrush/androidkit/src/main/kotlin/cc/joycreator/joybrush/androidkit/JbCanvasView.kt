@@ -2118,9 +2118,21 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             strokeBlend(p, eraseBlend), tip, grain, smudge, tuft, watercolorOptions, watercolorSeed) }
     }
 
+    /**
+     * A brush's live preview only (owner, 2026-10-27): the strokes the person draws on this canvas, in SCREEN px of it, kept
+     * so the preview can lay them again with the brush as the sliders change it. UI thread. Off for the drawing.
+     */
+    var keepDrawnStrokes = false
+    val drawnStrokes = ArrayList<List<PenSample>>()
+    private var drawnNow: ArrayList<PenSample>? = null
+
     private fun feed(ev: MotionEvent) {
         val idx = ev.findPointerIndex(pointerId)
         if (idx < 0) return
+        if (keepDrawnStrokes) {
+            val now = drawnNow ?: ArrayList<PenSample>().also { drawnNow = it }
+            MotionEventSamples.from(ev, idx, { x, y -> x to y }, view.rotation).filterTo(now) { it.isPlaceable && !it.predicted }
+        }
         if (mediaStroke) { feedMedia(ev, idx); return }
         val sm = smoother ?: return
         val released = ArrayList<PenSample>()
@@ -2151,6 +2163,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     }
 
     private fun finishStroke() {
+        drawnNow?.let { if (it.size >= 2) drawnStrokes += it }
+        drawnNow = null
         if (mediaStroke || mediaErase) {
             if (mediaErase) smoother?.let { paint(it.finish()) }   // the eraser's last dabs, as for any eraser
             finishMediaStroke()
@@ -2206,6 +2220,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     }
 
     private fun cancelStroke() {
+        drawnNow = null
         diagnosticContact?.capture?.cancel()
         diagnosticContact = null
         lineContact?.capture?.cancel()
@@ -2266,11 +2281,14 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
      * Lays [strokes] with the brush in hand, as if drawn, and makes them ONE undo step (R9: the tuning sheet's "Test"). The
      * samples are SCREEN px of this view; they are put on the page where they appear. Ignored while a stroke is drawn.
      */
-    fun drawStrokes(strokes: List<List<PenSample>>) {
+    fun drawStrokes(strokes: List<List<PenSample>>, colours: List<Int?> = emptyList()) {
         if (strokes.isEmpty() || penIsDown()) return
         var mark = 0
         onGl { mark = engine.undo.undoDepth }
+        val inHand = colorArgb
         for ((index, samples) in strokes.withIndex()) {
+            // A stroke of its own colour (the preview's crossing stroke): the brush's colour is read as the stroke starts.
+            colorArgb = colours.getOrNull(index) ?: inHand
             // Automated previews keep the same dabs while controls change. Freehand starts
             // still use the clock; a new test stroke can have its own random pattern.
             val seeds = preset?.takeIf { it.engine == ENGINE_WATERCOLOUR }?.watercolour?.sampleSeeds
@@ -2285,6 +2303,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             paint(released)
             finishStroke()
         }
+        colorArgb = inHand
         onGl { engine.settleWatercolourFade(); engine.undo.mergeNewest(engine.undo.undoDepth - mark); reportHistory() }
     }
 
@@ -2299,7 +2318,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
      * A brush's live preview (owner, 2026-09-30): empties this canvas WITHOUT an undo step and lays [strokes] afresh. For a
      * small canvas used as a preview, never for the person's drawing. Does nothing before [onReady] or mid-stroke.
      */
-    fun replaceWithStrokes(strokes: List<List<PenSample>>) {
+    fun replaceWithStrokes(strokes: List<List<PenSample>>, colours: List<Int?> = emptyList()) {
         if (!surfaceReady || drawing) return
         // One fresh layer, and the brush on it (JB-2.04: strokes go to the active layer, so it must be the one re-added).
         val fresh = LayerStack.single(FIRST_LAYER, FIRST_LAYER_NAME)
@@ -2309,7 +2328,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             engine.resetDocument()
             engine.setStack(fresh)
         }
-        drawStrokes(strokes)
+        drawStrokes(strokes, colours)
     }
 
     /**

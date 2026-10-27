@@ -1082,6 +1082,25 @@ class JoyBrushActivity : Activity() {
             longPressEyedropper = false
             paperArgb = canvas.paperArgb
             colorArgb = canvas.strokeColor
+            // What the owner draws here is laid again with every slider move (2026-10-27).
+            keepDrawnStrokes = true
+        }
+        // The sheet's groups named under them (pressure, tilt, speed, turn): views over the preview's surface.
+        val framed = FrameLayout(this).apply {
+            addView(preview, FrameLayout.LayoutParams(MATCH, MATCH))
+            for (c in BrushPreviewStrokes.captions) addView(drawerText(c.text, 10f).apply {
+                // On the preview's paper, not the drawer: dark on light paper, light on dark.
+                alpha = 0.55f
+                setTextColor(if (androidx.core.graphics.ColorUtils.calculateLuminance(canvas.paperArgb) > 0.5) 0xFF000000.toInt() else -1)
+                setShadowLayer(3f, 0f, 0f, canvas.paperArgb)
+            }, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.BOTTOM or Gravity.START))
+            addOnLayoutChangeListener { v, l, _, r, _, _, _, _, _ ->
+                val g = v as FrameLayout
+                for ((i, c) in BrushPreviewStrokes.captions.withIndex()) {
+                    val t = g.getChildAt(i + 1)
+                    t.translationX = (r - l) * c.centreX - t.width / 2f
+                }
+            }
         }
         fun previewBrush(): BrushPreset {
             val tuned = BrushTuning.apply(brush, tuning)
@@ -1092,7 +1111,11 @@ class JoyBrushActivity : Activity() {
         val redraw = Runnable {
             if (preview.width > 0 && preview.height > 0) {
                 preview.preset = previewBrush()
-                preview.replaceWithStrokes(BrushPreviewStrokes.strokes(preview.width.toFloat(), preview.height.toFloat()))
+                // The specimen sheet, its crossing stroke in a second colour, then everything the owner drew here, in his colour.
+                val sheet = BrushPreviewStrokes.sheet(preview.width.toFloat(), preview.height.toFloat())
+                val second = secondColour(canvas.strokeColor)
+                preview.replaceWithStrokes(sheet.map { it.samples } + preview.drawnStrokes,
+                    sheet.map { if (it.second) second else null })
             }
         }
         fun redrawSoon() {
@@ -1101,7 +1124,7 @@ class JoyBrushActivity : Activity() {
         }
         preview.onReady = { redrawSoon() }
         fun save() = prefs.edit().putString(PREF_TUNING, BrushTuning.encode(tuning)).apply()
-        val view = BrushSettingsView(kit, brush, tuning[brush.id] ?: emptyMap(), preview,
+        val view = BrushSettingsView(kit, brush, tuning[brush.id] ?: emptyMap(), framed,
             onChange = { positions, done ->
                 tuning = tuning + (brush.id to positions)
                 applyTool()
@@ -1125,6 +1148,7 @@ class JoyBrushActivity : Activity() {
                 canvas.drawStrokes(strokes)
             },
             onDone = { popovers.close() },
+            onClear = { preview.drawnStrokes.clear(); redrawSoon() },
             editableLines = if (BrushLinePreferences.canSwitch(brush)) BrushLinePreferences(prefs).enabled(brush) else null,
             onEditableLinesChanged = { on ->
                 if (canvas.preset?.id == brush.id) setEditableLines(on)
@@ -1136,6 +1160,16 @@ class JoyBrushActivity : Activity() {
         preview.onPenReading = reading
         popovers.showSheet(view, maxWidthDp = 600f, alignEnd = placement.edge == StripPlacement.Edge.RIGHT,
             onClosed = { canvas.onPenReading = null }, modal = false)
+    }
+
+    /** The preview's crossing stroke: the colour in hand turned well round the wheel, so it reads against it (and dark on light). */
+    private fun secondColour(argb: Int): Int {
+        val hsv = FloatArray(3)
+        android.graphics.Color.colorToHSV(argb, hsv)
+        hsv[0] = (hsv[0] + 150f) % 360f
+        hsv[1] = maxOf(hsv[1], 0.55f)
+        hsv[2] = if (hsv[2] > 0.6f) 0.45f else 0.85f
+        return android.graphics.Color.HSVToColor(hsv)
     }
 
     private fun menuRow(text: String, label: String, dot: Int? = null, action: () -> Unit): View =

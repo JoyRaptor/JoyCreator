@@ -106,6 +106,81 @@ object BrushPreviewStrokes {
         return out
     }
 
+    /** One stroke of the [sheet]: drawn in the second colour when [second] (it crosses wet paint of the first). */
+    class Specimen(val samples: List<PenSample>, val second: Boolean = false)
+
+    /** A labelled group of the [sheet]: its caption, centred at [centreX] (fraction of the width) under the bottom band. */
+    class Caption(val text: String, val centreX: Float)
+
+    /**
+     * The specimen sheet (owner, 2026-10-27: "a swoosh and several other pressure and tilt settings, nicely arranged, so
+     * that when I am moving any of those sliders I can see exactly what's happening"). One thing changes at a time:
+     *
+     *  - **the swoosh** across the top: every mode in one stroke (light to full pressure and back, upright to laid over,
+     *    slow to fast), crossed by **a stroke in the second colour** while it is wet, so Covers, Carries and blending show;
+     *  - **pressure**: five strokes, the same in all but how hard (0.1 to 1);
+     *  - **tilt**: four strokes, upright to laid flat;
+     *  - **speed**: slow, medium, fast;
+     *  - **turn**: the owner's two circles (2026-09-30), the pen turned round its point and the point walked round a rim.
+     *
+     * SCREEN px inside [width] x [height] from (0, 0); times in ms at real hand speeds; pure and repeatable.
+     */
+    fun sheet(width: Float, height: Float): List<Specimen> {
+        val w = width
+        val h = height
+        val out = ArrayList<Specimen>()
+        // The swoosh: an S across the top band.
+        out += Specimen(path(n = (w * 1.1f).toInt(), x = { t -> w * (0.04f + 0.92f * t) },
+            y = { t -> h * (0.22f - 0.13f * sin(2f * PI.toFloat() * t)) },
+            pressure = { t -> 0.05f + 0.95f * sin(PI.toFloat() * t).let { it * it } },
+            tilt = { t -> 1.2f * smooth(0.3f, 0.6f, t) * (1f - smooth(0.75f, 1f, t)) },
+            speed = { t -> 0.4f + 2.2f * smooth(0.55f, 0.95f, t) }))
+        // Across it, while it is wet, in the second colour: what the brush picks up and lays over.
+        out += Specimen(path(n = (h * 0.45f).toInt(), x = { t -> w * (0.47f + 0.06f * t) }, y = { t -> h * (0.04f + 0.38f * t) },
+            pressure = { t -> 0.35f + 0.5f * sin(PI.toFloat() * t) }, tilt = { 0.4f }, speed = { 0.9f }), second = true)
+
+        val top = h * 0.5f
+        val bottom = h * 0.86f
+        val tall = bottom - top
+        fun short(x0: Float, pressure: Float, tilt: Float, speed: Float) = Specimen(path(n = (tall * 1.1f).toInt(),
+            x = { t -> x0 + tall * 0.18f * t }, y = { t -> bottom - tall * t },
+            pressure = { pressure }, tilt = { tilt }, speed = { speed }))
+        val step = w * 0.045f
+        // Pressure: x 0.04 .. 0.26.
+        listOf(0.1f, 0.3f, 0.5f, 0.75f, 1f).forEachIndexed { i, p -> out += short(w * 0.04f + i * step, p, 0.3f, 1.1f) }
+        // Tilt: x 0.32 .. 0.49.
+        listOf(0f, 0.45f, 0.9f, 1.3f).forEachIndexed { i, t -> out += short(w * 0.32f + i * step, 0.6f, t, 1.1f) }
+        // Speed: x 0.55 .. 0.66 (px per ms: a slow draw, a stroke, a flick).
+        listOf(0.25f, 1.1f, 3.2f).forEachIndexed { i, v -> out += short(w * 0.55f + i * step, 0.6f, 0.3f, v) }
+        // Turn: the two circles.
+        val r = tall * 0.36f
+        val cy = top + tall * 0.5f
+        run {
+            val cx = w * 0.77f
+            out += Specimen((0..120).map { i ->
+                val a = (i / 120f) * 2f * PI.toFloat()
+                PenSample(cx, cy, timeMs = i * 6.0, pressure = 0.35f, tilt = 1.0f, azimuth = a)
+            })
+        }
+        run {
+            val cx = w * 0.9f
+            out += Specimen((0..160).map { i ->
+                val a = (i / 160f) * 2f * PI.toFloat()
+                PenSample(cx + r * kotlin.math.cos(a), cy + r * sin(a), timeMs = i * 4.0, pressure = 0.45f, tilt = 1.0f,
+                    azimuth = a + PI.toFloat())
+            })
+        }
+        return out
+    }
+
+    /** The [sheet]'s group captions, in the order drawn. */
+    val captions: List<Caption> = listOf(
+        Caption("pressure", 0.04f + 2 * 0.045f + 0.01f),
+        Caption("tilt", 0.32f + 1.5f * 0.045f + 0.01f),
+        Caption("speed", 0.55f + 0.045f + 0.01f),
+        Caption("turn", 0.835f),
+    )
+
     private fun path(n: Int, x: (Float) -> Float, y: (Float) -> Float, pressure: (Float) -> Float, tilt: (Float) -> Float,
                      speed: (Float) -> Float): List<PenSample> {
         val count = n.coerceAtLeast(2)

@@ -229,6 +229,31 @@ class BrushTuningTest {
     }
 
     @Test
+    fun theSpecimenSheetChangesOneThingAtATime() {
+        val w = 1000f; val h = 500f
+        val sheet = BrushPreviewStrokes.sheet(w, h)
+        for (s in sheet) {
+            assertTrue(s.samples.size >= 2)
+            assertTrue(s.samples.zipWithNext().all { (a, b) -> b.timeMs >= a.timeMs })
+            assertTrue(s.samples.all { it.x in 0f..w && it.y in 0f..h }, "inside the preview")
+            val t = TuftStroke(sable(), 1L)
+            assertTrue((t.add(s.samples) + t.finish()).isNotEmpty())
+        }
+        // The swoosh walks every mode, and a second-colour stroke crosses it.
+        val swoosh = sheet[0].samples
+        assertTrue(swoosh.any { it.pressure < 0.1f } && swoosh.any { it.pressure > 0.95f } && swoosh.any { it.tilt > 1f })
+        assertEquals(1, sheet.count { it.second })
+        // The ladders: pressure alone, then tilt alone, then speed alone.
+        val shorts = sheet.subList(2, 14).map { s -> s.samples[s.samples.size / 2] }
+        assertEquals(listOf(0.1f, 0.3f, 0.5f, 0.75f, 1f), shorts.take(5).map { it.pressure })
+        assertEquals(listOf(0f, 0.45f, 0.9f, 1.3f), shorts.subList(5, 9).map { it.tilt })
+        assertTrue(shorts.subList(5, 12).all { it.pressure == 0.6f })
+        val durations = sheet.subList(11, 14).map { it.samples.last().timeMs - it.samples.first().timeMs }
+        assertTrue(durations[0] > durations[1] && durations[1] > durations[2], "slow, medium, fast")
+        assertEquals(4, BrushPreviewStrokes.captions.size)
+    }
+
+    @Test
     fun severalStepsFoldIntoOneUndoAndTheTilesInBetweenAreReleased() {
         val released = ArrayList<String>()
         val log = UndoLog<String>(1L shl 40, sizeOf = { 1L }, release = { released.add(it) })

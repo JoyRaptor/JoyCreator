@@ -116,3 +116,25 @@ will be repeated only because engine initialization changed. No APK/phone grant.
 Fresh read-only sandbox check October27: expectedSM-N960U/API29, asleep/locked,
 Home false, no claim. Owner readiness question is pending. Do not install or assume
 an old unlocked message establishes readiness. Continue desktop gates meanwhile.
+
+## Closed specialist handbacks — independently synchronized
+
+October27 snapshot: all nine registered checkout HEADs below independently matched
+the actual remote branch SHA, and each checkout was clean. All worker turns finished;
+no follow-on assignments are queued. Reports remain in their own committed branches
+when not adopted centrally; use the exact branch/report, not a stale primary copy.
+
+| Lane | Published branch / exact HEAD | Local committed report | Scope / remaining |
+|---|---|---|---|
+| Select | `codex/select-d23-presenter-20261026` / `b3fd5f98b0fb9cbcb66f7acb7c3d35884ed56f6c` | `C:/Temp/jb-codex-select/tasks/joybrush/reviews/SELECT_FINAL_HANDOFF_20261027.md` | Presenter11 passed; real producer/renderer/atomic Undo remain gated |
+| UX | `ui/dark-canvas-contrast-20261026` / `63650c5854032993a31a62f53772835d07bb4c48` | `C:/Temp/jb-ux-contrast-20261026/tasks/joybrush/reviews/PAPER_ICON_CONTRAST_20261026.md` | Contrast adopted/tested in app217; phone visual proof and Pencil preview cause remain open |
+| Watercolor | `vector/watercolour-dispatch-20261026` / `8174e91bec4940b4e823b0bc1d2cf7ce7525f851` | `C:/Temp/jb-watercolour-dispatch-20261026/tasks/joybrush/reviews/WATERCOLOUR_OFFLINE_ACCEPTANCE_20261027.md` | Checker10 synthetic passed; actual GPU/save/fade/appearance gates open |
+| Tween/frame | `codex/frame-duplicate-probe-20261026` / `2cc36c481549d6992cf8f8f0b85bd521f4ae1790` | `C:/Temp/jb-frame-duplicate-probe-20261026/tasks/joybrush/reviews/FRAME_TWEEN_CLAUDE_HANDBACK_20261027.md` | V2 adopted; actual GPU/save/rollback and frozen tween7 tests remain open |
+| Init cleanup | `codex/native-init-cleanup-20261027` / `422caee7668bb1133cd69ee8b698c4e004e4cdd2` | `C:/Temp/jb-native-init-cleanup-20261027/tasks/joybrush/reviews/NATIVE_INIT_CLEANUP_20261027.md` | Adopted and focused backend ownership/context tests passed; actual GL faults separate |
+| Unibrush | `codex/unibrush-u8-guards-20261026` / `20fb72e0d849a115d7bd5b02426565c9826a0c90` | `C:/Temp/jb-unibrush-u8-guards-20261026/tasks/joybrush/reviews/UNIBRUSH_U8_FOCUSED17_GATE_20261027.md` | 17 tests UNRUN; unwired source; original U8 preserved |
+| Clips | `docs/clips-manifest-20261027` / `7e122a28ac038c9d4f351601eac102d14cfcd1f6` | `C:/Temp/jb-clips-manifest-20261027/tasks/joybrush/reviews/CLIPS_REAPPLICATION_20261027.md` | Nine-file dependency manifest only; selective core/runtime reconciliation unrun |
+| Paper | `codex/paper-recovery-docs-20261026` / `4d4a85e178452d467132fa91069d04bb2f8ef3f5` | `C:/Temp/jb-paper-recovery-20261026/tasks/joybrush/reviews/PAPER_PORTFOLIO_20261026.md` | Recovery docs and STATE mapped; full current parity/UI/save/creative gates open |
+| Boards | `codex/board-recovery-docs-20261026` / `522b9632279013a405eec882cee45b68e096895e` | `C:/Temp/jb-board-recovery-20261026/tasks/joybrush/reviews/BOARD_COVERAGE_20261027.md` | Recovery/coverage and STATE mapped; actual current GPU/Undo/save/visual gates open |
+
+Original/stale and other helper worktrees were preserved; these nine clean receipts
+do not imply all135+ historical checkouts are clean or disposable.

@@ -107,13 +107,32 @@ internal object WatercolourOrdinaryProbe {
             include(expected.keys)
             include(engine.tileKeys(layerId)) // Unexpected current tiles must not escape comparison.
             include(engine.nativeLines.footprint(plane, input.id))
+            // Every mismatching tile is described (pixels that differ, worst channel delta, local box, first samples)
+            // before the check fails, so one device run shows the shape of a fault, not just its first tile.
+            val faults = ArrayList<String>()
             for (key in keys.sorted()) {
                 val actual = engine.readTile(layerId, key)
                 val reference = expected[key]
                 val equal = if (actual == null) reference == null || Tiles.isBlank(reference)
                     else if (reference == null) Tiles.isBlank(actual) else actual.contentEquals(reference)
-                check(equal) { "$label exact RGBA8 mismatch at tile $key" }
+                if (equal) continue
+                val a = actual ?: ByteArray(Tiles.SIZE * Tiles.SIZE * 4)
+                val r = reference ?: ByteArray(Tiles.SIZE * Tiles.SIZE * 4)
+                var count = 0; var worst = 0; var x0 = Int.MAX_VALUE; var y0 = Int.MAX_VALUE; var x1 = -1; var y1 = -1
+                val samples = StringBuilder()
+                for (i in 0 until Tiles.SIZE * Tiles.SIZE) {
+                    var d = 0
+                    for (c in 0..3) d = maxOf(d, kotlin.math.abs((a[i * 4 + c].toInt() and 255) - (r[i * 4 + c].toInt() and 255)))
+                    if (d == 0) continue
+                    count++; worst = maxOf(worst, d)
+                    val x = i % Tiles.SIZE; val y = i / Tiles.SIZE
+                    x0 = minOf(x0, x); y0 = minOf(y0, y); x1 = maxOf(x1, x); y1 = maxOf(y1, y)
+                    if (count <= 3) samples.append(" ($x,$y) exp=").append((0..3).map { r[i * 4 + it].toInt() and 255 })
+                        .append(" act=").append((0..3).map { a[i * 4 + it].toInt() and 255 })
+                }
+                faults += "tile($key=${Tiles.tx(key)},${Tiles.ty(key)}) px=$count maxDelta=$worst box=[$x0,$y0..$x1,$y1]$samples"
             }
+            check(faults.isEmpty()) { "$label exact RGBA8 mismatch: ${faults.size} tiles: " + faults.joinToString(" | ").take(2400) }
             rows.put(JSONObject().put("phase", label).put("comparedTiles", keys.size)
                 .put("transparentTilesIncluded", true).put("exactRgba8", true))
         }

@@ -41,3 +41,14 @@ itself fails. Root's View release callback fix is a separate prerequisite, not s
 
 Frame V2 source handoff and frozen-brush seven-test gate remain separate deliverables. Their
 tests and native execution are still open; this cleanup work does not promote those features.
+
+## Published source scope
+
+Source checkpoint `41dbdb38a`. Code-only selective diff is
+`handoffs/NATIVE_INIT_CODE_20261027.patch`, against c8e116205, containing only the two granted
+runtime files, two new helpers and two tests. Use `git apply --check --unidiff-zero` before
+applying; reconcile if root's file has advanced. Reverse-check against this source passed.
+New fault tests5+7 and existing context-loss8 make a prepared20-check gate; none was executed.
+Parent and Luna source review found no concrete API/ownership mismatch; that is not compilation.
+Root owns View callback fix, source integration and the shared build/phone queue. No job/lock
+or phone claim is held here. Existing shared candidate dirty/staged paths were not touched.

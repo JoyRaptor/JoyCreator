@@ -1,0 +1,532 @@
+diff --git a/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/gl/GlInitOwnership.kt b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/gl/GlInitOwnership.kt
+new file mode 100644
+index 000000000..0faca0195
+--- /dev/null
++++ b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/gl/GlInitOwnership.kt
+@@ -0,0 +1,39 @@
++package cc.joycreator.joybrush.androidkit.gl
++
++/** Preallocated ledgers for one creation attempt, never populated from old engine fields. */
++internal class GlInitOwnership(
++    private val current: () -> Boolean,
++    private val delete: (Kind, Int) -> Unit,
++    programs: Int = 0, shaders: Int = 0, buffers: Int = 0,
++    vertexArrays: Int = 0, framebuffers: Int = 0, textures: Int = 0,
++) {
++    enum class Kind { PROGRAM, SHADER, BUFFER, VERTEX_ARRAY, FRAMEBUFFER, TEXTURE }
++    val programNames = IntArray(programs)
++    val shaderNames = IntArray(shaders)
++    val bufferNames = IntArray(buffers)
++    val vertexArrayNames = IntArray(vertexArrays)
++    val framebufferNames = IntArray(framebuffers)
++    val textureNames = IntArray(textures)
++
++    fun rollback(failure: Throwable) {
++        retire(Kind.TEXTURE, textureNames, failure)
++        retire(Kind.FRAMEBUFFER, framebufferNames, failure)
++        retire(Kind.VERTEX_ARRAY, vertexArrayNames, failure)
++        retire(Kind.BUFFER, bufferNames, failure)
++        retire(Kind.PROGRAM, programNames, failure)
++        retire(Kind.SHADER, shaderNames, failure)
++    }
++
++    private fun retire(kind: Kind, names: IntArray, failure: Throwable) {
++        for (i in names.lastIndex downTo 0) {
++            val name = names[i]
++            names[i] = 0 // An attempted release is never retried or redirected to a new epoch.
++            if (name == 0) continue
++            for (j in 0 until i) if (names[j] == name) names[j] = 0
++            try { if (current()) delete(kind, name) }
++            catch (cleanup: Throwable) {
++                if (cleanup !== failure) try { failure.addSuppressed(cleanup) } catch (_: Throwable) {}
++            }
++        }
++    }
++}
+diff --git a/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/gl/GlPaintEngine.kt b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/gl/GlPaintEngine.kt
+index 3713384e4..b40e21893 100644
+--- a/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/gl/GlPaintEngine.kt
++++ b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/gl/GlPaintEngine.kt
+@@ -3,0 +4 @@ import android.opengl.GLES30
++import android.opengl.EGL14
+@@ -630,0 +632,36 @@ class GlPaintEngine(
++        val epoch = physicalContextEpoch
++        val context = EGL14.eglGetCurrentContext()
++        val scratch = IntArray(1)
++        val current = { physicalContextEpoch == epoch && !forgettingGraphicsContext &&
++            context != EGL14.EGL_NO_CONTEXT && EGL14.eglGetCurrentContext() == context }
++        val owned = GlInitOwnership(current, { kind, name ->
++            scratch[0] = name
++            when (kind) {
++                GlInitOwnership.Kind.PROGRAM -> GLES30.glDeleteProgram(name)
++                GlInitOwnership.Kind.SHADER -> GLES30.glDeleteShader(name)
++                GlInitOwnership.Kind.BUFFER -> GLES30.glDeleteBuffers(1, scratch, 0)
++                GlInitOwnership.Kind.VERTEX_ARRAY -> GLES30.glDeleteVertexArrays(1, scratch, 0)
++                GlInitOwnership.Kind.FRAMEBUFFER -> GLES30.glDeleteFramebuffers(1, scratch, 0)
++                GlInitOwnership.Kind.TEXTURE -> GLES30.glDeleteTextures(1, scratch, 0)
++            }
++        }, programs = 5, buffers = 3, vertexArrays = 4, framebuffers = 3, textures = 3)
++        // The name is written into its rollback slot BEFORE storage/CPU buffers can fail.
++        fun initialTexture(slot: Int): Int {
++            GLES30.glGenTextures(1, owned.textureNames, slot)
++            val name = owned.textureNames[slot]
++            check(name != 0) { "Could not allocate initial texture" }
++            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, name)
++            GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D, 0, GLES30.GL_RGBA8, 1, 1, 0,
++                GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, null)
++            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_LINEAR)
++            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_LINEAR)
++            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE)
++            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_T, GLES30.GL_CLAMP_TO_EDGE)
++            val zero = ByteBuffer.allocateDirect(4).order(ByteOrder.nativeOrder())
++            GLES30.glTexSubImage2D(GLES30.GL_TEXTURE_2D, 0, 0, 0, 1, 1,
++                GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, zero)
++            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
++            return name
++        }
++        try {
++        check(current()) { "Engine initialization needs its current context" }
+@@ -640,0 +678 @@ class GlPaintEngine(
++        owned.programNames[0] = dabProg.id
+@@ -641,0 +680 @@ class GlPaintEngine(
++        owned.programNames[1] = commitProg.id
+@@ -642,0 +682 @@ class GlPaintEngine(
++        owned.programNames[2] = tileProg.id
+@@ -643,0 +684 @@ class GlPaintEngine(
++        owned.programNames[3] = smudgeProg.id
+@@ -644,0 +686 @@ class GlPaintEngine(
++        owned.programNames[4] = tuftProg.id
+@@ -646 +688 @@ class GlPaintEngine(
+-        val ids = IntArray(3)
++        val ids = owned.bufferNames
+@@ -647,0 +690 @@ class GlPaintEngine(
++        check(ids.all { it != 0 }) { "Could not allocate initial buffers" }
+@@ -652 +695 @@ class GlPaintEngine(
+-        val vaos = IntArray(4)
++        val vaos = owned.vertexArrayNames
+@@ -653,0 +697 @@ class GlPaintEngine(
++        check(vaos.all { it != 0 }) { "Could not allocate initial vertex arrays" }
+@@ -712,5 +756,4 @@ class GlPaintEngine(
+-        val f = IntArray(1)
+-        GLES30.glGenFramebuffers(1, f, 0)
+-        fbo = f[0]
+-        GLES30.glGenFramebuffers(1, f, 0); readFbo = f[0]
+-        GLES30.glGenFramebuffers(1,f,0); copyFbo = f[0]
++        val f = owned.framebufferNames
++        GLES30.glGenFramebuffers(3, f, 0)
++        check(f.all { it != 0 }) { "Could not allocate initial framebuffers" }
++        fbo = f[0]; readFbo = f[1]; copyFbo = f[2]
+@@ -718,2 +761,2 @@ class GlPaintEngine(
+-        clearTex = newTexture(1, GLES30.GL_RGBA8, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE)
+-        whiteTex = newTexture(1, GLES30.GL_RGBA8, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE)
++        clearTex = initialTexture(0)
++        whiteTex = initialTexture(1)
+@@ -725 +768,14 @@ class GlPaintEngine(
+-        grains.create()
++        try { grains.create() } finally { owned.textureNames[2] = grains.placeholder }
++        check(current()) { "Engine context changed during initialization" }
++        check(GLES30.glGetError() == GLES30.GL_NO_ERROR) { "Engine GL initialization failed" }
++        } catch (failure: Throwable) {
++            // Only this attempt's preallocated ledgers can delete, gated at every name.
++            owned.rollback(failure)
++            if (physicalContextEpoch == epoch) {
++                grains.forget()
++                quadVbo = 0; unitVbo = 0; instanceVbo = 0
++                dabVao = 0; tileVao = 0; smudgeVao = 0; tuftVao = 0
++                fbo = 0; readFbo = 0; copyFbo = 0; clearTex = 0; whiteTex = 0
++            }
++            throw failure
++        }
+diff --git a/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/gl/GlProgram.kt b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/gl/GlProgram.kt
+index a0bf0f575..7895e32e6 100644
+--- a/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/gl/GlProgram.kt
++++ b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/gl/GlProgram.kt
+@@ -3,0 +4 @@ import android.opengl.GLES30
++import android.opengl.EGL14
+@@ -12,15 +13 @@ class GlProgram(vertexSrc: String, fragmentSrc: String, private val label: Strin
+-        val vs = compile(GLES30.GL_VERTEX_SHADER, vertexSrc)
+-        val fs = compile(GLES30.GL_FRAGMENT_SHADER, fragmentSrc)
+-        id = GLES30.glCreateProgram()
+-        GLES30.glAttachShader(id, vs)
+-        GLES30.glAttachShader(id, fs)
+-        GLES30.glLinkProgram(id)
+-        val ok = IntArray(1)
+-        GLES30.glGetProgramiv(id, GLES30.GL_LINK_STATUS, ok, 0)
+-        GLES30.glDeleteShader(vs)
+-        GLES30.glDeleteShader(fs)
+-        if (ok[0] == 0) {
+-            val log = GLES30.glGetProgramInfoLog(id)
+-            GLES30.glDeleteProgram(id)
+-            throw IllegalStateException("link failed ($label): $log")
+-        }
++        id = GlProgramConstruction.build(vertexSrc, fragmentSrc, label, GlesProgramDriver())
+@@ -35,12 +22,19 @@ class GlProgram(vertexSrc: String, fragmentSrc: String, private val label: Strin
+-    private fun compile(type: Int, src: String): Int {
+-        val s = GLES30.glCreateShader(type)
+-        GLES30.glShaderSource(s, src)
+-        GLES30.glCompileShader(s)
+-        val ok = IntArray(1)
+-        GLES30.glGetShaderiv(s, GLES30.GL_COMPILE_STATUS, ok, 0)
+-        if (ok[0] == 0) {
+-            val log = GLES30.glGetShaderInfoLog(s)
+-            GLES30.glDeleteShader(s)
+-            throw IllegalStateException("compile failed ($label, ${if (type == GLES30.GL_VERTEX_SHADER) "vertex" else "fragment"}): $log")
+-        }
+-        return s
++}
++
++private class GlesProgramDriver : GlProgramDriver {
++    private val context = EGL14.eglGetCurrentContext()
++    private val status = IntArray(1)
++    override fun current() = context != EGL14.EGL_NO_CONTEXT && EGL14.eglGetCurrentContext() == context
++    override fun createShader(type: Int) = GLES30.glCreateShader(type)
++    override fun compile(shader: Int, source: String) {
++        GLES30.glShaderSource(shader, source); GLES30.glCompileShader(shader)
++    }
++    override fun shaderCompiled(shader: Int): Boolean {
++        GLES30.glGetShaderiv(shader, GLES30.GL_COMPILE_STATUS, status, 0); return status[0] != 0
++    }
++    override fun shaderLog(shader: Int): String = GLES30.glGetShaderInfoLog(shader)
++    override fun createProgram() = GLES30.glCreateProgram()
++    override fun attach(program: Int, shader: Int) = GLES30.glAttachShader(program, shader)
++    override fun link(program: Int) = GLES30.glLinkProgram(program)
++    override fun linked(program: Int): Boolean {
++        GLES30.glGetProgramiv(program, GLES30.GL_LINK_STATUS, status, 0); return status[0] != 0
+@@ -47,0 +42,3 @@ class GlProgram(vertexSrc: String, fragmentSrc: String, private val label: Strin
++    override fun programLog(program: Int): String = GLES30.glGetProgramInfoLog(program)
++    override fun deleteShader(shader: Int) = GLES30.glDeleteShader(shader)
++    override fun deleteProgram(program: Int) = GLES30.glDeleteProgram(program)
+diff --git a/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/gl/GlProgramConstruction.kt b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/gl/GlProgramConstruction.kt
+new file mode 100644
+index 000000000..067bf67ac
+--- /dev/null
++++ b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/gl/GlProgramConstruction.kt
+@@ -0,0 +1,59 @@
++package cc.joycreator.joybrush.androidkit.gl
++
++/** The real constructor's narrow driver seam, so faults exercise its actual ownership flow. */
++internal interface GlProgramDriver {
++    fun current(): Boolean
++    fun createShader(type: Int): Int
++    fun compile(shader: Int, source: String)
++    fun shaderCompiled(shader: Int): Boolean
++    fun shaderLog(shader: Int): String
++    fun createProgram(): Int
++    fun attach(program: Int, shader: Int)
++    fun link(program: Int)
++    fun linked(program: Int): Boolean
++    fun programLog(program: Int): String
++    fun deleteShader(shader: Int)
++    fun deleteProgram(program: Int)
++}
++
++internal object GlProgramConstruction {
++    fun build(vertex: String, fragment: String, label: String, driver: GlProgramDriver): Int {
++        val owned = GlInitOwnership(driver::current, { kind, name ->
++            when (kind) {
++                GlInitOwnership.Kind.SHADER -> driver.deleteShader(name)
++                GlInitOwnership.Kind.PROGRAM -> driver.deleteProgram(name)
++                else -> error("Unexpected shader construction resource")
++            }
++        }, programs = 1, shaders = 2)
++        try {
++            check(driver.current()) { "No current context for program $label" }
++            for (i in 0..1) {
++                val shader = driver.createShader(if (i == 0) 0x8B31 else 0x8B30)
++                owned.shaderNames[i] = shader
++                check(shader != 0) { "Could not create shader ($label)" }
++                driver.compile(shader, if (i == 0) vertex else fragment)
++                check(driver.shaderCompiled(shader)) {
++                    "compile failed ($label, ${if (i == 0) "vertex" else "fragment"}): ${driver.shaderLog(shader)}"
++                }
++            }
++            val program = driver.createProgram()
++            owned.programNames[0] = program
++            check(program != 0) { "Could not create program ($label)" }
++            driver.attach(program, owned.shaderNames[0]); driver.attach(program, owned.shaderNames[1])
++            driver.link(program)
++            check(driver.linked(program)) { "link failed ($label): ${driver.programLog(program)}" }
++            for (i in owned.shaderNames.indices) {
++                check(driver.current()) { "Program context changed during initialization" }
++                val shader = owned.shaderNames[i]
++                owned.shaderNames[i] = 0
++                driver.deleteShader(shader)
++            }
++            check(driver.current()) { "Program context changed during initialization" }
++            owned.programNames[0] = 0 // Transfer only a fully linked program.
++            return program
++        } catch (failure: Throwable) {
++            owned.rollback(failure)
++            throw failure
++        }
++    }
++}
+diff --git a/joybrush/androidkit/src/test/kotlin/cc/joycreator/joybrush/androidkit/gl/GlInitOwnershipTest.kt b/joybrush/androidkit/src/test/kotlin/cc/joycreator/joybrush/androidkit/gl/GlInitOwnershipTest.kt
+new file mode 100644
+index 000000000..6f0a26dbf
+--- /dev/null
++++ b/joybrush/androidkit/src/test/kotlin/cc/joycreator/joybrush/androidkit/gl/GlInitOwnershipTest.kt
+@@ -0,0 +1,175 @@
++package cc.joycreator.joybrush.androidkit.gl
++
++import kotlin.test.Test
++import kotlin.test.assertEquals
++import kotlin.test.assertSame
++import kotlin.test.assertTrue
++
++class GlInitOwnershipTest {
++    @Test
++    fun rollbackDeletesPartialAllocationsAcrossEveryKindAndClearsLedgers() {
++        val deleted = mutableListOf<Pair<GlInitOwnership.Kind, Int>>()
++        val ownership = GlInitOwnership(
++            current = { true },
++            delete = { kind, name -> deleted += kind to name },
++            programs = 3,
++            shaders = 2,
++            buffers = 2,
++            vertexArrays = 1,
++            framebuffers = 2,
++            textures = 2,
++        )
++        ownership.programNames[0] = 7
++        ownership.programNames[2] = 7 // Duplicate within a kind is deleted once.
++        ownership.shaderNames[0] = 7 // The same numeric name in another kind is independent.
++        ownership.shaderNames[1] = 8
++        ownership.bufferNames[1] = 9
++        ownership.vertexArrayNames[0] = 10
++        ownership.framebufferNames[0] = 11
++        ownership.textureNames[1] = 12
++
++        ownership.rollback(IllegalStateException("partial initialization failed"))
++
++        assertEquals(
++            setOf(
++                GlInitOwnership.Kind.PROGRAM to 7,
++                GlInitOwnership.Kind.SHADER to 7,
++                GlInitOwnership.Kind.SHADER to 8,
++                GlInitOwnership.Kind.BUFFER to 9,
++                GlInitOwnership.Kind.VERTEX_ARRAY to 10,
++                GlInitOwnership.Kind.FRAMEBUFFER to 11,
++                GlInitOwnership.Kind.TEXTURE to 12,
++            ),
++            deleted.toSet(),
++        )
++        assertEquals(7, deleted.size)
++        assertAllLedgersZero(ownership)
++    }
++
++    @Test
++    fun staleContextSkipsDeletesEvenWhenNamesHaveBeenReused() {
++        val deleted = mutableListOf<Pair<GlInitOwnership.Kind, Int>>()
++        val ownership = GlInitOwnership(
++            current = { false },
++            delete = { kind, name -> deleted += kind to name },
++            programs = 1,
++            shaders = 1,
++            buffers = 1,
++            vertexArrays = 1,
++            framebuffers = 1,
++            textures = 1,
++        )
++        ownership.programNames[0] = 5
++        ownership.shaderNames[0] = 5
++        ownership.bufferNames[0] = 5
++        ownership.vertexArrayNames[0] = 5
++        ownership.framebufferNames[0] = 5
++        ownership.textureNames[0] = 5
++
++        ownership.rollback(IllegalStateException("context epoch changed"))
++
++        assertTrue(deleted.isEmpty())
++        assertAllLedgersZero(ownership)
++    }
++
++    @Test
++    fun contextChangeDuringCleanupStopsFurtherDeletesButClearsEverySlot() {
++        var isCurrent = true
++        val deleted = mutableListOf<Pair<GlInitOwnership.Kind, Int>>()
++        val ownership = GlInitOwnership(
++            current = { isCurrent },
++            delete = { kind, name ->
++                deleted += kind to name
++                isCurrent = false
++            },
++            programs = 1,
++            shaders = 1,
++            buffers = 1,
++            vertexArrays = 1,
++            framebuffers = 1,
++            textures = 1,
++        )
++        ownership.programNames[0] = 1
++        ownership.shaderNames[0] = 2
++        ownership.bufferNames[0] = 3
++        ownership.vertexArrayNames[0] = 4
++        ownership.framebufferNames[0] = 5
++        ownership.textureNames[0] = 6
++
++        ownership.rollback(IllegalStateException("initialization failed"))
++
++        assertEquals(1, deleted.size, "the current-context check must gate each handle")
++        assertAllLedgersZero(ownership)
++    }
++
++    @Test
++    fun deletionFailureIsSuppressedAndDoesNotPreventOtherCleanup() {
++        val cleanupFailure = IllegalArgumentException("delete failed")
++        val deleted = mutableListOf<Pair<GlInitOwnership.Kind, Int>>()
++        val ownership = GlInitOwnership(
++            current = { true },
++            delete = { kind, name ->
++                deleted += kind to name
++                if (kind == GlInitOwnership.Kind.BUFFER) throw cleanupFailure
++            },
++            programs = 1,
++            shaders = 1,
++            buffers = 1,
++            vertexArrays = 1,
++            framebuffers = 1,
++            textures = 1,
++        )
++        ownership.programNames[0] = 1
++        ownership.shaderNames[0] = 2
++        ownership.bufferNames[0] = 3
++        ownership.vertexArrayNames[0] = 4
++        ownership.framebufferNames[0] = 5
++        ownership.textureNames[0] = 6
++        val failure = IllegalStateException("initialization failed")
++
++        ownership.rollback(failure)
++
++        assertEquals(6, deleted.size)
++        assertTrue(deleted.any { it.first == GlInitOwnership.Kind.TEXTURE })
++        assertEquals(listOf(cleanupFailure), failure.suppressed.toList())
++        assertSame(cleanupFailure, failure.suppressed.single())
++        assertAllLedgersZero(ownership)
++    }
++
++    @Test
++    fun repeatedRollbackDoesNotDeleteTheSameNamesTwice() {
++        val deleted = mutableListOf<Pair<GlInitOwnership.Kind, Int>>()
++        val ownership = GlInitOwnership(
++            current = { true },
++            delete = { kind, name -> deleted += kind to name },
++            programs = 1,
++            shaders = 1,
++            buffers = 1,
++            vertexArrays = 1,
++            framebuffers = 1,
++            textures = 1,
++        )
++        ownership.programNames[0] = 1
++        ownership.shaderNames[0] = 2
++        ownership.bufferNames[0] = 3
++        ownership.vertexArrayNames[0] = 4
++        ownership.framebufferNames[0] = 5
++        ownership.textureNames[0] = 6
++
++        ownership.rollback(IllegalStateException("first failure"))
++        ownership.rollback(IllegalStateException("same failure, retried"))
++
++        assertEquals(6, deleted.size)
++        assertEquals(6, deleted.toSet().size)
++        assertAllLedgersZero(ownership)
++    }
++
++    private fun assertAllLedgersZero(ownership: GlInitOwnership) {
++        assertTrue(ownership.programNames.all { it == 0 })
++        assertTrue(ownership.shaderNames.all { it == 0 })
++        assertTrue(ownership.bufferNames.all { it == 0 })
++        assertTrue(ownership.vertexArrayNames.all { it == 0 })
++        assertTrue(ownership.framebufferNames.all { it == 0 })
++        assertTrue(ownership.textureNames.all { it == 0 })
++    }
++}
+diff --git a/joybrush/androidkit/src/test/kotlin/cc/joycreator/joybrush/androidkit/gl/GlProgramConstructionTest.kt b/joybrush/androidkit/src/test/kotlin/cc/joycreator/joybrush/androidkit/gl/GlProgramConstructionTest.kt
+new file mode 100644
+index 000000000..0432a9046
+--- /dev/null
++++ b/joybrush/androidkit/src/test/kotlin/cc/joycreator/joybrush/androidkit/gl/GlProgramConstructionTest.kt
+@@ -0,0 +1,82 @@
++package cc.joycreator.joybrush.androidkit.gl
++
++import kotlin.test.Test
++import kotlin.test.assertEquals
++import kotlin.test.assertFailsWith
++import kotlin.test.assertSame
++import kotlin.test.assertTrue
++
++/** Actual constructor control flow with a faulting driver; not a GPU/compiler result. */
++class GlProgramConstructionTest {
++    private class Driver : GlProgramDriver {
++        var active = true
++        var nextShader = 10
++        var badShader = 0
++        var linkOk = true
++        var failAt: String? = null
++        var loseContextOnLink = false
++        val failure = IllegalStateException("injected driver fault")
++        val deleted = mutableListOf<Pair<String, Int>>()
++        private fun fault(at: String) { if (failAt == at) throw failure }
++        override fun current() = active
++        override fun createShader(type: Int) = nextShader++
++        override fun compile(shader: Int, source: String) = fault("compile:$shader")
++        override fun shaderCompiled(shader: Int) = shader != badShader
++        override fun shaderLog(shader: Int): String { fault("shaderLog"); return "compile diagnostic" }
++        override fun createProgram() = 20
++        override fun attach(program: Int, shader: Int) = fault("attach")
++        override fun link(program: Int) { if (loseContextOnLink) active = false; fault("link") }
++        override fun linked(program: Int) = linkOk
++        override fun programLog(program: Int) = "link diagnostic"
++        override fun deleteShader(shader: Int) { deleted += "shader" to shader; fault("delete:$shader") }
++        override fun deleteProgram(program: Int) { deleted += "program" to program; fault("delete:$program") }
++        fun build() = GlProgramConstruction.build("vertex source", "fragment source", "fault test", this)
++    }
++
++    @Test fun fragmentCompileExceptionReclaimsPreviouslyCompiledVertexAndFragment() {
++        val driver = Driver().apply { failAt = "compile:11" }
++        assertSame(driver.failure, assertFailsWith<IllegalStateException> { driver.build() })
++        assertEquals(setOf("shader" to 10, "shader" to 11), driver.deleted.toSet())
++        assertEquals(2, driver.deleted.size)
++    }
++
++    @Test fun compileStatusAndDiagnosticFailureDoNotLeakShader() {
++        val driver = Driver().apply { badShader = 10; failAt = "shaderLog" }
++        assertSame(driver.failure, assertFailsWith<IllegalStateException> { driver.build() })
++        assertEquals(listOf("shader" to 10), driver.deleted)
++    }
++
++    @Test fun linkRefusalReclaimsProgramAndBothShaders() {
++        val driver = Driver().apply { linkOk = false }
++        val failure = assertFailsWith<IllegalStateException> { driver.build() }
++        assertTrue(failure.message!!.contains("link diagnostic"))
++        assertEquals(setOf("shader" to 10, "shader" to 11, "program" to 20), driver.deleted.toSet())
++        assertEquals(3, driver.deleted.size)
++    }
++
++    @Test fun attachExceptionReclaimsAlreadyCreatedProgram() {
++        val driver = Driver().apply { failAt = "attach" }
++        assertSame(driver.failure, assertFailsWith<IllegalStateException> { driver.build() })
++        assertEquals(setOf("shader" to 10, "shader" to 11, "program" to 20), driver.deleted.toSet())
++    }
++
++    @Test fun successfulLinkTransfersProgramAndRetiresOnlyShaders() {
++        val driver = Driver()
++        assertEquals(20, driver.build())
++        assertEquals(listOf("shader" to 10, "shader" to 11), driver.deleted)
++    }
++
++    @Test fun contextLossDuringLinkNeverDeletesReusedNamesOnAnotherContext() {
++        val driver = Driver().apply { loseContextOnLink = true; failAt = "link" }
++        assertSame(driver.failure, assertFailsWith<IllegalStateException> { driver.build() })
++        assertTrue(driver.deleted.isEmpty())
++    }
++
++    @Test fun cleanupFailureIsSuppressedWhileRemainingShadersAreStillRetired() {
++        val driver = Driver().apply { linkOk = false; failAt = "delete:20" }
++        val failure = assertFailsWith<IllegalStateException> { driver.build() }
++        assertSame(driver.failure, failure.suppressed.single())
++        assertEquals(setOf("shader" to 10, "shader" to 11, "program" to 20), driver.deleted.toSet())
++        assertEquals(3, driver.deleted.size)
++    }
++}

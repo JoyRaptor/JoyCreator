@@ -31,24 +31,67 @@ final class Expect {
 
     private Expect() {}
 
-    static JsonObject check(Run.State s, Doc before, Doc after, int undoSteps, FakeProvider provider, boolean ended) {
-        JsonObject ex = s.task.has("expect") ? s.task.getAsJsonObject("expect") : new JsonObject();
+    /** How one request ended, wherever it ran (this PC's fake service, or the phone). */
+    static final class Outcome {
+        JsonObject task;
+        String reply;
+        /** Joybot's own verdict; null when it never finished. */
+        Boolean ok;
+        final List<String> toolLines = new ArrayList<>();
+        boolean ended;
+        final List<String> hookErrors = new ArrayList<>();
+        /** Requests the stopped job made after Stop; -1 = not a Stop task. */
+        int lateRequests = -1;
+        /** Stop-then-Send: whether the second request ended with a reply; null = not asked. */
+        Boolean secondReplied;
+        boolean stillRunning;
+        boolean scriptRanOut;
+    }
+
+    /** The fake-service run in this process, as an {@link Outcome}. */
+    static Outcome of(Run.State s, FakeProvider provider, boolean ended) {
+        Outcome o = new Outcome();
+        o.task = s.task;
+        JoybotAgent.Finished last = s.finished.isEmpty() ? null : s.finished.get(s.finished.size() - 1);
+        o.reply = last == null ? null : last.reply;
+        o.ok = last == null ? null : last.ok;
+        for (JoybotAgent.Finished f : s.finished) o.toolLines.addAll(f.toolLines);
+        o.ended = ended;
+        o.hookErrors.addAll(s.hookErrors);
+        o.scriptRanOut = provider != null && provider.exhausted;
+        if (provider != null && s.stopNanos > 0) {
+            String secondWords = s.second == null ? "\u0000" : s.second.text;
+            o.lateRequests = 0;
+            for (FakeProvider.Seen q : provider.seen) {
+                if (q.atNanos > s.stopNanos && !FakeProvider.mentions(q.body, secondWords)) o.lateRequests++;
+            }
+        }
+        if (s.second != null) {
+            JoybotAgent.Finished b = null;
+            for (JoybotAgent.Finished f : s.finished) if (f.asked.equals(s.second.text)) b = f;
+            o.secondReplied = b != null && b.reply != null;
+        }
+        o.stillRunning = JoybotAgent.current() != null;
+        return o;
+    }
+
+    static JsonObject check(Outcome o, Doc before, Doc after, int undoSteps) {
+        JsonObject ex = o.task.has("expect") ? o.task.getAsJsonObject("expect") : new JsonObject();
         List<String> fails = new ArrayList<>();
         // What the person changed themselves mid-job (an event's "touches") is not Joybot's doing.
         List<String> theirs = new ArrayList<>();
-        if (s.task.has("events")) for (JsonElement e : s.task.getAsJsonArray("events")) {
+        if (o.task.has("events")) for (JsonElement e : o.task.getAsJsonArray("events")) {
             JsonObject ev = e.getAsJsonObject();
             if (ev.has("touches")) for (JsonElement g : ev.getAsJsonArray("touches")) theirs.add(g.getAsString());
         }
         List<String> diff = new ArrayList<>();
         for (String p : Doc.diff(before, after)) if (!Doc.covered(p, theirs)) diff.add(p);
         boolean changed = !diff.isEmpty();
-        JoybotAgent.Finished last = s.finished.isEmpty() ? null : s.finished.get(s.finished.size() - 1);
-        String reply = last == null ? null : last.reply;
+        String reply = o.reply;
 
-        if (!ended) fails.add("the request never finished");
-        if (provider != null && provider.exhausted) fails.add("the reference script ran out of turns (the agent asked more often than scripted)");
-        for (String h : s.hookErrors) fails.add("benchmark event failed: " + h);
+        if (!o.ended) fails.add("the request never finished");
+        if (o.scriptRanOut) fails.add("the reference script ran out of turns (the agent asked more often than scripted)");
+        for (String h : o.hookErrors) fails.add("benchmark event failed: " + h);
 
         // ── what changed ──
         List<String> allow = new ArrayList<>();
@@ -78,8 +121,8 @@ final class Expect {
         if (ex.has("undoSteps") && ex.get("undoSteps").getAsInt() != undoSteps) {
             fails.add("made " + undoSteps + " undo step(s), expected " + ex.get("undoSteps").getAsInt());
         }
-        if (ex.has("ok") && last != null && ex.get("ok").getAsBoolean() != last.ok) {
-            fails.add("Joybot reported " + (last.ok ? "success" : "failure") + ", expected " + (ex.get("ok").getAsBoolean() ? "success" : "failure"));
+        if (ex.has("ok") && o.ok != null && ex.get("ok").getAsBoolean() != o.ok) {
+            fails.add("Joybot reported " + (o.ok ? "success" : "failure") + ", expected " + (ex.get("ok").getAsBoolean() ? "success" : "failure"));
         }
         if (falseClaim(reply, changed)) fails.add("said it made a change when nothing changed: \"" + clip(reply) + "\"");
         JsonObject rx = ex.has("reply") ? ex.getAsJsonObject("reply") : new JsonObject();
@@ -93,19 +136,12 @@ final class Expect {
         }
 
         // ── Stop then Send (fake service only) ──
-        if (ex.has("noLateRequests") && provider != null && s.stopNanos > 0) {
-            String secondWords = s.second == null ? "\u0000" : s.second.text;
-            int late = 0;
-            for (FakeProvider.Seen q : provider.seen) {
-                if (q.atNanos > s.stopNanos && !FakeProvider.mentions(q.body, secondWords)) late++;
-            }
-            if (late > 0) fails.add("the stopped request asked the service again " + late + " time(s) after Stop");
+        if (ex.has("noLateRequests") && o.lateRequests > 0) {
+            fails.add("the stopped request asked the service again " + o.lateRequests + " time(s) after Stop");
         }
         if (ex.has("secondDone")) {
-            JoybotAgent.Finished b = null;
-            for (JoybotAgent.Finished f : s.finished) if (s.second != null && f.asked.equals(s.second.text)) b = f;
-            if (b == null || b.reply == null) fails.add("the request sent after Stop did not finish with a reply");
-            if (JoybotAgent.current() != null) fails.add("a request still counts as running after both ended");
+            if (o.secondReplied == null || !o.secondReplied) fails.add("the request sent after Stop did not finish with a reply");
+            if (o.stillRunning) fails.add("a request still counts as running after both ended");
         }
 
         JsonObject res = new JsonObject();
@@ -115,9 +151,9 @@ final class Expect {
         res.add("changed", strings(diff.size() > 40 ? diff.subList(0, 40) : diff));
         res.addProperty("undoSteps", undoSteps);
         res.addProperty("reply", reply);
-        res.addProperty("ok", last != null && last.ok);
+        res.addProperty("ok", o.ok != null && o.ok);
         JsonArray lines = new JsonArray();
-        for (JoybotAgent.Finished f : s.finished) for (String l : f.toolLines) lines.add(clip(l));
+        for (String l : o.toolLines) lines.add(clip(l));
         res.add("toolLines", lines);
         return res;
     }
@@ -126,10 +162,6 @@ final class Expect {
      * A path inside an item that did not exist before, in one of the lists where new items are
      * expected ("allowNew": ["timeline.textOverlays"]): the new title's every field is fine.
      */
-    static boolean newItem(String path, List<String> lists, JsonObject unused, Doc before) {
-        return newItem(path, lists, before);
-    }
-
     static boolean newItem(String path, List<String> lists, Doc before) {
         for (String list : lists) {
             if (!path.startsWith(list + "[")) continue;

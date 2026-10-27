@@ -6,6 +6,7 @@ tasks, and checks what actually changed in the project or VisLab look. Results: 
 ```bash
 bash tools/jvm-harness/run-joybot-bench.sh                         # fake model: all tasks (about 1 min)
 bash tools/jvm-harness/run-joybot-bench.sh --tasks host-,studio-title  # only ids starting with these
+bash tools/jvm-harness/run-joybot-bench.sh --phone --models "openrouter/free,google/gemma-4-31b-it:free"  # live, on the Note 9
 OPENROUTER_API_KEY=… bash tools/jvm-harness/run-joybot-bench.sh --live --models auto --count 4 --pause 5
 BENCH_SRC=<commit>|worktree bash tools/jvm-harness/run-joybot-bench.sh   # which code to measure (default: HEAD)
 ```
@@ -26,7 +27,16 @@ BENCH_SRC=<commit>|worktree bash tools/jvm-harness/run-joybot-bench.sh   # which
   deleting or editing an item mid-job).
 - Each task runs in a fresh JVM (`src/Run`): starting project from `fixtures/` or a built-in VisLab
   look, `JoybotAgent.ask(...)` exactly as the chat calls it, then `src/Expect` compares before/after.
-- Live mode points the same agent at OpenRouter. Only `:free` models (or `openrouter/free`) run unless
+- **Phone mode** (`--phone`, the usual live run): the AI key saved in the app is sealed by the phone's
+  keystore, so only the app can use it. The PC pushes `tasks/` and `fixtures/` to the Note 9 and starts
+  the debug-only `JoybotBenchActivity` (`app/src/debug/…/ai/joybot/`), which runs each live task inside
+  the app with that key and writes raw results (document before/after, reply, undo steps, steps,
+  tokens, time). The PC pulls them and grades them with the same checks, and logs the phone's
+  temperature every 30 s. Studio tasks get a throwaway project, deleted after; VisLab tasks are undone
+  after and checked to be back as they were (`restored`). Claim the phone first
+  (`tools/phone.ps1 claim joybot-bench "…"`) and have a debug build with the activity installed. Only
+  free models, and only when the app's active account is OpenRouter (the phone's OpenAI accounts cost money).
+- `--live` (PC) points the same agent at OpenRouter with `OPENROUTER_API_KEY` from the environment. Only `:free` models (or `openrouter/free`) run unless
   `--allow-paid` is given, which needs the owner's OK. The key comes from the environment and is never
   printed or written anywhere. The free tier allows few requests a day without credit: use `--tasks`.
 

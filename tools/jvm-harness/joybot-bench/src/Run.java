@@ -147,7 +147,7 @@ final class Run {
         int undoSteps = vislab ? undoSize(session) - undoBefore
                 : s.editor != null ? s.editor.requests.size() : AIChatState.stepCount(s.pid);
 
-        JsonObject res = Expect.check(s, before, after, undoSteps, provider, ended);
+        JsonObject res = Expect.check(Expect.of(s, provider, ended), before, after, undoSteps);
         res.addProperty("task", id);
         res.addProperty("model", fake ? "fake (reference script)" : model);
         res.addProperty("latencyMs", latency);

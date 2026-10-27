@@ -8,13 +8,17 @@
 # folder as it is (to measure an uncommitted change); BENCH_SRC=<commit> measures that commit.
 set -u
 cd "$(dirname "$0")/../../.." || exit 1
+# Build outputs (R.jar, BuildConfig, the JoyBrush and studiokit jars) come from this folder or, in a
+# separate git worktree that never ran Gradle, from the main folder the worktree belongs to.
+MAINDIR=$(cd "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")" && { pwd -W 2>/dev/null || pwd; })
+built() { if [ -e "$1" ]; then echo "$1"; else echo "$MAINDIR/$1"; fi; }
 
 SDK="${ANDROID_HOME:-$HOME/AppData/Local/Android/Sdk}"
 ANDROID_JAR=$(ls -d "$SDK"/platforms/android-*/android.jar 2>/dev/null | sort -V | tail -1 | sed 's|^/c/|C:/|')
 [ -n "$ANDROID_JAR" ] || { echo "no android.jar under $SDK/platforms"; exit 1; }
-M3=$(grep '^media3.patched.path' local.properties 2>/dev/null | cut -d= -f2- | tr -d '\r')
+M3=$(grep '^media3.patched.path' "$(built local.properties)" 2>/dev/null | cut -d= -f2- | tr -d '\r')
 [ -n "$M3" ] || M3="/tmp/media3-patched"
-RJAR="app/build/intermediates/compile_and_runtime_not_namespaced_r_class_jar/defaultDebug/processDefaultDebugResources/R.jar"
+RJAR=$(built "app/build/intermediates/compile_and_runtime_not_namespaced_r_class_jar/defaultDebug/processDefaultDebugResources/R.jar")
 [ -f "$RJAR" ] || { echo "no R.jar — run a real Gradle build once"; exit 1; }
 
 LIBS="$RJAR"
@@ -25,9 +29,15 @@ for J in joybrush-android/build/intermediates/compile_library_classes_jar/debug/
          joybrush/core/build/libs/*.jar studiokit/build/intermediates/compile_r_class_jar/debug/*/R.jar; do
   [ -f "$J" ] && LIBS="$LIBS;$J"
 done
+if [ ! -d joybrush-android/build ]; then
+  for J in "$MAINDIR"/joybrush-android/build/intermediates/compile_library_classes_jar/debug/bundleLibCompileToJarDebug/classes.jar \
+           "$MAINDIR"/joybrush/core/build/libs/*.jar "$MAINDIR"/studiokit/build/intermediates/compile_r_class_jar/debug/*/R.jar; do
+    [ -f "$J" ] && LIBS="$LIBS;$J"
+  done
+fi
 
 OUT=tools/jvm-harness/out-joybot-app
-BCFG="app/build/generated/source/buildConfig/default/debug"
+BCFG=$(built "app/build/generated/source/buildConfig/default/debug")
 if [ "${BENCH_SRC:-head}" = "worktree" ]; then
   ROOT=.; KEY="worktree-$(date +%s)"
 else

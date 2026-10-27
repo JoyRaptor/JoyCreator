@@ -193,10 +193,13 @@ final class FxVisLabDefs2 {
         defs.add(new FxEffectDef("ripple", "Ripple",
                 FxEffectDef.Family.DISTORT, FxEffectDef.Capability.UV_REMAP, 1, 0.2f,
                 BODY_RIPPLE,
-                FxParam.flt("amount", "Strength", 0f, 2f, 0.6f),
+                // 1.0, not 0.6: at 0.6 the rings were barely visible on the Note 9 (10-27).
+                FxParam.flt("amount", "Strength", 0f, 2f, 1f),
                 FxParam.flt("rings", "Rings", 1f, 40f, 10f),
-                FxParam.flt("speed", "Speed", -4f, 4f, 1f),
-                FxParam.flt("fade", "Fade", 0f, 5f, 1f),
+                // Ranges narrower than 4 show (and step) as percentages in the panel; a wider one
+                // steps in whole units, which made 0.5 rings a second impossible to set.
+                FxParam.flt("speed", "Speed", -1.5f, 1.5f, 1f),
+                FxParam.flt("fade", "Fade", 0f, 3f, 1f),
                 FxParam.point("center", "Center", 0.5f, 0.5f)));
 
         defs.add(new FxEffectDef("swirl", "Swirl",
@@ -212,7 +215,8 @@ final class FxVisLabDefs2 {
                 FxParam.enumOf("mode", "Trails", 1, "Echo", "Light trails", "Glow trails"),
                 // Kept per 1/30 s: 0.75 leaves about half a second of trail.
                 FxParam.flt("amount", "Trail length", 0f, 0.98f, 0.75f),
-                FxParam.flt("zoom", "Zoom", -2f, 2f, 0.3f),
+                // Narrower than 4 so the panel shows it as a percentage (30 = the default 0.3).
+                FxParam.flt("zoom", "Zoom", -1.5f, 1.5f, 0.3f),
                 FxParam.flt("turn", "Turn", -1f, 1f, 0f),
                 FxParam.flt("hue", "Colour drift", -1f, 1f, 0f),
                 FxParam.point("center", "Center", 0.5f, 0.5f)));

@@ -1,0 +1,71 @@
+{
+  "status": "PREPARED_NOT_RUN",
+  "date": "2026-10-27",
+  "sourceCheckpoint": "2f119eed2828eb3f00faabeb7ce1d0da6a982229",
+  "base": "f6287b921",
+  "branch": "codex/unibrush-u8-guards-20261026",
+  "task": ":joybrush-android:testDebugUnitTest",
+  "filters": [
+    "cc.joycreator.joybrush.android.bench.UnibrushProbeLifetimeTest",
+    "cc.joycreator.joybrush.android.bench.UnibrushParityEvidenceTest"
+  ],
+  "expected": {
+    "suites": 2,
+    "tests": 17,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "observedResults": null,
+  "ownedJobs": [],
+  "ownedLocks": [],
+  "phoneRequired": false,
+  "runtimeHookup": false,
+  "inputs": [
+    {
+      "path": "joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/bench/UnibrushProbeLifetime.kt",
+      "gitBlob": "7e9faa457fb77538be224e97f16ddb419577ffda",
+      "gitBlobSha256": "02923add7200d13b3503b1fb36e15c796b1905442c25ac5eb45071114c4353c8"
+    },
+    {
+      "path": "joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/bench/UnibrushParityEvidence.kt",
+      "gitBlob": "b4b3d2e1bb0ed9d537b99d39c44ed04c809c5357",
+      "gitBlobSha256": "31bf30fcefed04516a9024a10c495bb7013bb89df25a8c8021a8abe0ab075ebb"
+    },
+    {
+      "path": "joybrush-android/src/test/kotlin/cc/joycreator/joybrush/android/bench/UnibrushProbeLifetimeTest.kt",
+      "gitBlob": "98bc03fbc0c6f52d0d958432be31969070ea28d4",
+      "gitBlobSha256": "515d846cde2c49bc363d725f77a9e2b2fffd53fabace8cf9e390f9b8a4c6c33b"
+    },
+    {
+      "path": "joybrush-android/src/test/kotlin/cc/joycreator/joybrush/android/bench/UnibrushParityEvidenceTest.kt",
+      "gitBlob": "f8eaa7522844269fd71990549b2eac3f22672173",
+      "gitBlobSha256": "ce83f2dd286e033802117ab311b2b23fea5ce3de277c3ff858d556c781d499a8"
+    },
+    {
+      "path": "joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/bench/MatrixDiff.kt",
+      "gitBlob": "d24812d85bf3a3df6e0e4b0a782ef13f237013fd",
+      "gitBlobSha256": "b91165ea30728efde979807439856449aedc8cba410046845000988628f39104"
+    },
+    {
+      "path": "joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/paint/Tiles.kt",
+      "gitBlob": "0c07f5bf70b28244163e81f7915339f45e698c0e",
+      "gitBlobSha256": "cd72393531a719125a3d88ca18d6175b69370f8d066f6bf518e95a9b77403f68"
+    },
+    {
+      "path": "joybrush-android/build.gradle.kts",
+      "gitBlob": "9185f9cd9bd50427ed884b84e9ab417d60a44b29",
+      "gitBlobSha256": "e00c14a538abf685b69da9485c9bfa4bfc4d956575fcaad16c6f6ea15350e52f"
+    },
+    {
+      "path": "settings.gradle.kts",
+      "gitBlob": "47624d5037d98de8c958395f224bf38e5b8092c3",
+      "gitBlobSha256": "ee8af23592f666aa75fc742df1bd869907949b2e5e626d0f91e2b0ddc391a691"
+    },
+    {
+      "path": "gradle/wrapper/gradle-wrapper.properties",
+      "gitBlob": "e8731065f61f85eeea24b80f675d812c1794cc6d",
+      "gitBlobSha256": "9bf555d24252932f7234bc2f30aaed670de73a791ec49cb388a5bdf4e6714820"
+    }
+  ]
+}

@@ -75,3 +75,11 @@ exact SHA. The coordinator reconciles only the two changed rows into its current
 No broader runtime merge/activation or claim of major feature completion is proposed. Help
 points at the recovered spec; published end-user help is pending. Reuse is limited to these
 bench guards/MatrixDiff and the preserved brush/PNG/preview machinery under its own ownership.
+
+
+## Source handback — 2026-10-27
+
+Source assignment closed at published2f119eed2;17 tests remain UNRUN. Documentation-only
+follow-up provides the [exact focused17 queue gate](UNIBRUSH_U8_FOCUSED17_GATE_20261027.md),
+source-input manifest, missing local SDK setup and required fresh receipt. No build/phone slot
+claimed or used. Runtime hookup/U6 transaction/activation remain root-owned pending gates.

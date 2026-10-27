@@ -134,8 +134,15 @@ def validate_report(report, brush, run=1):
     previous = 0
     for phase, row in zip(PHASES, rows):
         require(isinstance(row, dict) and row.get("phase") == phase, "missing/reordered/duplicate phase")
-        require(row.get("exactRgba8") is True and row.get("transparentTilesIncluded") is True, "partial pixel comparison")
+        require(row.get("transparentTilesIncluded") is True, "partial pixel comparison")
         count = row.get("comparedTiles")
+        # Lead ruling 2026-10-27: Add and undo_move are exact; re-rendered moved-line phases may differ by at most
+        # 2/255 per channel on at most 0.05% of compared pixels, and must report the numbers.
+        if row.get("exactRgba8") is not True:
+            require(phase not in ("add", "undo_move"), f"{phase} must be exact")
+            diff, delta = row.get("differingPixels"), row.get("maxChannelDelta")
+            require(integer(delta, 1, 2) and integer(diff, 1, int(count * 65536 * 0.0005)) if integer(count, 1, 128) else False,
+                    f"{phase} differs beyond tolerance")
         require(integer(count, max(1, previous), union), "invalid/decreasing tile comparison union")
         previous = count
     require(previous == union, "final row omits union tiles")

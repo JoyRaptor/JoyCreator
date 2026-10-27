@@ -19,6 +19,9 @@ import org.json.JSONObject
 
 /** Standalone disposable-engine diagnostic. Authored, not wired into a View or bench case. */
 internal object WatercolourOrdinaryProbe {
+    /** Moved-line phases only (see compare): worst channel delta and share of compared pixels allowed to differ. */
+    private const val MAX_DELTA = 2
+    private const val MAX_SHARE = 0.0005
     private const val TILE = 256
     private const val BYTES = TILE * TILE * 4
     private const val MAX_KEYS = 128
@@ -103,13 +106,18 @@ internal object WatercolourOrdinaryProbe {
             }
             return result
         }
+        // Moved-line phases are re-rendered at a translated float position, which cannot be bit-identical to a byte-shifted
+        // oracle; Lead ruling 2026-10-27 after the Note 9 run (2 of ~4.7M pixels off by 1-2/255): those phases pass within
+        // MAX_DELTA per channel on at most MAX_SHARE of compared pixels, and report the numbers. Add and undo_move stay exact.
         fun compare(expected: Map<Long, ByteArray>, label: String) {
+            val tolerant = label != "add" && label != "undo_move"
             include(expected.keys)
             include(engine.tileKeys(layerId)) // Unexpected current tiles must not escape comparison.
             include(engine.nativeLines.footprint(plane, input.id))
             // Every mismatching tile is described (pixels that differ, worst channel delta, local box, first samples)
             // before the check fails, so one device run shows the shape of a fault, not just its first tile.
             val faults = ArrayList<String>()
+            var differing = 0L; var maxDelta = 0
             for (key in keys.sorted()) {
                 val actual = engine.readTile(layerId, key)
                 val reference = expected[key]
@@ -130,11 +138,18 @@ internal object WatercolourOrdinaryProbe {
                     if (count <= 3) samples.append(" ($x,$y) exp=").append((0..3).map { r[i * 4 + it].toInt() and 255 })
                         .append(" act=").append((0..3).map { a[i * 4 + it].toInt() and 255 })
                 }
+                differing += count; maxDelta = maxOf(maxDelta, worst)
                 faults += "tile($key=${Tiles.tx(key)},${Tiles.ty(key)}) px=$count maxDelta=$worst box=[$x0,$y0..$x1,$y1]$samples"
             }
-            check(faults.isEmpty()) { "$label exact RGBA8 mismatch: ${faults.size} tiles: " + faults.joinToString(" | ").take(2400) }
+            val allowed = (keys.size.toLong() * Tiles.SIZE * Tiles.SIZE * MAX_SHARE).toLong()
+            check(faults.isEmpty() || (tolerant && maxDelta <= MAX_DELTA && differing <= allowed)) {
+                "$label RGBA8 mismatch beyond ${if (tolerant) "tolerance" else "exactness"}: ${faults.size} tiles: " +
+                    faults.joinToString(" | ").take(2400)
+            }
             rows.put(JSONObject().put("phase", label).put("comparedTiles", keys.size)
-                .put("transparentTilesIncluded", true).put("exactRgba8", true))
+                .put("transparentTilesIncluded", true).put("exactRgba8", faults.isEmpty())
+                .put("differingPixels", differing).put("maxChannelDelta", maxDelta).put("tolerant", tolerant)
+                .put("faults", if (faults.isEmpty()) null else faults.joinToString(" | ").take(1200)))
         }
         fun recordIs(expected: StrokeRecord) {
             check(CapturedStrokeRules.sameRecord(engine.nativeLines.record(plane, input.id), expected)) {

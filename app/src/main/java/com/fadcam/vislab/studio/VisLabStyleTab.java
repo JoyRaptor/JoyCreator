@@ -65,6 +65,14 @@ public final class VisLabStyleTab {
 
         /** True when the visualizer's source clip has a transcript (a lyrics look's words). */
         boolean hasTranscriptWords();
+
+        /** Studio objects a look layer can follow (R8), dummies first: each {id, name}. */
+        @NonNull
+        default List<String[]> followables() { return new ArrayList<>(); }
+
+        /** The object with this id, to follow, or null when it is gone. */
+        @Nullable
+        default com.fadcam.ui.faditor.model.LinkPose followable(@NonNull String id) { return null; }
     }
 
     private static final long ON_KEY_MS = 66;   // as Studio's own keyed rows
@@ -220,6 +228,7 @@ public final class VisLabStyleTab {
                 x -> Math.round(x * 100f) + "%"), rowHost));
         rowRefresh.add(PipDrawerTabs.addPropRow(c, v, valueProp(VisLabKeys.SPEED, "Speed", 0f, 3f,
                 x -> Math.round(x * 100f) + "%"), rowHost));
+        followRows(v, lookId);
         TextView edit = Ui.text(c, "Edit in VisLab", 12f, Studio.INK, false, 600);
         edit.setGravity(Gravity.CENTER);
         edit.setMinHeight(Ui.dp(c, 36));
@@ -233,6 +242,90 @@ public final class VisLabStyleTab {
         lp.gravity = Gravity.START;
         v.addView(edit, lp);
         return v;
+    }
+
+    /**
+     * "Follows": each layer of the look can follow a Studio object (R8: animate a dummy and the
+     * logo inside the look goes with it). One row per layer, its name and a pill naming what it
+     * follows; tapping the pill lists the project's objects, dummies first. One undo step a pick.
+     */
+    private void followRows(@NonNull LinearLayout v, @NonNull String lookId) {
+        com.google.gson.JsonArray layers;
+        try {
+            com.google.gson.JsonObject look = com.google.gson.JsonParser
+                    .parseString(VisLabSession.get(c).lookJson(lookId)).getAsJsonObject();
+            layers = look.getAsJsonArray("layers");
+        } catch (RuntimeException e) {
+            return;
+        }
+        if (layers == null || layers.size() == 0) return;
+        TextView head = Ui.text(c, "Layers can follow an object", 11f, Studio.INK_DIM, false, 600);
+        head.setPadding(0, Ui.dp(c, 10), 0, Ui.dp(c, 2));
+        v.addView(head);
+        for (int i = 0; i < layers.size(); i++) {
+            if (!layers.get(i).isJsonObject()) continue;
+            com.google.gson.JsonObject L = layers.get(i).getAsJsonObject();
+            String name = L.has("name") && L.get("name").isJsonPrimitive() ? L.get("name").getAsString()
+                    : L.has("type") ? L.get("type").getAsString() : "Layer " + (i + 1);
+            String key = WaveformOverlayInstance.visFollowKey(lookId, i);
+            LinearLayout row = new LinearLayout(c);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setMinimumHeight(Ui.dp(c, 36));
+            row.addView(Ui.text(c, name, 12f, Studio.INK, false, 500),
+                    new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+            TextView pill = Ui.text(c, "", 11.5f, Studio.INK_DIM, false, 600);
+            pill.setGravity(Gravity.CENTER);
+            pill.setMinHeight(Ui.dp(c, 30));
+            pill.setPadding(Ui.dp(c, 12), Ui.dp(c, 6), Ui.dp(c, 12), Ui.dp(c, 6));
+            Ui.label(pill, "Choose an object for " + name + " to follow");
+            pill.setOnClickListener(x -> pickFollow(pill, key));
+            row.addView(pill);
+            v.addView(row);
+            Runnable show = () -> {
+                String id = wf.getVisFollow().get(key);
+                boolean on = id != null;
+                pill.setText(on ? nameOf(id) : "Nothing");
+                pill.setBackground(Ui.round(on ? Studio.ARMED : Studio.RAISED, Ui.dp(c, 999)));
+                pill.setTextColor(on ? Studio.GROUND : Studio.INK_DIM);
+            };
+            show.run();
+            rowRefresh.add(show);
+        }
+    }
+
+    @NonNull
+    private String nameOf(@NonNull String id) {
+        for (String[] f : host.followables()) if (f[0].equals(id)) return f[1];
+        return "Gone";
+    }
+
+    private void pickFollow(@NonNull View anchor, @NonNull String key) {
+        List<String[]> all = host.followables();
+        android.widget.PopupMenu menu = new android.widget.PopupMenu(c, anchor);
+        menu.getMenu().add(0, 0, 0, "Nothing");
+        for (int i = 0; i < all.size(); i++) menu.getMenu().add(0, i + 1, i + 1, all.get(i)[1]);
+        if (all.isEmpty()) {
+            menu.getMenu().add(0, -1, 1, "No objects yet: add a dummy or a picture").setEnabled(false);
+        }
+        menu.setOnMenuItemClickListener(item -> {
+            int at = item.getItemId();
+            if (at < 0) return true;
+            State before = snap();
+            if (at == 0) {
+                wf.getVisFollow().remove(key);
+                wf.getVisFollowRefs().remove(key);
+            } else {
+                String id = all.get(at - 1)[0];
+                wf.getVisFollow().put(key, id);
+                com.fadcam.ui.faditor.model.LinkPose p = host.followable(id);
+                if (p != null && p != wf) wf.getVisFollowRefs().put(key, p);
+                else wf.getVisFollowRefs().remove(key);
+            }
+            commit(at == 0 ? "Stop following" : "Follow an object", before);
+            return true;
+        });
+        menu.show();
     }
 
     /** Reactivity or Fade as a keyframable row: a key at the playhead once its track has keys. */
@@ -336,25 +429,36 @@ public final class VisLabStyleTab {
     private static final class State {
         @Nullable final String look;
         @NonNull final VisLabKeys keys;
+        /** Which look layers follow which object (R8). */
+        @NonNull final java.util.TreeMap<String, String> follow;
 
-        State(@Nullable String look, @NonNull VisLabKeys keys) {
+        State(@Nullable String look, @NonNull VisLabKeys keys, @NonNull java.util.TreeMap<String, String> follow) {
             this.look = look;
             this.keys = keys;
+            this.follow = follow;
         }
 
         boolean same(@NonNull State o) {
-            return (look == null ? o.look == null : look.equals(o.look)) && keys.equals(o.keys);
+            return (look == null ? o.look == null : look.equals(o.look)) && keys.equals(o.keys)
+                    && follow.equals(o.follow);
         }
     }
 
     @NonNull
     private State snap() {
-        return new State(wf.getVisLook(), wf.getVisKeys().copy());
+        return new State(wf.getVisLook(), wf.getVisKeys().copy(), new java.util.TreeMap<>(wf.getVisFollow()));
     }
 
     private void restore(@NonNull State s) {
         wf.setVisLook(s.look);
         wf.getVisKeys().copyFrom(s.keys);
+        wf.getVisFollow().clear();
+        wf.getVisFollow().putAll(s.follow);
+        wf.getVisFollowRefs().clear();
+        for (Map.Entry<String, String> e : s.follow.entrySet()) {
+            com.fadcam.ui.faditor.model.LinkPose p = host.followable(e.getValue());
+            if (p != null && p != wf) wf.getVisFollowRefs().put(e.getKey(), p);
+        }
         host.changed();
         refresh();
     }

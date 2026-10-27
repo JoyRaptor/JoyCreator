@@ -199,7 +199,11 @@ public class WaveformOverlayView extends View {
                 vis = StudioVis.get(getContext()).previewFrame(StudioVis.previewKey(o.getId()), visJson,
                         ref != null ? sourceUris.get(ref) : null, o.mapToSourceMs(playheadMs), playheadMs,
                         Math.max(1, Math.round(rw * s)), Math.max(1, Math.round(rh * s)),
-                        com.fadcam.vislab.studio.VisControls.at(o, playheadMs), visWordsFor(o), this::invalidate);
+                        // This view is the canvas, so its shape is the frame's (look layers
+                        // following an object, R8).
+                        com.fadcam.vislab.studio.VisControls.at(o, playheadMs,
+                                (float) getWidth() / Math.max(1, getHeight())),
+                        visWordsFor(o), this::invalidate);
             }
             // Placeholder until the audio finishes extracting, then the live render.
             // renderReusable returns a shared, reused bitmap (no per-frame allocation);

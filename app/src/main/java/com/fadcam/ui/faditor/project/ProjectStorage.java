@@ -2662,6 +2662,14 @@ public class ProjectStorage {
                     }
                     // Its keyframable VisLab values (look keys, Reactivity, Fade); absent = defaults.
                     if (!wo.getVisKeys().isDefault()) wj.add("vis", wo.getVisKeys().toJson());
+                    // Look layers following other objects (R8); absent = none.
+                    if (!wo.getVisFollow().isEmpty()) {
+                        JsonObject vf = new JsonObject();
+                        for (java.util.Map.Entry<String, String> e : wo.getVisFollow().entrySet()) {
+                            vf.addProperty(e.getKey(), e.getValue());
+                        }
+                        wj.add("visFollow", vf);
+                    }
                     // G5 attach/detach (tolerant, absent = detached — every pre-G5 project)
                     if (wo.getAttachedClipId() != null) {
                         wj.addProperty("attachedClipId", wo.getAttachedClipId());
@@ -3643,6 +3651,15 @@ public class ProjectStorage {
                         }
                         if (wj.has("vis") && wj.get("vis").isJsonObject()) {
                             wo.getVisKeys().readJson(wj.getAsJsonObject("vis"));
+                        }
+                        // Look layers following other objects (R8, tolerant read, absent = none).
+                        if (wj.has("visFollow") && wj.get("visFollow").isJsonObject()) {
+                            for (java.util.Map.Entry<String, JsonElement> e
+                                    : wj.getAsJsonObject("visFollow").entrySet()) {
+                                if (e.getValue().isJsonPrimitive()) {
+                                    wo.getVisFollow().put(e.getKey(), e.getValue().getAsString());
+                                }
+                            }
                         }
                         // Blend against what is beneath (tolerant read, absent = NORMAL).
                         if (hasValue(wj, "overlayBlendMode")) {

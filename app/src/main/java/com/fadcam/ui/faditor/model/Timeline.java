@@ -2989,6 +2989,15 @@ public class Timeline {
             }
             l.invalidate();
         }
+        // VisLab look layers that follow an object (R8): the same lookup, never the visualizer
+        // itself. A follow whose object is gone stays stored and does nothing.
+        for (WaveformOverlayInstance w : waveformOverlays) {
+            w.getVisFollowRefs().clear();
+            for (java.util.Map.Entry<String, String> e : w.getVisFollow().entrySet()) {
+                LinkPose p = byId.get(e.getValue());
+                if (p != null && p != w) w.getVisFollowRefs().put(e.getKey(), p);
+            }
+        }
     }
 
     /** Everything that can follow a parent: text, pictures and sprites. */

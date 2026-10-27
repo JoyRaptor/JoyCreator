@@ -20596,6 +20596,30 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                 com.fadcam.vislab.room.VisLabActivity.class)
                                 .putExtra(com.fadcam.vislab.room.VisLabActivity.EXTRA_LOOK, lookId));
                     }
+                    // R8: what a look layer can follow, dummies first (marked as their tapes are).
+                    @NonNull @Override public java.util.List<String[]> followables() {
+                        java.util.List<String[]> out = new java.util.ArrayList<>();
+                        if (project == null) return out;
+                        com.fadcam.ui.faditor.model.Timeline tl = project.getTimeline();
+                        for (com.fadcam.ui.faditor.model.TextOverlayItem t : tl.getTextOverlays()) {
+                            if (t.isProxy()) out.add(new String[]{t.getId(), "◎ " + t.getText()});
+                        }
+                        int pics = 0;
+                        for (com.fadcam.ui.faditor.model.TextOverlayItem t : tl.getTextOverlays()) {
+                            if (t.isProxy()) continue;
+                            out.add(new String[]{t.getId(), t.isImage() ? "Picture " + (++pics)
+                                    : "Text: " + t.getText()});
+                        }
+                        int sprites = 0;
+                        for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s : tl.getSpriteOverlays()) {
+                            out.add(new String[]{s.getId(), "Sprite " + (++sprites)});
+                        }
+                        return out;
+                    }
+                    @Nullable @Override public com.fadcam.ui.faditor.model.LinkPose followable(
+                            @NonNull String id) {
+                        return project == null ? null : project.getTimeline().linkPoseById(id);
+                    }
                     @Override public boolean hasTranscriptWords() {
                         com.fadcam.ui.faditor.transcript.Transcript t =
                                 visualizerTranscript(overlay.getAudioSourceRef());

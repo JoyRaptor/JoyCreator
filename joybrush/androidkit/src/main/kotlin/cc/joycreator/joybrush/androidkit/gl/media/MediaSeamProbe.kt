@@ -26,24 +26,27 @@ internal object MediaSeamProbe {
     private const val SAMPLES_PER_FRAME = 5
     private const val N = 256
 
-    fun probe(paper: Paper, preset: BrushPreset, memory: () -> Pair<Long, Long>): String {
+    /** [previews]: draws brush-drawer previews on this GL context (as holding a brush does), between strokes in a 4th run. */
+    fun probe(paper: Paper, preset: BrushPreset, memory: () -> Pair<Long, Long>, previews: (() -> Unit)? = null): String {
         val report = JSONObject().put("probe", "mediaSeam").put("renderer", GLES30.glGetString(GLES30.GL_RENDERER)).put("brush", preset.id)
         val before = MediaAtlasGl.enabled
         val engines = JSONArray()
         try {
-            for ((atlas, isLong) in listOf(true to false, false to false, true to true)) {
+            val runs = listOf(Triple(true, false, false), Triple(false, false, false), Triple(true, true, false)) +
+                if (previews != null) listOf(Triple(true, true, true)) else emptyList()
+            for ((atlas, isLong, withPreviews) in runs) {
                 MediaAtlasGl.enabled = atlas
                 long = isLong
-                val o = try { run(paper, preset, memory) } catch (e: Throwable) {
+                val o = try { run(paper, preset, memory, if (withPreviews) previews else null) } catch (e: Throwable) {
                     JSONObject().put("error", e.toString()).put("at", e.stackTrace.take(6).joinToString(" < ") { "${it.fileName}:${it.lineNumber}" })
                 }
-                engines.put(o.put("engine", (if (atlas) "atlas" else "window") + if (isLong) " long" else ""))
+                engines.put(o.put("engine", (if (atlas) "atlas" else "window") + (if (isLong) " long" else "") + if (withPreviews) " +previews" else ""))
             }
         } finally { MediaAtlasGl.enabled = before }
         return report.put("engines", engines).put("glError", GLES30.glGetError()).toString()
     }
 
-    private fun run(paper: Paper, preset: BrushPreset, memory: () -> Pair<Long, Long>): JSONObject {
+    private fun run(paper: Paper, preset: BrushPreset, memory: () -> Pair<Long, Long>, previews: (() -> Unit)?): JSONObject {
         val engine = GlPaintEngine()
         val canvas = MediaCanvas(engine, memory)
         try {
@@ -61,6 +64,7 @@ internal object MediaSeamProbe {
                 canvas.begin(LAYER, preset, COLOURS[i % COLOURS.size], null, pts[0].x, pts[0].y, now)?.let { throw IllegalStateException("refused: $it") }
                 for (chunk in pts.chunked(SAMPLES_PER_FRAME)) { canvas.add(chunk); now += FRAME_MS; canvas.frame(now) }
                 canvas.end()
+                previews?.invoke()
                 idle()
             }
             // As the owner paints: strokes, an undo and a redo, an undo, then strokes across what is left.

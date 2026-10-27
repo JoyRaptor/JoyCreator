@@ -2951,7 +2951,19 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         }
         onGl {
             val report = try {
-                cc.joycreator.joybrush.androidkit.gl.media.MediaSeamProbe.probe(paper, preset, memory)
+                // Holding a brush: its drawer previews draw on this GL context (a throwaway engine), between the strokes.
+                val renderer = cc.joycreator.joybrush.androidkit.preview.BrushPreviewRenderer.forContext(context)
+                val previews = {
+                    for (p in listOf(preset) + BrushLibrary.builtIn().filter { it.media != null }.take(3)) {
+                        val req = cc.joycreator.joybrush.androidkit.preview.BrushPreviewRenderer.Request(p, 640, 200,
+                            cc.joycreator.joybrush.androidkit.preview.BrushPreviewStyle(), cc.joycreator.joybrush.androidkit.preview.BrushPreviewTicket()) { }
+                        renderer.submit(req)
+                    }
+                    var guard = 0
+                    while (renderer.pump(android.os.SystemClock.uptimeMillis()) && guard++ < 2000) { }
+                }
+                try { cc.joycreator.joybrush.androidkit.gl.media.MediaSeamProbe.probe(paper, preset, memory, previews) }
+                finally { renderer.releaseIfIdle(Long.MAX_VALUE) }
             } catch (e: Throwable) { "{\"pass\":false,\"error\":" + org.json.JSONObject.quote(e.toString()) + "}" }
             post { ready(report) }
         }

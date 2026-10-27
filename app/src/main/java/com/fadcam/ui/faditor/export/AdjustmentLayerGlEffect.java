@@ -70,10 +70,24 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
      */
     public AdjustmentLayerGlEffect(@NonNull Context context, @NonNull AdjustmentLayer layer,
                                    long editorTimeOffsetMs) {
+        this(context, layer, editorTimeOffsetMs, null);
+    }
+
+    /**
+     * @param ears what the layer's music-linked knobs hear at an editor time (R14), or null for a
+     *             layer with none. Asked on the export's GL thread, once a frame.
+     */
+    public AdjustmentLayerGlEffect(@NonNull Context context, @NonNull AdjustmentLayer layer,
+                                   long editorTimeOffsetMs,
+                                   @androidx.annotation.Nullable java.util.function.LongFunction<com.fadcam.ui.faditor.fx.FxMusic.Ears> ears) {
         this.context = context.getApplicationContext();
         this.layer = layer;
         this.editorTimeOffsetMs = editorTimeOffsetMs;
+        this.ears = ears;
     }
+
+    @androidx.annotation.Nullable
+    private final java.util.function.LongFunction<com.fadcam.ui.faditor.fx.FxMusic.Ears> ears;
 
     @NonNull
     @Override
@@ -82,7 +96,7 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
         if (useHdr) {
             throw new VideoFrameProcessingException("HDR adjustment layers are not supported");
         }
-        return new Program(layer, editorTimeOffsetMs);
+        return new Program(layer, editorTimeOffsetMs, ears);
     }
 
     private static final class Program extends BaseGlShaderProgram {
@@ -103,8 +117,14 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
         /** The source this program was compiled from; a change means recompile. */
         @androidx.annotation.Nullable private String sourceKey;
 
-        Program(@NonNull AdjustmentLayer layer, long editorTimeOffsetMs) {
+        /** What music-linked knobs hear (R14), or null. */
+        @androidx.annotation.Nullable
+        private final java.util.function.LongFunction<com.fadcam.ui.faditor.fx.FxMusic.Ears> ears;
+
+        Program(@NonNull AdjustmentLayer layer, long editorTimeOffsetMs,
+                @androidx.annotation.Nullable java.util.function.LongFunction<com.fadcam.ui.faditor.fx.FxMusic.Ears> ears) {
             super(/* useHighPrecisionColorComponents= */ false, /* texturePoolCapacity= */ 1);
+            this.ears = ears;
             this.layer = layer;
             this.editorTimeOffsetMs = editorTimeOffsetMs;
         }
@@ -135,7 +155,10 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
                 // this in the emitted source, so it is part of the program cache key — a layer
                 // that gains a shape recompiles rather than silently dropping it.
                 int shapes = Math.max(1, geo.length / MaskSdf.FLOATS_PER_SHAPE);
-                FxStack resolved = layer.getFx().resolveAt(editorMs);
+                // Music-linked knobs (R14) pushed by what the layer hears at this frame.
+                FxStack resolved = ears != null && layer.getFx().hearsMusic()
+                        ? layer.getFx().resolveAt(editorMs, ears.apply(editorMs))
+                        : layer.getFx().resolveAt(editorMs);
                 if (!ensurePrograms(resolved, shapes)) {
                     passthrough(inputTexId);
                     return;

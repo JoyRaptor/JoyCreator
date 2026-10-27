@@ -676,7 +676,11 @@ public final class FxLivePreviewController {
         }
         for (AdjustmentLayer l : live) {
             FxPreviewTextureView.Layer s =
-                    FxPreviewTextureView.Layer.of(l, playheadMs, size[0], size[1]);
+                    FxPreviewTextureView.Layer.of(l, playheadMs, size[0], size[1],
+                            // R14: knobs linked to the music hear the timeline here.
+                            l.getFx().hearsMusic()
+                                    ? com.fadcam.vislab.studio.StudioEars.at(view.getContext(), timeline, playheadMs, "preview")
+                                    : null);
             if (s != null) {
                 layerIndex.put(l, snapshot.size());
                 snapshot.add(s);

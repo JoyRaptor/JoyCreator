@@ -81,7 +81,9 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                /** Every oil brush's stroke ends for this run (`jb_paste_ends` "brush" or "cut"); none = the brush's own. */
                val pasteEnds: cc.joycreator.joybrush.core.media.EndsMode? = null,
                /** Every oil brush's Covers and Carries for this run (`jb_paste_cover`, `jb_paste_carry`, 0..1); none = the brush's own. */
-               val pasteCover: Double? = null, val pasteCarry: Double? = null)
+               val pasteCover: Double? = null, val pasteCarry: Double? = null,
+               /** Every oil hair brush's Leans for this run (`jb_paste_force`, 0..1); none = the brush's own. */
+               val pasteForce: Double? = null)
 
     private val ui = Handler(Looper.getMainLooper())
     private val jobs = ArrayDeque<Triple<BrushPreset, String, Int>>()
@@ -275,8 +277,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         val samples = StrokeReplay.case(case, canvas.width, canvas.height)
         if (samples == null) { Log.w(TAG, "no case '$case'"); next(); return }
         if (spec.clear) canvas.clearCanvas()
-        val ended = preset.media?.let { m -> m.paste?.takeIf { spec.pasteEnds != null || spec.pasteCover != null || spec.pasteCarry != null }?.let { pb ->
-            preset.copy(media = m.copy(paste = pb.copy(ends = spec.pasteEnds ?: pb.ends, cover = spec.pasteCover ?: pb.cover, carry = spec.pasteCarry ?: pb.carry))) } } ?: preset
+        val ended = preset.media?.let { m -> m.paste?.takeIf { spec.pasteEnds != null || spec.pasteCover != null || spec.pasteCarry != null || spec.pasteForce != null }?.let { pb ->
+            preset.copy(media = m.copy(paste = pb.copy(ends = spec.pasteEnds ?: pb.ends, cover = spec.pasteCover ?: pb.cover, carry = spec.pasteCarry ?: pb.carry, force = spec.pasteForce ?: pb.force))) } } ?: preset
         canvas.preset = spec.wetness?.let { w -> ended.media?.let { m -> ended.copy(media = m.copy(wetness = w)) } } ?: ended
         spec.colors.getOrNull(spec.cases.indexOf(case))?.let { canvas.colorArgb = it }
         ui.postDelayed({
@@ -560,7 +562,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 selectRunId = intent.getStringExtra("jb_select_run_id").orEmpty(),
                 pasteEnds = cc.joycreator.joybrush.core.media.EndsMode.of(intent.getStringExtra("jb_paste_ends")),
                 pasteCover = intent.getStringExtra("jb_paste_cover")?.toDoubleOrNull()?.coerceIn(0.0, 1.0),
-                pasteCarry = intent.getStringExtra("jb_paste_carry")?.toDoubleOrNull()?.coerceIn(0.0, 1.0))
+                pasteCarry = intent.getStringExtra("jb_paste_carry")?.toDoubleOrNull()?.coerceIn(0.0, 1.0),
+                pasteForce = intent.getStringExtra("jb_paste_force")?.toDoubleOrNull()?.coerceIn(0.0, 1.0))
         }
     }
 }

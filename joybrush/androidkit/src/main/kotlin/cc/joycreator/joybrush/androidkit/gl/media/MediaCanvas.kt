@@ -462,7 +462,12 @@ class MediaCanvas(
                 made.init(cols * Tiles.SIZE, rows * Tiles.SIZE)
             } else made.init(MediaWindowMath.PX, MediaWindowMath.PX)
         } catch (x: IllegalStateException) {
-            unsupported = "This phone's graphics cannot paint pencil, watercolour and oil (it has no float colour buffers)."
+            // Say what actually failed: a program that would not compile is this build's fault, not the phone's (a shader
+            // error read "no float colour buffers" on the Note 9, 2026-10-27).
+            android.util.Log.e("JoyBrushMedia", "media engine could not start", x)
+            unsupported = if (x.message?.contains("compile failed") == true)
+                "Pencil, watercolour and oil could not start in this version of the app (a paint program failed to load)."
+            else "This phone's graphics cannot paint pencil, watercolour and oil (it has no float colour buffers)."
             return null
         }
         engine = made

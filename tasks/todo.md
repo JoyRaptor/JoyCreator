@@ -123,3 +123,4 @@ No live frame-copy/tween activation or GPU/context-loss proof from this prerequi
 - [x] Separate dark top-button contrast and blank media preview findings from accepted A10 mode targets; no brush-quality claim.
 - [x] Prepare authorized narrow paper-display notification and Activity contrast invalidation, generation/lifetime guards, and four meaningful regressions; source reviewed only, no build/phone grant.
 - [ ] Coordinator selective hot-file adoption, executed tests and real current-APK dark/white change/restoration proof.
+- [x] October27 final bounded source review against c971, read-only apply check against current coordinator, explicit unknown preview cause and concise Claude integration receipt. No new source feature/job.

@@ -65,3 +65,33 @@ Preserve primary/original worktrees, all failure evidence, dirty source and arch
 5. Reconcile peer docs into roadmap/STATE, publish coherent verified branches and
    record remote SHA equality. Leave Claude explicit live-source/Atlas/save and
    activation gates. The persistent overall goal remains unfinished.
+
+## Closed backend gate and current app job
+
+Combined native sourcec8e116205 closed SUCCESS5m57s/exit0; root independently
+counted six fresh XML suites:36 tests, zero failures/errors/skips. CoreFrameDuplicate6;
+backendBoardTransactionMemory11, InitializedTexture4, PreparedLinePlaneCopy5,
+WatercolourOrdinaryFixture6, FrameDuplicatePixels4. Raw XML copies and local receipt:
+C:/Temp/jb-lead-ops/evidence/native-backend-c8e116205-20261027. Durable
+[exact-source receipt](reviews/NATIVE_BACKEND_GATE_20261027.json).
+No GPU execution or runtime activation inferred.
+
+Next native source frozen dc09cff754312ff36b3972101b9e8bd286a69462 adds selectively
+reviewed contrast12b and the full two-file D23 presenter0c9 (still unwired). Root
+also fixes recorded diagnostic cleanup exception escaping before callback: one
+finally cleanup, cleanup failure forces report false. App gate now owns sole shared
+slot, exec30364, log C:/Temp/jb-lead-ops/native-app-dc09cff75-20261027.log.
+Private init includes prior199 regressions plus notice11, contrast4, dispatch3;
+actual XML counts, compile and closed exit still required. Source remains frozen.
+
+Tween is fixing the independently confirmed partial-init current-context resource
+leak in a separate branch, with fault tests; do not assume current diagnostics
+cover init failures. Root will source-review before adoption. No APK or phone job
+has been admitted. At last resource check before app job2844MiB free; APK needs3200.
+
+Offline watercolor acceptance checker8174e91be adopted as77e68b070; root separately
+ran all10 synthetic positive/negative tests, passing. It verifies report/chunk
+structure and supplied receipts, never freshness or actual GPU execution.
+Boards coverage522b was adopted; STATE now maps board and paper capability families
+with pending help and explicit acceptance gaps. Paper portfolio4d4 was selectively
+reconciled as6d909 to avoid stale roadmap replacement. Original checkouts preserved.

@@ -1,0 +1,85 @@
+--------- beginning of crash
+10-26 11:44:10.015 E/AndroidRuntime( 8062): FATAL EXCEPTION: DefaultDispatcher-worker-43
+10-26 11:44:10.015 E/AndroidRuntime( 8062): Process: com.sprint.ms.smf.services, PID: 8062
+10-26 11:44:10.015 E/AndroidRuntime( 8062): android.database.sqlite.SQLiteDatabaseLockedException: database is locked (code 5 SQLITE_BUSY[5])
+10-26 11:44:10.015 E/AndroidRuntime( 8062): 	at android.database.sqlite.SQLiteConnection.nativeExecute(Native Method)
+10-26 11:44:10.015 E/AndroidRuntime( 8062): 	at android.database.sqlite.SQLiteConnection.execute(SQLiteConnection.java:867)
+10-26 11:44:10.015 E/AndroidRuntime( 8062): 	at android.database.sqlite.SQLiteSession.beginTransactionUnchecked(SQLiteSession.java:321)
+10-26 11:44:10.015 E/AndroidRuntime( 8062): 	at android.database.sqlite.SQLiteSession.beginTransaction(SQLiteSession.java:300)
+10-26 11:44:10.015 E/AndroidRuntime( 8062): 	at android.database.sqlite.SQLiteDatabase.beginTransaction(SQLiteDatabase.java:766)
+10-26 11:44:10.015 E/AndroidRuntime( 8062): 	at android.database.sqlite.SQLiteDatabase.beginTransactionNonExclusive(SQLiteDatabase.java:700)
+10-26 11:44:10.015 E/AndroidRuntime( 8062): 	at androidx.sqlite.db.framework.FrameworkSQLiteDatabase.W(FrameworkSQLiteDatabase.kt:3)
+10-26 11:44:10.015 E/AndroidRuntime( 8062): 	at androidx.room.RoomDatabase.a(RoomDatabase.kt:25)
+10-26 11:44:10.015 E/AndroidRuntime( 8062): 	at androidx.room.RoomDatabase.beginTransaction(RoomDatabase.kt:4)
+10-26 11:44:10.015 E/AndroidRuntime( 8062): 	at v1.e.call(SourceFile:7)
+10-26 11:44:10.015 E/AndroidRuntime( 8062): 	at androidx.room.CoroutinesRoom$Companion$execute$2.invokeSuspend(CoroutinesRoom.kt:12)
+10-26 11:44:10.015 E/AndroidRuntime( 8062): 	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:9)
+10-26 11:44:10.015 E/AndroidRuntime( 8062): 	at kotlinx.coroutines.n0.run(DispatchedTask.kt:124)
+10-26 11:44:10.015 E/AndroidRuntime( 8062): 	at androidx.profileinstaller.i.run(R8$$SyntheticClass:39)
+10-26 11:44:10.015 E/AndroidRuntime( 8062): 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1167)
+10-26 11:44:10.015 E/AndroidRuntime( 8062): 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:641)
+10-26 11:44:10.015 E/AndroidRuntime( 8062): 	at java.lang.Thread.run(Thread.java:919)
+10-26 11:44:10.015 E/AndroidRuntime( 8062): 	Suppressed: kotlinx.coroutines.internal.DiagnosticCoroutineContextException: [v1{Cancelling}@68a2f55, Dispatchers.IO]
+10-26 11:44:26.293 E/AndroidRuntime( 8922): FATAL EXCEPTION: DefaultDispatcher-worker-12
+10-26 11:44:26.293 E/AndroidRuntime( 8922): Process: com.sprint.ms.smf.services, PID: 8922
+10-26 11:44:26.293 E/AndroidRuntime( 8922): android.database.sqlite.SQLiteDatabaseLockedException: database is locked (code 5 SQLITE_BUSY[5])
+10-26 11:44:26.293 E/AndroidRuntime( 8922): 	at android.database.sqlite.SQLiteConnection.nativeExecute(Native Method)
+10-26 11:44:26.293 E/AndroidRuntime( 8922): 	at android.database.sqlite.SQLiteConnection.execute(SQLiteConnection.java:867)
+10-26 11:44:26.293 E/AndroidRuntime( 8922): 	at android.database.sqlite.SQLiteSession.beginTransactionUnchecked(SQLiteSession.java:321)
+10-26 11:44:26.293 E/AndroidRuntime( 8922): 	at android.database.sqlite.SQLiteSession.beginTransaction(SQLiteSession.java:300)
+10-26 11:44:26.293 E/AndroidRuntime( 8922): 	at android.database.sqlite.SQLiteDatabase.beginTransaction(SQLiteDatabase.java:766)
+10-26 11:44:26.293 E/AndroidRuntime( 8922): 	at android.database.sqlite.SQLiteDatabase.beginTransactionNonExclusive(SQLiteDatabase.java:700)
+10-26 11:44:26.293 E/AndroidRuntime( 8922): 	at androidx.sqlite.db.framework.FrameworkSQLiteDatabase.W(FrameworkSQLiteDatabase.kt:3)
+10-26 11:44:26.293 E/AndroidRuntime( 8922): 	at androidx.room.RoomDatabase.a(RoomDatabase.kt:25)
+10-26 11:44:26.293 E/AndroidRuntime( 8922): 	at androidx.room.RoomDatabase.beginTransaction(RoomDatabase.kt:4)
+10-26 11:44:26.293 E/AndroidRuntime( 8922): 	at v1.e.call(SourceFile:7)
+10-26 11:44:26.293 E/AndroidRuntime( 8922): 	at androidx.room.CoroutinesRoom$Companion$execute$2.invokeSuspend(CoroutinesRoom.kt:12)
+10-26 11:44:26.293 E/AndroidRuntime( 8922): 	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:9)
+10-26 11:44:26.293 E/AndroidRuntime( 8922): 	at kotlinx.coroutines.n0.run(DispatchedTask.kt:124)
+10-26 11:44:26.293 E/AndroidRuntime( 8922): 	at androidx.profileinstaller.i.run(R8$$SyntheticClass:39)
+10-26 11:44:26.293 E/AndroidRuntime( 8922): 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1167)
+10-26 11:44:26.293 E/AndroidRuntime( 8922): 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:641)
+10-26 11:44:26.293 E/AndroidRuntime( 8922): 	at java.lang.Thread.run(Thread.java:919)
+10-26 11:44:26.293 E/AndroidRuntime( 8922): 	Suppressed: kotlinx.coroutines.internal.DiagnosticCoroutineContextException: [v1{Cancelling}@7d8f5cd, Dispatchers.IO]
+--------- beginning of system
+--------- beginning of main
+10-27 10:28:04.915 I/JoyBrushMediaMemory( 1779): atlas 8 x 8 slots (available=3029905408)
+10-27 10:29:10.315 I/JoyBrushMediaMemory( 1779): atlas 8 x 8 slots (available=2380992512)
+10-27 10:30:08.507 W/JoyBrushMedia( 1779): dropped the media of 1 tile(s) of layer-1: their pixels changed outside the media funnel
+10-27 10:30:08.529 W/JoyBrushMedia( 1779): dropped the media of 1 tile(s) of layer-1: their pixels changed outside the media funnel
+10-27 10:30:08.532 W/JoyBrushMedia( 1779): dropped the media of 1 tile(s) of layer-1: their pixels changed outside the media funnel
+10-27 10:30:09.058 W/JoyBrushMedia( 1779): dropped the media of 1 tile(s) of layer-1: their pixels changed outside the media funnel
+10-27 10:30:09.087 W/JoyBrushMedia( 1779): dropped the media of 1 tile(s) of layer-1: their pixels changed outside the media funnel
+10-27 10:30:09.156 W/JoyBrushMedia( 1779): dropped the media of 1 tile(s) of layer-1: their pixels changed outside the media funnel
+10-27 10:30:09.827 W/JoyBrushMedia( 1779): dropped the media of 1 tile(s) of layer-1: their pixels changed outside the media funnel
+10-27 10:30:10.727 W/JoyBrushMedia( 1779): dropped the media of 1 tile(s) of layer-1: their pixels changed outside the media funnel
+10-27 10:30:10.753 W/JoyBrushMedia( 1779): dropped the media of 1 tile(s) of layer-1: their pixels changed outside the media funnel
+10-27 10:30:10.778 W/JoyBrushMedia( 1779): dropped the media of 1 tile(s) of layer-1: their pixels changed outside the media funnel
+10-27 10:30:10.831 W/JoyBrushMedia( 1779): dropped the media of 1 tile(s) of layer-1: their pixels changed outside the media funnel
+10-27 10:30:10.853 W/JoyBrushMedia( 1779): dropped the media of 1 tile(s) of layer-1: their pixels changed outside the media funnel
+10-27 10:30:10.876 W/JoyBrushMedia( 1779): dropped the media of 1 tile(s) of layer-1: their pixels changed outside the media funnel
+10-27 10:30:13.084 W/JoyBrushMedia( 1779): dropped the media of 1 tile(s) of layer-1: their pixels changed outside the media funnel
+10-27 10:30:53.497 W/JoyBrushMedia( 1779): dropped the media of 1 tile(s) of layer-1: their pixels changed outside the media funnel
+10-27 10:32:57.750 W/JoyBrushMedia( 1779): dropped the media of 1 tile(s) of layer-1: their pixels changed outside the media funnel
+10-27 10:32:57.763 W/JoyBrushMedia( 1779): dropped the media of 1 tile(s) of layer-1: their pixels changed outside the media funnel
+10-27 10:32:58.216 W/JoyBrushMedia( 1779): dropped the media of 1 tile(s) of layer-1: their pixels changed outside the media funnel
+10-27 10:32:58.247 W/JoyBrushMedia( 1779): dropped the media of 1 tile(s) of layer-1: their pixels changed outside the media funnel
+10-27 10:32:59.095 W/JoyBrushMedia( 1779): dropped the media of 1 tile(s) of layer-1: their pixels changed outside the media funnel
+10-27 10:32:59.121 W/JoyBrushMedia( 1779): dropped the media of 1 tile(s) of layer-1: their pixels changed outside the media funnel
+10-27 10:33:07.591 W/JoyBrushMedia( 1779): dropped the media of 1 tile(s) of layer-1: their pixels changed outside the media funnel
+10-27 10:33:07.593 W/JoyBrushMedia( 1779): dropped the media of 1 tile(s) of layer-1: their pixels changed outside the media funnel
+10-27 10:33:08.113 W/JoyBrushMedia( 1779): dropped the media of 1 tile(s) of layer-1: their pixels changed outside the media funnel
+10-27 10:33:08.611 W/JoyBrushMedia( 1779): dropped the media of 1 tile(s) of layer-1: their pixels changed outside the media funnel
+10-27 10:33:09.111 W/JoyBrushMedia( 1779): dropped the media of 1 tile(s) of layer-1: their pixels changed outside the media funnel
+10-27 10:33:09.590 W/JoyBrushMedia( 1779): dropped the media of 1 tile(s) of layer-1: their pixels changed outside the media funnel
+10-27 10:33:10.079 W/JoyBrushMedia( 1779): dropped the media of 1 tile(s) of layer-1: their pixels changed outside the media funnel
+10-27 10:33:10.574 W/JoyBrushMedia( 1779): dropped the media of 1 tile(s) of layer-1: their pixels changed outside the media funnel
+10-27 10:33:11.028 W/JoyBrushMedia( 1779): dropped the media of 1 tile(s) of layer-1: their pixels changed outside the media funnel
+10-27 10:33:11.528 W/JoyBrushMedia( 1779): dropped the media of 1 tile(s) of layer-1: their pixels changed outside the media funnel
+10-27 10:33:12.718 W/JoyBrushMedia( 1779): dropped the media of 1 tile(s) of layer-1: their pixels changed outside the media funnel
+10-27 10:33:13.226 W/JoyBrushMedia( 1779): dropped the media of 1 tile(s) of layer-1: their pixels changed outside the media funnel
+10-27 10:33:13.729 W/JoyBrushMedia( 1779): dropped the media of 1 tile(s) of layer-1: their pixels changed outside the media funnel
+10-27 10:33:14.206 W/JoyBrushMedia( 1779): dropped the media of 1 tile(s) of layer-1: their pixels changed outside the media funnel
+10-27 10:33:28.920 W/JoyBrushMedia( 1779): dropped the media of 1 tile(s) of layer-1: their pixels changed outside the media funnel
+10-27 10:33:28.921 W/JoyBrushMedia( 1779): dropped the media of 1 tile(s) of layer-1: their pixels changed outside the media funnel
+10-27 10:33:29.160 W/JoyBrushMedia( 1779): dropped the media of 1 tile(s) of layer-1: their pixels changed outside the media funnel

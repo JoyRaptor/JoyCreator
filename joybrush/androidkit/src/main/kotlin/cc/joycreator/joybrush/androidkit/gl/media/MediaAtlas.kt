@@ -180,6 +180,8 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
     private var admitted = false
     /** Passes that asked past their frame's admission (a planning bug; the pass is still served if there is room). */
     var admissionMisses = 0; private set
+    /** Tiles pushed out to make room (bench). */
+    var evictions = 0; private set
 
     override fun admit(needs: List<MediaLayerEngine.Need>) = mediaTrace("JB.media.atlas.admit") { admitInner(needs) }
     private fun admitInner(needs: List<MediaLayerEngine.Need>) {
@@ -431,7 +433,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
             borrowedBlockTiles.remove(page.tileKey)
             dropFromTable(page.tileKey)
         }
-        override fun evicted(slot: Int, page: MediaAtlasPage) = parkIfLive(slot, page.tileKey)
+        override fun evicted(slot: Int, page: MediaAtlasPage) { evictions++; parkIfLive(slot, page.tileKey) }
         override fun prepareCommitAdmission(page: MediaAtlasPage, victim: MediaAtlasSlots.Resident?) = prepareParkAdmissionCommit()
         override fun commitAdmission(page: MediaAtlasPage, victim: MediaAtlasSlots.Resident?) = commitParkAdmission()
         override fun rollbackAdmission(page: MediaAtlasPage, victim: MediaAtlasSlots.Resident?) = rollbackParkAdmission()

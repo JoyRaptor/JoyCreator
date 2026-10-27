@@ -19,7 +19,8 @@ import kotlin.math.sin
  * clock, so the frames are the same in both: once in a roomy atlas ([MediaCanvas.slotGrid] none, the phone's own size, park
  * off) and once squeezed into [tight] slots with the park on, so tiles must leave and come back mid-stroke and while the
  * water runs. What a save would read ([GlPaintEngine.readMediaTile] for every payload store, [GlPaintEngine.readTile] for
- * the look) must be the same bytes in both; the tight run must have parked and missed (not vacuous); GL error 0.
+ * the look) must be the same bytes in both (a blank tile counts as no tile); the tight run must have evicted, and parked
+ * if it had water (not vacuous); GL error 0.
  *
  * GL thread. The user's canvas is not touched; the process-wide atlas and park switches are put back.
  */
@@ -30,7 +31,7 @@ internal object MediaAtlasLedgerProbe {
     /** Frames the water may run on after the last stroke; the same in both runs. */
     private const val DRY_FRAMES = 600
 
-    private class Run(val tiles: Map<String, String>, val frames: Int, val parked: Int, val misses: Int, val blocks: Int,
+    private class Run(val tiles: Map<String, String>, val frames: Int, val parked: Int, val misses: Int, val blocks: Int, val evictions: Int, val wet: Boolean,
                       val slots: String, val refused: String?)
 
     fun probe(paper: Paper, presets: List<BrushPreset>, memory: () -> Pair<Long, Long>, tight: Pair<Int, Int>, parkUnits: Int): String {
@@ -45,15 +46,19 @@ internal object MediaAtlasLedgerProbe {
             MediaAtlasPark.units = parkUnits
             val squeezed = paint(paper, presets, memory, tight)
             fun side(r: Run) = JSONObject().put("tiles", r.tiles.size).put("frames", r.frames).put("parkedTotal", r.parked)
-                .put("admissionMisses", r.misses).put("blocksRun", r.blocks).put("slots", r.slots).put("refused", r.refused ?: JSONObject.NULL)
+                .put("admissionMisses", r.misses).put("blocksRun", r.blocks).put("evictions", r.evictions).put("water", r.wet).put("slots", r.slots).put("refused", r.refused ?: JSONObject.NULL)
             report.put("roomy", side(roomy)).put("squeezed", side(squeezed))
-            val differ = (roomy.tiles.keys + squeezed.tiles.keys).filter { roomy.tiles[it] != squeezed.tiles[it] }.sorted()
-            report.put("differingTiles", differ.size).put("firstDiffering", differ.take(12).joinToString(" "))
+            // A blank tile and no tile save the same drawing: compared as equal, counted apart.
+            val all = (roomy.tiles.keys + squeezed.tiles.keys).sorted()
+            val differ = all.filter { (roomy.tiles[it] ?: ZERO) != (squeezed.tiles[it] ?: ZERO) }
+            val blankOnly = all.count { roomy.tiles[it] != squeezed.tiles[it] } - differ.size
+            report.put("differingTiles", differ.size).put("blankVsAbsentTiles", blankOnly)
+                .put("firstDiffering", differ.take(12).joinToString(" ") { k -> k + " " + (roomy.tiles[k] ?: "absent").take(8) + "/" + (squeezed.tiles[k] ?: "absent").take(8) })
             val glError = GLES30.glGetError()
             report.put("glError", glError)
             val painted = roomy.tiles.keys.count { it.startsWith("look ") }
             report.put("pass", roomy.refused == null && squeezed.refused == null && differ.isEmpty() && painted >= 12 &&
-                squeezed.parked > 0 && squeezed.misses > 0 && roomy.frames == squeezed.frames && glError == GLES30.GL_NO_ERROR)
+                squeezed.evictions > 0 && (!squeezed.wet || squeezed.parked > 0) && roomy.frames == squeezed.frames && glError == GLES30.GL_NO_ERROR)
         } catch (e: Throwable) {
             report.put("pass", false).put("error", e.toString()).put("at", e.stackTrace.take(8).joinToString(" < ") { "${it.fileName}:${it.lineNumber}" })
         } finally {
@@ -67,7 +72,7 @@ internal object MediaAtlasLedgerProbe {
     private fun paint(paper: Paper, presets: List<BrushPreset>, memory: () -> Pair<Long, Long>, grid: Pair<Int, Int>?): Run {
         val engine = GlPaintEngine()
         val canvas = MediaCanvas(engine, memory)
-        var parked = 0; var misses = 0; var blocks = 0; var slots = "?"
+        var parked = 0; var misses = 0; var blocks = 0; var evictions = 0; var wet = false; var slots = "?"
         try {
             engine.init()
             engine.setDocumentPaper(paper)
@@ -75,27 +80,32 @@ internal object MediaAtlasLedgerProbe {
             canvas.slotGrid = grid
             var now = 1_000L
             var frames = 0
-            fun counters() { canvas.atlas?.let { a -> parked = maxOf(parked, a.parkedTotal); misses = maxOf(misses, a.admissionMisses)
-                blocks = maxOf(blocks, a.blocksRun); slots = "${a.media.slotCount} slots, ${a.media.slotColumns} wide" } }
-            for ((i, preset) in presets.withIndex()) {
-                val pts = path(i)
-                val colour = COLOURS[i % COLOURS.size]
-                canvas.begin(LAYER, preset, colour, null, pts[0].x, pts[0].y, now)?.let { why ->
-                    return Run(emptyMap(), frames, parked, misses, blocks, slots, why)
-                }
-                for (chunk in pts.chunked(SAMPLES_PER_FRAME)) {
-                    canvas.add(chunk)
-                    now += FRAME_MS; frames++
-                    canvas.frame(now)
+            try {
+                fun counters() { wet = wet || canvas.running; canvas.atlas?.let { a -> parked = maxOf(parked, a.parkedTotal); misses = maxOf(misses, a.admissionMisses)
+                    blocks = maxOf(blocks, a.blocksRun); evictions = maxOf(evictions, a.evictions); slots = "${a.media.slotCount} slots, ${a.media.slotColumns} wide" } }
+                for ((i, preset) in presets.withIndex()) {
+                    val pts = path(i)
+                    val colour = COLOURS[i % COLOURS.size]
+                    canvas.begin(LAYER, preset, colour, null, pts[0].x, pts[0].y, now)?.let { why ->
+                        return Run(emptyMap(), frames, parked, misses, blocks, evictions, wet, slots, why)
+                    }
+                    for (chunk in pts.chunked(SAMPLES_PER_FRAME)) {
+                        canvas.add(chunk)
+                        now += FRAME_MS; frames++
+                        canvas.frame(now)
+                        counters()
+                    }
+                    canvas.end()
                     counters()
                 }
-                canvas.end()
-                counters()
+                var dry = 0
+                while (dry < DRY_FRAMES) { now += FRAME_MS; dry++; frames++; val more = canvas.frame(now); counters(); if (!more) break }
+            } catch (room: cc.joycreator.joybrush.androidkit.gl.MediaRoomException) {
+                // Refused mid-stroke: what the frame count reached tells how far it got.
+                return Run(emptyMap(), frames, parked, misses, blocks, evictions, wet, slots, "frame $frames: ${room.message}")
             }
-            var dry = 0
-            while (dry < DRY_FRAMES) { now += FRAME_MS; dry++; frames++; val more = canvas.frame(now); counters(); if (!more) break }
             canvas.releaseWindow()
-            return Run(hashes(engine), frames, parked, misses, blocks, slots, null)
+            return Run(hashes(engine), frames, parked, misses, blocks, evictions, wet, slots, null)
         } finally {
             runCatching { canvas.release() }
             if (engine.ready) runCatching { engine.release() }
@@ -125,7 +135,11 @@ internal object MediaAtlasLedgerProbe {
         return out
     }
 
-    private fun sha(b: ByteArray) = MessageDigest.getInstance("SHA-256").digest(b).joinToString("") { "%02x".format(it) }
+    private fun sha(b: ByteArray) = if (b.all { it.toInt() == 0 }) ZERO else hex(b)
+
+    private const val ZERO = "zero"
+
+    private fun hex(b: ByteArray) = MessageDigest.getInstance("SHA-256").digest(b).joinToString("") { "%02x".format(it) }
 
     private val COLOURS = intArrayOf(0xFF2E6FCC.toInt(), 0xFFB8461A.toInt(), 0xFF2F7D3A.toInt(), 0xFF6A3C9A.toInt())
 }

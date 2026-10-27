@@ -80,6 +80,7 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
     private val maskThumbs = HashMap<String, Bitmap>()
     private var editingMask = false
     private var animationBoardId: String? = null
+    private var animationBoardName: String? = null
     private var heldByLayer: Map<String, Boolean> = emptyMap()
     private val cells = linkedMapOf<String, Cell>()
     private val markers = linkedMapOf<String, AnimationMarker>()
@@ -93,9 +94,10 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
             if (!layer.kind.hasPixels && layer.kind != LayerKind.INK) return@mapNotNull null
             layer.regions.firstOrNull { it.boardId == board.id }?.let { layer.id to it.held }
         }.toMap()
-        if (animationBoardId == board?.id && heldByLayer == next) return
+        if (animationBoardId == board?.id && animationBoardName == board?.name && heldByLayer == next) return
         val widthChanged = (animationBoardId == null) != (board == null)
         animationBoardId = board?.id
+        animationBoardName = board?.name
         heldByLayer = next
         if (widthChanged) {
             layoutParams?.let { it.width = widthPx; layoutParams = it }
@@ -217,8 +219,8 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
             isClickable = current != null
             isFocusable = current != null
             if (current != null) kit.label(this, "${stack?.get(layerId)?.name ?: "Layer"} — " +
-                if (current.second) "Same on every frame. Tap to animate in this board."
-                else "Animates in this board. Tap for same on every frame.")
+                if (current.second) "Still in ${animationBoardName ?: "this clip"}. Tap to animate here."
+                else "Animates in ${animationBoardName ?: "this clip"}. Tap to keep it still here.")
             invalidate()
         }
         override fun onDraw(canvas: Canvas) {

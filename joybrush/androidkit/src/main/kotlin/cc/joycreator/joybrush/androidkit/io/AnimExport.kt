@@ -307,7 +307,7 @@ object AnimExportRunner {
     // ---------------------------------------------------------------- the encoders
 
     /**
-     * The GIF: `GifEncoder` with `loop = true` and the plan's delays, untouched.
+     * The GIF follows the saved end mode; ping-pong repeats the interior drawings in reverse.
      *
      * The encoder owns the unit. Its centisecond rounding (`(ms + 5) / 10`, floored at 2 cs) is
      * `GifEncoder.delayCentiseconds` and this file does not know what it is: the plan's
@@ -315,7 +315,7 @@ object AnimExportRunner {
      * that rule here would be a second answer to a question the encoder has already answered.
      */
     private fun gif(plan: AnimExportPlan, cells: List<ByteArray>): AnimFile {
-        val encoder = GifEncoder(plan.width, plan.height, loop = plan.playMode != PlayMode.ONCE)
+        val encoder = GifEncoder(plan.width, plan.height, loop = plan.playMode == PlayMode.LOOP || plan.playMode == PlayMode.PING_PONG)
         val delays = if (plan.tweenSamples == null) null else gifTweenDelayCentiseconds(plan.baseName, plan)
         val order = if (plan.tweenSamples != null) cells.indices.toList() else when (plan.playMode) {
             PlayMode.PING_PONG -> cells.indices.toList() + if (cells.size > 2) (cells.lastIndex - 1 downTo 1).toList() else emptyList()
@@ -360,7 +360,7 @@ object AnimExportRunner {
             // does not write one — that is Question 1 of the JB-3.06c spec, not a fact about the
             // field. A repeat is a repeat, not a mistake, and it is what the app's own KDoc means.
             clips = listOf(AnimExport.sheetClip(plan, plan.baseName, when {
-                plan.playMode == PlayMode.ONCE -> "once"
+                plan.playMode == PlayMode.ONCE || plan.playMode == PlayMode.HOLD || plan.playMode == PlayMode.BLANK -> "once"
                 plan.playMode == PlayMode.PING_PONG && plan.tweenSamples == null -> "pingpong"
                 else -> CLIP_TYPE
             })),

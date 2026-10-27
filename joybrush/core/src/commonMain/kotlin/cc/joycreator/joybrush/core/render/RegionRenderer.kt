@@ -265,7 +265,13 @@ object RegionRenderer {
      *   called for a refused region: the guard is cheaper than the question, and a caller whose
      *   region is impossible has not earned a texture decode.
      */
-    fun render(
+    fun render(doc: JbDocument, tiles: TileSource, rect: RectPx, frameId: String?, paper: String?,
+        paperRenderer: ((RectPx) -> ByteArray)? = null, brushLookup: ((String) -> BrushPreset?)?,
+        strokeSource: ((String,String) -> List<StrokeRecord>?)? = null,
+        onInkRefusal: (InkTiles.Refusal) -> Unit = { throw RegionException(it.reason) }): ByteArray =
+        renderWithPreviews(doc,tiles,rect,frameId,paper,paperRenderer,brushLookup,strokeSource,emptyMap(),onInkRefusal)
+
+    fun renderWithPreviews(
         doc: JbDocument,
         tiles: TileSource,
         rect: RectPx,
@@ -274,6 +280,7 @@ object RegionRenderer {
         paperRenderer: ((RectPx) -> ByteArray)? = null,
         brushLookup: ((String) -> BrushPreset?)?,
         strokeSource: ((String, String) -> List<StrokeRecord>?)? = null,
+        frameOverrides: Map<String, String> = emptyMap(),
         onInkRefusal: (InkTiles.Refusal) -> Unit = { throw RegionException(it.reason) },
     ): ByteArray {
         requireSize(rect)
@@ -281,7 +288,7 @@ object RegionRenderer {
         requireOneBackdrop(paper, paperRenderer)
         requireRasterContent(doc, brushLookup)
         if (rect.w == 0 || rect.h == 0) return ByteArray(0)
-        val p = renderPremultiplied(doc, tiles, rect, frameId, paper, paperRenderer, brushLookup, strokeSource, onInkRefusal)
+        val p = renderPremultipliedWithPreviews(doc, tiles, rect, frameId, paper, paperRenderer, brushLookup, strokeSource, frameOverrides, onInkRefusal)
         val out = ByteArray(rect.w * rect.h * 4)
         var i = 0
         while (i < p.size) {
@@ -313,7 +320,13 @@ object RegionRenderer {
      *   guard on one door and not the other would be a guard that can be walked around. The
      *   [paperRenderer] is not called for a refused region here either.
      */
-    fun renderPremultiplied(
+    fun renderPremultiplied(doc: JbDocument, tiles: TileSource, rect: RectPx, frameId: String?, paper: String?,
+        paperRenderer: ((RectPx) -> ByteArray)? = null, brushLookup: ((String) -> BrushPreset?)?,
+        strokeSource: ((String,String) -> List<StrokeRecord>?)? = null,
+        onInkRefusal: (InkTiles.Refusal) -> Unit = { throw RegionException(it.reason) }): FloatArray =
+        renderPremultipliedWithPreviews(doc,tiles,rect,frameId,paper,paperRenderer,brushLookup,strokeSource,emptyMap(),onInkRefusal)
+
+    fun renderPremultipliedWithPreviews(
         doc: JbDocument,
         tiles: TileSource,
         rect: RectPx,
@@ -322,6 +335,7 @@ object RegionRenderer {
         paperRenderer: ((RectPx) -> ByteArray)? = null,
         brushLookup: ((String) -> BrushPreset?)?,
         strokeSource: ((String, String) -> List<StrokeRecord>?)? = null,
+        frameOverrides: Map<String, String> = emptyMap(),
         onInkRefusal: (InkTiles.Refusal) -> Unit = { throw RegionException(it.reason) },
     ): FloatArray {
         requireSize(rect)
@@ -380,7 +394,7 @@ object RegionRenderer {
                 InkTiles.render(replay, tx, ty).pixels
             }
         }
-        val projectedTiles = RegionTileSource(doc, content, frameId)
+        val projectedTiles = RegionTileSource(doc, content, frameId, frameOverrides)
         val s = FloatArray(4)
         val d = FloatArray(4)
         val o = FloatArray(4)

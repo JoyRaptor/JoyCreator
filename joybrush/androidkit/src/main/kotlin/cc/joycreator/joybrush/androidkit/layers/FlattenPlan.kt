@@ -28,7 +28,6 @@ object FlattenPlan {
         if (visible.size < 2 && !(discardHidden && stack.layers.size > visible.size && visible.isNotEmpty()))
             return Result.Refused(if (visible.isEmpty()) "Nothing shows, so there is nothing to flatten." else "Only one layer shows, so there is nothing to flatten.")
         visible.firstOrNull { it.locked }?.let { return Result.Refused("\"${it.name}\" is locked. Unlock it to flatten.") }
-        if (stack.layers.any { facts(it.id).hasFrames }) return Result.Refused("Flattening layers that have animation frames is coming next.")
         val target = visible.first()
         val discarded = if (discardHidden) stack.layers.filter { !it.visible }.map { it.id } else emptyList()
         val gone = (visible.drop(1).map { it.id } + discarded).toSet()

@@ -7,6 +7,25 @@ class BoardChromePenFadeTest {
     private val input=BoardChromeLayout.Input(BoardChromeLayout.Rect(100f,100f,300f,250f),1f,BoardKind.CANVAS,selected=true)
     private fun alpha(input:BoardChromeLayout.Input)=BoardChromeLayout.layout(input).elements.first {it.id=="pill"}.alpha / BoardChromeLayout.CHROME_ALPHA
 
+    @Test fun restingAnimationAtLowUptimeNeverInventsALiftThatHidesItsControls() {
+        val fade=BoardChromePenFade()
+        val resting=input.copy(kind=BoardKind.ANIMATION,penLiftElapsedMs=1000)
+        val first=fade.apply(resting,10)
+        assertEquals(1000L,first.penLiftElapsedMs)
+        val layout=BoardChromeLayout.layout(first)
+        assertFalse(layout.folded)
+        assertTrue(layout.controls.any {it.id=="play-all"})
+        assertEquals(4,layout.controls.count {it.id.startsWith("end-")})
+        assertEquals(1020L,fade.apply(resting,30).penLiftElapsedMs)
+    }
+    @Test fun firstRestingFrameRetainsTheAgeOfAGenuineRecentLift() {
+        val fade=BoardChromePenFade()
+        val recent=input.copy(kind=BoardKind.ANIMATION,penLiftElapsedMs=40)
+        assertTrue(BoardChromeLayout.layout(fade.apply(recent,10)).folded)
+        assertEquals(60L,fade.apply(recent,30).penLiftElapsedMs)
+        assertFalse(BoardChromeLayout.layout(fade.apply(recent,270)).folded)
+    }
+
     @Test fun shortStrokeLiftsWithoutJumpAndReturnsIn300Ms() {
         val fade=BoardChromePenFade()
         assertEquals(1f,alpha(fade.apply(input.copy(penDown=true),1000)),.00001f)

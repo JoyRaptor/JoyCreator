@@ -198,6 +198,7 @@ class SpriteBoardHoldsNoGridArithmeticTest {
                 "Board.frames",
                 "Cel.floatTiles", // v8 media layer: the tiles holding float state; never a sprite count
                 "Cel.looks",
+                "Cel.parts", // v13 component drawing links; never a sprite occupancy cache
                 "Cel.slabs",
                 "Cel.tiles",
                 "JbDocument.boards",

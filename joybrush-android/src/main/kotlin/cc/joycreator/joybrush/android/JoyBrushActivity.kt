@@ -340,7 +340,8 @@ class JoyBrushActivity : Activity() {
         class Copy(val uri: Uri) : SaveDest()
         class Open(val selection: StagedDrawing) : SaveDest()
         class Png(val uri: Uri, val target: PngTarget) : SaveDest()
-        class BoardExport(val uri: Uri, val target: cc.joycreator.joybrush.androidkit.io.BoardExportRequest) : SaveDest()
+        class BoardExport(val uri: Uri, val target: cc.joycreator.joybrush.androidkit.io.BoardExportRequest,
+            var warnings: List<String> = emptyList()) : SaveDest()
         class BoardHandoff(val target: cc.joycreator.joybrush.androidkit.io.BoardExportRequest) : SaveDest() {
             var bundle: File? = null
         }
@@ -476,6 +477,7 @@ class JoyBrushActivity : Activity() {
             override fun ensureDocument(ready: (cc.joycreator.joybrush.core.doc.JbDocument) -> Unit) = canvas.ensureBoardDocument(ready)
             override fun edit(change: (cc.joycreator.joybrush.core.doc.JbDocument) -> cc.joycreator.joybrush.core.doc.RegionChange) = canvas.editBoards(change)
             override fun selectFrame(boardId: String, frameId: String) = canvas.selectBoardFrame(boardId, frameId)
+            override fun previewClipMove(boardId: String?, rect: cc.joycreator.joybrush.core.doc.RectPx?) = canvas.previewClipMove(boardId,rect)
             override fun preview(frames: Map<String, String>) = canvas.previewBoardFrames(frames)
             override fun tile(boardId: String?,ready: (String?) -> Unit) = canvas.setTileBoard(boardId,ready)
             override fun onion(boardId: String?) = canvas.setOnionBoard(boardId)
@@ -487,6 +489,7 @@ class JoyBrushActivity : Activity() {
             override fun frost(canvas: android.graphics.Canvas,view: View) { boardBackdrop?.draw(canvas,view) }
             override fun refusal(message: String) { Toast.makeText(this@JoyBrushActivity, message, Toast.LENGTH_SHORT).show() }
             override fun export(boardId: String) { pngOptions(layersBtn, boardId) }
+            override fun exportScene() { canvas.ensureBoardDocument { boardExports.showScene(it) } }
             override fun selectionChanged(bounds: cc.joycreator.joybrush.core.doc.RectPx?) { updateLayerPreviewAspect(bounds); updateAnimationLayerMarkers(); boardThumbnailRevision++; refreshThumbs() }
             override fun thumbnails(boardId: String, frames: List<String>, width: Int, height: Int, ready: (Map<String, IntArray>) -> Unit) =
                 canvas.boardFrameThumbnails(boardId, frames, width, height, ready)
@@ -511,6 +514,7 @@ class JoyBrushActivity : Activity() {
         // JB-2.04: the column follows the stack, and anything refused is said in words.
         canvas.onLayersChanged = { stack -> layersChanged(stack) }
         canvas.onRefused = { why -> toast(why) }
+        canvas.onCombineClipsRequired = { a,b -> boardController?.offerCombine(a,b) }
         canvas.onNotice = { sentence -> toast(sentence) }
         canvas.onGraphicsLost = { documentId -> boardController?.stop(); recoverGraphics(documentId) }
         JoybotHands.attach(joybotEnv)
@@ -567,7 +571,7 @@ class JoyBrushActivity : Activity() {
         if (bench != null) {
             benchMode = true
             finishStartup(false)
-            activeBench = cc.joycreator.joybrush.android.bench.BenchRunner(canvas, bench) { finish() }.also { it.start() }
+            activeBench = cc.joycreator.joybrush.android.bench.BenchRunner(canvas, bench, boardController) { finish() }.also { it.start() }
             return
         }
         // Where the person left off, if they left off anywhere.
@@ -2113,7 +2117,8 @@ class JoyBrushActivity : Activity() {
                 } else if (problem == null && dest is SaveDest.Png && !destroyed) {
                     toast(if (dest.target.layered) "Layered file exported" else "Picture exported")
                 } else if (problem == null && dest is SaveDest.BoardExport && !destroyed) {
-                    toast(if(dest.target.folder) "Board files exported into a new folder" else "Board exported")
+                    val saved=if(dest.target.folder) "Board files exported into a new folder" else "Board exported"
+                    toast((listOf(saved)+dest.warnings).joinToString(". "))
                 } else if(problem == null && dest is SaveDest.BoardHandoff) {
                     val bundle=dest.bundle
                     if(!destroyed && bundle != null) startActivity(Intent().setClassName(packageName,
@@ -2162,7 +2167,7 @@ class JoyBrushActivity : Activity() {
                                 ?: throw JbArchiveException("the export destination could not be opened")
                             output.use { it.write(bytes) }
                         }
-                        is SaveDest.BoardExport -> cc.joycreator.joybrush.android.board.BoardExportCoordinator.write(
+                        is SaveDest.BoardExport -> dest.warnings = cc.joycreator.joybrush.android.board.BoardExportCoordinator.write(
                             contentResolver,dest.uri,cc.joycreator.joybrush.androidkit.io.ExportPicture.asShown(contents),dest.target,cacheDir)
                         is SaveDest.BoardHandoff -> {
                             val prepared=cc.joycreator.joybrush.androidkit.io.BoardExport.stage(cc.joycreator.joybrush.androidkit.io.ExportPicture.asShown(contents),

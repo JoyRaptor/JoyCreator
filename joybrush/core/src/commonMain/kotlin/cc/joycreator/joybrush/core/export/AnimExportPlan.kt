@@ -45,6 +45,7 @@ data class AnimExportPlan(
     /** Selected source-range endpoints; null on older manually assembled static plans. */
     val rangeFirstFrameId: String? = null,
     val rangeLastFrameId: String? = null,
+    val end: String = cc.joycreator.joybrush.core.doc.BoardEnd.LOOP,
 ) {
     val totalMs: Int get() = delayMs.sum()
     val frameCount: Int get() = frameIds.size
@@ -72,7 +73,7 @@ object AnimExport {
      *   `DocException`, which extends `Exception`, `DocJson.kt:8`), and the other two are this
      *   object's own sentences in the same type, because a sentence is what the export button shows.
      */
-    fun plan(board: Board, baseName: String, mode: PlayMode = PlayMode.LOOP): AnimExportPlan =
+    fun plan(board: Board, baseName: String, mode: PlayMode = PlayMode.of(board.end)): AnimExportPlan =
         build(board, 0, board.frames.size - 1, baseName, mode)
 
     /**
@@ -83,7 +84,7 @@ object AnimExport {
      * "export frames 2..5" and "play frames 2..5" must be the same four frames by construction.
      * See Decision 4 and the test that proves it against the clock's own answers.
      */
-    fun planRange(board: Board, first: Int, last: Int, baseName: String, mode: PlayMode = PlayMode.LOOP): AnimExportPlan {
+    fun planRange(board: Board, first: Int, last: Int, baseName: String, mode: PlayMode = PlayMode.of(board.end)): AnimExportPlan {
         val frames = board.frames.size
         if (frames == 0) {
             // No range to clamp into, and nothing to say about a range: the refusal is the same one
@@ -243,6 +244,7 @@ object AnimExport {
             playMode = mode,
             rangeFirstFrameId = board.frames.getOrNull(lo)?.id,
             rangeLastFrameId = board.frames.getOrNull(hi)?.id,
+            end = cc.joycreator.joybrush.core.doc.BoardEnd.of(board.end),
         )
         if (!hasActiveTweenTransition(board, lo, hi, mode)) return basePlan
 

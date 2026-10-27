@@ -19,11 +19,13 @@ data class BoardExportRequest(
     val startId: String?, val endId: String?, val frameIds: List<String>,
     val imageIds: List<String>, val includePaper: Boolean,
     val playMode: PlayMode = PlayMode.LOOP,
+    val scene: Boolean = false, val fullLoop: Boolean = false, val sceneSignature: String? = null,
 ) {
     val folder: Boolean get() = scope == Export.Scope.ALL_IMAGES ||
         format == Export.Format.PNG_FRAMES || format == Export.Format.SPRITE_SHEET
 
     companion object {
+        fun sceneSignature(doc: JbDocument): String = doc.boards.filter { it.kind == BoardKind.ANIMATION }.toString()
         fun capture(doc: JbDocument, choice: Export.Choice, paper: Boolean): BoardExportRequest {
             val board = doc.boards.singleOrNull { it.id == choice.boardId }
                 ?: throw JbArchiveException("that board no longer exists")
@@ -31,7 +33,9 @@ data class BoardExportRequest(
                 choice.currentFrameId.takeIf { board.kind == BoardKind.ANIMATION },
                 choice.rangeStartId.takeIf { board.kind == BoardKind.ANIMATION },
                 choice.rangeEndId.takeIf { board.kind == BoardKind.ANIMATION },
-                board.frames.map { it.id }, doc.boards.filter { it.kind == BoardKind.CANVAS }.map { it.id }, paper)
+                board.frames.map { it.id }, doc.boards.filter { it.kind == BoardKind.CANVAS }.map { it.id }, paper,
+                // The clip's saved end (loop, ping-pong, hold, blank) is how the export plays.
+                playMode = PlayMode.of(board.end))
         }
     }
 }
@@ -76,6 +80,12 @@ object BoardExport {
         try {
             val base = AnimExport.safeBaseName(board.name)
             when {
+                request.scene -> {
+                    if(request.sceneSignature != BoardExportRequest.sceneSignature(doc)) throw JbArchiveException("The clips changed; choose Play all export again")
+                    val plan=cc.joycreator.joybrush.core.export.SceneAnimExportPlan.build(doc,request.fullLoop)
+                    if(plan.capped) onWarning("Full loop is capped at 600 frames")
+                    SceneAnimExportRunner.write(contents,plan,request.format == Export.Format.GIF,request.includePaper,sink,onWarning,onFrame)
+                }
                 request.scope == Export.Scope.ALL_IMAGES -> {
                     RegionRenderer.unsupportedContentReason(doc)?.let { throw JbArchiveException(it) }
                     require(board.kind == BoardKind.CANVAS && request.format == Export.Format.PNG)

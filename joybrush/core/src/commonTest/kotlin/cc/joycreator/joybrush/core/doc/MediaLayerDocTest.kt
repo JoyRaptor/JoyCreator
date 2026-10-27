@@ -35,7 +35,7 @@ class MediaLayerDocTest {
         assertEquals(doc, back)
         assertEquals(listOf("0_0", "1_0"), back.layers.last().cels.single().floatTiles)
         assertEquals("lines.bin", back.layers.last().cels.single().strokesFile)
-        assertEquals(14, DOC_VERSION, "Frame tweening takes the next document version after the reserved clip versions")
+        assertEquals(14, DOC_VERSION, "Saved clip end behaviour (12), linked component drawings (13) and frame tweening (14) extend the document format")
     }
 
     @Test fun aVersion8MediaLayerOpensAsPaintWithItsPayload() {

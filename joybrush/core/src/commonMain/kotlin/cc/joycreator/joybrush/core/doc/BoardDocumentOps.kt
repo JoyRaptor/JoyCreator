@@ -20,10 +20,17 @@ object BoardDocumentOps {
     fun createSprite(doc: JbDocument, name: String, rect: RectPx, grid: SpriteGrid, ids: () -> String): RegionChange =
         createPassive(doc, name, rect, BoardKind.SPRITE, grid, ids)
 
-    fun createAnimation(doc: JbDocument, name: String, rect: RectPx, ids: () -> String): RegionChange {
+    /**
+     * A new Animation board (a clip, ANIMATION_CLIPS C2) animates only the active layer (or [animate] when given); every
+     * other layer is still there and its pixels stay on the shared canvas. "Animates in this board" adds more layers.
+     */
+    fun createAnimation(doc: JbDocument, name: String, rect: RectPx, ids: () -> String): RegionChange =
+        createAnimation(doc,name,rect,ids,(doc.activeLayerId ?: doc.layers.lastOrNull()?.id)?.let { setOf(it) })
+
+    fun createAnimation(doc: JbDocument, name: String, rect: RectPx, ids: () -> String, animate: Set<String>?): RegionChange {
         checkRect(rect)
         checkName(name)
-        return RegionDocumentOps.create(doc, name.trim(), rect, ids)
+        return RegionDocumentOps.create(doc, name.trim(), rect, ids, animate)
     }
 
     fun rename(doc: JbDocument, boardId: String, name: String): JbDocument {
@@ -39,6 +46,12 @@ object BoardDocumentOps {
 
     fun setLocked(doc: JbDocument, boardId: String, locked: Boolean): JbDocument =
         update(doc, boardId) { it.copy(locked = locked) }
+
+    /** ANIMATION_CLIPS C3: what the clip does when it reaches its last frame (a [BoardEnd] word), saved with the drawing. */
+    fun setEnd(doc: JbDocument, boardId: String, end: String): JbDocument {
+        require(end in BoardEnd.ALL) { "unknown end behaviour $end" }
+        return update(doc.copy(version=maxOf(doc.version,12)), boardId) { it.copy(end = end) }
+    }
 
     /** Typing dimensions anchors the top-left, per H1. */
     fun resizeTyped(doc: JbDocument, boardId: String, width: Int, height: Int): JbDocument {

@@ -155,6 +155,40 @@ class CapturedPaintDomainsTest {
         }
     }
 
+    @Test fun `component fragments capture one exact domain per physical cel`() {
+        val root = frame("clip", "composite", RectPx(-10, -2, 30, 6))
+        val plan = RegionPaintPlan("shared", listOf(
+            root.copy(celId = "drawing", rect = RectPx(-10, -2, 10, 6)),
+            root.copy(celId = "composite", rect = RectPx(0, -2, 10, 6)),
+            root.copy(celId = "drawing", rect = RectPx(10, -2, 10, 6)),
+        ), listOf(root))
+        val captured = CapturedPaintDomains.prepare(plan)
+        assertEquals(listOf("shared", "drawing", "composite"), captured.planes.map { it.owner.celId })
+        for (y in -3..4) for (x in -11..20) {
+            val owner = plan.planeAt(x.toLong(), y.toLong()).celId
+            assertEquals(listOf(owner), captured.planes.filter { it.source.domain.contains(x, y) }.map { it.owner.celId })
+        }
+        val drawing = captured.forCel("drawing")!!.source.domain
+        assertTrue(drawing.contains(-5, 0)); assertTrue(drawing.contains(15, 0))
+        assertFalse(drawing.contains(5, 0))
+    }
+
+    @Test fun `explicit logical roots reject missing coverage and unrelated fragments`() {
+        val root = frame("clip", "composite", RectPx(0, 0, 20, 10))
+        assertFailsWith<IllegalArgumentException> {
+            RegionPaintPlan("shared", listOf(root.copy(celId = "part", rect = RectPx(0, 0, 10, 10))), listOf(root))
+        }
+        assertFailsWith<IllegalArgumentException> {
+            RegionPaintPlan("shared", listOf(root.copy(boardId = "other")), listOf(root))
+        }
+        assertFailsWith<IllegalArgumentException> {
+            RegionPaintPlan("shared", listOf(root.copy(frameId = "other")), listOf(root))
+        }
+        assertFailsWith<IllegalArgumentException> {
+            RegionPaintPlan("shared", listOf(root.copy(rect = RectPx(-1, 0, 20, 10))), listOf(root))
+        }
+    }
+
     @Test fun `region rectangles preserve Int edge pixels and refuse unaddressable exclusive ends`() {
         val valid = CapturedPaintDomains.prepare(RegionPaintPlan("shared", listOf(
             frame("edge", "edge-cel", RectPx(Int.MAX_VALUE, Int.MAX_VALUE, 1, 1)),

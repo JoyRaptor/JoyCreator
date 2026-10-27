@@ -7,7 +7,9 @@ import kotlinx.serialization.Serializable
 
 const val DOC_FORMAT = "joybrush.document"
 /**
- * 14: an animation frame may tween toward the next frame; versions 12 and 13 are reserved for the animation clips work.
+ * 14: an animation frame may tween toward the next frame.
+ * 13: linked component drawings: a cel may name acyclic, disjoint pieces of other cels ([Cel.parts]); written only when used.
+ * 12: a board's saved "when it ends" behaviour (loop, ping-pong, hold, blank: [Board.end]); written only when not the default.
  * 11: recorded physical capture domains and integer appearance placement in JBS v4. Regional
  *     recorded sources require their persisted domain; legacy source semantics are not inferred.
  * 10: lines in the one layer (R51 Phase 3, JB-5.20a): a PAINT cel may hold editable line records ([Cel.strokesFile]),
@@ -24,8 +26,8 @@ const val DOC_FORMAT = "joybrush.document"
  * 4: the paper carries a look, a tint and two sliders (JB-9.05, R10).
  * 3: a layer may carry a [Layer.mask] and be [Layer.clip]ped (JB-2.23, Lead ruling R48).
  */
-const val FRAME_TWEEN_DOC_VERSION = 14 // v12/v13 are reserved for animation clips.
-const val DOC_VERSION = 14 // v14: frame tween setting.
+const val FRAME_TWEEN_DOC_VERSION = 14 // v12/v13 are the animation clips work (below).
+const val DOC_VERSION = 14 // v14: frame tween setting. v13: component cel links. v12: Board.end (ANIMATION_CLIPS C3).
 
 /**
  * The engine's tile size, NOT a second copy of it. `Cel.tiles` holds keys the engine wrote with
@@ -116,6 +118,7 @@ const val TILE_SIZE = Tiles.SIZE
 
 @Serializable data class SpriteGrid(val cols: Int, val rows: Int, val cellW: Int, val cellH: Int)
 
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable data class Board(
     val id: String,
     val name: String,
@@ -128,7 +131,23 @@ const val TILE_SIZE = Tiles.SIZE
     val tiled: Boolean = false,            // v5 board chrome's saved tiling-display flag
     val currentFrameId: String? = null,    // v6: independent saved cursor for each Animation board
     val locked: Boolean = false,          // v6: explicit frame lock; multi-frame animation is fixed regardless
+    /**
+     * v12 (ANIMATION_CLIPS C3): what an Animation clip does when it reaches its last frame: "loop", "pingpong", "hold" or
+     * "blank" (BoardEnd). An unknown word reads as loop (R3). Not written while it is loop, so older drawings are unchanged.
+     */
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val end: String = BoardEnd.LOOP,
 )
+
+/** The words [Board.end] takes. */
+object BoardEnd {
+    const val LOOP = "loop"
+    const val PING_PONG = "pingpong"
+    const val HOLD = "hold"
+    const val BLANK = "blank"
+    val ALL = listOf(LOOP, PING_PONG, HOLD, BLANK)
+    /** An unknown or missing word plays as a loop (R3: a broken value is read as a safe one). */
+    fun of(word: String?): String = if (word in ALL) word!! else LOOP
+}
 
 /** Per-board frame addresses; content outside all regions uses Layer.sharedCelId, for PAINT or INK. */
 @Serializable data class RegionFrames(
@@ -261,7 +280,13 @@ object SlabOps {
     @EncodeDefault(EncodeDefault.Mode.NEVER) val slabs: List<SlabRef> = emptyList(),
     /** v10 (JB-5.20 D3/D14): tiles with a saved look, `<key>.look.rgba`. Only tiles that lines cross. */
     @EncodeDefault(EncodeDefault.Mode.NEVER) val looks: List<String> = emptyList(),
+    /** v13: disjoint world-space portions borrowed from other cels in this layer. Outside these
+     * rectangles this cel's own physical paint is used. References share drawings, never copies;
+     * they have no transform, so the ordinary physical-plane stroke routing remains authoritative. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val parts: List<CelPart> = emptyList(),
 )
+
+@Serializable data class CelPart(val celId: String, val rect: RectPx)
 
 @Serializable data class Layer(
     val id: String,

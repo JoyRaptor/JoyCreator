@@ -1179,3 +1179,11 @@ files (small hooks only, announced): FaditorEditorActivity (AIChatState reload b
   LobbyFragment (Joybot lines only) · ui/faditor/undo/UndoManager (one overload)
 NOT touching: joybrush/, joybrush-android/, joyfolder/ (reuses ShareInbox as-is).
 DEVICE: none reserved; asks the owner before any install.
+
+## ANIMATION_CLIPS_20261018
+status: ACTIVE — owner requested implementation, Codex continuation, 2026-10-18.
+worktree: C:/Temp/jb-clips (lead/anim-clips); base d232a2b17.
+files: core/doc/AnimationBoardOps.kt, RegionDocumentOps.kt, RegionPaintPlan.kt; core/anim/PlaybackClock.kt, ClipPlaybackScheduler.kt; core/export/AnimExportPlan.kt, SceneAnimExportPlan.kt; androidkit/io/AnimExport.kt, BoardExport.kt; core/render/RegionTileSource.kt; androidkit/gl/GlPaintEngine.kt; androidkit/JbCanvasView.kt; android/board/BoardRuntimeController.kt, BoardExportCoordinator.kt; android/JoyBrushActivity.kt; related focused tests, benchmark and task/handoff docs.
+No brushes, shaders or paint algorithms. Helpers exhausted usage before edits; root owns all implementation. Builds serialized with jb-gradle.lock.
+
+ANIMATION_CLIPS_20261018 handoff 2026-10-22: C1–C8/U1–U8 implemented, all final core2548/backend1056/Android330 tests pass (4 optional core skips), source still uncommitted. APK build and real Note9 acceptance remain. Resume: tasks/joybrush/handoffs/ANIMATION_CLIPS_RESUME_20261022.md. No build/phone lock held at this inspection; coordinate current primary -t installDefaultDebug watcher before any new build/device use. Prior helper limits and phone reservation notes are historical.

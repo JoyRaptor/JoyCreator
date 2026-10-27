@@ -17,7 +17,7 @@ object BoardChromeLayout {
         fun distance(p: Point): Float = hypot(max(max(left-p.x, 0f), p.x-right), max(max(top-p.y, 0f), p.y-bottom))
     }
     enum class Colour { PAPER, CHROME, GLASS, INK, DIM, CYAN, PINK, AMBER, GREY, ON_GRADIENT, SPRITE_ON, PAPER_SURFACE, ANIMATION_ON }
-    enum class Shape { ROUND_RECT, LINE, TEXT, GLYPH }
+    enum class Shape { ROUND_RECT, LINE, TEXT, GLYPH, CHIP }
     enum class Font { ARCHIVO, MONO, SANS }
     enum class Align { LEFT, CENTRE, RIGHT }
     data class Element(val id: String, val shape: Shape, val rect: Rect,
@@ -50,7 +50,10 @@ object BoardChromeLayout {
         val liftedCellOffset: Point = Point(0f,0f),
         val reducedMotion: Boolean = false, val wiggleElapsedMs: Long = 0,
         /** Actual alpha at the last pen transition; supplied by BoardChromePenFade for rapid strokes. */
-        val penFadeStartAlpha: Float? = null)
+        val penFadeStartAlpha: Float? = null,
+        val end: String = "loop", val playingAll: Boolean = false,
+        /** Exact shared areas of overlapping clips. Fingers select here; a pen keeps painting. */
+        val overlaps: List<Rect> = emptyList())
 
     const val CHROME_ALPHA = .90f
     const val GLASS_ALPHA = .55f
@@ -138,12 +141,19 @@ object BoardChromeLayout {
         }
         val tile=i.kind==BoardKind.CANVAS && i.armed
         if(i.otherTileArmed && !tile)return Layout(emptyList(),emptyList(),false,false,false)
+        if(i.kind==BoardKind.ANIMATION) {
+            // A clip remains readable while another clip is selected or playing over it.
+            if(!i.selected) add("clip-outline",b,col=Colour.PAPER,a=.65f,stroke=1f)
+            i.overlaps.forEachIndexed { n,r ->
+                if(r.width>0 && r.height>0) c+=Control("clip-overlap-$n",r,r,"Tap to select this clip; tap again for the clip underneath")
+            }
+        }
         val fixed=i.kind==BoardKind.ANIMATION && i.holds.size>=2
-        val locked=i.locked || fixed
+        val locked=i.locked
         /** The lock glyph (amber ring while unlocked) centred at [cx],[cy]; one definition for both the plain and the tile chrome. */
         fun lockGlyph(cx:Float,cy:Float,a:Float){
             if(!locked)add("lock-ring",centre(cx,cy,26f,26f),col=Colour.AMBER,a=a,stroke=1.5f,radius=8f)
-            glyph("lock",centre(cx,cy,16f,16f),if(locked)"lockC" else "lockO",if(fixed)BoardChromeLabels.FIXED else if(locked)BoardChromeLabels.LOCKED else BoardChromeLabels.UNLOCKED,a=a)
+            glyph("lock",centre(cx,cy,16f,16f),if(locked)"lockC" else "lockO",if(locked)BoardChromeLabels.LOCKED else if(i.kind==BoardKind.ANIMATION) "Unlocked: drag the clip edge with its drawings. Tap to lock it in place." else BoardChromeLabels.UNLOCKED,a=a)
         }
         /** Eight resize handles round the board; one definition for both the plain and the tile chrome. */
         fun handles(a:Float){
@@ -225,24 +235,78 @@ object BoardChromeLayout {
                 add("size-caret",Rect(b.right+1*d,b.top-16*d,b.right+1*d,b.top-8*d),Shape.LINE,Colour.CYAN,a,stroke=1.5f)
             }
             else add("size-underline",Rect(b.right-sizeW*d,b.top-6*d,b.right,b.top-6*d),Shape.LINE,Colour.PAPER,a,stroke=1f,dashed=true)
-            handles(a)
+            if(!fixed) handles(a)
+        }
+        if(i.kind==BoardKind.ANIMATION && !i.locked) {
+            val mx=minOf(12*d,b.width/4); val my=minOf(12*d,b.height/4)
+            control("clip-move-top",Rect(b.left+mx,b.top-5*d,b.right-mx,b.top+5*d),"Drag clip with its drawings")
+            control("clip-move-bottom",Rect(b.left+mx,b.bottom-5*d,b.right-mx,b.bottom+5*d),"Drag clip with its drawings")
+            control("clip-move-left",Rect(b.left-5*d,b.top+my,b.left+5*d,b.bottom-my),"Drag clip with its drawings")
+            control("clip-move-right",Rect(b.right-5*d,b.top+my,b.right+5*d,b.bottom-my),"Drag clip with its drawings")
         }
         if(i.kind==BoardKind.ANIMATION){
             val py=b.bottom+8*d; val sy=py+21*d; val strip=rect(b.left,sy,b.width/d,40f)
             if(!folded){
-                add("peg-tab",rect(b.cx-68*d,py,136f,24f),col=Colour.CHROME,a=CHROME_ALPHA,radius=11f)
-                for((n,g) in listOf("onion","play","loop").withIndex()){
-                    val pc=b.cx+(n-1)*44*d;val r=centre(pc,py+12*d,if(n==1)17f else 32f,if(n==1)17f else 12f)
+                val compact=i.screen.width/d<220f
+                val transportWidth=if(compact)min(120f,max(96f,i.screen.width/d-16f)) else 204f
+                val transportHeight=if(compact)64f else 24f
+                val transportLeft=(b.cx-transportWidth*d/2).coerceIn(i.screen.left+8*d,max(i.screen.left+8*d,i.screen.right-(transportWidth+8)*d))
+                val transportCx=transportLeft+transportWidth*d/2
+                val transportY=py.coerceIn(i.screen.top+8*d,max(i.screen.top+8*d,i.screen.bottom-(transportHeight+8)*d))
+                add("peg-tab",rect(transportLeft,transportY,transportWidth,transportHeight),col=Colour.CHROME,a=CHROME_ALPHA,radius=11f)
+                for((n,g) in listOf("onion","play").withIndex()){
+                    val pc=transportCx+((if(compact)-22 else -74)+n*44)*d;val r=centre(pc,transportY+12*d,if(n==1)17f else 32f,if(n==1)17f else 12f)
                     val col=if(n==0&&i.onion)Colour.CYAN else if(n==1&&i.playing)Colour.PINK else Colour.INK
                     add("peg-$g",r,col=col,stroke=1.5f,radius=if(n==1)8.5f else 6f,halo=if(col==Colour.CYAN||col==Colour.PINK)3f else 0f)
-                    glyph(g,centre(pc,py+12*d,9f,9f),if(n==1&&i.playing)"pause" else if(n==2)i.loopGlyph else g,
-                        if(n==0)BoardChromeLabels.ONION else if(n==1)if(i.playing)"Pause." else "Play this board." else BoardChromeLabels.LOOP,col)
+                    glyph(g,centre(pc,transportY+12*d,9f,9f),if(n==1&&i.playing)"pause" else g,
+                        if(n==0)BoardChromeLabels.ONION else if(i.playing)"Stop this clip" else "Play this clip",col)
+                }
+                val all=rect(transportCx+(if(compact)-48 else 1)*d,transportY+(if(compact)41 else 1)*d,96f,22f)
+                add("play-all-face",all,col=if(i.playingAll)Colour.PINK else Colour.INK,stroke=1f,radius=11f)
+                if(i.playingAll) add("play-all-stop",centre(all.left+14*d,all.cy,8f,8f),col=Colour.PINK,radius=1f)
+                else add("play-all-icon",centre(all.left+14*d,all.cy,10f,10f),Shape.GLYPH,glyph="play")
+                text("play-all-label",all.left+24*d,all.top+4*d,67f,13f,if(i.playingAll)"Stop all" else "Play all",11f,Font.SANS,600,if(i.playingAll)Colour.PINK else Colour.INK)
+                control("play-all",all,if(i.playingAll)"Stop all clips" else "Play all clips together, each at its own speed")
+                val modes=listOf(Triple("loop","Loop","loop"),Triple("pingpong","Ping-pong","ping-pong"),Triple("hold","Hold","once"),Triple("blank","Blank","blank"))
+                val widths=listOf(68f,100f,68f,76f)
+                val columns=when { i.screen.width/d>=346f -> 4; i.screen.width/d>=222f -> 2; else -> 1 }
+                val rowWidth=if(columns==4)330f else if(columns==2)206f else 100f
+                val rowLeft=(b.cx-rowWidth*d/2).coerceIn(i.screen.left+8*d,max(i.screen.left+8*d,i.screen.right-(rowWidth+8)*d))
+                val panelHeight=(12+40*((modes.size+columns-1)/columns))*d
+                val minPanelTop=i.screen.top+8*d
+                val maxPanelTop=max(minPanelTop,i.screen.bottom-8*d-panelHeight)
+                val preferred=(sy+48*d).coerceIn(minPanelTop,maxPanelTop)
+                val obstacles=(listOf(Rect(transportLeft,transportY-8*d,transportLeft+transportWidth*d,transportY+(transportHeight+8)*d),strip)+
+                    if(i.showFps)listOf(Rect(transportCx-60*d,transportY-39*d,transportCx+60*d,transportY+1*d)) else emptyList())
+                    .filter { it.left<rowLeft+rowWidth*d && it.right>rowLeft && it.bottom>i.screen.top && it.top<i.screen.bottom }
+                fun freePanelTop(gap: Float): Float? = (listOf(preferred,minPanelTop,maxPanelTop)+obstacles.flatMap {
+                    listOf(it.top-gap-panelHeight,it.bottom+gap)
+                }).filter { top -> top>=minPanelTop && top<=maxPanelTop && obstacles.none {
+                    top<it.bottom+gap && top+panelHeight>it.top-gap
+                } }.minByOrNull { abs(it-preferred) }
+                // Keep heading and all wrapped chip targets together. Dock above the transport/strip when below is full.
+                val rowTop=(freePanelTop(8*d) ?: freePanelTop(0f) ?: preferred)+18*d
+                text("end-heading",rowLeft,rowTop-18*d,rowWidth,11f,"When it ends",9f,Font.MONO,500,Colour.PAPER)
+                var chipX=rowLeft
+                modes.forEachIndexed { n,(mode,label,icon) ->
+                    if(n%columns==0) chipX=rowLeft
+                    val chipWidth=if(columns==4)widths[n] else 100f
+                    val r=rect(chipX,rowTop+(n/columns)*40*d,chipWidth,28f)
+                    add("end-$mode",r,Shape.CHIP,col=if(BoardEnd.of(i.end)==mode)Colour.CYAN else Colour.CHROME,
+                        radius=14f,text=label,font=Font.SANS,size=11f,weight=600,glyph=icon)
+                    control("end-$mode",r,when(mode) {
+                        "loop" -> "Loop: return to the first frame when this clip ends"
+                        "pingpong" -> "Ping-pong: play this clip forwards, then backwards"
+                        "hold" -> "Hold: keep the last drawing when this clip ends"
+                        else -> "Blank: hide this clip's animated layers when it ends"
+                    })
+                    chipX+=(chipWidth+6)*d
                 }
                 if(i.showFps){
-                    val r=rect(b.cx-60*d,py-34*d,120f,30f);add("fps-panel",r,col=Colour.CHROME,a=CHROME_ALPHA,radius=9f)
-                    text("fps",b.cx-35*d,py-26*d,70f,14f,"${i.fps} fps",11f,col=Colour.INK)
-                    text("fps-minus",b.cx-56*d,py-27*d,20f,16f,"−",13f,col=Colour.INK,tip="One frame per second slower")
-                    text("fps-plus",b.cx+36*d,py-27*d,20f,16f,"+",13f,col=Colour.INK,tip="One frame per second faster")
+                    val r=rect(transportCx-60*d,transportY-34*d,120f,30f);add("fps-panel",r,col=Colour.CHROME,a=CHROME_ALPHA,radius=9f)
+                    text("fps",transportCx-35*d,transportY-26*d,70f,14f,"${i.fps} fps",11f,col=Colour.INK)
+                    text("fps-minus",transportCx-56*d,transportY-27*d,20f,16f,"−",13f,col=Colour.INK,tip="One frame per second slower")
+                    text("fps-plus",transportCx+36*d,transportY-27*d,20f,16f,"+",13f,col=Colour.INK,tip="One frame per second faster")
                 }
                 for(n in 0 until ceil(b.width/(9*d)).toInt())for(row in 0..1)add("sprocket-$row-$n",rect(b.left+(n*9+2.5f)*d,sy+(if(row==0)1.5f else 34.5f)*d,4f,4f),col=Colour.PAPER,a=.55f,stroke=1f,radius=1f,clip=strip)
             }else add("ruler-line",Rect(b.left, b.bottom+28*d,b.right-22*d,b.bottom+28*d),Shape.LINE,Colour.PAPER,RULER_ALPHA*.55f,stroke=1f)
@@ -333,10 +397,15 @@ object BoardChromeLayout {
     fun containsHit(layout: Layout, id: String, point: Point): Boolean = layout.controls.firstOrNull { it.id == id }?.let {
         point.x >= it.hit.left && point.x <= it.hit.right && point.y >= it.hit.top && point.y <= it.hit.bottom
     } == true
-    fun hit(layout: Layout, point: Point, enabledOnly: Boolean = true): Control? = layout.controls.filter {
+    fun hit(layout: Layout, point: Point, enabledOnly: Boolean = true): Control? {
+        val candidates=layout.controls.filter {
         (!enabledOnly || it.enabled) &&
         point.x>=it.hit.left && point.x<=it.hit.right && point.y>=it.hit.top && point.y<=it.hit.bottom
-    }.minByOrNull { hypot(point.x-it.visual.cx,point.y-it.visual.cy) }
+        }
+        // An overlap's interior must never steal an edge drag, transport button or frame target.
+        return candidates.filterNot { it.id.startsWith("clip-overlap-") }.ifEmpty { candidates }
+            .minByOrNull { hypot(point.x-it.visual.cx,point.y-it.visual.cy) }
+    }
 }
 
 /** Verbatim §K page hover labels; no UI wording is invented by the renderer. */
@@ -356,7 +425,7 @@ object BoardChromeLabels {
     const val EXPORT_TILE="Export the tile as a picture."
     const val EXPORT_SPRITE="Export the sheet and its JSON, or open it in SpriteLab."
     const val ONION="Onion skin: see the frames before and after this one."
-    const val LOOP="Playback: loop. Tap for ping-pong, tap again to play once."
+    const val LOOP="When this clip ends: choose Loop, Ping-pong, Hold or Blank."
     const val ADD="Add a frame (a copy of this one). Hold for blank, link, hold longer or delete."
     fun frame(n:Int)="Frame $n. Tap to show it; drag sideways to move it, drag up to remove it; drag its right edge to hold it longer."
 }

@@ -38,7 +38,7 @@ class LayerColumnAnimationTest {
             layers=listOf(Layer("paint","Paint",LayerKind.PAINT,cels=listOf(Cel("shared-paint")),mask=Cel("mask")),
                 Layer("ink","Lines",LayerKind.PAINT,cels=listOf(Cel("shared-ink",strokesFile="lines.jbs")))))
         var serial = 0
-        return RegionDocumentOps.create(base,"Animation",RectPx(20,20,100,100)) { "id-${++serial}" }.doc
+        return RegionDocumentOps.create(base,"Animation",RectPx(20,20,100,100), { "id-${++serial}" }, animate = null).doc
     }
     private fun column(host: Host, doc: JbDocument): LayerColumnView =
         LayerColumnView(ChromeKit(RuntimeEnvironment.getApplication()),host).also { column ->
@@ -57,6 +57,8 @@ class LayerColumnAnimationTest {
     @Test fun markersToggleEligibleLayerInSelectedBoardWithoutChangingPaintOrMaskTarget() {
         val doc = document(); val board = doc.boards.last().id; val host = Host(); val column = column(host,doc)
         column.setAnimationBoard(doc,board)
+        assertEquals("Paint — Animates in Animation. Tap to keep it still here.",column.animationMarkerFor("paint")!!.contentDescription.toString())
+        assertEquals("Lines — Animates in Animation. Tap to keep it still here.",column.animationMarkerFor("ink")!!.contentDescription.toString())
         assertTrue(column.animationMarkerFor("paint")!!.performClick())
         assertTrue(column.animationMarkerFor("ink")!!.performClick())
         assertEquals(listOf(Triple(board,"paint",true),Triple(board,"ink",true)),host.toggles)
@@ -67,9 +69,19 @@ class LayerColumnAnimationTest {
         val held = RegionDocumentOps.setHeld(doc,board,"paint",true).doc
         column.setAnimationBoard(held,board)
         assertSame(cell,column.cellFor("paint"))
-        assertTrue(column.animationMarkerFor("paint")!!.contentDescription.toString().contains("Same on every frame"))
+        assertEquals("Paint — Still in Animation. Tap to animate here.",column.animationMarkerFor("paint")!!.contentDescription.toString())
         column.animationMarkerFor("paint")!!.performClick()
         assertEquals(Triple(board,"paint",false),host.toggles.last())
+    }
+    @Test fun renamingTheClipRefreshesBothStillAndAnimatedHoverLabelsWithoutRebuildingCells() {
+        val doc=document(); val board=doc.boards.last().id; val column=column(Host(),doc)
+        val held=RegionDocumentOps.setHeld(doc,board,"paint",true).doc
+        column.setAnimationBoard(held,board)
+        val cell=column.cellFor("paint"); val marker=column.animationMarkerFor("paint")
+        column.setAnimationBoard(BoardDocumentOps.rename(held,board,"Walk"),board)
+        assertSame(cell,column.cellFor("paint")); assertSame(marker,column.animationMarkerFor("paint"))
+        assertEquals("Paint — Still in Walk. Tap to animate here.",marker!!.contentDescription.toString())
+        assertEquals("Lines — Animates in Walk. Tap to keep it still here.",column.animationMarkerFor("ink")!!.contentDescription.toString())
     }
     @Test fun markerColumnPreservesThumbnailGeometryAndDisappearsForPassiveBoards() {
         val doc = document(); val host = Host(); val column = column(host,doc)
@@ -101,7 +113,7 @@ class LayerColumnAnimationTest {
         val marker = column.animationMarkerFor("paint")!!
         touch(marker,MotionEvent.ACTION_DOWN,5f,5f)
         var serial = 0
-        val second = RegionDocumentOps.create(doc,"Other",RectPx(200,200,100,100)) { "other-${++serial}" }.doc
+        val second = RegionDocumentOps.create(doc,"Other",RectPx(200,200,100,100), { "other-${++serial}" }, animate = null).doc
         column.setAnimationBoard(second,second.boards.last().id)
         assertFalse(marker.performClick())
         assertTrue(host.toggles.isEmpty())

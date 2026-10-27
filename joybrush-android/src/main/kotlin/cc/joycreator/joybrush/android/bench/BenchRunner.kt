@@ -22,7 +22,9 @@ import cc.joycreator.joybrush.core.brush.BrushPreset
  * unsaved drawing and never restores or writes the working file (the activity's job), so the person's drawing is
  * never touched.
  */
-class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, private val finished: () -> Unit) {
+class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
+    private val clips: cc.joycreator.joybrush.android.board.BoardRuntimeController? = null,
+    private val finished: () -> Unit) {
     // The atlas switch is process-wide: a run that changed it puts it back, so the app after a bench draws as shipped.
     private val atlasBefore = canvas.mediaAtlasEnabled
     private val coarseBefore = cc.joycreator.joybrush.androidkit.gl.media.MediaLayerEngine.coarseWaterDefault
@@ -114,6 +116,24 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
         spec.mediaBudgetMb?.let { canvas.mediaBudgetBytes = it.toLong() shl 20; Log.i(TAG, "media room: $it MB") }
         spec.dropDry?.let { cc.joycreator.joybrush.androidkit.gl.media.MediaAtlasDropDry.on = it; Log.i(TAG, "drop dry water: $it") }
         spec.water?.let { canvas.mediaWaterAB = cc.joycreator.joybrush.android.WaterTest.of(it).ab; Log.i(TAG, "water test: $it") }
+        if ("animationClips" in spec.cases) {
+            fun runProof() {
+                if(!canvas.surfaceReady || canvas.width==0) { ui.postDelayed({ runProof() },200); return }
+                canvas.runAnimationClipsProbe { result ->
+                    val report=try { org.json.JSONObject(result) } catch(e:Exception) { org.json.JSONObject().put("passed",false).put("error",result) }
+                    logRecordedReport(report.put("case","animationClips"),"fixture","animationClips",0)
+                    onDone()
+                }
+            }
+            runProof(); return
+        }
+        if ("playAll" in spec.cases || "playAllStatic" in spec.cases || "playAllTrace" in spec.cases) {
+            PlayAllBench(canvas,clips,static="playAllStatic" in spec.cases,trace="playAllTrace" in spec.cases) {
+                if(spec.holdMs>0) { Log.i(TAG,"hold ${spec.holdMs}"); ui.postDelayed({ onDone() },spec.holdMs) }
+                else onDone()
+            }.start()
+            return
+        }
         if ("matrix" in spec.cases) { MatrixBench(canvas, spec, onDone).start(); return }
         if ("select" in spec.cases) {
             selectBench = SelectBench(canvas, spec.selectRunId, onDone).also { it.start() }

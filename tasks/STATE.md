@@ -347,6 +347,40 @@ Agent phone checks stay distinct from owner LIVE/creative acceptance.
 | Sprite cell sizing, ordered finger roll/preview and separately armed swaps (`joybrush.sprite-roll`) | 🟡 BUILT; historical scoped agent-device evidence | October7 two-layer swap/one-Undo and sizing checks are historical; current media/mask acceptance remains open. Reuse [SpriteGridMath](../joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/sprite/SpriteGridMath.kt), [CellRoll](../joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/sprite/CellRoll.kt) and [SpriteCellOps](../joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/doc/SpriteCellOps.kt). Do not infer realistic-media or complete mask/INK behavior. Help `joybrush.boards.sprite-order-swap`: PENDING. |
 | Board/range/frame export and internal Studio/SpriteLab handoff (`joybrush.board-export`) | 🟡 BUILT; historical scoped artifact/import/reopen/video evidence | Existing encoders and internal receiver are integrated; current artifact agreement, refusal/preflight and picker-cancellation/snapshot checks remain open. Reuse [BoardExportCoordinator](../joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/board/BoardExportCoordinator.kt), [BoardExport](../joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/io/BoardExport.kt), [AnimExportPlan](../joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/export/AnimExportPlan.kt) and [internal receiver](../app/src/main/java/com/fadcam/ui/faditor/sprite/JoyBrushBoardImportActivity.java). Internal staging is not arbitrary external import; live-source and tween export gates remain separate. Help `joybrush.boards.export-studio-spritelab`: PENDING. |
 | Choose paper background, surface and brush response (`joybrush.paper-surfaces`) | 🟡 BUILT; historical scoped core/GPU and controlled rollback evidence | Source integrates 29 surfaces and 32 looks; this is not whole-family completion or owner acceptance. **None** keeps the physical surface and Bite response, shows checkerboard on screen, and excludes paper from exports even when Include is requested. Current visual quality/parity across all 32 looks, replay invalidation, sheet/preview/cancel/undo UI, save/reopen/export device matrix and imported image-tip/grain behavior remain open; missing JB-1.05d image-tip contract and owner-rejected procedural crumples remain explicit open gaps. Tan-paper Select proof does not establish paper-family acceptance. Reuse [PaperState](../joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/paper/PaperState.kt), [SurfaceMaps](../joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/paper/SurfaceMaps.kt), [PaperRaster](../joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/paper/PaperRaster.kt), [HexTile](../joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/paper/HexTile.kt), [PaperPreviews](../joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/paper/PaperPreviews.kt), [PaperResources](../joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/io/PaperResources.kt), [PaperSheetView](../joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/chrome/PaperSheetView.kt) and [RegionRenderer](../joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/render/RegionRenderer.kt). Keep raster paper separate from [editable watercolor lines](../joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/brush/WatercolourDabber.kt). Help sections—Paper background vs surface; Colour vs Tint; Show vs Bite; None vs Include; paper vs watercolor wash texture—are PENDING. |
+## 5.6 JOY BRUSH ANIMATION CLIPS (2026-10-18 to 10-24)
+
+Several animation clips on one drawing, each with its own speed and ending, playing together, combinable,
+exportable. Spec `tasks/joybrush/specs/ANIMATION_CLIPS_20261018.md`; evidence and numbers
+`tasks/joybrush/reviews/ANIMATION_CLIPS_20261018.md` (+ `animation-clips-evidence/`: real Note 9 screenshots, GIFs, logs).
+Lives on `lead/anim-clips` (finished, 1553c5b45) and on `lead/anim-clips-integrated`, which is that work merged onto
+origin/joy-creator (document versions below); until that branch is fast-forwarded into joy-creator the main line does not have it.
+"Agent phone-tested" = driven on the Note 9 by an agent (GPU proof + screenshots); nothing here is 🟢 until JoyRaptor uses it.
+Test totals before the merge: core 2548, androidkit 1056, Android 330, all passing.
+
+| Feature | Level | Notes |
+|---|---|---|
+| A clip only animates the layer you are on; overlapping clips on one layer are refused with the clips' names (C1/C2) | 🟡 ✔ | `RegionDocumentOps`, `BoardDocumentOps.createAnimation`; unit-tested, hint shown when creating |
+| "When it ends" chips on a clip: Loop, Ping-pong, Hold, Blank, saved with the drawing; selected = solid cyan with cut-out icon, hover labels (C3/U1) | 🟡 ✔ | Document version 12 (`Board.end`); screenshots from the Note 9 10-22; unknown value reads as Loop |
+| Play all / Stop all: every clip plays at once on its own clock, one tap to stop; Hold/Blank end frames stay until Stop (C4/U2) | 🟡 ✔ | `ClipPlaybackScheduler`; Note 9: ~59 fps, frame work p50 5.5 ms, p95 8-9 ms (budget 16.7) with three overlapping clips of 256/512/1024 px |
+| Overlapping clips show both outlines; finger taps on the overlap cycle which clip is selected; stylus still paints (U3/U4) | 🟡 ✔ | Cycling shown on the Note 9 with real touch 10-23 |
+| Combine clips into one (name, faster fps, drawings retimed, end mode), old clips removed, ONE Undo (C5/U5) | 🟡 ✔ | `AnimationCombine`; GPU proof on the Note 9 (pixels exact, one Undo) |
+| Flatten overlapping clips into plain frames, ONE Undo; Merge Down on the current frame keeps the other frames (C6) | 🟡 ✔ | `AnimationFlattenPlan`; GPU proof: framewise pixels, Undo/Redo |
+| Drag a clip by its edge to move all its drawings together, ONE Undo; a locked clip cannot be dragged (C8/U8) | 🟡 | Engine side GPU-proved (preview, cancel, commit, Undo); the touch drag itself was NOT cleanly shown on a phone yet |
+| Same drawing reused in two clips stays one drawing when edited or moved (linked component drawings) | 🟡 ✔ | Document version 13 (`Cel.parts`, `CelParts.kt`); GPU proof incl. across tile boundaries |
+| Export: GIF (loop flag, ping-pong order, up to 50 fps, cumulative timing), PNG timing, whole-scene export Longest / Full loop, 600-frame cap with a warning in the done toast (C7) | 🟡 ✔ | `SceneAnimExportPlan`, `BoardExportCoordinator`; GIFs decoded from the phone 10-23 (loop/ping-pong carry the loop flag, hold/blank do not) |
+| Named hover labels on the runner/Combine controls; Combine names the clips and says what retiming it does (U6/U7) | 🟡 | Robolectric UI proof (`chrome-light.png` / `chrome-dark.png`); not yet checked by hand on a phone |
+| Debug bench cases for all of it: `animationClips` (8-row GPU proof), `playAll`, `playAllStatic`, `playAllTrace` | 🟡 ✔ | `bench/BenchRunner`, `PlayAllBench`, `androidkit/gl/AnimationClipsProbe`; hitch recorder in `FrameStats` |
+
+Document versions in the JoyBrush file: 11 captured physical domain, **12 clip ends, 13 linked drawings, 14 frame tween**
+(another lane reserved 12/13 for this work and took 14; do not reuse them).
+
+**Known limits (clips):**
+- Pressing Play all costs one ~90 ms UI stall while the film strip's small pieces are rasterized the first time (mostly the
+  sprocket holes; 🟡). Not fixed on purpose: fixing it changes how the strip looks, which is JoyRaptor's call.
+- The first Play all after installing a new build can hitch ~190 ms in the graphics queue (cold shaders, probably).
+- A scene GIF carries no loop flag even when clips loop (check against the spec); lock, Combine, Flatten and export were
+  proved by the GPU test, not driven by a finger.
+
 ## 6. AI — the agent
 
 | Feature | Level | Notes |

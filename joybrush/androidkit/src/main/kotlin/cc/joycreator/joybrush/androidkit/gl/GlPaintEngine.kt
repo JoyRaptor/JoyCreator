@@ -21,6 +21,7 @@ import cc.joycreator.joybrush.core.stroke.LineAddress
 import cc.joycreator.joybrush.androidkit.gl.lines.RecordedScene
 import cc.joycreator.joybrush.androidkit.gl.lines.BoardItemFlatten
 import cc.joycreator.joybrush.androidkit.gl.lines.LineBake
+import cc.joycreator.joybrush.androidkit.gl.lines.LineCommit
 import cc.joycreator.joybrush.androidkit.gl.lines.LineEditBudget
 import cc.joycreator.joybrush.androidkit.gl.lines.LineItems
 import cc.joycreator.joybrush.androidkit.gl.lines.PreparedLinePlaneCopy
@@ -2297,13 +2298,29 @@ class GlPaintEngine(
     /** The planes' items (lines, pixel slabs) and bases beside the ordinary tiles; the tiles stay the pixel truth. */
     internal val nativeLines = NativeLines()
 
-    /** A live stroke's record, handed over before [endStroke]; consumed by the commit that makes its step. */
-    private class PendingLine(val record: StrokeRecord, val brushes: Map<String, BrushPreset>)
+    /**
+     * A live stroke's records, handed over before [endStroke]; consumed by the commit that makes its step.
+     *
+     * ONE record for an ordinary stroke, and ONE PER LANE for a symmetry stroke: the copies of the
+     * stroke are lines of their own, and they share ONE group so Select takes the whole set.
+     */
+    private class PendingLine(val records: List<StrokeRecord>, val brushes: Map<String, BrushPreset>)
     private var pendingLine: PendingLine? = null
 
-    /** The stroke being painted becomes an editable line when it commits ([record]'s seq is assigned then). */
+    /**
+     * The stroke being painted becomes editable lines when it commits (each record's seq is assigned then).
+     *
+     * The list is the whole set of the stroke's lines: an ordinary stroke hands over one record, and a
+     * symmetry stroke hands over one per lane. They all land in the SAME step, and they all share ONE
+     * group, so one undo takes them all back and Select takes them all together.
+     */
+    fun setPendingLines(records: List<StrokeRecord>, newBrushes: Map<String, BrushPreset> = emptyMap()) {
+        pendingLine = records.takeIf { it.isNotEmpty() }?.let { PendingLine(it, newBrushes) }
+    }
+
+    /** ONE line: the ordinary stroke. The list form is the same call with one entry. */
     fun setPendingLine(record: StrokeRecord?, newBrushes: Map<String, BrushPreset> = emptyMap()) {
-        pendingLine = record?.let { PendingLine(it, newBrushes) }
+        setPendingLines(listOfNotNull(record), newBrushes)
     }
 
     fun lineSnapshot(): LineSnapshot = nativeLines.snapshot(documentGeneration)
@@ -2453,6 +2470,10 @@ class GlPaintEngine(
      * (its own contribution, rendered onto cleared tiles, with the stroke's operator), so the pixels keep obeying the
      * lines under and over it. Returns the step's slab and line changes; the bookkeeping is updated here, in the same GL
      * turn as the tiles.
+     *
+     * A stroke with N lanes makes N lines here: one per lane, each with its own id and its own place in the plane's time
+     * order, and all of them in ONE group. The bases of the tiles they cross are kept ONCE for the plane, not once per
+     * line: a tile has one base however many lines cross it.
      */
     private fun commitPendingLine(layer: Layer, written: List<UndoLog.TileChange<Int>>): PendingItems {
         var line = pendingLine
@@ -2460,13 +2481,14 @@ class GlPaintEngine(
         if (layer.isMask || written.isEmpty()) return PendingItems.NONE
         // H12: a line is kept only if it can be redrawn later; otherwise it stays pixels (a slab where the plane holds
         // items), said once, rather than becoming a line that would come back wrong or not at all.
-        if (line != null) lineReplayRefusal(line.record, line.brushes[line.record.brushId] ?: nativeLines.brush(line.record.brushId))?.let {
+        if (line != null) lineReplayRefusal(line.records, line.brushes)?.let {
             android.util.Log.i("JoyBrushLines", "kept as pixels: $it")
             onLineNotice?.invoke(KEPT_AS_PIXELS)
             line = null
         }
         // H11: a stroke split across planes (it crossed a frame's edge) is ONE line to Select: the copies share a group.
-        val group = line?.record?.groupId ?: if (line != null && written.map { it.celId }.distinct().size > 1) "g-" + UUID.randomUUID() else null
+        // The copies of a symmetry stroke share ONE group as well, so Select takes the whole set of them.
+        val group = line?.let { l -> LineCommit.groupFor(l.records, written.map { it.celId }.distinct().size) }
         // Phase 1 (H5): make every copy, unit and record WITHOUT touching NativeLines. On a throw the fresh textures are
         // recycled and nothing has changed; [installPendingItems] applies the result after the tiles are in.
         val slabs = ArrayList<UndoLog.SlabChange<Int>>()
@@ -2493,19 +2515,19 @@ class GlPaintEngine(
                     }
                     continue
                 }
-                var id = line.record.id
-                while (nativeLines.record(plane, id) != null) id = line.record.id + "-" + (1..99999).random()
-                val record = line.record.copy(id = id, seq = nativeLines.nextSeq(plane), groupId = group)
-                val footprint = nativeLines.estimate(record, line.brushes[record.brushId]) + planeWrites.map { it.key }
-                for (key in footprint) {
+                // The stroke's lines: one per record, each with its own id and its own seq, all in ONE group.
+                val made = LineCommit.plan(nativeLines, line.brushes, line.records, plane, celId, group, planeWrites.map { it.key })
+                // The base of every tile the set crosses: ONCE for the plane, however many lines cross it.
+                for (key in made.flatMap { it.footprint }.distinct()) {
                     if (nativeLines.isCrossed(plane, key)) continue   // its base is already kept
                     val source = if (key in before) before[key] else planeTiles(layer, celId)[key]
                     val copy = source?.let(::copyOfTile) ?: continue   // nothing under it: the base is transparent
                     slabs += UndoLog.SlabChange(layer.id, celId, key, 0L, null, UndoLog.SlabValue(copy, "normal"))
                 }
-                val change = UndoLog.LineChange(layer.id, celId, id, null, CelComposer.Line(record.seq, record))
-                lines += change
-                footprints[plane to id] = footprint
+                for (m in made) {
+                    lines += m.change
+                    footprints[plane to m.change.id] = m.footprint
+                }
             }
         } catch (e: Throwable) {
             slabs.forEach { it.after?.texture?.let(::recycleLayerTex) }
@@ -2518,11 +2540,23 @@ class GlPaintEngine(
     var onLineNotice: ((String) -> Unit)? = null
 
     /**
-     * H12: why the just-drawn line [record] could not be redrawn later, null = it can: the CPU replay must succeed and the
+     * H12: why the just-drawn lines [records] could not be redrawn later, null = they can: the CPU replay must succeed and the
      * GPU's own preconditions for a line ([prepareRecordedLine]) must hold. Pure checks, nothing is rendered.
+     *
+     * The SET is refused as a whole: the copies of a stroke are one thing to the person, so they are one thing here too -
+     * half of them editable and half of them pixels would be worse than none of them.
+     *
+     * The record-level refusals are asked of every record (they are cheap), but the REPLAY is done once, on the first
+     * record: the copies are affine images of one another - the same samples, the same brush, the same number of dabs -
+     * so the first one's replay decides the set's, and a stroke of thirty lanes is not replayed thirty times over.
      */
-    private fun lineReplayRefusal(record: StrokeRecord, preset: BrushPreset?): String? {
-        InkReplay.refusal(record, preset)?.let { return it }
+    private fun lineReplayRefusal(records: List<StrokeRecord>, brushes: Map<String, BrushPreset>): String? {
+        if (records.isEmpty()) return null
+        for (r in records) {
+            InkReplay.refusal(r, brushes[r.brushId] ?: nativeLines.brush(r.brushId))?.let { return it }
+        }
+        val record = records.first()
+        val preset = brushes[record.brushId] ?: nativeLines.brush(record.brushId)
         val p = preset ?: return "no brush"
         if (BrushValidate.validate(p).isNotEmpty()) return "its frozen brush is not valid"
         if (p.engine != "stamp" && p.engine != ENGINE_WATERCOLOUR) return "the ${p.engine} engine is not replayed"

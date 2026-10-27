@@ -64,6 +64,20 @@ val BELLY_MODES: List<String> = listOf("off", "manual", "darker", "lighter", "wa
 
     val referencePx: Float get() = (referenceMm * DOC_PX_PER_MM).toFloat()
 
+    /**
+     * How far the tool reaches from the pen's tip, in document px: the window keeps that much room
+     * around the pen, and the symmetry's safe zone keeps it around the symmetry centre.
+     *
+     * A pencil laid flat reaches its SIDE, many point-widths from the tip, so a dry stick reaches
+     * twelve of its own widths; the other media reach their own width (the watercolour's belly,
+     * the oil brush's width, the knife's blade). The number grows with the brush: it is the reach
+     * of the tool at the brush's own size.
+     */
+    fun reachDocPx(): Double = referenceMm * DOC_PX_PER_MM * when (medium) {
+        MEDIUM_DRY -> 12.0
+        else -> 1.0
+    }
+
     /** True for a paste brush made of hair (it has a belly); a knife or scraper does not. */
     val isHair: Boolean get() = paste != null && !paste.blade && !paste.trowel
 }

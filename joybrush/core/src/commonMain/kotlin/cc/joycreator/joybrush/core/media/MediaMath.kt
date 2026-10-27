@@ -57,7 +57,44 @@ class DabBatch(val dabs: FloatArray, val count: Int, val dirty: DoubleArray?, va
         return DabBatch(dabs.copyOfRange(from * FLOATS, to * FLOATS), to - from, d, b.copyOfRange(from * 4, to * 4))
     }
 
-    companion object { const val FLOATS = 20 }
+    /**
+     * ONE batch holding every dab of [batches], in order: the symmetry copies' dabs in ONE frame.
+     *
+     * This is what makes the copies share ONE water field: the wet stroke's dabs of every lane go
+     * into a single batch, the water runs once for the frame, and the copies mix where they meet.
+     * The dirty box is the union of the batches' own, and the boxes (when every batch has them)
+     * are the batches' own, so a frame can still be cut in time.
+     *
+     * Null when there is nothing to draw: an empty batch is not a frame.
+     */
+    companion object {
+        const val FLOATS = 20
+
+        fun merge(batches: List<DabBatch>): DabBatch? {
+            val live = batches.filter { it.count > 0 }
+            if (live.isEmpty()) return null
+            if (live.size == 1) return live[0]
+            var n = 0
+            var withBoxes = true
+            for (b in live) { n += b.count; if (b.boxes == null) withBoxes = false }
+            val dabs = FloatArray(n * FLOATS)
+            val boxes = if (withBoxes) DoubleArray(n * 4) else null
+            var dirty: DoubleArray? = null
+            var o = 0
+            for (b in live) {
+                b.dabs.copyInto(dabs, o * FLOATS, 0, b.count * FLOATS)
+                o += b.count
+                val d = b.dirty
+                if (d != null) {
+                    dirty = if (dirty == null) d.copyOf() else doubleArrayOf(
+                        minOf(dirty[0], d[0]), minOf(dirty[1], d[1]), maxOf(dirty[2], d[2]), maxOf(dirty[3], d[3]))
+                }
+                val bx = b.boxes
+                if (boxes != null && bx != null) bx.copyInto(boxes, (o - b.count) * 4, 0, b.count * 4)
+            }
+            return DabBatch(dabs, n, dirty, boxes)
+        }
+    }
 }
 
 /** Collects dab instances (20 floats each) and the doc-px rectangle they touch. */

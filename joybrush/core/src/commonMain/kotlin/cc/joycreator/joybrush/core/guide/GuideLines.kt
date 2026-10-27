@@ -76,6 +76,7 @@ object GuideLines {
             is Guide.Isometric -> isometric(out, guide, left, top, right, bottom, k)
             is Guide.Perspective -> perspective(out, guide, left, top, right, bottom)
             is Guide.Ruler -> ruler(out, guide, left, top, right, bottom)
+            is Guide.Symmetry -> ruler(out, Guide.Ruler(guide.a, guide.b), left, top, right, bottom)
             is Guide.EllipseTracer -> ellipse(out, guide)
         }
         return out

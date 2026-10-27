@@ -28,8 +28,30 @@ import kotlin.math.max
  *
  * Not thread-safe, and neither is the placer: a stroke's dabs are built on the thread that is
  * drawing, in order.
+ *
+ * ## The frame, for a symmetry copy
+ *
+ * [frame] says how this stroke's angles are seen by a symmetry COPY. It is [AngleFrame.IDENTITY] for
+ * an ordinary stroke, and that default is a no-op down to the bit: a brush that is not a copy draws
+ * exactly the stroke it drew before the frame existed.
+ *
+ * The frame is applied to the tip's BASE and to the angle JITTER, and never to the direction: a
+ * copy's lane is fed the samples already transformed into the copy's frame, so the tracker's answer
+ * there is already the copy's direction.
+ *
+ * The frame also says where the direction STARTS. The tracker holds a heading until the pen has
+ * moved far enough for it to find one, and that heading is the copy's own: the frame's
+ * [AngleFrame.transformedDefaultHeading] — θ for a rotation, 2φ' for a reflection. Without it a
+ * copy's first dabs pointed the ORIGINAL's way. The identity frame's heading is 0, the plain +x
+ * every ordinary stroke has always started with, so a brush that is not a copy is unaffected.
+ *
+ * The frame holds the copy's GEOMETRY and nothing else — the rotation, and the axis the copy is
+ * reflected in. The brush's own settings stay with the brush: this class asks the frame for the
+ * base and TELLS it whether the file's `tip.followDirection` is on, so the two can never disagree
+ * about the same brush. A frame that kept its own copy of that switch was a lane turned by twice
+ * the rotation — see [AngleFrame].
  */
-class BrushDabber(val preset: BrushPreset, seed: Long) {
+class BrushDabber(val preset: BrushPreset, seed: Long, val frame: AngleFrame = AngleFrame.IDENTITY) {
 
     private val rng = SplitMix(seed)
 
@@ -37,7 +59,12 @@ class BrushDabber(val preset: BrushPreset, seed: Long) {
     private val strokeRandom: Float = rng.nextFloat()
 
     private val buildUp: Boolean = preset.accumulate == "buildup"
-    private val tracker = DirectionTracker()
+
+    /**
+     * The tip's direction — and the tracker's heading BEFORE the pen has moved, which is the
+     * copy's own heading and not the original's (see the class note).
+     */
+    private val tracker = DirectionTracker(initialDirection = frame.transformedDefaultHeading)
 
     private var speedPxPerS = 0f
     private var hasTime = false
@@ -123,11 +150,22 @@ class BrushDabber(val preset: BrushPreset, seed: Long) {
 
         // Angle in radians, and the file's own angle is in DEGREES. A NaN from that one curve must
         // not wipe out the direction the tracker found, so it is the only term that is guarded.
-        var angle = 0f
+        var base = 0f
         val angleDeg = Dynamics.eval(preset.tip.angle, inputs)
-        if (!angleDeg.isNaN()) angle = degToRad(angleDeg)
+        if (!angleDeg.isNaN()) base = degToRad(angleDeg)
+        // The frame goes on the BASE and on the JITTER, and NOT on the direction: a symmetry copy's
+        // lane is fed the samples already transformed into the copy's frame, so the tracker's
+        // answer here is ALREADY the copy's direction, and the copy's rotation is in it. Adding the
+        // frame to the direction as well would turn the copy's rotation on twice.
+        //
+        // The order matters and is the frame's whole contract: base → frame → direction → jitter.
+        //
+        // The brush's own switch goes INTO the frame: whether the tip's base angle is an OFFSET
+        // from the direction or an ABSOLUTE angle is the FILE's business, and the frame asks. The
+        // frame holds the copy's geometry and nothing else, so it cannot answer for the brush.
+        var angle = frame.base(base, preset.tip.followDirection)
         if (preset.tip.followDirection) angle += direction
-        angle += degToRad(preset.angleJitter) * (2f * angleDraw - 1f)
+        angle += frame.jitter(degToRad(preset.angleJitter) * (2f * angleDraw - 1f))
 
         // A NaN flow would make the placer drop the dab's flow to 0 and the brush would vanish, so
         // a NaN here stands for "draw normally". A NaN CAP is the opposite: NaN is the sentinel for

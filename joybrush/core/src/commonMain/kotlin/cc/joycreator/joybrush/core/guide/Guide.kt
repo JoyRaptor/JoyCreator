@@ -52,4 +52,27 @@ sealed class Guide {
      * one drawn ellipse can be pushed straight back onto its tracer.
      */
     data class EllipseTracer(val center: Pt, val rx: Double, val ry: Double, val rotation: Double) : Guide()
+
+    /**
+     * A symmetry line from [a] to [b]: the brush is mirrored across it, not the pixels. [count] is
+     * 1 = off, 2 = a mirror across the line, 3..30 = that many copies around the line's midpoint
+     * (the original among them). [kaleido] adds a mirrored copy of every radial copy (2N lanes in
+     * all). [overlap] makes the copies behave as separate brushes where they cross; the default
+     * merges them into one stroke. [symmetric] makes every copy share one brush's randomness; off,
+     * each copy draws its own scatter and lean.
+     *
+     * It is a guide in the app's sense only: it is remembered with the other guides and never
+     * reaches the drawing.
+     */
+    data class Symmetry(
+        val a: Pt,
+        val b: Pt,
+        val count: Int = 2,
+        val kaleido: Boolean = false,
+        val overlap: Boolean = false,
+        val symmetric: Boolean = true,
+    ) : Guide() {
+        /** True when there is more than the original stroke: the brush is copied. */
+        val active: Boolean get() = count >= 2
+    }
 }

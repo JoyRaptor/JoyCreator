@@ -10,14 +10,21 @@ import cc.joycreator.joybrush.core.brush.MEDIUM_WET
 import cc.joycreator.joybrush.core.brush.MediaSpec
 import cc.joycreator.joybrush.core.brush.mediaScale
 import cc.joycreator.joybrush.core.brush.scaled
+import cc.joycreator.joybrush.core.guide.Guide
+import cc.joycreator.joybrush.core.guide.SymmetryCopy
+import cc.joycreator.joybrush.core.guide.SymmetryMath
+import cc.joycreator.joybrush.core.input.PenSample
 import cc.joycreator.joybrush.core.layers.LayerBudget
 import cc.joycreator.joybrush.core.media.DOC_PX_PER_MM
 import cc.joycreator.joybrush.core.media.DabBatch
 import cc.joycreator.joybrush.core.media.MediaAtlasPlacement
 import cc.joycreator.joybrush.core.paint.Tiles
+import cc.joycreator.joybrush.core.media.MediaInput
+import cc.joycreator.joybrush.core.media.MediaSample
+import cc.joycreator.joybrush.core.media.MediaPin
+import cc.joycreator.joybrush.core.media.MediaSafety
 import cc.joycreator.joybrush.core.media.PasteStep
 import cc.joycreator.joybrush.core.media.DryStroke
-import cc.joycreator.joybrush.core.media.MediaSample
 import cc.joycreator.joybrush.core.media.MediaSpline
 import cc.joycreator.joybrush.core.media.MediaStores
 import cc.joycreator.joybrush.core.media.MediaWindowMath
@@ -36,6 +43,8 @@ import cc.joycreator.joybrush.core.media.opaquePaint
 import cc.joycreator.joybrush.core.media.paintFromColor
 import cc.joycreator.joybrush.core.media.thinnerStroke
 import cc.joycreator.joybrush.core.paint.Dab
+import cc.joycreator.joybrush.core.symmetry.SymmetryFamily
+import cc.joycreator.joybrush.core.symmetry.SymmetryLanes
 import kotlin.math.max
 
 /**
@@ -131,13 +140,54 @@ class MediaCanvas(
     // The app's lamp, in document space (y DOWN, unlike the lab's y-up view): light from the upper left.
     private var look = MediaLook(floatArrayOf(1f, 1f, 1f), lamp = MediaLook.normalise(floatArrayOf(-0.55f, -0.55f, 0.62f)))
 
+    /**
+     * ONE lane of a media stroke: its own spline and its own wet, dry or paste builder.
+     *
+     * The lanes share the ONE engine, the ONE window and the ONE undo step; what they do NOT
+     * share is their own STATE: a lane's spline, its water and its paint are its own, so a copy is
+     * drawn from the pen's samples transformed into the copy's own frame and never from the
+     * original's dabs moved afterwards.
+     */
+    private class Lane(
+        /** The copy's own map, or null for the ORIGINAL (lane 0). */
+        val map: SymmetryCopy?,
+        /** The lane's own spline: the samples it heard, curved. */
+        val spline: MediaSpline,
+        /** The lane's own dry stroke (the pencil). */
+        val dry: DryStroke? = null,
+        /** The lane's own wet stroke (the watercolour). */
+        val wet: WetStroke? = null,
+        /** The lane's own paste stroke (the oil). */
+        val paste: PasteStroke? = null,
+        /** The lane's own thinner stroke (the water riding a thinned oil stroke). */
+        val thin: WetStroke? = null,
+    )
+
+    /**
+     * The PIN of a symmetry stroke: the centre the window is pinned on, the window's own tile, and
+     * the radius of the zone the pen may paint in.
+     */
+    private class Pin(val cx: Double, val cy: Double, val tx: Int, val ty: Int, val radius: Double)
+
+    /**
+     * ONE media stroke: the lanes (the ORIGINAL first, then the copies), the tools they share and
+     * the pin that holds the window still.
+     */
     private class Stroke(
         val layerId: String,
         val seed: Int,
-        val spline: MediaSpline,
-        val dry: DryStroke? = null, val mat: StickMaterial? = null,
-        val wet: WetStroke? = null,
-        val paste: PasteStroke? = null, val brush: PasteBrush? = null, val thin: WetStroke? = null,
+        /** The lanes: the ORIGINAL first, then the copies. ONE lane when the symmetry is off. */
+        val lanes: List<Lane>,
+        /** The paste brush (the oil): shared by every lane — the copies are the same brush. */
+        val brush: PasteBrush? = null,
+        /** The stick's material (the pencil): shared by every lane. */
+        val mat: StickMaterial? = null,
+        /** The symmetry's pin, or null when the window follows the pen. */
+        val pin: Pin? = null,
+        /** True when the guide is symmetric: the lean and the twist are copied too. */
+        val symmetric: Boolean = false,
+        /** The pen's own tilt reach (the tuned pencil's), as the media input reads it. */
+        val reachDeg: Double = MediaInput.REACH_DEG,
         val erase: Boolean = false,
     ) {
         var penX = 0.0
@@ -147,6 +197,14 @@ class MediaCanvas(
         var lastFrameMs = 0L
         /** Eraser dabs waiting for the next frame: x, y, radius, strength (then 16 unused floats each). */
         val eraseDabs = ArrayList<Dab>()
+        /** The stroke was REFUSED: it is said once, in words, and nothing more is painted. */
+        var refused = false
+        /** The window is pinned on the symmetry centre: it does not move for the whole stroke. */
+        val pinned: Boolean get() = pin != null
+        /** The stroke has a wet stroke (the watercolour), in any lane. */
+        val wet: Boolean get() = lanes.any { it.wet != null }
+        /** The stroke has a thinner stroke (the water riding a thinned oil stroke), in any lane. */
+        val thin: Boolean get() = lanes.any { it.thin != null }
     }
 
     private var stroke: Stroke? = null
@@ -171,10 +229,38 @@ class MediaCanvas(
     val running: Boolean get() = engine?.wetActive == true
 
     /**
+     * The refusal a frame made, waiting to be said (the view reads it and shows it): a frame that
+     * would not fit the pinned window is REFUSED, and the words come from the GL thread.
+     */
+    @Volatile var pendingRefusal: String? = null
+        private set
+
+    /** Takes the refusal, if one is waiting: the view shows it, and it is not shown twice. */
+    fun takeRefusal(): String? {
+        val why = pendingRefusal
+        pendingRefusal = null
+        return why
+    }
+
+    /**
      * Begins a media stroke of [preset] on [layerId] at document ([x], [y]). [argb] is the paint colour; [bellyArgb] the
      * second colour of a hair paste brush (or null). Returns the sentence to show when the stroke cannot be painted.
+     *
+     * [symmetry] is the guide the stroke is copied across, read ONCE at pen-down and frozen for the whole stroke (null:
+     * the ordinary stroke, and the window follows the pen). Under a guide the window is PINNED on the symmetry centre,
+     * so that every copy's wet paint lives in one water field; when the brush reaches further than the window can
+     * safely hold, the stroke is refused in words and NOTHING is painted.
      */
-    fun begin(layerId: String, preset: BrushPreset, argb: Int, bellyArgb: Int?, x: Double, y: Double, nowMs: Long): String? {
+    fun begin(
+        layerId: String,
+        preset: BrushPreset,
+        argb: Int,
+        bellyArgb: Int?,
+        x: Double,
+        y: Double,
+        nowMs: Long,
+        symmetry: Guide.Symmetry? = null,
+    ): String? {
         val spec = preset.media ?: return "This brush has no pencil, watercolour or oil settings."
         val thinned = spec.medium == MEDIUM_PASTE && spec.thinner > 0 && spec.paste?.let { it.shape < 2 && !it.clean } == true
         val needsWater = spec.medium == MEDIUM_WET || thinned
@@ -183,8 +269,30 @@ class MediaCanvas(
         return try {
             // The last stroke's dabs the water had not taken in yet go into its own stores first (water jobs; its layer).
             (w as? MediaAtlas)?.payOwedStores(paint.mediaPaper(), DOC_PX_PER_MM, water())
+            if (preset.mediaScale() <= 0.0) error("a media brush needs a size")
+            val scaled = spec.scaled(preset.mediaScale())
+            val reach = reachPx(scaled)
+            // The symmetry: the centre, the pin and the zone the pen may paint in. A guide that
+            // cannot make a centre (a line with no middle) makes no copies: the ordinary stroke.
+            val guide = symmetry?.takeIf { it.count >= 2 }
+            val centre = guide?.let { SymmetryMath.centre(it) }
+            val pin = if (centre != null) {
+                val (tx, ty) = MediaSafety.pinnedTile(centre.x, centre.y)
+                Pin(centre.x, centre.y, tx, ty, MediaSafety.safeRadius(tx, ty, centre.x, centre.y, reach))
+            } else null
+            if (pin != null && pin.radius <= 0.0) {
+                // No safe zone: the brush reaches further than the window can hold, so every copy of
+                // every sample would fall off it. Refused in words, and NOTHING is painted.
+                android.util.Log.i("JoyBrushMedia", "symmetry refused: no safe zone (radius=${pin.radius})")
+                return MediaSafety.REFUSAL
+            }
+            if (pin != null && w !is MediaWindow) {
+                return "Symmetry is not available for pencil, watercolour and oil on this build."
+            }
             // JB-2.40 slice 3: the stroke paints the plane under its first touch (an animation frame, or the shared plane).
-            w.place(layerId, paint.mediaPlaneAt(layerId, x, y), x, y)
+            val plane = paint.mediaPlaneAt(layerId, x, y)
+            if (pin != null) (w as MediaWindow).pin(layerId, plane, pin.cx, pin.cy)
+            else w.place(layerId, plane, x, y)
             w.wakeWater()
             waterStoppedByUndo = false
             waterAsleep = false
@@ -193,8 +301,21 @@ class MediaCanvas(
             look = MediaLook(rgb(paint.paperArgb).map { it.toFloat() }.toFloatArray(), lamp = look.lamp)
             paint.beginMediaStroke()
             e.beginStroke()
-            stroke = build(layerId, spec.scaled(preset.mediaScale()), preset.mediaScale(), argb, bellyArgb, thinned, (nowMs and 0x7FFFFFFF).toInt())
-                .also { it.penX = x; it.penY = y; it.reachPx = reachPx(spec.scaled(preset.mediaScale())) }
+            val seed = (nowMs and 0x7FFFFFFF).toInt()
+            val family = SymmetryLanes.familyFor(preset.engine, spec.medium)
+            val lanes = buildLanes(guide, family, scaled, argb, bellyArgb, thinned, seed)
+            stroke = Stroke(
+                layerId = layerId,
+                seed = seed,
+                lanes = lanes.lanes,
+                brush = lanes.brush,
+                mat = lanes.mat,
+                pin = pin,
+                symmetric = guide?.symmetric ?: true,
+                reachDeg = preset.media?.stick?.tuning?.tiltReachDeg ?: MediaInput.REACH_DEG,
+            ).also {
+                it.penX = x; it.penY = y; it.reachPx = reach
+            }
             w.touched(nowMs)
             noteHeld()
             null
@@ -213,16 +334,56 @@ class MediaCanvas(
         w.place(layerId, paint.mediaPlaneAt(layerId, x, y), x, y)
         paint.beginMediaStroke()
         e.beginStroke()
-        stroke = Stroke(layerId, 0, MediaSpline { }, erase = true).also { it.penX = x; it.penY = y }
+        val spline = MediaSpline { }
+        stroke = Stroke(layerId, 0, listOf(Lane(null, spline)), erase = true).also { it.penX = x; it.penY = y }
         w.touched(nowMs)
         noteHeld()
         return null
     }
 
-    /** Pen samples for the stroke in progress (document px; [MediaInput] made them). Painted at the next [frame]. */
-    fun add(samples: List<MediaSample>) {
+    /**
+     * Pen samples for the stroke in progress (document px; the media input reads them). Painted at the next [frame].
+     *
+     * Returns the sentence when the stroke is REFUSED: a sample outside the safe zone is never
+     * painted — no partial copies, no clipped dabs — and the refusal is said once, in words. The
+     * sentence is RETURNED and never thrown: this runs on the GL thread, outside the draw frame's
+     * try/catch, and a refusal must not be able to take the render thread down.
+     */
+    fun add(samples: List<PenSample>): String? {
+        val st = stroke ?: return null
+        if (st.refused) return null
+        val pin = st.pin
+        for (s in samples) {
+            // Every lane's own copy of the sample, transformed into the copy's own frame. The
+            // transform is applied to the PEN SAMPLE, before the media input reads the azimuth.
+            val moved = st.lanes.map { lane ->
+                lane.map?.let { SymmetryMath.apply(s, it, st.symmetric) } ?: s
+            }
+            if (pin != null && moved.any { m ->
+                    !MediaSafety.insideZone(pin.cx, pin.cy, pin.radius, m.x.toDouble(), m.y.toDouble())
+                }) {
+                // Outside the zone: the sample is not painted at all, and neither is any copy of it.
+                st.refused = true
+                android.util.Log.i("JoyBrushMedia", "symmetry refused: a sample left the safe zone")
+                return MediaSafety.REFUSAL
+            }
+            for (i in st.lanes.indices) st.lanes[i].spline.add(MediaInput.sample(moved[i], st.reachDeg))
+            st.penX = s.x.toDouble(); st.penY = s.y.toDouble()
+        }
+        return null
+    }
+
+    /**
+     * Samples already read by the media input (the bench probes feed these): the ordinary stroke, no symmetry,
+     * so the one lane hears them as they are.
+     */
+    fun addSamples(samples: List<MediaSample>) {
         val st = stroke ?: return
-        for (s in samples) { st.penX = s.x; st.penY = s.y; st.spline.add(s) }
+        if (st.refused) return
+        for (s in samples) {
+            for (lane in st.lanes) lane.spline.add(s)
+            st.penX = s.x; st.penY = s.y
+        }
     }
 
     /** The eraser's dabs, placed by the canvas's own placer. */
@@ -285,7 +446,7 @@ class MediaCanvas(
         if (st != null) {
             stats?.let { if (it.recording) it.mediaFrames++ }
             // A phone behind the pen paints the steps to come further apart (PasteSpacing), instead of falling further behind.
-            st.paste?.let { p -> PasteSpacing.fixed?.let { p.spacing = it } ?: run { if (st.lastFrameMs > 0) p.spacing = PasteSpacing.next(p.spacing, nowMs - st.lastFrameMs) } }
+            for (lane in st.lanes) lane.paste?.let { p -> PasteSpacing.fixed?.let { p.spacing = it } ?: run { if (st.lastFrameMs > 0) p.spacing = PasteSpacing.next(p.spacing, nowMs - st.lastFrameMs) } }
             st.lastFrameMs = nowMs
             run(e, w, st)
             w.touched(nowMs)
@@ -323,15 +484,16 @@ class MediaCanvas(
         val st = stroke ?: return
         val e = engine!!
         val w = window!!
-        st.spline.finish()
-        st.wet?.finish()
-        st.thin?.finish()
+        // Each lane's own tail: the spline's catch-up, then the water's lift.
+        for (lane in st.lanes) { lane.spline.finish(); lane.wet?.finish(); lane.thin?.finish() }
         // The stroke closes whatever its last frame meets: a frame that could not be stored (the drawing's media room full,
         // 2026-10-21 on the owner's Note 9) used to throw out of here with the stroke still open, and the app crashed.
         try { run(e, w, st, last = true) } finally {
             e.endStroke()
             stroke = null
             paint.endMediaStroke()
+            // The stroke is over: the window follows the pen again.
+            (w as? MediaWindow)?.unpin()
         }
     }
 
@@ -345,6 +507,7 @@ class MediaCanvas(
         e.endStroke()
         stroke = null
         paint.cancelMediaStroke()
+        (window as? MediaWindow)?.unpin()
         waterStoppedByUndo = false
         window?.wakeWater()
     }
@@ -481,35 +644,80 @@ class MediaCanvas(
         return made
     }
 
-    private fun build(layerId: String, spec: MediaSpec, scale: Double, argb: Int, bellyArgb: Int?, thinned: Boolean, seed: Int): Stroke {
+    /** What the lanes of a stroke are made of: the lanes themselves, and the tools they share. */
+    private class Lanes(
+        val lanes: List<Lane>,
+        /** The paste brush (the oil): one brush for the whole stroke — the copies are the same brush. */
+        val brush: PasteBrush? = null,
+        /** The stick's material (the pencil): one material for the whole stroke. */
+        val mat: StickMaterial? = null,
+    )
+
+    /**
+     * The lanes of the stroke: the ORIGINAL first, then the copies.
+     *
+     * Every lane gets its OWN spline and its own wet, dry or paste builder, so a copy is drawn from
+     * the pen's samples transformed into the copy's own frame — never from the original's dabs moved
+     * afterwards. They share the preset, the colour and the seed (the copies are the same brush), and
+     * the paste brush's paint lives in the ENGINE, which holds one brush for the whole stroke.
+     */
+    private fun buildLanes(
+        guide: Guide.Symmetry?,
+        family: SymmetryFamily,
+        spec: MediaSpec,
+        argb: Int,
+        bellyArgb: Int?,
+        thinned: Boolean,
+        seed: Int,
+    ): Lanes {
+        val set = guide?.let { SymmetryLanes.buildMedia(it, family, seed.toLong()) }
+        val maps = set?.lanes?.map { it.copy } ?: listOf(null)
         val color = rgb(argb)
-        val paper = paint.mediaPaper()
         val e = engine!!
-        return when (spec.medium) {
-            MEDIUM_DRY -> {
-                val stick = spec.stick!!
-                val dry = DryStroke(stick, paper.stats.toothMm, DOC_PX_PER_MM)
-                Stroke(layerId, seed, MediaSpline(sink = dry::add), dry = dry, mat = StickMaterial.of(stick))
-            }
-            MEDIUM_WET -> {
-                val brush = spec.wet!!
-                val level = WETNESS[spec.wetness.coerceIn(0, WETNESS.lastIndex)]
-                // A clear brush (water, thirsty) carries at least its own load of water whatever the level says (lab).
-                val wetness = if (brush.clear) level.copy(load = max(level.load, brush.load)) else level
-                val wet = WetStroke(brush, paintFromColor(color), DOC_PX_PER_MM, seed, wetness)
-                e.wetGran = brush.gran
-                Stroke(layerId, seed, MediaSpline(sink = wet::add), wet = wet)
-            }
-            else -> {
-                val brush = spec.paste!!
-                val belly = bellyArgb?.takeIf { spec.isHair }?.let { opaquePaint(rgb(it)) }
-                e.reloadBrush(opaquePaint(color), brush, seed, belly)
-                val body = if (thinned) THINNER[spec.thinner.coerceIn(0, THINNER.lastIndex)].body else 1.0
-                val ps = PasteStroke(brush, DOC_PX_PER_MM, 1.0, body = body)
-                val thin = if (thinned) thinnerStroke(brush, color, DOC_PX_PER_MM, seed, spec.thinner) else null
-                Stroke(layerId, seed, MediaSpline { s -> thin?.add(s); ps.add(s) }, paste = ps, brush = brush, thin = thin)
-            }
-        }.also { if (scale <= 0.0) error("a media brush needs a size") }
+        var brush: PasteBrush? = null
+        var mat: StickMaterial? = null
+        if (spec.medium == MEDIUM_PASTE) {
+            val paste = spec.paste!!
+            val belly = bellyArgb?.takeIf { spec.isHair }?.let { opaquePaint(rgb(it)) }
+            e.reloadBrush(opaquePaint(color), paste, seed, belly)
+            brush = paste
+        }
+        if (spec.medium == MEDIUM_DRY) mat = StickMaterial.of(spec.stick!!)
+        val toothMm = paint.mediaPaper().stats.toothMm
+        val lanes = maps.map { map -> makeLane(map, spec, color, toothMm, seed, thinned) }
+        return Lanes(lanes, brush, mat)
+    }
+
+    /** ONE lane: its own spline and its own builder, fed the samples it hears. */
+    private fun makeLane(
+        map: SymmetryCopy?,
+        spec: MediaSpec,
+        color: DoubleArray,
+        toothMm: Double,
+        seed: Int,
+        thinned: Boolean,
+    ): Lane = when (spec.medium) {
+        MEDIUM_DRY -> {
+            val stick = spec.stick!!
+            val dry = DryStroke(stick, toothMm, DOC_PX_PER_MM)
+            Lane(map, MediaSpline(sink = dry::add), dry = dry)
+        }
+        MEDIUM_WET -> {
+            val brush = spec.wet!!
+            val level = WETNESS[spec.wetness.coerceIn(0, WETNESS.lastIndex)]
+            // A clear brush (water, thirsty) carries at least its own load of water whatever the level says (lab).
+            val wetness = if (brush.clear) level.copy(load = max(level.load, brush.load)) else level
+            val wet = WetStroke(brush, paintFromColor(color), DOC_PX_PER_MM, seed, wetness)
+            engine!!.wetGran = brush.gran
+            Lane(map, MediaSpline(sink = wet::add), wet = wet)
+        }
+        else -> {
+            val brush = spec.paste!!
+            val body = if (thinned) THINNER[spec.thinner.coerceIn(0, THINNER.lastIndex)].body else 1.0
+            val ps = PasteStroke(brush, DOC_PX_PER_MM, 1.0, body = body)
+            val thin = if (thinned) thinnerStroke(brush, color, DOC_PX_PER_MM, seed, spec.thinner) else null
+            Lane(map, MediaSpline { s -> thin?.add(s); ps.add(s) }, paste = ps, thin = thin)
+        }
     }
 
     /**
@@ -517,28 +725,48 @@ class MediaCanvas(
      * back ([last]: the stores too). A pencil's window follows the frame's actual dab batch (its rotated footprints plus
      * the smear the apply pass reads), not a worst-case reach: 12 point-widths did not fit the window for most pencils,
      * so it moved and reloaded every frame and clipped dabs outside it (LEAD_PLAN F1, F2).
+     *
+     * The lanes' dabs are taken here, before any pass runs: the dry family keeps ONE batch per lane (each lane's own
+     * travel, so the smear follows the lane's own stroke), and the wet and the paste are MERGED into one frame, so that
+     * every copy's paint lives in ONE water field and the water runs once for all of them.
      */
     private fun run(e: MediaLayerEngine, w: MediaPlace, st: Stroke, last: Boolean = false) {
-        val batch = st.dry?.take()
+        val dryBatches: List<DabBatch> = st.lanes.mapNotNull { it.dry?.take() }.filter { it.count > 0 }
         w.legacyLook = legacyWindow
         e.legacyRect = legacyWindow   // bench A/B: the old full-square paste rect too
         val followRect: DoubleArray; val fx: Double; val fy: Double
-        if (!legacyWindow && batch != null && batch.count > 0 && batch.dirty != null) {
+        val dryDirty = unionDirty(dryBatches)
+        if (!legacyWindow && dryDirty != null) {
             val pad = st.mat!!.smearMm * DOC_PX_PER_MM + 4
-            val d = batch.dirty!!
+            val d = dryDirty
             followRect = doubleArrayOf(d[0] - pad, d[1] - pad, d[2] + pad, d[3] + pad); fx = (d[0] + d[2]) / 2; fy = (d[1] + d[3]) / 2
         } else {
             val r = st.reachPx + 4
             followRect = doubleArrayOf(st.penX - r, st.penY - r, st.penX + r, st.penY + r); fx = st.penX; fy = st.penY
         }
+        // The PINNED window (the symmetry): it does not move for the whole stroke, so a frame either runs WHOLE or is
+        // REFUSED. A clipped dab is a lost dab, and a lost dab in one copy is a broken picture.
+        if (w is MediaWindow && st.pin != null && !legacyWindow) {
+            val wq0 = water()
+            val wq = if (waterAB.brushFirst && (st.wet || st.thin || e.wetActive))
+                wq0.copy(substeps = schedule.whileDrawing(true, wq0.substeps)) else wq0
+            val input = frameInput(st, dryBatches)
+            w.lookHalo = haloOf(lookNow())
+            val rect = frameRect(st, input, padded = false)
+            when (MediaPin.decide(w.tx, w.ty, rect)) {
+                MediaPin.Decision.RUN_WHOLE -> runFrame(e, w, st, input, wq, last)
+                MediaPin.Decision.REFUSE -> refuse(st, MediaSafety.REFUSAL)
+            }
+            if (input.erase != null) st.eraseDabs.clear()
+            return
+        }
         // The window patch: a frame whose paint would fall off the window it is about to follow to is drawn in parts.
         // Every other frame runs exactly as before.
         if (w is MediaWindow && !legacyWindow) {
             val wq0 = water()
-            val wq = if (waterAB.brushFirst && (st.wet != null || st.thin != null || e.wetActive))
+            val wq = if (waterAB.brushFirst && (st.wet || st.thin || e.wetActive))
                 wq0.copy(substeps = schedule.whileDrawing(true, wq0.substeps)) else wq0
-            val input = FrameInput(batch, st.thin?.take(), st.paste?.take(), st.wet?.take(),
-                if (st.erase && st.eraseDabs.isNotEmpty()) eraseBatch(st.eraseDabs) else null)
+            val input = frameInput(st, dryBatches)
             // Clipped means dabs lost: the dabs' own boxes, not the reach around them (the water's spread and the smear
             // are clamped to the window as they always were; measuring them split most topScribble frames on the Note 9).
             val dabs = frameRect(st, input, padded = false)
@@ -567,12 +795,38 @@ class MediaCanvas(
         // Every input of this frame, taken before any pass runs, so the atlas can admit the whole frame first (B3).
         // Option A (brush first): while the pen is down the water runs one step a frame; the rest is paid back after.
         val wq0 = water()
-        val wq = if (waterAB.brushFirst && (st.wet != null || st.thin != null || e.wetActive))
+        val wq = if (waterAB.brushFirst && (st.wet || st.thin || e.wetActive))
             wq0.copy(substeps = schedule.whileDrawing(true, wq0.substeps)) else wq0
-        val input = FrameInput(batch, st.thin?.take(), st.paste?.take(), st.wet?.take(),
-            if (st.erase && st.eraseDabs.isNotEmpty()) eraseBatch(st.eraseDabs) else null)
+        val input = frameInput(st, dryBatches)
         runFrame(e, w, st, input, wq, last)
         if (input.erase != null) st.eraseDabs.clear()
+    }
+
+    /** One frame's inputs: the lanes' dabs, merged where the water runs and kept apart where it does not. */
+    private fun frameInput(st: Stroke, dryBatches: List<DabBatch>): FrameInput = FrameInput(
+        dry = dryBatches,
+        thin = DabBatch.merge(st.lanes.mapNotNull { it.thin?.take() }),
+        paste = st.lanes.flatMap { it.paste?.take() ?: emptyList<PasteStep>() }.ifEmpty { null },
+        wet = DabBatch.merge(st.lanes.mapNotNull { it.wet?.take() }),
+        erase = if (st.erase && st.eraseDabs.isNotEmpty()) eraseBatch(st.eraseDabs) else null,
+    )
+
+    /** The dirty boxes of every batch, as one box: null when there is nothing. */
+    private fun unionDirty(batches: List<DabBatch>): DoubleArray? {
+        var out: DoubleArray? = null
+        for (b in batches) {
+            val d = b.dirty ?: continue
+            out = if (out == null) d.copyOf() else doubleArrayOf(
+                minOf(out[0], d[0]), minOf(out[1], d[1]), maxOf(out[2], d[2]), maxOf(out[3], d[3]))
+        }
+        return out
+    }
+
+    /** The stroke is REFUSED, once, in words: nothing more of it is painted. */
+    private fun refuse(st: Stroke, why: String) {
+        if (st.refused) return
+        st.refused = true
+        pendingRefusal = why
     }
 
     /**
@@ -619,7 +873,7 @@ class MediaCanvas(
             r = if (a == null) doubleArrayOf(d[0] - pad, d[1] - pad, d[2] + pad, d[3] + pad)
             else doubleArrayOf(minOf(a[0], d[0] - pad), minOf(a[1], d[1] - pad), maxOf(a[2], d[2] + pad), maxOf(a[3], d[3] + pad))
         }
-        input.dry?.takeIf { it.count > 0 }?.let { add(it.dirty, st.mat!!.smearMm * DOC_PX_PER_MM + 4) }
+        for (b in input.dry) if (b.count > 0) add(b.dirty, st.mat!!.smearMm * DOC_PX_PER_MM + 4)
         // The water's input: dabs + 48 (MediaLayerEngine.wetFrame), and the brush's own reach as the window always kept it.
         val wetPad = maxOf(48.0, st.reachPx) + 4
         input.thin?.takeIf { it.count > 0 }?.let { add(it.dirty, wetPad) }
@@ -632,10 +886,16 @@ class MediaCanvas(
         return r
     }
 
-    /** One frame's inputs, in pen order within each medium. */
-    private class FrameInput(val dry: DabBatch?, val thin: DabBatch?, val paste: List<PasteStep>?, val wet: DabBatch?, val erase: DabBatch?) {
+    /**
+     * One frame's inputs, in pen order within each medium.
+     *
+     * The dry family keeps ONE batch per lane (each lane's own travel, so the smear follows the
+     * lane's own stroke); the wet family and the thinner are MERGED into one batch, so that every
+     * copy's water is one water field and the water runs once a frame.
+     */
+    private class FrameInput(val dry: List<DabBatch>, val thin: DabBatch?, val paste: List<PasteStep>?, val wet: DabBatch?, val erase: DabBatch?) {
         private fun n(b: DabBatch?) = b?.count ?: 0
-        val units get() = maxOf(n(dry), n(thin), paste?.size ?: 0, n(wet), n(erase))
+        val units get() = maxOf(dry.sumOf { it.count }, n(thin), paste?.size ?: 0, n(wet), n(erase))
 
         /**
          * The first and second halves of every input, in pen order (Media Atlas v2 B3 step 6, the Lead's D3): what a faster
@@ -643,15 +903,18 @@ class MediaCanvas(
          */
         fun halves(): Pair<FrameInput, FrameInput>? {
             if (units < 2) return null
-            fun cut(b: DabBatch?): Pair<DabBatch?, DabBatch?>? {
-                if (b == null) return null to null
+            fun cut(b: DabBatch?): Pair<DabBatch, DabBatch>? {
+                if (b == null) return null
                 val m = (b.count + 1) / 2
-                return (b.slice(0, m) ?: return null) to (b.slice(m, b.count) ?: return null)
+                val first = b.slice(0, m) ?: return null
+                val second = b.slice(m, b.count) ?: return null
+                return first to second
             }
-            val d = cut(dry) ?: return null; val t = cut(thin) ?: return null; val w = cut(wet) ?: return null; val r = cut(erase) ?: return null
+            val d = dry.map { cut(it) ?: return null }
+            val t = cut(thin) ?: return null; val w = cut(wet) ?: return null; val r = cut(erase) ?: return null
             val pm = ((paste?.size ?: 0) + 1) / 2
-            return FrameInput(d.first, t.first, paste?.subList(0, pm), w.first, r.first) to
-                FrameInput(d.second, t.second, paste?.subList(pm, paste.size), w.second, r.second)
+            return FrameInput(d.map { it.first }, t.first, paste?.subList(0, pm), w.first, r.first) to
+                FrameInput(d.map { it.second }, t.second, paste?.subList(pm, paste.size), w.second, r.second)
         }
     }
 
@@ -677,11 +940,14 @@ class MediaCanvas(
         val timing = stats?.takeIf { it.recording }
         if (timing != null) android.opengl.GLES30.glFinish()
         val t0 = System.nanoTime()
-        if (batch != null && batch.count > 0) {
-            val lastDab = (batch.count - 1) * DabBatch.FLOATS
-            e.dryFrame(batch, batch.dabs[lastDab + 16].toDouble(), batch.dabs[lastDab + 17].toDouble(), paper, st.mat!!, DOC_PX_PER_MM)
+        // The dry family: one pass per lane, each with its OWN travel, so the smear follows the
+        // lane's own stroke and not the original's.
+        for (b in batch) {
+            if (b.count <= 0) continue
+            val lastDab = (b.count - 1) * DabBatch.FLOATS
+            e.dryFrame(b, b.dabs[lastDab + 16].toDouble(), b.dabs[lastDab + 17].toDouble(), paper, st.mat!!, DOC_PX_PER_MM)
         }
-        if (st.thin != null) e.wetFrame(thin, paper, DOC_PX_PER_MM, wq)
+        if (st.thin) e.wetFrame(thin, paper, DOC_PX_PER_MM, wq)
         if (steps != null && steps.isNotEmpty()) {
             mediaTrace("JB.media.paste.frame") {
                 for (step in steps) e.pasteStep(step, st.brush!!, paper, DOC_PX_PER_MM, st.seed)
@@ -689,10 +955,10 @@ class MediaCanvas(
             }
             MediaPhases.timer?.invoke("paste.steps (count)", steps.size.toDouble())
         }
-        if (st.wet != null) e.wetFrame(wetIn, paper, DOC_PX_PER_MM, wq)
+        if (st.wet) e.wetFrame(wetIn, paper, DOC_PX_PER_MM, wq)
         if (eraseIn != null) e.eraseFrame(eraseIn, existingStores(st.layerId, w))
         // Water that is already running in the window keeps running under a dry or paste stroke.
-        if (st.wet == null && st.thin == null && e.wetActive) e.wetFrame(null, paper, DOC_PX_PER_MM, wq)
+        if (!st.wet && !st.thin && e.wetActive) e.wetFrame(null, paper, DOC_PX_PER_MM, wq)
         if (timing != null) android.opengl.GLES30.glFinish()
         val t1 = System.nanoTime()
         w.flush(stores = last || legacyWindow)
@@ -707,17 +973,17 @@ class MediaCanvas(
      * Media Atlas v2 B3: what this frame's passes will ask the atlas for, computed by the passes' own code
      * ([MediaLayerEngine.dryNeed] and the rest), so [MediaAtlas.admit] can hold all of it before the first one draws.
      */
-    private fun frameNeeds(e: MediaLayerEngine, st: Stroke, dry: DabBatch?, thin: DabBatch?, steps: List<PasteStep>?, wetIn: DabBatch?,
+    private fun frameNeeds(e: MediaLayerEngine, st: Stroke, dry: List<DabBatch>, thin: DabBatch?, steps: List<PasteStep>?, wetIn: DabBatch?,
                            eraseIn: DabBatch?, wq: WetConstants): List<MediaLayerEngine.Need> {
         val out = ArrayList<MediaLayerEngine.Need>()
-        if (dry != null && dry.count > 0) e.dryNeed(dry, st.mat!!, DOC_PX_PER_MM)?.let(out::add)
+        for (b in dry) if (b.count > 0) e.dryNeed(b, st.mat!!, DOC_PX_PER_MM)?.let(out::add)
         steps?.forEach { step -> e.pasteNeed(step, st.brush!!, DOC_PX_PER_MM)?.let(out::add) }
         if (eraseIn != null) e.eraseNeed(eraseIn)?.let(out::add)
         // The water frames in the order run() makes them (the same batches, or none while water already runs).
         val water = ArrayList<DabBatch?>()
-        if (st.thin != null) water += thin
-        if (st.wet != null) water += wetIn
-        if (st.wet == null && st.thin == null && e.wetActive) water += null
+        if (st.thin) water += thin
+        if (st.wet) water += wetIn
+        if (!st.wet && !st.thin && e.wetActive) water += null
         if (water.isNotEmpty()) e.wetNeed(water, DOC_PX_PER_MM, wq.substeps)?.let(out::add)
         out += e.wetInputNeeds(water)
         return out
@@ -745,13 +1011,18 @@ class MediaCanvas(
         return MediaStores.ALL.filter { st -> keys.any { paint.mediaTile(layerId, st, it, w.plane) != null } }.toSet()
     }
 
-    /** How far from the pen the tool reaches, in document px: the window keeps that much room around it. */
-    private fun reachPx(spec: MediaSpec): Double = spec.referenceMm * DOC_PX_PER_MM * when (spec.medium) {
-        MEDIUM_DRY -> 12.0    // a pencil laid flat reaches its side (side2), many point-widths from the tip
-        else -> 1.0
-    }
-
     private fun rgb(argb: Int) = doubleArrayOf(((argb shr 16) and 0xFF) / 255.0, ((argb shr 8) and 0xFF) / 255.0, (argb and 0xFF) / 255.0)
+
+    companion object {
+        /**
+         * How far from the pen the tool reaches, in document px: the window keeps that much room around it, and the
+         * symmetry's safe zone keeps it around the symmetry centre.
+         *
+         * It is the brush's own reach at its own size ([MediaSpec.reachDocPx]): 264 doc px for the media pencils,
+         * 90 for the watercolour, 120 for the oil and 440 for the palette knife.
+         */
+        fun reachPx(spec: MediaSpec): Double = spec.reachDocPx()
+    }
 }
 
 /** Frames between the water measurements Option S reads in a window (the atlas measures every 8 frames for its own rules). */

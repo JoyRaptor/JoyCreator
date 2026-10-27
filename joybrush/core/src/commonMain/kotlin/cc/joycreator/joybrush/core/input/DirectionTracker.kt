@@ -29,23 +29,53 @@ import kotlin.math.sin
  *
  * Round tips ignore rotation entirely (Expresii's developer removed twist from round brushes because
  * it made them worse); that choice belongs to the brush, not to this tracker.
+ *
+ * ## The heading it STARTS at
+ *
+ * [initialDirection] is the heading the tracker holds until the pen has moved at least [minStep]
+ * — or has leaned, which answers the direction outright — and it is the heading a [reset] goes
+ * back to as well, not to +x.
+ *
+ * It is a parameter because a symmetry COPY needs one. A copy's lane is fed the pen's samples
+ * already transformed into the copy's frame, so every direction the tracker finds there is
+ * already the COPY's — but the heading it STARTS at would still be the ORIGINAL's, and a copy's
+ * first dabs would point the wrong way: by 2φ' for a reflection and by θ for a rotation. The
+ * number to seed it with is `AngleFrame.transformedDefaultHeading`, which is the copy's own
+ * geometry turned into a heading.
+ *
+ * The seed is a STARTING point, not a lock: the first real movement seeds the direction outright,
+ * exactly as it always did, and the pen's own travel takes over from there.
+ *
+ * The heading is held as a VECTOR, so the answer is a direction and not a number on a dial: a seed
+ * outside -PI..PI comes back as the same direction inside it (a mirror about the y-axis is 2φ' =
+ * PI, and the tracker says -PI). Both point the same way.
+ *
+ * The default is 0 — +x — which is what every ordinary stroke wants and what this tracker did
+ * before the seed existed.
  */
 class DirectionTracker(
     var lengthScale: Float = 6f,
     var tiltThreshold: Float = 0.17f, // ≈ 10°
     var minStep: Float = 0.25f,
+    /**
+     * The heading the tracker holds before the pen has moved far enough for it to find a
+     * direction of its own, in RADIANS — 0 is +x. It is also what [reset] restores.
+     */
+    val initialDirection: Float = 0f,
 ) {
+    private val initialDx = cos(initialDirection.toDouble())
+    private val initialDy = sin(initialDirection.toDouble())
     private var hasPos = false
     private var lastX = 0f
     private var lastY = 0f
     private var hasDir = false
-    private var dx = 1.0
-    private var dy = 0.0
+    private var dx = initialDx
+    private var dy = initialDy
 
     fun reset() {
         hasPos = false
         hasDir = false
-        dx = 1.0; dy = 0.0
+        dx = initialDx; dy = initialDy
     }
 
     /** Feeds one (already smoothed) sample and returns the tip direction in radians, -PI..PI. */

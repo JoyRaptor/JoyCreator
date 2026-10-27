@@ -75,6 +75,55 @@ class DirectionTrackerTest {
         assertEquals(a, b)
     }
 
+    // ── the seeded heading: where a symmetry copy's tracker STARTS ─────────────────────────────────
+
+    /**
+     * A copy's lane is fed the pen's samples already transformed into the copy's frame, so every
+     * direction the tracker FINDS there is the copy's. The heading it STARTS with was the
+     * original's — plain +x — and a copy's first dabs pointed the wrong way: by 2φ' for a
+     * reflection and by θ for a rotation.
+     *
+     * The seed is a STARTING point and not a lock: the first real movement seeds the direction
+     * outright, exactly as it always did.
+     */
+    @Test
+    fun aSeededTrackerPointsWhereItWasSeededUntilThePenMoves() {
+        val seeded = 1.0f
+        val d = DirectionTracker(initialDirection = seeded)
+        // At rest: the seed is the answer.
+        assertEquals(seeded, d.update(PenSample(0f, 0f, 0.0)), 1e-6f)
+        // A movement smaller than minStep is not a movement, so the seed still stands.
+        assertEquals(seeded, d.update(PenSample(0.1f, 0f, 4.0)), 1e-6f)
+        // A real movement takes over: the travel direction wins and the seed is gone.
+        val after = d.update(PenSample(10f, 0f, 8.0))
+        assertTrue(angleDiff(after, 0f) < 1e-6f, "the travel direction should have won, got $after")
+    }
+
+    /**
+     * A reset puts the tracker back where it was seeded — the seed is a property of the TRACKER,
+     * not of the stroke that happened to use it — and not back to +x.
+     */
+    @Test
+    fun resetPutsTheSeededHeadingBackAndNotPlusX() {
+        val seeded = 1.0f
+        val d = DirectionTracker(initialDirection = seeded)
+        d.update(PenSample(0f, 0f, 0.0))
+        d.update(PenSample(10f, 0f, 4.0)) // a real movement: the heading is now +x
+        assertEquals(0f, d.update(PenSample(20f, 0f, 8.0)), 1e-6f)
+        d.reset()
+        assertEquals(seeded, d.update(PenSample(0f, 0f, 12.0)), 1e-6f, "the reset lost the seed")
+    }
+
+    /** And the default is unchanged: no seed is +x, before the pen has moved and after a reset. */
+    @Test
+    fun theDefaultTrackerStillStartsAlongPlusX() {
+        val d = DirectionTracker()
+        assertEquals(0f, d.update(PenSample(0f, 0f, 0.0)), 1e-7f)
+        d.update(PenSample(10f, 0f, 4.0))
+        d.reset()
+        assertEquals(0f, d.update(PenSample(0f, 0f, 8.0)), 1e-7f)
+    }
+
     // ── review JB-0.01 F4: a broken reading must fall back, not turn NaN on ──────────────────────
 
     /**

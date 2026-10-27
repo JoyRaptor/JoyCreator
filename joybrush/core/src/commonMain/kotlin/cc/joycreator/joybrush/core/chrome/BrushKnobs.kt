@@ -365,6 +365,10 @@ object BrushKnobs {
             paste("hairDepth", "Bristle marks", "How deep the bristles comb grooves into the paint.", 0.0, 1.0, "%", { it.hairDepth }, { x, v -> x.copy(hairDepth = v) }),
             paste("scrape", "Scrape", "How much the brush scrapes paint aside rather than laying it.", 0.0, 1.0, "%", { it.scrape }, { x, v -> x.copy(scrape = v) }),
             paste("bow", "Bend", "How far the bristles bow under pressure.", 0.0, 1.0, "%", { it.bow }, { x, v -> x.copy(bow = v) }),
+            // Hair brushes only (owner, 2026-10-27): a trowel's steps and the blades carry no lean or curve.
+            paste("force", "Leans", "The side you lean the pen toward presses hardest, picking up and laying down the most; a flat " +
+                "brush presses hardest in its middle; round a curve, paint piles up on the outside. 0 = every hair presses the same.",
+                0.0, 1.0, "%", { it.force }, { x, v -> x.copy(force = v) }),
         )
         return listOf(
             paste("widthMm", "Width", "How wide the brush is.", 1.0, 20.0, " mm", { it.widthMm }, { x, v -> x.copy(widthMm = v) }),

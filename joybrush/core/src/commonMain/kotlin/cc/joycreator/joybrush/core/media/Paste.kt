@@ -3,6 +3,7 @@ package cc.joycreator.joybrush.core.media
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlin.math.PI
+import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.exp
 import kotlin.math.hypot
@@ -79,6 +80,13 @@ const val PASTE_DEPTH = 8
     /** 0..1 (the dirty brush): the hairs that touch hold little and the belly feeds them, so picked-up colour is laid back
      *  within a few centimetres (u_carry; the loading tray fills to [pasteRowShare]). 0 = as before. */
     val carry: Double = 0.0,
+    /**
+     * 0..1 (owner, 2026-10-27: "direction and tilt force play a pretty sophisticated cross-interaction"): how unevenly the
+     * hairs press across the brush. The side the pen leans toward presses hardest, so it picks up and lays down the most;
+     * a flat brush presses hardest in its middle; on a curve the outside presses hardest and paint piles up there
+     * (jb_paste.glsl u_force, u_lean, u_curve). 0 = every hair at the pen's pressure, as before.
+     */
+    val force: Double = 0.0,
 ) {
     /** Whether this brush paints a loaded brush's ends ([EndsMode]); a rigid blade keeps its sharp edge. */
     val loadedEnds: Boolean get() = !blade && ends != EndsMode.CUT
@@ -160,6 +168,9 @@ data class PasteStep(
     // Hair brushes and the trowel: how far the pen has eased off its press (0..1), and 1 at touchdown fading to 0 over about
     // the brush's width of travel (jb_paste.glsl u_lift, u_land; read only with [PasteBrush.loadedEnds]).
     val lift: Double = 0.0, val land: Double = 0.0,
+    // Hair brushes with [PasteBrush.force]: which side of the brush presses harder, along +w (-1..1). [lean]: the side the
+    // pen leans toward, by how far it is tilted. [curve]: the outside of the curve the stroke is bending round.
+    val lean: Double = 0.0, val curve: Double = 0.0,
 )
 
 /**
@@ -190,6 +201,7 @@ class PasteStroke(
     private var travelled = 0.0   // mm since touchdown: the hairs can only trail over the path already drawn
     private var lastStepT = 0.0
     private var peak = 0.0        // the pressure the brush was last pressed to (relaxing over ~12 mm): lifting off is easing below it
+    private var bend = 0.0        // signed turn of the hairs' line, radians per mm, smoothed over a few mm (+ = toward +w)
 
     /**
      * The hops times this (1 = the shipped 0.3 mm). A phone that falls behind the pen widens them, up to 2x ([PasteSpacing]) but only where the stroke runs straight, each
@@ -225,6 +237,13 @@ class PasteStroke(
             if (hasDir) {
                 val k = 1 - exp(-(len / pxPerMm) / 1.5)
                 val n = norm2(dirX * (1 - k) + tx * k, dirY * (1 - k) + ty * k)
+                if (b.force > 0.0) {
+                    // How fast the line turns: + toward the brush's +w side (w = the line turned a quarter clockwise).
+                    val turn = atan2(dirX * n[1] - dirY * n[0], dirX * n[0] + dirY * n[1])
+                    val mm = len / pxPerMm
+                    val j = 1 - exp(-mm / 3.0)
+                    bend += (-turn / max(mm, 1e-3) - bend) * j
+                }
                 dirX = n[0]; dirY = n[1]
             } else { dirX = tx; dirY = ty; hasDir = true }
         }
@@ -322,8 +341,16 @@ class PasteStroke(
         val lenMax = max(minLen, b.lenMm * 1.4)
         val len = min(lenMax, max(minLen, min(lenFull, minLen + 0.8 * tr)))
         val th = (thick ?: b.thickMm) * body
+        // Uneven pressure across the brush (PasteBrush.force): the side the handle leans toward, by how far it leans, and the
+        // outside of a curve, by how tightly it turns for this brush's width (a turn of one radian per brush width is full).
+        var lean = 0.0
+        var curve = 0.0
+        if (b.force > 0.0) {
+            lean = (cos(s.az) * wX + sin(s.az) * wY) * tiltFrac
+            curve = -max(-1.0, min(1.0, bend * 2 * halfW))
+        }
         steps.add(PasteStep(s.x, s.y, wX, wY, lX, lY, halfW, len, lenMax, p, slideMm, fingers = fingers,
-            thick = if (thick != null || body != 1.0) th else null, lift = lift, land = land))
+            thick = if (thick != null || body != 1.0) th else null, lift = lift, land = land, lean = lean, curve = curve))
     }
 
     fun take(): List<PasteStep> = ArrayList(steps).also { steps.clear() }

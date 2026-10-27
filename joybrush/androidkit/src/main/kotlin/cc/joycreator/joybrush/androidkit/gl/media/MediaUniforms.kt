@@ -88,6 +88,8 @@ internal object MediaUniforms {
         u.f1("u_ends", if (b.loadedEnds) 1 else 0); u.f1("u_lift", st.lift); u.f1("u_land", st.land)
         // Covers (new colour over wet paint) and carry (the dirty brush); a blade has neither.
         u.f1("u_cover", if (b.blade) 0.0 else b.cover); u.f1("u_carry", if (b.blade) 0.0 else b.carry)
+        // Uneven pressure across a hair brush (PasteBrush.force): the lean and the curve, from the step.
+        u.f1("u_force", if (b.blade) 0.0 else b.force); u.f1("u_lean", st.lean); u.f1("u_curve", st.curve)
         u.f1("u_blade", if (b.blade) 1 else 0); u.f1("u_fillDips", b.fillDips ?: 1.0); u.f1("u_bladeLoad", if (st.loadMode) 1 else 0)
         u.f2("u_bladeDir", st.bladeDirX, st.bladeDirY); u.f2("u_travel", st.travelX, st.travelY)
         // (not takeIf: its generic receiver would box a Double on every call)

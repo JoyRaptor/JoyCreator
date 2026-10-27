@@ -85,6 +85,7 @@ void main() {
     float b = dot(rel, u_lDir);
     float px = 1.0 / (u_pxPerMm * u_layerScale);   // one LAYER px, in mm
     u_hairLen = jb_vnoise1((a + 1.0) * 8.0, uint(u_seed) + 41u);
+    jb_press = jb_pasteForce(a);
     if (u_ends > 0.5) jb_tip = jb_pasteTip(a);
     float cover = jb_pasteCover(a, b, px / max(jb_pasteHalfW(), 1e-3), px);
     if (cover <= 0.0) return;

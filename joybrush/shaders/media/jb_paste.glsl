@@ -65,6 +65,12 @@ uniform float u_bladePressMm;   // a firm blade presses into the weave (the canv
 uniform float u_bladeFilm;      // mm: paint is sticky; a scraped surface keeps a thin stain
 uniform float u_bladeLoad;      // 1: pressure is the load (a light touch only catches what stands high)
 float u_hairLen = 1.0;          // set per fragment before jb_pasteCover (how long this run of hair is)
+// Uneven pressure across a hair brush (owner, 2026-10-27; PasteBrush.force): 0 = every hair at u_pressure, as before.
+uniform float u_force;
+uniform float u_lean;           // -1..1 along u_wDir: the side the pen leans toward, by how far it is tilted (PasteStep.lean)
+uniform float u_curve;          // -1..1 along u_wDir: the outside of the curve the stroke bends round (PasteStep.curve)
+// This fragment's run of hair's press (jb_pasteForce), set once by each pass right after u_hairLen.
+float jb_press = 0.0;
 uniform float u_seed;
 
 const float JB_LANES = 32.0;
@@ -112,6 +118,15 @@ float jb_pasteRag(vec2 docPx) {
 // A run of hair's own length and strength (0 short and weak .. 1 long and strong): clumps plus single hairs, fixed
 // to the brush (lane a), so the same hairs land last, lift last and leave the longest streaks.
 float jb_pasteTip(float a) { return 0.6 * u_hairLen + 0.4 * jb_vnoise1((a + 1.0) * 27.0, uint(u_seed) + 43u); }
+// How hard the hairs at lane a (-1..1 across) press: the pen's pressure, more on the side it leans toward and on the outside
+// of a curve; a flat brush presses hardest in its middle (it carries most from there), a round one follows the lean. The
+// average across the brush stays the pen's pressure.
+float jb_pasteForce(float a) {
+    if (u_force <= 0.0 || u_shape > 1.5) return u_pressure;
+    float flat = u_shape > 0.5 ? 1.0 : 0.0;
+    float side = clamp(u_lean * (1.0 - 0.6 * flat) + u_curve, -1.0, 1.0);
+    return clamp(u_pressure * (1.0 + u_force * (0.8 * side * a + 0.9 * flat * (1.0 / 3.0 - a * a))), 0.0, 1.0);
+}
 // This fragment's run of hair (jb_pasteTip), set once by each pass right after u_hairLen when u_ends is on (it was
 // worked out three times a pixel: +20-30 % paste time a step on the Note 9, 10-25 A/B).
 float jb_tip = 0.5;
@@ -162,12 +177,12 @@ float jb_pasteCover(float a, float b, float aaA, float aaB) {
     // Spread hairs (a fan): only some runs of hair touch; the gaps close a little as pressure squashes them.
     if (u_sparse > 0.0) {
         float hairRun = jb_vnoise1((a + 1.0) * 16.0, uint(u_seed) + 71u);
-        side *= smoothstep(u_sparse * (0.75 - 0.35 * u_pressure) - 0.08, u_sparse * (0.75 - 0.35 * u_pressure) + 0.08, hairRun);
+        side *= smoothstep(u_sparse * (0.75 - 0.35 * jb_press) - 0.08, u_sparse * (0.75 - 0.35 * jb_press) + 0.08, hairRun);
     }
     // Hairs are not all one length: as the brush lifts, the shorter ones leave the canvas first, so a light
     // or lifting stroke breaks into separate fingers of paint.
     if (u_shape < 1.5 && u_fingers > 0.0) {
-        float thr = ((1.0 - u_pressure) * 0.85 - 0.12) * u_fingers;
+        float thr = ((1.0 - jb_press) * 0.85 - 0.12) * u_fingers;
         side *= smoothstep(thr - 0.06, thr + 0.06, u_hairLen);
     }
     // Lifting off, the weak and short runs leave the canvas first, one after another (any hair brush, whatever its fingers);
@@ -203,7 +218,9 @@ float jb_pasteHair(float a, vec2 docPx) {
 // on thick and the weave disappears under it.
 float jb_pasteTarget(float a, float load, float hair, float b, float valleyMm, vec2 docPx) {
     float fill = clamp(load / max(jb_cap, 1e-6), 0.0, 1.0);
-    float t = u_thick * fill * (1.0 - u_scrape * pow(u_pressure, 0.6));
+    float t = u_thick * fill * (1.0 - u_scrape * pow(jb_press, 0.6));
+    // On a curve the hairs on the outside push the paint before them: it piles up there (u_force).
+    t *= 1.0 + 0.5 * u_force * max(u_curve * a, 0.0);
     t *= 1.0 + u_hairDepth * (hair - 0.5) * 2.0;
     t *= 1.0 + u_ridge * smoothstep(0.7, 1.0, abs(a));
     t *= 1.0 + u_bow * fill * smoothstep(0.3 * u_len, 0.0, b);
@@ -223,7 +240,7 @@ float jb_pasteTarget(float a, float load, float hair, float b, float valleyMm, v
 // brush's paint flows in. Lifting off (u_ends), the brush only grazes the high points: a dry, scratchy end, in streaks.
 // Shared by the canvas pass and the brush pass (they must agree on what is touched).
 float jb_pasteGive(float fillLoad) {
-    float give = u_pressure * mix(0.12, 0.25, u_fillDips) + fillLoad * mix(0.3, 2.0 * u_thick + 0.2, u_fillDips);
+    float give = jb_press * mix(0.12, 0.25, u_fillDips) + fillLoad * mix(0.3, 2.0 * u_thick + 0.2, u_fillDips);
     return u_ends > 0.5 && u_shape < 1.5 ? give * (1.0 - 0.6 * u_lift) : give;
 }
 float jb_pasteGraze(float hair) { return 0.06 * (1.0 - hair); }
@@ -245,7 +262,7 @@ float jb_pasteDry(float tip, float relief, float rise, float toothMm) {
 // passes call it with what they read of the canvas, so the brush loses what the canvas gains.
 float jb_pasteRide(float target, float t, float open, float fillLoad) {
     if (u_cover <= 0.0) return target;
-    float ride = u_cover * open * fillLoad * (1.0 - smoothstep(0.35, 1.0, u_pressure)) * (1.0 - smoothstep(1.5 * u_thick, 3.0 * u_thick, t));
+    float ride = u_cover * open * fillLoad * (1.0 - smoothstep(0.35, 1.0, jb_press)) * (1.0 - smoothstep(1.5 * u_thick, 3.0 * u_thick, t));
     return max(target, mix(target, t + 0.4 * u_thick * fillLoad, ride));
 }
 // The share of a pixel's colour that a new coat of paint takes: by volume (stirred in), or, with u_cover, what an opaque

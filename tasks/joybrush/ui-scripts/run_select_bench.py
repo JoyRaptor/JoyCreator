@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
 import os
@@ -10,6 +11,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import threading
 import time
 import uuid
 import xml.etree.ElementTree as ET
@@ -149,15 +151,32 @@ class Adb:
         if not serial or not re.fullmatch(r"[A-Za-z0-9_.:-]+", serial):
             raise RunError("Missing or invalid private SANDBOX_SERIAL.")
         self.serial = serial
+        self.trace_path = None
+        self.trace_lock = threading.Lock()
 
     def call(self, *args, binary=False, timeout=12):
+        operation = str(args[0]) if args else "unknown"
+        if operation in ("shell", "exec-out") and len(args) > 1:
+            operation += " " + str(args[1]).split()[0]
+        started = time.monotonic()
+        outcome = "error"
         try:
-            result = subprocess.run(["adb", "-s", self.serial, *args], capture_output=True, timeout=timeout)
-        except (OSError, subprocess.TimeoutExpired):
-            raise RunError("ADB unavailable or timed out (device identity withheld).") from None
-        if result.returncode:
-            raise RunError("ADB operation failed (device identity withheld).")
-        return result.stdout if binary else result.stdout.decode("utf-8").replace("\r", "").strip()
+            try:
+                result = subprocess.run(["adb", "-s", self.serial, *args], capture_output=True, timeout=timeout)
+            except (OSError, subprocess.TimeoutExpired):
+                outcome = "unavailable-or-timeout"
+                raise RunError(f"ADB {operation} unavailable or timed out (device identity withheld).") from None
+            if result.returncode:
+                raise RunError(f"ADB {operation} failed (device identity withheld).")
+            outcome = "ok"
+            return result.stdout if binary else result.stdout.decode("utf-8").replace("\r", "").strip()
+        finally:
+            if self.trace_path is not None:
+                row = dict(operation=operation, elapsedSeconds=round(time.monotonic() - started, 4),
+                           deadlineSeconds=timeout, outcome=outcome)
+                with self.trace_lock:
+                    with self.trace_path.open("a", encoding="utf-8") as trace:
+                        trace.write(json.dumps(row, separators=(",", ":")) + "\n")
 
     def installed_hash(self):
         paths = self.call("shell", "pm", "path", PACKAGE).splitlines()
@@ -202,9 +221,12 @@ def run(out: Path, lane: str, receipt: Path, case: str = "select"):
     manifest = HERE / CASES[case]
     expected_shots = set(read_json(manifest, 262144)["screenshots"])
     adb = Adb(os.environ.get("SANDBOX_SERIAL", ""))
+    adb.trace_path = out / "adb-calls.jsonl"
     claim = PhoneClaim(Path(os.environ["LOCALAPPDATA"]) / "Temp" / "jb-phone.lock", lane, run_id)
     launched = False
     completed = False
+    launch_pool = None
+    launch_future = None
     claim.acquire()
     try:
         model, api = adb.ready()
@@ -222,15 +244,20 @@ def run(out: Path, lane: str, receipt: Path, case: str = "select"):
         (out / "build.json").write_text(json.dumps(build, indent=2) + "\n", encoding="utf-8")
         # Interrupted am start may still launch: retain the claim until terminal evidence exists.
         launched = True
-        launch = adb.call("shell", "am", "start", "-n", ACTIVITY, "--es", "jb_bench", case, "--es", "jb_select_run_id", run_id)
-        if "Error:" in launch or "Exception" in launch:
-            raise RunError("Bench launch not confirmed; claim retained for inspection.")
+        # Activity creation can outlast the first screenshot's ACK window. Consume logs/ACKs
+        # while am start is pending; extending a blocking launch timeout still starves that ACK.
+        launch_pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="select-bench-launch")
+        launch_future = launch_pool.submit(adb.call, "shell", "am", "start", "-n", ACTIVITY,
+            "--es", "jb_bench", case, "--es", "jb_select_run_id", run_id, timeout=45)
         seen = {}
         shots = set()
         deadline = time.monotonic() + 240
         with (out / "results.jsonl").open("x", encoding="utf-8") as results:
             while not completed and time.monotonic() < deadline:
-                log = adb.call("logcat", "-d", "-v", "raw", "-s", "JoyBrushPerf:I", timeout=8)
+                # Bound the scan of the phone's historical buffer. Reading all history can
+                # stall beyond the ACK window even when the current app is responsive.
+                # Sequence checks still reject an event lost from this finite tail.
+                log = adb.call("logcat", "-b", "main", "-d", "-t", "4096", "-v", "raw", "-s", "JoyBrushPerf:I", timeout=8)
                 for line in log.splitlines():
                     if not line.startswith("{"):
                         continue
@@ -283,10 +310,19 @@ def run(out: Path, lane: str, receipt: Path, case: str = "select"):
                             os.fsync(journal.fileno())
                     elif row.get("selectBenchDone") is True:
                         completed = True
+                if launch_future.done():
+                    launch = launch_future.result()
+                    if "Error:" in launch or "Exception" in launch:
+                        raise RunError("Bench launch not confirmed; inspect terminal state before cleanup.")
                 if not completed:
                     time.sleep(.2)
         if not completed:
             raise RunError("Bench timed out; claim retained until running state is resolved.")
+        # One bounded launch attempt must close before releasing the phone, even if the
+        # matching bench terminal arrived first. Adb.call enforces its own 45-second bound.
+        launch = launch_future.result()
+        if "Error:" in launch or "Exception" in launch:
+            raise RunError("Bench launch did not report success, despite terminal evidence.")
         after_hash = adb.installed_hash()
         build["installedApkSha256After"] = after_hash
         (out / "build.json").write_text(json.dumps(build, indent=2) + "\n", encoding="utf-8")
@@ -303,6 +339,8 @@ def run(out: Path, lane: str, receipt: Path, case: str = "select"):
         validate(out, manifest, run_id)
         print(f"PASS: complete exact-artifact evidence in {out}")
     finally:
+        if launch_pool is not None:
+            launch_pool.shutdown(wait=True)
         if not launched or completed:
             if not claim.release():
                 print("Phone claim was not safely released; its identity/content or access changed. Inspect before cleanup.", file=sys.stderr)

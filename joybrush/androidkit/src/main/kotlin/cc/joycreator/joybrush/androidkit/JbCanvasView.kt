@@ -2829,6 +2829,27 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         }
     }
 
+    /** Atlas A2 (debug bench only): [preset]'s strokes in a roomy atlas and in [tight] slots with the park on (MediaAtlasLedgerProbe). */
+    fun runMediaAtlasLedgerProbe(preset: BrushPreset, tight: Pair<Int, Int>, parkUnits: Int, ready: (String) -> Unit) {
+        if (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) {
+            ready("{\"pass\":false,\"error\":\"Media atlas ledger probe is debug only\"}")
+            return
+        }
+        val paper = documentPaperState
+        val memory = {
+            val am = context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+            val info = android.app.ActivityManager.MemoryInfo()
+            am.getMemoryInfo(info)
+            info.availMem to info.threshold
+        }
+        onGl {
+            val report = try {
+                cc.joycreator.joybrush.androidkit.gl.media.MediaAtlasLedgerProbe.probe(paper, listOf(preset), memory, tight, parkUnits)
+            } catch (e: Throwable) { "{\"pass\":false,\"error\":" + org.json.JSONObject.quote(e.toString()) + "}" }
+            post { ready(report) }
+        }
+    }
+
     fun runMediaAtlasProbe(ready: (String) -> Unit) {
         if (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) {
             ready("{\"pass\":false,\"error\":\"Media atlas probe is debug only\"}")

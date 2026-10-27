@@ -125,6 +125,16 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
             }
             return
         }
+        if (case == "mediaAtlasLedgerProbe") {
+            // Atlas A2: the real park ledger, the same strokes in a roomy atlas and squeezed into 4 x 4 slots with the park on
+            // (MediaAtlasLedgerProbe); `jb_water_park_units` sets the park's size (24 if not given).
+            canvas.runMediaAtlasLedgerProbe(preset, 4 to 4, spec.parkUnits?.takeIf { it > 0 } ?: 24) { result ->
+                val report = try { org.json.JSONObject(result) } catch (e: Exception) { org.json.JSONObject().put("pass", false).put("raw", result) }
+                logRecordedReport(report.put("brush", preset.id).put("case", case).put("run", run), preset.id, case, run)
+                ui.postDelayed({ next() }, spec.settleMs)
+            }
+            return
+        }
         if (case == "mediaAtlasProbe") {
             // Media Atlas v2 B1: window vs atlas engines on this GPU, same frames, readback compare (MediaAtlasProbe).
             canvas.runMediaAtlasProbe { result ->

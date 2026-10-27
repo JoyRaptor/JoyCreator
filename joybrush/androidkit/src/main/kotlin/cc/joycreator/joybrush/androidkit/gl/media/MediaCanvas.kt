@@ -56,6 +56,10 @@ class MediaCanvas(
 ) {
     private var engine: MediaLayerEngine? = null
     private var window: MediaPlace? = null
+    /** Debug probe only (MediaAtlasLedgerProbe): the atlas's slot grid, columns x rows, instead of the phone's memory. */
+    internal var slotGrid: Pair<Int, Int>? = null
+    /** The atlas in use, if the engine places tiles freely (probe counters: parked tiles, admission misses, blocks). */
+    internal val atlas: MediaAtlas? get() = window as? MediaAtlas
     /** Why this GPU cannot do media, once found out: said again rather than retried every stroke. Read by the UI thread. */
     @Volatile var unsupported: String? = null
         private set
@@ -452,7 +456,7 @@ class MediaCanvas(
                 val perSlot = if (MediaLayerEngine.coarseWaterDefault) MediaAtlasPlacement.BYTES_PER_SLOT_COARSE else MediaAtlasPlacement.BYTES_PER_SLOT
                 val fresh = MediaAtlasPlacement.slotGrid(avail, perSlot)
                 val kept = lastGrid?.takeIf { (c, r) -> c * r > fresh.first * fresh.second && avail > 2L * c * r * perSlot }
-                val (cols, rows) = kept ?: fresh
+                val (cols, rows) = slotGrid ?: kept ?: fresh
                 lastGrid = cols to rows
                 android.util.Log.i("JoyBrushMediaMemory", "atlas $cols x $rows slots (available=$avail)")
                 made.init(cols * Tiles.SIZE, rows * Tiles.SIZE)

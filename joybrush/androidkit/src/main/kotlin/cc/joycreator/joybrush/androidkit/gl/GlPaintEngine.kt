@@ -6372,8 +6372,12 @@ class GlPaintEngine(
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
         }
         invalidateProjection(layer)
-        // The media wrote these tiles' look and payload together: they agree.
+        // The media wrote these tiles' look and payload together: they agree. A payload the media writes to a tile that has
+        // no agreement yet (a tile its reach touched but whose look it never redrew: still blank, or the pixels it took its
+        // ground from) agrees with the look it was made over. Left unagreed, the next load took it for a write that bypassed
+        // the funnel and dropped it: the owner's oil tiles that behaved differently from their neighbours (Note 9, 10-27).
         if (MEDIA_LOOK in stores) for (key in keys) agree(layerId, key, plane)
+        else for (key in keys) if (Triple(layerId, plane, key) !in agreedLook) agree(layerId, key, plane)
         if (stroke != null) {
             for ((i, c) in strokeRevived) { stroke[i] = c; mediaStrokeHeld.add(Triple(c.layerId, c.celId, c.key)) }
             stroke.addAll(fresh)

@@ -21,7 +21,8 @@ class FrameDuplicatePlanTest {
                 Layer("paint-b", "Paint B", LayerKind.PAINT, cels = listOf(Cel("shared-b"))),
             ),
         )
-        return RegionDocumentOps.create(base, "Walk", RectPx(-5, 9, 17, 23), ::ids).doc
+        // Both layers animated (clips C1 made the default only the active one); this file tests held changes on paint-a.
+        return RegionDocumentOps.create(base, "Walk", RectPx(-5, 9, 17, 23), ::ids, animate = null).doc
     }
 
     private fun board(doc: JbDocument) = doc.boards.single { it.kind == BoardKind.ANIMATION }

@@ -1198,7 +1198,7 @@ class GlPaintEngine(
                 val others=CelParts.reachable(meta,region.frameCel.filterKeys { it!=current }.values)
                 meta.cels.first { it.id==root }.parts.isNotEmpty() || CelParts.reachable(meta,listOf(root)).any { it in others }
             }
-            if(complex) { mergeComponentFrame(u,l,frameBoardId!!,sheetOp,flattenLower); return }
+            if(complex) { mergeComponentFrame(u,l,frameBoardId!!,sheetOp,flattenLower); return null }
         }
         val uPlane = linePlane(u, uCel); val lPlane = linePlane(l, lCel)
         val uTiles = planeTiles(u, uCel); val lTiles = planeTiles(l, lCel)

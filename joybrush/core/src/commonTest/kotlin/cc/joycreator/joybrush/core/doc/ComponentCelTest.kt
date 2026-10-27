@@ -30,7 +30,7 @@ class ComponentCelTest {
         assertEquals(first.planeAt(2,2).celId,third.planeAt(2,2).celId,"the character drawing is ONE physical cel in both composites")
         assertNotEquals(first.planeAt(12,2).celId,third.planeAt(12,2).celId,"the other drawing changes independently")
         assertTrue(DocOps.validate(d).isEmpty(),DocOps.validate(d).toString())
-        assertEquals(13,d.version)
+        assertEquals(DOC_VERSION,d.version)  // component links are v13; a save writes the current version (v14 tweens)
     }
     @Test fun deletingACompositeKeepsComponentsReferencedByOtherFrames() {
         val d=combined(); val b=d.boards.first { it.kind==BoardKind.ANIMATION }; val l=d.layers.single()

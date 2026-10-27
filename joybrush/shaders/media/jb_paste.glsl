@@ -40,6 +40,19 @@ uniform float u_fingers;        // 0..1: how much a lifting brush breaks into se
 uniform float u_rag;            // 0..1: how ragged the hair's edges are (a detail brush keeps clean edges)
 uniform float u_arc;            // flat brushes: how far the middle hairs lead the corners (× half-width); a fan is a deep arc
 uniform float u_sparse;         // 0..1: gaps between the hairs (a fan's hairs are spread apart)
+// Stroke ends (owner, 2026-10-23: "they start and stop like a razor-cut perfect line"). 0 = the clean-cut ends kept to
+// compare; 1 = a loaded brush: it lands with a blob, its hairs are not one length, and lifting off it runs dry and breaks.
+uniform float u_ends;
+uniform float u_lift;           // 0..1: how far the pen has eased off its press (pressure under its recent peak)
+uniform float u_land;           // 1 at touchdown, 0 once the brush has travelled about its own width
+// 0..1 (owner, 2026-10-23: "painting a different colour on top takes many dabs"): a loaded brush pressed lightly rides on
+// wet paint and lays its own on top, which then shows (an opaque coat hides what is under it). 0 = it sinks to a target
+// measured from the canvas and its paint stirs in by volume, as before.
+uniform float u_cover;
+// 0..1 (owner, 2026-10-23: the dirty brush): the hairs that touch hold little paint and are fed from the belly near the
+// ferrule, which holds most of the load, so what they pick up is laid back within a few centimetres, streaky and fading,
+// instead of tinting the whole load. 0 = every cell holds a full share and nothing flows but the slow wick, as before.
+uniform float u_carry;
 // Rigid blade (knife, scraper): held like the pen, so its edge lies along the pen's LEAN, not the path.
 uniform vec2 u_bladeDir;        // along the edge, from the point toward the handle (unit, doc space)
 uniform vec2 u_travel;          // direction of travel (unit)
@@ -56,6 +69,33 @@ uniform float u_seed;
 
 const float JB_LANES = 32.0;
 const float JB_DEPTH = 8.0;
+const float JB_LAND_RAG = 2.0;   // the landing's extra raggedness (PasteFootprint.LAND_RAG)
+const float JB_LAND_SPLAY = 0.14; // a firm landing splays the hairs this much wider (PasteFootprint.LAND_SPLAY)
+
+// How firmly the brush is landing (u_ends): 0 lightly or once it has travelled, 1 planted hard.
+float jb_pasteFirmLand() { return u_ends > 0.5 ? u_land * smoothstep(0.4, 0.9, u_pressure) : 0.0; }
+// The brush's half-width in play: planted hard, the hairs splay out (both passes map lanes through it).
+float jb_pasteHalfW() { return u_ends > 0.5 && u_shape < 1.5 ? u_halfW * (1.0 + JB_LAND_SPLAY * jb_pasteFirmLand()) : u_halfW; }
+const float JB_FEED = 0.25;
+const float JB_CATCH = 1.0;      // how much the tooth's face rising toward the travel counts against its height (jb_pasteDry)
+const float JB_HAIR_SHARE = 0.06;   // u_carry: what the hairs that touch hold, of a full cell
+const float JB_BELLY_SHARE = 5.6;   // ... and the belly near the ferrule on top of that (the load's average stays ~0.9)      // per step: how fast the belly refills a cell below it (u_carry), of that cell's shortfall
+
+// The share of a full cell (u_cellCap) a cell holds at this depth (0 tip .. 1 at the ferrule): with u_carry the hairs hold
+// 0.3 and the belly near the ferrule most of the load (the loading tray fills to this; PasteLoad.profile). 1 without.
+float jb_pasteProf(float depth) { return mix(1.0, JB_HAIR_SHARE + JB_BELLY_SHARE * smoothstep(0.7, 1.0, depth), u_carry); }
+// The full amount of the cell being read here (set per fragment: u_cellCap * jb_pasteProf(its depth)).
+float jb_cap = 1.0;
+// Paint seeping along the hair between neighbouring depth cells (u_carry): plain diffusion of how full each is (its amount
+// over what its depth holds), so a cell that has laid paint down draws from the fuller one next to it and an overfull one
+// gives back. Signed: > 0 runs from `up` (the cell nearer the ferrule) into `own`. Both cells compute it from the same old
+// state (conservative); never more than a quarter of what the giving cell holds. PATENT GUARD (R8, US 8,462,173): this is
+// the ONLY flow between depth cells; it knows nothing of where a cell's paint came from, and nothing is laid "picked-up
+// first": a cell lays its one mixed paint (tasks/joybrush/specs/OIL_CARRY_20261024.md).
+float jb_pasteSeep(float up, float capUp, float own, float capOwn) {
+    float f = JB_FEED * u_carry * (up / max(capUp, 1e-6) - own / max(capOwn, 1e-6)) * min(capUp, capOwn);
+    return f >= 0.0 ? min(f, 0.25 * up) : max(f, -0.25 * own);
+}
 
 // How far the hair splays past (or falls short of) the nominal side here: paint squeezed out, stray
 // hairs. Document space, so the side of a stroke is one ragged line. A knife's edge is straight.
@@ -63,14 +103,35 @@ float jb_pasteRag(vec2 docPx) {
     uint s = uint(u_seed);
     if (u_shape > 1.5)   // a blade's edge is straight, but the paint squeezed out past it is not
         return 0.14 * (jb_vnoise2(docPx / 26.0, s + 23u) - 0.5) + 0.05 * (jb_vnoise2(docPx / 8.0, s + 24u) - 0.5);
-    return u_rag * (0.10 * (jb_vnoise2(docPx / 9.0, s + 21u) - 0.5) + 0.06 * (jb_vnoise2(docPx / 3.5, s + 22u) - 0.5));
+    // A loaded brush pressed down splays its hairs and squeezes paint out unevenly where it lands (u_ends; PasteFootprint
+    // widens its box by the same factor).
+    float landed = u_ends > 0.5 ? 1.0 + JB_LAND_RAG * u_land : 1.0;
+    return landed * u_rag * (0.10 * (jb_vnoise2(docPx / 9.0, s + 21u) - 0.5) + 0.06 * (jb_vnoise2(docPx / 3.5, s + 22u) - 0.5));
 }
+
+// A run of hair's own length and strength (0 short and weak .. 1 long and strong): clumps plus single hairs, fixed
+// to the brush (lane a), so the same hairs land last, lift last and leave the longest streaks.
+float jb_pasteTip(float a) { return 0.6 * u_hairLen + 0.4 * jb_vnoise1((a + 1.0) * 27.0, uint(u_seed) + 43u); }
+// This fragment's run of hair (jb_pasteTip), set once by each pass right after u_hairLen when u_ends is on (it was
+// worked out three times a pixel: +20-30 % paste time a step on the Note 9, 10-25 A/B).
+float jb_tip = 0.5;
 
 // Footprint coverage at brush coords (a, b): 1 inside, soft 1-px edge, shaped by the brush.
 // No edge of a hair brush is ever a straight line (the owner, 2026-10-07: "a perfectly sharp cutoff when
 // you start or stop painting is a dead giveaway"): a round has a round head, a flat a shallow, uneven arc.
 float jb_pasteCover(float a, float b, float aaA, float aaB) {
     if (b < -aaB || b > u_len + aaB) return 0.0;
+    // A loaded brush's ends (u_ends): every run of hair has its own length, so the front (where the pen stops) and the
+    // tips (where it landed) are ragged per run; as the pen eases off, each run's contact slides back toward its tip at
+    // its own pace, so the runs end one after another. Only ever INSIDE the footprint (PasteFootprint's box holds).
+    float tail = 0.0;
+    if (u_ends > 0.5 && u_shape < 2.5) {
+        float tip = jb_tip;
+        float rough = u_shape > 1.5 ? 0.35 : 1.0;   // the trowel's edge is straight; only the paint at it tears
+        b -= rough * (0.16 * u_halfW * (1.0 - tip) + u_lift * u_len * 0.85 * (1.0 - tip) * (1.0 - tip));
+        tail = rough * min(0.6 * u_len, 0.45 * u_halfW * (1.0 - tip) + 0.15 * u_halfW * fract(tip * 7.31));
+        if (b < -aaB) return 0.0;
+    }
     float t = clamp(b / max(u_len, 1e-3), 0.0, 1.0);
     float half_ = 1.0;
     if (u_shape < 0.5) {
@@ -82,7 +143,8 @@ float jb_pasteCover(float a, float b, float aaA, float aaB) {
             if (r >= u_halfW * 0.999) half_ = sqrt(max(0.0, 1.0 - k * k));
         } else {
             float tt = clamp((b - r) / max(u_len - r, 1e-3), 0.0, 1.0);
-            half_ = sqrt(max(0.0, 1.0 - tt * tt * tt));
+            // Planted hard (u_ends), the tips splay square: the landing edge flattens instead of a round cap.
+            half_ = sqrt(max(0.0, 1.0 - (u_ends > 0.5 ? pow(tt, 3.0 + 9.0 * jb_pasteFirmLand()) : tt * tt * tt)));
         }
     } else if (u_shape < 1.5) {
         // Flat: the chisel's front is a shallow arc (the middle hairs lead) with an uneven edge, and the
@@ -108,10 +170,16 @@ float jb_pasteCover(float a, float b, float aaA, float aaB) {
         float thr = ((1.0 - u_pressure) * 0.85 - 0.12) * u_fingers;
         side *= smoothstep(thr - 0.06, thr + 0.06, u_hairLen);
     }
+    // Lifting off, the weak and short runs leave the canvas first, one after another (any hair brush, whatever its fingers);
+    // landing lightly, only the long ones reach it until the press builds, so a swept landing starts in streaks.
+    if (u_ends > 0.5 && u_shape < 1.5) {
+        float thr = max(0.3 * u_lift, 0.5 * u_land * (1.0 - smoothstep(0.12, 0.45, u_pressure)));
+        if (thr > 0.0) side *= smoothstep(thr - 0.05, thr + 0.05, jb_tip);
+    }
     // The ends ramp over at least one step of travel: each step then blends into the next and the stroke
     // never shows a line per step.
     float aaE = max(aaB, 1.2 * u_slideMm);
-    float ends = smoothstep(-aaE, aaE, b) * smoothstep(u_len + aaE, u_len - aaE, b);
+    float ends = smoothstep(-aaE, aaE, b) * smoothstep(u_len - tail + aaE, u_len - tail - aaE, b);
     return side * ends;
 }
 
@@ -134,7 +202,7 @@ float jb_pasteHair(float a, vec2 docPx) {
 // fills the weave's valleys first: scrape hard and the peaks come bare and the canvas takes over; lay it
 // on thick and the weave disappears under it.
 float jb_pasteTarget(float a, float load, float hair, float b, float valleyMm, vec2 docPx) {
-    float fill = clamp(load / max(u_cellCap, 1e-6), 0.0, 1.0);
+    float fill = clamp(load / max(jb_cap, 1e-6), 0.0, 1.0);
     float t = u_thick * fill * (1.0 - u_scrape * pow(u_pressure, 0.6));
     t *= 1.0 + u_hairDepth * (hair - 0.5) * 2.0;
     t *= 1.0 + u_ridge * smoothstep(0.7, 1.0, abs(a));
@@ -142,9 +210,53 @@ float jb_pasteTarget(float a, float load, float hair, float b, float valleyMm, v
     // Thick paint drags: lumps stretched along the stroke (fine across it, long along it).
     vec2 sp = vec2(dot(docPx, u_wDir) / 6.0, dot(docPx, u_lDir) / 70.0);
     t *= 1.0 + u_lump * 2.0 * (0.7 * jb_vnoise2(sp, uint(u_seed) + 31u) + 0.3 * jb_vnoise2(sp * 2.7, uint(u_seed) + 32u) - 0.5) * fill;
+    // A loaded brush set down squashes out a blob of its paint, piled up round the tips where it landed; lifting off,
+    // the hairs drag out a thinning film.
+    // Planted hard, more of it is squeezed back into a ridge along the landing edge.
+    if (u_ends > 0.5) t *= (1.0 + u_land * fill * (0.5 + (0.9 + 1.4 * jb_pasteFirmLand()) * smoothstep(0.55, 1.0, b / max(u_len, 1e-3))))
+                       * (1.0 - 0.6 * u_lift);
     // Loaded paint fills the weave (hiding it); a thin film follows the weave down.
     return max(t, 0.0) + valleyMm * mix(mix(0.5, 0.95, smoothstep(0.05, 0.3, t)), 1.0, u_rigid);
 }
+
+// How far into the dips a hair brush's paint reaches (mm of relief it bridges): pressure bends the hairs in, a loaded
+// brush's paint flows in. Lifting off (u_ends), the brush only grazes the high points: a dry, scratchy end, in streaks.
+// Shared by the canvas pass and the brush pass (they must agree on what is touched).
+float jb_pasteGive(float fillLoad) {
+    float give = u_pressure * mix(0.12, 0.25, u_fillDips) + fillLoad * mix(0.3, 2.0 * u_thick + 0.2, u_fillDips);
+    return u_ends > 0.5 && u_shape < 1.5 ? give * (1.0 - 0.6 * u_lift) : give;
+}
+float jb_pasteGraze(float hair) { return 0.06 * (1.0 - hair); }
+// A lifting hair brush's dry end (Lead, 10-25: a middle zone of broken streaks that keep each bristle's line, thinning
+// gradually, speckle growing toward the tip): every point has a catch score, mostly its run of hair's strength (the
+// streaks), then how high the tooth stands there (relief: the surface here minus around, mm) and whether its face rises
+// toward the travel (rise: ahead minus behind). As the pen eases off, the score a point needs climbs with u_lift, so the
+// share that takes paint falls steadily: whole streaks, broken streaks, the strongest hairs on the tooth's tops, specks.
+// `rise` comes from the four surface reads the passes already make for `around` (two extra reads cost a big trowel +55 %).
+float jb_pasteDry(float tip, float relief, float rise, float toothMm) {
+    if (u_ends < 0.5 || u_shape > 1.5 || u_lift <= 0.0) return 1.0;
+    float tooth = max(0.5 * toothMm, 1e-3);   // (u_toothMm is declared by the passes, after this file)
+    float score = 0.55 * tip + 0.3 * clamp(0.5 + relief / tooth, 0.0, 1.0) + 0.15 * clamp(0.5 + JB_CATCH * rise / tooth, 0.0, 1.0);
+    float need = 0.22 + 0.62 * u_lift;
+    return smoothstep(need - 0.07, need + 0.07, score);
+}
+// Riding on wet paint (u_cover): pressed lightly, a loaded brush sits on the wet layer instead of sinking to its target,
+// and lays up to a coat above what is there; pressed hard, or on paint already piled thick, it digs in as before. Both
+// passes call it with what they read of the canvas, so the brush loses what the canvas gains.
+float jb_pasteRide(float target, float t, float open, float fillLoad) {
+    if (u_cover <= 0.0) return target;
+    float ride = u_cover * open * fillLoad * (1.0 - smoothstep(0.35, 1.0, u_pressure)) * (1.0 - smoothstep(1.5 * u_thick, 3.0 * u_thick, t));
+    return max(target, mix(target, t + 0.4 * u_thick * fillLoad, ride));
+}
+// The share of a pixel's colour that a new coat of paint takes: by volume (stirred in), or, with u_cover, what an opaque
+// coat that thick hides of the paint under it (S per mm of the brush's paint).
+float jb_pasteCoat(float dep, float t, float Sb) {
+    float w = dep / max(t + dep, 1e-6);
+    return mix(w, max(w, 1.0 - exp(-Sb * dep)), u_cover);
+}
+
+// A lifting brush presses less, so it stops ploughing up the paint it has just laid (a thinner target must not scrape).
+float jb_pastePlough() { return u_ends > 0.5 ? 1.0 - u_lift : 1.0; }
 
 // A rigid blade presses its paint straight into the weave; only the layer above the canvas peaks builds up step
 // by step. (Filling the valleys at the layer's slow rate left them 10–15 % short, and that shortfall showed as

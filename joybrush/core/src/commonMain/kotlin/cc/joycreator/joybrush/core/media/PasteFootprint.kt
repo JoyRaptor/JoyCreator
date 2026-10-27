@@ -65,6 +65,12 @@ object PasteFootprint {
     /** Extra layer px added around the box on every side (float32 rounding of the per-pixel doc position). */
     const val SAFETY_PAD_PX = 2.0
 
+    /** How much more ragged a loaded brush is where it lands (jb_paste.glsl `JB_LAND_RAG`, times `u_land`). */
+    const val LAND_RAG = 2.0
+
+    /** How much wider a loaded brush planted hard splays its hairs (jb_paste.glsl `JB_LAND_SPLAY`, times `u_land`). */
+    const val LAND_SPLAY = 0.14
+
     /** `rag` is divided out of the across axis; beyond this the bound explodes, so use the legacy square instead. */
     private const val MAX_RAG = 0.5
 
@@ -76,7 +82,18 @@ object PasteFootprint {
 
     /** The half-size, in doc px, of the square every paste step used before this existed (still available as the A/B reference). */
     fun legacyHalfSizePx(st: PasteStep, b: PasteBrush, pxPerMm: Double): Double =
-        (if (b.blade) (st.bladeLen ?: b.bladeLenMm) + b.bladeHalfMm + 1.5 else hypot(st.halfW, st.lenMax) + 0.3) * pxPerMm
+        (if (b.blade) (st.bladeLen ?: b.bladeLenMm) + b.bladeHalfMm + 1.5 else hypot(st.halfW * landWiden(st, b), st.lenMax) + 0.3) * pxPerMm
+
+    /**
+     * A loaded hair brush's landing reaches wider than the square was drawn for (its splay and its more ragged edge), so the
+     * square (the quad the dab pass draws) widens with it: exactly 1 on every other step, so every other square, and every
+     * clean-cut brush's, is the one before. Without it a planted Fan blender's splay was cut off straight (PasteFootprintTest).
+     */
+    fun landWiden(st: PasteStep, b: PasteBrush): Double {
+        if (!b.loadedEnds || b.shape > 1 || st.land <= 0.0) return 1.0
+        val rag0 = abs(b.rag ?: 1.0) * (0.10 * 0.5 + 0.06 * 0.5)
+        return (1 + LAND_SPLAY * st.land) * (1 - rag0) / max(1 - rag0 * (1 + LAND_RAG * st.land), 0.5)
+    }
 
     /** The old square as doc px bounds `[x0, y0, x1, y1]`. */
     fun legacyBounds(st: PasteStep, b: PasteBrush, pxPerMm: Double): DoubleArray {
@@ -104,9 +121,11 @@ object PasteFootprint {
             )
         }
         if (!unitFrame(st.wDirX, st.wDirY, st.lDirX, st.lDirY)) return null
-        val ragMax = if (b.shape > 1) 0.14 * 0.5 + 0.05 * 0.5 else abs(b.rag ?: 1.0) * (0.10 * 0.5 + 0.06 * 0.5)
+        // A loaded brush's landing is more ragged (jb_paste.glsl JB_LAND_RAG); its other ends only move inward along the hair.
+        val landed = if (b.loadedEnds) 1.0 + LAND_RAG * st.land else 1.0
+        val ragMax = if (b.shape > 1) 0.14 * 0.5 + 0.05 * 0.5 else landed * abs(b.rag ?: 1.0) * (0.10 * 0.5 + 0.06 * 0.5)
         if (ragMax > MAX_RAG) return null
-        val halfW = max(st.halfW, 1e-3)
+        val halfW = max(st.halfW * (if (b.loadedEnds && b.shape <= 1) 1.0 + LAND_SPLAY * st.land else 1.0), 1e-3)
         val across = (halfW + px) / (1.0 - ragMax)
         return OrientedBox(
             st.wDirX, st.wDirY, st.lDirX, st.lDirY,

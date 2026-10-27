@@ -75,7 +75,11 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
                /** Temporary canvas-only editable-lines override (`jb_editable_lines`); never writes preferences. */
                val editableLines: Boolean? = null,
                /** Select evidence identity; the host ignores all other runs in logcat. */
-               val selectRunId: String = "")
+               val selectRunId: String = "",
+               /** Every oil brush's stroke ends for this run (`jb_paste_ends` "brush" or "cut"); none = the brush's own. */
+               val pasteEnds: cc.joycreator.joybrush.core.media.EndsMode? = null,
+               /** Every oil brush's Covers and Carries for this run (`jb_paste_cover`, `jb_paste_carry`, 0..1); none = the brush's own. */
+               val pasteCover: Double? = null, val pasteCarry: Double? = null)
 
     private val ui = Handler(Looper.getMainLooper())
     private val jobs = ArrayDeque<Triple<BrushPreset, String, Int>>()
@@ -102,6 +106,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
         }
         spec.atlas?.let { canvas.mediaAtlasEnabled = it; Log.i(TAG, "media atlas: $it") }
         spec.pasteSpacing?.let { cc.joycreator.joybrush.core.media.PasteSpacing.fixed = it; Log.i(TAG, "paste spacing: $it") }
+        spec.pasteEnds?.let { Log.i(TAG, "paste ends: ${it.id}") }
+        if (spec.pasteCover != null || spec.pasteCarry != null) Log.i(TAG, "paste cover: ${spec.pasteCover} carry: ${spec.pasteCarry}")
         spec.coarseWater?.let { cc.joycreator.joybrush.androidkit.gl.media.MediaLayerEngine.coarseWaterDefault = it; Log.i(TAG, "coarse water: $it") }
         spec.atlasRows?.let { cc.joycreator.joybrush.androidkit.gl.media.MediaLayerEngine.atlasRowPasses = it; Log.i(TAG, "atlas rows: $it") }
         spec.waterJobs?.let { canvas.mediaWaterJobs = it; Log.i(TAG, "water jobs: $it") }
@@ -221,7 +227,9 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
         val samples = StrokeReplay.case(case, canvas.width, canvas.height)
         if (samples == null) { Log.w(TAG, "no case '$case'"); next(); return }
         if (spec.clear) canvas.clearCanvas()
-        canvas.preset = spec.wetness?.let { w -> preset.media?.let { m -> preset.copy(media = m.copy(wetness = w)) } } ?: preset
+        val ended = preset.media?.let { m -> m.paste?.takeIf { spec.pasteEnds != null || spec.pasteCover != null || spec.pasteCarry != null }?.let { pb ->
+            preset.copy(media = m.copy(paste = pb.copy(ends = spec.pasteEnds ?: pb.ends, cover = spec.pasteCover ?: pb.cover, carry = spec.pasteCarry ?: pb.carry))) } } ?: preset
+        canvas.preset = spec.wetness?.let { w -> ended.media?.let { m -> ended.copy(media = m.copy(wetness = w)) } } ?: ended
         spec.colors.getOrNull(spec.cases.indexOf(case))?.let { canvas.colorArgb = it }
         ui.postDelayed({
             canvas.startFrameStats {
@@ -501,7 +509,10 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
                 startMs = intent.getLongExtra("jb_start_ms", 1500L).coerceIn(0L, 60_000L),
                 fullTail = intent.getBooleanExtra("jb_full_tail", false),
                 editableLines = if (intent.hasExtra("jb_editable_lines")) intent.getBooleanExtra("jb_editable_lines", false) else null,
-                selectRunId = intent.getStringExtra("jb_select_run_id").orEmpty())
+                selectRunId = intent.getStringExtra("jb_select_run_id").orEmpty(),
+                pasteEnds = cc.joycreator.joybrush.core.media.EndsMode.of(intent.getStringExtra("jb_paste_ends")),
+                pasteCover = intent.getStringExtra("jb_paste_cover")?.toDoubleOrNull()?.coerceIn(0.0, 1.0),
+                pasteCarry = intent.getStringExtra("jb_paste_carry")?.toDoubleOrNull()?.coerceIn(0.0, 1.0))
         }
     }
 }

@@ -28,12 +28,16 @@ class PasteFootprintTest {
     private val ppm = DOC_PX_PER_MM
 
     // ---- CPU port of the support predicate ----
+    // A loaded brush's landing is more ragged (jb_paste.glsl JB_LAND_RAG x u_land); its other ends only shrink the support
+    // (they move the front and the tips inward), so the clean-cut predicate below stays a superset for them.
     private fun rawRagMax(st: PasteStep, b: PasteBrush) =
-        if (b.shape > 1) 0.14 * 0.5 + 0.05 * 0.5 else abs(b.rag ?: 1.0) * (0.10 * 0.5 + 0.06 * 0.5)
+        if (b.shape > 1) 0.14 * 0.5 + 0.05 * 0.5
+        else (if (b.loadedEnds) 1 + PasteFootprint.LAND_RAG * st.land else 1.0) * abs(b.rag ?: 1.0) * (0.10 * 0.5 + 0.06 * 0.5)
 
     /** `jb_pasteCover(a, b, px / halfW, px) > 0` for the hair/trowel/edge path, with `rag` and the flat lead noise given. */
     private fun hairCovers(st: PasteStep, br: PasteBrush, px: Double, wMm: Double, lMm: Double, rag: Double, leadNoise: Double): Boolean {
-        val hw = max(st.halfW, 1e-3)
+        // A loaded brush planted hard splays its hairs wider (jb_paste.glsl jb_pasteHalfW; at most LAND_SPLAY x u_land).
+        val hw = max(st.halfW * (if (br.loadedEnds && br.shape <= 1) 1 + PasteFootprint.LAND_SPLAY * st.land else 1.0), 1e-3)
         val a = wMm / hw * (1 - rag)            // dab.frag 77-78
         var b = lMm                             // dab.frag 79
         val aaA = px / hw; val aaB = px          // dab.frag 82

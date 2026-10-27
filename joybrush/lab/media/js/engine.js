@@ -4,9 +4,11 @@
 
 import { loadShaderSource, makeProgram, use, makeTexture, makeFbo, makeQuad } from './gl.js';
 import { WET, wetUniforms } from './wet.js';
-import { PASTE_LANES, PASTE_DEPTH, cellCap } from './paste.js';
+import { PASTE_LANES, PASTE_DEPTH, cellCap, pasteRowShare } from './paste.js';
 
 const DAB_FLOATS = 20;
+// ?ends=cut paints every hair brush with the old clean-cut ends (a brush's own `ends` wins), to compare.
+const PASTE_ENDS = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('ends') : null;
 
 export class MediaEngine {
   static async create(gl, shaderRoot, width, height, origin = [0, 0], scale = 1, opts = {}) {
@@ -285,7 +287,7 @@ export class MediaEngine {
     for (let i = 0; i < PASTE_LANES; i++) { tw = tw * 0.7 + (rnd() - 0.5); laneTone.push(tw); laneHue.push([rnd() - 0.5, rnd() - 0.5, rnd() - 0.5]); }
     for (let j = 0; j < PASTE_DEPTH; j++) {
       for (let i = 0; i < PASTE_LANES; i++) {
-        const amt = cap * Math.max(0.15, 1 + 0.55 * lane[i] + 0.15 * (rnd() - 0.5)) * (0.8 + 0.4 * j / (PASTE_DEPTH - 1));
+        const amt = cap * Math.max(0.15, 1 + 0.55 * lane[i] + 0.15 * (rnd() - 0.5)) * pasteRowShare(j, brush.carry ?? 0);
         // Loading tray. Round: the tip dipped in one colour, the belly in the other (pressing spreads the
         // belly out to the stroke's edges). Flat: double-loaded side to side, the classic two-colour stripe.
         const ss = (e0, e1, x) => { const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); };
@@ -325,6 +327,8 @@ export class MediaEngine {
       u_center: [st.x, st.y], u_wDir: st.wDir, u_lDir: st.lDir, u_halfW: st.halfW, u_len: st.len, u_lenMax: st.lenMax,
       u_shape: brush.shape, u_pressure: st.pressure, u_thick: st.thick ?? brush.thickMm, u_scrape: brush.scrape,
       u_fingers: st.fingers ?? brush.fingers ?? 1, u_rag: brush.rag ?? 1, u_arc: brush.arc ?? 0.18, u_sparse: brush.sparse ?? 0,
+      u_ends: !brush.blade && (brush.ends ?? PASTE_ENDS) !== 'cut' ? 1 : 0, u_lift: st.lift ?? 0, u_land: st.land ?? 0,
+      u_cover: brush.blade ? 0 : brush.cover ?? 0, u_carry: brush.blade ? 0 : brush.carry ?? 0,
       u_blade: brush.blade ? 1 : 0, u_fillDips: brush.fillDips ?? 1, u_bladeLoad: st.loadMode ? 1 : 0,
       u_bladeDir: st.bladeDir || [1, 0], u_travel: st.travel || [1, 0], u_bladeLen: st.bladeLen ?? brush.bladeLenMm ?? 1,
       u_bladeHalfW: st.bladeHalf ?? brush.bladeHalfMm ?? 1, u_bladeH0: st.bladeH0 ?? 0, u_bladeTan: st.bladeTan ?? 0, u_bladeBead: brush.bead || 0,

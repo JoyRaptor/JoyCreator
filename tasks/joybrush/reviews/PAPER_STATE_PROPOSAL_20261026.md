@@ -1,0 +1,9 @@
+# Proposed STATE entry — paper family, October27,2026
+
+Proposal only for root reconciliation; tasks/STATE.md is not modified. Exact source741fa01543265ca89634113892d4d30ea422eceb; [recovery/asset receipt](PAPER_PORTFOLIO_20261026.md). This is source availability with scoped historical proofs, not owner LIVE or marketing approval.
+
+| Feature identity / benefit and entry | Availability and evidence limits | Shared source / help mapping |
+|---|---|---|
+| `joybrush.paper-surfaces` — choose background/custom colour independently from the physical tooth under the brush; layer-column Paper circle opens the sheet. Tint, Show, Bite, Scale, Light, Smooth and None distinguish appearance from response. | Integrated29surfaces/32looks, previews, physical brush/fluid inputs, paper undo and paper-first PNG/ORA/animation/board export. None retains surface/Bite, shows checkerboard on screen and always excludes paper from export. Historical core/GPU/controlled rollback evidence is scoped; full current sheet/undo/save/reopen/export device matrix, replay invalidation, imported image-tip/grain and crumple creative acceptance remain incomplete. Tan-paper Select is not family completion. | Reuse core/paper PaperState, PaperRaster, SurfaceMaps, HexTile, PaperPreviews; androidkit/io PaperResources and bounded RegionRenderer paper backdrop. Root owns View/engine/Activity integration. Help sections pending: Paper background vs surface; Colour vs Tint; Show vs Bite; None vs Include; paper versus watercolor wash texture. |
+
+When adding to STATE, link actual source with verified repository-relative paths as in the recovery report, preserve existing ordinary-paint/device scopes and the distinct watercolor-lines family, and run tools/check_joybrush_docs.py. Missing JB-1.05d image-tip contract and owner-rejected procedural crumples remain explicit. No promise of exact historic stroke appearance across changed packaged paper assets.

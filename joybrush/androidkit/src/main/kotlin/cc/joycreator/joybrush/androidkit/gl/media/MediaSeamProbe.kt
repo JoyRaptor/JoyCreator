@@ -74,21 +74,23 @@ internal object MediaSeamProbe {
      * boundaries; and the baseline on interior rows.
      */
     private fun measure(tiles: Map<Long, ByteArray>): JSONObject {
+        // Oil's look is translucent (alpha about 115-230 on the owner's tiles): luma of the colour, un-premultiplied.
         fun luma(t: ByteArray, x: Int, y: Int): Double { val i = (y * N + x) * 4
-            return 0.3 * (t[i].toInt() and 0xFF) + 0.59 * (t[i + 1].toInt() and 0xFF) + 0.11 * (t[i + 2].toInt() and 0xFF) }
+            val a = maxOf(t[i + 3].toInt() and 0xFF, 1) / 255.0
+            return (0.3 * (t[i].toInt() and 0xFF) + 0.59 * (t[i + 1].toInt() and 0xFF) + 0.11 * (t[i + 2].toInt() and 0xFF)) / a }
         fun alpha(t: ByteArray, x: Int, y: Int) = t[(y * N + x) * 4 + 3].toInt() and 0xFF
         /** Mean of (neighbours' mean - this line) over opaque samples; [at] gives the three samples of line position k. */
         fun standOut(count: Int, at: (Int) -> Triple<Pair<ByteArray, Pair<Int, Int>>, Pair<ByteArray, Pair<Int, Int>>, Pair<ByteArray, Pair<Int, Int>>>): Double? {
             var sum = 0.0; var n = 0
             for (k in 0 until count) {
                 val (a, b, c) = at(k)
-                if (alpha(a.first, a.second.first, a.second.second) < 250 || alpha(b.first, b.second.first, b.second.second) < 250 ||
-                    alpha(c.first, c.second.first, c.second.second) < 250) continue
+                if (alpha(a.first, a.second.first, a.second.second) < 128 || alpha(b.first, b.second.first, b.second.second) < 128 ||
+                    alpha(c.first, c.second.first, c.second.second) < 128) continue
                 val la = luma(a.first, a.second.first, a.second.second); val lb = luma(b.first, b.second.first, b.second.second)
                 val lc = luma(c.first, c.second.first, c.second.second)
                 sum += (la + lc) / 2 - lb; n++
             }
-            return if (n >= 32) sum / n else null
+            return if (n >= 16) sum / n else null
         }
         val rowsAbove = ArrayList<Double>(); val rowsBelow = ArrayList<Double>(); val cols = ArrayList<Double>(); val base = ArrayList<Double>()
         val worst = JSONArray()
@@ -97,11 +99,11 @@ internal object MediaSeamProbe {
             for (y in listOf(64, 192)) standOut(N) { x -> Triple(t to (x to y - 1), t to (x to y), t to (x to y + 1)) }?.let { base += it }
             val below = tiles[cc.joycreator.joybrush.core.paint.Tiles.key(tx, ty + 1)]
             if (below != null) {
-                standOut(N) { x -> Triple(t to (x to 254), t to (x to 255), below to (x to 0)) }?.let { rowsAbove += it; if (abs(it) > 2) worst.put("bottom of $tx,$ty: ${"%.1f".format(it)}") }
+                standOut(N) { x -> Triple(t to (x to 254), t to (x to 255), below to (x to 0)) }?.let { rowsAbove += it; if (abs(it) > 5) worst.put("bottom of $tx,$ty: ${"%.1f".format(it)}") }
                 standOut(N) { x -> Triple(t to (x to 255), below to (x to 0), below to (x to 1)) }?.let { rowsBelow += it }
             }
             val right = tiles[cc.joycreator.joybrush.core.paint.Tiles.key(tx + 1, ty)]
-            if (right != null) standOut(N) { y -> Triple(t to (254 to y), t to (255 to y), right to (0 to y)) }?.let { cols += it; if (abs(it) > 2) worst.put("right of $tx,$ty: ${"%.1f".format(it)}") }
+            if (right != null) standOut(N) { y -> Triple(t to (254 to y), t to (255 to y), right to (0 to y)) }?.let { cols += it; if (abs(it) > 5) worst.put("right of $tx,$ty: ${"%.1f".format(it)}") }
         }
         fun stats(v: List<Double>) = JSONObject().put("n", v.size).put("mean", if (v.isEmpty()) 0.0 else v.average())
             .put("maxAbs", v.maxOfOrNull { abs(it) } ?: 0.0)

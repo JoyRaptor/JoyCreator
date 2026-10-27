@@ -1,6 +1,7 @@
 package cc.joycreator.joybrush.androidkit.gl
 
 import android.opengl.GLES30
+import android.opengl.EGL14
 import android.os.SystemClock
 import cc.joycreator.joybrush.core.brush.WatercolourSpec
 import cc.joycreator.joybrush.core.brush.BrushPreset
@@ -628,6 +629,42 @@ class GlPaintEngine(
     }
 
     private fun createGlObjects() {
+        val epoch = physicalContextEpoch
+        val context = EGL14.eglGetCurrentContext()
+        val scratch = IntArray(1)
+        val current = { physicalContextEpoch == epoch && !forgettingGraphicsContext &&
+            context != EGL14.EGL_NO_CONTEXT && EGL14.eglGetCurrentContext() == context }
+        val owned = GlInitOwnership(current, { kind, name ->
+            scratch[0] = name
+            when (kind) {
+                GlInitOwnership.Kind.PROGRAM -> GLES30.glDeleteProgram(name)
+                GlInitOwnership.Kind.SHADER -> GLES30.glDeleteShader(name)
+                GlInitOwnership.Kind.BUFFER -> GLES30.glDeleteBuffers(1, scratch, 0)
+                GlInitOwnership.Kind.VERTEX_ARRAY -> GLES30.glDeleteVertexArrays(1, scratch, 0)
+                GlInitOwnership.Kind.FRAMEBUFFER -> GLES30.glDeleteFramebuffers(1, scratch, 0)
+                GlInitOwnership.Kind.TEXTURE -> GLES30.glDeleteTextures(1, scratch, 0)
+            }
+        }, programs = 5, buffers = 3, vertexArrays = 4, framebuffers = 3, textures = 3)
+        // The name is written into its rollback slot BEFORE storage/CPU buffers can fail.
+        fun initialTexture(slot: Int): Int {
+            GLES30.glGenTextures(1, owned.textureNames, slot)
+            val name = owned.textureNames[slot]
+            check(name != 0) { "Could not allocate initial texture" }
+            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, name)
+            GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D, 0, GLES30.GL_RGBA8, 1, 1, 0,
+                GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, null)
+            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_LINEAR)
+            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_LINEAR)
+            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE)
+            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_T, GLES30.GL_CLAMP_TO_EDGE)
+            val zero = ByteBuffer.allocateDirect(4).order(ByteOrder.nativeOrder())
+            GLES30.glTexSubImage2D(GLES30.GL_TEXTURE_2D, 0, 0, 0, 1, 1,
+                GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, zero)
+            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
+            return name
+        }
+        try {
+        check(current()) { "Engine initialization needs its current context" }
         val version = GLES30.glGetString(GLES30.GL_VERSION) ?: ""
         val ext = GLES30.glGetString(GLES30.GL_EXTENSIONS) ?: ""
         val halfFloatRenderable = version.contains("OpenGL ES 3.2") ||
@@ -638,19 +675,26 @@ class GlPaintEngine(
         }
 
         dabProg = GlProgram(shaders.source("jb_dab.vert"), shaders.source("jb_dab.frag"), "dab")
+        owned.programNames[0] = dabProg.id
         commitProg = GlProgram(shaders.source("jb_tile.vert"), shaders.source("jb_commit.frag"), "commit")
+        owned.programNames[1] = commitProg.id
         tileProg = GlProgram(shaders.source("jb_tile.vert"), shaders.source("jb_tile.frag"), "tile")
+        owned.programNames[2] = tileProg.id
         smudgeProg = GlProgram(shaders.source("jb_dab.vert"), shaders.source("jb_smudge_dab.frag"), "smudge")
+        owned.programNames[3] = smudgeProg.id
         tuftProg = GlProgram(shaders.source("jb_tuft.vert"), shaders.source("jb_tuft.frag"), "tuft")
+        owned.programNames[4] = tuftProg.id
 
-        val ids = IntArray(3)
+        val ids = owned.bufferNames
         GLES30.glGenBuffers(3, ids, 0)
+        check(ids.all { it != 0 }) { "Could not allocate initial buffers" }
         quadVbo = ids[0]; unitVbo = ids[1]; instanceVbo = ids[2]
         upload(quadVbo, floatArrayOf(-1f, -1f, 1f, -1f, -1f, 1f, 1f, 1f))
         upload(unitVbo, floatArrayOf(0f, 0f, 1f, 0f, 0f, 1f, 1f, 1f))
 
-        val vaos = IntArray(4)
+        val vaos = owned.vertexArrayNames
         GLES30.glGenVertexArrays(4, vaos, 0)
+        check(vaos.all { it != 0 }) { "Could not allocate initial vertex arrays" }
         dabVao = vaos[0]; tileVao = vaos[1]; smudgeVao = vaos[2]; tuftVao = vaos[3]
 
         GLES30.glBindVertexArray(dabVao)
@@ -709,20 +753,32 @@ class GlPaintEngine(
         GLES30.glBindVertexArray(0)
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, 0)
 
-        val f = IntArray(1)
-        GLES30.glGenFramebuffers(1, f, 0)
-        fbo = f[0]
-        GLES30.glGenFramebuffers(1, f, 0); readFbo = f[0]
-        GLES30.glGenFramebuffers(1,f,0); copyFbo = f[0]
+        val f = owned.framebufferNames
+        GLES30.glGenFramebuffers(3, f, 0)
+        check(f.all { it != 0 }) { "Could not allocate initial framebuffers" }
+        fbo = f[0]; readFbo = f[1]; copyFbo = f[2]
 
-        clearTex = newTexture(1, GLES30.GL_RGBA8, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE)
-        whiteTex = newTexture(1, GLES30.GL_RGBA8, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE)
+        clearTex = initialTexture(0)
+        whiteTex = initialTexture(1)
         val white = ByteBuffer.allocateDirect(4).order(ByteOrder.nativeOrder())
         white.put(byteArrayOf(-1, -1, -1, -1)).rewind()
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, whiteTex)
         GLES30.glTexSubImage2D(GLES30.GL_TEXTURE_2D, 0, 0, 0, 1, 1, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, white)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
-        grains.create()
+        try { grains.create() } finally { owned.textureNames[2] = grains.placeholder }
+        check(current()) { "Engine context changed during initialization" }
+        check(GLES30.glGetError() == GLES30.GL_NO_ERROR) { "Engine GL initialization failed" }
+        } catch (failure: Throwable) {
+            // Only this attempt's preallocated ledgers can delete, gated at every name.
+            owned.rollback(failure)
+            if (physicalContextEpoch == epoch) {
+                grains.forget()
+                quadVbo = 0; unitVbo = 0; instanceVbo = 0
+                dabVao = 0; tileVao = 0; smudgeVao = 0; tuftVao = 0
+                fbo = 0; readFbo = 0; copyFbo = 0; clearTex = 0; whiteTex = 0
+            }
+            throw failure
+        }
     }
 
     /**

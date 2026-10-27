@@ -25,15 +25,17 @@ and current history head and perform that step's undo together, or refuse. A sep
 precheck followed by unguarded undo is forbidden. Stale/hidden/disposed actions do
 nothing; a newer edit refuses the old action rather than undoing unrelated work.
 
-Eleven prepared tests cover renderer confirmation, duplicate/same-operation kinds,
+Eleven passing tests cover renderer confirmation, duplicate/same-operation kinds,
 queue cancellation, document switch, failed show, synchronous/reentrant finish,
 failed persistence, a disappeared old-context renderer not hiding a fresh offer,
 stale/new-history Undo, valid/disposed Undo and independent
-real SharedPreferences keys without unrelated edits. UNCOMPILED/UNRUN pending the
-shared focused slot. These are pure renderer-contract tests, never engine/GPU or
+real SharedPreferences keys without unrelated edits. Frozen source0c9ce44c4 compiled
+and passed11/0/0/0 in2m37s, independently counted by the coordinator. Exact receipt:
+`C:/Temp/jb-select-acceptance-20261026/d23-0c9ce44c4/receipt.json`.
+These are pure renderer-contract tests, never engine/GPU or
 actual SelectToast presentation evidence.
 
-Still required: Lead review and focused compilation/tests, actual publication
+Source review and focused compilation/tests are complete. Still required: actual publication
 producer, View/lifecycle adapter, actual SelectToast onShown/onFinished contract and
 device once-per-install/guarded-Undo proof through real qualifying operations.
 K26's separate notice is not implemented here. Neither notice is activated.

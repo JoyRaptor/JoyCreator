@@ -148,6 +148,15 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
         }
         val (preset, case, run) = job
         if (case == "recordedCaptureProbe") { runRecordedCaptureCase(preset, case, run); return }
+        if (case == "mediaSeamProbe") {
+            // The owner's oil hairlines 10-27: seams at tile boundaries, atlas vs window (MediaSeamProbe).
+            canvas.runMediaSeamProbe(preset) { result ->
+                val report = try { org.json.JSONObject(result) } catch (e: Exception) { org.json.JSONObject().put("pass", false).put("raw", result) }
+                logRecordedReport(report.put("brush", preset.id).put("case", case).put("run", run), preset.id, case, run)
+                ui.postDelayed({ next() }, spec.settleMs)
+            }
+            return
+        }
         if (case == "mediaUndoProbe") {
             // The owner's oil seams 10-27: A, B, undo, redo, undo, C in the atlas (phone-sized and 6 x 4), looks exact (MediaUndoProbe).
             canvas.runMediaUndoProbe(preset) { result ->

@@ -38,12 +38,12 @@ baby, on a Samsung Note 9 and Note 20. So:
 
 ## Where to work: never in the main folder
 
-`C:\+Projects\Screenrecorder\FadCam` (the "main folder") is where the owner's build watcher runs and where
+`C:\+Projects\JoyCreator` (the "main folder") is where the owner's build watcher runs and where
 older sessions left unsaved work. **Do not pull, reset, merge, stash or switch branches there.**
 
 ```
-git -C "C:/+Projects/Screenrecorder/FadCam" fetch origin
-git -C "C:/+Projects/Screenrecorder/FadCam" worktree add C:/Temp/<topic>-<yyyymmdd> -b <harness>/<topic>-<yyyymmdd> origin/joy-creator
+git -C "C:/+Projects/JoyCreator" fetch origin
+git -C "C:/+Projects/JoyCreator" worktree add C:/Temp/<topic>-<yyyymmdd> -b <harness>/<topic>-<yyyymmdd> origin/joy-creator
 ```
 
 - Commit **only your own paths**, by exact path (never `git add -A` across shared folders).

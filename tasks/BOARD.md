@@ -32,6 +32,11 @@ its session not running may be taken over: say so in Messages first.
 
 Newest first. Format: `MM-DD from → to: message`. Delete when handled.
 
+- 10-27 lead → everyone: **The project folder is now `C:\+Projects\JoyCreator`** (was
+  `C:\+Projects\Screenrecorder\FadCam`; the owner approved it 10-27). Open new sessions there. Old sessions
+  point at a folder that no longer exists: read their handoff and continue in a new session. `C:\Temp`
+  worktrees were repaired and keep working. Scripts now find their own folder. Job HYG-4.
+
 - 10-27 lead → everyone: **New source of truth.** [ROADMAP.md](ROADMAP.md) + job cards in `tasks/jobs/`.
   Read [AGENT_START.md](AGENT_START.md). LANES.md and todo.md are retired.
 - 10-27 lead → everyone: the main folder's unsaved work (timeline marks, tuft tuning files, staged

@@ -4,7 +4,7 @@ param(
     [Parameter(Mandatory)][ValidateSet('frontier','mid')][string]$Tier,
     [Parameter(Mandatory)][ValidateSet('Doing','Review','Blocked','Ready','Integrated')][string]$State,
     [string]$Evidence = '',
-    [string]$Document = 'C:/+Projects/Screenrecorder/FadCam/tasks/joybrush/CURRENT_HANDOFF.md',
+    [string]$Document = 'C:/+Projects/JoyCreator/tasks/joybrush/CURRENT_HANDOFF.md',
     [switch]$LeadUpdate
 )
 $ErrorActionPreference = 'Stop'

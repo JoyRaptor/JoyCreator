@@ -7,7 +7,7 @@
 set -u
 OUT=${1:?out dir}; LANE=${2:-UI specialist (Select bench)}
 export PATH="/c/Users/JoyRaptor/AppData/Local/Android/Sdk/platform-tools:$PATH"
-. "/c/+Projects/Screenrecorder/FadCam/tools/devices.local.sh"   # SANDBOX_SERIAL (private, never printed)
+. "/c/+Projects/JoyCreator/tools/devices.local.sh"   # SANDBOX_SERIAL (private, never printed)
 S=$SANDBOX_SERIAL
 L="$LOCALAPPDATA/Temp/jb-phone.lock"
 mkdir -p "$OUT"

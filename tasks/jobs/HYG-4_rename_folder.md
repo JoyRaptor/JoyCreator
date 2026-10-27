@@ -1,6 +1,15 @@
 # HYG-4: Rename the project folder away from "Screenrecorder/FadCam"
 
-**Milestone:** M0  ·  **State:** ⛔ waiting on the owner (S2: the name and a quiet hour)  ·  **Owner:** project lead  ·  **Checked:** 2026-10-27
+**Milestone:** M0  ·  **State:** ✅ done 2026-10-27 (owner chose `C:\+Projects\JoyCreator`)  ·  **Owner:** project lead  ·  **Checked:** 2026-10-27
+
+## What was done (10-27)
+- The JoyBrush lead was told first and reached a safe point; then the folder was moved whole (nothing reset).
+- `git worktree repair` relinked the `C:\Temp` worktrees and the ones inside `.claude/worktrees/`.
+- Memory copied to `~/.claude/projects/C---Projects-JoyCreator/memory/`.
+- Scripts no longer name the folder: `watch-build.ps1`, `run-specj-suite.sh`, `tasks/a9/run-lane-parity.sh`
+  work out where they live. The ones that must point at the main folder from a worktree
+  (`Claim-JoyJob.ps1`, `select_bench.sh`), the 8 parity fixtures, AGENT_START and CURRENT_HANDOFF name the new path.
+- Old dated docs in `tasks/` still mention the old path: they are history, left as written.
 
 ## Why it matters
 Joy Creator is a complete studio, not a screen recorder, and it is leaving FadCam behind. The folder
@@ -37,4 +46,7 @@ Nothing inside the app depends on the folder's name. What depends on it, checked
 
 ## Files and traps
 - Do it after HYG-1 (so the main folder is clean) and ideally after HYG-3 (fewer worktrees to repair).
+- `C:\+Projects\Screenrecorder` stays: it holds `whisper.cpp` and `media3-patched`, which every checkout reads by
+  absolute path from `local.properties`. Moving those (and the old backups beside them) is HYG-3 work.
+- No junction at the old path: the owner wants no "FadCam" folder left.
 - Do not rename while any session is running in it: their edits would land in a folder that no longer exists.

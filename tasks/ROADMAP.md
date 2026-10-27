@@ -71,7 +71,7 @@ Each of these needs the owner and nobody else. The lead's recommendation comes f
 | # | Decision or action | Recommendation | Unblocks |
 |---|---|---|---|
 | S1 | **Pick the permanent app ID** (changing it later loses every user) | `cc.joycreator.app`: it matches JoyBrush's code name `cc.joycreator.joybrush` | [SHOW-1](jobs/SHOW-1_play_build.md), [FREE-2](jobs/FREE-2_names_and_ids.md) |
-| S2 | **Pick the new folder name and give one quiet hour** (all sessions closed) to move `C:\+Projects\Screenrecorder\FadCam` | `C:\+Projects\JoyCreator` | [HYG-4](jobs/HYG-4_rename_folder.md) |
+| S2 | ~~Pick the new folder name~~ **Decided 10-27:** `C:\+Projects\JoyCreator` | done | [HYG-4](jobs/HYG-4_rename_folder.md) |
 | S3 | **Move `tasks/api.txt` out of the project folder.** It holds an AI API key in plain text, and GitHub refused a push because of it | Keep it in a password manager or outside the repo | safety |
 | S4 | Contact email for the privacy policy, and a read of the README and PRIVACY drafts | `studio@joycreator.cc` (named in START_HERE): confirm it receives mail | [SHOW-2](jobs/SHOW-2_store_and_legal.md) |
 | S5 | Paste the intro text approved on 9-09 (it was never saved to the repo) | | [DOOR-3](jobs/DOOR-3_first_run.md) |
@@ -97,7 +97,7 @@ One line per job. The card holds the detail. "Owner" is the session or harness t
 | [HYG-1](jobs/HYG-1_main_folder_rescue.md) | Land the unsaved work from the main folder and bring the folder back in step with GitHub | 🔨 saved to `rescue/main-folder-20261027`; not yet landed | lead | Land timeline marks (STU-3) and the tuft files; then fast-forward the main folder | 10-27 |
 | [HYG-2](jobs/HYG-2_one_main_line.md) | One main line: JoyBrush's integrated work (159 commits on `lead/select-reconcile-20261024`) onto `joy-creator` | ⬜ | JoyBrush lead | The JoyBrush lead decides when its gates allow; the app on the phone lacks this work until then | 10-27 |
 | [HYG-3](jobs/HYG-3_cleanup.md) | Clean up: archive stale docs, remove tracked junk, audit about 156 worktrees and 256 local branches, OpenCode leftovers | ⬜ | open (cheap model for the inventory) | Inventory first; archive, never delete unique work | 10-27 |
-| [HYG-4](jobs/HYG-4_rename_folder.md) | Rename the project folder away from "Screenrecorder/FadCam" | ⛔ S2 | lead | Owner picks the name and a quiet hour | 10-27 |
+| [HYG-4](jobs/HYG-4_rename_folder.md) | Rename the project folder away from "Screenrecorder/FadCam" | ✅ | lead | Done 10-27: moved, worktrees repaired, scripts repointed | 10-27 |
 | [HYG-5](jobs/HYG-5_state_sync.md) | Make STATE.md true: every shipped feature has a row, a proof level and a help mapping | ⬜ **high** | open | Audit STATE against the code and the last two weeks of commits | 10-27 |
 
 ### M1 Every wing finished and polished

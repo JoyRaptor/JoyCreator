@@ -253,7 +253,7 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
         sources = new SlantRow(this, Ui.VIZ_A, Ui.VIZ_B);
         sources.add("music_note", "Demo song", "Play the built-in demo song");
         sources.add("mic", "Microphone", "Listen to the room through the microphone");
-        sources.add("library_music", "A song", "Pick a song or a MIDI file from this phone");
+        sources.add("library_music", "A song", "Pick a song, a MIDI file or a tracker module (.mod) from this phone");
         sources.setSelected(SRC_DEMO);
         sources.setOnPick(i -> {
             if (i == SRC_MIC) {
@@ -263,7 +263,9 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
                 // audio/* already takes .mid / .midi / .kar where the phone knows them as audio/midi;
                 // the rest are for providers that call a MIDI file something else (the file's own
                 // first bytes decide what it really is, see MidiSource.isMidi).
-                pickSong.launch(new String[]{"audio/*", "audio/midi", "audio/x-midi", "application/x-midi", "application/octet-stream"});
+                // Modules (.mod) are rarely typed as audio at all, hence octet-stream and audio/x-mod.
+                pickSong.launch(new String[]{"audio/*", "audio/midi", "audio/x-midi", "application/x-midi",
+                        "audio/x-mod", "audio/mod", "application/octet-stream"});
             } else {
                 useSource(SRC_DEMO, null);
             }
@@ -608,7 +610,10 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
         SoundSource s;
         if (kind == SRC_MIC) s = new MicSource(ring);
         else if (kind == SRC_SONG && song != null) {
-            s = MidiSource.isMidi(this, song) ? new MidiSource(ring, song) : SongPlayer.ofUri(ring, song);
+            // The file's own first bytes decide: a MIDI file, a tracker module (R13), or a recording.
+            if (MidiSource.isMidi(this, song)) s = new MidiSource(ring, song);
+            else if (com.fadcam.vislab.audio.ModSource.isMod(this, song)) s = new com.fadcam.vislab.audio.ModSource(ring, song);
+            else s = SongPlayer.ofUri(ring, song);
         } else s = SongPlayer.ofAsset(ring, DEMO);
         if (!s.start(this)) {
             Toast.makeText(this, kind == SRC_MIC ? "The microphone is busy or not allowed." : "That song could not be opened.",

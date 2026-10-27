@@ -39,13 +39,13 @@ Note 9 test. Every `[~]` row was compiled together on 10-24 (Studio + effects + 
 | R1 | Font per Words layer (G9) | S | lead | [~] font pills on Words layers; Studio typed words fixed too |
 | R2 | Split lumped scenes into elements (G6) | M | lead (taste) | [~] Stars, Aurora curtains, Mountains + look "Aurora Parts"; look book checked; Outrun / Nebula audit still owed |
 | R3 | Studio visualiser on the shared transform box (G5b) | L | Sonnet + lead | [~] VisualizerTransformHost, body hold opens the drawer, spin arc below (reset for other objects) |
-| R4 | VisLab finishes as Studio effects (G8d, "special effects") | L | Sonnet + lead | [~] 16 effects: 10 in FxVisLabDefs + Glow, Flash, Vignette, Ripple, Swirl, Warp in FxVisLabDefs2 (10-27, branch vislab/studio-fx-20261027); every picker chip says what it does (FxBlurbs); all 33 effect shaders compile under glslc (GLSL ES 3.1); run-fx 170 pass (3 gradient-ramp failures predate this) |
+| R4 | VisLab finishes as Studio effects (G8d, "special effects") | L | Sonnet + lead | [x] agent phone-tested 10-27, on joy-creator 59346ae8a. 16 effects: 10 in FxVisLabDefs + Glow, Flash, Vignette, Ripple, Swirl, Warp in FxVisLabDefs2; every picker chip says what it does (FxBlurbs). Note 9: all seven new ones in the picker with their sentences and each renders on an adjustment layer in the live preview. Owner sign-off pending. The first ten were not individually re-checked on the phone |
 | R5 | MIDI as a sound source (G10) | M | Sonnet + lead | [~] MidiFile / MidiFeatures / MidiSource / MidiSynth; .kar words; run-midi 15/15 |
 | R6 | Hide knobs that do nothing in the current mode (G2b) | S | Haiku audit + lead | [~] showFor on 66 knobs; run-vislab passes |
 | R7 | Sprite element: a SpriteLab sheet inside a look (G8a) | M | lead | [~] Sprite element + look "Record Hop"; run-sprite 11/11; pilot draws the built-in sheet |
 | R8 | Studio proxies drive a look's Place and picture (G7) | M | Sonnet | [ ] |
 | R9 | Layer reference: a look shows another Studio item (G8c) | L | lead | [ ] |
-| R10 | Echo trails as a Studio effect (stateful feedback) | M | lead | [~] "Echo Trails" (Echo / Light trails / Glow trails; trail length, zoom, turn, colour drift, centre) on adjustment layers. New FEEDBACK capability: its own pass, never the last; `FX_PREV` / `FX_DT`; `fx/FxHistory` keeps two frame-sized pictures per pass in export and preview, resets on a jump. Tests + glslc 35/35; branch vislab/studio-fx-20261027; phone test owed |
+| R10 | Echo trails as a Studio effect (stateful feedback) | M | lead | [~] "Echo Trails" (Echo / Light trails / Glow trails; trail length, zoom, turn, colour drift, centre) on adjustment layers. New FEEDBACK capability: its own pass, never the last; `FX_PREV` / `FX_DT`; `fx/FxHistory` keeps two frame-sized pictures per pass in export and preview, resets on a jump. Tests + glslc 35/35. [x] agent phone-tested 10-27 on joy-creator 59346ae8a: trails in the live preview while playing AND in an exported video (frame at 3.0 s vs the source). Owner sign-off pending |
 | R11 | True blend preview for visualisers in Studio | M | Sonnet | [ ] |
 | R12 | Video element (G8b) | M | later | [ ] |
 | R13 | Tracker modules (.mod) as a sound source, like MIDI: play the samples, exact hits per channel (owner sent two demoscene beat .mods 10-24) | M | lead | [ ] |
@@ -121,6 +121,21 @@ real in export), through the GL preview compositor.
 
 ## Log (newest first)
 
+- 2026-10-27 (afternoon): Studio effects phone test on the Note 9, then merged to joy-creator
+  (59346ae8a, fast-forward). Build: `tools/build-install.sh :app:assembleDefaultDebug` in the
+  worktree `C:/Temp/vl-studio-fx` under the exclusive `jb-gradle.lock`, reusing the idle Gradle
+  daemon (2 m 47 s; rebuild 9 s); `adb install -r` with the phone claimed. Test project: a new
+  Studio project ("Untitled 5" on disk) on a 6 s ffmpeg testsrc2 clip (`/sdcard/Movies/vlfx-test.mp4`),
+  one FX adjustment layer. Results: the seven new effects are in the picker with their hover
+  sentences (read from the accessibility tree); each renders in the preview; Echo Trails' light
+  trails show during playback and in the exported file (`/sdcard/Joy Creator/Untitled.mp4`, frames
+  in `C:/Temp/vlfx-proof`). Found and fixed on the phone: the panel steps ranges >= 4 wide in whole
+  units, so Echo's Zoom (-2..2) showed 0.3 as "0"; Zoom, Ripple Speed and Fade narrowed (Zoom now
+  reads 30, re-checked); Ripple default strength 0.6 -> 1.0. Phone 32.5 -> 35.5 C battery, 36 -> 43 C
+  CPU over ~20 min (the 30 s logger failed; start/end readings only). Seen in passing, not fixed
+  (Library lane): a new project named "Untitled 5" is not found by the Library's search. The
+  owner's main folder is diverged (local commits + other lanes' uncommitted work) and was NOT
+  synced, so his watcher builds do not include this until it is reconciled.
 - 2026-10-27 (later): R10 Echo Trails. `FxEffectDef.Capability.FEEDBACK`: the planner gives it a
   pass of its own and always adds a plain pass after it (the last render carries the layer's
   mask / opacity composite, which must not be fed back). `FX_PREV(uv)` reads last frame's output

@@ -7129,8 +7129,14 @@ public class ExportManager {
                     // frame, so an empty layer costs no program and no pass at all.
                     if (al == null || !al.rendersAnything()) continue;
                     int at = pipEffectStart + Math.min(pipsSeen, pipEffectCount) + inserted;
+                    // R14: a layer with music-linked knobs hears the timeline (its own clock).
+                    final String earsOwner = "export:" + al.getId() + ":" + System.identityHashCode(clip);
+                    final com.fadcam.ui.faditor.model.Timeline earsTimeline = project.getTimeline();
                     videoEffects.add(at,
-                            new AdjustmentLayerGlEffect(context, al, adjustmentOffset));
+                            new AdjustmentLayerGlEffect(context, al, adjustmentOffset,
+                                    al.getFx().hearsMusic()
+                                            ? ms -> com.fadcam.vislab.studio.StudioEars.at(context, earsTimeline, ms, earsOwner)
+                                            : null));
                     inserted++;
                 }
             }

@@ -686,6 +686,7 @@ public class FxCompilerTest {
             if (d != null) check(w[0] + " is " + w[1], d.capability.name().equals(w[1]));
         }
         echoTrailsPlan();
+        musicLinks();
         // The picker's hover label says what each effect does; a new effect without a sentence
         // would show only its name.
         String missing = "";
@@ -723,6 +724,37 @@ public class FxCompilerTest {
         check("no other effect is feedback",
                 FxRegistry.all().stream().filter(d -> d.capability
                         == FxEffectDef.Capability.FEEDBACK).count() == 1);
+    }
+
+    /**
+     * R14: a card parameter follows the music. Glow's Amount (0..3, set 1) linked to the kick at
+     * half the range: a full kick pushes it to 2.5, silence leaves it at 1, a push past the top
+     * stays at 3. The link survives a save and a load.
+     */
+    static void musicLinks() {
+        FxStack s = new FxStack();
+        s.add("glow");
+        FxInstance glow = s.active().get(0);
+        FxParam amount = FxRegistry.get("glow").param("amount");
+        glow.set(amount, 1f);
+        glow.music.put("amount", new com.fadcam.ui.faditor.fx.FxMusic.Link("kick", 0.5f));
+        check("a stack with a link hears music", s.hearsMusic());
+        com.fadcam.ui.faditor.fx.FxMusic.Ears kick = sig -> "kick".equals(sig) ? 1f : 0f;
+        com.fadcam.ui.faditor.fx.FxMusic.Ears quiet = sig -> 0f;
+        float hit = s.resolveAt(0, kick).active().get(0).getScalar(amount);
+        float rest = s.resolveAt(0, quiet).active().get(0).getScalar(amount);
+        check("a full kick pushes Amount 1 by half of 0..3 to 2.5: " + hit, Math.abs(hit - 2.5f) < 1e-4);
+        check("silence leaves it at 1: " + rest, Math.abs(rest - 1f) < 1e-4);
+        check("the authored value is untouched by resolving", Math.abs(glow.getScalar(amount) - 1f) < 1e-6);
+        glow.music.put("amount", new com.fadcam.ui.faditor.fx.FxMusic.Link("kick", 1f));
+        float top = s.resolveAt(0, kick).active().get(0).getScalar(amount);
+        check("a push past the top stays at 3: " + top, Math.abs(top - 3f) < 1e-4);
+        FxStack back = FxStack.fromJson(s.toJson());
+        com.fadcam.ui.faditor.fx.FxMusic.Link l = back.active().get(0).music.get("amount");
+        check("the link survives save and load", l != null && "kick".equals(l.signal) && l.amount == 1f);
+        FxStack none = new FxStack();
+        none.add("glow");
+        check("no link: resolving with ears changes nothing (same stack back)", none.resolveAt(0, kick) == none);
     }
 
     static void check(String what, boolean ok) {

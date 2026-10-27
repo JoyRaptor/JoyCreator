@@ -1031,8 +1031,16 @@ public class FxPreviewTextureView extends TextureView
         @Nullable
         public static Layer of(@NonNull AdjustmentLayer layer, long editorMs,
                                int videoW, int videoH) {
+            return of(layer, editorMs, videoW, videoH, null);
+        }
+
+        /** The same, with what the layer's music-linked knobs hear now (R14), or null. */
+        @Nullable
+        public static Layer of(@NonNull AdjustmentLayer layer, long editorMs,
+                               int videoW, int videoH,
+                               @Nullable com.fadcam.ui.faditor.fx.FxMusic.Ears ears) {
             if (!layer.activeAt(editorMs) || !layer.rendersAnything()) return null;
-            FxStack resolved = layer.getFx().resolveAt(editorMs);
+            FxStack resolved = layer.getFx().resolveAt(editorMs, ears);
             FxCompiler.Plan plan = FxCompiler.plan(resolved);
             if (plan.passes.isEmpty()) return null;
 

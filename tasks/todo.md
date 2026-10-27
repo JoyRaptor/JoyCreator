@@ -36,7 +36,7 @@ Rule: nothing below marked DECISION gets built until the owner picks.
 ## D. VisLab and Joy Brush (vislab_joybrush_audit.md)
 - [ ] WaveformDebugActivity is exported in the main manifest. DECISION: keep for adb testing or move to debug.
 - [ ] Viz Lab destination (same as B).
-- [ ] Joy Brush "Send to Studio" always makes a new project; add "into existing project". Nothing flows back to a drawing.
+- [~] Joy Brush "Send to Studio": with projects on the phone it now asks "New project" or an existing one (adds the animation as one more looping layer, half the canvas, over the whole project; a board sent twice keeps both sheets). BUILT 2026-10-27 on claude/send-to-existing-20261027, rules harness 16/16 + javac type-check of the receiver; NOT built into an APK, NOT phone-tested. Nothing flows back to a drawing (still open).
 - [ ] Joy Brush DrawingsActivity uses a private palette; ~48 colour lines and ~166 strings hard-coded (Joy Brush lead's lane).
 
 ## E. Legacy FadCam screens (legacy_screens_audit.md)

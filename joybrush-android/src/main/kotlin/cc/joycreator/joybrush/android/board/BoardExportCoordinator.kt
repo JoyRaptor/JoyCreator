@@ -169,12 +169,15 @@ class BoardExportCoordinator(private val activity: Activity,
             putStringArrayList("frames",ArrayList(request.frameIds)); putStringArrayList("images",ArrayList(request.imageIds))
             putBoolean("paper",request.includePaper)
             putBoolean("scene",request.scene); putBoolean("fullLoop",request.fullLoop); putString("sceneSignature",request.sceneSignature)
+            putString("playMode",request.playMode.name)
         }
         fun restore(bundle: Bundle?): BoardExportRequest? = try {
             bundle?.let { BoardExportRequest(it.getString("document")!!,it.getString("board")!!,
                 BoardKind.valueOf(it.getString("kind")!!),Export.Scope.valueOf(it.getString("scope")!!),Export.Format.valueOf(it.getString("format")!!),
                 it.getString("frame"),it.getString("start"),it.getString("end"),it.getStringArrayList("frames")!!.toList(),
-                it.getStringArrayList("images")!!.toList(),it.getBoolean("paper"),it.getBoolean("scene"),it.getBoolean("fullLoop"),it.getString("sceneSignature")) }
+                it.getStringArrayList("images")!!.toList(),it.getBoolean("paper"),
+                playMode = it.getString("playMode")?.let { m -> cc.joycreator.joybrush.core.anim.PlayMode.valueOf(m) } ?: cc.joycreator.joybrush.core.anim.PlayMode.LOOP,
+                scene = it.getBoolean("scene"), fullLoop = it.getBoolean("fullLoop"), sceneSignature = it.getString("sceneSignature")) }
         } catch(_: Exception) { null }
 
         /** A fresh subfolder avoids overwriting files from earlier exports or somebody else's work.

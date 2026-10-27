@@ -15,3 +15,17 @@ one bench launch, manifest again, installed-APK hash before/after, receipt. Evid
 Installed APK sha 4ae7c7c0… before and after every run. Remaining frame gates per the report: low-budget refusal,
 injected failure atomicity, archive/save/reopen, watercolour, captured/joint. Next: find the cause of the translated
 watercolour mismatch in the negative tile row.
+
+## Follow-up the same morning: the watercolour failure was 2 pixels
+
+| Run | APK | Result |
+|---|---|---|
+| 38b80acb6 wc-run1 | diagnostic (describe every mismatching tile) | translate: **2 pixels** in all 72 tiles differ, alpha 68→70 at tile (0,-1) (76,236) and 97→98 at tile (1,0) (8,30) |
+| 61118a96c wc-run1 | tolerance ruling | ✅ **all 7 phases pass**; checker PASS with host receipt. add/tint/undo_move/redo_tint exact; translate/undo_tint/redo_move 2 px, max delta 2 |
+
+**Lead ruling (2026-10-27):** a moved line is re-rendered at a translated float position and cannot be guaranteed
+bit-identical to a byte-shifted oracle. Moved-line phases pass within 2/255 per channel on at most 0.05% of compared
+pixels and report the numbers; `add` and `undo_move` stay exact. Probe (`WatercolourOrdinaryProbe`) and checker
+(`tools/watercolour_ordinary_acceptance.py`, 10/10 tests) changed together. Bench brush id is `joybrush.watercolour`
+(the checker doc's `joybrush.lines.watercolour` is not in the bench library). 173 saved files unchanged on every run.
+Still open for watercolour: cold first bake, View save/reopen/recovery, full fade matrix, appearance, speed.

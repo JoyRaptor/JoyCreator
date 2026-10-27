@@ -5561,7 +5561,7 @@ class GlPaintEngine(
         }
         if (framePreviews.isNotEmpty()) setFramePreviews(emptyMap())
         s.changes.forEach { put(it.layerId, it.key, it.before, it.celId) }
-        reconcileAgreements(s.changes)
+        reconcileAgreements(s.changes, forward = false)
         reportMediaRestored(s.changes)
         s.stackBefore?.let { restoreStack(it) }
         s.paperBefore?.let { setDocumentPaper(it) }
@@ -5589,7 +5589,7 @@ class GlPaintEngine(
         }
         if (framePreviews.isNotEmpty()) setFramePreviews(emptyMap())
         s.changes.forEach { put(it.layerId, it.key, it.after, it.celId) }
-        reconcileAgreements(s.changes)
+        reconcileAgreements(s.changes, forward = true)
         reportMediaRestored(s.changes)
         s.stackAfter?.let { restoreStack(it) }
         s.paperAfter?.let { setDocumentPaper(it) }
@@ -5901,7 +5901,8 @@ class GlPaintEngine(
             val cel = nativeHistoryCel(target, change.celId)
             val at = Triple(ownerId, cel, change.key)
             val stores = if (cel == null) target.floats else target.celFloats[cel]
-            if (stores?.values?.any { change.key in it } == true && at in payloadTargets) {
+            val replaced = (if (direction == RecordedScene.Direction.UNDO) change.after else change.before) ?: NO_LOOK
+            if (MediaAgreement.agrees(stores?.values?.any { change.key in it } == true, at in payloadTargets, replaced, expected.agreements[at])) {
                 nextAgreements[at] = (if (cel == null) target.tiles else target.cels[cel])?.get(change.key) ?: NO_LOOK
             } else nextAgreements.remove(at)
         }
@@ -6225,14 +6226,17 @@ class GlPaintEngine(
      * Undo or redo put [changes] back. A look restored together with its tile's payload agrees with it; a look restored
      * alone over a payload does not (it came from a write that bypassed the funnel), and that payload is stale.
      */
-    private fun reconcileAgreements(changes: List<UndoLog.TileChange<Int>>) {
+    private fun reconcileAgreements(changes: List<UndoLog.TileChange<Int>>, forward: Boolean) {
         val withPayload = changes.mapNotNull { c -> MediaStores.parse(c.layerId)?.let { Triple(it.first, c.celId, c.key) } }.toSet()
         for (c in changes) {
             if (MediaStores.isMediaStore(c.layerId)) continue
             val layer = layers[c.layerId] ?: continue
             val plane = planeOf(layer, c.celId)
             val at = Triple(c.layerId, plane, c.key)
-            if (hasPayload(c.layerId, c.key, plane) && at in withPayload) agree(c.layerId, c.key, plane) else agreedLook.remove(at)
+            val replaced = (if (forward) c.before else c.after) ?: NO_LOOK
+            if (MediaAgreement.agrees(hasPayload(c.layerId, c.key, plane), at in withPayload, replaced, agreedLook[at])) {
+                agree(c.layerId, c.key, plane)
+            } else agreedLook.remove(at)
         }
     }
 
@@ -6287,7 +6291,7 @@ class GlPaintEngine(
             put(c.layerId, c.key, c.before, c.celId)
             c.after?.let { if (it != c.before) recycleLayerTex(it) }
         }
-        reconcileAgreements(changes)
+        reconcileAgreements(changes, forward = false)
         reportMediaRestored(changes)
         return changes.size
     }

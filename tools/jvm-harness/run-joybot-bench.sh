@@ -5,6 +5,8 @@
 #   OPENROUTER_API_KEY=… bash tools/jvm-harness/run-joybot-bench.sh --live --models "a:free,b:free"
 #   bash tools/jvm-harness/run-joybot-bench.sh --tasks studio-title-red,host-malformed-args
 #
+#   bash tools/jvm-harness/run-joybot-bench.sh --phone --models "openrouter/free"   # live, ON the Note 9,
+#        with the key saved in the app (claim the phone first: tools/phone.ps1 claim joybot-bench "…")
 # Other flags: --out <file.md> (results table), --repeat <n> (live: runs per task), --probe (list tools).
 # Live runs only ever use models whose id ends in ":free" (or openrouter/free) unless --allow-paid is
 # given, which needs the owner's OK. The key is read from the environment and never printed.

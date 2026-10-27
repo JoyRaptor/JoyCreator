@@ -3,6 +3,20 @@
 Read this first, then [ROADMAP.md](ROADMAP.md). Earlier dated handoff entries are
 chronological evidence, not current slot grants or pending-job status.
 
+**Latest handback snapshot:** desktop integration is CLOSED and committed. Canonical
+code d2c6c8973 matches frozen tested/APK source0adfde398 exactly across core, engine,
+Android app and studiokit; later canonical commits are host/docs only. Backend50
+fresh +core6 reused and app217 fresh passed; host28+validator32 and offline WC10
+also passed directly at root. Exact APK built/preserved, SHA256
+`4ae7c7c033a54dae8845744eacf896816017c8da90dffa1d3eac37f6894b2e58`.
+No actual install/probe was performed in this push: fresh sandbox was asleep/locked.
+All nine specialist lanes are closed, clean and remote-equal at the inventory below.
+Both shared locks are absent; no job or owned watcher was left paused. Main goal is
+UNFINISHED: next gate is fresh unlocked/Home identity, complete data manifests,
+exact installed APK, then disposable ordinary-WC/frame native probes. Preserve all
+runtime guards and continue live-source/save/recovery/Atlas only with actual evidence.
+The following sections retain history; this snapshot supersedes their pending jobs.
+
 ## Owner priority and usage reserve
 
 Owner requests one focused available-usage push, then a durable Claude Code handback.
@@ -174,3 +188,24 @@ feature/roadmap documentation; tested runtime candidate is isolated for acceptan
 Primary and historic dirty checkouts remain deliberately untouched. Claude should
 continue the exact next GPU gates, not rebuild completed helpers or assume whole
 feature completion from these focused desktop results.
+
+## Exact APK and final host closeout
+
+APK0adfde398 CLOSED SUCCESS5m17s/exit0,276tasks (48executed/228up-to-date).
+Root provenance helper required clean exact source, successful closed log, artifact
+mtime bounds and matching copied byte length/SHA. Root then independently rehashed
+the preserved artifact. [Durable APK receipt](reviews/NATIVE_APK_20261027.json).
+Preserved path C:/Temp/jb-lead-ops/apk-0adfde398-20261027/joybrush-0adfde398-arm64.apk,
+169360884bytes. No install or new phone claim; readiness question remains pending.
+
+Canonical72e38d90d selectively adopts the already-proved bounded async Select host
+from a20eaa3a0; no APK/source-tree change. Root separately reran runner28 and
+validator32 offline tests, all passing. Their synthetic failure/claim-retention
+messages refer to temporary fixtures, not an actual device claim. WC checker10
+and documentation link79 checks passed. Next lead should use this current host
+for its supported Select cases; ordinary/frame probes need their own exact-case
+capture/parsing with complete manifests, bounded ADB and resolved component.
+The old run-recorded-phone.ps1 is historical: do NOT run it unreviewed as a replacement
+for the current data-manifest/readiness/claim protocol. It is not evidence that the
+new cases ran. Both jb-gradle.lock and jb-phone.lock were independently absent after
+all final jobs; no launched unresolved probe exists. Main runtime remains gated.

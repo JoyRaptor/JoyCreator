@@ -1,0 +1,13 @@
+{
+  "Source": "0adfde398f5facd4a0b22f355d82772c2f02089d",
+  "Path": "C:\\Temp\\jb-lead-ops\\apk-0adfde398-20261027\\joybrush-0adfde398-arm64.apk",
+  "Bytes": 169360884,
+  "Sha256": "4ae7c7c033a54dae8845744eacf896816017c8da90dffa1d3eac37f6894b2e58",
+  "BuildLogSha256": "5eccb2283feb257e8821872883b8c4aa61c324c5b30f8f06845b66b98c596982",
+  "exitCode": 0,
+  "duration": "5m17s",
+  "scope": "Built and preserved only; not installed, no GPU/phone acceptance",
+  "heapMiB": 2048,
+  "activeProcessors": 2,
+  "workers": 1
+}

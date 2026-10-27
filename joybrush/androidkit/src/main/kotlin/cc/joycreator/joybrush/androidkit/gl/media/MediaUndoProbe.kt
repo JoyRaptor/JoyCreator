@@ -76,19 +76,30 @@ internal object MediaUndoProbe {
                 canvas.end()
                 idle()
             }
-            fun undo() { canvas.settleOwed(); check(engine.undoStep()) { "nothing to undo" }; idle() }
-            fun redo() { canvas.settleOwed(); check(engine.redoStep()) { "nothing to redo" }; idle() }
+            val phases = JSONArray()
+            fun drops() = warnings.count { "outside the media funnel" in it }
+            /** Where history and drops stand after [name]: undo depth, a redo there or not, drops so far, write-backs. */
+            fun mark(name: String) { phases.put("$name: depth ${engine.undo.undoDepth} redo ${engine.undo.peekRedo() != null} drops ${drops()} wb ${canvas.atlas?.writeBacks ?: -1}") }
+            fun undo() {
+                canvas.settleOwed(); mark("settled"); check(engine.undoStep()) { "nothing to undo" }; mark("undone")
+                idle(); mark("undo+idle")
+            }
+            fun redo() {
+                canvas.settleOwed(); mark("settled"); check(engine.redoStep()) { "nothing to redo (${phases.join(" / ")})" }; mark("redone")
+                idle(); mark("redo+idle")
+            }
 
-            stroke(0, 0xFFE8C21E.toInt())
-            val afterA = looks(engine)
-            stroke(1, 0xFF2F7D3A.toInt())
-            val afterB = looks(engine)
+            stroke(0, 0xFFE8C21E.toInt()); mark("A")
+            val afterA = looks(engine); mark("A read")
+            stroke(1, 0xFF2F7D3A.toInt()); mark("B")
+            val afterB = looks(engine); mark("B read")
             undo()
             val undone = looks(engine)
             redo()
             val redone = looks(engine)
             undo()
-            stroke(2, 0xFFB8461A.toInt())
+            stroke(2, 0xFFB8461A.toInt()); mark("C")
+            o.put("phases", phases)
             val writeBacks = canvas.atlas?.writeBacks ?: -1
             canvas.releaseWindow()
 

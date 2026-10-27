@@ -4,6 +4,9 @@ import cc.joycreator.joybrush.core.doc.AnimOps
 import cc.joycreator.joybrush.core.doc.Board
 import cc.joycreator.joybrush.core.doc.DocException
 import cc.joycreator.joybrush.core.doc.RectPx
+import cc.joycreator.joybrush.core.anim.PlayMode
+import cc.joycreator.joybrush.core.anim.PlaybackClock
+import cc.joycreator.joybrush.core.anim.TweenFrameSample
 import kotlin.math.floor
 
 // `Clip`, `PackedSheet` and `SpritePacker` are in THIS package, so they need no import — adding one
@@ -35,6 +38,13 @@ data class AnimExportPlan(
      * `RegionRenderer` does and the same one `OraExport` makes).
      */
     val rect: RectPx,
+    /** Playback behavior for this export; legacy callers retain the original looping default. */
+    val playMode: PlayMode = PlayMode.LOOP,
+    /** One shared playback sample per exposure when this plan expands tweened holds. */
+    val tweenSamples: List<TweenFrameSample>? = null,
+    /** Selected source-range endpoints; null on older manually assembled static plans. */
+    val rangeFirstFrameId: String? = null,
+    val rangeLastFrameId: String? = null,
 ) {
     val totalMs: Int get() = delayMs.sum()
     val frameCount: Int get() = frameIds.size
@@ -62,8 +72,8 @@ object AnimExport {
      *   `DocException`, which extends `Exception`, `DocJson.kt:8`), and the other two are this
      *   object's own sentences in the same type, because a sentence is what the export button shows.
      */
-    fun plan(board: Board, baseName: String): AnimExportPlan =
-        build(board, 0, board.frames.size - 1, baseName)
+    fun plan(board: Board, baseName: String, mode: PlayMode = PlayMode.LOOP): AnimExportPlan =
+        build(board, 0, board.frames.size - 1, baseName, mode)
 
     /**
      * A SUB-RANGE of the board: frames [first]..[last] inclusive, in play order.
@@ -73,19 +83,19 @@ object AnimExport {
      * "export frames 2..5" and "play frames 2..5" must be the same four frames by construction.
      * See Decision 4 and the test that proves it against the clock's own answers.
      */
-    fun planRange(board: Board, first: Int, last: Int, baseName: String): AnimExportPlan {
+    fun planRange(board: Board, first: Int, last: Int, baseName: String, mode: PlayMode = PlayMode.LOOP): AnimExportPlan {
         val frames = board.frames.size
         if (frames == 0) {
             // No range to clamp into, and nothing to say about a range: the refusal is the same one
             // `plan` gives, so the two never disagree about an empty board. Delegated rather than
             // duplicated, and the `0 until -1` below is never reached.
-            return build(board, 0, -1, baseName)
+            return build(board, 0, -1, baseName, mode)
         }
         // `minOf`/`maxOf` then `coerceIn`, in that order, so the pair is swapped first and clamped
         // second — the same two lines as `PlaybackClock`'s constructor, in the same order.
         val lo = minOf(first, last).coerceIn(0, frames - 1)
         val hi = maxOf(first, last).coerceIn(0, frames - 1)
-        return build(board, lo, hi, baseName)
+        return build(board, lo, hi, baseName, mode)
     }
 
     /**
@@ -186,7 +196,7 @@ object AnimExport {
      * are `AnimOps`' refusals and are left to arrive unchanged by the call at the top of the
      * derivation, so there is exactly one answer to "may this board play" in the whole codebase.
      */
-    private fun build(board: Board, lo: Int, hi: Int, baseName: String): AnimExportPlan {
+    private fun build(board: Board, lo: Int, hi: Int, baseName: String, mode: PlayMode): AnimExportPlan {
         // `AnimOps` FIRST, deliberately, before this object's own two sentences below. Its
         // `playableSchedule` is where the board kind, the fps range and a frame held for no time at
         // all are decided, and it throws a `DocException` naming the board for all three. Calling it
@@ -222,7 +232,7 @@ object AnimExport {
             delays.add(roundHalfUpMs(end - starts[i]))
         }
 
-        return AnimExportPlan(
+        val basePlan = AnimExportPlan(
             frameIds = board.frames.subList(lo, hi + 1).map { it.id },
             delayMs = delays,
             width = board.rect.w,
@@ -230,7 +240,42 @@ object AnimExport {
             fps = board.fps,
             baseName = safeBaseName(baseName),
             rect = board.rect,
+            playMode = mode,
+            rangeFirstFrameId = board.frames.getOrNull(lo)?.id,
+            rangeLastFrameId = board.frames.getOrNull(hi)?.id,
         )
+        if (!hasActiveTweenTransition(board, lo, hi, mode)) return basePlan
+
+        val clock = PlaybackClock(board, mode, lo, hi)
+        val forwardTicks = board.frames.subList(lo, hi + 1).sumOf { it.holdFrames.toLong() }
+        val reverseTicks = if (mode == PlayMode.PING_PONG && hi - lo + 1 > 2)
+            board.frames.subList(lo + 1, hi).sumOf { it.holdFrames.toLong() } else 0L
+        val ticks = forwardTicks + reverseTicks
+        if (ticks > MAX_TWEEN_EXPOSURES) {
+            throw DocException("This animation needs more than $MAX_TWEEN_EXPOSURES tween exposures; shorten its holds or export a smaller range")
+        }
+        val samples = ArrayList<TweenFrameSample>(ticks.toInt())
+        val expandedIds = ArrayList<String>(ticks.toInt())
+        val expandedDelays = ArrayList<Int>(ticks.toInt())
+        var previousBoundary = 0L
+        for (tick in 0 until ticks) {
+            val timeMs = tick.toDouble() * 1000.0 / board.fps
+            val sample = clock.exposureAt(timeMs).sample
+                ?: throw DocException("board \"${board.id}\" has no exposure at export tick $tick")
+            samples += sample
+            expandedIds += sample.frameId
+            val boundary = floor((tick + 1).toDouble() * 1000.0 / board.fps + 0.5).toLong()
+            expandedDelays += (boundary - previousBoundary).toInt().coerceAtLeast(1)
+            previousBoundary = boundary
+        }
+        return basePlan.copy(frameIds = expandedIds, delayMs = expandedDelays, tweenSamples = samples)
+    }
+
+    /** Whether this selected range contains a real source-to-target tween edge. */
+    fun hasActiveTweenTransition(board: Board, first: Int, last: Int, mode: PlayMode): Boolean {
+        if (first !in board.frames.indices || last !in first..board.frames.lastIndex) return false
+        if ((first until last).any { index -> board.frames[index].tween && board.frames[index].holdFrames > 1 }) return true
+        return mode == PlayMode.LOOP && last > first && board.frames[last].tween && board.frames[last].holdFrames > 1
     }
 
     /**
@@ -293,4 +338,6 @@ object AnimExport {
 
     /** The named fallback, so a test can assert it and a person can recognise it. */
     private const val FALLBACK_NAME = "Animation"
+
+    const val MAX_TWEEN_EXPOSURES = 100_000
 }

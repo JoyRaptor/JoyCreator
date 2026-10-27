@@ -6251,12 +6251,14 @@ class GlPaintEngine(
         val looks = if (plane == null) layer.tiles else layer.cels[plane].orEmpty()
         val stale = keys.filter { k -> hasPayload(layerId, k, plane) && agreedLook[Triple(layerId, plane, k)] != (looks[k] ?: NO_LOOK) }
         if (stale.isEmpty()) return emptySet()
+        val never = stale.count { agreedLook[Triple(layerId, plane, it)] == null }
         val changes = ArrayList<UndoLog.TileChange<Int>>()
         for (k in stale) {
             for ((store, tiles) in floatsOf(layer, plane)) tiles.remove(k)?.let { changes.add(UndoLog.TileChange(MediaStores.id(layerId, store), k, it, null, plane)) }
             agreedLook.remove(Triple(layerId, plane, k))
         }
-        onMediaWarning?.invoke("dropped the media of ${stale.size} tile(s) of $layerId: their pixels changed outside the media funnel")
+        onMediaWarning?.invoke("dropped the media of ${stale.size} tile(s) of $layerId: their pixels changed outside the media funnel" +
+            " (never agreed $never, look moved ${stale.size - never}; ${stale.joinToString(" ") { "${it shr 32},${it.toInt()}" }})")
         val stroke = mediaStroke
         // One change per tile in a stroke (MediaStrokeChanges): a texture this stroke made is ended, not dropped again.
         if (stroke != null) MediaStrokeChanges.addDrops(stroke, changes).forEach(::recycleLayerTex) else undo.push(UndoLog.Step(changes))

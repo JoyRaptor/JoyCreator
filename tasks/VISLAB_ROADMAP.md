@@ -43,7 +43,7 @@ Note 9 test. Every `[~]` row was compiled together on 10-24 (Studio + effects + 
 | R5 | MIDI as a sound source (G10) | M | Sonnet + lead | [~] MidiFile / MidiFeatures / MidiSource / MidiSynth; .kar words; run-midi 15/15 |
 | R6 | Hide knobs that do nothing in the current mode (G2b) | S | Haiku audit + lead | [~] showFor on 66 knobs; run-vislab passes |
 | R7 | Sprite element: a SpriteLab sheet inside a look (G8a) | M | lead | [~] Sprite element + look "Record Hop"; run-sprite 11/11; pilot draws the built-in sheet |
-| R8 | Studio proxies drive a look's Place and picture (G7) | M | Sonnet | [ ] |
+| R8 | Studio proxies drive a look's Place and picture (G7) | M | Sonnet | [ ] slice 1 built 10-27 (branch `vislab/proxy-bind-20261027`, worktree `C:/Temp/vl-proxy-bind`): a layer can be moved / sized / turned from outside (`Layer.follow`, `VisRenderer.setLayerFollow`, `PlaceFollow` units), run-vislab 3/3. Owed: the per-layer link in the project (model + save), the per-frame feed in StudioVis / export, the Follow row in the layer drawer, phone test |
 | R9 | Layer reference: a look shows another Studio item (G8c) | L | lead | [ ] |
 | R10 | Echo trails as a Studio effect (stateful feedback) | M | lead | [ ] |
 | R11 | True blend preview for visualisers in Studio | M | Sonnet | [ ] |

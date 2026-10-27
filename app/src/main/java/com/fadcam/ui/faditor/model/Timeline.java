@@ -2997,6 +2997,12 @@ public class Timeline {
                 LinkPose p = byId.get(e.getValue());
                 if (p != null && p != w) w.getVisFollowRefs().put(e.getKey(), p);
             }
+            // R9: look picture layers showing a Studio picture or title.
+            w.getVisShowRefs().clear();
+            for (java.util.Map.Entry<String, String> e : w.getVisShow().entrySet()) {
+                LinkPose p = byId.get(e.getValue());
+                if (p instanceof TextOverlayItem) w.getVisShowRefs().put(e.getKey(), p);
+            }
         }
     }
 

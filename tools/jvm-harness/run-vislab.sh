@@ -28,10 +28,12 @@ javac -nowarn -encoding UTF-8 -cp "$GSON" -d "$OUT" \
   app/src/main/java/com/fadcam/vislab/audio/FeatureExtractor.java \
   app/src/main/java/com/fadcam/vislab/audio/SpectrumAnalyzer.java \
   tools/jvm-harness/VisLooksTest.java \
-  tools/jvm-harness/VisFeatureParityTest.java || exit 1
+  tools/jvm-harness/VisFeatureParityTest.java \
+  tools/jvm-harness/VisPlaceFollowTest.java || exit 1
 
 rc=0
 [ -f "$OUT/VisLooksTest.class" ] || { echo "no class file: the compile did not run"; exit 1; }
 java @"$RUNARGS" VisLooksTest || rc=1
 java @"$RUNARGS" VisFeatureParityTest || rc=1
+java @"$RUNARGS" VisPlaceFollowTest || rc=1
 exit $rc

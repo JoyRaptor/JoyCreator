@@ -186,6 +186,17 @@ public final class VisRenderer {
         lookSpeed = Math.max(0f, speed);
     }
 
+    /** Studio's per-layer follow moves (R8): 4 floats a layer (across, up, size ratio, turn deg). */
+    private volatile float[] layerFollow = new float[0];
+
+    /**
+     * Layers that follow a Studio proxy: {@code moves[4 * i ..]} = layer i's extra Place, added on
+     * top of the look's own (see {@link com.fadcam.vislab.model.PlaceFollow}). Null or short = the rest stay put.
+     */
+    public void setLayerFollow(@Nullable float[] moves) {
+        layerFollow = moves != null ? moves : new float[0];
+    }
+
     /**
      * How strongly the look hears the music: 0 as if silent, 1 as it is, 2 twice as loud
      * (Studio's keyframable Reactivity on a visualizer; not part of the look). It scales what the
@@ -494,9 +505,14 @@ public final class VisRenderer {
         GLES30.glDisable(GLES30.GL_CULL_FACE);
         GLES30.glBlendEquation(GLES30.GL_FUNC_ADD);
         float lb = lookBright, lh = lookHue, ls = lookSize, lsp = lookSpeed;
+        float[] fol = layerFollow;
+        int li = 0;
         for (CompiledScene.Layer L : compiled.layers) {
             L.knobs.host(lb, lh, lsp, 1f);     // a type's own "size" is not the layer's size
             L.common.host(1f, 0f, lsp, ls);
+            int o = 4 * li++;
+            if (o + 3 < fol.length) L.follow(fol[o], fol[o + 1], fol[o + 2], fol[o + 3]);
+            else L.follow(0f, 0f, 1f, 0f);
             L.eval(signals);
         }
 

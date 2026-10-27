@@ -86,6 +86,20 @@ public final class CompiledScene {
             return i < 0 ? fallback : common.values[i];
         }
 
+        /**
+         * A host that moves this layer on top of its own Place (Studio: a proxy it follows, R8).
+         * Look units / a size ratio / degrees, added to the look's own values and never saved in
+         * the look. (0, 0, 1, 0) = untouched.
+         */
+        private float followX, followY, followSize = 1f, followTurn;
+
+        public void follow(float dx, float dy, float sizeMul, float turnDeg) {
+            followX = dx;
+            followY = dy;
+            followSize = sizeMul > 0.001f ? sizeMul : 0.001f;
+            followTurn = turnDeg;
+        }
+
         public float opacity() { return v(iOpacity, 1f); }
 
         /** Scales every music link of this layer: 0 calm, 1 as set, 2 wild. */
@@ -93,16 +107,16 @@ public final class CompiledScene {
 
         public float soft() { return Math.max(0f, Math.min(1f, v(iSoft, 0f))); }
 
-        public float x() { return v(iX, 0f); }
+        public float x() { return v(iX, 0f) + followX; }
 
-        public float y() { return v(iY, 0f); }
+        public float y() { return v(iY, 0f) + followY; }
 
-        public float size() { return Math.max(0.05f, v(iSize, 1f)); }
+        public float size() { return Math.max(0.05f, v(iSize, 1f) * followSize); }
 
         /** Degrees. */
         public float turn() {
             float spin = iSpin >= 0 && !Double.isNaN(spun) ? (float) ((spun % 1.0) * 360.0) : 0f;
-            return v(iTurn, 0f) + spin;
+            return v(iTurn, 0f) + spin + followTurn;
         }
     }
 

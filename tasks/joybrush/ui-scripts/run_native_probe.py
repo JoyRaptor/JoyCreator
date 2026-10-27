@@ -21,6 +21,7 @@ from run_select_bench import ACTIVITY, PACKAGE, Adb, PhoneClaim, RunError
 CASES = {
     "nativeFrameDuplicateProbe": "joybrush.ink",
     "recordedWatercolourOrdinaryProbe": "joybrush.watercolour",
+    "mediaAtlasLedgerProbe": "media:wet:Wash,media:paste:Oil round,media:dry:HB",
 }
 # Every place a person's drawings or projects live on the sandbox. A probe must leave each file byte-identical.
 SAVED_ROOTS = (
@@ -65,7 +66,7 @@ def apk_receipt(path: Path):
     return source, apk, digest
 
 
-def run(out: Path, case: str, receipt: Path, install: bool, lane: str, timeout_s: int):
+def run(out: Path, case: str, receipt: Path, install: bool, lane: str, timeout_s: int, extras=()):
     if case not in CASES:
         raise RunError(f"Unsupported case; use one of {sorted(CASES)}.")
     if out.exists() and any(out.iterdir()):
@@ -102,8 +103,11 @@ def run(out: Path, case: str, receipt: Path, install: bool, lane: str, timeout_s
         fence = f"jb-probe-fence {run_id}"
         adb.call("shell", "log", "-p", "i", "-t", "JoyBrushPerf", shlex.quote(fence))
         launched = True
+        # adb shell joins its arguments with spaces: quote values ("media:paste:Oil round").
+        extra_args = [a for kv in extras for a in ("--es", kv.partition("=")[0], shlex.quote(kv.partition("=")[2]))]
         launch = adb.call("shell", "am", "start", "-W", "-n", ACTIVITY, "--es", "jb_bench", case,
-                          "--es", "jb_bench_brushes", CASES[case], "--ei", "jb_bench_runs", "1", timeout=60)
+                          "--es", "jb_bench_brushes", shlex.quote(CASES[case]), "--ei", "jb_bench_runs", "1",
+                          *extra_args, timeout=60)
         if "Error" in launch or "Exception" in launch:
             raise RunError("Bench launch not confirmed; inspect the phone before cleanup.")
         deadline = time.monotonic() + timeout_s
@@ -128,7 +132,7 @@ def run(out: Path, case: str, receipt: Path, install: bool, lane: str, timeout_s
         receipt_out = dict(
             sourceRevision=source, apkSha256=expected, installedBeforeSha256=installed_before,
             installedAfterSha256=installed_after, model=model, api=api, runId=run_id, benchCase=case,
-            brush=CASES[case], fence=fence, tempBeforeC=temp_before, tempAfterC=temp_after,
+            brush=CASES[case], extras=list(extras), fence=fence, tempBeforeC=temp_before, tempAfterC=temp_after,
             savedBefore=saved_before, savedAfter=saved_after,
             requiredSavedPaths=list(WORKING), savedFiles=len(saved_before),
             savedUnchanged=saved_before == saved_after)
@@ -156,9 +160,10 @@ def main():
     parser.add_argument("--install", action="store_true", help="adb install -r the preserved APK if the phone differs")
     parser.add_argument("--lane", default="Claude JoyBrush Lead")
     parser.add_argument("--timeout", type=int, default=300)
+    parser.add_argument("--es", action="append", default=[], metavar="KEY=VALUE", help="extra string intent extra (repeatable)")
     args = parser.parse_args()
     try:
-        run(args.out, args.case, args.receipt, args.install, args.lane, args.timeout)
+        run(args.out, args.case, args.receipt, args.install, args.lane, args.timeout, args.es)
     except (RunError, OSError, ValueError, KeyError) as error:
         print(f"FAIL: {error}", file=sys.stderr)
         return 1

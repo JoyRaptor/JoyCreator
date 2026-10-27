@@ -1156,3 +1156,8 @@ as `TIME * knob` are "rate" and the host integrates them.
   writes, so the holder's own name still matches `PHONE_OWNER`).
 - **Never commit with `-c core.hooksPath=`** (or `--no-verify`): it skips `.githooks/pre-commit`, the guard that keeps
   the owner's personal identifiers out of the repo. A 10-24 push did; the guard was run on it afterwards (clean).
+
+## 2026-10-27: a background build that never started
+- A background Bash line began with a stray `cat > file` (no heredoc), which waited on stdin forever, so the Gradle script after it never ran and no lock file appeared. Found only because the lock was missing when it should have been held.
+- Rule: write build scripts with the Write tool, then launch them with a bare `bash script.sh`. When a background build's lock file or log is missing a minute in, treat it as not started.
+- Also: a fresh `git worktree` has no `local.properties` (copy it from the canonical checkout), and the joybrush build has no wrapper of its own (`./gradlew -p joybrush ...` from the root).

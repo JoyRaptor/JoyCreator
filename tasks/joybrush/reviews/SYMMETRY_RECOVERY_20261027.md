@@ -40,10 +40,10 @@ See the end of this file (filled in as the runs finish).
 | `:core:jvmTest` filtered to the 12 symmetry-related suites (SymmetryMath 21, SymmetryLane 13, MediaLane 6, MediaSafety 7, BrushDabber 30, Scatter 14, GuideSettings 12, GuideLines 11, GuideSnapper 17, DirectionTracker 12, Paint 13, MaskPaint 24) | 180 tests, 0 failures, 0 errors, 0 skipped (XML counted) |
 | `:androidkit:compileKotlin` with the merged JbCanvasView / MediaCanvas | passes |
 | `:androidkit:test` SymmetryCapNote 4, SymmetryLineRecords 11, MediaWindowPin 3 | 18 tests, 0 failures, 0 errors, 0 skipped |
+| `:joybrush-android:compileDebugKotlin` (Activity, SymmetryWidgetView, GuideOverlayView), run under the lock with 768m heap | BUILD SUCCESSFUL, 0 errors, 1 deprecation warning (`RangeInfo.obtain`); symmetry widget classes emitted |
 
 ### NOT done
 
 - Full `:core:jvmTest` / `:androidkit:test` (only the symmetry-related classes ran, so a regression elsewhere from the merged hot files is not excluded).
-- `joybrush-android` (Activity, SymmetryWidgetView, GuideOverlayView) not compiled: free RAM was 1.8 GiB, under the 2.2 GiB guard.
 - No APK, no phone, no pixel parity of the ordinary stroke with symmetry off.
 - Realistic-paint symmetry on the atlas (refuses in words).

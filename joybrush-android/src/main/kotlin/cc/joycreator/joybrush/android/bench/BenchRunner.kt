@@ -122,6 +122,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 canvas.runAnimationClipsProbe { result ->
                     val report=try { org.json.JSONObject(result) } catch(e:Exception) { org.json.JSONObject().put("passed",false).put("error",result) }
                     logRecordedReport(report.put("case","animationClips"),"fixture","animationClips",0)
+                    Log.i(TAG, "done")   // the host runner's end marker (run_native_probe.py)
                     onDone()
                 }
             }

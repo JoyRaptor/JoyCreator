@@ -123,9 +123,9 @@ float jb_pasteTip(float a) { return 0.6 * u_hairLen + 0.4 * jb_vnoise1((a + 1.0)
 // average across the brush stays the pen's pressure.
 float jb_pasteForce(float a) {
     if (u_force <= 0.0 || u_shape > 1.5) return u_pressure;
-    float flat = u_shape > 0.5 ? 1.0 : 0.0;
-    float side = clamp(u_lean * (1.0 - 0.6 * flat) + u_curve, -1.0, 1.0);
-    return clamp(u_pressure * (1.0 + u_force * (0.8 * side * a + 0.9 * flat * (1.0 / 3.0 - a * a))), 0.0, 1.0);
+    float flatEnd = u_shape > 0.5 ? 1.0 : 0.0;   // (not "flat": a GLSL keyword)
+    float side = clamp(u_lean * (1.0 - 0.6 * flatEnd) + u_curve, -1.0, 1.0);
+    return clamp(u_pressure * (1.0 + u_force * (0.8 * side * a + 0.9 * flatEnd * (1.0 / 3.0 - a * a))), 0.0, 1.0);
 }
 // This fragment's run of hair (jb_pasteTip), set once by each pass right after u_hairLen when u_ends is on (it was
 // worked out three times a pixel: +20-30 % paste time a step on the Note 9, 10-25 A/B).

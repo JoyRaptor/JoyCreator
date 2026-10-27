@@ -40,6 +40,14 @@ public final class CompiledScene {
         @Nullable public final float[] palette;
         /** Picture reference for image layers ("asset:...", a file path, or null for the default logo). */
         @Nullable public final String image;
+        /** This layer's place in the look's "layers" array (what a Studio follow names it by). */
+        public final int index;
+        /**
+         * Studio: the layer follows another Studio object (roadmap R8). Where that object is, in
+         * this look's scene units, replaces Place across / up; its growth and turning since it
+         * was linked multiply Size and add to Turn. Set by the renderer each frame; off = NaN.
+         */
+        private float followX = Float.NaN, followY, followSize = 1f, followTurn;
 
         Layer(@NonNull JsonObject source, @NonNull VisType type, @NonNull VisType layerType, int index) {
             this.source = source;
@@ -66,6 +74,15 @@ public final class CompiledScene {
             palette = stops != null ? VisScene.paletteLinear(stops) : null;
             JsonElement im = source.get("image");
             image = im != null && im.isJsonPrimitive() ? im.getAsString() : null;
+            this.index = index;
+        }
+
+        /** Follow a Studio object this frame (see {@link #followX}); NaN x lets go. */
+        public void follow(float x, float y, float sizeMul, float turnDeg) {
+            followX = x;
+            followY = y;
+            followSize = sizeMul > 0f ? sizeMul : 1f;
+            followTurn = turnDeg;
         }
 
         public void eval(@Nullable Signals s) {
@@ -93,16 +110,19 @@ public final class CompiledScene {
 
         public float soft() { return Math.max(0f, Math.min(1f, v(iSoft, 0f))); }
 
-        public float x() { return v(iX, 0f); }
+        public float x() { return Float.isNaN(followX) ? v(iX, 0f) : followX; }
 
-        public float y() { return v(iY, 0f); }
+        public float y() { return Float.isNaN(followX) ? v(iY, 0f) : followY; }
 
-        public float size() { return Math.max(0.05f, v(iSize, 1f)); }
+        public float size() {
+            float s = Math.max(0.05f, v(iSize, 1f));
+            return Float.isNaN(followX) ? s : Math.max(0.05f, s * followSize);
+        }
 
         /** Degrees. */
         public float turn() {
             float spin = iSpin >= 0 && !Double.isNaN(spun) ? (float) ((spun % 1.0) * 360.0) : 0f;
-            return v(iTurn, 0f) + spin;
+            return v(iTurn, 0f) + spin + (Float.isNaN(followX) ? 0f : followTurn);
         }
     }
 

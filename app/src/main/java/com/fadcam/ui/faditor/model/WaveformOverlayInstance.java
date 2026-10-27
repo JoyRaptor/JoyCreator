@@ -118,6 +118,23 @@ public class WaveformOverlayInstance implements LinkFollower {
     public void setVisLook(@Nullable String lookId) { this.visLook = lookId; }
     public boolean isVisLab() { return visLook != null; }
 
+    /**
+     * Layers of a VisLab look that follow another Studio object (roadmap R8: a dummy moves the
+     * logo inside the look). Key {@code "<lookId>/<layer index>"}, value the object's id, so each
+     * look keeps its own follows when the look is keyed over time. Persisted by ProjectStorage.
+     */
+    @NonNull private final java.util.TreeMap<String, String> visFollow = new java.util.TreeMap<>();
+    /** The followed objects, resolved by {@link Timeline#resolveSpaceLinks()} (null = gone). */
+    @NonNull private final transient java.util.Map<String, LinkPose> visFollowRefs = new java.util.HashMap<>();
+
+    @NonNull public java.util.TreeMap<String, String> getVisFollow() { return visFollow; }
+    @NonNull public java.util.Map<String, LinkPose> getVisFollowRefs() { return visFollowRefs; }
+
+    /** The key a follow is stored under. */
+    @NonNull public static String visFollowKey(@NonNull String lookId, int layerIndex) {
+        return lookId + "/" + layerIndex;
+    }
+
     /** The VisLab values, each keyframable: the look over time, Reactivity, Fade (S4). */
     @NonNull private final VisLabKeys visKeys = new VisLabKeys();
 

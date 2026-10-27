@@ -99,6 +99,7 @@ public final class VisRenderer {
     @Nullable private GpuTimer gpu;
     private volatile ImageSource images;
     private volatile SpriteSource spriteSource;
+    @Nullable private volatile float[] layerFollow;
     private final SpriteLayers sprites = new SpriteLayers();
     /** This frame's sound and step, for layers that keep time on the CPU (sprites). */
     private Features frameF = new Features();
@@ -261,6 +262,15 @@ public final class VisRenderer {
 
     public void setSpriteSource(@Nullable SpriteSource src) {
         spriteSource = src;
+    }
+
+    /**
+     * Studio (roadmap R8): layers that follow another Studio object, packed
+     * {@code [layerIndex, x, y, sizeMul, turnDeg]} per layer, x / y in scene units. Null or empty:
+     * every layer keeps its own Place. Read on the next frame.
+     */
+    public void setLayerFollow(@Nullable float[] follow) {
+        layerFollow = follow;
     }
 
     /** Forget all memory (particles, trails, echo) so the next frame starts clean (a seek). */
@@ -494,10 +504,17 @@ public final class VisRenderer {
         GLES30.glDisable(GLES30.GL_CULL_FACE);
         GLES30.glBlendEquation(GLES30.GL_FUNC_ADD);
         float lb = lookBright, lh = lookHue, ls = lookSize, lsp = lookSpeed;
+        float[] follow = layerFollow;
         for (CompiledScene.Layer L : compiled.layers) {
             L.knobs.host(lb, lh, lsp, 1f);     // a type's own "size" is not the layer's size
             L.common.host(1f, 0f, lsp, ls);
             L.eval(signals);
+            L.follow(Float.NaN, 0f, 1f, 0f);
+            if (follow != null) {
+                for (int i = 0; i + 4 < follow.length; i += 5) {
+                    if ((int) follow[i] == L.index) L.follow(follow[i + 1], follow[i + 2], follow[i + 3], follow[i + 4]);
+                }
+            }
         }
 
         // 2. living layers on the absolute 60 Hz grid

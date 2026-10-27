@@ -1,0 +1,41 @@
+{
+  "status": "SOURCE_ONLY_NOT_EXECUTED",
+  "base": "c8e116205",
+  "classes": {
+    "GlInitOwnershipTest": {
+      "expected_count": 5,
+      "expected_methods": [
+        "rollbackDeletesPartialAllocationsAcrossEveryKindAndClearsLedgers",
+        "staleContextSkipsDeletesEvenWhenNamesHaveBeenReused",
+        "contextChangeDuringCleanupStopsFurtherDeletesButClearsEverySlot",
+        "deletionFailureIsSuppressedAndDoesNotPreventOtherCleanup",
+        "repeatedRollbackDoesNotDeleteTheSameNamesTwice"
+      ]
+    },
+    "GlProgramConstructionTest": {
+      "expected_count": 7,
+      "expected_methods": [
+        "fragmentCompileExceptionReclaimsPreviouslyCompiledVertexAndFragment",
+        "compileStatusAndDiagnosticFailureDoNotLeakShader",
+        "linkRefusalReclaimsProgramAndBothShaders",
+        "attachExceptionReclaimsAlreadyCreatedProgram",
+        "successfulLinkTransfersProgramAndRetiresOnlyShaders",
+        "contextLossDuringLinkNeverDeletesReusedNamesOnAnotherContext",
+        "cleanupFailureIsSuppressedWhileRemainingShadersAreStillRetired"
+      ]
+    },
+    "GlContextLossTest": {
+      "expected_count": 8,
+      "expected_methods": [
+        "aFirstInitOnAVirginContextLosesNothingBecauseThereWasNothing",
+        "aContextLossLeavesNoStaleHandleToBeMistakenForTheDrawing",
+        "aContextLossIsReportedSoTheCallerCanTellThePerson",
+        "namesSittingInTheFreePoolAreLostTooAndAreNeverHandedOutAgain",
+        "drawingWorksAgainAfterALossWithoutAnythingDeadComingBack",
+        "aContextLossLetsGoOfTheCompositeTargetsToo",
+        "contextLossAbandonsTheLiftBeforeNewNamesCanBeAllocated",
+        "failedReplacementCannotLeaveADeadLiftForTheNextInit"
+      ]
+    }
+  }
+}

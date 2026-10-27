@@ -1,0 +1,379 @@
+{
+  "source": "0adfde398f5facd4a0b22f355d82772c2f02089d",
+  "canonicalCodeEquivalent": "d2c6c8973a9a9660211715984fa3cf60ae1e5e24",
+  "backend": {
+    "source": "0adfde398f5facd4a0b22f355d82772c2f02089d",
+    "exitCode": 0,
+    "suites": [
+      {
+        "suite": "cc.joycreator.joybrush.core.doc.FrameDuplicatePlanTest",
+        "module": "core",
+        "execution": "UP-TO-DATE reused unchanged core",
+        "tests": 6,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "7065fc70068b62289c432db59bf1728bdf250d9af077b12097874c138f6200ae"
+      },
+      {
+        "suite": "cc.joycreator.joybrush.androidkit.gl.BoardTransactionMemoryTest",
+        "module": "androidkit",
+        "execution": "fresh",
+        "tests": 11,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "f7d95427f3d497f6bc165de012884da4bb70293764b73dd47fd61ea4c46de9f4"
+      },
+      {
+        "suite": "cc.joycreator.joybrush.androidkit.gl.FrameDuplicatePixelsTest",
+        "module": "androidkit",
+        "execution": "fresh",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "4fd597839ce8f32437add7ad232402b4f73d031c29d2992fd89e5aaa1a761105"
+      },
+      {
+        "suite": "cc.joycreator.joybrush.androidkit.gl.GlContextLossTest",
+        "module": "androidkit",
+        "execution": "fresh",
+        "tests": 8,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "cb6a07da0fc51b248d18258aabff9f097ebe3b3c0296e32134c9dd2ce1c346e6"
+      },
+      {
+        "suite": "cc.joycreator.joybrush.androidkit.gl.GlInitOwnershipTest",
+        "module": "androidkit",
+        "execution": "fresh",
+        "tests": 5,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "ee661f75d16cb9185ae85a607273d081b3648673e8c04a90f5944647d3eb024b"
+      },
+      {
+        "suite": "cc.joycreator.joybrush.androidkit.gl.GlProgramConstructionTest",
+        "module": "androidkit",
+        "execution": "fresh",
+        "tests": 7,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "524dfd057f4c169fbaa2952c92136fd81012160e45a20fd0cbe3d01cfddc5f67"
+      },
+      {
+        "suite": "cc.joycreator.joybrush.androidkit.gl.InitializedTextureTest",
+        "module": "androidkit",
+        "execution": "fresh",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "7666da0f7eec5e0e7c2c77ef9a40a19cdcc9aac81de9185ac09b78cdb443408e"
+      },
+      {
+        "suite": "cc.joycreator.joybrush.androidkit.gl.lines.PreparedLinePlaneCopyTest",
+        "module": "androidkit",
+        "execution": "fresh",
+        "tests": 5,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "d31b2fc0e5a56fe709dac712ce0a2354ff8c319c67341fba292d888cbfd09dde"
+      },
+      {
+        "suite": "cc.joycreator.joybrush.androidkit.gl.WatercolourOrdinaryFixtureTest",
+        "module": "androidkit",
+        "execution": "fresh",
+        "tests": 6,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "8b023c07d9c4caaa4576633e9a32e6442713b9e9d8296c9be4dab3f5535b1a67"
+      }
+    ],
+    "totals": {
+      "tests": 56,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "logSha256": "76ce6b7f777ea16fd6800fa55038e98c0030b6caae6bbaa918027464be4520ec",
+    "scope": "Fresh backend50 plus unchanged core6 up-to-date. Fault-testable ownership, no actual GL fault proof."
+  },
+  "app": {
+    "source": "0adfde398f5facd4a0b22f355d82772c2f02089d",
+    "exitCode": 0,
+    "suites": [
+      {
+        "suite": "cc.joycreator.joybrush.android.bench.SelectBenchCleanupTest",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "f135e5ef9212ee184ff72e0e2dfda9f96e9a7c8104c8ca26d5bd2ac049e7f82d"
+      },
+      {
+        "suite": "cc.joycreator.joybrush.android.bench.SelectBenchPreferencesTest",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "e3cbfb25675001d183122c6fee9cabc5318e73f905526fe207caf664affd648b"
+      },
+      {
+        "suite": "cc.joycreator.joybrush.android.bench.SelectBenchShotGateTest",
+        "tests": 7,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "c6a12d674e448f4c5d6278785dc05c8e00f52b4802622d925e07097449d37b06"
+      },
+      {
+        "suite": "cc.joycreator.joybrush.android.bench.WatercolourProbeDispatchTest",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "61d531a93c256f04456a52af969b2c90372a78455d83aff7f6df18c69ceb509a"
+      },
+      {
+        "suite": "cc.joycreator.joybrush.android.BrushLineActivityBindingTest",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "34456ceb3ab399170a5ad27be165cce495f6ac8c010c87233d98f4745f1a1760"
+      },
+      {
+        "suite": "cc.joycreator.joybrush.android.BrushLinePreferencesTest",
+        "tests": 8,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "5915c3af4076f7c9859a1c2b8daf805741e4d235c2f5040de02ab4f2c6b67b77"
+      },
+      {
+        "suite": "cc.joycreator.joybrush.android.chrome.BrushLineModeUiTest",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "3ac1cd6748cefd3f6e9b996892e5fdbe61e6964eabd09f3323d919bb8fa14d49"
+      },
+      {
+        "suite": "cc.joycreator.joybrush.android.chrome.PaperBackdropContrastTest",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "1428c5607fa74a9ee0020823c2c45c31bd3accd0fc9ab4d25481c55051d10f74"
+      },
+      {
+        "suite": "cc.joycreator.joybrush.android.select.CanvasSelectionHostTest",
+        "tests": 32,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "f25de68a49118fcbc5c79c2161139e7219035c00a4c927c555860b92f9d90b03"
+      },
+      {
+        "suite": "cc.joycreator.joybrush.android.select.LineBrushesTest",
+        "tests": 7,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "6328bf156c3f5f2e2cf780fd209997e423610666dd75099ead13bc2ba2bcb7f1"
+      },
+      {
+        "suite": "cc.joycreator.joybrush.android.select.LineSelectionClipboardTest",
+        "tests": 5,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "01244c0e99902b7ecf0045b744bbcbf33e011b8d8e6fa55c57eb0933760a8817"
+      },
+      {
+        "suite": "cc.joycreator.joybrush.android.select.ScopedSelectEditTest",
+        "tests": 9,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "085d1dce99728270130390afb447b74da674dcf61a489073b03a37602b57b2d6"
+      },
+      {
+        "suite": "cc.joycreator.joybrush.android.select.SelectAdjustLifecycleTest",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "5f5b12479d76369495b273140cd853b104be3c4bda21f2043d05713df36de02b"
+      },
+      {
+        "suite": "cc.joycreator.joybrush.android.select.SelectBodyTapRoutingTest",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "dd1b66d472fc0c5767edb9d261742e2c785800ab847a4047e167a1235d87a0a0"
+      },
+      {
+        "suite": "cc.joycreator.joybrush.android.select.SelectBoxCancelTest",
+        "tests": 9,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "c7fa597bf7318f9efd31870ec913f35f1b4dd19a2b4933be67f5f66bc93877c0"
+      },
+      {
+        "suite": "cc.joycreator.joybrush.android.select.SelectColourDragTest",
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "53ef4af0c84da6aae87142a96348318c1de4609616a84fe5e510f7bece53ebfb"
+      },
+      {
+        "suite": "cc.joycreator.joybrush.android.select.SelectCopySourceTest",
+        "tests": 11,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "7c5f686bd96d9997d97f594c185e3ec43b7cd5375aa83f66032d2a9600ab2af7"
+      },
+      {
+        "suite": "cc.joycreator.joybrush.android.select.SelectCountToolTest",
+        "tests": 10,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "51de31efd5e8c9577bda6ffa7affc8a186c7e05e86d58634cd307473ab22849a"
+      },
+      {
+        "suite": "cc.joycreator.joybrush.android.select.SelectCountViewTest",
+        "tests": 12,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "f055c797be6cbbd2da5694e21a544be2c048bd7011b0b6743c9bc49868f3ff6e"
+      },
+      {
+        "suite": "cc.joycreator.joybrush.android.select.SelectFirstUseNoticesTest",
+        "tests": 11,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "34bdd43df94adac5cca9fe7ba2f5446473e152d833add246a2a6d7b3bdb713d3"
+      },
+      {
+        "suite": "cc.joycreator.joybrush.android.select.SelectionSyncTest",
+        "tests": 21,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "939031092d9c401069f2a0fecb18ad6a01bb2fba692e92f7a5214a8f77fd3b65"
+      },
+      {
+        "suite": "cc.joycreator.joybrush.android.select.SelectMenuScrollTest",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "4d5837fe85b33aa7e4f8dc6b839ab6798f49e8a99520b9f93b8ebf2cdfa524d7"
+      },
+      {
+        "suite": "cc.joycreator.joybrush.android.select.SelectNudgeExitTest",
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "c2120d2f01af2e74d9841101159de2addc8118923f7d5e66299702f5d34b65d4"
+      },
+      {
+        "suite": "cc.joycreator.joybrush.android.select.SelectPasteFailureTest",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "f92758e1f6cc740ab72b1cf694b739c7339ec74f6980c67bcb6762709937f093"
+      },
+      {
+        "suite": "cc.joycreator.joybrush.android.select.SelectPillSwitchTest",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "ef5476529ca06f1b2f21c22c1ded737a3b4e09846daa2b0c97b6c51a9a330c80"
+      },
+      {
+        "suite": "cc.joycreator.joybrush.android.select.SelectPixelMenuTest",
+        "tests": 5,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "2401b3d57653a4f40f8c617e670df0f63b708f301d3c96d99d30721f69c00798"
+      },
+      {
+        "suite": "cc.joycreator.joybrush.android.select.SelectPlacementTest",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "bdf3eb0a4b1691be201f24da590859c89923f92b9bbb33d58fff4a948450598a"
+      },
+      {
+        "suite": "cc.joycreator.joybrush.android.select.SelectRowCapabilityTest",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "f7f1d2c975a1886eef083473562b33e998807cfd4fda3eb5f7703ed505a2ad95"
+      },
+      {
+        "suite": "cc.joycreator.joybrush.android.select.SelectSettingsTest",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "4c95079b0f832e0e1f9b6dfa1202f6d118f09d15cce44310b487bb3d62c097c9"
+      },
+      {
+        "suite": "cc.joycreator.joybrush.android.select.SelectToastTest",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "42104e20ead0587a4e76aab4b185232f8d535c8e85d1c54c1820aef471ab6b97"
+      },
+      {
+        "suite": "cc.joycreator.joybrush.android.select.SelectToolEditTest",
+        "tests": 16,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "b40b6a639f3453136fa059a9ceb18aa27de4fbc1202f96feb9a99790c03608a8"
+      },
+      {
+        "suite": "cc.joycreator.joybrush.android.select.SelectToolFillTest",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "sha256": "d7fe92c333d0b7094c096ade31b9fc44fe8a21ebe8271ab2a16422566e739edc"
+      }
+    ],
+    "totals": {
+      "tests": 217,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "logSha256": "95b8604f517d6f90bff6853a4a935e86b5d688fe5da6bfd5fd2a8ed1e227ac9b",
+    "scope": "Fresh app217 after init fix; no GPU/phone behavior inferred."
+  },
+  "scope": "Focused exact-source desktop gates only. Backend50 fresh/core6 UP-TO-DATE; app217 fresh. No GPU/save/recovery/creative/activation claim."
+}

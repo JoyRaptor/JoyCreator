@@ -65,3 +65,112 @@ Preserve primary/original worktrees, all failure evidence, dirty source and arch
 5. Reconcile peer docs into roadmap/STATE, publish coherent verified branches and
    record remote SHA equality. Leave Claude explicit live-source/Atlas/save and
    activation gates. The persistent overall goal remains unfinished.
+
+## Closed backend gate and current app job
+
+Combined native sourcec8e116205 closed SUCCESS5m57s/exit0; root independently
+counted six fresh XML suites:36 tests, zero failures/errors/skips. CoreFrameDuplicate6;
+backendBoardTransactionMemory11, InitializedTexture4, PreparedLinePlaneCopy5,
+WatercolourOrdinaryFixture6, FrameDuplicatePixels4. Raw XML copies and local receipt:
+C:/Temp/jb-lead-ops/evidence/native-backend-c8e116205-20261027. Durable
+[exact-source receipt](reviews/NATIVE_BACKEND_GATE_20261027.json).
+No GPU execution or runtime activation inferred.
+
+Next native source frozen dc09cff754312ff36b3972101b9e8bd286a69462 adds selectively
+reviewed contrast12b and the full two-file D23 presenter0c9 (still unwired). Root
+also fixes recorded diagnostic cleanup exception escaping before callback: one
+finally cleanup, cleanup failure forces report false. App gate now owns sole shared
+slot, exec30364, log C:/Temp/jb-lead-ops/native-app-dc09cff75-20261027.log.
+Private init includes prior199 regressions plus notice11, contrast4, dispatch3;
+actual XML counts, compile and closed exit still required. Source remains frozen.
+
+Tween is fixing the independently confirmed partial-init current-context resource
+leak in a separate branch, with fault tests; do not assume current diagnostics
+cover init failures. Root will source-review before adoption. No APK or phone job
+has been admitted. At last resource check before app job2844MiB free; APK needs3200.
+
+Offline watercolor acceptance checker8174e91be adopted as77e68b070; root separately
+ran all10 synthetic positive/negative tests, passing. It verifies report/chunk
+structure and supplied receipts, never freshness or actual GPU execution.
+Boards coverage522b was adopted; STATE now maps board and paper capability families
+with pending help and explicit acceptance gaps. Paper portfolio4d4 was selectively
+reconciled as6d909 to avoid stale roadmap replacement. Original checkouts preserved.
+
+## App integration gate CLOSED GREEN
+
+Exactdc09cff754312ff36b3972101b9e8bd286a69462 app gate closed SUCCESS3m21s/exit0;
+root independently counted32 fresh XML suites:217 tests/0failures/errors/skips.
+[Durable receipt](reviews/NATIVE_APP_GATE_20261027.json), raw XML/log copies under
+C:/Temp/jb-lead-ops/evidence/native-app-dc09cff75-20261027. Includes199 Select/menu
+regressions plus notice11, backdrop4 and debug dispatch3. Contrast is source/test
+verified; actual dark/white/restoration GPU visual proof remains open. D23 remains
+unwired foundation. Cleanup exception reporting is compiled; real GL faults unproved.
+
+Source0adfde398f5facd4a0b22f355d82772c2f02089d now selectively integrates tween
+init41dbdb38a after root source review. Current sole heavy job exec80446/log
+C:/Temp/jb-lead-ops/native-backend-0adfde398-20261027.log covers prior36 plus12 new
+ledger/constructor faults and8 context-loss cases. Core6 may be UP-TO-DATE, which
+must be distinguished from fresh backend XML. No completion claimed yet. App gate
+will be repeated only because engine initialization changed. No APK/phone grant.
+
+Fresh read-only sandbox check October27: expectedSM-N960U/API29, asleep/locked,
+Home false, no claim. Owner readiness question is pending. Do not install or assume
+an old unlocked message establishes readiness. Continue desktop gates meanwhile.
+
+## Closed specialist handbacks — independently synchronized
+
+October27 snapshot: all nine registered checkout HEADs below independently matched
+the actual remote branch SHA, and each checkout was clean. All worker turns finished;
+no follow-on assignments are queued. Reports remain in their own committed branches
+when not adopted centrally; use the exact branch/report, not a stale primary copy.
+
+| Lane | Published branch / exact HEAD | Local committed report | Scope / remaining |
+|---|---|---|---|
+| Select | `codex/select-d23-presenter-20261026` / `b3fd5f98b0fb9cbcb66f7acb7c3d35884ed56f6c` | `C:/Temp/jb-codex-select/tasks/joybrush/reviews/SELECT_FINAL_HANDOFF_20261027.md` | Presenter11 passed; real producer/renderer/atomic Undo remain gated |
+| UX | `ui/dark-canvas-contrast-20261026` / `63650c5854032993a31a62f53772835d07bb4c48` | `C:/Temp/jb-ux-contrast-20261026/tasks/joybrush/reviews/PAPER_ICON_CONTRAST_20261026.md` | Contrast adopted/tested in app217; phone visual proof and Pencil preview cause remain open |
+| Watercolor | `vector/watercolour-dispatch-20261026` / `8174e91bec4940b4e823b0bc1d2cf7ce7525f851` | `C:/Temp/jb-watercolour-dispatch-20261026/tasks/joybrush/reviews/WATERCOLOUR_OFFLINE_ACCEPTANCE_20261027.md` | Checker10 synthetic passed; actual GPU/save/fade/appearance gates open |
+| Tween/frame | `codex/frame-duplicate-probe-20261026` / `2cc36c481549d6992cf8f8f0b85bd521f4ae1790` | `C:/Temp/jb-frame-duplicate-probe-20261026/tasks/joybrush/reviews/FRAME_TWEEN_CLAUDE_HANDBACK_20261027.md` | V2 adopted; actual GPU/save/rollback and frozen tween7 tests remain open |
+| Init cleanup | `codex/native-init-cleanup-20261027` / `422caee7668bb1133cd69ee8b698c4e004e4cdd2` | `C:/Temp/jb-native-init-cleanup-20261027/tasks/joybrush/reviews/NATIVE_INIT_CLEANUP_20261027.md` | Adopted and focused backend ownership/context tests passed; actual GL faults separate |
+| Unibrush | `codex/unibrush-u8-guards-20261026` / `20fb72e0d849a115d7bd5b02426565c9826a0c90` | `C:/Temp/jb-unibrush-u8-guards-20261026/tasks/joybrush/reviews/UNIBRUSH_U8_FOCUSED17_GATE_20261027.md` | 17 tests UNRUN; unwired source; original U8 preserved |
+| Clips | `docs/clips-manifest-20261027` / `7e122a28ac038c9d4f351601eac102d14cfcd1f6` | `C:/Temp/jb-clips-manifest-20261027/tasks/joybrush/reviews/CLIPS_REAPPLICATION_20261027.md` | Nine-file dependency manifest only; selective core/runtime reconciliation unrun |
+| Paper | `codex/paper-recovery-docs-20261026` / `4d4a85e178452d467132fa91069d04bb2f8ef3f5` | `C:/Temp/jb-paper-recovery-20261026/tasks/joybrush/reviews/PAPER_PORTFOLIO_20261026.md` | Recovery docs and STATE mapped; full current parity/UI/save/creative gates open |
+| Boards | `codex/board-recovery-docs-20261026` / `522b9632279013a405eec882cee45b68e096895e` | `C:/Temp/jb-board-recovery-20261026/tasks/joybrush/reviews/BOARD_COVERAGE_20261027.md` | Recovery/coverage and STATE mapped; actual current GPU/Undo/save/visual gates open |
+
+Original/stale and other helper worktrees were preserved; these nine clean receipts
+do not imply all135+ historical checkouts are clean or disposable.
+
+## Integrated final desktop checkpoint — use this over earlier pending entries
+
+Canonical source d2c6c8973a9a9660211715984fa3cf60ae1e5e24 has **identical tracked
+Android/core/app/studiokit code** to frozen0adfde398f5facd4a0b22f355d82772c2f02089d;
+root verified empty git diff across those four trees. A direct merge conflicted
+only in stale roadmap/todo context, so it was aborted and the reviewed code-only
+patch was applied; current docs were preserved. Neither checkout is in a merge.
+
+Final focused backend gate CLOSED SUCCESS2m1s/exit0:50 fresh backend cases plus
+six unchanged core cases UP-TO-DATE, zero failures/errors/skips. Final focused app
+gate CLOSED SUCCESS1m37s/exit0:217 fresh cases/32 suites, zero failures/errors/skips.
+Root independently counted/copied all XML. [Final exact-source receipts](reviews/NATIVE_FINAL_GATES_20261027.json).
+This is focused coverage, not a full suite or device fault/GPU proof.
+
+The sole current heavy job is exact canonical APK assembly from frozen0ad source,
+exec11614/log C:/Temp/jb-lead-ops/native-apk-0adfde398-20261027.log, fresh3200MiB
+admitted,2048heap/CPU2/oneworker. No competing job or phone claim. Artifact is NOT
+claimed until closed success and source/hash preservation. Root candidate stays
+unchanged through preservation. All nine specialist handbacks above are closed.
+
+- [x] Current menu/contrast/presenter/debug-routing integration tested and committed.
+- [x] Current-context init and shader fault ownership fixed/tested; original failure preserved.
+- [x] Independent frame-copy budget/clip/pixel-oracle and WC fixture desktop gates.
+- [x] Specialist deliverables committed, pushed and independently remote-verified.
+- [x] Broad board/paper capabilities mapped in STATE with explicit pending help/acceptance.
+- [ ] Exact APK preservation (current job); then fresh Note9 Home and native probes.
+- [ ] Actual ordinary-WC/frame GPU/undo/fault and archive/save/recovery evidence.
+- [ ] Main JB5.20d live captured/source/Select/joint history/save activation and AtlasA2.
+- [ ] Remaining scoped U8/tween/clips/creative/portfolio gates as roadmap names.
+
+No new runtime source was pushed to shared joy-creator. It holds synchronized
+feature/roadmap documentation; tested runtime candidate is isolated for acceptance.
+Primary and historic dirty checkouts remain deliberately untouched. Claude should
+continue the exact next GPU gates, not rebuild completed helpers or assume whole
+feature completion from these focused desktop results.

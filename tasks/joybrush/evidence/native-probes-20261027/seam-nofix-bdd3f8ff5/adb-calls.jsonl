@@ -1,0 +1,52 @@
+{"operation":"shell getprop","elapsedSeconds":0.0666,"deadlineSeconds":12,"outcome":"ok"}
+{"operation":"shell getprop","elapsedSeconds":0.0651,"deadlineSeconds":12,"outcome":"ok"}
+{"operation":"shell dumpsys","elapsedSeconds":0.1019,"deadlineSeconds":12,"outcome":"ok"}
+{"operation":"shell dumpsys","elapsedSeconds":0.0635,"deadlineSeconds":12,"outcome":"ok"}
+{"operation":"shell cmd","elapsedSeconds":0.0784,"deadlineSeconds":12,"outcome":"ok"}
+{"operation":"shell dumpsys","elapsedSeconds":0.0762,"deadlineSeconds":12,"outcome":"ok"}
+{"operation":"shell dumpsys","elapsedSeconds":0.0805,"deadlineSeconds":12,"outcome":"ok"}
+{"operation":"shell if","elapsedSeconds":0.0975,"deadlineSeconds":60,"outcome":"ok"}
+{"operation":"shell find","elapsedSeconds":0.4421,"deadlineSeconds":240,"outcome":"ok"}
+{"operation":"shell if","elapsedSeconds":0.1606,"deadlineSeconds":60,"outcome":"ok"}
+{"operation":"shell find","elapsedSeconds":0.6405,"deadlineSeconds":240,"outcome":"ok"}
+{"operation":"shell if","elapsedSeconds":0.14,"deadlineSeconds":60,"outcome":"ok"}
+{"operation":"shell find","elapsedSeconds":0.2676,"deadlineSeconds":240,"outcome":"ok"}
+{"operation":"shell pm","elapsedSeconds":0.1153,"deadlineSeconds":12,"outcome":"ok"}
+{"operation":"shell sha256sum","elapsedSeconds":0.3091,"deadlineSeconds":12,"outcome":"ok"}
+{"operation":"install","elapsedSeconds":10.6606,"deadlineSeconds":300,"outcome":"ok"}
+{"operation":"shell pm","elapsedSeconds":0.1075,"deadlineSeconds":12,"outcome":"ok"}
+{"operation":"shell sha256sum","elapsedSeconds":0.49,"deadlineSeconds":12,"outcome":"ok"}
+{"operation":"shell if","elapsedSeconds":0.0958,"deadlineSeconds":60,"outcome":"ok"}
+{"operation":"shell find","elapsedSeconds":0.5381,"deadlineSeconds":240,"outcome":"ok"}
+{"operation":"shell if","elapsedSeconds":0.1096,"deadlineSeconds":60,"outcome":"ok"}
+{"operation":"shell find","elapsedSeconds":0.6289,"deadlineSeconds":240,"outcome":"ok"}
+{"operation":"shell if","elapsedSeconds":0.1059,"deadlineSeconds":60,"outcome":"ok"}
+{"operation":"shell find","elapsedSeconds":0.2254,"deadlineSeconds":240,"outcome":"ok"}
+{"operation":"shell log","elapsedSeconds":0.072,"deadlineSeconds":12,"outcome":"ok"}
+{"operation":"shell am","elapsedSeconds":4.1801,"deadlineSeconds":60,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":5.277,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":3.2621,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":3.275,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":3.2827,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":3.1885,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":3.2164,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":2.9088,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":3.1756,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":3.0817,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":3.2146,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":2.9882,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":2.8823,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":3.0557,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":3.1609,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":3.1323,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":3.4461,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"shell input","elapsedSeconds":0.8583,"deadlineSeconds":12,"outcome":"ok"}
+{"operation":"shell pm","elapsedSeconds":0.1341,"deadlineSeconds":12,"outcome":"ok"}
+{"operation":"shell sha256sum","elapsedSeconds":0.2896,"deadlineSeconds":12,"outcome":"ok"}
+{"operation":"shell if","elapsedSeconds":0.094,"deadlineSeconds":60,"outcome":"ok"}
+{"operation":"shell find","elapsedSeconds":0.7642,"deadlineSeconds":240,"outcome":"ok"}
+{"operation":"shell if","elapsedSeconds":0.1185,"deadlineSeconds":60,"outcome":"ok"}
+{"operation":"shell find","elapsedSeconds":0.7779,"deadlineSeconds":240,"outcome":"ok"}
+{"operation":"shell if","elapsedSeconds":0.1053,"deadlineSeconds":60,"outcome":"ok"}
+{"operation":"shell find","elapsedSeconds":0.2713,"deadlineSeconds":240,"outcome":"ok"}
+{"operation":"shell dumpsys","elapsedSeconds":0.1082,"deadlineSeconds":12,"outcome":"ok"}

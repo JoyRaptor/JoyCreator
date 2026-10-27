@@ -1,0 +1,1409 @@
+{
+  "sourceRevision": "fixed-bdd3f8ff5",
+  "apkSha256": "60173ef282cb9038ceeb32d24f66d4bc7bbfc0b863fbb65633a30e56ce631100",
+  "installedBeforeSha256": "60173ef282cb9038ceeb32d24f66d4bc7bbfc0b863fbb65633a30e56ce631100",
+  "installedAfterSha256": "60173ef282cb9038ceeb32d24f66d4bc7bbfc0b863fbb65633a30e56ce631100",
+  "model": "SM-N960U",
+  "api": 29,
+  "runId": "3941550840ad4c51bb30bb884af6c0c9",
+  "benchCase": "mediaSeamProbe",
+  "brush": "media:paste:All-round,media:paste:Oil round,media:paste:Oil flat",
+  "extras": [],
+  "fence": "jb-probe-fence 3941550840ad4c51bb30bb884af6c0c9",
+  "tempBeforeC": 35.6,
+  "tempAfterC": 36.2,
+  "savedBefore": {
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/current.joybrush": {
+      "size": 7124761,
+      "sha256": "de93a41e09d666dd9eeac10e75acef4952ac5460e2d4696b95ffe82ebf268a97"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/current.joybrush.bak": {
+      "size": 7124766,
+      "sha256": "ec45572b81d0ccf6b900240fc6a96bd9d8937a5cf27e11e3cd4f2dc791c5383c"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/drawing-1792100806803-1.joybrush": {
+      "size": 46264215,
+      "sha256": "6c85fd7896e1e85896bbce592c7d34920e8aa1be845e5e89dfd9a055812fa0cc"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/drawing-1792100806803-1.joybrush.bak": {
+      "size": 46264215,
+      "sha256": "2b1cc81949b3a9270f9b59f1b18aa35ffe146412782ff828fb383b3195416f99"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/drawing-1792348378213.joybrush": {
+      "size": 6927503,
+      "sha256": "782e6fa96f71e71162412ef6b17985c0dcff3520c5e9b3216d652f0ad893e4df"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/drawing-1792348378213.joybrush.bak": {
+      "size": 6927503,
+      "sha256": "f1b8bcd2889c0b5b76af2e9c01eafb813bcb95ae225bbb423cf09b3560b84dd6"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/drawing-1792516752346.joybrush": {
+      "size": 7741501,
+      "sha256": "2a56efe60e131b4024b13071a5df70e49d5e9cac3a81a90b7ed2354183eb81a1"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/drawing-1792516752346.joybrush.bak": {
+      "size": 7699085,
+      "sha256": "7738908fbe2f32b6363fba6c1a0f0e4e9e8aaf9b5117d2776f2b7820db6e14e5"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/drawing-1792798373007.joybrush": {
+      "size": 9531101,
+      "sha256": "61aa87652df5736db2cf9f3fcd8f2a86d5e2d25fe5942362c4665ac8db653057"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/drawing-1792798373007.joybrush.bak": {
+      "size": 9531101,
+      "sha256": "2232b86f22a8e0008993c7456d0e5ef20a400e17fcbe1c6197b280c0643001c2"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/export-check.joybrush": {
+      "size": 1699,
+      "sha256": "0a4461edb4d2860b86997ea45a88b29487e9639a670ffc241247dcba20a7b08f"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/library.json": {
+      "size": 1001,
+      "sha256": "eb1841f07cbc736aff675fbc0181d266c39620cdb6f333de847c6d14864c0c6c"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/recent/1790861788882-0f81742b-909e-433d-b808-0cde2ed6c715.joybrush": {
+      "size": 1699,
+      "sha256": "14d8c6cc62fe8f223ce4124610360b58109f4005fe5cbd349df8e76f619a1e85"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/recent/1790874577790-c2804d71-a097-4068-a5bc-c401d87eacae.joybrush": {
+      "size": 25722582,
+      "sha256": "df157de686a29d210b021cfcfe3db2b0e5556c0f04950c7b2ca3af0ea69943ea"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/recent/1790874827699-b95870ca-ccfc-43d2-a760-b0d3d73e6267.joybrush": {
+      "size": 25722605,
+      "sha256": "8bfd0f51a1a5c6a996ccebbdb3c61390698babafe7c1eebe50ed10502f2f2f67"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/recent/1790875042893-7e6fffe2-07a2-48d4-9553-998f884ab9f0.joybrush": {
+      "size": 25722582,
+      "sha256": "0dd259015c36de724b62efdd9148008a703450c90c4f5ce4a29e3ea6434762a1"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/recent/1790883395629-77e9e9e6-4fc5-493d-9d85-4786952e0e53.joybrush": {
+      "size": 26659463,
+      "sha256": "05375437876346e05dc8533d4d753862df2d83175d53fca760d5ea3ebc6eb901"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/thumbs/current.joybrush.png": {
+      "size": 259945,
+      "sha256": "06c71b129d80e01e797a3eaf9a26e74878900415a36d05e08a6506885596fb20"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/thumbs/drawing-1792100806803-1.joybrush.png": {
+      "size": 603523,
+      "sha256": "cef996ddff5b2ac4418f22a578ff331c1645afe8a14fd792f5211431a66c0c3f"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/thumbs/drawing-1792348378213.joybrush.png": {
+      "size": 27294,
+      "sha256": "791894a238cf7fdea1789da693cea125701cf3639073ade0a2192a3092c52c35"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/thumbs/drawing-1792516752346.joybrush.png": {
+      "size": 477829,
+      "sha256": "7c95e44ac0d775bd73c1c5dd003f88824a64839496d5e52c6d3e9199709ec4c0"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/thumbs/drawing-1792798373007.joybrush.png": {
+      "size": 555098,
+      "sha256": "4602ca99812ef2756242fd4e6e99103841f2f72662ee0f40e502af2fd07272f1"
+    },
+    "/sdcard/Joy Creator (first test)/.joycreator/index.json": {
+      "size": 5448,
+      "sha256": "4257c8795d01be29f15ffb4911f53f23d7cc3c6f67dfe03882313542f69e831e"
+    },
+    "/sdcard/Joy Creator (first test)/.joycreator/studio.json": {
+      "size": 7097,
+      "sha256": "79d443bfe0dd42d26a13f754edc10457ea6d7cf73d65d935a22743a44a3b7f7c"
+    },
+    "/sdcard/Joy Creator (first test)/Animation test 2.joyproject": {
+      "size": 3560,
+      "sha256": "bb907d1e1b3268b34b3f47ec99c74242c65f7a25a6db68ac504f0973f4ae0fb0"
+    },
+    "/sdcard/Joy Creator (first test)/Animation test image 2.png": {
+      "size": 10345,
+      "sha256": "3838fc00b08642c616c9a2c870a4bd64a05b47c7bff120498a0bb198608c4325"
+    },
+    "/sdcard/Joy Creator (first test)/Animation test image.png": {
+      "size": 10345,
+      "sha256": "3838fc00b08642c616c9a2c870a4bd64a05b47c7bff120498a0bb198608c4325"
+    },
+    "/sdcard/Joy Creator (first test)/Animation test.joyproject": {
+      "size": 2471,
+      "sha256": "21393c92e84872fc09c0cc2631dc43f7ceb7936789bc62cbc055afc9cbbde974"
+    },
+    "/sdcard/Joy Creator (first test)/BundlingFontTest image 2.png": {
+      "size": 448357,
+      "sha256": "f91168a1e114a659a85b254eb4b76653458c0cb946abfd4c939b0c030cb92b8f"
+    },
+    "/sdcard/Joy Creator (first test)/BundlingFontTest image 3.png": {
+      "size": 519378,
+      "sha256": "69d5c531f67c17664932fe3619f663b2306df20265818cad2abb33c13454f0e4"
+    },
+    "/sdcard/Joy Creator (first test)/BundlingFontTest image.png": {
+      "size": 448357,
+      "sha256": "f91168a1e114a659a85b254eb4b76653458c0cb946abfd4c939b0c030cb92b8f"
+    },
+    "/sdcard/Joy Creator (first test)/BundlingFontTest.joyproject": {
+      "size": 25694,
+      "sha256": "cc04b43923249e171880e5370f8090475dac9f4d902a2e8dc5db0d7625c119c6"
+    },
+    "/sdcard/Joy Creator (first test)/Canvas.png": {
+      "size": 99,
+      "sha256": "be5d3cf6c8cddef930d412bc15d8af24ba654ca0961d6659b57ca7554866326e"
+    },
+    "/sdcard/Joy Creator (first test)/FADE_8B_VERIFY.joyproject": {
+      "size": 5398,
+      "sha256": "3f4fcd063f746d40dba70372ef3b3fdfdfbd6e34c66faeea5ef82c5960b1c54c"
+    },
+    "/sdcard/Joy Creator (first test)/FadCam_20260621_145235 2.mp4": {
+      "size": 16829087,
+      "sha256": "4b6f6ad52b7d850ec1afb5b5a052ded982473d46a73a9c8a573e9bc50625af70"
+    },
+    "/sdcard/Joy Creator (first test)/FadCam_20260621_145235 3.mp4": {
+      "size": 16829087,
+      "sha256": "4b6f6ad52b7d850ec1afb5b5a052ded982473d46a73a9c8a573e9bc50625af70"
+    },
+    "/sdcard/Joy Creator (first test)/FadCam_20260621_145235.mp4": {
+      "size": 16829087,
+      "sha256": "4b6f6ad52b7d850ec1afb5b5a052ded982473d46a73a9c8a573e9bc50625af70"
+    },
+    "/sdcard/Joy Creator (first test)/Faditor_20260925_004732.mp4": {
+      "size": 47193312,
+      "sha256": "6c6af70f0e9f7bf6ab2eb8ee81a6bbfe4275609cf158579cad67ad85b7853ff5"
+    },
+    "/sdcard/Joy Creator (first test)/Sprite test image.png": {
+      "size": 664,
+      "sha256": "0f0924eda1d0d72aca3900fdfab5b35fa9e166310047027360f0aaa29d98e9be"
+    },
+    "/sdcard/Joy Creator (first test)/Sprite test.joyproject": {
+      "size": 1118,
+      "sha256": "b6d35cea5a6be2031aee2ab7c66e88f947ab4053c9f8b74d59ebd687c64391a9"
+    },
+    "/sdcard/Joy Creator (first test)/Untitled audio.joyproject": {
+      "size": 826,
+      "sha256": "f11e267d6e2897b95c5666b59d75e56b05ba3b158f4ab75850d3052c06409ea7"
+    },
+    "/sdcard/Joy Creator (first test)/Untitled.joyproject": {
+      "size": 8703,
+      "sha256": "8bada9b901d93515dc7e93f419e601568197ff0b96be85870a7cb94d64846620"
+    },
+    "/sdcard/Joy Creator (first test)/ZA_CONTROL image 2.png": {
+      "size": 448357,
+      "sha256": "f91168a1e114a659a85b254eb4b76653458c0cb946abfd4c939b0c030cb92b8f"
+    },
+    "/sdcard/Joy Creator (first test)/ZA_CONTROL image 3.png": {
+      "size": 519378,
+      "sha256": "69d5c531f67c17664932fe3619f663b2306df20265818cad2abb33c13454f0e4"
+    },
+    "/sdcard/Joy Creator (first test)/ZA_CONTROL image.png": {
+      "size": 448357,
+      "sha256": "f91168a1e114a659a85b254eb4b76653458c0cb946abfd4c939b0c030cb92b8f"
+    },
+    "/sdcard/Joy Creator (first test)/ZA_CONTROL.joyproject": {
+      "size": 30954,
+      "sha256": "19f9d983ee661db86f9fe45b6492122434c7eeda181123f78233f4cf07dbf7b8"
+    },
+    "/sdcard/Joy Creator (first test)/ZA_VERIFY image 2.png": {
+      "size": 448357,
+      "sha256": "f91168a1e114a659a85b254eb4b76653458c0cb946abfd4c939b0c030cb92b8f"
+    },
+    "/sdcard/Joy Creator (first test)/ZA_VERIFY image 3.png": {
+      "size": 519378,
+      "sha256": "69d5c531f67c17664932fe3619f663b2306df20265818cad2abb33c13454f0e4"
+    },
+    "/sdcard/Joy Creator (first test)/ZA_VERIFY image.png": {
+      "size": 448357,
+      "sha256": "f91168a1e114a659a85b254eb4b76653458c0cb946abfd4c939b0c030cb92b8f"
+    },
+    "/sdcard/Joy Creator (first test)/ZA_VERIFY.joyproject": {
+      "size": 24906,
+      "sha256": "2c74589d2004e34e1442e0b11d48a2c62806a250ad1d361b287319e724ff1ef4"
+    },
+    "/sdcard/Joy Creator (first test)/dummy_image_for_bundling 2.png": {
+      "size": 619,
+      "sha256": "f42437aedb4905a86aae4456c3dc48ff7eead89ea8b2aa7997aeca4fc691bfeb"
+    },
+    "/sdcard/Joy Creator (first test)/dummy_image_for_bundling 3.png": {
+      "size": 619,
+      "sha256": "f42437aedb4905a86aae4456c3dc48ff7eead89ea8b2aa7997aeca4fc691bfeb"
+    },
+    "/sdcard/Joy Creator (first test)/dummy_image_for_bundling.png": {
+      "size": 619,
+      "sha256": "f42437aedb4905a86aae4456c3dc48ff7eead89ea8b2aa7997aeca4fc691bfeb"
+    },
+    "/sdcard/Joy Creator (first test)/faditor_gap_black.png": {
+      "size": 115,
+      "sha256": "bc69627dc6cdb617b7603fd374f3089bc0cad77eb95d99bb50488bbd1ca7d743"
+    },
+    "/sdcard/Joy Creator (first test)/imported_test 2.ttf": {
+      "size": 319960,
+      "sha256": "aa34d969baa04cdbc6edfda87ac12c94e6ff5eb7ecea2e19a5557f84acb7dba5"
+    },
+    "/sdcard/Joy Creator (first test)/imported_test.ttf": {
+      "size": 319960,
+      "sha256": "aa34d969baa04cdbc6edfda87ac12c94e6ff5eb7ecea2e19a5557f84acb7dba5"
+    },
+    "/sdcard/Joy Creator/.joycreator/Trash/2026-10-13 20.44 Restore test.joyproject": {
+      "size": 1101,
+      "sha256": "93662b2d253b4b85a007609d28a6591bcc9ca2fb4acfb16cd55392f23ac5de9b"
+    },
+    "/sdcard/Joy Creator/.joycreator/Trash/2026-10-14 00.40 z1.png": {
+      "size": 266212,
+      "sha256": "1a44874b822556cfa22fd4352f64a4cd81774ac4a394ab30f07fd7a593b144ef"
+    },
+    "/sdcard/Joy Creator/.joycreator/Trash/2026-10-15 20.41 crossfades.json": {
+      "size": 263,
+      "sha256": "fcbe1705e3fe424243835bd4110f8b48e1e562692657e8ee1c130ac53d4f99d5"
+    },
+    "/sdcard/Joy Creator/.joycreator/Trash/2026-10-17 14.49 Voice Glow copy.vis.json": {
+      "size": 1603,
+      "sha256": "bd29ec6def904188c0c6097b7634486f4f6a1e6d9d1560e032e6da583c779f39"
+    },
+    "/sdcard/Joy Creator/.joycreator/Trash/2026-10-17 14.54 Glow Test.vis.json": {
+      "size": 1597,
+      "sha256": "850b2a204db0c3077a033169c9d574a2c856135adef149c92c77325fa827a476"
+    },
+    "/sdcard/Joy Creator/.joycreator/Trash/2026-10-17 14.59 Club Night.vis.json": {
+      "size": 1159,
+      "sha256": "b8f1ce668423b4a8c53a5d5f66855a3a74addf7f86cf5dce07730dbf56534f83"
+    },
+    "/sdcard/Joy Creator/.joycreator/Trash/2026-10-17 19.06 Test Copy.vis.json": {
+      "size": 1157,
+      "sha256": "572f691a46a2b4f9a81e456af96f1f258ee4fc6f5fbf1df987a4f250a03dcd9d"
+    },
+    "/sdcard/Joy Creator/.joycreator/Trash/2026-10-18 08.50 Cigar Smoke (words lost).vis.json": {
+      "size": 683,
+      "sha256": "2250f5fde8fb67248fa96b9b387647ed5b67cdcea6c8ee99781f755abb0c35eb"
+    },
+    "/sdcard/Joy Creator/.joycreator/Trash/2026-10-18 08.50 Firework Words (words lost).vis.json": {
+      "size": 580,
+      "sha256": "9bf9e25948f3abe2d62fa45c4e8d6dc84ce9a955cb97b38080ec1477b945f160"
+    },
+    "/sdcard/Joy Creator/.joycreator/Trash/2026-10-18 08.50 Halo Lyrics (words lost).vis.json": {
+      "size": 2266,
+      "sha256": "2a3372d777c34c1bb270b51edbd446f771a7d56dd61df43a5dd7976db504a8c6"
+    },
+    "/sdcard/Joy Creator/.joycreator/Trash/2026-10-18 08.50 Lyric Flight (words lost).vis.json": {
+      "size": 1387,
+      "sha256": "ea826120b69f1324439fefea75f065963454623cebaa08c0123451482f055dd9"
+    },
+    "/sdcard/Joy Creator/.joycreator/Trash/2026-10-18 08.50 Neon Drive (words lost).vis.json": {
+      "size": 608,
+      "sha256": "a8997b6c66b30df533507dd243df76944ae04889e9b516cee4e8d28ec26197bd"
+    },
+    "/sdcard/Joy Creator/.joycreator/Trash/2026-10-18 08.50 Smoke Words (words lost).vis.json": {
+      "size": 813,
+      "sha256": "95907d79649f6367b65ae8baf8ec795355a69163c3d55a900e67f687e46decf2"
+    },
+    "/sdcard/Joy Creator/.joycreator/Trash/2026-10-18 08.50 Spiral Banner (words lost).vis.json": {
+      "size": 799,
+      "sha256": "13c564cee4b1bc61b351551837cc2a1ac363b5796bbe7149eed833a804729f5a"
+    },
+    "/sdcard/Joy Creator/.joycreator/Trash/2026-10-18 08.50 Tunnel Ticker (words lost).vis.json": {
+      "size": 1736,
+      "sha256": "7640c504c57ea96468ca0088d78b024137049002a93b94c3024b60a2800632e0"
+    },
+    "/sdcard/Joy Creator/.joycreator/Trash/2026-10-18 08.50 Weaving Ribbon (words lost).vis.json": {
+      "size": 793,
+      "sha256": "93bafe0d6487b2960ebcbfe0aaf5b8a483d391458644eea543ce58f3f71b23db"
+    },
+    "/sdcard/Joy Creator/.joycreator/Trash/2026-10-18 08.50 Written in Stars (words lost).vis.json": {
+      "size": 778,
+      "sha256": "9e7a9f795334c2ba1e092a1117fb5df24e45545679a626eee78e7d47fc23c1a4"
+    },
+    "/sdcard/Joy Creator/.joycreator/folders.json": {
+      "size": 28,
+      "sha256": "41b787f8d6cd60ba9e42c2d42a76b42605282484920f71784a7916f5c449a628"
+    },
+    "/sdcard/Joy Creator/.joycreator/index.json": {
+      "size": 15490,
+      "sha256": "726e6fe10741655d98c13af6df3929140034a03603dde2a9ab87813d9617688b"
+    },
+    "/sdcard/Joy Creator/.joycreator/studio.json": {
+      "size": 10647,
+      "sha256": "67a77990e18b61dd122ed9bb51bafd0ac4baf5a9f0b26cc69dfa1feb8843085c"
+    },
+    "/sdcard/Joy Creator/.joycreator/trash.json": {
+      "size": 984,
+      "sha256": "be91c0925577edbcc704beb98615ea63a9989fae177c96159f3783b03c24ed46"
+    },
+    "/sdcard/Joy Creator/Animation test 3.joyproject": {
+      "size": 3556,
+      "sha256": "ce05e92167ac4b0fb6af871330dce05a63bfd4eb39e680408f1ff5f998721a63"
+    },
+    "/sdcard/Joy Creator/Animation test image.png": {
+      "size": 10345,
+      "sha256": "3838fc00b08642c616c9a2c870a4bd64a05b47c7bff120498a0bb198608c4325"
+    },
+    "/sdcard/Joy Creator/Animation test.joyproject": {
+      "size": 2471,
+      "sha256": "21393c92e84872fc09c0cc2631dc43f7ceb7936789bc62cbc055afc9cbbde974"
+    },
+    "/sdcard/Joy Creator/BundlingFontTest 2.png": {
+      "size": 1057156,
+      "sha256": "ebb0080a553421cba1a10ee233ce0ed5366ab845e5fb6312441c7d5fd5b4097c"
+    },
+    "/sdcard/Joy Creator/BundlingFontTest 3.png": {
+      "size": 928890,
+      "sha256": "2c56cc5c11f4519d6cd4b3dc9f1b4d0d1c28298d1b343e2abdbcd7d8314b526a"
+    },
+    "/sdcard/Joy Creator/BundlingFontTest 4.png": {
+      "size": 976364,
+      "sha256": "316a414bcbb4d82f495024c760a8e56bd1f1d3c3d9ef1c1a7b2130565d397bdc"
+    },
+    "/sdcard/Joy Creator/BundlingFontTest 5.png": {
+      "size": 481573,
+      "sha256": "03e1e13ecc546220d871381b433374e058bbe98a8a3e075219e16f43adc2f502"
+    },
+    "/sdcard/Joy Creator/BundlingFontTest 6.png": {
+      "size": 481573,
+      "sha256": "03e1e13ecc546220d871381b433374e058bbe98a8a3e075219e16f43adc2f502"
+    },
+    "/sdcard/Joy Creator/BundlingFontTest image 2.png": {
+      "size": 519378,
+      "sha256": "69d5c531f67c17664932fe3619f663b2306df20265818cad2abb33c13454f0e4"
+    },
+    "/sdcard/Joy Creator/BundlingFontTest image.png": {
+      "size": 448357,
+      "sha256": "f91168a1e114a659a85b254eb4b76653458c0cb946abfd4c939b0c030cb92b8f"
+    },
+    "/sdcard/Joy Creator/BundlingFontTest.joyproject": {
+      "size": 25216,
+      "sha256": "b8eb3f7bb3c573d79d9ac4e5dce6a69c768282ffcb53e08a33bcd50c199fe273"
+    },
+    "/sdcard/Joy Creator/BundlingFontTest.mp4": {
+      "size": 9007738,
+      "sha256": "40320870d527c9720155e11b9eae02ccff238888cce9f1c5f2394144abe86733"
+    },
+    "/sdcard/Joy Creator/BundlingFontTest.png": {
+      "size": 506782,
+      "sha256": "2dd62aba36dfbb76c7510101e2c64420f1dd483e86d8b234ff3d1229793601c2"
+    },
+    "/sdcard/Joy Creator/Camera 2026-10-13 23.51.mp4": {
+      "size": 16584287,
+      "sha256": "35895a23582bac81bc337a88c035973e1862a5a6df36077148518290bb0c9c17"
+    },
+    "/sdcard/Joy Creator/Canvas.png": {
+      "size": 99,
+      "sha256": "be5d3cf6c8cddef930d412bc15d8af24ba654ca0961d6659b57ca7554866326e"
+    },
+    "/sdcard/Joy Creator/Drawing 2 test.joybrush": {
+      "size": 46264215,
+      "sha256": "6c85fd7896e1e85896bbce592c7d34920e8aa1be845e5e89dfd9a055812fa0cc"
+    },
+    "/sdcard/Joy Creator/Drawing 4.joybrush": {
+      "size": 7741501,
+      "sha256": "2a56efe60e131b4024b13071a5df70e49d5e9cac3a81a90b7ed2354183eb81a1"
+    },
+    "/sdcard/Joy Creator/Drawing 5.joybrush": {
+      "size": 9531101,
+      "sha256": "61aa87652df5736db2cf9f3fcd8f2a86d5e2d25fe5942362c4665ac8db653057"
+    },
+    "/sdcard/Joy Creator/FADE_8B_VERIFY.joyproject": {
+      "size": 5398,
+      "sha256": "3f4fcd063f746d40dba70372ef3b3fdfdfbd6e34c66faeea5ef82c5960b1c54c"
+    },
+    "/sdcard/Joy Creator/FadCam_20260621_145235.mp4": {
+      "size": 16829087,
+      "sha256": "4b6f6ad52b7d850ec1afb5b5a052ded982473d46a73a9c8a573e9bc50625af70"
+    },
+    "/sdcard/Joy Creator/Faditor_20260925_004732.mp4": {
+      "size": 47193312,
+      "sha256": "6c6af70f0e9f7bf6ab2eb8ee81a6bbfe4275609cf158579cad67ad85b7853ff5"
+    },
+    "/sdcard/Joy Creator/Photo 2026-10-15 17.50.jpg": {
+      "size": 163114,
+      "sha256": "04c9e175d33fad1cd2df1f867e3fb9ed9556a4099e7e0dcee3415c590bc9c3a5"
+    },
+    "/sdcard/Joy Creator/Restore video test/20260711_154554.jpg": {
+      "size": 1409171,
+      "sha256": "75d1f4b9912e0f64730d87caa2e75383d4d3b5838211c3dcb808a2744be94ccf"
+    },
+    "/sdcard/Joy Creator/Restore video test/20260812_102239_050.jpg": {
+      "size": 890142,
+      "sha256": "9eba7f360a24228d72700435903be70d7a56e00939af805723b8f1aff69e65d6"
+    },
+    "/sdcard/Joy Creator/Restore video test/A cute cartoon cat astronaut floating.jpg": {
+      "size": 302527,
+      "sha256": "b88de817eb1cf5d0474fe0fef777c11f399397efd3d8233b492fed227d45b1eb"
+    },
+    "/sdcard/Joy Creator/Restore video test/Long test clip.mp4": {
+      "size": 41048739,
+      "sha256": "ede3e6afb67a9ba92f4cf98b7596ecd1e2360c2a6311ce4b4a3e9dd1bfa45d8b"
+    },
+    "/sdcard/Joy Creator/Restore video test/Restore video test file 2.html": {
+      "size": 1029,
+      "sha256": "65922f4da07d48ffea7dc8118a21c0b3f9df78930f86579f643c8cf9d07a8fcb"
+    },
+    "/sdcard/Joy Creator/Restore video test/Restore video test file 3.html": {
+      "size": 2546,
+      "sha256": "7f13dd0f8811eb6dd7bd0088e60afaf49adca77bd453ead359ad4cdd09ae620b"
+    },
+    "/sdcard/Joy Creator/Restore video test/Restore video test file.html": {
+      "size": 872,
+      "sha256": "0b8a5ad956ede1943ce768bae95ef9d6b0109ed4a646791eeafe0466e4308758"
+    },
+    "/sdcard/Joy Creator/Restore video test/Restore video test video 2.mp4": {
+      "size": 1016324,
+      "sha256": "bbbf5742a88aa372d31417912809609ca8b3073a78b2ca20c74839e0fdefa12d"
+    },
+    "/sdcard/Joy Creator/Restore video test/Restore video test video.mp4": {
+      "size": 20539074,
+      "sha256": "c72ae66535177afc3caed882a2a5df41838c54a5f507cde6a6281d7dc258ca4e"
+    },
+    "/sdcard/Joy Creator/Restore video test/Restore video test.joyproject": {
+      "size": 37507,
+      "sha256": "c73c6a7ece161f27e964252db0c168a1f6d117288f25e2b038d081e2b8001f2b"
+    },
+    "/sdcard/Joy Creator/Restore video test/Restore video test.mp4": {
+      "size": 7969089,
+      "sha256": "a89141d63636fd999a72caba5d7cb65db437fc25827743a291154f9d173f1693"
+    },
+    "/sdcard/Joy Creator/Screen recording 2026-10-15 17.50.mp4": {
+      "size": 1043518,
+      "sha256": "fac15524f704b6e7100fe6a705a9fe01fd07850d34b914fccac0d8b9f47fcea4"
+    },
+    "/sdcard/Joy Creator/Screen recording 2026-10-17 19.41.mp4": {
+      "size": 130552822,
+      "sha256": "f36b341f14ae46ebd2c2497ad7f67be197d5f9e53fb15a987373ad7d6a4998fb"
+    },
+    "/sdcard/Joy Creator/Screen recording 2026-10-18 12.14.mp4": {
+      "size": 51394892,
+      "sha256": "600762b01bf985986be2fef9cb4192301cb6574e786a4828d3aaedf9d3bf1ec1"
+    },
+    "/sdcard/Joy Creator/Sprite test image.png": {
+      "size": 664,
+      "sha256": "0f0924eda1d0d72aca3900fdfab5b35fa9e166310047027360f0aaa29d98e9be"
+    },
+    "/sdcard/Joy Creator/Sprite test.joyproject": {
+      "size": 1118,
+      "sha256": "b6d35cea5a6be2031aee2ab7c66e88f947ab4053c9f8b74d59ebd687c64391a9"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Aurora Parts.vis.json": {
+      "size": 1993,
+      "sha256": "4b501b375e99400a739aefc33aaddfe8f3fea1c0965359d04a53c098d174b39c"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Brand Wash.vis.json": {
+      "size": 954,
+      "sha256": "809edcfa5aa5318e4402524a936293d893857b81230e578606221674e0da4be1"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Cigar Smoke.vis.json": {
+      "size": 1030,
+      "sha256": "46d84fa725a114b3411d0c51dbe17586d8b88868da33efa3f1348133d097e7b2"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Constellation.vis.json": {
+      "size": 1416,
+      "sha256": "3597258292b32e402fbaf52b6311ad27a8c9483046fd8e5648afc05405164853"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Coral Growth.vis.json": {
+      "size": 984,
+      "sha256": "1510309a03e5686f73198a799b608d2bd9d8efca2c717f329884cf7d640affce"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Crystal.vis.json": {
+      "size": 822,
+      "sha256": "dbf42c2677e920dbceb3dd8e7cd48e16be5d30fd1092737c1bcf51597ab92042"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Disco Ocean.vis.json": {
+      "size": 1986,
+      "sha256": "d8e03d8fa9092283636f2cafce9ea6830d40fea5cf70d3b88cf6910ba86344eb"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Ember Storm.vis.json": {
+      "size": 2085,
+      "sha256": "5c6fcf961575766278e9a6ab5021beb77a90394716332c48fdcf85bfe05958eb"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Fire Aurora.vispart.json": {
+      "size": 597,
+      "sha256": "5363468ad4be837ce1a203cbb8141fe5250dc62f5c0f726f9f4029cb9bb224a6"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Firework Words.vis.json": {
+      "size": 885,
+      "sha256": "83808dad321cbb5d3a4bc4967e4ee9a0f9b9e8b357ec753a73513bbbe13f84d7"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Glass Peaks.vis.json": {
+      "size": 1474,
+      "sha256": "7457d56b54ab683e5acb923acb3d611ab26c45dcf740817f5a6f173b131940fa"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Glitch Pulse.vis.json": {
+      "size": 1849,
+      "sha256": "ab8eaca706e1b483681695ff0126c934086b223671258740ace9751c79700b7e"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Gyroid Dive.vis.json": {
+      "size": 879,
+      "sha256": "43097f60dc80cdda15a58f68a2190265556b8351389e03739e6acb52ce83ab92"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Halo Drop.vis.json": {
+      "size": 2511,
+      "sha256": "dd3049d204da05272bb867eea4cdd04493b4c1e9494a484f8721a51ff9c10497"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Halo Lyrics.vis.json": {
+      "size": 2920,
+      "sha256": "dfff79781f50536244630ed82dbf0b1c0ba1067add7652bfbdd0a109ab5ac45b"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Hyperdrive.vis.json": {
+      "size": 1817,
+      "sha256": "a2d73f4e0f8c128412392a806ee7c488bfb4c1e49576e7b3a7c34641684eea76"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Hypno.vis.json": {
+      "size": 923,
+      "sha256": "7740efeace5f7f29dbf8319d4c05d91897dfea748c206b39ff8415d6d62b07e4"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Ink in Water.vis.json": {
+      "size": 1248,
+      "sha256": "faa16de1d07ed7dcdf4505de4856ebab57498efb815b46275aecd5aa1cce782a"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Laser Show.vis.json": {
+      "size": 1481,
+      "sha256": "0bfe663a482dd7e97f8e6bbfee075348a20d6c473530f86191d9ccda8d7cac1b"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Liquid Chrome.vis.json": {
+      "size": 933,
+      "sha256": "414f3691863c52e0a2c53ecd2d24423f3a7a35b0e177581e559b4b59808b6384"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Living Veins.vis.json": {
+      "size": 1046,
+      "sha256": "0f675c360d0de300ad543c1d379f700772c8258ddddbd38c2502f2490c4b4588"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Lyric Flight.vis.json": {
+      "size": 1670,
+      "sha256": "f539ff98d62cb89a2fcfa6628953e87104a29ceac1c4d0f35e4c556a605f442c"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Mandala.vis.json": {
+      "size": 1473,
+      "sha256": "9fe3a0c5382c836e2bd6184c03f68d30c978626680a7a6cee33a1ffa4be603d4"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Meltdown.vis.json": {
+      "size": 1160,
+      "sha256": "38580e2c2f5d8bb69ff04c8c2119b39ca51934815188a53e82ea9dbd580a906f"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/My look.vis.json": {
+      "size": 838,
+      "sha256": "d5c5290248a023ea632497ecc444be6687b1df54065d08ae12a51d7c52379250"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Neon Bars.vis.json": {
+      "size": 1326,
+      "sha256": "3a1136633354d9f4446c0bcd508d21f02b87beb1bb47e58ea5215af4abc7f08b"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Neon Drive.vis.json": {
+      "size": 953,
+      "sha256": "5f6b4589afd16330dc42a76e6d02f0cd55f4dbf813a10ab893c8ab278a8f7458"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Northern Lights.vis.json": {
+      "size": 1322,
+      "sha256": "f115a3abe9b6351c8d68f7f178cd375b154900c5380cdc0db0b75c338eb95e24"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Outrun.vis.json": {
+      "size": 1276,
+      "sha256": "6ed288ea4f3db71589d0c1660b0ccdd7337c06dc516f144805033fb4bc1e4678"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Phosphor Scope.vis.json": {
+      "size": 1241,
+      "sha256": "d7074ba7c14fe179c588f341cd28d6b9027a02a962a874e569e12df281c2e387"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Record Hop.vis.json": {
+      "size": 1153,
+      "sha256": "74a4e554b22c2875b70508bd3e6c994963e1b0392722d74f60f3876162fa1c33"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Sculpture.vis.json": {
+      "size": 1041,
+      "sha256": "bc5c5c3e36daf5772bdc9d93c2998d9acef607488e5b6ed2f03f7eee1ab07fd2"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Smoke Words.vis.json": {
+      "size": 1066,
+      "sha256": "e4ad07633dd59fcfd58b944190dc2f5f04f22225463f70d928c9ad9e9dd090a2"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Sound City.vis.json": {
+      "size": 2433,
+      "sha256": "933726d29e4077b26cd42ee3a1c7f9be6947a5d998238477b4a43ce262a75b4a"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Sound Sphere.vis.json": {
+      "size": 1444,
+      "sha256": "6912c6a08890a87f84aa5301eaf79c27673ef36f3df3d999684fb8e9a4b6c1d4"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Spiral Banner.vis.json": {
+      "size": 1228,
+      "sha256": "641107d3715b33757549a21dd3854e9cd7c0f78c99256da6f5e5b50fbeec054b"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Storm Core.vis.json": {
+      "size": 2130,
+      "sha256": "4529166c3fd067b15657c0efc56d209254200149a75fc78ea13c4cc534b80046"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Strange Attractor.vis.json": {
+      "size": 1451,
+      "sha256": "707d55b4a4852c1f345363d886fbbfc8bd8756214c90a0a1d24b008d8d956c51"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Studio Waterfall.vis.json": {
+      "size": 956,
+      "sha256": "c933270a774b1ec2caf449a41f44986b62520bb2fa4a1be7d686ff823d1fbbb4"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Tunnel Ticker.vis.json": {
+      "size": 2060,
+      "sha256": "a71ae7ccf3a041cc4ea0ce61061b213e3c4a76aa1a80e1b6535e7c347933158e"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Voice Glow.vis.json": {
+      "size": 1593,
+      "sha256": "9e31006bc8e9ddc2523f96161d915ef90bd606165d72c50e7bfa3b958589a2f4"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Weaving Ribbon.vis.json": {
+      "size": 1201,
+      "sha256": "3b2c604580ac97183dc6918397cbd18172e645c7ee7b27498b9bdab140a50a96"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Written in Stars.vis.json": {
+      "size": 1080,
+      "sha256": "c6b19beebcd07895db6741c016c55f9dfb741fe855062f74e055df133287b41e"
+    },
+    "/sdcard/Joy Creator/Timeline marks acceptance.joyproject": {
+      "size": 16356,
+      "sha256": "bc864148f06ca2b2321ffcc0802d4079380ddda61d0888e93f809379d18ef3a0"
+    },
+    "/sdcard/Joy Creator/Untitled 2.joyproject": {
+      "size": 1871,
+      "sha256": "8055fe416692cd6ae24f81530a524fed827fc06fd6b6896682699e227c7cb26a"
+    },
+    "/sdcard/Joy Creator/Untitled 2.png": {
+      "size": 783809,
+      "sha256": "6843fb7171de49979e960b8681fbafbfc12a7ed60952d5b09c4f28dee4154df1"
+    },
+    "/sdcard/Joy Creator/Untitled 3.joyproject": {
+      "size": 1931,
+      "sha256": "da124a09f41b59372820114ac387b76a29453a8924d8c9a7742540b91a70c273"
+    },
+    "/sdcard/Joy Creator/Untitled audio 2.joyproject": {
+      "size": 1932,
+      "sha256": "d36b4811121d3c1aad77ec6941a25951579b639f23ea8e25b5b494679726668c"
+    },
+    "/sdcard/Joy Creator/Untitled audio.joyproject": {
+      "size": 826,
+      "sha256": "f11e267d6e2897b95c5666b59d75e56b05ba3b158f4ab75850d3052c06409ea7"
+    },
+    "/sdcard/Joy Creator/Untitled.joyproject": {
+      "size": 8703,
+      "sha256": "ff55d45281d0fac0abc0e4e1b8c43e873c3ed662889fb70ea5edfe4a62f07a10"
+    },
+    "/sdcard/Joy Creator/Untitled.png": {
+      "size": 938546,
+      "sha256": "b1072feb84acfd14ccb1c1dd96ad032157c7a6ff20e514e87b4e537aa7b1eb5d"
+    },
+    "/sdcard/Joy Creator/ZA_CONTROL.joyproject": {
+      "size": 30894,
+      "sha256": "befc256f2ff11d6562ff8894a151030b6d5fe8f3de16ddf21525898e8505c2ff"
+    },
+    "/sdcard/Joy Creator/ZA_VERIFY.joyproject": {
+      "size": 24850,
+      "sha256": "9960241cbd7500ec728a4bb9b131c5890d3e9c1a67d6e4499c0e247570d902c2"
+    },
+    "/sdcard/Joy Creator/audio_1793046088393.m4a": {
+      "size": 71709,
+      "sha256": "4a0e474a96993b5bd53e2f65e03eaa9962358eb54c6e57c9346f314b9cbe1062"
+    },
+    "/sdcard/Joy Creator/dummy_image_for_bundling.png": {
+      "size": 619,
+      "sha256": "f42437aedb4905a86aae4456c3dc48ff7eead89ea8b2aa7997aeca4fc691bfeb"
+    },
+    "/sdcard/Joy Creator/faditor_gap_black.png": {
+      "size": 115,
+      "sha256": "bc69627dc6cdb617b7603fd374f3089bc0cad77eb95d99bb50488bbd1ca7d743"
+    },
+    "/sdcard/Joy Creator/imported_test.ttf": {
+      "size": 319960,
+      "sha256": "aa34d969baa04cdbc6edfda87ac12c94e6ff5eb7ecea2e19a5557f84acb7dba5"
+    },
+    "/sdcard/Joy Creator/source.mp4": {
+      "size": 839388,
+      "sha256": "b4168c637b95163d5ea9483a2102d82d2899313a9e7d3bb457c2cf0e540906a6"
+    }
+  },
+  "savedAfter": {
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/current.joybrush": {
+      "size": 7124761,
+      "sha256": "de93a41e09d666dd9eeac10e75acef4952ac5460e2d4696b95ffe82ebf268a97"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/current.joybrush.bak": {
+      "size": 7124766,
+      "sha256": "ec45572b81d0ccf6b900240fc6a96bd9d8937a5cf27e11e3cd4f2dc791c5383c"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/drawing-1792100806803-1.joybrush": {
+      "size": 46264215,
+      "sha256": "6c85fd7896e1e85896bbce592c7d34920e8aa1be845e5e89dfd9a055812fa0cc"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/drawing-1792100806803-1.joybrush.bak": {
+      "size": 46264215,
+      "sha256": "2b1cc81949b3a9270f9b59f1b18aa35ffe146412782ff828fb383b3195416f99"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/drawing-1792348378213.joybrush": {
+      "size": 6927503,
+      "sha256": "782e6fa96f71e71162412ef6b17985c0dcff3520c5e9b3216d652f0ad893e4df"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/drawing-1792348378213.joybrush.bak": {
+      "size": 6927503,
+      "sha256": "f1b8bcd2889c0b5b76af2e9c01eafb813bcb95ae225bbb423cf09b3560b84dd6"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/drawing-1792516752346.joybrush": {
+      "size": 7741501,
+      "sha256": "2a56efe60e131b4024b13071a5df70e49d5e9cac3a81a90b7ed2354183eb81a1"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/drawing-1792516752346.joybrush.bak": {
+      "size": 7699085,
+      "sha256": "7738908fbe2f32b6363fba6c1a0f0e4e9e8aaf9b5117d2776f2b7820db6e14e5"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/drawing-1792798373007.joybrush": {
+      "size": 9531101,
+      "sha256": "61aa87652df5736db2cf9f3fcd8f2a86d5e2d25fe5942362c4665ac8db653057"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/drawing-1792798373007.joybrush.bak": {
+      "size": 9531101,
+      "sha256": "2232b86f22a8e0008993c7456d0e5ef20a400e17fcbe1c6197b280c0643001c2"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/export-check.joybrush": {
+      "size": 1699,
+      "sha256": "0a4461edb4d2860b86997ea45a88b29487e9639a670ffc241247dcba20a7b08f"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/library.json": {
+      "size": 1001,
+      "sha256": "eb1841f07cbc736aff675fbc0181d266c39620cdb6f333de847c6d14864c0c6c"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/recent/1790861788882-0f81742b-909e-433d-b808-0cde2ed6c715.joybrush": {
+      "size": 1699,
+      "sha256": "14d8c6cc62fe8f223ce4124610360b58109f4005fe5cbd349df8e76f619a1e85"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/recent/1790874577790-c2804d71-a097-4068-a5bc-c401d87eacae.joybrush": {
+      "size": 25722582,
+      "sha256": "df157de686a29d210b021cfcfe3db2b0e5556c0f04950c7b2ca3af0ea69943ea"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/recent/1790874827699-b95870ca-ccfc-43d2-a760-b0d3d73e6267.joybrush": {
+      "size": 25722605,
+      "sha256": "8bfd0f51a1a5c6a996ccebbdb3c61390698babafe7c1eebe50ed10502f2f2f67"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/recent/1790875042893-7e6fffe2-07a2-48d4-9553-998f884ab9f0.joybrush": {
+      "size": 25722582,
+      "sha256": "0dd259015c36de724b62efdd9148008a703450c90c4f5ce4a29e3ea6434762a1"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/recent/1790883395629-77e9e9e6-4fc5-493d-9d85-4786952e0e53.joybrush": {
+      "size": 26659463,
+      "sha256": "05375437876346e05dc8533d4d753862df2d83175d53fca760d5ea3ebc6eb901"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/thumbs/current.joybrush.png": {
+      "size": 259945,
+      "sha256": "06c71b129d80e01e797a3eaf9a26e74878900415a36d05e08a6506885596fb20"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/thumbs/drawing-1792100806803-1.joybrush.png": {
+      "size": 603523,
+      "sha256": "cef996ddff5b2ac4418f22a578ff331c1645afe8a14fd792f5211431a66c0c3f"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/thumbs/drawing-1792348378213.joybrush.png": {
+      "size": 27294,
+      "sha256": "791894a238cf7fdea1789da693cea125701cf3639073ade0a2192a3092c52c35"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/thumbs/drawing-1792516752346.joybrush.png": {
+      "size": 477829,
+      "sha256": "7c95e44ac0d775bd73c1c5dd003f88824a64839496d5e52c6d3e9199709ec4c0"
+    },
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/thumbs/drawing-1792798373007.joybrush.png": {
+      "size": 555098,
+      "sha256": "4602ca99812ef2756242fd4e6e99103841f2f72662ee0f40e502af2fd07272f1"
+    },
+    "/sdcard/Joy Creator (first test)/.joycreator/index.json": {
+      "size": 5448,
+      "sha256": "4257c8795d01be29f15ffb4911f53f23d7cc3c6f67dfe03882313542f69e831e"
+    },
+    "/sdcard/Joy Creator (first test)/.joycreator/studio.json": {
+      "size": 7097,
+      "sha256": "79d443bfe0dd42d26a13f754edc10457ea6d7cf73d65d935a22743a44a3b7f7c"
+    },
+    "/sdcard/Joy Creator (first test)/Animation test 2.joyproject": {
+      "size": 3560,
+      "sha256": "bb907d1e1b3268b34b3f47ec99c74242c65f7a25a6db68ac504f0973f4ae0fb0"
+    },
+    "/sdcard/Joy Creator (first test)/Animation test image 2.png": {
+      "size": 10345,
+      "sha256": "3838fc00b08642c616c9a2c870a4bd64a05b47c7bff120498a0bb198608c4325"
+    },
+    "/sdcard/Joy Creator (first test)/Animation test image.png": {
+      "size": 10345,
+      "sha256": "3838fc00b08642c616c9a2c870a4bd64a05b47c7bff120498a0bb198608c4325"
+    },
+    "/sdcard/Joy Creator (first test)/Animation test.joyproject": {
+      "size": 2471,
+      "sha256": "21393c92e84872fc09c0cc2631dc43f7ceb7936789bc62cbc055afc9cbbde974"
+    },
+    "/sdcard/Joy Creator (first test)/BundlingFontTest image 2.png": {
+      "size": 448357,
+      "sha256": "f91168a1e114a659a85b254eb4b76653458c0cb946abfd4c939b0c030cb92b8f"
+    },
+    "/sdcard/Joy Creator (first test)/BundlingFontTest image 3.png": {
+      "size": 519378,
+      "sha256": "69d5c531f67c17664932fe3619f663b2306df20265818cad2abb33c13454f0e4"
+    },
+    "/sdcard/Joy Creator (first test)/BundlingFontTest image.png": {
+      "size": 448357,
+      "sha256": "f91168a1e114a659a85b254eb4b76653458c0cb946abfd4c939b0c030cb92b8f"
+    },
+    "/sdcard/Joy Creator (first test)/BundlingFontTest.joyproject": {
+      "size": 25694,
+      "sha256": "cc04b43923249e171880e5370f8090475dac9f4d902a2e8dc5db0d7625c119c6"
+    },
+    "/sdcard/Joy Creator (first test)/Canvas.png": {
+      "size": 99,
+      "sha256": "be5d3cf6c8cddef930d412bc15d8af24ba654ca0961d6659b57ca7554866326e"
+    },
+    "/sdcard/Joy Creator (first test)/FADE_8B_VERIFY.joyproject": {
+      "size": 5398,
+      "sha256": "3f4fcd063f746d40dba70372ef3b3fdfdfbd6e34c66faeea5ef82c5960b1c54c"
+    },
+    "/sdcard/Joy Creator (first test)/FadCam_20260621_145235 2.mp4": {
+      "size": 16829087,
+      "sha256": "4b6f6ad52b7d850ec1afb5b5a052ded982473d46a73a9c8a573e9bc50625af70"
+    },
+    "/sdcard/Joy Creator (first test)/FadCam_20260621_145235 3.mp4": {
+      "size": 16829087,
+      "sha256": "4b6f6ad52b7d850ec1afb5b5a052ded982473d46a73a9c8a573e9bc50625af70"
+    },
+    "/sdcard/Joy Creator (first test)/FadCam_20260621_145235.mp4": {
+      "size": 16829087,
+      "sha256": "4b6f6ad52b7d850ec1afb5b5a052ded982473d46a73a9c8a573e9bc50625af70"
+    },
+    "/sdcard/Joy Creator (first test)/Faditor_20260925_004732.mp4": {
+      "size": 47193312,
+      "sha256": "6c6af70f0e9f7bf6ab2eb8ee81a6bbfe4275609cf158579cad67ad85b7853ff5"
+    },
+    "/sdcard/Joy Creator (first test)/Sprite test image.png": {
+      "size": 664,
+      "sha256": "0f0924eda1d0d72aca3900fdfab5b35fa9e166310047027360f0aaa29d98e9be"
+    },
+    "/sdcard/Joy Creator (first test)/Sprite test.joyproject": {
+      "size": 1118,
+      "sha256": "b6d35cea5a6be2031aee2ab7c66e88f947ab4053c9f8b74d59ebd687c64391a9"
+    },
+    "/sdcard/Joy Creator (first test)/Untitled audio.joyproject": {
+      "size": 826,
+      "sha256": "f11e267d6e2897b95c5666b59d75e56b05ba3b158f4ab75850d3052c06409ea7"
+    },
+    "/sdcard/Joy Creator (first test)/Untitled.joyproject": {
+      "size": 8703,
+      "sha256": "8bada9b901d93515dc7e93f419e601568197ff0b96be85870a7cb94d64846620"
+    },
+    "/sdcard/Joy Creator (first test)/ZA_CONTROL image 2.png": {
+      "size": 448357,
+      "sha256": "f91168a1e114a659a85b254eb4b76653458c0cb946abfd4c939b0c030cb92b8f"
+    },
+    "/sdcard/Joy Creator (first test)/ZA_CONTROL image 3.png": {
+      "size": 519378,
+      "sha256": "69d5c531f67c17664932fe3619f663b2306df20265818cad2abb33c13454f0e4"
+    },
+    "/sdcard/Joy Creator (first test)/ZA_CONTROL image.png": {
+      "size": 448357,
+      "sha256": "f91168a1e114a659a85b254eb4b76653458c0cb946abfd4c939b0c030cb92b8f"
+    },
+    "/sdcard/Joy Creator (first test)/ZA_CONTROL.joyproject": {
+      "size": 30954,
+      "sha256": "19f9d983ee661db86f9fe45b6492122434c7eeda181123f78233f4cf07dbf7b8"
+    },
+    "/sdcard/Joy Creator (first test)/ZA_VERIFY image 2.png": {
+      "size": 448357,
+      "sha256": "f91168a1e114a659a85b254eb4b76653458c0cb946abfd4c939b0c030cb92b8f"
+    },
+    "/sdcard/Joy Creator (first test)/ZA_VERIFY image 3.png": {
+      "size": 519378,
+      "sha256": "69d5c531f67c17664932fe3619f663b2306df20265818cad2abb33c13454f0e4"
+    },
+    "/sdcard/Joy Creator (first test)/ZA_VERIFY image.png": {
+      "size": 448357,
+      "sha256": "f91168a1e114a659a85b254eb4b76653458c0cb946abfd4c939b0c030cb92b8f"
+    },
+    "/sdcard/Joy Creator (first test)/ZA_VERIFY.joyproject": {
+      "size": 24906,
+      "sha256": "2c74589d2004e34e1442e0b11d48a2c62806a250ad1d361b287319e724ff1ef4"
+    },
+    "/sdcard/Joy Creator (first test)/dummy_image_for_bundling 2.png": {
+      "size": 619,
+      "sha256": "f42437aedb4905a86aae4456c3dc48ff7eead89ea8b2aa7997aeca4fc691bfeb"
+    },
+    "/sdcard/Joy Creator (first test)/dummy_image_for_bundling 3.png": {
+      "size": 619,
+      "sha256": "f42437aedb4905a86aae4456c3dc48ff7eead89ea8b2aa7997aeca4fc691bfeb"
+    },
+    "/sdcard/Joy Creator (first test)/dummy_image_for_bundling.png": {
+      "size": 619,
+      "sha256": "f42437aedb4905a86aae4456c3dc48ff7eead89ea8b2aa7997aeca4fc691bfeb"
+    },
+    "/sdcard/Joy Creator (first test)/faditor_gap_black.png": {
+      "size": 115,
+      "sha256": "bc69627dc6cdb617b7603fd374f3089bc0cad77eb95d99bb50488bbd1ca7d743"
+    },
+    "/sdcard/Joy Creator (first test)/imported_test 2.ttf": {
+      "size": 319960,
+      "sha256": "aa34d969baa04cdbc6edfda87ac12c94e6ff5eb7ecea2e19a5557f84acb7dba5"
+    },
+    "/sdcard/Joy Creator (first test)/imported_test.ttf": {
+      "size": 319960,
+      "sha256": "aa34d969baa04cdbc6edfda87ac12c94e6ff5eb7ecea2e19a5557f84acb7dba5"
+    },
+    "/sdcard/Joy Creator/.joycreator/Trash/2026-10-13 20.44 Restore test.joyproject": {
+      "size": 1101,
+      "sha256": "93662b2d253b4b85a007609d28a6591bcc9ca2fb4acfb16cd55392f23ac5de9b"
+    },
+    "/sdcard/Joy Creator/.joycreator/Trash/2026-10-14 00.40 z1.png": {
+      "size": 266212,
+      "sha256": "1a44874b822556cfa22fd4352f64a4cd81774ac4a394ab30f07fd7a593b144ef"
+    },
+    "/sdcard/Joy Creator/.joycreator/Trash/2026-10-15 20.41 crossfades.json": {
+      "size": 263,
+      "sha256": "fcbe1705e3fe424243835bd4110f8b48e1e562692657e8ee1c130ac53d4f99d5"
+    },
+    "/sdcard/Joy Creator/.joycreator/Trash/2026-10-17 14.49 Voice Glow copy.vis.json": {
+      "size": 1603,
+      "sha256": "bd29ec6def904188c0c6097b7634486f4f6a1e6d9d1560e032e6da583c779f39"
+    },
+    "/sdcard/Joy Creator/.joycreator/Trash/2026-10-17 14.54 Glow Test.vis.json": {
+      "size": 1597,
+      "sha256": "850b2a204db0c3077a033169c9d574a2c856135adef149c92c77325fa827a476"
+    },
+    "/sdcard/Joy Creator/.joycreator/Trash/2026-10-17 14.59 Club Night.vis.json": {
+      "size": 1159,
+      "sha256": "b8f1ce668423b4a8c53a5d5f66855a3a74addf7f86cf5dce07730dbf56534f83"
+    },
+    "/sdcard/Joy Creator/.joycreator/Trash/2026-10-17 19.06 Test Copy.vis.json": {
+      "size": 1157,
+      "sha256": "572f691a46a2b4f9a81e456af96f1f258ee4fc6f5fbf1df987a4f250a03dcd9d"
+    },
+    "/sdcard/Joy Creator/.joycreator/Trash/2026-10-18 08.50 Cigar Smoke (words lost).vis.json": {
+      "size": 683,
+      "sha256": "2250f5fde8fb67248fa96b9b387647ed5b67cdcea6c8ee99781f755abb0c35eb"
+    },
+    "/sdcard/Joy Creator/.joycreator/Trash/2026-10-18 08.50 Firework Words (words lost).vis.json": {
+      "size": 580,
+      "sha256": "9bf9e25948f3abe2d62fa45c4e8d6dc84ce9a955cb97b38080ec1477b945f160"
+    },
+    "/sdcard/Joy Creator/.joycreator/Trash/2026-10-18 08.50 Halo Lyrics (words lost).vis.json": {
+      "size": 2266,
+      "sha256": "2a3372d777c34c1bb270b51edbd446f771a7d56dd61df43a5dd7976db504a8c6"
+    },
+    "/sdcard/Joy Creator/.joycreator/Trash/2026-10-18 08.50 Lyric Flight (words lost).vis.json": {
+      "size": 1387,
+      "sha256": "ea826120b69f1324439fefea75f065963454623cebaa08c0123451482f055dd9"
+    },
+    "/sdcard/Joy Creator/.joycreator/Trash/2026-10-18 08.50 Neon Drive (words lost).vis.json": {
+      "size": 608,
+      "sha256": "a8997b6c66b30df533507dd243df76944ae04889e9b516cee4e8d28ec26197bd"
+    },
+    "/sdcard/Joy Creator/.joycreator/Trash/2026-10-18 08.50 Smoke Words (words lost).vis.json": {
+      "size": 813,
+      "sha256": "95907d79649f6367b65ae8baf8ec795355a69163c3d55a900e67f687e46decf2"
+    },
+    "/sdcard/Joy Creator/.joycreator/Trash/2026-10-18 08.50 Spiral Banner (words lost).vis.json": {
+      "size": 799,
+      "sha256": "13c564cee4b1bc61b351551837cc2a1ac363b5796bbe7149eed833a804729f5a"
+    },
+    "/sdcard/Joy Creator/.joycreator/Trash/2026-10-18 08.50 Tunnel Ticker (words lost).vis.json": {
+      "size": 1736,
+      "sha256": "7640c504c57ea96468ca0088d78b024137049002a93b94c3024b60a2800632e0"
+    },
+    "/sdcard/Joy Creator/.joycreator/Trash/2026-10-18 08.50 Weaving Ribbon (words lost).vis.json": {
+      "size": 793,
+      "sha256": "93bafe0d6487b2960ebcbfe0aaf5b8a483d391458644eea543ce58f3f71b23db"
+    },
+    "/sdcard/Joy Creator/.joycreator/Trash/2026-10-18 08.50 Written in Stars (words lost).vis.json": {
+      "size": 778,
+      "sha256": "9e7a9f795334c2ba1e092a1117fb5df24e45545679a626eee78e7d47fc23c1a4"
+    },
+    "/sdcard/Joy Creator/.joycreator/folders.json": {
+      "size": 28,
+      "sha256": "41b787f8d6cd60ba9e42c2d42a76b42605282484920f71784a7916f5c449a628"
+    },
+    "/sdcard/Joy Creator/.joycreator/index.json": {
+      "size": 15490,
+      "sha256": "726e6fe10741655d98c13af6df3929140034a03603dde2a9ab87813d9617688b"
+    },
+    "/sdcard/Joy Creator/.joycreator/studio.json": {
+      "size": 10647,
+      "sha256": "67a77990e18b61dd122ed9bb51bafd0ac4baf5a9f0b26cc69dfa1feb8843085c"
+    },
+    "/sdcard/Joy Creator/.joycreator/trash.json": {
+      "size": 984,
+      "sha256": "be91c0925577edbcc704beb98615ea63a9989fae177c96159f3783b03c24ed46"
+    },
+    "/sdcard/Joy Creator/Animation test 3.joyproject": {
+      "size": 3556,
+      "sha256": "ce05e92167ac4b0fb6af871330dce05a63bfd4eb39e680408f1ff5f998721a63"
+    },
+    "/sdcard/Joy Creator/Animation test image.png": {
+      "size": 10345,
+      "sha256": "3838fc00b08642c616c9a2c870a4bd64a05b47c7bff120498a0bb198608c4325"
+    },
+    "/sdcard/Joy Creator/Animation test.joyproject": {
+      "size": 2471,
+      "sha256": "21393c92e84872fc09c0cc2631dc43f7ceb7936789bc62cbc055afc9cbbde974"
+    },
+    "/sdcard/Joy Creator/BundlingFontTest 2.png": {
+      "size": 1057156,
+      "sha256": "ebb0080a553421cba1a10ee233ce0ed5366ab845e5fb6312441c7d5fd5b4097c"
+    },
+    "/sdcard/Joy Creator/BundlingFontTest 3.png": {
+      "size": 928890,
+      "sha256": "2c56cc5c11f4519d6cd4b3dc9f1b4d0d1c28298d1b343e2abdbcd7d8314b526a"
+    },
+    "/sdcard/Joy Creator/BundlingFontTest 4.png": {
+      "size": 976364,
+      "sha256": "316a414bcbb4d82f495024c760a8e56bd1f1d3c3d9ef1c1a7b2130565d397bdc"
+    },
+    "/sdcard/Joy Creator/BundlingFontTest 5.png": {
+      "size": 481573,
+      "sha256": "03e1e13ecc546220d871381b433374e058bbe98a8a3e075219e16f43adc2f502"
+    },
+    "/sdcard/Joy Creator/BundlingFontTest 6.png": {
+      "size": 481573,
+      "sha256": "03e1e13ecc546220d871381b433374e058bbe98a8a3e075219e16f43adc2f502"
+    },
+    "/sdcard/Joy Creator/BundlingFontTest image 2.png": {
+      "size": 519378,
+      "sha256": "69d5c531f67c17664932fe3619f663b2306df20265818cad2abb33c13454f0e4"
+    },
+    "/sdcard/Joy Creator/BundlingFontTest image.png": {
+      "size": 448357,
+      "sha256": "f91168a1e114a659a85b254eb4b76653458c0cb946abfd4c939b0c030cb92b8f"
+    },
+    "/sdcard/Joy Creator/BundlingFontTest.joyproject": {
+      "size": 25216,
+      "sha256": "b8eb3f7bb3c573d79d9ac4e5dce6a69c768282ffcb53e08a33bcd50c199fe273"
+    },
+    "/sdcard/Joy Creator/BundlingFontTest.mp4": {
+      "size": 9007738,
+      "sha256": "40320870d527c9720155e11b9eae02ccff238888cce9f1c5f2394144abe86733"
+    },
+    "/sdcard/Joy Creator/BundlingFontTest.png": {
+      "size": 506782,
+      "sha256": "2dd62aba36dfbb76c7510101e2c64420f1dd483e86d8b234ff3d1229793601c2"
+    },
+    "/sdcard/Joy Creator/Camera 2026-10-13 23.51.mp4": {
+      "size": 16584287,
+      "sha256": "35895a23582bac81bc337a88c035973e1862a5a6df36077148518290bb0c9c17"
+    },
+    "/sdcard/Joy Creator/Canvas.png": {
+      "size": 99,
+      "sha256": "be5d3cf6c8cddef930d412bc15d8af24ba654ca0961d6659b57ca7554866326e"
+    },
+    "/sdcard/Joy Creator/Drawing 2 test.joybrush": {
+      "size": 46264215,
+      "sha256": "6c85fd7896e1e85896bbce592c7d34920e8aa1be845e5e89dfd9a055812fa0cc"
+    },
+    "/sdcard/Joy Creator/Drawing 4.joybrush": {
+      "size": 7741501,
+      "sha256": "2a56efe60e131b4024b13071a5df70e49d5e9cac3a81a90b7ed2354183eb81a1"
+    },
+    "/sdcard/Joy Creator/Drawing 5.joybrush": {
+      "size": 9531101,
+      "sha256": "61aa87652df5736db2cf9f3fcd8f2a86d5e2d25fe5942362c4665ac8db653057"
+    },
+    "/sdcard/Joy Creator/FADE_8B_VERIFY.joyproject": {
+      "size": 5398,
+      "sha256": "3f4fcd063f746d40dba70372ef3b3fdfdfbd6e34c66faeea5ef82c5960b1c54c"
+    },
+    "/sdcard/Joy Creator/FadCam_20260621_145235.mp4": {
+      "size": 16829087,
+      "sha256": "4b6f6ad52b7d850ec1afb5b5a052ded982473d46a73a9c8a573e9bc50625af70"
+    },
+    "/sdcard/Joy Creator/Faditor_20260925_004732.mp4": {
+      "size": 47193312,
+      "sha256": "6c6af70f0e9f7bf6ab2eb8ee81a6bbfe4275609cf158579cad67ad85b7853ff5"
+    },
+    "/sdcard/Joy Creator/Photo 2026-10-15 17.50.jpg": {
+      "size": 163114,
+      "sha256": "04c9e175d33fad1cd2df1f867e3fb9ed9556a4099e7e0dcee3415c590bc9c3a5"
+    },
+    "/sdcard/Joy Creator/Restore video test/20260711_154554.jpg": {
+      "size": 1409171,
+      "sha256": "75d1f4b9912e0f64730d87caa2e75383d4d3b5838211c3dcb808a2744be94ccf"
+    },
+    "/sdcard/Joy Creator/Restore video test/20260812_102239_050.jpg": {
+      "size": 890142,
+      "sha256": "9eba7f360a24228d72700435903be70d7a56e00939af805723b8f1aff69e65d6"
+    },
+    "/sdcard/Joy Creator/Restore video test/A cute cartoon cat astronaut floating.jpg": {
+      "size": 302527,
+      "sha256": "b88de817eb1cf5d0474fe0fef777c11f399397efd3d8233b492fed227d45b1eb"
+    },
+    "/sdcard/Joy Creator/Restore video test/Long test clip.mp4": {
+      "size": 41048739,
+      "sha256": "ede3e6afb67a9ba92f4cf98b7596ecd1e2360c2a6311ce4b4a3e9dd1bfa45d8b"
+    },
+    "/sdcard/Joy Creator/Restore video test/Restore video test file 2.html": {
+      "size": 1029,
+      "sha256": "65922f4da07d48ffea7dc8118a21c0b3f9df78930f86579f643c8cf9d07a8fcb"
+    },
+    "/sdcard/Joy Creator/Restore video test/Restore video test file 3.html": {
+      "size": 2546,
+      "sha256": "7f13dd0f8811eb6dd7bd0088e60afaf49adca77bd453ead359ad4cdd09ae620b"
+    },
+    "/sdcard/Joy Creator/Restore video test/Restore video test file.html": {
+      "size": 872,
+      "sha256": "0b8a5ad956ede1943ce768bae95ef9d6b0109ed4a646791eeafe0466e4308758"
+    },
+    "/sdcard/Joy Creator/Restore video test/Restore video test video 2.mp4": {
+      "size": 1016324,
+      "sha256": "bbbf5742a88aa372d31417912809609ca8b3073a78b2ca20c74839e0fdefa12d"
+    },
+    "/sdcard/Joy Creator/Restore video test/Restore video test video.mp4": {
+      "size": 20539074,
+      "sha256": "c72ae66535177afc3caed882a2a5df41838c54a5f507cde6a6281d7dc258ca4e"
+    },
+    "/sdcard/Joy Creator/Restore video test/Restore video test.joyproject": {
+      "size": 37507,
+      "sha256": "c73c6a7ece161f27e964252db0c168a1f6d117288f25e2b038d081e2b8001f2b"
+    },
+    "/sdcard/Joy Creator/Restore video test/Restore video test.mp4": {
+      "size": 7969089,
+      "sha256": "a89141d63636fd999a72caba5d7cb65db437fc25827743a291154f9d173f1693"
+    },
+    "/sdcard/Joy Creator/Screen recording 2026-10-15 17.50.mp4": {
+      "size": 1043518,
+      "sha256": "fac15524f704b6e7100fe6a705a9fe01fd07850d34b914fccac0d8b9f47fcea4"
+    },
+    "/sdcard/Joy Creator/Screen recording 2026-10-17 19.41.mp4": {
+      "size": 130552822,
+      "sha256": "f36b341f14ae46ebd2c2497ad7f67be197d5f9e53fb15a987373ad7d6a4998fb"
+    },
+    "/sdcard/Joy Creator/Screen recording 2026-10-18 12.14.mp4": {
+      "size": 51394892,
+      "sha256": "600762b01bf985986be2fef9cb4192301cb6574e786a4828d3aaedf9d3bf1ec1"
+    },
+    "/sdcard/Joy Creator/Sprite test image.png": {
+      "size": 664,
+      "sha256": "0f0924eda1d0d72aca3900fdfab5b35fa9e166310047027360f0aaa29d98e9be"
+    },
+    "/sdcard/Joy Creator/Sprite test.joyproject": {
+      "size": 1118,
+      "sha256": "b6d35cea5a6be2031aee2ab7c66e88f947ab4053c9f8b74d59ebd687c64391a9"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Aurora Parts.vis.json": {
+      "size": 1993,
+      "sha256": "4b501b375e99400a739aefc33aaddfe8f3fea1c0965359d04a53c098d174b39c"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Brand Wash.vis.json": {
+      "size": 954,
+      "sha256": "809edcfa5aa5318e4402524a936293d893857b81230e578606221674e0da4be1"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Cigar Smoke.vis.json": {
+      "size": 1030,
+      "sha256": "46d84fa725a114b3411d0c51dbe17586d8b88868da33efa3f1348133d097e7b2"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Constellation.vis.json": {
+      "size": 1416,
+      "sha256": "3597258292b32e402fbaf52b6311ad27a8c9483046fd8e5648afc05405164853"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Coral Growth.vis.json": {
+      "size": 984,
+      "sha256": "1510309a03e5686f73198a799b608d2bd9d8efca2c717f329884cf7d640affce"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Crystal.vis.json": {
+      "size": 822,
+      "sha256": "dbf42c2677e920dbceb3dd8e7cd48e16be5d30fd1092737c1bcf51597ab92042"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Disco Ocean.vis.json": {
+      "size": 1986,
+      "sha256": "d8e03d8fa9092283636f2cafce9ea6830d40fea5cf70d3b88cf6910ba86344eb"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Ember Storm.vis.json": {
+      "size": 2085,
+      "sha256": "5c6fcf961575766278e9a6ab5021beb77a90394716332c48fdcf85bfe05958eb"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Fire Aurora.vispart.json": {
+      "size": 597,
+      "sha256": "5363468ad4be837ce1a203cbb8141fe5250dc62f5c0f726f9f4029cb9bb224a6"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Firework Words.vis.json": {
+      "size": 885,
+      "sha256": "83808dad321cbb5d3a4bc4967e4ee9a0f9b9e8b357ec753a73513bbbe13f84d7"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Glass Peaks.vis.json": {
+      "size": 1474,
+      "sha256": "7457d56b54ab683e5acb923acb3d611ab26c45dcf740817f5a6f173b131940fa"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Glitch Pulse.vis.json": {
+      "size": 1849,
+      "sha256": "ab8eaca706e1b483681695ff0126c934086b223671258740ace9751c79700b7e"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Gyroid Dive.vis.json": {
+      "size": 879,
+      "sha256": "43097f60dc80cdda15a58f68a2190265556b8351389e03739e6acb52ce83ab92"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Halo Drop.vis.json": {
+      "size": 2511,
+      "sha256": "dd3049d204da05272bb867eea4cdd04493b4c1e9494a484f8721a51ff9c10497"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Halo Lyrics.vis.json": {
+      "size": 2920,
+      "sha256": "dfff79781f50536244630ed82dbf0b1c0ba1067add7652bfbdd0a109ab5ac45b"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Hyperdrive.vis.json": {
+      "size": 1817,
+      "sha256": "a2d73f4e0f8c128412392a806ee7c488bfb4c1e49576e7b3a7c34641684eea76"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Hypno.vis.json": {
+      "size": 923,
+      "sha256": "7740efeace5f7f29dbf8319d4c05d91897dfea748c206b39ff8415d6d62b07e4"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Ink in Water.vis.json": {
+      "size": 1248,
+      "sha256": "faa16de1d07ed7dcdf4505de4856ebab57498efb815b46275aecd5aa1cce782a"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Laser Show.vis.json": {
+      "size": 1481,
+      "sha256": "0bfe663a482dd7e97f8e6bbfee075348a20d6c473530f86191d9ccda8d7cac1b"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Liquid Chrome.vis.json": {
+      "size": 933,
+      "sha256": "414f3691863c52e0a2c53ecd2d24423f3a7a35b0e177581e559b4b59808b6384"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Living Veins.vis.json": {
+      "size": 1046,
+      "sha256": "0f675c360d0de300ad543c1d379f700772c8258ddddbd38c2502f2490c4b4588"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Lyric Flight.vis.json": {
+      "size": 1670,
+      "sha256": "f539ff98d62cb89a2fcfa6628953e87104a29ceac1c4d0f35e4c556a605f442c"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Mandala.vis.json": {
+      "size": 1473,
+      "sha256": "9fe3a0c5382c836e2bd6184c03f68d30c978626680a7a6cee33a1ffa4be603d4"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Meltdown.vis.json": {
+      "size": 1160,
+      "sha256": "38580e2c2f5d8bb69ff04c8c2119b39ca51934815188a53e82ea9dbd580a906f"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/My look.vis.json": {
+      "size": 838,
+      "sha256": "d5c5290248a023ea632497ecc444be6687b1df54065d08ae12a51d7c52379250"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Neon Bars.vis.json": {
+      "size": 1326,
+      "sha256": "3a1136633354d9f4446c0bcd508d21f02b87beb1bb47e58ea5215af4abc7f08b"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Neon Drive.vis.json": {
+      "size": 953,
+      "sha256": "5f6b4589afd16330dc42a76e6d02f0cd55f4dbf813a10ab893c8ab278a8f7458"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Northern Lights.vis.json": {
+      "size": 1322,
+      "sha256": "f115a3abe9b6351c8d68f7f178cd375b154900c5380cdc0db0b75c338eb95e24"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Outrun.vis.json": {
+      "size": 1276,
+      "sha256": "6ed288ea4f3db71589d0c1660b0ccdd7337c06dc516f144805033fb4bc1e4678"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Phosphor Scope.vis.json": {
+      "size": 1241,
+      "sha256": "d7074ba7c14fe179c588f341cd28d6b9027a02a962a874e569e12df281c2e387"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Record Hop.vis.json": {
+      "size": 1153,
+      "sha256": "74a4e554b22c2875b70508bd3e6c994963e1b0392722d74f60f3876162fa1c33"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Sculpture.vis.json": {
+      "size": 1041,
+      "sha256": "bc5c5c3e36daf5772bdc9d93c2998d9acef607488e5b6ed2f03f7eee1ab07fd2"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Smoke Words.vis.json": {
+      "size": 1066,
+      "sha256": "e4ad07633dd59fcfd58b944190dc2f5f04f22225463f70d928c9ad9e9dd090a2"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Sound City.vis.json": {
+      "size": 2433,
+      "sha256": "933726d29e4077b26cd42ee3a1c7f9be6947a5d998238477b4a43ce262a75b4a"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Sound Sphere.vis.json": {
+      "size": 1444,
+      "sha256": "6912c6a08890a87f84aa5301eaf79c27673ef36f3df3d999684fb8e9a4b6c1d4"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Spiral Banner.vis.json": {
+      "size": 1228,
+      "sha256": "641107d3715b33757549a21dd3854e9cd7c0f78c99256da6f5e5b50fbeec054b"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Storm Core.vis.json": {
+      "size": 2130,
+      "sha256": "4529166c3fd067b15657c0efc56d209254200149a75fc78ea13c4cc534b80046"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Strange Attractor.vis.json": {
+      "size": 1451,
+      "sha256": "707d55b4a4852c1f345363d886fbbfc8bd8756214c90a0a1d24b008d8d956c51"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Studio Waterfall.vis.json": {
+      "size": 956,
+      "sha256": "c933270a774b1ec2caf449a41f44986b62520bb2fa4a1be7d686ff823d1fbbb4"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Tunnel Ticker.vis.json": {
+      "size": 2060,
+      "sha256": "a71ae7ccf3a041cc4ea0ce61061b213e3c4a76aa1a80e1b6535e7c347933158e"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Voice Glow.vis.json": {
+      "size": 1593,
+      "sha256": "9e31006bc8e9ddc2523f96161d915ef90bd606165d72c50e7bfa3b958589a2f4"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Weaving Ribbon.vis.json": {
+      "size": 1201,
+      "sha256": "3b2c604580ac97183dc6918397cbd18172e645c7ee7b27498b9bdab140a50a96"
+    },
+    "/sdcard/Joy Creator/Supplies/Looks/Written in Stars.vis.json": {
+      "size": 1080,
+      "sha256": "c6b19beebcd07895db6741c016c55f9dfb741fe855062f74e055df133287b41e"
+    },
+    "/sdcard/Joy Creator/Timeline marks acceptance.joyproject": {
+      "size": 16356,
+      "sha256": "bc864148f06ca2b2321ffcc0802d4079380ddda61d0888e93f809379d18ef3a0"
+    },
+    "/sdcard/Joy Creator/Untitled 2.joyproject": {
+      "size": 1871,
+      "sha256": "8055fe416692cd6ae24f81530a524fed827fc06fd6b6896682699e227c7cb26a"
+    },
+    "/sdcard/Joy Creator/Untitled 2.png": {
+      "size": 783809,
+      "sha256": "6843fb7171de49979e960b8681fbafbfc12a7ed60952d5b09c4f28dee4154df1"
+    },
+    "/sdcard/Joy Creator/Untitled 3.joyproject": {
+      "size": 1931,
+      "sha256": "da124a09f41b59372820114ac387b76a29453a8924d8c9a7742540b91a70c273"
+    },
+    "/sdcard/Joy Creator/Untitled audio 2.joyproject": {
+      "size": 1932,
+      "sha256": "d36b4811121d3c1aad77ec6941a25951579b639f23ea8e25b5b494679726668c"
+    },
+    "/sdcard/Joy Creator/Untitled audio.joyproject": {
+      "size": 826,
+      "sha256": "f11e267d6e2897b95c5666b59d75e56b05ba3b158f4ab75850d3052c06409ea7"
+    },
+    "/sdcard/Joy Creator/Untitled.joyproject": {
+      "size": 8703,
+      "sha256": "ff55d45281d0fac0abc0e4e1b8c43e873c3ed662889fb70ea5edfe4a62f07a10"
+    },
+    "/sdcard/Joy Creator/Untitled.png": {
+      "size": 938546,
+      "sha256": "b1072feb84acfd14ccb1c1dd96ad032157c7a6ff20e514e87b4e537aa7b1eb5d"
+    },
+    "/sdcard/Joy Creator/ZA_CONTROL.joyproject": {
+      "size": 30894,
+      "sha256": "befc256f2ff11d6562ff8894a151030b6d5fe8f3de16ddf21525898e8505c2ff"
+    },
+    "/sdcard/Joy Creator/ZA_VERIFY.joyproject": {
+      "size": 24850,
+      "sha256": "9960241cbd7500ec728a4bb9b131c5890d3e9c1a67d6e4499c0e247570d902c2"
+    },
+    "/sdcard/Joy Creator/audio_1793046088393.m4a": {
+      "size": 71709,
+      "sha256": "4a0e474a96993b5bd53e2f65e03eaa9962358eb54c6e57c9346f314b9cbe1062"
+    },
+    "/sdcard/Joy Creator/dummy_image_for_bundling.png": {
+      "size": 619,
+      "sha256": "f42437aedb4905a86aae4456c3dc48ff7eead89ea8b2aa7997aeca4fc691bfeb"
+    },
+    "/sdcard/Joy Creator/faditor_gap_black.png": {
+      "size": 115,
+      "sha256": "bc69627dc6cdb617b7603fd374f3089bc0cad77eb95d99bb50488bbd1ca7d743"
+    },
+    "/sdcard/Joy Creator/imported_test.ttf": {
+      "size": 319960,
+      "sha256": "aa34d969baa04cdbc6edfda87ac12c94e6ff5eb7ecea2e19a5557f84acb7dba5"
+    },
+    "/sdcard/Joy Creator/source.mp4": {
+      "size": 839388,
+      "sha256": "b4168c637b95163d5ea9483a2102d82d2899313a9e7d3bb457c2cf0e540906a6"
+    }
+  },
+  "requiredSavedPaths": [
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/current.joybrush",
+    "/sdcard/Android/data/com.fadcam.beta/files/joybrush/current.joybrush.bak"
+  ],
+  "savedFiles": 173,
+  "savedUnchanged": true
+}

@@ -70,7 +70,9 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
                /** The water park's size in tiles for this run (`jb_water_park_units`, ATLAS_ROOM_20261023); none = off, as shipped. */
                val parkUnits: Int? = null,
                /** How long after the surface the first case starts (`jb_start_ms`): measures a cold first stroke. */
-               val startMs: Long = 1500L)
+               val startMs: Long = 1500L,
+               /** Atlas A2 ledger probe: the squeezed atlas's slot grid (`jb_atlas_slots` "6x4"); none = 6 x 4, the app's smallest. */
+               val atlasSlots: Pair<Int, Int>? = null)
 
     private val ui = Handler(Looper.getMainLooper())
     private val jobs = ArrayDeque<Triple<BrushPreset, String, Int>>()
@@ -126,9 +128,9 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
             return
         }
         if (case == "mediaAtlasLedgerProbe") {
-            // Atlas A2: the real park ledger, the same strokes in a roomy atlas and squeezed into 4 x 4 slots with the park on
+            // Atlas A2: the real park ledger, the same strokes in a roomy atlas and squeezed into `jb_atlas_slots` (6 x 4) with the park on
             // (MediaAtlasLedgerProbe); `jb_water_park_units` sets the park's size (24 if not given).
-            canvas.runMediaAtlasLedgerProbe(preset, 4 to 4, spec.parkUnits?.takeIf { it > 0 } ?: 24) { result ->
+            canvas.runMediaAtlasLedgerProbe(preset, spec.atlasSlots ?: (6 to 4), spec.parkUnits?.takeIf { it > 0 } ?: 24) { result ->
                 val report = try { org.json.JSONObject(result) } catch (e: Exception) { org.json.JSONObject().put("pass", false).put("raw", result) }
                 logRecordedReport(report.put("brush", preset.id).put("case", case).put("run", run), preset.id, case, run)
                 ui.postDelayed({ next() }, spec.settleMs)
@@ -389,7 +391,9 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
                 mediaBudgetMb = intent.getIntExtra("jb_media_budget_mb", -1).takeIf { it > 0 },
                 dropDry = if (intent.hasExtra("jb_drop_dry")) intent.getBooleanExtra("jb_drop_dry", true) else null,
                 parkUnits = intent.getIntExtra("jb_water_park_units", -1).takeIf { it >= 0 },
-                startMs = intent.getLongExtra("jb_start_ms", 1500L).coerceIn(0L, 60_000L))
+                startMs = intent.getLongExtra("jb_start_ms", 1500L).coerceIn(0L, 60_000L),
+                atlasSlots = intent.getStringExtra("jb_atlas_slots")?.split('x')?.mapNotNull { it.trim().toIntOrNull() }
+                    ?.takeIf { it.size == 2 && it[0] in 2..16 && it[1] in 2..16 }?.let { it[0] to it[1] })
         }
     }
 }

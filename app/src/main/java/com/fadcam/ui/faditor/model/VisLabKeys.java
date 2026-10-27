@@ -32,6 +32,21 @@ import java.util.TreeMap;
  */
 public final class VisLabKeys {
 
+    /**
+     * Layers of the look that follow a Studio object (R8, "proxies drive looks"), by layer
+     * index: the layer's Place moves, grows and turns with that object's pose since the moment of
+     * linking, on top of the look's own values. The look itself is never edited.
+     */
+    @NonNull private final TreeMap<Integer, SpaceLink> follows = new TreeMap<>();
+
+    @NonNull public TreeMap<Integer, SpaceLink> follows() { return follows; }
+
+    @Nullable public SpaceLink followOf(int layer) { return follows.get(layer); }
+
+    public void putFollow(int layer, @NonNull SpaceLink link) { follows.put(layer, link); }
+
+    public void removeFollow(int layer) { follows.remove(layer); }
+
     public static final String REACT = "vis_react";
     public static final String FADE = "vis_fade";
     public static final String BRIGHT = "vis_bright";
@@ -136,7 +151,7 @@ public final class VisLabKeys {
     }
 
     public boolean isDefault() {
-        return looks.isEmpty() && keys.isEmpty() && statics.isEmpty();
+        return looks.isEmpty() && keys.isEmpty() && statics.isEmpty() && follows.isEmpty();
     }
 
     @NonNull
@@ -152,6 +167,8 @@ public final class VisLabKeys {
         looks.putAll(o.looks);
         statics.clear();
         statics.putAll(o.statics);
+        follows.clear();
+        for (Map.Entry<Integer, SpaceLink> e : o.follows.entrySet()) follows.put(e.getKey(), e.getValue().copy());
     }
 
     @Override
@@ -172,8 +189,8 @@ public final class VisLabKeys {
     }
 
     /**
-     * {"react":1.2,"bright":0.8,"looks":{"0":"halo-drop","4000":""},"keys":{prop:[{t,v,e}]}};
-     * defaults left out.
+     * {"react":1.2,"bright":0.8,"looks":{"0":"halo-drop","4000":""},"keys":{prop:[{t,v,e}]},
+     * "follow":{"2":{SpaceLink}}}; defaults left out.
      */
     @NonNull
     public JsonObject toJson() {
@@ -203,6 +220,11 @@ public final class VisLabKeys {
             }
             j.add("keys", k);
         }
+        if (!follows.isEmpty()) {
+            JsonObject f = new JsonObject();
+            for (Map.Entry<Integer, SpaceLink> e : follows.entrySet()) f.add(String.valueOf(e.getKey()), e.getValue().toJson());
+            j.add("follow", f);
+        }
         return j;
     }
 
@@ -230,6 +252,16 @@ public final class VisLabKeys {
                         JsonObject kj = el.getAsJsonObject();
                         tr.put(kj.get("t").getAsLong(), kj.get("v").getAsFloat(),
                                 Easing.fromName(kj.get("e").getAsString()));
+                    }
+                }
+            }
+            if (j.has("follow") && j.get("follow").isJsonObject()) {
+                for (Map.Entry<String, JsonElement> e : j.getAsJsonObject("follow").entrySet()) {
+                    try {
+                        SpaceLink l = SpaceLink.fromJson(e.getValue().getAsJsonObject());
+                        if (l != null) follows.put(Integer.parseInt(e.getKey()), l);
+                    } catch (RuntimeException ignored) {
+                        // one bad link does not lose the others
                     }
                 }
             }

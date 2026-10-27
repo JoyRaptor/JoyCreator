@@ -305,6 +305,7 @@ public final class StudioVis {
             int fbo = gl.framebuffer(r.w, r.h);
             it.renderer.setReactivity(r.ctl.react);
             it.renderer.setLookControls(r.ctl.bright, r.ctl.hue, r.ctl.size, r.ctl.speed);
+            it.renderer.setLayerFollow(r.ctl.follow);   // layers that follow a Studio object (R8)
             // The clip's transcript, timed on the clip's own clock (S5); rebuilt only on a change.
             long wk = wordsKey(r.words);
             if (wk != it.wordsKey) {

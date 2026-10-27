@@ -29,6 +29,14 @@ javac -nowarn -encoding UTF-8 -cp "$GSON" -d "$OUT" \
   app/src/main/java/com/fadcam/vislab/audio/SpectrumAnalyzer.java \
   tools/jvm-harness/VisLooksTest.java \
   tools/jvm-harness/VisFeatureParityTest.java \
+  studiokit/src/main/java/com/fadcam/ui/faditor/keyframe/Easing.java \
+  studiokit/src/main/java/com/fadcam/ui/faditor/keyframe/Keyframe.java \
+  studiokit/src/main/java/com/fadcam/ui/faditor/keyframe/KeyframeSet.java \
+  studiokit/src/main/java/com/fadcam/ui/faditor/keyframe/KeyframeTrack.java \
+  app/src/main/java/com/fadcam/ui/faditor/model/SpaceLink.java \
+  app/src/main/java/com/fadcam/ui/faditor/model/LinkPose.java \
+  app/src/main/java/com/fadcam/ui/faditor/model/VisLabKeys.java \
+  tools/jvm-harness/VisFollowLinkTest.java \
   tools/jvm-harness/VisPlaceFollowTest.java || exit 1
 
 rc=0
@@ -36,4 +44,5 @@ rc=0
 java @"$RUNARGS" VisLooksTest || rc=1
 java @"$RUNARGS" VisFeatureParityTest || rc=1
 java @"$RUNARGS" VisPlaceFollowTest || rc=1
+java @"$RUNARGS" VisFollowLinkTest || rc=1
 exit $rc

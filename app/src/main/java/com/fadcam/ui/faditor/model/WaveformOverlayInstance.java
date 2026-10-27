@@ -361,6 +361,34 @@ public class WaveformOverlayInstance implements LinkFollower {
         return isLinked() ? spaceLink.opacityToWorld(1f, t) : 1f;
     }
 
+    /**
+     * Per-layer follow moves for the look (R8), 4 floats a layer: Move across, Move up (look
+     * units), a Size ratio and a Turn (degrees), for layers 0..{@code layers}-1. A layer with no
+     * live link gets (0, 0, 1, 0). The proxy's change since the link is applied around this
+     * visualizer's centre, measured in this visualizer's own box ({@code boxAspect} = its width / height in pixels).
+     */
+    @NonNull
+    public float[] layerFollowAt(long t, int layers, float boxAspect) {
+        float[] out = new float[4 * Math.max(0, layers)];
+        for (int i = 0; i < layers; i++) { out[4 * i + 2] = 1f; }
+        if (visKeys.follows().isEmpty()) return out;
+        float cx = animatedCenterX(t), cy = animatedCenterY(t);
+        float wF = Math.max(0.05f, animatedWidthFraction(t)), hF = Math.max(0.05f, animatedHeightFraction(t));
+        float[] w = new float[2], u = new float[2];
+        for (java.util.Map.Entry<Integer, SpaceLink> e : visKeys.follows().entrySet()) {
+            int i = e.getKey();
+            SpaceLink l = e.getValue();
+            if (i < 0 || i >= layers || l == null || !l.active()) continue;
+            l.toWorld(cx, cy, t, w);
+            com.fadcam.vislab.model.PlaceFollow.toLook((w[0] - cx) / wF, (w[1] - cy) / hF, boxAspect, u);
+            out[4 * i] = u[0];
+            out[4 * i + 1] = u[1];
+            out[4 * i + 2] = l.sizeToWorld(1f, t);
+            out[4 * i + 3] = -l.rotToWorld(0f, t);   // Studio turns clockwise, the look counter-clockwise
+        }
+        return out;
+    }
+
     @Override public float getSizeFraction() { return widthFraction; }
 
     @Override public void setSizeFraction(float f) {

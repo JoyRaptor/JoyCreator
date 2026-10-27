@@ -2989,6 +2989,21 @@ public class Timeline {
             }
             l.invalidate();
         }
+        // A look's layers that follow an object (VisLabKeys.follows): the layer's offset never moves
+        // the visualizer, so there is no loop to find, only "not yourself".
+        for (WaveformOverlayInstance w : waveformOverlays) {
+            for (SpaceLink l : w.getVisKeys().follows().values()) {
+                LinkPose p = byId.get(l.parentId);
+                if (p == null && !l.parentId.isEmpty()) p = pinPoseById(l.parentId, l.aspect);
+                l.parentRef = p == w ? null : p;
+                for (SpaceLink.Switch sw : l.switches) {
+                    LinkPose q = sw.letsGo() ? null : byId.get(sw.parentId);
+                    if (q == null && !sw.letsGo() && !sw.parentId.isEmpty()) q = pinPoseById(sw.parentId, l.aspect);
+                    sw.ref = q == w ? null : q;
+                }
+                l.invalidate();
+            }
+        }
     }
 
     /** Everything that can follow a parent: text, pictures and sprites. */

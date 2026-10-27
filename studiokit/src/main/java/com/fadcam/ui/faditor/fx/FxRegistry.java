@@ -529,6 +529,7 @@ public final class FxRegistry {
         // Zoom Blur, Shake, Wet Floor, Lens Color Split), kept in their own class so this one
         // stays readable. They go through the same validate() below as everything above.
         FxVisLabDefs.addTo(defs);
+        FxVisLabDefs2.addTo(defs);
 
         ALL = Collections.unmodifiableList(defs);
 

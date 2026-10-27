@@ -42,6 +42,9 @@ import java.util.List;
  * read several neighbouring points, so they are {@code SAMPLER}. Scanlines reads only the colour
  * and its own position, so it is {@code POINTWISE} and fuses.</p>
  *
+ * <p>{@link #hash12} and {@link #vnoise} are shared with {@link FxVisLabDefs2}, the second half of
+ * the port (Glow, Flash, Vignette, Ripple, Swirl, Warp).</p>
+ *
  * <p>Ids are wire values — see {@link FxRegistry}. Add, never rename.</p>
  *
  * <p>Android-free so the JVM harness can reach it.</p>
@@ -65,7 +68,7 @@ final class FxVisLabDefs {
     }
 
     /** {@code float v = hash12(vec2(a, b))}. Each axis is folded to a fraction BEFORE they mix. */
-    private static String hash12(String v, String a, String b) {
+    static String hash12(String v, String a, String b) {
         return "vec3 " + v + "_q = fract(vec3(" + a + ", " + b + ", " + a + ") * 0.1031);\n"
                 + v + "_q += dot(" + v + "_q, " + v + "_q.yzx + 33.33);\n"
                 + "float " + v + " = fract((" + v + "_q.x + " + v + "_q.y) * " + v + "_q.z);\n";
@@ -76,7 +79,7 @@ final class FxVisLabDefs {
      * {@link #hash12} run across the lanes of one {@code vec4}, so it is one block of
      * arithmetic, not four.
      */
-    private static String vnoise(String v, String x, String y) {
+    static String vnoise(String v, String x, String y) {
         return "vec2 " + v + "_p = vec2(" + x + ", " + y + ");\n"
                 + "vec2 " + v + "_i = floor(" + v + "_p);\n"
                 + "vec2 " + v + "_f = fract(" + v + "_p);\n"

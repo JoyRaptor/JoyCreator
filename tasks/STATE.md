@@ -281,7 +281,7 @@ as four separate chips two could be armed at once with reorder silently winning.
 
 ---
 
-## 5.5 VISLAB — the music visualiser lab (2026-10-17 to 10-24)
+## 5.5 VISLAB — the music visualiser lab (2026-10-17 to 10-27)
 
 GPU visuals that react to music: a room to build looks in, the same looks inside Studio as video
 layers, and a floating visualiser over other apps. Lead docs: `tasks/VISLAB_SPEC.md`,
@@ -313,7 +313,7 @@ layers, and a floating visualiser over other apps. Lead docs: `tasks/VISLAB_SPEC
 | Knobs hide when the current mode makes them do nothing | 🟡 | Built, phone test owed (R6): `showFor` on 66 more knobs |
 | Sprite element: a Sprite Lab sheet playing inside a look, its own speed / a frame per beat / per kick / the loudness picking the frame / one held, back and forth, one of the sheet's animations | 🟡 | Built, phone test owed (R7). `gl/SpriteLayers`, `room/Sprites`, `room/SheetShelf`; frames drawn by Sprite Lab's own renderer, so alignment matches; look "Record Hop" |
 | MIDI as a sound source: a .mid file drives a look with exact kicks, snares, hats, notes and tempo; .kar lyrics become the song's words; a built-in synth plays it | 🟡 | Built, phone test owed (R5). `vislab/audio/Midi*`; `tools/jvm-harness/run-midi.sh` |
-| VisLab finishes as Studio effects on any clip or adjustment layer: Lens split, Scanlines, Zoom blur, Glitch tear, VHS, CRT bend, Kaleidoscope, Mirror, Shake, Wet floor (keyframable) | 🟡 | Built, phone test owed (R4). `studiokit/.../fx/FxVisLabDefs` |
+| VisLab finishes as Studio effects on any clip or adjustment layer (keyframable): Lens split, Scanlines, Zoom blur, Glitch tear, VHS, CRT bend, Kaleidoscope, Mirror, Shake, Wet floor; and Glow, Flash (with strobe), Vignette, Ripple, Swirl, Warp. Where: Studio, a clip's or adjustment layer's Effects drawer, Add effect; every chip's hover label says what it does | 🟡 | Built, phone test owed (R4). First ten on joy-creator; the other six and the hover sentences on branch `vislab/studio-fx-20261027`, not yet in an APK. Proof so far: FxCompilerTest green, all 33 effect shaders compile under glslc (GLSL ES 3.1). Limits: effects do not hear the soundtrack yet (R14); Glow is a one-pass approximation of VisLab's bloom. Source: `studiokit/.../fx/FxVisLabDefs`, `FxVisLabDefs2`, `FxBlurbs` |
 | Studio visualiser on the shared transform box: move, free resize, spin arc, snapping, keyed writes, hold or double-tap opens its drawer | 🟡 | Built, phone test owed (R3). `transform/VisualizerTransformHost` |
 | Element packs from other people (plugins) | 🔵 | Designed in VISLAB_TODO section F |
 | Proxies driving looks, layer reference, echo trails as a Studio effect, true blend preview, video element | 🔵 | `tasks/VISLAB_ROADMAP.md` R8-R12 |

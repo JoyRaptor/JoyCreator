@@ -1,3 +1,4 @@
+import com.fadcam.ui.faditor.fx.FxBlurbs;
 import com.fadcam.ui.faditor.fx.FxCompiler;
 import com.fadcam.ui.faditor.fx.FxCost;
 import com.fadcam.ui.faditor.fx.FxEffectDef;
@@ -61,9 +62,10 @@ public class FxCompilerTest {
     static void registryIsValid() {
         List<String> problems = FxRegistry.validate();
         check("the registry self-check passes: " + problems, problems.isEmpty());
-        check("all 27 effects are present (12 v1 + Solid Color + Gradient + Brightness + the legacy "
-                        + "grade's two halves, color_grade and film, + VisLab's ten finishes)",
-                FxRegistry.all().size() == 27);
+        check("all 33 effects are present (12 v1 + Solid Color + Gradient + Brightness + the legacy "
+                        + "grade's two halves, color_grade and film, + VisLab's ten finishes + its "
+                        + "six looks: glow, flash, vignette, ripple, swirl, warp)",
+                FxRegistry.all().size() == 33);
     }
 
     static void everyEffectCompilesToBothBackends() {
@@ -673,12 +675,21 @@ public class FxCompilerTest {
                 {"glitch_tear", "UV_REMAP"}, {"kaleidoscope", "UV_REMAP"}, {"mirror", "UV_REMAP"},
                 {"shake", "UV_REMAP"}, {"zoom_blur", "SAMPLER"}, {"lens_split", "SAMPLER"},
                 {"vhs", "SAMPLER"}, {"crt_bend", "SAMPLER"}, {"wet_floor", "SAMPLER"},
-                {"scanlines", "POINTWISE"}};
+                {"scanlines", "POINTWISE"},
+                // The second half (FxVisLabDefs2).
+                {"glow", "SAMPLER"}, {"flash", "POINTWISE"}, {"vignette", "POINTWISE"},
+                {"ripple", "UV_REMAP"}, {"swirl", "UV_REMAP"}, {"warp", "UV_REMAP"}};
         for (String[] w : want) {
             FxEffectDef d = FxRegistry.get(w[0]);
             check("VisLab finish " + w[0] + " is registered", d != null);
             if (d != null) check(w[0] + " is " + w[1], d.capability.name().equals(w[1]));
         }
+        // The picker's hover label says what each effect does; a new effect without a sentence
+        // would show only its name.
+        String missing = "";
+        for (FxEffectDef d : FxRegistry.all()) if (!FxBlurbs.has(d.id)) missing += " " + d.id;
+        check("every effect has a picker sentence" + (missing.isEmpty() ? "" : ": missing" + missing),
+                missing.isEmpty());
     }
 
     static void check(String what, boolean ok) {

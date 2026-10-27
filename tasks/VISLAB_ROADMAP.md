@@ -39,7 +39,7 @@ Note 9 test. Every `[~]` row was compiled together on 10-24 (Studio + effects + 
 | R1 | Font per Words layer (G9) | S | lead | [~] font pills on Words layers; Studio typed words fixed too |
 | R2 | Split lumped scenes into elements (G6) | M | lead (taste) | [~] Stars, Aurora curtains, Mountains + look "Aurora Parts"; look book checked; Outrun / Nebula audit still owed |
 | R3 | Studio visualiser on the shared transform box (G5b) | L | Sonnet + lead | [~] VisualizerTransformHost, body hold opens the drawer, spin arc below (reset for other objects) |
-| R4 | VisLab finishes as Studio effects (G8d, "special effects") | L | Sonnet + lead | [~] 10 effects in FxVisLabDefs; run-fx 157 pass (3 gradient-ramp failures predate this) |
+| R4 | VisLab finishes as Studio effects (G8d, "special effects") | L | Sonnet + lead | [~] 16 effects: 10 in FxVisLabDefs + Glow, Flash, Vignette, Ripple, Swirl, Warp in FxVisLabDefs2 (10-27, branch vislab/studio-fx-20261027); every picker chip says what it does (FxBlurbs); all 33 effect shaders compile under glslc (GLSL ES 3.1); run-fx 170 pass (3 gradient-ramp failures predate this) |
 | R5 | MIDI as a sound source (G10) | M | Sonnet + lead | [~] MidiFile / MidiFeatures / MidiSource / MidiSynth; .kar words; run-midi 15/15 |
 | R6 | Hide knobs that do nothing in the current mode (G2b) | S | Haiku audit + lead | [~] showFor on 66 knobs; run-vislab passes |
 | R7 | Sprite element: a SpriteLab sheet inside a look (G8a) | M | lead | [~] Sprite element + look "Record Hop"; run-sprite 11/11; pilot draws the built-in sheet |
@@ -48,6 +48,8 @@ Note 9 test. Every `[~]` row was compiled together on 10-24 (Studio + effects + 
 | R10 | Echo trails as a Studio effect (stateful feedback) | M | lead | [ ] |
 | R11 | True blend preview for visualisers in Studio | M | Sonnet | [ ] |
 | R12 | Video element (G8b) | M | later | [ ] |
+| R13 | Tracker modules (.mod) as a sound source, like MIDI: play the samples, exact hits per channel (owner sent two demoscene beat .mods 10-24) | M | lead | [ ] |
+| R14 | Studio effects that hear the soundtrack: link an effect knob to the kick / bass / beat of a clip (VisLab's music links; SoundClock already analyses Studio clips) | M | lead | [ ] |
 | — | Owed checks: R1 audit (needs a recording + his "Start now"), R2 audit (Android 12+), D2 hour-long heat test (owner deferred) | | owner | [ ] |
 
 ## Specs
@@ -119,6 +121,15 @@ real in export), through the GL preview compositor.
 
 ## Log (newest first)
 
+- 2026-10-27: R4 second half on branch `vislab/studio-fx-20261027` (isolated worktree
+  `C:/Temp/vl-studio-fx`, per the 10-26 git hygiene rule): Glow (one-pass bloom: a 24-point
+  sunflower disc of the bright parts, screened on), Flash (a colour wash, optional strobe), Vignette
+  (size / softness / roundness / colour), Ripple, Swirl, Warp. Effect picker chips get a hover
+  sentence each. Checks: FxCompilerTest green incl. registry self-check and a sentence for every
+  effect; every effect's GLSL compiled with the NDK's glslc as strict ES 3.1 (33/33). Not built
+  into an APK or phone-tested yet. Our own test music: `tools/test-music/joy-beats.mjs` writes
+  `joy-beats.kar` (126 bpm, 32 bars, broken beat + gallop hats + bass + stabs + karaoke words,
+  written fresh in the style of the owner's demoscene .mod beats) for the MIDI phone test.
 - 2026-10-24: R7 built (lead). Helpers for R3/R4/R5 were cut off by the usage limit; their partial
   work was reviewed and finished by the lead (tests added: run-midi.sh, FxCompilerTest
   visLabFinishes). R3: spin arc placement reset when a non-visualiser is selected. All R1-R7

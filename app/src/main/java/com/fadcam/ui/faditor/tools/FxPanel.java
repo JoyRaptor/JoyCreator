@@ -1774,6 +1774,9 @@ public final class FxPanel {
                 // leaving the user to infer what an adjustment layer is.
                 boolean canRender = FxPreviewTier.canExportOn(def, subject);
                 TextView c = chip(ctx, def.displayName, d);
+                // What it does, not just its name (every button gets a hover label).
+                TextOverlayDrawer.Kit.describe(c, def.displayName + ": "
+                        + com.fadcam.ui.faditor.fx.FxBlurbs.of(def));
                 if (!canRender) {
                     // Unavailable HERE, but still legible and still answerable. It was the chip at
                     // 40% alpha — grey on grey, the same "can't read the off state" defect as the

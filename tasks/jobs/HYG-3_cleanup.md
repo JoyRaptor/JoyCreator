@@ -20,7 +20,8 @@ every build. Clutter is how work slips through the cracks.
   `clean.log`, `wf_ed.png`, `star-guy-spritesheet.png` (check before removing the last two).
 - Untracked junk in the main folder: `word30.mp4`, `ws20.mp4`, `ws30.mp4`, `project_a32d_before_transcript_fix_20260923.json`, `.kotlin/`.
 - **156 worktrees** (37 from OpenCode, "bunny" and "muse" runs), **256 local branches**, **147 remote branches**.
-- Disk on 10-27: C: 34 GB free; D: 93 GB free.
+- Disk on 10-27: C: 34 GB free; D: 93 GB free. **`C:\Temp` (the worktrees) holds 83 GB**: pruning merged
+  worktrees is the biggest disk win.
 
 ## What is left
 - [ ] **Docs:** move superseded root docs to `tasks/archive/` (git mv, so history follows): every

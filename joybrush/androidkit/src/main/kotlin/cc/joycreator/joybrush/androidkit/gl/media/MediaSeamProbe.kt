@@ -42,11 +42,25 @@ internal object MediaSeamProbe {
                 }
                 engines.put(o.put("engine", (if (atlas) "atlas" else "window") + (if (isLong) " long" else "") + if (withPreviews) " +previews" else ""))
             }
+            // Reopened (as a saved drawing comes back: its look only, no payload), then oil across it.
+            val saved = lastTiles
+            if (saved != null) {
+                MediaAtlasGl.enabled = true
+                long = true
+                val o = try { run(paper, preset, memory, null, reopen = saved) } catch (e: Throwable) {
+                    JSONObject().put("error", e.toString()).put("at", e.stackTrace.take(6).joinToString(" < ") { "${it.fileName}:${it.lineNumber}" })
+                }
+                engines.put(o.put("engine", "atlas long reopened"))
+            }
         } finally { MediaAtlasGl.enabled = before }
         return report.put("engines", engines).put("glError", GLES30.glGetError()).toString()
     }
 
-    private fun run(paper: Paper, preset: BrushPreset, memory: () -> Pair<Long, Long>, previews: (() -> Unit)?): JSONObject {
+    /** The looks of the last long atlas run: what a save of it would keep. */
+    private var lastTiles: Map<Long, ByteArray>? = null
+
+    private fun run(paper: Paper, preset: BrushPreset, memory: () -> Pair<Long, Long>, previews: (() -> Unit)?,
+                    reopen: Map<Long, ByteArray>? = null): JSONObject {
         val engine = GlPaintEngine()
         val canvas = MediaCanvas(engine, memory)
         try {
@@ -68,6 +82,13 @@ internal object MediaSeamProbe {
                 idle()
             }
             // As the owner paints: strokes, an undo and a redo, an undo, then strokes across what is left.
+            if (reopen != null) {
+                for ((key, rgba) in reopen) engine.writeTile(LAYER, key, rgba)
+                for (i in 3 until 6) stroke(i)
+                canvas.releaseWindow()
+                val tiles = engine.tileKeys(LAYER).associateWith { checkNotNull(engine.readTile(LAYER, it)) }
+                return measure(tiles).put("droppedPayloads", warnings.count { "outside the media funnel" in it })
+            }
             for (i in 0 until 3) stroke(i)
             canvas.settleOwed(); engine.undoStep(); idle()
             canvas.settleOwed(); engine.redoStep(); idle()
@@ -75,6 +96,7 @@ internal object MediaSeamProbe {
             for (i in 3 until 6) stroke(i)
             canvas.releaseWindow()
             val tiles = engine.tileKeys(LAYER).associateWith { checkNotNull(engine.readTile(LAYER, it)) }
+            if (long && MediaAtlasGl.enabled) lastTiles = tiles
             return measure(tiles).put("droppedPayloads", warnings.count { "outside the media funnel" in it })
         } finally {
             runCatching { canvas.release() }

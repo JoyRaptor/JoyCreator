@@ -1161,3 +1161,7 @@ as `TIME * knob` are "rate" and the host integrates them.
 - A background Bash line began with a stray `cat > file` (no heredoc), which waited on stdin forever, so the Gradle script after it never ran and no lock file appeared. Found only because the lock was missing when it should have been held.
 - Rule: write build scripts with the Write tool, then launch them with a bare `bash script.sh`. When a background build's lock file or log is missing a minute in, treat it as not started.
 - Also: a fresh `git worktree` has no `local.properties` (copy it from the canonical checkout), and the joybrush build has no wrapper of its own (`./gradlew -p joybrush ...` from the root).
+
+## 2026-10-27: a GLSL keyword broke every media brush on the Note 9
+- A local named `flat` in jb_paste.glsl is an interpolation keyword; the JVM tests cannot compile shaders, so the build was green and the phone refused all pencil, watercolour and oil.
+- Rule: after any shader edit, run a media device probe (mediaUndoProbe) before telling anyone it is on the phone, and grep the log for "compile failed". Avoid GLSL reserved words (flat, smooth, sample, patch, input, output, filter, common, active) as names.

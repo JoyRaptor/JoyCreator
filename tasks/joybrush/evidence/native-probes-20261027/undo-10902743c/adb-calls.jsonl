@@ -1,0 +1,192 @@
+{"operation":"shell getprop","elapsedSeconds":0.1029,"deadlineSeconds":12,"outcome":"ok"}
+{"operation":"shell getprop","elapsedSeconds":0.1013,"deadlineSeconds":12,"outcome":"ok"}
+{"operation":"shell dumpsys","elapsedSeconds":0.1333,"deadlineSeconds":12,"outcome":"ok"}
+{"operation":"shell dumpsys","elapsedSeconds":0.1221,"deadlineSeconds":12,"outcome":"ok"}
+{"operation":"shell cmd","elapsedSeconds":0.1704,"deadlineSeconds":12,"outcome":"ok"}
+{"operation":"shell dumpsys","elapsedSeconds":0.1496,"deadlineSeconds":12,"outcome":"ok"}
+{"operation":"shell dumpsys","elapsedSeconds":0.1361,"deadlineSeconds":12,"outcome":"ok"}
+{"operation":"shell if","elapsedSeconds":0.1559,"deadlineSeconds":60,"outcome":"ok"}
+{"operation":"shell find","elapsedSeconds":0.6875,"deadlineSeconds":240,"outcome":"ok"}
+{"operation":"shell if","elapsedSeconds":0.1897,"deadlineSeconds":60,"outcome":"ok"}
+{"operation":"shell find","elapsedSeconds":0.7695,"deadlineSeconds":240,"outcome":"ok"}
+{"operation":"shell if","elapsedSeconds":0.1659,"deadlineSeconds":60,"outcome":"ok"}
+{"operation":"shell find","elapsedSeconds":0.3325,"deadlineSeconds":240,"outcome":"ok"}
+{"operation":"shell pm","elapsedSeconds":0.1973,"deadlineSeconds":12,"outcome":"ok"}
+{"operation":"shell sha256sum","elapsedSeconds":0.3742,"deadlineSeconds":12,"outcome":"ok"}
+{"operation":"install","elapsedSeconds":12.3585,"deadlineSeconds":300,"outcome":"ok"}
+{"operation":"shell pm","elapsedSeconds":0.1851,"deadlineSeconds":12,"outcome":"ok"}
+{"operation":"shell sha256sum","elapsedSeconds":0.4839,"deadlineSeconds":12,"outcome":"ok"}
+{"operation":"shell if","elapsedSeconds":0.154,"deadlineSeconds":60,"outcome":"ok"}
+{"operation":"shell find","elapsedSeconds":0.6121,"deadlineSeconds":240,"outcome":"ok"}
+{"operation":"shell if","elapsedSeconds":0.1576,"deadlineSeconds":60,"outcome":"ok"}
+{"operation":"shell find","elapsedSeconds":0.6835,"deadlineSeconds":240,"outcome":"ok"}
+{"operation":"shell if","elapsedSeconds":0.1074,"deadlineSeconds":60,"outcome":"ok"}
+{"operation":"shell find","elapsedSeconds":0.2895,"deadlineSeconds":240,"outcome":"ok"}
+{"operation":"shell log","elapsedSeconds":0.1221,"deadlineSeconds":12,"outcome":"ok"}
+{"operation":"shell am","elapsedSeconds":4.0689,"deadlineSeconds":60,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.1498,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.1978,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.1528,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2608,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.1914,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.1538,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2111,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.1543,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.1728,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.3143,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2265,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.1464,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.1962,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.1674,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.1981,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2061,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.1894,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.1941,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.1825,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.1996,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2287,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2314,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.1708,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.1808,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.1783,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.1726,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.1995,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.1682,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2127,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.1845,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.1912,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.1677,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.1619,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.1985,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.1811,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2021,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2075,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2046,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2007,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.167,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.184,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.3237,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2056,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2383,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.1707,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2122,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.1663,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.161,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2079,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2012,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.1886,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.222,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.1688,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.1713,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.1812,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.1856,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.1901,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2487,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2975,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2223,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2399,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2468,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2278,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2371,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2397,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2261,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2172,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2502,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2502,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2789,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2673,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2964,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.372,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2734,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2736,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2765,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2796,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.3011,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2657,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2925,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2622,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2533,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2726,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2655,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2919,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2891,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2769,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.4009,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.3053,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2887,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2792,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.3393,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2909,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.326,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2922,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.3052,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.3007,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.3188,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2997,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.326,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.2995,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.3086,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.3005,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.297,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.3425,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.3243,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.3056,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.3065,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.3118,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.3043,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.3215,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.4531,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.3069,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.3271,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.35,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.3261,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.3381,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.3302,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.3458,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.3387,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.3683,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.3528,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.3717,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.3846,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.3735,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.4026,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.3676,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.3991,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.4231,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.3991,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.3853,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.3711,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.3655,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.3726,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.4869,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.3895,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.4352,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.3969,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.4658,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.3993,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.4077,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.4103,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.4501,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.4344,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.3879,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.4317,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.4951,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.4394,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.4369,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.6157,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.5349,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.5166,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.4699,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.6598,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.4763,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"logcat","elapsedSeconds":0.5734,"deadlineSeconds":20,"outcome":"ok"}
+{"operation":"shell input","elapsedSeconds":1.1491,"deadlineSeconds":12,"outcome":"ok"}
+{"operation":"shell pm","elapsedSeconds":0.2044,"deadlineSeconds":12,"outcome":"ok"}
+{"operation":"shell sha256sum","elapsedSeconds":1.3541,"deadlineSeconds":12,"outcome":"ok"}
+{"operation":"shell if","elapsedSeconds":0.1547,"deadlineSeconds":60,"outcome":"ok"}
+{"operation":"shell find","elapsedSeconds":0.9544,"deadlineSeconds":240,"outcome":"ok"}
+{"operation":"shell if","elapsedSeconds":0.1596,"deadlineSeconds":60,"outcome":"ok"}
+{"operation":"shell find","elapsedSeconds":1.1467,"deadlineSeconds":240,"outcome":"ok"}
+{"operation":"shell if","elapsedSeconds":0.1267,"deadlineSeconds":60,"outcome":"ok"}
+{"operation":"shell find","elapsedSeconds":0.8272,"deadlineSeconds":240,"outcome":"ok"}
+{"operation":"shell dumpsys","elapsedSeconds":0.1183,"deadlineSeconds":12,"outcome":"ok"}

@@ -122,3 +122,12 @@ No live frame-copy/tween activation or GPU/context-loss proof from this prerequi
 - [x] Selectively adopt only reviewed cdf Controller/Row/tests/report on current f628 canonical docs+A10 base; preserve current roadmap.
 - [x] Primary review exact delta and all showPixels callers; no stale Activity/engine/bench replacement.
 - [x] Run approved focused retry after recorded harness/import fixes: actual199/29suites/0 failures/errors/skips on e955; bind XML/source/log hashes, release slot and report exact result.
+
+## October27 final focused push — supersedes older pending subset entries above
+- [x] Integrate current menu/contrast/presenter and separate disposable frame/WC diagnostics.
+- [x] Independently count backend50 fresh +core6 reused and app217 fresh on0adfde398.
+- [x] Fix/test partial initialization ownership; canonicald2c6 code matches frozen source.
+- [x] Close/publish nine specialist branch handbacks; refresh board/paper STATE and roadmap.
+- [ ] Preserve current exact APK; fresh unlocked/Home phone readiness and native GPU evidence.
+- [ ] Complete primary live-source/save/recovery/Atlas activation gates; no completion claim.
+See tasks/joybrush/HANDOFF_20261027_COORDINATOR.md for authoritative current state.

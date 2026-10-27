@@ -138,3 +138,39 @@ when not adopted centrally; use the exact branch/report, not a stale primary cop
 
 Original/stale and other helper worktrees were preserved; these nine clean receipts
 do not imply all135+ historical checkouts are clean or disposable.
+
+## Integrated final desktop checkpoint — use this over earlier pending entries
+
+Canonical source d2c6c8973a9a9660211715984fa3cf60ae1e5e24 has **identical tracked
+Android/core/app/studiokit code** to frozen0adfde398f5facd4a0b22f355d82772c2f02089d;
+root verified empty git diff across those four trees. A direct merge conflicted
+only in stale roadmap/todo context, so it was aborted and the reviewed code-only
+patch was applied; current docs were preserved. Neither checkout is in a merge.
+
+Final focused backend gate CLOSED SUCCESS2m1s/exit0:50 fresh backend cases plus
+six unchanged core cases UP-TO-DATE, zero failures/errors/skips. Final focused app
+gate CLOSED SUCCESS1m37s/exit0:217 fresh cases/32 suites, zero failures/errors/skips.
+Root independently counted/copied all XML. [Final exact-source receipts](reviews/NATIVE_FINAL_GATES_20261027.json).
+This is focused coverage, not a full suite or device fault/GPU proof.
+
+The sole current heavy job is exact canonical APK assembly from frozen0ad source,
+exec11614/log C:/Temp/jb-lead-ops/native-apk-0adfde398-20261027.log, fresh3200MiB
+admitted,2048heap/CPU2/oneworker. No competing job or phone claim. Artifact is NOT
+claimed until closed success and source/hash preservation. Root candidate stays
+unchanged through preservation. All nine specialist handbacks above are closed.
+
+- [x] Current menu/contrast/presenter/debug-routing integration tested and committed.
+- [x] Current-context init and shader fault ownership fixed/tested; original failure preserved.
+- [x] Independent frame-copy budget/clip/pixel-oracle and WC fixture desktop gates.
+- [x] Specialist deliverables committed, pushed and independently remote-verified.
+- [x] Broad board/paper capabilities mapped in STATE with explicit pending help/acceptance.
+- [ ] Exact APK preservation (current job); then fresh Note9 Home and native probes.
+- [ ] Actual ordinary-WC/frame GPU/undo/fault and archive/save/recovery evidence.
+- [ ] Main JB5.20d live captured/source/Select/joint history/save activation and AtlasA2.
+- [ ] Remaining scoped U8/tween/clips/creative/portfolio gates as roadmap names.
+
+No new runtime source was pushed to shared joy-creator. It holds synchronized
+feature/roadmap documentation; tested runtime candidate is isolated for acceptance.
+Primary and historic dirty checkouts remain deliberately untouched. Claude should
+continue the exact next GPU gates, not rebuild completed helpers or assume whole
+feature completion from these focused desktop results.

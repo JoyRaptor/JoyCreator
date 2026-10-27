@@ -30072,6 +30072,27 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             return spriteOverlayView == null
                                     ? null : spriteOverlayView.rasterFor(sp, frameW, frameH);
                         }
+                        // R11: a blended visualizer previews through the GL composite.
+                        @Override public void onGlOwnedVisualizers(@NonNull java.util.Set<String> ids) {
+                            if (waveformOverlayView != null) waveformOverlayView.setGlOwned(ids);
+                        }
+                        @Nullable @Override public com.fadcam.ui.faditor.compositor.FxPreviewTextureView.Pip
+                                visualizerPipFor(@NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance wf,
+                                                 int frameW, int frameH, long playheadMs) {
+                            if (waveformOverlayView == null) return null;
+                            android.graphics.Bitmap still = waveformOverlayView.glRasterFor(wf.getId());
+                            if (still == null || still.isRecycled()) return null;
+                            // Top-down model -> bottom-up Pip, as for a text or image item.
+                            return com.fadcam.ui.faditor.compositor.FxPreviewTextureView.Pip.ofImage(
+                                    wf.animatedCenterX(playheadMs), 1f - wf.animatedCenterY(playheadMs),
+                                    wf.animatedWidthFraction(playheadMs) / 2f,
+                                    wf.animatedHeightFraction(playheadMs) / 2f,
+                                    -wf.animatedRotation(playheadMs),
+                                    Math.max(0f, Math.min(1f, waveformOverlayView.glAlphaFor(wf.getId()))),
+                                    null, playheadMs, null,
+                                    com.fadcam.ui.faditor.model.BlendModes.modeCode(wf.getOverlayBlendMode()),
+                                    frameW, frameH, "viz:" + wf.getId(), still, 1f);
+                        }
                         @Override public void onGlOwnedSprites(
                                 @NonNull java.util.Set<String> ids) {
                             // The composite has these; the Canvas view must not paint them too,

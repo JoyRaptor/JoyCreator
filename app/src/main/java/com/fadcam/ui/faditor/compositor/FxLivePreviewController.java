@@ -143,6 +143,20 @@ public final class FxLivePreviewController {
         }
 
         /**
+         * R11, true blend preview: a visualizer with a blend mode other than Normal, as a still
+         * Pip carrying that blend, or null before its first frame. The export blends the same
+         * pixels in VisualizerBlendGlEffect.
+         */
+        @Nullable default FxPreviewTextureView.Pip visualizerPipFor(
+                @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance wf,
+                int frameW, int frameH, long playheadMs) {
+            return null;
+        }
+
+        /** Visualizers the composite draws this frame, so their Canvas view stops painting them. */
+        default void onGlOwnedVisualizers(@NonNull java.util.Set<String> ids) { }
+
+        /**
          * The PiP decoder-facing surfaces, by live slot, as the GL thread publishes them. Slot 0 is
          * the one that has always existed; the rest appear only after {@link #buildPlan} asks for
          * them, which it does only for a project that genuinely stacks overlay videos.
@@ -461,7 +475,17 @@ public final class FxLivePreviewController {
         for (Clip c : timeline.getClips()) {
             if (c.hasSpineTransform()) { anySpineTransform = true; break; }
         }
-        if (!anyRenders && g == null && !objectFx && !stacked && glImages.isEmpty()
+        // R11: a visualizer that blends (Difference, Screen...) is composited here so its blend
+        // shows in the preview, as a blended picture's does. Per project, like the rest.
+        boolean anyBlendedViz = false;
+        for (com.fadcam.ui.faditor.model.WaveformOverlayInstance wf : timeline.getWaveformOverlays()) {
+            if (com.fadcam.ui.faditor.waveform.WaveformOverlayView.wantsGlBlend(wf)) {
+                anyBlendedViz = true;
+                break;
+            }
+        }
+        if (!anyBlendedViz) host.onGlOwnedVisualizers(java.util.Collections.emptySet());
+        if (!anyRenders && g == null && !objectFx && !stacked && glImages.isEmpty() && !anyBlendedViz
                 && maskedImages.isEmpty() && belowBlendImages.isEmpty() && !anyBelowTextSprite && !anyCrop
                 && !anySpineTransform
                 && !anyLayerImage && !anyMatte) {
@@ -801,6 +825,7 @@ public final class FxLivePreviewController {
         // playhead (see its doc); the per-frame "is it visible" answer stays where it was, in
         // imagePipFor/spritePip returning null.
         java.util.Set<String> glImageIds = new java.util.HashSet<>();
+        java.util.Set<String> glViz = new java.util.HashSet<>();
         for (com.fadcam.ui.faditor.model.TextOverlayItem o : glImages) glImageIds.add(o.getId());
         for (LayerPreviewController.VisualItem v
                 : LayerPreviewController.orderedVisualItems(timeline)) {
@@ -819,6 +844,18 @@ public final class FxLivePreviewController {
                 glOwned.add(o.getId());
                 continue;
             }
+            // R11: a BLENDED VISUALIZER, at its lane z among the images and sprites, carrying its
+            // blend mode, so the preview shows the Difference / Screen the export makes.
+            com.fadcam.ui.faditor.model.WaveformOverlayInstance wf = v.item.getWaveform();
+            if (wf != null) {
+                if (com.fadcam.ui.faditor.waveform.WaveformOverlayView.wantsGlBlend(wf)
+                        && playheadMs >= wf.getStartMs() && playheadMs <= wf.getEndMs()) {
+                    FxPreviewTextureView.Pip p = host.visualizerPipFor(wf, size[0], size[1], playheadMs);
+                    glViz.add(wf.getId());   // owned even before its first frame: never painted twice
+                    if (p != null) rungs.add(FxPreviewTextureView.Rung.pip(p));
+                }
+                continue;
+            }
             // SPRITES THAT BELONG TO THE COMPOSITE. A sprite painted by its Canvas view sits OVER
             // this surface, so a blend above it samples the video instead of the sprite, a mask
             // cannot cut it and an adjustment layer cannot grade it. Drawn here it is INSIDE the
@@ -831,6 +868,7 @@ public final class FxLivePreviewController {
             glSprites.add(sp.getId());
         }
         host.onGlOwnedSprites(glSprites);
+        host.onGlOwnedVisualizers(glViz);
 
         // NO "deferred" pass for the remaining plain images. They stay on Canvas, drawn by
         // their own ImageView over this surface — which is where the export paints them too

@@ -1,0 +1,796 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>The Marquee</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@100..900&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+
+<style>
+/* ===========================================================
+   JOY CREATOR — THE MARQUEE  ·  v2
+   Rebuilt 17 Sep 2026 after an anti-slop and motion pass.
+   What changed and why is in section 05.
+   Motion numbers come from emilkowalski/skills review-animations.
+   =========================================================== */
+:root{
+  --bg:#050507; --bg2:#09090c;
+  --panel:#111114; --panel2:#161619;
+  --ctl:#1c1c22; --ctl2:#26262e;
+  --line:#2c2c35; --line2:#3a3a46;
+  --ink:#e4e4e7; --dim:#a1a1aa; --dimmer:#71717a; --dimmest:#4b4b55; --off:#33333c;
+
+  --sel:#22d3ee; --live:#f43f8e; --warn:#fbbf24; --danger:#fa3d5d;
+
+  --studio-a:#35f6bf;  --studio-b:#97fe8b;
+  --capture-a:#fa3d5d; --capture-b:#ff008c;
+  --shop-a:#ff008c;    --shop-b:#cc27ff;
+  --avatar-a:#cc27ff;  --avatar-b:#8c3dfa;
+  --library-a:#4397fd; --library-b:#55e0f9;
+  --sound-a:#faa03d;   --sound-b:#fc6818;
+  --finder-a:#f9f462;  --finder-b:#ffc341;
+  --remote-a:#5c43fd;  --remote-b:#4397fd;
+  --bot-a:#cc27ff;     --bot-b:#5c43fd;
+
+  /* MOTION — the whole system, in one place */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --d-press:140ms; --d-tip:170ms; --d-menu:220ms; --d-swap:260ms; --d-sheet:320ms;
+
+  --f-disp:'Archivo','Helvetica Neue',Arial,sans-serif;
+  --f-body:'IBM Plex Sans','Segoe UI',system-ui,sans-serif;
+  --f-mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+  --gut:20px; --maxw:1120px;
+}
+*{box-sizing:border-box}
+html,body{background:var(--bg)}
+body{margin:0;font-family:var(--f-body);color:var(--ink);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:var(--f-disp);margin:0;letter-spacing:-.025em;text-wrap:balance}
+p{margin:0}
+.wrap{max-width:var(--maxw);margin:0 auto;padding-inline:var(--gut)}
+svg.ic{width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;display:block;flex:0 0 auto}
+svg.ic.fill{fill:currentColor;stroke:none}
+
+/* masthead — one light source, not three */
+.mast{padding-block:56px 36px;border-bottom:1px solid var(--line);position:relative;
+  background:linear-gradient(180deg,#0b0b10,var(--bg))}
+.mast .kicker{font-family:var(--f-mono);font-size:11px;color:var(--dimmer);margin-bottom:14px}
+.mast h1{font-size:clamp(38px,6.8vw,64px);font-weight:900;line-height:.94;letter-spacing:-.045em}
+.mast p{max-width:60ch;margin-top:16px;color:var(--dim);font-size:16px}
+.mast p b{color:var(--ink);font-weight:600}
+
+section{padding-block:60px 0}
+.h2{display:flex;align-items:baseline;gap:12px;margin-bottom:10px}
+.h2 span{font-family:var(--f-mono);font-size:12px;color:var(--dimmest)}
+.h2 h2{font-size:clamp(24px,4vw,34px);font-weight:800}
+.dek{color:var(--dim);max-width:64ch;margin-bottom:28px}
+.dek b{color:var(--ink);font-weight:600}
+hr.rule{border:0;border-top:1px solid var(--line);margin-top:60px}
+
+/* prose list — replaces yet another card grid */
+.plist{display:flex;flex-direction:column;gap:20px;max-width:70ch}
+.pitem{display:grid;grid-template-columns:26px 1fr;gap:14px;align-items:start}
+.pitem .mk{font-family:var(--f-mono);font-size:11px;color:var(--dimmest);padding-top:3px}
+.pitem b{display:block;font-family:var(--f-disp);font-size:16px;font-weight:700;letter-spacing:-.02em;margin-bottom:3px}
+.pitem p{font-size:14px;color:var(--dim);line-height:1.6}
+.pitem p em{font-style:normal;color:var(--ink);font-weight:600}
+
+/* phones */
+.rowphones{display:grid;grid-template-columns:repeat(auto-fit,minmax(286px,1fr));gap:28px;align-items:start}
+.phonewrap{display:flex;flex-direction:column;gap:12px}
+.phcap{font-size:12.6px;color:var(--dim);line-height:1.55}
+.phcap b{display:block;font-family:var(--f-disp);font-size:14px;font-weight:800;color:var(--ink);margin-bottom:3px;letter-spacing:-.02em}
+.phcap em{font-style:normal;color:var(--ink);font-weight:600}
+.phone{width:100%;max-width:390px;aspect-ratio:390/812;border-radius:30px;overflow:hidden;position:relative;
+  background:var(--bg);box-shadow:0 0 0 1px var(--line2), 0 22px 60px rgba(0,0,0,.62);
+  display:flex;flex-direction:column;font-size:13px}
+.sbar{height:24px;flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:0 17px;
+  font-family:var(--f-mono);font-size:10px;color:var(--dimmer)}
+
+/* the hairline export bar — JoyRaptor's favourite, kept */
+.hair{height:2px;flex:0 0 auto;background:var(--panel2)}
+.hair i{display:block;height:100%;width:62%;background:linear-gradient(90deg,var(--studio-a),var(--studio-b))}
+
+/* chrome */
+.chrome{flex:0 0 auto;height:40px;display:flex;align-items:center;gap:11px;padding:0 17px}
+.chrome .nm{font-family:var(--f-disp);font-size:14.5px;font-weight:900;letter-spacing:-.04em}
+.chrome .stat{margin-left:auto;display:flex;align-items:center;gap:6px;font-family:var(--f-mono);font-size:10px;color:var(--dim)}
+.chrome .stat svg{font-size:12px;color:var(--dimmer)}
+.chrome .gi{color:var(--dim);font-size:17px}
+.chrome .orb{width:27px;height:27px;border-radius:999px;display:grid;place-items:center;font-size:16px;color:#fff;
+  background:linear-gradient(140deg,var(--bot-a),var(--bot-b))}
+
+/* marquee */
+.marq{flex:0 0 auto;height:48px;overflow:hidden;position:relative;display:flex;align-items:center}
+.marqrow{display:flex;align-items:baseline;gap:15px;padding-left:17px;white-space:nowrap}
+.marqrow button{background:none;border:0;padding:0;cursor:pointer;font-family:var(--f-disp);
+  color:var(--dimmest);font-size:15px;font-weight:300;letter-spacing:-.02em;line-height:1.1;flex:0 0 auto;
+  transition:color var(--d-swap) var(--ease-out), font-size var(--d-swap) var(--ease-out), font-weight var(--d-swap) var(--ease-out)}
+.marqrow button.near{color:var(--dimmer);font-size:16px;font-weight:400}
+.marqrow button.on{color:var(--ink);font-size:29px;font-weight:900;letter-spacing:-.045em}
+.marqfade{position:absolute;right:0;top:0;bottom:0;width:38px;pointer-events:none;
+  background:linear-gradient(90deg,transparent,var(--bg))}
+
+/* HERO — full bleed, edge to edge. the one deliberate rule-break on this screen. */
+.hero{flex:0 0 auto;height:244px;position:relative;overflow:hidden}
+.heroart{position:absolute;inset:0;transition:opacity var(--d-swap) var(--ease-out), filter var(--d-swap) var(--ease-out)}
+.heroart.swapping{opacity:0;filter:blur(2px)}
+.herobar{position:absolute;left:0;right:0;bottom:0;height:3px}
+.herotag{position:absolute;left:17px;top:14px;display:flex;align-items:center;gap:6px;
+  font-family:var(--f-mono);font-size:9px;letter-spacing:.14em;color:#eeeef2;
+  background:rgba(5,5,7,.55);border-radius:999px;padding:4px 10px;backdrop-filter:blur(10px)}
+.herotag.rec{background:var(--capture-b);color:#fff;font-weight:600}
+.herotag .pip{width:6px;height:6px;border-radius:999px;background:currentColor;flex:0 0 auto}
+.herolanes{position:absolute;left:0;right:0;bottom:3px;height:20px;display:flex;flex-direction:column;justify-content:flex-end;gap:2px;padding-bottom:5px}
+.herolanes i{height:3px;border-radius:999px;display:block;margin-left:17px}
+.herochips{position:absolute;left:17px;bottom:14px;display:flex;gap:5px}
+.herochips i{font-style:normal;font-family:var(--f-mono);font-size:9px;color:#eeeef2;padding:4px 9px;border-radius:999px;
+  background:rgba(5,5,7,.5);backdrop-filter:blur(10px)}
+
+.herometa{flex:0 0 auto;display:flex;align-items:center;gap:11px;padding:13px 17px 3px}
+.herometa .tx{min-width:0}
+.herometa .tx b{display:block;font-family:var(--f-disp);font-size:17px;font-weight:800;letter-spacing:-.03em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.herometa .tx span{font-family:var(--f-mono);font-size:9.5px;color:var(--dimmer)}
+.herometa .act{margin-left:auto;flex:0 0 auto;display:flex;align-items:center;gap:6px;
+  font-size:12.5px;font-weight:700;padding:9px 16px;border-radius:999px;color:#050507;
+  transition:transform var(--d-press) var(--ease-out)}
+.herometa .act:active{transform:scale(.97)}
+.herometa .act svg{font-size:13px}
+
+/* library door + recents */
+.door{flex:0 0 auto;display:flex;align-items:baseline;gap:9px;padding:15px 17px 0}
+.door b{font-family:var(--f-disp);font-size:19px;font-weight:900;letter-spacing:-.04em}
+.door s{text-decoration:none;font-family:var(--f-mono);font-size:10px;color:var(--dimmer)}
+.door .cv{margin-left:auto;color:var(--dimmer);font-size:15px;display:flex}
+.carry{font-size:10.5px;color:var(--dimmer);padding:2px 17px 8px}
+.recents{flex:0 0 auto;display:flex;gap:9px;overflow-x:auto;scrollbar-width:none;padding:0 17px 2px}
+.recents::-webkit-scrollbar{display:none}
+.rc{flex:0 0 auto;width:100px;border-radius:12px;overflow:hidden;background:var(--panel);position:relative;
+  transition:transform var(--d-press) var(--ease-out)}
+.rc:active{transform:scale(.97)}
+.rc .t{height:60px;position:relative;outline:1px solid rgba(255,255,255,.08);outline-offset:-1px}
+.rc .cut{position:absolute;right:0;bottom:0;width:24px;height:24px;clip-path:polygon(100% 0,100% 100%,0 100%)}
+.rc .n{padding:6px 8px 8px}
+.rc .n b{display:block;font-size:10px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rc .n span{display:block;font-family:var(--f-mono);font-size:8px;color:var(--dimmer);margin-top:1px}
+
+/* NEW row — grey buttons, full-strength coloured glyphs. accent stays an accent. */
+.newrow{flex:0 0 auto;display:flex;gap:8px;padding:14px 17px 0}
+.newrow button{flex:1;background:var(--ctl);border:0;border-radius:13px;cursor:pointer;font:inherit;
+  display:flex;flex-direction:column;align-items:center;gap:6px;padding:11px 2px 10px;color:var(--dim);
+  transition:transform var(--d-press) var(--ease-out), background var(--d-press) var(--ease-out)}
+.newrow button:active{transform:scale(.97);background:var(--ctl2)}
+.newrow button svg{font-size:18px}
+.newrow button s{text-decoration:none;font-size:9px;font-weight:600;letter-spacing:-.01em}
+
+/* joybot's one line */
+.botline{flex:0 0 auto;display:flex;align-items:center;gap:9px;padding:13px 17px 0}
+.botline .o{width:20px;height:20px;border-radius:999px;display:grid;place-items:center;font-size:12px;color:#fff;flex:0 0 auto;
+  background:linear-gradient(140deg,var(--bot-a),var(--bot-b))}
+.botline p{flex:1;min-width:0;font-size:11px;color:var(--dim);line-height:1.35}
+.botline p b{color:var(--ink);font-weight:600}
+.botline .y{font-size:10.5px;font-weight:700;padding:5px 12px;border-radius:999px;background:var(--ink);color:#050507;flex:0 0 auto}
+.botline .n{color:var(--dimmest);font-size:14px;display:flex;flex:0 0 auto}
+
+/* floor */
+.floor{flex:0 0 auto;margin-top:auto;padding:13px 17px 15px;display:flex;align-items:center;justify-content:space-between;gap:6px}
+.floor button{background:none;border:0;padding:0;cursor:pointer;font-family:var(--f-disp);font-size:11.5px;font-weight:600;
+  color:var(--dimmer);display:flex;align-items:center;gap:5px;letter-spacing:-.01em;
+  transition:color var(--d-press) var(--ease-out)}
+.floor button svg{font-size:13px;color:var(--dimmest)}
+
+/* ---------- intro ---------- */
+.intro{flex:1;display:flex;flex-direction:column;padding:0 22px 20px;position:relative;overflow:hidden}
+.slideshow{position:absolute;left:0;right:0;top:0;height:300px;overflow:hidden}
+.slide{position:absolute;inset:0;opacity:0;transition:opacity 560ms var(--ease-out)}
+.slide.on{opacity:1}
+.slidefade{position:absolute;left:0;right:0;bottom:0;height:150px;background:linear-gradient(180deg,transparent,var(--bg))}
+.ibrand{font-family:var(--f-disp);font-size:33px;font-weight:900;letter-spacing:-.045em;line-height:1;margin-top:236px;position:relative}
+.isub{font-size:12.5px;color:var(--dim);margin-top:10px;position:relative}
+.cycle{display:block;margin-top:5px;font-family:var(--f-disp);font-weight:700;font-size:16px;color:var(--ink);letter-spacing:-.025em;
+  min-height:22px;transition:opacity var(--d-swap) var(--ease-out)}
+.ispace{flex:1}
+.ipromise{font-family:var(--f-disp);font-size:14.5px;font-weight:800;letter-spacing:-.025em;line-height:1.45}
+.ipromise s{text-decoration:none;color:var(--studio-a)}
+.istory{font-size:12px;color:var(--dim);line-height:1.6;margin-top:11px}
+.istory b{color:var(--ink);font-weight:600}
+.iacts{display:flex;gap:8px;margin-top:18px}
+.btnbig{flex:1;text-align:center;font-size:14px;font-weight:700;padding:13px 8px;border-radius:999px;
+  background:linear-gradient(110deg,var(--studio-a),var(--studio-b));color:#050507}
+.btnghost{text-align:center;font-size:13px;font-weight:600;padding:13px 17px;border-radius:999px;background:var(--ctl);color:var(--dim)}
+.idots{display:flex;gap:5px;justify-content:center;margin-top:16px}
+.idots i{width:5px;height:5px;border-radius:999px;background:var(--off)}
+.idots i.on{background:var(--ink);width:15px}
+.ihead{font-family:var(--f-disp);font-size:26px;font-weight:900;letter-spacing:-.04em;line-height:1.06;margin-top:36px}
+.icheck{display:flex;flex-direction:column;gap:11px;margin-top:22px}
+.icheck label{display:flex;gap:10px;align-items:flex-start;font-size:12.4px;color:var(--dim);line-height:1.5}
+.icheck i{width:18px;height:18px;border-radius:6px;flex:0 0 auto;margin-top:1px;background:var(--studio-a);
+  display:grid;place-items:center;color:#050507;font-size:11px;font-style:normal}
+.icheck b{color:var(--ink);font-weight:600}
+.icheck s{text-decoration:none;color:var(--library-b)}
+.aibox{margin-top:20px;background:var(--panel);border-radius:14px;padding:13px}
+.aibox p{font-size:11.8px;color:var(--dim);line-height:1.55}
+.aibox p b{color:var(--ink);font-weight:600}
+.aibox .r{display:flex;gap:7px;margin-top:11px}
+.aibox .r span{font-size:11px;font-weight:700;padding:8px 13px;border-radius:999px;background:var(--ctl);color:var(--dim)}
+.aibox .r span.go{background:var(--bot-b);color:#fff}
+
+/* motion table */
+.mtw{overflow-x:auto;border:1px solid var(--line);border-radius:14px;background:var(--panel)}
+table.m{width:100%;border-collapse:collapse;font-size:12.6px;min-width:520px}
+table.m th{text-align:left;font-family:var(--f-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dimmer);
+  font-weight:400;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel2)}
+table.m td{padding:9px 16px;border-bottom:1px solid #202027;color:var(--dim);vertical-align:top}
+table.m tr:last-child td{border-bottom:0}
+table.m td:first-child{color:var(--ink);font-weight:600;white-space:nowrap}
+table.m code{font-family:var(--f-mono);font-size:11px;color:var(--sel)}
+table.m tr.grp td{background:var(--bg2);font-family:var(--f-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--studio-a);padding-block:7px}
+.tag{font-family:var(--f-mono);font-size:9.5px;padding:2px 7px;border-radius:999px;font-weight:700;white-space:nowrap}
+.tag.fix{background:var(--studio-a);color:#050507}
+.tag.keep{background:var(--ctl2);color:var(--dim)}
+.tag.open{background:var(--warn);color:#050507}
+
+footer{padding-block:46px 62px;color:var(--dimmer);font-size:12.4px;border-top:1px solid var(--line);margin-top:56px}
+footer b{color:var(--dim)}
+footer a{color:var(--dim)}
+@media (prefers-reduced-motion:reduce){
+  *{transition-duration:1ms!important;animation-duration:1ms!important}
+  .heroart.swapping{filter:none}
+}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.75"/><path d="M15.4 15.4 20.5 20.5"/></symbol>
+  <symbol id="i-bot" viewBox="0 0 24 24"><rect x="3.5" y="7" width="17" height="13" rx="5"/><path d="M12 7V3.6"/><circle cx="12" cy="2.6" r="1.1"/><circle cx="8.6" cy="13.4" r="1.25" fill="currentColor" stroke="none"/><circle cx="15.4" cy="13.4" r="1.25" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-rec" viewBox="0 0 24 24"><circle cx="12" cy="12" r="6.5" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M9 6.5 18 12l-9 5.5z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-studio" viewBox="0 0 24 24"><rect x="2.8" y="8.4" width="18.4" height="11.8" rx="2.4"/><path d="M2.8 8.4 5.6 3.8l3.5 4.6M9.1 8.4 12 3.8l3.5 4.6M15.5 8.4 18.4 3.8l2.8 4.6"/></symbol>
+  <symbol id="i-cam" viewBox="0 0 24 24"><path d="M4 7.6h3.1l1.5-2.2h6.8l1.5 2.2H20a1.6 1.6 0 0 1 1.6 1.6v8.4A1.6 1.6 0 0 1 20 19.2H4a1.6 1.6 0 0 1-1.6-1.6V9.2A1.6 1.6 0 0 1 4 7.6Z"/><circle cx="12" cy="13.2" r="3.3"/></symbol>
+  <symbol id="i-sprite" viewBox="0 0 24 24"><rect x="3.2" y="3.2" width="7.4" height="7.4" rx="1.6"/><rect x="13.4" y="3.2" width="7.4" height="7.4" rx="1.6" fill="currentColor" stroke="none"/><rect x="3.2" y="13.4" width="7.4" height="7.4" rx="1.6"/><rect x="13.4" y="13.4" width="7.4" height="7.4" rx="1.6"/></symbol>
+  <symbol id="i-avatar" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.9"/><path d="M4.6 20.3a7.6 7.6 0 0 1 14.8 0"/></symbol>
+  <symbol id="i-lib" viewBox="0 0 24 24"><rect x="3" y="14.6" width="18" height="5.6" rx="1.6"/><path d="M5.2 11.8h13.6M7.4 9h9.2M9 6.2h6"/></symbol>
+  <symbol id="i-sound" viewBox="0 0 24 24"><path d="M4 10.4v3.2M8 6.8v10.4M12 3.6v16.8M16 7.8v8.4M20 10.9v2.2"/></symbol>
+  <symbol id="i-find" viewBox="0 0 24 24"><path d="M3.4 8.2V5.4a2 2 0 0 1 2-2h2.8M15.8 3.4h2.8a2 2 0 0 1 2 2v2.8M20.6 15.8v2.8a2 2 0 0 1-2 2h-2.8M8.2 20.6H5.4a2 2 0 0 1-2-2v-2.8"/><circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-remote" viewBox="0 0 24 24"><circle cx="12" cy="17.8" r="1.7" fill="currentColor" stroke="none"/><path d="M8.3 14.4a5.2 5.2 0 0 1 7.4 0M5.2 11.1a9.6 9.6 0 0 1 13.6 0"/></symbol>
+  <symbol id="i-bits" viewBox="0 0 24 24"><rect x="2.8" y="8.6" width="18.4" height="11.2" rx="2"/><path d="M8.6 8.6V6.4a2 2 0 0 1 2-2h2.8a2 2 0 0 1 2 2v2.2M2.8 13.6h18.4"/></symbol>
+  <symbol id="i-pack" viewBox="0 0 24 24"><path d="M3.4 7.8 12 3.6l8.6 4.2v8.4L12 20.4l-8.6-4.2z"/><path d="M3.4 7.8 12 12l8.6-4.2M12 12v8.4"/></symbol>
+  <symbol id="i-setup" viewBox="0 0 24 24"><path d="M3.4 7.2h17.2M3.4 12h17.2M3.4 16.8h17.2"/><circle cx="8.4" cy="7.2" r="2.1" fill="var(--panel)"/><circle cx="15.2" cy="12" r="2.1" fill="var(--panel)"/><circle cx="7.2" cy="16.8" r="2.1" fill="var(--panel)"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 4.6v14.8M4.6 12h14.8"/></symbol>
+  <symbol id="i-import" viewBox="0 0 24 24"><path d="M12 3.4v10.8M7.8 10.2 12 14.4l4.2-4.2M3.8 16.2v2.4a2 2 0 0 0 2 2h12.4a2 2 0 0 0 2-2v-2.4"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="m9.5 5.5 6.5 6.5-6.5 6.5"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9.2" y="2.8" width="5.6" height="10.8" rx="2.8"/><path d="M5.4 11.4a6.6 6.6 0 0 0 13.2 0M12 18v3.2"/></symbol>
+  <symbol id="i-screen" viewBox="0 0 24 24"><rect x="2.8" y="4.2" width="18.4" height="12.4" rx="2"/><path d="M8.6 20.4h6.8M12 16.6v3.8"/></symbol>
+  <symbol id="i-disk" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="M12 3.4v8.6l6.1 6.1"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="M12 6.8V12l3.6 2.2"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3.4" y="3.4" width="17.2" height="17.2" rx="2"/><path d="M3.4 9.2h17.2M3.4 14.8h17.2M9.2 3.4v17.2M14.8 3.4v17.2"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7"/></symbol>
+</defs></svg>
+
+<div class="mast"><div class="wrap">
+  <div class="kicker">Joy Creator · design record 04 · v2 · 17 Sep 2026</div>
+  <h1>The Marquee</h1>
+  <p>Rebuilt after a motion pass and an anti-slop audit against seven skill repos. The hero runs <b>edge to edge</b>, the export bar is a hairline at the top, the bottom third does real work, and every glyph on this page is now drawn rather than typed.</p>
+</div></div>
+
+<main class="wrap">
+
+<!-- ========== 01 THE LOBBY ========== -->
+<section>
+  <div class="h2"><span>01</span><h2>The lobby</h2></div>
+  <p class="dek">Tap the titles — the hero cross-fades on the real curve, with a 2px blur through the swap so two states never read as two states. <b>Everything below the hero earns its place now.</b></p>
+
+  <div class="rowphones">
+
+    <div class="phonewrap">
+      <div class="phone">
+        <div class="sbar"><span>9:41</span><span>◍ ▲ ▮</span></div>
+        <div class="hair"><i></i></div>
+
+        <div class="chrome">
+          <span class="nm">Joy Creator</span>
+          <span class="stat"><svg class="ic" id="stIco"><use href="#i-disk"></use></svg><span id="stTx">227 GB free</span></span>
+          <span class="gi"><svg class="ic"><use href="#i-search"></use></svg></span>
+          <span class="orb"><svg class="ic"><use href="#i-bot"></use></svg></span>
+        </div>
+
+        <div class="marq"><div class="marqrow" id="marqrow"></div><span class="marqfade"></span></div>
+
+        <div class="hero">
+          <div class="heroart" id="heroart"></div>
+          <span class="herobar" id="herobar"></span>
+        </div>
+
+        <div class="herometa">
+          <span class="tx"><b id="heroName">ZA_CONTROL</b><span id="heroSub">6 LAYERS · 0:47 · 2 HOURS AGO</span></span>
+          <span class="act" id="heroAct"><svg class="ic"><use href="#i-play"></use></svg><span id="heroActTx">Carry on</span></span>
+        </div>
+
+        <div class="door"><b>Library</b><s>128 ITEMS</s><span class="cv"><svg class="ic"><use href="#i-chev"></use></svg></span></div>
+        <div class="carry">carry on with anything you touched</div>
+        <div class="recents" id="recents"></div>
+
+        <div class="newrow">
+          <button type="button"><svg class="ic" style="color:var(--capture-b)"><use href="#i-rec"></use></svg><s>Recording</s></button>
+          <button type="button"><svg class="ic" style="color:var(--studio-a)"><use href="#i-studio"></use></svg><s>Project</s></button>
+          <button type="button"><svg class="ic" style="color:var(--shop-b)"><use href="#i-sprite"></use></svg><s>Character</s></button>
+          <button type="button"><svg class="ic" style="color:var(--library-b)"><use href="#i-import"></use></svg><s>Import</s></button>
+        </div>
+
+        <div class="botline">
+          <span class="o"><svg class="ic"><use href="#i-bot"></use></svg></span>
+          <p>Three clips in <b>ZA_CONTROL</b> have no captions. Want me to write them?</p>
+          <span class="y">Yes</span>
+          <span class="n"><svg class="ic"><use href="#i-x"></use></svg></span>
+        </div>
+
+        <div class="floor">
+          <button type="button"><svg class="ic"><use href="#i-find"></use></svg>Finder</button>
+          <button type="button"><svg class="ic"><use href="#i-remote"></use></svg>Remote</button>
+          <button type="button"><svg class="ic"><use href="#i-bits"></use></svg>Bits</button>
+          <button type="button"><svg class="ic"><use href="#i-pack"></use></svg>Packs</button>
+          <button type="button"><svg class="ic"><use href="#i-setup"></use></svg>Setup</button>
+        </div>
+      </div>
+      <p class="phcap"><b>Studio — the default</b>The hairline at the very top is the export, out of the way, adding a highlight and nothing else. It replaced a frosted strip that was eating 58px.</p>
+    </div>
+
+    <div class="phonewrap">
+      <div class="phone">
+        <div class="sbar"><span>9:41</span><span>◍ ▲ ▮</span></div>
+        <div class="hair"><i style="width:0"></i></div>
+
+        <div class="chrome">
+          <span class="nm">Joy Creator</span>
+          <span class="stat"><svg class="ic"><use href="#i-clock"></use></svg><span>2d 21h left</span></span>
+          <span class="gi"><svg class="ic"><use href="#i-search"></use></svg></span>
+          <span class="orb"><svg class="ic"><use href="#i-bot"></use></svg></span>
+        </div>
+
+        <div class="marq"><div class="marqrow" style="padding-left:17px">
+          <button type="button" class="on" style="cursor:default">Capture</button>
+          <button type="button" class="near" style="cursor:default">Sprite Lab</button>
+          <button type="button" style="cursor:default">Avatar</button>
+          <button type="button" style="cursor:default">Viz Lab</button>
+        </div><span class="marqfade"></span></div>
+
+        <div class="hero">
+          <div class="heroart" style="background:
+            radial-gradient(74% 56% at 32% 26%, rgba(250,61,93,.32), transparent 72%),
+            radial-gradient(64% 50% at 74% 76%, rgba(255,0,140,.24), transparent 72%),
+            repeating-linear-gradient(45deg,#15151b 0 9px,#101014 9px 18px)"></div>
+          <span class="herotag rec"><span class="pip"></span>LIVE · BACK</span>
+          <span class="herochips"><i>AF</i><i>EV ±0</i><i>FHD 30</i></span>
+          <span class="herobar" style="background:linear-gradient(90deg,var(--capture-a),var(--capture-b))"></span>
+        </div>
+
+        <div class="herometa">
+          <span class="tx"><b>Back camera</b><span>FHD 30 · PORTRAIT · 2D 21H LEFT</span></span>
+          <span class="act" style="background:linear-gradient(110deg,var(--capture-a),var(--capture-b));color:#fff">
+            <svg class="ic"><use href="#i-rec"></use></svg>Record</span>
+        </div>
+
+        <div class="door"><b>Library</b><s>128 ITEMS</s><span class="cv"><svg class="ic"><use href="#i-chev"></use></svg></span></div>
+        <div class="carry">carry on with anything you touched</div>
+        <div class="recents">
+          <div class="rc"><span class="t" style="display:block;background:repeating-linear-gradient(45deg,#1a1a20 0 6px,#141419 6px 12px)">
+            <span class="cut" style="background:linear-gradient(135deg,var(--studio-a),var(--studio-b))"></span></span>
+            <span class="n" style="display:block"><b>ZA_CONTROL</b><span>PROJECT · 2H</span></span></div>
+          <div class="rc"><span class="t" style="display:block;background:radial-gradient(58% 66% at 50% 45%,#3a3a48,#17171d)">
+            <span class="cut" style="background:linear-gradient(135deg,var(--shop-a),var(--shop-b))"></span></span>
+            <span class="n" style="display:block"><b>Joybot</b><span>SPRITE · 5 CLIPS</span></span></div>
+          <div class="rc"><span class="t" style="display:block;background:linear-gradient(170deg,#2a1a10,#140d08)">
+            <span class="cut" style="background:linear-gradient(135deg,var(--sound-a),var(--sound-b))"></span></span>
+            <span class="n" style="display:block"><b>Fire bars</b><span>VISUALISER</span></span></div>
+          <div class="rc"><span class="t" style="display:block;background:repeating-linear-gradient(45deg,#101820 0 6px,#0c1218 6px 12px)">
+            <span class="cut" style="background:linear-gradient(135deg,var(--library-a),var(--library-b))"></span></span>
+            <span class="n" style="display:block"><b>Export_0916</b><span>VIDEO · 4K</span></span></div>
+        </div>
+
+        <div class="newrow">
+          <button type="button"><svg class="ic" style="color:var(--capture-b)"><use href="#i-rec"></use></svg><s>Recording</s></button>
+          <button type="button"><svg class="ic" style="color:var(--studio-a)"><use href="#i-studio"></use></svg><s>Project</s></button>
+          <button type="button"><svg class="ic" style="color:var(--shop-b)"><use href="#i-sprite"></use></svg><s>Character</s></button>
+          <button type="button"><svg class="ic" style="color:var(--library-b)"><use href="#i-import"></use></svg><s>Import</s></button>
+        </div>
+
+        <div class="botline">
+          <span class="o"><svg class="ic"><use href="#i-bot"></use></svg></span>
+          <p>You have <b>47 minutes</b> of recordings that never made it into a project.</p>
+          <span class="y">Show</span>
+          <span class="n"><svg class="ic"><use href="#i-x"></use></svg></span>
+        </div>
+
+        <div class="floor">
+          <button type="button"><svg class="ic"><use href="#i-find"></use></svg>Finder</button>
+          <button type="button"><svg class="ic"><use href="#i-remote"></use></svg>Remote</button>
+          <button type="button"><svg class="ic"><use href="#i-bits"></use></svg>Bits</button>
+          <button type="button"><svg class="ic"><use href="#i-pack"></use></svg>Packs</button>
+          <button type="button"><svg class="ic"><use href="#i-setup"></use></svg>Setup</button>
+        </div>
+      </div>
+      <p class="phcap"><b>Capture — the hero is the viewfinder</b>Full bleed means the camera reaches the edges of the phone, which is what a camera should do. The category signal moved from a corner triangle to <em>a 3px bar along the bottom edge</em> — corners belong to the small cards.</p>
+    </div>
+
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ========== 02 THE BOTTOM THIRD ========== -->
+<section>
+  <div class="h2"><span>02</span><h2>The bottom third</h2></div>
+  <p class="dek">You were right — it was empty and it read as unfinished, because I stopped where your brainstorm stopped. Here's what belongs there and why, in the order it appears.</p>
+
+  <div class="plist">
+    <div class="pitem"><span class="mk">i</span><div>
+      <b>Carry on — the row you already asked for</b>
+      <p>Recents, mixed, corner-coded. Cards are 100px and <em>the corner cut stayed here</em> — it does its best work when four different kinds of thing sit side by side.</p></div></div>
+
+    <div class="pitem"><span class="mk">ii</span><div>
+      <b>New — because a lobby has two jobs, and I only built one</b>
+      <p>Carrying on and starting fresh are different intents, and the old screen had no answer for the second one except going into a room first. Four nouns: <em>Recording · Project · Character · Import</em>.</p>
+      <p style="margin-top:8px">They are <em>grey buttons with full-strength coloured glyphs</em>, not coloured buttons. That keeps your no-faded-colour rule and keeps the screen's one saturated control — the hero's action — unmistakably primary.</p></div></div>
+
+    <div class="pitem"><span class="mk">iii</span><div>
+      <b>Joybot's one line — the app noticing something</b>
+      <p>A single sentence about <em>your actual project</em>, with one action and a dismiss. It uses a tool the app already has, it advertises the AI without a tour, and it's the only thing on the screen that changes because of what you did rather than what you tapped.</p>
+      <p style="margin-top:8px">It rotates through real observations — missing captions, unused recordings, a sheet with unnamed cells, an export that failed. <em>It never invents a number.</em></p></div></div>
+
+    <div class="pitem"><span class="mk">iv</span><div>
+      <b>The floor — unchanged, and that is the point</b>
+      <p>Five words that never move. Now with drawn glyphs at 13px against 11.5px type, so the icon supports the word instead of competing with it.</p></div></div>
+
+    <div class="pitem"><span class="mk">v</span><div>
+      <b>What the hairline bought</b>
+      <p>Moving the export from a 58px frosted strip to a <em>2px bar under the status bar</em> freed the height that the New row and Joybot's line now occupy. Your instinct about the thin bar wasn't just aesthetic — it paid for the bottom third.</p></div></div>
+  </div>
+
+  <div class="plist" style="margin-top:34px">
+    <div class="pitem"><span class="mk">?</span><div>
+      <b>Why the hero goes full bleed — and the one cost</b>
+      <p>No reason not to, and three reasons to. It gives the picture ~11% more area on a 390pt screen; it stops the lobby reading as a stack of cards, which is the single most common AI-design tell; and a live viewfinder inset in a rounded box looks like a photo <em>of</em> a camera rather than a camera.</p>
+      <p style="margin-top:8px"><em>The cost:</em> the phone's rounded corners clip the image, so nothing important can live in the top 14px or the corners. That's why the LIVE tag is inset and the category signal became a bottom bar. It is also the one place on this screen that breaks the 17px gutter — deliberately, once.</p></div></div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ========== 03 FIRST RUN ========== -->
+<section>
+  <div class="h2"><span>03</span><h2>First run — the two changes</h2></div>
+  <p class="dek">Screen one gets the slideshow you asked for. Screen three offers the key at the moment AI is mentioned, which is the only moment it makes sense.</p>
+
+  <div class="rowphones">
+
+    <div class="phonewrap">
+      <div class="phone">
+        <div class="sbar"><span>9:41</span><span>◍ ▲ ▮</span></div>
+        <div class="intro">
+          <div class="slideshow" id="show">
+            <div class="slide on" style="background:radial-gradient(64% 52% at 34% 30%, rgba(255,0,140,.34), transparent 72%), repeating-linear-gradient(45deg,#17171f 0 10px,#101016 10px 20px)"></div>
+            <div class="slide" style="background:radial-gradient(60% 50% at 66% 34%, rgba(53,246,191,.32), transparent 72%), repeating-linear-gradient(-45deg,#12201c 0 10px,#0c1512 10px 20px)"></div>
+            <div class="slide" style="background:radial-gradient(62% 52% at 44% 28%, rgba(67,151,253,.32), transparent 72%), linear-gradient(160deg,#101822,#0a0d12)"></div>
+            <div class="slide" style="background:radial-gradient(60% 50% at 56% 32%, rgba(204,39,255,.30), transparent 72%), linear-gradient(160deg,#1a1024,#0d0912)"></div>
+            <div class="slide" style="background:radial-gradient(62% 50% at 40% 30%, rgba(250,160,61,.30), transparent 72%), linear-gradient(160deg,#241a10,#120d08)"></div>
+            <span class="slidefade"></span>
+          </div>
+          <div class="ibrand">Joy&nbsp;Creator</div>
+          <div class="isub">a creative studio in your pocket —
+            <span class="cycle" id="cyc">screen capture with your face on it</span></div>
+          <div class="ispace"></div>
+          <div class="ipromise">No ads. No subscription.<br>No watermark. <s>No export paywall. Ever.</s></div>
+          <div class="istory">I built this between naps, looking after my <b>three toddlers</b>. It's how I support my family. If you get something out of it, you can help keep it free for everyone else.</div>
+          <div class="iacts"><span class="btnbig">Start creating</span><span class="btnghost">Support</span></div>
+          <div class="idots"><i class="on"></i><i></i><i></i><i></i></div>
+        </div>
+      </div>
+      <p class="phcap"><b>1 · The slideshow</b>The visual behind the wordmark crosses to match the line. <em>560ms, ease-out, never a hard cut</em> — this is the one place on the whole screen where a long fade is correct, because nobody is waiting on it.</p>
+    </div>
+
+    <div class="phonewrap">
+      <div class="phone">
+        <div class="sbar"><span>9:41</span><span>◍ ▲ ▮</span></div>
+        <div class="intro">
+          <div class="ihead">Before we start</div>
+          <div class="icheck">
+            <label><i><svg class="ic"><use href="#i-check"></use></svg></i><span>I'll use Joy Creator for <b>my own work</b> and respect other people's privacy</span></label>
+            <label><i><svg class="ic"><use href="#i-check"></use></svg></i><span>I already love Joy Creator and haven't even opened it yet <b>(not optional)</b></span></label>
+            <label><i><svg class="ic"><use href="#i-check"></use></svg></i><span>I've read the <s>Privacy Policy</s> — short version: <b>your files stay on your phone</b></span></label>
+          </div>
+
+          <div class="aibox">
+            <p>Joy Creator runs no servers. If you connect an AI, your prompts go to <b>the provider you chose</b> — we never see them and we take no cut.</p>
+            <p style="margin-top:9px;color:var(--ink);font-weight:600">Already have a key?</p>
+            <div class="r"><span class="go">Add it now</span><span>Later, from chat</span></div>
+          </div>
+
+          <div class="ispace"></div>
+          <span class="btnbig" style="display:block">Let me in</span>
+          <div class="idots"><i></i><i></i><i class="on"></i><i></i></div>
+        </div>
+      </div>
+      <p class="phcap"><b>3 · The key, offered once</b>Right where AI is explained, so it lands as an answer rather than a request. <em>Declining costs nothing and says where to find it again</em> — which is the sentence that stops people worrying they've missed something.</p>
+    </div>
+
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ========== 04 MOTION ========== -->
+<section>
+  <div class="h2"><span>04</span><h2>The motion system</h2></div>
+  <p class="dek">Numbers, not adjectives — so an outside agent implementing this has nothing to invent. Sourced from <b>emilkowalski/skills</b>, reconciled against what Joy Creator actually does.</p>
+
+  <div class="mtw"><table class="m">
+    <tr><th>Where</th><th>Duration</th><th>Curve</th><th>Why</th></tr>
+
+    <tr class="grp"><td colspan="4">The four curves. Nothing uses a raw CSS keyword.</td></tr>
+    <tr><td>Entering, leaving</td><td>—</td><td><code>cubic-bezier(.23,1,.32,1)</code></td><td>Starts fast, lands soft. The default for anything appearing.</td></tr>
+    <tr><td>Moving on screen</td><td>—</td><td><code>cubic-bezier(.77,0,.175,1)</code></td><td>Eases both ends, because the thing existed before and after.</td></tr>
+    <tr><td>Drawers, sheets</td><td>—</td><td><code>cubic-bezier(.32,.72,0,1)</code></td><td>The drawer curve. Long tail, so a sheet settles rather than stops.</td></tr>
+    <tr><td><b>Never</b></td><td>—</td><td><code>ease-in</code></td><td>It delays motion at exactly the moment the eye is watching. Not used anywhere in this app.</td></tr>
+
+    <tr class="grp"><td colspan="4">Durations. Hard ceiling: 300ms for anything you do more than once a session.</td></tr>
+    <tr><td>Any press</td><td><b>140ms</b></td><td>ease-out</td><td><code>scale(.97)</code>. Every tappable thing, no exceptions.</td></tr>
+    <tr><td>Tool row swaps</td><td><b>170ms</b></td><td>ease-out</td><td>Cross-fade only, no movement. Your open question from record 03 — this is my answer.</td></tr>
+    <tr><td>Popovers, pickers</td><td><b>220ms</b></td><td>ease-out</td><td>From <code>scale(.95)</code>, never from <code>scale(0)</code>.</td></tr>
+    <tr><td>Marquee title swap</td><td><b>260ms</b></td><td>ease-out</td><td>Weight, size and colour interpolate together on one curve.</td></tr>
+    <tr><td>Hero cross-fade</td><td><b>260ms</b></td><td>ease-out</td><td>With <code>filter: blur(2px)</code> through the middle — see below.</td></tr>
+    <tr><td>Drawers, the timeline sheet</td><td><b>320ms</b></td><td>drawer</td><td>The one thing allowed past 300ms, because it travels a long way.</td></tr>
+    <tr><td>First-run slideshow</td><td><b>560ms</b></td><td>ease-out</td><td>Seen once. Nobody is waiting on it. Delight is allowed here and nowhere else.</td></tr>
+
+    <tr class="grp"><td colspan="4">Rules that matter more than the numbers</td></tr>
+    <tr><td>Cross-fade blur</td><td>—</td><td>—</td><td><b>Two states fading over each other always read as two states.</b> A 2px blur through the middle makes it read as one thing changing. Costs nothing, fixes the thing no amount of easing fixes.</td></tr>
+    <tr><td>Only transform and opacity</td><td>—</td><td>—</td><td>Anything else recalculates layout. On a phone that is also encoding video, that is dropped frames in the preview.</td></tr>
+    <tr><td>Never <code>transition: all</code></td><td>—</td><td>—</td><td>It animates properties you did not mean to animate, including ones that trigger layout.</td></tr>
+    <tr><td>Interruptible</td><td>—</td><td>—</td><td>CSS transitions retarget mid-flight; keyframes restart from zero. Anything you can tap twice quickly uses a transition.</td></tr>
+    <tr><td>Stagger</td><td><b>40ms</b></td><td>ease-out</td><td>Between recents cards on first paint. Decorative only — <b>never block a tap waiting for a stagger to finish.</b></td></tr>
+    <tr><td>Things done 100× a day</td><td><b>0ms</b></td><td>—</td><td>Undo. Play. Split. Tapping a cell to key it. <b>No animation, ever.</b> Motion on a hundred-times-a-day action is just latency wearing a costume.</td></tr>
+    <tr><td>Reduced motion</td><td>—</td><td>—</td><td>Fewer and gentler, not zero. Opacity and colour survive; travel and scale are dropped.</td></tr>
+  </table></div>
+
+  <p class="dek" style="margin-top:22px"><b>The one that changes the editor most:</b> <em>things done a hundred times a day get no animation at all.</em> Split, undo, play and keying a sprite cell at the playhead are in that bracket. A 200ms flourish on the tap you make two hundred times an afternoon does not read as polish — it reads as a slow app.</p>
+</section>
+
+<hr class="rule">
+
+<!-- ========== 05 THE AUDIT ========== -->
+<section>
+  <div class="h2"><span>05</span><h2>What the audit found in my own work</h2></div>
+  <p class="dek">Run against <b>tastemaker's 51 anti-slop gates</b>, <b>MengTo's slop audit</b> and <b>jakubkrehel's surface rules</b>. Findings against my three previous records, highest impact first. The rule those audits share: <b>default to removing, not replacing.</b></p>
+
+  <div class="mtw"><table class="m">
+    <tr><th>Finding</th><th>Where</th><th>What I did</th><th></th></tr>
+
+    <tr><td>Emoji used as icons</td><td><b>72 across three records.</b> 🎬 🎥 📚 for rooms, on phones and in tables.</td>
+      <td>Replaced with a drawn <b>24-icon inline sprite</b> — 1.6px stroke, <code>currentColor</code>, one <code>&lt;symbol&gt;</code> set. Matches Sprite Lab's own spec, which already said to do this.</td><td><span class="tag fix">fixed</span></td></tr>
+
+    <tr><td>Decorative stacking</td><td>Mastheads carried a radial glow <em>and</em> a second glow <em>and</em> scanlines. Three effects, one job.</td>
+      <td>One light source: a single vertical gradient. The noise and scanlines are gone from page chrome and survive only in the <b>grounds catalog</b>, where they're the subject.</td><td><span class="tag fix">fixed</span></td></tr>
+
+    <tr><td>Card repetition</td><td>Every explanation was a rounded box in a grid, whatever it contained.</td>
+      <td>Prose lists with a marker column where the content is argument. <b>A card should mean "this is a thing", not "this is text".</b></td><td><span class="tag fix">fixed</span></td></tr>
+
+    <tr><td>Identical section eyebrows</td><td>Every section opened with the same mono-uppercase pill in the accent colour.</td>
+      <td>Dropped the pill. A number and a heading. The accent now appears where it carries information.</td><td><span class="tag fix">fixed</span></td></tr>
+
+    <tr><td>Accent footprint over budget</td><td>Gate 19 caps accent at ~5%. The first lobby had four gradient buttons in the New row plus a gradient hero action plus gradient section chrome.</td>
+      <td>New row became grey buttons with coloured glyphs. <b>One saturated control per screen</b>, and it's the primary action.</td><td><span class="tag fix">fixed</span></td></tr>
+
+    <tr><td>No motion spec at all</td><td>The mockups animated on a curve I made up.</td>
+      <td>Section 04. Four curves, eight durations, six rules, all sourced.</td><td><span class="tag fix">fixed</span></td></tr>
+
+    <tr><td>Borders where shadows belong</td><td>Every card had a 1px border on all sides, including over imagery.</td>
+      <td>Cards on dark ground use a <b>single white ring at 8% via outline, offset −1px</b> — it survives over a thumbnail where a solid border shows as a seam. Borders now only divide.</td><td><span class="tag fix">fixed</span></td></tr>
+
+    <tr><td>Inline hex instead of tokens</td><td>Gate 48. Dozens of literal colours in style attributes.</td>
+      <td>Partly. The room gradients are tokens; per-card thumbnails still carry literals because they stand in for artwork. <b>In the Android build every one becomes a token.</b></td><td><span class="tag open">partly</span></td></tr>
+
+    <tr><td>Indigo-to-purple gradient</td><td>Gate 14 rejects it by name as the AI gradient. Joybot is violet→indigo.</td>
+      <td><b>Kept — you picked it.</b> The gate is about hero gradients on landing pages; here it's a room code carrying information, and it's the one room whose identity is "thinking". Flagging it so it's a decision, not an oversight.</td><td><span class="tag keep">kept</span></td></tr>
+
+    <tr><td>Two-line clickable text</td><td>Gate 26. Some floor and tool labels wrapped at 390px.</td>
+      <td>All tap targets are single-line now, with ellipsis before wrap.</td><td><span class="tag fix">fixed</span></td></tr>
+
+    <tr><td>Concentric radius</td><td>Nested corners were arbitrary — a 12px card inside a 14px panel.</td>
+      <td>Applied <code>outer = inner + gap</code>. The recents card is 12px inside a 17px gutter; the hero has no radius because it has no inset.</td><td><span class="tag fix">fixed</span></td></tr>
+
+    <tr><td>Invented metrics</td><td>Gate 47 forbids fabricated proof.</td>
+      <td>Checked. Every number in all four records is counted from the repo or is clearly a mockup's sample data. <b>Joybot's suggestion line is the risk here</b> — it must only ever say things it verified.</td><td><span class="tag keep">held</span></td></tr>
+  </table></div>
+
+  <div class="plist" style="margin-top:32px">
+    <div class="pitem"><span class="mk">!</span><div>
+      <b>The audit I did not take</b>
+      <p>One skill mandates a mid-page "tagline reveal" with word-by-word opacity on scroll, and another bans background gradients outright. <em>Both are landing-page conversion rules</em> — they exist to sell a product to a stranger. These pages are a working design record for one person who already owns the thing. Importing them would have made the work worse, not more original.</p>
+      <p style="margin-top:8px">Which is the actual lesson from reading seven of them: <em>a rule is only as good as the situation it was written for.</em> The motion numbers travel. The conversion structure doesn't.</p></div></div>
+  </div>
+</section>
+
+<footer>
+  <p>Motion figures from <b>emilkowalski/skills · review-animations/STANDARDS.md</b>. Anti-slop gates from <b>codeswithroh/tastemaker</b> and <b>MengTo/Skills · audit-ai-design-slop</b>. Surface rules from <b>jakubkrehel/skills · better-ui</b>. Emotional-timing guidance from <b>Owl-Listener/designer-skills · interfaces-that-feel</b>.</p>
+  <p style="margin-top:9px">Room mapping is JoyRaptor's final set, 17 Sep 2026. Inventory counted against the code at HEAD on <code>joy-creator</code>.</p>
+</footer>
+
+</main>
+
+<script>
+(function(){
+  "use strict";
+
+  var LINES = [
+    "screen capture with your face on it",
+    "video recording, even with the screen off",
+    "a real editor — layers, masks, keyframes",
+    "animation — sprites, rigs, puppets",
+    "transcription that never leaves your phone",
+    "a second phone as a camera, over your own Wi-Fi",
+    "AI that edits the actual timeline"
+  ];
+  var cyc = document.getElementById("cyc"), show = document.getElementById("show"), li = 0;
+  if (cyc) {
+    setInterval(function(){
+      li = (li + 1) % LINES.length;
+      cyc.style.opacity = "0";
+      if (show) {
+        var slides = show.querySelectorAll(".slide"), k;
+        for (k = 0; k < slides.length; k++) {
+          slides[k].classList.toggle("on", k === li % slides.length);
+        }
+      }
+      setTimeout(function(){ cyc.textContent = LINES[li]; cyc.style.opacity = "1"; }, 260);
+    }, 3000);
+  }
+
+  var STATS = [
+    {i:"#i-disk",  t:"227 GB free"},
+    {i:"#i-clock", t:"2d 21h left"},
+    {i:"#i-grid",  t:"5 projects"},
+    {i:"#i-sound", t:"47 min recorded"}
+  ];
+  var si = 0, stI = document.getElementById("stIco"), stT = document.getElementById("stTx");
+  if (stI && stT) {
+    stT.style.transition = "opacity 170ms cubic-bezier(.23,1,.32,1)";
+    stI.style.transition = "opacity 170ms cubic-bezier(.23,1,.32,1)";
+    setInterval(function(){
+      si = (si + 1) % STATS.length;
+      stT.style.opacity = "0"; stI.style.opacity = "0";
+      setTimeout(function(){
+        stI.querySelector("use").setAttribute("href", STATS[si].i);
+        stT.textContent = STATS[si].t;
+        stT.style.opacity = "1"; stI.style.opacity = "1";
+      }, 170);
+    }, 3400);
+  }
+
+  var ROOMS = [
+    { n:"Studio", a:"var(--studio-a)", b:"var(--studio-b)", ink:"#050507",
+      art:"repeating-linear-gradient(45deg,#1a1a20 0 9px,#141419 9px 18px)",
+      tag:"LAST PROJECT", name:"ZA_CONTROL", sub:"6 LAYERS · 0:47 · 2 HOURS AGO",
+      act:"Carry on", icon:"#i-play", lanes:["var(--library-a)","var(--shop-a)","var(--sound-a)"] },
+    { n:"Sprite Lab", a:"var(--shop-a)", b:"var(--shop-b)", ink:"#fff",
+      art:"radial-gradient(58% 64% at 50% 44%, #3b3b4a, #141419)",
+      tag:"LAST SHEET", name:"Joybot", sub:"24 CELLS · 5 SAVED CLIPS", act:"Open", icon:"#i-sprite" },
+    { n:"Avatar", a:"var(--avatar-a)", b:"var(--avatar-b)", ink:"#fff",
+      art:"radial-gradient(52% 58% at 50% 42%, #40304e, #151119)",
+      tag:"LAST CHARACTER", name:"Star guy", sub:"RIGGED · 8 PINS · 2 BONES", act:"Open", icon:"#i-avatar" },
+    { n:"Viz Lab", a:"var(--sound-a)", b:"var(--sound-b)", ink:"#050507",
+      art:"linear-gradient(170deg,#301c0e,#150d07)",
+      tag:"LAST VISUALISER", name:"Fire bars", sub:"32 BANDS · BEAT-LOCKED", act:"Open", icon:"#i-sound" },
+    { n:"Capture", a:"var(--capture-a)", b:"var(--capture-b)", ink:"#fff",
+      art:"radial-gradient(74% 56% at 32% 26%, rgba(250,61,93,.32), transparent 72%), repeating-linear-gradient(45deg,#15151b 0 9px,#101014 9px 18px)",
+      tag:"LIVE · BACK", live:true, name:"Back camera", sub:"FHD 30 · PORTRAIT · 2D 21H LEFT",
+      act:"Record", icon:"#i-rec", chips:["AF","EV ±0","FHD 30"] }
+  ];
+
+  var RECENTS = [
+    {n:"Joybot",      s:"SPRITE · 5 CLIPS",  a:"var(--shop-a)",    b:"var(--shop-b)",    art:"radial-gradient(58% 66% at 50% 45%,#3a3a48,#17171d)"},
+    {n:"Fire bars",   s:"VISUALISER",             a:"var(--sound-a)",   b:"var(--sound-b)",   art:"linear-gradient(170deg,#2a1a10,#140d08)"},
+    {n:"Export_0916", s:"VIDEO · 4K",         a:"var(--library-a)", b:"var(--library-b)", art:"repeating-linear-gradient(45deg,#101820 0 6px,#0c1218 6px 12px)"},
+    {n:"ZA_VERIFY",   s:"PROJECT · SEP 13",   a:"var(--studio-a)",  b:"var(--studio-b)",  art:"repeating-linear-gradient(45deg,#1a1a20 0 6px,#141419 6px 12px)"},
+    {n:"Screen_0915", s:"RECORDING · 12:04",  a:"var(--capture-a)", b:"var(--capture-b)", art:"repeating-linear-gradient(45deg,#201016 0 6px,#170b10 6px 12px)"},
+    {n:"Star guy",    s:"CHARACTER",               a:"var(--avatar-a)",  b:"var(--avatar-b)",  art:"radial-gradient(52% 58% at 50% 42%,#40304e,#151119)"}
+  ];
+
+  var active = 0;
+
+  function paintHero(){
+    var r = ROOMS[active];
+    var art = document.getElementById("heroart");
+    if (!art) return;
+
+    art.classList.add("swapping");
+    setTimeout(function(){
+      art.style.background = r.art;
+      art.innerHTML = "";
+
+      var tag = document.createElement("span");
+      tag.className = "herotag" + (r.live ? " rec" : "");
+      if (r.live) { tag.innerHTML = '<span class="pip"></span>' + r.tag; }
+      else { tag.textContent = r.tag; }
+      art.appendChild(tag);
+
+      if (r.lanes) {
+        var mini = document.createElement("span");
+        mini.className = "herolanes";
+        r.lanes.forEach(function(c, i){
+          var b = document.createElement("i");
+          b.style.background = c;
+          b.style.width = (44 + i * 13) + "%";
+          mini.appendChild(b);
+        });
+        art.appendChild(mini);
+      }
+      if (r.chips) {
+        var ch = document.createElement("span");
+        ch.className = "herochips";
+        r.chips.forEach(function(c){ var i = document.createElement("i"); i.textContent = c; ch.appendChild(i); });
+        art.appendChild(ch);
+      }
+      art.classList.remove("swapping");
+    }, 260);
+
+    var bar = document.getElementById("herobar");
+    bar.style.background = "linear-gradient(90deg," + r.a + "," + r.b + ")";
+
+    document.getElementById("heroName").textContent = r.name;
+    document.getElementById("heroSub").textContent = r.sub;
+    document.getElementById("heroActTx").textContent = r.act;
+    var ac = document.getElementById("heroAct");
+    ac.style.background = "linear-gradient(110deg," + r.a + "," + r.b + ")";
+    ac.style.color = r.ink;
+    ac.querySelector("use").setAttribute("href", r.icon);
+  }
+
+  function paintMarquee(){
+    var row = document.getElementById("marqrow");
+    if (!row) return;
+    row.innerHTML = "";
+    var i;
+    for (i = 0; i < ROOMS.length; i++) {
+      (function(offset){
+        var r = ROOMS[(active + offset) % ROOMS.length];
+        var b = document.createElement("button");
+        b.type = "button";
+        b.textContent = r.n;
+        if (offset === 0) b.className = "on";
+        else if (offset === 1) b.className = "near";
+        b.addEventListener("click", function(){
+          active = (active + offset) % ROOMS.length;
+          paintMarquee(); paintHero();
+        });
+        row.appendChild(b);
+      })(i);
+    }
+  }
+
+  function paintRecents(){
+    var host = document.getElementById("recents");
+    if (!host) return;
+    host.innerHTML = "";
+    RECENTS.forEach(function(x, i){
+      var el = document.createElement("div");
+      el.className = "rc";
+      el.style.opacity = "0";
+      el.style.transform = "translateY(6px)";
+      el.style.transition = "opacity 260ms cubic-bezier(.23,1,.32,1) " + (i * 40) + "ms, transform 260ms cubic-bezier(.23,1,.32,1) " + (i * 40) + "ms";
+      el.innerHTML =
+        '<span class="t" style="display:block;background:' + x.art + '">' +
+          '<span class="cut" style="background:linear-gradient(135deg,' + x.a + ',' + x.b + ')"></span>' +
+        '</span>' +
+        '<span class="n" style="display:block"><b>' + x.n + '</b><span>' + x.s + '</span></span>';
+      host.appendChild(el);
+      requestAnimationFrame(function(){
+        requestAnimationFrame(function(){ el.style.opacity = "1"; el.style.transform = "none"; });
+      });
+    });
+  }
+
+  paintMarquee(); paintHero(); paintRecents();
+})();
+</script>
+
+</body></html>

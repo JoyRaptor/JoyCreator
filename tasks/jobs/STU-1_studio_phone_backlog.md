@@ -1,0 +1,30 @@
+# STU-1: Studio phone-test backlog
+
+**Milestone:** M1  ·  **State:** 🟡  ·  **Owner:** open (a careful phone agent; Sonnet is enough)  ·  **Checked:** 2026-10-27 against STATE §2
+
+## Why it matters
+Studio is the strongest wing, and the owner is happy with it. These are the features that are built but
+nobody has driven on a phone. Built-but-unproven is where one-star reviews come from.
+
+## Done when
+- [ ] Each item below is driven on the Note 9 (sandbox), the result written here, and its STATE row
+      moved to 🟢 (agent) or fixed.
+
+## What is left (each was 🟡 in STATE on 10-27)
+- [ ] **Undo after closing and reopening:** quick edits keep their own steps after reopening, and a crash no
+      longer leaves the undo history behind the project (`b2a85dff7`). Test project "Redo test clip": three fast
+      rotates, reopen, expect three steps; two edits, wait for autosave, force-stop, reopen, expect a matching history.
+- [ ] **Adjustment layers really change the layers beneath them** (only the shell is proven).
+- [ ] **Bend on text** and **corner-pinned text with an effect** (export must match the preview).
+- [ ] **Corner pin on sprites**, and sprites on the transform surface: nobody has dragged one on a phone.
+- [ ] **Single-frame export** (JPG/PNG): STATE says "partly done"; find out what is missing.
+- [ ] **Audio ducking:** "Duck under…" from the lane menu, then export and listen.
+- [ ] **VisLab in Studio:** the effects and Echo Trails were agent-tested 10-27; the owner wants to look (S12).
+- [ ] **Transitions:** the owner wants to check them himself (S12). Prepare a test project with every transition type.
+
+## Specs, handoffs and evidence
+- [STATE.md §2](../STATE.md) rows; undo detail in LANES history of the "Studio undo history drops steps after export" session (account C, 10-24).
+
+## Files and traps
+- Use throwaway projects only ("Restore video test", "Redo test clip"); never the owner's real projects.
+- Phone lock and no `monkey`: see [AGENT_START.md](../AGENT_START.md).

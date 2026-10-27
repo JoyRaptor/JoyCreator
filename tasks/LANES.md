@@ -1,3 +1,5 @@
+> **RETIRED 2026-10-27 by the project lead.** This file is history, not a queue. Current work: [tasks/ROADMAP.md](ROADMAP.md) and its job cards in `tasks/jobs/`; live claims and messages: [tasks/BOARD.md](BOARD.md). Do not add to this file.
+
 # LANES.md — live file-lock board for parallel agents
 # October14 ACTIVE Lead: C:/Temp/jb-live-current, lead/jb-live-current, sourceccb4913bf includes originbb4df6c64.
 # Prior C:/Temp/jb-live-lines is frozen/backed-up b203e760; original owner folder/worktrees preserved.

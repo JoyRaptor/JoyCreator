@@ -1,3 +1,5 @@
+> **RETIRED 2026-10-27 by the project lead.** This file is history, not a queue. Current work: [tasks/ROADMAP.md](ROADMAP.md) and its job cards in `tasks/jobs/`; live claims and messages: [tasks/BOARD.md](BOARD.md). Do not add to this file.
+
 # Joy Creator (formerly FadCam/Faditor) — Autonomous Roadmap
 
 ## 🎯 2026-07-12 TRUTH SWEEP (supersedes the 07-06 block below; HEAD `1d0e4e2`)

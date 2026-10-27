@@ -1,3 +1,5 @@
+> **RETIRED 2026-10-27 by the project lead.** This file is history, not a queue. Current work: [tasks/ROADMAP.md](ROADMAP.md) and its job cards in `tasks/jobs/`; live claims and messages: [tasks/BOARD.md](BOARD.md). Do not add to this file.
+
 # Launch plan (drafted 2026-10-15 from six read-only audits in tasks/audits/)
 
 ## Owner request October24: audit and finish vector watercolour

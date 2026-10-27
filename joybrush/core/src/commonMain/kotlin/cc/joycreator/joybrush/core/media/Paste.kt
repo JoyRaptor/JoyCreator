@@ -33,6 +33,17 @@ const val PASTE_DEPTH = 8
     companion object { fun of(id: String?) = entries.firstOrNull { it.id == id } }
 }
 
+/**
+ * How a hair brush (and the trowel knife) starts and stops (owner, 2026-10-23: "they start and stop like a razor-cut perfect
+ * line"). BRUSH: a loaded brush lands with a blob, its hairs are not one length, and lifting off it runs dry and breaks into
+ * streaks. CUT: the clean ends before, kept so he can compare. A brush that says nothing paints BRUSH; a build before this
+ * one ignores the word and paints CUT, which is what a CUT brush asks for, so the word needs no brush version.
+ */
+@Serializable enum class EndsMode(val id: String, val label: String) {
+    @SerialName("brush") BRUSH("brush", "loaded brush"), @SerialName("cut") CUT("cut", "clean cut");
+    companion object { fun of(id: String?) = entries.firstOrNull { it.id == id } }
+}
+
 /** What part of a loaded knife touches: its thin edge, or its flat face. */
 @Serializable enum class FaceMode(val id: String) {
     @SerialName("edge") EDGE("edge"), @SerialName("flat") FLAT("flat");
@@ -59,7 +70,19 @@ const val PASTE_DEPTH = 8
     val acrossMaxMm: Double = 0.0, val riseMaxMm: Double? = null, val bladeLenMm: Double = 0.0,
     val bladeHalfMm: Double = 0.0, val bladeHmax: Double = 0.0, val bead: Double = 0.0, val bladeCap: Double = 0.0,
     val film: Double? = null, val clean: Boolean = false, val pressIn: Double? = null,
-)
+    val ends: EndsMode? = null,
+    /**
+     * 0..1 (owner, 2026-10-23: new colour over old paint): pressed lightly, the loaded brush rides on wet paint and lays an
+     * opaque coat on top (jb_paste.glsl u_cover). 0 = as before. Like [ends], an older build ignores the word.
+     */
+    val cover: Double = 0.0,
+    /** 0..1 (the dirty brush): the hairs that touch hold little and the belly feeds them, so picked-up colour is laid back
+     *  within a few centimetres (u_carry; the loading tray fills to [pasteRowShare]). 0 = as before. */
+    val carry: Double = 0.0,
+) {
+    /** Whether this brush paints a loaded brush's ends ([EndsMode]); a rigid blade keeps its sharp edge. */
+    val loadedEnds: Boolean get() = !blade && ends != EndsMode.CUT
+}
 
 object PasteBrushes {
     val ALL: Map<String, PasteBrush> = linkedMapOf(
@@ -106,6 +129,18 @@ fun opaquePaint(rgb: DoubleArray): OpaquePaint {
     return OpaquePaint(k, s)
 }
 
+/**
+ * The share of a full cell ([cellCap]) the loading tray puts in depth row [j] (0 tip .. PASTE_DEPTH - 1 at the ferrule): the
+ * belly a little fuller than the tip; with [carry] the touching hairs hold 0.06 and the belly near the ferrule most of the
+ * load (jb_paste.glsl `jb_pasteProf`; lab paste.js `pasteRowShare`). Exactly the old factor at carry 0.
+ */
+fun pasteRowShare(j: Int, carry: Double = 0.0): Double {
+    val base = 0.8 + 0.4 * j / (PASTE_DEPTH - 1)
+    if (carry == 0.0) return base
+    val d = (j + 0.5) / PASTE_DEPTH
+    return base + ((0.06 + 5.6 * smoothstep(0.7, 1.0, d)) - base) * carry
+}
+
 fun cellCap(brush: PasteBrush): Double =
     if (brush.blade) brush.bladeCap else brush.thickMm * brush.rate * brush.loadLenMm / brush.lenMm
 
@@ -122,6 +157,9 @@ data class PasteStep(
     val bladeDirX: Double = 1.0, val bladeDirY: Double = 0.0, val bladeLen: Double? = null, val bladeHalf: Double? = null,
     val travelX: Double = 1.0, val travelY: Double = 0.0, val bladeH0: Double? = null, val bladeTan: Double? = null,
     val pressK: Double? = null, val loadMode: Boolean = false,
+    // Hair brushes and the trowel: how far the pen has eased off its press (0..1), and 1 at touchdown fading to 0 over about
+    // the brush's width of travel (jb_paste.glsl u_lift, u_land; read only with [PasteBrush.loadedEnds]).
+    val lift: Double = 0.0, val land: Double = 0.0,
 )
 
 /**
@@ -151,6 +189,7 @@ class PasteStroke(
     private var carry = 0.0
     private var travelled = 0.0   // mm since touchdown: the hairs can only trail over the path already drawn
     private var lastStepT = 0.0
+    private var peak = 0.0        // the pressure the brush was last pressed to (relaxing over ~12 mm): lifting off is easing below it
 
     /**
      * The hops times this (1 = the shipped 0.3 mm). A phone that falls behind the pen widens them, up to 2x ([PasteSpacing]) but only where the stroke runs straight, each
@@ -223,10 +262,15 @@ class PasteStroke(
         val wX = -lY
         val wY = lX
         val tr = travelled
+        // The stroke's ends (jb_paste.glsl u_ends): landing = the first stretch of travel, about the brush's width; lift = how
+        // far the pen has eased off the press it last held (a 10 % wobble is nothing, half the pressure is half lifted).
+        peak = max(p, p + (peak - p) * exp(-slideMm / 12.0))
+        val lift = smoothstep(0.03, 0.95, 1 - p / max(peak, 1e-3))
+        val land = 1 - smoothstep(0.0, 0.6 * (if (b.widthMm != 0.0) b.widthMm else 1.0), tr)
         if (b.trowel) {
             // v6/v7 trowel geometry: width barely changes with pressure, length grows with it; tilt does nothing.
             steps.add(PasteStep(s.x, s.y, wX, wY, lX, lY, b.widthMm / 2 * (0.9 + 0.1 * p), b.lenMm * (0.6 + 0.4 * p),
-                b.lenMm * 1.4, p, slideMm, fingers = 0.0))
+                b.lenMm * 1.4, p, slideMm, fingers = 0.0, lift = lift, land = land))
             return
         }
         if (b.blade) {
@@ -279,7 +323,7 @@ class PasteStroke(
         val len = min(lenMax, max(minLen, min(lenFull, minLen + 0.8 * tr)))
         val th = (thick ?: b.thickMm) * body
         steps.add(PasteStep(s.x, s.y, wX, wY, lX, lY, halfW, len, lenMax, p, slideMm, fingers = fingers,
-            thick = if (thick != null || body != 1.0) th else null))
+            thick = if (thick != null || body != 1.0) th else null, lift = lift, land = land))
     }
 
     fun take(): List<PasteStep> = ArrayList(steps).also { steps.clear() }

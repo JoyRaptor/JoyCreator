@@ -56,6 +56,37 @@ object StrokeReplay {
         // A long session (the drawing's media room, 2026-10-21): "band0".."band9", a zigzag across the page in its own tenth.
         else -> name.removePrefix("band").toIntOrNull()?.takeIf { name.startsWith("band") && it in 0..9 }?.let { i ->
             zigzag(w * 0.06f, w * 0.94f, h * (0.06f + 0.088f * i), h * (0.06f + 0.088f * i + 0.07f), 6, 1400.0)
+        } ?: name.removePrefix("vert").toIntOrNull()?.takeIf { name.startsWith("vert") && it in 0..5 }?.let { i ->
+            // The oil brushes' starts and ends (2026-10-23): straight strokes down the page, one per column, the pen pressing
+            // in, holding and lifting off as a hand does: light, medium, firm, a quick flick, a slow drag, and medium at one
+            // pressure with no press-in or lift. Clear of the tool strip (left) and the layers panel (top right).
+            val x = w * (0.16f + 0.135f * i)
+            val ms = doubleArrayOf(800.0, 800.0, 800.0, 320.0, 1800.0, 800.0)[i]
+            stroke(x, h * 0.22f, x, h * 0.84f, ms, floatArrayOf(0.3f, 0.55f, 0.85f, 0.55f, 0.55f, 0.55f)[i], ramps = i != 5)
+        } ?: name.removePrefix("across").toIntOrNull()?.takeIf { name.startsWith("across") && it in 0..2 }?.let { i ->
+            // …and strokes across them (new colour over old paint, colour carried from one to the next).
+            val y = h * (0.36f + 0.17f * i)
+            stroke(w * 0.10f, y, w * 0.90f, y, 1300.0, 0.55f, ramps = true)
+        }
+    }
+
+    /**
+     * A straight stroke at [press] with a steady lean, as a hand makes one: with [ramps], pressure rises from a touch over the
+     * first 70 ms and falls back to a touch over the last 110 ms while the pen keeps moving (the lift-off).
+     */
+    private fun stroke(x0: Float, y0: Float, x1: Float, y1: Float, ms: Double, press: Float, ramps: Boolean): List<Sample> {
+        val n = (ms / 1000.0 * HZ).toInt().coerceAtLeast(2)
+        val heading = kotlin.math.atan2((y1 - y0).toDouble(), (x1 - x0).toDouble())
+        return List(n + 1) { i ->
+            val t = i.toDouble() / n
+            val tMs = t * ms
+            val p = if (!ramps) press else {
+                val inK = (tMs / 70.0).coerceIn(0.0, 1.0)
+                val outK = ((ms - tMs) / 110.0).coerceIn(0.0, 1.0)
+                (0.05 + (press - 0.05) * (1 - (1 - inK) * (1 - inK)) * outK * outK).toFloat()
+            }
+            // The pen leans back along the way it came (a right-hander pulling the brush), 35 degrees from upright.
+            Sample(x0 + (x1 - x0) * t.toFloat(), y0 + (y1 - y0) * t.toFloat(), p, 0.6f, (heading + PI / 2).toFloat(), tMs)
         }
     }
 

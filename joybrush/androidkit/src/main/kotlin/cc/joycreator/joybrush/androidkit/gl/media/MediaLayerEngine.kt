@@ -17,6 +17,7 @@ import cc.joycreator.joybrush.core.media.StickMaterial
 import cc.joycreator.joybrush.core.media.WetConstants
 import cc.joycreator.joybrush.core.media.WetSpread
 import cc.joycreator.joybrush.core.media.cellCap
+import cc.joycreator.joybrush.core.media.pasteRowShare
 import cc.joycreator.joybrush.core.media.wetUniforms
 import cc.joycreator.joybrush.core.paint.Tiles
 import kotlin.math.abs
@@ -805,7 +806,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         for (i in 0 until PASTE_LANES) { tw = tw * 0.7 + (rnd() - 0.5); laneTone[i] = tw; laneHue[i] = doubleArrayOf(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5) }
         fun ss(e0: Double, e1: Double, v: Double): Double { val t = min(1.0, max(0.0, (v - e0) / (e1 - e0))); return t * t * (3 - 2 * t) }
         for (j in 0 until PASTE_DEPTH) for (i in 0 until PASTE_LANES) {
-            val amt = cap * max(0.15, 1 + 0.55 * lane[i] + 0.15 * (rnd() - 0.5)) * (0.8 + 0.4 * j / (PASTE_DEPTH - 1))
+            val amt = cap * max(0.15, 1 + 0.55 * lane[i] + 0.15 * (rnd() - 0.5)) * pasteRowShare(j, brushDef.carry)
             // Loading tray: round = tip one colour, belly the other; flat = side to side.
             val wgt = if (belly == null) 0.0 else if (brushDef.shape == 0) ss(1.5, 3.5, j.toDouble()) else ss(PASTE_LANES * 0.35, PASTE_LANES * 0.65, i.toDouble())
             val shade = 1 + 0.18 * laneTone[i]

@@ -159,6 +159,63 @@ export const SHEETS = {
       return s;
     },
   },
+  // Oil starts and ends (owner, 2026-10-23: "they start and stop like a razor-cut perfect line"): every oil brush, one
+  // column each, stroked straight down as a hand does: the pen presses in over 70 ms, holds, and lifts off over the last
+  // 110 ms while still moving. ?p= the held pressure, ?speed= mm/s. The phone's bench case is "vert1" (StrokeReplay).
+  oilends: {
+    size: [1600, 1300],
+    paper: 'canvas_linen',
+    strokes() {
+      const q = new URLSearchParams(location.search), MM = 20, s = [];
+      const P = Number(q.get('p') || 0.55), SPEED = Number(q.get('speed') || 50), LEN = 42;
+      const ms = LEN / SPEED * 1000;
+      const press = u => { const t = u * ms, a = Math.min(1, t / 70), b = Math.min(1, (ms - t) / 110); return 0.05 + (P - 0.05) * (1 - (1 - a) * (1 - a)) * b * b; };
+      const tools = (q.get('tools') || 'Oil round,Oil flat,All-round,Palette knife 1,Palette knife 2,Fan blender').split(',');
+      const col = q.get('color') ? q.get('color').split(',').map(Number) : [0.16, 0.55, 0.36];
+      tools.forEach((tool, i) => s.push({ ...stroke(tool, LEN, line((10 + i * 13) * MM, 50 * MM, (10 + i * 13) * MM, 8 * MM), { p: press, tilt: 35, az: 90 }, SPEED), kind: 'paste', color: col }));
+      return s;
+    },
+  },
+  // New colour over old paint (owner, 2026-10-23: "painting a different oil colour on top takes many dabs"). ?tool= one
+  // brush: a patch of blue (five overlapping strokes across, left to right), then yellow down across it, 1, 2 and 3 passes
+  // over the same path at medium pressure, then 1 pass light. Each yellow stroke runs onto bare canvas below the patch, so
+  // its colour there is the reference. Measure with __rgb on the patch part and the bare part of each column.
+  oilover: {
+    size: [1600, 1100],
+    paper: 'canvas_linen',
+    strokes() {
+      const q = new URLSearchParams(location.search), MM = 20, s = [];
+      const tool = q.get('tool') || 'Oil round';
+      const A = [0.15, 0.25, 0.65], B = [0.95, 0.78, 0.12];
+      const env2 = (peak) => u => 0.05 + (peak - 0.05) * Math.min(1, u * 10) * Math.min(1, (1 - u) * 8);
+      for (let k = 0; k < 5; k++) s.push({ ...stroke(tool, 65, line(5 * MM, (46 - k * 2.2) * MM, 70 * MM, (46 - k * 2.2) * MM), { p: env2(0.6), tilt: 35, az: 180 }, 50), kind: 'paste', color: A });
+      [[15, 1, 0.55], [30, 2, 0.55], [45, 3, 0.55], [60, 1, 0.3]].forEach(([x, n, p]) => {
+        for (let i = 0; i < n; i++) s.push({ ...stroke(tool, 36, line(x * MM, 50 * MM, x * MM, 14 * MM), { p: env2(p), tilt: 35, az: 90 }, 50), kind: 'paste', color: B });
+      });
+      // The reference: the same yellow stroke on bare canvas (its middle is the clean colour every score is against).
+      s.push({ ...stroke(tool, 36, line(76 * MM, 50 * MM, 76 * MM, 14 * MM), { p: env2(0.55), tilt: 35, az: 90 }, 50), kind: 'paste', color: B });
+      return s;
+    },
+  },
+  // The dirty brush (owner, 2026-10-23: a stroke through wet colours picks them up and carries them; colours swirl and
+  // scrape together). ?tool= one brush: wet stripes of blue, red, yellow and blue, then white dragged across them left to
+  // right at medium and firm pressure, and a wavy stroke, each running on over bare canvas past the stripes.
+  oildirty: {
+    size: [1600, 1100],
+    paper: 'canvas_linen',
+    strokes() {
+      const q = new URLSearchParams(location.search), MM = 20, s = [];
+      const tool = q.get('tool') || 'Oil round';
+      const env2 = (peak) => u => 0.05 + (peak - 0.05) * Math.min(1, u * 10) * Math.min(1, (1 - u) * 8);
+      const cols = [[0.15, 0.25, 0.65], [0.78, 0.12, 0.12], [0.95, 0.8, 0.12], [0.1, 0.45, 0.3]];
+      cols.forEach((c, i) => { for (const dx of [-1.6, 1.6]) s.push({ ...stroke(tool, 42, line((14 + i * 10 + dx) * MM, 50 * MM, (14 + i * 10 + dx) * MM, 8 * MM), { p: env2(0.6), tilt: 35, az: 90 }, 50), kind: 'paste', color: c }); });
+      const W = [0.96, 0.95, 0.92];
+      s.push({ ...stroke(tool, 70, line(6 * MM, 40 * MM, 76 * MM, 40 * MM), { p: env2(0.5), tilt: 35, az: 180 }, 50), kind: 'paste', color: W });
+      s.push({ ...stroke(tool, 70, line(6 * MM, 29 * MM, 76 * MM, 29 * MM), { p: env2(0.85), tilt: 35, az: 180 }, 50), kind: 'paste', color: W });
+      s.push({ ...stroke(tool, 80, u => [(6 + 70 * u) * MM, (17 + 4 * Math.sin(u * Math.PI * 4)) * MM], { p: env2(0.7), tilt: 35, az: 180 }, 50), kind: 'paste', color: W });
+      return s;
+    },
+  },
   // Isolated side strokes for measuring the fade (2026-10-07): pressures 0.15 0.3 0.5 0.75 1.0, at tilt
   // ?t= (fraction of the pen range), 34 mm apart, barrel to the left so the tip edge is the right edge.
   sidepro: {

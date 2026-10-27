@@ -40,6 +40,15 @@ export function cellCap(brush) {
   return brush.thickMm * brush.rate * brush.loadLenMm / brush.lenMm;
 }
 
+// The share of a full cell the loading tray puts in depth row j: the belly a little fuller than the tip; with `carry`
+// (jb_paste.glsl jb_pasteProf) the hairs hold 0.06 and the belly near the ferrule most of the load, which then feeds them.
+export function pasteRowShare(j, carry = 0) {
+  const base = 0.8 + 0.4 * j / (PASTE_DEPTH - 1);
+  if (!carry) return base;
+  const d = (j + 0.5) / PASTE_DEPTH, t = Math.min(1, Math.max(0, (d - 0.7) / 0.3));
+  return base + ((0.06 + 5.6 * t * t * (3 - 2 * t)) - base) * carry;
+}
+
 // Blade angle to the paper from the pen's tilt fraction t (same S-curve idea as the pencil): near upright
 // only the point reaches the paint; the edge lies down over the last part of the tilt range.
 // How a blade's edge lies, tapped through on the canvas bar (owner, 2026-10-07):
@@ -76,6 +85,7 @@ export class PasteStroke {
     this.carry = 0;
     this.travelled = 0;       // mm since touchdown: the hairs can only trail over the path already drawn
     this.lastStepT = null;
+    this.peak = 0;            // the pressure the brush was last pressed to (relaxing over ~12 mm): lifting off is easing below it
   }
 
   add(s) {
@@ -130,10 +140,15 @@ export class PasteStroke {
     const lDir = [-dir[0], -dir[1]];          // the tips trail the handle
     const wDir = [-lDir[1], lDir[0]];
     const tr = this.travelled;
+    // The stroke's ends (jb_paste.glsl u_ends): landing = the first stretch of travel, about the brush's width; lift = how
+    // far the pen has eased off the press it last held (a 10 % wobble is nothing, half the pressure is half lifted).
+    this.peak = Math.max(P, P + (this.peak - P) * Math.exp(-slideMm / 12));
+    const lift = smooth(0.03, 0.95, 1 - P / Math.max(this.peak, 1e-3));
+    const land = 1 - smooth(0, 0.6 * (b.widthMm || 1), tr);
     if (b.trowel) {
       // v6/v7 trowel geometry: width barely changes with pressure, length grows with it; tilt does nothing.
       const halfW = b.widthMm / 2 * (0.9 + 0.1 * P), len = b.lenMm * (0.6 + 0.4 * P);
-      this.steps.push({ x: s.x, y: s.y, wDir, lDir, halfW, len, lenMax: b.lenMm * 1.4, pressure: P, slideMm, fingers: 0 });
+      this.steps.push({ x: s.x, y: s.y, wDir, lDir, halfW, len, lenMax: b.lenMm * 1.4, pressure: P, slideMm, fingers: 0, lift, land });
       return;
     }
     if (b.blade) {
@@ -191,7 +206,7 @@ export class PasteStroke {
     const lenMax = Math.max(minLen, b.lenMm * 1.4);
     const len = Math.min(lenMax, Math.max(minLen, Math.min(lenFull, minLen + 0.8 * tr)));
     const th = (thick ?? b.thickMm) * this.body;
-    this.steps.push({ x: s.x, y: s.y, wDir, lDir, halfW, len, lenMax, pressure: P, slideMm, fingers, ...(thick !== undefined || this.body !== 1 ? { thick: th } : {}) });
+    this.steps.push({ x: s.x, y: s.y, wDir, lDir, halfW, len, lenMax, pressure: P, slideMm, fingers, lift, land, ...(thick !== undefined || this.body !== 1 ? { thick: th } : {}) });
   }
 
   take() { const out = this.steps; this.steps = []; return out; }

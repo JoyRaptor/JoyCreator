@@ -130,6 +130,21 @@ public class WaveformOverlayInstance implements LinkFollower {
     @NonNull public java.util.TreeMap<String, String> getVisFollow() { return visFollow; }
     @NonNull public java.util.Map<String, LinkPose> getVisFollowRefs() { return visFollowRefs; }
 
+    /**
+     * Picture layers of a VisLab look that show a Studio picture or title instead of their own
+     * picture (roadmap R9), so every VisLab picture effect (pump, shake, halo, split, tint) works
+     * on it. Same keys as {@link #getVisFollow()}. Persisted by ProjectStorage.
+     */
+    @NonNull private final java.util.TreeMap<String, String> visShow = new java.util.TreeMap<>();
+    /**
+     * The shown items (pictures and titles, as {@link LinkPose} so this model stays free of the
+     * title renderer's Android types), resolved by {@link Timeline#resolveSpaceLinks()}.
+     */
+    @NonNull private final transient java.util.Map<String, LinkPose> visShowRefs = new java.util.HashMap<>();
+
+    @NonNull public java.util.TreeMap<String, String> getVisShow() { return visShow; }
+    @NonNull public java.util.Map<String, LinkPose> getVisShowRefs() { return visShowRefs; }
+
     /** The key a follow is stored under. */
     @NonNull public static String visFollowKey(@NonNull String lookId, int layerIndex) {
         return lookId + "/" + layerIndex;

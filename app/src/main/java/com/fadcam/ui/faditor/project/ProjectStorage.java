@@ -2670,6 +2670,14 @@ public class ProjectStorage {
                         }
                         wj.add("visFollow", vf);
                     }
+                    // Look picture layers showing a Studio picture or title (R9); absent = none.
+                    if (!wo.getVisShow().isEmpty()) {
+                        JsonObject vs = new JsonObject();
+                        for (java.util.Map.Entry<String, String> e : wo.getVisShow().entrySet()) {
+                            vs.addProperty(e.getKey(), e.getValue());
+                        }
+                        wj.add("visShow", vs);
+                    }
                     // G5 attach/detach (tolerant, absent = detached — every pre-G5 project)
                     if (wo.getAttachedClipId() != null) {
                         wj.addProperty("attachedClipId", wo.getAttachedClipId());
@@ -3658,6 +3666,15 @@ public class ProjectStorage {
                                     : wj.getAsJsonObject("visFollow").entrySet()) {
                                 if (e.getValue().isJsonPrimitive()) {
                                     wo.getVisFollow().put(e.getKey(), e.getValue().getAsString());
+                                }
+                            }
+                        }
+                        // Look picture layers showing a Studio item (R9, tolerant, absent = none).
+                        if (wj.has("visShow") && wj.get("visShow").isJsonObject()) {
+                            for (java.util.Map.Entry<String, JsonElement> e
+                                    : wj.getAsJsonObject("visShow").entrySet()) {
+                                if (e.getValue().isJsonPrimitive()) {
+                                    wo.getVisShow().put(e.getKey(), e.getValue().getAsString());
                                 }
                             }
                         }

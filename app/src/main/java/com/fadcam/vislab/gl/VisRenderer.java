@@ -100,6 +100,7 @@ public final class VisRenderer {
     private volatile ImageSource images;
     private volatile SpriteSource spriteSource;
     @Nullable private volatile float[] layerFollow;
+    @Nullable private volatile String[] layerImages;
     private final SpriteLayers sprites = new SpriteLayers();
     /** This frame's sound and step, for layers that keep time on the CPU (sprites). */
     private Features frameF = new Features();
@@ -271,6 +272,26 @@ public final class VisRenderer {
      */
     public void setLayerFollow(@Nullable float[] follow) {
         layerFollow = follow;
+    }
+
+    /**
+     * Studio (roadmap R9): picture layers showing a Studio picture or title instead of their own,
+     * packed {@code [layerIndex, ref, ...]}; the ref goes to the {@link ImageSource}. Null: every
+     * layer shows its own picture.
+     */
+    public void setLayerImages(@Nullable String[] pairs) {
+        layerImages = pairs;
+    }
+
+    /** The picture reference layer {@code L} shows this frame: Studio's (R9), else its own. */
+    @Nullable
+    private String imageRefOf(@NonNull CompiledScene.Layer L) {
+        String[] p = layerImages;
+        if (p != null) {
+            String idx = Integer.toString(L.index);
+            for (int i = 0; i + 1 < p.length; i += 2) if (idx.equals(p[i])) return p[i + 1];
+        }
+        return L.image;
     }
 
     /** Forget all memory (particles, trails, echo) so the next frame starts clean (a seek). */
@@ -892,11 +913,12 @@ public final class VisRenderer {
     @NonNull
     private int[] imageTexture(@NonNull CompiledScene.Layer L) {
         int[] t = imageTex.get(L.source);
-        Object ref = L.image == null ? "" : L.image;
+        String want = imageRefOf(L);
+        Object ref = want == null ? "" : want;
         if (t != null && ref.equals(imageRef.get(L.source))) return t;
         if (t != null) GLES30.glDeleteTextures(1, new int[]{t[0]}, 0);
         ImageSource src = images;
-        Bitmap bmp = src != null ? src.bitmap(L.image) : null;
+        Bitmap bmp = src != null ? src.bitmap(want) : null;
         int[] ids = new int[1];
         GLES30.glGenTextures(1, ids, 0);
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, ids[0]);

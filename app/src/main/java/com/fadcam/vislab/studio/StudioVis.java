@@ -70,6 +70,8 @@ public final class StudioVis {
         /** The clip's transcript words for the look's Words layers (S5), and their key. */
         @Nullable com.fadcam.vislab.words.WordFeed feed;
         long wordsKey;
+        /** Its picture source, told each frame which Studio titles are shown (R9). */
+        @Nullable StudioPictures pictures;
 
         void release() {
             renderer.release();
@@ -283,9 +285,12 @@ public final class StudioVis {
                 // in Studio before: no maker was set).
                 vr.setWordsMaker(font -> new com.fadcam.vislab.words.WordFeed(app,
                         com.fadcam.vislab.words.VisFonts.typeface(app, font)));
-                vr.setImageSource(new com.fadcam.vislab.room.Pictures(app));   // pictures as in the room
+                // Pictures as in the room, plus Studio titles shown in a picture layer (R9).
+                StudioPictures pics = new StudioPictures(app);
+                vr.setImageSource(pics);
                 vr.setSpriteSource(new com.fadcam.vislab.room.Sprites(app));    // and sprite sheets
                 it = new Item(vr);
+                it.pictures = pics;
                 items.put(key, it);
             }
             it.usedAt = SystemClock.uptimeMillis();
@@ -306,6 +311,9 @@ public final class StudioVis {
             it.renderer.setReactivity(r.ctl.react);
             it.renderer.setLookControls(r.ctl.bright, r.ctl.hue, r.ctl.size, r.ctl.speed);
             it.renderer.setLayerFollow(r.ctl.follow);   // layers following a Studio object (R8)
+            // Picture layers showing a Studio picture or title (R9).
+            if (it.pictures != null) it.pictures.setTexts(r.ctl.show != null ? r.ctl.show.textItems : null);
+            it.renderer.setLayerImages(r.ctl.show != null ? r.ctl.show.pairs : null);
             // The clip's transcript, timed on the clip's own clock (S5); rebuilt only on a change.
             long wk = wordsKey(r.words);
             if (wk != it.wordsKey) {

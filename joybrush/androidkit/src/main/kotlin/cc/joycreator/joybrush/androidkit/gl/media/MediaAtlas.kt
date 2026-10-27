@@ -624,9 +624,12 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
             blocksRun++
             val need = (block.own + block.ring).toSet()
             // Brush input not yet in the water never leaves (the park holds none).
-            for (r in slots.residents()) if (media.inputPendingIn(r.page.tileKey)) pinBlock(r.page)
-            if (!MediaAtlasPlacement.fits(slots.capacity, need, (pinned + blockPinned).mapTo(HashSet()) { it.tileKey }))
-                throw MediaRoomException("A block of water and its ring do not fit beside what the frame holds (${need.size} areas of ${slots.capacity}).")
+            var inputHeld = 0
+            for (r in slots.residents()) if (media.inputPendingIn(r.page.tileKey)) { pinBlock(r.page); inputHeld++ }
+            val held = (pinned + blockPinned).mapTo(HashSet()) { it.tileKey }
+            if (!MediaAtlasPlacement.fits(slots.capacity, need, held))
+                throw MediaRoomException("A block of water and its ring do not fit beside what the frame holds (${need.size} areas of " +
+                    "${slots.capacity}; held ${held.size}: frame ${pinned.size}, brush input waiting $inputHeld, overlap ${need.count { it in held }}).")
             // A prior ring visit supplied read-only planes. Promotion needs canonical parked halves, not that partial copy.
             for (key in block.own) if (key in borrowedBlockTiles) dropBorrowedBlockTile(key)
             for (key in need) {

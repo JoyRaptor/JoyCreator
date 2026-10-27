@@ -1224,6 +1224,181 @@ internal class RecordedScene<T : Any> private constructor(
     private fun renderingRecord(record: StrokeRecord): StrokeRecord = record.copy(locked = false, groupId = null)
 
     companion object {
+        /** Only a synchronous opening guard, never a texture ownership registry. GL thread only. */
+        private val preparedOpenings = java.util.Collections.synchronizedSet(java.util.Collections.newSetFromMap(
+            java.util.IdentityHashMap<UndoLog<*>, Boolean>()))
+
+        /** Ordinary data equality canonicalizes NaN; actual prepared sources need raw bits too. */
+        private fun samePreparedRecord(a: StrokeRecord, b: StrokeRecord): Boolean =
+            CapturedStrokeRules.sameRecord(a, b) && a.smoothing.toRawBits() == b.smoothing.toRawBits() &&
+                a.screenPerDoc.toRawBits() == b.screenPerDoc.toRawBits() && a.widthScale.toRawBits() == b.widthScale.toRawBits() &&
+                a.samples.size == b.samples.size && a.samples.indices.all { i ->
+                    val x = a.samples[i]; val y = b.samples[i]
+                    x.x.toRawBits() == y.x.toRawBits() && x.y.toRawBits() == y.y.toRawBits() &&
+                        x.timeMs.toRawBits() == y.timeMs.toRawBits() && x.pressure.toRawBits() == y.pressure.toRawBits() &&
+                        x.tilt.toRawBits() == y.tilt.toRawBits() && x.azimuth.toRawBits() == y.azimuth.toRawBits() &&
+                        x.barrel.toRawBits() == y.barrel.toRawBits()
+                }
+
+        /**
+         * Construct an initial candidate from actual already-rendered canonical sources. Inputs
+         * remain borrowed until successful return; on refusal only new derived looks are retired.
+         * No record is replayed and history never moves. Protected handles must include every
+         * external owner: this factory cannot discover an owner omitted by the caller/renderer.
+         */
+        internal fun <T : Any> createPrepared(
+            planes: Map<Pair<String, String?>, RecordedCel<T>>, brushes: Map<String, BrushPreset>,
+            history: UndoLog<T>, renderer: Renderer<T>, preparedUnits: Map<LineAddress, Cached<T>>,
+            protectedTextures: Set<T>,
+        ): RecordedScene<T> {
+            history.checkCursorBindingAllowed()
+            check(preparedOpenings.add(history)) { "Prepared scene creation cannot reenter the same history" }
+            try {
+                val cursor = history.snapshotCursor()
+                // Detach every mutable collection BEFORE any renderer/context/admission callback.
+                val physical = planes.mapValues { (_, cel) -> RecordedCel(cel.layerId, cel.celId, cel.records,
+                    cel.slabs.mapValues { (_, stack) -> stack.map { RecordedCel.PixelSlab(it.seq,
+                        UndoLog.SlabValue(it.value.texture, it.value.op)) } }) }
+                val frozen = FrozenBrushRegistry.validate(brushes)
+                val prepared = preparedUnits.mapValues { (_, value) ->
+                    Cached(CapturedStrokeRules.snapshot(value.record), Unit(value.unit.op, value.unit.tiles))
+                }
+                val protected = protectedTextures.toSet()
+                if (renderer !is CapturedSourceRenderer<*>)
+                    physical.values.forEach { CapturedStrokeRules.requireOrdinary(it.records) }
+                val records = linkedMapOf<LineAddress, StrokeRecord>()
+                for ((plane, cel) in physical) {
+                    require(plane == (cel.layerId to cel.celId)) { "Prepared cel has mismatched physical ownership" }
+                    for (record in cel.records) records[LineAddress(cel.layerId, cel.celId, record.id)] = record
+                }
+                require(prepared.keys == records.keys) { "Prepared sources must cover exactly every stored line address" }
+                for ((address, record) in records) {
+                    val cached = prepared.getValue(address)
+                    require(samePreparedRecord(cached.record, record)) { "Prepared source has a different raw record" }
+                    require(cached.unit.op == frozen.getValue(record.brushId).blend) { "Prepared source has a different operator" }
+                }
+                fun historyTextures(): Set<T> = (history.snapshotCursor().let { it.undoSteps + it.redoSteps }).flatMap { step ->
+                    step.changes.flatMap { listOfNotNull(it.before, it.after) } +
+                        step.slabs.flatMap { listOfNotNull(it.before?.texture, it.after?.texture) }
+                }.toSet()
+                val slabs = physical.values.flatMap { cel -> cel.slabs.values.flatMap { stack -> stack.map { it.value.texture } } }
+                require(slabs.distinct().size == slabs.size) { "Prepared physical slabs share ownership" }
+                val sourceHandles = prepared.values.flatMap { it.unit.tiles.values }
+                val originalHistory = historyTextures()
+                val borrowed = (sourceHandles + slabs + originalHistory + protected).toMutableSet()
+                require(sourceHandles.distinct().size == sourceHandles.size &&
+                    sourceHandles.none { it in slabs || it in originalHistory || it in protected }) {
+                    "Prepared sources alias another source, slab, history or protected owner"
+                }
+                var opening = true
+                var contextLost = false
+                var callback = false
+                var openingCursor: UndoLog.Cursor<T>? = cursor
+                val outputs = LinkedHashSet<T>()
+                val retired = HashSet<T>()
+                var untrackedOutput: T? = null
+                fun checkHistory() {
+                    history.checkCursorBindingAllowed()
+                    check(history.snapshotCursor() === openingCursor) { "History changed during prepared scene creation" }
+                }
+                fun <R> external(block: () -> R): R {
+                    check(!callback) { "Prepared renderer callbacks cannot recurse" }
+                    checkHistory()
+                    callback = true
+                    try { return block() } finally { callback = false }
+                }
+                fun context(): Boolean {
+                    if (!opening) return renderer.contextCurrent()
+                    if (contextLost) return false
+                    val current = try { external { renderer.contextCurrent() } }
+                        catch (failure: Throwable) { contextLost = true; throw failure }
+                    if (!current) contextLost = true
+                    checkHistory()
+                    return current
+                }
+                fun retire(texture: T) {
+                    if (!opening) { renderer.release(texture); return }
+                    if (texture in borrowed || texture in retired || contextLost) return
+                    // A callback may have placed a new handle in foreign history. Reclassify at
+                    // cleanup time; a context whose physical identity is unknown is abandoned.
+                    val current = try { renderer.contextCurrent() }
+                        catch (failure: Throwable) { contextLost = true; throw failure }
+                    if (!current) { contextLost = true; return }
+                    if (texture in historyTextures()) return
+                    retired.add(texture)
+                    renderer.release(texture)
+                }
+                val base = object : Renderer<T> {
+                    override fun contextCurrent() = context()
+                    override fun line(address: LineAddress, record: StrokeRecord, preset: BrushPreset): Unit<T> {
+                        check(!opening) { "A prepared opening cannot replay a supplied source" }
+                        return renderer.line(address, record, preset)
+                    }
+                    override fun copyForBake(address: LineAddress, unit: Unit<T>): Unit<T> {
+                        check(!opening) { "A prepared opening cannot bake its borrowed inputs" }
+                        return renderer.copyForBake(address, unit)
+                    }
+                    override fun look(plane: Pair<String, String?>, key: Long, sources: List<Source<T>>): T? {
+                        if (!opening) return renderer.look(plane, key, sources)
+                        check(context()) { "Prepared rendering context is unavailable" }
+                        val output = external { renderer.look(plane, key, sources) }
+                        untrackedOutput = output
+                        output?.let { outputs.add(it) }
+                        untrackedOutput = null
+                        checkHistory()
+                        check(context()) { "Prepared rendering context changed during composition" }
+                        return output
+                    }
+                    override fun release(texture: T) = retire(texture)
+                }
+                @Suppress("UNCHECKED_CAST")
+                val capable = renderer as? CapturedSourceRenderer<T>
+                val guarded = if (capable != null) object : CapturedSourceRenderer<T>, Renderer<T> by base {
+                    override fun admitCapturedSource(address: LineAddress, record: StrokeRecord, preset: BrushPreset): Boolean {
+                        if (!opening) return capable.admitCapturedSource(address, record, preset)
+                        val accepted = external { capable.admitCapturedSource(address, record, preset) }
+                        checkHistory()
+                        return accepted
+                    }
+                } else base
+                val scene = RecordedScene(history, guarded)
+                // Private borrowed baseline: new planes materialize, but exact units are reused.
+                // Thus only newly derived looks enter render's fresh rollback ownership set.
+                val baseline = State(scene.sceneIdentity, emptyMap(), emptyMap(), prepared,
+                    emptyMap(), emptyMap(), emptyMap())
+                try {
+                    val rendered = scene.prepareLocal {
+                        scene.render(baseline, physical, frozen, protected = borrowed,
+                            currentBorrowed = { borrowed + historyTextures() })
+                    }
+                    check(context()) { "Prepared rendering context changed before acceptance" }
+                    checkHistory()
+                    scene.localState = rendered.state
+                    opening = false
+                    // The actual renderer owns all future replay/admission/release behavior.
+                    outputs.clear(); retired.clear(); borrowed.clear(); openingCursor = null
+                    return scene
+                } catch (failure: Throwable) {
+                    // Includes an output returned just before its callback changed history or
+                    // context, which render may not yet have added to its own fresh set.
+                    fun cleanup(texture: T) {
+                        try { retire(texture) } catch (cleanup: Throwable) {
+                            if (cleanup !== failure) try { failure.addSuppressed(cleanup) } catch (_: Throwable) { }
+                        }
+                    }
+                    try {
+                        untrackedOutput?.let(::cleanup)
+                        for (texture in outputs) cleanup(texture)
+                    } catch (cleanup: Throwable) {
+                        if (cleanup !== failure) try { failure.addSuppressed(cleanup) } catch (_: Throwable) { }
+                    }
+                    throw failure
+                }
+            } finally {
+                preparedOpenings.remove(history)
+            }
+        }
+
         /**
          * Install uploaded saved looks without replay or composition. Every physical cel needs
          * an explicit declared index, including empty no-dab indexes. These declarations are NOT

@@ -31,12 +31,13 @@ internal object MediaSeamProbe {
         val before = MediaAtlasGl.enabled
         val engines = JSONArray()
         try {
-            for (atlas in listOf(true, false)) {
+            for ((atlas, isLong) in listOf(true to false, false to false, true to true)) {
                 MediaAtlasGl.enabled = atlas
+                long = isLong
                 val o = try { run(paper, preset, memory) } catch (e: Throwable) {
                     JSONObject().put("error", e.toString()).put("at", e.stackTrace.take(6).joinToString(" < ") { "${it.fileName}:${it.lineNumber}" })
                 }
-                engines.put(o.put("engine", if (atlas) "atlas" else "window"))
+                engines.put(o.put("engine", (if (atlas) "atlas" else "window") + if (isLong) " long" else ""))
             }
         } finally { MediaAtlasGl.enabled = before }
         return report.put("engines", engines).put("glError", GLES30.glGetError()).toString()
@@ -120,8 +121,18 @@ internal object MediaSeamProbe {
             .put("lastColumn", stats(cols)).put("interiorBaseline", stats(base)).put("worst", worst)
     }
 
-    /** Six oil strokes inside the old window's reach (about 900 px), crossing tile rows and columns. */
+    /** Six oil strokes: inside the old window's reach (about 900 px) by default; [long]: across many tiles, as the undo probe's. */
+    var long = false
     private fun path(i: Int): List<MediaSample> {
+        if (long) {
+            val n = 320
+            val (x0, y0, dx, dy) = when (i % 3) { 0 -> listOf(-600.0, -300.0, 1900.0, 700.0); 1 -> listOf(1300.0, -500.0, -1700.0, 1300.0); else -> listOf(-400.0, 700.0, 1800.0, -900.0) }
+            val shift = 90.0 * (i / 3)
+            return List(n) { k ->
+                val t = k / (n - 1.0)
+                MediaSample(x0 + dx * t + shift, y0 + dy * t + 180 * sin(2 * PI * t * 1.5 + i) + shift, 0.35 + 0.5 * abs(sin(3 * PI * t)), 0.6, 0.4 + t, k * 8.0)
+            }
+        }
         val n = 160
         return List(n) { k ->
             val t = k / (n - 1.0)

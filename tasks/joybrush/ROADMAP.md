@@ -1,7 +1,7 @@
 # JoyBrush roadmap — current completion board
 
 Refreshed October 27, 2026 against integrated coordinator code **d2c6c8973** and exact-source
-receipts. This is the one file to point a new agent at. Read
+receipts. Exact0adfde398 APK is built/preserved; new GPU checks await fresh unlocked Home. All specialist bounded turns are closed; ACTIVE names unfinished domain ownership, not a running worker. This is the one file to point a new agent at. Read
 [Agent start](AGENT_START_20261026.md) before editing or running jobs.
 [Current handback ledger](HANDOFF_20261027_COORDINATOR.md) supplies detailed receipts.
 [Git synchronization contract](GIT_HYGIENE.md) defines checkpoint publication and safe cleanup.

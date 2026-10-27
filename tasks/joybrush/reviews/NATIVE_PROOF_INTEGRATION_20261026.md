@@ -1,5 +1,7 @@
 # Combined native diagnostics — isolated integration candidate
 
+Current October27 gate: compiled/tested on0adfde398 and code-equivalent canonicald2c6; exact APK built/preserved. GPU/save/activation remains UNPROVED. Read [current handback](../HANDOFF_20261027_COORDINATOR.md) for closed receipts and next gate; historical slot notes below grant no job access.
+
 Base f6287b921. Preserves current Select/A10 source; selectively applies code-only
 frame717f6c326, watercolor dispatche670257df and frame probe7b23ce906 changes.
 Root adds a separate `nativeFrameDuplicateProbe` View/BenchRunner entry and a

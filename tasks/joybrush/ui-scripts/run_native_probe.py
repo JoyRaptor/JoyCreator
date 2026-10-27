@@ -21,6 +21,7 @@ from run_select_bench import ACTIVITY, PACKAGE, Adb, PhoneClaim, RunError
 CASES = {
     "nativeFrameDuplicateProbe": "joybrush.ink",
     "recordedWatercolourOrdinaryProbe": "joybrush.watercolour",
+    "mediaUndoProbe": "media:paste:Oil round,media:paste:All-round,media:wet:Wash,media:dry:HB",
     "liveSourceLeaseProbe": "joybrush.ink",
     "mediaAtlasLedgerProbe": "media:wet:Wash,media:paste:Oil round,media:dry:HB",
 }

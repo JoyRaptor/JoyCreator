@@ -2915,6 +2915,27 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
 
     /** Debug adapter arithmetic check on a throwaway engine; it never reads/writes the drawing. */
     /** Media Atlas v2 B1's device proof (debug bench only): window and atlas media engines through the same frames. */
+    /** The owner's oil seams (debug bench only): A, B, undo, redo, undo, C in the atlas, looks exact, no payload dropped (MediaUndoProbe). */
+    fun runMediaUndoProbe(preset: BrushPreset, ready: (String) -> Unit) {
+        if (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) {
+            ready("{\"pass\":false,\"error\":\"Media undo probe is debug only\"}")
+            return
+        }
+        val paper = documentPaperState
+        val memory = {
+            val am = context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+            val info = android.app.ActivityManager.MemoryInfo()
+            am.getMemoryInfo(info)
+            info.availMem to info.threshold
+        }
+        onGl {
+            val report = try {
+                cc.joycreator.joybrush.androidkit.gl.media.MediaUndoProbe.probe(paper, preset, memory, 6 to 4)
+            } catch (e: Throwable) { "{\"pass\":false,\"error\":" + org.json.JSONObject.quote(e.toString()) + "}" }
+            post { ready(report) }
+        }
+    }
+
     /** JB-5.20d LIVE-SOURCE (debug bench only): a live source lease against the native end of the same stroke (LiveSourceLeaseProbe). */
     fun runLiveSourceLeaseProbe(ready: (String) -> Unit) {
         if (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) {

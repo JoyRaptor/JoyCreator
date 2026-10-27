@@ -137,6 +137,8 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
     private var admitted = false
     /** Passes that asked past their frame's admission (a planning bug; the pass is still served if there is room). */
     var admissionMisses = 0; private set
+    /** Tiles written back and let go to make room or at release (bench). */
+    var writeBacks = 0; private set
 
     override fun admit(needs: List<MediaLayerEngine.Need>) = mediaTrace("JB.media.atlas.admit") { admitInner(needs) }
     private fun admitInner(needs: List<MediaLayerEngine.Need>) {
@@ -373,7 +375,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
     private val residency by lazy { MediaAtlasResidency(slots, backing) }
     private val backing = object : MediaAtlasBacking {
         override fun load(slot: Int, page: MediaAtlasPage) = mediaTrace("JB.media.atlas.load") { loadSlot(slot, page.tileKey) }
-        override fun writeBack(slot: Int, page: MediaAtlasPage) = mediaTrace("JB.media.atlas.writeBack") { writeBackSlot(slot, page.tileKey); dropFromTable(page.tileKey) }
+        override fun writeBack(slot: Int, page: MediaAtlasPage) = mediaTrace("JB.media.atlas.writeBack") { writeBacks++; writeBackSlot(slot, page.tileKey); dropFromTable(page.tileKey) }
     }
 
     /** One tile into [slot]: its payload, its look and its ground (its `g`, or its look when it has no payload), its paper. */

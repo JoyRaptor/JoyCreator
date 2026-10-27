@@ -636,7 +636,9 @@ class GlPaintEngine(
 
     private fun createGlObjects() {
         val epoch = physicalContextEpoch
-        val context = EGL14.eglGetCurrentContext()
+        // Held as Any: a lambda capturing an EGLContext gets a synthetic method typed with it, which breaks reflection
+        // over this class on the JVM (no android.jar there). equals() compares the handle either way.
+        val context: Any = EGL14.eglGetCurrentContext()
         val scratch = IntArray(1)
         val current = { physicalContextEpoch == epoch && !forgettingGraphicsContext &&
             context != EGL14.EGL_NO_CONTEXT && EGL14.eglGetCurrentContext() == context }

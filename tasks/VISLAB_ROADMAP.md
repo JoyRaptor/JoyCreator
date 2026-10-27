@@ -45,7 +45,7 @@ Note 9 test. Every `[~]` row was compiled together on 10-24 (Studio + effects + 
 | R7 | Sprite element: a SpriteLab sheet inside a look (G8a) | M | lead | [~] Sprite element + look "Record Hop"; run-sprite 11/11; pilot draws the built-in sheet |
 | R8 | Studio proxies drive a look's Place and picture (G7) | M | Sonnet | [ ] |
 | R9 | Layer reference: a look shows another Studio item (G8c) | L | lead | [ ] |
-| R10 | Echo trails as a Studio effect (stateful feedback) | M | lead | [ ] |
+| R10 | Echo trails as a Studio effect (stateful feedback) | M | lead | [~] "Echo Trails" (Echo / Light trails / Glow trails; trail length, zoom, turn, colour drift, centre) on adjustment layers. New FEEDBACK capability: its own pass, never the last; `FX_PREV` / `FX_DT`; `fx/FxHistory` keeps two frame-sized pictures per pass in export and preview, resets on a jump. Tests + glslc 35/35; branch vislab/studio-fx-20261027; phone test owed |
 | R11 | True blend preview for visualisers in Studio | M | Sonnet | [ ] |
 | R12 | Video element (G8b) | M | later | [ ] |
 | R13 | Tracker modules (.mod) as a sound source, like MIDI: play the samples, exact hits per channel (owner sent two demoscene beat .mods 10-24) | M | lead | [ ] |
@@ -121,6 +121,20 @@ real in export), through the GL preview compositor.
 
 ## Log (newest first)
 
+- 2026-10-27 (later): R10 Echo Trails. `FxEffectDef.Capability.FEEDBACK`: the planner gives it a
+  pass of its own and always adds a plain pass after it (the last render carries the layer's
+  mask / opacity composite, which must not be fed back). `FX_PREV(uv)` reads last frame's output
+  of that pass (outside the frame is empty; before any history it reads the pass input, so trails
+  start from the picture), `FX_DT` is seconds since then. `app/.../fx/FxHistory` keeps two
+  frame-sized pictures per feedback pass, used identically by `AdjustmentLayerGlEffect` (export)
+  and `FxPreviewTextureView` (preview, keyed by layer position + pass). Valid only across
+  consecutive moments (gap <= 250 ms); a redraw of the same moment shows one ordinary step over
+  the current picture without advancing history, so paused edits stay visible. Rates per second,
+  Trail length per 1/30 s raised to dt (echo.frag's rule) so 30 fps export = 60 fps preview.
+  Known limit: export renders each clip's chain separately, so trails restart at a clip boundary.
+  Checks: FxCompilerTest (planning, history declared only in the feedback pass, one FEEDBACK
+  effect), every real layer program (FxGlSource.fragment, composite + masks) compiled with glslc
+  as GLSL ES 3.1: 35/35. Type-checked against the app. Not yet in an APK.
 - 2026-10-27: R4 second half on branch `vislab/studio-fx-20261027` (isolated worktree
   `C:/Temp/vl-studio-fx`, per the 10-26 git hygiene rule): Glow (one-pass bloom: a 24-point
   sunflower disc of the bright parts, screened on), Flash (a colour wash, optional strobe), Vignette

@@ -123,7 +123,45 @@ final class FxVisLabDefs2 {
             + " * vec2(1.0 / FX_ASPECT, 1.0);\n"
             + FOLD;
 
-    /** Appends the six, in picker order within each family. */
+    /**
+     * VisLab's echo on a video: each frame keeps a fading copy of the last one, zoomed, turned and
+     * colour-drifted, so moving things leave trails (FEEDBACK: the renderer keeps that copy). Echo
+     * crossfades with it (ghosting), Light trails keeps whichever is brighter, Glow trails screens
+     * it on. Every rate is per second and Trail length is "kept per 1/30 s", raised to the real
+     * frame time, so a 30 fps export and a 60 fps preview build the same trails (echo.frag's rule).
+     */
+    private static final String BODY_ECHO_TRAILS =
+            "float dt = FX_DT;\n"
+            + "vec2 asp = vec2(FX_ASPECT, 1.0);\n"
+            + "vec2 c = FX_P(center);\n"
+            + "vec2 d = (uv - c) * asp;\n"
+            + "float z = exp(FX_P(zoom) * dt);\n"
+            + "float a = FX_P(turn) * 6.28318530718 * dt;\n"
+            + "float ca = cos(a);\n"
+            + "float sa = sin(a);\n"
+            + "d = vec2(d.x * ca + d.y * sa, d.y * ca - d.x * sa) / z;\n"
+            + "vec4 tr = FX_PREV(c + d / asp);\n"
+            // Colour drift: turn the trail's hue (YIQ), a little each frame.
+            + "float ha = FX_P(hue) * 6.28318530718 * dt;\n"
+            + "float hc = cos(ha);\n"
+            + "float hs = sin(ha);\n"
+            + "float yy = dot(tr.rgb, vec3(0.299, 0.587, 0.114));\n"
+            + "float ii = dot(tr.rgb, vec3(0.596, -0.274, -0.322));\n"
+            + "float qq = dot(tr.rgb, vec3(0.211, -0.523, 0.312));\n"
+            + "float i2 = ii * hc - qq * hs;\n"
+            + "float q2 = ii * hs + qq * hc;\n"
+            + "tr.rgb = max(vec3(yy + 0.956 * i2 + 0.621 * q2, yy - 0.272 * i2 - 0.647 * q2,"
+            + " yy - 1.106 * i2 + 1.703 * q2), 0.0);\n"
+            + "float keep = pow(clamp(FX_P(amount), 0.0, 0.99), dt * 30.0);\n"
+            + "vec4 cur = FX_SAMPLE(uv);\n"
+            + "float m = FX_P(mode);\n"
+            + "vec3 o;\n"
+            + "if (m < 0.5) o = mix(cur.rgb, tr.rgb, keep);\n"
+            + "else if (m < 1.5) o = max(cur.rgb, tr.rgb * keep);\n"
+            + "else { vec3 t = tr.rgb * keep; o = cur.rgb + t - cur.rgb * t; }\n"
+            + "return vec4(o, cur.a);\n";
+
+    /** Appends the seven, in picker order within each family. */
     static void addTo(@NonNull List<FxEffectDef> defs) {
         // ── Color ──
         defs.add(new FxEffectDef("glow", "Glow",
@@ -166,6 +204,17 @@ final class FxVisLabDefs2 {
                 BODY_SWIRL,
                 FxParam.flt("angle", "Angle", -720f, 720f, 180f),
                 FxParam.flt("radius", "Radius", 0.05f, 2f, 0.6f),
+                FxParam.point("center", "Center", 0.5f, 0.5f)));
+
+        defs.add(new FxEffectDef("echo_trails", "Echo Trails",
+                FxEffectDef.Family.DISTORT, FxEffectDef.Capability.FEEDBACK, 1, 1.4f,
+                BODY_ECHO_TRAILS,
+                FxParam.enumOf("mode", "Trails", 1, "Echo", "Light trails", "Glow trails"),
+                // Kept per 1/30 s: 0.75 leaves about half a second of trail.
+                FxParam.flt("amount", "Trail length", 0f, 0.98f, 0.75f),
+                FxParam.flt("zoom", "Zoom", -2f, 2f, 0.3f),
+                FxParam.flt("turn", "Turn", -1f, 1f, 0f),
+                FxParam.flt("hue", "Colour drift", -1f, 1f, 0f),
                 FxParam.point("center", "Center", 0.5f, 0.5f)));
 
         defs.add(new FxEffectDef("warp", "Warp",

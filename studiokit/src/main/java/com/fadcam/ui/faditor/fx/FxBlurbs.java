@@ -57,6 +57,7 @@ public final class FxBlurbs {
         put("ripple", "Water ripples spreading out from a point");
         put("swirl", "Twists the picture around a point");
         put("warp", "Makes the picture flow like heat haze or water");
+        put("echo_trails", "Moving things leave fading trails that can zoom, turn and change colour");
     }
 
     private static void put(@NonNull String id, @NonNull String blurb) {

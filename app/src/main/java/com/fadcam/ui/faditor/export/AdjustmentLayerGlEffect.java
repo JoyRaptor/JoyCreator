@@ -15,6 +15,7 @@ import com.fadcam.FLog;
 import com.fadcam.ui.faditor.fx.FxCompiler;
 import com.fadcam.ui.faditor.fx.FxEffectDef;
 import com.fadcam.ui.faditor.fx.FxGlSource;
+import com.fadcam.ui.faditor.fx.FxHistory;
 import com.fadcam.ui.faditor.fx.FxInstance;
 import com.fadcam.ui.faditor.fx.FxStack;
 import com.fadcam.ui.faditor.fx.FxUniforms;
@@ -181,8 +182,15 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
                 for (int i = 0; i < stepCount; i++) {
                     Step step = steps.get(i);
                     boolean last = i == stepCount - 1;
+                    // Echo Trails: this pass draws into its own history picture and reads last
+                    // frame's. The planner never makes it the last pass, so the composite is
+                    // never fed back.
+                    FxHistory.Target hist = step.pass.feedback && !last
+                            ? history.begin("p" + i, width, height, editorMs) : null;
                     if (last) {
                         GlUtil.focusFramebufferUsingCurrentContext(outFbo[0], width, height);
+                    } else if (hist != null) {
+                        GlUtil.focusFramebufferUsingCurrentContext(hist.writeFbo(), width, height);
                     } else {
                         GlUtil.focusFramebufferUsingCurrentContext(fboFor(i), width, height);
                     }
@@ -200,6 +208,11 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
                     // A separable kernel runs the SAME program twice with the axis flipped;
                     // that is the whole reason a pass can declare two renders.
                     setF2(p, "uDir", step.dirX, step.dirY);
+                    if (hist != null) {
+                        setSampler(p, FxCompiler.U_PREV, hist.prevTex(), 2);
+                        setF(p, FxCompiler.U_PREV_VALID, hist.prevValid());
+                        setF(p, FxCompiler.U_DT, hist.dt());
+                    }
                     for (FxUniforms.Value v : FxUniforms.forPass(step.pass)) {
                         if (v.components() == 1) setF(p, v.name, v.data[0]);
                         else setFn(p, v.name, v.data);
@@ -215,7 +228,12 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
                             maskOps);
                     GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
                     GlUtil.checkGlError();
-                    if (!last) src = texFor(i);
+                    if (hist != null) {
+                        src = hist.writeTex();
+                        history.end(hist, editorMs);
+                    } else if (!last) {
+                        src = texFor(i);
+                    }
                 }
             } catch (Exception e) {
                 // A lost grade beats a lost export. Latch so a per-frame failure does not spam.
@@ -334,6 +352,8 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
         }
 
         @NonNull private final List<Step> steps = new java.util.ArrayList<>();
+        /** Echo Trails' previous frames, one per feedback pass, kept across drawFrame calls. */
+        @NonNull private final FxHistory history = new FxHistory();
         /** Ping-pong targets, one per intermediate step. Lazily made, reused every frame. */
         @NonNull private final List<int[]> pingPong = new java.util.ArrayList<>();
 
@@ -480,6 +500,7 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
             super.release();
             try {
                 releaseSteps();
+                history.release();
                 // The ping-pong targets are GL objects too. Leaking one per export would be a
                 // slow bleed nobody notices until a long session runs out of texture memory.
                 for (int[] pp : pingPong) {

@@ -595,7 +595,14 @@ public final class FxRegistry {
 
             boolean remap = d.capability == FxEffectDef.Capability.UV_REMAP;
             boolean samples = d.glslBody.contains("FX_SAMPLE");
-            if (samples && d.capability != FxEffectDef.Capability.SAMPLER) {
+            boolean feedback = d.capability == FxEffectDef.Capability.FEEDBACK;
+            if (feedback != d.glslBody.contains("FX_PREV")) {
+                // Only a FEEDBACK pass has a history bound; anywhere else FX_PREV has no texture,
+                // and a FEEDBACK card that never reads it keeps two frame-sized buffers for nothing.
+                problems.add(d.id + (feedback ? ": FEEDBACK but never reads FX_PREV"
+                        : ": reads FX_PREV but is not declared FEEDBACK"));
+            }
+            if (samples && d.capability != FxEffectDef.Capability.SAMPLER && !feedback) {
                 // A POINTWISE body that samples would read the PASS INPUT, not the colour the
                 // cards below it produced — it would silently ignore everything under it.
                 problems.add(d.id + ": uses FX_SAMPLE but is not declared SAMPLER");

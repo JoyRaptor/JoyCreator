@@ -62,10 +62,10 @@ public class FxCompilerTest {
     static void registryIsValid() {
         List<String> problems = FxRegistry.validate();
         check("the registry self-check passes: " + problems, problems.isEmpty());
-        check("all 33 effects are present (12 v1 + Solid Color + Gradient + Brightness + the legacy "
+        check("all 34 effects are present (12 v1 + Solid Color + Gradient + Brightness + the legacy "
                         + "grade's two halves, color_grade and film, + VisLab's ten finishes + its "
-                        + "six looks: glow, flash, vignette, ripple, swirl, warp)",
-                FxRegistry.all().size() == 33);
+                        + "six looks: glow, flash, vignette, ripple, swirl, warp, + Echo Trails)",
+                FxRegistry.all().size() == 34);
     }
 
     static void everyEffectCompilesToBothBackends() {
@@ -678,18 +678,51 @@ public class FxCompilerTest {
                 {"scanlines", "POINTWISE"},
                 // The second half (FxVisLabDefs2).
                 {"glow", "SAMPLER"}, {"flash", "POINTWISE"}, {"vignette", "POINTWISE"},
-                {"ripple", "UV_REMAP"}, {"swirl", "UV_REMAP"}, {"warp", "UV_REMAP"}};
+                {"ripple", "UV_REMAP"}, {"swirl", "UV_REMAP"}, {"warp", "UV_REMAP"},
+                {"echo_trails", "FEEDBACK"}};
         for (String[] w : want) {
             FxEffectDef d = FxRegistry.get(w[0]);
             check("VisLab finish " + w[0] + " is registered", d != null);
             if (d != null) check(w[0] + " is " + w[1], d.capability.name().equals(w[1]));
         }
+        echoTrailsPlan();
         // The picker's hover label says what each effect does; a new effect without a sentence
         // would show only its name.
         String missing = "";
         for (FxEffectDef d : FxRegistry.all()) if (!FxBlurbs.has(d.id)) missing += " " + d.id;
         check("every effect has a picker sentence" + (missing.isEmpty() ? "" : ": missing" + missing),
                 missing.isEmpty());
+    }
+
+    /**
+     * Echo Trails reads its own previous output. It gets a pass of its own that declares the
+     * history, and is never the last pass: the last render also mixes the layer over the picture
+     * by mask and opacity, and that must not be fed back next frame.
+     */
+    static void echoTrailsPlan() {
+        FxStack s = new FxStack();
+        s.add("echo_trails");
+        FxCompiler.Plan alone = FxCompiler.plan(s);
+        check("echo alone plans two passes, feedback then plain: " + alone,
+                alone.passes.size() == 2 && alone.passes.get(0).feedback
+                        && !alone.passes.get(1).feedback);
+        String g = FxCompiler.emitGlsl(alone.passes.get(0), K);
+        check("the feedback pass declares and reads the history",
+                g.contains("uniform sampler2D " + FxCompiler.U_PREV) && g.contains("fxPrev(")
+                        && g.contains(FxCompiler.U_DT));
+        check("the plain pass after it has no history",
+                !FxCompiler.emitGlsl(alone.passes.get(1), K).contains(FxCompiler.U_PREV));
+
+        FxStack s2 = new FxStack();
+        s2.add("echo_trails");
+        s2.add("vignette");
+        FxCompiler.Plan withAfter = FxCompiler.plan(s2);
+        check("a card above echo needs no extra pass: " + withAfter,
+                withAfter.passes.size() == 2 && withAfter.passes.get(0).feedback
+                        && withAfter.passes.get(1).cards.size() == 1);
+        check("no other effect is feedback",
+                FxRegistry.all().stream().filter(d -> d.capability
+                        == FxEffectDef.Capability.FEEDBACK).count() == 1);
     }
 
     static void check(String what, boolean ok) {

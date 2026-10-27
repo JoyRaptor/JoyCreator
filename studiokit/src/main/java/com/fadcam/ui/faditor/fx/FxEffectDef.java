@@ -47,7 +47,14 @@ public final class FxEffectDef {
         /** Same signature, uses {@code FX_SAMPLE}. Closes the current pass and opens its own. */
         SAMPLER,
         /** {@code vec2 fx_uv(vec2 uv)}. Opens NO pass; folds into the next sampler's coordinate. */
-        UV_REMAP
+        UV_REMAP,
+        /**
+         * A SAMPLER that also reads its OWN previous output through {@code FX_PREV(uv)}, with
+         * {@code FX_DT} the seconds since that frame (echo trails). Its own pass, never the last
+         * (the planner adds a plain pass after it, so the layer's composite is not fed back), and
+         * adjustment layers only: the renderer keeps the history picture between frames.
+         */
+        FEEDBACK
     }
 
     @NonNull public final String id;

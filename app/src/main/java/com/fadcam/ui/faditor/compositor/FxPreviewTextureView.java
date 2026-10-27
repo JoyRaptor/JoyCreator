@@ -22,6 +22,7 @@ import androidx.annotation.Nullable;
 import com.fadcam.FLog;
 import com.fadcam.ui.faditor.fx.FxCompiler;
 import com.fadcam.ui.faditor.fx.FxGlSource;
+import com.fadcam.ui.faditor.fx.FxHistory;
 import com.fadcam.ui.faditor.fx.FxStack;
 import com.fadcam.ui.faditor.fx.FxUniforms;
 import com.fadcam.ui.faditor.model.AdjustmentLayer;
@@ -1319,6 +1320,9 @@ public class FxPreviewTextureView extends TextureView
      */
     @NonNull private final MeshStampGl meshStamp = new MeshStampGl();
 
+    /** Echo Trails' previous frames, per adjustment layer and feedback pass. GL thread only. */
+    @NonNull private final FxHistory history = new FxHistory();
+
     /** One RENDER: a program, which pass it came from, and its separable-kernel axis. */
     private static final class Step {
         final int program;
@@ -1909,7 +1913,7 @@ public class FxPreviewTextureView extends TextureView
                         && cp.spineLayerIndex < cp.layers.size()
                         && cp.spineLayerIndex < compiled.size()) {
                     cur = drawOneLayer(cp.layers.get(cp.spineLayerIndex),
-                            compiled.get(cp.spineLayerIndex), vw, vh, cur);
+                            compiled.get(cp.spineLayerIndex), cp.spineLayerIndex, vw, vh, cur);
                 }
             }
 
@@ -1974,7 +1978,7 @@ public class FxPreviewTextureView extends TextureView
                     } else if (layersReady && r.layerIndex >= 0
                             && r.layerIndex < cp.layers.size() && r.layerIndex < compiled.size()) {
                         cur = drawOneLayer(cp.layers.get(r.layerIndex),
-                                compiled.get(r.layerIndex), vw, vh, cur);
+                                compiled.get(r.layerIndex), r.layerIndex, vw, vh, cur);
                     }
                 }
             }
@@ -2841,23 +2845,37 @@ public class FxPreviewTextureView extends TextureView
      * <p>The interleaved composite walk calls this once per adjustment-layer rung, so a layer
      * sitting between two PiPs grades only the frame beneath it — the export's ordering.</p>
      */
-    private int drawOneLayer(@NonNull Layer layer, @NonNull LayerSteps ls, int vw, int vh,
-                             int from) {
+    private int drawOneLayer(@NonNull Layer layer, @NonNull LayerSteps ls, int layerIndex,
+                             int vw, int vh, int from) {
         List<Step> steps = ls.steps;
         if (steps.isEmpty()) return from;
         int base = from;
         int src = from;
+        // The texture the next pass reads: a slot's, or an Echo Trails history picture.
+        int srcTex = targets[from][0];
         int dst = -1;
+        long ms = Math.round(layer.timeSec * 1000.0);
         for (int i = 0; i < steps.size(); i++) {
             Step step = steps.get(i);
+            // Echo Trails draws into its own history picture and reads last frame's, exactly as
+            // the export does (FxHistory); the planner never makes it the last pass.
+            FxHistory.Target hist = step.passIndex < layer.plan.passes.size()
+                    && layer.plan.passes.get(step.passIndex).feedback && i < steps.size() - 1
+                    ? history.begin(layerIndex + ":" + i, vw, vh, ms) : null;
             // Any slot that is neither the layer's base nor the current source is free.
             dst = freeTargetOther(base, src);
-            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, targets[dst][1]);
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER,
+                    hist != null ? hist.writeFbo() : targets[dst][1]);
             GLES20.glViewport(0, 0, vw, vh);
             GLES20.glUseProgram(step.program);
             bindQuad(step.program);
 
-            setSampler(step.program, "uTexSampler", targets[src][0], 0, false);
+            setSampler(step.program, "uTexSampler", srcTex, 0, false);
+            if (hist != null) {
+                setSampler(step.program, FxCompiler.U_PREV, hist.prevTex(), 2, false);
+                setF(step.program, FxCompiler.U_PREV_VALID, hist.prevValid());
+                setF(step.program, FxCompiler.U_DT, hist.dt());
+            }
             // The layer's own INPUT, on unit 1 so it cannot collide with the pass input.
             setSampler(step.program, "uBaseSampler", targets[base][0], 1, false);
             setF2(step.program, "uTexel", 1f / vw, 1f / vh);
@@ -2883,7 +2901,13 @@ public class FxPreviewTextureView extends TextureView
             setF(step.program, "uBlendMode", layer.blendMode);
 
             GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
-            src = dst;
+            if (hist != null) {
+                srcTex = hist.writeTex();
+                history.end(hist, ms);
+            } else {
+                src = dst;
+                srcTex = targets[dst][0];
+            }
         }
         return dst >= 0 ? dst : base;
     }
@@ -3071,6 +3095,8 @@ public class FxPreviewTextureView extends TextureView
     }
 
     private void releaseTargets() {
+        // Echo Trails' pictures are frame-sized too: a new size, or the end, frees them.
+        history.release();
         for (int i = 0; i < 3; i++) {
             if (targets[i] == null) continue;
             try {

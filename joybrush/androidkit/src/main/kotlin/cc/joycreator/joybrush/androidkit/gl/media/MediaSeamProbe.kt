@@ -42,6 +42,16 @@ internal object MediaSeamProbe {
                 }
                 engines.put(o.put("engine", (if (atlas) "atlas" else "window") + (if (isLong) " long" else "") + if (withPreviews) " +previews" else ""))
             }
+            // On the owner's paper (Drawing 5, 10-27: construction pulp surface, tan look, show 0.17, bite 1): the tooth the oil reads.
+            run {
+                MediaAtlasGl.enabled = true
+                long = true
+                val owners = Paper(textureId = "construction_pulp", lookId = "construction_tan", show = 0.17f, bite = 1f, includeInExport = true)
+                val o = try { run(owners, preset, memory, null) } catch (e: Throwable) {
+                    JSONObject().put("error", e.toString()).put("at", e.stackTrace.take(6).joinToString(" < ") { "${it.fileName}:${it.lineNumber}" })
+                }
+                engines.put(o.put("engine", "atlas long owner-paper"))
+            }
             // Reopened (as a saved drawing comes back: its look only, no payload), then oil across it.
             val saved = lastTiles
             if (saved != null) {

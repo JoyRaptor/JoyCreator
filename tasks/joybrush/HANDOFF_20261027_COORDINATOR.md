@@ -95,3 +95,24 @@ structure and supplied receipts, never freshness or actual GPU execution.
 Boards coverage522b was adopted; STATE now maps board and paper capability families
 with pending help and explicit acceptance gaps. Paper portfolio4d4 was selectively
 reconciled as6d909 to avoid stale roadmap replacement. Original checkouts preserved.
+
+## App integration gate CLOSED GREEN
+
+Exactdc09cff754312ff36b3972101b9e8bd286a69462 app gate closed SUCCESS3m21s/exit0;
+root independently counted32 fresh XML suites:217 tests/0failures/errors/skips.
+[Durable receipt](reviews/NATIVE_APP_GATE_20261027.json), raw XML/log copies under
+C:/Temp/jb-lead-ops/evidence/native-app-dc09cff75-20261027. Includes199 Select/menu
+regressions plus notice11, backdrop4 and debug dispatch3. Contrast is source/test
+verified; actual dark/white/restoration GPU visual proof remains open. D23 remains
+unwired foundation. Cleanup exception reporting is compiled; real GL faults unproved.
+
+Source0adfde398f5facd4a0b22f355d82772c2f02089d now selectively integrates tween
+init41dbdb38a after root source review. Current sole heavy job exec80446/log
+C:/Temp/jb-lead-ops/native-backend-0adfde398-20261027.log covers prior36 plus12 new
+ledger/constructor faults and8 context-loss cases. Core6 may be UP-TO-DATE, which
+must be distinguished from fresh backend XML. No completion claimed yet. App gate
+will be repeated only because engine initialization changed. No APK/phone grant.
+
+Fresh read-only sandbox check October27: expectedSM-N960U/API29, asleep/locked,
+Home false, no claim. Owner readiness question is pending. Do not install or assume
+an old unlocked message establishes readiness. Continue desktop gates meanwhile.

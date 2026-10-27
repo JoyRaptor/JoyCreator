@@ -7,9 +7,9 @@ Older plans and board rows are historical; they do not grant ownership or build 
 ## Source and ownership
 
 - Coordinator: `C:/Temp/jb-select-reconcile-20261024`, branch
-  `lead/select-reconcile-20261024`, integrated code `88205e57c` (A10 runtime; verify current HEAD).
+  `lead/select-reconcile-20261024`, integrated code `c4c6b8945` (A10 + verified menu fix; verify current HEAD).
 - Verify `git status`, `git log -1`, worktrees and fresh remote refs before work.
-  The recorded upstream checkpoint is `origin/joy-creator@f79efc378`; a fresh fetch
+  The recorded upstream checkpoint is `origin/joy-creator@efcb293bb`; a fresh fetch
   may advance it. Do not assume either local primary or this dated SHA is newest.
 - Preserve `C:/+Projects/Screenrecorder/FadCam` and all original/helper checkouts.
   The primary's local `joy-creator@fb8042841` is stale. Never pull/reset it as setup.
@@ -68,3 +68,5 @@ replacements are proved. Do not buy credits or consume resets. Owner creative
 acceptance and physical pen feel remain separate from automated functional proof.
 
 Current five-hour automation was observed PAUSED; this document does not reactivate it.
+
+For the final completion push and Claude handback, read [October27 coordinator](HANDOFF_20261027_COORDINATOR.md).

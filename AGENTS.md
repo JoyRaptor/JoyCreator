@@ -71,6 +71,9 @@
   isolated branch's affected row with their achievement and send the small docs
   patch to the coordinator. Reconcile against the current row; never replace the
   whole board from a stale checkout. The coordinator publishes the merged update.
+- After changing live roadmap/start/STATE links, run
+  `python -B tools/check_joybrush_docs.py`. This checks local targets only;
+  source/evidence review still establishes feature-state truth.
 - Before edits, inspect checkout/branch/status and fetch remote state when online.
   Preserve dirty/staged work and use an isolated branch. After a coherent reviewed
   checkpoint, commit explicit owned paths, push its branch and verify local HEAD

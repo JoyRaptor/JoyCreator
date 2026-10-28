@@ -1871,7 +1871,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private void startBlankAudioProject() {
         initViews();
-        project = new FaditorProject("Untitled audio");
+        project = new FaditorProject(new ProjectStorage(this).uniqueName("Untitled audio"));
         updateEditorTitle();
         wireBookmarks();
         editorTimeline.setTimeline(project.getTimeline(), 0);
@@ -5108,7 +5108,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             totalDuration += durationMs;
         }
 
-        project = new FaditorProject(videoUris.size() > 1 ? getString(R.string.studio_opt_batch_project) : getString(R.string.studio_opt_untitled));
+        project = new FaditorProject(new ProjectStorage(this).uniqueName(
+                videoUris.size() > 1 ? getString(R.string.studio_opt_batch_project) : getString(R.string.studio_opt_untitled)));
         updateEditorTitle();
         for (Uri uri : videoUris) {
             long durationMs = getVideoDuration(uri);

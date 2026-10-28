@@ -704,5 +704,9 @@ public class SpriteOverlayItem implements com.fadcam.ui.faditor.model.LinkFollow
         this.fadeInMs = s.fadeInMs;
         this.fadeOutMs = s.fadeOutMs;
         this.keyframes.copyFrom(s.keyframes);
+        // The snapshot holds the bend and corner pin too ("part of the pose"), but they were never
+        // put back: undoing a Bend left the warp on and the sprite kept resampling soft (Note 9, 10-28).
+        System.arraycopy(s.cornerPin, 0, this.cornerPin, 0, this.cornerPin.length);
+        setMesh(s.mesh != null ? s.mesh.copy() : null);
     }
 }

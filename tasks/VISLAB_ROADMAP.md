@@ -36,20 +36,21 @@ Note 9 test. Every `[~]` row was compiled together on 10-24 (Studio + effects + 
 
 | | Item | Size | Who | State |
 |---|---|---|---|---|
-| R1 | Font per Words layer (G9) | S | lead | [~] font pills on Words layers; Studio typed words fixed too |
+| R1 | Font per Words layer (G9) | S | lead | [~] font pills on Words layers; Studio typed words fixed too. Note 9 10-27: the Font row is there on Halo Lyrics' "Sung word" (Joy, Popular, Popular Italic, Designer, Trendy, Light...); choosing another font on the phone not tried |
 | R2 | Split lumped scenes into elements (G6) | M | lead (taste) | [~] Stars, Aurora curtains, Mountains + look "Aurora Parts"; look book checked; Outrun / Nebula audit still owed |
-| R3 | Studio visualiser on the shared transform box (G5b) | L | Sonnet + lead | [~] VisualizerTransformHost, body hold opens the drawer, spin arc below (reset for other objects) |
+| R3 | Studio visualiser on the shared transform box (G5b) | L | Sonnet + lead | [~] VisualizerTransformHost, body hold opens the drawer, spin arc below (reset for other objects). Note 9 10-27: holding the box opens the drawer, and the box shows with its handles. Double-tap not confirmed (adb's two taps may be too slow for it); moving, resizing and the spin arc not tried on a visualiser |
 | R4 | VisLab finishes as Studio effects (G8d, "special effects") | L | Sonnet + lead | [x] agent phone-tested 10-27, on joy-creator 59346ae8a. 16 effects: 10 in FxVisLabDefs + Glow, Flash, Vignette, Ripple, Swirl, Warp in FxVisLabDefs2; every picker chip says what it does (FxBlurbs). Note 9: all seven new ones in the picker with their sentences and each renders on an adjustment layer in the live preview. Owner sign-off pending. The first ten were not individually re-checked on the phone |
-| R5 | MIDI as a sound source (G10) | M | Sonnet + lead | [~] MidiFile / MidiFeatures / MidiSource / MidiSynth; .kar words; run-midi 15/15 |
+| R5 | MIDI as a sound source (G10) | M | Sonnet + lead | [x] agent phone-tested 10-27: our test song Joy Beats (`tools/test-music/joy-beats.kar`) picked as "A song" plays in the room, and its words sing in Halo Lyrics on time ("the", "feel"). MidiFile / MidiFeatures / MidiSource / MidiSynth; run-midi 15/15. Owner sign-off pending |
 | R6 | Hide knobs that do nothing in the current mode (G2b) | S | Haiku audit + lead | [~] showFor on 66 knobs; run-vislab passes |
-| R7 | Sprite element: a SpriteLab sheet inside a look (G8a) | M | lead | [~] Sprite element + look "Record Hop"; run-sprite 11/11; pilot draws the built-in sheet |
-| R8 | Studio proxies drive a look's Place and picture (G7) | M | Sonnet | [ ] |
-| R9 | Layer reference: a look shows another Studio item (G8c) | L | lead | [ ] |
+| R7 | Sprite element: a SpriteLab sheet inside a look (G8a) | M | lead | [~] Sprite element + look "Record Hop"; run-sprite 11/11; pilot draws the built-in sheet. Note 9 10-27: Record Hop plays in the room to the demo song and to a .mod. Picking a Sprite Lab sheet, each Play mode, reopening and a Studio export not tried |
+| R8 | Studio proxies drive a look's Place and picture (G7) | M | lead | [x] agent phone-tested 10-27 (Note 9), on joy-creator. Style tab, "Layers can follow an object": each layer's pill lists dummies, pictures, titles and sprites. Halo Drop's Logo followed Picture 1 to its centre in the preview and in a 720p export. Tried with a picture, not a dummy. The layer follows the object's pose even before or after its time on the timeline. A second, smaller R8 sits on `backup/proxy-bind-20261027` (4d6d990ed, not landed, kept): per-link Move / Size / Turn switches, and an offset mode where the layer stays where the look drew it until the object moves. It is a candidate "keep the old behaviour selectable" option. Owner sign-off pending |
+| R9 | Layer reference: a look shows another Studio item (G8c) | L | lead | [x] agent phone-tested 10-27: picture layers get a "shows" row (its own picture, any Studio picture or title, with all its effects). Halo Drop's Logo showed Picture 1, with the look's Difference blend, in the preview and in the export. Titles not tried on the phone; sprites, clips and avatars are not offered yet. Owner sign-off pending |
 | R10 | Echo trails as a Studio effect (stateful feedback) | M | lead | [~] "Echo Trails" (Echo / Light trails / Glow trails; trail length, zoom, turn, colour drift, centre) on adjustment layers. New FEEDBACK capability: its own pass, never the last; `FX_PREV` / `FX_DT`; `fx/FxHistory` keeps two frame-sized pictures per pass in export and preview, resets on a jump. Tests + glslc 35/35. [x] agent phone-tested 10-27 on joy-creator 59346ae8a: trails in the live preview while playing AND in an exported video (frame at 3.0 s vs the source). Owner sign-off pending |
-| R11 | True blend preview for visualisers in Studio | M | Sonnet | [ ] |
+| R11 | True blend preview for visualisers in Studio | M | lead | [x] agent phone-tested 10-27: a full-frame Halo Drop on Difference shows inverted colours in the preview, matching the exported frame. Found on the phone and fixed: visualisers are not lanes of `getLayers()` (they have their own rows), so the first build never composited them. They are now drawn last in the GL composite, where the export blends them: above effect layers and pictures, below captions. The Blend tab no longer says "applied when you export" for a visualiser; Joybot's help says pictures and visualizers preview their blend. Owner sign-off pending |
 | R12 | Video element (G8b) | M | later | [ ] |
-| R13 | Tracker modules (.mod) as a sound source, like MIDI: play the samples, exact hits per channel (owner sent two demoscene beat .mods 10-24) | M | lead | [ ] |
-| R14 | Studio effects that hear the soundtrack: link an effect knob to the kick / bass / beat of a clip (VisLab's music links; SoundClock already analyses Studio clips) | M | lead | [ ] |
+| R13 | Tracker modules (.mod) as a sound source, like MIDI: play the samples, exact hits per channel (owner sent two demoscene beat .mods 10-24) | M | lead | [x] agent phone-tested 10-27: the owner's posio_beats.mod (on the Note 9 only, never committed) picked as "A song" plays through the app's own player and drives Record Hop. Per-channel hits not checked separately on the phone (run-mod 20/20 covers them). `vislab/audio/ModFile`, `ModPlayer`, `ModMidi`, `ModSource`. Owner sign-off pending |
+| R14 | Studio effects that hear the soundtrack: link an effect knob to the kick / bass / beat of a clip (VisLab's music links; SoundClock already analyses Studio clips) | M | lead | [x] agent phone-tested 10-27: a "♪ music" row under each slider in an effect layer's or a clip's own Effects drawer (Loudness, Bass, Kick, Snare, Hi-hats or Beat; strength 25, 50, 100, -50, -100%), one undo step per tap. Flash Amount on Kick at 100% flashes on the kicks in the preview (layer and clip) and in a 720p export (frame brightness 129 -> 219 one frame after a kick). Found on the phone and fixed: a clip's own effects showed the row but did not listen; and the export froze an effect layer's moving values at the first frame (keyframes too). `fx/FxMusic`, `vislab/studio/StudioEars`. Owner sign-off pending |
+| R15 | Visualiser stacking: the preview draws a visualiser under pictures and text (its canvas sits below them), the export over them (the overlay pass); seen 10-27 with a picture over a look | S | lead | [ ] |
 | — | Owed checks: R1 audit (needs a recording + his "Start now"), R2 audit (Android 12+), D2 hour-long heat test (owner deferred) | | owner | [ ] |
 
 ## Specs
@@ -121,6 +122,27 @@ real in export), through the GL preview compositor.
 
 ## Log (newest first)
 
+- 2026-10-27 (evening): R8, R9, R11, R13 and R14 phone test on the Note 9, plus the room checks for R1,
+  R3, R5 and R7 (rows above), then landed on joy-creator. Test project: a new Studio project on a 30 s
+  testsrc2 clip with an ffmpeg drum beat at 126 bpm (`/sdcard/Movies/vlfx-beat.mp4`), a picture (a
+  yellow and green disc, `/sdcard/Pictures/vl-logo.png`), one effect layer and one visualiser on Halo
+  Drop. Two Draft exports (`/sdcard/Joy Creator/Untitled 2.mp4` and `Untitled 3.mp4`); frames were
+  measured on the PC. Fixed on the phone (commit "Phone test fixes for R11 and R14"):
+  1. Tapping FX on the main clip opens the clip's own effects. The music row showed there but did
+     not listen; the preview and the export now pass it the ears.
+  2. Export froze an effect layer's moving values (keyframes and music) at the first frame: the
+     compiled steps kept the first frame's cards. Each frame now uploads its own values, as picture,
+     object and text effects already did.
+  3. Blended visualisers never reached the preview composite (see R11).
+  4. A visualiser's hidden and locked state were saved only when it was attached to a clip, so a
+     free visualiser came back visible (and exported) after reopening.
+  5. The visualiser drawer's Hide recorded a step but the preview kept drawing it until the next
+     refresh.
+  Seen in passing, other lanes, not fixed: the picture Opacity drawer read 26% but the picture stayed
+  solid and recorded no undo step; the export sheet's File name ("vlfx-r8-r14") was ignored and
+  the file saved as "Untitled 2.mp4"; holding or double-tapping a picture did not open its drawer.
+  Undo history (26 steps) survived closing and reopening the project. Phone: battery 29 -> 36 C,
+  chip 35 -> 66 C at the peak during the exports; both exports took the same time (no throttling).
 - 2026-10-27 (afternoon): Studio effects phone test on the Note 9, then merged to joy-creator
   (59346ae8a, fast-forward). Build: `tools/build-install.sh :app:assembleDefaultDebug` in the
   worktree `C:/Temp/vl-studio-fx` under the exclusive `jb-gradle.lock`, reusing the idle Gradle

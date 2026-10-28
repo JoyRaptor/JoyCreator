@@ -2403,6 +2403,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
         spriteOverlayViewBelow = findViewById(R.id.sprite_overlay_layer_below);
         overlayVideoLayer = findViewById(R.id.overlay_video_layer);
         waveformOverlayView = findViewById(R.id.waveform_overlay);
+        if (waveformOverlayView != null) {
+            // A blended visualizer's new look frame (R11): paused, nothing else re-runs the GL
+            // composite that draws it, so a drawer change would show only after the next move.
+            waveformOverlayView.setOnGlFrame(() -> {
+                boolean playing = (playerManager != null && playerManager.isPlaying())
+                        || imagePlaybackActive || audioTailActive;
+                if (!playing) syncGlAdjustmentPreview(Math.max(0, lastPlayheadAbsoluteMs));
+            });
+        }
         waveformExtractor = new com.fadcam.ui.faditor.waveform.WaveformExtractor(this);
         cropOverlay = findViewById(R.id.crop_overlay);
         imagePreview = findViewById(R.id.image_preview);

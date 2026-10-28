@@ -48,6 +48,8 @@ public final class CompiledScene {
          * was linked multiply Size and add to Turn. Set by the renderer each frame; off = NaN.
          */
         private float followX = Float.NaN, followY, followSize = 1f, followTurn;
+        /** The follow moves the layer from its own Place (keeps its place) instead of replacing it. */
+        private boolean followBy;
 
         Layer(@NonNull JsonObject source, @NonNull VisType type, @NonNull VisType layerType, int index) {
             this.source = source;
@@ -83,6 +85,13 @@ public final class CompiledScene {
             followY = y;
             followSize = sizeMul > 0f ? sizeMul : 1f;
             followTurn = turnDeg;
+            followBy = false;
+        }
+
+        /** As {@link #follow}, but moved BY {@code dx, dy} from the layer's own Place (keeps its place). */
+        public void followBy(float dx, float dy, float sizeMul, float turnDeg) {
+            follow(dx, dy, sizeMul, turnDeg);
+            followBy = true;
         }
 
         public void eval(@Nullable Signals s) {
@@ -110,9 +119,9 @@ public final class CompiledScene {
 
         public float soft() { return Math.max(0f, Math.min(1f, v(iSoft, 0f))); }
 
-        public float x() { return Float.isNaN(followX) ? v(iX, 0f) : followX; }
+        public float x() { return Float.isNaN(followX) ? v(iX, 0f) : followBy ? v(iX, 0f) + followX : followX; }
 
-        public float y() { return Float.isNaN(followX) ? v(iY, 0f) : followY; }
+        public float y() { return Float.isNaN(followX) ? v(iY, 0f) : followBy ? v(iY, 0f) + followY : followY; }
 
         public float size() {
             float s = Math.max(0.05f, v(iSize, 1f));

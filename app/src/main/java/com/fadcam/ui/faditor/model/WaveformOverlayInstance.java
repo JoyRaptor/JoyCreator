@@ -128,6 +128,17 @@ public class WaveformOverlayInstance implements LinkFollower {
     @NonNull private final transient java.util.Map<String, LinkPose> visFollowRefs = new java.util.HashMap<>();
 
     @NonNull public java.util.TreeMap<String, String> getVisFollow() { return visFollow; }
+
+    /**
+     * Follows that KEEP THEIR PLACE (R8): the object's pose when the choice was made, as
+     * "across,up,size,turn" (frame fractions, its size fraction, degrees), under the same key as
+     * {@link #getVisFollow()}. Such a layer stays where the look draws it and moves only by how far
+     * the object has moved, grown and turned since; a follow without an entry snaps the layer onto
+     * the object. Persisted by ProjectStorage.
+     */
+    @NonNull private final java.util.TreeMap<String, String> visFollowBase = new java.util.TreeMap<>();
+
+    @NonNull public java.util.TreeMap<String, String> getVisFollowBase() { return visFollowBase; }
     @NonNull public java.util.Map<String, LinkPose> getVisFollowRefs() { return visFollowRefs; }
 
     /**

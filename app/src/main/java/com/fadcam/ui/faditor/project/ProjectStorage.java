@@ -2670,6 +2670,14 @@ public class ProjectStorage {
                         }
                         wj.add("visFollow", vf);
                     }
+                    // Follows that keep their place: the object's pose when chosen (R8).
+                    if (!wo.getVisFollowBase().isEmpty()) {
+                        JsonObject vb = new JsonObject();
+                        for (java.util.Map.Entry<String, String> e : wo.getVisFollowBase().entrySet()) {
+                            vb.addProperty(e.getKey(), e.getValue());
+                        }
+                        wj.add("visFollowBase", vb);
+                    }
                     // Look picture layers showing a Studio picture or title (R9); absent = none.
                     if (!wo.getVisShow().isEmpty()) {
                         JsonObject vs = new JsonObject();
@@ -3668,6 +3676,14 @@ public class ProjectStorage {
                                     : wj.getAsJsonObject("visFollow").entrySet()) {
                                 if (e.getValue().isJsonPrimitive()) {
                                     wo.getVisFollow().put(e.getKey(), e.getValue().getAsString());
+                                }
+                            }
+                        }
+                        if (wj.has("visFollowBase") && wj.get("visFollowBase").isJsonObject()) {
+                            for (java.util.Map.Entry<String, JsonElement> e
+                                    : wj.getAsJsonObject("visFollowBase").entrySet()) {
+                                if (e.getValue().isJsonPrimitive()) {
+                                    wo.getVisFollowBase().put(e.getKey(), e.getValue().getAsString());
                                 }
                             }
                         }

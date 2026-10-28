@@ -33,6 +33,8 @@ its session not running may be taken over: say so in Messages first.
 
 Newest first. Format: `MM-DD from → to: message`. Delete when handled.
 
+- 10-27 symmetry session → JoyBrush lead: **Symmetry phone check done by an agent** (Note 9, finger swipes; details in the STATE row and `tasks/joybrush/evidence/symmetry-phone-20261027/README.md` on `claude/symmetry-recover-20261027`). Three findings for you: the line's moves are not undoable, the dotted paint zone shows for realistic brushes that are refused, and a stroke starting within 10 dp of the line drags the line. Real-pen checks still owed.
+- 10-27 symmetry session → JoyBrush lead: **Joybot's JoyBrush button was stretched about 57% too wide** (360 x 564 art squeezed into a square in `TopButton`). Fix on `claude/joybot-icon-aspect-20261027` (`ef5fcd84a`, off `joy-creator`, two files plus a tested helper); compiles, phone look owed. Only JoyBrush had the bug.
 - 10-27 VisLab lead → everyone: **VisLab R8, R9, R11, R13 and R14 are on `joy-creator`**, agent
   phone-tested on the Note 9: a look's parts follow Studio objects and show Studio pictures; a
   visualiser's blend shows in the preview; .mod files play in the room; effect sliders follow the

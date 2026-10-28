@@ -4,12 +4,12 @@
     <string name="trash_auto_delete_info_immediate">Elemente werden sofort gelöscht.</string>
     <string name="app_icon_description">Wähle ein Symbol und einen Namen für die App. Dadurch wird die Anzeige der App auf dem Startbildschirm geändert.</string>
     <string name="check_for_updates">Auf Updates überprüfen</string>
-    <string name="fadsec_info">FadCam ist Teil der FadSec Lab Suite. Für weitere Informationen klicke unten auf \'Quellcode anzeigen\'.</string>
+    <string name="fadsec_info">Joy Creator ist Teil der FadSec Lab Suite. Für weitere Informationen klicke unten auf \'Quellcode anzeigen\'.</string>
     <string name="app_description">
     <![CDATA[
-    FadCam ist eine werbefreie Open-Source-Videoaufzeichnungs-App, die den Datenschutz priorisiert, indem sie keine Daten verfolgt oder erfasst. Es ist exklusiv auf GitHub und über die im README genannten offiziellen Links erhältlich.
+    Joy Creator ist eine werbefreie Open-Source-Videoaufzeichnungs-App, die den Datenschutz priorisiert, indem sie keine Daten verfolgt oder erfasst. Es ist exklusiv auf GitHub und über die im README genannten offiziellen Links erhältlich.
     <br/><br/>
-    FadCam wurde auf bekannten YouTube-Kanälen wie <font color="#cfbafd">HowToMen</font> und <font color="#cfbafd">Xtream Droid</font> vorgestellt, als auch bei <font color="#cfbafd">GrapheneOS</font> und 55+ weiteren nennenswerten Stellen erwähnt.
+    Joy Creator wurde auf bekannten YouTube-Kanälen wie <font color="#cfbafd">HowToMen</font> und <font color="#cfbafd">Xtream Droid</font> vorgestellt, als auch bei <font color="#cfbafd">GrapheneOS</font> und 55+ weiteren nennenswerten Stellen erwähnt.
     ]]>
 </string>
     <string name="view_source_code">Quellcode anzeigen</string>
@@ -130,7 +130,7 @@
     <string name="setting_codec_title">Video-Codec</string>
     <string name="note_codec">Codec auswählen\n(Standard: %1$s)\nTipp: Mit H.265 (HEVC) können Sie bei gleicher Qualität etwa die halbe Bitrate von H.264 verwenden. Beispiel: Für FHD verwenden Sie 8 Mbit/s anstelle von 16 Mbit/s.</string>
     <string name="setting_watermark">Wasserzeichen</string>
-    <string name="note_watermark">Wasserzeichenoption auswählen\n(Standard: Zeitstempel mit FadCam)</string>
+    <string name="note_watermark">Wasserzeichenoption auswählen\n(Standard: Zeitstempel mit Joy Creator)</string>
     <string name="note_watermark_extra">Für ein schnelles Speichern wähle \'Kein Wasserzeichen\'. Das Hinzufügen eines Wasserzeichens dauert etwas länger bei der Verarbeitung, aber es lohnt sich!</string>
     <string name="setting_location_title">Standortdaten</string>
     <string name="note_location">Standortdaten in Wasserzeichen einfügen. \nBenötigt aktiviertes GPS \n(Standard: Deaktiviert)</string>
@@ -156,13 +156,13 @@
     </string-array>
     <string-array name="questions_array" tools:ignore="InconsistentArrays">
         <item>HAFTUNGSAUSSCHLUSS</item>
-        <item>Sammelt FadCam irgendwelche Nutzerdaten?</item>
-        <item>Gibt es Werbung in FadCam?</item>
-        <item>Warum benötigt FadCam Zugriff auf den Standort?</item>
+        <item>Sammelt Joy Creator irgendwelche Nutzerdaten?</item>
+        <item>Gibt es Werbung in Joy Creator?</item>
+        <item>Warum benötigt Joy Creator Zugriff auf den Standort?</item>
         <item>Warum ist die Internet-Berechtigung erforderlich?</item>
         <item>Werden Daten auf externen Servern gespeichert?</item>
         <item>Was passiert nach der Aufnahme mit meinen Videos?</item>
-        <item>Teilt FadCam meine Daten mit Dritten?</item>
+        <item>Teilt Joy Creator meine Daten mit Dritten?</item>
         <item> </item>
         <item> </item>
         <item>Allgemein</item>
@@ -177,15 +177,15 @@
         <item> </item>
     </string-array>
     <string-array name="answers_array" tools:ignore="InconsistentArrays">
-        <item>FadCam duldet oder unterstützt keine unethische oder illegale Nutzung dieser Software. Missbrauch, wie z.B. unerlaubte Überwachung oder Verletzung der Privatsphäre, verstößt strikt gegen unsere Richtlinien. Die Autoren sind nicht für den Missbrauch der Anwendung verantwortlich.
+        <item>Joy Creator duldet oder unterstützt keine unethische oder illegale Nutzung dieser Software. Missbrauch, wie z.B. unerlaubte Überwachung oder Verletzung der Privatsphäre, verstößt strikt gegen unsere Richtlinien. Die Autoren sind nicht für den Missbrauch der Anwendung verantwortlich.
         </item>
-        <item>Nein, FadCam sammelt keinerlei Nutzerdaten.</item>
-        <item>Nein, FadCam ist komplett werbefrei.</item>
+        <item>Nein, Joy Creator sammelt keinerlei Nutzerdaten.</item>
+        <item>Nein, Joy Creator ist komplett werbefrei.</item>
         <item>Um Standortinformationen zu deinen Wasserzeichen hinzuzufügen.</item>
         <item>Für die automatische Update-Prüfung.</item>
         <item>Nein, alle Daten werden auf deinem Gerät gespeichert.</item>
         <item>Deine Videos werden lokal auf deinem Gerät gespeichert.</item>
-        <item>Nein, FadCam teilt oder sammelt keine Daten, nicht einmal Absturzprotokolle.</item>
+        <item>Nein, Joy Creator teilt oder sammelt keine Daten, nicht einmal Absturzprotokolle.</item>
         <item> </item>
         <item> </item>
         <item> </item>
@@ -199,16 +199,16 @@
         <item>Überprüfe das offizielle GitHub-Repo für Updates.</item>
         <item> </item>
     </string-array>
-    <string name="dialog_welcome_title">Willkommen bei FadCam!</string>
+    <string name="dialog_welcome_title">Willkommen bei Joy Creator!</string>
     <string name="note_under_dev">Wichtig: Diese App befindet sich derzeit in der Entwicklung. Neue Funktionen werden regelmäßig hinzugefügt.</string>
     <!-- removed: rencent_updates_title and upcoming_features_title (centralized changelog) -->
     <string name="stay_updated_title">Bleib auf dem Laufenden:</string>
     <string name="button_readme_github">GitHub-Repository</string>
     <string name="community_title">Tritt unserer Community bei:</string>
     <string name="discord_title">Discord-Server</string>
-    <string name="thankyou_msg">Danke, dass du FadCam nutzt!</string>
+    <string name="thankyou_msg">Danke, dass du Joy Creator nutzt!</string>
     <string name="settings_title">Einstellungen</string>
-    <string name="array_watermark_time_fadcam">Zeit mit Fadcam</string>
+    <string name="array_watermark_time_fadcam">Zeit mit Joy Creator</string>
     <string name="array_watermark_timeonly">Zeitstempel</string>
     <string name="array_watermark_nomark">Kein Wasserzeichen</string>
     <!-- recent_features and upcoming_features removed (not used in bottom sheet) -->
@@ -304,8 +304,8 @@
     <string name="theme_snowveil">Schneeschleier</string>
     <string name="remote_access_title">Fernzugriff/Steuerung</string>
     <string name="remote_toast_coming_soon">Kommt bald! In Sha Allah</string>
-    <string name="remote_coming_soon">Die Fernsteuerung für FadCam kommt bald.</string>
-    <string name="remote_feature_description">Kopple FadCam-Clients über einen QR-Code für eine sichere Fernsteuerung im lokalen Netzwerk: Aufnahme starten/stoppen, Vorschau, Zoom, Kamera wechseln und mehr – alles mit Ende-zu-Ende-Verschlüsselung.</string>
+    <string name="remote_coming_soon">Die Fernsteuerung für Joy Creator kommt bald.</string>
+    <string name="remote_feature_description">Kopple Joy Creator-Clients über einen QR-Code für eine sichere Fernsteuerung im lokalen Netzwerk: Aufnahme starten/stoppen, Vorschau, Zoom, Kamera wechseln und mehr – alles mit Ende-zu-Ende-Verschlüsselung.</string>
     <string name="setting_audio_title">Audioaufnahme</string>
     <string name="note_audio">Aktiviere oder deaktiviere die Audioaufnahme für Videos.\n(Standard: Aktiviert)</string>
     <string name="button_audio_settings">Audio-Einstellungen</string>
@@ -396,7 +396,7 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="records_search_hint">Aufnahmen durchsuchen …</string>
     <string name="saf_permission_missing_dialog_instructions">SAF-Berechtigung fehlt. Bitte gewähre Zugriff auf den gewählten Ordner.</string>
     <string name="saf_permission_missing_dialog_title">SAF-Berechtigung erforderlich</string>
-    <string name="saf_permission_missing_dialog_message_for_start_recording">Um Aufnahmen an einem benutzerdefinierten Ort zu speichern, benötigt FadCam die Berechtigung, auf den ausgewählten Ordner zuzugreifen. Bitte erteile den Zugriff, wenn du dazu aufgefordert wirst.</string>
+    <string name="saf_permission_missing_dialog_message_for_start_recording">Um Aufnahmen an einem benutzerdefinierten Ort zu speichern, benötigt Joy Creator die Berechtigung, auf den ausgewählten Ordner zuzugreifen. Bitte erteile den Zugriff, wenn du dazu aufgefordert wirst.</string>
     <string name="grant_permission_button">Berechtigung erteilen</string>
     <!-- Strings for Trash Auto-Delete Feature -->
     <plurals name="trash_auto_delete_info_days">
@@ -452,22 +452,22 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="audio_input_source_headphones_no_mic">Kopfhörer erkannt (kein Mikrofon)</string>
     <!-- Fix Start: Add onboarding toggle strings -->
     <string name="setting_onboarding_title">Onboarding beim nächsten Start anzeigen</string>
-    <string name="note_onboarding">Aktiviere dies, um die App-Einführung und die Berechtigungsanleitung beim nächsten Öffnen von FadCam zu sehen.</string>
+    <string name="note_onboarding">Aktiviere dies, um die App-Einführung und die Berechtigungsanleitung beim nächsten Öffnen von Joy Creator zu sehen.</string>
     <!-- Fix End: Add onboarding toggle strings -->
 
     <string name="choose_language">Sprache auswählen</string>
     <string name="language_change_later_note">Du kannst dies später in den Einstellungen ändern.</string>
     <string name="permissions_required">Berechtigungen erforderlich</string>
-    <string name="permissions_description">FadCam benötigt Zugriff auf deine Kamera, dein Mikrofon und deinen Speicher, um Videos aufzunehmen und zu speichern.</string>
+    <string name="permissions_description">Joy Creator benötigt Zugriff auf deine Kamera, dein Mikrofon und deinen Speicher, um Videos aufzunehmen und zu speichern.</string>
     <string name="grant_permissions">Berechtigungen erteilen</string>
     <string name="permissions_note">Du musst alle Berechtigungen erteilen, um fortzufahren.</string>
     <string name="permissions_granted">Alle Berechtigungen erteilt!</string>
     <string name="open_settings">Einstellungen öffnen</string>
     <string name="disable_battery_optimization">Akku-Optimierung deaktivieren</string>
     <string name="onboarding_human_title">Bestätige, dass du ein Mensch bist</string>
-    <string name="onboarding_human_desc">Hmmmm... also gut. Diese Regeln sind nicht verhandelbar. Wenn du nicht zustimmen kannst, deinstalliere FadCam bitte sofort.</string>
-    <string name="onboarding_human_checkbox1">Ich werde FadCam nicht benutzen, um Gesetze zu brechen, die Privatsphäre von irgendjemandem zu verletzen oder ein Spinner zu sein. Der Entwickler ist raus, wenn ich Mist baue. (Das geht auf meine Kappe.)</string>
-    <string name="onboarding_human_checkbox2">Ich liebe FadCam schon, bevor ich es überhaupt benutzt habe. (Nicht optional)</string>
+    <string name="onboarding_human_desc">Hmmmm... also gut. Diese Regeln sind nicht verhandelbar. Wenn du nicht zustimmen kannst, deinstalliere Joy Creator bitte sofort.</string>
+    <string name="onboarding_human_checkbox1">Ich werde Joy Creator nicht benutzen, um Gesetze zu brechen, die Privatsphäre von irgendjemandem zu verletzen oder ein Spinner zu sein. Der Entwickler ist raus, wenn ich Mist baue. (Das geht auf meine Kappe.)</string>
+    <string name="onboarding_human_checkbox2">Ich liebe Joy Creator schon, bevor ich es überhaupt benutzt habe. (Nicht optional)</string>
     <string name="onboarding_human_button">Lass mich rein!</string>
     <string name="trash_select_all">Alle auswählen</string>
     <!-- Fix Start: Update location permission message -->
@@ -522,10 +522,10 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="app_icon_default" translatable="false">Legacy</string>
     <string name="app_icon_alternative" translatable="false">Kamera</string>
     <string name="app_icon_faded" translatable="false">0xFF0000</string>
-    <string name="app_icon_pakistan" translatable="false">FadCam</string>
+    <string name="app_icon_pakistan" translatable="false">Joy Creator</string>
     <string name="app_icon_fadseclab" translatable="false">FadSec Lab</string>
-    <string name="app_icon_noor" translatable="false">Noor (FadCam ++)</string>
-    <string name="app_icon_bat" translatable="false">FadCam</string>
+    <string name="app_icon_noor" translatable="false">Noor (Joy Creator ++)</string>
+    <string name="app_icon_bat" translatable="false">Joy Creator</string>
     <string name="app_icon_redbinary" translatable="false">$ ~/r00t</string>
     <string name="app_icon_notes" translatable="false">Notizen</string>
     <string name="app_icon_calculator" translatable="false">Rechner</string>
@@ -540,7 +540,7 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="changelog_label">Was ist neu</string>
     <!-- Fix Start: Add auto update check toggle strings -->
     <string name="setting_auto_update_check_title">Automatische Update-Prüfung beim Start</string>
-    <string name="note_auto_update_check">Wenn aktiviert, prüft FadCam bei jedem Öffnen der App auf Updates. Deaktiviere dies, um automatische Update-Prüfungen beim Start zu deaktivieren.\n(Standard: An)</string>
+    <string name="note_auto_update_check">Wenn aktiviert, prüft Joy Creator bei jedem Öffnen der App auf Updates. Deaktiviere dies, um automatische Update-Prüfungen beim Start zu deaktivieren.\n(Standard: An)</string>
     <!-- Fix End: Add auto update check toggle strings -->
 
     <!-- Storage Location Settings -->
@@ -549,7 +549,7 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="storage_location_internal">Interner App-Speicher (Standard, Privat)</string>
     <string name="storage_location_custom">Benutzerdefinierter Ort (SD-Karte/Andere, Galerie sichtbar)</string>
     <string name="storage_location_choose_folder">Ordner auswählen</string>
-    <string name="storage_location_note">Hinweis: Die Verwendung von benutzerdefinierten Orten macht Videos für andere Apps zugänglich (z.B. Galerie). Interner Speicher hält sie für FadCam privat.</string>
+    <string name="storage_location_note">Hinweis: Die Verwendung von benutzerdefinierten Orten macht Videos für andere Apps zugänglich (z.B. Galerie). Interner Speicher hält sie für Joy Creator privat.</string>
     <string name="storage_icon_description">Speicher-Symbol</string>
     <string name="location_icon_description">Standort-Symbol</string>
     <string name="location_embedding_icon_description">Symbol für Standorteinbettung</string>
@@ -615,13 +615,13 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <!-- Additional Notification Customization Strings -->
     <!-- Adding notification appearance strings -->
     <string name="setting_notification_appearance">Erscheinungsbild der Benachrichtigung</string>
-    <string name="note_notification_appearance">Passe das Erscheinungsbild der Aufnahmebenachrichtigung an\n(Standard: FadCam)</string>
+    <string name="note_notification_appearance">Passe das Erscheinungsbild der Aufnahmebenachrichtigung an\n(Standard: Joy Creator)</string>
     <string name="hide_stop_button">Stopp-Taste ausblenden</string>
     <string name="note_hide_stop_button">Blende die Stopp-Taste in der Benachrichtigung aus\n(Standard: Deaktiviert)</string>
     <string name="notification_preview">Benachrichtigungsvorschau</string>
     <string name="notification_stop">STOPP</string>
     <string-array name="notification_appearance_options">
-        <item>FadCam (Standard)</item>
+        <item>Joy Creator (Standard)</item>
         <item>Systemaktualisierung</item>
         <item>Herunterladen</item>
         <item>Synchronisierung</item>
@@ -659,7 +659,7 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="fix_video_saf_export">Exportiere oder teile die reparierte Datei bei Bedarf aus dem App-Speicher.</string>
     <string name="full_changelog_info">Für das vollständige Changelog gehe zum Home-Tab, öffne das Hamburger-Menü und wähle «Neuigkeiten».</string>
 
-    <string name="app_name" translatable="false">FadCam</string>
+    <string name="app_name" translatable="false">Joy Creator</string>
     <string name="accessibility_thumbnail_progress">%1$d%% angesehen</string>
     <string name="readme_github_subtitle">Quellcode &amp; Versionen</string>
     <string name="readme_discord_subtitle">Tritt der Community bei</string>
@@ -956,7 +956,7 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="photo_capture_preview_unavailable">Vorschau ist nicht verfügbar</string>
     <string name="video_menu_upload_faddrive">Auf FadDrive hochladen</string>
     <string name="records_filter_all">Alle</string>
-    <string name="records_filter_camera">FadCam</string>
+    <string name="records_filter_camera">Joy Creator</string>
     <string name="records_filter_dual">Dual</string>
     <string name="records_filter_screen">FadRec</string>
     <string name="records_filter_faditor">Faditor</string>
@@ -1165,13 +1165,13 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="watermark_preview_heading">Vorschau</string>
     <string name="watermark_options_heading">Optionen</string>
     <string name="watermark_style_row_title">Wasserzeichen-Stil</string>
-    <string name="watermark_preview_sample_fadcam">Aufgenommen mit FadCam - %1$s</string>
+    <string name="watermark_preview_sample_fadcam">Aufgenommen mit Joy Creator - %1$s</string>
     <string name="watermark_preview_sample_timeonly">%1$s</string>
-    <string name="watermark_style_time_fadcam_label">Zeit mit FadCam</string>
+    <string name="watermark_style_time_fadcam_label">Zeit mit Joy Creator</string>
     <string name="watermark_style_timeonly_label">Zeitstempel</string>
     <string name="watermark_style_badge_label">Nur Marken-Label</string>
     <string name="watermark_style_none_label">Kein Wasserzeichen</string>
-    <string name="helper_watermark_preview">So wird das Wasserzeichen oben links in deinem aufgenommenen Video erscheinen.\nFun Fact: 10/Jul/2024 04:47 PM ist der Zeitpunkt, an dem FadCam v1.0 erstmals ausgeliefert wurde.</string>
+    <string name="helper_watermark_preview">So wird das Wasserzeichen oben links in deinem aufgenommenen Video erscheinen.\nFun Fact: 10/Jul/2024 04:47 PM ist der Zeitpunkt, an dem Joy Creator v1.0 erstmals ausgeliefert wurde.</string>
     <string name="helper_location_watermark_option">Schaltet das Hinzufügen deines Geräte-Standorts als Overlay um. Erfordert Standort-Berechtigung.</string>
     <string name="location_format_title">Standort-Format</string>
     <string name="location_format_coordinates">Nur Koordinaten</string>
@@ -1193,7 +1193,7 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="widgets_helper_text">Hefte Schnellaktionen an deinen Startbildschirm für sofortigen Zugriff.</string>
     <string name="widgets_pin_unsupported">Das Anheften von Widgets wird von deinem Launcher nicht unterstützt.</string>
     <string name="widget_clock_title">Uhr-Widget</string>
-    <string name="widgets_pin_fallback">Wenn keine Eingabeaufforderung erscheint, drücke lange auf deinen Startbildschirm, öffne Widgets und ziehe das FadCam Uhr-Widget.</string>
+    <string name="widgets_pin_fallback">Wenn keine Eingabeaufforderung erscheint, drücke lange auf deinen Startbildschirm, öffne Widgets und ziehe das Joy Creator Uhr-Widget.</string>
     <string name="widget_customize_title">Uhr-Widget anpassen</string>
     <string name="widget_customize_description">Anpassen, wie dein Uhr-Widget Zeit und Datum anzeigt</string>
     <string name="widget_time_format_title">Zeitformat</string>
@@ -1379,7 +1379,7 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="digital_forensics_discord_alerts">Discord-Benachrichtigungen</string>
     <string name="digital_forensics_discord_coming_soon_toast">Discord-Benachrichtigungen werden in einem zukünftigen Update hinzugefügt.</string>
     <string name="digital_forensics_enable">Digitale Forensik aktivieren</string>
-    <string name="digital_forensics_enable_helper">Stell dir das wie deinen intelligenten Beweissensor vor. Wenn aktiviert, führt FadCam eine Zeitleiste der erkannten Aktivitäten, sodass du später zu wichtigen Momenten springen kannst.</string>
+    <string name="digital_forensics_enable_helper">Stell dir das wie deinen intelligenten Beweissensor vor. Wenn aktiviert, führt Joy Creator eine Zeitleiste der erkannten Aktivitäten, sodass du später zu wichtigen Momenten springen kannst.</string>
     <string name="digital_forensics_event_dangerous_object">Markierungen gefährlicher Objekte</string>
     <string name="digital_forensics_event_person">Personen-Ereignisse</string>
     <string name="digital_forensics_event_pet">Haustier-Ereignisse</string>
@@ -1418,7 +1418,7 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="e2e_encryption_change_title">E2E-Verschlüsselungspasswort ändern</string>
     <string name="e2e_encryption_configured">Konfiguriert – Segmente sind Ende-zu-Ende verschlüsselt</string>
     <string name="e2e_encryption_not_configured">Nicht konfiguriert – konfiguriere, um Cloud-Streaming zu aktivieren</string>
-    <string name="e2e_encryption_setup_desc">Dein FadSec-ID-Passwort wird verwendet, um den Stream-Verschlüsselungsschlüssel abzuleiten. Dies muss mit dem Passwort übereinstimmen, das du im FadCam-Dashboard zum Anzeigen von Streams verwendest.</string>
+    <string name="e2e_encryption_setup_desc">Dein FadSec-ID-Passwort wird verwendet, um den Stream-Verschlüsselungsschlüssel abzuleiten. Dies muss mit dem Passwort übereinstimmen, das du im Joy Creator-Dashboard zum Anzeigen von Streams verwendest.</string>
     <string name="e2e_encryption_setup_hint">Gib dein FadSec-ID-Passwort ein</string>
     <string name="e2e_encryption_setup_title">E2E-Verschlüsselungspasswort festlegen</string>
     <string name="e2e_encryption_title">E2E-Stream-Verschlüsselung</string>
@@ -1525,7 +1525,7 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="faditor_export_success">Video erfolgreich exportiert</string>
     <string name="faditor_exporting">Exportiere…</string>
     <string name="faditor_exporting_percent">Exportiere… %1$d%%</string>
-    <string name="faditor_fadcam_source">FadCam</string>
+    <string name="faditor_fadcam_source">Joy Creator</string>
     <string name="faditor_fadrec_source">FadRec</string>
     <string name="faditor_feature_convert">Intelligente Konvertierung</string>
     <string name="faditor_feature_convert_desc">Konvertiert absturzsichere Aufnahmen automatisch in suchbares MP4 für reibungslose Wiedergabe überall</string>
@@ -1539,11 +1539,11 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="faditor_feature_trim_desc">Schneide deine Videos auf den genauen Frame, den du möchtest</string>
     <string name="faditor_flip_title">Spiegeln</string>
     <string name="faditor_home_tagline">Leichter Video-Editor</string>
-    <string name="faditor_info_convert_desc">FadCam zeichnet in einem absturzsicheren Format namens fragmentiertes MP4 (fMP4) auf. Im Gegensatz zu einem standard MP4 mit einem finalisierten Container schreibt fMP4 Video in kleinen unabhängigen Blöcken. Das bedeutet, dass dein Filmmaterial intakt bleibt, selbst wenn die App abstürzt oder die Aufnahme plötzlich stoppt.\n\nExterne Videoplayer, Galerie-Apps und Dateimanager können jedoch nicht in diesen Dateien suchen, durchspulen oder die korrekte Dauer anzeigen. Dies ist kein Fehler – es ist ein bewusster Design-Kompromiss für Zuverlässigkeit.\n\nWenn du deine Videos außerhalb von FadCam speichern möchtest – auf Google Drive, einem Computer oder einem anderen Ort – musst du sie zuerst konvertieren. Andernfalls sind die Dateien für die normale Wiedergabe unbrauchbar.\n\nSo konvertierst du: öffne das Video einfach hier im Faditor Mini und tippe auf Exportieren. Das konvertierte Standard-MP4 erscheint in deinem Aufnahmen-Tab und kann in deiner Galerie gespeichert oder überall geteilt werden. Der Vorgang ist sofort und verlustfrei – keine Neucodierung oder Qualitätsverlust.</string>
+    <string name="faditor_info_convert_desc">Joy Creator zeichnet in einem absturzsicheren Format namens fragmentiertes MP4 (fMP4) auf. Im Gegensatz zu einem standard MP4 mit einem finalisierten Container schreibt fMP4 Video in kleinen unabhängigen Blöcken. Das bedeutet, dass dein Filmmaterial intakt bleibt, selbst wenn die App abstürzt oder die Aufnahme plötzlich stoppt.\n\nExterne Videoplayer, Galerie-Apps und Dateimanager können jedoch nicht in diesen Dateien suchen, durchspulen oder die korrekte Dauer anzeigen. Dies ist kein Fehler – es ist ein bewusster Design-Kompromiss für Zuverlässigkeit.\n\nWenn du deine Videos außerhalb von Joy Creator speichern möchtest – auf Google Drive, einem Computer oder einem anderen Ort – musst du sie zuerst konvertieren. Andernfalls sind die Dateien für die normale Wiedergabe unbrauchbar.\n\nSo konvertierst du: öffne das Video einfach hier im Faditor Mini und tippe auf Exportieren. Das konvertierte Standard-MP4 erscheint in deinem Aufnahmen-Tab und kann in deiner Galerie gespeichert oder überall geteilt werden. Der Vorgang ist sofort und verlustfrei – keine Neucodierung oder Qualitätsverlust.</string>
     <string name="faditor_info_convert_title">Intelligente Konvertierung</string>
     <string name="faditor_info_export_desc">Exportierte Videos werden an deinem aktiven Speicherort gespeichert (dem gleichen, der in den Einstellungen konfiguriert ist) mit dem Präfix „Faditor_", gefolgt von einem Zeitstempel. Sie erscheinen im Aufnahmen-Tab neben deinen Originalaufnahmen.</string>
     <string name="faditor_info_export_title">Exportierte Dateien</string>
-    <string name="faditor_info_how_desc">Wähle ein beliebiges Video von deinem Gerät oder deinen FadCam-Aufnahmen aus. Schneide es Frame für Frame mit der Zeitleiste zu und exportiere es dann. Die gesamte Verarbeitung erfolgt lokal auf deinem Gerät – es wird nichts hochgeladen.\n\nDein Bearbeitungsfortschritt wird alle paar Sekunden automatisch gespeichert, auch wenn du den Editor verlässt, damit keine Arbeit verloren geht, falls die App unerwartet geschlossen wird.</string>
+    <string name="faditor_info_how_desc">Wähle ein beliebiges Video von deinem Gerät oder deinen Joy Creator-Aufnahmen aus. Schneide es Frame für Frame mit der Zeitleiste zu und exportiere es dann. Die gesamte Verarbeitung erfolgt lokal auf deinem Gerät – es wird nichts hochgeladen.\n\nDein Bearbeitungsfortschritt wird alle paar Sekunden automatisch gespeichert, auch wenn du den Editor verlässt, damit keine Arbeit verloren geht, falls die App unerwartet geschlossen wird.</string>
     <string name="faditor_info_how_title">So funktioniert es</string>
     <string name="faditor_info_projects_desc">Alle deine Bearbeitungssitzungen werden für den schnellen Zugriff angezeigt. Jedes Projekt wird als kleine JSON-Datei auf deinem Gerät gespeichert, die die Video-URI, Schnittpunkte und Zeitstempel enthält – es werden keine Kopien deiner Videos erstellt. Projekte werden alle paar Sekunden automatisch gespeichert, sodass dein Fortschritt nie verloren geht.\n\nDu kannst Projekte, die du nicht mehr benötigst, über das Multi-Auswahl-Checklisten-Symbol löschen. Das Löschen eines Projekts entfernt nur die Bearbeitungssitzungsdaten; deine Originalvideodateien bleiben unberührt.</string>
     <string name="faditor_info_projects_title">Letzte Projekte</string>
@@ -1556,10 +1556,10 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="faditor_mini_title">Faditor Mini</string>
     <string name="faditor_mini_toast">Faditor Mini – demnächst verfügbar</string>
     <string name="faditor_new_project">Neues Projekt</string>
-    <string name="faditor_no_recordings">Noch keine Aufnahmen gefunden. Starte eine Aufnahme mit FadCam, um deine Videos hier zu sehen.</string>
+    <string name="faditor_no_recordings">Noch keine Aufnahmen gefunden. Starte eine Aufnahme mit Joy Creator, um deine Videos hier zu sehen.</string>
     <string name="faditor_play_pause">Abspielen oder pausieren</string>
     <string name="faditor_recent_projects">Letzte Projekte</string>
-    <string name="faditor_recordings_helper">Mit FadCam aufgenommene Videos von deinem aktiven Speicherort</string>
+    <string name="faditor_recordings_helper">Mit Joy Creator aufgenommene Videos von deinem aktiven Speicherort</string>
     <string name="faditor_redo">Wiederholen</string>
     <string name="faditor_remuxing">Optimiere für Vorschau…</string>
     <string name="faditor_remuxing_percent">Optimiere… %1$ds verarbeitet</string>
@@ -1569,7 +1569,7 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="faditor_select_items">Elemente auswählen</string>
     <string name="faditor_select_video">Video auswählen</string>
     <string name="faditor_selected_count">%1$d ausgewählt</string>
-    <string name="faditor_source_chooser_desc">Wähle ein Video aus deiner Galerie oder eines deiner FadCam-Aufnahmen</string>
+    <string name="faditor_source_chooser_desc">Wähle ein Video aus deiner Galerie oder eines deiner Joy Creator-Aufnahmen</string>
     <string name="faditor_speed_reset">Zurücksetzen auf 1x</string>
     <string name="faditor_speed_title">Wiedergabegeschwindigkeit</string>
     <string name="faditor_split_error">Kann hier nicht teilen – zu nah am Rand</string>
@@ -1703,13 +1703,13 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="fullscreen_label_torch">Taschenlampe</string>
     <string name="fullscreen_label_zoom">Zoom</string>
     <string name="fullscreen_preview_close">Vollbild schließen</string>
-    <string name="fullscreen_preview_enter">FadCam-Vorschau</string>
+    <string name="fullscreen_preview_enter">Joy Creator-Vorschau</string>
     <string name="fullscreen_preview_not_recording">Starte zuerst eine Aufnahme, um die Vollbildvorschau zu nutzen</string>
     <string name="fullscreen_preview_tap_hint">Tippe auf den Bildschirm, um Steuerungen umzuschalten</string>
     <string name="fullscreen_torch">Taschenlampe</string>
     <string name="general">Allgemein</string>
     <string name="header_logo_avatar" translatable="false">Avatar</string>
-    <string name="header_logo_default" translatable="false">FadCam</string>
+    <string name="header_logo_default" translatable="false">Joy Creator</string>
     <string name="helper_audio_advanced">Passe Bitrate &amp; Abtastrate für Qualitäts-/Größenverhältnis an.</string>
     <string name="helper_audio_bitrate_detail">Empfohlen: 192000 bps für hochwertiges Stereo. Niedrigere Werte reduzieren die Dateigröße, können aber die Klarheit beeinträchtigen. Bereich 64000–384000 bps.</string>
     <string name="helper_audio_bitrate_high_hint">Über 320k: größere Dateien, geringer Gewinn</string>
@@ -1794,7 +1794,7 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="mini_app_torch_screen_desc">Verwende die volle Bildschirmhelligkeit als Lichtquelle</string>
     <string name="mini_app_torch_screen_title">Bildschirmlicht</string>
     <string name="mini_app_torch_title">Taschenlampe</string>
-    <string name="mini_apps_planned_shortcuts_desc">Startbildschirm-Shortcuts für sofortigen Zugriff auf jede Mini-App, ohne FadCam zu öffnen.\n\nIntent-basierte Automatisierungsunterstützung (Tasker, MacroDroid usw.) zum programmatischen Auslösen von Mini-Apps – verwende QR-Scanning, Taschenlampe und mehr aus deinen automatisierten Workflows.</string>
+    <string name="mini_apps_planned_shortcuts_desc">Startbildschirm-Shortcuts für sofortigen Zugriff auf jede Mini-App, ohne Joy Creator zu öffnen.\n\nIntent-basierte Automatisierungsunterstützung (Tasker, MacroDroid usw.) zum programmatischen Auslösen von Mini-Apps – verwende QR-Scanning, Taschenlampe und mehr aus deinen automatisierten Workflows.</string>
     <string name="mini_apps_planned_shortcuts_title">Geplant: Shortcuts &amp; Automatisierung</string>
     <string name="mini_apps_subtitle">Schnelle Dienstprogramme und Werkzeuge</string>
     <string name="mini_apps_title">Mini-Apps</string>
@@ -1826,7 +1826,7 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="motion_lab_enable_sensor">Bewegungssensor aktivieren</string>
     <string name="motion_lab_footer">Passe die Steuerungen oben nur an, wenn du ein spezielles Verhalten benötigst. Für die meisten Einrichtungen sind die Standardeinstellungen die sicherste und zuverlässigste Wahl.</string>
     <string name="motion_lab_fps_value">%1$d fps</string>
-    <string name="motion_lab_info_body">Dies ist die Auto-Aufnahme bei Bewegung von FadCam.\n\nEinfach erklärt:\n- Deine Kamera bleibt aktiv und analysiert Frames in Echtzeit auf dem Gerät.\n- Das On-Device-Machine-Learning-Modell und die Bewegungslogik suchen nach Bewegungen.\n- Bei erkannter Bewegung wird die Aufnahme gestartet/fortgesetzt.\n- Die Aufnahme läuft weiter, solange Bewegung vorhanden ist.\n- Nach Bewegungsende zeichnet Post-Roll für die gewählten zusätzlichen Sekunden weiter.\n- Dann pausiert die Aufnahme und wartet auf das nächste Bewegungsereignis.\n\nWenn die Aufnahme pausiert ist, analysiert die App weiterhin Frames im Arbeitsspeicher, schreibt aber keine neuen Videodaten, bis erneut Bewegung erkannt wird.\n\nAnwendung (die meisten Benutzer):\n- Lasse alle Optionen auf den Standardwerten.\n- Schalte den Bewegungssensor auf diesem Bildschirm EIN.\n- Gehe zum Home-Tab und starte die Aufnahme normal.\n- Die bewegungsbasierte Auto-Aufnahme läuft automatisch.\n\nEinfacher Test aus der Ferne:\n- Schalte Auto-Taschenlampe auf diesem Bildschirm EIN.\n- Starte die Aufnahme vom Home-Tab.\n- Stelle das Telefon geneigt auf einen Tisch oder ein Regal mit Blick in den Raum.\n- Verlasse den Raum, betrete ihn dann wieder und gehe hinein.\n- Das Einschalten der Taschenlampe hilft dir, sofort aus der Ferne zu erkennen, dass die Aufnahme gestartet wurde.\n- Die Aufnahme läuft für die gewählte Post-Roll-Dauer weiter, nachdem die Bewegung aufhört.\n\nTipp: Diese Funktion läuft kontinuierlich, daher können sehr hohe Werte die Hitze erhöhen und die Gerätegesundheit im Laufe der Zeit beeinträchtigen. Für lange Sitzungen behalte die Standardeinstellungen bei, es sei denn, du hast einen bestimmten Grund.</string>
+    <string name="motion_lab_info_body">Dies ist die Auto-Aufnahme bei Bewegung von Joy Creator.\n\nEinfach erklärt:\n- Deine Kamera bleibt aktiv und analysiert Frames in Echtzeit auf dem Gerät.\n- Das On-Device-Machine-Learning-Modell und die Bewegungslogik suchen nach Bewegungen.\n- Bei erkannter Bewegung wird die Aufnahme gestartet/fortgesetzt.\n- Die Aufnahme läuft weiter, solange Bewegung vorhanden ist.\n- Nach Bewegungsende zeichnet Post-Roll für die gewählten zusätzlichen Sekunden weiter.\n- Dann pausiert die Aufnahme und wartet auf das nächste Bewegungsereignis.\n\nWenn die Aufnahme pausiert ist, analysiert die App weiterhin Frames im Arbeitsspeicher, schreibt aber keine neuen Videodaten, bis erneut Bewegung erkannt wird.\n\nAnwendung (die meisten Benutzer):\n- Lasse alle Optionen auf den Standardwerten.\n- Schalte den Bewegungssensor auf diesem Bildschirm EIN.\n- Gehe zum Home-Tab und starte die Aufnahme normal.\n- Die bewegungsbasierte Auto-Aufnahme läuft automatisch.\n\nEinfacher Test aus der Ferne:\n- Schalte Auto-Taschenlampe auf diesem Bildschirm EIN.\n- Starte die Aufnahme vom Home-Tab.\n- Stelle das Telefon geneigt auf einen Tisch oder ein Regal mit Blick in den Raum.\n- Verlasse den Raum, betrete ihn dann wieder und gehe hinein.\n- Das Einschalten der Taschenlampe hilft dir, sofort aus der Ferne zu erkennen, dass die Aufnahme gestartet wurde.\n- Die Aufnahme läuft für die gewählte Post-Roll-Dauer weiter, nachdem die Bewegung aufhört.\n\nTipp: Diese Funktion läuft kontinuierlich, daher können sehr hohe Werte die Hitze erhöhen und die Gerätegesundheit im Laufe der Zeit beeinträchtigen. Für lange Sitzungen behalte die Standardeinstellungen bei, es sei denn, du hast einen bestimmten Grund.</string>
     <string name="motion_lab_info_cd">Motion Lab-Info</string>
     <string name="motion_lab_info_title">Auto-Aufnahme bei Bewegung</string>
     <string name="motion_lab_ms_value">%1$d ms</string>
@@ -1873,7 +1873,7 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="pattern_strobe_desc">Schnelles Ein-Aus-Blinkmuster für Notsignalisierung</string>
     <string name="player_info_content"><![CDATA[
 <b>Fragmentiertes MP4-Format</b><br/><br/>
-FadCam verwendet ein fragmentiertes MP4-Format für Aufnahmen. Das bedeutet, dass Videos in kleinen Segmenten statt einer einzigen Datei gespeichert werden. Der Vorteil ist, dass bei einem Problem während der Aufnahme nur die letzten Sekunden verloren gehen, nicht das gesamte Video.<br/><br/>
+Joy Creator verwendet ein fragmentiertes MP4-Format für Aufnahmen. Das bedeutet, dass Videos in kleinen Segmenten statt einer einzigen Datei gespeichert werden. Der Vorteil ist, dass bei einem Problem während der Aufnahme nur die letzten Sekunden verloren gehen, nicht das gesamte Video.<br/><br/>
 Wenn die letzten Sekunden deines Videos eingefroren oder veraltet erscheinen, mach dir keine Sorgen – es ist kein Fehler! Wenn du die Aufnahme beendest, kann das aktuelle Fragment seinen Zyklus abschließen (~3 Sekunden), was ein kurzes Standbild am Ende hinterlassen kann.<br/><br/>
 <b>Player-Einschränkungen</b><br/><br/>
 Der integrierte Videoplayer unterliegt einigen Android-Systemeinschränkungen. Die Fortschrittsleiste oder Wellenform kann etwas sprunghaft erscheinen – dies ist normales Verhalten und kein Fehler.<br/><br/>
@@ -1900,7 +1900,7 @@ Für die flüssigste Wiedergabe kannst du einen externen Player wie VLC verwende
     <string name="privacy_black_mode_disabled_toast">Privacy-Modus deaktiviert</string>
     <string name="privacy_black_mode_enable_title">Privacy Black Mode aktivieren</string>
     <string name="privacy_black_mode_enabled_toast">Privacy-Modus aktiviert</string>
-    <string name="privacy_black_mode_helper">Wenn dein Gerät die App im Hintergrund beendet, kannst du diese Funktion nutzen, um die App im Vordergrund zu halten.\n\nEin schwarzer Overlay-Bildschirm erscheint, der wie ein ausgeschalteter Bildschirm aussieht, während die Aufnahme fortgesetzt wird.\n\nTippe auf das FadCam-Symbol im oberen Header des Home-Tabs, um es zu aktivieren.</string>
+    <string name="privacy_black_mode_helper">Wenn dein Gerät die App im Hintergrund beendet, kannst du diese Funktion nutzen, um die App im Vordergrund zu halten.\n\nEin schwarzer Overlay-Bildschirm erscheint, der wie ein ausgeschalteter Bildschirm aussieht, während die Aufnahme fortgesetzt wird.\n\nTippe auf das Joy Creator-Symbol im oberen Header des Home-Tabs, um es zu aktivieren.</string>
     <string name="privacy_black_mode_title">Privacy Black Screen</string>
     <string name="project_desc_hint">Worum geht es in diesem Projekt?</string>
     <string name="project_desc_label">Beschreibung (optional)</string>
@@ -2334,7 +2334,7 @@ Für die flüssigste Wiedergabe kannst du einen externen Player wie VLC verwende
     <string name="remote_pages">Seiten</string>
     <string name="remote_layers">Ebenen</string>
     <string name="remote_access_endpoints_desc">Greife über diese HTTP-Endpunkte auf deinen Streaming-Server zu</string>
-    <string name="remote_control_via_api_desc">Steuere FadCam per API-Aufrufen aus der Ferne</string>
+    <string name="remote_control_via_api_desc">Steuere Joy Creator per API-Aufrufen aus der Ferne</string>
     <string name="remote_buffered_segments_desc">Gepufferte Segmente, bereit zum Streamen</string>
     <string name="remote_battery_low_warning">⚠️ Niedriger Akkustand - Ladegerät sofort anschließen</string>
     <string name="remote_enter_percentage_hint">Prozent eingeben</string>
@@ -2351,7 +2351,7 @@ Für die flüssigste Wiedergabe kannst du einen externen Player wie VLC verwende
     <string name="update_get_pro">FadCam Pro holen</string>
     <string name="update_maybe_later">Vielleicht später</string>
     <string name="update_beta_title">Beta-Update verfügbar</string>
-    <string name="update_beta_desc">Die FadCam Beta ist eine eigenständige App, die neben der stabilen Version installiert werden kann. Sie wird deine stabile App oder deren Daten nicht beeinträchtigen.\n\nInstalliere die Beta, um neue Funktionen zu testen, bevor sie in der stabilen Version erscheinen.</string>
+    <string name="update_beta_desc">Die Joy Creator Beta ist eine eigenständige App, die neben der stabilen Version installiert werden kann. Sie wird deine stabile App oder deren Daten nicht beeinträchtigen.\n\nInstalliere die Beta, um neue Funktionen zu testen, bevor sie in der stabilen Version erscheinen.</string>
     <string name="update_get_beta">Beta holen</string>
     <string name="mini_apps_about_title">Über Mini-Apps</string>
     <string name="mini_apps_current_tools">Aktuelle Werkzeuge</string>
@@ -2447,7 +2447,7 @@ Für die flüssigste Wiedergabe kannst du einen externen Player wie VLC verwende
     <string name="about_dialog_error">Fehler</string>
     <string name="about_dialog_ok">OK</string>
     <string name="about_get_beta">Beta holen</string>
-    <string name="about_fadcam_feedback">FadCam Feedback</string>
+    <string name="about_fadcam_feedback">Joy Creator Feedback</string>
 
     <!-- Video split sizes -->
     <string name="video_split_enabled_format">Aktiviert (%s)</string>
@@ -2467,11 +2467,11 @@ Für die flüssigste Wiedergabe kannst du einen externen Player wie VLC verwende
 
     <!-- Settings home tabs -->
     <string name="settings_tab_all">Alle</string>
-    <string name="settings_tab_fadcam" translatable="false">FadCam</string>
+    <string name="settings_tab_fadcam" translatable="false">Joy Creator</string>
     <string name="settings_tab_fadrec" translatable="false">FadRec</string>
 
     <!-- Watermark preview labels -->
-    <string name="watermark_preview_fadcam" translatable="false">FadCam</string>
+    <string name="watermark_preview_fadcam" translatable="false">Joy Creator</string>
     <string name="watermark_preview_fadrec" translatable="false">FadRec</string>
     <string name="settings_location_update_interval_5s">5,0 Sekunden</string>
 
@@ -2577,7 +2577,7 @@ Für die flüssigste Wiedergabe kannst du einen externen Player wie VLC verwende
     <string name="channel_security_alarm">Sicherheitsalarm</string>
     <string name="channel_remote_streaming">Fern-Streaming</string>
     <string name="channel_annotation_service">Annotationsdienst</string>
-    <string name="channel_fadcam_file_ops">FadCam-Dateioperationen</string>
+    <string name="channel_fadcam_file_ops">Joy Creator-Dateioperationen</string>
 
     <!-- ScreenRecordingService -->
     <string name="screen_rec_failed">Aufnahme fehlgeschlagen: %s</string>

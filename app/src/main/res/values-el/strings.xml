@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <string name="app_name" translatable="false">FadCam</string>
+    <string name="app_name" translatable="false">Joy Creator</string>
     <string name="app_icon_description">Επιλέξτε ένα εικονίδιο και όνομα για την εφαρμογή σας. Αυτό θα αλλάξει την εμφάνισή της στην αρχική σας οθόνη.</string>
     <string name="check_for_updates">Έλεγχος για Ενημερώσεις</string>
     <string name="accessibility_thumbnail_progress">%1$d%% παρακολουθήθηκε</string>
-    <string name="fadsec_info">Το FadCam είναι μέρος της σουίτας FadSec Lab. Για περισσότερες πληροφορίες, κάντε κλικ στην επιλογή «προβολή πηγαίου κώδικα» παρακάτω.</string>
-    <string name="app_description">        <![CDATA[    Το FadCam είναι μια εφαρμογή εγγραφής βίντεο ανοιχτού κώδικα, χωρίς διαφημίσεις, που δίνει προτεραιότητα στην ιδιωτικότητα, καθώς δεν παρακολουθεί ούτε συλλέγει δεδομένα. Είναι διαθέσιμο αποκλειστικά στο GitHub και μέσω των επίσημων συνδέσμων που αναφέρονται στο README.    <br/><br/>    Το FadCam έχει παρουσιαστεί σε δημοφιλή κανάλια YouTube όπως τα <font color="#cfbafd">HowToMen</font> και <font color="#cfbafd">Xtream Droid</font>, καθώς και συζητήθηκε στα <font color="#cfbafd">GrapheneOS</font> και σε 55+ άλλα αξιόλογα σημεία.    ]]>    </string>
+    <string name="fadsec_info">Το Joy Creator είναι μέρος της σουίτας FadSec Lab. Για περισσότερες πληροφορίες, κάντε κλικ στην επιλογή «προβολή πηγαίου κώδικα» παρακάτω.</string>
+    <string name="app_description">        <![CDATA[    Το Joy Creator είναι μια εφαρμογή εγγραφής βίντεο ανοιχτού κώδικα, χωρίς διαφημίσεις, που δίνει προτεραιότητα στην ιδιωτικότητα, καθώς δεν παρακολουθεί ούτε συλλέγει δεδομένα. Είναι διαθέσιμο αποκλειστικά στο GitHub και μέσω των επίσημων συνδέσμων που αναφέρονται στο README.    <br/><br/>    Το Joy Creator έχει παρουσιαστεί σε δημοφιλή κανάλια YouTube όπως τα <font color="#cfbafd">HowToMen</font> και <font color="#cfbafd">Xtream Droid</font>, καθώς και συζητήθηκε στα <font color="#cfbafd">GrapheneOS</font> και σε 55+ άλλα αξιόλογα σημεία.    ]]>    </string>
     <string name="view_source_code">Προβολή Πηγαίου Κώδικα</string>
     <string name="buy_me_a_coffee">Κέρασέ με έναν καφέ ☕</string>
     <string name="contact">Επικοινωνία</string>
@@ -359,7 +359,7 @@
     <string name="toast_no_drive_app">Η εφαρμογή Google Drive δεν βρέθηκε</string>
     <string name="records_title">Εγγραφές</string>
     <string name="records_filter_all">Όλα</string>
-    <string name="records_filter_camera">FadCam</string>
+    <string name="records_filter_camera">Joy Creator</string>
     <string name="records_filter_dual">Dual</string>
     <string name="records_filter_screen">FadRec</string>
     <string name="records_filter_faditor">Faditor</string>
@@ -522,7 +522,7 @@
 Συμβουλή: Με H.265 (HEVC), μπορείτε να χρησιμοποιήσετε περίπου τη μισή ταχύτητα μετάδοσης του H.264 για την ίδια ποιότητα. Παράδειγμα: Για FHD, χρησιμοποιήστε 8 Mbps αντί για 16 Mbps.</string>
     <string name="setting_watermark">Υδατογράφημα</string>
     <string name="note_watermark">Επιλέξτε επιλογή υδατογραφήματος
-(Προεπιλογή: Χρονική σήμανση με FadCam)</string>
+(Προεπιλογή: Χρονική σήμανση με Joy Creator)</string>
     <string name="note_watermark_extra">Για γρήγορη αποθήκευση, επιλέξτε «Χωρίς Υδατογράφημα». Προσθέτετε υδατογράφημα; Αξίζει η αναμονή, λίγη υπομονή για την επεξεργασία!</string>
     <string name="setting_location_title">Δεδομένα Τοποθεσίας</string>
     <string name="note_location">Συμπερίληψη δεδομένων τοποθεσίας στο υδατογράφημα. 
@@ -559,13 +559,13 @@
     </string-array>
     <string-array name="questions_array" tools:ignore="InconsistentArrays">
         <item>DISCLAIMER</item>
-        <item>Does FadCam collect any user data?</item>
-        <item>Are there any ads in FadCam?</item>
-        <item>Why does FadCam request location access?</item>
+        <item>Does Joy Creator collect any user data?</item>
+        <item>Are there any ads in Joy Creator?</item>
+        <item>Why does Joy Creator request location access?</item>
         <item>Why the internet permission is required?</item>
         <item>Is any data stored on external servers?</item>
         <item>What happens to my videos after recording?</item>
-        <item>Does FadCam share my data with third parties?</item>
+        <item>Does Joy Creator share my data with third parties?</item>
         <item></item>
         <item></item>
         <item>General</item>
@@ -577,15 +577,15 @@
         <item></item>
     </string-array>
     <string-array name="answers_array" tools:ignore="InconsistentArrays">
-        <item>FadCam does not condone or support any unethical or illegal use of this software. Misuse, such as unauthorized surveillance or invasion of privacy, is strictly against our guidelines. The author is not responsible for any misuse of the application.
+        <item>Joy Creator does not condone or support any unethical or illegal use of this software. Misuse, such as unauthorized surveillance or invasion of privacy, is strictly against our guidelines. The author is not responsible for any misuse of the application.
         </item>
-        <item>No, FadCam does not collect any user data.</item>
-        <item>No, FadCam is completely ad-free.</item>
+        <item>No, Joy Creator does not collect any user data.</item>
+        <item>No, Joy Creator is completely ad-free.</item>
         <item>For adding location info to your watermarks.</item>
         <item>For auto update checking.</item>
         <item>No, all data is stored on your device.</item>
         <item>Your videos are saved locally on your device.</item>
-        <item>No, FadCam does not share or collect any data, not even crash logs.</item>
+        <item>No, Joy Creator does not share or collect any data, not even crash logs.</item>
         <item></item>
         <item></item>
         <item></item>
@@ -596,7 +596,7 @@
         <item>Check the official GitHub repo for updates.</item>
         <item></item>
     </string-array>
-    <string name="dialog_welcome_title">Καλώς ήρθατε στο FadCam!</string>
+    <string name="dialog_welcome_title">Καλώς ήρθατε στο Joy Creator!</string>
     <string name="note_from_developer_title">Σημείωση από τον Προγραμματιστή</string>
     <string name="note_from_developer_subtitle">README, σύνδεσμοι &amp; ενημερώσεις</string>
     <string name="note_under_dev">Σημαντικό: Αυτή η εφαρμογή βρίσκεται υπό ανάπτυξη. Νέες λειτουργίες προστίθενται τακτικά.</string>
@@ -605,9 +605,9 @@
     <string name="button_readme_github">Αποθετήριο GitHub</string>
     <string name="community_title">Εγγραφείτε στην Κοινότητα:</string>
     <string name="discord_title">Διακομιστής Discord</string>
-    <string name="thankyou_msg">Σας ευχαριστούμε που χρησιμοποιείτε το FadCam!</string>
+    <string name="thankyou_msg">Σας ευχαριστούμε που χρησιμοποιείτε το Joy Creator!</string>
     <string name="settings_title">Ρυθμίσεις</string>
-    <string name="array_watermark_time_fadcam">Ώρα με FadCam</string>
+    <string name="array_watermark_time_fadcam">Ώρα με Joy Creator</string>
     <string name="array_watermark_timeonly">Χρονική Σήμανση</string>
     <string name="array_watermark_nomark">Χωρίς Υδατογράφημα</string>
     <string name="watermark_preview_funny">Αλήθεια; :( 
@@ -731,14 +731,14 @@
     <string name="watermark_preview_heading">Προεπισκόπηση</string>
     <string name="watermark_options_heading">Επιλογές</string>
     <string name="watermark_style_row_title">Στυλ Υδατογραφήματος</string>
-    <string name="watermark_preview_sample_fadcam">Λήψη από FadCam - %1$s</string>
+    <string name="watermark_preview_sample_fadcam">Λήψη από Joy Creator - %1$s</string>
     <string name="watermark_preview_sample_timeonly">%1$s</string>
-    <string name="watermark_style_time_fadcam_label">Ώρα με FadCam</string>
+    <string name="watermark_style_time_fadcam_label">Ώρα με Joy Creator</string>
     <string name="watermark_style_timeonly_label">Χρονική Σήμανση</string>
     <string name="watermark_style_badge_label">Μόνο Επωνυμία</string>
     <string name="watermark_style_none_label">Χωρίς Υδατογράφημα</string>
     <string name="helper_watermark_preview">Έτσι θα εμφανίζεται το υδατογράφημα πάνω αριστερά στο βίντεό σας.
-Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε για πρώτη φορά το FadCam v1.0.</string>
+Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε για πρώτη φορά το Joy Creator v1.0.</string>
     <string name="helper_location_watermark_option">Εναλλαγή προσθήκης τοποθεσίας συσκευής ως επικάλυψη. Απαιτεί άδεια τοποθεσίας.</string>
     <string name="location_format_title">Μορφή Τοποθεσίας</string>
     <string name="location_format_coordinates">Μόνο Συντεταγμένες</string>
@@ -766,7 +766,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="widgets_helper_text">Καρφιτσώστε γρήγορες ενέργειες στην αρχική σας οθόνη για άμεση πρόσβαση.</string>
     <string name="widgets_pin_unsupported">Η καρφίτσωμα widget δεν υποστηρίζεται από τον εκκινητή σας.</string>
     <string name="widget_clock_title">Widget Ρολογιού</string>
-    <string name="widgets_pin_fallback">Αν δεν εμφανιστεί προτροπή, πατήστε παρατεταμένα την Αρχική, ανοίξτε τα Widget και σύρετε το Widget Ρολογιού FadCam.</string>
+    <string name="widgets_pin_fallback">Αν δεν εμφανιστεί προτροπή, πατήστε παρατεταμένα την Αρχική, ανοίξτε τα Widget και σύρετε το Widget Ρολογιού Joy Creator.</string>
     <!-- Widget Customization -->
     <string name="widget_customize_title">Προσαρμογή Widget Ρολογιού</string>
     <string name="widget_customize_description">Προσαρμόστε τον τρόπο εμφάνισης ώρας και ημερομηνίας στο widget ρολογιού σας</string>
@@ -990,8 +990,8 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="remote_access_title">Απομακρυσμένη Πρόσβαση/Έλεγχος</string>
     <string name="remote_toast_coming_soon">Σύντομα! In Sha Allah</string>
     <string name="coming_soon_toast">Σύντομα! In Sha Allah</string>
-    <string name="remote_coming_soon">Ο απομακρυσμένος έλεγχος για το FadCam έρχεται σύντομα.</string>
-    <string name="remote_feature_description">Συνδέστε πελάτες FadCam χρησιμοποιώντας κωδικό QR για ασφαλή απομακρυσμένο έλεγχο τοπικού δικτύου.</string>
+    <string name="remote_coming_soon">Ο απομακρυσμένος έλεγχος για το Joy Creator έρχεται σύντομα.</string>
+    <string name="remote_feature_description">Συνδέστε πελάτες Joy Creator χρησιμοποιώντας κωδικό QR για ασφαλή απομακρυσμένο έλεγχο τοπικού δικτύου.</string>
     <string name="faditor_mini_title">Faditor Mini</string>
     <string name="faditor_mini_coming_soon">Σύντομα — ελαφρύς επεξεργαστής</string>
     <string name="faditor_mini_subtitle">Κόψτε και εξάγετε τα βίντεό σας με ακρίβεια</string>
@@ -1121,9 +1121,9 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="faditor_info_title">Σχετικά με το Faditor Mini</string>
     <string name="faditor_info_subtitle">Όλα όσα πρέπει να γνωρίζετε</string>
     <string name="faditor_info_how_title">Πώς λειτουργεί</string>
-    <string name="faditor_info_how_desc">Επιλέξτε οποιοδήποτε βίντεο από τη συσκευή σας ή τις εγγραφές FadCam. Κόψτε το καρέ-καρέ και εξάγετε. Όλη η επεξεργασία γίνεται τοπικά.</string>
+    <string name="faditor_info_how_desc">Επιλέξτε οποιοδήποτε βίντεο από τη συσκευή σας ή τις εγγραφές Joy Creator. Κόψτε το καρέ-καρέ και εξάγετε. Όλη η επεξεργασία γίνεται τοπικά.</string>
     <string name="faditor_info_convert_title">Έξυπνη μετατροπή</string>
-    <string name="faditor_info_convert_desc">Το FadCam καταγράφει σε κατακερματισμένο MP4 (fMP4). Για χρήση εκτός FadCam, πρέπει πρώτα να μετατρέψετε τα αρχεία.</string>
+    <string name="faditor_info_convert_desc">Το Joy Creator καταγράφει σε κατακερματισμένο MP4 (fMP4). Για χρήση εκτός Joy Creator, πρέπει πρώτα να μετατρέψετε τα αρχεία.</string>
     <string name="faditor_info_export_title">Εξαγόμενα αρχεία</string>
     <string name="faditor_info_export_desc">Τα εξαγόμενα βίντεο αποθηκεύονται στην ενεργή τοποθεσία αποθήκευσης με το πρόθεμα «Faditor_».</string>
     <string name="faditor_info_temp_title">Προσωρινά αρχεία και cache</string>
@@ -1134,12 +1134,12 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="faditor_browse_device">Περιήγηση Συσκευής</string>
     <string name="faditor_no_recordings">Δεν βρέθηκαν ακόμα εγγραφές.</string>
     <string name="faditor_video_count">%1$d βίντεο</string>
-    <string name="faditor_fadcam_source">FadCam</string>
+    <string name="faditor_fadcam_source">Joy Creator</string>
     <string name="faditor_fadrec_source">FadRec</string>
     <string name="faditor_browse_device_desc">Επιλέξτε οποιοδήποτε βίντεο από τη συσκευή σας</string>
     <string name="faditor_scanning">Σάρωση εγγραφών…</string>
-    <string name="faditor_source_chooser_desc">Επιλέξτε ένα βίντεο από τη συλλογή σας ή από τις εγγραφές FadCam</string>
-    <string name="faditor_recordings_helper">Βίντεο που καταγράφηκαν με το FadCam</string>
+    <string name="faditor_source_chooser_desc">Επιλέξτε ένα βίντεο από τη συλλογή σας ή από τις εγγραφές Joy Creator</string>
+    <string name="faditor_recordings_helper">Βίντεο που καταγράφηκαν με το Joy Creator</string>
     <string name="setting_audio_title">Εγγραφή Ήχου</string>
     <string name="note_audio">Ενεργοποίηση ή απενεργοποίηση εγγραφής ήχου για βίντεο.
 (Προεπιλογή: Ενεργοποιημένο)</string>
@@ -1270,7 +1270,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="records_search_hint">Αναζήτηση εγγραφών…</string>
     <string name="saf_permission_missing_dialog_instructions">Λείπει η άδεια SAF.</string>
     <string name="saf_permission_missing_dialog_title">Απαιτείται Άδεια SAF</string>
-    <string name="saf_permission_missing_dialog_message_for_start_recording">Για αποθήκευση σε προσαρμοσμένη τοποθεσία, το FadCam χρειάζεται άδεια.</string>
+    <string name="saf_permission_missing_dialog_message_for_start_recording">Για αποθήκευση σε προσαρμοσμένη τοποθεσία, το Joy Creator χρειάζεται άδεια.</string>
     <string name="grant_permission_button">Παραχώρηση Άδειας</string>
     <!-- Strings for Trash Auto-Delete Feature -->
     <plurals name="trash_auto_delete_info_days">
@@ -1331,7 +1331,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="choose_language">Επιλογή Γλώσσας</string>
     <string name="language_change_later_note">Μπορείτε να το αλλάξετε στις Ρυθμίσεις.</string>
     <string name="permissions_required">Απαιτούνται Άδειες</string>
-    <string name="permissions_description">Το FadCam χρειάζεται πρόσβαση στην κάμερα, το μικρόφωνο και τον αποθηκευτικό χώρο.</string>
+    <string name="permissions_description">Το Joy Creator χρειάζεται πρόσβαση στην κάμερα, το μικρόφωνο και τον αποθηκευτικό χώρο.</string>
     <string name="grant_permissions">Παραχώρηση Αδειών</string>
     <string name="permissions_note">Πρέπει να παραχωρήσετε όλες τις άδειες.</string>
     <string name="permissions_granted">Όλες οι άδειες παραχωρήθηκαν!</string>
@@ -1339,8 +1339,8 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="disable_battery_optimization">Απενεργοποίηση Βελτιστοποίησης Μπαταρίας</string>
     <string name="onboarding_human_title">Επιβεβαιώστε ότι είστε άνθρωπος</string>
     <string name="onboarding_human_desc">Αυτοί οι κανόνες είναι αδιαπραγμάτευτοι.</string>
-    <string name="onboarding_human_checkbox1">Δεν θα χρησιμοποιήσω το FadCam παράνομα.</string>
-    <string name="onboarding_human_checkbox2">Αγαπώ ήδη το FadCam πριν καν το χρησιμοποιήσω. (Δεν είναι προαιρετικό)</string>
+    <string name="onboarding_human_checkbox1">Δεν θα χρησιμοποιήσω το Joy Creator παράνομα.</string>
+    <string name="onboarding_human_checkbox2">Αγαπώ ήδη το Joy Creator πριν καν το χρησιμοποιήσω. (Δεν είναι προαιρετικό)</string>
     <string name="onboarding_human_checkbox3">Συμφωνώ με την Πολιτική Απορρήτου</string>
     <string name="onboarding_human_button">Αφήστε με να μπω!</string>
     <string name="trash_select_all">Επιλογή Όλων</string>
@@ -1411,17 +1411,17 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <!-- Header Logo Style Strings -->
     <string name="setting_header_logo_title">Λογότυπο Κεφαλίδας</string>
     <string name="setting_header_logo_desc">Επιλέξτε στυλ λογότυπου κεφαλίδας</string>
-    <string name="header_logo_default" translatable="false">FadCam</string>
+    <string name="header_logo_default" translatable="false">Joy Creator</string>
     <string name="header_logo_avatar" translatable="false">Avatar</string>
     <string name="setting_app_icon_desc">Αλλαγή εικονιδίου και ονόματος εκκινητή</string>
     <string name="app_icon_dialog_title">Επιλογή Εικονιδίου Εφαρμογής</string>
     <string name="app_icon_default" translatable="false">Legacy</string>
     <string name="app_icon_alternative" translatable="false">Camera</string>
     <string name="app_icon_faded" translatable="false">0xFF0000</string>
-    <string name="app_icon_pakistan" translatable="false">FadCam</string>
+    <string name="app_icon_pakistan" translatable="false">Joy Creator</string>
     <string name="app_icon_fadseclab" translatable="false">FadSec Lab</string>
     <string name="app_icon_noor" translatable="false">Noor</string>
-    <string name="app_icon_bat" translatable="false">FadCam</string>
+    <string name="app_icon_bat" translatable="false">Joy Creator</string>
     <string name="app_icon_redbinary" translatable="false">$ ~/r00t</string>
     <string name="app_icon_notes" translatable="false">Notes</string>
     <string name="app_icon_calculator" translatable="false">Calculator</string>
@@ -1438,7 +1438,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="changelog_label">Τι Νέο</string>
     <!-- Fix Start: Add auto update check toggle strings -->
     <string name="setting_auto_update_check_title">Αυτόματος Έλεγχος Ενημερώσεων</string>
-    <string name="note_auto_update_check">Αν ενεργοποιημένο, το FadCam θα ελέγχει για ενημερώσεις.
+    <string name="note_auto_update_check">Αν ενεργοποιημένο, το Joy Creator θα ελέγχει για ενημερώσεις.
 (Προεπιλογή: Ενεργό)</string>
     <!-- Fix End: Add auto update check toggle strings -->
 
@@ -1472,7 +1472,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="digital_forensics_coming_soon_short">Σύντομα</string>
     <string name="digital_forensics_discord_coming_soon_toast">Θα προστεθεί σε μελλοντική ενημέρωση.</string>
     <string name="digital_forensics_helper">Η Ψηφιακή Εγκληματολογία έχει δύο μέρη.</string>
-    <string name="digital_forensics_enable_helper">Όταν ενεργοποιημένο, το FadCam διατηρεί χρονολόγιο δραστηριότητας.</string>
+    <string name="digital_forensics_enable_helper">Όταν ενεργοποιημένο, το Joy Creator διατηρεί χρονολόγιο δραστηριότητας.</string>
     <string name="digital_forensics_evidence_enable">Ενεργοποίηση Συλλογής Αποδείξεων</string>
     <string name="digital_forensics_evidence_helper">Οι ανιχνεύσεις καταγράφονται στη βάση δεδομένων.</string>
     <string name="digital_forensics_capture_scope">Πεδίο Λήψης Αποδείξεων</string>
@@ -1727,7 +1727,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <!-- Adding notification appearance strings -->
     <string name="setting_notification_appearance">Εμφάνιση Ειδοποίησης</string>
     <string name="note_notification_appearance">Προσαρμογή ειδοποίησης εγγραφής
-(Προεπιλογή: FadCam)</string>
+(Προεπιλογή: Joy Creator)</string>
     <string name="hide_stop_button">Απόκρυψη κουμπιού διακοπής</string>
     <string name="note_hide_stop_button">Απόκρυψη κουμπιού διακοπής
 (Προεπιλογή: Απενεργοποιημένο)</string>
@@ -1743,7 +1743,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="notification_custom_title_placeholder">Τίτλος (π.χ. Ενημέρωση Συστήματος)</string>
     <string name="notification_custom_text_placeholder">Περιγραφή (π.χ. Ενημέρωση σε εξέλιξη)</string>
     <string-array name="notification_appearance_options">
-        <item>FadCam (default)</item>
+        <item>Joy Creator (default)</item>
         <item>System Update</item>
         <item>Download</item>
         <item>Syncing</item>
@@ -1861,7 +1861,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="player_info_title">Σχετικά με τον Αναπαραγωγέα Βίντεο</string>
     <string name="player_info_content"><![CDATA[
 <b>Κατακερματισμένη Μορφή MP4</b><br/><br/>
-Το FadCam χρησιμοποιεί κατακερματισμένη μορφή MP4 για εγγραφές.<br/><br/>
+Το Joy Creator χρησιμοποιεί κατακερματισμένη μορφή MP4 για εγγραφές.<br/><br/>
 <b>Περιορισμοί Αναπαραγωγής</b><br/><br/>
 Ο ενσωματωμένος αναπαραγωγέας έχει περιορισμούς συστήματος Android.<br/><br/>
 Για την πιο ομαλή εμπειρία, χρησιμοποιήστε εξωτερικό αναπαραγωγέα όπως VLC.
@@ -2000,7 +2000,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="streaming_mode_stream_url">URL Ροής</string>
     <string name="streaming_mode_helper">Επιλέξτε πώς θέλετε να κάνετε ροή της κάμεράς σας</string>
     <!-- Fullscreen Preview -->
-    <string name="fullscreen_preview_enter">Προεπισκόπηση FadCam</string>
+    <string name="fullscreen_preview_enter">Προεπισκόπηση Joy Creator</string>
     <string name="fullscreen_preview_close">Κλείσιμο πλήρους οθόνης</string>
     <string name="fullscreen_preview_not_recording">Ξεκινήστε πρώτα εγγραφή για χρήση προεπισκόπησης πλήρους οθόνης</string>
     <string name="fullscreen_preview_tap_hint">Πατήστε στην οθόνη για εναλλαγή χειριστηρίων</string>
@@ -2071,7 +2071,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="motion_lab_debug_metrics_value">Περιοχή %1$.3f, Ισχυρό %2$.3f, Μέσο %3$.3f, BG %4$.3f, Μέγιστο %5$.3f, Global %6$s</string>
     <string name="motion_lab_info_cd">Πληροφορίες Motion Lab</string>
     <string name="motion_lab_info_title">Αυτόματη Εγγραφή σε Κίνηση</string>
-    <string name="motion_lab_info_body">Αυτή είναι η λειτουργία Αυτόματης Εγγραφής σε Κίνηση του FadCam.
+    <string name="motion_lab_info_body">Αυτή είναι η λειτουργία Αυτόματης Εγγραφής σε Κίνηση του Joy Creator.
 
 Πώς λειτουργεί:
 - Η κάμερα παραμένει ενεργή και αναλύει καρέ σε πραγματικό χρόνο στη συσκευή.
@@ -2098,7 +2098,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
 
 Εμφανίζεται μια μαύρη επικάλυψη οθόνης, κάνοντας την να μοιάζει σαν η οθόνη να είναι κλειστή ενώ η εγγραφή συνεχίζεται.
 
-Πατήστε το εικονίδιο FadCam στην κεφαλίδα της καρτέλας Αρχική για ενεργοποίηση.</string>
+Πατήστε το εικονίδιο Joy Creator στην κεφαλίδα της καρτέλας Αρχική για ενεργοποίηση.</string>
     <string name="privacy_black_mode_enable_title">Ενεργοποίηση Μαύρης Οθόνης Απορρήτου</string>
     <string name="privacy_black_mode_enabled_toast">Η Λειτουργία Απορρήτου Ενεργοποιήθηκε</string>
     <string name="privacy_black_mode_disabled_toast">Η Λειτουργία Απορρήτου Απενεργοποιήθηκε</string>
@@ -2452,7 +2452,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
 
     <string name="remote_access_endpoints_desc">Πρόσβαση στον διακομιστή ροής μέσω των τελικών σημείων HTTP</string>
 
-    <string name="remote_control_via_api_desc">Ελέγξτε το FadCam εξ αποστάσεως μέσω κλήσεων API</string>
+    <string name="remote_control_via_api_desc">Ελέγξτε το Joy Creator εξ αποστάσεως μέσω κλήσεων API</string>
 
     <string name="remote_buffered_segments_desc">Τμήματα σε προσωρινή αποθήκευση έτοιμα για ροή</string>
 
@@ -2486,7 +2486,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
 
     <string name="update_beta_title">Διαθέσιμη Beta Ενημέρωση</string>
 
-    <string name="update_beta_desc">Η beta του FadCam είναι μια αυτόνομη εφαρμογή που μπορεί να εγκατασταθεί μαζί με τη σταθερή έκδοση. Δεν θα επηρεάσει τη σταθερή εφαρμογή ή τα δεδομένα σας.\n\nΕγκαταστήστε τη beta για να δοκιμάσετε νέες λειτουργίες πριν φτάσουν στη σταθερή έκδοση.</string>
+    <string name="update_beta_desc">Η beta του Joy Creator είναι μια αυτόνομη εφαρμογή που μπορεί να εγκατασταθεί μαζί με τη σταθερή έκδοση. Δεν θα επηρεάσει τη σταθερή εφαρμογή ή τα δεδομένα σας.\n\nΕγκαταστήστε τη beta για να δοκιμάσετε νέες λειτουργίες πριν φτάσουν στη σταθερή έκδοση.</string>
 
     <string name="update_get_beta">Αποκτήστε τη Beta</string>
 
@@ -2603,7 +2603,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="about_dialog_error">Σφάλμα</string>
     <string name="about_dialog_ok">OK</string>
     <string name="about_get_beta">Λήψη Beta</string>
-    <string name="about_fadcam_feedback">Σχόλια FadCam</string>
+    <string name="about_fadcam_feedback">Σχόλια Joy Creator</string>
 
     <!-- Video split sizes -->
     <string name="video_split_enabled_format">Ενεργοποιημένο (%s)</string>
@@ -2623,11 +2623,11 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
 
     <!-- Settings home tabs -->
     <string name="settings_tab_all">Όλα</string>
-    <string name="settings_tab_fadcam" translatable="false">FadCam</string>
+    <string name="settings_tab_fadcam" translatable="false">Joy Creator</string>
     <string name="settings_tab_fadrec" translatable="false">FadRec</string>
 
     <!-- Watermark preview labels -->
-    <string name="watermark_preview_fadcam" translatable="false">FadCam</string>
+    <string name="watermark_preview_fadcam" translatable="false">Joy Creator</string>
     <string name="watermark_preview_fadrec" translatable="false">FadRec</string>
     <string name="settings_location_update_interval_5s">5.0 δευτερόλεπτα</string>
 
@@ -2733,7 +2733,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="channel_security_alarm">Συναγερμός Ασφαλείας</string>
     <string name="channel_remote_streaming">Απομακρυσμένη Ροή</string>
     <string name="channel_annotation_service">Υπηρεσία Σχολιασμών</string>
-    <string name="channel_fadcam_file_ops">Λειτουργίες Αρχείων FadCam</string>
+    <string name="channel_fadcam_file_ops">Λειτουργίες Αρχείων Joy Creator</string>
 
     <!-- ScreenRecordingService -->
     <string name="screen_rec_failed">Η εγγραφή απέτυχε: %s</string>

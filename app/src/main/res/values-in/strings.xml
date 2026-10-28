@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <string name="app_name" translatable="false">FadCam</string>
+    <string name="app_name" translatable="false">Joy Creator</string>
     <string name="app_icon_description">Pilih ikon dan nama untuk aplikasi Anda. Ini akan mengubah tampilannya di layar utama Anda.</string>
     <string name="check_for_updates">Periksa pembaruan</string>
     <string name="accessibility_thumbnail_progress">%1$d%% ditonton</string>
-    <string name="fadsec_info">FadCam adalah bagian dari rangkaian FadSec Lab. Untuk informasi lebih lanjut, klik \'lihat kode sumber\' di bawah ini.</string>
+    <string name="fadsec_info">Joy Creator adalah bagian dari rangkaian FadSec Lab. Untuk informasi lebih lanjut, klik \'lihat kode sumber\' di bawah ini.</string>
 
 
     <string name="app_description"><![CDATA[
-    FadCam adalah aplikasi perekaman video sumber terbuka bebas iklan yang mengutamakan privasi dengan tidak melacak atau mengumpulkan data apa pun. Aplikasi ini tersedia secara eksklusif di GitHub dan melalui tautan resmi yang disebutkan di README.
+    Joy Creator adalah aplikasi perekaman video sumber terbuka bebas iklan yang mengutamakan privasi dengan tidak melacak atau mengumpulkan data apa pun. Aplikasi ini tersedia secara eksklusif di GitHub dan melalui tautan resmi yang disebutkan di README.
     <br/><br/>
-    FadCam telah ditampilkan di saluran YouTube populer seperti <font color="#cfbafd">HowToMen</font> dan <font color="#cfbafd">Xtream Droid</font>, serta dibahas dalam <font color="#cfbafd">GrapheneOS</font> dan 55+ tempat penting lainnya.
+    Joy Creator telah ditampilkan di saluran YouTube populer seperti <font color="#cfbafd">HowToMen</font> dan <font color="#cfbafd">Xtream Droid</font>, serta dibahas dalam <font color="#cfbafd">GrapheneOS</font> dan 55+ tempat penting lainnya.
     ]]></string>
 
 
@@ -406,7 +406,7 @@
     <string name="toast_no_drive_app">Aplikasi Google Drive tidak ditemukan</string>
     <string name="records_title">Rekaman</string>
     <string name="records_filter_all">All</string>
-    <string name="records_filter_camera">FadCam</string>
+    <string name="records_filter_camera">Joy Creator</string>
     <string name="records_filter_dual">Dual</string>
     <string name="records_filter_screen">FadRec</string>
     <string name="records_filter_faditor">Faditor</string>
@@ -571,7 +571,7 @@ Ini BUKAN bug — ini adalah batasan perangkat keras perangkat Anda.</string>
 (Default: %1$s)
 Tips: Dengan H.265 (HEVC), Anda dapat menggunakan sekitar setengah bitrate H.264 untuk kualitas yang sama. Contoh: Untuk FHD, gunakan 8 Mbps, bukan 16 Mbps.</string>
     <string name="setting_watermark">Watermark</string>
-    <string name="note_watermark">Pilih opsi watermark\n(Default: Waktu dengan FadCam)</string>
+    <string name="note_watermark">Pilih opsi watermark\n(Default: Waktu dengan Joy Creator)</string>
     <string name="note_watermark_extra">Untuk menyimpan dengan cepat, pilih \'Tidak ada Watermark\'. Menambahkan watermark? Layak untuk ditunggu, hanya perlu waktu sedikit lebih lama untuk memprosesnya!</string>
     <string name="setting_location_title">Lokasi Data</string>
     <string name="note_location">Tambahkan lokasi data di watermark. \nMemerlukan GPS yang diaktifkan \n(Default: Dinonaktifkan)</string>
@@ -604,13 +604,13 @@ Tips: Dengan H.265 (HEVC), Anda dapat menggunakan sekitar setengah bitrate H.264
     </string-array>
     <string-array name="questions_array" tools:ignore="InconsistentArrays">
         <item>DISCLAIMER</item>
-        <item>Does FadCam collect any user data?</item>
-        <item>Are there any ads in FadCam?</item>
-        <item>Why does FadCam request location access?</item>
+        <item>Does Joy Creator collect any user data?</item>
+        <item>Are there any ads in Joy Creator?</item>
+        <item>Why does Joy Creator request location access?</item>
         <item>Why the internet permission is required?</item>
         <item>Is any data stored on external servers?</item>
         <item>What happens to my videos after recording?</item>
-        <item>Does FadCam share my data with third parties?</item>
+        <item>Does Joy Creator share my data with third parties?</item>
         <item></item>
         <item></item>
         <item>General</item>
@@ -622,15 +622,15 @@ Tips: Dengan H.265 (HEVC), Anda dapat menggunakan sekitar setengah bitrate H.264
         <item></item>
     </string-array>
     <string-array name="answers_array" tools:ignore="InconsistentArrays">
-        <item>FadCam does not condone or support any unethical or illegal use of this software. Misuse, such as unauthorized surveillance or invasion of privacy, is strictly against our guidelines. The author is not responsible for any misuse of the application.
+        <item>Joy Creator does not condone or support any unethical or illegal use of this software. Misuse, such as unauthorized surveillance or invasion of privacy, is strictly against our guidelines. The author is not responsible for any misuse of the application.
         </item>
-        <item>No, FadCam does not collect any user data.</item>
-        <item>No, FadCam is completely ad-free.</item>
+        <item>No, Joy Creator does not collect any user data.</item>
+        <item>No, Joy Creator is completely ad-free.</item>
         <item>For adding location info to your watermarks.</item>
         <item>For auto update checking.</item>
         <item>No, all data is stored on your device.</item>
         <item>Your videos are saved locally on your device.</item>
-        <item>No, FadCam does not share or collect any data, not even crash logs.</item>
+        <item>No, Joy Creator does not share or collect any data, not even crash logs.</item>
         <item></item>
         <item></item>
         <item></item>
@@ -642,7 +642,7 @@ Tips: Dengan H.265 (HEVC), Anda dapat menggunakan sekitar setengah bitrate H.264
         <item>Check the official GitHub repo for updates.</item>
         <item></item>
     </string-array>
-    <string name="dialog_welcome_title">Selamat datang FadCam!</string>
+    <string name="dialog_welcome_title">Selamat datang Joy Creator!</string>
     <string name="note_from_developer_title">Catatan dari Pengembang</string>
     <string name="note_from_developer_subtitle">README, tautan &amp; pembaruan</string>
     <string name="note_under_dev">Penting: Aplikasi ini sedang dalam tahap pengembangan. Fitur-fitur baru akan ditambahkan secara berkala.</string>
@@ -651,9 +651,9 @@ Tips: Dengan H.265 (HEVC), Anda dapat menggunakan sekitar setengah bitrate H.264
     <string name="button_readme_github">Repositori GitHub</string>
     <string name="community_title">Bergabunglah dengan Komunitas kami:</string>
     <string name="discord_title">Server Discord</string>
-    <string name="thankyou_msg">Terima kasih telah menggunakan FadCam!</string>
+    <string name="thankyou_msg">Terima kasih telah menggunakan Joy Creator!</string>
     <string name="settings_title">Pengaturan</string>
-    <string name="array_watermark_time_fadcam">Waktu dengan Fadcam</string>
+    <string name="array_watermark_time_fadcam">Waktu dengan Joy Creator</string>
     <string name="array_watermark_timeonly">Cap waktu</string>
     <string name="array_watermark_nomark">Tidak ada Watermark</string>
     <string name="watermark_preview_funny">Masa iya? :( \n ＞﹏＜</string>
@@ -773,13 +773,13 @@ Tips: Dengan H.265 (HEVC), Anda dapat menggunakan sekitar setengah bitrate H.264
     <string name="watermark_preview_heading">Pratinjau</string>
     <string name="watermark_options_heading">Opsi</string>
     <string name="watermark_style_row_title">Gaya Tanda Air</string>
-    <string name="watermark_preview_sample_fadcam">Direkam oleh FadCam - %1$s</string>
+    <string name="watermark_preview_sample_fadcam">Direkam oleh Joy Creator - %1$s</string>
     <string name="watermark_preview_sample_timeonly">%1$s</string>
-    <string name="watermark_style_time_fadcam_label">Waktu bersama FadCam</string>
+    <string name="watermark_style_time_fadcam_label">Waktu bersama Joy Creator</string>
     <string name="watermark_style_timeonly_label">Stempel Waktu</string>
     <string name="watermark_style_badge_label">Label Merek Saja</string>
     <string name="watermark_style_none_label">Tanpa Tanda Air</string>
-    <string name="helper_watermark_preview">Ini adalah tampilan tanda air di pojok kiri atas video yang Anda rekam.\nFakta menarik: 10/Jul/2024 04:47 PM adalah saat FadCam v1.0 pertama kali dirilis.</string>
+    <string name="helper_watermark_preview">Ini adalah tampilan tanda air di pojok kiri atas video yang Anda rekam.\nFakta menarik: 10/Jul/2024 04:47 PM adalah saat Joy Creator v1.0 pertama kali dirilis.</string>
     <string name="helper_location_watermark_option">Aktifkan/nonaktifkan penambahan lokasi perangkat Anda sebagai overlay. Memerlukan izin lokasi.</string>
     <string name="location_format_title">Format Lokasi</string>
     <string name="location_format_coordinates">Hanya Koordinat</string>
@@ -805,7 +805,7 @@ Tips: Dengan H.265 (HEVC), Anda dapat menggunakan sekitar setengah bitrate H.264
     <string name="widgets_helper_text">Sematkan tindakan cepat ke layar beranda Anda untuk akses instan.</string>
     <string name="widgets_pin_unsupported">Penyematan widget tidak didukung oleh launcher Anda.</string>
     <string name="widget_clock_title">Widget jam</string>
-    <string name="widgets_pin_fallback">Jika tidak ada prompt yang muncul, tekan lama layar Beranda Anda, buka Widget, dan seret widget Jam FadCam.</string>
+    <string name="widgets_pin_fallback">Jika tidak ada prompt yang muncul, tekan lama layar Beranda Anda, buka Widget, dan seret widget Jam Joy Creator.</string>
 
     <!-- Widget Customization -->
     <string name="widget_customize_title">Kustomisasi Widget Jam</string>
@@ -1039,8 +1039,8 @@ Tips: Dengan H.265 (HEVC), Anda dapat menggunakan sekitar setengah bitrate H.264
     <string name="remote_access_title">Akses/Kontrol Jarak Jauh</string>
     <string name="remote_toast_coming_soon">Segera hadir! In Sha Allah</string>
     <string name="coming_soon_toast">Segera hadir! In Sha Allah</string>
-    <string name="remote_coming_soon">Kontrol jarak jauh untuk FadCam akan segera hadir.</string>
-    <string name="remote_feature_description">Pasangkan klien FadCam menggunakan kode QR untuk kontrol jarak jauh yang aman melalui jaringan lokal: mulai/hentikan perekaman, pratinjau, zoom, beralih kamera, dan lainnya—semua dengan enkripsi end-to-end.</string>
+    <string name="remote_coming_soon">Kontrol jarak jauh untuk Joy Creator akan segera hadir.</string>
+    <string name="remote_feature_description">Pasangkan klien Joy Creator menggunakan kode QR untuk kontrol jarak jauh yang aman melalui jaringan lokal: mulai/hentikan perekaman, pratinjau, zoom, beralih kamera, dan lainnya—semua dengan enkripsi end-to-end.</string>
     <string name="faditor_mini_title">Faditor Mini</string>
     <string name="faditor_mini_coming_soon">Segera hadir — editor ringan</string>
     <string name="faditor_mini_subtitle">Trim and export your videos with precision</string>
@@ -1174,9 +1174,9 @@ Tips: Dengan H.265 (HEVC), Anda dapat menggunakan sekitar setengah bitrate H.264
     <string name="faditor_info_title">About Faditor Mini</string>
     <string name="faditor_info_subtitle">Everything you need to know about the built-in editor</string>
     <string name="faditor_info_how_title">How it works</string>
-    <string name="faditor_info_how_desc">Pick any video from your device or your FadCam recordings. Trim it frame-by-frame using the timeline, then export. All processing happens locally on your device — nothing is uploaded.\n\nYour editing progress is auto-saved every few seconds and whenever you leave the editor, so no work is lost if the app closes unexpectedly.</string>
+    <string name="faditor_info_how_desc">Pick any video from your device or your Joy Creator recordings. Trim it frame-by-frame using the timeline, then export. All processing happens locally on your device — nothing is uploaded.\n\nYour editing progress is auto-saved every few seconds and whenever you leave the editor, so no work is lost if the app closes unexpectedly.</string>
     <string name="faditor_info_convert_title">Smart conversion</string>
-    <string name="faditor_info_convert_desc">FadCam records in a crash-safe format called fragmented MP4 (fMP4). Unlike a standard MP4 which has one finalized container, fMP4 writes video in small independent chunks. This means your footage stays intact even if the app crashes or recording stops suddenly.\n\nHowever, external video players, gallery apps, and file managers will not be able to seek, scrub, or display the correct duration of these files. This is not a bug — it is a deliberate design trade-off for reliability.\n\nIf you plan to store your videos outside FadCam — on Google Drive, a computer, or any other location — you must convert them first. Otherwise the files will be unusable for normal playback.\n\nTo convert: simply open the video here in Faditor Mini and tap Export. The converted standard MP4 will appear in your Records tab, ready to save to your gallery or share anywhere. The process is instant and lossless — no re-encoding or quality loss.</string>
+    <string name="faditor_info_convert_desc">Joy Creator records in a crash-safe format called fragmented MP4 (fMP4). Unlike a standard MP4 which has one finalized container, fMP4 writes video in small independent chunks. This means your footage stays intact even if the app crashes or recording stops suddenly.\n\nHowever, external video players, gallery apps, and file managers will not be able to seek, scrub, or display the correct duration of these files. This is not a bug — it is a deliberate design trade-off for reliability.\n\nIf you plan to store your videos outside Joy Creator — on Google Drive, a computer, or any other location — you must convert them first. Otherwise the files will be unusable for normal playback.\n\nTo convert: simply open the video here in Faditor Mini and tap Export. The converted standard MP4 will appear in your Records tab, ready to save to your gallery or share anywhere. The process is instant and lossless — no re-encoding or quality loss.</string>
     <string name="faditor_info_export_title">Exported files</string>
     <string name="faditor_info_export_desc">Exported videos are saved to your active storage location (the same one configured in Settings) with the prefix \"Faditor_\" followed by a timestamp. They appear in the Records tab alongside your original recordings.</string>
     <string name="faditor_info_temp_title">Temporary files and cache</string>
@@ -1185,14 +1185,14 @@ Tips: Dengan H.265 (HEVC), Anda dapat menggunakan sekitar setengah bitrate H.264
     <string name="faditor_info_projects_desc">All your editing sessions are shown for quick access. Each project is stored as a small JSON file on your device containing the video URI, trim points, and timestamps — no copies of your videos are made. Projects are auto-saved every few seconds, so your progress is never lost.\n\nYou can delete projects you no longer need using the multi-select checklist icon. Deleting a project only removes the editing session data; your original video files remain untouched.</string>
     <string name="faditor_your_recordings">Your Recordings</string>
     <string name="faditor_browse_device">Browse Device</string>
-    <string name="faditor_no_recordings">No recordings found yet. Start recording with FadCam to see your videos here.</string>
+    <string name="faditor_no_recordings">No recordings found yet. Start recording with Joy Creator to see your videos here.</string>
     <string name="faditor_video_count">%1$d video(s)</string>
-    <string name="faditor_fadcam_source">FadCam</string>
+    <string name="faditor_fadcam_source">Joy Creator</string>
     <string name="faditor_fadrec_source">FadRec</string>
     <string name="faditor_browse_device_desc">Select any video from your device</string>
     <string name="faditor_scanning">Scanning recordings…</string>
-    <string name="faditor_source_chooser_desc">Choose a video from your gallery or pick one from your FadCam recordings</string>
-    <string name="faditor_recordings_helper">Videos recorded with FadCam from your active storage location</string>
+    <string name="faditor_source_chooser_desc">Choose a video from your gallery or pick one from your Joy Creator recordings</string>
+    <string name="faditor_recordings_helper">Videos recorded with Joy Creator from your active storage location</string>
     <string name="setting_audio_title">Perekaman Audio</string>
     <string name="note_audio">Aktifkan atau nonaktifkan perekaman audio untuk video.\n(Default: Diaktifkan)</string>
     <string name="button_audio_settings">Pengaturan Audio</string>
@@ -1327,7 +1327,7 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="records_search_hint">Cari rekaman…</string>
     <string name="saf_permission_missing_dialog_instructions">Izin SAF tidak ada. Harap berikan akses ke folder yang dipilih.</string>
     <string name="saf_permission_missing_dialog_title">Izin SAF Diperlukan</string>
-    <string name="saf_permission_missing_dialog_message_for_start_recording">Untuk menyimpan rekaman ke lokasi kustom, FadCam memerlukan izin untuk mengakses folder yang dipilih. Harap berikan akses saat diminta.</string>
+    <string name="saf_permission_missing_dialog_message_for_start_recording">Untuk menyimpan rekaman ke lokasi kustom, Joy Creator memerlukan izin untuk mengakses folder yang dipilih. Harap berikan akses saat diminta.</string>
     <string name="grant_permission_button">Berikan Izin</string>
 
     <!-- Strings for Trash Auto-Delete Feature -->
@@ -1388,14 +1388,14 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
 
     <!-- Fix Start: Add onboarding toggle strings -->
     <string name="setting_onboarding_title">Tampilkan Pengenalan pada Peluncuran Berikutnya</string>
-    <string name="note_onboarding">Aktifkan untuk melihat pengenalan aplikasi dan panduan izin saat berikutnya Anda membuka FadCam.</string>
+    <string name="note_onboarding">Aktifkan untuk melihat pengenalan aplikasi dan panduan izin saat berikutnya Anda membuka Joy Creator.</string>
     <!-- Fix End: Add onboarding toggle strings -->
 
     <string name="choose_language">Pilih Bahasa</string>
     <string name="language_change_later_note">Anda dapat mengubahnya nanti di Pengaturan.</string>
 
     <string name="permissions_required">Izin Diperlukan</string>
-    <string name="permissions_description">FadCam memerlukan akses ke kamera, mikrofon, dan penyimpanan Anda untuk merekam dan menyimpan video.</string>
+    <string name="permissions_description">Joy Creator memerlukan akses ke kamera, mikrofon, dan penyimpanan Anda untuk merekam dan menyimpan video.</string>
     <string name="grant_permissions">Berikan Izin</string>
     <string name="permissions_note">Anda harus memberikan semua izin untuk melanjutkan.</string>
     <string name="permissions_granted">Semua izin diberikan!</string>
@@ -1405,9 +1405,9 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="disable_battery_optimization">Nonaktifkan Optimisasi Baterai</string>
 
     <string name="onboarding_human_title">Verifikasi jika Anda manusia</string>
-    <string name="onboarding_human_desc">Hmmmm... baiklah. Aturan ini tidak bisa ditawar. Jika Anda tidak bisa menyetujui, silakan copot FadCam sekarang.</string>
-    <string name="onboarding_human_checkbox1">Saya tidak akan menggunakan FadCam untuk melanggar hukum, menginvasi privasi siapapun, atau menjadi orang mencurigakan. Pengembang tidak bertanggung jawab jika saya melakukan kesalahan. (Itu tanggung jawab saya.)</string>
-    <string name="onboarding_human_checkbox2">Saya sudah mencintai FadCam bahkan sebelum menggunakannya. (Tidak opsional)</string>
+    <string name="onboarding_human_desc">Hmmmm... baiklah. Aturan ini tidak bisa ditawar. Jika Anda tidak bisa menyetujui, silakan copot Joy Creator sekarang.</string>
+    <string name="onboarding_human_checkbox1">Saya tidak akan menggunakan Joy Creator untuk melanggar hukum, menginvasi privasi siapapun, atau menjadi orang mencurigakan. Pengembang tidak bertanggung jawab jika saya melakukan kesalahan. (Itu tanggung jawab saya.)</string>
+    <string name="onboarding_human_checkbox2">Saya sudah mencintai Joy Creator bahkan sebelum menggunakannya. (Tidak opsional)</string>
     <string name="onboarding_human_checkbox3">Saya menyetujui Kebijakan Privasi</string>
     <string name="onboarding_human_button">Biarkan saya masuk!</string>
 
@@ -1491,7 +1491,7 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <!-- Header Logo Style Strings -->
     <string name="setting_header_logo_title">Header Logo</string>
     <string name="setting_header_logo_desc">Choose the header logo style</string>
-    <string name="header_logo_default" translatable="false">FadCam</string>
+    <string name="header_logo_default" translatable="false">Joy Creator</string>
     <string name="header_logo_avatar" translatable="false">Avatar</string>
 
     <string name="setting_app_icon_desc">Ubah ikon dan nama aplikasi di peluncur</string>
@@ -1499,10 +1499,10 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="app_icon_default" translatable="false">Legacy</string>
     <string name="app_icon_alternative" translatable="false">Camera</string>
     <string name="app_icon_faded" translatable="false">0xFF0000</string>
-    <string name="app_icon_pakistan" translatable="false">FadCam</string>
+    <string name="app_icon_pakistan" translatable="false">Joy Creator</string>
     <string name="app_icon_fadseclab" translatable="false">FadSec Lab</string>
     <string name="app_icon_noor" translatable="false">Noor</string>
-    <string name="app_icon_bat" translatable="false">FadCam</string>
+    <string name="app_icon_bat" translatable="false">Joy Creator</string>
     <string name="app_icon_redbinary" translatable="false">$ ~/r00t</string>
     <string name="app_icon_notes" translatable="false">Notes</string>
     <string name="app_icon_calculator" translatable="false">Calculator</string>
@@ -1521,7 +1521,7 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
 
     <!-- Fix Start: Add auto update check toggle strings -->
     <string name="setting_auto_update_check_title">Periksa Pembaruan Otomatis saat Startup</string>
-    <string name="note_auto_update_check">Jika diaktifkan, FadCam akan memeriksa pembaruan setiap kali Anda membuka aplikasi. Matikan untuk menonaktifkan pemeriksaan pembaruan otomatis saat peluncuran.\n(Default: Aktif)</string>
+    <string name="note_auto_update_check">Jika diaktifkan, Joy Creator akan memeriksa pembaruan setiap kali Anda membuka aplikasi. Matikan untuk menonaktifkan pemeriksaan pembaruan otomatis saat peluncuran.\n(Default: Aktif)</string>
     <!-- Fix End: Add auto update check toggle strings -->
 
     <!-- Storage Location Settings -->
@@ -1555,7 +1555,7 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="digital_forensics_coming_soon_short">Segera Hadir</string>
     <string name="digital_forensics_discord_coming_soon_toast">Peringatan Discord akan ditambahkan di pembaruan mendatang.</string>
     <string name="digital_forensics_helper">Forensik Digital memiliki dua bagian: overlay pratinjau langsung dan bukti tersimpan. Jika Anda hanya ingin label AI visual langsung, jaga Pengumpulan Bukti tetap mati. Jika Anda memerlukan riwayat forensik, aktifkan Pengumpulan Bukti dan pilih apa yang akan disimpan.</string>
-    <string name="digital_forensics_enable_helper">Anggap ini sebagai sensor bukti cerdas Anda. Saat diaktifkan, FadCam menyimpan timeline aktivitas terdeteksi sehingga Anda dapat melompat ke momen penting nanti.</string>
+    <string name="digital_forensics_enable_helper">Anggap ini sebagai sensor bukti cerdas Anda. Saat diaktifkan, Joy Creator menyimpan timeline aktivitas terdeteksi sehingga Anda dapat melompat ke momen penting nanti.</string>
     <string name="digital_forensics_evidence_enable">Aktifkan Pengumpulan Bukti</string>
     <string name="digital_forensics_evidence_helper">Saat diaktifkan, deteksi ditulis ke database forensik dengan frame bukti tersimpan secara real time. Jaga ini tetap mati jika Anda hanya ingin label pratinjau langsung tanpa pertumbuhan penyimpanan.</string>
     <string name="digital_forensics_capture_scope">Lingkup Pengambilan Bukti</string>
@@ -1709,7 +1709,7 @@ Untuk item yang tertaut video, gunakan detail bukti di dalam penampil foto untuk
     <string name="storage_location_internal">Penyimpanan Aplikasi Internal (Default, Pribadi)</string>
     <string name="storage_location_custom">Lokasi Kustom (Kartu SD/Lainnya, Terlihat di Galeri)</string>
     <string name="storage_location_choose_folder">Pilih Folder</string>
-    <string name="storage_location_note">Catatan: Menggunakan lokasi kustom membuat video dapat diakses oleh aplikasi lain (misal, Galeri). Penyimpanan internal menjaga video tetap pribadi untuk FadCam.</string>
+    <string name="storage_location_note">Catatan: Menggunakan lokasi kustom membuat video dapat diakses oleh aplikasi lain (misal, Galeri). Penyimpanan internal menjaga video tetap pribadi untuk Joy Creator.</string>
     <string name="storage_sheet_title">Lokasi Penyimpanan</string>
     <string name="storage_option_use_internal">Gunakan Penyimpanan Internal</string>
     <string name="storage_option_switch_internal">Beralih ke Penyimpanan Internal</string>
@@ -1822,7 +1822,7 @@ Untuk item yang tertaut video, gunakan detail bukti di dalam penampil foto untuk
     <!-- Additional Notification Customization Strings -->
     <!-- Adding notification appearance strings -->
     <string name="setting_notification_appearance">Tampilan Notifikasi</string>
-    <string name="note_notification_appearance">Sesuaikan tampilan notifikasi perekaman\n(Default: FadCam)</string>
+    <string name="note_notification_appearance">Sesuaikan tampilan notifikasi perekaman\n(Default: Joy Creator)</string>
     <string name="hide_stop_button">Sembunyikan tombol berhenti</string>
     <string name="note_hide_stop_button">Sembunyikan tombol berhenti di notifikasi\n(Default: Dinonaktifkan)</string>
     <string name="notification_preview">Pratinjau notifikasi</string>
@@ -1838,7 +1838,7 @@ Untuk item yang tertaut video, gunakan detail bukti di dalam penampil foto untuk
     <string name="notification_custom_text_placeholder">Deskripsi (mis. Pembaruan sedang berlangsung)</string>
 
     <string-array name="notification_appearance_options">
-        <item>FadCam (default)</item>
+        <item>Joy Creator (default)</item>
         <item>System Update</item>
         <item>Download</item>
         <item>Syncing</item>
@@ -1966,7 +1966,7 @@ Untuk item yang tertaut video, gunakan detail bukti di dalam penampil foto untuk
     <string name="player_info_title">Tentang Pemutar Video</string>
     <string name="player_info_content"><![CDATA[
 <b>Format MP4 Terfragmentasi</b><br/><br/>
-FadCam menggunakan format MP4 terfragmentasi untuk rekaman. Artinya video disimpan dalam segmen kecil alih-alih satu file lengkap. Keuntungannya adalah jika terjadi kesalahan selama perekaman, Anda hanya kehilangan beberapa detik terakhir, bukan seluruh video.<br/><br/>
+Joy Creator menggunakan format MP4 terfragmentasi untuk rekaman. Artinya video disimpan dalam segmen kecil alih-alih satu file lengkap. Keuntungannya adalah jika terjadi kesalahan selama perekaman, Anda hanya kehilangan beberapa detik terakhir, bukan seluruh video.<br/><br/>
 Jika beberapa detik terakhir video Anda tampak beku atau tidak berubah, jangan khawatir — itu bukan bug! Saat Anda menghentikan perekaman, fragmen saat ini mungkin masih menyelesaikan siklusnya (~3 detik), yang dapat meninggalkan bingkai beku singkat di akhir.<br/><br/>
 <b>Keterbatasan Pemutar</b><br/><br/>
 Pemutar video bawaan memiliki beberapa keterbatasan sistem Android. Anda mungkin melihat bilah progres atau gelombang audio tampak sedikit tersentak — ini adalah perilaku normal dan bukan bug.<br/><br/>
@@ -2106,7 +2106,7 @@ Apakah Anda ingin beralih ke H.264 dan mulai merekam?</string>
     <string name="e2e_encryption_configured">Terkonfigurasi — segmen dienkripsi end-to-end</string>
     <string name="e2e_encryption_setup_title">Atur Kata Sandi Enkripsi E2E</string>
     <string name="e2e_encryption_setup_hint">Masukkan kata sandi FadSec ID Anda</string>
-    <string name="e2e_encryption_setup_desc">Kata sandi FadSec ID Anda digunakan untuk menurunkan kunci enkripsi stream. Ini harus cocok dengan kata sandi yang Anda gunakan di dasbor FadCam untuk melihat stream.</string>
+    <string name="e2e_encryption_setup_desc">Kata sandi FadSec ID Anda digunakan untuk menurunkan kunci enkripsi stream. Ini harus cocok dengan kata sandi yang Anda gunakan di dasbor Joy Creator untuk melihat stream.</string>
     <string name="e2e_encryption_change_title">Ubah Kata Sandi Enkripsi E2E</string>
     
     <!-- Streaming Mode Selector -->
@@ -2121,7 +2121,7 @@ Apakah Anda ingin beralih ke H.264 dan mulai merekam?</string>
     <string name="streaming_mode_helper">Pilih cara Anda ingin streaming kamera Anda</string>
 
     <!-- Fullscreen Preview -->
-    <string name="fullscreen_preview_enter">Pratinjau FadCam</string>
+    <string name="fullscreen_preview_enter">Pratinjau Joy Creator</string>
     <string name="fullscreen_preview_close">Tutup layar penuh</string>
     <string name="fullscreen_preview_not_recording">Mulai perekaman terlebih dahulu untuk menggunakan pratinjau layar penuh</string>
     <string name="fullscreen_preview_tap_hint">Ketuk layar untuk mengalihkan kontrol</string>
@@ -2193,7 +2193,7 @@ Apakah Anda ingin beralih ke H.264 dan mulai merekam?</string>
     <string name="motion_lab_debug_metrics_value">Area %1$.3f, Kuat %2$.3f, Rata %3$.3f, BG %4$.3f, Maks %5$.3f, Global %6$s</string>
     <string name="motion_lab_info_cd">Info Motion Lab</string>
     <string name="motion_lab_info_title">Rekam Otomatis saat Motion</string>
-    <string name="motion_lab_info_body">Ini adalah fitur Rekam Otomatis saat Motion FadCam.
+    <string name="motion_lab_info_body">Ini adalah fitur Rekam Otomatis saat Motion Joy Creator.
 
 Cara kerjanya secara sederhana:
 - Kamera Anda tetap aktif dan menganalisis frame di perangkat secara real time.
@@ -2242,7 +2242,7 @@ Tips: Fitur ini berjalan terus menerus, sehingga nilai lanjutan yang sangat ting
 
 Overlay layar hitam muncul, membuatnya terlihat seperti layar mati sementara perekaman berlanjut.
 
-Ketuk ikon FadCam di header atas tab Beranda untuk mengaktifkannya.</string>
+Ketuk ikon Joy Creator di header atas tab Beranda untuk mengaktifkannya.</string>
     <string name="privacy_black_mode_enable_title">Aktifkan Mode Hitam Privasi</string>
     <string name="privacy_black_mode_enabled_toast">Mode Privasi Diaktifkan</string>
     <string name="privacy_black_mode_disabled_toast">Mode Privasi Dinonaktifkan</string>
@@ -2485,7 +2485,7 @@ Cara membaca: "Zona 42N — 372.684m T, 3.512.334m U" = Zona 42 di belahan utara
 
     <!-- Mini Apps Info Sheet -->
     <string name="mini_apps_planned_shortcuts_title">Direncanakan: Pintasan &amp; Otomasi</string>
-    <string name="mini_apps_planned_shortcuts_desc">Pintasan layar beranda untuk akses instan ke Aplikasi Mini mana pun tanpa membuka FadCam terlebih dahulu.
+    <string name="mini_apps_planned_shortcuts_desc">Pintasan layar beranda untuk akses instan ke Aplikasi Mini mana pun tanpa membuka Joy Creator terlebih dahulu.
 
 Dukungan otomasi berbasis intent (Tasker, MacroDroid, dll.) untuk memicu Aplikasi Mini secara terprogram — gunakan pemindaian QR, senter, dan lainnya dari alur kerja otomatis Anda.</string>
     <string name="export_center">Pusat Ekspor</string>
@@ -2616,7 +2616,7 @@ Dukungan otomasi berbasis intent (Tasker, MacroDroid, dll.) untuk memicu Aplikas
 
     <string name="remote_access_endpoints_desc">Akses server streaming Anda melalui endpoint HTTP ini</string>
 
-    <string name="remote_control_via_api_desc">Kontrol FadCam jarak jauh melalui panggilan API</string>
+    <string name="remote_control_via_api_desc">Kontrol Joy Creator jarak jauh melalui panggilan API</string>
 
     <string name="remote_buffered_segments_desc">Segmen buffer siap untuk streaming</string>
 
@@ -2648,7 +2648,7 @@ Dukungan otomasi berbasis intent (Tasker, MacroDroid, dll.) untuk memicu Aplikas
     <string name="update_maybe_later">Nanti Saja</string>
 
     <string name="update_beta_title">Pembaruan Beta Tersedia</string>
-    <string name="update_beta_desc">Beta FadCam adalah aplikasi mandiri yang dapat diinstal berdampingan dengan versi stabil. Ini tidak akan mengganggu aplikasi stabil Anda atau datanya.\n\nInstal beta untuk menguji fitur baru sebelum mencapai rilis stabil.</string>
+    <string name="update_beta_desc">Beta Joy Creator adalah aplikasi mandiri yang dapat diinstal berdampingan dengan versi stabil. Ini tidak akan mengganggu aplikasi stabil Anda atau datanya.\n\nInstal beta untuk menguji fitur baru sebelum mencapai rilis stabil.</string>
 
     <string name="update_get_beta">Dapatkan Beta</string>
 
@@ -2765,7 +2765,7 @@ Dukungan otomasi berbasis intent (Tasker, MacroDroid, dll.) untuk memicu Aplikas
     <string name="about_dialog_error">Kesalahan</string>
     <string name="about_dialog_ok">OK</string>
     <string name="about_get_beta">Dapatkan Beta</string>
-    <string name="about_fadcam_feedback">Masukan FadCam</string>
+    <string name="about_fadcam_feedback">Masukan Joy Creator</string>
 
     <!-- Video split sizes -->
     <string name="video_split_enabled_format">Diaktifkan (%s)</string>
@@ -2785,11 +2785,11 @@ Dukungan otomasi berbasis intent (Tasker, MacroDroid, dll.) untuk memicu Aplikas
 
     <!-- Settings home tabs -->
     <string name="settings_tab_all">Semua</string>
-    <string name="settings_tab_fadcam" translatable="false">FadCam</string>
+    <string name="settings_tab_fadcam" translatable="false">Joy Creator</string>
     <string name="settings_tab_fadrec" translatable="false">FadRec</string>
 
     <!-- Watermark preview labels -->
-    <string name="watermark_preview_fadcam" translatable="false">FadCam</string>
+    <string name="watermark_preview_fadcam" translatable="false">Joy Creator</string>
     <string name="watermark_preview_fadrec" translatable="false">FadRec</string>
     <string name="settings_location_update_interval_5s">5,0 detik</string>
 
@@ -2895,7 +2895,7 @@ Dukungan otomasi berbasis intent (Tasker, MacroDroid, dll.) untuk memicu Aplikas
     <string name="channel_security_alarm">Alarm Keamanan</string>
     <string name="channel_remote_streaming">Streaming Jarak Jauh</string>
     <string name="channel_annotation_service">Layanan Anotasi</string>
-    <string name="channel_fadcam_file_ops">Operasi File FadCam</string>
+    <string name="channel_fadcam_file_ops">Operasi File Joy Creator</string>
 
     <!-- ScreenRecordingService -->
     <string name="screen_rec_failed">Perekaman gagal: %s</string>

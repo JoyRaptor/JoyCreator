@@ -43,7 +43,7 @@
     <string name="remote_toast_no_clients">No clients connected</string>
     <string name="remote_toast_password_empty">Password cannot be empty</string>
     <string name="remote_toast_link_account">Link your Joy Creator ID account first</string>
-    <string name="remote_toast_e2e_dashboard">Set up E2E encryption in the web dashboard first, then re-link this device</string>
+    <string name="remote_toast_e2e_dashboard">Set up E2E encryption in the FadCam dashboard first, then re-link this device</string>
     <string name="remote_toast_e2e_done">E2E encryption configured</string>
     <string name="remote_toast_wrong_password">Incorrect password — please try again</string>
     <string name="remote_toast_setup_failed">Setup failed: %1$s</string>

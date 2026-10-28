@@ -27358,6 +27358,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Double-tap keeps meaning what it has always meant on a selected object: open its
         // editor. For an image that is the image drawer (showTextOverlayEditor routes it).
         v.setOnDoubleTap(() -> showTextOverlayEditor(o));
+        // Hold opens it too, as it does for a visualiser. Set after setHost, which clears the hook.
+        v.setOnBodyHold(() -> showTextOverlayEditor(o));
         v.bringToFront();
         v.refresh();
     }
@@ -27496,6 +27498,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // As for images: the net shows when the text is already bent, else it waits on the ring.
         v.setBendVisible(o.hasMesh());
         v.setOnDoubleTap(() -> showTextOverlayEditor(o, true));
+        v.setOnBodyHold(() -> showTextOverlayEditor(o, true));
         v.bringToFront();
         v.refresh();
     }

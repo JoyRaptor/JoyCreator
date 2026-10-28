@@ -9661,65 +9661,13 @@ public class HomeFragment extends BaseFragment {
                 performHapticFeedback();
                 FLog.i(
                     TAG,
-                    "App logo long-pressed. Navigating to TrashFragment manually."
+                    "App logo long-pressed. Opening Recently deleted."
                 );
-                // Navigate to TrashFragment manually
+                // Recently deleted lists the classic Trash too and keeps it one tap away.
                 try {
-                    TrashFragment trashFragment = new TrashFragment();
-                    FragmentManager fragmentManager =
-                        getParentFragmentManager(); // Use getParentFragmentManager
-                    FragmentTransaction fragmentTransaction =
-                        fragmentManager.beginTransaction();
-
-                    // Add fade in animation
-                    fragmentTransaction.setCustomAnimations(
-                        android.R.animator.fade_in,
-                        android.R.animator.fade_out,
-                        android.R.animator.fade_in,
-                        android.R.animator.fade_out
-                    );
-
-                    // Make the overlay container visible with a fade effect
-                    View overlayContainer = requireActivity().findViewById(
-                        R.id.overlay_fragment_container
-                    );
-                    if (overlayContainer != null) {
-                        // First make it visible but transparent
-                        overlayContainer.setVisibility(View.VISIBLE);
-                        overlayContainer.setAlpha(0f);
-
-                        // Then animate to fully visible
-                        overlayContainer
-                            .animate()
-                            .alpha(1f)
-                            .setDuration(250)
-                            .setListener(null);
-                    } else {
-                        FLog.e(
-                            TAG,
-                            "R.id.overlay_fragment_container not found in MainActivity! Cannot show TrashFragment."
-                        );
-                        Toast.makeText(
-                            getContext(),
-                            "Error opening trash (container not found).",
-                            Toast.LENGTH_SHORT
-                        ).show();
-                        return true; // Consume click but don't proceed
-                    }
-
-                    fragmentTransaction.replace(
-                        R.id.overlay_fragment_container,
-                        trashFragment
-                    );
-                    fragmentTransaction.addToBackStack(null);
-                    fragmentTransaction.commit();
+                    com.fadcam.ui.trash.RecentlyDeletedFragment.open(requireActivity());
                 } catch (Exception e) {
-                    FLog.e(TAG, "Manual navigation to TrashFragment failed.", e);
-                    Toast.makeText(
-                        getContext(),
-                        "Error opening trash.",
-                        Toast.LENGTH_SHORT
-                    ).show();
+                    FLog.e(TAG, "Opening Recently deleted failed.", e);
                 }
                 return true; // Consume the long click
             });

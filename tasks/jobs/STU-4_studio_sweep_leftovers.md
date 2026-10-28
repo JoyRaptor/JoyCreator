@@ -1,6 +1,6 @@
 # STU-4: Studio sweep leftovers
 
-**Milestone:** M1  ·  **State:** ❓ listed 10-16/17, not re-checked since  ·  **Owner:** open (a phone agent)  ·  **Checked:** 2026-10-27 (list copied; items not re-verified)
+**Milestone:** M1  ·  **State:** 🔨 re-checked 10-28 (code scout + Note 9 agent pass 4): most items already fixed; three new bugs found  ·  **Owner:** lead  ·  **Checked:** 2026-10-28
 
 ## Why it matters
 Small rough edges the device sweeps found. Each one is the kind of thing that makes an app feel unfinished.
@@ -8,6 +8,18 @@ Small rough edges the device sweeps found. Each one is the kind of thing that ma
 ## Done when
 - [ ] Each item re-checked on the phone: fixed already (write the commit) or fixed now, or written up as a
       defect in STATE §9.
+
+## Re-check 10-28 (screens in `C:/Temp/qa-sweep-20261028/`)
+- ✅ Caption/text motion: Type → Fade → back changes the label, the tile and the preview (not stuck). The label is cut off ("Type · 25% in / 0% out …").
+- ✅ Hide eye hides the text; the Outline swatch opens the picker and the outline shows (tested on a Text overlay; a caption not tried).
+- ✅ Invert on a picture shows in the preview (it acts as an adjustment layer: everything beneath inverts).
+- ✅ `OverlayNavUtil` child-overlay close (7ffd27e4b, 10-16).
+- ✅ Sprite bend net sits on the sprite.
+- ✅ Colour picker hex is one line (d1655f38a); "#FF000B" touches the column edge (report only).
+- ❓ Not reachable by the agent: puppet RECORDING tab (no Puppet tab found from Studio drawers), sprite Lanes tab, audio envelope (see the audio bug).
+- 🔴 **New:** Add → Audio with a WAV made an empty audio lane with no clip block and no Undo step, twice (the log shows the file was read). Re-test with a real song (`vislab_demo.m4a`).
+- 🔴 **New:** after Undo of a sprite Bend the net goes but the sprite stays blurry.
+- 🔴 **New:** the toolbar's last button "Edit" toggles to "Done" with no visible effect; after closing a text drawer, tapping the clip or preview doesn't reopen it (hold does, since 10-28).
 
 ## What is left (from `tasks/todo.md` on 10-16/17; may already be fixed)
 - [ ] Caption motion "Type – word" stuck.

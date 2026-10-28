@@ -462,6 +462,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private TextView editorTitle;
     private TextView timeCurrent;
     private TextView timeTotal;
+    private com.fadcam.ui.faditor.markers.MarkerWorkspace.State markerState;
+    private String markerProjectId;
+    private com.fadcam.ui.faditor.markers.TimelineMarksPopup markerPopup;
+    private boolean markerPlaybackRequested, markerLoopSeeking;
+    private long markerLoopRestartAfterMs;
+    @Nullable private java.util.List<com.fadcam.ui.faditor.markers.MarkerWorkspace.Region> pendingMarkerExportRegions;
     private boolean transcriptPanelOpen = false;
     /**
      * H1 (SPEC_20260824_HORIZONTAL_REFLOW): how far the preview container is currently
@@ -860,8 +866,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         @Override
         public void run() {
             long phBefore = editorTimeline != null ? editorTimeline.getPlayheadPositionMs() : -1;
+            boolean markersWerePlaying = markerPlaybackRequested || markerMediaPlaying();
             try {
+                updateMarkerAudioOnlyClock();
                 updatePlayheadPosition();
+                maybeLoopMarkerRegion(markersWerePlaying);
                 syncAudioPlayerWithPlayhead();
                 applyAudioKeyframeGains();
             } catch (Exception e) {
@@ -1628,7 +1637,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @Override
             public String captureSnapshot() {
                 if (project == null || projectStorage == null) return null;
-                return projectStorage.toJson(project);
+                return captureEditorUndoSnapshot();
             }
 
             @Override
@@ -2183,10 +2192,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         editorTimeline.setTimeline(project.getTimeline(), selectedClipIndex);
         // Markers are not in the project JSON just swapped in; the bookmarks.json sidecar holds them, and
         // Joybot writes markers there (StudioActions). Take the sidecar's list onto the model and the ruler.
-        java.util.List<Long> marks = com.fadcam.ui.faditor.project.BookmarkStore.load(
-                projectStorage.projectDir(project.getId()));
-        project.setBookmarksMs(marks);
-        editorTimeline.setBookmarks(marks);
+        wireBookmarks();
         editorTimeline.setAudioClips(project.getTimeline().getAudioClips());
         syncTimelineOverlays();
         if (overlayLayer != null) {
@@ -2243,6 +2249,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
+        markerPlaybackRequested = false;
+        if (markerPopup != null) markerPopup.dismiss();
         com.fadcam.ui.faditor.ai.AIChatState.clearLiveEditor(joybotLive);
         playheadHandler.removeCallbacks(playheadUpdater);
         // Camera single-owner: a rolling performance take must not outlive the
@@ -2262,6 +2270,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (markerPopup != null) markerPopup.dismiss();
         if (project != null) com.fadcam.joyfolder.studio.ShareInbox.clearOpenProject(project.getId());
         playheadHandler.removeCallbacks(playheadUpdater);
         autoSaveHandler.removeCallbacks(autoSaveRunnable);
@@ -2701,6 +2710,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
             @Override
             public void onPlayheadSeeked(int segmentIndex, float fractionInSegment, boolean isDragging) {
+                if (!markerLoopSeeking) markerPlaybackRequested = false;
                 loopVisualOffsetMs = 0;
                 loopStillExtensionStartMs = -1;
                 // Only a real DRAG latches. A discrete seek (isDragging=false — a tap, a
@@ -5114,10 +5124,35 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private void wireBookmarks() {
         if (editorTimeline == null || project == null) return;
-        java.util.List<Long> marks = com.fadcam.ui.faditor.project.BookmarkStore.load(
-                projectStorage.projectDir(project.getId()));
-        project.setBookmarksMs(marks);
-        editorTimeline.setBookmarks(marks);
+        java.io.File markerDir = projectStorage.projectDir(project.getId());
+        java.util.List<Long> marks = com.fadcam.ui.faditor.project.BookmarkStore.load(markerDir);
+        markerState = com.fadcam.ui.faditor.markers.MarkerWorkspaceStore.load(markerDir, marks);
+        markerProjectId = project.getId();
+        // JoyBot still writes the legacy sidecar. Preserve names/colors for matching offsets.
+        if (com.fadcam.ui.faditor.project.BookmarkStore.fileFor(markerDir).lastModified()
+                > com.fadcam.ui.faditor.markers.MarkerWorkspaceStore.fileFor(markerDir).lastModified()) {
+            java.util.List<com.fadcam.ui.faditor.markers.MarkerWorkspace.Point> reconciled = new java.util.ArrayList<>();
+            for (long ms : marks) {
+                com.fadcam.ui.faditor.markers.MarkerWorkspace.Point found = null;
+                for (com.fadcam.ui.faditor.markers.MarkerWorkspace.Point point : markerState.points) {
+                    if (point.timeMs == ms) { found = point; break; }
+                }
+                reconciled.add(found == null ? new com.fadcam.ui.faditor.markers.MarkerWorkspace.Point(
+                        getString(R.string.markers_host_bookmark_number, reconciled.size() + 1), ms, 1) : found.copy());
+            }
+            markerState.points.clear(); markerState.points.addAll(reconciled);
+        }
+        markerState.normalize(markerDurationMs());
+        java.util.List<Long> canonicalOffsets = new java.util.ArrayList<>();
+        for (com.fadcam.ui.faditor.markers.MarkerWorkspace.Point p : markerState.sortedPoints()) canonicalOffsets.add(p.timeMs);
+        project.setBookmarksMs(canonicalOffsets);
+        editorTimeline.setMarkerFrameRate(projectFps());
+        editorTimeline.setMarkerWorkspace(markerState);
+        editorTimeline.setMarkerInteractionListener(new EditorTimelineView.MarkerInteractionListener() {
+            @Override public void onDropBookmark(long ms) { dropTimelineBookmark(ms); }
+            @Override public void onOpenMarks(@Nullable String pointId) { showTimelineMarks(pointId); }
+            @Override public void onSeekBookmark(long ms) { seekMarkerPosition(ms); }
+        });
         editorTimeline.setBookmarkListener(list -> {
             final java.util.List<Long> before =
                     new java.util.ArrayList<>(project.getBookmarksMs());
@@ -5134,10 +5169,171 @@ public class FaditorEditorActivity extends AppCompatActivity {
     /** Mirror a bookmark list onto model + view + sidecar (undo/redo + listener path). */
     private void applyBookmarks(@NonNull java.util.List<Long> marks) {
         if (project == null) return;
+        if (markerState != null && project.getId().equals(markerProjectId)) {
+            com.fadcam.ui.faditor.markers.MarkerWorkspace.State next = markerState.copy();
+            next.points.clear();
+            for (long ms : marks) {
+                com.fadcam.ui.faditor.markers.MarkerWorkspace.Point old = null;
+                for (com.fadcam.ui.faditor.markers.MarkerWorkspace.Point p : markerState.points) {
+                    if (p.timeMs == ms) { old = p; break; }
+                }
+                next.points.add(old == null ? new com.fadcam.ui.faditor.markers.MarkerWorkspace.Point(
+                        getString(R.string.markers_host_bookmark_number, next.points.size() + 1), ms, 1) : old.copy());
+            }
+            applyMarkerState(next);
+            return;
+        }
         project.setBookmarksMs(marks);
         if (editorTimeline != null) editorTimeline.setBookmarks(marks);
         com.fadcam.ui.faditor.project.BookmarkStore.save(
                 projectStorage.projectDir(project.getId()), marks);
+    }
+
+    private long markerDurationMs() {
+        return project == null ? 0L : project.getTimeline().getTotalDurationMs();
+    }
+
+    private boolean applyMarkerState(com.fadcam.ui.faditor.markers.MarkerWorkspace.State next) {
+        if (project == null) return false;
+        next = next.copy(); next.normalize(markerDurationMs());
+        if (!com.fadcam.ui.faditor.markers.MarkerWorkspaceStore.save(projectStorage.projectDir(project.getId()), next)) {
+            Toast.makeText(this, R.string.markers_host_save_failed, Toast.LENGTH_LONG).show();
+            return false;
+        }
+        markerState = next; markerProjectId = project.getId();
+        java.util.List<Long> offsets = new java.util.ArrayList<>();
+        for (com.fadcam.ui.faditor.markers.MarkerWorkspace.Point p : next.sortedPoints()) offsets.add(p.timeMs);
+        project.setBookmarksMs(offsets);
+        com.fadcam.ui.faditor.project.BookmarkStore.save(projectStorage.projectDir(project.getId()), offsets);
+        if (editorTimeline != null) {
+            editorTimeline.setMarkerFrameRate(projectFps()); editorTimeline.setMarkerWorkspace(next);
+        }
+        if (markerPopup != null) markerPopup.refresh();
+        return true;
+    }
+
+    private void changeMarkerState(com.fadcam.ui.faditor.markers.MarkerWorkspace.State next, String label) {
+        if (markerState == null || project == null) return;
+        final com.fadcam.ui.faditor.markers.MarkerWorkspace.State before = markerState.copy(), after = next.copy();
+        boolean wasPlaying = markerPlaybackRequested || markerMediaPlaying();
+        if (!applyMarkerState(after)) return;
+        markerPlaybackRequested = markerState.loopEnabled && wasPlaying;
+        undoManager.recordAction(new EditActions.LambdaAction(label,
+                () -> applyMarkerState(after), () -> applyMarkerState(before)));
+    }
+
+    private void dropTimelineBookmark(long ms) {
+        if (markerState == null) wireBookmarks();
+        if (markerState == null) return;
+        long time = Math.max(0L, Math.min(ms, markerDurationMs()));
+        long tolerance = Math.max(1L, Math.round(500f / Math.max(1f, projectFps())));
+        for (com.fadcam.ui.faditor.markers.MarkerWorkspace.Point p : markerState.points) {
+            if (Math.abs(p.timeMs - time) <= tolerance) { showTimelineMarks(p.id); return; }
+        }
+        com.fadcam.ui.faditor.markers.MarkerWorkspace.State next = markerState.copy();
+        next.points.add(new com.fadcam.ui.faditor.markers.MarkerWorkspace.Point(
+                getString(R.string.markers_host_bookmark_number, next.points.size() + 1), time, 1));
+        changeMarkerState(next, getString(R.string.markers_host_add_bookmark));
+    }
+
+    private void showTimelineMarks(@Nullable String pointId) {
+        if (project == null || editorTimeline == null) return;
+        if (markerState == null || !project.getId().equals(markerProjectId)) wireBookmarks();
+        if (markerPopup != null) markerPopup.dismiss();
+        markerPopup = new com.fadcam.ui.faditor.markers.TimelineMarksPopup(this,
+                new com.fadcam.ui.faditor.markers.TimelineMarksPopup.Host() {
+            @Override public com.fadcam.ui.faditor.markers.MarkerWorkspace.State snapshot() { return markerState.copy(); }
+            @Override public void apply(com.fadcam.ui.faditor.markers.MarkerWorkspace.State next, String label) { changeMarkerState(next, label); }
+            @Override public long playheadMs() { return editorTimeline.getPlayheadPositionMs(); }
+            @Override public long durationMs() { return markerDurationMs(); }
+            @Override public float fps() { return projectFps(); }
+            @Override public void seek(long ms) { seekMarkerPosition(ms); }
+            @Override public void exportRegions(java.util.List<com.fadcam.ui.faditor.markers.MarkerWorkspace.Region> regions) { showExportConfirmation(regions); }
+        });
+        markerPopup.show(editorTimeline, pointId);
+    }
+
+    private boolean markerMediaPlaying() {
+        return imagePlaybackActive || audioTailActive || (playerManager != null
+                && (playerManager.isPlaying() || playerManager.getPlayWhenReady()));
+    }
+
+    private void seekMarkerPosition(long ms) {
+        markerPlaybackRequested = false;
+        if (playerManager != null) playerManager.pause();
+        stopImagePlayback(); audioTailActive = false; pauseAudioPlayer();
+        long target = Math.max(0L, Math.min(ms, markerDurationMs()));
+        if (!project.getTimeline().isEmpty() && target < totalEffectiveMs()) editorTimeline.seekToTimelineMs(target);
+        else {
+            editorTimeline.setPlayheadPositionMs(target); lastPlayheadAbsoluteMs = target;
+            timeCurrent.setText(TimeFormatter.formatAuto(target)); setTextOverlayPlayhead(target);
+            seekAudioPlayersToPlayhead();
+        }
+        updatePlayPauseButton(false);
+    }
+
+    private void updateMarkerAudioOnlyClock() {
+        if (!audioTailActive || project == null || !project.getTimeline().isEmpty()) return;
+        long ms = Math.min(markerDurationMs(), audioTailStartMs + android.os.SystemClock.elapsedRealtime() - audioTailStartWall);
+        editorTimeline.setPlayheadPositionMs(ms); lastPlayheadAbsoluteMs = ms;
+        timeCurrent.setText(TimeFormatter.formatAuto(ms)); setTextOverlayPlayhead(ms);
+        if (ms >= markerDurationMs()) {
+            audioTailActive = false; pauseAudioPlayer(); updatePlayPauseButton(false);
+            if (markerState == null || !markerState.loopEnabled) markerPlaybackRequested = false;
+        }
+    }
+
+    private void maybeLoopMarkerRegion(boolean wasPlaying) {
+        if (markerState == null || editorTimeline == null || !markerState.loopEnabled
+                || android.os.SystemClock.elapsedRealtime() < markerLoopRestartAfterMs) return;
+        long position = editorTimeline.getPlayheadPositionMs();
+        com.fadcam.ui.faditor.markers.MarkerLoopPolicy.Range range =
+                com.fadcam.ui.faditor.markers.MarkerLoopPolicy.effectiveRange(markerState, markerDurationMs());
+        // The legacy player parks slightly before the last source's Out. Its natural-end
+        // handler has stopped every clock, so use the logical end for an end-of-project loop.
+        if (range != null && range.outMs == markerDurationMs() && markerPlaybackRequested
+                && wasPlaying && !markerMediaPlaying() && playerManager != null
+                && playerManager.isAtTrimEnd() && project != null
+                && selectedClipIndex == project.getTimeline().getClipCount() - 1
+                && totalEffectiveMs() >= markerDurationMs()) position = range.outMs;
+        long target = com.fadcam.ui.faditor.markers.MarkerLoopPolicy.restartAt(markerState,
+                position, markerDurationMs(),
+                markerPlaybackRequested && wasPlaying, userDragging || editorTimeline.isGestureActive());
+        if (target >= 0L) startMarkerPlaybackAt(target);
+    }
+
+    private void startMarkerPlaybackAt(long ms) {
+        if (project == null || editorTimeline == null) return;
+        markerLoopSeeking = true;
+        try { seekMarkerPosition(ms); } finally { markerLoopSeeking = false; }
+        markerPlaybackRequested = true;
+        markerLoopRestartAfterMs = android.os.SystemClock.elapsedRealtime() + 120L;
+        final long target = editorTimeline.getPlayheadPositionMs();
+        Runnable resume;
+        if (project.getTimeline().isEmpty() || target >= totalEffectiveMs()) {
+            resume = () -> {
+                if (!markerPlaybackRequested || isFinishing() || isDestroyed()) return;
+                audioTailStartMs = target; audioTailStartWall = android.os.SystemClock.elapsedRealtime();
+                audioTailActive = true; updatePlayPauseButton(true);
+                playheadHandler.removeCallbacks(playheadUpdater); playheadHandler.post(playheadUpdater);
+            };
+        } else {
+            Clip clip = getSelectedClip();
+            long local = Math.max(0L, target - editorTimeline.getSegmentStartTimeMs(selectedClipIndex));
+            if (clip != null && clip.isImageClip() && (playerManager == null || !playerManager.isGapless())) {
+                resume = () -> { if (markerPlaybackRequested) startImagePlayback(local); };
+            } else {
+                if (clip != null && clip.isGeneratedSlide()) { hideSlidePreview(); loadClipForPlayback(clip); }
+                if (playerManager == null) { markerPlaybackRequested = false; return; }
+                if (clip != null) playerManager.seekInClip(clip, (long) (local * clip.getSpeedMultiplier()));
+                resume = () -> {
+                    if (!markerPlaybackRequested || isFinishing() || isDestroyed()) return;
+                    playerManager.play(); updatePlayPauseButton(true);
+                    playheadHandler.removeCallbacks(playheadUpdater); playheadHandler.post(playheadUpdater);
+                };
+            }
+        }
+        if (audioLayerSync != null) audioLayerSync.armForPlay(target, resume); else resume.run();
     }
 
     // ── Files outside the Joy Creator folder ─────────────────────────────
@@ -6356,6 +6552,25 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 showMissingOverlay(c);
                 return;
             }
+            com.fadcam.ui.faditor.markers.MarkerLoopPolicy.Range markerRange =
+                    com.fadcam.ui.faditor.markers.MarkerLoopPolicy.effectiveRange(markerState, markerDurationMs());
+            if ((markerState != null && markerState.loopEnabled && markerRange != null)
+                    || (project != null && project.getTimeline().isEmpty())) {
+                if (markerPlaybackRequested || markerMediaPlaying()) {
+                    markerPlaybackRequested = false;
+                    audioTailActive = false;
+                    if (playerManager != null) playerManager.pause();
+                    pauseAudioPlayer(); stopImagePlayback(); updatePlayPauseButton(false);
+                } else {
+                    long at = editorTimeline.getPlayheadPositionMs();
+                    if (markerState != null && markerState.loopEnabled && markerRange != null) {
+                        if (!markerRange.contains(at)) at = markerRange.inMs;
+                    } else if (at >= markerDurationMs()) at = 0L;
+                    startMarkerPlaybackAt(at);
+                }
+                return;
+            }
+            markerPlaybackRequested = false;
             // If we're in the audio-tail (the visual track has ended but music/audio is still
             // playing past it), a tap must PAUSE everything — regardless of whether the last
             // visual clip is video or image. (Bug: the image branch below restarted image
@@ -6368,7 +6583,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 updatePlayPauseButton(false);
                 return;
             }
-            if (c.isImageClip() && (playerManager == null || !playerManager.isGapless())) {
+            if (c != null && c.isImageClip() && (playerManager == null || !playerManager.isGapless())) {
                 // Image clip, LEGACY path only: toggle internal timer playback. In gapless mode
                 // the engine plays the image as a native playlist window (P0 fix 2026-07-07), so
                 // transport falls through to the ExoPlayer branch below like any other clip.
@@ -13136,6 +13351,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private long pendingRangeStartMs = -1L, pendingRangeEndMs = -1L;
 
     private void showExportConfirmation() {
+        showExportConfirmation(null);
+    }
+
+    /** The popup's enabled regions are captured here, so subsequent marker edits cannot retime a job. */
+    private void showExportConfirmation(@Nullable java.util.List<
+            com.fadcam.ui.faditor.markers.MarkerWorkspace.Region> requestedRegions) {
+        final java.util.List<com.fadcam.ui.faditor.markers.MarkerWorkspace.Region> namedRegions =
+                copyMarkerExportRegions(requestedRegions);
+        final boolean namedRegionExport = namedRegions != null;
         // A running export no longer refuses the next one: the service queues it (5753f292).
         // The sheet says so — "Queue export" on the button, a line of warning above.
         final boolean queueing = isExportRunning();
@@ -13159,6 +13383,35 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         String helperText = getString(R.string.faditor_export_confirm_helper,
                 durationStr, clipCount, audioInfo);
+        if (namedRegionExport) {
+            try {
+                com.fadcam.ui.faditor.markers.RegionExportPlan plan =
+                        com.fadcam.ui.faditor.markers.RegionExportPlan.create(
+                                namedRegions, totalDurationMs, project.getName());
+                if (plan.getJobs().isEmpty()) {
+                    Toast.makeText(this, "Select at least one region for export", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                StringBuilder summary = new StringBuilder()
+                        .append(plan.getJobs().size()).append(" named region")
+                        .append(plan.getJobs().size() == 1 ? "" : "s")
+                        .append(" · one file per region");
+                int shown = 0;
+                for (com.fadcam.ui.faditor.markers.RegionExportPlan.Job job : plan.getJobs()) {
+                    if (shown++ >= 4) {
+                        summary.append("\n…");
+                        break;
+                    }
+                    summary.append("\n").append(job.getOutputFileName()).append(" · ")
+                            .append(TimeFormatter.formatAuto(job.getStartMs())).append(" → ")
+                            .append(TimeFormatter.formatAuto(job.getEndMs()));
+                }
+                helperText = summary.toString();
+            } catch (IllegalArgumentException exception) {
+                Toast.makeText(this, exception.getMessage(), Toast.LENGTH_LONG).show();
+                return;
+            }
+        }
         if (queueing) helperText = getString(R.string.export_queue_warning) + "\n\n" + helperText;
 
         try {
@@ -13212,6 +13465,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
             fnInputLp.topMargin = (int) (4 * getResources().getDisplayMetrics().density);
             fileNameInput.setLayoutParams(fnInputLp);
+            if (namedRegionExport) {
+                fileNameInput.setText("Uses each region's name");
+                fileNameInput.setEnabled(false);
+                fileNameInput.setAlpha(0.6f);
+            }
             root.addView(fileNameInput);
 
             final android.widget.CheckBox cleanAudio = exportCheckbox(root,
@@ -13357,6 +13615,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // so Resolution stays live while the video/audio-only choices grey out.
             final android.widget.CheckBox frameBox = exportCheckbox(root,
                     R.string.export_frame, R.string.export_frame_desc, pad);
+            if (namedRegionExport) {
+                frameBox.setVisibility(View.GONE);
+                // exportCheckbox adds its explanatory note as the next sibling.
+                int descriptionIndex = root.indexOfChild(frameBox) + 1;
+                if (descriptionIndex < root.getChildCount()) {
+                    root.getChildAt(descriptionIndex).setVisibility(View.GONE);
+                }
+            }
 
             final android.widget.LinearLayout frameExtras = new android.widget.LinearLayout(this);
             frameExtras.setOrientation(android.widget.LinearLayout.VERTICAL);
@@ -13422,6 +13688,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             //    = the playhead, To = the end, both typeable like the frame time. ──
             final android.widget.CheckBox rangeBox = exportCheckbox(root,
                     R.string.export_range_label, 0, pad);
+            if (namedRegionExport) rangeBox.setVisibility(View.GONE);
             final android.widget.LinearLayout rangeExtras = new android.widget.LinearLayout(this);
             rangeExtras.setOrientation(android.widget.LinearLayout.HORIZONTAL);
             rangeExtras.setGravity(android.view.Gravity.CENTER_VERTICAL);
@@ -13531,10 +13798,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         resValues[Math.max(0, resSpinner.getSelectedItemPosition())]);
                 project.getExportSettings().setQuality(
                         qualValues[Math.max(0, qualSpinner.getSelectedItemPosition())]);
-                project.getExportSettings().setOutputFileName(
-                        sanitizeExportFileName(
-                                fileNameInput.getText().toString(),
-                                defaultExportBaseName));
+                if (!namedRegionExport) {
+                    project.getExportSettings().setOutputFileName(
+                            sanitizeExportFileName(
+                                    fileNameInput.getText().toString(),
+                                    defaultExportBaseName));
+                }
                 // C4: loudness target — store in ExportManager for this export (lane forbids touching model/ExportSettings)
                 // and also as an intent extra for the :export process (see doStartOutOfProcessExport).
                 com.fadcam.ui.faditor.export.ExportManager.LoudnessTarget chosen = loudValues[Math.max(0, loudSpinner.getSelectedItemPosition())];
@@ -13543,6 +13812,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 getSharedPreferences("faditor_export", MODE_PRIVATE).edit().putString("pending_loudness_target", chosen.name()).apply();
                 scheduleAutoSave();
                 exportDialog.dismiss();
+                pendingMarkerExportRegions = copyMarkerExportRegions(namedRegions);
                 if (frameAtMs >= 0) {
                     startFrameExportViaService(frameAtMs, frameJpeg);
                 } else {
@@ -13550,9 +13820,27 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 }
             });
         } catch (Exception e) {
-            FLog.e(TAG, "Failed to show export confirmation, starting directly", e);
-            startExportViaService();
+            FLog.e(TAG, "Failed to show export confirmation", e);
+            if (namedRegionExport) {
+                Toast.makeText(this, getString(R.string.faditor_export_error,
+                        "could not prepare named regions"), Toast.LENGTH_LONG).show();
+            } else {
+                startExportViaService();
+            }
         }
+    }
+
+    @Nullable
+    private static java.util.List<com.fadcam.ui.faditor.markers.MarkerWorkspace.Region>
+            copyMarkerExportRegions(@Nullable java.util.List<
+                    com.fadcam.ui.faditor.markers.MarkerWorkspace.Region> regions) {
+        if (regions == null) return null;
+        java.util.List<com.fadcam.ui.faditor.markers.MarkerWorkspace.Region> copy =
+                new java.util.ArrayList<>();
+        for (com.fadcam.ui.faditor.markers.MarkerWorkspace.Region region : regions) {
+            if (region != null) copy.add(region.copy());
+        }
+        return copy;
     }
 
     /**
@@ -13623,12 +13911,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void startFrameExportViaService(long frameTimeMs, boolean frameJpeg) {
         if (project != null && project.getTimeline().getClipCount() == 0
                 && !project.getTimeline().hasAudioClips()) {
+            pendingMarkerExportRegions = null;
+            pendingRangeStartMs = pendingRangeEndMs = -1L;
             Toast.makeText(this,
                     R.string.studio_export_nothing_to_export,
                     Toast.LENGTH_LONG).show();
             return;
         }
         if (countMissingMedia() > 0) {
+            pendingMarkerExportRegions = null;
+            pendingRangeStartMs = pendingRangeEndMs = -1L;
             Toast.makeText(this,
                     getString(R.string.studio_export_missing_media, countMissingMedia()),
                     Toast.LENGTH_LONG).show();
@@ -13717,6 +14009,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // attached. Refuse at the door instead.
         if (project != null && project.getTimeline().getClipCount() == 0
                 && !project.getTimeline().hasAudioClips()) {
+            pendingMarkerExportRegions = null;
+            pendingRangeStartMs = pendingRangeEndMs = -1L;
             Toast.makeText(this,
                     R.string.studio_export_nothing_to_export,
                     Toast.LENGTH_LONG).show();
@@ -13725,6 +14019,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         // Pre-flight check for missing media
         if (countMissingMedia() > 0) {
+            pendingMarkerExportRegions = null;
+            pendingRangeStartMs = pendingRangeEndMs = -1L;
             Toast.makeText(this,
                     getString(R.string.studio_export_missing_media, countMissingMedia()),
                     Toast.LENGTH_LONG).show();
@@ -13746,11 +14042,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     @Nullable
     private String writeExportSnapshotFile() {
+        return writeExportSnapshotFile(null);
+    }
+
+    /** Each queued job owns a distinct file even when a named batch shares identical project JSON. */
+    @Nullable
+    private String writeExportSnapshotFile(@Nullable String preparedJson) {
         if (project == null) return null;
         try {
             com.fadcam.ui.faditor.project.ProjectStorage storage =
                     new com.fadcam.ui.faditor.project.ProjectStorage(this);
-            String json = storage.toJson(project);
+            String json = preparedJson != null ? preparedJson : storage.toJson(project);
             java.io.File dir = new java.io.File(getFilesDir(), "faditor");
             //noinspection ResultOfMethodCallIgnored
             dir.mkdirs();
@@ -13767,7 +14069,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 }
             }
             java.io.File out = new java.io.File(dir,
-                    "export_snapshot_" + System.currentTimeMillis() + ".json");
+                    "export_snapshot_" + java.util.UUID.randomUUID() + ".json");
             try (java.io.FileOutputStream fos = new java.io.FileOutputStream(out)) {
                 fos.write(json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
             }
@@ -13800,6 +14102,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private void startOutOfProcessExport(boolean audioOnly,
                                          @Nullable Long frameTimeMs, boolean frameJpeg) {
+        // Capture one-shot selection BEFORE yielding for progress paint or rendering slides.
+        // A second export tap must never consume or alter this batch's ranges.
+        final java.util.List<com.fadcam.ui.faditor.markers.MarkerWorkspace.Region> namedRegions =
+                frameTimeMs == null ? copyMarkerExportRegions(pendingMarkerExportRegions) : null;
+        pendingMarkerExportRegions = null;
+        final long rangeStartMs = pendingRangeStartMs;
+        final long rangeEndMs = pendingRangeEndMs;
+        pendingRangeStartMs = pendingRangeEndMs = -1L;
         final boolean queued = isExportRunning();
         if (queued) {
             Toast.makeText(this, R.string.export_queued_toast, Toast.LENGTH_LONG).show();
@@ -13808,12 +14118,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (exportProgressText != null) exportProgressText.setText(R.string.export_preparing);
         }
         getWindow().getDecorView().postDelayed(
-                () -> startOutOfProcessExportNow(audioOnly, frameTimeMs, frameJpeg, queued), 48);
+                () -> startOutOfProcessExportNow(audioOnly, frameTimeMs, frameJpeg, queued,
+                        namedRegions, rangeStartMs, rangeEndMs), 48);
     }
 
     private void startOutOfProcessExportNow(boolean audioOnly,
                                             @Nullable Long frameTimeMs, boolean frameJpeg,
-                                            boolean queued) {
+                                            boolean queued,
+                                            @Nullable java.util.List<com.fadcam.ui.faditor.markers.MarkerWorkspace.Region> namedRegions,
+                                            long rangeStartMs, long rangeEndMs) {
         if (isFinishing() || isDestroyed()) return;
         // ensureGeneratedSlidesRendered pre-pass: slides render HERE, in the editor
         // process — the :export process can't host the WebView capture. The rendered
@@ -13835,7 +14148,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             slideProjectDir = null;
         }
         if (pendingSlides.isEmpty() && pendingOverlaySlides.isEmpty()) {
-            doStartOutOfProcessExport(audioOnly, frameTimeMs, frameJpeg, queued);
+            doStartOutOfProcessExport(audioOnly, frameTimeMs, frameJpeg, queued,
+                    namedRegions, rangeStartMs, rangeEndMs);
             return;
         }
 
@@ -13862,7 +14176,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     return;
                 }
                 resolvableCache.clear();
-                doStartOutOfProcessExport(audioOnly, frameTimeMs, frameJpeg, queued);
+                doStartOutOfProcessExport(audioOnly, frameTimeMs, frameJpeg, queued,
+                        namedRegions, rangeStartMs, rangeEndMs);
             });
         });
     }
@@ -13916,13 +14231,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     private void doStartOutOfProcessExport(boolean audioOnly) {
-        doStartOutOfProcessExport(audioOnly, null, false, isExportRunning());
+        doStartOutOfProcessExport(audioOnly, null, false, isExportRunning(), null, -1L, -1L);
     }
 
     /** SPEC_C: the frame variant carries the frame time + format to the :export process. */
     private void doStartOutOfProcessExport(boolean audioOnly,
                                            @Nullable Long frameTimeMs, boolean frameJpeg,
-                                           boolean queued) {
+                                           boolean queued,
+                                           @Nullable java.util.List<com.fadcam.ui.faditor.markers.MarkerWorkspace.Region> namedRegions,
+                                           long rangeStartMs, long rangeEndMs) {
+        if (namedRegions != null) {
+            doStartNamedRegionExports(audioOnly, queued, namedRegions);
+            return;
+        }
         // A queued job must not touch the running one's decoders.
         if (!queued) prepareMemoryForExport();
 
@@ -13940,13 +14261,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
         serviceIntent.setAction(ExportService.ACTION_START_EXPORT);
         serviceIntent.putExtra(ExportService.EXTRA_PROJECT_SNAPSHOT_PATH, snapshotPath);
         serviceIntent.putExtra(ExportService.EXTRA_AUDIO_ONLY, audioOnly);
-        if (pendingRangeStartMs >= 0 && pendingRangeEndMs > pendingRangeStartMs
+        if (rangeStartMs >= 0 && rangeEndMs > rangeStartMs
                 && frameTimeMs == null) {
-            serviceIntent.putExtra(ExportService.EXTRA_RANGE_START_MS, pendingRangeStartMs);
-            serviceIntent.putExtra(ExportService.EXTRA_RANGE_END_MS, pendingRangeEndMs);
+            serviceIntent.putExtra(ExportService.EXTRA_RANGE_START_MS, rangeStartMs);
+            serviceIntent.putExtra(ExportService.EXTRA_RANGE_END_MS, rangeEndMs);
         }
-        pendingRangeStartMs = -1L;   // one-shot: the next export is whole unless asked again
-        pendingRangeEndMs = -1L;
+        serviceIntent.putExtra(ExportService.EXTRA_OUTPUT_FILE_NAME,
+                project.getExportSettings().getOutputFileName());
         if (frameTimeMs != null) {
             serviceIntent.putExtra(ExportService.EXTRA_SINGLE_FRAME, true);
             serviceIntent.putExtra(ExportService.EXTRA_FRAME_TIME_MS, frameTimeMs.longValue());
@@ -13967,6 +14288,81 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         // Show export info on the overlay (progress arrives via exportEventsReceiver).
         showExportInfoOnScreen();
+    }
+
+    /** Queue independent named outputs from one edit-immune project document. */
+    private void doStartNamedRegionExports(boolean audioOnly, boolean queued,
+            java.util.List<com.fadcam.ui.faditor.markers.MarkerWorkspace.Region> namedRegions) {
+        java.util.List<String> snapshotPaths = new java.util.ArrayList<>();
+        int attempted = 0;
+        int dispatched = 0;
+        try {
+            com.fadcam.ui.faditor.markers.RegionExportPlan plan =
+                    com.fadcam.ui.faditor.markers.RegionExportPlan.create(namedRegions,
+                            project.getTimeline().getTotalDurationMs(), project.getName());
+            if (plan.getJobs().isEmpty()) {
+                throw new IllegalArgumentException("Select at least one region for export");
+            }
+            // Prepare once for the whole batch; queued jobs must not touch running decoders.
+            if (!queued) prepareMemoryForExport();
+            String json = new com.fadcam.ui.faditor.project.ProjectStorage(this).toJson(project);
+            String loudName = getSharedPreferences("faditor_export", MODE_PRIVATE)
+                    .getString("pending_loudness_target", "OFF");
+            java.util.List<android.content.Intent> intents = new java.util.ArrayList<>();
+            // Finish every snapshot before dispatching anything: a storage failure must not
+            // silently queue only an arbitrary prefix of the requested regions.
+            for (com.fadcam.ui.faditor.markers.RegionExportPlan.Job job : plan.getJobs()) {
+                String snapshotPath = writeExportSnapshotFile(json);
+                if (snapshotPath == null) throw new java.io.IOException("could not snapshot the regions");
+                snapshotPaths.add(snapshotPath);
+                android.content.Intent intent = new android.content.Intent(this, ExportService.class);
+                intent.setAction(ExportService.ACTION_START_EXPORT);
+                intent.putExtra(ExportService.EXTRA_PROJECT_SNAPSHOT_PATH, snapshotPath);
+                intent.putExtra(ExportService.EXTRA_AUDIO_ONLY, audioOnly);
+                intent.putExtra(ExportService.EXTRA_RANGE_START_MS, job.getStartMs());
+                intent.putExtra(ExportService.EXTRA_RANGE_END_MS, job.getEndMs());
+                // ExportSettings' serializer deliberately omits this transient name.
+                intent.putExtra(ExportService.EXTRA_OUTPUT_FILE_NAME, job.getOutputFileName());
+                intent.putExtra("extra_loudness_target", loudName);
+                intents.add(intent);
+            }
+            for (android.content.Intent intent : intents) {
+                attempted++;
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    startForegroundService(intent);
+                } else {
+                    startService(intent);
+                }
+                dispatched++;
+            }
+            if (!queued) {
+                lastExportWasAudioOnly = audioOnly;
+                exportStartedLocallyAtMs = System.currentTimeMillis();
+                showExportInfoOnScreen();
+            }
+        } catch (Exception exception) {
+            // Once a start has been attempted, the service may already own its snapshot.
+            // Remove only files belonging to jobs that were certainly never dispatched.
+            for (int index = attempted; index < snapshotPaths.size(); index++) {
+                //noinspection ResultOfMethodCallIgnored
+                new java.io.File(snapshotPaths.get(index)).delete();
+            }
+            if (!queued && dispatched == 0) {
+                exportStartedLocallyAtMs = 0L;
+                hideExportProgress();
+                reacquirePreviewIfReleased();
+            } else if (!queued) {
+                lastExportWasAudioOnly = audioOnly;
+                exportStartedLocallyAtMs = System.currentTimeMillis();
+                showExportInfoOnScreen();
+            }
+            FLog.e(TAG, "Named region export failed after " + dispatched + " queued jobs", exception);
+            String detail = dispatched > 0
+                    ? dispatched + " region exports queued; could not queue the rest"
+                    : exception.getMessage();
+            Toast.makeText(this, getString(R.string.faditor_export_error,
+                    detail == null ? "could not export named regions" : detail), Toast.LENGTH_LONG).show();
+        }
     }
 
     /**
@@ -14547,6 +14943,36 @@ public class FaditorEditorActivity extends AppCompatActivity {
         scheduleAutoSave();
     }
 
+    /** This namespace is included only in UndoManager payloads, never in saved/exported project JSON. */
+    private static final String UNDO_MARKER_WORKSPACE_KEY =
+            "com.fadcam.editor.undo.markerWorkspace.v1";
+
+    @Nullable
+    private String captureEditorUndoSnapshot() {
+        if (project == null || projectStorage == null) return null;
+        String projectJson = projectStorage.toJson(project);
+        if (projectJson == null) return null;
+        try {
+            // All ordinary open paths wire before resetBaseline; also cover a lazy/blank baseline.
+            if (markerState == null || !project.getId().equals(markerProjectId)) wireBookmarks();
+            com.fadcam.ui.faditor.markers.MarkerWorkspace.State snapshotMarks = markerState;
+            if (snapshotMarks == null || !project.getId().equals(markerProjectId)) {
+                java.io.File markerDir = projectStorage.projectDir(project.getId());
+                snapshotMarks = com.fadcam.ui.faditor.markers.MarkerWorkspaceStore.load(markerDir,
+                        com.fadcam.ui.faditor.project.BookmarkStore.load(markerDir));
+            }
+            String marksJson = com.fadcam.ui.faditor.markers.MarkerWorkspaceStore
+                    .toSnapshotJson(snapshotMarks);
+            if (marksJson == null) return projectJson;
+            org.json.JSONObject snapshot = new org.json.JSONObject(projectJson);
+            snapshot.put(UNDO_MARKER_WORKSPACE_KEY, new org.json.JSONObject(marksJson));
+            return snapshot.toString();
+        } catch (Exception exception) {
+            FLog.w(TAG, "Could not attach timeline marks to undo snapshot", exception);
+            return projectJson;
+        }
+    }
+
     /**
      * Restore the entire project from a JSON snapshot.
      * Called by UndoManager's SnapshotRestorer during snapshot-based undo/redo.
@@ -14561,10 +14987,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
             return;
         }
         this.project = restored;
-        // Markers are not in the snapshot either: keep the model's list the sidecar's (as swapInProject does),
-        // so a later bookmark change does not record an empty "before" and undo it to nothing.
-        project.setBookmarksMs(com.fadcam.ui.faditor.project.BookmarkStore.load(
-                projectStorage.projectDir(project.getId())));
+        // Load canonical markers first: old history has no payload, and unreadable/newer
+        // sidecars must remain authoritative even if an older history entry contains v1 marks.
+        wireBookmarks();
+        try {
+            org.json.JSONObject snapshot = new org.json.JSONObject(projectJson);
+            org.json.JSONObject marks = snapshot.optJSONObject(UNDO_MARKER_WORKSPACE_KEY);
+            if (marks != null) {
+                com.fadcam.ui.faditor.markers.MarkerWorkspace.State restoredMarks =
+                        com.fadcam.ui.faditor.markers.MarkerWorkspaceStore
+                                .fromSnapshotJson(marks.toString(), markerState);
+                if (restoredMarks != null) applyMarkerState(restoredMarks);
+            }
+        } catch (Exception exception) {
+            FLog.w(TAG, "Keeping canonical timeline marks while restoring project history", exception);
+        }
         FLog.d(TAG, "Project restored from snapshot, clips="
                 + restored.getTimeline().getClipCount()
                 + ", audioClips=" + restored.getTimeline().getAudioClipCount());

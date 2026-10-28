@@ -1323,6 +1323,32 @@ public class ExportManager {
     @Nullable
     private ExportListener audioTerminalOverride = null;
 
+    /** State for the audio-first range path that mixes first, then clips the M4A. */
+    @Nullable
+    private volatile AudioOnlyRangeRun audioOnlyRangeRun;
+
+    private static final class AudioOnlyRangeRun {
+        final FaditorProject project;
+        final long startMs;
+        final long endMs;
+        final String finalOutputPath;
+        final String mixPath;
+        final String stagingPath;
+        volatile boolean mixing = true;
+        volatile boolean trimming;
+        volatile boolean cancelled;
+
+        AudioOnlyRangeRun(FaditorProject project, long startMs, long endMs,
+                          String finalOutputPath, String mixPath, String stagingPath) {
+            this.project = project;
+            this.startMs = startMs;
+            this.endMs = endMs;
+            this.finalOutputPath = finalOutputPath;
+            this.mixPath = mixPath;
+            this.stagingPath = stagingPath;
+        }
+    }
+
     /**
      * Audio-only export to an explicit path with an optional terminal override
      * (chunked driver). Progress/started/finalizing still flow to the field listener.
@@ -1429,7 +1455,9 @@ public class ExportManager {
             FLog.d(TAG, "Audio-only export started → " + outputPath
                     + " (staging " + audioStagingPath + ")");
             if (listener != null) {
-                listener.onExportStarted(outputPath);
+                AudioOnlyRangeRun rangeRun = audioOnlyRangeRun;
+                listener.onExportStarted(rangeRun != null && rangeRun.mixing
+                        ? rangeRun.finalOutputPath : outputPath);
             }
         } catch (Exception e) {
             isExporting = false;
@@ -1783,7 +1811,7 @@ public class ExportManager {
      */
     public void exportChunked(@NonNull FaditorProject project,
                               @NonNull String finalOutputPath) {
-        startChunked(project, finalOutputPath, -1L, -1L);
+        startChunked(project, finalOutputPath, -1L, -1L, false);
     }
 
     /**
@@ -1807,12 +1835,183 @@ public class ExportManager {
         }
         project.getTimeline().resyncAttachedVisualizers();
         project.getTimeline().resyncLinkGroups();
-        startChunked(project, generateOutputPath(project), a, b);
+        startChunked(project, generateOutputPath(project), a, b, false);
+    }
+
+    /**
+     * Export the selected editor range as an M4A containing the exact audio from the
+     * fully-composed range. This intentionally reuses the video range pipeline, then
+     * extracts audio from its final clipped composition; this keeps transition, overlay,
+     * speed, and audio-lane timing identical to the selected video range.
+     */
+    public void exportAudioOnlyRange(@NonNull FaditorProject project,
+                                     long startMs, long endMs) {
+        long total = project.getTimeline().getTotalDurationMs();
+        long a = Math.max(0L, Math.min(startMs, endMs));
+        long b = Math.min(total, Math.max(startMs, endMs));
+        if (b - a < 100L) {
+            if (listener != null) {
+                listener.onExportError(new IllegalArgumentException(
+                        "The range to export is empty"));
+            }
+            return;
+        }
+        if (project.getTimeline().getClipCount() == 0) {
+            exportAudioFirstRange(project, a, b);
+            return;
+        }
+        project.getTimeline().resyncAttachedVisualizers();
+        project.getTimeline().resyncLinkGroups();
+        startChunked(project, generateOutputPath(project, "m4a"), a, b, true);
+    }
+
+    /**
+     * Audio-first timelines have no video chunks to range-trim. Their audio-only composition
+     * is already aligned to editor time by the per-lane silence gaps, so export that mix to a
+     * private temporary M4A and clip the single composed track before final publication.
+     */
+    private void exportAudioFirstRange(@NonNull FaditorProject project,
+                                       long startMs, long endMs) {
+        if (isExporting || audioOnlyRangeRun != null) {
+            if (listener != null) {
+                listener.onExportError(new IllegalStateException("Export already in progress"));
+            }
+            return;
+        }
+        project.getTimeline().resyncAttachedVisualizers();
+        project.getTimeline().resyncLinkGroups();
+        String finalPath = generateOutputPath(project, "m4a");
+        String runId = java.util.UUID.randomUUID().toString();
+        File tempDir = com.fadcam.ui.faditor.util.DurableCache.dir(context, "audio_range");
+        if (!tempDir.exists() && !tempDir.mkdirs()) {
+            pendingSafCopy = false;
+            safExportFileName = null;
+            if (listener != null) listener.onExportError(
+                    new IllegalStateException("Could not create audio range workspace"));
+            return;
+        }
+        String mixPath = new File(tempDir, "mix_" + runId + ".m4a").getAbsolutePath();
+        String stagingPath = finalPath + ".range." + runId + ".exporting";
+        AudioOnlyRangeRun run = new AudioOnlyRangeRun(project, startMs, endMs,
+                finalPath, mixPath, stagingPath);
+        audioOnlyRangeRun = run;
+        exportAudioOnly(project, mixPath, new ExportListener() {
+            @Override public void onExportStarted(@NonNull String outputPath) { }
+            @Override public void onExportProgress(float progress) { }
+            @Override public void onExportProgressDetailed(float progress, int itemIndex,
+                                                           int itemCount, long bytesWritten,
+                                                           long etaRemainingMs) { }
+            @Override public void onExportFinalizing() { }
+            @Override public void onChunkPhase(@NonNull String phase) { }
+            @Override public void onExportCompleted(@NonNull String outputPath,
+                                                    @NonNull ExportResult result) {
+                run.mixing = false;
+                if (audioOnlyRangeRun != run || run.cancelled) {
+                    deleteQuietly(new File(outputPath));
+                    return;
+                }
+                runOnMain(() -> startAudioFirstRangeTrim(run));
+            }
+            @Override public void onExportError(@NonNull Exception error) {
+                run.mixing = false;
+                if (audioOnlyRangeRun != run || run.cancelled) return;
+                audioOnlyRangeRun = null;
+                deleteQuietly(new File(run.mixPath));
+                if (listener != null) listener.onExportError(error);
+            }
+        });
+    }
+
+    private void startAudioFirstRangeTrim(@NonNull AudioOnlyRangeRun run) {
+        if (audioOnlyRangeRun != run || run.cancelled) {
+            deleteQuietly(new File(run.mixPath));
+            return;
+        }
+        File mix = new File(run.mixPath);
+        if (!mix.exists() || mix.length() <= 0L) {
+            audioOnlyRangeRun = null;
+            pendingSafCopy = false;
+            safExportFileName = null;
+            if (listener != null) listener.onExportError(
+                    new IllegalStateException("Audio mix for range is missing"));
+            return;
+        }
+        run.trimming = true;
+        isExporting = true;
+        currentStagingPath = run.stagingPath;
+        if (listener != null) {
+            listener.onChunkPhase("Trimming audio range");
+            listener.onExportProgress(0.9f);
+            listener.onExportProgressDetailed(0.9f, -1, -1, -1L, -1L);
+        }
+        try {
+            MediaItem item = new MediaItem.Builder()
+                    .setUri(Uri.fromFile(mix))
+                    .setClippingConfiguration(new MediaItem.ClippingConfiguration.Builder()
+                            .setStartPositionMs(run.startMs)
+                            .setEndPositionMs(run.endMs)
+                            .build())
+                    .build();
+            Transformer t = new Transformer.Builder(context)
+                    .setMaxDelayBetweenMuxerSamplesMs(300_000L)
+                    .setAudioMimeType(MimeTypes.AUDIO_AAC)
+                    .setEncoderFactory(exportEncoderFactory(run.project, null))
+                    .addListener(new Transformer.Listener() {
+                        @Override public void onCompleted(@NonNull Composition composition,
+                                                          @NonNull ExportResult result) {
+                            stopProgressPolling();
+                            deleteQuietly(mix);
+                            if (audioOnlyRangeRun != run || run.cancelled || !isExporting) {
+                                deleteQuietly(new File(run.stagingPath));
+                                return;
+                            }
+                            String committed = commitStaging(run.stagingPath,
+                                    run.finalOutputPath);
+                            audioOnlyRangeRun = null;
+                            isExporting = false;
+                            finalizeExportAsync(run.project, committed, result,
+                                    "Audio-only range export completed");
+                        }
+
+                        @Override public void onError(@NonNull Composition composition,
+                                                      @NonNull ExportResult result,
+                                                      @NonNull ExportException exception) {
+                            stopProgressPolling();
+                            deleteQuietly(mix);
+                            deleteQuietly(new File(run.stagingPath));
+                            if (audioOnlyRangeRun != run || run.cancelled) return;
+                            audioOnlyRangeRun = null;
+                            isExporting = false;
+                            pendingSafCopy = false;
+                            safExportFileName = null;
+                            writeExportErrorLog(run.project, exception, run.finalOutputPath);
+                            if (listener != null) listener.onExportError(exception);
+                        }
+                    })
+                    .build();
+            transformer = t;
+            t.start(item, run.stagingPath);
+            startProgressPolling();
+        } catch (Exception e) {
+            stopProgressPolling();
+            deleteQuietly(mix);
+            deleteQuietly(new File(run.stagingPath));
+            if (audioOnlyRangeRun != run || run.cancelled) return;
+            audioOnlyRangeRun = null;
+            isExporting = false;
+            pendingSafCopy = false;
+            safExportFileName = null;
+            if (listener != null) listener.onExportError(e);
+        }
+    }
+
+    private void runOnMain(@NonNull Runnable runnable) {
+        new Handler(Looper.getMainLooper()).post(runnable);
     }
 
     private void startChunked(@NonNull FaditorProject project,
                               @NonNull String finalOutputPath, long rangeStartMs,
-                              long rangeEndMs) {
+                              long rangeEndMs, boolean audioOnlyRange) {
         if (isExporting) {
             FLog.w(TAG, "Export already in progress");
             return;
@@ -1856,7 +2055,8 @@ public class ExportManager {
         if (listener != null) {
             listener.onExportStarted(finalOutputPath);
         }
-        ChunkRun run = new ChunkRun(project, finalOutputPath, manifest, ranges);
+        ChunkRun run = new ChunkRun(project, finalOutputPath, manifest, ranges,
+                audioOnlyRange);
         if (rangeStartMs >= 0 && rangeEndMs > rangeStartMs) run.limitTo(rangeStartMs, rangeEndMs);
         chunkRun = run;
         startWaveformAnalysis(run);
@@ -1889,6 +2089,9 @@ public class ExportManager {
         final String finalOutputPath;
         final org.json.JSONObject manifest;
         final List<int[]> ranges;
+        final boolean audioOnlyOutput;
+        /** Isolates temporary join/extraction files across cancelled/replaced range jobs. */
+        final String runId = java.util.UUID.randomUUID().toString();
         final int n;
         final long[] expected;
         final long totalExpected;
@@ -1917,11 +2120,13 @@ public class ExportManager {
         long rangeEndMs = -1L;
 
         ChunkRun(@NonNull FaditorProject project, @NonNull String finalOutputPath,
-                 @NonNull org.json.JSONObject manifest, @NonNull List<int[]> ranges) {
+                 @NonNull org.json.JSONObject manifest, @NonNull List<int[]> ranges,
+                 boolean audioOnlyOutput) {
             this.project = project;
             this.finalOutputPath = finalOutputPath;
             this.manifest = manifest;
             this.ranges = ranges;
+            this.audioOnlyOutput = audioOnlyOutput;
             this.n = ranges.size();
             this.expected = new long[n];
             long total = 0L;
@@ -2529,6 +2734,10 @@ public class ExportManager {
                            @NonNull org.json.JSONObject manifest,
                            @NonNull List<int[]> ranges, int step,
                            @NonNull Throwable error) {
+        ChunkRun failedRun = chunkRun;
+        if (failedRun != null && failedRun.audioOnlyOutput) {
+            cleanupAudioRangeIntermediates(failedRun);
+        }
         isExporting = false;
         chunkRun = null;
         cancelChunkWorkers();
@@ -2562,11 +2771,17 @@ public class ExportManager {
             listener.onExportProgressDetailed(CHUNK_VIDEO_FRAC + CHUNK_AUDIO_FRAC,
                     -1, -1, -1L, -1L);
         }
-        final String stagingPath = stagingPathFor(finalOutputPath);
+        final File chunkDir = chunkDirFor(project);
+        final File audioRangeDir = run.audioOnlyOutput
+                ? new File(chunkDir, "range_audio_" + run.runId) : chunkDir;
+        if (run.audioOnlyOutput && !audioRangeDir.exists()) audioRangeDir.mkdirs();
+        final String stagingPath = run.audioOnlyOutput
+                ? new File(audioRangeDir, "composed_range.mp4").getAbsolutePath()
+                : stagingPathFor(finalOutputPath);
         currentStagingPath = stagingPath;
         new Thread(() -> {
             try {
-                File dir = chunkDirFor(project);
+                File dir = audioRangeDir;
                 File listFile = new File(dir, "concat_list.txt");
                 StringBuilder sb = new StringBuilder();
                 for (int i = 0; i < ranges.size(); i++) {
@@ -2582,7 +2797,7 @@ public class ExportManager {
                 File videoFull = new File(dir, "video_full.mp4");
                 if (videoFull.exists()) videoFull.delete();
                 String audioPath = manifest.optString("audioFile",
-                        new File(dir, "audio_full.m4a").getAbsolutePath());
+                        new File(chunkDirFor(project), "audio_full.m4a").getAbsolutePath());
                 int joined = 0;
                 for (boolean need : run.needed) if (need) joined++;
                 trace("CHUNK joining " + joined + " of " + ranges.size() + " parts + audio");
@@ -2639,6 +2854,7 @@ public class ExportManager {
                 trace("CHUNK joined in " + (System.currentTimeMillis() - joinT0) + " ms");
                 if (chunkCancelled) {
                     discardStaging(stagingPath);
+                    if (run.audioOnlyOutput) cleanupAudioRangeIntermediates(run);
                     isExporting = false;
                     return;
                 }
@@ -2651,21 +2867,13 @@ public class ExportManager {
                                     finalOutputPath));
                     return;
                 }
-                String committed = commitStaging(stagingPath, finalOutputPath);
-                // The finished file is committed. The joined video (~the export's size) goes
+                // The composition join is complete. The joined video (~the export's size) goes
                 // now; the parts and the sound stay as the render cache, so the next export of
                 // this project redoes only what changed (bounded by pruneRenderCache).
                 //noinspection ResultOfMethodCallIgnored
                 videoFull.delete();
-                pruneRenderCache(project, manifest);
-                chunkRun = null;
-                // Every part and the sound can come from the render cache, leaving no fresh
-                // ExportResult - the loudness pass and the copy to the chosen folder still run.
-                ExportResult result = lastChunkResult != null ? lastChunkResult
-                        : new ExportResult.Builder().build();
-                isExporting = false;
-                resetChunkState();
-                finalizeExportAsync(project, committed, result, "Chunked export completed");
+                finishChunked(project, run, stagingPath, finalOutputPath,
+                        "Chunked export completed");
             } catch (Exception e) {
                 if (chunkCancelled) {
                     isExporting = false;
@@ -2685,7 +2893,11 @@ public class ExportManager {
     private void runRangeTrim(@NonNull FaditorProject project, @NonNull ChunkRun run,
                               @NonNull File joined, long startMs, long endMs,
                               @NonNull String stagingPath, @NonNull String finalOutputPath) {
-        if (run != chunkRun || chunkCancelled || !isExporting) return;
+        if (run != chunkRun || chunkCancelled || !isExporting) {
+            deleteQuietly(joined);
+            if (run.audioOnlyOutput) cleanupAudioRangeIntermediates(run);
+            return;
+        }
         if (listener != null) {
             listener.onChunkPhase("Trimming to the range");
             listener.onExportProgress(0.97f);
@@ -2715,6 +2927,9 @@ public class ExportManager {
                             joined.delete();
                             if (run != chunkRun || chunkCancelled || !isExporting) {
                                 discardStaging(stagingPath);
+                                if (run.audioOnlyOutput) {
+                                    cleanupAudioRangeIntermediates(run);
+                                }
                                 return;
                             }
                             // 0 none, 1 succeeded (head re-encoded, rest copied), 2 keyframe
@@ -2723,8 +2938,9 @@ public class ExportManager {
                                     + " bytes, trim optimization=" + result.optimizationResult
                                     + ", " + (System.currentTimeMillis() - rangeTrimStartMs)
                                     + " ms)");
-                            new Thread(() -> finishChunked(project, run.manifest, stagingPath,
-                                    finalOutputPath), "faditor-range-finish").start();
+                            new Thread(() -> finishChunked(project, run, stagingPath,
+                                    finalOutputPath, "Range export completed"),
+                                    "faditor-range-finish").start();
                         }
 
                         @Override
@@ -2750,22 +2966,100 @@ public class ExportManager {
     private long rangeTrimStartMs = 0L;
 
     /** Commit the finished file, keep the render cache, and hand over to finalize. */
-    private void finishChunked(@NonNull FaditorProject project,
-                               @NonNull org.json.JSONObject manifest,
-                               @NonNull String stagingPath, @NonNull String finalOutputPath) {
-        if (chunkCancelled) {
+    private void finishChunked(@NonNull FaditorProject project, @NonNull ChunkRun run,
+                               @NonNull String stagingPath, @NonNull String finalOutputPath,
+                               @NonNull String completedLogTag) {
+        if (chunkCancelled || run != chunkRun) {
             discardStaging(stagingPath);
+            if (run.audioOnlyOutput) cleanupAudioRangeIntermediates(run);
             isExporting = false;
             return;
         }
-        String committed = commitStaging(stagingPath, finalOutputPath);
-        pruneRenderCache(project, manifest);
+        String committed;
+        if (run.audioOnlyOutput) {
+            committed = extractRangeAudio(project, run, stagingPath, finalOutputPath);
+            if (committed == null) return; // error/cancel path already reported or cleaned up
+        } else {
+            committed = commitStaging(stagingPath, finalOutputPath);
+        }
+        pruneRenderCache(project, run.manifest);
+        if (run.audioOnlyOutput) cleanupAudioRangeIntermediates(run);
         chunkRun = null;
-        ExportResult result = lastChunkResult != null ? lastChunkResult
-                : new ExportResult.Builder().build();
+        ExportResult result = run.audioOnlyOutput || lastChunkResult == null
+                ? new ExportResult.Builder().build() : lastChunkResult;
         isExporting = false;
         resetChunkState();
-        finalizeExportAsync(project, committed, result, "Range export completed");
+        finalizeExportAsync(project, committed, result, completedLogTag);
+    }
+
+    /**
+     * The range trim has produced an MP4 containing the exact composed range. Extract its
+     * already-mixed AAC track into a staged M4A; publish only after extraction succeeds.
+     * This runs on the chunk join/finalize worker, never on the UI thread.
+     */
+    @Nullable
+    private String extractRangeAudio(@NonNull FaditorProject project, @NonNull ChunkRun run,
+                                     @NonNull String composedRangePath,
+                                     @NonNull String finalOutputPath) {
+        final String audioStagingPath = finalOutputPath + ".audio." + run.runId
+                + ".exporting";
+        currentStagingPath = audioStagingPath;
+        File composedRange = new File(composedRangePath);
+        File audioStaging = new File(audioStagingPath);
+        try {
+            if (listener != null) {
+                listener.onChunkPhase("Extracting range audio");
+                listener.onExportProgress(0.99f);
+                listener.onExportProgressDetailed(0.99f, -1, -1, -1L, -1L);
+            }
+            if (!composedRange.exists() || composedRange.length() <= 0L) {
+                throw new IllegalStateException("Composed range file is missing");
+            }
+            if (audioStaging.exists() && !audioStaging.delete()) {
+                throw new IllegalStateException("Could not clear prior audio staging file");
+            }
+            com.arthenica.ffmpegkit.FFmpegSession session =
+                    com.arthenica.ffmpegkit.FFmpegKit.execute(
+                            "-i \"" + composedRange.getAbsolutePath()
+                                    + "\" -map 0:a:0 -vn -c:a copy -movflags +faststart"
+                                    + " -f ipod -y \"" + audioStagingPath + "\"");
+            if (chunkCancelled || run != chunkRun) {
+                deleteQuietly(audioStaging);
+                deleteQuietly(composedRange);
+                cleanupAudioRangeIntermediates(run);
+                return null;
+            }
+            if (!com.arthenica.ffmpegkit.ReturnCode.isSuccess(session.getReturnCode())
+                    || !audioStaging.exists() || audioStaging.length() <= 0L) {
+                traceFfmpegTail("range-audio-extract", session);
+                throw new IllegalStateException("Extracting range audio failed: "
+                        + session.getReturnCode());
+            }
+            deleteQuietly(composedRange);
+            return commitStaging(audioStagingPath, finalOutputPath);
+        } catch (Exception e) {
+            deleteQuietly(audioStaging);
+            deleteQuietly(composedRange);
+            if (chunkCancelled || run != chunkRun) {
+                cleanupAudioRangeIntermediates(run);
+                return null;
+            }
+            chunkFail(project, finalOutputPath, run.manifest, run.ranges,
+                    run.n + 1, e);
+            return null;
+        }
+    }
+
+    /** Delete only this run's private join directory; reusable render-cache parts are siblings. */
+    private void cleanupAudioRangeIntermediates(@NonNull ChunkRun run) {
+        File dir = new File(chunkDirFor(run.project), "range_audio_" + run.runId);
+        File[] children = dir.listFiles();
+        if (children != null) {
+            for (File child : children) deleteQuietly(child);
+        }
+        if (dir.exists() && !dir.delete()) {
+            FLog.w(TAG, "Could not remove audio range temp dir " + dir.getPath());
+        }
     }
 
     /** Last ~1.5 KB of an ffmpeg session's log into the durable trace — its own reason for failing. */
@@ -2981,6 +3275,30 @@ public class ExportManager {
         }
 
         List<EditedMediaItemSequence> sequences = new ArrayList<>();
+        AudioOnlyRangeRun activeRange = audioOnlyRangeRun;
+        if (timeline.getClipCount() == 0 && activeRange != null && activeRange.mixing) {
+            // Audio-first ranges are clipped from a single mixed file after this composition
+            // completes. The lane builders omit muted clips and trailing gaps, so without an
+            // explicit timeline-length sequence Media3 may end the mix before the editor's
+            // clock does. Anchor the mix to the audio-first timeline duration with silence;
+            // the real audio lanes remain parallel and keep their original editor offsets.
+            long timelineDurationMs = timeline.getTotalDurationMs();
+            if (timelineDurationMs > 0L) {
+                if (silenceUri == null) {
+                    throw new IllegalStateException(
+                            "Audio-only range export requires a silence source to preserve timeline duration");
+                }
+                List<EditedMediaItem> timelineSpan = new ArrayList<>();
+                addSilence(timelineSpan, silenceUri, timelineDurationMs);
+                if (timelineSpan.isEmpty()) {
+                    throw new IllegalStateException(
+                            "Audio-only range export could not build its timeline duration span");
+                }
+                sequences.add(new EditedMediaItemSequence.Builder(timelineSpan)
+                        .experimentalSetForceAudioTrack(true)
+                        .build());
+            }
+        }
         if (!master.isEmpty()) {
             // Same reason as the video spine below: this list interleaves addSilence() items,
             // which carry audio and no video, with real clips. Force the audio track so a
@@ -3222,6 +3540,29 @@ public class ExportManager {
      * Cancel the current export.
      */
     public void cancel() {
+        AudioOnlyRangeRun rangeRun = audioOnlyRangeRun;
+        if (rangeRun != null) {
+            rangeRun.cancelled = true;
+            audioOnlyRangeRun = null;
+            stopProgressPolling();
+            if ((rangeRun.mixing || rangeRun.trimming) && transformer != null && isExporting) {
+                try {
+                    transformer.cancel();
+                } catch (Exception e) {
+                    FLog.w(TAG, "Audio-only range cancel failed", e);
+                }
+            }
+            if (isExporting) {
+                isExporting = false;
+                discardStaging(currentStagingPath);
+            }
+            deleteQuietly(new File(rangeRun.mixPath));
+            deleteQuietly(new File(rangeRun.stagingPath));
+            pendingSafCopy = false;
+            safExportFileName = null;
+            FLog.d(TAG, "Audio-only range export cancelled");
+            return;
+        }
         if (chunkRun != null) {
             // Chunked run: the parts and the sound live on workers. chunkCancelled also stops
             // a join already on its thread from committing (it was never set before).
@@ -3509,7 +3850,11 @@ public class ExportManager {
                     }
                     traceMemIfDue();
                     if (listener != null) {
-                        listener.onExportProgress(progress);
+                        AudioOnlyRangeRun audioRange = audioOnlyRangeRun;
+                        float reportedProgress = audioRange == null ? progress
+                                : audioRange.trimming ? 0.9f + progress * 0.1f
+                                : audioRange.mixing ? progress * 0.9f : 0.9f;
+                        listener.onExportProgress(reportedProgress);
                         // FIX-6: pace-measured ETA — composition ms per wall second since
                         // the pace anchor. The only rate that survives Media3's curve.
                         long etaMs = -1L;
@@ -3532,7 +3877,7 @@ public class ExportManager {
                                 bytes = new java.io.File(currentStagingPath).length();
                             }
                         } catch (Exception ignored) {}
-                        listener.onExportProgressDetailed(progress, cur,
+                        listener.onExportProgressDetailed(reportedProgress, cur,
                                 exportItemStartMs.length, bytes, etaMs);
                     }
                 }

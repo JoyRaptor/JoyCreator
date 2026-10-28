@@ -4651,43 +4651,6 @@ public class HomeFragment extends BaseFragment {
             buttonTorchSwitch.setVisibility(View.GONE);
         }
 
-        View btnGetPro = view.findViewById(R.id.btnGetPro);
-        View proBadgeDot = view.findViewById(R.id.proBadgeDot);
-        
-        if (btnGetPro != null) {
-            // Update badge visibility based on pro feature state
-            if (proBadgeDot != null) {
-                try {
-                    MainActivity mainActivity = (MainActivity) getActivity();
-                    if (mainActivity != null && mainActivity.shouldShowProBadge()) {
-                        proBadgeDot.setVisibility(View.VISIBLE);
-                    } else {
-                        proBadgeDot.setVisibility(View.GONE);
-                    }
-                } catch (Exception e) {
-                    FLog.e(TAG, "Error checking pro badge state", e);
-                }
-            }
-            
-            btnGetPro.setOnClickListener(v -> {
-                // Mark pro feature as seen when clicking Pro button
-                try {
-                    com.fadcam.ui.utils.NewFeatureManager.markFeatureAsSeen(requireContext(), "pro");
-                    // Hide badge after clicking
-                    if (proBadgeDot != null) {
-                        proBadgeDot.setVisibility(View.GONE);
-                    }
-                } catch (Exception e) {
-                    FLog.e(TAG, "Error marking pro as seen", e);
-                }
-                
-                // Open FadCam Pro Activity
-                Intent intent = new Intent(getActivity(), FadCamProActivity.class);
-                startActivity(intent);
-            });
-            // ShimmerTextView handles its own shimmer animation
-        }
-
         // -----
         View headerBar = view.findViewById(R.id.header_bar);
         if (headerBar != null) {

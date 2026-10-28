@@ -65,7 +65,7 @@ public class SettingsHomeFragment extends Fragment {
 
         // Request focus on first settings row for D-pad navigation (TV support)
         root.post(() -> {
-            View firstFocusable = findFirstFocusableView(root.findViewById(R.id.group_readme));
+            View firstFocusable = findFirstFocusableView(root.findViewById(R.id.group_video_quick));
             if (firstFocusable != null) {
                 firstFocusable.requestFocus();
             }
@@ -385,7 +385,6 @@ public class SettingsHomeFragment extends Fragment {
         // The new About page; the classic one stays reachable from its foot.
         bindRow(root, R.id.group_about, () -> com.fadcam.ui.about.AboutJoyFragment.open(requireActivity()));
         bindRow(root, R.id.group_review, () -> launchReview());
-        bindRow(root, R.id.group_readme, () -> openReadmeDialog());
     }
 
     private void setupMiniAppCards(View root) {
@@ -509,11 +508,6 @@ public class SettingsHomeFragment extends Fragment {
                 startActivity(intent);
             } catch (Exception ignore) {}
         }
-    }
-
-    /** Open the README dialog. */
-    private void openReadmeDialog() {
-        new ReadmeBottomSheetFragment().show(getChildFragmentManager(), "readme");
     }
 
     /** Refresh inline value TextViews in settings rows (e.g. resolution subtitle). */

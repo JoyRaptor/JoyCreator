@@ -12,7 +12,6 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.fadcam.R;
-import com.fadcam.streaming.CloudStreamUploader;
 import com.fadcam.streaming.RemoteStreamManager;
 import com.fadcam.streaming.model.ClientMetrics;
 import com.fadcam.ui.adapter.ClientDataAdapter;
@@ -62,47 +61,25 @@ public class ClientDataBottomSheet extends BottomSheetDialogFragment {
     private void loadClientData() {
         RemoteStreamManager manager = RemoteStreamManager.getInstance();
         
-        // Check if we're in cloud mode
-        boolean isCloudMode = requireContext() != null && 
-            CloudStreamUploader.getInstance(requireContext()) != null &&
-            CloudStreamUploader.getInstance(requireContext()).isEnabled();
-        
         // Get total data
         long totalMB = manager.getTotalDataTransferred() / (1024 * 1024);
         totalDataText.setText(totalMB + " MB");
         
-        if (isCloudMode) {
-            // CLOUD MODE: Show aggregate stats only
-            int cloudViewers = manager.getCloudViewerCount();
-            
-            // Update label for cloud mode
-            if (activeClientsLabel != null) {
-                activeClientsLabel.setText(getString(R.string.client_cloud_viewers));
-            }
-            activeClientsText.setText(String.valueOf(cloudViewers));
-            
-            // Hide RecyclerView, show privacy message
+        if (activeClientsLabel != null) {
+            activeClientsLabel.setText(getString(R.string.client_active_clients));
+        }
+        
+        List<ClientMetrics> clientMetrics = manager.getAllClientMetrics();
+        activeClientsText.setText(String.valueOf(clientMetrics.size()));
+        
+        if (clientMetrics.isEmpty()) {
             recyclerView.setVisibility(View.GONE);
             emptyStateText.setVisibility(View.VISIBLE);
-            emptyStateText.setText("🔒 Per-viewer breakdown not available in cloud mode\n(Zero-log privacy policy)");
+            emptyStateText.setText(getString(R.string.client_no_clients));
         } else {
-            // LOCAL MODE: Show per-client breakdown
-            if (activeClientsLabel != null) {
-                activeClientsLabel.setText(getString(R.string.client_active_clients));
-            }
-            
-            List<ClientMetrics> clientMetrics = manager.getAllClientMetrics();
-            activeClientsText.setText(String.valueOf(clientMetrics.size()));
-            
-            if (clientMetrics.isEmpty()) {
-                recyclerView.setVisibility(View.GONE);
-                emptyStateText.setVisibility(View.VISIBLE);
-                emptyStateText.setText(getString(R.string.client_no_clients));
-            } else {
-                recyclerView.setVisibility(View.VISIBLE);
-                emptyStateText.setVisibility(View.GONE);
-                adapter.setData(clientMetrics);
-            }
+            recyclerView.setVisibility(View.VISIBLE);
+            emptyStateText.setVisibility(View.GONE);
+            adapter.setData(clientMetrics);
         }
     }
 

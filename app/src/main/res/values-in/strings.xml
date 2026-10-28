@@ -15,14 +15,9 @@
 
 
     <string name="view_source_code">Lihat Kode Sumber</string>
-    <string name="buy_me_a_coffee">Belikan saya kopi ☕</string>
     <string name="contact">Kontak</string>
     <string name="send_email">Kirim email</string>
-    <string name="join_community">Bergabunglah dengan komunitas untuk mendapatkan bantuan, berbagi ide, dan pembaruan aplikasi di masa mendatang</string>
-    <string name="readme_github_subtitle">Kode sumber &amp; rilis</string>
-    <string name="readme_discord_subtitle">Bergabung dengan komunitas</string>
     <string name="website_title">Situs web</string>
-    <string name="readme_website_subtitle">Situs resmi</string>
     <string name="privacy_information">Informasi Privasi</string>
     <string name="copyright_info">© 2024 https://fadcam.faded.dev\nLicensed under GPL-3.0</string>
     <string-array name="video_resolutions_keys">
@@ -486,7 +481,6 @@
     <string name="nav_remote">Jarak Jauh</string>
     <string name="nav_faditor_mini">Faditor Mini</string>
     <string name="nav_lab">Lab</string>
-    <string name="button_settings_readme">Baca saya</string>
     <string name="setting_cam_title">Pemilihan Kamera</string>
     <string name="note_cam_sele">Pilih kamera \n(Default: Bagian belakang)</string>
     <string name="button_settings_cam_back">Bagian belakang</string>
@@ -648,9 +642,7 @@ Tips: Dengan H.265 (HEVC), Anda dapat menggunakan sekitar setengah bitrate H.264
     <string name="note_under_dev">Penting: Aplikasi ini sedang dalam tahap pengembangan. Fitur-fitur baru akan ditambahkan secara berkala.</string>
     <string name="full_changelog_info">Untuk melihat changelog lengkap, buka tab Beranda, buka menu hamburger, lalu pilih «Apa yang Baru».</string>
     <string name="stay_updated_title">Tetap Terupdate:</string>
-    <string name="button_readme_github">Repositori GitHub</string>
     <string name="community_title">Bergabunglah dengan Komunitas kami:</string>
-    <string name="discord_title">Server Discord</string>
     <string name="thankyou_msg">Terima kasih telah menggunakan Joy Creator!</string>
     <string name="settings_title">Pengaturan</string>
     <string name="array_watermark_time_fadcam">Waktu dengan Joy Creator</string>
@@ -1369,9 +1361,6 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="video_split_size_summary_gb">Saat ini: %1$s GB</string>
     <string name="video_splitting_title">Aktifkan Pemisahan Video</string>
     <string name="video_splitting_description">Secara otomatis memisahkan rekaman menjadi file yang lebih kecil (Dinonaktifkan secara default). Direkomendasikan: 2 GB untuk keseimbangan. Tersedia preset hingga 4 GB dan ukuran kustom. Ini membantu mengelola rekaman besar dan menghindari batasan ukuran file perangkat.</string>
-    <string name="support_ko_fi">Dukung kami di Ko-fi</string>
-    <string name="kofi_description">Deskripsi akan diatur dalam kode.</string>
-    <string name="kofi_button_text">Belikan saya Ko-fi</string>
     <string name="kofi_footer_text">Dibuat dengan penuh cinta di FadSec Lab di</string>
 
     <string name="setting_audio_input_source_title">Sumber Input Audio</string>
@@ -1937,29 +1926,6 @@ Untuk item yang tertaut video, gunakan detail bukti di dalam penampil foto untuk
     <string name="delete">Hapus</string>
 
     <!-- FadCam Pro Strings -->
-    <string name="fadcam_pro_title">FadCam Pro</string>
-    <string name="fadcam_pro_subtitle">Fitur premium untuk privasi penuh</string>
-    <string name="fadcam_pro_get_button">Dapatkan FadCam Pro</string>
-    <string name="fadcam_pro_free">Gratis</string>
-    <string name="fadcam_pro_column_label">Pro</string>
-    <string name="fadcam_pro_proplus_label">Pro+</string>
-    <string name="fadcam_pro_lab_label">Lab</string>
-    <string name="fadcam_pro_plus_label">Pro</string>
-    <string name="fadcam_pro_early_bird">🎉 Gratis hingga 23 Desember 2025! Setelah itu, dapatkan akses seumur hidup hanya dengan $15.</string>
-    <string name="fadcam_pro_paid_offer">Setelah 23 Desember 2025, dapatkan Akses Seumur Hidup seharga $15 — pembayaran sekali, pembaruan selamanya.</string>
-    <string name="fadcam_pro_benefit_early_access">Akses awal: Dapatkan versi terbaru sebelum rilis publik</string>
-    <string name="fadcam_pro_benefit_lifetime_updates">Pembaruan seumur hidup: Selalu terima fitur baru, peningkatan, dan perbaikan bug</string>
-    <string name="fadcam_pro_benefit_support">Dukungan instan: Bantuan langsung melalui tiket via Discord</string>
-    <string name="fadcam_pro_coming_soon">Fitur Pro+ dan Lab segera hadir dengan unggahan ikon kustom, nama aplikasi kustom, dan sinkronisasi cloud FadDrive.</string>
-    <string name="fadcam_pro_support_message">FadCam akan selalu tetap gratis, tanpa iklan dan tanpa pelacakan. Saya mengelola seluruh proyek sendiri, dan itu membutuhkan waktu dan kerja yang berkelanjutan. Meningkatkan ke Pro (saat ini gratis) membantu mendukung pengembangan, dan sebagai imbalannya saya dapat menawarkan nilai tambahan melalui fitur Pro di atas versi gratis yang lengkap. Terima kasih telah mendukung proyek ini :)</string>
-    <string name="fadcam_pro_separate_apk">Aplikasi mandiri • Bekerja berdampingan dengan FadCam</string>
-    <string name="fadcam_pro_feature_everything_icon">Semua</string>
-    <string name="fadcam_pro_feature_everything">Semua</string>
-    <string name="fadcam_pro_feature_custom_icon">Ikon Aplikasi Kustom</string>
-    <string name="fadcam_pro_feature_notification_icon">Ikon Notifikasi Tersembunyi</string>
-    <string name="fadcam_pro_feature_user_icon">Ikon yang Diunggah Pengguna</string>
-    <string name="fadcam_pro_feature_app_name">Nama Aplikasi Kustom</string>
-    <string name="fadcam_pro_feature_faddrive">Sinkronisasi Cloud FadDrive</string>
     <string name="fadcam_pro_header_button">Pro</string>
 
     <!-- Video Player Info Bottom Sheet -->
@@ -2073,52 +2039,12 @@ Apakah Anda ingin beralih ke H.264 dan mulai merekam?</string>
     <string name="stream_notes_android14_screen">⚠️ Android 14+: Batasan sistem mencegah perekaman saat layar mati. Solusi: (1) Aktifkan "Mode Layar Hitam" di Pengaturan → Keamanan, atau (2) Nonaktifkan kunci layar (tanpa PIN/kata sandi/sidik jari). Keduanya memungkinkan perekaman jarak jauh yang mulus</string>
     
     <!-- FadSec Cloud / Remote Streaming -->
-    <string name="cloud_account_button_desc">FadSec Cloud</string>
-    <string name="cloud_button_label">FadSec Cloud</string>
-    <string name="cloud_button_title">FadSec Cloud</string>
-    <string name="cloud_account_title">FadSec Cloud</string>
-    <string name="cloud_account_link">Tautkan Perangkat</string>
-    <string name="cloud_account_unlink">Lepas Tautan Perangkat</string>
-    <string name="cloud_account_connecting">Menghubungkan…</string>
-    <string name="cloud_account_linked">Perangkat Tertaut</string>
-    <string name="cloud_account_not_linked">Tidak Tertaut</string>
-    <string name="cloud_account_device_name_hint">Masukkan nama perangkat (mis., Ponsel Saya)</string>
-    <string name="cloud_account_device_name_title">Beri Nama Perangkat Anda</string>
-    <string name="cloud_account_device_name_desc">Nama ini akan muncul di dasbor FadSec Cloud Anda</string>
-    <string name="cloud_account_device_id">ID Perangkat</string>
-    <string name="cloud_account_link_success">Perangkat berhasil ditautkan!</string>
-    <string name="cloud_account_link_failed">Gagal menautkan perangkat. Silakan coba lagi.</string>
-    <string name="cloud_account_unlink_confirm">Apakah Anda yakin ingin melepaskan tautan perangkat ini?</string>
-    <string name="cloud_account_unlink_success">Perangkat dilepas</string>
-    <string name="cloud_account_webview_title">FadSec Cloud</string>
-    <string name="cloud_account_login_required">Silakan masuk untuk menautkan perangkat Anda</string>
-    <string name="cloud_account_helper_text">Lepas tautan untuk memutus dari akun Anda. Anda dapat menautkan lagi dengan nama berbeda.</string>
     
     <!-- Cloud Streaming -->
-    <string name="cloud_streaming_title">Streaming Cloud</string>
-    <string name="cloud_streaming_status_off">Hanya stream lokal</string>
-    <string name="cloud_streaming_status_on">Mengunggah ke FadSec Cloud</string>
-    <string name="cloud_streaming_not_linked">Tautkan perangkat terlebih dahulu untuk mengaktifkan</string>
 
     <!-- E2E Stream Encryption -->
-    <string name="e2e_encryption_title">Enkripsi Stream E2E</string>
-    <string name="e2e_encryption_not_configured">Belum dikonfigurasi — konfigurasikan untuk mengaktifkan streaming cloud</string>
-    <string name="e2e_encryption_configured">Terkonfigurasi — segmen dienkripsi end-to-end</string>
-    <string name="e2e_encryption_setup_title">Atur Kata Sandi Enkripsi E2E</string>
-    <string name="e2e_encryption_setup_hint">Masukkan kata sandi FadSec ID Anda</string>
-    <string name="e2e_encryption_setup_desc">Kata sandi FadSec ID Anda digunakan untuk menurunkan kunci enkripsi stream. Ini harus cocok dengan kata sandi yang Anda gunakan di dasbor Joy Creator untuk melihat stream.</string>
-    <string name="e2e_encryption_change_title">Ubah Kata Sandi Enkripsi E2E</string>
     
     <!-- Streaming Mode Selector -->
-    <string name="streaming_mode_title">Tujuan Streaming</string>
-    <string name="streaming_mode_local">Jaringan Lokal</string>
-    <string name="streaming_mode_local_desc">Stream ke perangkat di WiFi yang sama</string>
-    <string name="streaming_mode_cloud">FadSec Cloud</string>
-    <string name="streaming_mode_cloud_desc">Stream dari mana saja melalui internet</string>
-    <string name="streaming_mode_cloud_featured">UNGGULAN</string>
-    <string name="streaming_mode_link_required">Tautkan perangkat untuk mengaktifkan</string>
-    <string name="streaming_mode_stream_url">URL Stream</string>
-    <string name="streaming_mode_helper">Pilih cara Anda ingin streaming kamera Anda</string>
 
     <!-- Fullscreen Preview -->
     <string name="fullscreen_preview_enter">Pratinjau Joy Creator</string>
@@ -2232,8 +2158,6 @@ Tips: Fitur ini berjalan terus menerus, sehingga nilai lanjutan yang sangat ting
     <string name="lab_section_about">Tentang</string>
 
     <!-- Home sidebar branding -->
-    <string name="home_sidebar_discord">Discord</string>
-    <string name="home_sidebar_discord_sub">Bergabung dengan komunitas</string>
     <string name="home_sidebar_copyright" translatable="false">© FadSec Lab 2024 – 2026</string>
 
     <!-- Privacy Black Mode Settings -->
@@ -2636,14 +2560,10 @@ Dukungan otomasi berbasis intent (Tasker, MacroDroid, dll.) untuk memicu Aplikas
 
     <string name="sidebar_beta_release">Rilis Beta</string>
 
-    <string name="sidebar_fadcam_pro">FadCam Pro</string>
 
     <string name="badge_new">BARU</string>
 
-    <string name="update_pro_title">Pembaruan FadCam Pro</string>
-    <string name="update_pro_desc">Versi baru FadCam Pro tersedia.\n\nUntuk pengguna gratis, rilis stabil akan tiba setelah sekitar 60 hari. Pengguna Pro menerima pembaruan segera.</string>
 
-    <string name="update_get_pro">Dapatkan FadCam Pro</string>
 
     <string name="update_maybe_later">Nanti Saja</string>
 
@@ -2674,7 +2594,6 @@ Dukungan otomasi berbasis intent (Tasker, MacroDroid, dll.) untuk memicu Aplikas
 
     <string name="toast_stream_server_stopped">Server streaming dihentikan</string>
 
-    <string name="toast_no_cloud_viewers">Tidak ada penonton cloud terhubung</string>
 
     <string name="toast_no_clients">Tidak ada klien terhubung</string>
 
@@ -2939,7 +2858,6 @@ Dukungan otomasi berbasis intent (Tasker, MacroDroid, dll.) untuk memicu Aplikas
     <string name="network_unknown">Tidak Diketahui</string>
 
     <!-- ClientDataBottomSheet -->
-    <string name="client_cloud_viewers">Penonton Cloud</string>
     <string name="client_active_clients">Klien Aktif</string>
     <string name="client_no_clients">Tidak ada klien terhubung</string>
 

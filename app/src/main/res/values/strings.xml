@@ -47,14 +47,9 @@
 
 
     <string name="view_source_code">View Source Code</string>
-    <string name="buy_me_a_coffee">Buy me a coffee ☕</string>
     <string name="contact">Contact</string>
     <string name="send_email">Send email</string>
-    <string name="join_community">Join community for help, sharing ideas, and future app updates</string>
-    <string name="readme_github_subtitle">Source code &amp; releases</string>
-    <string name="readme_discord_subtitle">Join the community</string>
     <string name="website_title">Website</string>
-    <string name="readme_website_subtitle">Official site</string>
     <string name="privacy_information">Privacy Information</string>
     <string name="copyright_info"> 2024-2025 https://fadcam.faded.dev\nLicensed under GPL-3.0</string>
     <string-array name="video_resolutions_keys">
@@ -523,7 +518,6 @@
     <string name="nav_remote">Remote</string>
     <string name="nav_faditor_mini">Studio</string>
     <string name="nav_lab">Lab</string>
-    <string name="button_settings_readme">Read Me</string>
     <string name="setting_cam_title">Camera Selection</string>
     <string name="note_cam_sele">Select camera \n(Default: Back)</string>
     <string name="button_settings_cam_back">Back</string>
@@ -681,9 +675,7 @@
     <string name="note_under_dev">Important: This app is currently under development. New features are being added regularly.</string>
     <string name="full_changelog_info">For full changelog, head to the Home tab and open the hamburger menu, then select \"What\'s New\".</string>
     <string name="stay_updated_title">Stay Updated:</string>
-    <string name="button_readme_github">GitHub Repository</string>
     <string name="community_title">Join our Community:</string>
-    <string name="discord_title">Discord Server</string>
     <string name="thankyou_msg">Thank you for using Joy Creator!</string>
     <string name="settings_title">Settings</string>
     <string name="array_watermark_time_fadcam">Time with Joy Creator</string>
@@ -1756,9 +1748,6 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="video_split_size_summary_gb">Current: %1$s GB</string>
     <string name="video_splitting_title">Enable Video Splitting</string>
     <string name="video_splitting_description">Automatically split recordings into smaller files (Disabled by default). Recommended: 2 GB for balance. Presets up to 4 GB and custom sizes are available. This helps manage large recordings and avoids device file size limits.</string>
-    <string name="support_ko_fi">Support us on Ko-fi</string>
-    <string name="kofi_description">Description will be set in code.</string>
-    <string name="kofi_button_text">Buy me a Ko-fi</string>
     <string name="kofi_footer_text">Made with    for creators in   </string>
 
     <string name="setting_audio_input_source_title">Audio Input Source</string>
@@ -2338,29 +2327,6 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
          tells people the free period is over and it costs $15.
          ═══════════════════════════════════════════════════════════════════════════════ -->
     <!-- FadCam Pro Strings -->
-    <string name="fadcam_pro_title">FadCam Pro</string>
-    <string name="fadcam_pro_subtitle">Premium features for complete discretion</string>
-    <string name="fadcam_pro_get_button">Get FadCam Pro</string>
-    <string name="fadcam_pro_free">Free</string>
-    <string name="fadcam_pro_column_label">Pro</string>
-    <string name="fadcam_pro_proplus_label">Pro+</string>
-    <string name="fadcam_pro_lab_label">Lab</string>
-    <string name="fadcam_pro_plus_label">Pro</string>
-    <string name="fadcam_pro_early_bird">ðŸŽ‰ Free until December 23, 2025! After that, get lifetime access for just $15.</string>
-    <string name="fadcam_pro_paid_offer">After December 23, 2025, get Lifetime Access for $15 — one-time payment, forever updates.</string>
-    <string name="fadcam_pro_benefit_early_access">Early access: Get the latest version before public release</string>
-    <string name="fadcam_pro_benefit_lifetime_updates">Lifetime updates: Always receive new features, improvements, and bug fixes</string>
-    <string name="fadcam_pro_benefit_support">Instant support: Direct help through tickets via Discord</string>
-    <string name="fadcam_pro_coming_soon">Pro+ and Lab features coming soon with custom icon uploads, custom app names, and FadDrive cloud sync.</string>
-    <string name="fadcam_pro_support_message">FadCam Pro is a separate app by the developer of FadCam, the project Joy Creator was forked from. Joy Creator itself stays free, with no ads and no tracking.</string>
-    <string name="fadcam_pro_separate_apk">Standalone app • A separate app, by the developer of FadCam</string>
-    <string name="fadcam_pro_feature_everything_icon">Everything</string>
-    <string name="fadcam_pro_feature_everything">Everything</string>
-    <string name="fadcam_pro_feature_custom_icon">Custom App Icon</string>
-    <string name="fadcam_pro_feature_notification_icon">Notification Discreet Icon</string>
-    <string name="fadcam_pro_feature_user_icon">User Uploaded Icon</string>
-    <string name="fadcam_pro_feature_app_name">Custom App Name</string>
-    <string name="fadcam_pro_feature_faddrive">FadDrive Cloud Sync</string>
     <string name="fadcam_pro_header_button">Pro</string>
 
     <!-- Video Player Info Bottom Sheet -->
@@ -2470,52 +2436,12 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="stream_notes_android14_screen">⚠ï¸ Android 14+: System restriction prevents recording when screen is off. Workarounds: (1) Enable "Black Screen Mode" in Settings → Security, or (2) Disable screen lock (no PIN/password/fingerprint). Both allow seamless remote recording</string>
     
     <!-- Joy Creator Cloud / Remote Streaming -->
-    <string name="cloud_account_button_desc">Joy Creator Cloud</string>
-    <string name="cloud_button_label">Joy Creator Cloud</string>
-    <string name="cloud_button_title">Joy Creator Cloud</string>
-    <string name="cloud_account_title">Joy Creator Cloud</string>
-    <string name="cloud_account_link">Link Device</string>
-    <string name="cloud_account_unlink">Unlink Device</string>
-    <string name="cloud_account_connecting">Connecting…</string>
-    <string name="cloud_account_linked">Device Linked</string>
-    <string name="cloud_account_not_linked">Not Linked</string>
-    <string name="cloud_account_device_name_hint">Enter device name (e.g., My Phone)</string>
-    <string name="cloud_account_device_name_title">Name Your Device</string>
-    <string name="cloud_account_device_name_desc">This name will appear in your Joy Creator Cloud dashboard</string>
-    <string name="cloud_account_device_id">Device ID</string>
-    <string name="cloud_account_link_success">Device linked successfully!</string>
-    <string name="cloud_account_link_failed">Failed to link device. Please try again.</string>
-    <string name="cloud_account_unlink_confirm">Are you sure you want to unlink this device?</string>
-    <string name="cloud_account_unlink_success">Device unlinked</string>
-    <string name="cloud_account_webview_title">Joy Creator Cloud</string>
-    <string name="cloud_account_login_required">Please log in to link your device</string>
-    <string name="cloud_account_helper_text">Unlink to disconnect from your account. You can link again with a different name.</string>
     
     <!-- Cloud Streaming -->
-    <string name="cloud_streaming_title">Cloud Streaming</string>
-    <string name="cloud_streaming_status_off">Stream locally only</string>
-    <string name="cloud_streaming_status_on">Uploading to Joy Creator Cloud</string>
-    <string name="cloud_streaming_not_linked">Link device first to enable</string>
 
     <!-- E2E Stream Encryption -->
-    <string name="e2e_encryption_title">E2E Stream Encryption</string>
-    <string name="e2e_encryption_not_configured">Not configured — configure to enable cloud streaming</string>
-    <string name="e2e_encryption_configured">Configured — segments are encrypted end-to-end</string>
-    <string name="e2e_encryption_setup_title">Set E2E Encryption Password</string>
-    <string name="e2e_encryption_setup_hint">Enter your Joy Creator ID password</string>
-    <string name="e2e_encryption_setup_desc">Your Joy Creator ID password is used to derive the stream encryption key. This must match the password you use on the Joy Creator dashboard to view streams.</string>
-    <string name="e2e_encryption_change_title">Change E2E Encryption Password</string>
     
     <!-- Streaming Mode Selector -->
-    <string name="streaming_mode_title">Streaming Destination</string>
-    <string name="streaming_mode_local">Local Network</string>
-    <string name="streaming_mode_local_desc">Stream to devices on the same WiFi</string>
-    <string name="streaming_mode_cloud">Joy Creator Cloud</string>
-    <string name="streaming_mode_cloud_desc">Stream anywhere via internet</string>
-    <string name="streaming_mode_cloud_featured">FEATURED</string>
-    <string name="streaming_mode_link_required">Link device to enable</string>
-    <string name="streaming_mode_stream_url">Stream URL</string>
-    <string name="streaming_mode_helper">Choose how you want to stream your camera</string>
 
     <!-- Fullscreen Preview -->
     <string name="fullscreen_preview_enter">Joy Creator Preview</string>
@@ -2603,8 +2529,6 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="lab_section_about">About</string>
 
     <!-- Home sidebar branding -->
-    <string name="home_sidebar_discord">Discord</string>
-    <string name="home_sidebar_discord_sub">Join the community</string>
     <string name="home_sidebar_copyright" translatable="false">© Joy Creator 2024 – 2026</string>
 
     <!-- Privacy Black Mode Settings -->
@@ -2960,13 +2884,9 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="sidebar_update_available">Update Available</string>
     <string name="sidebar_stable_release">Stable Release</string>
     <string name="sidebar_beta_release">Beta Release</string>
-    <string name="sidebar_fadcam_pro">FadCam Pro</string>
     <string name="badge_new">NEW</string>
 
     <!-- Update Bottom Sheets -->
-    <string name="update_pro_title">FadCam Pro Update</string>
-    <string name="update_pro_desc">A new version of FadCam Pro is available.\n\nFor free users, the stable release will arrive after approximately 60 days. Pro users receive updates immediately.</string>
-    <string name="update_get_pro">Get FadCam Pro</string>
     <string name="update_maybe_later">Maybe Later</string>
     <string name="update_beta_title">Beta Update Available</string>
     <string name="update_beta_desc">The Joy Creator beta is a standalone app that can be installed alongside the stable version. It will not interfere with your stable app or its data.\n\nInstall the beta to test new features before they reach the stable release.</string>
@@ -2990,7 +2910,6 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <!-- Toast messages -->
     <string name="toast_stream_server_starting">Stream server starting...</string>
     <string name="toast_stream_server_stopped">Stream server stopped</string>
-    <string name="toast_no_cloud_viewers">No cloud viewers connected</string>
     <string name="toast_no_clients">No clients connected</string>
     <string name="toast_device_id_copied">Device ID copied</string>
     <string name="toast_endpoint_copied">Copied: %s</string>
@@ -3251,7 +3170,6 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="network_unknown">Unknown</string>
 
     <!-- ClientDataBottomSheet -->
-    <string name="client_cloud_viewers">Cloud Viewers</string>
     <string name="client_active_clients">Active Clients</string>
     <string name="client_no_clients">No clients connected</string>
 

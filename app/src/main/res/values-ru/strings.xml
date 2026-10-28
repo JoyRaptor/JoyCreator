@@ -15,14 +15,9 @@
 
 
     <string name="view_source_code">Просмотреть исходный код</string>
-    <string name="buy_me_a_coffee">Угостить разработчика кофе ☕</string>
     <string name="contact">Связаться</string>
     <string name="send_email">Отправить email</string>
-    <string name="join_community">Присоединяйтесь к сообществу: получите помощь, поделитесь идеями и следите за обновлениями</string>
-    <string name="readme_github_subtitle">Исходный код и релизы</string>
-    <string name="readme_discord_subtitle">Присоединяйтесь к сообществу</string>
     <string name="website_title">Веб-сайт</string>
-    <string name="readme_website_subtitle">Официальный сайт</string>
     <string name="privacy_information">Политика конфиденциальности</string>
     <string name="copyright_info">2024-2025 https://fadcam.faded.dev\nЛицензировано по GPL-3.0</string>
     <string-array name="video_resolutions_keys">
@@ -204,7 +199,6 @@
     <string name="nav_about">О программе</string>
     <string name="nav_remote">Удалённый</string>
     <string name="nav_faditor_mini">Faditor</string>
-    <string name="button_settings_readme">Прочитать</string>
     <string name="setting_cam_title">Выбор камеры</string>
     <string name="note_cam_sele">Выберите камеру \n(По умолчанию: Задняя)</string>
     <string name="button_settings_cam_back">Задняя</string>
@@ -299,9 +293,7 @@
     <string name="note_under_dev">Важно: Это приложение находится в разработке. Новые функции добавляются регулярно.</string>
     <string name="full_changelog_info">Для полного списка изменений перейдите на вкладку Главная и откройте гамбургер-меню, затем выберите "Что нового".</string>
     <string name="stay_updated_title">Следите за обновлениями:</string>
-    <string name="button_readme_github">Репозиторий GitHub</string>
     <string name="community_title">Присоединяйтесь к нашему сообществу:</string>
-    <string name="discord_title">Сервер Discord</string>
     <string name="thankyou_msg">Спасибо за использование Joy Creator!</string>
     <string name="settings_title">Настройки</string>
     <string name="array_watermark_time_fadcam">Время с Joy Creator</string>
@@ -830,9 +822,6 @@
     <string name="video_split_size_summary_gb">Текущий: %1$s ГБ</string>
     <string name="video_splitting_title">Включить разделение видео</string>
     <string name="video_splitting_description">Автоматически разделять записи на меньшие файлы (Отключено по умолчанию). Рекомендуется: 2 ГБ для баланса. Доступны предустановки до 4 ГБ и пользовательские размеры. Это помогает управлять большими записями и избегает ограничений размера файлов устройства.</string>
-    <string name="support_ko_fi">Поддержите нас на Ko-fi</string>
-    <string name="kofi_description">Описание будет установлено в коде.</string>
-    <string name="kofi_button_text">Купить Ko-fi</string>
     <string name="kofi_footer_text">Сделано    в FadSec Lab в   </string>
 
     <string name="setting_audio_input_source_title">Источник аудиовхода</string>
@@ -1205,29 +1194,6 @@
     <string name="delete">Удалить</string>
 
     <!-- FadCam Pro Strings -->
-    <string name="fadcam_pro_title">FadCam Pro</string>
-    <string name="fadcam_pro_subtitle">Премиум-функции для полной дискретности</string>
-    <string name="fadcam_pro_get_button">Получить FadCam Pro</string>
-    <string name="fadcam_pro_free">Бесплатно</string>
-    <string name="fadcam_pro_column_label">Pro</string>
-    <string name="fadcam_pro_proplus_label">Pro+</string>
-    <string name="fadcam_pro_lab_label">Lab</string>
-    <string name="fadcam_pro_plus_label">Pro</string>
-    <string name="fadcam_pro_early_bird">🎉 Бесплатно до 23 декабря 2025! После этого получите пожизненный доступ всего за $15.</string>
-    <string name="fadcam_pro_paid_offer">После 23 декабря 2025, получите Пожизненный Доступ за $15 — однократная оплата, навсегда обновления.</string>
-    <string name="fadcam_pro_benefit_early_access">Ранний доступ: Получите последнюю версию перед публичным выпуском</string>
-    <string name="fadcam_pro_benefit_lifetime_updates">Пожизненные обновления: Всегда получайте новые функции, улучшения и исправления ошибок</string>
-    <string name="fadcam_pro_benefit_support">Мгновенная поддержка: Прямая помощь через тикеты в Discord</string>
-    <string name="fadcam_pro_coming_soon">Pro+ и Lab функции скоро с загрузкой пользовательских иконок, пользовательскими именами приложений и FadDrive облачным синком.</string>
-    <string name="fadcam_pro_support_message">FadCam will always remain free, with no ads and no tracking. I handle the entire project on my own, and it takes ongoing time and work. Upgrading to Pro (currently free) helps support development, and in return I’m able to offer additional value through the Pro features on top of the full free version. Thank you for supporting the project :)</string>
-    <string name="fadcam_pro_separate_apk">Отдельное приложение • Работает рядом с FadCam</string>
-    <string name="fadcam_pro_feature_everything_icon">Всё</string>
-    <string name="fadcam_pro_feature_everything">Всё</string>
-    <string name="fadcam_pro_feature_custom_icon">Пользовательская иконка приложения</string>
-    <string name="fadcam_pro_feature_notification_icon">Дискретная иконка уведомления</string>
-    <string name="fadcam_pro_feature_user_icon">Пользовательская загруженная иконка</string>
-    <string name="fadcam_pro_feature_app_name">Пользовательское имя приложения</string>
-    <string name="fadcam_pro_feature_faddrive">Облачный синк FadDrive</string>
     <string name="fadcam_pro_header_button">Pro</string>
 
     <!-- Video Player Info Bottom Sheet -->
@@ -2540,30 +2506,6 @@ Joy Creator использует фрагментированный формат
     <string name="button_torch">Фонарик</string>
 
     <!-- Cloud Account -->
-    <string name="cloud_account_button_desc">FadSec Cloud</string>
-    <string name="cloud_account_connecting">Подключение…</string>
-    <string name="cloud_account_device_id">ID устройства</string>
-    <string name="cloud_account_device_name_desc">Это имя будет отображаться в панели FadSec Cloud</string>
-    <string name="cloud_account_device_name_hint">Введите имя устройства (например, Мой телефон)</string>
-    <string name="cloud_account_device_name_title">Назовите устройство</string>
-    <string name="cloud_account_helper_text">Отвяжите устройство для отключения от учётной записи. Вы можете привязать его снова с другим именем.</string>
-    <string name="cloud_account_link">Привязать устройство</string>
-    <string name="cloud_account_link_failed">Не удалось привязать устройство. Попробуйте ещё раз.</string>
-    <string name="cloud_account_link_success">Устройство успешно привязано!</string>
-    <string name="cloud_account_linked">Устройство привязано</string>
-    <string name="cloud_account_login_required">Пожалуйста, войдите, чтобы привязать устройство</string>
-    <string name="cloud_account_not_linked">Не привязано</string>
-    <string name="cloud_account_title">FadSec Cloud</string>
-    <string name="cloud_account_unlink">Отвязать устройство</string>
-    <string name="cloud_account_unlink_confirm">Вы уверены, что хотите отвязать это устройство?</string>
-    <string name="cloud_account_unlink_success">Устройство отвязано</string>
-    <string name="cloud_account_webview_title">FadSec Cloud</string>
-    <string name="cloud_button_label">FadSec Cloud</string>
-    <string name="cloud_button_title">FadSec Cloud</string>
-    <string name="cloud_streaming_not_linked">Сначала привяжите устройство</string>
-    <string name="cloud_streaming_status_off">Только локальная трансляция</string>
-    <string name="cloud_streaming_status_on">Загрузка в FadSec Cloud</string>
-    <string name="cloud_streaming_title">Облачная трансляция</string>
 
     <!-- Digital Forensics Preview -->
     <string name="digital_forensics_preview_default">ЧЕЛОВЕК 92%</string>
@@ -2571,13 +2513,6 @@ Joy Creator использует фрагментированный формат
     <string name="digital_forensics_preview_title">Живой предпросмотр обнаружений</string>
 
     <!-- E2E Encryption -->
-    <string name="e2e_encryption_change_title">Изменить пароль E2E-шифрования</string>
-    <string name="e2e_encryption_configured">Настроено — сегменты зашифрованы сквозным шифрованием</string>
-    <string name="e2e_encryption_not_configured">Не настроено — настройте для включения облачной трансляции</string>
-    <string name="e2e_encryption_setup_desc">Ваш пароль FadSec ID используется для создания ключа шифрования трансляции. Он должен совпадать с паролем, используемым на панели Joy Creator для просмотра трансляций.</string>
-    <string name="e2e_encryption_setup_hint">Введите ваш пароль FadSec ID</string>
-    <string name="e2e_encryption_setup_title">Установить пароль E2E-шифрования</string>
-    <string name="e2e_encryption_title">E2E-шифрование трансляции</string>
 
     <!-- FadRec Preview -->
     <string name="fadrec_preview_enable_hint">Удерживайте для показа предпросмотра</string>
@@ -2684,8 +2619,6 @@ Joy Creator использует фрагментированный формат
 
     <!-- Home Sidebar -->
     <string name="home_sidebar_copyright" translatable="false">© FadSec Lab 2024 – 2026</string>
-    <string name="home_sidebar_discord">Discord</string>
-    <string name="home_sidebar_discord_sub">Присоединяйтесь к сообществу</string>
 
     <!-- Intel Summaries -->
     <string name="intel_range_summary_7d">Последние 7 дней</string>
@@ -2858,15 +2791,6 @@ Joy Creator использует фрагментированный формат
     <string name="screen_rec_orientation_landscape">Альбомная</string>
 
     <!-- Streaming Mode -->
-    <string name="streaming_mode_title">Назначение трансляции</string>
-    <string name="streaming_mode_local">Локальная сеть</string>
-    <string name="streaming_mode_local_desc">Трансляция на устройства в той же WiFi-сети</string>
-    <string name="streaming_mode_cloud">FadSec Cloud</string>
-    <string name="streaming_mode_cloud_desc">Трансляция куда угодно через интернет</string>
-    <string name="streaming_mode_cloud_featured">РЕКОМЕНДУЕТСЯ</string>
-    <string name="streaming_mode_link_required">Привяжите устройство для включения</string>
-    <string name="streaming_mode_stream_url">URL трансляции</string>
-    <string name="streaming_mode_helper">Выберите, как транслировать вашу камеру</string>
 
     <!-- Torch -->
     <string name="torch_brightness">Яркость</string>
@@ -3075,11 +2999,7 @@ Joy Creator использует фрагментированный формат
     <string name="sidebar_update_available">Доступно обновление</string>
     <string name="sidebar_stable_release">Стабильный релиз</string>
     <string name="sidebar_beta_release">Бета-релиз</string>
-    <string name="sidebar_fadcam_pro">FadCam Pro</string>
     <string name="badge_new">НОВОЕ</string>
-    <string name="update_pro_title">Обновление FadCam Pro</string>
-    <string name="update_pro_desc">Доступна новая версия FadCam Pro.\n\nДля бесплатных пользователей стабильный релиз появится примерно через 60 дней. Пользователи Pro получают обновления сразу.</string>
-    <string name="update_get_pro">Получить FadCam Pro</string>
     <string name="update_maybe_later">Может быть позже</string>
     <string name="update_beta_title">Доступно бета-обновление</string>
     <string name="update_beta_desc">Бета-версия Joy Creator — это отдельное приложение, которое можно установить вместе со стабильной версией. Она не повлияет на ваше стабильное приложение или его данные.\n\nУстановите бета-версию, чтобы тестировать новые функции до их выхода в стабильном релизе.</string>
@@ -3095,7 +3015,6 @@ Joy Creator использует фрагментированный формат
     <string name="fadmic_coming_soon">FadMic (Запись с микрофона) скоро!</string>
     <string name="toast_stream_server_starting">Запуск сервера трансляции...</string>
     <string name="toast_stream_server_stopped">Сервер трансляции остановлен</string>
-    <string name="toast_no_cloud_viewers">Нет подключённых облачных зрителей</string>
     <string name="toast_no_clients">Нет подключённых клиентов</string>
     <string name="toast_device_id_copied">ID устройства скопирован</string>
     <string name="toast_endpoint_copied">Скопировано: %s</string>
@@ -3346,7 +3265,6 @@ Joy Creator использует фрагментированный формат
     <string name="network_unknown">Неизвестно</string>
 
     <!-- ClientDataBottomSheet -->
-    <string name="client_cloud_viewers">Облачные зрители</string>
     <string name="client_active_clients">Активные клиенты</string>
     <string name="client_no_clients">Клиенты не подключены</string>
 

@@ -13,10 +13,8 @@
     ]]>
 </string>
     <string name="view_source_code">Quellcode anzeigen</string>
-    <string name="buy_me_a_coffee">Gib mir einen Kaffee aus ☕</string>
     <string name="contact">Kontakt</string>
     <string name="send_email">E-Mail senden</string>
-    <string name="join_community">Tritt der Community bei für Hilfe, Ideenaustausch und zukünftige App-Updates</string>
     <string name="privacy_information">Datenschutzinformationen</string>
     <string name="copyright_info"> 2024-2025 https://fadcam.faded.dev\nLizenziert unter GPL-3.0</string>
     <string-array name="video_resolutions_keys">
@@ -118,7 +116,6 @@
     <string name="nav_settings">Einstellungen</string>
     <string name="nav_about">Über</string>
     <string name="nav_remote">Fernbedienung</string>
-    <string name="button_settings_readme">Lies Mich</string>
     <string name="setting_cam_title">Kameraauswahl</string>
     <string name="note_cam_sele">Kamera auswählen\n(Standard: Rückseite)</string>
     <string name="button_settings_cam_back">Rückseite</string>
@@ -203,9 +200,7 @@
     <string name="note_under_dev">Wichtig: Diese App befindet sich derzeit in der Entwicklung. Neue Funktionen werden regelmäßig hinzugefügt.</string>
     <!-- removed: rencent_updates_title and upcoming_features_title (centralized changelog) -->
     <string name="stay_updated_title">Bleib auf dem Laufenden:</string>
-    <string name="button_readme_github">GitHub-Repository</string>
     <string name="community_title">Tritt unserer Community bei:</string>
-    <string name="discord_title">Discord-Server</string>
     <string name="thankyou_msg">Danke, dass du Joy Creator nutzt!</string>
     <string name="settings_title">Einstellungen</string>
     <string name="array_watermark_time_fadcam">Zeit mit Joy Creator</string>
@@ -435,9 +430,6 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="video_split_size_summary_gb">Aktuell: %1$s GB</string>
     <string name="video_splitting_title">Video-Aufteilung aktivieren</string>
     <string name="video_splitting_description">Aufnahmen automatisch in kleinere Dateien aufteilen (standardmäßig deaktiviert). Empfohlen: 2 GB für eine gute Balance. Voreinstellungen bis zu 4 GB und benutzerdefinierte Größen sind verfügbar. Dies hilft bei der Verwaltung großer Aufnahmen und vermeidet Dateigrößenbeschränkungen des Geräts.</string>
-    <string name="support_ko_fi">Unterstütze uns auf Ko-fi</string>
-    <string name="kofi_description">Beschreibung wird im Code festgelegt.</string>
-    <string name="kofi_button_text">Kauf mir ein Ko-fi</string>
     <string name="kofi_footer_text">Gemacht mit im FadSec Lab in</string>
     <string name="setting_audio_input_source_title">Audio-Eingangsquelle</string>
     <string name="setting_audio_input_source_status_default">Aktuell verwendet: Telefonmikrofon</string>
@@ -661,10 +653,7 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
 
     <string name="app_name" translatable="false">Joy Creator</string>
     <string name="accessibility_thumbnail_progress">%1$d%% angesehen</string>
-    <string name="readme_github_subtitle">Quellcode &amp; Versionen</string>
-    <string name="readme_discord_subtitle">Tritt der Community bei</string>
     <string name="website_title">Website</string>
-    <string name="readme_website_subtitle">Offizielle Seite</string>
     <string name="stats_label_videos">Videos:</string>
     <string name="stats_label_used">Verwendet:</string>
     <string name="fadrec_start_screen_recording">Bildschirmaufnahme starten</string>
@@ -1322,30 +1311,6 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="button_share">Teilen</string>
     <string name="button_torch">Taschenlampe</string>
     <string name="close">Schließen</string>
-    <string name="cloud_account_button_desc">FadSec Cloud</string>
-    <string name="cloud_account_connecting">Verbinde…</string>
-    <string name="cloud_account_device_id">Geräte-ID</string>
-    <string name="cloud_account_device_name_desc">Dieser Name wird in deinem FadSec Cloud-Dashboard angezeigt</string>
-    <string name="cloud_account_device_name_hint">Gerätenamen eingeben (z.B. Mein Telefon)</string>
-    <string name="cloud_account_device_name_title">Gib deinem Gerät einen Namen</string>
-    <string name="cloud_account_helper_text">Trenne die Verbindung, um dich von deinem Konto abzumelden. Du kannst dich erneut mit einem anderen Namen verbinden.</string>
-    <string name="cloud_account_link">Gerät verbinden</string>
-    <string name="cloud_account_link_failed">Gerät konnte nicht verbunden werden. Bitte versuche es erneut.</string>
-    <string name="cloud_account_link_success">Gerät erfolgreich verbunden!</string>
-    <string name="cloud_account_linked">Gerät verbunden</string>
-    <string name="cloud_account_login_required">Bitte melde dich an, um dein Gerät zu verbinden</string>
-    <string name="cloud_account_not_linked">Nicht verbunden</string>
-    <string name="cloud_account_title">FadSec Cloud</string>
-    <string name="cloud_account_unlink">Gerät trennen</string>
-    <string name="cloud_account_unlink_confirm">Bist du sicher, dass du dieses Gerät trennen möchtest?</string>
-    <string name="cloud_account_unlink_success">Gerät getrennt</string>
-    <string name="cloud_account_webview_title">FadSec Cloud</string>
-    <string name="cloud_button_label">FadSec Cloud</string>
-    <string name="cloud_button_title">FadSec Cloud</string>
-    <string name="cloud_streaming_not_linked">Verbinde zuerst das Gerät, um zu aktivieren</string>
-    <string name="cloud_streaming_status_off">Nur lokal streamen</string>
-    <string name="cloud_streaming_status_on">Lade auf FadSec Cloud hoch</string>
-    <string name="cloud_streaming_title">Cloud-Streaming</string>
     <string name="codec_go_to_settings">Zu den Einstellungen</string>
     <string name="codec_hevc_incompatible_message">📡 Live-Streaming via HLS erfordert den H.264-Codec.\n\nH.265 ist nicht mit Browser-Playern kompatibel.\n\nMöchtest du zu H.264 wechseln und die Aufnahme starten?</string>
     <string name="codec_hevc_incompatible_title">H.265-Codec wird für Live-Streaming nicht unterstützt</string>
@@ -1415,13 +1380,6 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="digital_forensics_vehicle_helper">Die Fahrzeugmarkierung benötigt ein spezielles Modell und wird noch erweitert. Du kannst dies ausgeschaltet lassen, bis die Modellunterstützung verfügbar ist.</string>
     <string name="disabled">Deaktiviert</string>
     <string name="done">Fertig</string>
-    <string name="e2e_encryption_change_title">E2E-Verschlüsselungspasswort ändern</string>
-    <string name="e2e_encryption_configured">Konfiguriert – Segmente sind Ende-zu-Ende verschlüsselt</string>
-    <string name="e2e_encryption_not_configured">Nicht konfiguriert – konfiguriere, um Cloud-Streaming zu aktivieren</string>
-    <string name="e2e_encryption_setup_desc">Dein FadSec-ID-Passwort wird verwendet, um den Stream-Verschlüsselungsschlüssel abzuleiten. Dies muss mit dem Passwort übereinstimmen, das du im Joy Creator-Dashboard zum Anzeigen von Streams verwendest.</string>
-    <string name="e2e_encryption_setup_hint">Gib dein FadSec-ID-Passwort ein</string>
-    <string name="e2e_encryption_setup_title">E2E-Verschlüsselungspasswort festlegen</string>
-    <string name="e2e_encryption_title">E2E-Stream-Verschlüsselung</string>
     <string name="enabled">Aktiviert</string>
     <string name="export_complete">Abgeschlossen</string>
     <string name="export_error_hint">Zum Schließen tippen</string>
@@ -1438,30 +1396,8 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="eye_color_teal" translatable="false">Cyan</string>
     <string name="eye_color_violet" translatable="false">Violet</string>
     <string name="eye_color_white" translatable="false">White</string>
-    <string name="fadcam_pro_benefit_early_access">Frühzugang: Erhalte die neueste Version vor der öffentlichen Veröffentlichung</string>
-    <string name="fadcam_pro_benefit_lifetime_updates">Lebenslange Updates: Erhalte stets neue Funktionen, Verbesserungen und Fehlerbehebungen</string>
-    <string name="fadcam_pro_benefit_support">Sofortiger Support: Direkte Hilfe via Tickets über Discord</string>
-    <string name="fadcam_pro_column_label">Pro</string>
-    <string name="fadcam_pro_coming_soon">Pro+- und Lab-Funktionen demnächst mit benutzerdefinierten Icon-Uploads, benutzerdefinierten App-Namen und FadDrive-Cloud-Sync.</string>
 
-    <string name="fadcam_pro_feature_app_name">Benutzerdefinierter App-Name</string>
-    <string name="fadcam_pro_feature_custom_icon">Benutzerdefiniertes App-Symbol</string>
-    <string name="fadcam_pro_feature_everything">Alles</string>
-    <string name="fadcam_pro_feature_everything_icon">Alles</string>
-    <string name="fadcam_pro_feature_faddrive">FadDrive-Cloud-Sync</string>
-    <string name="fadcam_pro_feature_notification_icon">Diskretes Benachrichtigungssymbol</string>
-    <string name="fadcam_pro_feature_user_icon">Vom Benutzer hochgeladenes Symbol</string>
-    <string name="fadcam_pro_free">Kostenlos</string>
-    <string name="fadcam_pro_get_button">FadCam Pro holen</string>
     <string name="fadcam_pro_header_button">Pro</string>
-    <string name="fadcam_pro_lab_label">Lab</string>
-    <string name="fadcam_pro_paid_offer">Nach dem 23. Dezember 2025 lebenslangen Zugang für 15 $ erhalten – einmalige Zahlung, für immer Updates.</string>
-    <string name="fadcam_pro_plus_label">Pro</string>
-    <string name="fadcam_pro_proplus_label">Pro+</string>
-    <string name="fadcam_pro_separate_apk">Eigenständige App – funktioniert neben FadCam</string>
-    <string name="fadcam_pro_subtitle">Premium-Funktionen für absolute Diskretion</string>
-    <string name="fadcam_pro_support_message">FadCam wird für immer kostenlos bleiben, ohne Werbung und ohne Tracking. Ich betreibe das gesamte Projekt allein, und es erfordert kontinuierliche Zeit und Arbeit. Das Upgrade auf Pro (derzeit kostenlos) hilft, die Entwicklung zu unterstützen, und im Gegenzug kann ich durch die Pro-Funktionen zusätzlichen Mehrwert über die vollständige kostenlose Version hinaus bieten. Vielen Dank, dass du das Projekt unterstützt :)</string>
-    <string name="fadcam_pro_title">FadCam Pro</string>
     <string name="faditor_add_asset_image">Bild (5s Standbild)</string>
     <string name="faditor_add_asset_title">Asset hinzufügen</string>
     <string name="faditor_add_asset_video">Videoclip</string>
@@ -1722,8 +1658,6 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="helper_noise_suppression">Experimenteller Filter zur Reduzierung von Hintergrundgeräuschen.</string>
     <string name="helper_record_audio">Schaltet die Mikrofon-Audioaufnahme in Videos um.</string>
     <string name="helper_watermark_option">Wähle Overlay-Inhalt: Zeitstempel + Marke, nur Zeitstempel oder keines.</string>
-    <string name="home_sidebar_discord">Discord</string>
-    <string name="home_sidebar_discord_sub">Tritt der Community bei</string>
     <string name="home_sidebar_copyright" translatable="false">© FadSec Lab 2024 – 2026</string>
     <string name="intel_activity_timeline">AKTIVITÄTSZEITLEISTE</string>
     <string name="intel_animals">TIERE</string>
@@ -2100,15 +2034,6 @@ Für die flüssigste Wiedergabe kannst du einen externen Player wie VLC verwende
     <string name="stream_url_label">Stream-URL</string>
     <string name="stream_view_all_endpoints">Alle Endpunkte anzeigen</string>
     <string name="stream_view_all_endpoints_desc">Alle API-Endpunkte anzeigen (GET/POST)</string>
-    <string name="streaming_mode_cloud">FadSec Cloud</string>
-    <string name="streaming_mode_cloud_desc">Überall per Internet streamen</string>
-    <string name="streaming_mode_cloud_featured">EMPFOHLEN</string>
-    <string name="streaming_mode_helper">Wähle, wie du deine Kamera streamen möchtest</string>
-    <string name="streaming_mode_link_required">Verbinde das Gerät, um zu aktivieren</string>
-    <string name="streaming_mode_local">Lokales Netzwerk</string>
-    <string name="streaming_mode_local_desc">An Geräte im selben WLAN streamen</string>
-    <string name="streaming_mode_stream_url">Stream-URL</string>
-    <string name="streaming_mode_title">Streaming-Ziel</string>
     <string name="tap_to_add_description">Tippen, um Beschreibung hinzuzufügen</string>
     <string-array name="theme_options" translatable="false">
         <item>Midnight Dusk</item>
@@ -2269,7 +2194,6 @@ Für die flüssigste Wiedergabe kannst du einen externen Player wie VLC verwende
     <string name="watermark_weather_title">Wetter</string>
     <string name="widget_customize_action_label">Anpassen</string>
     <string name="widget_customize_action_subtitle">Zeit-, Datums- und Themenoptionen</string>
-    <string name="fadcam_pro_early_bird">🎉 Kostenlos bis zum 23. Dezember 2025! Danach lebenslangen Zugang für nur 15 $ erhalten.</string>
     <string name="export_center">Exportzentrum</string>
     <string name="remote_server_status">Serverstatus</string>
     <string name="remote_server_endpoints">Server-Endpunkte</string>
@@ -2344,11 +2268,7 @@ Für die flüssigste Wiedergabe kannst du einen externen Player wie VLC verwende
     <string name="sidebar_update_available">Update verfügbar</string>
     <string name="sidebar_stable_release">Stabile Version</string>
     <string name="sidebar_beta_release">Beta-Version</string>
-    <string name="sidebar_fadcam_pro">FadCam Pro</string>
     <string name="badge_new">NEU</string>
-    <string name="update_pro_title">FadCam Pro-Update</string>
-    <string name="update_pro_desc">Eine neue Version von FadCam Pro ist verfügbar.\n\nFür kostenlose Benutzer wird die stabile Version nach etwa 60 Tagen veröffentlicht. Pro-Benutzer erhalten Updates sofort.</string>
-    <string name="update_get_pro">FadCam Pro holen</string>
     <string name="update_maybe_later">Vielleicht später</string>
     <string name="update_beta_title">Beta-Update verfügbar</string>
     <string name="update_beta_desc">Die Joy Creator Beta ist eine eigenständige App, die neben der stabilen Version installiert werden kann. Sie wird deine stabile App oder deren Daten nicht beeinträchtigen.\n\nInstalliere die Beta, um neue Funktionen zu testen, bevor sie in der stabilen Version erscheinen.</string>
@@ -2364,7 +2284,6 @@ Für die flüssigste Wiedergabe kannst du einen externen Player wie VLC verwende
     <string name="fadmic_coming_soon">FadMic (Mikrofonaufnahme) kommt bald!</string>
     <string name="toast_stream_server_starting">Streamserver wird gestartet...</string>
     <string name="toast_stream_server_stopped">Streamserver gestoppt</string>
-    <string name="toast_no_cloud_viewers">Keine Cloud-Zuschauer verbunden</string>
     <string name="toast_no_clients">Keine Clients verbunden</string>
     <string name="toast_device_id_copied">Geräte-ID kopiert</string>
     <string name="toast_endpoint_copied">Kopiert: %s</string>
@@ -2621,7 +2540,6 @@ Für die flüssigste Wiedergabe kannst du einen externen Player wie VLC verwende
     <string name="network_unknown">Unbekannt</string>
 
     <!-- ClientDataBottomSheet -->
-    <string name="client_cloud_viewers">Cloud-Zuschauer</string>
     <string name="client_active_clients">Aktive Clients</string>
     <string name="client_no_clients">Keine Clients verbunden</string>
 

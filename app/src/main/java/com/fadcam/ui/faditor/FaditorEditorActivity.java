@@ -32397,14 +32397,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 R.drawable.ic_transform_24, ctx -> buildVisualizerTransformTab(wf, host)).fitAbove(vizFloor));
         // BLEND, third: the same one-chip picker and the same list a picture and a PiP offer, so
         // choosing it changes how the whole visualizer mixes with what is beneath it. The export
-        // blends for real; the preview still shows it Normal (the visualizer layer is a plain View
-        // above the video and cannot blend with it), so previewsLive=false keeps the drawer's
-        // honest "applied when you export" note on the tab rather than hiding the gap.
+        // blends for real, and since R11 so does the preview (a blended visualizer is composited
+        // by FxLivePreviewController with its blend mode), so previewsLive=true: the "applied
+        // when you export" note would now be wrong.
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 getString(R.string.faditor_blend_title), R.drawable.ic_pip_blend_24,
                 ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.blendTab(ctx,
                         wf::getOverlayBlendMode, mode -> setVisualizerBlend(wf, mode),
-                        this::scheduleAutoSave, false)).fitAbove(vizFloor));
+                        this::scheduleAutoSave, true)).fitAbove(vizFloor));
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle> toggles = new java.util.ArrayList<>();
         final Runnable afterToggle = () -> { refreshVizAfterMenuWrite(); scheduleAutoSave(); };
         toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
@@ -32429,10 +32429,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final String before = wf.getOverlayBlendMode();
         if (before.equals(mode)) return;
         wf.setOverlayBlendMode(mode);
+        // The preview composites a blended visualizer (R11): re-route now, not at the next tick.
+        final Runnable reroute = () -> syncGlAdjustmentPreview(Math.max(0, lastPlayheadAbsoluteMs));
         undoManager.recordAction(new EditActions.LambdaAction(
                 getString(R.string.faditor_blend_title),
-                () -> { wf.setOverlayBlendMode(mode); scheduleAutoSave(); },
-                () -> { wf.setOverlayBlendMode(before); scheduleAutoSave(); }));
+                () -> { wf.setOverlayBlendMode(mode); reroute.run(); scheduleAutoSave(); },
+                () -> { wf.setOverlayBlendMode(before); reroute.run(); scheduleAutoSave(); }));
+        reroute.run();
         scheduleAutoSave();
     }
 
@@ -32682,7 +32685,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     private void refreshVizAfterMenuWrite() {
+        // Re-bind the preview's list: it holds only the VISIBLE visualizers, so without this the
+        // drawer's Hide eye recorded a step and the hidden visualizer went on painting.
+        refreshWaveformOverlays();
         if (waveformOverlayView != null) waveformOverlayView.invalidate();
+        // A blended visualizer is drawn by the GL composite (R11): re-route it now too.
+        syncGlAdjustmentPreview(Math.max(0, lastPlayheadAbsoluteMs));
         syncTimelineOverlays();
         // The shared box (G5b) follows a drawer write and an undo, or it would stand where the
         // visualiser WAS until the next touch or playhead move.

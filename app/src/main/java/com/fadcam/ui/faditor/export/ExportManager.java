@@ -6448,11 +6448,17 @@ public class ExportManager {
         // and the Presentation this rides behind; the seam segment is un-graded exactly as
         // it is un-filtered today.
         if (!isTransitionItem && clip.getFx() != null && !clip.getFx().active().isEmpty()) {
+            // R14: the clip's own effects can follow the music too, heard as a layer hears it.
+            final String spineEarsOwner = "export:spine:" + clip.getId() + ":" + System.identityHashCode(clip);
+            final com.fadcam.ui.faditor.model.Timeline spineEarsTimeline = project.getTimeline();
             videoEffects.add(new AdjustmentLayerGlEffect(
                     context, spineFxLayer(clip),
                     editorTimeOffsetForChunk(project.getTimeline(), clip, timelineCursorMs)
                             - (isLoopBeforeItem
-                                    ? headTransitionMsFor(project.getTimeline(), clip) : 0L)));
+                                    ? headTransitionMsFor(project.getTimeline(), clip) : 0L),
+                    clip.getFx().hearsMusic()
+                            ? ms -> com.fadcam.vislab.studio.StudioEars.at(context, spineEarsTimeline, ms, spineEarsOwner)
+                            : null));
         }
 
         // ── SPINE CANVAS TRANSFORM — where this clip's picture SITS on the canvas ─────

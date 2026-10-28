@@ -236,7 +236,10 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
                         setF(p, FxCompiler.U_PREV_VALID, hist.prevValid());
                         setF(p, FxCompiler.U_DT, hist.dt());
                     }
-                    for (FxUniforms.Value v : FxUniforms.forPass(step.pass)) {
+                    // This frame's values, through the pass compiled for this plan shape.
+                    FxCompiler.Pass live = livePasses != null && step.passIndex < livePasses.size()
+                            ? livePasses.get(step.passIndex) : step.pass;
+                    for (FxUniforms.Value v : FxUniforms.forPass(live)) {
                         if (v.components() == 1) setF(p, v.name, v.data[0]);
                         else setFn(p, v.name, v.data);
                     }
@@ -363,18 +366,29 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
         private static final class Step {
             @NonNull final GlProgram program;
             @NonNull final FxCompiler.Pass pass;
+            /** Which pass of the plan this render belongs to (see {@link #livePasses}). */
+            final int passIndex;
             final float dirX, dirY;
 
-            Step(@NonNull GlProgram program, @NonNull FxCompiler.Pass pass,
+            Step(@NonNull GlProgram program, @NonNull FxCompiler.Pass pass, int passIndex,
                  float dirX, float dirY) {
                 this.program = program;
                 this.pass = pass;
+                this.passIndex = passIndex;
                 this.dirX = dirX;
                 this.dirY = dirY;
             }
         }
 
         @NonNull private final List<Step> steps = new java.util.ArrayList<>();
+        /**
+         * THIS frame's passes, planned from this frame's resolved stack. The programs are
+         * compiled once and kept while the plan's shape holds, but the VALUES change every frame
+         * (keyframes, and knobs following the music): a step's own {@code pass} holds the cards
+         * of the frame it was compiled on, so uploading from it froze every animated knob at
+         * that first frame for the whole export.
+         */
+        @androidx.annotation.Nullable private List<FxCompiler.Pass> livePasses;
         /** Echo Trails' previous frames, one per feedback pass, kept across drawFrame calls. */
         @NonNull private final FxHistory history = new FxHistory();
         /** Ping-pong targets, one per intermediate step. Lazily made, reused every frame. */
@@ -411,6 +425,7 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
                 throws VideoFrameProcessingException {
             FxCompiler.Plan plan = FxCompiler.plan(stack);
             if (plan.passes.isEmpty()) return false;
+            livePasses = plan.passes;
 
             StringBuilder key = new StringBuilder();
             for (FxCompiler.Pass pa : plan.passes) {
@@ -456,7 +471,7 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
                         // Horizontal first, then vertical — the order the kernel weights assume.
                         float dx = (renders > 1 && r == 1) ? 0f : 1f;
                         float dy = (renders > 1 && r == 1) ? 1f : 0f;
-                        steps.add(new Step(prog, pa, dx, dy));
+                        steps.add(new Step(prog, pa, i, dx, dy));
                     }
                 }
             } catch (Exception e) {

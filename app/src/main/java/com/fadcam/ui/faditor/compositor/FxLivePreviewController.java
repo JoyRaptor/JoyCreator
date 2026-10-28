@@ -612,6 +612,8 @@ public final class FxLivePreviewController {
     @NonNull private final OverlayTextureCache overlayTextureCache = new OverlayTextureCache();
     /** Below-blend texts the composite draws this tick; their Canvas views hand over. */
     @NonNull private final java.util.Set<String> glBelowTextIds = new java.util.HashSet<>();
+    /** R11: the last "owned/drawn" count of blended visualizers logged by buildPlan. */
+    @Nullable private String lastVizShape;
     // Captions — third client of the texture cache (SPEC_20260829_CAPTIONS_GL §3.1)
     @NonNull private final CaptionTextureCache captionTextureCache = new CaptionTextureCache();
     // Instrumentation for captions (§5.4)
@@ -666,7 +668,11 @@ public final class FxLivePreviewController {
             synthetic.setName("clip:" + spineClip.getId());
             synthetic.setFx(spineClip.getOrCreateFx());
             FxPreviewTextureView.Layer sl =
-                    FxPreviewTextureView.Layer.of(synthetic, playheadMs, size[0], size[1]);
+                    FxPreviewTextureView.Layer.of(synthetic, playheadMs, size[0], size[1],
+                            // R14: the clip's own knobs can follow the music as a layer's do.
+                            spineClip.getFx().hearsMusic()
+                                    ? com.fadcam.vislab.studio.StudioEars.at(view.getContext(), timeline, playheadMs, "preview")
+                                    : null);
             if (sl != null) {
                 // Index 0 — claimed BEFORE the live-layer walk, so the walk's own
                 // snapshot.size() indices shift up by one without any arithmetic here.
@@ -830,6 +836,7 @@ public final class FxLivePreviewController {
         // imagePipFor/spritePip returning null.
         java.util.Set<String> glImageIds = new java.util.HashSet<>();
         java.util.Set<String> glViz = new java.util.HashSet<>();
+        int vizPips = 0;
         for (com.fadcam.ui.faditor.model.TextOverlayItem o : glImages) glImageIds.add(o.getId());
         for (LayerPreviewController.VisualItem v
                 : LayerPreviewController.orderedVisualItems(timeline)) {
@@ -848,18 +855,6 @@ public final class FxLivePreviewController {
                 glOwned.add(o.getId());
                 continue;
             }
-            // R11: a BLENDED VISUALIZER, at its lane z among the images and sprites, carrying its
-            // blend mode, so the preview shows the Difference / Screen the export makes.
-            com.fadcam.ui.faditor.model.WaveformOverlayInstance wf = v.item.getWaveform();
-            if (wf != null) {
-                if (com.fadcam.ui.faditor.waveform.WaveformOverlayView.wantsGlBlend(wf)
-                        && playheadMs >= wf.getStartMs() && playheadMs <= wf.getEndMs()) {
-                    FxPreviewTextureView.Pip p = host.visualizerPipFor(wf, size[0], size[1], playheadMs);
-                    glViz.add(wf.getId());   // owned even before its first frame: never painted twice
-                    if (p != null) rungs.add(FxPreviewTextureView.Rung.pip(p));
-                }
-                continue;
-            }
             // SPRITES THAT BELONG TO THE COMPOSITE. A sprite painted by its Canvas view sits OVER
             // this surface, so a blend above it samples the video instead of the sprite, a mask
             // cannot cut it and an adjustment layer cannot grade it. Drawn here it is INSIDE the
@@ -871,8 +866,30 @@ public final class FxLivePreviewController {
             rungs.add(FxPreviewTextureView.Rung.pip(p));
             glSprites.add(sp.getId());
         }
+        // R11: BLENDED VISUALIZERS, each carrying its blend mode, on top of everything above:
+        // where the export blends them (ExportManager.addVisualizerBlendEffects, above the
+        // adjustment layers, the GL images and the plain overlay pass, below the captions).
+        // Walked from their own list: a visualizer has its own rows, not a lane of getLayers(),
+        // so the lane walk above never meets one.
+        for (com.fadcam.ui.faditor.model.WaveformOverlayInstance wf : timeline.getWaveformOverlays()) {
+            if (!com.fadcam.ui.faditor.waveform.WaveformOverlayView.wantsGlBlend(wf)
+                    || playheadMs < wf.getStartMs() || playheadMs > wf.getEndMs()) continue;
+            glViz.add(wf.getId());   // owned even before its first frame: never painted twice
+            FxPreviewTextureView.Pip p = host.visualizerPipFor(wf, size[0], size[1], playheadMs);
+            if (p != null) {
+                rungs.add(FxPreviewTextureView.Rung.pip(p));
+                vizPips++;
+            }
+        }
         host.onGlOwnedSprites(glSprites);
         host.onGlOwnedVisualizers(glViz);
+        // Logged when it changes only (this runs every frame): which blended visualizers the
+        // composite owns and how many reached it with a frame.
+        String vizShape = glViz.size() + "/" + vizPips;
+        if (!vizShape.equals(lastVizShape)) {
+            lastVizShape = vizShape;
+            FLog.d(TAG, "blended visualizers owned/drawn: " + vizShape);
+        }
 
         // NO "deferred" pass for the remaining plain images. They stay on Canvas, drawn by
         // their own ImageView over this surface — which is where the export paints them too

@@ -266,8 +266,9 @@ public final class HelpBook {
                     "Select the video clip and tap Extract audio in the tool strip to split its sound onto its own track.",
                     "studio", null, "audio"),
             new Topic("blend", "blend mode|blend|blending|multiply|screen mode|overlay mode",
-                    "Double-tap a picture or video overlay, open its Blend tab, and pick a mode such as Multiply or Screen. "
-                            + "Blend modes show in the export; the preview shows the layer normally.", "studio", null),
+                    "Double-tap a picture or video overlay (hold a visualizer), open its Blend tab, and pick a mode such as "
+                            + "Multiply or Screen. Pictures and visualizers show their blend in the preview too; a video "
+                            + "overlay's blend shows in the export.", "studio", null),
             new Topic("fx_layer", "adjustment layer|fx layer|fx adjustment|effect over everything|effects over everything"
                             + "|effect on everything|effects on everything|grade everything|adjust everything",
                     "Tap Add in the tool strip, then FX Adjustment Layer. It grades everything beneath it, and its drawer "

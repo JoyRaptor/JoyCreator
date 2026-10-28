@@ -2686,10 +2686,12 @@ public class ProjectStorage {
                             wj.addProperty("attachDurationMs", wo.getAttachDurationMs());
                         }
                         if (wo.isStratified()) wj.addProperty("stratified", true);
-                        // §4.5 per-object eye/lock (write-if-true).
-                        if (wo.isHidden()) wj.addProperty("objHidden", true);
-                        if (wo.isLocked()) wj.addProperty("objLocked", true);
                     }
+                    // §4.5 per-object eye/lock (write-if-true). For EVERY visualizer: these sat
+                    // inside the attach block above, so a free visualizer lost its hidden and
+                    // locked state on save while the reader (which reads them for all) waited.
+                    if (wo.isHidden()) wj.addProperty("objHidden", true);
+                    if (wo.isLocked()) wj.addProperty("objLocked", true);
                     wfArray.add(wj);
                 }
                 timelineJson.add("waveformOverlays", wfArray);

@@ -74,6 +74,7 @@ public final class StudioEars {
         if (k == null) {
             k = new SoundClock(c, uri);
             clocks.put(key, k);
+            com.fadcam.FLog.d("StudioEars", "listening for " + owner + " at " + editorMs + " ms");
             Iterator<Map.Entry<String, SoundClock>> it = clocks.entrySet().iterator();
             while (clocks.size() > MAX_CLOCKS && it.hasNext()) {
                 it.next();
@@ -83,6 +84,10 @@ public final class StudioEars {
         Features f = k.at(sourceMs / 1000.0);
         // Read now: the clock reuses its Features object for the next moment.
         final float level = f.level, bass = f.bass, kick = f.kick, snare = f.snare, hat = f.hat, beat = f.beat;
+        if (k.firstSound(level)) {
+            com.fadcam.FLog.d("StudioEars", "first sound for " + owner + " at " + editorMs + " ms (level "
+                    + level + ", kick " + kick + ")");
+        }
         return signal -> {
             switch (signal) {
                 case "level": return level;
@@ -102,6 +107,8 @@ public final class StudioEars {
         List<Uri> out = new ArrayList<>();
         boolean any = false;
         for (AdjustmentLayer al : t.getAdjustmentLayers()) if (al.getFx().hearsMusic()) any = true;
+        // A clip's own effects (the Effects drawer of a master clip) can follow the music too.
+        for (Clip clip : t.getClips()) if (clip.getFx() != null && clip.getFx().hearsMusic()) any = true;
         if (!any) return out;
         for (AudioClip a : t.getAudioClips()) {
             if (!a.isMuted() && a.getSourceUri() != null && !out.contains(a.getSourceUri())) out.add(a.getSourceUri());

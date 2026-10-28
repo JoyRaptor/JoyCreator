@@ -181,6 +181,7 @@ public class WaveformOverlayView extends View {
     /** The visualizers the GL composite draws (R11); this view keeps their frames instead. */
     public void setGlOwned(@NonNull java.util.Set<String> ids) {
         if (glOwned.equals(ids)) return;
+        com.fadcam.FLog.d("WaveformOverlayView", "GL owns visualizers " + ids);
         glOwned.clear();
         glOwned.addAll(ids);
         glRasters.keySet().retainAll(ids);

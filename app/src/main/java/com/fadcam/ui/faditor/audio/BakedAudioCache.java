@@ -437,7 +437,10 @@ public class BakedAudioCache {
 
     @NonNull
     private static String encodeOutput(@NonNull String path) {
-        return "-c:a aac -b:a 192k \"" + path + "\"";
+        // The bake writes to "<name>.m4a.tmp" and renames on success, and ffmpeg picks the
+        // container from the extension: ".tmp" gave "Unable to find a suitable output format"
+        // (Note 9, 10-28). Say it outright.
+        return "-c:a aac -b:a 192k -f mp4 \"" + path + "\"";
     }
 
     /** Pass-1 measurement invocation of loudnorm (targets only, no measured_* params). */

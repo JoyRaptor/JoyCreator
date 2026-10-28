@@ -287,8 +287,9 @@ public final class VisRenderer {
 
     /**
      * Studio (roadmap R8): layers that follow another Studio object, packed
-     * {@code [layerIndex, x, y, sizeMul, turnDeg]} per layer, x / y in scene units. Null or empty:
-     * every layer keeps its own Place. Read on the next frame.
+     * {@code [layerIndex, x, y, sizeMul, turnDeg, by]} per layer, x / y in scene units; {@code by} 1
+     * = move the layer by x / y from its own Place (it keeps its place), 0 = put it at x / y. Null
+     * or empty: every layer keeps its own Place. Read on the next frame.
      */
     public void setLayerFollow(@Nullable float[] follow) {
         layerFollow = follow;
@@ -554,8 +555,10 @@ public final class VisRenderer {
             L.eval(signals);
             L.follow(Float.NaN, 0f, 1f, 0f);
             if (follow != null) {
-                for (int i = 0; i + 4 < follow.length; i += 5) {
-                    if ((int) follow[i] == L.index) L.follow(follow[i + 1], follow[i + 2], follow[i + 3], follow[i + 4]);
+                for (int i = 0; i + 5 < follow.length; i += 6) {
+                    if ((int) follow[i] != L.index) continue;
+                    if (follow[i + 5] > 0.5f) L.followBy(follow[i + 1], follow[i + 2], follow[i + 3], follow[i + 4]);
+                    else L.follow(follow[i + 1], follow[i + 2], follow[i + 3], follow[i + 4]);
                 }
             }
         }

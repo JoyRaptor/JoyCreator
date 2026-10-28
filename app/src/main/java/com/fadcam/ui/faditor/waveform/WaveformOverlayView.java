@@ -178,6 +178,17 @@ public class WaveformOverlayView extends View {
         invalidate();
     }
 
+    /**
+     * Told when a GL-owned visualizer has a new frame (R11), so a paused editor can refresh the
+     * composite that draws it: its VisLab frame arrives after the composite last ran. Posted.
+     */
+    @Nullable private Runnable onGlFrame;
+    private boolean glFramePosted;
+
+    public void setOnGlFrame(@Nullable Runnable r) {
+        onGlFrame = r;
+    }
+
     /** The visualizers the GL composite draws (R11); this view keeps their frames instead. */
     public void setGlOwned(@NonNull java.util.Set<String> ids) {
         if (glOwned.equals(ids)) return;
@@ -292,6 +303,15 @@ public class WaveformOverlayView extends View {
                     if (visJson == null || glSources.get(o.getId()) != src) {
                         glRasters.put(o.getId(), src.copy(Bitmap.Config.ARGB_8888, false));
                         glSources.put(o.getId(), visJson != null ? src : null);
+                        // Only a NEW VisLab frame (a classic one is copied on every draw, and a
+                        // refresh from here would draw again: a loop).
+                        if (visJson != null && onGlFrame != null && !glFramePosted) {
+                            glFramePosted = true;
+                            post(() -> {
+                                glFramePosted = false;
+                                if (onGlFrame != null) onGlFrame.run();
+                            });
+                        }
                     }
                 }
                 glAlphas.put(o.getId(), visJson != null ? fadeAlpha * o.visFadeAt(playheadMs) : fadeAlpha);

@@ -292,6 +292,19 @@ public final class VisLabStyleTab {
             Ui.label(pill, "Choose an object for " + name + " to follow");
             pill.setOnClickListener(x -> pickFollow(pill, key));
             row.addView(pill);
+            // How it follows: snap onto the object (the default), or keep its place and move as
+            // the object moves. Shown once the layer follows something.
+            TextView how = Ui.text(c, "", 11.5f, Studio.INK_DIM, false, 600);
+            how.setGravity(Gravity.CENTER);
+            how.setMinHeight(Ui.dp(c, 30));
+            how.setPadding(Ui.dp(c, 12), Ui.dp(c, 6), Ui.dp(c, 12), Ui.dp(c, 6));
+            how.setBackground(Ui.round(Studio.RAISED, Ui.dp(c, 999)));
+            Ui.label(how, "How " + name + " follows: snap onto the object, or keep its place and move as the object moves");
+            how.setOnClickListener(x -> toggleKeepPlace(key));
+            LinearLayout.LayoutParams hlp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            hlp.leftMargin = Ui.dp(c, 6);
+            row.addView(how, hlp);
             v.addView(row);
             Runnable show = () -> {
                 String id = wf.getVisFollow().get(key);
@@ -299,11 +312,14 @@ public final class VisLabStyleTab {
                 pill.setText(on ? nameOf(id) : "Nothing");
                 pill.setBackground(Ui.round(on ? Studio.ARMED : Studio.RAISED, Ui.dp(c, 999)));
                 pill.setTextColor(on ? Studio.GROUND : Studio.INK_DIM);
+                how.setVisibility(on ? View.VISIBLE : View.GONE);
+                how.setText(wf.getVisFollowBase().containsKey(key) ? "Keeps its place" : "Snaps to it");
             };
             show.run();
             rowRefresh.add(show);
-            // R9: a picture layer can show a Studio picture or title instead of its own picture.
-            if ("image".equals(L.has("type") ? L.get("type").getAsString() : "")) {
+            // R9: a picture layer (a picture or a video clip) can show a Studio item instead.
+            String type = L.has("type") ? L.get("type").getAsString() : "";
+            if ("image".equals(type) || "video".equals(type)) {
                 showRow(v, name, key);
             }
         }
@@ -377,6 +393,23 @@ public final class VisLabStyleTab {
         return "Gone";
     }
 
+    /** Switch a follow between snapping onto its object and keeping its place (one undo step). */
+    private void toggleKeepPlace(@NonNull String key) {
+        String id = wf.getVisFollow().get(key);
+        if (id == null) return;
+        State before = snap();
+        boolean keep = !wf.getVisFollowBase().containsKey(key);
+        if (keep) {
+            com.fadcam.ui.faditor.model.LinkPose p = host.followable(id);
+            if (p == null) return;
+            // Its pose now is where "no movement" starts.
+            wf.getVisFollowBase().put(key, VisFollow.capture(p, host.playheadMs()));
+        } else {
+            wf.getVisFollowBase().remove(key);
+        }
+        commit(keep ? "Keep its place" : "Snap to the object", before);
+    }
+
     private void pickFollow(@NonNull View anchor, @NonNull String key) {
         List<String[]> all = host.followables();
         android.widget.PopupMenu menu = new android.widget.PopupMenu(c, anchor);
@@ -392,12 +425,18 @@ public final class VisLabStyleTab {
             if (at == 0) {
                 wf.getVisFollow().remove(key);
                 wf.getVisFollowRefs().remove(key);
+                wf.getVisFollowBase().remove(key);
             } else {
                 String id = all.get(at - 1)[0];
                 wf.getVisFollow().put(key, id);
                 com.fadcam.ui.faditor.model.LinkPose p = host.followable(id);
                 if (p != null && p != wf) wf.getVisFollowRefs().put(key, p);
                 else wf.getVisFollowRefs().remove(key);
+                // A follow that keeps its place starts again from the new object's pose now.
+                if (wf.getVisFollowBase().containsKey(key)) {
+                    if (p != null && p != wf) wf.getVisFollowBase().put(key, VisFollow.capture(p, host.playheadMs()));
+                    else wf.getVisFollowBase().remove(key);
+                }
             }
             commit(at == 0 ? "Stop following" : "Follow an object", before);
             return true;
@@ -506,27 +545,32 @@ public final class VisLabStyleTab {
     private static final class State {
         @Nullable final String look;
         @NonNull final VisLabKeys keys;
-        /** Which look layers follow which object (R8), and which show a Studio item (R9). */
-        @NonNull final java.util.TreeMap<String, String> follow, show;
+        /**
+         * Which look layers follow which object (R8) and from which pose those that keep their
+         * place, and which show a Studio item (R9).
+         */
+        @NonNull final java.util.TreeMap<String, String> follow, followBase, show;
 
         State(@Nullable String look, @NonNull VisLabKeys keys, @NonNull java.util.TreeMap<String, String> follow,
+              @NonNull java.util.TreeMap<String, String> followBase,
               @NonNull java.util.TreeMap<String, String> show) {
             this.look = look;
             this.keys = keys;
             this.follow = follow;
+            this.followBase = followBase;
             this.show = show;
         }
 
         boolean same(@NonNull State o) {
             return (look == null ? o.look == null : look.equals(o.look)) && keys.equals(o.keys)
-                    && follow.equals(o.follow) && show.equals(o.show);
+                    && follow.equals(o.follow) && followBase.equals(o.followBase) && show.equals(o.show);
         }
     }
 
     @NonNull
     private State snap() {
         return new State(wf.getVisLook(), wf.getVisKeys().copy(), new java.util.TreeMap<>(wf.getVisFollow()),
-                new java.util.TreeMap<>(wf.getVisShow()));
+                new java.util.TreeMap<>(wf.getVisFollowBase()), new java.util.TreeMap<>(wf.getVisShow()));
     }
 
     private void restore(@NonNull State s) {
@@ -534,6 +578,8 @@ public final class VisLabStyleTab {
         wf.getVisKeys().copyFrom(s.keys);
         wf.getVisFollow().clear();
         wf.getVisFollow().putAll(s.follow);
+        wf.getVisFollowBase().clear();
+        wf.getVisFollowBase().putAll(s.followBase);
         wf.getVisFollowRefs().clear();
         for (Map.Entry<String, String> e : s.follow.entrySet()) {
             com.fadcam.ui.faditor.model.LinkPose p = host.followable(e.getValue());

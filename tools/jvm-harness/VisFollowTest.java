@@ -42,7 +42,8 @@ public class VisFollowTest {
     public static void main(String[] args) {
         float[] f = follow(viz(0), at(0.5f, 0.5f, 1f, 0f), 2);
         check("centre on centre: layer 2 at (0, 0): " + str(f),
-                f != null && f.length == 5 && f[0] == 2 && near(f[1], 0) && near(f[2], 0) && near(f[3], 1) && near(f[4], 0));
+                f != null && f.length == 6 && f[0] == 2 && near(f[1], 0) && near(f[2], 0) && near(f[3], 1) && near(f[4], 0)
+                        && f[5] == 0f);
         // Half the box's short side above the centre (screen y is down) = +1 in the look.
         f = follow(viz(0), at(0.5f, 0.5f - 0.125f, 1f, 0f), 0);
         check("top edge of the strip = y +1: " + str(f), f != null && near(f[1], 0) && near(f[2], 1));
@@ -55,6 +56,28 @@ public class VisFollowTest {
         // Grown to twice its size and turned 30 degrees clockwise.
         f = follow(viz(0), at(0.5f, 0.5f, 2f, 30f), 0);
         check("size x2, turn 30 clockwise = -30 in the look: " + str(f), f != null && near(f[3], 2) && near(f[4], -30));
+        // KEEPS ITS PLACE: the pose when chosen is "no movement"; only what changed since moves it.
+        String key = WaveformOverlayInstance.visFollowKey("aurora-parts", 1);
+        WaveformOverlayInstance k = viz(0);
+        k.getVisFollowBase().put(key, VisFollow.capture(at(0.5f, 0.5f, 1f, 0f), 0));
+        k.getVisFollowRefs().put(key, at(0.3f, 0.2f, 1f, 0f));
+        k.getVisFollowBase().put(key, VisFollow.capture(at(0.3f, 0.2f, 1f, 0f), 0));
+        f = VisFollow.at(k, 0, ASPECT);
+        check("keeps its place: unmoved = no change, marked 'by': " + str(f),
+                f != null && f[0] == 1 && near(f[1], 0) && near(f[2], 0) && near(f[3], 1) && near(f[4], 0) && f[5] == 1f);
+        k.getVisFollowRefs().put(key, at(0.3f + 0.125f / ASPECT, 0.2f - 0.125f, 2f, 30f));
+        f = VisFollow.at(k, 0, ASPECT);
+        check("keeps its place: moved right and up by half the short side, grew x2, turned 30: " + str(f),
+                f != null && near(f[1], 1) && near(f[2], 1) && near(f[3], 2) && near(f[4], -30) && f[5] == 1f);
+        WaveformOverlayInstance k90 = viz(90);
+        k90.getVisFollowBase().put(key, VisFollow.capture(at(0.3f, 0.2f, 1f, 0f), 0));
+        k90.getVisFollowRefs().put(key, at(0.3f + 0.125f / ASPECT, 0.2f, 1f, 0f));
+        f = VisFollow.at(k90, 0, ASPECT);
+        check("keeps its place in a box turned 90: a move right is the look's up: " + str(f),
+                f != null && near(f[1], 0) && near(f[2], 1));
+        k.getVisFollowBase().put(key, "not,a,pose");
+        f = VisFollow.at(k, 0, ASPECT);
+        check("a broken pose falls back to snapping: " + str(f), f != null && f[5] == 0f);
         // A follow stored for another look does nothing while this one shows.
         WaveformOverlayInstance w = viz(0);
         w.getVisFollowRefs().put(WaveformOverlayInstance.visFollowKey("hypno", 0), at(0.5f, 0.5f, 1f, 0f));

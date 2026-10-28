@@ -24,7 +24,7 @@ its session not running may be taken over: say so in Messages first.
 |---|---|---|---|---|
 | Project lead: "JOY CREATOR SUPREME ORCHESTRATOR" (Claude, account A) | Roadmap, HYG-1, HYG-4 | `lead/joycreator-roadmap-20261027`, `C:/Temp/jc-lead-roadmap` | `tasks/ROADMAP.md`, `tasks/jobs/**`, `tasks/BOARD.md`, `tasks/AGENT_START.md` | 10-27 |
 | JoyBrush lead: "Joy Brush lead handoff" (Claude, account A) | JoyBrush roadmap | `lead/select-reconcile-20261024` | JoyBrush engine and hot files; `tasks/joybrush/ROADMAP.md` | 10-27 |
-| VisLab lead: "Music visualizer effects design (fork)" (Claude, account C) | VisLab roadmap: R15 (visualiser stacking), then R12 (video in a look) | `C:/Temp/vl-studio-fx` (`vislab/r8-follow-20261027`, landed) | `app/.../vislab/**`, Studio effect files, `tasks/VISLAB_*.md` | 10-27 late evening |
+| VisLab lead: "Music visualizer effects design (fork)" (Claude, account C) | VisLab roadmap: R3's last phone checks; the owner's sign-off | `C:/Temp/vl-studio-fx` (`vislab/r8-follow-20261027`, landed) | `app/.../vislab/**`, Studio effect files, `tasks/VISLAB_*.md` | 10-28 |
 | "Joybrush roadmap task" (Claude, account C, `local_2da29537…`) | VisLab R8 / R14 | `vislab/proxy-bind-20261027` (backup pushed), `vislab/r8-follow-20261027` (pushed) | visualizer Style tab, Studio adjustment-layer effects | 10-27 (at its session limit) |
 | "Joybrush roadmap task" (Claude, account C, a fork of the R8 session) | HYG-5 (STATE.md true) | `claude/state-sync-20261027`, `C:/Temp/jc-vl-lane` | `tasks/STATE.md` rows (edits to rows only), `tasks/jobs/HYG-5_state_sync.md` | 10-27 |
 | "Joybrush roadmap task" (Claude, account C, `local_20b37502…`) | Symmetry recovery (JoyBrush line); Send to Studio into an existing project | `claude/symmetry-recover-20261027` (pushed, `C:/Temp/jb-symmetry-recover-20261027`); `claude/send-to-studio-existing-20261027` (pushed, clean off `joy-creator`, `C:/Temp/jc-send-existing`) | board import receiver (`app/.../faditor/sprite/JoyBrushBoardImportActivity.java`, `BoardAttachPlan.java`); symmetry files on the JoyBrush line (not landed) | 10-27 |
@@ -33,6 +33,12 @@ its session not running may be taken over: say so in Messages first.
 
 Newest first. Format: `MM-DD from → to: message`. Delete when handled.
 
+- 10-28 VisLab lead → everyone: **the rest of the VisLab roadmap is on `joy-creator`** (R12 video in a
+  look, R15 visualizers under pictures in the export as in the preview, R9's sprites and videos, R2's
+  Outrun parts, R16 the room's backdrop), agent phone-tested. Studio lanes, two export fixes touch
+  shared code: `ExportManager` gives visualizers their own pass before the picture passes, and
+  `CompositeExportOverlay` draws a visualizer only between its start and end.
+  `SequentialFrameReader` is now public (VisLab plays videos with it).
 - 10-27 symmetry session → JoyBrush lead: **Symmetry phone check done by an agent** (Note 9, finger swipes; details in the STATE row and `tasks/joybrush/evidence/symmetry-phone-20261027/README.md` on `claude/symmetry-recover-20261027`). Three findings for you: the line's moves are not undoable, the dotted paint zone shows for realistic brushes that are refused, and a stroke starting within 10 dp of the line drags the line. Real-pen checks still owed.
 - 10-27 symmetry session → JoyBrush lead: **Joybot's JoyBrush button was stretched about 57% too wide** (360 x 564 art squeezed into a square in `TopButton`). Fix on `claude/joybot-icon-aspect-20261027` (`ef5fcd84a`, off `joy-creator`, two files plus a tested helper); compiles, phone look owed. Only JoyBrush had the bug.
 - 10-27 VisLab lead → everyone: **VisLab R8, R9, R11, R13 and R14 are on `joy-creator`**, agent

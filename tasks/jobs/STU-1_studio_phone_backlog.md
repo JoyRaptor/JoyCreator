@@ -15,7 +15,7 @@ nobody has driven on a phone. Built-but-unproven is where one-star reviews come 
       longer leaves the undo history behind the project (`b2a85dff7`). Test project "Redo test clip": three fast
       rotates, reopen, expect three steps; two edits, wait for autosave, force-stop, reopen, expect a matching history.
 - [x] **Adjustment layers really change the layers beneath them**: agent phone-tested 10-27 by the VisLab
-  lead on the Note 9 (an effect layer's Flash washes the clip and the visualiser beneath in the preview;
+  lead on the Note 9 (an effect layer's Flash washes the clip beneath in the preview (visualisers, pictures, text and sprites sit above effect layers in both preview and export);
   Echo Trails and a music-linked Flash in exported videos). Fixed on the way: an export froze a layer's
   keyframed or music-linked values at the first frame. Keyframes themselves not re-tried on the phone;
   owner has not checked.

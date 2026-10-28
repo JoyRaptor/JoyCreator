@@ -2308,6 +2308,7 @@ public class MainActivity extends AppCompatActivity {
         overlayView.setX(sourceLocation[0] - rootLocation[0]);
         overlayView.setY(sourceLocation[1] - rootLocation[1]);
         ((ViewGroup) root).getOverlay().add(overlayView);
+        FLog.i("FragmentNav", "continuity overlay added " + sourceView.getWidth() + "x" + sourceView.getHeight());
         return overlayView;
     }
 
@@ -2329,10 +2330,19 @@ public class MainActivity extends AppCompatActivity {
         }
 
         View finalAnchorView = anchorView;
+        final ViewGroup host = (ViewGroup) root;
+        final Runnable remove = () -> {
+            host.getOverlay().remove(overlayView);
+            FLog.i("FragmentNav", "continuity overlay removed");
+        };
         finalAnchorView.post(() -> finalAnchorView.postDelayed(() -> overlayView.animate()
                 .alpha(0f)
                 .setDuration(120L)
-                .withEndAction(() -> ((ViewGroup) root).getOverlay().remove(overlayView)), 120L));
+                .withEndAction(remove), 120L));
+        // withEndAction never runs when the fade is cancelled, and a snapshot left in the overlay sits
+        // half-faded over every screen until the process dies (a grey veil over black seen on the
+        // Note 9, 10-28). Removing it twice is harmless.
+        host.postDelayed(remove, 1500L);
     }
 
     /**

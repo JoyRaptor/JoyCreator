@@ -664,6 +664,61 @@ public class IdeaEngineTest {
             }
         }
 
+        // ── TipBook: "Did you know?" on every empty open, offline too (owner, BOT-2 10-28) ──
+        {
+            List<com.fadcam.ui.faditor.ai.joybot.TipBook.Tip> tips = com.fadcam.ui.faditor.ai.joybot.TipBook.TIPS;
+            check("tips: a big library (40+)", tips.size() >= 40, String.valueOf(tips.size()));
+            Set<String> tipIds = new HashSet<>();
+            Set<String> tipRoutes = new HashSet<>(Arrays.asList(null, "record", "library", "studio", "vislab",
+                    "joybrush", "spritelab", "trash"));
+            java.util.EnumSet<com.fadcam.ui.faditor.ai.joybot.TipBook.Wing> wings =
+                    java.util.EnumSet.noneOf(com.fadcam.ui.faditor.ai.joybot.TipBook.Wing.class);
+            for (com.fadcam.ui.faditor.ai.joybot.TipBook.Tip x : tips) {
+                tipIds.add(x.id);
+                wings.add(x.wing);
+                check("tips: route is a real one: " + x.id, tipRoutes.contains(x.route), String.valueOf(x.route));
+                check("tips: reads after 'Did you know ': " + x.id,
+                        (Character.isLowerCase(x.text.charAt(0))
+                                || x.text.matches("^(I|VisLab|SpriteLab|Capture|JoyBrush)\\b.*"))
+                                && x.text.endsWith("."), x.text);
+                check("tips: short enough for one look: " + x.id, x.text.length() <= 160, String.valueOf(x.text.length()));
+            }
+            eq("tips: no two share an id", tips.size(), tipIds.size());
+            eq("tips: every wing has some", com.fadcam.ui.faditor.ai.joybot.TipBook.Wing.values().length, wings.size());
+
+            // Someone who only draws: mostly JoyBrush, but other wings still turn up.
+            java.util.Map<com.fadcam.ui.faditor.ai.joybot.TipBook.Wing, Integer> drawer = new java.util.EnumMap<>(
+                    com.fadcam.ui.faditor.ai.joybot.TipBook.Wing.class);
+            drawer.put(com.fadcam.ui.faditor.ai.joybot.TipBook.Wing.JOYBRUSH, 30);
+            java.util.Random rnd = new java.util.Random(7);
+            int jb = 0, other = 0, n = 4000;
+            for (int i = 0; i < n; i++) {
+                com.fadcam.ui.faditor.ai.joybot.TipBook.Tip x = com.fadcam.ui.faditor.ai.joybot.TipBook.pick(
+                        drawer, new HashSet<String>(), rnd);
+                if (x.wing == com.fadcam.ui.faditor.ai.joybot.TipBook.Wing.JOYBRUSH) jb++;
+                else if (x.wing != com.fadcam.ui.faditor.ai.joybot.TipBook.Wing.JOYBOT) other++;
+            }
+            check("tips: a drawer gets mostly JoyBrush (> 30%)", jb > n * 0.30, jb + "/" + n);
+            check("tips: ...and still some from other wings (> 15%)", other > n * 0.15, other + "/" + n);
+
+            // Seen tips stay away until all are seen; then they come round again.
+            Set<String> seen = new HashSet<>();
+            for (int i = 0; i < tips.size(); i++) {
+                com.fadcam.ui.faditor.ai.joybot.TipBook.Tip x = com.fadcam.ui.faditor.ai.joybot.TipBook.pick(
+                        new java.util.HashMap<com.fadcam.ui.faditor.ai.joybot.TipBook.Wing, Integer>(), seen, rnd);
+                check("tips: no repeat before all are seen (" + i + ")", !seen.contains(x.id), x.id);
+                seen.add(x.id);
+            }
+            check("tips: all seen, still one to show", com.fadcam.ui.faditor.ai.joybot.TipBook.pick(
+                    new java.util.HashMap<com.fadcam.ui.faditor.ai.joybot.TipBook.Wing, Integer>(), seen, rnd) != null, "");
+
+            // Offline ends on what still works, then a tip: never on the bad news.
+            String off = com.fadcam.ui.faditor.ai.joybot.TipBook.offlineHope("Your phone isn't online.", tips.get(0));
+            check("tips: offline starts with the problem", off.startsWith("Your phone isn't online."), off);
+            check("tips: offline says I'm still here", off.contains("still right here"), off);
+            check("tips: offline ends on a tip", off.endsWith(tips.get(0).text) && off.contains("Did you know "), off);
+        }
+
         // ── HelpBook.wantsChange: a request that must end in a change (Note 9, 2026-10-15) ──
         {
             check("wants change: name every cell", com.fadcam.ui.faditor.ai.joybot.HelpBook.wantsChange(

@@ -362,7 +362,8 @@ Agent phone checks stay distinct from owner LIVE/creative acceptance.
 
 | Feature | Level | Notes |
 |---|---|---|
-| Chat assistant (Joybot), in the Studio, the lobby, SpriteLab, the Library, VisLab and JoyBrush | 🟢 ✔ | Tap Joybot in the room's corner. ChatAssistantActivity. Help: "joybot" topic. Room idea buttons: Studio, lobby, SpriteLab, Library, VisLab; JoyBrush's added 10-28 (BOT-1, not yet on the phone). |
+| Chat assistant (Joybot), in the Studio, the lobby, SpriteLab, the Library, VisLab and JoyBrush | 🟢 ✔ | Tap Joybot in the room's corner. ChatAssistantActivity. Help: "joybot" topic. Room idea buttons: Studio, lobby, SpriteLab, Library, VisLab; JoyBrush's added 10-28 (BOT-1, phone ✅ 10-28). |
+| Joybot "Did you know?" tips and a hopeful offline message | 🟡 | Built 10-28 (BOT-2): every empty open greets you with one of 51 tips about built features, leaning to the wings you use, with a small "Take me there"; works offline. With no internet Joybot says so, then what still works, then a tip. `joybot/TipBook`, `TipUsage`. Tests and bench green; not yet on the phone. |
 | **Joybot's tools: 63 typed actions + 61 older tools** | 🟢 ✔ | Counted 10-28 (`ai/actions/*`, `AIToolExecutor.executeTool`). Studio, the app, VisLab, JoyBrush. No mobile competitor has this. |
 | EditScript contract (23 op types) | 🟢 ✔ | Validate-all-then-apply, one undo step, unknown ops rejected |
 | Proposal cards (confirm before applying) | 🟢 ~ | narrative / b-roll / avatar rig |

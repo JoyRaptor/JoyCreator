@@ -35,6 +35,19 @@ Select, symmetry, Send to Studio. Hover labels: ~220 controls done 10-15; the ch
 - [ ] **Empty-state copy** the owner drafted 9-09 (no key: what Joybot does free; key: "no markup, watch
       your usage"). Check what the chat shows today first.
 - [ ] **"What can I do here?"**: list the room's actions from the action registry, in plain words.
+- [x] **"Did you know?" on every empty open** (owner, 10-28). Offline, no AI needed. `joybot/TipBook` holds 51
+      tips, each a feature STATE marks built and on joy-creator (Studio, sound, VisLab, JoyBrush, SpriteLab,
+      Capture, Library, Joybot himself); `joybot/TipUsage` leans them toward what this person makes (Library, last
+      60 days, read at most daily) and where they open Joybot, with about one in four from a wing they haven't
+      touched; no tip repeats until all are seen; nothing leaves the phone. The greeting carries the tip, a small
+      "Take me there" sits at its right edge (hidden when the tip is about the room you're in), then the idea
+      buttons. Tests in `IdeaEngineTest` (routes real, a drawer gets mostly JoyBrush but still others,
+      no repeats). Typecheck, ideas 635/635, bench 53/53. **Not yet on the phone.**
+- [x] **Offline ends on hope** (owner, 10-28): "Your phone isn't online…" is followed by "But I'm still right
+      here", what works offline, and a tip (`TipBook.offlineHope`). Not phone-tested (an agent may not switch the
+      phone's Wi-Fi off): owner check.
+- [ ] Later: grow the tip library as STATE grows (JoyBrush tips after [HYG-2](HYG-2_one_main_line.md); never a
+      tip for a tool the person doesn't have).
 
 ## Specs, handoffs and evidence
 - [Feature gaps](../joybot/FEATURE_GAPS_20261015.md) (M3, G2, G3), [INBOX 9-09](../INBOX.md) (empty-state copy).

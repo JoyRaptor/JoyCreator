@@ -52,7 +52,7 @@ never handles a person's AI login.
 | Harness | Tools half (uses Joy Creator) | Talk half (Joybot sends it a message) | Source |
 |---|---|---|---|
 | Claude Code | ✅ MCP over streamable http with a header token (`claude mcp add --transport http joycreator http://<phone>:<port>/mcp --header "Authorization: Bearer <token>"`); pictures in tool results are seen inline. Plain `http://` on the local network is not documented either way: **test it** | **Remote Control** (Pro/Max): the person chats from the Claude phone app or claude.ai/code, Claude Code runs on their PC with Joy Creator's tools; relayed by Anthropic, not by us. Headless `claude -p` works on a subscription for the person's own use, but Anthropic's terms say third-party apps may not "route requests through Free, Pro, or Max plan credentials on behalf of their users": **Joybot starting the person's Claude Code needs Anthropic's written OK first** (S17). "Channels" (push into a session) is a research preview; custom ones are blocked outside testing | code.claude.com/docs: mcp, remote-control, headless, channels, legal-and-compliance (10-28) |
-| Codex | MCP `url` servers in `config.toml` | `codex exec` (to confirm) | developers.openai.com/codex/mcp |
+| Codex | ✅ `codex mcp add joycreator --url http://<phone>:<port>/mcp` (or a `[mcp_servers.joycreator]` table with `url` in `~/.codex/config.toml`); a token via `bearer_token_env_var`; needs Codex CLI 0.46 or later; the ChatGPT desktop app and IDE extension share this config | `codex exec` (to confirm, with its terms) | developers.openai.com/codex/mcp (10-28) |
 | OpenCode (power option) | MCP (to confirm the remote form) | **`opencode serve`**: a local HTTP server; `POST /session`, then `/session/:id/prompt_async`; password via `OPENCODE_SERVER_PASSWORD`; OpenAPI at `/doc` | opencode.ai/docs/server |
 | Hermes Agent (power option) | MCP client: stdio and remote http servers in `~/.hermes/config.yaml` | to find | hermes-agent.nousresearch.com/docs/user-guide/features/mcp |
 | Claude desktop / ChatGPT desktop | local MCP (to confirm) | the person types there | |
@@ -71,12 +71,40 @@ network. So: pairing only while the screen is open, a fresh token per pairing, o
 address accepted, Stop ends it; USB (`adb reverse`, the PC reaches the phone at localhost) for anyone on a shared
 network. Android kills background servers, so the bridge runs as a foreground service with its notification.
 
+## Setting it up by talking to Joybot (owner, 10-28)
+"So simple my grandma can use it." Connecting any AI (an API key, OpenRouter's free one, or Claude Code / Codex
+on a computer) is a conversation, not a settings page; ⚙ stays for power users.
+- Joybot asks: do you already pay for an AI? Which one (Claude, ChatGPT, something else, none)? Then explains the
+  choices in good news first: free (OpenRouter's free models: slower, fine for most things), your own key (pay as
+  you go, no markup from us), or your $20 plan through your computer (no key, uses what you already pay for).
+- **A key typed in the chat is caught on the phone before anything is sent**: it never reaches the AI, never
+  enters the conversation history, the message log, the bench or any file; it is sealed like `AiKey` and the
+  bubble shows only "key ending …1234 saved". Paste-detection by the providers' key shapes (`sk-or-`, `sk-ant-`,
+  `sk-`), plus "here's my key". Tested off-device with fake keys only.
+- Stage by stage with a check at each: key works (one free call) → model picked → "try asking me something".
+- Never takes over the person's Claude or ChatGPT login in our app; for a $20 plan he walks them through their
+  own computer instead (below).
+
+## The $20 plans: how people really connect (checked 10-28; these products change monthly, re-check before relying)
+| Plan | What they install | Sign in | Joy Creator's part |
+|---|---|---|---|
+| Claude Pro / Max | Claude Code on their computer | run `claude`, sign in with their claude.ai account in the browser (`/login`, `/status` to check; unset `ANTHROPIC_API_KEY` if set) | one `claude mcp add …` line (or a plugin) from the pairing screen. To talk from the phone: `claude remote-control` (`claude rc`) shows a QR to scan in the Claude app's Code tab: research preview, the docs say all plans; Team/Enterprise need an admin toggle |
+| ChatGPT Plus / Pro | Codex CLI (or the ChatGPT desktop app / IDE extension) | run `codex`, choose "Sign in with ChatGPT" | one `codex mcp add …` line from the pairing screen |
+Sources: code.claude.com/docs/en/remote-control, developers.openai.com Codex MCP docs, 10-28. Free Claude plans
+don't include Claude Code.
+
+## Tablets (owner, 10-28)
+Tablets have cameras, so **phone ↔ tablet** pairing is the QR's best use (Joy Creator on both: the tablet scans
+the phone's code); the PC path stays code + one copyable line until the desktop app has a webcam path.
+
 ## What is left
 - [x] Facts for Claude Code (10-28, docs; see the table). Still to confirm: `codex exec` and its terms,
       OpenCode's remote MCP form, a Hermes "talk" door.
 - [ ] Prove plain-http MCP from Claude Code to the Note 9 on the local network (a 20-line test server first).
 - [ ] Owner: ask Anthropic for written OK before Joybot starts a person's Claude Code (S17).
-- [ ] Spec with the pairing screens as a mix-and-match design page (the owner picks).
+- [ ] Spec with the pairing screens as a mix-and-match design page (the owner picks), including the
+      conversational setup and the tablet QR.
+- [ ] Conversational setup: key caught in the chat (pure-Java detector + tests first), then the walk-through.
 - [ ] Build the phone-side server (pure-Java protocol core + tests), then pairing, then the chat relay.
 - [ ] Phone + PC test with Claude Code and with Codex; STATE row; help topic.
 

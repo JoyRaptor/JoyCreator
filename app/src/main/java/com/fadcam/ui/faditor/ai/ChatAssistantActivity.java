@@ -197,6 +197,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
             if (r != null) room = IdeaEngine.Room.valueOf(r);
         } catch (IllegalArgumentException ignored) { }
         ideaMemory = new IdeaMemory(this);
+        com.fadcam.ui.faditor.ai.joybot.TipUsage.openedIn(this, room);
         // The conversation is kept while the app is open, one per project (or room): opening
         // Joybot about a different project shows that project's talk, never the last one's.
         chatKey = JoybotAgent.conversationKey(projectId, room);
@@ -843,14 +844,48 @@ public class ChatAssistantActivity extends AppCompatActivity {
     }
 
     private void showWelcome() {
+        // Every empty open teaches one thing, offline too (owner, 10-28): "Did you know…", leaning
+        // to the wings this person uses, then the idea buttons below.
+        com.fadcam.ui.faditor.ai.joybot.TipBook.Tip tip = com.fadcam.ui.faditor.ai.joybot.TipUsage.next(this);
+        String did = com.fadcam.ui.faditor.ai.joybot.TipBook.said(tip);
         if (!AiService.ready(this, apiKey)) {
             // Offline is not a lesser Joybot: everything the buttons do runs on the phone.
-            addBotMessage("Hi, I'm Joybot. Right here on the phone I can transcribe, add captions, "
-                    + "cut the ums and silences, add transitions and make slides — tap a button "
-                    + "below or tell me what you'd like.\n\nConnect an AI in ⚙ (there's a "
-                    + "free one) and I can take on anything you can describe.");
+            addBotMessage("Hi, I'm Joybot. " + did + "\n\nRight here on the phone I can transcribe, "
+                    + "add captions, cut the ums and silences, add transitions and make slides — tap a "
+                    + "button below. Connect an AI in ⚙ (there's a free one) and I can take on "
+                    + "anything you can describe.");
         } else {
-            addBotMessage("Hi, I'm Joybot. Tap a button below, or tell me what you'd like to make.");
+            addBotMessage("Hi, I'm Joybot. " + did + "\n\nTap a button below, or tell me what you'd like to make.");
+        }
+        addTakeMeThere(tip);
+    }
+
+    /** A small "Take me there" under the tip, at its right edge; none when the tip is about this room. */
+    private void addTakeMeThere(@NonNull com.fadcam.ui.faditor.ai.joybot.TipBook.Tip tip) {
+        if (tip.route == null || tip.route.equals(routeOfRoom(room))) return;
+        String where = tip.route;
+        LinearLayout row = new LinearLayout(this);
+        row.setGravity(android.view.Gravity.END);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.setMargins(dp(8), 0, dp(60), dp(4));
+        row.setLayoutParams(lp);
+        row.addView(JoybotChatViews.cardButton(this, "Take me there",
+                "Open the part of the app this tip is about", v -> route(where)));
+        messagesContainer.addView(row);
+        messageViews.add(row);
+    }
+
+    /** The route() name of the room Joybot was opened in, or null. */
+    @Nullable
+    private static String routeOfRoom(@NonNull IdeaEngine.Room r) {
+        switch (r) {
+            case STUDIO: return "studio";
+            case VISLAB: return "vislab";
+            case JOYBRUSH: return "joybrush";
+            case SPRITELAB: return "spritelab";
+            case LIBRARY: return IdeaEngine.ROUTE_LIBRARY;
+            default: return null;
         }
     }
 

@@ -356,8 +356,10 @@ public final class JoybotAgent {
                 run.go();
             } catch (Throwable t) {
                 FLog.e(TAG, "request failed", t);
-                String offline = ask.cancelled.get() ? null : NetCheck.words(NetCheck.of(app));
-                if (offline != null && (run.stalled || t instanceof IOException)) {
+                String problem = ask.cancelled.get() ? null : NetCheck.words(NetCheck.of(app));
+                if (problem != null && (run.stalled || t instanceof IOException)) {
+                    // ...and end on what still works, never on the bad news (owner, 10-28).
+                    String offline = TipBook.offlineHope(problem, TipUsage.next(app));
                     // "The AI service went quiet" blamed the service for the phone's own suspended
                     // line (Note 9, 10-28): say what is really wrong.
                     f.reply = offline;
@@ -481,9 +483,8 @@ public final class JoybotAgent {
         final java.util.Set<String> families = new java.util.LinkedHashSet<>();
 
         void go() throws Exception {
-            String offline = NetCheck.State.NONE == NetCheck.of(app) ? NetCheck.words(NetCheck.State.NONE) : null;
-            if (offline != null) {   // no Wi-Fi, no mobile data: no point waiting for a timeout (BOT-1, 10-28)
-                finish(false, offline);
+            if (NetCheck.State.NONE == NetCheck.of(app)) {   // no Wi-Fi, no mobile data: no point waiting for a timeout (BOT-1, 10-28)
+                finish(false, TipBook.offlineHope(NetCheck.words(NetCheck.State.NONE), TipUsage.next(app)));
                 return;
             }
             families.addAll(ToolRouter.pick(ask.text, ask.situation.room == IdeaEngine.Room.VISLAB,

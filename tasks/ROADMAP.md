@@ -127,7 +127,7 @@ One line per job. The card holds the detail. "Owner" is the session or harness t
 
 | ID | Job | State | Owner | Next step | Checked |
 |---|---|---|---|---|---|
-| [DOOR-1](jobs/DOOR-1_feature_map_audit.md) | Map every feature to the path a user takes to reach it; find the dead ends, the hidden pockets and the FadCam-shaped routes | ⬜ **start now** (read-only) | open | Write `tasks/audits/feature_reach_<date>.md` | 10-27 |
+| [DOOR-1](jobs/DOOR-1_feature_map_audit.md) | Map every feature to the path a user takes to reach it; find the dead ends, the hidden pockets and the FadCam-shaped routes | ✅ report written 10-28, lead to review | Sonnet Worker 1 | [tasks/audits/feature_reach_20261028.md](audits/feature_reach_20261028.md) | 10-28 |
 | [DOOR-2](jobs/DOOR-2_lobby_landing.md) | The lobby: clear at a glance whether you are here to draw, edit, visualise, animate or record; every room and button honest | ⬜ design can start; build after M1 | open | Mix-and-match design page from the existing design records | 10-27 |
 | [DOOR-3](jobs/DOOR-3_first_run.md) | First run: intro, permissions asked where they are used, folder step, a demo project | ⬜ | open | Needs S5 for the copy | 10-27 |
 | [DOOR-4](jobs/DOOR-4_interwoven.md) | Wings that hand work to each other (JoyBrush to an existing Studio project, VisLab and Studio, SpriteLab, the Library showing everything) | ⬜ partly built | open | Inventory from DOOR-1, then one flow at a time | 10-27 |

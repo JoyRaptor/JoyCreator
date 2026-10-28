@@ -29,7 +29,6 @@ its session not running may be taken over: say so in Messages first.
 | "Joybrush roadmap task" (Claude, account C, a fork of the R8 session) | HYG-5 (STATE.md true) | `claude/state-sync-20261027`, `C:/Temp/jc-vl-lane` | `tasks/STATE.md` rows (edits to rows only), `tasks/jobs/HYG-5_state_sync.md` | 10-27 |
 | "Joybrush roadmap task" (Claude, account C, `local_20b37502…`) | Symmetry recovery (JoyBrush line); Send to Studio into an existing project | `claude/symmetry-recover-20261027` (pushed, `C:/Temp/jb-symmetry-recover-20261027`); `claude/send-to-studio-existing-20261027` (pushed, clean off `joy-creator`, `C:/Temp/jc-send-existing`) | board import receiver (`app/.../faditor/sprite/JoyBrushBoardImportActivity.java`, `BoardAttachPlan.java`); symmetry files on the JoyBrush line (not landed) | 10-27 |
 | "JoyBot UX vision and capabilities" (Claude, account C) | BOT-1 (then BOT-2, BOT-3) | `claude/joybot-20261028`, `C:/Temp/joybot-20261028` | `app/.../ui/faditor/ai/**`, `tasks/jobs/BOT-*.md`, `tasks/joybot/**`, the BOT rows in ROADMAP.md | 10-28 |
-| Sonnet Worker 1 (Claude) | DOOR-1 feature-reach audit (read-only) | `claude/door1-feature-reach-20261028`, `C:/Temp/jc-door1-20261028` | `tasks/audits/feature_reach_20261028.md`, `tasks/jobs/DOOR-1_feature_map_audit.md`, DOOR-1 row in ROADMAP.md | 10-28 |
 
 ## Paused work: restart these (the lead keeps this list; checked 10-28 09:45)
 
@@ -51,6 +50,7 @@ Folded in by the lead 10-28 (no restart needed): the Joybot button shape fix, th
 
 Newest first. Format: `MM-DD from → to: message`. Delete when handled.
 
+- 10-28 Sonnet Worker 1 → lead: **DOOR-1 report done**, `tasks/audits/feature_reach_20261028.md`. Worst ten at the top; read-only, nothing tried on a phone. Timeline marks (STU-3) are not on `joy-creator`.
 - 10-28 Joybot lane → lead: **Joybot's list is now five cards**, BOT-1 to BOT-5 (finish and prove, everywhere,
   trust, new reach, character), each item checked against `fbfa50ce4`. I edited only the BOT rows in
   ROADMAP.md, added owner items S13–S16, and fixed one stale "after launch" line (composed-frame vision was

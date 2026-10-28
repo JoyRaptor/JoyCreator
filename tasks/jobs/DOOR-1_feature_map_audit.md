@@ -1,6 +1,8 @@
 # DOOR-1: Map how a user reaches every feature
 
-**Milestone:** M2  ·  **State:** ⬜ start now (read-only, cheap or mid model)  ·  **Owner:** open  ·  **Checked:** 2026-10-27
+**Milestone:** M2  ·  **State:** ✅ report written, lead to review  ·  **Owner:** Sonnet Worker 1  ·  **Checked:** 2026-10-28
+
+**Where it stands:** report done 10-28: [feature_reach_20261028.md](../audits/feature_reach_20261028.md) (worst ten at the top; read-only, nothing verified on a phone).
 
 ## Why it matters
 The owner's biggest worry: features hidden in pockets, paths that are fractured or still FadCam-shaped, and
@@ -8,10 +10,10 @@ a newcomer who cannot tell what the app is for. Before anyone redesigns the lobb
 every feature, the taps it takes from the lobby, and where the path is broken, hidden or misleading.
 
 ## Done when
-- [ ] `tasks/audits/feature_reach_<yyyymmdd>.md` exists, with one row per feature in STATE: the path from the lobby
+- [x] `tasks/audits/feature_reach_<yyyymmdd>.md` exists, with one row per feature in STATE: the path from the lobby
       (tap by tap), taps needed, whether a newcomer would find it, and a problem note.
-- [ ] A short "worst ten" list at the top: the most valuable features that are hardest to find, and the most misleading paths.
-- [ ] Every route that still goes through a FadCam-era screen (the old tabs Home, Records, Remote, the forensics "Lab") is flagged for [FREE-1](FREE-1_fadcam_inventory.md).
+- [x] A short "worst ten" list at the top: the most valuable features that are hardest to find, and the most misleading paths.
+- [x] Every route that still goes through a FadCam-era screen (the old tabs Home, Records, Remote, the forensics "Lab") is flagged for [FREE-1](FREE-1_fadcam_inventory.md).
 
 ## What we already know (verified in code 10-27)
 - The lobby is a router over the old FadCam tab screens: tab 0 Home (Capture), 1 Records (Library), 2 Remote,

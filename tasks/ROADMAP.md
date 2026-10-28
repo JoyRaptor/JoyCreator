@@ -98,7 +98,7 @@ One line per job. The card holds the detail. "Owner" is the session or harness t
 | [HYG-2](jobs/HYG-2_one_main_line.md) | One main line: JoyBrush's integrated work (159 commits on `lead/select-reconcile-20261024`) onto `joy-creator` | ⬜ | JoyBrush lead | The JoyBrush lead decides when its gates allow; the app on the phone lacks this work until then | 10-27 |
 | [HYG-3](jobs/HYG-3_cleanup.md) | Clean up: archive stale docs, remove tracked junk, audit about 156 worktrees and 256 local branches, OpenCode leftovers | ⬜ | open (cheap model for the inventory) | Inventory first; archive, never delete unique work | 10-27 |
 | [HYG-4](jobs/HYG-4_rename_folder.md) | Rename the project folder away from "Screenrecorder/FadCam" | ✅ | lead | Done 10-27: moved, worktrees repaired, scripts repointed | 10-27 |
-| [HYG-5](jobs/HYG-5_state_sync.md) | Make STATE.md true: every shipped feature has a row, a proof level and a help mapping | ⬜ **high** | open | Audit STATE against the code and the last two weeks of commits | 10-27 |
+| [HYG-5](jobs/HYG-5_state_sync.md) | Make STATE.md true: every shipped feature has a row, a proof level and a help mapping | 🔨 first pass done 10-27 (app screens added, 4 stale rows fixed) | "Joybrush roadmap task" (account C) | Audit STATE against the code and the last two weeks of commits | 10-27 |
 
 ### M1 Every wing finished and polished
 

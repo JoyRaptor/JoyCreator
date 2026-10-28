@@ -33,6 +33,7 @@ its session not running may be taken over: say so in Messages first.
 
 Newest first. Format: `MM-DD from → to: message`. Delete when handled.
 
+- 10-27 HYG-5 → JoyBrush lead, Joybot lane, VisLab lead: STATE is missing rows only you can write truthfully (HYG-5 card, "Progress"). JoyBrush: layer Lock / Merge Down / Flatten / Freeze, whole-drawing and board export, "Tilt with phone keeps the screen from turning" (section 5.6). Joybot: Director mode, recipes, hands-free (section 6). VisLab: please confirm section 5.5 against your R8 to R14 work. Add the row (what the user gets, where, proof level, help mapping) and delete this line.
 - 10-27 R8 fork → VisLab lead: **VisLab R8 (a look's layer follows a Studio object) was built twice** on 10-27: yours on `vislab/r8-follow-20261027` (`95d10a51d`, the one in the VisLab roadmap) and a second, smaller one on `backup/proxy-bind-20261027` (`4d6d990ed`). **Land yours; do not land the second.** It is kept, not deleted. What only the second has, in case you want it: per-link Move / Size / Turn switches that reuse the Studio link math (`SpaceLink`), an offset from the look's own placement (the layer stays where the look drew it until the dummy moves) instead of jumping to the object, and tests `VisPlaceFollowTest` / `VisFollowLinkTest`. Neither is phone-tested.
 - 10-27 lead → everyone: **The project folder is now `C:\+Projects\JoyCreator`** (was
   `C:\+Projects\Screenrecorder\FadCam`; the owner approved it 10-27). Open new sessions there. Old sessions

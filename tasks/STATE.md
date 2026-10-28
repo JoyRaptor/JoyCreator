@@ -14,6 +14,7 @@ from a recovery check. Details:
 
 **Last full pass:** 2026-09-09 (historical; not a current whole-product audit).
 **Latest scoped refresh:** 2026-10-26 — JoyBrush feature families, cross-wing reuse map and mandatory update policy.
+**HYG-5 pass (partial), 2026-10-27:** new section 7.6 (the app screens restyled 10-16 to 10-20, which had no rows) and section 9 rows 8, 10, 11 and 12 corrected against the current code. Still to do (job card HYG-5): re-check every 🟡 and 🔴 row, the inherited "~" rows in sections 1 to 4, and ask the JoyBrush lead for its layer-operation rows.
 **Historical update:** 2026-09-16 evening — the puppet UI finish sweep (`tasks/PUPPET_FINISH_LEDGER.md`):
 nine dead knobs found and resolved, the tape made draggable, easing fitted from the recording, and
 three defects JoyRaptor reported on device. Also `tools/phone.sh deploy` / `doctor`, which exist
@@ -433,6 +434,26 @@ demo project, a display typeface. All listed in design record 07 with sizes.
 
 ---
 
+## 7.6 THE APP SCREENS, RESTYLED (2026-10-16 to 10-20)
+
+Built by the UI/UX session and checked by agents on the Note 9 (after-shots in `tasks/screens/after/`; handoffs
+`HANDOFF_STUDIO_UI_20261017.md` and `HANDOFF_STUDIO_UI_20261020.md`). **Agent-checked only: the owner has not accepted these**,
+so they stay 🟡 and are not to be promoted yet. Old screens are kept reachable behind a "Classic" link (Records, About, Settings, Studio list).
+
+| Feature | Level | Notes |
+|---|---|---|
+| **Library v2** — every kind of content in one place | 🟡 ✔ | `ui/library`. Kind chips with counts, search above the keyboard, a "shared in" filter, bands, grid or list, header buttons that cycle sort and view, and a Projects view with a New project pill (shared `NewProjectFlow`). The old Records tab stays as "Classic Records". Shots: `library_*.png`. Help mapping pending. |
+| **Settings hub v2** | 🟡 ✔ | `ui/settingshub`. Sections with jump chips, search above the keyboard, live status on rows, every classic row mapped to a destination. Classic settings stay under About. Shots: `settings_hub*.png`. Help mapping pending. |
+| **Recently Deleted v2** (Trash) | 🟡 ✔ | `ui/trash`. Project names and real thumbnails, one Trash for the whole folder, Undo on delete. Shot: `recently_deleted.png`. Help mapping pending. |
+| **Home recorder ("Bits"), Remote / Server Room, Smart Detection** restyled | 🟡 ✔ | `ui/home` (HomeRec*), `strings_remote.xml`, `forensics/ui/view/SlantChip`. Owner ruled Remote and Smart Detection are launch features. Landscape Home still old; see the handoff for the open items. |
+| **About** rebuilt | 🟡 ✔ | `ui/about` (AboutJoyFragment). "View source" still points at the original FadCam author: owner decision S9. Old About behind "Classic About". |
+| **JoyBot switch** replaces the FadCam avatar toggle everywhere | 🟡 ✔ | `ui/joybot`; old `AvatarToggleView` is deprecated, not removed (FREE-1). Shots: `joybot_switch_*.png`. |
+| Settings sub-screens, What's New, update sheets, mode popup, onboarding permissions page restyled | 🟡 | Audio, About and Watermark settings were looked at on the phone; What's New and the update sheets were **not** (10-17 handoff). Five legacy activities still ignore the theme (job UI-1). |
+| Lobby truth pass and placeholder pictures | 🟡 ✔ | Counts only camera and screen recordings; rooms and projects with no picture get a designed placeholder. Shots: `lobby_after_truth_pass.png`. |
+| Slanted ("sheared") chips on Library, Trash and Settings | 🟡 ✔ | The signature look; owner asked for a 15% narrower gap (done). |
+
+---
+
 ## 8. ONBOARDING AND IDENTITY
 
 | Feature | Level | Notes |
@@ -461,11 +482,11 @@ demo project, a display typeface. All listed in design record 07 with sizes.
 | 5 | ✅ **FIXED 2026-10-14**: 8 tool steps per message, then it stops and says so. Was: AI tool-calling loop has no depth cap | Medium — can hang | Reports, plausible |
 | 6 | ✅ **FIXED 2026-10-14**: 4096. Was: AI reply limit of 1024 tokens truncates edit instructions | Low, trivial fix | Reports |
 | 7 | ✅ **FIXED 2026-10-14**: now merge_transcripts (old name still accepted). Was: ai_merge_transcript has "ai" in the name and uses no AI | Cosmetic honesty | ✔ |
-| 8 | remove_silence is report-only for audio clips | Low | |
+| 8 | **remove_silence, ✔ checked 10-27:** on video clips it cuts (non-destructive, each cut can be tapped back); **on audio clips it still refuses** ("not yet via AI — use fix_audio or manual cut", `AIToolExecutor`). Was: report-only. | Low | ✔ code 10-27 |
 | 9 | Stranded drag-latch, second path — self-heals, fires occasionally | Low, watch only | LEDGER 2b |
-| 10 | No automated tests at all — app/src/test does not exist | Structural risk | ✔ |
-| 11 | **Saved sprite animations are write-only.** The resolver plays them; no screen lists them. A sheet imported with ten named animations shows zero. | High — makes the whole SpriteLab pipeline dead-end | ✔ 2026-09-10 |
-| 12 | **Cell names are write-only**, and `Cell.tags[]` has never been written at all. Blocks every AI capability that would reason about what is drawn on a sheet. | Medium — blocks SPEC_20260910_SEMANTIC_CELLS | ✔ 2026-09-10 |
+| 10 | **Automated tests, ✔ re-counted 10-27:** the old claim "no automated tests at all" is wrong. There are 65 JVM harness scripts (`tools/jvm-harness/run-*.sh`, 111 test files) and 386 test files in the JoyBrush modules. What is still true: the Studio app module has no `app/src/test` folder, so Studio code is checked only through the harness. | Structural risk, reduced | ✔ count 10-27 |
+| 11 | ✅ **FIXED 2026-09-13** (617cf316d, re-checked in code 10-27): the Sprite palette lists saved animations as animated chips (`SpritePalettePanel`, `AnimChipView`). Was: saved sprite animations were write-only. | ~~High~~ | ✔ |
+| 12 | **Cell names, ✔ re-checked 10-27:** the palette now reads them (`sheet.cellName`), and Joybot's `label_sprite_cells` writes them (tool exists since 08-07). `Cell.tags[]` is stored in the sheet but I found nothing in the AI tools that writes it (only `ai/` was searched). Still blocks the tag half of SPEC_20260910_SEMANTIC_CELLS. | Medium | ✔ |
 | 13 | **Sprite sheets live inside `project.json`**, so a character perfected in one project does not exist in the next. Same wound as THE VAULT: an asset trapped in composition scope. The B-roll bucket and `AvatarLibrary` already show the right pattern. | Medium — reuse, and it gets worse with users | ✔ 2026-09-10 |
 
 ---

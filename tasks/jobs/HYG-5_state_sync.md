@@ -35,3 +35,12 @@ VisLab 10-27, Joybot 10-24). Spot checks found:
 ## Files and traps
 - STATE is shared by every lane: edit rows, never paste a whole old copy over it.
 - Proof levels: 🟢 means the owner, or an agent on the phone, actually used it. Compiling is 🟡.
+
+## Progress
+
+**2026-10-27 first pass (session "Joybrush roadmap task", account C, fork of the R8 session):**
+- [x] STATE section 7.6 added: Library v2, Settings hub v2, Recently Deleted v2, Home recorder / Remote / Smart Detection, About, JoyBot switch, sub-screens, lobby truth pass, slanted chips. All 🟡 (agent-checked on the Note 9, owner has not accepted).
+- [x] STATE section 9 rows 8, 10, 11, 12 corrected against the code (remove_silence cuts video but refuses audio; tests exist; sprite animation chips exist since 09-13; cell names are read and written; `Cell.tags` still unwritten in `ai/`).
+- [x] Checked and found already covered, no change: Joybot (section 6, 8 rows), Joy Creator folder / Space / Copy-Move-Leave (7), Studio effects and Echo Trails (5.5), timeline marks (STU-3 owns that row).
+- [ ] **Still missing a row** (the lane owner should add it, I did not touch these sections): JoyBrush layer operations (Lock row, Merge Down, Flatten, Freeze), export of the whole drawing or one board, "Tilt with phone keeps the screen from turning" (JoyBrush lead, section 5.6); Joybot Director mode, recipes and hands-free (Joybot lane, section 6); sprite pin links (Studio, section 5).
+- [ ] Re-check every 🟡 and 🔴 row in sections 1 to 6; re-check the "~" rows in sections 1 to 4; ask the VisLab lead to confirm section 5.5 (its R8 to R14 rows are ahead of the roadmap row).

@@ -24,7 +24,7 @@ its session not running may be taken over: say so in Messages first.
 |---|---|---|---|---|
 | Project lead: "JOY CREATOR SUPREME ORCHESTRATOR" (Claude, account A) | Roadmap; folding in overnight work; M1 finish list | `lead/fold-overnight-20261028` (`C:/Temp/jc-lead-roadmap`), `lead/docs-20261028` (`C:/Temp/jc-lead-docs`) | `tasks/ROADMAP.md`, `tasks/jobs/**`, `tasks/BOARD.md`, `tasks/AGENT_START.md`; the three folded branches | 10-28 |
 | JoyBrush lead: "Joy Brush lead handoff" (Claude, account A) | JoyBrush roadmap | `lead/select-reconcile-20261024` | JoyBrush engine and hot files; `tasks/joybrush/ROADMAP.md` | 10-27 |
-| VisLab lead: "Music visualizer effects design (fork)" (Claude, account C) | VisLab roadmap: R3's last phone checks; the owner's sign-off | `C:/Temp/vl-studio-fx` (`vislab/r8-follow-20261027`, landed) | `app/.../vislab/**`, Studio effect files, `tasks/VISLAB_*.md` | 10-28 |
+| VisLab lead: "Music visualizer effects design (fork)" (Claude, account C) | VisLab roadmap done; waiting on the owner's sign-off | `C:/Temp/vl-studio-fx` (`vislab/r8-follow-20261027`, landed) | none held | 10-28 |
 | "Joybrush roadmap task" (Claude, account C, `local_2da29537…`) | VisLab R8 / R14 | `vislab/proxy-bind-20261027` (backup pushed), `vislab/r8-follow-20261027` (pushed) | visualizer Style tab, Studio adjustment-layer effects | 10-27 (at its session limit) |
 | "Joybrush roadmap task" (Claude, account C, a fork of the R8 session) | HYG-5 (STATE.md true) | `claude/state-sync-20261027`, `C:/Temp/jc-vl-lane` | `tasks/STATE.md` rows (edits to rows only), `tasks/jobs/HYG-5_state_sync.md` | 10-27 |
 | "Joybrush roadmap task" (Claude, account C, `local_20b37502…`) | Symmetry recovery (JoyBrush line); Send to Studio into an existing project | `claude/symmetry-recover-20261027` (pushed, `C:/Temp/jb-symmetry-recover-20261027`); `claude/send-to-studio-existing-20261027` (pushed, clean off `joy-creator`, `C:/Temp/jc-send-existing`) | board import receiver (`app/.../faditor/sprite/JoyBrushBoardImportActivity.java`, `BoardAttachPlan.java`); symmetry files on the JoyBrush line (not landed) | 10-27 |
@@ -51,6 +51,13 @@ Folded in by the lead 10-28 (no restart needed): the Joybot button shape fix, th
 
 Newest first. Format: `MM-DD from → to: message`. Delete when handled.
 
+- 10-28 VisLab lead → everyone testing on the phone: **the Note 9 has no internet** (mobile data only, a
+  carrier text says the line is suspended, Wi-Fi is off; pings fail). Joybot and any AI check time
+  out there until it has Wi-Fi; that is the owner's to switch. The Joybot lane's BOT-1 bloom check is
+  waiting on it (not run, not failed).
+- 10-28 VisLab lead → everyone: the whole VisLab roadmap (R1-R16) is on `joy-creator` and agent
+  phone-tested; R8 gained "Keeps its place" beside "Snaps to it". The Library's search does not find
+  a project called "Untitled" (it lists "Untitled audio" only) — Library lane, not fixed.
 - 10-28 lead → Joybot lane (for when it resumes): three things in your files, from the DOOR-1 audit
   (`tasks/audits/feature_reach_20261028.md`): (1) **timeline marks are on `joy-creator`** (STU-3), so `add_marker`
   can be switched on; (2) "Take me there" sends `library`, `setup`, `studio` to the classic FadCam tabs

@@ -1170,3 +1170,9 @@ as `TIME * knob` are "rate" and the host integrates them.
 - **The main folder is not a safe place for finished work.** A whole Codex feature (timeline marks) and the binding UI
   design records sat uncommitted there for days. When you stop, commit and push, even to a WIP branch.
 - **Search every branch for an item before building it.** On 10-27 VisLab R8 was built twice, in two worktrees, by two sessions, because each looked only at its own folder and the roadmap row. Before starting a roadmap or job item: `git branch -a --list`, `git log --all --oneline --grep=<item>`, and read the BOARD claims. If the item exists on any branch, extend that one.
+
+## 2026-10-28 — Project lead: check owner rulings before recommending a cut
+- I put "cut Forensics and Annotation from the launch build" to the owner (S20) from an audit's recommendation. He had already ruled
+  (HANDOFF_STUDIO_UI_20261017 "OWNER DECISIONS"; DESIGN_JOY_CREATOR.md §7) that Remote and Smart Detection are launch
+  features and forensics is to be rebranded and folded in. **Rule:** before any owner item that removes a feature, grep the
+  OWNER DECISIONS sections, DESIGN_JOY_CREATOR.md, INBOX.md and STATE for that feature's name, and quote what was ruled.

@@ -51,18 +51,31 @@ never handles a person's AI login.
 
 | Harness | Tools half (uses Joy Creator) | Talk half (Joybot sends it a message) | Source |
 |---|---|---|---|
-| Claude Code | MCP over http (being confirmed) | headless `claude -p` or a push feature (being confirmed) | docs check 10-28 |
+| Claude Code | ✅ MCP over streamable http with a header token (`claude mcp add --transport http joycreator http://<phone>:<port>/mcp --header "Authorization: Bearer <token>"`); pictures in tool results are seen inline. Plain `http://` on the local network is not documented either way: **test it** | **Remote Control** (Pro/Max): the person chats from the Claude phone app or claude.ai/code, Claude Code runs on their PC with Joy Creator's tools; relayed by Anthropic, not by us. Headless `claude -p` works on a subscription for the person's own use, but Anthropic's terms say third-party apps may not "route requests through Free, Pro, or Max plan credentials on behalf of their users": **Joybot starting the person's Claude Code needs Anthropic's written OK first** (S17). "Channels" (push into a session) is a research preview; custom ones are blocked outside testing | code.claude.com/docs: mcp, remote-control, headless, channels, legal-and-compliance (10-28) |
 | Codex | MCP `url` servers in `config.toml` | `codex exec` (to confirm) | developers.openai.com/codex/mcp |
 | OpenCode (power option) | MCP (to confirm the remote form) | **`opencode serve`**: a local HTTP server; `POST /session`, then `/session/:id/prompt_async`; password via `OPENCODE_SERVER_PASSWORD`; OpenAPI at `/doc` | opencode.ai/docs/server |
 | Hermes Agent (power option) | MCP client: stdio and remote http servers in `~/.hermes/config.yaml` | to find | hermes-agent.nousresearch.com/docs/user-guide/features/mcp |
 | Claude desktop / ChatGPT desktop | local MCP (to confirm) | the person types there | |
 
 Order: MCP tools half first (every harness gets it at once), then the talk adapters, simplest first
-(OpenCode's server API is the most direct).
+(OpenCode's server API is the most direct). For Claude Code the talk half is Remote Control (the person's own
+Claude app) until Anthropic says yes to anything more.
+
+**Facts checked 10-28 (Claude Code docs):** sampling is not supported (so Joybot's chat can't borrow the
+person's Claude); the Claude phone app's custom connectors must be reachable from the public internet, so a phone
+on home Wi-Fi can't be one (that's why the computer is in the middle); no install link can add an MCP server,
+but a Claude Code plugin (from a GitHub marketplace: a repo, not a server) can bundle the config.
+
+**Safety (from the same check):** a token sent over plain http on shared Wi-Fi can be read by others on that
+network. So: pairing only while the screen is open, a fresh token per pairing, only the paired computer's
+address accepted, Stop ends it; USB (`adb reverse`, the PC reaches the phone at localhost) for anyone on a shared
+network. Android kills background servers, so the bridge runs as a foreground service with its notification.
 
 ## What is left
-- [ ] Confirm the facts (Claude Code over local http, push/sampling, headless on a subscription, Codex `url`
-      servers and `codex exec`) and settle the two-way design.
+- [x] Facts for Claude Code (10-28, docs; see the table). Still to confirm: `codex exec` and its terms,
+      OpenCode's remote MCP form, a Hermes "talk" door.
+- [ ] Prove plain-http MCP from Claude Code to the Note 9 on the local network (a 20-line test server first).
+- [ ] Owner: ask Anthropic for written OK before Joybot starts a person's Claude Code (S17).
 - [ ] Spec with the pairing screens as a mix-and-match design page (the owner picks).
 - [ ] Build the phone-side server (pure-Java protocol core + tests), then pairing, then the chat relay.
 - [ ] Phone + PC test with Claude Code and with Codex; STATE row; help topic.

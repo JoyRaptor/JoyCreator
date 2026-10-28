@@ -86,6 +86,7 @@ Each of these needs the owner and nobody else. The lead's recommendation comes f
 | S14 | Joybot: an OpenRouter key on the PC for the live free-model test (or about $10 credit for four models) | Key in an environment variable, never in a file | [BOT-3](jobs/BOT-3_joybot_trust.md) |
 | S15 | Joybot defaults: paid picture model (FLUX.2 Klein ~1½¢ or Nano Banana ~4¢), ask before every paid picture, read replies aloud | Klein; always ask (a "don't ask under 5¢" switch); read-aloud off | [BOT-4](jobs/BOT-4_joybot_reach.md) |
 | S16 | Joybot: try him with your own voice (hands-free loop) and, when you have API credit, with OpenAI | | [BOT-1](jobs/BOT-1_joybot_owed.md) |
+| S17 | Joybot: ask Anthropic (in writing) whether Joy Creator may start a person's own Claude Code on their own computer, so they can talk to it from Joybot. Their terms forbid apps routing requests through Pro/Max plans "on behalf of their users"; this case isn't addressed | Ask before building that half; everything else in BOT-6 doesn't need it | [BOT-6](jobs/BOT-6_bring_your_own_ai.md) |
 
 ---
 

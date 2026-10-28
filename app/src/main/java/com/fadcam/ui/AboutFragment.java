@@ -93,10 +93,8 @@ public class AboutFragment extends BaseFragment {
         TextView appDescription = view.findViewById(R.id.app_description);
         MaterialCardView fadSecInfoCard = view.findViewById(R.id.fadsec_info_card);
         MaterialButton sourceCodeButton = view.findViewById(R.id.source_code_button);
-        MaterialButton donateButton = view.findViewById(R.id.donate_button);
         MaterialButton checkUpdatesButton = view.findViewById(R.id.check_updates_button);
         TextView emailText = view.findViewById(R.id.email_text);
-        TextView discordText = view.findViewById(R.id.discord_text);
         MaterialCardView privacyInfoCard = view.findViewById(R.id.privacy_info_card);
         ScrollView scrollView = view.findViewById(R.id.scroll_view);
 
@@ -159,13 +157,7 @@ public class AboutFragment extends BaseFragment {
         sourceCodeButton.setStrokeColor(ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.gray)));
         sourceCodeButton.setTextColor(ink());
         sourceCodeButton.setIconTint(ColorStateList.valueOf(ink()));
-        int gold = ContextCompat.getColor(requireContext(), R.color.gold);
-        int black = ContextCompat.getColor(requireContext(), R.color.black);
-        donateButton.setBackgroundTintList(ColorStateList.valueOf(gold));
-        donateButton.setTextColor(black);
-        donateButton.setIconTint(ColorStateList.valueOf(black));
         emailText.setTextColor(ink());
-        discordText.setTextColor(ink());
         privacyInfoCard.setCardBackgroundColor(colorDialog);
         privacyInfoCard.setStrokeColor(colorButton);
         LinearLayout privacyHeader = privacyInfoCard.findViewById(R.id.privacy_info_header);
@@ -226,14 +218,9 @@ public class AboutFragment extends BaseFragment {
                     .append("<font color='" + answerColorHex + "'>").append(answers[i]).append("</font><br><br>");
         }
         privacyInfoContent.setText(Html.fromHtml(qnaContent.toString(), Html.FROM_HTML_MODE_LEGACY));
-        sourceCodeButton.setOnClickListener(v -> openUrl("https://github.com/fadsec-lab/"));
-        donateButton.setOnClickListener(v -> {
-            KoFiSupportBottomSheet bottomSheet = new KoFiSupportBottomSheet();
-            bottomSheet.show(getParentFragmentManager(), "KoFiSupportBottomSheet");
-        });
+        sourceCodeButton.setOnClickListener(v -> openUrl("https://github.com/JoyRaptor/JoyCreator"));
         checkUpdatesButton.setOnClickListener(v -> checkForUpdates());
         emailText.setOnClickListener(v -> sendEmail());
-        discordText.setOnClickListener(v -> openUrl("https://discord.gg/kvAZvdkuuN"));
         setupPrivacyInfo(privacyInfoCard, scrollView);
         view.findViewById(R.id.check_updates_button).setOnClickListener(v -> checkForUpdates());
 
@@ -632,7 +619,6 @@ public class AboutFragment extends BaseFragment {
             
             // Apply to other UI elements
             MaterialButton sourceCodeButton = rootView.findViewById(R.id.source_code_button);
-            MaterialButton donateButton = rootView.findViewById(R.id.donate_button);
             MaterialButton checkUpdatesButton = rootView.findViewById(R.id.check_updates_button);
             
             if (sourceCodeButton != null) {
@@ -640,11 +626,6 @@ public class AboutFragment extends BaseFragment {
                 sourceCodeButton.setIconTint(ColorStateList.valueOf(Color.WHITE));
                 sourceCodeButton.setStrokeColor(ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.gray)));
                 sourceCodeButton.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.gray_button_filled)));
-            }
-            
-            if (donateButton != null) {
-                donateButton.setTextColor(Color.BLACK);
-                donateButton.setIconTint(ColorStateList.valueOf(Color.BLACK));
             }
             
             if (checkUpdatesButton != null) {

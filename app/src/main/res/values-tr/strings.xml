@@ -12,10 +12,8 @@
     ]]>
 </string>
     <string name="view_source_code">Kaynak Kodu Görüntüle</string>
-    <string name="buy_me_a_coffee">Bana bir kahve ısmarla ☕</string>
     <string name="contact">İletişim</string>
     <string name="send_email">E-posta gönder</string>
-    <string name="join_community">Yardım, fikir paylaşımı ve gelecek uygulama güncellemeleri için topluluğa katıl</string>
     <string name="privacy_information">Gizlilik Bilgileri</string>
     <string name="copyright_info"> 2024 https://fadcam.faded.dev\nGPL-3.0 lisansı altında</string>
     <string-array name="video_resolutions_keys">
@@ -109,7 +107,6 @@
     <string name="nav_settings">Ayarlar</string>
     <string name="nav_about">Hakkında</string>
     <string name="nav_remote">Uzaktan</string>
-    <string name="button_settings_readme">Beni Oku</string>
     <string name="setting_cam_title">Kamera Seçimi</string>
     <string name="note_cam_sele">Kamera seçin \n(Varsayılan: Arka)</string>
     <string name="button_settings_cam_back">Arka</string>
@@ -182,9 +179,7 @@
     <string name="dialog_welcome_title">Joy Creator\'e Hoş Geldiniz!</string>
     <string name="note_under_dev">Önemli: Bu uygulama şu anda geliştirme aşamasında. Yeni özellikler düzenli olarak ekleniyor.</string>
     <string name="stay_updated_title">Güncel Kalın:</string>
-    <string name="button_readme_github">GitHub Deposu</string>
     <string name="community_title">Topluluğumuza Katılın:</string>
-    <string name="discord_title">Discord Sunucusu</string>
     <string name="thankyou_msg">Joy Creator\'i kullandığınız için teşekkür ederiz!</string>
     <string name="settings_title">Ayarlar</string>
     <string name="array_watermark_time_fadcam">Joy Creator ile Zaman</string>
@@ -733,7 +728,6 @@
     <string name="setting_cloak_recents_title">Ekran Görüntüsünü Engelle ve Son Kullanılanlar\'da Gizle</string>
     <string name="setting_cloak_recents_switch">Önizlemeyi gizle</string>
     <string name="setting_cloak_recents_helper">Uygulama önizlemesini son kullanılanlar uygulamalarında gizler ve uygulama içinde ekran görüntüsünü engeller. Bu, hassas içeriğin yakalanmasını veya uygulama değiştiricide görünmesini önler.\n(Varsayılan: Devre Dışı)</string>
-    <string name="support_ko_fi">Bizi Ko-fi\'de destekleyin</string>
     <string name="version_format">v%s</string>
     <string name="update_sarcastic_heading">📦 Bakın hele, yine bir güncelleme...</string>
     <string name="update_version_arrow">  &gt;&gt;  </string>
@@ -854,46 +848,6 @@
     <string name="stream_notes_quality">• Yayın kalitesi (DÜŞÜK/ORTA/YÜKSEK/ULTRA), ağ sorunlarını önlemek için FPS sınırını ve bit hızını kontrol eder</string>
     <string name="stream_notes_resolution">• Yayın yönü ve çözünürlüğü normal kayıt ayarlarınızdan alınır (Video Ayarları → Çözünürlük ve Yön). Yayın boyutlarını değiştirmek için bunları ayarlayın</string>
     <string name="stream_notes_cellular">⚠️ Yalnızca WiFi sınırlaması: Hücresel ağlar gelen bağlantıları engeller. Herhangi bir ağdan (WiFi, LTE, her yerden) kesintisiz yayın için FadCam Pro+\'a yükseltin. Özel oluşturulmuş bağlantıyla dünyanın her yerinden yayın yapın—port yönlendirme yok, yönlendirici değişikliği yok, ağ kısıtlaması yok</string>
-    <string name="cloud_account_button_desc">FadSec Cloud</string>
-    <string name="cloud_button_label">FadSec Cloud</string>
-    <string name="cloud_button_title">FadSec Cloud</string>
-    <string name="cloud_account_title">FadSec Cloud</string>
-    <string name="cloud_account_link">Cihazı Bağla</string>
-    <string name="cloud_account_unlink">Cihazın Bağlantısını Kes</string>
-    <string name="cloud_account_connecting">Bağlanıyor…</string>
-    <string name="cloud_account_linked">Cihaz Bağlı</string>
-    <string name="cloud_account_not_linked">Bağlı Değil</string>
-    <string name="cloud_account_device_name_hint">Cihaz adını girin (örn. Telefonum)</string>
-    <string name="cloud_account_device_name_title">Cihazınızı Adlandırın</string>
-    <string name="cloud_account_device_name_desc">Bu ad, FadSec Cloud panonuzda görünecek</string>
-    <string name="cloud_account_device_id">Cihaz Kimliği</string>
-    <string name="cloud_account_link_success">Cihaz başarıyla bağlandı!</string>
-    <string name="cloud_account_link_failed">Cihaz bağlanamadı. Lütfen tekrar deneyin.</string>
-    <string name="cloud_account_unlink_confirm">Bu cihazın bağlantısını kesmek istediğinize emin misiniz?</string>
-    <string name="cloud_account_unlink_success">Cihazın bağlantısı kesildi</string>
-    <string name="cloud_account_webview_title">FadSec Cloud</string>
-    <string name="cloud_account_login_required">Cihazınızı bağlamak için lütfen giriş yapın</string>
-    <string name="cloud_account_helper_text">Hesabınızla bağlantıyı kesmek için bağlantıyı kaldırın. Farklı bir adla tekrar bağlayabilirsiniz.</string>
-    <string name="cloud_streaming_title">Bulut Akışı</string>
-    <string name="cloud_streaming_status_off">Yalnızca yerel akış</string>
-    <string name="cloud_streaming_status_on">FadSec Cloud\'a yükleniyor</string>
-    <string name="cloud_streaming_not_linked">Etkinleştirmek için önce cihazı bağlayın</string>
-    <string name="e2e_encryption_title">E2E Akış Şifrelemesi</string>
-    <string name="e2e_encryption_not_configured">Yapılandırılmamış — bulut akışını etkinleştirmek için yapılandırın</string>
-    <string name="e2e_encryption_configured">Yapılandırıldı — segmentler uçtan uca şifrelenir</string>
-    <string name="e2e_encryption_setup_title">E2E Şifreleme Şifresi Belirleyin</string>
-    <string name="e2e_encryption_setup_hint">FadSec ID şifrenizi girin</string>
-    <string name="e2e_encryption_setup_desc">FadSec ID şifreniz, akış şifreleme anahtarını oluşturmak için kullanılır. Bu, akışları görüntülemek için Joy Creator panosunda kullandığınız şifreyle eşleşmelidir.</string>
-    <string name="e2e_encryption_change_title">E2E Şifreleme Şifresini Değiştir</string>
-    <string name="streaming_mode_title">Akış Hedefi</string>
-    <string name="streaming_mode_local">Yerel Ağ</string>
-    <string name="streaming_mode_local_desc">Aynı WiFi\'daki cihazlara akış yapın</string>
-    <string name="streaming_mode_cloud">FadSec Cloud</string>
-    <string name="streaming_mode_cloud_desc">İnternet üzerinden her yere akış yapın</string>
-    <string name="streaming_mode_cloud_featured">ÖNE ÇIKAN</string>
-    <string name="streaming_mode_link_required">Etkinleştirmek için cihazı bağlayın</string>
-    <string name="streaming_mode_stream_url">Akış Adresi</string>
-    <string name="streaming_mode_helper">Kameranızı nasıl akış yapmak istediğinizi seçin</string>
     <string name="preview_dual_not_supported">Önizleme yalnızca ön/arka kameralarda çalışır</string>
     <string name="preview_enable_hint">Kamerayı uyandırmak için basılı tutun</string>
     <string name="preview_starting">Canlı önizleme başlatılıyor…</string>
@@ -920,8 +874,6 @@
     <string name="lab_hide_thumbnails_title">Gizli Mod</string>
     <string name="lab_hide_thumbnails_redacted">GİZLENDİ</string>
     <string name="lab_section_about">Hakkında</string>
-    <string name="home_sidebar_discord">Discord</string>
-    <string name="home_sidebar_discord_sub">Topluluğa Katıl</string>
     <string name="home_sidebar_copyright" translatable="false">© FadSec Lab 2024 – 2026</string>
     <string name="privacy_black_mode_title">Gizlilik Siyah Ekranı</string>
     <string name="privacy_black_mode_helper">Cihazınız uygulamayı arka planda kapatıyorsa, uygulamayı ön planda çalışır durumda tutmak için bu özelliği kullanabilirsiniz.\n\nKayıt devam ederken ekranın kapalı görünmesini sağlayan siyah bir ekran katmanı görünür.\n\nEtkinleştirmek için Ana Sayfa sekmesinin üst başlığındaki Joy Creator simgesine dokunun.</string>
@@ -1124,9 +1076,6 @@
     <string name="mini_apps_planned_shortcuts_desc">Herhangi bir Mini Uygulama\'ya Joy Creator\'i açmadan anında erişim için ana ekran kısayolları.\n\nMini Uygulamaları programlı olarak tetiklemek için intent tabanlı otomasyon desteği (Tasker, MacroDroid, vb.) — otomatik iş akışlarınızdan QR tarama, fener ve daha fazlasını kullanın.</string>
     <string name="app_name" translatable="false">Joy Creator</string>
     <string name="accessibility_thumbnail_progress">%1$d%% izlendi</string>
-    <string name="readme_github_subtitle">Kaynak kodu &amp; sürümler</string>
-    <string name="readme_discord_subtitle">Topluluğa katıl</string>
-    <string name="readme_website_subtitle">Resmî site</string>
     <string name="fadrec_start_screen_recording">Ekran Kaydını Başlat</string>
     <string name="fadrec_stop_screen_recording">Ekran Kaydını Durdur</string>
     <string name="fadrec_pause_screen_recording">Ekran Kaydını Duraklat</string>
@@ -1840,8 +1789,6 @@
 <string name="saf_permission_missing_dialog_message_for_start_recording">Kayıtları özel bir konuma kaydetmek için Joy Creator\'in seçilen klasöre erişmesi gerekir. İstendiğinde erişim izni verin.</string>
 <string name="grant_permission_button">İzin Ver</string>
 <string name="trash_auto_delete_picker_helper">Çöp\'teki öğelerin ne zaman otomatik silineceğini seçin.</string>
-<string name="kofi_description">Açıklama kod içinde ayarlanacak.</string>
-<string name="kofi_button_text">Bana bir Ko-fi ısmarla</string>
 <string name="kofi_footer_text">Made with    at FadSec Lab in   </string>
 <string name="choose_language">Dil Seç</string>
 <string name="onboarding_human_checkbox3">Gizlilik Politikası\'nı kabul ediyorum</string>
@@ -2124,29 +2071,6 @@
     <string name="delete_all">Tümünü Sil</string>
     <string name="new_project">Yeni Proje</string>
     <string name="delete">Sil</string>
-    <string name="fadcam_pro_title" translatable="false">FadCam Pro</string>
-    <string name="fadcam_pro_subtitle">Tam gizlilik için premium özellikler</string>
-    <string name="fadcam_pro_get_button">FadCam Pro\'yu Al</string>
-    <string name="fadcam_pro_free">Ücretsiz</string>
-    <string name="fadcam_pro_column_label" translatable="false">Pro</string>
-    <string name="fadcam_pro_proplus_label" translatable="false">Pro+</string>
-    <string name="fadcam_pro_lab_label" translatable="false">Lab</string>
-    <string name="fadcam_pro_plus_label" translatable="false">Pro</string>
-    <string name="fadcam_pro_early_bird">🎉 23 Aralık 2025\'e kadar ücretsiz! Sonrasında, sadece $15 karşılığında ömür boyu erişim kazanın.</string>
-    <string name="fadcam_pro_paid_offer">23 Aralık 2025\'ten sonra, $15 karşılığında Ömür Boyu Erişim — tek seferlik ödeme, sonsuz güncellemeler.</string>
-    <string name="fadcam_pro_benefit_early_access">Erken erişim: Herkese açık sürümden önce en son sürümü alın</string>
-    <string name="fadcam_pro_benefit_lifetime_updates">Ömür boyu güncellemeler: Her zaman yeni özellikler, iyileştirmeler ve hata düzeltmeleri alın</string>
-    <string name="fadcam_pro_benefit_support">Anında destek: Discord üzerinden biletlerle doğrudan yardım</string>
-    <string name="fadcam_pro_coming_soon">Pro+ ve Lab özellikleri, özel simge yüklemeleri, özel uygulama adları ve FadDrive bulut senkronizasyonuyla çok yakında geliyor.</string>
-    <string name="fadcam_pro_support_message">FadCam her zaman reklamsız ve izlemesiz olarak ücretsiz kalacak. Tüm projeyi kendi başıma yürütüyorum ve bu sürekli zaman ve çalışma gerektiriyor. Pro\'ya yükseltmek (şu anda ücretsiz) geliştirmeyi desteklemeye yardımcı oluyor ve karşılığında tam ücretsiz sürümün üzerine Pro özellikleri aracılığıyla ek değer sunabiliyorum. Projeyi desteklediğiniz için teşekkürler :)</string>
-    <string name="fadcam_pro_separate_apk">Bağımsız uygulama • FadCam ile birlikte çalışır</string>
-    <string name="fadcam_pro_feature_everything_icon">Her Şey</string>
-    <string name="fadcam_pro_feature_everything">Her Şey</string>
-    <string name="fadcam_pro_feature_custom_icon">Özel Uygulama Simgesi</string>
-    <string name="fadcam_pro_feature_notification_icon">Bildirim Gizli Simgesi</string>
-    <string name="fadcam_pro_feature_user_icon">Kullanıcı Yüklemeli Simge</string>
-    <string name="fadcam_pro_feature_app_name">Özel Uygulama Adı</string>
-    <string name="fadcam_pro_feature_faddrive">FadDrive Bulut Senkronizasyonu</string>
     <string name="fadcam_pro_header_button">Pro</string>
     <string name="player_info_title">Video Oynatıcı Hakkında</string>
     <string name="player_info_content"><![CDATA[
@@ -2305,11 +2229,7 @@ En sorunsuz oynatma deneyimi için VLC gibi harici bir oynatıcı kullanabilirsi
     <string name="sidebar_update_available">Güncelleme Mevcut</string>
     <string name="sidebar_stable_release">Kararlı Sürüm</string>
     <string name="sidebar_beta_release">Beta Sürümü</string>
-    <string name="sidebar_fadcam_pro">FadCam Pro</string>
     <string name="badge_new">YENİ</string>
-    <string name="update_pro_title">FadCam Pro Güncellemesi</string>
-    <string name="update_pro_desc">Yeni bir FadCam Pro sürümü mevcut.\n\nÜcretsiz kullanıcılar için kararlı sürüm yaklaşık 60 gün sonra gelecek. Pro kullanıcıları güncellemeleri hemen alır.</string>
-    <string name="update_get_pro">FadCam Pro\'yu Al</string>
     <string name="update_maybe_later">Belki Sonra</string>
     <string name="update_beta_title">Beta Güncellemesi Mevcut</string>
     <string name="update_beta_desc">Joy Creator beta, kararlı sürümün yanına kurulabilen bağımsız bir uygulamadır. Kararlı uygulamanızı veya verilerini etkilemez.\n\nYeni özellikleri kararlı sürüme çıkmadan önce test etmek için beta sürümünü yükleyin.</string>
@@ -2325,7 +2245,6 @@ En sorunsuz oynatma deneyimi için VLC gibi harici bir oynatıcı kullanabilirsi
     <string name="fadmic_coming_soon">FadMic (Mikrofon Kaydı) çok yakında!</string>
     <string name="toast_stream_server_starting">Yayın sunucusu başlatılıyor...</string>
     <string name="toast_stream_server_stopped">Yayın sunucusu durduruldu</string>
-    <string name="toast_no_cloud_viewers">Bağlı bulut izleyici yok</string>
     <string name="toast_no_clients">Bağlı istemci yok</string>
     <string name="toast_device_id_copied">Cihaz kimliği kopyalandı</string>
     <string name="toast_endpoint_copied">Kopyalandı: %s</string>
@@ -2576,7 +2495,6 @@ En sorunsuz oynatma deneyimi için VLC gibi harici bir oynatıcı kullanabilirsi
     <string name="network_unknown">Bilinmiyor</string>
 
     <!-- ClientDataBottomSheet -->
-    <string name="client_cloud_viewers">Bulut İzleyiciler</string>
     <string name="client_active_clients">Aktif İstemciler</string>
     <string name="client_no_clients">Bağlı istemci yok</string>
 

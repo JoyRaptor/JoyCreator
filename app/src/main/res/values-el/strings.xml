@@ -7,14 +7,9 @@
     <string name="fadsec_info">Το Joy Creator είναι μέρος της σουίτας FadSec Lab. Για περισσότερες πληροφορίες, κάντε κλικ στην επιλογή «προβολή πηγαίου κώδικα» παρακάτω.</string>
     <string name="app_description">        <![CDATA[    Το Joy Creator είναι μια εφαρμογή εγγραφής βίντεο ανοιχτού κώδικα, χωρίς διαφημίσεις, που δίνει προτεραιότητα στην ιδιωτικότητα, καθώς δεν παρακολουθεί ούτε συλλέγει δεδομένα. Είναι διαθέσιμο αποκλειστικά στο GitHub και μέσω των επίσημων συνδέσμων που αναφέρονται στο README.    <br/><br/>    Το Joy Creator έχει παρουσιαστεί σε δημοφιλή κανάλια YouTube όπως τα <font color="#cfbafd">HowToMen</font> και <font color="#cfbafd">Xtream Droid</font>, καθώς και συζητήθηκε στα <font color="#cfbafd">GrapheneOS</font> και σε 55+ άλλα αξιόλογα σημεία.    ]]>    </string>
     <string name="view_source_code">Προβολή Πηγαίου Κώδικα</string>
-    <string name="buy_me_a_coffee">Κέρασέ με έναν καφέ ☕</string>
     <string name="contact">Επικοινωνία</string>
     <string name="send_email">Αποστολή email</string>
-    <string name="join_community">Εγγραφείτε στην κοινότητα για βοήθεια, κοινή χρήση ιδεών και μελλοντικές ενημερώσεις εφαρμογών</string>
-    <string name="readme_github_subtitle">Πηγαίος κώδικας &amp; εκδόσεις</string>
-    <string name="readme_discord_subtitle">Εγγραφείτε στην κοινότητα</string>
     <string name="website_title">Ιστοσελίδα</string>
-    <string name="readme_website_subtitle">Επίσημη ιστοσελίδα</string>
     <string name="privacy_information">Πληροφορίες Ιδιωτικότητας</string>
     <string name="copyright_info"> 2024-2025 https://fadcam.faded.dev\nLicensed under GPL-3.0</string>
     <string-array name="video_resolutions_keys">
@@ -439,7 +434,6 @@
     <string name="nav_remote">Απομακρυσμένη</string>
     <string name="nav_faditor_mini">Faditor</string>
     <string name="nav_lab">Εργαστήριο</string>
-    <string name="button_settings_readme">Διαβάστε με</string>
     <string name="setting_cam_title">Επιλογή Κάμερας</string>
     <string name="note_cam_sele">Επιλέξτε κάμερα\n(Προεπιλογή: Πίσω)</string>
     <string name="button_settings_cam_back">Πίσω</string>
@@ -602,9 +596,7 @@
     <string name="note_under_dev">Σημαντικό: Αυτή η εφαρμογή βρίσκεται υπό ανάπτυξη. Νέες λειτουργίες προστίθενται τακτικά.</string>
     <string name="full_changelog_info">Για το πλήρες αρχείο αλλαγών, μεταβείτε στην καρτέλα Αρχική και ανοίξτε το μενού χάμπουργκερ, στη συνέχεια επιλέξτε «Τι Νέο».</string>
     <string name="stay_updated_title">Μείνετε Ενημερωμένοι:</string>
-    <string name="button_readme_github">Αποθετήριο GitHub</string>
     <string name="community_title">Εγγραφείτε στην Κοινότητα:</string>
-    <string name="discord_title">Διακομιστής Discord</string>
     <string name="thankyou_msg">Σας ευχαριστούμε που χρησιμοποιείτε το Joy Creator!</string>
     <string name="settings_title">Ρυθμίσεις</string>
     <string name="array_watermark_time_fadcam">Ώρα με Joy Creator</string>
@@ -1309,9 +1301,6 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="video_split_size_summary_gb">Τρέχον: %1$s GB</string>
     <string name="video_splitting_title">Ενεργοποίηση Διαχωρισμού Βίντεο</string>
     <string name="video_splitting_description">Αυτόματος διαχωρισμός εγγραφών σε μικρότερα αρχεία.</string>
-    <string name="support_ko_fi">Υποστηρίξτε μας στο Ko-fi</string>
-    <string name="kofi_description">Η περιγραφή θα οριστεί στον κώδικα.</string>
-    <string name="kofi_button_text">Αγοράστε μου ένα Ko-fi</string>
     <string name="kofi_footer_text">Φτιαγμένο με στο FadSec Lab</string>
     <string name="setting_audio_input_source_title">Πηγή Εισόδου Ήχου</string>
     <string name="setting_audio_input_source_status_default">Μικρόφωνο Τηλεφώνου</string>
@@ -1833,29 +1822,6 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="new_project">Νέο Έργο</string>
     <string name="delete">Διαγραφή</string>
     <!-- FadCam Pro Strings -->
-    <string name="fadcam_pro_title">FadCam Pro</string>
-    <string name="fadcam_pro_subtitle">Λειτουργίες Premium</string>
-    <string name="fadcam_pro_get_button">Απόκτηση FadCam Pro</string>
-    <string name="fadcam_pro_free">Δωρεάν</string>
-    <string name="fadcam_pro_column_label">Pro</string>
-    <string name="fadcam_pro_proplus_label">Pro+</string>
-    <string name="fadcam_pro_lab_label">Lab</string>
-    <string name="fadcam_pro_plus_label">Pro</string>
-    <string name="fadcam_pro_early_bird">Δωρεάν έως 23 Δεκεμβρίου 2025!</string>
-    <string name="fadcam_pro_paid_offer">Ισόβια πρόσβαση για $15.</string>
-    <string name="fadcam_pro_benefit_early_access">Πρόωρη πρόσβαση σε νέες εκδόσεις</string>
-    <string name="fadcam_pro_benefit_lifetime_updates">Ισόβιες ενημερώσεις</string>
-    <string name="fadcam_pro_benefit_support">Άμεση υποστήριξη μέσω Discord</string>
-    <string name="fadcam_pro_coming_soon">Pro+ και Lab σύντομα.</string>
-    <string name="fadcam_pro_support_message">Το FadCam θα παραμείνει πάντα δωρεάν.</string>
-    <string name="fadcam_pro_separate_apk">Αυτόνομη εφαρμογή</string>
-    <string name="fadcam_pro_feature_everything_icon">Τα Πάντα</string>
-    <string name="fadcam_pro_feature_everything">Τα Πάντα</string>
-    <string name="fadcam_pro_feature_custom_icon">Προσαρμοσμένο Εικονίδιο</string>
-    <string name="fadcam_pro_feature_notification_icon">Διακριτικό Εικονίδιο Ειδοποίησης</string>
-    <string name="fadcam_pro_feature_user_icon">Εικονίδιο Χρήστη</string>
-    <string name="fadcam_pro_feature_app_name">Προσαρμοσμένο Όνομα</string>
-    <string name="fadcam_pro_feature_faddrive">FadDrive Cloud Sync</string>
     <string name="fadcam_pro_header_button">Pro</string>
     <!-- Video Player Info Bottom Sheet -->
     <string name="player_info_title">Σχετικά με τον Αναπαραγωγέα Βίντεο</string>
@@ -1956,49 +1922,9 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="stream_notes_cellular">⚠️ Περιορισμός μόνο WiFi: Τα δίκτυα κινητής τηλεφωνίας αποκλείουν τις εισερχόμενες συνδέσεις.</string>
     <string name="stream_notes_android14_screen">⚠️ Android 14+: Περιορισμός συστήματος αποτρέπει την εγγραφή όταν η οθόνη είναι κλειστή.</string>
     <!-- FadSec Cloud / Remote Streaming -->
-    <string name="cloud_account_button_desc">FadSec Cloud</string>
-    <string name="cloud_button_label">FadSec Cloud</string>
-    <string name="cloud_button_title">FadSec Cloud</string>
-    <string name="cloud_account_title">FadSec Cloud</string>
-    <string name="cloud_account_link">Σύνδεση Συσκευής</string>
-    <string name="cloud_account_unlink">Αποσύνδεση Συσκευής</string>
-    <string name="cloud_account_connecting">Σύνδεση…</string>
-    <string name="cloud_account_linked">Η Συσκευή Συνδέθηκε</string>
-    <string name="cloud_account_not_linked">Δεν Συνδέθηκε</string>
-    <string name="cloud_account_device_name_hint">Εισαγάγετε όνομα συσκευής (π.χ. Το Τηλέφωνό Μου)</string>
-    <string name="cloud_account_device_name_title">Ονομάστε τη Συσκευή σας</string>
-    <string name="cloud_account_device_name_desc">Αυτό το όνομα θα εμφανίζεται στον πίνακα ελέγχου FadSec Cloud</string>
-    <string name="cloud_account_device_id">Αναγνωριστικό Συσκευής</string>
-    <string name="cloud_account_link_success">Η συσκευή συνδέθηκε επιτυχώς!</string>
-    <string name="cloud_account_link_failed">Αποτυχία σύνδεσης συσκευής. Παρακαλούμε δοκιμάστε ξανά.</string>
-    <string name="cloud_account_unlink_confirm">Είστε σίγουροι ότι θέλετε να αποσυνδέσετε αυτήν τη συσκευή;</string>
-    <string name="cloud_account_unlink_success">Η συσκευή αποσυνδέθηκε</string>
-    <string name="cloud_account_webview_title">FadSec Cloud</string>
-    <string name="cloud_account_login_required">Παρακαλούμε συνδεθείτε για να συνδέσετε τη συσκευή σας</string>
-    <string name="cloud_account_helper_text">Αποσυνδέστε για αποσύνδεση από τον λογαριασμό σας.</string>
     <!-- Cloud Streaming -->
-    <string name="cloud_streaming_title">Cloud Streaming</string>
-    <string name="cloud_streaming_status_off">Ροή μόνο τοπικά</string>
-    <string name="cloud_streaming_status_on">Μεταφόρτωση στο FadSec Cloud</string>
-    <string name="cloud_streaming_not_linked">Συνδέστε πρώτα τη συσκευή</string>
     <!-- E2E Stream Encryption -->
-    <string name="e2e_encryption_title">Κρυπτογράφηση E2E Ροής</string>
-    <string name="e2e_encryption_not_configured">Δεν έχει ρυθμιστεί</string>
-    <string name="e2e_encryption_configured">Ρυθμίστηκε — τα τμήματα είναι κρυπτογραφημένα</string>
-    <string name="e2e_encryption_setup_title">Ορισμός Κωδικού Πρόσβασης Κρυπτογράφησης E2E</string>
-    <string name="e2e_encryption_setup_hint">Εισαγάγετε τον κωδικό πρόσβασης FadSec ID</string>
-    <string name="e2e_encryption_setup_desc">Ο κωδικός πρόσβασης FadSec ID χρησιμοποιείται για την παραγωγή του κλειδιού κρυπτογράφησης ροής.</string>
-    <string name="e2e_encryption_change_title">Αλλαγή Κωδικού Πρόσβασης Κρυπτογράφησης E2E</string>
     <!-- Streaming Mode Selector -->
-    <string name="streaming_mode_title">Προορισμός Ροής</string>
-    <string name="streaming_mode_local">Τοπικό Δίκτυο</string>
-    <string name="streaming_mode_local_desc">Ροή σε συσκευές στο ίδιο WiFi</string>
-    <string name="streaming_mode_cloud">FadSec Cloud</string>
-    <string name="streaming_mode_cloud_desc">Ροή οπουδήποτε μέσω διαδικτύου</string>
-    <string name="streaming_mode_cloud_featured">ΠΡΟΒΟΛΗ</string>
-    <string name="streaming_mode_link_required">Συνδέστε τη συσκευή για ενεργοποίηση</string>
-    <string name="streaming_mode_stream_url">URL Ροής</string>
-    <string name="streaming_mode_helper">Επιλέξτε πώς θέλετε να κάνετε ροή της κάμεράς σας</string>
     <!-- Fullscreen Preview -->
     <string name="fullscreen_preview_enter">Προεπισκόπηση Joy Creator</string>
     <string name="fullscreen_preview_close">Κλείσιμο πλήρους οθόνης</string>
@@ -2089,8 +2015,6 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="lab_hide_thumbnails_redacted">ΑΠΟΡΡΗΤΟ</string>
     <string name="lab_section_about">Σχετικά</string>
     <!-- Home sidebar branding -->
-    <string name="home_sidebar_discord">Discord</string>
-    <string name="home_sidebar_discord_sub">Εγγραφείτε στην κοινότητα</string>
     <string name="home_sidebar_copyright" translatable="false">© FadSec Lab 2024 – 2026</string>
     <!-- Privacy Black Mode Settings -->
     <string name="privacy_black_mode_title">Μαύρη Οθόνη Απορρήτου</string>
@@ -2472,15 +2396,11 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
 
     <string name="sidebar_beta_release">Beta Έκδοση</string>
 
-    <string name="sidebar_fadcam_pro">FadCam Pro</string>
 
     <string name="badge_new">ΝΕΟ</string>
 
-    <string name="update_pro_title">Ενημέρωση FadCam Pro</string>
 
-    <string name="update_pro_desc">Μια νέα έκδοση του FadCam Pro είναι διαθέσιμη.\n\nΓια τους δωρεάν χρήστες, η σταθερή έκδοση θα κυκλοφορήσει σε περίπου 60 ημέρες. Οι χρήστες Pro λαμβάνουν ενημερώσεις άμεσα.</string>
 
-    <string name="update_get_pro">Αποκτήστε το FadCam Pro</string>
 
     <string name="update_maybe_later">Ίσως Αργότερα</string>
 
@@ -2512,7 +2432,6 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
 
     <string name="toast_stream_server_stopped">Ο διακομιστής ροής σταμάτησε</string>
 
-    <string name="toast_no_cloud_viewers">Δεν υπάρχουν συνδεδεμένοι θεατές cloud</string>
 
     <string name="toast_no_clients">Δεν υπάρχουν συνδεδεμένοι πελάτες</string>
 
@@ -2777,7 +2696,6 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="network_unknown">Άγνωστο</string>
 
     <!-- ClientDataBottomSheet -->
-    <string name="client_cloud_viewers">Θεατές Cloud</string>
     <string name="client_active_clients">Ενεργοί Πελάτες</string>
     <string name="client_no_clients">Δεν υπάρχουν συνδεδεμένοι πελάτες</string>
 

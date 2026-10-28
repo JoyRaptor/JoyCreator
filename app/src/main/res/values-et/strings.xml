@@ -17,14 +17,9 @@
 
 
     <string name="view_source_code">Vaata lähtekoodi</string>
-    <string name="buy_me_a_coffee">Osta mulle kohvi ☕</string>
     <string name="contact">Kontakt</string>
     <string name="send_email">Saada e-kiri</string>
-    <string name="join_community">Liitu kogukonnaga abi saamiseks, ideede jagamiseks ja tulevaste rakenduse uuenduste jaoks</string>
-    <string name="readme_github_subtitle">Lähtekood ja väljalasked</string>
-    <string name="readme_discord_subtitle">Liitu kogukonnaga</string>
     <string name="website_title">Veebisait</string>
-    <string name="readme_website_subtitle">Ametlik sait</string>
     <string name="privacy_information">Privaatsusteave</string>
     <string name="copyright_info"> 2024-2025 https://fadcam.faded.dev\nLitsentseeritud GPL-3.0 alusel</string>
     <string-array name="video_resolutions_keys">
@@ -487,7 +482,6 @@
     <string name="nav_remote">Kaugjuhtimine</string>
     <string name="nav_faditor_mini">Faditor</string>
     <string name="nav_lab">Labor</string>
-    <string name="button_settings_readme">Loe mind</string>
     <string name="setting_cam_title">Kaamera valik</string>
     <string name="note_cam_sele">Vali kaamera \n(vaikimisi: Taga)</string>
     <string name="button_settings_cam_back">Taga</string>
@@ -645,9 +639,7 @@
     <string name="note_under_dev">Tähtis: See rakendus on hetkel arendamisel. Uusi funktsioone lisatakse regulaarselt.</string>
     <string name="full_changelog_info">Täieliku muudatuste logi jaoks ava avalehe vahekaart ja ava hamburgerimenüü, seejärel vali \"Mis on uut\".</string>
     <string name="stay_updated_title">Püsi kursis:</string>
-    <string name="button_readme_github">GitHubi hoidla</string>
     <string name="community_title">Liitu meie kogukonnaga:</string>
-    <string name="discord_title">Discordi server</string>
     <string name="thankyou_msg">Täname Joy Creator\'i kasutamast!</string>
     <string name="settings_title">Seaded</string>
     <string name="array_watermark_time_fadcam">Aeg FadCamiga</string>
@@ -1305,9 +1297,6 @@ Soovitatav: 192000 bps, 48000 Hz enamikele kasutajatele.</string>
     <string name="video_split_size_summary_gb">Praegune: %1$s GB</string>
     <string name="video_splitting_title">Luba video tükeldamine</string>
     <string name="video_splitting_description">Jagab salvestised automaatselt väiksemateks failideks (vaikimisi keelatud). Soovitatav: 2 GB tasakaalu jaoks. Eelseadistused kuni 4 GB ja kohandatud suurused on saadaval. See aitab hallata suuri salvestisi ja väldib seadme failisuuruse piiranguid.</string>
-    <string name="support_ko_fi">Toeta meid Ko-fi-s</string>
-    <string name="kofi_description">Kirjeldus määratakse koodis.</string>
-    <string name="kofi_button_text">Osta mulle Ko-fi</string>
     <string name="kofi_footer_text">Tehtud armastusega    FadSec Labis    </string>
     <string name="setting_audio_input_source_title">Heli sisendallikas</string>
     <string name="setting_audio_input_source_status_default">Telefoni mikrofon</string>
@@ -1781,29 +1770,6 @@ Soovitatav: 192000 bps, 48000 Hz enamikele kasutajatele.</string>
     <string name="delete_all">Kustuta kõik</string>
     <string name="new_project">Uus projekt</string>
     <string name="delete">Kustuta</string>
-    <string name="fadcam_pro_title">FadCam Pro</string>
-    <string name="fadcam_pro_subtitle">Premium funktsioonid täielikuks diskreetsuseks</string>
-    <string name="fadcam_pro_get_button">Hangi FadCam Pro</string>
-    <string name="fadcam_pro_free">Tasuta</string>
-    <string name="fadcam_pro_column_label">Pro</string>
-    <string name="fadcam_pro_proplus_label">Pro+</string>
-    <string name="fadcam_pro_lab_label">Lab</string>
-    <string name="fadcam_pro_plus_label">Pro</string>
-    <string name="fadcam_pro_early_bird">🎉 Tasuta kuni 23. detsembrini 2025! Pärast seda saa eluaegne ligipääs vaid 15 dollari eest.</string>
-    <string name="fadcam_pro_paid_offer">Pärast 23. detsembrit 2025 saa eluaegne ligipääs 15 dollari eest — ühekordne makse, igavesed uuendused.</string>
-    <string name="fadcam_pro_benefit_early_access">Varajane ligipääs: saa uusim versioon enne avalikku väljalaset</string>
-    <string name="fadcam_pro_benefit_lifetime_updates">Eluaegsed uuendused: saa alati uusi funktsioone, parendusi ja veaparandusi</string>
-    <string name="fadcam_pro_benefit_support">Kiire tugi: otsene abi piletite kaudu Discordi kaudu</string>
-    <string name="fadcam_pro_coming_soon">Pro+ ja Lab funktsioonid tulekul koos kohandatud ikoonide üleslaadimise, kohandatud rakendusenimede ja FadDrive pilve sünkroonimisega.</string>
-    <string name="fadcam_pro_support_message">FadCam jääb alati tasuta, ilma reklaamide ja jälgimiseta. Ma haldan kogu projekti üksi ja see nõuab pidevat aega ja tööd. Pro versioonile üleminek (hetkel tasuta) aitab arendust toetada ja vastutasuks saan pakkuda lisaväärtust Pro funktsioonide kaudu lisaks täielikule tasuta versioonile. Täname projekti toetamise eest :)</string>
-    <string name="fadcam_pro_separate_apk">Iseseisev rakendus • töötab koos FadCam\'iga</string>
-    <string name="fadcam_pro_feature_everything_icon">Kõik</string>
-    <string name="fadcam_pro_feature_everything">Kõik</string>
-    <string name="fadcam_pro_feature_custom_icon">Kohandatud rakenduse ikoon</string>
-    <string name="fadcam_pro_feature_notification_icon">Diskreetne teavituse ikoon</string>
-    <string name="fadcam_pro_feature_user_icon">Kasutaja üleslaaditud ikoon</string>
-    <string name="fadcam_pro_feature_app_name">Kohandatud rakenduse nimi</string>
-    <string name="fadcam_pro_feature_faddrive">FadDrive pilve sünkroonimine</string>
     <string name="fadcam_pro_header_button">Pro</string>
     <string name="player_info_title">Videoesitaja teave</string>
     <string name="player_info_content"><![CDATA[
@@ -1890,46 +1856,6 @@ Sujuvama esitamise kogemuse jaoks saad kasutada välist esitajat nagu VLC. Siisk
     <string name="stream_notes_resolution">• Voo suund ja eraldusvõime võetakse sinu tavalistest salvestusseadetest (Video seaded → Eraldusvõime ja suund). Kohanda neid, kui soovid muuta voo mõõtmeid</string>
     <string name="stream_notes_cellular">⚠️ Ainult WiFi piirang: Mobiilivõrgud blokeerivad sissetulevad ühendused. Sujuvaks voogedastuseks mis tahes võrgust (WiFi, LTE, kõikjal), uuenda FadCam Pro+-le. Voogedasta üle maailma privaadse genereeritud lingiga — ilma pordi suunamiseta, ilma ruuteri muudatusteta, ilma võrgupiiranguteta</string>
     <string name="stream_notes_android14_screen">⚠️ Android 14+: Süsteemi piirang takistab salvestamist, kui ekraan on välja lülitatud. Töölahendused: (1) Luba \"Musta ekraani režiim\" seadetes → Turvalisus, või (2) Keela ekraani lukustus (ilma PIN/parool/sõrmejäljeta). Mõlemad võimaldavad sujuvat kaugsalvestamist</string>
-    <string name="cloud_account_button_desc">FadSec Cloud</string>
-    <string name="cloud_button_label">FadSec Cloud</string>
-    <string name="cloud_button_title">FadSec Cloud</string>
-    <string name="cloud_account_title">FadSec Cloud</string>
-    <string name="cloud_account_link">Linki seade</string>
-    <string name="cloud_account_unlink">Eemalda linkimine</string>
-    <string name="cloud_account_connecting">Ühendamine…</string>
-    <string name="cloud_account_linked">Seade lingitud</string>
-    <string name="cloud_account_not_linked">Pole lingitud</string>
-    <string name="cloud_account_device_name_hint">Sisesta seadme nimi (nt Minu telefon)</string>
-    <string name="cloud_account_device_name_title">Nimeta oma seade</string>
-    <string name="cloud_account_device_name_desc">See nimi kuvatakse sinu FadSec Cloudi töölaual</string>
-    <string name="cloud_account_device_id">Seadme ID</string>
-    <string name="cloud_account_link_success">Seade edukalt lingitud!</string>
-    <string name="cloud_account_link_failed">Seadme linkimine nurjus. Palun proovi uuesti.</string>
-    <string name="cloud_account_unlink_confirm">Kas oled kindel, et soovid selle seadme linkimise eemaldada?</string>
-    <string name="cloud_account_unlink_success">Seadme linkimine eemaldatud</string>
-    <string name="cloud_account_webview_title">FadSec Cloud</string>
-    <string name="cloud_account_login_required">Palun logi sisse, et linkida oma seade</string>
-    <string name="cloud_account_helper_text">Eemalda linkimine, et katkestada ühendus oma kontoga. Saad linkida uuesti teise nimega.</string>
-    <string name="cloud_streaming_title">Pilve voogedastus</string>
-    <string name="cloud_streaming_status_off">Ainult kohalik voogedastus</string>
-    <string name="cloud_streaming_status_on">Üleslaadimine FadSec Cloudi</string>
-    <string name="cloud_streaming_not_linked">Linki esmalt seade, et lubada</string>
-    <string name="e2e_encryption_title">Otspunktkrüpteerimine</string>
-    <string name="e2e_encryption_not_configured">Pole seadistatud — seadista pilve voogedastuse lubamiseks</string>
-    <string name="e2e_encryption_configured">Seadistatud — segmendid on otspunktkrüpteeritud</string>
-    <string name="e2e_encryption_setup_title">Määra otspunktkrüpteerimise parool</string>
-    <string name="e2e_encryption_setup_hint">Sisesta oma FadSec ID parool</string>
-    <string name="e2e_encryption_setup_desc">Sinu FadSec ID parooli kasutatakse voo krüpteerimisvõtme tuletamiseks. See peab vastama paroolile, mida kasutad FadCami töölaual voogude vaatamiseks.</string>
-    <string name="e2e_encryption_change_title">Muuda otspunktkrüpteerimise parooli</string>
-    <string name="streaming_mode_title">Voogedastuse sihtkoht</string>
-    <string name="streaming_mode_local">Kohalik võrk</string>
-    <string name="streaming_mode_local_desc">Voogedasta samas WiFi-s olevatesse seadmetesse</string>
-    <string name="streaming_mode_cloud">FadSec Cloud</string>
-    <string name="streaming_mode_cloud_desc">Voogedasta kõikjal interneti kaudu</string>
-    <string name="streaming_mode_cloud_featured">ESILE TÕSTETUD</string>
-    <string name="streaming_mode_link_required">Linki seade, et lubada</string>
-    <string name="streaming_mode_stream_url">Voogedastuse URL</string>
-    <string name="streaming_mode_helper">Vali, kuidas soovid oma kaamerat voogedastada</string>
     <string name="fullscreen_preview_enter">Joy Creator eelvaade</string>
     <string name="fullscreen_preview_close">Sulge täisekraan</string>
     <string name="fullscreen_preview_not_recording">Alusta esmalt salvestamist, et kasutada täisekraani eelvaadet</string>
@@ -2009,8 +1935,6 @@ Sujuvama esitamise kogemuse jaoks saad kasutada välist esitajat nagu VLC. Siisk
     <string name="lab_hide_thumbnails_title">Klassifitseeritud režiim</string>
     <string name="lab_hide_thumbnails_redacted">TSENSEERITUD</string>
     <string name="lab_section_about">Teave</string>
-    <string name="home_sidebar_discord">Discord</string>
-    <string name="home_sidebar_discord_sub">Liitu kogukonnaga</string>
     <string name="home_sidebar_copyright" translatable="false">© FadSec Lab 2024 – 2026</string>
     <string name="privacy_black_mode_title">Privaatsuse must ekraan</string>
     <string name="privacy_black_mode_helper">Kui sinu seade tapab rakenduse taustal, saad kasutada seda funktsiooni, et hoida rakendust esiplaanil töötamas.\n\nMusta ekraani ülekate ilmub, tehes sellest, nagu ekraan oleks välja lülitatud, samal ajal kui salvestamine jätkub.\n\nPuuduta Joy Creator ikooni avalehe vahekaardi ülemises päises, et seda aktiveerida.</string>
@@ -2374,15 +2298,11 @@ Sujuvama esitamise kogemuse jaoks saad kasutada välist esitajat nagu VLC. Siisk
 
     <string name="sidebar_beta_release">Beetaversioon</string>
 
-    <string name="sidebar_fadcam_pro">FadCam Pro</string>
 
     <string name="badge_new">UUS</string>
 
-    <string name="update_pro_title">FadCam Pro uuendus</string>
 
-    <string name="update_pro_desc">Saadaval on uus FadCam Pro versioon.\n\nTasuta kasutajatele jõuab stabiilne versioon ligikaudu 60 päeva pärast. Pro kasutajad saavad uuendusi kohe.</string>
 
-    <string name="update_get_pro">Hangi FadCam Pro</string>
 
     <string name="update_maybe_later">Võib-olla hiljem</string>
 
@@ -2414,7 +2334,6 @@ Sujuvama esitamise kogemuse jaoks saad kasutada välist esitajat nagu VLC. Siisk
 
     <string name="toast_stream_server_stopped">Voo server peatas</string>
 
-    <string name="toast_no_cloud_viewers">Pilvevaatajaid pole ühendatud</string>
 
     <string name="toast_no_clients">Kliente pole ühendatud</string>
 
@@ -2679,7 +2598,6 @@ Sujuvama esitamise kogemuse jaoks saad kasutada välist esitajat nagu VLC. Siisk
     <string name="network_unknown">Tundmatu</string>
 
     <!-- ClientDataBottomSheet -->
-    <string name="client_cloud_viewers">Pilvevaatajad</string>
     <string name="client_active_clients">Aktiivsed kliendid</string>
     <string name="client_no_clients">Kliente pole ühendatud</string>
 

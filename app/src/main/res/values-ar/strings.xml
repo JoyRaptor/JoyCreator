@@ -8,10 +8,8 @@
     تم عرض Joy Creator في قنوات يوتيوب الشهيرة <font color="#cfbafd">HowToMen</font> و <font color="#cfbafd">Xtream Droid</font>، وتم ذكره أيضًا في أنظمة <font color="#cfbafd">GrapheneOS</font> و+55 من الأنظمة الأخرى المعروفة.
     ]]>\n</string>
     <string name="view_source_code">عرض الشيفرة المصدرية</string>
-    <string name="buy_me_a_coffee">اشترِ لي قهوة ☕</string>
     <string name="contact">جهة الاتصال</string>
     <string name="send_email">إرسال بريد إلكتروني</string>
-    <string name="join_community">انضم إلى المجتمع للحصول على المساعدة، ومشاركة الأفكار، والحصول على تحديثات البرنامج</string>
     <string name="privacy_information">معلومات الخصوصية</string>
     <string name="copyright_info">© 2024 https://fadcam.faded.dev\nمرخص بموجب GPL-3.0</string>
     <string name="mainpage_storage_indicator" formatted="false">\n    <![CDATA[
@@ -54,7 +52,6 @@
     <string name="nav_records">الأشرطة</string>
     <string name="nav_settings">الإعدادات</string>
     <string name="nav_about">حول</string>
-    <string name="button_settings_readme">اقرأني</string>
     <string name="setting_quailty_title">جودة الفيديو</string>
     <string name="setting_location_title">معلومات موقع الهاتف</string>
     <string name="setting_cam_title">الكاميرا</string>
@@ -129,9 +126,7 @@
     <string name="note_under_dev">تنبيه هام: هذا البرنامج لا يزال في مرحلة التطوير. سيتم إضافة ميزات جديدة تدريجياً</string>
     <!-- removed: rencent_updates_title and upcoming_features_title (centralized changelog) -->
     <string name="stay_updated_title">ابقَ على اطلاع</string>
-    <string name="button_readme_github">مستودع GitHub</string>
     <string name="community_title">انضم إلى المجتمع الرسمي:</string>
-    <string name="discord_title">خادم Discord</string>
     <string name="thankyou_msg">شكرًا لك على استخدام Joy Creator!</string>
     <string name="settings_title">الإعدادات</string>
     <string name="array_watermark_time_fadcam">الوقت و"Joy Creator"</string>
@@ -487,13 +482,10 @@
 
     <string name="accessibility_thumbnail_progress">تمت مشاهدة %1$d%%</string>
 
-    <string name="readme_github_subtitle">الشيفرة المصدرية والإصدارات</string>
 
-    <string name="readme_discord_subtitle">انضم إلى المجتمع</string>
 
     <string name="website_title">الموقع الإلكتروني</string>
 
-    <string name="readme_website_subtitle">الموقع الرسمي</string>
 
     <string-array name="video_resolutions_keys">
         <item>7680x4320</item>
@@ -2407,11 +2399,8 @@
 
     <string name="trash_auto_delete_picker_helper">اختر متى يتم حذف العناصر في سلة المهملات تلقائيًا.</string>
 
-    <string name="support_ko_fi">ادعمنا على Ko-fi</string>
 
-    <string name="kofi_description">سيتم تعيين الوصف في الكود.</string>
 
-    <string name="kofi_button_text">اشترِ لي Ko-fi</string>
 
     <string name="kofi_footer_text">صُنع بـ    في FadSec Lab في   </string>
 
@@ -3073,51 +3062,28 @@
 
     <string name="delete">حذف</string>
 
-    <string name="fadcam_pro_title">FadCam Pro</string>
 
-    <string name="fadcam_pro_subtitle">ميزات مميزة للتقدير الكامل</string>
 
-    <string name="fadcam_pro_get_button">احصل على FadCam Pro</string>
 
-    <string name="fadcam_pro_free">مجاني</string>
 
-    <string name="fadcam_pro_column_label">Pro</string>
 
-    <string name="fadcam_pro_proplus_label">Pro+</string>
 
-    <string name="fadcam_pro_lab_label">Lab</string>
 
-    <string name="fadcam_pro_plus_label">Pro</string>
 
-    <string name="fadcam_pro_early_bird">🎉 مجاني حتى 23 ديسمبر 2025! بعد ذلك، احصل على وصول مدى الحياة مقابل 15$ فقط.</string>
 
-    <string name="fadcam_pro_paid_offer">بعد 23 ديسمبر 2025، احصل على وصول مدى الحياة مقابل 15$ — دفعة واحدة، تحديثات للأبد.</string>
 
-    <string name="fadcam_pro_benefit_early_access">الوصول المبكر: احصل على أحدث إصدار قبل الإصدار العام</string>
 
-    <string name="fadcam_pro_benefit_lifetime_updates">تحديثات مدى الحياة: استلم دائمًا الميزات الجديدة والتحسينات وإصلاحات الأخطاء</string>
 
-    <string name="fadcam_pro_benefit_support">دعم فوري: مساعدة مباشرة عبر التذاكر عبر Discord</string>
 
-    <string name="fadcam_pro_coming_soon">ميزات Pro+ و Lab قادمة قريبًا مع تحميلات أيقونات مخصصة وأسماء تطبيقات مخصصة ومزامنة سحابة FadDrive.</string>
 
-    <string name="fadcam_pro_support_message">سيظل FadCam مجانيًا دائمًا، بدون إعلانات وبدون تتبع. أدير المشروع بنفسي بالكامل، ويستغرق وقتًا وجهدًا مستمرًا. الترقية إلى Pro (مجاني حاليًا) تساعد في دعم التطوير، وفي المقابل أقدم قيمة إضافية من خلال ميزات Pro بالإضافة إلى النسخة المجانية الكاملة. شكرًا لدعمك للمشروع :)</string>
 
-    <string name="fadcam_pro_separate_apk">تطبيق مستقل • يعمل جنبًا إلى جنب مع FadCam</string>
 
-    <string name="fadcam_pro_feature_everything_icon">كل شيء</string>
 
-    <string name="fadcam_pro_feature_everything">كل شيء</string>
 
-    <string name="fadcam_pro_feature_custom_icon">أيقونة تطبيق مخصصة</string>
 
-    <string name="fadcam_pro_feature_notification_icon">أيقونة إشعار متحفظة</string>
 
-    <string name="fadcam_pro_feature_user_icon">أيقونة حمّلها المستخدم</string>
 
-    <string name="fadcam_pro_feature_app_name">اسم تطبيق مخصص</string>
 
-    <string name="fadcam_pro_feature_faddrive">مزامنة سحابة FadDrive</string>
 
     <string name="fadcam_pro_header_button">Pro</string>
 
@@ -3284,85 +3250,45 @@
 
     <string name="stream_notes_android14_screen">⚠️ Android 14+: قيد النظام يمنع التسجيل عند إطفاء الشاشة. الحلول: (1) فعّل \"وضع الشاشة السوداء\" في الإعدادات &gt; الأمان، أو (2) عطّل قفل الشاشة (بدون PIN/كلمة مرور/بصمة). كلاهما يسمح بالتسجيل عن بعد بسلاسة</string>
 
-    <string name="cloud_account_button_desc">سحابة FadSec</string>
 
-    <string name="cloud_button_label">سحابة FadSec</string>
 
-    <string name="cloud_button_title">سحابة FadSec</string>
 
-    <string name="cloud_account_title">سحابة FadSec</string>
 
-    <string name="cloud_account_link">ربط الجهاز</string>
 
-    <string name="cloud_account_unlink">إلغاء ربط الجهاز</string>
 
-    <string name="cloud_account_connecting">جارٍ الاتصال…</string>
 
-    <string name="cloud_account_linked">الجهاز مرتبط</string>
 
-    <string name="cloud_account_not_linked">غير مرتبط</string>
 
-    <string name="cloud_account_device_name_hint">أدخل اسم الجهاز (مثال: هاتفي)</string>
 
-    <string name="cloud_account_device_name_title">سمِّ جهازك</string>
 
-    <string name="cloud_account_device_name_desc">سيظهر هذا الاسم في لوحة تحكم سحابة FadSec</string>
 
-    <string name="cloud_account_device_id">معرف الجهاز</string>
 
-    <string name="cloud_account_link_success">تم ربط الجهاز بنجاح!</string>
 
-    <string name="cloud_account_link_failed">فشل ربط الجهاز. يرجى المحاولة مرة أخرى.</string>
 
-    <string name="cloud_account_unlink_confirm">هل أنت متأكد من رغبتك في إلغاء ربط هذا الجهاز؟</string>
 
-    <string name="cloud_account_unlink_success">تم إلغاء ربط الجهاز</string>
 
-    <string name="cloud_account_webview_title">سحابة FadSec</string>
 
-    <string name="cloud_account_login_required">يرجى تسجيل الدخول لربط جهازك</string>
 
-    <string name="cloud_account_helper_text">ألغِ الربط لفصل الاتصال بحسابك. يمكنك الربط مرة أخرى باسم مختلف.</string>
 
-    <string name="cloud_streaming_title">البث السحابي</string>
 
-    <string name="cloud_streaming_status_off">البث محليًا فقط</string>
 
-    <string name="cloud_streaming_status_on">جارٍ الرفع إلى سحابة FadSec</string>
 
-    <string name="cloud_streaming_not_linked">اربط الجهاز أولاً للتمكين</string>
 
-    <string name="e2e_encryption_title">تشفير البث E2E</string>
 
-    <string name="e2e_encryption_not_configured">غير مُعد — قم بالإعداد لتمكين البث السحابي</string>
 
-    <string name="e2e_encryption_configured">مُعد — المقاطع مشفرة من طرف إلى طرف</string>
 
-    <string name="e2e_encryption_setup_title">تعيين كلمة مرور تشفير E2E</string>
 
-    <string name="e2e_encryption_setup_hint">أدخل كلمة مرور FadSec ID</string>
 
-    <string name="e2e_encryption_setup_desc">تُستخدم كلمة مرور FadSec ID لاشتقاق مفتاح تشفير البث. يجب أن تطابق كلمة المرور التي تستخدمها في لوحة تحكم Joy Creator لعرض البث.</string>
 
-    <string name="e2e_encryption_change_title">تغيير كلمة مرور تشفير E2E</string>
 
-    <string name="streaming_mode_title">وجهة البث</string>
 
-    <string name="streaming_mode_local">الشبكة المحلية</string>
 
-    <string name="streaming_mode_local_desc">البث للأجهزة على نفس WiFi</string>
 
-    <string name="streaming_mode_cloud">سحابة FadSec</string>
 
-    <string name="streaming_mode_cloud_desc">البث من أي مكان عبر الإنترنت</string>
 
-    <string name="streaming_mode_cloud_featured">مميز</string>
 
-    <string name="streaming_mode_link_required">اربط الجهاز للتمكين</string>
 
-    <string name="streaming_mode_stream_url">عنوان URL للبث</string>
 
-    <string name="streaming_mode_helper">اختر كيفية بث الكاميرا</string>
 
     <string name="fullscreen_preview_enter">معاينة Joy Creator</string>
 
@@ -3522,9 +3448,7 @@
 
     <string name="lab_section_about">حول</string>
 
-    <string name="home_sidebar_discord">Discord</string>
 
-    <string name="home_sidebar_discord_sub">انضم إلى المجتمع</string>
 
     <string name="home_sidebar_copyright" translatable="false">© FadSec Lab 2024 – 2026</string>
 
@@ -4086,15 +4010,11 @@
 
     <string name="sidebar_beta_release">إصدار تجريبي</string>
 
-    <string name="sidebar_fadcam_pro">FadCam Pro</string>
 
     <string name="badge_new">جديد</string>
 
-    <string name="update_pro_title">تحديث FadCam Pro</string>
 
-    <string name="update_pro_desc">يتوفر إصدار جديد من FadCam Pro.\n\nللمستخدمين المجانيين، سيصل الإصدار المستقر بعد حوالي 60 يومًا. يتلقى مستخدمو Pro التحديثات فورًا.</string>
 
-    <string name="update_get_pro">احصل على FadCam Pro</string>
 
     <string name="update_maybe_later">ربما لاحقًا</string>
 
@@ -4126,7 +4046,6 @@
 
     <string name="toast_stream_server_stopped">تم إيقاف خادم البث</string>
 
-    <string name="toast_no_cloud_viewers">لا يوجد مشاهدون سحابيون متصلون</string>
 
     <string name="toast_no_clients">لا يوجد عملاء متصلون</string>
 
@@ -4384,7 +4303,6 @@
     <string name="network_unknown">غير معروف</string>
 
     <!-- ClientDataBottomSheet -->
-    <string name="client_cloud_viewers">المشاهدون السحابيون</string>
     <string name="client_active_clients">العملاء النشطون</string>
     <string name="client_no_clients">لا يوجد عملاء متصلون</string>
 

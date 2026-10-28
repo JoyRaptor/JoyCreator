@@ -106,8 +106,6 @@ final class SettingsCatalog {
                     row(SettingsKey.REMOTE, "cast", R.string.settingshub_remote,
                             R.string.settingshub_remote_desc, R.string.settingshub_remote_names)),
             new Section(R.string.settingshub_section_about, R.string.settingshub_chip_about, "info",
-                    row(SettingsKey.README, "menu_book", R.string.settingshub_readme,
-                            R.string.settingshub_readme_desc, R.string.settingshub_readme_names),
                     row(SettingsKey.WHATS_NEW, "new_releases", R.string.settingshub_whats_new,
                             R.string.settingshub_whats_new_desc, R.string.settingshub_whats_new_names),
                     row(SettingsKey.SHOW_INTRO, "waving_hand", R.string.settingshub_show_intro,

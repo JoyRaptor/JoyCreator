@@ -17,14 +17,9 @@
 
 
     <string name="view_source_code">Visualizza codice sorgente</string>
-    <string name="buy_me_a_coffee">Offrimi un caffè ☕</string>
     <string name="contact">Contatti</string>
     <string name="send_email">Invia email</string>
-    <string name="join_community">Unisciti alla community per aiuto, idee e futuri aggiornamenti dell\'app</string>
-    <string name="readme_github_subtitle">Codice sorgente e rilasci</string>
-    <string name="readme_discord_subtitle">Unisciti alla community</string>
     <string name="website_title">Sito web</string>
-    <string name="readme_website_subtitle">Sito ufficiale</string>
     <string name="privacy_information">Informazioni sulla privacy</string>
     <string name="copyright_info">© 2024-2025 https://fadcam.faded.dev\nSotto licenza GPL-3.0</string>
     <string-array name="video_resolutions_keys">
@@ -487,7 +482,6 @@
     <string name="nav_remote">Remoto</string>
     <string name="nav_faditor_mini">Faditor</string>
     <string name="nav_lab">Lab</string>
-    <string name="button_settings_readme">Leggimi</string>
     <string name="setting_cam_title">Selezione fotocamera</string>
     <string name="note_cam_sele">Seleziona fotocamera\n(Predefinita: Posteriore)</string>
     <string name="button_settings_cam_back">Posteriore</string>
@@ -645,9 +639,7 @@
     <string name="note_under_dev">Importante: Questa app è attualmente in sviluppo. Nuove funzionalità vengono aggiunte regolarmente.</string>
     <string name="full_changelog_info">Per il changelog completo, vai alla scheda Home e apri il menu hamburger, poi seleziona \"Novità\".</string>
     <string name="stay_updated_title">Resta aggiornato:</string>
-    <string name="button_readme_github">Repository GitHub</string>
     <string name="community_title">Unisciti alla nostra community:</string>
-    <string name="discord_title">Server Discord</string>
     <string name="thankyou_msg">Grazie per usare Joy Creator!</string>
     <string name="settings_title">Impostazioni</string>
     <string name="array_watermark_time_fadcam">Ora con Joy Creator</string>
@@ -1289,9 +1281,6 @@
     <string name="video_split_size_summary_gb">%1$d.%2$d GB</string>
     <string name="video_splitting_title">Divisione video</string>
     <string name="video_splitting_description">Divide automaticamente i video in segmenti più piccoli quando raggiungono una dimensione specificata. Questo aiuta la gestione dei file.</string>
-    <string name="support_ko_fi">Supporta su Ko-fi</string>
-    <string name="kofi_description">Se Joy Creator ti è utile, considera una donazione per supportare lo sviluppo.</string>
-    <string name="kofi_button_text">Supporta Ko-fi</string>
     <string name="kofi_footer_text">Grazie per il tuo supporto!</string>
     <string name="setting_audio_input_source_title">Sorgente ingresso audio</string>
     <string name="setting_audio_input_source_status_default">Usando sorgente predefinita</string>
@@ -1739,29 +1728,6 @@
     <string name="delete_all">Elimina tutto</string>
     <string name="new_project">Nuovo progetto</string>
     <string name="delete">Elimina</string>
-    <string name="fadcam_pro_title">FadCam Pro</string>
-    <string name="fadcam_pro_subtitle">Funzionalità premium</string>
-    <string name="fadcam_pro_get_button">Ottieni FadCam Pro</string>
-    <string name="fadcam_pro_free">Gratis</string>
-    <string name="fadcam_pro_column_label">Pro</string>
-    <string name="fadcam_pro_proplus_label">Pro+</string>
-    <string name="fadcam_pro_lab_label">Lab</string>
-    <string name="fadcam_pro_plus_label">Pro</string>
-    <string name="fadcam_pro_early_bird">Gratuito fino al 23 dicembre 2025!</string>
-    <string name="fadcam_pro_paid_offer">Accesso a vita per $15.</string>
-    <string name="fadcam_pro_benefit_early_access">Accesso anticipato</string>
-    <string name="fadcam_pro_benefit_lifetime_updates">Aggiornamenti a vita</string>
-    <string name="fadcam_pro_benefit_support">Supporto immediato</string>
-    <string name="fadcam_pro_coming_soon">Pro+ e Lab in arrivo.</string>
-    <string name="fadcam_pro_support_message">FadCam rimarrà gratuito, senza pubblicità e senza tracciamento.</string>
-    <string name="fadcam_pro_separate_apk">App autonoma</string>
-    <string name="fadcam_pro_feature_everything_icon">Tutto</string>
-    <string name="fadcam_pro_feature_everything">Tutto</string>
-    <string name="fadcam_pro_feature_custom_icon">Icona personalizzata</string>
-    <string name="fadcam_pro_feature_notification_icon">Icona notifica discreta</string>
-    <string name="fadcam_pro_feature_user_icon">Icona caricata</string>
-    <string name="fadcam_pro_feature_app_name">Nome app personalizzato</string>
-    <string name="fadcam_pro_feature_faddrive">Sincronizzazione FadDrive</string>
     <string name="fadcam_pro_header_button">Pro</string>
     <string name="player_info_title">Info lettore video</string>
     <string name="player_info_content">Codec supportati, risoluzione, bitrate, FPS.</string>
@@ -1841,46 +1807,6 @@
     <string name="stream_notes_resolution">Risoluzione più alta = bitrate maggiore.</string>
     <string name="stream_notes_cellular">Usa WiFi su cellulare.</string>
     <string name="stream_notes_android14_screen">Android 14+: serve autorizzazione.</string>
-    <string name="cloud_account_button_desc">Account cloud</string>
-    <string name="cloud_button_label">Cloud FadDrive</string>
-    <string name="cloud_button_title">Cloud</string>
-    <string name="cloud_account_title">Account cloud</string>
-    <string name="cloud_account_link">Collega account</string>
-    <string name="cloud_account_unlink">Scollega</string>
-    <string name="cloud_account_connecting">Connessione...</string>
-    <string name="cloud_account_linked">Account collegato</string>
-    <string name="cloud_account_not_linked">Account non collegato</string>
-    <string name="cloud_account_device_name_hint">Nome dispositivo</string>
-    <string name="cloud_account_device_name_title">Nome dispositivo</string>
-    <string name="cloud_account_device_name_desc">Identifica questo dispositivo</string>
-    <string name="cloud_account_device_id">ID dispositivo</string>
-    <string name="cloud_account_link_success">Account collegato</string>
-    <string name="cloud_account_link_failed">Collegamento fallito</string>
-    <string name="cloud_account_unlink_confirm">Scollegare account?</string>
-    <string name="cloud_account_unlink_success">Account scollegato</string>
-    <string name="cloud_account_webview_title">Accesso cloud</string>
-    <string name="cloud_account_login_required">Accesso richiesto</string>
-    <string name="cloud_account_helper_text">Collega per abilitare cloud streaming.</string>
-    <string name="cloud_streaming_title">Cloud streaming</string>
-    <string name="cloud_streaming_status_off">Disattivato</string>
-    <string name="cloud_streaming_status_on">Attivato</string>
-    <string name="cloud_streaming_not_linked">Collega prima l\'account</string>
-    <string name="e2e_encryption_title">Crittografia E2E</string>
-    <string name="e2e_encryption_not_configured">Non configurata</string>
-    <string name="e2e_encryption_configured">Configurata</string>
-    <string name="e2e_encryption_setup_title">Configura E2E</string>
-    <string name="e2e_encryption_setup_hint">Inserisci chiave</string>
-    <string name="e2e_encryption_setup_desc">La chiave crittografa lo stream.</string>
-    <string name="e2e_encryption_change_title">Cambia chiave E2E</string>
-    <string name="streaming_mode_title">Modalità streaming</string>
-    <string name="streaming_mode_local">Locale</string>
-    <string name="streaming_mode_local_desc">Streaming sulla rete locale</string>
-    <string name="streaming_mode_cloud">Cloud</string>
-    <string name="streaming_mode_cloud_desc">Streaming via cloud FadDrive</string>
-    <string name="streaming_mode_cloud_featured">In evidenza</string>
-    <string name="streaming_mode_link_required">Collega account</string>
-    <string name="streaming_mode_stream_url">URL stream</string>
-    <string name="streaming_mode_helper">Scegli la modalità di streaming.</string>
     <string name="fullscreen_preview_enter">Entra anteprima</string>
     <string name="fullscreen_preview_close">Chiudi anteprima</string>
     <string name="fullscreen_preview_not_recording">Non in registrazione</string>
@@ -1960,8 +1886,6 @@
     <string name="lab_hide_thumbnails_title">Nascondi miniature</string>
     <string name="lab_hide_thumbnails_redacted">Rimosse</string>
     <string name="lab_section_about">Informazioni</string>
-    <string name="home_sidebar_discord">Discord</string>
-    <string name="home_sidebar_discord_sub">Unisciti alla community</string>
     <string name="privacy_black_mode_title">Modalità nera</string>
     <string name="privacy_black_mode_helper">Schermo nero durante registrazione.</string>
     <string name="privacy_black_mode_enable_title">Abilita modalità nera</string>
@@ -2361,14 +2285,10 @@
 
     <string name="sidebar_beta_release">Versione beta</string>
 
-    <string name="sidebar_fadcam_pro">FadCam Pro</string>
 
     <string name="badge_new">NUOVO</string>
 
-    <string name="update_pro_title">Aggiornamento FadCam Pro</string>
-    <string name="update_pro_desc">Una nuova versione di FadCam Pro è disponibile.\n\nPer gli utenti gratuiti, la versione stabile arriverà dopo circa 60 giorni. Gli utenti Pro ricevono gli aggiornamenti immediatamente.</string>
 
-    <string name="update_get_pro">Ottieni FadCam Pro</string>
 
     <string name="update_maybe_later">Forse più tardi</string>
 
@@ -2399,7 +2319,6 @@
 
     <string name="toast_stream_server_stopped">Server streaming fermato</string>
 
-    <string name="toast_no_cloud_viewers">Nessun spettatore cloud connesso</string>
 
     <string name="toast_no_clients">Nessun client connesso</string>
 
@@ -2664,7 +2583,6 @@
     <string name="network_unknown">Sconosciuto</string>
 
     <!-- ClientDataBottomSheet -->
-    <string name="client_cloud_viewers">Spettatori cloud</string>
     <string name="client_active_clients">Client attivi</string>
     <string name="client_no_clients">Nessun client connesso</string>
 

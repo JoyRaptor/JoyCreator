@@ -44,7 +44,7 @@
         <FrameLayout android:id="@+id/segment_fadcam" android:layout_width="0dp" android:layout_height="28dp" android:layout_weight="1" android:layout_marginEnd="3dp" android:clickable="true" android:focusable="true"
             android:contentDescription="@string/capture_mode_camera"
             android:tooltipText="@string/capture_mode_camera"
-            android:nextFocusUp="@+id/btnGetPro"
+            android:nextFocusUp="@+id/ivAppTitle"
             android:nextFocusDown="@+id/rowCamera">
 
             <TextView android:id="@+id/text_fadcam" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center" android:fontFamily="@font/joy_body" android:importantForAccessibility="no" android:includeFontPadding="false" android:text="@string/capture_mode_camera" android:textColor="@color/s_ink_dim" android:textSize="11sp" />
@@ -54,7 +54,7 @@
         <FrameLayout android:id="@+id/segment_fadrec" android:layout_width="0dp" android:layout_height="28dp" android:layout_weight="1" android:layout_marginEnd="3dp" android:clickable="true" android:focusable="true"
             android:contentDescription="@string/capture_mode_screen"
             android:tooltipText="@string/capture_mode_screen"
-            android:nextFocusUp="@+id/btnGetPro"
+            android:nextFocusUp="@+id/ivAppTitle"
             android:nextFocusDown="@+id/rowCamera">
 
             <TextView android:id="@+id/text_fadrec" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center" android:fontFamily="@font/joy_body" android:importantForAccessibility="no" android:includeFontPadding="false" android:text="@string/capture_mode_screen" android:textColor="@color/s_ink_dim" android:textSize="11sp" />
@@ -67,7 +67,7 @@
         <FrameLayout android:id="@+id/segment_fadmic" android:layout_width="0dp" android:layout_height="28dp" android:layout_weight="1" android:clickable="true" android:focusable="true"
             android:contentDescription="@string/capture_mode_mic"
             android:tooltipText="@string/capture_mode_mic"
-            android:nextFocusUp="@+id/btnGetPro"
+            android:nextFocusUp="@+id/ivAppTitle"
             android:nextFocusDown="@+id/rowCamera">
 
             <TextView android:id="@+id/text_fadmic" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center" android:fontFamily="@font/joy_body" android:importantForAccessibility="no" android:includeFontPadding="false" android:text="@string/capture_mode_mic" android:textColor="@color/s_ink_dim" android:textSize="11sp" />

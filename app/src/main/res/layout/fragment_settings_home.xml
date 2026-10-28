@@ -103,76 +103,13 @@
             android:paddingTop="16dp"
             android:focusable="false">
 
-        <!-- README Section Header (new) -->
-        <TextView
-            android:id="@+id/header_readme"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:layout_marginTop="4dp"
-            android:layout_marginBottom="8dp"
-            android:text="@string/button_settings_readme"
-            android:textColor="?attr/sectionHeaderColor"
-            android:textStyle="bold"
-            android:fontFamily="@font/joy_body" />
-
-        <!-- README Group Card -->
-        <LinearLayout
-            android:id="@+id/group_card_readme"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:background="@drawable/settings_group_card_bg"
-
->
-
-            <LinearLayout
-                android:id="@+id/group_readme"
-                style="@style/SettingsGroupRow"
-                android:clickable="true"
-                android:focusable="true"
-                android:nextFocusUp="@+id/mode_selector_btn"
-                android:nextFocusDown="@+id/group_video_quick">
-                <ImageView
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:layout_marginEnd="16dp"
-                    android:src="@drawable/ic_info"
-                    android:tint="@color/s_ink_faint"/>
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/note_from_developer_title"
-                        android:textColor="?attr/colorHeading"
-                        android:fontFamily="@font/joy_body"
-                        android:textSize="14sp"/>
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/note_from_developer_subtitle"
-                        android:textColor="@color/s_ink_dim"
-                        android:textSize="12sp"/>
-                </LinearLayout>
-                <ImageView
-                    android:layout_width="14dp"
-                    android:layout_height="14dp"
-                    android:src="@drawable/ic_arrow_right"
-                    android:tint="@color/s_ink_faint"/>
-            </LinearLayout>
-        </LinearLayout>
-
         <!-- Recording Quick Access Section Header -->
         <TextView
             android:id="@+id/header_recording_quick_access"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
-            android:layout_marginTop="20dp"
+            android:layout_marginTop="4dp"
             android:layout_marginBottom="8dp"
             android:text="@string/recording_quick_access"
             android:textColor="?attr/sectionHeaderColor"
@@ -195,7 +132,7 @@
                 style="@style/SettingsGroupRow"
                 android:clickable="true"
                 android:focusable="true"
-                android:nextFocusUp="@+id/group_readme"
+                android:nextFocusUp="@+id/mode_selector_btn"
                 android:nextFocusDown="@+id/group_audio_quick">
                 <ImageView
                     android:layout_width="24dp"

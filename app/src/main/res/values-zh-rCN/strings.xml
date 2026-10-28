@@ -11,10 +11,8 @@
     Joy Creator 已在热门的 YouTube 频道中亮相，如 <font color="#cfbafd">HowToMen</font> 和 <font color="#cfbafd">Xtream Droid</font>，还在 <font color="#cfbafd">GrapheneOS</font> 及其他 55+ 著名平台上被讨论。
     ]]></string>
     <string name="view_source_code">查看源码</string>
-    <string name="buy_me_a_coffee">请我一杯咖啡 ☕</string>
     <string name="contact">联系方式</string>
     <string name="send_email">发送邮件</string>
-    <string name="join_community">加入社区获得帮助，分享点子以及获得软件更新</string>
     <string name="privacy_information">隐私须知</string>
     <string name="copyright_info">© 2024 https://fadcam.faded.dev\n特许 根据 GPL-3.0</string>
     <string name="mainpage_storage_indicator" formatted="false">\n    <![CDATA[
@@ -57,7 +55,6 @@
     <string name="nav_records">录制记录</string>
     <string name="nav_settings">设置</string>
     <string name="nav_about">关于</string>
-    <string name="button_settings_readme">使用须知</string>
     <string name="setting_quailty_title">视频分辨率</string>
     <string name="setting_location_title">位置信息</string>
     <string name="setting_cam_title">摄像头</string>
@@ -132,9 +129,7 @@
     <string name="dialog_welcome_title">欢迎使用FadCam！</string>
     <string name="note_under_dev">重要提示: 本软件仍处于开发阶段，新功能会逐步加入。</string>
     <string name="stay_updated_title">保持更新：</string>
-    <string name="button_readme_github">GitHub仓库</string>
     <string name="community_title">加入官方社区:</string>
-    <string name="discord_title">Discord服务器</string>
     <string name="thankyou_msg">感谢你使用FadCam!</string>
     <string name="settings_title">设置</string>
     <string name="array_watermark_time_fadcam">时间与\"Joy Creator\"字样</string>
@@ -457,10 +452,7 @@
     <string name="fix_video_saf_write_fail">无法将修复后的视频写入 SAF 文件夹。已保存到应用存储。</string>
     <string name="fix_video_saf_success">视频已修复！已保存为：%1$s。</string>
     <string name="fix_video_saf_export">如有需要，可从应用存储导出或分享修复后的视频。</string>
-    <string name="readme_github_subtitle">源代码与发布版本</string>
-    <string name="readme_discord_subtitle">加入社区</string>
     <string name="website_title">网站</string>
-    <string name="readme_website_subtitle">官方网站</string>
     <string name="help_section">帮助</string>
     <string name="recording_controls_title">对焦 · 曝光 · 变焦</string>
     <string name="mainpage_camera_front">前置摄像头</string>
@@ -760,9 +752,6 @@
     <string name="saf_permission_missing_dialog_message_for_start_recording">为将录制内容保存到自定义位置，Joy Creator 需要权限以访问您所选的文件夹。请在系统提示时授予访问权限。</string>
     <string name="grant_permission_button">授予权限</string>
     <string name="trash_auto_delete_picker_helper">选择何时自动删除垃圾箱中的项目。</string>
-    <string name="support_ko_fi">在 Ko-fi 上支持我们</string>
-    <string name="kofi_description">描述信息将由代码设置。</string>
-    <string name="kofi_button_text">请我喝杯咖啡 (Ko-fi)</string>
     <string name="kofi_footer_text">匠心打造于 FadSecLab</string>
     <string name="choose_language">选择语言</string>
     <string name="onboarding_human_checkbox3">我同意隐私政策</string>
@@ -1006,26 +995,6 @@
     <string name="delete_all">删除全部</string>
     <string name="new_project">新建项目</string>
     <string name="delete">删除</string>
-    <string name="fadcam_pro_title">FadCam Pro</string>
-    <string name="fadcam_pro_subtitle">完全私密的高级功能</string>
-    <string name="fadcam_pro_get_button">获取 FadCam Pro</string>
-    <string name="fadcam_pro_free">免费</string>
-    <string name="fadcam_pro_lab_label">实验室 (Lab)</string>
-    <string name="fadcam_pro_early_bird">🎉 在 2025 年 12 月 23 日之前免费！之后，只需 $15 即可获取终身访问权限。</string>
-    <string name="fadcam_pro_paid_offer">在 2025 年 12 月 23 日之后，以 $15 获取终身访问权限 — 一次性付款，永久更新。</string>
-    <string name="fadcam_pro_benefit_early_access">抢先体验：在公开发布前获取最新版本</string>
-    <string name="fadcam_pro_benefit_lifetime_updates">终身更新：持续获取新功能、性能改进和错误修复</string>
-    <string name="fadcam_pro_benefit_support">即时支持：通过 Discord 提供直接的工单帮助</string>
-    <string name="fadcam_pro_coming_soon">Pro+ 和 Lab 功能即将到来，包括自定义图标上传、自定义应用名称和 FadDrive 云同步。</string>
-    <string name="fadcam_pro_support_message">FadCam 将永远保持免费，无广告、无追踪。这个项目完全由我一个人独立维护，需要持续的时间和精力。升级到 Pro（目前免费）有助于支持开发，作为回报，我能够在完整的免费版本之外，通过 Pro 功能提供额外价值。感谢您支持这个项目 :)</string>
-    <string name="fadcam_pro_separate_apk">独立应用 • 与 FadCam 配合使用</string>
-    <string name="fadcam_pro_feature_everything_icon">全部</string>
-    <string name="fadcam_pro_feature_everything">全部</string>
-    <string name="fadcam_pro_feature_custom_icon">自定义应用图标</string>
-    <string name="fadcam_pro_feature_notification_icon">通知私密图标</string>
-    <string name="fadcam_pro_feature_user_icon">用户上传图标</string>
-    <string name="fadcam_pro_feature_app_name">自定义应用名称</string>
-    <string name="fadcam_pro_feature_faddrive">FadDrive 云同步</string>
     <string name="player_info_title">关于视频播放器</string>
     <string name="player_info_content"><![CDATA[
 <b>分段式 MP4 格式</b><br/><br/>
@@ -1160,76 +1129,52 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
 <string name="camera_permission_denied">摄像头权限被拒绝。</string>
 
 <!-- cloud_account_button_desc -->
-<string name="cloud_account_button_desc">FadSec Cloud</string>
 
 <!-- cloud_account_connecting -->
-<string name="cloud_account_connecting">正在连接…</string>
 
 <!-- cloud_account_device_id -->
-<string name="cloud_account_device_id">设备ID</string>
 
 <!-- cloud_account_device_name_desc -->
-<string name="cloud_account_device_name_desc">此名称将显示在您的FadSec Cloud仪表盘中</string>
 
 <!-- cloud_account_device_name_hint -->
-<string name="cloud_account_device_name_hint">输入设备名称（例如：我的手机）</string>
 
 <!-- cloud_account_device_name_title -->
-<string name="cloud_account_device_name_title">命名您的设备</string>
 
 <!-- cloud_account_helper_text -->
-<string name="cloud_account_helper_text">取消关联以断开与您的账户的连接。您可以使用不同名称重新关联。</string>
 
 <!-- cloud_account_link -->
-<string name="cloud_account_link">关联设备</string>
 
 <!-- cloud_account_link_failed -->
-<string name="cloud_account_link_failed">关联设备失败。请重试。</string>
 
 <!-- cloud_account_link_success -->
-<string name="cloud_account_link_success">设备关联成功！</string>
 
 <!-- cloud_account_linked -->
-<string name="cloud_account_linked">设备已关联</string>
 
 <!-- cloud_account_login_required -->
-<string name="cloud_account_login_required">请登录以关联您的设备</string>
 
 <!-- cloud_account_not_linked -->
-<string name="cloud_account_not_linked">未关联</string>
 
 <!-- cloud_account_title -->
-<string name="cloud_account_title">FadSec Cloud</string>
 
 <!-- cloud_account_unlink -->
-<string name="cloud_account_unlink">取消关联设备</string>
 
 <!-- cloud_account_unlink_confirm -->
-<string name="cloud_account_unlink_confirm">您确定要取消关联此设备吗？</string>
 
 <!-- cloud_account_unlink_success -->
-<string name="cloud_account_unlink_success">设备已取消关联</string>
 
 <!-- cloud_account_webview_title -->
-<string name="cloud_account_webview_title">FadSec Cloud</string>
 
 <!-- cloud_button_label -->
-<string name="cloud_button_label">FadSec Cloud</string>
 
 <!-- cloud_button_title -->
-<string name="cloud_button_title">FadSec Cloud</string>
 
 <!-- cloud_streaming_not_linked -->
-<string name="cloud_streaming_not_linked">请先关联设备以启用</string>
 
 <!-- cloud_streaming_status_off -->
-<string name="cloud_streaming_status_off">仅在本地直播</string>
 
 <!-- cloud_streaming_status_on -->
-<string name="cloud_streaming_status_on">正在上传到FadSec Cloud</string>
 
 <!-- cloud_streaming_title -->
-<string name="cloud_streaming_title">云直播</string>
 
 <!-- digital_forensics_capture_scope -->
 <string name="digital_forensics_capture_scope">证据捕获范围</string>
@@ -1510,25 +1455,18 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
 <string name="dual_recording_stopped">双摄像头录制已停止</string>
 
 <!-- e2e_encryption_change_title -->
-<string name="e2e_encryption_change_title">更改端到端加密密码</string>
 
 <!-- e2e_encryption_configured -->
-<string name="e2e_encryption_configured">已配置 — 片段已端到端加密</string>
 
 <!-- e2e_encryption_not_configured -->
-<string name="e2e_encryption_not_configured">未配置 — 配置以启用云直播</string>
 
 <!-- e2e_encryption_setup_desc -->
-<string name="e2e_encryption_setup_desc">您的FadSec ID密码用于生成流加密密钥。此密码必须与您在FadCam仪表盘上查看直播时使用的密码一致。</string>
 
 <!-- e2e_encryption_setup_hint -->
-<string name="e2e_encryption_setup_hint">输入您的FadSec ID密码</string>
 
 <!-- e2e_encryption_setup_title -->
-<string name="e2e_encryption_setup_title">设置端到端加密密码</string>
 
 <!-- e2e_encryption_title -->
-<string name="e2e_encryption_title">端到端直播加密</string>
 
 <!-- export_complete -->
 <string name="export_complete">完成</string>
@@ -1552,16 +1490,13 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
 <string name="export_status">导出状态</string>
 
 <!-- fadcam_pro_column_label -->
-<string name="fadcam_pro_column_label">专业版</string>
 
 <!-- fadcam_pro_header_button -->
 <string name="fadcam_pro_header_button">专业版</string>
 
 <!-- fadcam_pro_plus_label -->
-<string name="fadcam_pro_plus_label">专业版</string>
 
 <!-- fadcam_pro_proplus_label -->
-<string name="fadcam_pro_proplus_label">Pro+</string>
 
 <!-- faditor_add_asset_image -->
 <string name="faditor_add_asset_image">图片（5秒静态）</string>
@@ -2544,10 +2479,8 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
 <string name="home_elapsed_size_small_desc">最紧凑的计时器尺寸，适用于更紧凑的卡片</string>
 
 <!-- home_sidebar_discord -->
-<string name="home_sidebar_discord">Discord</string>
 
 <!-- home_sidebar_discord_sub -->
-<string name="home_sidebar_discord_sub">加入社区</string>
 
 <!-- home_storage_customize_helper -->
 <string name="home_storage_customize_helper">自定义存储指示器样式和总存储可见性。</string>
@@ -3795,31 +3728,22 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
 <string name="stream_view_all_endpoints_desc">查看所有API端点（GET/POST）</string>
 
 <!-- streaming_mode_cloud -->
-<string name="streaming_mode_cloud">FadSec Cloud</string>
 
 <!-- streaming_mode_cloud_desc -->
-<string name="streaming_mode_cloud_desc">通过互联网随时随地进行直播</string>
 
 <!-- streaming_mode_cloud_featured -->
-<string name="streaming_mode_cloud_featured">推荐</string>
 
 <!-- streaming_mode_helper -->
-<string name="streaming_mode_helper">选择您想要如何直播摄像头</string>
 
 <!-- streaming_mode_link_required -->
-<string name="streaming_mode_link_required">关联设备以启用</string>
 
 <!-- streaming_mode_local -->
-<string name="streaming_mode_local">本地网络</string>
 
 <!-- streaming_mode_local_desc -->
-<string name="streaming_mode_local_desc">在同一WiFi下直播到设备</string>
 
 <!-- streaming_mode_stream_url -->
-<string name="streaming_mode_stream_url">直播URL</string>
 
 <!-- streaming_mode_title -->
-<string name="streaming_mode_title">直播目标</string>
 
 <!-- torch_brightness -->
 <string name="torch_brightness">亮度</string>
@@ -4310,11 +4234,7 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
     <string name="sidebar_update_available">有可用更新</string>
     <string name="sidebar_stable_release">稳定版</string>
     <string name="sidebar_beta_release">测试版</string>
-    <string name="sidebar_fadcam_pro">FadCam Pro</string>
     <string name="badge_new">新</string>
-    <string name="update_pro_title">FadCam Pro 更新</string>
-    <string name="update_pro_desc">新版本的 FadCam Pro 已可用。\n\n对于免费用户，稳定版将在约 60 天后发布。Pro 用户可立即收到更新。</string>
-    <string name="update_get_pro">获取 FadCam Pro</string>
     <string name="update_maybe_later">稍后再说</string>
     <string name="update_beta_title">测试版更新可用</string>
     <string name="update_beta_desc">Joy Creator 测试版是一款独立应用，可与稳定版同时安装。它不会影响您的稳定版应用或其数据。\n\n安装测试版，在功能到达稳定版之前抢先体验。</string>
@@ -4330,7 +4250,6 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
     <string name="fadmic_coming_soon">FadMic（麦克风录制）即将推出！</string>
     <string name="toast_stream_server_starting">流媒体服务器正在启动...</string>
     <string name="toast_stream_server_stopped">流媒体服务器已停止</string>
-    <string name="toast_no_cloud_viewers">没有连接的云观众</string>
     <string name="toast_no_clients">没有客户端连接</string>
     <string name="toast_device_id_copied">设备 ID 已复制</string>
     <string name="toast_endpoint_copied">已复制：%s</string>
@@ -4587,7 +4506,6 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
     <string name="network_unknown">未知</string>
 
     <!-- ClientDataBottomSheet -->
-    <string name="client_cloud_viewers">云观众</string>
     <string name="client_active_clients">活跃客户端</string>
     <string name="client_no_clients">无已连接客户端</string>
 

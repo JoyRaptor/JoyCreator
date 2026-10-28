@@ -34,17 +34,13 @@
     <string name="remote_usage_no_errors">No errors</string>
     <string name="remote_usage_errors_fmt">%1$d/50 errors</string>
     <!-- Toasts and pickers that were written into RemoteFragment in English -->
-    <string name="remote_toast_auth_error">⚠️ %1$s</string>
     <string name="remote_toast_stream_starting">Stream server starting...</string>
     <string name="remote_toast_stream_stopped">Stream server stopped</string>
     <string name="remote_toast_mode_stream_only">Stream Only mode</string>
     <string name="remote_toast_mode_stream_save">Stream &amp; Save mode</string>
-    <string name="remote_toast_no_cloud_viewers">No cloud viewers connected</string>
     <string name="remote_toast_no_clients">No clients connected</string>
     <string name="remote_toast_password_empty">Password cannot be empty</string>
     <string name="remote_toast_link_account">Link your Joy Creator ID account first</string>
-    <string name="remote_toast_e2e_dashboard">Set up E2E encryption in the FadCam dashboard first, then re-link this device</string>
-    <string name="remote_toast_e2e_done">E2E encryption configured</string>
     <string name="remote_toast_wrong_password">Incorrect password — please try again</string>
     <string name="remote_toast_setup_failed">Setup failed: %1$s</string>
     <string name="remote_toast_autolock_set">Auto-lock timeout set to: %1$s</string>

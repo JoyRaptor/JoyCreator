@@ -63,51 +63,7 @@
         </FrameLayout>
 
         <!-- App Title (centered) -->
-        <ImageView android:id="@+id/ivAppTitle" android:layout_width="190dp" android:layout_height="40dp" android:src="@drawable/lobby_banner" android:translationX="2dp" android:focusable="true" android:nextFocusUp="@+id/btnHamburgerMenu" android:nextFocusDown="@+id/btnGetPro" app:layout_constraintTop_toTopOf="parent" app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" />
-
-        <!-- Pro: a flat gold pill, crown and word in black (the old one was a gradient bar) -->
-        <FrameLayout
-            android:id="@+id/proBtnContainer"
-            android:layout_width="wrap_content"
-            android:layout_height="26dp"
-            android:layout_marginEnd="4dp"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent">
-
-            <com.fadcam.ui.ShimmerTextView
-                android:id="@+id/btnGetPro"
-                android:layout_width="wrap_content"
-                android:layout_height="26dp"
-                android:paddingHorizontal="8dp"
-                android:background="@drawable/home_rec_pro_pill"
-                android:text="@string/fadcam_pro_header_button"
-                android:textColor="@color/s_on_go"
-                android:textSize="11sp"
-                android:textStyle="bold"
-                android:fontFamily="@font/joy_display"
-                android:gravity="center_vertical"
-                android:drawableStart="@drawable/ic_crown"
-                android:drawablePadding="0dp"
-                android:drawableTint="@color/s_on_go"
-                android:focusable="true"
-                android:clickable="true"
-                android:foreground="?attr/selectableItemBackgroundBorderless"
-                android:nextFocusUp="@+id/ivAppTitle"
-                android:nextFocusDown="@+id/segment_fadcam" />
-
-            <!-- Pro Badge Dot -->
-            <View
-                android:id="@+id/proBadgeDot"
-                android:layout_width="8dp"
-                android:layout_height="8dp"
-                android:layout_gravity="top|end"
-                android:layout_marginTop="0dp"
-                android:layout_marginEnd="2dp"
-                android:background="@drawable/badge_update_bg"
-                android:visibility="gone" />
-
-        </FrameLayout>
+        <ImageView android:id="@+id/ivAppTitle" android:layout_width="190dp" android:layout_height="40dp" android:src="@drawable/lobby_banner" android:translationX="2dp" android:focusable="true" android:nextFocusUp="@+id/btnHamburgerMenu" android:nextFocusDown="@+id/segment_fadcam" app:layout_constraintTop_toTopOf="parent" app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

@@ -17,14 +17,9 @@
 
 
     <string name="view_source_code">Ver código fuente</string>
-    <string name="buy_me_a_coffee">Invítame un café ☕</string>
     <string name="contact">Contacto</string>
     <string name="send_email">Enviar correo</string>
-    <string name="join_community">Únete a la comunidad para ayuda, compartir ideas y futuras actualizaciones</string>
-    <string name="readme_github_subtitle">Código fuente y lanzamientos</string>
-    <string name="readme_discord_subtitle">Únete a la comunidad</string>
     <string name="website_title">Sitio web</string>
-    <string name="readme_website_subtitle">Sitio oficial</string>
     <string name="privacy_information">Información de privacidad</string>
     <string name="copyright_info"> 2024-2025 https://fadcam.faded.dev\nLicenciado bajo GPL-3.0</string>
     <string-array name="video_resolutions_keys">
@@ -487,7 +482,6 @@
     <string name="nav_remote">Remoto</string>
     <string name="nav_faditor_mini">Faditor</string>
     <string name="nav_lab">Lab</string>
-    <string name="button_settings_readme">Léeme</string>
     <string name="setting_cam_title">Selección de cámara</string>
     <string name="note_cam_sele">Seleccionar cámara \n(Predeterminada: Trasera)</string>
     <string name="button_settings_cam_back">Trasera</string>
@@ -645,9 +639,7 @@
     <string name="note_under_dev">Importante: Esta app está actualmente en desarrollo. Nuevas funciones se agregan regularmente.</string>
     <string name="full_changelog_info">Para ver el registro de cambios completo, ve a la pestaña Inicio, abre el menú hamburguesa y selecciona «Novedades».</string>
     <string name="stay_updated_title">Mantente actualizado:</string>
-    <string name="button_readme_github">Repositorio de GitHub</string>
     <string name="community_title">Únete a nuestra comunidad:</string>
-    <string name="discord_title">Servidor de Discord</string>
     <string name="thankyou_msg">¡Gracias por usar Joy Creator!</string>
     <string name="settings_title">Ajustes</string>
     <string name="array_watermark_time_fadcam">Hora con Joy Creator</string>
@@ -1351,9 +1343,6 @@ Recomendado: 192000 bps, 48000 Hz para la mayoría de usuarios.</string>
     <string name="video_split_size_summary_gb">Actual: %1$s GB</string>
     <string name="video_splitting_title">Habilitar división de video</string>
     <string name="video_splitting_description">Dividir automáticamente grabaciones en archivos más pequeños (Desactivado por defecto). Recomendado: 2 GB para equilibrio. Preajustes hasta 4 GB y tamaños personalizados disponibles. Esto ayuda a gestionar grabaciones grandes y evita límites de tamaño de archivo del dispositivo.</string>
-    <string name="support_ko_fi">Apóyanos en Ko-fi</string>
-    <string name="kofi_description">La descripción se establecerá en el código.</string>
-    <string name="kofi_button_text">Invítame un Ko-fi</string>
     <string name="kofi_footer_text">Hecho con    en FadSec Lab en   </string>
 
     <string name="setting_audio_input_source_title">Fuente de entrada de audio</string>
@@ -1886,29 +1875,6 @@ Recomendado: 192000 bps, 48000 Hz para la mayoría de usuarios.</string>
     <string name="delete">Eliminar</string>
 
     <!-- FadCam Pro Strings -->
-    <string name="fadcam_pro_title">FadCam Pro</string>
-    <string name="fadcam_pro_subtitle">Funciones premium para discreción completa</string>
-    <string name="fadcam_pro_get_button">Obtener FadCam Pro</string>
-    <string name="fadcam_pro_free">Gratis</string>
-    <string name="fadcam_pro_column_label">Pro</string>
-    <string name="fadcam_pro_proplus_label">Pro+</string>
-    <string name="fadcam_pro_lab_label">Lab</string>
-    <string name="fadcam_pro_plus_label">Pro</string>
-    <string name="fadcam_pro_early_bird">🎉 ¡Gratis hasta el 23 de diciembre de 2025! Después, obtén acceso de por vida por solo $15.</string>
-    <string name="fadcam_pro_paid_offer">Después del 23 de diciembre de 2025, obtén Acceso de por vida por $15 — pago único, actualizaciones para siempre.</string>
-    <string name="fadcam_pro_benefit_early_access">Acceso anticipado: Obtén la última versión antes del lanzamiento público</string>
-    <string name="fadcam_pro_benefit_lifetime_updates">Actualizaciones de por vida: Siempre recibe nuevas funciones, mejoras y correcciones</string>
-    <string name="fadcam_pro_benefit_support">Soporte instantáneo: Ayuda directa a través de tickets vía Discord</string>
-    <string name="fadcam_pro_coming_soon">Funciones Pro+ y Lab próximamente con carga de íconos personalizados, nombres de app personalizados y sincronización en la nube FadDrive.</string>
-    <string name="fadcam_pro_support_message">FadCam siempre será gratuito, sin anuncios y sin rastreo. Manejo todo el proyecto yo solo, y toma tiempo y trabajo continuo. Actualizar a Pro (actualmente gratis) ayuda a apoyar el desarrollo, y a cambio puedo ofrecer valor adicional a través de las funciones Pro además de la versión gratuita completa. Gracias por apoyar el proyecto :)</string>
-    <string name="fadcam_pro_separate_apk">App independiente • Funciona junto con FadCam</string>
-    <string name="fadcam_pro_feature_everything_icon">Todo</string>
-    <string name="fadcam_pro_feature_everything">Todo</string>
-    <string name="fadcam_pro_feature_custom_icon">Ícono de app personalizado</string>
-    <string name="fadcam_pro_feature_notification_icon">Ícono discreto de notificación</string>
-    <string name="fadcam_pro_feature_user_icon">Ícono subido por usuario</string>
-    <string name="fadcam_pro_feature_app_name">Nombre de app personalizado</string>
-    <string name="fadcam_pro_feature_faddrive">Sincronización en la nube FadDrive</string>
     <string name="fadcam_pro_header_button">Pro</string>
 
     <!-- Video Player Info Bottom Sheet -->
@@ -2017,52 +1983,12 @@ Para la experiencia de reproducción más fluida, puedes usar un reproductor ext
     <string name="stream_notes_android14_screen">⚠️ Android 14+: La restricción del sistema impide grabar con la pantalla apagada. Soluciones: (1) Habilita \"Modo de pantalla negra\" en Ajustes → Seguridad, o (2) Desactiva el bloqueo de pantalla (sin PIN/contraseña/huella). Ambos permiten grabación remota fluida</string>
 
     <!-- FadSec Cloud / Remote Streaming -->
-    <string name="cloud_account_button_desc">FadSec Cloud</string>
-    <string name="cloud_button_label">FadSec Cloud</string>
-    <string name="cloud_button_title">FadSec Cloud</string>
-    <string name="cloud_account_title">FadSec Cloud</string>
-    <string name="cloud_account_link">Vincular dispositivo</string>
-    <string name="cloud_account_unlink">Desvincular dispositivo</string>
-    <string name="cloud_account_connecting">Conectando…</string>
-    <string name="cloud_account_linked">Dispositivo vinculado</string>
-    <string name="cloud_account_not_linked">No vinculado</string>
-    <string name="cloud_account_device_name_hint">Ingresa nombre del dispositivo (ej., Mi Teléfono)</string>
-    <string name="cloud_account_device_name_title">Nombra tu dispositivo</string>
-    <string name="cloud_account_device_name_desc">Este nombre aparecerá en tu panel de FadSec Cloud</string>
-    <string name="cloud_account_device_id">ID del dispositivo</string>
-    <string name="cloud_account_link_success">¡Dispositivo vinculado exitosamente!</string>
-    <string name="cloud_account_link_failed">Error al vincular dispositivo. Por favor intenta de nuevo.</string>
-    <string name="cloud_account_unlink_confirm">¿Estás seguro de que quieres desvincular este dispositivo?</string>
-    <string name="cloud_account_unlink_success">Dispositivo desvinculado</string>
-    <string name="cloud_account_webview_title">FadSec Cloud</string>
-    <string name="cloud_account_login_required">Por favor inicia sesión para vincular tu dispositivo</string>
-    <string name="cloud_account_helper_text">Desvincula para desconectar de tu cuenta. Puedes vincular de nuevo con un nombre diferente.</string>
 
     <!-- Cloud Streaming -->
-    <string name="cloud_streaming_title">Transmisión en la nube</string>
-    <string name="cloud_streaming_status_off">Solo transmisión local</string>
-    <string name="cloud_streaming_status_on">Subiendo a FadSec Cloud</string>
-    <string name="cloud_streaming_not_linked">Vincula dispositivo primero para habilitar</string>
 
     <!-- E2E Stream Encryption -->
-    <string name="e2e_encryption_title">Cifrado E2E de transmisión</string>
-    <string name="e2e_encryption_not_configured">No configurado — configura para habilitar transmisión en la nube</string>
-    <string name="e2e_encryption_configured">Configurado — los segmentos están cifrados de extremo a extremo</string>
-    <string name="e2e_encryption_setup_title">Establecer contraseña de cifrado E2E</string>
-    <string name="e2e_encryption_setup_hint">Ingresa tu contraseña de FadSec ID</string>
-    <string name="e2e_encryption_setup_desc">Tu contraseña de FadSec ID se usa para derivar la clave de cifrado de transmisión. Debe coincidir con la contraseña que usas en el panel de Joy Creator para ver transmisiones.</string>
-    <string name="e2e_encryption_change_title">Cambiar contraseña de cifrado E2E</string>
 
     <!-- Streaming Mode Selector -->
-    <string name="streaming_mode_title">Destino de transmisión</string>
-    <string name="streaming_mode_local">Red local</string>
-    <string name="streaming_mode_local_desc">Transmitir a dispositivos en la misma WiFi</string>
-    <string name="streaming_mode_cloud">FadSec Cloud</string>
-    <string name="streaming_mode_cloud_desc">Transmitir desde cualquier lugar vía internet</string>
-    <string name="streaming_mode_cloud_featured">DESTACADO</string>
-    <string name="streaming_mode_link_required">Vincula dispositivo para habilitar</string>
-    <string name="streaming_mode_stream_url">URL de transmisión</string>
-    <string name="streaming_mode_helper">Elige cómo quieres transmitir tu cámara</string>
 
     <!-- Fullscreen Preview -->
     <string name="fullscreen_preview_enter">Vista previa Joy Creator</string>
@@ -2149,8 +2075,6 @@ Para la experiencia de reproducción más fluida, puedes usar un reproductor ext
     <string name="lab_section_about">Acerca de</string>
 
     <!-- Home sidebar branding -->
-    <string name="home_sidebar_discord">Discord</string>
-    <string name="home_sidebar_discord_sub">Únete a la comunidad</string>
     <string name="home_sidebar_copyright" translatable="false">© FadSec Lab 2024 – 2026</string>
 
     <!-- Privacy Black Mode Settings -->
@@ -2494,15 +2418,11 @@ Para la experiencia de reproducción más fluida, puedes usar un reproductor ext
     <string name="sidebar_update_available">Actualización disponible</string>
     <string name="sidebar_stable_release">Versión estable</string>
     <string name="sidebar_beta_release">Versión beta</string>
-    <string name="sidebar_fadcam_pro">FadCam Pro</string>
 
     <!-- Badge -->
     <string name="badge_new">NUEVO</string>
 
     <!-- Update Dialogs -->
-    <string name="update_pro_title">Actualización de FadCam Pro</string>
-    <string name="update_pro_desc">Una nueva versión de FadCam Pro está disponible.\n\nPara los usuarios gratuitos, la versión estable llegará después de aproximadamente 60 días. Los usuarios Pro reciben actualizaciones de inmediato.</string>
-    <string name="update_get_pro">Obtener FadCam Pro</string>
     <string name="update_maybe_later">Quizás después</string>
     <string name="update_beta_title">Actualización beta disponible</string>
     <string name="update_beta_desc">La beta de Joy Creator es una aplicación independiente que se puede instalar junto con la versión estable. No interferirá con tu aplicación estable ni con sus datos.\n\nInstala la beta para probar nuevas funciones antes de que lleguen a la versión estable.</string>
@@ -2526,7 +2446,6 @@ Para la experiencia de reproducción más fluida, puedes usar un reproductor ext
     <!-- Toasts -->
     <string name="toast_stream_server_starting">Iniciando servidor de streaming...</string>
     <string name="toast_stream_server_stopped">Servidor de streaming detenido</string>
-    <string name="toast_no_cloud_viewers">No hay espectadores en la nube conectados</string>
     <string name="toast_no_clients">No hay clientes conectados</string>
     <string name="toast_device_id_copied">ID del dispositivo copiado</string>
     <string name="toast_endpoint_copied">Copiado: %s</string>
@@ -2784,7 +2703,6 @@ Para la experiencia de reproducción más fluida, puedes usar un reproductor ext
     <string name="network_unknown">Desconocido</string>
 
     <!-- ClientDataBottomSheet -->
-    <string name="client_cloud_viewers">Espectadores en la nube</string>
     <string name="client_active_clients">Clientes activos</string>
     <string name="client_no_clients">No hay clientes conectados</string>
 

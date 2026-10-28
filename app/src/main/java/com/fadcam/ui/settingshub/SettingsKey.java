@@ -44,7 +44,6 @@ public enum SettingsKey {
     REMOTE(null),
 
     // ── About and help ──
-    README("group_readme"),
     WHATS_NEW(null),
     SHOW_INTRO("group_onboarding"),
     UPDATE_CHECK("group_auto_update"),

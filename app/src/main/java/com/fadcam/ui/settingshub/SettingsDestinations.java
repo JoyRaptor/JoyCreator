@@ -20,7 +20,6 @@ import com.fadcam.ui.MotionLabSettingsFragment;
 import com.fadcam.ui.NotificationSettingsFragment;
 import com.fadcam.ui.OverlayNavUtil;
 import com.fadcam.ui.PrefsBackupBottomSheetFragment;
-import com.fadcam.ui.ReadmeBottomSheetFragment;
 import com.fadcam.ui.SecuritySettingsFragment;
 import com.fadcam.ui.ShortcutsSettingsFragment;
 import com.fadcam.ui.StorageSettingsFragment;
@@ -88,7 +87,6 @@ final class SettingsDestinations {
             case SMART_DETECTION:    over(a, new DigitalForensicsSettingsFragment()); break;
             case REMOTE:             handOver(a, TAB_REMOTE); break;
             // ── about and help ──
-            case README:             new ReadmeBottomSheetFragment().show(host.getChildFragmentManager(), "readme"); break;
             case WHATS_NEW:          a.startActivity(new Intent(a, WhatsNewActivity.class)); break;
             case SHOW_INTRO:         SettingsSwitchSheets.showIntro(host); break;
             case UPDATE_CHECK:       SettingsSwitchSheets.updateCheck(host); break;

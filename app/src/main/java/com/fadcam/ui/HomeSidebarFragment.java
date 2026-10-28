@@ -230,20 +230,6 @@ public class HomeSidebarFragment extends DialogFragment {
             );
         }
 
-        // Discord branding row
-        View discordRow = view.findViewById(R.id.row_discord_branding);
-        if (discordRow != null) {
-            discordRow.setOnClickListener(v -> {
-                try {
-                    Intent intent = new Intent(Intent.ACTION_VIEW,
-                        Uri.parse("https://discord.gg/kvAZvdkuuN"));
-                    startActivity(intent);
-                } catch (Exception e) {
-                    FLog.w("HomeSidebar", "Failed to open Discord link", e);
-                }
-            });
-        }
-
         // Mini Apps Section
         setupMiniAppRows(view);
 
@@ -498,14 +484,6 @@ public class HomeSidebarFragment extends DialogFragment {
                     dismiss();
                 });
         else hideCard(view, R.id.card_update_beta);
-
-        if (r.hasPro) setupCard(view, R.id.card_update_pro, R.id.tv_pro_version,
-                cur, r.proVersion, () -> {
-                    ProUpdateBottomSheet.newInstance(r.proVersion, r.proUrl, cur)
-                            .show(getParentFragmentManager(), "ProSheet");
-                    dismiss();
-                });
-        else hideCard(view, R.id.card_update_pro);
     }
 
     private void setupCard(View v, int cardId, int verId, String cur, String latest, Runnable onClick) {
@@ -516,14 +494,8 @@ public class HomeSidebarFragment extends DialogFragment {
         android.text.SpannableString sp = new android.text.SpannableString(text);
         int curEnd = ("v" + cur).length();
         
-        // Determine colors based on card type
-        int currentColor = 0xFFFF5252; // Default red for current version
-        int newColor = 0xFF66BB6A;     // Default green for new version
-        
-        if (cardId == R.id.card_update_pro) {
-            currentColor = 0xFFFFFFFF;  // White for Pro current version
-            newColor = 0xFFFFD700;      // Gold for Pro new version
-        }
+        int currentColor = 0xFFFF5252; // red for the current version
+        int newColor = 0xFF66BB6A;     // green for the new version
         
         sp.setSpan(new android.text.style.ForegroundColorSpan(currentColor), 0, curEnd, 0);
         sp.setSpan(new android.text.style.ForegroundColorSpan(newColor), curEnd, text.length(), 0);

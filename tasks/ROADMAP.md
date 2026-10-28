@@ -88,6 +88,8 @@ Each of these needs the owner and nobody else. The lead's recommendation comes f
 | S16 | Joybot: try him with your own voice (hands-free loop) and, when you have API credit, with OpenAI | | [BOT-1](jobs/BOT-1_joybot_owed.md) |
 | S17 | Joybot: ask Anthropic (in writing) whether Joy Creator may start a person's own Claude Code on their own computer, so they can talk to it from Joybot. Their terms forbid apps routing requests through Pro/Max plans "on behalf of their users"; this case isn't addressed | Ask before building that half; everything else in BOT-6 doesn't need it | [BOT-6](jobs/BOT-6_bring_your_own_ai.md) |
 | S18 | **Pick the front door**: open `tasks/design/UI-Front-door-picks_20261028.html` on the phone, tap a direction and one option per part, and paste back the copy line | Direction 1 ("Marquee, made clear") is the smallest step from today; direction 2 is the most iPhone-simple | [DOOR-2](jobs/DOOR-2_lobby_landing.md) |
+| S19 | **Cut FadCam's cloud and promo parts.** The cloud/remote code talks to the FadCam developer's own servers (`fadseclab.com`, their Supabase project and key); also FadCam Pro, Ko-fi, their Discord sheet, `FUNDING.yml`, the Pro build flavours | **Yes, cut** (LAN streaming on your own Wi-Fi can stay) | [FREE-1](jobs/FREE-1_fadcam_inventory.md), [SHOW-1](jobs/SHOW-1_play_build.md) |
+| S20 | FadCam extras for the launch build: Forensics/motion detection (~10,000 lines with TensorFlow and OpenCV), the 15 disguise icons, the accessibility screenshot service, and Annotation (~18,000 lines: replace with a JoyBrush layer, or cut) | Cut from the Play build; keep Annotation's idea for a JoyBrush layer later | [FREE-1](jobs/FREE-1_fadcam_inventory.md) |
 
 ---
 
@@ -139,7 +141,7 @@ One line per job. The card holds the detail. "Owner" is the session or harness t
 
 | ID | Job | State | Owner | Next step | Checked |
 |---|---|---|---|---|---|
-| [FREE-1](jobs/FREE-1_fadcam_inventory.md) | Inventory every FadCam-derived part and decide for each: rebuild clean, replace, or cut | ⬜ | open | The audit (read-only) | 10-27 |
+| [FREE-1](jobs/FREE-1_fadcam_inventory.md) | Inventory every FadCam-derived part and decide for each: rebuild clean, replace, or cut | 🟡 inventory done 10-28 ([report](audits/fadcam_inventory_20261028.md)): ~160,500 FadCam lines left, 37% of the app module; JoyBrush, VisLab, lobby, Library, Settings hub have none | lead | Owner calls S19, S20; then cut cloud/promo, then replace classic Records/Trash/Studio list | 10-28 |
 | [FREE-2](jobs/FREE-2_names_and_ids.md) | Names: app ID, package names, folder names on the phone ("FadCam" folders), watermark, translations | ⛔ S1 | lead | After S1 | 10-27 |
 
 ### M4 Show it

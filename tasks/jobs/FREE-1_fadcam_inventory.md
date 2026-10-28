@@ -1,6 +1,6 @@
 # FREE-1: Every FadCam-derived part: rebuild, replace or cut
 
-**Milestone:** M3 (runs alongside everything)  ·  **State:** ⬜ inventory first  ·  **Owner:** open (the audit); the lead decides each part  ·  **Checked:** 2026-10-27
+**Milestone:** M3  ·  **State:** 🟡 inventory done 10-28 → [`audits/fadcam_inventory_20261028.md`](../audits/fadcam_inventory_20261028.md); waiting on S19/S20  ·  **Owner:** lead  ·  **Checked:** 2026-10-28
 
 ## Why it matters
 The owner wants Joy Creator completely and legally free of FadCam: take the ideas, not the code, and

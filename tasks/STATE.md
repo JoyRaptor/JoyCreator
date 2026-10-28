@@ -130,7 +130,7 @@ All of these **stay in the website / F-Droid build.** Decision already made and 
 | **External .glsl transitions from a dropped-in folder** | 🟢 ✔ | GlExternalTransitions.scanAndRegister — **this is already a working pack loader.** |
 | Speed / zoom / crop / flip | 🟢 ~ | |
 | Text overlays + animation | 🟢 ~ | SPEC_TEXT_ANIMATION; odometer preset proved character-by-character 2026-07-31 |
-| Adjustment layers / FX | 🟡 ✔ | Shell is 🟢 — add/select/own-lane/fx+trash badges device-proved on the sandbox phone 2026-09-10. **Whether an effect actually applies to the layers beneath is still unproved.** SPEC_ADJUSTMENT_LAYERS_FX.md |
+| Adjustment layers / FX | 🟡 ✔ | Shell is 🟢 — add/select/own-lane/fx+trash badges device-proved on the sandbox phone 2026-09-10. **Whether an effect applies to the layers beneath: agent-proved 10-27** — the new VisLab effects (see section 5.5) render on an adjustment layer in the preview, and Echo Trails show in an exported video (Note 9, agent-checked; owner has not used them). The older built-in effects were not re-checked in that pass. SPEC_ADJUSTMENT_LAYERS_FX.md |
 | Timeline lane allocation (no two objects stacked) | 🟢 ✔ | SPEC W — three adjustment layers took three lanes, device-proved 2026-09-10. Same rule now guards text/image/sprite/PiP adds. |
 | Mesh warp / Bend (IMAGES) | 🟢 | **Complete and device-verified 2026-09-10.** SPEC A through T. |
 | Bend — SPRITES | 🟢 | SPEC Z slice 1. Rasterise-then-warp on a Canvas, one method shared by preview and export. |

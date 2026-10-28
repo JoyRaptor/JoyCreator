@@ -436,7 +436,7 @@ public class IdeaEngineTest {
             }
             eq("help G3: no two topics share an id", com.fadcam.ui.faditor.ai.joybot.HelpBook.TOPICS.size(), helpIds.size());
             Set<String> helpRoutes = new HashSet<>(Arrays.asList(null, "record", "library", "studio", "setup", "vislab",
-                    "joybrush", "spritelab", "avatar", "space", "trash"));
+                    "joybrush", "spritelab", "avatar", "space", "trash", "bridge"));
             for (com.fadcam.ui.faditor.ai.joybot.HelpBook.Topic x : com.fadcam.ui.faditor.ai.joybot.HelpBook.TOPICS) {
                 check("help G3: route is a real one: " + x.id, helpRoutes.contains(x.route), String.valueOf(x.route));
                 check("help G3: \"Or I can do it\" only with a doIt: " + x.id,
@@ -670,7 +670,7 @@ public class IdeaEngineTest {
             check("tips: a big library (40+)", tips.size() >= 40, String.valueOf(tips.size()));
             Set<String> tipIds = new HashSet<>();
             Set<String> tipRoutes = new HashSet<>(Arrays.asList(null, "record", "library", "studio", "vislab",
-                    "joybrush", "spritelab", "trash"));
+                    "joybrush", "spritelab", "trash", "bridge"));
             java.util.EnumSet<com.fadcam.ui.faditor.ai.joybot.TipBook.Wing> wings =
                     java.util.EnumSet.noneOf(com.fadcam.ui.faditor.ai.joybot.TipBook.Wing.class);
             for (com.fadcam.ui.faditor.ai.joybot.TipBook.Tip x : tips) {
@@ -679,7 +679,7 @@ public class IdeaEngineTest {
                 check("tips: route is a real one: " + x.id, tipRoutes.contains(x.route), String.valueOf(x.route));
                 check("tips: reads after 'Did you know ': " + x.id,
                         (Character.isLowerCase(x.text.charAt(0))
-                                || x.text.matches("^(I|VisLab|SpriteLab|Capture|JoyBrush)\\b.*"))
+                                || x.text.matches("^(I|VisLab|SpriteLab|Capture|JoyBrush|Claude)\\b.*"))
                                 && x.text.endsWith("."), x.text);
                 check("tips: short enough for one look: " + x.id, x.text.length() <= 160, String.valueOf(x.text.length()));
             }
@@ -789,6 +789,38 @@ public class IdeaEngineTest {
                     com.fadcam.ui.faditor.ai.joybot.SetupTalk.Path.CHATGPT, true).contains("Codex"), "");
             check("free: promises the key stays on the phone", com.fadcam.ui.faditor.ai.joybot.SetupTalk.explain(
                     com.fadcam.ui.faditor.ai.joybot.SetupTalk.Path.FREE, false).contains("never goes to the AI"), "");
+        }
+
+        // ── WhatHere: "What can I do here?" lists only this room's real actions (BOT-2 10-28) ──
+        {
+            String[] asks = {"what can I do here?", "What can you do in here", "what can I make here",
+                    "so what can we do now", "what else can you do here?"};
+            for (String q : asks) check("what here: " + q, com.fadcam.ui.faditor.ai.joybot.WhatHere.asks(q), q);
+            String[] not = {"what can I do about the noise", "make the title say what can I do here",
+                    "what can you do"};
+            for (String q : not) check("not what here: " + q, !com.fadcam.ui.faditor.ai.joybot.WhatHere.asks(q), q);
+            java.util.List<com.fadcam.ui.faditor.ai.joybot.WhatHere.Action> acts = new java.util.ArrayList<>();
+            acts.add(new com.fadcam.ui.faditor.ai.joybot.WhatHere.Action("set_text_style", "Change how a text looks", "STUDIO", false));
+            acts.add(new com.fadcam.ui.faditor.ai.joybot.WhatHere.Action("list_items", "List what is on the timeline", "STUDIO", true));
+            acts.add(new com.fadcam.ui.faditor.ai.joybot.WhatHere.Action("vislab_change", "Change a VisLab look", "APP", false));
+            acts.add(new com.fadcam.ui.faditor.ai.joybot.WhatHere.Action("joybrush_layers", "Change layers", "APP", false));
+            acts.add(new com.fadcam.ui.faditor.ai.joybot.WhatHere.Action("open_room", "Open a part of the app", "APP", false));
+            String studio = com.fadcam.ui.faditor.ai.joybot.WhatHere.answer(IdeaEngine.Room.STUDIO, true, true, acts);
+            check("what here: Studio lists Studio actions, changes first", studio.indexOf("Change how a text looks")
+                    < studio.indexOf("List what is on the timeline") && !studio.contains("VisLab look"), studio);
+            check("what here: Studio names what works with no AI", studio.contains("no AI"), studio);
+            String vis = com.fadcam.ui.faditor.ai.joybot.WhatHere.answer(IdeaEngine.Room.VISLAB, false, false, acts);
+            check("what here: VisLab lists only VisLab, says it needs an AI", vis.contains("Change a VisLab look")
+                    && !vis.contains("Change layers") && vis.contains("With an AI connected"), vis);
+            String jb = com.fadcam.ui.faditor.ai.joybot.WhatHere.answer(IdeaEngine.Room.JOYBRUSH, false, true, acts);
+            check("what here: JoyBrush lists only JoyBrush", jb.contains("Change layers") && !jb.contains("text looks"), jb);
+            String lobby = com.fadcam.ui.faditor.ai.joybot.WhatHere.answer(IdeaEngine.Room.LOBBY, false, true, acts);
+            check("what here: the lobby lists app-wide ones", lobby.contains("Open a part of the app")
+                    && !lobby.contains("VisLab look"), lobby);
+            java.util.List<com.fadcam.ui.faditor.ai.joybot.WhatHere.Action> many = new java.util.ArrayList<>();
+            for (int i = 0; i < 20; i++) many.add(new com.fadcam.ui.faditor.ai.joybot.WhatHere.Action("t" + i, "Thing " + i, "STUDIO", false));
+            check("what here: a long list ends with how many more",
+                    com.fadcam.ui.faditor.ai.joybot.WhatHere.answer(IdeaEngine.Room.STUDIO, true, true, many).contains("…and 6 more"), "");
         }
 
         // ── HelpBook.wantsChange: a request that must end in a change (Note 9, 2026-10-15) ──

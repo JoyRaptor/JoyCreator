@@ -1037,6 +1037,11 @@ public class ChatAssistantActivity extends AppCompatActivity {
             setupFlow.start();
             return;
         }
+        // "What can I do here?": this room's real actions, in plain words (BOT-2), online or off.
+        if (com.fadcam.ui.faditor.ai.joybot.WhatHere.asks(text)) {
+            addBotMessage(com.fadcam.ui.faditor.ai.joybot.WhatHere.answer(room, projectId != null, AiService.ready(this, apiKey), roomActions()));
+            return;
+        }
         boolean online = AiService.ready(this, apiKey);
         // A sentence that IS one of the buttons runs it directly (free, instant, offline). Online,
         // only an exact match does — anything with more to it deserves the model's reading.
@@ -2224,6 +2229,10 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 // VisLab is its own room (the Lobby's tile opens it the same way).
                 startActivity(new Intent(this, com.fadcam.vislab.room.VisLabActivity.class));
                 finish();
+                return;
+            case "bridge":
+                // Connect your computer (BOT-6): its own screen, and the chat stays underneath.
+                startActivity(com.fadcam.ui.faditor.ai.bridge.BridgeActivity.intent(this, projectId, room));
                 return;
             case "trash":
                 // The Trash is an overlay inside the main screen (the Lobby's logo-hold opens it), so
@@ -3989,6 +3998,20 @@ public class ChatAssistantActivity extends AppCompatActivity {
         updateModelLabel();
     }
 
+    /** Every typed action, as "What can I do here?" lists them. */
+    @NonNull
+    private static List<com.fadcam.ui.faditor.ai.joybot.WhatHere.Action> roomActions() {
+        List<com.fadcam.ui.faditor.ai.joybot.WhatHere.Action> out = new ArrayList<>();
+        List<com.fadcam.ui.faditor.ai.actions.ActionSpec> specs = new ArrayList<>(
+                com.fadcam.ui.faditor.ai.actions.StudioActions.registry().specs());
+        specs.addAll(com.fadcam.ui.faditor.ai.actions.AppActions.registry().specs());
+        for (com.fadcam.ui.faditor.ai.actions.ActionSpec s : specs) {
+            out.add(new com.fadcam.ui.faditor.ai.joybot.WhatHere.Action(s.tool, s.title, s.wing,
+                    s.effect == com.fadcam.ui.faditor.ai.actions.ActionSpec.Effect.READ));
+        }
+        return out;
+    }
+
     /** What the connect-an-AI conversation needs from this screen. */
     @NonNull
     private com.fadcam.ui.faditor.ai.joybot.SetupFlow.Host setupHost() {
@@ -4014,8 +4037,10 @@ public class ChatAssistantActivity extends AppCompatActivity {
             @Nullable @Override public String connectedTo() {
                 return AiService.ready(ChatAssistantActivity.this, apiKey) ? AiAccounts.active(ChatAssistantActivity.this).name : null;
             }
-            @Override public boolean bridgeReady() { return false; }
-            @Override public void openBridge() { }
+            @Override public boolean bridgeReady() { return true; }
+            @Override public void openBridge() {
+                startActivity(com.fadcam.ui.faditor.ai.bridge.BridgeActivity.intent(ChatAssistantActivity.this, projectId, room));
+            }
         };
     }
 

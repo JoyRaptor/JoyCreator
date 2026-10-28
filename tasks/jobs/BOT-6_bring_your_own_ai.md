@@ -1,6 +1,6 @@
 # BOT-6: Bring your own AI: send Joybot into Claude Code or Codex
 
-**Milestone:** M1 (the owner wants Joy Creator to lead here, not follow)  ·  **State:** 🔨 design  ·  **Owner:** "JoyBot UX vision and capabilities" (Claude, account C)  ·  **Checked:** 2026-10-28
+**Milestone:** M1 (the owner wants Joy Creator to lead here, not follow)  ·  **State:** 🔨 built, phone check next  ·  **Owner:** "JoyBot UX vision and capabilities" (Claude, account C)  ·  **Checked:** 2026-10-28
 
 ## Why it matters (for the user)
 People already pay $20 a month for Claude or ChatGPT. With this, they plug that subscription into Joy
@@ -100,13 +100,42 @@ the phone's code); the PC path stays code + one copyable line until the desktop 
 ## What is left
 - [x] Facts for Claude Code (10-28, docs; see the table). Still to confirm: `codex exec` and its terms,
       OpenCode's remote MCP form, a Hermes "talk" door.
-- [ ] Prove plain-http MCP from Claude Code to the Note 9 on the local network (a 20-line test server first).
+- [x] **Tools half built (10-28, owner away: "build everything").** `ai/bridge/`: `McpCore` (MCP JSON-RPC:
+      initialize, ping, tools/list, tools/call; pictures from `look` as image content), `BridgeAuth` (a six-digit
+      code kept between openings so a set-up computer just reconnects; "New code" resets it; only the first
+      computer that uses it; locked after 8 wrong codes; any request with an Origin header, i.e. a web page, is
+      refused), `BridgeServer` (NanoHTTPD, POST `/mcp`, JSON answers, 202 for notifications), `BridgeService`
+      (foreground, notification with Stop; never restarts by itself), `BridgeActivity` ("Connect your computer":
+      Open the door, the owner's QR (aqua-to-lime dots, rounded corners, punched-out centre with Joybot's face),
+      the code, "Say this to Claude Code" with Copy and Send to my computer, "Do it yourself" commands for Claude
+      Code, Codex, any MCP app and USB, a "What happened" list, Stop, New code), `BridgeQr`, `BridgeWords`,
+      `BridgeAddress`. Tools run through `JoybotAgent.Bridged`: Joybot's own host on his own worker; calls within
+      30 s are one Undo; nothing from the computer counts as the person's yes (`PersonSaid`), so locks hold and
+      deletes wait for a tap on the phone; `where_am_i` gives the open project; `propose_plan` is left out.
+      Reached from the setup chat ("Connect my computer"), the help topic "bridge" and a tip.
+- [x] **Proved on the PC** (10-28): `BridgeTest` 32/32 (protocol, pairing rules, words); `run-joybot-bench.sh
+      --bridge` 19/19: the real server and Joybot's real tools over plain HTTP the way Claude Code calls them
+      (initialize → tools/list (123 tools) → where_am_i → set_text_style changed the project → a second change in
+      the same burst = still one undo step; wrong code 401, web page 403, a locked title refused and the computer
+      can't unlock it). Found and fixed there: a refused request's unread body broke the next request on the same
+      connection.
+- [ ] Prove it on the Note 9 (curl over `adb forward`, then a real Claude Code on the same Wi-Fi: needs the phone
+      on Wi-Fi with the PC; the owner's call to point his own Claude Code at it).
 - [ ] Owner: ask Anthropic for written OK before Joybot starts a person's Claude Code (S17).
 - [ ] Spec with the pairing screens as a mix-and-match design page (the owner picks), including the
       conversational setup and the tablet QR.
-- [ ] Conversational setup: key caught in the chat (pure-Java detector + tests first), then the walk-through.
-- [ ] Build the phone-side server (pure-Java protocol core + tests), then pairing, then the chat relay.
-- [ ] Phone + PC test with Claude Code and with Codex; STATE row; help topic.
+- [x] Conversational setup (10-28): `KeyCatcher` (a key typed or pasted in the chat is caught before anything
+      sees it; known shapes any time, any long key-like text right after Joybot asked; joined when a copy broke it
+      across lines), `KeyCheck` (one free call before saving: works / wrong key / no credit / offline / service
+      trouble), `SetupTalk` (the words), `SetupFlow` (the cards). The typing box goes password-style with no
+      keyboard suggestions while it waits for a key. "Connect an AI" button on the greeting when none is
+      connected; "connect an AI", "I have Claude Pro" and the like start it in words. Tests with fake keys only.
+      Not yet on the phone.
+- [ ] The talk half: Joybot's chat sending to the computer's AI (OpenCode's `opencode serve` first; Claude
+      Code waits for S17; meanwhile Claude Code's own Remote Control lets the person talk from the Claude app).
+- [ ] Bridged requests show in Joybot's chat as "Claude Code: …" only when the chat is open for that project;
+      a Review card for a bridged burst is not built.
+- [ ] Phone + PC test with Claude Code and with Codex. STATE row and help topic: done 10-28.
 
 ## Files and traps
 - New code in `ai/bridge/` (small files). Reuses `ai/actions/*` (registry), `AIToolExecutor`, `JoybotStorage`.

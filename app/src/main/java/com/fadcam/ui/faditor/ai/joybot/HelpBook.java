@@ -163,6 +163,13 @@ public final class HelpBook {
                             + "Or tap ⚙ at the top of this chat: paste an OpenRouter key (the free model costs nothing), "
                             + "or the address of any OpenAI-compatible service. More than one subscription? Tap the "
                             + "model name at the top → Add another AI account, then switch between them there.", null, null),
+            new Topic("bridge", "claude code|codex|opencode|hermes|mcp|my computer|from my computer|"
+                    + "computer's ai|bridge|my pc|my mac|my laptop",
+                    "Claude Code, Codex or any AI app that speaks MCP can use my tools from your computer: "
+                            + "your video, VisLab, JoyBrush. Open “Connect your computer”, then say the words it "
+                            + "shows to Claude Code or Codex. Your phone and computer talk over your own Wi-Fi "
+                            + "(or a USB cable); nothing goes through us. Locked things stay locked, deletes wait for "
+                            + "your tap here, and each burst of changes is one Undo.", "bridge", null),
             new Topic("joybot", "what can you do|who are you|help me|what do you do",
                     "Right here on the phone I can transcribe, add captions, cut ums and silences, add "
                             + "transitions and visualizers, make slides, and answer “how do I”. With an AI "

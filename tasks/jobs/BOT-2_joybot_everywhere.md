@@ -31,10 +31,14 @@ Select, symmetry, Send to Studio. Hover labels: ~220 controls done 10-15; the ch
 - [ ] **JoyBrush ideas** that read the open drawing (e.g. "Add a layer for colour", "Make a 12-frame loop",
       "Send this to Studio"), using `JoybotHands.describe()`.
 - [ ] **Avatar room**: a Joybot button and ideas (Avatar stays hidden for launch: decide with ANI-1).
-- [ ] **Hover-label sweep** of the chat screen and every card it draws.
+- [x] **Hover-label sweep** of the chat screen and every card it draws: checked 10-28 by script over every
+      `setOnClickListener` in `ai/**` and the chat layout: all labelled (the header and input buttons in code,
+      cards through `cardButton`); the new setup, tip and bridge buttons carry labels too.
 - [ ] **Empty-state copy** the owner drafted 9-09 (no key: what Joybot does free; key: "no markup, watch
       your usage"). Check what the chat shows today first.
-- [ ] **"What can I do here?"**: list the room's actions from the action registry, in plain words.
+- [x] **"What can I do here?"** (10-28): `joybot/WhatHere` lists the room's real actions from both registries
+      in plain words (changes first, then reads; 14 then "and N more"); Studio also names what works with no AI;
+      without an AI it says the list needs one. Online or off. Tests in `IdeaEngineTest`. Not yet on the phone.
 - [x] **"Did you know?" on every empty open** (owner, 10-28). Offline, no AI needed. `joybot/TipBook` holds 51
       tips, each a feature STATE marks built and on joy-creator (Studio, sound, VisLab, JoyBrush, SpriteLab,
       Capture, Library, Joybot himself); `joybot/TipUsage` leans them toward what this person makes (Library, last

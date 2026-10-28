@@ -102,6 +102,7 @@ public final class TipBook {
             t("joybot_plan", Wing.JOYBOT, "for a big job I show you a short plan first, and afterwards a list of every change with Undo from here.", null),
             t("joybot_one_undo", Wing.JOYBOT, "everything I do for one request is a single Undo.", null),
             t("joybot_locked", Wing.JOYBOT, "if you lock something, I won't change it unless you tell me to unlock it.", null),
+            t("joybot_bridge", Wing.JOYBOT, "Claude Code or Codex on your computer can use all my tools over your own Wi-Fi, with your own subscription.", "bridge"),
             t("joybot_how", Wing.JOYBOT, "you can ask me “how do I…” about anything in the app, and I'll show you the way.", null)));
 
     /**
@@ -125,14 +126,15 @@ public final class TipBook {
         if (total > 0 && !unused.isEmpty() && rnd.nextInt(4) == 0) {
             return unused.get(rnd.nextInt(unused.size()));
         }
-        // Weight: 1 for every tip, plus up to 8 by the wing's share of what they make.
+        // Weight: 1 for every tip, plus up to 20 by the wing's share of what they make (a wing with
+        // few tips, like JoyBrush, still leads for someone who only draws).
         double[] w = new double[fresh.size()];
         double sum = 0;
         for (int i = 0; i < fresh.size(); i++) {
             Tip x = fresh.get(i);
             Integer n = uses.get(x.wing);
             double share = total == 0 ? 0 : Math.max(0, n == null ? 0 : n) / (double) total;
-            w[i] = 1 + 8 * share + (x.wing == Wing.JOYBOT ? 0.5 : 0);
+            w[i] = 1 + 20 * share + (x.wing == Wing.JOYBOT ? 0.5 : 0);
             sum += w[i];
         }
         double r = rnd.nextDouble() * sum;

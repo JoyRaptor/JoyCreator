@@ -391,6 +391,9 @@
 
         <!-- AI assistant service for transcription, silence detection, and edit jobs -->
         <service android:name=".ui.faditor.ai.AIJobService" android:exported="false" android:foregroundServiceType="dataSync" />
+        <!-- BOT-6: the bring-your-own-AI bridge's door, open only while the person has it switched on -->
+        <service android:name=".ui.faditor.ai.bridge.BridgeService" android:exported="false" android:foregroundServiceType="dataSync" />
+        <activity android:name=".ui.faditor.ai.bridge.BridgeActivity" android:theme="@style/Theme.FadCam.FaditorEditor" android:exported="false" />
 
         <!-- Media button receiver to satisfy MediaSessionCompat requirement for a unique receiver -->
         <receiver android:name=".services.MediaButtonReceiver" android:exported="false">

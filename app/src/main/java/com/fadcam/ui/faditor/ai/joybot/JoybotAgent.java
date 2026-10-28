@@ -415,10 +415,128 @@ public final class JoybotAgent {
 
     // ── one request ─────────────────────────────────────────────────────────
 
+    /**
+     * Joybot's tools for an AI on the person's own computer (BOT-6: Claude Code, Codex, any MCP
+     * client, through {@code ai/bridge}). Every call goes through the same host as Joybot's own
+     * requests: one undo per burst of calls (a pause of {@link #BURST_MS} starts a new one), locked
+     * things stay locked and deletes ask on the phone, because nothing the computer sends counts as
+     * the person's own words ({@code PersonSaid}). Calls run one at a time on Joybot's worker.
+     */
+    public static final class Bridged {
+        /** Calls closer together than this are one request: one undo step. */
+        public static final long BURST_MS = 30_000;
+        /** The tool that tells the computer where the person is. */
+        public static final String WHERE = "where_am_i";
+
+        /** One call's answer. */
+        public static final class Answer {
+            @NonNull public final String text;
+            /** A picture from {@code look}, as base64 (no data: prefix), or null. */
+            @Nullable public final String imageBase64;
+            @Nullable public final String imageMime;
+            public final boolean failed;
+
+            Answer(@NonNull String text, @Nullable String imageBase64, @Nullable String imageMime, boolean failed) {
+                this.text = text;
+                this.imageBase64 = imageBase64;
+                this.imageMime = imageMime;
+                this.failed = failed;
+            }
+        }
+
+        private final Context app;
+        @Nullable private final String projectId;
+        @NonNull private final IdeaEngine.Room room;
+        @NonNull private final String who;
+        @Nullable private Run run;
+        private long lastCall;
+
+        public Bridged(@NonNull Context context, @Nullable String projectId, @NonNull IdeaEngine.Room room,
+                       @NonNull String who) {
+            this.app = context.getApplicationContext();
+            this.projectId = projectId;
+            this.room = room;
+            this.who = who;
+        }
+
+        /** Joybot's tools as OpenAI-style definitions, minus his own plumbing, plus {@link #WHERE}. */
+        @NonNull
+        public static JSONArray tools() throws Exception {
+            JSONArray out = new JSONArray();
+            out.put(new JSONObject().put("type", "function").put("function", new JSONObject()
+                    .put("name", WHERE)
+                    .put("description", "Where the person is in Joy Creator right now: the open project (clips,"
+                            + " titles, pictures, layers with their ids), or the VisLab look or JoyBrush drawing on"
+                            + " screen. Call it first, and again after big changes.")
+                    .put("parameters", new JSONObject().put("type", "object").put("properties", new JSONObject()))));
+            JSONArray all = nativeTools();
+            for (int i = 0; i < all.length(); i++) {
+                JSONObject fn = all.getJSONObject(i).optJSONObject("function");
+                if (fn != null && AgentTools.PROPOSE_PLAN.equals(fn.optString("name"))) continue;
+                out.put(all.getJSONObject(i));
+            }
+            return out;
+        }
+
+        /** Run one tool for the computer. Blocks until Joybot's worker has run it (up to 10 minutes). */
+        @NonNull
+        public Answer call(@NonNull String name, @NonNull JSONObject args) throws Exception {
+            final Answer[] got = new Answer[1];
+            final Exception[] boom = new Exception[1];
+            java.util.concurrent.CountDownLatch done = new java.util.concurrent.CountDownLatch(1);
+            JoybotJobs.execute(() -> {
+                try {
+                    got[0] = callHere(name, args);
+                } catch (Exception e) {
+                    boom[0] = e;
+                } finally {
+                    done.countDown();
+                }
+            });
+            if (!done.await(10, java.util.concurrent.TimeUnit.MINUTES)) {
+                return new Answer("Error: Joybot is still busy with that on the phone; ask again in a moment.", null, null, true);
+            }
+            if (boom[0] != null) throw boom[0];
+            return got[0];
+        }
+
+        @NonNull
+        private synchronized Answer callHere(@NonNull String name, @NonNull JSONObject args) throws Exception {
+            long now = android.os.SystemClock.uptimeMillis();
+            if (run == null || now - lastCall > BURST_MS) {
+                Situation s = new Situation();
+                s.room = room;
+                Ask ask = new Ask(projectId, who, "bridge", "", who, s);
+                run = new Run(app, ask, new Finished(projectId, who));
+                run.bridged = true;
+            }
+            lastCall = now;
+            // Nothing the computer sends is the person's own yes: a lock or a delete waits for the phone.
+            AIChatState.liveAsk = "";
+            AIChatState.liveReplyBefore = "";
+            if (WHERE.equals(name)) return new Answer(run.context(), null, null, false);
+            String line = run.runTool(new JSONObject().put("tool", name).put("args", args));
+            if (line == null) return new Answer("Error: that call could not be read, so nothing ran.", null, null, true);
+            String text = run.lastResult;
+            JoybotEyes.Sight sight = run.sight;
+            run.sight = null;
+            String data = null, mime = null;
+            if (sight != null) {
+                int comma = sight.dataUrl.indexOf(',');
+                String head = comma > 0 ? sight.dataUrl.substring(0, comma) : "";
+                data = comma > 0 ? sight.dataUrl.substring(comma + 1) : null;
+                mime = head.startsWith("data:") ? head.substring(5).replace(";base64", "") : "image/jpeg";
+            }
+            return new Answer(text, data, mime, DirectRunner.isFailure(text));
+        }
+    }
+
     private static final class Run {
         final Context app;
         final Ask ask;
         final Finished out;
+        /** A call from the person's computer (Bridged): no Joybot notification of its own. */
+        boolean bridged;
         /** Writes made while the editor is on screen merge into one step by this token. */
         final String token = UUID.randomUUID().toString();
         boolean stepPushed, nudged, toolRan;
@@ -759,7 +877,7 @@ public final class JoybotAgent {
                         "Generate Whisper transcript", "Detect silence", "Synthesize transcripts",
                         "Cut fillers"}));
             }
-            AIJobService.update(app, "Joybot: " + task, 0);
+            if (!bridged) AIJobService.update(app, "Joybot: " + task, 0);
             // While the editor is on screen it records the change itself, one step per request.
             AIChatState.liveWriteLabel = ask.undoLabel;
             AIChatState.liveWriteRequest = token;
@@ -776,7 +894,7 @@ public final class JoybotAgent {
             String result;
             try {
                 result = new AIToolExecutor(app, pid, (t, pct) -> {
-                    AIJobService.update(app, "Joybot: " + t, pct);
+                    if (!bridged) AIJobService.update(app, "Joybot: " + t, pct);
                     post(ask.key(), l -> l.onWorking(t, pct));
                 }).executeTool(name, args);
             } catch (Throwable t) {
@@ -881,7 +999,8 @@ public final class JoybotAgent {
             String result;
             // On OpenRouter a text-only model borrows the free router's eyes for the step that
             // carries the picture (go(), gap F9), so only refuse where that can't happen (audit 10-18).
-            if (!AiService.isCustom(app) && !AiService.chatUrl(app).contains("openrouter.ai")
+            // The computer's AI (bridged) brings its own eyes: never judge it by the phone's model.
+            if (!bridged && !AiService.isCustom(app) && !AiService.chatUrl(app).contains("openrouter.ai")
                     && ModelCapabilities.visionFor(ask.model) == ModelCapabilities.Vision.NO) {
                 result = "Error: the model in use can't see pictures. Tell the person to pick one with"
                         + " the eye (tap the model name at the top), then ask again.";

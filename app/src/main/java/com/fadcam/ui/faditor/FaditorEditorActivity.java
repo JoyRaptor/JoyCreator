@@ -14594,7 +14594,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         healMovedInEditor();
         // Clamp selected index in case clip count changed (e.g. after snapshot restore)
         int clipCount = project.getTimeline().getClipCount();
-        if (clipCount == 0) return;
+        if (clipCount == 0) {
+            refreshPreviewSurfaceAfterUndoRedo();   // nothing left to preview — drop a stale slide
+            return;
+        }
         if (selectedClipIndex < 0 || selectedClipIndex >= clipCount) {
             selectedClipIndex = Math.max(0, clipCount - 1);
         }
@@ -14743,6 +14746,72 @@ public class FaditorEditorActivity extends AppCompatActivity {
             syncRemovedSpansFromTranscript();
             if (transcriptView != null) transcriptView.invalidate();
         }
+        refreshPreviewSurfaceAfterUndoRedo();
+    }
+
+    /**
+     * Undo/redo: put the preview SURFACE (slide WebView / image / player) back on the kind of
+     * clip now under the playhead — the same three-way choice selectSegment makes.
+     *
+     * <p>Nothing on this path did that, so when a snapshot undo removed a generated slide
+     * (Joybot's "cinematic title slide", Note 9 2026-10-14) the timeline lost the slide but the
+     * preview kept showing its WebView, through a second undo as well.</p>
+     *
+     * <p>Only switches when the surface is the wrong KIND (a slide is always re-seated, which is
+     * cheap for the same slide). Re-loading the player on every undo is the old "undo snaps the
+     * preview to the clip head" bug described above, so a player that is already the surface is
+     * left alone. Position comes from lastPlayheadAbsoluteMs, not the view, for the same reason.</p>
+     */
+    private void refreshPreviewSurfaceAfterUndoRedo() {
+        Timeline tl = project.getTimeline();
+        long abs = Math.max(0L, lastPlayheadAbsoluteMs);
+        Clip clip = null;
+        long segStart = 0L;
+        int count = tl.getClipCount();
+        for (int i = 0; i < count; i++) {
+            Clip c = tl.getClip(i);
+            if (c == null) continue;
+            long dur = c.getTrimmedDurationMs();
+            if (abs < segStart + dur || i == count - 1) { clip = c; break; }
+            segStart += dur;
+        }
+        if (clip == null) {
+            hideSlidePreview();
+            hideImagePreview();
+            return;
+        }
+        long localMs = Math.max(0L, Math.min(abs - segStart, clip.getTrimmedDurationMs() - 1));
+
+        if (clip.isGeneratedSlide()) {
+            // Playback runs a slide off its rendered MP4 with the WebView hidden; leave it be.
+            if (playerManager != null && playerManager.isPlaying()) return;
+            hideMissingOverlay();
+            hideImagePreview();
+            showSlidePreview(clip, localMs);
+            return;
+        }
+        boolean slideShowing = slidePreview != null && slidePreview.getVisibility() == View.VISIBLE;
+        boolean imageShowing = imagePreview != null && imagePreview.getVisibility() == View.VISIBLE;
+        if (!slideShowing && (imageShowing == clip.isImageClip())) return;   // right kind already
+
+        hideSlidePreview();
+        if (!isSourceResolvable(clip.getSourceUri())) {
+            hideImagePreview();
+            showMissingOverlay(clip);
+            return;
+        }
+        hideMissingOverlay();
+        if (clip.isImageClip()) {
+            showImagePreview(clip.getSourceUri());
+            if (playerManager != null && playerManager.isGapless()) playerManager.loadClip(clip);
+            return;
+        }
+        hideImagePreview();
+        loadClipForPlayback(clip);
+        if (playerManager != null) {
+            playerManager.seekInClip(clip, (long) (localMs * clip.getSpeedMultiplier()));
+        }
+        updatePreviewTransforms();
     }
 
     /**

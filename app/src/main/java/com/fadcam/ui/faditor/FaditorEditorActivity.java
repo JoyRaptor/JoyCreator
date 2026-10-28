@@ -15140,6 +15140,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // happened — "PHJUMP 34180 -> 54888 (+20708)", and 20708 is precisely clip 8's start.
         // That is what made it chaotic rather than merely wrong, and why times could land past
         // the end of the project and render black.
+        // A step that SHORTENS the project (redo of a delete) can leave the playhead past the new
+        // end, showing black. Bring it back to the last frame, as deleting the clip does (Note 9, 10-28).
+        long undoEndMs = totalEffectiveMs();
+        if (undoEndMs > 0 && lastPlayheadAbsoluteMs >= undoEndMs) {
+            lastPlayheadAbsoluteMs = undoEndMs - 1;
+            editorTimeline.seekToTimelineMs(lastPlayheadAbsoluteMs);
+        }
         updateCurrentTimeDisplay(segmentRelativeForAbsolute(Math.max(0L, lastPlayheadAbsoluteMs)));
         refreshTotalTimeDisplay();
 

@@ -719,6 +719,78 @@ public class IdeaEngineTest {
             check("tips: offline ends on a tip", off.endsWith(tips.get(0).text) && off.contains("Did you know "), off);
         }
 
+        // ── KeyCatcher: a key typed in the chat never leaves the phone (BOT-6 10-28). FAKE keys only. ──
+        {
+            String or = "sk-or-v1-" + "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+            String oa = "sk-proj-" + "AbCdEf0123456789AbCdEf0123456789_xyz-0123";
+            String an = "sk-ant-api03-" + "AbCdEf0123456789AbCdEf0123456789";
+            com.fadcam.ui.faditor.ai.joybot.KeyCatcher.Found f;
+
+            f = com.fadcam.ui.faditor.ai.joybot.KeyCatcher.find(or, false);
+            check("key: a pasted OpenRouter key is caught", f != null && f.key.equals(or), "");
+            check("key: ...and named OpenRouter", f != null && f.provider == com.fadcam.ui.faditor.ai.joybot.AiProviders.OPENROUTER, "");
+            check("key: ...and the chat keeps only its last four", f != null && !f.shown.contains(or.substring(0, 20))
+                    && f.shown.endsWith(or.substring(or.length() - 4)), f == null ? "" : f.shown);
+
+            f = com.fadcam.ui.faditor.ai.joybot.KeyCatcher.find("here's my key " + oa + " thanks", false);
+            check("key: inside a sentence", f != null && f.key.equals(oa)
+                    && f.provider == com.fadcam.ui.faditor.ai.joybot.AiProviders.OPENAI, "");
+            check("key: ...the sentence is kept, the key masked", f != null && f.shown.startsWith("here's my key \uD83D\uDD11")
+                    && f.shown.endsWith("thanks") && !f.shown.contains(oa), f == null ? "" : f.shown);
+
+            String broken = an.substring(0, 18) + "\n" + an.substring(18);
+            f = com.fadcam.ui.faditor.ai.joybot.KeyCatcher.find(broken, false);
+            check("key: broken across lines by the copy, joined", f != null && f.key.equals(an)
+                    && f.provider == com.fadcam.ui.faditor.ai.joybot.AiProviders.ANTHROPIC, f == null ? "null" : f.key);
+
+            String plain = "Zk3Q9xLmPa7Rt2VwYb8Nc4Hd6Jf1Gs5";
+            check("key: an unknown shape is not caught out of the blue",
+                    com.fadcam.ui.faditor.ai.joybot.KeyCatcher.find(plain, false) == null, "");
+            f = com.fadcam.ui.faditor.ai.joybot.KeyCatcher.find(plain, true);
+            check("key: ...but is, right after Joybot asked for one", f != null && f.key.equals(plain) && f.provider == null, "");
+
+            String[] notKeys = {"make the title say sk-8 skateboard", "skip the first 20 seconds",
+                    "add a title that says ChatGPT", "rename it to my_holiday_video_2026_final_cut.mp4",
+                    "open https://openrouter.ai/keys please", "use a key frame on the logo"};
+            for (String n : notKeys) {
+                check("key: not a key, even when expecting one: " + n,
+                        com.fadcam.ui.faditor.ai.joybot.KeyCatcher.find(n, true) == null, n);
+            }
+        }
+
+        // ── SetupTalk: connecting an AI by talking (owner, BOT-6 10-28) ──
+        {
+            String[] asks = {"connect an AI", "Connect AI", "how do I connect my ChatGPT?", "I have Claude Pro",
+                    "i pay for chatgpt plus", "set up the AI", "add my api key", "I've got a Gemini subscription",
+                    "can I hook up Claude Code", "api key"};
+            for (String a : asks) check("connect: " + a, com.fadcam.ui.faditor.ai.joybot.SetupTalk.asksToConnect(a), a);
+            String[] edits = {"add a title that says ChatGPT", "use a key frame on the logo",
+                    "make a slide about Claude Monet", "connect the two clips", "add a link to the description",
+                    "I have an AI generated picture", "set up a slide"};
+            for (String e : edits) check("not connect: " + e, !com.fadcam.ui.faditor.ai.joybot.SetupTalk.asksToConnect(e), e);
+
+            eq("check: 200 works", com.fadcam.ui.faditor.ai.joybot.SetupTalk.Check.WORKS,
+                    com.fadcam.ui.faditor.ai.joybot.SetupTalk.checkOf(200));
+            eq("check: 401 wrong key", com.fadcam.ui.faditor.ai.joybot.SetupTalk.Check.WRONG_KEY,
+                    com.fadcam.ui.faditor.ai.joybot.SetupTalk.checkOf(401));
+            eq("check: 402 no credit", com.fadcam.ui.faditor.ai.joybot.SetupTalk.Check.NO_CREDIT,
+                    com.fadcam.ui.faditor.ai.joybot.SetupTalk.checkOf(402));
+            eq("check: 500 service trouble", com.fadcam.ui.faditor.ai.joybot.SetupTalk.Check.SERVICE_TROUBLE,
+                    com.fadcam.ui.faditor.ai.joybot.SetupTalk.checkOf(500));
+            for (com.fadcam.ui.faditor.ai.joybot.SetupTalk.Check c : com.fadcam.ui.faditor.ai.joybot.SetupTalk.Check.values()) {
+                String s = com.fadcam.ui.faditor.ai.joybot.SetupTalk.afterCheck(c, "OpenRouter");
+                check("check words name the service: " + c, s.contains("OpenRouter"), s);
+                check("check words: a failure says nothing was saved: " + c,
+                        c == com.fadcam.ui.faditor.ai.joybot.SetupTalk.Check.WORKS || s.contains("Nothing was saved"), s);
+            }
+            check("plan: no computer door promised before it's built", !com.fadcam.ui.faditor.ai.joybot.SetupTalk.explain(
+                    com.fadcam.ui.faditor.ai.joybot.SetupTalk.Path.CLAUDE, false).contains("Claude Code"), "");
+            check("plan: the door, once built", com.fadcam.ui.faditor.ai.joybot.SetupTalk.explain(
+                    com.fadcam.ui.faditor.ai.joybot.SetupTalk.Path.CHATGPT, true).contains("Codex"), "");
+            check("free: promises the key stays on the phone", com.fadcam.ui.faditor.ai.joybot.SetupTalk.explain(
+                    com.fadcam.ui.faditor.ai.joybot.SetupTalk.Path.FREE, false).contains("never goes to the AI"), "");
+        }
+
         // ── HelpBook.wantsChange: a request that must end in a change (Note 9, 2026-10-15) ──
         {
             check("wants change: name every cell", com.fadcam.ui.faditor.ai.joybot.HelpBook.wantsChange(

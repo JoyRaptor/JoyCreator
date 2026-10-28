@@ -71,6 +71,7 @@ public final class TipBook {
             t("vislab_in_studio", Wing.VISLAB, "any VisLab look can be a layer in your video: add a Visualizer in the Studio and pick it in the Style tab.", "studio"),
             t("vislab_parts", Wing.VISLAB, "you can save one layer of a VisLab look as a part and reuse it in any other look.", "vislab"),
             t("vislab_follow", Wing.VISLAB, "parts of a VisLab look can follow a picture or title in your video as it moves.", "vislab"),
+            t("vislab_show", Wing.VISLAB, "a picture layer in a VisLab look can show a picture, a title, a sprite or the main video from your Studio project.", "studio"),
             t("vislab_video", Wing.VISLAB, "you can play one of your own videos inside a VisLab look.", "vislab"),
             t("vislab_heat", Wing.VISLAB, "VisLab watches your phone's temperature and eases off by itself if it gets hot.", "vislab"),
             // ── JoyBrush ──

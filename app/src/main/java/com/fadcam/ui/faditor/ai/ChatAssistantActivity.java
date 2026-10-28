@@ -99,6 +99,10 @@ public class ChatAssistantActivity extends AppCompatActivity {
     private LinearLayout chipsRow;
     private TextView stopButton;
     private IdeaEngine.Room room = IdeaEngine.Room.STUDIO;
+    /** Connecting an AI by talking (BOT-6): holds a pasted key only until it is checked. */
+    private com.fadcam.ui.faditor.ai.joybot.SetupFlow setupFlow;
+    /** The typing box's own input type, put back after it took a key (password-style, no suggestions). */
+    private int chatInputType = -1;
     private IdeaMemory ideaMemory;
     @Nullable private IdeaEngine.Offer currentOffer;
     /** The best idea shown this visit, and whether it was tapped: two ignores make it quiet. */
@@ -219,6 +223,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
         initViews();
         initSystemPrompt();
+        setupFlow = new com.fadcam.ui.faditor.ai.joybot.SetupFlow(setupHost());
 
         // Restore previous messages if returning to an existing conversation
         if (!messageLog.isEmpty()) {
@@ -852,8 +857,8 @@ public class ChatAssistantActivity extends AppCompatActivity {
             // Offline is not a lesser Joybot: everything the buttons do runs on the phone.
             addBotMessage("Hi, I'm Joybot. " + did + "\n\nRight here on the phone I can transcribe, "
                     + "add captions, cut the ums and silences, add transitions and make slides — tap a "
-                    + "button below. Connect an AI in ⚙ (there's a free one) and I can take on "
-                    + "anything you can describe.");
+                    + "button below. Connect an AI (there's a free one) and I can take on anything you "
+                    + "can describe: tap “Connect an AI” and I'll walk you through it.");
         } else {
             addBotMessage("Hi, I'm Joybot. " + did + "\n\nTap a button below, or tell me what you'd like to make.");
         }
@@ -862,7 +867,9 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
     /** A small "Take me there" under the tip, at its right edge; none when the tip is about this room. */
     private void addTakeMeThere(@NonNull com.fadcam.ui.faditor.ai.joybot.TipBook.Tip tip) {
-        if (tip.route == null || tip.route.equals(routeOfRoom(room))) return;
+        boolean connect = !AiService.ready(this, apiKey);
+        boolean go = tip.route != null && !tip.route.equals(routeOfRoom(room));
+        if (!connect && !go) return;
         String where = tip.route;
         LinearLayout row = new LinearLayout(this);
         row.setGravity(android.view.Gravity.END);
@@ -870,8 +877,17 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         lp.setMargins(dp(8), 0, dp(60), dp(4));
         row.setLayoutParams(lp);
-        row.addView(JoybotChatViews.cardButton(this, "Take me there",
-                "Open the part of the app this tip is about", v -> route(where)));
+        if (connect) {
+            row.addView(JoybotChatViews.cardButton(this, "Connect an AI",
+                    "I'll walk you through it, step by step", v -> {
+                        addUserMessage("Connect an AI");
+                        setupFlow.start();
+                    }));
+        }
+        if (go) {
+            row.addView(JoybotChatViews.cardButton(this, "Take me there",
+                    "Open the part of the app this tip is about", v -> route(where)));
+        }
         messagesContainer.addView(row);
         messageViews.add(row);
     }
@@ -946,6 +962,16 @@ public class ChatAssistantActivity extends AppCompatActivity {
         stopDictation();
         String text = inputField.getText().toString().trim();
         if (text.isEmpty() && stagedImage == null) return;
+        // An AI key typed or pasted here is caught on the phone first: it never reaches the AI, the
+        // conversation or the message log; the bubble keeps only its last four letters (BOT-6, 10-28).
+        com.fadcam.ui.faditor.ai.joybot.KeyCatcher.Found typedKey = com.fadcam.ui.faditor.ai.joybot.KeyCatcher.find(text, setupFlow.expectingKey());
+        if (typedKey != null) {
+            inputField.setText("");
+            dictatedText = null;
+            addUserMessage(typedKey.shown);
+            setupFlow.gotKey(typedKey);
+            return;
+        }
         if (busy) {
             Toast.makeText(this, "Joybot is still working — tap Stop first", Toast.LENGTH_SHORT).show();
             return;
@@ -1004,6 +1030,11 @@ public class ChatAssistantActivity extends AppCompatActivity {
         // "Undo that" means Joybot's newest change, online or off.
         if (norm(text).matches("(please )?(undo|undo that|undo it|take (that|it) back|put it back|revert( that)?)( please)?")) {
             undoByWords();
+            return;
+        }
+        // "Connect an AI", "I have Claude Pro": Joybot walks them through it, here in the chat.
+        if (com.fadcam.ui.faditor.ai.joybot.SetupTalk.asksToConnect(text)) {
+            setupFlow.start();
             return;
         }
         boolean online = AiService.ready(this, apiKey);
@@ -3956,6 +3987,83 @@ public class ChatAssistantActivity extends AppCompatActivity {
         model = SharedPreferencesManager.getInstance(this).sharedPreferences.getString(PREF_MODEL, DEFAULT_MODEL);
         if (AiService.isCustom(this)) ModelCatalog.setTalkingToPictures(this, false);
         updateModelLabel();
+    }
+
+    /** What the connect-an-AI conversation needs from this screen. */
+    @NonNull
+    private com.fadcam.ui.faditor.ai.joybot.SetupFlow.Host setupHost() {
+        return new com.fadcam.ui.faditor.ai.joybot.SetupFlow.Host() {
+            @NonNull @Override public android.content.Context context() { return ChatAssistantActivity.this; }
+            @Override public void say(@NonNull String text) { addBotMessage(text); }
+            @Override public void show(@NonNull View card) {
+                messagesContainer.addView(card);
+                messageViews.add(card);
+                scrollToBottom();
+            }
+            @Override public void openUrl(@NonNull String url) {
+                try {
+                    startActivity(new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)));
+                } catch (Exception e) {
+                    addBotMessage("I couldn't open a browser. The address is " + url);
+                }
+            }
+            @Override public void readyForKey(boolean on) { keyMode(on); }
+            @Override public void connect(@NonNull String key, @NonNull com.fadcam.ui.faditor.ai.joybot.AiProviders.Provider p) {
+                connectKey(key, p);
+            }
+            @Nullable @Override public String connectedTo() {
+                return AiService.ready(ChatAssistantActivity.this, apiKey) ? AiAccounts.active(ChatAssistantActivity.this).name : null;
+            }
+            @Override public boolean bridgeReady() { return false; }
+            @Override public void openBridge() { }
+        };
+    }
+
+    /**
+     * The typing box takes a key: hidden like a password and kept out of the keyboard's suggestions
+     * (a keyboard that learns a key offers it to the next app). Off again once a key arrives.
+     */
+    private void keyMode(boolean on) {
+        if (chatInputType == -1) chatInputType = inputField.getInputType();
+        if (on) {
+            inputField.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                    | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+                    | android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+            inputField.setHint("Paste your key here");
+            inputField.requestFocus();
+        } else {
+            inputField.setInputType(chatInputType);
+            inputField.setHint("Ask anything\u2026");
+        }
+    }
+
+    /**
+     * A key checked in the chat becomes an account and the one in use, as ⚙ would save it. The account
+     * in use is kept when it already has a key (switch back from the model name at the top).
+     */
+    private void connectKey(@NonNull String key, @NonNull com.fadcam.ui.faditor.ai.joybot.AiProviders.Provider p) {
+        if (AiAccounts.active(this).hasKey() || AiService.isCustom(this)) AiAccounts.addBlank(this);
+        AiKey.set(this, key);
+        AiService.setBase(this, p.base);
+        String mdl = p.startModel.isEmpty() ? DEFAULT_MODEL : p.startModel;
+        SharedPreferencesManager.getInstance(this).sharedPreferences.edit().putString(PREF_MODEL, mdl).apply();
+        if (AiService.isCustom(this)) ModelCatalog.setTalkingToPictures(this, false);
+        AiAccounts.syncActive(this, AiAccounts.freshName(this, AiService.isCustom(this) ? AiService.base(this) : "",
+                AiAccounts.active(this).id));
+        apiKey = AiKey.get(this);
+        model = mdl;
+        updateModelLabel();
+        refreshIdeas(false);
+        if (AiService.isCustom(this)) {
+            // Not OpenRouter: the person picks from the models their own account has.
+            addBotMessage("Pick the model to talk to — these are the ones your account has.");
+            ModelPicker.show(this, false, new ModelPicker.OnPick() {
+                @Override public void chat(@NonNull ModelCatalog.Model m) { useChatModel(m.id); }
+                @Override public void pictures(@NonNull ModelCatalog.Model m) { usePictureModel(m.id); }
+            });
+            return;
+        }
+        addBotMessage(com.fadcam.ui.faditor.ai.joybot.SetupTalk.firstTry(projectId != null));
     }
 
     private void useChatModel(@NonNull String id) {

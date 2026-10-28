@@ -159,7 +159,8 @@ public final class HelpBook {
             new Topic("trash", "trash|deleted|bin|recover",
                     "Hold the Joy Creator logo at the top of the lobby to open the Trash.", "trash", null),
             new Topic("ai", "api key|key|openrouter|model|ai setting|connect|free ai",
-                    "Tap ⚙ at the top of this chat. Paste an OpenRouter key (the free model costs nothing), "
+                    "Say “connect an AI” and I'll walk you through it, step by step (there's a free one). "
+                            + "Or tap ⚙ at the top of this chat: paste an OpenRouter key (the free model costs nothing), "
                             + "or the address of any OpenAI-compatible service. More than one subscription? Tap the "
                             + "model name at the top → Add another AI account, then switch between them there.", null, null),
             new Topic("joybot", "what can you do|who are you|help me|what do you do",

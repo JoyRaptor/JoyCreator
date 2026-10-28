@@ -87,6 +87,7 @@ Each of these needs the owner and nobody else. The lead's recommendation comes f
 | S15 | Joybot defaults: paid picture model (FLUX.2 Klein ~1½¢ or Nano Banana ~4¢), ask before every paid picture, read replies aloud | Klein; always ask (a "don't ask under 5¢" switch); read-aloud off | [BOT-4](jobs/BOT-4_joybot_reach.md) |
 | S16 | Joybot: try him with your own voice (hands-free loop) and, when you have API credit, with OpenAI | | [BOT-1](jobs/BOT-1_joybot_owed.md) |
 | S17 | Joybot: ask Anthropic (in writing) whether Joy Creator may start a person's own Claude Code on their own computer, so they can talk to it from Joybot. Their terms forbid apps routing requests through Pro/Max plans "on behalf of their users"; this case isn't addressed | Ask before building that half; everything else in BOT-6 doesn't need it | [BOT-6](jobs/BOT-6_bring_your_own_ai.md) |
+| S18 | **Pick the front door**: open `tasks/design/UI-Front-door-picks_20261028.html` on the phone, tap a direction and one option per part, and paste back the copy line | Direction 1 ("Marquee, made clear") is the smallest step from today; direction 2 is the most iPhone-simple | [DOOR-2](jobs/DOOR-2_lobby_landing.md) |
 
 ---
 

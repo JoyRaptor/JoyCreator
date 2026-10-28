@@ -1,0 +1,878 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Front door picks</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@100..900&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* ===========================================================
+   JOY CREATOR · FRONT DOOR PICKS · 28 Oct 2026
+   Same family as record 04 (The Marquee): same tokens, type, phone.
+   Every mock is drawn at true size: 1 CSS px = 1 dp, phone 360 x 740.
+   On a screen narrower than that, the mock is scaled down whole.
+   =========================================================== */
+:root{
+  color-scheme:dark;
+  --bg:#050507; --bg2:#09090c;
+  --panel:#111114; --panel2:#161619;
+  --ctl:#1c1c22; --ctl2:#26262e;
+  --line:#2c2c35; --line2:#3a3a46;
+  --ink:#e4e4e7; --dim:#a1a1aa; --dimmer:#71717a; --dimmest:#4b4b55; --off:#33333c;
+  --sel:#22d3ee; --warn:#fbbf24;
+  --studio-a:#35f6bf;  --studio-b:#97fe8b;
+  --capture-a:#fa3d5d; --capture-b:#ff008c;
+  --shop-a:#ff008c;    --shop-b:#cc27ff;
+  --avatar-a:#cc27ff;  --avatar-b:#8c3dfa;
+  --library-a:#22d3ee; --library-b:#55e0f9;
+  --sound-a:#faa03d;   --sound-b:#fc6818;
+  --brush-a:#5c43fd;   --brush-b:#4397fd;
+  --bot-a:#cc27ff;     --bot-b:#5c43fd;
+  --ease-out:cubic-bezier(0.23,1,0.32,1);
+  --f-disp:'Archivo','Helvetica Neue',Arial,sans-serif;
+  --f-body:'IBM Plex Sans','Segoe UI',system-ui,sans-serif;
+  --f-mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+  --gut:16px; --maxw:1180px;
+}
+*{box-sizing:border-box}
+html,body{background:var(--bg);margin:0}
+body{font-family:var(--f-body);color:var(--ink);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:hidden;padding-bottom:96px}
+h1,h2,h3{font-family:var(--f-disp);margin:0;letter-spacing:-.025em;text-wrap:balance}
+p{margin:0}
+button{font:inherit;color:inherit}
+.wrap{max-width:var(--maxw);margin:0 auto;padding-inline:var(--gut)}
+@media (min-width:700px){:root{--gut:24px}}
+svg.ic{width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;display:block;flex:0 0 auto}
+
+/* masthead */
+.mast{padding-block:44px 28px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#0b0b10,var(--bg))}
+.kicker{font-family:var(--f-mono);font-size:11px;color:var(--dimmer);margin-bottom:12px}
+.mast h1{font-size:clamp(36px,8vw,60px);font-weight:900;line-height:.95;letter-spacing:-.045em}
+.mast p{max-width:62ch;margin-top:14px;color:var(--dim);font-size:15.5px}
+.mast p b{color:var(--ink);font-weight:600}
+.steps{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+.steps span{font-size:12.5px;color:var(--dim);background:var(--panel);border-radius:999px;padding:6px 12px}
+.steps b{color:var(--ink);font-family:var(--f-mono);font-weight:500;margin-right:6px}
+
+section{padding-block:48px 0}
+.h2{display:flex;align-items:baseline;gap:12px;margin-bottom:8px}
+.h2 span{font-family:var(--f-mono);font-size:12px;color:var(--dimmest)}
+.h2 h2{font-size:clamp(24px,5vw,34px);font-weight:800}
+.dek{color:var(--dim);max-width:64ch;margin-bottom:22px;font-size:14.5px}
+.dek b{color:var(--ink);font-weight:600}
+
+/* who-is-looking toggle */
+.who{display:inline-flex;gap:4px;background:var(--panel);border-radius:999px;padding:4px;margin-bottom:24px}
+.who button{border:0;background:none;cursor:pointer;display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--dim);padding:8px 14px;border-radius:999px;min-height:36px}
+.who button svg{font-size:14px}
+.who button[aria-pressed="true"]{background:var(--sel);color:#050507}
+
+/* today: facts list */
+.today{display:grid;gap:28px;align-items:start}
+@media (min-width:820px){.today{grid-template-columns:360px 1fr}}
+.facts{display:flex;flex-direction:column;gap:16px;max-width:62ch}
+.fact{display:grid;grid-template-columns:22px 1fr;gap:12px}
+.fact i{font-style:normal;font-family:var(--f-mono);font-size:11px;color:var(--dimmest);padding-top:3px}
+.fact b{display:block;font-family:var(--f-disp);font-size:15.5px;font-weight:700;letter-spacing:-.02em;margin-bottom:2px}
+.fact p{font-size:13.5px;color:var(--dim)}
+.fact.good b{color:var(--studio-a)}
+.fact code{font-family:var(--f-mono);font-size:11px;color:var(--dimmer)}
+
+/* direction cards */
+.dirs{display:grid;gap:36px;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));align-items:start}
+.pick{cursor:pointer;border-radius:22px;padding:12px;margin:-12px;outline:2px solid transparent;outline-offset:0;transition:outline-color 160ms var(--ease-out),background 160ms var(--ease-out);position:relative;-webkit-tap-highlight-color:transparent}
+.pick:focus-visible{outline-color:var(--line2)}
+.pick[aria-checked="true"]{outline-color:var(--sel);background:rgba(34,211,238,.05)}
+.badge{position:absolute;top:2px;right:2px;z-index:3;display:none;align-items:center;gap:5px;background:var(--sel);color:#050507;font-size:11.5px;font-weight:700;padding:5px 11px 5px 8px;border-radius:999px}
+.badge svg{font-size:13px;stroke-width:2.6}
+.pick[aria-checked="true"] .badge{display:flex}
+.dhead{display:flex;align-items:baseline;gap:10px;margin:14px 0 6px}
+.dhead .no{font-family:var(--f-mono);font-size:12px;color:var(--dimmest)}
+.dhead h3{font-size:20px;font-weight:800}
+.why{display:flex;flex-direction:column;gap:6px;font-size:13.5px;color:var(--dim);max-width:60ch}
+.why p{display:grid;grid-template-columns:44px 1fr;gap:8px}
+.why p s{text-decoration:none;font-family:var(--f-mono);font-size:10.5px;padding-top:3px}
+.why p.plus s{color:var(--studio-a)}
+.why p.cost s{color:var(--warn)}
+
+/* fit-to-width wrapper for true-size mocks */
+.fit{width:100%;max-width:360px;position:relative;overflow:hidden}
+.fit>.scale{transform-origin:0 0;width:360px}
+
+/* ---------- swaps ---------- */
+.part{padding-block:28px;border-top:1px solid var(--line)}
+.part:first-of-type{border-top:0;padding-top:4px}
+.ptitle{display:flex;align-items:baseline;gap:10px;margin-bottom:4px}
+.ptitle h3{font-size:19px;font-weight:800}
+.ptitle code{font-family:var(--f-mono);font-size:11px;color:var(--dimmest)}
+.pq{color:var(--dim);font-size:13.5px;margin-bottom:16px;max-width:64ch}
+.opts{display:grid;gap:26px;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));align-items:start}
+.opt .olab{display:flex;align-items:baseline;gap:8px;margin-bottom:8px}
+.opt .olab b{font-family:var(--f-mono);font-size:12px;color:var(--dimmer)}
+.opt[aria-checked="true"] .olab b{color:var(--sel)}
+.opt .olab span{font-family:var(--f-disp);font-weight:700;font-size:15px;letter-spacing:-.02em}
+.opt .onote{font-size:12.8px;color:var(--dim);margin-top:9px;max-width:56ch}
+.opt .onote em{font-style:normal;color:var(--warn)}
+.strip{width:360px;background:var(--bg);border-radius:18px;box-shadow:0 0 0 1px var(--line2);overflow:hidden;position:relative;font-size:13px;color:var(--ink)}
+.strip.pad{padding:14px 0}
+
+/* ---------- mix + copy ---------- */
+.mix{display:grid;gap:28px;align-items:start}
+@media (min-width:820px){.mix{grid-template-columns:360px 1fr}}
+.mixlist{display:flex;flex-direction:column;gap:2px;max-width:520px}
+.mixlist div{display:grid;grid-template-columns:110px 1fr;gap:10px;padding:9px 0;border-bottom:1px solid #1d1d24;font-size:13.5px}
+.mixlist div span:first-child{font-family:var(--f-mono);font-size:11.5px;color:var(--dimmer);padding-top:2px}
+.mixlist div span:last-child{color:var(--ink)}
+.mixlist div span.un{color:var(--dimmer)}
+.mixnote{margin-top:14px;font-size:13px;color:var(--dim);max-width:60ch}
+.mixnote b{color:var(--warn);font-weight:600}
+.copybig{margin-top:22px;background:var(--panel);border-radius:18px;padding:16px}
+.copybig code{display:block;font-family:var(--f-mono);font-size:13px;color:var(--ink);word-break:break-word;line-height:1.6}
+.copybtn{border:0;cursor:pointer;background:var(--sel);color:#050507;font-weight:800;font-size:15px;border-radius:999px;padding:0 22px;min-height:48px;display:inline-flex;align-items:center;gap:8px;flex:0 0 auto}
+.copybtn svg{font-size:17px;stroke-width:2.2}
+.copybig .copybtn{margin-top:14px;width:100%;justify-content:center}
+.reset{border:0;background:none;color:var(--dimmer);font-size:13px;margin-top:12px;cursor:pointer;padding:8px 0;text-decoration:underline;text-underline-offset:3px}
+
+/* sticky copy bar: frosted, see-through, never solid */
+.bar{position:fixed;left:0;right:0;bottom:0;z-index:20;padding:10px var(--gut) calc(10px + env(safe-area-inset-bottom,0px));
+  background:rgba(9,9,12,.45);-webkit-backdrop-filter:blur(16px) saturate(1.2);backdrop-filter:blur(16px) saturate(1.2);border-top:1px solid rgba(255,255,255,.08)}
+.bar .in{max-width:var(--maxw);margin:0 auto;display:flex;align-items:center;gap:12px}
+.bar code{flex:1;min-width:0;font-family:var(--f-mono);font-size:11px;line-height:1.4;color:var(--ink);overflow-wrap:anywhere}
+.bar .cnt{display:block;color:var(--dimmer);font-size:10.5px}
+@media (max-width:520px){.bar code{font-size:9.5px}.bar .copybtn{padding:0 16px}}
+
+footer{padding-block:40px 30px;color:var(--dimmer);font-size:12.4px;border-top:1px solid var(--line);margin-top:56px}
+footer b{color:var(--dim)}
+
+/* =================== THE PHONE (true dp) =================== */
+.phone{width:360px;height:740px;border-radius:28px;overflow:hidden;position:relative;background:var(--bg);
+  box-shadow:0 0 0 1px var(--line2),0 22px 60px rgba(0,0,0,.6);display:flex;flex-direction:column;font-size:13px;color:var(--ink);text-align:left}
+.sbar{height:24px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 18px;font-family:var(--f-mono);font-size:10px;color:var(--dimmer)}
+.banner{height:60px;flex:none;display:flex;align-items:center;gap:4px;padding:0 10px 0 18px;position:relative;
+  background:linear-gradient(90deg,transparent 30%,rgba(5,5,7,.85) 62%,var(--bg) 80%),
+    radial-gradient(120% 140% at 0% 50%,rgba(204,39,255,.40),transparent 60%),
+    radial-gradient(80% 120% at 26% 100%,rgba(67,151,253,.30),transparent 70%),
+    repeating-linear-gradient(90deg,rgba(255,255,255,.04) 0 1px,transparent 1px 18px),#07070a}
+.wm{font-family:var(--f-disp);font-weight:900;font-size:16px;letter-spacing:-.04em;margin-right:auto}
+.stat{display:flex;align-items:center;gap:5px;font-family:var(--f-mono);font-size:11px;color:var(--dim);padding-right:4px}
+.stat svg{font-size:13px;color:var(--dimmer)}
+.gl{width:40px;height:40px;display:grid;place-items:center;color:var(--dim);font-size:19px}
+.orb{width:40px;height:40px;display:grid;place-items:center}
+.orb i{width:30px;height:30px;border-radius:999px;display:grid;place-items:center;color:#fff;font-size:17px;background:linear-gradient(140deg,var(--bot-a),var(--bot-b))}
+
+/* marquee dial */
+.marq{height:66px;margin-top:12px;flex:none;display:flex;align-items:center;overflow:hidden;position:relative}
+.marq .row{display:flex;align-items:baseline;gap:16px;padding-left:18px;white-space:nowrap}
+.marq .row span{font-family:var(--f-disp);color:var(--dimmest);font-size:15px;font-weight:300;letter-spacing:-.02em}
+.marq .row span.near{color:var(--dimmer);font-size:16px;font-weight:400}
+.marq .row span.on{color:var(--ink);font-size:34px;font-weight:900;letter-spacing:-.045em}
+.marq .fade{position:absolute;right:0;top:0;bottom:0;width:44px;background:linear-gradient(90deg,transparent,var(--bg))}
+
+/* hero */
+.hero{flex:1 1 0;min-height:150px;max-height:300px;position:relative;overflow:hidden}
+.hero .art{position:absolute;inset:0}
+.hero .tag{position:absolute;left:18px;top:14px;font-family:var(--f-mono);font-size:9px;letter-spacing:.14em;color:#eeeef2;background:rgba(5,5,7,.55);border-radius:999px;padding:4px 10px;backdrop-filter:blur(10px)}
+.hero .bar3{position:absolute;left:0;right:0;bottom:0;height:3px}
+.hero .lanes{position:absolute;left:18px;right:60px;bottom:16px;display:flex;flex-direction:column;gap:5px}
+.hero .lanes i{display:block;height:6px;border-radius:999px}
+.hero .empty{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:0 34px;font-size:13px;color:var(--dim)}
+.hmeta{flex:none;display:flex;align-items:center;gap:8px;padding:14px 18px 4px}
+.hmeta .tx{min-width:0;flex:1}
+.hmeta .tx b{display:block;font-family:var(--f-disp);font-size:18px;font-weight:800;letter-spacing:-.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
+.hmeta .tx span{display:block;font-family:var(--f-mono);font-size:9px;color:var(--dimmer);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hmeta .tx em{display:block;font-style:normal;font-size:11px;color:var(--dim);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pill{height:40px;flex:none;display:inline-flex;align-items:center;gap:6px;border-radius:999px;font-size:12.5px;font-weight:700;padding:0 16px;color:#050507;white-space:nowrap}
+.pill svg{font-size:14px;stroke-width:2.2}
+.pill.out{background:none;padding:0 14px;font-weight:600}
+
+/* library door + recents */
+.door{flex:none;display:flex;align-items:baseline;gap:9px;padding:22px 18px 0}
+.door b{font-family:var(--f-disp);font-size:19px;font-weight:900;letter-spacing:-.04em}
+.door s{text-decoration:none;font-family:var(--f-mono);font-size:10px;color:var(--dimmer)}
+.door .nx{font-size:11px;color:var(--dim);margin-left:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.door .cv{margin-left:auto;color:var(--dimmer);font-size:16px;align-self:center}
+.carry{flex:none;font-size:10px;color:var(--dimmer);padding:2px 18px 8px}
+.rlabel{flex:none;display:flex;align-items:baseline;padding:16px 18px 8px;gap:8px}
+.rlabel b{font-family:var(--f-disp);font-size:15px;font-weight:800;letter-spacing:-.03em}
+.rlabel s{text-decoration:none;margin-left:auto;font-size:11px;color:var(--dim);display:flex;align-items:center;gap:2px}
+.rlabel s svg{font-size:13px}
+.recents{flex:none;display:flex;gap:9px;overflow:hidden;padding:0 18px}
+.rc{flex:0 0 auto;width:96px;border-radius:12px;overflow:hidden;background:var(--panel)}
+.rc .t{height:58px;position:relative;outline:1px solid rgba(255,255,255,.08);outline-offset:-1px}
+.rc .cut{position:absolute;right:0;bottom:0;width:22px;height:22px;clip-path:polygon(100% 0,100% 100%,0 100%)}
+.rc .k{position:absolute;left:5px;top:5px;display:flex;align-items:center;gap:3px;font-family:var(--f-mono);font-size:7.5px;letter-spacing:.06em;color:#eeeef2;background:rgba(5,5,7,.55);backdrop-filter:blur(8px);border-radius:999px;padding:2px 6px 2px 4px}
+.rc .k svg{font-size:9px}
+.rc .n{padding:6px 8px 8px}
+.rc .n b{display:block;font-size:10px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rc .n span{display:block;font-family:var(--f-mono);font-size:8px;color:var(--dimmer);margin-top:1px}
+.rempty{flex:none;margin:0 18px;height:60px;border-radius:12px;border:1px dashed var(--line2);display:grid;place-items:center;font-size:11px;color:var(--dimmer)}
+.kinds{flex:none;display:flex;gap:6px;padding:0 18px 9px;overflow:hidden}
+.kinds span{flex:none;height:28px;display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--dim);background:var(--ctl);border-radius:999px;padding:0 11px}
+.kinds span svg{font-size:13px}
+.kinds span.on{background:var(--sel);color:#050507}
+
+/* NEW row: A sheared, B tiles, C list */
+.nr{flex:none;display:flex;padding:16px 8px 4px 18px}
+.nr.a{gap:3.5px}
+.sh{flex:1 1 0;min-width:0;height:34px;display:flex;align-items:center;justify-content:center;gap:3px;color:#000;padding:0 5px;
+  clip-path:polygon(10px 0,100% 0,calc(100% - 10px) 100%,0 100%)}
+.sh:first-child{clip-path:polygon(0 0,100% 0,calc(100% - 10px) 100%,0 100%)}
+.sh svg{font-size:13px;stroke-width:2.3}
+.sh s{text-decoration:none;font-size:10px;font-weight:700;letter-spacing:-.025em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nr.b{gap:8px;padding:16px 18px 4px}
+.tile{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:6px}
+.tile i{width:100%;height:50px;border-radius:14px;display:grid;place-items:center;color:#000;font-size:22px}
+.tile i svg{stroke-width:2.1}
+.tile s{text-decoration:none;font-size:10px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.nr.c{flex-direction:column;padding:12px 18px 0}
+.li{height:44px;display:flex;align-items:center;gap:11px;border-bottom:1px solid #1b1b21}
+.li:last-child{border-bottom:0}
+.li i{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;color:#000;font-size:16px;flex:none}
+.li i svg{stroke-width:2.2}
+.li b{font-size:13.5px;font-weight:600}
+.li span{font-size:10.5px;color:var(--dimmer);margin-left:2px}
+.li .pl{margin-left:auto;color:var(--dim);font-size:16px}
+
+/* D2: what are you making */
+.carrycard{flex:none;margin:10px 18px 0;background:var(--panel);border-radius:16px;height:72px;display:flex;align-items:center;gap:11px;padding:0 8px}
+.carrycard .th{width:56px;height:56px;border-radius:11px;position:relative;overflow:hidden;flex:none}
+.carrycard .tx{min-width:0;flex:1}
+.carrycard .tx s{text-decoration:none;display:block;font-family:var(--f-mono);font-size:8.5px;letter-spacing:.12em;color:var(--dimmer)}
+.carrycard .tx b{display:block;font-family:var(--f-disp);font-size:15px;font-weight:800;letter-spacing:-.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.carrycard .tx span{display:block;font-family:var(--f-mono);font-size:8.5px;color:var(--dimmer);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ask{flex:none;font-family:var(--f-disp);font-weight:900;letter-spacing:-.04em;line-height:1.05;padding:20px 18px 12px}
+.grid{flex:none;display:grid;gap:8px;padding:0 18px}
+.mk{border-radius:18px;background:var(--panel);position:relative;overflow:hidden;padding:11px 12px;display:flex;flex-direction:column;justify-content:space-between;gap:6px}
+.mk .tt{position:relative;display:block}
+.mk .wash{position:absolute;inset:0;opacity:.9}
+.mk .dot{position:relative;width:34px;height:34px;border-radius:11px;display:grid;place-items:center;color:#000;font-size:18px}
+.mk.row{flex-direction:row;align-items:center;justify-content:flex-start;gap:11px;padding:0 12px}
+.mk.row .dot{flex:none}
+.mk.row .plus{top:50%;transform:translateY(-50%)}
+.mk.row b{display:inline}
+.mk.row span.sub{display:inline;margin:0 0 0 6px}
+.mk .dot svg{stroke-width:2.1}
+.mk b{position:relative;display:block;font-family:var(--f-disp);font-size:16px;font-weight:800;letter-spacing:-.03em;line-height:1.15}
+.mk span{position:relative;display:block;font-size:10.5px;color:var(--dim);margin-top:1px}
+.mk .plus{position:absolute;right:10px;top:10px;color:var(--dim);font-size:15px}
+.shbig{height:46px;display:flex;align-items:center;gap:10px;color:#000;padding:0 22px;clip-path:polygon(12px 0,100% 0,calc(100% - 12px) 100%,0 100%)}
+.shbig svg{font-size:18px;stroke-width:2.2}
+.shbig b{font-family:var(--f-disp);font-size:15px;font-weight:800;letter-spacing:-.02em}
+.shbig span{margin-left:auto;font-size:11px;font-weight:600;opacity:.65}
+.lib{border-radius:16px;background:var(--panel)}
+.lib .li{padding:0 12px}
+.implink{flex:none;display:flex;align-items:center;gap:6px;margin:10px 18px 0;font-size:12px;font-weight:600;color:var(--library-b)}
+.implink svg{font-size:14px}
+
+/* D3: five doors */
+.bands{flex:none;display:flex;flex-direction:column;gap:8px;padding:8px 18px 0}
+.band{border-radius:18px;background:var(--panel);display:flex;align-items:center;gap:12px;padding:0 10px 0 10px;position:relative;overflow:hidden}
+.band .edge{position:absolute;left:0;top:0;bottom:0;width:3px}
+.band .th{border-radius:13px;position:relative;overflow:hidden;flex:none;display:grid;place-items:center}
+.band .th.none{background:var(--bg2);outline:1px dashed var(--line2);outline-offset:-1px;color:var(--dimmest);font-size:22px}
+.band .tx{min-width:0;flex:1}
+.band .tx b{display:block;font-family:var(--f-disp);font-size:17px;font-weight:800;letter-spacing:-.03em;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.band .tx em{display:block;font-style:normal;font-size:11px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.band .tx span{display:block;font-family:var(--f-mono);font-size:8.5px;color:var(--dimmer);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.band .tx span.go{color:var(--ink)}
+.band .tx span.fr{font-family:var(--f-body);font-size:10.5px;letter-spacing:0;color:var(--dimmer)}
+.band .pill{height:36px;padding:0 13px;font-size:12px}
+
+/* Joybot */
+.bot{flex:none;display:flex;align-items:center;gap:9px;padding:13px 12px 0 18px}
+.bot .o{width:26px;height:26px;border-radius:999px;display:grid;place-items:center;font-size:15px;color:#fff;flex:none;background:linear-gradient(140deg,var(--bot-a),var(--bot-b))}
+.bot p{flex:1;min-width:0;font-size:11px;color:var(--dim);line-height:1.35}
+.bot p b{color:var(--ink);font-weight:600}
+.bot .y{font-size:10.5px;font-weight:700;padding:0 12px;height:28px;display:flex;align-items:center;border-radius:999px;background:var(--ink);color:#050507;flex:none}
+.bot .x{color:var(--dimmest);font-size:15px;flex:none;width:26px;display:grid;place-items:center}
+.bubble{position:absolute;right:12px;top:80px;z-index:5;width:230px;border-radius:16px;padding:11px 12px;
+  background:rgba(28,28,34,.45);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);box-shadow:0 0 0 1px rgba(255,255,255,.1),0 12px 30px rgba(0,0,0,.5)}
+.bubble:before{content:"";position:absolute;right:22px;top:-6px;width:12px;height:12px;transform:rotate(45deg);background:rgba(40,40,48,.9);border-left:1px solid rgba(255,255,255,.1);border-top:1px solid rgba(255,255,255,.1)}
+.bubble p{font-size:12px;color:var(--ink);line-height:1.4}
+.bubble .r{display:flex;gap:6px;margin-top:9px}
+.bubble .r span{height:30px;display:flex;align-items:center;padding:0 13px;border-radius:999px;font-size:11px;font-weight:700;background:var(--ctl2);color:var(--dim)}
+.bubble .r span.go{background:var(--ink);color:#050507}
+.askbar{flex:none;margin:6px 18px 0;height:44px;border-radius:999px;background:var(--panel2);display:flex;align-items:center;gap:9px;padding:0 6px 0 7px}
+.askbar .o{width:30px;height:30px;border-radius:999px;display:grid;place-items:center;font-size:16px;color:#fff;flex:none;background:linear-gradient(140deg,var(--bot-a),var(--bot-b))}
+.askbar span{font-size:12.5px;color:var(--dimmer);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.askbar svg.s{font-size:16px;color:var(--dimmer);margin-right:8px}
+.sugg{flex:none;display:flex;gap:6px;padding:8px 18px 0;overflow:hidden}
+.sugg span{flex:none;height:28px;display:flex;align-items:center;gap:5px;padding:0 11px;border-radius:999px;font-size:11px;font-weight:600;background:var(--ctl);color:var(--ink)}
+.sugg span svg{font-size:12px;color:var(--bot-a)}
+
+/* the part of the lobby that would scroll; the floor stays put */
+.scr{flex:1 1 0;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.scr.over{-webkit-mask-image:linear-gradient(180deg,#000 calc(100% - 36px),transparent);mask-image:linear-gradient(180deg,#000 calc(100% - 36px),transparent)}
+/* floor */
+.floor{flex:none;padding:13px 18px 15px;display:flex;align-items:center;justify-content:space-between;gap:6px}
+.floor span{font-family:var(--f-disp);font-size:11.5px;font-weight:600;color:var(--dimmer);display:flex;align-items:center;gap:5px;letter-spacing:-.01em;white-space:nowrap}
+.floor span svg{font-size:14px;color:var(--dimmest)}
+
+/* Library screen top (import strip) */
+.libtop{display:flex;align-items:center;gap:8px;padding:6px 10px 6px 18px}
+.libtop b{font-family:var(--f-disp);font-size:22px;font-weight:900;letter-spacing:-.04em;margin-right:auto}
+.libtop .imp{height:36px;display:flex;align-items:center;gap:6px;padding:0 13px;border-radius:999px;font-size:12px;font-weight:700;color:#050507;background:linear-gradient(110deg,var(--library-a),var(--library-b))}
+.libtop .imp svg{font-size:14px;stroke-width:2.2}
+.ann{font-family:var(--f-mono);font-size:9.5px;color:var(--dimmer);padding:6px 18px 0}
+.ghost{margin:12px 18px 0;height:44px;border-radius:12px;border:1px dashed var(--line2);display:grid;place-items:center;font-size:11px;color:var(--dimmer);text-align:center;padding:0 12px}
+
+@media (prefers-reduced-motion:reduce){*{transition-duration:1ms!important}}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.75"/><path d="M15.4 15.4 20.5 20.5"/></symbol>
+  <symbol id="i-bot" viewBox="0 0 24 24"><rect x="3.5" y="7" width="17" height="13" rx="5"/><path d="M12 7V3.6"/><circle cx="12" cy="2.6" r="1.1"/><circle cx="8.6" cy="13.4" r="1.25" fill="currentColor" stroke="none"/><circle cx="15.4" cy="13.4" r="1.25" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-rec" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M9 6.5 18 12l-9 5.5z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-studio" viewBox="0 0 24 24"><rect x="2.8" y="8.4" width="18.4" height="11.8" rx="2.4"/><path d="M2.8 8.4 5.6 3.8l3.5 4.6M9.1 8.4 12 3.8l3.5 4.6M15.5 8.4 18.4 3.8l2.8 4.6"/></symbol>
+  <symbol id="i-cam" viewBox="0 0 24 24"><path d="M4 7.6h3.1l1.5-2.2h6.8l1.5 2.2H20a1.6 1.6 0 0 1 1.6 1.6v8.4A1.6 1.6 0 0 1 20 19.2H4a1.6 1.6 0 0 1-1.6-1.6V9.2A1.6 1.6 0 0 1 4 7.6Z"/><circle cx="12" cy="13.2" r="3.3"/></symbol>
+  <symbol id="i-sprite" viewBox="0 0 24 24"><rect x="3.2" y="3.2" width="7.4" height="7.4" rx="1.6"/><rect x="13.4" y="3.2" width="7.4" height="7.4" rx="1.6" fill="currentColor" stroke="none"/><rect x="3.2" y="13.4" width="7.4" height="7.4" rx="1.6"/><rect x="13.4" y="13.4" width="7.4" height="7.4" rx="1.6"/></symbol>
+  <symbol id="i-avatar" viewBox="0 0 24 24"><circle cx="12" cy="7.4" r="3.4"/><path d="M12 10.8v5.4M7 13.2l5-1.4 5 1.4M12 16.2l-3.4 4.6M12 16.2l3.4 4.6"/></symbol>
+  <symbol id="i-brush" viewBox="0 0 24 24"><path d="M20.5 3.5 11.2 12.8"/><path d="M11.2 12.8c-1.5-1.5-4.5-1.1-5.3 1.4-.5 1.6-1 3.5-2.5 4.5 3.3.6 7.4.2 8.4-2.5.5-1.4.4-2.4-.6-3.4z"/></symbol>
+  <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 17.5V5.6l10.5-2.1v11.6"/><circle cx="6.6" cy="17.6" r="2.5"/><circle cx="17" cy="15.2" r="2.5"/><path d="M9 9.6l10.5-2.1"/></symbol>
+  <symbol id="i-lib" viewBox="0 0 24 24"><rect x="3" y="14.6" width="18" height="5.6" rx="1.6"/><path d="M5.2 11.8h13.6M7.4 9h9.2M9 6.2h6"/></symbol>
+  <symbol id="i-find" viewBox="0 0 24 24"><path d="M3.4 8.2V5.4a2 2 0 0 1 2-2h2.8M15.8 3.4h2.8a2 2 0 0 1 2 2v2.8M20.6 15.8v2.8a2 2 0 0 1-2 2h-2.8M8.2 20.6H5.4a2 2 0 0 1-2-2v-2.8"/><circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-remote" viewBox="0 0 24 24"><circle cx="12" cy="17.8" r="1.7" fill="currentColor" stroke="none"/><path d="M8.3 14.4a5.2 5.2 0 0 1 7.4 0M5.2 11.1a9.6 9.6 0 0 1 13.6 0"/></symbol>
+  <symbol id="i-bits" viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.2 5.2L3.8 17.2a1.8 1.8 0 0 0 2.6 2.6l5.7-5.7a4 4 0 0 0 5.2-5.2l-2.5 2.5-2.4-.3-.3-2.4z"/></symbol>
+  <symbol id="i-pack" viewBox="0 0 24 24"><path d="M3.4 7.8 12 3.6l8.6 4.2v8.4L12 20.4l-8.6-4.2z"/><path d="M3.4 7.8 12 12l8.6-4.2M12 12v8.4"/></symbol>
+  <symbol id="i-setup" viewBox="0 0 24 24"><path d="M3.4 7.2h17.2M3.4 12h17.2M3.4 16.8h17.2"/><circle cx="8.4" cy="7.2" r="2.1" fill="#050507"/><circle cx="15.2" cy="12" r="2.1" fill="#050507"/><circle cx="7.2" cy="16.8" r="2.1" fill="#050507"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5.5" cy="12" r="1.7" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/><circle cx="18.5" cy="12" r="1.7" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 4.6v14.8M4.6 12h14.8"/></symbol>
+  <symbol id="i-import" viewBox="0 0 24 24"><path d="M12 3.4v10.8M7.8 10.2 12 14.4l4.2-4.2M3.8 16.2v2.4a2 2 0 0 0 2 2h12.4a2 2 0 0 0 2-2v-2.4"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="m9.5 5.5 6.5 6.5-6.5 6.5"/></symbol>
+  <symbol id="i-disk" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="M12 3.4v8.6l6.1 6.1"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V5.5A1.5 1.5 0 0 0 14.5 4h-9A1.5 1.5 0 0 0 4 5.5v9A1.5 1.5 0 0 0 5.5 16H8"/></symbol>
+  <symbol id="i-new" viewBox="0 0 24 24"><path d="M12 3.5 13.9 9l5.6.4-4.3 3.6 1.4 5.5L12 15.5l-4.6 3 1.4-5.5-4.3-3.6L10.1 9z"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3M4.5 4.5v4h4"/></symbol>
+</defs></svg>
+
+<header class="mast"><div class="wrap">
+  <div class="kicker">Joy Creator · design record · the front door · 28 Oct 2026</div>
+  <h1>Front door picks</h1>
+  <p>The lobby has to say, in five seconds, <b>what you can make here</b>: draw and paint, edit a video, make a music visual, animate a character, record. Each one one tap away. Here are three whole ways to do it, then the parts you can swap between them.</p>
+  <div class="steps">
+    <span><b>1</b>Pick a direction</span>
+    <span><b>2</b>Swap any part</span>
+    <span><b>3</b>Copy the line at the bottom, paste it back</span>
+  </div>
+</div></header>
+
+<main class="wrap">
+
+<!-- ========== 00 TODAY ========== -->
+<section>
+  <div class="h2"><span>00</span><h2>Today, for comparison</h2></div>
+  <p class="dek">The lobby as it is built now, drawn true size. This one is not a pick. Next to it, what the code says is wrong.</p>
+  <div class="today">
+    <div class="fit"><div class="scale" id="todayMock"></div></div>
+    <div class="facts">
+      <div class="fact"><i>1</i><div><b>No Draw, no music visual in New</b><p>The New row is Recording, Project, Character, Import. To draw you have to find Joy Brush, which is the last word on the dial.</p></div></div>
+      <div class="fact"><i>2</i><div><b>"Character" goes to the wrong place, sometimes nowhere</b><p>It opens Sprite Lab, not Avatar, and only if you already have a project. With none, you land on a project list. Avatar has the same catch. "New" in Viz Lab also drops you on the project list, though Viz Lab needs no project.</p></div></div>
+      <div class="fact"><i>3</i><div><b>The bottom words mislead</b><p>Finder opens the old forensics Lab. Bits is Capture again. Packs and Setup both open Settings. Remote is the old streaming screen.</p></div></div>
+      <div class="fact"><i>4</i><div><b>Recent work misses three kinds</b><p>The recent row knows projects, drawings, recordings, photos and exports. It has no sprite sheets, no characters and no Viz Lab looks, and the Library has no Looks shelf.</p></div></div>
+      <div class="fact"><i>5</i><div><b>Joybot says nothing to a newcomer</b><p>His line only appears when you have recordings. A brand-new user sees no greeting at all.</p></div></div>
+      <div class="fact good"><i>+</i><div><b>Fixed since the 10-28 audit</b><p>Import now really opens your phone's files and brings them in, and every way to the trash now opens Recently deleted.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== 01 DIRECTIONS ========== -->
+<section>
+  <div class="h2"><span>01</span><h2>Three directions</h2></div>
+  <p class="dek">Tap a phone to pick it. Flip the switch to see each one as a <b>brand-new user</b> sees it, which is the five-second test.</p>
+  <div class="who" role="group" aria-label="Who is looking">
+    <button type="button" data-who="back" aria-pressed="true"><svg class="ic"><use href="#i-back"></use></svg>Coming back</button>
+    <button type="button" data-who="new" aria-pressed="false"><svg class="ic"><use href="#i-new"></use></svg>Brand-new user</button>
+  </div>
+
+  <div class="dirs" role="radiogroup" aria-label="Direction">
+    <div class="pick" role="radio" tabindex="0" aria-checked="false" data-key="direction" data-val="1">
+      <span class="badge"><svg class="ic"><use href="#i-check"></use></svg>Picked</span>
+      <div class="fit"><div class="scale" data-dir="1"></div></div>
+      <div class="dhead"><span class="no">1</span><h3>Marquee, made clear</h3></div>
+      <div class="why">
+        <p class="plus"><s>WHY</s><span>The smallest change. Everything you already know stays put; the New row just says the five makes in plain verbs, and every room says what it is for.</span></p>
+        <p class="plus"><s>WHY</s><span>Keeps the big hero and the dial, which demo videos love.</span></p>
+        <p class="cost"><s>COST</s><span>Five verbs in one row only fit as short words (Video, Music). Joy Brush is still the last word on the dial, so the hero opens on Studio and a newcomer can still read "video app" first.</span></p>
+      </div>
+    </div>
+
+    <div class="pick" role="radio" tabindex="0" aria-checked="false" data-key="direction" data-val="2">
+      <span class="badge"><svg class="ic"><use href="#i-check"></use></svg>Picked</span>
+      <div class="fit"><div class="scale" data-dir="2"></div></div>
+      <div class="dhead"><span class="no">2</span><h3>What are you making?</h3></div>
+      <div class="why">
+        <p class="plus"><s>WHY</s><span>The question is the answer: five big friendly tiles, the way an iPhone app would greet you. Nobody has to learn what "Studio" or "Viz Lab" means.</span></p>
+        <p class="plus"><s>WHY</s><span>Carry on sits on top for anyone coming back, so returning is still one tap.</span></p>
+        <p class="cost"><s>COST</s><span>The dial and the big hero go. Sprite Lab moves inside Animate, one tap deeper. The biggest rebuild of the three.</span></p>
+      </div>
+    </div>
+
+    <div class="pick" role="radio" tabindex="0" aria-checked="false" data-key="direction" data-val="3">
+      <span class="badge"><svg class="ic"><use href="#i-check"></use></svg>Picked</span>
+      <div class="fit"><div class="scale" data-dir="3"></div></div>
+      <div class="dhead"><span class="no">3</span><h3>Five doors</h3></div>
+      <div class="why">
+        <p class="plus"><s>WHY</s><span>Everything is on one screen with nothing to swipe: each band says what it makes, shows your last piece there, and has its own New. Bands never move, so your thumb learns them.</span></p>
+        <p class="plus"><s>WHY</s><span>Recent work is sorted for you: each kind lives in its own band.</span></p>
+        <p class="cost"><s>COST</s><span>No room for a mixed recent row or a big hero picture. Only the newest piece of each kind shows; older work is in the Library.</span></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== 02 SWAPS ========== -->
+<section>
+  <div class="h2"><span>02</span><h2>Swap a part</h2></div>
+  <p class="dek">Each part below fits any direction. Tap one option per part. The switch above (coming back / brand-new) changes these too.</p>
+  <div class="who" role="group" aria-label="Who is looking">
+    <button type="button" data-who="back" aria-pressed="true"><svg class="ic"><use href="#i-back"></use></svg>Coming back</button>
+    <button type="button" data-who="new" aria-pressed="false"><svg class="ic"><use href="#i-new"></use></svg>Brand-new user</button>
+  </div>
+  <div id="parts"></div>
+</section>
+
+<!-- ========== 03 MIX ========== -->
+<section>
+  <div class="h2"><span>03</span><h2>Your mix</h2></div>
+  <p class="dek">Your direction with your parts in it. Anything you have not picked uses that direction's own choice.</p>
+  <div class="mix">
+    <div class="fit"><div class="scale" id="mixMock"></div></div>
+    <div>
+      <div class="mixlist" id="mixList"></div>
+      <p class="mixnote" id="mixNote"></p>
+      <div class="copybig">
+        <code id="lineBig"></code>
+        <button type="button" class="copybtn" data-copy><svg class="ic"><use href="#i-copy"></use></svg><span>Copy my picks</span></button>
+      </div>
+      <button type="button" class="reset" id="reset">Clear all picks</button>
+    </div>
+  </div>
+</section>
+
+<!-- ========== 04 EVERY DIRECTION KEEPS ========== -->
+<section>
+  <div class="h2"><span>04</span><h2>True whichever you pick</h2></div>
+  <p class="dek">These come with every direction, so they are not choices.</p>
+  <div class="facts">
+    <div class="fact"><i>1</i><div><b>A make never lands on a list</b><p>Animate, Sprite sheet and Edit video start straight away. If they need a project behind the scenes, one is made quietly and named for you.</p></div></div>
+    <div class="fact"><i>2</i><div><b>Animate asks once</b><p>Puppet (Avatar), sprite sheet (Sprite Lab) or frame by frame (Joy Brush). One small sheet, then straight in.</p></div></div>
+    <div class="fact"><i>3</i><div><b>Recent work learns three more kinds</b><p>Sprite sheets, characters and Viz Lab looks join the recent row, and the Library gets a Looks shelf. Every card opens the thing itself, and a recording plays.</p></div></div>
+    <div class="fact"><i>4</i><div><b>Nothing disappears</b><p>Remote stays (it is a launch feature). Finder's Lab and the old screens stay reachable, just not on the front door. Joybot's "take me there" goes to the new screens, not the old ones.</p></div></div>
+    <div class="fact"><i>5</i><div><b>Same look as today</b><p>Old black, zinc greys. Grey is quiet, colour is what you tap. Pills are flat. Frosted parts stay see-through. A chosen chip is solid cyan with its icon cut out. Studio's New is Studio green.</p></div></div>
+  </div>
+</section>
+
+<footer class="wrap">
+  <b>Front door picks</b> · design record for job DOOR-2 · 28 Oct 2026. Built from record 04 (The Marquee) and the 10-19 front-door options, checked against the lobby code on 28 Oct. Your picks become the spec's section K.
+</footer>
+</main>
+
+<div class="bar" role="region" aria-label="Your picks">
+  <div class="in">
+    <code><span id="lineBar"></span><span class="cnt" id="cnt"></span></code>
+    <button type="button" class="copybtn" data-copy><svg class="ic"><use href="#i-copy"></use></svg><span>Copy</span></button>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+var ic = function(id, extra){ return '<svg class="ic"' + (extra||'') + '><use href="#i-' + id + '"></use></svg>'; };
+var C = {
+  draw:['#5c43fd','#4397fd'], video:['#35f6bf','#97fe8b'], music:['#faa03d','#fc6818'],
+  anim:['#cc27ff','#8c3dfa'], sprite:['#ff008c','#cc27ff'], rec:['#fa3d5d','#ff008c'], lib:['#22d3ee','#55e0f9']
+};
+var grad = function(c, deg){ return 'linear-gradient(' + (deg||110) + 'deg,' + c[0] + ',' + c[1] + ')'; };
+var art = function(c){ return 'radial-gradient(70% 62% at 30% 30%,' + c[0] + '66,transparent 72%),radial-gradient(62% 56% at 76% 76%,' + c[1] + '55,transparent 72%),repeating-linear-gradient(45deg,#16161c 0 7px,#111116 7px 14px)'; };
+
+/* The makes. Room names and empty lines are the app's own strings. */
+var M = {
+  draw:  {k:'draw',  verb:'Draw',         short:'Draw',    room:'Joy Brush',  rv:'draw and paint',     ic:'brush',  c:C.draw,  last:'Moth study',  meta:'DRAWING · 4 LAYERS · 1H',  kind:'DRAWING',   empty:'Draw something. It saves itself.'},
+  video: {k:'video', verb:'Edit video',   short:'Video',   room:'Studio',     rv:'edit video',         ic:'studio', c:C.video, last:'ZA_CONTROL',  meta:'PROJECT · 0:47 · 2H',       kind:'PROJECT',   empty:'Nothing edited yet. Start a project and it will wait for you here.'},
+  music: {k:'music', verb:'Music visual', short:'Music',   room:'Viz Lab',    rv:'music visuals',      ic:'music',  c:C.music, last:'Fire bars',   meta:'LOOK · YESTERDAY',          kind:'LOOK',      empty:'No visualisers yet. Make one from any sound you have.'},
+  anim:  {k:'anim',  verb:'Animate',      short:'Animate', room:'Avatar',     rv:'animate a character', ic:'avatar', c:C.anim,  last:'Joybot',      meta:'CHARACTER · 5 CLIPS',       kind:'CHARACTER', empty:'No characters yet. Rig a picture and it will move.', room2:'Avatar · Sprite Lab'},
+  puppet:{k:'puppet',verb:'Puppet',       short:'Puppet',  room:'Avatar',     rv:'move a character',   ic:'avatar', c:C.anim,  last:'Joybot',      meta:'CHARACTER · 5 CLIPS',       kind:'CHARACTER', empty:'No characters yet. Rig a picture and it will move.'},
+  sprite:{k:'sprite',verb:'Sprite sheet', short:'Sprites', room:'Sprite Lab', rv:'frames for games',   ic:'sprite', c:C.sprite,last:'Walk cycle',  meta:'SHEET · 12 FRAMES',         kind:'SHEET',     empty:'No sheets yet. Bring a drawing in and slice it into frames.'},
+  rec:   {k:'rec',   verb:'Record',       short:'Record',  room:'Capture',    rv:'record camera or screen', ic:'rec', c:C.rec,  last:'Back camera', meta:'FHD 30 · 2D 21H LEFT',      kind:'RECORDING', empty:'Ready when you are.'}
+};
+var makesFor = function(opt){ return opt === 'B' ? [M.draw,M.video,M.music,M.puppet,M.sprite,M.rec] : [M.draw,M.video,M.music,M.anim,M.rec]; };
+var nameFor = function(m, style){
+  if (style === 'B') return {t:m.room, s:m.rv};
+  if (style === 'C') return {t:m.verb, s:m.room2 || m.room};
+  return {t:m.room, s:''};
+};
+
+/* ---------- shared pieces ---------- */
+var sbar = function(){ return '<div class="sbar"><span>9:41</span><span>&#9673; &#9650; &#9646;</span></div>'; };
+var banner = function(fresh, joybot){
+  var showSearch = joybot !== 'D';
+  return '<div class="banner"><span class="wm">JOY CREATOR</span>' +
+    '<span class="stat">' + ic('disk') + (fresh ? '230 GB free' : '227 GB') + '</span>' +
+    (showSearch ? '<span class="gl">' + ic('search') + '</span>' : '') +
+    '<span class="orb"><i>' + ic('bot') + '</i></span></div>';
+};
+
+/* NEW row, compact */
+var newRow = function(shape, makesOpt, importOpt){
+  var items = makesFor(makesOpt).map(function(m){ return {label: shape === 'A' ? m.short : m.verb, sub:m.room2 || m.room, ic:m.ic, c:m.c}; });
+  if (importOpt === 'A' || importOpt === 'C') items.push({label:'Import', sub:'from your phone', ic:'import', c:C.lib});
+  if (shape === 'B') return '<div class="nr b">' + items.map(function(it){
+      return '<span class="tile"><i style="background:' + grad(it.c,135) + '">' + ic(it.ic) + '</i><s>' + it.label + '</s></span>'; }).join('') + '</div>';
+  if (shape === 'C') return '<div class="nr c">' + items.map(function(it){
+      return '<span class="li"><i style="background:' + grad(it.c,135) + '">' + ic(it.ic) + '</i><b>' + it.label + '</b><span>' + it.sub + '</span><span class="pl">' + ic('plus') + '</span></span>'; }).join('') + '</div>';
+  return '<div class="nr a">' + items.map(function(it){
+      return '<span class="sh" style="background:' + grad(it.c) + '">' + ic(it.ic) + '<s>' + it.label + '</s></span>'; }).join('') + '</div>';
+};
+var newRowToday = function(){
+  var items = [{l:'Recording',ic:'cam',c:C.rec},{l:'Project',ic:'studio',c:C.video},{l:'Character',ic:'avatar',c:C.anim},{l:'Import',ic:'import',c:C.lib}];
+  return '<div class="nr a">' + items.map(function(it){ return '<span class="sh" style="background:' + grad(it.c) + '">' + ic(it.ic) + '<s>' + it.l + '</s></span>'; }).join('') + '</div>';
+};
+
+/* recent work */
+var REC = [M.draw, M.video, M.music, M.anim, M.sprite, {last:'Back cam 0916', kind:'RECORDING', meta:'RECORDING · 3:12', c:C.rec, ic:'cam'}];
+var card = function(r, badge){
+  return '<span class="rc"><span class="t" style="display:block;background:' + art(r.c) + '">' +
+    (badge ? '<span class="k">' + ic(r.ic) + r.kind + '</span>' : '') +
+    '<span class="cut" style="background:' + grad(r.c,135) + '"></span></span>' +
+    '<span class="n" style="display:block"><b>' + r.last + '</b><span>' + r.meta.split(' · ').slice(1).join(' · ') + '</span></span></span>';
+};
+var recents = function(opt, fresh, withDoor){
+  var door = function(extra){ return '<div class="door"><b>Library</b><s>' + (fresh ? '0 ITEMS' : '128 ITEMS') + '</s>' + (extra||'') + '<span class="cv">' + ic('chev') + '</span></div>'; };
+  if (opt === 'C') return door(fresh ? '' : '<span class="nx">newest: Moth study</span>') + '<div style="height:6px"></div>';
+  var head = withDoor ? door() + '<div class="carry">carry on with anything you touched</div>'
+                      : '<div class="rlabel"><b>Recent</b><s>Library ' + ic('chev') + '</s></div>';
+  if (fresh) return (withDoor ? door() + '<div style="height:10px"></div>' : '<div class="rlabel"><b>Recent</b></div>') + '<div class="rempty">Your work shows up here</div>';
+  if (opt === 'B') {
+    var chips = [['All',null,1],['Drawings','brush'],['Videos','studio'],['Looks','music'],['Characters','avatar']];
+    return head + '<div class="kinds">' + chips.map(function(c){ return '<span' + (c[2] ? ' class="on"' : '') + '>' + (c[1] ? ic(c[1]) : ic('check')) + c[0] + '</span>'; }).join('') + '</div>' +
+      '<div class="recents">' + REC.slice(0,4).map(function(r){ return card(r,false); }).join('') + '</div>';
+  }
+  return head + '<div class="recents">' + REC.map(function(r){ return card(r,true); }).join('') + '</div>';
+};
+
+/* Joybot */
+var bot = function(opt, fresh){
+  var out = {top:'', overlay:'', bottom:''};
+  var trueLine = '<div class="bot"><span class="o">' + ic('bot') + '</span><p>Your newest recording landed after your last edit.</p><span class="y">Open Library</span><span class="x">' + ic('x') + '</span></div>';
+  if (opt === 'A') { out.bottom = fresh ? '' : trueLine; return out; }
+  if (opt === 'B') {
+    out.bottom = fresh ? '<div class="bot"><span class="o">' + ic('bot') + '</span><p><b>New here?</b> I can show you round in 30 seconds.</p><span class="y">Show me</span><span class="x">' + ic('x') + '</span></div>' : trueLine;
+    return out;
+  }
+  if (opt === 'C') {
+    out.overlay = '<div class="bubble"><p>' + (fresh ? '<b>Hi, I’m Joybot.</b> Want a 30-second tour?' : 'Your newest recording landed after your last edit.') + '</p><div class="r"><span class="go">' + (fresh ? 'Yes please' : 'Open Library') + '</span><span>' + (fresh ? 'Later' : 'Not now') + '</span></div></div>';
+    return out;
+  }
+  out.top = '<div class="askbar"><span class="o">' + ic('bot') + '</span><span>Ask Joybot, or search your work</span>' + ic('search',' class="ic s"') + '</div>' +
+    '<div class="sugg">' + (fresh ? '<span>' + ic('new') + 'Take the 30-second tour</span><span>' + ic('new') + 'What can I make?</span>'
+                                  : '<span>' + ic('new') + 'Open my newest recording</span><span>' + ic('new') + 'Find Moth study</span>') + '</div>';
+  return out;
+};
+
+/* floor */
+var FLOORS = {
+  A:[['find','Finder'],['remote','Remote'],['bits','Bits'],['pack','Packs'],['setup','Setup']],
+  B:[['lib','Library'],['bot','Joybot'],['setup','Settings'],['more','More']],
+  C:[['lib','Library'],['remote','Remote'],['bot','Joybot'],['setup','Settings']]
+};
+var floor = function(opt){ return '<div class="floor">' + FLOORS[opt].map(function(f){ return '<span>' + ic(f[0]) + f[1] + '</span>'; }).join('') + '</div>'; };
+
+/* ---------- direction 1: Marquee, made clear ---------- */
+var DIAL = [M.video, M.rec, M.sprite, M.anim, M.music, M.draw];
+var hero = function(m, fresh, opts){
+  opts = opts || {};
+  var lanes = m.k === 'video' && !fresh ? '<div class="lanes"><i style="width:78%;background:' + grad(C.video,90) + '"></i><i style="width:54%;margin-left:12%;background:' + grad(C.music,90) + '"></i><i style="width:36%;margin-left:30%;background:' + grad(C.anim,90) + '"></i></div>' : '';
+  var body = fresh ? '<div class="art" style="background:radial-gradient(60% 60% at 50% 40%,' + m.c[0] + '22,transparent 70%),#0b0b0f"></div><div class="empty">' + m.empty + '</div>'
+                   : '<div class="art" style="background:' + art(m.c) + '"></div><span class="tag">LAST PROJECT</span>' + lanes;
+  return '<div class="hero">' + body + '<span class="bar3" style="background:' + grad(m.c,90) + '"></span></div>';
+};
+var heroMeta = function(m, fresh, style){
+  var nm = nameFor(m, style);
+  var roomLine = style === 'B' ? m.room + ' · ' + m.rv : style === 'C' ? m.verb + ' · in ' + m.room : '';
+  var title = fresh ? (style === 'A' ? m.room : nm.t) : m.last;
+  var sub = fresh ? (style === 'A' ? '' : '') : '6 LAYERS · 0:47 · 2H AGO';
+  var line2 = fresh ? (style === 'B' ? m.rv : style === 'C' ? 'in ' + m.room : '') : roomLine;
+  return '<div class="hmeta"><span class="tx"><b>' + title + '</b>' + (sub ? '<span>' + sub + '</span>' : '') + (line2 ? '<em>' + line2 + '</em>' : '') + '</span>' +
+    '<span class="pill out" style="box-shadow:inset 0 0 0 1.5px ' + C.video[0] + ';color:' + C.video[0] + '">' + ic('plus') + 'New</span>' +
+    '<span class="pill" style="background:' + grad(m.c) + '">' + ic('play') + (fresh ? 'Start one' : 'Carry on') + '</span></div>';
+};
+var marquee = function(style){
+  return '<div class="marq"><div class="row">' + DIAL.map(function(m, i){
+    var w = style === 'C' ? m.verb : m.room;
+    return '<span class="' + (i === 0 ? 'on' : i === 1 ? 'near' : '') + '">' + w + '</span>'; }).join('') + '</div><span class="fade"></span></div>';
+};
+/* A phone: status bar and banner on top, the part that would scroll, the floor pinned below. */
+var phone = function(p, fresh, body, b){
+  return '<div class="phone">' + sbar() + banner(fresh, p.joybot) + '<div class="scr">' + b.top + body + b.bottom + '</div>' + floor(p.floor) + b.overlay + '</div>';
+};
+var dir1 = function(p, fresh){
+  return phone(p, fresh, marquee(p.names) + hero(M.video, fresh) + heroMeta(M.video, fresh, p.names) +
+    recents(p.recents, fresh, true) + newRow(p.newrow, p.makes, p.import), bot(p.joybot, fresh));
+};
+var today = function(fresh){
+  var p = {joybot:'A', floor:'A'};
+  return phone(p, fresh, marquee('A') + hero(M.video, fresh) + heroMeta(M.video, fresh, 'A') +
+    recents('A', fresh, true) + newRowToday(), bot('A', fresh));
+};
+
+/* ---------- direction 2: What are you making? ---------- */
+var bigMakes = function(shape, makesOpt, style, tileH){
+  var ms = makesFor(makesOpt);
+  if (shape === 'A') return '<div class="grid">' + ms.map(function(m){ var n = nameFor(m, style);
+      return '<span class="shbig" style="background:' + grad(m.c) + '">' + ic(m.ic) + '<b>' + n.t + '</b><span>' + n.s + '</span></span>'; }).join('') + '</div>';
+  if (shape === 'C') return '<div class="grid"><div class="lib">' + ms.map(function(m){ var n = nameFor(m, style);
+      return '<span class="li"><i style="background:' + grad(m.c,135) + '">' + ic(m.ic) + '</i><b>' + n.t + '</b><span>' + n.s + '</span><span class="pl">' + ic('plus') + '</span></span>'; }).join('') + '</div></div>';
+  var wash = function(m){ return '<span class="wash" style="background:radial-gradient(90% 80% at 85% 0%,' + m.c[0] + '33,transparent 70%)"></span>'; };
+  var tile = function(m, h){ var n = nameFor(m, style);
+    return '<span class="mk" style="min-height:' + h + 'px">' + wash(m) +
+      '<span class="dot" style="background:' + grad(m.c,135) + '">' + ic(m.ic) + '</span><span class="plus">' + ic('plus') + '</span><span class="tt"><b>' + n.t + '</b>' + (n.s ? '<span>' + n.s + '</span>' : '') + '</span></span>'; };
+  var wide = function(m){ var n = nameFor(m, style);
+    return '<span class="mk row" style="height:52px">' + wash(m) +
+      '<span class="dot" style="background:' + grad(m.c,135) + '">' + ic(m.ic) + '</span><span class="tt"><b>' + n.t + '</b>' + (n.s ? '<span class="sub">' + n.s + '</span>' : '') + '</span><span class="plus">' + ic('plus') + '</span></span>'; };
+  var h = tileH || 88;
+  var two = function(a, b){ return '<div class="grid" style="grid-template-columns:1fr 1fr;margin-bottom:8px">' + tile(a, h) + tile(b, h) + '</div>'; };
+  if (ms.length === 6) return two(ms[0],ms[1]) + two(ms[2],ms[3]) + two(ms[4],ms[5]);
+  return two(ms[0],ms[1]) + two(ms[2],ms[3]) + '<div class="grid">' + wide(ms[4]) + '</div>';
+};
+var dir2 = function(p, fresh){
+  var carry = fresh ? '' : '<div class="carrycard"><span class="th" style="background:' + art(C.video) + '"></span><span class="tx"><s>CARRY ON</s><b>ZA_CONTROL</b><span>' + (p.names === 'A' ? 'STUDIO' : 'EDIT VIDEO · STUDIO') + ' · 2H AGO</span></span>' +
+    '<span class="pill" style="background:' + grad(C.video) + ';height:40px">' + ic('play') + 'Carry on</span></div>';
+  var hasImp = p.import === 'A' || p.import === 'C';
+  var imp = hasImp ? '<div class="implink">' + ic('import') + 'or bring in files from your phone</div>' : '';
+  var rec = p.recents === 'C' ? recents('C', fresh, true) : recents(p.recents, fresh, false);
+  var tileH = 88 - (p.joybot === 'D' ? 14 : 0) - (hasImp ? 8 : 0) - (p.makes === 'B' ? 14 : 0);
+  return phone(p, fresh, carry +
+    '<div class="ask" style="font-size:' + (fresh ? 30 : 24) + 'px">What are you making?</div>' +
+    bigMakes(p.newrow, p.makes, p.names, tileH) + imp + (fresh && p.recents !== 'C' ? '' : rec), bot(p.joybot, fresh));
+};
+
+/* ---------- direction 3: Five doors ---------- */
+var dir3 = function(p, fresh){
+  var ms = makesFor(p.makes);
+  var h = ms.length === 6 ? (p.joybot === 'D' ? 72 : 84) : (p.joybot === 'D' ? 88 : 104);
+  var th = h - 22;
+  var bands = ms.map(function(m, i){
+    var n = nameFor(m, p.names);
+    var newest = !fresh && m.k === 'video';
+    var last = fresh ? '<span class="fr">' + m.empty + '</span>'
+                     : newest ? '<span class="go">CARRY ON · ' + m.last + ' · 2H</span>' : '<span>' + m.last + ' · ' + m.meta.split(' · ').slice(-1)[0] + '</span>';
+    var thumb = fresh ? '<span class="th none" style="width:' + th + 'px;height:' + th + 'px">' + ic(m.ic) + '</span>'
+                      : '<span class="th" style="width:' + th + 'px;height:' + th + 'px;background:' + art(m.c) + '"></span>';
+    var label = m.k === 'rec' ? 'Record' : 'New';
+    return '<div class="band" style="height:' + h + 'px">' + (newest ? '<span class="edge" style="background:' + grad(m.c,180) + '"></span>' : '') + thumb +
+      '<span class="tx"><b>' + n.t + '</b>' + (n.s ? '<em>' + n.s + '</em>' : '') + last + '</span>' +
+      '<span class="pill" style="background:' + grad(m.c) + '">' + ic(m.k === 'rec' ? 'rec' : 'plus') + label + '</span></div>';
+  }).join('');
+  return phone(p, fresh, '<div class="bands">' + bands + '</div>', bot(p.joybot, fresh));
+};
+
+/* ---------- picks ---------- */
+var KEYS = [
+  {key:'direction', label:'Direction'},
+  {key:'new-row',   label:'New row',    f:'newrow'},
+  {key:'makes',     label:'Makes',      f:'makes'},
+  {key:'room-names',label:'Room names', f:'names'},
+  {key:'floor',     label:'Floor',      f:'floor'},
+  {key:'recents',   label:'Recents',    f:'recents'},
+  {key:'joybot',    label:'Joybot',     f:'joybot'},
+  {key:'import',    label:'Import',     f:'import'}
+];
+var DEF = {
+  '1':{newrow:'A', makes:'A', names:'B', floor:'B', recents:'A', joybot:'B', import:'B'},
+  '2':{newrow:'B', makes:'A', names:'C', floor:'B', recents:'A', joybot:'B', import:'B'},
+  '3':{newrow:'B', makes:'A', names:'B', floor:'C', recents:'B', joybot:'B', import:'B'}
+};
+var DIRNAME = {'1':'Marquee, made clear', '2':'What are you making?', '3':'Five doors'};
+var picks = {};
+var fresh = false;
+try { var saved = JSON.parse(localStorage.getItem('jc-front-door-picks') || '{}'); if (saved && typeof saved === 'object') picks = saved; } catch(e) {}
+var save = function(){ try { localStorage.setItem('jc-front-door-picks', JSON.stringify(picks)); } catch(e) {} };
+
+/* ---------- the parts and their options ---------- */
+var stripFrame = function(inner, pad){ return '<div class="strip' + (pad ? ' pad' : '') + '">' + inner + '</div>'; };
+var PARTS = [
+  {key:'new-row', title:'New row: shape', q:'How the "start something new" buttons look. In direction 2 this is the shape of the big make tiles; direction 3 has a New on every band instead.',
+   opts:[
+    {v:'A', name:'Sheared chips (today’s shape)', note:'Keeps the look you approved. With five makes, the words shorten to Draw, Video, Music, Animate, Record.', render:function(){ return stripFrame(newRow('A', pick('makes','A'), 'B'), true); }},
+    {v:'B', name:'Rounded tiles', note:'Bigger targets, the full verb under each. The iPhone home-screen feel.', render:function(){ return stripFrame(newRow('B', pick('makes','A'), 'B'), true); }},
+    {v:'C', name:'Verb list', note:'Clearest of all: each line says the make and the room it opens. <em>Costs about 220 dp of height.</em>', render:function(){ return stripFrame(newRow('C', pick('makes','A'), 'B'), true); }}
+   ]},
+  {key:'makes', title:'Which makes', q:'What the New row (or the tiles, or the bands) holds.',
+   opts:[
+    {v:'A', name:'Five makes', note:'Draw, Edit video, Music visual, Animate, Record. Animate then asks once: puppet, sprite sheet, or frame by frame.', render:function(){ return stripFrame(newRow('C', 'A', 'B'), true); }},
+    {v:'B', name:'Six: puppet and sprite sheet apart', note:'Sprite Lab gets its own door again. <em>Six is harder to take in at a glance than five.</em>', render:function(){ return stripFrame(newRow('C', 'B', 'B'), true); }}
+   ]},
+  {key:'room-names', title:'Room names', q:'How a room is labelled on the hero, the bands and the make tiles. (The New row always says the verb.)',
+   opts:[
+    {v:'A', name:'Brand only', note:'Today. Short and proud, but "Viz Lab" means nothing to a newcomer.', render:function(){ return stripFrame(nameStrip('A'), true); }},
+    {v:'B', name:'Brand, then what it does', note:'The name stays the star; a quiet line underneath explains it.', render:function(){ return stripFrame(nameStrip('B'), true); }},
+    {v:'C', name:'Verb first', note:'What you came to do is the big word; the brand is the small one. Builds the brand by use, not by puzzle.', render:function(){ return stripFrame(nameStrip('C'), true); }}
+   ]},
+  {key:'floor', title:'Floor words', q:'The quiet row at the very bottom, where your thumb rests.',
+   opts:[
+    {v:'A', name:'Today', note:'Finder opens the old Lab, Bits repeats Capture, Packs and Setup both open Settings.', render:function(){ return stripFrame(floor('A')); }},
+    {v:'B', name:'Library · Joybot · Settings · More', note:'More holds Remote, Finder’s Lab and the older screens. <em>Moves Remote one tap deeper.</em>', render:function(){ return stripFrame(floor('B')); }},
+    {v:'C', name:'Library · Remote · Joybot · Settings', note:'Keeps Remote one tap away for launch. No "More" junk drawer: the Lab and older screens move to the last rows of Settings, two taps in.', render:function(){ return stripFrame(floor('C')); }}
+   ]},
+  {key:'recents', title:'Recent work', q:'How the things you touched last show up. Direction 3 already sorts them, one band per kind.',
+   opts:[
+    {v:'A', name:'One mixed row, kind badges', note:'Everything together, newest first; a small badge says drawing, project, look or character.', render:function(){ return stripFrame(recents('A', fresh, false), false) + ''; }},
+    {v:'B', name:'Sorted by kind', note:'Kind chips on top; the chosen one is solid cyan. One more tap to switch kinds.', render:function(){ return stripFrame(recents('B', fresh, false)); }},
+    {v:'C', name:'Behind the Library', note:'The lobby shows only the Library door and your newest piece. Calmest screen. <em>Older work is one tap further.</em>', render:function(){ return stripFrame(recents('C', fresh, true)); }}
+   ]},
+  {key:'joybot', title:'Joybot', q:'Where he sits and what he says. Flip the switch to "Brand-new user" to hear his first words.',
+   opts:[
+    {v:'A', name:'Today: one line, only when it’s true', note:'Low on the screen. <em>A brand-new user sees nothing at all.</em>', render:function(){ return stripFrame(botStrip('A'), true); }},
+    {v:'B', name:'Same line, greets newcomers', note:'"New here? I can show you round in 30 seconds." Later it goes back to true, useful lines.', render:function(){ return stripFrame(botStrip('B'), true); }},
+    {v:'C', name:'A bubble from his orb', note:'Speaks from the top where his orb already lives, once, then gets out of the way. <em>The top is a stretch for one thumb.</em>', render:function(){ return stripFrame(botStrip('C'), false); }},
+    {v:'D', name:'Ask bar: Joybot and search in one', note:'"Ask Joybot, or search your work." He can take you anywhere. <em>Needs his routes fixed to the new screens first.</em>', render:function(){ return stripFrame(botStrip('D'), true); }}
+   ]},
+  {key:'import', title:'Import', q:'Bringing in pictures, videos and sounds from the phone. It works now (it really imports).',
+   opts:[
+    {v:'A', name:'A chip in the New row', note:'Easy to find on day one. <em>A sixth (or seventh) chip makes the row tighter.</em>', render:function(){ return stripFrame(newRow('B', 'A', 'A'), true); }},
+    {v:'B', name:'In the Library only', note:'The lobby stays about making. Import is the first button in the Library, and the phone’s Share menu still works.', render:function(){ return stripFrame('<div class="libtop"><b>Library</b><span class="imp">' + ic('import') + 'Import</span><span class="gl">' + ic('search') + '</span></div><div class="kinds" style="padding-top:6px"><span class="on">' + ic('check') + 'All</span><span>' + ic('studio') + 'Projects</span><span>' + ic('brush') + 'Drawings</span><span>' + ic('music') + 'Looks</span></div><div class="ann">THE LIBRARY SCREEN, ONE TAP FROM THE LOBBY</div>', true); }},
+    {v:'C', name:'Both', note:'A chip in the lobby and the button in the Library.', render:function(){ return stripFrame(newRow('B', 'A', 'A') + '<div class="ann" style="padding-top:12px">PLUS THE IMPORT BUTTON IN THE LIBRARY</div>', true); }}
+   ]}
+];
+function pick(key, def){ return picks[key] || def; }
+function nameStrip(style){
+  return [M.draw, M.video, M.music].map(function(m){
+    var n = nameFor(m, style);
+    return '<div style="display:flex;align-items:center;gap:11px;padding:6px 18px"><span style="width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:#000;font-size:17px;background:' + grad(m.c,135) + '">' + ic(m.ic) + '</span>' +
+      '<span><b style="display:block;font-family:var(--f-disp);font-size:17px;font-weight:800;letter-spacing:-.03em;line-height:1.15">' + n.t + '</b>' + (n.s ? '<span style="display:block;font-size:11px;color:var(--dim)">' + n.s + '</span>' : '') + '</span></div>'; }).join('');
+}
+function botStrip(opt){
+  var b = bot(opt, fresh);
+  if (opt === 'C') return '<div style="height:150px;position:relative">' + banner(fresh, 'C') + b.overlay.replace('top:80px','top:66px') + '</div>';
+  if (opt === 'D') return b.top;
+  if (!b.bottom) return '<div class="ghost">' + (fresh ? 'Nothing here: a brand-new user gets no line' : 'Shown only when there is something true to say') + '</div>';
+  return b.bottom.replace('padding:13px', 'padding:0');
+}
+
+function effective(){
+  var d = picks.direction || '1';
+  var base = DEF[d], p = {};
+  KEYS.forEach(function(k){ if (k.f) p[k.f] = picks[k.key] || base[k.f]; });
+  return {d:d, p:p};
+}
+function line(){
+  return 'Lobby picks: ' + KEYS.map(function(k){ return k.key + '=' + (picks[k.key] || '?'); }).join(', ');
+}
+
+/* ---------- render ---------- */
+function renderDirs(){
+  document.querySelectorAll('[data-dir]').forEach(function(el){
+    var d = el.getAttribute('data-dir');
+    var fn = d === '1' ? dir1 : d === '2' ? dir2 : dir3;
+    el.innerHTML = fn(DEF[d], fresh);
+  });
+  document.getElementById('todayMock').innerHTML = today(fresh);
+}
+function renderParts(){
+  var host = document.getElementById('parts');
+  host.innerHTML = PARTS.map(function(part){
+    return '<div class="part"><div class="ptitle"><h3>' + part.title + '</h3><code>' + part.key + '</code></div><p class="pq">' + part.q + '</p>' +
+      '<div class="opts" role="radiogroup" aria-label="' + part.title + '">' + part.opts.map(function(o){
+        return '<div class="pick opt" role="radio" tabindex="0" aria-checked="false" data-key="' + part.key + '" data-val="' + o.v + '">' +
+          '<span class="badge">' + ic('check') + 'Picked</span>' +
+          '<div class="olab"><b>' + o.v + '</b><span>' + o.name + '</span></div>' +
+          '<div class="fit"><div class="scale">' + o.render() + '</div></div>' +
+          '<p class="onote">' + o.note + '</p></div>'; }).join('') + '</div></div>';
+  }).join('');
+}
+function renderMix(){
+  var e = effective();
+  var fn = e.d === '1' ? dir1 : e.d === '2' ? dir2 : dir3;
+  document.getElementById('mixMock').innerHTML = fn(e.p, fresh);
+  var label = function(key, v){
+    var part = PARTS.filter(function(x){ return x.key === key; })[0];
+    var o = part && part.opts.filter(function(x){ return x.v === v; })[0];
+    return o ? o.name : v;
+  };
+  document.getElementById('mixList').innerHTML = KEYS.map(function(k){
+    var chosen = picks[k.key];
+    var txt = k.key === 'direction' ? (chosen ? chosen + ' · ' + DIRNAME[chosen] : 'not picked (showing 1)')
+            : chosen ? chosen + ' · ' + label(k.key, chosen) : 'not picked (' + e.p[k.f] + ', the direction’s own)';
+    return '<div><span>' + k.label + '</span><span' + (chosen ? '' : ' class="un"') + '>' + txt + '</span></div>'; }).join('');
+  var notes = [];
+  if (e.d === '3') {
+    notes.push('Direction 3 has a New on every band, so the New row shape does not apply.');
+    if (picks.recents && picks.recents !== 'B') notes.push('Direction 3 already sorts recent work into its bands; there is no room for a separate recent row.');
+    if (picks['import'] === 'A' || picks['import'] === 'C') notes.push('Direction 3 has no New row, so Import lives in the Library.');
+  }
+  var scr = document.querySelector('#mixMock .scr');
+  if (scr && scr.scrollHeight > scr.clientHeight + 4) notes.push('This mix is taller than one screen, so the lobby would scroll: what fades out at the bottom of the phone sits below the fold.');
+  document.getElementById('mixNote').innerHTML = notes.length ? '<b>Note:</b> ' + notes.join(' ') : '';
+}
+function paintPicks(){
+  document.querySelectorAll('.pick').forEach(function(el){
+    el.setAttribute('aria-checked', picks[el.getAttribute('data-key')] === el.getAttribute('data-val') ? 'true' : 'false');
+  });
+  var l = line();
+  document.getElementById('lineBar').textContent = l;
+  document.getElementById('lineBig').textContent = l;
+  var n = KEYS.filter(function(k){ return picks[k.key]; }).length;
+  document.getElementById('cnt').textContent = n + ' of ' + KEYS.length + ' picked';
+}
+function markOverflow(){
+  document.querySelectorAll('.scr').forEach(function(s){ s.classList.toggle('over', s.scrollHeight > s.clientHeight + 4); });
+}
+function fitAll(){
+  markOverflow();
+  document.querySelectorAll('.fit').forEach(function(f){
+    var inner = f.firstElementChild; if (!inner) return;
+    var s = Math.min(1, f.clientWidth / 360);
+    inner.style.transform = s < 1 ? 'scale(' + s + ')' : '';
+    f.style.height = (inner.offsetHeight * s) + 'px';
+  });
+}
+function renderAll(){ renderDirs(); renderParts(); renderMix(); paintPicks(); fitAll(); }
+
+/* ---------- input ---------- */
+document.addEventListener('click', function(ev){
+  var w = ev.target.closest('[data-who]');
+  if (w) {
+    fresh = w.getAttribute('data-who') === 'new';
+    document.querySelectorAll('[data-who]').forEach(function(b){ b.setAttribute('aria-pressed', (b.getAttribute('data-who') === 'new') === fresh ? 'true' : 'false'); });
+    renderAll(); return;
+  }
+  if (ev.target.closest('[data-copy]')) { copy(); return; }
+  if (ev.target.closest('#reset')) { picks = {}; save(); renderAll(); return; }
+  var p = ev.target.closest('.pick');
+  if (p) choose(p);
+});
+document.addEventListener('keydown', function(ev){
+  var p = ev.target.closest && ev.target.closest('.pick');
+  if (p && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); choose(p); }
+});
+function choose(el){
+  var k = el.getAttribute('data-key'), v = el.getAttribute('data-val');
+  picks[k] = v; save();
+  if (k === 'makes' || k === 'direction') { renderParts(); }
+  renderMix(); paintPicks(); fitAll();
+}
+function copy(){
+  var t = line();
+  var done = function(){
+    document.querySelectorAll('[data-copy] span').forEach(function(s){ var o = s.textContent; s.textContent = 'Copied'; setTimeout(function(){ s.textContent = o === 'Copied' ? 'Copy' : o; }, 1600); });
+  };
+  var fallback = function(){
+    var ta = document.createElement('textarea'); ta.value = t; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch(e) {} document.body.removeChild(ta); done();
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, fallback); else fallback();
+}
+window.addEventListener('resize', fitAll);
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitAll);
+renderAll();
+})();
+</script>
+</body>
+</html>

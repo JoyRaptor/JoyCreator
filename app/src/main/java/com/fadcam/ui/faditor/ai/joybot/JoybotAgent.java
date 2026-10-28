@@ -356,7 +356,14 @@ public final class JoybotAgent {
                 run.go();
             } catch (Throwable t) {
                 FLog.e(TAG, "request failed", t);
-                if (run.stalled) {
+                String offline = ask.cancelled.get() ? null : NetCheck.words(NetCheck.of(app));
+                if (offline != null && (run.stalled || t instanceof IOException)) {
+                    // "The AI service went quiet" blamed the service for the phone's own suspended
+                    // line (Note 9, 10-28): say what is really wrong.
+                    f.reply = offline;
+                    f.ok = false;
+                    post(ask.key(), l -> l.onText(offline, false));
+                } else if (run.stalled) {
                     // The watchdog cut a reply that had gone silent: not the person's network.
                     f.reply = "The AI service went quiet for over a minute, so I stopped waiting."
                             + " Try again, or pick another model (tap its name at the top).";
@@ -474,6 +481,11 @@ public final class JoybotAgent {
         final java.util.Set<String> families = new java.util.LinkedHashSet<>();
 
         void go() throws Exception {
+            String offline = NetCheck.State.NONE == NetCheck.of(app) ? NetCheck.words(NetCheck.State.NONE) : null;
+            if (offline != null) {   // no Wi-Fi, no mobile data: no point waiting for a timeout (BOT-1, 10-28)
+                finish(false, offline);
+                return;
+            }
             families.addAll(ToolRouter.pick(ask.text, ask.situation.room == IdeaEngine.Room.VISLAB,
                     ask.situation.room == IdeaEngine.Room.JOYBRUSH));
             AIChatState.liveAsk = ask.text;
@@ -1869,7 +1881,7 @@ public final class JoybotAgent {
         if (e instanceof java.net.SocketTimeoutException) {
             return "The AI service took too long to answer. Try again in a moment.";
         }
-        return "Network problem: " + m;
+        return "I couldn't reach the AI service just now. Try again in a moment.";
     }
 
     /** The person's words, short, for a notification or a "you asked…" line. */

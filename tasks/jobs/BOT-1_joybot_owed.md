@@ -27,11 +27,19 @@ Ledger: [plan B6](../joybot/JOYBOT_PLAN_20261014.md), [audit fixes](../audits/20
 ## What is left
 - [x] **JoyBrush room shows the wrong idea buttons.** Fixed 10-28: four JoyBrush buttons (a layer to colour
       on, start an animation, next frame from this one, what's in this drawing), only things the joybrush
-      tools really do. Idea tests 393/393, typecheck OK. **Phone check owed.**
-- [ ] **Phone: the VisLab check** from the 10-24 audit (bloom 1.5, then one Undo restores it). Steps were given
-      to the VisLab lead 10-24; not found in its notes, so still owed.
-- [ ] **Phone: Joybot drawing in JoyBrush after the button-face change** (`147c19c00`). Its first version was
-      proven 10-24 (a94933ad7).
+      tools really do. **Phone ✅ 10-28 (agent, Note 9):** the buttons show in JoyBrush; "A layer to colour on"
+      made a second layer in one step and one JoyBrush Undo removed it.
+- [x] **Phone: the VisLab check** ✅ 10-28 (agent, Note 9): Record Hop's Bloom 0.60 → Joybot "set the bloom to
+      1.5" → 1.50 on the same look, reply named the look → one VisLab Undo → 0.60. All six audit checks done.
+- [x] **Phone: Joybot in JoyBrush after the button-face change** (`147c19c00`) ✅ 10-28: the face button opens
+      Joybot; the layer request above ran through the joybrush tools.
+- [x] **Offline honesty** (found 10-28: with no internet Joybot waited a minute and blamed "the AI service"):
+      `NetCheck` says "Your phone isn't online" at once, or "isn't reaching the internet" after a failure. Bench
+      53/53; installed on the Note 9 10-28, but the offline wording itself is not phone-tested (an agent may not
+      switch the phone's Wi-Fi off).
+- [x] **Chat colours** (owner, 10-28): your own words in the quiet grey, Joybot's replies in the aqua-to-lime
+      colour ✅ on the Note 9 10-28 (`tasks/joybot/evidence/chat_colours_20261028.png`). Answer cards with buttons
+      (help, plans, results) stay grey for now: owner's call.
 - [ ] **Phone, never tried:** the free-model fallback and borrowed eyes (F9); `add_media`, `relink_missing`,
       `list_items`; ducking on a music + voice project; the hands-free voice loop (needs the owner's voice:
       owner check).

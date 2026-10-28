@@ -3233,8 +3233,9 @@ public class ChatAssistantActivity extends AppCompatActivity {
         TextView tv = new TextView(this);
         tv.setText(isUser ? text : JoybotChatViews.styled(text));
         tv.setTextIsSelectable(true);
-        tv.setTextColor(isUser ? Studio.ON_GO : Studio.INK_DIM);
-        tv.setBackgroundResource(isUser ? R.drawable.chat_bubble_user : R.drawable.chat_bubble_bot);
+        // Joybot's answer carries the colour; your own words fade back (owner, 10-28).
+        tv.setTextColor(isUser ? Studio.INK_DIM : Studio.ON_GO);
+        tv.setBackgroundResource(isUser ? R.drawable.chat_bubble_user : R.drawable.chat_bubble_joybot);
         // Tail side (bottom for user, top for bot — see chat_bubble_user/bot.xml) gets extra
         // padding so text clears the reserved tail-nub band baked into the background drawable.
         if (isUser) {
@@ -3253,7 +3254,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         Typeface materialIcons = ResourcesCompat.getFont(this, R.font.materialicons);
         copyBtn.setTypeface(materialIcons);
         copyBtn.setText("content_copy");
-        copyBtn.setTextColor(isUser ? Studio.alpha(Studio.ON_GO, 0x66) : Studio.alpha(Studio.LABEL, 0x66));
+        copyBtn.setTextColor(isUser ? Studio.alpha(Studio.LABEL, 0x66) : Studio.alpha(Studio.ON_GO, 0x66));
         copyBtn.setTextSize(13);
         copyBtn.setPadding(dp(6), dp(6), dp(6), dp(6));
         FrameLayout.LayoutParams clp = new FrameLayout.LayoutParams(

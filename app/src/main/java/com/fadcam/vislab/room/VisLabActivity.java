@@ -58,6 +58,8 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
     public static final String EXTRA_LOOK = "vislab_look";
     /** Open on a new, empty look with its layers open: the lobby's "New" in the Viz Lab room. */
     public static final String EXTRA_NEW_LOOK = "vislab_new_look";
+    /** Open on the look kept in this file (its path inside the Joy Creator folder): the Library's tap. */
+    public static final String EXTRA_LOOK_FILE = "vislab_look_file";
     private static final String DEMO = "vislab/demo/vislab_demo.m4a";
     private static final int SRC_DEMO = 0, SRC_MIC = 1, SRC_SONG = 2;
     /** Loudness (Features.level, 0..1) above which a frame counts as sound; silence reads 0. */
@@ -138,6 +140,13 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
         if (want != null) {
             List<VisScene> looks = session.looks();
             for (int i = 0; i < looks.size(); i++) if (looks.get(i).id().equals(want)) session.roomPicked(i);
+        }
+        String wantFile = getIntent().getStringExtra(EXTRA_LOOK_FILE);
+        if (wantFile != null) {
+            List<VisScene> looks = session.looks();
+            for (int i = 0; i < looks.size(); i++) {
+                if (wantFile.equalsIgnoreCase(session.lookFile(looks.get(i).id()))) { session.roomPicked(i); break; }
+            }
         }
         session.bind(this);
         useSource(SRC_DEMO, null);

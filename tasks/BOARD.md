@@ -22,13 +22,29 @@ its session not running may be taken over: say so in Messages first.
 
 | Who (session, account / harness) | Job | Branch / worktree | Files held | Since |
 |---|---|---|---|---|
-| Project lead: "JOY CREATOR SUPREME ORCHESTRATOR" (Claude, account A) | Roadmap, HYG-1, HYG-4 | `lead/joycreator-roadmap-20261027`, `C:/Temp/jc-lead-roadmap` | `tasks/ROADMAP.md`, `tasks/jobs/**`, `tasks/BOARD.md`, `tasks/AGENT_START.md` | 10-27 |
+| Project lead: "JOY CREATOR SUPREME ORCHESTRATOR" (Claude, account A) | Roadmap; folding in overnight work; M1 finish list | `lead/fold-overnight-20261028` (`C:/Temp/jc-lead-roadmap`), `lead/docs-20261028` (`C:/Temp/jc-lead-docs`) | `tasks/ROADMAP.md`, `tasks/jobs/**`, `tasks/BOARD.md`, `tasks/AGENT_START.md`; the three folded branches | 10-28 |
 | JoyBrush lead: "Joy Brush lead handoff" (Claude, account A) | JoyBrush roadmap | `lead/select-reconcile-20261024` | JoyBrush engine and hot files; `tasks/joybrush/ROADMAP.md` | 10-27 |
 | VisLab lead: "Music visualizer effects design (fork)" (Claude, account C) | VisLab roadmap: R3's last phone checks; the owner's sign-off | `C:/Temp/vl-studio-fx` (`vislab/r8-follow-20261027`, landed) | `app/.../vislab/**`, Studio effect files, `tasks/VISLAB_*.md` | 10-28 |
 | "Joybrush roadmap task" (Claude, account C, `local_2da29537…`) | VisLab R8 / R14 | `vislab/proxy-bind-20261027` (backup pushed), `vislab/r8-follow-20261027` (pushed) | visualizer Style tab, Studio adjustment-layer effects | 10-27 (at its session limit) |
 | "Joybrush roadmap task" (Claude, account C, a fork of the R8 session) | HYG-5 (STATE.md true) | `claude/state-sync-20261027`, `C:/Temp/jc-vl-lane` | `tasks/STATE.md` rows (edits to rows only), `tasks/jobs/HYG-5_state_sync.md` | 10-27 |
 | "Joybrush roadmap task" (Claude, account C, `local_20b37502…`) | Symmetry recovery (JoyBrush line); Send to Studio into an existing project | `claude/symmetry-recover-20261027` (pushed, `C:/Temp/jb-symmetry-recover-20261027`); `claude/send-to-studio-existing-20261027` (pushed, clean off `joy-creator`, `C:/Temp/jc-send-existing`) | board import receiver (`app/.../faditor/sprite/JoyBrushBoardImportActivity.java`, `BoardAttachPlan.java`); symmetry files on the JoyBrush line (not landed) | 10-27 |
 | "JoyBot UX vision and capabilities" (Claude, account C) | BOT-1 (then BOT-2, BOT-3) | `claude/joybot-20261028`, `C:/Temp/joybot-20261028` | `app/.../ui/faditor/ai/**`, `tasks/jobs/BOT-*.md`, `tasks/joybot/**`, the BOT rows in ROADMAP.md | 10-28 |
+
+## Paused work: restart these (the lead keeps this list; checked 10-28 09:45)
+
+Sessions stop when an account hits its limit. Nothing below is lost: each line says where the work is and
+the one sentence that restarts it in a NEW session in `C:\+Projects\JoyCreator`. Delete a line once it is resumed.
+
+| Lane | Stopped | Where the work is | State | Restart with |
+|---|---|---|---|---|
+| VisLab lead (account C) | 10-28 09:03, session limit, mid phone test | `C:/Temp/vl-studio-fx` on `vislab/r8-follow-20261027`; **9 unsaved files** (paused-preview refresh for blended visualisers, VisFollow / Style tab work) backed up to `backup/vislab-wip-20261028` (1168827b4) | R1–R16 on `joy-creator`; R3/R8/R9 last phone checks open; the app closed once while resizing a visualiser box (not yet explained). Holds `jb-phone.lock` since 08:42 (stale) | "Continue as VisLab lead: read tasks/VISLAB_ROADMAP.md and tasks/BOARD.md; your unsaved edits are in C:/Temp/vl-studio-fx (backup branch backup/vislab-wip-20261028); finish R3/R8/R9's phone checks and the app close seen while resizing." |
+| Joybot lane (account C) | 10-28 09:03, session limit | `C:/Temp/joybot-20261028` on `claude/joybot-20261028`, clean, all pushed | BOT-1 partly landed (933b2b636: JoyBrush idea buttons); rest of BOT-1, then BOT-2, BOT-3 | "Continue the Joybot lane from tasks/jobs/BOT-1_*.md and tasks/BOARD.md." |
+| HYG-5 STATE sync (account C worker) | 10-27 23:48 | `C:/Temp/jc-vl-lane`, clean, pushed (e29eda1b7, 42fa4f51d) | First pass done; JoyBrush rows (Lock / Merge Down / Flatten / Freeze, exports, tilt-keeps-screen) owed by the JoyBrush lane | "Continue HYG-5 from tasks/jobs/HYG-5_state_sync.md." |
+| JoyBrush lead (account A, old folder) | 10-27 22:33 | `lead/select-reconcile-20261024` (JoyBrush line, 198 commits not on `joy-creator`), clean, pushed | Clips merged 8/8 on the phone. Open: long wash refused at very low memory (fix on the repair branch, needs the ring-size problem first); Oil Covers and Carries; watercolour checks; hairlines (waits for the owner's "seam now") | "Take over as JoyBrush lead: read tasks/joybrush/CURRENT_HANDOFF.md and tasks/joybrush/ROADMAP.md." (Engine work: owner plans it for the Mary account.) |
+| Symmetry (account C worker) | 10-27 23:58 | `claude/symmetry-recover-20261027` (JoyBrush line), pushed | Agent phone check done; 3 findings for the JoyBrush lead (line moves not undoable, dotted zone for refused brushes, strokes near the line drag it); real-pen checks owed | Part of the JoyBrush lead's restart. |
+| Codex / OpenCode | 10-27 01:17 | the `codex/*`, `lead/*-20261026`, `docs/*` branches | All handed back; nothing running | Nothing to restart. |
+
+Folded in by the lead 10-28 (no restart needed): the Joybot button shape fix, the STU-2 undo/preview fix, Send to Studio into an existing project.
 
 ## Messages
 

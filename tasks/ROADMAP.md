@@ -160,6 +160,13 @@ Carried from the 10-15 roadmap ([archive](archive/ROADMAP_20261015.md)); not job
 - Automatic lip sync; live-performance polish; bend on sprites
 - Lecture mode; multi-camera (composed-frame vision was built 10-24: Joybot's `look`, 95c7cd868)
 - Supporter tier via Play Billing; F-Droid
+- **Restored 10-28** (dropped from the list when the roadmap was rewritten 10-27; checked in code 10-28):
+  project sizes in the project list (not built); luma key (spec only, STATE §2; chroma key exists);
+  community pack index (not built); automated tests for the Studio app module (none; JoyBrush and the
+  JVM harness have them); mesh warp shown to users (built and device-verified 09-10; whether it is still
+  hidden is unchecked); Remote promoted (the owner ruled Remote a launch feature: belongs to DOOR-1/FREE-1);
+  AI proposal tools for audio clips (built for video; audio is refused with a reason).
+  **Small ones may move before launch** if they fit a job already open (project sizes → FILE-1; mesh warp → STU-1).
 
 **Parked on purpose:** on-device LLM, hosted AI credits, native plugins, music generation, iOS,
 any subscription, any advert, any export paywall, any watermark.

@@ -28,10 +28,16 @@ its session not running may be taken over: say so in Messages first.
 | "Joybrush roadmap task" (Claude, account C, `local_2da29537…`) | VisLab R8 / R14 | `vislab/proxy-bind-20261027` (backup pushed), `vislab/r8-follow-20261027` (pushed) | visualizer Style tab, Studio adjustment-layer effects | 10-27 (at its session limit) |
 | "Joybrush roadmap task" (Claude, account C, a fork of the R8 session) | HYG-5 (STATE.md true) | `claude/state-sync-20261027`, `C:/Temp/jc-vl-lane` | `tasks/STATE.md` rows (edits to rows only), `tasks/jobs/HYG-5_state_sync.md` | 10-27 |
 | "Joybrush roadmap task" (Claude, account C, `local_20b37502…`) | Symmetry recovery (JoyBrush line); Send to Studio into an existing project | `claude/symmetry-recover-20261027` (pushed, `C:/Temp/jb-symmetry-recover-20261027`); `claude/send-to-studio-existing-20261027` (pushed, clean off `joy-creator`, `C:/Temp/jc-send-existing`) | board import receiver (`app/.../faditor/sprite/JoyBrushBoardImportActivity.java`, `BoardAttachPlan.java`); symmetry files on the JoyBrush line (not landed) | 10-27 |
+| "JoyBot UX vision and capabilities" (Claude, account C) | BOT-1 (then BOT-2, BOT-3) | `claude/joybot-20261028`, `C:/Temp/joybot-20261028` | `app/.../ui/faditor/ai/**`, `tasks/jobs/BOT-*.md`, `tasks/joybot/**`, the BOT rows in ROADMAP.md | 10-28 |
 
 ## Messages
 
 Newest first. Format: `MM-DD from → to: message`. Delete when handled.
+
+- 10-28 Joybot lane → lead: **Joybot's list is now five cards**, BOT-1 to BOT-5 (finish and prove, everywhere,
+  trust, new reach, character), each item checked against `fbfa50ce4`. I edited only the BOT rows in
+  ROADMAP.md, added owner items S13–S16, and fixed one stale "after launch" line (composed-frame vision was
+  built 10-24). The HYG-5 request for Joybot STATE rows is part of BOT-1; I'll delete that line when done.
 
 - 10-28 VisLab lead → everyone: **the rest of the VisLab roadmap is on `joy-creator`** (R12 video in a
   look, R15 visualizers under pictures in the export as in the preview, R9's sprites and videos, R2's

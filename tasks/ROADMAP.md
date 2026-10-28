@@ -82,6 +82,10 @@ Each of these needs the owner and nobody else. The lead's recommendation comes f
 | S10 | OK to remove 11 FadCam classes nothing calls and 4 unused drawables, once their replacements are proven | Yes, in one pass | [FREE-1](jobs/FREE-1_fadcam_inventory.md) |
 | S11 | Puppets: a screenshot of the overlapping corner widget; and do you miss an "Everything" chip? | | [ANI-1](jobs/ANI-1_puppets_and_sprites.md) |
 | S12 | Owner checks you said you want to do: Studio transitions, and the new VisLab effects inside Studio | | M1 |
+| S13 | Joybot: your labelled sprite sheet, and OK the mood names (idle, listen, think, work, talk, excited, show, oops) | The names as listed | [BOT-5](jobs/BOT-5_joybot_character.md) |
+| S14 | Joybot: an OpenRouter key on the PC for the live free-model test (or about $10 credit for four models) | Key in an environment variable, never in a file | [BOT-3](jobs/BOT-3_joybot_trust.md) |
+| S15 | Joybot defaults: paid picture model (FLUX.2 Klein ~1½¢ or Nano Banana ~4¢), ask before every paid picture, read replies aloud | Klein; always ask (a "don't ask under 5¢" switch); read-aloud off | [BOT-4](jobs/BOT-4_joybot_reach.md) |
+| S16 | Joybot: try him with your own voice (hands-free loop) and, when you have API credit, with OpenAI | | [BOT-1](jobs/BOT-1_joybot_owed.md) |
 
 ---
 
@@ -110,7 +114,11 @@ One line per job. The card holds the detail. "Owner" is the session or harness t
 | [STU-2](jobs/STU-2_slide_preview_after_undo.md) | Studio orphan: after an undo the preview keeps showing a removed slide. The fix exists but never landed | 🟡 fix on `claude/dazzling-satoshi-75a363` (`f46e45c67`) | open | Re-apply it on the current editor, then phone test | 10-27 |
 | [STU-3](jobs/STU-3_timeline_marks.md) | Studio: timeline bookmarks and regions (named marks, In/Out regions, loop, region export). Built by Codex 10-23/24, never committed | 🟡 rescued; tap and hold proven on the Note 9 | open | Land it from the rescue branch; finish the phone checks | 10-27 |
 | [STU-4](jobs/STU-4_studio_sweep_leftovers.md) | Studio sweep leftovers (caption motion, caption eye and outline, Invert on images, Puppet RECORDING tab, sprite Lanes pills, audio envelope) | ❓ from 10-16/17 lists | open | Re-check each on the phone; most may be fixed | 10-27 |
-| [BOT-1](jobs/BOT-1_joybot_owed.md) | Joybot: phone checks owed, long jobs that survive closing the chat, Joybot in every room, free "design a picture", placed images | 🟡 most flows phone-tested 10-15 to 10-24 | Joybot sessions | Per the card | 10-27 |
+| [BOT-1](jobs/BOT-1_joybot_owed.md) | Joybot: finish and prove what is built (JoyBrush room's wrong buttons, the owed phone checks, STATE rows, honest "can't do that") | 🔨 most flows agent phone-tested 10-14 to 10-24 | "JoyBot UX vision and capabilities" | Fix JoyBrush's idea buttons; then the phone checks | 10-28 |
+| [BOT-2](jobs/BOT-2_joybot_everywhere.md) | Joybot everywhere and findable: help for every STATE feature, ideas in every room, hover labels, empty-state copy | ⬜ | open | After BOT-1; help list from STATE once HYG-5 is done | 10-28 |
+| [BOT-3](jobs/BOT-3_joybot_trust.md) | Joybot you can trust: "done" checked against real changes, resumable VisLab/JoyBrush jobs, live free-model benchmark, edits against a revision | ⬜ | open | Honesty by measurement first; live bench needs S14 | 10-28 |
+| [BOT-4](jobs/BOT-4_joybot_reach.md) | Joybot's new reach: naming layers, Capture, deeper JoyBrush/SpriteLab, cross-wing jobs, pictures, recipe triggers, per-step model routing | ⬜ | open | Naming clips and layers first (owner-requested, designed) | 10-28 |
+| [BOT-5](jobs/BOT-5_joybot_character.md) | Joybot's character (the owner's sprite sheet) and Joybot as the first-run guide | ⛔ S13, DOOR-3 | open | When the sheet arrives | 10-28 |
 | [FILE-1](jobs/FILE-1_folder_leftovers.md) | Joy Creator folder and storage leftovers (undo after a Move, Space's "Move unused to Trash", large share-ins, the JoyBrush half) | 🟡 | open | Two phone checks, one rule change | 10-27 |
 | [ANI-1](jobs/ANI-1_puppets_and_sprites.md) | Puppets, sprites, SpriteLab and Avatar: prove puppeteering on a phone, close the finish ledger, give sprites their missing doors | 🟡 built 9-16; little phone proof since | open | Phone-prove the puppet basics first | 10-27 |
 | [UI-1](jobs/UI-1_app_ui_leftovers.md) | App UI leftovers from the two retired UI sessions (sidebars, fullscreen preview, What's New, update sheets, five legacy-themed screens, watermark text) | ⬜ | open | Per the card; design records are now in git | 10-27 |
@@ -150,7 +158,7 @@ Carried from the 10-15 roadmap ([archive](archive/ROADMAP_20261015.md)); not job
 - Semantic cells in the AI toolkit
 - Pack manager, theme packs, template gallery
 - Automatic lip sync; live-performance polish; bend on sprites
-- Composed-frame vision; lecture mode; multi-camera
+- Lecture mode; multi-camera (composed-frame vision was built 10-24: Joybot's `look`, 95c7cd868)
 - Supporter tier via Play Billing; F-Droid
 
 **Parked on purpose:** on-device LLM, hosted AI credits, native plugins, music generation, iOS,

@@ -160,7 +160,7 @@ All of these **stay in the website / F-Droid build.** Decision already made and 
 | Beat and onset detection | 🟢 ✔ | waveform/BeatDetector, OnsetDetector — pure DSP, offline, **already wired to snapping** |
 | Silence detection | 🟢 ✔ | SilenceDetector — pure DSP |
 | Loudness normalisation (EBU R128) | 🟢 ~ | |
-| fix_audio chain (highpass → denoise → compress → loudnorm) | 🟢 ✔ | Works. **Not exposed as a button — only reachable by asking the chatbot.** |
+| Fix audio (highpass → denoise → compress → loudnorm) | 🟡 ✔ | **Corrected 10-28:** this row said 🟢 "works", but on the Note 9 every bake failed ("Invalid argument"): the baked file was named after the source's whole URI, and its .tmp name hid the format from ffmpeg. Fixed (c3f8ddffe, d0795437b); agent-checked 10-28 on a 1:25 song from Downloads: Bake OK (2.1 MB), plays, Undo returns the original, a second Fix is a cache hit. It IS a button (the audio clip's drawer, "Fix audio"). Open: after a cache hit the clip's waveform keeps the unfixed look; the Clean (remove silence) button acts on the video clip when it stays in the selection. Not yet tried by JoyRaptor. |
 | Voiceover recording | 🟢 ~ | audio/VoiceoverRecorder |
 | Audio ducking | 🟡 | **Rebuilt** (2026-10-15 code read): lane menu "Duck under…" → Ducker + DuckApplier write ordinary volume points that export reads. Joybot's `set_ducking` mirrors it (needs the voice clip's transcript). The old set_clip_duck stays removed. Not seen on a phone by this lane. |
 | Visualizer studio | 🟢 | Superseded by VisLab (section 5.5): music visuals in their own room, inside Studio and floating over other apps. |

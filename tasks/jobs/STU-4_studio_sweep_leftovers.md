@@ -17,8 +17,9 @@ Small rough edges the device sweeps found. Each one is the kind of thing that ma
 - ✅ Sprite bend net sits on the sprite.
 - ✅ Colour picker hex is one line (d1655f38a); "#FF000B" touches the column edge (report only).
 - ❓ Not reachable by the agent: puppet RECORDING tab (no Puppet tab found from Studio drawers), sprite Lanes tab, audio envelope (see the audio bug).
-- 🔴 **New:** Add → Audio with a WAV made an empty audio lane with no clip block and no Undo step, twice (the log shows the file was read). Re-test with a real song (`vislab_demo.m4a`).
-- 🔴 **New:** after Undo of a sprite Bend the net goes but the sprite stays blurry.
+- ✅ Add → Audio with a real song (`vislab_demo.m4a`) works (the WAV failure was that test file). **Found on the way and fixed 10-28:** Fix audio never baked on a phone (file name from the raw URI, then no output format); now passes.
+- ✅ Undo of a sprite Bend leaves it crisp again (fabedb713, agent-checked 10-28).
+- 🔴 **Open:** after a Fix audio cache hit the waveform keeps the unfixed look; Clean acts on the video clip because selecting an audio clip leaves the video clip selected too; the editor title's tap does not open Rename (hold does).
 - 🔴 **New:** the toolbar's last button "Edit" toggles to "Done" with no visible effect; after closing a text drawer, tapping the clip or preview doesn't reopen it (hold does, since 10-28).
 
 ## What is left (from `tasks/todo.md` on 10-16/17; may already be fixed)

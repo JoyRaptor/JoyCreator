@@ -435,7 +435,7 @@ public class IdeaEngineTest {
                 helpIds.add(x.id);
             }
             eq("help G3: no two topics share an id", com.fadcam.ui.faditor.ai.joybot.HelpBook.TOPICS.size(), helpIds.size());
-            Set<String> helpRoutes = new HashSet<>(Arrays.asList(null, "record", "library", "studio", "setup",
+            Set<String> helpRoutes = new HashSet<>(Arrays.asList(null, "record", "library", "studio", "setup", "vislab",
                     "joybrush", "spritelab", "avatar", "space", "trash"));
             for (com.fadcam.ui.faditor.ai.joybot.HelpBook.Topic x : com.fadcam.ui.faditor.ai.joybot.HelpBook.TOPICS) {
                 check("help G3: route is a real one: " + x.id, helpRoutes.contains(x.route), String.valueOf(x.route));
@@ -622,6 +622,27 @@ public class IdeaEngineTest {
                 check("real tool docs: names and lengths fit every provider", allArgs, "");
             } catch (Exception ex) {
                 check("real tool docs: readable", false, ex.toString());
+            }
+        }
+
+        // ── Help for VisLab and Director (BOT-2, 10-28): real questions reach the right answer ──
+        {
+            String[][] qa = {
+                    {"how do I use vislab", "vislab"},
+                    {"can I build a look from scratch?", "vislab_build"},
+                    {"how do I make the bars react to the kick", "vislab_music"},
+                    {"how do I get words on a spiral", "vislab_words"},
+                    {"can I play a midi file", "vislab_midi"},
+                    {"how do I put a visualiser over other apps", "vislab_float"},
+                    {"how do I add a VHS effect", "vislab_effects"},
+                    {"can you do a big job, the whole video", "director"},
+                    // the older Studio answers still win their own questions
+                    {"how do I add a visualizer", "visualizer"},
+                    {"how do I add captions", "captions"},
+            };
+            for (String[] x : qa) {
+                com.fadcam.ui.faditor.ai.joybot.HelpBook.Topic t = com.fadcam.ui.faditor.ai.joybot.HelpBook.find(x[0]);
+                eq("help BOT-2: " + x[0], x[1], t == null ? null : t.id);
             }
         }
 

@@ -1,6 +1,6 @@
 # BOT-2: Joybot everywhere, and everything findable through him
 
-**Milestone:** M1 (feeds M2)  ·  **State:** ⬜  ·  **Owner:** open (Joybot lane first)  ·  **Checked:** 2026-10-28 against `fbfa50ce4`
+**Milestone:** M1 (feeds M2)  ·  **State:** 🔨  ·  **Owner:** "JoyBot UX vision and capabilities" (Claude, account C)  ·  **Checked:** 2026-10-28 against `fbfa50ce4`
 
 ## Why it matters (for the user)
 Wherever you are, tapping Joybot should offer the right next things and answer "how do I…" for that room.
@@ -21,10 +21,13 @@ Select, symmetry, Send to Studio. Hover labels: ~220 controls done 10-15; the ch
 (account switcher, bring-in card, plan and review cards) were not re-swept.
 
 ## What is left
-- [ ] **Help for every STATE feature.** Generate the topic list from STATE (after [HYG-5](HYG-5_state_sync.md)):
-      VisLab (looks, parts, Words, MIDI, floating visualiser, brand colours, Studio effects), JoyBrush (brushes,
-      paper, layers, frames and onion skin, Select, symmetry, Send to Studio), Capture, Library, Space, Trash.
-      Pure Java, harness-tested (`IdeaEngineTest`).
+- [ ] **Help for every STATE feature.** Pure Java, harness-tested (`IdeaEngineTest`).
+  - [x] VisLab (8 topics: the room, building a look and parts, music links, Words, MIDI/.mod, the floating
+        visualiser, looks in Studio, the Studio effects) and Director mode: 10-28, from STATE 5.5/6; 422/422.
+  - [ ] JoyBrush (brushes, paper, layers, frames and onion skin, Select, symmetry, Send to Studio): **wait for
+        [HYG-2](HYG-2_one_main_line.md)**: most of it is on the JoyBrush lead's branch, not in the app yet, and
+        help must never describe a tool the person doesn't have.
+  - [ ] Capture, Library, Space, Trash, SpriteLab, the rest of STATE (after [HYG-5](HYG-5_state_sync.md)).
 - [ ] **JoyBrush ideas** that read the open drawing (e.g. "Add a layer for colour", "Make a 12-frame loop",
       "Send this to Studio"), using `JoybotHands.describe()`.
 - [ ] **Avatar room**: a Joybot button and ideas (Avatar stays hidden for launch: decide with ANI-1).

@@ -282,6 +282,63 @@ public final class HelpBook {
                     "After I do something for you, tap Save as a recipe. Then My recipes runs it again in one tap, "
                             + "on any project. Recipes are kept as small files in your Joy Creator folder, under "
                             + "Joybot/recipes.", null, null),
+            // ── VisLab and Director (BOT-2, 10-28; from STATE 5.5 / 6) ──
+            new Topic("vislab", "vislab|vis lab|viz lab|music visual|visuals that react|react to the music"
+                    + "|music video look",
+                    "VisLab is the music visualiser lab: looks that move to a song. Open Viz Lab from the lobby. "
+                            + "Play it to the demo song, your microphone, or A song (MIDI and .mod files too), swipe the "
+                            + "strip at the bottom to change look, and tap Edit to change one. Tap me there and I can "
+                            + "change a look for you.",
+                    "vislab", null),
+            new Topic("vislab_build", "build a look|make my own look|new look|from scratch|look from nothing"
+                    + "|add a layer to the look|layers in vislab",
+                    "In VisLab tap Edit, then Layers › Add a layer: bars, particles, lasers, stars, words and more. "
+                            + "Stack them, and any slider with a ♪ can follow the music. Looks save themselves as files "
+                            + "in your Joy Creator folder, under Supplies/Looks. Save as a part keeps a layer to reuse "
+                            + "in any look.",
+                    "vislab", null),
+            new Topic("vislab_music", "follow the music|move with the music|react to the kick|hit on the kick"
+                    + "|kick drum|music link|bass hit|pulse to the beat",
+                    "In VisLab, tap the ♪ beside a slider and pick what it listens to (bass, kick, snare, hi-hats, "
+                            + "beat, loudness…) and how hard. Sliders marked ♪ only act on the music, so they dim "
+                            + "while it's quiet. In Studio, every effect slider has a ♪ music row that does the same.",
+                    "vislab", null),
+            new Topic("vislab_words", "words layer|lyric visual|lyrics visual|words as art|spiral words"
+                    + "|words that fly|words on a spiral|moving lyrics",
+                    "In VisLab add a Words layer: the song's words, or your own typed words, as art. Nine paths "
+                            + "(ribbon, spiral, ring, tunnel, flight…), six behaviours (karaoke, pop, neon flicker, "
+                            + "smoke, burst, sparkle) and six letter styles; each Words layer can use its own font. "
+                            + "In Studio, a lyrics look shows your clip's own transcript.",
+                    "vislab", null),
+            new Topic("vislab_midi", "midi|.mid file|karaoke file|.kar|tracker file|.mod file|module file",
+                    "In VisLab tap A song and pick a MIDI (.mid or .kar) or tracker (.mod) file. It plays with a "
+                            + "built-in synth (a .mod with its own samples), its exact drum hits and notes drive the "
+                            + "look, and .kar lyrics become the song's words.",
+                    "vislab", null),
+            new Topic("vislab_float", "over other apps|on top of other apps|floating visual|float the visual"
+                    + "|visualiser while recording|visualizer while recording|visualiser over|visualizer over",
+                    "A visualiser can float over any app, in a box or full screen: use the recorder menu's "
+                            + "Visualiser switch, or ask me. It needs Android's “Display over other apps” (Samsung "
+                            + "calls it “Appear on top”), which only you can switch on; I can open that page for you.",
+                    "record", null),
+            new Topic("vislab_in_studio", "vislab look in studio|look on my video|visualiser style"
+                    + "|visualizer style|vislab in studio|look as a layer",
+                    "In Studio, add a Visualizer, then hold it and open its Style tab: pick any VisLab look, and "
+                            + "keyframe which look shows when. Its Blend tab mixes it with the video (Screen, "
+                            + "Difference…), and the preview matches the export.",
+                    "studio", null, "visualizer"),
+            new Topic("vislab_effects", "glitch tear|vhs|scanline|kaleidoscope|crt bend|zoom blur|wet floor"
+                    + "|lens split|echo trail|vhs effect|vhs look|retro effect",
+                    "Studio has VisLab's finishes as effects for any clip or adjustment layer: Lens split, "
+                            + "Scanlines, Zoom blur, Glitch tear, VHS, CRT bend, Kaleidoscope, Mirror, Shake, Wet "
+                            + "floor, Glow, Flash, Vignette and more. Open the clip's or adjustment layer's Effects "
+                            + "drawer and tap Add effect; their sliders can follow the music too.",
+                    "studio", null),
+            new Topic("director", "big job|whole video|do it all|plan first|step by step|director mode"
+                    + "|show me a plan|several changes",
+                    "For a big job I first show a short plan. Tap Go ahead and I do it, up to 40 steps, then a "
+                            + "Review card lists every change with Show me and Undo from here.",
+                    null, null),
             new Topic("hands_free", "hands free|hands-free|voice only|without touching|talk to you",
                     "Hold the mic, say what you want and stop talking — it sends itself. I'll read my answer "
                             + "out and listen for 'yes', 'undo' or 'stop'.", null, null)));

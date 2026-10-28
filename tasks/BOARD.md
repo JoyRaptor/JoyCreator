@@ -29,6 +29,7 @@ its session not running may be taken over: say so in Messages first.
 | "Joybrush roadmap task" (Claude, account C, a fork of the R8 session) | HYG-5 (STATE.md true) | `claude/state-sync-20261027`, `C:/Temp/jc-vl-lane` | `tasks/STATE.md` rows (edits to rows only), `tasks/jobs/HYG-5_state_sync.md` | 10-27 |
 | "Joybrush roadmap task" (Claude, account C, `local_20b37502…`) | Symmetry recovery (JoyBrush line); Send to Studio into an existing project | `claude/symmetry-recover-20261027` (pushed, `C:/Temp/jb-symmetry-recover-20261027`); `claude/send-to-studio-existing-20261027` (pushed, clean off `joy-creator`, `C:/Temp/jc-send-existing`) | board import receiver (`app/.../faditor/sprite/JoyBrushBoardImportActivity.java`, `BoardAttachPlan.java`); symmetry files on the JoyBrush line (not landed) | 10-27 |
 | "JoyBot UX vision and capabilities" (Claude, account C) | BOT-1 (then BOT-2, BOT-3) | `claude/joybot-20261028`, `C:/Temp/joybot-20261028` | `app/.../ui/faditor/ai/**`, `tasks/jobs/BOT-*.md`, `tasks/joybot/**`, the BOT rows in ROADMAP.md | 10-28 |
+| Sonnet Worker 1 (Claude) | UI-1 part A: user-visible FadCam text sweep | `claude/ui1-text-20261028`, `C:/Temp/jc-ui1-text-20261028` | `app/src/main/res/values*/strings*.xml`, `WatermarkSettingsFragment`, `RemoteFragment`, user-visible text in `app/.../ui/**` (not `ai/**`, `vislab/**`, JoyBrush); `tasks/audits/fadcam_text_20261028.md` | 10-28 |
 
 ## Paused work: restart these (the lead keeps this list; checked 10-28 09:45)
 

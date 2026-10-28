@@ -1,6 +1,6 @@
 # HYG-1: Land the main folder's unsaved work, then bring the folder back in step
 
-**Milestone:** M0  ·  **State:** 🔨  ·  **Owner:** project lead  ·  **Checked:** 2026-10-27 against `8d2c40e3a`
+**Milestone:** M0  ·  **State:** 🟡 main folder synced with GitHub 10-28 (its old edits kept in `stash@{0}` there, on `rescue/main-folder-20261027`, and its 7 local commits on `backup/main-folder-local-commits-20261028`); timeline marks landed (STU-3); left: the JoyBrush pieces (tuft tuning files, staged tween reviews) for the JoyBrush lane  ·  **Owner:** lead  ·  **Checked:** 2026-10-28
 
 ## Why it matters
 Finished work was sitting only on one hard drive, in a folder no other session can see. One bad reset

@@ -1,6 +1,6 @@
 # STU-3: Timeline bookmarks and regions
 
-**Milestone:** M1  ·  **State:** 🟡 built, rescued, not on `joy-creator`  ·  **Owner:** open (whoever lands it should be strong on the Studio editor)  ·  **Checked:** 2026-10-27
+**Milestone:** M1  ·  **State:** 🟡 ✔ landed 10-28 (b3c2b23b0 + the popup-over-export fix 46f865348); every check below agent-passed on the Note 9 10-28 (screens in `C:/Temp/qa-marks-20261028/`); left: the owner tries it, STATE help, Joybot's `add_marker`  ·  **Owner:** lead  ·  **Checked:** 2026-10-28
 
 ## Why it matters
 The owner asked for it on 10-23 (tapping and holding the playhead timestamp did nothing). It gives named

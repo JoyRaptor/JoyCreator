@@ -1,6 +1,6 @@
 # STU-2: After an undo, the preview keeps showing a removed slide
 
-**Milestone:** M1  ·  **State:** 🟡 fix written 10-14, never landed  ·  **Owner:** open  ·  **Checked:** 2026-10-27
+**Milestone:** M1  ·  **State:** 🟡 ✔ landed 10-28 (77d27970c re-applied on the current editor; 1a7a8637e keeps the playhead inside after a shortening redo); agent-checked on the Note 9  ·  **Owner:** lead  ·  **Checked:** 2026-10-28
 
 ## Why it matters
 Ask Joybot for a title slide, undo it, and the slide stays on screen. It looks like undo failed.

@@ -365,7 +365,7 @@ queued (risky/needs-confirm — not done autonomously). See DIAG Rounds 5–7. �
 
 > **2026-06-26 — EXPORT NOW WORKS END-TO-END (verified on device).** Fixed: export crash on
 > image-clip transitions, clip volume never applied, audio-clip volume-keyframe fades, end-of-timeline
-> audio silence, and caption export (position/hidden-windows/size). See `tasks/DIAG_20260626.md` +
+> audio silence, and caption export (position/hidden-windows/size). See `tasks/archive/DIAG_20260626.md` +
 > handoff §"Most recent work". The agent can now build (via the user's watcher) and self-verify exports
 > with `ffmpeg`. **NEXT PRIORITY: Asset Browser (un-bust + finish) → Layers (keystone).** Detailed,
 > followable steps are in `tasks/PLAN_asset_browser_and_layers_EXECUTION.md` — use it for Phase 4 + 5.
@@ -466,7 +466,7 @@ These clear blockers for everything else. Do FIRST, in order.
 - End-of-timeline silence: gaps > 600s silence WAV now chunked into multiple silence items.
 - Captions: overlay scaled to the actual frame (`CompositeExportOverlay`), caption-style keyframes incl.
   "hidden" honored on export, `AudioClip.captionSizeFraction` default 0.12→0.060.
-- Verified by `ffmpeg` audio-RMS + frame extraction on a real 16:46 export. See `tasks/DIAG_20260626.md`.
+- Verified by `ffmpeg` audio-RMS + frame extraction on a real 16:46 export. See `tasks/archive/DIAG_20260626.md`.
 - **Files:** `ExportManager.java`, `CompositeExportOverlay.java`, `AudioClip.java`
 
 ### 0.5 Handoff doc sync [Orchestrator]

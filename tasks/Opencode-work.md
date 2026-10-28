@@ -171,7 +171,7 @@ ignores trims/loops). Fix = use the same
 number originates there, STOP and log it for the Fable lane instead.
 Acceptance: sandbox project dialog shows ≈ the real exported duration (±1s).
 
-## TASK 4 — W1 honest waveforms on audio rows (spec: tasks/FEEDBACK_20260703_timeline_fidelity.md §W1)
+## TASK 4 — W1 honest waveforms on audio rows (spec: tasks/archive/FEEDBACK_20260703_timeline_fidelity.md §W1)
 
 Read the spec section first; it is binding. Summary: audio items on layer rows render a
 REAL amplitude envelope from the existing `waveformExtractor` cache instead of the

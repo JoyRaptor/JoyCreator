@@ -24,14 +24,14 @@ every build. Clutter is how work slips through the cracks.
   worktrees is the biggest disk win.
 
 ## What is left
-- [ ] **Docs:** move superseded root docs to `tasks/archive/` (git mv, so history follows): every
+- [x] **Docs (10-28, lead):** 47 moved (`NEXT_SESSION_PROMPT*`, pre-10-14 `HANDOFF_*`, `FEEDBACK_*`, `DIAG_*`, `BOOTSTRAP_*`); `todo.md`, `LANES.md`, `road_map.md` stay put with their RETIRED banners because AGENTS.md names them. Links repointed; 0 broken in live docs. Originally: move superseded root docs to `tasks/archive/` (git mv, so history follows): every
       `NEXT_SESSION_PROMPT*`, dated `HANDOFF_*` older than two weeks, `FEEDBACK_*`, `DIAG_*`, `BOOTSTRAP_*`,
       `todo.md`, `LANES.md`, `road_map.md`. Keep: `ROADMAP.md`, `STATE.md`, `AGENT_START.md`, `BOARD.md`,
       `INBOX.md`, `lessons.md`, `LAUNCH_STRATEGY.md`, live `SPEC_*` files that a job card links. Check every
       card's links still resolve afterwards.
 - [ ] **Specs:** a spec no job card links and no code implements goes to `tasks/archive/specs/` with one line
       in the archive index saying why. A spec for built code stays, linked from STATE.
-- [ ] **Junk:** `git rm` the tracked logs; ask the lead about the two pngs.
+- [x] **Junk (10-28):** the 10 tracked logs removed. Left: `wf_ed.png`, `star-guy-spritesheet.png` (check what uses them first).
 - [ ] **Worktrees:** for each, record branch, last commit date, `git status` (dirty?), and whether its HEAD is
       on any remote branch. Dirty or unpushed: push to `backup/<name>` first. Then `git worktree remove`.
       Never remove one named on the BOARD or the JoyBrush roadmap.

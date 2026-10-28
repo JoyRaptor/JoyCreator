@@ -76,7 +76,7 @@
 #   WITH A BOM. Never open it with a tool that rewrites encoding; check `file` before commit.
 #
 # ★ CURRENT PRIORITY TRACK: Layers/Timeline UX overhaul BUILD (design DONE 2026-07-06).
-#   New session? Start with tasks/BOOTSTRAP_LAYERS_BUILD_20260706.md (paste-ready prompt).
+#   New session? Start with tasks/archive/BOOTSTRAP_LAYERS_BUILD_20260706.md (paste-ready prompt).
 #   Design contract = tasks/PLAN_GESTURE_CONTRACT_FINAL_20260706.md; slices = tasks/PLAN_LAYERS_UX_EXECUTION.md.
 #   Model: OPUS high effort. Begin at Slice A (caption/visualizer Track kinds).
 

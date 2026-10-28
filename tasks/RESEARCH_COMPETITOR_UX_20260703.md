@@ -5,7 +5,7 @@
 > PROCESS RULE (user, binding): research is single-threaded and written to THIS doc incrementally —
 > append per finding, commit often. Items marked ⚠️VERIFY need a small web check when budget allows;
 > everything else is directly observed from the screenshots or high-confidence mechanics.
-> Feeds: tasks/FEEDBACK_20260703_dragux_v3.md (§A/§C), sprite S2 design gate, drag-UX v3 design pass.
+> Feeds: tasks/archive/FEEDBACK_20260703_dragux_v3.md (§A/§C), sprite S2 design gate, drag-UX v3 design pass.
 
 ## 1. What KineMaster does (observed from the user's screenshots + known mechanics)
 

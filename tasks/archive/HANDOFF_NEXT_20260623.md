@@ -1,7 +1,7 @@
 # FadCam/Faditor — Handoff prompt for the next session (2026-06-23)
 
-Paste everything below into a fresh session to continue. Read `tasks/HANDOFF_NEXT_20260622.md` first (it has
-the full DONE list + per-feature plans), then `tasks/HANDOFF.md` top summary, then `tasks/FEEDBACK_20260621.md`.
+Paste everything below into a fresh session to continue. Read `tasks/archive/HANDOFF_NEXT_20260622.md` first (it has
+the full DONE list + per-feature plans), then `tasks/HANDOFF.md` top summary, then `tasks/archive/FEEDBACK_20260621.md`.
 
 ---
 
@@ -44,7 +44,7 @@ the next. A PowerShell watcher rebuilds+installs on save; check the build with
   `TextOverlayItem.opacity` field + `animatedOpacity` fallback + `addKeyframeAt` captures it; `ProjectStorage`
   round-trips it; an OPACITY slider in the overlay editor (`buildOverlayAnimationControls`) sets static opacity
   when unarmed, drops an OPACITY keyframe at the playhead when armed. Preview (`TextOverlayLayer:146`) + export
-  (`ExportManager:1665`) already consume `animatedOpacity`. See `tasks/HANDOFF_NEXT_20260622.md` DONE block.
+  (`ExportManager:1665`) already consume `animatedOpacity`. See `tasks/archive/HANDOFF_NEXT_20260622.md` DONE block.
 
 ## TODO (priority order — build each in compile-green chunks, device-verify, update docs)
 

@@ -19,7 +19,7 @@ READ FIRST (authoritative, in order):
      thumbnails. Build slices G1–G9 are at the bottom.
   2. tasks/PLAN_LAYERS_UX_EXECUTION.md — the ALWAYS-GREEN slice sequence A–G with confirmed code facts
      (the two-renderer root cause + exact file/line anchors). Slice G now defers to the contract above.
-  3. tasks/FEEDBACK_20260706_layers_ux.md — JoyRaptor's original gripes, triaged (the WHY behind the slices).
+  3. tasks/archive/FEEDBACK_20260706_layers_ux.md — JoyRaptor's original gripes, triaged (the WHY behind the slices).
   4. tasks/LANES.md (file-lock board + DEVICE token) + tasks/DEVICE_CONTROL_RUNBOOK.md (build/adb/ffmpeg).
      tasks/PLAN_LAYER_GESTURE_CONTRACT.md is prior gesture work (badges principle, swipe=scrub, bookend
      snap) that STILL HOLDS and G1 must reconcile with, not discard.

@@ -1,6 +1,6 @@
 # PLAN — Layers/Timeline UX overhaul, EXECUTION (Fable, 2026-07-06)
 
-Companion to `tasks/FEEDBACK_20260706_layers_ux.md` (the WHAT/WHY/order, JoyRaptor's gripes triaged).
+Companion to `tasks/archive/FEEDBACK_20260706_layers_ux.md` (the WHAT/WHY/order, JoyRaptor's gripes triaged).
 This doc is the HOW: confirmed code facts + an incremental, ALWAYS-GREEN execution sequence, so the
 renderer consolidation lands without a broken tree. Written after T8 (02b51c2) closed the sprite-per-
 lane bug; the layers-UX overhaul is the next priority track.

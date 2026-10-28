@@ -54,14 +54,14 @@ User report (Note 9, after L2 292cd62): resizing a loop reverted its size; then 
 ## ⚠️ FOR THE 14:25 SCHEDULED SESSION (written 13:15)
 The JoyRaptor session is ACTIVE this afternoon and OWNS two tracks — do not collide:
 1. **Layer-row touch fix** (user-reported: rows block scrub/select/trim; = handoff's "surface overlap" fix #2)
-   — agent running with a 14:15 hard stop; symptoms + status in tasks/FEEDBACK_20260702_layers_masking.md §A.
+   — agent running with a 14:15 hard stop; symptoms + status in tasks/archive/FEEDBACK_20260702_layers_masking.md §A.
 2. **Loop/ping-pong track** per NEW tasks/PLAN_LOOP_PINGPONG.md (Fable-diagnosed: 5 root causes incl.
    preview `setPlaybackSpeed(-1f)` = invalid in Media3, export reverse leg = forward-tail fake, and one looped
    clip disabling gapless project-wide). L1 (Sonnet) launches when the fix agent lands; L2 (Opus) after.
 YOUR SAFE QUEUE at 14:25: purple linkage (if the fix agent's report says it didn't cover it), rebrand pass,
 Tier-1 durability, transcript dedup (backup first), M11. CHECK `git status` before ANY FaditorEditorActivity /
 EditorTimelineView / MasterPlaybackEngine / ExportManager edit — if dirty, the JoyRaptor track is mid-flight; pick
-a disjoint item. NEW USER SPECS captured in tasks/FEEDBACK_20260702_layers_masking.md §B (masking / chroma key
+a disjoint item. NEW USER SPECS captured in tasks/archive/FEEDBACK_20260702_layers_masking.md §B (masking / chroma key
 / video-as-alpha) — planning-only, do not build blind.
 > For the next AI (Basil autonomous wake 03:26, or anyone else). Read this FIRST, then handoff.md.
 

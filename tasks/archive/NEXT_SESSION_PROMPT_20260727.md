@@ -9,7 +9,7 @@ FadCam / Joy Creator — `C:\+Projects\Screenrecorder\FadCam`, branch `joy-creat
 Continuing an interactive build/debug session. Work autonomously until I say otherwise.
 
 **FIRST, IN THIS ORDER:**
-1. `tasks/HANDOFF_20260726_CONTEXT_SWITCH.md` §0z PROGRESS LOG — newest entry first. Trust it +
+1. `tasks/archive/HANDOFF_20260726_CONTEXT_SWITCH.md` §0z PROGRESS LOG — newest entry first. Trust it +
    `git log` over older prose.
 2. `tasks/SPEC_OBJECT_TIME_SCRUBBER.md` §12 (DONE/OPEN ledger) and §13 (round-2 device feedback).
 3. `tasks/AUDIT_UNFINISHED_20260726.md` — but VERIFY each item against the code before working

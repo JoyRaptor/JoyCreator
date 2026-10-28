@@ -324,7 +324,7 @@
 > **ðŸŽ›ï¸ 2026-07-17 morning â€” FABLE(5) with JoyRaptor live: UI-spec critique + DRAWER BATCH built
 > (`4425392`, compile-green 13s; INSTALL BLOCKED â€” sandbox <sandbox-serial> went adb `unauthorized`
 > mid-session, JoyRaptor must accept the USB prompt / cycle USB debugging; watcher installs next build).**
-> **READ FIRST: `tasks/FEEDBACK_20260717_ui_dialogs_and_keyframes.md`** â€” ground-truth answers
+> **READ FIRST: `tasks/archive/FEEDBACK_20260717_ui_dialogs_and_keyframes.md`** â€” ground-truth answers
 > (dual-stream toggle IS visible on the Note 9, probed live: 16 concurrent HW AVC encoders; it
 > lives in FadRec â†’ Screen Recording card â†’ "Record webcam as separate file", NOT the helper
 > panel), spec corrections C1â€“C9, JoyRaptor's decisions (double-tap = TYPE editor everywhere; hold =
@@ -1412,7 +1412,7 @@ rounds, and older. Read top-down only if you need the "why" behind a current dec
 
 > **ðŸŽšï¸ 2026-07-05 â€” SLICE-3 GESTURE ROUND: 3 of 5 items LANDED (commit after e43b92f), BUILD GREEN,
 > installed on Note 9. AWAITING USER HAND-TEST (drag-feel = unscriptable on this device).**
-> Spec: tasks/FEEDBACK_20260703_dragux_v3.md (A9 SNAP-PRIORITY + WYSIWYG DROP PRINCIPLE, both BINDING).
+> Spec: tasks/archive/FEEDBACK_20260703_dragux_v3.md (A9 SNAP-PRIORITY + WYSIWYG DROP PRINCIPLE, both BINDING).
 > **DONE:** (#3/A9) diagonal tug-of-war killed â€” in a vertical time-lock the drag now RAILS STRAIGHT at
 > the original time (was: resolveNoOverlapStart shoving it sideways to dodge the target row's occupant);
 > the butt-magnet re-engages only when an edge comes within snap radius of a neighbour AT the locked
@@ -1457,14 +1457,14 @@ rounds, and older. Read top-down only if you need the "why" behind a current dec
 > `git status` + build.log green + coherent `git diff` â†’ COMMIT with an honest message; red/incoherent â†’
 > stash named clearly, restore green from 302122d. Verify M11 gap-mode + menu behaviors on the sandbox
 > Note 9 if attached (taps are scriptable; screencap STALE â†’ screenrecord+ffmpeg; input swipe can't drag).
-> **2. THEN slice-3 gesture round (JUMPS the queue, user-ordered):** tasks/FEEDBACK_20260703_dragux_v3.md
+> **2. THEN slice-3 gesture round (JUMPS the queue, user-ordered):** tasks/archive/FEEDBACK_20260703_dragux_v3.md
 > â€” the "A9 SNAP-PRIORITY RULE" + "SLICE 3 EXPANDED SPEC (WYSIWYG DROP PRINCIPLE)" sections are BINDING
 > and written implementation-ready. One Fable/strong agent, files: LayerGestureController/LayerRowRenderer/
 > EditorTimelineView. User re-tests after; expect a â‰¤4-gesture hand-test list back to them.
 > **3. THEN:** transcript dedup relaunch (conditions in the ðŸ›¬ 2026-07-03 block + prior prompts: timestamped
 > backup FIRST, live/edited transcripts byte-untouched, fix the stacking source, synthesize duplicates on
 > sandbox to verify) â†’ v3 slice 2 (unified gap-insertion blueprint in the dragux doc) â†’ timeline fidelity
-> W1/W2/T1 (tasks/FEEDBACK_20260703_timeline_fidelity.md) â†’ M-COMP-2 probe-first (PLAN_LAYERS_V2 Part 10 #1).
+> W1/W2/T1 (tasks/archive/FEEDBACK_20260703_timeline_fidelity.md) â†’ M-COMP-2 probe-first (PLAN_LAYERS_V2 Part 10 #1).
 > **OPEN USER CALLS:** muted-track captions show/hide?; main-phone real-project session (never yet run).
 > **STANDING RULES:** ONE editing agent at a time (shared watcher; parallel edits burn â€” proven). NEVER
 > gradle (watcher builds on save; "BUILD FAILED" from install/device/EOF lines = compile SUCCESS). Sandbox
@@ -1622,8 +1622,8 @@ rounds, and older. Read top-down only if you need the "why" behind a current dec
 > âš ï¸ **CONCURRENT-SESSION WARNING:** ~11 rebrand files (splash/strings/manifest/onboarding + new
 > joy_creator_splash.png) are DIRTY in the tree from ANOTHER session's in-progress rebrand pass â€” NOT
 > committed here, owner unknown. Do NOT commit/revert them blindly; confirm with the user/other harness first.
-> Timeline-fidelity spec queued: tasks/FEEDBACK_20260703_timeline_fidelity.md (W1 waveform render = small,
-> ride-along candidate). v3 drag-UX spec: tasks/FEEDBACK_20260703_dragux_v3.md (P0 = A8 audio overlap).
+> Timeline-fidelity spec queued: tasks/archive/FEEDBACK_20260703_timeline_fidelity.md (W1 waveform render = small,
+> ride-along candidate). v3 drag-UX spec: tasks/archive/FEEDBACK_20260703_dragux_v3.md (P0 = A8 audio overlap).
 
 > **ðŸ›¬ 2026-07-03 ~03:15 â€” SESSION LANDING (JoyRaptor/Fable orchestrator at context limit). READ THIS FIRST.**
 > **âš ï¸ AN AGENT MAY STILL BE / HAVE BEEN IN FLIGHT at landing:** "gesture contract redesign" editing
@@ -1772,7 +1772,7 @@ Older backlog (still valid, folded into the order above):
 **C. POLISH / lower priority:**
 6. Export quality control â€” output â‰ˆ9 Mbps for 1080Ã—1920; consider a quality setting or higher default bitrate
    (`DefaultEncoderFactory.Builder().setRequestedVideoEncoderSettings(...)`; guard with `setEnableFallback`).
-7. Re-verify two OLD known issues (from `tasks/DIAG_20260626.md`): audio-track caption FOLLOW inside a loop-region;
+7. Re-verify two OLD known issues (from `tasks/archive/DIAG_20260626.md`): audio-track caption FOLLOW inside a loop-region;
    audio-tap timeline jump / transient unmute. May already be resolved â€” confirm before touching.
 8. Thumbnail-cache memory cap in `EditorTimelineView` for very large projects (LRU) â€” minor.
 
@@ -1788,7 +1788,7 @@ Older backlog (still valid, folded into the order above):
 - Undo system: `EditActions.*` + generic `EditActions.LambdaAction(desc, redoRunnable, undoRunnable)` (data-only
   closures); UI refresh handled by `FaditorEditorActivity.refreshEditorAfterUndoRedo()`. `maxHistory=50`, snapshot
   capture throttled to â‰¥1500 ms. Project saves are async (`ProjectStorage.saveAsync`), sync-flushed on pause/exit.
-- Full history: DIAG Rounds 1â€“8 in `tasks/DIAG_20260627_perf_stability.md`; export basics in `tasks/DIAG_20260626.md`.
+- Full history: DIAG Rounds 1â€“8 in `tasks/archive/DIAG_20260627_perf_stability.md`; export basics in `tasks/archive/DIAG_20260626.md`.
 
 > **2026-07-02 â€” GAPLESS ENGINE LANDED, DEVICE-PROVEN (M-COMP-0; closes feedback #9 the transition jump).**
 > `compositor/MasterPlaybackEngine` (multi-MediaItem + ClippingConfiguration over remuxed sources), delegated
@@ -1821,7 +1821,7 @@ Older backlog (still valid, folded into the order above):
 ## ðŸŽ‰ MILESTONE (2026-06-27): first video shipped end-to-end
 Export is correct: native-portrait encoding (no rotation-flag), consistent caption/crop sizing (canvas-based),
 frame-accurate scrub settle, fixed transitions (audio bleed + aspect), and the audio-caption drop fixed. Now in
-**autonomous hardening** â€” see `tasks/DIAG_20260627_perf_stability.md` "Round 5". Done: durable export error
+**autonomous hardening** â€” see `tasks/archive/DIAG_20260627_perf_stability.md` "Round 5". Done: durable export error
 logging; activity-leak static audit (no permanent leak â€” it was GC starvation from the undo-snapshot bomb,
 now fixed); undo coverage for filter/color (`EffectStackAction`), opacity keyframes
 (`OpacityKeyframesAction`), caption-style change, and visualizer add/remove (via a new generic
@@ -1898,7 +1898,7 @@ real project (risks mutating their timeline).
 
 ---
 
-## â­ Systemic perf/stability diagnosis (2026-06-27 PM) â€” see `tasks/DIAG_20260627_perf_stability.md`
+## â­ Systemic perf/stability diagnosis (2026-06-27 PM) â€” see `tasks/archive/DIAG_20260627_perf_stability.md`
 
 Chronic ANRs (~20 today) + a failed export traced to ARCHITECTURE, not a single bug. Device meminfo:
 Dalvik heap 172 MB, 1862 Views, 5 live Activities; project.json = 2.4 MB (7,110 transcript words, duplicate
@@ -1912,7 +1912,7 @@ app to clear leaked memory before retesting.
 
 ## Earlier work (2026-06-26) â€” EXPORT IS NOW WORKING END-TO-END
 
-Full diagnosis + evidence: **`tasks/DIAG_20260626.md`**. Device/loop how-to: **`tasks/DEVICE_CONTROL_RUNBOOK.md`**
+Full diagnosis + evidence: **`tasks/archive/DIAG_20260626.md`**. Device/loop how-to: **`tasks/DEVICE_CONTROL_RUNBOOK.md`**
 (see new Â§7bâ€“7f: read live `project.json` via `run-as`, `ffprobe` source clips, capture export failures).
 
 Verified on-device (real 16:46 export, `ffmpeg`-measured + frame-checked):
@@ -2192,7 +2192,7 @@ It receives absolute `presentationTimeUs`, but each effect lookup uses the appro
 
 > **2026-07-01 â€” Preview transition-boundary stutter: diagnosis only, no mitigation shipped (investigate-first task).**
 >
-> Full report: `tasks/DIAG_20260701_transition_preview.md`.
+> Full report: `tasks/archive/DIAG_20260701_transition_preview.md`.
 >
 > **Root cause (dominant).** `FaditorPlayerManager` wraps exactly one `ExoPlayer`
 > with one `MediaItem` at a time â€” no playlist/`ConcatenatingMediaSource`. Every

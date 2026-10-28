@@ -2,7 +2,7 @@
 #   SPEC_IMAGE_SEQUENCE (commit caf0256), built ONCE for sprites AND image sequences per that
 #   spec's §0. It is the palette's third detent, where S3 always drew it. A sequence strips its
 #   frames and edits their weights; a grid sprite strips its frame-track KEYS and can turn a
-#   selection into a preset ("Make preset"). Read tasks/HANDOFF_20260806_IMAGE_SEQUENCES.md.
+#   selection into a preset ("Make preset"). Read tasks/archive/HANDOFF_20260806_IMAGE_SEQUENCES.md.
 #   FF-B is partly there too: describe_sprite_sheet already existed; describe_sequence and
 #   edit_sequence landed beside it.
 #   ⚠ CORRECTED 2026-09-16: FF-B is COMPLETE. set_sprite_grid, label_sprite_cells,
@@ -38,7 +38,7 @@
 #     NOTE: migrated/leftover lanes render with the generic "Sprite" header name — per-lane naming
 #     lands with the LAYERS-UX renderer consolidation (FEEDBACK_20260706 #1). Commit: 02b51c2.
 #   ▶ NEXT — LAYERS-UX OVERHAUL BUILD. Gesture design pass is DONE (co-designed w/ JoyRaptor 2026-07-06).
-#     ★ START A NEW SESSION WITH: tasks/BOOTSTRAP_LAYERS_BUILD_20260706.md (paste-ready prompt).
+#     ★ START A NEW SESSION WITH: tasks/archive/BOOTSTRAP_LAYERS_BUILD_20260706.md (paste-ready prompt).
 #     Authoritative design = tasks/PLAN_GESTURE_CONTRACT_FINAL_20260706.md; always-green slice
 #     sequence = tasks/PLAN_LAYERS_UX_EXECUTION.md. Model: OPUS, high effort (Slice C + G1 = max).
 #     Order: Slice A (caption/viz Track kinds) → B→C (consolidate renderers, delete old drawLayers) →

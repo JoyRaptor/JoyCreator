@@ -13,7 +13,7 @@ You're working on **FadCam/Faditor**, an Android video editor at
    (read live `project.json` via `run-as`), §7d (capture export failures), §7f (you CANNOT run Gradle —
    the user runs a watcher).
 4. `tasks/PLAN_asset_browser_v2_layers.md` — the design + user intent behind everything (the "why").
-5. `tasks/DIAG_20260626.md` — recent export fixes + the `ffmpeg`/frame verification techniques you'll reuse.
+5. `tasks/archive/DIAG_20260626.md` — recent export fixes + the `ffmpeg`/frame verification techniques you'll reuse.
 
 ## Hard rules
 - **Always-green:** never leave the tree non-compiling. If you can't make it build, REVERT and report.

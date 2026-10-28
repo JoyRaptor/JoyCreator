@@ -1,7 +1,7 @@
 # FadCam/Faditor — Handoff prompt for the next session (2026-06-22)
 
 Paste everything below into a fresh session to continue. Read `tasks/HANDOFF.md` (top blocks) and
-`tasks/FEEDBACK_20260621.md` first for full status; this file is the focused to-do + context.
+`tasks/archive/FEEDBACK_20260621.md` first for full status; this file is the focused to-do + context.
 
 ---
 

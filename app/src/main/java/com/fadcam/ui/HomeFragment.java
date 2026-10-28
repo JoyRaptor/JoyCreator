@@ -2384,7 +2384,7 @@ public class HomeFragment extends BaseFragment {
         if (getContext() == null || !isAdded()) return;
 
         String fullErrorMessage =
-            "FadCam could not start recording.\n\nPlease copy this error and report it on GitHub or Discord.\n\n" +
+            "Joy Creator could not start recording.\n\nPlease copy this error and report it on GitHub or Discord.\n\n" +
             "-----------------------------------\n" +
             "Error Message:\n" +
             (errorMessage != null ? errorMessage : "No message") +
@@ -2418,7 +2418,7 @@ public class HomeFragment extends BaseFragment {
                     );
                 android.content.ClipData clip =
                     android.content.ClipData.newPlainText(
-                        "FadCam Error",
+                        "Joy Creator Error",
                         fullErrorMessage
                     );
                 clipboard.setPrimaryClip(clip);

@@ -448,7 +448,7 @@
     <string name="records_filter_screen">Screen</string>
     <string name="records_filter_faditor">Studio</string>
     <string name="records_filter_stream">Stream</string>
-    <string name="records_filter_shot">FadShot</string>
+    <string name="records_filter_shot">Photos</string>
     <string name="records_filter_camera_all">All</string>
     <string name="records_filter_camera_back">Back</string>
     <string name="records_filter_camera_front">Front</string>
@@ -686,7 +686,7 @@
     <string name="discord_title">Discord Server</string>
     <string name="thankyou_msg">Thank you for using Joy Creator!</string>
     <string name="settings_title">Settings</string>
-    <string name="array_watermark_time_fadcam">Time with Fadcam</string>
+    <string name="array_watermark_time_fadcam">Time with Joy Creator</string>
     <string name="array_watermark_timeonly">Timestamp</string>
     <string name="array_watermark_nomark">No Watermark</string>
     <string name="watermark_preview_funny">For Real? :( \n    ï¼žï¹ï¼œ</string>
@@ -1020,7 +1020,7 @@
     <string name="shortcuts_video_category">Video Recording</string>
     <string name="shortcuts_picture_category">Picture</string>
     <string name="preview_quick_actions_title">Preview quick actions</string>
-    <string name="preview_quick_actions_sub">Show FadShot and Fullscreen icons even when recording is idle.</string>
+    <string name="preview_quick_actions_sub">Show Photo and Fullscreen icons even when recording is idle.</string>
     <string name="preview_quick_actions_state_always">Always visible (idle + recording)</string>
     <string name="preview_quick_actions_state_recording_only">Visible only while recording</string>
     <string name="warning_temp_file_detail">
@@ -2443,7 +2443,7 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <!-- Remote Security -->
     <string name="battery_estimate_title">Estimated Streaming Time Remaining</string>
     <string name="battery_estimate_disclaimer" formatted="false">Based on real-world test: 8 hours continuous streaming with 61% battery drain on a 5000mAh device. Update your device capacity below for personalized estimates.</string>
-    <string name="remote_security_title">Remote Security</string>
+    <string name="remote_security_title">Access</string>
     <string name="remote_security_enable">Enable Authentication</string>
     <string name="remote_security_enable_desc">Require password to access remote web interface</string>
     <string name="remote_security_password">Set Password</string>

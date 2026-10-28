@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <string name="app_name" translatable="false">FadCam</string>
+    <string name="app_name" translatable="false">Joy Creator</string>
     <string name="app_icon_description">Vali ikoon ja nimi oma rakendusele. See muudab seda, kuidas see kuvatakse avalehel.</string>
     <string name="check_for_updates">Kontrolli uuendusi</string>
     <string name="accessibility_thumbnail_progress">%1$d%% vaadatud</string>
-    <string name="fadsec_info">FadCam on osa FadSec Labi rakenduste seeriast. Lisateabe saamiseks klõpsa allpool \'lähtekoodi vaatamist\'.</string>
+    <string name="fadsec_info">Joy Creator on osa FadSec Labi rakenduste seeriast. Lisateabe saamiseks klõpsa allpool \'lähtekoodi vaatamist\'.</string>
 
 
     <string name="app_description">
         <![CDATA[
-    FadCam on reklaamivaba, avatud lähtekoodiga videorakendus, mis seab esikohale privaatsuse, jälgimata ega kogumata mingeid andmeid. See on saadaval ainult GitHubis ja README-s mainitud ametlike linkide kaudu.
+    Joy Creator on reklaamivaba, avatud lähtekoodiga videorakendus, mis seab esikohale privaatsuse, jälgimata ega kogumata mingeid andmeid. See on saadaval ainult GitHubis ja README-s mainitud ametlike linkide kaudu.
     <br/><br/>
-    FadCam on olnud esindatud populaarsetes YouTube\'i kanalites nagu <font color="#cfbafd">HowToMen</font> ja <font color="#cfbafd">Xtream Droid</font>, samuti arutatud <font color="#cfbafd">GrapheneOS</font> ja 55+ muus märkimisväärses kohas.
+    Joy Creator on olnud esindatud populaarsetes YouTube\'i kanalites nagu <font color="#cfbafd">HowToMen</font> ja <font color="#cfbafd">Xtream Droid</font>, samuti arutatud <font color="#cfbafd">GrapheneOS</font> ja 55+ muus märkimisväärses kohas.
     ]]>
     </string>
 
@@ -407,7 +407,7 @@
     <string name="toast_no_drive_app">Google Drive\'i rakendust ei leitud</string>
     <string name="records_title">Salvestised</string>
     <string name="records_filter_all">Kõik</string>
-    <string name="records_filter_camera">FadCam</string>
+    <string name="records_filter_camera">Joy Creator</string>
     <string name="records_filter_dual">Duaal</string>
     <string name="records_filter_screen">FadRec</string>
     <string name="records_filter_faditor">Faditor</string>
@@ -601,13 +601,13 @@
     </string-array>
     <string-array name="questions_array" tools:ignore="InconsistentArrays">
         <item>TÄHELEPANU</item>
-        <item>Kas FadCam kogub kasutajaandmeid?</item>
+        <item>Kas Joy Creator kogub kasutajaandmeid?</item>
         <item>Kas FadCamis on reklaame?</item>
-        <item>Miks FadCam küsib asukoha juurdepääsu?</item>
+        <item>Miks Joy Creator küsib asukoha juurdepääsu?</item>
         <item>Miks on interneti luba vajalik?</item>
         <item>Kas andmeid salvestatakse välistesse serveritesse?</item>
         <item>Mis juhtub minu videote pärast salvestamist?</item>
-        <item>Kas FadCam jagab mu andmeid kolmandate osapooltega?</item>
+        <item>Kas Joy Creator jagab mu andmeid kolmandate osapooltega?</item>
         <item></item>
         <item></item>
         <item>Üldine</item>
@@ -619,15 +619,15 @@
         <item></item>
     </string-array>
     <string-array name="answers_array" tools:ignore="InconsistentArrays">
-        <item>FadCam ei mõista heaks ega toeta selle tarkvara ebaeetilist või ebaseaduslikku kasutamist. Väärkasutus, nagu loata jälgimine või privaatsuse riivamine, on rangelt vastu meie juhistele. Autor ei vastuta rakenduse võimaliku väärkasutuse eest.
+        <item>Joy Creator ei mõista heaks ega toeta selle tarkvara ebaeetilist või ebaseaduslikku kasutamist. Väärkasutus, nagu loata jälgimine või privaatsuse riivamine, on rangelt vastu meie juhistele. Autor ei vastuta rakenduse võimaliku väärkasutuse eest.
         </item>
-        <item>Ei, FadCam ei kogu ühtegi kasutajaandmeid.</item>
-        <item>Ei, FadCam on täiesti reklaamivaba.</item>
+        <item>Ei, Joy Creator ei kogu ühtegi kasutajaandmeid.</item>
+        <item>Ei, Joy Creator on täiesti reklaamivaba.</item>
         <item>Asukoha info lisamiseks vesimärkidele.</item>
         <item>Automaatse uuenduste kontrollimise jaoks.</item>
         <item>Ei, kõik andmed salvestatakse sinu seadmesse.</item>
         <item>Sinu videod salvestatakse kohalikult sinu seadmesse.</item>
-        <item>Ei, FadCam ei jaga ega kogu ühtegi andmeid, isegi mitte kokkujooksmise logisid.</item>
+        <item>Ei, Joy Creator ei jaga ega kogu ühtegi andmeid, isegi mitte kokkujooksmise logisid.</item>
         <item></item>
         <item></item>
         <item></item>
@@ -639,7 +639,7 @@
         <item>Kontrolli ametlikku GitHubi hoidlat uuenduste jaoks.</item>
         <item></item>
     </string-array>
-    <string name="dialog_welcome_title">Tere tulemast FadCam!</string>
+    <string name="dialog_welcome_title">Tere tulemast Joy Creator!</string>
     <string name="note_from_developer_title">Märge arendajalt</string>
     <string name="note_from_developer_subtitle">README, lingid ja uuendused</string>
     <string name="note_under_dev">Tähtis: See rakendus on hetkel arendamisel. Uusi funktsioone lisatakse regulaarselt.</string>
@@ -648,7 +648,7 @@
     <string name="button_readme_github">GitHubi hoidla</string>
     <string name="community_title">Liitu meie kogukonnaga:</string>
     <string name="discord_title">Discordi server</string>
-    <string name="thankyou_msg">Täname FadCam\'i kasutamast!</string>
+    <string name="thankyou_msg">Täname Joy Creator\'i kasutamast!</string>
     <string name="settings_title">Seaded</string>
     <string name="array_watermark_time_fadcam">Aeg FadCamiga</string>
     <string name="array_watermark_timeonly">Ajatempel</string>
@@ -773,7 +773,7 @@
     <string name="watermark_style_timeonly_label">Ajatempel</string>
     <string name="watermark_style_badge_label">Ainult brändisilt</string>
     <string name="watermark_style_none_label">Vesimärk puudub</string>
-    <string name="helper_watermark_preview">Nii kuvatakse vesimärk salvestatud video vasakus ülanurgas.\nLõbus fakt: 10/juuli/2024 16:47 on aeg, mil FadCam v1.0 esmakordselt välja anti.</string>
+    <string name="helper_watermark_preview">Nii kuvatakse vesimärk salvestatud video vasakus ülanurgas.\nLõbus fakt: 10/juuli/2024 16:47 on aeg, mil Joy Creator v1.0 esmakordselt välja anti.</string>
     <string name="helper_location_watermark_option">Lülita seadme asukoha lisamine ülekattena. Vajab asukoha luba.</string>
     <string name="location_format_title">Asukoha vorming</string>
     <string name="location_format_coordinates">Ainult koordinaadid</string>
@@ -798,7 +798,7 @@
     <string name="widgets_helper_text">Kinnita kiirtoimingud avalehele koheseks juurdepääsuks.</string>
     <string name="widgets_pin_unsupported">Vidinate kinnitamine ei ole sinu käivitaja poolt toetatud.</string>
     <string name="widget_clock_title">Kella vidin</string>
-    <string name="widgets_pin_fallback">Kui viipa ei ilmu, vajuta pikalt avalehte, ava Vidinad ja lohista FadCam\'i kella vidin.</string>
+    <string name="widgets_pin_fallback">Kui viipa ei ilmu, vajuta pikalt avalehte, ava Vidinad ja lohista Joy Creator\'i kella vidin.</string>
     <string name="widget_customize_title">Kohanda kella vidinat</string>
     <string name="widget_customize_description">Kohanda, kuidas sinu kella vidin aega ja kuupäeva kuvab</string>
     <string name="widget_time_format_title">Aja vorming</string>
@@ -1012,8 +1012,8 @@
     <string name="remote_access_title">Kaugjuhtimine</string>
     <string name="remote_toast_coming_soon">Tulekul! In Sha Allah</string>
     <string name="coming_soon_toast">Tulekul! In Sha Allah</string>
-    <string name="remote_coming_soon">FadCam\'i kaugjuhtimine on tulekul.</string>
-    <string name="remote_feature_description">Paari FadCam kliendid QR-koodi abil turvaliseks kohaliku võrgu kaugjuhtimiseks: alusta/peata salvestamist, eelvaade, suum, vaheta kaamerat ja palju muud — kõik otspunktkrüpteerimisega.</string>
+    <string name="remote_coming_soon">Joy Creator\'i kaugjuhtimine on tulekul.</string>
+    <string name="remote_feature_description">Paari Joy Creator kliendid QR-koodi abil turvaliseks kohaliku võrgu kaugjuhtimiseks: alusta/peata salvestamist, eelvaade, suum, vaheta kaamerat ja palju muud — kõik otspunktkrüpteerimisega.</string>
     <string name="faditor_mini_title">Faditor Mini</string>
     <string name="faditor_mini_coming_soon">Tulekul — kergekaaluline redaktor</string>
     <string name="faditor_mini_subtitle">Lõika ja ekspordi videoid täpsusega</string>
@@ -1137,9 +1137,9 @@
     <string name="faditor_info_title">Faditor Mini teave</string>
     <string name="faditor_info_subtitle">Kõik, mida pead teadma sisseehitatud redaktori kohta</string>
     <string name="faditor_info_how_title">Kuidas see töötab</string>
-    <string name="faditor_info_how_desc">Vali mis tahes video oma seadmest või FadCam\'i salvestistest. Lõika seda kaadrihaaval ajajoonelise abil, seejärel ekspordi. Kogu töötlemine toimub kohapeal sinu seadmes — midagi ei laadata üles.\n\nSinu redigeerimise edenemine salvestatakse automaatselt iga paari sekundi tagant ja iga kord, kui redaktorist lahkud, nii et töö ei kaoks, kui rakendus ootamatult sulgub.</string>
+    <string name="faditor_info_how_desc">Vali mis tahes video oma seadmest või Joy Creator\'i salvestistest. Lõika seda kaadrihaaval ajajoonelise abil, seejärel ekspordi. Kogu töötlemine toimub kohapeal sinu seadmes — midagi ei laadata üles.\n\nSinu redigeerimise edenemine salvestatakse automaatselt iga paari sekundi tagant ja iga kord, kui redaktorist lahkud, nii et töö ei kaoks, kui rakendus ootamatult sulgub.</string>
     <string name="faditor_info_convert_title">Tark teisendamine</string>
-    <string name="faditor_info_convert_desc">FadCam salvestab kokkujooksmiskindlas vormingus, mida kutsutakse killustatud MP4-ks (fMP4). Erinevalt standardsest MP4-st, millel on üks lõplik konteiner, kirjutab fMP4 video väikestesse sõltumatutesse tükkidesse. See tähendab, et sinu salvestised jäävad puutumata ka siis, kui rakendus jookseb kokku või salvestamine järsult peatub.\n\nKuid välised videomängijad, galeriirakendused ja failihaldurid ei saa neid faile kerida, liikuda ega kuvada õiget kestust. See ei ole viga — see on tahtlik disainikompromiss töökindluse nimel.\n\nKui plaanid salvestada oma videoid väljapoole FadCam\'i — Google Drive\'i, arvutisse või mujale — pead need esmalt teisendama. Vastasel juhul on failid tavapäraseks esitamiseks kasutamatud.\n\nTeisendamiseks: ava video siin Faditor Mini-s ja puuduta Ekspordi. Teisendatud standardne MP4 ilmub sinu Salvestiste vahekaarti, valmis galeriisse salvestamiseks või jagamiseks. Protsess on kohene ja kadudeta — ümberkodeerimist ega kvaliteedikadu pole.</string>
+    <string name="faditor_info_convert_desc">Joy Creator salvestab kokkujooksmiskindlas vormingus, mida kutsutakse killustatud MP4-ks (fMP4). Erinevalt standardsest MP4-st, millel on üks lõplik konteiner, kirjutab fMP4 video väikestesse sõltumatutesse tükkidesse. See tähendab, et sinu salvestised jäävad puutumata ka siis, kui rakendus jookseb kokku või salvestamine järsult peatub.\n\nKuid välised videomängijad, galeriirakendused ja failihaldurid ei saa neid faile kerida, liikuda ega kuvada õiget kestust. See ei ole viga — see on tahtlik disainikompromiss töökindluse nimel.\n\nKui plaanid salvestada oma videoid väljapoole Joy Creator\'i — Google Drive\'i, arvutisse või mujale — pead need esmalt teisendama. Vastasel juhul on failid tavapäraseks esitamiseks kasutamatud.\n\nTeisendamiseks: ava video siin Faditor Mini-s ja puuduta Ekspordi. Teisendatud standardne MP4 ilmub sinu Salvestiste vahekaarti, valmis galeriisse salvestamiseks või jagamiseks. Protsess on kohene ja kadudeta — ümberkodeerimist ega kvaliteedikadu pole.</string>
     <string name="faditor_info_export_title">Eksporditud failid</string>
     <string name="faditor_info_export_desc">Eksporditud videod salvestatakse sinu aktiivsesse salvestusasukohta (sama, mis seadetes konfigureeritud) eesliitega \"Faditor_\" ja ajatempliga. Need ilmuvad Salvestiste vahekaarti koos algsete salvestistega.</string>
     <string name="faditor_info_temp_title">Ajutised failid ja vahemälu</string>
@@ -1148,14 +1148,14 @@
     <string name="faditor_info_projects_desc">Kõik sinu redigeerimissessioonid on kuvatud kiireks juurdepääsuks. Iga projekt salvestatakse väikese JSON-failina sinu seadmesse, mis sisaldab video URI-d, lõikepunkte ja ajatempleid — videote koopiaid ei tehta. Projektid salvestatakse automaatselt iga paari sekundi tagant, nii et sinu edenemine ei kaotu kunagi.\n\nSaad kustutada projekte, mida enam ei vaja, kasutades mitmevaliku märkeruutu. Projekti kustutamine eemaldab ainult redigeerimissessiooni andmed; sinu originaalsed videofailid jäävad puutumata.</string>
     <string name="faditor_your_recordings">Sinu salvestised</string>
     <string name="faditor_browse_device">Sirvi seadet</string>
-    <string name="faditor_no_recordings">Salvestisi ei leitud. Alusta FadCam\'iga salvestamist, et oma videoid siin näha.</string>
+    <string name="faditor_no_recordings">Salvestisi ei leitud. Alusta Joy Creator\'iga salvestamist, et oma videoid siin näha.</string>
     <string name="faditor_video_count">%1$d videot</string>
-    <string name="faditor_fadcam_source">FadCam</string>
+    <string name="faditor_fadcam_source">Joy Creator</string>
     <string name="faditor_fadrec_source">FadRec</string>
     <string name="faditor_browse_device_desc">Vali mis tahes video oma seadmest</string>
     <string name="faditor_scanning">Salvestiste skannimine…</string>
-    <string name="faditor_source_chooser_desc">Vali video galeriist või vali FadCam\'i salvestistest</string>
-    <string name="faditor_recordings_helper">FadCam\'iga salvestatud videod sinu aktiivsest salvestusasukohast</string>
+    <string name="faditor_source_chooser_desc">Vali video galeriist või vali Joy Creator\'i salvestistest</string>
+    <string name="faditor_recordings_helper">Joy Creator\'iga salvestatud videod sinu aktiivsest salvestusasukohast</string>
     <string name="setting_audio_title">Heli salvestamine</string>
     <string name="note_audio">Luba või keela video heli salvestamine.\n(vaikimisi: lubatud)</string>
     <string name="button_audio_settings">Heliseaded</string>
@@ -1267,7 +1267,7 @@ Soovitatav: 192000 bps, 48000 Hz enamikele kasutajatele.</string>
     <string name="records_search_hint">Otsi salvestisi…</string>
     <string name="saf_permission_missing_dialog_instructions">SAF luba puudub. Palun anna juurdepääs valitud kaustale.</string>
     <string name="saf_permission_missing_dialog_title">SAF luba on vajalik</string>
-    <string name="saf_permission_missing_dialog_message_for_start_recording">Salvestiste salvestamiseks kohandatud asukohta vajab FadCam luba valitud kaustale juurdepääsuks. Palun anna luba, kui seda küsitakse.</string>
+    <string name="saf_permission_missing_dialog_message_for_start_recording">Salvestiste salvestamiseks kohandatud asukohta vajab Joy Creator luba valitud kaustale juurdepääsuks. Palun anna luba, kui seda küsitakse.</string>
     <string name="grant_permission_button">Anna luba</string>
     <plurals name="trash_auto_delete_info_days">
         <item quantity="one">Elemendid kustutatakse automaatselt pärast %1$d päeva.</item>
@@ -1321,20 +1321,20 @@ Soovitatav: 192000 bps, 48000 Hz enamikele kasutajatele.</string>
     <string name="choose">Vali</string>
     <string name="audio_input_source_headphones_no_mic">Kõrvaklapid tuvastatud (ilma mikrofonita)</string>
     <string name="setting_onboarding_title">Kuva sissejuhatus</string>
-    <string name="note_onboarding">Luba, et näha rakenduse sissejuhatust ja lubade juhendit järgmisel korral, kui avad FadCam\'i.</string>
+    <string name="note_onboarding">Luba, et näha rakenduse sissejuhatust ja lubade juhendit järgmisel korral, kui avad Joy Creator\'i.</string>
     <string name="choose_language">Vali keel</string>
     <string name="language_change_later_note">Saad seda hiljem seadetes muuta.</string>
     <string name="permissions_required">Load on vajalikud</string>
-    <string name="permissions_description">FadCam vajab juurdepääsu kaamerale, mikrofonile ja mälule, et salvestada ja salvestada videoid.</string>
+    <string name="permissions_description">Joy Creator vajab juurdepääsu kaamerale, mikrofonile ja mälule, et salvestada ja salvestada videoid.</string>
     <string name="grant_permissions">Anna load</string>
     <string name="permissions_note">Jätkamiseks pead andma kõik load.</string>
     <string name="permissions_granted">Kõik load antud!</string>
     <string name="open_settings">Ava seaded</string>
     <string name="disable_battery_optimization">Keela aku optimeerimine</string>
     <string name="onboarding_human_title">Kinnita, et oled inimene</string>
-    <string name="onboarding_human_desc">Hmmmm... olgu. Need reeglid pole läbiräägitavad. Kui sa nendega nõustuda ei saa, palun eemalda FadCam kohe.</string>
-    <string name="onboarding_human_checkbox1">Ma ei kasuta FadCam\'i seaduste rikkumiseks, kellegi privaatsuse riivamiseks ega käitu imelikult. Arendaja ei vastuta, kui ma midagi valesti teen. (See on minu vastutus.)</string>
-    <string name="onboarding_human_checkbox2">Ma juba armastan FadCam\'i enne selle kasutamist. (Pole valikuline)</string>
+    <string name="onboarding_human_desc">Hmmmm... olgu. Need reeglid pole läbiräägitavad. Kui sa nendega nõustuda ei saa, palun eemalda Joy Creator kohe.</string>
+    <string name="onboarding_human_checkbox1">Ma ei kasuta Joy Creator\'i seaduste rikkumiseks, kellegi privaatsuse riivamiseks ega käitu imelikult. Arendaja ei vastuta, kui ma midagi valesti teen. (See on minu vastutus.)</string>
+    <string name="onboarding_human_checkbox2">Ma juba armastan Joy Creator\'i enne selle kasutamist. (Pole valikuline)</string>
     <string name="onboarding_human_checkbox3">Nõustun privaatsuspoliitikaga</string>
     <string name="onboarding_human_button">Lase mind sisse!</string>
     <string name="trash_select_all">Vali kõik</string>
@@ -1385,17 +1385,17 @@ Soovitatav: 192000 bps, 48000 Hz enamikele kasutajatele.</string>
     <string name="eye_color_magenta" translatable="false">Magenta</string>
     <string name="setting_header_logo_title">Päise logo</string>
     <string name="setting_header_logo_desc">Vali päise logo stiil</string>
-    <string name="header_logo_default" translatable="false">FadCam</string>
+    <string name="header_logo_default" translatable="false">Joy Creator</string>
     <string name="header_logo_avatar" translatable="false">Avatar</string>
     <string name="setting_app_icon_desc">Muuda rakenduse käivitaja ikooni ja nime</string>
     <string name="app_icon_dialog_title">Vali rakenduse ikoon</string>
     <string name="app_icon_default" translatable="false">Legacy</string>
     <string name="app_icon_alternative" translatable="false">Camera</string>
     <string name="app_icon_faded" translatable="false">0xFF0000</string>
-    <string name="app_icon_pakistan" translatable="false">FadCam</string>
+    <string name="app_icon_pakistan" translatable="false">Joy Creator</string>
     <string name="app_icon_fadseclab" translatable="false">FadSec Lab</string>
     <string name="app_icon_noor" translatable="false">Noor</string>
-    <string name="app_icon_bat" translatable="false">FadCam</string>
+    <string name="app_icon_bat" translatable="false">Joy Creator</string>
     <string name="app_icon_redbinary" translatable="false">$ ~/r00t</string>
     <string name="app_icon_notes" translatable="false">Notes</string>
     <string name="app_icon_calculator" translatable="false">Calculator</string>
@@ -1409,7 +1409,7 @@ Soovitatav: 192000 bps, 48000 Hz enamikele kasutajatele.</string>
     <string name="app_icon_black_alias_label" translatable="false">\u0020</string>
     <string name="changelog_label">Mis on uut</string>
     <string name="setting_auto_update_check_title">Automaatne uuenduste kontroll</string>
-    <string name="note_auto_update_check">Kui lubatud, kontrollib FadCam uuendusi iga kord, kui rakenduse avad. Lülita välja, et keelata automaatne uuenduste kontrollimisel käivitamisel.\n(vaikimisi: sees)</string>
+    <string name="note_auto_update_check">Kui lubatud, kontrollib Joy Creator uuendusi iga kord, kui rakenduse avad. Lülita välja, et keelata automaatne uuenduste kontrollimisel käivitamisel.\n(vaikimisi: sees)</string>
     <string name="storage_location_title">Salvestusasukoht</string>
     <string name="storage_location_description">Vali, kuhu salvestised salvestatakse.</string>
     <string name="general">Üldine</string>
@@ -1438,7 +1438,7 @@ Soovitatav: 192000 bps, 48000 Hz enamikele kasutajatele.</string>
     <string name="digital_forensics_coming_soon_short">Tulekul</string>
     <string name="digital_forensics_discord_coming_soon_toast">Discordi teavitused lisatakse tulevases uuenduses.</string>
     <string name="digital_forensics_helper">Digitaalsel kohtuekspertiisil on kaks osa: otse-eelvaate ülekate ja salvestatud tõendid. Kui soovid ainult live visuaalseid AI silte, hoia tõendite kogumine väljas. Kui vajad kohtuekspertiisi ajalugu, lülita tõendite kogumine sisse ja vali, mida salvestada.</string>
-    <string name="digital_forensics_enable_helper">Mõtle sellest kui oma targast tõendisensorist. Kui lubatud, hoiab FadCam tuvastatud tegevuste ajajoont, et saad hiljem olulistele hetkedele hüpata.</string>
+    <string name="digital_forensics_enable_helper">Mõtle sellest kui oma targast tõendisensorist. Kui lubatud, hoiab Joy Creator tuvastatud tegevuste ajajoont, et saad hiljem olulistele hetkedele hüpata.</string>
     <string name="digital_forensics_evidence_enable">Luba tõendite kogumine</string>
     <string name="digital_forensics_evidence_helper">Kui lubatud, kirjutatakse tuvastused reaalajas kohtuekspertiisi andmebaasi salvestatud tõendikaadritega. Hoia see väljas, kui soovid ainult otse-eelvaate silte ilma mahu kasvuta.</string>
     <string name="digital_forensics_capture_scope">Tõendite kogumise ulatus</string>
@@ -1585,7 +1585,7 @@ Soovitatav: 192000 bps, 48000 Hz enamikele kasutajatele.</string>
     <string name="storage_location_internal">Sisemine rakenduse mälu (vaikimisi, privaatne)</string>
     <string name="storage_location_custom">Kohandatud asukoht (SD-kaart/muu, galeriis nähtav)</string>
     <string name="storage_location_choose_folder">Vali kaust</string>
-    <string name="storage_location_note">Märkus: Kohandatud asukohtade kasutamine muudab videod teistele rakendustele kättesaadavaks (nt galerii). Sisemälu hoiab need FadCam\'ile privaatsetena.</string>
+    <string name="storage_location_note">Märkus: Kohandatud asukohtade kasutamine muudab videod teistele rakendustele kättesaadavaks (nt galerii). Sisemälu hoiab need Joy Creator\'ile privaatsetena.</string>
     <string name="storage_sheet_title">Salvestusasukoht</string>
     <string name="storage_option_use_internal">Kasuta sisemälu</string>
     <string name="storage_option_switch_internal">Lülitu sisemälule</string>
@@ -1685,7 +1685,7 @@ Soovitatav: 192000 bps, 48000 Hz enamikele kasutajatele.</string>
     <string name="universal_stop">Peata</string>
     <string name="notification_settings_saved">Teavituse seaded salvestatud</string>
     <string name="setting_notification_appearance">Teavituse välimus</string>
-    <string name="note_notification_appearance">Kohanda salvestusteavituse välimust\n(vaikimisi: FadCam)</string>
+    <string name="note_notification_appearance">Kohanda salvestusteavituse välimust\n(vaikimisi: Joy Creator)</string>
     <string name="hide_stop_button">Peida peatamisnupp</string>
     <string name="note_hide_stop_button">Peida peatamisnupp teavituses\n(vaikimisi: keelatud)</string>
     <string name="notification_preview">Teavituse eelvaade</string>
@@ -1699,7 +1699,7 @@ Soovitatav: 192000 bps, 48000 Hz enamikele kasutajatele.</string>
     <string name="notification_custom_title_placeholder">Pealkiri (nt Süsteemi uuendus)</string>
     <string name="notification_custom_text_placeholder">Kirjeldus (nt Uuendus pooleli)</string>
     <string-array name="notification_appearance_options">
-        <item>FadCam (vaikimisi)</item>
+        <item>Joy Creator (vaikimisi)</item>
         <item>Süsteemi uuendus</item>
         <item>Allalaadimine</item>
         <item>Sünkroonimine</item>
@@ -1808,7 +1808,7 @@ Soovitatav: 192000 bps, 48000 Hz enamikele kasutajatele.</string>
     <string name="player_info_title">Videoesitaja teave</string>
     <string name="player_info_content"><![CDATA[
 <b>Killustatud MP4 vorming</b><br/><br/>
-FadCam kasutab salvestiste jaoks killustatud MP4 vormingut. See tähendab, et videod salvestatakse väikestesse segmentidesse ühe tervikliku faili asemel. Kasu on selles, et kui salvestamise ajal midagi läheb valesti, kaotad ainult viimased paar sekundit, mitte kogu video.<br/><br/>
+Joy Creator kasutab salvestiste jaoks killustatud MP4 vormingut. See tähendab, et videod salvestatakse väikestesse segmentidesse ühe tervikliku faili asemel. Kasu on selles, et kui salvestamise ajal midagi läheb valesti, kaotad ainult viimased paar sekundit, mitte kogu video.<br/><br/>
 Kui video viimased paar sekundit tunduvad külmunud või vananenud, ära muretse — see ei ole viga! Salvestamise peatamisel võib praegune fragment veel oma tsükli lõpule viia (~3 sekundit), mis võib jätta lühikese vananenud kaadri lõppu.<br/><br/>
 <b>Esitaja piirangud</b><br/><br/>
 Sisseehitatud videoesitajal on mõned Androidi süsteemi piirangud. Võid märgata, et edenemisriba või helilaine kuju tundub veidi hüplik — see on normaalne käitumine ega ole viga.<br/><br/>
@@ -1930,7 +1930,7 @@ Sujuvama esitamise kogemuse jaoks saad kasutada välist esitajat nagu VLC. Siisk
     <string name="streaming_mode_link_required">Linki seade, et lubada</string>
     <string name="streaming_mode_stream_url">Voogedastuse URL</string>
     <string name="streaming_mode_helper">Vali, kuidas soovid oma kaamerat voogedastada</string>
-    <string name="fullscreen_preview_enter">FadCam eelvaade</string>
+    <string name="fullscreen_preview_enter">Joy Creator eelvaade</string>
     <string name="fullscreen_preview_close">Sulge täisekraan</string>
     <string name="fullscreen_preview_not_recording">Alusta esmalt salvestamist, et kasutada täisekraani eelvaadet</string>
     <string name="fullscreen_preview_tap_hint">Puuduta ekraani juhtnuppude vahetamiseks</string>
@@ -2000,7 +2000,7 @@ Sujuvama esitamise kogemuse jaoks saad kasutada välist esitajat nagu VLC. Siisk
     <string name="motion_lab_debug_metrics_value">Pindala %1$.3f, Tugev %2$.3f, Keskmine %3$.3f, Taust %4$.3f, Max %5$.3f, Globaalne %6$s</string>
     <string name="motion_lab_info_cd">Motion Lab teave</string>
     <string name="motion_lab_info_title">Automaatne salvestus liikumisel</string>
-    <string name="motion_lab_info_body">See on FadCam\'i automaatse liikumissalvestuse funktsioon.\n\nKuidas see lihtsalt töötab:\n- Sinu kaamera jääb aktiivseks ja analüüsib kaadreid seadmes reaalajas.\n- Seadmesisene masinõppe mudel ja liikumisloogika otsivad liikumist.\n- Kui kehtiv liikumine tuvastatakse, salvestamine alustub/jätkub.\n- Salvestamine jätkub seni, kuni liikumine jätkub.\n- Pärast liikumise lõppemist hoiab järelsalvestus veel sinu valitud lisasekundid salvestamist.\n- Seejärel salvestamine peatub ja ootab järgmist liikumissündmust.\n\nKui salvestamine on peatatud, analüüsib rakendus endiselt kaadreid mälus, kuid ei kirjuta uusi videoid enne, kui liikumine uuesti tuvastatakse.\n\nKuidas kasutada (enamik kasutajaid):\n- Hoia kõik valikud vaikimisi väärtustel.\n- Lülita SELLEL ekraanil liikumisandur SISSE.\n- Mine Avalehe vahekaardile ja alusta tavalist salvestamist.\n- Liikumispõhine automaatne salvestus käivitub automaatselt.\n\nLihtne test kaugelt:\n- Lülita SELLEL ekraanil Automaatne taskulamp SISSE.\n- Alusta salvestamist Avalehe vahekaardilt.\n- Aseta telefon lauale või riiulile toa poole kallutatult.\n- Lahku ruumist, seejärel sisene ja kõnni sisse.\n- Taskulambi sisselülitamine aitab sul kaugelt koheselt märgata, et salvestamine algas.\n- Salvestamine jätkub sinu valitud järelsalvestuse kestuse pärast liikumise lõppemist.\n\nVihje: See funktsioon töötab pidevalt, seega väga kõrged täpsemad väärtused võivad suurendada kuumust ja vähendada seadme tervist ajas. Pikkade sessioonide jaoks hoia vaikimisi, kui sul pole konkreetset põhjust.</string>
+    <string name="motion_lab_info_body">See on Joy Creator\'i automaatse liikumissalvestuse funktsioon.\n\nKuidas see lihtsalt töötab:\n- Sinu kaamera jääb aktiivseks ja analüüsib kaadreid seadmes reaalajas.\n- Seadmesisene masinõppe mudel ja liikumisloogika otsivad liikumist.\n- Kui kehtiv liikumine tuvastatakse, salvestamine alustub/jätkub.\n- Salvestamine jätkub seni, kuni liikumine jätkub.\n- Pärast liikumise lõppemist hoiab järelsalvestus veel sinu valitud lisasekundid salvestamist.\n- Seejärel salvestamine peatub ja ootab järgmist liikumissündmust.\n\nKui salvestamine on peatatud, analüüsib rakendus endiselt kaadreid mälus, kuid ei kirjuta uusi videoid enne, kui liikumine uuesti tuvastatakse.\n\nKuidas kasutada (enamik kasutajaid):\n- Hoia kõik valikud vaikimisi väärtustel.\n- Lülita SELLEL ekraanil liikumisandur SISSE.\n- Mine Avalehe vahekaardile ja alusta tavalist salvestamist.\n- Liikumispõhine automaatne salvestus käivitub automaatselt.\n\nLihtne test kaugelt:\n- Lülita SELLEL ekraanil Automaatne taskulamp SISSE.\n- Alusta salvestamist Avalehe vahekaardilt.\n- Aseta telefon lauale või riiulile toa poole kallutatult.\n- Lahku ruumist, seejärel sisene ja kõnni sisse.\n- Taskulambi sisselülitamine aitab sul kaugelt koheselt märgata, et salvestamine algas.\n- Salvestamine jätkub sinu valitud järelsalvestuse kestuse pärast liikumise lõppemist.\n\nVihje: See funktsioon töötab pidevalt, seega väga kõrged täpsemad väärtused võivad suurendada kuumust ja vähendada seadme tervist ajas. Pikkade sessioonide jaoks hoia vaikimisi, kui sul pole konkreetset põhjust.</string>
     <string name="motion_lab_percent_value">%1$d%%</string>
     <string name="motion_lab_fps_value">%1$d fps</string>
     <string name="motion_lab_ms_value">%1$d ms</string>
@@ -2013,7 +2013,7 @@ Sujuvama esitamise kogemuse jaoks saad kasutada välist esitajat nagu VLC. Siisk
     <string name="home_sidebar_discord_sub">Liitu kogukonnaga</string>
     <string name="home_sidebar_copyright" translatable="false">© FadSec Lab 2024 – 2026</string>
     <string name="privacy_black_mode_title">Privaatsuse must ekraan</string>
-    <string name="privacy_black_mode_helper">Kui sinu seade tapab rakenduse taustal, saad kasutada seda funktsiooni, et hoida rakendust esiplaanil töötamas.\n\nMusta ekraani ülekate ilmub, tehes sellest, nagu ekraan oleks välja lülitatud, samal ajal kui salvestamine jätkub.\n\nPuuduta FadCam ikooni avalehe vahekaardi ülemises päises, et seda aktiveerida.</string>
+    <string name="privacy_black_mode_helper">Kui sinu seade tapab rakenduse taustal, saad kasutada seda funktsiooni, et hoida rakendust esiplaanil töötamas.\n\nMusta ekraani ülekate ilmub, tehes sellest, nagu ekraan oleks välja lülitatud, samal ajal kui salvestamine jätkub.\n\nPuuduta Joy Creator ikooni avalehe vahekaardi ülemises päises, et seda aktiveerida.</string>
     <string name="privacy_black_mode_enable_title">Luba privaatsuse must režiim</string>
     <string name="privacy_black_mode_enabled_toast">Privaatsusrežiim lubatud</string>
     <string name="privacy_black_mode_disabled_toast">Privaatsusrežiim keelatud</string>
@@ -2224,7 +2224,7 @@ Sujuvama esitamise kogemuse jaoks saad kasutada välist esitajat nagu VLC. Siisk
     <string name="mini_app_qr_generator_title">QR-generaator</string>
     <string name="mini_app_qr_generator_desc">Loo QR-koode tekstist, URL-dest ja kontaktidest</string>
     <string name="mini_apps_planned_shortcuts_title">Planeeritud: Otseteed ja automatiseerimine</string>
-    <string name="mini_apps_planned_shortcuts_desc">Avalehe otseteed koheseks juurdepääsuks mis tahes mini-rakendusele ilma FadCam\'i esmalt avamata.\n\nIntent-põhine automatiseerimistugi (Tasker, MacroDroid jne) mini-rakenduste programmeeritavaks käivitamiseks — kasuta QR-skannimist, taskulampi ja muud oma automatiseeritud töövoogudest.</string>
+    <string name="mini_apps_planned_shortcuts_desc">Avalehe otseteed koheseks juurdepääsuks mis tahes mini-rakendusele ilma Joy Creator\'i esmalt avamata.\n\nIntent-põhine automatiseerimistugi (Tasker, MacroDroid jne) mini-rakenduste programmeeritavaks käivitamiseks — kasuta QR-skannimist, taskulampi ja muud oma automatiseeritud töövoogudest.</string>
 
     <string name="export_center">Ekspordikeskus</string>
 
@@ -2354,7 +2354,7 @@ Sujuvama esitamise kogemuse jaoks saad kasutada välist esitajat nagu VLC. Siisk
 
     <string name="remote_access_endpoints_desc">Juurdepääs oma voogedastusserverile nende HTTP lõpp-punktide kaudu</string>
 
-    <string name="remote_control_via_api_desc">Juhtige FadCam\'i eemalt API päringute kaudu</string>
+    <string name="remote_control_via_api_desc">Juhtige Joy Creator\'i eemalt API päringute kaudu</string>
 
     <string name="remote_buffered_segments_desc">Puhverdatud segmendid voogedastuseks valmis</string>
 
@@ -2388,7 +2388,7 @@ Sujuvama esitamise kogemuse jaoks saad kasutada välist esitajat nagu VLC. Siisk
 
     <string name="update_beta_title">Beetauuendus saadaval</string>
 
-    <string name="update_beta_desc">FadCam beeta on eraldiseisev rakendus, mida saab installida koos stabiilse versiooniga. See ei sega sinu stabiilset rakendust ega selle andmeid.\n\nInstalli beeta, et testida uusi funktsioone enne nende jõudmist stabiilsesse versiooni.</string>
+    <string name="update_beta_desc">Joy Creator beeta on eraldiseisev rakendus, mida saab installida koos stabiilse versiooniga. See ei sega sinu stabiilset rakendust ega selle andmeid.\n\nInstalli beeta, et testida uusi funktsioone enne nende jõudmist stabiilsesse versiooni.</string>
 
     <string name="update_get_beta">Hangi beetaversioon</string>
 
@@ -2505,7 +2505,7 @@ Sujuvama esitamise kogemuse jaoks saad kasutada välist esitajat nagu VLC. Siisk
     <string name="about_dialog_error">Viga</string>
     <string name="about_dialog_ok">OK</string>
     <string name="about_get_beta">Hangi beeta</string>
-    <string name="about_fadcam_feedback">FadCam tagasiside</string>
+    <string name="about_fadcam_feedback">Joy Creator tagasiside</string>
 
     <!-- Video split sizes -->
     <string name="video_split_enabled_format">Lubatud (%s)</string>
@@ -2525,11 +2525,11 @@ Sujuvama esitamise kogemuse jaoks saad kasutada välist esitajat nagu VLC. Siisk
 
     <!-- Settings home tabs -->
     <string name="settings_tab_all">Kõik</string>
-    <string name="settings_tab_fadcam" translatable="false">FadCam</string>
+    <string name="settings_tab_fadcam" translatable="false">Joy Creator</string>
     <string name="settings_tab_fadrec" translatable="false">FadRec</string>
 
     <!-- Watermark preview labels -->
-    <string name="watermark_preview_fadcam" translatable="false">FadCam</string>
+    <string name="watermark_preview_fadcam" translatable="false">Joy Creator</string>
     <string name="watermark_preview_fadrec" translatable="false">FadRec</string>
     <string name="settings_location_update_interval_5s">5.0 sekundit</string>
 
@@ -2635,7 +2635,7 @@ Sujuvama esitamise kogemuse jaoks saad kasutada välist esitajat nagu VLC. Siisk
     <string name="channel_security_alarm">Turvahäire</string>
     <string name="channel_remote_streaming">Kaugvoogedastus</string>
     <string name="channel_annotation_service">Annotatsiooni teenus</string>
-    <string name="channel_fadcam_file_ops">FadCam failitoimingud</string>
+    <string name="channel_fadcam_file_ops">Joy Creator failitoimingud</string>
 
     <!-- ScreenRecordingService -->
     <string name="screen_rec_failed">Salvestamine nurjus: %s</string>

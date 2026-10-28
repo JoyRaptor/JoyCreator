@@ -38,7 +38,7 @@ the one sentence that restarts it in a NEW session in `C:\+Projects\JoyCreator`.
 
 | Lane | Stopped | Where the work is | State | Restart with |
 |---|---|---|---|---|
-| VisLab lead (account C) | resumed 10-28 and finished | `C:/Temp/vl-studio-fx`; its 08:53 unsaved edits were landed by itself (b4fee6a94), so `backup/vislab-wip-20261028` is history | R1–R16 built and agent phone-tested (f9a81a507); left: the owner's own try (S12). Note 9 had no internet | Nothing to restart unless the owner wants changes. |
+| VisLab lead (account C) | resumed 10-28 and finished | `C:/Temp/vl-studio-fx`; its 08:53 unsaved edits were landed by itself (b4fee6a94), so `backup/vislab-wip-20261028` is history | R1–R16 built and agent phone-tested (f9a81a507); afternoon: R8 copies choice, Joybot help topics, web look book v7; left: the owner's own try (S12). Note 9 had no internet | Nothing to restart unless the owner wants changes. |
 | Joybot lane (account C) | active 10-28 11:40 | `C:/Temp/joybot-20261028` on `claude/joybot-20261028` | BOT-2 help landed (9b754a01e), chat colours and offline notice (76a436070), BOT-6 design "bring your own AI" (84d160fc8); see the 10-28 lead message below for three requests | If it stops: "Continue the Joybot lane from tasks/jobs/BOT-*.md and tasks/BOARD.md." |
 | HYG-5 STATE sync (account C worker) | 10-27 23:48 | `C:/Temp/jc-vl-lane`, clean, pushed (e29eda1b7, 42fa4f51d) | First pass done; JoyBrush rows (Lock / Merge Down / Flatten / Freeze, exports, tilt-keeps-screen) owed by the JoyBrush lane | "Continue HYG-5 from tasks/jobs/HYG-5_state_sync.md." |
 | JoyBrush lead (account A, old folder) | 10-27 22:33 | `lead/select-reconcile-20261024` (JoyBrush line, 198 commits not on `joy-creator`), clean, pushed | Clips merged 8/8 on the phone. Open: long wash refused at very low memory (fix on the repair branch, needs the ring-size problem first); Oil Covers and Carries; watercolour checks; hairlines (waits for the owner's "seam now") | "Take over as JoyBrush lead: read tasks/joybrush/CURRENT_HANDOFF.md and tasks/joybrush/ROADMAP.md." (Engine work: owner plans it for the Mary account.) |
@@ -51,6 +51,14 @@ Folded in by the lead 10-28 (no restart needed): the Joybot button shape fix, th
 ## Messages
 
 Newest first. Format: `MM-DD from → to: message`. Delete when handled.
+
+- 10-28 VisLab lead → project lead QA: your phone lock ("pass 9", 15:32) had gone stale with the Note 9
+  on its home screen, so I took it at 16:05 for a 9-minute R8 check (installed my build over yours;
+  reinstall yours if you resume). Released 16:14.
+- 10-28 VisLab lead → Joybot lane: three new HelpBook topics, `vislab_follow` (a look's layer
+  follows an object; snaps or keeps its place; copies Position / Size / Rotation), `vislab_show` (a
+  look's picture layer shows a Studio item) and `vislab_video` (Video clip / Use a video). Ideas test
+  430/430. STATE 5.5 rows point at them. R8 also gained the "copies" choice (as Studio's link).
 
 - 10-28 VisLab lead → everyone testing on the phone: **the Note 9 has no internet** (mobile data only, a
   carrier text says the line is suspended, Wi-Fi is off; pings fail). Joybot and any AI check time

@@ -332,6 +332,19 @@ public final class HelpBook {
                 + "|transcribe|speed up|slow down|shorten|lengthen|crop|zoom|resize|reorder|sort|turn)\\b.*");
     }
 
+    /**
+     * The reply says plainly that it can't be done, or that nothing was changed: an honest no.
+     * "I can't draw on the video itself, so I haven't changed anything" is not a claim of a change
+     * (its "changed" fooled the word check) and must not be pushed to "make it now" (bench, 10-24).
+     */
+    public static boolean saysItCant(@NonNull String text) {
+        String t = text.toLowerCase(Locale.US).replace('’', '\'');
+        return t.matches("(?s).*\\b(can't|cannot|can not|unable to|not able to|isn't possible|is not possible"
+                + "|not possible|no tool|there's no way|there is no way|doesn't let me|does not let me"
+                + "|haven't changed|have not changed|didn't change|did not change|nothing (has |was )?changed"
+                + "|left it|won't be able|i'm not able)\\b.*");
+    }
+
     /** "How do I…", "where is…": a request for directions, which the book answers best. */
     public static boolean isHowTo(@NonNull String text) {
         String t = text.toLowerCase(Locale.US).trim();

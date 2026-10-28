@@ -654,8 +654,10 @@ public final class JoybotAgent {
                         || ask.situation.room == IdeaEngine.Room.JOYBRUSH;
                 // A refusal ("it's locked", "ask first") is an honest answer, not a model dodging the
                 // work: don't push it to "make the change now" (it unlocked a title to obey, 10-23).
+                // "I can't do that" is an answer too: pass it on, don't push for a change that no
+                // tool can make ("draw a moustache on the person", bench 10-24).
                 if (!nudged && !changedSomething() && lastError == null && hasWork && !ask.question
-                        && !aiText.trim().endsWith("?") && unfinished) {
+                        && !aiText.trim().endsWith("?") && unfinished && !HelpBook.saysItCant(aiText)) {
                     // Nothing in the project changed, yet the reply claims it did (a free model,
                     // Note 9 2026-10-14) or the person asked for a change and got a description
                     // instead (a model LOOKED at a sprite sheet, listed sixteen names and stopped,
@@ -668,10 +670,12 @@ public final class JoybotAgent {
                                     + ask.text + "\". Make it now: call the tool that does it"
                                     + " (for names on a sprite sheet: label_sprite_cells). If you can't call"
                                     + " tools directly, reply with ONLY the tool JSON"
-                                    + " {\"tool\":...,\"args\":{...}}, no other words."));
+                                    + " {\"tool\":...,\"args\":{...}}, no other words. If no tool can do it,"
+                                    + " say so plainly in one sentence instead, and that nothing changed."));
                     continue;
                 }
-                if (lastError != null && !changedSomething() && claimsAChange(aiText)) {
+                if (lastError != null && !changedSomething() && claimsAChange(aiText)
+                        && !HelpBook.saysItCant(aiText)) {
                     // Every attempt failed and nothing was written, yet the reply says "Done!"
                     // (a free model, three failed label_sprite_cells, Note 9 2026-10-15). Say what
                     // really happened instead. Not only after a tool ran: unreadable arguments run
@@ -680,10 +684,17 @@ public final class JoybotAgent {
                             + shortOf(lastError.replaceFirst("^Error:\\s*", "")));
                     return;
                 }
-                finish(true, nudged && !changedSomething() && unfinished
-                        ? "This model keeps describing the change instead of making it, so nothing"
-                          + " changed. Try again, or pick another model (tap its name at the top)."
-                        : replyToShow(aiText));
+                // After the nudge: an honest "can't" is shown as it is; a reply that still claims a
+                // change that didn't happen is replaced; anything else is shown with a plain note,
+                // never blaming the model for a request no model could do (bench 10-24).
+                String reply = replyToShow(aiText);
+                if (nudged && !changedSomething() && unfinished && !HelpBook.saysItCant(aiText)) {
+                    reply = claimsAChange(aiText)
+                            ? "That didn't happen: nothing changed. Try asking another way, or pick another"
+                              + " model (tap its name at the top)."
+                            : reply + "\n\n(Nothing was changed.)";
+                }
+                finish(true, reply);
                 return;
             }
         }

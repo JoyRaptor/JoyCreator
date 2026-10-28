@@ -25,9 +25,9 @@ the audit fixes (5 of 6 checks). A 53-task bench passes 53/53 with the fake mode
 Ledger: [plan B6](../joybot/JOYBOT_PLAN_20261014.md), [audit fixes](../audits/2026-10-18/joybot_fixes.md).
 
 ## What is left
-- [ ] **JoyBrush room shows the wrong idea buttons.** Joybot opened inside JoyBrush shows "Start a project /
-      Record something" (no project, no JoyBrush branch in `IdeaEngine`). Give JoyBrush its own buttons, as
-      VisLab got on 10-17. *(verified in code 10-28)*
+- [x] **JoyBrush room shows the wrong idea buttons.** Fixed 10-28: four JoyBrush buttons (a layer to colour
+      on, start an animation, next frame from this one, what's in this drawing), only things the joybrush
+      tools really do. Idea tests 393/393, typecheck OK. **Phone check owed.**
 - [ ] **Phone: the VisLab check** from the 10-24 audit (bloom 1.5, then one Undo restores it). Steps were given
       to the VisLab lead 10-24; not found in its notes, so still owed.
 - [ ] **Phone: Joybot drawing in JoyBrush after the button-face change** (`147c19c00`). Its first version was
@@ -35,10 +35,11 @@ Ledger: [plan B6](../joybot/JOYBOT_PLAN_20261014.md), [audit fixes](../audits/20
 - [ ] **Phone, never tried:** the free-model fallback and borrowed eyes (F9); `add_media`, `relink_missing`,
       `list_items`; ducking on a music + voice project; the hands-free voice loop (needs the owner's voice:
       owner check).
-- [ ] **STATE rows** HYG-5 asked for: Director mode, recipes, hands-free; refresh the stale §6 rows
-      ("55 tools", "Streaming", "JoyBrush hands: push owed" is done).
-- [ ] **"Draw a moustache"** (impossible requests): Joybot nudges once, then blames the model ("keeps
-      describing instead of making"). Say plainly that it can't be done instead. *(bench note 10-24)*
+- [x] **STATE rows** HYG-5 asked for: Director mode, recipes, hands-free, Carry on; stale §6 rows refreshed
+      (10-28: 63 typed actions + 61 older tools counted; JoyBrush hands row updated).
+- [x] **"Draw a moustache"** (impossible requests). Fixed 10-28: an honest "I can't" is passed on in one step
+      (`HelpBook.saysItCant`), never pushed or blamed on the model; a false "done" is still caught. Bench 53/53
+      on the working copy (the task now takes 1 step, was 2). Not phone-tested (no tool path changed).
 - [ ] `add_marker` stays off until timeline marks land with undo ([STU-3](STU-3_timeline_marks.md)); then switch
       it on and phone-test.
 - [ ] OpenAI as a provider: untested (owner's account had no API credit). Owner action.

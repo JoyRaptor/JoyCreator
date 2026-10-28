@@ -262,6 +262,12 @@ public class IdeaEngineTest {
             eq("vislab: kick idea first", "Hit harder on the kick", vis.ideas.get(0).label);
             check("vislab: no Studio ideas", !labels(vis).contains("Turn on captions"), labels(vis));
             check("vislab: no opener", vis.opener == null, String.valueOf(vis.opener));
+            // JoyBrush (BOT-1, 10-28): the open drawing's ideas, never the lobby's "Start a project".
+            IdeaEngine.Offer jb = IdeaEngine.offer(f, IdeaEngine.Room.JOYBRUSH, FLOWS, NONE);
+            eq("joybrush: colour layer first", "A layer to colour on", jb.ideas.get(0).label);
+            check("joybrush: no Studio ideas", !labels(jb).contains("Turn on captions"), labels(jb));
+            check("joybrush: no lobby ideas", !labels(jb).contains("Start a project"), labels(jb));
+            check("joybrush: no opener", jb.opener == null, String.valueOf(jb.opener));
         }
 
         // ── never invents a number ───────────────────────────────────────
@@ -616,6 +622,24 @@ public class IdeaEngineTest {
                 check("real tool docs: names and lengths fit every provider", allArgs, "");
             } catch (Exception ex) {
                 check("real tool docs: readable", false, ex.toString());
+            }
+        }
+
+        // ── HelpBook.saysItCant: an honest "no" is an answer, not a dodge (bench 10-24, BOT-1 10-28) ──
+        {
+            String[] honest = {
+                    "I can't draw on the video itself in Studio yet, so I haven't changed anything.",
+                    "There is no tool that draws on a clip, so I still haven\u2019t changed anything.",
+                    "The title is locked, so I left it where it is. Want me to unlock it first?",
+                    "That isn't possible here: nothing was changed."};
+            for (String h : honest) {
+                check("says it can't: " + h.substring(0, 24), com.fadcam.ui.faditor.ai.joybot.HelpBook.saysItCant(h), h);
+            }
+            String[] claims = {"Done! The title is now red.", "I've moved the logo to the corner.",
+                    "I changed the font to Bebas.", "The first clip is called Intro now."};
+            for (String c : claims) {
+                check("a real claim is not a can't: " + c.substring(0, 18),
+                        !com.fadcam.ui.faditor.ai.joybot.HelpBook.saysItCant(c), c);
             }
         }
 

@@ -1248,8 +1248,9 @@ public class ChatAssistantActivity extends AppCompatActivity {
      */
     private void refreshIdeas(boolean speak) {
         checkRecipes();
-        if (room == IdeaEngine.Room.VISLAB) {
-            // VisLab's ideas are about the look on screen, not a project: no project is needed.
+        if (room == IdeaEngine.Room.VISLAB || room == IdeaEngine.Room.JOYBRUSH) {
+            // VisLab's ideas are about the look on screen, JoyBrush's about the open drawing: no
+            // project is needed (without this JoyBrush showed the lobby's "Start a project").
             com.fadcam.ui.faditor.ai.joybot.ProjectFacts f = new com.fadcam.ui.faditor.ai.joybot.ProjectFacts();
             f.online = AiService.ready(this, apiKey);
             currentOffer = IdeaEngine.offer(f, room, java.util.Collections.<String>emptySet(),

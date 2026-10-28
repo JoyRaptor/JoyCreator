@@ -566,6 +566,23 @@ public class ProjectStorage {
     }
 
     /**
+     * {@code base}, or "base 2", "base 3"... when a project already has that name. Every blank
+     * audio project was "Untitled audio", so the Library showed a row of identical names while the
+     * folder files were numbered (Note 9, 10-28). Reads the project list: call it off the hot path.
+     */
+    @NonNull
+    public String uniqueName(@NonNull String base) {
+        java.util.Set<String> taken = new java.util.HashSet<>();
+        for (ProjectSummary s : listProjects()) taken.add(s.name.trim().toLowerCase(java.util.Locale.ROOT));
+        if (!taken.contains(base.toLowerCase(java.util.Locale.ROOT))) return base;
+        for (int i = 2; i < 10000; i++) {
+            String n = base + " " + i;
+            if (!taken.contains(n.toLowerCase(java.util.Locale.ROOT))) return n;
+        }
+        return base;
+    }
+
+    /**
      * List all saved projects, sorted by last modified (newest first).
      *
      * @return list of project summaries (lightweight — only metadata, no full load)

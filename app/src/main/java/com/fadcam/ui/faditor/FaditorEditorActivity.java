@@ -13812,6 +13812,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 getSharedPreferences("faditor_export", MODE_PRIVATE).edit().putString("pending_loudness_target", chosen.name()).apply();
                 scheduleAutoSave();
                 exportDialog.dismiss();
+                // The marks popup can open this sheet; it must not stay drawn over the export screens.
+                if (markerPopup != null) markerPopup.dismiss();
                 pendingMarkerExportRegions = copyMarkerExportRegions(namedRegions);
                 if (frameAtMs >= 0) {
                     startFrameExportViaService(frameAtMs, frameJpeg);

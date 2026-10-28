@@ -36,6 +36,7 @@ import java.util.Locale;
  *   <li>Project: the Studio editor (a folder-only project is brought back into the app first,
  *       by the same restore a reinstall uses).</li>
  *   <li>Drawing: Joy Brush. Sprite sheet: Sprite Lab, on that sheet. Character: Avatar Studio.</li>
+ *   <li>VisLab look: VisLab, on that look (before 10-28 it went to whichever app opens JSON).</li>
  *   <li>Recording, export, clip: the app's player. Photo, image: the app's viewer.</li>
  *   <li>Sound, document, anything else that is a file: whichever app on the phone opens it.</li>
  * </ul>
@@ -65,6 +66,11 @@ final class LibraryOpener {
                     return openAvatar(a, it);
                 default:
                     if (it.fileKind == FileKind.FONT || it.fileKind == FileKind.PLUGIN) return false;
+                    if (it.fileKind == FileKind.LOOK && it.folderPath != null) {
+                        a.startActivity(new Intent(a, com.fadcam.vislab.room.VisLabActivity.class)
+                                .putExtra(com.fadcam.vislab.room.VisLabActivity.EXTRA_LOOK_FILE, it.folderPath));
+                        return true;
+                    }
                     if (it.isVideo() || it.isImage()) return openMedia(a, it);
                     return openWithOtherApp(a, it);
             }

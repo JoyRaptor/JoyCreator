@@ -13,7 +13,7 @@ some are one-way, and some are missing.
 ## Flows (state on 10-27)
 | Flow | State |
 |---|---|
-| JoyBrush → Studio: "Send to Studio" | ✅ makes a new project; **into an existing project** is built on `claude/send-to-existing-20261027` (backup pushed), not landed |
+| JoyBrush → Studio: "Send to Studio" | ✅ makes a new project; **into an existing project** is 🟡 built on `claude/send-to-studio-existing-20261027` (clean off `joy-creator`, pushed 10-27; rules test 16/16, receiver type-checked, no phone test): a chooser appears when projects exist, and the board lands as one more looping layer at half the canvas |
 | Studio → JoyBrush (edit a frame or picture as a drawing) | ⬜ nothing flows back |
 | JoyBrush boards → Studio / SpriteLab (board export, internal receiver) | 🟡 JoyBrush roadmap BOARD-RESIDUAL |
 | VisLab looks in Studio's visualiser | ✅ 10-22 (with keyframable knobs) |
@@ -27,5 +27,5 @@ some are one-way, and some are missing.
 
 ## What is left
 - [ ] Confirm each row against the code (DOOR-1 will surface most of them).
-- [ ] Land "Send to Studio into an existing project" with the JoyBrush lead (it sits on the JoyBrush integration line, so after [HYG-2](HYG-2_one_main_line.md)).
+- [ ] Land "Send to Studio into an existing project": build an APK from `claude/send-to-studio-existing-20261027`, check it on the Note 9 (send a board into an empty project, into one with a video, the same board twice, back out of the chooser), then land. It no longer waits for [HYG-2](HYG-2_one_main_line.md): the receiver is identical on both lines.
 - [ ] One flow at a time, smallest gap first.

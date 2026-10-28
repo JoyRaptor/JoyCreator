@@ -10,8 +10,9 @@ real app, and every other wing builds against an old JoyBrush.
 
 ## Done when
 - [ ] `origin/joy-creator` contains the JoyBrush integrated line, and the JoyBrush roadmap names `joy-creator` as its base.
-- [ ] Every other branch that started from the integration branch (for example `claude/send-to-existing-20261027`,
-      `claude/symmetry-recover-20261027`) is rebased or landed.
+- [ ] Every other branch that started from the integration branch (for example `claude/symmetry-recover-20261027`,
+      already merged onto `bdd3f8ff5`, so it needs one more merge after this lands) is rebased or landed.
+      `claude/send-to-existing-20261027` is superseded by `claude/send-to-studio-existing-20261027`, cut from `joy-creator`.
 
 ## Where it stands (10-27)
 `origin/lead/select-reconcile-20261024` is **159 commits ahead of `joy-creator` and 13 behind.**

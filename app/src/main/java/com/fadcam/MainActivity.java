@@ -1001,8 +1001,8 @@ public class MainActivity extends AppCompatActivity {
                 intent.removeExtra("open_overlay");
                 new Handler(Looper.getMainLooper()).postDelayed(() -> {
                     if (isFinishing()) return;
-                    // The same overlay the Lobby's logo-hold opens (LobbyFragment).
-                    com.fadcam.ui.OverlayNavUtil.show(this, new com.fadcam.ui.TrashFragment(), "trash");
+                    // The same screen the Library's Trash and the Lobby's logo-hold open.
+                    com.fadcam.ui.trash.RecentlyDeletedFragment.open(this);
                 }, 250);
             }
 

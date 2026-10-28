@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.view.View
 import androidx.core.graphics.ColorUtils
+import cc.joycreator.joybrush.core.chrome.IconFit
 import cc.joycreator.joybrush.core.chrome.IconInk
 
 /**
@@ -79,7 +80,9 @@ class TopButton(private val kit: ChromeKit, icon: JbIcon, label: String) : View(
             val f = kit.dp(13f).let { if (isPressed) it - kit.dp(1.5f) else it }
             val d = if (isPressed) smile else neutral
             d.alpha = if (isEnabled) 255 else DISABLED_ALPHA
-            d.setBounds(Math.round(cx - f), Math.round(cy - f), Math.round(cx + f), Math.round(cy + f))
+            // Joybot's art is tall (360 x 564): fitted INSIDE the square in its own shape, never squeezed into it.
+            val box = IconFit.inside(Math.round(cx - f), Math.round(cy - f), Math.round(cx + f), Math.round(cy + f), d.intrinsicWidth, d.intrinsicHeight)
+            d.setBounds(box.left, box.top, box.right, box.bottom)
             d.draw(c)
             return
         }

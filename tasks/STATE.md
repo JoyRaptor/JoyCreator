@@ -95,7 +95,7 @@ from compilation, an isolated branch, synthetic checks or agent-only device test
 | Photo capture / screenshot | 🟢 ~ | PhotoCaptureActivity, ScreenShotCaptureActivity |
 | Remote camera control over LAN | 🟡 ✔ | streaming/RemoteStreamManager, LiveM3U8Server. **Real, unpromoted, untested by JoyRaptor.** |
 | Live streaming / cloud upload | 🟡 ✔ | CloudStreamUploader, CloudAuthManager — **being removed from the Play build** |
-| Watermark | 🟢 ~ | watermark/WatermarkManager |
+| Watermark | 🟢 ~ | watermark/WatermarkManager **10-28: off by default** (3cbc64ff6); it used to burn "Captured by" + the FadCam logo into every recording, screen recording and photo. People who chose one keep it. |
 | Live audio visualizer during record | 🟡 ✔ | visualizer/LiveVisualizer |
 | Forensics gallery | 🟡 ✔ | forensics/ — full package, purpose and state unclear, needs a decision |
 | Motion detection | 🟡 ✔ | motion/ package |
@@ -438,7 +438,9 @@ Design records 01–07 (artifacts). Backup before any of it: tag
 | Export hairline | 🟢 | Real `ExportService` broadcasts (out-of-process, so a normal receiver). Scales, never resizes. |
 | New row: Import (`lobby.import`) | 🟡 ✔ | 10-28 (1d1bd5500). Opens the phone's file picker (pictures, videos, sounds) and files the picks the way a share into Joy Creator does (`ShareInActivity`): readable names, into the Assets folder or the top of the Joy Creator folder; they show in the Library at once. Before, the chip only opened the Library. Agent-checked on the Note 9 10-28 (2 PNGs in, Library 171 → 173). On that phone a one-time "Complete action using" chooser shows first (a second file app is installed). Help `lobby.import`: PENDING. |
 | Every way to the trash opens Recently deleted | 🟡 ✔ | 10-28 (1d1bd5500): the lobby banner hold, the Capture logo hold and Joybot's "trash" route opened the classic FadCam Trash; they now open Recently deleted, which lists the classic Trash's recordings too and keeps "Classic trash" one tap away in its options. Agent-checked on the Note 9 10-28. |
-| Viz Lab room's New makes a new look | 🟡 | 10-28 (`lead/door-fixes-20261028`, 261de622f; built, phone check owed): opens VisLab on a new, empty look with its layers open, as the strip's "+ New" card does. Before, it opened the project list. |
+| Viz Lab room's New makes a new look | 🟡 ✔ | 10-28 (fc2c9ba16): opens VisLab on a new look with its layers open, as the strip's "+ New" card does (it starts with one Aurora layer). Before, it opened the project list. Agent-checked on the Note 9 10-28. |
+| Library: a VisLab look opens in VisLab | 🟡 ✔ | 10-28 (fa8dd576f, d73f6d9d1): tapping a `.vis.json` look under "Fonts and supplies" opens VisLab on that look (before, Android's "Open with" chooser). Agent-checked on the Note 9 with "My look" and "Sound City". |
+| Library: rename a project | 🟡 ✔ | 10-28 (ce2b1f91c): hold a project → Rename; the editor title and the folder's `.joyproject` follow. Agent-checked on the Note 9. |
 | **The visual system** | 🟢 | Ground `#000000`; lane A is the ground, lane B `#0B0B0D` (4.3%, inside SPEC_N §6). Chrome on `studio_panel`. Selection **cyan**, neutral playhead **pink** (context tint preserved — do not flatten it). Transport recedes by value: one white control. |
 | Drawer transparency | 🟢 | Top drawers at 64% black, coloured chips at 70%. **Measured**: the object drawer's secondary text was at **1.39:1** over a blown-out frame — invisible outdoors. Now 4.86:1. Blur is impossible below API 31; tint is the only lever. |
 | First run | 🟢 | New copy, the promise before the ask, the AI-key card. Red gone: cursor, ticks and button all sampled. |

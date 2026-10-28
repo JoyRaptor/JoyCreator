@@ -8,7 +8,7 @@
     <string name="app_description"><![CDATA[
     FadCam是一个以隐私为首要重心的开源无广告的视频录制软件. 此软件能通过Github和README中的官方链接获取.
     <br/><br/>
-    FadCam 已在热门的 YouTube 频道中亮相，如 <font color="#cfbafd">HowToMen</font> 和 <font color="#cfbafd">Xtream Droid</font>，还在 <font color="#cfbafd">GrapheneOS</font> 及其他 55+ 著名平台上被讨论。
+    Joy Creator 已在热门的 YouTube 频道中亮相，如 <font color="#cfbafd">HowToMen</font> 和 <font color="#cfbafd">Xtream Droid</font>，还在 <font color="#cfbafd">GrapheneOS</font> 及其他 55+ 著名平台上被讨论。
     ]]></string>
     <string name="view_source_code">查看源码</string>
     <string name="buy_me_a_coffee">请我一杯咖啡 ☕</string>
@@ -66,7 +66,7 @@
     <string name="button_settings_cam_front">前摄</string>
     <string name="note_quailty">选择视频分辨率\n(默认: HD)</string>
     <string name="setting_watermark">水印</string>
-    <string name="note_watermark">调整视频水印\n(默认: 时间与\"Fadcam\"字样)</string>
+    <string name="note_watermark">调整视频水印\n(默认: 时间与\"Joy Creator\"字样)</string>
     <string name="note_watermark_extra">想让视频保存速度更快？选择\"无水印\". 想加水印？那么片刻的等待是值得的, 就只需要多等一小会!</string>
     <string name="note_location">向水印添加位置信息. \n需要打开手机的位置信息功能 \n(默认: 关闭)</string>
     <string name="note_location_extra">添加经纬度信息至视频水印需要打开手机的位置信息功能。</string>
@@ -115,7 +115,7 @@
         <item>用于自动检查更新。</item>
         <item>不, 所有数据都会存储在你的设备上.</item>
         <item>你录制的视频都只会存储在手机里.</item>
-        <item>不，FadCam 不会共享或收集任何数据，甚至不会收集崩溃日志。</item>
+        <item>不，Joy Creator 不会共享或收集任何数据，甚至不会收集崩溃日志。</item>
         <item> </item>
         <item> </item>
         <item> </item>
@@ -137,7 +137,7 @@
     <string name="discord_title">Discord服务器</string>
     <string name="thankyou_msg">感谢你使用FadCam!</string>
     <string name="settings_title">设置</string>
-    <string name="array_watermark_time_fadcam">时间与\"Fadcam\"字样</string>
+    <string name="array_watermark_time_fadcam">时间与\"Joy Creator\"字样</string>
     <string name="array_watermark_timeonly">仅时间</string>
     <string name="array_watermark_nomark">无水印</string>
     <string name="toast_video_not_found">出错：视频未找到</string>
@@ -570,11 +570,11 @@
     <string name="watermark_preview_heading">预览</string>
     <string name="watermark_options_heading">选项</string>
     <string name="watermark_style_row_title">水印样式</string>
-    <string name="watermark_style_time_fadcam_label">FadCam 时间</string>
+    <string name="watermark_style_time_fadcam_label">Joy Creator 时间</string>
     <string name="watermark_style_timeonly_label">时间戳</string>
     <string name="watermark_style_badge_label">仅品牌标签</string>
     <string name="watermark_style_none_label">无水印</string>
-    <string name="helper_watermark_preview">水印将以此样式显示在录制视频的左上角。\n冷知识：FadCam v1.0 的首发时间为 2024年7月10日 下午04:47。</string>
+    <string name="helper_watermark_preview">水印将以此样式显示在录制视频的左上角。\n冷知识：Joy Creator v1.0 的首发时间为 2024年7月10日 下午04:47。</string>
     <string name="helper_location_watermark_option">切换是否将设备位置信息叠加在视频上，需要位置权限。</string>
     <string name="location_watermark_sheet_title">位置叠加</string>
     <string name="location_watermark_switch_label">位置叠加</string>
@@ -587,7 +587,7 @@
     <string name="widgets_helper_text">将快捷操作固定到主屏幕，以便快速访问</string>
     <string name="widgets_pin_unsupported">您的启动器不支持固定小组件</string>
     <string name="widget_clock_title">时钟小组件</string>
-    <string name="widgets_pin_fallback">若未出现提示，请长按主屏幕，打开“小组件”菜单，并拖拽 FadCam 时钟小组件。</string>
+    <string name="widgets_pin_fallback">若未出现提示，请长按主屏幕，打开“小组件”菜单，并拖拽 Joy Creator 时钟小组件。</string>
     <string name="widget_customize_title">自定义时钟小组件</string>
     <string name="widget_customize_description">自定义时钟小组件显示时间与日期的方式</string>
     <string name="widget_time_format_title">时间格式</string>
@@ -757,7 +757,7 @@
     <string name="records_search_hint">搜索录制内容…</string>
     <string name="saf_permission_missing_dialog_instructions">缺少存储访问权限。请授予对所选文件夹的访问权。</string>
     <string name="saf_permission_missing_dialog_title">需要存储访问权限</string>
-    <string name="saf_permission_missing_dialog_message_for_start_recording">为将录制内容保存到自定义位置，FadCam 需要权限以访问您所选的文件夹。请在系统提示时授予访问权限。</string>
+    <string name="saf_permission_missing_dialog_message_for_start_recording">为将录制内容保存到自定义位置，Joy Creator 需要权限以访问您所选的文件夹。请在系统提示时授予访问权限。</string>
     <string name="grant_permission_button">授予权限</string>
     <string name="trash_auto_delete_picker_helper">选择何时自动删除垃圾箱中的项目。</string>
     <string name="support_ko_fi">在 Ko-fi 上支持我们</string>
@@ -814,7 +814,7 @@
     <string name="universal_paused">已暂停</string>
     <string name="universal_stop">停止</string>
     <string name="setting_notification_appearance">通知外观</string>
-    <string name="note_notification_appearance">自定义录制通知的外观\n（默认值：FadCam）</string>
+    <string name="note_notification_appearance">自定义录制通知的外观\n（默认值：Joy Creator）</string>
     <string name="hide_stop_button">隐藏停止按钮</string>
     <string name="note_hide_stop_button">隐藏通知中的停止按钮\n（默认值：已禁用）</string>
     <string name="notification_style_row_title">通知样式</string>
@@ -910,7 +910,7 @@
     <string name="quick_speed_option_1_75">1.75x</string>
     <string name="quick_speed_option_2">2x</string>
     <string name="quick_speed_option_2_5">2.5x</string>
-    <string name="watermark_preview_sample_fadcam">由 FadCam 拍摄 - %1$s</string>
+    <string name="watermark_preview_sample_fadcam">由 Joy Creator 拍摄 - %1$s</string>
     <string name="watermark_preview_sample_timeonly">%1$s</string>
     <string name="controls_hide_delay_subtitle">%1$ds</string>
     <string name="seek_amount_subtitle">%1$ds</string>
@@ -1029,7 +1029,7 @@
     <string name="player_info_title">关于视频播放器</string>
     <string name="player_info_content"><![CDATA[
 <b>分段式 MP4 格式</b><br/><br/>
-FadCam 为录制使用分段式 MP4 格式。这意味着视频被保存为多个小片段，而不是一个完整的文件。这样做的好处是，如果在录制过程中出现问题，您只丢失最后几秒钟，而不是整个视频。<br/><br/>
+Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为多个小片段，而不是一个完整的文件。这样做的好处是，如果在录制过程中出现问题，您只丢失最后几秒钟，而不是整个视频。<br/><br/>
 如果您视频的最后几秒看起来卡住或静止，请不要担心——这不是一个错误！当您停止录制时，当前片段可能仍在完成其循环（约 3 秒），这可能会在结尾留下一个短暂的静止画面。<br/><br/>
 <b>播放器限制</b><br/><br/>
 内置视频播放器存在一些安卓系统限制。您可能会注意到进度条或波形图看起来有些卡顿——这是正常行为，并非错误。<br/><br/>
@@ -1754,7 +1754,7 @@ FadCam 为录制使用分段式 MP4 格式。这意味着视频被保存为多�
 <string name="faditor_exporting_percent">正在导出… %1$d%%</string>
 
 <!-- faditor_fadcam_source -->
-<string name="faditor_fadcam_source">FadCam</string>
+<string name="faditor_fadcam_source">Joy Creator</string>
 
 <!-- faditor_fadrec_source -->
 <string name="faditor_fadrec_source">FadRec</string>
@@ -3051,7 +3051,7 @@ FadCam 为录制使用分段式 MP4 格式。这意味着视频被保存为多�
 
 <!-- notification_appearance_options -->
 <string-array name="notification_appearance_options">
-        <item>FadCam（默认）</item>
+        <item>Joy Creator（默认）</item>
         <item>系统更新</item>
         <item>下载</item>
         <item>同步</item>
@@ -3387,7 +3387,7 @@ FadCam 为录制使用分段式 MP4 格式。这意味着视频被保存为多�
 <string name="records_filter_all">全部</string>
 
 <!-- records_filter_camera -->
-<string name="records_filter_camera">FadCam</string>
+<string name="records_filter_camera">Joy Creator</string>
 
 <!-- records_filter_camera_all -->
 <string name="records_filter_camera_all">全部</string>
@@ -4300,7 +4300,7 @@ FadCam 为录制使用分段式 MP4 格式。这意味着视频被保存为多�
     <string name="remote_pages">页面</string>
     <string name="remote_layers">图层</string>
     <string name="remote_access_endpoints_desc">通过以下 HTTP 端点访问您的流媒体服务器</string>
-    <string name="remote_control_via_api_desc">通过 API 调用远程控制 FadCam</string>
+    <string name="remote_control_via_api_desc">通过 API 调用远程控制 Joy Creator</string>
     <string name="remote_buffered_segments_desc">已缓冲的片段，准备进行流式传输</string>
     <string name="remote_battery_low_warning">⚠️ 电量不足 - 请立即连接充电器</string>
     <string name="remote_enter_percentage_hint">输入百分比</string>
@@ -4317,7 +4317,7 @@ FadCam 为录制使用分段式 MP4 格式。这意味着视频被保存为多�
     <string name="update_get_pro">获取 FadCam Pro</string>
     <string name="update_maybe_later">稍后再说</string>
     <string name="update_beta_title">测试版更新可用</string>
-    <string name="update_beta_desc">FadCam 测试版是一款独立应用，可与稳定版同时安装。它不会影响您的稳定版应用或其数据。\n\n安装测试版，在功能到达稳定版之前抢先体验。</string>
+    <string name="update_beta_desc">Joy Creator 测试版是一款独立应用，可与稳定版同时安装。它不会影响您的稳定版应用或其数据。\n\n安装测试版，在功能到达稳定版之前抢先体验。</string>
     <string name="update_get_beta">获取测试版</string>
     <string name="mini_apps_about_title">关于迷你应用</string>
     <string name="mini_apps_current_tools">当前工具</string>
@@ -4413,7 +4413,7 @@ FadCam 为录制使用分段式 MP4 格式。这意味着视频被保存为多�
     <string name="about_dialog_error">错误</string>
     <string name="about_dialog_ok">确定</string>
     <string name="about_get_beta">获取测试版</string>
-    <string name="about_fadcam_feedback">FadCam 反馈</string>
+    <string name="about_fadcam_feedback">Joy Creator 反馈</string>
 
     <!-- Video split sizes -->
     <string name="video_split_enabled_format">已启用 (%s)</string>
@@ -4433,11 +4433,11 @@ FadCam 为录制使用分段式 MP4 格式。这意味着视频被保存为多�
 
     <!-- Settings home tabs -->
     <string name="settings_tab_all">全部</string>
-    <string name="settings_tab_fadcam" translatable="false">FadCam</string>
+    <string name="settings_tab_fadcam" translatable="false">Joy Creator</string>
     <string name="settings_tab_fadrec" translatable="false">FadRec</string>
 
     <!-- Watermark preview labels -->
-    <string name="watermark_preview_fadcam" translatable="false">FadCam</string>
+    <string name="watermark_preview_fadcam" translatable="false">Joy Creator</string>
     <string name="watermark_preview_fadrec" translatable="false">FadRec</string>
     <string name="settings_location_update_interval_5s">5.0 秒</string>
 
@@ -4543,7 +4543,7 @@ FadCam 为录制使用分段式 MP4 格式。这意味着视频被保存为多�
     <string name="channel_security_alarm">安全警报</string>
     <string name="channel_remote_streaming">远程直播</string>
     <string name="channel_annotation_service">标注服务</string>
-    <string name="channel_fadcam_file_ops">FadCam 文件操作</string>
+    <string name="channel_fadcam_file_ops">Joy Creator 文件操作</string>
 
     <!-- ScreenRecordingService -->
     <string name="screen_rec_failed">录制失败: %s</string>

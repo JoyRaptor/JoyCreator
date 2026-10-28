@@ -404,7 +404,7 @@ public class RemoteFragment extends BaseFragment {
         // Set up cloud status error listener to show auth errors to user
         CloudStatusManager.getInstance(requireContext()).setAuthErrorListener(reason -> {
             FLog.e(TAG, "Cloud auth error: " + reason);
-            Toast.makeText(requireContext(), "⚠️ " + reason, Toast.LENGTH_LONG).show();
+            Toast.makeText(requireContext(), getString(R.string.remote_toast_auth_error, reason), Toast.LENGTH_LONG).show();
         });
     }
     
@@ -573,7 +573,7 @@ public class RemoteFragment extends BaseFragment {
         requireContext().bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
         
         streamStartTime = System.currentTimeMillis();
-        Toast.makeText(requireContext(), "Stream server starting...", Toast.LENGTH_SHORT).show();
+        Toast.makeText(requireContext(), R.string.remote_toast_stream_starting, Toast.LENGTH_SHORT).show();
     }
     
     private void stopStreaming() {
@@ -597,7 +597,7 @@ public class RemoteFragment extends BaseFragment {
         RemoteStreamManager.getInstance().setStreamingEnabled(false);
         
         streamStartTime = 0;
-        Toast.makeText(requireContext(), "Stream server stopped", Toast.LENGTH_SHORT).show();
+        Toast.makeText(requireContext(), R.string.remote_toast_stream_stopped, Toast.LENGTH_SHORT).show();
         updateUI();
     }
     
@@ -608,7 +608,7 @@ public class RemoteFragment extends BaseFragment {
         
         Toast.makeText(requireContext(), 
             newMode == RemoteStreamManager.StreamingMode.STREAM_ONLY ? 
-                "Stream Only mode" : "Stream & Save mode", 
+                getString(R.string.remote_toast_mode_stream_only) : getString(R.string.remote_toast_mode_stream_save), 
             Toast.LENGTH_SHORT).show();
     }
     
@@ -924,7 +924,7 @@ public class RemoteFragment extends BaseFragment {
             String dataStr = String.format(java.util.Locale.US, "%.1f MB", totalBytes / (1024.0 * 1024.0));
             
             if (cloudViewers == 0) {
-                Toast.makeText(requireContext(), "No cloud viewers connected", Toast.LENGTH_SHORT).show();
+                Toast.makeText(requireContext(), R.string.remote_toast_no_cloud_viewers, Toast.LENGTH_SHORT).show();
             } else {
                 // Show a simple info toast for cloud mode (privacy-preserving)
                 String message = String.format(java.util.Locale.US, 
@@ -941,7 +941,7 @@ public class RemoteFragment extends BaseFragment {
         List<String> clientIPs = manager.getConnectedClientIPs();
         
         if (clientIPs.isEmpty()) {
-            Toast.makeText(requireContext(), "No clients connected", Toast.LENGTH_SHORT).show();
+            Toast.makeText(requireContext(), R.string.remote_toast_no_clients, Toast.LENGTH_SHORT).show();
             return;
         }
         
@@ -1106,8 +1106,8 @@ public class RemoteFragment extends BaseFragment {
     private void showSetPasswordSheet() {
         RemoteAuthManager authManager = RemoteAuthManager.getInstance(requireContext());
         String initialValue = ""; // Empty, not dots
-        String hint = "Enter new password";
-        String helperText = "Change your authentication password here. Minimum 4 characters. This is basic HTTP authentication - not highly secure but better than none. When you change the password, all other devices will be logged out automatically.";
+        String hint = getString(R.string.remote_password_hint);
+        String helperText = getString(R.string.remote_password_helper);
         
         InputActionBottomSheetFragment sheet = InputActionBottomSheetFragment.newInput(
             getString(R.string.remote_security_password),
@@ -1204,14 +1204,14 @@ public class RemoteFragment extends BaseFragment {
             public void onInputConfirmed(String password) {
                 if (password == null || password.trim().isEmpty()) {
                     Toast.makeText(requireContext(),
-                            "Password cannot be empty", Toast.LENGTH_SHORT).show();
+                            R.string.remote_toast_password_empty, Toast.LENGTH_SHORT).show();
                     return;
                 }
 
                 String userUuid = cloudAuthManager.getUserId();
                 if (userUuid == null || userUuid.isEmpty()) {
                     Toast.makeText(requireContext(),
-                            "Link your Joy Creator ID account first", Toast.LENGTH_SHORT).show();
+                            R.string.remote_toast_link_account, Toast.LENGTH_SHORT).show();
                     return;
                 }
 
@@ -1226,7 +1226,7 @@ public class RemoteFragment extends BaseFragment {
                             if (getActivity() != null) {
                                 getActivity().runOnUiThread(() ->
                                         Toast.makeText(requireContext(),
-                                                "Set up E2E encryption in the FadCam dashboard first, then re-link this device",
+                                                R.string.remote_toast_e2e_dashboard,
                                                 Toast.LENGTH_LONG).show());
                             }
                             return;
@@ -1239,7 +1239,7 @@ public class RemoteFragment extends BaseFragment {
                             getActivity().runOnUiThread(() -> {
                                 updateE2EStatusLabel();
                                 Toast.makeText(requireContext(),
-                                        "E2E encryption configured", Toast.LENGTH_SHORT).show();
+                                        R.string.remote_toast_e2e_done, Toast.LENGTH_SHORT).show();
                             });
                         }
                     } catch (SecurityException e) {
@@ -1248,7 +1248,7 @@ public class RemoteFragment extends BaseFragment {
                         if (getActivity() != null) {
                             getActivity().runOnUiThread(() ->
                                     Toast.makeText(requireContext(),
-                                            "Incorrect password — please try again",
+                                            R.string.remote_toast_wrong_password,
                                             Toast.LENGTH_LONG).show());
                         }
                     } catch (Exception e) {
@@ -1256,7 +1256,7 @@ public class RemoteFragment extends BaseFragment {
                         if (getActivity() != null) {
                             getActivity().runOnUiThread(() ->
                                     Toast.makeText(requireContext(),
-                                            "Setup failed: " + e.getMessage(),
+                                            getString(R.string.remote_toast_setup_failed, e.getMessage()),
                                             Toast.LENGTH_LONG).show());
                         }
                     }
@@ -1278,11 +1278,11 @@ public class RemoteFragment extends BaseFragment {
         
         // Create timeout options
         ArrayList<OptionItem> options = new ArrayList<>();
-        options.add(new OptionItem("never", "Never", "Keep sessions active indefinitely"));
-        options.add(new OptionItem("30min", "30 Minutes", "Lock after 30 minutes of inactivity"));
-        options.add(new OptionItem("1hr", "1 Hour", "Lock after 1 hour of inactivity"));
-        options.add(new OptionItem("3hr", "3 Hours", "Lock after 3 hours of inactivity"));
-        options.add(new OptionItem("6hr", "6 Hours", "Lock after 6 hours of inactivity"));
+        options.add(new OptionItem("never", getString(R.string.remote_lock_never), getString(R.string.remote_lock_never_desc)));
+        options.add(new OptionItem("30min", getString(R.string.remote_lock_30min), getString(R.string.remote_lock_30min_desc)));
+        options.add(new OptionItem("1hr", getString(R.string.remote_lock_1hr), getString(R.string.remote_lock_1hr_desc)));
+        options.add(new OptionItem("3hr", getString(R.string.remote_lock_3hr), getString(R.string.remote_lock_3hr_desc)));
+        options.add(new OptionItem("6hr", getString(R.string.remote_lock_6hr), getString(R.string.remote_lock_6hr_desc)));
         
         // Get current selection (default to "never")
         String currentTimeout = "never";
@@ -1310,7 +1310,7 @@ public class RemoteFragment extends BaseFragment {
                     int timeoutMinutes = parseTimeoutMinutes(selectedId);
                     authManager.setAutoLockTimeout(timeoutMinutes);
                     
-                    Toast.makeText(requireContext(), "Auto-lock timeout set to: " + displayText, Toast.LENGTH_SHORT).show();
+                    Toast.makeText(requireContext(), getString(R.string.remote_toast_autolock_set, displayText), Toast.LENGTH_SHORT).show();
                 }
             }
         );
@@ -1540,7 +1540,7 @@ public class RemoteFragment extends BaseFragment {
                 showUnlinkConfirmation();
             } else if ("copy_id".equals(selectedId)) {
                 copyToClipboard(cloudAuthManager.getDeviceId());
-                Toast.makeText(requireContext(), "Device ID copied", Toast.LENGTH_SHORT).show();
+                Toast.makeText(requireContext(), R.string.remote_toast_device_id_copied, Toast.LENGTH_SHORT).show();
             }
         });
         

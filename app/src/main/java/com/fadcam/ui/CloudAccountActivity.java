@@ -69,7 +69,7 @@ public class CloudAccountActivity extends AppCompatActivity {
         boolean alreadyLinked = getIntent().getBooleanExtra(EXTRA_ALREADY_LINKED, false);
         
         if (deviceName == null || deviceName.isEmpty()) {
-            deviceName = "FadCam Device";
+            deviceName = "Joy Creator Device";
         }
         
         // Initialize views

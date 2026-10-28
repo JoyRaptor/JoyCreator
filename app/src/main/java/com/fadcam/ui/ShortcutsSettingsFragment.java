@@ -169,9 +169,9 @@ public class ShortcutsSettingsFragment extends Fragment {
             String badgeText = title; // localized label like Start/Stop/Torch
             // Special badge text for photo shortcuts
             if (ShortcutsManager.ID_SHOT.equals(shortcutId)) {
-                badgeText = "FadShot Back";
+                badgeText = "Photo Back";
             } else if (ShortcutsManager.ID_SHOT_FRONT.equals(shortcutId)) {
-                badgeText = "FadShot Front";
+                badgeText = "Photo Front";
             }
             subtitle.setText(badgeText);
             subtitle.setVisibility(View.VISIBLE);

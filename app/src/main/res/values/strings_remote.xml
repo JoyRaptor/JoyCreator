@@ -13,7 +13,7 @@
     <string name="remote_section_on_air">On air</string>
     <string name="remote_section_connection">Connection</string>
     <string name="remote_section_health">Health</string>
-    <string name="remote_section_security">Security</string>
+    <string name="remote_section_security">Encryption</string>
     <string name="remote_section_help">Help</string>
 
     <!-- Quality row, until the live value arrives -->
@@ -33,4 +33,32 @@
     <string name="remote_usage_title_plain">Cloud Usage</string>
     <string name="remote_usage_no_errors">No errors</string>
     <string name="remote_usage_errors_fmt">%1$d/50 errors</string>
+    <!-- Toasts and pickers that were written into RemoteFragment in English -->
+    <string name="remote_toast_auth_error">⚠️ %1$s</string>
+    <string name="remote_toast_stream_starting">Stream server starting...</string>
+    <string name="remote_toast_stream_stopped">Stream server stopped</string>
+    <string name="remote_toast_mode_stream_only">Stream Only mode</string>
+    <string name="remote_toast_mode_stream_save">Stream &amp; Save mode</string>
+    <string name="remote_toast_no_cloud_viewers">No cloud viewers connected</string>
+    <string name="remote_toast_no_clients">No clients connected</string>
+    <string name="remote_toast_password_empty">Password cannot be empty</string>
+    <string name="remote_toast_link_account">Link your Joy Creator ID account first</string>
+    <string name="remote_toast_e2e_dashboard">Set up E2E encryption in the web dashboard first, then re-link this device</string>
+    <string name="remote_toast_e2e_done">E2E encryption configured</string>
+    <string name="remote_toast_wrong_password">Incorrect password — please try again</string>
+    <string name="remote_toast_setup_failed">Setup failed: %1$s</string>
+    <string name="remote_toast_autolock_set">Auto-lock timeout set to: %1$s</string>
+    <string name="remote_toast_device_id_copied">Device ID copied</string>
+    <string name="remote_password_hint">Enter new password</string>
+    <string name="remote_password_helper">Change your authentication password here. Minimum 4 characters. This is basic HTTP authentication - not highly secure but better than none. When you change the password, all other devices will be logged out automatically.</string>
+    <string name="remote_lock_never">Never</string>
+    <string name="remote_lock_never_desc">Keep sessions active indefinitely</string>
+    <string name="remote_lock_30min">30 Minutes</string>
+    <string name="remote_lock_30min_desc">Lock after 30 minutes of inactivity</string>
+    <string name="remote_lock_1hr">1 Hour</string>
+    <string name="remote_lock_1hr_desc">Lock after 1 hour of inactivity</string>
+    <string name="remote_lock_3hr">3 Hours</string>
+    <string name="remote_lock_3hr_desc">Lock after 3 hours of inactivity</string>
+    <string name="remote_lock_6hr">6 Hours</string>
+    <string name="remote_lock_6hr_desc">Lock after 6 hours of inactivity</string>
 </resources>

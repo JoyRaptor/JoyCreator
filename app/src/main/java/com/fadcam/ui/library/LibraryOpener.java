@@ -66,7 +66,10 @@ final class LibraryOpener {
                     return openAvatar(a, it);
                 default:
                     if (it.fileKind == FileKind.FONT || it.fileKind == FileKind.PLUGIN) return false;
-                    if (it.fileKind == FileKind.LOOK && it.folderPath != null) {
+                    FLog.i("LibraryOpener", "open " + it.key + " kind=" + it.kind + " fileKind=" + it.fileKind
+                            + " path=" + it.folderPath);
+                    // VisLab's own looks only: a .grade.json or .caption.json is a LOOK too, and not VisLab's.
+                    if (it.folderPath != null && it.folderPath.toLowerCase(java.util.Locale.ROOT).endsWith(".vis.json")) {
                         a.startActivity(new Intent(a, com.fadcam.vislab.room.VisLabActivity.class)
                                 .putExtra(com.fadcam.vislab.room.VisLabActivity.EXTRA_LOOK_FILE, it.folderPath));
                         return true;

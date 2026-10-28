@@ -139,6 +139,15 @@ public class WaveformOverlayInstance implements LinkFollower {
     @NonNull private final java.util.TreeMap<String, String> visFollowBase = new java.util.TreeMap<>();
 
     @NonNull public java.util.TreeMap<String, String> getVisFollowBase() { return visFollowBase; }
+
+    /**
+     * What a follow copies (R8, as Studio's link chooses Position / Size / Rotation): the letters
+     * of the parts it copies, "p" position, "s" size, "r" rotation, under the same key as
+     * {@link #getVisFollow()}. No entry = all three. Persisted by ProjectStorage.
+     */
+    @NonNull private final java.util.TreeMap<String, String> visFollowParts = new java.util.TreeMap<>();
+
+    @NonNull public java.util.TreeMap<String, String> getVisFollowParts() { return visFollowParts; }
     @NonNull public java.util.Map<String, LinkPose> getVisFollowRefs() { return visFollowRefs; }
 
     /**

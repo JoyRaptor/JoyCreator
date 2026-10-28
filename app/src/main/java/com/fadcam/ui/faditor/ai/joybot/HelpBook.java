@@ -327,6 +327,26 @@ public final class HelpBook {
                             + "keyframe which look shows when. Its Blend tab mixes it with the video (Screen, "
                             + "Difference…), and the preview matches the export.",
                     "studio", null, "visualizer"),
+            new Topic("vislab_follow", "follow a dummy|follow an object|follows an object|logo follow|move the logo"
+                    + "|look layer follow|keep its place|snaps to it|follow my picture|follow a sprite",
+                    "In Studio, hold a visualiser and open its Style tab: under “Layers can follow an object”, pick "
+                            + "a dummy, picture, title or sprite for any part of the look (its logo, rings, sparks…). "
+                            + "Animate the object and that part goes with it. The chip beside it chooses Snaps to it, "
+                            + "or Keeps its place (it stays where the look draws it and moves only as the object moves). "
+                            + "The “copies” row under it picks what goes with it: Position, Size, Rotation.",
+                    "studio", null, "visualizer"),
+            new Topic("vislab_show", "picture in the look|title in the look|sprite in the look|video in the logo"
+                    + "|logo shows|show my picture in|show a studio picture|look shows|put my title in the look",
+                    "A look's picture layer can show something from your project: hold the visualiser, Style tab, "
+                            + "then that layer's “shows” row. Pick a picture, title, sprite, video overlay or the main "
+                            + "video; it plays inside the look with the look's pump, shake, halo and colour effects.",
+                    "studio", null, "visualizer"),
+            new Topic("vislab_video", "video in a look|video inside the look|video in vislab|video clip layer"
+                    + "|use a video|my video in the visual",
+                    "In VisLab tap Edit, then Layers › Add a layer › Video clip, and Use a video to pick one of your "
+                            + "videos: it plays round and round inside the look, at its own speed. Any picture layer "
+                            + "can Use a video too.",
+                    "vislab", null),
             new Topic("vislab_effects", "glitch tear|vhs|scanline|kaleidoscope|crt bend|zoom blur|wet floor"
                     + "|lens split|echo trail|vhs effect|vhs look|retro effect",
                     "Studio has VisLab's finishes as effects for any clip or adjustment layer: Lens split, "

@@ -30,7 +30,26 @@ import java.util.Map;
  */
 public final class VisFollow {
 
+    /** The parts a follow can copy ({@link WaveformOverlayInstance#getVisFollowParts()}). */
+    public static final char POSITION = 'p', SIZE = 's', ROTATION = 'r';
+    public static final String ALL = "psr";
+
     private VisFollow() {}
+
+    /** Does a follow with these {@code parts} (null = all) copy {@code part}? */
+    public static boolean copies(@Nullable String parts, char part) {
+        return parts == null || parts.indexOf(part) >= 0;
+    }
+
+    /** {@code parts} with {@code part} switched; null when that is all three again. */
+    @Nullable
+    public static String toggled(@Nullable String parts, char part) {
+        StringBuilder out = new StringBuilder();
+        for (char c : ALL.toCharArray()) {
+            if (copies(parts, c) != (c == part)) out.append(c);
+        }
+        return out.length() == ALL.length() ? null : out.toString();
+    }
 
     /**
      * @param frameAspect frame width / height (positions are fractions of each)
@@ -60,6 +79,9 @@ public final class VisFollow {
             } catch (NumberFormatException bad) {
                 continue;
             }
+            String parts = o.getVisFollowParts().get(e.getKey());
+            boolean move = copies(parts, POSITION), grow = copies(parts, SIZE), turn = copies(parts, ROTATION);
+            if (!move && !grow && !turn) continue;
             LinkPose p = e.getValue();
             float[] here = inLook(p.animatedCenterX(timelineMs), p.animatedCenterY(timelineMs),
                     aspect, cx, cy, cos, sin, half);
@@ -69,8 +91,8 @@ public final class VisFollow {
             if (base != null) {
                 // Keeps its place: moved by what the object did since its pose was taken.
                 float[] then = inLook(base[0], base[1], aspect, cx, cy, cos, sin, half);
-                out.add(new float[]{layer, here[0] - then[0], here[1] - then[1],
-                        base[2] > 1e-4f ? size / base[2] : 1f, -(rot - base[3]), 1f});
+                out.add(new float[]{layer, move ? here[0] - then[0] : 0f, move ? here[1] - then[1] : 0f,
+                        grow && base[2] > 1e-4f ? size / base[2] : 1f, turn ? -(rot - base[3]) : 0f, 1f});
                 continue;
             }
             float restSize = 1f, restRot = 0f;
@@ -78,9 +100,10 @@ public final class VisFollow {
                 restSize = ((LinkFollower) p).getSizeFraction();
                 restRot = ((LinkFollower) p).getRotationDeg();
             }
-            // The look's Turn counts counter-clockwise (y up); the screen's, clockwise.
-            out.add(new float[]{layer, here[0], here[1],
-                    restSize > 1e-4f ? size / restSize : 1f, -(rot - restRot), 0f});
+            // The look's Turn counts counter-clockwise (y up); the screen's, clockwise. A follow
+            // that does not copy the position stays at the layer's own Place (moved by nothing).
+            out.add(new float[]{layer, move ? here[0] : 0f, move ? here[1] : 0f,
+                    grow && restSize > 1e-4f ? size / restSize : 1f, turn ? -(rot - restRot) : 0f, move ? 0f : 1f});
         }
         if (out.isEmpty()) return null;
         float[] packed = new float[out.size() * 6];

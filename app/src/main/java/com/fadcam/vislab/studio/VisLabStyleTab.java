@@ -306,6 +306,33 @@ public final class VisLabStyleTab {
             hlp.leftMargin = Ui.dp(c, 6);
             row.addView(how, hlp);
             v.addView(row);
+            // What it copies, as Studio's link sheet: Position, Size, Rotation (all by default).
+            LinearLayout copies = new LinearLayout(c);
+            copies.setOrientation(LinearLayout.HORIZONTAL);
+            copies.setGravity(Gravity.CENTER_VERTICAL);
+            copies.setMinimumHeight(Ui.dp(c, 36));
+            copies.setPadding(Ui.dp(c, 12), 0, 0, 0);
+            copies.addView(Ui.text(c, "copies", 11.5f, Studio.INK_DIM, false, 500),
+                    new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+            final char[] parts = {VisFollow.POSITION, VisFollow.SIZE, VisFollow.ROTATION};
+            final String[] partNames = {"Position", "Size", "Rotation"};
+            final TextView[] partChips = new TextView[parts.length];
+            for (int p = 0; p < parts.length; p++) {
+                final char part = parts[p];
+                TextView chip = Ui.text(c, partNames[p], 11.5f, Studio.INK_DIM, false, 600);
+                chip.setGravity(Gravity.CENTER);
+                chip.setMinHeight(Ui.dp(c, 30));
+                chip.setPadding(Ui.dp(c, 10), Ui.dp(c, 6), Ui.dp(c, 10), Ui.dp(c, 6));
+                Ui.label(chip, name + " copies the object's " + partNames[p].toLowerCase(java.util.Locale.ROOT)
+                        + " (tap to switch)");
+                chip.setOnClickListener(x -> toggleFollowPart(key, part));
+                LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                clp.leftMargin = Ui.dp(c, 6);
+                copies.addView(chip, clp);
+                partChips[p] = chip;
+            }
+            v.addView(copies);
             Runnable show = () -> {
                 String id = wf.getVisFollow().get(key);
                 boolean on = id != null;
@@ -314,6 +341,13 @@ public final class VisLabStyleTab {
                 pill.setTextColor(on ? Studio.GROUND : Studio.INK_DIM);
                 how.setVisibility(on ? View.VISIBLE : View.GONE);
                 how.setText(wf.getVisFollowBase().containsKey(key) ? "Keeps its place" : "Snaps to it");
+                copies.setVisibility(on ? View.VISIBLE : View.GONE);
+                String has = wf.getVisFollowParts().get(key);
+                for (int p = 0; p < parts.length; p++) {
+                    boolean copied = VisFollow.copies(has, parts[p]);
+                    partChips[p].setBackground(Ui.round(copied ? Studio.ARMED : Studio.RAISED, Ui.dp(c, 999)));
+                    partChips[p].setTextColor(copied ? Studio.GROUND : Studio.INK_DIM);
+                }
             };
             show.run();
             rowRefresh.add(show);
@@ -410,6 +444,24 @@ public final class VisLabStyleTab {
         commit(keep ? "Keep its place" : "Snap to the object", before);
     }
 
+    /**
+     * Switch whether a follow copies the object's position, size or rotation (one undo step). The
+     * last one stays on: a follow that copies nothing is stopped with "Nothing" instead.
+     */
+    private void toggleFollowPart(@NonNull String key, char part) {
+        if (!wf.getVisFollow().containsKey(key)) return;
+        String parts = VisFollow.toggled(wf.getVisFollowParts().get(key), part);
+        if (parts != null && parts.isEmpty()) {
+            android.widget.Toast.makeText(c, "It copies at least one: pick Nothing to stop following",
+                    android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
+        State before = snap();
+        if (parts == null) wf.getVisFollowParts().remove(key);
+        else wf.getVisFollowParts().put(key, parts);
+        commit(VisFollow.copies(parts, part) ? "Copy it" : "Stop copying it", before);
+    }
+
     private void pickFollow(@NonNull View anchor, @NonNull String key) {
         List<String[]> all = host.followables();
         android.widget.PopupMenu menu = new android.widget.PopupMenu(c, anchor);
@@ -426,6 +478,7 @@ public final class VisLabStyleTab {
                 wf.getVisFollow().remove(key);
                 wf.getVisFollowRefs().remove(key);
                 wf.getVisFollowBase().remove(key);
+                wf.getVisFollowParts().remove(key);
             } else {
                 String id = all.get(at - 1)[0];
                 wf.getVisFollow().put(key, id);
@@ -547,30 +600,34 @@ public final class VisLabStyleTab {
         @NonNull final VisLabKeys keys;
         /**
          * Which look layers follow which object (R8) and from which pose those that keep their
-         * place, and which show a Studio item (R9).
+         * place, what each copies, and which show a Studio item (R9).
          */
-        @NonNull final java.util.TreeMap<String, String> follow, followBase, show;
+        @NonNull final java.util.TreeMap<String, String> follow, followBase, followParts, show;
 
         State(@Nullable String look, @NonNull VisLabKeys keys, @NonNull java.util.TreeMap<String, String> follow,
               @NonNull java.util.TreeMap<String, String> followBase,
+              @NonNull java.util.TreeMap<String, String> followParts,
               @NonNull java.util.TreeMap<String, String> show) {
             this.look = look;
             this.keys = keys;
             this.follow = follow;
             this.followBase = followBase;
+            this.followParts = followParts;
             this.show = show;
         }
 
         boolean same(@NonNull State o) {
             return (look == null ? o.look == null : look.equals(o.look)) && keys.equals(o.keys)
-                    && follow.equals(o.follow) && followBase.equals(o.followBase) && show.equals(o.show);
+                    && follow.equals(o.follow) && followBase.equals(o.followBase)
+                    && followParts.equals(o.followParts) && show.equals(o.show);
         }
     }
 
     @NonNull
     private State snap() {
         return new State(wf.getVisLook(), wf.getVisKeys().copy(), new java.util.TreeMap<>(wf.getVisFollow()),
-                new java.util.TreeMap<>(wf.getVisFollowBase()), new java.util.TreeMap<>(wf.getVisShow()));
+                new java.util.TreeMap<>(wf.getVisFollowBase()), new java.util.TreeMap<>(wf.getVisFollowParts()),
+                new java.util.TreeMap<>(wf.getVisShow()));
     }
 
     private void restore(@NonNull State s) {
@@ -580,6 +637,8 @@ public final class VisLabStyleTab {
         wf.getVisFollow().putAll(s.follow);
         wf.getVisFollowBase().clear();
         wf.getVisFollowBase().putAll(s.followBase);
+        wf.getVisFollowParts().clear();
+        wf.getVisFollowParts().putAll(s.followParts);
         wf.getVisFollowRefs().clear();
         for (Map.Entry<String, String> e : s.follow.entrySet()) {
             com.fadcam.ui.faditor.model.LinkPose p = host.followable(e.getValue());

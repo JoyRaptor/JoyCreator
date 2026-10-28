@@ -75,6 +75,27 @@ public class VisFollowTest {
         f = VisFollow.at(k90, 0, ASPECT);
         check("keeps its place in a box turned 90: a move right is the look's up: " + str(f),
                 f != null && near(f[1], 0) && near(f[2], 1));
+        // What it copies (as Studio's link: Position / Size / Rotation).
+        k.getVisFollowParts().put(key, "p");
+        f = VisFollow.at(k, 0, ASPECT);
+        check("keeps its place, position only: moves, does not grow or turn: " + str(f),
+                f != null && near(f[1], 1) && near(f[2], 1) && near(f[3], 1) && near(f[4], 0) && f[5] == 1f);
+        k.getVisFollowParts().put(key, "sr");
+        f = VisFollow.at(k, 0, ASPECT);
+        check("keeps its place, size and rotation only: stays put, grows and turns: " + str(f),
+                f != null && near(f[1], 0) && near(f[2], 0) && near(f[3], 2) && near(f[4], -30));
+        k.getVisFollowParts().put(key, "");
+        check("copies nothing = no follow", VisFollow.at(k, 0, ASPECT) == null);
+        k.getVisFollowParts().remove(key);
+        WaveformOverlayInstance s = viz(0);
+        s.getVisFollowParts().put(WaveformOverlayInstance.visFollowKey("aurora-parts", 0), "r");
+        f = follow(s, at(0.5f + 0.125f / ASPECT, 0.5f, 2f, 30f), 0);
+        check("snaps, rotation only: stays at its own Place ('by' nothing), size x1, turns: " + str(f),
+                f != null && near(f[1], 0) && near(f[2], 0) && f[5] == 1f && near(f[3], 1) && near(f[4], -30));
+        check("toggling: all minus size = pr; back = all (null)",
+                "pr".equals(VisFollow.toggled(null, VisFollow.SIZE))
+                        && VisFollow.toggled("pr", VisFollow.SIZE) == null
+                        && "".equals(VisFollow.toggled("p", VisFollow.POSITION)));
         k.getVisFollowBase().put(key, "not,a,pose");
         f = VisFollow.at(k, 0, ASPECT);
         check("a broken pose falls back to snapping: " + str(f), f != null && f[5] == 0f);

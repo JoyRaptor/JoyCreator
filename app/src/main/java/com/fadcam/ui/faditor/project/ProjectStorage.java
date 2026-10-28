@@ -2695,6 +2695,14 @@ public class ProjectStorage {
                         }
                         wj.add("visFollowBase", vb);
                     }
+                    // What each follow copies, when not all of it (R8).
+                    if (!wo.getVisFollowParts().isEmpty()) {
+                        JsonObject vp = new JsonObject();
+                        for (java.util.Map.Entry<String, String> e : wo.getVisFollowParts().entrySet()) {
+                            vp.addProperty(e.getKey(), e.getValue());
+                        }
+                        wj.add("visFollowParts", vp);
+                    }
                     // Look picture layers showing a Studio picture or title (R9); absent = none.
                     if (!wo.getVisShow().isEmpty()) {
                         JsonObject vs = new JsonObject();
@@ -3701,6 +3709,14 @@ public class ProjectStorage {
                                     : wj.getAsJsonObject("visFollowBase").entrySet()) {
                                 if (e.getValue().isJsonPrimitive()) {
                                     wo.getVisFollowBase().put(e.getKey(), e.getValue().getAsString());
+                                }
+                            }
+                        }
+                        if (wj.has("visFollowParts") && wj.get("visFollowParts").isJsonObject()) {
+                            for (java.util.Map.Entry<String, JsonElement> e
+                                    : wj.getAsJsonObject("visFollowParts").entrySet()) {
+                                if (e.getValue().isJsonPrimitive()) {
+                                    wo.getVisFollowParts().put(e.getKey(), e.getValue().getAsString());
                                 }
                             }
                         }

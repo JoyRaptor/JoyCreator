@@ -591,6 +591,22 @@
             };
             r.appendChild(pick); lp.appendChild(r);
           }
+          if (L.type === 'video') {
+            const r = document.createElement('div'); r.className = 'row'; r.innerHTML = '<label>Video</label>';
+            const pick = document.createElement('button'); pick.className = 'pill'; pick.textContent = 'Use a video';
+            pick.title = 'Pick a video from this device; it plays round and round inside the look, without its sound';
+            pick.onclick = () => {
+              const fi = document.createElement('input'); fi.type = 'file'; fi.accept = 'video/*';
+              fi.onchange = () => {
+                const v = document.createElement('video');
+                v.muted = true; v.loop = true; v.playsInline = true;
+                v.onloadeddata = () => { L.image = v; v.play().catch(() => {}); };
+                v.src = URL.createObjectURL(fi.files[0]);
+              };
+              fi.click();
+            };
+            r.appendChild(pick); lp.appendChild(r);
+          }
           // This layer's colours: the look's, or a palette of its own (brand lock still wins).
           const cs = document.createElement('div'); cs.className = 'sec'; cs.textContent = 'Colours of this layer'; lp.appendChild(cs);
           const lpals = document.createElement('div'); lpals.className = 'pals';

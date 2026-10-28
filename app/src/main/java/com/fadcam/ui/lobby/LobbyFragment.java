@@ -1198,15 +1198,21 @@ public class LobbyFragment extends BaseFragment {
      *   <li>Joy Brush: a new drawing.</li>
      *   <li>Capture: the camera.</li>
      *   <li>Studio: the Library on its Projects view, with the new-project sheet already open.</li>
-     *   <li>Sprite Lab, Avatar, Viz Lab: the Library on its Projects view, WITHOUT the sheet. A
+     *   <li>Viz Lab: the room on a new, empty look (VisLab needs no project).</li>
+     *   <li>Sprite Lab, Avatar: the Library on its Projects view, WITHOUT the sheet. A
      *       sheet or character is made inside a project, so the list of projects is the honest
-     *       first step; none of these rooms has a "new" of its own yet.</li>
+     *       first step; neither room has a "new" of its own yet.</li>
      * </ul>
      */
     private void startNewInRoom() {
         Room r = room();
         if (r.id == ROOM_JOYBRUSH) { openDrawing(null); return; }
         if (r.id == ROOM_CAPTURE) { routeTab(TAB_CAPTURE); return; }
+        if (r.id == ROOM_VIZ) {
+            startActivity(new Intent(requireContext(), com.fadcam.vislab.room.VisLabActivity.class)
+                    .putExtra(com.fadcam.vislab.room.VisLabActivity.EXTRA_NEW_LOOK, true));
+            return;
+        }
         openProjects(r.id == ROOM_STUDIO);
     }
 

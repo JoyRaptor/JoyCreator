@@ -56,6 +56,8 @@ import java.util.List;
 public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host, VisLabSession.Listener {
 
     public static final String EXTRA_LOOK = "vislab_look";
+    /** Open on a new, empty look with its layers open: the lobby's "New" in the Viz Lab room. */
+    public static final String EXTRA_NEW_LOOK = "vislab_new_look";
     private static final String DEMO = "vislab/demo/vislab_demo.m4a";
     private static final int SRC_DEMO = 0, SRC_MIC = 1, SRC_SONG = 2;
     /** Loudness (Features.level, 0..1) above which a frame counts as sound; silence reads 0. */
@@ -139,6 +141,15 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
         }
         session.bind(this);
         useSource(SRC_DEMO, null);
+        if (state == null && getIntent().getBooleanExtra(EXTRA_NEW_LOOK, false)) view.post(this::startNewLook);
+    }
+
+    /** A look built from nothing, as the strip's "+ New" card makes it. */
+    private void startNewLook() {
+        session.newLook("New look", null);
+        panel.showLayers();
+        if (!drawerOpen) setDrawer(true);
+        else panel.rebuild();
     }
 
     // ------------------------------------------------------------------ UI
@@ -291,12 +302,7 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
                 android.graphics.drawable.GradientDrawable.Orientation.BOTTOM_TOP, new int[]{0xBF000000, 0x00000000}));
         strip.setLooks(session.looks());
         strip.setOnPick(this::setLook);
-        strip.setOnNew(() -> {
-            session.newLook("New look", null);
-            panel.showLayers();
-            if (!drawerOpen) setDrawer(true);
-            else panel.rebuild();
-        });
+        strip.setOnNew(this::startNewLook);
         root.addView(strip, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM));
 
         panel = new KnobPanel(this, VisLab.get(this).types(), this);

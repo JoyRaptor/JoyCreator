@@ -3771,6 +3771,9 @@ public class ExportManager {
         // Pre-load waveform style presets
         List<WaveformStyle> builtinStyles = WaveformStyleIO.loadBuiltins(context);
 
+        // The sheets and rigs a VisLab look draws when a picture layer shows a sprite (R9).
+        com.fadcam.vislab.studio.StudioArt.set(project.getSpriteSheets(), project.getAvatarRigs());
+
         // Build per-clip composite overlays
         List<CompositeExportOverlay.WaveformSlot> waveformSlots =
                 buildWaveformSlots(timeline, waveformCache, builtinStyles, outW, outH);
@@ -6895,6 +6898,24 @@ public class ExportManager {
                 Integer ia = overlayZById.get(ida), ib = overlayZById.get(idb);
                 return Integer.compare(ia == null ? 0 : ia, ib == null ? 0 : ib);
             });
+            // R15: EVERY VISUALIZER UNDER THE PICTURES, SPRITES, TEXT AND CAPTIONS. That is where
+            // the preview stacks them (its visualizer view sits under the picture, sprite, text
+            // and caption views; a blended one is composited before the GPU pictures) and where
+            // the timeline puts their rows (below every other lane). They rode the final pass
+            // before, over the pictures, so a picture covering a look in the editor was covered by
+            // the look in the video. Above the PiPs and the adjustment layers, as in the preview.
+            addVisualizerBlendEffects(videoEffects, clipBlendSlots, clip, project,
+                    timelineCursorMs, overlayW, overlayH, overlayOffsetMs, isLoopBeforeItem);
+            if (!clipWaveformSlots.isEmpty()) {
+                CompositeExportOverlay vizPass = new CompositeExportOverlay(
+                        context, timelineCursorMs, clip, overlayW, overlayH,
+                        Collections.emptyList(), clipWaveformSlots, Collections.emptyList(),
+                        Collections.emptyList(), project.getSpriteSheets(), project.getAvatarRigs(),
+                        project.getTimeline().getTotalDurationMs(), overlayOffsetMs,
+                        isLoopBeforeItem ? 0L : headTransitionMsFor(project.getTimeline(), clip));
+                vizPass.setCaptionsViaGl(true);   // captions belong to the final pass
+                videoEffects.add(new OverlayEffect(Collections.singletonList(vizPass)));
+            }
             if (GL_IMAGE_PASS) {
                 // LAYER ORDER IS PAINT ORDER. Every image composites on the GPU now, so the
                 // chain alternates by lane z: a run of images -> one GlImageOverlayEffect, a run
@@ -6903,7 +6924,7 @@ public class ExportManager {
                 // to a pass under ALL images - with images in every lane, full-frame background
                 // pictures then covered nearly every text box (JoyRaptor, 2026-09-23 export:
                 // "all the text layers are not rendering"). The last Canvas run is left for the
-                // final pass below, which also carries captions and waveforms.
+                // final pass below, which also carries captions (visualizers: their own pass, above).
                 final java.util.Map<String, Integer> zRun = overlayZById;
                 java.util.List<Object> runItems = new ArrayList<>();
                 for (TextOverlayItem o : exportTextOverlays) {
@@ -7149,7 +7170,6 @@ public class ExportManager {
             boolean hasOverlays = !exportTextOverlays.isEmpty()
                     || !exportSpriteItems.isEmpty()
                     || hasAnyVisibleCaptionBinding(clip)
-                    || !clipWaveformSlots.isEmpty()
                     || clipHasWaveformRef
                     || audioCaptionOverlaps;
             if (hasOverlays) {
@@ -7157,7 +7177,7 @@ public class ExportManager {
                         context, timelineCursorMs, clip,
                         overlayW, overlayH,
                         exportTextOverlays,
-                        clipWaveformSlots,
+                        Collections.emptyList(),   // the visualizers have their own pass (R15)
                         project.getTimeline().getAudioClips(),
                         exportSpriteItems,
                         project.getSpriteSheets(),
@@ -7172,23 +7192,14 @@ public class ExportManager {
                 // captions were all it had to draw.
                 boolean captionsOnGl = GL_CAPTION_PASS && overlay.hasCaptions();
                 if (captionsOnGl) overlay.setCaptionsViaGl(true);
-                boolean canvasWork = !exportSpriteItems.isEmpty() || !clipWaveformSlots.isEmpty()
-                        || clipHasWaveformRef;
+                boolean canvasWork = !exportSpriteItems.isEmpty() || clipHasWaveformRef;
                 for (TextOverlayItem to : exportTextOverlays) {
                     if (!exportGlRouted(to)) { canvasWork = true; break; }
                 }
                 if (!captionsOnGl || canvasWork) {
                     videoEffects.add(new OverlayEffect(Collections.singletonList(overlay)));
                 }
-                // Blended visualizers go ABOVE the plain pass, where a plain visualizer draws (over
-                // text and sprites), and BELOW the GL captions, which the preview keeps on top too.
-                addVisualizerBlendEffects(videoEffects, clipBlendSlots, clip, project,
-                        timelineCursorMs, overlayW, overlayH, overlayOffsetMs, isLoopBeforeItem);
                 if (captionsOnGl) videoEffects.add(new GlCaptionEffect(overlay));
-            } else {
-                // Nothing for the plain pass to draw: a blended visualizer is all this clip has.
-                addVisualizerBlendEffects(videoEffects, clipBlendSlots, clip, project,
-                        timelineCursorMs, overlayW, overlayH, overlayOffsetMs, isLoopBeforeItem);
             }
         } else if (!isTransitionItem) {
             FLog.w(TAG, "assembleClipVideoEffects: cannot infer overlay dimensions for clip "

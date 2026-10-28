@@ -838,6 +838,22 @@ public final class FxLivePreviewController {
         java.util.Set<String> glViz = new java.util.HashSet<>();
         int vizPips = 0;
         for (com.fadcam.ui.faditor.model.TextOverlayItem o : glImages) glImageIds.add(o.getId());
+        // R11/R15: BLENDED VISUALIZERS, each carrying its blend mode, under the GL pictures and
+        // sprites walked next and over the PiPs and adjustment layers walked above: where the
+        // export blends them (ExportManager.addVisualizerBlendEffects runs before its picture
+        // passes). Every view stacked over this surface (plain visualizers, pictures, sprites,
+        // text, captions) stays above them, as in the export.
+        // Walked from their own list: a visualizer has its own rows, not a lane of getLayers().
+        for (com.fadcam.ui.faditor.model.WaveformOverlayInstance wf : timeline.getWaveformOverlays()) {
+            if (!com.fadcam.ui.faditor.waveform.WaveformOverlayView.wantsGlBlend(wf)
+                    || playheadMs < wf.getStartMs() || playheadMs > wf.getEndMs()) continue;
+            glViz.add(wf.getId());   // owned even before its first frame: never painted twice
+            FxPreviewTextureView.Pip p = host.visualizerPipFor(wf, size[0], size[1], playheadMs);
+            if (p != null) {
+                rungs.add(FxPreviewTextureView.Rung.pip(p));
+                vizPips++;
+            }
+        }
         for (LayerPreviewController.VisualItem v
                 : LayerPreviewController.orderedVisualItems(timeline)) {
             com.fadcam.ui.faditor.model.TextOverlayItem o = v.item.getTextOverlay();
@@ -865,21 +881,6 @@ public final class FxLivePreviewController {
             if (p == null) continue;   // not rasterised yet: absent until ready, as an image is
             rungs.add(FxPreviewTextureView.Rung.pip(p));
             glSprites.add(sp.getId());
-        }
-        // R11: BLENDED VISUALIZERS, each carrying its blend mode, on top of everything above:
-        // where the export blends them (ExportManager.addVisualizerBlendEffects, above the
-        // adjustment layers, the GL images and the plain overlay pass, below the captions).
-        // Walked from their own list: a visualizer has its own rows, not a lane of getLayers(),
-        // so the lane walk above never meets one.
-        for (com.fadcam.ui.faditor.model.WaveformOverlayInstance wf : timeline.getWaveformOverlays()) {
-            if (!com.fadcam.ui.faditor.waveform.WaveformOverlayView.wantsGlBlend(wf)
-                    || playheadMs < wf.getStartMs() || playheadMs > wf.getEndMs()) continue;
-            glViz.add(wf.getId());   // owned even before its first frame: never painted twice
-            FxPreviewTextureView.Pip p = host.visualizerPipFor(wf, size[0], size[1], playheadMs);
-            if (p != null) {
-                rungs.add(FxPreviewTextureView.Rung.pip(p));
-                vizPips++;
-            }
         }
         host.onGlOwnedSprites(glSprites);
         host.onGlOwnedVisualizers(glViz);

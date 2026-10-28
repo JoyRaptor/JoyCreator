@@ -51,6 +51,24 @@ public final class VisRenderer {
     public interface ImageSource {
         /** @param ref the layer's {@code image} value, or null for the default logo */
         @Nullable Bitmap bitmap(@Nullable String ref);
+
+        /**
+         * True when {@code ref} is a MOVING picture (a video, R12; a Studio sprite or clip, R9):
+         * then {@link #frame} is asked on every frame the clock moves, instead of {@link #bitmap}
+         * once.
+         */
+        default boolean moves(@Nullable String ref) {
+            return false;
+        }
+
+        /**
+         * A moving picture's frame at {@code seconds} of the look's clock (GL thread), BORROWED
+         * until the next call, or null to keep showing the last one.
+         */
+        @Nullable
+        default Bitmap frame(@NonNull String ref, double seconds) {
+            return null;
+        }
     }
 
     /** Supplies sprite sheets for Sprite layers, drawn into a GPU-ready grid. Called on the GL thread. */
@@ -130,6 +148,8 @@ public final class VisRenderer {
     private final IdentityHashMap<Object, String> brokenLayers = new IdentityHashMap<>();
     private final IdentityHashMap<Object, int[]> imageTex = new IdentityHashMap<>();   // {tex, w, h}
     private final IdentityHashMap<Object, Object> imageRef = new IdentityHashMap<>();
+    /** The clock time each moving picture's texture was last filled at (R12), per layer. */
+    private final IdentityHashMap<Object, Double> movingAt = new IdentityHashMap<>();
     private final Signals signals = new Signals();
     private double time;
     private long lastTick = Long.MIN_VALUE;
@@ -462,6 +482,7 @@ public final class VisRenderer {
         living.clear();
         imageTex.clear();
         imageRef.clear();
+        movingAt.clear();
         sprites.contextLost();
         main = half = echoA = echoB = null;
         bloom.free();
@@ -482,6 +503,7 @@ public final class VisRenderer {
         for (int[] t : imageTex.values()) GLES30.glDeleteTextures(1, new int[]{t[0]}, 0);
         imageTex.clear();
         imageRef.clear();
+        movingAt.clear();
         sprites.free();
         brokenLayers.clear();
         echoFresh = true;
@@ -681,6 +703,7 @@ public final class VisRenderer {
                     if (alive.contains(en.getKey())) continue;
                     GLES30.glDeleteTextures(1, new int[]{en.getValue()[0]}, 0);
                     imageRef.remove(en.getKey());
+                    movingAt.remove(en.getKey());
                     ii.remove();
                 }
                 sprites.prune(alive);
@@ -914,6 +937,8 @@ public final class VisRenderer {
     private int[] imageTexture(@NonNull CompiledScene.Layer L) {
         int[] t = imageTex.get(L.source);
         String want = imageRefOf(L);
+        ImageSource moving = images;
+        if (want != null && moving != null && moving.moves(want)) return movingTexture(L, want, moving, t);
         Object ref = want == null ? "" : want;
         if (t != null && ref.equals(imageRef.get(L.source))) return t;
         if (t != null) GLES30.glDeleteTextures(1, new int[]{t[0]}, 0);
@@ -941,6 +966,54 @@ public final class VisRenderer {
         t = new int[]{ids[0], bw, bh};
         imageTex.put(L.source, t);
         imageRef.put(L.source, ref);
+        movingAt.remove(L.source);
+        return t;
+    }
+
+    /**
+     * A moving picture's texture (R12; R9's Studio sprites and clips): made once per layer and
+     * reference, its pixels replaced whenever the clock has moved since the last fill. No
+     * mipmaps, which would be rebuilt every frame.
+     */
+    @NonNull
+    private int[] movingTexture(@NonNull CompiledScene.Layer L, @NonNull String want,
+                                @NonNull ImageSource src, @Nullable int[] t) {
+        boolean fresh = t == null || !want.equals(imageRef.get(L.source));
+        Double at = movingAt.get(L.source);
+        if (!fresh && at != null && at == time) return t;
+        // The Video element's own speed (1 for a picture layer showing a video).
+        Bitmap bmp = src.frame(want, time * Math.max(0f, L.knobs.value(L.type, "speed", 1f)));
+        boolean have = bmp != null && !bmp.isRecycled();
+        if (!fresh && !have) return t;
+        if (fresh) {
+            if (t != null) GLES30.glDeleteTextures(1, new int[]{t[0]}, 0);
+            int[] ids = new int[1];
+            GLES30.glGenTextures(1, ids, 0);
+            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, ids[0]);
+            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_LINEAR);
+            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_LINEAR);
+            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE);
+            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_T, GLES30.GL_CLAMP_TO_EDGE);
+            if (!have) {
+                // Nothing yet: clear until the first frame arrives.
+                ByteBuffer clear = ByteBuffer.allocateDirect(4).order(ByteOrder.nativeOrder());
+                GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D, 0, GLES30.GL_RGBA8, 1, 1, 0, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, clear);
+            }
+            t = new int[]{ids[0], 1, 1};
+            imageTex.put(L.source, t);
+            imageRef.put(L.source, want);
+        }
+        if (have) {
+            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, t[0]);
+            if (!fresh && bmp.getWidth() == t[1] && bmp.getHeight() == t[2]) {
+                GLUtils.texSubImage2D(GLES30.GL_TEXTURE_2D, 0, 0, 0, bmp);
+            } else {
+                GLUtils.texImage2D(GLES30.GL_TEXTURE_2D, 0, bmp, 0);
+            }
+            t[1] = bmp.getWidth();
+            t[2] = bmp.getHeight();
+            movingAt.put(L.source, time);
+        }
         return t;
     }
 

@@ -14756,6 +14756,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         .visibleWaveformOverlays(project.getTimeline()); // §4.5 per-object eye
         waveformOverlayView.setOverlays(overlays);
         waveformOverlayView.setData(waveformDataBySource);
+        // The sheets and rigs a look's picture layer draws when it shows a sprite or avatar (R9).
+        com.fadcam.vislab.studio.StudioArt.set(project.getSpriteSheets(), project.getAvatarRigs());
         waveformOverlayView.setPlayheadMs(editorTimeline.getPlayheadPositionMs());
         // NO TOUCH LISTENER (G5b). WaveformOverlayView no longer takes touches: a visualiser is
         // selected, moved, resized and turned on the shared transform box
@@ -20619,6 +20621,32 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     @Nullable @Override public com.fadcam.ui.faditor.model.LinkPose followable(
                             @NonNull String id) {
                         return project == null ? null : project.getTimeline().linkPoseById(id);
+                    }
+                    // R9: what a look's picture layer can show, named as the follow list names them.
+                    @NonNull @Override public java.util.List<String[]> showables() {
+                        java.util.List<String[]> out = new java.util.ArrayList<>();
+                        if (project == null) return out;
+                        com.fadcam.ui.faditor.model.Timeline tl = project.getTimeline();
+                        int pics = 0;
+                        for (com.fadcam.ui.faditor.model.TextOverlayItem t : tl.getTextOverlays()) {
+                            if (t.isProxy()) continue;
+                            out.add(new String[]{t.getId(), t.isImage() ? "Picture " + (++pics)
+                                    : "Text: " + t.getText()});
+                        }
+                        int sprites = 0;
+                        for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s : tl.getSpriteOverlays()) {
+                            out.add(new String[]{s.getId(), "Sprite " + (++sprites)});
+                        }
+                        int videos = 0;
+                        for (Clip c : tl.getOverlayClips()) {
+                            if (!c.isImageClip()) out.add(new String[]{c.getId(), "Video " + (++videos)});
+                        }
+                        out.add(new String[]{com.fadcam.ui.faditor.model.WaveformOverlayInstance.SHOW_MAIN_VIDEO,
+                                "The main video"});
+                        return out;
+                    }
+                    @Nullable @Override public Object showable(@NonNull String id) {
+                        return project == null ? null : project.getTimeline().showableById(id);
                     }
                     @Override public boolean hasTranscriptWords() {
                         com.fadcam.ui.faditor.transcript.Transcript t =

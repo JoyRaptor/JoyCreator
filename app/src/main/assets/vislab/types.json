@@ -286,6 +286,25 @@
         {"id": "coreGlow", "label": "Core glow", "slot": "3z", "min": 0, "max": 2, "def": 0.6}
       ]
     },
+    "clouds": {
+      "label": "Nebula clouds", "family": "worlds", "draw": "fullscreen", "frag": "nebula.frag", "res": 0.5,
+      "about": "The Nebula's gas, dust lanes and glowing core without its stars, so a Stars layer can twinkle on its own.",
+      "params": [
+        {"id": "speed", "label": "Drift", "slot": "0x", "rate": true, "min": 0, "max": 3, "def": 0.6},
+        {"id": "scale", "label": "Scale", "slot": "0y", "min": 0.2, "max": 4, "def": 1.1},
+        {"id": "brightness", "label": "Brightness", "slot": "0z", "min": 0, "max": 4, "def": 1},
+        {"id": "palShift", "label": "Colour shift", "slot": "0w", "min": 0, "max": 1, "def": 0},
+        {"id": "density", "label": "Density", "slot": "1x", "min": 0.5, "max": 2, "def": 1.1},
+        {"id": "contrast", "label": "Contrast", "slot": "1y", "min": 0.5, "max": 3, "def": 1.4},
+        {"id": "swell", "label": "Bass swell", "slot": "2x", "min": 0, "max": 2, "def": 0.6, "music": true},
+        {"id": "warp", "label": "Swirl", "slot": "2y", "min": 0, "max": 2, "def": 1},
+        {"id": "hueSpin", "label": "Colour cycle", "slot": "2z", "rate": true, "min": -0.2, "max": 0.2, "def": 0},
+        {"id": "dust", "label": "Dust lanes", "slot": "2w", "min": 0, "max": 1, "def": 0.5},
+        {"id": "coreX", "label": "Core across", "slot": "3x", "min": -1.6, "max": 1.6, "def": 0},
+        {"id": "coreY", "label": "Core up", "slot": "3y", "min": -1, "max": 1, "def": 0},
+        {"id": "coreGlow", "label": "Core glow", "slot": "3z", "min": 0, "max": 2, "def": 0.6}
+      ]
+    },
     "aurora": {
       "label": "Aurora", "family": "worlds", "draw": "fullscreen", "frag": "aurora.frag", "res": 0.5,
       "about": "Northern lights over a sound-shaped ridge. Calm; lovely under a voice.",
@@ -379,6 +398,54 @@
         {"id": "hueSpin", "label": "Colour cycle", "slot": "2z", "rate": true, "min": -0.2, "max": 0.2, "def": 0},
         {"id": "sky", "label": "Sky", "slot": "2w", "min": 0, "max": 1, "def": 1},
         {"id": "curve", "label": "Road curve", "slot": "3x", "min": 0, "max": 1, "def": 0}
+      ]
+    },
+    "neongrid": {
+      "label": "Neon grid", "family": "worlds", "draw": "fullscreen", "frag": "neongrid.frag",
+      "about": "Outrun's neon floor on its own: a grid racing toward you, flashing on the kick, with nothing above the horizon.",
+      "params": [
+        {"id": "speed", "label": "Speed", "slot": "0x", "rate": true, "min": 0, "max": 3, "def": 0.8},
+        {"id": "horizon", "label": "Horizon", "slot": "0y", "min": -0.6, "max": 0.4, "def": -0.1},
+        {"id": "brightness", "label": "Brightness", "slot": "0z", "min": 0, "max": 4, "def": 1},
+        {"id": "palShift", "label": "Colour shift", "slot": "0w", "min": 0, "max": 1, "def": 0},
+        {"id": "dense", "label": "Grid", "slot": "1x", "min": 0.5, "max": 8, "def": 3},
+        {"id": "lineGlow", "label": "Line glow", "slot": "1y", "min": 0, "max": 2, "def": 0.6},
+        {"id": "flash", "label": "Kick flash", "slot": "1z", "min": 0, "max": 2, "def": 0.6, "music": true},
+        {"id": "hueSpin", "label": "Colour cycle", "slot": "1w", "rate": true, "min": -0.2, "max": 0.2, "def": 0},
+        {"id": "curve", "label": "Road curve", "slot": "2x", "min": 0, "max": 1, "def": 0},
+        {"id": "fill", "label": "Floor fill", "slot": "2y", "min": 0, "max": 1, "def": 1},
+        {"id": "haze", "label": "Horizon haze", "slot": "2z", "min": 0, "max": 2, "def": 1}
+      ]
+    },
+    "retrosun": {
+      "label": "Retro sun", "family": "worlds", "draw": "fullscreen", "frag": "retrosun.frag",
+      "about": "Outrun's striped sun on its own, setting behind the horizon, swelling on the bass; Sky adds the gradient above it.",
+      "params": [
+        {"id": "sunSize", "label": "Sun", "slot": "0x", "min": 0.05, "max": 0.8, "def": 0.38},
+        {"id": "sunY", "label": "Sun height", "slot": "0y", "min": -0.5, "max": 1, "def": 0.18},
+        {"id": "brightness", "label": "Brightness", "slot": "0z", "min": 0, "max": 4, "def": 1},
+        {"id": "palShift", "label": "Colour shift", "slot": "0w", "min": 0, "max": 1, "def": 0},
+        {"id": "horizon", "label": "Horizon", "slot": "1x", "min": -0.6, "max": 0.4, "def": -0.1},
+        {"id": "stripes", "label": "Stripes", "slot": "1y", "min": 0, "max": 16, "def": 9},
+        {"id": "scroll", "label": "Stripe scroll", "slot": "1z", "rate": true, "min": -3, "max": 3, "def": 1},
+        {"id": "glow", "label": "Glow", "slot": "1w", "min": 0, "max": 2, "def": 1, "music": true},
+        {"id": "hueSpin", "label": "Colour cycle", "slot": "2x", "rate": true, "min": -0.2, "max": 0.2, "def": 0},
+        {"id": "sky", "label": "Sky", "slot": "2y", "min": 0, "max": 1, "def": 0},
+        {"id": "sunX", "label": "Sun across", "slot": "2z", "min": -1.6, "max": 1.6, "def": 0}
+      ]
+    },
+    "neonridge": {
+      "label": "Neon ridge", "family": "worlds", "draw": "fullscreen", "frag": "neonridge.frag",
+      "about": "Outrun's sound mountains on their own: the spectrum as a dark ridgeline with a neon edge, low in the middle for a sun.",
+      "params": [
+        {"id": "height", "label": "Height", "slot": "0x", "min": 0, "max": 1.5, "def": 0.7, "music": true},
+        {"id": "horizon", "label": "Horizon", "slot": "0y", "min": -0.6, "max": 0.4, "def": -0.1},
+        {"id": "brightness", "label": "Brightness", "slot": "0z", "min": 0, "max": 4, "def": 1},
+        {"id": "palShift", "label": "Colour shift", "slot": "0w", "min": 0, "max": 1, "def": 0},
+        {"id": "lineGlow", "label": "Edge glow", "slot": "1x", "min": 0, "max": 2, "def": 0.6},
+        {"id": "hueSpin", "label": "Colour cycle", "slot": "1y", "rate": true, "min": -0.2, "max": 0.2, "def": 0},
+        {"id": "valley", "label": "Valley", "slot": "1z", "min": 0, "max": 1, "def": 1},
+        {"id": "rough", "label": "Rough", "slot": "1w", "min": 0, "max": 1, "def": 0.4}
       ]
     },
     "mesh": {
@@ -608,6 +675,25 @@
         {"id": "halo", "label": "Halo", "slot": "1z", "min": 0, "max": 2, "def": 0.6},
         {"id": "spin", "label": "Spin", "slot": "1w", "rate": true, "min": -0.5, "max": 0.5, "def": 0},
         {"id": "split", "label": "RGB split", "slot": "2x", "min": 0, "max": 2, "def": 0.5, "music": true},
+        {"id": "tint", "label": "Palette tint", "slot": "2y", "min": 0, "max": 1, "def": 0},
+        {"id": "circle", "label": "Round crop", "slot": "2z", "toggle": true, "def": 0},
+        {"id": "palShift", "label": "Halo colour", "slot": "2w", "min": 0, "max": 1, "def": 0}
+      ]
+    },
+    "video": {
+      "label": "Video clip", "family": "media", "draw": "image", "frag": "image.frag",
+      "about": "One of your videos playing inside the look, round and round, with the picture's pump, shake, halo and colour split.",
+      "params": [
+        {"id": "speed", "label": "Video speed", "slot": "3x", "min": 0, "max": 4, "def": 1},
+        {"id": "x", "label": "Across", "slot": "0x", "min": -1.6, "max": 1.6, "def": 0},
+        {"id": "y", "label": "Up", "slot": "0y", "min": -1, "max": 1, "def": 0},
+        {"id": "size", "label": "Size", "slot": "0z", "min": 0.05, "max": 1, "def": 0.6},
+        {"id": "brightness", "label": "Brightness", "slot": "0w", "min": 0, "max": 2, "def": 1},
+        {"id": "pump", "label": "Bass pump", "slot": "1x", "min": 0, "max": 2, "def": 0.3, "music": true},
+        {"id": "shake", "label": "Kick shake", "slot": "1y", "min": 0, "max": 2, "def": 0.2, "music": true},
+        {"id": "halo", "label": "Halo", "slot": "1z", "min": 0, "max": 2, "def": 0},
+        {"id": "spin", "label": "Spin", "slot": "1w", "rate": true, "min": -0.5, "max": 0.5, "def": 0},
+        {"id": "split", "label": "RGB split", "slot": "2x", "min": 0, "max": 2, "def": 0.2, "music": true},
         {"id": "tint", "label": "Palette tint", "slot": "2y", "min": 0, "max": 1, "def": 0},
         {"id": "circle", "label": "Round crop", "slot": "2z", "toggle": true, "def": 0},
         {"id": "palShift", "label": "Halo colour", "slot": "2w", "min": 0, "max": 1, "def": 0}

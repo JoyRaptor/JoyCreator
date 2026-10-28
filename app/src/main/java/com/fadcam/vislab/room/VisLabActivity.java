@@ -93,6 +93,10 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
     private ActivityResultLauncher<String> askMic;
     private ActivityResultLauncher<String[]> pickSong;
     private ActivityResultLauncher<String[]> pickPicture;
+    /** Studio's art and the look's glow behind the picture while the editor is open. */
+    private RoomBackdrop backdrop;
+    /** Pictures and videos for picture layers; its video decoders are let go with the room. */
+    @Nullable private Pictures pictures;
     @Nullable private com.google.gson.JsonObject pictureFor;
 
     @Override
@@ -152,9 +156,15 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
         });
         demoWords = WordFeed.withDemo(this);
         view.renderer().setWords(demoWords);
-        view.renderer().setImageSource(new Pictures(this));
+        pictures = new Pictures(this);
+        view.renderer().setImageSource(pictures);
         view.renderer().setSpriteSource(new Sprites(this));
         stage.addView(view, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        // Behind the picture: Studio's filmstrip art and the look's own glow, seen when the
+        // editor shrinks the picture (owner, 10-27).
+        backdrop = new RoomBackdrop(this);
+        backdrop.setGlowSource(view);
+        root.addView(backdrop, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         root.addView(stage, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         GestureDetector swipe = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
             @Override
@@ -348,6 +358,7 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
         strip.animate().alpha(open ? 0f : 1f).setDuration(160).start();
         sources.animate().alpha(open ? 0f : 1f).setDuration(160).start();
         sources.setEnabled(!open);
+        backdrop.setGlowing(open);
         fitStage(open);
     }
 
@@ -375,7 +386,10 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
             float s = fs + (ts - fs) * k;
             stage.setScaleX(s);
             stage.setScaleY(s);
-            stage.setTranslationY(ft + (tt - ft) * k);
+            float y = ft + (tt - ft) * k;
+            stage.setTranslationY(y);
+            float half = stage.getWidth() / 2f;
+            backdrop.setPicture(half - half * s, y, half + half * s, y + stage.getHeight() * s);
         });
         a.start();
     }
@@ -554,6 +568,12 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
     }
 
     @Override
+    public void pickVideo(@NonNull com.google.gson.JsonObject layer) {
+        pictureFor = layer;   // a video is kept in the layer's picture, as a picture is (R12)
+        pickPicture.launch(new String[]{"video/*"});
+    }
+
+    @Override
     public void pickSheet(@NonNull com.google.gson.JsonObject layer) {
         // Reading every project's sheets is slow: off the main thread, then the chooser.
         new Thread(() -> {
@@ -665,6 +685,9 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
 
     @Override
     protected void onDestroy() {
+        // Its video decoders (R12) go with the room. Pictures is locked, so this cannot cut
+        // into a frame the GL thread is still reading.
+        if (pictures != null) pictures.release();
         session.bind(null);
         if (source != null) source.stop();
         source = null;

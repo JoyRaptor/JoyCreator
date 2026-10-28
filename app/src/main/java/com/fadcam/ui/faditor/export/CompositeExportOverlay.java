@@ -941,9 +941,121 @@ public class CompositeExportOverlay extends BitmapOverlay {
             canvas.scale(frameW / (float) outW, frameH / (float) outH);
         }
 
-        // S6 sprites — drawn FIRST so they sit above the video but BELOW text +
-        // captions, matching the preview stack (SpriteOverlayView sits under
-        // TextOverlayLayer) and the plan's draw-order rule. Same evaluation as
+        // Waveform visualizers — drawn FIRST, under sprites, pictures, text and captions (R15).
+        // That is where the preview stacks them (WaveformOverlayView sits under the image,
+        // sprite, text and caption layers) and where the timeline puts their rows (below every
+        // other lane). They used to be drawn last here, over the captions too, so a picture
+        // that covered a look in the editor was covered by the look in the video.
+        int drawnWaveform = 0;
+        // Wrap the (non-essential) waveform drawing so a throwing renderer can't
+        // abort the export. Restore the canvas save-count on failure.
+        int waveformSaveCount = canvas.getSaveCount();
+        try {
+        for (WaveformSlot ws : waveformSlots) {
+            // Only within its own start and end, as the preview draws it (WaveformOverlayView):
+            // a slot is bound to a whole clip, so a visualizer trimmed to part of it drew across
+            // all of it in the video.
+            if (timelineMs < ws.instance.getStartMs() || timelineMs > ws.instance.getEndMs()) continue;
+            // Source time for the audio data is ALWAYS the mapped timeline time
+            // (accounting for clip trim/speed/loop). The previous code used the
+            // raw timelineMs when horizontalMirror was true, which made the
+            // visualizer read the wrong audio bucket (audio is indexed by
+            // source time, not timeline time). horizontalMirror is a VISUAL
+            // toggle that the WaveformStyleRenderer applies to the drawing; it
+            // must not change the audio-data lookup.
+            long wsMs = ws.instance.mapToSourceMs(timelineMs);
+            // LINKED to a parent (SPEC_20260924_LINKING): placed per frame from the WORLD pose,
+            // the same getters WaveformOverlayView draws with. Unlinked, the slot's statics.
+            int sw = ws.slotW, sh = ws.slotH, px = ws.posX, py = ws.posY;
+            float rot = ws.instance.getRotationDeg();
+            float linkAlpha = 1f;
+            if (ws.instance.isLinked() || ws.instance.isArmed()) {
+                sw = Math.max(1, Math.round(ws.outW * ws.instance.animatedWidthFraction(timelineMs)));
+                sh = Math.max(1, Math.round(ws.outH * ws.instance.animatedHeightFraction(timelineMs)));
+                px = Math.round(ws.outW * ws.instance.animatedCenterX(timelineMs) - sw / 2f);
+                py = Math.round(ws.outH * ws.instance.animatedCenterY(timelineMs) - sh / 2f);
+                rot = ws.instance.animatedRotation(timelineMs);
+                linkAlpha = Math.max(0f, Math.min(1f, ws.instance.animatedOpacity(timelineMs)));
+                if (linkAlpha <= 0.004f) continue;   // parent faded out: nothing to draw
+            }
+            Bitmap wfBmp = null;
+            float visFade = 1f;
+            String visId = ws.visLooks != null ? ws.instance.visLookAt(timelineMs) : null;
+            String visJson = visId != null ? ws.visLooks.get(visId) : null;
+            if (visJson != null) {
+                // A VisLab look: the renderer the preview used (StudioVis, its own GL thread),
+                // at this frame, with the item's keyframable Reactivity and Fade. Null (no ES 3,
+                // a broken look) = the classic style below, at its own strength.
+                wfBmp = com.fadcam.vislab.studio.StudioVis.get(context).renderBlocking(
+                        com.fadcam.vislab.studio.StudioVis.exportKey(ws.instance.getId()),
+                        visJson, ws.visUri, wsMs, timelineMs, sw, sh,
+                        com.fadcam.vislab.studio.VisControls.at(ws.instance, timelineMs,
+                                (float) outW / Math.max(1, outH)), ws.visWords);
+                if (wfBmp != null) visFade = ws.instance.visFadeAt(timelineMs);
+            }
+            if (wfBmp == null && ws.data.bucketCount() > 0) wfBmp = waveRenderer.render(ws.data, ws.style,
+                    sw, sh, wsMs, ws.density,
+                    ws.instance.getJustify(), ws.instance.getDataMode(),
+                    ws.instance.isHorizontalMirror(),
+                    ws.instance.getCenterMode(), ws.instance.getRenderMode(),
+                    ws.instance.getRadialRingSize(),
+                    ws.instance.getFrequencyRangeLowHz(),
+                    ws.instance.getFrequencyRangeHighHz(),
+                    ws.instance.getBandCountOverride());
+            if (wfBmp == null || wfBmp.isRecycled()) {
+                if (!loggedNullWaveformWarning) {
+                    FLog.w(TAG, "WaveformStyleRenderer returned null/recycled bitmap; "
+                            + "waveform overlay skipped (this warning is logged once)");
+                    loggedNullWaveformWarning = true;
+                }
+                continue;
+            }
+            // G5(b) piggyback-looks: an attached rider fades WITH its host clip's
+            // opacity envelope (clip-local time, same convention as
+            // OpacityExportShaderProgram). Detached / hostless slots draw at full.
+            Paint wfPaint = null;
+            // FADE_KNOBS §2.5: the visualizer's own fade knobs multiply in too — the
+            // piggyback envelope and the instance's fades COMPOSE (both are multipliers).
+            float ownFade = ws.instance.fadeFactorAt(timelineMs) * linkAlpha * visFade;
+            if (ownFade <= 0.004f) {
+                wfBmp.recycle();
+                continue; // fully faded by its own knobs — nothing to draw
+            }
+            if (ws.hostClip != null) {
+                float hostOpacity = Math.max(0f, Math.min(1f,
+                        ws.hostClip.opacityAtClipMs(timelineMs - ws.hostStartMs))) * ownFade;
+                if (hostOpacity <= 0.004f) {
+                    wfBmp.recycle();
+                    continue; // host fully faded — rider vanishes with it
+                }
+                if (hostOpacity < 0.999f) {
+                    hostOpacityPaint.setAlpha(Math.round(hostOpacity * 255f));
+                    wfPaint = hostOpacityPaint;
+                }
+            } else if (ownFade < 0.999f) {
+                hostOpacityPaint.setAlpha(Math.round(ownFade * 255f));
+                wfPaint = hostOpacityPaint;
+            }
+            drawnWaveform++;
+            canvas.save();
+            canvas.rotate(rot, px + sw / 2f, py + sh / 2f);
+            canvas.drawBitmap(wfBmp, px, py, wfPaint);
+            canvas.restore();
+            wfBmp.recycle();
+        }
+        } catch (Throwable t) {
+            canvas.restoreToCount(waveformSaveCount);
+            if (!loggedWaveformDrawError) {
+                FLog.w(TAG, "Waveform draw threw; waveforms skipped for this frame "
+                        + "(this warning is logged once)", t);
+                loggedWaveformDrawError = true;
+            }
+        }
+        if (drawnWaveform > 0) framesWithWaveform++;
+
+        // S6 sprites — drawn right after the visualizers, so they sit above the video and
+        // the visualizers but BELOW text + captions, matching the preview stack
+        // (SpriteOverlayView sits under TextOverlayLayer) and the plan's draw-order rule. Same evaluation as
         // the preview by construction: SpriteFrameResolver for the cell,
         // animated* keyframe reads for the transform — divergence impossible.
         int drawnSprite = 0;
@@ -1095,109 +1207,6 @@ public class CompositeExportOverlay extends BitmapOverlay {
         }
         if (drewCaption) framesWithCaption++;
 
-        // Waveform visualizers
-        int drawnWaveform = 0;
-        // Wrap the (non-essential) waveform drawing so a throwing renderer can't
-        // abort the export. Restore the canvas save-count on failure.
-        int waveformSaveCount = canvas.getSaveCount();
-        try {
-        for (WaveformSlot ws : waveformSlots) {
-            // Source time for the audio data is ALWAYS the mapped timeline time
-            // (accounting for clip trim/speed/loop). The previous code used the
-            // raw timelineMs when horizontalMirror was true, which made the
-            // visualizer read the wrong audio bucket (audio is indexed by
-            // source time, not timeline time). horizontalMirror is a VISUAL
-            // toggle that the WaveformStyleRenderer applies to the drawing; it
-            // must not change the audio-data lookup.
-            long wsMs = ws.instance.mapToSourceMs(timelineMs);
-            // LINKED to a parent (SPEC_20260924_LINKING): placed per frame from the WORLD pose,
-            // the same getters WaveformOverlayView draws with. Unlinked, the slot's statics.
-            int sw = ws.slotW, sh = ws.slotH, px = ws.posX, py = ws.posY;
-            float rot = ws.instance.getRotationDeg();
-            float linkAlpha = 1f;
-            if (ws.instance.isLinked() || ws.instance.isArmed()) {
-                sw = Math.max(1, Math.round(ws.outW * ws.instance.animatedWidthFraction(timelineMs)));
-                sh = Math.max(1, Math.round(ws.outH * ws.instance.animatedHeightFraction(timelineMs)));
-                px = Math.round(ws.outW * ws.instance.animatedCenterX(timelineMs) - sw / 2f);
-                py = Math.round(ws.outH * ws.instance.animatedCenterY(timelineMs) - sh / 2f);
-                rot = ws.instance.animatedRotation(timelineMs);
-                linkAlpha = Math.max(0f, Math.min(1f, ws.instance.animatedOpacity(timelineMs)));
-                if (linkAlpha <= 0.004f) continue;   // parent faded out: nothing to draw
-            }
-            Bitmap wfBmp = null;
-            float visFade = 1f;
-            String visId = ws.visLooks != null ? ws.instance.visLookAt(timelineMs) : null;
-            String visJson = visId != null ? ws.visLooks.get(visId) : null;
-            if (visJson != null) {
-                // A VisLab look: the renderer the preview used (StudioVis, its own GL thread),
-                // at this frame, with the item's keyframable Reactivity and Fade. Null (no ES 3,
-                // a broken look) = the classic style below, at its own strength.
-                wfBmp = com.fadcam.vislab.studio.StudioVis.get(context).renderBlocking(
-                        com.fadcam.vislab.studio.StudioVis.exportKey(ws.instance.getId()),
-                        visJson, ws.visUri, wsMs, timelineMs, sw, sh,
-                        com.fadcam.vislab.studio.VisControls.at(ws.instance, timelineMs,
-                                (float) outW / Math.max(1, outH)), ws.visWords);
-                if (wfBmp != null) visFade = ws.instance.visFadeAt(timelineMs);
-            }
-            if (wfBmp == null && ws.data.bucketCount() > 0) wfBmp = waveRenderer.render(ws.data, ws.style,
-                    sw, sh, wsMs, ws.density,
-                    ws.instance.getJustify(), ws.instance.getDataMode(),
-                    ws.instance.isHorizontalMirror(),
-                    ws.instance.getCenterMode(), ws.instance.getRenderMode(),
-                    ws.instance.getRadialRingSize(),
-                    ws.instance.getFrequencyRangeLowHz(),
-                    ws.instance.getFrequencyRangeHighHz(),
-                    ws.instance.getBandCountOverride());
-            if (wfBmp == null || wfBmp.isRecycled()) {
-                if (!loggedNullWaveformWarning) {
-                    FLog.w(TAG, "WaveformStyleRenderer returned null/recycled bitmap; "
-                            + "waveform overlay skipped (this warning is logged once)");
-                    loggedNullWaveformWarning = true;
-                }
-                continue;
-            }
-            // G5(b) piggyback-looks: an attached rider fades WITH its host clip's
-            // opacity envelope (clip-local time, same convention as
-            // OpacityExportShaderProgram). Detached / hostless slots draw at full.
-            Paint wfPaint = null;
-            // FADE_KNOBS §2.5: the visualizer's own fade knobs multiply in too — the
-            // piggyback envelope and the instance's fades COMPOSE (both are multipliers).
-            float ownFade = ws.instance.fadeFactorAt(timelineMs) * linkAlpha * visFade;
-            if (ownFade <= 0.004f) {
-                wfBmp.recycle();
-                continue; // fully faded by its own knobs — nothing to draw
-            }
-            if (ws.hostClip != null) {
-                float hostOpacity = Math.max(0f, Math.min(1f,
-                        ws.hostClip.opacityAtClipMs(timelineMs - ws.hostStartMs))) * ownFade;
-                if (hostOpacity <= 0.004f) {
-                    wfBmp.recycle();
-                    continue; // host fully faded — rider vanishes with it
-                }
-                if (hostOpacity < 0.999f) {
-                    hostOpacityPaint.setAlpha(Math.round(hostOpacity * 255f));
-                    wfPaint = hostOpacityPaint;
-                }
-            } else if (ownFade < 0.999f) {
-                hostOpacityPaint.setAlpha(Math.round(ownFade * 255f));
-                wfPaint = hostOpacityPaint;
-            }
-            drawnWaveform++;
-            canvas.save();
-            canvas.rotate(rot, px + sw / 2f, py + sh / 2f);
-            canvas.drawBitmap(wfBmp, px, py, wfPaint);
-            canvas.restore();
-            wfBmp.recycle();
-        }
-        } catch (Throwable t) {
-            canvas.restoreToCount(waveformSaveCount);
-            if (!loggedWaveformDrawError) {
-                FLog.w(TAG, "Waveform draw threw; waveforms skipped for this frame "
-                        + "(this warning is logged once)", t);
-                loggedWaveformDrawError = true;
-            }
-        }
-        if (drawnWaveform > 0) framesWithWaveform++;
 
         canvas.restore(); // end the outW/outH -> frame coordinate scale
 

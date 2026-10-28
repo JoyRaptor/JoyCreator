@@ -73,6 +73,17 @@ public final class VisLabStyleTab {
         /** The object with this id, to follow, or null when it is gone. */
         @Nullable
         default com.fadcam.ui.faditor.model.LinkPose followable(@NonNull String id) { return null; }
+
+        /**
+         * What a look's picture layer can show (R9): pictures, titles, sprites, videos and the
+         * main video, each {id, name}.
+         */
+        @NonNull
+        default List<String[]> showables() { return new ArrayList<>(); }
+
+        /** The item a picture layer shows by this id (as {@code Timeline.showableById}), or null. */
+        @Nullable
+        default Object showable(@NonNull String id) { return null; }
     }
 
     private static final long ON_KEY_MS = 66;   // as Studio's own keyed rows
@@ -311,14 +322,14 @@ public final class VisLabStyleTab {
         pill.setGravity(Gravity.CENTER);
         pill.setMinHeight(Ui.dp(c, 30));
         pill.setPadding(Ui.dp(c, 12), Ui.dp(c, 6), Ui.dp(c, 12), Ui.dp(c, 6));
-        Ui.label(pill, "Choose a Studio picture or title for " + layerName + " to show, with all its effects");
+        Ui.label(pill, "Choose a Studio picture, title, sprite or video for " + layerName + " to show, with all its effects");
         pill.setOnClickListener(x -> pickShow(pill, key));
         row.addView(pill);
         v.addView(row);
         Runnable show = () -> {
             String id = wf.getVisShow().get(key);
             boolean on = id != null;
-            pill.setText(on ? nameOf(id) : "Its own picture");
+            pill.setText(on ? nameOfShown(id) : "Its own picture");
             pill.setBackground(Ui.round(on ? Studio.ARMED : Studio.RAISED, Ui.dp(c, 999)));
             pill.setTextColor(on ? Studio.GROUND : Studio.INK_DIM);
         };
@@ -327,19 +338,12 @@ public final class VisLabStyleTab {
     }
 
     private void pickShow(@NonNull View anchor, @NonNull String key) {
-        List<String[]> items = new ArrayList<>();
-        for (String[] f : host.followables()) {
-            com.fadcam.ui.faditor.model.LinkPose p = host.followable(f[0]);
-            if (p instanceof com.fadcam.ui.faditor.model.TextOverlayItem
-                    && !((com.fadcam.ui.faditor.model.TextOverlayItem) p).isProxy()) {
-                items.add(f);
-            }
-        }
+        List<String[]> items = host.showables();
         android.widget.PopupMenu menu = new android.widget.PopupMenu(c, anchor);
         menu.getMenu().add(0, 0, 0, "Its own picture");
         for (int i = 0; i < items.size(); i++) menu.getMenu().add(0, i + 1, i + 1, items.get(i)[1]);
         if (items.isEmpty()) {
-            menu.getMenu().add(0, -1, 1, "No pictures or titles yet").setEnabled(false);
+            menu.getMenu().add(0, -1, 1, "No pictures, titles, sprites or videos yet").setEnabled(false);
         }
         menu.setOnMenuItemClickListener(item -> {
             int at = item.getItemId();
@@ -351,13 +355,20 @@ public final class VisLabStyleTab {
             } else {
                 String id = items.get(at - 1)[0];
                 wf.getVisShow().put(key, id);
-                com.fadcam.ui.faditor.model.LinkPose p = host.followable(id);
-                if (p instanceof com.fadcam.ui.faditor.model.TextOverlayItem) wf.getVisShowRefs().put(key, p);
+                Object shown = host.showable(id);
+                if (shown != null) wf.getVisShowRefs().put(key, shown);
             }
-            commit(at == 0 ? "Show its own picture" : "Show a Studio picture", before);
+            commit(at == 0 ? "Show its own picture" : "Show a Studio item", before);
             return true;
         });
         menu.show();
+    }
+
+    /** A shown item's name in the "shows" pill (R9). */
+    @NonNull
+    private String nameOfShown(@NonNull String id) {
+        for (String[] f : host.showables()) if (f[0].equals(id)) return f[1];
+        return "Gone";
     }
 
     @NonNull
@@ -532,8 +543,8 @@ public final class VisLabStyleTab {
         wf.getVisShow().putAll(s.show);
         wf.getVisShowRefs().clear();
         for (Map.Entry<String, String> e : s.show.entrySet()) {
-            com.fadcam.ui.faditor.model.LinkPose p = host.followable(e.getValue());
-            if (p instanceof com.fadcam.ui.faditor.model.TextOverlayItem) wf.getVisShowRefs().put(e.getKey(), p);
+            Object shown = host.showable(e.getValue());
+            if (shown != null) wf.getVisShowRefs().put(e.getKey(), shown);
         }
         host.changed();
         refresh();

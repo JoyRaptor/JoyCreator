@@ -84,25 +84,6 @@ public class RemoteStreamManager {
     private long alarmDurationMs = -1; // Duration in milliseconds (-1 = infinite)
     private long alarmStartTime = 0; // When alarm started ringing
     
-    // Cloud status push (pushes status to relay every 2 seconds when cloud streaming is enabled)
-    private Handler cloudStatusHandler;
-    private Runnable cloudStatusRunnable;
-    private static final long CLOUD_STATUS_INTERVAL_MS = 2000; // Push status every 2 seconds
-    private static final long CLOUD_COMMAND_POLL_INTERVAL_MS = 1500; // Poll commands every 1.5 seconds
-    private boolean cloudStatusPushEnabled = false;
-    
-    // Cloud viewer tracking (fetched from relay by CloudStatusManager)
-    // This tracks viewers who connect via cloud relay, not directly to phone
-    // PRIVACY: We only track count and aggregate bytes, never individual IPs
-    private int cloudViewerCount = 0;
-    private long cloudViewerCountUpdatedAt = 0; // Timestamp of last update
-    private long cloudBytesServed = 0; // Cumulative bytes served by relay since its persisted counter began
-    private boolean cloudViewerTelemetryAvailable = false;
-
-    // Tracks the timestamp of the last successfully uploaded segment to the cloud relay.
-    // Used by the dashboard to detect when the relay stream has gone stale/dead.
-    private volatile long lastRelayUploadMs = 0;
-    
     /**
      * Streaming mode options.
      */
@@ -166,8 +147,7 @@ public class RemoteStreamManager {
     
     /**
      * Enable or disable streaming.
-     * Note: Cloud status push is now handled by CloudStatusManager, which is started
-     * by RemoteStreamService when server starts. This method only manages video streaming state.
+     * This method only manages video streaming state.
      */
     public void setStreamingEnabled(boolean enabled) {
         bufferLock.writeLock().lock();
@@ -425,14 +405,6 @@ public class RemoteStreamManager {
             
             if (initData != null) {
                 // FLog.i(TAG, "📋 Initialization segment STORED (" + (initData.length / 1024) + " KB) - Stream ready for fresh fragments");
-                
-                // Upload to cloud relay if enabled
-                if (context != null) {
-                    CloudStreamUploader uploader = CloudStreamUploader.getInstance(context);
-                    if (uploader.isEnabled() && uploader.isReady()) {
-                        uploader.uploadInitSegment(initData, null);
-                    }
-                }
             } else {
                 FLog.w(TAG, "⚠️ Initialization segment is NULL");
             }
@@ -500,35 +472,6 @@ public class RemoteStreamManager {
             // FLog.i(TAG, "🎬 Fragment #" + sequenceNumber + " buffered (" + 
             //     (fragmentData.length / 1024) + " KB) [" + getBufferedCount() + "/" + BUFFER_SIZE + " slots] oldest=" + oldestSequence + ", head=" + bufferHead);
             
-            // Upload to cloud relay if enabled
-            // CRITICAL FIX: Upload playlist ONLY AFTER segment upload succeeds
-            // This prevents race condition where viewer gets playlist before segment is available
-            if (context != null) {
-                CloudStreamUploader uploader = CloudStreamUploader.getInstance(context);
-                if (uploader.isEnabled() && uploader.isReady()) {
-                    // Capture playlist now (while we have the lock) but upload after segment succeeds
-                    final String playlist = generateCloudPlaylist();
-                    
-                    // Upload segment with callback - playlist uploaded only after segment succeeds
-                    uploader.uploadSegment(sequenceNumber, fragmentData, new CloudStreamUploader.UploadCallback() {
-                        @Override
-                        public void onSuccess() {
-                            // Segment uploaded successfully - update relay freshness timestamp
-                            lastRelayUploadMs = System.currentTimeMillis();
-                            // NOW upload the playlist
-                            if (playlist != null) {
-                                uploader.uploadPlaylist(playlist, null);
-                            }
-                        }
-                        
-                        @Override
-                        public void onError(String error) {
-                            // Segment failed - don't update playlist (viewers won't see missing segment)
-                            FLog.w(TAG, "⚠️ Segment " + sequenceNumber + " upload failed, skipping playlist update: " + error);
-                        }
-                    });
-                }
-            }
             
         } finally {
             bufferLock.writeLock().unlock();
@@ -667,65 +610,6 @@ public class RemoteStreamManager {
         }
     }
     
-    /**
-     * Generate HLS playlist for cloud streaming.
-     * Similar to LiveM3U8Server but with relative URLs for cloud relay.
-     * 
-     * @return M3U8 playlist string, or null if not enough fragments buffered
-     */
-    @Nullable
-    private String generateCloudPlaylist() {
-        bufferLock.readLock().lock();
-        try {
-            // Get buffered fragments
-            List<FragmentData> fragments = new ArrayList<>();
-            int validRangeStart = Math.max(1, fragmentSequence - BUFFER_SIZE + 1);
-            
-            for (FragmentData fragment : fragmentBuffer) {
-                if (fragment != null && fragment.sequenceNumber >= validRangeStart && fragment.sequenceNumber <= fragmentSequence) {
-                    fragments.add(fragment);
-                }
-            }
-            
-            // Need at least 2 fragments for HLS
-            if (fragments.size() < 2 || initializationSegment == null) {
-                return null;
-            }
-            
-            // Sort by sequence number
-            fragments.sort((a, b) -> Integer.compare(a.sequenceNumber, b.sequenceNumber));
-            
-            // Get live edge (last 8 fragments for sliding window)
-            // Apple HLS spec requires minimum 6 segments, we use 8 for more buffer room
-            int LIVE_WINDOW_SIZE = 8;
-            List<FragmentData> liveEdge = new ArrayList<>();
-            int startIdx = Math.max(0, fragments.size() - LIVE_WINDOW_SIZE);
-            for (int i = startIdx; i < fragments.size(); i++) {
-                liveEdge.add(fragments.get(i));
-            }
-            
-            // Build M3U8 playlist
-            StringBuilder m3u8 = new StringBuilder();
-            m3u8.append("#EXTM3U\n");
-            m3u8.append("#EXT-X-VERSION:7\n"); // fMP4 requires version 7
-            m3u8.append("#EXT-X-INDEPENDENT-SEGMENTS\n");
-            m3u8.append("#EXT-X-TARGETDURATION:").append(getTargetDurationSeconds(liveEdge)).append("\n");
-            m3u8.append("#EXT-X-MEDIA-SEQUENCE:").append(liveEdge.get(0).sequenceNumber).append("\n");
-            
-            // Init segment - relative path for cloud (same directory)
-            m3u8.append("#EXT-X-MAP:URI=\"init.mp4\"\n");
-            
-            // Add fragments - use relative paths (seg-N.m4s, not /seg-N.m4s)
-            for (FragmentData fragment : liveEdge) {
-                m3u8.append("#EXTINF:").append(String.format(java.util.Locale.US, "%.3f", fragment.getDurationSeconds())).append(",\n");
-                m3u8.append("seg-").append(fragment.sequenceNumber).append(".m4s\n");
-            }
-            
-            return m3u8.toString();
-        } finally {
-            bufferLock.readLock().unlock();
-        }
-    }
 
     public static int getTargetDurationSeconds(@NonNull List<FragmentData> fragments) {
         double maxDurationSeconds = 0;
@@ -813,24 +697,14 @@ public class RemoteStreamManager {
             long uptimeSeconds = getServerUptimeMs() / 1000;
             
             // Get client metrics as JSON array
-            // In cloud mode, show empty clients array (privacy: per-viewer details not available)
-            // Dashboard uses cloudViewers count and dataTransferredMb for aggregate stats
             StringBuilder clientsJson = new StringBuilder("[");
-            boolean isCloudMode = context != null && 
-                CloudStreamUploader.getInstance(context) != null &&
-                CloudStreamUploader.getInstance(context).isEnabled();
-            
-            if (!isCloudMode) {
-                // Local mode: Show local clients with full metrics
-                List<ClientMetrics> clients = getAllClientMetrics();
-                for (int i = 0; i < clients.size(); i++) {
-                    clientsJson.append(clients.get(i).toJson());
-                    if (i < clients.size() - 1) {
-                        clientsJson.append(", ");
-                    }
+            List<ClientMetrics> clients = getAllClientMetrics();
+            for (int i = 0; i < clients.size(); i++) {
+                clientsJson.append(clients.get(i).toJson());
+                if (i < clients.size() - 1) {
+                    clientsJson.append(", ");
                 }
             }
-            // Cloud mode: clients array is empty - use cloudViewers and totalDataTransferredMb instead
             clientsJson.append("]");
             
             // Get all system health metrics
@@ -929,7 +803,6 @@ public class RemoteStreamManager {
                 "\"lastUpdated\": %d, \"serverVersion\": %s, " +
                 "\"isRecording\": %s, \"isPaused\": %s, \"fragmentsBuffered\": %d, \"bufferSizeMb\": %.2f, " +
                 "\"latestSequence\": %d, \"oldestSequence\": %d, \"activeConnections\": %d, " +
-                "\"cloudViewers\": %d, \"cloudViewerTelemetryAvailable\": %s, " +
                 "\"hasInitSegment\": %s, \"uptimeSeconds\": %d, " +
                 "\"batteryDetails\": %s, " +
                 "\"uptimeDetails\": %s, " +
@@ -948,8 +821,7 @@ public class RemoteStreamManager {
                 "\"events\": %s, " +
                 "\"clients\": %s, " +
                 "\"memoryUsage\": %s, \"storage\": %s, " +
-                "\"totalDataTransferredMb\": %d, " +
-                "\"lastRelayUploadMs\": %d}",
+                "\"totalDataTransferredMb\": %d}",
                 streamingEnabled,
                 com.fadcam.streaming.util.JsonEscaper.escapeToJsonString(streamingMode.toString().toLowerCase()),
                 com.fadcam.streaming.util.JsonEscaper.escapeToJsonString(state),
@@ -962,9 +834,7 @@ public class RemoteStreamManager {
                 totalBytes / (1024.0 * 1024.0),
                 fragmentSequence,
                 oldestSequence,
-                isCloudMode ? cloudViewerCount : getAllClientMetrics().size(), // activeConnections: cloud viewers or local clients
-                cloudViewerCount,
-                cloudViewerTelemetryAvailable,
+                clients.size(), // activeConnections
                 hasInit,
                 uptimeSeconds,
                 batteryDetailsJson,
@@ -1003,8 +873,7 @@ public class RemoteStreamManager {
                 clientsJson.toString(),
                 com.fadcam.streaming.util.JsonEscaper.escapeToJsonString(memoryUsage),
                 com.fadcam.streaming.util.JsonEscaper.escapeToJsonString(storageInfo),
-                totalDataMB,
-                lastRelayUploadMs
+                totalDataMB
             );
             
             // ULTRA-CRITICAL DIAGNOSTIC: Check String.format output immediately
@@ -1206,16 +1075,6 @@ public class RemoteStreamManager {
             return;
         }
         
-        // In cloud mode, don't track localhost connections (internal dashboard requests)
-        // Real viewers connect via relay, not directly to phone
-        boolean isCloudMode = context != null && 
-            CloudStreamUploader.getInstance(context) != null &&
-            CloudStreamUploader.getInstance(context).isEnabled();
-        
-        if (isCloudMode && (clientIP.equals("127.0.0.1") || clientIP.equals("localhost") || clientIP.startsWith("::1"))) {
-            return; // Skip internal requests in cloud mode
-        }
-        
         synchronized (clientMetricsMap) {
             boolean isNewClient = !clientMetricsMap.containsKey(clientIP);
             if (isNewClient) {
@@ -1227,7 +1086,7 @@ public class RemoteStreamManager {
     
     /**
      * Clear localhost entries from client metrics.
-     * Call this when switching to cloud mode to remove internal request tracking.
+     * Removes internal (loopback) request tracking.
      */
     public void clearLocalhostClients() {
         synchronized (clientMetricsMap) {
@@ -1300,25 +1159,9 @@ public class RemoteStreamManager {
     
     /**
      * Get list of connected client identifiers.
-     * In local mode: returns IP addresses of directly connected clients.
-     * In cloud mode: returns empty list (use getCloudViewerCount() instead).
-     * 
-     * Note: For cloud mode, per-client details are not available due to 
-     * zero-log privacy policy. Use getCloudViewerCount() and getTotalDataTransferred()
-     * for aggregate stats only.
+     * Returns IP addresses of directly connected clients.
      */
     public List<String> getConnectedClients() {
-        boolean isCloudMode = context != null && 
-            CloudStreamUploader.getInstance(context) != null &&
-            CloudStreamUploader.getInstance(context).isEnabled();
-        
-        if (isCloudMode) {
-            // Cloud mode: return empty - per-client details not available
-            // Use getCloudViewerCount() for aggregate count
-            return new ArrayList<>();
-        }
-        
-        // Local mode: Return actual client IPs
         synchronized (clientMetricsMap) {
             return new ArrayList<>(clientMetricsMap.keySet());
         }
@@ -1334,18 +1177,8 @@ public class RemoteStreamManager {
     
     /**
      * Get all client metrics.
-     * In cloud mode, returns empty list (per-client metrics not available).
      */
     public List<ClientMetrics> getAllClientMetrics() {
-        boolean isCloudMode = context != null && 
-            CloudStreamUploader.getInstance(context) != null &&
-            CloudStreamUploader.getInstance(context).isEnabled();
-        
-        if (isCloudMode) {
-            // Cloud mode: no per-client metrics available (privacy)
-            return new ArrayList<>();
-        }
-        
         synchronized (clientMetricsMap) {
             return new ArrayList<>(clientMetricsMap.values());
         }
@@ -1362,75 +1195,11 @@ public class RemoteStreamManager {
     
     /**
      * Get number of unique connected clients.
-     * In cloud mode, returns 0 (use getCloudViewerCount() for cloud viewers).
      */
     public int getActiveConnections() {
-        boolean isCloudMode = context != null && 
-            CloudStreamUploader.getInstance(context) != null &&
-            CloudStreamUploader.getInstance(context).isEnabled();
-        
-        if (isCloudMode) {
-            // Cloud mode: local connections don't count as "active"
-            // All real viewers connect via relay
-            return 0;
-        }
-        
         synchronized (clientMetricsMap) {
             return clientMetricsMap.size();
         }
-    }
-    
-    /**
-     * Set cloud viewer count (fetched from relay server by CloudStatusManager).
-     * Cloud viewers connect to the relay, not directly to the phone.
-     * @param count Number of unique cloud viewers
-     */
-    public void setCloudViewerCount(int count) {
-        setCloudViewerCount(count, 0);
-    }
-    
-    /**
-     * Set cloud viewer count and cumulative bytes served (fetched from relay server by CloudStatusManager).
-     * Cloud viewers connect to the relay, not directly to the phone.
-     * PRIVACY: bytesServed is aggregate cumulative egress, not per-viewer.
-     * @param count Number of unique cloud viewers
-     * @param bytesServed Cumulative bytes served by relay since its persisted counter began
-     */
-    public void setCloudViewerCount(int count, long bytesServed) {
-        this.cloudViewerCount = count;
-        this.cloudBytesServed = bytesServed;
-        this.cloudViewerTelemetryAvailable = true;
-        this.cloudViewerCountUpdatedAt = System.currentTimeMillis();
-        FLog.d(TAG, "☁️ Cloud viewer count updated: " + count + " (bytes served: " + bytesServed + ")");
-    }
-
-    public void markCloudViewerTelemetryUnavailable() {
-        this.cloudViewerTelemetryAvailable = false;
-    }
-    
-    /**
-     * Get cloud viewer count.
-     * @return Number of cloud viewers, or 0 if not tracked
-     */
-    public int getCloudViewerCount() {
-        return cloudViewerCount;
-    }
-    
-    /**
-     * Get cumulative bytes served by relay to cloud viewers.
-     * PRIVACY: This is aggregate cumulative egress, not per-viewer.
-     * @return Cumulative bytes served, or 0 if not tracked
-     */
-    public long getCloudBytesServed() {
-        return cloudBytesServed;
-    }
-    
-    /**
-     * Get timestamp of last cloud viewer count update.
-     * @return Milliseconds since epoch
-     */
-    public long getCloudViewerCountUpdatedAt() {
-        return cloudViewerCountUpdatedAt;
     }
     
     /**
@@ -1928,17 +1697,8 @@ public class RemoteStreamManager {
     
     /**
      * Get total data transferred to clients (persistent across session).
-     * In cloud mode, this is relay egress delivered to viewers.
      */
     public long getTotalDataTransferred() {
-        // Phone-to-relay uploads are ingress and do not represent data served to viewers.
-        if (context != null) {
-            CloudStreamUploader uploader = CloudStreamUploader.getInstance(context);
-            if (uploader != null && uploader.isEnabled()) {
-                return cloudBytesServed;
-            }
-        }
-        // In local mode, return locally served data
         return totalDataServed;
     }
     
@@ -2023,269 +1783,5 @@ public class RemoteStreamManager {
         
         FLog.d(TAG, "Battery capacity set to " + mah + " mAh");
     }
-    
-    // =========================================================================
-    // Cloud Status Push & Command Polling
-    // =========================================================================
-    
-    /**
-     * Start periodic cloud status push and command polling.
-     * Called when streaming is enabled.
-     */
-    private void startCloudStatusPush() {
-        if (context == null) {
-            FLog.w(TAG, "Cannot start cloud status push: no context");
-            return;
-        }
-        
-        CloudStreamUploader uploader = CloudStreamUploader.getInstance(context);
-        if (!uploader.isEnabled() || !uploader.isReady()) {
-            FLog.d(TAG, "Cloud streaming not enabled or not ready, skipping status push");
-            return;
-        }
-        
-        if (cloudStatusPushEnabled) {
-            FLog.d(TAG, "Cloud status push already running");
-            return;
-        }
-        
-        cloudStatusPushEnabled = true;
-        cloudStatusHandler = new Handler(Looper.getMainLooper());
-        
-        cloudStatusRunnable = new Runnable() {
-            private int iteration = 0;
-            
-            @Override
-            public void run() {
-                if (!cloudStatusPushEnabled || !streamingEnabled) {
-                    FLog.d(TAG, "Cloud status push stopped (disabled or streaming stopped)");
-                    return;
-                }
-                
-                CloudStreamUploader uploader = CloudStreamUploader.getInstance(context);
-                if (!uploader.isEnabled() || !uploader.isReady()) {
-                    FLog.d(TAG, "Cloud uploader not ready, skipping this iteration");
-                    cloudStatusHandler.postDelayed(this, CLOUD_STATUS_INTERVAL_MS);
-                    return;
-                }
-                
-                // Push status to relay
-                String statusJson = getStatusJson();
-                uploader.uploadStatus(statusJson, new CloudStreamUploader.UploadCallback() {
-                    @Override
-                    public void onSuccess() {
-                        // Status pushed successfully (silent success)
-                    }
-                    
-                    @Override
-                    public void onError(String error) {
-                        FLog.w(TAG, "Cloud status push failed: " + error);
-                    }
-                });
-                
-                // Poll for commands every other iteration (every 3 seconds)
-                // This reduces API calls while still being responsive
-                if (iteration % 2 == 0) {
-                    pollCloudCommands(uploader);
-                }
-                iteration++;
-                
-                // Schedule next push
-                cloudStatusHandler.postDelayed(this, CLOUD_STATUS_INTERVAL_MS);
-            }
-        };
-        
-        // Start immediately
-        cloudStatusHandler.post(cloudStatusRunnable);
-        FLog.i(TAG, "☁️ Cloud status push started (interval: " + CLOUD_STATUS_INTERVAL_MS + "ms)");
-    }
-    
-    /**
-     * Stop cloud status push and command polling.
-     * Called when streaming is disabled.
-     */
-    private void stopCloudStatusPush() {
-        cloudStatusPushEnabled = false;
-        if (cloudStatusHandler != null && cloudStatusRunnable != null) {
-            cloudStatusHandler.removeCallbacks(cloudStatusRunnable);
-            FLog.i(TAG, "☁️ Cloud status push stopped");
-        }
-        cloudStatusHandler = null;
-        cloudStatusRunnable = null;
-    }
-    
-    /**
-     * Poll for pending commands from relay and execute them.
-     */
-    private void pollCloudCommands(CloudStreamUploader uploader) {
-        uploader.pollCommands(new CloudStreamUploader.CommandListCallback() {
-            @Override
-            public void onSuccess(java.util.List<String> commandIds) {
-                if (commandIds.isEmpty()) {
-                    return;
-                }
-                
-                FLog.i(TAG, "☁️ Found " + commandIds.size() + " pending cloud commands");
-                
-                // Process each command
-                for (String cmdId : commandIds) {
-                    uploader.fetchCommand(cmdId, new CloudStreamUploader.CommandCallback() {
-                        @Override
-                        public void onSuccess(String commandId, JSONObject command) {
-                            executeCloudCommand(commandId, command, uploader);
-                        }
-                        
-                        @Override
-                        public void onError(String error) {
-                            FLog.e(TAG, "Failed to fetch command " + cmdId + ": " + error);
-                        }
-                    });
-                }
-            }
-            
-            @Override
-            public void onError(String error) {
-                FLog.w(TAG, "Command poll failed: " + error);
-            }
-        });
-    }
-    
-    /**
-     * Execute a cloud command and delete it from relay.
-     */
-    private void executeCloudCommand(String commandId, JSONObject command, CloudStreamUploader uploader) {
-        try {
-            String action = command.optString("action", "");
-            JSONObject params = command.optJSONObject("params");
-            
-            FLog.i(TAG, "☁️ Executing cloud command: " + action + " (id: " + commandId + ")");
-            
-            boolean success = false;
-            
-            // Execute based on action type
-            switch (action) {
-                case "torch_toggle":
-                    // Toggle torch via LiveM3U8Server's handler
-                    success = executeCommandViaServer("/torch/toggle", null);
-                    break;
-                    
-                case "recording_toggle":
-                    success = executeCommandViaServer("/recording/toggle", null);
-                    break;
-                    
-                case "config_recordingMode":
-                    if (params != null) {
-                        String mode = params.optString("mode", "");
-                        success = executeCommandViaServer("/config/recordingMode", "{\"mode\":\"" + mode + "\"}");
-                    }
-                    break;
-                    
-                case "config_streamQuality":
-                    if (params != null) {
-                        String quality = params.optString("quality", "");
-                        success = executeCommandViaServer("/config/streamQuality", "{\"quality\":\"" + quality + "\"}");
-                    }
-                    break;
-                    
-                case "config_videoCodec":
-                    if (params != null) {
-                        String codec = params.optString("codec", "");
-                        success = executeCommandViaServer("/config/videoCodec", "{\"codec\":\"" + codec + "\"}");
-                    }
-                    break;
-                    
-                case "alarm_trigger":
-                    if (params != null) {
-                        int durationMs = params.optInt("duration_ms", 5000);
-                        success = executeCommandViaServer("/alarm/trigger", "{\"duration_ms\":" + durationMs + "}");
-                    }
-                    break;
-                    
-                case "alarm_stop":
-                    success = executeCommandViaServer("/alarm/stop", null);
-                    break;
-                    
-                case "audio_volume":
-                    if (params != null) {
-                        int level = params.optInt("level", 50);
-                        success = executeCommandViaServer("/audio/volume", "{\"level\":" + level + "}");
-                    }
-                    break;
-                    
-                default:
-                    FLog.w(TAG, "Unknown cloud command action: " + action);
-                    success = true; // Still delete unknown commands
-            }
-            
-            // Delete command from relay after execution (or if unknown)
-            uploader.deleteCommand(commandId, new CloudStreamUploader.UploadCallback() {
-                @Override
-                public void onSuccess() {
-                    FLog.d(TAG, "☁️ Command " + commandId + " deleted from relay");
-                }
-                
-                @Override
-                public void onError(String error) {
-                    FLog.w(TAG, "Failed to delete command " + commandId + ": " + error);
-                }
-            });
-            
-        } catch (Exception e) {
-            FLog.e(TAG, "Error executing cloud command: " + e.getMessage(), e);
-        }
-    }
-    
-    /**
-     * Execute a command by calling the local LiveM3U8Server endpoint.
-     * This reuses the existing command handlers in the HTTP server.
-     * 
-     * @param endpoint The endpoint path (e.g., "/torch/toggle")
-     * @param body Optional JSON body for POST requests
-     * @return true if command was sent successfully
-     */
-    private boolean executeCommandViaServer(String endpoint, @Nullable String body) {
-        try {
-            // Get the local server port (default 8080)
-            int port = 8080;
-            String url = "http://127.0.0.1:" + port + endpoint;
-            
-            // Use a simple HTTP client (OkHttp is already available)
-            okhttp3.OkHttpClient client = new okhttp3.OkHttpClient.Builder()
-                .connectTimeout(2, java.util.concurrent.TimeUnit.SECONDS)
-                .readTimeout(2, java.util.concurrent.TimeUnit.SECONDS)
-                .build();
-            
-            okhttp3.Request.Builder requestBuilder = new okhttp3.Request.Builder().url(url);
-            
-            if (body != null) {
-                okhttp3.RequestBody requestBody = okhttp3.RequestBody.create(
-                    body, okhttp3.MediaType.parse("application/json"));
-                requestBuilder.post(requestBody);
-            } else {
-                requestBuilder.post(okhttp3.RequestBody.create("", null));
-            }
-            
-            okhttp3.Request request = requestBuilder.build();
-            
-            // Execute async to avoid blocking
-            client.newCall(request).enqueue(new okhttp3.Callback() {
-                @Override
-                public void onFailure(@NonNull okhttp3.Call call, @NonNull java.io.IOException e) {
-                    FLog.e(TAG, "Cloud command execution failed: " + e.getMessage());
-                }
-                
-                @Override
-                public void onResponse(@NonNull okhttp3.Call call, @NonNull okhttp3.Response response) {
-                    response.close();
-                    FLog.d(TAG, "☁️ Cloud command " + endpoint + " executed: " + response.code());
-                }
-            });
-            
-            return true;
-        } catch (Exception e) {
-            FLog.e(TAG, "Failed to execute command via server: " + e.getMessage(), e);
-            return false;
-        }
-    }
-    
+
 }

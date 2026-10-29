@@ -6,14 +6,15 @@
 Keep convincing physical paper while choosing phone-friendly texture sizes. Compare the same crumpled paper at2048/1024/512 rather than silently lowering quality or shipping45 full-size textures.
 
 ## Done when
-- [x] Preserve all45 selected expanded source images and recipes; seven reactive masters and two reduced profiles prepared.
+- [x] Preserve all45 selected expanded source images and recipes; all45 reactive offline masters and two reduced profiles prepared.
 - [x] Preserve independently filtered height² in packed profiles and verify production catalogue/native host BitmapFactory (four tests passed).
 - [x] Build matched baseline and evaluation APKs; measure size increase.
 - [x] Upgrade the verified sandbox Note9 in place; complete saved-file path/length/hash set unchanged, exact installed APK verified.
 - [x] STATE row/wing roadmap/evidence updated with limits.
 - [ ] ActualNote9 decoder/GL/mips/residency/seams, save/reopen/export and every relevant brush-family comparison.
 - [ ] Owner chooses acceptable texture detail/feel. Installed is not creative acceptance.
-- [ ] Remaining38 reactive masters and approved final phone profiles; no bulk shipping by assumption.
+- [x] All45 offline masters completed; root verified135 actual files and51 unique inputs,205722497encoded bytes.
+- [ ] Approved final phone profiles/integration; no bulk shipping by assumption.
 
 ## Where it stands
 Evaluation branch lead/paper-evaluation-20261029, tested assetscodecbc693e97, APK8420d5173. It combines leadace333729 with published runtime/buildaa6cc4143 in baselinecd1e48805, then adds ONLY9 paper assets/three catalogue pairs plus tests/docs. HYG-2 is not thereby complete; no runtime assets landed on main.
@@ -37,3 +38,14 @@ Resource-only test overlay, no shipping ID/default replacement or engine/cache/l
 [Codec research](../joybrush/reviews/PAPER_CODEC_OPTIONS_20261029.md) records modern
 storage/GPU compression choices. It is a separate unstarted benchmark; current
 phone variants and feel comparison remain unchanged.
+
+## Offline master phase CLOSED — October29
+Paper branch085841ddd is pushed and remote-verified. Root independently verified all
+135 actual output hashes/modes/dimensions,51 unique recorded source/recipe inputs,
+45 successful resource receipts with termination/claim release and the exact total
+205722497bytes (look63614156, height117214451, fluid24893890). Maximum observed
+child peak594.42MiB. [Independent aggregate proof](../joybrush/reviews/PAPER_MASTERS_COMPLETE_20261029.json).
+These full-resolution evaluation artifacts are NOT all in the APK. The installed
+phone comparison remains only one paper at three resolutions. Numerical preparation
+is not measured physical paper accuracy or creative/GL/seam/feel acceptance. No
+codec experiment or runtime-format change was started.

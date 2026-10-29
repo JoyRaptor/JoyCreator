@@ -1176,3 +1176,8 @@ as `TIME * knob` are "rate" and the host integrates them.
   (HANDOFF_STUDIO_UI_20261017 "OWNER DECISIONS"; DESIGN_JOY_CREATOR.md §7) that Remote and Smart Detection are launch
   features and forensics is to be rebranded and folded in. **Rule:** before any owner item that removes a feature, grep the
   OWNER DECISIONS sections, DESIGN_JOY_CREATOR.md, INBOX.md and STATE for that feature's name, and quote what was ruled.
+
+## October29 — canonical folder rename
+- Use C:/+Projects/JoyCreator, not the retired Screenrecorder/FadCam path. Read its current AGENTS, ROADMAP, BOARD and AGENT_START before relying on an old worktree handoff.
+- Check the new canonical private devices.local.sh before asking the owner to recreate a missing device mapping. Serial identities remain untracked; never choose adb's first phone.
+- Watcher and local.properties operational helpers must follow the renamed root. Existing repaired isolated worktrees can remain; never reset the primary's unsaved files.

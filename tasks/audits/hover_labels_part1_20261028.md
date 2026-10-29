@@ -34,3 +34,4 @@ progress rings have descriptions, rows are visible text. ~6.
 - Remote chevrons (`Remote.Chevron`): already importantForAccessibility=no.
 - Remote lock icon in the E2E row, status icons with `contentDescription=@null`: decorative, left alone.
 - Dialogs/sheets opened from Remote (`showSegmentsInfo`, `showNetworkHealth`, etc.) use shared picker/bottom-sheet classes outside this scope.
+(cloud toggle row dropped: its switch was removed by S19)

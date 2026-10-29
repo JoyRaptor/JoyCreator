@@ -3701,7 +3701,6 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
 <string name="stream_notes_android14_screen">⚠️ Android 14+：系统限制阻止了屏幕关闭时的录制。解决方法：（1）在设置→安全中启用"黑屏模式"，或（2）禁用屏幕锁定（无PIN码/密码/指纹）。两者均可实现无缝远程录制。</string>
 
 <!-- stream_notes_cellular -->
-<string name="stream_notes_cellular">⚠️ 仅WiFi限制：蜂窝网络阻止传入连接。要从此应用停止运行的位置继续无缝直播，请升级至FadCam Pro+。从任何网络（WiFi、LTE、任何地方）进行直播。</string>
 
 <!-- stream_only_desc -->
 <string name="stream_only_desc">直播但不保存到存储</string>

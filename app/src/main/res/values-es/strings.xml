@@ -1979,7 +1979,6 @@ Para la experiencia de reproducción más fluida, puedes usar un reproductor ext
     <string name="stream_notes_wifi">• Los clientes deben estar en la misma red WiFi para acceder a la transmisión</string>
     <string name="stream_notes_quality">• La calidad de transmisión (BAJA/MEDIA/ALTA/ULTRA) controla el límite de FPS y tasa de bits para evitar problemas de red</string>
     <string name="stream_notes_resolution">• La orientación y resolución de transmisión se toman de tus ajustes normales de grabación (Ajustes de video → Resolución y Orientación). Ajústalos si quieres cambiar las dimensiones de transmisión</string>
-    <string name="stream_notes_cellular">⚠️ Limitación solo WiFi: Las redes celulares bloquean conexiones entrantes. Para transmisión fluida desde cualquier red (WiFi, LTE, en cualquier lugar), actualiza a FadCam Pro+. Transmite desde cualquier lugar globalmente con un enlace privado generado — sin reenvío de puertos, sin cambios de router, sin restricciones de red</string>
     <string name="stream_notes_android14_screen">⚠️ Android 14+: La restricción del sistema impide grabar con la pantalla apagada. Soluciones: (1) Habilita \"Modo de pantalla negra\" en Ajustes → Seguridad, o (2) Desactiva el bloqueo de pantalla (sin PIN/contraseña/huella). Ambos permiten grabación remota fluida</string>
 
     <!-- FadSec Cloud / Remote Streaming -->

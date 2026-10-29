@@ -2035,7 +2035,6 @@ Apakah Anda ingin beralih ke H.264 dan mulai merekam?</string>
     <string name="stream_notes_wifi">- Klien harus berada di jaringan WiFi yang sama untuk mengakses stream</string>
     <string name="stream_notes_quality">- Kualitas stream (RENDAH/SEDANG/TINGGI/ULTRA) mengontrol batas FPS dan bitrate untuk mencegah masalah jaringan</string>
     <string name="stream_notes_resolution">- Orientasi dan resolusi stream diambil dari pengaturan perekaman normal Anda (Pengaturan Video → Resolusi &amp; Orientasi). Sesuaikan pengaturan tersebut jika Anda ingin mengubah dimensi stream</string>
-    <string name="stream_notes_cellular">⚠️ Batasan hanya WiFi: Jaringan seluler memblokir koneksi masuk. Untuk streaming mulus dari jaringan mana pun (WiFi, LTE, di mana saja), upgrade ke FadCam Pro+. Stream dari mana saja secara global dengan tautan pribadi yang dihasilkan—tanpa port forwarding, tanpa perubahan router, tanpa batasan jaringan</string>
     <string name="stream_notes_android14_screen">⚠️ Android 14+: Batasan sistem mencegah perekaman saat layar mati. Solusi: (1) Aktifkan "Mode Layar Hitam" di Pengaturan → Keamanan, atau (2) Nonaktifkan kunci layar (tanpa PIN/kata sandi/sidik jari). Keduanya memungkinkan perekaman jarak jauh yang mulus</string>
     
     <!-- FadSec Cloud / Remote Streaming -->

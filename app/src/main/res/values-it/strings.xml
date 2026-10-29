@@ -1805,7 +1805,6 @@
     <string name="stream_notes_wifi">Richiede WiFi stabile.</string>
     <string name="stream_notes_quality">Qualità dipende dalla rete.</string>
     <string name="stream_notes_resolution">Risoluzione più alta = bitrate maggiore.</string>
-    <string name="stream_notes_cellular">Usa WiFi su cellulare.</string>
     <string name="stream_notes_android14_screen">Android 14+: serve autorizzazione.</string>
     <string name="fullscreen_preview_enter">Entra anteprima</string>
     <string name="fullscreen_preview_close">Chiudi anteprima</string>

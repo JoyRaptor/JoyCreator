@@ -1854,7 +1854,6 @@ Sujuvama esitamise kogemuse jaoks saad kasutada välist esitajat nagu VLC. Siisk
     <string name="stream_notes_wifi">• Kliendid peavad olema samas WiFi võrgus, et voogu pääseda</string>
     <string name="stream_notes_quality">• Voo kvaliteet (MADAL/KESKMINE/KÕRGE/ULTRA) kontrollib FPS piiri ja bitikiirust võrguprobleemide vältimiseks</string>
     <string name="stream_notes_resolution">• Voo suund ja eraldusvõime võetakse sinu tavalistest salvestusseadetest (Video seaded → Eraldusvõime ja suund). Kohanda neid, kui soovid muuta voo mõõtmeid</string>
-    <string name="stream_notes_cellular">⚠️ Ainult WiFi piirang: Mobiilivõrgud blokeerivad sissetulevad ühendused. Sujuvaks voogedastuseks mis tahes võrgust (WiFi, LTE, kõikjal), uuenda FadCam Pro+-le. Voogedasta üle maailma privaadse genereeritud lingiga — ilma pordi suunamiseta, ilma ruuteri muudatusteta, ilma võrgupiiranguteta</string>
     <string name="stream_notes_android14_screen">⚠️ Android 14+: Süsteemi piirang takistab salvestamist, kui ekraan on välja lülitatud. Töölahendused: (1) Luba \"Musta ekraani režiim\" seadetes → Turvalisus, või (2) Keela ekraani lukustus (ilma PIN/parool/sõrmejäljeta). Mõlemad võimaldavad sujuvat kaugsalvestamist</string>
     <string name="fullscreen_preview_enter">Joy Creator eelvaade</string>
     <string name="fullscreen_preview_close">Sulge täisekraan</string>

@@ -606,7 +606,7 @@
     <string name="setting_location_embed_title">Embed Location in Videos</string>
     <string name="note_location_embed">Add GPS coordinates to video metadata (geotags). \nRequires GPS enabled \n(Default: Disabled)</string>
     <string name="note_location_embed_extra">Adds location data directly to video files, which can be used by gallery/map apps to show where videos were taken.</string>
-    <string name="button_setting_review">Write a Review ðŸŒŸ</string>
+    <string name="button_setting_review">Write a Review 🌟</string>
     <string name="dialog_clock_title">Choose Clock Display</string>
     <string name="dialog_clock_timeonly">Time Only</string>
     <string name="dialog_clock_englishtime">English Date with time</string>
@@ -982,11 +982,11 @@
     <string name="widget_customize_action_subtitle">Time, date, theme options</string>
     <!-- Torch Error Messages -->
     <string-array name="torch_error_messages">
-        <item>Torch is compiling... please don\'t wait ðŸ–¥ï¸</item>
-        <item>Camera says: No flash today ðŸš¦</item>
-        <item>Torch.exe not responding ðŸ”¦</item>
-        <item>Fix delayed... Developer hit a mental breakpoint lol ðŸ§ </item>
-        <item>Patch coming soon™... Developer is debugging life ðŸ›</item>
+        <item>Torch is compiling... please don\'t wait 🖥</item>
+        <item>Camera says: No flash today 🚦</item>
+        <item>Torch.exe not responding 🔦</item>
+        <item>Fix delayed... Developer hit a mental breakpoint lol 🧠</item>
+        <item>Patch coming soon™... Developer is debugging life 🐛</item>
     </string-array>
     <string name="more_options">More Options</string>
     <string name="records_options_title">Records Options</string>
@@ -1842,7 +1842,7 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="remote_coming_soon_badge">Coming Soon</string>
 
     <!-- Update Bottom Sheet Strings -->
-    <string name="update_sarcastic_heading">ðŸ“¦ Oh look, another update...</string>
+    <string name="update_sarcastic_heading">📦 Oh look, another update...</string>
     <string name="update_visit_github">Visit GitHub</string>
     <string name="update_version_arrow">  >>  </string>
     <!-- Update variations -->
@@ -2342,7 +2342,7 @@ For the smoothest playback experience, you can use an external player like VLC. 
 
     <!-- Codec Compatibility Strings -->
     <string name="codec_hevc_incompatible_title">H.265 Codec Not Supported for Live Streaming</string>
-    <string name="codec_hevc_incompatible_message">ðŸ“¡ Live streaming via HLS requires H.264 codec.\n\nH.265 is not compatible with browser players.\n\nWould you like to switch to H.264 and start recording?</string>
+    <string name="codec_hevc_incompatible_message">📡 Live streaming via HLS requires H.264 codec.\n\nH.265 is not compatible with browser players.\n\nWould you like to switch to H.264 and start recording?</string>
     <string name="codec_switch_and_record">Switch to H.264 &amp; Record</string>
     <string name="codec_switch_cancelled">Codec switch cancelled</string>
     <string name="codec_switched_to_h264">✓ Codec switched to H.264. Starting recording...</string>
@@ -2432,8 +2432,8 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="stream_notes_wifi">• Clients must be on the same WiFi network to access the stream</string>
     <string name="stream_notes_quality">• Stream quality (LOW/MEDIUM/HIGH/ULTRA) controls FPS cap and bitrate to prevent network issues</string>
     <string name="stream_notes_resolution">• Stream orientation and resolution are taken from your normal recording settings (Video Settings → Resolution &amp; Orientation). Adjust those if you want to change stream dimensions</string>
-    <string name="stream_notes_cellular">⚠ï¸ WiFi-only limitation: Cellular networks block incoming connections. For seamless streaming from any network (WiFi, LTE, anywhere), upgrade to FadCam Pro+. Stream from anywhere globally with a private generated link—no port forwarding, no router changes, no network restrictions</string>
-    <string name="stream_notes_android14_screen">⚠ï¸ Android 14+: System restriction prevents recording when screen is off. Workarounds: (1) Enable "Black Screen Mode" in Settings → Security, or (2) Disable screen lock (no PIN/password/fingerprint). Both allow seamless remote recording</string>
+    <string name="stream_notes_cellular">⚠️ Wi-Fi only: phone networks block incoming connections, so the viewer and this phone must be on the same Wi-Fi.</string>
+    <string name="stream_notes_android14_screen">⚠ Android 14+: System restriction prevents recording when screen is off. Workarounds: (1) Enable "Black Screen Mode" in Settings → Security, or (2) Disable screen lock (no PIN/password/fingerprint). Both allow seamless remote recording</string>
     
     <!-- Joy Creator Cloud / Remote Streaming -->
     
@@ -2874,7 +2874,7 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="remote_access_endpoints_desc">Access your streaming server via these HTTP endpoints</string>
     <string name="remote_control_via_api_desc">Control Joy Creator remotely via API calls</string>
     <string name="remote_buffered_segments_desc">Buffered segments ready for streaming</string>
-    <string name="remote_battery_low_warning">⚠ï¸ Low Battery - Plug charger ASAP</string>
+    <string name="remote_battery_low_warning">⚠ Low Battery - Plug charger ASAP</string>
     <string name="remote_enter_percentage_hint">Enter percentage</string>
     <string name="remote_enter_mah_hint">Enter mAh (1000-10000)</string>
 
@@ -3050,7 +3050,7 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="annotation_board_white">White</string>
 
     <!-- Shape picker dialog -->
-    <string name="shape_picker_title">ðŸ“ Add Shape</string>
+    <string name="shape_picker_title">Add Shape</string>
     <string name="shape_picker_choose_shape">Choose Shape</string>
     <string name="shape_picker_rectangle">Rectangle</string>
     <string name="shape_picker_circle">Circle</string>
@@ -3059,17 +3059,17 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="shape_picker_star">Star</string>
     <string name="shape_picker_line">Line</string>
     <string name="shape_picker_fill_shape">Fill Shape</string>
-    <string name="shape_picker_color">ðŸŽ¨ Shape Color</string>
-    <string name="shape_picker_tip">ðŸ’¡ Tip: After selecting, drag on canvas to create the shape</string>
+    <string name="shape_picker_color">🎨 Shape Color</string>
+    <string name="shape_picker_tip">💡 Tip: After selecting, drag on canvas to create the shape</string>
     <string name="shape_picker_got_it">Got it!</string>
 
     <!-- Text editor dialog -->
     <string name="text_editor_title">✏️ Add Text</string>
     <string name="text_editor_content_label">Text Content</string>
     <string name="text_editor_hint">Type your text here...</string>
-    <string name="text_editor_font_size">ðŸ“ Font Size</string>
-    <string name="text_editor_style">ðŸŽ¨ Text Style</string>
-    <string name="text_editor_color">ðŸŽ¨ Text Color</string>
+    <string name="text_editor_font_size">Font Size</string>
+    <string name="text_editor_style">🎨 Text Style</string>
+    <string name="text_editor_color">🎨 Text Color</string>
     <string name="text_editor_cancel">Cancel</string>
     <string name="text_editor_add_text">✓ Add Text</string>
 
@@ -3086,7 +3086,7 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="annotation_welcome_back">Welcome Back!</string>
     <string name="annotation_my_projects">My Projects</string>
     <string name="annotation_pick_color">Pick a Color</string>
-    <string name="annotation_shape_added">ðŸ“ Shape added!</string>
+    <string name="annotation_shape_added">Shape added!</string>
 
     <!-- Content descriptions -->
     <string name="desc_align_center">Align center</string>

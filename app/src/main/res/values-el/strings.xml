@@ -1919,7 +1919,6 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="stream_notes_wifi">• Οι πελάτες πρέπει να βρίσκονται στο ίδιο δίκτυο WiFi για πρόσβαση στη ροή</string>
     <string name="stream_notes_quality">• Η ποιότητα ροής (LOW/MEDIUM/HIGH/ULTRA) ελέγχει το ανώτατο όριο FPS και τον ρυθμό μετάδοσης</string>
     <string name="stream_notes_resolution">• Ο προσανατολισμός και η ανάλυση ροής λαμβάνονται από τις κανονικές ρυθμίσεις εγγραφής</string>
-    <string name="stream_notes_cellular">⚠️ Περιορισμός μόνο WiFi: Τα δίκτυα κινητής τηλεφωνίας αποκλείουν τις εισερχόμενες συνδέσεις.</string>
     <string name="stream_notes_android14_screen">⚠️ Android 14+: Περιορισμός συστήματος αποτρέπει την εγγραφή όταν η οθόνη είναι κλειστή.</string>
     <!-- FadSec Cloud / Remote Streaming -->
     <!-- Cloud Streaming -->

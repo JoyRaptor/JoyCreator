@@ -2005,7 +2005,6 @@ Für die flüssigste Wiedergabe kannst du einen externen Player wie VLC verwende
     <string name="stream_no_clients">Keine Clients verbunden</string>
     <string name="stream_no_save">Segmente werden nach dem Streaming automatisch gelöscht</string>
     <string name="stream_notes_android14_screen">⚠️ Android 14+: Systemeinschränkung verhindert Aufnahme bei ausgeschaltetem Bildschirm. Lösungen: (1) Aktiviere „Black Screen Mode" in den Einstellungen → Sicherheit, oder (2) Deaktiviere den Bildschirmsperre (keine PIN/kein Passwort/kein Fingerabdruck). Beide ermöglichen nahtlose Fernaufnahme.</string>
-    <string name="stream_notes_cellular">⚠️ Nur-WLAN-Einschränkung: Mobilfunknetze blockieren eingehende Verbindungen. Für nahtloses Streaming aus jedem Netzwerk (WLAN, LTE, überall) auf FadCam Pro+ upgraden. Von überall auf der Welt streamen mit einem privaten generierten Link – keine Portweiterleitung, keine Router-Änderungen, keine Netzwerkbeschränkungen</string>
     <string name="stream_notes_quality">• Die Stream-Qualität (NIEDRIG/MITTEL/HOCH/ULTRA) steuert die FPS-Grenze und Bitrate, um Netzwerkprobleme zu vermeiden</string>
     <string name="stream_notes_resolution">• Stream-Ausrichtung und Auflösung werden aus deinen normalen Aufnahmeeinstellungen übernommen (Video-Einstellungen → Auflösung &amp; Ausrichtung). Passe diese an, wenn du die Stream-Abmessungen ändern möchtest</string>
     <string name="stream_notes_title">Hinweise</string>

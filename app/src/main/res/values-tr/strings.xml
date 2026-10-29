@@ -847,7 +847,6 @@
     <string name="stream_notes_wifi">• İstemciler yayına erişmek için aynı WiFi ağında olmalıdır</string>
     <string name="stream_notes_quality">• Yayın kalitesi (DÜŞÜK/ORTA/YÜKSEK/ULTRA), ağ sorunlarını önlemek için FPS sınırını ve bit hızını kontrol eder</string>
     <string name="stream_notes_resolution">• Yayın yönü ve çözünürlüğü normal kayıt ayarlarınızdan alınır (Video Ayarları → Çözünürlük ve Yön). Yayın boyutlarını değiştirmek için bunları ayarlayın</string>
-    <string name="stream_notes_cellular">⚠️ Yalnızca WiFi sınırlaması: Hücresel ağlar gelen bağlantıları engeller. Herhangi bir ağdan (WiFi, LTE, her yerden) kesintisiz yayın için FadCam Pro+\'a yükseltin. Özel oluşturulmuş bağlantıyla dünyanın her yerinden yayın yapın—port yönlendirme yok, yönlendirici değişikliği yok, ağ kısıtlaması yok</string>
     <string name="preview_dual_not_supported">Önizleme yalnızca ön/arka kameralarda çalışır</string>
     <string name="preview_enable_hint">Kamerayı uyandırmak için basılı tutun</string>
     <string name="preview_starting">Canlı önizleme başlatılıyor…</string>

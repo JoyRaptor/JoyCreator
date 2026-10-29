@@ -1,0 +1,346 @@
+{
+  "masterEncodedBytes": 3825625,
+  "profiles": [
+    {
+      "size": 512,
+      "profile": {
+        "selectionId": "expanded-firm",
+        "surface": {
+          "id": "eval_expanded_firm_p512",
+          "name": "Eval Firmly crumpled and flattened",
+          "file": "surface_eval_expanded_firm_p512.png",
+          "size": 512,
+          "texelPx": 2.389256,
+          "slopeRange": 0.4,
+          "hexTexels": 128.0,
+          "rotatable": false,
+          "relief": 0.15,
+          "heightMean": 0.49951206282073374,
+          "packed": true,
+          "fluid": "fluid_eval_expanded_firm_p512.png",
+          "fluidTexelPx": 9.557024,
+          "fluidHexTexels": 32.0,
+          "toothDepthMm": 0.25,
+          "compliance": 0.4,
+          "sizing": 0.5,
+          "absorbency": 0.45,
+          "capacity": 0.4,
+          "wickSpeed": 0.3,
+          "anisotropy": 0.15
+        },
+        "look": {
+          "id": "eval_expanded_firm_p512",
+          "name": "Eval Firmly crumpled and flattened",
+          "base": "#E1E1E3",
+          "file": "look_eval_expanded_firm_p512.jpg",
+          "mean": "#E1E1E3",
+          "texelPx": 2.389256,
+          "hexTexels": 128.0,
+          "rotatable": false,
+          "defaultSurface": "eval_expanded_firm_p512",
+          "lightByDefault": false
+        },
+        "files": [
+          {
+            "file": "surface_eval_expanded_firm_p512.png",
+            "width": 512,
+            "height": 512,
+            "format": "PNG",
+            "mode": "RGBA",
+            "bytes": 573557,
+            "sha256": "20b7a6bc5e253dc6ff6852c539ccb8b554cd6482b2a0d574225f2ad8707bc189"
+          },
+          {
+            "file": "look_eval_expanded_firm_p512.jpg",
+            "width": 512,
+            "height": 512,
+            "format": "JPEG",
+            "mode": "RGB",
+            "bytes": 72879,
+            "sha256": "5593c48e00b112c043c21cf428f647a6bbb912f05689c731180a0dd8041cfc09"
+          },
+          {
+            "file": "fluid_eval_expanded_firm_p512.png",
+            "width": 128,
+            "height": 128,
+            "format": "PNG",
+            "mode": "RGBA",
+            "bytes": 51530,
+            "sha256": "bcc4f8f76440195211396926d0e064fbdfb4f944e7a129cd93fcf9238af3c79e"
+          }
+        ],
+        "encodedBytes": 697966,
+        "modeledGpuRgba8WithMips": 2883580,
+        "decodedBaseRgbaBytes": 2162688,
+        "limits": "Modeled base/map bytes only; not measured residency or transient decode/upload peak.",
+        "resolutionLimit": "Profile loses spatial detail; filtered second moment retains unresolved tooth variance.",
+        "sourceRecipe": "receipt_expanded-firm.json",
+        "sourceRecipeSha256": "16574d801c796ea7e0f63558d9a7e6f395b54fd3fd776754679f0d75d90b3ce3",
+        "inputs": [
+          {
+            "path": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\receipt_expanded-firm.json",
+            "sha256": "16574d801c796ea7e0f63558d9a7e6f395b54fd3fd776754679f0d75d90b3ce3"
+          },
+          {
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\verify_approved_phone_profile.py",
+            "sha256": "8183fb04b507e27305ddd5b5a010b4fcd5fad6f46377a4f2e2f90164653a1d2b"
+          },
+          {
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\approved_phone_profile.py",
+            "sha256": "f618ed3c149f694f3a9b6b830f0f0ef802412393e4f71a4056383bf95fad561f"
+          },
+          {
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\pack.py",
+            "sha256": "a8270db7e7cd5d2eb37594a10e432c681be7e53621a50ecd009a0a6f92bec0a4"
+          },
+          {
+            "path": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\assets\\height_eval_expanded_firm.png",
+            "sha256": "286543d201f6ab16932226ecba68e56db865b5186fd51b983bfc0668e5ec7573"
+          },
+          {
+            "path": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\assets\\fluid_eval_expanded_firm.png",
+            "sha256": "8b6ffde90ad0045b31f54182e9bdc1fefc5f8022b0f9fe0db9474a836d11e559"
+          },
+          {
+            "path": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\assets\\look_eval_expanded_firm.jpg",
+            "sha256": "28cc24e11f1100bd44505bee5eb81a2682bf4112774253c80735dbe469c49b70"
+          }
+        ],
+        "decodedAssertions": {
+          "packedRgbaExact": true,
+          "independentSecondMomentRetained": true,
+          "physicalPitchesMatched": true,
+          "dimensionsMatched": true,
+          "androidDecodeVerified": false
+        }
+      },
+      "resource": {
+        "failure": null,
+        "material": "expanded-firm",
+        "source": "b9dcb687fa12a14546e446994fac0b52853eccb8",
+        "data": {
+          "stderr": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\profile-firm-512\\expanded-firm-stderr.log",
+          "watchersObserved": [],
+          "startedFreeMiB": 2574.0,
+          "seconds": 0.959564,
+          "lowestObservedFreeMiB": 2493.0,
+          "stdout": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\profile-firm-512\\expanded-firm-stdout.log",
+          "ownedChildId": 47564
+        },
+        "exitCode": 0,
+        "inputs": [
+          {
+            "path": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\receipt_expanded-firm.json",
+            "sha256": "16574D801C796EA7E0F63558D9A7E6F395B54FD3FD776754679F0D75D90B3CE3"
+          },
+          {
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\verify_approved_phone_profile.py",
+            "sha256": "8183FB04B507E27305DDD5B5A010B4FCD5FAD6F46377A4F2E2F90164653A1D2B"
+          },
+          {
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\approved_phone_profile.py",
+            "sha256": "F618ED3C149F694F3A9B6B830F0F0EF802412393E4F71A4056383BF95FAD561F"
+          },
+          {
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\pack.py",
+            "sha256": "A8270DB7E7CD5D2EB37594A10E432C681BE7E53621A50ECD009A0A6F92BEC0A4"
+          },
+          {
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\photo2paper.py",
+            "sha256": "6FE051953CD2D1AD0E957D7D94ADCB43EE87EE02F71C874ED954BADD2028A6D5"
+          },
+          {
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\felt2paper.py",
+            "sha256": "BE5D286919D83DC2C82A352CE56D2032D5A152101287A9DA6AA03ED2BD609A45"
+          },
+          {
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\run_approved_profile.ps1",
+            "sha256": "03DE8F6A03BB1D19A0D67C3816CEB2173BB64FB284225DEBFFD8AA87E1DDD49E"
+          },
+          {
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\approved_bake_lease.ps1",
+            "sha256": "F3D17C331CA29C34DA9DF69FAE897D088D64191B5AACF1ADE66181E535420BB5"
+          }
+        ],
+        "peakObservation": "maximum observed OS cumulative peak sample",
+        "observedCumulativePeakMiB": 159.96,
+        "terminationConfirmed": true,
+        "output": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\profile-firm-512",
+        "claimRetained": false,
+        "owner": "CodexPaperBake-287bf425-165d-4267-ab89-d9eb6c04fb14"
+      }
+    },
+    {
+      "size": 1024,
+      "profile": {
+        "selectionId": "expanded-firm",
+        "surface": {
+          "id": "eval_expanded_firm_p1k",
+          "name": "Eval Firmly crumpled and flattened",
+          "file": "surface_eval_expanded_firm_p1k.png",
+          "size": 1024,
+          "texelPx": 1.194628,
+          "slopeRange": 0.2,
+          "hexTexels": 256.0,
+          "rotatable": false,
+          "relief": 0.15,
+          "heightMean": 0.49953360090068744,
+          "packed": true,
+          "fluid": "fluid_eval_expanded_firm_p1k.png",
+          "fluidTexelPx": 4.778512,
+          "fluidHexTexels": 64.0,
+          "toothDepthMm": 0.25,
+          "compliance": 0.4,
+          "sizing": 0.5,
+          "absorbency": 0.45,
+          "capacity": 0.4,
+          "wickSpeed": 0.3,
+          "anisotropy": 0.15
+        },
+        "look": {
+          "id": "eval_expanded_firm_p1k",
+          "name": "Eval Firmly crumpled and flattened",
+          "base": "#E1E1E3",
+          "file": "look_eval_expanded_firm_p1k.jpg",
+          "mean": "#E1E1E3",
+          "texelPx": 1.194628,
+          "hexTexels": 256.0,
+          "rotatable": false,
+          "defaultSurface": "eval_expanded_firm_p1k",
+          "lightByDefault": false
+        },
+        "files": [
+          {
+            "file": "surface_eval_expanded_firm_p1k.png",
+            "width": 1024,
+            "height": 1024,
+            "format": "PNG",
+            "mode": "RGBA",
+            "bytes": 2697286,
+            "sha256": "976a22744ba3f4f31636422ee959c72d0e6df13d1f3a178165b58f912a1f638d"
+          },
+          {
+            "file": "look_eval_expanded_firm_p1k.jpg",
+            "width": 1024,
+            "height": 1024,
+            "format": "JPEG",
+            "mode": "RGB",
+            "bytes": 265968,
+            "sha256": "0be0fa5a948f2bc9f851e903172595cd3cae089ae22799a154d310d60c17d36a"
+          },
+          {
+            "file": "fluid_eval_expanded_firm_p1k.png",
+            "width": 256,
+            "height": 256,
+            "format": "PNG",
+            "mode": "RGBA",
+            "bytes": 175176,
+            "sha256": "a31e14c8715dfacde2d7b8096ab556b26d3fd0bb0821f25de50a92a6b745215c"
+          }
+        ],
+        "encodedBytes": 3138430,
+        "modeledGpuRgba8WithMips": 11534332,
+        "decodedBaseRgbaBytes": 8650752,
+        "limits": "Modeled base/map bytes only; not measured residency or transient decode/upload peak.",
+        "resolutionLimit": "Profile loses spatial detail; filtered second moment retains unresolved tooth variance.",
+        "sourceRecipe": "receipt_expanded-firm.json",
+        "sourceRecipeSha256": "16574d801c796ea7e0f63558d9a7e6f395b54fd3fd776754679f0d75d90b3ce3",
+        "inputs": [
+          {
+            "path": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\receipt_expanded-firm.json",
+            "sha256": "16574d801c796ea7e0f63558d9a7e6f395b54fd3fd776754679f0d75d90b3ce3"
+          },
+          {
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\verify_approved_phone_profile.py",
+            "sha256": "8183fb04b507e27305ddd5b5a010b4fcd5fad6f46377a4f2e2f90164653a1d2b"
+          },
+          {
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\approved_phone_profile.py",
+            "sha256": "f618ed3c149f694f3a9b6b830f0f0ef802412393e4f71a4056383bf95fad561f"
+          },
+          {
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\pack.py",
+            "sha256": "a8270db7e7cd5d2eb37594a10e432c681be7e53621a50ecd009a0a6f92bec0a4"
+          },
+          {
+            "path": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\assets\\height_eval_expanded_firm.png",
+            "sha256": "286543d201f6ab16932226ecba68e56db865b5186fd51b983bfc0668e5ec7573"
+          },
+          {
+            "path": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\assets\\fluid_eval_expanded_firm.png",
+            "sha256": "8b6ffde90ad0045b31f54182e9bdc1fefc5f8022b0f9fe0db9474a836d11e559"
+          },
+          {
+            "path": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\assets\\look_eval_expanded_firm.jpg",
+            "sha256": "28cc24e11f1100bd44505bee5eb81a2682bf4112774253c80735dbe469c49b70"
+          }
+        ],
+        "decodedAssertions": {
+          "packedRgbaExact": true,
+          "independentSecondMomentRetained": true,
+          "physicalPitchesMatched": true,
+          "dimensionsMatched": true,
+          "androidDecodeVerified": false
+        }
+      },
+      "resource": {
+        "output": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\profile-firm-1024",
+        "material": "expanded-firm",
+        "terminationConfirmed": true,
+        "owner": "CodexPaperBake-95887d00-46a8-418f-85da-a5e0bd81f33a",
+        "peakObservation": "maximum observed OS cumulative peak sample",
+        "source": "b9dcb687fa12a14546e446994fac0b52853eccb8",
+        "failure": null,
+        "observedCumulativePeakMiB": 183.19,
+        "inputs": [
+          {
+            "path": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\receipt_expanded-firm.json",
+            "sha256": "16574D801C796EA7E0F63558D9A7E6F395B54FD3FD776754679F0D75D90B3CE3"
+          },
+          {
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\verify_approved_phone_profile.py",
+            "sha256": "8183FB04B507E27305DDD5B5A010B4FCD5FAD6F46377A4F2E2F90164653A1D2B"
+          },
+          {
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\approved_phone_profile.py",
+            "sha256": "F618ED3C149F694F3A9B6B830F0F0EF802412393E4F71A4056383BF95FAD561F"
+          },
+          {
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\pack.py",
+            "sha256": "A8270DB7E7CD5D2EB37594A10E432C681BE7E53621A50ECD009A0A6F92BEC0A4"
+          },
+          {
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\photo2paper.py",
+            "sha256": "6FE051953CD2D1AD0E957D7D94ADCB43EE87EE02F71C874ED954BADD2028A6D5"
+          },
+          {
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\felt2paper.py",
+            "sha256": "BE5D286919D83DC2C82A352CE56D2032D5A152101287A9DA6AA03ED2BD609A45"
+          },
+          {
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\run_approved_profile.ps1",
+            "sha256": "03DE8F6A03BB1D19A0D67C3816CEB2173BB64FB284225DEBFFD8AA87E1DDD49E"
+          },
+          {
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\approved_bake_lease.ps1",
+            "sha256": "F3D17C331CA29C34DA9DF69FAE897D088D64191B5AACF1ADE66181E535420BB5"
+          }
+        ],
+        "data": {
+          "stderr": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\profile-firm-1024\\expanded-firm-stderr.log",
+          "watchersObserved": [],
+          "startedFreeMiB": 4136.0,
+          "seconds": 1.4237491,
+          "lowestObservedFreeMiB": 4040.0,
+          "stdout": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\profile-firm-1024\\expanded-firm-stdout.log",
+          "ownedChildId": 44508
+        },
+        "exitCode": 0,
+        "claimRetained": false
+      }
+    }
+  ],
+  "addedRuntimeAssetBytes": 0,
+  "apkDeltaMeasured": false,
+  "androidDecodeVerified": false
+}

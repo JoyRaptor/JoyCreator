@@ -239,6 +239,8 @@ public final class SettingsHubTests {
 
     static void loadCatalog() throws Exception {
         Map<String, String> strings = strings(read("app/src/main/res/values/strings_settings_hub.xml"));
+        // The "AI and Joybot" row keeps its words in a file of its own (Joybot lane, 10-28).
+        strings.putAll(strings(read("app/src/main/res/values/strings_joybot_settings.xml")));
         String java = read(HUB + "SettingsCatalog.java");
         Matcher m = Pattern.compile(
                 "new Section\\(R\\.string\\.(\\w+),\\s*R\\.string\\.\\w+,\\s*\"\\w+\""

@@ -996,13 +996,31 @@ public class MainActivity extends AppCompatActivity {
                 intent.removeExtra("navigate_to_tab");
             }
             
-            // Joybot's "Take me there" for screens that live inside this one as overlays.
-            if ("trash".equals(intent.getStringExtra("open_overlay"))) {
+            // Joybot's "Take me there" and open_room, for screens that live inside this one as overlays:
+            // the same screens the Lobby opens (lead, DOOR-1 10-28: library, studio and setup used to land
+            // on the classic FadCam tabs).
+            final String overlay = intent.getStringExtra("open_overlay");
+            if (overlay != null) {
                 intent.removeExtra("open_overlay");
                 new Handler(Looper.getMainLooper()).postDelayed(() -> {
                     if (isFinishing()) return;
-                    // The same screen the Library's Trash and the Lobby's logo-hold open.
-                    com.fadcam.ui.trash.RecentlyDeletedFragment.open(this);
+                    switch (overlay) {
+                        case "trash":
+                            // The same screen the Library's Trash and the Lobby's logo-hold open.
+                            com.fadcam.ui.trash.RecentlyDeletedFragment.open(this);
+                            break;
+                        case "library":
+                            com.fadcam.ui.library.LibraryFragment.open(this, false);
+                            break;
+                        case "projects":
+                            com.fadcam.ui.library.LibraryFragment.open(this, com.fadcam.ui.library.LibraryKind.PROJECTS, false);
+                            break;
+                        case "settings":
+                            com.fadcam.ui.settingshub.SettingsHubFragment.open(this, false);
+                            break;
+                        default:
+                            break;
+                    }
                 }, 250);
             }
 

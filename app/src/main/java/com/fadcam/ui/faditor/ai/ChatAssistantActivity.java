@@ -87,6 +87,8 @@ public class ChatAssistantActivity extends AppCompatActivity {
     public static final String EXTRA_PROJECT_ID = "chat_project_id";
     /** Where Joybot was opened from: an {@link IdeaEngine.Room} name ("LOBBY", "STUDIO", …). */
     public static final String EXTRA_ROOM = "chat_room";
+    /** Open with the AI settings dialog showing (the Settings hub's "AI and Joybot" row). */
+    public static final String EXTRA_OPEN_SETTINGS = "chat_open_settings";
     /** Id of what was selected in the editor (a layer item, else the spine clip), or absent. */
     public static final String EXTRA_SELECTED_ID = "chat_selected_id";
     /** True when he was tapped while glowing: open by saying the idea he had. */
@@ -224,6 +226,9 @@ public class ChatAssistantActivity extends AppCompatActivity {
         initViews();
         initSystemPrompt();
         setupFlow = new com.fadcam.ui.faditor.ai.joybot.SetupFlow(setupHost());
+        if (savedInstanceState == null && getIntent().getBooleanExtra(EXTRA_OPEN_SETTINGS, false)) {
+            inputField.post(this::showSettingsDialog);
+        }
 
         // Restore previous messages if returning to an existing conversation
         if (!messageLog.isEmpty()) {
@@ -2189,9 +2194,10 @@ public class ChatAssistantActivity extends AppCompatActivity {
         int tab;
         switch (where) {
             case IdeaEngine.ROUTE_RECORD: tab = 0; break;
-            case "library": tab = 1; break;
-            case "studio": tab = 3; break;
-            case "setup": tab = 4; break;
+            // The Lobby's own screens, not the classic FadCam tabs (lead, DOOR-1 10-28).
+            case "library": openOverlay("library"); return;
+            case "studio": openOverlay("projects"); return;
+            case "setup": openOverlay("settings"); return;
             case "joybrush":
                 startActivity(new Intent(this, cc.joycreator.joybrush.android.library.DrawingsActivity.class));
                 finish();
@@ -2235,17 +2241,21 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 startActivity(com.fadcam.ui.faditor.ai.bridge.BridgeActivity.intent(this, projectId, room));
                 return;
             case "trash":
-                // The Trash is an overlay inside the main screen (the Lobby's logo-hold opens it), so
-                // the main screen is asked to open it (MainActivity "open_overlay").
-                startActivity(new Intent(this, com.fadcam.MainActivity.class)
-                        .putExtra("open_overlay", "trash")
-                        .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
-                finish();
+                // The Trash is an overlay inside the main screen (the Lobby's logo-hold opens it).
+                openOverlay("trash");
                 return;
             default: return;
         }
         startActivity(new Intent(this, com.fadcam.MainActivity.class)
                 .putExtra("navigate_to_tab", tab)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
+        finish();
+    }
+
+    /** A screen the main activity opens over the Lobby ({@code MainActivity} "open_overlay"). */
+    private void openOverlay(@NonNull String which) {
+        startActivity(new Intent(this, com.fadcam.MainActivity.class)
+                .putExtra("open_overlay", which)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
         finish();
     }

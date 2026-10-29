@@ -69,6 +69,12 @@ final class SettingsDestinations {
                         .show(host.getParentFragmentManager(), "faditorSettings");
                 break;
             case VIDEO_PLAYER:       over(a, new VideoPlayerSettingsFragment()); break;
+            // Joybot's chat with its settings open: the same dialog as its gear (lead, DOOR-1 10-28).
+            case AI_JOYBOT:
+                a.startActivity(new android.content.Intent(a, com.fadcam.ui.faditor.ai.ChatAssistantActivity.class)
+                        .putExtra(com.fadcam.ui.faditor.ai.ChatAssistantActivity.EXTRA_ROOM, "LOBBY")
+                        .putExtra(com.fadcam.ui.faditor.ai.ChatAssistantActivity.EXTRA_OPEN_SETTINGS, true));
+                break;
             // ── recording ──
             case CAMERA_VIDEO:       over(a, new VideoSettingsFragment()); break;
             case AUDIO:              over(a, new AudioSettingsFragment()); break;

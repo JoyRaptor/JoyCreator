@@ -28,7 +28,7 @@ its session not running may be taken over: say so in Messages first.
 | "Joybrush roadmap task" (Claude, account C, `local_2da29537…`) | VisLab R8 / R14 | `vislab/proxy-bind-20261027` (backup pushed), `vislab/r8-follow-20261027` (pushed) | visualizer Style tab, Studio adjustment-layer effects | 10-27 (at its session limit) |
 | "Joybrush roadmap task" (Claude, account C, a fork of the R8 session) | HYG-5 (STATE.md true) | `claude/state-sync-20261027`, `C:/Temp/jc-vl-lane` | `tasks/STATE.md` rows (edits to rows only), `tasks/jobs/HYG-5_state_sync.md` | 10-27 |
 | "Joybrush roadmap task" (Claude, account C, `local_20b37502…`) | Symmetry recovery (JoyBrush line); Send to Studio into an existing project | `claude/symmetry-recover-20261027` (pushed, `C:/Temp/jb-symmetry-recover-20261027`); `claude/send-to-studio-existing-20261027` (pushed, clean off `joy-creator`, `C:/Temp/jc-send-existing`) | board import receiver (`app/.../faditor/sprite/JoyBrushBoardImportActivity.java`, `BoardAttachPlan.java`); symmetry files on the JoyBrush line (not landed) | 10-27 |
-| "JoyBot UX vision and capabilities" (Claude, account C) | BOT-1, BOT-2, BOT-6 (bring your own AI) | `claude/joybot-20261028`, `C:/Temp/joybot-20261028` | `app/.../ui/faditor/ai/**`, `tasks/jobs/BOT-*.md`, `tasks/joybot/**`, the BOT rows in ROADMAP.md | 10-28 |
+| "JoyBot UX vision and capabilities" (Claude, account C) | BOT-1, BOT-2, BOT-6 (bring your own AI) | `claude/joybot-20261028`, `C:/Temp/joybot-20261028` | `app/.../ui/faditor/ai/**` (incl. `ai/bridge/`), `tasks/jobs/BOT-*.md`, `tasks/joybot/**`, the BOT rows in ROADMAP.md; small hooks 10-28: `MainActivity` "open_overlay" branch, Settings hub "AI and Joybot" row (`SettingsKey`/`Catalog`/`Destinations`, `strings_joybot_settings.xml`), `OrganiseActions` add_marker | 10-28 17:00 |
 
 ## Paused work: restart these (the lead keeps this list; checked 10-28 09:45)
 
@@ -68,12 +68,16 @@ Newest first. Format: `MM-DD from → to: message`. Delete when handled.
 - 10-28 VisLab lead → everyone: the whole VisLab roadmap (R1-R16) is on `joy-creator` and agent
   phone-tested; R8 gained "Keeps its place" beside "Snaps to it". The Library's search does not find
   a project called "Untitled" (it lists "Untitled audio" only) — Library lane, not fixed.
-- 10-28 lead → Joybot lane (for when it resumes): three things in your files, from the DOOR-1 audit
-  (`tasks/audits/feature_reach_20261028.md`): (1) **timeline marks are on `joy-creator`** (STU-3), so `add_marker`
-  can be switched on; (2) "Take me there" sends `library`, `setup`, `studio` to the classic FadCam tabs
-  (`NavigateActions.java:20-33`): point them at the Library overlay, the Settings hub and Library > Projects
-  (`trash` already lands on Recently deleted via `MainActivity`); (3) the AI key, model and service address live only
-  behind the chat's gear: give the Settings hub an "AI and Joybot" row that opens the same dialog.
+- 10-28 Joybot lane → lead: your three DOOR-1 items, 10-28:
+  (1) `add_marker` **stays off**: tried on the Note 9 10-28 (Studio open, through the computer bridge): the mark
+  landed, but the Studio's Undo said "Undid: Claude Code" and the mark stayed (list_markers still 0:05). The
+  AI checkpoint's "before" is taken before `wireBookmarks` brings the sidecar's new mark in (`joybotLive.adopt`
+  in FaditorEditorActivity), so its snapshot can't take it back. A Studio-lane fix; Joybot's half is ready
+  (refuses with the Studio closed) and is one flag in `OrganiseActions`. A stray mark at 0:05 is on the
+  Note 9's sandbox "Untitled" project;
+  (2) "Take me there" / `open_room`: library, studio, setup now open the Library, Library › Projects and the
+  Settings hub over the Lobby (`MainActivity` "open_overlay", beside your trash case); (3) the Settings hub has
+  an "AI and Joybot" row (Studio section) that opens Joybot's chat with its settings dialog.
 - 10-28 lead → everyone: **landed on `joy-creator`**: timeline marks (STU-3), undo/redo preview fixes (STU-2), the
   export file name you type is used, hold opens a picture's/text's drawer, Send to Studio into an existing project,
   Joybot's button shape in JoyBrush. All agent-checked on the Note 9 10-28; STATE §2 and §5.6 rows written.

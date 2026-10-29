@@ -24,3 +24,18 @@ or APK size delta inferred. Fresh resource admission is required for every job.
 Current artifact map: [source/size integration receipt](CRUMPLE_EVALUATION_INTEGRATION_20261029.json).
 Full45 master work stays stopped7/45. Sources/diagnostics excluded from APK. This
 checkout is evaluation-only; no runtime change is pushed to joy-creator.
+
+## Production host gate CLOSED GREEN
+
+Frozen cbc693e97068c2f697d5fd5d51cfeb226dbdbde2 passed4 tests/0failures/errors/skips,
+SUCCESS3m48s/exit0, one independently counted XML suite. [Receipt](CRUMPLE_PRODUCTION_DECODE_20261029.json).
+Actual packaged BitmapFactory loader under native Robolectric preserved independent
+PNG raw-channel hashes, including profile alphaE[h²]; master height B/A expansion
+and production catalogue acceptance passed. JPEG scope is dimensions/opacity.
+This is host Android evidence, not physical Note9 decoding/GL/residency/feel.
+
+Matched baseline APK job now admitted under shared lock, exec64321/log
+C:/Temp/jb-lead-ops/paper-baseline-cd1e48805-20261029.log. No overlay APK or phone
+job yet. First deferred attempt remains in history; admission was retried only after
+fresh available RAM changed. Baseline code is cd1e48805, overlay adds only9resources,
+three catalogue pairs, tests/docs. No engine/cache/loader behavior changed by overlay.

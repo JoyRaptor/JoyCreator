@@ -381,6 +381,12 @@ Document versions in the JoyBrush file: 11 captured physical domain, **12 clip e
 - A scene GIF carries no loop flag even when clips loop (check against the spec); lock, Combine, Flatten and export were
   proved by the GPU test, not driven by a finger.
 
+Paper evaluation, October29: all45 selected color sources are prepared;7 reactive
+masters and two reduced profiles exist as evaluation artifacts. An isolated
+three-resolution crumpled-paper overlay passed production parser/native host
+BitmapFactory checks; it is **not shipped or owner-accepted**. Current shipping
+catalogue/defaults remain unchanged. [Exact scope and remaining gates](joybrush/reviews/CRUMPLE_PHONE_BUILD_20261029.md).
+
 ## 6. AI — the agent
 
 | Feature | Level | Notes |

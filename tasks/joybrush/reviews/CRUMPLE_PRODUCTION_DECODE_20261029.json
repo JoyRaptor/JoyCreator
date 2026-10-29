@@ -1,0 +1,15 @@
+{
+  "source": "cbc693e97068c2f697d5fd5d51cfeb226dbdbde2",
+  "counts": {
+    "tests": 4,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "suite": "cc.joycreator.joybrush.android.paper.CrumplePaperProductionDecodeTest",
+  "xmlSha256": "17c6afb014c12ab6b8007e9ad968326e70cc31a73827972337f26c63940d2736",
+  "logSha256": "ae08d94b965f55c3b6dd264be9c6fb0a45923908d76460e3bdc89a1dd5ea458e",
+  "exitCode": 0,
+  "duration": "3m48s",
+  "scope": "Production catalogue parser and real packaged host BitmapFactory/Native Robolectric PNG channels; not Note9/GL/feel."
+}

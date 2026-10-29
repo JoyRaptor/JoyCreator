@@ -55,6 +55,8 @@
     <string name="studio_waveform_settings_title">Waveform visualizer</string>
     <string name="studio_addasset_ai_slide">AI slide (animated)</string>
     <string name="studio_addasset_fx_layer">FX Adjustment Layer</string>
+    <string name="studio_addasset_sprite">Sprite</string>
+    <string name="studio_addasset_sprite_hover">Add a sprite: pick a cell or a saved animation, or load a sprite sheet</string>
     <string name="studio_videosource_blank_audio_title">Blank audio project</string>
     <string name="studio_videosource_blank_audio_sub">Podcast, voiceover, music — import audio after</string>
     <string name="studio_slidecode_title">Slide code</string>

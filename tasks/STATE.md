@@ -94,7 +94,7 @@ from compilation, an isolated branch, synthetic checks or agent-only device test
 | Dual camera (front + back) | 🟡 ✔ | dualcam/ full package. Device state unknown. |
 | Photo capture / screenshot | 🟢 ~ | PhotoCaptureActivity, ScreenShotCaptureActivity |
 | Remote camera control over LAN | 🟡 ✔ | streaming/RemoteStreamManager, LiveM3U8Server. **Real, unpromoted, untested by JoyRaptor.** |
-| Live streaming / cloud upload | 🟡 ✔ | CloudStreamUploader, CloudAuthManager — **being removed from the Play build** |
+| Remote (LAN streaming: watch and control the phone camera from a browser on the same Wi-Fi) | 🟡 ✔ | **10-28: FadCam's cloud, E2E, Pro, Ko-fi and Discord parts removed** (S19, 63bcd54cf and the three before it; they talked to the FadCam developer's own servers). Agent-checked on the Note 9 10-28: Remote starts, the LAN page loads (`/`, `/status`), `/live.m3u8` streams 2 s segments, no cloud control left. To be folded in as Remote Studio (FOLD-1). Note: the web page loads hls.js, flatpickr and Font Awesome from CDNs, so a viewer PC with no internet gets a broken page. |
 | Watermark | 🟢 ~ | watermark/WatermarkManager **10-28: off by default** (3cbc64ff6); it used to burn "Captured by" + the FadCam logo into every recording, screen recording and photo. People who chose one keep it. |
 | Live audio visualizer during record | 🟡 ✔ | visualizer/LiveVisualizer |
 | Forensics gallery | 🟡 ✔ | forensics/ — full package, purpose and state unclear, needs a decision |
@@ -110,7 +110,7 @@ from compilation, an isolated branch, synthetic checks or agent-only device test
 | Accessibility service used for screenshots | ✔ Non-accessibility use of the Accessibility API = policy violation |
 | MANAGE_EXTERNAL_STORAGE | ✔ Requires justification; usually refused for editors |
 | Privacy black screen | Per LAUNCH_STRATEGY.md section 3 |
-| Cloud / streaming | Per LAUNCH_STRATEGY.md section 5 |
+| Cloud / streaming | Cloud removed 10-28 (S19); LAN Remote stays (owner 10-17) |
 
 All of these **stay in the website / F-Droid build.** Decision already made and documented.
 

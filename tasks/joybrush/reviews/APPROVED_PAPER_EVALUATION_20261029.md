@@ -139,3 +139,17 @@ inPremultiplied=false, extracts straight RGBA and uploads GL_RGBA8, then generat
 mips. This source contract supports the separate second moment; an L-only profile
 would not. This is source inspection, not actual Android decode/GPU verification.
 Phone-profile generation remains gated; at most3 initial materials.
+
+## Actual phone-profile experiment
+
+Both authorized expanded-firm profiles completed under the protected lease,
+one job at a time, with no package or phone changes.
+[Exact profile/input/output/resource receipts](approved_paper_profiles_20261029.json):
+512 encoded697966bytes, modelled GPU+mips2883580bytes, decoded base2162688bytes;
+1024 encoded3138430bytes, modelled GPU+mips11534332bytes, decoded base8650752bytes.
+Master encoded3825625bytes. Peaks159.96/183.19MiB and durations0.960/1.424seconds
+are observed PC child measurements; GPU/decoded quantities are models.
+Exact serialized RGBA, independent second moment, dimensions and document pitch
+assertions passed. Android decode, GL upload, residency and brush feel remain
+unverified. Stop after these two outputs for root comparison/first phone batch;
+master sequence remains7/45 stopped. Earlier UNRUN references are historical.

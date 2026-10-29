@@ -47208,6 +47208,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
 
             @Override
+            public void onSpriteSelected() {
+                openSpritePalette();
+            }
+
+            @Override
             public void onAdjustmentLayerSelected() {
                 // addAdjustmentLayer opens the drawer itself now, so every route into it —
                 // here, the tool, a future shortcut — lands the user on the effects.

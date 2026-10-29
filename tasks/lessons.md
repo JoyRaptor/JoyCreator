@@ -1165,3 +1165,12 @@ as `TIME * knob` are "rate" and the host integrates them.
 ## 2026-10-27: a GLSL keyword broke every media brush on the Note 9
 - A local named `flat` in jb_paste.glsl is an interpolation keyword; the JVM tests cannot compile shaders, so the build was green and the phone refused all pencil, watercolour and oil.
 - Rule: after any shader edit, run a media device probe (mediaUndoProbe) before telling anyone it is on the phone, and grep the log for "compile failed". Avoid GLSL reserved words (flat, smooth, sample, patch, input, output, filter, common, active) as names.
+
+## October29 — renamed canonical project and private device mapping
+- The owner corrected the canonical root to C:/+Projects/JoyCreator. Read its current
+  AGENTS, tasks/ROADMAP.md, tasks/BOARD.md and tasks/AGENT_START.md at resume; old
+  worktree copies predate the new job-card workflow.
+- A missing devices.local.sh at the retired FadCam path is not a missing device
+  identity everywhere. Check the NEW canonical private configuration before asking
+  the owner to recreate it; never choose adb's first phone. Keep serials untracked.
+- Operational watcher/local.properties helpers must follow the renamed root too.

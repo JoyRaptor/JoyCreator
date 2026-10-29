@@ -63,6 +63,7 @@ final class SettingsSearchDock {
         pill.setPadding(SettingsViews.dp(c, 12), 0, SettingsViews.dp(c, 2), 0);
         TextView lens = SettingsViews.glyph(c, 18f, Studio.INK_FAINT);
         lens.setText("search");
+        lens.setImportantForAccessibility(android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO);   // decorative: the field beside it speaks
         pill.addView(lens);
 
         search = new EditText(c);

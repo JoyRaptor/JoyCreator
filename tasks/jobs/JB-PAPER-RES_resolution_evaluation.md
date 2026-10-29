@@ -32,3 +32,8 @@ Use a fresh scratch drawing and matching Background AND Surface labels Crumpled 
 
 ## Files and traps
 Resource-only test overlay, no shipping ID/default replacement or engine/cache/loader edits. Keep full2048 masters. Explicitly separate encoded package size, modeled residency and observed child RAM. Device mapping is private tools/devices.local.sh under NEW C:/+Projects/JoyCreator; never commit serials. Never uninstall/clear data/touch owner drawings/rotate/monkey-launch. One Gradle/asset heavy job and one phone owner at a time.
+
+## Owner follow-on, October29
+[Codec research](../joybrush/reviews/PAPER_CODEC_OPTIONS_20261029.md) records modern
+storage/GPU compression choices. It is a separate unstarted benchmark; current
+phone variants and feel comparison remain unchanged.

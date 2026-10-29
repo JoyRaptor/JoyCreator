@@ -444,3 +444,13 @@ ROADMAP After launch · parked on purpose: on-device LLM, hosted credits, native
 subscriptions, adverts, paywalls, watermarks → ROADMAP.
 
 **Hygiene:** rescue, one main line, clean-up, rename, STATE sync → HYG-1..5 · the API key file → S3.
+
+## October29 owner idea — smaller high-resolution paper materials
+Owner asks to evaluate modern/niche codecs, alpha packing and GPU texture formats
+for the approved material library, preserving detail and brush response. [Research
+and bounded benchmark](joybrush/reviews/PAPER_CODEC_OPTIONS_20261029.md). Compare
+JPEGli/WebP/JPEGXL/AVIF storage and KTX2/Basis/native GPU paths separately; account
+for added decoder code, load/transcode costs, numerical channel fidelity and Note9
+capabilities. JPEG AI/neural material compression are research candidates, not a
+promised phone implementation. Existing [paper evaluation](jobs/JB-PAPER-RES_resolution_evaluation.md)
+continues unchanged. No codec implementation/benchmark job has been started.

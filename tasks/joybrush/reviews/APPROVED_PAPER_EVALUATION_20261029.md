@@ -162,3 +162,14 @@ no retry. Aggregate receipts updated with exact output SHA and resource evidence
 Root reports three-resolution evaluation APK installed on the trusted Note9 with
 33 saved-file path/length/hash records unchanged; device GL/drawing/feel still OPEN.
 Remaining23 masters stay offline/pending; no additional package/device action here.
+
+## All approved offline masters completed
+
+45/45 colour/height/fluid master sets baked with unchanged reviewed recipes.
+All45 source-tile hashes, successful resource receipts, termination/release flags,
+and135 actual runtime-candidate file dimensions/modes/output hashes verified.
+Aggregate receipt records exact sizes and per-material measurements. No live bake.
+No extra phone/profile/codec/catalogue actions. Three crumple-resolution variants
+were separately installed by root; all other material masters remain offline.
+Seam/repetition quality, physical brush feel, optimization choice and all-material
+phone integration are still OPEN; bake success does not establish those gates.

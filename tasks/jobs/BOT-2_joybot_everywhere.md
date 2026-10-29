@@ -38,7 +38,8 @@ Select, symmetry, Send to Studio. Hover labels: ~220 controls done 10-15; the ch
       your usage"). Check what the chat shows today first.
 - [x] **"What can I do here?"** (10-28): `joybot/WhatHere` lists the room's real actions from both registries
       in plain words (changes first, then reads; 14 then "and N more"); Studio also names what works with no AI;
-      without an AI it says the list needs one. Online or off. Tests in `IdeaEngineTest`. Not yet on the phone.
+      without an AI it says the list needs one. Online or off. Tests in `IdeaEngineTest`. **Phone ✅ 10-28**
+      (agent, Note 9, Lobby: four app-wide actions; [evidence](../joybot/evidence/what_can_i_do_here_20261028.png)).
 - [x] **"Did you know?" on every empty open** (owner, 10-28). Offline, no AI needed. `joybot/TipBook` holds 51
       tips, each a feature STATE marks built and on joy-creator (Studio, sound, VisLab, JoyBrush, SpriteLab,
       Capture, Library, Joybot himself); `joybot/TipUsage` leans them toward what this person makes (Library, last
@@ -46,7 +47,9 @@ Select, symmetry, Send to Studio. Hover labels: ~220 controls done 10-15; the ch
       touched; no tip repeats until all are seen; nothing leaves the phone. The greeting carries the tip, a small
       "Take me there" sits at its right edge (hidden when the tip is about the room you're in), then the idea
       buttons. Tests in `IdeaEngineTest` (routes real, a drawer gets mostly JoyBrush but still others,
-      no repeats). Typecheck, ideas 635/635, bench 53/53. **Not yet on the phone.**
+      no repeats). Typecheck, ideas 635/635, bench 53/53. **Phone ✅ 10-28** (agent, Note 9: a new tip each open,
+      "Take me there" beside it; on a SpriteLab tip with no project it opened Library › Projects;
+      [evidence](../joybot/evidence/tip_on_open_20261028.png)).
 - [x] **Offline ends on hope** (owner, 10-28): "Your phone isn't online…" is followed by "But I'm still right
       here", what works offline, and a tip (`TipBook.offlineHope`). Not phone-tested (an agent may not switch the
       phone's Wi-Fi off): owner check.

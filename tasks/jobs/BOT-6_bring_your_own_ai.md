@@ -119,8 +119,14 @@ the phone's code); the PC path stays code + one copyable line until the desktop 
       the same burst = still one undo step; wrong code 401, web page 403, a locked title refused and the computer
       can't unlock it). Found and fixed there: a refused request's unread body broke the next request on the same
       connection.
-- [ ] Prove it on the Note 9 (curl over `adb forward`, then a real Claude Code on the same Wi-Fi: needs the phone
-      on Wi-Fi with the PC; the owner's call to point his own Claude Code at it).
+- [x] **Proved on the Note 9** (agent, 10-28, USB `adb forward`, the phone had no Wi-Fi): the screen saw no
+      Wi-Fi and offered the cable; the QR, code and words drew as designed; Claude Code-style initialize → 124
+      tools → `where_am_i` read the project → `set_text_style` changed a title (confirmed by `get_item`) → `look`
+      sent the finished frame as a picture; wrong code 401, web page 403; the notification read "Connected to
+      Claude Code · Stop ends it" and opened the screen; "New code" closed the door and retired the code
+      ([evidence](../joybot/evidence/bridge_connected_20261028.png)). `add_marker` through the bridge found an editor
+      undo gap (stays off; BOARD).
+- [ ] A real Claude Code or Codex on the same Wi-Fi as the phone (the owner's own login; his call when to try).
 - [ ] Owner: ask Anthropic for written OK before Joybot starts a person's Claude Code (S17).
 - [ ] Spec with the pairing screens as a mix-and-match design page (the owner picks), including the
       conversational setup and the tablet QR.
@@ -130,7 +136,11 @@ the phone's code); the PC path stays code + one copyable line until the desktop 
       trouble), `SetupTalk` (the words), `SetupFlow` (the cards). The typing box goes password-style with no
       keyboard suggestions while it waits for a key. "Connect an AI" button on the greeting when none is
       connected; "connect an AI", "I have Claude Pro" and the like start it in words. Tests with fake keys only.
-      Not yet on the phone.
+      **Phone ✅ 10-28** (agent, Note 9, offline at the time): "connect an AI" → the four choices → Claude's card
+      with Connect my computer; an obviously fake OpenRouter-shaped key typed in the chat showed only as "key
+      ending …cdef", the check said "couldn't reach OpenRouter… Nothing was saved", the account stayed as it
+      was and the fake key appears nowhere in logcat ([evidence](../joybot/evidence/key_caught_offline_20261028.png)).
+      Not tried: a real key end to end (an agent never types one).
 - [ ] The talk half: Joybot's chat sending to the computer's AI (OpenCode's `opencode serve` first; Claude
       Code waits for S17; meanwhile Claude Code's own Remote Control lets the person talk from the Claude app).
 - [ ] Bridged requests show in Joybot's chat as "Claude Code: …" only when the chat is open for that project;

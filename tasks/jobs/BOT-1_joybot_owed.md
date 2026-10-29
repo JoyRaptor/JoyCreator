@@ -40,9 +40,10 @@ Ledger: [plan B6](../joybot/JOYBOT_PLAN_20261014.md), [audit fixes](../audits/20
 - [x] **Chat colours** (owner, 10-28): your own words in the quiet grey, Joybot's replies in the aqua-to-lime
       colour ✅ on the Note 9 10-28 (`tasks/joybot/evidence/chat_colours_20261028.png`). Answer cards with buttons
       (help, plans, results) stay grey for now: owner's call.
-- [ ] **Phone, never tried:** the free-model fallback and borrowed eyes (F9); `add_media`, `relink_missing`,
-      `list_items`; ducking on a music + voice project; the hands-free voice loop (needs the owner's voice:
-      owner check).
+- [ ] **Phone, never tried:** the free-model fallback and borrowed eyes (F9); `add_media`, `relink_missing`;
+      ducking on a music + voice project; the hands-free voice loop (needs the owner's voice: owner check).
+      `list_items` ✅ 10-28 (agent, Note 9, free model): "list everything on the timeline of my last project"
+      ran the tool and answered by kind in plain words ([evidence](../joybot/evidence/list_items_live_20261028.png)).
 - [x] **STATE rows** HYG-5 asked for: Director mode, recipes, hands-free, Carry on; stale §6 rows refreshed
       (10-28: 63 typed actions + 61 older tools counted; JoyBrush hands row updated).
 - [x] **"Draw a moustache"** (impossible requests). Fixed 10-28: an honest "I can't" is passed on in one step

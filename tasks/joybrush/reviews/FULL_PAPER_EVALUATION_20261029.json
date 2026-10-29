@@ -1,0 +1,14 @@
+{
+  "base": "c7389b318",
+  "resourceSource": "8c25efc9bc1be2fcd13e2e63378183e4d4efd775",
+  "masterMaterials": 45,
+  "masterFiles": 135,
+  "masterBytes": 205722497,
+  "retainedReducedFirmComparisons": 2,
+  "allEvalFiles": 141,
+  "totalEvaluationBytes": 209558893,
+  "surfaces": 76,
+  "looks": 79,
+  "shippingEntriesUnchanged": true,
+  "scope": "Temporary full-resolution evaluation; cache safety/test/build/device gates pending"
+}

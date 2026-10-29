@@ -121,3 +121,21 @@ padding/other textures and is NOT measured residency. GrainTextures retains visi
 names until release/forget; no eviction was added. Current decoded CPU images,
 lazy CPU mip chains and temporary bitmap/IntArray/byte/direct uploads need separate
 measured headroom. Compressed JPEG size does not establish runtime memory usage.
+
+## Sequential master checkpoint
+
+Seven of45 offline masters now baked: expanded-firm, linen1/2/3, duck1/2/3.
+Root verified the first pilot and cleared sequential masters under unchanged
+per-material resource gates. The sequence stopped at jute-2:1277MiB free,
+below2200 admission. No retry, active child, build or phone action.
+[Aggregate output hashes and resource receipts](approved_paper_bakes_20261029.json)
+record each completed material; earlier UNRUN statements describe the previous
+checkpoint. Added packaged runtime bytes remain0; APK delta unmeasured.
+
+Phone profile encoding is PNG RGBA8, packed=true: R/G are encoded slopes,
+B is area-filtered height, A is independently area-filtered E[h-squared].
+SurfaceMaps.expand returns packed bytes unchanged. GrainTextures decodes with
+inPremultiplied=false, extracts straight RGBA and uploads GL_RGBA8, then generates
+mips. This source contract supports the separate second moment; an L-only profile
+would not. This is source inspection, not actual Android decode/GPU verification.
+Phone-profile generation remains gated; at most3 initial materials.

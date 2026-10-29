@@ -1,0 +1,507 @@
+{
+  "completed": 7,
+  "selected": 45,
+  "stop": "jute-2 NOT_ADMITTED freeRAM1277MiB",
+  "runtimeCandidateBytes": 35415307,
+  "addedRuntimeAssetBytes": 0,
+  "apkDeltaMeasured": false,
+  "materials": [
+    {
+      "id": "duck-1",
+      "files": [
+        {
+          "file": "look_eval_duck_1.jpg",
+          "bytes": 1508548,
+          "sha256": "f99b61ce53a5e348a926c34ce1e6769962da5a5d5bb3b1157892baf98db408cb"
+        },
+        {
+          "file": "height_eval_duck_1.png",
+          "bytes": 2839821,
+          "sha256": "d1f9d6fa9854689d5c559110a76570a5bf0c7a3764caad3b38463371fd6d5698"
+        },
+        {
+          "file": "fluid_eval_duck_1.png",
+          "bytes": 541412,
+          "sha256": "596fcd3200a7f5523e7e4634752f9f031580fd6e4134d9d4167da30f2ee9f39f"
+        }
+      ],
+      "resource": {
+        "peakObservation": "maximum observed OS cumulative peak sample",
+        "observedCumulativePeakMiB": 466.43,
+        "claimRetained": false,
+        "inputs": [
+          {
+            "path": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\duck-1\\tile.png",
+            "sha256": "776E34C6442599E6BEEEC8A2676BEC01E71A0583299FF1424A8A153005908BCD"
+          },
+          {
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\build_approved_evaluation.py",
+            "sha256": "32B2E799750D0634B681B3BC6911DB5B2C318BA5926848FFE802B5F33A7D2EDD"
+          },
+          {
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\pack.py",
+            "sha256": "A8270DB7E7CD5D2EB37594A10E432C681BE7E53621A50ECD009A0A6F92BEC0A4"
+          },
+          {
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\photo2paper.py",
+            "sha256": "6FE051953CD2D1AD0E957D7D94ADCB43EE87EE02F71C874ED954BADD2028A6D5"
+          },
+          {
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\felt2paper.py",
+            "sha256": "BE5D286919D83DC2C82A352CE56D2032D5A152101287A9DA6AA03ED2BD609A45"
+          },
+          {
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\run_approved_bake.ps1",
+            "sha256": "D96744EBE5EF12E10B22C93D15406AC6C0ECAD284DE7622418F07A4502D65406"
+          },
+          {
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\approved_bake_lease.ps1",
+            "sha256": "F3D17C331CA29C34DA9DF69FAE897D088D64191B5AACF1ADE66181E535420BB5"
+          }
+        ],
+        "data": {
+          "stderr": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\duck-1-stderr.log",
+          "lowestObservedFreeMiB": 2251.0,
+          "ownedChildId": 19828,
+          "startedFreeMiB": 2640.0,
+          "watchersObserved": [],
+          "seconds": 8.4073396,
+          "stdout": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\duck-1-stdout.log"
+        },
+        "terminationConfirmed": true,
+        "owner": "CodexPaperBake-ed361b94-737d-4ff2-8667-e8539c7a34e4",
+        "material": "duck-1",
+        "output": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\assets",
+        "failure": null,
+        "source": "da1037e88e89e2f999bf9e2b75bfa2501583f19e",
+        "exitCode": 0
+      }
+    },
+    {
+      "id": "duck-2",
+      "files": [
+        {
+          "file": "look_eval_duck_2.jpg",
+          "bytes": 1546601,
+          "sha256": "8856c4ace7edd894fc33a157c9a789528adb2e01d5ddec10823c40aa812bc383"
+        },
+        {
+          "file": "height_eval_duck_2.png",
+          "bytes": 3054922,
+          "sha256": "ff0304d3f4a39ff2c01f89bbaf93b4e2a5a881fc8b78541548c2198dcabaef0e"
+        },
+        {
+          "file": "fluid_eval_duck_2.png",
+          "bytes": 545892,
+          "sha256": "0986a9fd92875174b0b5506d901d599fe922811a2720f6dea2e9fb02703e1898"
+        }
+      ],
+      "resource": {
+        "owner": "CodexPaperBake-38d6a058-da2a-44f4-b7e1-965899a06dd8",
+        "failure": null,
+        "source": "da1037e88e89e2f999bf9e2b75bfa2501583f19e",
+        "material": "duck-2",
+        "inputs": [
+          {
+            "sha256": "EAAF557A2220A5D7A4EC26AE75734B0ACB53D5036658DCF97C53BEBD525D4AF4",
+            "path": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\duck-2\\tile.png"
+          },
+          {
+            "sha256": "32B2E799750D0634B681B3BC6911DB5B2C318BA5926848FFE802B5F33A7D2EDD",
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\build_approved_evaluation.py"
+          },
+          {
+            "sha256": "A8270DB7E7CD5D2EB37594A10E432C681BE7E53621A50ECD009A0A6F92BEC0A4",
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\pack.py"
+          },
+          {
+            "sha256": "6FE051953CD2D1AD0E957D7D94ADCB43EE87EE02F71C874ED954BADD2028A6D5",
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\photo2paper.py"
+          },
+          {
+            "sha256": "BE5D286919D83DC2C82A352CE56D2032D5A152101287A9DA6AA03ED2BD609A45",
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\felt2paper.py"
+          },
+          {
+            "sha256": "D96744EBE5EF12E10B22C93D15406AC6C0ECAD284DE7622418F07A4502D65406",
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\run_approved_bake.ps1"
+          },
+          {
+            "sha256": "F3D17C331CA29C34DA9DF69FAE897D088D64191B5AACF1ADE66181E535420BB5",
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\approved_bake_lease.ps1"
+          }
+        ],
+        "peakObservation": "maximum observed OS cumulative peak sample",
+        "terminationConfirmed": true,
+        "claimRetained": false,
+        "observedCumulativePeakMiB": 466.46,
+        "exitCode": 0,
+        "output": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\assets",
+        "data": {
+          "seconds": 8.9872193,
+          "stdout": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\duck-2-stdout.log",
+          "startedFreeMiB": 2631.0,
+          "ownedChildId": 45804,
+          "lowestObservedFreeMiB": 2295.0,
+          "stderr": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\duck-2-stderr.log",
+          "watchersObserved": []
+        }
+      }
+    },
+    {
+      "id": "duck-3",
+      "files": [
+        {
+          "file": "look_eval_duck_3.jpg",
+          "bytes": 1535633,
+          "sha256": "1ea06a0f08b5cdf0bf2bfbf4a98496ab35740952f4f9b35299208250c6009b69"
+        },
+        {
+          "file": "height_eval_duck_3.png",
+          "bytes": 2870583,
+          "sha256": "5c31a15052c7c8b139009945654991b1f0344edfaa1ead9d3b2c3a17e898b938"
+        },
+        {
+          "file": "fluid_eval_duck_3.png",
+          "bytes": 549504,
+          "sha256": "b76651eca9bb1d24930b998280a66c97c959edc6794bcffba9485824509496d4"
+        }
+      ],
+      "resource": {
+        "inputs": [
+          {
+            "sha256": "87055BD39AA95763D125694A737C476B6B136DF1FADB88C20D61AC82D578A3C7",
+            "path": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\duck-3\\tile.png"
+          },
+          {
+            "sha256": "32B2E799750D0634B681B3BC6911DB5B2C318BA5926848FFE802B5F33A7D2EDD",
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\build_approved_evaluation.py"
+          },
+          {
+            "sha256": "A8270DB7E7CD5D2EB37594A10E432C681BE7E53621A50ECD009A0A6F92BEC0A4",
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\pack.py"
+          },
+          {
+            "sha256": "6FE051953CD2D1AD0E957D7D94ADCB43EE87EE02F71C874ED954BADD2028A6D5",
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\photo2paper.py"
+          },
+          {
+            "sha256": "BE5D286919D83DC2C82A352CE56D2032D5A152101287A9DA6AA03ED2BD609A45",
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\felt2paper.py"
+          },
+          {
+            "sha256": "D96744EBE5EF12E10B22C93D15406AC6C0ECAD284DE7622418F07A4502D65406",
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\run_approved_bake.ps1"
+          },
+          {
+            "sha256": "F3D17C331CA29C34DA9DF69FAE897D088D64191B5AACF1ADE66181E535420BB5",
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\approved_bake_lease.ps1"
+          }
+        ],
+        "claimRetained": false,
+        "output": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\assets",
+        "observedCumulativePeakMiB": 466.28,
+        "terminationConfirmed": true,
+        "owner": "CodexPaperBake-9867ef3b-1046-4191-9d67-d10c0b61da33",
+        "material": "duck-3",
+        "failure": null,
+        "source": "da1037e88e89e2f999bf9e2b75bfa2501583f19e",
+        "data": {
+          "startedFreeMiB": 2640.0,
+          "lowestObservedFreeMiB": 2249.0,
+          "ownedChildId": 12464,
+          "stderr": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\duck-3-stderr.log",
+          "stdout": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\duck-3-stdout.log",
+          "watchersObserved": [],
+          "seconds": 8.3857461
+        },
+        "peakObservation": "maximum observed OS cumulative peak sample",
+        "exitCode": 0
+      }
+    },
+    {
+      "id": "expanded-firm",
+      "files": [
+        {
+          "file": "look_eval_expanded_firm.jpg",
+          "bytes": 903017,
+          "sha256": "28cc24e11f1100bd44505bee5eb81a2682bf4112774253c80735dbe469c49b70"
+        },
+        {
+          "file": "height_eval_expanded_firm.png",
+          "bytes": 2369455,
+          "sha256": "286543d201f6ab16932226ecba68e56db865b5186fd51b983bfc0668e5ec7573"
+        },
+        {
+          "file": "fluid_eval_expanded_firm.png",
+          "bytes": 553153,
+          "sha256": "8b6ffde90ad0045b31f54182e9bdc1fefc5f8022b0f9fe0db9474a836d11e559"
+        }
+      ],
+      "resource": {
+        "inputs": [
+          {
+            "path": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\expanded-firm\\tile.png",
+            "sha256": "9ABD9191D82793AB0C79AEC68D7D6B6CEFDE95B807B9098A32D2096A5859EBD8"
+          },
+          {
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\build_approved_evaluation.py",
+            "sha256": "32B2E799750D0634B681B3BC6911DB5B2C318BA5926848FFE802B5F33A7D2EDD"
+          },
+          {
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\pack.py",
+            "sha256": "A8270DB7E7CD5D2EB37594A10E432C681BE7E53621A50ECD009A0A6F92BEC0A4"
+          },
+          {
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\photo2paper.py",
+            "sha256": "6FE051953CD2D1AD0E957D7D94ADCB43EE87EE02F71C874ED954BADD2028A6D5"
+          },
+          {
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\felt2paper.py",
+            "sha256": "BE5D286919D83DC2C82A352CE56D2032D5A152101287A9DA6AA03ED2BD609A45"
+          },
+          {
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\run_approved_bake.ps1",
+            "sha256": "D96744EBE5EF12E10B22C93D15406AC6C0ECAD284DE7622418F07A4502D65406"
+          },
+          {
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\approved_bake_lease.ps1",
+            "sha256": "F3D17C331CA29C34DA9DF69FAE897D088D64191B5AACF1ADE66181E535420BB5"
+          }
+        ],
+        "data": {
+          "ownedChildId": 42220,
+          "stdout": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\expanded-firm-stdout.log",
+          "seconds": 13.5652991,
+          "lowestObservedFreeMiB": 1681.0,
+          "watchersObserved": [],
+          "startedFreeMiB": 2266.0,
+          "stderr": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\expanded-firm-stderr.log"
+        },
+        "exitCode": 0,
+        "failure": null,
+        "owner": "CodexPaperBake-c844e6de-3636-4ca4-a751-9489f2d85a9c",
+        "claimRetained": false,
+        "terminationConfirmed": true,
+        "output": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\assets",
+        "material": "expanded-firm",
+        "observedCumulativePeakMiB": 594.36,
+        "source": "da1037e88e89e2f999bf9e2b75bfa2501583f19e",
+        "peakObservation": "maximum observed OS cumulative peak sample"
+      }
+    },
+    {
+      "id": "linen-1",
+      "files": [
+        {
+          "file": "look_eval_linen_1.jpg",
+          "bytes": 2086059,
+          "sha256": "f118d601bbcd9ebc26a5687321bb7534a5999ef54748d1688d4f68758f1e0e56"
+        },
+        {
+          "file": "height_eval_linen_1.png",
+          "bytes": 3212991,
+          "sha256": "a5520f149bb1b9b7fa51e56a70b691216260da2953bd67d5824ba507721daa95"
+        },
+        {
+          "file": "fluid_eval_linen_1.png",
+          "bytes": 570304,
+          "sha256": "343daa93b82133809de1b3f72dbf69649736a35f5b0a1a33e7f4f1bb0bf9a08e"
+        }
+      ],
+      "resource": {
+        "exitCode": 0,
+        "terminationConfirmed": true,
+        "output": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\assets",
+        "failure": null,
+        "peakObservation": "maximum observed OS cumulative peak sample",
+        "claimRetained": false,
+        "source": "da1037e88e89e2f999bf9e2b75bfa2501583f19e",
+        "observedCumulativePeakMiB": 466.39,
+        "data": {
+          "watchersObserved": [],
+          "ownedChildId": 48288,
+          "startedFreeMiB": 2669.0,
+          "stderr": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\linen-1-stderr.log",
+          "lowestObservedFreeMiB": 2236.0,
+          "seconds": 8.051452,
+          "stdout": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\linen-1-stdout.log"
+        },
+        "owner": "CodexPaperBake-8bd2d7be-aed1-407e-bd8f-3a575c225251",
+        "inputs": [
+          {
+            "sha256": "7030EDDA56E00E1890A25039D451B1CFDCFA51E2E5607801D2F6A0C827939CE2",
+            "path": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\linen-1\\tile.png"
+          },
+          {
+            "sha256": "32B2E799750D0634B681B3BC6911DB5B2C318BA5926848FFE802B5F33A7D2EDD",
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\build_approved_evaluation.py"
+          },
+          {
+            "sha256": "A8270DB7E7CD5D2EB37594A10E432C681BE7E53621A50ECD009A0A6F92BEC0A4",
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\pack.py"
+          },
+          {
+            "sha256": "6FE051953CD2D1AD0E957D7D94ADCB43EE87EE02F71C874ED954BADD2028A6D5",
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\photo2paper.py"
+          },
+          {
+            "sha256": "BE5D286919D83DC2C82A352CE56D2032D5A152101287A9DA6AA03ED2BD609A45",
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\felt2paper.py"
+          },
+          {
+            "sha256": "D96744EBE5EF12E10B22C93D15406AC6C0ECAD284DE7622418F07A4502D65406",
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\run_approved_bake.ps1"
+          },
+          {
+            "sha256": "F3D17C331CA29C34DA9DF69FAE897D088D64191B5AACF1ADE66181E535420BB5",
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\approved_bake_lease.ps1"
+          }
+        ],
+        "material": "linen-1"
+      }
+    },
+    {
+      "id": "linen-2",
+      "files": [
+        {
+          "file": "look_eval_linen_2.jpg",
+          "bytes": 1590453,
+          "sha256": "1c02556aa36ef0e90d6d10d3b420132e3cd6aa710cab08829328d4bd951ec56e"
+        },
+        {
+          "file": "height_eval_linen_2.png",
+          "bytes": 3108075,
+          "sha256": "09e66e803911b0ab60fd65992029b20c1d85933ad3b4d9c02718d687203e779e"
+        },
+        {
+          "file": "fluid_eval_linen_2.png",
+          "bytes": 567196,
+          "sha256": "3249f5b839f04627638a0637613313e8833888b8bf23702b80cd0d8a8e5d6f6c"
+        }
+      ],
+      "resource": {
+        "output": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\assets",
+        "owner": "CodexPaperBake-5217f0c4-18e2-4452-baca-8cedfe07a222",
+        "exitCode": 0,
+        "source": "da1037e88e89e2f999bf9e2b75bfa2501583f19e",
+        "claimRetained": false,
+        "inputs": [
+          {
+            "path": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\linen-2\\tile.png",
+            "sha256": "B25C33B7C3B08D36AD1C38359ED7609D0E26B09A4A92063F6FB928589C9E349B"
+          },
+          {
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\build_approved_evaluation.py",
+            "sha256": "32B2E799750D0634B681B3BC6911DB5B2C318BA5926848FFE802B5F33A7D2EDD"
+          },
+          {
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\pack.py",
+            "sha256": "A8270DB7E7CD5D2EB37594A10E432C681BE7E53621A50ECD009A0A6F92BEC0A4"
+          },
+          {
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\photo2paper.py",
+            "sha256": "6FE051953CD2D1AD0E957D7D94ADCB43EE87EE02F71C874ED954BADD2028A6D5"
+          },
+          {
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\felt2paper.py",
+            "sha256": "BE5D286919D83DC2C82A352CE56D2032D5A152101287A9DA6AA03ED2BD609A45"
+          },
+          {
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\run_approved_bake.ps1",
+            "sha256": "D96744EBE5EF12E10B22C93D15406AC6C0ECAD284DE7622418F07A4502D65406"
+          },
+          {
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\approved_bake_lease.ps1",
+            "sha256": "F3D17C331CA29C34DA9DF69FAE897D088D64191B5AACF1ADE66181E535420BB5"
+          }
+        ],
+        "failure": null,
+        "data": {
+          "ownedChildId": 49572,
+          "watchersObserved": [],
+          "stderr": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\linen-2-stderr.log",
+          "startedFreeMiB": 2661.0,
+          "seconds": 7.9934284,
+          "stdout": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\linen-2-stdout.log",
+          "lowestObservedFreeMiB": 2233.0
+        },
+        "terminationConfirmed": true,
+        "peakObservation": "maximum observed OS cumulative peak sample",
+        "observedCumulativePeakMiB": 465.93,
+        "material": "linen-2"
+      }
+    },
+    {
+      "id": "linen-3",
+      "files": [
+        {
+          "file": "look_eval_linen_3.jpg",
+          "bytes": 1792221,
+          "sha256": "0fdfc17903e3daabef009477e6506029620c45aa684a2bc6aaec3c163978c719"
+        },
+        {
+          "file": "height_eval_linen_3.png",
+          "bytes": 3100745,
+          "sha256": "c1920822e9f2f31f0ea471cbcda019d20422b912e9ccd4ff32a33c04b1b90b93"
+        },
+        {
+          "file": "fluid_eval_linen_3.png",
+          "bytes": 568722,
+          "sha256": "2b42a5f5d18b8a5981a48a0151578ec1156b12669927fd147129015361408c65"
+        }
+      ],
+      "resource": {
+        "peakObservation": "maximum observed OS cumulative peak sample",
+        "observedCumulativePeakMiB": 466.52,
+        "claimRetained": false,
+        "exitCode": 0,
+        "material": "linen-3",
+        "source": "da1037e88e89e2f999bf9e2b75bfa2501583f19e",
+        "failure": null,
+        "output": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\assets",
+        "data": {
+          "lowestObservedFreeMiB": 2249.0,
+          "stdout": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\linen-3-stdout.log",
+          "stderr": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\linen-3-stderr.log",
+          "ownedChildId": 47396,
+          "seconds": 8.1361501,
+          "watchersObserved": [],
+          "startedFreeMiB": 2658.0
+        },
+        "owner": "CodexPaperBake-9b44de34-22ba-40c2-82b6-a6e6de88d693",
+        "inputs": [
+          {
+            "sha256": "ACD032582D188B2DDD74FD9CD466F0B4A34F2545A34E2FA26EF74BFFB84F9BF7",
+            "path": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\linen-3\\tile.png"
+          },
+          {
+            "sha256": "32B2E799750D0634B681B3BC6911DB5B2C318BA5926848FFE802B5F33A7D2EDD",
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\build_approved_evaluation.py"
+          },
+          {
+            "sha256": "A8270DB7E7CD5D2EB37594A10E432C681BE7E53621A50ECD009A0A6F92BEC0A4",
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\pack.py"
+          },
+          {
+            "sha256": "6FE051953CD2D1AD0E957D7D94ADCB43EE87EE02F71C874ED954BADD2028A6D5",
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\photo2paper.py"
+          },
+          {
+            "sha256": "BE5D286919D83DC2C82A352CE56D2032D5A152101287A9DA6AA03ED2BD609A45",
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\felt2paper.py"
+          },
+          {
+            "sha256": "D96744EBE5EF12E10B22C93D15406AC6C0ECAD284DE7622418F07A4502D65406",
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\run_approved_bake.ps1"
+          },
+          {
+            "sha256": "F3D17C331CA29C34DA9DF69FAE897D088D64191B5AACF1ADE66181E535420BB5",
+            "path": "C:\\Temp\\jb-paper-approved-20261029\\joybrush\\tools\\paper\\approved_bake_lease.ps1"
+          }
+        ],
+        "terminationConfirmed": true
+      }
+    }
+  ]
+}

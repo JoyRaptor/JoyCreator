@@ -34,9 +34,29 @@ public final class Pictures implements VisRenderer.ImageSource {
 
     private final Context app;
     @Nullable private Bitmap emblem;
+    /** A video chosen for a picture layer plays in it (R12), round and round. */
+    @NonNull private final Videos videos;
 
     public Pictures(@NonNull Context c) {
         app = c.getApplicationContext();
+        videos = new Videos(app);
+    }
+
+    @Override
+    public synchronized boolean moves(@Nullable String ref) {
+        return videos.isVideo(ref);
+    }
+
+    /** A video's frame at {@code seconds} of the look's clock, looping over its length (R12). */
+    @Nullable
+    @Override
+    public synchronized Bitmap frame(@NonNull String ref, double seconds) {
+        return videos.frame(ref, seconds, true);
+    }
+
+    /** Let go of the video decoders (the room closed, or the renderer was let go). */
+    public synchronized void release() {
+        videos.release();
     }
 
     @Nullable

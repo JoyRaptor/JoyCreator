@@ -65,6 +65,25 @@ public final class VisLabStyleTab {
 
         /** True when the visualizer's source clip has a transcript (a lyrics look's words). */
         boolean hasTranscriptWords();
+
+        /** Studio objects a look layer can follow (R8), dummies first: each {id, name}. */
+        @NonNull
+        default List<String[]> followables() { return new ArrayList<>(); }
+
+        /** The object with this id, to follow, or null when it is gone. */
+        @Nullable
+        default com.fadcam.ui.faditor.model.LinkPose followable(@NonNull String id) { return null; }
+
+        /**
+         * What a look's picture layer can show (R9): pictures, titles, sprites, videos and the
+         * main video, each {id, name}.
+         */
+        @NonNull
+        default List<String[]> showables() { return new ArrayList<>(); }
+
+        /** The item a picture layer shows by this id (as {@code Timeline.showableById}), or null. */
+        @Nullable
+        default Object showable(@NonNull String id) { return null; }
     }
 
     private static final long ON_KEY_MS = 66;   // as Studio's own keyed rows
@@ -220,6 +239,7 @@ public final class VisLabStyleTab {
                 x -> Math.round(x * 100f) + "%"), rowHost));
         rowRefresh.add(PipDrawerTabs.addPropRow(c, v, valueProp(VisLabKeys.SPEED, "Speed", 0f, 3f,
                 x -> Math.round(x * 100f) + "%"), rowHost));
+        followRows(v, lookId);
         TextView edit = Ui.text(c, "Edit in VisLab", 12f, Studio.INK, false, 600);
         edit.setGravity(Gravity.CENTER);
         edit.setMinHeight(Ui.dp(c, 36));
@@ -233,6 +253,248 @@ public final class VisLabStyleTab {
         lp.gravity = Gravity.START;
         v.addView(edit, lp);
         return v;
+    }
+
+    /**
+     * "Follows": each layer of the look can follow a Studio object (R8: animate a dummy and the
+     * logo inside the look goes with it). One row per layer, its name and a pill naming what it
+     * follows; tapping the pill lists the project's objects, dummies first. One undo step a pick.
+     */
+    private void followRows(@NonNull LinearLayout v, @NonNull String lookId) {
+        com.google.gson.JsonArray layers;
+        try {
+            com.google.gson.JsonObject look = com.google.gson.JsonParser
+                    .parseString(VisLabSession.get(c).lookJson(lookId)).getAsJsonObject();
+            layers = look.getAsJsonArray("layers");
+        } catch (RuntimeException e) {
+            return;
+        }
+        if (layers == null || layers.size() == 0) return;
+        TextView head = Ui.text(c, "Layers can follow an object", 11f, Studio.INK_DIM, false, 600);
+        head.setPadding(0, Ui.dp(c, 10), 0, Ui.dp(c, 2));
+        v.addView(head);
+        for (int i = 0; i < layers.size(); i++) {
+            if (!layers.get(i).isJsonObject()) continue;
+            com.google.gson.JsonObject L = layers.get(i).getAsJsonObject();
+            String name = L.has("name") && L.get("name").isJsonPrimitive() ? L.get("name").getAsString()
+                    : L.has("type") ? L.get("type").getAsString() : "Layer " + (i + 1);
+            String key = WaveformOverlayInstance.visFollowKey(lookId, i);
+            LinearLayout row = new LinearLayout(c);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setMinimumHeight(Ui.dp(c, 36));
+            row.addView(Ui.text(c, name, 12f, Studio.INK, false, 500),
+                    new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+            TextView pill = Ui.text(c, "", 11.5f, Studio.INK_DIM, false, 600);
+            pill.setGravity(Gravity.CENTER);
+            pill.setMinHeight(Ui.dp(c, 30));
+            pill.setPadding(Ui.dp(c, 12), Ui.dp(c, 6), Ui.dp(c, 12), Ui.dp(c, 6));
+            Ui.label(pill, "Choose an object for " + name + " to follow");
+            pill.setOnClickListener(x -> pickFollow(pill, key));
+            row.addView(pill);
+            // How it follows: snap onto the object (the default), or keep its place and move as
+            // the object moves. Shown once the layer follows something.
+            TextView how = Ui.text(c, "", 11.5f, Studio.INK_DIM, false, 600);
+            how.setGravity(Gravity.CENTER);
+            how.setMinHeight(Ui.dp(c, 30));
+            how.setPadding(Ui.dp(c, 12), Ui.dp(c, 6), Ui.dp(c, 12), Ui.dp(c, 6));
+            how.setBackground(Ui.round(Studio.RAISED, Ui.dp(c, 999)));
+            Ui.label(how, "How " + name + " follows: snap onto the object, or keep its place and move as the object moves");
+            how.setOnClickListener(x -> toggleKeepPlace(key));
+            LinearLayout.LayoutParams hlp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            hlp.leftMargin = Ui.dp(c, 6);
+            row.addView(how, hlp);
+            v.addView(row);
+            // What it copies, as Studio's link sheet: Position, Size, Rotation (all by default).
+            LinearLayout copies = new LinearLayout(c);
+            copies.setOrientation(LinearLayout.HORIZONTAL);
+            copies.setGravity(Gravity.CENTER_VERTICAL);
+            copies.setMinimumHeight(Ui.dp(c, 36));
+            copies.setPadding(Ui.dp(c, 12), 0, 0, 0);
+            copies.addView(Ui.text(c, "copies", 11.5f, Studio.INK_DIM, false, 500),
+                    new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+            final char[] parts = {VisFollow.POSITION, VisFollow.SIZE, VisFollow.ROTATION};
+            final String[] partNames = {"Position", "Size", "Rotation"};
+            final TextView[] partChips = new TextView[parts.length];
+            for (int p = 0; p < parts.length; p++) {
+                final char part = parts[p];
+                TextView chip = Ui.text(c, partNames[p], 11.5f, Studio.INK_DIM, false, 600);
+                chip.setGravity(Gravity.CENTER);
+                chip.setMinHeight(Ui.dp(c, 30));
+                chip.setPadding(Ui.dp(c, 10), Ui.dp(c, 6), Ui.dp(c, 10), Ui.dp(c, 6));
+                Ui.label(chip, name + " copies the object's " + partNames[p].toLowerCase(java.util.Locale.ROOT)
+                        + " (tap to switch)");
+                chip.setOnClickListener(x -> toggleFollowPart(key, part));
+                LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                clp.leftMargin = Ui.dp(c, 6);
+                copies.addView(chip, clp);
+                partChips[p] = chip;
+            }
+            v.addView(copies);
+            Runnable show = () -> {
+                String id = wf.getVisFollow().get(key);
+                boolean on = id != null;
+                pill.setText(on ? nameOf(id) : "Nothing");
+                pill.setBackground(Ui.round(on ? Studio.ARMED : Studio.RAISED, Ui.dp(c, 999)));
+                pill.setTextColor(on ? Studio.GROUND : Studio.INK_DIM);
+                how.setVisibility(on ? View.VISIBLE : View.GONE);
+                how.setText(wf.getVisFollowBase().containsKey(key) ? "Keeps its place" : "Snaps to it");
+                copies.setVisibility(on ? View.VISIBLE : View.GONE);
+                String has = wf.getVisFollowParts().get(key);
+                for (int p = 0; p < parts.length; p++) {
+                    boolean copied = VisFollow.copies(has, parts[p]);
+                    partChips[p].setBackground(Ui.round(copied ? Studio.ARMED : Studio.RAISED, Ui.dp(c, 999)));
+                    partChips[p].setTextColor(copied ? Studio.GROUND : Studio.INK_DIM);
+                }
+            };
+            show.run();
+            rowRefresh.add(show);
+            // R9: a picture layer (a picture or a video clip) can show a Studio item instead.
+            String type = L.has("type") ? L.get("type").getAsString() : "";
+            if ("image".equals(type) || "video".equals(type)) {
+                showRow(v, name, key);
+            }
+        }
+    }
+
+    /** "Shows": which picture a look's picture layer shows (its own, or a Studio item). */
+    private void showRow(@NonNull LinearLayout v, @NonNull String layerName, @NonNull String key) {
+        LinearLayout row = new LinearLayout(c);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setMinimumHeight(Ui.dp(c, 36));
+        row.setPadding(Ui.dp(c, 12), 0, 0, 0);
+        row.addView(Ui.text(c, "shows", 11.5f, Studio.INK_DIM, false, 500),
+                new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        TextView pill = Ui.text(c, "", 11.5f, Studio.INK_DIM, false, 600);
+        pill.setGravity(Gravity.CENTER);
+        pill.setMinHeight(Ui.dp(c, 30));
+        pill.setPadding(Ui.dp(c, 12), Ui.dp(c, 6), Ui.dp(c, 12), Ui.dp(c, 6));
+        Ui.label(pill, "Choose a Studio picture, title, sprite or video for " + layerName + " to show, with all its effects");
+        pill.setOnClickListener(x -> pickShow(pill, key));
+        row.addView(pill);
+        v.addView(row);
+        Runnable show = () -> {
+            String id = wf.getVisShow().get(key);
+            boolean on = id != null;
+            pill.setText(on ? nameOfShown(id) : "Its own picture");
+            pill.setBackground(Ui.round(on ? Studio.ARMED : Studio.RAISED, Ui.dp(c, 999)));
+            pill.setTextColor(on ? Studio.GROUND : Studio.INK_DIM);
+        };
+        show.run();
+        rowRefresh.add(show);
+    }
+
+    private void pickShow(@NonNull View anchor, @NonNull String key) {
+        List<String[]> items = host.showables();
+        android.widget.PopupMenu menu = new android.widget.PopupMenu(c, anchor);
+        menu.getMenu().add(0, 0, 0, "Its own picture");
+        for (int i = 0; i < items.size(); i++) menu.getMenu().add(0, i + 1, i + 1, items.get(i)[1]);
+        if (items.isEmpty()) {
+            menu.getMenu().add(0, -1, 1, "No pictures, titles, sprites or videos yet").setEnabled(false);
+        }
+        menu.setOnMenuItemClickListener(item -> {
+            int at = item.getItemId();
+            if (at < 0) return true;
+            State before = snap();
+            if (at == 0) {
+                wf.getVisShow().remove(key);
+                wf.getVisShowRefs().remove(key);
+            } else {
+                String id = items.get(at - 1)[0];
+                wf.getVisShow().put(key, id);
+                Object shown = host.showable(id);
+                if (shown != null) wf.getVisShowRefs().put(key, shown);
+            }
+            commit(at == 0 ? "Show its own picture" : "Show a Studio item", before);
+            return true;
+        });
+        menu.show();
+    }
+
+    /** A shown item's name in the "shows" pill (R9). */
+    @NonNull
+    private String nameOfShown(@NonNull String id) {
+        for (String[] f : host.showables()) if (f[0].equals(id)) return f[1];
+        return "Gone";
+    }
+
+    @NonNull
+    private String nameOf(@NonNull String id) {
+        for (String[] f : host.followables()) if (f[0].equals(id)) return f[1];
+        return "Gone";
+    }
+
+    /** Switch a follow between snapping onto its object and keeping its place (one undo step). */
+    private void toggleKeepPlace(@NonNull String key) {
+        String id = wf.getVisFollow().get(key);
+        if (id == null) return;
+        State before = snap();
+        boolean keep = !wf.getVisFollowBase().containsKey(key);
+        if (keep) {
+            com.fadcam.ui.faditor.model.LinkPose p = host.followable(id);
+            if (p == null) return;
+            // Its pose now is where "no movement" starts.
+            wf.getVisFollowBase().put(key, VisFollow.capture(p, host.playheadMs()));
+        } else {
+            wf.getVisFollowBase().remove(key);
+        }
+        commit(keep ? "Keep its place" : "Snap to the object", before);
+    }
+
+    /**
+     * Switch whether a follow copies the object's position, size or rotation (one undo step). The
+     * last one stays on: a follow that copies nothing is stopped with "Nothing" instead.
+     */
+    private void toggleFollowPart(@NonNull String key, char part) {
+        if (!wf.getVisFollow().containsKey(key)) return;
+        String parts = VisFollow.toggled(wf.getVisFollowParts().get(key), part);
+        if (parts != null && parts.isEmpty()) {
+            android.widget.Toast.makeText(c, "It copies at least one: pick Nothing to stop following",
+                    android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
+        State before = snap();
+        if (parts == null) wf.getVisFollowParts().remove(key);
+        else wf.getVisFollowParts().put(key, parts);
+        commit(VisFollow.copies(parts, part) ? "Copy it" : "Stop copying it", before);
+    }
+
+    private void pickFollow(@NonNull View anchor, @NonNull String key) {
+        List<String[]> all = host.followables();
+        android.widget.PopupMenu menu = new android.widget.PopupMenu(c, anchor);
+        menu.getMenu().add(0, 0, 0, "Nothing");
+        for (int i = 0; i < all.size(); i++) menu.getMenu().add(0, i + 1, i + 1, all.get(i)[1]);
+        if (all.isEmpty()) {
+            menu.getMenu().add(0, -1, 1, "No objects yet: add a dummy or a picture").setEnabled(false);
+        }
+        menu.setOnMenuItemClickListener(item -> {
+            int at = item.getItemId();
+            if (at < 0) return true;
+            State before = snap();
+            if (at == 0) {
+                wf.getVisFollow().remove(key);
+                wf.getVisFollowRefs().remove(key);
+                wf.getVisFollowBase().remove(key);
+                wf.getVisFollowParts().remove(key);
+            } else {
+                String id = all.get(at - 1)[0];
+                wf.getVisFollow().put(key, id);
+                com.fadcam.ui.faditor.model.LinkPose p = host.followable(id);
+                if (p != null && p != wf) wf.getVisFollowRefs().put(key, p);
+                else wf.getVisFollowRefs().remove(key);
+                // A follow that keeps its place starts again from the new object's pose now.
+                if (wf.getVisFollowBase().containsKey(key)) {
+                    if (p != null && p != wf) wf.getVisFollowBase().put(key, VisFollow.capture(p, host.playheadMs()));
+                    else wf.getVisFollowBase().remove(key);
+                }
+            }
+            commit(at == 0 ? "Stop following" : "Follow an object", before);
+            return true;
+        });
+        menu.show();
     }
 
     /** Reactivity or Fade as a keyframable row: a key at the playhead once its track has keys. */
@@ -336,25 +598,59 @@ public final class VisLabStyleTab {
     private static final class State {
         @Nullable final String look;
         @NonNull final VisLabKeys keys;
+        /**
+         * Which look layers follow which object (R8) and from which pose those that keep their
+         * place, what each copies, and which show a Studio item (R9).
+         */
+        @NonNull final java.util.TreeMap<String, String> follow, followBase, followParts, show;
 
-        State(@Nullable String look, @NonNull VisLabKeys keys) {
+        State(@Nullable String look, @NonNull VisLabKeys keys, @NonNull java.util.TreeMap<String, String> follow,
+              @NonNull java.util.TreeMap<String, String> followBase,
+              @NonNull java.util.TreeMap<String, String> followParts,
+              @NonNull java.util.TreeMap<String, String> show) {
             this.look = look;
             this.keys = keys;
+            this.follow = follow;
+            this.followBase = followBase;
+            this.followParts = followParts;
+            this.show = show;
         }
 
         boolean same(@NonNull State o) {
-            return (look == null ? o.look == null : look.equals(o.look)) && keys.equals(o.keys);
+            return (look == null ? o.look == null : look.equals(o.look)) && keys.equals(o.keys)
+                    && follow.equals(o.follow) && followBase.equals(o.followBase)
+                    && followParts.equals(o.followParts) && show.equals(o.show);
         }
     }
 
     @NonNull
     private State snap() {
-        return new State(wf.getVisLook(), wf.getVisKeys().copy());
+        return new State(wf.getVisLook(), wf.getVisKeys().copy(), new java.util.TreeMap<>(wf.getVisFollow()),
+                new java.util.TreeMap<>(wf.getVisFollowBase()), new java.util.TreeMap<>(wf.getVisFollowParts()),
+                new java.util.TreeMap<>(wf.getVisShow()));
     }
 
     private void restore(@NonNull State s) {
         wf.setVisLook(s.look);
         wf.getVisKeys().copyFrom(s.keys);
+        wf.getVisFollow().clear();
+        wf.getVisFollow().putAll(s.follow);
+        wf.getVisFollowBase().clear();
+        wf.getVisFollowBase().putAll(s.followBase);
+        wf.getVisFollowParts().clear();
+        wf.getVisFollowParts().putAll(s.followParts);
+        wf.getVisFollowRefs().clear();
+        for (Map.Entry<String, String> e : s.follow.entrySet()) {
+            com.fadcam.ui.faditor.model.LinkPose p = host.followable(e.getValue());
+            if (p != null && p != wf) wf.getVisFollowRefs().put(e.getKey(), p);
+        }
+        wf.getVisShow().clear();
+        wf.getVisShow().putAll(s.show);
+        wf.getVisShowRefs().clear();
+        for (Map.Entry<String, String> e : s.show.entrySet()) {
+            Object shown = host.showable(e.getValue());
+            if (shown != null) wf.getVisShowRefs().put(e.getKey(), shown);
+        }
         host.changed();
         refresh();
     }

@@ -330,10 +330,6 @@
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
             android:screenOrientation="unspecified"
             android:exported="false" />
-        <activity android:name=".ui.WebViewActivity" />
-        <activity android:name=".ui.CloudAccountActivity" 
-            android:theme="@style/Base.Theme.FadCam" 
-            android:exported="false" />
         
         <!-- Transparent activity for requesting screen recording permission without bringing app to foreground -->
         <activity 
@@ -391,6 +387,9 @@
 
         <!-- AI assistant service for transcription, silence detection, and edit jobs -->
         <service android:name=".ui.faditor.ai.AIJobService" android:exported="false" android:foregroundServiceType="dataSync" />
+        <!-- BOT-6: the bring-your-own-AI bridge's door, open only while the person has it switched on -->
+        <service android:name=".ui.faditor.ai.bridge.BridgeService" android:exported="false" android:foregroundServiceType="dataSync" />
+        <activity android:name=".ui.faditor.ai.bridge.BridgeActivity" android:theme="@style/Theme.FadCam.FaditorEditor" android:exported="false" />
 
         <!-- Media button receiver to satisfy MediaSessionCompat requirement for a unique receiver -->
         <receiver android:name=".services.MediaButtonReceiver" android:exported="false">
@@ -446,11 +445,6 @@
 
         <activity android:name=".ui.OnboardingActivity" android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar" />
         <activity android:name=".ui.WhatsNewActivity" android:theme="@style/Theme.FadCam.JoyCreator" />
-
-        <activity 
-            android:name=".ui.FadCamProActivity" 
-            android:theme="@style/FadCamProTheme"
-            android:exported="false" />
 
         <!-- Services and receivers remain unchanged -->
         <service android:name=".services.RecordingService" android:enabled="true" android:exported="false" android:foregroundServiceType="camera|microphone" />

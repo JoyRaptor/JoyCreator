@@ -54,7 +54,7 @@ import java.nio.ByteBuffer;
  * {@code FilmstripSweepExtractor.sweep()} could not simply be called here: it returns every
  * requested bitmap at once, which at export resolution is far too much to hold.
  */
-final class SequentialFrameReader {
+public final class SequentialFrameReader {
 
     private static final String TAG = "SeqFrameReader";
     private static final long DEQUEUE_TIMEOUT_US = 10_000L;
@@ -115,12 +115,12 @@ final class SequentialFrameReader {
     /** Cached container sniff; null until asked. See {@link #isFragmented}. */
     @Nullable private Boolean fragmented;
 
-    SequentialFrameReader(@NonNull Context context, @NonNull Uri uri) {
+    public SequentialFrameReader(@NonNull Context context, @NonNull Uri uri) {
         this.context = context.getApplicationContext();
         this.uri = uri;
     }
 
-    boolean isDegraded() { return degraded; }
+    public boolean isDegraded() { return degraded; }
 
     /**
      * The frame at {@code sourceUs}, or null if this reader cannot serve it.
@@ -134,7 +134,7 @@ final class SequentialFrameReader {
      * @return a BORROWED bitmap valid until the next call, or null.
      */
     @Nullable
-    Bitmap frameAt(long sourceUs, int maxOutW, int maxOutH) {
+    public Bitmap frameAt(long sourceUs, int maxOutW, int maxOutH) {
         if (degraded) return null;
         try {
             if (lastRequestUs != Long.MIN_VALUE && sourceUs < lastRequestUs) {
@@ -520,7 +520,7 @@ final class SequentialFrameReader {
         streamEnded = false;
     }
 
-    void release() {
+    public void release() {
         if (decodedFrames + convertedFrames + reuseHits > 0) {
             FLog.i(TAG, "SEQ_FRAMES " + uri.getLastPathSegment()
                     + " decoded=" + decodedFrames

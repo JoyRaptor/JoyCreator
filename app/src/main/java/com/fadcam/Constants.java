@@ -471,7 +471,9 @@ public abstract class Constants {
     public static final float DEFAULT_ZOOM_RATIO = 1.0f; // Default zoom ratio (no zoom)
     public static final VideoCodec DEFAULT_VIDEO_CODEC = VideoCodec.HEVC;
 
-    public static final String DEFAULT_WATERMARK_OPTION = "timestamp_fadcam";
+    // No watermark unless the person asks for one (owner's launch promise: no forced watermark). The old
+    // default burned "Captured by" + the FadCam logo into every recording, screen recording and photo.
+    public static final String DEFAULT_WATERMARK_OPTION = "no_watermark";
     public static final boolean DEFAULT_PREVIEW_ENABLED = true;
     public static final boolean DEFAULT_RECORD_AUDIO = true;
     public static final int DEFAULT_AUDIO_BITRATE = 192000; // 192 kbps stereo AAC

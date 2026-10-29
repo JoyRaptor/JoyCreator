@@ -63,6 +63,15 @@ public class WaveformOverlayView extends View {
     private final Map<String, com.fadcam.vislab.studio.StudioWords> visWords = new HashMap<>();
     private final Map<String, Long> visWordsKey = new HashMap<>();
     @Nullable private Paint visPaint;
+    /**
+     * R11, true blend preview: visualizers the GL composite draws this frame (a blend mode other
+     * than Normal), so this view stops painting them; their latest frame and alpha are kept for
+     * {@link #glRasterFor} instead. Told by the editor every tick (FxLivePreviewController).
+     */
+    @NonNull private final java.util.Set<String> glOwned = new java.util.HashSet<>();
+    @NonNull private final java.util.Map<String, Bitmap> glRasters = new java.util.HashMap<>();
+    @NonNull private final java.util.Map<String, Bitmap> glSources = new java.util.HashMap<>();
+    @NonNull private final java.util.Map<String, Float> glAlphas = new java.util.HashMap<>();
     private boolean looksAsked;
 
     private final Paint selectionPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -169,6 +178,49 @@ public class WaveformOverlayView extends View {
         invalidate();
     }
 
+    /**
+     * Told when a GL-owned visualizer has a new frame (R11), so a paused editor can refresh the
+     * composite that draws it: its VisLab frame arrives after the composite last ran. Posted.
+     */
+    @Nullable private Runnable onGlFrame;
+    private boolean glFramePosted;
+
+    public void setOnGlFrame(@Nullable Runnable r) {
+        onGlFrame = r;
+    }
+
+    /** The visualizers the GL composite draws (R11); this view keeps their frames instead. */
+    public void setGlOwned(@NonNull java.util.Set<String> ids) {
+        if (glOwned.equals(ids)) return;
+        com.fadcam.FLog.d("WaveformOverlayView", "GL owns visualizers " + ids);
+        glOwned.clear();
+        glOwned.addAll(ids);
+        glRasters.keySet().retainAll(ids);
+        glSources.keySet().retainAll(ids);
+        glAlphas.keySet().retainAll(ids);
+        invalidate();
+    }
+
+    /** True when visualizer {@code o} should be drawn by the GL composite (a non-Normal blend). */
+    public static boolean wantsGlBlend(@NonNull WaveformOverlayInstance o) {
+        return !o.isHidden() && !"NORMAL".equals(o.getOverlayBlendMode());
+    }
+
+    /**
+     * The latest frame of a GL-owned visualizer, box-sized, its own copy (the GL thread may still
+     * be reading the one before, so none is ever recycled here), or null before the first.
+     */
+    @Nullable
+    public Bitmap glRasterFor(@NonNull String id) {
+        return glRasters.get(id);
+    }
+
+    /** Its alpha this frame (fade, opacity, VisLab Fade), 1 when not known. */
+    public float glAlphaFor(@NonNull String id) {
+        Float a = glAlphas.get(id);
+        return a != null ? a : 1f;
+    }
+
     @Override
     protected void onDraw(@NonNull Canvas canvas) {
         super.onDraw(canvas);
@@ -199,7 +251,11 @@ public class WaveformOverlayView extends View {
                 vis = StudioVis.get(getContext()).previewFrame(StudioVis.previewKey(o.getId()), visJson,
                         ref != null ? sourceUris.get(ref) : null, o.mapToSourceMs(playheadMs), playheadMs,
                         Math.max(1, Math.round(rw * s)), Math.max(1, Math.round(rh * s)),
-                        com.fadcam.vislab.studio.VisControls.at(o, playheadMs), visWordsFor(o), this::invalidate);
+                        // This view is the canvas, so its shape is the frame's (look layers
+                        // following an object, R8).
+                        com.fadcam.vislab.studio.VisControls.at(o, playheadMs,
+                                (float) getWidth() / Math.max(1, getHeight())),
+                        visWordsFor(o), this::invalidate);
             }
             // Placeholder until the audio finishes extracting, then the live render.
             // renderReusable returns a shared, reused bitmap (no per-frame allocation);
@@ -238,7 +294,28 @@ public class WaveformOverlayView extends View {
             // FADE_KNOBS §2.5: the knob fade multiplies the visualizer's alpha (§2.2 "same idea
             // for audio" — display fades even though no audio is muted by it).
             float fadeAlpha = o.fadeFactorAt(playheadMs) * o.animatedOpacity(playheadMs);
-            if (visJson != null) {
+            if (glOwned.contains(o.getId())) {
+                // Drawn by the GL composite with its blend mode: keep the frame, paint nothing.
+                Bitmap src = visJson != null ? vis : bmp;
+                if (src != null && !src.isRecycled()) {
+                    // A VisLab frame is a new Bitmap per picture: copy only a new one. A classic
+                    // frame reuses one Bitmap, so its pixels must be copied every time.
+                    if (visJson == null || glSources.get(o.getId()) != src) {
+                        glRasters.put(o.getId(), src.copy(Bitmap.Config.ARGB_8888, false));
+                        glSources.put(o.getId(), visJson != null ? src : null);
+                        // Only a NEW VisLab frame (a classic one is copied on every draw, and a
+                        // refresh from here would draw again: a loop).
+                        if (visJson != null && onGlFrame != null && !glFramePosted) {
+                            glFramePosted = true;
+                            post(() -> {
+                                glFramePosted = false;
+                                if (onGlFrame != null) onGlFrame.run();
+                            });
+                        }
+                    }
+                }
+                glAlphas.put(o.getId(), visJson != null ? fadeAlpha * o.visFadeAt(playheadMs) : fadeAlpha);
+            } else if (visJson != null) {
                 if (vis != null && !vis.isRecycled()) {
                     if (visPaint == null) visPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
                     float a = fadeAlpha * o.visFadeAt(playheadMs);   // the VisLab Fade, keyframable

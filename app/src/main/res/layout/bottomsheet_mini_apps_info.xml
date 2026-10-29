@@ -71,7 +71,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Mini Apps are small utility applications within FadCam that provide useful tools and features for quick access."
+                android:text="Mini Apps are small utility applications within Joy Creator that provide useful tools and features for quick access."
                 android:textColor="?attr/pickerTextPrimary"
                 android:textSize="14sp"
                 android:lineSpacingExtra="4dp" />
@@ -119,7 +119,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="When you scan a code, FadCam automatically saves the captured frame image along with its raw data metadata to your records. This ensures you have a permanent reference and never lose scanned information."
+                android:text="When you scan a code, Joy Creator automatically saves the captured frame image along with its raw data metadata to your records. This ensures you have a permanent reference and never lose scanned information."
                 android:textColor="?attr/pickerTextPrimary"
                 android:textSize="13sp"
                 android:lineSpacingExtra="4dp" />

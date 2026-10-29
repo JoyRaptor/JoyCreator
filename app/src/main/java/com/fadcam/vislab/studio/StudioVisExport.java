@@ -80,7 +80,10 @@ public final class StudioVisExport {
         return null;
     }
 
-    /** The sources VisLab visualizers hear (each once), or null when none has a VisLab look. */
+    /**
+     * The sources VisLab visualizers hear and music-linked effects hear (R14, StudioEars), each
+     * once, or null when there are none.
+     */
     @Nullable
     private static List<Uri> sounds(@NonNull Timeline t) {
         List<Uri> out = null;
@@ -89,6 +92,10 @@ public final class StudioVisExport {
             if (out == null) out = new ArrayList<>();
             Uri u = sourceUri(t, o.getAudioSourceRef());
             if (u != null && !out.contains(u)) out.add(u);
+        }
+        for (Uri u : StudioEars.sources(t)) {
+            if (out == null) out = new ArrayList<>();
+            if (!out.contains(u)) out.add(u);
         }
         return out;
     }

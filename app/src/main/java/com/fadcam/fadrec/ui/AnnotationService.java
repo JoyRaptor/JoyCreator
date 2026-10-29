@@ -3484,7 +3484,7 @@ public class AnnotationService extends Service {
                 : getString(R.string.annotation_notification_show_menu);
 
         return new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("FadRec Annotation" + annotationStatus)
+                .setContentTitle("Joy Creator Annotation" + annotationStatus)
                 .setContentText(
                         "Tap to open Joy Creator • Project: " + (currentProjectName != null ? currentProjectName : "None"))
                 .setSmallIcon(R.drawable.ic_draw_edit)

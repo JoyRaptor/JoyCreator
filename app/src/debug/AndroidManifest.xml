@@ -14,6 +14,13 @@
             android:showWhenLocked="true"
             android:turnScreenOn="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+        <!-- Joybot benchmark, live runs with the app's own saved key (tools/jvm-harness/joybot-bench, -\-phone) -->
+        <activity
+            android:name="com.fadcam.ui.faditor.ai.joybot.JoybotBenchActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Black.NoTitleBar" />
         <!-- Joy Brush stroke replay benchmark (LEAD_PLAN_20261010 step 3); results: adb logcat -s JoyBrushPerf -->
         <activity
             android:name="com.fadcam.joybrush.JoyBrushBenchActivity"

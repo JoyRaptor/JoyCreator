@@ -9,7 +9,7 @@
     "clips": [
       {
         "id": "20f6c729-5afb-46c0-bc9a-d5222b8ed123",
-        "sourceUri": "file:///C:/%2BProjects/Screenrecorder/FadCam/export/fixtures/parity/assets/base.png",
+        "sourceUri": "file:///C:/%2BProjects/JoyCreator/export/fixtures/parity/assets/base.png",
         "inPointMs": 0,
         "outPointMs": 5000,
         "sourceDurationMs": 5000,
@@ -20,7 +20,7 @@
     "overlayClips": [
       {
         "id": "f9708f0b-451e-43e4-a662-e982581ff037",
-        "sourceUri": "file:///C:/%2BProjects/Screenrecorder/FadCam/export/fixtures/parity/assets/overlay_a.png",
+        "sourceUri": "file:///C:/%2BProjects/JoyCreator/export/fixtures/parity/assets/overlay_a.png",
         "inPointMs": 0,
         "outPointMs": 5000,
         "sourceDurationMs": 5000,

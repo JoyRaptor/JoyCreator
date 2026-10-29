@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="markers_host_bookmark_number">Bookmark %1$d</string>
+    <string name="markers_host_add_bookmark">Add bookmark</string>
+    <string name="markers_host_save_failed">Could not save timeline marks. Your previous marks have been kept.</string>
+    <string name="markers_host_export_named">%1$d named regions will export as separate files.</string>
+    <string name="markers_host_region_filenames">Use each region’s name</string>
+    <string name="markers_host_export_invalid">Could not export regions: %1$s</string>
+    <string name="markers_host_export_queued">%1$d region exports queued</string>
+    <string name="markers_host_bookmark_hint">Tap to drop a bookmark; hold for bookmarks and regions</string>
+</resources>

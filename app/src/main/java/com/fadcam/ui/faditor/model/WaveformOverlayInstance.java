@@ -118,6 +118,62 @@ public class WaveformOverlayInstance implements LinkFollower {
     public void setVisLook(@Nullable String lookId) { this.visLook = lookId; }
     public boolean isVisLab() { return visLook != null; }
 
+    /**
+     * Layers of a VisLab look that follow another Studio object (roadmap R8: a dummy moves the
+     * logo inside the look). Key {@code "<lookId>/<layer index>"}, value the object's id, so each
+     * look keeps its own follows when the look is keyed over time. Persisted by ProjectStorage.
+     */
+    @NonNull private final java.util.TreeMap<String, String> visFollow = new java.util.TreeMap<>();
+    /** The followed objects, resolved by {@link Timeline#resolveSpaceLinks()} (null = gone). */
+    @NonNull private final transient java.util.Map<String, LinkPose> visFollowRefs = new java.util.HashMap<>();
+
+    @NonNull public java.util.TreeMap<String, String> getVisFollow() { return visFollow; }
+
+    /**
+     * Follows that KEEP THEIR PLACE (R8): the object's pose when the choice was made, as
+     * "across,up,size,turn" (frame fractions, its size fraction, degrees), under the same key as
+     * {@link #getVisFollow()}. Such a layer stays where the look draws it and moves only by how far
+     * the object has moved, grown and turned since; a follow without an entry snaps the layer onto
+     * the object. Persisted by ProjectStorage.
+     */
+    @NonNull private final java.util.TreeMap<String, String> visFollowBase = new java.util.TreeMap<>();
+
+    @NonNull public java.util.TreeMap<String, String> getVisFollowBase() { return visFollowBase; }
+
+    /**
+     * What a follow copies (R8, as Studio's link chooses Position / Size / Rotation): the letters
+     * of the parts it copies, "p" position, "s" size, "r" rotation, under the same key as
+     * {@link #getVisFollow()}. No entry = all three. Persisted by ProjectStorage.
+     */
+    @NonNull private final java.util.TreeMap<String, String> visFollowParts = new java.util.TreeMap<>();
+
+    @NonNull public java.util.TreeMap<String, String> getVisFollowParts() { return visFollowParts; }
+    @NonNull public java.util.Map<String, LinkPose> getVisFollowRefs() { return visFollowRefs; }
+
+    /**
+     * Picture layers of a VisLab look that show a Studio picture, title, sprite, video or the main
+     * video instead of their own picture (roadmap R9), so every VisLab picture effect (pump, shake,
+     * halo, split, tint) works on it. Same keys as {@link #getVisFollow()}; the value is the item's
+     * id, or {@link #SHOW_MAIN_VIDEO}. Persisted by ProjectStorage.
+     */
+    @NonNull private final java.util.TreeMap<String, String> visShow = new java.util.TreeMap<>();
+    /**
+     * The shown items, resolved by {@link Timeline#resolveSpaceLinks()}: a picture, title or sprite
+     * (its {@link LinkPose}), an overlay video (its {@link Clip}), or the {@link Timeline} itself for
+     * the main video. Plain objects, so this model stays free of the renderers' Android types.
+     */
+    @NonNull private final transient java.util.Map<String, Object> visShowRefs = new java.util.HashMap<>();
+    /** The id a picture layer shows when it shows the main video (whatever clip plays there). */
+    public static final String SHOW_MAIN_VIDEO = "main-video";
+
+    @NonNull public java.util.TreeMap<String, String> getVisShow() { return visShow; }
+    @NonNull public java.util.Map<String, Object> getVisShowRefs() { return visShowRefs; }
+
+    /** The key a follow is stored under. */
+    @NonNull public static String visFollowKey(@NonNull String lookId, int layerIndex) {
+        return lookId + "/" + layerIndex;
+    }
+
     /** The VisLab values, each keyframable: the look over time, Reactivity, Fade (S4). */
     @NonNull private final VisLabKeys visKeys = new VisLabKeys();
 

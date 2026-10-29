@@ -178,6 +178,30 @@ public final class JoybotChatViews {
         return new Card(card, t, row);
     }
 
+    /**
+     * Buttons two to a row, for a card with more than fit across a phone (call after adding them).
+     * Not for cards that {@link Card#retire} later: it greys the rows, not the buttons in them.
+     */
+    public static void wrapButtons(@NonNull Card card) {
+        LinearLayout b = card.buttons;
+        int n = b.getChildCount();
+        if (n <= 2) return;
+        java.util.List<View> kids = new java.util.ArrayList<>();
+        for (int i = 0; i < n; i++) kids.add(b.getChildAt(i));
+        b.removeAllViews();
+        b.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout row = null;
+        for (int i = 0; i < n; i++) {
+            if (i % 2 == 0) {
+                row = new LinearLayout(b.getContext());
+                row.setOrientation(LinearLayout.HORIZONTAL);
+                if (i > 0) row.setPadding(0, dp(b.getContext(), 6), 0, 0);
+                b.addView(row);
+            }
+            row.addView(kids.get(i));
+        }
+    }
+
     /** A small button for a result card. */
     @NonNull
     public static TextView cardButton(@NonNull Context c, @NonNull String text, @NonNull String hint,

@@ -184,8 +184,25 @@ public class BakedAudioCache {
     @NonNull
     public File bakedFileFor(@NonNull File projectDir, @NonNull Uri sourceUri,
                              long startMs, long endMs, @NonNull String chain) {
-        return new File(bakeDir(projectDir),
-                keyFor(sourceUri, startMs, endMs, chain) + ".m4a");
+        // The key is an identity, not a file name: a source's URI has '/' and ':' in it, so the
+        // raw key named a file inside folders that do not exist and every bake failed with
+        // "Invalid argument" (a song picked from Downloads, Note 9, 10-28). Name it by a digest.
+        return new File(bakeDir(projectDir), chain + "-" + startMs + "-" + endMs + "-"
+                + digest(keyFor(sourceUri, startMs, endMs, chain)) + ".m4a");
+    }
+
+    /** 16 hex characters of the key's SHA-1: stable, file-safe, and unique enough per project. */
+    @NonNull
+    private static String digest(@NonNull String key) {
+        try {
+            byte[] h = java.security.MessageDigest.getInstance("SHA-1")
+                    .digest(key.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < 8; i++) sb.append(String.format(Locale.US, "%02x", h[i]));
+            return sb.toString();
+        } catch (java.security.NoSuchAlgorithmException e) {
+            return Integer.toHexString(key.hashCode());
+        }
     }
 
     /**
@@ -258,7 +275,12 @@ public class BakedAudioCache {
                             "loudnorm pass1 produced no measurable JSON block");
                     return;
                 }
-                String applyCmd = extractionPrefix(input, request)
+                String applyInput = inputForAnotherPass(input, request.sourceUri);
+                if (applyInput == null) {
+                    fail(callback, tmp, "source unreadable for pass 2: " + request.sourceUri);
+                    return;
+                }
+                String applyCmd = extractionPrefix(applyInput, request)
                         + " -af loudnorm=" + m.asApplyParams() + " "
                         + encodeOutput(tmp.getAbsolutePath());
                 FLog.d(TAG, "async loudnorm pass2: ffmpeg " + applyCmd);
@@ -323,7 +345,12 @@ public class BakedAudioCache {
             if (m == null) {
                 return failSync(error, "loudnorm pass1 produced no measurable JSON block");
             }
-            String applyCmd = extractionPrefix(input, request)
+            String applyInput = inputForAnotherPass(input, request.sourceUri);
+            if (applyInput == null) {
+                tmp.delete();
+                return failSync(error, "source unreadable for pass 2: " + request.sourceUri);
+            }
+            String applyCmd = extractionPrefix(applyInput, request)
                     + " -af loudnorm=" + m.asApplyParams() + " "
                     + encodeOutput(tmp.getAbsolutePath());
             FLog.d(TAG, "loudnorm pass2: ffmpeg " + applyCmd);
@@ -410,7 +437,10 @@ public class BakedAudioCache {
 
     @NonNull
     private static String encodeOutput(@NonNull String path) {
-        return "-c:a aac -b:a 192k \"" + path + "\"";
+        // The bake writes to "<name>.m4a.tmp" and renames on success, and ffmpeg picks the
+        // container from the extension: ".tmp" gave "Unable to find a suitable output format"
+        // (Note 9, 10-28). Say it outright.
+        return "-c:a aac -b:a 192k -f mp4 \"" + path + "\"";
     }
 
     /** Pass-1 measurement invocation of loudnorm (targets only, no measured_* params). */
@@ -432,6 +462,17 @@ public class BakedAudioCache {
             FLog.w(TAG, "SAF parameter failed for " + sourceUri + ": " + e.getMessage());
             return null;
         }
+    }
+
+    /**
+     * The input for a second FFmpeg run over the same source. A "saf:" parameter wraps a file
+     * descriptor that FFmpegKit closes when the first session ends, so loudnorm's apply pass got
+     * "Invalid argument" on any picked file (content://, e.g. a song from Downloads; Note 9, 10-28).
+     * A plain path can be reused as it is.
+     */
+    @Nullable
+    private String inputForAnotherPass(@NonNull String input, @NonNull Uri sourceUri) {
+        return input.startsWith("saf:") ? resolveInput(sourceUri) : input;
     }
 
     /** Temp sibling of the final bake — committed by rename only on success. */

@@ -58,9 +58,13 @@ final class OrganiseActions {
     /** On: add_marker / list_markers are registered. Off hides them (their sidecar handling is in StudioActions). */
     private static final boolean MARKERS_PERSIST = true;
     /**
-     * add_marker stays OFF (2026-10-15): markers live in bookmarks.json, and an undo step restores
-     * project.json only, so Undo would leave Joybot's marker behind — and every Joybot change must
-     * be one undo step. Turn on once markers are part of the editor's undo snapshot.
+     * add_marker stays OFF: markers live beside project.json, and an undo step restored project.json
+     * only, so Undo would leave Joybot's marker behind (2026-10-15). STU-3 (10-28) put the marks in the
+     * open editor's undo snapshot, and {@link #addMarker} now refuses unless the project is open in the
+     * Studio; but on the Note 9 (10-28, through the computer bridge) the Studio's Undo said "Undid" and
+     * the marker stayed: the AI checkpoint's "before" is recorded before the editor has taken the
+     * sidecar's new mark in (FaditorEditorActivity joybotLive.adopt / wireBookmarks). Turn on once the
+     * editor's adopt carries marks into its undo step (Studio lane; reported on the BOARD).
      */
     private static final boolean MARKER_ADD_UNDOABLE = false;
 
@@ -99,7 +103,8 @@ final class OrganiseActions {
         // it in swapInProject, so neither a save nor the editor drops a marker.
         if (MARKERS_PERSIST && MARKER_ADD_UNDOABLE) r.add(ActionSpec.of("add_marker", "Drop a marker on the ruler")
                 .help("Put a marker on the time ruler at a moment, so the person can find it again. No marker is"
-                        + " added if one is already within a fraction of a second of that moment.")
+                        + " added if one is already within a fraction of a second of that moment. Only while the"
+                        + " project is open in the Studio (so Undo can take it back).")
                 .wing("STUDIO", FAMILY).effect(Effect.EDIT)
                 .where("Studio › long-press the time ruler")
                 .param("at", Type.TIME_MS, true, "Where on the timeline to drop it")
@@ -238,6 +243,10 @@ final class OrganiseActions {
 
     @NonNull
     private static ActionResult addMarker(@NonNull StudioCtx ctx, @NonNull Args a) throws ActionError {
+        if (!com.fadcam.ui.faditor.ai.joybot.JoybotStorage.isLive(ctx.projectId)) {
+            throw new ActionError("Open this project in the Studio first, then ask again: a marker can only be added"
+                    + " while it's on screen, so its Undo can take the marker back.");
+        }
         Long at = a.whole("at");
         long total = ctx.project.getTimeline().getTotalDurationMs();
         if (at == null || at < 0 || (total > 0 && at > total)) {

@@ -9,7 +9,7 @@
     "clips": [
       {
         "id": "970e6f22-53aa-4a8b-b965-28cfc144b606",
-        "sourceUri": "file:///C:/%2BProjects/Screenrecorder/FadCam/export/fixtures/parity/assets/base.png",
+        "sourceUri": "file:///C:/%2BProjects/JoyCreator/export/fixtures/parity/assets/base.png",
         "inPointMs": 0,
         "outPointMs": 5000,
         "sourceDurationMs": 5000,

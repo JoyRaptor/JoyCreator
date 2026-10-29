@@ -444,8 +444,7 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
         selfRefresh[0] = () -> {
             long cur = readFade(clip, fadeIn);
             value.setText(fmtMs(cur));
-            bar.setProgress(Math.round(Math.max(0, Math.min(maxFade, cur))
-                    / (float) maxFade * SLIDER_STEPS));
+            bar.setProgress(fadeProgressOf(cur, maxFade));
         };
         return selfRefresh[0];
     }
@@ -1013,9 +1012,20 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
         return Math.round((pan + 1f) / 2f * SLIDER_STEPS);
     }
 
+    /**
+     * Slider position to fade length, on a square curve: the range is half the clip, so on a long
+     * song an even slider jumped to 24 s for a short drag (Note 9, 10-28). Squared, the first half
+     * of the travel covers the first quarter of the range, where most fades are.
+     */
     private static long fadeMsOf(int progress, long maxFade) {
-        return Math.round(Math.max(0, Math.min(SLIDER_STEPS, progress))
-                / (float) SLIDER_STEPS * maxFade);
+        float f = Math.max(0, Math.min(SLIDER_STEPS, progress)) / (float) SLIDER_STEPS;
+        return Math.round(f * f * maxFade);
+    }
+
+    /** The inverse of {@link #fadeMsOf}. */
+    private static int fadeProgressOf(long fadeMs, long maxFade) {
+        float f = Math.max(0, Math.min(maxFade, fadeMs)) / (float) maxFade;
+        return Math.round((float) Math.sqrt(f) * SLIDER_STEPS);
     }
 
     @NonNull

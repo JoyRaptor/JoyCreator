@@ -23,14 +23,13 @@
                  (10,7) outer point straight down from (10,0); close back to
                  (0,0) draws the angled inner hypotenuse. -->
             <path
-                android:fillColor="@color/s_go_end"
+                android:fillColor="#FF262626"
                 android:pathData="M0,0 L10,0 L10,7 Z" />
         </vector>
     </item>
     <item android:bottom="7dp">
         <shape android:shape="rectangle">
-            <gradient android:type="linear" android:angle="0"
-                android:startColor="@color/s_go" android:endColor="@color/s_go_end" />
+            <solid android:color="#FF262626" />
             <corners android:radius="14dp" />
         </shape>
     </item>

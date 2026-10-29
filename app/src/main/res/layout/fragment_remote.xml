@@ -28,7 +28,7 @@
             android:paddingTop="20dp"
             android:paddingBottom="24dp">
 
-            <!-- ══ HEADER: the title, the Cloud button, and the ON AIR / OFF AIR chip ══ -->
+            <!-- ══ HEADER: the title and the ON AIR / OFF AIR chip ══ -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -48,77 +48,6 @@
                     android:includeFontPadding="false"
                     android:accessibilityHeading="true" />
 
-                <!-- Cloud account button: two lines of text and an icon -->
-                <LinearLayout
-                    android:id="@+id/cloud_account_button"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingStart="12dp"
-                    android:paddingEnd="14dp"
-                    android:paddingTop="10dp"
-                    android:paddingBottom="8dp"
-                    android:background="@drawable/cloud_button_bg"
-                    android:tooltipText="@string/cloud_button_title"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:clipChildren="false"
-                    android:clipToPadding="false">
-
-                    <LinearLayout
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:layout_marginEnd="10dp">
-
-                        <TextView
-                            android:id="@+id/cloud_label_title"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="@string/cloud_button_title"
-                            android:textColor="@color/s_ink"
-                            android:textSize="11sp"
-                            android:fontFamily="@font/joy_body"
-                            android:textFontWeight="600"
-                            android:letterSpacing="0.02" />
-
-                        <TextView
-                            android:id="@+id/cloud_label_status"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="@string/cloud_account_not_linked"
-                            android:textColor="@color/s_ink_faint"
-                            android:textSize="9sp"
-                            android:fontFamily="@font/joy_body" />
-                    </LinearLayout>
-
-                    <FrameLayout
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:clipChildren="false"
-                        android:clipToPadding="false">
-
-                        <ImageView
-                            android:id="@+id/cloud_icon"
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
-                            android:src="@drawable/ic_cloud_account"
-                            android:tint="@color/s_ink_dim"
-                            android:contentDescription="@null" />
-
-                        <!-- Unlinked indicator dot (top-right of icon) -->
-                        <View
-                            android:id="@+id/cloud_unlinked_dot"
-                            android:layout_width="8dp"
-                            android:layout_height="8dp"
-                            android:layout_gravity="top|end"
-                            android:layout_marginTop="-2dp"
-                            android:layout_marginEnd="-2dp"
-                            android:background="@drawable/unlinked_dot"
-                            android:visibility="gone" />
-                    </FrameLayout>
-                </LinearLayout>
             </LinearLayout>
 
             <!-- The chip: solid Studio green with the words cut out when live, a zinc chip when idle.
@@ -359,7 +288,7 @@
                         android:text="@string/stream_start_server" />
 
                     <com.fadcam.ui.joybot.JoybotSwitch
-                        android:id="@+id/streaming_toggle" android:contentDescription="@string/stream_start_server"
+                        android:id="@+id/streaming_toggle" android:tooltipText="@string/hover_remote_server_toggle" android:contentDescription="@string/stream_start_server"
                         android:layout_width="52dp"
                         android:layout_height="52dp"
                         android:layout_gravity="center_vertical" />
@@ -439,63 +368,6 @@
                 android:text="@string/remote_section_connection" />
 
             <LinearLayout style="@style/Remote.Card">
-
-                <!-- Streaming mode (opens a picker) -->
-                <LinearLayout
-                    android:id="@+id/streaming_mode_row"
-                    style="@style/Remote.Row"
-                    android:clickable="true"
-                    android:focusable="true">
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            style="@style/Remote.RowTitle"
-                            android:text="@string/streaming_mode_title" />
-
-                        <TextView
-                            android:id="@+id/streaming_mode_value"
-                            style="@style/Remote.RowValue"
-                            android:text="@string/streaming_mode_local" />
-                    </LinearLayout>
-
-                    <ImageView style="@style/Remote.Chevron" />
-                </LinearLayout>
-
-                <!-- Legacy cloud streaming toggle: hidden, kept for the code that still reads it -->
-                <LinearLayout
-                    android:id="@+id/cloud_streaming_row"
-                    style="@style/Remote.Row"
-                    android:visibility="gone">
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            style="@style/Remote.RowTitle"
-                            android:text="@string/cloud_streaming_title" />
-
-                        <TextView
-                            android:id="@+id/cloud_streaming_status"
-                            style="@style/Remote.RowValue"
-                            android:text="@string/cloud_streaming_status_off" />
-                    </LinearLayout>
-
-                    <com.fadcam.ui.joybot.JoybotSwitch
-                        android:id="@+id/cloud_streaming_toggle" android:contentDescription="@string/cloud_streaming_title"
-                        android:layout_width="52dp"
-                        android:layout_height="52dp"
-                        android:layout_gravity="center_vertical" />
-                </LinearLayout>
-
-                <View style="@style/SettingsDivider" />
 
                 <!-- Recording mode -->
                 <LinearLayout
@@ -889,51 +761,7 @@
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- ══ SECURITY ══ -->
-            <TextView
-                android:id="@+id/remote_section_security_label"
-                style="@style/Remote.Section"
-                android:text="@string/remote_section_security" />
-
-            <LinearLayout style="@style/Remote.Card">
-
-                <!-- Stream encryption -->
-                <LinearLayout
-                    android:id="@+id/e2e_encryption_row"
-                    style="@style/Remote.Row"
-                    android:clickable="true"
-                    android:focusable="true">
-
-                    <ImageView
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:src="@drawable/ic_lock"
-                        android:tint="@color/s_ink_faint"
-                        android:contentDescription="@string/e2e_encryption_title"
-                        android:layout_marginEnd="16dp"
-                        android:layout_gravity="center_vertical" />
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            style="@style/Remote.RowTitle"
-                            android:text="@string/e2e_encryption_title" />
-
-                        <TextView
-                            android:id="@+id/e2e_encryption_status"
-                            style="@style/Remote.RowValue"
-                            android:text="@string/e2e_encryption_not_configured" />
-                    </LinearLayout>
-
-                    <ImageView style="@style/Remote.Chevron" />
-                </LinearLayout>
-            </LinearLayout>
-
-            <!-- Remote Security: hidden by the fragment while Cloud mode is on -->
+            <!-- Remote Security -->
             <TextView
                 android:id="@+id/remote_security_heading"
                 style="@style/Remote.Section"
@@ -965,7 +793,7 @@
                     </LinearLayout>
 
                     <com.fadcam.ui.joybot.JoybotSwitch
-                        android:id="@+id/remote_auth_toggle" android:contentDescription="@string/remote_security_enable"
+                        android:id="@+id/remote_auth_toggle" android:tooltipText="@string/hover_remote_password_toggle" android:contentDescription="@string/remote_security_enable"
                         android:layout_width="52dp"
                         android:layout_height="52dp"
                         android:layout_gravity="center_vertical" />

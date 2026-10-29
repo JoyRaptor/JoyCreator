@@ -238,64 +238,6 @@
                         android:tint="@color/s_ink" android:alpha="0.5"/>
                 </LinearLayout>
             </FrameLayout>
-
-            <!-- Pro Card -->
-            <FrameLayout
-                android:id="@+id/card_update_pro"
-                android:clipToOutline="true"
-                android:outlineProvider="background"
-                android:background="@drawable/card_bg_pro"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="0dp"
-                android:layout_marginEnd="0dp"
-                android:layout_marginBottom="8dp"
-                
-                
-                
-                
-                
-                android:clickable="true"
-                android:focusable="true">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingStart="14dp" android:paddingEnd="12dp" android:paddingTop="12dp" android:paddingBottom="12dp">
-
-                    <ImageView android:layout_width="24dp" android:layout_height="24dp"
-                        android:layout_marginEnd="10dp"
-                        android:src="@drawable/ic_crown" android:tint="@color/s_ink"
-                        android:scaleType="centerInside"/>
-
-                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
-                        android:layout_weight="1" android:orientation="vertical">
-                        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-                            android:orientation="horizontal" android:gravity="center_vertical">
-                            <TextView android:layout_width="0dp" android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:text="@string/sidebar_fadcam_pro" android:textColor="@color/s_ink"
-                                android:textStyle="bold" android:textSize="12sp"/>
-                             <TextView android:layout_width="wrap_content" android:layout_height="16dp"
-                                android:layout_marginStart="6dp" android:paddingHorizontal="6dp"
-                                android:text="@string/badge_new" android:textColor="#1A1A1A"
-                                android:textSize="8sp" android:textStyle="bold"
-                                android:gravity="center"
-                                android:background="@drawable/bg_badge_pro"/>
-                        </LinearLayout>
-                          <TextView android:id="@+id/tv_pro_version" android:layout_width="wrap_content"
-                            android:layout_height="wrap_content" android:text="v--  >>  v--"
-                            android:textColor="@color/s_ink" android:textSize="11sp" android:layout_marginTop="2dp"/>
-                    </LinearLayout>
-
-                    <ImageView android:layout_width="14dp" android:layout_height="14dp"
-                        android:layout_marginStart="12dp"
-                        android:src="@drawable/ic_arrow_right"
-                        android:tint="@color/s_ink" android:alpha="0.5"/>
-        </LinearLayout>
-            </FrameLayout>
         </LinearLayout>
 
         <!-- Group: Display Settings -->
@@ -1390,35 +1332,6 @@
             android:gravity="center_horizontal"
             android:paddingTop="24dp"
             android:paddingBottom="8dp">
-
-            <!-- Discord row -->
-            <LinearLayout
-                android:id="@+id/row_discord_branding"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:clickable="true"
-                android:focusable="true"
-                android:paddingHorizontal="12dp"
-                android:paddingVertical="8dp">
-
-                <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:layout_marginEnd="0dp"
-                    android:src="@drawable/ic_discord" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/home_sidebar_discord"
-                    android:textColor="?attr/pickerTextPrimary"
-                    android:textSize="13sp"
-                    android:textStyle="bold" />
-
-            </LinearLayout>
 
             <!-- Copyright -->
             <TextView

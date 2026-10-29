@@ -94,6 +94,8 @@ public class ExportService extends Service {
     public static final String EXTRA_ERROR_CLASS = "error_class";
     /** Path of the serialized project snapshot the Activity wrote for this export job. */
     public static final String EXTRA_PROJECT_SNAPSHOT_PATH = "project_snapshot_path";
+    /** Optional extension-free output basename for this export job. */
+    public static final String EXTRA_OUTPUT_FILE_NAME = "output_file_name";
     /** Boolean: export only the composed audio mix to an {@code .m4a} (no video track). */
     public static final String EXTRA_AUDIO_ONLY = "audio_only";
     /** SPEC_C: boolean — export a single frame as an image instead of a video. */
@@ -295,7 +297,8 @@ public class ExportService extends Service {
             startExportInternal(intent.getStringExtra(EXTRA_PROJECT_SNAPSHOT_PATH),
                     intent.getBooleanExtra(EXTRA_AUDIO_ONLY, false), loudName,
                     singleFrame ? intent.getLongExtra(EXTRA_FRAME_TIME_MS, -1L) : null,
-                    intent.getBooleanExtra(EXTRA_FRAME_JPEG, false), range);
+                    intent.getBooleanExtra(EXTRA_FRAME_JPEG, false), range,
+                    intent.getStringExtra(EXTRA_OUTPUT_FILE_NAME));
         }
 
         return START_NOT_STICKY;
@@ -326,17 +329,18 @@ public class ExportService extends Service {
     // ── Export execution ─────────────────────────────────────────────
 
     private void startExportInternal(@Nullable String snapshotPath, boolean audioOnly) {
-        startExportInternal(snapshotPath, audioOnly, null, null, false, null);
+        startExportInternal(snapshotPath, audioOnly, null, null, false, null, null);
     }
 
     private void startExportInternal(@Nullable String snapshotPath, boolean audioOnly, @Nullable String loudnessTargetName) {
-        startExportInternal(snapshotPath, audioOnly, loudnessTargetName, null, false, null);
+        startExportInternal(snapshotPath, audioOnly, loudnessTargetName, null, false, null, null);
     }
 
     private void startExportInternal(@Nullable String snapshotPath, boolean audioOnly,
                                      @Nullable String loudnessTargetName,
                                      @Nullable Long frameTimeMs, boolean frameJpeg,
-                                     @Nullable long[] range) {
+                                     @Nullable long[] range,
+                                     @Nullable String outputFileName) {
         // EDIT-SAFETY + OOP handoff in one move: the Activity serialized the project to a
         // file at export-tap time (an edit-immune deep snapshot — the same round-trip every
         // app-restart export already survives) and passed the path here. Reading it is the
@@ -372,6 +376,12 @@ public class ExportService extends Service {
             // cancels it): only a bad SECOND request arrives while one runs.
             if (!isExporting && queue.isEmpty()) stopSelf();
             return;
+        }
+        // ProjectStorage intentionally does not persist this one-shot export option. Apply it
+        // after reading each snapshot and before queueing so every queued project retains its
+        // own requested name through ExportManager.generateOutputPath().
+        if (outputFileName != null && !outputFileName.trim().isEmpty()) {
+            project.getExportSettings().setOutputFileName(outputFileName);
         }
         FLog.d(TAG, "Export snapshot loaded from " + snapshotPath
                 + " — concurrent edits cannot affect this export");
@@ -718,8 +728,12 @@ public class ExportService extends Service {
     private void dispatchExport(@NonNull FaditorProject project, boolean audioOnly,
                                 @Nullable Long frameTimeMs, boolean frameJpeg,
                                 @Nullable long[] range) {
-        if (range != null && frameTimeMs == null && !audioOnly) {
-            exportManager.exportRange(project, range[0], range[1]);
+        if (range != null && frameTimeMs == null) {
+            if (audioOnly) {
+                exportManager.exportAudioOnlyRange(project, range[0], range[1]);
+            } else {
+                exportManager.exportRange(project, range[0], range[1]);
+            }
         } else if (frameTimeMs != null) {
             exportManager.exportSingleFrame(project, frameTimeMs, frameJpeg,
                     exportManager.getExportListener());

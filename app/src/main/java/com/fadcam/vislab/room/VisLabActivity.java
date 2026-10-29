@@ -56,6 +56,10 @@ import java.util.List;
 public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host, VisLabSession.Listener {
 
     public static final String EXTRA_LOOK = "vislab_look";
+    /** Open on a new, empty look with its layers open: the lobby's "New" in the Viz Lab room. */
+    public static final String EXTRA_NEW_LOOK = "vislab_new_look";
+    /** Open on the look kept in this file (its path inside the Joy Creator folder): the Library's tap. */
+    public static final String EXTRA_LOOK_FILE = "vislab_look_file";
     private static final String DEMO = "vislab/demo/vislab_demo.m4a";
     private static final int SRC_DEMO = 0, SRC_MIC = 1, SRC_SONG = 2;
     /** Loudness (Features.level, 0..1) above which a frame counts as sound; silence reads 0. */
@@ -93,6 +97,10 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
     private ActivityResultLauncher<String> askMic;
     private ActivityResultLauncher<String[]> pickSong;
     private ActivityResultLauncher<String[]> pickPicture;
+    /** Studio's art and the look's glow behind the picture while the editor is open. */
+    private RoomBackdrop backdrop;
+    /** Pictures and videos for picture layers; its video decoders are let go with the room. */
+    @Nullable private Pictures pictures;
     @Nullable private com.google.gson.JsonObject pictureFor;
 
     @Override
@@ -133,8 +141,24 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
             List<VisScene> looks = session.looks();
             for (int i = 0; i < looks.size(); i++) if (looks.get(i).id().equals(want)) session.roomPicked(i);
         }
+        String wantFile = getIntent().getStringExtra(EXTRA_LOOK_FILE);
+        if (wantFile != null) {
+            List<VisScene> looks = session.looks();
+            for (int i = 0; i < looks.size(); i++) {
+                if (wantFile.equalsIgnoreCase(session.lookFile(looks.get(i).id()))) { session.roomPicked(i); break; }
+            }
+        }
         session.bind(this);
         useSource(SRC_DEMO, null);
+        if (state == null && getIntent().getBooleanExtra(EXTRA_NEW_LOOK, false)) view.post(this::startNewLook);
+    }
+
+    /** A look built from nothing, as the strip's "+ New" card makes it. */
+    private void startNewLook() {
+        session.newLook("New look", null);
+        panel.showLayers();
+        if (!drawerOpen) setDrawer(true);
+        else panel.rebuild();
     }
 
     // ------------------------------------------------------------------ UI
@@ -152,9 +176,15 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
         });
         demoWords = WordFeed.withDemo(this);
         view.renderer().setWords(demoWords);
-        view.renderer().setImageSource(new Pictures(this));
+        pictures = new Pictures(this);
+        view.renderer().setImageSource(pictures);
         view.renderer().setSpriteSource(new Sprites(this));
         stage.addView(view, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        // Behind the picture: Studio's filmstrip art and the look's own glow, seen when the
+        // editor shrinks the picture (owner, 10-27).
+        backdrop = new RoomBackdrop(this);
+        backdrop.setGlowSource(view);
+        root.addView(backdrop, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         root.addView(stage, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         GestureDetector swipe = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
             @Override
@@ -253,7 +283,7 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
         sources = new SlantRow(this, Ui.VIZ_A, Ui.VIZ_B);
         sources.add("music_note", "Demo song", "Play the built-in demo song");
         sources.add("mic", "Microphone", "Listen to the room through the microphone");
-        sources.add("library_music", "A song", "Pick a song or a MIDI file from this phone");
+        sources.add("library_music", "A song", "Pick a song, a MIDI file or a tracker module (.mod) from this phone");
         sources.setSelected(SRC_DEMO);
         sources.setOnPick(i -> {
             if (i == SRC_MIC) {
@@ -263,7 +293,9 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
                 // audio/* already takes .mid / .midi / .kar where the phone knows them as audio/midi;
                 // the rest are for providers that call a MIDI file something else (the file's own
                 // first bytes decide what it really is, see MidiSource.isMidi).
-                pickSong.launch(new String[]{"audio/*", "audio/midi", "audio/x-midi", "application/x-midi", "application/octet-stream"});
+                // Modules (.mod) are rarely typed as audio at all, hence octet-stream and audio/x-mod.
+                pickSong.launch(new String[]{"audio/*", "audio/midi", "audio/x-midi", "application/x-midi",
+                        "audio/x-mod", "audio/mod", "application/octet-stream"});
             } else {
                 useSource(SRC_DEMO, null);
             }
@@ -279,12 +311,7 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
                 android.graphics.drawable.GradientDrawable.Orientation.BOTTOM_TOP, new int[]{0xBF000000, 0x00000000}));
         strip.setLooks(session.looks());
         strip.setOnPick(this::setLook);
-        strip.setOnNew(() -> {
-            session.newLook("New look", null);
-            panel.showLayers();
-            if (!drawerOpen) setDrawer(true);
-            else panel.rebuild();
-        });
+        strip.setOnNew(this::startNewLook);
         root.addView(strip, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM));
 
         panel = new KnobPanel(this, VisLab.get(this).types(), this);
@@ -346,6 +373,7 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
         strip.animate().alpha(open ? 0f : 1f).setDuration(160).start();
         sources.animate().alpha(open ? 0f : 1f).setDuration(160).start();
         sources.setEnabled(!open);
+        backdrop.setGlowing(open);
         fitStage(open);
     }
 
@@ -373,7 +401,10 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
             float s = fs + (ts - fs) * k;
             stage.setScaleX(s);
             stage.setScaleY(s);
-            stage.setTranslationY(ft + (tt - ft) * k);
+            float y = ft + (tt - ft) * k;
+            stage.setTranslationY(y);
+            float half = stage.getWidth() / 2f;
+            backdrop.setPicture(half - half * s, y, half + half * s, y + stage.getHeight() * s);
         });
         a.start();
     }
@@ -552,6 +583,12 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
     }
 
     @Override
+    public void pickVideo(@NonNull com.google.gson.JsonObject layer) {
+        pictureFor = layer;   // a video is kept in the layer's picture, as a picture is (R12)
+        pickPicture.launch(new String[]{"video/*"});
+    }
+
+    @Override
     public void pickSheet(@NonNull com.google.gson.JsonObject layer) {
         // Reading every project's sheets is slow: off the main thread, then the chooser.
         new Thread(() -> {
@@ -608,7 +645,10 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
         SoundSource s;
         if (kind == SRC_MIC) s = new MicSource(ring);
         else if (kind == SRC_SONG && song != null) {
-            s = MidiSource.isMidi(this, song) ? new MidiSource(ring, song) : SongPlayer.ofUri(ring, song);
+            // The file's own first bytes decide: a MIDI file, a tracker module (R13), or a recording.
+            if (MidiSource.isMidi(this, song)) s = new MidiSource(ring, song);
+            else if (com.fadcam.vislab.audio.ModSource.isMod(this, song)) s = new com.fadcam.vislab.audio.ModSource(ring, song);
+            else s = SongPlayer.ofUri(ring, song);
         } else s = SongPlayer.ofAsset(ring, DEMO);
         if (!s.start(this)) {
             Toast.makeText(this, kind == SRC_MIC ? "The microphone is busy or not allowed." : "That song could not be opened.",
@@ -660,6 +700,9 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
 
     @Override
     protected void onDestroy() {
+        // Its video decoders (R12) go with the room. Pictures is locked, so this cannot cut
+        // into a frame the GL thread is still reading.
+        if (pictures != null) pictures.release();
         session.bind(null);
         if (source != null) source.stop();
         source = null;

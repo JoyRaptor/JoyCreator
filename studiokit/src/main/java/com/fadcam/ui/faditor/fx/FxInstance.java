@@ -56,6 +56,12 @@ public final class FxInstance {
     /** UI state, persisted so a stack reopens looking how it was left. */
     public boolean collapsed = false;
 
+    /**
+     * Parameters that follow the music (R14), by {@link FxParam#name}: which signal and how far.
+     * Applied when a stack is resolved with ears ({@link FxStack#resolveAt(long, FxMusic.Ears)}).
+     */
+    @NonNull public final Map<String, FxMusic.Link> music = new LinkedHashMap<>();
+
     public FxInstance(@NonNull String effectId, int slot) {
         this.effectId = effectId;
         this.slot = slot;
@@ -128,6 +134,16 @@ public final class FxInstance {
             o.addProperty("blend", blendMode);
         }
         if (collapsed) o.addProperty("collapsed", true);
+        if (!music.isEmpty()) {
+            JsonObject m = new JsonObject();
+            for (Map.Entry<String, FxMusic.Link> e : music.entrySet()) {
+                JsonObject l = new JsonObject();
+                l.addProperty("s", e.getValue().signal);
+                l.addProperty("a", e.getValue().amount);
+                m.add(e.getKey(), l);
+            }
+            o.add("music", m);
+        }
         if (!values.isEmpty()) {
             JsonObject v = new JsonObject();
             for (Map.Entry<String, float[]> e : values.entrySet()) {
@@ -161,6 +177,18 @@ public final class FxInstance {
         if (o.has("opacity")) fx.opacity = Math.max(0f, Math.min(1f, o.get("opacity").getAsFloat()));
         if (o.has("blend")) fx.blendMode = o.get("blend").getAsString();
         fx.collapsed = o.has("collapsed") && o.get("collapsed").getAsBoolean();
+        if (o.has("music") && o.get("music").isJsonObject()) {
+            for (Map.Entry<String, com.google.gson.JsonElement> e : o.getAsJsonObject("music").entrySet()) {
+                try {
+                    JsonObject l = e.getValue().getAsJsonObject();
+                    if (def.param(e.getKey()) != null) {
+                        fx.music.put(e.getKey(), new FxMusic.Link(l.get("s").getAsString(), l.get("a").getAsFloat()));
+                    }
+                } catch (RuntimeException ignored) {
+                    // A broken link is dropped, never the project load.
+                }
+            }
+        }
         if (o.has("v") && o.get("v").isJsonObject()) {
             JsonObject v = o.getAsJsonObject("v");
             for (FxParam p : def.params) {
@@ -263,6 +291,7 @@ public final class FxInstance {
         c.opacity = opacity;
         c.blendMode = blendMode;
         c.collapsed = collapsed;
+        c.music.putAll(music);
         return c;
     }
 

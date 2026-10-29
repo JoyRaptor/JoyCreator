@@ -23,8 +23,8 @@ import com.fadcam.ui.type.Type;
  */
 final class AboutCredits {
 
-    /** The classic About screen's View Source Code address, unchanged. */
-    static final String SOURCE_URL = "https://github.com/fadsec-lab/";
+    /** View Source Code: this project's own source (S19 repointed it from FadCam's organisation). */
+    static final String SOURCE_URL = "https://github.com/JoyRaptor/JoyCreator";
 
     private AboutCredits() {}
 

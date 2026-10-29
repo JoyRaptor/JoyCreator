@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- UI-1 hover labels: tooltips for icon-only or switch controls. English only. -->
+    <string name="hover_remote_server_toggle">Start or stop the stream server</string>
+    <string name="hover_remote_password_toggle">Turn password protection on or off</string>
+</resources>

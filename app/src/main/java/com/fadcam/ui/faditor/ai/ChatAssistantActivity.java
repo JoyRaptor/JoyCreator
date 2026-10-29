@@ -87,6 +87,8 @@ public class ChatAssistantActivity extends AppCompatActivity {
     public static final String EXTRA_PROJECT_ID = "chat_project_id";
     /** Where Joybot was opened from: an {@link IdeaEngine.Room} name ("LOBBY", "STUDIO", …). */
     public static final String EXTRA_ROOM = "chat_room";
+    /** Open with the AI settings dialog showing (the Settings hub's "AI and Joybot" row). */
+    public static final String EXTRA_OPEN_SETTINGS = "chat_open_settings";
     /** Id of what was selected in the editor (a layer item, else the spine clip), or absent. */
     public static final String EXTRA_SELECTED_ID = "chat_selected_id";
     /** True when he was tapped while glowing: open by saying the idea he had. */
@@ -99,6 +101,10 @@ public class ChatAssistantActivity extends AppCompatActivity {
     private LinearLayout chipsRow;
     private TextView stopButton;
     private IdeaEngine.Room room = IdeaEngine.Room.STUDIO;
+    /** Connecting an AI by talking (BOT-6): holds a pasted key only until it is checked. */
+    private com.fadcam.ui.faditor.ai.joybot.SetupFlow setupFlow;
+    /** The typing box's own input type, put back after it took a key (password-style, no suggestions). */
+    private int chatInputType = -1;
     private IdeaMemory ideaMemory;
     @Nullable private IdeaEngine.Offer currentOffer;
     /** The best idea shown this visit, and whether it was tapped: two ignores make it quiet. */
@@ -197,6 +203,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
             if (r != null) room = IdeaEngine.Room.valueOf(r);
         } catch (IllegalArgumentException ignored) { }
         ideaMemory = new IdeaMemory(this);
+        com.fadcam.ui.faditor.ai.joybot.TipUsage.openedIn(this, room);
         // The conversation is kept while the app is open, one per project (or room): opening
         // Joybot about a different project shows that project's talk, never the last one's.
         chatKey = JoybotAgent.conversationKey(projectId, room);
@@ -218,6 +225,10 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
         initViews();
         initSystemPrompt();
+        setupFlow = new com.fadcam.ui.faditor.ai.joybot.SetupFlow(setupHost());
+        if (savedInstanceState == null && getIntent().getBooleanExtra(EXTRA_OPEN_SETTINGS, false)) {
+            inputField.post(this::showSettingsDialog);
+        }
 
         // Restore previous messages if returning to an existing conversation
         if (!messageLog.isEmpty()) {
@@ -843,14 +854,59 @@ public class ChatAssistantActivity extends AppCompatActivity {
     }
 
     private void showWelcome() {
+        // Every empty open teaches one thing, offline too (owner, 10-28): "Did you know…", leaning
+        // to the wings this person uses, then the idea buttons below.
+        com.fadcam.ui.faditor.ai.joybot.TipBook.Tip tip = com.fadcam.ui.faditor.ai.joybot.TipUsage.next(this);
+        String did = com.fadcam.ui.faditor.ai.joybot.TipBook.said(tip);
         if (!AiService.ready(this, apiKey)) {
             // Offline is not a lesser Joybot: everything the buttons do runs on the phone.
-            addBotMessage("Hi, I'm Joybot. Right here on the phone I can transcribe, add captions, "
-                    + "cut the ums and silences, add transitions and make slides — tap a button "
-                    + "below or tell me what you'd like.\n\nConnect an AI in ⚙ (there's a "
-                    + "free one) and I can take on anything you can describe.");
+            addBotMessage("Hi, I'm Joybot. " + did + "\n\nRight here on the phone I can transcribe, "
+                    + "add captions, cut the ums and silences, add transitions and make slides — tap a "
+                    + "button below. Connect an AI (there's a free one) and I can take on anything you "
+                    + "can describe: tap “Connect an AI” and I'll walk you through it.");
         } else {
-            addBotMessage("Hi, I'm Joybot. Tap a button below, or tell me what you'd like to make.");
+            addBotMessage("Hi, I'm Joybot. " + did + "\n\nTap a button below, or tell me what you'd like to make.");
+        }
+        addTakeMeThere(tip);
+    }
+
+    /** A small "Take me there" under the tip, at its right edge; none when the tip is about this room. */
+    private void addTakeMeThere(@NonNull com.fadcam.ui.faditor.ai.joybot.TipBook.Tip tip) {
+        boolean connect = !AiService.ready(this, apiKey);
+        boolean go = tip.route != null && !tip.route.equals(routeOfRoom(room));
+        if (!connect && !go) return;
+        String where = tip.route;
+        LinearLayout row = new LinearLayout(this);
+        row.setGravity(android.view.Gravity.END);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.setMargins(dp(8), 0, dp(60), dp(4));
+        row.setLayoutParams(lp);
+        if (connect) {
+            row.addView(JoybotChatViews.cardButton(this, "Connect an AI",
+                    "I'll walk you through it, step by step", v -> {
+                        addUserMessage("Connect an AI");
+                        setupFlow.start();
+                    }));
+        }
+        if (go) {
+            row.addView(JoybotChatViews.cardButton(this, "Take me there",
+                    "Open the part of the app this tip is about", v -> route(where)));
+        }
+        messagesContainer.addView(row);
+        messageViews.add(row);
+    }
+
+    /** The route() name of the room Joybot was opened in, or null. */
+    @Nullable
+    private static String routeOfRoom(@NonNull IdeaEngine.Room r) {
+        switch (r) {
+            case STUDIO: return "studio";
+            case VISLAB: return "vislab";
+            case JOYBRUSH: return "joybrush";
+            case SPRITELAB: return "spritelab";
+            case LIBRARY: return IdeaEngine.ROUTE_LIBRARY;
+            default: return null;
         }
     }
 
@@ -911,6 +967,16 @@ public class ChatAssistantActivity extends AppCompatActivity {
         stopDictation();
         String text = inputField.getText().toString().trim();
         if (text.isEmpty() && stagedImage == null) return;
+        // An AI key typed or pasted here is caught on the phone first: it never reaches the AI, the
+        // conversation or the message log; the bubble keeps only its last four letters (BOT-6, 10-28).
+        com.fadcam.ui.faditor.ai.joybot.KeyCatcher.Found typedKey = com.fadcam.ui.faditor.ai.joybot.KeyCatcher.find(text, setupFlow.expectingKey());
+        if (typedKey != null) {
+            inputField.setText("");
+            dictatedText = null;
+            addUserMessage(typedKey.shown);
+            setupFlow.gotKey(typedKey);
+            return;
+        }
         if (busy) {
             Toast.makeText(this, "Joybot is still working — tap Stop first", Toast.LENGTH_SHORT).show();
             return;
@@ -969,6 +1035,16 @@ public class ChatAssistantActivity extends AppCompatActivity {
         // "Undo that" means Joybot's newest change, online or off.
         if (norm(text).matches("(please )?(undo|undo that|undo it|take (that|it) back|put it back|revert( that)?)( please)?")) {
             undoByWords();
+            return;
+        }
+        // "Connect an AI", "I have Claude Pro": Joybot walks them through it, here in the chat.
+        if (com.fadcam.ui.faditor.ai.joybot.SetupTalk.asksToConnect(text)) {
+            setupFlow.start();
+            return;
+        }
+        // "What can I do here?": this room's real actions, in plain words (BOT-2), online or off.
+        if (com.fadcam.ui.faditor.ai.joybot.WhatHere.asks(text)) {
+            addBotMessage(com.fadcam.ui.faditor.ai.joybot.WhatHere.answer(room, projectId != null, AiService.ready(this, apiKey), roomActions()));
             return;
         }
         boolean online = AiService.ready(this, apiKey);
@@ -1248,8 +1324,9 @@ public class ChatAssistantActivity extends AppCompatActivity {
      */
     private void refreshIdeas(boolean speak) {
         checkRecipes();
-        if (room == IdeaEngine.Room.VISLAB) {
-            // VisLab's ideas are about the look on screen, not a project: no project is needed.
+        if (room == IdeaEngine.Room.VISLAB || room == IdeaEngine.Room.JOYBRUSH) {
+            // VisLab's ideas are about the look on screen, JoyBrush's about the open drawing: no
+            // project is needed (without this JoyBrush showed the lobby's "Start a project").
             com.fadcam.ui.faditor.ai.joybot.ProjectFacts f = new com.fadcam.ui.faditor.ai.joybot.ProjectFacts();
             f.online = AiService.ready(this, apiKey);
             currentOffer = IdeaEngine.offer(f, room, java.util.Collections.<String>emptySet(),
@@ -2117,9 +2194,10 @@ public class ChatAssistantActivity extends AppCompatActivity {
         int tab;
         switch (where) {
             case IdeaEngine.ROUTE_RECORD: tab = 0; break;
-            case "library": tab = 1; break;
-            case "studio": tab = 3; break;
-            case "setup": tab = 4; break;
+            // The Lobby's own screens, not the classic FadCam tabs (lead, DOOR-1 10-28).
+            case "library": openOverlay("library"); return;
+            case "studio": openOverlay("projects"); return;
+            case "setup": openOverlay("settings"); return;
             case "joybrush":
                 startActivity(new Intent(this, cc.joycreator.joybrush.android.library.DrawingsActivity.class));
                 finish();
@@ -2158,18 +2236,26 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 startActivity(new Intent(this, com.fadcam.vislab.room.VisLabActivity.class));
                 finish();
                 return;
+            case "bridge":
+                // Connect your computer (BOT-6): its own screen, and the chat stays underneath.
+                startActivity(com.fadcam.ui.faditor.ai.bridge.BridgeActivity.intent(this, projectId, room));
+                return;
             case "trash":
-                // The Trash is an overlay inside the main screen (the Lobby's logo-hold opens it), so
-                // the main screen is asked to open it (MainActivity "open_overlay").
-                startActivity(new Intent(this, com.fadcam.MainActivity.class)
-                        .putExtra("open_overlay", "trash")
-                        .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
-                finish();
+                // The Trash is an overlay inside the main screen (the Lobby's logo-hold opens it).
+                openOverlay("trash");
                 return;
             default: return;
         }
         startActivity(new Intent(this, com.fadcam.MainActivity.class)
                 .putExtra("navigate_to_tab", tab)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
+        finish();
+    }
+
+    /** A screen the main activity opens over the Lobby ({@code MainActivity} "open_overlay"). */
+    private void openOverlay(@NonNull String which) {
+        startActivity(new Intent(this, com.fadcam.MainActivity.class)
+                .putExtra("open_overlay", which)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
         finish();
     }
@@ -3232,8 +3318,9 @@ public class ChatAssistantActivity extends AppCompatActivity {
         TextView tv = new TextView(this);
         tv.setText(isUser ? text : JoybotChatViews.styled(text));
         tv.setTextIsSelectable(true);
-        tv.setTextColor(isUser ? Studio.ON_GO : Studio.INK_DIM);
-        tv.setBackgroundResource(isUser ? R.drawable.chat_bubble_user : R.drawable.chat_bubble_bot);
+        // Joybot's answer carries the colour; your own words fade back (owner, 10-28).
+        tv.setTextColor(isUser ? Studio.INK_DIM : Studio.ON_GO);
+        tv.setBackgroundResource(isUser ? R.drawable.chat_bubble_user : R.drawable.chat_bubble_joybot);
         // Tail side (bottom for user, top for bot — see chat_bubble_user/bot.xml) gets extra
         // padding so text clears the reserved tail-nub band baked into the background drawable.
         if (isUser) {
@@ -3252,7 +3339,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         Typeface materialIcons = ResourcesCompat.getFont(this, R.font.materialicons);
         copyBtn.setTypeface(materialIcons);
         copyBtn.setText("content_copy");
-        copyBtn.setTextColor(isUser ? Studio.alpha(Studio.ON_GO, 0x66) : Studio.alpha(Studio.LABEL, 0x66));
+        copyBtn.setTextColor(isUser ? Studio.alpha(Studio.LABEL, 0x66) : Studio.alpha(Studio.ON_GO, 0x66));
         copyBtn.setTextSize(13);
         copyBtn.setPadding(dp(6), dp(6), dp(6), dp(6));
         FrameLayout.LayoutParams clp = new FrameLayout.LayoutParams(
@@ -3919,6 +4006,99 @@ public class ChatAssistantActivity extends AppCompatActivity {
         model = SharedPreferencesManager.getInstance(this).sharedPreferences.getString(PREF_MODEL, DEFAULT_MODEL);
         if (AiService.isCustom(this)) ModelCatalog.setTalkingToPictures(this, false);
         updateModelLabel();
+    }
+
+    /** Every typed action, as "What can I do here?" lists them. */
+    @NonNull
+    private static List<com.fadcam.ui.faditor.ai.joybot.WhatHere.Action> roomActions() {
+        List<com.fadcam.ui.faditor.ai.joybot.WhatHere.Action> out = new ArrayList<>();
+        List<com.fadcam.ui.faditor.ai.actions.ActionSpec> specs = new ArrayList<>(
+                com.fadcam.ui.faditor.ai.actions.StudioActions.registry().specs());
+        specs.addAll(com.fadcam.ui.faditor.ai.actions.AppActions.registry().specs());
+        for (com.fadcam.ui.faditor.ai.actions.ActionSpec s : specs) {
+            out.add(new com.fadcam.ui.faditor.ai.joybot.WhatHere.Action(s.tool, s.title, s.wing,
+                    s.effect == com.fadcam.ui.faditor.ai.actions.ActionSpec.Effect.READ));
+        }
+        return out;
+    }
+
+    /** What the connect-an-AI conversation needs from this screen. */
+    @NonNull
+    private com.fadcam.ui.faditor.ai.joybot.SetupFlow.Host setupHost() {
+        return new com.fadcam.ui.faditor.ai.joybot.SetupFlow.Host() {
+            @NonNull @Override public android.content.Context context() { return ChatAssistantActivity.this; }
+            @Override public void say(@NonNull String text) { addBotMessage(text); }
+            @Override public void show(@NonNull View card) {
+                messagesContainer.addView(card);
+                messageViews.add(card);
+                scrollToBottom();
+            }
+            @Override public void openUrl(@NonNull String url) {
+                try {
+                    startActivity(new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)));
+                } catch (Exception e) {
+                    addBotMessage("I couldn't open a browser. The address is " + url);
+                }
+            }
+            @Override public void readyForKey(boolean on) { keyMode(on); }
+            @Override public void connect(@NonNull String key, @NonNull com.fadcam.ui.faditor.ai.joybot.AiProviders.Provider p) {
+                connectKey(key, p);
+            }
+            @Nullable @Override public String connectedTo() {
+                return AiService.ready(ChatAssistantActivity.this, apiKey) ? AiAccounts.active(ChatAssistantActivity.this).name : null;
+            }
+            @Override public boolean bridgeReady() { return true; }
+            @Override public void openBridge() {
+                startActivity(com.fadcam.ui.faditor.ai.bridge.BridgeActivity.intent(ChatAssistantActivity.this, projectId, room));
+            }
+        };
+    }
+
+    /**
+     * The typing box takes a key: hidden like a password and kept out of the keyboard's suggestions
+     * (a keyboard that learns a key offers it to the next app). Off again once a key arrives.
+     */
+    private void keyMode(boolean on) {
+        if (chatInputType == -1) chatInputType = inputField.getInputType();
+        if (on) {
+            inputField.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                    | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+                    | android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+            inputField.setHint("Paste your key here");
+            inputField.requestFocus();
+        } else {
+            inputField.setInputType(chatInputType);
+            inputField.setHint("Ask anything\u2026");
+        }
+    }
+
+    /**
+     * A key checked in the chat becomes an account and the one in use, as ⚙ would save it. The account
+     * in use is kept when it already has a key (switch back from the model name at the top).
+     */
+    private void connectKey(@NonNull String key, @NonNull com.fadcam.ui.faditor.ai.joybot.AiProviders.Provider p) {
+        if (AiAccounts.active(this).hasKey() || AiService.isCustom(this)) AiAccounts.addBlank(this);
+        AiKey.set(this, key);
+        AiService.setBase(this, p.base);
+        String mdl = p.startModel.isEmpty() ? DEFAULT_MODEL : p.startModel;
+        SharedPreferencesManager.getInstance(this).sharedPreferences.edit().putString(PREF_MODEL, mdl).apply();
+        if (AiService.isCustom(this)) ModelCatalog.setTalkingToPictures(this, false);
+        AiAccounts.syncActive(this, AiAccounts.freshName(this, AiService.isCustom(this) ? AiService.base(this) : "",
+                AiAccounts.active(this).id));
+        apiKey = AiKey.get(this);
+        model = mdl;
+        updateModelLabel();
+        refreshIdeas(false);
+        if (AiService.isCustom(this)) {
+            // Not OpenRouter: the person picks from the models their own account has.
+            addBotMessage("Pick the model to talk to — these are the ones your account has.");
+            ModelPicker.show(this, false, new ModelPicker.OnPick() {
+                @Override public void chat(@NonNull ModelCatalog.Model m) { useChatModel(m.id); }
+                @Override public void pictures(@NonNull ModelCatalog.Model m) { usePictureModel(m.id); }
+            });
+            return;
+        }
+        addBotMessage(com.fadcam.ui.faditor.ai.joybot.SetupTalk.firstTry(projectId != null));
     }
 
     private void useChatModel(@NonNull String id) {

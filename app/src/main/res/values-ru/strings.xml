@@ -2,27 +2,22 @@
     <string name="app_icon_description">Выберите значок и название для вашего приложения. Это изменит его вид на главном экране.</string>
     <string name="check_for_updates">Проверить наличие обновлений</string>
     <string name="accessibility_thumbnail_progress">%1$d%% просмотрено</string>
-    <string name="fadsec_info">FadCam является частью пакета FadSec Lab. Для получения дополнительной информации нажмите «Просмотреть исходный код» ниже.</string>
+    <string name="fadsec_info">Joy Creator является частью пакета FadSec Lab. Для получения дополнительной информации нажмите «Просмотреть исходный код» ниже.</string>
 
 
     <string name="app_description">
         <![CDATA[
-    FadCam - это бесплатное приложение для записи видео с открытым исходным кодом, которое prioritizes конфиденциальность, не отслеживая и не собирая никаких данных. Оно доступно исключительно на GitHub и через официальные ссылки, упомянутые в README.
+    Joy Creator - это бесплатное приложение для записи видео с открытым исходным кодом, которое prioritizes конфиденциальность, не отслеживая и не собирая никаких данных. Оно доступно исключительно на GitHub и через официальные ссылки, упомянутые в README.
     <br/><br/>
-    FadCam был представлен на популярных YouTube-каналах, таких как <font color="#cfbafd">HowToMen</font> и <font color="#cfbafd">Xtream Droid</font>, а также обсуждался в <font color="#cfbafd">GrapheneOS</font> и 55+ других заметных местах.
+    Joy Creator был представлен на популярных YouTube-каналах, таких как <font color="#cfbafd">HowToMen</font> и <font color="#cfbafd">Xtream Droid</font>, а также обсуждался в <font color="#cfbafd">GrapheneOS</font> и 55+ других заметных местах.
     ]]>
     </string>
 
 
     <string name="view_source_code">Просмотреть исходный код</string>
-    <string name="buy_me_a_coffee">Угостить разработчика кофе ☕</string>
     <string name="contact">Связаться</string>
     <string name="send_email">Отправить email</string>
-    <string name="join_community">Присоединяйтесь к сообществу: получите помощь, поделитесь идеями и следите за обновлениями</string>
-    <string name="readme_github_subtitle">Исходный код и релизы</string>
-    <string name="readme_discord_subtitle">Присоединяйтесь к сообществу</string>
     <string name="website_title">Веб-сайт</string>
-    <string name="readme_website_subtitle">Официальный сайт</string>
     <string name="privacy_information">Политика конфиденциальности</string>
     <string name="copyright_info">2024-2025 https://fadcam.faded.dev\nЛицензировано по GPL-3.0</string>
     <string-array name="video_resolutions_keys">
@@ -204,7 +199,6 @@
     <string name="nav_about">О программе</string>
     <string name="nav_remote">Удалённый</string>
     <string name="nav_faditor_mini">Faditor</string>
-    <string name="button_settings_readme">Прочитать</string>
     <string name="setting_cam_title">Выбор камеры</string>
     <string name="note_cam_sele">Выберите камеру \n(По умолчанию: Задняя)</string>
     <string name="button_settings_cam_back">Задняя</string>
@@ -222,7 +216,7 @@
     <string name="setting_codec_title">Видеокодек</string>
     <string name="note_codec">Выберите кодек\n(По умолчанию: %1$s)\nСовет: С H.265 (HEVC) вы можете использовать примерно половину битрейта H.264 при том же качестве. Пример: Для FHD используйте 8 Мбит/с вместо 16 Мбит/с.</string>
     <string name="setting_watermark">Водяной знак</string>
-    <string name="note_watermark">Выберите вариант водяного знака\n(По умолчанию: Временная метка с FadCam)</string>
+    <string name="note_watermark">Выберите вариант водяного знака\n(По умолчанию: Временная метка с Joy Creator)</string>
     <string name="note_watermark_extra">Для быстрого сохранения выберите \'Без водяного знака\'. Добавляете водяной знак? Стоит подождать, всего чуть дольше для обработки!</string>
     <string name="setting_location_title">Данные о местоположении</string>
     <string name="note_location">Включить данные о местоположении в водяной знак. \nТребуется включённый GPS \n(По умолчанию: Отключено)</string>
@@ -255,13 +249,13 @@
     </string-array>
     <string-array name="questions_array" tools:ignore="InconsistentArrays">
         <item>ОТКАЗ ОТ ОТВЕТСТВЕННОСТИ</item>
-        <item>Собирает ли FadCam какие-либо пользовательские данные?</item>
-        <item>Есть ли реклама в FadCam?</item>
-        <item>Почему FadCam запрашивает доступ к местоположению?</item>
+        <item>Собирает ли Joy Creator какие-либо пользовательские данные?</item>
+        <item>Есть ли реклама в Joy Creator?</item>
+        <item>Почему Joy Creator запрашивает доступ к местоположению?</item>
         <item>Почему требуется разрешение на интернет?</item>
         <item>Хранятся ли данные на внешних серверах?</item>
         <item>Что происходит с моими видео после записи?</item>
-        <item>Делится ли FadCam моими данными с третьими сторонами?</item>
+        <item>Делится ли Joy Creator моими данными с третьими сторонами?</item>
         <item></item>
         <item></item>
         <item>Общее</item>
@@ -273,15 +267,15 @@
         <item></item>
     </string-array>
     <string-array name="answers_array" tools:ignore="InconsistentArrays">
-        <item>FadCam не одобряет и не поддерживает любое неэтичное или незаконное использование этого программного обеспечения. Злоупотребление, такое как несанкционированное наблюдение или вторжение в частную жизнь, строго противоречит нашим рекомендациям. Автор не несёт ответственности за любое злоупотребление приложением.
+        <item>Joy Creator не одобряет и не поддерживает любое неэтичное или незаконное использование этого программного обеспечения. Злоупотребление, такое как несанкционированное наблюдение или вторжение в частную жизнь, строго противоречит нашим рекомендациям. Автор не несёт ответственности за любое злоупотребление приложением.
         </item>
-        <item>Нет, FadCam не собирает никаких пользовательских данных.</item>
-        <item>Нет, FadCam полностью без рекламы.</item>
+        <item>Нет, Joy Creator не собирает никаких пользовательских данных.</item>
+        <item>Нет, Joy Creator полностью без рекламы.</item>
         <item>Для добавления информации о местоположении в ваши водяные знаки.</item>
         <item>Для автоматической проверки обновлений.</item>
         <item>Нет, все данные хранятся на вашем устройстве.</item>
         <item>Ваши видео сохраняются локально на вашем устройстве.</item>
-        <item>Нет, FadCam не делится и не собирает никаких данных, даже журналы сбоев.</item>
+        <item>Нет, Joy Creator не делится и не собирает никаких данных, даже журналы сбоев.</item>
         <item></item>
         <item></item>
         <item></item>
@@ -293,18 +287,16 @@
         <item>Проверьте официальный репозиторий GitHub на наличие обновлений.</item>
         <item></item>
     </string-array>
-    <string name="dialog_welcome_title">Добро пожаловать в FadCam!</string>
+    <string name="dialog_welcome_title">Добро пожаловать в Joy Creator!</string>
     <string name="note_from_developer_title">Заметка от разработчика</string>
     <string name="note_from_developer_subtitle">README, ссылки и обновления</string>
     <string name="note_under_dev">Важно: Это приложение находится в разработке. Новые функции добавляются регулярно.</string>
     <string name="full_changelog_info">Для полного списка изменений перейдите на вкладку Главная и откройте гамбургер-меню, затем выберите "Что нового".</string>
     <string name="stay_updated_title">Следите за обновлениями:</string>
-    <string name="button_readme_github">Репозиторий GitHub</string>
     <string name="community_title">Присоединяйтесь к нашему сообществу:</string>
-    <string name="discord_title">Сервер Discord</string>
-    <string name="thankyou_msg">Спасибо за использование FadCam!</string>
+    <string name="thankyou_msg">Спасибо за использование Joy Creator!</string>
     <string name="settings_title">Настройки</string>
-    <string name="array_watermark_time_fadcam">Время с Fadcam</string>
+    <string name="array_watermark_time_fadcam">Время с Joy Creator</string>
     <string name="array_watermark_timeonly">Временная метка</string>
     <string name="array_watermark_nomark">Без водяного знака</string>
     <string name="watermark_preview_funny">По-настоящему? :( \n    ＞﹏＜</string>
@@ -423,13 +415,13 @@
     <string name="watermark_preview_heading">Предпросмотр</string>
     <string name="watermark_options_heading">Параметры</string>
     <string name="watermark_style_row_title">Стиль водяного знака</string>
-    <string name="watermark_preview_sample_fadcam">Записано FadCam - %1$s</string>
+    <string name="watermark_preview_sample_fadcam">Записано Joy Creator - %1$s</string>
     <string name="watermark_preview_sample_timeonly">%1$s</string>
-    <string name="watermark_style_time_fadcam_label">Время с FadCam</string>
+    <string name="watermark_style_time_fadcam_label">Время с Joy Creator</string>
     <string name="watermark_style_timeonly_label">Временная метка</string>
     <string name="watermark_style_badge_label">Только метка бренда</string>
     <string name="watermark_style_none_label">Без водяного знака</string>
-    <string name="helper_watermark_preview">Так водяной знак будет отображаться в верхнем левом углу вашего записанного видео.\nЗабавный факт: 10/Июл/2024 04:47 PM - когда FadCam v1.0 впервые вышел.</string>
+    <string name="helper_watermark_preview">Так водяной знак будет отображаться в верхнем левом углу вашего записанного видео.\nЗабавный факт: 10/Июл/2024 04:47 PM - когда Joy Creator v1.0 впервые вышел.</string>
     <string name="helper_location_watermark_option">Переключить добавление местоположения вашего устройства как наложения. Требуется разрешение на местоположение.</string>
     <string name="location_watermark_sheet_title">Наложение местоположения</string>
     <string name="location_watermark_switch_label">Наложение местоположения</string>
@@ -449,7 +441,7 @@
     <string name="widgets_helper_text">Закрепите быстрые действия на главном экране для мгновенного доступа.</string>
     <string name="widgets_pin_unsupported">Закрепление виджетов не поддерживается вашим лаунчером.</string>
     <string name="widget_clock_title">Виджет часов</string>
-    <string name="widgets_pin_fallback">Если запрос не появляется, длительно нажмите главный экран, откройте Виджеты и перетащите виджет часов FadCam.</string>
+    <string name="widgets_pin_fallback">Если запрос не появляется, длительно нажмите главный экран, откройте Виджеты и перетащите виджет часов Joy Creator.</string>
 
     <!-- Widget Customization -->
     <string name="widget_customize_title">Настроить виджет часов</string>
@@ -649,8 +641,8 @@
     <string name="remote_access_title">Удалённый доступ/управление</string>
     <string name="remote_toast_coming_soon">Скоро! Инша Аллах</string>
     <string name="coming_soon_toast">Скоро! Инша Аллах</string>
-    <string name="remote_coming_soon">Удалённое управление для FadCam скоро появится.</string>
-    <string name="remote_feature_description">Свяжите клиенты FadCam с помощью QR-кода для безопасного удалённого управления в локальной сети: запуск/остановка записи, превью, зум, переключение камеры и многое другое — всё с end-to-end шифрованием.</string>
+    <string name="remote_coming_soon">Удалённое управление для Joy Creator скоро появится.</string>
+    <string name="remote_feature_description">Свяжите клиенты Joy Creator с помощью QR-кода для безопасного удалённого управления в локальной сети: запуск/остановка записи, превью, зум, переключение камеры и многое другое — всё с end-to-end шифрованием.</string>
     <string name="faditor_mini_title">Faditor Mini</string>
     <string name="faditor_mini_coming_soon">Скоро — лёгкий редактор</string>
     <string name="faditor_mini_toast">Faditor Mini — скоро</string>
@@ -788,7 +780,7 @@
     <string name="records_search_hint">Поиск записей…</string>
     <string name="saf_permission_missing_dialog_instructions">Отсутствует разрешение SAF. Пожалуйста, предоставьте доступ к выбранной папке.</string>
     <string name="saf_permission_missing_dialog_title">Требуется разрешение SAF</string>
-    <string name="saf_permission_missing_dialog_message_for_start_recording">Для сохранения записей в пользовательское расположение FadCam нуждается в доступе к выбранной папке. Пожалуйста, предоставьте доступ при запросе.</string>
+    <string name="saf_permission_missing_dialog_message_for_start_recording">Для сохранения записей в пользовательское расположение Joy Creator нуждается в доступе к выбранной папке. Пожалуйста, предоставьте доступ при запросе.</string>
     <string name="grant_permission_button">Предоставить разрешение</string>
 
     <!-- Strings for Trash Auto-Delete Feature -->
@@ -830,9 +822,6 @@
     <string name="video_split_size_summary_gb">Текущий: %1$s ГБ</string>
     <string name="video_splitting_title">Включить разделение видео</string>
     <string name="video_splitting_description">Автоматически разделять записи на меньшие файлы (Отключено по умолчанию). Рекомендуется: 2 ГБ для баланса. Доступны предустановки до 4 ГБ и пользовательские размеры. Это помогает управлять большими записями и избегает ограничений размера файлов устройства.</string>
-    <string name="support_ko_fi">Поддержите нас на Ko-fi</string>
-    <string name="kofi_description">Описание будет установлено в коде.</string>
-    <string name="kofi_button_text">Купить Ko-fi</string>
     <string name="kofi_footer_text">Сделано    в FadSec Lab в   </string>
 
     <string name="setting_audio_input_source_title">Источник аудиовхода</string>
@@ -849,14 +838,14 @@
 
     <!-- Fix Start: Add onboarding toggle strings -->
     <string name="setting_onboarding_title">Показать введение</string>
-    <string name="note_onboarding">Включите, чтобы увидеть введение в приложение и руководство по разрешениям при следующем открытии FadCam.</string>
+    <string name="note_onboarding">Включите, чтобы увидеть введение в приложение и руководство по разрешениям при следующем открытии Joy Creator.</string>
     <!-- Fix End: Add onboarding toggle strings -->
 
     <string name="choose_language">Выбрать язык</string>
     <string name="language_change_later_note">Вы можете изменить это позже в Настройках.</string>
 
     <string name="permissions_required">Требуются разрешения</string>
-    <string name="permissions_description">FadCam нужен доступ к вашей камере, микрофону и хранилищу для записи и сохранения видео.</string>
+    <string name="permissions_description">Joy Creator нужен доступ к вашей камере, микрофону и хранилищу для записи и сохранения видео.</string>
     <string name="grant_permissions">Предоставить разрешения</string>
     <string name="permissions_note">Вы должны предоставить все разрешения, чтобы продолжить.</string>
     <string name="permissions_granted">Все разрешения предоставлены!</string>
@@ -866,9 +855,9 @@
     <string name="disable_battery_optimization">Отключить оптимизацию батареи</string>
 
     <string name="onboarding_human_title">Подтвердите, что вы человек</string>
-    <string name="onboarding_human_desc">Хммм... ладно. Эти правила не подлежат обсуждению. Если вы не можете согласиться, пожалуйста, удалите FadCam прямо сейчас.</string>
-    <string name="onboarding_human_checkbox1">Я не буду использовать FadCam для нарушения законов, вторжения в чью-либо приватность или быть creep\'ом. Разработчик вне картины, если я напортачу. (Это на мне.)</string>
-    <string name="onboarding_human_checkbox2">Я уже люблю FadCam ещё до использования. (Не опционально)</string>
+    <string name="onboarding_human_desc">Хммм... ладно. Эти правила не подлежат обсуждению. Если вы не можете согласиться, пожалуйста, удалите Joy Creator прямо сейчас.</string>
+    <string name="onboarding_human_checkbox1">Я не буду использовать Joy Creator для нарушения законов, вторжения в чью-либо приватность или быть creep\'ом. Разработчик вне картины, если я напортачу. (Это на мне.)</string>
+    <string name="onboarding_human_checkbox2">Я уже люблю Joy Creator ещё до использования. (Не опционально)</string>
     <string name="onboarding_human_checkbox3">Я согласен с Политикой конфиденциальности</string>
     <string name="onboarding_human_button">Впустите меня!</string>
 
@@ -941,10 +930,10 @@
     <string name="app_icon_default" translatable="false">Legacy</string>
     <string name="app_icon_alternative" translatable="false">Camera</string>
     <string name="app_icon_faded" translatable="false">0xFF0000</string>
-    <string name="app_icon_pakistan" translatable="false">FadCam</string>
+    <string name="app_icon_pakistan" translatable="false">Joy Creator</string>
     <string name="app_icon_fadseclab" translatable="false">FadSec Lab</string>
     <string name="app_icon_noor" translatable="false">Noor</string>
-    <string name="app_icon_bat" translatable="false">FadCam</string>
+    <string name="app_icon_bat" translatable="false">Joy Creator</string>
     <string name="app_icon_redbinary" translatable="false">$ ~/r00t</string>
     <string name="app_icon_notes" translatable="false">Notes</string>
     <string name="app_icon_calculator" translatable="false">Calculator</string>
@@ -963,7 +952,7 @@
 
     <!-- Fix Start: Add auto update check toggle strings -->
     <string name="setting_auto_update_check_title">Автоматическая проверка обновлений</string>
-    <string name="note_auto_update_check">Если включено, FadCam будет проверять обновления каждый раз при открытии приложения. Отключите, чтобы отключить автоматические проверки обновлений при запуске.\n(По умолчанию: Включено)</string>
+    <string name="note_auto_update_check">Если включено, Joy Creator будет проверять обновления каждый раз при открытии приложения. Отключите, чтобы отключить автоматические проверки обновлений при запуске.\n(По умолчанию: Включено)</string>
     <!-- Fix End: Add auto update check toggle strings -->
 
     <!-- Storage Location Settings -->
@@ -986,7 +975,7 @@
     <string name="storage_location_internal">Внутреннее хранилище приложения (По умолчанию, Приватное)</string>
     <string name="storage_location_custom">Пользовательское расположение (SD-карта/Другое, Видно в Галерее)</string>
     <string name="storage_location_choose_folder">Выбрать папку</string>
-    <string name="storage_location_note">Примечание: Использование пользовательских расположений делает видео доступными для других приложений (например, Галереи). Внутреннее хранилище сохраняет их приватными для FadCam.</string>
+    <string name="storage_location_note">Примечание: Использование пользовательских расположений делает видео доступными для других приложений (например, Галереи). Внутреннее хранилище сохраняет их приватными для Joy Creator.</string>
     <string name="storage_sheet_title">Расположение хранения</string>
     <string name="storage_option_use_internal">Использовать внутреннее хранилище</string>
     <string name="storage_option_switch_internal">Переключиться на внутреннее хранилище</string>
@@ -1090,7 +1079,7 @@
     <!-- Additional Notification Customization Strings -->
     <!-- Adding notification appearance strings -->
     <string name="setting_notification_appearance">Внешний вид уведомлений</string>
-    <string name="note_notification_appearance">Настройте внешний вид уведомления о записи\n(По умолчанию: FadCam)</string>
+    <string name="note_notification_appearance">Настройте внешний вид уведомления о записи\n(По умолчанию: Joy Creator)</string>
     <string name="hide_stop_button">Скрыть кнопку стоп</string>
     <string name="note_hide_stop_button">Скрыть кнопку стоп в уведомлении\n(По умолчанию: Отключено)</string>
     <string name="notification_preview">Предпросмотр уведомления</string>
@@ -1106,7 +1095,7 @@
     <string name="notification_custom_text_placeholder">Описание (например, Обновление в процессе)</string>
 
     <string-array name="notification_appearance_options">
-        <item>FadCam (по умолчанию)</item>
+        <item>Joy Creator (по умолчанию)</item>
         <item>Системное обновление</item>
         <item>Загрузка</item>
         <item>Синхронизация</item>
@@ -1205,36 +1194,13 @@
     <string name="delete">Удалить</string>
 
     <!-- FadCam Pro Strings -->
-    <string name="fadcam_pro_title">FadCam Pro</string>
-    <string name="fadcam_pro_subtitle">Премиум-функции для полной дискретности</string>
-    <string name="fadcam_pro_get_button">Получить FadCam Pro</string>
-    <string name="fadcam_pro_free">Бесплатно</string>
-    <string name="fadcam_pro_column_label">Pro</string>
-    <string name="fadcam_pro_proplus_label">Pro+</string>
-    <string name="fadcam_pro_lab_label">Lab</string>
-    <string name="fadcam_pro_plus_label">Pro</string>
-    <string name="fadcam_pro_early_bird">🎉 Бесплатно до 23 декабря 2025! После этого получите пожизненный доступ всего за $15.</string>
-    <string name="fadcam_pro_paid_offer">После 23 декабря 2025, получите Пожизненный Доступ за $15 — однократная оплата, навсегда обновления.</string>
-    <string name="fadcam_pro_benefit_early_access">Ранний доступ: Получите последнюю версию перед публичным выпуском</string>
-    <string name="fadcam_pro_benefit_lifetime_updates">Пожизненные обновления: Всегда получайте новые функции, улучшения и исправления ошибок</string>
-    <string name="fadcam_pro_benefit_support">Мгновенная поддержка: Прямая помощь через тикеты в Discord</string>
-    <string name="fadcam_pro_coming_soon">Pro+ и Lab функции скоро с загрузкой пользовательских иконок, пользовательскими именами приложений и FadDrive облачным синком.</string>
-    <string name="fadcam_pro_support_message">FadCam will always remain free, with no ads and no tracking. I handle the entire project on my own, and it takes ongoing time and work. Upgrading to Pro (currently free) helps support development, and in return I’m able to offer additional value through the Pro features on top of the full free version. Thank you for supporting the project :)</string>
-    <string name="fadcam_pro_separate_apk">Отдельное приложение • Работает рядом с FadCam</string>
-    <string name="fadcam_pro_feature_everything_icon">Всё</string>
-    <string name="fadcam_pro_feature_everything">Всё</string>
-    <string name="fadcam_pro_feature_custom_icon">Пользовательская иконка приложения</string>
-    <string name="fadcam_pro_feature_notification_icon">Дискретная иконка уведомления</string>
-    <string name="fadcam_pro_feature_user_icon">Пользовательская загруженная иконка</string>
-    <string name="fadcam_pro_feature_app_name">Пользовательское имя приложения</string>
-    <string name="fadcam_pro_feature_faddrive">Облачный синк FadDrive</string>
     <string name="fadcam_pro_header_button">Pro</string>
 
     <!-- Video Player Info Bottom Sheet -->
     <string name="player_info_title">О видеоплеере</string>
     <string name="player_info_content"><![CDATA[
 <b>Формат фрагментированного MP4</b><br/><br/>
-FadCam использует фрагментированный формат MP4 для записей. Это означает, что видео сохраняются в небольших сегментах вместо одного полного файла. Преимущество в том, что если что-то пойдёт не так во время записи, вы потеряете только последние несколько секунд вместо всего видео.<br/><br/>
+Joy Creator использует фрагментированный формат MP4 для записей. Это означает, что видео сохраняются в небольших сегментах вместо одного полного файла. Преимущество в том, что если что-то пойдёт не так во время записи, вы потеряете только последние несколько секунд вместо всего видео.<br/><br/>
 Если последние несколько секунд вашего видео кажутся замороженными или устаревшими, не волнуйтесь — это не баг! Когда вы останавливаете запись, текущий фрагмент может ещё завершать свой цикл (~3 секунды), что может оставить краткий устаревший кадр в конце.<br/><br/>
 <b>Ограничения плеера</b><br/><br/>
 Встроенный видеоплеер имеет некоторые системные ограничения Android. Вы можете заметить, что полоса прогресса или волновая форма появляются слегка неуклюже — это нормальное поведение и не баг.<br/><br/>
@@ -1331,10 +1297,9 @@ FadCam использует фрагментированный формат MP4 
     <string name="stream_notes_wifi">• Клиенты должны быть в той же WiFi-сети для доступа к стриму</string>
     <string name="stream_notes_quality">• Качество стрима (LOW/MEDIUM/HIGH/ULTRA) контролирует ограничение FPS и битрейта для предотвращения сетевых проблем</string>
     <string name="stream_notes_resolution">• Ориентация и разрешение стрима берутся из ваших обычных настроек записи (Настройки видео → Разрешение и ориентация). Измените их, если хотите изменить размеры стрима</string>
-    <string name="stream_notes_cellular">⚠️ Только WiFi: мобильные сети блокируют входящие соединения. Для бесперебойной потоковой передачи из любой сети (WiFi, LTE, везде), обновитесь до FadCam Pro+. Транслируйте отовсюду по всему миру с приватной сгенерированной ссылкой—без переадресации портов, без изменений маршрутизатора, без сетевых ограничений</string>
     <string name="stream_notes_android14_screen">⚠️ Android 14+: Системное ограничение блокирует запись при выключенном экране. Решения: (1) Включите «Черный экран» в Настройки → Безопасность, или (2) Отключите блокировку экрана (без PIN/пароля/отпечатка). Оба способа позволяют беспроблемной удаленной записи</string>
 
-    <string name="app_name" translatable="false">FadCam</string>
+    <string name="app_name" translatable="false">Joy Creator</string>
 
     <string name="stats_label_videos">Видео:</string>
 
@@ -1736,7 +1701,7 @@ FadCam использует фрагментированный формат MP4 
 
     <string name="records_filter_all">Все</string>
 
-    <string name="records_filter_camera">FadCam</string>
+    <string name="records_filter_camera">Joy Creator</string>
 
     <string name="records_filter_dual">Двойная</string>
 
@@ -2299,11 +2264,11 @@ FadCam использует фрагментированный формат MP4 
 
     <string name="faditor_info_how_title">Как это работает</string>
 
-    <string name="faditor_info_how_desc">Выберите любое видео с устройства или записей FadCam. Обрежьте покадрово с помощью таймлайна, затем экспортируйте. Вся обработка происходит локально на вашем устройстве — ничего не загружается.\n\nВаш прогресс редактирования сохраняется автоматически каждые несколько секунд и при выходе из редактора, поэтому работа не будет потеряна при неожиданном закрытии приложения.</string>
+    <string name="faditor_info_how_desc">Выберите любое видео с устройства или записей Joy Creator. Обрежьте покадрово с помощью таймлайна, затем экспортируйте. Вся обработка происходит локально на вашем устройстве — ничего не загружается.\n\nВаш прогресс редактирования сохраняется автоматически каждые несколько секунд и при выходе из редактора, поэтому работа не будет потеряна при неожиданном закрытии приложения.</string>
 
     <string name="faditor_info_convert_title">Умная конвертация</string>
 
-    <string name="faditor_info_convert_desc">FadCam записывает в формате фрагментированного MP4 (fMP4) с защитой от сбоев. В отличие от стандартного MP4 с одним финализированным контейнером, fMP4 записывает видео небольшими независимыми фрагментами. Это означает, что ваши записи остаются целыми даже при сбое приложения или внезапной остановке записи.\n\nОднако внешние видеоплееры, приложения галереи и файловые менеджеры не смогут выполнять поиск, перемотку или отображать правильную длительность этих файлов. Это не баг — это преднамеренная жертва надёжности.\n\nЕсли вы планируете хранить видео за пределами FadCam — на Google Drive, компьютере или в другом месте — вы должны сначала конвертировать их. Иначе файлы будут непригодны для обычного воспроизведения.\n\nДля конвертации: просто откройте видео здесь в Faditor Mini и нажмите Экспорт. Конвертированный стандартный MP4 появится во вкладке Записи, готовый к сохранению в галерею или отправке куда угодно. Процесс мгновенный и без потерь — без перекодирования или потери качества.</string>
+    <string name="faditor_info_convert_desc">Joy Creator записывает в формате фрагментированного MP4 (fMP4) с защитой от сбоев. В отличие от стандартного MP4 с одним финализированным контейнером, fMP4 записывает видео небольшими независимыми фрагментами. Это означает, что ваши записи остаются целыми даже при сбое приложения или внезапной остановке записи.\n\nОднако внешние видеоплееры, приложения галереи и файловые менеджеры не смогут выполнять поиск, перемотку или отображать правильную длительность этих файлов. Это не баг — это преднамеренная жертва надёжности.\n\nЕсли вы планируете хранить видео за пределами Joy Creator — на Google Drive, компьютере или в другом месте — вы должны сначала конвертировать их. Иначе файлы будут непригодны для обычного воспроизведения.\n\nДля конвертации: просто откройте видео здесь в Faditor Mini и нажмите Экспорт. Конвертированный стандартный MP4 появится во вкладке Записи, готовый к сохранению в галерею или отправке куда угодно. Процесс мгновенный и без потерь — без перекодирования или потери качества.</string>
 
     <string name="faditor_info_export_title">Экспортированные файлы</string>
 
@@ -2321,11 +2286,11 @@ FadCam использует фрагментированный формат MP4 
 
     <string name="faditor_browse_device">Обзор устройства</string>
 
-    <string name="faditor_no_recordings">Записей пока не найдено. Начните запись с FadCam, чтобы увидеть ваши видео здесь.</string>
+    <string name="faditor_no_recordings">Записей пока не найдено. Начните запись с Joy Creator, чтобы увидеть ваши видео здесь.</string>
 
     <string name="faditor_video_count">%1$d видео</string>
 
-    <string name="faditor_fadcam_source">FadCam</string>
+    <string name="faditor_fadcam_source">Joy Creator</string>
 
     <string name="faditor_fadrec_source">FadRec</string>
 
@@ -2333,9 +2298,9 @@ FadCam использует фрагментированный формат MP4 
 
     <string name="faditor_scanning">Сканирование записей…</string>
 
-    <string name="faditor_source_chooser_desc">Выберите видео из галереи или из записей FadCam</string>
+    <string name="faditor_source_chooser_desc">Выберите видео из галереи или из записей Joy Creator</string>
 
-    <string name="faditor_recordings_helper">Видео, записанные FadCam из активного места хранения</string>
+    <string name="faditor_recordings_helper">Видео, записанные Joy Creator из активного места хранения</string>
 
     <string name="setting_eye_color_title">Цвет глаз</string>
 
@@ -2361,7 +2326,7 @@ FadCam использует фрагментированный формат MP4 
 
     <string name="setting_header_logo_desc">Выберите стиль логотипа заголовка</string>
 
-    <string name="header_logo_default" translatable="false">FadCam</string>
+    <string name="header_logo_default" translatable="false">Joy Creator</string>
 
     <string name="header_logo_avatar" translatable="false">Avatar</string>
 
@@ -2405,7 +2370,7 @@ FadCam использует фрагментированный формат MP4 
 
     <string name="digital_forensics_helper">Цифровая форензика состоит из двух частей: наложение живого предпросмотра и сохранённые улики. Если вам нужны только визуальные ИИ-метки в реальном времени, оставьте сбор улик выключенным. Если нужна форензика-история, включите сбор улик и выберите, что хранить.</string>
 
-    <string name="digital_forensics_enable_helper">Думайте об этом как об умном датчике улик. При включении FadCam сохраняет хронологию обнаруженной активности, чтобы вы могли позже перейти к важным моментам.</string>
+    <string name="digital_forensics_enable_helper">Думайте об этом как об умном датчике улик. При включении Joy Creator сохраняет хронологию обнаруженной активности, чтобы вы могли позже перейти к важным моментам.</string>
 
     <string name="digital_forensics_evidence_enable">Включить сбор улик</string>
 
@@ -2540,30 +2505,6 @@ FadCam использует фрагментированный формат MP4 
     <string name="button_torch">Фонарик</string>
 
     <!-- Cloud Account -->
-    <string name="cloud_account_button_desc">FadSec Cloud</string>
-    <string name="cloud_account_connecting">Подключение…</string>
-    <string name="cloud_account_device_id">ID устройства</string>
-    <string name="cloud_account_device_name_desc">Это имя будет отображаться в панели FadSec Cloud</string>
-    <string name="cloud_account_device_name_hint">Введите имя устройства (например, Мой телефон)</string>
-    <string name="cloud_account_device_name_title">Назовите устройство</string>
-    <string name="cloud_account_helper_text">Отвяжите устройство для отключения от учётной записи. Вы можете привязать его снова с другим именем.</string>
-    <string name="cloud_account_link">Привязать устройство</string>
-    <string name="cloud_account_link_failed">Не удалось привязать устройство. Попробуйте ещё раз.</string>
-    <string name="cloud_account_link_success">Устройство успешно привязано!</string>
-    <string name="cloud_account_linked">Устройство привязано</string>
-    <string name="cloud_account_login_required">Пожалуйста, войдите, чтобы привязать устройство</string>
-    <string name="cloud_account_not_linked">Не привязано</string>
-    <string name="cloud_account_title">FadSec Cloud</string>
-    <string name="cloud_account_unlink">Отвязать устройство</string>
-    <string name="cloud_account_unlink_confirm">Вы уверены, что хотите отвязать это устройство?</string>
-    <string name="cloud_account_unlink_success">Устройство отвязано</string>
-    <string name="cloud_account_webview_title">FadSec Cloud</string>
-    <string name="cloud_button_label">FadSec Cloud</string>
-    <string name="cloud_button_title">FadSec Cloud</string>
-    <string name="cloud_streaming_not_linked">Сначала привяжите устройство</string>
-    <string name="cloud_streaming_status_off">Только локальная трансляция</string>
-    <string name="cloud_streaming_status_on">Загрузка в FadSec Cloud</string>
-    <string name="cloud_streaming_title">Облачная трансляция</string>
 
     <!-- Digital Forensics Preview -->
     <string name="digital_forensics_preview_default">ЧЕЛОВЕК 92%</string>
@@ -2571,13 +2512,6 @@ FadCam использует фрагментированный формат MP4 
     <string name="digital_forensics_preview_title">Живой предпросмотр обнаружений</string>
 
     <!-- E2E Encryption -->
-    <string name="e2e_encryption_change_title">Изменить пароль E2E-шифрования</string>
-    <string name="e2e_encryption_configured">Настроено — сегменты зашифрованы сквозным шифрованием</string>
-    <string name="e2e_encryption_not_configured">Не настроено — настройте для включения облачной трансляции</string>
-    <string name="e2e_encryption_setup_desc">Ваш пароль FadSec ID используется для создания ключа шифрования трансляции. Он должен совпадать с паролем, используемым на панели FadCam для просмотра трансляций.</string>
-    <string name="e2e_encryption_setup_hint">Введите ваш пароль FadSec ID</string>
-    <string name="e2e_encryption_setup_title">Установить пароль E2E-шифрования</string>
-    <string name="e2e_encryption_title">E2E-шифрование трансляции</string>
 
     <!-- FadRec Preview -->
     <string name="fadrec_preview_enable_hint">Удерживайте для показа предпросмотра</string>
@@ -2677,15 +2611,13 @@ FadCam использует фрагментированный формат MP4 
     <string name="fullscreen_label_torch">Фонарик</string>
     <string name="fullscreen_label_zoom">Зум</string>
     <string name="fullscreen_preview_close">Закрыть полноэкранный режим</string>
-    <string name="fullscreen_preview_enter">Превью FadCam</string>
+    <string name="fullscreen_preview_enter">Превью Joy Creator</string>
     <string name="fullscreen_preview_not_recording">Сначала начните запись для использования полноэкранного предпросмотра</string>
     <string name="fullscreen_preview_tap_hint">Нажмите на экран для переключения элементов управления</string>
     <string name="fullscreen_torch">Фонарик</string>
 
     <!-- Home Sidebar -->
     <string name="home_sidebar_copyright" translatable="false">© FadSec Lab 2024 – 2026</string>
-    <string name="home_sidebar_discord">Discord</string>
-    <string name="home_sidebar_discord_sub">Присоединяйтесь к сообществу</string>
 
     <!-- Intel Summaries -->
     <string name="intel_range_summary_7d">Последние 7 дней</string>
@@ -2744,7 +2676,7 @@ FadCam использует фрагментированный формат MP4 
     <string name="mini_app_qr_generator_title">Генератор QR</string>
     <string name="mini_app_qr_generator_desc">Создание QR-кодов из текста, URL и контактов</string>
     <string name="mini_apps_planned_shortcuts_title">Планируется: Ярлыки и автоматизация</string>
-    <string name="mini_apps_planned_shortcuts_desc">Ярлыки главного экрана для мгновенного доступа к любому мини-приложению без открытия FadCam.\n\nПоддержка автоматизации на основе Intent (Tasker, MacroDroid и т.д.) для программного запуска мини-приложений — используйте QR-сканирование, фонарик и другое из ваших автоматических рабочих процессов.</string>
+    <string name="mini_apps_planned_shortcuts_desc">Ярлыки главного экрана для мгновенного доступа к любому мини-приложению без открытия Joy Creator.\n\nПоддержка автоматизации на основе Intent (Tasker, MacroDroid и т.д.) для программного запуска мини-приложений — используйте QR-сканирование, фонарик и другое из ваших автоматических рабочих процессов.</string>
 
     <!-- Motion Lab -->
     <string name="motion_lab_title">Лаборатория движения</string>
@@ -2793,7 +2725,7 @@ FadCam использует фрагментированный формат MP4 
     <string name="motion_lab_debug_metrics_value">Область %1$.3f, Сильная %2$.3f, Сред %3$.3f, Фон %4$.3f, Макс %5$.3f, Глобал %6$s</string>
     <string name="motion_lab_info_cd">Информация о Motion Lab</string>
     <string name="motion_lab_info_title">Автозапись по движению</string>
-    <string name="motion_lab_info_body">Это функция автоматической записи по движению FadCam.\n\nКак это работает простыми словами:\n- Ваша камера остаётся активной и анализирует кадры на устройстве в реальном времени.\n- Встроенная модель машинного обучения и логика движения ищут движение.\n- Когда обнаружено допустимое движение, запись начинается/возобновляется.\n- Запись продолжается, пока движение активно.\n- После остановки движения пост-запись продолжает запись на выбранные дополнительные секунды.\n- Затем запись приостанавливается и ждёт следующего события движения.\n\nКогда запись приостановлена, приложение всё ещё анализирует кадры в памяти, но не записывает новые видеоданные до повторного обнаружения движения.\n\nКак использовать (большинство пользователей):\n- Оставьте все опции по умолчанию.\n- Включите Датчик движения на этом экране.\n- Перейдите на вкладку Главная и начните запись как обычно.\n- Автоматическая запись по движению будет работать автоматически.\n\nПростой тест с расстояния:\n- Включите Автофонарик на этом экране.\n- Начните запись с вкладки Главная.\n- Разместите телефон наклонённым на столе или полке лицом в комнату.\n- Выйдите из комнаты, затем войдите и пройдите.\n- Включение фонарика поможет мгновенно заметить издалека, что запись началась.\n- Запись продолжится на выбранную длительность пост-записи после остановки движения.\n\nСовет: Эта функция работает непрерывно, поэтому очень высокие продвинутые значения могут увеличить нагрев и снизить ресурс устройства со временем. Для длительных сессий держите настройки по умолчанию, если нет особой причины.</string>
+    <string name="motion_lab_info_body">Это функция автоматической записи по движению Joy Creator.\n\nКак это работает простыми словами:\n- Ваша камера остаётся активной и анализирует кадры на устройстве в реальном времени.\n- Встроенная модель машинного обучения и логика движения ищут движение.\n- Когда обнаружено допустимое движение, запись начинается/возобновляется.\n- Запись продолжается, пока движение активно.\n- После остановки движения пост-запись продолжает запись на выбранные дополнительные секунды.\n- Затем запись приостанавливается и ждёт следующего события движения.\n\nКогда запись приостановлена, приложение всё ещё анализирует кадры в памяти, но не записывает новые видеоданные до повторного обнаружения движения.\n\nКак использовать (большинство пользователей):\n- Оставьте все опции по умолчанию.\n- Включите Датчик движения на этом экране.\n- Перейдите на вкладку Главная и начните запись как обычно.\n- Автоматическая запись по движению будет работать автоматически.\n\nПростой тест с расстояния:\n- Включите Автофонарик на этом экране.\n- Начните запись с вкладки Главная.\n- Разместите телефон наклонённым на столе или полке лицом в комнату.\n- Выйдите из комнаты, затем войдите и пройдите.\n- Включение фонарика поможет мгновенно заметить издалека, что запись началась.\n- Запись продолжится на выбранную длительность пост-записи после остановки движения.\n\nСовет: Эта функция работает непрерывно, поэтому очень высокие продвинутые значения могут увеличить нагрев и снизить ресурс устройства со временем. Для длительных сессий держите настройки по умолчанию, если нет особой причины.</string>
     <string name="motion_lab_percent_value">%1$d%%</string>
     <string name="motion_lab_fps_value">%1$d FPS</string>
     <string name="motion_lab_ms_value">%1$d мс</string>
@@ -2816,7 +2748,7 @@ FadCam использует фрагментированный формат MP4 
 
     <!-- Privacy Black Mode -->
     <string name="privacy_black_mode_title">Чёрный экран конфиденциальности</string>
-    <string name="privacy_black_mode_helper">Если ваше устройство убивает приложение в фоне, вы можете использовать эту функцию, чтобы держать приложение работающим на переднем плане.\n\nПоявляется чёрный оверлей, создавая видимость выключенного экрана, пока запись продолжается.\n\nНажмите на иконку FadCam в верхнем заголовке вкладки Главная для активации.</string>
+    <string name="privacy_black_mode_helper">Если ваше устройство убивает приложение в фоне, вы можете использовать эту функцию, чтобы держать приложение работающим на переднем плане.\n\nПоявляется чёрный оверлей, создавая видимость выключенного экрана, пока запись продолжается.\n\nНажмите на иконку Joy Creator в верхнем заголовке вкладки Главная для активации.</string>
     <string name="privacy_black_mode_enable_title">Включить чёрный экран конфиденциальности</string>
     <string name="privacy_black_mode_enabled_toast">Режим конфиденциальности включён</string>
     <string name="privacy_black_mode_disabled_toast">Режим конфиденциальности отключён</string>
@@ -2858,15 +2790,6 @@ FadCam использует фрагментированный формат MP4 
     <string name="screen_rec_orientation_landscape">Альбомная</string>
 
     <!-- Streaming Mode -->
-    <string name="streaming_mode_title">Назначение трансляции</string>
-    <string name="streaming_mode_local">Локальная сеть</string>
-    <string name="streaming_mode_local_desc">Трансляция на устройства в той же WiFi-сети</string>
-    <string name="streaming_mode_cloud">FadSec Cloud</string>
-    <string name="streaming_mode_cloud_desc">Трансляция куда угодно через интернет</string>
-    <string name="streaming_mode_cloud_featured">РЕКОМЕНДУЕТСЯ</string>
-    <string name="streaming_mode_link_required">Привяжите устройство для включения</string>
-    <string name="streaming_mode_stream_url">URL трансляции</string>
-    <string name="streaming_mode_helper">Выберите, как транслировать вашу камеру</string>
 
     <!-- Torch -->
     <string name="torch_brightness">Яркость</string>
@@ -3065,7 +2988,7 @@ FadCam использует фрагментированный формат MP4 
     <string name="remote_pages">Страницы</string>
     <string name="remote_layers">Слои</string>
     <string name="remote_access_endpoints_desc">Получите доступ к вашему серверу трансляции через эти HTTP-конечные точки</string>
-    <string name="remote_control_via_api_desc">Управляйте FadCam удалённо через API-вызовы</string>
+    <string name="remote_control_via_api_desc">Управляйте Joy Creator удалённо через API-вызовы</string>
     <string name="remote_buffered_segments_desc">Буферизированные сегменты, готовые к трансляции</string>
     <string name="remote_battery_low_warning">⚠️ Низкий заряд батареи - подключите зарядное устройство</string>
     <string name="remote_enter_percentage_hint">Введите процент</string>
@@ -3075,14 +2998,10 @@ FadCam использует фрагментированный формат MP4 
     <string name="sidebar_update_available">Доступно обновление</string>
     <string name="sidebar_stable_release">Стабильный релиз</string>
     <string name="sidebar_beta_release">Бета-релиз</string>
-    <string name="sidebar_fadcam_pro">FadCam Pro</string>
     <string name="badge_new">НОВОЕ</string>
-    <string name="update_pro_title">Обновление FadCam Pro</string>
-    <string name="update_pro_desc">Доступна новая версия FadCam Pro.\n\nДля бесплатных пользователей стабильный релиз появится примерно через 60 дней. Пользователи Pro получают обновления сразу.</string>
-    <string name="update_get_pro">Получить FadCam Pro</string>
     <string name="update_maybe_later">Может быть позже</string>
     <string name="update_beta_title">Доступно бета-обновление</string>
-    <string name="update_beta_desc">Бета-версия FadCam — это отдельное приложение, которое можно установить вместе со стабильной версией. Она не повлияет на ваше стабильное приложение или его данные.\n\nУстановите бета-версию, чтобы тестировать новые функции до их выхода в стабильном релизе.</string>
+    <string name="update_beta_desc">Бета-версия Joy Creator — это отдельное приложение, которое можно установить вместе со стабильной версией. Она не повлияет на ваше стабильное приложение или его данные.\n\nУстановите бета-версию, чтобы тестировать новые функции до их выхода в стабильном релизе.</string>
     <string name="update_get_beta">Получить бета-версию</string>
     <string name="mini_apps_about_title">О мини-приложениях</string>
     <string name="mini_apps_current_tools">Текущие инструменты</string>
@@ -3095,7 +3014,6 @@ FadCam использует фрагментированный формат MP4 
     <string name="fadmic_coming_soon">FadMic (Запись с микрофона) скоро!</string>
     <string name="toast_stream_server_starting">Запуск сервера трансляции...</string>
     <string name="toast_stream_server_stopped">Сервер трансляции остановлен</string>
-    <string name="toast_no_cloud_viewers">Нет подключённых облачных зрителей</string>
     <string name="toast_no_clients">Нет подключённых клиентов</string>
     <string name="toast_device_id_copied">ID устройства скопирован</string>
     <string name="toast_endpoint_copied">Скопировано: %s</string>
@@ -3179,7 +3097,7 @@ FadCam использует фрагментированный формат MP4 
     <string name="about_dialog_error">Ошибка</string>
     <string name="about_dialog_ok">ОК</string>
     <string name="about_get_beta">Получить бета-версию</string>
-    <string name="about_fadcam_feedback">Обратная связь FadCam</string>
+    <string name="about_fadcam_feedback">Обратная связь Joy Creator</string>
 
     <!-- Video split sizes -->
     <string name="video_split_enabled_format">Включено (%s)</string>
@@ -3302,7 +3220,7 @@ FadCam использует фрагментированный формат MP4 
     <string name="channel_security_alarm">Охранная сигнализация</string>
     <string name="channel_remote_streaming">Удалённая трансляция</string>
     <string name="channel_annotation_service">Служба аннотаций</string>
-    <string name="channel_fadcam_file_ops">Файловые операции FadCam</string>
+    <string name="channel_fadcam_file_ops">Файловые операции Joy Creator</string>
 
     <!-- ScreenRecordingService -->
     <string name="screen_rec_failed">Запись не удалась: %s</string>
@@ -3346,7 +3264,6 @@ FadCam использует фрагментированный формат MP4 
     <string name="network_unknown">Неизвестно</string>
 
     <!-- ClientDataBottomSheet -->
-    <string name="client_cloud_viewers">Облачные зрители</string>
     <string name="client_active_clients">Активные клиенты</string>
     <string name="client_no_clients">Клиенты не подключены</string>
 

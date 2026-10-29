@@ -21,6 +21,7 @@ public enum SettingsKey {
     // ── Studio ──
     EDITOR(null),
     VIDEO_PLAYER("group_video_player_settings"),
+    AI_JOYBOT(null),
 
     // ── Recording ──
     CAMERA_VIDEO("group_video_quick"),
@@ -44,7 +45,6 @@ public enum SettingsKey {
     REMOTE(null),
 
     // ── About and help ──
-    README("group_readme"),
     WHATS_NEW(null),
     SHOW_INTRO("group_onboarding"),
     UPDATE_CHECK("group_auto_update"),

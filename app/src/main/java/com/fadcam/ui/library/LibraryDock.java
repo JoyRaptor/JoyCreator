@@ -85,6 +85,7 @@ final class LibraryDock {
         pill.setPadding(LibraryViews.dp(c, 12), 0, LibraryViews.dp(c, 4), 0);
         TextView lens = LibraryViews.glyph(c, 18f, Studio.INK_FAINT);
         lens.setText("search");
+        lens.setImportantForAccessibility(android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO);   // decorative: the field beside it speaks
         pill.addView(lens);
         search = new EditText(c);
         search.setBackground(null);

@@ -16,6 +16,7 @@ import androidx.annotation.Nullable;
 import com.fadcam.ui.faditor.fx.FxCost;
 import com.fadcam.ui.faditor.fx.FxEffectDef;
 import com.fadcam.ui.faditor.fx.FxInstance;
+import com.fadcam.ui.faditor.fx.FxMusic;
 import com.fadcam.ui.faditor.fx.FxParam;
 import com.fadcam.ui.faditor.fx.FxPresetStore;
 import com.fadcam.ui.faditor.fx.FxPreviewTier;
@@ -398,6 +399,12 @@ public final class FxPanel {
                     0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
             if (param.keyable) pr.addView(diamond(ctx, stack, fx, param, host, rebuild, d, rs));
             card.addView(pr);
+            // R14: on an adjustment layer a slider can follow the music. Only there: a clip's
+            // own effects do not hear the soundtrack in the export, and a dead control is worse
+            // than none.
+            if (subject == FxPreviewTier.Subject.LAYER && param.kind == FxParam.Kind.FLOAT) {
+                card.addView(musicRow(ctx, stack, fx, param, host, rebuild, d));
+            }
         }
 
         // The non-curve gradient shapes get the SAME preview manipulation the Curve does, bound
@@ -445,6 +452,66 @@ public final class FxPanel {
     private static String pretty(@NonNull String mode) {
         if (mode.length() < 2) return mode;
         return mode.charAt(0) + mode.substring(1).toLowerCase();
+    }
+
+    // ── Music links (R14) ───────────────────────────────────────────────────
+
+    /** How far the music pushes, as the strength chip steps through it (a share of the range). */
+    private static final float[] MUSIC_AMOUNTS = {0.25f, 0.5f, 1f, -0.5f, -1f};
+
+    /**
+     * "This slider follows the music": a chip naming the sound it follows (Off, Loudness, Bass,
+     * Kick, Snare, Hi-hats, Beat), and once it follows one, a strength chip stepping 25% / 50% /
+     * 100% of the slider's range, then the other way. Every tap is one undo step.
+     */
+    @NonNull
+    private static View musicRow(@NonNull Context ctx, @NonNull FxStack stack, @NonNull FxInstance fx,
+                                 @NonNull FxParam param, @NonNull Host host, @NonNull Runnable rebuild,
+                                 float d) {
+        LinearLayout row = new LinearLayout(ctx);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(0, 0, 0, Math.round(4 * d));
+        row.addView(label(ctx, "♪ music", d));
+        FxMusic.Link link = fx.music.get(param.name);
+        TextView sig = chip(ctx, link == null ? "Off" : FxMusic.label(link.signal), d);
+        TextOverlayDrawer.Kit.setChipOn(sig, link != null);
+        ObjectDrawer.Kit.describe(sig, "Make " + param.label
+                + " follow the music: loudness, bass, kick, snare, hi-hats or the beat");
+        sig.setOnClickListener(v -> {
+            android.widget.PopupMenu menu = new android.widget.PopupMenu(ctx, sig);
+            menu.getMenu().add(0, 0, 0, "Off");
+            for (int i = 0; i < FxMusic.SIGNALS.length; i++) menu.getMenu().add(0, i + 1, i + 1, FxMusic.LABELS[i]);
+            menu.setOnMenuItemClickListener(item -> {
+                int at = item.getItemId();
+                structural(stack, host, rebuild, at == 0 ? "Stop following the music" : "Follow the music", () -> {
+                    if (at == 0) fx.music.remove(param.name);
+                    else fx.music.put(param.name, new FxMusic.Link(FxMusic.SIGNALS[at - 1],
+                            link != null ? link.amount : 0.5f));
+                });
+                return true;
+            });
+            menu.show();
+        });
+        row.addView(sig);
+        if (link != null) {
+            TextView amt = chip(ctx, Math.round(link.amount * 100) + "%", d);
+            ObjectDrawer.Kit.describe(amt, "How far the music pushes " + param.label
+                    + ": tap for more, then the other way");
+            amt.setOnClickListener(v -> structural(stack, host, rebuild, "How much the music pushes", () -> {
+                int at = 0;
+                for (int i = 0; i < MUSIC_AMOUNTS.length; i++) {
+                    if (Math.abs(MUSIC_AMOUNTS[i] - link.amount) < 1e-3f) at = i;
+                }
+                fx.music.put(param.name, new FxMusic.Link(link.signal,
+                        MUSIC_AMOUNTS[(at + 1) % MUSIC_AMOUNTS.length]));
+            }));
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            lp.leftMargin = Math.round(6 * d);
+            row.addView(amt, lp);
+        }
+        return row;
     }
 
     // ── Parameter rows ──────────────────────────────────────────────────────
@@ -1774,6 +1841,9 @@ public final class FxPanel {
                 // leaving the user to infer what an adjustment layer is.
                 boolean canRender = FxPreviewTier.canExportOn(def, subject);
                 TextView c = chip(ctx, def.displayName, d);
+                // What it does, not just its name (every button gets a hover label).
+                TextOverlayDrawer.Kit.describe(c, def.displayName + ": "
+                        + com.fadcam.ui.faditor.fx.FxBlurbs.of(def));
                 if (!canRender) {
                     // Unavailable HERE, but still legible and still answerable. It was the chip at
                     // 40% alpha — grey on grey, the same "can't read the off state" defect as the

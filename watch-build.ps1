@@ -5,7 +5,7 @@
 # mode exits (e.g. after a hard failure or Ctrl+C-once).
 #
 # Run it:
-#   powershell -ExecutionPolicy Bypass -File "C:\+Projects\Screenrecorder\FadCam\watch-build.ps1"
+#   powershell -ExecutionPolicy Bypass -File "C:\+Projects\JoyCreator\watch-build.ps1"
 #
 # IT BUILDS. IT DOES NOT INSTALL. (Changed 2026-09-16.)
 #
@@ -28,7 +28,7 @@
 # wait for "BUILD SUCCESSFUL" followed by "Waiting for changes to input files".
 # Keep ONE instance running. Press Ctrl+C twice to stop.
 
-Set-Location "C:\+Projects\Screenrecorder\FadCam"
+Set-Location $PSScriptRoot   # the folder this script lives in
 
 while ($true) {
     .\gradlew.bat -t :app:assembleDefaultDebug --console=plain 2>&1 |

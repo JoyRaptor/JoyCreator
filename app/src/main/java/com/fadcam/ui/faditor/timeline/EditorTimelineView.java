@@ -392,6 +392,23 @@ public class EditorTimelineView extends View {
     // Bookmarks (view working copy; survives setTimeline). Sorted ascending.
     private final List<Long> bookmarksMs = new ArrayList<>();
     @Nullable private BookmarkListener bookmarkListener;
+    private com.fadcam.ui.faditor.markers.MarkerWorkspace.State markerWorkspace =
+            new com.fadcam.ui.faditor.markers.MarkerWorkspace.State();
+    @Nullable private MarkerInteractionListener markerInteractionListener;
+    private float markerFrameRate = 30f;
+    private final android.graphics.Shader[][] markerGradients = new android.graphics.Shader[4][4];
+    private final float[] markerGradientTop = {Float.NaN, Float.NaN, Float.NaN, Float.NaN};
+    private final float[] markerGradientBottom = {Float.NaN, Float.NaN, Float.NaN, Float.NaN};
+    private boolean markerTouchActive, markerTouchMoved, markerTouchHeld;
+    private float markerDownX, markerDownY;
+    @Nullable private String markerTouchId;
+    private final Runnable markerHoldRunnable = () -> {
+        if (!markerTouchActive || markerTouchMoved || markerInteractionListener == null) return;
+        markerTouchHeld = true;
+        gestureActive = false;
+        performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+        markerInteractionListener.onOpenMarks(markerTouchId);
+    };
     // Ruler-area-only long-press/tap detector for bookmarks (kept out of the main
     // scrub/drag/pickup arbitration — a scroll cancels it via onScroll).
     private boolean rulerTouchActive = false;
@@ -6133,9 +6150,12 @@ if (sd.clip.hasVolumeKeyframes()) {
         // and a selected object lends it that object's colour, which is more informative
         // than any fixed colour could be. The capture gradient is what it wears when it is
         // just being the playhead.
+        com.fadcam.ui.faditor.markers.MarkerWorkspace.Point parkedBookmark = bookmarkAt(drawnPlayheadMs());
         boolean neutral = playheadColorCurrent == COLOR_PLAYHEAD;
         float halfW = playheadWidthPx / 2f;
-        if (neutral) {
+        if (parkedBookmark != null) {
+            playheadPaint.setShader(markerGradient(parkedBookmark.color, lineTop, lineBot, 0));
+        } else if (neutral) {
             if (playheadGrad == null || playheadGradTop != lineTop || playheadGradBot != lineBot) {
                 playheadGrad = new android.graphics.LinearGradient(
                         0f, lineTop, 0f, lineBot,
@@ -6404,7 +6424,10 @@ if (sd.clip.hasVolumeKeyframes()) {
 
         // SOLID, in the playhead's current context colour, at full opacity. The old fill
         // was 0xE6 -- 90% -- which let the ruler's tick marks ghost through the numbers.
+        com.fadcam.ui.faditor.markers.MarkerWorkspace.Point parkedBookmark = bookmarkAt(shown);
         chipBgPaint.setColor(Studio.GROUND | (playheadColorCurrent & 0x00FFFFFF));
+        chipBgPaint.setShader(parkedBookmark == null ? null
+                : markerGradient(parkedBookmark.color, top, bottom, 1));
 
         // ── A TRAPEZOID, NOT A PILL ─────────────────────────────────────────
         // JoyRaptor: "seeing the pill on the playhead its much better then box, i am
@@ -6432,12 +6455,14 @@ if (sd.clip.hasVolumeKeyframes()) {
         chipPath.lineTo(chipRect.left + taper, chipRect.bottom);
         chipPath.close();
         canvas.drawPath(chipPath, chipBgPaint);
+        chipBgPaint.setShader(null);
 
         // The time is punched OUT of the chip, in whichever of black or white actually
         // reads on this colour. Hardcoding white was safe on the old near-black fill and
         // is wrong now: the playhead turns amber while trimming and lime on a master
         // selection, and white on those measures under 2:1.
-        chipTextPaint.setColor(inkOn(playheadColorCurrent));
+        chipTextPaint.setColor(inkOn(parkedBookmark == null ? playheadColorCurrent
+                : com.fadcam.ui.faditor.markers.MarkerPalette.start(parkedBookmark.color)));
         float baseline = top + chipPadVPx - fm.ascent;
         canvas.drawText(text, chipRect.centerX(), baseline, chipTextPaint);
     }
@@ -6490,6 +6515,115 @@ if (sd.clip.hasVolumeKeyframes()) {
     }
 
     public void setBookmarkListener(@Nullable BookmarkListener l) { this.bookmarkListener = l; }
+
+    public interface MarkerInteractionListener {
+        void onDropBookmark(long timelineMs);
+        void onOpenMarks(@Nullable String pointId);
+        void onSeekBookmark(long timelineMs);
+    }
+
+    public void setMarkerInteractionListener(@Nullable MarkerInteractionListener listener) {
+        markerInteractionListener = listener;
+    }
+
+    public void setMarkerFrameRate(float fps) {
+        markerFrameRate = Float.isFinite(fps) && fps > 0 ? fps : 30f;
+    }
+
+    private android.graphics.Shader markerGradient(int color, float top, float bottom, int slot) {
+        int index = Math.max(0, Math.min(3, color));
+        if (markerGradientTop[slot] != top || markerGradientBottom[slot] != bottom) {
+            java.util.Arrays.fill(markerGradients[slot], null);
+            markerGradientTop[slot] = top;
+            markerGradientBottom[slot] = bottom;
+        }
+        if (markerGradients[slot][index] == null) {
+            markerGradients[slot][index] = new android.graphics.LinearGradient(0, top, 0,
+                    Math.max(top + 1f, bottom),
+                    com.fadcam.ui.faditor.markers.MarkerPalette.start(index),
+                    com.fadcam.ui.faditor.markers.MarkerPalette.end(index),
+                    android.graphics.Shader.TileMode.CLAMP);
+        }
+        return markerGradients[slot][index];
+    }
+
+    public void setMarkerWorkspace(@NonNull com.fadcam.ui.faditor.markers.MarkerWorkspace.State state) {
+        markerWorkspace = state.copy();
+        bookmarksMs.clear();
+        for (com.fadcam.ui.faditor.markers.MarkerWorkspace.Point point : markerWorkspace.sortedPoints()) {
+            bookmarksMs.add(point.timeMs);
+        }
+        invalidate();
+    }
+
+    @Nullable
+    private com.fadcam.ui.faditor.markers.MarkerWorkspace.Point bookmarkAt(long ms) {
+        long tolerance = Math.max(1L, Math.round(500f / Math.max(1f, markerFrameRate)));
+        for (com.fadcam.ui.faditor.markers.MarkerWorkspace.Point point : markerWorkspace.points) {
+            if (Math.abs(point.timeMs - ms) <= tolerance) return point;
+        }
+        return null;
+    }
+
+    /** The timestamp owns tap/hold; moving it still performs the normal timeline scrub. */
+    private boolean handleMarkerTouch(@NonNull MotionEvent event) {
+        if (markerInteractionListener == null || isReorderMode) return false;
+        int action = event.getActionMasked();
+        float x = event.getX(), y = event.getY();
+        if (event.getPointerCount() > 1) {
+            removeCallbacks(markerHoldRunnable);
+            if (markerTouchActive && markerTouchMoved && listener != null) listener.onPlayheadDragFinished();
+            markerTouchActive = false;
+            return false;
+        }
+        if (action == MotionEvent.ACTION_DOWN) {
+            float pad = 6f * density;
+            boolean chip = !chipRect.isEmpty() && x >= chipRect.left - pad && x <= chipRect.right + pad
+                    && y >= chipRect.top - pad && y <= chipRect.bottom + pad;
+            int hit = !chip && isRulerBandY(y) ? bookmarkIndexNear(xToTime(x + scrollOffsetPx)) : -1;
+            if (!chip && hit < 0) return false;
+            markerTouchId = null;
+            if (hit >= 0) {
+                com.fadcam.ui.faditor.markers.MarkerWorkspace.Point point = bookmarkAt(bookmarksMs.get(hit));
+                if (point != null) markerTouchId = point.id;
+            }
+            markerTouchActive = true;
+            markerTouchMoved = markerTouchHeld = false;
+            markerDownX = x; markerDownY = y;
+            postDelayed(markerHoldRunnable, android.view.ViewConfiguration.getLongPressTimeout());
+            if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(true);
+            scaleDetector.onTouchEvent(event);
+            return true;
+        }
+        if (!markerTouchActive) return false;
+        if (action == MotionEvent.ACTION_MOVE) {
+            if (!markerTouchHeld && Math.hypot(x - markerDownX, y - markerDownY) > touchSlopPx) {
+                markerTouchMoved = true;
+                removeCallbacks(markerHoldRunnable);
+                updatePlayheadFromX(x + scrollOffsetPx);
+                invalidate();
+            }
+            return true;
+        }
+        if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+            removeCallbacks(markerHoldRunnable);
+            markerTouchActive = false;
+            if (markerTouchMoved) {
+                if (listener != null) listener.onPlayheadDragFinished();
+            } else if (action == MotionEvent.ACTION_UP && !markerTouchHeld) {
+                performClick();
+                if (markerTouchId == null) markerInteractionListener.onDropBookmark(drawnPlayheadMs());
+                else {
+                    for (com.fadcam.ui.faditor.markers.MarkerWorkspace.Point point : markerWorkspace.points) {
+                        if (point.id.equals(markerTouchId)) { markerInteractionListener.onSeekBookmark(point.timeMs); break; }
+                    }
+                }
+            }
+            if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(false);
+            return true;
+        }
+        return true;
+    }
 
     /** Replace the view's bookmark set (copied + sorted). */
     // ── D6: beat markers ──────────────────────────────────────────────────────────────
@@ -6752,6 +6886,18 @@ if (sd.clip.hasVolumeKeyframes()) {
     private void drawBookmarkGlyphs(@NonNull Canvas canvas, long visStartMs, long visEndMs) {
         // Beats first, so a user's own bookmark always paints OVER the machine's guess.
         drawBeatMarkers(canvas, visStartMs, visEndMs);
+        com.fadcam.ui.faditor.markers.MarkerWorkspace.Region activeRegion = markerWorkspace.activeRegion();
+        if (activeRegion != null && activeRegion.outMs > visStartMs && activeRegion.inMs < visEndMs) {
+            float left = timeToX(Math.max(visStartMs, activeRegion.inMs));
+            float right = timeToX(Math.min(visEndMs, activeRegion.outMs));
+            bookmarkPaint.setShader(markerGradient(activeRegion.color, minimapHeightPx,
+                    minimapHeightPx + bookmarkSizePx * 2f, 3));
+            bookmarkPaint.setAlpha(85);
+            canvas.drawRect(left, minimapHeightPx + bookmarkSizePx,
+                    right, minimapHeightPx + bookmarkSizePx * 1.6f, bookmarkPaint);
+            bookmarkPaint.setAlpha(255);
+            bookmarkPaint.setShader(null);
+        }
         if (bookmarksMs.isEmpty()) return;
         long tol = bookmarkTolMs();
         float half = bookmarkSizePx;
@@ -6760,13 +6906,18 @@ if (sd.clip.hasVolumeKeyframes()) {
             long bm = bookmarksMs.get(i);
             if (bm < visStartMs - tol || bm > visEndMs + tol) continue;
             float x = timeToX(bm);
+            com.fadcam.ui.faditor.markers.MarkerWorkspace.Point point = bookmarkAt(bm);
+            bookmarkPaint.setShader(markerGradient(point == null ? 1 : point.color,
+                    cy - half, cy + half, 2));
             bookmarkPath.rewind();
-            bookmarkPath.moveTo(x, cy - half);
-            bookmarkPath.lineTo(x + half, cy);
-            bookmarkPath.lineTo(x, cy + half);
-            bookmarkPath.lineTo(x - half, cy);
+            bookmarkPath.moveTo(x - half, cy - half);
+            bookmarkPath.lineTo(x + half, cy - half);
+            bookmarkPath.lineTo(x + half * 0.55f, cy + half);
+            bookmarkPath.lineTo(x - half * 0.55f, cy + half);
+            bookmarkPath.lineTo(x - half, cy - half);
             bookmarkPath.close();
             canvas.drawPath(bookmarkPath, bookmarkPaint);
+            bookmarkPaint.setShader(null);
         }
     }
 
@@ -7698,6 +7849,8 @@ if (sd.clip.hasVolumeKeyframes()) {
             default:
                 break;
         }
+
+        if (handleMarkerTouch(e)) return true;
 
         // Reorder mode intercepts all touch events
         if (isReorderMode) {
@@ -11261,6 +11414,8 @@ if (sd.clip.hasVolumeKeyframes()) {
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
+        removeCallbacks(markerHoldRunnable);
+        markerTouchActive = false;
         // Return the pooled VelocityTracker (review fix: it was obtained but never
         // recycled — one leaked pool instance per editor open/close).
         if (rowScrubVelocityTracker != null) {

@@ -996,13 +996,31 @@ public class MainActivity extends AppCompatActivity {
                 intent.removeExtra("navigate_to_tab");
             }
             
-            // Joybot's "Take me there" for screens that live inside this one as overlays.
-            if ("trash".equals(intent.getStringExtra("open_overlay"))) {
+            // Joybot's "Take me there" and open_room, for screens that live inside this one as overlays:
+            // the same screens the Lobby opens (lead, DOOR-1 10-28: library, studio and setup used to land
+            // on the classic FadCam tabs).
+            final String overlay = intent.getStringExtra("open_overlay");
+            if (overlay != null) {
                 intent.removeExtra("open_overlay");
                 new Handler(Looper.getMainLooper()).postDelayed(() -> {
                     if (isFinishing()) return;
-                    // The same overlay the Lobby's logo-hold opens (LobbyFragment).
-                    com.fadcam.ui.OverlayNavUtil.show(this, new com.fadcam.ui.TrashFragment(), "trash");
+                    switch (overlay) {
+                        case "trash":
+                            // The same screen the Library's Trash and the Lobby's logo-hold open.
+                            com.fadcam.ui.trash.RecentlyDeletedFragment.open(this);
+                            break;
+                        case "library":
+                            com.fadcam.ui.library.LibraryFragment.open(this, false);
+                            break;
+                        case "projects":
+                            com.fadcam.ui.library.LibraryFragment.open(this, com.fadcam.ui.library.LibraryKind.PROJECTS, false);
+                            break;
+                        case "settings":
+                            com.fadcam.ui.settingshub.SettingsHubFragment.open(this, false);
+                            break;
+                        default:
+                            break;
+                    }
                 }, 250);
             }
 
@@ -2308,6 +2326,7 @@ public class MainActivity extends AppCompatActivity {
         overlayView.setX(sourceLocation[0] - rootLocation[0]);
         overlayView.setY(sourceLocation[1] - rootLocation[1]);
         ((ViewGroup) root).getOverlay().add(overlayView);
+        FLog.i("FragmentNav", "continuity overlay added " + sourceView.getWidth() + "x" + sourceView.getHeight());
         return overlayView;
     }
 
@@ -2329,10 +2348,19 @@ public class MainActivity extends AppCompatActivity {
         }
 
         View finalAnchorView = anchorView;
+        final ViewGroup host = (ViewGroup) root;
+        final Runnable remove = () -> {
+            host.getOverlay().remove(overlayView);
+            FLog.i("FragmentNav", "continuity overlay removed");
+        };
         finalAnchorView.post(() -> finalAnchorView.postDelayed(() -> overlayView.animate()
                 .alpha(0f)
                 .setDuration(120L)
-                .withEndAction(() -> ((ViewGroup) root).getOverlay().remove(overlayView)), 120L));
+                .withEndAction(remove), 120L));
+        // withEndAction never runs when the fade is cancelled, and a snapshot left in the overlay sits
+        // half-faded over every screen until the process dies (a grey veil over black seen on the
+        // Note 9, 10-28). Removing it twice is harmless.
+        host.postDelayed(remove, 1500L);
     }
 
     /**

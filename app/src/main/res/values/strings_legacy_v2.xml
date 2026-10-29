@@ -15,9 +15,6 @@
     <string name="legacyv2_whatsnew_sparkle_desc">New in this version</string>
 
     <!-- Update sheets -->
-    <string name="legacyv2_update_pro_title">Joy Creator Pro update</string>
-    <string name="legacyv2_update_pro_desc">A new version of Joy Creator Pro is available.\n\nFor free users, the stable release will arrive after approximately 60 days. Pro users receive updates immediately.</string>
-    <string name="legacyv2_update_get_pro">Get Joy Creator Pro</string>
     <string name="legacyv2_update_versions">v%1$s  →  v%2$s</string>
     <string name="legacyv2_update_versions_desc">Updating from version %1$s to version %2$s</string>
 

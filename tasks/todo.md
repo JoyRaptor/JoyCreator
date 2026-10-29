@@ -148,3 +148,12 @@ See tasks/joybrush/HANDOFF_20261027_COORDINATOR.md for authoritative current sta
 
 Review: continuing from existing C1/C2 517a9c61d and partial C3 d232a2b17 on lead/anim-clips.
 October22 handoff: source and unit verification are complete; APK/device acceptance/integration remain. Resume instructions: tasks/joybrush/handoffs/ANIMATION_CLIPS_RESUME_20261022.md. No feature commit or install yet.
+
+## October29 paper resolution evaluation — isolated lead/paper-evaluation-20261029
+- [x] Preserve current lead oil/engine plus non-overlapping published runtime/build changes throughaa6cc4143.
+- [x] Stage exactly9 verified assets/7662021bytes; append3 variants, preserve29surfaces/32looks and defaults.
+- [x] Add4 source-only production parser/native host decoder checks with independent PNG raw-channel hashes.
+- [ ] Run focused parser/Android host decoder gate; record actual failures/limits before APK.
+- [ ] Build matched baseline and overlay APKs, preserve exact hashes and measure size delta.
+- [ ] Fresh sandbox Home/readiness/claims and production decoder/GL/owner-feel checks; no install yet.
+Master production remains7/45; all45 image sources preserved. Do not ship45 full-resolution variants or change defaults.

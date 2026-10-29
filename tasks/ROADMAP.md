@@ -206,7 +206,7 @@ The full list (106 plans and ideas, 94 rulings) is in [`FUTURE_PLANS.md`](FUTURE
 | 16 | 24 owner decisions owed beyond S1–S20 | [`FUTURE_PLANS.md` §2.12](FUTURE_PLANS.md); the lead brings them to the owner a few at a time |
 | 17 | Hide unproven 🟡 features from the launch UI | [SHOW-1](jobs/SHOW-1_play_build.md) |
 | 18 | Dual-stream recording finish (the webcam file never rolls over on long recordings) | [FOLD-1](jobs/FOLD-1_fold_fadcam_features_in.md) |
-| 19 | A video row's own audio sub-drawer (waveform + transcript) | [STU-5](jobs/STU-5_studio_structure_and_primitives.md) |
+| 19 | ~~A video row's own audio sub-drawer~~ already built (07-11, `a91b01921`; owner 10-28) | done |
 | 20 | Tablet layouts | [UI-1](jobs/UI-1_app_ui_leftovers.md) |
 | 21 | VisLab element packs from other people | VisLab roadmap |
 | 22 | Joybot inbox extras (skins, launch buttons, prompt packing, notices, per-project log) | Joybot lane (BOT-4) |

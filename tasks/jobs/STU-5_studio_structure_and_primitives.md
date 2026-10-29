@@ -12,7 +12,6 @@ The structural ones make every later Studio fix cheaper and stop "fiddly" bugs; 
 | **One authority for timeline time to source time** (four copies disagree; "the single most valuable structural fix left") | FUTURE_PLANS 1.2 S6 | not built |
 | **One snapping authority, app-wide** (owner: "fiddly"): the playhead snaps to keys, objects align to each other | 1.2 S7 | magnet built; the rest not |
 | **Export speed**: the one-pass GPU stage, the owner's "one tap, fast" | 1.2 S17; old roadmap 1.9 | not built |
-| **A video row's own audio sub-drawer** (waveform + transcript under its tape) | 1.2 S4, owner 07-25 | not built |
 | **Primitives**: a Path object, text on a path, per-letter channels, paths as masks and motion paths | 1.2 S8, owner 09-24 | not built |
 
 ## Done when

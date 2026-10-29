@@ -16,7 +16,7 @@ C:/Users/JoyRaptor/.codex/visualizations/2026/10/01/01a0f85c-d650-7f61-82d4-ba5e
 
 - [x] Verify45 selections against known gallery source hashes; preserve notes.
 - [x] Prepare42 offset templates; retain3 already-expanded originals.
-- [ ] Complete126 remote edits and inspect repeat/colour/structural QA; retain failures.
+- [x] Complete126 remote edits; all45 source composites exist, originals hash-verified,3x3 repeats inspected. Regular weaves still need visual judgement; no invisible-repeat or phone-quality claim.
 - [ ] Bake material-specific height/slopes/fluid maps under shared resource admission.
 - [ ] Validate runtime catalogue/packing compatibility and exact file/aggregate budget.
 - [ ] Publish isolated resource overlay + test request to root; owner phone feel remains.
@@ -78,3 +78,46 @@ The injectable lease lifecycle passed5 fault cases (write-before, write-after,
 monitor failure, unresolved termination retaining claim, quick-child unknown peak).
 Tests use an isolated fake claim and fake child, never the shared lock or2048 work.
 Recipe4 small tests passed after bounded-array changes. No full-size bake yet.
+
+## Source completion and current block
+
+All45 expanded colour sources are prepared:126 native edits for42,3 prior crumples
+retained. First6 final overlaps were corrected from125 to D126px without another
+generation; their125px centre-input context remains recorded. Older1024px originals
+become1536px;1254px originals become1882px. Some generated returns are1254px for a
+1024px input: only generated inserts were resampled to their contextual coordinates.
+Original source files were verified against all45 owner-selection SHA hashes.
+
+[Exact source receipt](approved_paper_source_files_20261029.json):45 PNGs,
+246,362,635 bytes outside runtime assets. Existing packaged paper payload remains
+25,201,898 bytes; added runtime asset bytes0. APK/install delta is unmeasured.
+No full-size reactive maps are baked and no phone capability has been added.
+Raw inputs/outputs/prompts/hashes are in the local generation-receipts.json; all126
+stages exist. The source gallery is index.html beside that file.
+
+First real bake admission returned NOT_ADMITTED at1256MiB free, below2200.
+No shared claim or child was created. No retry loop or unrelated process killing.
+The owner was asked whether they can free memory or prefer baking later; no answer
+is assumed. First admitted material should be expanded-firm, then STOP for root's
+peak/time/size review before repeating any full-size job.
+
+## Phone profiles and exact evidence limits
+
+approved_phone_profile.py prepares512/1024 candidates from a completed master:
+area-filter height, retain E[h-squared] independently, recompute production-packed
+slopes with per-texel slope-range/pitch scaling, and average fluid double-angle
+vectors while reducing coherence. Look/surface/fluid/hex document pitch stays
+paired. Packed profiles preserve unresolved tooth variance; new ids avoid all
+existing/default mappings. At most3 materials in the first phone batch. No engine,
+cache, loader, default, APK or phone changes were granted or made.
+
+Small recipe/profile tests6/0 in0.211s include checkerboard variance and physical
+slope-unit checks. Lease fault tests6/0 in0.419s additionally refuse a changed
+claim identity before release. These are synthetic/fault tests, not production
+Kotlin, full-size baking, GPU, APK or device acceptance. Full master/profile baking
+is still UNRUN. Modelled RGBA8 logical texel+mip payload:44MiB per2048 material
+(45 about1.93GiB),11MiB at1024 (first3 about33MiB),2.75MiB at512. This excludes driver
+padding/other textures and is NOT measured residency. GrainTextures retains visited
+names until release/forget; no eviction was added. Current decoded CPU images,
+lazy CPU mip chains and temporary bitmap/IntArray/byte/direct uploads need separate
+measured headroom. Compressed JPEG size does not establish runtime memory usage.

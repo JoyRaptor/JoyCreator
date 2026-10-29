@@ -7,9 +7,29 @@ import numpy as np
 from PIL import Image
 
 import build_approved_evaluation as pipeline
+import approved_phone_profile as profile
 
 
 class ApprovedEvaluationTest(unittest.TestCase):
+    def test_profile_preserves_unresolved_height_variance(self):
+        y, x = np.mgrid[:64, :64]
+        h = np.where((x + y) % 2, 254, 0).astype(np.uint8)
+        rgba, scale = profile.surface_profile(h, 2, .1)
+        self.assertEqual(scale, .2)
+        self.assertTrue(np.all(rgba[..., 2] == 127))
+        variance = rgba[..., 3] / 255 - (rgba[..., 2] / 255) ** 2
+        self.assertGreater(float(variance.min()), .24)
+
+    def test_profile_preserves_physical_slope_units_on_smooth_surface(self):
+        y, x = np.mgrid[:64, :64]
+        h = np.rint((.5 + .2 * np.sin((x + .5) * 2 * np.pi / 64)) * 255).astype(np.uint8)
+        coarse, sr = profile.surface_profile(h, 2, .1)
+        dx, _ = pipeline.pack.slopes(h.astype(float) / 255)
+        # Decode production-packed R, then divide by the doubled physical pitch.
+        decoded = (coarse[..., 0].astype(float) - 127) / 127 * sr / 2
+        reference = profile.area(dx, 2)
+        np.testing.assert_allclose(decoded, reference, atol=.0016)
+
     def texture(self):
         y, x = np.mgrid[:64, :64]
         return .5 + .15 * np.sin(x * 2 * np.pi / 8) + .1 * np.cos(y * 2 * np.pi / 16)

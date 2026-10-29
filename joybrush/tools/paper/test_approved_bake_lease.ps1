@@ -4,7 +4,7 @@ $testRoot=Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) ('Tem
 New-Item -ItemType Directory -Path $testRoot | Out-Null
 $passed=0
 try {
-    foreach($case in @('write-before','write-after','monitor','unresolved','quick-exit')){
+    foreach($case in @('write-before','write-after','monitor','unresolved','quick-exit','changed-identity')){
         $script:recorded=$false;$script:stopped=$false;$path=Join-Path $testRoot ($case+'.lock')
         $init={param($stream,$owner)
             if($case -eq 'write-before'){throw 'injected before claim text'}
@@ -12,6 +12,9 @@ try {
             if($case -eq 'write-after'){throw 'injected after claim text'}
         }
         $body={param($s)
+            if($case -eq 'changed-identity'){
+                $stream.Position=0;$stream.SetLength(0);$bytes=[Text.Encoding]::UTF8.GetBytes('another-owner');$stream.Write($bytes,0,$bytes.Length);$stream.Flush();$s.Code=0;return
+            }
             $s.Child=[pscustomobject]@{Id=-1};$s.TerminationConfirmed=($case -eq 'quick-exit')
             if($case -eq 'quick-exit'){$s.PeakObservation='unobserved: child exited before first sample';$s.Code=0;return}
             throw 'injected monitor/CIM/Refresh failure'
@@ -20,7 +23,9 @@ try {
         $record={param($s) $script:recorded=$true}
         $s=Invoke-ApprovedBakeLease $path ('test-'+$case) $init $body $stop $record
         if(!$script:recorded){throw "No failure/success receipt: $case"}
-        if($case -eq 'unresolved'){
+        if($case -eq 'changed-identity'){
+            if(!(Test-Path $path) -or !$s.Retained -or $s.Code -ne 77){throw 'Changed claim identity was deleted'}
+        }elseif($case -eq 'unresolved'){
             if(!(Test-Path $path) -or !$s.Retained -or !$script:stopped){throw 'Unresolved termination lost claim'}
         }else{
             if(Test-Path $path){throw "Orphaned claim: $case"}

@@ -18,21 +18,14 @@ android {
     ndkVersion = "27.2.12479018"
 
     val isBundle = gradle.startParameter.taskNames.any { it.lowercase().contains("bundle") }
-    val isProBuild = gradle.startParameter.taskNames.any { it.lowercase().contains("pro") }
 
     splits {
         abi {
-            // For pro builds: enable splits but only arm64-v8a (no universal)
-            // For main builds: arm64-v8a + armeabi-v7a with universal APK
+            // arm64-v8a + armeabi-v7a with a universal APK
             isEnable = !isBundle
             reset()
-            if (isProBuild) {
-                include("arm64-v8a")
-                isUniversalApk = false
-            } else {
-                include("armeabi-v7a", "arm64-v8a")
-                isUniversalApk = true
-            }
+            include("armeabi-v7a", "arm64-v8a")
+            isUniversalApk = true
         }
     }
 
@@ -106,84 +99,13 @@ android {
             signingConfig = signingConfigs.getByName("release")
         }
         
-        create("pro") {
-            isMinifyEnabled = true
-            isShrinkResources = true
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
-            applicationIdSuffix = ".pro"
-            isDebuggable = false
-            if (releaseSigningConfigValid) {
-                signingConfig = signingConfigs.getByName("release")
-            }
-            versionNameSuffix = "-Pro"
-        }
-        
-        create("proPlus") {
-            isMinifyEnabled = true
-            isShrinkResources = true
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
-            applicationIdSuffix = ".proplus"
-            isDebuggable = false
-            if (releaseSigningConfigValid) {
-                signingConfig = signingConfigs.getByName("release")
-            }
-            versionNameSuffix = "-Pro+"
-            // Custom app name via gradle property
-            val customAppName = project.findProperty("customAppName")?.toString() ?: "FadCam Pro+"
-            resValue("string", "app_name", customAppName)
-        }
     }
 
     flavorDimensions += "pro"
 
     productFlavors {
-        create("notesPro") {
-            dimension = "pro"
-            applicationIdSuffix = ".notes"
-            resValue("string", "app_name", "Notes")
-        }
-        create("calcPro") {
-            dimension = "pro"
-            applicationIdSuffix = ".calc"
-            resValue("string", "app_name", "Calculator")
-        }
-        create("weatherPro") {
-            dimension = "pro"
-            applicationIdSuffix = ".weather"
-            resValue("string", "app_name", "Weather")
-        }
         create("default") {
             dimension = "pro"
-            // Default for proPlus builds
-        }
-    }
-
-// ./gradlew assembleNotesProRelease - Notes Pro variant
-// ./gradlew assembleCalcProRelease - Calculator Pro variant
-// ./gradlew assembleWeatherProRelease - Weather Pro variant
-// ./gradlew assembleDefaultProPlusRelease -PcustomAppName="Custom Name" - Pro+ custom build (standalone)
-
-    // Variant filter: only build specific variants
-    variantFilter {
-        val isPreBuiltFlavor = name.contains("notesPro") || name.contains("calcPro") || name.contains("weatherPro")
-        val isDefaultFlavor = name.contains("default")
-        
-        if (isPreBuiltFlavor) {
-            // Pre-built flavors: only 'release' build type
-            if (!name.endsWith("Release")) {
-                ignore = true
-            }
-        } else if (isDefaultFlavor) {
-            // Default flavor: allow 'debug', 'release', and 'proPlus' build types
-            if (name.endsWith("Pro") && !name.endsWith("ProPlus")) {
-                ignore = true
-            }
         }
     }
 
@@ -206,16 +128,6 @@ android {
         // getByName("test").java.setSrcDirs(emptyList<String>())
         // getByName("androidTest").java.setSrcDirs(emptyList<String>())
         
-        // Flavor-specific resources (icons override main icons)
-        getByName("notesPro") {
-            res.srcDir("src/notesPro/res")
-        }
-        getByName("calcPro") {
-            res.srcDir("src/calcPro/res")
-        }
-        getByName("weatherPro") {
-            res.srcDir("src/weatherPro/res")
-        }
     }
 
     packaging {

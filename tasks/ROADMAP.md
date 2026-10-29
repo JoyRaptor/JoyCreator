@@ -7,6 +7,8 @@ Reading order (progressive disclosure, stop as soon as you have what you need):
 1. **This page**: the goal, the milestones, every job in one line, and what is waiting on the owner.
 2. **Your job card** in [`tasks/jobs/`](jobs/): what "done" means, what is left, the specs and handoffs behind it.
 3. **The specs and handoffs** the card links to: the detail.
+4. **Every future plan, owner ruling and idea** lives in [`FUTURE_PLANS.md`](FUTURE_PLANS.md) (nothing is ever deleted;
+   a plan that becomes a job points at its card). Check it before you propose to cut or skip anything.
 
 Before you edit anything, read [`tasks/AGENT_START.md`](AGENT_START.md) (how to work here without
 breaking other sessions) and check [`tasks/BOARD.md`](BOARD.md) (who is working on what right now).
@@ -118,6 +120,7 @@ One line per job. The card holds the detail. "Owner" is the session or harness t
 | [STU-2](jobs/STU-2_slide_preview_after_undo.md) | Studio orphan: after an undo the preview keeps showing a removed slide | 🟡 ✔ landed 10-28 (77d27970c, 1a7a8637e), agent-checked | lead | The owner's exact case (a Joybot title slide) needs an AI key: owner check | 10-28 |
 | [STU-3](jobs/STU-3_timeline_marks.md) | Studio: timeline bookmarks and regions (named marks, In/Out regions, loop, region export) | 🟡 ✔ landed 10-28 (b3c2b23b0), all checks agent-passed on the Note 9 | lead | The owner tries it; Joybot lane switches on `add_marker` | 10-28 |
 | [STU-4](jobs/STU-4_studio_sweep_leftovers.md) | Studio sweep leftovers (caption motion, caption eye and outline, Invert on images, Puppet RECORDING tab, sprite Lanes pills, audio envelope) | ❓ from 10-16/17 lists | open | Re-check each on the phone; most may be fixed | 10-27 |
+| [STU-5](jobs/STU-5_studio_structure_and_primitives.md) | Studio structure (one time authority, one snapping authority, export speed) and new primitives (paths, text on a path) | ⬜ planned | open | Time authority first | 10-28 |
 | [BOT-1](jobs/BOT-1_joybot_owed.md) | Joybot: finish and prove what is built (JoyBrush room's wrong buttons, the owed phone checks, STATE rows, honest "can't do that") | 🔨 most flows agent phone-tested 10-14 to 10-24 | "JoyBot UX vision and capabilities" | Fix JoyBrush's idea buttons; then the phone checks | 10-28 |
 | [BOT-2](jobs/BOT-2_joybot_everywhere.md) | Joybot everywhere and findable: help for every STATE feature, ideas in every room, hover labels, empty-state copy | 🔨 VisLab + Director help done 10-28 | "JoyBot UX vision and capabilities" | JoyBrush help after HYG-2; the rest of STATE after HYG-5; hover-label sweep | 10-28 |
 | [BOT-3](jobs/BOT-3_joybot_trust.md) | Joybot you can trust: "done" checked against real changes, resumable VisLab/JoyBrush jobs, live free-model benchmark, edits against a revision | ⬜ | open | Honesty by measurement first; live bench needs S14 | 10-28 |
@@ -143,6 +146,7 @@ One line per job. The card holds the detail. "Owner" is the session or harness t
 |---|---|---|---|---|---|
 | [FREE-1](jobs/FREE-1_fadcam_inventory.md) | Inventory every FadCam-derived part and decide for each: rebuild clean, replace, or cut | 🟡 inventory done 10-28 ([report](audits/fadcam_inventory_20261028.md)): ~160,500 FadCam lines left, 37% of the app module; JoyBrush, VisLab, lobby, Library, Settings hub have none | lead | Owner calls S19, S20; then cut cloud/promo, then replace classic Records/Trash/Studio list | 10-28 |
 | [FREE-2](jobs/FREE-2_names_and_ids.md) | Names: app ID, package names, folder names on the phone ("FadCam" folders), watermark, translations | ⛔ S1 | lead | After S1 | 10-27 |
+| [FOLD-1](jobs/FOLD-1_fold_fadcam_features_in.md) | Fold FadCam's features in under Joy Creator names: Remote Studio, multi-camera, Smart Detection, auto-markers, Story Board, Annotation | ⬜ planned (owner direction 10-17, 10-28) | open | Agree the order with the owner | 10-28 |
 
 ### M4 Show it
 
@@ -169,12 +173,46 @@ Carried from the 10-15 roadmap ([archive](archive/ROADMAP_20261015.md)); not job
   project sizes in the project list (not built); luma key (spec only, STATE §2; chroma key exists);
   community pack index (not built); automated tests for the Studio app module (none; JoyBrush and the
   JVM harness have them); mesh warp shown to users (built and device-verified 09-10; whether it is still
-  hidden is unchecked); Remote promoted (the owner ruled Remote a launch feature: belongs to DOOR-1/FREE-1);
+  hidden is unchecked); Remote is a **launch** feature (owner 10-17), folded in as Remote Studio: job FOLD-1;
   AI proposal tools for audio clips (built for video; audio is refused with a reason).
   **Small ones may move before launch** if they fit a job already open (project sizes → FILE-1; mesh warp → STU-1).
 
 **Parked on purpose:** on-device LLM, hosted AI credits, native plugins, music generation, iOS,
 any subscription, any advert, any export paywall, any watermark.
+
+---
+
+## From the plans ledger: the top 25, given homes (10-28)
+
+The full list (106 plans and ideas, 94 rulings) is in [`FUTURE_PLANS.md`](FUTURE_PLANS.md). These are the ones most at risk:
+
+| # | Plan | Home |
+|---|---|---|
+| 1 | Remote and Smart Detection are launch features (owner 10-17) | [FOLD-1](jobs/FOLD-1_fold_fadcam_features_in.md); S20 corrected |
+| 2 | Play's 200 MB app-size limit: measure what the app bundles | [SHOW-1](jobs/SHOW-1_play_build.md) |
+| 3 | Story Board (the forensics evidence board, reskinned: sequence clips, hand a rough cut to Studio) | [FOLD-1](jobs/FOLD-1_fold_fadcam_features_in.md) |
+| 4 | Auto-markers from motion/noise on long recordings (timeline marks now exist to receive them) | [FOLD-1](jobs/FOLD-1_fold_fadcam_features_in.md) |
+| 5 | Re-run the 41-check device sweep (14 features never looked at) | [STU-1](jobs/STU-1_studio_phone_backlog.md), [HYG-5](jobs/HYG-5_state_sync.md) |
+| 6 | The 09-22 nav spec: search palette, live strip, hold-to-fan floor ([`NAV_SPEC.md`](NAV_SPEC.md), [`NAV_PLAN.md`](NAV_PLAN.md)) | [DOOR-2](jobs/DOOR-2_lobby_landing.md) |
+| 7 | Pack folder contract (before launch; the pack manager comes after) | [FILE-1](jobs/FILE-1_folder_leftovers.md) |
+| 8 | Sprites get a row in Add asset | [ANI-1](jobs/ANI-1_puppets_and_sprites.md) |
+| 9 | App-wide hover-label sweep | [UI-1](jobs/UI-1_app_ui_leftovers.md) |
+| 10 | A remote phone as a second camera (multicam) | [FOLD-1](jobs/FOLD-1_fold_fadcam_features_in.md) |
+| 11 | JoyBrush puppet and character boards (JB-7.01–7.04) | JoyBrush roadmap (message to the JoyBrush lane) |
+| 12 | Studio primitives: path object, text on a path, per-letter channels, motion paths | [STU-5](jobs/STU-5_studio_structure_and_primitives.md) |
+| 13 | One authority for timeline time to source time (four copies disagree) | [STU-5](jobs/STU-5_studio_structure_and_primitives.md) |
+| 14 | One snapping authority, app-wide | [STU-5](jobs/STU-5_studio_structure_and_primitives.md) |
+| 15 | Business: letter to the FadCam author, our own donation links, trademark search, store listing still says FadCam | [SHOW-2](jobs/SHOW-2_store_and_legal.md) |
+| 16 | 24 owner decisions owed beyond S1–S20 | [`FUTURE_PLANS.md` §2.12](FUTURE_PLANS.md); the lead brings them to the owner a few at a time |
+| 17 | Hide unproven 🟡 features from the launch UI | [SHOW-1](jobs/SHOW-1_play_build.md) |
+| 18 | Dual-stream recording finish (the webcam file never rolls over on long recordings) | [FOLD-1](jobs/FOLD-1_fold_fadcam_features_in.md) |
+| 19 | A video row's own audio sub-drawer (waveform + transcript) | [STU-5](jobs/STU-5_studio_structure_and_primitives.md) |
+| 20 | Tablet layouts | [UI-1](jobs/UI-1_app_ui_leftovers.md) |
+| 21 | VisLab element packs from other people | VisLab roadmap |
+| 22 | Joybot inbox extras (skins, launch buttons, prompt packing, notices, per-project log) | Joybot lane (BOT-4) |
+| 23 | Paste a picture from the clipboard (the third "way in") | [FILE-1](jobs/FILE-1_folder_leftovers.md) |
+| 24 | Annotation becomes a JoyBrush layer | [FOLD-1](jobs/FOLD-1_fold_fadcam_features_in.md); JoyBrush roadmap |
+| 25 | Export speed: the one-pass GPU stage, "one tap, fast" | [STU-5](jobs/STU-5_studio_structure_and_primitives.md) |
 
 ---
 
@@ -194,4 +232,7 @@ any subscription, any advert, any export paywall, any watermark.
    the document that is wrong, and say so in your report.
 6. **New ideas go to [INBOX.md](INBOX.md)**, not into new spec files or new rows. The lead promotes them.
 7. **A new job gets a card** from [`jobs/_TEMPLATE.md`](jobs/_TEMPLATE.md) and a row here. Specs and
+8. **A plan never just disappears.** Before removing, cutting or parking anything, search [`FUTURE_PLANS.md`](FUTURE_PLANS.md),
+   the OWNER DECISIONS sections and `DESIGN_JOY_CREATOR.md` for it and quote what was ruled. When a plan leaves this page,
+   its row moves to `FUTURE_PLANS.md` with the reason.
    handoffs hang off the card, never off this page.

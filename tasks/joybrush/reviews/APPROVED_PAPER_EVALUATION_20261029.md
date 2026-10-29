@@ -67,3 +67,14 @@ latest baseline, diagnostics vs runtime assets, compatibility tests actually run
 failures and gates. Root preserves existing ids/defaults and reconciles its newer
 coordinator source before building. No GooglePlay size-limit assumption is used as
 a licence to discard owner-selected evaluation materials.
+
+## Monitor review follow-up
+
+The monitor now uses canonical LOCALAPPDATA/Temp, protects claim initialization,
+stops only its own child on monitor/CIM/Refresh failure, waits for confirmed
+termination, and retains the claim when termination is unresolved. Unknown peaks
+for a too-fast child remain null, never a measured0. Uncertain watchers defer.
+The injectable lease lifecycle passed5 fault cases (write-before, write-after,
+monitor failure, unresolved termination retaining claim, quick-child unknown peak).
+Tests use an isolated fake claim and fake child, never the shared lock or2048 work.
+Recipe4 small tests passed after bounded-array changes. No full-size bake yet.

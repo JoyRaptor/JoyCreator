@@ -153,3 +153,12 @@ Exact serialized RGBA, independent second moment, dimensions and document pitch
 assertions passed. Android decode, GL upload, residency and brush feel remain
 unverified. Stop after these two outputs for root comparison/first phone batch;
 master sequence remains7/45 stopped. Earlier UNRUN references are historical.
+
+## Owner RAM-release continuation
+
+22/45 offline masters now completed. Sequential run stopped on exclusive-lock
+admission refusal at expanded-handled; no child started for that material and
+no retry. Aggregate receipts updated with exact output SHA and resource evidence.
+Root reports three-resolution evaluation APK installed on the trusted Note9 with
+33 saved-file path/length/hash records unchanged; device GL/drawing/feel still OPEN.
+Remaining23 masters stay offline/pending; no additional package/device action here.

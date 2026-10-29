@@ -65,7 +65,11 @@ public final class BridgeAuth {
             return wrong >= MAX_WRONG ? Verdict.LOCKED_OUT : Verdict.WRONG_CODE;
         }
         if (pairedAddress == null) pairedAddress = from;
-        return pairedAddress.equals(from) ? Verdict.OK : Verdict.OTHER_COMPUTER;
+        if (!pairedAddress.equals(from)) return Verdict.OTHER_COMPUTER;
+        // The right code from the paired computer: earlier typos no longer count toward the lock-out
+        // (8 wrong codes in a row still lock it; a guesser never gets here).
+        wrong = 0;
+        return Verdict.OK;
     }
 
     /** The token in "Bearer 482913", or null. */

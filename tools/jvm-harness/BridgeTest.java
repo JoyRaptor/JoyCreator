@@ -90,6 +90,11 @@ public class BridgeTest {
         for (int i = 0; i < BridgeAuth.MAX_WRONG; i++) last = guessed.check("Bearer " + String.format("%06d", i), null, "10.0.0.5");
         check("auth: guessing locks it", last == BridgeAuth.Verdict.LOCKED_OUT, String.valueOf(last));
         check("auth: ...even the right code, once locked", guessed.check("Bearer 482913", null, "10.0.0.5") == BridgeAuth.Verdict.LOCKED_OUT, "");
+        BridgeAuth typos = new BridgeAuth("482913");
+        for (int i = 0; i < BridgeAuth.MAX_WRONG - 1; i++) typos.check("Bearer 000000", null, "10.0.0.7");
+        typos.check("Bearer 482913", null, "10.0.0.7");
+        BridgeAuth.Verdict afterTypo = typos.check("Bearer 000001", null, "10.0.0.7");
+        check("auth: a right code forgives earlier typos", afterTypo == BridgeAuth.Verdict.WRONG_CODE, String.valueOf(afterTypo));
         String code = BridgeAuth.newCode(new java.security.SecureRandom());
         check("auth: codes are six digits", code.matches("\\d{6}"), code);
         check("auth: shown as 482 913", "482 913".equals(BridgeAuth.spaced("482913")), BridgeAuth.spaced("482913"));

@@ -33,6 +33,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
     private val jobsBefore = canvas.mediaWaterJobs
     private val budgetBefore = canvas.mediaBudgetBytes
     private val pngsBefore = canvas.brushPngs
+    private val linesBefore = canvas.editableLines
     // Every refusal a run meets, in the log beside its frames (the canvas tells the person in words; the bench counts them).
     private val refusedBefore = canvas.onRefused.also { prior -> canvas.onRefused = { m -> Log.i(TAG, "refused: $m"); prior?.invoke(m) } }
     private val onDone: () -> Unit = {
@@ -44,6 +45,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
         if (spec.mediaBudgetMb != null) canvas.mediaBudgetBytes = budgetBefore
         if (spec.dropDry != null) cc.joycreator.joybrush.androidkit.gl.media.MediaAtlasDropDry.on = true
         canvas.brushPngs = pngsBefore
+        if (spec.lines != null) canvas.editableLines = linesBefore
         canvas.onRefused = refusedBefore
         finished()
     }
@@ -73,6 +75,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
                val dropDry: Boolean? = null,
                /** How long after the surface the first case starts (`jb_start_ms`): measures a cold first stroke. */
                val startMs: Long = 1500L,
+               /** Strokes kept as editable lines on or off for this run (`jb_lines`); none = as the canvas has it. */
+               val lines: Boolean? = null,
                /** Debug-only resolved nominal stamp size; null retains the actual recipe. */
                val sizeOverridePx: Float? = null) {
         init {
@@ -99,6 +103,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
         spec.atlasRows?.let { cc.joycreator.joybrush.androidkit.gl.media.MediaLayerEngine.atlasRowPasses = it; Log.i(TAG, "atlas rows: $it") }
         spec.waterJobs?.let { canvas.mediaWaterJobs = it; Log.i(TAG, "water jobs: $it") }
         spec.mediaBudgetMb?.let { canvas.mediaBudgetBytes = it.toLong() shl 20; Log.i(TAG, "media room: $it MB") }
+        spec.lines?.let { canvas.editableLines = it; Log.i(TAG, "editable lines: $it") }
         spec.dropDry?.let { cc.joycreator.joybrush.androidkit.gl.media.MediaAtlasDropDry.on = it; Log.i(TAG, "drop dry water: $it") }
         spec.water?.let { canvas.mediaWaterAB = cc.joycreator.joybrush.android.WaterTest.of(it).ab; Log.i(TAG, "water test: $it") }
         if ("matrix" in spec.cases) { MatrixBench(canvas, spec, onDone).start(); return }
@@ -139,6 +144,12 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
                 logRecordedReport(report.put("brush", preset.id).put("case", case).put("run", run), preset.id, case, run)
                 ui.postDelayed({ next() }, spec.settleMs)
             }
+            return
+        }
+        // Unibrush U8: one stroke kept as a line, redrawn from its record by two recolour edits, compared tile for tile.
+        if (case == "lineParity") {
+            LineParityBench(canvas, spec, preset, run, { next() },
+                { jobs.clear(); Log.i(TAG, "done (lineParity inconclusive; remaining jobs aborted)"); onDone() }).start()
             return
         }
         val bakeOperator = when (case) {
@@ -423,6 +434,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
                 mediaBudgetMb = intent.getIntExtra("jb_media_budget_mb", -1).takeIf { it > 0 },
                 dropDry = if (intent.hasExtra("jb_drop_dry")) intent.getBooleanExtra("jb_drop_dry", true) else null,
                 startMs = intent.getLongExtra("jb_start_ms", 1500L).coerceIn(0L, 60_000L),
+                lines = if (intent.hasExtra("jb_lines")) intent.getBooleanExtra("jb_lines", false) else null,
                 sizeOverridePx = if (intent.hasExtra("jb_bench_size_px")) intent.getFloatExtra("jb_bench_size_px", Float.NaN) else null)
         }
     }

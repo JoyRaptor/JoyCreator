@@ -1,0 +1,45 @@
+{
+  "source": {
+    "checkout": "C:/Temp/jb-paper-evaluation-20261029",
+    "head": "05f845ac9f67d98239400caad28f6c7b9ae96efc",
+    "masterOverlayCommit": "8c25efc9bc1be2fcd13e2e63378183e4d4efd775",
+    "testSource": "joybrush-android/src/test/kotlin/cc/joycreator/joybrush/android/paper/CrumplePaperProductionDecodeTest.kt",
+    "testSourceSha256": "01cb6747d841a03719785c19962365626f6124abfcb5a7f3f3b4a03c6c0679e9",
+    "fixture": "joybrush-android/src/test/resources/crumple-paper/decode-expectations.json",
+    "fixtureSha256": "9f57f9847ccac97ce36cd2459a7ee428cfa569f52a2fa240ebecadfad283bf4b",
+    "catalogue": "joybrush/assets/paper/catalogue.json",
+    "catalogueSha256": "2cf8306284790b2521b6d4c5b00f176a42956cbf07d46f7e35f3cffda4d6a20f"
+  },
+  "gate": {
+    "task": ":joybrush-android:testDebugUnitTest",
+    "suite": "cc.joycreator.joybrush.android.paper.CrumplePaperProductionDecodeTest",
+    "xml": "joybrush-android/build/test-results/testDebugUnitTest/TEST-cc.joycreator.joybrush.android.paper.CrumplePaperProductionDecodeTest.xml",
+    "xmlSha256": "12c5703692a22a7a0c01189b8eefe23247c3f4d674308969835270b912b28ddf",
+    "log": "C:/Temp/jb-lead-ops/paper-full-decode-05f845ac9-20261029.log",
+    "logSha256": "a110a84f02374696a0b44f2dff88a03e6b4c6526a407f156c874af1bb12227d9",
+    "gradleResult": "BUILD SUCCESSFUL",
+    "tests": 4,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "xmlSuiteSeconds": 12.844,
+    "gradleWallSeconds": 43
+  },
+  "verifiedInputs": {
+    "fixtureFileRows": 141,
+    "fixtureFilesPresent": 141,
+    "fixtureFileSha256Mismatches": 0,
+    "evaluationAssets": 47,
+    "evaluationAssetsBreakdown": {
+      "masterMaterials": 45,
+      "retainedReducedFirmComparisons": 2
+    },
+    "masterOverlayManifestFiles": 135,
+    "catalogueSurfaces": 76,
+    "catalogueLooks": 79,
+    "evaluationSurfaceEntries": 47,
+    "evaluationLookEntries": 47
+  },
+  "scope": "Production PaperCatalogues parser/problems and packaged GrainTextures BitmapFactory decode/channel conversion through Native Robolectric SDK 28; master height expansion and packed RGBA pass-through.",
+  "limits": "Host Android decoder proof only. No Note9 BitmapFactory parity, device GL upload/mipmap or residency measurement, visual/feel acceptance, or owner phone approval."
+}

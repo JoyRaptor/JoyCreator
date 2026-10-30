@@ -1190,3 +1190,8 @@ as `TIME * knob` are "rate" and the host integrates them.
 - Use C:/+Projects/JoyCreator, not the retired Screenrecorder/FadCam path. Read its current AGENTS, ROADMAP, BOARD and AGENT_START before relying on an old worktree handoff.
 - Check the new canonical private devices.local.sh before asking the owner to recreate a missing device mapping. Serial identities remain untracked; never choose adb's first phone.
 - Watcher and local.properties operational helpers must follow the renamed root. Existing repaired isolated worktrees can remain; never reset the primary's unsaved files.
+
+## 2026-10-30 — Engine Lead: landing HYG-2
+- A bench printing `done` proves nothing: read each report's pass field, and pass the right brush. My first run "finished" with oil and water never tested.
+- Before merging a branch, read `git log base..branch` and its diffstat. `lead/paper-cache` looked like one fix but carried a test snapshot and 38,000 deleted lines; cherry-pick the fix.
+- Adding a SelectBench shot means adding its step and PNG to `select_bench_manifest.json`, or the host runner stops mid-run.

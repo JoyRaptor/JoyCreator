@@ -1,0 +1,12 @@
+{"runId":"8ac2565ec9aa4221a61b321afb2978b2","event":2,"name":"01_drawn.png","shotProtocol":1,"sha256":"249fb99b43a396d8cea51135b57e8a2c250bdcab79458b97b3c79f1dfb96234b","foregroundConfirmed":true}
+{"runId":"8ac2565ec9aa4221a61b321afb2978b2","event":5,"name":"02_tap_pick.png","shotProtocol":1,"sha256":"47942d16865d4a9e1d228ba7421a5c84f97c2d7b7571d2e03cee7f443bb0f2ac","foregroundConfirmed":true}
+{"runId":"8ac2565ec9aa4221a61b321afb2978b2","event":7,"name":"03_cycle_count.png","shotProtocol":1,"sha256":"3a98ce1491a757659f146d03048e8206e16b10d951e71b07a62e09e1e89a61a2","foregroundConfirmed":true}
+{"runId":"8ac2565ec9aa4221a61b321afb2978b2","event":10,"name":"04_lasso_bar.png","shotProtocol":1,"sha256":"709f49c48755bb4240446f54b33d2819a51d8bc23475d9c3db4c090e86b5bed7","foregroundConfirmed":true}
+{"runId":"8ac2565ec9aa4221a61b321afb2978b2","event":12,"name":"05_moved.png","shotProtocol":1,"sha256":"60b6d2192bbe8811d5e2499344702c6f7d519ba28a12b98c22e41a406c9200ed","foregroundConfirmed":true}
+{"runId":"8ac2565ec9aa4221a61b321afb2978b2","event":15,"name":"06_rotated.png","shotProtocol":1,"sha256":"ae1a0441ce5cff2d4df204f2020ec08da328396b0c521100431f0f0125ac8e04","foregroundConfirmed":true}
+{"runId":"8ac2565ec9aa4221a61b321afb2978b2","event":21,"name":"09b_swap_list.png","shotProtocol":1,"sha256":"93815c5ab14e8dff99c1fceb75c85ab14c131219f7c0a6605e73570bd9850497","foregroundConfirmed":true}
+{"runId":"8ac2565ec9aa4221a61b321afb2978b2","event":23,"name":"09_copy_pasted.png","shotProtocol":1,"sha256":"91b66267629713dd0c88d93527f339c6135ab41f6dc27506cb7e4605722b676a","foregroundConfirmed":true}
+{"runId":"8ac2565ec9aa4221a61b321afb2978b2","event":25,"name":"10_grouped.png","shotProtocol":1,"sha256":"051596a95b28f10e94a73f702554bbd9a4405fe8eafc4ae8e18603176d904b33","foregroundConfirmed":true}
+{"runId":"8ac2565ec9aa4221a61b321afb2978b2","event":27,"name":"11_locked.png","shotProtocol":1,"sha256":"810bd1c8cddefe499658ed9c254f23b8e90486cf9834d37cc6152597064f9abb","foregroundConfirmed":true}
+{"runId":"8ac2565ec9aa4221a61b321afb2978b2","event":29,"name":"07_tip_dots.png","shotProtocol":1,"sha256":"9e1d095af6acfa0e11041395fb26ab4916a805cf1807baf3e5229aa2c6dd82cb","foregroundConfirmed":true}
+{"runId":"8ac2565ec9aa4221a61b321afb2978b2","event":31,"name":"08_nudged.png","shotProtocol":1,"sha256":"92f31796d1ab6308d64fbf90779e20c77840b51e1fd6e6ea18bccef49abf2317","foregroundConfirmed":true}

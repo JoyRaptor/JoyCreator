@@ -1,0 +1,10 @@
+{
+  "source40hex": "1ad5730f08cf1e978e69ba99d0fc97500400da20",
+  "expectedApkSha256": "b5e9b3242b0893c00a5aeb708cfb53184e3e3e3e50ce3922368d582f774ea3be",
+  "installedApkSha256": "b5e9b3242b0893c00a5aeb708cfb53184e3e3e3e50ce3922368d582f774ea3be",
+  "runId": "8ac2565ec9aa4221a61b321afb2978b2",
+  "deviceModel": "SM-N960U",
+  "deviceApi": 29,
+  "benchCase": "select",
+  "installedApkSha256After": "b5e9b3242b0893c00a5aeb708cfb53184e3e3e3e50ce3922368d582f774ea3be"
+}

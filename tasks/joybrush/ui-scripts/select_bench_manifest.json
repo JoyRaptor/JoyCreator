@@ -1,5 +1,40 @@
 {
   "version": 1,
-  "steps": ["setup", "draw", "chooseSelect", "tapPick", "cycle", "tapEmptyEnds", "lasso", "dragMove", "undoMove", "rotate", "pinchAnywhere", "delete", "duplicate", "flipH", "copyPaste", "group", "lock", "tipDots", "nudge", "fingerPansWithBrush"],
-  "screenshots": ["01_drawn.png", "02_tap_pick.png", "03_cycle_count.png", "04_lasso_bar.png", "05_moved.png", "06_rotated.png", "07_tip_dots.png", "08_nudged.png", "09_copy_pasted.png", "10_grouped.png", "11_locked.png"]
+  "steps": [
+    "setup",
+    "draw",
+    "chooseSelect",
+    "tapPick",
+    "cycle",
+    "tapEmptyEnds",
+    "lasso",
+    "dragMove",
+    "undoMove",
+    "rotate",
+    "pinchAnywhere",
+    "delete",
+    "duplicate",
+    "flipH",
+    "swapList",
+    "copyPaste",
+    "group",
+    "lock",
+    "tipDots",
+    "nudge",
+    "fingerPansWithBrush"
+  ],
+  "screenshots": [
+    "01_drawn.png",
+    "02_tap_pick.png",
+    "03_cycle_count.png",
+    "04_lasso_bar.png",
+    "05_moved.png",
+    "06_rotated.png",
+    "07_tip_dots.png",
+    "08_nudged.png",
+    "09b_swap_list.png",
+    "09_copy_pasted.png",
+    "10_grouped.png",
+    "11_locked.png"
+  ]
 }

@@ -783,3 +783,30 @@ Exact standalone32 core/56 native proof and integrated review are in reviews/UX_
 - When it lands, the refusal "realistic pencil, watercolour and oil can't share a layer with lines yet" goes away.
 - One more one-time toast joins D23 (same surface, one pref): the first realistic stroke on a layer that holds lines
   says *"Lines stay on top of realistic paint on the same layer."* Nothing else mentions it.
+
+### D25 — The swap list shows what the selected lines will become (UI specialist, 2026-10-25)
+
+The row's Brush button (and the strip's Brush while lines are selected, K8) opens the brush drawer as a SWAP list
+(`JoyBrushActivity.pickLineBrush`, `BrushDrawerView` with the engine-drawn previews of `BrushPreviewCache`). Today each
+tile shows the brush's own sample in light ink on the dark drawer: you cannot see what YOUR line would look like.
+
+- **Tiles draw the selection, not the brush's default.** Each tile's sample stroke is drawn by the real engine in the
+  selected lines' colour on a band of the drawing's paper: `BrushPreviewStyle(ink = selection colour, strip = paper)`.
+  Mixed colours: the colour of the first selected line (seq order). The cache key already includes the style, so each
+  colour/paper pair is drawn once and kept like any other preview.
+- **Only brushes that can stay lines are listed** (`LineBrushes.forPicker`, after Unibrush U7 also picture, dual-tip and
+  taper brushes). Brushes that can't be lines are absent, never greyed (a dead knob is worse than none). One quiet footer
+  line: *"Only brushes that keep lines editable are shown."*
+- **The brush(es) the selection uses now** wear the selected ring (K24: gradient ring, the tile's picture stays
+  visible). Mixed brushes: every brush in use is ringed.
+- **Picture-tip brushes** (Unibrush U7: Texture, Dry, Sparkle…) show their real tip pictures in the tile, the same
+  render the drawer uses: nothing generic.
+- **Tap = swap, one undo step, the sheet closes, the selection stays.** Hold = that brush's settings, as in the drawer;
+  a change made there applies when its tile is then tapped.
+- Later, not now: the tile's stroke at the selection's weight (needs a weight in `BrushPreviewStyle`), and a live preview
+  on the canvas while a tile is held (through `LiftedLines.preview`).
+
+Build: `BrushDrawerView` takes an optional `previewStyle` (default as today) and passes it to `previews.request`;
+`pickLineBrush` passes the style, `currentId`s from the selection and the footer. One LEAD PATCH hunk in
+`JoyBrushActivity.pickLineBrush`; the rest is chrome. Tier: near-frontier. Bench: a step that opens the swap list over a
+selected red line on kraft and checks the tiles' style and the ring, with a screenshot.

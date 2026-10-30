@@ -159,6 +159,13 @@ class SelectController(
     /** The paper changed: the row, bar and box ink follow. */
     fun paperChanged() { rowInk = null; barInk = null; countInk = null; refresh() }
 
+    /**
+     * A sheet is over the canvas (the brush swap list, D25): Joy Brush's sheets are see-through by design, so the row, bar
+     * and count step aside while it is open (seen on the Note 9: the row's icons showed through the drawer).
+     */
+    fun coveredBySheet(covered: Boolean) { if (sheetOver != covered) { sheetOver = covered; refresh() } }
+    private var sheetOver = false
+
     /** Chain from canvas.onViewMoved alongside existing chrome sampling; keep picks anchored to the drawing. */
     fun viewMoved() {
         tool.updateView(canvas.view)
@@ -239,7 +246,7 @@ class SelectController(
         val paper = app.paperArgb()
         row.setPaper(paper); bar.setPaper(paper); count.setPaper(paper)
         if (countInk == null) count.ink = IconContrast.inkFor(intArrayOf(paper), null)
-        if (s !is SelectionState.Lines || tool.countPick == null || tool.nudging || boxMoving)
+        if (s !is SelectionState.Lines || tool.countPick == null || tool.nudging || boxMoving || sheetOver)
             count.visibility = View.GONE
         when (s) {
             is SelectionState.Lines -> {
@@ -257,9 +264,9 @@ class SelectController(
             )
             null -> {}
         }
-        row.visibility = if (s != null && !tool.nudging && row.childCount > 0) View.VISIBLE else View.GONE
+        row.visibility = if (s != null && !tool.nudging && !sheetOver && row.childCount > 0) View.VISIBLE else View.GONE
         if (row.visibility == View.VISIBLE) { row.alpha = 1f; row.isEnabled = true }
-        bar.visibility = if (s != null) View.VISIBLE else View.GONE
+        bar.visibility = if (s != null && !sheetOver) View.VISIBLE else View.GONE
         if (s != null) bar.show(barModel(s))
         val ringOn = s is SelectionState.Lines
         if (ringOn != ringWasOn) { app.restyleRing(ringOn, pulse = ringOn); ringWasOn = ringOn }
@@ -324,7 +331,7 @@ class SelectController(
 
     private fun placeCount(rowRect: RectF?, chrome: List<RectF> = emptyList(), boxTop: Float = Float.NaN, boxBottom: Float = Float.NaN) {
         val pick = tool.countPick
-        if (tool.selection !is SelectionState.Lines || pick == null || pick.total < 2 || tool.nudging || boxMoving) {
+        if (tool.selection !is SelectionState.Lines || pick == null || pick.total < 2 || tool.nudging || boxMoving || sheetOver) {
             count.visibility = View.GONE
             return
         }

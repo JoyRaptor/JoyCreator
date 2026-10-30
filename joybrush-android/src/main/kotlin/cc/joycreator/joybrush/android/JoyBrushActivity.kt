@@ -2782,6 +2782,18 @@ class JoyBrushActivity : Activity() {
      * identical copy there is reused) and [onPicked] gets the id the line will name it by. The brush comes as the person
      * last had it in the hand: its remembered size and opacity.
      */
+    /** JB-5.20e D25: the swap list draws the selected lines (first by seq) on this drawing's paper and rings the brushes they use. */
+    private fun swapLook(host: CanvasSelectionHost): BrushDrawerView.Swap? {
+        val ids = (selection?.tool?.selection as? SelectionState.Lines)?.ids ?: return null
+        val records = host.activeLines().filter { it.address in ids }.map { it.record }.sortedBy { it.seq }
+        val first = records.firstOrNull() ?: return null
+        // Matched by NAME: a line's brush is a frozen copy with its own id, so its id never equals the library's. If a frozen
+        // brush ever keeps its source id, match on that instead.
+        val inUse = records.mapNotNull { host.brushOf(it.brushId)?.name }.toSet()
+        return BrushDrawerView.Swap(first.colorArgb, canvas.paperArgb, { it.name in inUse },
+            "Only brushes that keep lines editable are shown.")
+    }
+
     private fun pickLineBrush(host: CanvasSelectionHost, onPicked: (String) -> Unit) {
         val library = LineBrushes.forPicker(tunedBrushes())
         if (library.isEmpty()) { toast("No brush in the library can be kept as a line yet."); return }
@@ -2791,8 +2803,11 @@ class JoyBrushActivity : Activity() {
             val brush = ToolMemory.sized(picked, memory?.sizePx ?: picked.size.base, memory?.opacity ?: picked.opacity.base)
             val id = try { host.freezeBrush(brush) } catch (e: Exception) { null }
             if (id != null) onPicked(id) else toast("That brush can't be kept as a line.")
-        }, previews = brushPreviews, editableLines = { BrushLinePreferences(prefs).enabled(it) })
-        popovers.showSheet(drawer, maxWidthDp = 600f, alignEnd = placement.edge == StripPlacement.Edge.RIGHT)
+        }, previews = brushPreviews, editableLines = { BrushLinePreferences(prefs).enabled(it) }, swap = swapLook(host))
+        // The drawer is see-through: the selection's row and bar step aside while it is open (D25).
+        selection?.coveredBySheet(true)
+        popovers.showSheet(drawer, maxWidthDp = 600f, alignEnd = placement.edge == StripPlacement.Edge.RIGHT,
+            onClosed = { selection?.coveredBySheet(false) })
     }
 
     /**

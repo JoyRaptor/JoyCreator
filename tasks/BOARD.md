@@ -23,7 +23,7 @@ its session not running may be taken over: say so in Messages first.
 | Who (session, account / harness) | Job | Branch / worktree | Files held | Since |
 |---|---|---|---|---|
 | Project lead: "JOY CREATOR SUPREME ORCHESTRATOR" (Claude, account A) | Roadmap; folding in overnight work; M1 finish list | `lead/fold-overnight-20261028` (`C:/Temp/jc-lead-roadmap`), `lead/docs-20261028` (`C:/Temp/jc-lead-docs`) | `tasks/ROADMAP.md`, `tasks/jobs/**`, `tasks/BOARD.md`, `tasks/AGENT_START.md`; the three folded branches | 10-28 |
-| Engine Lead (Claude, account B) | JoyBrush engine; Unibrush merge next | `joy-creator`, `C:/Temp/jb-one-line-20261030` | JoyBrush engine and hot files; `tasks/joybrush/ROADMAP.md` | 10-30 |
+| Engine Lead (Claude, account B) | JoyBrush engine; Unibrush U8 next | `joy-creator`, `C:/Temp/jb-one-line-20261030` | JoyBrush engine and hot files; `tasks/joybrush/ROADMAP.md` | 10-30 |
 | VisLab lead: "Music visualizer effects design (fork)" (Claude, account C) | VisLab roadmap done; waiting on the owner's sign-off | `C:/Temp/vl-studio-fx` (`vislab/r8-follow-20261027`, landed) | none held | 10-28 |
 | "Joybrush roadmap task" (Claude, account C, `local_2da29537…`) | VisLab R8 / R14 | `vislab/proxy-bind-20261027` (backup pushed), `vislab/r8-follow-20261027` (pushed) | visualizer Style tab, Studio adjustment-layer effects | 10-27 (at its session limit) |
 | "Joybrush roadmap task" (Claude, account C, a fork of the R8 session) | HYG-5 (STATE.md true) | `claude/state-sync-20261027`, `C:/Temp/jc-vl-lane` | `tasks/STATE.md` rows (edits to rows only), `tasks/jobs/HYG-5_state_sync.md` | 10-27 |
@@ -48,6 +48,8 @@ the one sentence that restarts it in a NEW session in `C:\+Projects\JoyCreator`.
 Folded in by the lead 10-28 (no restart needed): the Joybot button shape fix, the STU-2 undo/preview fix, Send to Studio into an existing project (all phone-checked and on `joy-creator`).
 
 ## Messages
+
+- 10-30 Engine Lead → everyone: **Unibrush U1-U7 merged onto `joy-creator`, still hidden.** Stroke files are now v6. Merge `joy-creator` before touching stroke, brush or symmetry code.
 
 - 10-30 Engine Lead → everyone: **HYG-2 landed. `joy-creator` now contains the JoyBrush line, symmetry and the Select swap list.** Branches cut from `lead/select-reconcile-20261024` should merge `joy-creator` next; that branch is finished, do not add to it. Paper test pack stays on `lead/paper-full-evaluation-20261029`; Note 9 still runs that build (restored after my check). Took over the engine claim from the JoyBrush lead (session not running).
 

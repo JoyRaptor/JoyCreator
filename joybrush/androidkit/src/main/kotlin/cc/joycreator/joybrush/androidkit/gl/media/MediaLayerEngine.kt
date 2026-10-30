@@ -36,7 +36,9 @@ class MediaPaperGl(
     val stats: MediaPaper,
     val surface: Tex, val texelPx: Float, val size: Float, val hexTexels: Float, val slopeRange: Float, val rotatable: Boolean,
     val fluid: Tex, val fluidTexelPx: Float, val fluidSize: Float, val fluidHexTexels: Float,
-)
+) {
+    internal fun borrowedTextureHandles(): Set<Int> = setOf(surface.id, fluid.id) - 0
+}
 
 /** How the look tiles are lit (the app's fixed lamp; relief 0 because the app draws the paper itself). */
 class MediaLook(
@@ -1143,6 +1145,12 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         var k = 0; var stage = 0; var band = 0
     }
     private var job: WaterJob? = null
+
+    /** Packaged paper borrowed by retained state, never this engine's owned working textures. */
+    internal fun borrowedPaperTextureHandles(): Set<Int> = buildSet {
+        bakedPaper?.let { addAll(it.borrowedTextureHandles()) }
+        job?.paper?.let { addAll(it.borrowedTextureHandles()) }
+    }
     private var lastJobNs = 0L
     /** Real time (ms) the water's age has not yet taken in; below 0, steps that ran ahead of the clock. */
     private var ageOweMs = 0f

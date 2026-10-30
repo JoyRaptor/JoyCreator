@@ -55,6 +55,9 @@ class MediaCanvas(
     private val shaders: ShaderLibrary = ShaderLibrary(),
 ) {
     private var engine: MediaLayerEngine? = null
+    init {
+        paint.registerPaperTextureBorrower(this) { engine?.borrowedPaperTextureHandles().orEmpty() }
+    }
     private var window: MediaPlace? = null
     /** Debug probe only (MediaUndoProbe): the atlas's slot grid, columns x rows, instead of the phone's memory. */
     internal var slotGrid: Pair<Int, Int>? = null
@@ -252,6 +255,7 @@ class MediaCanvas(
             if (rec != null && (rec.memory == null || (e.hasWaterTextures && !memoryHadWater))) {
                 rec.memory = e.memoryReport(); memoryHadWater = e.hasWaterTextures
             }
+            paint.collectPaperTextures()
         }
     }
 
@@ -375,6 +379,7 @@ class MediaCanvas(
         warm?.releasePrograms()
         engine = null; window = null; stroke = null; warm = null
         heldBytes = 0L
+        paint.collectPaperTextures()
     }
 
     /** The context these GL names came from is gone: forget them without deleting (they died with it). */

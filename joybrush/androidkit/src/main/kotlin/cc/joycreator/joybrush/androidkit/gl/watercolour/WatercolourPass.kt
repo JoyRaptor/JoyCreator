@@ -34,6 +34,10 @@ internal class WatercolourPass(private val shaders: ShaderLibrary, private val d
     private var tint = floatArrayOf(0f, 0f, 0f)
     private var offset = floatArrayOf(0f, 0f)
     private var paper: ((GlProgram) -> Unit)? = null
+    private var paperTextures: Set<Int> = emptySet()
+
+    /** The callback's explicit borrowed names; these are not owned coverage/image textures. */
+    internal fun borrowedPaperTextureHandles(): Set<Int> = paperTextures
     private var hasPaper = false
     private var empty = 0
     private var fbo = 0
@@ -107,14 +111,15 @@ internal class WatercolourPass(private val shaders: ShaderLibrary, private val d
         }
     }
 
-    fun recolour(color: FloatArray, paperPresent: Boolean, bindPaper: (GlProgram) -> Unit) {
-        tint=color.copyOf(); hasPaper=paperPresent; paper=bindPaper
+    fun recolour(color: FloatArray, paperPresent: Boolean, paperHandles: Set<Int>, bindPaper: (GlProgram) -> Unit) {
+        tint=color.copyOf(); hasPaper=paperPresent; paper=bindPaper; paperTextures=paperHandles.toSet()
     }
 
-    fun begin(options: WatercolourSpec, seed: Long, color: FloatArray, paperPresent: Boolean, bindPaper: (GlProgram) -> Unit) {
+    fun begin(options: WatercolourSpec, seed: Long, color: FloatArray, paperPresent: Boolean,
+              paperHandles: Set<Int>, bindPaper: (GlProgram) -> Unit) {
         clearStroke()
         ensureObjects()
-        spec = options; tint = color.copyOf(); paper = bindPaper; hasPaper = paperPresent
+        spec = options; tint = color.copyOf(); paper = bindPaper; hasPaper = paperPresent; paperTextures=paperHandles.toSet()
         setWashFrame(null)
         images = textures.forSpec(options)
         val d = WatercolourDabber(options, seed)
@@ -238,7 +243,7 @@ internal class WatercolourPass(private val shaders: ShaderLibrary, private val d
     }
     fun clearStroke() {
         free.addAll(bands.values); free.addAll(plain.values); free.addAll(pooled.values)
-        bands.clear(); plain.clear(); pooled.clear(); paper=null
+        bands.clear(); plain.clear(); pooled.clear(); paper=null; paperTextures=emptySet()
         while(free.size>32) GLES30.glDeleteTextures(1,intArrayOf(free.removeFirst()),0)
     }
     /** Borrowed coverage, finish pools and image ownership; no GL calls. */
@@ -258,7 +263,7 @@ internal class WatercolourPass(private val shaders: ShaderLibrary, private val d
         return Collections.unmodifiableMap(result)
     }
 
-    fun forget() { bands.clear(); plain.clear(); pooled.clear(); free.clear(); textures.forget(); empty=0; fbo=0; quad=0; instance=0; vao=0; finishVao=0; unitVbo=0; dab=null; finish=null; finishFramed=null; mix=null; images=null; paper=null }
+    fun forget() { bands.clear(); plain.clear(); pooled.clear(); free.clear(); textures.forget(); empty=0; fbo=0; quad=0; instance=0; vao=0; finishVao=0; unitVbo=0; dab=null; finish=null; finishFramed=null; mix=null; images=null; paper=null; paperTextures=emptySet() }
     fun release() {
         val names=(bands.values+plain.values+pooled.values+free+listOf(empty)).filter { it!=0 }.distinct().toIntArray()
         if(names.isNotEmpty())GLES30.glDeleteTextures(names.size,names,0)

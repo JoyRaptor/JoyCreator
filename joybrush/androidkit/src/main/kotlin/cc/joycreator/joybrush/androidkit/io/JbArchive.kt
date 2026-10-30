@@ -4,6 +4,7 @@ import cc.joycreator.joybrush.core.brush.BrushException
 import cc.joycreator.joybrush.core.brush.BrushJson
 import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.brush.BrushValidate
+import cc.joycreator.joybrush.core.brush.FrozenBrushPngs
 import cc.joycreator.joybrush.core.media.MediaStores
 import cc.joycreator.joybrush.core.doc.DocJson
 import cc.joycreator.joybrush.core.doc.DOC_VERSION
@@ -80,6 +81,8 @@ data class JbContents(
     val looks: Map<Triple<String, String, String>, ByteArray> = emptyMap(),
     /** The frozen brush copies (v10, D5), by brush id; exactly the ids of `doc.brushes`. */
     val brushes: Map<String, BrushPreset> = emptyMap(),
+    /** D5: exact document-owned PNGs for modern sampled definitions; no library fallback. */
+    val brushAssets: Map<String, FrozenBrushPngs> = emptyMap(),
 )
 
 /** One non-bottom pixel slab in an archive: `layers/<layerId>/<celId>/<key>.s<seq>.rgba`. */
@@ -100,6 +103,7 @@ data class MediaTileKey(val layerId: String, val celId: String, val key: String,
  * | `layers/<layerId>/<celId>/<tx>_<ty>.s<seq>.rgba` | a pixel slab above the tile's bottom one, [TILE_BYTES] bytes (v10; absent for a cel of pure pixels) | deflate |
  * | `layers/<layerId>/<celId>/<tx>_<ty>.look.rgba` | the saved look of a tile lines cross, [TILE_BYTES] bytes (v10) | deflate |
  * | `brushes/<n>-<name>.json` | a frozen copy of a brush some line uses, `BrushJson.encode` (v10); the brush's own `id` is its key | deflate |
+ * | `brush-assets/index.json` and `brush-assets/sha256/<hash>.png` | D5 frozen sampled resources; manifest v1, 64 MiB aggregate, absent for older recipes | deflate |
  * | `layers/<layerId>/<celId>/<tx>_<ty>.<store>.f16` | one media float store tile, little-endian half floats (v8) | deflate |
  * | `layers/<layerId>/<celId>/<tx>_<ty>.g.rgba` | one media ground tile, [TILE_BYTES] bytes like a paint tile (v9) | deflate |
  * | `thumbnail.png` | written by JB-0.08b | stored |
@@ -177,6 +181,10 @@ object JbArchive {
      */
     fun save(file: File, contents: JbContents) = atomicWrite(file) { write(it, contents) }
 
+    /** Optional full PNG decode admission, supplied by the platform/runtime resource boundary. */
+    fun save(file: File, contents: JbContents, pngVerifier: FrozenBrushAssets.PngVerifier) =
+        atomicWrite(file) { write(it, contents, pngVerifier) }
+
     /** Already validated/saved source, copied without inflating or recompressing its paint tiles. */
     internal fun copySaved(source: File, file: File) = atomicWrite(file) { out ->
         source.inputStream().use { it.copyTo(out) }
@@ -241,10 +249,12 @@ object JbArchive {
         val media: List<Pair<String, ByteArray>>,
         val strokes: List<Pair<String, ByteArray>>,
         val brushes: List<Pair<String, ByteArray>>,
+        val brushAssets: List<Pair<String, ByteArray>>,
     )
 
     /** [retainEntries] controls only retention for writing, never which checks run. */
-    private fun prepareStructure(contents: JbContents, retainEntries: Boolean): PreparedEntries {
+    private fun prepareStructure(contents: JbContents, retainEntries: Boolean,
+                                 pngVerifier: FrozenBrushAssets.PngVerifier? = null): PreparedEntries {
         fun keep(entries: MutableList<Pair<String, ByteArray>>, path: String, bytes: ByteArray) {
             if (retainEntries) entries.add(path to bytes)
         }
@@ -335,6 +345,18 @@ object JbArchive {
             keep(brushEntries, brushPath(index, id), text.toByteArray(Charsets.UTF_8))
         }
 
+        val assetEntries = FrozenBrushAssets.prepare(frozen, contents.brushAssets, retainEntries, pngVerifier)
+        // Unibrush U4: the brush pictures must read back exactly as they are about to be written, or this save is refused
+        // and the file the person has stays: lines whose pictures come back wrong would not redraw after reopening.
+        if (assetEntries.isNotEmpty()) {
+            val back = try {
+                FrozenBrushAssets.reopen(assetEntries.firstOrNull { it.first == FrozenBrushAssets.MANIFEST_ENTRY }?.second,
+                    assetEntries.filter { it.first != FrozenBrushAssets.MANIFEST_ENTRY }.toMap(), frozen, pngVerifier)
+            } catch (e: Exception) { throw JbArchiveException("the drawing's brush pictures would not read back: ${brief(e)}") }
+            if (back.keys != contents.brushAssets.keys || back.any { (id, pngs) -> !pngs.sameBytes(contents.brushAssets.getValue(id)) })
+                throw JbArchiveException("the drawing's brush pictures would not read back as they are")
+        }
+
         // Media state, both directions, as for paint tiles: every file is declared, and every declared tile has state.
         val mediaDeclared = declaredMediaTiles(doc)
         val mediaEntries = ArrayList<Pair<String, ByteArray>>()
@@ -380,7 +402,7 @@ object JbArchive {
             }
         }
 
-        return PreparedEntries(tileEntries, slabEntries, lookEntries, mediaEntries, strokeEntries, brushEntries)
+        return PreparedEntries(tileEntries, slabEntries, lookEntries, mediaEntries, strokeEntries, brushEntries, assetEntries)
     }
 
     /**
@@ -390,8 +412,11 @@ object JbArchive {
      * Everything is checked before the first byte is written, so a refused archive leaves [out] as
      * it was found instead of half a file long.
      */
-    fun write(out: OutputStream, contents: JbContents) {
-        val entries = prepareStructure(contents, retainEntries = true)
+    fun write(out: OutputStream, contents: JbContents) = write(out, contents, null)
+
+    /** Encoded PNG framing/CRC is always checked; this callback also fully decodes before writing. */
+    fun write(out: OutputStream, contents: JbContents, pngVerifier: FrozenBrushAssets.PngVerifier?) {
+        val entries = prepareStructure(contents, retainEntries = true, pngVerifier = pngVerifier)
         // The codec writes v4. Upgrade only the prepared output header of stroke-bearing saves,
         // never caller metadata or ordinary raster/media-only legacy archives. Historical regional
         // null-source records cannot be relabelled as v11 physical truth by this upgrade.
@@ -446,6 +471,11 @@ object JbArchive {
                 zos.write(entry.second)
                 zos.closeEntry()
             }
+            for (entry in entries.brushAssets) {
+                zos.putNextEntry(ZipEntry(entry.first))
+                zos.write(entry.second)
+                zos.closeEntry()
+            }
             val thumb = contents.thumbnailPng
             if (thumb != null) {
                 zos.putNextEntry(ZipEntry(THUMBNAIL_NAME))
@@ -489,7 +519,11 @@ object JbArchive {
      * [legacyBrushes] (the library) supplies the copies, which are then kept with the drawing from the next save. A line
      * whose brush it cannot supply makes the file unopenable, in words: guessing a brush would draw the line differently.
      */
-    fun read(input: InputStream, legacyBrushes: ((String) -> BrushPreset?)? = null): JbContents {
+    fun read(input: InputStream, legacyBrushes: ((String) -> BrushPreset?)? = null): JbContents =
+        read(input, legacyBrushes, null)
+
+    fun read(input: InputStream, legacyBrushes: ((String) -> BrushPreset?)?,
+             pngVerifier: FrozenBrushAssets.PngVerifier?): JbContents {
         val zis = ZipInputStream(input)
         val names = HashSet<String>()
         val budget = ByteBudget(MAX_TOTAL_BYTES)
@@ -502,6 +536,9 @@ object JbArchive {
         val slabs = LinkedHashMap<SlabKey, ByteArray>()
         val looks = LinkedHashMap<Triple<String, String, String>, ByteArray>()
         val brushes = LinkedHashMap<String, BrushPreset>()
+        var imageManifest: ByteArray? = null
+        val imagePayloads = LinkedHashMap<String, ByteArray>()
+        var imageBytes = 0L
         var count = 0
 
         try {
@@ -546,6 +583,21 @@ object JbArchive {
 
                     name == THUMBNAIL_NAME -> {
                         thumbnail = readBounded(zis, entry, MAX_THUMBNAIL_BYTES, budget)
+                    }
+
+                    name == FrozenBrushAssets.MANIFEST_ENTRY -> {
+                        val limit = minOf(FrozenBrushAssets.MAX_MANIFEST_BYTES.toLong(), FrozenBrushAssets.MAX_ARCHIVE_BYTES - imageBytes).toInt()
+                        val bytes = readBounded(zis, entry, limit, budget)
+                        imageManifest = bytes
+                        imageBytes += bytes.size
+                    }
+
+                    FrozenBrushAssets.isAssetEntry(name) -> {
+                        if (!FrozenBrushAssets.isBlobEntry(name)) throw JbArchiveException("Unknown frozen image entry: $name")
+                        val limit = minOf(FrozenBrushAssets.MAX_PNG_BYTES.toLong(), FrozenBrushAssets.MAX_ARCHIVE_BYTES - imageBytes).toInt()
+                        val bytes = readBounded(zis, entry, limit, budget)
+                        imagePayloads[name] = bytes
+                        imageBytes += bytes.size
                     }
 
                     name.startsWith("$LAYERS_DIR/") && name.endsWith(MediaStores.EXT) -> {
@@ -674,7 +726,8 @@ object JbArchive {
 
         if (!mimetypeSeen) throw JbArchiveException("this archive has no \"$MIMETYPE_NAME\" entry")
         val docBytes = document ?: throw JbArchiveException("this archive has no \"$DOCUMENT_NAME\" entry")
-        return documentFrom(docBytes, tiles, strokes, thumbnail, media, slabs, looks, brushes, legacyBrushes)
+        return documentFrom(docBytes, tiles, strokes, thumbnail, media, slabs, looks, brushes, legacyBrushes,
+            imageManifest, imagePayloads, pngVerifier)
     }
 
     /**
@@ -693,6 +746,9 @@ object JbArchive {
         looks: Map<Triple<String, String, String>, ByteArray> = emptyMap(),
         brushes: Map<String, BrushPreset> = emptyMap(),
         legacyBrushes: ((String) -> BrushPreset?)? = null,
+        imageManifest: ByteArray? = null,
+        imagePayloads: Map<String, ByteArray> = emptyMap(),
+        pngVerifier: FrozenBrushAssets.PngVerifier? = null,
     ): JbContents = try {
         val text = docBytes.toString(Charsets.UTF_8)
         var doc = try {
@@ -804,6 +860,8 @@ object JbArchive {
             )
         }
 
+        val brushAssets = FrozenBrushAssets.reopen(imageManifest, imagePayloads, frozen, pngVerifier)
+
         // The records themselves. Opening never replays a line (D3), so the look check here is the cheap one.
         val lineProblems = lineProblems(doc, strokes, doc.brushes.toSet(), exactLooks = null)
         if (lineProblems.isNotEmpty()) {
@@ -812,7 +870,7 @@ object JbArchive {
 
         // In time order for whoever holds them (the file already is, from this build).
         val ordered = strokes.mapValues { (_, v) -> v.sortedBy { it.seq } }
-        JbContents(doc, tiles, ordered, thumbnail, media, slabs, looks, frozen)
+        JbContents(doc, tiles, ordered, thumbnail, media, slabs, looks, frozen, brushAssets)
     } catch (e: JbArchiveException) {
         throw e
     } catch (e: RuntimeException) {
@@ -820,12 +878,16 @@ object JbArchive {
     }
 
     /** Reads a `.joybrush` off disk. The file is closed before this returns. */
-    fun open(file: File, legacyBrushes: ((String) -> BrushPreset?)? = null): JbContents {
+    fun open(file: File, legacyBrushes: ((String) -> BrushPreset?)? = null): JbContents =
+        open(file, legacyBrushes, null)
+
+    fun open(file: File, legacyBrushes: ((String) -> BrushPreset?)?,
+             pngVerifier: FrozenBrushAssets.PngVerifier?): JbContents {
         if (!file.isFile) throw JbArchiveException("there is no file at ${file.path}")
         // Wrapped for the same promise [read] makes: a caller that says "this file is damaged" in
         // one catch must not meet a FileNotFoundException from underneath it.
         return try {
-            FileInputStream(file).use { read(it, legacyBrushes) }
+            FileInputStream(file).use { read(it, legacyBrushes, pngVerifier) }
         } catch (e: JbArchiveException) {
             throw e
         } catch (e: Exception) {

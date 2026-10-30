@@ -28,17 +28,30 @@ object FrozenBrushRegistry {
         entries: Map<String, BrushPreset>,
         preset: BrushPreset,
         newId: () -> String,
+    ): FrozenBrushResult = freezeWithAssets(entries, emptyMap(), preset, FrozenBrushPngs.empty(), newId)
+
+    /** New sampled definitions and their exact images enter the drawing as one immutable result. */
+    fun freezeWithAssets(
+        entries: Map<String, BrushPreset>,
+        knownAssets: Map<String, FrozenBrushPngs>,
+        preset: BrushPreset,
+        candidatePngs: FrozenBrushPngs,
+        newId: () -> String,
     ): FrozenBrushResult {
         val saved = snapshots(entries)
+        validateAssets(entries, knownAssets)
         val problems = BrushValidate.validate(preset)
         if (problems.isNotEmpty()) {
             throw BrushException("brush cannot be frozen: " + problems.joinToString("; "))
         }
         val candidate = BrushJson.decodeChecked(BrushJson.encode(preset))
+        try { candidatePngs.requirePaths(BrushAssetPaths.required(candidate)) }
+        catch (e: IllegalArgumentException) { throw BrushException(e.message ?: "Frozen candidate images are incomplete") }
         val definition = comparison(candidate)
         for (id in saved.keys.sorted()) {
-            if (comparison(BrushJson.decodeChecked(saved.getValue(id))) == definition) {
-                return FrozenBrushResult(id, saved.getValue(id), saved, emptyMap())
+            if (comparison(BrushJson.decodeChecked(saved.getValue(id))) == definition &&
+                (knownAssets[id] ?: FrozenBrushPngs.empty()).sameBytes(candidatePngs)) {
+                return FrozenBrushResult(id, saved.getValue(id), saved, emptyMap(), knownAssets)
             }
         }
         val id = newId()
@@ -48,7 +61,16 @@ object FrozenBrushRegistry {
         if (id in saved) throw BrushException("frozen brush id already exists: $id")
         val json = BrushJson.encode(candidate.copy(id = id))
         val added = mapOf(id to json)
-        return FrozenBrushResult(id, json, saved + added, added)
+        val images = if (candidatePngs.paths.isEmpty()) knownAssets else knownAssets + (id to candidatePngs)
+        return FrozenBrushResult(id, json, saved + added, added, images)
+    }
+
+    /** Structural resource completeness; PNG decoding remains the resolved-set boundary's job. */
+    fun validateAssets(entries: Map<String, BrushPreset>, assets: Map<String, FrozenBrushPngs>) {
+        val required = entries.mapValues { BrushAssetPaths.required(it.value) }.filterValues { it.isNotEmpty() }
+        if (assets.keys != required.keys) throw BrushException("Frozen brush images are missing or unreferenced")
+        for ((id, paths) in required) try { assets.getValue(id).requirePaths(paths) }
+        catch (e: IllegalArgumentException) { throw BrushException("Frozen brush $id: ${e.message}") }
     }
 
     private fun comparison(preset: BrushPreset): String =
@@ -83,9 +105,11 @@ class FrozenBrushResult internal constructor(
     private val json: String,
     entries: Map<String, String>,
     newEntries: Map<String, String>,
+    assets: Map<String, FrozenBrushPngs> = emptyMap(),
 ) {
     private val saved = entries.toMap()
     private val added = newEntries.toMap()
+    private val imageCopies = assets.toMap()
 
     val preset: BrushPreset get() = BrushJson.decodeChecked(json)
     val bytes: ByteArray get() = json.encodeToByteArray()
@@ -93,4 +117,6 @@ class FrozenBrushResult internal constructor(
         get() = saved.mapValues { (_, value) -> BrushJson.decodeChecked(value) }
     val newEntries: Map<String, BrushPreset>
         get() = added.mapValues { (_, value) -> BrushJson.decodeChecked(value) }
+    /** Values are immutable and copy their bytes outward; the map is detached on every access. */
+    val assets: Map<String, FrozenBrushPngs> get() = imageCopies.toMap()
 }

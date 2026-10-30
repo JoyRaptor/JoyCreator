@@ -1,0 +1,186 @@
+--- a/joybrush-android/src/test/kotlin/cc/joycreator/joybrush/android/board/FillPenDispatchTest.kt
++++ b/joybrush-android/src/test/kotlin/cc/joycreator/joybrush/android/board/FillPenDispatchTest.kt
+@@ -15,7 +15,7 @@
+ import cc.joycreator.joybrush.core.doc.Layer
+ import cc.joycreator.joybrush.core.doc.LayerKind
+ import cc.joycreator.joybrush.core.input.PenSample
+-import cc.joycreator.joybrush.core.input.StrokeSmoother
++import cc.joycreator.joybrush.core.input.StrokeStabilizer
+ import cc.joycreator.joybrush.core.layers.LayerStack
+ import cc.joycreator.joybrush.core.layers.LayerState
+ import org.junit.After
+@@ -53,7 +53,7 @@
+     }
+     private fun begin(view: JbCanvasView, eraser: Boolean=false) { call(view,"startStroke",eraser,null) }
+     private fun feed(view: JbCanvasView, points: List<PenSample>) {
+-        val smoother = get(view,"smoother") as StrokeSmoother
++        val smoother = get(view,"smoother") as StrokeStabilizer
+         val released = ArrayList<PenSample>()
+         for (point in points) call(view,"feedOne",smoother,point,released)
+         call(view,"paint",released)
+@@ -137,7 +137,7 @@
+         val view=surface(); val reasons=ArrayList<String>(); var ended=0
+         view.onRefused={reasons.add(it)}; view.onStrokeEnded={ended++}
+         begin(view)
+-        val smoother=get(view,"smoother") as StrokeSmoother
++        val smoother=get(view,"smoother") as StrokeStabilizer
+         val released=ArrayList<PenSample>()
+         call(view,"feedOne",smoother,PenSample(0f,0f,0.0),released)
+         val before=released.toList()
+--- a/joybrush-android/src/test/kotlin/cc/joycreator/joybrush/android/board/StrokeCaptureDispatchTest.kt
++++ b/joybrush-android/src/test/kotlin/cc/joycreator/joybrush/android/board/StrokeCaptureDispatchTest.kt
+@@ -14,7 +14,7 @@
+ import cc.joycreator.joybrush.core.doc.LayerKind
+ import cc.joycreator.joybrush.core.guide.Guide
+ import cc.joycreator.joybrush.core.input.PenSample
+-import cc.joycreator.joybrush.core.input.StrokeSmoother
++import cc.joycreator.joybrush.core.input.StrokeStabilizer
+ import cc.joycreator.joybrush.core.layers.LayerStack
+ import cc.joycreator.joybrush.core.layers.LayerState
+ import cc.joycreator.joybrush.core.paint.StrokeBlend
+@@ -58,7 +58,7 @@
+     private fun begin(view: JbCanvasView, eraser: Boolean=false, seed: Long?=null) = call(view,"startStroke",eraser,seed)
+     private fun finish(view: JbCanvasView) = call(view,"finishStroke")
+     private fun feedRaw(view: JbCanvasView, points: List<PenSample>) {
+-        val sm = get(view,"smoother") as StrokeSmoother
++        val sm = get(view,"smoother") as StrokeStabilizer
+         val released = ArrayList<PenSample>()
+         points.forEach { call(view,"feedOne",sm,it,released) }
+         call(view,"paint",released)
+@@ -234,7 +234,7 @@
+ 
+     @Test fun budgetRefusesTheWholeDiagnosticContactAndLeavesDrawingActive() {
+         val view=surface(); val out=observe(view); begin(view)
+-        val sm=get(view,"smoother") as StrokeSmoother; val released=ArrayList<PenSample>()
++        val sm=get(view,"smoother") as StrokeStabilizer; val released=ArrayList<PenSample>()
+         repeat(32769) { call(view,"feedOne",sm,point(it.toDouble()),released) }
+         assertTrue(view.strokeInProgress); assertNull(get(view,"diagnosticContact"))
+         assertTrue((out.single() as DiagnosticStrokeCaptureResult.Refused).reason.contains("32768"))
+@@ -265,4 +265,116 @@
+         assertEquals(replay.strokeOpacity,captured.start.opacity,0f)
+         assertEquals(replay.strokeHardness,captured.start.hardness,0f)
+     }
++    @Test fun familyContactFreezesActualPolicyBeforeLaterPreferenceAndSuggestionChanges() {
++        val view=surface(); val out=observe(view)
++        val actual=cc.joycreator.joybrush.core.input.StabilizerSpec(
++            mode=cc.joycreator.joybrush.core.input.StabilizerMode.catchUpOnLift,radiusPx=12f)
++        view.preset=view.preset!!.copy(extensions=mapOf("unibrush.family" to "builtin"))
++        view.stabilizerPreference=cc.joycreator.joybrush.core.input.StabilizerPreference(
++            cc.joycreator.joybrush.core.input.StabilizerPolicy.alwaysMine,actual)
++        begin(view,seed=321L)
++        view.stabilizerPreference=cc.joycreator.joybrush.core.input.StabilizerPreference()
++        view.preset=view.preset!!.copy(stabilizer=cc.joycreator.joybrush.core.input.StabilizerSpec(
++            mode=cc.joycreator.joybrush.core.input.StabilizerMode.off))
++        val raw=listOf(point(),point(10.0).copy(x=35f),point(20.0).copy(x=70f))
++        feedRaw(view,raw);finish(view)
++        val result=captured(out)
++        assertEquals(actual,result.record.stabilizer)
++        assertEquals(raw,result.record.samples)
++        assertEquals(InkReplay.replay(result.record,result.brush.preset).dabs,InkReplay.replay(result.record,
++            result.brush.preset.copy(stabilizer=view.preset!!.stabilizer)).dabs)
++    }
++
++    @Test fun globalActualPolicyLeavesHistoricalContactsOnTheLegacyFilterContract() {
++        val view=surface();val out=observe(view)
++        view.stabilizerPreference=cc.joycreator.joybrush.core.input.StabilizerPreference(
++            cc.joycreator.joybrush.core.input.StabilizerPolicy.alwaysMine,
++            cc.joycreator.joybrush.core.input.StabilizerSpec(mode=cc.joycreator.joybrush.core.input.StabilizerMode.off))
++        begin(view);feedRaw(view,listOf(point(),point(10.0).copy(x=30f)));finish(view)
++        assertNull(captured(out).record.stabilizer)
++    }
++
++    @Test fun strokeEndsRefuseBeforeStartingNativePaintUntilTheRecordedPublisherIsConnected() {
++        for(family in listOf("builtin","user")) for(style in listOf(
++            LineStyleSpec(taperOut=1f),LineStyleSpec(dashOn=1f,dashOff=.5f))) {
++            val view=surface();view.preset=view.preset!!.copy(line=style,extensions=mapOf("unibrush.family" to family))
++            val refused=ArrayList<String>();view.onRefused={refused.add(it)}
++            val out=observe(view);begin(view)
++            assertFalse(view.strokeInProgress)
++            assertTrue(refused.single().contains("recorded drawing connection"))
++            assertTrue(out.isEmpty());assertFalse(get(view,"glBegan") as Boolean)
++            assertNull(get(view,"smoother"));assertNull(get(view,"strokeTips"))
++        }
++    }
++
++    @Test fun unmarkedModernTipFieldsAndActiveColourWithEndsRefuseBeforeResourceOrNativeWork() {
++        val base=surface().preset!!
++        val modern=listOf(
++            base.copy(tip=TipSpec(angleSource=TipAngleSource.fixed)),
++            base.copy(tip=TipSpec(profile=TipProfileSpec())),
++            base.copy(tip=TipSpec(fade=TipFadeSpec())),
++            base.copy(tip=TipSpec(quad=TipQuadSpec())),
++            base.copy(color=ColorJitter(dynamics=ColorDynamicsSpec(hueRangeDegrees=1f))),
++            base.copy(tip=TipSpec(sampled=SampledTipSpec(listOf("missing.png")))),
++            base.copy(tip=TipSpec(dual=DualTipSpec())))
++        for(feature in modern) for(style in listOf(LineStyleSpec(taperOut=1f),LineStyleSpec(dashOn=1f,dashOff=.5f))) {
++            val view=surface();view.preset=view.preset!!.copy(tip=feature.tip,color=feature.color,line=style)
++            val refused=ArrayList<String>();view.onRefused={refused.add(it)}
++            val out=observe(view);begin(view)
++            assertFalse(view.strokeInProgress);assertTrue(refused.single().contains("recorded drawing connection"))
++            assertTrue(out.isEmpty());assertNull(get(view,"strokeTips"));assertNull(get(view,"smoother"))
++            assertFalse(get(view,"glBegan") as Boolean);assertEquals(0L,get(view,"diagnosticSerial"))
++        }
++    }
++
++    @Test fun unmarkedOldScalarTaperLegacyColourAndDormantModernFieldsKeepNativeEndDispatch() {
++        val base=surface().preset!!
++        val cases=listOf(
++            base.copy(tip=base.tip.copy(taper=.6f,aspect=.3f,followDirection=true),
++                color=ColorJitter(hue=.2f,saturation=.1f,value=.15f,perStroke=true)),
++            base.copy(color=ColorJitter(dynamics=ColorDynamicsSpec())),
++            base.copy(stabilizer=cc.joycreator.joybrush.core.input.StabilizerSpec(
++                mode=cc.joycreator.joybrush.core.input.StabilizerMode.off)),
++            base.copy(version=BRUSH_VERSION))
++        for(recipe in cases) for(style in listOf(LineStyleSpec(taperOut=1f),LineStyleSpec(dashOn=1f,dashOff=.5f))) {
++            val view=surface();view.preset=recipe.copy(line=style)
++            val refused=ArrayList<String>();view.onRefused={refused.add(it)}
++            val out=observe(view);begin(view)
++            assertTrue(view.strokeInProgress);assertTrue(refused.isEmpty())
++            assertTrue((out.single() as DiagnosticStrokeCaptureResult.Refused).reason.contains("line shaping"))
++            feedRaw(view,listOf(point()));finish(view);assertEquals(1,out.size)
++        }
++    }
++
++    @Test fun inactiveEndsDoNotTriggerPublisherGateEvenForFamilyContacts() {
++        for(style in listOf(LineStyleSpec(),LineStyleSpec(dashOn=1f,dashOff=0f))) {
++            val view=surface();view.preset=view.preset!!.copy(line=style,extensions=mapOf("unibrush.family" to "builtin"))
++            val refused=ArrayList<String>();view.onRefused={refused.add(it)}
++            val out=observe(view);begin(view)
++            assertTrue(view.strokeInProgress);assertTrue(refused.isEmpty())
++            assertTrue((out.single() as DiagnosticStrokeCaptureResult.Refused).reason.contains("line shaping"))
++            view.cancelInterruptedStroke()
++        }
++    }
++
++    @Test fun explicitUnmarkedStabilizerSuggestionStillUsesHistoricalContactPolicy() {
++        val view=surface();view.preset=view.preset!!.copy(stabilizer=cc.joycreator.joybrush.core.input.StabilizerSpec(
++            mode=cc.joycreator.joybrush.core.input.StabilizerMode.off))
++        val out=observe(view);begin(view);feedRaw(view,listOf(point(),point(10.0).copy(x=30f)));finish(view)
++        assertNull(captured(out).record.stabilizer)
++    }
++
++    @Test fun activeColourDynamicsKeepBothContactColoursWhenUiColoursChangeBeforeTheFirstDab() {
++        val view=surface();view.preset=view.preset!!.copy(smoothing=0f,
++            color=ColorJitter(dynamics=ColorDynamicsSpec(secondaryMix=.5f)))
++        view.secondaryColorArgb=Color.GREEN
++        val out=observe(view);begin(view,seed=987L)
++        view.colorArgb=Color.BLUE;view.secondaryColorArgb=Color.WHITE
++        feedRaw(view,listOf(point(),point(10.0).copy(x=30f)));finish(view)
++        val result=captured(out)
++        assertEquals(Color.RED,result.start.colorArgb)
++        assertEquals(Color.RED,result.record.colorArgb)
++        assertEquals(Color.GREEN,result.record.secondaryColorArgb)
++    }
++
+ }
+--- a/joybrush-android/src/test/kotlin/cc/joycreator/joybrush/android/board/CanvasBoundSaveGuardTest.kt
++++ b/joybrush-android/src/test/kotlin/cc/joycreator/joybrush/android/board/CanvasBoundSaveGuardTest.kt
+@@ -210,7 +210,7 @@
+             mapOf(plane to RecordedCel<Int>("paint", null, listOf(record))),
+             mapOf(brush.id to brush), e.undo, fakeRenderer,
+             mapOf(plane to setOf(0L)), mapOf(plane to mapOf(0L to 900_001)),
+-            emptySet<Int>())!!
++            emptySet<Int>(), emptyMap<String, cc.joycreator.joybrush.core.brush.FrozenBrushPngs>())!!
+         invoke(e, "registerRecordedScene", scene)
+         invoke(e, "bindRecordedPaintPublication")
+         assertNull("generic fixture intentionally has no board metadata", e.boardDocument)

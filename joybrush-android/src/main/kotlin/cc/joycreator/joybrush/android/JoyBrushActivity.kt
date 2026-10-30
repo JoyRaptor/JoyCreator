@@ -36,6 +36,12 @@ import androidx.core.view.WindowInsetsControllerCompat
 import cc.joycreator.joybrush.android.chrome.BitmapPreviewCodec
 import cc.joycreator.joybrush.android.chrome.BrushDrawerView
 import cc.joycreator.joybrush.android.chrome.BrushPreviewCache
+import cc.joycreator.joybrush.android.chrome.PreviewMaker
+import cc.joycreator.joybrush.android.chrome.UnibrushHostController
+import cc.joycreator.joybrush.android.chrome.UnibrushActivation
+import cc.joycreator.joybrush.androidkit.UnibrushCanvasPort
+import cc.joycreator.joybrush.androidkit.preview.BrushPreviewRequest
+import cc.joycreator.joybrush.androidkit.preview.BrushPreviewStyle
 import cc.joycreator.joybrush.android.chrome.ChromeKit
 import cc.joycreator.joybrush.android.chrome.ColourPairView
 import cc.joycreator.joybrush.android.chrome.GuideOverlayView
@@ -252,9 +258,25 @@ class JoyBrushActivity : Activity() {
     private val brushPreviews: BrushPreviewCache<Bitmap> by lazy {
         BrushPreviewCache(
             dir = File(cacheDir, "brush_previews"),
-            maker = { preset, w, h, style, done ->
-                val ticket = canvas.renderBrushPreview(preset, w, h, style, done)
-                PreviewCancel { ticket.cancel() }
+            maker = object : PreviewMaker<Bitmap> {
+                override fun make(preset: BrushPreset, width: Int, height: Int, style: BrushPreviewStyle,
+                                  done: (Bitmap?) -> Unit): PreviewCancel {
+                    // Historical SAM path stays available for callers without modern context.
+                    val ticket = canvas.renderBrushPreview(preset, width, height, style, done)
+                    return PreviewCancel { ticket.cancel() }
+                }
+                override fun make(snapshot: BrushPreviewRequest, done: (Bitmap?) -> Unit): PreviewCancel {
+                    // The cache key already owns this exact snapshot; no later provider/policy lookup.
+                    val port = (canvas as Any) as? UnibrushCanvasPort
+                    val ticket = if (port != null) {
+                        unibrush?.previewStarted(snapshot)
+                        port.renderBrushPreview(snapshot, { unibrush?.previewRetired(snapshot) }, done)
+                    } else {
+                        check(!snapshot.requiresResourceAwareMaker) { "This canvas does not have the integrated Unibrush resource renderer" }
+                        canvas.renderBrushPreview(snapshot.preset, snapshot.width, snapshot.height, snapshot.style, done)
+                    }
+                    return PreviewCancel { ticket.cancel() }
+                }
             },
             codec = BitmapPreviewCodec,
             ui = BitmapPreviewCodec.uiThread(),
@@ -316,7 +338,14 @@ class JoyBrushActivity : Activity() {
 
     // JB-1.05b: the shipped brush files. Each tool in the strip remembers its own brush, size and opacity (JB-2.01), and
     // the view draws with the one in the hand — the hard-coded round brush is only reached by an empty library.
-    private val brushes: List<BrushPreset> = BrushLibrary.builtIn()
+    private val shippedBrushes: List<BrushPreset> = BrushLibrary.builtIn().filterNot {
+        it.extensions["unibrush.family"] in setOf("builtin", "user")
+    }
+    private var brushes: List<BrushPreset> = shippedBrushes
+    private var unibrush: UnibrushHostController? = null
+    private var catalogToolsPending = false
+    private var restoreCatalogTools = true
+    private var pendingCatalogTools: String? = null
     private var tools = ToolMemory.defaults(brushes)
 
     /** Each brush's slider positions, by brush id (BrushTuning). Empty until the owner moves one. */
@@ -441,7 +470,9 @@ class JoyBrushActivity : Activity() {
         canvas.mediaWaterAB = WaterTest.of(prefs.getString(PREF_WATER_TEST, null)).ab
         canvas.setMediaAtlas(prefs.getString(PREF_PAINT_ENGINE, DEFAULT_PAINT_ENGINE) == "atlas")
         // Each tool as the person left it; the first shipped brush of each kind on a first visit (JB-1.05b, JB-2.01).
-        tools = ToolMemory.decode(prefs.getString(PREF_TOOLS, null), brushes)
+        pendingCatalogTools = prefs.getString(PREF_TOOLS, null)
+        catalogToolsPending = UnibrushActivation.SHIPPING_ENABLED || pendingCatalogTools?.contains("unibrush.") == true
+        tools = ToolMemory.decode(pendingCatalogTools, brushes)
         tuning = BrushTuning.decode(prefs.getString(PREF_TUNING, null))
         prefs.getString(PREF_TUFT, null)?.let { old ->
             // The first format: carry the owner's Sable tuning over rather than lose it.
@@ -528,6 +559,7 @@ class JoyBrushActivity : Activity() {
         hairline = View(this).apply { background = JbColors.roomGradient(this@JoyBrushActivity) }
         root.addView(hairline, FrameLayout.LayoutParams(MATCH, kit.dpi(2f), Gravity.TOP))
         setContentView(root)
+        initializeUnibrush()
         applyTool()
         restoreReference()
         // Four fingers tap: the chrome goes, the picture stays (JB-2.02's gesture, JB-2.01's one toggle).
@@ -648,6 +680,7 @@ class JoyBrushActivity : Activity() {
     override fun onDestroy() {
         activeBench?.abortSelect(); activeBench = null
         JoybotHands.detach(joybotEnv)
+        unibrush?.close(); unibrush = null
         selection?.detach(); selection = null
         boardBackdrop?.close(); boardBackdrop=null
         boardExports.dismiss()
@@ -878,13 +911,63 @@ class JoyBrushActivity : Activity() {
      * The tool in the hand goes to the canvas: its brush at its remembered size and opacity. Saved at once, so a tool is
      * never lost to a force-stop.
      */
+    private fun initializeUnibrush() {
+        if (!UnibrushActivation.SHIPPING_ENABLED) return
+        val port = (canvas as Any) as? UnibrushCanvasPort ?: return
+        val controller = UnibrushHostController(this, kit, canvas, port, prefs, popovers, brushPreviews,
+            shippedBrushes, { placement.edge == StripPlacement.Edge.RIGHT },
+            libraryChanged = { brushes = it },
+            takeUp = { picked ->
+                val before = tools
+                try { tools = tools.pick(picked); applyTool() }
+                catch (error: Exception) { tools = before; throw error }
+            }, refusal = ::toast)
+        unibrush = controller
+        controller.start { loaded ->
+            if (!loaded || !restoreCatalogTools) return@start
+            val restored = ToolMemory.decode(pendingCatalogTools, brushes)
+            val wanted = restored.presetFrom(tunedBrushes())
+            fun restore() {
+                tools = restored; catalogToolsPending = false; pendingCatalogTools = null
+                applyTool()
+            }
+            if (wanted != null && controller.isFamily(wanted)) controller.select(wanted) { restore() }
+            else restore()
+        }
+    }
+
+    private fun chooseDrawerBrush(picked: BrushPreset, settings: Boolean) {
+        restoreCatalogTools = false; pendingCatalogTools = null; catalogToolsPending = false
+        val controller = unibrush
+        if (controller != null && controller.isFamily(picked)) {
+            controller.select(picked) { ready ->
+                tools = tools.pick(ready); applyTool()
+                if (settings) controller.openSettings() else popovers.close()
+            }
+        } else {
+            controller?.cancelSelection()
+            tools = tools.pick(picked); applyTool()
+            if (settings) brushes.firstOrNull { it.id == picked.id }?.let { openSettings(it) }
+            else popovers.close()
+        }
+    }
+
     private fun applyTool() {
         val tuned = tunedBrushes()
-        canvas.preset = tools.presetFrom(tuned) ?: tuned.firstOrNull()
+        val wanted = tools.presetFrom(tuned) ?: tuned.firstOrNull()
+        val controller = unibrush
+        if (wanted != null && controller != null && controller.isFamily(wanted) && !controller.isReady(wanted)) {
+            val requested = tools
+            controller.select(wanted) { if (tools == requested) applyTool() }
+            return // Keep the current canvas pair until its replacement is fully prepared.
+        }
+        if (wanted != null && controller != null && !controller.isFamily(wanted)) controller.cancelSelection()
+        canvas.preset = wanted
         canvas.editableLines = BrushLinePreferences(prefs).enabled(canvas.preset)
         strip.showTools(tools.slots.keys, if (selectInHand) null else tools.active)
         showStripValues()
-        prefs.edit().putString(PREF_TOOLS, tools.encode()).apply()
+        // Do not erase a saved user ID while its catalog/PNG owner is still loading (or refused).
+        if (!catalogToolsPending) prefs.edit().putString(PREF_TOOLS, tools.encode()).apply()
     }
 
     private fun showStripValues() {
@@ -912,15 +995,10 @@ class JoyBrushActivity : Activity() {
         val ownCount = BrushShelf.shelves(brushes).firstOrNull { it.first == own }?.second?.size ?: 0
         val start = if (ownCount >= 2) own else BrushShelf.Kind.ALL
         val drawer = BrushDrawerView(kit, tunedBrushes(), start, current, onPick = { picked ->
-            tools = tools.pick(picked)
-            applyTool()
-            popovers.close()
+            chooseDrawerBrush(picked, settings = false)
         }, onSettings = { held ->
-            // Holding a brush takes it up AND opens its settings, so the sliders and the pen speak about the same brush.
-            tools = tools.pick(held)
-            applyTool()
-            brushes.firstOrNull { it.id == held.id }?.let { openSettings(it) }
-        }, previews = brushPreviews, editableLines = { BrushLinePreferences(prefs).enabled(it) })
+            chooseDrawerBrush(held, settings = true)
+        }, previews = unibrush?.drawerPreviews ?: brushPreviews, editableLines = { BrushLinePreferences(prefs).enabled(it) })
         // Full width on a phone (the Note 9 at its dense setting is ~548 dp); capped on a tablet so strokes stay readable.
         popovers.showSheet(drawer, maxWidthDp = 600f, alignEnd = placement.edge == StripPlacement.Edge.RIGHT)
     }
@@ -1050,6 +1128,12 @@ class JoyBrushActivity : Activity() {
         box.addView(menuRow("Recent drawings…", "Recover one of the last drawings kept before Open") { recentDrawings(anchor) })
         box.addView(menuRow("Export…", "Export this board or the whole drawing, as a flat picture or a layered file") { exportMenu(anchor) })
 
+        unibrush?.let { controller ->
+            box.addView(menuRow("Stabilizer…", "Choose each brush's suggestion or your own canvas stabilizer") {
+                controller.openStabilizer()
+            })
+        }
+
         // Smoothing lives here now: set once, rarely touched.
         val smoothHead = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         val smoothValue = drawerText("${Math.round(canvas.smoothing * 100)}%", 12f).apply { typeface = android.graphics.Typeface.MONOSPACE }
@@ -1101,6 +1185,10 @@ class JoyBrushActivity : Activity() {
      * saved when a finger lifts off a slider. [brush] is the brush as it SHIPS; its saved positions are laid over it here.
      */
     private fun openSettings(brush: BrushPreset) {
+        if (unibrush?.isFamily(brush) == true) {
+            chooseDrawerBrush(brush, settings = true)
+            return
+        }
         val preview = JbCanvasView(this).apply {
             // Above the drawing's own surface, below the chrome.
             setZOrderMediaOverlay(true)
@@ -2606,6 +2694,7 @@ class JoyBrushActivity : Activity() {
      */
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (unibrush?.onActivityResult(requestCode, resultCode, data) == true) return
         val pngTarget = if (requestCode == REQUEST_EXPORT_PNG) pendingPng.also { pendingPng = null } else null
         val boardTarget = if(requestCode == REQUEST_BOARD_EXPORT) pendingBoardExport.also { pendingBoardExport = null } else null
         if (resultCode != Activity.RESULT_OK) return

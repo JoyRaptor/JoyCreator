@@ -1,0 +1,7 @@
+--- a/joybrush/androidkit/src/test/kotlin/cc/joycreator/joybrush/androidkit/io/ColdRecordedLoadPlanTest.kt
++++ b/joybrush/androidkit/src/test/kotlin/cc/joycreator/joybrush/androidkit/io/ColdRecordedLoadPlanTest.kt
+@@ -273,3 +273,3 @@
+         assertFailsWith<IllegalArgumentException> {
+-            ColdRecordedLoadPlan.Prepared(Any(), "not validated", emptyMap(), emptyMap(), null,
++            ColdRecordedLoadPlan.Prepared(Any(), "not validated", emptyMap(), emptyMap(), emptyMap(), null,
+                 listOf(byteArrayOf(1)), emptyList(), emptyList(), emptyList(),

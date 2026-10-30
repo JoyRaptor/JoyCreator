@@ -282,13 +282,28 @@ object RegionRenderer {
         strokeSource: ((String, String) -> List<StrokeRecord>?)? = null,
         frameOverrides: Map<String, String> = emptyMap(),
         onInkRefusal: (InkTiles.Refusal) -> Unit = { throw RegionException(it.reason) },
+    ): ByteArray = render(doc, tiles, null, rect, frameId, paper, paperRenderer,
+        brushLookup, strokeSource, onInkRefusal, frameOverrides)
+
+    fun render(
+        doc: JbDocument,
+        tiles: TileSource,
+        sampledLookup: ((String) -> cc.joycreator.joybrush.core.brush.SampledTipSet?)?,
+        rect: RectPx,
+        frameId: String?,
+        paper: String?,
+        paperRenderer: ((RectPx) -> ByteArray)? = null,
+        brushLookup: ((String) -> BrushPreset?)?,
+        strokeSource: ((String, String) -> List<StrokeRecord>?)? = null,
+        onInkRefusal: (InkTiles.Refusal) -> Unit = { throw RegionException(it.reason) },
+        frameOverrides: Map<String, String> = emptyMap(),
     ): ByteArray {
         requireSize(rect)
         requirePaperIfAny(paper)
         requireOneBackdrop(paper, paperRenderer)
         requireRasterContent(doc, brushLookup)
         if (rect.w == 0 || rect.h == 0) return ByteArray(0)
-        val p = renderPremultipliedWithPreviews(doc, tiles, rect, frameId, paper, paperRenderer, brushLookup, strokeSource, frameOverrides, onInkRefusal)
+        val p = renderPremultiplied(doc, tiles, sampledLookup, rect, frameId, paper, paperRenderer, brushLookup, strokeSource, onInkRefusal, frameOverrides)
         val out = ByteArray(rect.w * rect.h * 4)
         var i = 0
         while (i < p.size) {
@@ -337,6 +352,21 @@ object RegionRenderer {
         strokeSource: ((String, String) -> List<StrokeRecord>?)? = null,
         frameOverrides: Map<String, String> = emptyMap(),
         onInkRefusal: (InkTiles.Refusal) -> Unit = { throw RegionException(it.reason) },
+    ): FloatArray = renderPremultiplied(doc, tiles, null, rect, frameId, paper, paperRenderer,
+        brushLookup, strokeSource, onInkRefusal, frameOverrides)
+
+    fun renderPremultiplied(
+        doc: JbDocument,
+        tiles: TileSource,
+        sampledLookup: ((String) -> cc.joycreator.joybrush.core.brush.SampledTipSet?)?,
+        rect: RectPx,
+        frameId: String?,
+        paper: String?,
+        paperRenderer: ((RectPx) -> ByteArray)? = null,
+        brushLookup: ((String) -> BrushPreset?)?,
+        strokeSource: ((String, String) -> List<StrokeRecord>?)? = null,
+        onInkRefusal: (InkTiles.Refusal) -> Unit = { throw RegionException(it.reason) },
+        frameOverrides: Map<String, String> = emptyMap(),
     ): FloatArray {
         requireSize(rect)
         requirePaperIfAny(paper)
@@ -387,7 +417,7 @@ object RegionRenderer {
                     if (records == null && cel.strokesFile != null) {
                         throw RegionException("Ink records are unavailable for layer $layerId cel $celId")
                     }
-                    InkTiles.prepare(records ?: emptyList(), brushLookup!!).also {
+                    InkTiles.prepare(records ?: emptyList(), brushLookup!!, sampledLookup).also {
                         it.refusals.forEach(onInkRefusal)
                     }
                 }

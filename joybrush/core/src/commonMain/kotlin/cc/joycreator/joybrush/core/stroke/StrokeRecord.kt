@@ -38,6 +38,9 @@ import cc.joycreator.joybrush.core.input.PenSample
  *   recipe and samples; the domain clips the resulting source image, never the trajectory.
  * @property washFrame (v5) the projective frame mapping watercolour wash-local document pixels to
  *   document pixels. Null is the identity frame for old records, preserving their original look.
+ * @property secondaryColorArgb (v5) the frozen secondary straight sRGB color for modern color
+ *   dynamics. Null records predate a frozen palette; replay uses opaque white if re-brushed with
+ *   a modern color recipe. Recolor replaces the primary only and retains this secondary.
  *
  * The record stays a PLAIN VALUE: `widthScale` is not checked or clamped here. [StrokeEdit] and
  * [StrokeCodec] put ordinary widths in range. Captured records instead require valid original
@@ -60,6 +63,9 @@ data class StrokeRecord(
     val groupId: String? = null,
     val capturedPhysicalSource: CapturedPhysicalSource? = null,
     val washFrame: StrokeWashFrame? = null,
+    val secondaryColorArgb: Int? = null,
+    /** v6: actual resolved contact settings. Null retains historical record.smoothing. */
+    val stabilizer: cc.joycreator.joybrush.core.input.StabilizerSpec? = null,
 ) {
     init {
         require(samples.none { it.predicted }) { "predicted points are never recorded" }

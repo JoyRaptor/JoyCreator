@@ -130,8 +130,9 @@ class SymmetryLane private constructor(
      * owns that seed, so the lane is where the recording is made: nobody can hand a record a seed
      * the brush never used.
      */
-    fun capture(id: String, brushId: String, smoothing: Float, screenPerDoc: Float, colorArgb: Int): StrokeCapture =
-        StrokeCapture(id, brushId, seed, smoothing, screenPerDoc, colorArgb)
+    fun capture(id: String, brushId: String, smoothing: Float, screenPerDoc: Float, colorArgb: Int,
+        secondaryColorArgb: Int? = null, stabilizer: cc.joycreator.joybrush.core.input.StabilizerSpec? = null): StrokeCapture =
+        StrokeCapture(id, brushId, seed, smoothing, screenPerDoc, colorArgb, secondaryColorArgb = secondaryColorArgb, stabilizer = stabilizer)
 
     /** The stroke's opacity, as the engine takes it (a WASH stroke's only channel for it). */
     val strokeOpacity: Float get() = dabber?.strokeOpacity ?: 1f
@@ -227,8 +228,10 @@ class SymmetryLane private constructor(
             symmetric: Boolean,
             smoothing: Float,
             screenPerDoc: Float,
+            colors: cc.joycreator.joybrush.core.brush.StrokeColors? = null,
+            sampled: cc.joycreator.joybrush.core.brush.SampledTipSet? = null,
         ): SymmetryLane {
-            val dabber = BrushDabber(preset, seed, frame)
+            val dabber = BrushDabber(preset, seed, colors, sampled, frame = frame)
             val placer = DabPlacer(spacing = dabber.spacing, look = dabber::look)
             return SymmetryLane(
                 copy = copy,

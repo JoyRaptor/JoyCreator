@@ -263,6 +263,55 @@ class GlPaintEngine(
     /** 1x1 opaque white: a mask tile that was never painted (full coverage), and "no mask" in the composite shader. */
     private var whiteTex = 0
 
+    // GL-thread owner; the UI keeps its own independent CPU resolver.
+    private val stampTipResolver = StampTipResolver()
+    private val sampledMasks = SampledMaskTextures(AndroidSampleMaskGl(), { physicalContextEpoch })
+    private var sampledBinding: SampledAtlasBinding? = null
+    private val dualMasks = DualMaskTextures(AndroidSampleMaskGl(), { physicalContextEpoch })
+    private var dualBinding: DualMaskBinding? = null
+
+    private fun resolveRecordedTips(preset: BrushPreset,
+        pngs: cc.joycreator.joybrush.core.brush.FrozenBrushPngs?, seed: Long) =
+        stampTipResolver.resolve(preset, pngs, seed)
+
+    /** A line brush's tip pictures: the recorded scene's while one is bound, else the live lines' own (Unibrush U5). */
+    private fun publishedBrushPngs(id: String): cc.joycreator.joybrush.core.brush.FrozenBrushPngs? =
+        (publishedPaint?.recorded ?: recordedScene?.snapshotState())?.brushAssets?.get(id) ?: nativeLines.asset(id)
+
+    private fun endStampTipMasks() {
+        val atlas = sampledBinding
+        val dual = dualBinding
+        sampledBinding = null; dualBinding = null
+        // Drop live decoded sources and the seed-specific bake before retiring their GL names.
+        if (look.sampledSet != null || look.tip.sampled != null || look.tip.dual != null || look.dualBinding != null) {
+            val previous = look
+            look = StampPass.StrokeLook(previous.tip.copy(sampled = null, dual = null), previous.grain,
+                previous.tipGrainTex, previous.paperGrainTex, previous.surface, previous.paperScale,
+                previous.paperResponse, previous.paperInfluence, previous.tilePaperRect,
+                previous.fluidTexture, previous.baseColor)
+        }
+        var failure: Throwable? = null
+        fun cleanup(action: () -> kotlin.Unit) {
+            try { action() } catch (error: Throwable) {
+                val first = failure
+                if (first == null) failure = error else if (first !== error) first.addSuppressed(error)
+            }
+        }
+        if (atlas != null) cleanup { sampledMasks.end(atlas) }
+        if (dual != null) cleanup { dualMasks.end(dual) }
+        failure?.let { throw it }
+    }
+
+    /** Conservative stamp resources; mutable tile bytes remain a separate budget family. */
+    internal fun heldSampledResourceBytes(): Pair<Long, Long> =
+        (stampTipResolver.heldMaskBytes() + (look.sampledSet?.let { set ->
+            (0 until set.size).sumOf { set.mask(it).width.toLong() * set.mask(it).height }
+        } ?: 0L) + (look.tip.dual?.let { it.width.toLong() * it.height } ?: 0L)) to
+        ((sampledBinding?.let { it.width.toLong() * it.height } ?: 0L) +
+            // Include a failed-retirement name after end/cancel too. Charging the placeholder
+            // at a full mask is conservative and keeps this owner inventory authoritative.
+            dualMasks.heldTextureHandles().size.toLong() * DualMaskTextures.SIDE * DualMaskTextures.SIDE)
+
     private val paperBackground = PaperBackground(shaders)
     private var resolvedPaper: ResolvedPaper? = null
     private var loadedPaper: PaperResources.Loaded? = null
@@ -605,6 +654,7 @@ class GlPaintEngine(
     /** GL-thread snapshot. Playback has no saved cursor and contributes no history step. */
     val previewFrames: Map<String, String> get() = framePreviews.toMap()
     private val strokeTiles = HashMap<Long, Int>()
+    private val stampColors = StampColorTargets(size)
     /** A tile-board stroke's dabs and tuft stamps waiting for this frame's one paint pass (TileStrokeBatch). */
     private val tileDabs = TileStrokeBatch<Dab>()
     private val tileTufts = TileStrokeBatch<TuftStamp>()
@@ -821,12 +871,16 @@ class GlPaintEngine(
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, whiteTex)
         GLES30.glTexSubImage2D(GLES30.GL_TEXTURE_2D, 0, 0, 0, 1, 1, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, white)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
+        sampledMasks.create()
+        dualMasks.create()
         try { grains.create() } finally { owned.textureNames[2] = grains.placeholder }
         check(current()) { "Engine context changed during initialization" }
         check(GLES30.glGetError() == GLES30.GL_NO_ERROR) { "Engine GL initialization failed" }
         } catch (failure: Throwable) {
             // Only this attempt's preallocated ledgers can delete, gated at every name.
             owned.rollback(failure)
+            runCatching { sampledMasks.release() }.exceptionOrNull()?.let(failure::addSuppressed)
+            runCatching { dualMasks.release() }.exceptionOrNull()?.let(failure::addSuppressed)
             if (physicalContextEpoch == epoch) {
                 grains.forget()
                 quadVbo = 0; unitVbo = 0; instanceVbo = 0
@@ -880,6 +934,11 @@ class GlPaintEngine(
         // a layer, so nothing is released twice and nothing is left pointing at a dead name.
         // Dead stroke names are abandoned, not returned to a pool that can trim/delete them.
         strokeTiles.clear()
+        sampledBinding = null; dualBinding = null
+        sampledMasks.forget()
+        dualMasks.forget()
+        stampTipResolver.clear()
+        stampColors.abandonContext() // dead names never meet replacement-context deletes
         cancelStroke()
         layers.clear()
         boardDocument = null
@@ -916,7 +975,7 @@ class GlPaintEngine(
      * [clearTex] are the driver's business and [initWith] makes new ones rather than reusing old.
      */
     internal fun heldTextureNames(): Int =
-        layers.values.sumOf { it.ownedTextures().size + (it.mask?.ownedTextures()?.size ?: 0) } + strokeTiles.size + freeLayerTex.size + freeStrokeTex.size + freeSmudgeTex.size + freeFloatTex.size +
+        layers.values.sumOf { it.ownedTextures().size + (it.mask?.ownedTextures()?.size ?: 0) } + strokeTiles.size + stampColors.size + freeLayerTex.size + freeStrokeTex.size + freeSmudgeTex.size + freeFloatTex.size +
             compositor.heldNames() + boardCompositor.heldNames() + (recordedScene?.heldCacheTextures()?.size ?: 0)
 
     /** Frees every GL object this engine owns. */
@@ -942,6 +1001,14 @@ class GlPaintEngine(
         GLES30.glDeleteFramebuffers(3, intArrayOf(fbo, readFbo, copyFbo), 0)
         wcPass?.release(); wcPass = null
         wcLineRenderer?.release(); wcLineRenderer = null; wcLineSelection = null; wcLineReplay = null
+        var tipRetirementFailure: Throwable? = null
+        try { sampledMasks.release() } catch (error: Throwable) { tipRetirementFailure = error }
+        try { dualMasks.release() } catch (error: Throwable) {
+            val first = tipRetirementFailure
+            if (first == null) tipRetirementFailure = error else if (first !== error) first.addSuppressed(error)
+        }
+        stampTipResolver.clear()
+        tipRetirementFailure?.let { throw it }
         grains.release()
         compositor.release()
         boardCompositor.release()
@@ -2666,7 +2733,8 @@ class GlPaintEngine(
      * ONE record for an ordinary stroke, and ONE PER LANE for a symmetry stroke: the copies of the
      * stroke are lines of their own, and they share ONE group so Select takes the whole set.
      */
-    private class PendingLine(val records: List<StrokeRecord>, val brushes: Map<String, BrushPreset>)
+    private class PendingLine(val records: List<StrokeRecord>, val brushes: Map<String, BrushPreset>,
+        val assets: Map<String, cc.joycreator.joybrush.core.brush.FrozenBrushPngs>)
     private var pendingLine: PendingLine? = null
 
     /**
@@ -2676,16 +2744,49 @@ class GlPaintEngine(
      * symmetry stroke hands over one per lane. They all land in the SAME step, and they all share ONE
      * group, so one undo takes them all back and Select takes them all together.
      */
-    fun setPendingLines(records: List<StrokeRecord>, newBrushes: Map<String, BrushPreset> = emptyMap()) {
-        pendingLine = records.takeIf { it.isNotEmpty() }?.let { PendingLine(it, newBrushes) }
+    fun setPendingLines(records: List<StrokeRecord>, newBrushes: Map<String, BrushPreset> = emptyMap(),
+        newAssets: Map<String, cc.joycreator.joybrush.core.brush.FrozenBrushPngs> = emptyMap()) {
+        pendingLine = null
+        if (records.isEmpty()) return
+        val brushes = newBrushes.toMap()
+        val assets = newAssets.toMap()
+        // Admit the bounded candidate itself. Complete document closure/budget is checked by
+        // the joint scene before its atomic publication; this never edits a published map.
+        cc.joycreator.joybrush.androidkit.io.FrozenBrushAssets.prepare(brushes, assets, retainEntries = false)
+        pendingLine = PendingLine(records, brushes, assets)
     }
 
     /** ONE line: the ordinary stroke. The list form is the same call with one entry. */
-    fun setPendingLine(record: StrokeRecord?, newBrushes: Map<String, BrushPreset> = emptyMap()) {
-        setPendingLines(listOfNotNull(record), newBrushes)
+    fun setPendingLine(record: StrokeRecord?, newBrushes: Map<String, BrushPreset> = emptyMap(),
+        newAssets: Map<String, cc.joycreator.joybrush.core.brush.FrozenBrushPngs> = emptyMap()) {
+        setPendingLines(listOfNotNull(record), newBrushes, newAssets)
     }
 
-    fun lineSnapshot(): LineSnapshot = nativeLines.snapshot(documentGeneration)
+    private var lastRecordedSnapshot: java.lang.ref.WeakReference<RecordedScene.State<Int>>? = null
+    private var recordedSnapshotRevision = 0L
+    private var recordedBrushRevision = 0L
+
+    fun lineSnapshot(): LineSnapshot {
+        val current = (publishedPaint?.recorded ?: recordedScene?.snapshotState())
+        if (current == null) {
+            lastRecordedSnapshot = null
+            return nativeLines.snapshot(documentGeneration)
+        }
+        val previous = lastRecordedSnapshot?.get()
+        if (current !== previous) {
+            recordedSnapshotRevision = Math.incrementExact(recordedSnapshotRevision)
+            if (previous == null || previous.brushes != current.brushes || previous.brushAssets != current.brushAssets)
+                recordedBrushRevision = Math.incrementExact(recordedBrushRevision)
+            lastRecordedSnapshot = java.lang.ref.WeakReference(current)
+        }
+        return LineSnapshot(recordedSnapshotRevision,
+            current.planes.mapKeys { (at, _) -> LinePlane(at.first, at.second) }.mapValues { it.value.records },
+            current.brushes.mapValues { cc.joycreator.joybrush.core.brush.BrushJson.decodeChecked(it.value) },
+            current.planes.filterValues { it.records.isNotEmpty() || it.slabs.isNotEmpty() }.keys
+                .mapTo(LinkedHashSet()) { LinePlane(it.first, it.second) },
+            recordedBrushRevision, current.planes.values.sumOf { it.slabs.values.sumOf { stack -> stack.size } },
+            sourceDocumentGeneration = documentGeneration, brushAssets = current.brushAssets)
+    }
 
     /** GL-thread metadata-only admission. No dabs, GL calls, document edits, or history are produced. */
     fun prepareLineCopy(request: LineCopyRequest, availableHeapBytes: Long): LineCopyResult {
@@ -2843,7 +2944,12 @@ class GlPaintEngine(
         if (layer.isMask || written.isEmpty()) return PendingItems.NONE
         // H12: a line is kept only if it can be redrawn later; otherwise it stays pixels (a slab where the plane holds
         // items), said once, rather than becoming a line that would come back wrong or not at all.
-        if (line != null) lineReplayRefusal(line.records, line.brushes)?.let {
+        if (line != null) lineReplayRefusal(line.records, line.brushes, line.assets)?.let {
+            android.util.Log.i("JoyBrushLines", "kept as pixels: $it")
+            onLineNotice?.invoke(KEPT_AS_PIXELS)
+            line = null
+        }
+        if (line != null) lineAssetRefusal(line)?.let {
             android.util.Log.i("JoyBrushLines", "kept as pixels: $it")
             onLineNotice?.invoke(KEPT_AS_PIXELS)
             line = null
@@ -2895,7 +3001,32 @@ class GlPaintEngine(
             slabs.forEach { it.after?.texture?.let(::recycleLayerTex) }
             throw e
         }
-        return PendingItems(slabs, lines, footprints, line?.brushes.orEmpty())
+        return PendingItems(slabs, lines, footprints, line?.brushes.orEmpty(), line?.assets.orEmpty())
+    }
+
+    /**
+     * Why a line whose brush draws from pictures cannot be kept as a line, null = it can: the drawing must hold, with this
+     * line, every picture each of its brushes needs, the same bytes under an id it knows, inside the saved-drawing budget
+     * (FrozenBrushAssets, what a save writes). Checked before anything changes, so a line that would make the drawing
+     * unsaveable, or unopenable, stays pixels instead.
+     */
+    private fun lineAssetRefusal(line: PendingLine): String? {
+        val brushes = nativeLines.brushes() + line.brushes
+        val assets = nativeLines.assets()
+        for ((id, pngs) in line.assets) {
+            if (id !in brushes) return "its brush pictures name no brush"
+            val known = assets[id]
+            if (known != null && !known.sameBytes(pngs)) return "its brush pictures differ from the ones this drawing keeps"
+        }
+        val all = line.assets + assets
+        val preset = brushes[line.records.first().brushId] ?: return null
+        if (cc.joycreator.joybrush.core.brush.BrushAssetPaths.required(preset).isNotEmpty() && line.records.first().brushId !in all)
+            return "its brush pictures are missing"
+        if (line.assets.isEmpty()) return null
+        return try {
+            cc.joycreator.joybrush.androidkit.io.FrozenBrushAssets.prepare(brushes.filterKeys { it in all }, all, retainEntries = false)
+            null
+        } catch (e: Exception) { e.message ?: "its brush pictures do not fit the drawing" }
     }
 
     /** Said (on the GL thread) when a stroke meant as a line is kept as pixels instead; the canvas shows it. */
@@ -2912,22 +3043,29 @@ class GlPaintEngine(
      * record: the copies are affine images of one another - the same samples, the same brush, the same number of dabs -
      * so the first one's replay decides the set's, and a stroke of thirty lanes is not replayed thirty times over.
      */
-    private fun lineReplayRefusal(records: List<StrokeRecord>, brushes: Map<String, BrushPreset>): String? {
+    private fun lineReplayRefusal(records: List<StrokeRecord>, brushes: Map<String, BrushPreset>,
+                                  assets: Map<String, cc.joycreator.joybrush.core.brush.FrozenBrushPngs>): String? {
         if (records.isEmpty()) return null
         for (r in records) {
             InkReplay.refusal(r, brushes[r.brushId] ?: nativeLines.brush(r.brushId))?.let { return it }
         }
         val record = records.first()
         val preset = brushes[record.brushId] ?: nativeLines.brush(record.brushId)
+        val pngs = assets[record.brushId] ?: nativeLines.asset(record.brushId)
         val p = preset ?: return "no brush"
         if (BrushValidate.validate(p).isNotEmpty()) return "its frozen brush is not valid"
         if (p.engine != "stamp" && p.engine != ENGINE_WATERCOLOUR) return "the ${p.engine} engine is not replayed"
-        if (p.engine == "stamp" && p.tip.source != "procedural") return "picture tips are not replayed"
-        if (p.line != null) return "whole-stroke shaping is not replayed"
+        if (p.engine == "stamp" && p.tip.source != "procedural" && p.tip.sampled == null) return "picture tips are not replayed"
+        // Unibrush U5: a picture or dual tip replays from the line's own frozen pictures (exactly as prepareRecordedLine will).
+        val tips = try { resolveRecordedTips(p, pngs, record.seed) } catch (e: Exception) { return e.message ?: "its brush pictures cannot be read" }
+        p.tip.sampled?.let { if (tips.sampled?.matches(it) != true) return "its brush pictures are incomplete" }
+        p.tip.dual?.let { if (tips.dual?.matches(it, record.seed) != true) return "its dual tip does not match its pictures" }
+        // Unibrush U6: tapers and dashes replay (InkReplay shapes them); a screen-width wire is drawn by its renderer.
+        if (cc.joycreator.joybrush.core.vector.LineStyle.of(p.line).isWire) return "a screen-width wire is not replayed"
         if (p.blend !in NativeLines.OPERATORS) return "the ${p.blend} operator is not composed"
         if (p.blend == "behind") return "a stroke paints behind as plain paint, so a behind line would redraw differently"
         if (paperWarnings.isNotEmpty()) return "the paper's resources are missing"
-        val replay = try { InkReplay.replay(record, p) } catch (e: Exception) { return e.message ?: "the replay refused" }
+        val replay = try { InkReplay.replay(record, p, tips.sampled, tips.dual) } catch (e: Exception) { return e.message ?: "the replay refused" }
         if (p.version < VERSION_CONTACT &&
             (replay.strokeGrain.tip.enabled || replay.strokeGrain.paper.enabled || !replay.strokeGrain.paperResponse.isDefault)) {
             val first = replay.dabs.firstOrNull()
@@ -2942,7 +3080,8 @@ class GlPaintEngine(
 
     /** What a stroke adds to the items of its planes, made but not yet applied ([commitPendingLine] phase 1). */
     private class PendingItems(val slabs: List<UndoLog.SlabChange<Int>>, val lines: List<UndoLog.LineChange>,
-                               val footprints: Map<Pair<LinePlane, String>, Set<Long>>, val brushes: Map<String, BrushPreset>) {
+                               val footprints: Map<Pair<LinePlane, String>, Set<Long>>, val brushes: Map<String, BrushPreset>,
+                               val assets: Map<String, cc.joycreator.joybrush.core.brush.FrozenBrushPngs> = emptyMap()) {
         companion object { val NONE = PendingItems(emptyList(), emptyList(), emptyMap(), emptyMap()) }
     }
 
@@ -2952,7 +3091,7 @@ class GlPaintEngine(
      */
     private fun installPendingItems(items: PendingItems) {
         if (items.slabs.isEmpty() && items.lines.isEmpty()) return
-        nativeLines.addBrushes(items.brushes)
+        nativeLines.addBrushes(items.brushes, items.assets)
         applyItemChanges(items.slabs, items.lines, forward = true, footprints = items.footprints)
     }
 
@@ -3042,7 +3181,7 @@ class GlPaintEngine(
             GLES30.glUniform2f(commitProg.loc("u_tileOrigin"), ox, oy)
             GLES30.glUniformMatrix3fv(commitProg.loc("u_docToClip"), 1, false, tileToClip(ox, oy), 0)
             GLES30.glBindVertexArray(tileVao)
-            bindTextures(if (smudge != null && !smudgePaint) under ?: clearTex else clearTex, strokeTex)
+            bindTextures(if (smudge != null && !smudgePaint) under ?: clearTex else clearTex, strokeTex, key)
             GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
             check(GLES30.glGetError() == GLES30.GL_NO_ERROR) { "Stroke slab rendering failed" }
         } catch (e: Throwable) {
@@ -3131,7 +3270,9 @@ class GlPaintEngine(
     class LineSave(val records: Map<LinePlane, List<StrokeRecord>>, val crossed: Map<LinePlane, Set<Long>>,
                    val bases: Map<Pair<LinePlane, Long>, ByteArray>, val brushes: Map<String, BrushPreset>,
                    /** v1.2 H13: each plane's pixel slabs, seq to (operator, bytes per tile). A plane of slabs alone has no records. */
-                   val slabs: Map<LinePlane, Map<Long, Pair<String, Map<Long, ByteArray>>>> = emptyMap())
+                   val slabs: Map<LinePlane, Map<Long, Pair<String, Map<Long, ByteArray>>>> = emptyMap(),
+                   /** Unibrush U4: the kept brushes' tip pictures, by brush id (what their lines are redrawn with). */
+                   val assets: Map<String, cc.joycreator.joybrush.core.brush.FrozenBrushPngs> = emptyMap())
 
     /** GL thread. A deleted layer's or frame's lines are history only and are not saved. */
     fun lineSave(): LineSave {
@@ -3158,7 +3299,7 @@ class GlPaintEngine(
             }
             if (planeSlabs.isNotEmpty()) slabs[plane] = planeSlabs
         }
-        return LineSave(records, crossed, bases, nativeLines.brushes(), slabs)
+        return LineSave(records, crossed, bases, nativeLines.brushes(), slabs, nativeLines.assets())
     }
 
     /**
@@ -3168,8 +3309,9 @@ class GlPaintEngine(
     fun loadLines(records: Map<LinePlane, List<StrokeRecord>>, bases: Map<Pair<LinePlane, Long>, ByteArray>,
                   brushes: Map<String, BrushPreset>,
                   slabs: Map<LinePlane, Map<Long, Pair<String, Map<Long, ByteArray>>>> = emptyMap(),
-                  compose: Map<LinePlane, Set<Long>> = emptyMap()) {
-        nativeLines.addBrushes(brushes)
+                  compose: Map<LinePlane, Set<Long>> = emptyMap(),
+                  brushAssets: Map<String, cc.joycreator.joybrush.core.brush.FrozenBrushPngs> = emptyMap()) {
+        nativeLines.addBrushes(brushes, brushAssets.filterKeys { it in brushes })
         for ((plane, list) in records) for (r in list.sortedBy { it.seq }) nativeLines.put(plane, r.id, r)
         for ((at, bytes) in bases) nativeLines.setBase(at.first, at.second, uploadTile(newLayerTile(), bytes))
         for ((plane, bySeq) in slabs) for ((seq, slab) in bySeq) for ((key, bytes) in slab.second) {
@@ -3207,6 +3349,23 @@ class GlPaintEngine(
         }
         fun brushOf(r: StrokeRecord): BrushPreset =
             brushes[r.brushId] ?: nativeLines.brush(r.brushId) ?: throw IllegalArgumentException("This line's brush is missing from the drawing")
+        // Unibrush U7: a re-brush or paste to a brush that draws from pictures brings them; the drawing must then hold every
+        // picture each written line needs, the same bytes under ids it knows, inside the saved-drawing budget: refused before
+        // anything changes, as a new line's pictures are (lineAssetRefusal).
+        val assets = when (edit) { is LineEdit.Replace -> edit.assets; is LineEdit.Add -> edit.assets; else -> emptyMap() }
+        val written = when (edit) { is LineEdit.Replace -> edit.after.map { it.record }; is LineEdit.Add -> edit.records.map { it.record }; else -> emptyList() }
+        for ((id, pngs) in assets) {
+            require(id in brushes || nativeLines.brush(id) != null) { "Brush pictures name no brush" }
+            require(nativeLines.asset(id)?.sameBytes(pngs) != false) { "These brush pictures differ from the ones this drawing keeps" }
+        }
+        for (r in written) {
+            val needs = cc.joycreator.joybrush.core.brush.BrushAssetPaths.required(brushOf(r)).isNotEmpty()
+            require(!needs || r.brushId in assets || nativeLines.asset(r.brushId) != null) { "This line's brush pictures are missing" }
+        }
+        if (assets.isNotEmpty()) {
+            val all = assets + nativeLines.assets()
+            cc.joycreator.joybrush.androidkit.io.FrozenBrushAssets.prepare((nativeLines.brushes() + brushes).filterKeys { it in all }, all, retainEntries = false)
+        }
         // The next list of every plane the edit touches.
         val next = LinkedHashMap<LinePlane, MutableList<StrokeRecord>>()
         val nextSeq = HashMap<LinePlane, Long>()
@@ -3237,7 +3396,7 @@ class GlPaintEngine(
             }
             is LineEdit.Bake -> error("Rasterize Down is handled above")
         }
-        if (brushes.isNotEmpty()) nativeLines.addBrushes(brushes)
+        if (brushes.isNotEmpty() || assets.isNotEmpty()) nativeLines.addBrushes(brushes, assets)
         val tileChanges = ArrayList<UndoLog.TileChange<Int>>()
         val slabChanges = ArrayList<UndoLog.SlabChange<Int>>()
         val lineChanges = ArrayList<UndoLog.LineChange>()
@@ -3769,12 +3928,16 @@ class GlPaintEngine(
      * The returned RGBA8 units include stroke opacity once and retain the brush's operator separately.
      * Caller owns every returned texture until it is committed or discarded. Final cel clipping is the composer's job.
      */
-    internal fun prepareRecordedLine(layerId: String, record: StrokeRecord, preset: BrushPreset): RecordedLineUnit =
-        prepareRecordedLine(layerId, record, preset, null)
+    internal fun prepareRecordedLine(layerId: String, record: StrokeRecord, preset: BrushPreset): RecordedLineUnit {
+        // Picture and dual tips resolve from the line's frozen pictures (U5); missing ones refuse in the resolver.
+        return prepareRecordedLine(layerId, record, preset, null,
+            resolveRecordedTips(preset, publishedBrushPngs(record.brushId), record.seed))
+    }
 
     /** Only the same synchronous admission call may supply its already transcribed recipe. */
     private fun prepareRecordedLine(layerId: String, record: StrokeRecord, preset: BrushPreset,
-                                    admittedReplay: InkReplay.Replayed?): RecordedLineUnit {
+                                    admittedReplay: InkReplay.Replayed?,
+                                    tips: cc.joycreator.joybrush.core.brush.StampTipResources): RecordedLineUnit {
         recordedLinePreparationCalls++
         check(ready) { "The drawing context is not ready for recorded replay" }
         check(!strokeInProgress && !wcFading) { "Finish the current stroke before replaying a line" }
@@ -3784,13 +3947,19 @@ class GlPaintEngine(
         require(record.brushId == preset.id) { "A line must resolve its own frozen brush" }
         require(BrushValidate.validate(preset).isEmpty()) { "This frozen brush cannot be replayed" }
         require(preset.engine == "stamp" || preset.engine == ENGINE_WATERCOLOUR) { "This line engine is not connected to GPU replay yet" }
-        require(preset.engine != "stamp" || preset.tip.source == "procedural") { "Image tips are not connected to recorded GPU stamping yet" }
-        require(preset.line == null) { "Whole-stroke shaping is not connected to live recording yet" }
+        require(preset.engine != "stamp" || preset.tip.source == "procedural" ||
+            (preset.tip.sampled?.let { tips.sampled?.matches(it) } == true)) {
+            "Image replay needs the complete frozen sampled-tip set"
+        }
+        require(!cc.joycreator.joybrush.core.vector.LineStyle.of(preset.line).isWire) { "Screen-width wires are not connected to GPU replay yet" }
         require(preset.blend in setOf("normal", "erase", "behind", "multiply", "screen")) { "This line operator is not connected to GPU composition yet" }
         require(paperWarnings.isEmpty()) { "Recorded replay needs the document's actual paper resources" }
+        require(preset.tip.dual?.let { tips.dual?.matches(it, record.seed) == true } ?: true) {
+            "Recorded dual replay needs its exact frozen recipe and stroke seed"
+        }
         val cachedReplay = if (wcLineSelection == (layerId to record.id) &&
             wcLineRenderer?.canReuse(record, preset) == true) wcLineReplay else null
-        val replay = admittedReplay ?: cachedReplay ?: InkReplay.replay(record, preset)
+        val replay = admittedReplay ?: cachedReplay ?: InkReplay.replay(record, preset, tips.sampled, tips.dual)
         // Older grain brushes used the newest contact of each native event batch as a uniform.
         // Raw samples alone do not retain those batch boundaries, so varying legacy pose cannot
         // be transcribed as one draw without changing the grain. Modern contacts carry it per dab.
@@ -3805,7 +3974,8 @@ class GlPaintEngine(
             }
         }
         val tip = TipShape(aspect = preset.tip.aspect, corner = preset.tip.corner, taper = preset.tip.taper,
-            hardness = replay.strokeHardness, minPx = preset.tip.minPx)
+            hardness = replay.strokeHardness, minPx = preset.tip.minPx, sampled = replay.dabs.firstOrNull()?.sampled,
+            dual = replay.dabs.firstOrNull()?.dual)
         val targets = LinkedHashMap<Long, Int>()
         val physical = physicalContextEpoch
         // Free RGBA8 pool entries are intentionally available as fresh replay outputs.
@@ -3877,7 +4047,7 @@ class GlPaintEngine(
                 val oy = Tiles.ty(key).toFloat() * size
                 GLES30.glUniform2f(commitProg.loc("u_tileOrigin"), ox, oy)
                 GLES30.glUniformMatrix3fv(commitProg.loc("u_docToClip"), 1, false, tileToClip(ox, oy), 0)
-                bindTextures(clearTex, source)
+                bindTextures(clearTex, source, key)
                 GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
                 check(GLES30.glGetError() == GLES30.GL_NO_ERROR) { "Recorded line rendering failed" }
             }
@@ -3942,19 +4112,26 @@ class GlPaintEngine(
     }
 
     /** Diagnostic profile only. No Scene, live input, save or recovery capability is granted. */
-    private fun capturedRecipeLease(layerId: String, input: StrokeRecord, preset: BrushPreset): CapturedRecipeLease =
-        capturedRecipeLease(layerId, input, preset, null, null)
+    private fun capturedRecipeLease(layerId: String, input: StrokeRecord, preset: BrushPreset): CapturedRecipeLease {
+        require(preset.tip.sampled == null && preset.tip.dual == null) {
+            "Picture and dual capture need the resource-bearing recorded callback"
+        }
+        return capturedRecipeLease(layerId, input, preset, null, null,
+            resolveRecordedTips(preset, publishedBrushPngs(input.brushId), input.seed))
+    }
 
     private fun capturedRecipeLease(layerId: String, input: StrokeRecord, preset: BrushPreset,
                                     residentPlanes: Map<Pair<String, String?>, RecordedCel<Int>>?,
-                                    workingTileBudgetBytes: Long?): CapturedRecipeLease {
+                                    workingTileBudgetBytes: Long?,
+                                    tips: cc.joycreator.joybrush.core.brush.StampTipResources): CapturedRecipeLease {
         val record = cc.joycreator.joybrush.core.stroke.CapturedStrokeRules.snapshot(input)
         require(record.capturedPhysicalSource != null &&
             cc.joycreator.joybrush.core.stroke.CapturedStrokeRules.problems(record).isEmpty()) { "Invalid captured recipe" }
         require(record.brushId == preset.id && BrushValidate.validate(preset).isEmpty()) { "Captured diagnostic needs its valid frozen brush" }
         require(preset.engine == "stamp" || preset.engine == ENGINE_WATERCOLOUR) { "Unsupported captured diagnostic engine" }
-        require((preset.engine != "stamp" || preset.tip.source == "procedural") && preset.line == null) {
-            "Captured diagnostic needs a procedural unshaped recipe"
+        require((preset.engine != "stamp" || preset.tip.source == "procedural" ||
+            (preset.tip.sampled?.let { tips.sampled?.matches(it) } == true)) && preset.line == null) {
+            "Captured diagnostic needs its complete unshaped recipe and frozen image set"
         }
         require(workingTileBudgetBytes != null || (record.samples.size in 1..64 && record.samples.all { kotlin.math.abs(it.x) <= 4096f && kotlin.math.abs(it.y) <= 4096f } &&
             record.widthScale <= 2f && record.screenPerDoc in 0.125f..8f &&
@@ -3987,12 +4164,15 @@ class GlPaintEngine(
         // Private evaluate-recipe boundary. All recipe/sample bits are retained. The temporary
         // ordinary view never enters source/history/archive or escapes as a captured appearance.
         val recipe = record.copy(capturedPhysicalSource = null)
+        require(preset.tip.dual?.let { tips.dual?.matches(it, recipe.seed) == true } ?: true) {
+            "Captured dual replay needs its exact frozen recipe and stroke seed"
+        }
         // This CPU admission uses the SAME dab generator and tile allocator geometry as replay.
         // It bounds even WC's own size/dynamics/scatter before the first source GPU allocation.
         // Reuse this exact admitted descriptor for GPU replay. Retained CPU history is not bounded here.
         val footprint = workingTileBudgetBytes?.let { RecordedReplayTilePlan.Accumulator(replayTileLimit(it), size) }
-        val replay = if (footprint == null) InkReplay.replay(recipe, preset)
-            else InkReplay.replayAdmitted(recipe, preset, footprint::add)
+        val replay = if (footprint == null) InkReplay.replay(recipe, preset, tips.sampled, tips.dual)
+            else InkReplay.replayAdmitted(recipe, preset, tips.sampled, tips.dual, footprint::add)
         val admittedKeys = footprint?.snapshot() ?: capturedDiagnosticSourceKeys(replay.dabs)
         val limits = if (workingTileBudgetBytes == null)
             cc.joycreator.joybrush.core.stroke.CapturedSourceCopyPlan.Limits()
@@ -4015,7 +4195,7 @@ class GlPaintEngine(
         val priorStaged = recordedWorkingTiles.snapshot(physical).keys
         var cleanupProtected = protectedRecordedTextureHandles() + priorStaged
         val discardName = IntArray(1)
-        val unit = prepareRecordedLine(layerId, recipe, preset, replay)
+        val unit = prepareRecordedLine(layerId, recipe, preset, replay, tips)
         var handedOff = false
         fun current() = ready && !forgettingGraphicsContext && physicalContextEpoch == physical && graphicsEpoch == graphics
         try {
@@ -4046,7 +4226,7 @@ class GlPaintEngine(
         val minTile = -((-Int.MIN_VALUE.toLong()) / size).toDouble()
         val maxTile = ((Int.MAX_VALUE.toLong()+1-size).floorDiv(size.toLong())).toDouble()
         for (dab in dabs) {
-            val extent = cc.joycreator.joybrush.core.paint.TipMath.extent(dab.radius, dab.anchor)
+            val extent = cc.joycreator.joybrush.core.paint.TipMath.extent(dab.radius, dab.anchor, dab.sampled, dab.aspect)
             require(dab.x.isFinite() && dab.y.isFinite() && extent.isFinite() && extent >= 0f) { "Invalid captured dab extent" }
             // Retain Tiles.touchedBy's Float arithmetic, then check before narrowing/enumeration.
             val x0 = kotlin.math.floor((dab.x-extent)/size).toDouble()
@@ -4250,10 +4430,11 @@ class GlPaintEngine(
 
     /** Eager source replay, with the same concrete renderer used by saved cold scenes. */
     internal fun createRecordedScene(planes: Map<Pair<String, String?>, RecordedCel<Int>>,
-                                     frozen: Map<String, BrushPreset>): RecordedScene<Int> {
+                                     frozen: Map<String, BrushPreset>,
+                                     frozenAssets: Map<String, cc.joycreator.joybrush.core.brush.FrozenBrushPngs> = emptyMap()): RecordedScene<Int> {
         requireLocalPaint()
         checkStrokeEnded("Finish the stroke before opening recorded cels")
-        val scene = RecordedScene.create(planes, frozen, undo, recordedRenderer(planes))
+        val scene = RecordedScene.create(planes, frozen, undo, recordedRenderer(planes), frozenAssets)
         registerRecordedScene(scene)
         return scene
     }
@@ -4265,14 +4446,15 @@ class GlPaintEngine(
      */
     internal fun createCapturedRecordedScene(planes: Map<Pair<String, String?>, RecordedCel<Int>>,
                                              frozen: Map<String, BrushPreset>,
-                                             workingTileBudgetBytes: Long = boardSnapshotAllowanceBytes): RecordedScene<Int> {
+                                             workingTileBudgetBytes: Long = boardSnapshotAllowanceBytes,
+                                              frozenAssets: Map<String, cc.joycreator.joybrush.core.brush.FrozenBrushPngs> = emptyMap()): RecordedScene<Int> {
         requireLocalPaint()
         check(ready && !strokeInProgress && !wcFading && !mediaStrokeInProgress) {
             "Finish paint and media before opening captured cels"
         }
         require(workingTileBudgetBytes in 0..boardSnapshotAllowanceBytes) { "Invalid captured working-tile allowance" }
         val scene = RecordedScene.create(planes, frozen, undo,
-            recordedRenderer(planes, capturedWorkingTileBudgetBytes = workingTileBudgetBytes))
+            recordedRenderer(planes, capturedWorkingTileBudgetBytes = workingTileBudgetBytes), frozenAssets)
         registerRecordedScene(scene)
         recordedWorkingTileBudgetBytes = workingTileBudgetBytes
         return scene
@@ -4289,7 +4471,8 @@ class GlPaintEngine(
     internal fun createSavedRecordedScene(planes: Map<Pair<String, String?>, RecordedCel<Int>>,
                                           frozen: Map<String, BrushPreset>,
                                           savedLookKeys: Map<Pair<String, String?>, Set<Long>>,
-                                          uploadedLooks: Map<Pair<String, String?>, Map<Long, Int>>): RecordedScene<Int> {
+                                          uploadedLooks: Map<Pair<String, String?>, Map<Long, Int>>,
+                                          frozenAssets: Map<String, cc.joycreator.joybrush.core.brush.FrozenBrushPngs> = emptyMap()): RecordedScene<Int> {
         requireLocalPaint()
         // Unlike eager opening, cold acceptance must not finish/publish existing paint on refusal.
         check(!strokeInProgress && !wcFading && !mediaStrokeInProgress) { "Finish paint/media before accepting saved recorded cels" }
@@ -4299,7 +4482,7 @@ class GlPaintEngine(
             "A physical saved slab needs a nonzero borrowed texture"
         }
         val scene = RecordedScene.createSaved(planes, frozen, undo, renderer,
-            savedLookKeys, uploadedLooks, protectedRecordedTextureHandles())
+            savedLookKeys, uploadedLooks, protectedRecordedTextureHandles(), frozenAssets)
         // No throwing operation/reentrant callback between ownership acceptance and publication.
         // recordedRenderer checked registration, and createSaved's actual callbacks only read
         // captured engine state. The GL-thread assignment therefore completes the transfer once.
@@ -4329,7 +4512,7 @@ class GlPaintEngine(
         requireLocalPaint()
         check(ready && !forgettingGraphicsContext && recordedScene == null && !undo.isCursorBound &&
             layers.isEmpty() && boardDocument == null && !undo.canUndo && !undo.canRedo &&
-            !strokeInProgress && !wcFading && !mediaStrokeInProgress && strokeTiles.isEmpty() &&
+            !strokeInProgress && !wcFading && !mediaStrokeInProgress && strokeTiles.isEmpty() && stampColors.size == 0 &&
             mediaStrokeHeld.isEmpty() && agreedLook.isEmpty() && framePreviews.isEmpty() &&
             tileBoardId == null && tilePreviewRect == null && onionBoardId == null && strokeTileRect == null) {
             "Cold source loading needs an initialized empty idle engine without playback or periodic state"
@@ -4346,6 +4529,7 @@ class GlPaintEngine(
         val stack = LayerStack(doc.layers.map { LayerState(it.id, it.name, it.opacity, it.visible,
             it.blend, it.mask != null, it.clip, it.locked) }, doc.activeLayerId ?: doc.layers.last().id)
         val frozen = plan.frozenBrushesCopy()
+        val frozenAssets = plan.frozenBrushAssetsCopy()
         val records = plan.recordedPlanes.associate { it.address to plan.recordsCopy(it.address) }
         val receipt = ColdRecordedLoadReceipt(
             plan.uploads.count { it.kind == ColdRecordedLoadPlan.Kind.NATIVE_RGBA8 },
@@ -4471,7 +4655,7 @@ class GlPaintEngine(
             val keys = plan.recordedPlanes.associate { (it.address.layerId to it.address.celId) to it.savedLookKeys.toSet() }
             val looks = plan.recordedPlanes.associate { (it.address.layerId to it.address.celId) to
                 it.savedLooks.associate { upload -> upload.key to names[upload.id] } }
-            createSavedRecordedScene(planes, frozen, keys, looks)
+            createSavedRecordedScene(planes, frozen, keys, looks, frozenAssets)
             plan.recordedPlanes.forEach { plane -> plane.savedLooks.forEach { ownership[it.id] = 3 } }
             faultPoint(ColdUploadFailurePhase.AFTER_SAVED_SCENE)
             bindRecordedPaintPublication()
@@ -4665,7 +4849,7 @@ class GlPaintEngine(
         check(owners.map { it.address }.toSet().size == owners.size) { "Duplicate cold owner address" }
         val forbidden = buildSet {
             addAll(undo.heldTextures()); addAll(freeLayerTex); addAll(freeStrokeTex)
-            addAll(freeSmudgeTex); addAll(freeFloatTex); addAll(strokeTiles.values)
+            addAll(freeSmudgeTex); addAll(freeFloatTex); addAll(strokeTiles.values); addAll(stampColors.heldTextureHandles()); addAll(sampledMasks.heldTextureHandles()); addAll(dualMasks.heldTextureHandles())
             for (layer in layers.values) {
                 addAll(layer.projected.values); addAll(layer.visibleProjection?.values.orEmpty())
                 layer.mask?.let { addAll(it.projected.values); addAll(it.visibleProjection?.values.orEmpty()) }
@@ -4727,6 +4911,7 @@ class GlPaintEngine(
             layer.mask?.let { addAll(it.ownedTextures()); addAll(it.visibleProjection?.values.orEmpty()) }
         }
         addAll(strokeTiles.values)
+        addAll(stampColors.heldTextureHandles()); addAll(sampledMasks.heldTextureHandles()); addAll(dualMasks.heldTextureHandles())
         mediaStroke?.forEach { change -> change.before?.let(::add); change.after?.let(::add) }
         addAll(undo.heldTextures())
         addAll(recordedScene?.heldCacheTextures().orEmpty())
@@ -5054,6 +5239,9 @@ class GlPaintEngine(
             }
         }
         strokeTiles.values.forEach(::nonbase)
+        stampColors.heldTextureHandles().forEach(::nonbase)
+        sampledMasks.heldTextureHandles().forEach(::nonbase)
+        dualMasks.heldTextureHandles().forEach(::nonbase)
         mediaStroke?.forEach { change -> change.before?.let(::nonbase); change.after?.let(::nonbase) }
         cursor.undoSteps.forEach { step ->
             step.changes.forEach { it.before?.let(::nonbase) }; step.slabs.forEach { it.before?.texture?.let(::nonbase) }
@@ -5193,23 +5381,30 @@ class GlPaintEngine(
                         (if (plane.second == null) owner.tiles else owner.cels[plane.second]) === store } == true
                 }
 
-            override fun line(address: LineAddress, record: StrokeRecord, preset: BrushPreset): RecordedScene.Unit<Int> {
+            override fun line(address: LineAddress, record: StrokeRecord, preset: BrushPreset): RecordedScene.Unit<Int> =
+                line(address, record, preset, publishedBrushPngs(record.brushId))
+
+            override fun line(address: LineAddress, record: StrokeRecord, preset: BrushPreset,
+                pngs: cc.joycreator.joybrush.core.brush.FrozenBrushPngs?): RecordedScene.Unit<Int> {
                 check(contextCurrent()) { "Recorded renderer context changed before line replay" }
+                // This callback receives the CANDIDATE scene's immutable resources, including
+                // newly frozen images that have not been published into the old root.
+                val tips = resolveRecordedTips(preset, pngs, record.seed)
                 val priorStaged = stagedBeforeCallback()
                 var admittedKeys: Set<Long>? = null
                 val rendered = if (record.capturedPhysicalSource == null) {
                     var admittedReplay: InkReplay.Replayed? = null
                     if (capturedWorkingTileBudgetBytes != null) {
                         val footprint = RecordedReplayTilePlan.Accumulator(replayTileLimit(capturedWorkingTileBudgetBytes), size)
-                        admittedReplay = InkReplay.replayAdmitted(record, preset, footprint::add)
+                        admittedReplay = InkReplay.replayAdmitted(record, preset, tips.sampled, tips.dual, footprint::add)
                         val keys = footprint.snapshot()
                         admittedKeys = keys
                         admitPeak(RecordedWorkingTilePlan.replay(keys.size, tileSize = size))
                     }
-                    prepareRecordedLine(address.layerId, record, preset, admittedReplay)
+                    prepareRecordedLine(address.layerId, record, preset, admittedReplay, tips)
                 } else {
                     checkNotNull(capturedWorkingTileBudgetBytes) { "Captured source replay needs explicit admission" }
-                    val lease = capturedRecipeLease(address.layerId, record, preset, planes, capturedWorkingTileBudgetBytes)
+                    val lease = capturedRecipeLease(address.layerId, record, preset, planes, capturedWorkingTileBudgetBytes, tips)
                     var placed: RecordedLineUnit? = null
                     try {
                         val result = copyCapturedRecipe(lease, CapturedCopyMetrics())
@@ -5302,7 +5497,11 @@ class GlPaintEngine(
         }
         if (capturedWorkingTileBudgetBytes == null) return renderer
         return object : RecordedScene.CapturedSourceRenderer<Int>, RecordedScene.Renderer<Int> by renderer {
-            override fun admitCapturedSource(address: LineAddress, record: StrokeRecord, preset: BrushPreset): Boolean {
+            override fun admitCapturedSource(address: LineAddress, record: StrokeRecord, preset: BrushPreset): Boolean =
+                admitCapturedSource(address, record, preset, publishedBrushPngs(record.brushId))
+
+            override fun admitCapturedSource(address: LineAddress, record: StrokeRecord, preset: BrushPreset,
+                pngs: cc.joycreator.joybrush.core.brush.FrozenBrushPngs?): Boolean {
                 if (!renderer.contextCurrent() || (address.layerId to address.celId) !in planes) return false
                 // Resource admission belongs to the actual replay footprint, not a diagnostic
                 // sample/path cap. CPU preflight never paints or changes ownership/history.
@@ -5310,7 +5509,9 @@ class GlPaintEngine(
                     cc.joycreator.joybrush.core.stroke.CapturedStrokeRules.problems(record).isEmpty() &&
                     record.brushId == preset.id && BrushValidate.validate(preset).isEmpty() &&
                     preset.blend == "normal" && preset.line == null &&
-                    (preset.engine == ENGINE_WATERCOLOUR || (preset.engine == "stamp" && preset.tip.source == "procedural"))
+                    (preset.engine == ENGINE_WATERCOLOUR || (preset.engine == "stamp" &&
+                        (preset.tip.source == "procedural" || (preset.tip.sampled != null && pngs != null)))) &&
+                    (cc.joycreator.joybrush.core.brush.BrushAssetPaths.required(preset).isEmpty() || pngs != null)
             }
         }
     }
@@ -5506,6 +5707,9 @@ class GlPaintEngine(
                                   watercolourWashFrame: cc.joycreator.joybrush.core.stroke.StrokeWashFrame? = null,
                                   startWatercolourPass: Boolean = true) {
         check(!resettingJointPaint && !forgettingGraphicsContext) { "Finish graphics retirement before preparing stroke buffers" }
+        require((tip.sampled == null && tip.dual == null) || (smudge == null && tuft == null && watercolour == null)) {
+            "Sampled and dual tips require the ordinary stamp path"
+        }
         settleWatercolourFade()
         cancelStroke()
         tilePreviewRect=null
@@ -5534,10 +5738,18 @@ class GlPaintEngine(
             tip,
             strokeTileRect,
         )
+        // Upload before grain bindings; failure/cancel never leaves an active atlas.
+        try {
+        sampledBinding = tip.sampled?.let { image ->
+            sampledMasks.begin(image.set.atlas(sampledMasks.maxTextureSize))
+        }
+        dualBinding = tip.dual?.let(dualMasks::begin)
         // The stroke's look (tip, grain pictures, paper), resolved once per stroke: StampPass.lookFor.
         val p = loadedPaper?.paper
         val surface = p?.surface
-        look = stamp.lookFor(tip, grain, p, tuft?.paperResponse, tuft?.paperPitchPx, strokeTileRect, fluidTexture)
+        look = stamp.lookFor(tip, grain, p, tuft?.paperResponse, tuft?.paperPitchPx, strokeTileRect, fluidTexture,
+            baseColor = cc.joycreator.joybrush.core.brush.ColorDab(colR, colG, colB),
+            sampledSet = tip.sampled?.set, sampledBinding = sampledBinding, dualBinding = dualBinding)
         val tooth = if (tuft == null) null else if (p == null) grains.textureFor(tuft.paperAsset) else surfaceTexture
         tuftPaperTex = tooth ?: grains.placeholder
         this.tuft = tuft?.let {
@@ -5560,6 +5772,10 @@ class GlPaintEngine(
                 pass.setWashFrame(watercolourWashFrame)
             } catch (e: Throwable) { cancelStroke(); throw e }
         }
+        } catch (failure: Throwable) {
+            try { cancelStroke() } catch (cleanup: Throwable) { failure.addSuppressed(cleanup) }
+            throw failure
+        }
         liveStrokeIdentity = Any()
         liveSourceAdmissionTaken = false
     }
@@ -5573,6 +5789,10 @@ class GlPaintEngine(
     fun addDabs(dabs: List<Dab>) = mediaTrace("JB.paint.dabs") { addDabsInner(dabs) }
     private fun addDabsInner(dabs: List<Dab>) {
         if (strokeLayer == null || dabs.isEmpty()) return
+        val colored = dabs.first().color != null
+        require(dabs.all { (it.color != null) == colored }) { "A stamp batch cannot mix color formats" }
+        require(!colored || (wcSpec == null && smudge == null)) { "Color moments require a stamp stroke" }
+        stampColors.latch(colored)
         if (wcSpec != null) { addWatercolourDabs(dabs); return }
         smudge?.let { addSmudgeDabs(it, dabs); return }
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
@@ -5592,6 +5812,19 @@ class GlPaintEngine(
         }
         require(tile == null || (strokeTiles.keys + buckets.keys).toSet().size <= TilePainting.MAX_TILES) { "This tile stroke is too large" }
         for (key in buckets.keys) strokeTiles.getOrPut(key) { newStrokeTile() }
+        GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+        // Unibrush colour moments: made and cleared now, like the stroke tiles (before any grain is bound), also for a tile
+        // stroke whose dabs wait for the frame's paint pass. Nothing for a brush without per-dab colour (not latched on).
+        stampColors.prepare(buckets.keys, if (smudgeInternal == GLES30.GL_RGBA16F) 8L else 4L,
+            boardSnapshotAllowanceBytes,
+            allocate = { newTexture(size, smudgeInternal, GLES30.GL_RGBA, smudgeType) },
+            initialize = { color ->
+                attach(color)
+                GLES30.glClearColor(0f, 0f, 0f, 0f)
+                GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
+                check(GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER) == GLES30.GL_FRAMEBUFFER_COMPLETE &&
+                    GLES30.glGetError() == GLES30.GL_NO_ERROR) { "Could not initialize a stamp color tile" }
+            })
         if (tile != null) {
             // A tile stroke's dabs wait for one paint pass a frame (paintWaitingTileStroke). The tiles are made and the
             // size refusal given now, as before; a lean the waiting run does not share paints the run first.
@@ -5614,7 +5847,9 @@ class GlPaintEngine(
             val tex = strokeTiles.getValue(key)
             attach(tex)
             clipTileStroke(key)
-            stamp.drawInto(GlUniformSink, dabProg::loc, look, instanceVbo, (Tiles.tx(key) * size).toFloat(), (Tiles.ty(key) * size).toFloat(), list)
+            stampColors.drawWith(key) {
+                stamp.drawInto(GlUniformSink, dabProg::loc, look, instanceVbo, (Tiles.tx(key) * size).toFloat(), (Tiles.ty(key) * size).toFloat(), list)
+            }
         }
         GLES30.glBindVertexArray(0)
         GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
@@ -5898,7 +6133,7 @@ class GlPaintEngine(
                     val r=slice.rect; GLES30.glScissor(r.x,r.y,r.w,r.h)
                     GLES30.glUniform2f(commitProg.loc("u_tileOrigin"),ox,oy)
                     GLES30.glUniformMatrix3fv(commitProg.loc("u_docToClip"),1,false,tileToClip(ox,oy),0)
-                    bindTextures(before ?: emptyTexOf(layer),strokeTex)
+                    bindTextures(before ?: emptyTexOf(layer),strokeTex,key)
                     GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP,0,4)
                     }
                     GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
@@ -6159,6 +6394,9 @@ class GlPaintEngine(
         include(freeStrokeTex, strokeBytes)
         include(freeSmudgeTex, rgbaStrokeBytes)
         include(strokeTiles.values, if (strokeIsRgba) rgbaStrokeBytes else strokeBytes)
+        stampColors.heldWorkingTileBytes().forEach { (name, bytes) ->
+            result[name] = maxOf(result[name] ?: 0L, bytes)
+        }
         wcPass?.heldWorkingTileBytes()?.forEach { (name, bytes) ->
             result[name] = maxOf(result[name] ?: 0L, bytes)
         }
@@ -6239,7 +6477,8 @@ class GlPaintEngine(
     /** Complete native projection is validated and copied before any source replay or publication. */
     internal fun publishJointPaintStep(step: UndoLog.Step<Int>,
                                        direction: RecordedScene.Direction = RecordedScene.Direction.NEW,
-                                       frozen: Map<String, BrushPreset>? = null): Boolean {
+                                       frozen: Map<String, BrushPreset>? = null,
+                                       frozenAssets: Map<String, cc.joycreator.joybrush.core.brush.FrozenBrushPngs>? = null): Boolean {
         require(step.stackBefore == null && step.stackAfter == null && step.paperBefore == null &&
             step.paperAfter == null && step.documentBefore == null && step.documentAfter == null) {
             "Structural and paper changes need their joint renderer adapter"
@@ -6347,8 +6586,8 @@ class GlPaintEngine(
         recordedWorkingTileBudgetBytes?.let { budget ->
             recordedWorkingTiles.admit(pendingPhysical, recordedWorkingTileBytes(), 0L, budget)
         }
-        val staged = if (projection == null) scene.stageJoint(step, direction, frozen)
-            else scene.stageJointProjected(expected, step, direction, frozen)
+        val staged = if (projection == null) scene.stageJoint(step, direction, frozen, frozenAssets)
+            else scene.stageJointProjected(expected, step, direction, frozen, frozenAssets)
         staged.use { proposal ->
             validateRecordedPhysicalDisplay(proposal.candidateState)
             val remainingSteps = proposal.historyProposal.cursor.undoSteps + proposal.historyProposal.cursor.redoSteps
@@ -6453,7 +6692,7 @@ class GlPaintEngine(
             expected.recorded.cacheTextures() + freeLayerTex + freeStrokeTex + freeSmudgeTex + freeFloatTex +
             listOfNotNull(clearTex, whiteTex, thumbTex, tuftPaperTex, lookTexture, surfaceTexture, fluidTexture,
                 look.tipGrainTex, look.paperGrainTex, look.fluidTexture, compositor.target, compositor.backdrop,
-                boardCompositor.target, boardCompositor.backdrop) + grains.heldTextureHandles() +
+                boardCompositor.target, boardCompositor.backdrop) + grains.heldTextureHandles() + sampledMasks.heldTextureHandles() + dualMasks.heldTextureHandles() +
             boardPreview.heldTextureHandles() + paperBackground.heldTextureHandles() + wcPass?.heldTextureHandles().orEmpty() +
             wcLineRenderer?.heldTextureHandles().orEmpty()
         require(slabNames.distinct().size == slabNames.size && slabNames.none { it == 0 || it in floatNames || it in forbidden }) {
@@ -6497,7 +6736,7 @@ class GlPaintEngine(
                 current(); val owner = expected.nativeLayers.getValue(id)
                 val bytes = readMediaTile(id, store, key, cel.takeUnless { it == owner.sharedCel })
                 current(); bytes
-            })
+            }, brushAssets = expected.recorded.brushAssets)
         current(); scene.checkSnapshotPublication(expected); current()
         return snapshot
     }
@@ -7006,7 +7245,7 @@ class GlPaintEngine(
                     val base = visibleTiles(layer)[key]
                     if (base == null && blend == StrokeBlend.ERASE) continue
                     GLES30.glUniform2f(commitProg.loc("u_tileOrigin"), (Tiles.tx(key) * size).toFloat(), (Tiles.ty(key) * size).toFloat())
-                    bindTextures(base ?: clearTex, strokeTex)
+                    bindTextures(base ?: clearTex, strokeTex, key)
                     GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
                 }
             }
@@ -7135,7 +7374,7 @@ class GlPaintEngine(
             val oy = (Tiles.ty(key) * size).toFloat()
             GLES30.glUniform2f(commitProg.loc("u_tileOrigin"), ox, oy)
             GLES30.glUniformMatrix3fv(commitProg.loc("u_docToClip"), 1, false, tileToClip(ox, oy), 0)
-            bindTextures(base ?: emptyTexOf(layer), strokeTex)
+            bindTextures(base ?: emptyTexOf(layer), strokeTex, key)
             GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
             out[key] = after
         }
@@ -7220,7 +7459,12 @@ class GlPaintEngine(
         GLES30.glUniform1f(commitProg.loc("u_layerOpacity"), layerOpacity)
     }
 
-    private fun bindTextures(layerTex: Int, strokeTex: Int) {
+    private fun bindTextures(layerTex: Int, strokeTex: Int, colorKey: Long? = null) {
+        val moment = colorKey?.let(stampColors::textureFor)
+        GLES30.glUniform1i(commitProg.loc("u_coloredStroke"), if (moment != null) 1 else 0)
+        GLES30.glUniform1i(commitProg.loc("u_colorMoments"), 2)
+        GLES30.glActiveTexture(GLES30.GL_TEXTURE2)
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, moment ?: clearTex)
         GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, layerTex)
         GLES30.glActiveTexture(GLES30.GL_TEXTURE1)
@@ -7268,12 +7512,21 @@ class GlPaintEngine(
 
     private fun releaseStrokeTiles() {
         tileDabs.clear(); tileTufts.clear()
+        var tipFailure: Throwable? = null
+        try { endStampTipMasks() } catch (error: Throwable) { tipFailure = error }
+        try {
+        stampColors.clear()
         // Back into the pool it came from: a smudge's RGBA tiles and a stamp's single-channel tiles are not interchangeable.
         if (strokeIsRgba) { freeSmudgeTex.addAll(strokeTiles.values); trimPool(freeSmudgeTex, 16) }
         else { freeStrokeTex.addAll(strokeTiles.values); trimPool(freeStrokeTex, 32) }
         strokeTiles.clear()
         periodicPickup.values.forEach { if (it != 0) recycleLayerTex(it) }
         periodicPickup.clear(); strokeReads.clear()
+        } catch (error: Throwable) {
+            val first = tipFailure
+            if (first == null) throw error else if (first !== error) first.addSuppressed(error)
+        }
+        tipFailure?.let { throw it }
     }
 
     private fun recycleLayerTex(tex: Int) {

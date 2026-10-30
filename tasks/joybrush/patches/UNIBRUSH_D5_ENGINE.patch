@@ -1,0 +1,789 @@
+--- a/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/gl/GlPaintEngine.kt
++++ b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/gl/GlPaintEngine.kt
+@@ -250,6 +250,39 @@
+
+     /** The grain pictures (JB-1.05c): loaded on first use, dropped on a context loss. */
+     private val grains = GrainTextures()
++    // GL-thread owner; the UI keeps its own independent CPU resolver.
++    private val sampledResolver = SampledTipResolver()
++    private val sampledMasks = SampledMaskTextures(AndroidSampleMaskGl(), { physicalContextEpoch })
++    private var sampledBinding: SampledAtlasBinding? = null
++
++    private fun resolveRecordedSamples(preset: BrushPreset,
++        pngs: cc.joycreator.joybrush.core.brush.FrozenBrushPngs?) = sampledResolver.resolve(preset, pngs)
++
++    private fun publishedBrushPngs(id: String): cc.joycreator.joybrush.core.brush.FrozenBrushPngs? =
++        (publishedPaint?.recorded ?: recordedScene?.snapshotState())?.brushAssets?.get(id)
++
++    private fun endSampledMasks() {
++        val binding = sampledBinding
++        sampledBinding = null
++        // Drop the live UI-owned decoded set at stroke end; the recorded resolver
++        // independently retains at most its own last bounded decoded set.
++        if (look.sampledSet != null || look.tip.sampled != null) {
++            val previous = look
++            look = StampPass.StrokeLook(previous.tip.copy(sampled = null), previous.grain,
++                previous.tipGrainTex, previous.paperGrainTex, previous.surface, previous.paperScale,
++                previous.paperResponse, previous.paperInfluence, previous.tilePaperRect,
++                previous.fluidTexture, previous.baseColor)
++        }
++        if (binding != null) sampledMasks.end(binding)
++    }
++
++    /** CPU resource inventory is separate from the mutable render-tile budget. */
++    internal fun heldSampledResourceBytes(): Pair<Long, Long> =
++        (sampledResolver.heldMaskBytes() + (look.sampledSet?.let { set ->
++            (0 until set.size).sumOf { set.mask(it).width.toLong() * set.mask(it).height }
++        } ?: 0L)) to
++        (sampledBinding?.let { it.width.toLong() * it.height } ?: 0L)
++
+     private val paperBackground = PaperBackground(shaders)
+     private var resolvedPaper: ResolvedPaper? = null
+     private var loadedPaper: PaperResources.Loaded? = null
+@@ -698,6 +731,7 @@
+         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, whiteTex)
+         GLES30.glTexSubImage2D(GLES30.GL_TEXTURE_2D, 0, 0, 0, 1, 1, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, white)
+         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
++        sampledMasks.create()
+         grains.create()
+     }
+
+@@ -739,6 +773,9 @@
+         // a layer, so nothing is released twice and nothing is left pointing at a dead name.
+         // Dead stroke names are abandoned, not returned to a pool that can trim/delete them.
+         strokeTiles.clear()
++        sampledBinding = null
++        sampledMasks.forget()
++        sampledResolver.clear()
+         stampColors.abandonContext() // dead names never meet replacement-context deletes
+         cancelStroke()
+         layers.clear()
+@@ -800,6 +837,8 @@
+         GLES30.glDeleteVertexArrays(4, intArrayOf(dabVao, tileVao, smudgeVao, tuftVao), 0)
+         GLES30.glDeleteFramebuffers(3, intArrayOf(fbo, readFbo, copyFbo), 0)
+         wcPass?.release(); wcPass = null
++        sampledMasks.release()
++        sampledResolver.clear()
+         grains.release()
+         compositor.release()
+         boardCompositor.release()
+@@ -2094,15 +2133,48 @@
+     internal val nativeLines = NativeLines()
+
+     /** A live stroke's record, handed over before [endStroke]; consumed by the commit that makes its step. */
+-    private class PendingLine(val record: StrokeRecord, val brushes: Map<String, BrushPreset>)
++    private class PendingLine(val record: StrokeRecord, val brushes: Map<String, BrushPreset>,
++        val assets: Map<String, cc.joycreator.joybrush.core.brush.FrozenBrushPngs>)
+     private var pendingLine: PendingLine? = null
+
+     /** The stroke being painted becomes an editable line when it commits ([record]'s seq is assigned then). */
+-    fun setPendingLine(record: StrokeRecord?, newBrushes: Map<String, BrushPreset> = emptyMap()) {
+-        pendingLine = record?.let { PendingLine(it, newBrushes) }
+-    }
+-
+-    fun lineSnapshot(): LineSnapshot = nativeLines.snapshot()
++    fun setPendingLine(record: StrokeRecord?, newBrushes: Map<String, BrushPreset> = emptyMap(),
++        newAssets: Map<String, cc.joycreator.joybrush.core.brush.FrozenBrushPngs> = emptyMap()) {
++        pendingLine = null
++        if (record == null) return
++        val brushes = newBrushes.toMap()
++        val assets = newAssets.toMap()
++        // Admit the bounded candidate itself. Complete document closure/budget is checked by
++        // the joint scene before its atomic publication; this never edits a published map.
++        cc.joycreator.joybrush.androidkit.io.FrozenBrushAssets.prepare(brushes, assets, retainEntries = false)
++        pendingLine = PendingLine(record, brushes, assets)
++    }
++
++    private var lastRecordedSnapshot: java.lang.ref.WeakReference<RecordedScene.State<Int>>? = null
++    private var recordedSnapshotRevision = 0L
++    private var recordedBrushRevision = 0L
++
++    fun lineSnapshot(): LineSnapshot {
++        val current = (publishedPaint?.recorded ?: recordedScene?.snapshotState())
++        if (current == null) {
++            lastRecordedSnapshot = null
++            return nativeLines.snapshot()
++        }
++        val previous = lastRecordedSnapshot?.get()
++        if (current !== previous) {
++            recordedSnapshotRevision = Math.incrementExact(recordedSnapshotRevision)
++            if (previous == null || previous.brushes != current.brushes || previous.brushAssets != current.brushAssets)
++                recordedBrushRevision = Math.incrementExact(recordedBrushRevision)
++            lastRecordedSnapshot = java.lang.ref.WeakReference(current)
++        }
++        return LineSnapshot(recordedSnapshotRevision,
++            current.planes.mapKeys { (at, _) -> LinePlane(at.first, at.second) }.mapValues { it.value.records },
++            current.brushes.mapValues { cc.joycreator.joybrush.core.brush.BrushJson.decodeChecked(it.value) },
++            current.planes.filterValues { it.records.isNotEmpty() || it.slabs.isNotEmpty() }.keys
++                .mapTo(LinkedHashSet()) { LinePlane(it.first, it.second) },
++            recordedBrushRevision, current.planes.values.sumOf { it.slabs.values.sumOf { stack -> stack.size } },
++            current.brushAssets)
++    }
+
+     /** A layer's plane in line terms: the engine's celId, with the shared plane under its document cel id once known. */
+     private fun linePlane(layer: Layer, celId: String?): LinePlane = LinePlane(layer.id, celId ?: layer.sharedCel)
+@@ -2242,6 +2314,7 @@
+      * GPU's own preconditions for a line ([prepareRecordedLine]) must hold. Pure checks, nothing is rendered.
+      */
+     private fun lineReplayRefusal(record: StrokeRecord, preset: BrushPreset?): String? {
++        if (preset?.tip?.sampled != null) return "picture lines need the resource-bearing recorded scene"
+         InkReplay.refusal(record, preset)?.let { return it }
+         val p = preset ?: return "no brush"
+         if (BrushValidate.validate(p).isNotEmpty()) return "its frozen brush is not valid"
+@@ -2838,11 +2911,13 @@
+      * Caller owns every returned texture until it is committed or discarded. Final cel clipping is the composer's job.
+      */
+     internal fun prepareRecordedLine(layerId: String, record: StrokeRecord, preset: BrushPreset): RecordedLineUnit =
+-        prepareRecordedLine(layerId, record, preset, null)
++        prepareRecordedLine(layerId, record, preset, null,
++            resolveRecordedSamples(preset, publishedBrushPngs(record.brushId)))
+
+     /** Only the same synchronous admission call may supply its already transcribed recipe. */
+     private fun prepareRecordedLine(layerId: String, record: StrokeRecord, preset: BrushPreset,
+-                                    admittedReplay: InkReplay.Replayed?): RecordedLineUnit {
++                                    admittedReplay: InkReplay.Replayed?,
++                                    samples: cc.joycreator.joybrush.core.brush.SampledTipSet?): RecordedLineUnit {
+         recordedLinePreparationCalls++
+         check(ready) { "The drawing context is not ready for recorded replay" }
+         check(!strokeInProgress && !wcFading) { "Finish the current stroke before replaying a line" }
+@@ -2852,11 +2927,14 @@
+         require(record.brushId == preset.id) { "A line must resolve its own frozen brush" }
+         require(BrushValidate.validate(preset).isEmpty()) { "This frozen brush cannot be replayed" }
+         require(preset.engine == "stamp" || preset.engine == ENGINE_WATERCOLOUR) { "This line engine is not connected to GPU replay yet" }
+-        require(preset.engine != "stamp" || preset.tip.source == "procedural") { "Image tips are not connected to recorded GPU stamping yet" }
++        require(preset.engine != "stamp" || preset.tip.source == "procedural" ||
++            (preset.tip.sampled != null && samples?.matches(preset.tip.sampled) == true)) {
++            "Image replay needs the complete frozen sampled-tip set"
++        }
+         require(preset.line == null) { "Whole-stroke shaping is not connected to live recording yet" }
+         require(preset.blend in setOf("normal", "erase", "behind", "multiply", "screen")) { "This line operator is not connected to GPU composition yet" }
+         require(paperWarnings.isEmpty()) { "Recorded replay needs the document's actual paper resources" }
+-        val replay = admittedReplay ?: InkReplay.replay(record, preset)
++        val replay = admittedReplay ?: InkReplay.replay(record, preset, samples)
+         // Older grain brushes used the newest contact of each native event batch as a uniform.
+         // Raw samples alone do not retain those batch boundaries, so varying legacy pose cannot
+         // be transcribed as one draw without changing the grain. Modern contacts carry it per dab.
+@@ -2871,7 +2949,7 @@
+             }
+         }
+         val tip = TipShape(aspect = preset.tip.aspect, corner = preset.tip.corner, taper = preset.tip.taper,
+-            hardness = replay.strokeHardness, minPx = preset.tip.minPx)
++            hardness = replay.strokeHardness, minPx = preset.tip.minPx, sampled = replay.dabs.firstOrNull()?.sampled)
+         val targets = LinkedHashMap<Long, Int>()
+         val physical = physicalContextEpoch
+         // Free RGBA8 pool entries are intentionally available as fresh replay outputs.
+@@ -2984,18 +3062,20 @@
+
+     /** Diagnostic profile only. No Scene, live input, save or recovery capability is granted. */
+     private fun capturedRecipeLease(layerId: String, input: StrokeRecord, preset: BrushPreset): CapturedRecipeLease =
+-        capturedRecipeLease(layerId, input, preset, null, null)
++        capturedRecipeLease(layerId, input, preset, null, null, resolveRecordedSamples(preset, publishedBrushPngs(input.brushId)))
+
+     private fun capturedRecipeLease(layerId: String, input: StrokeRecord, preset: BrushPreset,
+                                     residentPlanes: Map<Pair<String, String?>, RecordedCel<Int>>?,
+-                                    workingTileBudgetBytes: Long?): CapturedRecipeLease {
++                                    workingTileBudgetBytes: Long?,
++                                    samples: cc.joycreator.joybrush.core.brush.SampledTipSet?): CapturedRecipeLease {
+         val record = cc.joycreator.joybrush.core.stroke.CapturedStrokeRules.snapshot(input)
+         require(record.capturedPhysicalSource != null &&
+             cc.joycreator.joybrush.core.stroke.CapturedStrokeRules.problems(record).isEmpty()) { "Invalid captured recipe" }
+         require(record.brushId == preset.id && BrushValidate.validate(preset).isEmpty()) { "Captured diagnostic needs its valid frozen brush" }
+         require(preset.engine == "stamp" || preset.engine == ENGINE_WATERCOLOUR) { "Unsupported captured diagnostic engine" }
+-        require((preset.engine != "stamp" || preset.tip.source == "procedural") && preset.line == null) {
+-            "Captured diagnostic needs a procedural unshaped recipe"
++        require((preset.engine != "stamp" || preset.tip.source == "procedural" ||
++            (preset.tip.sampled != null && samples?.matches(preset.tip.sampled) == true)) && preset.line == null) {
++            "Captured diagnostic needs its complete unshaped recipe and frozen image set"
+         }
+         require(workingTileBudgetBytes != null || (record.samples.size in 1..64 && record.samples.all { kotlin.math.abs(it.x) <= 4096f && kotlin.math.abs(it.y) <= 4096f } &&
+             record.widthScale <= 2f && record.screenPerDoc in 0.125f..8f &&
+@@ -3032,8 +3112,8 @@
+         // It bounds even WC's own size/dynamics/scatter before the first source GPU allocation.
+         // Reuse this exact admitted descriptor for GPU replay. Retained CPU history is not bounded here.
+         val footprint = workingTileBudgetBytes?.let { RecordedReplayTilePlan.Accumulator(replayTileLimit(it), size) }
+-        val replay = if (footprint == null) InkReplay.replay(recipe, preset)
+-            else InkReplay.replayAdmitted(recipe, preset, footprint::add)
++        val replay = if (footprint == null) InkReplay.replay(recipe, preset, samples)
++            else InkReplay.replayAdmitted(recipe, preset, samples, footprint::add)
+         val admittedKeys = footprint?.snapshot() ?: capturedDiagnosticSourceKeys(replay.dabs)
+         val limits = if (workingTileBudgetBytes == null)
+             cc.joycreator.joybrush.core.stroke.CapturedSourceCopyPlan.Limits()
+@@ -3056,7 +3136,7 @@
+         val priorStaged = recordedWorkingTiles.snapshot(physical).keys
+         var cleanupProtected = protectedRecordedTextureHandles() + priorStaged
+         val discardName = IntArray(1)
+-        val unit = prepareRecordedLine(layerId, recipe, preset, replay)
++        val unit = prepareRecordedLine(layerId, recipe, preset, replay, samples)
+         var handedOff = false
+         fun current() = ready && !forgettingGraphicsContext && physicalContextEpoch == physical && graphicsEpoch == graphics
+         try {
+@@ -3087,7 +3167,7 @@
+         val minTile = -((-Int.MIN_VALUE.toLong()) / size).toDouble()
+         val maxTile = ((Int.MAX_VALUE.toLong()+1-size).floorDiv(size.toLong())).toDouble()
+         for (dab in dabs) {
+-            val extent = cc.joycreator.joybrush.core.paint.TipMath.extent(dab.radius, dab.anchor)
++            val extent = cc.joycreator.joybrush.core.paint.TipMath.extent(dab.radius, dab.anchor, dab.sampled, dab.aspect)
+             require(dab.x.isFinite() && dab.y.isFinite() && extent.isFinite() && extent >= 0f) { "Invalid captured dab extent" }
+             // Retain Tiles.touchedBy's Float arithmetic, then check before narrowing/enumeration.
+             val x0 = kotlin.math.floor((dab.x-extent)/size).toDouble()
+@@ -3291,10 +3371,11 @@
+
+     /** Eager source replay, with the same concrete renderer used by saved cold scenes. */
+     internal fun createRecordedScene(planes: Map<Pair<String, String?>, RecordedCel<Int>>,
+-                                     frozen: Map<String, BrushPreset>): RecordedScene<Int> {
++                                     frozen: Map<String, BrushPreset>,
++                                     frozenAssets: Map<String, cc.joycreator.joybrush.core.brush.FrozenBrushPngs> = emptyMap()): RecordedScene<Int> {
+         requireLocalPaint()
+         checkStrokeEnded("Finish the stroke before opening recorded cels")
+-        val scene = RecordedScene.create(planes, frozen, undo, recordedRenderer(planes))
++        val scene = RecordedScene.create(planes, frozen, undo, recordedRenderer(planes), frozenAssets)
+         registerRecordedScene(scene)
+         return scene
+     }
+@@ -3306,14 +3387,15 @@
+      */
+     internal fun createCapturedRecordedScene(planes: Map<Pair<String, String?>, RecordedCel<Int>>,
+                                              frozen: Map<String, BrushPreset>,
+-                                             workingTileBudgetBytes: Long = boardSnapshotAllowanceBytes): RecordedScene<Int> {
++                                             workingTileBudgetBytes: Long = boardSnapshotAllowanceBytes,
++                                              frozenAssets: Map<String, cc.joycreator.joybrush.core.brush.FrozenBrushPngs> = emptyMap()): RecordedScene<Int> {
+         requireLocalPaint()
+         check(ready && !strokeInProgress && !wcFading && !mediaStrokeInProgress) {
+             "Finish paint and media before opening captured cels"
+         }
+         require(workingTileBudgetBytes in 0..boardSnapshotAllowanceBytes) { "Invalid captured working-tile allowance" }
+         val scene = RecordedScene.create(planes, frozen, undo,
+-            recordedRenderer(planes, capturedWorkingTileBudgetBytes = workingTileBudgetBytes))
++            recordedRenderer(planes, capturedWorkingTileBudgetBytes = workingTileBudgetBytes), frozenAssets)
+         registerRecordedScene(scene)
+         recordedWorkingTileBudgetBytes = workingTileBudgetBytes
+         return scene
+@@ -3330,7 +3412,8 @@
+     internal fun createSavedRecordedScene(planes: Map<Pair<String, String?>, RecordedCel<Int>>,
+                                           frozen: Map<String, BrushPreset>,
+                                           savedLookKeys: Map<Pair<String, String?>, Set<Long>>,
+-                                          uploadedLooks: Map<Pair<String, String?>, Map<Long, Int>>): RecordedScene<Int> {
++                                          uploadedLooks: Map<Pair<String, String?>, Map<Long, Int>>,
++                                          frozenAssets: Map<String, cc.joycreator.joybrush.core.brush.FrozenBrushPngs> = emptyMap()): RecordedScene<Int> {
+         requireLocalPaint()
+         // Unlike eager opening, cold acceptance must not finish/publish existing paint on refusal.
+         check(!strokeInProgress && !wcFading && !mediaStrokeInProgress) { "Finish paint/media before accepting saved recorded cels" }
+@@ -3340,7 +3423,7 @@
+             "A physical saved slab needs a nonzero borrowed texture"
+         }
+         val scene = RecordedScene.createSaved(planes, frozen, undo, renderer,
+-            savedLookKeys, uploadedLooks, protectedRecordedTextureHandles())
++            savedLookKeys, uploadedLooks, protectedRecordedTextureHandles(), frozenAssets)
+         // No throwing operation/reentrant callback between ownership acceptance and publication.
+         // recordedRenderer checked registration, and createSaved's actual callbacks only read
+         // captured engine state. The GL-thread assignment therefore completes the transfer once.
+@@ -3387,6 +3470,7 @@
+         val stack = LayerStack(doc.layers.map { LayerState(it.id, it.name, it.opacity, it.visible,
+             it.blend, it.mask != null, it.clip, it.locked) }, doc.activeLayerId ?: doc.layers.last().id)
+         val frozen = plan.frozenBrushesCopy()
++        val frozenAssets = plan.frozenBrushAssetsCopy()
+         val records = plan.recordedPlanes.associate { it.address to plan.recordsCopy(it.address) }
+         val receipt = ColdRecordedLoadReceipt(
+             plan.uploads.count { it.kind == ColdRecordedLoadPlan.Kind.NATIVE_RGBA8 },
+@@ -3510,7 +3594,7 @@
+             val keys = plan.recordedPlanes.associate { (it.address.layerId to it.address.celId) to it.savedLookKeys.toSet() }
+             val looks = plan.recordedPlanes.associate { (it.address.layerId to it.address.celId) to
+                 it.savedLooks.associate { upload -> upload.key to names[upload.id] } }
+-            createSavedRecordedScene(planes, frozen, keys, looks)
++            createSavedRecordedScene(planes, frozen, keys, looks, frozenAssets)
+             plan.recordedPlanes.forEach { plane -> plane.savedLooks.forEach { ownership[it.id] = 3 } }
+             faultPoint(ColdUploadFailurePhase.AFTER_SAVED_SCENE)
+             bindRecordedPaintPublication()
+@@ -3703,7 +3787,7 @@
+         check(owners.map { it.address }.toSet().size == owners.size) { "Duplicate cold owner address" }
+         val forbidden = buildSet {
+             addAll(undo.heldTextures()); addAll(freeLayerTex); addAll(freeStrokeTex)
+-            addAll(freeSmudgeTex); addAll(freeFloatTex); addAll(strokeTiles.values); addAll(stampColors.heldTextureHandles())
++            addAll(freeSmudgeTex); addAll(freeFloatTex); addAll(strokeTiles.values); addAll(stampColors.heldTextureHandles()); addAll(sampledMasks.heldTextureHandles())
+             for (layer in layers.values) {
+                 addAll(layer.projected.values); addAll(layer.visibleProjection?.values.orEmpty())
+                 layer.mask?.let { addAll(it.projected.values); addAll(it.visibleProjection?.values.orEmpty()) }
+@@ -3761,7 +3845,7 @@
+             layer.mask?.let { addAll(it.ownedTextures()); addAll(it.visibleProjection?.values.orEmpty()) }
+         }
+         addAll(strokeTiles.values)
+-        addAll(stampColors.heldTextureHandles())
++        addAll(stampColors.heldTextureHandles()); addAll(sampledMasks.heldTextureHandles())
+         mediaStroke?.forEach { change -> change.before?.let(::add); change.after?.let(::add) }
+         addAll(undo.heldTextures())
+         addAll(recordedScene?.heldCacheTextures().orEmpty())
+@@ -4087,6 +4171,7 @@
+         }
+         strokeTiles.values.forEach(::nonbase)
+         stampColors.heldTextureHandles().forEach(::nonbase)
++        sampledMasks.heldTextureHandles().forEach(::nonbase)
+         mediaStroke?.forEach { change -> change.before?.let(::nonbase); change.after?.let(::nonbase) }
+         cursor.undoSteps.forEach { step ->
+             step.changes.forEach { it.before?.let(::nonbase) }; step.slabs.forEach { it.before?.texture?.let(::nonbase) }
+@@ -4225,23 +4310,30 @@
+                         (if (plane.second == null) owner.tiles else owner.cels[plane.second]) === store } == true
+                 }
+
+-            override fun line(address: LineAddress, record: StrokeRecord, preset: BrushPreset): RecordedScene.Unit<Int> {
++            override fun line(address: LineAddress, record: StrokeRecord, preset: BrushPreset): RecordedScene.Unit<Int> =
++                line(address, record, preset, publishedBrushPngs(record.brushId))
++
++            override fun line(address: LineAddress, record: StrokeRecord, preset: BrushPreset,
++                pngs: cc.joycreator.joybrush.core.brush.FrozenBrushPngs?): RecordedScene.Unit<Int> {
+                 check(contextCurrent()) { "Recorded renderer context changed before line replay" }
++                // This callback receives the CANDIDATE scene's immutable resources, including
++                // newly frozen images that have not been published into the old root.
++                val samples = resolveRecordedSamples(preset, pngs)
+                 val priorStaged = stagedBeforeCallback()
+                 var admittedKeys: Set<Long>? = null
+                 val rendered = if (record.capturedPhysicalSource == null) {
+                     var admittedReplay: InkReplay.Replayed? = null
+                     if (capturedWorkingTileBudgetBytes != null) {
+                         val footprint = RecordedReplayTilePlan.Accumulator(replayTileLimit(capturedWorkingTileBudgetBytes), size)
+-                        admittedReplay = InkReplay.replayAdmitted(record, preset, footprint::add)
++                        admittedReplay = InkReplay.replayAdmitted(record, preset, samples, footprint::add)
+                         val keys = footprint.snapshot()
+                         admittedKeys = keys
+                         admitPeak(RecordedWorkingTilePlan.replay(keys.size, tileSize = size))
+                     }
+-                    prepareRecordedLine(address.layerId, record, preset, admittedReplay)
++                    prepareRecordedLine(address.layerId, record, preset, admittedReplay, samples)
+                 } else {
+                     checkNotNull(capturedWorkingTileBudgetBytes) { "Captured source replay needs explicit admission" }
+-                    val lease = capturedRecipeLease(address.layerId, record, preset, planes, capturedWorkingTileBudgetBytes)
++                    val lease = capturedRecipeLease(address.layerId, record, preset, planes, capturedWorkingTileBudgetBytes, samples)
+                     var placed: RecordedLineUnit? = null
+                     try {
+                         val result = copyCapturedRecipe(lease, CapturedCopyMetrics())
+@@ -4334,7 +4426,11 @@
+         }
+         if (capturedWorkingTileBudgetBytes == null) return renderer
+         return object : RecordedScene.CapturedSourceRenderer<Int>, RecordedScene.Renderer<Int> by renderer {
+-            override fun admitCapturedSource(address: LineAddress, record: StrokeRecord, preset: BrushPreset): Boolean {
++            override fun admitCapturedSource(address: LineAddress, record: StrokeRecord, preset: BrushPreset): Boolean =
++                admitCapturedSource(address, record, preset, publishedBrushPngs(record.brushId))
++
++            override fun admitCapturedSource(address: LineAddress, record: StrokeRecord, preset: BrushPreset,
++                pngs: cc.joycreator.joybrush.core.brush.FrozenBrushPngs?): Boolean {
+                 if (!renderer.contextCurrent() || (address.layerId to address.celId) !in planes) return false
+                 // Resource admission belongs to the actual replay footprint, not a diagnostic
+                 // sample/path cap. CPU preflight never paints or changes ownership/history.
+@@ -4342,7 +4438,8 @@
+                     cc.joycreator.joybrush.core.stroke.CapturedStrokeRules.problems(record).isEmpty() &&
+                     record.brushId == preset.id && BrushValidate.validate(preset).isEmpty() &&
+                     preset.blend == "normal" && preset.line == null &&
+-                    (preset.engine == ENGINE_WATERCOLOUR || (preset.engine == "stamp" && preset.tip.source == "procedural"))
++                    (preset.engine == ENGINE_WATERCOLOUR || (preset.engine == "stamp" &&
++                        (preset.tip.source == "procedural" || (preset.tip.sampled != null && pngs != null))))
+             }
+         }
+     }
+@@ -4536,6 +4633,9 @@
+                                   smudge: SmudgeParams? = null, tuft: TuftShading? = null,
+                                   watercolour: WatercolourSpec? = null, watercolourSeed: Long = 0L) {
+         check(!resettingJointPaint && !forgettingGraphicsContext) { "Finish graphics retirement before preparing stroke buffers" }
++        require(tip.sampled == null || (smudge == null && tuft == null && watercolour == null)) {
++            "Sampled tips require the ordinary stamp path"
++        }
+         settleWatercolourFade()
+         cancelStroke()
+         tilePreviewRect=null
+@@ -4563,11 +4663,17 @@
+             tip,
+             strokeTileRect,
+         )
++        // Upload before grain bindings; failure/cancel never leaves an active atlas.
++        try {
++        sampledBinding = tip.sampled?.let { image ->
++            sampledMasks.begin(image.set.atlas(sampledMasks.maxTextureSize))
++        }
+         // The stroke's look (tip, grain pictures, paper), resolved once per stroke: StampPass.lookFor.
+         val p = loadedPaper?.paper
+         val surface = p?.surface
+         look = stamp.lookFor(tip, grain, p, tuft?.paperResponse, tuft?.paperPitchPx, strokeTileRect, fluidTexture,
+-            baseColor = cc.joycreator.joybrush.core.brush.ColorDab(colR, colG, colB))
++            baseColor = cc.joycreator.joybrush.core.brush.ColorDab(colR, colG, colB),
++            sampledSet = tip.sampled?.set, sampledBinding = sampledBinding)
+         val tooth = if (tuft == null) null else if (p == null) grains.textureFor(tuft.paperAsset) else surfaceTexture
+         tuftPaperTex = tooth ?: grains.placeholder
+         this.tuft = tuft?.let {
+@@ -4587,6 +4693,10 @@
+                     GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,frozenSurface)
+                 }
+             } catch (e: Throwable) { cancelStroke(); throw e }
++        }
++        } catch (failure: Throwable) {
++            try { cancelStroke() } catch (cleanup: Throwable) { failure.addSuppressed(cleanup) }
++            throw failure
+         }
+     }
+
+@@ -5199,7 +5309,8 @@
+     /** Complete native projection is validated and copied before any source replay or publication. */
+     internal fun publishJointPaintStep(step: UndoLog.Step<Int>,
+                                        direction: RecordedScene.Direction = RecordedScene.Direction.NEW,
+-                                       frozen: Map<String, BrushPreset>? = null): Boolean {
++                                       frozen: Map<String, BrushPreset>? = null,
++                                       frozenAssets: Map<String, cc.joycreator.joybrush.core.brush.FrozenBrushPngs>? = null): Boolean {
+         require(step.stackBefore == null && step.stackAfter == null && step.paperBefore == null &&
+             step.paperAfter == null && step.documentBefore == null && step.documentAfter == null) {
+             "Structural and paper changes need their joint renderer adapter"
+@@ -5306,8 +5417,8 @@
+         recordedWorkingTileBudgetBytes?.let { budget ->
+             recordedWorkingTiles.admit(pendingPhysical, recordedWorkingTileBytes(), 0L, budget)
+         }
+-        val staged = if (projection == null) scene.stageJoint(step, direction, frozen)
+-            else scene.stageJointProjected(expected, step, direction, frozen)
++        val staged = if (projection == null) scene.stageJoint(step, direction, frozen, frozenAssets)
++            else scene.stageJointProjected(expected, step, direction, frozen, frozenAssets)
+         staged.use { proposal ->
+             validateRecordedPhysicalDisplay(proposal.candidateState)
+             val remainingSteps = proposal.historyProposal.cursor.undoSteps + proposal.historyProposal.cursor.redoSteps
+@@ -5412,7 +5523,7 @@
+             expected.recorded.cacheTextures() + freeLayerTex + freeStrokeTex + freeSmudgeTex + freeFloatTex +
+             listOfNotNull(clearTex, whiteTex, thumbTex, tuftPaperTex, lookTexture, surfaceTexture, fluidTexture,
+                 look.tipGrainTex, look.paperGrainTex, look.fluidTexture, compositor.target, compositor.backdrop,
+-                boardCompositor.target, boardCompositor.backdrop) + grains.heldTextureHandles() +
++                boardCompositor.target, boardCompositor.backdrop) + grains.heldTextureHandles() + sampledMasks.heldTextureHandles() +
+             boardPreview.heldTextureHandles() + paperBackground.heldTextureHandles() + wcPass?.heldTextureHandles().orEmpty()
+         require(slabNames.distinct().size == slabNames.size && slabNames.none { it == 0 || it in floatNames || it in forbidden }) {
+             "Snapshot slabs must retain exclusive physical RGBA8 source ownership"
+@@ -5455,7 +5566,7 @@
+                 current(); val owner = expected.nativeLayers.getValue(id)
+                 val bytes = readMediaTile(id, store, key, cel.takeUnless { it == owner.sharedCel })
+                 current(); bytes
+-            })
++            }, brushAssets = expected.recorded.brushAssets)
+         current(); scene.checkSnapshotPublication(expected); current()
+         return snapshot
+     }
+@@ -6197,6 +6308,7 @@
+     }
+
+     private fun releaseStrokeTiles() {
++        endSampledMasks()
+         stampColors.clear()
+         // Back into the pool it came from: a smudge's RGBA tiles and a stamp's single-channel tiles are not interchangeable.
+         if (strokeIsRgba) { freeSmudgeTex.addAll(strokeTiles.values); trimPool(freeSmudgeTex, 16) }
+--- a/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/gl/TilePainting.kt
++++ b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/gl/TilePainting.kt
+@@ -60,7 +60,7 @@
+     fun dabs(rect: RectPx, dab: Dab, halo: Double = 0.0): List<Dab> {
+         if(dab.radius <= 0f || dab.flow <= 0f || dab.cap <= 0f) return emptyList()
+         require(halo >= 0.0 && halo.isFinite()) { "A tile halo must be a finite distance" }
+-        val e = TipMath.extent(dab.radius,dab.anchor).toDouble() + halo
++        val e = TipMath.extent(dab.radius,dab.anchor,dab.sampled,dab.aspect).toDouble() + halo
+         return translations(rect,dab.x-e,dab.y-e,dab.x+e,dab.y+e,dab.x.toDouble(),dab.y.toDouble())
+             .map { (x,y) -> dab.copy(x=dab.x+x,y=dab.y+y) }
+     }
+--- a/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/gl/RecordedReplayTilePlan.kt
++++ b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/gl/RecordedReplayTilePlan.kt
+@@ -30,7 +30,7 @@
+             require(dab.x.isFinite() && dab.y.isFinite() && dab.radius.isFinite() && dab.radius >= 0f) {
+                 "Invalid replay dab coordinates or radius"
+             }
+-            val extent = TipMath.extent(dab.radius, dab.anchor)
++            val extent = TipMath.extent(dab.radius, dab.anchor, dab.sampled, dab.aspect)
+             require(extent.isFinite() && extent >= 0f) { "Invalid replay dab extent" }
+
+             // Keep the Float operations and floor semantics used by Tiles.touchedBy, but validate
+--- a/joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/vector/CelComposer.kt
++++ b/joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/vector/CelComposer.kt
+@@ -77,9 +77,12 @@
+         internal fun withSlabs(slabs: Map<Long, List<Slab>>) = Drawn(Items(items.lines, slabs), marks, refusals)
+     }
+
+-    fun draw(items: Items, brushLookup: (String) -> BrushPreset?): Drawn {
++    fun draw(items: Items, brushLookup: (String) -> BrushPreset?): Drawn = draw(items, brushLookup, null)
++
++    fun draw(items: Items, brushLookup: (String) -> BrushPreset?,
++        sampledLookup: ((String) -> cc.joycreator.joybrush.core.brush.SampledTipSet?)?): Drawn {
+         cc.joycreator.joybrush.core.stroke.CapturedStrokeRules.requireOrdinary(items.lines.map { it.record })
+-        val prepared = InkTiles.prepare(items.lines.map { it.record }, brushLookup)
++        val prepared = InkTiles.prepare(items.lines.map { it.record }, brushLookup, sampledLookup)
+         val refused = prepared.refusals.map { it.index }.toSet()
+         val marks = HashMap<Long, InkTiles.Mark>()
+         var next = 0
+@@ -237,7 +240,8 @@
+         } else {
+             val tip = TipShape(p.tip.aspect, p.tip.corner, p.tip.taper, p.tip.hardness.base, p.tip.minPx)
+             for (dab in mark.dabs) {
+-                val e = TipMath.extent(dab.radius, dab.tipShape(tip).anchor) + 1f
++                val shape = dab.tipShape(tip)
++                val e = TipMath.extent(dab.radius, shape.anchor, shape.sampled, shape.aspect) + 1f
+                 minX = minOf(minX, dab.x - e); maxX = maxOf(maxX, dab.x + e)
+                 minY = minOf(minY, dab.y - e); maxY = maxOf(maxY, dab.y + e)
+             }
+--- a/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/gl/RecordedPromotionExternalTextureInventory.kt
++++ b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/gl/RecordedPromotionExternalTextureInventory.kt
+@@ -63,7 +63,7 @@
+         for ((fieldName, groupName) in listOf(
+             "grains" to "grains", "boardPreview" to "boardPreview",
+             "paperBackground" to "paperBackground", "wcPass" to "watercolourPass",
+-            "stampColors" to "stampColorMoments",
++            "stampColors" to "stampColorMoments", "sampledMasks" to "sampledMasks",
+         )) groups[groupName] = handles(field(engine, fieldName), "heldTextureHandles")
+         val look = field(engine, "look")
+         if (look != null) {
+--- a/joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/render/RegionRenderer.kt
++++ b/joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/render/RegionRenderer.kt
+@@ -275,13 +275,27 @@
+         brushLookup: ((String) -> BrushPreset?)?,
+         strokeSource: ((String, String) -> List<StrokeRecord>?)? = null,
+         onInkRefusal: (InkTiles.Refusal) -> Unit = { throw RegionException(it.reason) },
++    ): ByteArray = render(doc, tiles, null, rect, frameId, paper, paperRenderer,
++        brushLookup, strokeSource, onInkRefusal)
++
++    fun render(
++        doc: JbDocument,
++        tiles: TileSource,
++        sampledLookup: ((String) -> cc.joycreator.joybrush.core.brush.SampledTipSet?)?,
++        rect: RectPx,
++        frameId: String?,
++        paper: String?,
++        paperRenderer: ((RectPx) -> ByteArray)? = null,
++        brushLookup: ((String) -> BrushPreset?)?,
++        strokeSource: ((String, String) -> List<StrokeRecord>?)? = null,
++        onInkRefusal: (InkTiles.Refusal) -> Unit = { throw RegionException(it.reason) },
+     ): ByteArray {
+         requireSize(rect)
+         requirePaperIfAny(paper)
+         requireOneBackdrop(paper, paperRenderer)
+         requireRasterContent(doc, brushLookup)
+         if (rect.w == 0 || rect.h == 0) return ByteArray(0)
+-        val p = renderPremultiplied(doc, tiles, rect, frameId, paper, paperRenderer, brushLookup, strokeSource, onInkRefusal)
++        val p = renderPremultiplied(doc, tiles, sampledLookup, rect, frameId, paper, paperRenderer, brushLookup, strokeSource, onInkRefusal)
+         val out = ByteArray(rect.w * rect.h * 4)
+         var i = 0
+         while (i < p.size) {
+@@ -316,6 +330,20 @@
+     fun renderPremultiplied(
+         doc: JbDocument,
+         tiles: TileSource,
++        rect: RectPx,
++        frameId: String?,
++        paper: String?,
++        paperRenderer: ((RectPx) -> ByteArray)? = null,
++        brushLookup: ((String) -> BrushPreset?)?,
++        strokeSource: ((String, String) -> List<StrokeRecord>?)? = null,
++        onInkRefusal: (InkTiles.Refusal) -> Unit = { throw RegionException(it.reason) },
++    ): FloatArray = renderPremultiplied(doc, tiles, null, rect, frameId, paper, paperRenderer,
++        brushLookup, strokeSource, onInkRefusal)
++
++    fun renderPremultiplied(
++        doc: JbDocument,
++        tiles: TileSource,
++        sampledLookup: ((String) -> cc.joycreator.joybrush.core.brush.SampledTipSet?)?,
+         rect: RectPx,
+         frameId: String?,
+         paper: String?,
+@@ -373,7 +401,7 @@
+                     if (records == null && cel.strokesFile != null) {
+                         throw RegionException("Ink records are unavailable for layer $layerId cel $celId")
+                     }
+-                    InkTiles.prepare(records ?: emptyList(), brushLookup!!).also {
++                    InkTiles.prepare(records ?: emptyList(), brushLookup!!, sampledLookup).also {
+                         it.refusals.forEach(onInkRefusal)
+                     }
+                 }
+--- a/joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/vector/InkEditSession.kt
++++ b/joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/vector/InkEditSession.kt
+@@ -134,19 +134,32 @@
+      * the spec. The alternative, inventing a centreline for a shape, is a ruling about what a fill
+      * stroke IS, and it is not this file's to make.
+      */
+-    fun lines(brushOf: (StrokeRecord) -> BrushPreset?): List<InkLine> {
++    fun lines(brushOf: (StrokeRecord) -> BrushPreset?): List<InkLine> = lines(null, brushOf)
++
++    fun lines(sampledLookup: ((String) -> cc.joycreator.joybrush.core.brush.SampledTipSet?)?,
++        brushOf: (StrokeRecord) -> BrushPreset?): List<InkLine> {
+         val out = ArrayList<InkLine>(records.size)
+         for (record in records.values) {
+             val brush = brushOf(record)
+-            if (InkReplay.refusal(record, brush) != null) continue
+-            val dabs = InkReplay.dabs(record, brush)
++            val samples = if (brush?.tip?.sampled != null) sampledLookup?.invoke(record.brushId) else null
++            val why = InkReplay.refusal(record, brush, samples)
++            if (why != null) {
++                if (brush?.tip?.sampled != null) throw InkReplayException(why)
++                continue
++            }
++            val dabs = InkReplay.dabs(record, brush, samples)
+             if (dabs.isEmpty()) continue
+             out.add(
+                 InkLine(
+                     id = record.id,
+                     xs = DoubleArray(dabs.size) { dabs[it].x.toDouble() },
+                     ys = DoubleArray(dabs.size) { dabs[it].y.toDouble() },
+-                    halfWidths = DoubleArray(dabs.size) { dabs[it].radius.toDouble() },
++                    halfWidths = DoubleArray(dabs.size) {
++                        val dab = dabs[it]
++                        if (dab.sampled == null) dab.radius.toDouble() else
++                            cc.joycreator.joybrush.core.paint.TipMath.extent(dab.radius, dab.anchor,
++                                dab.sampled, dab.aspect).toDouble()
++                    },
+                 ),
+             )
+         }
+@@ -176,9 +189,20 @@
+         timeMs: Double,
+         screenPerDoc: Double,
+         brushOf: (StrokeRecord) -> BrushPreset?,
++    ): InkEditResult = tap(x, y, timeMs, screenPerDoc, null, brushOf)
++
++    fun tap(
++        x: Double,
++        y: Double,
++        timeMs: Double,
++        screenPerDoc: Double,
++        sampledLookup: ((String) -> cc.joycreator.joybrush.core.brush.SampledTipSet?)?,
++        brushOf: (StrokeRecord) -> BrushPreset?,
+     ): InkEditResult {
+         if (!x.isFinite() || !y.isFinite()) return InkEditResult.Refused(TAP_NOT_A_PLACE)
+-        val picked = picker.pick(lines(brushOf), x, y, timeMs, screenPerDoc) ?: run {
++        val visible = try { lines(sampledLookup, brushOf) }
++            catch (refused: InkReplayException) { return InkEditResult.Refused(refused.message.orEmpty()) }
++        val picked = picker.pick(visible, x, y, timeMs, screenPerDoc) ?: run {
+             chosen.clear()
+             return InkEditResult.NoChange
+         }
+@@ -209,6 +233,15 @@
+         x1: Double,
+         y1: Double,
+         brushOf: (StrokeRecord) -> BrushPreset?,
++    ): InkEditResult = band(x0, y0, x1, y1, null, brushOf)
++
++    fun band(
++        x0: Double,
++        y0: Double,
++        x1: Double,
++        y1: Double,
++        sampledLookup: ((String) -> cc.joycreator.joybrush.core.brush.SampledTipSet?)?,
++        brushOf: (StrokeRecord) -> BrushPreset?,
+     ): InkEditResult {
+         if (!x0.isFinite() || !y0.isFinite() || !x1.isFinite() || !y1.isFinite()) {
+             return InkEditResult.Refused(BAND_NOT_A_RECTANGLE)
+@@ -218,7 +251,9 @@
+         val top = min(y0, y1)
+         val bottom = max(y0, y1)
+         var joined = 0
+-        for (line in lines(brushOf)) {
++        val visible = try { lines(sampledLookup, brushOf) }
++            catch (refused: InkReplayException) { return InkEditResult.Refused(refused.message.orEmpty()) }
++        for (line in visible) {
+             if (!anyDabInside(line, left, top, right, bottom)) continue
+             if (!chosen.contains(line.id)) {
+                 chosen.add(line.id)
+@@ -380,8 +415,11 @@
+      * has to be able to say the brush cannot draw an ink line, or a UI that forgot to ask at pick
+      * time would read [InkEditResult.NoChange] as permission.
+      */
+-    fun rebrush(brush: BrushPreset): InkEditResult {
+-        val refusal = rebrushRefusal(brush)
++    fun rebrush(brush: BrushPreset): InkEditResult = rebrush(brush, null)
++
++    fun rebrush(brush: BrushPreset,
++        sampledLookup: ((String) -> cc.joycreator.joybrush.core.brush.SampledTipSet?)?): InkEditResult {
++        val refusal = rebrushRefusal(brush, sampledLookup)
+         if (refusal != null) return InkEditResult.Refused(refusal)
+         if (chosen.isEmpty()) return InkEditResult.NoChange
+         return editAll { StrokeEdit.rebrush(it, brush.id) }
+@@ -480,7 +518,12 @@
+          * explanation, and it is the ONLY copy of these words in the project: the picker and
+          * [rebrush] both call this, which is the only way two doors can say one thing.
+          */
+-        fun rebrushRefusal(brush: BrushPreset): String? = when {
++        fun rebrushRefusal(brush: BrushPreset): String? = rebrushRefusal(brush, null)
++
++        fun rebrushRefusal(brush: BrushPreset,
++            sampledLookup: ((String) -> cc.joycreator.joybrush.core.brush.SampledTipSet?)?): String? = when {
++            brush.tip.sampled != null && sampledLookup?.invoke(brush.id)?.matches(brush.tip.sampled) != true ->
++                "${brush.name} needs its complete frozen sampled-tip images"
+             StrokeEdit.drawsInkLines(brush.engine) -> null
+             else ->
+                 "${brush.name} reads the pixels under the pen, and an ink layer has none — it " +
+--- a/joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/vector/InkErase.kt
++++ b/joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/vector/InkErase.kt
+@@ -175,6 +175,15 @@
+         records: List<StrokeRecord>,
+         path: EraserPath,
+         mode: InkEraseMode,
++        brushOf: (StrokeRecord) -> BrushPreset?,
++    ): InkEraseOutcome = run(celId, records, path, mode, null, brushOf)
++
++    fun run(
++        celId: String,
++        records: List<StrokeRecord>,
++        path: EraserPath,
++        mode: InkEraseMode,
++        sampledLookup: ((String) -> cc.joycreator.joybrush.core.brush.SampledTipSet?)?,
+         brushOf: (StrokeRecord) -> BrushPreset?,
+     ): InkEraseOutcome {
+         // Refuse before empty-path / no-op shortcuts: an eraser result must never certify that a
+@@ -191,7 +200,7 @@
+         val candidates = ArrayList<Candidate>(records.size)
+         val lines = ArrayList<InkLine>(records.size)
+         for (record in records) {
+-            val candidate = classify(record, brushOf)
++            val candidate = classify(record, sampledLookup, brushOf)
+             candidates.add(candidate)
+             candidate.line?.let { lines.add(it) }
+         }
+@@ -269,9 +278,15 @@
+      *     the world. That is not a line at all (JB-5.01), it is not erased, and it is NOT reported:
+      *     there is no brush to complain about and nothing the eraser did to it.
+      */
+-    private fun classify(record: StrokeRecord, brushOf: (StrokeRecord) -> BrushPreset?): Candidate {
++    private fun classify(record: StrokeRecord,
++        sampledLookup: ((String) -> cc.joycreator.joybrush.core.brush.SampledTipSet?)?,
++        brushOf: (StrokeRecord) -> BrushPreset?): Candidate {
+         val brush = brushOf(record)
+-        val refusal = InkReplay.refusal(record, brush)
++        val samples = if (brush?.tip?.sampled != null) sampledLookup?.invoke(record.brushId) else null
++        val refusal = InkReplay.refusal(record, brush, samples)
++        // No candidate can erase a pixel if a sampled line could not be measured. In
++        // particular an all-unresolved cel must not turn missing images into Untouched.
++        if (refusal != null && brush?.tip?.sampled != null) throw InkReplayException(refusal)
+         if (refusal != null) {
+             return Candidate(record, null, EMPTY_ARC, EMPTY_ARC, NotReplayed(record.id, record.brushId, refusal))
+         }
+@@ -282,7 +297,7 @@
+         }
+         // The cheap brush check cannot detect a geometry-dependent refusal, such as the dab cap.
+         val dabs = try {
+-            InkReplay.dabs(record, brush)
++            InkReplay.dabs(record, brush, samples)
+         } catch (e: InkReplayException) {
+             return Candidate(record, null, EMPTY_ARC, EMPTY_ARC,
+                 NotReplayed(record.id, record.brushId, e.message.orEmpty()))
+@@ -307,7 +322,9 @@
+             val dab = dabs[i]
+             xs[i] = dab.x.toDouble()
+             ys[i] = dab.y.toDouble()
+-            halfWidths[i] = dab.radius.toDouble()
++            halfWidths[i] = if (dab.sampled == null) dab.radius.toDouble() else
++                cc.joycreator.joybrush.core.paint.TipMath.extent(dab.radius, dab.anchor,
++                    dab.sampled, dab.aspect).toDouble()
+         }
+         return InkLine(id, xs, ys, halfWidths)
+     }
+--- a/joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/vector/LineSandwich.kt
++++ b/joybrush/core/src/commonMain/kotlin/cc/joycreator/joybrush/core/vector/LineSandwich.kt
+@@ -155,9 +155,15 @@
+      * One drag frame: the tile's look with the line redrawn as [record] (moved, re-weighted, recoloured or re-brushed
+      * with [brush]). Null when nothing on the tile is visible, as with [CelComposer.look].
+      */
+-    fun look(tile: Tile, record: StrokeRecord, brush: BrushPreset?): ByteArray? {
++    fun look(tile: Tile, record: StrokeRecord, brush: BrushPreset?): ByteArray? = look(tile, record, brush, null)
++
++    fun look(tile: Tile, record: StrokeRecord, brush: BrushPreset?,
++        sampledLookup: ((String) -> cc.joycreator.joybrush.core.brush.SampledTipSet?)?): ByteArray? {
++        val prepared = InkTiles.prepare(listOf(record), { brush }, sampledLookup)
++        if (brush?.tip?.sampled != null || sampledLookup != null) {
++            prepared.refusals.firstOrNull()?.let { throw InkReplayException(it.reason) }
++        }
+         val px = tile.below.copyOf()
+-        val prepared = InkTiles.prepare(listOf(record), { brush })
+         val mark = prepared.marks.firstOrNull()
+         if (mark != null) {
+             InkTiles.buffer(mark, Tiles.tx(tile.key), Tiles.ty(tile.key))?.let { InkTiles.applyOp(mark.brush.blend, it, px) }

@@ -1,0 +1,826 @@
+{
+  "pass": true,
+  "compiled": [
+    "actual production stamp",
+    "actual production smudge",
+    "guarded broken extent/cell-control programs"
+  ],
+  "tolerance": 0.00784313725490196,
+  "controlThreshold": 0.01568627450980392,
+  "probes": "even/even pixel centres; forward CPU derivatives",
+  "parity": {
+    "cases": 18,
+    "failedCases": 0,
+    "probes": 18432,
+    "max": 0.002290694509803959,
+    "rms": 0.0005013371477260286
+  },
+  "cases": [
+    {
+      "name": "image0-variant0",
+      "max": 0.0019444666666666999,
+      "rms": 0.001070768269094998,
+      "probes": 1024,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 38,
+        "y": 22,
+        "gpu": 0.5333333333333333,
+        "cpu": 0.5352778
+      }
+    },
+    {
+      "name": "image0-variant1",
+      "max": 0.0019951054117647027,
+      "rms": 0.0003147127757286858,
+      "probes": 1024,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 24,
+        "y": 34,
+        "gpu": 0.058823529411764705,
+        "cpu": 0.056828424
+      }
+    },
+    {
+      "name": "image0-variant2",
+      "max": 0.001972443274509801,
+      "rms": 0.0005435539226710434,
+      "probes": 1024,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 42,
+        "y": 40,
+        "gpu": 0.0392156862745098,
+        "cpu": 0.037243243
+      }
+    },
+    {
+      "name": "image1-variant0",
+      "max": 0.0018300764705882488,
+      "rms": 0.0005049530804215199,
+      "probes": 1024,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 28,
+        "y": 38,
+        "gpu": 0.15294117647058825,
+        "cpu": 0.1511111
+      }
+    },
+    {
+      "name": "image1-variant1",
+      "max": 0.002142027647058814,
+      "rms": 0.0002657536883388199,
+      "probes": 1024,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 24,
+        "y": 32,
+        "gpu": 0.23529411764705882,
+        "cpu": 0.23315209
+      }
+    },
+    {
+      "name": "image1-variant2",
+      "max": 0.001968179411764706,
+      "rms": 0.00048434789211854434,
+      "probes": 1024,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 32,
+        "y": 42,
+        "gpu": 0.058823529411764705,
+        "cpu": 0.05685535
+      }
+    },
+    {
+      "name": "image2-variant0",
+      "max": 0.001931430196078443,
+      "rms": 0.0005485538957969201,
+      "probes": 1024,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 40,
+        "y": 22,
+        "gpu": 0.48627450980392156,
+        "cpu": 0.48820594
+      }
+    },
+    {
+      "name": "image2-variant1",
+      "max": 0.0019221813274509802,
+      "rms": 0.00027993014745303704,
+      "probes": 1024,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 16,
+        "y": 40,
+        "gpu": 0.00392156862745098,
+        "cpu": 0.0019993873
+      }
+    },
+    {
+      "name": "image2-variant2",
+      "max": 0.0019478529411764423,
+      "rms": 0.0004962419150914114,
+      "probes": 1024,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 40,
+        "y": 30,
+        "gpu": 0.29411764705882354,
+        "cpu": 0.2960655
+      }
+    },
+    {
+      "name": "image3-variant0",
+      "max": 0.0019608083137254984,
+      "rms": 0.0007219772605352178,
+      "probes": 1024,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 42,
+        "y": 28,
+        "gpu": 0.09803921568627451,
+        "cpu": 0.100000024
+      }
+    },
+    {
+      "name": "image3-variant1",
+      "max": 0.0018384535294117543,
+      "rms": 0.00027156435712413714,
+      "probes": 1024,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 22,
+        "y": 34,
+        "gpu": 0.35294117647058826,
+        "cpu": 0.35477963
+      }
+    },
+    {
+      "name": "image3-variant2",
+      "max": 0.0019959810784313664,
+      "rms": 0.00047636301689057406,
+      "probes": 1024,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 26,
+        "y": 16,
+        "gpu": 0.12549019607843137,
+        "cpu": 0.123494215
+      }
+    },
+    {
+      "name": "image4-variant0",
+      "max": 0.0019498988235294168,
+      "rms": 0.00035392474177020053,
+      "probes": 1024,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 26,
+        "y": 34,
+        "gpu": 0.11764705882352941,
+        "cpu": 0.11569716
+      }
+    },
+    {
+      "name": "image4-variant1",
+      "max": 0.002290694509803959,
+      "rms": 0.00018441428829784563,
+      "probes": 1024,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 24,
+        "y": 28,
+        "gpu": 0.41568627450980394,
+        "cpu": 0.41339558
+      }
+    },
+    {
+      "name": "image4-variant2",
+      "max": 0.001942376666666662,
+      "rms": 0.00033915179913514477,
+      "probes": 1024,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 30,
+        "y": 24,
+        "gpu": 0.06666666666666667,
+        "cpu": 0.06472429
+      }
+    },
+    {
+      "name": "image5-variant0",
+      "max": 0.0019346345098039397,
+      "rms": 0.000632300234679533,
+      "probes": 1024,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 40,
+        "y": 42,
+        "gpu": 0.21568627450980393,
+        "cpu": 0.21375164
+      }
+    },
+    {
+      "name": "image5-variant1",
+      "max": 0.001982115039215686,
+      "rms": 0.0002691950743676862,
+      "probes": 1024,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 26,
+        "y": 26,
+        "gpu": 0.06274509803921569,
+        "cpu": 0.060762983
+      }
+    },
+    {
+      "name": "image5-variant2",
+      "max": 0.001967575411764705,
+      "rms": 0.0004783851796580158,
+      "probes": 1024,
+      "failures": 0,
+      "controlPixels": 0,
+      "worst": {
+        "x": 24,
+        "y": 42,
+        "gpu": 0.058823529411764705,
+        "cpu": 0.056855954
+      }
+    }
+  ],
+  "controls": {
+    "wrongIndex": {
+      "relevantCases": 18,
+      "detectedCases": 18,
+      "max": 0.9686274509803922,
+      "witnesses": [
+        {
+          "name": "image0-variant0",
+          "pixels": 761,
+          "max": 0.7375
+        },
+        {
+          "name": "image0-variant1",
+          "pixels": 39,
+          "max": 0.48813234313725484
+        },
+        {
+          "name": "image0-variant2",
+          "pixels": 163,
+          "max": 0.3670479323529412
+        },
+        {
+          "name": "image1-variant0",
+          "pixels": 247,
+          "max": 0.8784313725490196
+        },
+        {
+          "name": "image1-variant1",
+          "pixels": 34,
+          "max": 0.3233579842352941
+        },
+        {
+          "name": "image1-variant2",
+          "pixels": 127,
+          "max": 0.35352907160784314
+        },
+        {
+          "name": "image2-variant0",
+          "pixels": 263,
+          "max": 0.9686274509803922
+        },
+        {
+          "name": "image2-variant1",
+          "pixels": 40,
+          "max": 0.6252438074509803
+        },
+        {
+          "name": "image2-variant2",
+          "pixels": 157,
+          "max": 0.4381207717647059
+        },
+        {
+          "name": "image3-variant0",
+          "pixels": 328,
+          "max": 0.9294117647058824
+        },
+        {
+          "name": "image3-variant1",
+          "pixels": 43,
+          "max": 0.5438130117647059
+        },
+        {
+          "name": "image3-variant2",
+          "pixels": 169,
+          "max": 0.3965054050980392
+        },
+        {
+          "name": "image4-variant0",
+          "pixels": 84,
+          "max": 0.7000544517647058
+        },
+        {
+          "name": "image4-variant1",
+          "pixels": 16,
+          "max": 0.30359165843137254
+        },
+        {
+          "name": "image4-variant2",
+          "pixels": 62,
+          "max": 0.19380449294117646
+        },
+        {
+          "name": "image5-variant0",
+          "pixels": 475,
+          "max": 0.7372549019607844
+        },
+        {
+          "name": "image5-variant1",
+          "pixels": 45,
+          "max": 0.6370089921568627
+        },
+        {
+          "name": "image5-variant2",
+          "pixels": 180,
+          "max": 0.43141099274509803
+        }
+      ]
+    },
+    "wrongRect": {
+      "relevantCases": 18,
+      "detectedCases": 18,
+      "max": 0.9686274509803922,
+      "witnesses": [
+        {
+          "name": "image0-variant0",
+          "pixels": 761,
+          "max": 0.7375
+        },
+        {
+          "name": "image0-variant1",
+          "pixels": 39,
+          "max": 0.48813234313725484
+        },
+        {
+          "name": "image0-variant2",
+          "pixels": 163,
+          "max": 0.3670479323529412
+        },
+        {
+          "name": "image1-variant0",
+          "pixels": 247,
+          "max": 0.8784313725490196
+        },
+        {
+          "name": "image1-variant1",
+          "pixels": 34,
+          "max": 0.3233579842352941
+        },
+        {
+          "name": "image1-variant2",
+          "pixels": 127,
+          "max": 0.35352907160784314
+        },
+        {
+          "name": "image2-variant0",
+          "pixels": 263,
+          "max": 0.9686274509803922
+        },
+        {
+          "name": "image2-variant1",
+          "pixels": 40,
+          "max": 0.6252438074509803
+        },
+        {
+          "name": "image2-variant2",
+          "pixels": 157,
+          "max": 0.4381207717647059
+        },
+        {
+          "name": "image3-variant0",
+          "pixels": 328,
+          "max": 0.9294117647058824
+        },
+        {
+          "name": "image3-variant1",
+          "pixels": 43,
+          "max": 0.5438130117647059
+        },
+        {
+          "name": "image3-variant2",
+          "pixels": 169,
+          "max": 0.3965054050980392
+        },
+        {
+          "name": "image4-variant0",
+          "pixels": 84,
+          "max": 0.7000544517647058
+        },
+        {
+          "name": "image4-variant1",
+          "pixels": 16,
+          "max": 0.30359165843137254
+        },
+        {
+          "name": "image4-variant2",
+          "pixels": 62,
+          "max": 0.19380449294117646
+        },
+        {
+          "name": "image5-variant0",
+          "pixels": 475,
+          "max": 0.7372549019607844
+        },
+        {
+          "name": "image5-variant1",
+          "pixels": 45,
+          "max": 0.6370089921568627
+        },
+        {
+          "name": "image5-variant2",
+          "pixels": 180,
+          "max": 0.43141099274509803
+        }
+      ]
+    },
+    "imageOff": {
+      "relevantCases": 18,
+      "detectedCases": 18,
+      "max": 0.9344445,
+      "witnesses": [
+        {
+          "name": "image0-variant0",
+          "pixels": 815,
+          "max": 0.49629086411764706
+        },
+        {
+          "name": "image0-variant1",
+          "pixels": 40,
+          "max": 0.12116060882352941
+        },
+        {
+          "name": "image0-variant2",
+          "pixels": 207,
+          "max": 0.22999718921568624
+        },
+        {
+          "name": "image1-variant0",
+          "pixels": 230,
+          "max": 0.6128104852941176
+        },
+        {
+          "name": "image1-variant1",
+          "pixels": 43,
+          "max": 0.5996868482352942
+        },
+        {
+          "name": "image1-variant2",
+          "pixels": 213,
+          "max": 0.554720418117647
+        },
+        {
+          "name": "image2-variant0",
+          "pixels": 230,
+          "max": 0.7534804221568627
+        },
+        {
+          "name": "image2-variant1",
+          "pixels": 44,
+          "max": 0.6252438074509803
+        },
+        {
+          "name": "image2-variant2",
+          "pixels": 213,
+          "max": 0.5344070511176471
+        },
+        {
+          "name": "image3-variant0",
+          "pixels": 297,
+          "max": 0.9344445
+        },
+        {
+          "name": "image3-variant1",
+          "pixels": 42,
+          "max": 0.1967381411764706
+        },
+        {
+          "name": "image3-variant2",
+          "pixels": 190,
+          "max": 0.3007825968627451
+        },
+        {
+          "name": "image4-variant0",
+          "pixels": 174,
+          "max": 0.8296078843137255
+        },
+        {
+          "name": "image4-variant1",
+          "pixels": 48,
+          "max": 0.5710916082352941
+        },
+        {
+          "name": "image4-variant2",
+          "pixels": 210,
+          "max": 0.578315376117647
+        },
+        {
+          "name": "image5-variant0",
+          "pixels": 328,
+          "max": 0.745098045882353
+        },
+        {
+          "name": "image5-variant1",
+          "pixels": 46,
+          "max": 0.7075972274509803
+        },
+        {
+          "name": "image5-variant2",
+          "pixels": 213,
+          "max": 0.5411204648156862
+        }
+      ]
+    },
+    "nativeAspectIgnored": {
+      "relevantCases": 9,
+      "detectedCases": 9,
+      "max": 0.9529411764705882,
+      "witnesses": [
+        {
+          "name": "image1-variant0",
+          "pixels": 286,
+          "max": 0.4512418201764706
+        },
+        {
+          "name": "image1-variant1",
+          "pixels": 25,
+          "max": 0.0935092080392157
+        },
+        {
+          "name": "image1-variant2",
+          "pixels": 105,
+          "max": 0.09726698176470588
+        },
+        {
+          "name": "image2-variant0",
+          "pixels": 286,
+          "max": 0.47281363745098043
+        },
+        {
+          "name": "image2-variant1",
+          "pixels": 26,
+          "max": 0.06807136843137257
+        },
+        {
+          "name": "image2-variant2",
+          "pixels": 108,
+          "max": 0.08262831294117651
+        },
+        {
+          "name": "image4-variant0",
+          "pixels": 242,
+          "max": 0.9529411764705882
+        },
+        {
+          "name": "image4-variant1",
+          "pixels": 34,
+          "max": 0.2823529411764706
+        },
+        {
+          "name": "image4-variant2",
+          "pixels": 136,
+          "max": 0.26666666666666666
+        }
+      ]
+    },
+    "legacyExtent": {
+      "relevantCases": 18,
+      "detectedCases": 1,
+      "max": 0.21305554,
+      "witnesses": [
+        {
+          "name": "image0-variant0",
+          "pixels": 293,
+          "max": 0.21305554
+        }
+      ]
+    },
+    "fadeOff": {
+      "relevantCases": 6,
+      "detectedCases": 6,
+      "max": 0.36663156568627453,
+      "witnesses": [
+        {
+          "name": "image0-variant2",
+          "pixels": 177,
+          "max": 0.3409605619607843
+        },
+        {
+          "name": "image1-variant2",
+          "pixels": 110,
+          "max": 0.28310079450980397
+        },
+        {
+          "name": "image2-variant2",
+          "pixels": 126,
+          "max": 0.19020900980392158
+        },
+        {
+          "name": "image3-variant2",
+          "pixels": 139,
+          "max": 0.36663156568627453
+        },
+        {
+          "name": "image4-variant2",
+          "pixels": 68,
+          "max": 0.2394221756862745
+        },
+        {
+          "name": "image5-variant2",
+          "pixels": 118,
+          "max": 0.21300497647058825
+        }
+      ]
+    },
+    "profileOff": {
+      "relevantCases": 12,
+      "detectedCases": 12,
+      "max": 0.8482914549411764,
+      "witnesses": [
+        {
+          "name": "image0-variant1",
+          "pixels": 230,
+          "max": 0.5430148269999999
+        },
+        {
+          "name": "image0-variant2",
+          "pixels": 175,
+          "max": 0.06969073980392158
+        },
+        {
+          "name": "image1-variant1",
+          "pixels": 58,
+          "max": 0.5951754976470589
+        },
+        {
+          "name": "image1-variant2",
+          "pixels": 52,
+          "max": 0.047451773137254905
+        },
+        {
+          "name": "image2-variant1",
+          "pixels": 62,
+          "max": 0.6675174156862745
+        },
+        {
+          "name": "image2-variant2",
+          "pixels": 76,
+          "max": 0.09104367450980388
+        },
+        {
+          "name": "image3-variant1",
+          "pixels": 78,
+          "max": 0.8482914549411764
+        },
+        {
+          "name": "image3-variant2",
+          "pixels": 121,
+          "max": 0.10289646117647058
+        },
+        {
+          "name": "image4-variant1",
+          "pixels": 26,
+          "max": 0.8423711612941177
+        },
+        {
+          "name": "image4-variant2",
+          "pixels": 23,
+          "max": 0.05496123196078431
+        },
+        {
+          "name": "image5-variant1",
+          "pixels": 74,
+          "max": 0.6973624294117646
+        },
+        {
+          "name": "image5-variant2",
+          "pixels": 59,
+          "max": 0.07052873019607844
+        }
+      ]
+    },
+    "quadOff": {
+      "relevantCases": 6,
+      "detectedCases": 5,
+      "max": 0.10395676539215686,
+      "witnesses": [
+        {
+          "name": "image0-variant2",
+          "pixels": 24,
+          "max": 0.04445828368627451
+        },
+        {
+          "name": "image1-variant2",
+          "pixels": 1,
+          "max": 0.017088793529411762
+        },
+        {
+          "name": "image2-variant2",
+          "pixels": 7,
+          "max": 0.02985704117647059
+        },
+        {
+          "name": "image3-variant2",
+          "pixels": 29,
+          "max": 0.10395676539215686
+        },
+        {
+          "name": "image5-variant2",
+          "pixels": 8,
+          "max": 0.046558723803921565
+        }
+      ]
+    },
+    "noOutOfCellGuard": {
+      "relevantCases": 18,
+      "detectedCases": 7,
+      "max": 1,
+      "witnesses": [
+        {
+          "name": "image1-variant0",
+          "pixels": 203,
+          "max": 0.9019607843137255
+        },
+        {
+          "name": "image2-variant0",
+          "pixels": 162,
+          "max": 1
+        },
+        {
+          "name": "image3-variant0",
+          "pixels": 162,
+          "max": 1
+        },
+        {
+          "name": "image4-variant0",
+          "pixels": 128,
+          "max": 1
+        },
+        {
+          "name": "image4-variant1",
+          "pixels": 7,
+          "max": 0.12941176470588237
+        },
+        {
+          "name": "image4-variant2",
+          "pixels": 20,
+          "max": 0.10196078431372549
+        },
+        {
+          "name": "image5-variant0",
+          "pixels": 159,
+          "max": 0.7803921568627451
+        }
+      ]
+    }
+  },
+  "canary": {
+    "guardedFailedCases": 0,
+    "preserves": "source pixels plus their complete transparent border"
+  },
+  "tinyExtentDetected": true,
+  "transport": {
+    "pass": true,
+    "dabs": 3,
+    "differingBytes": 0,
+    "wrongOffsetDifferingBytes": {
+      "sample": 6811,
+      "fade": 4474,
+      "quad": 6174,
+      "rgb": 2324
+    },
+    "coveredPixels": 1076,
+    "order": "identical",
+    "layout": "17n prefix + 2n fade + 12n quad + 4n RGB + 4n sample; attr13 stride16 offset140n bytes; MRT coverage and RGB moments"
+  }
+}

@@ -2,6 +2,12 @@ package cc.joycreator.joybrush.core.doc
 
 import cc.joycreator.joybrush.core.brush.BRUSH_VERSION
 import cc.joycreator.joybrush.core.brush.VERSION_PENCIL_BLEND
+import cc.joycreator.joybrush.core.brush.VERSION_UNIBRUSH
+import cc.joycreator.joybrush.core.brush.VERSION_TIP_PROFILE
+import cc.joycreator.joybrush.core.brush.VERSION_TIP_QUAD
+import cc.joycreator.joybrush.core.brush.VERSION_COLOR_DYNAMICS
+import cc.joycreator.joybrush.core.brush.ColorMode
+import cc.joycreator.joybrush.core.brush.TipAngleSource
 import cc.joycreator.joybrush.core.brush.BrushException
 import cc.joycreator.joybrush.core.brush.BrushInput
 import cc.joycreator.joybrush.core.brush.BrushJson
@@ -110,14 +116,27 @@ class EnumFreezeTest {
         // VERSION_LINES: the Lead checks it against JB-2.40's bump when both land, so the two cannot claim one number.
         // 10 is the replayable line-watercolour engine, not the media-watercolour engine.
         // 11 is the pencil's edge blend and build-up (`media.stick.blend`, `.build`; the owner, 2026-10-14).
-        assertEquals(11, BRUSH_VERSION)
-        assertEquals(VERSION_PENCIL_BLEND, BRUSH_VERSION, "the newest version is the one this row added")
+        // 12 adds explicit Unibrush rotation; absent fields retain the legacy hybrid.
+        assertEquals(18, BRUSH_VERSION)
+        assertEquals(cc.joycreator.joybrush.core.brush.VERSION_STABILIZER, BRUSH_VERSION, "the newest version is the one this row added")
+        assertTrue(VERSION_COLOR_DYNAMICS < cc.joycreator.joybrush.core.brush.VERSION_SAMPLED_TIPS)
+        assertTrue(cc.joycreator.joybrush.core.brush.VERSION_SAMPLED_TIPS < cc.joycreator.joybrush.core.brush.VERSION_DUAL_TIP)
+        assertTrue(cc.joycreator.joybrush.core.brush.VERSION_DUAL_TIP < cc.joycreator.joybrush.core.brush.VERSION_STABILIZER)
+        assertTrue(VERSION_TIP_QUAD < VERSION_COLOR_DYNAMICS)
+        assertEquals(listOf("perDab", "perStroke", "perStrokeDrift"), ColorMode.entries.map { it.name })
+        assertTrue(VERSION_TIP_PROFILE < VERSION_TIP_QUAD)
+        assertTrue(VERSION_UNIBRUSH < VERSION_TIP_PROFILE)
+        assertTrue(VERSION_PENCIL_BLEND < VERSION_UNIBRUSH)
         assertTrue(VERSION_WATERCOLOUR < VERSION_PENCIL_BLEND)
         assertTrue(VERSION_LINES < VERSION_WATERCOLOUR)
         assertTrue(VERSION_MEDIA < VERSION_LINES)
         // BrushPreset.version is a second literal beside BRUSH_VERSION, and the file writes the
         // default — if they drift, every new brush is stamped with a version nobody validates.
         assertEquals(BRUSH_VERSION, BrushPreset(id = "b", name = "B", size = Param(1f)).version)
+    }
+
+    @Test fun tipAngleSourceNamesAreFrozenInOrder() {
+        assertEquals(listOf("fixed", "stroke", "penAzimuth", "penBarrel"), TipAngleSource.entries.map { it.name })
     }
 
     // ---------- the NAME is the token, or the KDoc on each enum is a lie ----------

@@ -30,7 +30,7 @@ internal object RecordedReplayTilePlan {
             require(dab.x.isFinite() && dab.y.isFinite() && dab.radius.isFinite() && dab.radius >= 0f) {
                 "Invalid replay dab coordinates or radius"
             }
-            val extent = TipMath.extent(dab.radius, dab.anchor)
+            val extent = TipMath.extent(dab.radius, dab.anchor, dab.sampled, dab.aspect)
             require(extent.isFinite() && extent >= 0f) { "Invalid replay dab extent" }
 
             // Keep the Float operations and floor semantics used by Tiles.touchedBy, but validate

@@ -555,8 +555,8 @@ class BrushDabberTest {
         val seed = 20261019L
         val rotation = 0.5
         val frame = AngleFrame(rotation = rotation)
-        val absolute = BrushDabber(angled, seed, frame)
-        val offset = BrushDabber(steered, seed, frame)
+        val absolute = BrushDabber(angled, seed, frame = frame)
+        val offset = BrushDabber(steered, seed, frame = frame)
         val samples = straightUp(6)
         for (i in samples.indices) {
             val jitter = degToRad(30f) * (2f * angleDrawFor(seed, i) - 1f)
@@ -579,8 +579,8 @@ class BrushDabberTest {
         val seed = 20261019L
         val axis = 0.7
         val frame = AngleFrame(mirrorAxis = axis)
-        val offset = BrushDabber(steered, seed, frame)
-        val absolute = BrushDabber(angled, seed, frame)
+        val offset = BrushDabber(steered, seed, frame = frame)
+        val absolute = BrushDabber(angled, seed, frame = frame)
         val samples = straightUp(6)
         for (i in samples.indices) {
             val jitter = degToRad(30f) * (2f * angleDrawFor(seed, i) - 1f)
@@ -609,9 +609,9 @@ class BrushDabberTest {
         val flat = steered.copy(tip = steered.tip.copy(angle = Param(0f)))
         val plain = BrushDabber(flat, seed)
         val mirrorFrame = AngleFrame(mirrorAxis = 0.7)
-        val mirror = BrushDabber(flat, seed, mirrorFrame)
+        val mirror = BrushDabber(flat, seed, frame = mirrorFrame)
         val rotationFrame = AngleFrame(rotation = 0.5)
-        val rotation = BrushDabber(flat, seed, rotationFrame)
+        val rotation = BrushDabber(flat, seed, frame = rotationFrame)
         val samples = straightUp(6)
         for (i in samples.indices) {
             val jitter = degToRad(30f) * (2f * angleDrawFor(seed, i) - 1f)
@@ -643,7 +643,7 @@ class BrushDabberTest {
         val seed = 20261019L
         val axis = (PI / 2).toDouble()
         val original = BrushDabber(steered, seed)
-        val copy = BrushDabber(steered, seed, AngleFrame(mirrorAxis = axis))
+        val copy = BrushDabber(steered, seed, frame = AngleFrame(mirrorAxis = axis))
         val forward = line(6)
         val reflected = forward.map { PenSample(-it.x, 0f, it.timeMs, pressure = it.pressure) }
         for (i in forward.indices) {
@@ -671,7 +671,7 @@ class BrushDabberTest {
         val seed = 20261019L
         val rotation = 0.5
         val original = BrushDabber(steered, seed)
-        val copy = BrushDabber(steered, seed, AngleFrame(rotation = rotation))
+        val copy = BrushDabber(steered, seed, frame = AngleFrame(rotation = rotation))
         val forward = line(6)
         val turned = forward.map {
             PenSample(it.x * cos(rotation).toFloat(), it.x * sin(rotation).toFloat(), it.timeMs,
@@ -708,7 +708,7 @@ class BrushDabberTest {
         val seed = 20261019L
         val rotation = 0.5
         val original = BrushDabber(steered, seed)
-        val copy = BrushDabber(steered, seed, AngleFrame(rotation = rotation))
+        val copy = BrushDabber(steered, seed, frame = AngleFrame(rotation = rotation))
         val forward = line(6)
         val turned = forward.map {
             PenSample(it.x * cos(rotation).toFloat(), it.x * sin(rotation).toFloat(), it.timeMs,
@@ -782,12 +782,12 @@ class BrushDabberTest {
         val draw = angleDrawFor(seed, 0)
 
         // A mirror copy: the base is reflected about the copy's own axis, and the jitter flips.
-        val mirror = BrushDabber(angled, seed, AngleFrame(mirrorAxis = axis))
+        val mirror = BrushDabber(angled, seed, frame = AngleFrame(mirrorAxis = axis))
         assertEquals((2.0 * axis - base).toFloat() - degToRad(30f) * (2f * draw - 1f),
             mirror.look(still, 0f, 0).angle, 1e-5f, "the mirror copy's first dab")
 
         // A rotation copy: the base is turned by the rotation, and the jitter keeps its sign.
-        val turned = BrushDabber(angled, seed, AngleFrame(rotation = rotation))
+        val turned = BrushDabber(angled, seed, frame = AngleFrame(rotation = rotation))
         assertEquals(base + rotation.toFloat() + degToRad(30f) * (2f * draw - 1f),
             turned.look(still, 0f, 0).angle, 1e-5f, "the rotation copy's first dab")
     }
@@ -814,13 +814,13 @@ class BrushDabberTest {
 
         // A mirror copy: the base is an OFFSET from the direction, so the reflection flips its sign,
         // and the direction term is the copy's own heading — 2φ'.
-        val mirror = BrushDabber(steered, seed, AngleFrame(mirrorAxis = axis))
+        val mirror = BrushDabber(steered, seed, frame = AngleFrame(mirrorAxis = axis))
         assertEquals((2.0 * axis - base).toFloat() - degToRad(30f) * (2f * draw - 1f),
             mirror.look(still, 0f, 0).angle, 1e-5f, "the mirror copy's first dab")
 
         // A rotation copy: the base is an OFFSET, so the rotation leaves it alone, and the
         // direction term is the rotation of +x — θ.
-        val turned = BrushDabber(steered, seed, AngleFrame(rotation = rotation))
+        val turned = BrushDabber(steered, seed, frame = AngleFrame(rotation = rotation))
         assertEquals(base + rotation.toFloat() + degToRad(30f) * (2f * draw - 1f),
             turned.look(still, 0f, 0).angle, 1e-5f, "the rotation copy's first dab")
 

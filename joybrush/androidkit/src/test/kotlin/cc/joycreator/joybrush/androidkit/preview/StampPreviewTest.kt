@@ -6,6 +6,9 @@ import cc.joycreator.joybrush.core.brush.ENGINE_SMUDGE
 import cc.joycreator.joybrush.core.brush.Param
 import cc.joycreator.joybrush.core.brush.ResponseSpec
 import cc.joycreator.joybrush.core.brush.SmudgeSpec
+import cc.joycreator.joybrush.core.brush.ColorDynamicsSpec
+import cc.joycreator.joybrush.core.brush.ColorJitter
+import cc.joycreator.joybrush.core.brush.StrokeColors
 import cc.joycreator.joybrush.core.paint.Accumulate
 import cc.joycreator.joybrush.core.paint.StrokeBlend
 import kotlin.test.Test
@@ -25,6 +28,51 @@ class StampPreviewTest {
         return StampPreview.build(shown, CannedStroke.pen(w, h, shown.size.base))
     }
 
+    @Test fun previewUsesTheFrozenActualFilterAcrossAllModesAndWholeStrokeEnds() {
+        val samples=CannedStroke.pen(800,100,18f)
+        for(mode in cc.joycreator.joybrush.core.input.StabilizerMode.entries) for(shaped in listOf(false,true)) {
+            val actual=cc.joycreator.joybrush.core.input.StabilizerSpec(mode,.8f,30f,9)
+            val p=brush().copy(line=if(shaped) cc.joycreator.joybrush.core.brush.LineStyleSpec(taperIn=2f,taperOut=3f) else null,
+                stabilizer=cc.joycreator.joybrush.core.input.StabilizerSpec(cc.joycreator.joybrush.core.input.StabilizerMode.off,0f))
+            val prepared=StampPreview.build(p,samples,actualStabilizer=actual)
+            val record=cc.joycreator.joybrush.core.stroke.StrokeRecord("p",p.id,CannedStroke.SEED,p.smoothing,1f,samples,
+                secondaryColorArgb=0xffffffff.toInt(),stabilizer=actual)
+            val expected=cc.joycreator.joybrush.core.vector.InkReplay.replay(record,p)
+            assertEquals(expected.dabs,prepared.dabs,"mode=$mode shaped=$shaped")
+            assertEquals(expected.strokeOpacity,prepared.strokeOpacity)
+        }
+        val p=brush()
+        val pulled=cc.joycreator.joybrush.core.input.StabilizerSpec(cc.joycreator.joybrush.core.input.StabilizerMode.pulledString,.8f,30f,9)
+        assertTrue(StampPreview.build(p,samples,actualStabilizer=pulled).dabs != StampPreview.build(p,samples).dabs)
+    }
+
+    @Test fun legacyWireAndNeutralLineSectionsKeepTheirCannedStrokePreview() {
+        val plain = brush().copy(smoothing=.8f)
+        val samples = CannedStroke.pen(800,100,plain.size.base)
+        val expected = StampPreview.build(plain,samples)
+        for(style in listOf(cc.joycreator.joybrush.core.brush.LineStyleSpec(),
+            cc.joycreator.joybrush.core.brush.LineStyleSpec(screenWidthPx=1f))) {
+            val actual = StampPreview.build(plain.copy(line=style),samples)
+            assertEquals(expected.dabs,actual.dabs)
+            assertEquals(expected.tip,actual.tip)
+        }
+    }
+
+    @Test fun wholeStrokePreviewUsesTheFinalTaperAndDashWithFrozenPaletteAndSeed() {
+        val p = brush().copy(line = cc.joycreator.joybrush.core.brush.LineStyleSpec(
+            taperIn=2f,taperOut=4f,dashOn=3f,dashOff=1f),
+            color = ColorJitter(dynamics=ColorDynamicsSpec(hueRangeDegrees=25f,secondaryMix=.3f)))
+        val samples = CannedStroke.pen(800,100,p.size.base)
+        val colors = StrokeColors(0xffae1234.toInt(),0xff1234ae.toInt())
+        val actual = StampPreview.build(p,samples,colors)
+        val record = cc.joycreator.joybrush.core.stroke.StrokeRecord("preview",p.id,CannedStroke.SEED,
+            p.smoothing,1f,samples,colorArgb=colors.primaryArgb,secondaryColorArgb=colors.secondaryArgb)
+        val expected = cc.joycreator.joybrush.core.vector.InkReplay.replay(record,p)
+        assertEquals(expected.dabs,actual.dabs)
+        assertEquals(expected.strokeOpacity,actual.strokeOpacity)
+        assertTrue(actual.dabs != StampPreview.build(p.copy(line=null),samples,colors).dabs)
+    }
+
     @Test fun theSameBrushAndBoxGiveTheSameDabsEveryTime() {
         for (p in BrushLibrary.builtIn().filter { PreviewPlan.kindOf(it) == PreviewKind.STAMP }) {
             val a = build(p)
@@ -33,6 +81,17 @@ class StampPreviewTest {
             assertEquals(a.strokeOpacity, b.strokeOpacity, p.id)
             assertEquals(a.tip, b.tip, p.id)
         }
+    }
+
+    @Test fun colourPreviewUsesItsPaletteAndTheSecondaryChangesItsCacheKey() {
+        val p = brush().copy(color = ColorJitter(dynamics = ColorDynamicsSpec(secondaryMix = 1f)))
+        val samples = CannedStroke.pen(800, 100, p.size.base)
+        val warm = StampPreview.build(p, samples, StrokeColors(0xFFFF0000.toInt(), 0xFFFFFF00.toInt()))
+        val cool = StampPreview.build(p, samples, StrokeColors(0xFFFF0000.toInt(), 0xFF0000FF.toInt()))
+        assertTrue(warm.dabs.map { it.color } != cool.dabs.map { it.color })
+        assertEquals(warm.dabs.map { it.copy(color = null) }, cool.dabs.map { it.copy(color = null) })
+        val style = BrushPreviewStyle()
+        assertTrue(style.key != style.copy(secondaryInk = 0xFF0000FF.toInt()).key)
     }
 
     @Test fun everyShippedStampBrushLaysDabsInsideThePictureOrJustBeyondItsEdge() {

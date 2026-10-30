@@ -21,10 +21,11 @@ object LineBrushes {
 
     /** Why [p] cannot be a line's brush, as the end of a sentence; null = it can. */
     fun refusal(p: BrushPreset): String? = when {
-        InkEditSession.rebrushRefusal(p) != null -> "it reads the pixels under the pen"
+        // Picture tips are frozen with their pictures when picked (CanvasSelectionHost.freezeBrush), so only the engine decides.
+        !cc.joycreator.joybrush.core.stroke.StrokeEdit.drawsInkLines(p.engine) -> "it reads the pixels under the pen"
         p.engine != "stamp" && p.engine != ENGINE_WATERCOLOUR -> "this brush can't be kept as a line yet"
         p.blend == "erase" -> "an eraser is not a pen"
-        p.line != null -> "brushes that shape the whole stroke can't be kept as lines yet"
+        cc.joycreator.joybrush.core.vector.LineStyle.of(p.line).isWire -> "screen-width wire brushes can't be kept as lines yet"
         p.blend != "normal" && p.blend != BLEND_BEHIND && p.blend != BLEND_MULTIPLY && p.blend != BLEND_SCREEN ->
             "the ${p.blend} blend can't be kept as a line yet"
         p.engine == "stamp" && p.tip.source != "procedural" -> "picture-tip brushes can't be kept as lines yet"

@@ -1,0 +1,168 @@
+--- /dev/null
++++ b/joybrush/androidkit/src/test/kotlin/cc/joycreator/joybrush/androidkit/gl/SampledBoundsHeldTest.kt
+@@ -0,0 +1,37 @@
++package cc.joycreator.joybrush.androidkit.gl
++
++import cc.joycreator.joybrush.core.brush.ImageMask
++import cc.joycreator.joybrush.core.brush.SampledStamp
++import cc.joycreator.joybrush.core.brush.SampledTipSet
++import cc.joycreator.joybrush.core.doc.RectPx
++import cc.joycreator.joybrush.core.paint.Dab
++import cc.joycreator.joybrush.core.paint.Tiles
++import kotlin.test.Test
++import kotlin.test.assertEquals
++import kotlin.test.assertFailsWith
++import kotlin.test.assertTrue
++
++/** Held proposal only; not installed or run. */
++class SampledBoundsHeldTest {
++    private fun imageDab(): Dab {
++        val set = SampledTipSet(listOf("one.png"), listOf(ImageMask.fromR8(1,1,byteArrayOf(-1))))
++        return Dab(30f,256f,15f,aspect=0f,anchor=0f,sampled=SampledStamp(set,0,1f))
++    }
++
++    @Test fun nativeOnePixelSupportCreatesThePeriodicCopyAcrossTheLeftSeam() {
++        val image = imageDab()
++        val copies = TilePainting.dabs(RectPx(0,0,512,512), image)
++        assertTrue(copies.any { it.x == 542f && it.y == 256f })
++        assertEquals(1, TilePainting.dabs(RectPx(0,0,512,512), image.copy(sampled=null)).size)
++        assertTrue(copies.all { it.sampled === image.sampled })
++    }
++
++    @Test fun admissionUsesTheSameWidenedKeysAsTheAllocatorBeforeItRetainsTheDab() {
++        val image = imageDab()
++        val expected = setOf(Tiles.key(-1,0), Tiles.key(0,0))
++        assertEquals(expected,Tiles.touchedBy(image,512).toSet())
++        assertEquals(expected,RecordedReplayTilePlan.keys(listOf(image),2,512))
++        assertFailsWith<IllegalArgumentException> { RecordedReplayTilePlan.keys(listOf(image),1,512) }
++        assertEquals(setOf(Tiles.key(0,0)),RecordedReplayTilePlan.keys(listOf(image.copy(sampled=null)),1,512))
++    }
++}
+--- /dev/null
++++ b/joybrush/androidkit/src/test/kotlin/cc/joycreator/joybrush/androidkit/lines/FrozenBrushAssetCacheHeldTest.kt
+@@ -0,0 +1,34 @@
++package cc.joycreator.joybrush.androidkit.lines
++
++import cc.joycreator.joybrush.androidkit.io.PngWriter
++import cc.joycreator.joybrush.core.brush.*
++import kotlin.test.*
++
++/** Proposed JVM tests for the held asset-aware cache; not executed. */
++class FrozenBrushAssetCacheHeldTest {
++    private fun pen()=BrushPreset(id="library",name="Sample",size=Param(8f),
++        tip=TipSpec(source="image",sampled=SampledTipSpec(images=listOf("tips/a.png"))))
++    private fun png(a:Int)=FrozenBrushPngs.snapshot(mapOf("tips/a.png" to
++        PngWriter.encode(1,1,byteArrayOf(-1,-1,-1,a.toByte()))))
++    @Test fun actualPngBytesChooseFrozenIdentityAndEqualBytesHitCache() {
++        val cache=FrozenBrushCache(); var serial=0
++        val first=cache.freeze(0,emptyMap(),emptyMap(),pen(),png(255)){"f-${++serial}"}
++        val same=cache.freeze(0,emptyMap(),emptyMap(),pen(),png(255)){"f-${++serial}"}
++        assertSame(first,same); assertEquals(1,serial)
++        val changed=cache.freeze(0,emptyMap(),emptyMap(),pen(),png(128)){"f-${++serial}"}
++        assertNotEquals(first.id,changed.id)
++        assertFalse(first.assets.getValue(first.id).sameBytes(changed.assets.getValue(changed.id)))
++        cache.freeze(0,emptyMap(),emptyMap(),pen(),png(255)){"f-${++serial}"}
++        assertEquals(3,cache.computed,"Only one modern candidate is retained")
++    }
++    @Test fun malformedPngIsNeverRememberedOrPublished() {
++        val cache=FrozenBrushCache(); var serial=0
++        repeat(2) {
++            assertFailsWith<Exception> {
++                cache.freeze(0,emptyMap(),emptyMap(),pen(),FrozenBrushPngs.snapshot(
++                    mapOf("tips/a.png" to byteArrayOf(1,2,3)))){"f-${++serial}"}
++            }
++        }
++        assertEquals(2,serial)
++    }
++}
+--- /dev/null
++++ b/joybrush/androidkit/src/test/kotlin/cc/joycreator/joybrush/androidkit/gl/lines/RecordedSceneSampledResourcesHeldTest.kt
+@@ -0,0 +1,88 @@
++package cc.joycreator.joybrush.androidkit.gl.lines
++
++import cc.joycreator.joybrush.androidkit.io.PngWriter
++import cc.joycreator.joybrush.core.brush.*
++import cc.joycreator.joybrush.core.input.PenSample
++import cc.joycreator.joybrush.core.paint.UndoLog
++import cc.joycreator.joybrush.core.stroke.*
++import cc.joycreator.joybrush.core.vector.*
++import kotlin.test.*
++
++/** Proposed JVM tests for the held adapters; not executed or copied into the repository. */
++class RecordedSceneSampledResourcesHeldTest {
++    private val at: Pair<String, String?> = "paint" to null
++    private val address = LineAddress("paint", null, "line")
++    private val ordinary = BrushPreset(id="ordinary", name="Pen", size=Param(8f))
++    private val sampled = ordinary.copy(id="sampled", tip=TipSpec(source="image",
++        sampled=SampledTipSpec(images=listOf("tips/a.png"))))
++    private fun png(alpha: Int) = FrozenBrushPngs.snapshot(mapOf("tips/a.png" to
++        PngWriter.encode(1, 1, byteArrayOf(-1, -1, -1, alpha.toByte()))))
++    private fun record(id: String) = StrokeRecord("line",id,19,0f,1f,listOf(PenSample(0f,0f,0.0)),seq=1)
++    private class Driver : RecordedScene.Renderer<Int> {
++        var next=100
++        val seen=mutableListOf<Pair<String,FrozenBrushPngs?>>()
++        override fun line(address:LineAddress,record:StrokeRecord,preset:BrushPreset):RecordedScene.Unit<Int> =
++            error("The scene must use the resource-bearing callback")
++        override fun line(address:LineAddress,record:StrokeRecord,preset:BrushPreset,pngs:FrozenBrushPngs?):RecordedScene.Unit<Int> {
++            seen += preset.id to pngs
++            if(preset.tip.sampled!=null) assertNotNull(pngs)
++            return RecordedScene.Unit(preset.blend,mapOf(0L to next++))
++        }
++        override fun look(plane:Pair<String,String?>,key:Long,sources:List<RecordedScene.Source<Int>>) = next++
++        override fun release(texture:Int) {}
++    }
++    private class Fixture(val driver:Driver,val history:UndoLog<Int>,val scene:RecordedScene<Int>)
++    private fun fixture():Fixture {
++        val driver=Driver()
++        val history=UndoLog<Int>(1_000_000,{4},{})
++        val scene=RecordedScene.create(mapOf(at to RecordedCel<Int>("paint",null,listOf(record(ordinary.id)))),
++            mapOf(ordinary.id to ordinary),history,driver)
++        driver.seen.clear()
++        return Fixture(driver,history,scene)
++    }
++    private fun rebrush(f:Fixture) = RecordedEdits.replace(f.scene.planes,
++        listOf(AddressedStroke(address,record(sampled.id))),setOf(ordinary.id,sampled.id))
++
++    @Test fun canceledCandidateNeverPublishesAssetsAndRendererSeesCandidateBundle() {
++        val f=fixture(); val images=png(255); val before=f.scene.snapshotState()
++        f.scene.stage(rebrush(f),frozen=mapOf(ordinary.id to ordinary,sampled.id to sampled),
++            frozenAssets=mapOf(sampled.id to images)).use {
++            assertSame(before,f.scene.snapshotState())
++            assertTrue(f.scene.brushAssets.isEmpty())
++            assertSame(images,f.driver.seen.single().second)
++        }
++        assertSame(before,f.scene.snapshotState())
++        assertTrue(f.scene.brushAssets.isEmpty()); assertFalse(f.history.canUndo)
++    }
++
++    @Test fun successfulRebrushKeepsBundleAcrossUndoRedo() {
++        val f=fixture(); val images=png(255)
++        f.scene.stage(rebrush(f),frozen=mapOf(ordinary.id to ordinary,sampled.id to sampled),
++            frozenAssets=mapOf(sampled.id to images)).use { assertTrue(it.commit()) }
++        assertSame(images,f.scene.brushAssets[sampled.id])
++        val step=assertNotNull(f.history.peekUndo())
++        f.scene.stage(RecordedEdits.prepare(f.scene.planes,step,false),RecordedScene.Direction.UNDO).use { assertTrue(it.commit()) }
++        assertSame(images,f.scene.brushAssets[sampled.id])
++        assertEquals(ordinary.id,f.scene.planes.getValue(at).records.single().brushId)
++        f.scene.stage(RecordedEdits.prepare(f.scene.planes,step,true),RecordedScene.Direction.REDO).use { assertTrue(it.commit()) }
++        assertSame(images,f.scene.brushAssets[sampled.id])
++        assertEquals(sampled.id,f.scene.planes.getValue(at).records.single().brushId)
++    }
++
++    @Test fun missingOrReplacedResourcesRefuseBeforeRendererAndPreserveRoot() {
++        val f=fixture(); val images=png(255)
++        assertFailsWith<Exception> {
++            f.scene.stage(rebrush(f),frozen=mapOf(ordinary.id to ordinary,sampled.id to sampled))
++        }
++        assertTrue(f.driver.seen.isEmpty())
++        f.scene.stage(rebrush(f),frozen=mapOf(ordinary.id to ordinary,sampled.id to sampled),
++            frozenAssets=mapOf(sampled.id to images)).use { assertTrue(it.commit()) }
++        f.driver.seen.clear(); val before=f.scene.snapshotState()
++        val moved=RecordedEdits.replace(f.scene.planes,listOf(AddressedStroke(address,
++            record(sampled.id).copy(colorArgb=0xff00ff00.toInt()))),f.scene.brushes.keys)
++        assertFailsWith<IllegalArgumentException> {
++            f.scene.stage(moved,frozenAssets=mapOf(sampled.id to png(128)))
++        }
++        assertSame(before,f.scene.snapshotState()); assertTrue(f.driver.seen.isEmpty())
++    }
++}

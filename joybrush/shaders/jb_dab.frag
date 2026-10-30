@@ -4,9 +4,16 @@ precision highp float;
 
 #include "jb_contact.glsl"
 
-out vec4 o_color;
+layout(location = 0) out vec4 o_color;
+layout(location = 1) out vec4 o_colorMoment;
+flat in vec4 v_color;
+uniform vec3 u_stampBaseColor;
 
 void main() {
     float d = jb_contactCoverage();
-    o_color = vec4(v_cap * d, 0.0, 0.0, d);
+    float capCoverage = v_cap * d;
+    o_color = vec4(capCoverage, 0.0, 0.0, d);
+    vec3 ink = v_color.a > 0.5 ? v_color.rgb : u_stampBaseColor;
+    // Both outputs blend with UN-CAPPED coverage d; original R remains the final opacity.
+    o_colorMoment = vec4(ink * capCoverage, d);
 }

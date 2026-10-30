@@ -84,8 +84,8 @@ class CapturedStrokeCodecTest {
 
     @Test fun ordinaryWriterIsV5WithCapturedAndWashFrameFlagsClear() {
         val bytes = StrokeCodec.encode(ordinary())
-        assertEquals(5, StrokeCodec.VERSION)
-        assertEquals(5, bytes[4].toInt())
+        assertEquals(6, StrokeCodec.VERSION)
+        assertEquals(6, bytes[4].toInt())
         assertEquals(0, bytes[6].toInt() and 32)
         assertEquals(0, bytes[6].toInt() and 64)
         assertEquals(ordinary(), StrokeCodec.decode(bytes))

@@ -3,6 +3,8 @@ package cc.joycreator.joybrush.androidkit.gl.lines
 import cc.joycreator.joybrush.core.brush.BrushJson
 import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.brush.FrozenBrushRegistry
+import cc.joycreator.joybrush.core.brush.FrozenBrushPngs
+import cc.joycreator.joybrush.androidkit.io.FrozenBrushAssets
 import cc.joycreator.joybrush.core.paint.UndoLog
 import cc.joycreator.joybrush.core.media.MediaStores
 import cc.joycreator.joybrush.core.stroke.LineAddress
@@ -45,6 +47,8 @@ internal class RecordedScene<T : Any> private constructor(
         fun contextCurrent(): Boolean = true
         /** Atomic result: fresh owned textures; on throw the renderer cleans its own partial work. */
         fun line(address: LineAddress, record: StrokeRecord, preset: BrushPreset): Unit<T>
+        fun line(address: LineAddress, record: StrokeRecord, preset: BrushPreset,
+                 pngs: FrozenBrushPngs?): Unit<T> = line(address, record, preset)
         /**
          * Clone EVERY cached canonical source tile through normal copy and physical-cel clipping,
          * after full WC pooling. Its pixels already include brush opacity exactly once: do not
@@ -71,6 +75,8 @@ internal class RecordedScene<T : Any> private constructor(
      */
     interface CapturedSourceRenderer<T : Any> : Renderer<T> {
         fun admitCapturedSource(address: LineAddress, record: StrokeRecord, preset: BrushPreset): Boolean
+        fun admitCapturedSource(address: LineAddress, record: StrokeRecord, preset: BrushPreset,
+                                pngs: FrozenBrushPngs?): Boolean = admitCapturedSource(address, record, preset)
     }
 
     internal class Cached<T : Any>(val record: StrokeRecord, val unit: Unit<T>)
@@ -85,7 +91,9 @@ internal class RecordedScene<T : Any> private constructor(
         // Loaded declarations are independent of units. Absence of a plan means unresolved
         // per-line footprints, not that every line has an authoritative empty footprint.
         val savedKeys: Map<Pair<String, String?>, Set<Long>>,
+        brushAssets: Map<String, FrozenBrushPngs> = emptyMap(),
     ) {
+        val brushAssets: Map<String, FrozenBrushPngs> = brushAssets.toMap()
         internal fun belongsTo(identity: Any): Boolean = owner === identity
         fun cacheTextures(): Set<T> = (units.values.flatMap { it.unit.tiles.values } +
             looks.values.flatMap { it.values }).toSet()
@@ -233,6 +241,7 @@ internal class RecordedScene<T : Any> private constructor(
     /** Borrowed read-only cel identities used by RecordedEdits; mutation stays on the GL thread. */
     val planes: Map<Pair<String, String?>, RecordedCel<T>> get() = state.planes
     val brushes: Map<String, BrushPreset> get() = state.brushes.mapValues { BrushJson.decodeChecked(it.value) }
+    val brushAssets: Map<String, FrozenBrushPngs> get() = state.brushAssets.toMap()
     fun lookKeys(plane: Pair<String, String?>): Set<Long> = state.looks[plane]?.keys?.toSet().orEmpty()
     /**
      * Archive indexes list line-crossed tiles only; plain slab tiles stay in the pixel payload.
@@ -626,7 +635,8 @@ internal class RecordedScene<T : Any> private constructor(
      * adapters are intentionally not activated by this method.
      */
     fun stageJoint(step: UndoLog.Step<T>, direction: Direction = Direction.NEW,
-                   frozen: Map<String, BrushPreset>? = null): JointStaged {
+                   frozen: Map<String, BrushPreset>? = null,
+                   frozenAssets: Map<String, FrozenBrushPngs>? = null): JointStaged {
         require(step.stackBefore == null && step.stackAfter == null && step.paperBefore == null &&
             step.paperAfter == null && step.documentBefore == null && step.documentAfter == null) {
             "Joint recorded staging does not yet support structural, paper or document metadata"
@@ -636,7 +646,7 @@ internal class RecordedScene<T : Any> private constructor(
         }
         check(!resetPreparing && !admittingCapturedSource) { "Cannot stage recorded work during reset or source admission" }
         jointPreparations++
-        try { return stageJointPrepared(step, direction, frozen) } finally { jointPreparations-- }
+        try { return stageJointPrepared(step, direction, frozen, frozenAssets = frozenAssets) } finally { jointPreparations-- }
     }
 
     /**
@@ -646,7 +656,8 @@ internal class RecordedScene<T : Any> private constructor(
      */
     internal fun stageJointProjected(expected: PromotedPublication<T>, fullStep: UndoLog.Step<T>,
                                     direction: Direction = Direction.NEW,
-                                    frozen: Map<String, BrushPreset>? = null): JointStaged {
+                                    frozen: Map<String, BrushPreset>? = null,
+                                    frozenAssets: Map<String, FrozenBrushPngs>? = null): JointStaged {
         require(fullStep.stackBefore == null && fullStep.stackAfter == null && fullStep.paperBefore == null &&
             fullStep.paperAfter == null && fullStep.documentBefore == null && fullStep.documentAfter == null) {
             "Joint recorded staging does not yet support structural, paper or document metadata"
@@ -656,12 +667,13 @@ internal class RecordedScene<T : Any> private constructor(
         }
         check(!resetPreparing && !admittingCapturedSource) { "Cannot stage recorded work during reset or source admission" }
         jointPreparations++
-        try { return stageJointPrepared(fullStep, direction, frozen, expected) } finally { jointPreparations-- }
+        try { return stageJointPrepared(fullStep, direction, frozen, expected, frozenAssets) } finally { jointPreparations-- }
     }
 
     private fun stageJointPrepared(step: UndoLog.Step<T>, direction: Direction,
                                    frozen: Map<String, BrushPreset>?,
-                                   expectedPromotion: PromotedPublication<T>? = null): JointStaged {
+                                   expectedPromotion: PromotedPublication<T>? = null,
+                                   frozenAssets: Map<String, FrozenBrushPngs>? = null): JointStaged {
         if(direction == Direction.NEW) cc.joycreator.joybrush.core.stroke.CapturedStrokeRules.requireNewStep(step)
         requireSourceKinds(step)
         val read = boundRead ?: error("Joint recorded staging requires an engine publication binding")
@@ -714,10 +726,11 @@ internal class RecordedScene<T : Any> private constructor(
             "The projected recorded sources changed during preparation"
         }
         val presets = frozen ?: before.brushes.mapValues { BrushJson.decodeChecked(it.value) }
-        val saved = validateRender(before, edit.after, presets)
+        val images = checkedAssets(before, presets, frozenAssets ?: before.brushAssets)
+        val saved = validateRender(before, edit.after, presets, images)
         if (edit.changedPlanes.isEmpty()) {
             val candidate = if (saved == before.brushes) before else State(sceneIdentity, before.planes,
-                saved, before.units, before.plans, before.looks, before.savedKeys)
+                saved, before.units, before.plans, before.looks, before.savedKeys, images)
             checkEpoch(basis.epoch, publication)
             return JointStaged(publication, candidate, cursor, emptySet(), emptySet(), emptyMap())
         }
@@ -726,7 +739,7 @@ internal class RecordedScene<T : Any> private constructor(
         val warmed = warm(before, edit.changedPlanes, saved, basis.epoch, publication, protected)
         var built: Built<T>? = null
         try {
-            val ready = buildStage(basis, warmed, edit, canonicalPresets, emptySet())
+            val ready = buildStage(basis, warmed, edit, canonicalPresets, emptySet(), frozenAssets = images)
             built = ready
             checkEpoch(basis.epoch, publication)
             return JointStaged(publication, ready.state, cursor, ready.fresh, ready.retired, ready.affected)
@@ -804,8 +817,9 @@ internal class RecordedScene<T : Any> private constructor(
     }
 
     fun stage(edit: RecordedEdits.Prepared<T>, direction: Direction = Direction.NEW,
-              frozen: Map<String, BrushPreset> = brushes): Staged {
-        return prepareLocal { stagePrepared(edit, direction, frozen, emptySet()) }
+              frozen: Map<String, BrushPreset> = brushes,
+              frozenAssets: Map<String, FrozenBrushPngs> = brushAssets): Staged {
+        return prepareLocal { stagePrepared(edit, direction, frozen, emptySet(), frozenAssets) }
     }
 
     /**
@@ -884,7 +898,8 @@ internal class RecordedScene<T : Any> private constructor(
     }
 
     private fun stagePrepared(edit: RecordedEdits.Prepared<T>, direction: Direction,
-                              frozen: Map<String, BrushPreset>, freshSources: Set<T>): Staged {
+                              frozen: Map<String, BrushPreset>, freshSources: Set<T>,
+                              frozenAssets: Map<String, FrozenBrushPngs> = brushAssets): Staged {
         if(direction == Direction.NEW) cc.joycreator.joybrush.core.stroke.CapturedStrokeRules.requireNewStep(edit.step)
         requireSourceKinds(edit.before)
         requireSourceKinds(edit.after)
@@ -903,10 +918,11 @@ internal class RecordedScene<T : Any> private constructor(
             Direction.NEW -> kotlin.Unit
         }
         val basis = basis(state)
-        val saved = validateRender(basis.before, edit.after, frozen)
+        val images = checkedAssets(basis.before, frozen, frozenAssets)
+        val saved = validateRender(basis.before, edit.after, frozen, images)
         val warmed = warm(basis.before, edit.changedPlanes, saved, basis.epoch)
         try {
-            return staged(basis, warmed, edit, direction, frozen, freshSources)
+            return staged(basis, warmed, edit, direction, frozen, freshSources, images)
         } catch (failure: Throwable) {
             releaseInEpoch(warmed.fresh, basis.epoch)
             throw failure
@@ -952,7 +968,7 @@ internal class RecordedScene<T : Any> private constructor(
                 for (record in cel.records) {
                     val address = LineAddress(cel.layerId, cel.celId, record.id)
                     checkEpoch(epoch, publication)
-                    val unit = renderer.line(address, record, BrushJson.decodeChecked(saved.getValue(record.brushId)))
+                    val unit = renderer.line(address, record, BrushJson.decodeChecked(saved.getValue(record.brushId)), before.brushAssets[record.brushId])
                     // Epoch loss makes returned names unsafe to delete. A same-epoch root switch
                     // still permits collecting/releasing genuinely fresh output before refusal.
                     checkGraphicsEpoch(epoch, publication != null)
@@ -978,7 +994,7 @@ internal class RecordedScene<T : Any> private constructor(
             checkEpoch(epoch, publication)
             check(renderer.contextCurrent()) { "The recorded renderer context changed during materialization" }
             checkEpoch(epoch, publication)
-            return Warmed(State(sceneIdentity, before.planes, before.brushes, units.toMap(), plans.toMap(), before.looks, before.savedKeys), fresh.toSet())
+            return Warmed(State(sceneIdentity, before.planes, before.brushes, units.toMap(), plans.toMap(), before.looks, before.savedKeys, before.brushAssets), fresh.toSet())
         } catch (failure: Throwable) {
             releaseInEpoch(fresh, epoch)
             throw failure
@@ -986,8 +1002,9 @@ internal class RecordedScene<T : Any> private constructor(
     }
 
     private fun staged(basis: Basis<T>, warmed: Warmed<T>, edit: RecordedEdits.Prepared<T>,
-                       direction: Direction, frozen: Map<String, BrushPreset>, freshSources: Set<T>): Staged {
-        val built = buildStage(basis, warmed, edit, frozen, freshSources)
+                       direction: Direction, frozen: Map<String, BrushPreset>, freshSources: Set<T>,
+                       frozenAssets: Map<String, FrozenBrushPngs> = basis.before.brushAssets): Staged {
+        val built = buildStage(basis, warmed, edit, frozen, freshSources, frozenAssets = frozenAssets)
         try {
             return Staged(basis.before, built.state, built.fresh, built.retired,
                 basis.epoch, edit.step, direction, basis.undoHead, basis.redoHead, basis.cursor, built.affected)
@@ -1002,9 +1019,10 @@ internal class RecordedScene<T : Any> private constructor(
 
     private fun buildStage(basis: Basis<T>, warmed: Warmed<T>, edit: RecordedEdits.Prepared<T>,
                            frozen: Map<String, BrushPreset>, freshSources: Set<T>,
-                           currentBorrowed: (() -> Set<T>)? = null): Built<T> {
+                           currentBorrowed: (() -> Set<T>)? = null,
+                           frozenAssets: Map<String, FrozenBrushPngs> = basis.before.brushAssets): Built<T> {
         checkEpoch(basis.epoch, basis.publication)
-        val rendered = render(warmed.state, edit.after, frozen, basis.epoch, basis.publication, basis.protected, currentBorrowed)
+        val rendered = render(warmed.state, edit.after, frozen, basis.epoch, basis.publication, basis.protected, currentBorrowed, frozenAssets)
         try {
             checkEpoch(basis.epoch, basis.publication)
             val transientWarm = warmed.fresh - rendered.state.cacheTextures()
@@ -1063,7 +1081,8 @@ internal class RecordedScene<T : Any> private constructor(
     }
 
     /** No capability callback can cross a local edit, binding, history move or root/context reset. */
-    private fun admitCapturedSources(planes: Map<Pair<String, String?>, RecordedCel<T>>, saved: Map<String, String>) {
+    private fun admitCapturedSources(planes: Map<Pair<String, String?>, RecordedCel<T>>, saved: Map<String, String>,
+                                     images: Map<String, FrozenBrushPngs>) {
         val physical = planes.toMap()
         val captured = physical.values.flatMap { cel -> cel.records.filter { it.capturedPhysicalSource != null }.map {
             LineAddress(cel.layerId, cel.celId, it.id) to it
@@ -1094,7 +1113,7 @@ internal class RecordedScene<T : Any> private constructor(
                 check(renderer.contextCurrent()) { "The captured renderer context is unavailable" }
                 checkCurrent()
                 val admitted = capable.admitCapturedSource(address, CapturedStrokeRules.snapshot(record),
-                    BrushJson.decodeChecked(saved.getValue(record.brushId)))
+                    BrushJson.decodeChecked(saved.getValue(record.brushId)), images[record.brushId])
                 checkCurrent()
                 require(admitted) { "The renderer refused this captured physical source" }
                 check(renderer.contextCurrent()) { "The captured renderer context changed during admission" }
@@ -1106,7 +1125,9 @@ internal class RecordedScene<T : Any> private constructor(
     }
 
     private fun validateRender(before: State<T>, after: Map<Pair<String, String?>, RecordedCel<T>>,
-                               frozen: Map<String, BrushPreset>): Map<String, String> {
+                               frozen: Map<String, BrushPreset>,
+                               frozenAssets: Map<String, FrozenBrushPngs> = before.brushAssets): Map<String, String> {
+        val images = checkedAssets(before, frozen, frozenAssets)
         requireSourceKinds(before.planes)
         requireSourceKinds(after)
         val saved = FrozenBrushRegistry.validate(frozen).mapValues { BrushJson.encode(it.value) }
@@ -1121,21 +1142,37 @@ internal class RecordedScene<T : Any> private constructor(
         // Admit both history endpoints, including records removed by a delete or bake. All
         // records are checked before warm/render allocates any source; admission grants no save,
         // cold-loader, Select or other consumer permission outside this renderer instance.
-        admitCapturedSources(before.planes, saved)
-        admitCapturedSources(after, saved)
+        admitCapturedSources(before.planes, saved, images)
+        admitCapturedSources(after, saved, images)
         return saved
+    }
+
+    private fun checkedAssets(before: State<T>, frozen: Map<String, BrushPreset>,
+                              supplied: Map<String, FrozenBrushPngs>): Map<String, FrozenBrushPngs> {
+        val images = supplied.toMap() // Values own their bytes; retain stable bundle identity.
+        FrozenBrushRegistry.validateAssets(frozen, images)
+        require(before.brushAssets.all { (id, old) -> images[id]?.sameBytes(old) == true }) {
+            "Frozen image bytes cannot be replaced or removed while history can reference them"
+        }
+        // Only new bundles can change the archive budget. The scene is also callable without
+        // the UI freeze cache, so keep this final independent admission before callbacks.
+        if (images.keys.any { it !in before.brushAssets })
+            FrozenBrushAssets.prepare(frozen, images, retainEntries = false)
+        return images
     }
 
     private fun render(before: State<T>, after: Map<Pair<String, String?>, RecordedCel<T>>,
                        frozen: Map<String, BrushPreset>, epoch: Long = generation,
                        publication: Publication<T>? = null, protected: Set<T> = emptySet(),
-                       currentBorrowed: (() -> Set<T>)? = null): Rendered<T> {
+                       currentBorrowed: (() -> Set<T>)? = null,
+                       frozenAssets: Map<String, FrozenBrushPngs> = before.brushAssets): Rendered<T> {
         requireSourceKinds(before.planes)
         requireSourceKinds(after)
         checkEpoch(epoch, publication)
         check(renderer.contextCurrent()) { "The recorded renderer context is unavailable" }
         checkEpoch(epoch, publication)
-        val saved = validateRender(before, after, frozen)
+        val images = checkedAssets(before, frozen, frozenAssets)
+        val saved = validateRender(before, after, frozen, images)
         val existing = before.cacheTextures() + slabTextures(before.planes) + slabTextures(after) + history.heldTextures() + protected
         val fresh = LinkedHashSet<T>()
         fun own(textures: Collection<T>) {
@@ -1165,7 +1202,7 @@ internal class RecordedScene<T : Any> private constructor(
                             renderingRecord(previous.record), renderingRecord(record))) previous.unit
                     else {
                         checkEpoch(epoch, publication)
-                        val rendered = renderer.line(address, record, BrushJson.decodeChecked(saved.getValue(record.brushId)))
+                        val rendered = renderer.line(address, record, BrushJson.decodeChecked(saved.getValue(record.brushId)), images[record.brushId])
                         checkGraphicsEpoch(epoch, publication != null)
                         own(rendered.tiles.values)
                         checkEpoch(epoch, publication)
@@ -1214,7 +1251,7 @@ internal class RecordedScene<T : Any> private constructor(
                 looks[plane] = next.toMap()
             }
             checkEpoch(epoch, publication)
-            return Rendered(State(sceneIdentity, after.toMap(), saved, units.toMap(), plans, looks.toMap(), savedKeys), fresh.toSet(), affected.toMap())
+            return Rendered(State(sceneIdentity, after.toMap(), saved, units.toMap(), plans, looks.toMap(), savedKeys, images), fresh.toSet(), affected.toMap())
         } catch (failure: Throwable) {
             releaseAfterFailure(failure, fresh, epoch, currentBorrowed)
             throw failure
@@ -1420,7 +1457,8 @@ internal class RecordedScene<T : Any> private constructor(
                                  history: UndoLog<T>, renderer: Renderer<T>,
                                  savedLookKeys: Map<Pair<String, String?>, Set<Long>>,
                                  uploadedLooks: Map<Pair<String, String?>, Map<Long, T>>,
-                                 protectedTextures: Set<T> = emptySet()): RecordedScene<T> {
+                                 protectedTextures: Set<T> = emptySet(),
+                                 frozenAssets: Map<String, FrozenBrushPngs> = emptyMap()): RecordedScene<T> {
             val scene = RecordedScene(history, renderer)
             // Detach and validate before calling external context providers. A provider can
             // reenter history or mutate caller collection backing while answering readiness.
@@ -1429,7 +1467,8 @@ internal class RecordedScene<T : Any> private constructor(
             val looks = uploadedLooks.mapValues { it.value.toMap() }
             val keys = savedLookKeys.mapValues { it.value.toSet() }
             val protected = protectedTextures.toSet()
-            val saved = scene.validateRender(scene.state, physical, brushes)
+            val images = scene.checkedAssets(scene.state, brushes, frozenAssets)
+            val saved = scene.validateRender(scene.state, physical, brushes, images)
             check(renderer.contextCurrent()) { "The recorded renderer context is unavailable" }
             require(keys.keys == physical.keys && looks.keys == physical.keys) {
                 "Every physical cel needs an explicit saved look index and uploaded look map"
@@ -1451,15 +1490,16 @@ internal class RecordedScene<T : Any> private constructor(
             check(history.snapshotCursor() === cursor) {
                 "Recorded history changed before saved-look acceptance"
             }
-            scene.localState = State(scene.sceneIdentity, physical, saved, emptyMap(), emptyMap(), looks, keys)
+            scene.localState = State(scene.sceneIdentity, physical, saved, emptyMap(), emptyMap(), looks, keys, images)
             return scene
         }
 
         /** Open or promote only after all source units and looks have staged successfully. */
         fun <T : Any> create(planes: Map<Pair<String, String?>, RecordedCel<T>>, brushes: Map<String, BrushPreset>,
-                            history: UndoLog<T>, renderer: Renderer<T>): RecordedScene<T> {
+                            history: UndoLog<T>, renderer: Renderer<T>,
+                            frozenAssets: Map<String, FrozenBrushPngs> = emptyMap()): RecordedScene<T> {
             val scene = RecordedScene(history, renderer)
-            val rendered = scene.prepareLocal { scene.render(scene.state, planes, brushes) }
+            val rendered = scene.prepareLocal { scene.render(scene.state, planes, brushes, frozenAssets = frozenAssets.toMap()) }
             scene.localState = rendered.state
             return scene
         }

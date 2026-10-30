@@ -4,6 +4,7 @@ import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.brush.ENGINE_FILL
 import cc.joycreator.joybrush.core.brush.ENGINE_MEDIA
 import cc.joycreator.joybrush.core.brush.ENGINE_SMUDGE
+import cc.joycreator.joybrush.core.brush.LineStyleSpec
 import cc.joycreator.joybrush.core.brush.Param
 import cc.joycreator.joybrush.core.brush.TipSpec
 import kotlin.test.*
@@ -21,6 +22,13 @@ class LineAdmissionTest {
         assertNull(refusal(pen()))
         assertNull(refusal(pen(blend = "erase")))
         assertNull(refusal(pen(blend = "multiply")))
+    }
+
+    @Test fun aTaperedOrDashedBrushIsALineAndOnlyAScreenWidthWireIsNot() {
+        // Unibrush U6: the stroke is shaped at the lift and its line replays shaped.
+        assertNull(refusal(pen().copy(line = LineStyleSpec(taperIn = 1f, taperOut = 3f))))
+        assertNull(refusal(pen().copy(line = LineStyleSpec(dashOn = 2f, dashOff = 1f))))
+        assertEquals("screen-width wire brushes can't be kept as lines yet", refusal(pen().copy(line = LineStyleSpec(screenWidthPx = 1.5f))))
     }
 
     @Test fun aPaintBehindStrokeStaysPixelsBecauseItIsPaintedAsPlainPaintLive() {

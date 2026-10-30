@@ -124,7 +124,18 @@ class BrushDrawerView(
         shelfShowing++
         strokes.removeAllViews()
         val list = shelves.firstOrNull { it.first == kind }?.second ?: return
-        for (p in list) strokes.addView(row(p), LayoutParams(LayoutParams.MATCH_PARENT, kit.dpi(ROW_DP)).apply { bottomMargin = kit.dpi(2f) })
+        var familyHeading = false
+        for (p in list) {
+            if (!familyHeading && p.engine == "stamp" && p.extensions["unibrush.family"] in setOf("builtin", "user")) {
+                familyHeading = true
+                strokes.addView(TextView(context).apply {
+                    text = "Unibrush"; textSize = 13f; setTextColor(kit.p.drawerInk)
+                    setPadding(kit.dpi(8f), kit.dpi(6f), 0, kit.dpi(4f))
+                    kit.label(this, "Unibrush modes")
+                }, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+            }
+            strokes.addView(row(p), LayoutParams(LayoutParams.MATCH_PARENT, kit.dpi(ROW_DP)).apply { bottomMargin = kit.dpi(2f) })
+        }
         swap?.let { s ->
             strokes.addView(TextView(context).apply {
                 text = s.footer
@@ -210,7 +221,9 @@ class BrushDrawerView(
         img.doOnLayout {
             if (img.width > 0 && img.height > 0 && !slot.laidOut) {
                 slot.laidOut = true
-                img.setImageBitmap(sample(p, img.width, img.height))
+                if (p.engine == "stamp" && p.extensions["unibrush.family"] in setOf("builtin", "user"))
+                    img.setImageDrawable(null) // Waiting/refused modern previews never claim disc parity.
+                else img.setImageBitmap(sample(p, img.width, img.height))
                 askVisible()
             }
         }
@@ -258,6 +271,7 @@ class BrushDrawerView(
 
         fun nameOf(k: BrushShelf.Kind): String = when (k) {
             BrushShelf.Kind.ALL -> "All"
+            BrushShelf.Kind.UNIBRUSH -> "Unibrush"
             BrushShelf.Kind.PENCILS -> "Pencils"
             BrushShelf.Kind.INKS -> "Inks & pens"
             BrushShelf.Kind.MARKERS -> "Markers"

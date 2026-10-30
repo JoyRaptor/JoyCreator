@@ -63,7 +63,7 @@ object BrushValidate {
      * second message, which every `assertSole` in the tests would notice. The trap, therefore, is
      * [paramsOf], not this set.
      */
-    private val RANGED_BASES = setOf("size", "tip.hardness", "tip.aspectDynamics", "tip.anchorDynamics")
+    private val RANGED_BASES = setOf("size", "tip.hardness", "tip.aspectDynamics", "tip.anchorDynamics", "tip.fade.amount", "tip.quad.morph")
 
     fun validate(p: BrushPreset): List<String> {
         val out = ArrayList<String>()
@@ -112,6 +112,52 @@ object BrushValidate {
         // 6/7 — the tip's shape limits.
         if (p.tip.taper !in 0f..1f) out += "tip.taper ${p.tip.taper} is outside 0..1"
         if (p.tip.aspect !in -1f..1f) out += "tip.aspect ${p.tip.aspect} is outside -1..1"
+        if (p.line?.screenWidthPx?.let { it > 0f } == true &&
+            (p.tip.sampled != null || p.tip.dual != null || p.tip.quad != null || p.tip.profile != null ||
+                p.tip.fade != null || p.color.dynamics != null)) {
+            out += "Unibrush screen-width wires need their renderer adapter; use length-based stroke ends"
+        }
+        p.stabilizer?.let { out += it.problems() }
+        p.tip.dual?.let { dual ->
+            out += DualTips.problems(dual)
+            if (p.engine != "stamp") out += "Dual tips need engine stamp"
+            if (p.tip.source != "procedural" && p.tip.sampled == null) out += "Dual tips need a procedural or resolved sampled primary tip"
+        }
+        p.tip.sampled?.let { sampled ->
+            out += SampledTips.problems(sampled)
+            if (p.engine != "stamp") out += "Sampled tip sets need engine stamp"
+        }
+        if (p.tip.profile != null || p.tip.fade != null || p.tip.quad != null) {
+            if (p.engine != "stamp") out += "Unibrush shapes, profiles and fade need engine stamp"
+        }
+        p.tip.fade?.let { fade ->
+            if (fade.amount.base !in 0f..1f) out += "tip.fade.amount.base must be 0..1"
+            if (!fade.angle.isFinite()) out += "tip.fade.angle must be finite"
+        }
+        p.tip.quad?.let { quad ->
+            if (p.tip.source != "procedural" && p.tip.sampled == null) out += "tip.quad needs a procedural or resolved sampled tip"
+            if (quad.morph.base !in 0f..1f) out += "tip.quad.morph.base must be 0..1"
+            for ((name, shape) in listOfNotNull("a" to quad.a, quad.b?.let { "b" to it })) {
+                if (shape.points.size != 4 || shape.points.any { it.x !in -1f..1f || it.y !in -1f..1f })
+                    out += "tip.quad.$name.points must have four points in -1..1"
+                if (shape.roundness !in 0f..1f) out += "tip.quad.$name.roundness must be 0..1"
+                if (shape.aspect != null && shape.aspect !in -1f..1f) out += "tip.quad.$name.aspect must be -1..1"
+            }
+        }
+        for ((name, profile) in listOfNotNull(
+            p.tip.profile?.let { "tip.profile" to it },
+            p.tip.quad?.a?.profile?.let { "tip.quad.a.profile" to it },
+            p.tip.quad?.b?.profile?.let { "tip.quad.b.profile" to it },
+        )) {
+            if (profile.curve.size !in 2..MAX_CURVE_POINTS || profile.curve.any { point ->
+                point.size != 2 || point.any { it !in 0f..1f }
+            }) out += "$name.curve must have 2..$MAX_CURVE_POINTS points in 0..1"
+            else {
+                if (profile.curve.zipWithNext().any { (a, b) -> a[0] >= b[0] }) out += "$name.curve x must increase"
+                if (profile.curve.first()[0] != 0f || profile.curve.last() != listOf(1f, 0f))
+                    out += "$name.curve must start at radius 0 and end at [1, 0]"
+            }
+        }
 
         // 8 — the tip never fades below minPx, and a tip wider than 16 px on screen is a mistake.
         for ((name, param, range) in listOf(
@@ -189,6 +235,19 @@ object BrushValidate {
         if (p.color.value !in 0f..1f) colours += "value ${p.color.value}"
         if (colours.isNotEmpty()) {
             out += "color jitter is outside 0..1: " + colours.joinToString("; ")
+        }
+        p.color.dynamics?.let { color ->
+            for ((name, value, range) in listOf(
+                Triple("hueRangeDegrees", color.hueRangeDegrees, 0f..180f),
+                Triple("saturationRange", color.saturationRange, 0f..1f),
+                Triple("valueRange", color.valueRange, 0f..1f),
+                Triple("secondaryMix", color.secondaryMix, 0f..1f),
+                Triple("pressureHueDegrees", color.pressureHueDegrees, -180f..180f),
+                Triple("driftDistancePx", color.driftDistancePx, 1f..4096f),
+            )) if (value !in range) out += "color.dynamics.$name must be in $range"
+            if (color.isActive) {
+                if (p.engine != "stamp" || (p.tip.source != "procedural" && p.tip.sampled == null)) out += "Colour dynamics need a procedural or resolved sampled stamp tip"
+            }
         }
 
         // 16 — a number no range speaks for must still be a number. `"hardness": {"base": 1e999}`
@@ -478,5 +537,7 @@ object BrushValidate {
     ) + listOfNotNull(
         p.tip.aspectDynamics?.let { "tip.aspectDynamics" to it },
         p.tip.anchorDynamics?.let { "tip.anchorDynamics" to it },
+        p.tip.fade?.let { "tip.fade.amount" to it.amount },
+        p.tip.quad?.let { "tip.quad.morph" to it.morph },
     )
 }

@@ -50,7 +50,8 @@ enum class SymmetryFamily {
 sealed class LaneBrush {
 
     /** A brush FILE. The lane builds its own dabber and its own placer. */
-    class File(val preset: BrushPreset) : LaneBrush()
+    class File(val preset: BrushPreset, val colors: cc.joycreator.joybrush.core.brush.StrokeColors? = null,
+        val sampled: cc.joycreator.joybrush.core.brush.SampledTipSet? = null) : LaneBrush()
 
     /** The app's hard-coded round brush. The lane builds its own placer. */
     class Hardcoded(val tip: HardcodedTip) : LaneBrush()
@@ -363,6 +364,8 @@ object SymmetryLanes {
             symmetric = symmetric,
             smoothing = smoothing,
             screenPerDoc = screenPerDoc,
+            colors = brush.colors,
+            sampled = brush.sampled,
         )
         is LaneBrush.Hardcoded -> SymmetryLane.forHardcoded(
             copy = copy,

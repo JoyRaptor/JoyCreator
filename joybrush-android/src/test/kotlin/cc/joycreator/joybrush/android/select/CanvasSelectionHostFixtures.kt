@@ -41,7 +41,7 @@ internal fun seedCanonicalLines(engine: GlPaintEngine, planes: Map<LinePlane, Li
                                 brushes: Map<String, BrushPreset> = mapOf("lb-1" to frozenInk)) {
     planes.keys.map { it.layerId }.distinct().forEach { if (it !in engine.layerIds()) engine.addLayer(it) }
     val native = GlPaintEngine::class.java.getDeclaredField("nativeLines").also { it.isAccessible = true }.get(engine)
-    native.javaClass.getDeclaredMethod("addBrushes", Map::class.java).also { it.isAccessible = true }.invoke(native, brushes)
+    native.javaClass.getDeclaredMethod("addBrushes", Map::class.java, Map::class.java).also { it.isAccessible = true }.invoke(native, brushes, emptyMap<String, Any>())
     val put = native.javaClass.getDeclaredMethod("put", LinePlane::class.java, String::class.java,
         StrokeRecord::class.java, Set::class.java).also { it.isAccessible = true }
     planes.forEach { (plane, records) -> records.forEach { put.invoke(native, plane, it.id, it, emptySet<Long>()) } }

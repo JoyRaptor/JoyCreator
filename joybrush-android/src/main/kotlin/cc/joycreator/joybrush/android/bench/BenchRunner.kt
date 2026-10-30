@@ -7,6 +7,7 @@ import android.os.Looper
 import android.util.Log
 import cc.joycreator.joybrush.androidkit.BrushLibrary
 import cc.joycreator.joybrush.androidkit.JbCanvasView
+import cc.joycreator.joybrush.androidkit.UnibrushResources
 import cc.joycreator.joybrush.androidkit.bench.FrameStats
 import cc.joycreator.joybrush.androidkit.bench.StrokeReplay
 import cc.joycreator.joybrush.core.brush.BrushPreset
@@ -17,6 +18,8 @@ import cc.joycreator.joybrush.core.brush.BrushPreset
  *
  *     adb shell am start -n com.fadcam.beta/com.fadcam.joybrush.JoyBrushBenchActivity \
  *         --es jb_bench "fastC,scribble" --es jb_bench_brushes "ink,media:dry:Proto" --ei jb_bench_runs 3
+ *
+ * A Unibrush mode, which the app keeps hidden, is asked for as `unibrush:<slug>` (`unibrush:soft`, `unibrush:texture`, ...).
  *
  * Results go to logcat, tag [TAG], one line per run plus a `done` line. In bench mode the screen opens a fresh,
  * unsaved drawing and never restores or writes the working file (the activity's job), so the person's drawing is
@@ -32,6 +35,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
     private val jobsBefore = canvas.mediaWaterJobs
     private val budgetBefore = canvas.mediaBudgetBytes
     private val editableLinesBefore = canvas.editableLines
+    private val pngsBefore = canvas.brushPngs
+    private val linesBefore = canvas.editableLines
     // Every refusal a run meets, in the log beside its frames (the canvas tells the person in words; the bench counts them).
     private val refusedBefore = canvas.onRefused.also { prior -> canvas.onRefused = { m -> Log.i(TAG, "refused: $m"); prior?.invoke(m) } }
     private val onDone: () -> Unit = {
@@ -43,6 +48,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         if (spec.mediaBudgetMb != null) canvas.mediaBudgetBytes = budgetBefore
         if (spec.editableLines != null) canvas.editableLines = editableLinesBefore
         if (spec.dropDry != null) cc.joycreator.joybrush.androidkit.gl.media.MediaAtlasDropDry.on = true
+        canvas.brushPngs = pngsBefore
+        if (spec.lines != null) canvas.editableLines = linesBefore
         canvas.onRefused = refusedBefore
         finished()
     }
@@ -83,7 +90,18 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                /** Every oil brush's Covers and Carries for this run (`jb_paste_cover`, `jb_paste_carry`, 0..1); none = the brush's own. */
                val pasteCover: Double? = null, val pasteCarry: Double? = null,
                /** Every oil hair brush's Leans for this run (`jb_paste_force`, 0..1); none = the brush's own. */
-               val pasteForce: Double? = null)
+               val pasteForce: Double? = null,
+               /** Strokes kept as editable lines on or off for this run (`jb_lines`); none = as the canvas has it. */
+               val lines: Boolean? = null,
+               /** Debug-only resolved nominal stamp size; null retains the actual recipe. */
+               val sizeOverridePx: Float? = null) {
+        init {
+            BenchBrushOverride.requireSize(sizeOverridePx)
+            require(sizeOverridePx == null || cases.all { it in setOf("fastC", "slowC", "scribble", "spiral", "topScribble", "blue1", "blue2", "blue3") }) {
+                "The debug size override is supported only by the ordinary MotionEvent replay cases"
+            }
+        }
+    }
 
     private val ui = Handler(Looper.getMainLooper())
     private val jobs = ArrayDeque<Triple<BrushPreset, String, Int>>()
@@ -116,6 +134,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         spec.atlasRows?.let { cc.joycreator.joybrush.androidkit.gl.media.MediaLayerEngine.atlasRowPasses = it; Log.i(TAG, "atlas rows: $it") }
         spec.waterJobs?.let { canvas.mediaWaterJobs = it; Log.i(TAG, "water jobs: $it") }
         spec.mediaBudgetMb?.let { canvas.mediaBudgetBytes = it.toLong() shl 20; Log.i(TAG, "media room: $it MB") }
+        spec.lines?.let { canvas.editableLines = it; Log.i(TAG, "editable lines: $it") }
         spec.dropDry?.let { cc.joycreator.joybrush.androidkit.gl.media.MediaAtlasDropDry.on = it; Log.i(TAG, "drop dry water: $it") }
         spec.water?.let { canvas.mediaWaterAB = cc.joycreator.joybrush.android.WaterTest.of(it).ab; Log.i(TAG, "water test: $it") }
         if ("animationClips" in spec.cases) {
@@ -149,11 +168,17 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         }
         val all = BrushLibrary.builtIn()
         Log.i(TAG, "brushes available: " + all.joinToString(",") { it.id })
+        var unibrush = false
         for (b in spec.brushes) {
-            val p = all.firstOrNull { it.id.equals(b, true) } ?: all.firstOrNull { it.name.equals(b, true) }
+            val mode = try { BenchUnibrush.resolve(b) } catch (e: IllegalArgumentException) { Log.e(TAG, "${e.message}"); continue }
+            val p = mode ?: all.firstOrNull { it.id.equals(b, true) } ?: all.firstOrNull { it.name.equals(b, true) }
             if (p == null) { Log.w(TAG, "no brush '$b'"); continue }
-            for (c in spec.cases) for (r in 1..spec.runs) jobs.addLast(Triple(p, c, r))
+            if (mode != null) unibrush = true
+            val effective = BenchBrushOverride.resolve(p, spec.sizeOverridePx)
+            for (c in spec.cases) for (r in 1..spec.runs) jobs.addLast(Triple(effective, c, r))
         }
+        // Texture, Dry and Sparkle draw from PNGs the host controller hands the canvas; it is not running here, so the bench does.
+        if (unibrush) canvas.brushPngs = UnibrushResources()::pngs
         waitForSurface()
     }
 
@@ -205,6 +230,12 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 logRecordedReport(report.put("brush", preset.id).put("case", case).put("run", run), preset.id, case, run)
                 ui.postDelayed({ next() }, spec.settleMs)
             }
+            return
+        }
+        // Unibrush U8: one stroke kept as a line, redrawn from its record by two recolour edits, compared tile for tile.
+        if (case == "lineParity") {
+            LineParityBench(canvas, spec, preset, run, { next() },
+                { jobs.clear(); Log.i(TAG, "done (lineParity inconclusive; remaining jobs aborted)"); onDone() }).start()
             return
         }
         val bakeOperator = when (case) {
@@ -276,19 +307,48 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         }
         val samples = StrokeReplay.case(case, canvas.width, canvas.height)
         if (samples == null) { Log.w(TAG, "no case '$case'"); next(); return }
-        if (spec.clear) canvas.clearCanvas()
-        val ended = preset.media?.let { m -> m.paste?.takeIf { spec.pasteEnds != null || spec.pasteCover != null || spec.pasteCarry != null || spec.pasteForce != null }?.let { pb ->
-            preset.copy(media = m.copy(paste = pb.copy(ends = spec.pasteEnds ?: pb.ends, cover = spec.pasteCover ?: pb.cover, carry = spec.pasteCarry ?: pb.carry, force = spec.pasteForce ?: pb.force))) } } ?: preset
-        canvas.preset = spec.wetness?.let { w -> ended.media?.let { m -> ended.copy(media = m.copy(wetness = w)) } } ?: ended
-        spec.colors.getOrNull(spec.cases.indexOf(case))?.let { canvas.colorArgb = it }
-        ui.postDelayed({
-            canvas.startFrameStats {
-                StrokeReplay.play(canvas, samples, canvas.frameStats, onDown = {}, onUp = {
-                    if (spec.fullTail) waitForFullTail(preset, case, run, samples.size)
-                    else ui.postDelayed({ finishStats(preset, case, run, samples.size, TailObservation(false, null)) }, TAIL_MS)
-                })
+        val refusals = BenchRefusalObservation({ canvas.onRefused }, { canvas.onRefused = it })
+        var terminal = false
+        val timeout = Runnable {
+            if (!terminal) {
+                terminal = true
+                refusals.close()
+                jobs.clear() // Unknown GL completion: do not dispatch the next stroke.
+                Log.i(TAG, org.json.JSONObject().put("brush", preset.id).put("case", case).put("run", run)
+                    .put("status", "INCONCLUSIVE").put("reason", "Timed out awaiting the frame-stat observation")
+                    .put("refusals", org.json.JSONArray(refusals.snapshot())).put("liftToFinalMs", org.json.JSONObject.NULL).toString())
+                // Stops the instrument if its GL queue eventually resumes; this is NOT a final source receipt.
+                canvas.finishFrameStats { }
+                onDone()
             }
-        }, 300)
+        }
+        fun guarded(block: () -> Unit) {
+            try { block() } catch (failure: Throwable) {
+                terminal = true; ui.removeCallbacks(timeout); refusals.close(); throw failure
+            }
+        }
+        ui.postDelayed(timeout, 30_000L)
+        guarded {
+            if (spec.clear) canvas.clearCanvas()
+            val ended = preset.media?.let { m -> m.paste?.takeIf { spec.pasteEnds != null || spec.pasteCover != null || spec.pasteCarry != null || spec.pasteForce != null }?.let { pb ->
+                preset.copy(media = m.copy(paste = pb.copy(ends = spec.pasteEnds ?: pb.ends, cover = spec.pasteCover ?: pb.cover, carry = spec.pasteCarry ?: pb.carry, force = spec.pasteForce ?: pb.force))) } } ?: preset
+            canvas.preset = spec.wetness?.let { w -> ended.media?.let { m -> ended.copy(media = m.copy(wetness = w)) } } ?: ended
+            spec.colors.getOrNull(spec.cases.indexOf(case))?.let { canvas.colorArgb = it }
+            ui.postDelayed({ if (!terminal) guarded {
+                canvas.startFrameStats { if (!terminal) guarded {
+                    StrokeReplay.play(canvas, samples, canvas.frameStats, onDown = {}, onUp = {
+                        if (spec.fullTail) { terminal = true; ui.removeCallbacks(timeout); refusals.close(); waitForFullTail(preset, case, run, samples.size) }
+                        else ui.postDelayed({ if (!terminal) guarded {
+                            canvas.finishFrameStats { summary -> if (!terminal) {
+                                terminal = true; ui.removeCallbacks(timeout); refusals.close()
+                                report(preset, case, run, samples.size, summary, refusals = refusals.snapshot())
+                                ui.postDelayed({ next() }, spec.settleMs)
+                            } }
+                        } }, TAIL_MS)
+                    })
+                } }
+            } }, 300)
+        }
     }
 
     private data class TailObservation(val enabled: Boolean, val observedIdleAfterUpMs: Long?)
@@ -495,10 +555,21 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
     }
 
     private fun report(p: BrushPreset, case: String, run: Int, samples: Int, s: FrameStats.Summary,
-                       tail: TailObservation = TailObservation(false, null)) {
+                       tail: TailObservation = TailObservation(false, null), refusals: List<String> = emptyList()) {
         fun f(v: Double) = String.format(java.util.Locale.US, "%.2f", v)
         fun pct(x: FrameStats.Pct?) = if (x == null) "null" else "{\"p50\":${f(x.p50)},\"p95\":${f(x.p95)},\"max\":${f(x.max)},\"mean\":${f(x.mean)}}"
-        Log.i(TAG, "{\"legacy\":${spec.legacy},\"brush\":\"${p.id}\",\"case\":\"$case\",\"run\":$run,\"samples\":$samples," +
+        val encoded = cc.joycreator.joybrush.core.brush.BrushJson.encode(p)
+        val digest = java.security.MessageDigest.getInstance("SHA-256").digest(encoded.toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it.toInt() and 255) }
+        val observation = org.json.JSONObject()
+            .put("status", if (refusals.isNotEmpty() || s.strokeFrames == 0) "INCONCLUSIVE" else "CONTACT_TIMING_ONLY")
+            .put("refusals", org.json.JSONArray(refusals)).put("effectiveBrushSizePx", p.size.base)
+            .put("requestedSizePx", spec.sizeOverridePx ?: org.json.JSONObject.NULL)
+            .put("effectiveSpacing", p.spacing).put("flowBase", p.flow.base).put("brushJsonSha256", digest)
+            .put("liftToFinalMs", org.json.JSONObject.NULL)
+            .put("finalCompletion", "Unavailable: no atomic final-publication receipt on the public bench API")
+            .put("scope", "FrameStats contact timing; no final output, editable lift, or quality acceptance claim")
+        Log.i(TAG, "{\"observation\":$observation,\"legacy\":${spec.legacy},\"brush\":\"${p.id}\",\"case\":\"$case\",\"run\":$run,\"samples\":$samples," +
             "\"frames\":${s.frames},\"strokeFrames\":${s.strokeFrames},\"firstFrameMs\":${f(s.firstFrameMs)}," +
             "\"busyMs\":${pct(s.busy)},\"workMs\":${pct(s.work)},\"mediaMs\":${pct(s.media)},\"displayMs\":${pct(s.display)}," +
             "\"finishMs\":${pct(s.finish)},\"simMs\":${pct(s.sim)},\"flushMs\":${pct(s.flush)},\"gapMs\":${pct(s.gap)},\"latencyMs\":${pct(s.latency)}," +
@@ -563,7 +634,9 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 pasteEnds = cc.joycreator.joybrush.core.media.EndsMode.of(intent.getStringExtra("jb_paste_ends")),
                 pasteCover = intent.getStringExtra("jb_paste_cover")?.toDoubleOrNull()?.coerceIn(0.0, 1.0),
                 pasteCarry = intent.getStringExtra("jb_paste_carry")?.toDoubleOrNull()?.coerceIn(0.0, 1.0),
-                pasteForce = intent.getStringExtra("jb_paste_force")?.toDoubleOrNull()?.coerceIn(0.0, 1.0))
+                pasteForce = intent.getStringExtra("jb_paste_force")?.toDoubleOrNull()?.coerceIn(0.0, 1.0),
+                lines = if (intent.hasExtra("jb_lines")) intent.getBooleanExtra("jb_lines", false) else null,
+                sizeOverridePx = if (intent.hasExtra("jb_bench_size_px")) intent.getFloatExtra("jb_bench_size_px", Float.NaN) else null)
         }
     }
 }

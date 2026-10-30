@@ -1,0 +1,71 @@
+--- a/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/JbCanvasView.kt
++++ b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/JbCanvasView.kt
+@@ -149,6 +149,8 @@
+
+     var brush = Brush()
+     var smoothing = 0.35f
++    /** Actual settings resolve once for each Unibrush stamp contact, then travel with its raw record. */
++    @Volatile var stabilizerPreference = cc.joycreator.joybrush.core.input.StabilizerPreference()
+
+     /**
+      * The brush FILE in use (JB-1.05b), or null for the hard-coded round [Brush] above. Change it
+@@ -1050,7 +1052,7 @@
+     private var drawing = false
+     private var pointerId = -1
+
+-    private var smoother: StrokeSmoother? = null
++    private var smoother: cc.joycreator.joybrush.core.input.StrokeStabilizer? = null
+     private var tracker: DirectionTracker? = null
+     private var placer: DabPlacer? = null
+
+@@ -1661,6 +1663,14 @@
+             drawing = false
+             onRefused?.invoke("Stroke-end brushes need the recorded drawing connection.")
+             return
++        }
++        val actualStabilizer = try {
++            p?.takeIf { it.engine == "stamp" && it.extensions["unibrush.family"] in setOf("builtin", "user") }?.let {
++                stabilizerPreference.resolve(it.stabilizer, if (smoothingFromUser) smoothing else it.smoothing)
++                    .also { actual -> require(actual.problems().isEmpty()) { actual.problems().joinToString("; ") } }
++            }
++        } catch (e: Exception) {
++            drawing = false; onRefused?.invoke(e.message ?: "The stabilizer settings are unavailable"); return
+         }
+         // The resolver's dual bake and the dabber/record must share this one contact seed.
+         val contactSeed = watercolourPreviewSeed ?: SystemClock.uptimeMillis()
+@@ -1761,7 +1771,7 @@
+         strokeErase = erase
+         // Smoothing is measured in SCREEN px, so it is told the zoom: the slider then means the
+         // same thing at every zoom, and the samples stay in document px either way.
+-        smoother = StrokeSmoother(amount, screenPerDoc = view.zoom)
++        smoother = cc.joycreator.joybrush.core.input.StrokeStabilizer(actualStabilizer, amount, screenPerDoc = view.zoom)
+         val tr = DirectionTracker().also { tracker = it }
+         if (p?.engine == ENGINE_FILL && !mediaErase) {
+             fillSerial++; fillSamples.clear(); fillPoints.clear(); fillPath=0.0
+@@ -1809,7 +1819,7 @@
+         }
+         lineContact = lineFrozen?.let { f ->
+             try {
+-                LineContact(StrokeCapture(newLineName("ln"), f.id, strokeSeed, amount, view.zoom, primary, secondaryColorArgb = secondary), f.newEntries, f.assets.filterKeys { it in f.newEntries })
++                LineContact(StrokeCapture(newLineName("ln"), f.id, strokeSeed, amount, view.zoom, primary, secondaryColorArgb = secondary, stabilizer = actualStabilizer), f.newEntries, f.assets.filterKeys { it in f.newEntries })
+             } catch (e: Exception) { null }
+         }
+         // Lines live under document cels and are saved by the board path: a fresh drawing gets its board document first
+@@ -1830,7 +1840,7 @@
+             val argb = primary
+             diagnosticContact = DiagnosticContact(diagnosticObserver, strokeLayerId,
+                 layer?.let { it.sharedCelId ?: it.cels.singleOrNull()?.id }, strokeBlend(p, erase), frozen,
+-                StrokeCapture("diagnostic-stroke-$diagnosticSerial", frozen.id, strokeSeed, amount, view.zoom, argb, secondaryColorArgb = secondary))
++                StrokeCapture("diagnostic-stroke-$diagnosticSerial", frozen.id, strokeSeed, amount, view.zoom, argb, secondaryColorArgb = secondary, stabilizer = actualStabilizer))
+         }
+     }
+
+@@ -2084,7 +2094,7 @@
+      * pen that pressed or turned WITHOUT moving releases nothing from the smoother, so a tuft brush is told directly
+      * ([TuftStroke.dwell]): pressing grows the blot, and turning the pen swings the belly round its point.
+      */
+-    private fun feedOne(sm: StrokeSmoother, raw: PenSample, released: MutableList<PenSample>) {
++    private fun feedOne(sm: cc.joycreator.joybrush.core.input.StrokeStabilizer, raw: PenSample, released: MutableList<PenSample>) {
+         // Feed supplies post-guide coordinates; capture before response and smoothing alter them.
+         if (raw.isPlaceable && !raw.predicted) diagnosticContact?.let { contact ->
+             if (contact.sampleCount >= 32768) refuseDiagnosticCapture("Diagnostic capture reached its 32768 raw sample budget")

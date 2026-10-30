@@ -2,6 +2,7 @@ package cc.joycreator.joybrush.androidkit.gl.lines
 
 import cc.joycreator.joybrush.androidkit.lines.LinePlane
 import cc.joycreator.joybrush.core.brush.BrushPreset
+import cc.joycreator.joybrush.core.brush.FrozenBrushPngs
 import cc.joycreator.joybrush.core.brush.Param
 import cc.joycreator.joybrush.core.input.PenSample
 import cc.joycreator.joybrush.core.paint.Tiles
@@ -617,5 +618,49 @@ class NativeLinesTest {
         lines.put(paint, "a", a)
         assertFalse(lines.isCrossed(paint, tile(8)), "the widened memory went with the drawing")
         assertEquals(callsBefore + 1, fake.calls.size, "putting the line again estimated it afresh")
+    }
+
+    // ── frozen tip pictures (Unibrush finish U3) ──────────────────────────────
+
+    private fun pngs(vararg bytes: Int) = FrozenBrushPngs.snapshot(mapOf("tips/a.png" to ByteArray(bytes.size) { bytes[it].toByte() }))
+
+    @Test fun aBrushsPicturesAreKeptBesideItAndHandedOutInTheSnapshot() {
+        val lines = store()
+        val before = lines.brushRevision
+        lines.addBrushes(mapOf("pen" to pen()), mapOf("pen" to pngs(1, 2, 3)))
+        assertTrue(lines.brushRevision > before, "new pictures are a new freeze answer")
+        assertTrue(lines.snapshot().brushAssets.getValue("pen").sameBytes(pngs(1, 2, 3)))
+        assertTrue(lines.assets().getValue("pen").sameBytes(pngs(1, 2, 3)))
+    }
+
+    @Test fun theSamePicturesAgainChangeNothingAndOtherPicturesUnderAKnownIdAreRefusedWhole() {
+        val lines = store()
+        lines.addBrushes(mapOf("pen" to pen()), mapOf("pen" to pngs(1, 2, 3)))
+        val revision = lines.brushRevision
+        lines.addBrushes(mapOf("pen" to pen()), mapOf("pen" to pngs(1, 2, 3)))
+        assertEquals(revision, lines.brushRevision, "the same bytes are the same brush")
+        assertFailsWith<IllegalArgumentException> {
+            lines.addBrushes(mapOf("ink" to pen().copy(id = "ink")), mapOf("pen" to pngs(9, 9)))
+        }
+        assertNull(lines.brush("ink"), "a refused call adds nothing, not even its good half")
+        assertTrue(lines.assets().getValue("pen").sameBytes(pngs(1, 2, 3)))
+    }
+
+    @Test fun picturesForABrushTheDrawingDoesNotHoldAreRefused() {
+        val lines = store()
+        assertFailsWith<IllegalArgumentException> { lines.addBrushes(emptyMap(), mapOf("ghost" to pngs(1))) }
+        assertTrue(lines.assets().isEmpty())
+        // ...but a brush already held may get its pictures later.
+        lines.addBrushes(mapOf("pen" to pen()))
+        lines.addBrushes(emptyMap(), mapOf("pen" to pngs(4)))
+        assertTrue(lines.assets().getValue("pen").sameBytes(pngs(4)))
+    }
+
+    @Test fun aNewDrawingForgetsThePictures() {
+        val lines = store()
+        lines.addBrushes(mapOf("pen" to pen()), mapOf("pen" to pngs(1)))
+        lines.clear()
+        assertTrue(lines.assets().isEmpty())
+        assertTrue(lines.snapshot().brushAssets.isEmpty())
     }
 }

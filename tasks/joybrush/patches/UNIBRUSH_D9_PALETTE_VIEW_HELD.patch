@@ -1,0 +1,11 @@
+--- a/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/JbCanvasView.kt
++++ b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/JbCanvasView.kt
+@@ -427,7 +427,7 @@
+     /** The colour strokes are drawn in, or null for the brush's own. UI thread. Read when a stroke begins. */
+     @Volatile var colorArgb: Int? = null
+     /** Secondary palette color; absent palette information explicitly falls back to white. */
+-    @Volatile var secondaryColorArgb: Int? = null
++    @Volatile override var secondaryColorArgb: Int? = null
+     private var contactColors: cc.joycreator.joybrush.core.brush.StrokeColors? = null
+ 
+     /** Called on the UI thread after an eyedropper result has been taken ([colorArgb] is already set). */

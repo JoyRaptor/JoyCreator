@@ -1,0 +1,388 @@
+--- a/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/gl/GlPaintEngine.kt
++++ b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/gl/GlPaintEngine.kt
+@@ -538,8 +538,9 @@
+     }
+     /** GL-thread snapshot. Playback has no saved cursor and contributes no history step. */
+     val previewFrames: Map<String, String> get() = framePreviews.toMap()
+     private val strokeTiles = HashMap<Long, Int>()
++    private val stampColors = StampColorTargets(size)
+     private var colR = 0f; private var colG = 0f; private var colB = 0f
+     private var opacity = 1f
+     private var accumulate = Accumulate.WASH
+     private var blend = StrokeBlend.NORMAL
+@@ -737,8 +738,9 @@
+         // The stroke goes with its buffer, and the layers with their tiles: the stroke was never in
+         // a layer, so nothing is released twice and nothing is left pointing at a dead name.
+         // Dead stroke names are abandoned, not returned to a pool that can trim/delete them.
+         strokeTiles.clear()
++        stampColors.abandonContext() // dead names never meet replacement-context deletes
+         cancelStroke()
+         layers.clear()
+         boardDocument = null
+         framePreviews = emptyMap()
+@@ -772,9 +774,9 @@
+      * behind; it is not a count of GL objects, because the programs, buffers, framebuffer and
+      * [clearTex] are the driver's business and [initWith] makes new ones rather than reusing old.
+      */
+     internal fun heldTextureNames(): Int =
+-        layers.values.sumOf { it.ownedTextures().size + (it.mask?.ownedTextures()?.size ?: 0) } + strokeTiles.size + freeLayerTex.size + freeStrokeTex.size + freeSmudgeTex.size + freeFloatTex.size +
++        layers.values.sumOf { it.ownedTextures().size + (it.mask?.ownedTextures()?.size ?: 0) } + strokeTiles.size + stampColors.size + freeLayerTex.size + freeStrokeTex.size + freeSmudgeTex.size + freeFloatTex.size +
+             compositor.heldNames() + boardCompositor.heldNames() + (recordedScene?.heldCacheTextures()?.size ?: 0)
+
+     /** Frees every GL object this engine owns. */
+     fun release() {
+@@ -2363,9 +2365,9 @@
+             val ox = (Tiles.tx(key) * size).toFloat(); val oy = (Tiles.ty(key) * size).toFloat()
+             GLES30.glUniform2f(commitProg.loc("u_tileOrigin"), ox, oy)
+             GLES30.glUniformMatrix3fv(commitProg.loc("u_docToClip"), 1, false, tileToClip(ox, oy), 0)
+             GLES30.glBindVertexArray(tileVao)
+-            bindTextures(if (smudge != null && !smudgePaint) under ?: clearTex else clearTex, strokeTex)
++            bindTextures(if (smudge != null && !smudgePaint) under ?: clearTex else clearTex, strokeTex, key)
+             GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+             check(GLES30.glGetError() == GLES30.GL_NO_ERROR) { "Stroke slab rendering failed" }
+         } catch (e: Throwable) {
+             recycleLayerTex(unit)
+@@ -2915,9 +2917,9 @@
+                 val ox = Tiles.tx(key).toFloat() * size
+                 val oy = Tiles.ty(key).toFloat() * size
+                 GLES30.glUniform2f(commitProg.loc("u_tileOrigin"), ox, oy)
+                 GLES30.glUniformMatrix3fv(commitProg.loc("u_docToClip"), 1, false, tileToClip(ox, oy), 0)
+-                bindTextures(clearTex, source)
++                bindTextures(clearTex, source, key)
+                 GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+                 check(GLES30.glGetError() == GLES30.GL_NO_ERROR) { "Recorded line rendering failed" }
+             }
+             check(current()) { "Recorded replay lost its physical context" }
+@@ -3367,9 +3369,9 @@
+                                              attempt: ColdFailureAttempt?): ColdRecordedLoadReceipt {
+         requireLocalPaint()
+         check(ready && !forgettingGraphicsContext && recordedScene == null && !undo.isCursorBound &&
+             layers.isEmpty() && boardDocument == null && !undo.canUndo && !undo.canRedo &&
+-            !strokeInProgress && !wcFading && !mediaStrokeInProgress && strokeTiles.isEmpty() &&
++            !strokeInProgress && !wcFading && !mediaStrokeInProgress && strokeTiles.isEmpty() && stampColors.size == 0 &&
+             mediaStrokeHeld.isEmpty() && agreedLook.isEmpty() && framePreviews.isEmpty() &&
+             tileBoardId == null && tilePreviewRect == null && onionBoardId == null && strokeTileRect == null) {
+             "Cold source loading needs an initialized empty idle engine without playback or periodic state"
+         }
+@@ -3700,9 +3702,9 @@
+         // remain distinct entries so the probe can detect accidental texture aliasing.
+         check(owners.map { it.address }.toSet().size == owners.size) { "Duplicate cold owner address" }
+         val forbidden = buildSet {
+             addAll(undo.heldTextures()); addAll(freeLayerTex); addAll(freeStrokeTex)
+-            addAll(freeSmudgeTex); addAll(freeFloatTex); addAll(strokeTiles.values)
++            addAll(freeSmudgeTex); addAll(freeFloatTex); addAll(strokeTiles.values); addAll(stampColors.heldTextureHandles())
+             for (layer in layers.values) {
+                 addAll(layer.projected.values); addAll(layer.visibleProjection?.values.orEmpty())
+                 layer.mask?.let { addAll(it.projected.values); addAll(it.visibleProjection?.values.orEmpty()) }
+             }
+@@ -3758,8 +3760,9 @@
+             addAll(layer.visibleProjection?.values.orEmpty())
+             layer.mask?.let { addAll(it.ownedTextures()); addAll(it.visibleProjection?.values.orEmpty()) }
+         }
+         addAll(strokeTiles.values)
++        addAll(stampColors.heldTextureHandles())
+         mediaStroke?.forEach { change -> change.before?.let(::add); change.after?.let(::add) }
+         addAll(undo.heldTextures())
+         addAll(recordedScene?.heldCacheTextures().orEmpty())
+         addAll(freeLayerTex); addAll(freeStrokeTex); addAll(freeSmudgeTex); addAll(freeFloatTex)
+@@ -4082,8 +4085,9 @@
+                 "A media agreement no longer borrows its current physical look"
+             }
+         }
+         strokeTiles.values.forEach(::nonbase)
++        stampColors.heldTextureHandles().forEach(::nonbase)
+         mediaStroke?.forEach { change -> change.before?.let(::nonbase); change.after?.let(::nonbase) }
+         cursor.undoSteps.forEach { step ->
+             step.changes.forEach { it.before?.let(::nonbase) }; step.slabs.forEach { it.before?.texture?.let(::nonbase) }
+         }
+@@ -4561,9 +4565,10 @@
+         )
+         // The stroke's look (tip, grain pictures, paper), resolved once per stroke: StampPass.lookFor.
+         val p = loadedPaper?.paper
+         val surface = p?.surface
+-        look = stamp.lookFor(tip, grain, p, tuft?.paperResponse, tuft?.paperPitchPx, strokeTileRect, fluidTexture)
++        look = stamp.lookFor(tip, grain, p, tuft?.paperResponse, tuft?.paperPitchPx, strokeTileRect, fluidTexture,
++            baseColor = cc.joycreator.joybrush.core.brush.ColorDab(colR, colG, colB))
+         val tooth = if (tuft == null) null else if (p == null) grains.textureFor(tuft.paperAsset) else surfaceTexture
+         tuftPaperTex = tooth ?: grains.placeholder
+         this.tuft = tuft?.let {
+             if(tooth == null) it.copy(paperPitchPx=0f) else if(p != null && surface != null)
+@@ -4590,8 +4595,12 @@
+
+     /** Renders dabs into the stroke buffer. */
+     fun addDabs(dabs: List<Dab>) {
+         if (strokeLayer == null || dabs.isEmpty()) return
++        val colored = dabs.first().color != null
++        require(dabs.all { (it.color != null) == colored }) { "A stamp batch cannot mix color formats" }
++        require(!colored || (wcSpec == null && smudge == null)) { "Color moments require a stamp stroke" }
++        stampColors.latch(colored)
+         if (wcSpec != null) { addWatercolourDabs(dabs); return }
+         smudge?.let { addSmudgeDabs(it, dabs); return }
+         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
+         GLES30.glViewport(0, 0, size, size)
+@@ -4608,17 +4617,30 @@
+         val wrapped=if(tile == null) directed else directed.flatMap { TilePainting.dabs(tile,it) }
+         val buckets = Tiles.bucket(wrapped, size).filterKeys { tile == null || TilePainting.clip(tile,it) != null }
+         require(tile == null || (strokeTiles.keys + buckets.keys).toSet().size <= TilePainting.MAX_TILES) { "This tile stroke is too large" }
+         for (key in buckets.keys) strokeTiles.getOrPut(key) { newStrokeTile() }
++        GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
++        stampColors.prepare(buckets.keys, if (smudgeInternal == GLES30.GL_RGBA16F) 8L else 4L,
++            boardSnapshotAllowanceBytes,
++            allocate = { newTexture(size, smudgeInternal, GLES30.GL_RGBA, smudgeType) },
++            initialize = { color ->
++                attach(color)
++                GLES30.glClearColor(0f, 0f, 0f, 0f)
++                GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
++                check(GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER) == GLES30.GL_FRAMEBUFFER_COMPLETE &&
++                    GLES30.glGetError() == GLES30.GL_NO_ERROR) { "Could not initialize a stamp color tile" }
++            })
+         dabProg.use()
+         stamp.setStrokeUniforms(GlUniformSink, dabProg::loc, look, dabs[dabs.size - 1], size, 1f)
+         GLES30.glBindVertexArray(dabVao)
+
+         for ((key, list) in buckets) {
+             val tex = strokeTiles.getValue(key)
+             attach(tex)
+             clipTileStroke(key)
+-            stamp.drawInto(GlUniformSink, dabProg::loc, look, instanceVbo, (Tiles.tx(key) * size).toFloat(), (Tiles.ty(key) * size).toFloat(), list)
++            stampColors.drawWith(key) {
++                stamp.drawInto(GlUniformSink, dabProg::loc, look, instanceVbo, (Tiles.tx(key) * size).toFloat(), (Tiles.ty(key) * size).toFloat(), list)
++            }
+         }
+         GLES30.glBindVertexArray(0)
+         GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, 0)
+@@ -4842,9 +4864,9 @@
+                     for(slice in ownedSlices) {
+                     val r=slice.rect; GLES30.glScissor(r.x,r.y,r.w,r.h)
+                     GLES30.glUniform2f(commitProg.loc("u_tileOrigin"),ox,oy)
+                     GLES30.glUniformMatrix3fv(commitProg.loc("u_docToClip"),1,false,tileToClip(ox,oy),0)
+-                    bindTextures(before ?: emptyTexOf(layer),strokeTex)
++                    bindTextures(before ?: emptyTexOf(layer),strokeTex,key)
+                     GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP,0,4)
+                     }
+                     GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+                 }
+@@ -5096,8 +5118,11 @@
+         val rgbaStrokeBytes = if (smudgeInternal == GLES30.GL_RGBA16F) 8L else 4L
+         include(freeStrokeTex, strokeBytes)
+         include(freeSmudgeTex, rgbaStrokeBytes)
+         include(strokeTiles.values, if (strokeIsRgba) rgbaStrokeBytes else strokeBytes)
++        stampColors.heldWorkingTileBytes().forEach { (name, bytes) ->
++            result[name] = maxOf(result[name] ?: 0L, bytes)
++        }
+         wcPass?.heldWorkingTileBytes()?.forEach { (name, bytes) ->
+             result[name] = maxOf(result[name] ?: 0L, bytes)
+         }
+         recordedPendingTileBytes.forEach { (name, bytes) ->
+@@ -5905,9 +5930,9 @@
+                 for ((key, strokeTex) in strokeTiles) {
+                     val base = visibleTiles(layer)[key]
+                     if (base == null && blend == StrokeBlend.ERASE) continue
+                     GLES30.glUniform2f(commitProg.loc("u_tileOrigin"), (Tiles.tx(key) * size).toFloat(), (Tiles.ty(key) * size).toFloat())
+-                    bindTextures(base ?: clearTex, strokeTex)
++                    bindTextures(base ?: clearTex, strokeTex, key)
+                     GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+                 }
+             }
+         }
+@@ -6034,9 +6059,9 @@
+             val ox = (Tiles.tx(key) * size).toFloat()
+             val oy = (Tiles.ty(key) * size).toFloat()
+             GLES30.glUniform2f(commitProg.loc("u_tileOrigin"), ox, oy)
+             GLES30.glUniformMatrix3fv(commitProg.loc("u_docToClip"), 1, false, tileToClip(ox, oy), 0)
+-            bindTextures(base ?: emptyTexOf(layer), strokeTex)
++            bindTextures(base ?: emptyTexOf(layer), strokeTex, key)
+             GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+             out[key] = after
+         }
+         GLES30.glBindVertexArray(0)
+@@ -6119,9 +6144,14 @@
+         GLES30.glUniform1i(commitProg.loc("u_smudge"), if (smudge == null) 0 else if (smudgePaint) 2 else if (asUnit) 3 else 1)
+         GLES30.glUniform1f(commitProg.loc("u_layerOpacity"), layerOpacity)
+     }
+
+-    private fun bindTextures(layerTex: Int, strokeTex: Int) {
++    private fun bindTextures(layerTex: Int, strokeTex: Int, colorKey: Long? = null) {
++        val moment = colorKey?.let(stampColors::textureFor)
++        GLES30.glUniform1i(commitProg.loc("u_coloredStroke"), if (moment != null) 1 else 0)
++        GLES30.glUniform1i(commitProg.loc("u_colorMoments"), 2)
++        GLES30.glActiveTexture(GLES30.GL_TEXTURE2)
++        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, moment ?: clearTex)
+         GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
+         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, layerTex)
+         GLES30.glActiveTexture(GLES30.GL_TEXTURE1)
+         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, strokeTex)
+@@ -6166,8 +6196,9 @@
+         return tex
+     }
+
+     private fun releaseStrokeTiles() {
++        stampColors.clear()
+         // Back into the pool it came from: a smudge's RGBA tiles and a stamp's single-channel tiles are not interchangeable.
+         if (strokeIsRgba) { freeSmudgeTex.addAll(strokeTiles.values); trimPool(freeSmudgeTex, 16) }
+         else { freeStrokeTex.addAll(strokeTiles.values); trimPool(freeStrokeTex, 32) }
+         strokeTiles.clear()
+--- a/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/JbCanvasView.kt
++++ b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/JbCanvasView.kt
+@@ -1,5 +1,7 @@
+ package cc.joycreator.joybrush.androidkit
++
++import cc.joycreator.joybrush.core.brush.toMaskGray
+
+ import android.content.Context
+ import cc.joycreator.joybrush.androidkit.gl.media.MediaCanvas
+ import cc.joycreator.joybrush.core.brush.BLEND_MULTIPLY
+@@ -415,8 +417,11 @@
+     // ── colour (JB-2.03a) ────────────────────────────────────────────────────
+
+     /** The colour strokes are drawn in, or null for the brush's own. UI thread. Read when a stroke begins. */
+     @Volatile var colorArgb: Int? = null
++    /** Secondary palette color; absent palette information explicitly falls back to white. */
++    @Volatile var secondaryColorArgb: Int? = null
++    private var contactColors: cc.joycreator.joybrush.core.brush.StrokeColors? = null
+
+     /** Called on the UI thread after an eyedropper result has been taken ([colorArgb] is already set). */
+     var onColorPicked: ((Int) -> Unit)? = null
+
+@@ -1585,9 +1590,9 @@
+         resetSnapper(fresh = false)
+         drawing = false
+         mediaStroke = false; mediaErase = false; mediaBegun = false
+         smoother = null; placer = null; tracker = null
+-        strokePreset = null; strokeDabber = null; strokeWatercolour = null; scatterRng = null; strokeErase = false; strokeTuft = null
++        strokePreset = null; strokeDabber = null; contactColors = null; strokeWatercolour = null; scatterRng = null; strokeErase = false; strokeTuft = null
+         onGl {
+             mediaCanvas.end()
+             reportHistory()
+         }
+@@ -1704,8 +1709,11 @@
+         mediaErase = false
+         mediaBegun = false
+         // JB-2.23: on the mask, the stroke goes to the mask's store and paints GREY — white shows, black hides.
+         strokeOnMask = editingMask && stackUi.active.hasMask
++        val primary = (colorArgb ?: b.argb).let { if (strokeOnMask) maskGrey(it) else it }
++        val secondary = (secondaryColorArgb ?: 0xFFFFFFFF.toInt()).let { if (strokeOnMask) maskGrey(it) else it }
++        contactColors = cc.joycreator.joybrush.core.brush.StrokeColors(primary, secondary)
+         strokeLayerId = if (strokeOnMask) maskStoreId(activeLayer) else activeLayer
+         resetSnapper(fresh = true)
+         drawing = true
+         glBegan = false
+@@ -1735,9 +1743,9 @@
+             )
+             glBegan = true
+             val target = strokeLayerId
+             if (!mediaErase) boardStrokeWork {
+-                engine.beginStroke(target, (colorArgb ?: b.argb).let { if (strokeOnMask) maskGrey(it) else it }, b.opacity, b.accumulate,
++                engine.beginStroke(target, primary, b.opacity, b.accumulate,
+                     if (erase) StrokeBlend.ERASE else StrokeBlend.NORMAL, b.tip)
+             }
+         } else if (p.engine == ENGINE_WATERCOLOUR && !erase) {
+             strokeSeed=watercolourPreviewSeed ?: SystemClock.uptimeMillis()
+@@ -1754,9 +1762,9 @@
+             // direction, and the placer asks it exactly once per dab. The placer's own cap stays 1
+             // -- a WASH dab carries its own opacity as its cap, and a BUILD_UP dab wants 1.
+             val seed = SystemClock.uptimeMillis()
+             strokeSeed = seed
+-            val d = BrushDabber(p, seed)
++            val d = BrushDabber(p, seed, colors = contactColors)
+             strokeDabber = d
+             scatterRng = SplitMix(seed xor SCATTER_SALT)
+             placer = DabPlacer(spacing = d.spacing, look = d::look)
+             // glBegan stays false here on purpose: the stroke is begun on the GL thread only once a
+@@ -1764,9 +1772,9 @@
+             // file evaluated AT that dab rather than the base values the file happens to carry.
+         }
+         lineContact = lineFrozen?.let { f ->
+             try {
+-                LineContact(StrokeCapture(newLineName("ln"), f.id, strokeSeed, amount, view.zoom, colorArgb ?: b.argb), f.newEntries)
++                LineContact(StrokeCapture(newLineName("ln"), f.id, strokeSeed, amount, view.zoom, primary, secondaryColorArgb = secondary), f.newEntries)
+             } catch (e: Exception) { null }
+         }
+         // Lines live under document cels and are saved by the board path: a fresh drawing gets its board document first
+         // (queued before this stroke's own GL work, as the media path does).
+@@ -1782,12 +1790,12 @@
+             }
+         }
+         if (frozen != null && diagnosticObserver != null) {
+             val layer = boardDocument?.layers?.firstOrNull { it.id == strokeLayerId }
+-            val argb = colorArgb ?: b.argb
++            val argb = primary
+             diagnosticContact = DiagnosticContact(diagnosticObserver, strokeLayerId,
+                 layer?.let { it.sharedCelId ?: it.cels.singleOrNull()?.id }, strokeBlend(p, erase), frozen,
+-                StrokeCapture("diagnostic-stroke-$diagnosticSerial", frozen.id, strokeSeed, amount, view.zoom, argb))
++                StrokeCapture("diagnostic-stroke-$diagnosticSerial", frozen.id, strokeSeed, amount, view.zoom, argb, secondaryColorArgb = secondary))
+         }
+     }
+
+     private fun strokeBlend(p: BrushPreset?, erase: Boolean): StrokeBlend = when {
+@@ -1826,9 +1834,9 @@
+         // dab's own flow. Stamp brushes pass nothing.
+         val smudge = if (p != null && p.engine == ENGINE_SMUDGE) SmudgeParams(p.smudge.pickup, p.smudge.load, p.smudge.texturePickup, p.smudge.paint) else null
+         // R9: a tuft stroke's whole-stroke shader numbers (streaks, tooth), from the file and this stroke's seed.
+         val tuft = if (p != null && strokeTuft != null) TuftStroke.shading(p, strokeSeed) else null
+-        val argb = (colorArgb ?: b.argb).let { if (strokeOnMask) maskGrey(it) else it }
++        val argb = checkNotNull(contactColors) { "The stroke palette was not frozen at contact" }.primaryArgb
+         diagnosticContact?.let { it.start = DiagnosticStrokeStart(argb, opacity, tip.hardness) }
+         lineContact?.startArgb = argb
+         val target = strokeLayerId
+         val watercolorOptions=strokeWatercolour?.spec
+@@ -1887,9 +1895,9 @@
+                 else -> MaskPaintMode.FILL
+             }
+             val serial=fillSerial
+             drawing=false; smoother=null; placer=null; tracker=null
+-            strokePreset=null; strokeDabber=null; strokeWatercolour=null; scatterRng=null; strokeErase=false; strokeTuft=null
++            strokePreset=null; strokeDabber=null; contactColors=null; strokeWatercolour=null; scatterRng=null; strokeErase=false; strokeTuft=null
+             boardStrokeWork {
+                 try {
+                     val mask=FillPenRaster.prepare(samples,amount,zoom)
+                     if(FillPenRaster.fillsEnough(mask,zoom)) {
+@@ -1916,9 +1924,9 @@
+         val lineBrushes = lineContact?.brushes.orEmpty()
+         lineContact = null
+         drawing = false
+         smoother = null; placer = null; tracker = null
+-        strokePreset = null; strokeDabber = null; strokeWatercolour = null; scatterRng = null; strokeErase = false; strokeTuft = null
++        strokePreset = null; strokeDabber = null; contactColors = null; strokeWatercolour = null; scatterRng = null; strokeErase = false; strokeTuft = null
+         boardStrokeWork { engine.setPendingLine(line, lineBrushes); engine.endStroke(); reportHistory() }
+         flushPaperVisits()
+         onStrokeEnded?.invoke()
+         diagnosticResult?.let { (observer, result) -> observer(result) }
+@@ -1934,9 +1942,9 @@
+         resetSnapper(fresh = false)
+         fillSerial++; fillSamples.clear(); fillPoints.clear(); onFillPreview?.invoke(null)
+         drawing = false
+         smoother = null; placer = null; tracker = null
+-        strokePreset = null; strokeDabber = null; strokeWatercolour = null; scatterRng = null; strokeErase = false; strokeTuft = null
++        strokePreset = null; strokeDabber = null; contactColors = null; strokeWatercolour = null; scatterRng = null; strokeErase = false; strokeTuft = null
+         onGl { engine.cancelStroke() }
+         flushPaperVisits()
+         onStrokeEnded?.invoke()
+     }
+@@ -1966,9 +1974,12 @@
+             onGl { mediaCanvas.addErase(placed) }
+             return
+         }
+         val p = strokePreset
+-        val dabs = if (p == null) placed else scattered(p, placed)
++        val expanded = if (p == null) placed else scattered(p, placed)
++        val dabs = if (strokeOnMask) expanded.map { dab ->
++            dab.color?.let { dab.copy(color = it.toMaskGray()) } ?: dab
++        } else expanded
+         if (!glBegan) beginStrokeNow()
+         boardStrokeWork { engine.addDabs(dabs) }
+     }
+
+--- a/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/gl/RecordedPromotionExternalTextureInventory.kt
++++ b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/gl/RecordedPromotionExternalTextureInventory.kt
+@@ -62,8 +62,9 @@
+         }
+         for ((fieldName, groupName) in listOf(
+             "grains" to "grains", "boardPreview" to "boardPreview",
+             "paperBackground" to "paperBackground", "wcPass" to "watercolourPass",
++            "stampColors" to "stampColorMoments",
+         )) groups[groupName] = handles(field(engine, fieldName), "heldTextureHandles")
+         val look = field(engine, "look")
+         if (look != null) {
+             groups["lookAssets"] = listOf("tipGrainTex", "paperGrainTex", "fluidTexture").mapNotNull { name ->

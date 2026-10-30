@@ -15,7 +15,7 @@ import cc.joycreator.joybrush.core.doc.JbDocument
 import cc.joycreator.joybrush.core.doc.Layer
 import cc.joycreator.joybrush.core.doc.LayerKind
 import cc.joycreator.joybrush.core.input.PenSample
-import cc.joycreator.joybrush.core.input.StrokeSmoother
+import cc.joycreator.joybrush.core.input.StrokeStabilizer
 import cc.joycreator.joybrush.core.layers.LayerStack
 import cc.joycreator.joybrush.core.layers.LayerState
 import org.junit.After
@@ -53,7 +53,7 @@ class FillPenDispatchTest {
     }
     private fun begin(view: JbCanvasView, eraser: Boolean=false) { call(view,"startStroke",eraser,null) }
     private fun feed(view: JbCanvasView, points: List<PenSample>) {
-        val smoother = get(view,"smoother") as StrokeSmoother
+        val smoother = get(view,"smoother") as StrokeStabilizer
         val released = ArrayList<PenSample>()
         for (point in points) call(view,"feedOne",smoother,point,released)
         call(view,"paint",released)
@@ -137,7 +137,7 @@ class FillPenDispatchTest {
         val view=surface(); val reasons=ArrayList<String>(); var ended=0
         view.onRefused={reasons.add(it)}; view.onStrokeEnded={ended++}
         begin(view)
-        val smoother=get(view,"smoother") as StrokeSmoother
+        val smoother=get(view,"smoother") as StrokeStabilizer
         val released=ArrayList<PenSample>()
         call(view,"feedOne",smoother,PenSample(0f,0f,0.0),released)
         val before=released.toList()

@@ -1,0 +1,47 @@
+--- a/joybrush/androidkit/src/test/kotlin/cc/joycreator/joybrush/androidkit/gl/lines/RecordedSceneSampledResourcesHeldTest.kt
++++ b/joybrush/androidkit/src/test/kotlin/cc/joycreator/joybrush/androidkit/gl/lines/RecordedSceneSampledResourcesHeldTest.kt
+@@ -13,7 +13,7 @@
+     private val at: Pair<String, String?> = "paint" to null
+     private val address = LineAddress("paint", null, "line")
+     private val ordinary = BrushPreset(id="ordinary", name="Pen", size=Param(8f))
+-    private val sampled = ordinary.copy(id="sampled", tip=TipSpec(source="image",
++    private val sampled = ordinary.copy(id="sampled", tip=TipSpec(
+         sampled=SampledTipSpec(images=listOf("tips/a.png"))))
+     private fun png(alpha: Int) = FrozenBrushPngs.snapshot(mapOf("tips/a.png" to
+         PngWriter.encode(1, 1, byteArrayOf(-1, -1, -1, alpha.toByte()))))
+@@ -71,9 +71,10 @@
+
+     @Test fun missingOrReplacedResourcesRefuseBeforeRendererAndPreserveRoot() {
+         val f=fixture(); val images=png(255)
+-        assertFailsWith<Exception> {
++        val missing = assertFailsWith<BrushException> {
+             f.scene.stage(rebrush(f),frozen=mapOf(ordinary.id to ordinary,sampled.id to sampled))
+         }
++        assertEquals("Frozen brush images are missing or unreferenced", missing.message)
+         assertTrue(f.driver.seen.isEmpty())
+         f.scene.stage(rebrush(f),frozen=mapOf(ordinary.id to ordinary,sampled.id to sampled),
+             frozenAssets=mapOf(sampled.id to images)).use { assertTrue(it.commit()) }
+--- a/joybrush/androidkit/src/test/kotlin/cc/joycreator/joybrush/androidkit/lines/FrozenBrushAssetCacheHeldTest.kt
++++ b/joybrush/androidkit/src/test/kotlin/cc/joycreator/joybrush/androidkit/lines/FrozenBrushAssetCacheHeldTest.kt
+@@ -7,7 +7,7 @@
+ /** Proposed JVM tests for the held asset-aware cache; not executed. */
+ class FrozenBrushAssetCacheHeldTest {
+     private fun pen()=BrushPreset(id="library",name="Sample",size=Param(8f),
+-        tip=TipSpec(source="image",sampled=SampledTipSpec(images=listOf("tips/a.png"))))
++        tip=TipSpec(sampled=SampledTipSpec(images=listOf("tips/a.png"))))
+     private fun png(a:Int)=FrozenBrushPngs.snapshot(mapOf("tips/a.png" to
+         PngWriter.encode(1,1,byteArrayOf(-1,-1,-1,a.toByte()))))
+     @Test fun actualPngBytesChooseFrozenIdentityAndEqualBytesHitCache() {
+@@ -24,10 +24,11 @@
+     @Test fun malformedPngIsNeverRememberedOrPublished() {
+         val cache=FrozenBrushCache(); var serial=0
+         repeat(2) {
+-            assertFailsWith<Exception> {
++            val refused = assertFailsWith<cc.joycreator.joybrush.androidkit.io.JbArchiveException> {
+                 cache.freeze(0,emptyMap(),emptyMap(),pen(),FrozenBrushPngs.snapshot(
+                     mapOf("tips/a.png" to byteArrayOf(1,2,3)))){"f-${++serial}"}
+             }
++            assertEquals("Frozen image is not a bounded PNG", refused.message)
+         }
+         assertEquals(2,serial)
+     }

@@ -51,7 +51,24 @@ import kotlin.math.max
  * about the same brush. A frame that kept its own copy of that switch was a lane turned by twice
  * the rotation — see [AngleFrame].
  */
-class BrushDabber(val preset: BrushPreset, seed: Long, val frame: AngleFrame = AngleFrame.IDENTITY) {
+class BrushDabber(val preset: BrushPreset, seed: Long, colors: StrokeColors? = null,
+                  sampledTips: SampledTipSet? = null, dualMask: DualMask? = null,
+                  val frame: AngleFrame = AngleFrame.IDENTITY) {
+
+    private val dual = preset.tip.dual?.let { recipe ->
+        dualMask?.takeIf { it.matches(recipe, seed) }
+            ?: throw BrushException("The dual tip needs its prepared frozen mask and stroke seed")
+    }
+
+    private val samples = preset.tip.sampled?.let { spec ->
+        sampledTips?.takeIf { it.matches(spec) }
+            ?: throw BrushException("The sampled tip needs all its frozen image masks")
+    }
+    private val samplePicker = preset.tip.sampled?.let { SampledTipPicker(it, seed) }
+
+    private val colorDynamics = preset.color.dynamics?.takeIf { it.isActive }?.let {
+        ColorDynamics(it, seed, colors ?: throw BrushException("Colour dynamics need the stroke's frozen ink colours"))
+    }
 
     private val rng = SplitMix(seed)
 
@@ -65,6 +82,9 @@ class BrushDabber(val preset: BrushPreset, seed: Long, val frame: AngleFrame = A
      * copy's own heading and not the original's (see the class note).
      */
     private val tracker = DirectionTracker(initialDirection = frame.transformedDefaultHeading)
+    private val tipRotation = preset.tip.angleSource?.let { TipRotation(it) }
+    private val fadeRotation = preset.tip.fade?.takeIf { it.relativeTo == FadeFrame.penAzimuth }
+        ?.let { TipRotation(TipAngleSource.penAzimuth) }
 
     private var speedPxPerS = 0f
     private var hasTime = false
@@ -163,9 +183,23 @@ class BrushDabber(val preset: BrushPreset, seed: Long, val frame: AngleFrame = A
         // The brush's own switch goes INTO the frame: whether the tip's base angle is an OFFSET
         // from the direction or an ABSOLUTE angle is the FILE's business, and the frame asks. The
         // frame holds the copy's geometry and nothing else, so it cannot answer for the brush.
-        var angle = frame.base(base, preset.tip.followDirection)
-        if (preset.tip.followDirection) angle += direction
+        var angle = frame.base(base, preset.tip.followDirection || tipRotation != null)
+        if (tipRotation != null) angle += tipRotation.update(sample)
+        else if (preset.tip.followDirection) angle += direction
         angle += frame.jitter(degToRad(preset.angleJitter) * (2f * angleDraw - 1f))
+        val sampleChoice = samplePicker?.next(sample, distancePx, index)
+        if (sampleChoice != null) angle += sampleChoice.rotationRadians
+        val fadeSpec = preset.tip.fade
+        val fadeAmount = fadeSpec?.let { unit(Dynamics.eval(it.amount, inputs), 0f) } ?: Float.NaN
+        val fadeAngle = fadeSpec?.let {
+            val offset = (it.angle.toDouble() * PI / 180.0).toFloat()
+            val local = when (it.relativeTo) {
+                FadeFrame.tip -> offset
+                FadeFrame.canvas -> offset - angle
+                FadeFrame.penAzimuth -> offset + (fadeRotation?.update(sample) ?: 0f) - angle
+            }
+            if (local.isFinite()) cc.joycreator.joybrush.core.input.Angles.wrap(local.toDouble()).toFloat() else 0f
+        } ?: Float.NaN
 
         // A NaN flow would make the placer drop the dab's flow to 0 and the brush would vanish, so
         // a NaN here stands for "draw normally". A NaN CAP is the opposite: NaN is the sentinel for
@@ -183,8 +217,20 @@ class BrushDabber(val preset: BrushPreset, seed: Long, val frame: AngleFrame = A
         }
         dabCount++
 
+        val quadSpec = preset.tip.quad
+        val morph = if (quadSpec?.b != null) unit(Dynamics.eval(quadSpec.morph, inputs), 0f) else 0f
+        val dynamicAspect = preset.tip.aspectDynamics?.let { finite(Dynamics.eval(it, inputs), preset.tip.aspect).coerceIn(-1f, 1f) }
+        val quadAspect = quadSpec?.let { TipQuads.aspect(it.a, it.b, morph, dynamicAspect ?: preset.tip.aspect) }
         return DabLook(radius = radius, angle = angle, flow = flow, cap = cap,
-            aspect = preset.tip.aspectDynamics?.let { finite(Dynamics.eval(it, inputs), preset.tip.aspect).coerceIn(-1f, 1f) } ?: Float.NaN,
+            sampled = sampleChoice?.let { SampledStamp(checkNotNull(samples), it.imageIndex, preset.tip.minPx) },
+            spacingMultiplier = sampleChoice?.spacingMultiplier ?: 1f,
+            color = colorDynamics?.at(distancePx, sample.pressure),
+            profile = quadSpec?.a?.profile ?: preset.tip.profile,
+            profileB = quadSpec?.b?.let { it.profile ?: preset.tip.profile }, profileMix = morph,
+            quad = quadSpec?.let { TipQuads.interpolate(it.a, it.b, morph) },
+            dual = dual,
+            fadeAmount = fadeAmount, fadeAngle = fadeAngle,
+            aspect = quadAspect ?: dynamicAspect ?: Float.NaN,
             anchor = preset.tip.anchorDynamics?.let { unit(Dynamics.eval(it, inputs), 0f) } ?: Float.NaN,
             hardness = if (preset.version >= VERSION_CONTACT) unit(Dynamics.eval(preset.tip.hardness, inputs), unit(preset.tip.hardness.base, 0.9f)) else Float.NaN,
             tipDepth = if (preset.version >= VERSION_CONTACT) unit(Dynamics.eval(preset.tipTexture.depth, inputs), unit(preset.tipTexture.depth.base, 1f)) else Float.NaN,

@@ -210,7 +210,7 @@ class CanvasBoundSaveGuardTest {
             mapOf(plane to RecordedCel<Int>("paint", null, listOf(record))),
             mapOf(brush.id to brush), e.undo, fakeRenderer,
             mapOf(plane to setOf(0L)), mapOf(plane to mapOf(0L to 900_001)),
-            emptySet<Int>())!!
+            emptySet<Int>(), emptyMap<String, cc.joycreator.joybrush.core.brush.FrozenBrushPngs>())!!
         invoke(e, "registerRecordedScene", scene)
         invoke(e, "bindRecordedPaintPublication")
         assertNull("generic fixture intentionally has no board metadata", e.boardDocument)

@@ -62,12 +62,15 @@ internal object ColdRecordedLoadPlan {
         admission: Any,
         private val documentJson: String,
         private val brushJson: Map<String, String>,
+        brushAssets: Map<String, FrozenBrushPngs>,
         private val records: Map<Address, List<StrokeRecord>>,
         private val thumbnail: ByteArray?,
         private val payloads: List<ByteArray>,
         planes: List<Plane>, masks: List<Mask>, uploads: List<Upload>, val summary: Summary,
     ) {
         init { require(admission === admissionIdentity) { "Prepare a cold load plan through its admission factory" } }
+        private val images = brushAssets.toMap()
+        fun frozenBrushAssetsCopy(): Map<String, FrozenBrushPngs> = images.toMap()
         val planes = frozen(planes)
         val nativePlanes = frozen(planes.filterNot { it.recorded })
         val recordedPlanes = frozen(planes.filter { it.recorded })
@@ -102,13 +105,15 @@ internal object ColdRecordedLoadPlan {
             need(id == brush.id && BrushValidate.validate(brush).isEmpty(), "Invalid frozen cold brush: $id")
             BrushJson.decodeChecked(BrushJson.encode(brush))
         }
+        val images = input.brushAssets.toMap()
+        FrozenBrushAssets.prepare(brushes, images, retainEntries = false)
         val snapshot = input.copy(doc = doc,
             tiles = input.tiles.mapValues { it.value.copyOf() },
             strokes = input.strokes.mapValues { copyRecords(it.value) },
             thumbnailPng = input.thumbnailPng?.copyOf(),
             mediaTiles = input.mediaTiles.mapValues { it.value.copyOf() },
             slabs = input.slabs.mapValues { it.value.copyOf() },
-            looks = input.looks.mapValues { it.value.copyOf() }, brushes = brushes)
+            looks = input.looks.mapValues { it.value.copyOf() }, brushes = brushes, brushAssets = images)
         JbArchive.requireStructure(snapshot)
         need(doc.boards.all { it.kind in setOf(BoardKind.CANVAS, BoardKind.ANIMATION, BoardKind.SPRITE) && !it.tiled },
             "Cold source board type or periodic display is unsupported")
@@ -140,7 +145,7 @@ internal object ColdRecordedLoadPlan {
                 val recorded = declaredStroke || cel.slabs.isNotEmpty() || cel.looks.isNotEmpty() || source.isNotEmpty()
                 need(source.isEmpty() || layer.regions.isEmpty(), "Regional lines need persisted captured physical clipping in $at")
                 need(!recorded || cel.floatTiles.isEmpty(), "Recorded sources cannot share media ownership in $at")
-                source.forEach { validateReferenced(it, brushes.getValue(it.brushId)) }
+                source.forEach { validateReferenced(it, brushes.getValue(it.brushId), images[it.brushId]) }
                 val native = ArrayList<Upload>()
                 val media = ArrayList<Upload>()
                 val slabs = ArrayList<Upload>()
@@ -183,25 +188,29 @@ internal object ColdRecordedLoadPlan {
         val summary = Summary(budget.uploadBytes, budget.cpuBytes, budget.entries, budget.samples,
             planes.sumOf { it.recordCount.toLong() }, planes.count { it.recordCount > 0 }, uploads.size,
             planes.count { !it.recorded }, planes.count { it.recorded }, masks.size)
-        return Prepared(admissionIdentity, documentJson, brushes.mapValues { BrushJson.encode(it.value) }, records,
+        return Prepared(admissionIdentity, documentJson, brushes.mapValues { BrushJson.encode(it.value) }, images, records,
             snapshot.thumbnailPng, payloads, planes, masks, uploads, summary)
     }
 
     private val OPERATORS = setOf("normal", "erase", "behind", "multiply", "screen")
     private val builtInWc = WatercolourSpec()
-    private fun validateReferenced(record: StrokeRecord, brush: BrushPreset) {
+    private fun validateReferenced(record: StrokeRecord, brush: BrushPreset, pngs: FrozenBrushPngs?) {
         need(record.capturedPhysicalSource == null, "Captured physical sources need a clipping-aware cold loader")
         need(record.id.isNotBlank(), "A cold line needs its full identity")
         need(record.smoothing.isFinite() && record.smoothing in 0f..1f && record.screenPerDoc.isFinite() && record.screenPerDoc > 0 &&
             record.widthScale.isFinite() && record.widthScale in 0.05f..20f && record.samples.all { it.isPlaceable && !it.predicted },
             "Unsupported cold line header or samples")
-        need(InkReplay.refusal(record, brush) == null, "Unsupported cold line engine")
+        // Saved looks permit deferred image decode. Structural brush validation and the exact
+        // PNG manifest were admitted above; dynamic replay still needs a resolved set on first edit.
+        need(if (brush.tip.sampled != null || brush.tip.dual != null) brush.engine == "stamp" else InkReplay.refusal(record, brush) == null,
+            "Unsupported cold line engine")
         need(brush.line == null && !brush.tipTexture.enabled && !brush.paperGrain.enabled,
             "Cold lines do not support shaping or explicit grain yet")
         // Preserve PaperResponse, including shipped legacy Ink. Saved looks allow cold open;
         // the adapter must resolve exact document paper before uploads. Legacy event-batch and
         // resource-dependent replay constraints remain first-edit checks, never certified here.
-        need(brush.tip.source == "procedural", "Cold lines do not resolve external image tips")
+        need(brush.tip.source == "procedural" || (brush.tip.sampled != null && pngs != null),
+            "Cold sampled lines need their validated frozen PNG bundle")
         when (brush.engine) {
             "stamp" -> need(brush.blend in OPERATORS, "Unsupported cold stamp operator")
             ENGINE_WATERCOLOUR -> {
@@ -261,13 +270,38 @@ internal object ColdRecordedLoadPlan {
             records.forEach { r -> strings(listOf(r.id, r.brushId, r.groupId)); b.sampleCount(r.samples.size) }
         }
         c.thumbnailPng?.let { b.cpu(it.size.toLong()) }
+        b.items(c.brushAssets.size)
+        var largestPng = 0L
+        c.brushAssets.forEach { (id, images) ->
+            b.text(id); b.items(images.paths.size)
+            images.paths.forEach { b.text(it) }
+            b.cpu(images.encodedBytes)
+            // Preflight/manifest preparation owns at most one exported PNG at a time.
+            // The immutable retained owners are shared, never duplicated as a whole document.
+            largestPng = maxOf(largestPng, minOf(images.encodedBytes, 16L * 1024 * 1024))
+        }
+        b.cpu(largestPng + if (c.brushAssets.isEmpty()) 0L else 1024L * 1024)
         b.items(c.brushes.size); c.brushes.forEach { (id, p) ->
             b.text(id); b.cpu(16L * 1024)
             strings(listOf(p.format, p.id, p.name, p.engine, p.tip.source, p.tip.image, p.tipTexture.source, p.tipTexture.image,
                 p.paperGrain.source, p.paperGrain.image, p.accumulate, p.blend, p.license, p.author, p.sourceFormat))
+            p.tip.sampled?.let { sampled ->
+                b.items(sampled.images.size); sampled.images.forEach { b.text(it) }
+            }
+            fun profile(value: TipProfileSpec?) { value?.let {
+                b.items(it.curve.size); it.curve.forEach { point -> b.items(point.size) }
+            } }
+            profile(p.tip.profile)
+            p.tip.dual?.let { dual ->
+                b.text(dual.image?.image)
+                dual.shape?.let { shape -> b.items(shape.points.size); profile(shape.profile) }
+            }
+            listOfNotNull(p.tip.quad?.a, p.tip.quad?.b).forEach { shape ->
+                b.items(shape.points.size); profile(shape.profile)
+            }
             b.items(p.extensions.size); p.extensions.forEach { (k, v) -> b.text(k); b.text(v) }
             for (param in listOfNotNull(p.size, p.opacity, p.flow, p.tip.angle, p.tip.hardness, p.tipTexture.depth,
-                p.paperGrain.depth, p.scatter.amount, p.tip.aspectDynamics, p.tip.anchorDynamics)) {
+                p.paperGrain.depth, p.scatter.amount, p.tip.aspectDynamics, p.tip.anchorDynamics, p.tip.fade?.amount, p.tip.quad?.morph)) {
                 b.text(param.combine); b.items(param.inputs.size); param.inputs.forEach { input ->
                     b.items(input.curve.size); input.curve.forEach { b.items(it.size) }
                 }

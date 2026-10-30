@@ -1,0 +1,35 @@
+{
+  "source": {
+    "checkout": "C:/Temp/jb-paper-evaluation-20261029",
+    "ownershipFixtureFixCommit": "ded8d4699cc6c39efc761ac46a3e604402286eed",
+    "ownershipImplementationCommit": "350c5f322339041df36d9ad98835fc9050c2982d"
+  },
+  "successfulGate": {
+    "task": ":androidkit:test",
+    "log": "C:/Temp/jb-lead-ops/paper-retention-kit-fixed-20261029.log",
+    "logSha256": "95a54b008fdc5e5e6b376bbb678f8a9da17a9bdd561dc928ec8a3cd9f8f74b0b",
+    "result": "BUILD SUCCESSFUL",
+    "wallSeconds": 124,
+    "xmlDirectory": "joybrush/androidkit/build/test-results/test",
+    "xmlFiles": 132,
+    "xmlIndexSha256": "aac9d6d15bd518731bd31369d969b9e672a513e321126e656f717054cf9f4f6c",
+    "xmlIndexMethod": "SHA-256 over sorted lines of <XML filename><TAB><lowercase XML SHA-256><LF>",
+    "suites": 132,
+    "cases": 1197,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "ownershipSuite": "TEST-cc.joycreator.joybrush.androidkit.gl.PaperTextureRetentionTest.xml",
+    "ownershipSuiteSha256": "60c0032104ea2dd49489d00bc66485ed2785f8478f7887d3c8da7aa76984810e",
+    "newOwnershipCases": 15,
+    "newOwnershipFailures": 0
+  },
+  "initialCompileFailure": {
+    "log": "C:/Temp/jb-lead-ops/paper-retention-kit-20261029.log",
+    "logSha256": "5f7884691aa238d9eb6f52b5db02e801015f273a5d594b9c08a2092e8ebc846c",
+    "result": "BUILD FAILED",
+    "cause": "PaperTextureRetentionTest.kt:36 referenced Android Bitmap, unavailable on the androidkit JVM test classpath.",
+    "resolution": "ded8d4699cc6c39efc761ac46a3e604402286eed adjusted the fixture; the subsequent :androidkit:test run passed."
+  },
+  "limits": "Host/JVM suite only. It proves the tested ownership fixture paths, not broad GPU borrower parity, real-device texture lifetime, driver memory behavior, Note9 performance, or paper visual/feel acceptance."
+}

@@ -81,7 +81,7 @@ Web pilot: `preview_start vislab-web`, page `tools/vislab-web/index.html#<look-i
 - [x] **C3. Floating visualiser hears phone audio without recording** (Android's playback
   - DONE 10-18, Note 9 with the owner: speaker button -> Android's question -> Start now -> hearing the phone; Glass Peaks jumped with the demo song playing on the phone; tapping again went back to the microphone and Android released the permission. Apps that forbid capture stay silent.
   capture needs the screen-capture consent) — `vislab/overlay/OverlaySound.java` (NONE/RECORDING/MIC).
-- [ ] **C4. Studio: VisLab looks inside Studio's visualiser** (full brief for the next agent:
+- [x] **C4. Studio: VisLab looks inside Studio's visualiser** (done: STATE 5.5) (full brief for the next agent:
   `tasks/VISLAB_HANDOFF_20261018_STUDIO.md`) (owner 10-18: build it here, not the
   Studio lane; integrate, not override; "Studio is meant to replace After Effects").
   Owner rulings 10-18: VisLab looks are a **section of the Rolodex** (same visualiser item, classic
@@ -235,8 +235,9 @@ Quick wins (do first):
   (b) **Look behind** knob (now fixed `back = 4.0` in `VisRenderer`); (c) **Shift** along the path
   (put the words where you want them on the spiral / ribbon); (d) **Fade in / out** for every
   behaviour (words popping in on the ribbon). Look ahead (`lead`) already exists.
-- [ ] **G5b Studio visualiser onto the shared transform box** (split from G5, 10-23; plan by a Sonnet
-  scout, verified against the code by name only). Today's box (inside `WaveformOverlayView`) has no
+- [~] **G5b Studio visualiser onto the shared transform box** (split from G5, 10-23; plan by a Sonnet
+  scout, BUILT 10-24 (4f6bdad1c), phone test owed; see VISLAB_ROADMAP R3: `VisualizerTransformHost`, body hold + double-tap open the drawer, spin arc
+  below, `WaveformOverlayView` draw-only; verified against the code by name only). Today's box (inside `WaveformOverlayView`) has no
   rotate, writes statics only (a keyframed visualiser does not move when dragged), drags have no
   undo, handles hit-test unrotated, and it keeps its own selection (timeline selection shows no box;
   `hitsInPreview` is false for visualisers). Plan: new `ui/faditor/transform/VisualizerTransformHost`
@@ -252,7 +253,7 @@ Quick wins (do first):
   sprite may do nothing); export draws a visualiser for its whole bound clip without a start/end
   check (verify); hidden/locked are saved only for attached visualisers (ProjectStorage ~2636);
   JoyBot's blend action (`LooksActions`) does not cover visualisers.
-- [ ] **G5 Studio visualiser: the shared transform box + blend mode.**
+- [x] **G5 Studio visualiser: the shared transform box + blend mode.** (blend in preview and export, R11; the box is G5b / R3)
   10-23: a VisLab look on a clip with no sound data (a silent screen recording) was dropped from
   export (ExportManager skipped slots without waveform data): now a silent stand-in keeps the
   slot. Found while phone-testing the blend: the exported frame had no visualiser.
@@ -271,32 +272,35 @@ Quick wins (do first):
   default Normal, the image drawer's list (`layers.BlendMode`), preview and export.
 
 Bigger:
-- [ ] **G6 Split scenes into composable elements.** Aurora is curtains + mountains + stars in one
+- [x] **G6 Split scenes into composable elements.** (10-28: Outrun's parts and Nebula clouds too, VISLAB_ROADMAP R2) BUILT 10-24 (4f6bdad1c), phone test owed; see VISLAB_ROADMAP R2: Stars, Aurora curtains, Mountains
+  + look Aurora Parts; the Nebula / Outrun audit is still owed. Aurora is curtains + mountains + stars in one
   shader (snow is already a separate layer): he wants each on its own (soften the curtains, keep
   stars crisp with their own twinkle behaviours, mountains he drives past instead of warping).
   New elements: Aurora curtains, Mountains (ridge silhouette, drive-by scroll), Stars (crisp,
   twinkle behaviours), plus an audit of other lumped scenes (Nebula has stars; Outrun = sun +
   mountains + grid + sky; Woven floor's horizon glow). Stacking order + Light/paint gives the
   occlusion. Keep the combined elements selectable; existing looks unchanged.
-- [ ] **G7 Studio proxies drive look knobs.** In Studio, a VisLab layer's Place (across, up, size,
+- [x] **G7 Studio proxies drive look knobs.** (Place follows an object, R8; any knob by any property is still later) In Studio, a VisLab layer's Place (across, up, size,
   turn) and a picture's own position / size / spin can follow a Studio proxy (dummy) object, so a
   dummy animates them. Later: any knob driven by any Studio object's property.
-- [ ] **G8 Media inside looks** (he asked for options): (a) Sprite element: a SpriteLab sheet
-  playing inside the look (frame rate, a frame per beat, ping-pong), every effect applies;
+- [x] **G8 Media inside looks** (a R7, b R12, c R9, d R4/R10: all built and phone-tested 10-27/28) (he asked for options): (a) Sprite element: a SpriteLab sheet
+  playing inside the look (frame rate, a frame per beat, ping-pong), every effect applies
+  [BUILT 10-24 (4f6bdad1c), phone test owed; see VISLAB_ROADMAP R7: element `sprite`, look Record Hop];
   (b) Video element: a clip decoded into the look; (c) Studio layer reference (precompose): a
   look's media layer shows another Studio item rendered each frame; (d) VisLab's finishes (echo,
   bloom, glitch, RGB split, warp) as a Studio effect on any clip or layer; its natural home is
   Studio's adjustment layer (owner 10-23: an empty layer whose effects change everything under
   it, like After Effects, so the effect can be masked, faded in and out, or switched on and off
-  by animating the layer; `export/AdjustmentLayerGlEffect.java` exists). Recommended order:
+  by animating the layer; `export/AdjustmentLayerGlEffect.java` exists) [(d) BUILT 10-24 (4f6bdad1c), phone test owed; see VISLAB_ROADMAP R4: ten
+  finishes in `studiokit/.../fx/FxVisLabDefs`; echo trails still owed, R10]. Recommended order:
   (a), then (c), with (d) as the long-term way to put the effects on anything; (b) if still needed.
-- [ ] **G9 A font per Words layer** (owner 10-23). Words are drawn live from a font into the glyph
+- [x] **G9 A font per Words layer** (phone-tested 10-28, R1) (owner 10-23). BUILT 10-24 (4f6bdad1c), phone test owed; see VISLAB_ROADMAP R1. Words are drawn live from a font into the glyph
   sheet (`WordFeed`: one Paint, `Type.display(EXTRA)`; pilot `vislab-words.js` FONT = Archivo 800),
   so any font works: add a "Font" choice on the Words layer (by name, from Studio's
   `ui/faditor/text/FontLibrary` incl. imported fonts; missing font -> the default, said once),
   `WordFeed` per (text, font). Studio's per-letter text animations could later become more
   VisLab letter styles; the GPU paths/behaviours stay (they are what keeps 48 words fast).
-- [ ] **G10 MIDI as a sound source** (owner 10-23 asked how the music plays). Today every source is
+- [x] **G10 MIDI as a sound source** (phone-tested 10-27, R5) (owner 10-23 asked how the music plays). BUILT 10-24 (4f6bdad1c), phone test owed; see VISLAB_ROADMAP R5. Today every source is
   analysed audio (the demo song is `assets/vislab/demo/vislab_demo.m4a`, a recording of the
   pilot's procedural 124 bpm synth song). A MIDI file (or one beside a song) would give exact
   events: every kick/snare/note with pitch and velocity, perfect beat sync, a lyric track (.kar)

@@ -3,7 +3,7 @@
 Status: **BUILT and DEVICE-VERIFIED, 2026-08-06.** Written 2026-08-05 with the user.
 Companion to `PLAN_SPRITE_ANIMATION.md` — read that first; this deliberately reuses it.
 
-> ## ✅ 2026-08-06 — SHIPPED. See `tasks/HANDOFF_20260806_IMAGE_SEQUENCES.md`.
+> ## ✅ 2026-08-06 — SHIPPED. See `tasks/archive/HANDOFF_20260806_IMAGE_SEQUENCES.md`.
 >
 > Commits `d1ce8f8` (model + import), `a2bc668` (tape + the Gradle unblock), `caf0256`
 > (dope sheet + resize modes + looping), `4c28aa7` (AI tools + export bound + verification).

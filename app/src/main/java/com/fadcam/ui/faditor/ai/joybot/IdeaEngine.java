@@ -120,6 +120,10 @@ public final class IdeaEngine {
             vislab(out);
             return;
         }
+        if (room == Room.JOYBRUSH) {
+            joybrush(out);
+            return;
+        }
         if (f.isEmpty()) {
             emptyProject(f, flows, out);
             return;
@@ -370,6 +374,25 @@ public final class IdeaEngine {
         out.add(Idea.of("vislab_layer", Idea.Kind.ASK, "Add something on top")
                 .say("Add a layer to this look that suits it")
                 .hint("Lasers, particles, a tunnel… I'll pick one that fits").needsKey().priority(34).build());
+    }
+
+    /**
+     * JoyBrush: the open drawing is the subject. Only what the joybrush tools really do (layers,
+     * frames, reading the drawing); a lobby-style "Start a project" there was wrong (BOT-1, 10-28).
+     */
+    private static void joybrush(List<Idea> out) {
+        out.add(Idea.of("joybrush_colour_layer", Idea.Kind.ASK, "A layer to colour on")
+                .say("Add a layer called Colour above my sketch and switch to it")
+                .hint("A new layer, so colour never smudges your lines").needsKey().priority(40).build());
+        out.add(Idea.of("joybrush_animate", Idea.Kind.ASK, "Start an animation")
+                .say("Turn this drawing into an animation with 8 blank frames")
+                .hint("An animation board with frames to draw on").needsKey().priority(38).build());
+        out.add(Idea.of("joybrush_next_frame", Idea.Kind.ASK, "Next frame from this one")
+                .say("Add a copy of this frame after it and go to it")
+                .hint("For small changes from frame to frame").needsKey().priority(36).build());
+        out.add(Idea.of("joybrush_whats_here", Idea.Kind.ASK, "What's in this drawing?")
+                .say("Tell me what's in this drawing: its size, layers and frames")
+                .hint("A quick read of the drawing; changes nothing").needsKey().priority(34).build());
     }
 
     // ── words ───────────────────────────────────────────────────────────────

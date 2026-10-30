@@ -20,6 +20,10 @@ javac -nowarn -encoding UTF-8 -d "$OUT" \
   app/src/main/java/com/fadcam/ui/faditor/ai/joybot/Fillers.java \
   app/src/main/java/com/fadcam/ui/faditor/ai/joybot/SlideFlow.java \
   app/src/main/java/com/fadcam/ui/faditor/ai/joybot/HelpBook.java \
+  app/src/main/java/com/fadcam/ui/faditor/ai/joybot/TipBook.java \
+  app/src/main/java/com/fadcam/ui/faditor/ai/joybot/KeyCatcher.java \
+  app/src/main/java/com/fadcam/ui/faditor/ai/joybot/SetupTalk.java \
+  app/src/main/java/com/fadcam/ui/faditor/ai/joybot/WhatHere.java \
   app/src/main/java/com/fadcam/ui/faditor/ai/joybot/AiProviders.java \
   app/src/main/java/com/fadcam/ui/faditor/ai/joybot/ToolDocs.java \
   app/src/main/java/com/fadcam/ui/faditor/ai/joybot/ToolRouter.java \

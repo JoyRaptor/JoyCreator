@@ -37,6 +37,7 @@ final class SoundClock {
     private boolean baking;
     private double at = Double.NaN;   // source seconds of the last analysed step
     private final Features last = new Features();
+    private boolean heard;   // a sound has been reported once (StudioEars' log)
 
     SoundClock(@NonNull Context context, @NonNull Uri uri) {
         this.app = context.getApplicationContext();
@@ -62,6 +63,13 @@ final class SoundClock {
         return last;
     }
 
+    /** True the first time this clock hears anything ({@code level} above silence), once. */
+    boolean firstSound(float level) {
+        if (heard || level <= 0f) return false;
+        heard = true;
+        return true;
+    }
+
     @NonNull
     private Features analyse(@NonNull PcmSidecar.Handle h, double t) {
         int end = (int) Math.round(t * PcmSidecar.RATE);
@@ -80,6 +88,7 @@ final class SoundClock {
         if (pcm != null) return pcm;
         if (PcmSidecar.isBaked(app, uri)) {
             pcm = PcmSidecar.open(app, uri);
+            if (pcm == null) com.fadcam.FLog.w("StudioEars", "sound copy exists but would not open");
             return pcm;
         }
         if (!baking) {

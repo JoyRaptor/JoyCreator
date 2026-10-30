@@ -1,0 +1,55 @@
+{
+  "baseline": {
+    "Source": "cd1e48805a23f60aed5026611b5f900e2e39ee3d",
+    "Path": "C:\\Temp\\jb-lead-ops\\paper-baseline-apk-20261029\\joybrush-cd1e48805-arm64.apk",
+    "Bytes": 169549163,
+    "Sha256": "5cf2709adb75f5a31e46fbc99dedacd4fe5a7a3ae8d9765b16057181e8b04c44",
+    "BuildLogSha256": "1630b6b9bc2fd23598f3abbf91b68913969e4e7e91f0044ea0ab954ee9b29c05"
+  },
+  "evaluation": {
+    "Source": "8420d5173af4c4145a91c05a68ffbd9fe121b29c",
+    "Path": "C:\\Temp\\jb-lead-ops\\paper-eval-apk-20261029\\joybrush-8420d5173-arm64.apk",
+    "Bytes": 177213152,
+    "Sha256": "36f9492e57c5de8f3aff896ddf6cebde0c5c2d589b2582d3d5b0daaf333b2e57",
+    "BuildLogSha256": "4866a12e1bb7decc703c532884245904801df3a97ea393489478428941f4dfea"
+  },
+  "deltaBytes": 7663989,
+  "deltaPercent": 4.52,
+  "newPaperEntries": [
+    "joybrush/assets/paper/fluid_eval_expanded_firm.png",
+    "joybrush/assets/paper/fluid_eval_expanded_firm_p1k.png",
+    "joybrush/assets/paper/fluid_eval_expanded_firm_p512.png",
+    "joybrush/assets/paper/height_eval_expanded_firm.png",
+    "joybrush/assets/paper/look_eval_expanded_firm.jpg",
+    "joybrush/assets/paper/look_eval_expanded_firm_p1k.jpg",
+    "joybrush/assets/paper/look_eval_expanded_firm_p512.jpg",
+    "joybrush/assets/paper/surface_eval_expanded_firm_p1k.png",
+    "joybrush/assets/paper/surface_eval_expanded_firm_p512.png"
+  ],
+  "changedZipEntries": [
+    "joybrush/assets/paper/catalogue.json",
+    "lib/arm64-v8a/libggml-base.so",
+    "lib/arm64-v8a/libggml-cpu.so",
+    "lib/arm64-v8a/libggml.so",
+    "lib/arm64-v8a/libwhisper_jni.so"
+  ],
+  "removedZipEntries": [],
+  "phone": {
+    "source": "8420d5173af4c4145a91c05a68ffbd9fe121b29c",
+    "expectedApkSha256": "36f9492e57c5de8f3aff896ddf6cebde0c5c2d589b2582d3d5b0daaf333b2e57",
+    "action": "install only; no app launch or drawing edits",
+    "model": "SM-N960U",
+    "api": 29,
+    "beforeTemperatureC": 28.0,
+    "installedBefore": "b9a55b4b6ebb07497a9cad94efe12d26d91d000d59a863923c32e95bdb90a440",
+    "installedAfter": "36f9492e57c5de8f3aff896ddf6cebde0c5c2d589b2582d3d5b0daaf333b2e57",
+    "savedFiles": 33,
+    "completeSavedManifestUnchanged": true,
+    "savedManifestSha256": "18c6e85050c3626d9069cf0a7dfb17760a294aa25eecf773f03bdb7b97cb8c2f",
+    "afterTemperatureC": 28.1,
+    "installedVerified": true,
+    "claimsRetained": false,
+    "claimsReleased": true
+  },
+  "limits": "Matched arm64 debug size. Installed/data-preserved only; actualNote9 PNG/GL/feel/seams/export/reopen not established. Full45materials not shipped."
+}

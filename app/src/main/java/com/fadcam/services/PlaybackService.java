@@ -436,7 +436,7 @@ public class PlaybackService extends Service {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             android.app.NotificationManager nm = (android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE);
             if (nm != null && nm.getNotificationChannel(CHANNEL_ID) == null) {
-                android.app.NotificationChannel ch = new android.app.NotificationChannel(CHANNEL_ID, "FadCam Playback", android.app.NotificationManager.IMPORTANCE_LOW); // Use LOW importance to prevent sounds
+                android.app.NotificationChannel ch = new android.app.NotificationChannel(CHANNEL_ID, "Joy Creator Playback", android.app.NotificationManager.IMPORTANCE_LOW); // Use LOW importance to prevent sounds
                 ch.setDescription("Background media playback controls");
                 ch.setShowBadge(false);
                 ch.setSound(null, null); // No sound for the channel

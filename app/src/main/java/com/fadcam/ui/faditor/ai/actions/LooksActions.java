@@ -17,6 +17,7 @@ import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.CompositingSpec;
 import com.fadcam.ui.faditor.model.TextOverlayItem;
 import com.fadcam.ui.faditor.model.Timeline;
+import com.fadcam.ui.faditor.model.WaveformOverlayInstance;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -52,7 +53,7 @@ final class LooksActions {
             "Which floating video, picture or adjustment layer: its id or its name";
 
     /** What a reference may point at. One bit each, so a caller says exactly what it accepts. */
-    private static final int MASTER = 1, OVERLAY = 2, PICTURE = 4, ADJUST = 8;
+    private static final int MASTER = 1, OVERLAY = 2, PICTURE = 4, ADJUST = 8, VISUALIZER = 16;
 
     static void register(@NonNull ActionRegistry<StudioCtx> r) {
         r.add(ActionSpec.of("set_color_grade", "Change the colour grade")
@@ -76,11 +77,11 @@ final class LooksActions {
                 .build(), LooksActions::setGrade);
 
         r.add(ActionSpec.of("set_blend_mode", "Change the blend mode")
-                .help("How a floating video, a picture or an adjustment layer mixes with what is under it."
+                .help("How a floating video, a picture, a visualizer or an adjustment layer mixes with what is under it."
                         + " Normal is the plain layer; the others are the standard blend modes (Multiply,"
                         + " Screen, Overlay, Add, and so on).")
                 .wing("STUDIO", FAMILY).effect(Effect.EDIT)
-                .where("Studio › tap a floating video, picture or adjustment layer › Blend mode")
+                .where("Studio › tap a floating video, picture or adjustment layer (hold a visualizer) › Blend mode")
                 .id("layer", "layer", true, LAYER_HELP)
                 .choice("mode", true, "The blend mode", MODES)
                 .build(), LooksActions::setBlend);
@@ -154,8 +155,8 @@ final class LooksActions {
     @NonNull
     private static ActionResult setBlend(@NonNull StudioCtx ctx, @NonNull Args a) throws ActionError {
         String ref = a.str("layer");
-        if (ref == null) throw new ActionError("Which floating video, picture or layer? Give its id or name.");
-        Object t = resolve(ctx, ref, OVERLAY | PICTURE | ADJUST, "layer");
+        if (ref == null) throw new ActionError("Which floating video, picture, visualizer or layer? Give its id or name.");
+        Object t = resolve(ctx, ref, OVERLAY | PICTURE | ADJUST | VISUALIZER, "layer");
         String mode = a.choice("mode", MODES);
         if (mode == null) throw new ActionError("Which blend mode? Choose one of: " + join(MODES) + ".");
         String before = blendOf(t);
@@ -261,6 +262,7 @@ final class LooksActions {
             for (TextOverlayItem t : tl.getTextOverlays()) if (t.isImage()) out.add(t);
         }
         if ((kinds & ADJUST) != 0) out.addAll(tl.getAdjustmentLayers());
+        if ((kinds & VISUALIZER) != 0) out.addAll(tl.getWaveformOverlays());
         return out;
     }
 
@@ -325,12 +327,14 @@ final class LooksActions {
     private static String blendOf(@NonNull Object o) {
         if (o instanceof Clip) return ((Clip) o).getOverlayBlendMode();   // FaditorEditorActivity blend dialog
         if (o instanceof TextOverlayItem) return ((TextOverlayItem) o).getOverlayBlendMode();
+        if (o instanceof WaveformOverlayInstance) return ((WaveformOverlayInstance) o).getOverlayBlendMode();
         return ((AdjustmentLayer) o).getBlendMode();
     }
 
     private static void setBlendOf(@NonNull Object o, @NonNull String mode) {
         if (o instanceof Clip) ((Clip) o).setOverlayBlendMode(mode);
         else if (o instanceof TextOverlayItem) ((TextOverlayItem) o).setOverlayBlendMode(mode);
+        else if (o instanceof WaveformOverlayInstance) ((WaveformOverlayInstance) o).setOverlayBlendMode(mode);
         else ((AdjustmentLayer) o).setBlendMode(mode);
     }
 
@@ -356,6 +360,7 @@ final class LooksActions {
     private static String idOf(@NonNull Object o) {
         if (o instanceof Clip) return ((Clip) o).getId();
         if (o instanceof AdjustmentLayer) return ((AdjustmentLayer) o).getId();
+        if (o instanceof WaveformOverlayInstance) return ((WaveformOverlayInstance) o).getId();
         return ((TextOverlayItem) o).getId();
     }
 
@@ -364,6 +369,7 @@ final class LooksActions {
         String s;
         if (o instanceof Clip) s = ((Clip) o).getLabel();
         else if (o instanceof AdjustmentLayer) s = ((AdjustmentLayer) o).getName();
+        else if (o instanceof WaveformOverlayInstance) s = ((WaveformOverlayInstance) o).getVisLook();
         else s = ((TextOverlayItem) o).getText();
         return s == null ? "" : s.replace('\n', ' ').trim();
     }
@@ -372,6 +378,7 @@ final class LooksActions {
     private static String kindOf(@NonNull Object o) {
         if (o instanceof Clip) return ((Clip) o).isOverlayClip() ? "floating video" : "clip";
         if (o instanceof TextOverlayItem) return "picture";
+        if (o instanceof WaveformOverlayInstance) return "visualizer";
         return "adjustment layer";
     }
 

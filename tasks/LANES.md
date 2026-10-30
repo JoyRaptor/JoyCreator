@@ -1,3 +1,5 @@
+> **RETIRED 2026-10-27 by the project lead.** This file is history, not a queue. Current work: [tasks/ROADMAP.md](ROADMAP.md) and its job cards in `tasks/jobs/`; live claims and messages: [tasks/BOARD.md](BOARD.md). Do not add to this file.
+
 # LANES.md — live file-lock board for parallel agents
 # 2026-10-23 ACTIVE Codex lines-selection Swath A: C:/Temp/jb-codex-select, codex/select-lines. Own only assigned `joybrush-android/.../android/select/*`, `androidkit/select/*`, allowed `core/select/*` (excluding LineTransform.kt), `core/chrome/*`, and their tests. Lead-owned JoyBrushActivity.kt changes are separate `LEAD PATCH:` commits; notify Lead before each hot-file hunk. Vector watercolour/LineTransform/admission files excluded. Phase B paint selection is not claimed.
 # October14 ACTIVE Lead: C:/Temp/jb-live-current, lead/jb-live-current, sourceccb4913bf includes originbb4df6c64.
@@ -75,7 +77,7 @@
 #   WITH A BOM. Never open it with a tool that rewrites encoding; check `file` before commit.
 #
 # ★ CURRENT PRIORITY TRACK: Layers/Timeline UX overhaul BUILD (design DONE 2026-07-06).
-#   New session? Start with tasks/BOOTSTRAP_LAYERS_BUILD_20260706.md (paste-ready prompt).
+#   New session? Start with tasks/archive/BOOTSTRAP_LAYERS_BUILD_20260706.md (paste-ready prompt).
 #   Design contract = tasks/PLAN_GESTURE_CONTRACT_FINAL_20260706.md; slices = tasks/PLAN_LAYERS_UX_EXECUTION.md.
 #   Model: OPUS high effort. Begin at Slice A (caption/visualizer Track kinds).
 

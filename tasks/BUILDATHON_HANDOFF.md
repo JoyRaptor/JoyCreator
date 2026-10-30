@@ -8,7 +8,7 @@ You are continuing autonomous development on **FadCam/Faditor** (Android video e
 
 ## Read first (in order)
 1. `tasks/HANDOFF.md` — top "★★★ 2026-06-21 LATEST STATE" summary (what's done).
-2. `tasks/FEEDBACK_20260621.md` — the live, prioritized backlog with EVERY loose end + the user's exact wording. **This is your task list.**
+2. `tasks/archive/FEEDBACK_20260621.md` — the live, prioritized backlog with EVERY loose end + the user's exact wording. **This is your task list.**
 3. `tasks/PLAN_studio_drawers_redesign.md` — visualizer/transitions drawer redesign details + verification checklist.
 4. `tasks/PLAN_asset_browser_v2_layers.md` — the LAYERS / multi-track design (the big one).
 5. `tasks/RECORDING_HANDOFF.md` — recording pipeline + webcam rotation; `docs/project-schema.md` — project model.
@@ -41,7 +41,7 @@ Captions clip-aware seam-crossing; transition drag now previews (green seam) + l
 ## Hard rules
 - NEVER commit. No code comments unless idiomatic to surrounding code.
 - AI mutates projects ONLY via validated EditScripts; never persist cache/remux paths in project JSON (store original source URI).
-- After each chunk: update `tasks/FEEDBACK_20260621.md` (+ the relevant plan doc) with what you did and what's left, then immediately start the next chunk.
+- After each chunk: update `tasks/archive/FEEDBACK_20260621.md` (+ the relevant plan doc) with what you did and what's left, then immediately start the next chunk.
 - User is a non-programmer creator: UX must be clear; he loves visual feedback (badges, previews, live thumbnails) and an "invisible UI" ethos (controls that fade, auto-hide, don't clutter recordings).
 
 ## What's already DONE this session (don't redo)

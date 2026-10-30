@@ -13,7 +13,7 @@ do NOT improvise architecture. When a step is ambiguous or you'd have to guess a
    plan turns that design into ordered, verifiable steps. When they disagree, the design doc wins on
    *intent*; this doc wins on *order/process*.
 4. `tasks/road_map.md` — Phase 4 (asset browser) + Phase 5 (layers) and their existing DONE items.
-5. `tasks/DIAG_20260626.md` — recent export work + the verification techniques you'll reuse.
+5. `tasks/archive/DIAG_20260626.md` — recent export work + the verification techniques you'll reuse.
 
 ---
 

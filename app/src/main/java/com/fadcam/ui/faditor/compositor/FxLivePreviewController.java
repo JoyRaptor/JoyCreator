@@ -143,6 +143,20 @@ public final class FxLivePreviewController {
         }
 
         /**
+         * R11, true blend preview: a visualizer with a blend mode other than Normal, as a still
+         * Pip carrying that blend, or null before its first frame. The export blends the same
+         * pixels in VisualizerBlendGlEffect.
+         */
+        @Nullable default FxPreviewTextureView.Pip visualizerPipFor(
+                @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance wf,
+                int frameW, int frameH, long playheadMs) {
+            return null;
+        }
+
+        /** Visualizers the composite draws this frame, so their Canvas view stops painting them. */
+        default void onGlOwnedVisualizers(@NonNull java.util.Set<String> ids) { }
+
+        /**
          * The PiP decoder-facing surfaces, by live slot, as the GL thread publishes them. Slot 0 is
          * the one that has always existed; the rest appear only after {@link #buildPlan} asks for
          * them, which it does only for a project that genuinely stacks overlay videos.
@@ -461,7 +475,17 @@ public final class FxLivePreviewController {
         for (Clip c : timeline.getClips()) {
             if (c.hasSpineTransform()) { anySpineTransform = true; break; }
         }
-        if (!anyRenders && g == null && !objectFx && !stacked && glImages.isEmpty()
+        // R11: a visualizer that blends (Difference, Screen...) is composited here so its blend
+        // shows in the preview, as a blended picture's does. Per project, like the rest.
+        boolean anyBlendedViz = false;
+        for (com.fadcam.ui.faditor.model.WaveformOverlayInstance wf : timeline.getWaveformOverlays()) {
+            if (com.fadcam.ui.faditor.waveform.WaveformOverlayView.wantsGlBlend(wf)) {
+                anyBlendedViz = true;
+                break;
+            }
+        }
+        if (!anyBlendedViz) host.onGlOwnedVisualizers(java.util.Collections.emptySet());
+        if (!anyRenders && g == null && !objectFx && !stacked && glImages.isEmpty() && !anyBlendedViz
                 && maskedImages.isEmpty() && belowBlendImages.isEmpty() && !anyBelowTextSprite && !anyCrop
                 && !anySpineTransform
                 && !anyLayerImage && !anyMatte) {
@@ -588,6 +612,8 @@ public final class FxLivePreviewController {
     @NonNull private final OverlayTextureCache overlayTextureCache = new OverlayTextureCache();
     /** Below-blend texts the composite draws this tick; their Canvas views hand over. */
     @NonNull private final java.util.Set<String> glBelowTextIds = new java.util.HashSet<>();
+    /** R11: the last "owned/drawn" count of blended visualizers logged by buildPlan. */
+    @Nullable private String lastVizShape;
     // Captions — third client of the texture cache (SPEC_20260829_CAPTIONS_GL §3.1)
     @NonNull private final CaptionTextureCache captionTextureCache = new CaptionTextureCache();
     // Instrumentation for captions (§5.4)
@@ -642,7 +668,11 @@ public final class FxLivePreviewController {
             synthetic.setName("clip:" + spineClip.getId());
             synthetic.setFx(spineClip.getOrCreateFx());
             FxPreviewTextureView.Layer sl =
-                    FxPreviewTextureView.Layer.of(synthetic, playheadMs, size[0], size[1]);
+                    FxPreviewTextureView.Layer.of(synthetic, playheadMs, size[0], size[1],
+                            // R14: the clip's own knobs can follow the music as a layer's do.
+                            spineClip.getFx().hearsMusic()
+                                    ? com.fadcam.vislab.studio.StudioEars.at(view.getContext(), timeline, playheadMs, "preview")
+                                    : null);
             if (sl != null) {
                 // Index 0 — claimed BEFORE the live-layer walk, so the walk's own
                 // snapshot.size() indices shift up by one without any arithmetic here.
@@ -652,7 +682,11 @@ public final class FxLivePreviewController {
         }
         for (AdjustmentLayer l : live) {
             FxPreviewTextureView.Layer s =
-                    FxPreviewTextureView.Layer.of(l, playheadMs, size[0], size[1]);
+                    FxPreviewTextureView.Layer.of(l, playheadMs, size[0], size[1],
+                            // R14: knobs linked to the music hear the timeline here.
+                            l.getFx().hearsMusic()
+                                    ? com.fadcam.vislab.studio.StudioEars.at(view.getContext(), timeline, playheadMs, "preview")
+                                    : null);
             if (s != null) {
                 layerIndex.put(l, snapshot.size());
                 snapshot.add(s);
@@ -801,7 +835,25 @@ public final class FxLivePreviewController {
         // playhead (see its doc); the per-frame "is it visible" answer stays where it was, in
         // imagePipFor/spritePip returning null.
         java.util.Set<String> glImageIds = new java.util.HashSet<>();
+        java.util.Set<String> glViz = new java.util.HashSet<>();
+        int vizPips = 0;
         for (com.fadcam.ui.faditor.model.TextOverlayItem o : glImages) glImageIds.add(o.getId());
+        // R11/R15: BLENDED VISUALIZERS, each carrying its blend mode, under the GL pictures and
+        // sprites walked next and over the PiPs and adjustment layers walked above: where the
+        // export blends them (ExportManager.addVisualizerBlendEffects runs before its picture
+        // passes). Every view stacked over this surface (plain visualizers, pictures, sprites,
+        // text, captions) stays above them, as in the export.
+        // Walked from their own list: a visualizer has its own rows, not a lane of getLayers().
+        for (com.fadcam.ui.faditor.model.WaveformOverlayInstance wf : timeline.getWaveformOverlays()) {
+            if (!com.fadcam.ui.faditor.waveform.WaveformOverlayView.wantsGlBlend(wf)
+                    || playheadMs < wf.getStartMs() || playheadMs > wf.getEndMs()) continue;
+            glViz.add(wf.getId());   // owned even before its first frame: never painted twice
+            FxPreviewTextureView.Pip p = host.visualizerPipFor(wf, size[0], size[1], playheadMs);
+            if (p != null) {
+                rungs.add(FxPreviewTextureView.Rung.pip(p));
+                vizPips++;
+            }
+        }
         for (LayerPreviewController.VisualItem v
                 : LayerPreviewController.orderedVisualItems(timeline)) {
             com.fadcam.ui.faditor.model.TextOverlayItem o = v.item.getTextOverlay();
@@ -831,6 +883,14 @@ public final class FxLivePreviewController {
             glSprites.add(sp.getId());
         }
         host.onGlOwnedSprites(glSprites);
+        host.onGlOwnedVisualizers(glViz);
+        // Logged when it changes only (this runs every frame): which blended visualizers the
+        // composite owns and how many reached it with a frame.
+        String vizShape = glViz.size() + "/" + vizPips;
+        if (!vizShape.equals(lastVizShape)) {
+            lastVizShape = vizShape;
+            FLog.d(TAG, "blended visualizers owned/drawn: " + vizShape);
+        }
 
         // NO "deferred" pass for the remaining plain images. They stay on Canvas, drawn by
         // their own ImageView over this surface — which is where the export paints them too

@@ -1,0 +1,16 @@
+{
+  "source": "085841ddd5f9a9d4918be5ecf79569a0fcfcb86f",
+  "completedMasters": 45,
+  "verifiedRuntimeFiles": 135,
+  "verifiedUniqueInputs": 51,
+  "totalEncodedRuntimeCandidateBytes": 205722497,
+  "bytesByRole": {
+    "look": 63614156,
+    "height": 117214451,
+    "fluid": 24893890
+  },
+  "maxObservedChildPeakMiB": 594.42,
+  "aggregateManifestSha256": "1fd80f5ac26acde1dd0a4d31c217fad232a78d35f997cc09f6c2175f5bead097",
+  "allResourceReceiptsTerminatedReleased": true,
+  "scope": "Offline artifacts only. Not45 shipped/phone-proven materials; installed comparison still3 variants of one material."
+}

@@ -569,6 +569,15 @@
         this._use(this.program('fullscreen.vert', type.frag), common);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
       } else if (draw === 'image') {
+        // A video layer plays at its Video speed (0 holds the frame), as Videos.java does.
+        const vid = layer.image && layer.image.videoWidth !== undefined ? layer.image : null;
+        if (vid && values.speed !== undefined) {
+          if (values.speed < 0.01) { if (!vid.paused) vid.pause(); }
+          else {
+            vid.playbackRate = clamp(values.speed, 0.0625, 4);
+            if (vid.paused) vid.play().catch(() => {});
+          }
+        }
         const img = this._imageTex(layer, st);
         common.tex = { uImage: img.tex };
         common.uniforms = { uImageAspect: img.aspect };
@@ -710,8 +719,19 @@
 
     _imageTex(layer, st) {
       const src = layer.image || this.defaultImage;
-      if (st.img && st.imgSrc === src) return st.img;
       const gl = this.gl;
+      if (st.img && st.imgSrc === src) {
+        // A video: its newest frame into the same texture, every draw.
+        if (src.videoWidth > 0 && src.readyState >= 2) {
+          gl.bindTexture(gl.TEXTURE_2D, st.img.tex);
+          gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
+          gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+          gl.generateMipmap(gl.TEXTURE_2D);
+          st.img.aspect = src.videoWidth / src.videoHeight;
+        }
+        return st.img;
+      }
       if (st.img) gl.deleteTexture(st.img.tex);
       const t = gl.createTexture();
       gl.bindTexture(gl.TEXTURE_2D, t);

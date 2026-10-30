@@ -566,6 +566,23 @@ public class ProjectStorage {
     }
 
     /**
+     * {@code base}, or "base 2", "base 3"... when a project already has that name. Every blank
+     * audio project was "Untitled audio", so the Library showed a row of identical names while the
+     * folder files were numbered (Note 9, 10-28). Reads the project list: call it off the hot path.
+     */
+    @NonNull
+    public String uniqueName(@NonNull String base) {
+        java.util.Set<String> taken = new java.util.HashSet<>();
+        for (ProjectSummary s : listProjects()) taken.add(s.name.trim().toLowerCase(java.util.Locale.ROOT));
+        if (!taken.contains(base.toLowerCase(java.util.Locale.ROOT))) return base;
+        for (int i = 2; i < 10000; i++) {
+            String n = base + " " + i;
+            if (!taken.contains(n.toLowerCase(java.util.Locale.ROOT))) return n;
+        }
+        return base;
+    }
+
+    /**
      * List all saved projects, sorted by last modified (newest first).
      *
      * @return list of project summaries (lightweight — only metadata, no full load)
@@ -2662,6 +2679,38 @@ public class ProjectStorage {
                     }
                     // Its keyframable VisLab values (look keys, Reactivity, Fade); absent = defaults.
                     if (!wo.getVisKeys().isDefault()) wj.add("vis", wo.getVisKeys().toJson());
+                    // Look layers following other objects (R8); absent = none.
+                    if (!wo.getVisFollow().isEmpty()) {
+                        JsonObject vf = new JsonObject();
+                        for (java.util.Map.Entry<String, String> e : wo.getVisFollow().entrySet()) {
+                            vf.addProperty(e.getKey(), e.getValue());
+                        }
+                        wj.add("visFollow", vf);
+                    }
+                    // Follows that keep their place: the object's pose when chosen (R8).
+                    if (!wo.getVisFollowBase().isEmpty()) {
+                        JsonObject vb = new JsonObject();
+                        for (java.util.Map.Entry<String, String> e : wo.getVisFollowBase().entrySet()) {
+                            vb.addProperty(e.getKey(), e.getValue());
+                        }
+                        wj.add("visFollowBase", vb);
+                    }
+                    // What each follow copies, when not all of it (R8).
+                    if (!wo.getVisFollowParts().isEmpty()) {
+                        JsonObject vp = new JsonObject();
+                        for (java.util.Map.Entry<String, String> e : wo.getVisFollowParts().entrySet()) {
+                            vp.addProperty(e.getKey(), e.getValue());
+                        }
+                        wj.add("visFollowParts", vp);
+                    }
+                    // Look picture layers showing a Studio picture or title (R9); absent = none.
+                    if (!wo.getVisShow().isEmpty()) {
+                        JsonObject vs = new JsonObject();
+                        for (java.util.Map.Entry<String, String> e : wo.getVisShow().entrySet()) {
+                            vs.addProperty(e.getKey(), e.getValue());
+                        }
+                        wj.add("visShow", vs);
+                    }
                     // G5 attach/detach (tolerant, absent = detached — every pre-G5 project)
                     if (wo.getAttachedClipId() != null) {
                         wj.addProperty("attachedClipId", wo.getAttachedClipId());
@@ -2670,10 +2719,12 @@ public class ProjectStorage {
                             wj.addProperty("attachDurationMs", wo.getAttachDurationMs());
                         }
                         if (wo.isStratified()) wj.addProperty("stratified", true);
-                        // §4.5 per-object eye/lock (write-if-true).
-                        if (wo.isHidden()) wj.addProperty("objHidden", true);
-                        if (wo.isLocked()) wj.addProperty("objLocked", true);
                     }
+                    // §4.5 per-object eye/lock (write-if-true). For EVERY visualizer: these sat
+                    // inside the attach block above, so a free visualizer lost its hidden and
+                    // locked state on save while the reader (which reads them for all) waited.
+                    if (wo.isHidden()) wj.addProperty("objHidden", true);
+                    if (wo.isLocked()) wj.addProperty("objLocked", true);
                     wfArray.add(wj);
                 }
                 timelineJson.add("waveformOverlays", wfArray);
@@ -3643,6 +3694,40 @@ public class ProjectStorage {
                         }
                         if (wj.has("vis") && wj.get("vis").isJsonObject()) {
                             wo.getVisKeys().readJson(wj.getAsJsonObject("vis"));
+                        }
+                        // Look layers following other objects (R8, tolerant read, absent = none).
+                        if (wj.has("visFollow") && wj.get("visFollow").isJsonObject()) {
+                            for (java.util.Map.Entry<String, JsonElement> e
+                                    : wj.getAsJsonObject("visFollow").entrySet()) {
+                                if (e.getValue().isJsonPrimitive()) {
+                                    wo.getVisFollow().put(e.getKey(), e.getValue().getAsString());
+                                }
+                            }
+                        }
+                        if (wj.has("visFollowBase") && wj.get("visFollowBase").isJsonObject()) {
+                            for (java.util.Map.Entry<String, JsonElement> e
+                                    : wj.getAsJsonObject("visFollowBase").entrySet()) {
+                                if (e.getValue().isJsonPrimitive()) {
+                                    wo.getVisFollowBase().put(e.getKey(), e.getValue().getAsString());
+                                }
+                            }
+                        }
+                        if (wj.has("visFollowParts") && wj.get("visFollowParts").isJsonObject()) {
+                            for (java.util.Map.Entry<String, JsonElement> e
+                                    : wj.getAsJsonObject("visFollowParts").entrySet()) {
+                                if (e.getValue().isJsonPrimitive()) {
+                                    wo.getVisFollowParts().put(e.getKey(), e.getValue().getAsString());
+                                }
+                            }
+                        }
+                        // Look picture layers showing a Studio item (R9, tolerant, absent = none).
+                        if (wj.has("visShow") && wj.get("visShow").isJsonObject()) {
+                            for (java.util.Map.Entry<String, JsonElement> e
+                                    : wj.getAsJsonObject("visShow").entrySet()) {
+                                if (e.getValue().isJsonPrimitive()) {
+                                    wo.getVisShow().put(e.getKey(), e.getValue().getAsString());
+                                }
+                            }
                         }
                         // Blend against what is beneath (tolerant read, absent = NORMAL).
                         if (hasValue(wj, "overlayBlendMode")) {

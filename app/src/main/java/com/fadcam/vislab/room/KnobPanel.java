@@ -61,6 +61,11 @@ final class KnobPanel extends LinearLayout {
         /** Let the person choose a picture for this image layer (a logo, album art). */
         void pickPicture(@NonNull JsonObject layer);
 
+        /** Let the person choose one of their videos to play in this image layer (R12). */
+        default void pickVideo(@NonNull JsonObject layer) {
+            pickPicture(layer);
+        }
+
         /** Let the person choose which Sprite Lab sheet this Sprite layer plays. */
         void pickSheet(@NonNull JsonObject layer);
 
@@ -346,36 +351,7 @@ final class KnobPanel extends LinearLayout {
             wordsFont(c, L);
         }
         layerColours(c, s, L);
-        if (VisType.DRAW_IMAGE.equals(t.draw)) {
-            boolean own = L.has("image") && L.get("image").isJsonPrimitive() && !L.get("image").getAsString().isEmpty();
-            LinearLayout row = new LinearLayout(c);
-            row.setOrientation(HORIZONTAL);
-            row.setGravity(Gravity.CENTER_VERTICAL);
-            row.setMinimumHeight(Ui.dp(c, 36));
-            row.addView(Ui.text(c, "Picture", 12, Studio.INK_DIM, false, 500), new LayoutParams(Ui.dp(c, 98), LayoutParams.WRAP_CONTENT));
-            TextView pick = pill(c, own ? "Change picture" : "Use my picture", false);
-            Ui.label(pick, "Put your own logo or album art in this layer");
-            pick.setOnClickListener(v -> {
-                Motion.press(v);
-                host.pickPicture(L);
-            });
-            row.addView(pick);
-            if (own) {
-                TextView back = pill(c, "Joy emblem", false);
-                Ui.label(back, "Go back to the built-in Joy emblem");
-                back.setOnClickListener(v -> {
-                    Motion.press(v);
-                    host.beginEdit("Picture");
-                    L.remove("image");
-                    host.edited();
-                    rebuild();
-                });
-                LayoutParams lp = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
-                lp.leftMargin = Ui.dp(c, 6);
-                row.addView(back, lp);
-            }
-            body.addView(row);
-        }
+        if (VisType.DRAW_IMAGE.equals(t.draw)) pictureRow(c, t, L);
         if (VisType.DRAW_SPRITE.equals(t.draw)) spriteSheet(c, L);
         buildKnobs(t, knobsOf(L));
         String group = null;
@@ -628,6 +604,50 @@ final class KnobPanel extends LinearLayout {
      * A Sprite layer's sheet (a Sprite Lab sheet, or the built-in Joy record) and, when the sheet
      * has animations, which one plays: every frame, or one of them.
      */
+    /**
+     * A picture layer's picture: the person's own picture, one of their videos playing in it
+     * (R12; the Video element offers that first), or back to the Joy emblem.
+     */
+    private void pictureRow(@NonNull Context c, @NonNull VisType t, @NonNull JsonObject L) {
+        boolean own = L.has("image") && L.get("image").isJsonPrimitive() && !L.get("image").getAsString().isEmpty();
+        boolean videoFirst = "video".equals(t.id);
+        LinearLayout row = new LinearLayout(c);
+        row.setOrientation(HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setMinimumHeight(Ui.dp(c, 36));
+        row.addView(Ui.text(c, videoFirst ? "Video" : "Picture", 12, Studio.INK_DIM, false, 500),
+                new LayoutParams(Ui.dp(c, 98), LayoutParams.WRAP_CONTENT));
+        WrapLayout pills = new WrapLayout(c, Ui.dp(c, 6), Ui.dp(c, 6));
+        TextView pic = pill(c, "Use my picture", false);
+        Ui.label(pic, "Put your own logo or album art in this layer");
+        pic.setOnClickListener(v -> {
+            Motion.press(v);
+            host.pickPicture(L);
+        });
+        TextView vid = pill(c, "Use a video", false);
+        Ui.label(vid, "Play one of your videos in this layer, round and round with the look");
+        vid.setOnClickListener(v -> {
+            Motion.press(v);
+            host.pickVideo(L);
+        });
+        pills.addView(videoFirst ? vid : pic);
+        pills.addView(videoFirst ? pic : vid);
+        if (own) {
+            TextView back = pill(c, "Joy emblem", false);
+            Ui.label(back, "Go back to the built-in Joy emblem");
+            back.setOnClickListener(v -> {
+                Motion.press(v);
+                host.beginEdit("Picture");
+                L.remove("image");
+                host.edited();
+                rebuild();
+            });
+            pills.addView(back);
+        }
+        row.addView(pills, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
+        body.addView(row);
+    }
+
     private void spriteSheet(@NonNull Context c, @NonNull JsonObject L) {
         JsonElement se = L.get("sheet");
         JsonObject sheet = se != null && se.isJsonObject() ? se.getAsJsonObject() : null;

@@ -333,7 +333,7 @@ public class LobbyFragment extends BaseFragment {
         // ── HIDDEN RECYCLE BIN ──────────────────────────────────────────────
         // Old Faditor main window: long-hold on the center-top round-headed button
         // opened the secret trash. Same behavior lives here now: long-hold on the
-        // logo banner in the upper left opens TrashFragment as an overlay.
+        // logo banner in the upper left opens Recently deleted (classic Trash one tap inside).
         //
         // Hit-target note: the chrome row (lobby_chrome) sits ON TOP of the banner
         // art with the scrim between them, so a listener on the banner alone would
@@ -1198,15 +1198,21 @@ public class LobbyFragment extends BaseFragment {
      *   <li>Joy Brush: a new drawing.</li>
      *   <li>Capture: the camera.</li>
      *   <li>Studio: the Library on its Projects view, with the new-project sheet already open.</li>
-     *   <li>Sprite Lab, Avatar, Viz Lab: the Library on its Projects view, WITHOUT the sheet. A
+     *   <li>Viz Lab: the room on a new, empty look (VisLab needs no project).</li>
+     *   <li>Sprite Lab, Avatar: the Library on its Projects view, WITHOUT the sheet. A
      *       sheet or character is made inside a project, so the list of projects is the honest
-     *       first step; none of these rooms has a "new" of its own yet.</li>
+     *       first step; neither room has a "new" of its own yet.</li>
      * </ul>
      */
     private void startNewInRoom() {
         Room r = room();
         if (r.id == ROOM_JOYBRUSH) { openDrawing(null); return; }
         if (r.id == ROOM_CAPTURE) { routeTab(TAB_CAPTURE); return; }
+        if (r.id == ROOM_VIZ) {
+            startActivity(new Intent(requireContext(), com.fadcam.vislab.room.VisLabActivity.class)
+                    .putExtra(com.fadcam.vislab.room.VisLabActivity.EXTRA_NEW_LOOK, true));
+            return;
+        }
         openProjects(r.id == ROOM_STUDIO);
     }
 
@@ -1325,6 +1331,35 @@ public class LobbyFragment extends BaseFragment {
         if (getActivity() != null) com.fadcam.ui.library.LibraryFragment.open(getActivity(), focusSearch);
     }
 
+    /**
+     * New, Import: the phone's own file picker, then the picks go where a share into Joy Creator
+     * goes (ShareInActivity: the Assets folder or the top of the Joy Creator folder, readable
+     * names, no second copy). Before 10-28 the chip only opened the Library and imported nothing.
+     */
+    private final androidx.activity.result.ActivityResultLauncher<String[]> importPicker =
+            registerForActivityResult(
+                    new androidx.activity.result.contract.ActivityResultContracts.OpenMultipleDocuments(),
+                    this::onImportPicked);
+
+    private void openImport() {
+        try {
+            importPicker.launch(new String[]{"image/*", "video/*", "audio/*"});
+        } catch (android.content.ActivityNotFoundException e) {
+            openLibrary(false);   // no picker on this phone: the Library still has Browse device
+        }
+    }
+
+    private void onImportPicked(@Nullable java.util.List<android.net.Uri> uris) {
+        if (uris == null || uris.isEmpty() || getContext() == null) return;
+        android.content.Intent in = new android.content.Intent(requireContext(),
+                com.fadcam.joyfolder.studio.ShareInActivity.class);
+        in.setAction(android.content.Intent.ACTION_SEND_MULTIPLE);
+        in.setType("*/*");
+        in.putParcelableArrayListExtra(android.content.Intent.EXTRA_STREAM, new java.util.ArrayList<>(uris));
+        in.addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        startActivity(in);
+    }
+
     /** The Library on its Projects chip (the classic Studio list stays in its menu); {@code startNew} opens the new-project sheet over it. */
     private void openProjects(boolean startNew) {
         if (getActivity() != null) com.fadcam.ui.library.LibraryFragment.open(getActivity(),
@@ -1340,16 +1375,17 @@ public class LobbyFragment extends BaseFragment {
      * Hidden recycle bin: long-hold on the upper-left logo banner opens the trash
      * overlay. Same contract as the old Faditor main window's center-top button hold
      * (see {@code HomeFragment.setupAppLogoLongPressListener}): haptic tick, then
-     * TrashFragment over {@code overlay_fragment_container} with back-stack handling
-     * owned by {@link OverlayNavUtil}.
+     * Recently deleted, which keeps the classic TrashFragment one tap away.
      */
     private void openHiddenTrash(View anchor) {
         try {
             anchor.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
         } catch (Exception ignored) { }
-        FLog.i("Lobby", "Logo banner long-pressed. Opening hidden trash.");
+        FLog.i("Lobby", "Logo banner long-pressed. Opening Recently deleted.");
         try {
-            OverlayNavUtil.show(requireActivity(), new TrashFragment(), "trash");
+            // The new Recently deleted lists the classic Trash's recordings too and keeps the
+            // classic screen one tap away ("Classic trash"), so every way in now lands there.
+            com.fadcam.ui.trash.RecentlyDeletedFragment.open(requireActivity());
         } catch (Exception e) {
             FLog.e("Lobby", "Failed to open hidden trash.", e);
         }
@@ -1746,7 +1782,7 @@ public class LobbyFragment extends BaseFragment {
                     active = sprite; paintMarquee(); paintHero(); enterRoom(false);
                 });
         addNewChip("folder",         Studio.ARMED_LIGHT, Studio.ARMED, getString(R.string.lobby_new_import), R.string.lobby_a11y_new_import,
-                false, () -> openLibrary(false));
+                false, this::openImport);
     }
 
     /** Visual height of a New chip. Half the old stacked cell, as asked. */

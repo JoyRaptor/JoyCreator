@@ -38,12 +38,21 @@
 - Zero context switching required from the user
 - Go fix failing CI tests without being told how
 
+## Source of truth (project lead, 2026-10-27)
+- **`tasks/ROADMAP.md` is the Joy Creator source of truth.** Read it first; it is enough to start.
+  Each job has a card in `tasks/jobs/`; specs and handoffs hang off the card.
+- How to work here without breaking other sessions: `tasks/AGENT_START.md`.
+- Who is working on what right now, locks and messages across harnesses: `tasks/BOARD.md`
+  (replaces `tasks/LANES.md`).
+- Wings with their own roadmaps: JoyBrush `tasks/joybrush/ROADMAP.md`, VisLab `tasks/VISLAB_ROADMAP.md`.
+- `tasks/todo.md`, `tasks/LANES.md`, `tasks/road_map.md` and dated handoffs are history, not a queue.
+
 ## Task Management
-1. **Plan First**: Write plan to `tasks/todo.md` with checkable items
+1. **Plan First**: Write your plan into your job card in `tasks/jobs/` (a new job gets a card from `tasks/jobs/_TEMPLATE.md` and a roadmap row)
 2. **Verify Plan**: Check in before starting implementation
-3. **Track Progress**: Mark items complete as you go
+3. **Track Progress**: Tick the card as you go; update the roadmap row when the job's state changes
 4. **Explain Changes**: High-level summary at each step
-5. **Document Results**: Add review section to `tasks/todo.md`
+5. **Document Results**: Update `tasks/STATE.md` (no STATE row means not done), then the card and the roadmap row
 6. **Capture Lessons**: Update `tasks/lessons.md` after corrections
 
 ## Core Principles
@@ -59,8 +68,9 @@
   entry point, actual branch/availability, proof/limits, reusable engine/source and
   help link (or explicitly pending). Keep minutiae in handoffs. Agent phone checks
   or compilation do not silently become owner LIVE or promotional approval.
-- `tasks/joybrush/ROADMAP.md` is the mandatory project-wide source for broad
-  milestones, current ownership, dependencies and remaining acceptance gates.
+- `tasks/joybrush/ROADMAP.md` is the mandatory source for JoyBrush's broad
+  milestones, current ownership, dependencies and remaining acceptance gates
+  (the rest of Joy Creator uses `tasks/ROADMAP.md`, which links it).
   Read it at session start. Update the affected milestone after every achievement
   on it, including a completed spec, integration or verification gate. This is part
   of completing the work, not optional documentation or a secondary board.

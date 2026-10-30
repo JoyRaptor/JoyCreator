@@ -28,7 +28,8 @@ import java.util.Set;
  * half-built:
  *
  * <table>
- *   <tr><td>Rename</td><td>drawings ({@code DrawingLibrary.rename})</td></tr>
+ *   <tr><td>Rename</td><td>drawings ({@code DrawingLibrary.rename}); Studio projects (the editor's own
+ *       rename: load, set the name, save, which also updates the folder copy)</td></tr>
  *   <tr><td>Share</td><td>any single file: folder files, older recordings, a sheet's picture, a font</td></tr>
  *   <tr><td>Move to Trash</td><td>folder files no project uses ({@code StudioMirror.trashFiles}, the
  *       Space screen's path); projects with a folder copy (the Studio list's delete); drawings
@@ -51,6 +52,7 @@ final class LibraryActions {
     private LibraryActions() {}
 
     static boolean canRename(@NonNull LibraryItem it) {
+        if (it.kind == LibraryKind.PROJECTS) return it.projectId != null;
         return it.kind == LibraryKind.DRAWINGS && it.drawingFile != null;
     }
 
@@ -77,7 +79,14 @@ final class LibraryActions {
         JoyFolderHome.io().execute(() -> {
             boolean ok = false;
             try {
-                ok = cc.joycreator.joybrush.android.library.DrawingLibrary.rename(app, it.drawingFile, newName);
+                if (it.kind == LibraryKind.PROJECTS) {
+                    // The same three steps as the editor's title rename; save() mirrors the folder copy.
+                    ProjectStorage ps = new ProjectStorage(app);
+                    com.fadcam.ui.faditor.model.FaditorProject p = ps.load(it.projectId);
+                    if (p != null) { p.setName(newName); ok = ps.save(p); }
+                } else {
+                    ok = cc.joycreator.joybrush.android.library.DrawingLibrary.rename(app, it.drawingFile, newName);
+                }
             } catch (Exception e) {
                 FLog.w("LibraryActions", "rename failed", e);
             }

@@ -67,6 +67,12 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
         default void onGeneratedSlideSelected() { }
 
         /**
+         * Called when the user picks "Sprite" — opens the same sprite palette the Sprites tool
+         * opens (place a cell or a saved animation, load or make a sheet from there).
+         */
+        default void onSpriteSelected() { }
+
+        /**
          * Called when the user picks "FX Adjustment Layer" — an empty container in the lanes
          * whose effects transform everything BENEATH it, as distinct from adjusting one object.
          *
@@ -167,6 +173,13 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
                     () -> { if (callback != null) callback.onOverlayVideoSelected(); }));
         }
 
+        // Sprite row -- the owner looked here for sprites and thought they were lost. Same door as
+        // the Sprites tool (the palette); nothing new is built behind it.
+        root.addView(createOptionRow(
+                getString(R.string.studio_addasset_sprite), "directions_run",
+                () -> { if (callback != null) callback.onSpriteSelected(); },
+                getString(R.string.studio_addasset_sprite_hover)));
+
         // Audio row
         root.addView(createOptionRow(
                 getString(R.string.faditor_add_asset_audio), "music_note",
@@ -212,9 +225,16 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
      * An option row: glyph, label, chevron. Tapping runs {@code onClick} then closes the sheet.
      */
     private View createOptionRow(String label, String icon, @NonNull Runnable onClick) {
-        return SheetKit.row(requireContext(), icon, label, false, SheetKit.Trail.CHEVRON, v -> {
+        return createOptionRow(label, icon, onClick, label);
+    }
+
+    /** As above, with its own hover label (tooltip and spoken description) when the row's words are not enough. */
+    private View createOptionRow(String label, String icon, @NonNull Runnable onClick, String hover) {
+        View row = SheetKit.row(requireContext(), icon, label, false, SheetKit.Trail.CHEVRON, v -> {
             onClick.run();
             dismiss();
         }).view;
+        SheetKit.label(row, hover);
+        return row;
     }
 }

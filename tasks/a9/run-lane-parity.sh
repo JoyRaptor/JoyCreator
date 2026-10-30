@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # A9 evidence runner — compile + run LaneChainParityTest against the real model + fx + export classes.
 set -u
-cd /c/+Projects/Screenrecorder/FadCam || exit 1
+cd "$(dirname "$0")/../.." || exit 1
 
 SDK="${ANDROID_HOME:-$HOME/AppData/Local/Android/Sdk}"
 ANDROID_JAR=$(ls -d "$SDK"/platforms/android-*/android.jar 2>/dev/null | sort -V | tail -1 | sed 's|^/c/|C:/|')

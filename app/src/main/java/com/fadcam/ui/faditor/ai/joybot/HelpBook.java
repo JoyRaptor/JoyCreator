@@ -159,9 +159,17 @@ public final class HelpBook {
             new Topic("trash", "trash|deleted|bin|recover",
                     "Hold the Joy Creator logo at the top of the lobby to open the Trash.", "trash", null),
             new Topic("ai", "api key|key|openrouter|model|ai setting|connect|free ai",
-                    "Tap ⚙ at the top of this chat. Paste an OpenRouter key (the free model costs nothing), "
+                    "Say “connect an AI” and I'll walk you through it, step by step (there's a free one). "
+                            + "Or tap ⚙ at the top of this chat: paste an OpenRouter key (the free model costs nothing), "
                             + "or the address of any OpenAI-compatible service. More than one subscription? Tap the "
                             + "model name at the top → Add another AI account, then switch between them there.", null, null),
+            new Topic("bridge", "claude code|codex|opencode|hermes|mcp|my computer|from my computer|"
+                    + "computer's ai|bridge|my pc|my mac|my laptop",
+                    "Claude Code, Codex or any AI app that speaks MCP can use my tools from your computer: "
+                            + "your video, VisLab, JoyBrush. Open “Connect your computer”, then say the words it "
+                            + "shows to Claude Code or Codex. Your phone and computer talk over your own Wi-Fi "
+                            + "(or a USB cable); nothing goes through us. Locked things stay locked, deletes wait for "
+                            + "your tap here, and each burst of changes is one Undo.", "bridge", null),
             new Topic("joybot", "what can you do|who are you|help me|what do you do",
                     "Right here on the phone I can transcribe, add captions, cut ums and silences, add "
                             + "transitions and visualizers, make slides, and answer “how do I”. With an AI "
@@ -266,8 +274,9 @@ public final class HelpBook {
                     "Select the video clip and tap Extract audio in the tool strip to split its sound onto its own track.",
                     "studio", null, "audio"),
             new Topic("blend", "blend mode|blend|blending|multiply|screen mode|overlay mode",
-                    "Double-tap a picture or video overlay, open its Blend tab, and pick a mode such as Multiply or Screen. "
-                            + "Blend modes show in the export; the preview shows the layer normally.", "studio", null),
+                    "Double-tap a picture or video overlay (hold a visualizer), open its Blend tab, and pick a mode such as "
+                            + "Multiply or Screen. Pictures and visualizers show their blend in the preview too; a video "
+                            + "overlay's blend shows in the export.", "studio", null),
             new Topic("fx_layer", "adjustment layer|fx layer|fx adjustment|effect over everything|effects over everything"
                             + "|effect on everything|effects on everything|grade everything|adjust everything",
                     "Tap Add in the tool strip, then FX Adjustment Layer. It grades everything beneath it, and its drawer "
@@ -281,6 +290,83 @@ public final class HelpBook {
                     "After I do something for you, tap Save as a recipe. Then My recipes runs it again in one tap, "
                             + "on any project. Recipes are kept as small files in your Joy Creator folder, under "
                             + "Joybot/recipes.", null, null),
+            // ── VisLab and Director (BOT-2, 10-28; from STATE 5.5 / 6) ──
+            new Topic("vislab", "vislab|vis lab|viz lab|music visual|visuals that react|react to the music"
+                    + "|music video look",
+                    "VisLab is the music visualiser lab: looks that move to a song. Open Viz Lab from the lobby. "
+                            + "Play it to the demo song, your microphone, or A song (MIDI and .mod files too), swipe the "
+                            + "strip at the bottom to change look, and tap Edit to change one. Tap me there and I can "
+                            + "change a look for you.",
+                    "vislab", null),
+            new Topic("vislab_build", "build a look|make my own look|new look|from scratch|look from nothing"
+                    + "|add a layer to the look|layers in vislab",
+                    "In VisLab tap Edit, then Layers › Add a layer: bars, particles, lasers, stars, words and more. "
+                            + "Stack them, and any slider with a ♪ can follow the music. Looks save themselves as files "
+                            + "in your Joy Creator folder, under Supplies/Looks. Save as a part keeps a layer to reuse "
+                            + "in any look.",
+                    "vislab", null),
+            new Topic("vislab_music", "follow the music|move with the music|react to the kick|hit on the kick"
+                    + "|kick drum|music link|bass hit|pulse to the beat",
+                    "In VisLab, tap the ♪ beside a slider and pick what it listens to (bass, kick, snare, hi-hats, "
+                            + "beat, loudness…) and how hard. Sliders marked ♪ only act on the music, so they dim "
+                            + "while it's quiet. In Studio, every effect slider has a ♪ music row that does the same.",
+                    "vislab", null),
+            new Topic("vislab_words", "words layer|lyric visual|lyrics visual|words as art|spiral words"
+                    + "|words that fly|words on a spiral|moving lyrics",
+                    "In VisLab add a Words layer: the song's words, or your own typed words, as art. Nine paths "
+                            + "(ribbon, spiral, ring, tunnel, flight…), six behaviours (karaoke, pop, neon flicker, "
+                            + "smoke, burst, sparkle) and six letter styles; each Words layer can use its own font. "
+                            + "In Studio, a lyrics look shows your clip's own transcript.",
+                    "vislab", null),
+            new Topic("vislab_midi", "midi|.mid file|karaoke file|.kar|tracker file|.mod file|module file",
+                    "In VisLab tap A song and pick a MIDI (.mid or .kar) or tracker (.mod) file. It plays with a "
+                            + "built-in synth (a .mod with its own samples), its exact drum hits and notes drive the "
+                            + "look, and .kar lyrics become the song's words.",
+                    "vislab", null),
+            new Topic("vislab_float", "over other apps|on top of other apps|floating visual|float the visual"
+                    + "|visualiser while recording|visualizer while recording|visualiser over|visualizer over",
+                    "A visualiser can float over any app, in a box or full screen: use the recorder menu's "
+                            + "Visualiser switch, or ask me. It needs Android's “Display over other apps” (Samsung "
+                            + "calls it “Appear on top”), which only you can switch on; I can open that page for you.",
+                    "record", null),
+            new Topic("vislab_in_studio", "vislab look in studio|look on my video|visualiser style"
+                    + "|visualizer style|vislab in studio|look as a layer",
+                    "In Studio, add a Visualizer, then hold it and open its Style tab: pick any VisLab look, and "
+                            + "keyframe which look shows when. Its Blend tab mixes it with the video (Screen, "
+                            + "Difference…), and the preview matches the export.",
+                    "studio", null, "visualizer"),
+            new Topic("vislab_follow", "follow a dummy|follow an object|follows an object|logo follow|move the logo"
+                    + "|look layer follow|keep its place|snaps to it|follow my picture|follow a sprite",
+                    "In Studio, hold a visualiser and open its Style tab: under “Layers can follow an object”, pick "
+                            + "a dummy, picture, title or sprite for any part of the look (its logo, rings, sparks…). "
+                            + "Animate the object and that part goes with it. The chip beside it chooses Snaps to it, "
+                            + "or Keeps its place (it stays where the look draws it and moves only as the object moves). "
+                            + "The “copies” row under it picks what goes with it: Position, Size, Rotation.",
+                    "studio", null, "visualizer"),
+            new Topic("vislab_show", "picture in the look|title in the look|sprite in the look|video in the logo"
+                    + "|logo shows|show my picture in|show a studio picture|look shows|put my title in the look",
+                    "A look's picture layer can show something from your project: hold the visualiser, Style tab, "
+                            + "then that layer's “shows” row. Pick a picture, title, sprite, video overlay or the main "
+                            + "video; it plays inside the look with the look's pump, shake, halo and colour effects.",
+                    "studio", null, "visualizer"),
+            new Topic("vislab_video", "video in a look|video inside the look|video in vislab|video clip layer"
+                    + "|use a video|my video in the visual",
+                    "In VisLab tap Edit, then Layers › Add a layer › Video clip, and Use a video to pick one of your "
+                            + "videos: it plays round and round inside the look, at its own speed. Any picture layer "
+                            + "can Use a video too.",
+                    "vislab", null),
+            new Topic("vislab_effects", "glitch tear|vhs|scanline|kaleidoscope|crt bend|zoom blur|wet floor"
+                    + "|lens split|echo trail|vhs effect|vhs look|retro effect",
+                    "Studio has VisLab's finishes as effects for any clip or adjustment layer: Lens split, "
+                            + "Scanlines, Zoom blur, Glitch tear, VHS, CRT bend, Kaleidoscope, Mirror, Shake, Wet "
+                            + "floor, Glow, Flash, Vignette and more. Open the clip's or adjustment layer's Effects "
+                            + "drawer and tap Add effect; their sliders can follow the music too.",
+                    "studio", null),
+            new Topic("director", "big job|whole video|do it all|plan first|step by step|director mode"
+                    + "|show me a plan|several changes",
+                    "For a big job I first show a short plan. Tap Go ahead and I do it, up to 40 steps, then a "
+                            + "Review card lists every change with Show me and Undo from here.",
+                    null, null),
             new Topic("hands_free", "hands free|hands-free|voice only|without touching|talk to you",
                     "Hold the mic, say what you want and stop talking — it sends itself. I'll read my answer "
                             + "out and listen for 'yes', 'undo' or 'stop'.", null, null)));
@@ -329,6 +415,19 @@ public final class HelpBook {
         return t.matches("(?s).*\\b(name|label|rename|tag|add|make|put|set|cut|trim|remove|delete|move"
                 + "|change|fade|mute|unmute|split|create|animate|build|apply|fix|replace|insert|caption"
                 + "|transcribe|speed up|slow down|shorten|lengthen|crop|zoom|resize|reorder|sort|turn)\\b.*");
+    }
+
+    /**
+     * The reply says plainly that it can't be done, or that nothing was changed: an honest no.
+     * "I can't draw on the video itself, so I haven't changed anything" is not a claim of a change
+     * (its "changed" fooled the word check) and must not be pushed to "make it now" (bench, 10-24).
+     */
+    public static boolean saysItCant(@NonNull String text) {
+        String t = text.toLowerCase(Locale.US).replace('’', '\'');
+        return t.matches("(?s).*\\b(can't|cannot|can not|unable to|not able to|isn't possible|is not possible"
+                + "|not possible|no tool|there's no way|there is no way|doesn't let me|does not let me"
+                + "|haven't changed|have not changed|didn't change|did not change|nothing (has |was )?changed"
+                + "|left it|won't be able|i'm not able)\\b.*");
     }
 
     /** "How do I…", "where is…": a request for directions, which the book answers best. */

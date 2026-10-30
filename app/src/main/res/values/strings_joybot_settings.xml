@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Settings hub's "AI and Joybot" row (lead, DOOR-1 10-28): the AI key, model and service address
+     lived only behind the chat's gear. Its own file so it never collides with the text sweep's files. -->
+<resources>
+    <string name="settingshub_ai_joybot">AI and Joybot</string>
+    <string name="settingshub_ai_joybot_desc">Connect an AI (there\'s a free one), your key, model and service, and your computer\'s Claude Code or Codex</string>
+    <string name="settingshub_ai_joybot_names">ai, joybot, api key, key, model, openrouter, openai, anthropic, claude, chatgpt, codex, gemini, assistant, chat, connect, computer, mcp</string>
+</resources>

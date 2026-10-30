@@ -47,6 +47,9 @@ public final class AudioLayerSync {
      */
     private volatile boolean masterPlaying = false;
 
+    /** A newer play/pause/scrub invalidates an asynchronous pre-roll's captured transport intent. */
+    private long transportGeneration;
+
     private final Runnable scrubParkRunnable = new Runnable() {
         @Override public void run() {
             if (pendingScrubTargetMs < 0) return;
@@ -128,6 +131,7 @@ public final class AudioLayerSync {
     public void bind(@Nullable Timeline tl,
                      @Nullable List<AudioClip> clips,
                      @Nullable List<AudioClipPreviewPlayer> players) {
+        transportGeneration++;
         this.timeline = tl;
         this.clipsRef = clips;
         this.playersRef = players;
@@ -137,6 +141,7 @@ public final class AudioLayerSync {
 
     /** Transport arm: park every sounding layer, then start them together. */
     public void armForPlay(final long playheadMs, @NonNull final Runnable startMaster) {
+        final long armGeneration = ++transportGeneration;
         // A scrub park queued moments ago must not fire after we start — it would park (and
         // therefore silence) the layers we are about to arm. Cancel it and latch playing now
         // rather than waiting for the first tick to set it, which is ~50ms too late.
@@ -171,6 +176,10 @@ public final class AudioLayerSync {
         final Handler h = handler;
         Runnable waiter = new Runnable() {
             @Override public void run() {
+                // A pause or scrub can arrive while decoders are parking (up to 400ms).
+                // Check BEFORE starting audio layers as well as the master: guarding only
+                // startMaster leaves an obsolete waiter able to restart sound after pause.
+                if (armGeneration != transportGeneration) return;
                 boolean allParked = true;
                 for (int idx : sounding) {
                     AudioClip ac = clipsRef != null && idx < clipsRef.size() ? clipsRef.get(idx) : null;
@@ -205,6 +214,8 @@ public final class AudioLayerSync {
 
     /** Pause path: ensure parked at current pos (for instant resume). */
     public void parkOnPause(long playheadMs) {
+        transportGeneration++;
+        masterPlaying = false;
         // Cancel any pending scrub park
         handler.removeCallbacks(scrubParkRunnable);
         pendingScrubTargetMs = -1L;
@@ -228,6 +239,7 @@ public final class AudioLayerSync {
 
     /** Call when playhead moves while paused — debounced park. */
     public void onPlayheadScrubbed(long playheadMs) {
+        transportGeneration++;
         pendingScrubTargetMs = playheadMs;
         handler.removeCallbacks(scrubParkRunnable);
         handler.postDelayed(scrubParkRunnable, SCRUB_DEBOUNCE_MS);

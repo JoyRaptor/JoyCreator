@@ -24,7 +24,7 @@ import javax.crypto.spec.GCMParameterSpec;
  * The user's AI API key, encrypted at rest.
  *
  * <p>Stored as AES-256-GCM ciphertext; the wrapping key lives in the Android Keystore and never
- * leaves it (same scheme as {@link com.fadcam.security.StreamKeyManager}). Before this the key sat
+ * leaves it (same scheme as the removed cloud key manager). Before this the key sat
  * in plain preferences, readable by anything that could read the app's files.</p>
  *
  * <p>A key saved by an older build is moved in on first read and the plain copy deleted. If the

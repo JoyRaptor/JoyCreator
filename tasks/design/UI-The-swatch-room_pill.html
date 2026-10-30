@@ -1,0 +1,1032 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Joy Creator Swatch Room</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;800;900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<style>
+/* ============================================================
+   JOY CREATOR — SWATCH ROOM
+   A dark-committed page. The goods are dark-theme goods; showing
+   them on white would misrepresent them. Every colour is painted
+   explicitly so the page holds on any host ground.
+   Ground ramp is SpriteLab's own, because the page is also an
+   argument for it.
+   ============================================================ */
+:root{
+  --bg:#08080a;
+  --bg2:#0d0d10;
+  --panel:#131317;
+  --panel2:#17171c;
+  --ctl:#1e1e24;
+  --ctl2:#26262e;
+  --line:#2a2a33;
+  --line2:#3a3a46;
+  --ink:#ececef;
+  --dim:#a2a2ad;
+  --dimmer:#6e6e7a;
+
+  /* live shopping state — JS rewrites these two */
+  --accent:#f43f8e;
+  --accent2:#8c3dfa;
+  --on-accent:#0a0a0c;
+
+  --ok:#35f6bf;
+  --warn:#ffc341;
+  --bad:#fa3d5d;
+
+  --gut:20px;
+  --maxw:1160px;
+
+  --f-disp:'Archivo','Helvetica Neue',Arial,sans-serif;
+  --f-body:'IBM Plex Sans','Segoe UI',system-ui,sans-serif;
+  --f-mono:'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,monospace;
+}
+
+*{box-sizing:border-box}
+html,body{background:var(--bg)}
+body{
+  margin:0;
+  font-family:var(--f-body);
+  color:var(--ink);
+  font-size:15px;
+  line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+  padding-bottom:96px;
+}
+h1,h2,h3,h4{font-family:var(--f-disp);margin:0;text-wrap:balance;letter-spacing:-.02em}
+p{margin:0}
+a{color:var(--accent)}
+code,.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+.wrap{max-width:var(--maxw);margin:0 auto;padding-inline:var(--gut)}
+
+/* ---------- masthead ---------- */
+.mast{
+  position:relative;
+  padding-block:52px 34px;
+  border-bottom:1px solid var(--line);
+  background:
+    radial-gradient(1100px 380px at 12% -40%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 70%),
+    radial-gradient(900px 340px at 88% -30%, color-mix(in srgb, var(--accent2) 20%, transparent), transparent 70%),
+    var(--bg);
+  overflow:hidden;
+}
+.mast::after{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background-image:repeating-linear-gradient(180deg,rgba(255,255,255,.028) 0 1px,transparent 1px 3px);
+}
+.mast .wrap{position:relative;z-index:1}
+.eyebrow{
+  font-family:var(--f-mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--dimmer);margin-bottom:14px;
+}
+.mast h1{font-size:clamp(38px,7vw,68px);font-weight:900;line-height:.95;letter-spacing:-.04em}
+.mast h1 em{font-style:normal;color:var(--accent)}
+.lede{max-width:62ch;margin-top:16px;color:var(--dim);font-size:16px}
+.lede b{color:var(--ink);font-weight:600}
+
+/* ---------- aisle nav ---------- */
+.railwrap{
+  position:sticky;top:env(safe-area-inset-top,0px);z-index:40;
+  background:color-mix(in srgb,var(--bg) 88%,transparent);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--line);
+}
+.rail{display:flex;gap:6px;overflow-x:auto;padding-block:10px;scrollbar-width:none}
+.rail::-webkit-scrollbar{display:none}
+.rail a{
+  flex:0 0 auto;text-decoration:none;color:var(--dim);
+  font-family:var(--f-mono);font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;
+  padding:7px 13px;border-radius:999px;border:1px solid transparent;white-space:nowrap;
+}
+.rail a:hover,.rail a:focus-visible{color:var(--ink);border-color:var(--line2);background:var(--panel)}
+
+/* ---------- section scaffolding ---------- */
+section{padding-block:66px 10px;scroll-margin-top:72px}
+.shead{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:8px}
+.snum{
+  font-family:var(--f-mono);font-size:12px;color:var(--accent);
+  border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);
+  border-radius:6px;padding:3px 8px;letter-spacing:.06em;
+}
+.shead h2{font-size:clamp(25px,4.2vw,38px);font-weight:800}
+.sdek{color:var(--dim);max-width:66ch;margin:14px 0 30px;font-size:15px}
+.sdek b{color:var(--ink);font-weight:600}
+hr.rule{border:0;border-top:1px solid var(--line);margin:0}
+
+.note{
+  border-left:2px solid var(--accent);padding:2px 0 2px 16px;color:var(--dim);
+  margin:26px 0;max-width:68ch;font-size:14.5px;
+}
+.note b{color:var(--ink);font-weight:600}
+
+/* ---------- audit: three systems ---------- */
+.sysgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+@media(max-width:820px){.sysgrid{grid-template-columns:1fr}}
+.sys{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:14px}
+.sys.bad{border-color:color-mix(in srgb,var(--bad) 34%,var(--line))}
+.sys.good{border-color:color-mix(in srgb,var(--ok) 34%,var(--line))}
+.sys h3{font-size:18px;font-weight:700;display:flex;align-items:center;gap:9px}
+.dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+.sys .who{font-family:var(--f-mono);font-size:11px;color:var(--dimmer);letter-spacing:.06em;text-transform:uppercase}
+.bigstat{font-family:var(--f-disp);font-size:42px;font-weight:900;line-height:1;letter-spacing:-.03em}
+.bigstat small{display:block;font-family:var(--f-body);font-size:12.5px;font-weight:400;letter-spacing:0;color:var(--dim);margin-top:6px}
+.sys p{font-size:13.6px;color:var(--dim)}
+.sys p b{color:var(--ink);font-weight:600}
+.ramp{display:flex;border-radius:8px;overflow:hidden;height:34px;border:1px solid var(--line)}
+.ramp span{flex:1}
+
+/* grey wall */
+.greywall{display:grid;grid-template-columns:repeat(auto-fill,minmax(46px,1fr));gap:4px;margin-top:6px}
+.greywall i{aspect-ratio:1;border-radius:4px;display:block}
+.legend{display:flex;gap:18px;flex-wrap:wrap;font-family:var(--f-mono);font-size:11px;color:var(--dimmer);margin-top:14px;letter-spacing:.05em}
+.legend b{color:var(--ink)}
+
+/* ---------- swatch grid ---------- */
+.swgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:12px}
+.sw{
+  border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--panel);
+  cursor:pointer;text-align:left;padding:0;font:inherit;color:inherit;display:block;
+  transition:transform .12s ease,border-color .12s ease;
+}
+.sw:hover{transform:translateY(-2px);border-color:var(--line2)}
+.sw:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sw .chip{height:78px;display:block;position:relative}
+.sw .chip .star{
+  position:absolute;top:7px;right:8px;font-size:13px;opacity:0;transition:opacity .12s;
+  text-shadow:0 1px 3px rgba(0,0,0,.6);
+}
+.sw.picked .chip .star{opacity:1}
+.sw .meta{padding:9px 11px 11px}
+.sw .nm{font-size:12.5px;font-weight:600;line-height:1.25}
+.sw .hx{font-family:var(--f-mono);font-size:11px;color:var(--dimmer);margin-top:3px}
+.sw .use{font-size:11px;color:var(--dim);margin-top:5px;line-height:1.35}
+.sw.picked{border-color:var(--accent)}
+
+/* ---------- gradients ---------- */
+.gradgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(178px,1fr));gap:12px}
+.gr{border:1px solid var(--line);border-radius:12px;overflow:hidden;cursor:pointer;background:var(--panel);padding:0;font:inherit;color:inherit;display:block;text-align:left;transition:transform .12s,border-color .12s}
+.gr:hover{transform:translateY(-2px);border-color:var(--line2)}
+.gr:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.gr .band{height:92px;display:block}
+.gr .meta{padding:9px 11px 11px;font-family:var(--f-mono);font-size:10.5px;color:var(--dimmer);letter-spacing:.04em}
+.gr .meta b{display:block;font-family:var(--f-body);font-size:12.5px;color:var(--ink);letter-spacing:0;margin-bottom:3px;font-weight:600}
+
+.mixer{
+  background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;
+  display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:center;margin-top:26px;
+}
+@media(max-width:700px){.mixer{grid-template-columns:1fr}}
+.mixpreview{border-radius:12px;height:170px;border:1px solid var(--line)}
+.mixrow{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
+.mixrow button{
+  width:30px;height:30px;border-radius:8px;border:2px solid transparent;cursor:pointer;padding:0;
+}
+.mixrow button[aria-pressed="true"]{border-color:#fff}
+.mixlab{font-family:var(--f-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dimmer)}
+.mixstyle{display:flex;gap:6px;flex-wrap:wrap;margin-top:16px}
+.mixstyle button{
+  font:inherit;font-size:12px;padding:6px 12px;border-radius:999px;cursor:pointer;
+  background:var(--ctl);border:1px solid var(--line2);color:var(--dim);
+}
+.mixstyle button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:600}
+
+/* ---------- surfaces ---------- */
+.surfgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:14px}
+.surf{border-radius:14px;overflow:hidden;border:1px solid var(--line);cursor:pointer;padding:0;font:inherit;color:inherit;text-align:left;display:block;background:var(--panel)}
+.surf:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.surf .sample{height:128px;position:relative;display:grid;place-items:center}
+.surf .sample .fake{
+  font-family:var(--f-mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;
+  padding:8px 14px;border-radius:999px;background:rgba(0,0,0,.34);color:#fff;border:1px solid rgba(255,255,255,.14);
+}
+.surf .meta{padding:11px 13px 13px;border-top:1px solid var(--line)}
+.surf .meta b{display:block;font-size:13px;font-weight:600}
+.surf .meta span{font-size:11.5px;color:var(--dim);line-height:1.4;display:block;margin-top:3px}
+.surf.picked{border-color:var(--accent)}
+
+/* the actual surface treatments */
+.t-flat{background:var(--ctl)}
+.t-lift{background:linear-gradient(180deg,#26262e,#1a1a20);box-shadow:inset 0 1px 0 rgba(255,255,255,.07)}
+.t-glass{
+  background:linear-gradient(135deg,rgba(255,255,255,.10),rgba(255,255,255,.03));
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.16);
+}
+.t-glasshost{background:
+  radial-gradient(60% 90% at 25% 30%, var(--accent), transparent 70%),
+  radial-gradient(60% 90% at 75% 70%, var(--accent2), transparent 70%), #101014;}
+.t-grain{background:var(--ctl);position:relative}
+.t-grain::after{content:"";position:absolute;inset:0;opacity:.5;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/></filter><rect width='120' height='120' filter='url(%23n)' opacity='.34'/></svg>");}
+.t-mesh{background:
+  radial-gradient(48% 62% at 18% 22%, color-mix(in srgb,var(--accent) 60%,transparent), transparent 70%),
+  radial-gradient(52% 64% at 82% 78%, color-mix(in srgb,var(--accent2) 60%,transparent), transparent 70%),
+  #0e0e12;}
+.t-scan{background:#0e0e12;position:relative}
+.t-scan::after{content:"";position:absolute;inset:0;
+  background:repeating-linear-gradient(180deg,rgba(255,255,255,.05) 0 1px,transparent 1px 4px)}
+.t-hatch{background:#141418;position:relative}
+.t-hatch::after{content:"";position:absolute;inset:0;
+  background:repeating-linear-gradient(45deg,rgba(255,255,255,.035) 0 8px,transparent 8px 16px)}
+.t-edge{background:#0c0c0f;box-shadow:inset 0 0 0 1.5px var(--accent), inset 0 0 26px color-mix(in srgb,var(--accent) 26%,transparent)}
+.t-rail{background:var(--panel2);box-shadow:inset 3px 0 0 var(--accent)}
+.t-dot{background:#101014;background-image:radial-gradient(rgba(255,255,255,.10) 1px, transparent 1px);background-size:11px 11px}
+.t-vel{background:linear-gradient(180deg,#1c1c24,#0c0c10);position:relative}
+.t-vel::after{content:"";position:absolute;inset:0;
+  background:radial-gradient(120% 70% at 50% 0%, color-mix(in srgb,var(--accent) 22%,transparent), transparent 60%)}
+.t-paper{background:#efeee9;color:#16161a}
+.t-paper .fake{background:rgba(0,0,0,.08);color:#16161a;border-color:rgba(0,0,0,.14)}
+
+/* ---------- component languages ---------- */
+.langbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:26px}
+.langbar button{
+  font:inherit;font-size:13px;padding:9px 16px;border-radius:999px;cursor:pointer;
+  background:var(--panel);border:1px solid var(--line2);color:var(--dim);
+}
+.langbar button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink);font-weight:600}
+.langgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px}
+@media(max-width:900px){.langgrid{grid-template-columns:1fr}}
+
+.lang{
+  border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--bg2);
+}
+.lang > header{
+  padding:16px 18px;border-bottom:1px solid var(--line);
+  display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  background:var(--panel);
+}
+.lang > header h3{font-size:17px;font-weight:800;letter-spacing:-.01em}
+.lang > header .tag{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--dimmer)}
+.lang > header p{flex-basis:100%;font-size:12.8px;color:var(--dim);margin-top:2px}
+.langbody{padding:18px;display:flex;flex-direction:column;gap:20px}
+.cgroup{display:flex;flex-direction:column;gap:9px}
+.clabel{font-family:var(--f-mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--dimmer)}
+.crow{display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+
+/* === shared component skeletons; each language rebinds the vars === */
+.lang{
+  --r-ctl:999px; --r-card:14px; --r-chip:999px;
+  --c-ctl:#1e1e24; --c-ctl-hi:#2a2a33; --c-card:#131317;
+  --c-bd:transparent; --c-bd-card:#2a2a33;
+  --shadow:none; --glow:none;
+  --lab-tt:none; --lab-ls:0; --lab-fw:500;
+  --pri-bg:var(--accent); --pri-fg:var(--on-accent); --pri-bd:transparent;
+}
+.lang .btn{
+  font:inherit;font-weight:var(--lab-fw);font-size:13.5px;padding:10px 18px;cursor:pointer;
+  border-radius:var(--r-ctl);text-transform:var(--lab-tt);letter-spacing:var(--lab-ls);
+  background:var(--c-ctl);color:var(--ink);border:1px solid var(--c-bd);box-shadow:var(--shadow);
+}
+.lang .btn.pri{background:var(--pri-bg);color:var(--pri-fg);border-color:var(--pri-bd);font-weight:600;box-shadow:var(--glow)}
+.lang .btn.ghost{background:transparent;border-color:var(--c-bd-card);color:var(--dim)}
+.lang .btn.ico{padding:10px;width:40px;height:40px;display:grid;place-items:center;font-size:15px}
+
+.lang .chip{
+  font:inherit;font-size:12.5px;padding:7px 13px;border-radius:var(--r-chip);cursor:pointer;
+  background:var(--c-ctl);color:var(--dim);border:1px solid var(--c-bd);
+  text-transform:var(--lab-tt);letter-spacing:var(--lab-ls);
+}
+.lang .chip[aria-pressed="true"]{background:var(--pri-bg);color:var(--pri-fg);border-color:var(--pri-bd);font-weight:600;box-shadow:var(--glow)}
+
+.lang .sw2{
+  width:50px;height:28px;border-radius:var(--r-ctl);background:var(--c-ctl);border:1px solid var(--c-bd-card);
+  position:relative;cursor:pointer;padding:0;transition:background .15s;
+}
+.lang .sw2::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:var(--r-ctl);background:var(--dimmer);transition:transform .15s,background .15s}
+.lang .sw2[aria-pressed="true"]{background:color-mix(in srgb,var(--accent) 34%,var(--c-ctl));border-color:var(--pri-bd)}
+.lang .sw2[aria-pressed="true"]::after{transform:translateX(22px);background:var(--accent)}
+
+.lang .slider{height:30px;display:flex;align-items:center;flex:1;min-width:130px}
+.lang .track{height:5px;border-radius:999px;background:var(--c-ctl-hi);width:100%;position:relative}
+.lang .track i{position:absolute;inset:0 42% 0 0;border-radius:999px;background:var(--accent)}
+.lang .track b{position:absolute;left:58%;top:50%;width:17px;height:17px;margin:-8.5px 0 0 -8.5px;border-radius:var(--r-ctl);background:#fff;box-shadow:0 1px 5px rgba(0,0,0,.5)}
+
+.lang .scrub{
+  display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:var(--r-ctl);
+  background:var(--c-ctl);border:1px solid var(--c-bd);cursor:ew-resize;
+}
+.lang .scrub .k{font-size:11.5px;color:var(--dimmer);text-transform:var(--lab-tt);letter-spacing:var(--lab-ls)}
+.lang .scrub .v{font-family:var(--f-mono);font-size:13.5px;font-weight:600;color:var(--ink)}
+
+.lang .seg{display:inline-flex;background:var(--c-ctl);border-radius:var(--r-ctl);padding:3px;border:1px solid var(--c-bd);gap:2px}
+.lang .seg button{
+  font:inherit;font-size:12.5px;padding:6px 14px;border-radius:calc(var(--r-ctl) - 3px);border:0;cursor:pointer;
+  background:transparent;color:var(--dim);text-transform:var(--lab-tt);letter-spacing:var(--lab-ls);
+}
+.lang .seg button[aria-pressed="true"]{background:var(--pri-bg);color:var(--pri-fg);font-weight:600}
+
+.lang .card{
+  background:var(--c-card);border:1px solid var(--c-bd-card);border-radius:var(--r-card);padding:14px 15px;
+  display:flex;align-items:center;gap:13px;box-shadow:var(--shadow);
+}
+.lang .card .ic{width:36px;height:36px;border-radius:calc(var(--r-card) - 4px);display:grid;place-items:center;background:color-mix(in srgb,var(--accent) 20%,transparent);color:var(--accent);flex:0 0 auto;font-size:16px}
+.lang .card .tx b{display:block;font-size:13.5px;font-weight:600}
+.lang .card .tx span{font-size:11.8px;color:var(--dim)}
+.lang .card .cnt{margin-left:auto;font-family:var(--f-mono);font-size:11px;padding:3px 8px;border-radius:999px;background:var(--accent);color:var(--pri-fg);font-weight:600}
+
+.lang .drawer{background:var(--c-card);border:1px solid var(--c-bd-card);border-radius:var(--r-card) var(--r-card) 0 0;padding:12px 15px 15px}
+.lang .grab{width:44px;height:4px;border-radius:999px;background:var(--line2);margin:0 auto 12px}
+.lang .drawer .dh{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--accent);font-weight:600;text-transform:var(--lab-tt);letter-spacing:var(--lab-ls)}
+.lang .drawer .dh span{color:var(--dimmer);font-weight:400;font-family:var(--f-mono);font-size:11px}
+.lang .drawer .dh .x{margin-left:auto;color:var(--dimmer);font-weight:400}
+
+.lang .navbar{display:flex;background:var(--c-card);border:1px solid var(--c-bd-card);border-radius:var(--r-card);padding:8px 4px;justify-content:space-around}
+.lang .navbar i{display:grid;place-items:center;gap:4px;font-style:normal;font-size:16px;color:var(--dimmer);padding:4px 10px;border-radius:var(--r-chip);flex:1;text-align:center}
+.lang .navbar i s{text-decoration:none;font-family:var(--f-body);font-size:9.5px;letter-spacing:.02em}
+.lang .navbar i.on{color:var(--accent);background:color-mix(in srgb,var(--accent) 15%,transparent)}
+
+.lang .dialog{background:var(--c-card);border:1px solid var(--c-bd-card);border-radius:var(--r-card);padding:18px;box-shadow:0 16px 40px rgba(0,0,0,.55)}
+.lang .dialog h4{font-size:16px;font-weight:700;margin-bottom:7px}
+.lang .dialog p{font-size:13px;color:var(--dim);margin-bottom:15px}
+.lang .dialog .acts{display:flex;gap:9px;justify-content:flex-end}
+
+.lang .handles{position:relative;height:96px;border-radius:var(--r-card);background:var(--c-ctl);border:1px dashed var(--c-bd-card);display:grid;place-items:center}
+.lang .handles em{font-style:normal;font-size:11px;color:var(--dimmer);font-family:var(--f-mono)}
+.lang .hd{position:absolute;width:15px;height:15px;background:#fff;border:2px solid var(--accent);border-radius:var(--r-chip)}
+.lang .hd.tl{top:9px;left:9px}.lang .hd.tr{top:9px;right:9px}
+.lang .hd.bl{bottom:9px;left:9px}.lang .hd.br{bottom:9px;right:9px}
+.lang .kf{position:absolute;right:50%;bottom:9px;width:13px;height:13px;background:var(--accent);transform:rotate(45deg)}
+
+.lang .badge{font-family:var(--f-mono);font-size:10px;padding:3px 7px;border-radius:var(--r-chip);background:var(--accent);color:var(--pri-fg);font-weight:600;letter-spacing:.04em}
+.lang .badge.q{background:var(--c-ctl);color:var(--dim)}
+
+/* language A — PILL (SpriteLab today) */
+.lang-pill{--r-ctl:999px;--r-card:14px;--r-chip:999px;--c-ctl:#1c1c22;--c-ctl-hi:#2c2c35;--c-card:#111114;--c-bd:transparent;--c-bd-card:#2c2c35}
+/* language B — SLAB */
+.lang-slab{
+  --r-ctl:5px;--r-card:6px;--r-chip:4px;
+  --c-ctl:#202027;--c-ctl-hi:#32323c;--c-card:#16161b;--c-bd:#33333e;--c-bd-card:#33333e;
+  --lab-tt:uppercase;--lab-ls:.08em;--lab-fw:600;
+  --shadow:inset 0 1px 0 rgba(255,255,255,.06);
+}
+.lang-slab .btn,.lang-slab .chip,.lang-slab .seg button{font-size:11.5px}
+/* language C — GLASS */
+.lang-glass{
+  --r-ctl:999px;--r-card:18px;--r-chip:999px;
+  --c-ctl:rgba(255,255,255,.07);--c-ctl-hi:rgba(255,255,255,.14);--c-card:rgba(255,255,255,.055);
+  --c-bd:rgba(255,255,255,.13);--c-bd-card:rgba(255,255,255,.13);
+  --shadow:inset 0 1px 0 rgba(255,255,255,.16);
+  --pri-bg:color-mix(in srgb,var(--accent) 88%,transparent);
+}
+.lang-glass .langbody{
+  background:
+    radial-gradient(70% 55% at 20% 8%, color-mix(in srgb,var(--accent) 30%,transparent), transparent 70%),
+    radial-gradient(70% 55% at 85% 92%, color-mix(in srgb,var(--accent2) 30%,transparent), transparent 70%),
+    #0b0b0f;
+  backdrop-filter:blur(2px);
+}
+.lang-glass .btn,.lang-glass .chip,.lang-glass .card,.lang-glass .seg,.lang-glass .scrub,.lang-glass .navbar,.lang-glass .dialog,.lang-glass .drawer{
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+}
+/* language D — NEON EDGE */
+.lang-neon{
+  --r-ctl:9px;--r-card:11px;--r-chip:7px;
+  --c-ctl:#0c0c10;--c-ctl-hi:#1a1a22;--c-card:#0a0a0d;
+  --c-bd:color-mix(in srgb,var(--accent) 34%,transparent);
+  --c-bd-card:color-mix(in srgb,var(--accent) 24%,transparent);
+  --lab-tt:uppercase;--lab-ls:.13em;--lab-fw:600;
+  --pri-bg:transparent;--pri-fg:var(--accent);--pri-bd:var(--accent);
+  --glow:0 0 0 1px var(--accent), 0 0 16px color-mix(in srgb,var(--accent) 45%,transparent);
+}
+.lang-neon .btn,.lang-neon .chip,.lang-neon .seg button{font-size:11.5px}
+.lang-neon .langbody{background:#07070a}
+.lang-neon .card .cnt,.lang-neon .badge{background:transparent;color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.lang-neon .navbar i.on{background:transparent;box-shadow:inset 0 0 0 1px var(--accent),0 0 14px color-mix(in srgb,var(--accent) 34%,transparent)}
+
+/* ---------- rooms ---------- */
+.roomgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(184px,1fr));gap:12px}
+.room{border-radius:14px;overflow:hidden;border:1px solid var(--line);background:var(--panel);cursor:pointer;padding:0;font:inherit;color:inherit;text-align:left;display:block}
+.room:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.room .hero{height:74px;display:flex;align-items:flex-end;padding:11px 13px}
+.room .hero em{font-style:normal;font-size:22px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))}
+.room .meta{padding:11px 13px 13px}
+.room .meta b{display:block;font-size:13.5px;font-weight:700}
+.room .meta span{display:block;font-size:11.5px;color:var(--dim);margin-top:3px;line-height:1.4}
+.room .meta code{display:block;font-size:10px;color:var(--dimmer);margin-top:6px}
+.room.picked{border-color:var(--accent)}
+
+/* ---------- picks tray ---------- */
+.tray{
+  position:fixed;left:0;right:0;bottom:0;z-index:60;
+  background:color-mix(in srgb,var(--panel) 94%,transparent);
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  border-top:1px solid var(--line2);
+  padding:12px var(--gut);padding-bottom:calc(12px + env(safe-area-inset-bottom,0px));
+}
+.trayin{max-width:var(--maxw);margin:0 auto;display:flex;align-items:center;gap:14px}
+.traycount{font-family:var(--f-disp);font-size:20px;font-weight:900;color:var(--accent);min-width:26px;text-align:center}
+.traylab{font-size:12.5px;color:var(--dim);flex:1;min-width:0}
+.traylab b{color:var(--ink);display:block;font-size:13px;font-weight:600}
+.traylist{display:flex;gap:5px;overflow-x:auto;max-width:48%;scrollbar-width:none}
+.traylist::-webkit-scrollbar{display:none}
+.traylist i{flex:0 0 auto;width:22px;height:22px;border-radius:6px;border:1px solid var(--line2)}
+.traybtn{font:inherit;font-size:12px;font-weight:600;padding:8px 14px;border-radius:999px;cursor:pointer;background:var(--ctl);border:1px solid var(--line2);color:var(--ink);white-space:nowrap}
+.traybtn:hover{background:var(--ctl2)}
+@media(max-width:620px){.traylist{display:none}}
+
+dialog.sheet{
+  border:1px solid var(--line2);border-radius:16px;background:var(--panel);color:var(--ink);
+  max-width:560px;width:calc(100% - 32px);padding:22px;
+}
+dialog.sheet::backdrop{background:rgba(0,0,0,.72)}
+dialog.sheet h3{font-size:19px;font-weight:800;margin-bottom:6px}
+dialog.sheet p{font-size:13.5px;color:var(--dim);margin-bottom:16px}
+dialog.sheet textarea{
+  width:100%;min-height:190px;background:var(--bg);color:var(--ink);border:1px solid var(--line);
+  border-radius:10px;padding:12px;font-family:var(--f-mono);font-size:12px;line-height:1.6;resize:vertical;
+}
+dialog.sheet .acts{display:flex;gap:9px;justify-content:flex-end;margin-top:14px}
+
+footer{padding-block:54px 20px;color:var(--dimmer);font-size:12.5px;border-top:1px solid var(--line);margin-top:60px}
+footer b{color:var(--dim)}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="mast">
+  <div class="wrap">
+    <div class="eyebrow">Joy Creator · design record 01 · 16 Sep 2026</div>
+    <h1>The <em>Swatch</em> Room</h1>
+    <p class="lede">Everything the app is currently painted with, laid out so it can be compared — plus gradients, grounds and four complete control languages built from the same parts. <b>Tap anything you like.</b> Picks collect in the tray at the bottom and you can hand me the list.</p>
+  </div>
+</div>
+
+<div class="railwrap"><div class="wrap"><nav class="rail">
+  <a href="#audit">01 · What we have</a>
+  <a href="#palette">02 · The palette</a>
+  <a href="#grad">03 · Gradients</a>
+  <a href="#ground">04 · Grounds</a>
+  <a href="#lang">05 · Control languages</a>
+  <a href="#rooms">06 · Room colours</a>
+</nav></div></div>
+
+<main class="wrap">
+
+<!-- ================= 01 AUDIT ================= -->
+<section id="audit">
+  <div class="shead"><span class="snum">01</span><h2>Three paint jobs, one app</h2></div>
+  <p class="sdek">Nobody chose this. Each layer was added by a different hand at a different time and none of them were ever reconciled. The middle column is the one doing the most damage — and it is the part you like the look of, which is the awkward bit: <b>it looks good and it is held together by nothing.</b></p>
+
+  <div class="sysgrid">
+    <div class="sys bad">
+      <span class="who"><span class="dot" style="background:#D32F2F"></span> inherited · FadCam</span>
+      <h3>The theme system</h3>
+      <div class="bigstat">33<small>theme attributes, 9 themes</small></div>
+      <div class="ramp"><span style="background:#D32F2F"></span><span style="background:#FFD700"></span><span style="background:#26A69A"></span><span style="background:#A5A9AB"></span><span style="background:#F06292"></span><span style="background:#000"></span><span style="background:#616161"></span></div>
+      <p>One attribute, <code>colorHeading</code>, is used <b>314 times</b> in the layouts. That single line is why every settings row, every section header and every card title in the legacy app is red. Change it and the whole app changes — but it only reaches the screens that were built this way.</p>
+      <p><b>Reaches:</b> Home, Records, Remote, Settings, Smart Detection, onboarding.</p>
+    </div>
+
+    <div class="sys bad">
+      <span class="who"><span class="dot" style="background:#4CAF50"></span> yours · the editor</span>
+      <h3>No system at all</h3>
+      <div class="bigstat">1,148<small>colours typed by hand, in code</small></div>
+      <div class="ramp"><span style="background:#4CAF50"></span><span style="background:#FFC107"></span><span style="background:#4DD0E1"></span><span style="background:#B388FF"></span><span style="background:#F44336"></span><span style="background:#888888"></span><span style="background:#CCCCCC"></span></div>
+      <p>196 different colours, of which <b>66 are greys</b>. A working system needs five or six. The editor cannot be re-themed today because there is nothing to change — the colours are not in a file, they are scattered through 400 source files.</p>
+      <p><b>Reaches:</b> the whole Studio — timeline, drawers, transform, transcript, puppets.</p>
+    </div>
+
+    <div class="sys good">
+      <span class="who"><span class="dot" style="background:#22d3ee"></span> yours · newest</span>
+      <h3>SpriteLab's system</h3>
+      <div class="bigstat">16<small>tokens, one file, written rules</small></div>
+      <div class="ramp"><span style="background:#050507"></span><span style="background:#111114"></span><span style="background:#1c1c22"></span><span style="background:#22d3ee"></span><span style="background:#f43f8e"></span><span style="background:#fbbf24"></span><span style="background:#34d399"></span></div>
+      <p>8 neutrals, 6 section accents, 2 state colours — and, crucially, <b>a rule that separates them</b>: cyan always means "this is selected", pink always means "this is what's playing". A room's colour may never be a colour that already means a state.</p>
+      <p><b>Reaches:</b> Sprite Lab and the sprite drawer. Nothing else. Yet.</p>
+    </div>
+  </div>
+
+  <div class="note"><b>The 66 greys, actual size.</b> Every distinct grey currently typed into the editor by hand. You are looking at a decision that was made 66 separate times.</div>
+  <div class="greywall" id="greywall"></div>
+  <div class="legend"><span>66 distinct greys</span><span>· <b>5–6</b> is what a system uses</span><span>· 196 distinct colours total</span></div>
+
+  <div class="note"><b>One piece of good news.</b> The timeline lane colours were already picked from your July brand palette — purple <code>#8C3DFA</code> for text, blue <code>#4397FD</code> for video. They are not off-brand, they are just alone. That is the bridge between the editor and the rest.</div>
+</section>
+
+<hr class="rule">
+
+<!-- ================= 02 PALETTE ================= -->
+<section id="palette">
+  <div class="shead"><span class="snum">02</span><h2>The palette you already chose</h2></div>
+  <p class="sdek">Fourteen colours, pulled from your Bible Study project and written into the brand brief in July 2026. Any two adjacent ones gradient cleanly — that was the whole point of ordering them this way. <b>Tap one to make it the accent for the rest of this page.</b> Everything below repaints.</p>
+  <div class="swgrid" id="palgrid"></div>
+
+  <div class="note"><b>The four state colours are not on this wheel, and shouldn't be.</b> Selected, playing, warning and destructive need to mean the same thing in every room. If "playing" is pink in the Studio and pink also means "you are in the Recorder", the user has to learn two pinks. Proposed and used by SpriteLab today: <b>cyan = selected</b>, <b>pink = live</b>, <b>amber = careful</b>, <b>red = destroys something</b>.</p></div>
+  <div class="swgrid" id="stategrid"></div>
+</section>
+
+<hr class="rule">
+
+<!-- ================= 03 GRADIENTS ================= -->
+<section id="grad">
+  <div class="shead"><span class="snum">03</span><h2>Gradients</h2></div>
+  <p class="sdek">Your brief says each section gets a two-colour gradient over the shared dark ground. These are the adjacent pairs from the wheel, in order. <b>Tap one to load it into the mixer</b>, then try it as a bar, a glow, a mesh or an edge.</p>
+  <div class="gradgrid" id="gradgrid"></div>
+
+  <div class="mixer">
+    <div>
+      <div class="mixlab">Mixer</div>
+      <h3 style="font-size:19px;font-weight:800;margin:6px 0 2px">Try the pair four ways</h3>
+      <p style="font-size:13px;color:var(--dim)">The same two colours read completely differently depending on how much of the screen they cover. A full-bleed gradient header is loud; the same pair as a 2px rail is a whisper.</p>
+      <div class="mixlab" style="margin-top:16px">Colour A</div>
+      <div class="mixrow" id="mixA"></div>
+      <div class="mixlab" style="margin-top:12px">Colour B</div>
+      <div class="mixrow" id="mixB"></div>
+      <div class="mixstyle" id="mixStyle">
+        <button type="button" data-s="bar" aria-pressed="true">Full bleed</button>
+        <button type="button" data-s="glow" aria-pressed="false">Glow behind</button>
+        <button type="button" data-s="mesh" aria-pressed="false">Mesh wash</button>
+        <button type="button" data-s="edge" aria-pressed="false">Edge only</button>
+      </div>
+    </div>
+    <div class="mixpreview" id="mixPrev"></div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ================= 04 GROUNDS ================= -->
+<section id="ground">
+  <div class="shead"><span class="snum">04</span><h2>Grounds &amp; surfaces</h2></div>
+  <p class="sdek">What a panel is <em>made of</em>, before any colour lands on it. This is the decision that sets the whole feeling — and the one nobody has made. Right now the app uses flat, lifted <em>and</em> frosted in different rooms. <b>Tap the ones you want.</b></p>
+  <div class="surfgrid" id="surfgrid"></div>
+</section>
+
+<hr class="rule">
+
+<!-- ================= 05 LANGUAGES ================= -->
+<section id="lang">
+  <div class="shead"><span class="snum">05</span><h2>Four control languages</h2></div>
+  <p class="sdek">The same fourteen controls, built four ways. Identical parts, identical order, so the only variable is the language. These are not themes — a theme changes colour, a <em>language</em> changes shape, weight, border, case and how a thing announces that it is on. <b>Pick a language and pick an accent and you have decided most of the app.</b></p>
+
+  <div class="langbar" id="langbar">
+    <button type="button" data-l="all" aria-pressed="true">Show all four</button>
+    <button type="button" data-l="pill" aria-pressed="false">Pill</button>
+    <button type="button" data-l="slab" aria-pressed="false">Slab</button>
+    <button type="button" data-l="glass" aria-pressed="false">Glass</button>
+    <button type="button" data-l="neon" aria-pressed="false">Neon edge</button>
+  </div>
+
+  <div class="langgrid" id="langgrid"></div>
+</section>
+
+<hr class="rule">
+
+<!-- ================= 06 ROOMS ================= -->
+<section id="rooms">
+  <div class="shead"><span class="snum">06</span><h2>Room colours</h2></div>
+  <p class="sdek">Your brief asked for this in July and it was never decided, which is why nothing could be mass-applied. Each room gets a two-colour gradient so you always know where you are. This is a <b>proposal, not a ruling</b> — the greens are locked to the Studio because the editor already owns them and re-teaching that is expensive. <b>Tap any room you disagree with</b> and I'll know to re-pitch it.</p>
+  <div class="roomgrid" id="roomgrid"></div>
+
+  <div class="note"><b>Why the Studio keeps green.</b> It is the one colour association in this app that has been trained into you over months of daily use — play is green, the export arrow is green, the timeline's selected clip is green. Moving it would cost more than it buys. Everything else is free to change.</div>
+</section>
+
+<footer class="wrap" style="max-width:var(--maxw)">
+  <p>Every figure on this page was counted against the code at <b>HEAD on branch joy-creator</b>, 16 Sep 2026 — not taken from a document. Colour counts are distinct <code>0xFF…</code> literals; the grey test is R, G and B within 8 of each other.</p>
+  <p style="margin-top:10px">Companion to <b>DESIGN_JOY_CREATOR.md §2–3</b>, which chose the palette and left the room mapping open.</p>
+</footer>
+
+</main>
+
+<div class="tray">
+  <div class="trayin">
+    <div class="traycount" id="trayCount">0</div>
+    <div class="traylab"><b>Your picks</b><span id="trayHint">Tap swatches, grounds, languages and rooms to collect them.</span></div>
+    <div class="traylist" id="trayList"></div>
+    <button class="traybtn" type="button" id="trayShow">Show list</button>
+    <button class="traybtn" type="button" id="trayClear">Clear</button>
+  </div>
+</div>
+
+<dialog class="sheet" id="sheet">
+  <h3>Your picks</h3>
+  <p>Copy this and paste it back to me — it is everything you starred, in the order you starred it.</p>
+  <textarea id="sheetText" readonly></textarea>
+  <div class="acts">
+    <button class="traybtn" type="button" id="sheetCopy">Copy</button>
+    <button class="traybtn" type="button" id="sheetClose">Close</button>
+  </div>
+</dialog>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------------- data, all verified against the repo ---------------- */
+
+  // DESIGN_JOY_CREATOR.md §2 — the fourteen, in wheel order
+  var PALETTE = [
+    {n:"Neon pink",     h:"#ff008c", u:"The brief's replacement for FadCam red"},
+    {n:"Vivid purple",  h:"#cc27ff", u:""},
+    {n:"Purple",        h:"#8c3dfa", u:"Already the timeline's TEXT lane"},
+    {n:"Indigo",        h:"#5c43fd", u:""},
+    {n:"Bright blue",   h:"#4397fd", u:"Already the timeline's VIDEO lane"},
+    {n:"Cyan",          h:"#55e0f9", u:""},
+    {n:"Aqua green",    h:"#35f6bf", u:""},
+    {n:"Lime",          h:"#97fe8b", u:""},
+    {n:"Yellow-green",  h:"#ceff5b", u:""},
+    {n:"Golden yellow", h:"#f9f462", u:""},
+    {n:"Amber",         h:"#ffc341", u:""},
+    {n:"Orange",        h:"#faa03d", u:""},
+    {n:"Deep orange",   h:"#fc6818", u:""},
+    {n:"Red-pink",      h:"#fa3d5d", u:""}
+  ];
+
+  var STATES = [
+    {n:"Selected",  h:"#22d3ee", u:"Cyan. The thing you are pointing at. SpriteLab uses this today."},
+    {n:"Live",      h:"#f43f8e", u:"Pink. What the preview is showing right now."},
+    {n:"Careful",   h:"#fbbf24", u:"Amber. Unsaved, degraded, approximate."},
+    {n:"Destroys",  h:"#fa3d5d", u:"Red. The only red left in the app."}
+  ];
+
+  // 66 real greys, sampled from the editor source
+  var GREYS = ["#111111","#151515","#181818","#1a1a1a","#1c1c1e","#1e1e1e","#202020","#222222","#242424",
+    "#252525","#262626","#272727","#282828","#2a2a2a","#2a2a2e","#2b2b2b","#2c2c2c","#2d2d2d","#303030",
+    "#313131","#323232","#333333","#353535","#363636","#383838","#3a3a3a","#3c3c3c","#404040","#424242",
+    "#444444","#484848","#4a4a4a","#505050","#555555","#585858","#5a5a5a","#606060","#616161","#666666",
+    "#6a6a6a","#707070","#757575","#777777","#7a7a7a","#808080","#888888","#8a8a8a","#909090","#999999",
+    "#9a9a9a","#9e9e9e","#a0a0a0","#aaaaaa","#b0b0b0","#b3b3b3","#bbbbbb","#c0c0c0","#cccccc","#d0d0d0",
+    "#dddddd","#e0e0e0","#e4e4e7","#e8e8e8","#ededed","#eeeeee","#f5f5f5"];
+
+  var SURFACES = [
+    {c:"t-flat",  n:"Flat",            d:"One solid fill, no edge. Cheapest to draw, most anonymous. What most of the editor is now."},
+    {c:"t-lift",  n:"Lifted",          d:"Soft vertical gradient plus a 1px highlight on the top edge. Reads as a physical control. Ages well."},
+    {c:"t-glass", n:"Frosted glass",   d:"Translucent, blurred. The video keeps playing underneath. Your brief asks for this by name.", host:"t-glasshost"},
+    {c:"t-grain", n:"Grain",           d:"Flat plus fine noise. Kills banding on big dark areas and stops black looking like a hole."},
+    {c:"t-mesh",  n:"Mesh wash",       d:"Two accent blooms bled into the ground. The room's identity without a single coloured control."},
+    {c:"t-vel",   n:"Top bloom",       d:"Accent light falling from above. Quieter than a mesh — one source, not two."},
+    {c:"t-scan",  n:"Scanline",        d:"Fine horizontal lines. Reads as a screen, not paper. The synthwave note, at its most restrained."},
+    {c:"t-hatch", n:"Diagonal hatch",  d:"What the editor already draws behind the canvas to mean 'outside the frame'. Reusable as 'empty'."},
+    {c:"t-dot",   n:"Dot grid",        d:"A drafting surface. Says 'you can place things here'. Right for a canvas, wrong for a menu."},
+    {c:"t-edge",  n:"Lit edge",        d:"Near-black inside, accent glow on the border. All identity, no fill — very cheap on an OLED."},
+    {c:"t-rail",  n:"Colour rail",     d:"Neutral panel with a 3px accent stripe on one side. The most restrained way to colour a room."},
+    {c:"t-paper", n:"Paper (light)",   d:"For the future light mode your brief mentions. Warm off-white, not pure white — screens glare."}
+  ];
+
+  var ROOMS = [
+    {e:"🎬",n:"Studio",     s:"Timeline, layers, transitions, export", a:"#35f6bf", b:"#97fe8b", why:"Locked. The editor already trained you on green."},
+    {e:"🎥",n:"Capture",    s:"Camera, screen, mic, dual, triggered",  a:"#ff008c", b:"#cc27ff", why:"Hot and immediate. Reads as 'live'."},
+    {e:"📚",n:"Library",    s:"Recordings, projects, photos, trash",   a:"#5c43fd", b:"#4397fd", why:"Cool and calm. It is where you browse, not act."},
+    {e:"🤹",n:"Character",  s:"Sprite Lab, Avatar, Puppets",           a:"#cc27ff", b:"#8c3dfa", why:"Violet already means 'a cell's identity' in SpriteLab."},
+    {e:"🔊",n:"Sound",      s:"Waveforms, transcript, visualiser",     a:"#faa03d", b:"#f9f462", why:"Warm. Distinct from every video colour."},
+    {e:"🤖",n:"Joybot",     s:"The assistant, everywhere",             a:"#8c3dfa", b:"#ff008c", why:"Purple into pink — the brief's own suggestion."},
+    {e:"📡",n:"Remote",     s:"Second phone as a camera, over Wi-Fi",  a:"#55e0f9", b:"#35f6bf", why:"Signal colours. Nothing else uses this pair."},
+    {e:"🔍",n:"Finder",     s:"Auto-markers from on-device detection", a:"#ceff5b", b:"#97fe8b", why:"Currently 'Smart Detection', dressed as surveillance."},
+    {e:"🧰",n:"Gadgets",    s:"Torch, QR, compass, level, meter",      a:"#9e9e9e", b:"#6e6e7a", why:"Deliberately grey. Useful, never competing for attention."},
+    {e:"⚙️",n:"Settings",   s:"Every preference in the app",           a:"#a2a2ad", b:"#55e0f9", why:"Neutral with one cool note, so it never looks like a room."}
+  ];
+
+  var LANGS = [
+    {k:"pill", n:"Pill", tag:"what SpriteLab does now",
+     d:"Fully rounded controls, flat fills, no borders, sentence case. Friendly and thumb-first. Reads modern; risks reading casual on a two-hour documentary."},
+    {k:"slab", n:"Slab", tag:"the pro-tool read",
+     d:"Small radius, visible borders, a 1px highlight on top, uppercase micro-labels. Dense and serious. Fits more on a phone screen; less inviting to a twelve-year-old."},
+    {k:"glass", n:"Glass", tag:"your brief asks for this",
+     d:"Translucent, blurred panels over live video. Premium, and it solves a real editor problem — you can still see the frame under an open drawer. Costs GPU; needs a fallback."},
+    {k:"neon", n:"Neon edge", tag:"the synthwave note",
+     d:"Near-black fills, accent borders, glow on the active state. Strongest identity of the four and the most fragile — one careless screen and it looks like a gaming keyboard."}
+  ];
+
+  /* ---------------- picks ---------------- */
+  var picks = [];
+  try { var raw = localStorage.getItem("jc_picks_v1"); if (raw) picks = JSON.parse(raw) || []; } catch(e){ picks = []; }
+
+  function savePicks(){ try{ localStorage.setItem("jc_picks_v1", JSON.stringify(picks)); }catch(e){} }
+
+  function pickKey(kind,name){ return kind + "::" + name; }
+
+  function togglePick(kind,name,hex,el){
+    var key = pickKey(kind,name), i = -1, n;
+    for (n=0;n<picks.length;n++){ if (picks[n].k === key) { i = n; break; } }
+    if (i >= 0) { picks.splice(i,1); el.classList.remove("picked"); }
+    else { picks.push({k:key,kind:kind,name:name,hex:hex||""}); el.classList.add("picked"); }
+    savePicks(); renderTray();
+  }
+  function isPicked(kind,name){
+    var key = pickKey(kind,name), n;
+    for (n=0;n<picks.length;n++){ if (picks[n].k === key) return true; }
+    return false;
+  }
+
+  function renderTray(){
+    document.getElementById("trayCount").textContent = String(picks.length);
+    var list = document.getElementById("trayList");
+    list.innerHTML = "";
+    picks.slice(-24).forEach(function(p){
+      var i = document.createElement("i");
+      i.style.background = p.hex || "var(--ctl)";
+      i.title = p.kind + " — " + p.name;
+      list.appendChild(i);
+    });
+    var hint = document.getElementById("trayHint");
+    hint.textContent = picks.length
+      ? picks.length + " item" + (picks.length===1?"":"s") + " starred. Press Show list to copy them back to me."
+      : "Tap swatches, grounds, languages and rooms to collect them.";
+  }
+
+  /* ---------------- accent ---------------- */
+  function bestInk(hex){
+    var r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    var lum = (0.299*r + 0.587*g + 0.114*b);
+    return lum > 150 ? "#0a0a0c" : "#ffffff";
+  }
+  function setAccent(hex){
+    document.documentElement.style.setProperty("--accent", hex);
+    document.documentElement.style.setProperty("--on-accent", bestInk(hex));
+  }
+  function setAccent2(hex){ document.documentElement.style.setProperty("--accent2", hex); }
+
+  /* ---------------- build: grey wall ---------------- */
+  (function(){
+    var w = document.getElementById("greywall");
+    GREYS.forEach(function(g){
+      var i = document.createElement("i");
+      i.style.background = g; i.title = g;
+      w.appendChild(i);
+    });
+  })();
+
+  /* ---------------- build: swatches ---------------- */
+  function swatch(host, item, kind){
+    var b = document.createElement("button");
+    b.type = "button"; b.className = "sw";
+    if (isPicked(kind,item.n)) b.classList.add("picked");
+    b.innerHTML =
+      '<span class="chip" style="background:'+item.h+'"><span class="star">★</span></span>' +
+      '<span class="meta"><span class="nm">'+item.n+'</span>' +
+      '<span class="hx">'+item.h.toUpperCase()+'</span>' +
+      (item.u ? '<span class="use">'+item.u+'</span>' : '') +
+      '</span>';
+    b.addEventListener("click", function(){
+      setAccent(item.h);
+      togglePick(kind,item.n,item.h,b);
+    });
+    host.appendChild(b);
+  }
+  PALETTE.forEach(function(p){ swatch(document.getElementById("palgrid"), p, "colour"); });
+  STATES.forEach(function(p){ swatch(document.getElementById("stategrid"), p, "state"); });
+
+  /* ---------------- build: gradients ---------------- */
+  (function(){
+    var host = document.getElementById("gradgrid");
+    for (var i=0;i<PALETTE.length;i++){
+      var a = PALETTE[i], b2 = PALETTE[(i+1) % PALETTE.length];
+      (function(a,b2){
+        var el = document.createElement("button");
+        el.type = "button"; el.className = "gr";
+        var name = a.n + " → " + b2.n;
+        if (isPicked("gradient",name)) el.classList.add("picked");
+        el.innerHTML =
+          '<span class="band" style="background:linear-gradient(112deg,'+a.h+','+b2.h+')"></span>' +
+          '<span class="meta"><b>'+name+'</b>'+a.h.toUpperCase()+' · '+b2.h.toUpperCase()+'</span>';
+        el.addEventListener("click", function(){
+          setAccent(a.h); setAccent2(b2.h);
+          mixState.a = a.h; mixState.b = b2.h; syncMixRows(); drawMix();
+          togglePick("gradient",name,a.h,el);
+          document.getElementById("mixPrev").scrollIntoView({behavior:"smooth",block:"center"});
+        });
+        host.appendChild(el);
+      })(a,b2);
+    }
+  })();
+
+  /* ---------------- mixer ---------------- */
+  var mixState = { a:"#ff008c", b:"#8c3dfa", s:"bar" };
+
+  function buildMixRow(id, which){
+    var host = document.getElementById(id);
+    PALETTE.forEach(function(p){
+      var b = document.createElement("button");
+      b.type = "button"; b.style.background = p.h; b.title = p.n;
+      b.setAttribute("aria-pressed", String(mixState[which] === p.h));
+      b.addEventListener("click", function(){
+        mixState[which] = p.h;
+        if (which === "a") setAccent(p.h); else setAccent2(p.h);
+        syncMixRows(); drawMix();
+      });
+      host.appendChild(b);
+    });
+  }
+  function syncMixRows(){
+    ["mixA","mixB"].forEach(function(id,idx){
+      var which = idx === 0 ? "a" : "b";
+      var kids = document.getElementById(id).children, n;
+      for (n=0;n<kids.length;n++){
+        kids[n].setAttribute("aria-pressed", String(PALETTE[n].h === mixState[which]));
+      }
+    });
+  }
+  function drawMix(){
+    var p = document.getElementById("mixPrev"), a = mixState.a, b = mixState.b;
+    p.style.boxShadow = "none";
+    if (mixState.s === "bar"){
+      p.style.background = "linear-gradient(112deg,"+a+","+b+")";
+    } else if (mixState.s === "glow"){
+      p.style.background = "radial-gradient(70% 120% at 20% 0%, "+a+"66, transparent 62%), radial-gradient(70% 120% at 80% 100%, "+b+"66, transparent 62%), #0d0d11";
+    } else if (mixState.s === "mesh"){
+      p.style.background = "radial-gradient(46% 58% at 22% 26%, "+a+", transparent 72%), radial-gradient(50% 60% at 78% 74%, "+b+", transparent 72%), #0b0b0f";
+    } else {
+      p.style.background = "#0a0a0d";
+      p.style.boxShadow = "inset 0 0 0 2px "+a+", inset 0 0 28px "+b+"55";
+    }
+  }
+  buildMixRow("mixA","a"); buildMixRow("mixB","b"); drawMix();
+  Array.prototype.forEach.call(document.querySelectorAll("#mixStyle button"), function(btn){
+    btn.addEventListener("click", function(){
+      mixState.s = btn.getAttribute("data-s");
+      Array.prototype.forEach.call(document.querySelectorAll("#mixStyle button"), function(o){
+        o.setAttribute("aria-pressed", String(o === btn));
+      });
+      drawMix();
+    });
+  });
+
+  /* ---------------- build: surfaces ---------------- */
+  (function(){
+    var host = document.getElementById("surfgrid");
+    SURFACES.forEach(function(s){
+      var el = document.createElement("button");
+      el.type = "button"; el.className = "surf";
+      if (isPicked("ground",s.n)) el.classList.add("picked");
+      var inner = s.host
+        ? '<span class="sample '+s.host+'"><span class="'+s.c+'" style="position:absolute;inset:16px;border-radius:12px;display:grid;place-items:center"><span class="fake">drawer</span></span></span>'
+        : '<span class="sample '+s.c+'"><span class="fake">panel</span></span>';
+      el.innerHTML = inner + '<span class="meta"><b>'+s.n+'</b><span>'+s.d+'</span></span>';
+      el.addEventListener("click", function(){ togglePick("ground", s.n, "", el); });
+      host.appendChild(el);
+    });
+  })();
+
+  /* ---------------- build: component languages ---------------- */
+  function componentSet(){
+    return ''
+    + '<div class="cgroup"><div class="clabel">Buttons</div><div class="crow">'
+    +   '<button type="button" class="btn pri">Export</button>'
+    +   '<button type="button" class="btn">Add asset</button>'
+    +   '<button type="button" class="btn ghost">Cancel</button>'
+    +   '<button type="button" class="btn ico">✦</button>'
+    + '</div></div>'
+
+    + '<div class="cgroup"><div class="clabel">Chips &amp; badges</div><div class="crow">'
+    +   '<button type="button" class="chip" aria-pressed="true">Snap</button>'
+    +   '<button type="button" class="chip" aria-pressed="false">Ripple</button>'
+    +   '<button type="button" class="chip" aria-pressed="false">Loop</button>'
+    +   '<span class="badge">4f</span><span class="badge q">idle</span>'
+    + '</div></div>'
+
+    + '<div class="cgroup"><div class="clabel">Switch, slider, scrub pill</div><div class="crow">'
+    +   '<button type="button" class="sw2" aria-pressed="true"></button>'
+    +   '<span class="slider"><span class="track"><i></i><b></b></span></span>'
+    + '</div><div class="crow">'
+    +   '<span class="scrub"><span class="k">x</span><span class="v">128</span></span>'
+    +   '<span class="scrub"><span class="k">scale</span><span class="v">1.00×</span></span>'
+    +   '<span class="scrub"><span class="k">fps</span><span class="v">8</span></span>'
+    + '</div></div>'
+
+    + '<div class="cgroup"><div class="clabel">Segmented control</div><div class="crow">'
+    +   '<span class="seg"><button type="button" aria-pressed="true">Loop</button>'
+    +   '<button type="button" aria-pressed="false">Ping-pong</button>'
+    +   '<button type="button" aria-pressed="false">Once</button></span>'
+    + '</div></div>'
+
+    + '<div class="cgroup"><div class="clabel">Row card</div>'
+    +   '<div class="card"><span class="ic">▶</span><span class="tx"><b>ZA_CONTROL</b>'
+    +   '<span>Sep 14 · 6 layers · 0:47</span></span><span class="cnt">5</span></div>'
+    + '</div>'
+
+    + '<div class="cgroup"><div class="clabel">Drawer header</div>'
+    +   '<div class="drawer"><div class="grab"></div><div class="dh">Alignment <span>cell 9</span><span class="x">✕</span></div></div>'
+    + '</div>'
+
+    + '<div class="cgroup"><div class="clabel">Room bar</div>'
+    +   '<div class="navbar">'
+    +     '<i class="on">◉<s>Studio</s></i><i>◎<s>Capture</s></i><i>▤<s>Library</s></i>'
+    +     '<i>◐<s>Character</s></i><i>⚙<s>Settings</s></i>'
+    +   '</div>'
+    + '</div>'
+
+    + '<div class="cgroup"><div class="clabel">Dialog</div>'
+    +   '<div class="dialog"><h4>Close editor?</h4>'
+    +   '<p>Your project saves automatically. You can reopen it from Recent any time.</p>'
+    +   '<div class="acts"><button type="button" class="btn ghost">Cancel</button>'
+    +   '<button type="button" class="btn pri">Close &amp; save</button></div></div>'
+    + '</div>'
+
+    + '<div class="cgroup"><div class="clabel">Handles &amp; keyframe</div>'
+    +   '<div class="handles"><em>transform surface</em>'
+    +   '<span class="hd tl"></span><span class="hd tr"></span><span class="hd bl"></span><span class="hd br"></span>'
+    +   '<span class="kf"></span></div>'
+    + '</div>';
+  }
+
+  (function(){
+    var host = document.getElementById("langgrid");
+    LANGS.forEach(function(L){
+      var sec = document.createElement("div");
+      sec.className = "lang lang-" + L.k;
+      sec.setAttribute("data-l", L.k);
+      sec.innerHTML =
+        '<header><h3>'+L.n+'</h3><span class="tag">'+L.tag+'</span><p>'+L.d+'</p></header>' +
+        '<div class="langbody">' + componentSet() +
+          '<button type="button" class="btn ghost pickme" style="align-self:flex-start">★ Pick ' + L.n + '</button>' +
+        '</div>';
+      host.appendChild(sec);
+
+      var pickBtn = sec.querySelector(".pickme");
+      if (isPicked("language", L.n)) { pickBtn.textContent = "★ " + L.n + " — picked"; }
+      pickBtn.addEventListener("click", function(){
+        togglePick("language", L.n, "", sec);
+        pickBtn.textContent = isPicked("language", L.n)
+          ? "★ " + L.n + " — picked" : "★ Pick " + L.n;
+      });
+
+      // make the demo controls feel alive
+      Array.prototype.forEach.call(sec.querySelectorAll('.chip,.sw2'), function(c){
+        c.addEventListener("click", function(){
+          c.setAttribute("aria-pressed", c.getAttribute("aria-pressed") === "true" ? "false" : "true");
+        });
+      });
+      Array.prototype.forEach.call(sec.querySelectorAll('.seg'), function(seg){
+        Array.prototype.forEach.call(seg.querySelectorAll('button'), function(b){
+          b.addEventListener("click", function(){
+            Array.prototype.forEach.call(seg.querySelectorAll('button'), function(o){
+              o.setAttribute("aria-pressed", String(o === b));
+            });
+          });
+        });
+      });
+    });
+  })();
+
+  Array.prototype.forEach.call(document.querySelectorAll("#langbar button"), function(btn){
+    btn.addEventListener("click", function(){
+      var want = btn.getAttribute("data-l");
+      Array.prototype.forEach.call(document.querySelectorAll("#langbar button"), function(o){
+        o.setAttribute("aria-pressed", String(o === btn));
+      });
+      Array.prototype.forEach.call(document.querySelectorAll(".lang"), function(L){
+        L.hidden = !(want === "all" || L.getAttribute("data-l") === want);
+      });
+      document.getElementById("langgrid").style.gridTemplateColumns = (want === "all") ? "" : "1fr";
+    });
+  });
+
+  /* ---------------- build: rooms ---------------- */
+  (function(){
+    var host = document.getElementById("roomgrid");
+    ROOMS.forEach(function(r){
+      var el = document.createElement("button");
+      el.type = "button"; el.className = "room";
+      if (isPicked("room-disagree", r.n)) el.classList.add("picked");
+      el.innerHTML =
+        '<span class="hero" style="background:linear-gradient(118deg,'+r.a+','+r.b+')"><em>'+r.e+'</em></span>' +
+        '<span class="meta"><b>'+r.n+'</b><span>'+r.s+'</span>' +
+        '<span style="display:block;font-size:11px;color:var(--dimmer);margin-top:6px;line-height:1.4">'+r.why+'</span>' +
+        '<code>'+r.a.toUpperCase()+' → '+r.b.toUpperCase()+'</code></span>';
+      el.addEventListener("click", function(){
+        setAccent(r.a); setAccent2(r.b);
+        togglePick("room-disagree", r.n, r.a, el);
+      });
+      host.appendChild(el);
+    });
+  })();
+
+  /* ---------------- tray actions ---------------- */
+  var sheet = document.getElementById("sheet");
+  document.getElementById("trayShow").addEventListener("click", function(){
+    var lines = ["JOY CREATOR — SWATCH ROOM PICKS", ""];
+    var byKind = {};
+    picks.forEach(function(p){ (byKind[p.kind] = byKind[p.kind] || []).push(p); });
+    Object.keys(byKind).forEach(function(k){
+      var label = k === "room-disagree" ? "ROOMS I WANT TO CHANGE" : k.toUpperCase();
+      lines.push(label);
+      byKind[k].forEach(function(p){ lines.push("  - " + p.name + (p.hex ? "  " + p.hex.toUpperCase() : "")); });
+      lines.push("");
+    });
+    if (!picks.length) lines.push("(nothing starred yet)");
+    document.getElementById("sheetText").value = lines.join("\n");
+    if (typeof sheet.showModal === "function") sheet.showModal();
+  });
+  document.getElementById("sheetClose").addEventListener("click", function(){ sheet.close(); });
+  document.getElementById("sheetCopy").addEventListener("click", function(){
+    var ta = document.getElementById("sheetText");
+    ta.select();
+    try { document.execCommand("copy"); } catch(e){}
+    var b = document.getElementById("sheetCopy"); var t = b.textContent;
+    b.textContent = "Copied"; setTimeout(function(){ b.textContent = t; }, 1400);
+  });
+  document.getElementById("trayClear").addEventListener("click", function(){
+    picks = []; savePicks(); renderTray();
+    Array.prototype.forEach.call(document.querySelectorAll(".picked"), function(e){ e.classList.remove("picked"); });
+    Array.prototype.forEach.call(document.querySelectorAll(".pickme"), function(b){
+      b.textContent = b.textContent.replace(/^★ (.+) — picked$/, "★ Pick $1");
+    });
+  });
+
+  renderTray();
+})();
+</script>
+
+</body></html>

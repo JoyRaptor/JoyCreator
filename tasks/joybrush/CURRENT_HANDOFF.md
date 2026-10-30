@@ -1,4 +1,11 @@
-> HISTORICAL / SUPERSEDED October 26, 2026. Do not claim tasks, use old checkout/build rules or infer current completion from this file. Start at [Current roadmap](ROADMAP.md) and [agent start](AGENT_START_20261026.md). Older instructions below are preserved evidence only.
+> SUPERSEDED October26: start at [ROADMAP.md](ROADMAP.md) and [AGENT_START_20261026.md](AGENT_START_20261026.md). Historical queue and checkout/build instructions below are not current.
+
+> Paper evaluation October30: [current test/compression/pack plan](reviews/PAPER_TEST_PLAN_20261030.md),
+> [job](../jobs/JB-PAPER-RES_resolution_evaluation.md), [exact Note9 idle GPU evidence](reviews/FULL_PAPER_GPU_20261030.json).
+> Full45 installed;94visit traversal passed. Brush/creative/save-export acceptance
+> remains open; no compression or trimming performed. Use C:/+Projects/JoyCreator,
+> not the retired FadCam root. Detailed build/source context remains in
+> [full-library checkpoint](reviews/FULL_PAPER_PHONE_BUILD_20261029.md).
 
 # JoyBrush lead handoff — October 9, 2026
 
@@ -20,7 +27,7 @@ This is the single entry document. Read it fully, then START_HERE.md and applica
 
 1. Assess actual capabilities: **frontier** for architecture/artistic/GPU correctness ownership; **mid** for objective bounded implementation. Vision access alone does not establish artistic judgment. When uncertain choose mid. Never promote yourself to unlock a task.
 2. Read coordinator STATE and check current Git/worktrees before claiming. Existing live assignments have priority. No duplicate A1 worker: its amendment is already ready.
-3. Use the canonical shared file at `C:/+Projects/Screenrecorder/FadCam/tasks/joybrush/CURRENT_HANDOFF.md`, even from a separate worktree. Run `tasks/joybrush/Claim-JoyJob.ps1` with `-Job`, `-Agent` (unique chat/run ID), `-Tier frontier|mid`, and `-State Doing`. The script atomically checks readiness and marks ownership. If it fails, do not begin. Merely reading this document cannot start an agent: tools and workspace access are required.
+3. Use the canonical shared file at `C:/+Projects/JoyCreator/tasks/joybrush/CURRENT_HANDOFF.md`, even from a separate worktree. Run `tasks/joybrush/Claim-JoyJob.ps1` with `-Job`, `-Agent` (unique chat/run ID), `-Tier frontier|mid`, and `-State Doing`. The script atomically checks readiness and marks ownership. If it fails, do not begin. Merely reading this document cannot start an agent: tools and workspace access are required.
 4. Claim only Ready rows that fit your tier. Read the row's contract and evidence requirements. Use an isolated worktree and own only the approved paths; overlapping paths require the lead's explicit sequencing. Mid-tier agents do not invent missing architecture/specifications or take Blocked work. If nothing fits, report that fact and stop instead of inventing work.
 5. Do the claimed job, adversarially check it, then use the same script with `-State Review -Evidence "commit hash; checks; remaining limits"`. Review means submitted, not integrated. Use Blocked for a concrete blocker. Only the lead sets Ready or Integrated. Never set owner phone acceptance yourself. Do not auto-reclaim a quiet job; inspect its owner first.
 6. Free OpenCode work goes through the authorized coordinator and its skill/runner; no direct shared-branch push. Batch reports. The lead commits the canonical queue/status updates with integration so later agents retain the history. Claims are shared on this PC; agents on another PC must coordinate with the lead before working.
@@ -30,7 +37,7 @@ Never overwrite uncommitted canonical claims during a pull/sync. Read the shared
 Example (from any checkout, passing the canonical document explicitly):
 
 ```powershell
-& 'C:/+Projects/Screenrecorder/FadCam/tasks/joybrush/Claim-JoyJob.ps1' -Job JB-NOW-01 -Agent 'your-unique-chat-id' -Tier frontier -State Doing
+& 'C:/+Projects/JoyCreator/tasks/joybrush/Claim-JoyJob.ps1' -Job JB-NOW-01 -Agent 'your-unique-chat-id' -Tier frontier -State Doing
 ```
 
 ## Live queue — only Ready jobs may be claimed
@@ -81,7 +88,7 @@ Weekly allowance last reported4%. Conserve paid supervision: free workers get bo
 
 ## Durable source and current lanes
 
-- Shared branch `origin/joy-creator`, root `codex/region-routing`: source checkpoint before this handoff **b16ab93e**. Root checkout `C:/Temp/jb-region-routing`; primary `C:/+Projects/Screenrecorder/FadCam` fast-forwarded through handoff publication **e5b2c546**, including the benchmark/planner. Check actual Git heads before acting.
+- Shared branch `origin/joy-creator`, root `codex/region-routing`: source checkpoint before this handoff **b16ab93e**. Root checkout `C:/Temp/jb-region-routing`; primary `C:/+Projects/JoyCreator` fast-forwarded through handoff publication **e5b2c546**, including the benchmark/planner. Check actual Git heads before acting.
 - Protected original Claude media WIP: `C:/Temp/jb-media`, branch `media/jb-2.40`, head019739ab plus local edits. Do not reset, overwrite or edit it without coordinating its owner.
 - Root media adoption: `C:/Temp/jb-root-media-integration`, staged UNTESTED019foundation plus captured WIP on7087. Not a completed JB-2.40 implementation. Review before integrating; current main's media optimizations must be reconciled.
 - WIP capture `C:/Temp/jb-media-wip-review-20261008.patch`, SHA256665EC6A578CF414CB1B1F7ADF73804C23263E364BDBB5B85C1667EDC74D61405. Local-only patch/worktrees must be retained until reviewed work is committed; Git does not back them up automatically.

@@ -17,8 +17,8 @@ FadCam / Joy Creator — `C:\+Projects\Screenrecorder\FadCam`, branch `joy-creat
 
 ## Orient first (every wake, in this order)
 
-1. `tasks/HANDOFF_20260726_CONTEXT_SWITCH.md` §0z PROGRESS LOG — newest entry first.
-2. `tasks/NEXT_SESSION_PROMPT_20260727.md` — the outstanding-work list.
+1. `tasks/archive/HANDOFF_20260726_CONTEXT_SWITCH.md` §0z PROGRESS LOG — newest entry first.
+2. `tasks/archive/NEXT_SESSION_PROMPT_20260727.md` — the outstanding-work list.
 3. `git log --oneline -20` — trust this over any prose.
 4. **Append your own §0z entry before you run out of context**, newest-first, saying what you
    landed, what you proved, and what you were mid-way through. That entry is how the next wake
@@ -26,7 +26,7 @@ FadCam / Joy Creator — `C:\+Projects\Screenrecorder\FadCam`, branch `joy-creat
 
 ## What to work on, in priority order
 
-1. **Finish what's already scoped.** `tasks/NEXT_SESSION_PROMPT_20260727.md` lists it: the
+1. **Finish what's already scoped.** `tasks/archive/NEXT_SESSION_PROMPT_20260727.md` lists it: the
    second stranded-latch path (instrument is already in the build and prints `lastUp:`), the
    transcript dedup + `activeTranscript` index→id migration, the inter-clip seam stall.
 2. **Audit for unfinished work, then VERIFY each item against the code before touching it.**

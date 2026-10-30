@@ -2989,6 +2989,38 @@ public class Timeline {
             }
             l.invalidate();
         }
+        // VisLab look layers that follow an object (R8): the same lookup, never the visualizer
+        // itself. A follow whose object is gone stays stored and does nothing.
+        for (WaveformOverlayInstance w : waveformOverlays) {
+            w.getVisFollowRefs().clear();
+            for (java.util.Map.Entry<String, String> e : w.getVisFollow().entrySet()) {
+                LinkPose p = byId.get(e.getValue());
+                if (p != null && p != w) w.getVisFollowRefs().put(e.getKey(), p);
+            }
+            // R9: look picture layers showing a Studio picture, title, sprite, video or the main
+            // video. A shown item that is gone stays stored and the layer shows its own picture.
+            w.getVisShowRefs().clear();
+            for (java.util.Map.Entry<String, String> e : w.getVisShow().entrySet()) {
+                Object shown = showableById(e.getValue());
+                if (shown != null) w.getVisShowRefs().put(e.getKey(), shown);
+            }
+        }
+    }
+
+    /**
+     * What a VisLab look's picture layer can show by this id (R9): a picture or title, a sprite,
+     * an overlay video ({@link Clip}), or this timeline for {@link WaveformOverlayInstance#SHOW_MAIN_VIDEO}.
+     * Null for anything else, or nothing.
+     */
+    @Nullable
+    public Object showableById(@NonNull String id) {
+        if (WaveformOverlayInstance.SHOW_MAIN_VIDEO.equals(id)) return this;
+        for (TextOverlayItem t : textOverlays) if (t.getId().equals(id)) return t.isProxy() ? null : t;
+        for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s : spriteOverlays) {
+            if (s.getId().equals(id)) return s;
+        }
+        for (Clip c : overlayClips) if (c.getId().equals(id) && !c.isImageClip()) return c;
+        return null;
     }
 
     /** Everything that can follow a parent: text, pictures and sprites. */

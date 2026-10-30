@@ -1,0 +1,1022 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Studio Final</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@100..900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+
+<style>
+/* ===========================================================
+   JOY CREATOR — STUDIO, FINAL
+   17 Sep 2026. Build from this.
+   Everything measured; nothing eyeballed. Contrast figures in
+   §01 are computed WCAG 2.1 relative-luminance ratios.
+   =========================================================== */
+:root{
+  --ground:#000000; --band:#0b0b0e;
+  --panel:#111114; --panel2:#16161a;
+  --ctl:#1c1c22; --ctl2:#26262e;
+  --line:#2c2c35; --line2:#3a3a46;
+  --ink:#e4e4e7; --dim:#a1a1aa; --dimmer:#71717a; --dimmest:#4b4b55; --off:#33333c;
+
+  --sel:#22d3ee; --live:#f43f8e; --warn:#fbbf24; --danger:#fa3d5d;
+  --o-video:#4397fd; --o-image:#26a69a; --o-text:#8c3dfa; --o-audio:#35f6bf;
+  --o-sprite:#ffb74d; --o-caption:#f9f462; --o-viz:#ec407a; --o-adjust:#9e9e9e;
+
+  /* THE DRAWER — dark tint, not white. see §01. */
+  --scrim:rgba(0,0,0,.64);
+  --edge:rgba(255,255,255,.10);
+  --dctl:rgba(255,255,255,.10);
+  --dring:rgba(255,255,255,.12);
+  --dink:#f2f2f5; --ddim:#c9c9d3; --dlabel:#c4c4ce;
+
+  --ease-out:cubic-bezier(.23,1,.32,1);
+  --d-press:140ms;
+
+  --f-disp:'Archivo','Helvetica Neue',Arial,sans-serif;
+  --f-body:'IBM Plex Sans','Segoe UI',system-ui,sans-serif;
+  --f-mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+  --gut:20px; --maxw:1180px;
+}
+*{box-sizing:border-box}
+html,body{background:var(--ground)}
+body{margin:0;font-family:var(--f-body);color:var(--ink);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:var(--f-disp);margin:0;letter-spacing:-.025em;text-wrap:balance}
+p{margin:0}
+.wrap{max-width:var(--maxw);margin:0 auto;padding-inline:var(--gut)}
+svg.ic{width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;display:block;flex:0 0 auto}
+
+.mast{padding-block:56px 34px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#0a0a0e,var(--ground))}
+.mast .kicker{font-family:var(--f-mono);font-size:11px;color:var(--dimmer);margin-bottom:14px}
+.mast h1{font-size:clamp(38px,6.6vw,62px);font-weight:900;line-height:.94;letter-spacing:-.045em}
+.mast p{max-width:62ch;margin-top:16px;color:var(--dim);font-size:16px}
+.mast p b{color:var(--ink);font-weight:600}
+
+section{padding-block:58px 0}
+.h2{display:flex;align-items:baseline;gap:12px;margin-bottom:10px}
+.h2 span{font-family:var(--f-mono);font-size:12px;color:var(--dimmest)}
+.h2 h2{font-size:clamp(23px,3.8vw,32px);font-weight:800}
+.dek{color:var(--dim);max-width:66ch;margin-bottom:26px}
+.dek b{color:var(--ink);font-weight:600}
+hr.rule{border:0;border-top:1px solid var(--line);margin-top:58px}
+
+/* findings */
+.find{display:flex;flex-direction:column;gap:2px;border-radius:14px;overflow:hidden;box-shadow:0 0 0 1px var(--line)}
+.fd{display:grid;grid-template-columns:78px 1fr;gap:0;background:var(--panel)}
+.fd .sev{padding:15px 12px;font-family:var(--f-mono);font-size:9px;letter-spacing:.1em;font-weight:600;text-align:center}
+.fd.crit .sev{background:var(--danger);color:#fff}
+.fd.maj .sev{background:var(--warn);color:#050507}
+.fd.min .sev{background:var(--ctl2);color:var(--dim)}
+.fd .bd{padding:14px 16px}
+.fd .bd b{display:block;font-family:var(--f-disp);font-size:15px;font-weight:700;letter-spacing:-.02em;margin-bottom:5px}
+.fd .bd p{font-size:13.4px;color:var(--dim);line-height:1.58}
+.fd .bd p + p{margin-top:7px}
+.fd .bd em{font-style:normal;color:var(--ink);font-weight:600}
+.fd .bd code{font-family:var(--f-mono);font-size:11.5px;color:var(--sel)}
+.fd .bd .fix{display:inline-flex;align-items:baseline;gap:6px;margin-top:9px;font-size:12.6px;color:var(--ink)}
+.fd .bd .fix i{font-style:normal;font-family:var(--f-mono);font-size:9px;letter-spacing:.1em;color:#050507;background:var(--o-audio);
+  border-radius:999px;padding:2px 7px;font-weight:700}
+
+/* contrast proof */
+.proof{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:22px}
+@media(max-width:700px){.proof{grid-template-columns:1fr}}
+.pf{border-radius:14px;overflow:hidden;position:relative;box-shadow:0 0 0 1px var(--line)}
+.pf .frame{position:absolute;inset:0;background:
+  radial-gradient(60% 52% at 30% 28%, #fff0c4, transparent 68%),
+  radial-gradient(52% 46% at 76% 72%, #bfe8ff, transparent 68%),
+  linear-gradient(150deg,#ffd07a,#8fd0e8)}
+.pf .over{position:relative;padding:16px 15px;min-height:118px}
+.pf.bad .over{background:linear-gradient(150deg,rgba(255,255,255,.11),rgba(255,255,255,.04));
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+.pf.good .over{background:var(--scrim);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+.pf .over h5{font-size:13px;font-weight:700;margin-bottom:4px}
+.pf .over p{font-size:11.5px;line-height:1.5}
+.pf .over .lb{font-family:var(--f-mono);font-size:8px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:9px}
+.pf.bad h5{color:#e4e4e7}.pf.bad p{color:#c9c9d3}.pf.bad .lb{color:#a6a6b2}
+.pf.good h5{color:var(--dink)}.pf.good p{color:var(--ddim)}.pf.good .lb{color:var(--dlabel)}
+.pf .cap{position:relative;padding:11px 15px 13px;background:var(--panel2);font-size:12px;color:var(--dim)}
+.pf .cap b{color:var(--ink)}
+.pf .ratio{position:absolute;right:12px;top:12px;font-family:var(--f-mono);font-size:10px;font-weight:700;
+  border-radius:999px;padding:4px 9px}
+.pf.bad .ratio{background:var(--danger);color:#fff}
+.pf.good .ratio{background:var(--o-audio);color:#050507}
+
+/* phones */
+.rowphones{display:grid;grid-template-columns:repeat(auto-fit,minmax(288px,1fr));gap:26px;align-items:start}
+.phonewrap{display:flex;flex-direction:column;gap:11px}
+.phcap{font-size:12.4px;color:var(--dim);line-height:1.55}
+.phcap b{display:block;font-family:var(--f-disp);font-size:14px;font-weight:800;color:var(--ink);margin-bottom:3px;letter-spacing:-.02em}
+.phcap em{font-style:normal;color:var(--ink);font-weight:600}
+.phone{width:100%;max-width:390px;aspect-ratio:390/844;border-radius:30px;overflow:hidden;position:relative;
+  background:var(--ground);box-shadow:0 0 0 1px var(--line2),0 22px 60px rgba(0,0,0,.65);
+  display:flex;flex-direction:column;font-size:13px}
+.sbar{height:24px;flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:0 17px;
+  font-family:var(--f-mono);font-size:10px;color:var(--dimmer)}
+.hair{height:2px;flex:0 0 auto;background:#131317}
+.hair i{display:block;height:100%;background:linear-gradient(90deg,#35f6bf,#97fe8b)}
+
+/* editor top bar */
+.etop{flex:0 0 auto;height:44px;display:flex;align-items:center;gap:4px;padding:0 6px}
+.etop .ib{width:34px;height:34px;border-radius:999px;display:grid;place-items:center;font-size:14px;color:var(--dim);flex:0 0 auto}
+.etop .title{flex:1;min-width:0;text-align:center;padding:0 4px}
+.etop .title b{display:block;font-family:var(--f-disp);font-size:13px;font-weight:800;letter-spacing:-.025em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.etop .title span{font-family:var(--f-mono);font-size:7.5px;color:var(--dimmest);letter-spacing:.07em}
+.etop .orb{width:32px;height:32px;border-radius:999px;display:grid;place-items:center;font-size:15px;color:#fff;flex:0 0 auto;
+  background:linear-gradient(140deg,#cc27ff,#5c43fd)}
+.etop .exp{flex:0 0 auto;height:32px;display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:#050507;
+  padding:0 12px;border-radius:999px;background:linear-gradient(115deg,#35f6bf,#97fe8b)}
+
+/* canvas */
+.canvas{flex:0 0 auto;position:relative;overflow:hidden;display:grid;place-items:center;
+  background:repeating-linear-gradient(45deg,#101015 0 8px,#08080b 8px 16px)}
+.canvas .frame{position:relative;overflow:hidden;background:#ececef}
+.canvas .art{position:absolute;inset:0;background:
+  radial-gradient(58% 50% at 30% 30%, #fff0c4, transparent 68%),
+  radial-gradient(50% 44% at 74% 70%, #bfe8ff, transparent 68%),
+  linear-gradient(155deg,#ffd07a,#8fd0e8)}
+.hdl{position:absolute;width:11px;height:11px;border-radius:2px;background:#fff;box-shadow:0 0 0 2px var(--sel);z-index:4}
+.selbox{position:absolute;box-shadow:0 0 0 1.5px var(--sel);z-index:3}
+.rotd{position:absolute;width:22px;height:22px;border-radius:999px;background:var(--sel);display:grid;place-items:center;
+  font-size:11px;color:#050507;z-index:4}
+.canvedge{position:absolute;right:7px;top:7px;display:flex;flex-direction:column;gap:5px;z-index:5}
+.canvedge i{width:30px;height:30px;border-radius:999px;font-style:normal;font-size:13px;display:grid;place-items:center;
+  color:#dcdce4;background:rgba(0,0,0,.5);backdrop-filter:blur(8px)}
+
+/* THE DRAWER */
+.drawer{position:absolute;left:0;right:0;top:0;z-index:12;border-radius:0 0 18px 18px;overflow:hidden;
+  background:var(--scrim);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  box-shadow:inset 0 -1px 0 var(--edge),0 12px 34px rgba(0,0,0,.55)}
+.dh{height:38px;display:flex;align-items:center;gap:6px;padding:0 10px}
+.dh .dot{width:7px;height:7px;border-radius:999px;flex:0 0 auto}
+.dh .nm{font-size:12px;font-weight:700;color:var(--dink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:82px}
+.dh .bl{font-family:var(--f-mono);font-size:8.5px;letter-spacing:.05em;font-weight:600;color:var(--dlabel);
+  background:var(--dctl);border-radius:999px;padding:3px 8px;display:flex;align-items:center;gap:4px;flex:0 0 auto}
+.dh .rest{margin-left:auto;display:flex;align-items:center;gap:6px;flex:0 0 auto}
+.lens{display:flex;background:rgba(0,0,0,.36);border-radius:999px;padding:2px}
+.lens i{font-style:normal;font-family:var(--f-mono);font-size:7px;letter-spacing:.06em;padding:3px 6px;border-radius:999px;color:var(--dlabel)}
+.lens i.on{background:var(--sel);color:#050507;font-weight:700}
+.dh .x{color:var(--ddim);font-size:13px;display:flex;width:26px;height:26px;align-items:center;justify-content:center}
+.dt{height:32px;display:flex;align-items:center;gap:3px;padding:0 8px;overflow:hidden}
+.dt i{font-style:normal;flex:0 0 auto;width:32px;height:24px;border-radius:7px;display:grid;place-items:center;font-size:12px;
+  color:var(--ddim);background:var(--dctl)}
+.dt i.on{width:auto;padding:0 11px;gap:5px;display:flex;font-size:11px;font-weight:700}
+.dt .fade{margin-left:auto;width:14px;flex:0 0 auto}
+.dsec{font-family:var(--f-mono);font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:var(--dlabel);padding:7px 11px 3px}
+.dr{min-height:46px;display:flex;align-items:center;gap:6px;padding:0 11px;flex-wrap:wrap}
+.dgrab{height:13px;display:grid;place-items:center}
+.dgrab span{width:38px;height:3.5px;border-radius:999px;background:rgba(255,255,255,.3)}
+
+.dchip{font-size:11px;font-weight:600;padding:7px 13px;border-radius:999px;background:var(--dctl);color:var(--ddim);
+  box-shadow:inset 0 0 0 1px var(--dring)}
+.dchip.on{box-shadow:none;font-weight:700}
+.dscrub{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:999px;background:var(--dctl);
+  box-shadow:inset 0 0 0 1px var(--dring);position:relative}
+.dscrub s{text-decoration:none;font-size:9.5px;color:var(--dlabel)}
+.dscrub b{font-family:var(--f-mono);font-size:12px;font-weight:600;color:var(--dink);font-variant-numeric:tabular-nums}
+.dcb{display:inline-flex;align-items:center;gap:8px;font-size:11.5px;color:var(--ddim);padding:7px 0}
+.dcb .bx{width:18px;height:18px;border-radius:5px;display:grid;place-items:center;box-shadow:inset 0 0 0 1.5px var(--dlabel)}
+.dcb.on .bx{box-shadow:none}
+.dcb.on{color:var(--dink)}
+.dcb .bx svg{width:12px;height:12px;stroke-width:2.4}
+.dsl{flex:1;min-width:98px;height:40px;display:flex;align-items:center}
+.dsl .tr{width:100%;height:4px;border-radius:999px;background:rgba(255,255,255,.18);position:relative}
+.dsl .tr i{position:absolute;left:0;top:0;bottom:0;border-radius:999px}
+.dsl .tr b{position:absolute;top:50%;width:15px;height:15px;margin:-7.5px 0 0 -7.5px;border-radius:999px;background:#fff;
+  box-shadow:0 1px 4px rgba(0,0,0,.6)}
+.dkf{display:inline-flex;align-items:center;gap:4px}
+.dkf i{font-style:normal;width:28px;height:28px;border-radius:999px;display:grid;place-items:center;font-size:11px;
+  color:var(--ddim);background:var(--dctl);box-shadow:inset 0 0 0 1px var(--dring)}
+.dkf .dia{background:transparent;box-shadow:none}
+.dkf .dia::after{content:"";width:13px;height:13px;transform:rotate(45deg);border-radius:2px;background:var(--warn)}
+
+/* transport — six targets, two labels */
+.trans{flex:0 0 auto;height:44px;display:flex;align-items:center;padding:0 5px}
+.trans .t{font-family:var(--f-mono);font-size:10.5px;color:var(--dimmer);font-variant-numeric:tabular-nums;
+  width:46px;text-align:center;flex:0 0 auto}
+.trans .sp{flex:1}
+.trans i{font-style:normal;width:36px;height:36px;border-radius:999px;display:grid;place-items:center;font-size:13px;
+  color:var(--off);flex:0 0 auto;position:relative}
+.trans i.avail{color:var(--ink)}
+.trans i.armed{color:var(--sel)}
+.trans i.play{color:var(--ink);font-size:17px;width:44px;height:44px}
+.trans i sup{position:absolute;bottom:2px;right:3px;font-family:var(--f-mono);font-size:7px;color:var(--dimmest)}
+
+/* minimap + ruler */
+.minimap{flex:0 0 auto;height:15px;margin:0 10px;border-radius:4px;background:#0e0e12;overflow:hidden;position:relative;
+  display:flex;flex-direction:column;justify-content:center;gap:1.5px;padding:2px 3px}
+.minimap i{height:2px;border-radius:999px;display:block}
+.minimap .win{position:absolute;top:0;bottom:0;box-shadow:0 0 0 1px var(--sel);border-radius:3px}
+.ruler{flex:0 0 auto;height:18px;margin-top:4px;position:relative}
+.ruler::before{content:"";position:absolute;left:0;right:0;top:-4px;height:8px}
+.ruler .tk{position:absolute;bottom:0;width:1px;height:4px;background:var(--off)}
+.ruler .lb{position:absolute;bottom:5px;font-family:var(--f-mono);font-size:7.5px;color:var(--dimmest);transform:translateX(-50%)}
+
+/* timeline */
+.tl{flex:1;position:relative;overflow:hidden;background:var(--ground)}
+.lane{height:40px;display:flex;align-items:stretch;position:relative}
+.lane.b{background:var(--band)}
+.lane .gut{width:18px;flex:0 0 auto;display:grid;place-items:center;font-size:7px;color:var(--off)}
+.lane .body{flex:1;position:relative}
+.clip{position:absolute;top:4px;bottom:4px;border-radius:4px;overflow:hidden;display:flex;align-items:center;gap:5px;
+  padding-left:5px;font-size:8.5px;font-weight:600;color:#0d0d11;white-space:nowrap}
+.clip.dark{color:#f2f2f5}
+.clip .g{width:12px;height:12px;flex:0 0 auto;display:grid;place-items:center;font-size:10px;opacity:.8}
+.clip.selected{box-shadow:0 0 0 1.5px var(--sel),0 0 0 3px rgba(34,211,238,.28)}
+.clip .kf{position:absolute;bottom:2px;width:5px;height:5px;transform:rotate(45deg)}
+.clip .th{position:absolute;inset:0;background:repeating-linear-gradient(45deg,rgba(0,0,0,.13) 0 5px,transparent 5px 10px)}
+.clip .broke{position:absolute;inset:0;box-shadow:inset 0 0 0 1.5px var(--warn);border-radius:4px}
+.wave{position:absolute;left:0;right:0;top:50%;height:16px;transform:translateY(-50%);
+  background:repeating-linear-gradient(90deg,currentColor 0 1.5px,transparent 1.5px 3.5px);opacity:.55;
+  -webkit-mask-image:linear-gradient(180deg,transparent,#000 22%,#000 78%,transparent);
+  mask-image:linear-gradient(180deg,transparent,#000 22%,#000 78%,transparent)}
+.ph{position:absolute;top:0;bottom:0;left:50%;width:1.5px;background:var(--live);z-index:8;
+  box-shadow:0 0 9px rgba(244,63,142,.7)}
+.phhold{position:absolute;top:0;left:50%;transform:translateX(-50%);width:11px;height:7px;background:var(--live);z-index:9;
+  clip-path:polygon(0 0,100% 0,50% 100%)}
+.phtime{position:absolute;top:-17px;left:50%;transform:translateX(-50%);font-family:var(--f-mono);font-size:8px;
+  color:#050507;background:var(--live);border-radius:3px;padding:2px 5px;z-index:9;font-weight:700}
+
+/* tool row */
+.toolbar{flex:0 0 auto;background:var(--panel);padding:6px 0 7px;position:relative}
+.toolbar::after{content:"";position:absolute;right:0;top:0;bottom:0;width:26px;pointer-events:none;
+  background:linear-gradient(90deg,transparent,var(--panel))}
+.tools{display:flex;overflow-x:auto;scrollbar-width:none;padding:0 4px}
+.tools::-webkit-scrollbar{display:none}
+.tools button{flex:0 0 auto;width:56px;background:transparent;border:0;cursor:pointer;font:inherit;
+  display:flex;flex-direction:column;align-items:center;gap:4px;padding:5px 0;color:var(--dim)}
+.tools button em{font-style:normal;font-size:17px;line-height:1;color:var(--ink);display:flex}
+.tools button s{text-decoration:none;font-size:8.5px;line-height:1.1;color:var(--dim);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;max-width:52px}
+.tools .div{flex:0 0 auto;width:1px;align-self:stretch;background:#23232a;margin:6px 4px}
+.tools .end em,.tools .end s{color:var(--dimmer)}
+.tools .more{position:relative}
+.tools .more sup{position:absolute;top:3px;right:6px;font-family:var(--f-mono);font-size:7px;color:var(--dimmest)}
+
+/* transcript */
+.tsc{position:absolute;right:0;top:0;bottom:0;width:186px;z-index:11;background:var(--scrim);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:inset 1px 0 0 var(--edge);
+  display:flex;flex-direction:column}
+.tsch{height:34px;display:flex;align-items:center;gap:6px;padding:0 10px;flex:0 0 auto}
+.tsch b{font-size:11px;font-weight:700;color:var(--dink)}
+.tscb{flex:1;padding:0 10px;font-size:11px;line-height:1.75;color:var(--ddim);overflow:hidden}
+.tscb mark{background:var(--live);color:#050507;border-radius:3px;padding:0 3px;font-weight:600}
+.tscb u{text-decoration:line-through;color:#8a8a97}
+.tscgrab{position:absolute;left:-3px;top:50%;transform:translateY(-50%);width:4px;height:44px;border-radius:999px;background:rgba(255,255,255,.3)}
+.tsctab{position:absolute;right:0;top:112px;width:18px;height:64px;border-radius:9px 0 0 9px;background:var(--o-video);
+  display:grid;place-items:center;z-index:10}
+.tsctab span{writing-mode:vertical-rl;font-family:var(--f-mono);font-size:7.5px;letter-spacing:.14em;color:#050507;font-weight:700}
+
+/* all tools sheet */
+.sheet{position:absolute;left:0;right:0;bottom:0;top:78px;border-radius:20px 20px 0 0;z-index:12;overflow:hidden;
+  background:var(--scrim);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);
+  box-shadow:inset 0 1px 0 var(--edge),0 -12px 40px rgba(0,0,0,.6);display:flex;flex-direction:column}
+.sheet .sh{padding:11px 13px 8px;display:flex;align-items:center;gap:8px}
+.sheet .sh b{font-family:var(--f-disp);font-size:14.5px;font-weight:800;color:var(--dink)}
+.sheet .sh s{text-decoration:none;font-family:var(--f-mono);font-size:8.5px;color:var(--dlabel)}
+.sheet .sh .arm{margin-left:auto;font-family:var(--f-mono);font-size:8px;letter-spacing:.08em;padding:5px 10px;border-radius:999px;
+  background:var(--dctl);color:var(--dlabel);font-weight:700;box-shadow:inset 0 0 0 1px var(--dring)}
+.sheet .sb{flex:1;overflow:hidden;padding:0 10px 12px;display:flex;flex-direction:column;gap:9px}
+.tg{font-family:var(--f-mono);font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:var(--dlabel);margin-bottom:5px;
+  display:flex;align-items:center;gap:5px}
+.tg i{width:5px;height:5px;border-radius:999px;font-style:normal}
+.tgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+.tgrid span{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 1px;border-radius:9px;
+  background:var(--dctl);font-size:7px;color:var(--ddim);text-align:center;line-height:1.1}
+.tgrid span em{font-style:normal;font-size:14px;line-height:1;display:flex}
+.tgrid span.hot{color:#050507;font-weight:700}
+.tgrid span.hot em{color:#050507}
+
+/* detail zooms */
+.zoom{background:var(--panel);border-radius:14px;padding:18px;box-shadow:0 0 0 1px var(--line)}
+.zoom h4{font-size:14px;font-weight:700;margin-bottom:4px}
+.zoom > p{font-size:12.4px;color:var(--dim);margin-bottom:14px;line-height:1.5}
+.zrow{display:flex;align-items:center;gap:0;background:var(--panel2);border-radius:10px;padding:0 6px;height:52px;position:relative}
+.zrow .t{font-family:var(--f-mono);font-size:12px;color:var(--dimmer);width:54px;text-align:center;flex:0 0 auto}
+.zrow i{font-style:normal;width:42px;height:42px;border-radius:999px;display:grid;place-items:center;font-size:15px;color:var(--off);flex:0 0 auto;position:relative}
+.zrow i.avail{color:var(--ink)}.zrow i.armed{color:var(--sel)}
+.zrow i.play{color:var(--ink);font-size:20px;width:52px;height:52px}
+.zrow i sup{position:absolute;bottom:3px;right:4px;font-family:var(--f-mono);font-size:8px;color:var(--dimmest)}
+.zrow .sp{flex:1}
+.zmark{display:flex;gap:0;margin-top:8px;font-family:var(--f-mono);font-size:8.5px;color:var(--dimmest)}
+.zmark span{text-align:center;border-top:1px solid var(--line2);padding-top:4px;position:relative}
+.zmark span::before,.zmark span::after{content:"";position:absolute;top:0;width:1px;height:5px;background:var(--line2)}
+.zmark span::before{left:0}.zmark span::after{right:0}
+
+/* tables */
+.mtw{overflow-x:auto;border-radius:14px;box-shadow:0 0 0 1px var(--line);background:var(--panel)}
+table.m{width:100%;border-collapse:collapse;font-size:12.5px;min-width:540px}
+table.m th{text-align:left;font-family:var(--f-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dimmer);
+  font-weight:400;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel2)}
+table.m td{padding:9px 16px;border-bottom:1px solid #1e1e24;color:var(--dim);vertical-align:top}
+table.m tr:last-child td{border-bottom:0}
+table.m td:first-child{color:var(--ink);font-weight:600;white-space:nowrap}
+table.m code{font-family:var(--f-mono);font-size:11.5px;color:var(--sel)}
+table.m tr.grp td{background:var(--ground);font-family:var(--f-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--o-audio);padding-block:7px}
+.ok{color:var(--o-audio);font-weight:700}
+.no{color:var(--danger);font-weight:700}
+
+footer{padding-block:46px 62px;color:var(--dimmer);font-size:12.4px;border-top:1px solid var(--line);margin-top:56px}
+footer b{color:var(--dim)}
+@media (prefers-reduced-motion:reduce){*{transition-duration:1ms!important;animation:none!important}}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M14.4 3.6 20.4 9.6l-3.4 1.2-4.2 4.2-.6 4.2-6-6 4.2-.6 4.2-4.2z"/><path d="M8.4 15.6 3.6 20.4"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 20V5M6 11l6-6 6 6"/></symbol>
+  <symbol id="i-bot" viewBox="0 0 24 24"><rect x="3.5" y="7" width="17" height="13" rx="5"/><path d="M12 7V3.6"/><circle cx="12" cy="2.6" r="1.1"/><circle cx="8.6" cy="13.4" r="1.25" fill="currentColor" stroke="none"/><circle cx="15.4" cy="13.4" r="1.25" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8.5 5.5 18 12l-9.5 6.5z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 5v14M15 5v14" stroke-width="2.6"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M4.4 12a7.6 7.6 0 1 0 2.6-5.7"/><path d="M4.4 4.4v4.4h4.4"/></symbol>
+  <symbol id="i-redo" viewBox="0 0 24 24"><path d="M19.6 12a7.6 7.6 0 1 1-2.6-5.7"/><path d="M19.6 4.4v4.4h-4.4"/></symbol>
+  <symbol id="i-sel" viewBox="0 0 24 24"><path d="M4.4 8.4V5.4a1 1 0 0 1 1-1h3M15.6 4.4h3a1 1 0 0 1 1 1v3M19.6 15.6v3a1 1 0 0 1-1 1h-3M8.4 19.6h-3a1 1 0 0 1-1-1v-3"/></symbol>
+  <symbol id="i-ripple" viewBox="0 0 24 24"><path d="M3.6 12h10M10 8.4l3.6 3.6L10 15.6M17 5v14M20.4 5v14"/></symbol>
+  <symbol id="i-snap" viewBox="0 0 24 24"><path d="M12 3.6v16.8M6.4 8h11.2M6.4 16h11.2"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9.4" y="3" width="5.2" height="10.4" rx="2.6"/><path d="M5.6 11.6a6.4 6.4 0 0 0 12.8 0M12 18v3"/></symbol>
+  <symbol id="i-fit" viewBox="0 0 24 24"><path d="M9 3.6H4.6a1 1 0 0 0-1 1V9M15 3.6h4.4a1 1 0 0 1 1 1V9M15 20.4h4.4a1 1 0 0 0 1-1V15M9 20.4H4.6a1 1 0 0 1-1-1V15"/></symbol>
+  <symbol id="i-safe" viewBox="0 0 24 24"><rect x="3.6" y="3.6" width="16.8" height="16.8" rx="2"/><rect x="7.4" y="7.4" width="9.2" height="9.2" rx="1" stroke-dasharray="2.4 2.4"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 4.6v14.8M4.6 12h14.8"/></symbol>
+  <symbol id="i-img" viewBox="0 0 24 24"><rect x="3.4" y="4.6" width="17.2" height="14.8" rx="2"/><circle cx="8.8" cy="9.6" r="1.8"/><path d="m3.8 17 4.6-4.6 3.6 3.6 3-3 5.2 5.2"/></symbol>
+  <symbol id="i-text" viewBox="0 0 24 24"><path d="M4.6 6.4V4.6h14.8v1.8M12 4.6v14.8M9 19.4h6"/></symbol>
+  <symbol id="i-sprite" viewBox="0 0 24 24"><rect x="3.2" y="3.2" width="7.4" height="7.4" rx="1.6"/><rect x="13.4" y="3.2" width="7.4" height="7.4" rx="1.6" fill="currentColor" stroke="none"/><rect x="3.2" y="13.4" width="7.4" height="7.4" rx="1.6"/><rect x="13.4" y="13.4" width="7.4" height="7.4" rx="1.6"/></symbol>
+  <symbol id="i-cc" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.4"/><path d="M10 10.4a2.6 2.6 0 1 0 0 3.2M17 10.4a2.6 2.6 0 1 0 0 3.2"/></symbol>
+  <symbol id="i-wave" viewBox="0 0 24 24"><path d="M4 10.4v3.2M8 6.8v10.4M12 3.6v16.8M16 7.8v8.4M20 10.9v2.2"/></symbol>
+  <symbol id="i-trans" viewBox="0 0 24 24"><path d="M3.6 8.4h10.8M11 5l3.4 3.4L11 11.8M20.4 15.6H9.6M13 12.2 9.6 15.6 13 19"/></symbol>
+  <symbol id="i-fx" viewBox="0 0 24 24"><path d="M12 3.4 14 9l5.6 2-5.6 2-2 5.6-2-5.6L4.4 11 10 9z"/></symbol>
+  <symbol id="i-canvas" viewBox="0 0 24 24"><rect x="3.4" y="5.4" width="17.2" height="13.2" rx="2"/><path d="M8.6 5.4v13.2M15.4 5.4v13.2"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5.4" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="18.6" cy="12" r="1.5" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v2.6M12 18.6v2.6M21.2 12h-2.6M5.4 12H2.8M18.5 5.5l-1.8 1.8M7.3 16.7l-1.8 1.8M18.5 18.5l-1.8-1.8M7.3 7.3 5.5 5.5"/></symbol>
+  <symbol id="i-move" viewBox="0 0 24 24"><path d="M12 3.6v16.8M3.6 12h16.8M12 3.6 9.4 6.4M12 3.6l2.6 2.8M12 20.4l-2.6-2.8M12 20.4l2.6-2.8M3.6 12l2.8-2.6M3.6 12l2.8 2.6M20.4 12l-2.8-2.6M20.4 12l-2.8 2.6"/></symbol>
+  <symbol id="i-op" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="M12 3.4a8.6 8.6 0 0 1 0 17.2z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-rot" viewBox="0 0 24 24"><path d="M19.6 12a7.6 7.6 0 1 1-2.6-5.7"/><path d="M19.6 4.4v4.4h-4.4"/></symbol>
+  <symbol id="i-flip" viewBox="0 0 24 24"><path d="M12 3.4v17.2M8.6 7.4 4 12l4.6 4.6zM15.4 7.4 20 12l-4.6 4.6z"/></symbol>
+  <symbol id="i-bend" viewBox="0 0 24 24"><path d="M3.6 17.4c4.8 0 6-10.8 10.8-10.8 3 0 4.5 2.4 6 4.2"/></symbol>
+  <symbol id="i-loop" viewBox="0 0 24 24"><path d="M4.6 10.4a4.4 4.4 0 0 1 4.4-4.4h9.6M15.6 3l3 3-3 3M19.4 13.6a4.4 4.4 0 0 1-4.4 4.4H5.4M8.4 21l-3-3 3-3"/></symbol>
+  <symbol id="i-cut" viewBox="0 0 24 24"><circle cx="6.4" cy="18" r="2.6"/><circle cx="17.6" cy="18" r="2.6"/><path d="M8.4 16.2 18.6 4M15.6 16.2 5.4 4"/></symbol>
+  <symbol id="i-dupe" viewBox="0 0 24 24"><rect x="8.4" y="3.4" width="12.2" height="12.2" rx="2"/><path d="M15.6 19.2v.4a1 1 0 0 1-1 1H4.4a1 1 0 0 1-1-1V9.4a1 1 0 0 1 1-1h.4"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4.4 6.6h15.2M9.4 6.6V4.8a1.4 1.4 0 0 1 1.4-1.4h2.4a1.4 1.4 0 0 1 1.4 1.4v1.8M6.6 6.6l.9 12.3a1.6 1.6 0 0 0 1.6 1.5h5.8a1.6 1.6 0 0 0 1.6-1.5l.9-12.3"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7"/></symbol>
+  <symbol id="i-chevd" viewBox="0 0 24 24"><path d="m6 9.5 6 6 6-6"/></symbol>
+  <symbol id="i-prev" viewBox="0 0 24 24"><path d="m14.5 5.5-7 6.5 7 6.5"/></symbol>
+  <symbol id="i-next" viewBox="0 0 24 24"><path d="m9.5 5.5 7 6.5-7 6.5"/></symbol>
+  <symbol id="i-mask" viewBox="0 0 24 24"><rect x="3.4" y="3.4" width="17.2" height="17.2" rx="2.4"/><circle cx="12" cy="12" r="4.6" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><path d="m12 4.6 7.4 7.4-7.4 7.4L4.6 12z"/></symbol>
+  <symbol id="i-speed" viewBox="0 0 24 24"><path d="M4 6.5 11 12l-7 5.5zM13 6.5 20 12l-7 5.5z"/></symbol>
+  <symbol id="i-vol" viewBox="0 0 24 24"><path d="M4.6 9.4h3.2L12 5.8v12.4L7.8 14.6H4.6z"/><path d="M15.6 9.6a3.4 3.4 0 0 1 0 4.8"/></symbol>
+  <symbol id="i-crop" viewBox="0 0 24 24"><path d="M6.4 2.8v14.8h14.8M2.8 6.4h14.8v14.8"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13.4a3.6 3.6 0 0 0 5.4.4l2.6-2.6a3.6 3.6 0 0 0-5.1-5.1l-1.5 1.5"/><path d="M14 10.6a3.6 3.6 0 0 0-5.4-.4L6 12.8a3.6 3.6 0 0 0 5.1 5.1l1.5-1.5"/></symbol>
+</defs></svg>
+
+<div class="mast"><div class="wrap">
+  <div class="kicker">Joy Creator · design record 06 · 17 Sep 2026 · BUILD FROM THIS</div>
+  <h1>Studio, Final</h1>
+  <p>Second adversarial sweep found <b>one critical defect</b> that only shows up if you do the arithmetic, plus eleven smaller things. All fixed. Then the definitive screen, with every measurement an engineer needs and nothing left to invent.</p>
+</div></div>
+
+<main class="wrap">
+
+<!-- ===== 01 THE AUDIT ===== -->
+<section>
+  <div class="h2"><span>01</span><h2>Second sweep</h2></div>
+  <p class="dek">Ranked by what would actually hurt a user. Contrast figures are computed WCAG 2.1 ratios against a blown-out frame — <b>sunlit skin, a white slide, a bright sky.</b> Not a guess.</p>
+
+  <div class="find">
+
+    <div class="fd crit"><div class="sev">CRITICAL<br>01</div><div class="bd">
+      <b>The frosted drawer is unreadable over bright footage</b>
+      <p>Frosted glass in a mockup sits over a background the designer chose. Over real video, <em>blur softens but never darkens</em> — and a white tint over a bright frame makes it lighter still. Measured against a blown-out frame, my drawer's body text came out at <code>1.09:1</code>. The floor for body text is <code>4.5:1</code>.</p>
+      <p>That is not a near miss. It is text you cannot see, the first time you edit anything shot outdoors.</p>
+      <span class="fix"><i>FIXED</i> The drawer is a <b>dark</b> tint: <code>rgba(0,0,0,.64)</code> + <code>blur(20px)</code>. Measured after: <b>6.63:1</b>. The existing <code>SpriteTheme.DRAWER_SCRIM</code> already knew this — it is dark at 95%. Your ask moves it to 64%, which is as transparent as the arithmetic allows.</span>
+    </div></div>
+
+    <div class="fd crit"><div class="sev">CRITICAL<br>02</div><div class="bd">
+      <b>Nine transport targets do not fit on your phone</b>
+      <p>Two time labels plus eight controls, at the 44dp minimum, need <code>440dp</code>. A 390dp screen minus padding gives <code>370dp</code>. On the Note 9 at 360dp you have <code>340dp</code>. <em>Every control in that row was undersized</em>, which is why a mis-tap on the play button once got logged as a critical playback regression.</p>
+      <span class="fix"><i>FIXED</i> Select and Ripple collapse into <b>one cycling mode button</b> — they were always exclusive. Relink leaves the row entirely and appears as an amber ring on the broken clip. Six targets + two labels = <code>364dp</code>. At ≤360dp the mic moves into the tool row.</span>
+    </div></div>
+
+    <div class="fd maj"><div class="sev">MAJOR<br>03</div><div class="bd">
+      <b>Two object colours vanish for eight percent of men</b>
+      <p>Sprite amber and caption gold are adjacent hues; under deuteranopia they collapse into the same yellow. So do audio aqua and studio green. <em>A timeline that encodes type only in colour is a timeline that lies to colour-blind users.</em></p>
+      <span class="fix"><i>FIXED</i> Every clip carries <b>its type glyph at the left cap</b>, 12dp. It is a non-colour tell, and it happens to make the timeline faster to read for everyone — which is the mark of an accessibility fix worth making.</span>
+    </div></div>
+
+    <div class="fd maj"><div class="sev">MAJOR<br>04</div><div class="bd">
+      <b>Small labels failed even after the drawer was darkened</b>
+      <p>The 8dp section labels at <code>#A6A6B2</code> came out at <code>3.49:1</code> on the fixed drawer. Small text has no large-text exemption.</p>
+      <span class="fix"><i>FIXED</i> Section labels raised to <code>#C4C4CE</code> → <b>4.86:1</b>. Every label in the kit was re-measured, not just this one.</span>
+    </div></div>
+
+    <div class="fd maj"><div class="sev">MAJOR<br>05</div><div class="bd">
+      <b>Thirty tools, seven visible, nothing saying so</b>
+      <p>The row scrolls and gives no sign of it. A user who never swipes it believes the editor has seven tools.</p>
+      <span class="fix"><i>FIXED</i> A gradient fade on the right edge, and the overflow button carries a <b>live count of what is off-screen</b> — <code>⋯ 23 more</code>, not a mystery.</span>
+    </div></div>
+
+    <div class="fd maj"><div class="sev">MAJOR<br>06</div><div class="bd">
+      <b>No empty, loading or broken states existed at all</b>
+      <p>Every mockup showed a healthy project. <em>The drawer while a sheet decodes, a clip whose file moved, a project with one clip and nothing else</em> — none were designed, so they would have been invented by whoever built them.</p>
+      <span class="fix"><i>FIXED</i> The broken-clip state is in the screen below — an amber ring on the clip and a relink chip in the drawer. Loading is a shimmer on the chip row at the drawer's own scrim value, never a spinner.</span>
+    </div></div>
+
+    <div class="fd maj"><div class="sev">MAJOR<br>07</div><div class="bd">
+      <b>Close sits in the hardest place to reach, and it ends things</b>
+      <p>Top-left on a 6.7-inch phone held one-handed is the furthest point from your thumb. <em>It is also the control that leaves the editor.</em></p>
+      <span class="fix"><i>KEPT, DELIBERATELY</i> A destructive-adjacent control being hard to hit by accident is a feature. It already confirms before closing. <b>Flagging it rather than moving it</b> — moving it to thumb reach would make mis-closes common.</span>
+    </div></div>
+
+    <div class="fd min"><div class="sev">MINOR<br>08</div><div class="bd">
+      <b>Object colours run at full saturation on pure black</b>
+      <p>Dark-mode practice is to desaturate 10–20%, because full chroma on a black ground vibrates at the edges. <em>ObjectPalette is established and shipping</em>, so this is a note, not a change — but it is worth one look on the Note 20's AMOLED, where saturation reads hotter than on an LCD.</p>
+    </div></div>
+
+    <div class="fd min"><div class="sev">MINOR<br>09</div><div class="bd">
+      <b>Tool labels clip at 360dp</b>
+      <p>"Transcript" and "Visualiser" are ten characters in a 53dp cell.</p>
+      <span class="fix"><i>FIXED</i> Cells are <code>56dp</code>, label capped at <code>52dp</code> with ellipsis. No label wraps to two lines — a two-line tap target is its own defect.</span>
+    </div></div>
+
+    <div class="fd min"><div class="sev">MINOR<br>10</div><div class="bd">
+      <b>No focus-visible state anywhere</b>
+      <p>You use a stylus and sometimes a mouse, and there is already a standing rule that every button earns a hover label. Neither is expressible without a focus state.</p>
+      <span class="fix"><i>FIXED</i> <code>:focus-visible</code> is a <b>2dp cyan ring, instant, never animated</b> — a focus ring that transitions reads as lag.</span>
+    </div></div>
+
+    <div class="fd min"><div class="sev">MINOR<br>11</div><div class="bd">
+      <b>The fixed playhead hides where the project starts</b>
+      <p>With the head centred, half the timeline is always "before now". At <code>00:00</code> the left half is empty and nothing says why.</p>
+      <span class="fix"><i>FIXED</i> Before zero and after the end, the lane band stops and the ground shows through flat. <b>The stripe itself marks where the project exists.</b></span>
+    </div></div>
+
+    <div class="fd min"><div class="sev">MINOR<br>12</div><div class="bd">
+      <b>Reduced motion was declared but never designed</b>
+      <p>A media query in a stylesheet is not a design decision.</p>
+      <span class="fix"><i>FIXED</i> Spelled out in §04: opacity and colour survive, travel and scale are dropped, and the <b>playhead never animates in either mode</b> because it is a hundred-times-an-hour control.</span>
+    </div></div>
+
+  </div>
+
+  <div class="proof">
+    <div class="pf bad">
+      <div class="frame"></div>
+      <div class="over">
+        <span class="ratio">1.09:1</span>
+        <div class="lb">Alignment · cell 9</div>
+        <h5>What I built</h5>
+        <p>White 11% tint over blur. Over a bright frame the drawer gets lighter, not darker.</p>
+      </div>
+      <div class="cap"><b>Fails.</b> Body text needs 4.5:1. This is 1.09.</div>
+    </div>
+    <div class="pf good">
+      <div class="frame"></div>
+      <div class="over">
+        <span class="ratio">6.63:1</span>
+        <div class="lb">Alignment · cell 9</div>
+        <h5>The fix</h5>
+        <p>Black 64% over blur. You still see the frame move behind it — it is just muted, which is what you asked frosted glass to do.</p>
+      </div>
+      <div class="cap"><b>Passes with room.</b> Same blur, same transparency budget, inverted tint.</div>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ===== 02 THE SCREEN ===== -->
+<section>
+  <div class="h2"><span>02</span><h2>The screen</h2></div>
+  <p class="dek">390 × 844dp. Everything drawn at its real size. The frame behind is deliberately a bright outdoor shot, because <b>that is the case every previous mockup dodged.</b></p>
+
+  <div class="rowphones">
+
+    <!-- A: working — sprite selected, drawer open -->
+    <div class="phonewrap">
+      <div class="phone">
+        <div class="sbar"><span>9:41</span><span>◍ ▲ ▮</span></div>
+        <div class="hair"><i style="width:62%"></i></div>
+
+        <div class="etop">
+          <span class="ib"><svg class="ic"><use href="#i-x"></use></svg></span>
+          <span class="ib"><svg class="ic"><use href="#i-pin"></use></svg></span>
+          <span class="title"><b>ZA_CONTROL</b><span>6 LAYERS · 0:47</span></span>
+          <span class="orb"><svg class="ic"><use href="#i-bot"></use></svg></span>
+          <span class="exp"><svg class="ic"><use href="#i-up"></use></svg>Export</span>
+        </div>
+
+        <div class="canvas" style="height:264px">
+          <div class="frame" style="width:132px;height:234px"><span class="art"></span></div>
+          <span class="selbox" style="left:calc(50% - 62px);top:168px;width:124px;height:62px"></span>
+          <span class="hdl" style="left:calc(50% - 67px);top:163px"></span>
+          <span class="hdl" style="left:calc(50% + 56px);top:163px"></span>
+          <span class="hdl" style="left:calc(50% - 67px);top:224px"></span>
+          <span class="hdl" style="left:calc(50% + 56px);top:224px"></span>
+          <span class="canvedge" style="top:auto;bottom:8px"><i><svg class="ic"><use href="#i-fit"></use></svg></i><i><svg class="ic"><use href="#i-safe"></use></svg></i></span>
+
+          <div class="drawer">
+            <div class="dh">
+              <span class="dot" style="background:var(--o-sprite)"></span>
+              <span class="nm">Joybot</span>
+              <span class="bl">NORMAL<svg class="ic" style="font-size:9px"><use href="#i-chevd"></use></svg></span>
+              <span class="rest">
+                <span class="lens"><i class="on">FROST</i><i>CLEAR</i></span>
+                <span class="x"><svg class="ic"><use href="#i-x"></use></svg></span>
+              </span>
+            </div>
+            <div class="dt">
+              <i class="on" style="background:rgba(255,183,77,.70);color:#0d0d11"><svg class="ic"><use href="#i-sprite"></use></svg>Frames</i>
+              <i><svg class="ic"><use href="#i-move"></use></svg></i>
+              <i><svg class="ic"><use href="#i-op"></use></svg></i>
+              <i><svg class="ic"><use href="#i-bend"></use></svg></i>
+              <i><svg class="ic"><use href="#i-mask"></use></svg></i>
+              <i><svg class="ic"><use href="#i-key"></use></svg></i>
+              <span class="fade"></span>
+            </div>
+            <div class="dr">
+              <span class="dchip on" style="background:rgba(255,183,77,.70);color:#0d0d11">walk</span>
+              <span class="dchip">idle</span>
+              <span class="dchip">wave</span>
+              <span class="dscrub"><s>fps</s><b>8</b></span>
+            </div>
+            <div class="dsec">Opacity</div>
+            <div class="dr">
+              <span class="dsl"><span class="tr"><i style="width:64%;background:rgba(255,183,77,.70)"></i><b style="left:64%"></b></span></span>
+              <span class="dkf">
+                <i><svg class="ic"><use href="#i-prev"></use></svg></i>
+                <i class="dia"></i>
+                <i><svg class="ic"><use href="#i-next"></use></svg></i>
+              </span>
+            </div>
+            <div class="dr" style="min-height:40px">
+              <span class="dcb on"><span class="bx" style="background:rgba(255,183,77,.70)"><svg class="ic" style="stroke:#0d0d11"><use href="#i-check"></use></svg></span>Hold last frame</span>
+            </div>
+            <div class="dgrab"><span></span></div>
+          </div>
+        </div>
+
+        <div class="trans">
+          <span class="t">00:12</span>
+          <i class="armed"><svg class="ic"><use href="#i-sel"></use></svg></i>
+          <i class="armed"><svg class="ic"><use href="#i-snap"></use></svg></i>
+          <span class="sp"></span>
+          <i class="avail"><svg class="ic"><use href="#i-undo"></use></svg><sup>5</sup></i>
+          <i class="play"><svg class="ic"><use href="#i-pause"></use></svg></i>
+          <i><svg class="ic"><use href="#i-redo"></use></svg></i>
+          <span class="sp"></span>
+          <i class="avail"><svg class="ic"><use href="#i-mic"></use></svg></i>
+          <span class="t">00:47</span>
+        </div>
+
+        <div class="minimap">
+          <i style="background:var(--o-image);width:58%"></i>
+          <i style="background:var(--o-text);width:30%;margin-left:48%"></i>
+          <i style="background:var(--o-sprite);width:66%;margin-left:5%"></i>
+          <i style="background:var(--o-video);width:86%"></i>
+          <i style="background:var(--o-audio);width:86%"></i>
+          <span class="win" style="left:36%;width:30%"></span>
+        </div>
+
+        <div class="ruler">
+          <span class="lb" style="left:14%">10s</span><span class="tk" style="left:14%"></span>
+          <span class="lb" style="left:50%">12s</span><span class="tk" style="left:50%;height:6px;background:var(--dimmer)"></span>
+          <span class="lb" style="left:86%">14s</span><span class="tk" style="left:86%"></span>
+          <span class="tk" style="left:32%;height:3px"></span><span class="tk" style="left:68%;height:3px"></span>
+        </div>
+
+        <div class="tl">
+          <span class="phtime">00:12.400</span><span class="phhold"></span><span class="ph"></span>
+          <div class="lane"><span class="gut">▾</span><span class="body">
+            <span class="clip" style="left:-18%;right:26%;background:var(--o-image)">
+              <span class="th"></span><span class="g"><svg class="ic"><use href="#i-img"></use></svg></span>IMG</span></span></div>
+          <div class="lane b"><span class="gut">▾</span><span class="body">
+            <span class="clip dark" style="left:34%;right:-28%;background:var(--o-text)">
+              <span class="g"><svg class="ic"><use href="#i-text"></use></svg></span>FONT TEST
+              <span class="kf" style="background:var(--warn);left:16px"></span></span></span></div>
+          <div class="lane" style="height:48px"><span class="gut">▾</span><span class="body">
+            <span class="clip selected" style="left:-12%;right:8%;background:var(--o-sprite)">
+              <span class="g"><svg class="ic"><use href="#i-sprite"></use></svg></span>walk · 5
+              <span class="kf" style="background:var(--live);left:26px"></span>
+              <span class="kf" style="background:var(--live);left:84px"></span>
+              <span class="kf" style="background:var(--live);left:146px"></span>
+              <span class="kf" style="background:var(--live);left:208px"></span></span></span></div>
+          <div class="lane b" style="height:46px"><span class="gut">▾</span><span class="body">
+            <span class="clip dark" style="left:-30%;right:-8%;background:var(--o-video)">
+              <span class="th"></span><span class="g"><svg class="ic"><use href="#i-img"></use></svg></span>
+              <span style="position:absolute;bottom:2px;left:6px;font-size:7px;color:#eef4ff">this is a cat · very cute</span></span></span></div>
+          <div class="lane" style="height:42px"><span class="gut">▾</span><span class="body">
+            <span class="clip" style="left:-30%;right:-8%;background:#0e2620;color:var(--o-audio)">
+              <span class="wave"></span><span class="g" style="position:relative"><svg class="ic"><use href="#i-wave"></use></svg></span></span></span></div>
+        </div>
+
+        <div class="toolbar">
+          <div class="tools">
+            <button type="button"><em style="color:var(--o-sprite)"><svg class="ic"><use href="#i-sprite"></use></svg></em><s style="color:#c9a172">Frames</s></button>
+            <button type="button"><em style="color:var(--o-sprite)"><svg class="ic"><use href="#i-move"></use></svg></em><s style="color:#c9a172">Move</s></button>
+            <button type="button"><em style="color:var(--o-sprite)"><svg class="ic"><use href="#i-op"></use></svg></em><s style="color:#c9a172">Opacity</s></button>
+            <button type="button"><em style="color:var(--o-sprite)"><svg class="ic"><use href="#i-rot"></use></svg></em><s style="color:#c9a172">Rotate</s></button>
+            <button type="button"><em style="color:var(--o-sprite)"><svg class="ic"><use href="#i-flip"></use></svg></em><s style="color:#c9a172">Flip</s></button>
+            <button type="button"><em style="color:var(--o-sprite)"><svg class="ic"><use href="#i-bend"></use></svg></em><s style="color:#c9a172">Bend</s></button>
+            <button type="button"><em style="color:var(--o-sprite)"><svg class="ic"><use href="#i-loop"></use></svg></em><s style="color:#c9a172">Loop</s></button>
+            <button type="button"><em style="color:var(--o-sprite)"><svg class="ic"><use href="#i-cut"></use></svg></em><s style="color:#c9a172">Split</s></button>
+            <button type="button"><em style="color:var(--o-sprite)"><svg class="ic"><use href="#i-dupe"></use></svg></em><s style="color:#c9a172">Dupe</s></button>
+            <span class="div"></span>
+            <button type="button" class="end more"><em><svg class="ic"><use href="#i-more"></use></svg></em><s>23 more</s></button>
+            <button type="button" class="end"><em><svg class="ic"><use href="#i-gear"></use></svg></em><s>Settings</s></button>
+          </div>
+        </div>
+      </div>
+      <p class="phcap"><b>A · Working</b>Sprite selected. Every "on" control is amber <em>at 70%</em>, so the character keeps animating behind the drawer while you key it. Tool glyphs are amber too — that is the whole "what am I editing" signal, and it costs no height.</p>
+    </div>
+
+    <!-- B: nothing selected + a broken clip -->
+    <div class="phonewrap">
+      <div class="phone">
+        <div class="sbar"><span>9:41</span><span>◍ ▲ ▮</span></div>
+        <div class="hair"><i style="width:0"></i></div>
+
+        <div class="etop">
+          <span class="ib"><svg class="ic"><use href="#i-x"></use></svg></span>
+          <span class="ib"><svg class="ic"><use href="#i-pin"></use></svg></span>
+          <span class="title"><b>ZA_CONTROL</b><span>6 LAYERS · 0:47</span></span>
+          <span class="orb"><svg class="ic"><use href="#i-bot"></use></svg></span>
+          <span class="exp"><svg class="ic"><use href="#i-up"></use></svg>Export</span>
+        </div>
+
+        <div class="canvas" style="height:300px">
+          <div class="frame" style="width:150px;height:266px"><span class="art"></span></div>
+          <span class="canvedge"><i><svg class="ic"><use href="#i-fit"></use></svg></i><i><svg class="ic"><use href="#i-safe"></use></svg></i></span>
+        </div>
+
+        <div class="trans">
+          <span class="t">00:00</span>
+          <i class="armed"><svg class="ic"><use href="#i-sel"></use></svg></i>
+          <i><svg class="ic"><use href="#i-snap"></use></svg></i>
+          <span class="sp"></span>
+          <i class="avail"><svg class="ic"><use href="#i-undo"></use></svg><sup>5</sup></i>
+          <i class="play"><svg class="ic"><use href="#i-play"></use></svg></i>
+          <i><svg class="ic"><use href="#i-redo"></use></svg></i>
+          <span class="sp"></span>
+          <i class="avail"><svg class="ic"><use href="#i-mic"></use></svg></i>
+          <span class="t">00:47</span>
+        </div>
+
+        <div class="minimap">
+          <i style="background:var(--o-image);width:58%"></i>
+          <i style="background:var(--o-text);width:30%;margin-left:48%"></i>
+          <i style="background:var(--o-sprite);width:66%;margin-left:5%"></i>
+          <i style="background:var(--o-video);width:86%"></i>
+          <i style="background:var(--o-audio);width:86%"></i>
+          <span class="win" style="left:0;width:30%"></span>
+        </div>
+
+        <div class="ruler">
+          <span class="lb" style="left:50%">0s</span><span class="tk" style="left:50%;height:6px;background:var(--dimmer)"></span>
+          <span class="lb" style="left:86%">2s</span><span class="tk" style="left:86%"></span>
+          <span class="tk" style="left:68%;height:3px"></span>
+        </div>
+
+        <div class="tl">
+          <span class="phtime">00:00.000</span><span class="phhold"></span><span class="ph"></span>
+          <!-- before zero: no band. the stripe marks where the project exists. -->
+          <div class="lane"><span class="gut">▾</span><span class="body">
+            <span style="position:absolute;left:0;width:50%;top:0;bottom:0;background:var(--ground)"></span>
+            <span class="clip" style="left:50%;right:14%;background:var(--o-image)">
+              <span class="th"></span><span class="g"><svg class="ic"><use href="#i-img"></use></svg></span>IMG</span></span></div>
+          <div class="lane b"><span class="gut">▾</span><span class="body">
+            <span style="position:absolute;left:0;width:50%;top:0;bottom:0;background:var(--ground)"></span>
+            <span class="clip" style="left:64%;right:-20%;background:var(--o-image)">
+              <span class="broke"></span><span class="th"></span>
+              <span class="g" style="color:var(--warn)"><svg class="ic"><use href="#i-link"></use></svg></span>missing</span></span></div>
+          <div class="lane"><span class="gut">▾</span><span class="body">
+            <span style="position:absolute;left:0;width:50%;top:0;bottom:0;background:var(--ground)"></span>
+            <span class="clip" style="left:50%;right:20%;background:var(--o-sprite)">
+              <span class="g"><svg class="ic"><use href="#i-sprite"></use></svg></span>walk · 5</span></span></div>
+          <div class="lane b" style="height:46px"><span class="gut">▾</span><span class="body">
+            <span style="position:absolute;left:0;width:50%;top:0;bottom:0;background:var(--ground)"></span>
+            <span class="clip dark" style="left:50%;right:-8%;background:var(--o-video)">
+              <span class="th"></span><span class="g"><svg class="ic"><use href="#i-img"></use></svg></span></span></span></div>
+          <div class="lane" style="height:42px"><span class="gut">▾</span><span class="body">
+            <span style="position:absolute;left:0;width:50%;top:0;bottom:0;background:var(--ground)"></span>
+            <span class="clip" style="left:50%;right:-8%;background:#0e2620;color:var(--o-audio)">
+              <span class="wave"></span><span class="g" style="position:relative"><svg class="ic"><use href="#i-wave"></use></svg></span></span></span></div>
+        </div>
+
+        <div class="toolbar">
+          <div class="tools">
+            <button type="button"><em><svg class="ic"><use href="#i-plus"></use></svg></em><s>Add</s></button>
+            <button type="button"><em><svg class="ic"><use href="#i-img"></use></svg></em><s>Image</s></button>
+            <button type="button"><em><svg class="ic"><use href="#i-text"></use></svg></em><s>Text</s></button>
+            <button type="button"><em><svg class="ic"><use href="#i-sprite"></use></svg></em><s>Sprite</s></button>
+            <button type="button"><em><svg class="ic"><use href="#i-cc"></use></svg></em><s>Captions</s></button>
+            <button type="button"><em><svg class="ic"><use href="#i-wave"></use></svg></em><s>Visualiser</s></button>
+            <button type="button"><em><svg class="ic"><use href="#i-trans"></use></svg></em><s>Transition</s></button>
+            <button type="button"><em><svg class="ic"><use href="#i-fx"></use></svg></em><s>Adjust</s></button>
+            <span class="div"></span>
+            <button type="button" class="end"><em><svg class="ic"><use href="#i-canvas"></use></svg></em><s>Canvas</s></button>
+            <button type="button" class="end more"><em><svg class="ic"><use href="#i-more"></use></svg></em><s>22 more</s></button>
+            <button type="button" class="end"><em><svg class="ic"><use href="#i-gear"></use></svg></em><s>Settings</s></button>
+          </div>
+        </div>
+      </div>
+      <p class="phcap"><b>B · Nothing selected, at 00:00, with a broken clip</b>Three states at once. <em>The band stops where the project starts</em> — no stripe on the left half, so the empty space explains itself. The amber-ringed clip is the missing file; relink lives there, not in the transport row.</p>
+    </div>
+
+    <!-- C: transcript -->
+    <div class="phonewrap">
+      <div class="phone">
+        <div class="sbar"><span>9:41</span><span>◍ ▲ ▮</span></div>
+        <div class="hair"><i style="width:0"></i></div>
+
+        <div class="etop">
+          <span class="ib"><svg class="ic"><use href="#i-x"></use></svg></span>
+          <span class="ib"><svg class="ic"><use href="#i-pin"></use></svg></span>
+          <span class="title"><b>ZA_CONTROL</b><span>6 LAYERS · 0:47</span></span>
+          <span class="orb"><svg class="ic"><use href="#i-bot"></use></svg></span>
+          <span class="exp"><svg class="ic"><use href="#i-up"></use></svg>Export</span>
+        </div>
+
+        <div class="canvas" style="height:300px">
+          <div class="frame" style="width:110px;height:196px;margin-right:180px"><span class="art"></span></div>
+          <div class="tsc">
+            <span class="tscgrab"></span>
+            <div class="tsch"><b>Transcript</b>
+              <span class="lens" style="margin-left:auto"><i>FROST</i><i class="on">CLEAR</i></span>
+              <span style="color:var(--ddim);font-size:12px;display:flex"><svg class="ic"><use href="#i-x"></use></svg></span></div>
+            <div class="tscb">
+              this is a cat <u>um</u> she<br>is <mark>very</mark> cute and<br>
+              she is white and<br>fluffy <u>you know</u><br>and she sleeps all<br>
+              day in a little<br>basket by the<br>window where the<br>sun comes in
+            </div>
+          </div>
+        </div>
+
+        <div class="trans">
+          <span class="t">00:12</span>
+          <i class="armed"><svg class="ic"><use href="#i-sel"></use></svg></i>
+          <i><svg class="ic"><use href="#i-snap"></use></svg></i>
+          <span class="sp"></span>
+          <i class="avail"><svg class="ic"><use href="#i-undo"></use></svg><sup>5</sup></i>
+          <i class="play"><svg class="ic"><use href="#i-play"></use></svg></i>
+          <i><svg class="ic"><use href="#i-redo"></use></svg></i>
+          <span class="sp"></span>
+          <i class="avail"><svg class="ic"><use href="#i-mic"></use></svg></i>
+          <span class="t">00:47</span>
+        </div>
+
+        <div class="minimap">
+          <i style="background:var(--o-video);width:86%"></i>
+          <i style="background:var(--o-audio);width:86%"></i>
+          <span class="win" style="left:36%;width:30%"></span>
+        </div>
+        <div class="ruler">
+          <span class="lb" style="left:50%">12s</span><span class="tk" style="left:50%;height:6px;background:var(--dimmer)"></span>
+        </div>
+
+        <div class="tl">
+          <span class="phtime">00:12.400</span><span class="phhold"></span><span class="ph"></span>
+          <span class="tsctab"><span>TRANSCRIPT</span></span>
+          <div class="lane" style="height:50px"><span class="gut">▾</span><span class="body">
+            <span class="clip dark" style="left:-30%;right:-8%;background:var(--o-video)">
+              <span class="th"></span><span class="g"><svg class="ic"><use href="#i-img"></use></svg></span>
+              <span style="position:absolute;bottom:3px;left:6px;font-size:7px;color:#eef4ff">this is a cat · very cute · she is white</span></span></span></div>
+          <div class="lane b" style="height:46px"><span class="gut">▾</span><span class="body">
+            <span class="clip" style="left:-30%;right:-8%;background:#0e2620;color:var(--o-audio)">
+              <span class="wave"></span><span class="g" style="position:relative"><svg class="ic"><use href="#i-wave"></use></svg></span></span></span></div>
+        </div>
+
+        <div class="toolbar">
+          <div class="tools">
+            <button type="button"><em style="color:var(--o-video)"><svg class="ic"><use href="#i-wave"></use></svg></em><s style="color:#9dbce0">Audio</s></button>
+            <button type="button"><em style="color:var(--o-video)"><svg class="ic"><use href="#i-cc"></use></svg></em><s style="color:#9dbce0">Transcript</s></button>
+            <button type="button"><em style="color:var(--o-video)"><svg class="ic"><use href="#i-snap"></use></svg></em><s style="color:#9dbce0">Silence</s></button>
+            <button type="button"><em style="color:var(--o-video)"><svg class="ic"><use href="#i-fx"></use></svg></em><s style="color:#9dbce0">Fix audio</s></button>
+            <button type="button"><em style="color:var(--o-video)"><svg class="ic"><use href="#i-speed"></use></svg></em><s style="color:#9dbce0">Speed</s></button>
+            <button type="button"><em style="color:var(--o-video)"><svg class="ic"><use href="#i-vol"></use></svg></em><s style="color:#9dbce0">Sound</s></button>
+            <button type="button"><em style="color:var(--o-video)"><svg class="ic"><use href="#i-crop"></use></svg></em><s style="color:#9dbce0">Crop</s></button>
+            <button type="button"><em style="color:var(--o-video)"><svg class="ic"><use href="#i-cut"></use></svg></em><s style="color:#9dbce0">Split</s></button>
+            <span class="div"></span>
+            <button type="button" class="end more"><em><svg class="ic"><use href="#i-more"></use></svg></em><s>22 more</s></button>
+            <button type="button" class="end"><em><svg class="ic"><use href="#i-gear"></use></svg></em><s>Settings</s></button>
+          </div>
+        </div>
+      </div>
+      <p class="phcap"><b>C · Transcript, on CLEAR</b>Tinted, unblurred, so you read the composition through it — and it is <em>the same preference</em> that controls the object drawer. Struck words are filler; the pink word is what is playing. When closed, only the blue edge tab remains.</p>
+    </div>
+
+    <!-- D: all tools -->
+    <div class="phonewrap">
+      <div class="phone">
+        <div class="sbar"><span>9:41</span><span>◍ ▲ ▮</span></div>
+        <div class="hair"><i style="width:0"></i></div>
+        <div class="etop">
+          <span class="ib"><svg class="ic"><use href="#i-x"></use></svg></span>
+          <span class="ib"><svg class="ic"><use href="#i-pin"></use></svg></span>
+          <span class="title"><b>ZA_CONTROL</b><span>6 LAYERS · 0:47</span></span>
+          <span class="orb"><svg class="ic"><use href="#i-bot"></use></svg></span>
+          <span class="exp"><svg class="ic"><use href="#i-up"></use></svg>Export</span>
+        </div>
+        <div class="canvas" style="flex:1;position:relative">
+          <div class="frame" style="width:110px;height:196px"><span class="art"></span></div>
+          <div class="sheet">
+            <div class="sh"><b>All tools</b><s>30</s><span class="arm">⇅ ARM REORDER</span>
+              <span style="color:var(--ddim);font-size:13px;display:flex"><svg class="ic"><use href="#i-x"></use></svg></span></div>
+            <div class="sb">
+              <div>
+                <div class="tg"><i style="background:var(--sel)"></i>Most used by you</div>
+                <div class="tgrid">
+                  <span class="hot" style="background:rgba(34,211,238,.70)"><em><svg class="ic"><use href="#i-cut"></use></svg></em>Split</span>
+                  <span class="hot" style="background:rgba(34,211,238,.70)"><em><svg class="ic"><use href="#i-sprite"></use></svg></em>Sprite</span>
+                  <span class="hot" style="background:rgba(34,211,238,.70)"><em><svg class="ic"><use href="#i-move"></use></svg></em>Move</span>
+                  <span class="hot" style="background:rgba(34,211,238,.70)"><em><svg class="ic"><use href="#i-text"></use></svg></em>Text</span>
+                  <span class="hot" style="background:rgba(34,211,238,.70)"><em><svg class="ic"><use href="#i-op"></use></svg></em>Opacity</span>
+                </div>
+              </div>
+              <div>
+                <div class="tg"><i style="background:var(--o-sprite)"></i>Act on what's selected · 15</div>
+                <div class="tgrid">
+                  <span><em><svg class="ic"><use href="#i-speed"></use></svg></em>Speed</span>
+                  <span><em><svg class="ic"><use href="#i-vol"></use></svg></em>Sound</span>
+                  <span><em><svg class="ic"><use href="#i-op"></use></svg></em>Opacity</span>
+                  <span><em><svg class="ic"><use href="#i-rot"></use></svg></em>Rotate</span>
+                  <span><em><svg class="ic"><use href="#i-flip"></use></svg></em>Flip</span>
+                  <span><em><svg class="ic"><use href="#i-crop"></use></svg></em>Crop</span>
+                  <span><em><svg class="ic"><use href="#i-cut"></use></svg></em>Split</span>
+                  <span><em><svg class="ic"><use href="#i-trash"></use></svg></em>Delete</span>
+                  <span><em><svg class="ic"><use href="#i-dupe"></use></svg></em>Dupe</span>
+                  <span><em><svg class="ic"><use href="#i-move"></use></svg></em>Move</span>
+                  <span><em><svg class="ic"><use href="#i-loop"></use></svg></em>Loop</span>
+                  <span><em><svg class="ic"><use href="#i-fx"></use></svg></em>Filter</span>
+                  <span><em><svg class="ic"><use href="#i-sel"></use></svg></em>Align</span>
+                  <span><em><svg class="ic"><use href="#i-bend"></use></svg></em>Bend</span>
+                  <span><em><svg class="ic"><use href="#i-mask"></use></svg></em>Adjust</span>
+                </div>
+              </div>
+              <div>
+                <div class="tg"><i style="background:var(--o-text)"></i>Add something · 7</div>
+                <div class="tgrid">
+                  <span><em><svg class="ic"><use href="#i-plus"></use></svg></em>Add</span>
+                  <span><em><svg class="ic"><use href="#i-img"></use></svg></em>Image</span>
+                  <span><em><svg class="ic"><use href="#i-text"></use></svg></em>Text</span>
+                  <span><em><svg class="ic"><use href="#i-sprite"></use></svg></em>Sprite</span>
+                  <span><em><svg class="ic"><use href="#i-cc"></use></svg></em>Caption</span>
+                  <span><em><svg class="ic"><use href="#i-wave"></use></svg></em>Visual</span>
+                  <span><em><svg class="ic"><use href="#i-trans"></use></svg></em>Transit</span>
+                </div>
+              </div>
+              <div>
+                <div class="tg"><i style="background:var(--o-audio)"></i>Sound &amp; words · 5</div>
+                <div class="tgrid">
+                  <span><em><svg class="ic"><use href="#i-vol"></use></svg></em>Audio</span>
+                  <span><em><svg class="ic"><use href="#i-cc"></use></svg></em>Transcr</span>
+                  <span><em><svg class="ic"><use href="#i-snap"></use></svg></em>Silence</span>
+                  <span><em><svg class="ic"><use href="#i-fx"></use></svg></em>Fix</span>
+                  <span><em><svg class="ic"><use href="#i-wave"></use></svg></em>Beats</span>
+                </div>
+              </div>
+              <div>
+                <div class="tg"><i style="background:var(--dimmer)"></i>The project &amp; the workspace · 3</div>
+                <div class="tgrid">
+                  <span><em><svg class="ic"><use href="#i-canvas"></use></svg></em>Canvas</span>
+                  <span><em><svg class="ic"><use href="#i-sel"></use></svg></em>Select</span>
+                  <span><em><svg class="ic"><use href="#i-dupe"></use></svg></em>Consol.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="phcap"><b>D · All thirty</b>The escape hatch, on the same dark scrim. <em>Most-used is learned, not curated.</em> Reorder is armed explicitly so a vertical drag still scrubs a value when it isn't.</p>
+    </div>
+
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ===== 03 DETAIL ===== -->
+<section>
+  <div class="h2"><span>03</span><h2>The transport row, at 2×</h2></div>
+  <p class="dek">The row that failed its own arithmetic. Six targets, two labels, measured.</p>
+
+  <div class="zoom">
+    <div class="zrow">
+      <span class="t">00:12</span>
+      <i class="armed"><svg class="ic"><use href="#i-sel"></use></svg></i>
+      <i class="armed"><svg class="ic"><use href="#i-snap"></use></svg></i>
+      <span class="sp"></span>
+      <i class="avail"><svg class="ic"><use href="#i-undo"></use></svg><sup>5</sup></i>
+      <i class="play"><svg class="ic"><use href="#i-pause"></use></svg></i>
+      <i><svg class="ic"><use href="#i-redo"></use></svg></i>
+      <span class="sp"></span>
+      <i class="avail"><svg class="ic"><use href="#i-mic"></use></svg></i>
+      <span class="t">00:47</span>
+    </div>
+    <div class="zmark">
+      <span style="width:12.6%">46dp</span><span style="width:12%">44</span><span style="width:12%">44</span>
+      <span style="width:12%">44</span><span style="width:14.2%">52</span><span style="width:12%">44</span>
+      <span style="width:12%">44</span><span style="width:12.6%">46dp</span>
+    </div>
+    <p style="font-size:12.8px;color:var(--dim);margin-top:16px;line-height:1.6">
+      <b style="color:var(--ink)">White</b> is available and about to be pressed — play always, undo when there is something to undo, voiceover when a clip sits under the head. Never more than three at once.
+      <b style="color:var(--sel)">Cyan</b> is armed: the mode you are in, snapping on. Same cyan that means "selected" everywhere.
+      <b style="color:var(--off)">Off-grey <code style="font-family:var(--f-mono);font-size:11px">#33333C</code></b> is present but not now — redo with nothing to redo. It stays put so your thumb never relearns the row, and stops competing.
+    </p>
+    <p style="font-size:12.8px;color:var(--dim);margin-top:11px;line-height:1.6">
+      <em style="font-style:normal;color:var(--ink)">Mode cycles</em> Select → Ripple on tap; they were always exclusive, so they were always one control wearing two buttons. <em style="font-style:normal;color:var(--ink)">Relink is gone from this row</em> — it appears as an amber ring on the clip that is actually broken, which is where you were already looking.
+    </p>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ===== 04 THE SPEC ===== -->
+<section>
+  <div class="h2"><span>04</span><h2>The spec</h2></div>
+  <p class="dek">Everything an implementer needs. <b>No value on this page was chosen by eye.</b></p>
+
+  <div class="mtw"><table class="m">
+    <tr><th>Token</th><th>Value</th><th>Notes</th></tr>
+
+    <tr class="grp"><td colspan="3">Ground and lanes</td></tr>
+    <tr><td>Ground · lane A</td><td><code>#000000</code></td><td>Lane A draws nothing — the ground shows through. One fill fewer per row.</td></tr>
+    <tr><td>Lane B</td><td><code>#0B0B0E</code></td><td><b>4.3%</b> composited lightness, inside <code>LayerRowRenderer</code>'s existing 3–5% window. Parity from visible row order at draw time; unchanged.</td></tr>
+    <tr><td>Outside the project</td><td>no band</td><td>Before 00:00 and after the end, the stripe stops. The band is what says where the project is.</td></tr>
+    <tr><td>Panel · Control · Pressed · Line</td><td><code>#111114 · #1C1C22 · #26262E · #2C2C35</code></td><td>Sprite Lab's ramp, untouched. Only the ground moved.</td></tr>
+
+    <tr class="grp"><td colspan="3">The drawer — over live content</td></tr>
+    <tr><td>Scrim</td><td><code>rgba(0,0,0,.64)</code> + <code>blur(20px)</code></td><td><span class="ok">6.63:1</span> body ink over a blown-out frame. <span class="no">1.09:1</span> with the white tint it replaces.</td></tr>
+    <tr><td>Top edge</td><td><code>rgba(255,255,255,.10)</code> inset, 1dp</td><td>The only border on the surface. Shadows do the rest.</td></tr>
+    <tr><td>Control fill</td><td><code>rgba(255,255,255,.10)</code></td><td>Ring at <code>rgba(255,255,255,.12)</code>.</td></tr>
+    <tr><td><b>Control ON</b></td><td><b>object colour at <code>.70</code></b></td><td><span class="ok">7.51:1</span> black ink over bright, <span class="ok">5.79:1</span> over dark. See-through delta <b>54</b> — content visibly moves behind it. This is the answer to "even the coloured things".</td></tr>
+    <tr><td>Ink · Dim · Label</td><td><code>#F2F2F5 · #C9C9D3 · #C4C4CE</code></td><td>Label raised from <code>#A6A6B2</code>, which measured 3.49:1.</td></tr>
+    <tr><td>Heights</td><td><code>12 + 38 + 32 + 46 = 128dp</code></td><td>Grab, header, tabs, one working row. <b>The drag cannot go below it.</b></td></tr>
+    <tr><td>Never</td><td>opaque</td><td>Neither FROST nor CLEAR has a solid option. One preference governs the drawer and the transcript together.</td></tr>
+
+    <tr class="grp"><td colspan="3">Targets — nothing below 28dp, almost everything 40 or 44</td></tr>
+    <tr><td>Transport</td><td><code>44dp</code>, play <code>52dp</code></td><td>Six targets + two 46dp labels = <b>364dp</b> of 370. At ≤360dp the mic moves to the tool row.</td></tr>
+    <tr><td>Tool cell</td><td><code>56 × 46dp</code></td><td>Label capped at 52dp, ellipsis, never two lines. ~6.6 visible at 390dp.</td></tr>
+    <tr><td>Drawer row</td><td><code>46dp</code></td><td>Controls look 26dp; the row is the target.</td></tr>
+    <tr><td>Checkbox</td><td>18dp box / <code>44dp</code> row</td><td>Keyframe diamond 13dp / 28dp, the smallest thing in the app.</td></tr>
+    <tr><td>Drawer tab</td><td><code>32 × 24dp</code>, 40dp target</td><td>Icon only; label on the active tab alone. <b>Tabs scroll, never wrap.</b></td></tr>
+
+    <tr class="grp"><td colspan="3">Colour, and what it is allowed to mean</td></tr>
+    <tr><td>Object colour</td><td>always a <b>FILL</b></td><td>Checked, on, active, the clip body, the tool glyph. Tells you <em>what</em> you are editing.</td></tr>
+    <tr><td>State colour</td><td>always a <b>RING</b></td><td>Cyan selected, pink live, amber careful. Settles the amber/sprite collision by form, not hue.</td></tr>
+    <tr><td>Red</td><td>fills — the one exception</td><td>Destroying something should look like nothing else on screen.</td></tr>
+    <tr><td>Clip type glyph</td><td>12dp at the left cap</td><td>The non-colour tell. Required — two object colours collapse under deuteranopia.</td></tr>
+    <tr><td>Selected clip</td><td>1.5dp cyan + 3dp cyan at 28%</td><td>A ring and a halo, so it reads on any clip colour.</td></tr>
+
+    <tr class="grp"><td colspan="3">Motion — from design record 04 §04</td></tr>
+    <tr><td>Any press</td><td><code>140ms</code> ease-out, <code>scale(.97)</code></td><td>Every tappable thing.</td></tr>
+    <tr><td>Tool row swap</td><td><code>170ms</code> cross-fade</td><td>No movement. Sliding implies the tools went somewhere.</td></tr>
+    <tr><td>Drawer</td><td><code>320ms</code> drawer curve</td><td><code>cubic-bezier(.32,.72,0,1)</code>. The only thing allowed past 300ms.</td></tr>
+    <tr><td>Focus ring</td><td><b>0ms</b>, 2dp cyan</td><td>A focus ring that animates reads as lag.</td></tr>
+    <tr><td>Playhead, undo, split, keying a cell</td><td><b>0ms</b></td><td>Hundred-times-a-day controls. <b>No animation, ever</b>, in either motion mode.</td></tr>
+    <tr><td>Reduced motion</td><td>opacity and colour survive</td><td>Travel and scale are dropped. Fewer and gentler, not zero.</td></tr>
+  </table></div>
+</section>
+
+<hr class="rule">
+
+<!-- ===== 05 MANIFEST ===== -->
+<section>
+  <div class="h2"><span>05</span><h2>Manifest</h2></div>
+  <p class="dek">All 30 tools, 15 drawers, 11 panels. <b>Zero removed.</b> Three deliberate moves, each with a reason.</p>
+
+  <div class="mtw"><table class="m">
+    <tr><th>Thing</th><th>Where</th><th>Change</th></tr>
+    <tr><td>Tools 1–15 (act on selection)</td><td>Contextual row, filtered by what is selected</td><td>Glyphs take the object colour</td></tr>
+    <tr><td>Tools 16–22 (add)</td><td>The default row when nothing is selected</td><td>—</td></tr>
+    <tr><td>Tools 23–27 (sound &amp; words)</td><td>Contextual row on audio and video clips</td><td>Fix audio also offers itself once, the first time audio lands</td></tr>
+    <tr><td>Select</td><td><b>Transport row</b>, cycling with Ripple</td><td><b>Moved.</b> They were always exclusive.</td></tr>
+    <tr><td>Canvas</td><td><b>End of the nothing-selected row</b></td><td><b>Moved.</b> It edits the project, not a clip.</td></tr>
+    <tr><td>Consolidate layers</td><td>All-tools sheet</td><td>Name kept — "flatten" implies baking pixels</td></tr>
+    <tr><td>Settings</td><td>Last in every row</td><td>Opening it sorts the selected object's settings to the top</td></tr>
+    <tr><td>Relink</td><td><b>The broken clip itself</b></td><td><b>Moved.</b> Amber ring plus a chip in the drawer. Freed a transport slot.</td></tr>
+    <tr><td>All 15 drawers</td><td>Unchanged contents, shared header</td><td>Colour dot, name, blend pill, FROST/CLEAR, close</td></tr>
+    <tr><td>Blend</td><td>Header pill</td><td>Was a full-width row that was empty most of the time. 0dp now.</td></tr>
+    <tr><td>Masks</td><td>Own tab</td><td>All of the drawer when wanted, none when not</td></tr>
+    <tr><td>Keys</td><td>On the property rows</td><td>The diamond sits where the value is</td></tr>
+    <tr><td>Move — lane up/down</td><td>Bottom of the default tab, below the fold</td><td>Rare, and janky until the overlap bug is fixed</td></tr>
+    <tr><td>Transcript</td><td>Right edge tab, resizable</td><td>Toggleable. CLEAR by default. Never opaque.</td></tr>
+    <tr><td>Transition panel · crop bar · export · remux · volume HUD · caption bar · asset browser · transform · loupe · safe zone · relink catalog</td><td>Unchanged</td><td>Handles take cyan; everything else as today</td></tr>
+  </table></div>
+
+  <div class="mtw" style="margin-top:20px"><table class="m">
+    <tr><th>Still needs a phone, not more design</th><th></th></tr>
+    <tr><td>Align · Filter · Adjust — which row each belongs in</td><td>Placed by reading code, never used</td></tr>
+    <tr><td>Pivot and Align nine-grids — are they the same control?</td><td>Should be identical and told apart by label, if so</td></tr>
+    <tr><td>Rotation dial — 360° or ±180 with a zero detent</td><td>Changes the tick and the arc</td></tr>
+    <tr><td>Caption gold beside sprite amber on a real timeline</td><td>If they blur, caption shifts toward yellow-green</td></tr>
+    <tr><td>Object colours at full saturation on the Note 20's AMOLED</td><td>Desaturating 10–20% is the dark-mode norm; ObjectPalette ships as-is</td></tr>
+  </table></div>
+</section>
+
+<footer>
+  <p>Contrast figures computed to WCAG 2.1 against <code>#FFD07A</code>, a blown-out outdoor frame. Lane banding keeps <b>LayerRowRenderer</b>'s existing delta and draw-time parity. Object colours are <b>ObjectPalette</b>'s. Tool inventory from <b>FaditorToolRegistry</b> at HEAD on <code>joy-creator</code> — 30 entries, none hidden, none removed.</p>
+  <p style="margin-top:9px">Motion spec: design record 04 §04. Component kit: record 05. This supersedes record 03.</p>
+</footer>
+
+</main>
+
+</body></html>

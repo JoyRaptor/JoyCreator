@@ -47,6 +47,10 @@ public final class JoybotBench {
             System.out.println("fixtures written to " + new File(HOME, "fixtures"));
             System.exit(0);
         }
+        if (a.containsKey("phone")) {
+            Phone.run(a);
+            System.exit(0);
+        }
         parent(a);
         System.exit(0);
     }

@@ -1165,3 +1165,28 @@ as `TIME * knob` are "rate" and the host integrates them.
 ## 2026-10-27: a GLSL keyword broke every media brush on the Note 9
 - A local named `flat` in jb_paste.glsl is an interpolation keyword; the JVM tests cannot compile shaders, so the build was green and the phone refused all pencil, watercolour and oil.
 - Rule: after any shader edit, run a media device probe (mediaUndoProbe) before telling anyone it is on the phone, and grep the log for "compile failed". Avoid GLSL reserved words (flat, smooth, sample, patch, input, output, filter, common, active) as names.
+
+## 2026-10-27 — Project lead: staleness, session tails and a key in tasks/
+- **Never list an item as open from an old list without checking it.** A loose-ends report repeated "Viz Lab room has
+  no screen: remove it or build one" from a 10-15 `todo.md` while the same report said VisLab R1-R7 were built; the room
+  had been built and wired into the lobby days before. Rule: every open item cites its source and that source's date,
+  and gets a `git log` / `git grep` check against current code before it is reported. Unchecked items are labelled
+  "unverified", never "open".
+- **A session's last messages are mostly the owner's feedback, not its state.** To learn where a session stands, read
+  its handoff, its roadmap rows and the git log of its branch; use the transcript tail only to find those.
+- **Never `git add` the whole of `tasks/`.** `tasks/api.txt` (untracked) holds a real API key; a rescue commit that swept
+  `tasks/` was refused by GitHub push protection. Add explicit paths, and scan staged text for `sk-` style keys first.
+- **The main folder is not a safe place for finished work.** A whole Codex feature (timeline marks) and the binding UI
+  design records sat uncommitted there for days. When you stop, commit and push, even to a WIP branch.
+- **Search every branch for an item before building it.** On 10-27 VisLab R8 was built twice, in two worktrees, by two sessions, because each looked only at its own folder and the roadmap row. Before starting a roadmap or job item: `git branch -a --list`, `git log --all --oneline --grep=<item>`, and read the BOARD claims. If the item exists on any branch, extend that one.
+
+## 2026-10-28 — Project lead: check owner rulings before recommending a cut
+- I put "cut Forensics and Annotation from the launch build" to the owner (S20) from an audit's recommendation. He had already ruled
+  (HANDOFF_STUDIO_UI_20261017 "OWNER DECISIONS"; DESIGN_JOY_CREATOR.md §7) that Remote and Smart Detection are launch
+  features and forensics is to be rebranded and folded in. **Rule:** before any owner item that removes a feature, grep the
+  OWNER DECISIONS sections, DESIGN_JOY_CREATOR.md, INBOX.md and STATE for that feature's name, and quote what was ruled.
+
+## October29 — canonical folder rename
+- Use C:/+Projects/JoyCreator, not the retired Screenrecorder/FadCam path. Read its current AGENTS, ROADMAP, BOARD and AGENT_START before relying on an old worktree handoff.
+- Check the new canonical private devices.local.sh before asking the owner to recreate a missing device mapping. Serial identities remain untracked; never choose adb's first phone.
+- Watcher and local.properties operational helpers must follow the renamed root. Existing repaired isolated worktrees can remain; never reset the primary's unsaved files.

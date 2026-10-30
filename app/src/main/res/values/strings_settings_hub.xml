@@ -136,9 +136,6 @@
     <string name="settingshub_remote_names">remote, stream, streaming, server, lan, wifi, browser, hls, cloud, live</string>
 
     <!-- About and help -->
-    <string name="settingshub_readme">Read me</string>
-    <string name="settingshub_readme_desc">A note from the developer, with links and updates</string>
-    <string name="settingshub_readme_names">readme, note from developer, help, links, guide</string>
     <string name="settingshub_whats_new">What\'s new</string>
     <string name="settingshub_whats_new_desc">What changed in this version</string>
     <string name="settingshub_whats_new_names">changelog, release notes, updates, news, version</string>

@@ -356,7 +356,16 @@ public final class JoybotAgent {
                 run.go();
             } catch (Throwable t) {
                 FLog.e(TAG, "request failed", t);
-                if (run.stalled) {
+                String problem = ask.cancelled.get() ? null : NetCheck.words(NetCheck.of(app));
+                if (problem != null && (run.stalled || t instanceof IOException)) {
+                    // ...and end on what still works, never on the bad news (owner, 10-28).
+                    String offline = TipBook.offlineHope(problem, TipUsage.next(app));
+                    // "The AI service went quiet" blamed the service for the phone's own suspended
+                    // line (Note 9, 10-28): say what is really wrong.
+                    f.reply = offline;
+                    f.ok = false;
+                    post(ask.key(), l -> l.onText(offline, false));
+                } else if (run.stalled) {
                     // The watchdog cut a reply that had gone silent: not the person's network.
                     f.reply = "The AI service went quiet for over a minute, so I stopped waiting."
                             + " Try again, or pick another model (tap its name at the top).";
@@ -406,10 +415,128 @@ public final class JoybotAgent {
 
     // ── one request ─────────────────────────────────────────────────────────
 
+    /**
+     * Joybot's tools for an AI on the person's own computer (BOT-6: Claude Code, Codex, any MCP
+     * client, through {@code ai/bridge}). Every call goes through the same host as Joybot's own
+     * requests: one undo per burst of calls (a pause of {@link #BURST_MS} starts a new one), locked
+     * things stay locked and deletes ask on the phone, because nothing the computer sends counts as
+     * the person's own words ({@code PersonSaid}). Calls run one at a time on Joybot's worker.
+     */
+    public static final class Bridged {
+        /** Calls closer together than this are one request: one undo step. */
+        public static final long BURST_MS = 30_000;
+        /** The tool that tells the computer where the person is. */
+        public static final String WHERE = "where_am_i";
+
+        /** One call's answer. */
+        public static final class Answer {
+            @NonNull public final String text;
+            /** A picture from {@code look}, as base64 (no data: prefix), or null. */
+            @Nullable public final String imageBase64;
+            @Nullable public final String imageMime;
+            public final boolean failed;
+
+            Answer(@NonNull String text, @Nullable String imageBase64, @Nullable String imageMime, boolean failed) {
+                this.text = text;
+                this.imageBase64 = imageBase64;
+                this.imageMime = imageMime;
+                this.failed = failed;
+            }
+        }
+
+        private final Context app;
+        @Nullable private final String projectId;
+        @NonNull private final IdeaEngine.Room room;
+        @NonNull private final String who;
+        @Nullable private Run run;
+        private long lastCall;
+
+        public Bridged(@NonNull Context context, @Nullable String projectId, @NonNull IdeaEngine.Room room,
+                       @NonNull String who) {
+            this.app = context.getApplicationContext();
+            this.projectId = projectId;
+            this.room = room;
+            this.who = who;
+        }
+
+        /** Joybot's tools as OpenAI-style definitions, minus his own plumbing, plus {@link #WHERE}. */
+        @NonNull
+        public static JSONArray tools() throws Exception {
+            JSONArray out = new JSONArray();
+            out.put(new JSONObject().put("type", "function").put("function", new JSONObject()
+                    .put("name", WHERE)
+                    .put("description", "Where the person is in Joy Creator right now: the open project (clips,"
+                            + " titles, pictures, layers with their ids), or the VisLab look or JoyBrush drawing on"
+                            + " screen. Call it first, and again after big changes.")
+                    .put("parameters", new JSONObject().put("type", "object").put("properties", new JSONObject()))));
+            JSONArray all = nativeTools();
+            for (int i = 0; i < all.length(); i++) {
+                JSONObject fn = all.getJSONObject(i).optJSONObject("function");
+                if (fn != null && AgentTools.PROPOSE_PLAN.equals(fn.optString("name"))) continue;
+                out.put(all.getJSONObject(i));
+            }
+            return out;
+        }
+
+        /** Run one tool for the computer. Blocks until Joybot's worker has run it (up to 10 minutes). */
+        @NonNull
+        public Answer call(@NonNull String name, @NonNull JSONObject args) throws Exception {
+            final Answer[] got = new Answer[1];
+            final Exception[] boom = new Exception[1];
+            java.util.concurrent.CountDownLatch done = new java.util.concurrent.CountDownLatch(1);
+            JoybotJobs.execute(() -> {
+                try {
+                    got[0] = callHere(name, args);
+                } catch (Exception e) {
+                    boom[0] = e;
+                } finally {
+                    done.countDown();
+                }
+            });
+            if (!done.await(10, java.util.concurrent.TimeUnit.MINUTES)) {
+                return new Answer("Error: Joybot is still busy with that on the phone; ask again in a moment.", null, null, true);
+            }
+            if (boom[0] != null) throw boom[0];
+            return got[0];
+        }
+
+        @NonNull
+        private synchronized Answer callHere(@NonNull String name, @NonNull JSONObject args) throws Exception {
+            long now = android.os.SystemClock.uptimeMillis();
+            if (run == null || now - lastCall > BURST_MS) {
+                Situation s = new Situation();
+                s.room = room;
+                Ask ask = new Ask(projectId, who, "bridge", "", who, s);
+                run = new Run(app, ask, new Finished(projectId, who));
+                run.bridged = true;
+            }
+            lastCall = now;
+            // Nothing the computer sends is the person's own yes: a lock or a delete waits for the phone.
+            AIChatState.liveAsk = "";
+            AIChatState.liveReplyBefore = "";
+            if (WHERE.equals(name)) return new Answer(run.context(), null, null, false);
+            String line = run.runTool(new JSONObject().put("tool", name).put("args", args));
+            if (line == null) return new Answer("Error: that call could not be read, so nothing ran.", null, null, true);
+            String text = run.lastResult;
+            JoybotEyes.Sight sight = run.sight;
+            run.sight = null;
+            String data = null, mime = null;
+            if (sight != null) {
+                int comma = sight.dataUrl.indexOf(',');
+                String head = comma > 0 ? sight.dataUrl.substring(0, comma) : "";
+                data = comma > 0 ? sight.dataUrl.substring(comma + 1) : null;
+                mime = head.startsWith("data:") ? head.substring(5).replace(";base64", "") : "image/jpeg";
+            }
+            return new Answer(text, data, mime, DirectRunner.isFailure(text));
+        }
+    }
+
     private static final class Run {
         final Context app;
         final Ask ask;
         final Finished out;
+        /** A call from the person's computer (Bridged): no Joybot notification of its own. */
+        boolean bridged;
         /** Writes made while the editor is on screen merge into one step by this token. */
         final String token = UUID.randomUUID().toString();
         boolean stepPushed, nudged, toolRan;
@@ -474,6 +601,10 @@ public final class JoybotAgent {
         final java.util.Set<String> families = new java.util.LinkedHashSet<>();
 
         void go() throws Exception {
+            if (NetCheck.State.NONE == NetCheck.of(app)) {   // no Wi-Fi, no mobile data: no point waiting for a timeout (BOT-1, 10-28)
+                finish(false, TipBook.offlineHope(NetCheck.words(NetCheck.State.NONE), TipUsage.next(app)));
+                return;
+            }
             families.addAll(ToolRouter.pick(ask.text, ask.situation.room == IdeaEngine.Room.VISLAB,
                     ask.situation.room == IdeaEngine.Room.JOYBRUSH));
             AIChatState.liveAsk = ask.text;
@@ -654,8 +785,10 @@ public final class JoybotAgent {
                         || ask.situation.room == IdeaEngine.Room.JOYBRUSH;
                 // A refusal ("it's locked", "ask first") is an honest answer, not a model dodging the
                 // work: don't push it to "make the change now" (it unlocked a title to obey, 10-23).
+                // "I can't do that" is an answer too: pass it on, don't push for a change that no
+                // tool can make ("draw a moustache on the person", bench 10-24).
                 if (!nudged && !changedSomething() && lastError == null && hasWork && !ask.question
-                        && !aiText.trim().endsWith("?") && unfinished) {
+                        && !aiText.trim().endsWith("?") && unfinished && !HelpBook.saysItCant(aiText)) {
                     // Nothing in the project changed, yet the reply claims it did (a free model,
                     // Note 9 2026-10-14) or the person asked for a change and got a description
                     // instead (a model LOOKED at a sprite sheet, listed sixteen names and stopped,
@@ -668,10 +801,12 @@ public final class JoybotAgent {
                                     + ask.text + "\". Make it now: call the tool that does it"
                                     + " (for names on a sprite sheet: label_sprite_cells). If you can't call"
                                     + " tools directly, reply with ONLY the tool JSON"
-                                    + " {\"tool\":...,\"args\":{...}}, no other words."));
+                                    + " {\"tool\":...,\"args\":{...}}, no other words. If no tool can do it,"
+                                    + " say so plainly in one sentence instead, and that nothing changed."));
                     continue;
                 }
-                if (lastError != null && !changedSomething() && claimsAChange(aiText)) {
+                if (lastError != null && !changedSomething() && claimsAChange(aiText)
+                        && !HelpBook.saysItCant(aiText)) {
                     // Every attempt failed and nothing was written, yet the reply says "Done!"
                     // (a free model, three failed label_sprite_cells, Note 9 2026-10-15). Say what
                     // really happened instead. Not only after a tool ran: unreadable arguments run
@@ -680,10 +815,17 @@ public final class JoybotAgent {
                             + shortOf(lastError.replaceFirst("^Error:\\s*", "")));
                     return;
                 }
-                finish(true, nudged && !changedSomething() && unfinished
-                        ? "This model keeps describing the change instead of making it, so nothing"
-                          + " changed. Try again, or pick another model (tap its name at the top)."
-                        : replyToShow(aiText));
+                // After the nudge: an honest "can't" is shown as it is; a reply that still claims a
+                // change that didn't happen is replaced; anything else is shown with a plain note,
+                // never blaming the model for a request no model could do (bench 10-24).
+                String reply = replyToShow(aiText);
+                if (nudged && !changedSomething() && unfinished && !HelpBook.saysItCant(aiText)) {
+                    reply = claimsAChange(aiText)
+                            ? "That didn't happen: nothing changed. Try asking another way, or pick another"
+                              + " model (tap its name at the top)."
+                            : reply + "\n\n(Nothing was changed.)";
+                }
+                finish(true, reply);
                 return;
             }
         }
@@ -735,7 +877,7 @@ public final class JoybotAgent {
                         "Generate Whisper transcript", "Detect silence", "Synthesize transcripts",
                         "Cut fillers"}));
             }
-            AIJobService.update(app, "Joybot: " + task, 0);
+            if (!bridged) AIJobService.update(app, "Joybot: " + task, 0);
             // While the editor is on screen it records the change itself, one step per request.
             AIChatState.liveWriteLabel = ask.undoLabel;
             AIChatState.liveWriteRequest = token;
@@ -752,7 +894,7 @@ public final class JoybotAgent {
             String result;
             try {
                 result = new AIToolExecutor(app, pid, (t, pct) -> {
-                    AIJobService.update(app, "Joybot: " + t, pct);
+                    if (!bridged) AIJobService.update(app, "Joybot: " + t, pct);
                     post(ask.key(), l -> l.onWorking(t, pct));
                 }).executeTool(name, args);
             } catch (Throwable t) {
@@ -857,7 +999,8 @@ public final class JoybotAgent {
             String result;
             // On OpenRouter a text-only model borrows the free router's eyes for the step that
             // carries the picture (go(), gap F9), so only refuse where that can't happen (audit 10-18).
-            if (!AiService.isCustom(app) && !AiService.chatUrl(app).contains("openrouter.ai")
+            // The computer's AI (bridged) brings its own eyes: never judge it by the phone's model.
+            if (!bridged && !AiService.isCustom(app) && !AiService.chatUrl(app).contains("openrouter.ai")
                     && ModelCapabilities.visionFor(ask.model) == ModelCapabilities.Vision.NO) {
                 result = "Error: the model in use can't see pictures. Tell the person to pick one with"
                         + " the eye (tap the model name at the top), then ask again.";
@@ -1858,7 +2001,7 @@ public final class JoybotAgent {
         if (e instanceof java.net.SocketTimeoutException) {
             return "The AI service took too long to answer. Try again in a moment.";
         }
-        return "Network problem: " + m;
+        return "I couldn't reach the AI service just now. Try again in a moment.";
     }
 
     /** The person's words, short, for a notification or a "you asked…" line. */

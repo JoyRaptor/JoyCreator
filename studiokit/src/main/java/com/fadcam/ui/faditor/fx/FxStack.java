@@ -105,6 +105,7 @@ public final class FxStack {
         c.enabled = src.enabled;
         c.opacity = src.opacity;
         c.blendMode = src.blendMode;
+        c.music.putAll(src.music);
         // Keyframes are NOT copied: they are named off the source's slot, and a copy that
         // shared them would move whenever the original was keyed.
         cards.add(index + 1, c);
@@ -114,6 +115,42 @@ public final class FxStack {
     // ── Animation ───────────────────────────────────────────────────────────
 
     public boolean isAnimated() { return keys != null && keys.isAnimated(); }
+
+    /** True when an enabled card has a parameter that follows the music (R14). */
+    public boolean hearsMusic() {
+        for (FxInstance c : cards) if (c.enabled && !c.music.isEmpty()) return true;
+        return false;
+    }
+
+    /**
+     * As {@link #resolveAt(long)}, then every music-linked parameter pushed by what {@code ears}
+     * hear at this moment (R14). Null ears, or no links: exactly {@link #resolveAt(long)}.
+     */
+    @NonNull
+    public FxStack resolveAt(long timelineMs, @androidx.annotation.Nullable FxMusic.Ears ears) {
+        FxStack base = resolveAt(timelineMs);
+        if (ears == null || !hearsMusic()) return base;
+        FxStack out = base == this ? copyValues() : base;
+        for (FxInstance c : out.cards) {
+            FxEffectDef def = c.def();
+            if (def == null || !c.enabled || c.music.isEmpty()) continue;
+            for (java.util.Map.Entry<String, FxMusic.Link> e : c.music.entrySet()) {
+                FxParam p = def.param(e.getKey());
+                if (p == null || p.kind.components != 1) continue;
+                c.set(p, FxMusic.push(p, c.getScalar(p), e.getValue(), ears));
+            }
+        }
+        return out;
+    }
+
+    /** A resolved-value copy (cards only, no keys): what resolveAt returns for a keyed stack. */
+    @NonNull
+    private FxStack copyValues() {
+        FxStack out = new FxStack();
+        out.nextSlot = nextSlot;
+        for (FxInstance c : cards) out.cards.add(c.copy());
+        return out;
+    }
 
     /**
      * The stack to render at {@code timelineMs} — ABSOLUTE timeline ms, the base

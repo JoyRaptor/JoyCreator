@@ -35,15 +35,11 @@ import com.fadcam.Constants;
 import com.fadcam.MainActivity;
 import com.fadcam.R;
 import com.fadcam.SharedPreferencesManager;
-import com.fadcam.streaming.CloudAuthManager;
-import com.fadcam.streaming.CloudStatusManager;
-import com.fadcam.streaming.CloudStreamUploader;
 import com.fadcam.streaming.RemoteAuthManager;
 import com.fadcam.streaming.RemoteStreamManager;
 import com.fadcam.streaming.RemoteStreamService;
 import com.fadcam.streaming.model.StreamQuality;
 import com.fadcam.streaming.util.NetworkMonitor;
-import com.fadcam.security.StreamKeyManager;
 import com.fadcam.ui.bottomsheet.BatteryInfoBottomSheet;
 import com.fadcam.ui.bottomsheet.QualityPresetBottomSheet;
 import com.fadcam.ui.bottomsheet.UptimeInfoBottomSheet;
@@ -98,23 +94,6 @@ public class RemoteFragment extends BaseFragment {
     private TextView remoteSecurityHeading;
     private LinearLayout remoteSecurityContainer;
     
-    // Cloud Account UI
-    private View cloudAccountButton;
-    private ImageView cloudIcon;
-    private TextView cloudStatusText;
-    private View cloudUnlinkedDot;
-    private CloudAuthManager cloudAuthManager;
-    private ActivityResultLauncher<Intent> cloudAccountLauncher;
-    
-    // Cloud Streaming UI
-    private LinearLayout cloudStreamingRow;
-    private JoybotSwitch cloudStreamingToggle;
-    private TextView cloudStreamingStatus;
-
-    // E2E Stream Encryption UI
-    private LinearLayout e2eEncryptionRow;
-    private TextView e2eEncryptionStatus;
-    
     // Usage Reporting Status Card
     private LinearLayout usageReportingWarningCard;
     private TextView usageWarningTitle;
@@ -124,10 +103,6 @@ public class RemoteFragment extends BaseFragment {
     private TextView usageTestLink;
     private ImageView usageWarningIcon;
     private String lastUsageReportingError = null;
-    
-    // Streaming Mode Selector UI
-    private LinearLayout streamingModeRow;
-    private TextView streamingModeValue;
     
     // WiFi Signal bars
     private View wifiBar1, wifiBar2, wifiBar3, wifiBar4;
@@ -171,25 +146,6 @@ public class RemoteFragment extends BaseFragment {
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
-        // Initialize CloudAuthManager
-        cloudAuthManager = CloudAuthManager.getInstance(requireContext());
-        
-        // Register activity result launcher for cloud account linking
-        cloudAccountLauncher = registerForActivityResult(
-            new ActivityResultContracts.StartActivityForResult(),
-            result -> {
-                if (result.getResultCode() == android.app.Activity.RESULT_OK) {
-                    Intent data = result.getData();
-                    if (data != null && data.getBooleanExtra("linked", false)) {
-                        String email = data.getStringExtra("email");
-                        FLog.i(TAG, "Device linked to: " + email);
-                        Toast.makeText(requireContext(), R.string.cloud_account_link_success, Toast.LENGTH_SHORT).show();
-                        updateCloudButtonState();
-                        // E2E encryption is auto-configured during device linking
-                    }
-                }
-            }
-        );
     }
     
     @Nullable
@@ -265,28 +221,6 @@ public class RemoteFragment extends BaseFragment {
         remoteSecurityHeading = view.findViewById(R.id.remote_security_heading);
         remoteSecurityContainer = view.findViewById(R.id.remote_security_container);
         
-        // Initialize Cloud Account button
-        cloudAccountButton = view.findViewById(R.id.cloud_account_button);
-        cloudIcon = view.findViewById(R.id.cloud_icon);
-        cloudStatusText = view.findViewById(R.id.cloud_label_status);
-        cloudUnlinkedDot = view.findViewById(R.id.cloud_unlinked_dot);
-        if (cloudAccountButton != null) {
-            cloudAccountButton.setOnClickListener(v -> onCloudAccountClick());
-            updateCloudButtonState();
-        }
-        
-        // Initialize Cloud Streaming toggle (legacy, kept for compatibility)
-        cloudStreamingRow = view.findViewById(R.id.cloud_streaming_row);
-        cloudStreamingToggle = view.findViewById(R.id.cloud_streaming_toggle);
-        cloudStreamingStatus = view.findViewById(R.id.cloud_streaming_status);
-
-        // Initialize E2E Encryption row
-        e2eEncryptionRow = view.findViewById(R.id.e2e_encryption_row);
-        if (e2eEncryptionRow != null) {
-            // E2E is now auto-configured during device linking — hide the row
-            e2eEncryptionRow.setVisibility(View.GONE);
-        }
-        
         // Initialize Usage Reporting Warning Card
         usageReportingWarningCard = view.findViewById(R.id.usage_reporting_warning_card);
         usageWarningTitle = view.findViewById(R.id.usage_warning_title);
@@ -306,13 +240,6 @@ public class RemoteFragment extends BaseFragment {
                 Toast.makeText(requireContext(), R.string.remote_usage_retry_toast, Toast.LENGTH_SHORT).show();
             });
         }
-        
-        // Initialize Streaming Mode Selector
-        streamingModeRow = view.findViewById(R.id.streaming_mode_row);
-        streamingModeValue = view.findViewById(R.id.streaming_mode_value);
-        
-        setupStreamingModeSelector();
-        setupCloudStreaming();
         
         // Set context for status reporting
         RemoteStreamManager.getInstance().setContext(requireContext());
@@ -401,11 +328,6 @@ public class RemoteFragment extends BaseFragment {
             }
         };
         
-        // Set up cloud status error listener to show auth errors to user
-        CloudStatusManager.getInstance(requireContext()).setAuthErrorListener(reason -> {
-            FLog.e(TAG, "Cloud auth error: " + reason);
-            Toast.makeText(requireContext(), "⚠️ " + reason, Toast.LENGTH_LONG).show();
-        });
     }
     
     /**
@@ -573,7 +495,7 @@ public class RemoteFragment extends BaseFragment {
         requireContext().bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
         
         streamStartTime = System.currentTimeMillis();
-        Toast.makeText(requireContext(), "Stream server starting...", Toast.LENGTH_SHORT).show();
+        Toast.makeText(requireContext(), R.string.remote_toast_stream_starting, Toast.LENGTH_SHORT).show();
     }
     
     private void stopStreaming() {
@@ -597,7 +519,7 @@ public class RemoteFragment extends BaseFragment {
         RemoteStreamManager.getInstance().setStreamingEnabled(false);
         
         streamStartTime = 0;
-        Toast.makeText(requireContext(), "Stream server stopped", Toast.LENGTH_SHORT).show();
+        Toast.makeText(requireContext(), R.string.remote_toast_stream_stopped, Toast.LENGTH_SHORT).show();
         updateUI();
     }
     
@@ -608,7 +530,7 @@ public class RemoteFragment extends BaseFragment {
         
         Toast.makeText(requireContext(), 
             newMode == RemoteStreamManager.StreamingMode.STREAM_ONLY ? 
-                "Stream Only mode" : "Stream & Save mode", 
+                getString(R.string.remote_toast_mode_stream_only) : getString(R.string.remote_toast_mode_stream_save), 
             Toast.LENGTH_SHORT).show();
     }
     
@@ -624,23 +546,7 @@ public class RemoteFragment extends BaseFragment {
     private void updateUI() {
         streamingToggle.setOnCheckedChangeListener(null);
 
-        // In Cloud mode the HTTP server is intentionally not started (all traffic goes through
-        // the relay), so isServerRunning() always returns false. Use isStreamingEnabled() from
-        // RemoteStreamManager instead, which is set to true/false when the service starts/stops.
-        // IMPORTANT: Do NOT gate on serviceBound in cloud mode — serviceBound is false during
-        // the async window between bindService() and onServiceConnected() firing, which would
-        // incorrectly show the avatar as disabled even when the service is fully running.
-        android.content.SharedPreferences cloudPrefs =
-                requireContext().getSharedPreferences("FadCamCloudPrefs", Context.MODE_PRIVATE);
-        boolean isCloudMode = cloudPrefs.getInt(KEY_STREAMING_MODE, MODE_LOCAL) == MODE_CLOUD;
-
-        boolean isStreaming;
-        if (isCloudMode) {
-            // Cloud: service state is authoritative — no direct server access needed
-            isStreaming = RemoteStreamManager.getInstance().isStreamingEnabled();
-        } else {
-            isStreaming = streamService != null && serviceBound && streamService.isServerRunning();
-        }
+        boolean isStreaming = streamService != null && serviceBound && streamService.isServerRunning();
         
         if (isStreaming) {
                     streamingToggle.setChecked(true);
@@ -648,26 +554,11 @@ public class RemoteFragment extends BaseFragment {
             applyOnAirChip(true);
             animateStatusIndicator(true);
             
-            // Show URL based on streaming mode
-            android.content.SharedPreferences prefs = requireContext().getSharedPreferences("FadCamCloudPrefs", Context.MODE_PRIVATE);
-            int streamingMode = prefs.getInt(KEY_STREAMING_MODE, MODE_LOCAL);
-            
-            if (streamingMode == MODE_CLOUD && cloudAuthManager.isLinked()) {
-                // Cloud mode - show dashboard URL
-                String deviceId = cloudAuthManager.getDeviceId();
-                if (deviceId != null) {
-                    String cloudUrl = "https://fadcam.fadseclab.com/stream/" + deviceId + "/";
-                    rootUrlText.setText(cloudUrl);
-                } else {
-                    rootUrlText.setText("https://fadcam.fadseclab.com/...");
-                }
-            } else {
-                // Local mode - show local IP
-                String serverUrlWithPort = streamService.getDeviceIpWithPort();
-                if (serverUrlWithPort != null) {
-                    String rootUrl = "http://" + serverUrlWithPort + "/";
-                    rootUrlText.setText(rootUrl);
-                }
+            // Show the local address
+            String serverUrlWithPort = streamService.getDeviceIpWithPort();
+            if (serverUrlWithPort != null) {
+                String rootUrl = "http://" + serverUrlWithPort + "/";
+                rootUrlText.setText(rootUrl);
             }
         } else {
             streamingToggle.setChecked(false);
@@ -675,15 +566,7 @@ public class RemoteFragment extends BaseFragment {
             applyOnAirChip(false);
             animateStatusIndicator(false);
             
-            // Show placeholder URL based on streaming mode
-            android.content.SharedPreferences prefs = requireContext().getSharedPreferences("FadCamCloudPrefs", Context.MODE_PRIVATE);
-            int streamingMode = prefs.getInt(KEY_STREAMING_MODE, MODE_LOCAL);
-            
-            if (streamingMode == MODE_CLOUD) {
-                rootUrlText.setText("https://fadcam.fadseclab.com/...");
-            } else {
-                rootUrlText.setText("http://---.---.---.---:----/");
-            }
+            rootUrlText.setText("http://---.---.---.---:----/");
         }
         
         // Update quality display (FPS cap + bitrate)
@@ -750,23 +633,8 @@ public class RemoteFragment extends BaseFragment {
         String uptime = formatUptime(uptimeMs);
         uptimeText.setText(uptime);
         
-        // Get active connections count (local + cloud viewers)
-        int localConnections = manager.getActiveConnections();
-        int cloudConnections = manager.getCloudViewerCount();
-        int totalConnections = localConnections + cloudConnections;
-        
-        // Display with breakdown if cloud viewers present
-        if (cloudConnections > 0 && localConnections > 0) {
-            // Both local and cloud: "3 (1 local, 2 cloud)"
-            connectionsText.setText(String.format("%d (%d local, %d cloud)", 
-                totalConnections, localConnections, cloudConnections));
-        } else if (cloudConnections > 0) {
-            // Cloud only: "2 (cloud)"
-            connectionsText.setText(String.format("%d (cloud)", cloudConnections));
-        } else {
-            // Local only or zero
-            connectionsText.setText(String.valueOf(localConnections));
-        }
+        // Get active connections count
+        connectionsText.setText(String.valueOf(manager.getActiveConnections()));
         
         // Get battery percentage
         int battery = manager.getBatteryPercentage(requireContext());
@@ -912,36 +780,10 @@ public class RemoteFragment extends BaseFragment {
     private void showClientDetailsPicker() {
         RemoteStreamManager manager = RemoteStreamManager.getInstance();
         
-        // Check if we're in cloud mode
-        boolean isCloudMode = requireContext() != null && 
-            com.fadcam.streaming.CloudStreamUploader.getInstance(requireContext()) != null &&
-            com.fadcam.streaming.CloudStreamUploader.getInstance(requireContext()).isEnabled();
-        
-        if (isCloudMode) {
-            // Cloud mode: show simplified info (per-viewer details not available without IP tracking)
-            int cloudViewers = manager.getCloudViewerCount();
-            long totalBytes = manager.getTotalDataTransferred();
-            String dataStr = String.format(java.util.Locale.US, "%.1f MB", totalBytes / (1024.0 * 1024.0));
-            
-            if (cloudViewers == 0) {
-                Toast.makeText(requireContext(), "No cloud viewers connected", Toast.LENGTH_SHORT).show();
-            } else {
-                // Show a simple info toast for cloud mode (privacy-preserving)
-                String message = String.format(java.util.Locale.US, 
-                    "☁️ %d cloud viewer%s\n📊 Total served: %s\n\n🔒 Per-viewer metrics disabled for privacy", 
-                    cloudViewers, 
-                    cloudViewers == 1 ? "" : "s", 
-                    dataStr);
-                Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show();
-            }
-            return;
-        }
-        
-        // Local mode: show full client details
         List<String> clientIPs = manager.getConnectedClientIPs();
         
         if (clientIPs.isEmpty()) {
-            Toast.makeText(requireContext(), "No clients connected", Toast.LENGTH_SHORT).show();
+            Toast.makeText(requireContext(), R.string.remote_toast_no_clients, Toast.LENGTH_SHORT).show();
             return;
         }
         
@@ -1106,8 +948,8 @@ public class RemoteFragment extends BaseFragment {
     private void showSetPasswordSheet() {
         RemoteAuthManager authManager = RemoteAuthManager.getInstance(requireContext());
         String initialValue = ""; // Empty, not dots
-        String hint = "Enter new password";
-        String helperText = "Change your authentication password here. Minimum 4 characters. This is basic HTTP authentication - not highly secure but better than none. When you change the password, all other devices will be logged out automatically.";
+        String hint = getString(R.string.remote_password_hint);
+        String helperText = getString(R.string.remote_password_helper);
         
         InputActionBottomSheetFragment sheet = InputActionBottomSheetFragment.newInput(
             getString(R.string.remote_security_password),
@@ -1157,117 +999,6 @@ public class RemoteFragment extends BaseFragment {
     }
 
     /**
-     * Bind the E2E encryption row and update its status label.
-     */
-    private void setupE2EEncryptionRow() {
-        if (e2eEncryptionRow == null) return;
-        updateE2EStatusLabel();
-        e2eEncryptionRow.setOnClickListener(v -> showE2EPasswordSheet());
-    }
-
-    /** Refresh the E2E status subtitle text. */
-    private void updateE2EStatusLabel() {
-        if (e2eEncryptionStatus == null) return;
-        boolean configured = StreamKeyManager.getInstance(requireContext()).isInitialized();
-        e2eEncryptionStatus.setText(configured
-                ? R.string.e2e_encryption_configured
-                : R.string.e2e_encryption_not_configured);
-    }
-
-    /**
-     * Show an input sheet so the user can set (or change) the E2E stream encryption password.
-     * The entered password is used to derive the master key via PBKDF2 and stored in Keystore.
-     */
-    private void showE2EPasswordSheet() {
-        StreamKeyManager keyManager = StreamKeyManager.getInstance(requireContext());
-        boolean isChange = keyManager.isInitialized();
-
-        String titleRes = isChange
-                ? getString(R.string.e2e_encryption_change_title)
-                : getString(R.string.e2e_encryption_setup_title);
-
-        InputActionBottomSheetFragment sheet = InputActionBottomSheetFragment.newInput(
-                titleRes,
-                /* initialValue= */ "",
-                getString(R.string.e2e_encryption_setup_hint),
-                getString(android.R.string.ok),
-                getString(R.string.e2e_encryption_setup_desc),
-                android.R.drawable.ic_lock_idle_lock,
-                getString(R.string.e2e_encryption_setup_desc)
-        );
-
-        sheet.setCallbacks(new InputActionBottomSheetFragment.Callbacks() {
-            @Override public void onImportConfirmed(JSONObject json) {}
-            @Override public void onResetConfirmed() {}
-
-            @Override
-            public void onInputConfirmed(String password) {
-                if (password == null || password.trim().isEmpty()) {
-                    Toast.makeText(requireContext(),
-                            "Password cannot be empty", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-
-                String userUuid = cloudAuthManager.getUserId();
-                if (userUuid == null || userUuid.isEmpty()) {
-                    Toast.makeText(requireContext(),
-                            "Link your Joy Creator ID account first", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-
-                // Fetch verify_tag and derive key on a background thread (PBKDF2 is slow)
-                new Thread(() -> {
-                    try {
-                        // Use the verify_tag cached during device-link (set by CloudAccountActivity).
-                        // This avoids a separate Supabase REST call here.
-                        String verifyTag = cloudAuthManager.getStoredE2EVerifyTag();
-                        if (verifyTag == null) {
-                            FLog.w(TAG, "No cached e2e_verify_tag — E2E not configured on dashboard, or device needs re-linking");
-                            if (getActivity() != null) {
-                                getActivity().runOnUiThread(() ->
-                                        Toast.makeText(requireContext(),
-                                                "Set up E2E encryption in the FadCam dashboard first, then re-link this device",
-                                                Toast.LENGTH_LONG).show());
-                            }
-                            return;
-                        }
-
-                        // Derive + verify + store (throws SecurityException on wrong password)
-                        keyManager.initFromPassword(password.trim(), userUuid, verifyTag);
-
-                        if (getActivity() != null) {
-                            getActivity().runOnUiThread(() -> {
-                                updateE2EStatusLabel();
-                                Toast.makeText(requireContext(),
-                                        "E2E encryption configured", Toast.LENGTH_SHORT).show();
-                            });
-                        }
-                    } catch (SecurityException e) {
-                        // Wrong password — verify_tag mismatch
-                        FLog.e(TAG, "E2E password incorrect: " + e.getMessage());
-                        if (getActivity() != null) {
-                            getActivity().runOnUiThread(() ->
-                                    Toast.makeText(requireContext(),
-                                            "Incorrect password — please try again",
-                                            Toast.LENGTH_LONG).show());
-                        }
-                    } catch (Exception e) {
-                        FLog.e(TAG, "E2E key setup failed", e);
-                        if (getActivity() != null) {
-                            getActivity().runOnUiThread(() ->
-                                    Toast.makeText(requireContext(),
-                                            "Setup failed: " + e.getMessage(),
-                                            Toast.LENGTH_LONG).show());
-                        }
-                    }
-                }, "e2e-key-derive").start();
-            }
-        });
-
-        sheet.show(getParentFragmentManager(), "e2e_password_sheet");
-    }
-    
-    /**
      * Show auto-lock timeout picker
      */
     private void showAutoLockTimeoutPicker() {
@@ -1278,11 +1009,11 @@ public class RemoteFragment extends BaseFragment {
         
         // Create timeout options
         ArrayList<OptionItem> options = new ArrayList<>();
-        options.add(new OptionItem("never", "Never", "Keep sessions active indefinitely"));
-        options.add(new OptionItem("30min", "30 Minutes", "Lock after 30 minutes of inactivity"));
-        options.add(new OptionItem("1hr", "1 Hour", "Lock after 1 hour of inactivity"));
-        options.add(new OptionItem("3hr", "3 Hours", "Lock after 3 hours of inactivity"));
-        options.add(new OptionItem("6hr", "6 Hours", "Lock after 6 hours of inactivity"));
+        options.add(new OptionItem("never", getString(R.string.remote_lock_never), getString(R.string.remote_lock_never_desc)));
+        options.add(new OptionItem("30min", getString(R.string.remote_lock_30min), getString(R.string.remote_lock_30min_desc)));
+        options.add(new OptionItem("1hr", getString(R.string.remote_lock_1hr), getString(R.string.remote_lock_1hr_desc)));
+        options.add(new OptionItem("3hr", getString(R.string.remote_lock_3hr), getString(R.string.remote_lock_3hr_desc)));
+        options.add(new OptionItem("6hr", getString(R.string.remote_lock_6hr), getString(R.string.remote_lock_6hr_desc)));
         
         // Get current selection (default to "never")
         String currentTimeout = "never";
@@ -1310,7 +1041,7 @@ public class RemoteFragment extends BaseFragment {
                     int timeoutMinutes = parseTimeoutMinutes(selectedId);
                     authManager.setAutoLockTimeout(timeoutMinutes);
                     
-                    Toast.makeText(requireContext(), "Auto-lock timeout set to: " + displayText, Toast.LENGTH_SHORT).show();
+                    Toast.makeText(requireContext(), getString(R.string.remote_toast_autolock_set, displayText), Toast.LENGTH_SHORT).show();
                 }
             }
         );
@@ -1410,455 +1141,6 @@ public class RemoteFragment extends BaseFragment {
         android.util.TypedValue typedValue = new android.util.TypedValue();
         requireContext().getTheme().resolveAttribute(attr, typedValue, true);
         return typedValue.data;
-    }
-    
-    // ==================== Cloud Account Methods ====================
-    
-    /**
-     * Handle cloud account button click.
-     * If already linked, shows account info. If not, prompts for device name and opens WebView.
-     */
-    private void onCloudAccountClick() {
-        if (cloudAuthManager.isLinked()) {
-            // Already linked - show options (view info, unlink, etc.)
-            showCloudAccountInfo();
-        } else {
-            // Not linked - prompt for device name
-            showDeviceNameInput();
-        }
-    }
-    
-    /**
-     * Show input dialog for device name before linking
-     */
-    private void showDeviceNameInput() {
-        String defaultName = android.os.Build.MODEL;
-        
-        InputActionBottomSheetFragment input = InputActionBottomSheetFragment.newInput(
-            getString(R.string.cloud_account_device_name_title),
-            defaultName,
-            getString(R.string.cloud_account_device_name_hint),
-            getString(R.string.cloud_account_link),
-            getString(R.string.cloud_account_device_name_desc),
-            R.drawable.ic_cloud_account
-        );
-        
-        input.setCallbacks(new InputActionBottomSheetFragment.Callbacks() {
-            @Override
-            public void onInputConfirmed(String value) {
-                if (value != null && !value.trim().isEmpty()) {
-                    launchCloudAccountWebView(value.trim());
-                }
-            }
-            
-            @Override
-            public void onImportConfirmed(org.json.JSONObject json) {
-                // Not used for input mode
-            }
-            
-            @Override
-            public void onResetConfirmed() {
-                // Not used for input mode
-            }
-        });
-        
-        input.show(getChildFragmentManager(), "device_name_input");
-    }
-    
-    /**
-     * Launch the CloudAccountActivity WebView for device linking
-     */
-    private void launchCloudAccountWebView(String deviceName) {
-        Intent intent = new Intent(requireContext(), CloudAccountActivity.class);
-        intent.putExtra(CloudAccountActivity.EXTRA_DEVICE_NAME, deviceName);
-        cloudAccountLauncher.launch(intent);
-    }
-    
-    /**
-     * Show cloud account info when already linked.
-     * First syncs device info from server to get latest name if renamed on web.
-     */
-    private void showCloudAccountInfo() {
-        // Sync device info from server first (handles renamed device on web)
-        cloudAuthManager.syncDeviceInfo(new CloudAuthManager.DeviceInfoListener() {
-            @Override
-            public void onSuccess(String name, String deviceType, boolean isActive) {
-                // Device info synced, now show picker with updated name
-                showCloudAccountPicker();
-            }
-            
-            @Override
-            public void onError(String error) {
-                // Sync failed, show picker with cached data anyway
-                FLog.w(TAG, "Failed to sync device info: " + error);
-                showCloudAccountPicker();
-            }
-        });
-    }
-    
-    /**
-     * Show the cloud account info picker (after sync)
-     */
-    private void showCloudAccountPicker() {
-        String email = cloudAuthManager.getUserEmail();
-        String deviceName = cloudAuthManager.getDeviceName();
-        String deviceId = cloudAuthManager.getShortDeviceId();
-        
-        // Update cloud button state in case name changed
-        updateCloudButtonState();
-        
-        // Build options list using correct OptionItem constructors
-        ArrayList<OptionItem> options = new ArrayList<>();
-        
-        // Account info (non-clickable header) - use (id, title, subtitle) constructor
-        if (email != null) {
-            options.add(new OptionItem("email", email, "Linked Account"));
-        }
-        
-        // Device name
-        if (deviceName != null) {
-            options.add(new OptionItem("device", deviceName, "Device Name"));
-        }
-        
-        // Device ID (copyable)
-        options.add(new OptionItem("copy_id", deviceId, getString(R.string.cloud_account_device_id) + " (tap to copy)"));
-        
-        // Unlink option with helper text as subtitle
-        options.add(new OptionItem("unlink", getString(R.string.cloud_account_unlink), getString(R.string.cloud_account_helper_text)));
-        
-        PickerBottomSheetFragment picker = PickerBottomSheetFragment.newInstance(
-            getString(R.string.cloud_account_title),
-            options,
-            null, // no pre-selected
-            "cloud_account_action"
-        );
-        
-        // Listen for selection via fragment result
-        getChildFragmentManager().setFragmentResultListener("cloud_account_action", this, (requestKey, result) -> {
-            String selectedId = result.getString(PickerBottomSheetFragment.BUNDLE_SELECTED_ID);
-            if ("unlink".equals(selectedId)) {
-                showUnlinkConfirmation();
-            } else if ("copy_id".equals(selectedId)) {
-                copyToClipboard(cloudAuthManager.getDeviceId());
-                Toast.makeText(requireContext(), "Device ID copied", Toast.LENGTH_SHORT).show();
-            }
-        });
-        
-        picker.show(getChildFragmentManager(), "cloud_account_info");
-    }
-    
-    /**
-     * Show unlink confirmation dialog
-     */
-    private void showUnlinkConfirmation() {
-        InputActionBottomSheetFragment confirm = InputActionBottomSheetFragment.newConfirm(
-            getString(R.string.cloud_account_unlink),
-            getString(R.string.cloud_account_unlink),
-            getString(R.string.cloud_account_unlink_confirm),
-            R.drawable.ic_delete_red
-        );
-        
-        confirm.setCallbacks(new InputActionBottomSheetFragment.Callbacks() {
-            @Override
-            public void onResetConfirmed() {
-                cloudAuthManager.unlinkDevice();
-                Toast.makeText(requireContext(), R.string.cloud_account_unlink_success, Toast.LENGTH_SHORT).show();
-                updateCloudButtonState();
-            }
-            
-            @Override
-            public void onImportConfirmed(org.json.JSONObject json) {
-                // Not used for confirm mode
-            }
-        });
-        
-        confirm.show(getChildFragmentManager(), "unlink_confirm");
-    }
-    
-    /**
-     * Update cloud button visual state based on link status
-     */
-    private void updateCloudButtonState() {
-        if (cloudIcon == null) return;
-        
-        boolean isLinked = cloudAuthManager.isLinked();
-        boolean hasValidToken = cloudAuthManager.hasValidToken();
-        boolean hasRefreshToken = cloudAuthManager.getRefreshToken() != null;
-        boolean canUseCloud = isLinked && (hasValidToken || hasRefreshToken);
-        
-        if (isLinked) {
-            // Linked - show green tint, hide unlinked dot, update status text
-            cloudIcon.setColorFilter(Studio.GO);
-            if (cloudUnlinkedDot != null) {
-                cloudUnlinkedDot.setVisibility(View.GONE);
-            }
-            if (cloudStatusText != null) {
-                String deviceName = cloudAuthManager.getDeviceName();
-                if (deviceName != null && !deviceName.isEmpty()) {
-                    cloudStatusText.setText(deviceName);
-                    cloudStatusText.setTextColor(Studio.GO);
-                } else {
-                    cloudStatusText.setText(R.string.cloud_account_linked);
-                    cloudStatusText.setTextColor(Studio.GO);
-                }
-            }
-        } else {
-            // Not linked - show red tint (FadCam brand color), show unlinked dot
-            cloudIcon.setColorFilter(Studio.INK_DIM);
-            if (cloudUnlinkedDot != null) {
-                cloudUnlinkedDot.setVisibility(View.VISIBLE);
-            }
-            if (cloudStatusText != null) {
-                cloudStatusText.setText(R.string.cloud_account_not_linked);
-                cloudStatusText.setTextColor(Studio.INK_FAINT);
-            }
-            // Disable cloud streaming and reset to local mode
-            CloudStreamUploader uploader = CloudStreamUploader.getInstance(requireContext());
-            if (uploader.isEnabled()) {
-                uploader.setEnabled(false);
-            }
-            // Reset to local mode
-            android.content.SharedPreferences prefs = requireContext().getSharedPreferences("FadCamCloudPrefs", Context.MODE_PRIVATE);
-            prefs.edit().putInt(KEY_STREAMING_MODE, MODE_LOCAL).putBoolean("cloud_streaming_enabled", false).apply();
-        }
-        
-        // Hide legacy cloud streaming row
-        if (cloudStreamingRow != null) {
-            cloudStreamingRow.setVisibility(View.GONE);
-        }
-        
-        // Update streaming mode display
-        updateStreamingModeDisplay();
-    }
-    
-    // Streaming mode constants
-    private static final String KEY_STREAMING_MODE = "streaming_mode";
-    private static final int MODE_LOCAL = 0;
-    private static final int MODE_CLOUD = 1;
-    
-    /**
-     * Setup the streaming mode selector (Local Network vs FadSec Cloud)
-     */
-    private void setupStreamingModeSelector() {
-        if (streamingModeRow == null) return;
-        
-        // Update display based on current mode
-        updateStreamingModeDisplay();
-        
-        // Click handler opens picker
-        streamingModeRow.setOnClickListener(v -> showStreamingModePicker());
-    }
-    
-    /**
-     * Show bottom sheet picker for streaming mode selection
-     */
-    private void showStreamingModePicker() {
-        android.content.SharedPreferences prefs = requireContext().getSharedPreferences("FadCamCloudPrefs", Context.MODE_PRIVATE);
-        int currentMode = prefs.getInt(KEY_STREAMING_MODE, MODE_LOCAL);
-        
-        // Check if cloud is available
-        boolean hasValidToken = cloudAuthManager.hasValidToken();
-        boolean hasRefreshToken = cloudAuthManager.getRefreshToken() != null;
-        boolean canUseCloud = cloudAuthManager.isLinked() && (hasValidToken || hasRefreshToken);
-        
-        ArrayList<OptionItem> items = new ArrayList<>();
-        
-        // Local Network option
-        items.add(new OptionItem(
-            "mode_local",
-            getString(R.string.streaming_mode_local),
-            getString(R.string.streaming_mode_local_desc),
-            null, null, null, null, null,
-            "wifi", // Material icon ligature
-            null, null, null
-        ));
-        
-        // FadSec Cloud option
-        if (canUseCloud) {
-            // Cloud is available
-            items.add(OptionItem.withLigatureBadge(
-                "mode_cloud",
-                getString(R.string.streaming_mode_cloud),
-                "cloud", // Material icon ligature
-                getString(R.string.streaming_mode_cloud_featured),
-                R.drawable.featured_badge_bg,
-                false, // not disabled
-                getString(R.string.streaming_mode_cloud_desc)
-            ));
-        } else {
-            // Cloud not available - show as disabled with link prompt
-            items.add(OptionItem.withLigatureBadge(
-                "mode_cloud",
-                getString(R.string.streaming_mode_cloud),
-                "cloud",
-                getString(R.string.streaming_mode_cloud_featured),
-                R.drawable.featured_badge_bg,
-                true, // disabled
-                getString(R.string.streaming_mode_link_required)
-            ));
-        }
-        
-        String selectedId = currentMode == MODE_CLOUD ? "mode_cloud" : "mode_local";
-        final String REQUEST_KEY = "rk_streaming_mode";
-        
-        PickerBottomSheetFragment picker = PickerBottomSheetFragment.newInstance(
-            getString(R.string.streaming_mode_title),
-            items,
-            selectedId,
-            REQUEST_KEY,
-            getString(R.string.streaming_mode_helper)
-        );
-        
-        getParentFragmentManager().setFragmentResultListener(REQUEST_KEY, this, (key, bundle) -> {
-            String selected = bundle.getString(PickerBottomSheetFragment.BUNDLE_SELECTED_ID);
-            if (selected == null) return;
-            
-            if ("mode_cloud".equals(selected)) {
-                // Check again if cloud is available
-                boolean cloudAvailable = cloudAuthManager.isLinked() && 
-                    (cloudAuthManager.hasValidToken() || cloudAuthManager.getRefreshToken() != null);
-                
-                if (!cloudAvailable) {
-                    Toast.makeText(requireContext(), R.string.streaming_mode_link_required, Toast.LENGTH_SHORT).show();
-                    onCloudAccountClick();
-                    return;
-                }
-                setStreamingMode(MODE_CLOUD);
-            } else {
-                setStreamingMode(MODE_LOCAL);
-            }
-        });
-        
-        picker.show(getParentFragmentManager(), "streaming_mode_picker");
-    }
-    
-    /**
-     * Set the streaming mode and update UI/preferences
-     */
-    private void setStreamingMode(int mode) {
-        android.content.SharedPreferences prefs = requireContext().getSharedPreferences("FadCamCloudPrefs", Context.MODE_PRIVATE);
-        prefs.edit().putInt(KEY_STREAMING_MODE, mode).apply();
-        
-        // Also sync the legacy cloud_streaming_enabled flag
-        boolean cloudEnabled = (mode == MODE_CLOUD);
-        prefs.edit().putBoolean("cloud_streaming_enabled", cloudEnabled).apply();
-        
-        // Update uploader
-        CloudStreamUploader uploader = CloudStreamUploader.getInstance(requireContext());
-        uploader.setEnabled(cloudEnabled);
-        
-        // Clear localhost clients when switching to cloud mode
-        // These are internal dashboard requests, not real viewers
-        if (cloudEnabled) {
-            RemoteStreamManager.getInstance().clearLocalhostClients();
-        }
-        
-        // SECURITY FIX: Call updateStreamingMode on service to immediately stop/start HTTP server
-        // This ensures proper enforcement of cloud-only mode (no local access)
-        if (streamService != null && serviceBound) {
-            FLog.i(TAG, "🔄 Updating streaming mode in service...");
-            streamService.updateStreamingMode();
-        } else {
-            FLog.w(TAG, "⚠️ Service not bound, mode persisted but server state may not update immediately");
-        }
-        
-        // Start/stop cloud status manager if server is already running
-        CloudStatusManager statusManager = CloudStatusManager.getInstance(requireContext());
-        if (cloudEnabled) {
-            // Try to start - will only actually start if server is running and cloud is ready
-            statusManager.start();
-        } else {
-            // Stop if running
-            statusManager.stop();
-        }
-        
-        // Update display
-        updateStreamingModeDisplay();
-        
-        FLog.i(TAG, "Streaming mode set to: " + (mode == MODE_CLOUD ? "Cloud" : "Local"));
-    }
-    
-    /**
-     * Update the streaming mode value display and hide/show Remote Security based on mode
-     */
-    private void updateStreamingModeDisplay() {
-        if (streamingModeValue == null) return;
-        
-        android.content.SharedPreferences prefs = requireContext().getSharedPreferences("FadCamCloudPrefs", Context.MODE_PRIVATE);
-        int currentMode = prefs.getInt(KEY_STREAMING_MODE, MODE_LOCAL);
-        
-        if (currentMode == MODE_CLOUD) {
-            streamingModeValue.setText(R.string.streaming_mode_cloud);
-            streamingModeValue.setTextColor(Studio.GO);
-            
-            // Hide Remote Security section when using FadSec Cloud (no local auth needed)
-            if (remoteSecurityHeading != null) {
-                remoteSecurityHeading.setVisibility(View.GONE);
-            }
-            if (remoteSecurityContainer != null) {
-                remoteSecurityContainer.setVisibility(View.GONE);
-            }
-        } else {
-            streamingModeValue.setText(R.string.streaming_mode_local);
-            streamingModeValue.setTextColor(Studio.INK_DIM);
-            
-            // Show Remote Security section when using Local Network
-            if (remoteSecurityHeading != null) {
-                remoteSecurityHeading.setVisibility(View.VISIBLE);
-            }
-            if (remoteSecurityContainer != null) {
-                remoteSecurityContainer.setVisibility(View.VISIBLE);
-            }
-        }
-    }
-    
-    /**
-     * Setup cloud streaming toggle and its state
-     * Note: Legacy method - functionality moved to streaming mode selector
-     */
-    private void setupCloudStreaming() {
-        // Legacy toggle is now hidden - functionality moved to streaming mode selector
-        if (cloudStreamingRow != null) {
-            cloudStreamingRow.setVisibility(View.GONE);
-        }
-        
-        // Trigger token refresh if needed
-        boolean hasValidToken = cloudAuthManager.hasValidToken();
-        boolean hasRefreshToken = cloudAuthManager.getRefreshToken() != null;
-        
-        if (!hasValidToken && hasRefreshToken) {
-            FLog.i(TAG, "Token expired, triggering background refresh...");
-            cloudAuthManager.refreshTokenAsync(new CloudAuthManager.TokenRefreshListener() {
-                @Override
-                public void onRefreshSuccess(String newToken, long newExpiry) {
-                    FLog.i(TAG, "Token refreshed successfully");
-                    // Update streaming mode display after refresh
-                    if (isAdded()) {
-                        requireActivity().runOnUiThread(() -> updateStreamingModeDisplay());
-                    }
-                }
-                
-                @Override
-                public void onRefreshFailed(String error) {
-                    FLog.e(TAG, "Token refresh failed: " + error);
-                }
-            });
-        }
-    }
-    
-    /**
-     * Update cloud streaming status text (legacy, kept for compatibility)
-     */
-    private void updateCloudStreamingStatus(boolean enabled) {
-        if (cloudStreamingStatus == null) return;
-        
-        if (enabled) {
-            cloudStreamingStatus.setText(R.string.cloud_streaming_status_on);
-            cloudStreamingStatus.setTextColor(Studio.GO);
-        } else {
-            cloudStreamingStatus.setText(R.string.cloud_streaming_status_off);
-            cloudStreamingStatus.setTextColor(Studio.INK_FAINT);
-        }
     }
     
     /**

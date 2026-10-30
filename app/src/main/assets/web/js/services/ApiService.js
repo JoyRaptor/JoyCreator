@@ -1,72 +1,34 @@
 /**
- * ApiService - Unified HTTP API wrapper for FadCam Dashboard
- * 
- * Supports two modes (single source of truth):
- * - Local Mode: Calls phone's HTTP server directly (192.168.x.x)
- * - Cloud Mode: Calls relay server for status, commands go through relay queue
- * 
- * The mode is automatically detected based on FadCamRemote.isCloudMode()
- * 
- * Architecture:
- * ┌─────────────────────────────────────────────────────────────────┐
- * │                         Dashboard                               │
- * │                      (DashboardViewModel)                       │
- * │                            ↓                                    │
- * │                       ApiService                                │
- * │                     (mode detection)                            │
- * │                    ↙            ↘                              │
- * │   [Local Mode]                  [Cloud Mode]                   │
- * │   Phone HTTP                    Relay Server                   │
- * │   192.168.x.x                   live.fadseclab.com:8443        │
- * └─────────────────────────────────────────────────────────────────┘
+ * ApiService - HTTP API wrapper for the Joy Creator Remote page.
+ *
+ * Calls the phone's own HTTP server (the page is served from it on the local Wi-Fi).
  */
 class ApiService {
     constructor(baseUrl) {
         this.localBaseUrl = baseUrl || CONFIG.BASE_URL;
-        this.relayBaseUrl = 'https://live.fadseclab.com:8443';
         this.statusCache = null;
         this.lastFetchTime = 0;
-        this.streamContext = null; // Set from FadCamRemote
     }
     
     // =========================================================================
-    // Mode Detection
+    // Mode
     // =========================================================================
-    
+
     /**
-     * Check if we're in cloud mode
-     * Cloud mode = accessed via web (fadseclab.com) with valid stream context
+     * Cloud mode no longer exists; the page only talks to the phone it was served from.
+     * Kept so existing callers keep working.
      */
     isCloudMode() {
-        return typeof FadCamRemote !== 'undefined' && 
-               typeof FadCamRemote.isCloudMode === 'function' && 
-               FadCamRemote.isCloudMode();
+        return false;
     }
-    
+
     /**
-     * Get the appropriate base URL for current mode
+     * Get the base URL (the phone's HTTP server)
      */
     getBaseUrl() {
-        return this.isCloudMode() ? this.relayBaseUrl : this.localBaseUrl;
+        return this.localBaseUrl;
     }
-    
-    /**
-     * Set stream context (called from FadCamRemote after auth)
-     * Commands in cloud mode are sent via HTTP relay (phone polls every 1.5s).
-     */
-    setStreamContext(ctx) {
-        this.streamContext = ctx;
-        console.log('[ApiService] Stream context set:', ctx);
-        console.log('[ApiService] ℹ️ Using HTTP relay for commands');
-    }
-    
-    /**
-     * Get mode label for logging
-     */
-    getModeLabel() {
-        return this.isCloudMode() ? '☁️' : '📱';
-    }
-    
+
     // =========================================================================
     // Headers
     // =========================================================================
@@ -79,67 +41,24 @@ class ApiService {
             'Content-Type': 'application/json'
         };
         
-        // Inject auth token if available (local mode)
+        // Inject auth token if available
         if (typeof authService !== 'undefined') {
             const authHeaders = authService.getAuthHeaders();
             Object.assign(headers, authHeaders);
         }
         
-        // Add cloud headers if in cloud mode
-        if (this.isCloudMode()) {
-            if (this.streamContext) {
-                headers['X-Device-Id'] = this.streamContext.deviceId;
-                headers['X-User-Id'] = this.streamContext.userId;
-            }
-            // Add stream access token for relay API calls
-            const streamToken = this._getStreamToken();
-            if (streamToken) {
-                headers['Authorization'] = `Bearer ${streamToken}`;
-            }
-        }
-        
         return headers;
     }
     
-    /**
-     * Get stream access token from FadCamRemote
-     */
-    _getStreamToken() {
-        if (typeof FadCamRemote !== 'undefined' && typeof FadCamRemote.getStreamToken === 'function') {
-            return FadCamRemote.getStreamToken();
-        }
-        return null;
-    }
-    
-    /**
-     * Build cloud URL with token in query string
-     * This avoids CORS issues with Authorization headers
-     * @param {string} path - API path (e.g., /api/status/...)
-     * @returns {string} Full URL with token
-     */
-    _buildCloudUrl(path) {
-        let url = `${this.relayBaseUrl}${path}`;
-        const token = this._getStreamToken();
-        if (token) {
-            const separator = url.includes('?') ? '&' : '?';
-            url += `${separator}token=${encodeURIComponent(token)}`;
-        }
-        return url;
-    }
-
     // =========================================================================
     // Status API
     // =========================================================================
     
     /**
      * GET /status - Fetch server status
-     * In cloud mode, returns cached status from relay (or mock status if relay endpoint not ready)
      * @returns {Promise<Object>} Status data
      */
     async getStatus() {
-        if (this.isCloudMode()) {
-            return this._getCloudStatus();
-        }
         return this._getLocalStatus();
     }
     
@@ -209,105 +128,6 @@ class ApiService {
         }
     }
     
-    /**
-     * Cloud mode: Fetch status from relay server
-     * Calls GET /api/status/{user_uuid}/{device_id}
-     */
-    async _getCloudStatus() {
-        try {
-            console.log(`☁️ [/status] Checking cloud status for device:`, this.streamContext?.deviceId);
-            
-            if (!this.streamContext) {
-                return this._getOfflineStatus('Not authenticated');
-            }
-            
-            const { userId, deviceId } = this.streamContext;
-            if (!userId || !deviceId) {
-                return this._getOfflineStatus('Missing user or device ID');
-            }
-            
-            // Build status URL with token in query string (avoids CORS issues)
-            const statusUrl = this._buildCloudUrl(`/api/status/${userId}/${deviceId}`);
-            console.log(`☁️ [/status] Fetching from relay...`);
-            
-            try {
-                const response = await fetch(statusUrl, {
-                    method: 'GET',
-                    cache: 'no-store',  // Prevent browser from caching status
-                    headers: {
-                        'Cache-Control': 'no-cache'
-                    }
-                });
-                
-                if (response.ok) {
-                    // Phone has pushed status to relay
-                    // ServerStatus model handles snake_case → camelCase transformation
-                    this.statusCache = await response.json();
-                    this.statusCache.cloudMode = true;
-                    const viewerStats = typeof FadCamRemote !== 'undefined' && FadCamRemote.getViewerStats
-                        ? FadCamRemote.getViewerStats()
-                        : null;
-                    if (viewerStats) {
-                        this.statusCache.activeConnections = viewerStats.device_viewers;
-                        this.statusCache.cloudViewers = viewerStats.device_viewers;
-                        this.statusCache.cloudViewerTelemetryAvailable = true;
-                        this.statusCache.totalDataTransferredMb = viewerStats.bytes_served / (1024 * 1024);
-                    }
-                    this.lastFetchTime = Date.now();
-                    console.log(`✅ [/status] ☁️ Cloud: state=${this.statusCache.state}, streaming=${this.statusCache.streaming}, lastUpdated=${this.statusCache.lastUpdated}`);
-                    return this.statusCache;
-                } else if (response.status === 404) {
-                    // Status file doesn't exist yet - phone hasn't pushed
-                    console.log(`☁️ [/status] No status from phone yet, checking playlist...`);
-                } else if (response.status === 401 || response.status === 403) {
-                    console.error(`☁️ [/status] Auth failed: ${response.status}`);
-                    return this._getOfflineStatus('Authentication failed');
-                }
-            } catch (fetchError) {
-                console.warn(`☁️ [/status] Relay fetch failed:`, fetchError.message);
-            }
-            
-            // Fallback: Check if HLS playlist exists (indicates phone is uploading)
-            const playlistAvailable = await this._checkPlaylistAvailable();
-            
-            if (playlistAvailable) {
-                this.statusCache = this._getStreamingStatus();
-            } else {
-                this.statusCache = this._getWaitingStatus();
-            }
-            
-            this.lastFetchTime = Date.now();
-            console.log(`✅ [/status] ☁️ Cloud (fallback): state=${this.statusCache.state}, message=${this.statusCache.message}`);
-            
-            return this.statusCache;
-            
-        } catch (error) {
-            console.error('❌ [/status] Failed to get cloud status:', error);
-            return this._getOfflineStatus(error.message);
-        }
-    }
-    
-    /**
-     * Check if HLS playlist is available on relay
-     */
-    async _checkPlaylistAvailable() {
-        if (!this.streamContext?.userId || !this.streamContext?.deviceId) {
-            return false;
-        }
-        
-        try {
-            // Use URL token auth to avoid CORS issues
-            const playlistPath = `/stream/${this.streamContext.userId}/${this.streamContext.deviceId}/live.m3u8`;
-            const playlistUrl = this._buildCloudUrl(playlistPath);
-            const response = await fetch(playlistUrl, {
-                method: 'HEAD'
-            });
-            return response.ok;
-        } catch (e) {
-            return false;
-        }
-    }
-    
     // =========================================================================
     // Command APIs
     // =========================================================================
@@ -317,10 +137,6 @@ class ApiService {
      * @returns {Promise<Object>} Response data
      */
     async toggleTorch() {
-        if (this.isCloudMode()) {
-            return this._sendCloudCommand('torch/toggle', {});
-        }
-        
         try {
             const response = await fetch(`${this.localBaseUrl}/torch/toggle`, {
                 method: 'POST',
@@ -420,10 +236,6 @@ class ApiService {
      * @returns {Promise<Object>} Response data
      */
     async post(endpoint, data = {}) {
-        if (this.isCloudMode()) {
-            return this._sendCloudCommand(endpoint, data);
-        }
-        
         try {
             console.log(`📱 [POST] ${endpoint}`, data);
             const response = await fetch(`${this.localBaseUrl}${endpoint}`, {
@@ -471,155 +283,17 @@ class ApiService {
         }
     }
     
-    /**
-     * Cloud mode: Send command through HTTP relay.
-     * 
-     * NOTE: Supabase Realtime is DISABLED to reduce connection usage.
-     * Commands are sent via HTTP relay only (1-2 second latency).
-     * Phone polls for commands every 1.5 seconds.
-     */
-    async _sendCloudCommand(endpoint, data) {
-        console.log(`☁️ [COMMAND] ${endpoint} - Sending via HTTP relay`);
-        
-        if (!this.streamContext) {
-            throw new Error('Not authenticated for cloud commands');
-        }
-        
-        const { userId, deviceId } = this.streamContext;
-        if (!userId || !deviceId) {
-            throw new Error('Missing user or device ID');
-        }
-        
-        // Send command to relay server (phone polls every 1.5 seconds)
-        return this._sendCloudCommandViaRelay(endpoint, data, userId, deviceId);
-    }
-    
-    /**
-     * Send command through HTTP relay.
-     * Uses PUT /api/command/{user_uuid}/{device_id}/{cmd_id}.json
-     * Phone polls this endpoint every 1.5 seconds.
-     */
-    async _sendCloudCommandViaRelay(endpoint, data, userId, deviceId) {
-        // Generate unique command ID (millisecond timestamp)
-        const cmdId = Date.now();
-        
-        // Build command payload
-        const command = {
-            action: endpoint.replace(/\//g, '_').replace(/^_/, ''),
-            params: data,
-            timestamp: cmdId,
-            source: 'dashboard'
-        };
-        
-        // Build URL with token auth (avoids CORS header issues)
-        // NOTE: .json extension required by nginx relay server pattern
-        const commandUrl = this._buildCloudUrl(`/api/command/${userId}/${deviceId}/${cmdId}.json`);
-        console.log(`☁️ [COMMAND] PUT to relay`, command);
-        
-        try {
-            const response = await fetch(commandUrl, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(command)
-            });
-            
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`HTTP ${response.status}: ${errorText}`);
-            }
-            
-            console.log(`✅ [COMMAND] ${endpoint} queued successfully (id: ${cmdId})`);
-            
-            return {
-                success: true,
-                command_id: cmdId,
-                instant: false,
-                message: 'Command queued. Phone will execute on next poll (~1.5s).'
-            };
-            
-        } catch (error) {
-            console.error(`❌ [COMMAND] ${endpoint} failed:`, error);
-            throw error;
-        }
-    }
-    
-    // =========================================================================
-    // Cloud Status Helpers
-    // =========================================================================
-    
-    _getStreamingStatus() {
-        return {
-            state: 'streaming',
-            streaming: true,
-            recording: false,
-            uptime: 0,
-            totalConnectedClients: 1,
-            torch: false,
-            camera: 'back',
-            quality: 'HD',
-            cloudMode: true,
-            deviceName: this.streamContext?.deviceName || 'Unknown Device',
-            message: 'Connected to cloud stream'
-        };
-    }
-    
-    _getWaitingStatus() {
-        return {
-            state: 'waiting',
-            streaming: false,
-            recording: false,
-            uptime: 0,
-            totalConnectedClients: 0,
-            torch: false,
-            camera: 'back',
-            quality: 'HD',
-            cloudMode: true,
-            deviceName: this.streamContext?.deviceName || 'Unknown Device',
-            message: 'Waiting for device to start streaming...',
-            lastUpdated: Date.now() // Use current time so it's not marked as stale
-        };
-    }
-    
-    _getOfflineStatus(reason) {
-        return {
-            state: 'offline',
-            streaming: false,
-            recording: false,
-            uptime: 0,
-            totalConnectedClients: 0,
-            cloudMode: true,
-            error: reason,
-            message: `Offline: ${reason}`
-        };
-    }
-    
     // =========================================================================
     // HLS URL
     // =========================================================================
-    
+
     /**
      * Get HLS stream URL for video player
-     * In cloud mode, appends auth token as query parameter to avoid CORS issues
      */
     getHlsUrl() {
-        if (this.isCloudMode()) {
-            if (!this.streamContext?.userId || !this.streamContext?.deviceId) {
-                return null;
-            }
-            let url = `${this.relayBaseUrl}/stream/${this.streamContext.userId}/${this.streamContext.deviceId}/live.m3u8`;
-            
-            // Append token as query parameter for cloud mode auth
-            // This is required because HLS.js fragment requests can't easily add headers
-            if (this.streamAccessToken) {
-                url += `?token=${encodeURIComponent(this.streamAccessToken)}`;
-                console.log('[ApiService] 🔑 Token appended to HLS URL');
-            }
-            
-            return url;
-        }
         return `${this.localBaseUrl}${CONFIG.ENDPOINTS.HLS}`;
     }
-    
+
     // =========================================================================
     // Cache
     // =========================================================================
@@ -646,18 +320,8 @@ class ApiService {
 const apiService = new ApiService();
 
 /**
- * Initialize ApiService stream context
- * Called from FadCamRemote after successful auth
- */
-function initCloudApiService(streamContext) {
-    apiService.setStreamContext(streamContext);
-    console.log('[ApiService] Initialized cloud mode with stream context');
-    return apiService;
-}
-
-/**
  * Get the API service (for backward compatibility)
- * Now just returns apiService since it handles both modes
+ * Returns the shared apiService
  */
 function getApiService() {
     return apiService;

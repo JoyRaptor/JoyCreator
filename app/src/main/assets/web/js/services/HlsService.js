@@ -1,9 +1,7 @@
 /**
  * HlsService - HLS.js wrapper for video streaming
  * 
- * Supports both local mode (no auth) and cloud mode (auth token required).
- * In cloud mode, the token is appended to URLs via xhrSetup callback.
- * This is the standard approach to avoid CORS issues with custom headers.
+ * Local (LAN) mode only; no auth token is appended to stream URLs.
  */
 class HlsService {
     constructor() {
@@ -23,51 +21,14 @@ class HlsService {
     }
     
     /**
-     * Get HLS config with xhrSetup for cloud mode auth
-     * Uses URL token approach (standard for HLS authentication)
+     * Get HLS config for the local (LAN) stream
      * @returns {Object} HLS.js configuration object
      */
     _getHlsConfig() {
         // Use config from CONFIG.HLS_CONFIG directly - it's already optimized for stability
         const baseConfig = { ...CONFIG.HLS_CONFIG };
         
-        // Check if we're in cloud mode and have a stream token
-        const isCloudMode = typeof FadCamRemote !== 'undefined' && 
-                           typeof FadCamRemote.isCloudMode === 'function' && 
-                           FadCamRemote.isCloudMode();
-        
-        if (isCloudMode) {
-            const streamToken = FadCamRemote.getStreamToken();
-            if (streamToken) {
-                console.log('[HlsService] ☁️ Cloud mode detected, using URL token auth');
-                
-                // Standard xhrSetup approach - modify URL before request is sent
-                // This is the recommended way per hls.js documentation
-                baseConfig.xhrSetup = function(xhr, url) {
-                    // Only modify cloud stream URLs that don't already have a token
-                    if ((url.includes('/stream/') || url.includes('live.fadseclab.com')) && !url.includes('token=')) {
-                        const separator = url.includes('?') ? '&' : '?';
-                        // Add cache-busting timestamp for playlist files to prevent stale segments
-                        const cacheBust = url.includes('.m3u8') ? `&_t=${Date.now()}` : '';
-                        const authUrl = `${url}${separator}token=${encodeURIComponent(streamToken)}${cacheBust}`;
-                        // Re-open with the new URL (must call open before setRequestHeader)
-                        xhr.open('GET', authUrl, true);
-                    }
-                };
-
-                // Use the E2E-decrypting fragment loader if available
-                if (typeof FadCamFragLoader !== 'undefined') {
-                    baseConfig.fLoader = FadCamFragLoader;
-                    console.log('[HlsService] 🔐 E2E fragment loader attached');
-                } else {
-                    console.warn('[HlsService] FadCamFragLoader not loaded — segments will NOT be decrypted');
-                }
-            } else {
-                console.warn('[HlsService] ☁️ Cloud mode but no stream token available!');
-            }
-        } else {
-            console.log('[HlsService] 📱 Local mode, no auth needed');
-        }
+        console.log('[HlsService] Local mode, no auth needed');
         
         return baseConfig;
     }
@@ -87,7 +48,7 @@ class HlsService {
         if (Hls.isSupported()) {
             console.log('[HlsService] HLS.js supported, loading stream');
             
-            // Get config with auth headers if in cloud mode
+            // Get HLS config
             const hlsConfig = this._getHlsConfig();
             this.hls = new Hls(hlsConfig);
             
@@ -319,7 +280,7 @@ class HlsService {
         setTimeout(() => {
             console.log('[HlsService] 🎬 Creating new HLS instance...');
             this.load(url, videoElement);
-            // Auto-play after reload (e.g., after E2E key unlock)
+            // Auto-play after reload (e.g., after a reload)
             videoElement.play().catch(err => console.log('[HlsService] Play after reload deferred:', err.message));
         }, 1000);
     }

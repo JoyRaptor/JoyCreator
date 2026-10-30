@@ -3,7 +3,7 @@
 This file IS the prompt. Paste the fenced block below verbatim. Everything a new session
 needs is reachable from it; nothing depends on the previous conversation's context.
 
-The seam is `tasks/HANDOFF_20260726_CONTEXT_SWITCH.md` §0 "CURRENT STATE", which is kept
+The seam is `tasks/archive/HANDOFF_20260726_CONTEXT_SWITCH.md` §0 "CURRENT STATE", which is kept
 updated as work lands. Whatever point the previous session was cut off at is recorded
 there and in `git log`. Trust those two, not this file's date.
 
@@ -14,7 +14,7 @@ FadCam / Joy Creator, C:\+Projects\Screenrecorder\FadCam, branch joy-creator.
 Continuing an autonomous audit-and-verify run from a previous account that ran out of credits.
 
 FIRST, IN THIS ORDER:
-1. Read tasks/HANDOFF_20260726_CONTEXT_SWITCH.md — start at §0 "CURRENT STATE", which is
+1. Read tasks/archive/HANDOFF_20260726_CONTEXT_SWITCH.md — start at §0 "CURRENT STATE", which is
    kept current as work lands and tells you exactly where the last session stopped.
 2. Read tasks/AUDIT_UNFINISHED_20260726.md — the STATUS BOARD near the top says what is
    closed and what is open.
@@ -119,6 +119,6 @@ DEVICE FIXTURE RECIPE (this is how every proof in this run was made):
   Projects live at /data/data/com.fadcam.beta/files/faditor/projects/<id>/project.json
   Exports land in /storage/emulated/0/Android/data/com.fadcam.beta/files/FadCam/Faditor/
 
-Leave the tree clean and update tasks/HANDOFF_20260726_CONTEXT_SWITCH.md §0 before any
+Leave the tree clean and update tasks/archive/HANDOFF_20260726_CONTEXT_SWITCH.md §0 before any
 wakeup lapses, so the next account has the same seam you were handed.
 ```

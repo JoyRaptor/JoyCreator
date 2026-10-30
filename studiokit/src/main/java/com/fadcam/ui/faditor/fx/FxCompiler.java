@@ -44,6 +44,11 @@ public final class FxCompiler {
     public static final String U_ASPECT = "uAspect";
     public static final String U_TIME = "uTime";
     public static final String U_DIR = "uDir";
+    /** A FEEDBACK pass's own previous output, and whether that history is real yet. */
+    public static final String U_PREV = "uPrevSampler";
+    public static final String U_PREV_VALID = "uPrevValid";
+    /** Seconds since the frame in {@link #U_PREV} (one 1/30 s step on a redraw of the same moment). */
+    public static final String U_DT = "uFrameDt";
 
     /**
      * The height, in pixels, that a spatial effect's units are quoted against.
@@ -98,6 +103,11 @@ public final class FxCompiler {
         @NonNull public final List<FxInstance> remaps = new ArrayList<>();
         /** True when this pass samples neighbours and therefore had to open its own. */
         public boolean sampler;
+        /**
+         * True when this pass reads its own previous output (a FEEDBACK card). The renderer must
+         * bind that history as {@link #U_PREV} and set {@link #U_PREV_VALID} and {@link #U_DT}.
+         */
+        public boolean feedback;
         /** Separable kernels declare 2; the compiler emits H and V with {@link #U_DIR}. */
         public int repeats = 1;
 
@@ -143,9 +153,11 @@ public final class FxCompiler {
                 pendingRemaps.add(card);
                 continue;
             }
-            if (def.capability == FxEffectDef.Capability.SAMPLER) {
+            if (def.capability == FxEffectDef.Capability.SAMPLER
+                    || def.capability == FxEffectDef.Capability.FEEDBACK) {
                 Pass p = new Pass();
                 p.sampler = true;
+                p.feedback = def.capability == FxEffectDef.Capability.FEEDBACK;
                 p.repeats = Math.max(1, def.passes);
                 p.cards.add(card);
                 p.remaps.addAll(pendingRemaps);
@@ -170,6 +182,12 @@ public final class FxCompiler {
             p.remaps.addAll(pendingRemaps);
             plan.passes.add(p);
         }
+        // A feedback pass is never the last: the last render also mixes the layer back over the
+        // picture by mask and opacity, and that mix must not be fed back into next frame's
+        // history. A plain pass after it carries the composite instead.
+        if (!plan.passes.isEmpty() && plan.passes.get(plan.passes.size() - 1).feedback) {
+            plan.passes.add(new Pass());
+        }
         return plan;
     }
 
@@ -188,6 +206,7 @@ public final class FxCompiler {
           .append("uniform vec2 ").append(U_DIR).append(";\n");
         emitUniformDecls(sb, pass, false);
         sb.append(PRELUDE_GLSL);
+        if (pass.feedback) sb.append(PRELUDE_PREV_GLSL);
         if (passHasGradient(pass)) sb.append(PRELUDE_GRAD_GLSL);
         if (passHasCurve(pass)) sb.append(PRELUDE_CURVE_GLSL);
         sb.append(BlendModes.glslBlendFnWithModeParam()).append(FOLD_FN);
@@ -283,6 +302,23 @@ public final class FxCompiler {
     private static final String PRELUDE_GLSL = PRELUDE_SRC;
 
     private static final String PRELUDE_AGSL = toAgsl(PRELUDE_SRC);
+
+    /**
+     * A FEEDBACK pass's history read, GLSL only. Outside the frame is empty rather than a smear of
+     * the edge pixels (VisLab echo's prevAt). Before there is any history (the first frame, or a
+     * jump in time) it reads the pass's own input at that point, so trails start from the
+     * picture instead of fading in from black.
+     */
+    private static final String PRELUDE_PREV_GLSL =
+            "uniform sampler2D " + U_PREV + ";\n"
+            + "uniform float " + U_PREV_VALID + ";\n"
+            + "uniform float " + U_DT + ";\n"
+            + "vec4 fxPrev(vec2 p) {\n"
+            + "  vec2 ins = step(vec2(0.0), p) * step(p, vec2(1.0));\n"
+            + "  vec4 h = mix(texture2D(uTexSampler, fxClamp(p)), texture2D(" + U_PREV
+            + ", fxClamp(p)), " + U_PREV_VALID + ");\n"
+            + "  return h * ins.x * ins.y;\n"
+            + "}\n";
 
     /**
      * The gradient ramp's shared evaluator — declared ONCE here, exactly like {@code fxNoise},
@@ -720,6 +756,12 @@ public final class FxCompiler {
         out = out.replace("FX_ASPECT", U_ASPECT);
         out = out.replace("FX_TIME", U_TIME);
         out = out.replace("FX_DIR", U_DIR);
+        // FEEDBACK only. AGSL never runs one (FxPreviewTier offers it on adjustment layers alone,
+        // which preview through GLSL), so there it reads the input and treats time as still.
+        out = replaceCall(out, "FX_PREV",
+                agsl ? "inputShader.eval(" + U_ORIGIN + " + fxClamp(%s) * " + U_SIZE + ")"
+                     : "fxPrev(%s)");
+        out = out.replace("FX_DT", agsl ? "0.0" : U_DT);
         // A LITERAL by the time a driver sees it — AGSL requires compile-time-bounded loops.
         out = out.replace("FX_KERNEL_HALF", String.valueOf(kernelHalf));
         return agsl ? toAgsl(out) : out;

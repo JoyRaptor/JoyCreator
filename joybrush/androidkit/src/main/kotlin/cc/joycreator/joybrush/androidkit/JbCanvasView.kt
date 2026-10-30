@@ -3046,6 +3046,22 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         }
     }
 
+    /** Debug-only disposable engine: full evaluation paper catalogue GPU lifetime check. */
+    fun runPaperTextureRetentionProbe(ready: (String) -> Unit) {
+        if (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) {
+            ready("{\"passed\":false,\"error\":\"Paper retention probe is debug only\"}")
+            return
+        }
+        onGl {
+            val report = try {
+                cc.joycreator.joybrush.androidkit.gl.PaperTextureRetentionProbe.probe()
+            } catch (e: Throwable) {
+                org.json.JSONObject().put("passed", false).put("error", e.toString()).toString()
+            }
+            post { ready(report) }
+        }
+    }
+
     fun runMediaAtlasProbe(ready: (String) -> Unit) {
         if (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) {
             ready("{\"pass\":false,\"error\":\"Media atlas probe is debug only\"}")

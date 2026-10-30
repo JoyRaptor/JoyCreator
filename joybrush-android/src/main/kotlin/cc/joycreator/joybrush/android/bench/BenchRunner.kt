@@ -198,6 +198,16 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
             }
             return
         }
+        if (case == "paperTextureRetentionProbe") {
+            canvas.runPaperTextureRetentionProbe { result ->
+                val report = try { org.json.JSONObject(result) } catch (e: Exception) {
+                    org.json.JSONObject().put("passed", false).put("raw", result)
+                }
+                logRecordedReport(report.put("brush", preset.id).put("case", case).put("run", run), preset.id, case, run)
+                ui.postDelayed({ next() }, spec.settleMs)
+            }
+            return
+        }
         if (case == "mediaAtlasProbe") {
             // Media Atlas v2 B1: window vs atlas engines on this GPU, same frames, readback compare (MediaAtlasProbe).
             canvas.runMediaAtlasProbe { result ->

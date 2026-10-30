@@ -25,6 +25,7 @@ CASES = {
     "mediaSeamProbe": "media:paste:All-round,media:paste:Oil round,media:paste:Oil flat",
     "mediaUndoProbe": "media:paste:Oil round,media:paste:All-round,media:wet:Wash,media:dry:HB",
     "liveSourceLeaseProbe": "joybrush.ink",
+    "paperTextureRetentionProbe": "joybrush.ink",
     "mediaAtlasLedgerProbe": "media:wet:Wash,media:paste:Oil round,media:dry:HB",
 }
 # Every place a person's drawings or projects live on the sandbox. A probe must leave each file byte-identical.
@@ -106,6 +107,7 @@ def run(out: Path, case: str, receipt: Path, install: bool, lane: str, timeout_s
         # Fence: a line only this run writes, so the capture holds this launch's reports and nothing older.
         fence = f"jb-probe-fence {run_id}"
         adb.call("shell", "log", "-p", "i", "-t", "JoyBrushPerf", shlex.quote(fence))
+        adb.ready()  # Fresh Home/unlocked check after potentially lengthy saved-file hashing.
         launched = True
         # adb shell joins its arguments with spaces: quote values ("media:paste:Oil round").
         extra_args = [a for kv in extras for a in ("--es", kv.partition("=")[0], shlex.quote(kv.partition("=")[2]))]
@@ -115,8 +117,15 @@ def run(out: Path, case: str, receipt: Path, install: bool, lane: str, timeout_s
         if "Error" in launch or "Exception" in launch:
             raise RunError("Bench launch not confirmed; inspect the phone before cleanup.")
         deadline = time.monotonic() + timeout_s
+        temperatures = [{"elapsedSeconds": 0, "temperatureC": temp_before}]
+        next_temperature = time.monotonic() + 30
         captured = None
         while time.monotonic() < deadline:
+            if time.monotonic() >= next_temperature:
+                temperatures.append({"elapsedSeconds": round(time.monotonic() - (deadline - timeout_s), 1),
+                                     "temperatureC": adb.temperature()})
+                (out / "temperatures.json").write_text(json.dumps(temperatures, indent=2), encoding="utf-8")
+                next_temperature = time.monotonic() + 30
             log = adb.call("logcat", "-b", "main", "-d", "-v", "raw", "-s", "JoyBrushPerf:I", timeout=20)
             if fence in log:
                 after = log[log.rindex(fence) + len(fence):]
@@ -137,6 +146,7 @@ def run(out: Path, case: str, receipt: Path, install: bool, lane: str, timeout_s
             sourceRevision=source, apkSha256=expected, installedBeforeSha256=installed_before,
             installedAfterSha256=installed_after, model=model, api=api, runId=run_id, benchCase=case,
             brush=CASES[case], extras=list(extras), fence=fence, tempBeforeC=temp_before, tempAfterC=temp_after,
+            temperatures=temperatures,
             savedBefore=saved_before, savedAfter=saved_after,
             requiredSavedPaths=list(WORKING), savedFiles=len(saved_before),
             savedUnchanged=saved_before == saved_after)

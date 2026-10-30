@@ -33,8 +33,9 @@ class PaperTextureRetentionTest {
     private class Fixture {
         val deleted = ArrayList<Int>()
         var deleteFault: ((IntArray) -> Unit)? = null
-        val cache = GrainTextures(loadBitmap = { _, _ -> error("Unseeded GPU allocation") },
-            deleteTextures = { deleteFault?.invoke(it); deleted.addAll(it.toList()) })
+        // This JVM-only module deliberately has no Android Bitmap on its test classpath.
+        // Every texture lookup is preseeded; an accidental decode still fails the test.
+        val cache = GrainTextures(deleteTextures = { deleteFault?.invoke(it); deleted.addAll(it.toList()) })
         val engine = GlPaintEngine(grains = cache)
     }
 

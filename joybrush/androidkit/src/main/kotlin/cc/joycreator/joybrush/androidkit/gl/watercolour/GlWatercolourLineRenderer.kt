@@ -33,7 +33,7 @@ internal class GlWatercolourLineRenderer(shaders: ShaderLibrary, private val til
         return InkReplay.dabs(record,preset).flatMap { Tiles.touchedBy(it,tileSize) }.toSet()
     }
     fun render(record:StrokeRecord,preset:BrushPreset,outputs:Map<Long,Int>,hasPaper:Boolean,
-               bindPaper:(GlProgram)->Unit): Set<Long> {
+               paperHandles:Set<Int>,bindPaper:(GlProgram)->Unit): Set<Long> {
         require(preset.engine == ENGINE_WATERCOLOUR)
         InkReplay.refusal(record,preset)?.let { throw cc.joycreator.joybrush.core.vector.InkReplayException(it) }
         val spec=preset.watercolourRuntime()
@@ -46,12 +46,12 @@ internal class GlWatercolourLineRenderer(shaders: ShaderLibrary, private val til
             // begin clears old coverage before allocating the replacement. If preparation or dab
             // drawing fails, do not leave the old key claiming that its bands are still available.
             prepared=null; keys=emptySet()
-            pass.begin(spec,record.seed,tint,hasPaper,bindPaper)
+            pass.begin(spec,record.seed,tint,hasPaper,paperHandles,bindPaper)
             pass.add(buckets) { null }
             keys=buckets.keys.toSet(); prepared=identity
         } else {
             require(outputs.keys.containsAll(keys)) { "Watercolor line look is missing output tiles" }
-            pass.recolour(tint,hasPaper,bindPaper)
+            pass.recolour(tint,hasPaper,paperHandles,bindPaper)
         }
         pass.setWashFrame(record.washFrame)
         pass.finishInto(outputs,1f,keys)
@@ -62,6 +62,8 @@ internal class GlWatercolourLineRenderer(shaders: ShaderLibrary, private val til
 
     /** Borrowed pass resources; ownership and GL-context lifecycle remain with the engine. */
     internal fun heldTextureHandles(): Set<Int> = pass.heldTextureHandles()
+
+    internal fun borrowedPaperTextureHandles(): Set<Int> = pass.borrowedPaperTextureHandles()
 
     /** Resident tile allocations held by this pass, including bounded reusable free tiles. */
     internal fun heldWorkingTileBytes(): Map<Int, Long> = pass.heldWorkingTileBytes()

@@ -223,6 +223,7 @@ class SmudgeParams(val pickup: Float, val load: Float, val texturePickup: Float 
 class GlPaintEngine(
     private val shaders: ShaderLibrary = ShaderLibrary(),
     undoBudgetBytes: Long = 192L shl 20,
+    private val grains: GrainTextures = GrainTextures(),
 ) {
     private val size = Tiles.SIZE
     private val boardSnapshotAllowanceBytes = undoBudgetBytes.coerceAtLeast(0L)
@@ -261,8 +262,6 @@ class GlPaintEngine(
     /** 1x1 opaque white: a mask tile that was never painted (full coverage), and "no mask" in the composite shader. */
     private var whiteTex = 0
 
-    /** The grain pictures (JB-1.05c): loaded on first use, dropped on a context loss. */
-    private val grains = GrainTextures()
     private val paperBackground = PaperBackground(shaders)
     private var resolvedPaper: ResolvedPaper? = null
     private var loadedPaper: PaperResources.Loaded? = null
@@ -293,15 +292,61 @@ class GlPaintEngine(
 
     /** GL thread: switching paper invalidates only the background, never painted tiles. */
     fun setPaper(p: ResolvedPaper) {
+        setPaperWith(p) { requested, previous, loaded -> PaperResources.update(requested, previous, loaded) }
+    }
+
+    /** Same adoption/collection path with only CPU decoding supplied separately for host tests. */
+    internal fun setPaperWith(p: ResolvedPaper,
+        load: (ResolvedPaper, ResolvedPaper?, PaperResources.Loaded?) -> PaperResources.Loaded) {
         requireLocalPaint()
-        if (resolvedPaper == p && loadedPaper != null) return
-        loadedPaper = PaperResources.update(p, resolvedPaper, loadedPaper)
+        if (resolvedPaper == p && loadedPaper != null) { collectPaperTextures(); return }
+        loadedPaper = load(p, resolvedPaper, loadedPaper)
         resolvedPaper = p
         val effective = loadedPaper!!.paper
         lookTexture = effective.look?.file?.let { grains.textureFor(it, "paper") }
         surfaceTexture = effective.surface?.file?.let { grains.textureFor(it, "paper") }
         fluidTexture = effective.surface?.fluid?.let { grains.textureFor(it, "paper") }
+        mediaPaperFor = null; mediaPaperGl = null
         paperBackground.invalidate()
+        collectPaperTextures()
+    }
+
+    private val paperTextureBorrowers = java.util.IdentityHashMap<Any, () -> Set<Int>>()
+
+    /** A MediaCanvas stays registered across release/recreation; its empty engine borrows nothing. */
+    internal fun registerPaperTextureBorrower(owner: Any, borrowed: () -> Set<Int>) {
+        paperTextureBorrowers[owner] = borrowed
+    }
+
+    private fun strokePaperHandles(value: StampPass.StrokeLook): Set<Int> =
+        listOfNotNull(value.tipGrainTex, value.paperGrainTex, value.fluidTexture).filter { it != 0 }.toSet()
+
+    /** Dedicated borrowed inventory: including grains.heldTextureHandles here would defeat eviction. */
+    internal fun borrowedPaperTextureHandles(): Set<Int> = buildSet {
+        addAll(listOfNotNull(lookTexture, surfaceTexture, fluidTexture))
+        addAll(strokePaperHandles(look)); add(tuftPaperTex)
+        mediaPaperGl?.let { addAll(it.borrowedTextureHandles()) }
+        addAll(wcPass?.borrowedPaperTextureHandles().orEmpty())
+        addAll(wcLineRenderer?.borrowedPaperTextureHandles().orEmpty())
+        paperTextureBorrowers.values.toList().forEach { addAll(it()) }
+        remove(0)
+    }
+
+    internal fun collectPaperTextures(additionalBorrowers: Set<Int> = emptySet()): Int = if (forgettingGraphicsContext) 0
+        else grains.collectUnusedPaperTextures { borrowedPaperTextureHandles() + additionalBorrowers }
+
+    internal fun paperTextureCacheSnapshot(): PaperTextureCacheSnapshot = grains.paperCacheSnapshot()
+
+    /** The scope closes only after its caller has restored rollback state. Old-context tokens
+     * neither protect nor collect names belonging to the replacement physical epoch. */
+    internal fun <T> withPinnedPaperTextures(handles: Collection<Int>, retainAtClose: Set<Int> = emptySet(), action: () -> T): T {
+        val physical = physicalContextEpoch
+        val finalBorrowers = retainAtClose.toSet()
+        val pin = grains.pinPaperTextures(handles + finalBorrowers)
+        try { return action() } finally {
+            pin.close()
+            if (physicalContextEpoch == physical && !forgettingGraphicsContext) collectPaperTextures(finalBorrowers)
+        }
     }
 
     private var mediaPaperFor: PaperResources.Loaded? = null
@@ -3318,6 +3363,7 @@ class GlPaintEngine(
         if (selected != wcLineSelection) {
             wcLineRenderer?.release(); wcLineRenderer = null; wcLineReplay = null
             wcLineSelection = selected
+            collectPaperTextures()
         }
         if (ids.isEmpty()) return
         val originals = LinkedHashMap<Pair<LinePlane, Long>, Int?>()
@@ -3762,7 +3808,8 @@ class GlPaintEngine(
                 val frozenSurface = surfaceTexture ?: grains.placeholder
                 val reused = renderer.canReuse(record, preset)
                 renderer.render(record, preset, strokeTiles,
-                    surfaceTexture != null && loadedPaper?.paper?.surface != null) { program ->
+                    surfaceTexture != null && loadedPaper?.paper?.surface != null,
+                    strokePaperHandles(frozenLook) + frozenSurface) { program ->
                     stamp.setPaperSurfaceUniforms(GlUniformSink, program::loc, frozenLook)
                     GLES30.glActiveTexture(GLES30.GL_TEXTURE1)
                     GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, frozenSurface)
@@ -4299,6 +4346,8 @@ class GlPaintEngine(
                 throw ColdInjectedFailure(fault.target)
             }
         }
+        // setDocumentPaper may collect old paper, but rollback below restores these exact names.
+        return withPinnedPaperTextures(listOfNotNull(priorLook, priorSurface, priorFluid), glState.borrowedTextureHandles()) {
         try {
             checkedGl()
             glState.unpackTightly()
@@ -4397,7 +4446,7 @@ class GlPaintEngine(
             check(current() && hasJointPaintPublication && !undo.canUndo && !undo.canRedo &&
                 boardDocument === doc && recordedLinePreparationCalls == preparationCalls &&
                 recordedCompositionCalls == compositionCalls) { "Cold loading changed source rendering or publication" }
-            return receipt
+            receipt
         } catch (failure: Throwable) {
             fun cleanup(action: () -> Unit) { try { action() } catch (secondary: Throwable) { failure.addSuppressed(secondary) } }
             if (current()) {
@@ -4435,6 +4484,7 @@ class GlPaintEngine(
             }
             // On context retirement no old ledger name may be deleted/restored in the new epoch.
             throw failure
+        }
         }
     }
 
@@ -4602,6 +4652,9 @@ class GlPaintEngine(
     /** Pixel unpack state belongs to the caller, including a PBO and strided/subimage uploads. */
     private class ColdUploadGlState private constructor(private val unpack: IntArray,
         private val active: Int, private val texture0: Int, private val drawFbo: Int, private val readFbo: Int) {
+        // A successful adoption must not delete a paper binding just restored to its caller.
+        // The next ordinary engine operation may collect it after establishing its own bindings.
+        fun borrowedTextureHandles(): Set<Int> = setOf(texture0) - 0
         fun sameValues(other: ColdUploadGlState): Boolean = unpack.contentEquals(other.unpack) &&
             active == other.active && texture0 == other.texture0 && drawFbo == other.drawFbo && readFbo == other.readFbo
         fun unpackTightly() {
@@ -5464,7 +5517,8 @@ class GlPaintEngine(
             val frozenSurface = surfaceTexture ?: grains.placeholder
             val pass = wcPass ?: WatercolourPass(shaders, size).also { wcPass = it }
             try {
-                pass.begin(watercolour, watercolourSeed, floatArrayOf(colR,colG,colB), surfaceTexture != null && surface != null) { program ->
+                pass.begin(watercolour, watercolourSeed, floatArrayOf(colR,colG,colB), surfaceTexture != null && surface != null,
+                    strokePaperHandles(frozenLook) + frozenSurface) { program ->
                     stamp.setPaperSurfaceUniforms(GlUniformSink,program::loc,frozenLook)
                     GLES30.glActiveTexture(GLES30.GL_TEXTURE1)
                     GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,frozenSurface)
@@ -5844,6 +5898,7 @@ class GlPaintEngine(
                 lines = items.lines, slabs = items.slabs))
         }
         pendingLine = null
+        collectPaperTextures()
         return changes.size
     }
 
@@ -5857,6 +5912,7 @@ class GlPaintEngine(
         strokeTileRect = null
         smudge = null
         tuft = null
+        collectPaperTextures()
     }
 
     fun undoStep(): Boolean {

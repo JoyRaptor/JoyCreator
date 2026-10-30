@@ -39,6 +39,28 @@ Resource-only test overlay, no shipping ID/default replacement or engine/cache/l
 storage/GPU compression choices. It is a separate unstarted benchmark; current
 phone variants and feel comparison remain unchanged.
 
+### Current owner order: full library, compression, then packs
+The owner explicitly requests all45 full-resolution masters on the sandbox phone
+for evaluation before choosing removals or downloadable packs. The205722497-byte
+master payload is an evaluation baseline, not an accepted shipping footprint.
+Target a10× reduction in the subsequent codec benchmark while measuring quality;
+that ratio is a goal, not an established result.
+
+- [x] Stage all45 master catalogue pairs plus the two existing reduced comparisons
+  in isolated `lead/paper-full-evaluation-20261029` (resource checkpoint05f845ac9).
+- [ ] Verify every packaged master with production decoding; preserve shipping IDs.
+- [ ] Fix unbounded paper GPU retention with complete live-borrower and cold-rollback
+  ownership before allowing full-library phone browsing. A separate Sol review/
+  implementation lane owns this narrow change; CPU previews are sequential but
+  full-resolution transient allocation and eager queue behavior need observation.
+- [ ] Build, protected-install and traverse the full45 masters/two comparisons on
+  the Note9. Verify exact source, catalogue coverage, GL liveness/reclamation and
+  complete saved-file manifests; installed3-profile comparison does not satisfy this.
+- [ ] Owner evaluates full library and matched Background/Surface brush response.
+- [ ] Benchmark compression with decoder overhead, physical-map fidelity, CPU/GPU
+  memory and load-time evidence; preserve the approved full-resolution masters.
+- [ ] After evaluation/compression, choose base-app papers and optional packs.
+
 ## Offline master phase CLOSED — October29
 Paper branch085841ddd is pushed and remote-verified. Root independently verified all
 135 actual output hashes/modes/dimensions,51 unique recorded source/recipe inputs,

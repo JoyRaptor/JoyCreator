@@ -453,4 +453,8 @@ JPEGli/WebP/JPEGXL/AVIF storage and KTX2/Basis/native GPU paths separately; acco
 for added decoder code, load/transcode costs, numerical channel fidelity and Note9
 capabilities. JPEG AI/neural material compression are research candidates, not a
 promised phone implementation. Existing [paper evaluation](jobs/JB-PAPER-RES_resolution_evaluation.md)
-continues unchanged. No codec implementation/benchmark job has been started.
+now has all45masters/two comparison profiles installed and an independently checked
+94visit idle GPU traversal pass. [Current plan](joybrush/reviews/PAPER_TEST_PLAN_20261030.md):
+complete controlled paper/brush/canvas evaluation, benchmark compression toward10x
+without a quality promise, then decide removals/base-app/optional packs. No codec
+implementation/benchmark or removal/pack decision has been completed.

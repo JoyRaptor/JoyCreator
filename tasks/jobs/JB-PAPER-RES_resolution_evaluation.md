@@ -21,7 +21,10 @@ All45 masters plus two reduced comparisons are installed on the Note9 atded8d469
 APK379901966bytes; all141 fixture asset hashes verified inside APK, exact installed
 hash verified, complete266saved files unchanged across all three saved roots.
 Full1197engine tests (including15ownership) and4integrated production decoder tests
-passed. GPU traversal remains UNRUN; phone creative/feel acceptance remains OPEN.
+passed. [Note9 idle GPU traversal PASSED October30](../joybrush/reviews/FULL_PAPER_GPU_20261030.json):
+94visits,282live/279retired texture checks, max3paper textures/46137340logical mip
+bytes after adoption;266saved files unchanged. Creative/feel and actual borrower
+continuation/pixel/save/export acceptance remain OPEN.
 [Current source/build/install and next gates](../joybrush/reviews/FULL_PAPER_PHONE_BUILD_20261029.md).
 [PC tester options and limits](../joybrush/reviews/PAPER_PC_TESTERS_20261029.md).
 Local Media Lab is served on127.0.0.1:18777 from the evaluation checkout with all45
@@ -33,7 +36,10 @@ Evaluation branch lead/paper-evaluation-20261029, tested assetscodecbc693e97, AP
 Baseline169549163bytes; evaluation177213152bytes: +7663989bytes/+4.52% (matched arm64 debug builds, not release size). ActualNote9SM-N960U/API29 installed SHA36f9492e57c5de8f3aff896ddf6cebde0c5c2d589b2582d3d5b0daaf333b2e57. All33 saved files unchanged during install; temperature28.0→28.1C; claims released. No activity launched or drawing edited.
 
 ## What is left
-Use a fresh scratch drawing and matching Background AND Surface labels Crumpled paper2048px/1024px/512px (spaces in actual labels), one resolution at a time. Owner feel and device visual checks remain open. Full45 materials are not shipped. Remaining master bakes run only under fresh per-material resource admission/exclusive shared lock; stop on first failed gate, no wait/retry loop.
+Follow [the current canvas/device and compression plan](../joybrush/reviews/PAPER_TEST_PLAN_20261030.md).
+All45 masters are in the sandbox evaluation APK; they are not approved shipping
+materials. Master baking is complete. Remaining work is device/creative acceptance,
+compression benchmarking, then base-app/optional-pack decisions.
 
 ## Specs, handoffs and evidence
 - [Current wing roadmap](../joybrush/ROADMAP.md), PAPER-PORTFOLIO.
@@ -43,7 +49,13 @@ Use a fresh scratch drawing and matching Background AND Surface labels Crumpled 
 - Paper pipeline: codex/paper-approved-20261029@8e5a8ddb5; source/master/profile receipts remain on that branch and local visualization artifacts.
 
 ## Files and traps
-Resource-only test overlay, no shipping ID/default replacement or engine/cache/loader edits. Keep full2048 masters. Explicitly separate encoded package size, modeled residency and observed child RAM. Device mapping is private tools/devices.local.sh under NEW C:/+Projects/JoyCreator; never commit serials. Never uninstall/clear data/touch owner drawings/rotate/monkey-launch. One Gradle/asset heavy job and one phone owner at a time.
+No shipping ID/default replacement. This isolated evaluation includes a narrow
+paper-only GPU lifetime fix, explicit live borrowers and cold pins; it is no longer
+a resource-only overlay. Keep full2048 masters. Separate encoded package size,
+logical retained mip bytes, transient CPU allocations and actual driver residency.
+Private device mapping remains tools/devices.local.sh under C:/+Projects/JoyCreator.
+Never commit serials/uninstall/clear data/touch owner drawings/rotate/monkey-launch.
+One admitted heavy job and one phone owner at a time.
 
 ## Owner follow-on, October29
 [Codec research](../joybrush/reviews/PAPER_CODEC_OPTIONS_20261029.md) records modern
@@ -59,14 +71,12 @@ that ratio is a goal, not an established result.
 
 - [x] Stage all45 master catalogue pairs plus the two existing reduced comparisons
   in isolated `lead/paper-full-evaluation-20261029` (resource checkpoint05f845ac9).
-- [ ] Verify every packaged master with production decoding; preserve shipping IDs.
-- [ ] Fix unbounded paper GPU retention with complete live-borrower and cold-rollback
-  ownership before allowing full-library phone browsing. A separate Sol review/
-  implementation lane owns this narrow change; CPU previews are sequential but
-  full-resolution transient allocation and eager queue behavior need observation.
-- [ ] Build, protected-install and traverse the full45 masters/two comparisons on
-  the Note9. Verify exact source, catalogue coverage, GL liveness/reclamation and
-  complete saved-file manifests; installed3-profile comparison does not satisfy this.
+- [x] Verify all141 packaged asset hashes and production host decoding; preserve shipping IDs.
+- [x] Integrate paper GPU collection with explicit borrowers/cold pins;1197host tests pass.
+- [x] Build and protected-install full45masters/two comparisons;266saved files unchanged.
+- [x] Independently validate full47entry/94visit Note9 GL traversal report.
+- [ ] Verify actual GPU borrower continuation/cold rollback, previews/transient load,
+  matched Background+Surface brush response, seams and scratch save/reopen/export.
 - [ ] Owner evaluates full library and matched Background/Surface brush response.
 - [ ] Benchmark compression with decoder overhead, physical-map fidelity, CPU/GPU
   memory and load-time evidence; preserve the approved full-resolution masters.
@@ -78,7 +88,7 @@ Paper branch085841ddd is pushed and remote-verified. Root independently verified
 45 successful resource receipts with termination/claim release and the exact total
 205722497bytes (look63614156, height117214451, fluid24893890). Maximum observed
 child peak594.42MiB. [Independent aggregate proof](../joybrush/reviews/PAPER_MASTERS_COMPLETE_20261029.json).
-These full-resolution evaluation artifacts are NOT all in the APK. The installed
-phone comparison remains only one paper at three resolutions. Numerical preparation
+The initial3-profile-only APK is superseded by the full45 evaluation install above.
+Numerical preparation
 is not measured physical paper accuracy or creative/GL/seam/feel acceptance. No
 codec experiment or runtime-format change was started.

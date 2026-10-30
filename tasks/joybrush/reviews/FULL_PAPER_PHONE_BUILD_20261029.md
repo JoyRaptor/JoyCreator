@@ -1,5 +1,9 @@
 # Full-library evaluation checkpoint — October29
 
+October30 continuation: [idle Note9 GPU traversal passed](FULL_PAPER_GPU_20261030.json).
+Use [the current plan](PAPER_TEST_PLAN_20261030.md) and job checklist for next work;
+the UNRUN/usage snapshots below are historical checkpoint context.
+
 Owner order: full45 on phone, compression toward10x next, then base-app/optional-pack
 choices. No trimming or codec substitution yet. Preserve full-resolution masters.
 

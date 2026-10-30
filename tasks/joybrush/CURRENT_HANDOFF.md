@@ -1,5 +1,12 @@
 > SUPERSEDED October26: start at [ROADMAP.md](ROADMAP.md) and [AGENT_START_20261026.md](AGENT_START_20261026.md). Historical queue and checkout/build instructions below are not current.
 
+> Paper evaluation October30: [current test/compression/pack plan](reviews/PAPER_TEST_PLAN_20261030.md),
+> [job](../jobs/JB-PAPER-RES_resolution_evaluation.md), [exact Note9 idle GPU evidence](reviews/FULL_PAPER_GPU_20261030.json).
+> Full45 installed;94visit traversal passed. Brush/creative/save-export acceptance
+> remains open; no compression or trimming performed. Use C:/+Projects/JoyCreator,
+> not the retired FadCam root. Detailed build/source context remains in
+> [full-library checkpoint](reviews/FULL_PAPER_PHONE_BUILD_20261029.md).
+
 # JoyBrush lead handoff — October 9, 2026
 
 > **2026-10-17 night: read [HANDOFF_20261017_LEAD.md](HANDOFF_20261017_LEAD.md) FIRST** (Claude lead handoff: what is on

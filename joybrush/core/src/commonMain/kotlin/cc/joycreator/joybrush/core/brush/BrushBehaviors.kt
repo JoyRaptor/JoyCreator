@@ -70,6 +70,17 @@ object BrushBehaviors {
         }
     }
 
+    /**
+     * The copy of an older stamp brush that a line freezes. Before version 7 grain took its tilt from the newest pen event
+     * of each batch, which a recording cannot give back, so with a tilting pen Ink and Marker could never stay lines. From
+     * 7 the tilt travels on each dab. Nothing else changes for a brush whose depths and hardness are plain numbers; one with
+     * dynamics on them would start to obey them, so it keeps its version (and stays pixels under a tilting pen).
+     */
+    fun forLine(p: BrushPreset): BrushPreset {
+        val plain = p.tip.hardness.inputs.isEmpty() && p.tipTexture.depth.inputs.isEmpty() && p.paperGrain.depth.inputs.isEmpty()
+        return if (p.engine == "stamp" && p.version < VERSION_CONTACT && plain) p.copy(version = VERSION_CONTACT) else p
+    }
+
     private fun pressureParam(p: Param, enabled: Boolean, range: ClosedFloatingPointRange<Float>? = null): Param {
         // Disabling pressure keeps its full-pressure strength, including imported additive recipes
         // such as base 0 + pressure 0..1. Simply deleting that curve would erase all their ink.

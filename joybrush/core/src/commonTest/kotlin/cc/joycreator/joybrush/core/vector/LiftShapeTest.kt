@@ -28,6 +28,12 @@ class LiftShapeTest {
         assertTrue(lifted.dabs.last().radius < lifted.dabs[lifted.dabs.size / 2].radius, "the end tapers out")
     }
 
+    @Test fun thePlainRedrawIsTheUnshapedStroke() {
+        val p = brush(LineStyleSpec(taperIn = 1.5f, taperOut = 3f, taperTip = .05f))
+        val plain = assertNotNull(LiftShape.plain(record(p), p, null, null))
+        assertEquals(InkReplay.replay(record(p), p.copy(line = null)).dabs, plain.dabs)
+    }
+
     @Test fun aStrokePastTheAllowancesIsKeptPlainNotDropped() {
         val p = brush(LineStyleSpec(taperOut = 3f))
         assertNull(LiftShape.shaped(record(p), p, null, null, ShapedReplayLimits(10, 10_000, 10_000, 10_000)))

@@ -27,4 +27,10 @@ object LiftShape {
         try { ShapedReplay.replayAdmitted(record, preset, sampled, dual, limits) {} }
         catch (e: InkReplayException) { null }
         catch (e: IllegalArgumentException) { null }
+
+    /** The same recording without its shaping: the plain stroke the pen drew, for when the shaped redraw fails at the lift. */
+    fun plain(record: StrokeRecord, preset: BrushPreset, sampled: SampledTipSet?, dual: DualMask?): InkReplay.Replayed? =
+        try { InkReplay.replay(record, preset.copy(line = null), sampled, dual) }
+        catch (e: InkReplayException) { null }
+        catch (e: IllegalArgumentException) { null }
 }

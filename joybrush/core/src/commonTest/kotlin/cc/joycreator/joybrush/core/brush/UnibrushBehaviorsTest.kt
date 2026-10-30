@@ -170,4 +170,11 @@ class UnibrushBehaviorsTest {
             assertNotEquals(live, InkReplay.dabs(restored.copy(seed = 48L), p), "seed control must be non-vacuous")
         }
     }
+    @Test fun aLineFreezesAnOlderPlainStampWithItsTiltOnEachDab() {
+        val old = BrushPreset(id = "ink", name = "Ink", size = Param(8f), version = 6)
+        assertEquals(old.copy(version = VERSION_CONTACT), BrushBehaviors.forLine(old))
+        val moving = old.copy(tip = old.tip.copy(hardness = Param(.9f, listOf(InputCurve(BrushInput.pressure, listOf(listOf(0f, 0f), listOf(1f, 1f)))))))
+        assertEquals(moving, BrushBehaviors.forLine(moving), "dynamics it never obeyed stay unobeyed")
+        assertEquals(old.copy(engine = "tuft"), BrushBehaviors.forLine(old.copy(engine = "tuft")))
+    }
 }

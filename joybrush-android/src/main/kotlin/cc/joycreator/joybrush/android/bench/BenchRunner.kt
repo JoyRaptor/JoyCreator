@@ -93,11 +93,13 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                val pasteForce: Double? = null,
                /** Strokes kept as editable lines on or off for this run (`jb_lines`); none = as the canvas has it. */
                val lines: Boolean? = null,
+               /** lineParity: the shaped redraw at the lift fails, to prove the stroke survives it (`jb_lift_fail`). */
+               val failLiftRedraw: Boolean = false,
                /** Debug-only resolved nominal stamp size; null retains the actual recipe. */
                val sizeOverridePx: Float? = null) {
         init {
             BenchBrushOverride.requireSize(sizeOverridePx)
-            require(sizeOverridePx == null || cases.all { it in setOf("fastC", "slowC", "scribble", "spiral", "topScribble", "blue1", "blue2", "blue3") }) {
+            require(sizeOverridePx == null || cases.all { it in setOf("fastC", "slowC", "scribble", "spiral", "topScribble", "blue1", "blue2", "blue3", "lineParity") }) {
                 "The debug size override is supported only by the ordinary MotionEvent replay cases"
             }
         }
@@ -236,6 +238,12 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         if (case == "lineParity") {
             LineParityBench(canvas, spec, preset, run, { next() },
                 { jobs.clear(); Log.i(TAG, "done (lineParity inconclusive; remaining jobs aborted)"); onDone() }).start()
+            return
+        }
+        // Unibrush U8: the same line moved, rotated, re-brushed, walked through undo and redo, saved; then reopened from nothing.
+        if (case == "lineMatrix" || case == "lineReopen") {
+            LineMatrixBench(canvas, spec, preset, run, case == "lineReopen", { next() },
+                { jobs.clear(); Log.i(TAG, "done ($case inconclusive; remaining jobs aborted)"); onDone() }).start()
             return
         }
         val bakeOperator = when (case) {
@@ -636,6 +644,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 pasteCarry = intent.getStringExtra("jb_paste_carry")?.toDoubleOrNull()?.coerceIn(0.0, 1.0),
                 pasteForce = intent.getStringExtra("jb_paste_force")?.toDoubleOrNull()?.coerceIn(0.0, 1.0),
                 lines = if (intent.hasExtra("jb_lines")) intent.getBooleanExtra("jb_lines", false) else null,
+                failLiftRedraw = intent.getBooleanExtra("jb_lift_fail", false),
                 sizeOverridePx = if (intent.hasExtra("jb_bench_size_px")) intent.getFloatExtra("jb_bench_size_px", Float.NaN) else null)
         }
     }

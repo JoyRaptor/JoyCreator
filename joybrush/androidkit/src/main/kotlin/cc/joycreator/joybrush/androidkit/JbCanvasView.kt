@@ -2175,7 +2175,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                     return
                 }
                 if (refusal == null) try {
-                    val effective = if (erase) p!!.copy(blend = "erase") else p!!
+                    val effective = cc.joycreator.joybrush.core.brush.BrushBehaviors.forLine(if (erase) p!!.copy(blend = "erase") else p!!)
                     lineFrozen = frozenBrushes.freeze(lineSnapshot.brushRevision, lineSnapshot.brushes,
                         lineSnapshot.brushAssets, effective,
                         contactPngs ?: cc.joycreator.joybrush.core.brush.FrozenBrushPngs.empty()) { newLineName("lb") }
@@ -2555,12 +2555,24 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                 val shaped = cc.joycreator.joybrush.core.vector.LiftShape.shaped(shapeRecord, shapePreset, shapeTips?.sampled, shapeTips?.dual)
                 if (shaped != null && shaped.dabs.isNotEmpty()) {
                     // The plain stroke goes and the shaped one takes its place in the same step: one undo, never two.
-                    engine.cancelStroke()
-                    val first = shaped.dabs.first()
-                    val tip = first.tipShape(begin.tip.copy(hardness = shaped.strokeHardness, sampled = first.sampled, dual = first.dual))
-                    engine.beginStroke(begin.target, begin.argb, shaped.strokeOpacity, begin.accumulate, begin.blend, tip,
-                        shaped.strokeGrain, null, null, null, 0L)
-                    engine.addDabs(shaped.dabs)
+                    fun redraw(r: cc.joycreator.joybrush.core.vector.InkReplay.Replayed, fail: Boolean) {
+                        engine.cancelStroke()
+                        check(!fail) { "bench: shaped redraw refused" }
+                        val first = r.dabs.first()
+                        val tip = first.tipShape(begin.tip.copy(hardness = r.strokeHardness, sampled = first.sampled, dual = first.dual))
+                        engine.beginStroke(begin.target, begin.argb, r.strokeOpacity, begin.accumulate, begin.blend, tip,
+                            r.strokeGrain, null, null, null, 0L)
+                        engine.addDabs(r.dabs)
+                    }
+                    try { redraw(shaped, benchFailLiftRedraw) }
+                    catch (e: Exception) {
+                        // Letting go of the plain stroke is not undone by a failure: it is drawn back from its recording, as
+                        // pixels (a line would redraw shaped and differ). Only a second failure loses it, and that says so.
+                        noteBenchError("lift redraw", e)
+                        redraw(cc.joycreator.joybrush.core.vector.LiftShape.plain(shapeRecord, shapePreset, shapeTips?.sampled, shapeTips?.dual) ?: throw e, false)
+                        keptLines = emptyList()
+                        post { onRefused?.invoke("This stroke's ends could not be shaped; it is kept as drawn.") }
+                    }
                 } else {
                     // Too long to shape within its allowances: kept as drawn, as pixels (a line would redraw shaped and differ).
                     keptLines = emptyList()
@@ -3324,6 +3336,12 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
      */
     class BenchState(val planes: Map<String, Map<Long, ByteArray>>, val undoDepth: Int, val canUndo: Boolean,
                      val doc: JbDocument?, val tileBoardId: String?, val idle: Boolean)
+
+    /** Bench only: the shaped redraw at the lift fails after the plain stroke is let go (U6's worst moment). */
+    @Volatile var benchFailLiftRedraw = false
+
+    /** Why the last stroke meant as a line stayed pixels, in the engine's words; the bench reports it. */
+    val lastLineRefusal: String? get() = engine.lastLineRefusal
 
     /** Exceptions the GL thread turned into a refusal sentence, collected only while [benchWatch] is on. */
     val benchErrors = java.util.concurrent.ConcurrentLinkedQueue<String>()

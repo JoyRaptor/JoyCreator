@@ -2946,11 +2946,13 @@ class GlPaintEngine(
         // items), said once, rather than becoming a line that would come back wrong or not at all.
         if (line != null) lineReplayRefusal(line.records, line.brushes, line.assets)?.let {
             android.util.Log.i("JoyBrushLines", "kept as pixels: $it")
+            lastLineRefusal = it
             onLineNotice?.invoke(KEPT_AS_PIXELS)
             line = null
         }
         if (line != null) lineAssetRefusal(line)?.let {
             android.util.Log.i("JoyBrushLines", "kept as pixels: $it")
+            lastLineRefusal = it
             onLineNotice?.invoke(KEPT_AS_PIXELS)
             line = null
         }
@@ -3029,6 +3031,10 @@ class GlPaintEngine(
         } catch (e: Exception) { e.message ?: "its brush pictures do not fit the drawing" }
     }
 
+    /** Why the last stroke meant as a line stayed pixels; a diagnostic, the person hears [KEPT_AS_PIXELS]. */
+    @Volatile var lastLineRefusal: String? = null
+        private set
+
     /** Said (on the GL thread) when a stroke meant as a line is kept as pixels instead; the canvas shows it. */
     var onLineNotice: ((String) -> Unit)? = null
 
@@ -3046,13 +3052,10 @@ class GlPaintEngine(
     private fun lineReplayRefusal(records: List<StrokeRecord>, brushes: Map<String, BrushPreset>,
                                   assets: Map<String, cc.joycreator.joybrush.core.brush.FrozenBrushPngs>): String? {
         if (records.isEmpty()) return null
-        for (r in records) {
-            InkReplay.refusal(r, brushes[r.brushId] ?: nativeLines.brush(r.brushId))?.let { return it }
-        }
         val record = records.first()
         val preset = brushes[record.brushId] ?: nativeLines.brush(record.brushId)
         val pngs = assets[record.brushId] ?: nativeLines.asset(record.brushId)
-        val p = preset ?: return "no brush"
+        val p = preset ?: return InkReplay.refusal(record, null)
         if (BrushValidate.validate(p).isNotEmpty()) return "its frozen brush is not valid"
         if (p.engine != "stamp" && p.engine != ENGINE_WATERCOLOUR) return "the ${p.engine} engine is not replayed"
         if (p.engine == "stamp" && p.tip.source != "procedural" && p.tip.sampled == null) return "picture tips are not replayed"
@@ -3060,6 +3063,12 @@ class GlPaintEngine(
         val tips = try { resolveRecordedTips(p, pngs, record.seed) } catch (e: Exception) { return e.message ?: "its brush pictures cannot be read" }
         p.tip.sampled?.let { if (tips.sampled?.matches(it) != true) return "its brush pictures are incomplete" }
         p.tip.dual?.let { if (tips.dual?.matches(it, record.seed) != true) return "its dual tip does not match its pictures" }
+        // The copies share a brush and pictures, but a dual mask is seeded per record: each is asked with its own.
+        for (r in records) {
+            val rTips = if (r.seed == record.seed) tips else try { resolveRecordedTips(p, pngs, r.seed) }
+                catch (e: Exception) { return e.message ?: "its brush pictures cannot be read" }
+            InkReplay.refusal(r, brushes[r.brushId] ?: nativeLines.brush(r.brushId), rTips.sampled, rTips.dual)?.let { return it }
+        }
         // Unibrush U6: tapers and dashes replay (InkReplay shapes them); a screen-width wire is drawn by its renderer.
         if (cc.joycreator.joybrush.core.vector.LineStyle.of(p.line).isWire) return "a screen-width wire is not replayed"
         if (p.blend !in NativeLines.OPERATORS) return "the ${p.blend} operator is not composed"

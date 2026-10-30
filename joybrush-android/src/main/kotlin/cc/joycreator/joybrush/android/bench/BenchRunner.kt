@@ -50,6 +50,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         if (spec.dropDry != null) cc.joycreator.joybrush.androidkit.gl.media.MediaAtlasDropDry.on = true
         canvas.brushPngs = pngsBefore
         if (spec.lines != null) canvas.editableLines = linesBefore
+        if (spec.parkUnits != null) cc.joycreator.joybrush.androidkit.gl.media.MediaAtlasPark.units = 0
         canvas.onRefused = refusedBefore
         finished()
     }
@@ -77,6 +78,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                val mediaBudgetMb: Int? = null,
                /** Dry tiles' water let go between strokes (`jb_drop_dry`); none = as shipped. */
                val dropDry: Boolean? = null,
+               /** The water park's size in tiles for this run (`jb_water_park_units`, ATLAS_ROOM_20261023); none = off, as shipped. */
+               val parkUnits: Int? = null,
                /** How long after the surface the first case starts (`jb_start_ms`): measures a cold first stroke. */
                val startMs: Long = 1500L,
                /** Keep FrameStats through watercolour idle confirmation; opt-in diagnostic tail (`jb_full_tail`). */
@@ -95,6 +98,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                val lines: Boolean? = null,
                /** lineParity: the shaped redraw at the lift fails, to prove the stroke survives it (`jb_lift_fail`). */
                val failLiftRedraw: Boolean = false,
+               /** Atlas A2 ledger probe: the squeezed atlas's slot grid (`jb_atlas_slots` "6x4"); none = 6 x 4, the app's smallest. */
+               val atlasSlots: Pair<Int, Int>? = null,
                /** Debug-only resolved nominal stamp size; null retains the actual recipe. */
                val sizeOverridePx: Float? = null) {
         init {
@@ -138,6 +143,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         spec.mediaBudgetMb?.let { canvas.mediaBudgetBytes = it.toLong() shl 20; Log.i(TAG, "media room: $it MB") }
         spec.lines?.let { canvas.editableLines = it; Log.i(TAG, "editable lines: $it") }
         spec.dropDry?.let { cc.joycreator.joybrush.androidkit.gl.media.MediaAtlasDropDry.on = it; Log.i(TAG, "drop dry water: $it") }
+        spec.parkUnits?.let { cc.joycreator.joybrush.androidkit.gl.media.MediaAtlasPark.units = it; Log.i(TAG, "water park: $it tiles") }
         spec.water?.let { canvas.mediaWaterAB = cc.joycreator.joybrush.android.WaterTest.of(it).ab; Log.i(TAG, "water test: $it") }
         if ("animationClips" in spec.cases) {
             fun runProof() {
@@ -198,9 +204,28 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         }
         val (preset, case, run) = job
         if (case == "recordedCaptureProbe") { runRecordedCaptureCase(preset, case, run); return }
+        if (case == "mediaAtlasBlockedProbe") {
+            // ATLAS_ROOM_20261023 P2: water in blocks through a small atlas vs the window (MediaAtlasBlockedProbe).
+            canvas.runMediaAtlasBlockedProbe { result ->
+                val report = try { org.json.JSONObject(result) } catch (e: Exception) { org.json.JSONObject().put("pass", false).put("raw", result) }
+                logRecordedReport(report.put("brush", preset.id).put("case", case).put("run", run), preset.id, case, run)
+                ui.postDelayed({ next() }, spec.settleMs)
+            }
+            return
+        }
         if (case == "mediaSeamProbe") {
             // The owner's oil hairlines 10-27: seams at tile boundaries, atlas vs window (MediaSeamProbe).
             canvas.runMediaSeamProbe(preset) { result ->
+                val report = try { org.json.JSONObject(result) } catch (e: Exception) { org.json.JSONObject().put("pass", false).put("raw", result) }
+                logRecordedReport(report.put("brush", preset.id).put("case", case).put("run", run), preset.id, case, run)
+                ui.postDelayed({ next() }, spec.settleMs)
+            }
+            return
+        }
+        if (case == "mediaAtlasLedgerProbe") {
+            // Atlas A2: the real park ledger, the same strokes in a roomy atlas and squeezed into `jb_atlas_slots` (6 x 4) with the park on
+            // (MediaAtlasLedgerProbe); `jb_water_park_units` sets the park's size (24 if not given).
+            canvas.runMediaAtlasLedgerProbe(preset, spec.atlasSlots ?: (6 to 4), spec.parkUnits?.takeIf { it > 0 } ?: 24) { result ->
                 val report = try { org.json.JSONObject(result) } catch (e: Exception) { org.json.JSONObject().put("pass", false).put("raw", result) }
                 logRecordedReport(report.put("brush", preset.id).put("case", case).put("run", run), preset.id, case, run)
                 ui.postDelayed({ next() }, spec.settleMs)
@@ -635,6 +660,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 waterJobs = if (intent.hasExtra("jb_water_jobs")) intent.getBooleanExtra("jb_water_jobs", true) else null,
                 mediaBudgetMb = intent.getIntExtra("jb_media_budget_mb", -1).takeIf { it > 0 },
                 dropDry = if (intent.hasExtra("jb_drop_dry")) intent.getBooleanExtra("jb_drop_dry", true) else null,
+                parkUnits = intent.getIntExtra("jb_water_park_units", -1).takeIf { it >= 0 },
                 startMs = intent.getLongExtra("jb_start_ms", 1500L).coerceIn(0L, 60_000L),
                 fullTail = intent.getBooleanExtra("jb_full_tail", false),
                 editableLines = if (intent.hasExtra("jb_editable_lines")) intent.getBooleanExtra("jb_editable_lines", false) else null,
@@ -645,7 +671,9 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 pasteForce = intent.getStringExtra("jb_paste_force")?.toDoubleOrNull()?.coerceIn(0.0, 1.0),
                 lines = if (intent.hasExtra("jb_lines")) intent.getBooleanExtra("jb_lines", false) else null,
                 failLiftRedraw = intent.getBooleanExtra("jb_lift_fail", false),
-                sizeOverridePx = if (intent.hasExtra("jb_bench_size_px")) intent.getFloatExtra("jb_bench_size_px", Float.NaN) else null)
+                sizeOverridePx = if (intent.hasExtra("jb_bench_size_px")) intent.getFloatExtra("jb_bench_size_px", Float.NaN) else null,
+                atlasSlots = intent.getStringExtra("jb_atlas_slots")?.split('x')?.mapNotNull { it.trim().toIntOrNull() }
+                    ?.takeIf { it.size == 2 && it[0] in 2..16 && it[1] in 2..16 }?.let { it[0] to it[1] })
         }
     }
 }

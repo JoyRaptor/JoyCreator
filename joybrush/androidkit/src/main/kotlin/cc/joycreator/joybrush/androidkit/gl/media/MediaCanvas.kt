@@ -68,9 +68,9 @@ class MediaCanvas(
         paint.registerPaperTextureBorrower(this) { engine?.borrowedPaperTextureHandles().orEmpty() }
     }
     private var window: MediaPlace? = null
-    /** Debug probe only (MediaUndoProbe): the atlas's slot grid, columns x rows, instead of the phone's memory. */
+    /** Debug probe only (MediaUndoProbe, MediaAtlasLedgerProbe): the atlas's slot grid, columns x rows, instead of the phone's memory. */
     internal var slotGrid: Pair<Int, Int>? = null
-    /** The atlas in use, if the engine places tiles freely (probe counters). */
+    /** The atlas in use, if the engine places tiles freely (probe counters: parked tiles, admission misses, blocks). */
     internal val atlas: MediaAtlas? get() = window as? MediaAtlas
     /** Why this GPU cannot do media, once found out: said again rather than retried every stroke. Read by the UI thread. */
     @Volatile var unsupported: String? = null

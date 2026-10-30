@@ -25,6 +25,19 @@ object MediaWindowMath {
         Pair(floor(docX / Tiles.SIZE).toInt() - TILES / 2, floor(docY / Tiles.SIZE).toInt() - TILES / 2)
 
     /**
+     * The window's top-left tile for a point at ([docX], [docY]), ROUNDED to the tile grid.
+     *
+     * This is the placement of a PINNED window (the symmetry's centre, JB-2.12a's Phase E): the
+     * point lands between 384 and 640 px from every edge of the window, where [placeFor] (which
+     * FLOORS) leaves it between 256 and 768. The rounded placement therefore gives the pinned
+     * window at least 384 px of room on every side — twice the worst case of the floored one —
+     * and it is the same rule [placeForRect] already uses.
+     */
+    fun placeForRounded(docX: Double, docY: Double): Pair<Int, Int> =
+        Pair(kotlin.math.round(docX / Tiles.SIZE).toInt() - TILES / 2,
+            kotlin.math.round(docY / Tiles.SIZE).toInt() - TILES / 2)
+
+    /**
      * The widest (and tallest) part of a frame a window placed by [placeForRect] always holds: its middle is within half a
      * tile of the window's, so [SPAN] / 2 fits on every side inside the margin. A frame wider than this is drawn in parts,
      * its dabs in order, the window moving to each (the window patch, 2026-10-19: dabs outside the window were dropped).

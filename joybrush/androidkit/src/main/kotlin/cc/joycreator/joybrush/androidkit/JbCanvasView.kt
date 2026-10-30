@@ -10,8 +10,6 @@ import cc.joycreator.joybrush.core.brush.ENGINE_MEDIA
 import cc.joycreator.joybrush.core.brush.MEDIUM_DRY
 import cc.joycreator.joybrush.core.brush.MEDIUM_WET
 import cc.joycreator.joybrush.core.media.MediaBelly
-import cc.joycreator.joybrush.core.media.MediaInput
-import cc.joycreator.joybrush.core.media.MediaSample
 import android.opengl.GLES30
 import cc.joycreator.joybrush.androidkit.io.PaperResources
 import cc.joycreator.joybrush.core.paper.ResolvedPaper
@@ -67,6 +65,8 @@ import cc.joycreator.joybrush.core.brush.WatercolourDabber
 import cc.joycreator.joybrush.core.brush.ENGINE_WATERCOLOUR
 import cc.joycreator.joybrush.core.brush.watercolourRuntime
 import cc.joycreator.joybrush.core.brush.BrushPreset
+import cc.joycreator.joybrush.core.brush.mediaScale
+import cc.joycreator.joybrush.core.brush.scaled
 import cc.joycreator.joybrush.core.brush.FrozenBrushRegistry
 import cc.joycreator.joybrush.core.brush.FrozenBrushResult
 import cc.joycreator.joybrush.core.brush.ENGINE_SMUDGE
@@ -84,6 +84,13 @@ import cc.joycreator.joybrush.core.media.MediaStores
 import cc.joycreator.joybrush.core.grain.GrainMath
 import cc.joycreator.joybrush.core.guide.Guide
 import cc.joycreator.joybrush.core.guide.GuideSnapper
+import cc.joycreator.joybrush.core.guide.SymmetryMath
+import cc.joycreator.joybrush.core.media.MediaSafety
+import cc.joycreator.joybrush.core.symmetry.HardcodedTip
+import cc.joycreator.joybrush.core.symmetry.LaneBrush
+import cc.joycreator.joybrush.core.symmetry.SymmetryFamily
+import cc.joycreator.joybrush.core.symmetry.SymmetryLane
+import cc.joycreator.joybrush.core.symmetry.SymmetryLanes
 import cc.joycreator.joybrush.core.doc.BlendMode
 import cc.joycreator.joybrush.core.layers.LayerBudget
 import cc.joycreator.joybrush.core.layers.LayerStack
@@ -154,11 +161,15 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
      * The brush FILE in use (JB-1.05b), or null for the hard-coded round [Brush] above. Change it
      * between strokes: a stroke in progress keeps the preset it started with, so every dab of one
      * stroke comes from one file and one seed.
+     *
+     * Setting it re-reads the symmetry's safe zone: the zone is the brush's reach around the
+     * symmetry centre, so it changes with the brush.
      */
     @Volatile var preset: BrushPreset? = null
         set(value) {
             field = value
             if (value?.engine == ENGINE_WATERCOLOUR) requestWatercolourPrewarm()
+            refreshSafeZone()
         }
 
     /**
@@ -257,6 +268,58 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
      * settings — empty when snapping is off, even with the lines showing. Read at pen-down.
      */
     @Volatile var snapTo: List<Guide> = emptyList()
+
+    /**
+     * The symmetry line, when the brush is to be copied across it. The screen sets it from its guide settings and null
+     * turns it off. Read at pen-down: a stroke is never copied onto a line that moved halfway through it.
+     *
+     * Setting it re-reads the safe zone: the zone is the brush's reach around the symmetry centre,
+     * so it moves with the line.
+     */
+    @Volatile var symmetryGuide: Guide.Symmetry? = null
+        set(value) {
+            field = value
+            refreshSafeZone()
+        }
+
+    /**
+     * The safe zone of the media symmetry, in document px: the radius about the symmetry centre the
+     * pen may paint in, or 0 when there is none. The overlay draws it (the dotted circle and the
+     * darkening outside it).
+     *
+     * It is the zone for the CURRENT guide and brush, so it changes when either does; the view says
+     * so through [onSafeZoneChanged].
+     */
+    @Volatile var safeZoneRadiusDocPx: Float = 0f
+        private set
+
+    /** True while the brush in hand is a media brush (the pencil, the watercolour or the oil). */
+    @Volatile var mediaBrushInHand: Boolean = false
+        private set
+
+    /** Called on the UI thread when the safe zone changed (the guide moved, or the brush changed). */
+    var onSafeZoneChanged: (() -> Unit)? = null
+
+    /**
+     * Re-reads the safe zone: the radius the media brushes may paint in under the current guide.
+     *
+     * The radius is the one the media engine will use for the stroke (the pin's own placement of the
+     * window, and the brush's own reach): see [MediaSafety.safeRadiusFor]. It is zero when there is
+     * no media brush in hand, no symmetry, or no safe zone at all — a brush that reaches further than
+     * the window can hold is refused in words when the stroke begins.
+     */
+    private fun refreshSafeZone() {
+        val p = preset
+        val spec = p?.media
+        mediaBrushInHand = spec != null
+        val guide = symmetryGuide?.takeIf { it.count >= 2 }
+        val centre = guide?.let { SymmetryMath.centre(it) }
+        val radius = if (centre != null && spec != null && p != null) {
+            MediaSafety.safeRadiusFor(centre.x, centre.y, spec.scaled(p.mediaScale()).reachDocPx())
+        } else 0.0
+        safeZoneRadiusDocPx = if (radius > 0.0) radius.toFloat() else 0f
+        onSafeZoneChanged?.invoke()
+    }
 
     /** Called on the UI thread when the stroke in progress locks onto a guide (true) and when it ends (false). */
     var onGuideLock: ((Boolean) -> Unit)? = null
@@ -757,7 +820,12 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         var samples = 0
         var startArgb: Int? = null
     }
-    private var lineContact: LineContact? = null
+    /**
+     * The contacts being kept as editable lines: ONE for an ordinary stroke, and ONE PER LANE for a
+     * symmetry stroke. A lane records the samples IT heard - the copy's own samples - so a later
+     * replay of that record draws the copy that was painted.
+     */
+    private var lineContacts: List<LineContact> = emptyList()
 
     /**
      * The id of the document this canvas makes when it has none from a file: unique per drawing (a new library drawing,
@@ -1219,6 +1287,36 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     private var strokeTuft: TuftStroke? = null
     private var strokeSeed = 0L
 
+    /**
+     * The lanes of the stroke in progress, when the symmetry line is on (JB-2.12a's Phase B).
+     *
+     * Empty for every ordinary stroke, and the ordinary stroke's own path is then untouched. A
+     * lane is ONE copy of the stroke: it holds its own smoother, its own dabber or placer, and
+     * its own scatter stream, and it is fed the pen's samples transformed into its own frame.
+     *
+     * The set is FROZEN at pen-down: a stroke is never copied onto a line that moved halfway
+     * through it.
+     */
+    private var symmetryLanes: List<SymmetryLane> = emptyList()
+
+    /**
+     * The points each lane has released and not yet placed, one list per lane.
+     *
+     * One list, not one shared: every lane has its own smoother, so every lane releases its OWN
+     * points, and those points are the copy's - not the original's. A shared list would hand the
+     * original's points to the copy's placer.
+     */
+    private var symmetryPending: List<MutableList<PenSample>> = emptyList()
+
+    /**
+     * The symmetry's cap note, and the memory of having said it (JB-2.12a's Phase B).
+     *
+     * The owner asked for "a small note when the cap hits": ONE note, not one per stroke. The
+     * memory is here, on the view's side of the line, because the core's lane code is a pure
+     * function of its inputs - it reports WHICH cap applied, and this decides whether to speak.
+     */
+    private val capNote = SymmetryCapNote()
+
     // queueEvent can run before EGL is current, both at startup and after a file picker.
     // Only renderer callbacks guarantee a current context AND surface. GL-thread only.
     private val frameWork = ArrayDeque<() -> Unit>()
@@ -1298,6 +1396,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                     if (!refused) mediaCanvas.release()
                     post { if (drawing && (mediaStroke || mediaErase)) cancelStroke(); onRefused?.invoke(e.message ?: "The pencil, watercolour or oil stroke could not be painted") }
                 }
+                // A frame that would not fit the pinned window is REFUSED, in words: the sentence waits here
+                // and is said once, on the UI thread.
+                mediaCanvas.takeRefusal()?.let { why -> post { onRefused?.invoke(why) } }
                 frameStats.afterMedia()
                 if(engine.watercolourFrame(SystemClock.uptimeMillis())) reportHistory()
                 if(engine.watercolourAnimating) super@JbCanvasView.requestRender()
@@ -1757,6 +1858,11 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     private var lastMediaArgb: Int? = null
     /** GL thread: what the history buttons last heard, so running water reports only when the undo stack changes. */
     private var mediaHistorySeen = Pair(-1, false)
+    /**
+     * The symmetry guide of the media stroke in progress, read ONCE at pen-down and frozen for the
+     * whole stroke (null: the ordinary stroke, and the window follows the pen).
+     */
+    private var mediaSymmetry: Guide.Symmetry? = null
 
     /** The active layer's kind, from the document; a layer the document has not seen yet is paint. */
     private fun activeLayerKind(): LayerKind = boardDocument?.layers?.firstOrNull { it.id == activeLayer }?.kind ?: LayerKind.PAINT
@@ -1767,6 +1873,18 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             drawing = false
             onRefused?.invoke("A mask is painted with paint brushes. Pencil, watercolour and oil paint on the layer itself.")
             return
+        }
+        // The symmetry line, read ONCE at pen-down and frozen for the whole stroke: a stroke is
+        // never copied onto a line that moved halfway through it. Under a guide the media window
+        // is PINNED on the symmetry centre, so that every copy's wet paint lives in one water field.
+        val symmetry = symmetryGuide?.takeIf { it.count >= 2 }
+        mediaSymmetry = symmetry
+        if (symmetry != null) {
+            // The cap that bit is said out loud, ONCE: the owner asked for "a small note when the
+            // cap hits", and a person painting ten strokes must hear it once, not ten times.
+            val family = SymmetryLanes.familyFor(p.engine, p.media?.medium)
+            val note = capNote.sentenceFor(SymmetryLanes.capFor(symmetry, family))
+            if (note != null) post { onRefused?.invoke(note) }
         }
         // The common refusals come BEFORE any layer is made (the Lead, 4c review): a GPU that cannot, a phone without the
         // free memory for the window. Said in words; nothing changes.
@@ -1817,13 +1935,14 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         val p = strokePreset ?: return
         val samples = MotionEventSamples.from(ev, idx, { x, y -> view.screenToDoc(x, y) }, view.rotation)
         val snap = snapper
-        val out = ArrayList<MediaSample>(samples.size)
+        val out = ArrayList<PenSample>(samples.size)
         for (s in samples) {
             // A predicted point is drawn for latency elsewhere; paint and water cannot be taken back, so media never uses one.
             if (s.predicted) continue
             val placed = snap?.map(s) ?: s
-            // A tuned pencil knows its own pen reach (the tilt that counts as lying flat); every other media brush uses the app's.
-            out += MediaInput.sample(p.response.apply(placed), p.media?.stick?.tuning?.tiltReachDeg ?: MediaInput.REACH_DEG)
+            // The brush hears the pen (its response curves); the media engine reads the sample after
+            // it has been transformed into each copy's own frame (MediaCanvas.add).
+            out += p.response.apply(placed)
         }
         if (snap != null && snap.locked && !lockShown) { lockShown = true; onGuideLock?.invoke(true) }
         if (out.isEmpty()) return
@@ -1840,17 +1959,22 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             onGl {
                 // Without the board document a save would drop the media state, so nothing is painted - and that is always
                 // said: the reason when making the document failed (above), else a sentence here. Never a silent stroke.
-                if (engine.boardDocument != null) mediaCanvas.begin(target, p, argb, belly, first.x, first.y, now)?.let { why -> post { onRefused?.invoke(why) } }
-                else if (!mediaDocRefused) post { onRefused?.invoke("This drawing could not take pencil, watercolour or oil") }
+                if (engine.boardDocument != null) {
+                    mediaCanvas.begin(target, p, argb, belly, first.x.toDouble(), first.y.toDouble(), now, mediaSymmetry)
+                        ?.let { why -> post { onRefused?.invoke(why) } }
+                } else if (!mediaDocRefused) post { onRefused?.invoke("This drawing could not take pencil, watercolour or oil") }
             }
         }
-        onGl { mediaCanvas.add(out) }
+        // A stroke that leaves the safe zone is REFUSED, in words, once: the sentence is returned
+        // (never thrown - this runs on the GL thread, outside the draw frame's try/catch).
+        onGl { mediaCanvas.add(out)?.let { why -> post { onRefused?.invoke(why) } } }
     }
 
     private fun finishMediaStroke() {
         resetSnapper(fresh = false)
         drawing = false
         mediaStroke = false; mediaErase = false; mediaBegun = false
+        mediaSymmetry = null
         smoother = null; placer = null; tracker = null
         strokePreset = null; strokeDabber = null; strokeWatercolour = null; scatterRng = null; strokeErase = false; strokeTuft = null
         onGl {
@@ -2000,6 +2124,20 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             onRefused?.invoke("Multiply and screen brushes don't paint on masks. Select the paint layer, or pick another brush for the mask.")
             return
         }
+        // JB-2.12a's Phase B: the symmetry line, read ONCE at pen-down and frozen for the whole
+        // stroke. A stroke is never copied onto a line that moved halfway through it.
+        val symmetry = symmetryGuide?.takeIf { it.count >= 2 }
+        val symmetryFamily = SymmetryLanes.familyFor(p?.engine, p?.media?.medium, erase)
+        if (symmetry != null) {
+            // A family that is not a stroke of dabs cannot be copied by running a brush again:
+            // it is refused IN WORDS, not half-drawn and not silently drawn once.
+            val refusal = SymmetryLanes.refusalFor(symmetryFamily)
+            if (refusal != null) {
+                drawing = false
+                onRefused?.invoke(refusal)
+                return
+            }
+        }
         // A media brush paints through the media engine (step 4c) on the active layer (R51).
         if (p?.engine == ENGINE_MEDIA && !eraser) { startMediaStroke(p); return }
         // Every other brush, the eraser included, writes pixels; over media the engine's bake keeps the two agreeing.
@@ -2028,18 +2166,37 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             placer=null
         } else if (p == null) {
             val cap = if (b.accumulate == Accumulate.WASH) b.opacity else 1f
-            placer = DabPlacer(
-                spacing = b.spacing,
-                radiusOf = { s -> 0.5f * b.sizePx * (b.minSizeFraction + (1f - b.minSizeFraction) * s.pressure) },
-                angleOf = if (b.followDirection) { s -> tr.update(s) } else { _ -> 0f },
-                flowOf = { b.flow },
-                cap = cap,
-            )
-            glBegan = true
-            val target = strokeLayerId
-            if (!mediaErase) boardStrokeWork {
-                engine.beginStroke(target, (colorArgb ?: b.argb).let { if (strokeOnMask) maskGrey(it) else it }, b.opacity, b.accumulate,
-                    if (erase) StrokeBlend.ERASE else StrokeBlend.NORMAL, b.tip)
+            if (symmetry != null) {
+                // The symmetry's lanes. Lane 0 is the ORIGINAL and it uses the SAME core lane
+                // class as the copies: one brush pipeline, not two that could drift apart.
+                startSymmetryLanes(
+                    symmetry,
+                    LaneBrush.Hardcoded(HardcodedTip(
+                        sizePx = b.sizePx,
+                        minSizeFraction = b.minSizeFraction,
+                        flow = b.flow,
+                        spacing = b.spacing,
+                        cap = cap,
+                        followDirection = b.followDirection,
+                    )),
+                    symmetryFamily,
+                    amount,
+                    SystemClock.uptimeMillis(),
+                )
+            } else {
+                placer = DabPlacer(
+                    spacing = b.spacing,
+                    radiusOf = { s -> 0.5f * b.sizePx * (b.minSizeFraction + (1f - b.minSizeFraction) * s.pressure) },
+                    angleOf = if (b.followDirection) { s -> tr.update(s) } else { _ -> 0f },
+                    flowOf = { b.flow },
+                    cap = cap,
+                )
+                glBegan = true
+                val target = strokeLayerId
+                if (!mediaErase) boardStrokeWork {
+                    engine.beginStroke(target, (colorArgb ?: b.argb).let { if (strokeOnMask) maskGrey(it) else it }, b.opacity, b.accumulate,
+                        if (erase) StrokeBlend.ERASE else StrokeBlend.NORMAL, b.tip)
+                }
             }
         } else if (p.engine == ENGINE_WATERCOLOUR && !erase) {
             strokeSeed=watercolourPreviewSeed ?: SystemClock.uptimeMillis()
@@ -2057,22 +2214,37 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             // -- a WASH dab carries its own opacity as its cap, and a BUILD_UP dab wants 1.
             val seed = SystemClock.uptimeMillis()
             strokeSeed = seed
-            val d = BrushDabber(p, seed)
-            strokeDabber = d
-            scatterRng = SplitMix(seed xor SCATTER_SALT)
-            placer = DabPlacer(spacing = d.spacing, look = d::look)
+            if (symmetry != null) {
+                // The symmetry's lanes: lane 0 is the ORIGINAL and it uses the SAME core lane
+                // class as the copies.
+                startSymmetryLanes(symmetry, LaneBrush.File(p), symmetryFamily, amount, seed)
+            } else {
+                val d = BrushDabber(p, seed)
+                strokeDabber = d
+                scatterRng = SplitMix(seed xor SCATTER_SALT)
+                placer = DabPlacer(spacing = d.spacing, look = d::look)
+            }
             // glBegan stays false here on purpose: the stroke is begun on the GL thread only once a
             // first dab exists, so the tip's hardness and the stroke's opacity are the ones the
             // file evaluated AT that dab rather than the base values the file happens to carry.
         }
-        lineContact = lineFrozen?.let { f ->
+        // The recording(s) of this stroke. An ordinary stroke records ONE contact; a symmetry stroke
+        // records ONE PER LANE, each with the lane's OWN seed (R13: the seed must be the exact seed
+        // the dabber used, or the replay is not the stroke that was drawn) and its own id.
+        lineContacts = lineFrozen?.let { f ->
             try {
-                LineContact(StrokeCapture(newLineName("ln"), f.id, strokeSeed, amount, view.zoom, colorArgb ?: b.argb), f.newEntries)
-            } catch (e: Exception) { null }
-        }
+                val lanes = symmetryLanes
+                if (lanes.isEmpty()) listOf(
+                    LineContact(StrokeCapture(newLineName("ln"), f.id, strokeSeed, amount, view.zoom, colorArgb ?: b.argb), f.newEntries)
+                ) else lanes.map { lane ->
+                    // The lane makes its own recording: the seed in it is the lane's own seed.
+                    LineContact(lane.capture(newLineName("ln"), f.id, amount, view.zoom, colorArgb ?: b.argb), f.newEntries)
+                }
+            } catch (e: Exception) { emptyList() }
+        } ?: emptyList()
         // Lines live under document cels and are saved by the board path: a fresh drawing gets its board document first
         // (queued before this stroke's own GL work, as the media path does).
-        if (lineContact != null && boardDocument == null) {
+        if (lineContacts.isNotEmpty() && boardDocument == null) {
             val stack = stackUi
             val w = viewW; val h = viewH
             onGl {
@@ -2092,6 +2264,42 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         }
     }
 
+    /**
+     * Builds the lanes of the stroke in progress and freezes them for the whole stroke.
+     *
+     * A lane is ONE copy of the stroke: it holds its own smoother, its own dabber or placer and
+     * its own scatter stream, and it is fed the pen's samples transformed into its own frame. The
+     * transform is applied to the SAMPLE, once, inside the lane - there is no transform of the
+     * finished dab anywhere.
+     *
+     * Lane 0 is the ORIGINAL, and it uses the SAME core lane class as the copies: two brush
+     * pipelines would drift, and the original's stroke must not change because the symmetry is on.
+     */
+    private fun startSymmetryLanes(
+        guide: Guide.Symmetry,
+        brush: LaneBrush,
+        family: SymmetryFamily,
+        amount: Float,
+        seed: Long,
+    ) {
+        val set = SymmetryLanes.build(guide, brush, family, seed, amount, view.zoom)
+        symmetryLanes = set.lanes
+        symmetryPending = set.lanes.map { ArrayList<PenSample>() }
+        // The lanes have their own smoothers, so the view's is not used: it is dropped rather than
+        // left lying about. Every stroke WITHOUT the symmetry keeps it, untouched.
+        smoother = null
+        strokeSeed = seed
+        // The stroke's own numbers come from LANE 0 - the original - because the engine has ONE
+        // set of uniforms and the lanes' first-dab values can differ from each other.
+        strokeDabber = set.original.dabber
+        // A cap that bit is said out loud, ONCE: the owner asked for "a small note when the cap
+        // hits", and a person painting ten strokes must hear it once, not ten times. The note is
+        // said again when the brush family or the cap changes. The number in it is the COPY
+        // count - the cap's - and not the lane count.
+        val note = capNote.sentenceFor(set.cap)
+        if (note != null) post { onRefused?.invoke(note) }
+    }
+
     private fun strokeBlend(p: BrushPreset?, erase: Boolean): StrokeBlend = when {
         erase || p?.blend == "erase" -> StrokeBlend.ERASE
         p?.blend == BLEND_MULTIPLY -> StrokeBlend.MULTIPLY
@@ -2107,6 +2315,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
     private fun beginStrokeNow() {
         val b = brush
         val p = strokePreset
+        // With the symmetry on, this is LANE 0's dabber - the ORIGINAL - because the engine has
+        // ONE set of stroke-wide uniforms (opacity, hardness, grain) and the lanes' first-dab
+        // values can differ from each other.
         val d = strokeDabber
         val accumulate = if (p == null) b.accumulate
         else if (p.accumulate == "buildup") Accumulate.BUILD_UP
@@ -2131,7 +2342,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         val tuft = if (p != null && strokeTuft != null) TuftStroke.shading(p, strokeSeed) else null
         val argb = (colorArgb ?: b.argb).let { if (strokeOnMask) maskGrey(it) else it }
         diagnosticContact?.let { it.start = DiagnosticStrokeStart(argb, opacity, tip.hardness) }
-        lineContact?.startArgb = argb
+        for (c in lineContacts) c.startArgb = argb
         val target = strokeLayerId
         val watercolorOptions=strokeWatercolour?.spec
         val watercolorSeed=strokeSeed
@@ -2155,7 +2366,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             MotionEventSamples.from(ev, idx, { x, y -> x to y }, view.rotation).filterTo(now) { it.isPlaceable && !it.predicted }
         }
         if (mediaStroke) { feedMedia(ev, idx); return }
-        val sm = smoother ?: return
+        // With the symmetry on, every lane has its OWN smoother and the view has none.
+        val sm = smoother
+        if (sm == null && symmetryLanes.isEmpty()) return
         val released = ArrayList<PenSample>()
         // The pen reports SCREEN px; a stroke is recorded in DOCUMENT px, and the page's own turn
         // is what the lean direction is read against.
@@ -2187,11 +2400,20 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         drawnNow?.let { if (it.size >= 2) drawnStrokes += it }
         drawnNow = null
         if (mediaStroke || mediaErase) {
-            if (mediaErase) smoother?.let { paint(it.finish()) }   // the eraser's last dabs, as for any eraser
+            // The eraser's last dabs, as for any eraser: every lane's catch-up tail.
+            if (mediaErase) {
+                if (symmetryLanes.isNotEmpty()) paintLaneDabs(finishLanes())
+                else smoother?.let { paint(it.finish()) }
+            }
             finishMediaStroke()
             return
         }
-        if(strokeWatercolour == null) smoother?.let { paint(it.finish()) }
+        if (symmetryLanes.isNotEmpty()) {
+            // Every lane's catch-up tail, and then the ONE endStroke below: the fan-out is one
+            // stroke and therefore one undo step.
+            paintLaneDabs(finishLanes())
+        }
+        else if(strokeWatercolour == null) smoother?.let { paint(it.finish()) }
         else paintWatercolourDabs(strokeWatercolour!!.finish())
         resetSnapper(fresh = false)
         if (strokePreset?.engine == ENGINE_FILL) {
@@ -2227,14 +2449,17 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         // R9: the lift — a fast one carries on as the bristles leave the paper — and any spatter it throws.
         strokeTuft?.let { t -> paintTuft(t.finish()) }
         val diagnosticResult = finishDiagnosticCapture()
-        // The line's record carries the colour the stroke actually began with (as the first dab evaluated it).
-        val line = lineContact?.let { c -> c.capture.finish()?.let { r -> c.startArgb?.let { r.copy(colorArgb = it) } } }
-        val lineBrushes = lineContact?.brushes.orEmpty()
-        lineContact = null
+        // The line's records carry the colour the stroke actually began with (as the first dab evaluated it).
+        // A symmetry stroke has ONE record per lane: each is the copy's OWN recording, and the engine
+        // makes them ONE group, so Select takes the whole set and ONE undo takes them all back.
+        val lines = lineContacts.mapNotNull { c -> c.capture.finish()?.let { r -> c.startArgb?.let { r.copy(colorArgb = it) } } }
+        val lineBrushes = lineContacts.firstOrNull()?.brushes.orEmpty()
+        lineContacts = emptyList()
         drawing = false
         smoother = null; placer = null; tracker = null
         strokePreset = null; strokeDabber = null; strokeWatercolour = null; scatterRng = null; strokeErase = false; strokeTuft = null
-        boardStrokeWork { engine.setPendingLine(line, lineBrushes); engine.endStroke(); reportHistory() }
+        symmetryLanes = emptyList(); symmetryPending = emptyList()
+        boardStrokeWork { engine.setPendingLines(lines, lineBrushes); engine.endStroke(); reportHistory() }
         flushPaperVisits()
         onStrokeEnded?.invoke()
         diagnosticResult?.let { (observer, result) -> observer(result) }
@@ -2244,8 +2469,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         drawnNow = null
         diagnosticContact?.capture?.cancel()
         diagnosticContact = null
-        lineContact?.capture?.cancel()
-        lineContact = null
+        for (c in lineContacts) c.capture.cancel()
+        lineContacts = emptyList()
         // A media stroke given up (a second finger, a cancelled gesture) goes back to before it, as a plain stroke does: no step,
         // redo kept, and its water gone with it. It used to stay as a step: the owner's finger daubs, 2026-10-21, which a
         // two-finger-tap undo could not reach (each tap's first finger made and removed a daub of its own).
@@ -2255,12 +2480,18 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         drawing = false
         smoother = null; placer = null; tracker = null
         strokePreset = null; strokeDabber = null; strokeWatercolour = null; scatterRng = null; strokeErase = false; strokeTuft = null
+        // Every lane is dropped: a cancelled stroke draws nothing more of itself.
+        for (lane in symmetryLanes) lane.cancel()
+        symmetryLanes = emptyList(); symmetryPending = emptyList()
         onGl { engine.cancelStroke() }
         flushPaperVisits()
         onStrokeEnded?.invoke()
     }
 
     private fun paint(points: List<PenSample>) {
+        // The symmetry's lanes own the stroke: their dabs are the stroke's dabs, and they are
+        // gathered per lane (each lane released its OWN points) rather than from [points].
+        if (symmetryLanes.isNotEmpty()) { paintLanes(); return }
         if (points.isEmpty()) return
         strokeWatercolour?.let { wc ->
             val dabs=points.flatMap { wc.add(it) }
@@ -2291,6 +2522,53 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         boardStrokeWork { engine.addDabs(dabs) }
     }
 
+    /**
+     * The lanes' dabs, gathered and handed over as ONE list.
+     *
+     * Every lane's dabs are CONCATENATED and go into ONE `addDabs`, so the whole fan-out is ONE
+     * engine stroke and therefore ONE undo step: the copies crossing the line merge into one
+     * stroke instead of darkening it twice.
+     */
+    private fun paintLanes() {
+        val dabs = ArrayList<Dab>()
+        for (i in symmetryLanes.indices) {
+            val pending = symmetryPending[i]
+            if (pending.isEmpty()) continue
+            dabs.addAll(symmetryLanes[i].dabs(pending))
+            pending.clear()
+        }
+        paintLaneDabs(dabs)
+    }
+
+    /** ONE `addDabs` for the whole fan-out, or the media canvas's own erase when that is the sink. */
+    private fun paintLaneDabs(dabs: List<Dab>) {
+        if (dabs.isEmpty()) return
+        if (mediaErase) {
+            val target = strokeLayerId
+            if (!mediaBegun) {
+                mediaBegun = true
+                val first = dabs[0]
+                onGl { mediaCanvas.beginErase(target, first.x.toDouble(), first.y.toDouble(), SystemClock.uptimeMillis())?.let { why -> post { onRefused?.invoke(why) } } }
+            }
+            onGl { mediaCanvas.addErase(dabs) }
+            return
+        }
+        if (!glBegan) beginStrokeNow()
+        boardStrokeWork { engine.addDabs(dabs) }
+    }
+
+    /**
+     * Every lane's catch-up tail, as ONE list of dabs.
+     *
+     * A lane that is never finished LOSES its last dabs: the smoother holds them back until
+     * nothing that arrives later can change them, and the tail only comes out at the end.
+     */
+    private fun finishLanes(): List<Dab> {
+        val tail = ArrayList<Dab>()
+        for (lane in symmetryLanes) tail.addAll(lane.finish())
+        return tail
+    }
+
     private fun paintWatercolourDabs(dabs: List<Dab>) {
         if(dabs.isEmpty()) return
         if(!glBegan) beginStrokeNow()
@@ -2315,7 +2593,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
             val seeds = preset?.takeIf { it.engine == ENGINE_WATERCOLOUR }?.watercolour?.sampleSeeds
             val previewSeed = seeds?.getOrNull(index) ?: seeds?.firstOrNull()?.plus(index.toLong())
             startStroke(eraser = false, watercolourPreviewSeed = previewSeed)
-            val sm = smoother ?: continue
+            // With the symmetry on, the lanes have their own smoothers and the view has none.
+            val sm = smoother
+            if (sm == null && symmetryLanes.isEmpty()) continue
             val released = ArrayList<PenSample>()
             for (s in samples) {
                 val (dx, dy) = view.screenToDoc(s.x, s.y)
@@ -2357,13 +2637,25 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
      * pen that pressed or turned WITHOUT moving releases nothing from the smoother, so a tuft brush is told directly
      * ([TuftStroke.dwell]): pressing grows the blot, and turning the pen swings the belly round its point.
      */
-    private fun feedOne(sm: StrokeSmoother, raw: PenSample, released: MutableList<PenSample>) {
+    private fun feedOne(sm: StrokeSmoother?, raw: PenSample, released: MutableList<PenSample>) {
         // Feed supplies post-guide coordinates; capture before response and smoothing alter them.
         if (raw.isPlaceable && !raw.predicted) diagnosticContact?.let { contact ->
             if (contact.sampleCount >= 32768) refuseDiagnosticCapture("Diagnostic capture reached its 32768 raw sample budget")
             else { contact.capture.add(raw); contact.sampleCount++ }
         }
-        if (raw.isPlaceable && !raw.predicted) lineContact?.let { it.capture.add(raw); it.samples++ }
+        // The symmetry's lanes: every lane has its OWN smoother, so every lane releases its OWN
+        // points, and those points are the COPY's - not the original's. The transform is applied
+        // to the sample, once, inside the lane, and the lane records THAT sample: the recording is
+        // the copy's own, so a later replay of it draws the copy that was painted.
+        if (symmetryLanes.isNotEmpty()) {
+            for (i in symmetryLanes.indices) {
+                val contact = lineContacts.getOrNull(i)
+                symmetryPending[i].addAll(symmetryLanes[i].feed(raw, contact?.capture))
+                if (contact != null) contact.samples++
+            }
+            return
+        }
+        if (raw.isPlaceable && !raw.predicted) lineContacts.firstOrNull()?.let { it.capture.add(raw); it.samples++ }
         // The watercolor dabber owns the POC's pressure/tilt/path filters. Never smooth or curve it twice.
         if(strokeWatercolour != null) { if(raw.isPlaceable && !raw.predicted) released.add(raw); return }
         if (strokePreset?.engine == ENGINE_FILL && !mediaErase) {
@@ -2375,11 +2667,12 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
                 cancelStroke(); onRefused?.invoke("Fill stroke is too long; draw a smaller shape"); return
             }
             fillSamples.add(raw)
-            released.addAll(sm.add(raw)); return
+            sm?.let { released.addAll(it.add(raw)) }; return
         }
+        val smoother = sm ?: return
         val s = strokePreset?.response?.apply(raw) ?: raw
         val before = released.size
-        released.addAll(sm.add(s))
+        released.addAll(smoother.add(s))
         val t = strokeTuft
         if (t != null && released.size == before && !s.predicted) {
             paint(released)

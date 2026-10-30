@@ -178,6 +178,7 @@ class GuideSnapper(val guides: List<Guide>, val screenPerDoc: Float) {
                 }
                 is Guide.Ruler -> Unit
                 is Guide.EllipseTracer -> Unit
+                is Guide.Symmetry -> Unit
             }
         }
         return out
@@ -213,6 +214,7 @@ class GuideSnapper(val guides: List<Guide>, val screenPerDoc: Float) {
             val d = when (g) {
                 is Guide.Ruler -> rulerDistance(g, x, y)
                 is Guide.EllipseTracer -> ellipseDistance(g, x, y)
+                is Guide.Symmetry -> Double.MAX_VALUE
                 is Guide.Grid -> Double.MAX_VALUE
                 is Guide.Isometric -> Double.MAX_VALUE
                 is Guide.Perspective -> Double.MAX_VALUE

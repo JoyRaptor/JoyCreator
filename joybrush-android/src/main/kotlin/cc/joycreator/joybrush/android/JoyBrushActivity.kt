@@ -52,6 +52,7 @@ import kotlinx.serialization.json.Json
 import cc.joycreator.joybrush.android.chrome.LayerColumnView
 import cc.joycreator.joybrush.android.chrome.Popovers
 import cc.joycreator.joybrush.android.chrome.ReferenceView
+import cc.joycreator.joybrush.android.chrome.SymmetryWidgetView
 import cc.joycreator.joybrush.android.chrome.ToolStripView
 import cc.joycreator.joybrush.android.select.CanvasSelectionHost
 import cc.joycreator.joybrush.android.select.HostUi
@@ -277,6 +278,7 @@ class JoyBrushActivity : Activity() {
     private lateinit var layersBtn: TopButton
     private lateinit var guidesBtn: TopButton
     private lateinit var guideOverlay: GuideOverlayView
+    private lateinit var symmetryWidget: SymmetryWidgetView
     private lateinit var tiltPad: TiltPadView
     private lateinit var paperTilt: PaperTiltController
     private lateinit var guideDone: TextView
@@ -468,9 +470,28 @@ class JoyBrushActivity : Activity() {
         root.addView(reference, FrameLayout.LayoutParams(MATCH, MATCH))
         // JB-2.12: the guides, over the drawing and the reference, under the chrome. A view, never a layer.
         guideOverlay = GuideOverlayView(kit, canvas.view).apply {
-            onChanged = { next, done -> guides = next; if (done) guidesChanged() }
+            onChanged = { next, done -> guides = next; placeSymmetryWidget(); if (done) guidesChanged() }
         }
         root.addView(guideOverlay, FrameLayout.LayoutParams(MATCH, MATCH))
+        // The media brushes' safe zone: the canvas knows the brush's reach and the pin's own window,
+        // so it hands the radius over; the overlay draws the circle and the darkening outside it.
+        val showSafeZone = {
+            guideOverlay.mediaBrushInHand = canvas.mediaBrushInHand
+            guideOverlay.safeZoneRadiusDocPx = canvas.safeZoneRadiusDocPx
+        }
+        canvas.onSafeZoneChanged = showSafeZone
+        showSafeZone()
+        // The symmetry widget floats beside the line: over the drawing and the guide, under the chrome.
+        symmetryWidget = SymmetryWidgetView(kit).apply {
+            onChanged = { next, done ->
+                guides = next
+                // The copies follow the count while it is being scrubbed; the guide is remembered when the finger lifts.
+                guideOverlay.settings = next
+                canvas.symmetryGuide = next.symmetry
+                if (done) guidesChanged()
+            }
+        }
+        root.addView(symmetryWidget, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.TOP or Gravity.START))
         boardOverlay = FrameLayout(this)
         root.addView(boardOverlay, FrameLayout.LayoutParams(MATCH, MATCH))
         boardController = BoardRuntimeController(this, boardOverlay, object : BoardRuntimeController.Host {
@@ -520,7 +541,7 @@ class JoyBrushActivity : Activity() {
         JoybotHands.attach(joybotEnv)
         setColumnOpen(prefs.getBoolean(PREF_LAYERS_OPEN, false))
         // The top icons re-read the picture behind them whenever it can have changed under them.
-        canvas.onViewMoved = { checkIcons(); guideOverlay.invalidate(); fillPreview.invalidate(); boardController?.refreshTransform(); paperTilt.viewMoved(); selection?.viewMoved() }
+        canvas.onViewMoved = { checkIcons(); guideOverlay.invalidate(); fillPreview.invalidate(); boardController?.refreshTransform(); paperTilt.viewMoved(); selection?.viewMoved(); placeSymmetryWidget() }
         canvas.onGuideLock = { on -> guideOverlay.locked = on }
         guides = GuideSettings.decode(prefs.getString(PREF_GUIDES, null))
         guidesChanged()
@@ -1653,16 +1674,31 @@ class JoyBrushActivity : Activity() {
     private fun guidesChanged() {
         guideOverlay.settings = guides
         canvas.snapTo = if (guides.snapEnabled) guides.all() else emptyList()
+        // The symmetry line is not one of guides.all(): the pen copies across it, it never snaps to it.
+        canvas.symmetryGuide = guides.symmetry
         guidesBtn.on = !guides.isEmpty
+        // The symmetry crosses into the prefs HERE and nowhere else: GuideSettings.encode() writes the "sym" line (the
+        // persistence lane), so every symmetry change only has to reach guidesChanged() to be remembered.
         prefs.edit().putString(PREF_GUIDES, guides.encode()).apply()
         if (guides.isEmpty) setAdjustingGuides(false)
+        symmetryWidget.settings = guides
+        placeSymmetryWidget()
     }
 
     /** The handles out (drag the perspective points and the ruler's ends) and a Done pill; or put away. */
     private fun setAdjustingGuides(on: Boolean) {
-        val can = on && (guides.perspective != null || guides.tracers.isNotEmpty())
+        val can = on && (guides.perspective != null || guides.tracers.isNotEmpty() || guides.symmetry != null)
         guideOverlay.adjusting = can
         guideDone.visibility = if (can) View.VISIBLE else View.GONE
+    }
+
+    /** Puts the symmetry widget beside the line's middle, on the screen. */
+    private fun placeSymmetryWidget() {
+        val sym = guides.symmetry ?: return
+        val mx = ((sym.a.x + sym.b.x) / 2.0).toFloat()
+        val my = ((sym.a.y + sym.b.y) / 2.0).toFloat()
+        val (sx, sy) = canvas.view.docToScreen(mx, my)
+        symmetryWidget.placeBeside(sx, sy)
     }
 
     /** Where the screen's own corners are on the page, so a new guide lands where the person is looking. */
@@ -1736,17 +1772,26 @@ class JoyBrushActivity : Activity() {
             guidesChanged()
             if (!hasRuler) setAdjustingGuides(true)
         })
+        // Symmetry: a line the brush is copied across. It is live at once — no hoops, pick it and paint.
+        val hasSymmetry = g.symmetry != null
+        box.addView(menuRow(if (hasSymmetry) "Symmetry  ✓" else "Symmetry",
+            "A line the brush is mirrored across — drag its ends, drag its body, or turn it with two fingers") {
+            guides = if (hasSymmetry) guides.copy(symmetry = null)
+            else guides.copy(symmetry = Guide.Symmetry(screenOnPage(0.5f, 0.15f), screenOnPage(0.5f, 0.85f), count = 2))
+            guidesChanged()
+        })
         if (!g.isEmpty) {
             box.addView(menuRow(if (g.snapEnabled) "Snap to guides  ✓" else "Snap to guides",
                 "Pull strokes onto the guides — off keeps the lines and lets the pen go free") {
                 guides = guides.copy(snapEnabled = !guides.snapEnabled)
                 guidesChanged()
             })
-            if (g.perspective != null || g.tracers.isNotEmpty()) {
-                box.addView(menuRow("Move guides…", "Drag the perspective points and the ruler's ends") { setAdjustingGuides(true) })
+            if (g.perspective != null || g.tracers.isNotEmpty() || g.symmetry != null) {
+                box.addView(menuRow("Move guides…", "Drag the perspective points, the ruler's ends and the symmetry line") { setAdjustingGuides(true) })
             }
             box.addView(menuRow("Clear guides", "Turn every guide off") {
-                guides = GuideSettings(snapEnabled = guides.snapEnabled)
+                // The symmetry goes with them: a new one is put down from scratch.
+                guides = GuideSettings(snapEnabled = guides.snapEnabled, symmetry = null)
                 guidesChanged()
             })
         }

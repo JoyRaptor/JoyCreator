@@ -1,6 +1,12 @@
 package cc.joycreator.joybrush.core.paint
 
+import cc.joycreator.joybrush.core.brush.BrushJson
+import cc.joycreator.joybrush.core.guide.Guide
 import cc.joycreator.joybrush.core.input.PenSample
+import cc.joycreator.joybrush.core.shape.Pt
+import cc.joycreator.joybrush.core.symmetry.LaneBrush
+import cc.joycreator.joybrush.core.symmetry.SymmetryFamily
+import cc.joycreator.joybrush.core.symmetry.SymmetryLanes
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -163,5 +169,69 @@ class PaintTest {
         val b = PenSample(100f, 0f, 10.0, azimuth = -3.0f) // 3.0 → -3.0 is only ~0.28 rad the short way
         val dabs = DabPlacer(spacing = 0.25f, look = { s, _, _ -> DabLook(10f, angle = s.azimuth) }).add(listOf(a, b))
         assertTrue(dabs.all { kotlin.math.abs(it.angle) > 2.9f }, "lean swung the long way: ${dabs.map { it.angle }}")
+    }
+
+    /**
+     * The symmetry fan-out is ONE undo step.
+     *
+     * Every lane's dabs go into ONE stroke, so the whole fan-out is one step in the history and
+     * the ONE undo takes all of it away - not one undo per copy, which would be a way of undoing
+     * a stroke that the painter never drew.
+     */
+    @Test
+    fun symmetryLanesMakeOneUndoStepAndTheUndoTakesThemAll() {
+        val brush = BrushJson.decode(
+            """
+            {
+              "format": "joybrush.brush",
+              "version": 1,
+              "id": "test.undo",
+              "name": "Undo Test",
+              "engine": "stamp",
+              "tip": { "corner": 2, "hardness": { "base": 0.95 } },
+              "size": { "base": 6 },
+              "opacity": { "base": 1 },
+              "flow": { "base": 1 },
+              "spacing": 0.1,
+              "accumulate": "wash",
+              "blend": "normal",
+              "smoothing": 0.35,
+              "license": "CC0"
+            }
+            """.trimIndent() + "\n"
+        )
+        val guide = Guide.Symmetry(Pt(0.0, 0.0), Pt(100.0, 0.0), count = 3)
+        val set = SymmetryLanes.build(guide, LaneBrush.File(brush), SymmetryFamily.STAMP, 4242L, 0.35f, 1f)
+        assertEquals(3, set.lanes.size, "three copies around the line's middle is three lanes")
+
+        val samples = (0..11).map { PenSample(it * 10f, 0f, it * 10.0, pressure = 1f) }
+        val perLane = set.lanes.map { ArrayList<Dab>() }
+        for (s in samples) {
+            for (i in set.lanes.indices) {
+                val released = set.lanes[i].feed(s)
+                if (released.isNotEmpty()) perLane[i].addAll(set.lanes[i].dabs(released))
+            }
+        }
+        for (i in set.lanes.indices) perLane[i].addAll(set.lanes[i].finish())
+        val all = perLane.flatten()
+        assertTrue(all.size > 20, "only ${all.size} dabs - the test would prove nothing")
+        assertEquals(3 * perLane[0].size, all.size, "the lanes made different numbers of dabs")
+
+        val c = RefCanvas()
+        c.beginStroke("L", 1f, 0f, 0f, 1f, Accumulate.WASH, StrokeBlend.NORMAL, hard)
+        c.addDabs(all)
+        c.endStroke()
+        assertEquals(1, c.undo.undoDepth, "the fan-out is ONE undo step, not one per lane")
+        for (lane in perLane) {
+            val d = lane.first()
+            assertTrue(c.pixel("L", d.x.toInt(), d.y.toInt())[3] > 0f, "a lane's dab is not on the canvas")
+        }
+
+        assertTrue(c.undoStep())
+        for (lane in perLane) {
+            val d = lane.first()
+            assertEquals(0f, c.pixel("L", d.x.toInt(), d.y.toInt())[3], 1e-6f, "a lane's dab is still there")
+        }
+        assertEquals(0, c.undo.undoDepth)
     }
 }

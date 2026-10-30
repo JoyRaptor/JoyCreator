@@ -423,6 +423,20 @@ class GuideSnapperTest {
         }
     }
 
+    // ── the symmetry is not a snapper's business ───────────────────────────────
+
+    @Test
+    fun aSymmetryGuideNeverSnapsEvenWhenItIsHandedToTheSnapperDirectly() {
+        // The symmetry copies the BRUSH; it does not catch the stroke. Even handed to the
+        // snapper on its own it must leave every sample alone and light up no highlight.
+        val g = Guide.Symmetry(Pt(0.0, 0.0), Pt(100.0, 0.0), count = 4)
+        val sn = GuideSnapper(listOf<Guide>(g), 1f)
+        val ins = (0..5).map { i -> ps(i * 7f, i * 3f, i * 7.0, 0.4f) }
+        val out = ins.map { sn.map(it) }
+        for (i in ins.indices) assertEquals(ins[i], out[i], "sample $i")
+        assertTrue(!sn.locked, "the symmetry must not light up a locked highlight")
+    }
+
     // ── Decision 5: the promise itself ─────────────────────────────────────────
 
     @Test

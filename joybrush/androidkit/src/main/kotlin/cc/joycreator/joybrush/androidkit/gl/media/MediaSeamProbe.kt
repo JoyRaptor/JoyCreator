@@ -86,7 +86,7 @@ internal object MediaSeamProbe {
             fun stroke(i: Int) {
                 val pts = path(i)
                 canvas.begin(LAYER, preset, COLOURS[i % COLOURS.size], null, pts[0].x, pts[0].y, now)?.let { throw IllegalStateException("refused: $it") }
-                for (chunk in pts.chunked(SAMPLES_PER_FRAME)) { canvas.add(chunk); now += FRAME_MS; canvas.frame(now) }
+                for (chunk in pts.chunked(SAMPLES_PER_FRAME)) { canvas.addSamples(chunk); now += FRAME_MS; canvas.frame(now) }
                 canvas.end()
                 previews?.invoke()
                 idle()

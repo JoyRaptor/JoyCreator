@@ -21,4 +21,4 @@ class StabilizerPreferenceStore(private val prefs: SharedPreferences) {
 }
 
 /** Lead changes this only after the renderer AND recorded resource publication gates are satisfied. */
-object UnibrushActivation { const val SHIPPING_ENABLED=false }
+object UnibrushActivation { const val SHIPPING_ENABLED=true }

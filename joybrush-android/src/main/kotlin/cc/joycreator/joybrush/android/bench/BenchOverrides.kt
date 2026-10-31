@@ -1,5 +1,6 @@
 package cc.joycreator.joybrush.android.bench
 
+import cc.joycreator.joybrush.core.brush.ENGINE_FILL
 import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.brush.UnibrushModes
 import cc.joycreator.joybrush.core.chrome.ToolMemory
@@ -14,7 +15,7 @@ internal object BenchBrushOverride {
     fun resolve(preset: BrushPreset, sizePx: Float?): BrushPreset {
         requireSize(sizePx)
         if (sizePx == null) return preset
-        require(preset.engine == "stamp") { "The debug size override currently supports stamp recipes only" }
+        require(preset.engine != ENGINE_FILL) { "The debug size override needs a stamp or media brush" }
         return ToolMemory.sized(preset, sizePx, preset.opacity.base)
     }
 }

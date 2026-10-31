@@ -20,7 +20,7 @@ class BenchOverridesTest {
             catch(expected:IllegalArgumentException) {}
         }
         try {BenchBrushOverride.resolve(BrushPreset(id="f",name="F",size=Param(256f),engine=ENGINE_FILL),2000f);fail("Ignored override accepted")}
-        catch(expected:IllegalArgumentException) {assertTrue(expected.message!!.contains("stamp"))}
+        catch(expected:IllegalArgumentException) {assertTrue(expected.message!!.contains("stamp or media"))}
     }
     @Test fun aUnibrushNameFindsThatModeAndEveryOtherNameIsLeftToTheOldLookup() {
         val modes=UnibrushModes.presets()

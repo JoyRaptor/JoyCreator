@@ -552,15 +552,33 @@ class MediaCanvas(
     private var lastGrid: Pair<Int, Int>? = null
 
     /**
-     * A frame the atlas could not hold even split in time ([MediaRoomException], said in words by the caller): the stroke ends
-     * where it got to, as its one undo step (the caller closes it), and the engine and its water stay as they are.
+     * A frame that was refused ([MediaRoomException], said in words by the caller) or failed: the stroke ends where it got to,
+     * as its one undo step (the caller closes it), with what it painted in the layer's stores.
      */
-    fun dropRefusedStroke() {
+    fun dropStroke() {
         stroke ?: return
         engine?.endStroke()
         stroke = null
-        try { window?.flush() } catch (x: RuntimeException) { android.util.Log.w("JoyBrushMedia", "flush after a refused frame: ${x.message}") }
+        try { window?.flush() } catch (x: RuntimeException) { android.util.Log.w("JoyBrushMedia", "flush after a dropped frame: ${x.message}") }
     }
+
+    /**
+     * After a failed frame the engine goes, but what it holds goes back to the layer first. The look is written every frame and
+     * the stores only at a stroke's end, so dropping them left a line on screen its stores did not hold, and the next stroke
+     * across it redrew its boxes empty: a razor-cut eraser (the owner's pink knife lines, 2026-10-31). If even that fails
+     * the looks stand and the stores are dropped on load: flat paint, never a hole.
+     */
+    fun releaseAfterFailure() {
+        val w = window
+        try { w?.release() } catch (x: RuntimeException) {
+            android.util.Log.e("JoyBrushMedia", "paint could not be written back after a failed frame", x)
+            w?.layerId?.let { paint.distrustLooks(it, w.heldKeys(), w.plane) }
+        }
+        release()
+    }
+
+    /** Bench only: the next frame throws after its passes and before its stores, as a failure inside it would (MediaFailureProbe). */
+    internal var failNextFrame = false
 
     /** The water's work per frame in the atlas (water jobs), steered by the frame time. */
     private val jobBudget = cc.joycreator.joybrush.core.media.WaterJobBudget()
@@ -960,11 +978,12 @@ class MediaCanvas(
         if (st.thin) e.wetFrame(thin, paper, DOC_PX_PER_MM, wq)
         if (steps != null && steps.isNotEmpty()) {
             mediaTrace("JB.media.paste.frame") {
-                for (step in steps) e.pasteStep(step, st.brush!!, paper, DOC_PX_PER_MM, st.seed)
-                e.pasteSettle()   // an unpaired last step's box back into the canvas everything else reads
+                try { for (step in steps) e.pasteStep(step, st.brush!!, paper, DOC_PX_PER_MM, st.seed) }
+                finally { e.pasteSettle() }   // an unpaired last step's box back into the canvas everything else reads
             }
             MediaPhases.timer?.invoke("paste.steps (count)", steps.size.toDouble())
         }
+        if (failNextFrame) { failNextFrame = false; error("failed by the probe") }
         if (st.wet) e.wetFrame(wetIn, paper, DOC_PX_PER_MM, wq)
         if (eraseIn != null) e.eraseFrame(eraseIn, existingStores(st.layerId, w))
         // Water that is already running in the window keeps running under a dry or paste stroke.

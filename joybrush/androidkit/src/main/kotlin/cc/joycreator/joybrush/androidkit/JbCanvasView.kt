@@ -1414,12 +1414,13 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                     if (mediaCanvas.frame(SystemClock.uptimeMillis())) { reportMediaHistory(); super@JbCanvasView.requestRender() }
                 } catch (e: Exception) {
                     noteBenchError("media frame", e)
+                    val refused = e is cc.joycreator.joybrush.androidkit.gl.MediaRoomException
+                    if (!refused) android.util.Log.e("JoyBrushMedia", "a media frame failed", e)
                     // What the stroke already painted stays, as its one undo step; a step left open made the NEXT media
                     // stroke crash ("a media stroke inside another stroke", Note 9 2026-10-20, after a refused atlas frame).
-                    val refused = e is cc.joycreator.joybrush.androidkit.gl.MediaRoomException
-                    if (refused) mediaCanvas.dropRefusedStroke()   // the engine and its water stay
+                    mediaCanvas.dropStroke()
                     if (engine.mediaStrokeInProgress) { engine.endMediaStroke(); reportMediaHistory() }
-                    if (!refused) mediaCanvas.release()
+                    if (!refused) mediaCanvas.releaseAfterFailure()   // a refused frame leaves the engine and its water as they are
                     post { if (drawing && (mediaStroke || mediaErase)) cancelStroke(); onRefused?.invoke(e.message ?: "The pencil, watercolour or oil stroke could not be painted") }
                 }
                 // A frame that would not fit the pinned window is REFUSED, in words: the sentence waits here
@@ -3473,6 +3474,27 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         onGl {
             val report = try {
                 cc.joycreator.joybrush.androidkit.gl.media.MediaUndoProbe.probe(paper, preset, memory, 6 to 4)
+            } catch (e: Throwable) { "{\"pass\":false,\"error\":" + org.json.JSONObject.quote(e.toString()) + "}" }
+            post { ready(report) }
+        }
+    }
+
+    /** The owner's pink knife lines (debug bench only): a failed frame keeps what the stroke laid (MediaFailureProbe). */
+    fun runMediaFailureProbe(preset: BrushPreset, ready: (String) -> Unit) {
+        if (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) {
+            ready("{\"pass\":false,\"error\":\"Media failure probe is debug only\"}")
+            return
+        }
+        val paper = documentPaperState
+        val memory = {
+            val am = context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+            val info = android.app.ActivityManager.MemoryInfo()
+            am.getMemoryInfo(info)
+            info.availMem to info.threshold
+        }
+        onGl {
+            val report = try {
+                cc.joycreator.joybrush.androidkit.gl.media.MediaFailureProbe.probe(paper, preset, memory)
             } catch (e: Throwable) { "{\"pass\":false,\"error\":" + org.json.JSONObject.quote(e.toString()) + "}" }
             post { ready(report) }
         }

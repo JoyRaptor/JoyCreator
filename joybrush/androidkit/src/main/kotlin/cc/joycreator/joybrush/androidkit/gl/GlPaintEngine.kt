@@ -6931,6 +6931,11 @@ class GlPaintEngine(
         }
     }
 
+    /** The stores of [keys] may not hold what their looks show: the next load drops them (requirement 5) and the looks stand. */
+    fun distrustLooks(layerId: String, keys: Collection<Long>, plane: String? = null) {
+        for (k in keys) agreedLook.remove(Triple(layerId, plane, k))
+    }
+
     /**
      * Requirement 5: of [keys], the tiles of [layerId]'s [plane] whose payload no longer agrees with their look lose the
      * payload (lossy, never wrong; logged, because only a write that bypassed the funnel gets here). Inside a media stroke

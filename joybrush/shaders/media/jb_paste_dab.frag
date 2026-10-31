@@ -34,13 +34,6 @@ float surfaceAt(vec2 lp) {
     return jb_fetch(u_paperBake, jb_cellAt(lp, u_targetSize)).b * u_toothMm
          + jb_bilinearL(u_p0, lp).a;
 }
-// surfaceAt [o] whole layer px from this pixel's centre, where a bilinear read is that one texel (a quarter of the reads;
-// most of an oil step's reads on the Note 9, 2026-10-31).
-float surfaceOff(ivec2 cell, vec2 lp, float o, ivec2 d) {
-    if (fract(o) != 0.0) return surfaceAt(lp + vec2(d) * o);
-    ivec2 q = cell + d * int(o);
-    return jb_fetch(u_paperBake, q).b * u_toothMm + jb_fetch(u_p0, q).a;
-}
 
 void main() {
     jb_atlasBegin();
@@ -111,8 +104,8 @@ void main() {
     float paperHere = jb_fetch(u_paperBake, cell).b;
     float here = paperHere * u_toothMm + p0.a;
     float o = 8.0 * u_layerScale;
-    float sR = surfaceOff(cell, layerPx, o, ivec2(1, 0)), sL = surfaceOff(cell, layerPx, o, ivec2(-1, 0));
-    float sU = surfaceOff(cell, layerPx, o, ivec2(0, 1)), sD = surfaceOff(cell, layerPx, o, ivec2(0, -1));
+    float sR = surfaceAt(layerPx + vec2(o, 0)), sL = surfaceAt(layerPx - vec2(o, 0));
+    float sU = surfaceAt(layerPx + vec2(0, o)), sD = surfaceAt(layerPx - vec2(0, o));
     float around = 0.25 * (sR + sL + sU + sD);
     float fillLoad = clamp(load / max(jb_cap, 1e-6), 0.0, 1.0);
     float give = jb_pasteGive(fillLoad);

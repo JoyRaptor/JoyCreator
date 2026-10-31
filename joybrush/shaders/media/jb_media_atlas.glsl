@@ -280,6 +280,8 @@ vec4 jb_bilinearLS(sampler2D t, vec2 px, highp int shift) {
     vec2 p = px - 0.5;
     highp ivec2 i = ivec2(floor(p));
     vec2 f = p - vec2(i);
+    // On a texel's centre the four reads are that one texel, and most reads are (the look's gradients, the paste's surface).
+    if (f == vec2(0.0)) return jb_fetchS(t, i, shift);
     vec4 v00 = jb_fetchS(t, i, shift), v10 = jb_fetchS(t, i + ivec2(1, 0), shift);
     vec4 v01 = jb_fetchS(t, i + ivec2(0, 1), shift), v11 = jb_fetchS(t, i + ivec2(1, 1), shift);
     return mix(mix(v00, v10, f.x), mix(v01, v11, f.x), f.y);

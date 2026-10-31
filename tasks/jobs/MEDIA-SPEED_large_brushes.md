@@ -26,7 +26,7 @@ Owner, 2026-10-31: larger brushes felt far too slow, wants 10-20x. He was on Pal
 
 Target: 10-20x. Not reached.
 
-## Result 2026-10-31 (Note 9, branch `engine/media-speed`, not landed: owner look owed)
+## Result 2026-10-31 (Note 9, landed on `joy-creator` the same day; the owner has looked at speed, not at sharp turns)
 
 Measured first: 84 % of an oil step was the pixel shader, framebuffer switches about 10 %. Telling the driver a pass overwrites its box did nothing and was dropped.
 
@@ -47,3 +47,12 @@ Every media brush at its own size and paste brushes at 256 px: 26 runs, no crash
 
 Open: oil at 512 px (about 500-900 ms); water under 50 ms; the first stroke after opening (over 1 s on the bench, which paints before idle prewarm finishes; not measured in real use); a step wider than 5 tiles logs that its brush reads past its tiles (about 512 px).
 
+## Found by the owner on this build, 2026-10-31
+
+**The razor-cut eraser.** A pink knife line, then lines across it, cut boxes out of the first. Those boxes were the crossing steps' own rectangles. A media frame failed near the end of the first line (14:43:28, a short toast; the exception was not logged, so its cause is still open), and the catch released the engine without writing it back. The look is written every frame and the stores only at a stroke's end, so the stores stayed blank while the look showed the line, and they still counted as agreeing. The next stroke loaded the blank stores and redrew its boxes from them.
+
+Fixed: a failed frame ends the stroke through the same flush as a refused one, the engine writes back before it goes, and if that fails too the looks are distrusted so the stores are dropped on load (flat paint, never a hole). `a media frame failed` now goes to logcat under `JoyBrushMedia` with its stack. `mediaFailureProbe` (Palette knife 1): 37,488 of 185,375 laid pixels lost the old way, 0 of 193,853 now.
+
+**The cul-de-sac.** At a sharp turn the whole body swung round the pen point, sweeping the outside of the corner. `PasteTrail` keeps the pen's path; a hair brush or trowel lies from the pen to the point one body-length back along it, so the tail stays on the path. Round a corner the body cuts the inside; doubling back the ends meet and it turns about its middle, shortening as it goes. `FOLLOW_SLACK` 1.1 stops a hand's wobble making it breathe. Blades keep their own steering. `Sharp turns` in a brush's settings keeps the old swing (`PasteBrush.turns`, bench `jb_paste_turns`). Note 9 `turns` stroke, before and after: `evidence/media-speed-20261031/turns-swing-vs-fold.jpg`. The fan is wider than long, so it has no body to swing and gains little.
+
+After both: 14 scribble runs, no failed frame; Oil round 256 px second stroke 43 ms, 60 media frames (was 74 ms, 45). `mediaAtlasProbe`, `mediaUndoProbe`, `mediaFailureProbe` pass.

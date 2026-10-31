@@ -1208,3 +1208,10 @@ as `TIME * knob` are "rate" and the host integrates them.
 
 ## 2026-10-31 — Shared folder copy
 - A fix that stops new bad data must also repair the bad data already saved: the 10-18 adoption guard left one wrong remembered path writing over a drawing's folder copy for 13 days.
+
+## 2026-10-31 — The razor-cut eraser
+- An error path that throws work away needs the same test as the happy path: the catch released the engine unwritten, and the two copies of the paint disagreed without either knowing.
+- Straight axis-aligned edges in paint are never the brush: read them as bookkeeping (a rectangle, a tile, a copy) before touching the paint rules.
+- A catch that only shows a toast loses the evidence: log the stack there. The cause of this failure can't be recovered now.
+- Press Home, then wait for the save's `.tmp` to appear and go. An empty folder the moment after Home proves nothing: the force-stop after it cut a save off at 15:00.
+- A shell `&&` after a failed lock still let the next line run and remove the lock at the end: take a lock with an exit on failure and a trap.

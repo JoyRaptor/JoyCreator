@@ -92,6 +92,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                val selectRunId: String = "",
                /** Every oil brush's stroke ends for this run (`jb_paste_ends` "brush" or "cut"); none = the brush's own. */
                val pasteEnds: cc.joycreator.joybrush.core.media.EndsMode? = null,
+               val pasteTurns: cc.joycreator.joybrush.core.media.TurnMode? = null,
                /** Every oil brush's Covers and Carries for this run (`jb_paste_cover`, `jb_paste_carry`, 0..1); none = the brush's own. */
                val pasteCover: Double? = null, val pasteCarry: Double? = null,
                /** Every oil hair brush's Leans for this run (`jb_paste_force`, 0..1); none = the brush's own. */
@@ -106,7 +107,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                val sizeOverridePx: Float? = null) {
         init {
             BenchBrushOverride.requireSize(sizeOverridePx)
-            require(sizeOverridePx == null || cases.all { it in setOf("fastC", "slowC", "scribble", "spiral", "topScribble", "blue1", "blue2", "blue3", "lineParity") }) {
+            require(sizeOverridePx == null || cases.all { it in setOf("turns", "fastC", "slowC", "scribble", "spiral", "topScribble", "blue1", "blue2", "blue3", "lineParity") }) {
                 "The debug size override is supported only by the ordinary MotionEvent replay cases"
             }
         }
@@ -383,8 +384,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         ui.postDelayed(timeout, 30_000L)
         guarded {
             if (spec.clear) canvas.clearCanvas()
-            val ended = preset.media?.let { m -> m.paste?.takeIf { spec.pasteEnds != null || spec.pasteCover != null || spec.pasteCarry != null || spec.pasteForce != null }?.let { pb ->
-                preset.copy(media = m.copy(paste = pb.copy(ends = spec.pasteEnds ?: pb.ends, cover = spec.pasteCover ?: pb.cover, carry = spec.pasteCarry ?: pb.carry, force = spec.pasteForce ?: pb.force))) } } ?: preset
+            val ended = preset.media?.let { m -> m.paste?.takeIf { spec.pasteEnds != null || spec.pasteTurns != null || spec.pasteCover != null || spec.pasteCarry != null || spec.pasteForce != null }?.let { pb ->
+                preset.copy(media = m.copy(paste = pb.copy(ends = spec.pasteEnds ?: pb.ends, turns = spec.pasteTurns ?: pb.turns, cover = spec.pasteCover ?: pb.cover, carry = spec.pasteCarry ?: pb.carry, force = spec.pasteForce ?: pb.force))) } } ?: preset
             canvas.preset = spec.wetness?.let { w -> ended.media?.let { m -> ended.copy(media = m.copy(wetness = w)) } } ?: ended
             spec.colors.getOrNull(spec.cases.indexOf(case))?.let { canvas.colorArgb = it }
             ui.postDelayed({ if (!terminal) guarded {
@@ -687,6 +688,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 editableLines = if (intent.hasExtra("jb_editable_lines")) intent.getBooleanExtra("jb_editable_lines", false) else null,
                 selectRunId = intent.getStringExtra("jb_select_run_id").orEmpty(),
                 pasteEnds = cc.joycreator.joybrush.core.media.EndsMode.of(intent.getStringExtra("jb_paste_ends")),
+                pasteTurns = cc.joycreator.joybrush.core.media.TurnMode.of(intent.getStringExtra("jb_paste_turns")),
                 pasteCover = intent.getStringExtra("jb_paste_cover")?.toDoubleOrNull()?.coerceIn(0.0, 1.0),
                 pasteCarry = intent.getStringExtra("jb_paste_carry")?.toDoubleOrNull()?.coerceIn(0.0, 1.0),
                 pasteForce = intent.getStringExtra("jb_paste_force")?.toDoubleOrNull()?.coerceIn(0.0, 1.0),

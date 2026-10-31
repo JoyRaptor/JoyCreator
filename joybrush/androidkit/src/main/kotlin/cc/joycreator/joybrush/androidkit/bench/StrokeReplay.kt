@@ -53,6 +53,8 @@ object StrokeReplay {
         // The atlas room (ATLAS_ROOM_20261023): a dense wash over the whole screen, more wet tiles than the Note 9's atlas holds
         // at once (what zoomed-out painting meets): main refuses it; out of core it must run, slower.
         "wideWash" -> zigzag(w * 0.04f, w * 0.96f, h * 0.04f, h * 0.96f, 16, 6000.0)
+        // The owner's sharp turns (2026-10-31): one stroke, a 7, a right angle, then doubling straight back.
+        "turns" -> corners(listOf(0.20f to 0.30f, 0.75f to 0.30f, 0.32f to 0.62f, 0.75f to 0.62f, 0.75f to 0.42f, 0.42f to 0.42f, 0.70f to 0.42f), w, h, 2600.0)
         "blue1" -> line(w * 0.05f, h * 0.55f, w * 0.45f, h * 0.30f, 900.0)
         "blue2" -> line(w * 0.95f, h * 0.50f, w * 0.60f, h * 0.27f, 900.0)
         "blue3" -> line(w * 0.25f, h * 0.62f, w * 0.75f, h * 0.48f, 900.0)
@@ -70,6 +72,20 @@ object StrokeReplay {
             // …and strokes across them (new colour over old paint, colour carried from one to the next).
             val y = h * (0.36f + 0.17f * i)
             stroke(w * 0.10f, y, w * 0.90f, y, 1300.0, 0.55f, ramps = true)
+        }
+    }
+
+    /** Straight runs between [points] (shares of the view) at one speed, with square corners. */
+    private fun corners(points: List<Pair<Float, Float>>, w: Int, h: Int, ms: Double): List<Sample> {
+        val runs = points.zipWithNext { a, b -> kotlin.math.hypot((b.first - a.first) * w, (b.second - a.second) * h).toDouble() }
+        val total = runs.sum()
+        return sweep(ms) { t ->
+            var left = t * total
+            var i = 0
+            while (i < runs.lastIndex && left > runs[i]) { left -= runs[i]; i++ }
+            val k = (left / runs[i]).toFloat().coerceIn(0f, 1f)
+            val (a, b) = points[i] to points[i + 1]
+            (w * (a.first + (b.first - a.first) * k)) to (h * (a.second + (b.second - a.second) * k))
         }
     }
 

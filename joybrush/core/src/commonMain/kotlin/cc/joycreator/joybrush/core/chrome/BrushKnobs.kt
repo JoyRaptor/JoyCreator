@@ -19,6 +19,7 @@ import cc.joycreator.joybrush.core.brush.VERSION_PENCIL_BLEND
 import cc.joycreator.joybrush.core.brush.VERSION_RESPONSE
 import cc.joycreator.joybrush.core.media.EdgeMode
 import cc.joycreator.joybrush.core.media.EndsMode
+import cc.joycreator.joybrush.core.media.TurnMode
 import cc.joycreator.joybrush.core.media.FaceMode
 import cc.joycreator.joybrush.core.media.PasteBrush
 import cc.joycreator.joybrush.core.media.PressMode
@@ -318,6 +319,10 @@ object BrushKnobs {
             "How a stroke starts and stops: a loaded brush landing and lifting off in streaks, or the clean cut from before.",
             EndsMode.entries.map { it.label }, { (it.paste?.ends ?: EndsMode.BRUSH).ordinal },
             { s, i -> s.copy(paste = s.paste?.copy(ends = EndsMode.entries[i])) })
+        if (!b.blade) out += stepped("media.paste.turns", "Sharp turns",
+            "What the brush does when you change direction: its body folds under the pen, or swings round the pen point as it did before.",
+            TurnMode.entries.map { it.label }, { (it.paste?.turns ?: TurnMode.FOLLOW).ordinal },
+            { s, i -> s.copy(paste = s.paste?.copy(turns = TurnMode.entries[i])) })
         if (b.blade) {
             out += stepped("media.paste.orient", "Edge", "Where the edge lies: along the pen's lean, across the stroke, or along the stroke.",
                 EdgeMode.entries.map { it.label }, { it.paste?.orient?.ordinal ?: 0 },

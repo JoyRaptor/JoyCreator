@@ -45,6 +45,16 @@ const val PASTE_DEPTH = 8
     companion object { fun of(id: String?) = entries.firstOrNull { it.id == id } }
 }
 
+/**
+ * How a hair brush (and the trowel knife) goes round a sharp turn (owner, 2026-10-31: "an awkward scoop or cul-de-sac").
+ * FOLLOW: dragged like a string, its tail stays on the path drawn ([PasteTrail]), so it folds under the pen. SWING: the whole
+ * body swings round the pen point, as before, kept so he can compare. A brush that says nothing paints FOLLOW.
+ */
+@Serializable enum class TurnMode(val id: String, val label: String) {
+    @SerialName("follow") FOLLOW("follow", "folds under"), @SerialName("swing") SWING("swing", "swings round");
+    companion object { fun of(id: String?) = entries.firstOrNull { it.id == id } }
+}
+
 /** What part of a loaded knife touches: its thin edge, or its flat face. */
 @Serializable enum class FaceMode(val id: String) {
     @SerialName("edge") EDGE("edge"), @SerialName("flat") FLAT("flat");
@@ -76,6 +86,7 @@ const val PASTE_DEPTH = 8
     val bladeEaseMm: Double = 2.5,
     val film: Double? = null, val clean: Boolean = false, val pressIn: Double? = null,
     val ends: EndsMode? = null,
+    val turns: TurnMode? = null,
     /**
      * 0..1 (owner, 2026-10-23: new colour over old paint): pressed lightly, the loaded brush rides on wet paint and lays an
      * opaque coat on top (jb_paste.glsl u_cover). 0 = as before. Like [ends], an older build ignores the word.
@@ -219,6 +230,9 @@ class PasteStroke(
     private var bladeP = 0.0
     private var bladeTilt = 0.0
     private var bladeAz = 0.0
+    private val follows = !brush.blade && brush.turns != TurnMode.SWING
+    private val trail = PasteTrail()
+    private val tail = DoubleArray(2)
 
     fun add(s: MediaSample) {
         val prev = last
@@ -231,7 +245,11 @@ class PasteStroke(
         // Where the pen leaves the line the brush is lying along (a curve, a turn) the hops stay fine: wide hops showed there
         // as scallops of the round brush's hair stamps (Note 9, 2026-10-21); on the straight they did not show.
         val turning = hasDir && len > 1e-6 && (dirX * dx + dirY * dy) / len < TURN_COS
-        if (b.trowel) {
+        if (follows) {
+            // The steps themselves steer it ([followPath]); until the first one has a tail to lie along, it lies along the first move.
+            if (len < 1e-6 && b.trowel) return
+            if (!hasDir && len > 1e-6) { dirX = dx / len; dirY = dy / len; hasDir = true }
+        } else if (b.trowel) {
             // The trowel knife steers as it did in v6/v7: it turns with each report and only lays paint as it moves.
             if (len < 1e-6) return
             val tx = dx / len
@@ -245,14 +263,7 @@ class PasteStroke(
             if (hasDir) {
                 val k = 1 - exp(-(len / pxPerMm) / 1.5)
                 val n = norm2(dirX * (1 - k) + tx * k, dirY * (1 - k) + ty * k)
-                if (b.force > 0.0) {
-                    // How fast the line turns: + toward the brush's +w side (w = the line turned a quarter clockwise).
-                    val turn = atan2(dirX * n[1] - dirY * n[0], dirX * n[0] + dirY * n[1])
-                    val mm = len / pxPerMm
-                    val j = 1 - exp(-mm / 3.0)
-                    bend += (-turn / max(mm, 1e-3) - bend) * j
-                }
-                dirX = n[0]; dirY = n[1]
+                steer(n[0], n[1], len / pxPerMm)
             } else { dirX = tx; dirY = ty; hasDir = true }
         }
         // Small hops: a thin blade edge needs hops finer than its width at any size (else a zip of ribs), so its reach is the
@@ -284,10 +295,47 @@ class PasteStroke(
 
     private fun reachWidth() = if (brush.blade) 2 * half else brush.widthMm
 
+    /** The line the hairs lie along turns to ([nx], [ny]) over [mm] of travel. */
+    private fun steer(nx: Double, ny: Double, mm: Double) {
+        if (brush.force > 0.0) {
+            // How fast the line turns: + toward the brush's +w side (w = the line turned a quarter clockwise).
+            val turn = atan2(dirX * ny - dirY * nx, dirX * nx + dirY * ny)
+            bend += (-turn / max(mm, 1e-3) - bend) * (1 - exp(-mm / 3.0))
+        }
+        dirX = nx; dirY = ny
+    }
+
+    /** How long the contact is at this press and tilt, in mm, before the stroke's own limits ([push]). */
+    private fun bodyLen(p: Double, tiltFrac: Double): Double {
+        val b = brush
+        return when {
+            b.trowel -> b.lenMm * (0.6 + 0.4 * p)
+            b.allround -> (0.35 + (b.lenMm - 0.35) * p.pow(1.6)) * (1 + 0.4 * tiltFrac)
+            else -> b.lenMm * (0.25 + 0.75 * p.pow(0.8)) * (1 + 0.4 * tiltFrac)
+        }
+    }
+
+    /**
+     * Lays the brush from the pen back to the path it drew, [body] mm behind it. Returns how far that is: the most the brush
+     * can lie out flat here. Round a corner both ends stay on the path, so the body cuts the inside of the corner and nothing
+     * swings past the outside; doubling back the ends meet, and the brush turns about its middle with no sweep at all.
+     */
+    private fun followPath(s: MediaSample, body: Double, slideMm: Double): Double {
+        trail.add(s.x, s.y)
+        trail.behind(max(body, FOLLOW_MIN_MM) * pxPerMm, tail)
+        val cx = s.x - tail[0]
+        val cy = s.y - tail[1]
+        val d = hypot(cx, cy)
+        // Under this the line between the ends is pen noise, not a direction.
+        if (d > FOLLOW_STEADY_MM * pxPerMm && hasDir) steer(cx / d, cy / d, max(slideMm, 1e-3))
+        return d / pxPerMm * FOLLOW_SLACK
+    }
+
     private fun push(s: MediaSample, slideMm: Double) {
         val b = brush
         val p = max(0.0, min(1.0, s.p))
         val tiltFrac = min(1.0, s.tilt / (60 * PI / 180))
+        val laid = if (follows) followPath(s, bodyLen(p, tiltFrac), slideMm) else Double.MAX_VALUE
         // Before the brush has moved it has no direction: lean it along the pen's lean until the drag takes over.
         val dX = if (hasDir) dirX else -cos(s.az)
         val dY = if (hasDir) dirY else -sin(s.az)
@@ -303,7 +351,8 @@ class PasteStroke(
         val land = 1 - smoothstep(0.0, 0.6 * (if (b.widthMm != 0.0) b.widthMm else 1.0), tr)
         if (b.trowel) {
             // v6/v7 trowel geometry: width barely changes with pressure, length grows with it; tilt does nothing.
-            steps.add(PasteStep(s.x, s.y, wX, wY, lX, lY, b.widthMm / 2 * (0.9 + 0.1 * p), b.lenMm * (0.6 + 0.4 * p),
+            val halfW = b.widthMm / 2 * (0.9 + 0.1 * p)
+            steps.add(PasteStep(s.x, s.y, wX, wY, lX, lY, halfW, min(bodyLen(p, tiltFrac), max(0.5 * halfW, laid)),
                 b.lenMm * 1.4, p, slideMm, fingers = 0.0, lift = lift, land = land))
             return
         }
@@ -346,22 +395,20 @@ class PasteStroke(
         // Splayed hairs come in only after the brush has travelled a little, never on touchdown.
         val fingers = (b.fingers ?: 1.0) * smoothstep(2.0, 6.0, tr)
         val halfW: Double
-        val lenFull: Double
+        val lenFull = bodyLen(p, tiltFrac)
         var thick: Double? = null
         if (b.allround) {
             // From a hairline tip to the full belly: pressure gathers the hairs down, tilt lays the belly over.
             val k = p.pow(1.6)
             halfW = (b.tipHalfMm + (b.widthMm / 2 - b.tipHalfMm) * k) * (1 + 0.35 * tiltFrac)
-            lenFull = (0.35 + (b.lenMm - 0.35) * k) * (1 + 0.4 * tiltFrac)
             thick = b.thinMm + (b.thickMm - b.thinMm) * k
         } else {
             halfW = b.widthMm / 2 * (if (b.shape == 0) 0.55 + 0.45 * sqrt(p) else 0.9 + 0.1 * p) * (1 + 0.2 * tiltFrac)
-            lenFull = b.lenMm * (0.25 + 0.75 * p.pow(0.8)) * (1 + 0.4 * tiltFrac)
         }
         // On touchdown a round is a dot and a flat its pressed chisel; the hairs trail out as far as it travelled.
         val minLen = if (b.shape == 0) 2 * halfW else 0.5 * halfW
         val lenMax = max(minLen, b.lenMm * 1.4)
-        val len = min(lenMax, max(minLen, min(lenFull, minLen + 0.8 * tr)))
+        val len = min(lenMax, max(minLen, min(min(lenFull, laid), minLen + 0.8 * tr)))
         val th = (thick ?: b.thickMm) * body
         // Uneven pressure across the brush (PasteBrush.force): the side the handle leans toward, by how far it leans, and the
         // outside of a curve, by how tightly it turns for this brush's width (a turn of one radian per brush width is full).
@@ -380,6 +427,11 @@ class PasteStroke(
     private companion object {
         /** A pen heading more than 20 degrees off the brush's line is turning. */
         val TURN_COS = cos(20 * PI / 180)
+        /** The shortest length a brush is steered over ([followPath]): a hairline's body is no steadier than the pen. */
+        const val FOLLOW_MIN_MM = 1.5
+        const val FOLLOW_STEADY_MM = 0.4
+        /** A little play in the string: a hand's wobble shortens the line between the ends, and the brush should not breathe with it. */
+        const val FOLLOW_SLACK = 1.1
     }
 }
 

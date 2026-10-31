@@ -2748,13 +2748,20 @@ class GlPaintEngine(
     }
     private fun copyTextureRectTranslated(source: Int, target: Int, from: RegionTileRect, to: RegionTileRect) {
         require(from.w == to.w && from.h == to.h)
+        // An error an earlier pass left is not this copy's: it would fail the copy, and a stroke with it.
+        val earlier = GLES30.glGetError()
+        if (earlier != GLES30.GL_NO_ERROR) android.util.Log.e("JoyBrushTiles", "GL error $earlier, left by an earlier pass, reached a tile copy")
         GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
         GLES30.glBindFramebuffer(GLES30.GL_READ_FRAMEBUFFER,readFbo)
         GLES30.glFramebufferTexture2D(GLES30.GL_READ_FRAMEBUFFER,GLES30.GL_COLOR_ATTACHMENT0,GLES30.GL_TEXTURE_2D,source,0)
         GLES30.glBindFramebuffer(GLES30.GL_DRAW_FRAMEBUFFER,copyFbo)
         GLES30.glFramebufferTexture2D(GLES30.GL_DRAW_FRAMEBUFFER,GLES30.GL_COLOR_ATTACHMENT0,GLES30.GL_TEXTURE_2D,target,0)
         GLES30.glBlitFramebuffer(from.x,from.y,from.right,from.bottom,to.x,to.y,to.right,to.bottom,GLES30.GL_COLOR_BUFFER_BIT,GLES30.GL_NEAREST)
-        check(GLES30.glGetError()==GLES30.GL_NO_ERROR) { "Board tile copy failed" }
+        val error = GLES30.glGetError()
+        check(error==GLES30.GL_NO_ERROR) {
+            "Board tile copy failed (GL error $error, source $source status ${GLES30.glCheckFramebufferStatus(GLES30.GL_READ_FRAMEBUFFER)}, " +
+                "target $target status ${GLES30.glCheckFramebufferStatus(GLES30.GL_DRAW_FRAMEBUFFER)})"
+        }
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbo)
     }
 
@@ -7048,7 +7055,10 @@ class GlPaintEngine(
                     val tile = Triple(storeId, plane, key)
                     if (now != null && tile in held) { texes[key] = now; continue }
                     val after = if (look) newLayerTile() else newPayloadTile(store)
-                    initializeTile(after, now, false)
+                    // A tile whose memory went ([repairLostTiles]) starts blank: one square, not the whole stroke.
+                    val readable = now != null && tileReadable(now)
+                    if (now != null && !readable) android.util.Log.e("JoyBrushTiles", "$storeId tile ${key shr 32},${key.toInt()}: texture $now lost, started blank")
+                    initializeTile(after, now.takeIf { readable }, false)
                     val dropped = topHeld[tile]
                     // A tile this stroke itself dropped (a stale payload, [dropStalePayload]) comes back in that same change.
                     val droppedHere = if (now == null && stroke != null) stroke.indexOfFirst { it.after == null && Triple(it.layerId, it.celId, it.key) == tile } else -1
@@ -7191,6 +7201,8 @@ class GlPaintEngine(
             GLES30.glGenTextures(1, t, 0)
             GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, t[0])
             GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D, 0, GLES30.GL_RGBA16F, size, size, 0, GLES30.GL_RGBA, GLES30.GL_HALF_FLOAT, null)
+            val error = GLES30.glGetError()
+            if (error != GLES30.GL_NO_ERROR) android.util.Log.e("JoyBrushTiles", "float tile ${t[0]}: GL error $error")
             GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_NEAREST)
             GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_NEAREST)
             GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE)
@@ -7542,6 +7554,13 @@ class GlPaintEngine(
         GLES30.glFramebufferTexture2D(GLES30.GL_FRAMEBUFFER, GLES30.GL_COLOR_ATTACHMENT0, GLES30.GL_TEXTURE_2D, tex, 0)
     }
 
+    /** True while [tex] still has memory the driver can read. */
+    private fun tileReadable(tex: Int): Boolean {
+        GLES30.glBindFramebuffer(GLES30.GL_READ_FRAMEBUFFER, readFbo)
+        GLES30.glFramebufferTexture2D(GLES30.GL_READ_FRAMEBUFFER, GLES30.GL_COLOR_ATTACHMENT0, GLES30.GL_TEXTURE_2D, tex, 0)
+        return GLES30.glCheckFramebufferStatus(GLES30.GL_READ_FRAMEBUFFER) == GLES30.GL_FRAMEBUFFER_COMPLETE
+    }
+
     private fun newLayerTile(): Int = freeLayerTex.removeLastOrNull()
         ?: newTexture(size, GLES30.GL_RGBA8, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE)
 
@@ -7577,10 +7596,15 @@ class GlPaintEngine(
     }
 
     private fun recycleLayerTex(tex: Int) {
-        if (forgettingGraphicsContext) return
+        if (forgettingGraphicsContext || tex == 0) return
+        // Twice in a pool, the next two tiles would share it, and freeing one would take the other's memory.
+        if (tex in freeFloatTex || tex in freeLayerTex) {
+            android.util.Log.e("JoyBrushTiles", "texture $tex retired twice", Throwable())
+            return
+        }
         // Scene caches, baked slabs and UndoLog endpoints all retire through this hook.
         // The pool still owns a recycled allocation; future budgets count that actual owner.
-        if (tex != 0) recordedWorkingTiles.forget(physicalContextEpoch, tex)
+        recordedWorkingTiles.forget(physicalContextEpoch, tex)
         if (tex in floatNames) {
             freeFloatTex.addLast(tex)
             while (freeFloatTex.size > 16) freeFloatTex.removeFirst().let {
@@ -7610,7 +7634,8 @@ class GlPaintEngine(
         GLES30.glGenTextures(1, t, 0)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, t[0])
         GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D, 0, internal, w, h, 0, format, type, null)
-        if (GLES30.glGetError() == GLES30.GL_OUT_OF_MEMORY) android.util.Log.e("JoyBrushTiles", "texture ${t[0]}: the driver is out of memory for ${w}x$h")
+        val error = GLES30.glGetError()
+        if (error != GLES30.GL_NO_ERROR) android.util.Log.e("JoyBrushTiles", "texture ${t[0]} ${w}x$h: GL error $error")
         GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_LINEAR)
         GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_LINEAR)
         GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE)

@@ -978,9 +978,20 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         val (waterStores, restStores) = stores.partition { it in MediaStores.WATER }
         val wetKeys = keys.filter { !MediaAtlasDropDry.on || !waterDry(it) || paint.mediaTile(id, MediaStores.WATER[0], it, plane) != null }
         val targets = HashMap<String, Map<Long, Int>>()
-        if (restStores.isNotEmpty()) targets.putAll(paint.writableMediaTiles(id, keys, restStores, plane))
-        if (waterStores.isNotEmpty() && wetKeys.isNotEmpty()) targets.putAll(paint.writableMediaTiles(id, wetKeys, waterStores, plane))
-        for (key in keys) {
+        // The drawing's room ran out: tiles that have their stores still get this stroke, or it would show on screen with
+        // nothing under it and the next stroke across would redraw it empty. A tile with none keeps its look as plain pixels.
+        var full: MediaRoomException? = null
+        val roomy = try {
+            if (restStores.isNotEmpty()) targets.putAll(paint.writableMediaTiles(id, keys, restStores, plane))
+            keys
+        } catch (x: MediaRoomException) {
+            full = x
+            keys.filter { k -> restStores.all { paint.mediaTile(id, it, k, plane) != null } }.also {
+                if (it.isNotEmpty()) targets.putAll(paint.writableMediaTiles(id, it, restStores, plane))
+            }
+        }
+        if (full == null && waterStores.isNotEmpty() && wetKeys.isNotEmpty()) targets.putAll(paint.writableMediaTiles(id, wetKeys, waterStores, plane))
+        for (key in roomy) {
             val res = slots.resident(page(key))!!
             val (ax, ay) = media.slotTexel(res.slot)
             for (store in stores) {
@@ -992,6 +1003,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         }
         groundFromLook.removeAll(firstTouch.toSet())
         if (drop) dropWater(id)
+        full?.let { throw it }
         android.util.Log.i(TAG, "media room: ${paint.mediaResidentBytes() shr 20} MB held, ${driedTiles} tiles' dry water let go so far")
     }
 

@@ -113,10 +113,11 @@ object LayerBudget {
     }
 
     /**
-     * The share of the phone's memory resident media state may take (the Lead's ceiling, 2026-10-07): 256 MB on a 6 GB
-     * phone. Past it a stroke stops growing its layer and says so ([mediaFullMessage]); it never crashes.
+     * The share of the phone's memory resident media state may take: 1 GB on a 6 GB phone. Past it a stroke stops growing
+     * its layer and says so ([mediaFullMessage]); it never crashes. It was 256 MB from 2026-10-07, about 7 by 7 cm of oil:
+     * the owner filled it in one sitting (2026-10-31), with 2 GB of the phone still free.
      */
-    const val MEDIA_RAM_SHARE = 256.0 / (6 * 1024)
+    const val MEDIA_RAM_SHARE = 1024.0 / (6 * 1024)
 
     fun mediaBudgetBytes(totalRamBytes: Long): Long =
         if (totalRamBytes <= 0L) MIN_MEDIA_BYTES else maxOf(MIN_MEDIA_BYTES, (totalRamBytes * MEDIA_RAM_SHARE).toLong())

@@ -567,6 +567,9 @@ so they stay 🟡 and are not to be promoted yet. Old screens are kept reachable
 
 ---
 
+- 🟠 **Lost tiles (2026-10-31, Note 9):** four neighbouring oil-layer tiles lost their graphics memory, drew black, and every autosave then failed. Saves now blank such a tile, tell the owner and keep the rest (`GlPaintEngine.repairLostTiles`, probe `lostTileProbe`, on `joy-creator`). **Cause not found:** the next one logs under `JoyBrushTiles`. Blanked paint is not recovered.
+- 🟠 **Two drawings share one folder copy (seen 2026-10-31, Note 9):** `library.json` gives Drawing 2 test and Drawing 3 the same `folderPath`; effect on the folder copy not checked.
+
 ## 10. HISTORICAL GAPS — recheck before assuming a feature is absent
 
 The following September inventory has NOT had a current whole-product audit.

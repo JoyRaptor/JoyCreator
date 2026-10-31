@@ -1202,3 +1202,6 @@ as `TIME * knob` are "rate" and the host integrates them.
 - Compare a suspect brush with and without the change on one base before blaming either. Texture differs run to run by design.
 - A cure found for one path (one paint pass a frame, 10-19) belongs on every path with the same shape: ordinary strokes stalled for 11 more days.
 - Each job that makes a C:/Temp copy removes it when landed: 178 copies and their builds filled the disk. Check for unsaved or unpushed work first.
+- One unreadable tile must never cost the whole drawing: a save reads everything, so a repair belongs before the read, and the owner is told what was lost.
+- Attach a debugger before quitting a failing app: unsaved work lived only in that process, and jdb on the debuggable build found the tile and let the save finish.
+- Measure from the owner's picture too: frames per stroke went up while his curves went sawtooth. A speed number alone does not accept a spacing change.

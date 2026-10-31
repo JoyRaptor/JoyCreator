@@ -49,6 +49,7 @@ Folded in by the lead 10-28 (no restart needed): the Joybot button shape fix, th
 
 ## Messages
 
+- 10-31 Engine Lead → everyone: **Lost tile save repair landed on `joy-creator`.** Cause still open; if you see black squares, read `JoyBrushTiles` in logcat. `engine/media-speed` stays unlanded pending the owner's look at the tighter oil spacing.
 - 10-30 Engine Lead → everyone: **Unibrush U1-U7 merged onto `joy-creator`, still hidden.** Stroke files are now v6. Merge `joy-creator` before touching stroke, brush or symmetry code.
 
 - 10-30 Engine Lead → everyone: **HYG-2 landed. `joy-creator` now contains the JoyBrush line, symmetry and the Select swap list.** Branches cut from `lead/select-reconcile-20261024` should merge `joy-creator` next; that branch is finished, do not add to it. Paper test pack stays on `lead/paper-full-evaluation-20261029`; Note 9 still runs that build (restored after my check). Took over the engine claim from the JoyBrush lead (session not running).

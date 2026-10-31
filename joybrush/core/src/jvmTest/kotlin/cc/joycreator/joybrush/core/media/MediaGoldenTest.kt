@@ -236,12 +236,12 @@ class MediaGoldenTest {
 
     @Test fun pasteStrokes() {
         val ps = obj("pasteStrokes")
-        for (name in PasteBrushes.ALL.keys) compareSteps(ps[name]!!, runPaste(PasteStroke(PasteBrushes.ALL[name]!!, 20.0), "s30"), name)
-        val k2 = PasteBrushes.ALL["Palette knife 2"]!!
+        for (name in PasteBrushes.ALL.keys) compareSteps(ps[name]!!, runPaste(PasteStroke(PasteBrushes.ALL[name]!!.copy(bladeEaseMm = 0.0), 20.0), "s30"), name)
+        val k2 = PasteBrushes.ALL["Palette knife 2"]!!.copy(bladeEaseMm = 0.0)
         for (edge in EdgeMode.entries) for (press in PressMode.entries) for (face in FaceMode.entries)
             compareSteps(ps["Palette knife 2|${edge.id}|${press.id}|${face.id}"]!!,
                 runPaste(PasteStroke(k2, 20.0, edge = edge, press = press, face = face), "s20"), "knife 2 $edge $press $face")
-        for (edge in EdgeMode.entries) compareSteps(ps["Scraper|${edge.id}"]!!, runPaste(PasteStroke(PasteBrushes.ALL["Scraper"]!!, 20.0, edge = edge), "s20"), "scraper $edge")
+        for (edge in EdgeMode.entries) compareSteps(ps["Scraper|${edge.id}"]!!, runPaste(PasteStroke(PasteBrushes.ALL["Scraper"]!!.copy(bladeEaseMm = 0.0), 20.0, edge = edge), "s20"), "scraper $edge")
         compareSteps(ps["Oil round|dab"]!!, runPaste(PasteStroke(PasteBrushes.ALL["Oil round"]!!, 20.0), "dab20"), "oil round dab")
         compareSteps(ps["All-round|thin"]!!, runPaste(PasteStroke(PasteBrushes.ALL["All-round"]!!, 20.0, body = 0.4), "s30"), "all-round thinned")
     }

@@ -72,6 +72,8 @@ const val PASTE_DEPTH = 8
     val face: FaceMode? = null, val edgeHalfMm: Double? = null, val edgeMinMm: Double = 0.0,
     val acrossMaxMm: Double = 0.0, val riseMaxMm: Double? = null, val bladeLenMm: Double = 0.0,
     val bladeHalfMm: Double = 0.0, val bladeHmax: Double = 0.0, val bead: Double = 0.0, val bladeCap: Double = 0.0,
+    /** How far a blade travels to settle into a new pressure, tilt or lean; 0 takes each pen report raw, as before 2026-10-31. */
+    val bladeEaseMm: Double = 2.5,
     val film: Double? = null, val clean: Boolean = false, val pressIn: Double? = null,
     val ends: EndsMode? = null,
     /**
@@ -213,6 +215,10 @@ class PasteStroke(
      */
     var spacing = 1.0
         set(v) { field = v.coerceIn(1.0, PasteSpacing.MAX) }
+    private var bladeHeld = false
+    private var bladeP = 0.0
+    private var bladeTilt = 0.0
+    private var bladeAz = 0.0
 
     fun add(s: MediaSample) {
         val prev = last
@@ -249,11 +255,12 @@ class PasteStroke(
                 dirX = n[0]; dirY = n[1]
             } else { dirX = tx; dirY = ty; hasDir = true }
         }
-        // Small hops: a thin blade edge needs hops finer than its width (else a zip of ribs).
+        // Small hops: a thin blade edge needs hops finer than its width at any size (else a zip of ribs), so its reach is the
+        // edge, not the 16 mm it spreads to: measured from that, Knife 2 hopped 3 mm and stepped (the owner, 2026-10-31).
         // A brush grown past its shipped size steps with the root of its size, and a burst stretches to 20 % of its width: wider
         // showed as a sawtooth edge and bands across big strokes (the owner's oil, 2026-10-31). At 0.3 mm a
         // 256 px oil round overlapped itself 98 % and took 0.8 s a frame on the Note 9 (2026-10-31).
-        val baseMm = (if (b.blade) min(0.3, 0.6 * half * 0.35) else 0.3) * b.stepScale
+        val baseMm = if (b.blade) min(0.3, 0.6 * half * 0.35) else 0.3 * b.stepScale
         val stepMm = baseMm * max(if (turning) 1.0 else spacing, PasteSpacing.behind(steps.size, 0.2 * reachWidth() / baseMm))
         val stepPx = max(1 / layerScale, stepMm * pxPerMm / layerScale)
         fun interp(w: Double) = MediaSample(
@@ -275,7 +282,7 @@ class PasteStroke(
         if (stepped || now - lastStepT >= 16) lastStepT = now
     }
 
-    private fun reachWidth() = if (brush.widthMm > 0.0) brush.widthMm else brush.acrossMaxMm
+    private fun reachWidth() = if (brush.blade) 2 * half else brush.widthMm
 
     private fun push(s: MediaSample, slideMm: Double) {
         val b = brush
@@ -302,8 +309,15 @@ class PasteStroke(
         }
         if (b.blade) {
             // All linear: tilt sets how much edge is in play and the gouge taper; pressure raises (load) or lowers
-            // (depth) the underside.
-            val t = min(1.0, max(0.0, s.tilt / (PI / 2)))
+            // (depth) the underside. A rigid blade rides its own hold, it does not jump with every pen report: taken raw,
+            // each wobble was a ledge across the stroke and a stair in its edge (the owner, 2026-10-31).
+            val ease = if (bladeHeld && b.bladeEaseMm > 0.0) 1 - exp(-slideMm / b.bladeEaseMm) else 1.0
+            bladeP += (p - bladeP) * ease
+            bladeTilt += (s.tilt - bladeTilt) * ease
+            bladeAz += angleDelta(bladeAz, s.az) * ease
+            bladeHeld = true
+            val p = bladeP
+            val t = min(1.0, max(0.0, bladeTilt / (PI / 2)))
             val load = press == PressMode.LOAD
             val h0 = b.bladeHmax * (if (load) p else 1 - p)
             val pressK = if (load) 0.0 else p
@@ -322,8 +336,8 @@ class PasteStroke(
             val l = b.edgeMinMm + (b.bladeLenMm - b.edgeMinMm) * t
             // The gouge tapers over the WHOLE edge in play: deepest at the point, rising riseMax·(1 − t) at the far end.
             val rise = (b.riseMaxMm ?: 0.8) * (1 - t) / max(l, 0.5)
-            val bX = if (edge == EdgeMode.ALONG) -dX else cos(s.az)
-            val bY = if (edge == EdgeMode.ALONG) -dY else sin(s.az)
+            val bX = if (edge == EdgeMode.ALONG) -dX else cos(bladeAz)
+            val bY = if (edge == EdgeMode.ALONG) -dY else sin(bladeAz)
             steps.add(PasteStep(s.x, s.y, wX, wY, lX, lY, half, l, l, p, slideMm,
                 bladeDirX = bX, bladeDirY = bY, bladeLen = l, bladeHalf = half, travelX = dX, travelY = dY,
                 bladeH0 = h0, bladeTan = rise, pressK = pressK, loadMode = load))

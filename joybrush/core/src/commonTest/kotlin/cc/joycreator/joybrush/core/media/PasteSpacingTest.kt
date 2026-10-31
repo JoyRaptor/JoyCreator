@@ -61,4 +61,27 @@ class PasteSpacingTest {
         assertEquals(6.0, PasteSpacing.behind(PasteSpacing.FRAME_STEPS * 4, 6.0))
         assertEquals(1.0, PasteSpacing.behind(100, 0.2))
     }
+
+    @Test fun aBladeEasesIntoAPressureJumpInsteadOfLeavingALedge() {
+        val ppm = DOC_PX_PER_MM
+        val s = PasteStroke(PasteBrushes.ALL.getValue("Palette knife 2"), ppm)
+        var t = 0.0
+        val out = ArrayList<PasteStep>()
+        for (i in 0..80) { s.add(MediaSample(400 + i * 0.25 * ppm, 400.0, if (i < 40) 0.3 else 0.9, 0.3, 0.0, t.also { t += 16.0 })); out += s.take() }
+        val heights = out.mapNotNull { it.bladeH0 }
+        val jump = heights.zipWithNext { a, b -> abs(b - a) }.max()
+        assertTrue(jump < 0.03, "no ledge: the biggest height change in one hop is $jump mm of ${heights.max() - heights.min()}")
+        assertTrue(heights.last() > 0.75, "and it still arrives: ${heights.last()}")
+    }
+
+    @Test fun aBladeNeverHopsPastItsThinEdgeEvenGrownAndBehind() {
+        val ppm = DOC_PX_PER_MM
+        val knife = PasteBrushes.ALL.getValue("Palette knife 2")
+        val s = PasteStroke(knife.copy(stepScale = 3.0, acrossMaxMm = knife.acrossMaxMm * 3), ppm)
+        var t = 0.0
+        // Never a frame: the backlog grows as far as it can.
+        for (i in 0..200) s.add(MediaSample(400 + i * 0.5 * ppm, 400.0, 0.6, 0.3, 0.0, t.also { t += 16.0 }))
+        val gaps = s.take().zipWithNext { a, b -> abs(b.x - a.x) / ppm }
+        assertTrue(gaps.size > 100 && gaps.max() < 0.25, "hops stay under a fifth of the 1.2 mm edge, at most ${gaps.max()} mm")
+    }
 }

@@ -450,9 +450,12 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         if (batch.count == 0) null
         else layerRect(batch.dirty, pxPerMm * mat.smearMm + 2)?.let { Need(it, MediaAtlasPlacement.dryReach(pxPerMm * mat.smearMm * scale)) }
 
-    /** What [pasteStep] will ask for: the old square (the quad it still draws), with the paste reach. */
+    /**
+     * What [pasteStep] will ask for: the box it paints, with the paste reach. The old square round a brush's longest hairs
+     * was seven tiles a side at 380 px, and the phone refused the stroke (2026-10-31); nothing reads it in the atlas.
+     */
     fun pasteNeed(st: PasteStep, b: PasteBrush, pxPerMm: Double): Need? =
-        layerRect(PasteFootprint.legacyBounds(st, b, pxPerMm), 2.0)?.let { Need(it, MediaAtlasPlacement.PASTE_REACH) }
+        layerRect(PasteFootprint.docBounds(st, b, scale.toDouble(), pxPerMm), 2.0)?.let { Need(it, MediaAtlasPlacement.PASTE_REACH) }
 
     /** What [eraseFrame] will ask for. */
     fun eraseNeed(batch: DabBatch): Need? =
@@ -953,7 +956,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         val t = paper.stats.toothMm
         val cur = brush[bc]
         val nxt = brush[1 - bc]
-        val square = pasteNeed(st, b, pxPerMm)?.rect
+        val square = layerRect(PasteFootprint.legacyBounds(st, b, pxPerMm), 2.0)
         val rect = if (legacyRect) square else layerRect(PasteFootprint.docBounds(st, b, scale.toDouble(), pxPerMm), 2.0)
         // Paired steps ([pastePairs]): a B step reads state[1], where the A step before it left its box; first everything it
         // reads beyond that box is brought over from state[0] (which still holds the canvas there).
@@ -972,12 +975,12 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         common(bu)
         // JB_ATLAS_NBR5: the brush's cells read the canvas around the step through the 5x5 tiles around its middle.
         val a = atlas
-        if (a != null && square != null) {
-            val ctx = floor((square[0] + square[2]) / 2f / MediaAtlasDraw.SIDE).toInt()
-            val cty = floor((square[1] + square[3]) / 2f / MediaAtlasDraw.SIDE).toInt()
+        if (a != null && rect != null) {
+            val ctx = floor((rect[0] + rect[2]) / 2f / MediaAtlasDraw.SIDE).toInt()
+            val cty = floor((rect[1] + rect[3]) / 2f / MediaAtlasDraw.SIDE).toInt()
             val reach = MediaAtlasPlacement.PASTE_REACH
-            if (floor((square[0] - reach) / MediaAtlasDraw.SIDE).toInt() < ctx - 2 || floor((square[1] - reach) / MediaAtlasDraw.SIDE).toInt() < cty - 2 ||
-                floor((square[2] + reach) / MediaAtlasDraw.SIDE).toInt() > ctx + 2 || floor((square[3] + reach) / MediaAtlasDraw.SIDE).toInt() > cty + 2)
+            if (floor((rect[0] - reach) / MediaAtlasDraw.SIDE).toInt() < ctx - 2 || floor((rect[1] - reach) / MediaAtlasDraw.SIDE).toInt() < cty - 2 ||
+                floor((rect[2] + reach) / MediaAtlasDraw.SIDE).toInt() > ctx + 2 || floor((rect[3] + reach) / MediaAtlasDraw.SIDE).toInt() > cty + 2)
                 android.util.Log.w("JoyBrushMediaAtlas", "a paste step wider than 5 tiles: its brush reads past what it is handed")
             a.neighbours(ctx, cty, nbrSlots5, r = 2)
             nbrTile[0] = ctx; nbrTile[1] = cty; bu.i2v("u_nbrTile", nbrTile); bu.i2v("u_nbrSlot", nbrSlots5)
@@ -994,7 +997,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         // v_layerPx with different rounding, and the noise inside the shader would shift by an ulp (measured:
         // tools/media_paste_rect_parity_check.js). Same primitive + scissor = the same fragments, bit for bit.
         if (square != null && rect != null) {
-            need(square, MediaAtlasPlacement.PASTE_REACH)
+            need(rect, MediaAtlasPlacement.PASTE_REACH)
             touch(rect)
             stores += "p0"; stores += "p1"
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, if (pairB) pFbo0 else pFbo1)

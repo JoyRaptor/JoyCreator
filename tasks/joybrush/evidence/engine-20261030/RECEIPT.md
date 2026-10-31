@@ -12,4 +12,4 @@ Build `engine/atlas-room-merge`, base `ab765c665`. Suites on the final commit: c
 | Animation clips probe | passed; the runner printed TIMEOUT because it waits for a brush label the probe does not log | media22-branch/23.log |
 | Water undo probe, tightest room | 0 tiles differ on undo and redo, 1936 write-backs | not kept; result in this table |
 
-Soft on a scribble, with lines off: gap p50 41 ms at 256 px, 84 at 512, 129 at 1024, 336 at 2000. Not fixed: the gap is about double the measured work, so the wait is outside the paint path. Unmeasured: context loss.
+Soft on a scribble, with lines off: gap p50 41 ms at 256 px, 84 at 512, 129 at 1024, 336 at 2000. The gap is not slowness: Soft spaces dabs at .15 of its size and frames are only drawn for a new dab, so gap = spacing / pen speed (38 px, 77 px, 154 px, 300 px at about 0.9 px per ms). The earlier "Soft 2000 is 3 fps" was a wrong reading of this figure. The real cost is busy p95: 21 ms at 256, 30 at 512, 56 at 1024, 110 at 2000 (with the bench glFinish brackets), so about 256 px holds 45 fps and 2000 px about 9. Unmeasured: context loss.

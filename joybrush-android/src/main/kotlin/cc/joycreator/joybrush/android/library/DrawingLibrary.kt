@@ -297,6 +297,7 @@ object DrawingLibrary {
     fun syncFromFolder(context: Context): Int {
         val dir = dir(context) ?: return 0
         val jf = JoyFolderHome.open(context) ?: return 0
+        separateSharedCopies(context, jf, dir)
         jf.index.scan(jf.fs)
         val known = HashSet<String>()
         val knownPaths = HashSet<String>()
@@ -380,7 +381,8 @@ object DrawingLibrary {
      * found again by the drawing's id; a new one goes where new work goes (the top), by its readable name.
      * Returns the folder path.
      */
-    private fun mirrorFile(context: Context, jf: JoyFolder, dir: File, file: String, docId: String?): String? {
+    internal fun mirrorFile(context: Context, jf: JoyFolder, dir: File, file: String, docId: String?): String? {
+        separateSharedCopies(context, jf, dir)
         val working = File(dir, file)
         if (!working.isFile) return null
         var name = "Drawing"
@@ -418,9 +420,60 @@ object DrawingLibrary {
         return rel
     }
 
+    /**
+     * Give every drawing its own folder file again. A list made by a build before the 2026-10-18 audit can hold two
+     * drawings with one folder path (found on the Note 9, 2026-10-31), and each save then wrote over the other's copy.
+     * The file is overwritten by nobody here: the drawing really inside it keeps it, under its own name, and the others
+     * get new files from their working copies. If none is really inside it, it stays where it is for [syncFromFolder].
+     */
+    internal fun separateSharedCopies(context: Context, jf: JoyFolder, dir: File) {
+        val paths = HashMap<String, String>()
+        val ids = HashMap<String, String>()
+        synchronized(lock) {
+            val entries = readIndex(dir).optJSONObject("drawings") ?: JSONObject()
+            for (k in entries.keys()) {
+                val e = entries.getJSONObject(k)
+                e.optString("folderPath", "").takeIf { it.isNotEmpty() }?.let { paths[k] = it }
+                e.optString("docId", "").takeIf { it.isNotEmpty() }?.let { ids[k] = it }
+            }
+        }
+        for ((rel, drawings) in FolderAdoption.shared(paths)) {
+            Log.w(TAG, "${drawings.size} drawings share $rel; separating them")
+            val owner = FolderAdoption.owner(drawings, docIdIn(jf, rel), ids::get)
+            val others = drawings.filter { it != owner }
+            others.forEach { clearFolderPath(dir, it) }
+            if (owner != null) {
+                val wanted = readableName(dir, owner) + ".joybrush"
+                if (Placement.nameOf(rel) != wanted) {
+                    val free = jf.freeName(Placement.parentOf(rel), wanted)
+                    if (jf.fs.rename(rel, free)) setFolderPath(dir, owner, Placement.join(Placement.parentOf(rel), free))
+                }
+            }
+            for (other in others) {
+                try {
+                    mirrorFile(context, jf, dir, other, ids[other])
+                } catch (e: Exception) {
+                    // Still marked as shared, so the next save or sync tries again.
+                    setFolderPath(dir, other, rel)
+                    throw e
+                }
+            }
+        }
+    }
+
+    private fun readableName(dir: File, file: String): String = synchronized(lock) {
+        ReadableNames.sanitize(readIndex(dir).optJSONObject("drawings")?.optJSONObject(file)?.optString("name", "Drawing") ?: "Drawing")
+    }
+
     private fun setFolderPath(dir: File, file: String, rel: String) = synchronized(lock) {
         val index = readIndex(dir)
         index.optJSONObject("drawings")?.optJSONObject(file)?.put("folderPath", rel)
+        writeIndex(dir, index)
+    }
+
+    private fun clearFolderPath(dir: File, file: String) = synchronized(lock) {
+        val index = readIndex(dir)
+        index.optJSONObject("drawings")?.optJSONObject(file)?.remove("folderPath")
         writeIndex(dir, index)
     }
 

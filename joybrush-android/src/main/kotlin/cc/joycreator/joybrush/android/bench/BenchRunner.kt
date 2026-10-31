@@ -222,6 +222,14 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
             }
             return
         }
+        if (case == "lostTileProbe") {
+            canvas.runLostTileProbe { result ->
+                val report = try { org.json.JSONObject(result) } catch (e: Exception) { org.json.JSONObject().put("pass", false).put("raw", result) }
+                logRecordedReport(report.put("brush", preset.id).put("case", case).put("run", run), preset.id, case, run)
+                ui.postDelayed({ next() }, spec.settleMs)
+            }
+            return
+        }
         if (case == "mediaAtlasLedgerProbe") {
             // Atlas A2: the real park ledger, the same strokes in a roomy atlas and squeezed into `jb_atlas_slots` (6 x 4) with the park on
             // (MediaAtlasLedgerProbe); `jb_water_park_units` sets the park's size (24 if not given).

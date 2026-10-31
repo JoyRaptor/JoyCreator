@@ -12,8 +12,10 @@ class PasteSpacingTest {
         val s = PasteStroke(PasteBrushes.ALL.getValue(name), ppm)
         s.spacing = spacing
         var t = 0.0
-        for (i in 0..60) s.add(MediaSample(400 + i * 0.5 * ppm, 400.0, 0.6, 0.3, 0.0, t.also { t += 16.0 }))
-        return s.take()
+        val out = ArrayList<PasteStep>()
+        // A frame after every sample, so the backlog rule (PasteSpacing.behind) stays out of it.
+        for (i in 0..60) { s.add(MediaSample(400 + i * 0.5 * ppm, 400.0, 0.6, 0.3, 0.0, t.also { t += 16.0 })); out += s.take() }
+        return out
     }
 
     @Test fun aPhoneThatKeepsUpNeverLeavesTheShippedHops() {
@@ -46,10 +48,17 @@ class PasteSpacingTest {
         // Right 10 mm, then straight back: the brush still lies along the way it came for the first millimetres back.
         for (i in 0..20) s.add(MediaSample(400 + i * 0.5 * ppm, 400.0, 0.6, 0.3, 0.0, t.also { t += 16.0 }))
         val out = s.take().size
-        for (i in 1..6) s.add(MediaSample(400 + (10 - i * 0.5) * ppm, 400.0, 0.6, 0.3, 0.0, t.also { t += 16.0 }))
-        val back = s.take()
+        val back = ArrayList<PasteStep>()
+        for (i in 1..6) { s.add(MediaSample(400 + (10 - i * 0.5) * ppm, 400.0, 0.6, 0.3, 0.0, t.also { t += 16.0 })); back += s.take() }
         val gaps = back.zipWithNext { a, b -> kotlin.math.abs(b.x - a.x) / ppm }
         assertTrue(gaps.isNotEmpty() && gaps.all { it < 0.31 }, "fine hops in the turn: $gaps")
         assertTrue(out > 0)
+    }
+
+    @Test fun aBurstThinsOutButKeepsItsPaintPerMillimetre() {
+        assertEquals(1.0, PasteSpacing.behind(PasteSpacing.FRAME_STEPS, 6.0))
+        assertEquals(4.0, PasteSpacing.behind(PasteSpacing.FRAME_STEPS * 2, 6.0))
+        assertEquals(6.0, PasteSpacing.behind(PasteSpacing.FRAME_STEPS * 4, 6.0))
+        assertEquals(1.0, PasteSpacing.behind(100, 0.2))
     }
 }

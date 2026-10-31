@@ -59,6 +59,8 @@ const val PASTE_DEPTH = 8
  */
 @Serializable data class PasteBrush(
     val shape: Int,
+    /** The hops times this: how far past its shipped size the brush was grown ([MediaSpec.scaled]); 1 at or below it. */
+    val stepScale: Double = 1.0,
     val widthMm: Double = 0.0, val lenMm: Double = 0.0, val thickMm: Double = 0.0,
     val scrape: Double = 0.0, val hairDepth: Double = 0.0, val ridge: Double = 0.0, val rate: Double = 1.0,
     val mix: Double = 0.0, val swap: Double = 0.6, val loadLenMm: Double = 1.0, val wick: Double = 0.0,
@@ -248,7 +250,10 @@ class PasteStroke(
             } else { dirX = tx; dirY = ty; hasDir = true }
         }
         // Small hops: a thin blade edge needs hops finer than its width (else a zip of ribs).
-        val stepMm = (if (b.blade) min(0.3, 0.6 * half * 0.35) else 0.3) * (if (turning) 1.0 else spacing)
+        // A brush grown past its shipped size steps with its size, so it paints as the shipped brush seen larger: at 0.3 mm a
+        // 256 px oil round overlapped itself 98 % and took 0.8 s a frame on the Note 9 (2026-10-31).
+        val baseMm = (if (b.blade) min(0.3, 0.6 * half * 0.35) else 0.3) * b.stepScale
+        val stepMm = baseMm * max(if (turning) 1.0 else spacing, PasteSpacing.behind(steps.size, 0.4 * reachWidth() / baseMm))
         val stepPx = max(1 / layerScale, stepMm * pxPerMm / layerScale)
         fun interp(w: Double) = MediaSample(
             prev.x + dx * w, prev.y + dy * w, prev.p + (s.p - prev.p) * w, prev.tilt + (s.tilt - prev.tilt) * w,
@@ -268,6 +273,8 @@ class PasteStroke(
         if (!stepped && !b.trowel && now - lastStepT >= 16) push(s, 0.04 * min(4.0, (now - lastStepT) / 16))
         if (stepped || now - lastStepT >= 16) lastStepT = now
     }
+
+    private fun reachWidth() = if (brush.widthMm > 0.0) brush.widthMm else brush.acrossMaxMm
 
     private fun push(s: MediaSample, slideMm: Double) {
         val b = brush
@@ -375,6 +382,19 @@ object PasteSpacing {
 
     /** Bench only (`jb_paste_spacing`): every paste stroke at this spacing, to see what wider hops look like. */
     var fixed: Double? = null
+
+    /**
+     * The hops times this while a frame's steps pile up: 1 up to [FRAME_STEPS], then fast up to [limit]. Steps come in frames,
+     * so a slow frame left more for the next one until a whole stroke landed in three frames of 130 steps (Note 9, oil at
+     * size 90, 2026-10-31). Each hop still slides as far, so the paint per millimetre holds, on curves too: a coarser
+     * curve for one burst is better than a stroke that stops.
+     */
+    fun behind(waiting: Int, limit: Double): Double {
+        if (waiting <= FRAME_STEPS) return 1.0
+        val over = waiting.toDouble() / FRAME_STEPS
+        return min(max(1.0, limit), over * over)
+    }
+    const val FRAME_STEPS = 8
 
     fun next(spacing: Double, frameMs: Long): Double = when {
         frameMs > SLOW_MS -> min(MAX, spacing * STEP)

@@ -93,7 +93,7 @@ fun MediaSpec.scaled(k: Double): MediaSpec {
         stick = stick?.let { it.copy(tipR = it.tipR * k, tipMax = it.tipMax * k, side1 = it.side1 * k, side2 = it.side2 * k, face = it.face * k) },
         wet = wet?.let { it.copy(bellyMm = it.bellyMm * k, tipMm = it.tipMm * k, beadMm = it.beadMm * k, liftMm = it.liftMm * k,
             capacityMm3 = it.capacityMm3 * k * k) },
-        paste = paste?.let { it.copy(widthMm = it.widthMm * k, lenMm = it.lenMm * k, tipHalfMm = it.tipHalfMm * k,
+        paste = paste?.let { it.copy(stepScale = maxOf(1.0, k), widthMm = it.widthMm * k, lenMm = it.lenMm * k, tipHalfMm = it.tipHalfMm * k,
             edgeMinMm = it.edgeMinMm * k, acrossMaxMm = it.acrossMaxMm * k, bladeLenMm = it.bladeLenMm * k,
             bladeHalfMm = it.bladeHalfMm * k) },
     )

@@ -358,6 +358,8 @@ float jb_bladeTarget(float xb, float yb, float valleyMm, float load) {
 // weave is reached by about half pressure). surfAboveMm: the surface's height above the canvas PEAK level (paint − valley depth).
 // Measured from the peaks, not from the neighbours: a neighbour test let fresh paint from the same stroke make
 // the empty spots beside it count as dips, and they never filled (a checkerboard).
+// A lane running dry thins out instead of stopping dead: a hard stop was a stair in the stroke's edge, one lane high.
+float jb_bladeThin(float load) { return smoothstep(0.0, 0.25 * u_cellCap, load); }
 float jb_bladeReach(float surfAboveMm, float toothMm) {
     if (u_bladeLoad < 0.5) return 1.0;
     return smoothstep(-0.015, 0.015, surfAboveMm + u_pressure * 2.2 * toothMm - 0.01);

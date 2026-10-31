@@ -40,6 +40,11 @@ void main() {
         // Rigid blade: only row 0 is used; each lane is a stretch of the edge. It gains what it scrapes off
         // above its underside and gives paint into the lows below it (mirror of jb_paste_dab.frag).
         if (cell.y != 0 || u_active < 0.5) { o_b0 = b0; o_b1 = b1; return; }
+        // Paint creeps along the edge as it drags, so neighbouring lanes run dry together, not one by one.
+        ivec2 before = ivec2(max(cell.x - 1, 0), 0), after = ivec2(min(cell.x + 1, int(JB_LANES) - 1), 0);
+        float creep = 0.5 * (1.0 - exp(-u_slideMm));
+        b0 = mix(b0, 0.5 * (texelFetch(u_brush0, before, 0) + texelFetch(u_brush0, after, 0)), creep);
+        b1 = mix(b1, 0.5 * (texelFetch(u_brush1, before, 0) + texelFetch(u_brush1, after, 0)), creep);
         float xb = (float(cell.x) + 0.5) / JB_LANES * u_bladeLen;
         float half_ = jb_bladeHalf(xb);
         vec2 n = vec2(-u_bladeDir.y, u_bladeDir.x);
@@ -63,7 +68,7 @@ void main() {
                 gainK += (t > 1e-6 ? p0.rgb / t : vec3(0.0)) * pick;
                 gainS += (t > 1e-6 ? p1.r / t : 0.0) * pick;
             } else {
-                give += min(target - t, b0.a) * r * jb_bladeReach(t - valley, u_toothMm);
+                give += min(target - t, b0.a) * r * jb_bladeReach(t - valley, u_toothMm) * jb_bladeThin(b0.a);
             }
         }
         // The cell trades the AVERAGE of its strip (the same per-pixel units the canvas pass uses).

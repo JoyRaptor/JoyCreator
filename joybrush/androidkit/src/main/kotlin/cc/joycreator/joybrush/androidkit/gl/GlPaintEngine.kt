@@ -2609,6 +2609,42 @@ class GlPaintEngine(
         return ByteArray(size*size*4).also { buf.rewind(); buf.get(it) }
     }
 
+    /**
+     * Tiles whose memory the graphics driver no longer holds: they draw black and cannot be read, and one of them used to
+     * stop every save of the drawing. Each gets fresh blank memory under its own name, so the rest of the drawing saves.
+     * What the tile held is gone. Run before a save reads the tiles; returns how many were lost.
+     */
+    fun repairLostTiles(): Int {
+        var lost = 0
+        for (layer in layers.values) {
+            var repaired = false
+            for (tex in (layer.tiles.values + layer.cels.values.flatMap { it.values }).distinct()) {
+                GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
+                attach(tex)
+                val status = GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER)
+                if (status == GLES30.GL_FRAMEBUFFER_COMPLETE) continue
+                android.util.Log.e("JoyBrushTiles", "layer ${layer.id}: tile texture $tex lost (framebuffer status $status, is texture ${GLES30.glIsTexture(tex)}, GL error ${GLES30.glGetError()})")
+                GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, tex)
+                GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D, 0, GLES30.GL_RGBA8, size, size, 0, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, null)
+                attach(tex)
+                GLES30.glClearColor(0f, 0f, 0f, 0f)
+                GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
+                lost++
+                repaired = true
+            }
+            if (repaired) invalidateProjection(layer)
+        }
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+        return lost
+    }
+
+    /** Debug probe only: takes a tile's memory away, as the driver did to the owner's four tiles on 2026-10-31. */
+    internal fun loseTileForProbe(layerId: String, key: Long) {
+        val tex = requireNotNull(layers[layerId]?.tiles?.get(key)) { "No tile to lose" }
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, tex)
+        GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D, 0, GLES30.GL_RGBA8, 0, 0, 0, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, null)
+    }
+
     private fun planeTiles(layer: Layer,celId: String?): HashMap<Long,Int> =
         if(celId==null)layer.tiles else layer.cels.getOrPut(celId){HashMap()}
     private fun invalidateProjection(layer: Layer) {
@@ -7569,6 +7605,7 @@ class GlPaintEngine(
         GLES30.glGenTextures(1, t, 0)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, t[0])
         GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D, 0, internal, w, h, 0, format, type, null)
+        if (GLES30.glGetError() == GLES30.GL_OUT_OF_MEMORY) android.util.Log.e("JoyBrushTiles", "texture ${t[0]}: the driver is out of memory for ${w}x$h")
         GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_LINEAR)
         GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_LINEAR)
         GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE)

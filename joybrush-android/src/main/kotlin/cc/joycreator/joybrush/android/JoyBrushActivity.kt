@@ -586,6 +586,7 @@ class JoyBrushActivity : Activity() {
         canvas.onPaperBackdropChanged = { checkIcons() }
         canvas.onPaperChanged = { p -> refreshPaper(p); checkIcons() }
         refreshPaper(canvas.documentPaper)
+        canvas.onTilesLost = { count -> toast("$count squares of this drawing were lost by the graphics chip and are blank now. Everything else is saved.") }
         canvas.onHistoryChanged = { canUndo, canRedo ->
             updateHistoryButtons(canUndo, canRedo)
             checkIcons()

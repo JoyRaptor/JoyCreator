@@ -390,6 +390,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
      * The screen shows it: a save that failed has to say so, or the drawing is simply gone.
      */
     var onSnapshotFailed: ((String) -> Unit)? = null
+    /** A save found tiles the graphics driver had lost; they are blank now and the rest was saved. */
+    var onTilesLost: ((Int) -> Unit)? = null
 
     /**
      * Whether the pen is mid-stroke right now (R11). A snapshot taken in that state captures the
@@ -3098,6 +3100,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     private fun readContents(w: Int, h: Int): JbContents {
         if (engine.hasJointPaintPublication) throw JbArchiveException(
             "This recorded drawing needs its physical-source save connection; your previous save is kept")
+        val lost = engine.repairLostTiles()
+        if (lost > 0) post { onTilesLost?.invoke(lost); requestRender() }
         // Pen-up already released UI drawing state; the cosmetic fade must finish before
         // capturing metadata or enumerating keys, otherwise newly painted tiles are absent.
         if(engine.settleWatercolourFade()) reportHistory()
@@ -3436,6 +3440,19 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
             val report = try {
                 cc.joycreator.joybrush.androidkit.gl.media.MediaAtlasLedgerProbe.probe(paper, listOf(preset), memory, tight, parkUnits)
             } catch (e: Throwable) { "{\"pass\":false,\"error\":" + org.json.JSONObject.quote(e.toString()) + "}" }
+            post { ready(report) }
+        }
+    }
+
+    /** Lost tiles (debug bench only): a tile loses its memory, the save's repair blanks it, its neighbour is untouched (LostTileProbe). */
+    fun runLostTileProbe(ready: (String) -> Unit) {
+        if (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) {
+            ready("{\"pass\":false,\"error\":\"Lost tile probe is debug only\"}")
+            return
+        }
+        onGl {
+            val report = try { cc.joycreator.joybrush.androidkit.gl.LostTileProbe.probe() }
+                catch (e: Throwable) { "{\"pass\":false,\"error\":" + org.json.JSONObject.quote(e.toString()) + "}" }
             post { ready(report) }
         }
     }

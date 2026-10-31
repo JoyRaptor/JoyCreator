@@ -439,6 +439,11 @@ internal class StampPass(private val grains: GrainSource) {
         fun isLive(d: Dab): Boolean =
             d.aspect.isFinite() || d.hardness.isFinite() || d.tipDepth.isFinite() || d.paperDepth.isFinite() || d.anchor.isFinite()
 
+        /** What a batch of stamps must share because it is set once per batch (drawInto, setStrokeUniforms); equal means one batch can hold both. */
+        fun batchTip(look: StrokeLook, d: Dab): Any = listOf(d.profile ?: look.tip.profile,
+            if (d.quad != null) d.profileB else look.tip.profileB,
+            System.identityHashCode(d.dual ?: look.tip.dual), (d.sampled ?: look.tip.sampled)?.minPx ?: look.tip.minPx)
+
         /** Floats per dab in the instance buffer (S6). */
         const val FLOATS = 17
         const val BYTES = FLOATS * 4

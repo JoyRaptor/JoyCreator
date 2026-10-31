@@ -87,4 +87,14 @@ class TileStrokeBatchTest {
         assertEquals(mapOf(1L to live + plain, 2L to live), b.take())
         assertTrue(b.isEmpty()); assertNull(b.uniformsFrom); assertTrue(b.fits(TileStrokeBatch.leanOf(other)))
     }
+
+    @Test fun a_different_tip_waits_for_the_run_to_paint() {
+        val b = TileStrokeBatch<Int>()
+        assertTrue(b.fits(null, "a"))
+        b.add(mapOf(1L to listOf(1)), null, null, "a")
+        assertTrue(b.fits(null, "a")); assertFalse(b.fits(null, "b"))
+        try { b.add(mapOf(1L to listOf(2)), null, null, "b"); fail("must refuse") } catch (_: IllegalArgumentException) {}
+        b.take()
+        assertTrue(b.fits(null, "b"))
+    }
 }

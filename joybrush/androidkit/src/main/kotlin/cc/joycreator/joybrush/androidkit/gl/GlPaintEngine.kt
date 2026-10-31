@@ -5834,16 +5834,13 @@ class GlPaintEngine(
                 check(GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER) == GLES30.GL_FRAMEBUFFER_COMPLETE &&
                     GLES30.glGetError() == GLES30.GL_NO_ERROR) { "Could not initialize a stamp color tile" }
             })
-        if (tile != null) {
-            // A tile stroke's dabs wait for one paint pass a frame (paintWaitingTileStroke). The tiles are made and the
-            // size refusal given now, as before; a lean the waiting run does not share paints the run first.
-            val lean = TileStrokeBatch.leanOf(dabs)
-            if (!tileDabs.fits(lean)) paintTileDabs()
-            tileDabs.add(buckets, lean, dabs[dabs.size - 1])
-            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
-            return
-        }
-        drawDabBuckets(buckets, dabs[dabs.size - 1])
+        // A stroke's dabs wait for one paint pass a frame (paintWaitingTileStroke). The tiles are made and the size refusal
+        // given now, as before; a lean or tip the waiting run does not share paints the run first.
+        val lean = TileStrokeBatch.leanOf(dabs)
+        val tip = StampPass.batchTip(look, dabs[dabs.size - 1])
+        if (!tileDabs.fits(lean, tip)) paintTileDabs()
+        tileDabs.add(buckets, lean, dabs[dabs.size - 1], tip)
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
     }
 
     /** Draws bucketed dabs into their stroke tiles ([fbo] bound, blending set); per-batch uniforms from [newest]. */
@@ -6059,7 +6056,7 @@ class GlPaintEngine(
     }
 
     /**
-     * Paints what a tile-board stroke has waiting (TileStrokeBatch): one pass, one framebuffer switch per tile, the same
+     * Paints what a stroke has waiting (TileStrokeBatch): one pass, one framebuffer switch per tile, the same
      * dabs in the same order per tile as painting each pen event. Called before anything draws, reads, ends or changes
      * around the stroke; costs one emptiness check otherwise.
      */

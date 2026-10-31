@@ -1205,3 +1205,6 @@ as `TIME * knob` are "rate" and the host integrates them.
 - One unreadable tile must never cost the whole drawing: a save reads everything, so a repair belongs before the read, and the owner is told what was lost.
 - Attach a debugger before quitting a failing app: unsaved work lived only in that process, and jdb on the debuggable build found the tile and let the save finish.
 - Measure from the owner's picture too: frames per stroke went up while his curves went sawtooth. A speed number alone does not accept a spacing change.
+
+## 2026-10-31 — Shared folder copy
+- A fix that stops new bad data must also repair the bad data already saved: the 10-18 adoption guard left one wrong remembered path writing over a drawing's folder copy for 13 days.

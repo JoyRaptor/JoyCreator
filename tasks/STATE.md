@@ -568,7 +568,7 @@ so they stay 🟡 and are not to be promoted yet. Old screens are kept reachable
 ---
 
 - 🟠 **Lost tiles (2026-10-31, Note 9):** four neighbouring oil-layer tiles lost their graphics memory, drew black, and every autosave then failed. Saves now blank such a tile, tell the owner and keep the rest (`GlPaintEngine.repairLostTiles`, probe `lostTileProbe`, on `joy-creator`). **Cause not found:** the next one logs under `JoyBrushTiles`. Blanked paint is not recovered.
-- 🟠 **Two drawings share one folder copy (seen 2026-10-31, Note 9):** `library.json` gives Drawing 2 test and Drawing 3 the same `folderPath`; effect on the folder copy not checked.
+- 🟠 **Two drawings share one folder copy (seen 2026-10-31, Note 9; fix built, not on the phone yet):** `library.json` gave Drawing 2 test and Drawing 3 the same `folderPath`, and every save wrote over the other's copy: `Drawing 2 test.joybrush` in the folder was byte-for-byte Drawing 3. No drawing was lost: the real Drawing 2 test (46 MB, 10-24) is intact as its working copy, but it had no copy that would survive an uninstall. Likely cause, from dates, not reproduced: Drawing 3 was made on 10-18 at 14:32, two minutes before the audit fix for the shared document id landed, so the old adoption took Drawing 2 test's file; that fix guarded new adoptions, not a path already remembered. Now a save or a Lobby sync separates such entries (`DrawingLibrary.separateSharedCopies`): nothing is overwritten, the drawing really inside the file keeps it under its own name, and the others get fresh files from their working copies. Proof: `SharedFolderCopyTest` (real files). Owed: install on the Note 9 and check both copies.
 
 ## 10. HISTORICAL GAPS — recheck before assuming a feature is absent
 

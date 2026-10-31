@@ -1195,3 +1195,10 @@ as `TIME * knob` are "rate" and the host integrates them.
 - A bench printing `done` proves nothing: read each report's pass field, and pass the right brush. My first run "finished" with oil and water never tested.
 - Before merging a branch, read `git log base..branch` and its diffstat. `lead/paper-cache` looked like one fix but carried a test snapshot and 38,000 deleted lines; cherry-pick the fix.
 - Adding a SelectBench shot means adding its step and PNG to `select_bench_manifest.json`, or the host runner stops mid-run.
+
+## 2026-10-31 — Engine Lead: phone runs and disk
+- A phone run with no timeout can hang for hours when USB drops. Every adb call gets a timeout, and each step checks the phone is still there.
+- Pass the switch a check depends on: lineParity with lines off "fails" everything and proves nothing.
+- Compare a suspect brush with and without the change on one base before blaming either. Texture differs run to run by design.
+- A cure found for one path (one paint pass a frame, 10-19) belongs on every path with the same shape: ordinary strokes stalled for 11 more days.
+- Each job that makes a C:/Temp copy removes it when landed: 178 copies and their builds filled the disk. Check for unsaved or unpushed work first.

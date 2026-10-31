@@ -23,7 +23,7 @@ its session not running may be taken over: say so in Messages first.
 | Who (session, account / harness) | Job | Branch / worktree | Files held | Since |
 |---|---|---|---|---|
 | Project lead: "JOY CREATOR SUPREME ORCHESTRATOR" (Claude, account A) | Roadmap; folding in overnight work; M1 finish list | `lead/fold-overnight-20261028` (`C:/Temp/jc-lead-roadmap`), `lead/docs-20261028` (`C:/Temp/jc-lead-docs`) | `tasks/ROADMAP.md`, `tasks/jobs/**`, `tasks/BOARD.md`, `tasks/AGENT_START.md`; the three folded branches | 10-28 |
-| Engine Lead (Claude, account B) | JoyBrush engine; Unibrush U8 next | `joy-creator`, `C:/Temp/jb-one-line-20261030` | JoyBrush engine and hot files; `tasks/joybrush/ROADMAP.md` | 10-30 |
+| Engine Lead (Claude, account B) | JoyBrush engine; Unibrush Soft speed, then U12; tween runtime | `joy-creator` | JoyBrush engine and hot files; `tasks/joybrush/ROADMAP.md` | 10-31 |
 | VisLab lead: "Music visualizer effects design (fork)" (Claude, account C) | VisLab roadmap done; waiting on the owner's sign-off | `C:/Temp/vl-studio-fx` (`vislab/r8-follow-20261027`, landed) | none held | 10-28 |
 | "Joybrush roadmap task" (Claude, account C, `local_2da29537…`) | VisLab R8 / R14 | `vislab/proxy-bind-20261027` (backup pushed), `vislab/r8-follow-20261027` (pushed) | visualizer Style tab, Studio adjustment-layer effects | 10-27 (at its session limit) |
 | "Joybrush roadmap task" (Claude, account C, a fork of the R8 session) | HYG-5 (STATE.md true) | `claude/state-sync-20261027`, `C:/Temp/jc-vl-lane` | `tasks/STATE.md` rows (edits to rows only), `tasks/jobs/HYG-5_state_sync.md` | 10-27 |

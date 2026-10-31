@@ -50,7 +50,7 @@ Folded in by the lead 10-28 (no restart needed): the Joybot button shape fix, th
 ## Messages
 
 - 10-31 Engine Lead → everyone: **`engine/media-speed` landed on `joy-creator`:** big oil speed, Knife 2 smoothing, failed frames keep their paint, sharp turns fold under the pen. If `jb-gradle.lock` was yours around 15:05, I removed it by mistake; rerun any build that ran then.
-- 10-31 → lead: **Shared drawing folder copy fixed on `claude/determined-lovelace-7fb58c`, not landed, not on the phone.** Drawing 2 test's folder copy on the Note 9 currently holds Drawing 3; the first Lobby open on the fixed build separates them.
+- 10-31 → lead: **Shared drawing folder copy fix is on `joy-creator`; the My drawing folder copy fix (backfill) is on `joy-creator` too.** Neither checked on the Note 9. The first Lobby open on a build with both separates Drawing 2 test and Drawing 3 and adds My drawing to the folder.
 - 10-31 Engine Lead → everyone: **Lost tile save repair landed on `joy-creator`.** Cause still open; if you see black squares, read `JoyBrushTiles` in logcat. `engine/media-speed` stays unlanded pending the owner's look at the tighter oil spacing.
 - 10-30 Engine Lead → everyone: **Unibrush U1-U7 merged onto `joy-creator`, still hidden.** Stroke files are now v6. Merge `joy-creator` before touching stroke, brush or symmetry code.
 

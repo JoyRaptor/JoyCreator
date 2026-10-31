@@ -21,7 +21,9 @@ import com.fadcam.joyfolder.ReadableNames
 import com.fadcam.joyfolder.android.JoyFolderHome
 import org.json.JSONObject
 import java.io.File
+import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.io.InputStream
 import java.util.zip.ZipInputStream
 import kotlin.math.max
 import kotlin.math.min
@@ -298,6 +300,8 @@ object DrawingLibrary {
         val dir = dir(context) ?: return 0
         val jf = JoyFolderHome.open(context) ?: return 0
         separateSharedCopies(context, jf, dir)
+        // Before the paths below are read, or a copy made here would come back in as a new drawing.
+        backfillFolderCopies(context, jf, dir)
         jf.index.scan(jf.fs)
         val known = HashSet<String>()
         val knownPaths = HashSet<String>()
@@ -396,17 +400,7 @@ object DrawingLibrary {
         }
         if (rel != null && jf.fs.stat(rel!!) == null) rel = null
         if (rel == null && id != null) {
-            // Moved or renamed by the person: same drawing id inside. Never a file another drawing in the list already
-            // keeps its copy in, and never by the id every drawing once shared (audit 2026-10-18 P1: that adoption
-            // overwrote another drawing's folder copy).
-            val claimed = synchronized(lock) {
-                val entries = readIndex(dir).optJSONObject("drawings") ?: JSONObject()
-                entries.keys().asSequence().filter { it != file }
-                    .mapNotNull { k -> entries.optJSONObject(k)?.optString("folderPath", "")?.ifEmpty { null } }.toHashSet()
-            }
-            jf.index.scan(jf.fs)
-            rel = FolderAdoption.pick(id, jf.index.items().asSequence().map { it.path }
-                .filter { FileKind.of(Placement.nameOf(it)) == FileKind.DRAWING }, claimed) { docIdIn(jf, it) }
+            rel = ownFileInFolder(jf, dir, file, id)
         }
         if (rel == null) {
             val where = jf.prepareDir(Placement.What.NEW_WORK, null, null, FileKind.DRAWING)
@@ -418,6 +412,45 @@ object DrawingLibrary {
         jf.saveIndex()
         setFolderPath(dir, file, rel!!)
         return rel
+    }
+
+    /**
+     * A folder file that is this drawing, moved or renamed by the person: same drawing id inside. Never a file another
+     * drawing in the list already keeps its copy in, and never by the id every drawing once shared (audit 2026-10-18 P1:
+     * that adoption overwrote another drawing's folder copy).
+     */
+    private fun ownFileInFolder(jf: JoyFolder, dir: File, file: String, id: String?): String? {
+        val claimed = synchronized(lock) {
+            val entries = readIndex(dir).optJSONObject("drawings") ?: JSONObject()
+            entries.keys().asSequence().filter { it != file }
+                .mapNotNull { k -> entries.optJSONObject(k)?.optString("folderPath", "")?.ifEmpty { null } }.toHashSet()
+        }
+        jf.index.scan(jf.fs)
+        return FolderAdoption.pick(id, jf.index.items().asSequence().map { it.path }
+            .filter { FileKind.of(Placement.nameOf(it)) == FileKind.DRAWING }, claimed) { docIdIn(jf, it) }
+    }
+
+    /**
+     * Give a folder copy to every listed drawing that has a working copy but no place in the folder: one not saved since
+     * the library arrived on 2026-10-14 never reached [mirrorFile], and an uninstall would lose it (found on the Note 9,
+     * 2026-10-31: "My drawing"). Its own file, if the person's folder already has it, is remembered and left as it is;
+     * otherwise it gets a new file under a free name. One that fails doesn't stop the others; the next sync tries again.
+     */
+    internal fun backfillFolderCopies(context: Context, jf: JoyFolder, dir: File) {
+        val missing = synchronized(lock) {
+            val entries = readIndex(dir).optJSONObject("drawings") ?: JSONObject()
+            entries.keys().asSequence().filter { k ->
+                entries.getJSONObject(k).optString("folderPath", "").isEmpty() && File(dir, k).isFile
+            }.toList()
+        }
+        for (file in missing) {
+            try {
+                val own = ownFileInFolder(jf, dir, file, zipDocId(FileInputStream(File(dir, file))))
+                if (own != null) setFolderPath(dir, file, own) else mirrorFile(context, jf, dir, file, null)
+            } catch (e: Exception) {
+                Log.w(TAG, "folder copy of $file not made; the next sync tries again", e)
+            }
+        }
     }
 
     /**
@@ -479,7 +512,13 @@ object DrawingLibrary {
 
     /** The drawing id inside a `.joybrush` in the folder (its document.json's first "id"), or null. */
     private fun docIdIn(jf: JoyFolder, rel: String): String? = try {
-        ZipInputStream(jf.fs.open(rel)).use { zip ->
+        zipDocId(jf.fs.open(rel))
+    } catch (e: Exception) {
+        null
+    }
+
+    private fun zipDocId(input: InputStream): String? = try {
+        ZipInputStream(input).use { zip ->
             var entry = zip.nextEntry
             var found: String? = null
             while (entry != null && found == null) {

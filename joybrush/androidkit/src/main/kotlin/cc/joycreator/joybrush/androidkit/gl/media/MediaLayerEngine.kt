@@ -835,6 +835,10 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         quad(rect)
     }
 
+    /** The bench's `jb_paste_detail`: a paste step's passes timed one by one (glFinish brackets, so only their shares count). */
+    private inline fun stepPart(name: String, block: () -> Unit) { if (pasteDetail) mediaTrace(name, block) else traced(name, block) }
+
+
     // ---- dry media (pencil) ----
     fun dryFrame(batch: DabBatch, travelX: Double, travelY: Double, paper: MediaPaperGl, mat: StickMaterial, pxPerMm: Double) {
         finishWaterJob()   // it reads or writes what a water job does
@@ -954,7 +958,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         // reads beyond that box is brought over from state[0] (which still holds the canvas there).
         val held = pasteHeld
         val pairB = pastePairs && held != null && square != null && rect != null
-        if (pairB) traced("JB.media.paste.strip") {
+        if (pairB) stepPart("JB.media.paste.strip") {
             for (r in rectMinus(grow(rect!!, MediaAtlasPlacement.PASTE_REACH.toFloat()), held!!)) copyRect(state[0], pFbo1, r)
         }
         val src = if (pairB) state[1] else state[0]
@@ -979,7 +983,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         }
         MediaUniforms.paste(bu, st, b, cap, t, pxPerMm, seed, bakeTex, src.p0, src.p1)
         MediaUniforms.pasteBrush(bu, cur.b0, cur.b1, b.wick, w, h, PASTE_LANES, PASTE_DEPTH)
-        traced("JB.media.paste.brush") { GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4) }
+        stepPart("JB.media.paste.brush") { GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4) }
         // Canvas side, from the same (old) brush cells. The dab shader hands back its input untouched wherever the brush
         // has no coverage (jb_paste_dab.frag lines 40/47/83), so only the oriented box around the real footprint
         // ([PasteFootprint], ~7-10x smaller than the old square for Oil round) has to be shaded and copied back.
@@ -1003,14 +1007,14 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
             MediaUniforms.pasteDab(du, cur.b0, cur.b1, w, h, square)
             // Window: the square, trimmed by the scissor to the footprint box. Free placement: the box itself, slot by slot
             // (the same pixels: no varying is interpolated across the quad any more).
-            traced("JB.media.paste.dab") { quad(if (free) rect else square) }
+            stepPart("JB.media.paste.dab") { quad(if (free) rect else square) }
             if (tight) GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
             when {
                 // B: its box is in state[0] now; what is left of A's box in state[1] comes back, and state[0] is all of it.
-                pairB -> { traced("JB.media.paste.copy") { for (r in rectMinus(held!!, rect)) copyRect(state[1], pFbo0, r) }; pasteHeld = null }
+                pairB -> { stepPart("JB.media.paste.copy") { for (r in rectMinus(held!!, rect)) copyRect(state[1], pFbo0, r) }; pasteHeld = null }
                 // A: its box stays in state[1] for the next step to read.
                 pastePairs -> pasteHeld = rect
-                else -> traced("JB.media.paste.copy") { copyRect(state[1], pFbo0, rect) }
+                else -> stepPart("JB.media.paste.copy") { copyRect(state[1], pFbo0, rect) }
             }
         }
         bc = 1 - bc
@@ -1032,7 +1036,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     fun pasteSettle() {
         val h = pasteHeld ?: return
         pasteHeld = null
-        traced("JB.media.paste.copy") { copyRect(state[1], pFbo0, h) }
+        stepPart("JB.media.paste.copy") { copyRect(state[1], pFbo0, h) }
     }
 
     private fun grow(r: FloatArray, d: Float) = floatArrayOf(r[0] - d, r[1] - d, r[2] + d, r[3] + d)
@@ -2004,6 +2008,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
          * the owner preferred and, once the look was drawn once per tile, was not reliably faster. Kept for a later choice.
          */
         @Volatile @JvmStatic var coarseWaterDefault = false
+        /** The bench's `jb_paste_detail`. */
+        @Volatile @JvmStatic var pasteDetail = false
         /** The bench's `jb_atlas_rows` A/B: MediaAtlasGl.rowPasses (2 shipped, 0 = one pass). */
         @JvmStatic var atlasRowPasses: Int
             get() = MediaAtlasGl.rowPasses

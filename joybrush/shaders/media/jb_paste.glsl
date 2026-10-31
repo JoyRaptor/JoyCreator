@@ -198,6 +198,13 @@ float jb_pasteCover(float a, float b, float aaA, float aaB) {
     return side * ends;
 }
 
+// True where lane [a], before its rag, is past any edge jb_pasteCover could still draw: the rag narrows a by at most its
+// noise's reach (jb_pasteRag), and the cover's half is never over 1.
+bool jb_pasteBeyond(float a, float aaA) {
+    float reach = u_shape > 1.5 ? 0.095 : (u_ends > 0.5 ? 1.0 + JB_LAND_RAG * u_land : 1.0) * u_rag * 0.08;
+    return abs(a) * (1.0 - reach) >= 1.0 + aaA;
+}
+
 // Hair runs across the brush: coarse clumps plus single hairs. They are not rails: clumps wander a little
 // sideways and come and go along the stroke (read in document space, so overlapping steps agree).
 // Rigid knife: none.

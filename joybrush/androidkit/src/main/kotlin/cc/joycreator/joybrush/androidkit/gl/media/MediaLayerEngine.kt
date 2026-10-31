@@ -191,6 +191,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     // made on first use
     private var delta = 0; private var deltaFbo = 0
     var bakeTex = 0; private set
+    private var pasteNoise = 0
     private var fluidBake = 0; private var waterBake = 0; private var bakeFbo = 0
     private var bakedPaper: MediaPaperGl? = null
     private class Wet(val w0: Int, val w1: Int, val flux: Int)
@@ -983,6 +984,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         }
         MediaUniforms.paste(bu, st, b, cap, t, pxPerMm, seed, bakeTex, src.p0, src.p1)
         MediaUniforms.pasteBrush(bu, cur.b0, cur.b1, b.wick, w, h, PASTE_LANES, PASTE_DEPTH)
+        if (pasteNoise == 0) pasteNoise = MediaPasteNoise.make()
+        bu.tex("u_pasteNoise", pasteNoise)
         stepPart("JB.media.paste.brush") { GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4) }
         // Canvas side, from the same (old) brush cells. The dab shader hands back its input untouched wherever the brush
         // has no coverage (jb_paste_dab.frag lines 40/47/83), so only the oriented box around the real footprint
@@ -1005,6 +1008,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
             common(du)
             MediaUniforms.paste(du, st, b, cap, t, pxPerMm, seed, bakeTex, src.p0, src.p1)
             MediaUniforms.pasteDab(du, cur.b0, cur.b1, w, h, square)
+            du.tex("u_pasteNoise", pasteNoise)
             // Window: the square, trimmed by the scissor to the footprint box. Free placement: the box itself, slot by slot
             // (the same pixels: no varying is interpolated across the quad any more).
             stepPart("JB.media.paste.dab") { quad(if (free) rect else square) }
@@ -1982,6 +1986,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         val tex = ArrayList<Int>()
         for (s in state) tex += listOf(s.p0, s.p1, s.paper)
         for (b in brush) tex += listOf(b.b0, b.b1)
+        tex += pasteNoise
         wet?.forEach { tex += listOf(it.w0, it.w1, it.flux) }
         tex += listOf(delta, bakeTex, fluidBake, waterBake, run, lutTex, lookTex, groundTex, empty, actTex, mid0, mid1, terrain) + bead.toList() + inTex.toList()
         tex.filter { it != 0 }.toIntArray().let { if (it.isNotEmpty()) MediaTex.deleteTex(*it) }

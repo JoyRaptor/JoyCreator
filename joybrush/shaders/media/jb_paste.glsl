@@ -82,6 +82,20 @@ const float JB_LAND_SPLAY = 0.14; // a firm landing splays the hairs this much w
 float jb_pasteFirmLand() { return u_ends > 0.5 ? u_land * smoothstep(0.4, 0.9, u_pressure) : 0.0; }
 // The brush's half-width in play: planted hard, the hairs splay out (both passes map lanes through it).
 float jb_pasteHalfW() { return u_ends > 0.5 && u_shape < 1.5 ? u_halfW * (1.0 + JB_LAND_SPLAY * jb_pasteFirmLand()) : u_halfW; }
+// The stroke noise (MediaPasteNoise): a texel holds the four corners of its lattice cell, so one read is a whole noise call.
+// Thirty hashed calls a pixel were most of a big oil step on the Note 9 (2026-10-31). A seed shifts where it reads.
+uniform sampler2D u_pasteNoise;
+float jb_pNoise1(float x, uint seed) {
+    float i = floor(x), f = x - i;
+    vec4 v = texelFetch(u_pasteNoise, ivec2(int(i) + int(seed * 61u), int(seed * 113u)) & 255, 0);
+    return mix(v.r, v.g, f * f * (3.0 - 2.0 * f));
+}
+float jb_pNoise2(vec2 p, uint seed) {
+    vec2 i = floor(p), f = p - i;
+    f = f * f * (3.0 - 2.0 * f);
+    vec4 v = texelFetch(u_pasteNoise, (ivec2(i) + ivec2(int(seed * 61u), int(seed * 113u))) & 255, 0);
+    return mix(mix(v.r, v.g, f.x), mix(v.b, v.a, f.x), f.y);
+}
 const float JB_FEED = 0.25;
 const float JB_CATCH = 1.0;      // how much the tooth's face rising toward the travel counts against its height (jb_pasteDry)
 const float JB_HAIR_SHARE = 0.06;   // u_carry: what the hairs that touch hold, of a full cell
@@ -108,16 +122,16 @@ float jb_pasteSeep(float up, float capUp, float own, float capOwn) {
 float jb_pasteRag(vec2 docPx) {
     uint s = uint(u_seed);
     if (u_shape > 1.5)   // a blade's edge is straight, but the paint squeezed out past it is not
-        return 0.14 * (jb_vnoise2(docPx / 26.0, s + 23u) - 0.5) + 0.05 * (jb_vnoise2(docPx / 8.0, s + 24u) - 0.5);
+        return 0.14 * (jb_pNoise2(docPx / 26.0, s + 23u) - 0.5) + 0.05 * (jb_pNoise2(docPx / 8.0, s + 24u) - 0.5);
     // A loaded brush pressed down splays its hairs and squeezes paint out unevenly where it lands (u_ends; PasteFootprint
     // widens its box by the same factor).
     float landed = u_ends > 0.5 ? 1.0 + JB_LAND_RAG * u_land : 1.0;
-    return landed * u_rag * (0.10 * (jb_vnoise2(docPx / 9.0, s + 21u) - 0.5) + 0.06 * (jb_vnoise2(docPx / 3.5, s + 22u) - 0.5));
+    return landed * u_rag * (0.10 * (jb_pNoise2(docPx / 9.0, s + 21u) - 0.5) + 0.06 * (jb_pNoise2(docPx / 3.5, s + 22u) - 0.5));
 }
 
 // A run of hair's own length and strength (0 short and weak .. 1 long and strong): clumps plus single hairs, fixed
 // to the brush (lane a), so the same hairs land last, lift last and leave the longest streaks.
-float jb_pasteTip(float a) { return 0.6 * u_hairLen + 0.4 * jb_vnoise1((a + 1.0) * 27.0, uint(u_seed) + 43u); }
+float jb_pasteTip(float a) { return 0.6 * u_hairLen + 0.4 * jb_pNoise1((a + 1.0) * 27.0, uint(u_seed) + 43u); }
 // How hard the hairs at lane a (-1..1 across) press: the pen's pressure, more on the side it leans toward and on the outside
 // of a curve; a flat brush presses hardest in its middle (it carries most from there), a round one follows the lean. The
 // average across the brush stays the pen's pressure.
@@ -164,7 +178,7 @@ float jb_pasteCover(float a, float b, float aaA, float aaB) {
     } else if (u_shape < 1.5) {
         // Flat: the chisel's front is a shallow arc (the middle hairs lead) with an uneven edge, and the
         // trailing corners round off.
-        float lead = (u_arc * a * a + 0.06 * (jb_vnoise1((a + 1.0) * 5.0, uint(u_seed) + 61u) - 0.5)) * u_halfW;
+        float lead = (u_arc * a * a + 0.06 * (jb_pNoise1((a + 1.0) * 5.0, uint(u_seed) + 61u) - 0.5)) * u_halfW;
         b -= lead;
         if (b < -aaB) return 0.0;
         t = clamp(b / max(u_len, 1e-3), 0.0, 1.0);
@@ -176,7 +190,7 @@ float jb_pasteCover(float a, float b, float aaA, float aaB) {
     float side = smoothstep(half_ + aaA, half_ - aaA, abs(a));
     // Spread hairs (a fan): only some runs of hair touch; the gaps close a little as pressure squashes them.
     if (u_sparse > 0.0) {
-        float hairRun = jb_vnoise1((a + 1.0) * 16.0, uint(u_seed) + 71u);
+        float hairRun = jb_pNoise1((a + 1.0) * 16.0, uint(u_seed) + 71u);
         side *= smoothstep(u_sparse * (0.75 - 0.35 * jb_press) - 0.08, u_sparse * (0.75 - 0.35 * jb_press) + 0.08, hairRun);
     }
     // Hairs are not all one length: as the brush lifts, the shorter ones leave the canvas first, so a light
@@ -211,10 +225,10 @@ bool jb_pasteBeyond(float a, float aaA) {
 float jb_pasteHair(float a, vec2 docPx) {
     if (u_shape > 1.5) return 0.5;
     uint s = uint(u_seed);
-    float drift = 1.6 * (jb_vnoise2(docPx / 55.0, s + 9u) - 0.5);
-    float clump = jb_vnoise1((a + 1.0) * 6.0 + drift, s);
-    float hairs = jb_vnoise1((a + 1.0) * 19.0 + drift * 2.5, s + 5u);
-    float come = 0.55 + 0.9 * jb_vnoise2(docPx / 30.0, s + 13u);
+    float drift = 1.6 * (jb_pNoise2(docPx / 55.0, s + 9u) - 0.5);
+    float clump = jb_pNoise1((a + 1.0) * 6.0 + drift, s);
+    float hairs = jb_pNoise1((a + 1.0) * 19.0 + drift * 2.5, s + 5u);
+    float come = 0.55 + 0.9 * jb_pNoise2(docPx / 30.0, s + 13u);
     return clamp(0.5 + (0.6 * clump + 0.4 * hairs - 0.5) * come, 0.0, 1.0);
 }
 
@@ -233,7 +247,7 @@ float jb_pasteTarget(float a, float load, float hair, float b, float valleyMm, v
     t *= 1.0 + u_bow * fill * smoothstep(0.3 * u_len, 0.0, b);
     // Thick paint drags: lumps stretched along the stroke (fine across it, long along it).
     vec2 sp = vec2(dot(docPx, u_wDir) / 6.0, dot(docPx, u_lDir) / 70.0);
-    t *= 1.0 + u_lump * 2.0 * (0.7 * jb_vnoise2(sp, uint(u_seed) + 31u) + 0.3 * jb_vnoise2(sp * 2.7, uint(u_seed) + 32u) - 0.5) * fill;
+    t *= 1.0 + u_lump * 2.0 * (0.7 * jb_pNoise2(sp, uint(u_seed) + 31u) + 0.3 * jb_pNoise2(sp * 2.7, uint(u_seed) + 32u) - 0.5) * fill;
     // A loaded brush set down squashes out a blob of its paint, piled up round the tips where it landed; lifting off,
     // the hairs drag out a thinning film.
     // Planted hard, more of it is squeezed back into a ridge along the landing edge.
@@ -334,7 +348,7 @@ float jb_bladeCover(vec2 relMm, float aa, out float xb, out float yb) {
 float jb_bladeHeight(float xb) { return u_bladeH0 + max(xb, 0.0) * u_bladeTan; }
 float jb_bladeChatter(vec2 docPx) {
     vec2 sp = vec2(dot(docPx, u_travel) / 40.0, dot(docPx, vec2(-u_travel.y, u_travel.x)) / 120.0);
-    return u_lump * 0.25 * (jb_vnoise2(sp, uint(u_seed) + 51u) - 0.5) * 2.0;
+    return u_lump * 0.25 * (jb_pNoise2(sp, uint(u_seed) + 51u) - 0.5) * 2.0;
 }
 // The blade carries what it scrapes in cells along its edge (lane = position along the edge).
 void jb_bladeRead(float xb, out vec4 c0, out vec4 c1) {

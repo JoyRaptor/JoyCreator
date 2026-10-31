@@ -86,7 +86,7 @@ void main() {
     float delta = (float(cell.y) + 0.5) / JB_DEPTH;
     float b = u_len - delta * u_lenMax;
     jb_cap = u_cellCap * jb_pasteProf(delta);   // how full this cell holds (it trades from its own depth)
-    u_hairLen = jb_vnoise1((a + 1.0) * 8.0, uint(u_seed) + 41u);
+    u_hairLen = jb_pNoise1((a + 1.0) * 8.0, uint(u_seed) + 41u);
     jb_press = jb_pasteForce(a);
     if (u_ends > 0.5) jb_tip = jb_pasteTip(a);
     float cover = u_active > 0.5 && u_shape < 2.5 ? jb_pasteCover(a, b, 0.02, 0.05) : 0.0;

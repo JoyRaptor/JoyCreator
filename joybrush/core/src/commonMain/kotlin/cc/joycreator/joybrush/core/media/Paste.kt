@@ -250,10 +250,11 @@ class PasteStroke(
             } else { dirX = tx; dirY = ty; hasDir = true }
         }
         // Small hops: a thin blade edge needs hops finer than its width (else a zip of ribs).
-        // A brush grown past its shipped size steps with its size, so it paints as the shipped brush seen larger: at 0.3 mm a
+        // A brush grown past its shipped size steps with the root of its size, and a burst stretches to 20 % of its width: wider
+        // showed as a sawtooth edge and bands across big strokes (the owner's oil, 2026-10-31). At 0.3 mm a
         // 256 px oil round overlapped itself 98 % and took 0.8 s a frame on the Note 9 (2026-10-31).
         val baseMm = (if (b.blade) min(0.3, 0.6 * half * 0.35) else 0.3) * b.stepScale
-        val stepMm = baseMm * max(if (turning) 1.0 else spacing, PasteSpacing.behind(steps.size, 0.4 * reachWidth() / baseMm))
+        val stepMm = baseMm * max(if (turning) 1.0 else spacing, PasteSpacing.behind(steps.size, 0.2 * reachWidth() / baseMm))
         val stepPx = max(1 / layerScale, stepMm * pxPerMm / layerScale)
         fun interp(w: Double) = MediaSample(
             prev.x + dx * w, prev.y + dy * w, prev.p + (s.p - prev.p) * w, prev.tilt + (s.tilt - prev.tilt) * w,

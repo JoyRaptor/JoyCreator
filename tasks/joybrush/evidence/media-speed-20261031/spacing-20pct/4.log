@@ -1,0 +1,5 @@
+--------- beginning of main
+--------- beginning of system
+brushes available: joybrush.ink,joybrush.sable,joybrush.pencil,joybrush.bristle,joybrush.flatpaint,joybrush.marker,joybrush.softair,joybrush.smudge,joybrush.eraser,fill,joybrush.watercolour,media:dry:Proto Pencil,media:dry:Proto Mix,media:dry:Proto,media:dry:Proto 2,media:dry:2H,media:dry:HB,media:dry:2B,media:dry:6B,media:dry:Woodless 8B,media:wet:All-round,media:wet:Round,media:wet:Wash,media:wet:Dry brush,media:wet:Water,media:wet:Thirsty,media:paste:All-round,media:paste:Oil flat,media:paste:Oil round,media:paste:Fan blender,media:paste:Palette knife 1,media:paste:Palette knife 2,media:paste:Scraper
+{"probe":"lostTile","healthyRepaired":0,"readFailed":true,"repaired":1,"blank":true,"neighbourKept":true,"repairedAgain":0,"glError":0,"pass":true,"brush":"media:paste:Oil round","case":"lostTileProbe","run":1}
+done

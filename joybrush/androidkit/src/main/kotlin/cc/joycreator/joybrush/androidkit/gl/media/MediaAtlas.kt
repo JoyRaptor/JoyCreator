@@ -1120,7 +1120,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
  * The water park's size in tiles (ATLAS_ROOM_20261023, P1): 0 = off, as shipped; the bench's `jb_water_park_units`. P4 sets it
  * from the memory the atlas leaves.
  */
-object MediaAtlasPark { @Volatile @JvmStatic var units = 0 }
+object MediaAtlasPark { const val DEFAULT_UNITS = 24; @Volatile @JvmStatic var units = DEFAULT_UNITS }
 
 /** Dry tiles let their water stores go while water runs elsewhere (MediaAtlas.dropDryWater); the bench's `jb_drop_dry` A/B. */
 object MediaAtlasDropDry { @Volatile @JvmStatic var on = true }

@@ -50,7 +50,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         if (spec.dropDry != null) cc.joycreator.joybrush.androidkit.gl.media.MediaAtlasDropDry.on = true
         canvas.brushPngs = pngsBefore
         if (spec.lines != null) canvas.editableLines = linesBefore
-        if (spec.parkUnits != null) cc.joycreator.joybrush.androidkit.gl.media.MediaAtlasPark.units = 0
+        if (spec.parkUnits != null) cc.joycreator.joybrush.androidkit.gl.media.MediaAtlasPark.units = cc.joycreator.joybrush.androidkit.gl.media.MediaAtlasPark.DEFAULT_UNITS
         canvas.onRefused = refusedBefore
         finished()
     }

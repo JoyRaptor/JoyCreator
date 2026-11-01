@@ -1,5 +1,6 @@
 package com.fadcam.ui.faditor.sprite;
 
+import java.io.File;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -55,5 +56,22 @@ public final class BoardAttachPlan {
             return id;
         }
         return wanted;
+    }
+
+    /**
+     * The picture copied into an EXISTING project. It is the import's to clean up only until the project is saved
+     * pointing at it; after that the saved project owns it, and a failed check afterwards must never delete it.
+     */
+    public static final class CopiedImage {
+        private File image;
+
+        public void copying(File file) { image = file; }
+
+        public void savedIntoProject() { image = null; }
+
+        public void dropUnsaved() {
+            if (image != null) image.delete();
+            image = null;
+        }
     }
 }

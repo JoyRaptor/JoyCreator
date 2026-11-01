@@ -127,6 +127,37 @@ public final class MarkerWorkspaceStore {
         }
     }
 
+    /**
+     * The sidecar's exact text for a project backup, recovered from its .bak if need be; null when
+     * this project has none. Never decoded: a newer build's document travels unchanged.
+     */
+    public static synchronized String readRaw(File projectDir) throws IOException {
+        File file = fileFor(projectDir);
+        return existsOrBackup(file) ? read(new AtomicFile(file)) : null;
+    }
+
+    /** Put a backed-up sidecar back exactly as it was, unknown fields and newer schemas included. */
+    public static synchronized boolean writeRaw(File projectDir, String json) {
+        AtomicFile atomic = new AtomicFile(fileFor(projectDir));
+        FileOutputStream stream = null;
+        try {
+            byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
+            if (bytes.length > MAX_BYTES) return false;
+            if (!projectDir.isDirectory() && !projectDir.mkdirs()) return false;
+            stream = atomic.startWrite();
+            stream.write(bytes);
+            stream.getFD().sync();
+            atomic.finishWrite(stream);
+            stream = null;
+            if (!json.equals(read(atomic))) throw new IOException("Marker restore did not complete");
+            return true;
+        } catch (Exception exception) {
+            if (stream != null) atomic.failWrite(stream);
+            FLog.w(TAG, "Could not restore timeline marks: " + exception.getMessage());
+            return false;
+        }
+    }
+
     private static boolean existsOrBackup(File file) {
         return file.exists() || new File(file.getPath() + ".bak").exists();
     }

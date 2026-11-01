@@ -274,6 +274,8 @@ public final class StudioMirror {
         JsonObject fps = new JsonObject();
         for (Map.Entry<String, String> e : files.entrySet()) fps.addProperty(e.getKey(), e.getValue());
         block.add("files", fps);
+        // Added after the rewrite above: a mark's name is the person's text, never a file link.
+        MirrorSidecars.embed(block, projectDir, () -> joyFolderBlockOf(jf, workRel));
         root.add("joyFolder", block);
 
         byte[] bytes = GSON.toJson(root).getBytes(StandardCharsets.UTF_8);
@@ -289,6 +291,18 @@ public final class StudioMirror {
         if (res.filesCopied > 0) jf.saveIndex();
         rememberOutside(context, projectId, outside);
         return res;
+    }
+
+    /** The {@code joyFolder} block of the project's copy in the folder now, or null. */
+    private static JsonObject joyFolderBlockOf(JoyFolder jf, String rel) {
+        try {
+            if (jf.fs.stat(rel) == null) return null;
+            JsonObject copy = JsonParser.parseString(new String(jf.readAll(rel), StandardCharsets.UTF_8)).getAsJsonObject();
+            return copy.has("joyFolder") ? copy.getAsJsonObject("joyFolder") : null;
+        } catch (Exception e) {
+            Log.w(TAG, "Could not read the folder copy " + rel, e);
+            return null;
+        }
     }
 
     /** The project's path in the folder: where it was, found again if moved, renamed with the project. */
@@ -661,8 +675,10 @@ public final class StudioMirror {
             }
             if (progress != null) progress.onStep(Placement.nameOf(it.path));
             final Map<String, String> fps = new HashMap<>();
-            if (root.has("joyFolder") && root.getAsJsonObject("joyFolder").has("files")) {
-                for (Map.Entry<String, JsonElement> e : root.getAsJsonObject("joyFolder").getAsJsonObject("files").entrySet()) {
+            // Out of the document first, so the link rewrite below can't mistake a mark's name for a file.
+            JsonObject joyFolder = root.has("joyFolder") ? root.remove("joyFolder").getAsJsonObject() : null;
+            if (joyFolder != null && joyFolder.has("files")) {
+                for (Map.Entry<String, JsonElement> e : joyFolder.getAsJsonObject("files").entrySet()) {
                     fps.put(e.getKey(), e.getValue().isJsonNull() ? null : e.getValue().getAsString());
                 }
             }
@@ -673,8 +689,8 @@ public final class StudioMirror {
                 Uri doc = now == null ? null : saf.documentUri(now);
                 return doc == null ? value : doc.toString();   // a missing file shows in the relink screen
             });
-            root.remove("joyFolder");
             if (!dir.isDirectory() && !dir.mkdirs()) throw new IOException("Cannot create " + dir);
+            MirrorSidecars.restore(joyFolder, dir);   // project.json last: it is what makes the project exist
             File tmp = new File(dir, "project.json.tmp");
             try (FileOutputStream out = new FileOutputStream(tmp)) {
                 out.write(GSON.toJson(root).getBytes(StandardCharsets.UTF_8));

@@ -94,6 +94,8 @@ public class ExportService extends Service {
     public static final String EXTRA_ERROR_CLASS = "error_class";
     /** Path of the serialized project snapshot the Activity wrote for this export job. */
     public static final String EXTRA_PROJECT_SNAPSHOT_PATH = "project_snapshot_path";
+    /** A region batch's job: its ticket on a {@link SharedExportSnapshot}, which then stays until the last job. */
+    public static final String EXTRA_SNAPSHOT_TICKET_PATH = "snapshot_ticket_path";
     /** Optional extension-free output basename for this export job. */
     public static final String EXTRA_OUTPUT_FILE_NAME = "output_file_name";
     /** Boolean: export only the composed audio mix to an {@code .m4a} (no video track). */
@@ -140,19 +142,30 @@ public class ExportService extends Service {
     private NotificationManager notificationManager;
     private boolean isExporting = false;
 
-    /** An export waiting for the running one; its snapshot is already read (edit-immune). */
+    /**
+     * An export waiting for the running one. Its snapshot is already read (edit-immune), or for
+     * a region batch it waits as a path into the shared snapshot, which never changes: N regions
+     * hold one project in memory at a time, not N.
+     */
     private static final class QueuedExport {
-        final FaditorProject project;
+        @Nullable final FaditorProject project;
+        @Nullable final String snapshotPath;
+        @Nullable final String ticketPath;
+        @Nullable final String outputFileName;
         final boolean audioOnly;
         @Nullable final String loudnessTargetName;
         @Nullable final Long frameTimeMs;
         final boolean frameJpeg;
         @Nullable final long[] range;
 
-        QueuedExport(@NonNull FaditorProject project, boolean audioOnly,
+        QueuedExport(@Nullable FaditorProject project, @Nullable String snapshotPath,
+                     @Nullable String ticketPath, @Nullable String outputFileName, boolean audioOnly,
                      @Nullable String loudnessTargetName, @Nullable Long frameTimeMs,
                      boolean frameJpeg, @Nullable long[] range) {
             this.project = project;
+            this.snapshotPath = snapshotPath;
+            this.ticketPath = ticketPath;
+            this.outputFileName = outputFileName;
             this.audioOnly = audioOnly;
             this.loudnessTargetName = loudnessTargetName;
             this.frameTimeMs = frameTimeMs;
@@ -295,6 +308,7 @@ public class ExportService extends Service {
             long[] range = rangeStart >= 0 && rangeEnd > rangeStart
                     ? new long[]{rangeStart, rangeEnd} : null;
             startExportInternal(intent.getStringExtra(EXTRA_PROJECT_SNAPSHOT_PATH),
+                    intent.getStringExtra(EXTRA_SNAPSHOT_TICKET_PATH),
                     intent.getBooleanExtra(EXTRA_AUDIO_ONLY, false), loudName,
                     singleFrame ? intent.getLongExtra(EXTRA_FRAME_TIME_MS, -1L) : null,
                     intent.getBooleanExtra(EXTRA_FRAME_JPEG, false), range,
@@ -318,6 +332,7 @@ public class ExportService extends Service {
         if (exportManager != null && exportManager.isExporting()) {
             exportManager.cancel();
         }
+        dropQueue();
         if (remuxExecutor != null) {
             remuxExecutor.shutdownNow();
             remuxExecutor = null;
@@ -329,54 +344,98 @@ public class ExportService extends Service {
     // ── Export execution ─────────────────────────────────────────────
 
     private void startExportInternal(@Nullable String snapshotPath, boolean audioOnly) {
-        startExportInternal(snapshotPath, audioOnly, null, null, false, null, null);
+        startExportInternal(snapshotPath, null, audioOnly, null, null, false, null, null);
     }
 
     private void startExportInternal(@Nullable String snapshotPath, boolean audioOnly, @Nullable String loudnessTargetName) {
-        startExportInternal(snapshotPath, audioOnly, loudnessTargetName, null, false, null, null);
+        startExportInternal(snapshotPath, null, audioOnly, loudnessTargetName, null, false, null, null);
     }
 
-    private void startExportInternal(@Nullable String snapshotPath, boolean audioOnly,
+    private void startExportInternal(@Nullable String snapshotPath, @Nullable String ticketPath,
+                                     boolean audioOnly,
                                      @Nullable String loudnessTargetName,
                                      @Nullable Long frameTimeMs, boolean frameJpeg,
                                      @Nullable long[] range,
                                      @Nullable String outputFileName) {
-        // EDIT-SAFETY + OOP handoff in one move: the Activity serialized the project to a
-        // file at export-tap time (an edit-immune deep snapshot — the same round-trip every
-        // app-restart export already survives) and passed the path here. Reading it is the
-        // ONLY way project data enters this process — there is no live reference to mutate.
-        FaditorProject project = null;
-        if (snapshotPath != null) {
-            File snapshotFile = new File(snapshotPath);
-            try {
-                byte[] bytes = new byte[(int) snapshotFile.length()];
-                try (java.io.FileInputStream in = new java.io.FileInputStream(snapshotFile)) {
-                    int off = 0, n;
-                    while (off < bytes.length && (n = in.read(bytes, off, bytes.length - off)) > 0) {
-                        off += n;
-                    }
-                }
-                com.fadcam.ui.faditor.project.ProjectStorage storage =
-                        new com.fadcam.ui.faditor.project.ProjectStorage(this);
-                project = storage.fromJson(new String(bytes, java.nio.charset.StandardCharsets.UTF_8));
-            } catch (Exception e) {
-                FLog.e(TAG, "Failed to read export snapshot " + snapshotPath, e);
-            } finally {
-                //noinspection ResultOfMethodCallIgnored
-                snapshotFile.delete();
-            }
+        if (isExporting && ticketPath != null && snapshotPath != null) {
+            // A region of a batch: its snapshot stays on disk until its turn.
+            enqueue(new QueuedExport(null, snapshotPath, ticketPath, outputFileName, audioOnly,
+                    loudnessTargetName, frameTimeMs, frameJpeg, range));
+            return;
         }
-
+        FaditorProject project = readSnapshot(snapshotPath, ticketPath, outputFileName);
         if (project == null) {
-            FLog.e(TAG, "No export snapshot (path=" + snapshotPath + ") — cannot export");
-            Intent broadcast = new Intent(ACTION_EXPORT_ERROR);
-            broadcast.putExtra(EXTRA_ERROR_MESSAGE, "Export could not read the project snapshot");
-            sendExportBroadcast(broadcast);
+            reportUnreadableSnapshot(snapshotPath);
             // Never stop the service under an export that is still running (onDestroy
             // cancels it): only a bad SECOND request arrives while one runs.
             if (!isExporting && queue.isEmpty()) stopSelf();
             return;
         }
+
+        if (isExporting) {
+            // Was: "already in progress" and the request (its snapshot already deleted above)
+            // silently vanished. Now it waits its turn.
+            enqueue(new QueuedExport(project, null, null, null, audioOnly, loudnessTargetName,
+                    frameTimeMs, frameJpeg, range));
+            return;
+        }
+        startExportForProject(project, audioOnly, loudnessTargetName, frameTimeMs, frameJpeg,
+                range);
+    }
+
+    private void enqueue(@NonNull QueuedExport waiting) {
+        queue.add(waiting);
+        FLog.i(TAG, "Export queued behind the running one (" + queue.size() + " waiting)");
+        Intent queued = new Intent(ACTION_EXPORT_QUEUED);
+        queued.putExtra(EXTRA_QUEUE_SIZE, queue.size());
+        sendExportBroadcast(queued);
+    }
+
+    private void reportUnreadableSnapshot(@Nullable String snapshotPath) {
+        FLog.e(TAG, "No export snapshot (path=" + snapshotPath + ") — cannot export");
+        Intent broadcast = new Intent(ACTION_EXPORT_ERROR);
+        broadcast.putExtra(EXTRA_ERROR_MESSAGE, "Export could not read the project snapshot");
+        sendExportBroadcast(broadcast);
+    }
+
+    /**
+     * EDIT-SAFETY + OOP handoff in one move: the Activity serialized the project to a file at
+     * export-tap time (an edit-immune deep snapshot — the same round-trip every app-restart
+     * export already survives) and passed the path here. Reading it is the ONLY way project data
+     * enters this process — there is no live reference to mutate. A job with a ticket gives up
+     * only that; the snapshot goes when the batch's last job has read it.
+     */
+    @Nullable
+    private FaditorProject readSnapshot(@Nullable String snapshotPath, @Nullable String ticketPath,
+                                        @Nullable String outputFileName) {
+        if (snapshotPath == null) return null;
+        FaditorProject project = null;
+        File snapshotFile = new File(snapshotPath);
+        try {
+            byte[] bytes = new byte[(int) snapshotFile.length()];
+            try (java.io.FileInputStream in = new java.io.FileInputStream(snapshotFile)) {
+                int off = 0, n;
+                while (off < bytes.length && (n = in.read(bytes, off, bytes.length - off)) > 0) {
+                    off += n;
+                }
+            }
+            com.fadcam.ui.faditor.project.ProjectStorage storage =
+                    new com.fadcam.ui.faditor.project.ProjectStorage(this);
+            project = storage.fromJson(new String(bytes, java.nio.charset.StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            FLog.e(TAG, "Failed to read export snapshot " + snapshotPath, e);
+        } finally {
+            if (ticketPath != null) {
+                // The editor's day-old sweep must not take a batch that is still working through it.
+                //noinspection ResultOfMethodCallIgnored
+                snapshotFile.setLastModified(System.currentTimeMillis());
+                SharedExportSnapshot.release(snapshotFile, new File(ticketPath));
+            } else {
+                //noinspection ResultOfMethodCallIgnored
+                snapshotFile.delete();
+            }
+        }
+        if (project == null) return null;
         // ProjectStorage intentionally does not persist this one-shot export option. Apply it
         // after reading each snapshot and before queueing so every queued project retains its
         // own requested name through ExportManager.generateOutputPath().
@@ -385,20 +444,7 @@ public class ExportService extends Service {
         }
         FLog.d(TAG, "Export snapshot loaded from " + snapshotPath
                 + " — concurrent edits cannot affect this export");
-
-        if (isExporting) {
-            // Was: "already in progress" and the request (its snapshot already deleted above)
-            // silently vanished. Now it waits its turn.
-            queue.add(new QueuedExport(project, audioOnly, loudnessTargetName, frameTimeMs,
-                    frameJpeg, range));
-            FLog.i(TAG, "Export queued behind the running one (" + queue.size() + " waiting)");
-            Intent queued = new Intent(ACTION_EXPORT_QUEUED);
-            queued.putExtra(EXTRA_QUEUE_SIZE, queue.size());
-            sendExportBroadcast(queued);
-            return;
-        }
-        startExportForProject(project, audioOnly, loudnessTargetName, frameTimeMs, frameJpeg,
-                range);
+        return project;
     }
 
     /** Start {@code project} now (nothing else is running). */
@@ -906,9 +952,26 @@ public class ExportService extends Service {
                 queue.addFirst(next);
                 return;
             }
-            startExportForProject(next.project, next.audioOnly, next.loudnessTargetName,
+            FaditorProject project = next.project != null ? next.project
+                    : readSnapshot(next.snapshotPath, next.ticketPath, next.outputFileName);
+            if (project == null) {
+                reportUnreadableSnapshot(next.snapshotPath);
+                finishOrRunNext();   // one lost region must not strand the ones behind it
+                return;
+            }
+            startExportForProject(project, next.audioOnly, next.loudnessTargetName,
                     next.frameTimeMs, next.frameJpeg, next.range);
         });
+    }
+
+    /** Forget everything waiting, giving up any shared snapshot's tickets. */
+    private void dropQueue() {
+        for (QueuedExport waiting : queue) {
+            if (waiting.ticketPath != null && waiting.snapshotPath != null) {
+                SharedExportSnapshot.release(new File(waiting.snapshotPath), new File(waiting.ticketPath));
+            }
+        }
+        queue.clear();
     }
 
     /**
@@ -918,7 +981,7 @@ public class ExportService extends Service {
     public void cancelExport() {
         if (!queue.isEmpty()) {
             FLog.i(TAG, "Cancel also drops " + queue.size() + " queued export(s)");
-            queue.clear();
+            dropQueue();
         }
         terminal = true;
         if (exportManager != null && exportManager.isExporting()) {

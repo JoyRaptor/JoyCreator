@@ -1,5 +1,8 @@
 import com.fadcam.ui.faditor.sprite.BoardAttachPlan;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -12,6 +15,34 @@ public class BoardAttachPlanTest {
 
     static void check(boolean ok, String what) {
         if (ok) passes++; else { fails++; System.out.println("FAIL " + what); }
+    }
+
+    /** The Codex S1 order of events: saved, then the reopen check fails, then the import's cleanup runs. */
+    static void copiedImageChecks() {
+        try {
+            File dir = Files.createTempDirectory("board-import").toFile();
+            File saved = new File(dir, "saved.png"), unsaved = new File(dir, "unsaved.png");
+            Files.write(saved.toPath(), new byte[]{1});
+            Files.write(unsaved.toPath(), new byte[]{2});
+
+            BoardAttachPlan.CopiedImage afterSave = new BoardAttachPlan.CopiedImage();
+            afterSave.copying(saved);
+            afterSave.savedIntoProject();
+            afterSave.dropUnsaved();   // the failed reopen check's cleanup
+            check(saved.isFile(), "a failed check after the save keeps the picture the project points at");
+
+            BoardAttachPlan.CopiedImage beforeSave = new BoardAttachPlan.CopiedImage();
+            beforeSave.copying(unsaved);
+            beforeSave.dropUnsaved();   // the save itself failed
+            check(!unsaved.exists(), "a picture no saved project points at is removed");
+
+            new BoardAttachPlan.CopiedImage().dropUnsaved();
+            check(true, "cleanup before any copy does nothing");
+            saved.delete();
+            dir.delete();
+        } catch (IOException e) {
+            check(false, "temp files: " + e);
+        }
     }
 
     public static void main(String[] args) {
@@ -47,6 +78,8 @@ public class BoardAttachPlanTest {
         final int[] n = {0};
         String[] seq = {"a", "a", "c"};
         check("c".equals(BoardAttachPlan.sheetIdFor("a", taken, () -> seq[n[0]++])), "a fresh id that is also taken is drawn again");
+
+        copiedImageChecks();
 
         System.out.println("BoardAttachPlanTest: " + passes + " passed, " + fails + " failed");
         if (fails > 0) System.exit(1);

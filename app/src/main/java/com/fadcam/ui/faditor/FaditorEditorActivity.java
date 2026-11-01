@@ -5215,6 +5215,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         for (com.fadcam.ui.faditor.markers.MarkerWorkspace.Point p : next.sortedPoints()) offsets.add(p.timeMs);
         project.setBookmarksMs(offsets);
         com.fadcam.ui.faditor.project.BookmarkStore.save(projectStorage.projectDir(project.getId()), offsets);
+        // Marks live beside project.json, so a change to them alone must refresh the folder backup too.
+        com.fadcam.joyfolder.studio.StudioMirror.onProjectSaved(this, project.getId());
         if (editorTimeline != null) {
             editorTimeline.setMarkerFrameRate(projectFps()); editorTimeline.setMarkerWorkspace(next);
         }
@@ -14048,23 +14050,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     /**
-     * Serialize the current project to a per-job snapshot file for the :export process
-     * (an edit-immune deep snapshot taken at export-tap time). Stale snapshots from
-     * jobs that never got consumed are swept here. Returns null on failure.
+     * Serialize the current project to a snapshot file for the :export process (an edit-immune
+     * deep snapshot taken at export-tap time), one per job or one per region batch. Stale
+     * snapshots from jobs that never got consumed are swept here. Returns null on failure.
      */
     @Nullable
     private String writeExportSnapshotFile() {
-        return writeExportSnapshotFile(null);
-    }
-
-    /** Each queued job owns a distinct file even when a named batch shares identical project JSON. */
-    @Nullable
-    private String writeExportSnapshotFile(@Nullable String preparedJson) {
         if (project == null) return null;
         try {
             com.fadcam.ui.faditor.project.ProjectStorage storage =
                     new com.fadcam.ui.faditor.project.ProjectStorage(this);
-            String json = preparedJson != null ? preparedJson : storage.toJson(project);
+            String json = storage.toJson(project);
             java.io.File dir = new java.io.File(getFilesDir(), "faditor");
             //noinspection ResultOfMethodCallIgnored
             dir.mkdirs();
@@ -14080,6 +14076,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     f.delete();
                 }
             }
+            com.fadcam.ui.faditor.export.SharedExportSnapshot.sweepOrphans(dir);
             java.io.File out = new java.io.File(dir,
                     "export_snapshot_" + java.util.UUID.randomUUID() + ".json");
             try (java.io.FileOutputStream fos = new java.io.FileOutputStream(out)) {
@@ -14305,7 +14302,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
     /** Queue independent named outputs from one edit-immune project document. */
     private void doStartNamedRegionExports(boolean audioOnly, boolean queued,
             java.util.List<com.fadcam.ui.faditor.markers.MarkerWorkspace.Region> namedRegions) {
-        java.util.List<String> snapshotPaths = new java.util.ArrayList<>();
+        java.io.File snapshot = null;
+        java.util.List<java.io.File> tickets = new java.util.ArrayList<>();
         int attempted = 0;
         int dispatched = 0;
         try {
@@ -14317,19 +14315,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
             // Prepare once for the whole batch; queued jobs must not touch running decoders.
             if (!queued) prepareMemoryForExport();
-            String json = new com.fadcam.ui.faditor.project.ProjectStorage(this).toJson(project);
+            String snapshotPath = writeExportSnapshotFile();
+            if (snapshotPath == null) throw new java.io.IOException("could not snapshot the regions");
+            snapshot = new java.io.File(snapshotPath);
             String loudName = getSharedPreferences("faditor_export", MODE_PRIVATE)
                     .getString("pending_loudness_target", "OFF");
             java.util.List<android.content.Intent> intents = new java.util.ArrayList<>();
-            // Finish every snapshot before dispatching anything: a storage failure must not
+            // Finish every ticket before dispatching anything: a storage failure must not
             // silently queue only an arbitrary prefix of the requested regions.
-            for (com.fadcam.ui.faditor.markers.RegionExportPlan.Job job : plan.getJobs()) {
-                String snapshotPath = writeExportSnapshotFile(json);
-                if (snapshotPath == null) throw new java.io.IOException("could not snapshot the regions");
-                snapshotPaths.add(snapshotPath);
+            tickets = com.fadcam.ui.faditor.export.SharedExportSnapshot.issue(snapshot, plan.getJobs().size());
+            for (int i = 0; i < plan.getJobs().size(); i++) {
+                com.fadcam.ui.faditor.markers.RegionExportPlan.Job job = plan.getJobs().get(i);
                 android.content.Intent intent = new android.content.Intent(this, ExportService.class);
                 intent.setAction(ExportService.ACTION_START_EXPORT);
                 intent.putExtra(ExportService.EXTRA_PROJECT_SNAPSHOT_PATH, snapshotPath);
+                intent.putExtra(ExportService.EXTRA_SNAPSHOT_TICKET_PATH, tickets.get(i).getPath());
                 intent.putExtra(ExportService.EXTRA_AUDIO_ONLY, audioOnly);
                 intent.putExtra(ExportService.EXTRA_RANGE_START_MS, job.getStartMs());
                 intent.putExtra(ExportService.EXTRA_RANGE_END_MS, job.getEndMs());
@@ -14353,11 +14353,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 showExportInfoOnScreen();
             }
         } catch (Exception exception) {
-            // Once a start has been attempted, the service may already own its snapshot.
-            // Remove only files belonging to jobs that were certainly never dispatched.
-            for (int index = attempted; index < snapshotPaths.size(); index++) {
+            // Once a start has been attempted, the service may already own that job's ticket.
+            // Give up only tickets of jobs that were certainly never dispatched; with none
+            // issued at all, the snapshot is still ours alone.
+            if (snapshot != null && tickets.isEmpty()) {
                 //noinspection ResultOfMethodCallIgnored
-                new java.io.File(snapshotPaths.get(index)).delete();
+                snapshot.delete();
+            }
+            for (int index = attempted; index < tickets.size(); index++) {
+                com.fadcam.ui.faditor.export.SharedExportSnapshot.release(snapshot, tickets.get(index));
             }
             if (!queued && dispatched == 0) {
                 exportStartedLocallyAtMs = 0L;
@@ -15219,31 +15223,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * left alone. Position comes from lastPlayheadAbsoluteMs, not the view, for the same reason.</p>
      */
     private void refreshPreviewSurfaceAfterUndoRedo() {
-        Timeline tl = project.getTimeline();
-        long abs = Math.max(0L, lastPlayheadAbsoluteMs);
-        Clip clip = null;
-        long segStart = 0L;
-        int count = tl.getClipCount();
-        for (int i = 0; i < count; i++) {
-            Clip c = tl.getClip(i);
-            if (c == null) continue;
-            long dur = c.getTrimmedDurationMs();
-            if (abs < segStart + dur || i == count - 1) { clip = c; break; }
-            segStart += dur;
-        }
-        if (clip == null) {
+        com.fadcam.ui.faditor.model.SpineLookup under = com.fadcam.ui.faditor.model.SpineLookup.at(
+                project.getTimeline(), lastPlayheadAbsoluteMs);
+        if (under == null) {
             hideSlidePreview();
             hideImagePreview();
             return;
         }
-        long localMs = Math.max(0L, Math.min(abs - segStart, clip.getTrimmedDurationMs() - 1));
+        Clip clip = under.clip;
 
         if (clip.isGeneratedSlide()) {
             // Playback runs a slide off its rendered MP4 with the WebView hidden; leave it be.
             if (playerManager != null && playerManager.isPlaying()) return;
             hideMissingOverlay();
             hideImagePreview();
-            showSlidePreview(clip, localMs);
+            showSlidePreview(clip, under.sourceOffsetMs());
             return;
         }
         boolean slideShowing = slidePreview != null && slidePreview.getVisibility() == View.VISIBLE;
@@ -15265,7 +15259,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         hideImagePreview();
         loadClipForPlayback(clip);
         if (playerManager != null) {
-            playerManager.seekInClip(clip, (long) (localMs * clip.getSpeedMultiplier()));
+            // Gapless takes media ms across the clip's whole looped length and finds the repeat
+            // itself; the legacy player holds one pass, so it gets the place inside that pass.
+            playerManager.seekInClip(clip, playerManager.isGapless()
+                    ? (long) (under.visualMs * clip.getSpeedMultiplier()) : under.sourceOffsetMs());
         }
         updatePreviewTransforms();
     }

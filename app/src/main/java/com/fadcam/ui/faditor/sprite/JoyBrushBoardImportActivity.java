@@ -72,7 +72,7 @@ public final class JoyBrushBoardImportActivity extends Activity {
     private void receive(String path,boolean studio,String targetId) {
         File stage=null;
         File ownProject=null;
-        File unsavedImage=null;
+        final BoardAttachPlan.CopiedImage copied=new BoardAttachPlan.CopiedImage();
         boolean ownsStage=false;
         try {
             if(path == null) throw new IllegalArgumentException("No board files were supplied");
@@ -116,11 +116,11 @@ public final class JoyBrushBoardImportActivity extends Activity {
             File assets=new File(projectDir,"assets");
             if(!assets.isDirectory() && !assets.mkdirs()) throw new IllegalStateException("Could not create board assets");
             File image=new File(assets,"sheet-"+UUID.randomUUID()+".png");
+            copied.copying(image);
             try(FileInputStream in=new FileInputStream(png);FileOutputStream out=new FileOutputStream(image)) {
                 byte[] buffer=new byte[65536]; int n; while((n=in.read(buffer)) != -1) out.write(buffer,0,n);
                 out.getFD().sync();
             }
-            unsavedImage=image;
             sheet.setSheetUri(Uri.fromFile(image).toString());
             project.getSpriteSheets().add(sheet);
             if(studio) {
@@ -158,23 +158,25 @@ public final class JoyBrushBoardImportActivity extends Activity {
                 project.getTimeline().addSpriteOverlay(item);
             }
             if(!storage.save(project)) throw new IllegalStateException("The board project could not be saved");
+            // The saved project now points at the picture: from here on it is the project's, whatever happens next.
+            copied.savedIntoProject();
             // Loading the saved model proves IDs and asset registration before launching the editor.
             FaditorProject saved=storage.load(project.getId());
-            if(saved == null || saved.spriteSheetById(sheet.getId()) == null) throw new IllegalStateException("The saved board could not be reopened");
+            if(saved == null || saved.spriteSheetById(sheet.getId()) == null) throw new IllegalStateException(existing != null
+                ? "it was added to the project, but the project did not reopen" : "The saved board could not be reopened");
             final Intent intent=studio ? new Intent(this,FaditorEditorActivity.class)
                 .putExtra(FaditorEditorActivity.EXTRA_PROJECT_ID,project.getId()) : new Intent(this,SpriteSheetEditorActivity.class)
                 .putExtra(SpriteSheetEditorActivity.EXTRA_PROJECT_ID,project.getId()).putExtra(SpriteSheetEditorActivity.EXTRA_SHEET_ID,sheet.getId());
             ownProject=null;
-            unsavedImage=null;
             runOnUiThread(() -> { if(!isFinishing() && !isDestroyed()) startActivity(intent); finish(); });
         } catch(Exception e) {
             final String message=e.getMessage();
             runOnUiThread(() -> { Toast.makeText(this,"Could not open board: "+message,Toast.LENGTH_LONG).show(); finish(); });
         } finally {
             if(ownsStage) deleteOwned(stage);
+            // A project made here goes as a whole, picture included. In an EXISTING project only an unsaved picture goes.
             if(ownProject != null) deleteOwned(ownProject);
-            // The picture copied into an EXISTING project stays only if the project was saved with it.
-            if(unsavedImage != null && ownProject == null) unsavedImage.delete();
+            else copied.dropUnsaved();
         }
     }
     private static void deleteOwned(File file) {

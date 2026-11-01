@@ -1840,9 +1840,10 @@ public class ExportManager {
 
     /**
      * Export the selected editor range as an M4A containing the exact audio from the
-     * fully-composed range. This intentionally reuses the video range pipeline, then
-     * extracts audio from its final clipped composition; this keeps transition, overlay,
-     * speed, and audio-lane timing identical to the selected video range.
+     * fully-composed range. The driver is the video range's, so transition, overlay, speed
+     * and audio-lane timing are identical to it, but a {@link ChunkRun#soundOnly} run draws no
+     * picture: the sound in the video range IS the cached sound pass, so it is cut straight
+     * from that ({@link #runAudioRangeCut}).
      */
     public void exportAudioOnlyRange(@NonNull FaditorProject project,
                                      long startMs, long endMs) {
@@ -2059,7 +2060,7 @@ public class ExportManager {
                 audioOnlyRange);
         if (rangeStartMs >= 0 && rangeEndMs > rangeStartMs) run.limitTo(rangeStartMs, rangeEndMs);
         chunkRun = run;
-        startWaveformAnalysis(run);
+        if (!run.soundOnly) startWaveformAnalysis(run);
         chunkWorkers.clear();
         String audioPath = manifest.optString("audioFile", "");
         if (manifest.optBoolean("audioDone", false) && !audioPath.isEmpty()
@@ -2090,6 +2091,8 @@ public class ExportManager {
         final org.json.JSONObject manifest;
         final List<int[]> ranges;
         final boolean audioOnlyOutput;
+        /** An M4A cut from the sound pass: no parts are drawn or joined. */
+        final boolean soundOnly;
         /** Isolates temporary join/extraction files across cancelled/replaced range jobs. */
         final String runId = java.util.UUID.randomUUID().toString();
         final int n;
@@ -2127,6 +2130,7 @@ public class ExportManager {
             this.manifest = manifest;
             this.ranges = ranges;
             this.audioOnlyOutput = audioOnlyOutput;
+            this.soundOnly = audioOnlyOutput && !audioRangeViaVideo();
             this.n = ranges.size();
             this.expected = new long[n];
             long total = 0L;
@@ -2177,14 +2181,18 @@ public class ExportManager {
         long compOf(long t) {
             if (chunkBases == null || chunkEditorBases == null || chunkEditorDurs == null
                     || chunkCompDurs == null) return t;
-            for (int i = 0; i < n; i++) {
-                if (t < chunkEditorBases[i] + chunkEditorDurs[i] || i == n - 1) {
-                    long local = Math.max(0L, t - chunkEditorBases[i]);
-                    return chunkBases[i] + Math.min(local, chunkCompDurs[i]);
-                }
-            }
-            return t;
+            return AudioRangeCut.compOf(t, chunkBases, chunkCompDurs, chunkEditorBases, chunkEditorDurs);
         }
+    }
+
+    /**
+     * The older audio-range path, which renders and joins the picture first, kept behind a hidden
+     * switch ({@code audio_range_via_video} in the {@code faditor_export} prefs) so the two files
+     * can be compared on the phone. Nothing in the app sets it.
+     */
+    private boolean audioRangeViaVideo() {
+        return context.getSharedPreferences("faditor_export", Context.MODE_PRIVATE)
+                .getBoolean("audio_range_via_video", false);
     }
 
     @Nullable
@@ -2230,6 +2238,7 @@ public class ExportManager {
     private void pumpChunks(@NonNull ChunkRun run) {
         if (run != chunkRun || chunkCancelled || !isExporting || run.joining) return;
         confinedToSlowCores();   // logs CPU_GROUP changes; parallel still wins there (below)
+        if (run.soundOnly) run.next = run.n;   // nothing to draw: the sound below is the whole job
         while (run.active < run.maxParallel) {
             Integer i = run.retry.poll();
             if (i == null) {
@@ -2251,7 +2260,8 @@ public class ExportManager {
         if (!videoDone) return;
         if (run.soundState == 2) {
             run.joining = true;
-            runChunkJoin(run.project, run.finalOutputPath, run.manifest, run.ranges, run);
+            if (run.soundOnly) runAudioRangeCut(run);
+            else runChunkJoin(run.project, run.finalOutputPath, run.manifest, run.ranges, run);
         } else if (run.soundState == 3 || run.soundState == 0) {
             if (run.soundState == 3 && run.soundRetried) {
                 chunkFail(run.project, run.finalOutputPath, run.manifest, run.ranges, run.n,
@@ -2264,8 +2274,9 @@ public class ExportManager {
         // soundState 1: still running; its progress now drives the bar (startSoundPass /
         // below), and its completion calls back in here.
         if (run.soundState == 1 && run.soundWorker != null && listener != null) {
-            run.soundWorker.setExportListener(new ChunkProgressAdapter(listener,
-                    CHUNK_VIDEO_FRAC, CHUNK_AUDIO_FRAC, "Sound"));
+            run.soundWorker.setExportListener(run.soundOnly
+                    ? new ChunkProgressAdapter(listener, 0f, CHUNK_VIDEO_FRAC + CHUNK_AUDIO_FRAC, "Sound")
+                    : new ChunkProgressAdapter(listener, CHUNK_VIDEO_FRAC, CHUNK_AUDIO_FRAC, "Sound"));
             listener.onChunkPhase("Sound");
         }
     }
@@ -2754,6 +2765,57 @@ public class ExportManager {
     }
 
     /**
+     * The sound-only range's last step: cut the sound pass to the range and publish it. The join
+     * below would mux this same audio beside a picture, trim both and take the audio back out.
+     * The sound pass stays as the render cache. Runs off-main.
+     */
+    private void runAudioRangeCut(@NonNull ChunkRun run) {
+        openTrace("join");
+        if (listener != null) {
+            listener.onChunkPhase("Cutting the range's sound");
+            listener.onExportProgress(CHUNK_VIDEO_FRAC + CHUNK_AUDIO_FRAC);
+            listener.onExportProgressDetailed(CHUNK_VIDEO_FRAC + CHUNK_AUDIO_FRAC, -1, -1, -1L, -1L);
+        }
+        final String soundPath = run.manifest.optString("audioFile",
+                new File(chunkDirFor(run.project), "audio_full.m4a").getAbsolutePath());
+        final String stagingPath = run.finalOutputPath + ".audio." + run.runId + ".exporting";
+        final long startMs = run.compOf(run.rangeStartMs);
+        final long endMs = run.compOf(run.rangeEndMs);
+        currentStagingPath = stagingPath;
+        new Thread(() -> {
+            File staging = new File(stagingPath);
+            try {
+                if (endMs <= startMs) throw new IllegalStateException("The range holds no sound");
+                trace("RANGE " + run.rangeStartMs + ".." + run.rangeEndMs + "ms editor -> sound "
+                        + startMs + ".." + endMs + "ms, no picture drawn");
+                com.arthenica.ffmpegkit.FFmpegSession session =
+                        com.arthenica.ffmpegkit.FFmpegKit.execute(
+                                AudioRangeCut.command(soundPath, startMs, endMs, stagingPath));
+                if (chunkCancelled || run != chunkRun) {
+                    deleteQuietly(staging);
+                    isExporting = false;
+                    return;
+                }
+                if (!com.arthenica.ffmpegkit.ReturnCode.isSuccess(session.getReturnCode())
+                        || staging.length() <= 0L) {
+                    traceFfmpegTail("range-audio-cut", session);
+                    throw new IllegalStateException("Cutting the range's sound failed: "
+                            + session.getReturnCode());
+                }
+                finishRun(run, commitStaging(stagingPath, run.finalOutputPath),
+                        "Audio-only range export completed");
+            } catch (Exception e) {
+                deleteQuietly(staging);
+                if (chunkCancelled || run != chunkRun) {
+                    isExporting = false;
+                    return;
+                }
+                chunkFail(run.project, run.finalOutputPath, run.manifest, run.ranges, run.n + 1, e);
+            }
+        }, "faditor-audio-range").start();
+    }
+
+    /**
      * Join: concat video chunks (stream copy) + mux the single audio pass, then the
      * shared finalize (loudness once, SAF copy). Runs off-main; failures keep chunks.
      */
@@ -2982,14 +3044,20 @@ public class ExportManager {
         } else {
             committed = commitStaging(stagingPath, finalOutputPath);
         }
-        pruneRenderCache(project, run.manifest);
+        finishRun(run, committed, completedLogTag);
+    }
+
+    /** The output is committed: keep the render cache, end the run, hand over to finalize. */
+    private void finishRun(@NonNull ChunkRun run, @NonNull String committed,
+                           @NonNull String completedLogTag) {
+        pruneRenderCache(run.project, run.manifest);
         if (run.audioOnlyOutput) cleanupAudioRangeIntermediates(run);
         chunkRun = null;
         ExportResult result = run.audioOnlyOutput || lastChunkResult == null
                 ? new ExportResult.Builder().build() : lastChunkResult;
         isExporting = false;
         resetChunkState();
-        finalizeExportAsync(project, committed, result, completedLogTag);
+        finalizeExportAsync(run.project, committed, result, completedLogTag);
     }
 
     /**

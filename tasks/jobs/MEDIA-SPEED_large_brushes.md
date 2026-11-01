@@ -100,7 +100,7 @@ Full text: [CODEX_REVIEW_WAVE3_20261101.md](../joybrush/reviews/CODEX_REVIEW_WAV
 
 | # | Finding | Result |
 |---|---|---|
-| T1 | A sleeping engine's freed names deleted again at release | Fixed; `mediaFailureProbe` sleepThenRelease checks real textures on the Note 9 |
+| T1 | A sleeping engine's freed names deleted again at release | Fixed from the source; `mediaFailureProbe` sleepThenRelease passed but did not exercise it: the Note 9 reused none of the 32 names |
 | T2 | Water steps that ran in the park never reached the stores | Fixed from the source (`publishParked`); no test can prove it yet |
 | T3 | A full park lost a step already run | Fixed from the source (`keepNextInStores`); not exercised |
 | T4 | Failed park storage or copy counted as kept | Fixed (`MediaTex.make` refuses, `copyFailed`, a chunk is all or nothing); failure not injected |
@@ -111,6 +111,6 @@ Full text: [CODEX_REVIEW_WAVE3_20261101.md](../joybrush/reviews/CODEX_REVIEW_WAV
 | T9 | A dry measurement taken before new water marked it dry | Fixed (`wetSinceQuery`) |
 | T10 | Any noisy control excused every difference | Fixed: only the tiles the control differs on are excused, and a noisy control reports `inconclusive` |
 
-T1 is the strongest explanation yet for the four black tiles of 10-31: a deleted name that is bound again comes back as a texture with no storage, which is what jdb found on them. The sequence needs a release while the engine sleeps, so this is a strong fit and not proof. `Board tile copy failed` may be the same thing.
+T1 is a possible cause of the four black tiles of 10-31, not a shown one. A deleted name that is bound again comes back with no storage, which is what jdb found on them, but it needs the driver to reuse the name, and the Note 9 did not in the probe. Both tile failures stay unexplained.
 
 `mediaAtlasLedgerProbe` with watercolour: 87 tiles differ between two roomy runs, so water has no exact answer and the probe is inconclusive. 18 tiles differ beyond those, before and after the park fix. Oil is exact: 0 tiles differ. Water parity needs a run with a fixed clock before T2 and T3 can be proved.

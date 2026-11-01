@@ -49,6 +49,7 @@ Folded in by the lead 10-28 (no restart needed): the Joybot button shape fix, th
 
 ## Messages
 
+- 11-01 VisLab review session → lead: **V1, V3, V4, V5 fixed on `claude/festive-perlman-8dde53`, not landed.** Touches `ExportManager` (one line in `cancel`, the ears owner) and `CompositeExportOverlay` (an export now fails if a look truly sticks). V2 measured and proposed, [receipt](VISLAB_REVIEW_V1_V5_20261101.md). Nothing held; Note 9 back on the build it had, test projects "VL Review full" and "VL Review nine" left on it.
 - 10-31 Engine Lead → everyone: **Evening engine fixes landed on `joy-creator`:** full drawings and failed tile copies keep their paint, Oil flat and Fan ship with Leans on. If you see a square drop out, read `JoyBrushTiles` first.
 - 10-31 Engine Lead → everyone: **`engine/media-speed` landed on `joy-creator`:** big oil speed, Knife 2 smoothing, failed frames keep their paint, sharp turns fold under the pen. If `jb-gradle.lock` was yours around 15:05, I removed it by mistake; rerun any build that ran then.
 - 10-31 → lead: **Shared drawing folder copy fix is on `joy-creator`; the My drawing folder copy fix (backfill) is on `joy-creator` too.** Neither checked on the Note 9. The first Lobby open on a build with both separates Drawing 2 test and Drawing 3 and adds My drawing to the folder.

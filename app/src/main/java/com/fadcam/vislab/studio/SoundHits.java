@@ -35,7 +35,9 @@ final class SoundHits {
     private static final int KEEP = 8;
 
     private static final Map<String, HitCounts> known = new LinkedHashMap<>(8, 0.75f, true);
+    /** Asked for once a session. Still here without counts = they are coming, or never will. */
     private static final Set<String> asked = new HashSet<>();
+    private static final Set<String> failed = new HashSet<>();
     private static final ExecutorService worker = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "vislab-sound-hits");
         t.setPriority(Thread.MIN_PRIORITY);
@@ -59,10 +61,11 @@ final class SoundHits {
 
     /** Waits for {@code uri}'s counts (the export's warm-up), up to {@code ms}. */
     static void await(@NonNull Context c, @NonNull Uri uri, long ms) {
+        if (!PcmSidecar.isBaked(c, uri)) return;   // no sound copy: nothing to count
         long until = SystemClock.uptimeMillis() + ms;
         while (of(c, uri) == null && SystemClock.uptimeMillis() < until) {
             synchronized (known) {
-                if (!asked.contains(uri.toString())) return;   // gave up: no sound copy
+                if (failed.contains(uri.toString())) return;
             }
             SystemClock.sleep(50);
         }
@@ -88,8 +91,11 @@ final class SoundHits {
             Log.w(TAG, "Could not count the beats of " + uri, e);
         }
         synchronized (known) {
+            if (h == null) {
+                failed.add(key);
+                return;
+            }
             asked.remove(key);
-            if (h == null) return;
             known.put(key, h);
             while (known.size() > KEEP) {
                 java.util.Iterator<String> i = known.keySet().iterator();

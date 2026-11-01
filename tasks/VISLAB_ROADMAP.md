@@ -52,6 +52,7 @@ Note 9 test. Every `[~]` row was compiled together on 10-24 (Studio + effects + 
 | R14 | Studio effects that hear the soundtrack: link an effect knob to the kick / bass / beat of a clip (VisLab's music links; SoundClock already analyses Studio clips) | M | lead | [x] agent phone-tested 10-27: a "♪ music" row under each slider in an effect layer's or a clip's own Effects drawer (Loudness, Bass, Kick, Snare, Hi-hats or Beat; strength 25, 50, 100, -50, -100%), one undo step per tap. Flash Amount on Kick at 100% flashes on the kicks in the preview (layer and clip) and in a 720p export (frame brightness 129 -> 219 one frame after a kick). Found on the phone and fixed: a clip's own effects showed the row but did not listen; and the export froze an effect layer's moving values at the first frame (keyframes too). `fx/FxMusic`, `vislab/studio/StudioEars`. Owner sign-off pending |
 | R15 | Visualiser stacking: the preview draws a visualiser under pictures and text (its canvas sits below them), the export over them (the overlay pass); seen 10-27 with a picture over a look | S | lead | [x] agent phone-tested 10-28: a picture over a look stays over it in the export, as in the preview (the export's visualizers now have their own pass before the picture passes, blended ones first). Also fixed: the export drew a visualizer across its whole clip, not only between its start and end |
 | R16 | The room behind the shrunk picture (owner 10-27/28): Studio's filmstrip art at Studio's scale, repeating, and a subtle glow of the look's colours spilling behind the see-through drawer | S | lead | [x] agent phone-tested 10-28: art and glow while the editor is open; 60 fps closed, 55-56 open (the renderer raising its own resolution, not the glow: a 12-pixel copy read about 7 times a second). Owner to judge the glow; a seam in the repeat, if any, is a later fix |
+| V1-V5 | The 11-01 Codex review's VisLab findings ([receipt and V2 proposal](VISLAB_REVIEW_V1_V5_20261101.md)) | M | review session | [~] V1, V3, V4, V5 fixed with tests on `claude/festive-perlman-8dde53`, not on `joy-creator` yet. Phone 11-01: V1 forced timeout fails the export honestly, Cancel is immediate; V5 nine effects 370 s -> 68 s; V4 one seek matches the export. V3 and V4's own speed not tried on the phone. V2 measured, not built: reused bitmap and no row flip next, shared GL context on hold |
 | — | Owed checks: R1 audit (needs a recording + his "Start now"), R2 audit (Android 12+), D2 hour-long heat test (owner deferred) | | owner | [ ] |
 
 ## Specs
@@ -122,6 +123,14 @@ effect: needs the previous frame, so it is its own pass with history, in preview
 real in export), through the GL preview compositor.
 
 ## Log (newest first)
+
+- 2026-11-01: Codex review V1-V5, all five confirmed against the code. An export now waits for a
+  look's frame and fails honestly instead of swapping in the classic style (`LookTicket`); a video
+  plays at two speeds without rebuilding its decoder (`VideoHeads`); a sprite's frame comes from the
+  moment, with exact beat and kick counts (`HitCounts`, `SoundHits`); all the effects in one export
+  share one ear (`EarShelf`). Timing lines in `StudioVis` give V2's numbers. Results, limits and the
+  V2 proposal are in [the receipt](VISLAB_REVIEW_V1_V5_20261101.md). Phone 26.6 to 30.9 C battery,
+  33.8 to 60.4 C chip, no throttling seen.
 
 - 2026-10-28 (afternoon): the last pieces doable without the owner. R8: each follow chooses what it
   copies (Position / Size / Rotation chips, as Studio's link; saved as `visFollowParts`, absent = all);

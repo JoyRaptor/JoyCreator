@@ -63,8 +63,9 @@ Temperatures logged every 30 s: battery 26.6 to 30.9 C, chip 33.8 to 60.4 C, no 
 old build's 370 s export was the warmest). Test projects "VL Review full", "VL Review nine" and their
 exports are left on the Note 9. The "before" build is what the phone held (installed 00:52 that
 night, from another lane), not a clean build of the base commit; its logs show the old clock per
-effect. The same build was reinstalled once at 01:47:55 with no command from these steps; nothing was
-lost and the cause was not found. The phone's clock fell back an hour during testing.
+effect. The Studio review session installed over this one by mistake between 01:47:40 and 01:47:55 and
+put this build back. Nothing was lost, and no check overlapped: the first export had ended at 01:46 and
+every other check ran after it. The phone's clock fell back an hour during testing.
 
 Seen, not changed: a look that cannot be read shows nothing in the preview but the classic style in
 the export.

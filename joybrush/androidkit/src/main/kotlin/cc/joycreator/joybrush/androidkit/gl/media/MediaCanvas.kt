@@ -931,8 +931,9 @@ class MediaCanvas(
          */
         fun halves(): Pair<FrameInput, FrameInput>? {
             if (units < 2) return null
-            fun cut(b: DabBatch?): Pair<DabBatch, DabBatch>? {
-                if (b == null) return null
+            val nothing = null to null
+            fun cut(b: DabBatch?): Pair<DabBatch?, DabBatch?>? {
+                if (b == null) return nothing
                 val m = (b.count + 1) / 2
                 val first = b.slice(0, m) ?: return null
                 val second = b.slice(m, b.count) ?: return null
@@ -941,8 +942,8 @@ class MediaCanvas(
             val d = dry.map { cut(it) ?: return null }
             val t = cut(thin) ?: return null; val w = cut(wet) ?: return null; val r = cut(erase) ?: return null
             val pm = ((paste?.size ?: 0) + 1) / 2
-            return FrameInput(d.map { it.first }, t.first, paste?.subList(0, pm), w.first, r.first) to
-                FrameInput(d.map { it.second }, t.second, paste?.subList(pm, paste.size), w.second, r.second)
+            return FrameInput(d.map { it.first!! }, t.first, paste?.subList(0, pm), w.first, r.first) to
+                FrameInput(d.map { it.second!! }, t.second, paste?.subList(pm, paste.size), w.second, r.second)
         }
     }
 
@@ -958,8 +959,10 @@ class MediaCanvas(
             try { w.admit(frameNeeds(e, st, batch, thin, steps, wetIn, eraseIn, wq)) } catch (r: MediaRoomException) {
                 val (a, b) = input.halves() ?: throw r
                 android.util.Log.i("JoyBrushMediaAtlas", "a frame too big for the atlas, split in time (${input.units} dabs)")
-                runFrame(e, w, st, a, wq, last = false)
-                runFrame(e, w, st, b, wq, last)
+                // The two share the frame's water steps: each with all of them ran the water twice as far (as runWindowParts).
+                val first = maxOf(1, wq.substeps / 2)
+                runFrame(e, w, st, a, wq.copy(substeps = first), last = false)
+                runFrame(e, w, st, b, wq.copy(substeps = maxOf(1, wq.substeps - first)), last)
                 return
             }
         }

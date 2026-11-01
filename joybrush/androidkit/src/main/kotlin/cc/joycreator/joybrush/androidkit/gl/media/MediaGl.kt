@@ -249,7 +249,14 @@ internal object MediaTex {
         val ids = IntArray(1)
         GLES30.glGenTextures(1, ids, 0)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, ids[0])
+        while (GLES30.glGetError() != GLES30.GL_NO_ERROR) Unit   // what an earlier pass left is not this allocation's
         GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D, 0, internal, w, h, 0, format, type, data)
+        val error = GLES30.glGetError()
+        if (error != GLES30.GL_NO_ERROR) {
+            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
+            GLES30.glDeleteTextures(1, ids, 0)
+            throw IllegalStateException("The phone has no graphics memory for this paint (GL error $error)")
+        }
         GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, filter)
         GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, filter)
         GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE)

@@ -6202,7 +6202,6 @@ class GlPaintEngine(
         invalidateProjection(layer)
         GLES30.glBindVertexArray(0)
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
-        releaseStrokeTiles()
         wcPass?.clearStroke(); wcSpec=null; wcPrepared=false; wcFading=false
         strokeLayer = null
         strokePlan = null
@@ -6216,6 +6215,9 @@ class GlPaintEngine(
                 lines = items.lines, slabs = items.slabs))
         }
         pendingLine = null
+        // After the history: the paint is in, so a failed cleanup must not read as a failed stroke, or the next undo takes
+        // the action before it.
+        try { releaseStrokeTiles() } catch (e: RuntimeException) { android.util.Log.e("JoyBrushTiles", "a stroke's tiles were not all let go", e) }
         collectPaperTextures()
         return changes.size
     }
@@ -7200,9 +7202,9 @@ class GlPaintEngine(
             val t = IntArray(1)
             GLES30.glGenTextures(1, t, 0)
             GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, t[0])
+            while (GLES30.glGetError() != GLES30.GL_NO_ERROR) Unit   // what an earlier pass left is not this allocation's
             GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D, 0, GLES30.GL_RGBA16F, size, size, 0, GLES30.GL_RGBA, GLES30.GL_HALF_FLOAT, null)
-            val error = GLES30.glGetError()
-            if (error != GLES30.GL_NO_ERROR) android.util.Log.e("JoyBrushTiles", "float tile ${t[0]}: GL error $error")
+            refuseFailedStorage(t, "float tile")
             GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_NEAREST)
             GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_NEAREST)
             GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE)
@@ -7626,6 +7628,16 @@ class GlPaintEngine(
         }
     }
 
+    /** A texture whose storage failed never becomes a tile: it would draw black and could not be read. */
+    private fun refuseFailedStorage(name: IntArray, what: String) {
+        val error = GLES30.glGetError()
+        if (error == GLES30.GL_NO_ERROR) return
+        android.util.Log.e("JoyBrushTiles", "texture ${name[0]} $what: GL error $error")
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
+        GLES30.glDeleteTextures(1, name, 0)
+        throw IllegalStateException("The phone has no graphics memory for this stroke (GL error $error)")
+    }
+
     private fun newTexture(dim: Int, internal: Int, format: Int, type: Int): Int = newTexture(dim, dim, internal, format, type)
 
     private fun newTexture(w: Int, h: Int, internal: Int, format: Int, type: Int): Int {
@@ -7633,9 +7645,9 @@ class GlPaintEngine(
         val t = IntArray(1)
         GLES30.glGenTextures(1, t, 0)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, t[0])
+        while (GLES30.glGetError() != GLES30.GL_NO_ERROR) Unit   // what an earlier pass left is not this allocation's
         GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D, 0, internal, w, h, 0, format, type, null)
-        val error = GLES30.glGetError()
-        if (error != GLES30.GL_NO_ERROR) android.util.Log.e("JoyBrushTiles", "texture ${t[0]} ${w}x$h: GL error $error")
+        refuseFailedStorage(t, "${w}x$h")
         GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_LINEAR)
         GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_LINEAR)
         GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE)

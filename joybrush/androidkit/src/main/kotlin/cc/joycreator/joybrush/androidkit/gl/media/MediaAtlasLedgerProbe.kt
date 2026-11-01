@@ -56,12 +56,14 @@ internal object MediaAtlasLedgerProbe {
             val blankOnly = all.count { roomy.tiles[it] != squeezed.tiles[it] } - differ.size
             report.put("differingTiles", differ.size).put("blankVsAbsentTiles", blankOnly)
                 .put("firstDiffering", differ.take(12).joinToString(" ") { k -> k + " " + (roomy.tiles[k] ?: "absent").take(8) + "/" + (squeezed.tiles[k] ?: "absent").take(8) })
-            val control = (roomy.tiles.keys + again.tiles.keys).count { (roomy.tiles[it] ?: ZERO) != (again.tiles[it] ?: ZERO) }
-            report.put("roomyAgainDiffering", control).put("differingByStore", JSONObject(differ.groupingBy { it.substringBefore(' ') }.eachCount()))
+            val noisy = (roomy.tiles.keys + again.tiles.keys).filter { (roomy.tiles[it] ?: ZERO) != (again.tiles[it] ?: ZERO) }.toSet()
+            val unexplained = differ.filter { it !in noisy }
+            report.put("roomyAgainDiffering", noisy.size).put("differingByStore", JSONObject(differ.groupingBy { it.substringBefore(' ') }.eachCount()))
+                .put("unexplainedDiffering", unexplained.size).put("firstUnexplained", unexplained.take(12).joinToString(" "))
             val glError = GLES30.glGetError()
             report.put("glError", glError)
             val painted = roomy.tiles.keys.count { it.startsWith("look ") }
-            report.put("pass", roomy.refused == null && squeezed.refused == null && (differ.isEmpty() || control > 0) && painted >= 12 &&
+            report.put("pass", roomy.refused == null && squeezed.refused == null && unexplained.isEmpty() && painted >= 12 &&
                 squeezed.evictions > 0 && (!squeezed.wet || squeezed.parked > 0) && roomy.frames == squeezed.frames && glError == GLES30.GL_NO_ERROR)
         } catch (e: Throwable) {
             report.put("pass", false).put("error", e.toString()).put("at", e.stackTrace.take(8).joinToString(" < ") { "${it.fileName}:${it.lineNumber}" })

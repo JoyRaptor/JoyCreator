@@ -295,6 +295,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         asleep = false
     }
 
+    private var released = false
+
     /** True while the window's textures are released ([sleep]); the programs and the brush cells stay. */
     var asleep = false; private set
 
@@ -1884,7 +1886,9 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
             val e = emptyTex()
             val ru = progRender.use()
             common(ru); MediaUniforms.paper(ru, paper)
-            MediaUniforms.render(ru, state[0].p0, state[0].p1, state[0].paper, groundTex, bakeT, w0T, w1T, w, h, originX, originY, scale,
+            // The last finished step, as the water's half is: a running job is overwriting the other half part by part.
+            val shown = finishedPaint()
+            MediaUniforms.render(ru, shown.p0, shown.p1, state[0].paper, groundTex, bakeT, w0T, w1T, w, h, originX, originY, scale,
                 pxPerMm, paper.stats.toothMm, look)
             // The brush input not yet in the water (a water job is running, or this frame's dabs wait for the next one).
             val pending = ws != null && inputPending
@@ -1984,17 +1988,23 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     }
 
     fun release() {
+        if (released) return
+        released = true
         dropJob()   // everything goes; what was worth keeping was written back before (a write-back finishes the job)
         releasePrograms()
         val tex = ArrayList<Int>()
-        for (s in state) tex += listOf(s.p0, s.p1, s.paper)
+        // Asleep, [sleep] already deleted these. Their names are free for anyone: a stroke's new tile can hold one by now, and
+        // deleting it again took that tile's memory while the layer kept the name (a tile that draws black; the owner's four
+        // tiles of 2026-10-31 read back exactly that way: a texture name with no storage).
+        val own = if (asleep) emptyList() else state.toList()
+        for (s in own) tex += listOf(s.p0, s.p1, s.paper)
         for (b in brush) tex += listOf(b.b0, b.b1)
         tex += pasteNoise
         wet?.forEach { tex += listOf(it.w0, it.w1, it.flux) }
         tex += listOf(delta, bakeTex, fluidBake, waterBake, run, lutTex, lookTex, groundTex, empty, actTex, mid0, mid1, terrain) + bead.toList() + inTex.toList()
         tex.filter { it != 0 }.toIntArray().let { if (it.isNotEmpty()) MediaTex.deleteTex(*it) }
         val fbos = ArrayList<Int>()
-        for (s in state) fbos += s.fbo
+        for (s in own) fbos += s.fbo
         for (b in brush) fbos += b.fbo
         fbos += listOf(pFbo0, pFbo1, deltaFbo, bakeFbo, lookFbo, groundFbo, readFbo, drawFbo, actFbo, terrainFbo) + inFbos.toList() + beadFbo.toList() + fluxFbo.toList() +
             updFbo.toList() + wetCopyFbo.toList() + eraseWetFbo.toList()

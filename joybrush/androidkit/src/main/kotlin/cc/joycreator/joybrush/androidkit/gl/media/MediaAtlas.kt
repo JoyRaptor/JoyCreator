@@ -201,6 +201,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
             keys += tilesOf(n.rect, n.reach)
             if (n.input && n.lookRect != null && media.waterBudget.isFinite()) frameInput += n.lookRect else frameDirty += n.rect
             box = union(box, n.rect)
+            if (n.input) wetSinceQuery += tilesOf(n.rect, 0)
             if (n.input) water.touched(intArrayOf(floor(n.rect[0]).toInt(), floor(n.rect[1]).toInt(), ceil(n.rect[2]).toInt(), ceil(n.rect[3]).toInt()), now)
         }
         // The look at the frame's end ([writeLook]): the dirty area (inside these rects), its halo, whole pixels, its reach.
@@ -319,15 +320,20 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         if (++framesSinceQuery >= QUERY_FRAMES && querySlots == null && media.requestWaterActivity()) {
             querySlots = resident().entries.associate { (k, s) -> s to k }
             framesSinceQuery = 0
+            wetSinceQuery.clear()
         }
     }
+
+    /** Tiles brush water landed on since the running measurement began. */
+    private val wetSinceQuery = HashSet<Long>()
 
     private fun applyActivity(a: FloatArray, at: Map<Int, Long>) {
         val now = nowMs()
         val perRow = media.textureWidth / 16   // the measurement's rows: one value per 16 px of the atlas's width
         val minMm = WET_MIN_MM
         for ((slot, key) in at) {
-            if (slots.resident(page(key))?.slot != slot) continue
+            // Painted since the measurement was taken: it says nothing of the water there now, and a stale DRY drops water stores.
+            if (slots.resident(page(key))?.slot != slot || key in wetSinceQuery) continue
             val (ax, ay) = media.slotTexel(slot)
             var mw = 0f; var ms = 0f; var mf = 0f
             // Where the water is: the 16 px blocks holding any, as one rectangle (layer px).

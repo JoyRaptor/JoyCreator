@@ -23,7 +23,9 @@ internal class MediaWaterPark(private val wf: Int, private val maxUnits: Int, pr
 
     /** A free unit, making a chunk when none is left; null when [maxUnits] are made and in use. */
     fun take(): Int? {
-        if (free.isEmpty() && capacity + perChunk <= maxUnits) grow()
+        if (free.isEmpty() && capacity + perChunk <= maxUnits) {
+            try { grow() } catch (x: IllegalStateException) { android.util.Log.e("JoyBrushTiles", "the water park could not grow: ${x.message}") }
+        }
         return free.removeFirstOrNull()
     }
 
@@ -43,15 +45,21 @@ internal class MediaWaterPark(private val wf: Int, private val maxUnits: Int, pr
 
     private fun grow() {
         val w = cols * MediaAtlasDraw.SIDE; val h = rows * MediaAtlasDraw.SIDE
-        chunks += IntArray(WaterParkPlan.Plane.entries.size) { i ->
-            val p = WaterParkPlan.Plane.entries[i]
-            val pw = if (p.water) w / wf else w; val ph = if (p.water) h / wf else h
-            when (p) {
-                WaterParkPlan.Plane.FLUX -> MediaTex.make(pw, ph)
-                WaterParkPlan.Plane.RUN -> MediaTex.make(pw, ph, GLES30.GL_RG16F, GLES30.GL_RG, GLES30.GL_HALF_FLOAT)
-                else -> MediaTex.full(pw, ph)
+        val made = ArrayList<Int>()
+        try {
+            for (p in WaterParkPlan.Plane.entries) {
+                val pw = if (p.water) w / wf else w; val ph = if (p.water) h / wf else h
+                made += when (p) {
+                    WaterParkPlan.Plane.FLUX -> MediaTex.make(pw, ph)
+                    WaterParkPlan.Plane.RUN -> MediaTex.make(pw, ph, GLES30.GL_RG16F, GLES30.GL_RG, GLES30.GL_HALF_FLOAT)
+                    else -> MediaTex.full(pw, ph)
+                }
             }
+        } catch (x: IllegalStateException) {
+            if (made.isNotEmpty()) MediaTex.deleteTex(*made.toIntArray())   // no half a chunk
+            throw x
         }
+        chunks += made.toIntArray()
         val first = (chunks.size - 1) * perChunk
         for (u in first until first + perChunk) free.addLast(u)
     }

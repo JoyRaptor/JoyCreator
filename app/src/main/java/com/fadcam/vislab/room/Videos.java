@@ -17,8 +17,9 @@ import java.util.Map;
 
 /**
  * Moving pictures for a look's picture layers (roadmap R12): a video's frame at a moment, from
- * Studio's own forward decoder ({@link SequentialFrameReader}: one linear decode per video, no
- * seek per frame). A jump back (a loop, a scrub) starts that video's decode again.
+ * Studio's own forward decoder ({@link SequentialFrameReader}: linear decoding, no seek per
+ * frame). A jump back (a loop, a scrub) starts a fresh decode; layers playing one video at
+ * different moments each keep theirs ({@link VideoHeads}).
  *
  * <p>Not thread-safe on its own: one per renderer, used on its GL thread (or under the caller's
  * lock). Frames are BORROWED: valid until the next call for the same video.</p>
@@ -39,11 +40,25 @@ public final class Videos {
     private final Map<String, Boolean> kinds = new HashMap<>();
 
     private static final class Entry {
-        @Nullable SequentialFrameReader reader;
+        final VideoHeads<SequentialFrameReader> heads;
         long durationUs = -1;
-        long lastUs = Long.MIN_VALUE;
         long usedAt;
         int fails;
+
+        Entry(@NonNull Context app, @NonNull String ref) {
+            heads = new VideoHeads<>(new VideoHeads.Readers<SequentialFrameReader>() {
+                @NonNull
+                @Override
+                public SequentialFrameReader open() {
+                    return new SequentialFrameReader(app, Uri.parse(ref));
+                }
+
+                @Override
+                public void close(@NonNull SequentialFrameReader reader) {
+                    reader.release();
+                }
+            });
+        }
     }
 
     public Videos(@NonNull Context c) {
@@ -83,7 +98,7 @@ public final class Videos {
     public Bitmap frame(@NonNull String ref, double seconds, boolean loop) {
         Entry e = videos.get(ref);
         if (e == null) {
-            e = new Entry();
+            e = new Entry(app, ref);
             videos.put(ref, e);
         }
         e.usedAt = android.os.SystemClock.uptimeMillis();
@@ -93,18 +108,11 @@ public final class Videos {
         if (e.durationUs > 0) {
             us = loop ? us % e.durationUs : Math.min(us, Math.max(0, e.durationUs - 1000));
         }
-        if (e.reader != null && e.lastUs != Long.MIN_VALUE && us < e.lastUs) {
-            // Back to the start (a loop) or a jump back: a fresh forward decode.
-            e.reader.release();
-            e.reader = null;
-        }
-        if (e.reader == null) e.reader = new SequentialFrameReader(app, Uri.parse(ref));
-        e.lastUs = us;
-        Bitmap b = e.reader.frameAt(us, MAX, MAX);
+        SequentialFrameReader reader = e.heads.readerFor(us);
+        Bitmap b = reader.frameAt(us, MAX, MAX);
         if (b == null) {
             e.fails++;
-            e.reader.release();
-            e.reader = null;
+            e.heads.drop(reader);
             Log.w(TAG, "no frame at " + us + " us of " + ref);
         }
         letGoOfIdle(e);
@@ -133,14 +141,14 @@ public final class Videos {
         while (i.hasNext()) {
             Entry e = i.next().getValue();
             if (e == keep || now - e.usedAt < IDLE_MS) continue;
-            if (e.reader != null) e.reader.release();
+            e.heads.closeAll();
             i.remove();
         }
     }
 
     /** Let go of every decoder. */
     public void release() {
-        for (Entry e : videos.values()) if (e.reader != null) e.reader.release();
+        for (Entry e : videos.values()) e.heads.closeAll();
         videos.clear();
     }
 }

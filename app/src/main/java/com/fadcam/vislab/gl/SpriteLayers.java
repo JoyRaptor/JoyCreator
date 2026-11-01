@@ -45,10 +45,10 @@ final class SpriteLayers {
     private final IdentityHashMap<Object, Slot> slots = new IdentityHashMap<>();
     private final Frame frame = new Frame();
 
-    /** The frame layer {@code L} shows now; its clock steps by {@code dt}. */
+    /** The frame layer {@code L} shows at {@code time} of the look's clock. */
     @NonNull
     Frame frame(@NonNull CompiledScene.Layer L, @Nullable VisRenderer.SpriteSource src,
-                @NonNull Features f, double dt) {
+                @NonNull Features f, double time, @Nullable VisRenderer.HitCounter hits) {
         Slot s = slots.get(L.source);
         if (s == null) {
             s = new Slot();
@@ -69,8 +69,12 @@ final class SpriteLayers {
         VisType t = L.type;
         int mode = Math.round(L.knobs.value(t, "play", SpriteClock.OWN_SPEED));
         boolean bounce = a.pingpong || L.knobs.value(t, "bounce", 0f) > 0.5f;
+        int speed = t.indexOf("speed");
+        s.clock.setSteadySpeed(speed >= 0 && L.knobs.hasMods(speed) ? L.knobs.base(speed) : Float.NaN);
+        boolean counted = hits != null && (mode == SpriteClock.PER_BEAT || mode == SpriteClock.PER_KICK);
+        s.clock.setCounts(counted ? hits.beats() : -1, counted ? hits.kicks() : -1);
         int at = s.clock.step(mode, a.order.length, bounce, a.fps, L.knobs.value(t, "speed", 1f),
-                L.knobs.value(t, "frame", 0f), dt, f.beatPhase, f.shockAge(0), f.level);
+                L.knobs.value(t, "frame", 0f), time, f.beatPhase, f.shockAge(0), f.level);
         a.rect(a.order[Math.max(0, Math.min(a.order.length - 1, at))], frame.rect);
         frame.aspect = a.aspect();
         return frame;

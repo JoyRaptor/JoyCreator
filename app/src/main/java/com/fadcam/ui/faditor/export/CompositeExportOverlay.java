@@ -288,6 +288,8 @@ public class CompositeExportOverlay extends BitmapOverlay {
          *  -> file text; its look keys pick one per frame) and the source they hear. Null = the
          *  classic style only. Filled by the slot builder. */
         @Nullable public java.util.Map<String, String> visLooks;
+        /** True once this export is cancelled: stops the wait for a look's frame. */
+        @Nullable public java.util.function.BooleanSupplier visCancelled;
         @Nullable public android.net.Uri visUri;
         /** The source's transcript words for a lyrics look (S5), as they were at export start. */
         @Nullable public com.fadcam.vislab.studio.StudioWords visWords;
@@ -863,7 +865,7 @@ public class CompositeExportOverlay extends BitmapOverlay {
 
     @NonNull
     @Override
-    public Bitmap getBitmap(long presentationTimeUs) {
+    public Bitmap getBitmap(long presentationTimeUs) throws VideoFrameProcessingException {
         long drawStartNs = System.nanoTime();
         if (bitmap == null || bitmap.isRecycled()) {
             bitmap = Bitmap.createBitmap(Math.max(1, outW), Math.max(1, outH), Bitmap.Config.ARGB_8888);
@@ -985,12 +987,13 @@ public class CompositeExportOverlay extends BitmapOverlay {
             if (visJson != null) {
                 // A VisLab look: the renderer the preview used (StudioVis, its own GL thread),
                 // at this frame, with the item's keyframable Reactivity and Fade. Null (no ES 3,
-                // a broken look) = the classic style below, at its own strength.
+                // a look that never drew) = the classic style below, at its own strength. A look
+                // that stops drawing part way throws and fails the export: see the catch below.
                 wfBmp = com.fadcam.vislab.studio.StudioVis.get(context).renderBlocking(
                         com.fadcam.vislab.studio.StudioVis.exportKey(ws.instance.getId()),
                         visJson, ws.visUri, wsMs, timelineMs, sw, sh,
                         com.fadcam.vislab.studio.VisControls.at(ws.instance, timelineMs,
-                                (float) outW / Math.max(1, outH)), ws.visWords);
+                                (float) outW / Math.max(1, outH)), ws.visWords, ws.visCancelled);
                 if (wfBmp != null) visFade = ws.instance.visFadeAt(timelineMs);
             }
             if (wfBmp == null && ws.data.bucketCount() > 0) wfBmp = waveRenderer.render(ws.data, ws.style,
@@ -1043,6 +1046,11 @@ public class CompositeExportOverlay extends BitmapOverlay {
             canvas.restore();
             wfBmp.recycle();
         }
+        } catch (com.fadcam.vislab.studio.StudioVis.LookFailed e) {
+            // Unlike the rest of this block, not skippable: the export would report success with
+            // frames missing their look or wearing the classic style in its place.
+            canvas.restoreToCount(waveformSaveCount);
+            throw new VideoFrameProcessingException(e);
         } catch (Throwable t) {
             canvas.restoreToCount(waveformSaveCount);
             if (!loggedWaveformDrawError) {

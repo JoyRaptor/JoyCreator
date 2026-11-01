@@ -42,6 +42,7 @@ public final class StudioVisExport {
         if (sounds == null) return false;   // no VisLab look on any visualizer
         if (!VisLabSession.get(c).isLoaded()) return true;
         for (Uri u : sounds) if (!PcmSidecar.isBaked(c, u)) return true;
+        for (Uri u : countedSounds(c, t)) if (!SoundHits.ready(u)) return true;
         return false;
     }
 
@@ -69,6 +70,27 @@ public final class StudioVisExport {
             });
             await(done, BAKE_WAIT_MS, "the sound of " + u.getLastPathSegment());
         }
+        // A sprite playing to the beat lands on the frame the preview showed from the first frame.
+        for (Uri u : countedSounds(c, t)) SoundHits.await(c, u, BAKE_WAIT_MS);
+    }
+
+    /** The sources of visualizers whose look has a sprite playing a frame per beat or kick. */
+    @NonNull
+    private static List<Uri> countedSounds(@NonNull Context c, @NonNull Timeline t) {
+        List<Uri> out = new ArrayList<>();
+        VisLabSession session = VisLabSession.get(c);
+        for (WaveformOverlayInstance o : LayerPreviewController.visibleWaveformOverlays(t)) {
+            if (!o.usesVisLab()) continue;
+            Uri u = sourceUri(t, o.getAudioSourceRef());
+            if (u == null || out.contains(u)) continue;
+            for (String id : o.getVisKeys().lookIds(o.getVisLook())) {
+                if (SoundHits.wantedBy(session.lookJson(id))) {
+                    out.add(u);
+                    break;
+                }
+            }
+        }
+        return out;
     }
 
     /** The source a visualizer hears, by clip id (a video clip or an audio clip), or null. */

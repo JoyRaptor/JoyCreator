@@ -80,6 +80,13 @@ public final class VisRenderer {
         @Nullable SpriteAtlas atlas(@Nullable com.google.gson.JsonObject sheet, @NonNull String clip);
     }
 
+    /** Exact counts of the sound's beats and kicks at this moment, -1 where not known yet. */
+    public interface HitCounter {
+        long beats();
+
+        long kicks();
+    }
+
     private final ShaderLib lib;
     private final VisTypes types;
 
@@ -117,12 +124,12 @@ public final class VisRenderer {
     @Nullable private GpuTimer gpu;
     private volatile ImageSource images;
     private volatile SpriteSource spriteSource;
+    @Nullable private volatile HitCounter hitCounter;
     @Nullable private volatile float[] layerFollow;
     @Nullable private volatile String[] layerImages;
     private final SpriteLayers sprites = new SpriteLayers();
-    /** This frame's sound and step, for layers that keep time on the CPU (sprites). */
+    /** This frame's sound, for layers that keep time on the CPU (sprites). */
     private Features frameF = new Features();
-    private double frameDt;
     private volatile boolean resetRequested;
 
     // ---- GL state ----
@@ -206,6 +213,11 @@ public final class VisRenderer {
         lookHue = hue;
         lookSize = Math.max(0.05f, size);
         lookSpeed = Math.max(0f, speed);
+    }
+
+    /** Where Sprite layers read the sound's beats and kicks (Studio); null = count as they land. */
+    public void setHitCounter(@Nullable HitCounter c) {
+        hitCounter = c;
     }
 
     /**
@@ -540,7 +552,6 @@ public final class VisRenderer {
         double dt = Math.max(0, Math.min(0.25, dtSec));
         time = timeSec;
         frameF = f;
-        frameDt = dt;
         signals.set(f, time);
         uploadTextures(f);
         GLES30.glBindVertexArray(vao);
@@ -836,7 +847,7 @@ public final class VisRenderer {
             GLES30.glUniform1f(p.u("uImageAspect"), img[2] > 0 ? (float) img[1] / img[2] : 1f);
             drawFullscreen();
         } else if (VisType.DRAW_SPRITE.equals(draw)) {
-            SpriteLayers.Frame fr = sprites.frame(L, spriteSource, frameF, frameDt);
+            SpriteLayers.Frame fr = sprites.frame(L, spriteSource, frameF, time, hitCounter);
             GlProgram p = program("fullscreen.vert", t.frag);
             int unit = useDrawn(p, L, px, drawOpacity);
             tex(p, "uSheet", fr.tex, unit);

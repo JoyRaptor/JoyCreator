@@ -41,6 +41,8 @@ final class OffscreenGl {
     private int fbo, rbo, fbW, fbH;
     @Nullable private ByteBuffer pixels;
     @Nullable private byte[] row, row2;
+    /** Time spent in {@link #readInto}, nanoseconds: GPU wait, read-back, row flip, into Bitmap. */
+    long finishNs, readNs, flipNs, copyNs;
 
     OffscreenGl() {
         thread.start();
@@ -118,7 +120,11 @@ final class OffscreenGl {
         if (px == null || out.getWidth() != w || out.getHeight() != h) return;
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo);
         px.clear();
+        long t0 = System.nanoTime();
+        GLES30.glFinish();
+        long t1 = System.nanoTime();
         GLES30.glReadPixels(0, 0, w, h, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, px);
+        long t2 = System.nanoTime();
         // GL rows run bottom-up; a Bitmap's run top-down.
         int stride = w * 4;
         for (int y = 0; y < h / 2; y++) {
@@ -132,7 +138,13 @@ final class OffscreenGl {
             px.position(b);
             px.put(row, 0, stride);
         }
+        long t3 = System.nanoTime();
         px.position(0);
         out.copyPixelsFromBuffer(px);
+        long t4 = System.nanoTime();
+        finishNs += t1 - t0;
+        readNs += t2 - t1;
+        flipNs += t3 - t2;
+        copyNs += t4 - t3;
     }
 }

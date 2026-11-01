@@ -236,7 +236,7 @@ class MediaGoldenTest {
 
     @Test fun pasteStrokes() {
         val ps = obj("pasteStrokes")
-        for (name in PasteBrushes.ALL.keys) compareSteps(ps[name]!!, runPaste(PasteStroke(PasteBrushes.ALL[name]!!.copy(bladeEaseMm = 0.0, turns = TurnMode.SWING), 20.0), "s30"), name)
+        for (name in PasteBrushes.ALL.keys) compareSteps(ps[name]!!, runPaste(PasteStroke(PasteBrushes.ALL[name]!!.copy(bladeEaseMm = 0.0, turns = TurnMode.SWING, force = 0.0), 20.0), "s30"), name)
         val k2 = PasteBrushes.ALL["Palette knife 2"]!!.copy(bladeEaseMm = 0.0)
         for (edge in EdgeMode.entries) for (press in PressMode.entries) for (face in FaceMode.entries)
             compareSteps(ps["Palette knife 2|${edge.id}|${press.id}|${face.id}"]!!,

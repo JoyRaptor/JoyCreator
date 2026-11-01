@@ -114,13 +114,13 @@ object PasteBrushes {
             thinMm = 0.04, scrape = 0.4, hairDepth = 0.2, ridge = 0.25, rate = 2.4, mix = 0.12, swap = 0.5, loadLenMm = 160.0,
             wick = 0.003, bow = 0.35, lump = 0.08, rigid = 0.0, fingers = 0.0, rag = 0.35),
         "Oil flat" to PasteBrush(shape = 1, widthMm = 7.0, lenMm = 6.0, thickMm = 0.6, scrape = 0.5, hairDepth = 0.4, ridge = 0.5,
-            rate = 2.5, mix = 0.12, swap = 0.7, loadLenMm = 140.0, wick = 0.003, bow = 0.6, lump = 0.2, rigid = 0.0, fingers = 1.0),
+            rate = 2.5, mix = 0.12, swap = 0.7, loadLenMm = 140.0, wick = 0.003, bow = 0.6, lump = 0.2, rigid = 0.0, fingers = 1.0, force = 0.7),
         "Oil round" to PasteBrush(shape = 0, widthMm = 4.5, lenMm = 7.0, thickMm = 0.5, scrape = 0.5, hairDepth = 0.35, ridge = 0.35,
             rate = 2.2, mix = 0.12, swap = 0.6, loadLenMm = 120.0, wick = 0.003, bow = 0.5, lump = 0.12, rigid = 0.0, fingers = 0.4),
         // A fan: hair tips on an arc, spread apart; it feathers and blends rather than lays paint.
         "Fan blender" to PasteBrush(shape = 1, widthMm = 14.0, lenMm = 2.5, thickMm = 0.1, scrape = 0.3, hairDepth = 0.95, ridge = 0.0,
             rate = 1.2, mix = 0.45, swap = 0.3, loadLenMm = 60.0, wick = 0.002, bow = 0.1, lump = 0.0, rigid = 0.0, fingers = 0.5,
-            arc = 0.55, sparse = 0.6),
+            arc = 0.55, sparse = 0.6, force = 0.7),
         // The trowel knife of v6/v7, back by the owner's request (2026-10-07: "the old one had excellent texture").
         "Palette knife 1" to PasteBrush(shape = 2, trowel = true, widthMm = 9.0, lenMm = 13.0, thickMm = 1.1, scrape = 0.99,
             hairDepth = 0.0, ridge = 1.0, rate = 4.0, mix = 0.2, swap = 0.5, loadLenMm = 70.0, wick = 0.0, bow = 0.9, lump = 0.25,
@@ -293,7 +293,8 @@ class PasteStroke(
         if (stepped || now - lastStepT >= 16) lastStepT = now
     }
 
-    private fun reachWidth() = if (brush.blade) 2 * half else brush.widthMm
+    // The stretch a burst of hops can take without showing: a thin brush shows its corners as fins however wide it is (the fan).
+    private fun reachWidth() = if (brush.blade) 2 * half else min(brush.widthMm, 2 * brush.lenMm)
 
     /** The line the hairs lie along turns to ([nx], [ny]) over [mm] of travel. */
     private fun steer(nx: Double, ny: Double, mm: Double) {

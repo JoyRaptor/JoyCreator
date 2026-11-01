@@ -2,6 +2,7 @@ package cc.joycreator.joybrush.androidkit.gl.media
 
 import android.opengl.GLES30
 import cc.joycreator.joybrush.androidkit.gl.GlPaintEngine
+import cc.joycreator.joybrush.androidkit.gl.MediaRoomException
 import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.doc.Paper
 import cc.joycreator.joybrush.core.media.MediaSample
@@ -32,12 +33,15 @@ internal object MediaFailureProbe {
                 // The old way must show the hole, or this probe proves nothing.
                 if (r.getInt("lostPixels") * 200 > r.getInt("laidPixels") != !keep) pass = false
             }
+            val full = run(paper, preset, memory, keepPaint = true, roomRunsOut = true)
+            o.put("roomRanOut", full)
+            if (full.getInt("lostPixels") * 200 > full.getInt("laidPixels") || full.getInt("refused") == 0) pass = false
         } finally { MediaAtlasGl.enabled = atlasBefore }
         val glError = GLES30.glGetError()
         return o.put("glError", glError).put("pass", pass && glError == GLES30.GL_NO_ERROR).toString()
     }
 
-    private fun run(paper: Paper, preset: BrushPreset, memory: () -> Pair<Long, Long>, keepPaint: Boolean): JSONObject {
+    private fun run(paper: Paper, preset: BrushPreset, memory: () -> Pair<Long, Long>, keepPaint: Boolean, roomRunsOut: Boolean = false): JSONObject {
         val engine = GlPaintEngine()
         val canvas = MediaCanvas(engine, memory)
         try {
@@ -47,6 +51,7 @@ internal object MediaFailureProbe {
             engine.setDocumentPaper(paper)
             engine.addLayer(LAYER)
             var now = 1_000L
+            var refused = 0
             fun line(x0: Double, y0: Double, x1: Double, y1: Double, colour: Int, fail: Boolean) {
                 val n = 80
                 val pts = List(n) { k -> val t = k / (n - 1.0); MediaSample(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, 0.7, 0.6, 0.4, k * 8.0) }
@@ -54,8 +59,17 @@ internal object MediaFailureProbe {
                 val chunks = pts.chunked(SAMPLES_PER_FRAME)
                 for ((i, chunk) in chunks.withIndex()) {
                     canvas.addSamples(chunk); now += FRAME_MS
-                    canvas.failNextFrame = fail && i == chunks.lastIndex - 2
-                    try { canvas.frame(now) } catch (e: RuntimeException) {
+                    canvas.failNextFrame = fail && !roomRunsOut && i == chunks.lastIndex - 2
+                    // The drawing's room runs out half way down the line, two tiles' worth past what it holds.
+                    if (fail && roomRunsOut && i == chunks.size / 2) engine.mediaBudgetBytes = engine.mediaResidentBytes() + (2L shl 20)
+                    try { canvas.frame(now) } catch (e: MediaRoomException) {
+                        // As JbCanvasView.drawFrame: the stroke ends, the engine stays.
+                        refused++
+                        canvas.dropStroke()
+                        engine.endMediaStroke()
+                        engine.mediaBudgetBytes = Long.MAX_VALUE
+                        return
+                    } catch (e: RuntimeException) {
                         canvas.failNextFrame = false
                         // As JbCanvasView.drawFrame; the old way only closed the step and released.
                         if (keepPaint) canvas.dropStroke()
@@ -74,7 +88,7 @@ internal object MediaFailureProbe {
             val later = coverage(engine)
             val laid = after.values.sumOf { b -> b.count { it } }
             val lost = after.entries.sumOf { (k, b) -> val c = later[k]; b.indices.count { b[it] && (c == null || !c[it]) } }
-            return JSONObject().put("laidPixels", laid).put("lostPixels", lost)
+            return JSONObject().put("laidPixels", laid).put("lostPixels", lost).put("refused", refused)
         } finally {
             runCatching { canvas.release() }
             if (engine.ready) runCatching { engine.release() }

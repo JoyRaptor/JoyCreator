@@ -56,3 +56,14 @@ Fixed: a failed frame ends the stroke through the same flush as a refused one, t
 **The cul-de-sac.** At a sharp turn the whole body swung round the pen point, sweeping the outside of the corner. `PasteTrail` keeps the pen's path; a hair brush or trowel lies from the pen to the point one body-length back along it, so the tail stays on the path. Round a corner the body cuts the inside; doubling back the ends meet and it turns about its middle, shortening as it goes. `FOLLOW_SLACK` 1.1 stops a hand's wobble making it breathe. Blades keep their own steering. `Sharp turns` in a brush's settings keeps the old swing (`PasteBrush.turns`, bench `jb_paste_turns`). Note 9 `turns` stroke, before and after: `evidence/media-speed-20261031/turns-swing-vs-fold.jpg`. The fan is wider than long, so it has no body to swing and gains little.
 
 After both: 14 scribble runs, no failed frame; Oil round 256 px second stroke 43 ms, 60 media frames (was 74 ms, 45). `mediaAtlasProbe`, `mediaUndoProbe`, `mediaFailureProbe` pass.
+
+## Second session of the owner's testing, 2026-10-31 evening
+
+The turns look right to him. A long stroke then dropped a square. The log held two faults:
+
+- 16:29:40 `Board tile copy failed`, from `reserveStores` through `writableMediaTiles`, copying a tile on first touch. The failed-frame path kept the paint, so the stroke ended but nothing was lost. The real cause is still open: the old check could not tell a lost source tile from an error another pass left behind. The copy now clears and logs an earlier error, names the source and target status when it does fail, and a lost source tile starts blank (`JoyBrushTiles`). A tile retired twice is refused and logged with its stack, and texture 0 no longer enters a pool. Those were the suspects for the lost tiles: two tiles sharing one texture.
+- 16:30:48 the drawing's 315 MB room ran out and strokes were refused. `writeStores` dropped everything when one new tile did not fit, which left the same stale stores as the failed frame, and the next stroke cut boxes. Tiles that have stores now get their paint, a new tile keeps its look as plain pixels, and the refusal is still said. `mediaFailureProbe` room run: 0 of 172,898 pixels lost.
+
+Room: `MEDIA_RAM_SHARE` from 256 MB to 1 GB on a 6 GB phone (315 MB to about 1.2 GB on the Note 9). The old figure was about 7 by 7 cm of oil. Save time at that size is not measured.
+
+Oil flat and Fan blender ship with Leans at 0.7 (it was 0 on every brush, so which way the pen leaned did nothing). Round is unchanged. A burst's stretch is now measured from the smaller of a hair brush's width and twice its length: the fan's corners showed as fins in fast strokes at 280 px.

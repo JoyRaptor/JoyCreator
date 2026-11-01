@@ -144,6 +144,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
     override fun release() {
         if (layerId == null || staleDrawing()) return
         flush()
+        try { layerId?.let(::publishParked) } catch (x: MediaRoomException) { android.util.Log.w(TAG, "parked water not kept: ${x.message}") }
         for (r in slots.residents()) if (r.dirty) writeBackSlot(r.slot, r.page.tileKey)
         pinned.clear(); admitted = false; slots.clear(); borrowedBlockTiles.clear(); media.setResidency(emptyMap()); media.waterPaused = emptySet()
         unpark()   // the water sleeps from its stores (as before the park)
@@ -609,18 +610,75 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         // In a block step every tile the water owns carries the step's state; outside one, live water only.
         if (if (inBlocks) key !in waterDomainKeys else !water.holdsWater(key)) return
         val p = park ?: MediaWaterPark(media.waterCell, units).also { park = it; parkAdmission?.createdPark = it }
-        val unit = takeParkUnit(p) ?: run { android.util.Log.w(TAG, "water park full (${p.capacity} tiles): a running tile leaves through its stores"); return }
+        media.copyFailed()   // what an earlier pass left is not these copies'
+        val unit = takeParkUnit(p) ?: run {
+            android.util.Log.w(TAG, "water park full (${p.capacity} tiles): a running tile leaves through its stores")
+            keepNextInStores(slot, key)
+            return
+        }
         if (inBlocks) {
             // Inside the job (nothing may finish it): its current half, and its next half if its block has run this step.
             mediaTrace("JB.media.park.out") { media.parkHalf(slot, p, unit, next = false) }
             if (key in doneThisStep) {
-                val n = takeParkUnit(p) ?: run { giveParkUnit(p, unit); android.util.Log.w(TAG, "water park full mid-step"); return }
+                val n = takeParkUnit(p) ?: run {
+                    giveParkUnit(p, unit)
+                    android.util.Log.w(TAG, "water park full mid-step")
+                    keepNextInStores(slot, key)
+                    return
+                }
                 media.parkHalf(slot, p, n, next = true)
                 parkedNext.put(key, n)?.let { giveParkUnit(p, it) }
             }
         } else mediaTrace("JB.media.park.out") { media.parkSlot(key, slot, p, unit) }
+        if (media.copyFailed()) {
+            // The slot still holds the only true copy, so it does not go to the park: a tile left with a bad copy would be lost.
+            android.util.Log.e(TAG, "a tile's copy into the park failed: it leaves through its stores")
+            giveParkUnit(p, unit)
+            parkedNext.remove(key)?.let { giveParkUnit(p, it) }
+            keepNextInStores(slot, key)
+            return
+        }
         parked.put(key, unit)?.let { giveParkUnit(p, it) }
         parkedTotal++
+    }
+
+    /**
+     * A tile whose block has run this step, leaving with no room in the park: its stores take the half the step wrote. Written
+     * back as it was, its new state would be gone at the step's flip: a step of paint and water that had already run.
+     */
+    private fun keepNextInStores(slot: Int, key: Long) {
+        if (!media.waterInBlocks || key !in doneThisStep) return
+        val id = layerId ?: return
+        val stores = listOf("p0", "p1", "w0", "w1")
+        val targets = paint.writableMediaTiles(id, listOf(key), stores, plane)
+        val (ax, ay) = media.slotTexel(slot)
+        for (store in stores) media.writeNextStoreTile(store, targets.getValue(store).getValue(key), ax, ay)
+    }
+
+    /** Parked tiles a step has moved on since their stores were written. */
+    private val parkedMoved = HashSet<Long>()
+
+    /**
+     * What ran in the park reaches the stores: they, not the park, are what saving, undo and the next stroke read, and letting
+     * the park go dropped every step those tiles had run. Back in a slot, a tile goes out with the rest of the frame's writes.
+     */
+    private fun publishParked(id: String) {
+        val p = park
+        if (p == null || parkedMoved.isEmpty()) return
+        val away = parkedMoved.filter { key -> key in parked && slots.resident(page(key)) == null }
+        for (key in parkedMoved) slots.resident(page(key))?.let { r ->
+            slots.markDirty(r.page)
+            pendingRect = union(pendingRect, tileRect(key))
+            pendingStores.addAll(MediaStores.ALL)
+        }
+        parkedMoved.clear()
+        if (away.isEmpty()) return
+        val targets = try { paint.writableMediaTiles(id, away, MediaStores.ALL, plane) } catch (x: MediaRoomException) {
+            // No room for these: the looks stand instead of stores that are behind them, and the refusal is said as usual.
+            paint.distrustLooks(id, away, plane)
+            throw x
+        }
+        for (key in away) for (store in MediaStores.ALL) media.parkToStore(p, parked.getValue(key), store, targets.getValue(store).getValue(key))
     }
 
     /**
@@ -671,7 +729,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         override fun stepDone(k: Int) {
             val p = park
             dropBorrowedBlockTiles()
-            for ((t, u) in parkedNext) { val old = parked.put(t, u); if (old != null && p != null) p.give(old) }
+            for ((t, u) in parkedNext) { val old = parked.put(t, u); if (old != null && p != null) p.give(old); parkedMoved += t }
             parkedNext.clear(); doneThisStep.clear()
         }
         override fun jobDone() {
@@ -717,6 +775,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
     private fun unpark(keys: Collection<Long>? = null) {
         val p = park
         val drop = keys?.toList() ?: (parked.keys + parkedNext.keys + borrowedBlockTiles).toSet().toList()
+        parkedMoved.removeAll(drop.toSet())
         for (k in drop) {
             if (p != null) { parked.remove(k)?.let(p::give); parkedNext.remove(k)?.let(p::give) }
             if (k in borrowedBlockTiles) dropBorrowedBlockTile(k)
@@ -778,6 +837,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         if (media.wetActive) measureWater() else if (querySlots != null || framesSinceQuery != 0) resetWater()
         if (MediaAtlasDropDry.on && media.wetActive && !paint.mediaStrokeInProgress) dropDryWater(id)
         if (stores) {
+            publishParked(id)
             writeStores(id)
             // Water jobs: dabs the water had not taken in yet are not in what was just written; written in place once they
             // are (below), or before the next stroke starts ([payOwedStores]), so undo always has the whole stroke.

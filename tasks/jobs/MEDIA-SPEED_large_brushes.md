@@ -93,3 +93,24 @@ Full text: [CODEX_REVIEW_WAVE2_20261101.md](../joybrush/reviews/CODEX_REVIEW_WAV
 - E6 a stationary hold paints nothing: confirmed (`MediaSpline.add`).
 - E7 distant tiles fail the atlas table: confirmed; it throws, so it takes the failed-frame path.
 - E8 Library thumbnails fail on line drawings: confirmed in the Note 9 log.
+
+## Third review: engine and atlas, 2026-11-01
+
+Full text: [CODEX_REVIEW_WAVE3_20261101.md](../joybrush/reviews/CODEX_REVIEW_WAVE3_20261101.md). All ten read true against the source.
+
+| # | Finding | Result |
+|---|---|---|
+| T1 | A sleeping engine's freed names deleted again at release | Fixed; `mediaFailureProbe` sleepThenRelease checks real textures on the Note 9 |
+| T2 | Water steps that ran in the park never reached the stores | Fixed from the source (`publishParked`); no test can prove it yet |
+| T3 | A full park lost a step already run | Fixed from the source (`keepNextInStores`); not exercised |
+| T4 | Failed park storage or copy counted as kept | Fixed (`MediaTex.make` refuses, `copyFailed`, a chunk is all or nothing); failure not injected |
+| T5 | A tile whose storage failed was used anyway | Fixed (`refuseFailedStorage`); failure not injected |
+| T6 | Cleanup could throw before the stroke's undo step | Fixed: cleanup follows the undo step |
+| T7 | The look read a half being overwritten in odd water steps | Fixed: it reads `finishedPaint()` |
+| T8 | Oversized frames never split | Fixed; the two halves share the frame's water steps |
+| T9 | A dry measurement taken before new water marked it dry | Fixed (`wetSinceQuery`) |
+| T10 | Any noisy control excused every difference | Fixed: only the tiles the control differs on are excused, and a noisy control reports `inconclusive` |
+
+T1 is the strongest explanation yet for the four black tiles of 10-31: a deleted name that is bound again comes back as a texture with no storage, which is what jdb found on them. The sequence needs a release while the engine sleeps, so this is a strong fit and not proof. `Board tile copy failed` may be the same thing.
+
+`mediaAtlasLedgerProbe` with watercolour: 87 tiles differ between two roomy runs, so water has no exact answer and the probe is inconclusive. 18 tiles differ beyond those, before and after the park fix. Oil is exact: 0 tiles differ. Water parity needs a run with a fixed clock before T2 and T3 can be proved.

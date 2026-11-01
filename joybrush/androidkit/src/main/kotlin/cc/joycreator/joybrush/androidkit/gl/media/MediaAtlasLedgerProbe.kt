@@ -60,6 +60,8 @@ internal object MediaAtlasLedgerProbe {
             val unexplained = differ.filter { it !in noisy }
             report.put("roomyAgainDiffering", noisy.size).put("differingByStore", JSONObject(differ.groupingBy { it.substringBefore(' ') }.eachCount()))
                 .put("unexplainedDiffering", unexplained.size).put("firstUnexplained", unexplained.take(12).joinToString(" "))
+                // Two roomy runs differing means no exact answer exists here (water follows the frame clock): not a pass, not proof of a fault.
+                .put("inconclusive", noisy.isNotEmpty())
             val glError = GLES30.glGetError()
             report.put("glError", glError)
             val painted = roomy.tiles.keys.count { it.startsWith("look ") }

@@ -297,6 +297,9 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
 
     private var released = false
 
+    /** Bench: the paint state's texture names (MediaFailureProbe). */
+    internal fun paintTextureNames(): List<Int> = state.flatMap { listOf(it.p0, it.p1, it.paper) }
+
     /** True while the window's textures are released ([sleep]); the programs and the brush cells stay. */
     var asleep = false; private set
 
@@ -587,6 +590,34 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
                 else blit(pt, ux / d, uy / d, (ux + s) / d, (uy + s) / d, t, ax / d, ay / d, (ax + s) / d, (ay + s) / d)
             }
         }
+    }
+
+    /** [park]'s [unit] into the stored tile [dst]: a tile whose block ran while it was parked is steps ahead of its stores. */
+    internal fun parkToStore(park: MediaWaterPark, unit: Int, store: String, dst: Int) {
+        val plane = when (store) {
+            "p0" -> WaterParkPlan.Plane.P0; "p1" -> WaterParkPlan.Plane.P1; "paper" -> WaterParkPlan.Plane.PAPER
+            "w0" -> WaterParkPlan.Plane.W0; "w1" -> WaterParkPlan.Plane.W1
+            else -> throw IllegalArgumentException("a park holds no $store")
+        }
+        val (ux, uy) = park.texel(unit); val s = MediaAtlasDraw.SIDE; val d = if (plane.water) wf else 1
+        blit(park.texture(unit, plane), ux / d, uy / d, (ux + s) / d, (uy + s) / d, dst, 0, 0, s, s)
+    }
+
+    /** Inside a job: the half this step writes, at (x, y), into the stored tile [dst] (the stores of a tile with no park left). */
+    internal fun writeNextStoreTile(store: String, dst: Int, x: Int, y: Int) {
+        val k = job?.k ?: 0
+        val p = state[(k + 1) and 1]; val water = wet?.get((wc + 1) and 1)
+        val t = Tiles.SIZE
+        val src = when (store) { "p0" -> p.p0; "p1" -> p.p1; "w0" -> water?.w0; "w1" -> water?.w1; else -> null } ?: return
+        if (store in WATER_STORES && wf > 1) blit(src, x / wf, y / wf, (x + t) / wf, (y + t) / wf, dst, 0, 0, t, t)
+        else blit(src, x, y, x + t, y + t, dst, 0, 0, t, t)
+    }
+
+    /** True if a GL error is waiting: the park's copies check it before trusting a parked tile. */
+    internal fun copyFailed(): Boolean {
+        var failed = false
+        while (GLES30.glGetError() != GLES30.GL_NO_ERROR) failed = true
+        return failed
     }
 
     /** Empties one slot of every slot-shaped target (a tile about to be loaded there starts from rest, as a new window did). */

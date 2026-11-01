@@ -1217,3 +1217,5 @@ as `TIME * knob` are "rate" and the host integrates them.
 - A shell `&&` after a failed lock still let the next line run and remove the lock at the end: take a lock with an exit on failure and a trap.
 - One fix for a failure path covers one path: the refused frame reached the same stale stores a minute after the failed frame was fixed. List every way out of a frame.
 - Before raising a limit, find what it protects: the 256 MB paint room looked like a guess, but saves hold all of it in a 512 MB heap. A code review caught what the phone test had not reached.
+- A freed name is not a dead name: delete a GL object once, and clear every record of it when you do. A stale id looks like a real tile.
+- A stricter test that fails is not proof of the bug it was aimed at. Check the control first: two water runs differ by 87 tiles, so 18 more said nothing. I called it proof to the owner and had to take it back.

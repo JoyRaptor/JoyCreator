@@ -40,6 +40,9 @@ internal object MediaFailureProbe {
             o.put("writeFailed", unwritten)
             if (unwritten.getInt("lostPixels") * 200 > unwritten.getInt("laidPixels")) pass = false
         } finally { MediaAtlasGl.enabled = atlasBefore }
+        val names = sleepThenRelease(paper, preset, memory)
+        o.put("sleepThenRelease", names)
+        if (names.getInt("survived") != names.getInt("made")) pass = false
         val glError = GLES30.glGetError()
         return o.put("glError", glError).put("pass", pass && glError == GLES30.GL_NO_ERROR).toString()
     }
@@ -94,6 +97,44 @@ internal object MediaFailureProbe {
             val lost = after.entries.sumOf { (k, b) -> val c = later[k]; b.indices.count { b[it] && (c == null || !c[it]) } }
             return JSONObject().put("laidPixels", laid).put("lostPixels", lost).put("refused", refused)
         } finally {
+            runCatching { canvas.release() }
+            if (engine.ready) runCatching { engine.release() }
+        }
+    }
+
+    /**
+     * The engine sleeps, the freed names go to someone else, then the engine is released: what the someone else made must live.
+     * Deleted twice, a layer tile kept a name with no storage: it drew black and could not be read.
+     */
+    private fun sleepThenRelease(paper: Paper, preset: BrushPreset, memory: () -> Pair<Long, Long>): JSONObject {
+        val atlasBefore = MediaAtlasGl.enabled
+        val engine = GlPaintEngine()
+        val canvas = MediaCanvas(engine, memory)
+        val other = IntArray(32)
+        try {
+            MediaAtlasGl.enabled = true
+            engine.init()
+            engine.setDocumentPaper(paper)
+            engine.addLayer(LAYER)
+            var now = 1_000L
+            val pts = List(40) { k -> MediaSample(200.0 + k * 8, 200.0, 0.7, 0.6, 0.4, k * 8.0) }
+            canvas.begin(LAYER, preset, 0xFFFF2DA8.toInt(), null, pts[0].x, pts[0].y, now)?.let { throw IllegalStateException("refused: $it") }
+            for (chunk in pts.chunked(SAMPLES_PER_FRAME)) { canvas.addSamples(chunk); now += FRAME_MS; canvas.frame(now) }
+            canvas.end()
+            var f = 0; while (f++ < 600) { now += FRAME_MS; if (!canvas.frame(now)) break }
+            val freed = canvas.atlas!!.media.paintTextureNames()
+            canvas.releaseWindow()
+            GLES30.glGenTextures(other.size, other, 0)
+            for (t in other) {
+                GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, t)
+                GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D, 0, GLES30.GL_RGBA8, 1, 1, 0, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, null)
+            }
+            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
+            canvas.release()
+            return JSONObject().put("made", other.size).put("reusedNames", other.count { it in freed }).put("survived", other.count { GLES30.glIsTexture(it) })
+        } finally {
+            MediaAtlasGl.enabled = atlasBefore
+            GLES30.glDeleteTextures(other.size, other, 0)
             runCatching { canvas.release() }
             if (engine.ready) runCatching { engine.release() }
         }

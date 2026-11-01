@@ -113,11 +113,14 @@ object LayerBudget {
     }
 
     /**
-     * The share of the phone's memory resident media state may take: 1 GB on a 6 GB phone. Past it a stroke stops growing
-     * its layer and says so ([mediaFullMessage]); it never crashes. It was 256 MB from 2026-10-07, about 7 by 7 cm of oil:
-     * the owner filled it in one sitting (2026-10-31), with 2 GB of the phone still free.
+     * The share of the phone's memory resident media state may take (the Lead's ceiling, 2026-10-07): 256 MB on a 6 GB
+     * phone. Past it a stroke stops growing its layer and says so ([mediaFullMessage]); it never crashes.
+     *
+     * It is about 7 by 7 cm of oil, and the owner filled it in one sitting (2026-10-31), but it can't simply rise: a save
+     * holds every store in the app's 512 MB heap at once (readContents), so past roughly this a save itself runs out of
+     * memory. Saves have to stream to disk first.
      */
-    const val MEDIA_RAM_SHARE = 1024.0 / (6 * 1024)
+    const val MEDIA_RAM_SHARE = 256.0 / (6 * 1024)
 
     fun mediaBudgetBytes(totalRamBytes: Long): Long =
         if (totalRamBytes <= 0L) MIN_MEDIA_BYTES else maxOf(MIN_MEDIA_BYTES, (totalRamBytes * MEDIA_RAM_SHARE).toLong())

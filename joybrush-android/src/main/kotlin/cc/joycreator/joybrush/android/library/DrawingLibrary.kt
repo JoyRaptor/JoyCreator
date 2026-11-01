@@ -479,17 +479,14 @@ object DrawingLibrary {
                 val wanted = readableName(dir, owner) + ".joybrush"
                 if (Placement.nameOf(rel) != wanted) {
                     val free = jf.freeName(Placement.parentOf(rel), wanted)
-                    if (jf.fs.rename(rel, free)) setFolderPath(dir, owner, Placement.join(Placement.parentOf(rel), free))
+                    try { if (jf.fs.rename(rel, free)) setFolderPath(dir, owner, Placement.join(Placement.parentOf(rel), free)) }
+                    catch (e: Exception) { Log.w(TAG, "$rel not renamed; it stays this drawing's copy", e) }
                 }
             }
             for (other in others) {
-                try {
-                    mirrorFile(context, jf, dir, other, ids[other])
-                } catch (e: Exception) {
-                    // Still marked as shared, so the next save or sync tries again.
-                    setFolderPath(dir, other, rel)
-                    throw e
-                }
+                // Left with no folder path, [backfillFolderCopies] tries again on every sync.
+                try { mirrorFile(context, jf, dir, other, ids[other]) }
+                catch (e: Exception) { Log.w(TAG, "folder copy of $other not made; the next sync tries again", e) }
             }
         }
     }

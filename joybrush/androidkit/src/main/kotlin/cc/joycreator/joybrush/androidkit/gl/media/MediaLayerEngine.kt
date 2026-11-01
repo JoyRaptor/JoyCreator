@@ -952,6 +952,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     fun pasteStep(st: PasteStep, b: PasteBrush, paper: MediaPaperGl, pxPerMm: Double, seed: Int) {
         finishWaterJob()   // it reads or writes what a water job does
         traced("JB.media.paper.bake") { bakePaper(paper) }
+        if (pasteNoise == 0) pasteNoise = MediaPasteNoise.make()   // before the passes bind theirs: making it binds a texture too
         val cap = cellCap(b)
         val t = paper.stats.toothMm
         val cur = brush[bc]
@@ -987,7 +988,6 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         }
         MediaUniforms.paste(bu, st, b, cap, t, pxPerMm, seed, bakeTex, src.p0, src.p1)
         MediaUniforms.pasteBrush(bu, cur.b0, cur.b1, b.wick, w, h, PASTE_LANES, PASTE_DEPTH)
-        if (pasteNoise == 0) pasteNoise = MediaPasteNoise.make()
         bu.tex("u_pasteNoise", pasteNoise)
         stepPart("JB.media.paste.brush") { GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4) }
         // Canvas side, from the same (old) brush cells. The dab shader hands back its input untouched wherever the brush

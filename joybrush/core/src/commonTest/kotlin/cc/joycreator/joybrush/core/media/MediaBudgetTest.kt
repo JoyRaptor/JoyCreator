@@ -32,8 +32,8 @@ class MediaBudgetTest {
         assertEquals(null, MediaStores.parse("L1#mask"), "a mask is not a payload")
     }
 
-    @Test fun theMediaCeilingIs1GbOnASixGbPhoneAndSaysSo() {
-        assertEquals(1024L shl 20, LayerBudget.mediaBudgetBytes(6L shl 30))
+    @Test fun theMediaCeilingIs256MbOnASixGbPhoneAndSaysSo() {
+        assertEquals(256L shl 20, LayerBudget.mediaBudgetBytes(6L shl 30))
         assertEquals(LayerBudget.MIN_MEDIA_BYTES, LayerBudget.mediaBudgetBytes(0L))
         assertTrue("256 MB" in LayerBudget.mediaFullMessage(256L shl 20))
     }

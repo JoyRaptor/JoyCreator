@@ -36,12 +36,15 @@ internal object MediaFailureProbe {
             val full = run(paper, preset, memory, keepPaint = true, roomRunsOut = true)
             o.put("roomRanOut", full)
             if (full.getInt("lostPixels") * 200 > full.getInt("laidPixels") || full.getInt("refused") == 0) pass = false
+            val unwritten = run(paper, preset, memory, keepPaint = true, writeFails = true)
+            o.put("writeFailed", unwritten)
+            if (unwritten.getInt("lostPixels") * 200 > unwritten.getInt("laidPixels")) pass = false
         } finally { MediaAtlasGl.enabled = atlasBefore }
         val glError = GLES30.glGetError()
         return o.put("glError", glError).put("pass", pass && glError == GLES30.GL_NO_ERROR).toString()
     }
 
-    private fun run(paper: Paper, preset: BrushPreset, memory: () -> Pair<Long, Long>, keepPaint: Boolean, roomRunsOut: Boolean = false): JSONObject {
+    private fun run(paper: Paper, preset: BrushPreset, memory: () -> Pair<Long, Long>, keepPaint: Boolean, roomRunsOut: Boolean = false, writeFails: Boolean = false): JSONObject {
         val engine = GlPaintEngine()
         val canvas = MediaCanvas(engine, memory)
         try {
@@ -72,6 +75,7 @@ internal object MediaFailureProbe {
                     } catch (e: RuntimeException) {
                         canvas.failNextFrame = false
                         // As JbCanvasView.drawFrame; the old way only closed the step and released.
+                        canvas.atlas?.failNextWrite = writeFails
                         if (keepPaint) canvas.dropStroke()
                         engine.endMediaStroke()
                         if (keepPaint) canvas.releaseAfterFailure() else canvas.release()

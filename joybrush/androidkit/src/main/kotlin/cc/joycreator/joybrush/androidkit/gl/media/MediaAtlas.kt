@@ -966,6 +966,19 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         if (rect == null || stores.isEmpty()) return
         val keys = keysIn(rect).filter { slots.resident(page(it)) != null && it !in borrowedBlockTiles }
         if (keys.isEmpty()) return
+        val written = HashSet<Long>()
+        try { writeTiles(id, keys, stores, written) } finally {
+            // Whatever stopped it, a tile not written shows paint its stores do not hold, and a stroke across it would redraw it
+            // from them: distrusted, its look stands when it next loads.
+            if (written.size < keys.size) paint.distrustLooks(id, keys.filter { it !in written }, plane)
+        }
+    }
+
+    /** Bench only: the next stores written fail, as a failing tile copy would (MediaFailureProbe). */
+    internal var failNextWrite = false
+
+    private fun writeTiles(id: String, keys: List<Long>, stores: MutableList<String>, written: MutableSet<Long>) {
+        if (failNextWrite) { failNextWrite = false; error("failed by the probe") }
         val water = stores.filter { it in MediaStores.WATER }
         val dried = water.isNotEmpty() && !media.wetActive
         if (dried && paint.mediaStrokeInProgress) dryPending = true
@@ -1000,6 +1013,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
             }
             grounds[key]?.let { media.blit(media.groundTexture(), ax, ay, ax + tile, ay + tile, it, 0, 0, tile, tile) }
             slots.clean(res.page)
+            written += key
         }
         groundFromLook.removeAll(firstTouch.toSet())
         if (drop) dropWater(id)

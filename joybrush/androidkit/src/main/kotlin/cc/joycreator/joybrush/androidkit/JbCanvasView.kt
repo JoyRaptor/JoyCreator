@@ -2291,7 +2291,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
             if (symmetry != null && strokeTips?.dual == null) {
                 // The symmetry's lanes: lane 0 is the ORIGINAL and it uses the SAME core lane
                 // class as the copies.
-                startSymmetryLanes(symmetry, LaneBrush.File(p, contactColors, strokeTips?.sampled), symmetryFamily, amount, seed)
+                startSymmetryLanes(symmetry, LaneBrush.File(p, contactColors, strokeTips?.sampled), symmetryFamily, amount, seed, actualStabilizer)
             } else {
                 val d = BrushDabber(p, seed, colors = contactColors, sampledTips = strokeTips?.sampled, dualMask = strokeTips?.dual)
                 strokeDabber = d
@@ -2305,7 +2305,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         // The recording(s) of this stroke. An ordinary stroke records ONE contact; a symmetry stroke
         // records ONE PER LANE, each with the lane's OWN seed (R13: the seed must be the exact seed
         // the dabber used, or the replay is not the stroke that was drawn) and its own id.
-        lineContacts = lineFrozen?.let { f ->
+        // Symmetry copies are not shaped at the lift (below), so a tapered or dashed one stays plain paint: kept as a line, its
+        // recording would replay shaped and change what was drawn.
+        lineContacts = lineFrozen?.takeUnless { symmetryLanes.isNotEmpty() && shapeAtLift }?.let { f ->
             try {
                 val lanes = symmetryLanes
                 if (lanes.isEmpty()) listOf(
@@ -2360,8 +2362,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         family: SymmetryFamily,
         amount: Float,
         seed: Long,
+        stabilizer: cc.joycreator.joybrush.core.input.StabilizerSpec? = null,
     ) {
-        val set = SymmetryLanes.build(guide, brush, family, seed, amount, view.zoom)
+        val set = SymmetryLanes.build(guide, brush, family, seed, amount, view.zoom, stabilizer)
         symmetryLanes = set.lanes
         symmetryPending = set.lanes.map { ArrayList<PenSample>() }
         // The lanes have their own smoothers, so the view's is not used: it is dropped rather than

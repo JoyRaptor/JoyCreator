@@ -278,7 +278,9 @@ class PasteStroke(
             prev.x + dx * w, prev.y + dy * w, prev.p + (s.p - prev.p) * w, prev.tilt + (s.tilt - prev.tilt) * w,
             prev.az + angleDelta(prev.az, s.az) * w, prev.t + (s.t - prev.t) * w,
         )
-        var pos = stepPx - carry
+        // The hops can shrink between samples (a backlog drained), and a leftover from a wider hop would then land the first
+        // step behind the last sample, off the path at a corner.
+        var pos = max(0.0, stepPx - carry)
         var stepped = false
         while (pos <= len) {
             travelled += stepPx / pxPerMm

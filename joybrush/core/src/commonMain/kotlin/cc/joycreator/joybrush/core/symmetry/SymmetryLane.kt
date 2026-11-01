@@ -55,7 +55,7 @@ data class HardcodedTip(
  *
  * ## What a lane OWNS, and why it owns it
  *
- * - **Its own [StrokeSmoother].** The smoother is position-dependent: it resamples, it finds
+ * - **Its own [StrokeStabilizer].** The smoother is position-dependent: it resamples, it finds
  *   corners and it smooths over arc length, and it keeps all of that history in itself. One
  *   smoother for N lanes would give every lane the ORIGINAL's points.
  * - **Its own [BrushDabber]** (a brush FILE) or its own [DabPlacer] (the hard-coded brush). The
@@ -112,7 +112,7 @@ class SymmetryLane private constructor(
     /** This lane's own dab placer. */
     private val placer: DabPlacer,
     /** This lane's own smoother. */
-    private val smoother: StrokeSmoother,
+    private val smoother: cc.joycreator.joybrush.core.input.StrokeStabilizer,
     /** The file's scatter, when the lane draws from a brush FILE. Null otherwise. */
     private val scatter: ScatterSpec?,
     /** This lane's own scatter stream. Null when the lane scatters nothing. */
@@ -230,6 +230,7 @@ class SymmetryLane private constructor(
             screenPerDoc: Float,
             colors: cc.joycreator.joybrush.core.brush.StrokeColors? = null,
             sampled: cc.joycreator.joybrush.core.brush.SampledTipSet? = null,
+            stabilizer: cc.joycreator.joybrush.core.input.StabilizerSpec? = null,
         ): SymmetryLane {
             val dabber = BrushDabber(preset, seed, colors, sampled, frame = frame)
             val placer = DabPlacer(spacing = dabber.spacing, look = dabber::look)
@@ -242,7 +243,8 @@ class SymmetryLane private constructor(
                 response = preset.response,
                 dabber = dabber,
                 placer = placer,
-                smoother = StrokeSmoother(smoothing, screenPerDoc),
+                // The same stabilizer the recording replays with, or an edit of the line would change its shape.
+                smoother = cc.joycreator.joybrush.core.input.StrokeStabilizer(stabilizer, smoothing, screenPerDoc),
                 scatter = preset.scatter,
                 scatterRng = SplitMix(seed xor Scatter.SALT),
             )
@@ -282,7 +284,7 @@ class SymmetryLane private constructor(
                 response = null,
                 dabber = null,
                 placer = placer,
-                smoother = StrokeSmoother(smoothing, screenPerDoc),
+                smoother = cc.joycreator.joybrush.core.input.StrokeStabilizer(null, smoothing, screenPerDoc),
                 scatter = null,
                 scatterRng = null,
             )

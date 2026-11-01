@@ -272,16 +272,17 @@ object SymmetryLanes {
         seed: Long,
         smoothing: Float,
         screenPerDoc: Float,
+        stabilizer: cc.joycreator.joybrush.core.input.StabilizerSpec? = null,
     ): SymmetryLaneSet {
         val copies = SymmetryMath.copies(guide)
         val requested = copies.size
         val limit = copyCapFor(family)
         val kept = copies.take(limit)
         val lanes = ArrayList<SymmetryLane>(kept.size + 1)
-        lanes.add(lane(null, AngleFrame.IDENTITY, brush, guide.symmetric, seedFor(guide, 0, seed), smoothing, screenPerDoc))
+        lanes.add(lane(null, AngleFrame.IDENTITY, brush, guide.symmetric, seedFor(guide, 0, seed), smoothing, screenPerDoc, stabilizer))
         for (i in kept.indices) {
             val copy = kept[i]
-            lanes.add(lane(copy, frameFor(copy), brush, guide.symmetric, seedFor(guide, i + 1, seed), smoothing, screenPerDoc))
+            lanes.add(lane(copy, frameFor(copy), brush, guide.symmetric, seedFor(guide, i + 1, seed), smoothing, screenPerDoc, stabilizer))
         }
         return SymmetryLaneSet(lanes, requested, family, limit)
     }
@@ -355,6 +356,7 @@ object SymmetryLanes {
         seed: Long,
         smoothing: Float,
         screenPerDoc: Float,
+        stabilizer: cc.joycreator.joybrush.core.input.StabilizerSpec?,
     ): SymmetryLane = when (brush) {
         is LaneBrush.File -> SymmetryLane.forFile(
             copy = copy,
@@ -366,6 +368,7 @@ object SymmetryLanes {
             screenPerDoc = screenPerDoc,
             colors = brush.colors,
             sampled = brush.sampled,
+            stabilizer = stabilizer,
         )
         is LaneBrush.Hardcoded -> SymmetryLane.forHardcoded(
             copy = copy,

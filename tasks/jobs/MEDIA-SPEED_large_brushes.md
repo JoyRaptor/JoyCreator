@@ -64,6 +64,32 @@ The turns look right to him. A long stroke then dropped a square. The log held t
 - 16:29:40 `Board tile copy failed`, from `reserveStores` through `writableMediaTiles`, copying a tile on first touch. The failed-frame path kept the paint, so the stroke ended but nothing was lost. The real cause is still open: the old check could not tell a lost source tile from an error another pass left behind. The copy now clears and logs an earlier error, names the source and target status when it does fail, and a lost source tile starts blank (`JoyBrushTiles`). A tile retired twice is refused and logged with its stack, and texture 0 no longer enters a pool. Those were the suspects for the lost tiles: two tiles sharing one texture.
 - 16:30:48 the drawing's 315 MB room ran out and strokes were refused. `writeStores` dropped everything when one new tile did not fit, which left the same stale stores as the failed frame, and the next stroke cut boxes. Tiles that have stores now get their paint, a new tile keeps its look as plain pixels, and the refusal is still said. `mediaFailureProbe` room run: 0 of 172,898 pixels lost.
 
-Room: `MEDIA_RAM_SHARE` from 256 MB to 1 GB on a 6 GB phone (315 MB to about 1.2 GB on the Note 9). The old figure was about 7 by 7 cm of oil. Save time at that size is not measured.
+Room: raised to 1 GB on a 6 GB phone, then put back to 256 MB (315 MB on the Note 9) before landing. A save holds every store in the 512 MB heap at once, so a bigger room would make saves run out of memory. The figure is about 7 by 7 cm of oil: raising it needs saves that stream to disk.
 
 Oil flat and Fan blender ship with Leans at 0.7 (it was 0 on every brush, so which way the pen leaned did nothing). Round is unchanged. A burst's stretch is now measured from the smaller of a hair brush's width and twice its length: the fan's corners showed as fins in fast strokes at 280 px.
+
+## Codex review of the 10-30/31 work, 2026-11-01
+
+Six findings, all checked against the source and fixed:
+
+1. Symmetry lanes used the old smoother while their recordings kept the chosen stabilizer: lanes now use the same one (`SymmetryStabilizerTest`).
+2. Tapered or dashed symmetry strokes replayed shaped although they were not drawn shaped: such a stroke now stays plain paint. Shaping every lane is still owed.
+3. The first paste step could overwrite a bound texture by making the noise late: it is made before the passes bind.
+4. A hop shrinking after a backlog could land a step behind the last sample, off the path at a corner: the leftover is clamped (`aHopShrinkingAtACornerNeverLandsOffThePath`).
+5. Shared folder repair stopped at the first failed copy: each drawing now fails alone and is retried by `backfillFolderCopies`. Partly covered already by that backfill.
+6. A failed write during recovery cleared its pending work and skipped the fallback: any tile not written is now distrusted (`mediaFailureProbe` writeFailed: 0 of 163,268 pixels lost).
+
+Not proved on the phone: 1 and 2. `lineParity` reports "refused at pen-down" on the build before these fixes and after, so editable-line replay was not exercised there.
+
+## Second review: open engine items, 2026-11-01
+
+Full text: [CODEX_REVIEW_WAVE2_20261101.md](../joybrush/reviews/CODEX_REVIEW_WAVE2_20261101.md). Checked against the source so far:
+
+- E1 reopen races its outgoing save: `restoreWorkingFile` reads at once; plausible, timing not proved.
+- E2 export can run out of memory: the writer catches `Exception` only. Confirmed.
+- E3 atlas memory admission: not checked yet.
+- E4 saves hold everything in the heap: confirmed (`readContents`). This is what holds the paint room at 315 MB.
+- E5 masked stroke previews: not checked yet.
+- E6 a stationary hold paints nothing: confirmed (`MediaSpline.add`).
+- E7 distant tiles fail the atlas table: confirmed; it throws, so it takes the failed-frame path.
+- E8 Library thumbnails fail on line drawings: confirmed in the Note 9 log.

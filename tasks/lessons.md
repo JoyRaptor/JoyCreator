@@ -1216,4 +1216,4 @@ as `TIME * knob` are "rate" and the host integrates them.
 - Press Home, then wait for the save's `.tmp` to appear and go. An empty folder the moment after Home proves nothing: the force-stop after it cut a save off at 15:00.
 - A shell `&&` after a failed lock still let the next line run and remove the lock at the end: take a lock with an exit on failure and a trap.
 - One fix for a failure path covers one path: the refused frame reached the same stale stores a minute after the failed frame was fixed. List every way out of a frame.
-- A limit set from a guess needs a real picture of what it allows: 256 MB sounded large and was 7 by 7 cm of oil.
+- Before raising a limit, find what it protects: the 256 MB paint room looked like a guess, but saves hold all of it in a 512 MB heap. A code review caught what the phone test had not reached.

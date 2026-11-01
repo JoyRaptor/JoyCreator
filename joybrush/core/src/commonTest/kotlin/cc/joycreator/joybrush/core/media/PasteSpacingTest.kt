@@ -55,6 +55,22 @@ class PasteSpacingTest {
         assertTrue(out > 0)
     }
 
+    @Test fun aHopShrinkingAtACornerNeverLandsOffThePath() {
+        val ppm = DOC_PX_PER_MM
+        for (name in listOf("Oil round", "Palette knife 1")) {
+            val s = PasteStroke(PasteBrushes.ALL.getValue(name), ppm)
+            var t = 0.0
+            // A backlog stretches the hops down a long run, the frame drains it, and the next sample turns a corner.
+            s.add(MediaSample(400.0, 400.0, 0.6, 0.3, 0.0, t))
+            s.add(MediaSample(1400.0, 400.0, 0.6, 0.3, 0.0, 8.0.also { t = it }))
+            s.take()
+            val out = ArrayList<PasteStep>()
+            for (i in 1..20) { s.add(MediaSample(1400.0, 400.0 + i * 7.0, 0.6, 0.3, 0.0, (t + i * 8.0))); out += s.take() }
+            assertTrue(out.isNotEmpty())
+            assertTrue(out.all { abs(it.x - 1400.0) < 1e-6 && it.y >= 400.0 - 1e-6 }, "$name: every step on the second leg: ${out.take(3).map { it.x to it.y }}")
+        }
+    }
+
     @Test fun aBurstThinsOutButKeepsItsPaintPerMillimetre() {
         assertEquals(1.0, PasteSpacing.behind(PasteSpacing.FRAME_STEPS, 6.0))
         assertEquals(4.0, PasteSpacing.behind(PasteSpacing.FRAME_STEPS * 2, 6.0))

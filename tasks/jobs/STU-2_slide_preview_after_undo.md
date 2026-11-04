@@ -25,3 +25,8 @@ method is **not** on `joy-creator` (checked 10-27).
 ## Files and traps
 - `FaditorEditorActivity.java` is about 46k lines and touched by many lanes: small, unique anchors only;
   STU-3 also edits it heavily, so do these one after the other.
+
+## Phone check 2026-11-04 (agent, Note 9, build of `joy-creator` at the commit below)
+
+Added a text layer in the sandbox project "S3 undo check", pressed Done, then Undo: the toast said "Undid: Add text overlay", the layer left the timeline, the text left the preview at once, and Redo became available (undo 0 / redo 1). Phone 28.5 C at the end, no throttling seen. Not covered: the owner's exact Joybot title-slide case (needs an AI key and Wi-Fi), and ordinary undos such as volume or text colour.
+0b39ba0b7

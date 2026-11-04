@@ -36,3 +36,10 @@ Built by a Codex session on 10-23/24 in the main folder and **never committed**.
 ## Files and traps
 - Big edits to the same editor file as STU-2: do one, push, then the other.
 - Codex also completed a half-done `WaveformOverlayView` refactor to get the build through; check that change is in the rescue branch.
+
+## Phone check 2026-11-04 (agent, Note 9, fresh `joy-creator` build, sandbox project "S3 undo check")
+
+- Tap on the pink playhead timestamp chip drops a bookmark (chip flashes, Undo count 1). The bottom-left time keeps Jump to Time, as specced.
+- Hold on the chip opens "Marks & regions": Bookmarks 1 / Regions 0, "Bookmark 1" at 2s with a rename pencil, previous/next arrows, Set In / Set Out, Bookmark at playhead, Loop off, Export 0.
+- Set Out at 8s showed "Region Out captured" and the pill read "Out 8s . set In".
+- Not done: finishing a region (Set In after Out), Loop timing, region export (video and audio-only), rename, reopen-keeps-marks, undo of a mark. Phone 28.6 C, no throttling.

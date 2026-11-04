@@ -20,7 +20,9 @@ import com.fadcam.ui.RecordsMediaActions;
 import com.fadcam.ui.faditor.project.ProjectStorage;
 import com.fadcam.utils.TrashManager;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -83,6 +85,50 @@ final class LibraryActions {
         if (q == null) { done.onDone(c.getString(R.string.library_save_gallery_failed), false); return; }
         RecordsMediaActions.saveToGallery(c, Collections.singletonList(q), false);
         done.onDone(c.getString(R.string.library_save_gallery_queued), false);
+    }
+
+    /** Batch save: every video among {@code its}, queued as one session; says how many at once. */
+    static void saveAllToGallery(@NonNull Context c, @NonNull List<LibraryItem> its, @NonNull Done done) {
+        List<com.fadcam.service.RecordsDeletionRequestItem> q = new ArrayList<>();
+        for (LibraryItem it : its) {
+            if (!canSaveToGallery(it)) continue;
+            com.fadcam.service.RecordsDeletionRequestItem r = RecordsMediaActions.requestItem(
+                    Uri.parse(it.uri), it.fileName != null ? it.fileName : it.name, it.size);
+            if (r != null) q.add(r);
+        }
+        if (q.isEmpty()) { done.onDone(c.getString(R.string.library_save_gallery_failed), false); return; }
+        RecordsMediaActions.saveToGallery(c, q, false);
+        done.onDone(c.getResources().getQuantityString(R.plurals.library_batch_save_queued, q.size(), q.size()), false);
+    }
+
+    /**
+     * Batch Move to Trash: the same per-item path as {@link #trash}, one after another on the folder
+     * thread, ONE message at the end. Items that cannot be trashed are skipped and counted.
+     */
+    static void trashAll(@NonNull Context c, @NonNull List<LibraryItem> its, @NonNull Done done) {
+        final Context app = c.getApplicationContext();
+        JoyFolderHome.io().execute(() -> {
+            int moved = 0, failed = 0;
+            String why = null;
+            for (LibraryItem it : its) {
+                if (!canTrash(it)) { failed++; continue; }
+                try {
+                    String msg = trashNow(app, it);
+                    if (msg == null) moved++;
+                    else { failed++; if (why == null) why = msg; }
+                } catch (Exception e) {
+                    FLog.w("LibraryActions", "trash failed for " + it.key, e);
+                    failed++;
+                    if (why == null) why = app.getString(R.string.library_trash_failed, String.valueOf(e.getMessage()));
+                }
+            }
+            final String m;
+            if (failed == 0) m = app.getResources().getQuantityString(R.plurals.library_batch_trashed, moved, moved);
+            else if (moved == 0) m = why != null ? why : app.getString(R.string.library_trash_failed, "");
+            else m = app.getString(R.string.library_batch_trashed_some, moved, failed, why != null ? why : "");
+            final boolean ch = moved > 0;
+            MAIN.post(() -> done.onDone(m, ch));
+        });
     }
 
     /** The Studio editor with this recording as its clip, exactly as the classic Records opened it. */

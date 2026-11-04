@@ -159,4 +159,33 @@
     <string name="library_sort_cycle_name">Sorted by name, A to Z. Tap for newest first.</string>
     <string name="library_view_cycle_grid">Grid view. Tap for list.</string>
     <string name="library_view_cycle_list">List view. Tap for grid.</string>
+
+    <!-- Choosing several: the header button, the cards' marks, the batch bar -->
+    <string name="library_select_start">Choose several</string>
+    <string name="library_select_stop">Stop choosing</string>
+    <string name="library_chosen_desc">%s, chosen. Tap to let go.</string>
+    <string name="library_not_chosen_desc">%s, not chosen. Tap to choose.</string>
+    <plurals name="library_batch_count">
+        <item quantity="one">%d chosen</item>
+        <item quantity="other">%d chosen</item>
+    </plurals>
+    <plurals name="library_batch_save_tip">
+        <item quantity="one">Save %d video to your gallery</item>
+        <item quantity="other">Save %d videos to your gallery</item>
+    </plurals>
+    <plurals name="library_batch_trash_tip">
+        <item quantity="one">Move %d item to Trash</item>
+        <item quantity="other">Move %d items to Trash</item>
+    </plurals>
+    <string name="library_batch_trash">Trash</string>
+    <string name="library_batch_trash_again">Tap again</string>
+    <plurals name="library_batch_save_queued">
+        <item quantity="one">Saving %d video to your gallery. Progress shows in Records and the notification.</item>
+        <item quantity="other">Saving %d videos to your gallery. Progress shows in Records and the notification.</item>
+    </plurals>
+    <plurals name="library_batch_trashed">
+        <item quantity="one">Moved %d item to Trash. You can put it back from Trash.</item>
+        <item quantity="other">Moved %d items to Trash. You can put them back from Trash.</item>
+    </plurals>
+    <string name="library_batch_trashed_some">Moved %1$d to Trash; %2$d could not be moved. %3$s</string>
 </resources>

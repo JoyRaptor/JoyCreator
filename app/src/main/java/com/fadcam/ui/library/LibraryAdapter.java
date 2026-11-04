@@ -9,13 +9,14 @@ import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.fadcam.ui.faditor.SheetKit;
+import com.fadcam.ui.trash.TrashSelection;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * The grid (or list) itself: date-band headings that span the full width, and cards. Tap opens,
- * long-press asks what to do with it. Ids are stable, so a refresh that changes nothing visible
+ * long-press asks what to do with it. While choosing, both toggle the card instead (the fragment decides). Ids are stable, so a refresh that changes nothing visible
  * repaints nothing visible.
  */
 final class LibraryAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
@@ -27,11 +28,16 @@ final class LibraryAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
 
     static final int TYPE_HEADER = 0, TYPE_CARD = 1, TYPE_ROW = 2;
 
+    private static final Object CHOICE = new Object();
+
     private final Listener listener;
+    private final TrashSelection selection;
+    private boolean choosing;
     private List<LibrarySections.Row> rows = new ArrayList<>();
     private boolean list;
 
-    LibraryAdapter(@NonNull Listener listener) {
+    LibraryAdapter(@NonNull TrashSelection selection, @NonNull Listener listener) {
+        this.selection = selection;
         this.listener = listener;
         setHasStableIds(true);
     }
@@ -40,6 +46,12 @@ final class LibraryAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
         this.rows = rows;
         this.list = list;
         notifyDataSetChanged();
+    }
+
+    /** Choosing started, stopped or changed: repaint the marks only, never the pictures. */
+    void choiceChanged(boolean choosing) {
+        this.choosing = choosing;
+        notifyItemRangeChanged(0, getItemCount(), CHOICE);
     }
 
     /** Headings take the whole row; cards take one column. */
@@ -113,6 +125,18 @@ final class LibraryAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
     }
 
     @Override
+    public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position, @NonNull List<Object> payloads) {
+        if (!payloads.isEmpty() && payloads.contains(CHOICE)) {
+            Holder h = (Holder) holder;
+            if (h.item != null && h.itemView instanceof LibraryCardView) {
+                ((LibraryCardView) h.itemView).paintChoice(h.item, choosing, selection.contains(h.item.key));
+            }
+            return;
+        }
+        super.onBindViewHolder(holder, position, payloads);
+    }
+
+    @Override
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
         LibrarySections.Row r = rows.get(position);
         Holder h = (Holder) holder;
@@ -126,7 +150,7 @@ final class LibraryAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
             return;
         }
         h.item = r.item;
-        ((LibraryCardView) h.itemView).bind(r.item);
+        ((LibraryCardView) h.itemView).bind(r.item, choosing, selection.contains(r.item.key));
     }
 
     static final class Holder extends RecyclerView.ViewHolder {

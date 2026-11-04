@@ -23,7 +23,9 @@ import com.fadcam.ui.BaseFragment;
 import com.fadcam.ui.OverlayNavUtil;
 import com.fadcam.ui.TrashFragment;
 import com.fadcam.ui.faditor.SheetKit;
+import com.fadcam.ui.faditor.Studio;
 import com.fadcam.ui.studio.NewProjectFlow;
+import com.fadcam.ui.trash.TrashSelection;
 import com.fadcam.ui.type.Type;
 
 import java.util.ArrayList;
@@ -85,6 +87,12 @@ public class LibraryFragment extends BaseFragment {
     private LibrarySource source;
     private LibraryAdapter adapter;
     private LibraryDock dock;
+    private LibraryBatchBar batch;
+    private View dockHost;
+    private TextView selectBtn;
+    /** Choosing several: switched on only by the header's Select button; long-press still opens the sheet until then. */
+    private boolean choosing;
+    private final TrashSelection selection = new TrashSelection();
     private GridLayoutManager grid;
     private RecyclerView list;
     private LinearLayout empty;
@@ -134,14 +142,20 @@ public class LibraryFragment extends BaseFragment {
         viewBtn = v.findViewById(R.id.library_view);
         sortBtn.setOnClickListener(b -> cycleSort());
         viewBtn.setOnClickListener(b -> cycleView());
+        selectBtn = v.findViewById(R.id.library_select);
+        selectBtn.setOnClickListener(b -> setChoosing(!choosing));
         paintHeaderCycles();
 
         list = v.findViewById(R.id.library_grid);
         gridFloor = list.getPaddingBottom();
         empty = v.findViewById(R.id.library_empty);
-        adapter = new LibraryAdapter(new LibraryAdapter.Listener() {
-            @Override public void onOpen(@NonNull LibraryItem it) { open(it); }
-            @Override public void onMenu(@NonNull LibraryItem it) { menu(it); }
+        adapter = new LibraryAdapter(selection, new LibraryAdapter.Listener() {
+            @Override public void onOpen(@NonNull LibraryItem it) {
+                if (choosing) toggle(it); else open(it);
+            }
+            @Override public void onMenu(@NonNull LibraryItem it) {
+                if (choosing) toggle(it); else menu(it);
+            }
         });
         grid = new GridLayoutManager(requireContext(), dense ? 1 : 2);
         grid.setSpanSizeLookup(adapter.spans(grid));
@@ -165,12 +179,20 @@ public class LibraryFragment extends BaseFragment {
             @Override public void onOptions() { options(); }
             @Override public void onNewProject() { startNewProject(); }
         });
+        dockHost = v.findViewById(R.id.library_dock);
+        batch = new LibraryBatchBar(v.findViewById(R.id.library_batch), new LibraryBatchBar.Listener() {
+            @Override public void onStop() { setChoosing(false); }
+            @Override public void onSave() { saveChosen(); }
+            @Override public void onOpenInStudio() { studioChosen(); }
+            @Override public void onTrash() { trashChosen(); }
+        });
         // The view is rebuilt when Trash is opened over it and closed again; the filter is not.
         dock.setQuery(filter.query());
         dock.paintShared(filter.shared());
         dock.chips.setSelected(filter.kind());
         liftDockOverKeyboard(v, v.findViewById(R.id.library_dock));
         render();
+        paintChoosing();   // a rebuilt view (Trash opened over it and closed) keeps its choice
         if (getArguments() != null && getArguments().getBoolean(ARG_SEARCH)) {
             getArguments().putBoolean(ARG_SEARCH, false);   // once: not again when Trash closes over it
             dock.focusSearch();
@@ -218,8 +240,13 @@ public class LibraryFragment extends BaseFragment {
             if (!isAdded() || getView() == null) return;
             items = all;
             complete = done;
+            // Whatever left the Library (trashed, renamed) is let go; the rest stays chosen.
+            java.util.Set<String> present = new java.util.HashSet<>();
+            for (LibraryItem it : all) present.add(it.key);
+            selection.retainOnly(present);
             showNotice(folder);
             render();
+            if (choosing) paintChoosing();
         });
     }
 
@@ -230,10 +257,83 @@ public class LibraryFragment extends BaseFragment {
         super.onDestroyView();
     }
 
-    /** Back with words in the search clears them first. */
+    /** Back while choosing stops choosing; with words in the search it clears them first. */
     @Override
     protected boolean onBackPressed() {
+        if (choosing) {
+            setChoosing(false);
+            return true;
+        }
         return dock != null && dock.clearSearch();
+    }
+
+    // ── choosing several ────────────────────────────────────────────────────
+
+    private void setChoosing(boolean on) {
+        choosing = on;
+        if (!on) selection.clear();
+        if (on && dock != null) dock.hideKeyboard();
+        paintChoosing();
+    }
+
+    private void toggle(@NonNull LibraryItem it) {
+        selection.toggle(it.key);
+        paintChoosing();
+    }
+
+    /** Header button, marks, and which bar shows (the dock gives way to the batch bar). */
+    private void paintChoosing() {
+        if (adapter == null) return;
+        selectBtn.setText(choosing ? "close" : "done_all");
+        SheetKit.label(selectBtn, getString(choosing ? R.string.library_select_stop : R.string.library_select_start));
+        selectBtn.setTextColor(choosing ? Studio.ARMED : Studio.INK_DIM);
+        dockHost.setVisibility(choosing ? View.GONE : View.VISIBLE);
+        batch.show(choosing);
+        adapter.choiceChanged(choosing);
+        List<LibraryItem> chosen = chosenItems();
+        int videos = 0, trashable = 0;
+        for (LibraryItem it : chosen) {
+            if (LibraryActions.canSaveToGallery(it)) videos++;
+            if (LibraryActions.canTrash(it)) trashable++;
+        }
+        batch.setChoice(chosen.size(), videos, trashable);
+    }
+
+    /** The chosen items, in the order they were chosen, that the list still has. */
+    @NonNull
+    private List<LibraryItem> chosenItems() {
+        Map<String, LibraryItem> byKey = new java.util.HashMap<>();
+        for (LibraryItem it : items) byKey.put(it.key, it);
+        List<LibraryItem> out = new ArrayList<>();
+        for (String k : selection.keys()) {
+            LibraryItem it = byKey.get(k);
+            if (it != null) out.add(it);
+        }
+        return out;
+    }
+
+    private void saveChosen() {
+        LibraryActions.saveAllToGallery(requireContext(), chosenItems(), this::batchDone);
+    }
+
+    private void studioChosen() {
+        List<LibraryItem> chosen = chosenItems();
+        if (chosen.size() == 1 && LibraryActions.canOpenInStudio(chosen.get(0))) {
+            LibraryActions.openInStudio(requireContext(), chosen.get(0));
+        }
+    }
+
+    private void trashChosen() {
+        LibraryActions.trashAll(requireContext(), chosenItems(), (message, changed) -> {
+            batchDone(message, changed);
+            if (changed && isAdded()) setChoosing(false);
+        });
+    }
+
+    private void batchDone(@NonNull String message, boolean changed) {
+        if (!isAdded()) return;
+        Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show();
+        if (changed) reload();
     }
 
     // ── drawing ─────────────────────────────────────────────────────────────

@@ -2,6 +2,7 @@ package com.fadcam.ui.library;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.graphics.drawable.GradientDrawable;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -12,6 +13,7 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 
+import com.fadcam.R;
 import com.fadcam.ui.faditor.SheetKit;
 import com.fadcam.ui.faditor.Studio;
 import com.fadcam.ui.type.Type;
@@ -33,7 +35,7 @@ final class LibraryCardView extends LinearLayout {
 
     private final boolean list;
     private final ImageView picture;
-    private final TextView glyph, name, meta, size, shared;
+    private final TextView glyph, name, meta, size, shared, mark;
     private final CornerCut cut;
     private final int thumbPx;
 
@@ -50,6 +52,7 @@ final class LibraryCardView extends LinearLayout {
         shared = LibraryViews.glyph(c, list ? 13f : 11f, list ? Studio.INK_DIM : Studio.INK);
         shared.setText("move_to_inbox");
         thumbPx = LibraryViews.dp(c, list ? 96 : 240);
+        mark = LibraryViews.glyph(c, list ? 12f : 15f, Studio.GROUND);
         SheetKit.press(this);
         setClickable(true);
         setFocusable(true);
@@ -109,6 +112,46 @@ final class LibraryCardView extends LinearLayout {
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(LibraryViews.dp(c, cutDp), LibraryViews.dp(c, cutDp));
         lp.gravity = Gravity.BOTTOM | Gravity.END;
         wrap.addView(corner, lp);
+        // The choose mark: only while choosing (paintChoice). Top end, where the Trash screen keeps it.
+        int m = list ? 18 : 22, inset = list ? 3 : 7;
+        FrameLayout.LayoutParams mLp = new FrameLayout.LayoutParams(LibraryViews.dp(c, m), LibraryViews.dp(c, m));
+        mLp.gravity = Gravity.TOP | Gravity.END;
+        mLp.setMargins(0, LibraryViews.dp(c, inset), LibraryViews.dp(c, inset), 0);
+        mark.setVisibility(GONE);
+        wrap.addView(mark, mLp);
+    }
+
+    void bind(@NonNull LibraryItem it, boolean choosing, boolean chosen) {
+        bind(it);
+        paintChoice(it, choosing, chosen);
+    }
+
+    /**
+     * Only the mark and the description: a tap that chooses must not reload the picture. Chosen is the
+     * owner's ON: a solid cyan disc with the tick cut out of it; not chosen is a quiet ring.
+     */
+    void paintChoice(@NonNull LibraryItem it, boolean choosing, boolean chosen) {
+        Context c = getContext();
+        mark.setVisibility(choosing ? VISIBLE : GONE);
+        GradientDrawable disc = new GradientDrawable();
+        disc.setShape(GradientDrawable.OVAL);
+        if (chosen) {
+            disc.setColor(Studio.ARMED);
+            mark.setText("check");
+        } else {
+            disc.setColor(Studio.alpha(Studio.GROUND, 0x66));
+            disc.setStroke(Math.max(1, LibraryViews.dp(c, 1.5f)), Studio.INK);
+            mark.setText("");
+        }
+        mark.setBackground(disc);
+        float back = chosen ? 0.55f : 1f;
+        picture.setAlpha(back);
+        glyph.setAlpha(back);
+        setSelected(chosen);
+        String what = LibraryFormat.describe(c, it);
+        if (choosing) what = c.getString(chosen ? R.string.library_chosen_desc : R.string.library_not_chosen_desc, what);
+        setContentDescription(what);
+        if (android.os.Build.VERSION.SDK_INT >= 26) setTooltipText(what);
     }
 
     void bind(@NonNull LibraryItem it) {

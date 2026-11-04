@@ -13,6 +13,7 @@ from a recovery check. Details:
 `tasks/joybrush/INTEGRATION_20260930.md`.
 
 **Last full pass:** 2026-09-09 (historical; not a current whole-product audit).
+**HYG-5 second pass, 2026-11-04 (against `joy-creator` at 63c054ac6):** commits since 10-01 were grouped by feature and the Studio, audio, Joybot, VisLab, front-door and identity sections checked for missing or stale rows (rows added in sections 1, 2, 3, 5.5, 6 and 7.6; rows corrected in sections 1, 2, 5, 5.5, 6, 8, 9 and 10). **Not done in this pass:** the JoyBrush sections (5.6, 5.6b, 10.5 and the 10-31 notes in section 9) were not touched (they need the JoyBrush lead; the gaps found are listed on the HYG-5 card); the inherited "~" rows in sections 1 to 4 were not re-verified on a phone, only checked for code that contradicts them; the Object drawer header (7.5) is still unchecked.
 **Latest scoped refresh:** 2026-10-26 — JoyBrush feature families, cross-wing reuse map and mandatory update policy.
 **HYG-5 pass (partial), 2026-10-27:** new section 7.6 (the app screens restyled 10-16 to 10-20, which had no rows) and section 9 rows 8, 10, 11 and 12 corrected against the current code. Still to do (job card HYG-5): re-check every 🟡 and 🔴 row, the inherited "~" rows in sections 1 to 4, and ask the JoyBrush lead for its layer-operation rows.
 **Historical update:** 2026-09-16 evening — the puppet UI finish sweep (`tasks/PUPPET_FINISH_LEDGER.md`):
@@ -96,6 +97,7 @@ from compilation, an isolated branch, synthetic checks or agent-only device test
 | Remote camera control over LAN | 🟡 ✔ | streaming/RemoteStreamManager, LiveM3U8Server. **Real, unpromoted, untested by JoyRaptor.** |
 | Remote (LAN streaming: watch and control the phone camera from a browser on the same Wi-Fi) | 🟡 ✔ | **10-28: FadCam's cloud, E2E, Pro, Ko-fi and Discord parts removed** (S19, 63bcd54cf and the three before it; they talked to the FadCam developer's own servers). Agent-checked on the Note 9 10-28: Remote starts, the LAN page loads (`/`, `/status`), `/live.m3u8` streams 2 s segments, no cloud control left. To be folded in as Remote Studio (FOLD-1). Note: the web page loads hls.js, flatpickr and Font Awesome from CDNs, so a viewer PC with no internet gets a broken page. |
 | Watermark | 🟢 ~ | watermark/WatermarkManager **10-28: off by default** (3cbc64ff6); it used to burn "Captured by" + the FadCam logo into every recording, screen recording and photo. People who chose one keep it. |
+| Switching recorder mode no longer leaves a stuck picture over the app | 🟡 | 10-28 (dd952fd91): a mode-switch snapshot could stay drawn over the Main screen; it now has a fallback removal and a log line. Commit message only; no phone check recorded. |
 | Live audio visualizer during record | 🟡 ✔ | visualizer/LiveVisualizer |
 | Forensics gallery | 🟡 ✔ | forensics/ — full package, purpose and state unclear, needs a decision |
 | Motion detection | 🟡 ✔ | motion/ package |
@@ -106,7 +108,7 @@ from compilation, an isolated branch, synthetic checks or agent-only device test
 
 | Feature | Why |
 |---|---|
-| 30 disguise icons (Calculator, Notes, Weather, `$ ~/r00t`…) | ✔ Stalkerware signature on a screen recorder |
+| 30 disguise icons (Calculator, Notes, Weather, `$ ~/r00t`…) | ✔ Stalkerware signature on a screen recorder. **Re-checked 11-04:** S19 (63bcd54cf, 10-28) removed the Pro / Pro+ build types and the three "disguise" build flavours (`app/build.gradle.kts` now has one flavour, `default`), but the 30 `activity-alias` icon entries are still in `AndroidManifest.xml`, so the icons themselves have not left yet. |
 | Accessibility service used for screenshots | ✔ Non-accessibility use of the Accessibility API = policy violation |
 | MANAGE_EXTERNAL_STORAGE | ✔ Requires justification; usually refused for editors |
 | Privacy black screen | Per LAUNCH_STRATEGY.md section 3 |
@@ -125,7 +127,7 @@ All of these **stay in the website / F-Droid build.** Decision already made and 
 | Keyframes + easing | 🟢 ~ | keyframe/, EasePickerPopover |
 | Masks | 🟢 ~ | Schema v13. **The engine shipped before the UI did — that gap is why LEDGER.md exists.** |
 | Chroma key / green screen | 🟢 ~ | LEDGER 3a-KEY: preview and export both proved on the Note 9, 2026-08-05 |
-| Luma key | 🔵 ~ | LEDGER: "spec complete, the work is not" |
+| Luma key | 🔵 ~ | LEDGER: "spec complete, the work is not". **Re-checked 11-04 (code only):** I found no luma *key* (key out dark or bright). What does exist is a luma *matte* (one layer's brightness cuts another): `CompositingSpec` saves `matte` with `mode: luma`, and the editor (`FaditorEditorActivity`), `LayerPreviewController`, `FxLivePreviewController` and `BlendModeGlEffect` read it; harness `run-matte.sh`. Whether the matte is reachable by hand on a phone was not checked, so it is 🟡 "built, proof level unknown". |
 | GL transitions (35+) | 🟢 ~ | gltransitions/ |
 | **External .glsl transitions from a dropped-in folder** | 🟢 ✔ | GlExternalTransitions.scanAndRegister — **this is already a working pack loader.** |
 | Speed / zoom / crop / flip | 🟢 ~ | |
@@ -147,6 +149,12 @@ All of these **stay in the website / F-Droid build.** Decision already made and 
 | Single-frame export (JPG/PNG) | 🟡 ✔ | Export sheet, "single frame": agent-checked on the Note 9 10-28: a real 1080x1920 PNG and JFIF JPEG land in the Joy Creator folder under the project's name. Not yet tried by JoyRaptor. |
 | Timeline bookmarks and regions (`studio.timeline-marks`) | 🟡 ✔ | Landed 10-28 (b3c2b23b0; built by Codex 10-23/24, rescued). Tap the playhead time to drop a bookmark; hold it for **Marks & regions**: rename, jump previous/next, Set In/Out to make a region, loop a region while playing, export just the regions (video or audio-only, named "<project> - Region 1"). Undo/redo, and kept after closing the project and after a force-stop. Agent-checked on the Note 9 10-28 (loop held inside a 5.4 s region for 11 s; region export 5397 ms). Not yet tried by JoyRaptor. Joybot's `add_marker` can now be switched on (Joybot lane). Spec `tasks/SPEC_TIMELINE_MARKS_20261023.md`. Help `studio.timeline-marks`: PENDING. |
 | Export: the file name you type is the file's name | 🟡 ✔ | Fixed 10-28 with the marks landing: the name now travels to the export process (it was dropped and the file saved as the project's name, "Untitled 2.mp4"). Agent-checked on the Note 9 10-28 (`qa-name-1028.mp4`). |
+| Link to a pin of a bent sprite (`studio.pin-links`) | 🟡 | 10-15 (2afd18ebc, 5ec673675): an object can follow one pin of a bent sprite, as it already could for a bent picture, and the Link chooser lists the sprite's pins (it uses the editor theme). `model/MeshPinLink`, `transform/mesh/MeshPinPose`, the sprite stores its cell shape (`cellAspect`). The commits say built; no phone check of it is recorded anywhere I found. Help mapping pending. |
+| A dragged rotation no longer corrupts keyframes | 🟡 | 10-02 (73ea73f20, D.02a): a turn made by hand is folded into -180..180 on the way into the model, so a key made from it no longer spins the long way round (before, 175 dragged +30 stored 205). Typed angles (720) are untouched. Harness-tested (`run-rotation.sh`); no phone check is recorded in the commit. |
+| Drawer toggles and drawer edits are one undo step each | 🟡 | 10-16 (39bc74e76, 2acdf73cc): Hide, Lock, Mute, Bypass, Pass-through, the Mask / Chroma / Blend drawers, a video overlay's blend mode and a whole visualiser slider drag each make one Undo step. The commits do not record a phone check. |
+| Studio drawer polish: visualiser drawer in two columns, "Follow what" dialog with a numbered pin diagram, one-button text case cycle, caption drawer above the preset strip, hex colour never wraps | 🟡 | 10-16 (ebbea564a, a3e041dda, d1655f38a, 0589cdae9): drawers share one face (`ObjectDrawer.Kit`, `SliderFace`). Before/after shots were taken (`tasks/screens/`); owner has not accepted. Help mapping pending. |
+| Picture and overlay effects show in the paused preview at once | 🟡 | 10-16 (f34f0b3f6): changing an image overlay effect while paused re-draws the GL preview (`onFxChanged` resyncs it). Commit message only; no phone check recorded. |
+| Hover labels on Studio's icon-only buttons (visualiser layer buttons, B/I/U, text motion, pivot, export stripe, every bottom tool, Remote switches, every row of the Add asset sheet); Add asset gets a Sprite row | 🟡 | 10-15 to 10-28 (3bfc14570, 7355a9cdc, 40968e7e4, 54482b735, 3c56fd61a; jobs UI-1 and ANI-1). Studio tool names now come from string resources. UI-1 part 1 audited the Lobby, Library, Trash, Settings hub and Remote; the app-wide sweep is **not** finished (see the UI-1 card). Add asset's Sprite row opens the Sprites palette. Commit messages only; no owner check. |
 | Hold a selected picture or text to open its drawer | 🟡 ✔ | 10-28 (3f8aa55ed): before, only a visualiser's box answered the hold. Agent-checked on the Note 9 (picture opens Image/Transform; text opens its editor). Double-tap on a selected picture was not confirmed by adb taps. |
 | Undo/redo put the preview back on the right clip, and the playhead inside the project | 🟡 ✔ | 10-28 (77d27970c, 1a7a8637e): a removed slide no longer stays on screen; a redo that shortens the project brings the playhead back inside it. Agent-checked on the Note 9; JoyRaptor's exact case (Joybot title slide) needs an AI key and is not re-run. |
 
@@ -161,6 +169,7 @@ All of these **stay in the website / F-Droid build.** Decision already made and 
 | Silence detection | 🟢 ✔ | SilenceDetector — pure DSP |
 | Loudness normalisation (EBU R128) | 🟢 ~ | |
 | Fix audio (highpass → denoise → compress → loudnorm) | 🟡 ✔ | **Corrected 10-28:** this row said 🟢 "works", but on the Note 9 every bake failed ("Invalid argument"): the baked file was named after the source's whole URI, and its .tmp name hid the format from ffmpeg. Fixed (c3f8ddffe, d0795437b); agent-checked 10-28 on a 1:25 song from Downloads: Bake OK (2.1 MB), plays, Undo returns the original, a second Fix is a cache hit. It IS a button (the audio clip's drawer, "Fix audio"). Open: after a cache hit the clip's waveform keeps the unfixed look; the Clean (remove silence) button acts on the video clip when it stays in the selection. Not yet tried by JoyRaptor. |
+| Audio clip fade in / fade out sliders | 🟡 | 10-28 (62bc28b33, `AudioDrawerTabs`): the slider is on a square curve, because evenly spread over half the clip a short drag on a 1:25 song gave a 24 s fade (seen on the Note 9). Tap-to-type still sets an exact value. The fix is a code change; the commit does not say it was re-tried on the phone. Also 10-28 (e6a9ac3ce): a new blank audio project is "Untitled audio 2", "3"... instead of another identical name. |
 | Voiceover recording | 🟢 ~ | audio/VoiceoverRecorder |
 | Audio ducking | 🟡 | **Rebuilt** (2026-10-15 code read): lane menu "Duck under…" → Ducker + DuckApplier write ordinary volume points that export reads. Joybot's `set_ducking` mirrors it (needs the voice clip's transcript). The old set_clip_duck stays removed. Not seen on a phone by this lane. |
 | Visualizer studio | 🟢 | Superseded by VisLab (section 5.5): music visuals in their own room, inside Studio and floating over other apps. |
@@ -194,7 +203,7 @@ no money.** Nothing else on Android does the two-engine merge.
 | Saved animations — picking one | 🟢 ✔ | **Two screens list `sheet.getPresets()` now.** The drawer shows them as chips alongside the still cells (animations first, one chip design, a mode dot the only difference); the Lab's Clips section is a shelf of the same chip, and picking one lights its frames on the sheet **in its own order** before you decide to load it. Device-proved 2026-09-13. |
 | Cell names | 🟢 ✔ | The grid letters each cell in four corners — index, name, viseme, order badge — and the film and drawer chips carry the name. **Two stores held a cell's name and nothing reconciled them**, so a sheet with named cells exported "0 named" to the assistant; `cellNames` is now the one truth, reading falls back to `Cell.name`, writing updates both, loading migrates. Device-proved 2026-09-13. `Cell.tags[]` is still written by nothing. |
 | Live keyframing while playing | 🟢 ✔ | `onCellChipTapped` keys **at the playhead** by design, so tapping during playback records a performance. Position/scale/rotation arm the same way (`faditor_kf_hint_armed`). Sprites carry a `KeyframeSet` *and* a `FrameTrack` — two independent tracks, which is what makes the two-pass workflow work. **JoyRaptor's favourite thing in the app. Do not add an arming step.** |
-| Bend / squash-and-stretch on sprites | 🔵 ✔ | Not built. `CornerPinTransformHost` is the only host with a mesh path and it is image-only; `SpriteOverlayItem` has no transform host at all. |
+| Bend / squash-and-stretch on sprites | 🟢 | **Corrected 11-04:** this row said "Not built" (a September reading). Bend on sprites is built and listed as device-verified in section 2 ("Bend — SPRITES"): `SpriteOverlayItem.getMesh()`, `SpriteMeshDraw`, `MeshBendSeam`, `SpriteBlendGlEffect`; 10-28 undo of a sprite's bend agent-checked on the Note 9 (fabedb713). I did not re-prove the 🟢 itself; it comes from section 2. |
 | Dope sheet | 🟢 ~ | |
 | Avatar rigs (biped, head yaw/pitch, limbs) | 🟡 ~ | road_map claims the full loop is done; **JoyRaptor has not driven it** |
 | MediaPipe face tracking | 🟡 ✔ | face_landmarker.task in assets, MediaPipeTrackingSource |
@@ -311,6 +320,7 @@ layers, and a floating visualiser over other apps. Lead docs: `tasks/VISLAB_SPEC
 | Keyframable React / Fade / Bright / Colour / Size / Speed on a Studio visualiser | 🟡 ✔ | `model/VisLabKeys`; agent phone-tested 10-22 |
 | Lyrics looks in Studio show the clip's own transcript | 🟡 ✔ | `vislab/studio/StudioWords`; agent phone-tested 10-22 (preview + export) |
 | Blend mode on a Studio visualiser (Difference, Screen, Multiply...): hold the visualiser, Blend tab; Joybot can set it too | 🟡 ✔ | In the export (`export/VisualizerBlendGlEffect`, agent phone-tested 10-23) and, since 10-27, in the preview too (R11). Agent phone-tested 10-27/28: preview matches the exported frame, and a visualiser sits under pictures, sprites, text and captions in both (R15). Help: Joybot topic "blend"; action `set_blend_mode` |
+| Floating visualiser stays out of the way: it never ends a recording, touches pass through it on Android 12+, its label follows the look | 🟡 | 10-18 (2e4e40b5e, `vislab/overlay/VisOverlayService`). Commit message only; no separate phone check of these three is recorded (the floating visualiser itself is 🟢 above). |
 | Web look book (desktop pilot of every look and the editor) | 🟢 ✔ | `tools/vislab-web`; published as a private Claude artifact (v5) |
 | Joybot can pick, edit and save looks | 🟡 ✔ | Joybot lane (`ai/actions/VisLab*`) |
 | Font per Words layer: each Words layer in any app font or his imported ones. Where: the room's editor, a Words layer, Font | 🟡 ✔ | Agent phone-tested 10-28 (R1): two fonts in one look at once, kept after reopening. `words/VisFonts`; one glyph sheet per text + font. Help mapping pending |
@@ -325,7 +335,6 @@ layers, and a floating visualiser over other apps. Lead docs: `tasks/VISLAB_SPEC
 | A look's parts follow Studio objects: a look's layer (a logo, rings, sparks...) follows a picture, title, sprite or dummy's position, size and turn, either snapping onto it or keeping its own place and moving as the object moves, and copying any of Position, Size and Rotation (as Studio's link). Where: hold the visualiser, Style tab, "Layers can follow an object" (the chip beside it, and the "copies" row under it) | 🟡 ✔ | Agent phone-tested 10-27/28 (R8): a keyed dummy and a picture, both ways of following, preview and export; the copies choice (Position off, undo, reopen) 10-28. `vislab/studio/VisFollow` (run-visfollow 16/16). Help `vislab_follow` (Joybot HelpBook) |
 | A look shows a Studio item: a look's picture layer shows any picture, title, sprite (or performing avatar), overlay video or the main video in the project, as it is at that moment, with all the look's picture effects. Where: hold the visualiser, Style tab, the picture layer's "shows" row | 🟡 ✔ | Agent phone-tested 10-27/28 (R9): a picture and the main video in the preview and the export; a sprite, a title and an overlay video in the preview. Avatars not tried on the phone. `vislab/studio/VisShow`, `StudioPictures`, `StudioArt`. Help `vislab_show` (Joybot HelpBook) |
 | Video inside a look: one of your videos playing in a look, round and round, with the picture's pump, shake, halo and colour split. Where: the room's editor, Add a layer, Video clip (or Use a video on any picture layer) | 🟡 ✔ | Agent phone-tested 10-28 (R12): plays in the room at 50-53 fps; in Studio a look's own video runs on the look's clock. Frames from Studio's forward decoder (`export/SequentialFrameReader`) at 540 px, `vislab/room/Videos`. The web look book has Video clip and "Use a video" too (10-28). Help `vislab_video` (Joybot HelpBook) |
-| Element packs from other people (plugins) | 🔵 | Designed in VISLAB_TODO section F |
 | Element packs for VisLab from other people (looks and parts as plugins) | 🔵 | Designed in VISLAB_TODO section F; not on the VisLab roadmap yet |
 
 ## 5.6 JOYBRUSH ENGINE — current feature families (October26)
@@ -426,7 +435,7 @@ Document versions in the JoyBrush file: 11 captured physical domain, **12 clip e
 | AI-generated slides (GSAP, deterministic) | 🟢 ~ | Device-proven 2026-07-16, 87 frames to MP4 |
 | Copy-prompt then paste-back for slides | 🟢 ~ | **The precedent for share-in.** Already works. |
 | Vision (send a frame to the model) | 🟢 ~ | |
-| B-roll tagging and suggestion | 🟢 / 🔴 ~ | Works on video-track projects; **fails on audio-track projects** — see section 9 |
+| B-roll tagging and suggestion | 🟢 ~ | Works on video-track projects. **Corrected 11-04:** the audio-track failure is fixed (section 9 #2, d0fecd60): b-roll now refuses audio projects with a reason instead of failing. |
 | Background AI jobs that survive app close | 🟢 ~ | AIJobService — the pattern video generation will reuse |
 | Headless apply over adb | 🟢 ~ | ApplyEditsActivity — dev tool |
 | Image generation | 🔵 | Endpoint verified live: POST openrouter.ai/api/v1/images |
@@ -443,6 +452,8 @@ Document versions in the JoyBrush file: 11 captured physical domain, **12 clip e
 | Recipes: save a request, run it again | 🟡 ✔ | Built 10-15: "Save as a recipe" under a finished request; My recipes chip → Run (offline when it names nothing project-specific). Files in the Joy Creator folder, `Joybot/recipes`. Help: "recipes" topic. Agent-checked on the Note 9 10-15 (save, run, undo, delete). Triggers ("every new recording…") not built (BOT-4). |
 | Hands-free Joybot (hold the mic, he answers aloud) | 🟡 | Built 10-15: hold the mic → speak → it sends itself → the reply is read aloud → say "yes", "undo", "stop" or "no". Help: "hands_free" topic. Not phone-tested: needs the owner's voice (BOT-1, S16). |
 | Carry on after the phone kills the app | 🟡 ✔ | Built 10-15: a Studio request interrupted by the app being killed offers "Carry on" next time. Agent-checked on the Note 9 10-15 (force-stop). VisLab and JoyBrush requests can't resume yet (BOT-3). |
+| Joybot's requests outlive the chat; In line or On top; slide shows; "Show me what it added"; pictures you attach act | 🟡 ✔ | Built 10-15 (7b0e07088, 87c0dbbe9, 8f2a8c292, bfce16319; handoff `tasks/joybot/JOYBOT_HANDOFF_20261015.md`). The handoff records a Note 9 check that closing the chat does not stop a request and that the answer waits as "While you were away"; "Show me" for layers, attached pictures acting through tools and `look` were first listed as not phone-tested (a later handoff line says `look` was phone-tested). Not used by JoyRaptor. Help: Joybot topics (61 at the time). |
+| Joybot chat: your words grey, his answers in colour; plain message when the phone is offline | 🟡 | 10-28 (76a436070). Commit message only; the offline wording needs the phone offline (see the tips row). |
 | Free-model task benchmark | 🟡 ✔ | 10-24: `bash tools/jvm-harness/run-joybot-bench.sh` runs the real agent on the PC against 53 tasks (Studio, VisLab, audit faults); 53/53 with the fake model after fixing a false "done" it found (f5a342ae9). Free models live: ready, not run (no OpenRouter key on the PC). `tasks/joybot/BENCHMARK_2026-10-24.md`. |
 
 ---
@@ -526,6 +537,8 @@ so they stay 🟡 and are not to be promoted yet. Old screens are kept reachable
 | **JoyBot switch** replaces the FadCam avatar toggle everywhere | 🟡 ✔ | `ui/joybot`; old `AvatarToggleView` is deprecated, not removed (FREE-1). Shots: `joybot_switch_*.png`. |
 | Settings sub-screens, What's New, update sheets, mode popup, onboarding permissions page restyled | 🟡 | Audio, About and Watermark settings were looked at on the phone; What's New and the update sheets were **not** (10-17 handoff). Five legacy activities still ignore the theme (job UI-1). |
 | Lobby truth pass and placeholder pictures | 🟡 ✔ | Counts only camera and screen recordings; rooms and projects with no picture get a designed placeholder. Shots: `lobby_after_truth_pass.png`. |
+| Space: where the room on the phone goes, and a way to free some; move several unused files to Trash at once | 🟡 | 10-14 and 10-15 (4bc16cef6, 5a0a3a4af). The vault row in section 7 says the Space screen was agent-driven on the Note 9; the multi-select move to Trash was added a day later and I found no phone check of it. "What's new" is Joy Creator's own (the FadCam release notes are gone). Help mapping pending. |
+| README and privacy policy for Joy Creator | 🟡 | 10-14 (d38a4e670): `README.md` and `PRIVACY.md` are drafts in the repo root. Whether the app links to them was not checked. |
 | Slanted ("sheared") chips on Library, Trash and Settings | 🟡 ✔ | The signature look; owner asked for a 15% narrower gap (done). |
 
 ---
@@ -535,7 +548,7 @@ so they stay 🟡 and are not to be promoted yet. Old screens are kept reachable
 | Feature | Level | Notes |
 |---|---|---|
 | App name is "Joy Creator" | 🟢 ✔ | strings.xml line 2 |
-| Only 16 of 2,820 strings say "FadCam" | ✔ | Branding surface is small |
+| Only 19 of 2,844 strings say "FadCam" | ✔ | Branding surface is small. Recounted 11-04 (`grep -c` on `values/strings.xml`: 19 lines of 2,844 `<string>` entries); user-visible wording was moved to Joy Creator on 10-28 (5885d6499, UI-1 part A) and 10-20 (d5710ef80). Cloud device name and dashboard toast left as written until the cloud screens' fate is decided (7d01fbd07). |
 | Intro with animated fading lines | 🟢 ✔ | RowFadeAnimator — **the cycling-words mechanic already exists** |
 | Language picker | 🟢 ✔ | |
 | Permission screen (all up front) | 🟢 ✔ | Recommend deferring to point of use |
@@ -560,7 +573,7 @@ so they stay 🟡 and are not to be promoted yet. Old screens are kept reachable
 | 7 | ✅ **FIXED 2026-10-14**: now merge_transcripts (old name still accepted). Was: ai_merge_transcript has "ai" in the name and uses no AI | Cosmetic honesty | ✔ |
 | 8 | **remove_silence, ✔ checked 10-27:** on video clips it cuts (non-destructive, each cut can be tapped back); **on audio clips it still refuses** ("not yet via AI — use fix_audio or manual cut", `AIToolExecutor`). Was: report-only. | Low | ✔ code 10-27 |
 | 9 | Stranded drag-latch, second path — self-heals, fires occasionally | Low, watch only | LEDGER 2b |
-| 10 | **Automated tests, ✔ re-counted 10-27:** the old claim "no automated tests at all" is wrong. There are 65 JVM harness scripts (`tools/jvm-harness/run-*.sh`, 111 test files) and 386 test files in the JoyBrush modules. What is still true: the Studio app module has no `app/src/test` folder, so Studio code is checked only through the harness. | Structural risk, reduced | ✔ count 10-27 |
+| 10 | **Automated tests, ✔ re-counted 10-27:** the old claim "no automated tests at all" is wrong. There are 69 JVM harness scripts (`tools/jvm-harness/run-*.sh`, recounted 11-04; the 111 test files figure is from 10-27, not recounted) and 386 test files in the JoyBrush modules. What is still true: the Studio app module has no `app/src/test` folder, so Studio code is checked only through the harness. | Structural risk, reduced | ✔ count 10-27 |
 | 11 | ✅ **FIXED 2026-09-13** (617cf316d, re-checked in code 10-27): the Sprite palette lists saved animations as animated chips (`SpritePalettePanel`, `AnimChipView`). Was: saved sprite animations were write-only. | ~~High~~ | ✔ |
 | 12 | **Cell names, ✔ re-checked 10-27:** the palette now reads them (`sheet.cellName`), and Joybot's `label_sprite_cells` writes them (tool exists since 08-07). `Cell.tags[]` is stored in the sheet but I found nothing in the AI tools that writes it (only `ai/` was searched). Still blocks the tag half of SPEC_20260910_SEMANTIC_CELLS. | Medium | ✔ |
 | 13 | **Sprite sheets live inside `project.json`**, so a character perfected in one project does not exist in the next. Same wound as THE VAULT: an asset trapped in composition scope. The B-roll bucket and `AvatarLibrary` already show the right pattern. | Medium — reuse, and it gets worse with users | ✔ 2026-09-10 |
@@ -583,7 +596,7 @@ to rebuild an existing engine. Check the feature map, source and peer branches f
 
 Text-to-image. Text-to-video. Text-to-speech or voice cloning. Voice enhancement.
 On-device LLM. Hosted AI credits. Template gallery. Pack manager UI. Community pack index.
-Music generation. A website. A Play listing. A privacy policy that mentions AI.
+Music generation. A website. A Play listing. A privacy policy that mentions AI (**a draft now exists, 11-04 check:** `PRIVACY.md` has a "Talk to Joybot" row on what leaves the phone, d38a4e670 10-14; still a draft, not published anywhere).
 The earlier claim that this repository has no off-PC backup is superseded:
 GitHub `JoyRaptor/JoyCreator` has published branches. That does not establish a
 backup of every dirty worktree, ignored asset or local evidence; see Git hygiene.

@@ -3437,9 +3437,7 @@ public class RecordsFragment extends BaseFragment implements
             return;
         }
         ArrayList<Uri> ordered = new ArrayList<>(selectedUris);
-        Intent intent = new Intent(getContext(), com.fadcam.ui.faditor.FaditorEditorActivity.class);
-        intent.putExtra(com.fadcam.ui.faditor.FaditorEditorActivity.EXTRA_VIDEO_URIS, ordered);
-        startActivity(intent);
+        RecordsMediaActions.openInStudio(requireContext(), ordered);
     }
 
     private void setActiveFilter(@NonNull VideoItem.Category filter) {

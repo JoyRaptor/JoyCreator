@@ -1933,13 +1933,8 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         }
 
         List<RecordsDeletionRequestItem> requestItems = new ArrayList<>(1);
-        requestItems.add(new RecordsDeletionRequestItem(
-                videoItem.uri.toString(),
-                videoItem.displayName,
-                Math.max(0L, videoItem.size),
-                "content".equals(videoItem.uri.getScheme())
-        ));
-        RecordsDeletionService.startSaveSession(context, requestItems, moveFile);
+        requestItems.add(RecordsMediaActions.requestItem(videoItem.uri, videoItem.displayName, videoItem.size));
+        RecordsMediaActions.saveToGallery(context, requestItems, moveFile);
     }
     
     // Helper method to remove video item from list after move operation

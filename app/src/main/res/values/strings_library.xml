@@ -120,6 +120,10 @@
     <string name="library_action_open">Open</string>
     <string name="library_action_rename">Rename</string>
     <string name="library_action_share">Share</string>
+    <string name="library_action_save_gallery">Save to gallery</string>
+    <string name="library_action_open_studio">Open in Studio</string>
+    <string name="library_save_gallery_queued">Saving a copy to your gallery. Progress shows in Records and the notification.</string>
+    <string name="library_save_gallery_failed">Could not save this one to the gallery</string>
     <string name="library_action_trash">Move to Trash</string>
     <string name="library_action_trash_confirm">Tap again to move to Trash</string>
     <string name="library_rename_hint">New name</string>

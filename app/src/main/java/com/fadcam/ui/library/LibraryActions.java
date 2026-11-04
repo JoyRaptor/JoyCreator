@@ -16,6 +16,7 @@ import com.fadcam.joyfolder.FileKind;
 import com.fadcam.joyfolder.android.JoyFolderHome;
 import com.fadcam.joyfolder.android.SafJoyFs;
 import com.fadcam.joyfolder.studio.StudioMirror;
+import com.fadcam.ui.RecordsMediaActions;
 import com.fadcam.ui.faditor.project.ProjectStorage;
 import com.fadcam.utils.TrashManager;
 
@@ -64,6 +65,29 @@ final class LibraryActions {
         if (it.kind == LibraryKind.PROJECTS) return it.projectId != null || it.folderPath != null;
         if (it.kind == LibraryKind.DRAWINGS) return it.drawingFile != null;
         return it.folderPath != null || it.captureCategory != null;
+    }
+
+    /** Recordings and other videos only, the same files the classic Records could save. */
+    static boolean canSaveToGallery(@NonNull LibraryItem it) {
+        return it.uri != null && it.isVideo();
+    }
+
+    static boolean canOpenInStudio(@NonNull LibraryItem it) {
+        return it.uri != null && it.isVideo();
+    }
+
+    /** Queues a copy into Downloads/FadCam through the classic Records' own service; says so at once. */
+    static void saveToGallery(@NonNull Context c, @NonNull LibraryItem it, @NonNull Done done) {
+        com.fadcam.service.RecordsDeletionRequestItem q = RecordsMediaActions.requestItem(
+                Uri.parse(it.uri), it.fileName != null ? it.fileName : it.name, it.size);
+        if (q == null) { done.onDone(c.getString(R.string.library_save_gallery_failed), false); return; }
+        RecordsMediaActions.saveToGallery(c, Collections.singletonList(q), false);
+        done.onDone(c.getString(R.string.library_save_gallery_queued), false);
+    }
+
+    /** The Studio editor with this recording as its clip, exactly as the classic Records opened it. */
+    static void openInStudio(@NonNull Context c, @NonNull LibraryItem it) {
+        RecordsMediaActions.openInStudio(c, Collections.singletonList(Uri.parse(it.uri)));
     }
 
     static void share(@NonNull Context c, @NonNull LibraryItem it) {

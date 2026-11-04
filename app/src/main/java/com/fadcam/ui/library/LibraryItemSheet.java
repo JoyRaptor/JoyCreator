@@ -58,6 +58,14 @@ final class LibraryItemSheet {
         } else {
             actions.addView(SheetKit.subtitle(c, c.getString(R.string.library_nowhere_to_open)));
         }
+        if (LibraryActions.canSaveToGallery(it)) {
+            actions.addView(SheetKit.row(c, "file_download", c.getString(R.string.library_action_save_gallery), false,
+                    SheetKit.Trail.NONE, v -> { d.dismiss(); LibraryActions.saveToGallery(c, it, l::onDone); }).view);
+        }
+        if (LibraryActions.canOpenInStudio(it)) {
+            actions.addView(SheetKit.row(c, "movie_edit", c.getString(R.string.library_action_open_studio), false,
+                    SheetKit.Trail.NONE, v -> { d.dismiss(); LibraryActions.openInStudio(c, it); }).view);
+        }
         if (LibraryActions.canRename(it)) {
             actions.addView(SheetKit.row(c, "edit", c.getString(R.string.library_action_rename), false,
                     SheetKit.Trail.NONE, v -> showRename(c, d, actions, it, l)).view);

@@ -40,3 +40,7 @@ so easy that iPhone fans like it. This is the first thing every user and every d
 ## Files and traps
 - `ui/lobby/**`, `MainActivity` routing. The lobby is a router: keep every existing destination reachable while it changes.
 - Design rules in [AGENT_START.md](../AGENT_START.md); before and after shots in `tasks/screens/`.
+
+## 2026-11-04: lobby recents with sheets, characters and looks, agent check (Note 9)
+
+Build with `1517f6189` compiles (Gradle) and installs in place; the lobby loads, the Library count and recents row are intact, and the hero now shows the newest project's picture. The new SHEET, CHARACTER and LOOK cards were NOT seen: the row shows the 10 newest items of all kinds and every sheet and character on the Note 9 is older than the newest 10 recordings, exports and projects. So the feature is built and does not regress the lobby, but it is not yet proven. To prove it: open a sprite sheet (making it recent), return to the lobby, and look for a SPRITE SHEET card and tap it. Owner question for later: should the row cap at 10 mixed items, or reserve a slot per kind?

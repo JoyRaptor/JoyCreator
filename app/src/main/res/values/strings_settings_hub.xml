@@ -141,6 +141,9 @@
     <!-- About and help -->
     <string name="settingshub_whats_new">What\'s new</string>
     <string name="settingshub_whats_new_desc">What changed in this version</string>
+    <string name="settingshub_tips">Tips</string>
+    <string name="settingshub_tips_desc">Short, helpful ideas for using Joy Creator</string>
+    <string name="settingshub_tips_names">tips, tricks, hints, help, how to, ideas, learn</string>
     <string name="settingshub_whats_new_names">changelog, release notes, updates, news, version</string>
     <string name="settingshub_show_intro">Show the intro</string>
     <string name="settingshub_show_intro_desc">Welcome slides and the permissions guide, next time the app opens</string>

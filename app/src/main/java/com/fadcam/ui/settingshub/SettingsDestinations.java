@@ -95,6 +95,7 @@ final class SettingsDestinations {
             case REMOTE:             handOver(a, TAB_REMOTE); break;
             // ── about and help ──
             case WHATS_NEW:          a.startActivity(new Intent(a, WhatsNewActivity.class)); break;
+            case TIPS:               com.fadcam.ui.TipsCarouselFragment.newInstance().show(host.getParentFragmentManager(), "tips_carousel"); break;
             case SHOW_INTRO:         SettingsSwitchSheets.showIntro(host); break;
             case UPDATE_CHECK:       SettingsSwitchSheets.updateCheck(host); break;
             case DEBUG_LOG:          DebugLogBottomSheetFragment.newInstance().show(host.getParentFragmentManager(), "debug_log_tools"); break;

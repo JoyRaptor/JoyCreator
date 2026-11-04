@@ -112,6 +112,8 @@ final class SettingsCatalog {
             new Section(R.string.settingshub_section_about, R.string.settingshub_chip_about, "info",
                     row(SettingsKey.WHATS_NEW, "new_releases", R.string.settingshub_whats_new,
                             R.string.settingshub_whats_new_desc, R.string.settingshub_whats_new_names),
+                    row(SettingsKey.TIPS, "lightbulb", R.string.settingshub_tips,
+                            R.string.settingshub_tips_desc, R.string.settingshub_tips_names),
                     row(SettingsKey.SHOW_INTRO, "waving_hand", R.string.settingshub_show_intro,
                             R.string.settingshub_show_intro_desc, R.string.settingshub_show_intro_names),
                     row(SettingsKey.UPDATE_CHECK, "system_update", R.string.settingshub_update_check,

@@ -47,6 +47,7 @@ public enum SettingsKey {
 
     // ── About and help ──
     WHATS_NEW(null),
+    TIPS(null),
     SHOW_INTRO("group_onboarding"),
     UPDATE_CHECK("group_auto_update"),
     DEBUG_LOG("group_debug_logging"),

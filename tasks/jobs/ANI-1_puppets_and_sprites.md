@@ -27,7 +27,7 @@ the app. Puppet code has barely changed since 9-17, so this card is still accura
 - [ ] Phone-prove the basics above on the Note 9 with a throwaway rigged picture.
 - [ ] Finish ledger §C: C1 timeline grab bar (the diagnostic prints `moves=`); C2 the overlapping corner widget
       (needs the owner's screenshot, S11); C3 the "Everything" chip (owner, S11); C4 face/voice drivers (its own spec);
-      C5 holes in traced artwork and C6 sliver triangles (engine); C7 hover labels (app-wide).
+      C5 holes in traced artwork and C6 sliver triangles (engine); C7 hover labels (app-wide) [C7 puppet + sprite + avatar screens: done 2026-11-04, see strings_hover_puppet.xml; not compiled].
 - [ ] Sprite read-back, the "three missing doors": saved animations as chips, cell names on chips and the tape,
       a sheet library across projects ([SPEC_20260910_SEMANTIC_CELLS](../SPEC_20260910_SEMANTIC_CELLS.md) §5). The old roadmap put this after launch; ask the owner.
 - [ ] Sprite warp net looks detached from the sprite (owner report 10-15; see [STU-4](STU-4_studio_sweep_leftovers.md)).

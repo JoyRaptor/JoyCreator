@@ -70,7 +70,7 @@ public class PuppetBadgeView extends View {
         super(ctx);
         d = ctx.getResources().getDisplayMetrics().density;
         stroke.setStyle(Paint.Style.STROKE);
-        setContentDescription(ctx.getString(R.string.studio_puppet_badge_description));
+        setContentDescription(ctx.getString(R.string.studio_puppet_badge_description)); androidx.appcompat.widget.TooltipCompat.setTooltipText(this, ctx.getString(R.string.hover_puppet_badge));
     }
 
     public void setHost(@Nullable Host h) { this.host = h; }

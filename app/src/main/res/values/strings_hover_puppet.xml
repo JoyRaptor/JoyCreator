@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ANI-1 C7 hover labels: tooltips for the sprite sheet editor's number pills and drag handles,
+         and for the puppet pin badge. English only, plain words a user would say. -->
+    <string name="hover_sprite_cols">Columns across the sheet. Drag to change, tap to type</string>
+    <string name="hover_sprite_rows">Rows down the sheet. Drag to change, tap to type</string>
+    <string name="hover_sprite_margin_x">Space at the left and right edge of the sheet. Drag to change, tap to type</string>
+    <string name="hover_sprite_margin_y">Space at the top and bottom edge of the sheet. Drag to change, tap to type</string>
+    <string name="hover_sprite_spacing_x">Gap between cells, side to side. Drag to change, tap to type</string>
+    <string name="hover_sprite_spacing_y">Gap between cells, top to bottom. Drag to change, tap to type</string>
+    <string name="hover_sprite_tolerance">How close to the key colour counts as background. Drag to change, tap to type</string>
+    <string name="hover_sprite_move_x">Move this frame left or right. Drag to change, tap to type</string>
+    <string name="hover_sprite_move_y">Move this frame up or down. Drag to change, tap to type</string>
+    <string name="hover_sprite_scale">Make this frame bigger or smaller. Drag to change, tap to type</string>
+    <string name="hover_sprite_rotate">Turn this frame, in degrees. Drag to change, tap to type</string>
+    <string name="hover_sprite_pivot_x">Pivot point, left to right. Drag to change, tap to type</string>
+    <string name="hover_sprite_pivot_y">Pivot point, top to bottom. Drag to change, tap to type</string>
+    <string name="hover_sprite_bake_pad">Space around each frame when baking. Drag to change, tap to type</string>
+    <string name="hover_sprite_onion_strength">How strong the onion-skin ghosts look. Drag to change, tap to type</string>
+    <string name="hover_sprite_onion_past">Ghosts of earlier frames. Drag to change how many, tap to pick a colour</string>
+    <string name="hover_sprite_onion_future">Ghosts of later frames. Drag to change how many, tap to pick a colour</string>
+    <string name="hover_sprite_divider">Drag to make the tools panel taller or shorter</string>
+    <string name="hover_puppet_badge">Puppet pins. Tap to pose, hold to open the pin drawer</string>
+</resources>

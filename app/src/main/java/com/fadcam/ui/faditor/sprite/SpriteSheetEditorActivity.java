@@ -356,7 +356,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         root.addView(gridView, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
-        View divider = new Divider(this);
+        View divider = new Divider(this); androidx.appcompat.widget.TooltipCompat.setTooltipText(divider, getString(R.string.hover_sprite_divider));
         divider.setOnTouchListener(new View.OnTouchListener() {
             float downY; int startPx;
             @Override public boolean onTouch(View v, MotionEvent e) {
@@ -1672,7 +1672,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     private TextView onionPill(boolean past) {
         final float d = density();
         TextView pill = chip("0");
-        pill.setTypeface(Typeface.DEFAULT_BOLD);
+        pill.setTypeface(Typeface.DEFAULT_BOLD); androidx.appcompat.widget.TooltipCompat.setTooltipText(pill, getString(past ? R.string.hover_sprite_onion_past : R.string.hover_sprite_onion_future));
         pill.setPadding((int) (9 * d), (int) (5 * d), (int) (9 * d), (int) (5 * d));
         pill.setOnTouchListener(new View.OnTouchListener() {
             float downX;
@@ -3874,7 +3874,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             setBackground(pillBg(Studio.SURFACE, SpriteTheme.LINE, d));
             setPadding((int) (9 * d), (int) (4 * d), (int) (9 * d), (int) (4 * d));
             setMinimumHeight((int) (26 * d));
-            setClickable(true);
+            setClickable(true); androidx.appcompat.widget.TooltipCompat.setTooltipText(this, SpriteHoverLabels.forNumPill(SpriteSheetEditorActivity.this, key));
 
             if (icon != null) {
                 TextView ic = new TextView(SpriteSheetEditorActivity.this);

@@ -34,3 +34,7 @@ clean. **This is not legal advice:** before relying on it (for example to change
 - [ ] Rebuild the most user-visible parts first (they also serve [DOOR-2](DOOR-2_lobby_landing.md)): Records → Library v2 (mostly done), Home recorder, onboarding.
 
 - No-loss map 2026-11-04 (what the owner would lose if each old screen went): [audits/fadcam_no_loss_map_20261104.md](../audits/fadcam_no_loss_map_20261104.md)
+
+## 2026-11-04: first gap from the no-loss map closed
+
+"Embed GPS location in the video file" had no door (its screen `LocationPrivacySettingsFragment` was opened by nothing). Settings hub now has a "Location in video files" row under Recording that opens it (361ae97a3). Agent-checked on the Note 9: the row shows and opens "Location & Privacy > Embed Location Metadata (Disabled)". Not checked: switching it on and a real recording carrying the location. Its glyph is the Watermark one; pick a location glyph when the next hub pass runs. Remaining gaps: see [the map](../audits/fadcam_no_loss_map_20261104.md).

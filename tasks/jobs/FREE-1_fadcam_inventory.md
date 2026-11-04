@@ -32,3 +32,5 @@ clean. **This is not legal advice:** before relying on it (for example to change
       (`git log --diff-filter=A --format=%ad -- <file>` on the oldest commits shows what arrived with the fork).
 - [ ] Verdicts with the lead; the owner reviews.
 - [ ] Rebuild the most user-visible parts first (they also serve [DOOR-2](DOOR-2_lobby_landing.md)): Records → Library v2 (mostly done), Home recorder, onboarding.
+
+- No-loss map 2026-11-04 (what the owner would lose if each old screen went): [audits/fadcam_no_loss_map_20261104.md](../audits/fadcam_no_loss_map_20261104.md)

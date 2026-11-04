@@ -22,7 +22,7 @@ breaking other sessions) and check [`tasks/BOARD.md`](BOARD.md) (who is working 
 What exists, and how well proven, lives in [`tasks/STATE.md`](STATE.md). Joybot's in-app help and every
 advertised feature are built from STATE, so **a feature missing from STATE is a feature users never find.**
 
-**Last reconciled:** 2026-10-27 by the project lead (Claude, session "JOY CREATOR SUPREME ORCHESTRATOR"),
+**Last reconciled:** 2026-10-27 by the project lead (rows for FREE-1, DOOR-2, STU-2, STU-3, BOT-2, BOT-3, BOT-4 and HYG-5 re-checked 2026-11-04 by a Claude Sonnet 5.5 session) (Claude, session "JOY CREATOR SUPREME ORCHESTRATOR"),
 against `origin/joy-creator` at `8d2c40e3a`, every Claude Code session on this machine (all accounts) and
 the Codex sessions. Rows say when they were last checked. **A row checked more than 7 days ago is
 suspect:** re-verify it against the code before you rely on it.

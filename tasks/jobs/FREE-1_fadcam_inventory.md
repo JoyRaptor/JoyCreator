@@ -46,3 +46,9 @@ clean. **This is not legal advice:** before relying on it (for example to change
 The build with `ad0665199` compiles (Gradle) and installed in place. On a video export (VL Review full) the Library item sheet lists Open, Save to gallery, Open in Studio, Share, Move to Trash, each with an icon. Open in Studio opened the Studio editor on a new project ("Untitled 2") with the export as a 30 s clip and its audio bars; Undo count 0. Not checked: Save to gallery (a copy lands in Downloads/FadCam, not run), a photo item, a missing-file item. Side effect: one extra sandbox project "Untitled 2" on the Note 9. Still open from the map: multi-select and batch, the Camera/Screen/Stream/Dual sub-filter, the details sheet.
 
 - No-loss gaps 4 and 5 (2026-11-04): Library item sheet has a Details row for videos (opens the classic VideoInfoBottomSheet via LibraryActions.showDetails); Recordings chip shows a second chip row All/Camera/Screen/Stream/Dual with counts (LibrarySourceChips, LibraryCapture, filter narrowing). Not compiled, not tried on the phone. Still open: multi-select and batch bar (gap 2).
+
+## 2026-11-04 (later): Tips row and Library sub-filter, agent check (Note 9)
+
+- Settings hub "Tips" row (About and help) finds itself in Settings search and opens the tips carousel (11 tips). Pushed ec57b6f8d. Closes no-loss gap 7.
+- Library Recordings kind now shows a second chip row All / Camera / Screen / Stream / Dual with counts. On the Note 9: All 5 = Camera 1 + Screen 3 + Stream 1, Dual 0 greyed; tapping Screen shows 3 items. Closes gap 4 (the sheet's "Details" row, gap 5, built in the same commit, is not yet tried). Multi-select and batch (gap 2) not started.
+- The tips themselves are FadCam-era camera tips ("Long press preview to disable it"); rewrite them for Joy Creator when the tips are next touched.

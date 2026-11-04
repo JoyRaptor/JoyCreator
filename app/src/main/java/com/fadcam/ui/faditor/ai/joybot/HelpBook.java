@@ -399,6 +399,28 @@ public final class HelpBook {
             new Topic("library_look", "open a look|look file|vis.json|fonts and supplies|my looks in the library",
                     "In the Library, tap a look file (.vis.json) under “Fonts and supplies” to open VisLab on that look.",
                     "library", null),
+            // ── Settings hub and Remote (BOT-2, 11-04; from STATE Settings hub v2, Remote rows) ──
+            new Topic("settings_find", "find a setting|search the settings|search settings|settings search|settings hub"
+                    + "|jump chips|classic settings|where is the setting|where are the settings",
+                    "The Settings hub groups settings into sections, with chips across the top that jump to a "
+                            + "section. Search sits above the keyboard, and each row shows its live status. The classic "
+                            + "settings screens are still there, under About.",
+                    "setup", null),
+            new Topic("settings_location", "location in video|location in my video|gps in|embed location|location metadata"
+                    + "|put my location|location in the file",
+                    "In Settings, under Recording, the “Location in video files” row opens Location & Privacy > "
+                            + "Embed Location Metadata, the switch that puts the GPS position in your videos.",
+                    "setup", null),
+            new Topic("settings_tips", "camera tips|tips carousel|tips in settings|the tips row|tips row",
+                    "In Settings, under About and help, the Tips row opens a carousel of 11 tips. Settings search "
+                            + "finds it too. They are older camera tips, not yet rewritten for Joy Creator.",
+                    "setup", null),
+            new Topic("remote_lan", "remote control|remote camera|watch my phone camera|control the phone camera|lan remote"
+                    + "|remote streaming|stream to my computer|stream to a browser|server room",
+                    "Remote lets you watch and control the phone's camera from a browser on the same Wi-Fi. It "
+                            + "works on your own network only: the old cloud parts were removed. The viewer's computer "
+                            + "needs internet for the page to look right.",
+                    null, null),
             // ── VisLab and Director (BOT-2, 10-28; from STATE 5.5 / 6) ──
             new Topic("vislab", "vislab|vis lab|viz lab|music visual|visuals that react|react to the music"
                     + "|music video look",

@@ -442,6 +442,10 @@ public class IdeaEngineTest {
                     {"how do I rename a project", "library_projects"},
                     {"how do I import files", "library_import"},
                     {"how do I open a look from fonts and supplies", "library_look"},
+                    {"how do I find a setting", "settings_find"},
+                    {"how do I put the location in my video", "settings_location"},
+                    {"where is the tips row", "settings_tips"},
+                    {"how do I watch my phone camera from my computer", "remote_lan"},
             };
             for (String[] c : bot2Help) {
                 t = com.fadcam.ui.faditor.ai.joybot.HelpBook.find(c[0]);

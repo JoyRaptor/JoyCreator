@@ -303,7 +303,7 @@ public class AIToolExecutor {
                 Clips not matched stay in their original relative order at the end.
                 If clips are on different layers, the tool asks the user to confirm.
 
-            33. rename_clip — Rename a single clip by id.
+            33. rename_clip — Give a single clip your own name by id (or by the name it has). Not its file name.
                 Use when the user says e.g. "rename the first clip to Intro".
                 args: {"clipId":"...", "newName":"Intro"}
 
@@ -349,7 +349,7 @@ public class AIToolExecutor {
                 args: {"kind":"all|fades"} or {"seams":[0,2]}
             42e. set_item_time — When ANY item (clip, picture, text, sprite, visualizer, adjustment, audio) starts/ends on the timeline, in timeline ms. "Make it end here" = endMs at the playhead. Spine clips get trimmed (the video's length changes).
                 args: {"id":"...", "endMs":5200} or {"id":"...", "startMs":1000, "endMs":4000}
-            42f. rename_item — Give an audio clip or adjustment layer a name (clips and other layers: not yet). args: {"id":"...", "name":"Cat 2"}
+            42f. rename_item — Give ANY clip or layer your own name ("Cat 2"). args: {"id":"<id or the name it has now>", "name":"Cat 2"}. Not the file name. If two items share a name you get a question: ask the person which, then use the id.
             42g. look — SEE something in the project: the picture comes back attached to the tool result. Use it whenever the job depends on what something LOOKS like — naming a sprite sheet's cells, building its animations ("these are my character's expressions, label them"), choosing B-roll or a thumbnail, judging whether text reads over a background, describing a clip. A sprite sheet comes back with its grid drawn on and every cell NUMBERED with the index label_sprite_cells / author_sprite_animation use. "playhead" shows the FINISHED video at a moment, exactly as it exports (titles, pictures, sprites, visualizers, grade, crop, effects), with the ids of what is on screen there: use it for "is the title readable", "does the picture cover the face", "is the visualizer behind the text", and look again after a change to check it. Look first, then act; don't guess from names. Only works with a model that can see pictures.
                 args: {"id":"<playhead | sprite sheet id | sprite layer id | picture layer id | clip id>"} optional "atMs": for playhead, ms on the timeline (default the playhead); for a clip, ms into it (default its middle). Optional "source":true with playhead = only the main clip's raw frame, no layers (quicker)
             42h. auto_chapters — Split a clip into chapters from its transcript: a new chapter starts at a long pause or a sentence end (at most 12). Lists each start time with the first few words. Use for "make chapters" or "where do the topics change". Needs a transcript first (generate_transcript).
@@ -2248,13 +2248,16 @@ public class AIToolExecutor {
         }
         for (com.fadcam.ui.faditor.model.TextOverlayItem o : tl.getTextOverlays()) {
             out.add(new Item(o.getId(), o.isImage() ? "image layer" : "text layer",
-                    o.isImage() ? "image" : o.getText(), null, false, o.getStartMs(), o));
+                    o.getName() != null ? o.getName() : o.isImage() ? "image" : o.getText(),
+                    null, false, o.getStartMs(), o));
         }
         for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s : tl.getSpriteOverlays()) {
-            out.add(new Item(s.getId(), "sprite layer", "sprite", null, false, s.getStartMs(), s));
+            out.add(new Item(s.getId(), "sprite layer", s.getName() != null ? s.getName() : "sprite",
+                    null, false, s.getStartMs(), s));
         }
         for (com.fadcam.ui.faditor.model.WaveformOverlayInstance w : tl.getWaveformOverlays()) {
-            out.add(new Item(w.getId(), "visualizer", "visualizer", null, false, w.getStartMs(), w));
+            out.add(new Item(w.getId(), "visualizer", w.getName() != null ? w.getName() : "visualizer",
+                    null, false, w.getStartMs(), w));
         }
         for (com.fadcam.ui.faditor.model.AdjustmentLayer a : tl.getAdjustmentLayers()) {
             out.add(new Item(a.getId(), "adjustment layer", a.getName(), null, false, a.getStartMs(), a));
@@ -2499,22 +2502,77 @@ public class AIToolExecutor {
     private String toolRenameItem(@NonNull JSONObject args) {
         FaditorProject proj = storage.load(projectId);
         if (proj == null) return "Error: project not found";
-        String id = args.optString("id", "");
+        String ref = args.optString("id", "");
+        if (ref.isEmpty()) ref = args.optString("item", "");
         String name = args.optString("name", "").trim();
         if (name.isEmpty()) return "Error: 'name' is required";
-        Item it = null;
-        for (Item x : allItems(proj)) if (x.id.equals(id)) { it = x; break; }
-        if (it == null) return "Error: no item with id '" + id + "'";
-        // Not Clip.displayName: the editor uses it to remember a clip's ORIGINAL file name for
-        // relinking, and to recognise its own "Blank (auto)" filler. Clips get a real name field
-        // with the naming feature (tasks/joybot/NAMING_DESIGN_20261014.md).
-        if (it.clip != null) return "Error: clips can't be given their own names yet (it's planned). Audio clips and adjustment layers can.";
-        if (it.obj instanceof com.fadcam.ui.faditor.model.AudioClip) ((com.fadcam.ui.faditor.model.AudioClip) it.obj).setLabel(name);
-        else if (it.obj instanceof com.fadcam.ui.faditor.model.AdjustmentLayer) ((com.fadcam.ui.faditor.model.AdjustmentLayer) it.obj).setName(name);
-        else return "Error: " + it.kind + "s can't be named yet (planned: naming any layer).";
+        Object found = resolveNamedItem(proj, ref, false);
+        if (found instanceof String) return (String) found;
+        Item it = (Item) found;
+        applyGivenName(it, name);
         storage.save(proj);
         AIChatState.signalModified(projectId, "Rename to " + name);
         return "Renamed the " + it.kind + " to \"" + name + "\".";
+    }
+
+    /**
+     * The person's own name for an item, or null when it has none. For clips and layers this is the
+     * new {@code name} field; audio clips and adjustment layers keep their existing label/name.
+     * Never {@code Clip.displayName}: that is the original FILE name (relinking, "Blank (auto)").
+     */
+    @Nullable
+    private static String givenName(@NonNull Item it) {
+        if (it.clip != null) return it.clip.getName();
+        Object o = it.obj;
+        if (o instanceof com.fadcam.ui.faditor.model.TextOverlayItem) return ((com.fadcam.ui.faditor.model.TextOverlayItem) o).getName();
+        if (o instanceof com.fadcam.ui.faditor.sprite.SpriteOverlayItem) return ((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) o).getName();
+        if (o instanceof com.fadcam.ui.faditor.model.WaveformOverlayInstance) return ((com.fadcam.ui.faditor.model.WaveformOverlayInstance) o).getName();
+        if (o instanceof com.fadcam.ui.faditor.model.AudioClip) return ((com.fadcam.ui.faditor.model.AudioClip) o).getLabel();
+        if (o instanceof com.fadcam.ui.faditor.model.AdjustmentLayer) return ((com.fadcam.ui.faditor.model.AdjustmentLayer) o).getName();
+        return null;
+    }
+
+    /** Writes the name into the right field for the item's kind (no rendering state is touched). */
+    private static void applyGivenName(@NonNull Item it, @NonNull String name) {
+        Object o = it.obj;
+        if (it.clip != null) it.clip.setName(name);
+        else if (o instanceof com.fadcam.ui.faditor.model.TextOverlayItem) ((com.fadcam.ui.faditor.model.TextOverlayItem) o).setName(name);
+        else if (o instanceof com.fadcam.ui.faditor.sprite.SpriteOverlayItem) ((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) o).setName(name);
+        else if (o instanceof com.fadcam.ui.faditor.model.WaveformOverlayInstance) ((com.fadcam.ui.faditor.model.WaveformOverlayInstance) o).setName(name);
+        else if (o instanceof com.fadcam.ui.faditor.model.AudioClip) ((com.fadcam.ui.faditor.model.AudioClip) o).setLabel(name);
+        else if (o instanceof com.fadcam.ui.faditor.model.AdjustmentLayer) ((com.fadcam.ui.faditor.model.AdjustmentLayer) o).setName(name);
+    }
+
+    /**
+     * Resolve "Cat 2" or an id to ONE item. An id always wins. Otherwise the person's names are
+     * compared (case-insensitive, whole name). Two items with the same name are allowed (owner
+     * ruling 10-14), so a name that fits several returns a question to relay, never a guess.
+     *
+     * @return the {@link Item}, or an "Error: ..." / "Which one?" String to hand back as-is
+     */
+    @NonNull
+    private Object resolveNamedItem(@NonNull FaditorProject proj, @NonNull String ref, boolean clipsOnly) {
+        if (ref.trim().isEmpty()) return "Error: say which item (its id, or the name you gave it)";
+        List<Item> all = allItems(proj);
+        for (Item x : all) {
+            if (x.id.equals(ref) && (!clipsOnly || x.clip != null)) return x;
+        }
+        List<Item> hits = new ArrayList<>();
+        for (Item x : all) {
+            if (clipsOnly && x.clip == null) continue;
+            String g = givenName(x);
+            if (g != null && g.trim().equalsIgnoreCase(ref.trim())) hits.add(x);
+        }
+        if (hits.isEmpty()) return "Error: no item with id or name '" + ref + "'";
+        if (hits.size() == 1) return hits.get(0);
+        StringBuilder q = new StringBuilder("Which one? ").append(hits.size()).append(" items are called \"")
+                .append(ref).append("\":");
+        for (Item h : hits) {
+            q.append("\n  - the ").append(h.kind).append(" at ").append(clock(h.timelineStart))
+                    .append(" (id=").append(h.id).append(")");
+        }
+        q.append("\nAsk the person which, then call again with that id. Nothing was changed.");
+        return q.toString();
     }
 
     /** A visualizer over an audio clip (or a video clip's sound), the length of that clip. */
@@ -3743,6 +3801,9 @@ public class AIToolExecutor {
     /** Derive a friendly display name from a clip (renamed label, URI filename, or fallback). */
     @NonNull
     private String friendlyClipName(@NonNull Clip clip) {
+        // The person's own name ("Cat 1") wins over everything derived from files.
+        String given = clip.getName();
+        if (given != null && !given.isEmpty()) return given;
         // Use the renamed display name if one has been set (via asset rename dialog)
         String dn = clip.getDisplayName();
         if (dn != null && !dn.isEmpty()) {
@@ -3907,6 +3968,18 @@ public class AIToolExecutor {
         if (tl.hasTextOverlays()) {
             sb.append("Overlays: ").append(tl.getTextOverlays().size()).append("\n");
         }
+        // Names the person gave to clips and layers ("Cat 1"), so "move Cat 2" can be answered.
+        // The same name can sit on two items, so each line carries its id and start time.
+        StringBuilder named = new StringBuilder();
+        for (Item x : allItems(proj)) {
+            String g = givenName(x);
+            if (g == null || x.kind.equals("audio clip")) continue; // clips + audio are listed above
+            named.append("  - id=").append(x.id).append(" ").append(x.kind)
+                    .append(" name=\"").append(g).append("\" at ").append(clock(x.timelineStart)).append("\n");
+        }
+        if (named.length() > 0) {
+            sb.append("Named layers (the person's own names; two may share one, then ask which):\n").append(named);
+        }
         // Sprite sheets, image sequences and avatar rigs — PLAN_SPRITE_ANIMATION's fast-follow B
         // and SPEC_IMAGE_SEQUENCE §7a both say these belong here, and neither was emitting them.
         // Without this the model cannot answer "what animation objects does this project have"
@@ -3966,17 +4039,15 @@ public class AIToolExecutor {
         }
         FaditorProject proj = storage.load(projectId);
         if (proj == null) return "Error: project not found";
-        Timeline tl = proj.getTimeline();
-        for (int i = 0; i < tl.getClipCount(); i++) {
-            Clip c = tl.getClip(i);
-            if (c.getId().equals(clipId)) {
-                c.setDisplayName(newName);
-                storage.save(proj);
-                AIChatState.signalModified(projectId);
-                return "Renamed clip " + clipId + " to \"" + newName + "\"";
-            }
-        }
-        return "Error: clip '" + clipId + "' not found";
+        // Writes Clip.name, NOT displayName (the original file name kept for relinking). The clip
+        // may be given by id or by the name it already has; two with one name get a question.
+        Object found = resolveNamedItem(proj, clipId, true);
+        if (found instanceof String) return (String) found;
+        Item it = (Item) found;
+        applyGivenName(it, newName.trim());
+        storage.save(proj);
+        AIChatState.signalModified(projectId, "Rename to " + newName.trim());
+        return "Renamed clip " + it.id + " to \"" + newName.trim() + "\"";
     }
 
     private String toolRenameAsset(@NonNull JSONObject args) {

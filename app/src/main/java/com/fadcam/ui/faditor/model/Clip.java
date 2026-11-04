@@ -166,6 +166,15 @@ public class Clip implements AudioParams {
     @Nullable
     private String displayName;
 
+    /**
+     * The person's own name for this clip ("Cat 1"), or null when they never gave it one.
+     * NOT {@link #displayName}: that remembers the ORIGINAL FILE name for relinking and marks the
+     * automatic "Blank (auto)" filler, so a user name must never be written there. Pure label:
+     * nothing in preview or export reads it (tasks/joybot/NAMING_DESIGN_20261014.md).
+     */
+    @Nullable
+    private String name;
+
     // ── Floating overlay-video placement (M-COMP-2, PLAN_LAYERS_V2 §3.3) ──
 
     /**
@@ -665,6 +674,7 @@ public class Clip implements AudioParams {
         this.transcripts.addAll(other.transcripts);
         this.activeTranscriptIndex = other.activeTranscriptIndex;
         this.displayName = other.displayName;
+        this.name = other.name; // split halves and duplicates keep the name (owner ruling 10-14)
         this.captionsEnabled = other.captionsEnabled;
         this.captionStyleId = other.captionStyleId;
         this.captionCenterX = other.captionCenterX;
@@ -760,6 +770,7 @@ public class Clip implements AudioParams {
         c.transcripts.addAll(transcripts); // shared, not forked — see the copy constructor
         c.activeTranscriptIndex = activeTranscriptIndex;
         c.displayName = displayName;
+        c.name = name;
         c.captionsEnabled = captionsEnabled;
         c.captionStyleId = captionStyleId;
         c.captionCenterX = captionCenterX;
@@ -1321,6 +1332,17 @@ public class Clip implements AudioParams {
 
     public void setDisplayName(@Nullable String displayName) {
         this.displayName = displayName;
+    }
+
+    /** The person's own name for this clip, or null if none (see {@link #name}). */
+    @Nullable
+    public String getName() {
+        return name;
+    }
+
+    /** Blank or null clears the name back to the automatic label. */
+    public void setName(@Nullable String name) {
+        this.name = (name == null || name.trim().isEmpty()) ? null : name.trim();
     }
 
     // ── Floating overlay-video accessors (M-COMP-2) ──────────────────

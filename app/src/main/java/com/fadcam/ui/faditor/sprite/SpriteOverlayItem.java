@@ -36,6 +36,19 @@ public class SpriteOverlayItem implements com.fadcam.ui.faditor.model.LinkFollow
     @NonNull private final String id;
     @NonNull private String sheetId;
 
+    /**
+     * The person's own name for this placed sprite ("Dino 2"), or null for the automatic label
+     * (the sheet's name). A pure label: nothing in preview or export reads it.
+     */
+    @Nullable private String name;
+
+    @Nullable public String getName() { return name; }
+
+    /** Blank or null clears the name back to the automatic label. */
+    public void setName(@Nullable String name) {
+        this.name = (name == null || name.trim().isEmpty()) ? null : name.trim();
+    }
+
     // ── Placement (normalized to the video canvas, like TextOverlayItem) ──
     private float centerX = 0.5f;
     private float centerY = 0.5f;
@@ -169,6 +182,7 @@ public class SpriteOverlayItem implements com.fadcam.ui.faditor.model.LinkFollow
         SpriteOverlayItem c = new SpriteOverlayItem(newId, sheetId);
         c.hidden = hidden;
         c.locked = locked;
+        c.name = name; // a copy keeps the person's name (owner ruling 10-14)
         c.centerX = centerX;
         c.centerY = centerY;
         c.sizeFraction = sizeFraction;

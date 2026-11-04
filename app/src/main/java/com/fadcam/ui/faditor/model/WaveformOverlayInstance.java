@@ -29,6 +29,21 @@ public class WaveformOverlayInstance implements LinkFollower {
     @NonNull
     private final String id;
 
+    /**
+     * The person's own name for this visualizer, or null for the automatic label. A pure label:
+     * nothing in preview or export reads it. (Visualizers have no copy path today.)
+     */
+    @Nullable
+    private String name;
+
+    @Nullable
+    public String getName() { return name; }
+
+    /** Blank or null clears the name back to the automatic label. */
+    public void setName(@Nullable String name) {
+        this.name = (name == null || name.trim().isEmpty()) ? null : name.trim();
+    }
+
     /** Built-in or user style id (see {@link WaveformStyle#id}). */
     @NonNull
     private String styleId;

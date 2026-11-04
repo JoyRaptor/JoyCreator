@@ -1440,6 +1440,11 @@ public class ProjectStorage {
         if (clip.getDisplayName() != null) {
             clipJson.addProperty("displayName", clip.getDisplayName());
         }
+        // The person's own name (NOT displayName, which is the original file name). Additive:
+        // omitted when none, so an old project re-saves without a spurious "name".
+        if (clip.getName() != null) {
+            clipJson.addProperty("name", clip.getName());
+        }
         // Caption settings — legacy scalars (kept for one release so old builds still open new files).
         clipJson.addProperty("captionsEnabled", clip.isCaptionsEnabled());
         clipJson.addProperty("captionStyleId", clip.getCaptionStyleId());
@@ -1765,6 +1770,9 @@ public class ProjectStorage {
         }
         if (hasValue(clipObj, "displayName")) {
             clip.setDisplayName(clipObj.get("displayName").getAsString());
+        }
+        if (hasValue(clipObj, "name")) {
+            clip.setName(clipObj.get("name").getAsString());
         }
         if (hasValue(clipObj, "captionsEnabled")) {
             clip.setCaptionsEnabled(
@@ -2408,6 +2416,7 @@ public class ProjectStorage {
                 JsonObject oJson = new JsonObject();
                 oJson.addProperty("id", o.getId());
                 oJson.addProperty("text", o.getText());
+                if (o.getName() != null) oJson.addProperty("name", o.getName()); // additive; absent = automatic label
                 oJson.addProperty("colorInt", o.getColorInt());
                 oJson.addProperty("centerX", o.getCenterX());
                 oJson.addProperty("centerY", o.getCenterY());
@@ -2616,6 +2625,7 @@ public class ProjectStorage {
                     JsonObject wj = new JsonObject();
                     wj.addProperty("id", wo.getId());
                     wj.addProperty("styleId", wo.getStyleId());
+                    if (wo.getName() != null) wj.addProperty("name", wo.getName()); // additive
                     if (wo.getAudioSourceRef() != null) {
                         wj.addProperty("audioSourceRef", wo.getAudioSourceRef());
                     }
@@ -2771,6 +2781,7 @@ public class ProjectStorage {
                     JsonObject sj = new JsonObject();
                     sj.addProperty("id", so.getId());
                     sj.addProperty("sheetId", so.getSheetId());
+                    if (so.getName() != null) sj.addProperty("name", so.getName()); // additive
                     sj.addProperty("centerX", so.getCenterX());
                     sj.addProperty("centerY", so.getCenterY());
                     sj.addProperty("sizeFraction", so.getSizeFraction());
@@ -3388,6 +3399,7 @@ public class ProjectStorage {
                                         oObj.get("sizeFraction").getAsFloat(),
                                         hasValue(oObj, "rotationDeg")
                                                 ? oObj.get("rotationDeg").getAsFloat() : 0f);
+                        if (hasValue(oObj, "name")) o.setName(oObj.get("name").getAsString());
                         if (hasValue(oObj, "fontFamily")) {
                             String ff = oObj.get("fontFamily").getAsString();
                             // Resolve project://fonts/... back to file: absolute
@@ -3630,6 +3642,7 @@ public class ProjectStorage {
                         String styleId = hasValue(wj, "styleId") ? wj.get("styleId").getAsString() : "neon_bars";
                         com.fadcam.ui.faditor.model.WaveformOverlayInstance wo =
                                 new com.fadcam.ui.faditor.model.WaveformOverlayInstance(id, styleId);
+                        if (hasValue(wj, "name")) wo.setName(wj.get("name").getAsString());
                         if (hasValue(wj, "audioSourceRef")) {
                             wo.setAudioSourceRef(wj.get("audioSourceRef").getAsString());
                         }
@@ -3859,6 +3872,7 @@ public class ProjectStorage {
                                     new com.fadcam.ui.faditor.sprite.SpriteOverlayItem(
                                             sj.get("id").getAsString(),
                                             sj.get("sheetId").getAsString());
+                            if (hasValue(sj, "name")) so.setName(sj.get("name").getAsString());
                             if (hasValue(sj, "centerX") && hasValue(sj, "centerY")) {
                                 so.setCenter(sj.get("centerX").getAsFloat(),
                                         sj.get("centerY").getAsFloat());

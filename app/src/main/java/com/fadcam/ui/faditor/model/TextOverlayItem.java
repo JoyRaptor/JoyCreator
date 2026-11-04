@@ -685,6 +685,7 @@ public class TextOverlayItem implements LinkFollower {
                 centerX, centerY, sizeFraction, rotationDeg);
         c.hidden = hidden;
         c.locked = locked;
+        c.name = name; // a copy / split half keeps the person's name (owner ruling 10-14)
         c.strokeColorInt = strokeColorInt;
         c.strokeWidthPx = strokeWidthPx;
         c.shadowColorInt = shadowColorInt;
@@ -758,6 +759,21 @@ public class TextOverlayItem implements LinkFollower {
     public String getText() { return text; }
 
     public void setText(@NonNull String text) { this.text = text; }
+
+    /**
+     * The person's own name for this text or image layer ("Cat 1"), or null for the automatic
+     * label (a text's words / "image"). A pure label: nothing in preview or export reads it.
+     */
+    @Nullable
+    private String name;
+
+    @Nullable
+    public String getName() { return name; }
+
+    /** Blank or null clears the name back to the automatic label. */
+    public void setName(@Nullable String name) {
+        this.name = (name == null || name.trim().isEmpty()) ? null : name.trim();
+    }
 
     public int getColorInt() { return colorInt; }
 

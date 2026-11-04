@@ -18,8 +18,19 @@ visualizers. JoyBrush (a94933ad7): drawings, describe, layers, frames, brush and
 SpriteLab: grid, names, animations, sequences.
 
 ## What is left (rough order: owner value first)
-- [ ] **Naming clips and layers** ("Cat 1", "Cat 2"): designed ([NAMING_DESIGN](../joybot/NAMING_DESIGN_20261014.md)),
-      only `rename_clip` / `rename_asset` exist. Owner-requested.
+- [~] **Naming clips and layers** ("Cat 1", "Cat 2"): designed ([NAMING_DESIGN](../joybot/NAMING_DESIGN_20261014.md)).
+      **Work items 1 and 3 built 11-04** (project lead authorised): optional additive `name` on `Clip`, `TextOverlayItem`
+      (text and image layers), `SpriteOverlayItem`, `WaveformOverlayInstance`; saved/loaded by `ProjectStorage` (omitted
+      when none, so old files load and re-save unchanged); copied by duplicate (`Clip(other)`, `copyWithNewId`) and kept
+      by both split halves. Joybot: `rename_item` and `rename_clip` write `name` for every kind (audio/adjustment keep
+      their label/name), resolve an id or a name, and answer "Which one?" listing id + start time when two share a name;
+      `get_project_state` lists named layers and clip lines use the name. `displayName` (original file name) untouched.
+      Proof: `tools/jvm-harness/run-itemname.sh` (ItemNameTest, 28/28), run-ideas 769/769. **Built, harness-tested, not
+      compiled by Gradle, not tried on a phone.**
+      **Left over (a Studio job, UI only):** drawer header rename + `Cat 1 · Image` title, long-press "Rename...", timeline
+      labels (`LayerRowRenderer.labelFor`, name chip on the main strip, sprite default = sheet name, audio default = file
+      name), hover labels, missing-file messages ("Cat 2 (IMG_0042.jpg) is missing"), clear-name path for Joybot
+      (empty name = automatic label; the model setters already do it), no undo test on a phone.
 - [ ] **Capture**: start, pause, stop a recording; webcam bubble; floating visualiser with it. Android
       permission screens stay the person's tap.
 - [ ] **JoyBrush, deeper**: Select (move, scale, recolour a selection), symmetry, paper, undo/redo by voice,

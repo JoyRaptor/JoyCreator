@@ -66,6 +66,10 @@ final class LibraryItemSheet {
             actions.addView(SheetKit.row(c, "movie_edit", c.getString(R.string.library_action_open_studio), false,
                     SheetKit.Trail.NONE, v -> { d.dismiss(); LibraryActions.openInStudio(c, it); }).view);
         }
+        if (LibraryActions.canShowDetails(it)) {
+            actions.addView(SheetKit.row(c, "info", c.getString(R.string.library_action_details), false,
+                    SheetKit.Trail.NONE, v -> { d.dismiss(); LibraryActions.showDetails(c, it); }).view);
+        }
         if (LibraryActions.canRename(it)) {
             actions.addView(SheetKit.row(c, "edit", c.getString(R.string.library_action_rename), false,
                     SheetKit.Trail.NONE, v -> showRename(c, d, actions, it, l)).view);

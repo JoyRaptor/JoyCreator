@@ -90,6 +90,24 @@ final class LibraryActions {
         RecordsMediaActions.openInStudio(c, Collections.singletonList(Uri.parse(it.uri)));
     }
 
+    /** Details of a video: the classic Records' own info sheet (size, codec, fps, bitrate, place). */
+    static boolean canShowDetails(@NonNull LibraryItem it) {
+        return it.uri != null && it.isVideo();
+    }
+
+    static void showDetails(@NonNull Context c, @NonNull LibraryItem it) {
+        if (!(c instanceof androidx.fragment.app.FragmentActivity)) return;
+        try {
+            com.fadcam.ui.VideoItem v = new com.fadcam.ui.VideoItem(Uri.parse(it.uri),
+                    it.fileName != null ? it.fileName : it.name, it.size, it.modified);
+            com.fadcam.ui.VideoInfoBottomSheet.newInstance(v).show(
+                    ((androidx.fragment.app.FragmentActivity) c).getSupportFragmentManager(), "video_info_bottom_sheet");
+        } catch (Exception e) {
+            FLog.w("LibraryActions", "details failed", e);
+            android.widget.Toast.makeText(c, R.string.records_error_video_info, android.widget.Toast.LENGTH_SHORT).show();
+        }
+    }
+
     static void share(@NonNull Context c, @NonNull LibraryItem it) {
         Uri uri = LibraryOpener.shareable(c, it.uri);
         if (uri == null) return;

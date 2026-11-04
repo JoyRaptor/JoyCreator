@@ -44,3 +44,5 @@ clean. **This is not legal advice:** before relying on it (for example to change
 ## 2026-11-04: Library item sheet actions, agent phone check (Note 9)
 
 The build with `ad0665199` compiles (Gradle) and installed in place. On a video export (VL Review full) the Library item sheet lists Open, Save to gallery, Open in Studio, Share, Move to Trash, each with an icon. Open in Studio opened the Studio editor on a new project ("Untitled 2") with the export as a 30 s clip and its audio bars; Undo count 0. Not checked: Save to gallery (a copy lands in Downloads/FadCam, not run), a photo item, a missing-file item. Side effect: one extra sandbox project "Untitled 2" on the Note 9. Still open from the map: multi-select and batch, the Camera/Screen/Stream/Dual sub-filter, the details sheet.
+
+- No-loss gaps 4 and 5 (2026-11-04): Library item sheet has a Details row for videos (opens the classic VideoInfoBottomSheet via LibraryActions.showDetails); Recordings chip shows a second chip row All/Camera/Screen/Stream/Dual with counts (LibrarySourceChips, LibraryCapture, filter narrowing). Not compiled, not tried on the phone. Still open: multi-select and batch bar (gap 2).

@@ -27,6 +27,14 @@
         <item quantity="other">%1$s: %2$d items</item>
     </plurals>
 
+    <!-- Recordings sub-filter: which recorder made it -->
+    <string name="library_source_all">All</string>
+    <string name="library_source_camera">Camera</string>
+    <string name="library_source_screen">Screen</string>
+    <string name="library_source_stream">Stream</string>
+    <string name="library_source_dual">Dual</string>
+    <string name="library_source_a11y">Recordings, %1$s: %2$d</string>
+
     <!-- Kinds, as chips -->
     <string name="library_kind_all">All</string>
     <string name="library_kind_projects">Projects</string>
@@ -122,6 +130,7 @@
     <string name="library_action_share">Share</string>
     <string name="library_action_save_gallery">Save to gallery</string>
     <string name="library_action_open_studio">Open in Studio</string>
+    <string name="library_action_details">Details</string>
     <string name="library_save_gallery_queued">Saving a copy to your gallery. Progress shows in Records and the notification.</string>
     <string name="library_save_gallery_failed">Could not save this one to the gallery</string>
     <string name="library_action_trash">Move to Trash</string>

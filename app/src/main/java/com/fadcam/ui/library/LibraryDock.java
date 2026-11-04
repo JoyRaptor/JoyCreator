@@ -35,6 +35,7 @@ final class LibraryDock {
 
     interface Listener {
         void onKind(@Nullable LibraryKind kind);
+        void onSource(@Nullable LibraryCapture.Source source);
         void onQuery(@NonNull String query);
         void onSharedCycle();
         void onOptions();
@@ -45,6 +46,8 @@ final class LibraryDock {
     private static final int NEW_PROJECT_DP = 44;
 
     final LibraryChipsView chips;
+    /** Camera / Screen / Stream / Dual, under the kind chips while Recordings is chosen. */
+    final LibrarySourceChips sources;
     private final EditText search;
     private final TextView clear, sharedGlyph, sharedLabel;
     private final LinearLayout shared;
@@ -69,6 +72,9 @@ final class LibraryDock {
 
         chips = new LibraryChipsView(c, l::onKind);
         body.addView(chips, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+        sources = new LibrarySourceChips(c, l::onSource);
+        body.addView(sources, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
 
         LinearLayout controls = new LinearLayout(c);

@@ -39,6 +39,7 @@ public final class LibraryFilter {
     private LibraryKind kind;
     private Shared shared = Shared.ANY;
     private Sort sort = Sort.NEWEST;
+    private java.util.function.Predicate<LibraryItem> narrowing;
     private String query = "";
     private String[] words = new String[0];
 
@@ -47,7 +48,14 @@ public final class LibraryFilter {
     public Sort sort() { return sort; }
     public String query() { return query; }
 
-    public void setKind(LibraryKind k) { kind = k; }
+    public void setKind(LibraryKind k) {
+        if (k != kind) narrowing = null;   // a sub-filter belongs to the chip that offered it
+        kind = k;
+    }
+
+    /** A further test for the chosen kind alone (the Recordings sub-filter); null for none. */
+    public void setNarrowing(java.util.function.Predicate<LibraryItem> p) { narrowing = p; }
+    public boolean hasNarrowing() { return narrowing != null; }
     public void setShared(Shared s) { shared = s == null ? Shared.ANY : s; }
     public void setSort(Sort s) { sort = s == null ? Sort.NEWEST : s; }
 
@@ -78,6 +86,8 @@ public final class LibraryFilter {
         if (kind == null) {
             if (it.kind.hiddenByDefault()) return false;
         } else if (it.kind != kind) {
+            return false;
+        } else if (narrowing != null && !narrowing.test(it)) {
             return false;
         }
         return passesSharedAndSearch(it);

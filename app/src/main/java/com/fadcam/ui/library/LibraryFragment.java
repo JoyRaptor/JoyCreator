@@ -80,6 +80,8 @@ public class LibraryFragment extends BaseFragment {
     private final LibraryFilter filter = new LibraryFilter();
     private NewProjectFlow newProject;
     private int gridFloor;
+    /** The Recordings sub-filter (which recorder), or null for all recordings. */
+    private LibraryCapture.Source capture;
     private LibrarySource source;
     private LibraryAdapter adapter;
     private LibraryDock dock;
@@ -153,6 +155,11 @@ public class LibraryFragment extends BaseFragment {
 
         dock = new LibraryDock(v.findViewById(R.id.library_dock), new LibraryDock.Listener() {
             @Override public void onKind(@Nullable LibraryKind kind) { chooseKind(kind); }
+            @Override public void onSource(@Nullable LibraryCapture.Source s) {
+                capture = s;
+                render();
+                list.scrollToPosition(0);
+            }
             @Override public void onQuery(@NonNull String q) { filter.setQuery(q); render(); }
             @Override public void onSharedCycle() { filter.setShared(filter.shared().next()); render(); }
             @Override public void onOptions() { options(); }
@@ -233,6 +240,23 @@ public class LibraryFragment extends BaseFragment {
 
     private void render() {
         if (adapter == null) return;
+        boolean recordings = filter.kind() == LibraryKind.RECORDINGS;
+        if (!recordings) capture = null;
+        final LibraryCapture.Source only = capture;
+        filter.setNarrowing(only == null ? null : it -> LibraryCapture.of(it) == only);
+        dock.sources.show(recordings);
+        dock.sources.setSelected(only);
+        if (recordings) {
+            Map<LibraryCapture.Source, Integer> bySource = new java.util.EnumMap<>(LibraryCapture.Source.class);
+            int total = 0;
+            for (LibraryItem it : items) {
+                if (it.kind != LibraryKind.RECORDINGS || !filter.passesSharedAndSearch(it)) continue;
+                total++;
+                LibraryCapture.Source s = LibraryCapture.of(it);
+                if (s != null) bySource.merge(s, 1, Integer::sum);
+            }
+            dock.sources.setCounts(total, bySource);
+        }
         List<LibraryItem> shown = filter.apply(items);
         adapter.submit(LibrarySections.rows(shown, filter.sort() == LibraryFilter.Sort.NEWEST,
                 LibraryFormat.startOfToday()), dense);
@@ -243,7 +267,7 @@ public class LibraryFragment extends BaseFragment {
         dock.paintShared(filter.shared());
         // On the Projects chip, however it was chosen, New project shows and the grid's floor
         // rises by it, so the last cards still scroll clear.
-        int lift = dock.showNewProject(filter.kind() == LibraryKind.PROJECTS);
+        int lift = dock.showNewProject(filter.kind() == LibraryKind.PROJECTS) + (recordings ? dock.sources.height() : 0);
         list.setPadding(list.getPaddingLeft(), list.getPaddingTop(), list.getPaddingRight(), gridFloor + lift);
 
         String n = getResources().getQuantityString(R.plurals.library_count, shown.size(), shown.size());
@@ -261,6 +285,7 @@ public class LibraryFragment extends BaseFragment {
     }
 
     private void chooseKind(@Nullable LibraryKind kind) {
+        if (kind != filter.kind()) capture = null;   // a sub-filter belongs to the chip that offered it
         filter.setKind(kind);
         dock.chips.setSelected(kind);
         render();

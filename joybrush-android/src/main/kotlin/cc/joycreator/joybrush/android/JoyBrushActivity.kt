@@ -2299,38 +2299,7 @@ class JoyBrushActivity : Activity() {
             // The GL thread has done its part. Nothing else is waiting for it, so it can rest now.
             pauseViewIfDrained()
             fileIo.execute {
-                val problem = try {
-                    when (dest) {
-                        is SaveDest.Working -> {
-                            JbArchive.save(file!!, contents)
-                            recovery.rememberWorking(file)
-                            // Thumbnail and the Joy Creator folder copy; never fails the save.
-                            cc.joycreator.joybrush.android.library.DrawingLibrary.onSaved(this, file, contents)
-                        }
-                        is SaveDest.Copy -> writeCopy(dest.uri, contents)
-                        is SaveDest.Open -> DrawingHistory.preserve(historyDirectory(), contents)
-                        is SaveDest.Png -> {
-                            // Encode and validate completely before touching the chosen destination.
-                            if (contents.doc.id != dest.target.documentId) throw JbArchiveException("the drawing changed; choose the board to export again")
-                            val bytes = exportBytes(cc.joycreator.joybrush.androidkit.io.ExportPicture.asShown(contents), dest.target)
-                            val output = contentResolver.openOutputStream(dest.uri, "wt")
-                                ?: throw JbArchiveException("the export destination could not be opened")
-                            output.use { it.write(bytes) }
-                        }
-                        is SaveDest.BoardExport -> dest.warnings = cc.joycreator.joybrush.android.board.BoardExportCoordinator.write(
-                            contentResolver,dest.uri,cc.joycreator.joybrush.androidkit.io.ExportPicture.asShown(contents),dest.target,cacheDir)
-                        is SaveDest.BoardHandoff -> {
-                            val prepared=cc.joycreator.joybrush.androidkit.io.BoardExport.stage(cc.joycreator.joybrush.androidkit.io.ExportPicture.asShown(contents),
-                                dest.target.copy(format=cc.joycreator.joybrush.core.chrome.BoardExportLayout.Format.SPRITE_SHEET),cacheDir)
-                            dest.bundle=prepared.directory
-                        }
-                    }
-                    null
-                } catch (_: OutOfMemoryError) {
-                    "this device has too little memory to finish saving or exporting the drawing"
-                } catch (e: Exception) {
-                    e.message ?: e.javaClass.simpleName
-                }
+                val problem = writeSaveContents(dest, contents, file)
                 runOnUiThread {
                     if (dest is SaveDest.Open && problem == null && !destroyed && !answered) {
                         // Replacement only follows a successful durable write of the old drawing.
@@ -2372,6 +2341,39 @@ class JoyBrushActivity : Activity() {
         } catch (e: Exception) {
             answer(e.message ?: "the drawing could not be read for saving")
         }
+    }
+
+    /** Writer-thread boundary shared by working saves, copies and exports. Keep memory failures
+     * inside the normal failure result so the UI queue and reopen handoff can finish safely. */
+    private fun writeSaveContents(dest: SaveDest, contents: JbContents, working: File?): String? = try {
+        when (dest) {
+            is SaveDest.Working -> {
+                JbArchive.save(working!!, contents)
+                recovery.rememberWorking(working)
+                cc.joycreator.joybrush.android.library.DrawingLibrary.onSaved(this, working, contents)
+            }
+            is SaveDest.Copy -> writeCopy(dest.uri, contents)
+            is SaveDest.Open -> DrawingHistory.preserve(historyDirectory(), contents)
+            is SaveDest.Png -> {
+                if (contents.doc.id != dest.target.documentId) throw JbArchiveException("the drawing changed; choose the board to export again")
+                val bytes = exportBytes(cc.joycreator.joybrush.androidkit.io.ExportPicture.asShown(contents), dest.target)
+                val output = contentResolver.openOutputStream(dest.uri, "wt")
+                    ?: throw JbArchiveException("the export destination could not be opened")
+                output.use { it.write(bytes) }
+            }
+            is SaveDest.BoardExport -> dest.warnings = cc.joycreator.joybrush.android.board.BoardExportCoordinator.write(
+                contentResolver, dest.uri, cc.joycreator.joybrush.androidkit.io.ExportPicture.asShown(contents), dest.target, cacheDir)
+            is SaveDest.BoardHandoff -> {
+                val prepared = cc.joycreator.joybrush.androidkit.io.BoardExport.stage(cc.joycreator.joybrush.androidkit.io.ExportPicture.asShown(contents),
+                    dest.target.copy(format = cc.joycreator.joybrush.core.chrome.BoardExportLayout.Format.SPRITE_SHEET), cacheDir)
+                dest.bundle = prepared.directory
+            }
+        }
+        null
+    } catch (_: OutOfMemoryError) {
+        "this device has too little memory to finish saving or exporting the drawing"
+    } catch (e: Exception) {
+        e.message ?: e.javaClass.simpleName
     }
 
     /**

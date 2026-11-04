@@ -2,6 +2,8 @@ package cc.joycreator.joybrush.android
 
 import android.os.Looper
 import cc.joycreator.joybrush.androidkit.JbCanvasView
+import cc.joycreator.joybrush.core.io.SaveQueue
+import cc.joycreator.joybrush.core.io.SaveReason
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -110,5 +112,32 @@ class WorkingSaveRestoreBindingTest {
 
         assertFalse(booleanField(fixture.activity, "workingSaveAllowed"))
         assertTrue(booleanField(fixture.activity, "loadingDrawing"))
+    }
+
+    @Test fun queuedWorkingSaveRejectedByDestroyedActivityReleasesLeavingHandoffAsFailure() {
+        val fixture = fixture()
+        complete(fixture, null)
+        val barrier = Class.forName("cc.joycreator.joybrush.android.JoyBrushActivityKt")
+            .getDeclaredField("workingSaves").also { it.isAccessible = true }.get(null) as WorkingSaveBarrier
+        val file = JoyBrushActivity::class.java.getDeclaredField("openedDrawing")
+            .also { it.isAccessible = true }.get(fixture.activity) as File
+        val handoff = JoyBrushActivity::class.java.getDeclaredField("pauseSaveHandoff")
+            .also { it.isAccessible = true }.get(fixture.activity) as WorkingSaveHandoff
+        handoff.requested(file.absoluteFile.normalize().path)
+        @Suppress("UNCHECKED_CAST")
+        val queue = JoyBrushActivity::class.java.getDeclaredField("saves")
+            .also { it.isAccessible = true }.get(fixture.activity) as SaveQueue<Any>
+        val working = Class.forName("cc.joycreator.joybrush.android.JoyBrushActivity\$SaveDest\$Working")
+            .getDeclaredField("INSTANCE").also { it.isAccessible = true }.get(null)
+        queue.request(SaveReason.IDLE, working)
+        var released = false
+        var problem: String? = null
+        barrier.whenSettled(file.absoluteFile.normalize().path) { released = true; problem = it }
+        assertFalse(released)
+        setActivityField(fixture.activity, "destroyed", true)
+        queue.drain()
+        assertTrue(released)
+        assertTrue(problem?.contains("closed") == true)
+        assertFalse(queue.busy)
     }
 }

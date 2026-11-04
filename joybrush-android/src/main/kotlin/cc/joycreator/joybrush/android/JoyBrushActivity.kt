@@ -427,12 +427,18 @@ class JoyBrushActivity : Activity() {
         override val strokeInProgress: Boolean get() = !destroyed &&
             (canvas.strokeInProgress || loadingDrawing || recoveringDrawing)
         override fun start(reason: SaveReason, destination: SaveDest, finished: (String?) -> Unit) {
-            beginSave(destination, finished)
+            beginSave(destination) { problem ->
+                // Advancing can synchronously start another queued operation. The leaving
+                // handoff must cover that operation too, including any later Working save.
+                if (destination is SaveDest.Working) pauseSaveHandoff.queueAdvanced(problem, false)
+                finished(problem)
+                finishPauseSaveIfDrained()
+            }
         }
     })
 
     private var viewPausePending = false
-    private var pauseSaveHandoff: WorkingSaveBarrier.Ticket? = null
+    private val pauseSaveHandoff = WorkingSaveHandoff(workingSaves)
     private var restoreSaveWait: AutoCloseable? = null
 
     /** The autosave the last change asked for, and the one the screen leaving asks for. */
@@ -665,8 +671,8 @@ class JoyBrushActivity : Activity() {
         // A request, never a skipped call: if another save is running this one waits behind it and
         // the view stays running until the queue is empty (see [pauseViewIfDrained]).
         // Register before queuing: an existing copy/export/save can delay beginSave.
-        if (!benchMode && workingSaveAllowed && pauseSaveHandoff == null) {
-            workingFile()?.let { pauseSaveHandoff = workingSaves.begin(it.absoluteFile.normalize().path) }
+        if (!benchMode && workingSaveAllowed) {
+            workingFile()?.let { pauseSaveHandoff.requested(it.absoluteFile.normalize().path) }
         }
         saves.request(SaveReason.IDLE, SaveDest.Working)
         super.onPause()
@@ -2205,23 +2211,20 @@ class JoyBrushActivity : Activity() {
      * drawing survived FIRST and the reason second.
      */
     private fun beginSave(dest: SaveDest, finished: (String?) -> Unit) {
-        val queuedHandoff = if (dest is SaveDest.Working) pauseSaveHandoff.also { pauseSaveHandoff = null } else null
         if (destroyed) {
             if (dest is SaveDest.Open) dest.selection.close()
-            queuedHandoff?.complete("the drawing screen closed before its queued save started")
             finished("the drawing screen has closed")
             return
         }
         // The bench screen's drawing is a disposable test: never saved, and no "autosave did not work" toast for it.
         if (dest is SaveDest.Working && benchMode) { finished(null); return }
         if (dest is SaveDest.Working && !workingSaveAllowed) {
-            queuedHandoff?.complete("the previous drawing needs recovery before autosave can replace it")
             finished("the previous drawing needs recovery before autosave can replace it")
             return
         }
         if (dest is SaveDest.Working) strokeSaveClock.attempted(android.os.SystemClock.elapsedRealtime())
         val file = if (dest is SaveDest.Working) workingFile() else null
-        val workingHandoff = queuedHandoff ?: file?.let { workingSaves.begin(it.absoluteFile.normalize().path) }
+        val workingHandoff = file?.let { workingSaves.begin(it.absoluteFile.normalize().path) }
         if (dest is SaveDest.Open) {
             replacingDrawing = true
             overlaysView.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
@@ -2399,6 +2402,10 @@ class JoyBrushActivity : Activity() {
      */
     private fun pauseViewIfDrained() {
         if (viewPausePending && saves.pending == 0) pauseViewNow()
+    }
+
+    private fun finishPauseSaveIfDrained() {
+        pauseSaveHandoff.queueAdvanced(null, !saves.busy && saves.pending == 0)
     }
 
     /**

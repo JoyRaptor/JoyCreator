@@ -53,3 +53,29 @@ internal class WorkingSaveBarrier {
         return AutoCloseable { state.waiters.remove(token); Unit }
     }
 }
+
+/** A leaving-screen request can merge with an idle entry or sit behind earlier working saves.
+ * Keep its extra registration until the entire serial queue drains, not the first save to start. */
+internal class WorkingSaveHandoff(private val barrier: WorkingSaveBarrier) {
+    private var ticket: WorkingSaveBarrier.Ticket? = null
+    private var problem: String? = null
+
+    fun requested(path: String) {
+        if (ticket == null) {
+            problem = null
+            ticket = barrier.begin(path)
+        }
+    }
+
+    /** Called AFTER the queue's finished callback has advanced/drained it. */
+    fun queueAdvanced(workingProblem: String?, drained: Boolean) {
+        if (ticket == null) return
+        if (workingProblem != null && problem == null) problem = workingProblem
+        if (drained) {
+            val completed = ticket
+            val outcome = problem
+            ticket = null; problem = null
+            completed?.complete(outcome)
+        }
+    }
+}

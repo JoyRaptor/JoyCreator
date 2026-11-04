@@ -24,10 +24,19 @@ Select, symmetry, Send to Studio. Hover labels: ~220 controls done 10-15; the ch
 - [ ] **Help for every STATE feature.** Pure Java, harness-tested (`IdeaEngineTest`).
   - [x] VisLab (8 topics: the room, building a look and parts, music links, Words, MIDI/.mod, the floating
         visualiser, looks in Studio, the Studio effects) and Director mode: 10-28, from STATE 5.5/6; 422/422.
-  - [ ] JoyBrush (brushes, paper, layers, frames and onion skin, Select, symmetry, Send to Studio): **wait for
-        [HYG-2](HYG-2_one_main_line.md)**: most of it is on the JoyBrush lead's branch, not in the app yet, and
-        help must never describe a tool the person doesn't have.
-  - [ ] Capture, Library, Space, Trash, SpriteLab, the rest of STATE (after [HYG-5](HYG-5_state_sync.md)).
+  - [x] JoyBrush, 11 topics (11-04, from STATE 5.6/5.6b; sources checked to be in this tree): `joybrush_brushes`,
+        `_lines`, `_select`, `_paper`, `_boards`, `_onion`, `_clips`, `_tile`, `_sprite_roll`, `_export` (incl. Send to
+        Studio), `_symmetry`. STATE help links filled in. Still owed: **layer operations (Lock, Merge Down, Flatten,
+        Freeze)**: they are in `JoyBrushActivity.kt`'s layer menu but STATE has no row for them (HYG-5 list), so no
+        topic yet; frame tweens and watercolour editable lines (STATE: foundation only, not user-reachable).
+  - [x] SpriteLab (3 more: `sprite_align`, `sprite_sheets`, `sprite_reorder`), Library (4: `library_find`,
+        `library_projects`, `library_import`, `library_look`): 11-04. Space and Trash were already covered by `space`,
+        `trash`, `trash_restore`; STATE row mapped.
+  - [ ] Capture: STATE gives no entry point for photo/screenshot capture, dual camera, Remote (LAN streaming) or the
+        watermark switch, so no topics (the record, record_screen, record_webcam, record_background topics stand).
+        Settings hub v2, Home recorder, About: also no entry-point text in STATE. Needs the rows filled first (HYG-5).
+  - [ ] JoyBrush ideas (IdeaEngine) unchanged: the four existing ones stand; the help topics are all "how do I",
+        none is an action Joybot can run, so no `doIt` keys were added.
 - [ ] **JoyBrush ideas** that read the open drawing (e.g. "Add a layer for colour", "Make a 12-frame loop",
       "Send this to Studio"), using `JoybotHands.describe()`.
 - [ ] **Avatar room**: a Joybot button and ideas (Avatar stays hidden for launch: decide with ANI-1).

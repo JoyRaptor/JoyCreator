@@ -290,6 +290,115 @@ public final class HelpBook {
                     "After I do something for you, tap Save as a recipe. Then My recipes runs it again in one tap, "
                             + "on any project. Recipes are kept as small files in your Joy Creator folder, under "
                             + "Joybot/recipes.", null, null),
+            // ── JoyBrush, Sprite Lab and Library (BOT-2, 11-04; from STATE 5.6, 5.6b, 5, 7.5, 7.6) ──
+            new Topic("joybrush_brushes", "brush settings|hold a brush|hold the brush|brush options|smudge settings"
+                    + "|eraser settings|unibrush|sharp turns|palette knife|which brushes",
+                    "In JoyBrush, hold the Brush, Smudge or Eraser button to open that brush's settings. Unibrush has "
+                            + "Quick, Tip and All editors, also under a hold. Oil brushes, the fan and Palette knife 1 fold "
+                            + "under the pen at a sharp corner; a brush's settings → Sharp turns keeps the old swing instead.",
+                    "joybrush", null),
+            new Topic("joybrush_lines", "editable lines|lines per brush|make lines editable|brush makes lines|brush mode"
+                    + "|pixels or lines|lines or pixels|drawer badge",
+                    "In JoyBrush, hold a brush and use the switch in its settings to choose whether it draws editable "
+                            + "lines (which Select can change) or plain pixels. A badge in the drawer shows which. Brushes "
+                            + "that can only make pixels stay pixels.",
+                    "joybrush", null),
+            new Topic("joybrush_select", "select lines|select a line|select my lines|move a line|move my lines|resize a line"
+                    + "|nudge|copy and paste lines|copy lines|paste lines|select tool|joybrush select|edit a line",
+                    "In JoyBrush, use Select to pick editable lines, then move or resize them, Nudge them a step at a "
+                            + "time, Copy and Paste them, and pan with a finger. Select works on editable lines; selecting "
+                            + "plain pixels isn't finished.",
+                    "joybrush", null),
+            new Topic("joybrush_paper", "paper surface|paper background|drawing paper|paper texture|change the paper"
+                    + "|choose paper|paper circle|paper sheet|paper grain|checkerboard",
+                    "In JoyBrush, tap the Paper circle in the layer column to open the Paper sheet. You choose the "
+                            + "background and a custom colour separately from the surface, the physical tooth the brush "
+                            + "bites into (29 surfaces). Background None keeps the surface, shows a checkerboard on screen "
+                            + "and leaves paper out of exports.",
+                    "joybrush", null),
+            new Topic("joybrush_boards", "boards menu|make a board|new board|create a board|animation board|image board"
+                    + "|sprite board|lock a board|resize a board|size a board|joybrush regions",
+                    "In JoyBrush, open the menu and tap Boards to create an Image, Animation or Sprite region. "
+                            + "Then size it, move it and lock it.",
+                    "joybrush", null),
+            new Topic("joybrush_onion", "onion skin in joy|onion in joy|joybrush onion|onion peg|held layer|hold a layer"
+                    + "|layer held|onion on my drawing|onion skin on my drawing|onion on a drawing",
+                    "In JoyBrush, select a board: the layer previews, held layers (marked on the layer) and onion skin "
+                            + "with its onion peg then apply to that board only.",
+                    "joybrush", null),
+            new Topic("joybrush_clips", "animation clip|my clips|clips in joy|play all|stop all|combine clips"
+                    + "|combine my clips|when it ends|ping-pong|ping pong|flatten clips|overlapping clips|clip end",
+                    "A JoyBrush drawing can hold several animation clips, each with its own speed. A clip animates only "
+                            + "the layer you are on, and overlapping clips on one layer are refused. Pick When it ends: Loop, "
+                            + "Ping-pong, Hold or Blank. Play all runs every clip at once and Stop all stops them. Combine "
+                            + "joins clips into one, and Flatten turns overlapping clips into plain frames; each is one Undo.",
+                    "joybrush", null),
+            new Topic("joybrush_tile", "repeating pattern|tile pattern|pattern preview|seamless|tileable|wrap strokes"
+                    + "|pattern limits",
+                    "On a JoyBrush Image board, the pattern switch previews a repeating pattern and wraps strokes into "
+                            + "it. Realistic pencil, watercolour and oil are refused for wrapping, with a message.",
+                    "joybrush", null),
+            new Topic("joybrush_sprite_roll", "sprite cells in joy|joybrush sprite|roll the cells|roll cells|cell order in joy"
+                    + "|swap cells in joy|arm a swap|size the cells",
+                    "In JoyBrush, select a Sprite board and size its cells. Lock the board, then roll cells with a "
+                            + "finger to preview their order. Swaps are armed separately, and the stylus keeps painting.",
+                    "joybrush", null),
+            new Topic("joybrush_export", "send to studio|send a drawing to studio|send to the studio|export a board"
+                    + "|export my animation|export an animation|export a gif|gif|animation to studio|send to sprite lab"
+                    + "|send to spritelab|export a drawing",
+                    "In JoyBrush, the board's export icon exports an image, a range, a frame, an animation, a GIF or a "
+                            + "sheet. Send to Studio asks New project or a project by name; in an existing one the "
+                            + "animation lands as one more looping sprite layer, half the canvas wide and centred, and the "
+                            + "project's clips stay as they were. It can open in Sprite Lab too. A GIF runs up to 50 fps; "
+                            + "a scene export stops at 600 frames and says so.",
+                    "joybrush", null),
+            new Topic("joybrush_symmetry", "symmetry|mirror my brush|mirror the brush|kaleidoscope|radial brush"
+                    + "|mirror drawing",
+                    "In JoyBrush, open Helpers and tap Symmetry: a line the brush is mirrored across. Drag its ends or "
+                            + "body, or turn it with two fingers. It gives a mirror ×2, a radial ×8 or a 16-copy "
+                            + "kaleidoscope. Tap one copy to select the whole set; one Undo takes back a stroke. Pencil, "
+                            + "watercolour and oil don't support it on this build.",
+                    "joybrush", null),
+            new Topic("sprite_align", "align the frames|align my frames|align each frame|line up the frames|centre the sprite"
+                    + "|center the sprite|plant feet|plant the feet|auto-centre|auto centre|auto-center|frame alignment"
+                    + "|jitter between frames",
+                    "In Sprite Lab, open Alignment. Drag a number pill to change it or tap it to type a value. Auto-centre "
+                            + "centres the frame, Plant feet lines up the feet, Reset clears one frame and Reset all clears "
+                            + "the sheet. Alignment is saved with the sheet as numbers; no pixels are changed.",
+                    "spritelab", null),
+            new Topic("sprite_sheets", "sheets in this project|manage sprite sheets|rename a sprite sheet|rename a sheet"
+                    + "|remove a sprite sheet|remove a sheet|delete a sprite sheet|cant remove sheet|can't remove sheet",
+                    "In Sprite Lab, the Export section has a “Sheets in this project” panel: open, rename or remove a "
+                            + "sheet. Remove is refused while a sprite on the timeline or an avatar rig still uses the "
+                            + "sheet, and it says what does.",
+                    "spritelab", null),
+            new Topic("sprite_reorder", "reorder the frames|reorder frames|reorder my frames|drag to reorder|reorder clips"
+                    + "|reorder the clips|film strip",
+                    "In Sprite Lab, drag a frame in the film strip, or a clip on the Clips shelf, to put it in a new "
+                            + "order.",
+                    "spritelab", null),
+            new Topic("library_find", "filter my library|search my library|search the library|find in the library"
+                    + "|library chips|sort the library|sort my library|grid or list|list view|library view|shared in"
+                    + "|find a recording|classic records",
+                    "In the Library, the chips across the top filter by kind and show a count for each. Search sits above "
+                            + "the keyboard, and “shared in” shows what you shared into Joy Creator. The header buttons "
+                            + "cycle the sort and switch between grid and list. The old Records tab is still there as "
+                            + "Classic Records.",
+                    "library", null),
+            new Topic("library_projects", "new project|make a project|start a project|create a project|rename a project"
+                    + "|rename my project|projects view|my projects",
+                    "Open the Library and switch to Projects: the New project pill starts one. To rename a project, hold "
+                            + "it and tap Rename; the editor's title follows.",
+                    "library", null),
+            new Topic("library_import", "import files|import a picture|import pictures|import a video|import a sound"
+                    + "|bring files in|bring in files|import from my phone|import media|import row",
+                    "In the lobby, tap Import to open the phone's file picker for pictures, videos and sounds. What you "
+                            + "pick is filed like a share into Joy Creator, with readable names, in the Assets folder or at "
+                            + "the top of your Joy Creator folder, and it shows in the Library at once.",
+                    null, null),
+            new Topic("library_look", "open a look|look file|vis.json|fonts and supplies|my looks in the library",
+                    "In the Library, tap a look file (.vis.json) under “Fonts and supplies” to open VisLab on that look.",
+                    "library", null),
             // ── VisLab and Director (BOT-2, 10-28; from STATE 5.5 / 6) ──
             new Topic("vislab", "vislab|vis lab|viz lab|music visual|visuals that react|react to the music"
                     + "|music video look",

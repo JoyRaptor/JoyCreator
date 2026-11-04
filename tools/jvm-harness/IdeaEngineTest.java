@@ -422,6 +422,31 @@ public class IdeaEngineTest {
             t = com.fadcam.ui.faditor.ai.joybot.HelpBook.find("how do I paint");
             eq("help: joybrush route", "joybrush", t == null ? null : t.route);
             eq("help: unknown", null, com.fadcam.ui.faditor.ai.joybot.HelpBook.find("quantum flux capacitor"));
+            // BOT-2 (11-04): JoyBrush, Sprite Lab and Library help, each reached by a natural question.
+            String[][] bot2Help = {
+                    {"How do I open a brush's settings? hold a brush", "joybrush_brushes"},
+                    {"how do I choose editable lines per brush", "joybrush_lines"},
+                    {"how do I select lines and nudge them", "joybrush_select"},
+                    {"how do I change the paper surface", "joybrush_paper"},
+                    {"how do I make a board", "joybrush_boards"},
+                    {"how does the onion peg work", "joybrush_onion"},
+                    {"how do I use play all on my clips", "joybrush_clips"},
+                    {"how do I preview a repeating pattern", "joybrush_tile"},
+                    {"how do I roll the cells", "joybrush_sprite_roll"},
+                    {"how do I send to studio", "joybrush_export"},
+                    {"how do I turn on symmetry", "joybrush_symmetry"},
+                    {"how do I plant the feet on a frame", "sprite_align"},
+                    {"how do I rename a sheet", "sprite_sheets"},
+                    {"how do I reorder frames", "sprite_reorder"},
+                    {"how do I filter my library", "library_find"},
+                    {"how do I rename a project", "library_projects"},
+                    {"how do I import files", "library_import"},
+                    {"how do I open a look from fonts and supplies", "library_look"},
+            };
+            for (String[] c : bot2Help) {
+                t = com.fadcam.ui.faditor.ai.joybot.HelpBook.find(c[0]);
+                eq("help BOT-2: " + c[1], c[1], t == null ? null : t.id);
+            }
             check("howto: how do I", com.fadcam.ui.faditor.ai.joybot.HelpBook.isHowTo("How do I export?"), "");
             check("howto: not a command", !com.fadcam.ui.faditor.ai.joybot.HelpBook.isHowTo("cut the ums"), "");
             check("help: every topic has an answer", com.fadcam.ui.faditor.ai.joybot.HelpBook.TOPICS.size() > 30, "");

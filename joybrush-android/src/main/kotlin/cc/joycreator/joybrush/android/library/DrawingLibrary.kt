@@ -537,7 +537,10 @@ object DrawingLibrary {
      * a time, so a big board costs a few megabytes, never the full-size composite. Layers this renderer can't draw
      * (vector, animated) are left out rather than failing the whole picture.
      */
-    internal fun thumbnailOf(contents: JbContents): Bitmap? {
+    internal fun thumbnailOf(shownless: JbContents): Bitmap? {
+        // Editable-line layers carry look/slab data the renderer refuses; exports already show them through
+        // asShown, so the picture here is the same one (Codex review E8, 2026-11-01). Plain drawings pass through.
+        val contents = cc.joycreator.joybrush.androidkit.io.ExportPicture.asShown(shownless)
         val full = contents.doc
         val doc = full.copy(layers = full.layers.filter { it.kind.hasPixels && it.animatedIn == null })
         val board = doc.boards.firstOrNull { it.id == doc.activeBoardId } ?: doc.boards.firstOrNull() ?: return null

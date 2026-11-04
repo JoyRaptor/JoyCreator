@@ -1472,6 +1472,16 @@ public class LobbyFragment extends BaseFragment {
             glanceRead = true;
             newestSheet = g.newestSheet;
             newestCharacter = g.newestCharacter;
+            List<Recent> parts = new ArrayList<>();
+            for (com.fadcam.ui.library.LibraryItem it : g.recentParts) parts.add(partRecent(it));
+            partRecents = parts;
+            // Fold them into the row only once the row is read, so "Nothing yet" is never said early
+            // and a half-read list is never shown as the whole; the row's own read folds them in too.
+            if (recentsComplete) {
+                recents = withParts(recents);
+                lastRecents = recents;
+                paintRecents();
+            }
             paintLibraryCount();
             if (!rooms.isEmpty() && (room().id == ROOM_SPRITE || room().id == ROOM_AVATAR)) paintHero();
         });
@@ -1587,6 +1597,14 @@ public class LobbyFragment extends BaseFragment {
                 item.name, getString(item.kind.label), ago(item.when)));
         card.setOnClickListener(v -> {
             if (item.drawingFile != null) { openDrawing(item.drawingFile); return; }
+            if (item.libraryItem != null) {
+                // A sheet, character or look opens exactly as its Library card does (Sprite Lab on
+                // that sheet, Avatar Studio, VisLab on that look); false means nothing opens it here.
+                if (getActivity() != null
+                        && com.fadcam.ui.library.LibraryGlance.open(getActivity(), item.libraryItem)) return;
+                openLibrary(false);
+                return;
+            }
             if (item.projectId != null) { openProject(item.projectId); return; }
             // A recording is not a project: opening it in the editor would silently CREATE
             // one. Sending the user to the Library is the honest action until "start a
@@ -1615,6 +1633,8 @@ public class LobbyFragment extends BaseFragment {
         @Nullable final String projectId;
         /** A Joy Brush drawing's file, when this card is one. */
         @Nullable String drawingFile;
+        /** The Library's own item, when this card is a sheet, character or VisLab look: opened as the Library opens it. */
+        @Nullable com.fadcam.ui.library.LibraryItem libraryItem;
 
         Recent(String name, Kind kind, String thumbUri, long when,
                int gradA, int gradB, @Nullable String projectId) {
@@ -1641,7 +1661,10 @@ public class LobbyFragment extends BaseFragment {
         RECORDING(R.string.lobbyv2_kind_recording),
         MINI_APP(R.string.lobbyv2_kind_mini_app),
         VIDEO(R.string.lobbyv2_kind_video),
-        PICTURE(R.string.lobbyv2_kind_picture);
+        PICTURE(R.string.lobbyv2_kind_picture),
+        SHEET(R.string.lobbyv2_kind_sheet),
+        CHARACTER(R.string.lobbyv2_kind_character),
+        LOOK(R.string.lobbyv2_kind_look);
 
         final int label;
 
@@ -1657,6 +1680,10 @@ public class LobbyFragment extends BaseFragment {
     private static final int G_CAPTURE_A = Studio.ROOM_CAPTURE, G_CAPTURE_B = Studio.ROOM_SPRITE;
     private static final int G_LIBRARY_A = Studio.VIDEO,        G_LIBRARY_B = Studio.ARMED_LIGHT;
     private static final int G_SOUND_A   = Studio.ROOM_VIZ,     G_SOUND_B   = Studio.ROOM_VIZ_DEEP;
+    // Sheets, characters and VisLab looks wear the gradient of the room that makes them.
+    private static final int G_SPRITE_A  = Studio.ROOM_SPRITE,  G_SPRITE_B  = Studio.ROOM_AVATAR;
+    private static final int G_AVATAR_A  = Studio.ROOM_AVATAR,  G_AVATAR_B  = Studio.ROOM_AVATAR_DEEP;
+    private static final int G_VIZ_A     = Studio.ROOM_VIZ,     G_VIZ_B     = Studio.ROOM_VIZ_DEEP;
 
     /**
      * Merge projects and recordings into one recency-ordered list, off the main thread.
@@ -1666,6 +1693,37 @@ public class LobbyFragment extends BaseFragment {
      * when they arrive - a front door that waits on a file scan is a front door that feels
      * broken, however fast the scan usually is.</p>
      */
+    /**
+     * Sheets, characters and VisLab looks, as the Library's own read last reported them (see
+     * {@link #loadGlance}). Kept across visits like {@link #lastRecents}; empty until that read lands,
+     * so the row never claims a sheet it has not been told about.
+     */
+    private static List<Recent> partRecents = new ArrayList<>();
+
+    /** A recents list with the sheets, characters and looks folded in, newest first. */
+    private List<Recent> withParts(List<Recent> base) {
+        List<Recent> out = new ArrayList<>(base.size() + partRecents.size());
+        for (Recent r : base) if (r.libraryItem == null) out.add(r);   // never twice
+        out.addAll(partRecents);
+        java.util.Collections.sort(out, (x, y) -> Long.compare(y.when, x.when));
+        return out;
+    }
+
+    /** One Library item as a recents card, in the gradient of the room that makes it. */
+    private static Recent partRecent(com.fadcam.ui.library.LibraryItem it) {
+        Kind kind; int a, b;
+        if (it.kind == com.fadcam.ui.library.LibraryKind.SPRITE_SHEETS) {
+            kind = Kind.SHEET; a = G_SPRITE_A; b = G_SPRITE_B;
+        } else if (it.kind == com.fadcam.ui.library.LibraryKind.AVATARS) {
+            kind = Kind.CHARACTER; a = G_AVATAR_A; b = G_AVATAR_B;
+        } else {
+            kind = Kind.LOOK; a = G_VIZ_A; b = G_VIZ_B;
+        }
+        Recent r = new Recent(it.name, kind, it.thumb, it.modified, a, b, null);
+        r.libraryItem = it;
+        return r;
+    }
+
     private void loadRecentsAsync() {
         List<Recent> immediate = new ArrayList<>();
         for (ProjectStorage.ProjectSummary p : projects) {
@@ -1684,7 +1742,7 @@ public class LobbyFragment extends BaseFragment {
         // With a full list already on screen (this visit's or the last), keep it until the new
         // full list lands: swapping in the projects-only list first would blink the recordings away.
         if (!recentsComplete) {
-            recents = immediate;
+            recents = withParts(immediate);
             paintRecents();
             paintBotLine();
         }
@@ -1733,9 +1791,9 @@ public class LobbyFragment extends BaseFragment {
             java.util.Collections.sort(merged, (x, y) -> Long.compare(y.when, x.when));
             ui.post(() -> {
                 if (rgen != recentsGeneration || !isAdded() || getView() == null) return;
-                recents = merged;
+                recents = withParts(merged);
                 recentsComplete = true;
-                lastRecents = merged;
+                lastRecents = recents;
                 paintRecents();
                 paintBotLine();
             });

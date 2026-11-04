@@ -61,6 +61,9 @@
     <string name="lobbyv2_kind_mini_app">MINI APP</string>
     <string name="lobbyv2_kind_video">VIDEO</string>
     <string name="lobbyv2_kind_picture">PICTURE</string>
+    <string name="lobbyv2_kind_sheet">SPRITE SHEET</string>
+    <string name="lobbyv2_kind_character">CHARACTER</string>
+    <string name="lobbyv2_kind_look">VISLAB LOOK</string>
     <!-- %1$s: what kind of thing; %2$s: how long ago -->
     <string name="lobbyv2_card_meta">%1$s · %2$s</string>
 

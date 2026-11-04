@@ -24,11 +24,28 @@ public final class LibraryGlance {
         @Nullable public final LibraryItem newestSheet;
         @Nullable public final LibraryItem newestCharacter;
 
-        Glance(int count, @Nullable LibraryItem newestSheet, @Nullable LibraryItem newestCharacter) {
+        /**
+         * The newest sprite sheets, characters and VisLab looks (at most {@link #RECENT_PARTS}, newest
+         * first), for the lobby's Recent work row. The Library's own read, not a second scan.
+         */
+        @NonNull public final List<LibraryItem> recentParts;
+
+        Glance(int count, @Nullable LibraryItem newestSheet, @Nullable LibraryItem newestCharacter,
+               @NonNull List<LibraryItem> recentParts) {
             this.count = count;
             this.newestSheet = newestSheet;
             this.newestCharacter = newestCharacter;
+            this.recentParts = recentParts;
         }
+    }
+
+    /** How many sheets, characters and looks a glance carries for the lobby. */
+    public static final int RECENT_PARTS = 10;
+
+    /** True for a VisLab look of the Library's (a ".vis.json"), the test {@link LibraryOpener} opens it by. */
+    public static boolean isVisLabLook(@NonNull LibraryItem it) {
+        return it.kind == LibraryKind.SUPPLIES && it.folderPath != null
+                && it.folderPath.toLowerCase(java.util.Locale.ROOT).endsWith(".vis.json");
     }
 
     public interface Listener {
@@ -46,7 +63,20 @@ public final class LibraryGlance {
         source.load((items, complete, folder) -> listener.onGlance(new Glance(
                 complete ? LibraryFilter.allCount(new LibraryFilter().counts(items)) : -1,
                 newest(items, LibraryKind.SPRITE_SHEETS),
-                newest(items, LibraryKind.AVATARS))));
+                newest(items, LibraryKind.AVATARS),
+                recentParts(items))));
+    }
+
+    @NonNull
+    private static List<LibraryItem> recentParts(@NonNull List<LibraryItem> items) {
+        List<LibraryItem> parts = new java.util.ArrayList<>();
+        for (LibraryItem it : items) {
+            if (it.kind == LibraryKind.SPRITE_SHEETS || it.kind == LibraryKind.AVATARS || isVisLabLook(it)) {
+                parts.add(it);
+            }
+        }
+        java.util.Collections.sort(parts, LibraryFilter.comparator(LibraryFilter.Sort.NEWEST));
+        return parts.size() > RECENT_PARTS ? new java.util.ArrayList<>(parts.subList(0, RECENT_PARTS)) : parts;
     }
 
     /** The whole Library, not just its count: the Joybot list action needs the items themselves. */

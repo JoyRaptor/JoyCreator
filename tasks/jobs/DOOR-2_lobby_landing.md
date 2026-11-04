@@ -27,6 +27,11 @@ so easy that iPhone fans like it. This is the first thing every user and every d
 - Owner decisions from 10-17: the New pill is Studio green; "New" opens the Library on Projects with the new-project sheet.
 
 ## What is left
+- [x] 11-04 (built, NOT compiled, not tried on a phone): Recent work now also lists sprite sheets, characters and
+      VisLab looks (`.vis.json`), taken from the Library's own read (`LibraryGlance.recentParts`, no second scan).
+      Cards tap through `LibraryOpener` (Sprite Lab on that sheet, Avatar Studio, VisLab on that look). Other loose
+      looks (`.grade`/`.caption`) are left out, as the Library does not open them in VisLab either. Recordings,
+      drawings and projects unchanged. Still to do: compile, phone check, STATE §7.5.
 - [ ] Wait for DOOR-1's map.
 - [ ] Design: a mix-and-match page (true size, a few whole directions, then per-part swaps, and a line he can copy
       back with his picks), built from the existing records, not from scratch. He picks; lock the picks as the spec's §K.

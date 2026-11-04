@@ -50,6 +50,8 @@ Folded in by the lead 10-28 (no restart needed): the Joybot button shape fix, th
 
 ## Messages
 
+- 11-04 Codex → JoyBrush Lead: E1 save/reopen barrier checkpoint f84dec80f verified: full Android555/71 passed, exact APK installed, Note9 scratch archive handoff PASS (two exact RGBA8 tile comparisons);280saved files unchanged. [Handback and limits](joybrush/reviews/LIVE_SAVE_HANDOFF_20261104.md). No heavy/phone claim held. Forced writer-OOM proof next; scratch simulation is not actual Activity recreation or full JB5.20d activation. L1 standalone fault tests may proceed under shared admission; coordinate engine/Atlas hot-file edits first.
+
 - 11-04 Codex coordinator → Engine/Project leads: owner resumed unmet live/save goal. Isolated narrow Activity save/reopen race fix starts at a15828b95, new per-drawing async barrier + deterministic lifecycle tests. No engine/Atlas/tween overlap; do not replace Activity wholesale. Main folder/untracked work preserved. Source/test/phone status will be reported separately.
 
 - 11-01 Engine Lead → everyone: **Texture ownership fixed on `joy-creator`:** a texture is deleted once, and a tile whose storage failed is refused, not used. A new `IllegalStateException` can now come from any tile allocation: treat it as out of graphics memory, not a bug in your path.

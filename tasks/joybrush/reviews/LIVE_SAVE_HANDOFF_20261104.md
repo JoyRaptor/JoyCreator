@@ -22,3 +22,27 @@ captured-source/save activation guards. No feature completion from compilation.
 
 Root owns Activity+barrier integration. Luna audits current capture gaps and save
 ordering; no parallel hot-file edits. Main folder and original worktrees untouched.
+
+## Verified checkpoint f84dec80f — November4
+
+The leaving handoff spans the entire queued sequence, including earlier Working
+saves, interleaved Open/Copy and coalesced idle requests. Completing the first
+Working request is insufficient and was corrected before this checkpoint.
+
+- Focused final25cases passed; full Android555cases/71suites, zero failures/errors/
+  skips. [Independent XML/hash receipt](LIVE_SAVE_HOST_20261104.json).
+- APK succeeded5m20s:170203732bytes,
+  SHA e89d030e05863d4d5b3e38a7035daec9768b91922eff95c94d6d878a05dacd20.
+  Exact artifact: C:/Temp/jb-lead-ops/live-save-apk-20261104/artifact.json.
+- Fresh SM-N960U/API29 Home install verified; all280saved files unchanged.
+  Private receipt: C:/Temp/jb-lead-ops/live-save-install-20261104/receipt.json.
+- [Note9 archive-handoff PASS](LIVE_SAVE_DEVICE_20261104.json): two full-tile RGBA8
+  comparisons, three edit markers survive archive reopen, failure blocks stale
+  read, late completion/cancel checks, scratch cleaned. All280saved files unchanged;
+  phone returned Home; both claims released.
+
+The delay is simulated and scratch-only: actual Activity leave/recreation/EGL,
+process death and complete captured-source save/recovery remain unproved. Typed
+OOM is caught at the writer boundary; forced OOM proof is next. No captured-source
+guards were removed; the broader goal remains unfinished. Claude lead owns the
+noncentral backlog per the November4 BOARD split.

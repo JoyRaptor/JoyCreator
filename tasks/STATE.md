@@ -1,5 +1,14 @@
 # STATE — what Joy Creator actually has, and how proven it is
 
+**JoyBrush save/reopen safety, November4:** outgoing-save handoff prevents startup
+from reading an older file before its pending snapshot/write finishes. A failed
+handoff stops automatic reopen/autosave and directs the person to Open/recovery.
+Source f84dec80f: full Android555 tests passed; exact Note9 APK installed and cache-only
+archive handoff passed two full-tile RGBA8 comparisons;280saved files unchanged.
+Actual Activity recreation/process-death and complete captured-source activation
+remain open. Reuse `WorkingSaveBarrier`/`WorkingSaveHandoff` and existing SaveQueue;
+help mapping pending. [Proof and limits](joybrush/reviews/LIVE_SAVE_HANDOFF_20261104.md).
+
 **Purpose:** stop the rediscovery tax. This is the one file that says what exists.
 Every agent reads it first. Every promotional claim comes from it. The help doc and
 Joybot's knowledge are generated from it.

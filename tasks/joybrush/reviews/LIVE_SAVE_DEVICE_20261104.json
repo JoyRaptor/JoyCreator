@@ -1,0 +1,42 @@
+{
+  "source": "f84dec80f27421003caf30aac6d8aa35e63a6f64",
+  "apkSha256": "e89d030e05863d4d5b3e38a7035daec9768b91922eff95c94d6d878a05dacd20",
+  "model": "SM-N960U",
+  "api": 29,
+  "savedFiles": 280,
+  "savedUnchanged": true,
+  "report": {
+    "probe": "workingSaveHandoff",
+    "passed": true,
+    "scratchCleaned": true,
+    "fullRgba8Comparisons": 2,
+    "preservedPixelMarkers": 3,
+    "coverage": [
+      "delayed snapshot; archive write finishes before reopen read",
+      "actual JbArchive pixel round-trip preserves outgoing and reopened edits",
+      "failed handoff blocks stale reopen; late completion is idempotent",
+      "cancelled waiter is not called",
+      "cache-only unique scratch directory"
+    ],
+    "limits": [
+      "does not exercise Activity recreation, Lifecycle callbacks, GL, or rendered canvas pixels",
+      "does not measure device performance"
+    ],
+    "brush": "joybrush.ink",
+    "case": "workingSaveHandoffProbe",
+    "run": 1
+  },
+  "temperatures": [
+    {
+      "elapsedSeconds": 0,
+      "temperatureC": 28.2
+    }
+  ],
+  "tempAfterC": 28.3,
+  "rawDirectory": "C:\\Temp\\jb-lead-ops\\live-save-probe-20261104",
+  "rawHashes": {
+    "fenced-log.txt": "eb28f8fe028bd8a73e5b07e8f8740af4f74b3000bfc21521755afd078bec5913",
+    "host-receipt.json": "34a42cbc17ef470ee5101325411e1cb7ff8fc88f9a93b9e9cc1a08e206f61268"
+  },
+  "limits": "Device archive handoff and exact scratch tile bytes; simulated snapshot delay. Not a real Activity leave/recreate/GL lifecycle, process-death or live captured-source acceptance."
+}

@@ -28,6 +28,7 @@ public enum SettingsKey {
     AUDIO("group_audio_quick"),
     SCREEN_RECORDING("group_screen_recording"),
     WATERMARK("group_watermark_quick"),
+    LOCATION_EMBED(null),
 
     // ── Appearance, notifications, security ──
     APPEARANCE("group_appearance"),

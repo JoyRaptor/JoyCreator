@@ -80,6 +80,7 @@ final class SettingsDestinations {
             case AUDIO:              over(a, new AudioSettingsFragment()); break;
             case SCREEN_RECORDING:   over(a, new com.fadcam.fadrec.ui.ScreenRecordingSettingsFragment()); break;
             case WATERMARK:          over(a, new WatermarkSettingsFragment()); break;
+            case LOCATION_EMBED:     over(a, new com.fadcam.ui.LocationPrivacySettingsFragment()); break;
             // ── appearance, notifications, security ──
             case APPEARANCE:         over(a, new AppearanceSettingsFragment()); break;
             case NOTIFICATIONS:      over(a, new NotificationSettingsFragment()); break;

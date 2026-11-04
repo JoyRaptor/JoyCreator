@@ -100,6 +100,9 @@
     <string name="settingshub_screen_recording_names">screen, screen recorder, record screen, capture, display, fadrec</string>
     <string name="settingshub_watermark">Watermark</string>
     <string name="settingshub_watermark_desc">Time, place and branding stamped on recordings</string>
+    <string name="settingshub_location_embed">Location in video files</string>
+    <string name="settingshub_location_embed_desc">Save where a recording was made inside the video file</string>
+    <string name="settingshub_location_embed_names">location, gps, embed, geotag, metadata, place, privacy</string>
     <string name="settingshub_watermark_names">watermark, timestamp, date, time, overlay, location, gps, speed, altitude, weather, branding, logo, stamp</string>
 
     <!-- Appearance, notifications, security -->

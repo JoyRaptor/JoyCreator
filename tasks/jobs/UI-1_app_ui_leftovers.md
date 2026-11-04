@@ -25,7 +25,9 @@ Smart Detection, the new About, 36 renamed strings, lobby placeholders. Handoffs
 - [ ] Eyeball on the phone: the mode popup (looked teal on an old build), What's New, the Beta/Pro update sheets.
 - [ ] Five screens still on legacy themes: Onboarding, What's New, FadCam Pro, Cloud Account, WebView.
 - [ ] The burned-in watermark still draws "FadCam"/"FadRec" (`WatermarkSettingsFragment` around line 1005).
-- [ ] Translations (`values-xx`) still carry the old names.
+- [x] Part A text sweep (English, Remote headings, 12 translations brand-only) is on `joy-creator` since `5885d6499`; the
+      recovered backup `8391bad07` was re-checked 11-04 and adds nothing (every line it adds is already in, or is cloud text S19 removed).
+      Still open: translations that name FadRec/FadShot where English now says Screen/Photo (list in `tasks/audits/fadcam_text_20261028.md`).
 - [ ] Home recorder: landscape layout still old; the Menu row's Joybot switch showed ON after relaunch (saved state?).
 - [ ] Remote: "REMOTE SECURITY" repeats "SECURITY"; "SERVER STATUS" caption placement; hard-coded English toasts.
 - [ ] Retire `AvatarToggleView` and its eye-colour preference once the Joybot switch is proven everywhere.

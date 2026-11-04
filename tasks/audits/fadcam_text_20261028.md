@@ -33,7 +33,7 @@ words cannot fix it either, because what shows is a picture of the old brand. Op
 | "FadCam could not start recording." / clip label "FadCam Error" | "Joy Creator ..." | `HomeFragment.java:2387`, `:2421` |
 | "FadRec Annotation" (notification title) | "Joy Creator Annotation" | `AnnotationService.java:3487` |
 | "FadCam Playback" (notification channel name) | "Joy Creator Playback" (channel id unchanged) | `PlaybackService.java:439` |
-| (not changed) "FadCam Device" cloud device name and the "FadCam dashboard" E2E toast | Cloud screens wait on the owner S19 decision; left as written | `CloudAccountActivity.java:72`, `strings_remote.xml` `remote_toast_e2e_dashboard` |
+| (gone) "FadCam Device" cloud device name and the "FadCam dashboard" E2E toast | Removed with the cloud screens in S19 (`CloudAccountActivity.java` and `remote_toast_e2e_dashboard` no longer exist); nothing to reword | n/a |
 
 ### Remote screen
 - Two headings both said "Security" ("SECURITY" over the encryption card, "REMOTE SECURITY" over the password card). Now **Encryption** (`strings_remote.xml` `remote_section_security`) and **Access** (`strings.xml` `remote_security_title`).

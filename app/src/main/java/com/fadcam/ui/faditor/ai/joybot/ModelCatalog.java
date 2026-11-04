@@ -87,6 +87,28 @@ public final class ModelCatalog {
     public static final Model FREE_ROUTER = new Model("openrouter/free",
             "Free models (OpenRouter picks)", true, true, false, false);
 
+    private static volatile boolean contextTried;
+
+    /** Context window in tokens per chat model id, as OpenRouter's list gave it (BOT-3 size budget). */
+    private static final java.util.concurrent.ConcurrentHashMap<String, Integer> CONTEXT =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * A chat model's context window in tokens, or 0 when not known (not listed, a custom service, no
+     * copy of the list yet). Reads the cached list once when nothing is known; never waits on a
+     * missing network more than the list fetch itself does.
+     */
+    @WorkerThread
+    public static int contextTokens(@NonNull Context c, @Nullable String modelId) {
+        if (modelId == null || com.fadcam.ui.faditor.ai.AiService.isCustom(c)) return 0;
+        if (CONTEXT.isEmpty() && !contextTried) {
+            contextTried = true;   // once per run of the app: a missing list must not slow every request
+            chatModels(c);
+        }
+        Integer w = CONTEXT.get(modelId);
+        return w == null ? 0 : w;
+    }
+
     @WorkerThread
     @NonNull
     public static List<Model> chatModels(@NonNull Context c) {
@@ -104,6 +126,8 @@ public final class ModelCatalog {
                 if (id.isEmpty() || id.equals(FREE_ROUTER.id)) continue;
                 JSONObject arch = m.optJSONObject("architecture");
                 JSONObject price = m.optJSONObject("pricing");
+                int window = m.optInt("context_length", 0);
+                if (window > 0) CONTEXT.put(id, window);
                 boolean free = id.endsWith(":free") || (price != null
                         && "0".equals(price.optString("prompt")) && "0".equals(price.optString("completion")));
                 out.add(new Model(id, m.optString("name", id), free,

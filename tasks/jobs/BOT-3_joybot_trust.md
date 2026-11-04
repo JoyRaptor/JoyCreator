@@ -27,7 +27,12 @@ and JoyBrush requests are not resumable. The bench runs 53 tasks with a fake mod
 - [ ] **Resume for VisLab and JoyBrush jobs**: checkpoint by conversation, not only project.
 - [ ] **Edits against a revision**: long jobs commit only if the document hasn't moved, else a clear conflict
       (audit recommendation 2: document id + revision + operation id). Start with Studio.
-- [ ] **Model-aware size budget**: shrink what is sent for small free models; trim the tool list further.
+- [~] **Model-aware size budget**: built 11-04, harness-tested (`bash tools/jvm-harness/run-promptbudget.sh`, 50 pass),
+      not compiled by Gradle, not tried on the phone with a live model. `PromptBudget` gives a model with a window under
+      64k tokens (or an unknown `:free` / `openrouter/free`, assumed 32k) a tool and project-summary budget: the tools of
+      the families the request named are never dropped; the older core tools are shortened, then dropped, least relevant
+      first; one line tells the model what was left out. Big or unknown paid models get exactly the old request.
+      Left: read the `request size` log on the Note 9 with a free model; the window comes from OpenRouter's list.
 - [ ] **Director review for VisLab and JoyBrush** changes (today the Review card lists Studio changes only).
 
 ## Specs, handoffs and evidence

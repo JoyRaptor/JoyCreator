@@ -597,6 +597,12 @@ public final class JoybotAgent {
             this.history = history(ask.key());
         }
 
+        /** What the current model can take (BOT-3): unlimited unless its window is known to be small. */
+        @NonNull
+        PromptBudget.Budget budget() {
+            return PromptBudget.forModel(model, ModelCatalog.contextTokens(app, model), REPLY_TOKENS);
+        }
+
         /** The tool families this request is sent with (ToolRouter); more_tools adds to it. */
         final java.util.Set<String> families = new java.util.LinkedHashSet<>();
 
@@ -1056,14 +1062,16 @@ public final class JoybotAgent {
                 // OpenRouter reports what a reply cost when asked (gap F4's meter); others may
                 // refuse an unknown field, so only there.
                 if (url.contains("openrouter.ai")) body.put("usage", new JSONObject().put("include", true));
+                JSONArray sentTools = q.nativeTools ? nativeTools(families, ask.text, budget()) : null;
                 if (q.nativeTools) {
-                    body.put("tools", nativeTools(families));
+                    body.put("tools", sentTools);
                     if (requireTool && q.requiredChoice) body.put("tool_choice", "required");
                 }
                 // What a request weighs, by part, so trimming is measured, not guessed.
                 String sys = messages.length() > 0 ? messages.getJSONObject(0).optString("content", "") : "";
                 FLog.i(TAG, "request size: total " + body.toString().length() + " chars; tools "
-                        + (q.nativeTools ? nativeTools(families).toString().length() : 0) + " (" + families + ")"
+                        + (sentTools != null ? sentTools.toString().length() : 0) + " (" + families + "; budget "
+                        + budget() + ")"
                         + "; system " + sys.length()
                         + "; messages " + messages.length());
                 Request request = new Request.Builder()
@@ -1276,7 +1284,8 @@ public final class JoybotAgent {
                             sys = sys.replace(com.fadcam.ui.faditor.ai.AIToolExecutor.getToolDescriptions(),
                                     NATIVE_NOTE);
                         }
-                        out.put(new JSONObject().put("role", "system").put("content", sys + "\n" + context()));
+                        out.put(new JSONObject().put("role", "system").put("content", sys + "\n"
+                                + PromptBudget.trimContext(context(), budget().contextChars)));
                         continue;
                     }
                     JSONArray calls = m.optJSONArray("tool_calls");
@@ -1658,6 +1667,52 @@ public final class JoybotAgent {
             if (f == null || families.contains(f)) out.put(def);
         }
         out.put(new JSONObject(ToolRouter.moreToolsJson()));
+        return out;
+    }
+
+    /**
+     * As {@link #nativeTools(java.util.Set)}, fitted to a small model's budget (BOT-3, PromptBudget).
+     * An unlimited budget returns exactly the list above. Otherwise the tools of the families this
+     * request asked for are kept (descriptions cut only as a last resort), the older core tools are
+     * shortened or dropped, least relevant first, and more_tools names what was left out.
+     */
+    @NonNull
+    static JSONArray nativeTools(@NonNull java.util.Set<String> families, @NonNull String request,
+                                 @NonNull PromptBudget.Budget budget) throws Exception {
+        JSONArray full = nativeTools(families);
+        if (budget.unlimited) return full;
+        java.util.Map<String, String> fam = TOOL_FAMILY;
+        int last = full.length() - 1;   // more_tools is always last, always kept
+        JSONObject more = full.getJSONObject(last);
+        List<PromptBudget.Candidate> cands = new ArrayList<>();
+        for (int i = 0; i < last; i++) {
+            JSONObject def = full.getJSONObject(i);
+            JSONObject fn = def.optJSONObject("function");
+            String name = fn == null ? "" : fn.optString("name");
+            String f = fam == null ? null : fam.get(name);
+            boolean chosen = f != null && !ToolRouter.CORE.equals(f) && families.contains(f);
+            cands.add(new PromptBudget.Candidate(name, fn == null ? "" : fn.optString("description"),
+                    def.toString().length(), chosen));
+        }
+        PromptBudget.Plan plan = PromptBudget.plan(cands, request, budget, more.toString().length());
+        JSONArray out = new JSONArray();
+        for (int i = 0; i < last; i++) {
+            PromptBudget.Fate fate = plan.fates.get(i);
+            if (fate == PromptBudget.Fate.DROP) continue;
+            JSONObject def = full.getJSONObject(i);
+            if (fate == PromptBudget.Fate.SHORT) {
+                def = new JSONObject(def.toString());   // a copy: the cached list stays whole
+                PromptBudget.Candidate c = cands.get(i);
+                def.getJSONObject("function").put("description", PromptBudget.shorten(c.description, c.protectedTool));
+            }
+            out.put(def);
+        }
+        String note = PromptBudget.droppedNote(plan.dropped(cands));
+        if (!note.isEmpty()) {
+            JSONObject fn = more.getJSONObject("function");
+            fn.put("description", fn.optString("description") + note.replace("\"", "'"));
+        }
+        out.put(more);
         return out;
     }
 

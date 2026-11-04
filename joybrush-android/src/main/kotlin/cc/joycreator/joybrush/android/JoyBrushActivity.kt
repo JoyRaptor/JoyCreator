@@ -229,6 +229,7 @@ private val OPENABLE_TYPES = arrayOf(JB_MIMETYPE, "application/zip", "applicatio
  * An idle thread costs nothing on a phone, and the process ends with the app.
  */
 private val fileIo = Executors.newSingleThreadExecutor()
+private val workingSaves = WorkingSaveBarrier()
 
 /**
  * The Joy Brush screen (JB-0.05): a [JbCanvasView] filling the window, with the compact chrome
@@ -431,6 +432,8 @@ class JoyBrushActivity : Activity() {
     })
 
     private var viewPausePending = false
+    private var pauseSaveHandoff: WorkingSaveBarrier.Ticket? = null
+    private var restoreSaveWait: AutoCloseable? = null
 
     /** The autosave the last change asked for, and the one the screen leaving asks for. */
     private val idleSave = Runnable { if (changes > 0) saves.request(SaveReason.IDLE, SaveDest.Working) }
@@ -661,6 +664,10 @@ class JoyBrushActivity : Activity() {
         ui.postDelayed(pauseView, PAUSE_FALLBACK_MS)
         // A request, never a skipped call: if another save is running this one waits behind it and
         // the view stays running until the queue is empty (see [pauseViewIfDrained]).
+        // Register before queuing: an existing copy/export/save can delay beginSave.
+        if (!benchMode && workingSaveAllowed && pauseSaveHandoff == null) {
+            workingFile()?.let { pauseSaveHandoff = workingSaves.begin(it.absoluteFile.normalize().path) }
+        }
         saves.request(SaveReason.IDLE, SaveDest.Working)
         super.onPause()
     }
@@ -687,6 +694,7 @@ class JoyBrushActivity : Activity() {
         boardExports.dismiss()
         boardController?.stop()
         destroyed = true
+        restoreSaveWait?.close(); restoreSaveWait = null
         if (::canvas.isInitialized) canvas.onPaperBackdropChanged = null
         ui.removeCallbacks(iconCheck)
         iconCheckPending = false
@@ -2197,18 +2205,23 @@ class JoyBrushActivity : Activity() {
      * drawing survived FIRST and the reason second.
      */
     private fun beginSave(dest: SaveDest, finished: (String?) -> Unit) {
+        val queuedHandoff = if (dest is SaveDest.Working) pauseSaveHandoff.also { pauseSaveHandoff = null } else null
         if (destroyed) {
             if (dest is SaveDest.Open) dest.selection.close()
+            queuedHandoff?.complete("the drawing screen closed before its queued save started")
             finished("the drawing screen has closed")
             return
         }
         // The bench screen's drawing is a disposable test: never saved, and no "autosave did not work" toast for it.
         if (dest is SaveDest.Working && benchMode) { finished(null); return }
         if (dest is SaveDest.Working && !workingSaveAllowed) {
+            queuedHandoff?.complete("the previous drawing needs recovery before autosave can replace it")
             finished("the previous drawing needs recovery before autosave can replace it")
             return
         }
         if (dest is SaveDest.Working) strokeSaveClock.attempted(android.os.SystemClock.elapsedRealtime())
+        val file = if (dest is SaveDest.Working) workingFile() else null
+        val workingHandoff = queuedHandoff ?: file?.let { workingSaves.begin(it.absoluteFile.normalize().path) }
         if (dest is SaveDest.Open) {
             replacingDrawing = true
             overlaysView.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
@@ -2223,6 +2236,7 @@ class JoyBrushActivity : Activity() {
             if (!answered) {
                 answered = true
                 ui.removeCallbacks(watchdog)
+                workingHandoff?.complete(problem)
                 if (dest is SaveDest.Open) {
                     dest.selection.close()
                     replacingDrawing = false
@@ -2271,12 +2285,11 @@ class JoyBrushActivity : Activity() {
         watchdog = Runnable { answer("the drawing did not answer in time") }
         ui.postDelayed(watchdog, SNAPSHOT_TIMEOUT_MS)
 
-        val file = if (dest is SaveDest.Working) workingFile() else null
         if (dest is SaveDest.Working && file == null) {
             answer("this device has nowhere to keep a working drawing")
             return
         }
-        canvas.snapshot({ contents ->
+        try { canvas.snapshot({ contents ->
             // A timed-out readback may arrive after another request has started. It owns no write.
             if (answered) return@snapshot
             ui.removeCallbacks(watchdog)
@@ -2310,6 +2323,8 @@ class JoyBrushActivity : Activity() {
                         }
                     }
                     null
+                } catch (_: OutOfMemoryError) {
+                    "this device has too little memory to finish saving or exporting the drawing"
                 } catch (e: Exception) {
                     e.message ?: e.javaClass.simpleName
                 }
@@ -2349,6 +2364,11 @@ class JoyBrushActivity : Activity() {
             }
         // Keep failure bound to this save, even if the GL response arrives after its timeout.
         }, { why -> answer("Could not read the drawing: $why") })
+        } catch (_: OutOfMemoryError) {
+            answer("this device has too little memory to read the drawing for saving")
+        } catch (e: Exception) {
+            answer(e.message ?: "the drawing could not be read for saving")
+        }
     }
 
     /**
@@ -2388,6 +2408,20 @@ class JoyBrushActivity : Activity() {
     private fun restoreWorkingFile() {
         val file = workingFile()
         if (file == null) { finishStartup(false); return }
+        restoreSaveWait = workingSaves.whenSettled(file.absoluteFile.normalize().path) { problem ->
+            // Never wait inside fileIo: the outgoing snapshot still needs to queue its write there.
+            ui.post {
+                restoreSaveWait = null
+                if (destroyed) return@post
+                if (problem != null) {
+                    toast("Your previous save failed. Reopening was stopped to protect your drawing. Use Open or recovery to continue: $problem")
+                    finishStartup(false)
+                } else readWorkingFile(file)
+            }
+        }
+    }
+
+    private fun readWorkingFile(file: File) {
         fileIo.execute {
             val read = try {
                 DrawingHistory.readWorking(file).also {

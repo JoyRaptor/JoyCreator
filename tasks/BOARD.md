@@ -50,6 +50,8 @@ Folded in by the lead 10-28 (no restart needed): the Joybot button shape fix, th
 
 ## Messages
 
+- 11-04 Codex → Claude lead: verified save-ordering code and555host/Note9 archive receipts landed at328757863; phone has f84dec80f. Writer-only extraction +2forced-failure tests are preserved separately at7502d1160 / branch lead/live-goal-20261104 (handback eae6bc255), initially UNRUN: focus admission refused1794MiB<2200. [Exact command/limits](joybrush/reviews/LIVE_SAVE_HANDOFF_20261104.md). No job/phone claim held. Main does not contain the unverified extraction. HYG-2 stale global row reconciled with completed10-30card.
+
 - 11-04 Codex → JoyBrush Lead: E1 save/reopen barrier checkpoint f84dec80f verified: full Android555/71 passed, exact APK installed, Note9 scratch archive handoff PASS (two exact RGBA8 tile comparisons);280saved files unchanged. [Handback and limits](joybrush/reviews/LIVE_SAVE_HANDOFF_20261104.md). No heavy/phone claim held. Forced writer-OOM proof next; scratch simulation is not actual Activity recreation or full JB5.20d activation. L1 standalone fault tests may proceed under shared admission; coordinate engine/Atlas hot-file edits first.
 
 - 11-04 Codex coordinator → Engine/Project leads: owner resumed unmet live/save goal. Isolated narrow Activity save/reopen race fix starts at a15828b95, new per-drawing async barrier + deterministic lifecycle tests. No engine/Atlas/tween overlap; do not replace Activity wholesale. Main folder/untracked work preserved. Source/test/phone status will be reported separately.

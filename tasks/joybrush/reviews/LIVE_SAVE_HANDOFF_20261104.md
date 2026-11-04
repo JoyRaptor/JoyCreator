@@ -46,3 +46,21 @@ process death and complete captured-source save/recovery remain unproved. Typed
 OOM is caught at the writer boundary; forced OOM proof is next. No captured-source
 guards were removed; the broader goal remains unfinished. Claude lead owns the
 noncentral backlog per the November4 BOARD split.
+
+## Writer fault-injection follow-up 7502d1160 (initially UNRUN)
+
+Extracts the unchanged destination switch to private writeSaveContents, still
+inside the same fileIo task and same OOM/Exception boundary. Two new Robolectric
+tests call the actual Copy writer through a failing ContentProvider: OOM and
+FileNotFoundException after a valid temporary archive is built. They require a
+failure result and temp cleanup. Destination assertions cover refusal before a
+stream is granted, not arbitrary partial SAF writes; only Copy is directly fault
+injected. No new production hooks/dependencies. Independent Luna source review
+found branch order and exception threading unchanged.
+
+First focused admission deferred at1794MiB free (<2200), so no result from that
+attempt. Do not apply the earlier555 count to this source. Current command:
+`C:/Temp/jb-lead-ops/lead-build.ps1 -Dir C:/Temp/jb-live-goal-20261104 -Log <new-log> -MinFreeMiB 2200 -Tasks @(':joybrush-android:testDebugUnitTest','-I','C:/Temp/jb-lead-ops/live-save-focus-20261104.init.gradle')`.
+The init selects WorkingSave*, WriterMemoryFailureBinding, StrokeSaveClock and
+CanvasBoundSaveGuard. Expected27cases if both new tests execute. The installed
+phone remains exact f84dec80f; do not claim this extraction was installed.

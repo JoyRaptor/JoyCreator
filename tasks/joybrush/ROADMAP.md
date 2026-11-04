@@ -14,6 +14,27 @@ must not be used as current activation claims.
 
 **October 30, 2026 (HYG-2): `joy-creator` is now the JoyBrush base.** The integrated line, the recovered symmetry branch and the Select swap list were merged onto it. Android, engine and core suites 470 / 1215 / 2719 passed, 0 failures. Note 9 on the merged build: Select 21/21, clips, frame duplicate, live-source lease, ordinary watercolour, atlas parity 0 px, media undo for pencil and oil; [receipt](evidence/one-line-20261030/README.md). Rows below keep their earlier evidence dates. Unibrush U1-U7 merged the same day, still hidden ([receipt](evidence/one-line-20261030/unibrush/README.md)). Atlas room P2 (`helper1/atlas-room`) is NOT merged yet. The 45-paper test pack stays on `lead/paper-full-evaluation-20261029`.
 
+## Lead plan 11-04 (JoyBrush Lead, Claude Sonnet 5.5; took over the dead Engine Lead and JoyBrush lead claims)
+
+Codex keeps JB-5.20d, scoped selection and Select pixel ops, Atlas A2 and memory admission, save/reopen race and streaming saves, large-export memory safety and the paper decisions. Everything below is the rest. Order: preservation and safety, then correctness, then speed, then acceptance. Each item is verified against current code before work starts; "checked" means read in source on 11-04, not run.
+
+| # | Item | Class | State 11-04 |
+|---|---|---|---|
+| L1 | Texture parking/ownership follow-through: forced allocation and copy failure tests, graphics-ID reuse, parked-state publication and exhaustion tests (T1-T5 were fixed from source only, never injected) | safety | NOT STARTED; needs a heavy test slot (free RAM was 1.9 GB at start, 2.2 GB needed) |
+| L2 | Watercolour Atlas parity with a fixed simulation clock (proves T2/T3) | safety | BORDERS Codex's Atlas lane: asked on BOARD, not started |
+| L3 | Stationary hold paints nothing (E6, checked: `MediaSpline.add` returns a single point as is); distant tiles throw at the atlas table (E7, checked in the card); blank pencil preview | correctness | NOT STARTED |
+| L4 | Library thumbnails fail on editable-line drawings (E8, confirmed in a Note 9 log); textured-paper and last-view thumbnails; JoyBrush "Open..." | correctness | NOT STARTED |
+| L5 | Symmetry: line moves not undoable, dotted zone for refused brushes, strokes near the line drag it | correctness | NOT STARTED |
+| L6 | Unibrush: context loss and recovery, replacement-failure safety, edit/save/recovery and speed coverage, Note 20 | correctness | NOT STARTED |
+| L7 | Oil/water speed: 512 px oil (500-900 ms), cold first stroke (over 1 s), water flush; the owner's look at tighter oil spacing and sharp turns | speed | open per the MEDIA-SPEED card; frontier-model problem if the shader cost is the limit |
+| L8 | Tween live: GPU rendering, playback scheduling and controls, export, resource lifetime, phone proof | feature | needs a plan on a card first (`tasks/jobs/`); not started |
+| L9 | Vector watercolour: cold first stroke, View save/reopen/recovery, fade matrix, grainy-preset look, performance | acceptance | NOT STARTED |
+| L10 | Acceptance sweeps on the Note 9: clips and frame duplication (owner UI), Boards/Tile/Sprite, dark-canvas contrast, Covers/Carries/Leans, physical-pencil quality | acceptance | NOT STARTED; owner looks are his |
+| L11 | Audits (read-only first): brush imports, export entry points, fill dispatch/undo, representative device workloads | audit | NOT STARTED |
+| L12 | Docs: JoyBrush STATE rows (layer Lock/Merge Down/Flatten/Freeze, scoped selection, Select swap list, line clipboard, brush-settings specimen preview, Knife 2, whole-drawing and board export, tilt-keeps-screen) and Joybot help mappings (with the BOT-2 lane); worktree inventory (see HYG-3 snapshot 11-04: 98 dirty or unpushed, push to `backup/<name>` before anything; nothing deleted) | docs | IN PROGRESS |
+
+Stale-row note (11-04): the main JoyBrush merge is complete (HYG-2, 10-30); rows above that still say "integrated on lead/select-reconcile" mean that line is now `joy-creator`. Rule for this lead: the Codex handback ledger (HANDOFF_20261027_COORDINATOR.md) is evidence, not a queue.
+
 ## Live queue and assignments
 
 | ID / lane | Current state and owner | Concrete next action / completion gate |

@@ -207,6 +207,16 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
             return
         }
         val (preset, case, run) = job
+        if (case == "workingSaveHandoffProbe") {
+            WorkingSaveProbe.run(canvas.context.cacheDir) { result ->
+                val report = try { org.json.JSONObject(result) } catch (e: Exception) {
+                    org.json.JSONObject().put("passed", false).put("error", result)
+                }
+                logRecordedReport(report.put("brush", preset.id).put("case", case).put("run", run), preset.id, case, run)
+                ui.postDelayed({ next() }, spec.settleMs)
+            }
+            return
+        }
         if (case == "recordedCaptureProbe") { runRecordedCaptureCase(preset, case, run); return }
         if (case == "mediaAtlasBlockedProbe") {
             // ATLAS_ROOM_20261023 P2: water in blocks through a small atlas vs the window (MediaAtlasBlockedProbe).

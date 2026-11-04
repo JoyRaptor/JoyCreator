@@ -27,8 +27,9 @@ import com.google.android.material.textfield.TextInputEditText;
 /**
  * BehaviorSettingsFragment
  * Hosts general behavior preferences (notification customization relocated from legacy SettingsFragment).
- * NOTE: This currently implements a simplified notification preset dialog; full legacy
- * customization (including custom text editing & preview) will be migrated verbatim later.
+ * NOTE (2026-11-04): notification options live, complete, in NotificationSettingsFragment (hub row
+ * NOTIFICATIONS). This screen now holds only the onboarding and auto-update switches, which the hub
+ * reaches as SHOW_INTRO and UPDATE_CHECK.
  */
 public class BehaviorSettingsFragment extends BaseFragment {
 

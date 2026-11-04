@@ -17,7 +17,8 @@ import com.fadcam.SharedPreferencesManager;
 /**
  * NotificationSettingsFragment
  * Extracted from BehaviorSettingsFragment. Future work: migrate dialog-based customization
- * to unified bottom sheet pickers & number inputs. Currently placeholder showing preset & action row.
+ * to unified bottom sheet pickers & number inputs. Complete today (checked 2026-11-04): preset picker,
+ * custom title/text editor (showCustomEditorSheet), live preview card and hide-stop-button switch.
  */
 public class NotificationSettingsFragment extends Fragment {
 

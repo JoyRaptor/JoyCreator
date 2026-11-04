@@ -42,3 +42,11 @@ every build. Clutter is how work slips through the cracks.
 - JoyBrush's own folders (`tasks/joybrush/**`, `C:/Temp/jb-*`) belong to the JoyBrush lead: inventory them,
   but archive or remove only with its OK. Its roadmap names the worktrees it still needs.
 - "Half-built means unfinished, not abandoned": anything with unique work is pushed and listed, never deleted.
+
+## Inventory snapshot 2026-11-04 (read-only, Haiku scout; nothing removed)
+
+- Worktrees: 144. Clean and merged into `joy-creator` (safe once the owning lane agrees): 31 (7 under `.claude/worktrees`, 16 `jb-*` that need the JoyBrush lead's OK, 8 others such as `jc-lead-docs`, `jc-vl-lane`, `joybot-20261028`, `vl-studio-fx`).
+- Dirty or unpushed: 98 (47 dirty, 4 dirty and unpushed, 51 clean with unpushed commits). Each dirty one needs a push to `backup/<name>` before any removal. 14 more are pushed but not merged.
+- Local branches: 315; 170 merged (none unpushed); 145 not merged, 60 of those exist on no remote.
+- Tracked junk candidates: `tasks/logcat_play.txt` (9.7 MB), `tasks/fade_debug_live.log`, `tools/jvm-harness/ln_*.log`, root `wf_ed.png` and `star-guy-spritesheet.png` (check references first), `design-assets/PSDs/fadcam_*.zip` (check use). No APKs or build output tracked.
+- Counts drift while sessions run; re-run before acting.

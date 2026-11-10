@@ -7189,7 +7189,6 @@ class GlPaintEngine(
             }
         }
         val chosen = MediaRoom.choose(offered, asked, overBytes, MediaRoom.slack(mediaBudgetBytes))
-            ?: MediaRoom.choose(offered + offeredWet, asked, overBytes)?.let { all -> offered + all.filter { it in offeredWet } }
             ?: run {
             android.util.Log.w("JoyBrushMedia", "media room full and nothing left to set: ${offered.size} dry and ${offeredWet.size} wet tiles offered, ${overBytes shr 10} KB short")
             return null

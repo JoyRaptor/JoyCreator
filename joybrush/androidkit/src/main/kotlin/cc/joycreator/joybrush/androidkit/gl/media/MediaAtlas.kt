@@ -348,7 +348,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
                 val o = ((ay / 16 + j) * perRow + ax / 16 + i) * 4
                 mw = maxOf(mw, a[o]); ms = maxOf(ms, a[o + 1]); mf = maxOf(mf, a[o + 2])
                 val b = intArrayOf(tx0 + i * 16, ty0 + j * 16, tx0 + i * 16 + 16, ty0 + j * 16 + 16)
-                if (a[o] > minMm || a[o + 1] > 0f) ext = MediaAtlasWater.union(ext, b)
+                if (a[o] > minMm || a[o + 1] > MediaAtlasWater.DAMP_S) ext = MediaAtlasWater.union(ext, b)
                 if (a[o] > minMm) wetExt = MediaAtlasWater.union(wetExt, b)
             }
             water.observe(key, mw, ms, mf, now, minMm, FLOW_EPS, ext, wetExt)

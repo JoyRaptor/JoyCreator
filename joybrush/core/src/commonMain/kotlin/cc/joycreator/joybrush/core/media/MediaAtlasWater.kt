@@ -112,7 +112,7 @@ class MediaAtlasWater(val quietMs: Long = 2000) {
         val t = tiles.getOrPut(key) { Tile(State.UNKNOWN, nowMs, nowMs, null) }
         val was = t.state
         val wasWet = t.wetExt
-        t.state = when { maxW > minMm -> State.WET; maxS > 0f -> State.DAMP; else -> State.DRY }
+        t.state = when { maxW > minMm -> State.WET; maxS > DAMP_S -> State.DAMP; else -> State.DRY }
         t.ext = if (t.state == State.DRY) null else extent
         t.wetExt = if (t.state == State.WET) wetExtent ?: rectOf(key) else null
         if (t.state == State.WET && was == State.WET && !(wasWet ?: rectOf(key)).contentEquals(t.wetExt!!)) t.lastFlowMs = nowMs
@@ -276,6 +276,12 @@ class MediaAtlasWater(val quietMs: Long = 2000) {
     companion object {
         /** D3 sets aside tiles still this long first ([still]). */
         const val STILL_MS = 2000L
+        /**
+         * Paper with no standing water and its dampness at or under this is dry (2026-11-10). It was "any dampness at all", and
+         * dampness fades without ever reaching 0, so every tile water had touched stayed damp for good: one damp pool spread
+         * over the owner's drawing, more than the atlas holds. jb_wet_update.frag lets dampness this faint go (same value).
+         */
+        const val DAMP_S = 0.01f
         /** How far water reads around itself (layer px): [MediaAtlasPlacement.WET_REACH]. */
         const val READ = MediaAtlasPlacement.WET_REACH
         /** How far water may spread between two measurements (8 frames, the readback's latency): 48 px. */

@@ -35,6 +35,15 @@ Smart Detection, the new About, 36 renamed strings, lobby placeholders. Handoffs
 - [ ] Unused now (remove only with S10): `forensics_board_doodles.xml`, `forensics_doodle_pattern.png`,
       `forensics_empty_icon_bg.xml`, `fadcam_server_room_bg_rounded.webp`.
 
+## Phone check 11-10 (Note 9, debug build of c588dd300, agent-run)
+- **Watermark:** settings preview shows "Captured by Joy Creator - <time>"; a real back-camera recording showed the same line burned into the live view
+  (`screens/ui1_after_camera_recording_watermark_20261110.png`, `ui1_after_watermark_preview_20261110.png`). Setting put back to No Watermark. Not checked: the saved video file itself, a photo, a screen recording.
+- **Menu switch (Home recorder, Screen tab):** ON after relaunch with the overlay tab visible at the edge, which is the saved setting restoring the overlay
+  (`ui1_after_home_recorder_menu_20261110.png`). The revoked-permission case (should show OFF) was not tried.
+- **Found and fixed:** the Watermark preview's funny line showed garbled text (`watermark_preview_funny` was double-encoded); text fixed, not re-looked at on the phone.
+- **Not checked:** Onboarding (its activity is not startable without clearing data, which is not allowed), any translated screen, What's New.
+- No before shots: the phone was on another session's screen when I started.
+
 ## Files and traps
 - New screens follow the benchmark packages `ui/library`, `ui/settingshub`, `ui/trash`: thin fragment, bottom dock,
   small classes, tests, own strings file. Keep the legacy screen reachable ("Classic …") until the new one is proven.

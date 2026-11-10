@@ -175,7 +175,13 @@ class MediaAtlasWater(val quietMs: Long = 2000) {
      * that ran before (the host keeps their state as it is) and those running now that were paused.
      */
     fun schedule(domain: Collection<Long>, reads: Collection<Long>, frame: Set<Long>, held: Set<Long>, painting: Boolean,
-                 capacity: Int, penX: Double, penY: Double, lookReach: Int = 0, nowMs: Long = 0L): Pair<Set<Long>, Set<Long>> {
+                 capacity: Int, penX: Double, penY: Double, lookReach: Int = 0, nowMs: Long = 0L,
+                 /**
+                  * D3 may set tiles aside. False when the host can run water too big for it block by block instead (the atlas's
+                  * water park): a tile set aside freezes beside moving water and leaves a tile-shaped square in the paint
+                  * (the owner's Note 9, 2026-11-10), while blocks keep every tile's water exact.
+                  */
+                 aside: Boolean = true): Pair<Set<Long>, Set<Long>> {
         val comps = components(domain, withPaused = true)
         val was = paused.toSet()
         val wasAside = setAside.toSet()
@@ -188,11 +194,14 @@ class MediaAtlasWater(val quietMs: Long = 2000) {
         val running = ArrayList(touching)
         if (!painting) running += others
         fun fits() = (frame + held + mustStay(running.flatten(), reads, lookReach)).size <= capacity
-        while (!fits() && running.size > touching.size) running.removeAt(running.size - 1)
+        // With the pen up the nearest pool always runs, whatever its size (2026-11-10: a pool bigger than the room was paused
+        // whole, so with the pen up nothing ran at all: water that "didn't run, then all of a sudden did").
+        val least = if (painting) touching.size else maxOf(touching.size, minOf(1, running.size))
+        while (!fits() && running.size > least) running.removeAt(running.size - 1)
         val nowPaused = comps.filter { it !in running }.flatten().toSet()
         paused.addAll(nowPaused)
         // D3: still too much (the pools the pen paints are bigger than the room): their stillest, farthest tiles wait.
-        if (!fits()) {
+        if (aside && !fits()) {
             val candidates = running.flatten().filter { it !in near }
                 .sortedWith(compareByDescending<Long> { nowMs > 0 && still(it, nowMs, STILL_MS) }.thenByDescending { dist(it, penX, penY) })
             for (k in candidates) { if (fits()) break; setAside += k }

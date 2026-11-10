@@ -249,7 +249,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         // atlas. With the pen up they run again, nearest first, as far as there is room (2026-10-21: the owner's crowded
         // drawing ran every pool on the page in every frame, and ran out of room).
         val (newlyPaused, _) = water.schedule(domain, reads, frame, held, painting = frame.isNotEmpty(), capacity = slots.capacity,
-            penX = (pen[0] + pen[2]) / 2.0, penY = (pen[1] + pen[3]) / 2.0, lookReach = look, nowMs = now)
+            penX = (pen[0] + pen[2]) / 2.0, penY = (pen[1] + pen[3]) / 2.0, lookReach = look, nowMs = now, aside = MediaAtlasPark.units <= 0)
         if (newlyPaused.isNotEmpty()) media.holdStill(newlyPaused.mapNotNull { k -> slots.resident(page(k))?.let { media.slotTexel(it.slot) } })
         media.waterPaused = water.paused.toSet()
         var must = water.mustStay(domain, reads, look)

@@ -415,7 +415,14 @@ class MediaCanvas(
         // The canvas may already time the whole GL frame (JbCanvasView.onDrawFrame): keep its timer, put it back after.
         val outer = MediaPhases.timer
         MediaPhases.timer = rec?.let { s -> { name: String, ms: Double -> s.phase(name, ms) } } ?: outer
+        // Diagnosis only (`adb shell setprop log.tag.JoyBrushWaterProf DEBUG` before the app starts): where a frame's time goes
+        // when the bench is not recording, above all while water runs with the pen up. The timed sections finish the GPU's
+        // work around themselves, so frames are slower while this is on.
+        val prof = rec == null && outer == null && profiling
+        if (prof) MediaPhases.timer = { name: String, ms: Double -> profSums[name] = (profSums[name] ?: 0.0) + ms }
+        val began = if (prof) System.nanoTime() else 0L
         try { return frameInner(e, w, nowMs) } finally {
+            if (prof) { android.opengl.GLES30.glFinish(); profTick((System.nanoTime() - began) / 1e6) }
             MediaPhases.timer = outer
             if (rec != null && (rec.memory == null || (e.hasWaterTextures && !memoryHadWater))) {
                 rec.memory = e.memoryReport(); memoryHadWater = e.hasWaterTextures
@@ -425,6 +432,24 @@ class MediaCanvas(
     }
 
     private var memoryHadWater = false
+
+    private val profiling by lazy { android.util.Log.isLoggable("JoyBrushWaterProf", android.util.Log.DEBUG) }
+    private val profSums = HashMap<String, Double>()
+    private var profFrames = 0
+    private var profMs = 0.0
+    private var profAt = 0L
+    private fun profTick(frameMs: Double) {
+        profFrames++; profMs += frameMs
+        val now = System.nanoTime()
+        if (profAt == 0L) { profAt = now; profSums.clear(); profFrames = 0; profMs = 0.0; return }
+        if (now - profAt < 2_000_000_000L) return
+        val n = maxOf(1, profFrames)
+        val wall = (now - profAt) / 1e6 / n
+        android.util.Log.i("JoyBrushWaterProf", "per frame over $n frames: ${"%.1f".format(wall)} ms apart, media ${"%.1f".format(profMs / n)} ms: " +
+            profSums.entries.filter { "(count)" !in it.key }.sortedByDescending { it.value }.take(14).joinToString(", ") { "${it.key.removePrefix("JB.media.")} ${"%.1f".format(it.value / n)}" } +
+            " | counts: " + profSums.entries.filter { "(count)" in it.key }.joinToString(", ") { "${it.key.removeSuffix(" (count)")} ${"%.0f".format(it.value / n)}" })
+        profAt = now; profSums.clear(); profFrames = 0; profMs = 0.0
+    }
 
     private fun frameInner(e: MediaLayerEngine, w: MediaPlace, nowMs: Long): Boolean {
         // The paper's tilt is read every frame, so running water turns as the pad or the phone turns (it was read only

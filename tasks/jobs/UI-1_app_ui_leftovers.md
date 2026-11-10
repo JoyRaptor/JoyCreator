@@ -21,7 +21,7 @@ Smart Detection, the new About, 36 renamed strings, lobby placeholders. Handoffs
 `UI-Five-front-doors-options.html`, `UI-The-swatch-room_pill.html`, `UI-The Art Order.html`.
 
 ## What is left
-- [ ] Restyle: Home sidebar, Records sidebar, fullscreen camera preview, the Studio classic list leftovers.
+- [ ] Restyle: fullscreen camera preview, the Studio classic list leftovers. (Home sidebar done and seen 11-10; Records sidebar layout re-tokened, not seen on the phone.)
 - [ ] Eyeball on the phone: the mode popup (looked teal on an old build), What's New, the Beta/Pro update sheets.
 - [x] Legacy themes: FadCam Pro, Cloud Account and WebView screens no longer exist (S19 cut; the only WebView is a headless slide renderer); What's New was already on the Joy Creator theme; Onboarding moved to it 11-10 (theme, human slide colours, page dots). Not yet looked at on a phone.
 - [x] Burned-in watermark: the FadCam/Rec logo pictures are replaced by the text "Joy Creator" in the video, photo and screen-recording drawers and the settings preview (11-10, compiled; no phone recording yet).
@@ -41,8 +41,11 @@ Smart Detection, the new About, 36 renamed strings, lobby placeholders. Handoffs
 - **Menu switch (Home recorder, Screen tab):** ON after relaunch with the overlay tab visible at the edge, which is the saved setting restoring the overlay
   (`ui1_after_home_recorder_menu_20261110.png`). The revoked-permission case (should show OFF) was not tried.
 - **Found and fixed:** the Watermark preview's funny line showed garbled text (`watermark_preview_funny` was double-encoded); text fixed, not re-looked at on the phone.
-- **Not checked:** Onboarding (its activity is not startable without clearing data, which is not allowed), any translated screen, What's New.
-- No before shots: the phone was on another session's screen when I started.
+- **Onboarding (second pass, new build):** reached through Setup, search "onboarding", the "Show the intro" switch, then a relaunch; all three pages are on the Joy Creator look
+  (`ui1_after_onboarding_welcome / slide2 / slide3`). After "Let me in" the app opens straight to the lobby, so the switch is back off. Odd: the three checkbox lines on page 3 render in a serif face though the layout asks for the body font; cause not found.
+- **Home sidebar restyled** (`ui1_before_home_sidebar` / `ui1_after_home_sidebar`): the orange gradient "Soon" badges are flat zinc pills with dim text; hard-coded #262626 dividers and stock grey subtitles use the Joy Creator line/ink tokens. Same token swap in the Records sidebar layout, the mini-app card and the mini-app sheet. The Records sidebar was **not looked at** on the phone: the Records tab showed the Home recorder with its pill highlighted (a Library-lane oddity, reported, not touched).
+- **Remote** looked at: heading reads "ACCESS", server status beside the chip (`ui1_after_remote_access_heading_20261110.png`).
+- **Not checked:** any translated screen, What's New, the revoked-permission case of the Menu switch.
 
 ## Files and traps
 - New screens follow the benchmark packages `ui/library`, `ui/settingshub`, `ui/trash`: thin fragment, bottom dock,

@@ -18,7 +18,8 @@ the Space screen. Live spec: [`SPEC_20261013_FILE_MANAGEMENT.md`](../SPEC_202610
 ## What is left
 - [ ] Undo after a Move: needs an outside file over 25 MB (smaller files are copied, not linked).
 - [ ] Space → "Move unused to Trash…" (multi-select): compiles, never on the phone.
-- [ ] Share-in of a large file still copies whatever the size; make it follow Copy / Move / Leave (link + warning above 25 MB).
+- [x] 11-10 Share-in of a large file (over 25 MB) now asks Copy / Move / Leave (`ShareInActivity`, reusing `BringInDialog.Choice` + `OriginalsRemover`). Leave links only when the sharing app allows a lasting grant, else copies with a note. **Compiled (Gradle), NOT tried on the phone** (no device connected 11-10; needs a >25 MB share from another app).
+- 11-10 phone checks owed, not run (no device connected): Space → "Move unused to Trash…", Undo after Move.
 - [ ] In real use only (testing would litter his real folder): recording when the folder is missing, and the
       "make a Recordings folder?" offer after 20 loose recordings.
 - [ ] The JoyBrush half: [`joybrush/briefs/JOY_FOLDER_FOR_JOYBRUSH.md`](../joybrush/briefs/JOY_FOLDER_FOR_JOYBRUSH.md) §0

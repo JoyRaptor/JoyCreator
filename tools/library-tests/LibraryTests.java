@@ -117,6 +117,8 @@ public final class LibraryTests {
         eq(Arrays.asList("Café sign"), names(f.apply(all)));
         f.setQuery("run restore");          // one word in the name, one in its project
         eq(Arrays.asList("Run cycle"), names(f.apply(all)));
+        f.setQuery("untitled");             // shown by its video's file name, found by its stored name
+        eq(Arrays.asList("Beach clip.mp4"), names(f.apply(all)));
         f.setQuery("nothing like this");
         eq(0, f.apply(all).size());
         check(f.narrowed(), "a query narrows");
@@ -200,6 +202,10 @@ public final class LibraryTests {
         LibraryItem sheet = item("Run cycle", LibraryKind.SPRITE_SHEETS, TODAY + 8, false);
         sheet.parentName = "Restore video test";
         all.add(sheet);
+        // A project shown by its video's file name still answers to its stored name "Untitled".
+        LibraryItem unnamed = item("Beach clip.mp4", LibraryKind.PROJECTS, TODAY + 7, false);
+        unnamed.searchAlias = "Untitled";
+        all.add(unnamed);
         all.add(item("Café sign", LibraryKind.IMAGES, TODAY + 7, true));
         all.add(item("Joybot idea", LibraryKind.IMAGES, TODAY + 6, false));
         all.add(item("From a friend", LibraryKind.CLIPS, TODAY + 5, true));

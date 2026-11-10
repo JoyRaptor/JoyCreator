@@ -452,11 +452,21 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
      * refused). A tile the pen comes back to is simply loaded again.
      */
     private fun yieldForRoom() {
-        if (!paint.mediaRoomTight()) return
+        // What this frame's stores are about to add (tiles new to the layer): a frame that needs more than the room's slack at
+        // once was refused the first time the room filled, before anything had been handed back (Note 9, 2026-11-10).
+        val id = layerId ?: return
+        val coming = pendingRect?.let { rect ->
+            val keys = keysIn(rect).filter { slots.resident(page(it)) != null && it !in borrowedBlockTiles }
+            paint.mediaNewBytes(id, keys, pendingStores.filter { it !in MediaStores.WATER || media.wetActive }, plane) +
+                paint.mediaNewBytes(id, keys.filter { it in groundFromLook }, listOf(MediaStores.GROUND), plane)
+        } ?: 0L
+        if (!paint.mediaRoomTight(coming)) return
         val loose = slots.residents().filter { it.pins == 0 && it.page.tileKey !in borrowedBlockTiles && !water.holdsWater(it.page.tileKey) }
         if (loose.isEmpty()) return
+        // A big need takes everything that is only cached; the usual trickle is a few tiles a frame.
+        val most = if (coming > paint.mediaRoomSlack()) loose.size else YIELD_PER_FRAME
         var n = 0
-        try { for (r in loose) { if (n >= YIELD_PER_FRAME) break; letGo(r); n++ } }
+        try { for (r in loose) { if (n >= most) break; letGo(r); n++ } }
         catch (x: MediaRoomException) { android.util.Log.w(TAG, "a cached tile could not be written back to make room: ${x.message}") }
         if (n > 0) { yielded += n; media.setResidency(resident()) }
     }

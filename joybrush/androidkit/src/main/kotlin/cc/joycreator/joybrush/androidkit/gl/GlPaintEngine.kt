@@ -7142,7 +7142,18 @@ class GlPaintEngine(
      * True when the next few new media tiles would not fit the drawing's room without old paint setting: the media tool then
      * hands back what it only caches, so there is old paint to set (MediaAtlas.yieldForRoom).
      */
-    fun mediaRoomTight(): Boolean = mediaBudgetBytes != Long.MAX_VALUE && mediaResidentBytes() + MediaRoom.slack(mediaBudgetBytes) > mediaBudgetBytes
+    fun mediaRoomTight(extraBytes: Long = 0L): Boolean =
+        mediaBudgetBytes != Long.MAX_VALUE && mediaResidentBytes() + extraBytes + MediaRoom.slack(mediaBudgetBytes) > mediaBudgetBytes
+
+    /** The room [MediaRoom.slack] keeps free: a write needing more than this at once is worth making room for ahead of it. */
+    fun mediaRoomSlack(): Long = MediaRoom.slack(mediaBudgetBytes)
+
+    /** The payload bytes a write of [stores] to [keys] of [layerId]'s [plane] would add: the tiles those stores do not have yet. */
+    fun mediaNewBytes(layerId: String, keys: Collection<Long>, stores: Collection<String>, plane: String? = null): Long {
+        val layer = layers[layerId] ?: return 0L
+        val have = if (plane == null) layer.floats else layer.celFloats[plane]
+        return stores.filter { it != MEDIA_LOOK }.sumOf { st -> keys.count { have?.get(st)?.containsKey(it) != true }.toLong() * MediaStores.tileBytes(size, st) }
+    }
 
     /** Tiles whose paint has set to make room since this engine was made (bench, and the log). */
     var mediaTilesSet = 0
@@ -7154,13 +7165,16 @@ class GlPaintEngine(
      * texture, `after` = null) for the caller to put in its step, already applied to the layers; null when no choice of
      * tiles frees enough, and then nothing was touched.
      *
-     * Not offered: tiles with water stores (wet, perhaps running or parked), tiles the tool holds ([mediaRoomKeep]), the
+     * Not offered: tiles the tool holds (its atlas, its park), wet tiles unless nothing dry is left ([mediaRoomKeep]), the
      * tiles being written, and outside a stroke the tiles of the newest step ([held]), which later writes change in place.
      */
     private fun setOldMedia(layerId: String, plane: String?, keys: Collection<Long>, overBytes: Long,
                             held: Set<Triple<String, String?, Long>>): List<UndoLog.TileChange<Int>>? {
         val asked = keys.toSet()
         val offered = ArrayList<MediaRoom.Tile>()
+        // Wet paint nobody is simulating (asleep in the stores: another layer's, or far behind the pen) is the last resort:
+        // set, it stops where it is, looking exactly as it does now. Water that runs or waits in the tool's park is kept.
+        val offeredWet = ArrayList<MediaRoom.Tile>()
         for (l in layers.values) for ((p, stores) in l.planes()) {
             if (stores.values.all { it.isEmpty() }) continue
             val kept = mediaRoomKeep?.invoke(l.id, p)?.toSet().orEmpty()
@@ -7169,13 +7183,15 @@ class GlPaintEngine(
             val bytes = HashMap<Long, Long>()
             for ((store, tiles) in stores) for (k in tiles.keys) bytes[k] = (bytes[k] ?: 0L) + MediaStores.tileBytes(size, store)
             for ((k, b) in bytes) {
-                if (k in wet || k in kept || (l.id == layerId && p == plane && k in asked)) continue
+                if (k in kept || (l.id == layerId && p == plane && k in asked)) continue
                 if (held.isNotEmpty() && stores.keys.any { Triple(MediaStores.id(l.id, it), p, k) in held }) continue
-                offered += MediaRoom.Tile(l.id, p, k, b, mediaWritten[Triple(l.id, p, k)] ?: 0L)
+                (if (k in wet) offeredWet else offered) += MediaRoom.Tile(l.id, p, k, b, mediaWritten[Triple(l.id, p, k)] ?: 0L)
             }
         }
-        val chosen = MediaRoom.choose(offered, asked, overBytes, MediaRoom.slack(mediaBudgetBytes)) ?: run {
-            android.util.Log.w("JoyBrushMedia", "media room full and nothing left to set: ${offered.size} tiles offered, ${overBytes shr 10} KB short")
+        val chosen = MediaRoom.choose(offered, asked, overBytes, MediaRoom.slack(mediaBudgetBytes))
+            ?: MediaRoom.choose(offered + offeredWet, asked, overBytes)?.let { all -> offered + all.filter { it in offeredWet } }
+            ?: run {
+            android.util.Log.w("JoyBrushMedia", "media room full and nothing left to set: ${offered.size} dry and ${offeredWet.size} wet tiles offered, ${overBytes shr 10} KB short")
             return null
         }
         val changes = ArrayList<UndoLog.TileChange<Int>>()

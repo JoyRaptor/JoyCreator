@@ -45,7 +45,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         if (spec.coarseWater != null) cc.joycreator.joybrush.androidkit.gl.media.MediaLayerEngine.coarseWaterDefault = coarseBefore
         if (spec.atlasRows != null) cc.joycreator.joybrush.androidkit.gl.media.MediaLayerEngine.atlasRowPasses = rowsBefore
         if (spec.waterJobs != null) canvas.mediaWaterJobs = jobsBefore
-        if (spec.mediaBudgetMb != null) canvas.mediaBudgetBytes = budgetBefore
+        if (spec.mediaBudgetMb != null) { canvas.mediaBudgetHeld = false; canvas.mediaBudgetBytes = budgetBefore }
         if (spec.editableLines != null) canvas.editableLines = editableLinesBefore
         if (spec.dropDry != null) cc.joycreator.joybrush.androidkit.gl.media.MediaAtlasDropDry.on = true
         canvas.brushPngs = pngsBefore
@@ -144,7 +144,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         cc.joycreator.joybrush.androidkit.gl.media.MediaLayerEngine.pasteDetail = spec.pasteDetail
         spec.atlasRows?.let { cc.joycreator.joybrush.androidkit.gl.media.MediaLayerEngine.atlasRowPasses = it; Log.i(TAG, "atlas rows: $it") }
         spec.waterJobs?.let { canvas.mediaWaterJobs = it; Log.i(TAG, "water jobs: $it") }
-        spec.mediaBudgetMb?.let { canvas.mediaBudgetBytes = it.toLong() shl 20; Log.i(TAG, "media room: $it MB") }
+        spec.mediaBudgetMb?.let { canvas.mediaBudgetHeld = false; canvas.mediaBudgetBytes = it.toLong() shl 20; canvas.mediaBudgetHeld = true; Log.i(TAG, "media room: $it MB") }
         spec.lines?.let { canvas.editableLines = it; Log.i(TAG, "editable lines: $it") }
         spec.dropDry?.let { cc.joycreator.joybrush.androidkit.gl.media.MediaAtlasDropDry.on = it; Log.i(TAG, "drop dry water: $it") }
         spec.parkUnits?.let { cc.joycreator.joybrush.androidkit.gl.media.MediaAtlasPark.units = it; Log.i(TAG, "water park: $it tiles") }

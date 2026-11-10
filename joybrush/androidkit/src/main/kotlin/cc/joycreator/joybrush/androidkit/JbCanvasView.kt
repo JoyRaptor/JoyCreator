@@ -1225,7 +1225,12 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
 
     /** The ceiling on resident pencil, watercolour and oil state, from the phone's memory ([LayerBudget.mediaBudgetBytes]). */
     var mediaBudgetBytes: Long = Long.MAX_VALUE
-        set(v) { field = v; onGl { engine.mediaBudgetBytes = v } }
+        set(v) { if (mediaBudgetHeld) return; field = v; onGl { engine.mediaBudgetBytes = v } }
+    /**
+     * Debug bench only (`jb_media_budget_mb`): the room the bench set stays until the bench lets go. The screen sets the room
+     * from the phone's memory whenever it counts layers, which undid the bench's small room after its first stroke.
+     */
+    var mediaBudgetHeld = false
 
     /** Every layer counts as one (R51): pencil, watercolour and oil are paid for by [mediaBudgetBytes], not by layers. */
     private fun roomForAnother(): Boolean {

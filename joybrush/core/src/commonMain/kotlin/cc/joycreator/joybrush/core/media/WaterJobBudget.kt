@@ -20,6 +20,7 @@ class WaterJobBudget(
 
     /** After a frame that took [frameMs] (0 = unknown: unchanged); the budget for the next. */
     fun next(frameMs: Float): Double {
+        forced?.let { return it }
         if (frameMs > 0f) {
             units = when {
                 frameMs > slowMs -> units * max(0.5, slowMs / frameMs.toDouble())
@@ -32,4 +33,9 @@ class WaterJobBudget(
     }
 
     fun reset() { units = start }
+
+    companion object {
+        /** Debug bench only (`jb_water_budget_k`): every frame gets exactly this much, whatever the frames take. Null = steered. */
+        @kotlin.concurrent.Volatile var forced: Double? = null
+    }
 }

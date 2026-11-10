@@ -103,6 +103,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                val failLiftRedraw: Boolean = false,
                /** Atlas A2 ledger probe: the squeezed atlas's slot grid (`jb_atlas_slots` "6x4"); none = 6 x 4, the app's smallest. */
                val atlasSlots: Pair<Int, Int>? = null,
+               /** `jb_water_budget_k`: the water's work per frame, thousands of units, instead of the steered budget (calibration). */
+               val waterBudgetK: Int? = null,
                /** Debug-only resolved nominal stamp size; null retains the actual recipe. */
                val sizeOverridePx: Float? = null) {
         init {
@@ -144,6 +146,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         cc.joycreator.joybrush.androidkit.gl.media.MediaLayerEngine.pasteDetail = spec.pasteDetail
         spec.atlasRows?.let { cc.joycreator.joybrush.androidkit.gl.media.MediaLayerEngine.atlasRowPasses = it; Log.i(TAG, "atlas rows: $it") }
         spec.waterJobs?.let { canvas.mediaWaterJobs = it; Log.i(TAG, "water jobs: $it") }
+        cc.joycreator.joybrush.core.media.WaterJobBudget.forced = spec.waterBudgetK?.let { it * 1000.0 }
+        spec.waterBudgetK?.let { Log.i(TAG, "water budget forced: $it k units a frame") }
         spec.mediaBudgetMb?.let { canvas.mediaBudgetHeld = false; canvas.mediaBudgetBytes = it.toLong() shl 20; canvas.mediaBudgetHeld = true; Log.i(TAG, "media room: $it MB") }
         spec.lines?.let { canvas.editableLines = it; Log.i(TAG, "editable lines: $it") }
         spec.dropDry?.let { cc.joycreator.joybrush.androidkit.gl.media.MediaAtlasDropDry.on = it; Log.i(TAG, "drop dry water: $it") }
@@ -692,6 +696,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 pasteDetail = intent.getBooleanExtra("jb_paste_detail", false),
                 atlasRows = if (intent.hasExtra("jb_atlas_rows")) intent.getIntExtra("jb_atlas_rows", 0) else null,
                 waterJobs = if (intent.hasExtra("jb_water_jobs")) intent.getBooleanExtra("jb_water_jobs", true) else null,
+                waterBudgetK = intent.getIntExtra("jb_water_budget_k", -1).takeIf { it > 0 },
                 mediaBudgetMb = intent.getIntExtra("jb_media_budget_mb", -1).takeIf { it > 0 },
                 dropDry = if (intent.hasExtra("jb_drop_dry")) intent.getBooleanExtra("jb_drop_dry", true) else null,
                 parkUnits = intent.getIntExtra("jb_water_park_units", -1).takeIf { it >= 0 },

@@ -826,10 +826,10 @@ public class ScreenRecordingService extends Service {
                 case "timestamp":
                     return timestamp + customLine;
                 case "badge_fadcam":
-                    return "Recorded by <ICON>" + customLine;
+                    return "Recorded by Joy Creator" + customLine;
                 case "timestamp_fadcam":
                 default:
-                    return "Recorded by <ICON> - " + timestamp + customLine;
+                    return "Recorded by Joy Creator - " + timestamp + customLine;
             }
         };
     }

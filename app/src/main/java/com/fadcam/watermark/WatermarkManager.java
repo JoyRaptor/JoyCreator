@@ -157,11 +157,11 @@ public class WatermarkManager implements WatermarkInfoProvider {
         String finalText;
         switch (watermarkOption) {
             case "timestamp_fadcam":
-                finalText = "Captured by <FADCAM_ICON> - " + getCurrentTimestamp() + getTimezoneSuffix()
+                finalText = "Captured by Joy Creator - " + getCurrentTimestamp() + getTimezoneSuffix()
                         + locationText + customTextLine;
                 break;
             case "badge_fadcam":
-                finalText = "Captured by <FADCAM_ICON>" + customTextLine;
+                finalText = "Captured by Joy Creator" + customTextLine;
                 break;
             case "timestamp":
                 finalText = getCurrentTimestamp() + getTimezoneSuffix() + locationText + customTextLine;

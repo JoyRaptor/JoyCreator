@@ -121,11 +121,11 @@
     <string name="fadrec_ready_to_record">Valmis ekraani jäädvustamiseks</string>
     <string name="fadrec_ready_to_record_subtitle">Puuduta alustamiseks</string>
     <string name="fadrec_permission_denied">Ekraani salvestamise luba keelatud</string>
-    <string name="fadrec_mode_title">FadRec • Ekraani salvestamine</string>
+    <string name="fadrec_mode_title">Ekraani salvestamine</string>
     <string name="fadrec_mute_audio">Vaigista salvestuse heli</string>
     <string name="fadrec_unmute_audio">Heli salvestamine sisse</string>
     <string name="fadrec_mic_permission_needed_title">Mikrofoni luba on vajalik</string>
-    <string name="fadrec_mic_permission_needed_message">FadRec ei pääse mikrofonile ligi. Saad salvestada vaigistatult – heli ei salvestata.</string>
+    <string name="fadrec_mic_permission_needed_message">Joy Creator ei pääse mikrofonile ligi. Saad salvestada vaigistatult – heli ei salvestata.</string>
     <string name="fadrec_record_muted">Salvesta vaigistatult</string>
 
     <!-- FadRec audio source picker -->
@@ -393,7 +393,7 @@
     <string name="media_type_photo">Foto</string>
     <string name="media_type_photo_back">Taga</string>
     <string name="media_type_photo_selfie">Selfie</string>
-    <string name="media_type_photo_fadrec">FadRec</string>
+    <string name="media_type_photo_fadrec">Ekraan</string>
     <string name="photo_capture_saved">Foto salvestatud</string>
     <string name="photo_capture_failed">Foto jäädvustamine nurjus</string>
     <string name="photo_capture_preview_unavailable">Eelvaade ei ole saadaval</string>
@@ -404,10 +404,10 @@
     <string name="records_filter_all">Kõik</string>
     <string name="records_filter_camera">Joy Creator</string>
     <string name="records_filter_dual">Duaal</string>
-    <string name="records_filter_screen">FadRec</string>
+    <string name="records_filter_screen">Ekraan</string>
     <string name="records_filter_faditor">Faditor</string>
     <string name="records_filter_stream">Voogedastus</string>
-    <string name="records_filter_shot">FadShot</string>
+    <string name="records_filter_shot">Fotod</string>
     <string name="records_filter_camera_all">Kõik</string>
     <string name="records_filter_camera_back">Taga</string>
     <string name="records_filter_camera_front">Ees</string>
@@ -419,14 +419,14 @@
     <string name="records_filter_miniapps_all">Kõik</string>
     <string name="records_filter_shot_back">Taga</string>
     <string name="records_filter_shot_selfie">Selfie</string>
-    <string name="records_filter_shot_fadrec">FadRec</string>
+    <string name="records_filter_shot_fadrec">Ekraan</string>
     <string name="records_filter_checklist_desc">Lülita valikurežiimi</string>
     <string name="records_filter_helper_camera_all">Kaamerasalvestised (Taga, Ees, Duaal)</string>
     <string name="records_filter_helper_camera_back">Jäädvustatud tagakaameraga</string>
     <string name="records_filter_helper_camera_front">Jäädvustatud esikaameraga (selfie)</string>
     <string name="records_filter_helper_camera_dual">Jäädvustatud duaalkaamera režiimis</string>
     <string name="records_filter_helper_dual">Duaalkaamera salvestised</string>
-    <string name="records_filter_helper_screen">Ekraani salvestised (FadRec)</string>
+    <string name="records_filter_helper_screen">Ekraani salvestised</string>
     <string name="records_filter_helper_faditor">Muudetud/eksporditud videod (Faditor)</string>
     <string name="records_filter_helper_faditor_all">Kõik Faditori väljundid ja seotud failid.</string>
     <string name="records_filter_helper_faditor_converted">Teisendatud killustatud MP4 standardseks otsitavaks MP4-ks välistele mängijatele.</string>
@@ -435,7 +435,7 @@
     <string name="records_filter_helper_shot_all">Jäädvustatud fotod ja ekraanipildid</string>
     <string name="records_filter_helper_shot_back">Jäädvustatud fotod tagakaameraga</string>
     <string name="records_filter_helper_shot_selfie">Jäädvustatud fotod esikaameraga (selfie)</string>
-    <string name="records_filter_helper_shot_fadrec">Jäädvustatud ekraanipildid (FadRec)</string>
+    <string name="records_filter_helper_shot_fadrec">Jäädvustatud ekraanipildid</string>
     <string name="records_location_format">Asukoht: %1$s/%2$s</string>
     <string name="records_batch_select_all">Vali kõik</string>
     <string name="records_batch_deselect_all">Tühista kõik valikud</string>
@@ -945,16 +945,16 @@
     <string name="stop_recording">Peata</string>
     <string name="shortcut_take_photo">Foto</string>
     <string name="shortcut_take_photo_front">Selfie</string>
-    <string name="shortcut_take_screenshot">FadRec</string>
+    <string name="shortcut_take_screenshot">Ekraanipilt</string>
     <string name="screenshot_capture_saved">Ekraanipilt salvestatud</string>
     <string name="screenshot_capture_failed">Ekraanipildi jäädvustamine nurjus</string>
     <string name="screenshot_capture_system_saved">Süsteem jäädvustas ekraanipildi. Salvestatud süsteemi ekraanipiltidesse.</string>
-    <string name="screenshot_accessibility_enable_needed">Luba \"FadRec ekraanipilt\" juurdepääsetavuses, et kasutada seda otseteed ilma salvestusviipata.</string>
+    <string name="screenshot_accessibility_enable_needed">Luba \"Joy Creator ekraanipilt\" juurdepääsetavuses, et kasutada seda otseteed ilma salvestusviipata.</string>
     <string name="screenshot_accessibility_service_desc">Jäädvustab ekraanipildi FadRec otsetee jaoks ja salvestab selle FadCam/FadShot kausta.</string>
     <string name="shortcuts_video_category">Video salvestamine</string>
     <string name="shortcuts_picture_category">Pilt</string>
     <string name="preview_quick_actions_title">Eelvaate kiirtoimingud</string>
-    <string name="preview_quick_actions_sub">Kuva FadShot ja täisekraani ikoonid isegi siis, kui salvestamine on ootel.</string>
+    <string name="preview_quick_actions_sub">Kuva Foto ja täisekraani ikoonid isegi siis, kui salvestamine on ootel.</string>
     <string name="preview_quick_actions_state_always">Alati nähtav (ootel + salvestamisel)</string>
     <string name="preview_quick_actions_state_recording_only">Nähtav ainult salvestamise ajal</string>
     <string name="warning_temp_file_detail">
@@ -1143,7 +1143,7 @@
     <string name="faditor_no_recordings">Salvestisi ei leitud. Alusta Joy Creator\'iga salvestamist, et oma videoid siin näha.</string>
     <string name="faditor_video_count">%1$d videot</string>
     <string name="faditor_fadcam_source">Joy Creator</string>
-    <string name="faditor_fadrec_source">FadRec</string>
+    <string name="faditor_fadrec_source">Ekraan</string>
     <string name="faditor_browse_device_desc">Vali mis tahes video oma seadmest</string>
     <string name="faditor_scanning">Salvestiste skannimine…</string>
     <string name="faditor_source_chooser_desc">Vali video galeriist või vali Joy Creator\'i salvestistest</string>
@@ -1765,7 +1765,7 @@ Soovitatav: 192000 bps, 48000 Hz enamikele kasutajatele.</string>
     <string name="manage_projects">Halda projekte</string>
     <string name="name_your_project">Nimeta oma projekt</string>
     <string name="project_naming_message">Anna oma projektile meeldejääv nimi ja kirjeldus, et salvestisi korraldada</string>
-    <string name="fadrec_projects">FadRec projektid</string>
+    <string name="fadrec_projects">Ekraaniprojektid</string>
     <string name="delete_project">Kustuta projekt</string>
     <string name="delete_all">Kustuta kõik</string>
     <string name="new_project">Uus projekt</string>
@@ -1877,7 +1877,7 @@ Sujuvama esitamise kogemuse jaoks saad kasutada välist esitajat nagu VLC. Siisk
     <string name="preview_enable_hint">Hoia all kaamera ärkamiseks</string>
     <string name="preview_starting">Otse-eelvaate käivitamine...</string>
     <string name="fadrec_preview_enable_hint">Hoia all eelvaate kuvamiseks</string>
-    <string name="fadrec_preview_not_available">Otse ekraani eelvaade ei ole veel FadRec-i ühendatud</string>
+    <string name="fadrec_preview_not_available">Otse ekraani eelvaade ei ole veel Joy Creator-i ühendatud</string>
     <string name="torch_unavailable">Taskulamp ei ole selle kaamera jaoks saadaval</string>
     <string name="motion_lab_title">Liikumislabor</string>
     <string name="motion_lab_row_subtitle">Tark sündmuse salvestamine CCTV-stiilis kasutamiseks</string>
@@ -2319,7 +2319,7 @@ Sujuvama esitamise kogemuse jaoks saad kasutada välist esitajat nagu VLC. Siisk
 
     <string name="screen_recording_title">Ekraanisalvestus</string>
 
-    <string name="screen_recording_notif_title">FadRec - Ekraanisalvestus</string>
+    <string name="screen_recording_notif_title">Joy Creator - Ekraanisalvestus</string>
 
     <string name="screen_recording_saved">Ekraanisalvestus salvestatud</string>
 
@@ -2439,16 +2439,16 @@ Sujuvama esitamise kogemuse jaoks saad kasutada välist esitajat nagu VLC. Siisk
     <string name="screen_rec_resolution_value" translatable="false">1920×1080</string>
     <string name="screen_rec_framerate_value" translatable="false">30 fps</string>
     <string name="screen_rec_bitrate_value" translatable="false">8 Mbps</string>
-    <string name="screen_rec_splitting_value_format">%s (FadCam + FadRec)</string>
+    <string name="screen_rec_splitting_value_format">%s (Joy Creator + Ekraan)</string>
 
     <!-- Settings home tabs -->
     <string name="settings_tab_all">Kõik</string>
     <string name="settings_tab_fadcam" translatable="false">Joy Creator</string>
-    <string name="settings_tab_fadrec" translatable="false">FadRec</string>
+    <string name="settings_tab_fadrec" translatable="false">Ekraan</string>
 
     <!-- Watermark preview labels -->
     <string name="watermark_preview_fadcam" translatable="false">Joy Creator</string>
-    <string name="watermark_preview_fadrec" translatable="false">FadRec</string>
+    <string name="watermark_preview_fadrec" translatable="false">Ekraan</string>
     <string name="settings_location_update_interval_5s">5.0 sekundit</string>
 
     <!-- Annotation toolbar -->
@@ -2530,7 +2530,7 @@ Sujuvama esitamise kogemuse jaoks saad kasutada välist esitajat nagu VLC. Siisk
     <string name="desc_delete_text">Kustuta tekst</string>
     <string name="desc_done">Valmis</string>
     <string name="desc_exposure_compensation">Särikompensatsioon</string>
-    <string name="desc_fadrec_logo">FadRec logo</string>
+    <string name="desc_fadrec_logo">Ekraanisalvesti logo</string>
     <string name="desc_fast_forward">Kiire edasi 5 sekundit</string>
     <string name="desc_increase">Suurenda</string>
     <string name="desc_italic">Kaldkiri</string>

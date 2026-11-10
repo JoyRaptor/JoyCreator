@@ -486,9 +486,9 @@ public class WatermarkSettingsFragment extends Fragment {
         // Build FadCam preview text — [FADCAM_ICON] triggers ImageSpan in adapter
         String fadcamBase = null;
         if ("timestamp_fadcam".equals(v)) {
-            fadcamBase = "Captured by [FADCAM_ICON] - " + formatted;
+            fadcamBase = "Captured by Joy Creator - " + formatted;
         } else if ("badge_fadcam".equals(v)) {
-            fadcamBase = "Captured by [FADCAM_ICON]";
+            fadcamBase = "Captured by Joy Creator";
         } else if ("timestamp".equals(v)) {
             fadcamBase = formatted;
         }
@@ -496,9 +496,9 @@ public class WatermarkSettingsFragment extends Fragment {
         // Build FadRec preview text — [ICON] triggers ImageSpan in adapter
         String fadrecBase = null;
         if ("timestamp_fadcam".equals(v)) {
-            fadrecBase = "Recorded by [ICON] - " + formatted;
+            fadrecBase = "Recorded by Joy Creator - " + formatted;
         } else if ("badge_fadcam".equals(v)) {
-            fadrecBase = "Recorded by [ICON]";
+            fadrecBase = "Recorded by Joy Creator";
         } else if ("timestamp".equals(v)) {
             fadrecBase = formatted;
         }
@@ -1002,8 +1002,8 @@ public class WatermarkSettingsFragment extends Fragment {
         void setContent(String fadcamText, String fadrecRaw,
                         @Nullable Drawable fadcamIconDrawable,
                         @Nullable Drawable fadrecIconDrawable) {
-            fadcamContent = buildSpannable(fadcamText, "[FADCAM_ICON]", fadcamIconDrawable, "FadCam");
-            fadrecContent = buildSpannable(fadrecRaw, "[ICON]", fadrecIconDrawable, "FadRec");
+            fadcamContent = buildSpannable(fadcamText, "[FADCAM_ICON]", fadcamIconDrawable, "Joy Creator");
+            fadrecContent = buildSpannable(fadrecRaw, "[ICON]", fadrecIconDrawable, "Joy Creator");
             notifyItemChanged(0);
             notifyItemChanged(1);
         }

@@ -594,7 +594,7 @@
 
     <string name="fadrec_permission_denied">تم رفض إذن تسجيل الشاشة</string>
 
-    <string name="fadrec_mode_title">FadRec • تسجيل الشاشة</string>
+    <string name="fadrec_mode_title">تسجيل الشاشة</string>
 
     <string name="fadrec_mute_audio">كتم صوت التسجيل</string>
 
@@ -602,7 +602,7 @@
 
     <string name="fadrec_mic_permission_needed_title">مطلوب إذن الميكروفون</string>
 
-    <string name="fadrec_mic_permission_needed_message">لا يمكن لـ FadRec الوصول إلى الميكروفون. يمكنك التسجيل بدون صوت - لن يتم حفظ الصوت.</string>
+    <string name="fadrec_mic_permission_needed_message">لا يمكن لـ Joy Creator الوصول إلى الميكروفون. يمكنك التسجيل بدون صوت - لن يتم حفظ الصوت.</string>
 
     <string name="fadrec_record_muted">تسجيل بدون صوت</string>
 
@@ -1110,7 +1110,7 @@
 
     <string name="media_type_photo_selfie">سيلفي</string>
 
-    <string name="media_type_photo_fadrec">FadRec</string>
+    <string name="media_type_photo_fadrec">الشاشة</string>
 
     <string name="photo_capture_saved">تم حفظ الصورة</string>
 
@@ -1126,13 +1126,13 @@
 
     <string name="records_filter_dual">مزدوج</string>
 
-    <string name="records_filter_screen">FadRec</string>
+    <string name="records_filter_screen">الشاشة</string>
 
     <string name="records_filter_faditor">Faditor</string>
 
     <string name="records_filter_stream">بث</string>
 
-    <string name="records_filter_shot">FadShot</string>
+    <string name="records_filter_shot">الصور</string>
 
     <string name="records_filter_camera_all">الكل</string>
 
@@ -1156,7 +1156,7 @@
 
     <string name="records_filter_shot_selfie">سيلفي</string>
 
-    <string name="records_filter_shot_fadrec">FadRec</string>
+    <string name="records_filter_shot_fadrec">الشاشة</string>
 
     <string name="records_filter_checklist_desc">تبديل وضع التحديد</string>
 
@@ -1170,7 +1170,7 @@
 
     <string name="records_filter_helper_dual">تسجيلات الكاميرا المزدوجة</string>
 
-    <string name="records_filter_helper_screen">تسجيلات الشاشة (FadRec)</string>
+    <string name="records_filter_helper_screen">تسجيلات الشاشة</string>
 
     <string name="records_filter_helper_faditor">فيديوهات محررة/مصدرة (Faditor)</string>
 
@@ -1188,7 +1188,7 @@
 
     <string name="records_filter_helper_shot_selfie">صور ملتقطة بالكاميرا الأمامية (سيلفي)</string>
 
-    <string name="records_filter_helper_shot_fadrec">لقطات شاشة ملتقطة (FadRec)</string>
+    <string name="records_filter_helper_shot_fadrec">لقطات شاشة ملتقطة</string>
 
     <string name="records_location_format">الموقع: %1$s/%2$s</string>
 
@@ -1924,7 +1924,7 @@
 
     <string name="shortcut_take_photo_front">سيلفي</string>
 
-    <string name="shortcut_take_screenshot">FadRec</string>
+    <string name="shortcut_take_screenshot">لقطة شاشة</string>
 
     <string name="screenshot_capture_saved">تم حفظ لقطة الشاشة</string>
 
@@ -1932,7 +1932,7 @@
 
     <string name="screenshot_capture_system_saved">تم التقاط لقطة الشاشة بواسطة النظام. محفوظة في لقطات النظام.</string>
 
-    <string name="screenshot_accessibility_enable_needed">فعّل \"لقطة شاشة FadRec\" في إمكانية الوصول لاستخدام هذا الاختصار بدون مطالبة التسجيل.</string>
+    <string name="screenshot_accessibility_enable_needed">فعّل \"لقطة شاشة Joy Creator\" في إمكانية الوصول لاستخدام هذا الاختصار بدون مطالبة التسجيل.</string>
 
     <string name="screenshot_accessibility_service_desc">يلتقط لقطة شاشة لاختصار FadRec ويحفظها في FadCam/FadShot.</string>
 
@@ -1942,7 +1942,7 @@
 
     <string name="preview_quick_actions_title">إجراءات المعاينة السريعة</string>
 
-    <string name="preview_quick_actions_sub">إظهار أيقونات FadShot والشاشة الكاملة حتى عندما يكون التسجيل خاملاً.</string>
+    <string name="preview_quick_actions_sub">إظهار أيقونات صورة والشاشة الكاملة حتى عندما يكون التسجيل خاملاً.</string>
 
     <string name="preview_quick_actions_state_always">مرئية دائمًا (خامل + تسجيل)</string>
 
@@ -2287,7 +2287,7 @@
 
     <string name="faditor_fadcam_source">Joy Creator</string>
 
-    <string name="faditor_fadrec_source">FadRec</string>
+    <string name="faditor_fadrec_source">الشاشة</string>
 
     <string name="faditor_browse_device_desc">اختر أي فيديو من جهازك</string>
 
@@ -3052,7 +3052,7 @@
 
     <string name="project_naming_message">أعطِ مشروعك اسمًا ووصفًا لا يُنسى لتنظيم تسجيلاتك</string>
 
-    <string name="fadrec_projects">مشاريع FadRec</string>
+    <string name="fadrec_projects">مشاريع الشاشة</string>
 
     <string name="delete_project">حذف المشروع</string>
 
@@ -3333,7 +3333,7 @@
 
     <string name="fadrec_preview_enable_hint">اضغط مطولاً لإظهار المعاينة</string>
 
-    <string name="fadrec_preview_not_available">معاينة الشاشة المباشرة غير مربوطة بـ FadRec بعد</string>
+    <string name="fadrec_preview_not_available">معاينة الشاشة المباشرة غير مربوطة بـ Joy Creator بعد</string>
 
     <string name="torch_unavailable">الفلاش غير متاح لهذه الكاميرا</string>
 
@@ -4031,7 +4031,7 @@
 
     <string name="screen_recording_title">تسجيل الشاشة</string>
 
-    <string name="screen_recording_notif_title">FadRec - تسجيل الشاشة</string>
+    <string name="screen_recording_notif_title">Joy Creator - تسجيل الشاشة</string>
 
     <string name="screen_recording_saved">تم حفظ تسجيل الشاشة</string>
 
@@ -4148,7 +4148,7 @@
     <string name="video_split_custom_title">حجم التقسيم المخصص (ميجابايت)</string>
 
     <!-- Screen recording values -->
-    <string name="screen_rec_splitting_value_format">%s (FadCam + FadRec)</string>
+    <string name="screen_rec_splitting_value_format">%s (Joy Creator + الشاشة)</string>
 
     <!-- Settings home tabs -->
     <string name="settings_tab_all">الكل</string>
@@ -4235,7 +4235,7 @@
     <string name="desc_delete_text">حذف النص</string>
     <string name="desc_done">تم</string>
     <string name="desc_exposure_compensation">تعويض التعريض</string>
-    <string name="desc_fadrec_logo">شعار FadRec</string>
+    <string name="desc_fadrec_logo">شعار مسجل الشاشة</string>
     <string name="desc_fast_forward">تقديم 5 ثوانٍ</string>
     <string name="desc_increase">زيادة</string>
     <string name="desc_italic">مائل</string>

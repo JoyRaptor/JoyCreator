@@ -121,11 +121,11 @@
     <string name="fadrec_ready_to_record">Pronto per catturare lo schermo</string>
     <string name="fadrec_ready_to_record_subtitle">Tocca per iniziare</string>
     <string name="fadrec_permission_denied">Permesso registrazione schermo negato</string>
-    <string name="fadrec_mode_title">FadRec • Registrazione schermo</string>
+    <string name="fadrec_mode_title">Registrazione schermo</string>
     <string name="fadrec_mute_audio">Silenzia audio registrazione</string>
     <string name="fadrec_unmute_audio">Riattiva audio registrazione</string>
     <string name="fadrec_mic_permission_needed_title">Permesso microfono richiesto</string>
-    <string name="fadrec_mic_permission_needed_message">FadRec non può accedere al microfono. Puoi registrare in silenzio: nessun audio verrà salvato.</string>
+    <string name="fadrec_mic_permission_needed_message">Joy Creator non può accedere al microfono. Puoi registrare in silenzio: nessun audio verrà salvato.</string>
     <string name="fadrec_record_muted">Registra silenziato</string>
 
     <!-- FadRec audio source picker -->
@@ -393,7 +393,7 @@
     <string name="media_type_photo">Foto</string>
     <string name="media_type_photo_back">Posteriore</string>
     <string name="media_type_photo_selfie">Selfie</string>
-    <string name="media_type_photo_fadrec">FadRec</string>
+    <string name="media_type_photo_fadrec">Schermo</string>
     <string name="photo_capture_saved">Foto salvata</string>
     <string name="photo_capture_failed">Impossibile catturare la foto</string>
     <string name="photo_capture_preview_unavailable">L\'anteprima non è disponibile</string>
@@ -404,10 +404,10 @@
     <string name="records_filter_all">Tutte</string>
     <string name="records_filter_camera">Joy Creator</string>
     <string name="records_filter_dual">Doppia</string>
-    <string name="records_filter_screen">FadRec</string>
+    <string name="records_filter_screen">Schermo</string>
     <string name="records_filter_faditor">Faditor</string>
     <string name="records_filter_stream">Stream</string>
-    <string name="records_filter_shot">FadShot</string>
+    <string name="records_filter_shot">Foto</string>
     <string name="records_filter_camera_all">Tutte</string>
     <string name="records_filter_camera_back">Posteriore</string>
     <string name="records_filter_camera_front">Frontale</string>
@@ -419,14 +419,14 @@
     <string name="records_filter_miniapps_all">Tutte</string>
     <string name="records_filter_shot_back">Posteriore</string>
     <string name="records_filter_shot_selfie">Selfie</string>
-    <string name="records_filter_shot_fadrec">FadRec</string>
+    <string name="records_filter_shot_fadrec">Schermo</string>
     <string name="records_filter_checklist_desc">Attiva/disattiva modalità selezione</string>
     <string name="records_filter_helper_camera_all">Registrazioni fotocamera (Posteriore, Frontale, Doppia)</string>
     <string name="records_filter_helper_camera_back">Catturate con fotocamera posteriore</string>
     <string name="records_filter_helper_camera_front">Catturate con fotocamera frontale (selfie)</string>
     <string name="records_filter_helper_camera_dual">Catturate con modalità fotocamera doppia</string>
     <string name="records_filter_helper_dual">Registrazioni fotocamera doppia</string>
-    <string name="records_filter_helper_screen">Registrazioni schermo (FadRec)</string>
+    <string name="records_filter_helper_screen">Registrazioni schermo</string>
     <string name="records_filter_helper_faditor">Video modificati/esportati (Faditor)</string>
     <string name="records_filter_helper_faditor_all">Tutti gli output Faditor e file correlati.</string>
     <string name="records_filter_helper_faditor_converted">Conversione MP4 frammentato in MP4 standard seekable per lettori esterni.</string>
@@ -435,7 +435,7 @@
     <string name="records_filter_helper_shot_all">Foto e screenshot catturati</string>
     <string name="records_filter_helper_shot_back">Foto catturate con fotocamera posteriore</string>
     <string name="records_filter_helper_shot_selfie">Foto catturate con fotocamera frontale (selfie)</string>
-    <string name="records_filter_helper_shot_fadrec">Screenshot catturati (FadRec)</string>
+    <string name="records_filter_helper_shot_fadrec">Screenshot catturati</string>
     <string name="records_location_format">Posizione: %1$s/%2$s</string>
     <string name="records_batch_select_all">Seleziona tutto</string>
     <string name="records_batch_deselect_all">Deseleziona tutto</string>
@@ -1723,7 +1723,7 @@
     <string name="manage_projects">Gestisci progetti</string>
     <string name="name_your_project">Nome progetto</string>
     <string name="project_naming_message">Dai un nome al progetto.</string>
-    <string name="fadrec_projects">Progetti FadRec</string>
+    <string name="fadrec_projects">Progetti schermo</string>
     <string name="delete_project">Elimina progetto</string>
     <string name="delete_all">Elimina tutto</string>
     <string name="new_project">Nuovo progetto</string>
@@ -1926,7 +1926,7 @@
     <string name="watch_pause_desc">Metti in pausa</string>
     <string name="watch_fullscreen_label">Schermo intero</string>
     <string name="watch_fullscreen_desc">A tutto schermo</string>
-    <string name="watch_fadshot_label">FadShot</string>
+    <string name="watch_fadshot_label">Foto</string>
     <string name="watch_fadshot_desc">Scatta foto</string>
     <string name="watch_trash_title">Cestino</string>
     <string name="watch_trash_empty">Vuoto</string>
@@ -2304,7 +2304,7 @@
 
     <string name="screen_recording_title">Registrazione schermo</string>
 
-    <string name="screen_recording_notif_title">FadRec - Registrazione schermo</string>
+    <string name="screen_recording_notif_title">Joy Creator - Registrazione schermo</string>
 
     <string name="screen_recording_saved">Registrazione schermo salvata</string>
 
@@ -2424,16 +2424,16 @@
     <string name="screen_rec_resolution_value" translatable="false">1920×1080</string>
     <string name="screen_rec_framerate_value" translatable="false">30 fps</string>
     <string name="screen_rec_bitrate_value" translatable="false">8 Mbps</string>
-    <string name="screen_rec_splitting_value_format">%s (FadCam + FadRec)</string>
+    <string name="screen_rec_splitting_value_format">%s (Joy Creator + Schermo)</string>
 
     <!-- Settings home tabs -->
     <string name="settings_tab_all">Tutti</string>
     <string name="settings_tab_fadcam" translatable="false">Joy Creator</string>
-    <string name="settings_tab_fadrec" translatable="false">FadRec</string>
+    <string name="settings_tab_fadrec" translatable="false">Schermo</string>
 
     <!-- Watermark preview labels -->
     <string name="watermark_preview_fadcam" translatable="false">Joy Creator</string>
-    <string name="watermark_preview_fadrec" translatable="false">FadRec</string>
+    <string name="watermark_preview_fadrec" translatable="false">Schermo</string>
     <string name="settings_location_update_interval_5s">5,0 secondi</string>
 
     <!-- Annotation toolbar -->
@@ -2515,7 +2515,7 @@
     <string name="desc_delete_text">Elimina testo</string>
     <string name="desc_done">Fatto</string>
     <string name="desc_exposure_compensation">Compensazione esposizione</string>
-    <string name="desc_fadrec_logo">Logo FadRec</string>
+    <string name="desc_fadrec_logo">Logo del registratore dello schermo</string>
     <string name="desc_fast_forward">Avanti veloce 5 secondi</string>
     <string name="desc_increase">Aumenta</string>
     <string name="desc_italic">Corsivo</string>

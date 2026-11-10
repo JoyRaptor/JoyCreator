@@ -23,13 +23,13 @@ Smart Detection, the new About, 36 renamed strings, lobby placeholders. Handoffs
 ## What is left
 - [ ] Restyle: Home sidebar, Records sidebar, fullscreen camera preview, the Studio classic list leftovers.
 - [ ] Eyeball on the phone: the mode popup (looked teal on an old build), What's New, the Beta/Pro update sheets.
-- [ ] Five screens still on legacy themes: Onboarding, What's New, FadCam Pro, Cloud Account, WebView.
-- [ ] The burned-in watermark still draws "FadCam"/"FadRec" (`WatermarkSettingsFragment` around line 1005).
+- [x] Legacy themes: FadCam Pro, Cloud Account and WebView screens no longer exist (S19 cut; the only WebView is a headless slide renderer); What's New was already on the Joy Creator theme; Onboarding moved to it 11-10 (theme, human slide colours, page dots). Not yet looked at on a phone.
+- [x] Burned-in watermark: the FadCam/Rec logo pictures are replaced by the text "Joy Creator" in the video, photo and screen-recording drawers and the settings preview (11-10, compiled; no phone recording yet).
 - [x] Part A text sweep (English, Remote headings, 12 translations brand-only) is on `joy-creator` since `5885d6499`; the
       recovered backup `8391bad07` was re-checked 11-04 and adds nothing (every line it adds is already in, or is cloud text S19 removed).
-      Still open: translations that name FadRec/FadShot where English now says Screen/Photo (list in `tasks/audits/fadcam_text_20261028.md`).
-- [ ] Home recorder: landscape layout still old; the Menu row's Joybot switch showed ON after relaunch (saved state?).
-- [ ] Remote: "REMOTE SECURITY" repeats "SECURITY"; "SERVER STATUS" caption placement; hard-coded English toasts.
+      11-10: the 20 keys that named FadRec/FadShot are now Screen/Photo or Joy Creator in all 12 languages (my own word choices; `fr` and `ps` still have English sentences from before; native review owed).
+- [ ] Home recorder: landscape layout still old. (11-10: the Menu row's Joybot switch ON after relaunch is the saved "floating controls" setting restoring the overlay on purpose; fixed so it shows OFF when the overlay permission is gone.)
+- [x] Remote: heading now "Access", server status caption sits beside the chip, toasts all in strings (checked in source 11-10; already done by the part A sweep).
 - [ ] Retire `AvatarToggleView` and its eye-colour preference once the Joybot switch is proven everywhere.
 - [ ] Owner calls (S9): About "View source" link, the "Camera" label, Remote ring colours, Smart Detection chip colours.
 - [ ] Unused now (remove only with S10): `forensics_board_doodles.xml`, `forensics_doodle_pattern.png`,

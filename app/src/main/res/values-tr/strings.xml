@@ -679,11 +679,11 @@
     <string name="shortcut_start_current">Mevcut ile Başlat</string>
     <string name="shortcut_start_dual">Çift ile Başlat</string>
     <string name="shortcut_take_photo">Fotoğraf</string>
-    <string name="shortcut_take_screenshot">FadRec</string>
+    <string name="shortcut_take_screenshot">Ekran görüntüsü</string>
     <string name="screenshot_capture_saved">Ekran görüntüsü kaydedildi</string>
     <string name="screenshot_capture_failed">Ekran görüntüsü alınamadı</string>
     <string name="screenshot_capture_system_saved">Ekran görüntüsü sistem tarafından alındı. Sistem ekran görüntülerine kaydedildi.</string>
-    <string name="screenshot_accessibility_enable_needed">Kayıt istemi olmadan bu kısayolu kullanmak için Erişilebilirlik\'te &quot;FadRec Ekran Görüntüsü&quot;nü etkinleştirin.</string>
+    <string name="screenshot_accessibility_enable_needed">Kayıt istemi olmadan bu kısayolu kullanmak için Erişilebilirlik\'te &quot;Joy Creator Ekran Görüntüsü&quot;nü etkinleştirin.</string>
     <string name="screenshot_accessibility_service_desc">FadRec kısayolu için ekran görüntüsü alır ve FadCam/FadShot\'a kaydeder.</string>
     <string name="shortcuts_video_category">Video Kaydı</string>
     <string name="shortcuts_picture_category">Resim</string>
@@ -851,7 +851,7 @@
     <string name="preview_enable_hint">Kamerayı uyandırmak için basılı tutun</string>
     <string name="preview_starting">Canlı önizleme başlatılıyor…</string>
     <string name="fadrec_preview_enable_hint">Önizlemeyi göstermek için basılı tutun</string>
-    <string name="fadrec_preview_not_available">Canlı ekran önizlemesi henüz FadRec\'e eklenmedi</string>
+    <string name="fadrec_preview_not_available">Canlı ekran önizlemesi henüz Joy Creator\'e eklenmedi</string>
     <string name="torch_unavailable">Bu kamera için flaş kullanılamıyor</string>
     <string name="motion_lab_analysis_2_desc">Güç tasarrufu, daha yavaş yanıt.</string>
     <string name="motion_lab_analysis_3_desc">Dengeli varsayılan.</string>
@@ -1110,11 +1110,11 @@
     <string name="fadrec_ready_to_record">Ekran yakalamaya hazır</string>
     <string name="fadrec_ready_to_record_subtitle">Başlamak için dokun</string>
     <string name="fadrec_permission_denied">Ekran kaydı izni reddedildi</string>
-    <string name="fadrec_mode_title">FadRec • Ekran Kaydı</string>
+    <string name="fadrec_mode_title">Ekran Kaydı</string>
     <string name="fadrec_mute_audio">Kayıt sesini kapat</string>
     <string name="fadrec_unmute_audio">Kayıt sesini aç</string>
     <string name="fadrec_mic_permission_needed_title">Mikrofon İzni Gerekli</string>
-    <string name="fadrec_mic_permission_needed_message">FadRec mikrofona erişemiyor. Sessiz kaydedebilirsiniz - hiçbir ses kaydedilmez.</string>
+    <string name="fadrec_mic_permission_needed_message">Joy Creator mikrofona erişemiyor. Sessiz kaydedebilirsiniz - hiçbir ses kaydedilmez.</string>
     <string name="fadrec_record_muted">Sessiz Kaydet</string>
     <string name="fadrec_audio_source_title">Ses Kaynağı</string>
     <string name="fadrec_audio_source_choose">Ses kaynağı seç</string>
@@ -1336,17 +1336,17 @@
     <string name="media_type_photo">Fotoğraf</string>
     <string name="media_type_photo_back">Arka</string>
     <string name="media_type_photo_selfie">Selfie</string>
-    <string name="media_type_photo_fadrec">FadRec</string>
+    <string name="media_type_photo_fadrec">Ekran</string>
     <string name="photo_capture_saved">Fotoğraf kaydedildi</string>
     <string name="photo_capture_failed">Fotoğraf çekilemedi</string>
     <string name="photo_capture_preview_unavailable">Ön izleme kullanılamıyor</string>
     <string name="records_filter_all">Tümü</string>
     <string name="records_filter_camera">Joy Creator</string>
     <string name="records_filter_dual">Çift</string>
-    <string name="records_filter_screen">FadRec</string>
+    <string name="records_filter_screen">Ekran</string>
     <string name="records_filter_faditor">Faditor</string>
     <string name="records_filter_stream">Yayın</string>
-    <string name="records_filter_shot">FadShot</string>
+    <string name="records_filter_shot">Fotoğraflar</string>
     <string name="records_filter_camera_all">Tümü</string>
     <string name="records_filter_camera_back">Arka</string>
     <string name="records_filter_camera_front">Ön</string>
@@ -1358,14 +1358,14 @@
     <string name="records_filter_miniapps_all">Tümü</string>
     <string name="records_filter_shot_back">Arka</string>
     <string name="records_filter_shot_selfie">Selfie</string>
-    <string name="records_filter_shot_fadrec">FadRec</string>
+    <string name="records_filter_shot_fadrec">Ekran</string>
     <string name="records_filter_checklist_desc">Seçim modunu aç/kapat</string>
     <string name="records_filter_helper_camera_all">Kamera kayıtları (Arka, Ön, Çift)</string>
     <string name="records_filter_helper_camera_back">Arka kamera ile çekildi</string>
     <string name="records_filter_helper_camera_front">Ön kamera ile çekildi (selfie)</string>
     <string name="records_filter_helper_camera_dual">Çift kamera modu ile çekildi</string>
     <string name="records_filter_helper_dual">Çift kamera kayıtları</string>
-    <string name="records_filter_helper_screen">Ekran kayıtları (FadRec)</string>
+    <string name="records_filter_helper_screen">Ekran kayıtları</string>
     <string name="records_filter_helper_faditor">Düzenlenmiş/Dışa aktarılmış videolar (Faditor)</string>
     <string name="records_filter_helper_faditor_all">Tüm Faditor çıktıları ve ilgili dosyalar.</string>
     <string name="records_filter_helper_faditor_converted">Parçalanmış MP4\'ü harici oynatıcılar için standart aranabilir MP4\'e dönüştürür.</string>
@@ -1374,7 +1374,7 @@
     <string name="records_filter_helper_shot_all">Çekilen fotoğraflar ve ekran görüntüleri</string>
     <string name="records_filter_helper_shot_back">Arka kamera ile çekilen fotoğraflar</string>
     <string name="records_filter_helper_shot_selfie">Ön kamera ile çekilen fotoğraflar (selfie)</string>
-    <string name="records_filter_helper_shot_fadrec">Çekilen ekran görüntüleri (FadRec)</string>
+    <string name="records_filter_helper_shot_fadrec">Çekilen ekran görüntüleri</string>
     <string name="records_location_format">Konum: %1$s/%2$s</string>
     <string name="records_batch_select_all">Tümünü seç</string>
     <string name="records_batch_deselect_all">Tümünün seçimini kaldır</string>
@@ -1615,7 +1615,7 @@
 <string name="shortcut_start_front">Önden Başlat</string>
 <string name="shortcut_take_photo_front">Selfie</string>
 <string name="preview_quick_actions_title">Önizleme hızlı işlemleri</string>
-<string name="preview_quick_actions_sub">Kayıt boştayken bile FadShot ve Tam Ekran simgelerini göster.</string>
+<string name="preview_quick_actions_sub">Kayıt boştayken bile Fotoğraf ve Tam Ekran simgelerini göster.</string>
 <string name="preview_quick_actions_state_always">Her zaman görünür (boşta + kayıt)</string>
 <string name="preview_quick_actions_state_recording_only">Yalnızca kayıt sırasında görünür</string>
 <string name="coming_soon_toast">Çok yakında! İnşallah</string>
@@ -1756,7 +1756,7 @@
 <string name="faditor_no_recordings">Henüz kayıt bulunamadı. Videolarınızı burada görmek için Joy Creator ile kayda başlayın.</string>
 <string name="faditor_video_count">%1$d video</string>
 <string name="faditor_fadcam_source">Joy Creator</string>
-<string name="faditor_fadrec_source">FadRec</string>
+<string name="faditor_fadrec_source">Ekran</string>
 <string name="faditor_browse_device_desc">Cihazınızdan herhangi bir video seçin</string>
 <string name="faditor_scanning">Kayıtlar taranıyor…</string>
 <string name="faditor_source_chooser_desc">Galerinizden bir video seçin veya Joy Creator kayıtlarınızdan birini seçin</string>
@@ -2065,7 +2065,7 @@
     <string name="manage_projects">Projeleri Yönet</string>
     <string name="name_your_project">Projenizi Adlandırın</string>
     <string name="project_naming_message">Kayıtlarınızı düzenlemek için projenize akılda kalıcı bir ad ve açıklama verin</string>
-    <string name="fadrec_projects">FadRec Projeleri</string>
+    <string name="fadrec_projects">Ekran projeleri</string>
     <string name="delete_project">Projeyi Sil</string>
     <string name="delete_all">Tümünü Sil</string>
     <string name="new_project">Yeni Proje</string>
@@ -2237,7 +2237,7 @@ En sorunsuz oynatma deneyimi için VLC gibi harici bir oynatıcı kullanabilirsi
     <string name="mini_apps_current_tools">Mevcut Araçlar</string>
     <string name="mini_apps_qr_scanner_reference">QR Tarayıcı referansı</string>
     <string name="screen_recording_title">Ekran Kaydı</string>
-    <string name="screen_recording_notif_title">FadRec - Ekran Kaydı</string>
+    <string name="screen_recording_notif_title">Joy Creator - Ekran Kaydı</string>
     <string name="screen_recording_saved">Ekran Kaydı Kaydedildi</string>
     <string name="screen_recording_tap_to_view">Kaydınızı görüntülemek için dokunun</string>
     <string name="notification_action_stop">Durdur</string>
@@ -2340,7 +2340,7 @@ En sorunsuz oynatma deneyimi için VLC gibi harici bir oynatıcı kullanabilirsi
     <string name="video_split_custom_title">Özel Bölme Boyutu (MB)</string>
 
     <!-- Screen recording values -->
-    <string name="screen_rec_splitting_value_format">%s (FadCam + FadRec)</string>
+    <string name="screen_rec_splitting_value_format">%s (Joy Creator + Ekran)</string>
 
     <!-- Settings home tabs -->
     <string name="settings_tab_all">Tümü</string>
@@ -2427,7 +2427,7 @@ En sorunsuz oynatma deneyimi için VLC gibi harici bir oynatıcı kullanabilirsi
     <string name="desc_delete_text">Metni sil</string>
     <string name="desc_done">Tamam</string>
     <string name="desc_exposure_compensation">Poz telafisi</string>
-    <string name="desc_fadrec_logo">FadRec Logosu</string>
+    <string name="desc_fadrec_logo">Ekran kaydedici logosu</string>
     <string name="desc_fast_forward">5 saniye ileri sar</string>
     <string name="desc_increase">Artır</string>
     <string name="desc_italic">İtalik</string>

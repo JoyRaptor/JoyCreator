@@ -78,11 +78,11 @@
     <string name="fadrec_ready_to_record">Έτοιμο για καταγραφή οθόνης</string>
     <string name="fadrec_ready_to_record_subtitle">Πατήστε για έναρξη</string>
     <string name="fadrec_permission_denied">Άρνηση άδειας εγγραφής οθόνης</string>
-    <string name="fadrec_mode_title">FadRec • Εγγραφή Οθόνης</string>
+    <string name="fadrec_mode_title">Εγγραφή Οθόνης</string>
     <string name="fadrec_mute_audio">Σίγαση ήχου εγγραφής</string>
     <string name="fadrec_unmute_audio">Άρση σίγασης ήχου εγγραφής</string>
     <string name="fadrec_mic_permission_needed_title">Απαιτείται Άδεια Μικροφώνου</string>
-    <string name="fadrec_mic_permission_needed_message">Το FadRec δεν μπορεί να έχει πρόσβαση στο μικρόφωνό σας. Μπορείτε να κάνετε εγγραφή χωρίς ήχο - δεν θα αποθηκευτεί ήχος.</string>
+    <string name="fadrec_mic_permission_needed_message">Το Joy Creator δεν μπορεί να έχει πρόσβαση στο μικρόφωνό σας. Μπορείτε να κάνετε εγγραφή χωρίς ήχο - δεν θα αποθηκευτεί ήχος.</string>
     <string name="fadrec_record_muted">Εγγραφή χωρίς ήχο</string>
     <!-- FadRec audio source picker -->
     <string name="fadrec_audio_source_title">Πηγή Ήχου</string>
@@ -345,7 +345,7 @@
     <string name="media_type_photo">Φωτογραφία</string>
     <string name="media_type_photo_back">Πίσω</string>
     <string name="media_type_photo_selfie">Selfie</string>
-    <string name="media_type_photo_fadrec">FadRec</string>
+    <string name="media_type_photo_fadrec">Οθόνη</string>
     <string name="photo_capture_saved">Η φωτογραφία αποθηκεύτηκε</string>
     <string name="photo_capture_failed">Δεν ήταν δυνατή η λήψη φωτογραφίας</string>
     <string name="photo_capture_preview_unavailable">Η προεπισκόπηση δεν είναι διαθέσιμη</string>
@@ -356,10 +356,10 @@
     <string name="records_filter_all">Όλα</string>
     <string name="records_filter_camera">Joy Creator</string>
     <string name="records_filter_dual">Dual</string>
-    <string name="records_filter_screen">FadRec</string>
+    <string name="records_filter_screen">Οθόνη</string>
     <string name="records_filter_faditor">Faditor</string>
     <string name="records_filter_stream">Stream</string>
-    <string name="records_filter_shot">FadShot</string>
+    <string name="records_filter_shot">Φωτογραφίες</string>
     <string name="records_filter_camera_all">Όλα</string>
     <string name="records_filter_camera_back">Πίσω</string>
     <string name="records_filter_camera_front">Μπροστά</string>
@@ -371,14 +371,14 @@
     <string name="records_filter_miniapps_all">Όλα</string>
     <string name="records_filter_shot_back">Πίσω</string>
     <string name="records_filter_shot_selfie">Selfie</string>
-    <string name="records_filter_shot_fadrec">FadRec</string>
+    <string name="records_filter_shot_fadrec">Οθόνη</string>
     <string name="records_filter_checklist_desc">Εναλλαγή λειτουργίας επιλογής</string>
     <string name="records_filter_helper_camera_all">Εγγραφές κάμερας (Πίσω, Μπροστά, Dual)</string>
     <string name="records_filter_helper_camera_back">Καταγράφηκε με πίσω κάμερα</string>
     <string name="records_filter_helper_camera_front">Καταγράφηκε με μπροστινή κάμερα (selfie)</string>
     <string name="records_filter_helper_camera_dual">Καταγράφηκε με λειτουργία dual κάμερας</string>
     <string name="records_filter_helper_dual">Εγγραφές dual κάμερας</string>
-    <string name="records_filter_helper_screen">Εγγραφές οθόνης (FadRec)</string>
+    <string name="records_filter_helper_screen">Εγγραφές οθόνης</string>
     <string name="records_filter_helper_faditor">Επεξεργασμένα/Εξαγόμενα βίντεο (Faditor)</string>
     <string name="records_filter_helper_faditor_all">Όλα τα αρχεία εξόδου Faditor και σχετικά αρχεία.</string>
     <string name="records_filter_helper_faditor_converted">Μετατροπή κατακερματισμένου MP4 σε τυπικό MP4 με δυνατότητα αναζήτησης για εξωτερικούς players.</string>
@@ -387,7 +387,7 @@
     <string name="records_filter_helper_shot_all">Καταγεγραμμένες φωτογραφίες και στιγμιότυπα οθόνης</string>
     <string name="records_filter_helper_shot_back">Καταγεγραμμένες φωτογραφίες με πίσω κάμερα</string>
     <string name="records_filter_helper_shot_selfie">Καταγεγραμμένες φωτογραφίες με μπροστινή κάμερα (selfie)</string>
-    <string name="records_filter_helper_shot_fadrec">Καταγεγραμμένα στιγμιότυπα οθόνης (FadRec)</string>
+    <string name="records_filter_helper_shot_fadrec">Καταγεγραμμένα στιγμιότυπα οθόνης</string>
     <string name="records_location_format">Τοποθεσία: %1$s/%2$s</string>
     <string name="records_batch_select_all">Επιλογή όλων</string>
     <string name="records_batch_deselect_all">Αποεπιλογή όλων</string>
@@ -926,16 +926,16 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="stop_recording">Διακοπή</string>
     <string name="shortcut_take_photo">Φωτογραφία</string>
     <string name="shortcut_take_photo_front">Selfie</string>
-    <string name="shortcut_take_screenshot">FadRec</string>
+    <string name="shortcut_take_screenshot">Στιγμιότυπο</string>
     <string name="screenshot_capture_saved">Το στιγμιότυπο οθόνης αποθηκεύτηκε</string>
     <string name="screenshot_capture_failed">Δεν ήταν δυνατή η λήψη στιγμιότυπου οθόνης</string>
     <string name="screenshot_capture_system_saved">Το στιγμιότυπο οθόνης λήφθηκε από το σύστημα.</string>
-    <string name="screenshot_accessibility_enable_needed">Ενεργοποιήστε το «FadRec Στιγμιότυπο Οθόνης» στην Προσβασιμότητα.</string>
+    <string name="screenshot_accessibility_enable_needed">Ενεργοποιήστε το «Joy Creator Στιγμιότυπο Οθόνης» στην Προσβασιμότητα.</string>
     <string name="screenshot_accessibility_service_desc">Λαμβάνει στιγμιότυπο οθόνης για τη συντόμευση FadRec.</string>
     <string name="shortcuts_video_category">Εγγραφή Βίντεο</string>
     <string name="shortcuts_picture_category">Φωτογραφία</string>
     <string name="preview_quick_actions_title">Γρήγορες ενέργειες προεπισκόπησης</string>
-    <string name="preview_quick_actions_sub">Εμφάνιση εικονιδίων FadShot και Πλήρους οθόνης.</string>
+    <string name="preview_quick_actions_sub">Εμφάνιση εικονιδίων Φωτογραφία και Πλήρους οθόνης.</string>
     <string name="preview_quick_actions_state_always">Πάντα ορατό (αδρανές + εγγραφή)</string>
     <string name="preview_quick_actions_state_recording_only">Ορατό μόνο κατά την εγγραφή</string>
     <string name="warning_temp_file_detail"><![CDATA[
@@ -1127,7 +1127,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="faditor_no_recordings">Δεν βρέθηκαν ακόμα εγγραφές.</string>
     <string name="faditor_video_count">%1$d βίντεο</string>
     <string name="faditor_fadcam_source">Joy Creator</string>
-    <string name="faditor_fadrec_source">FadRec</string>
+    <string name="faditor_fadrec_source">Οθόνη</string>
     <string name="faditor_browse_device_desc">Επιλέξτε οποιοδήποτε βίντεο από τη συσκευή σας</string>
     <string name="faditor_scanning">Σάρωση εγγραφών…</string>
     <string name="faditor_source_chooser_desc">Επιλέξτε ένα βίντεο από τη συλλογή σας ή από τις εγγραφές Joy Creator</string>
@@ -1816,7 +1816,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="manage_projects">Διαχείριση Έργων</string>
     <string name="name_your_project">Ονομάστε το Έργο σας</string>
     <string name="project_naming_message">Δώστε ένα όνομα στο έργο σας.</string>
-    <string name="fadrec_projects">Έργα FadRec</string>
+    <string name="fadrec_projects">Έργα οθόνης</string>
     <string name="delete_project">Διαγραφή Έργου</string>
     <string name="delete_all">Διαγραφή Όλων</string>
     <string name="new_project">Νέο Έργο</string>
@@ -1947,7 +1947,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="preview_enable_hint">Κρατήστε για ενεργοποίηση κάμερας</string>
     <string name="preview_starting">Εκκίνηση ζωντανής προεπισκόπησης…</string>
     <string name="fadrec_preview_enable_hint">Κρατήστε για εμφάνιση προεπισκόπησης</string>
-    <string name="fadrec_preview_not_available">Η ζωντανή προεπισκόπηση οθόνης δεν είναι ακόμα διαθέσιμη στο FadRec</string>
+    <string name="fadrec_preview_not_available">Η ζωντανή προεπισκόπηση οθόνης δεν είναι ακόμα διαθέσιμη στο Joy Creator</string>
     <string name="torch_unavailable">Ο φακός δεν είναι διαθέσιμος για αυτήν την κάμερα</string>
     <!-- Motion Lab -->
     <string name="motion_lab_title">Εργαστήριο Κίνησης</string>
@@ -2417,7 +2417,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
 
     <string name="screen_recording_title">Εγγραφή Οθόνης</string>
 
-    <string name="screen_recording_notif_title">FadRec - Εγγραφή Οθόνης</string>
+    <string name="screen_recording_notif_title">Joy Creator - Εγγραφή Οθόνης</string>
 
     <string name="screen_recording_saved">Η Εγγραφή Οθόνης Αποθηκεύτηκε</string>
 
@@ -2537,16 +2537,16 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="screen_rec_resolution_value" translatable="false">1920×1080</string>
     <string name="screen_rec_framerate_value" translatable="false">30 fps</string>
     <string name="screen_rec_bitrate_value" translatable="false">8 Mbps</string>
-    <string name="screen_rec_splitting_value_format">%s (FadCam + FadRec)</string>
+    <string name="screen_rec_splitting_value_format">%s (Joy Creator + Οθόνη)</string>
 
     <!-- Settings home tabs -->
     <string name="settings_tab_all">Όλα</string>
     <string name="settings_tab_fadcam" translatable="false">Joy Creator</string>
-    <string name="settings_tab_fadrec" translatable="false">FadRec</string>
+    <string name="settings_tab_fadrec" translatable="false">Οθόνη</string>
 
     <!-- Watermark preview labels -->
     <string name="watermark_preview_fadcam" translatable="false">Joy Creator</string>
-    <string name="watermark_preview_fadrec" translatable="false">FadRec</string>
+    <string name="watermark_preview_fadrec" translatable="false">Οθόνη</string>
     <string name="settings_location_update_interval_5s">5.0 δευτερόλεπτα</string>
 
     <!-- Annotation toolbar -->
@@ -2628,7 +2628,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="desc_delete_text">Διαγραφή κειμένου</string>
     <string name="desc_done">Ολοκληρώθηκε</string>
     <string name="desc_exposure_compensation">Αντιστάθμιση έκθεσης</string>
-    <string name="desc_fadrec_logo">Λογότυπο FadRec</string>
+    <string name="desc_fadrec_logo">Λογότυπο εγγραφής οθόνης</string>
     <string name="desc_fast_forward">Γρήγορη προώθηση 5 δευτερολέπτων</string>
     <string name="desc_increase">Αύξηση</string>
     <string name="desc_italic">Πλάγια</string>

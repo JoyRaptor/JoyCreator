@@ -120,11 +120,11 @@
     <string name="fadrec_ready_to_record">Siap untuk merekam layar</string>
     <string name="fadrec_ready_to_record_subtitle">Ketuk untuk memulai</string>
     <string name="fadrec_permission_denied">Izin perekaman layar ditolak</string>
-    <string name="fadrec_mode_title">"FadRec -  Perekaman Layar"</string>
+    <string name="fadrec_mode_title">"Perekaman Layar"</string>
     <string name="fadrec_mute_audio">Bisukan audio perekaman</string>
     <string name="fadrec_unmute_audio">Nyalakan audio perekaman</string>
     <string name="fadrec_mic_permission_needed_title">Izin Mikrofon Diperlukan</string>
-    <string name="fadrec_mic_permission_needed_message">FadRec tidak dapat mengakses mikrofon Anda. Anda bisa merekam tanpa audio - tidak ada audio yang akan disimpan.</string>
+    <string name="fadrec_mic_permission_needed_message">Joy Creator tidak dapat mengakses mikrofon Anda. Anda bisa merekam tanpa audio - tidak ada audio yang akan disimpan.</string>
     <string name="fadrec_record_muted">Rekam Tanpa Audio</string>
 
     <!-- FadRec audio source picker -->
@@ -392,7 +392,7 @@
     <string name="media_type_photo">Foto</string>
     <string name="media_type_photo_back">Belakang</string>
     <string name="media_type_photo_selfie">Selfie</string>
-    <string name="media_type_photo_fadrec">FadRec</string>
+    <string name="media_type_photo_fadrec">Layar</string>
     <string name="photo_capture_saved">Foto disimpan</string>
     <string name="photo_capture_failed">Tidak dapat mengambil foto</string>
     <string name="photo_capture_preview_unavailable">Pratinjau tidak tersedia</string>
@@ -403,10 +403,10 @@
     <string name="records_filter_all">All</string>
     <string name="records_filter_camera">Joy Creator</string>
     <string name="records_filter_dual">Dual</string>
-    <string name="records_filter_screen">FadRec</string>
+    <string name="records_filter_screen">Layar</string>
     <string name="records_filter_faditor">Faditor</string>
     <string name="records_filter_stream">Stream</string>
-    <string name="records_filter_shot">FadShot</string>
+    <string name="records_filter_shot">Foto</string>
     <string name="records_filter_camera_all">All</string>
     <string name="records_filter_camera_back">Back</string>
     <string name="records_filter_camera_front">Front</string>
@@ -418,14 +418,14 @@
     <string name="records_filter_miniapps_all">All</string>
     <string name="records_filter_shot_back">Back</string>
     <string name="records_filter_shot_selfie">Selfie</string>
-    <string name="records_filter_shot_fadrec">FadRec</string>
+    <string name="records_filter_shot_fadrec">Layar</string>
     <string name="records_filter_checklist_desc">Alihkan mode pemilihan</string>
     <string name="records_filter_helper_camera_all">Rekaman kamera (Belakang, Depan, Dual)</string>
     <string name="records_filter_helper_camera_back">Direkam dengan kamera belakang</string>
     <string name="records_filter_helper_camera_front">Direkam dengan kamera depan (selfie)</string>
     <string name="records_filter_helper_camera_dual">Direkam dengan mode kamera dual</string>
     <string name="records_filter_helper_dual">Rekaman kamera dual</string>
-    <string name="records_filter_helper_screen">Rekaman layar (FadRec)</string>
+    <string name="records_filter_helper_screen">Rekaman layar</string>
     <string name="records_filter_helper_faditor">Video yang diedit/diekspor (Faditor)</string>
     <string name="records_filter_helper_faditor_all">Semua output Faditor dan file terkait.</string>
     <string name="records_filter_helper_faditor_converted">Mengonversi MP4 terfragmentasi menjadi MP4 standar yang dapat dicari untuk pemutar eksternal.</string>
@@ -434,7 +434,7 @@
     <string name="records_filter_helper_shot_all">Foto dan tangkapan layar yang diambil</string>
     <string name="records_filter_helper_shot_back">Foto yang diambil dengan kamera belakang</string>
     <string name="records_filter_helper_shot_selfie">Foto yang diambil dengan kamera depan (selfie)</string>
-    <string name="records_filter_helper_shot_fadrec">Tangkapan layar yang diambil (FadRec)</string>
+    <string name="records_filter_helper_shot_fadrec">Tangkapan layar yang diambil</string>
     <string name="records_location_format">Lokasi: %1$s/%2$s</string>
     <string name="records_batch_select_all">Pilih semua</string>
     <string name="records_batch_deselect_all">Batal pilih semua</string>
@@ -970,16 +970,16 @@ Tips: Dengan H.265 (HEVC), Anda dapat menggunakan sekitar setengah bitrate H.264
     <string name="stop_recording">Hentikan</string>
     <string name="shortcut_take_photo">Photo</string>
     <string name="shortcut_take_photo_front">Selfie</string>
-    <string name="shortcut_take_screenshot">FadRec</string>
+    <string name="shortcut_take_screenshot">Tangkapan layar</string>
     <string name="screenshot_capture_saved">Screenshot saved</string>
     <string name="screenshot_capture_failed">Could not capture screenshot</string>
     <string name="screenshot_capture_system_saved">Screenshot captured by system. Saved in system screenshots.</string>
-    <string name="screenshot_accessibility_enable_needed">Enable "FadRec Screenshot" in Accessibility to use this shortcut without recording prompt.</string>
+    <string name="screenshot_accessibility_enable_needed">Enable "Joy Creator" in Accessibility to use this shortcut without recording prompt.</string>
     <string name="screenshot_accessibility_service_desc">Captures a screenshot for the FadRec shortcut and saves it in FadCam/FadShot.</string>
     <string name="shortcuts_video_category">Video Recording</string>
     <string name="shortcuts_picture_category">Picture</string>
     <string name="preview_quick_actions_title">Preview quick actions</string>
-    <string name="preview_quick_actions_sub">Show FadShot and Fullscreen icons even when recording is idle.</string>
+    <string name="preview_quick_actions_sub">Show Foto and Fullscreen icons even when recording is idle.</string>
     <string name="preview_quick_actions_state_always">Always visible (idle + recording)</string>
     <string name="preview_quick_actions_state_recording_only">Visible only while recording</string>
     <string name="warning_temp_file_detail">
@@ -1180,7 +1180,7 @@ Tips: Dengan H.265 (HEVC), Anda dapat menggunakan sekitar setengah bitrate H.264
     <string name="faditor_no_recordings">No recordings found yet. Start recording with Joy Creator to see your videos here.</string>
     <string name="faditor_video_count">%1$d video(s)</string>
     <string name="faditor_fadcam_source">Joy Creator</string>
-    <string name="faditor_fadrec_source">FadRec</string>
+    <string name="faditor_fadrec_source">Layar</string>
     <string name="faditor_browse_device_desc">Select any video from your device</string>
     <string name="faditor_scanning">Scanning recordings…</string>
     <string name="faditor_source_chooser_desc">Choose a video from your gallery or pick one from your Joy Creator recordings</string>
@@ -1919,7 +1919,7 @@ Untuk item yang tertaut video, gunakan detail bukti di dalam penampil foto untuk
     <string name="manage_projects">Kelola Proyek</string>
     <string name="name_your_project">Beri Nama Proyek Anda</string>
     <string name="project_naming_message">Beri proyek Anda nama dan deskripsi yang mudah diingat untuk mengatur rekaman Anda</string>
-    <string name="fadrec_projects">Proyek FadRec</string>
+    <string name="fadrec_projects">Proyek layar</string>
     <string name="delete_project">Hapus Proyek</string>
     <string name="delete_all">Hapus Semua</string>
     <string name="new_project">Proyek Baru</string>
@@ -2068,7 +2068,7 @@ Apakah Anda ingin beralih ke H.264 dan mulai merekam?</string>
     <string name="preview_enable_hint">Tahan untuk membangunkan kamera</string>
     <string name="preview_starting">Memulai pratinjau langsung...</string>
     <string name="fadrec_preview_enable_hint">Tahan untuk menampilkan pratinjau</string>
-    <string name="fadrec_preview_not_available">Pratinjau layar langsung belum terhubung ke FadRec</string>
+    <string name="fadrec_preview_not_available">Pratinjau layar langsung belum terhubung ke Joy Creator</string>
     <string name="torch_unavailable">Senter tidak tersedia untuk kamera ini</string>
 
     <!-- Motion Lab -->
@@ -2579,7 +2579,7 @@ Dukungan otomasi berbasis intent (Tasker, MacroDroid, dll.) untuk memicu Aplikas
 
     <string name="screen_recording_title">Rekaman Layar</string>
 
-    <string name="screen_recording_notif_title">FadRec - Rekaman Layar</string>
+    <string name="screen_recording_notif_title">Joy Creator - Rekaman Layar</string>
 
     <string name="screen_recording_saved">Rekaman Layar Disimpan</string>
 
@@ -2699,16 +2699,16 @@ Dukungan otomasi berbasis intent (Tasker, MacroDroid, dll.) untuk memicu Aplikas
     <string name="screen_rec_resolution_value" translatable="false">1920×1080</string>
     <string name="screen_rec_framerate_value" translatable="false">30 fps</string>
     <string name="screen_rec_bitrate_value" translatable="false">8 Mbps</string>
-    <string name="screen_rec_splitting_value_format">%s (FadCam + FadRec)</string>
+    <string name="screen_rec_splitting_value_format">%s (Joy Creator + Layar)</string>
 
     <!-- Settings home tabs -->
     <string name="settings_tab_all">Semua</string>
     <string name="settings_tab_fadcam" translatable="false">Joy Creator</string>
-    <string name="settings_tab_fadrec" translatable="false">FadRec</string>
+    <string name="settings_tab_fadrec" translatable="false">Layar</string>
 
     <!-- Watermark preview labels -->
     <string name="watermark_preview_fadcam" translatable="false">Joy Creator</string>
-    <string name="watermark_preview_fadrec" translatable="false">FadRec</string>
+    <string name="watermark_preview_fadrec" translatable="false">Layar</string>
     <string name="settings_location_update_interval_5s">5,0 detik</string>
 
     <!-- Annotation toolbar -->
@@ -2790,7 +2790,7 @@ Dukungan otomasi berbasis intent (Tasker, MacroDroid, dll.) untuk memicu Aplikas
     <string name="desc_delete_text">Hapus teks</string>
     <string name="desc_done">Selesai</string>
     <string name="desc_exposure_compensation">Kompensasi eksposur</string>
-    <string name="desc_fadrec_logo">Logo FadRec</string>
+    <string name="desc_fadrec_logo">Logo perekam layar</string>
     <string name="desc_fast_forward">Maju cepat 5 detik</string>
     <string name="desc_increase">Tambah</string>
     <string name="desc_italic">Miring</string>

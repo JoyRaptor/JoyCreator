@@ -426,18 +426,39 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
             ?: throw MediaRoomException("This stroke is too far from paint that is still wet to be painted in one go. Let the wet paint settle, then paint here.")
         if (far.isEmpty()) return
         val gone = far.toSet()
-        for (r in loose) {
-            val key = r.page.tileKey
-            if (key !in gone) continue
-            if (key in borrowedBlockTiles) { dropBorrowedBlockTile(key); continue }
-            // As a slot given to another tile: live water waits in the park, pending paint goes to the stores.
-            backing.evicted(r.slot, r.page)
-            if (r.dirty) backing.writeBack(r.slot, r.page)
-            slots.remove(r.page)
-        }
+        for (r in loose) if (r.page.tileKey in gone) letGo(r)
         farLetGo += far.size
         media.setResidency(resident())
         android.util.Log.i(TAG, "${far.size} cached areas far from the pen let go to keep one page table")
+    }
+
+    /** One resident tile nobody holds leaves, as when its slot is given to another: live water to the park, pending paint to the stores. */
+    private fun letGo(r: MediaAtlasSlots.Resident) {
+        val key = r.page.tileKey
+        if (key in borrowedBlockTiles) { dropBorrowedBlockTile(key); return }
+        backing.evicted(r.slot, r.page)
+        if (r.dirty) backing.writeBack(r.slot, r.page)
+        slots.remove(r.page)
+    }
+
+    /** Cached tiles handed back because the drawing's media room was tight (bench). */
+    var yielded = 0; private set
+
+    /**
+     * The drawing's media room is nearly full ([GlPaintEngine.mediaRoomTight]): the tiles this atlas only caches (not held by
+     * the frame, no water) are written back and let go, oldest first, a few a frame. Out of the atlas they are ordinary old
+     * paint, which may set to make room ([cc.joycreator.joybrush.core.media.MediaRoom]); in it they are kept from setting, and
+     * a room smaller than the atlas's cache had nothing to set at all (Note 9, 24 MB bench room, 2026-11-10: 24 of 40 strokes
+     * refused). A tile the pen comes back to is simply loaded again.
+     */
+    private fun yieldForRoom() {
+        if (!paint.mediaRoomTight()) return
+        val loose = slots.residents().filter { it.pins == 0 && it.page.tileKey !in borrowedBlockTiles && !water.holdsWater(it.page.tileKey) }
+        if (loose.isEmpty()) return
+        var n = 0
+        try { for (r in loose) { if (n >= YIELD_PER_FRAME) break; letGo(r); n++ } }
+        catch (x: MediaRoomException) { android.util.Log.w(TAG, "a cached tile could not be written back to make room: ${x.message}") }
+        if (n > 0) { yielded += n; media.setResidency(resident()) }
     }
 
     /**
@@ -870,6 +891,8 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         }
         if (media.wetActive) measureWater() else if (querySlots != null || framesSinceQuery != 0) resetWater()
         if (MediaAtlasDropDry.on && media.wetActive && !paint.mediaStrokeInProgress) dropDryWater(id)
+        // Before this frame's stores are reserved or written: what is only cached makes way if the drawing's room is tight.
+        yieldForRoom()
         if (stores) {
             publishParked(id)
             writeStores(id)
@@ -1221,6 +1244,8 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
 
     private companion object {
         const val TAG = "JoyBrushMediaAtlas"
+        /** The most cached tiles handed back in one frame when the drawing's room is tight ([yieldForRoom]): each is a write-back. */
+        const val YIELD_PER_FRAME = 6
         /** The look's cost per px in the water's units (MediaLayerEngine JOB_WEIGHT: a flat flux px): ~30 ns on the Note 9. */
         const val LOOK_WEIGHT = 2.0
         /** Frames between water measurements (B3 plan: ~8; quiet means quiet for MediaAtlasWater.quietMs). */

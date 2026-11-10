@@ -7138,6 +7138,12 @@ class GlPaintEngine(
      */
     var mediaRoomKeep: ((layerId: String, plane: String?) -> Collection<Long>)? = null
 
+    /**
+     * True when the next few new media tiles would not fit the drawing's room without old paint setting: the media tool then
+     * hands back what it only caches, so there is old paint to set (MediaAtlas.yieldForRoom).
+     */
+    fun mediaRoomTight(): Boolean = mediaBudgetBytes != Long.MAX_VALUE && mediaResidentBytes() + MediaRoom.slack(mediaBudgetBytes) > mediaBudgetBytes
+
     /** Tiles whose paint has set to make room since this engine was made (bench, and the log). */
     var mediaTilesSet = 0
         private set

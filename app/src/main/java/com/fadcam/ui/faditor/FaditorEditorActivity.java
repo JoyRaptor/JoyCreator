@@ -20870,7 +20870,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         boolean ok = ProjectConsolidator.revert(this, project.getId());
         android.widget.Toast.makeText(this, ok ? getString(R.string.studio_opt_reverted_to_external_references) : getString(R.string.studio_opt_nothing_to_revert), android.widget.Toast.LENGTH_SHORT).show();
         if (ok) {
-            project = new com.fadcam.ui.faditor.project.ProjectStorage(this).load(project.getId());
+            // Through this editor's own storage, so it knows the file it now holds (changedOutside).
+            project = projectStorage.load(project.getId());
             if (editorTimeline != null && project != null) {
                 editorTimeline.setTimeline(project.getTimeline(), selectedClipIndex);
                 editorTimeline.setMissingSegments(computeMissingSegmentIndices());
@@ -44090,11 +44091,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             // The editor is gone but the work is real: fold the result into the
                             // model and persist it directly, or a completed run would be thrown
                             // away at the finish line — the very thing this change prevents.
-                            if (updateTranscriptVersion(clipId, versionId, t) && project != null
-                                    && projectStorage != null) {
-                                projectStorage.save(project);
-                                FLog.i(TAG, "Transcription finished after the editor closed — saved");
-                            }
+                            //
+                            // NOT by saving the project this closed editor still holds
+                            // (work-loss audit 2026-11-10): that copy is as old as the moment the
+                            // editor closed. A long run leaves time to reopen the project and keep
+                            // working, and saving the old copy put every one of those edits back.
+                            // The words go into the project as it is NOW instead.
+                            updateTranscriptVersion(clipId, versionId, t);
+                            landTranscriptAfterClose(clipId, versionId, type.label, engine, t);
                             if (transcriptionEngine != null
                                     && activeTranscriptionModels.isEmpty()) {
                                 transcriptionEngine.shutdown();
@@ -44322,6 +44326,44 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (vs.get(i).id.equals(versionId)) return i;
         }
         return -1;
+    }
+
+    /**
+     * A run that finished after this editor closed: put its words into the project as it is now.
+     * If another editor has the project on screen, that editor takes them as one undo step
+     * (JoybotStorage); otherwise they go into the file, and an editor waiting off screen reloads
+     * when it comes back. Nothing else in the project is touched.
+     */
+    private void landTranscriptAfterClose(@NonNull String clipId, @NonNull String versionId,
+            @NonNull String label, @NonNull String engine,
+            @NonNull com.fadcam.ui.faditor.transcript.Transcript words) {
+        if (project == null) return;
+        final String projectId = project.getId();
+        try {
+            com.fadcam.ui.faditor.ai.joybot.JoybotStorage storage =
+                    new com.fadcam.ui.faditor.ai.joybot.JoybotStorage(getApplicationContext());
+            FaditorProject fresh = storage.load(projectId);
+            if (fresh == null) {
+                FLog.w(TAG, "Transcription finished after the editor closed, but the project "
+                        + "could not be read; the words were not saved: " + projectId);
+                return;
+            }
+            if (!com.fadcam.ui.faditor.transcript.TranscriptLanding.land(
+                    fresh, clipId, versionId, label, engine, words)) {
+                FLog.w(TAG, "Transcription finished after the editor closed, but its clip is no "
+                        + "longer in the project; nothing to save: " + projectId);
+                return;
+            }
+            String what = getString(R.string.studio_undo_transcription);
+            if (storage.saveAs(fresh, what, "transcription-" + versionId)) {
+                com.fadcam.ui.faditor.ai.AIChatState.signalModified(projectId, what);
+                FLog.i(TAG, "Transcription finished after the editor closed — saved into the current project");
+            } else {
+                FLog.w(TAG, "Transcription finished after the editor closed, but the save was refused: " + projectId);
+            }
+        } catch (Exception e) {
+            FLog.e(TAG, "Could not save a transcription that finished after the editor closed", e);
+        }
     }
 
     /** Replace the words of a transcript version (during/after a run). */

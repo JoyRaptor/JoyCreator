@@ -588,6 +588,9 @@ public class ProjectStorage {
             FaditorProject p = gson.fromJson(reader, FaditorProject.class);
             if (p != null && p.getTimeline() != null) {
                 p.setDiskLastModifiedAtLastSync(p.getLastModified());
+                // The person chose the backup over the main file: saving over that main file later
+                // is their decision, not somebody else's write to protect (changedOutside).
+                seenOnDisk.put(projectId, DiskStamp.of(new File(getProjectDir(projectId), PROJECT_FILE)));
                 dedupTranscriptsWithBackup(p, bak);
                 shareTranscriptsWithBackup(p, bak);
                 healDanglingAnchors(p);

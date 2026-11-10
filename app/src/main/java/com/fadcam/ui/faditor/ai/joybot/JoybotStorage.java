@@ -83,12 +83,19 @@ public class JoybotStorage extends ProjectStorage {
      */
     @Override
     public boolean save(@NonNull FaditorProject project) {
+        return saveAs(project, AIChatState.liveWriteLabel, AIChatState.liveWriteRequest);
+    }
+
+    /**
+     * {@link #save} for a writer that is not Joybot (a transcription that outlived its editor):
+     * the same rule about who owns the project, with its own words for the undo step.
+     */
+    public boolean saveAs(@NonNull FaditorProject project, @NonNull final String label,
+                          @NonNull final String request) {
         AIChatState.LiveEditor live = AIChatState.liveEditorFor(project.getId());
         boolean ok;
         if (live != null) {
             final String json = toJson(project);
-            final String label = AIChatState.liveWriteLabel;
-            final String request = AIChatState.liveWriteRequest;
             ok = Boolean.TRUE.equals(onMain(() -> live.adopt(json, label, request)));
             if (!ok && AIChatState.liveEditorFor(project.getId()) == null) {
                 ok = super.save(project);   // the editor closed meanwhile: the file is the owner again

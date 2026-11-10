@@ -633,6 +633,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
             .put("liftToFinalMs", org.json.JSONObject.NULL)
             .put("finalCompletion", "Unavailable: no atomic final-publication receipt on the public bench API")
             .put("scope", "FrameStats contact timing; no final output, editable lift, or quality acceptance claim")
+        // Each phase on its own line as well: the one-line report is cut at logcat's 4 K, which lost most phases.
+        for ((k, v) in s.phases) Log.i(TAG, "phase ${p.id} $case $k ${pct(v)}")
         Log.i(TAG, "{\"observation\":$observation,\"legacy\":${spec.legacy},\"brush\":\"${p.id}\",\"case\":\"$case\",\"run\":$run,\"samples\":$samples," +
             "\"frames\":${s.frames},\"strokeFrames\":${s.strokeFrames},\"firstFrameMs\":${f(s.firstFrameMs)}," +
             "\"busyMs\":${pct(s.busy)},\"workMs\":${pct(s.work)},\"mediaMs\":${pct(s.media)},\"displayMs\":${pct(s.display)}," +

@@ -1163,6 +1163,30 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         // The water beside such a tile sees a wall there (zero gradient, no flow), as at the window's edge: no dry front.
         // (A water job keeps the tiles skipped and walled when it started: [runJob].)
         wetFrameInner(batch, paper, pxPerMm, wc0, substeps, evapOverride, maxWetSeconds)
+        noteWaterSpeed(wc0.dt)
+    }
+
+    // ---- how fast the water runs against the clock (the owner, 2026-11-10: "like painting over dial-up") ----
+    private var speedAtNs = 0L
+    private var speedSteps = 0L
+    private var speedFrames = 0
+    /** Px x stage weight the water passes really drew since the last speed line. */
+    private var speedDrawn = 0.0
+    /** The water's speed over the last second or so: simulated seconds per second on the clock (1 = as fast as it is meant to run). */
+    var waterSpeed = 0f; private set
+
+    private fun noteWaterSpeed(dt: Double) {
+        speedFrames++
+        val now = System.nanoTime()
+        if (speedAtNs == 0L || now - speedAtNs > 5_000_000_000L) { speedAtNs = now; speedSteps = waterSteps; speedFrames = 0; speedDrawn = 0.0; return }
+        if (now - speedAtNs < 1_000_000_000L) return
+        val real = (now - speedAtNs) / 1e9
+        val steps = waterSteps - speedSteps
+        waterSpeed = (steps * dt / real).toFloat()
+        val r = wetRect
+        android.util.Log.i("JoyBrushWater", "speed: $steps steps in ${"%.2f".format(real)} s over $speedFrames frames = ${"%.3f".format(waterSpeed)} x real time; " +
+            "rectangle ${r?.let { "${(it[2] - it[0]).toInt()} x ${(it[3] - it[1]).toInt()}" }} px, drew ${"%.1f".format(speedDrawn / 1e6)} M units, budget ${"%.2f".format(waterBudget / 1e6)} M a frame")
+        speedAtNs = now; speedSteps = waterSteps; speedFrames = 0; speedDrawn = 0.0
     }
 
     /**

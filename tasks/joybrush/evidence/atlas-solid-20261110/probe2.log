@@ -1,0 +1,32 @@
+11-10 02:50:50.541 22595 22595 I JoyBrushPerf: brushes available: joybrush.ink,joybrush.sable,joybrush.pencil,joybrush.bristle,joybrush.flatpaint,joybrush.marker,joybrush.softair,joybrush.smudge,joybrush.eraser,fill,joybrush.watercolour,media:dry:Proto Pencil,media:dry:Proto Mix,media:dry:Proto,media:dry:Proto 2,media:dry:2H,media:dry:HB,media:dry:2B,media:dry:6B,media:dry:Woodless 8B,media:wet:All-round,media:wet:Round,media:wet:Wash,media:wet:Dry brush,media:wet:Water,media:wet:Thirsty,media:paste:All-round,media:paste:Oil flat,media:paste:Oil round,media:paste:Fan blender,media:paste:Palette knife 1,media:paste:Palette knife 2,media:paste:Scraper
+11-10 02:50:54.306 22595 22700 I JoyBrushMediaMemory: atlas 8 x 8 slots (available=2727837696)
+11-10 02:50:56.729 22595 22700 I JoyBrushMediaMemory: atlas 8 x 8 slots (available=2640875520)
+11-10 02:50:57.197 22595 22700 I JoyBrushMediaAtlas: media room: 12 MB held, 0 tiles' dry water let go so far
+11-10 02:50:57.707 22595 22700 I JoyBrushMediaMemory: atlas 8 x 8 slots (available=2652766208)
+11-10 02:50:58.387 22595 22700 I JoyBrushMediaAtlas: media room: 8 MB held, 0 tiles' dry water let go so far
+11-10 02:50:58.646 22595 22700 I JoyBrushMediaMemory: atlas 8 x 8 slots (available=2626527232)
+11-10 02:50:59.146 22595 22700 I JoyBrushMediaAtlas: media room: 12 MB held, 0 tiles' dry water let go so far
+11-10 02:50:59.643 22595 22700 I JoyBrushMediaMemory: atlas 8 x 8 slots (available=2637033472)
+11-10 02:51:00.320 22595 22700 I JoyBrushMedia: media room: 3 old tiles set to make room (3 MB); 3 so far
+11-10 02:51:00.396 22595 22700 I JoyBrushMediaAtlas: media room: 7 MB held, 0 tiles' dry water let go so far
+11-10 02:51:00.695 22595 22700 I JoyBrushMedia: media room: 3 old tiles set to make room (3 MB); 6 so far
+11-10 02:51:00.873 22595 22700 I JoyBrushMediaAtlas: media room: 7 MB held, 0 tiles' dry water let go so far
+11-10 02:51:01.357 22595 22700 I JoyBrushMediaMemory: atlas 8 x 8 slots (available=2640076800)
+11-10 02:51:02.013 22595 22700 W JoyBrushMedia: flush after a dropped frame: failed by the probe
+11-10 02:51:02.244 22595 22700 I JoyBrushMediaMemory: atlas 8 x 8 slots (available=2628206592)
+11-10 02:51:02.652 22595 22700 I JoyBrushMediaAtlas: media room: 11 MB held, 0 tiles' dry water let go so far
+11-10 02:51:03.138 22595 22700 I JoyBrushMediaMemory: atlas 8 x 8 slots (available=2636693504)
+11-10 02:51:03.880 22595 22700 I JoyBrushMediaAtlas: media room: 10 MB held, 0 tiles' dry water let go so far
+11-10 02:51:04.128 22595 22700 I JoyBrushMedia: media room: 3 old tiles set to make room (3 MB); 3 so far
+11-10 02:51:04.321 22595 22700 I JoyBrushMedia: media room: 4 old tiles set to make room (4 MB); 7 so far
+11-10 02:51:04.657 22595 22700 I JoyBrushMedia: media room: 4 old tiles set to make room (4 MB); 11 so far
+11-10 02:51:04.740 22595 22700 I JoyBrushMediaAtlas: media room: 9 MB held, 0 tiles' dry water let go so far
+11-10 02:51:05.514 22595 22700 I JoyBrushMediaAtlas: media room: 18 MB held, 0 tiles' dry water let go so far
+11-10 02:51:06.075 22595 22700 I JoyBrushMediaMemory: atlas 8 x 8 slots (available=2636005376)
+11-10 02:51:06.527 22595 22700 I JoyBrushMediaAtlas: media room: 6 MB held, 0 tiles' dry water let go so far
+11-10 02:51:06.620 22595 22700 I JoyBrushMediaAtlas: 11 cached areas far from the pen let go to keep one page table
+11-10 02:51:06.659 22595 22700 I JoyBrushMediaAtlas: media room: 10 MB held, 0 tiles' dry water let go so far
+11-10 02:51:07.106 22595 22700 I JoyBrushMediaMemory: atlas 8 x 8 slots (available=2647552000)
+11-10 02:51:07.526 22595 22700 I JoyBrushMediaAtlas: media room: 6 MB held, 0 tiles' dry water let go so far
+11-10 02:51:07.540 22595 22595 I JoyBrushPerf: {"probe":"mediaFailure","brush":"media:paste:Palette knife 1","oldWay":{"laidPixels":154792,"lostPixels":36455,"refused":0},"fixed":{"laidPixels":163268,"lostPixels":0,"refused":0},"roomRanOut":{"laidPixels":183628,"lostPixels":0,"refused":0},"writeFailed":{"laidPixels":163268,"lostPixels":0,"refused":0},"roomMade":{"ok":true,"refused":0,"failed":"","tilesSet":11,"firstLineTilesChanged":0,"farLaidPixels":181689,"payloadTilesBefore":10,"payloadTilesAfter":0,"laidPixels":183628,"lostPixels":0,"undone":3,"pixelsLeftAfterUndo":0,"extraUndoStep":false},"farMark":{"ok":true,"refused":0,"failed":"","firstPixels":94351,"allPixels":124057,"cachedTilesLet
+11-10 02:51:08.341 22595 22595 I JoyBrushPerf: done

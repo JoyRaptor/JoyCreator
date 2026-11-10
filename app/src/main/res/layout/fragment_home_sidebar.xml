@@ -49,7 +49,7 @@
         <com.google.android.material.divider.MaterialDivider
             android:layout_width="match_parent" android:layout_height="wrap_content"
             android:layout_marginTop="8dp" android:layout_marginStart="0dp"
-            android:layout_marginEnd="0dp" app:dividerColor="#262626"/>
+            android:layout_marginEnd="0dp" app:dividerColor="@color/s_line"/>
 
         <!-- Profiles placeholder -->
         <LinearLayout
@@ -87,13 +87,13 @@
                 android:orientation="horizontal" android:gravity="center_vertical">
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                     android:text="@string/mini_app_coming_soon"
-                    android:textColor="@android:color/white" android:textSize="9sp"
+                    android:textColor="@color/s_ink_dim" android:textSize="9sp"
                     android:textStyle="bold" android:textAllCaps="true"
                     android:background="@drawable/bg_coming_soon_badge"
                     android:paddingHorizontal="6dp" android:paddingVertical="2dp"/>
                 <ImageView android:layout_width="14dp" android:layout_height="14dp"
                     android:layout_marginStart="6dp" android:src="@drawable/ic_arrow_right"
-                    android:tint="@android:color/darker_gray"/>
+                    android:tint="@color/s_ink_faint"/>
             </LinearLayout>
         </LinearLayout>
         </LinearLayout>
@@ -305,7 +305,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="@string/preview_disabled"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_faint"
                         android:textSize="11sp"
                         android:textAlignment="viewStart" />
                 </LinearLayout>
@@ -325,7 +325,7 @@
                 android:layout_height="1dp"
                 android:layout_marginStart="0dp"
                 android:layout_marginEnd="0dp"
-                app:dividerColor="#262626"/>
+                app:dividerColor="@color/s_line"/>
 
             <LinearLayout
                 android:id="@+id/row_preview_quick_actions_toggle"
@@ -368,7 +368,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="@string/preview_quick_actions_sub"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_faint"
                         android:textSize="11sp"
                         android:textAlignment="viewStart" />
                 </LinearLayout>
@@ -466,7 +466,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="@string/mini_app_torch_desc"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_faint"
                         android:textSize="11sp"
                         android:textAlignment="viewStart"
                         android:maxLines="2"
@@ -481,7 +481,7 @@
                     android:layout_marginStart="12dp"
                     android:layout_gravity="center_vertical"
                     android:src="@drawable/ic_arrow_right"
-                    android:tint="@android:color/darker_gray" />
+                    android:tint="@color/s_ink_faint" />
 
             </LinearLayout>
 
@@ -491,7 +491,7 @@
                 android:layout_height="1dp"
                 android:layout_marginStart="0dp"
                 android:layout_marginEnd="0dp"
-                app:dividerColor="#262626"/>
+                app:dividerColor="@color/s_line"/>
 
             <!-- QR Scanner Mini App (READY) -->
             <LinearLayout
@@ -533,7 +533,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/mini_app_qr_scanner_desc"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_faint"
                         android:textSize="11sp"
                         android:textAlignment="viewStart"
                         android:maxLines="2"
@@ -546,7 +546,7 @@
                     android:layout_marginStart="12dp"
                     android:layout_gravity="center_vertical"
                     android:src="@drawable/ic_arrow_right"
-                    android:tint="@android:color/darker_gray"/>
+                    android:tint="@color/s_ink_faint"/>
             </LinearLayout>
 
             <!-- Divider between mini apps -->
@@ -555,7 +555,7 @@
                 android:layout_height="1dp"
                 android:layout_marginStart="0dp"
                 android:layout_marginEnd="0dp"
-                app:dividerColor="#262626"/>
+                app:dividerColor="@color/s_line"/>
 
             <!-- Compass Mini App - Coming Soon -->
             <LinearLayout
@@ -609,7 +609,7 @@
                             android:layout_height="16dp"
                             android:paddingHorizontal="6dp"
                             android:text="@string/mini_app_coming_soon"
-                            android:textColor="@android:color/white"
+                            android:textColor="@color/s_ink_dim"
                             android:textSize="8sp"
                             android:textStyle="bold"
                             android:gravity="center"
@@ -622,7 +622,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="@string/mini_app_compass_desc"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_faint"
                         android:textSize="11sp"
                         android:textAlignment="viewStart"
                         android:maxLines="2"
@@ -637,7 +637,7 @@
                     android:layout_marginStart="12dp"
                     android:layout_gravity="center_vertical"
                     android:src="@drawable/ic_arrow_right"
-                    android:tint="@android:color/darker_gray" />
+                    android:tint="@color/s_ink_faint" />
 
             </LinearLayout>
 
@@ -647,7 +647,7 @@
                 android:layout_height="1dp"
                 android:layout_marginStart="0dp"
                 android:layout_marginEnd="0dp"
-                app:dividerColor="#262626"/>
+                app:dividerColor="@color/s_line"/>
 
             <!-- Sound Meter Mini App - Coming Soon -->
             <LinearLayout
@@ -701,7 +701,7 @@
                             android:layout_height="16dp"
                             android:paddingHorizontal="6dp"
                             android:text="@string/mini_app_coming_soon"
-                            android:textColor="@android:color/white"
+                            android:textColor="@color/s_ink_dim"
                             android:textSize="8sp"
                             android:textStyle="bold"
                             android:gravity="center"
@@ -714,7 +714,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="@string/mini_app_sound_meter_desc"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_faint"
                         android:textSize="11sp"
                         android:textAlignment="viewStart"
                         android:maxLines="2"
@@ -729,7 +729,7 @@
                     android:layout_marginStart="12dp"
                     android:layout_gravity="center_vertical"
                     android:src="@drawable/ic_arrow_right"
-                    android:tint="@android:color/darker_gray" />
+                    android:tint="@color/s_ink_faint" />
 
             </LinearLayout>
 
@@ -739,7 +739,7 @@
                 android:layout_height="1dp"
                 android:layout_marginStart="0dp"
                 android:layout_marginEnd="0dp"
-                app:dividerColor="#262626"/>
+                app:dividerColor="@color/s_line"/>
 
             <!-- Sensor Dashboard Mini App - Coming Soon -->
             <LinearLayout
@@ -793,7 +793,7 @@
                             android:layout_height="16dp"
                             android:paddingHorizontal="6dp"
                             android:text="@string/mini_app_coming_soon"
-                            android:textColor="@android:color/white"
+                            android:textColor="@color/s_ink_dim"
                             android:textSize="8sp"
                             android:textStyle="bold"
                             android:gravity="center"
@@ -806,7 +806,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="@string/mini_app_sensor_dashboard_desc"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_faint"
                         android:textSize="11sp"
                         android:textAlignment="viewStart"
                         android:maxLines="2"
@@ -821,7 +821,7 @@
                     android:layout_marginStart="12dp"
                     android:layout_gravity="center_vertical"
                     android:src="@drawable/ic_arrow_right"
-                    android:tint="@android:color/darker_gray" />
+                    android:tint="@color/s_ink_faint" />
 
             </LinearLayout>
 
@@ -856,7 +856,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/mini_app_speedometer_desc"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_faint"
                         android:textSize="12sp"/>
                 </LinearLayout>
                 <TextView
@@ -876,7 +876,7 @@
                     android:layout_width="14dp"
                     android:layout_height="14dp"
                     android:src="@drawable/ic_arrow_right"
-                    android:tint="@android:color/darker_gray"/>
+                    android:tint="@color/s_ink_faint"/>
             </LinearLayout>
             <View style="@style/SettingsDivider" />
 
@@ -909,7 +909,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/mini_app_clinometer_desc"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_faint"
                         android:textSize="12sp"/>
                 </LinearLayout>
                 <TextView
@@ -929,7 +929,7 @@
                     android:layout_width="14dp"
                     android:layout_height="14dp"
                     android:src="@drawable/ic_arrow_right"
-                    android:tint="@android:color/darker_gray"/>
+                    android:tint="@color/s_ink_faint"/>
             </LinearLayout>
             <View style="@style/SettingsDivider" />
 
@@ -962,7 +962,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/mini_app_pedometer_desc"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_faint"
                         android:textSize="12sp"/>
                 </LinearLayout>
                 <TextView
@@ -982,7 +982,7 @@
                     android:layout_width="14dp"
                     android:layout_height="14dp"
                     android:src="@drawable/ic_arrow_right"
-                    android:tint="@android:color/darker_gray"/>
+                    android:tint="@color/s_ink_faint"/>
             </LinearLayout>
             <View style="@style/SettingsDivider" />
 
@@ -1015,7 +1015,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/mini_app_metal_detector_desc"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_faint"
                         android:textSize="12sp"/>
                 </LinearLayout>
                 <TextView
@@ -1035,7 +1035,7 @@
                     android:layout_width="14dp"
                     android:layout_height="14dp"
                     android:src="@drawable/ic_arrow_right"
-                    android:tint="@android:color/darker_gray"/>
+                    android:tint="@color/s_ink_faint"/>
             </LinearLayout>
             <View style="@style/SettingsDivider" />
 
@@ -1068,7 +1068,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/mini_app_parking_marker_desc"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_faint"
                         android:textSize="12sp"/>
                 </LinearLayout>
                 <TextView
@@ -1088,7 +1088,7 @@
                     android:layout_width="14dp"
                     android:layout_height="14dp"
                     android:src="@drawable/ic_arrow_right"
-                    android:tint="@android:color/darker_gray"/>
+                    android:tint="@color/s_ink_faint"/>
             </LinearLayout>
             <View style="@style/SettingsDivider" />
 
@@ -1121,7 +1121,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/mini_app_qr_generator_desc"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_faint"
                         android:textSize="12sp"/>
                 </LinearLayout>
                 <TextView
@@ -1141,7 +1141,7 @@
                     android:layout_width="14dp"
                     android:layout_height="14dp"
                     android:src="@drawable/ic_arrow_right"
-                    android:tint="@android:color/darker_gray"/>
+                    android:tint="@color/s_ink_faint"/>
             </LinearLayout>
 
         </LinearLayout>
@@ -1232,7 +1232,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="@string/whats_new_subtitle"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_faint"
                         android:textSize="11sp"
                         android:textAlignment="viewStart" />
 
@@ -1245,7 +1245,7 @@
                     android:layout_marginStart="12dp"
                     android:layout_gravity="center_vertical"
                     android:src="@drawable/ic_arrow_right"
-                    android:tint="@android:color/darker_gray" />
+                    android:tint="@color/s_ink_faint" />
 
             </LinearLayout>
 
@@ -1255,7 +1255,7 @@
                 android:layout_height="1dp"
                 android:layout_marginStart="0dp"
                 android:layout_marginEnd="0dp"
-                app:dividerColor="#262626"/>
+                app:dividerColor="@color/s_line"/>
 
             <!-- Tips row -->
             <LinearLayout
@@ -1299,7 +1299,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="@string/tips_subtitle"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/s_ink_faint"
                         android:textSize="11sp"
                         android:textAlignment="viewStart" />
 
@@ -1312,7 +1312,7 @@
                     android:layout_marginStart="12dp"
                     android:layout_gravity="center_vertical"
                     android:src="@drawable/ic_arrow_right"
-                    android:tint="@android:color/darker_gray" />
+                    android:tint="@color/s_ink_faint" />
 
             </LinearLayout>
 
@@ -1339,7 +1339,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 android:text="@string/home_sidebar_copyright"
-                android:textColor="@android:color/darker_gray"
+                android:textColor="@color/s_ink_faint"
                 android:textSize="11sp"
                 android:gravity="center" />
 

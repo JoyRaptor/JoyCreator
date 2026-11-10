@@ -692,11 +692,11 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="fadrec_ready_to_record">Bereit zur Bildschirmaufnahme</string>
     <string name="fadrec_ready_to_record_subtitle">Tippen zum Starten</string>
     <string name="fadrec_permission_denied">Bildschirmaufnahme-Berechtigung verweigert</string>
-    <string name="fadrec_mode_title">FadRec • Bildschirmaufnahme</string>
+    <string name="fadrec_mode_title">Bildschirmaufnahme</string>
     <string name="fadrec_mute_audio">Aufnahme-Audio stummschalten</string>
     <string name="fadrec_unmute_audio">Aufnahme-Audio einschalten</string>
     <string name="fadrec_mic_permission_needed_title">Mikrofon-Berechtigung erforderlich</string>
-    <string name="fadrec_mic_permission_needed_message">FadRec kann nicht auf dein Mikrofon zugreifen. Du kannst stumm aufnehmen – kein Audio wird gespeichert.</string>
+    <string name="fadrec_mic_permission_needed_message">Joy Creator kann nicht auf dein Mikrofon zugreifen. Du kannst stumm aufnehmen – kein Audio wird gespeichert.</string>
     <string name="fadrec_record_muted">Stumm aufnehmen</string>
     <string name="fadrec_audio_source_title">Audioquelle</string>
     <string name="fadrec_audio_source_choose">Audioquelle wählen</string>
@@ -939,7 +939,7 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="media_type_photo">Foto</string>
     <string name="media_type_photo_back">Rückseite</string>
     <string name="media_type_photo_selfie">Selfie</string>
-    <string name="media_type_photo_fadrec">FadRec</string>
+    <string name="media_type_photo_fadrec">Bildschirm</string>
     <string name="photo_capture_saved">Foto gespeichert</string>
     <string name="photo_capture_failed">Foto konnte nicht aufgenommen werden</string>
     <string name="photo_capture_preview_unavailable">Vorschau ist nicht verfügbar</string>
@@ -947,10 +947,10 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="records_filter_all">Alle</string>
     <string name="records_filter_camera">Joy Creator</string>
     <string name="records_filter_dual">Dual</string>
-    <string name="records_filter_screen">FadRec</string>
+    <string name="records_filter_screen">Bildschirm</string>
     <string name="records_filter_faditor">Faditor</string>
     <string name="records_filter_stream">Stream</string>
-    <string name="records_filter_shot">FadShot</string>
+    <string name="records_filter_shot">Fotos</string>
     <string name="records_filter_camera_all">Alle</string>
     <string name="records_filter_camera_back">Rückseite</string>
     <string name="records_filter_camera_front">Vorderseite</string>
@@ -962,14 +962,14 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="records_filter_miniapps_all">Alle</string>
     <string name="records_filter_shot_back">Rückseite</string>
     <string name="records_filter_shot_selfie">Selfie</string>
-    <string name="records_filter_shot_fadrec">FadRec</string>
+    <string name="records_filter_shot_fadrec">Bildschirm</string>
     <string name="records_filter_checklist_desc">Auswahlmodus umschalten</string>
     <string name="records_filter_helper_camera_all">Kameraaufnahmen (Rückseite, Vorderseite, Dual)</string>
     <string name="records_filter_helper_camera_back">Mit Rückkamera aufgenommen</string>
     <string name="records_filter_helper_camera_front">Mit Frontkamera aufgenommen (Selfie)</string>
     <string name="records_filter_helper_camera_dual">Im Dual-Kamera-Modus aufgenommen</string>
     <string name="records_filter_helper_dual">Dual-Kamera-Aufnahmen</string>
-    <string name="records_filter_helper_screen">Bildschirmaufnahmen (FadRec)</string>
+    <string name="records_filter_helper_screen">Bildschirmaufnahmen</string>
     <string name="records_filter_helper_faditor">Bearbeitete/Exportierte Videos (Faditor)</string>
     <string name="records_filter_helper_faditor_all">Alle Faditor-Ausgaben und zugehörigen Dateien.</string>
     <string name="records_filter_helper_faditor_converted">Fragmentiertes MP4 in standardkonformes suchbares MP4 für externe Player konvertiert.</string>
@@ -978,7 +978,7 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="records_filter_helper_shot_all">Aufgenommene Fotos und Screenshots</string>
     <string name="records_filter_helper_shot_back">Fotos mit Rückkamera aufgenommen</string>
     <string name="records_filter_helper_shot_selfie">Fotos mit Frontkamera aufgenommen (Selfie)</string>
-    <string name="records_filter_helper_shot_fadrec">Screenshots aufgenommen (FadRec)</string>
+    <string name="records_filter_helper_shot_fadrec">Screenshots aufgenommen</string>
     <string name="records_location_format">Standort: %1$s/%2$s</string>
     <string name="records_batch_select_all">Alle auswählen</string>
     <string name="records_batch_deselect_all">Alle abwählen</string>
@@ -1462,7 +1462,7 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="faditor_exporting">Exportiere…</string>
     <string name="faditor_exporting_percent">Exportiere… %1$d%%</string>
     <string name="faditor_fadcam_source">Joy Creator</string>
-    <string name="faditor_fadrec_source">FadRec</string>
+    <string name="faditor_fadrec_source">Bildschirm</string>
     <string name="faditor_feature_convert">Intelligente Konvertierung</string>
     <string name="faditor_feature_convert_desc">Konvertiert absturzsichere Aufnahmen automatisch in suchbares MP4 für reibungslose Wiedergabe überall</string>
     <string name="faditor_feature_export">Schnellexport</string>
@@ -1534,8 +1534,8 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="faditor_volume_warning">Über 100%% kann die Audioqualität beeinträchtigen</string>
     <string name="faditor_your_recordings">Deine Aufnahmen</string>
     <string name="fadrec_preview_enable_hint">Halten, um Vorschau anzuzeigen</string>
-    <string name="fadrec_preview_not_available">Live-Bildschirmvorschau ist in FadRec noch nicht integriert</string>
-    <string name="fadrec_projects">FadRec-Projekte</string>
+    <string name="fadrec_preview_not_available">Live-Bildschirmvorschau ist in Joy Creator noch nicht integriert</string>
+    <string name="fadrec_projects">Bildschirmprojekte</string>
     <string name="forensic_intelligence_title">Forensische Intelligenz</string>
     <string name="forensics_clip_black">Schwarze Klammer</string>
     <string name="forensics_clip_red">Rote Klammer</string>
@@ -1820,7 +1820,7 @@ Für die flüssigste Wiedergabe kannst du einen externen Player wie VLC verwende
     <string name="preview_enable_hint">Halten, um die Kamera zu aktivieren</string>
     <string name="preview_quick_actions_state_always">Immer sichtbar (Bereitschaft + Aufnahme)</string>
     <string name="preview_quick_actions_state_recording_only">Nur während der Aufnahme sichtbar</string>
-    <string name="preview_quick_actions_sub">FadShot- und Vollbildsymbole auch im Leerlauf anzeigen.</string>
+    <string name="preview_quick_actions_sub">Foto- und Vollbildsymbole auch im Leerlauf anzeigen.</string>
     <string name="preview_quick_actions_title">Vorschau-Schnellaktionen</string>
     <string name="preview_starting">Live-Vorschau wird gestartet…</string>
     <string name="previous">Zurück</string>
@@ -1900,7 +1900,7 @@ Für die flüssigste Wiedergabe kannst du einen externen Player wie VLC verwende
     <string name="screen_rec_resolution">Auflösung</string>
     <string name="screen_rec_settings_subtitle">Qualität, Audio &amp; Ausgabeeinstellungen</string>
     <string name="screen_rec_settings_title">Bildschirmaufnahme</string>
-    <string name="screenshot_accessibility_enable_needed">Aktiviere „FadRec-Screenshot" in den Bedienungshilfen, um diesen Shortcut ohne Aufnahmeaufforderung zu verwenden.</string>
+    <string name="screenshot_accessibility_enable_needed">Aktiviere „Joy Creator" in den Bedienungshilfen, um diesen Shortcut ohne Aufnahmeaufforderung zu verwenden.</string>
     <string name="screenshot_accessibility_service_desc">Erfasst einen Screenshot für den FadRec-Shortcut und speichert ihn in FadCam/FadShot.</string>
     <string name="screenshot_capture_failed">Screenshot konnte nicht erfasst werden</string>
     <string name="screenshot_capture_saved">Screenshot gespeichert</string>
@@ -1938,7 +1938,7 @@ Für die flüssigste Wiedergabe kannst du einen externen Player wie VLC verwende
     <string name="shortcut_start_front">Vorderseite starten</string>
     <string name="shortcut_take_photo">Foto</string>
     <string name="shortcut_take_photo_front">Selfie</string>
-    <string name="shortcut_take_screenshot">FadRec</string>
+    <string name="shortcut_take_screenshot">Screenshot</string>
     <string name="shortcuts_choose_from_app_icons">Aus App-Symbolen wählen</string>
     <string name="shortcuts_choose_from_gallery">Aus Galerie wählen</string>
     <string name="shortcuts_choose_icon_desc">Wähle ein Symbol für diesen Shortcut. Du kannst aus dem Symbol-Set der App wählen oder ein Bild aus deiner Galerie auswählen.</string>
@@ -2276,7 +2276,7 @@ Für die flüssigste Wiedergabe kannst du einen externen Player wie VLC verwende
     <string name="mini_apps_current_tools">Aktuelle Werkzeuge</string>
     <string name="mini_apps_qr_scanner_reference">QR-Scanner-Referenz</string>
     <string name="screen_recording_title">Bildschirmaufnahme</string>
-    <string name="screen_recording_notif_title">FadRec - Bildschirmaufnahme</string>
+    <string name="screen_recording_notif_title">Joy Creator - Bildschirmaufnahme</string>
     <string name="screen_recording_saved">Bildschirmaufnahme gespeichert</string>
     <string name="screen_recording_tap_to_view">Tippe, um deine Aufnahme anzusehen</string>
     <string name="notification_action_stop">Stopp</string>
@@ -2381,16 +2381,16 @@ Für die flüssigste Wiedergabe kannst du einen externen Player wie VLC verwende
     <string name="screen_rec_resolution_value" translatable="false">1920×1080</string>
     <string name="screen_rec_framerate_value" translatable="false">30 fps</string>
     <string name="screen_rec_bitrate_value" translatable="false">8 Mbps</string>
-    <string name="screen_rec_splitting_value_format">%s (FadCam + FadRec)</string>
+    <string name="screen_rec_splitting_value_format">%s (Joy Creator + Bildschirm)</string>
 
     <!-- Settings home tabs -->
     <string name="settings_tab_all">Alle</string>
     <string name="settings_tab_fadcam" translatable="false">Joy Creator</string>
-    <string name="settings_tab_fadrec" translatable="false">FadRec</string>
+    <string name="settings_tab_fadrec" translatable="false">Bildschirm</string>
 
     <!-- Watermark preview labels -->
     <string name="watermark_preview_fadcam" translatable="false">Joy Creator</string>
-    <string name="watermark_preview_fadrec" translatable="false">FadRec</string>
+    <string name="watermark_preview_fadrec" translatable="false">Bildschirm</string>
     <string name="settings_location_update_interval_5s">5,0 Sekunden</string>
 
     <!-- Annotation toolbar -->
@@ -2472,7 +2472,7 @@ Für die flüssigste Wiedergabe kannst du einen externen Player wie VLC verwende
     <string name="desc_delete_text">Text löschen</string>
     <string name="desc_done">Fertig</string>
     <string name="desc_exposure_compensation">Belichtungskorrektur</string>
-    <string name="desc_fadrec_logo">FadRec-Logo</string>
+    <string name="desc_fadrec_logo">Logo des Bildschirmrekorders</string>
     <string name="desc_fast_forward">5 Sekunden vorspulen</string>
     <string name="desc_increase">Erhöhen</string>
     <string name="desc_italic">Kursiv</string>

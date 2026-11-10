@@ -77,7 +77,7 @@ public final class LibraryFilter {
         if (shared == Shared.ONLY && !it.sharedIn) return false;
         if (shared == Shared.HIDE && it.sharedIn) return false;
         if (words.length == 0) return true;
-        String hay = fold(it.name) + " " + fold(it.parentName);
+        String hay = fold(it.name) + " " + fold(it.parentName) + " " + fold(it.searchAlias);
         for (String w : words) if (!hay.contains(w)) return false;
         return true;
     }

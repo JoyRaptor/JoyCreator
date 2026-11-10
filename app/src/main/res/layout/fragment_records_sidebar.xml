@@ -59,7 +59,7 @@
         android:layout_marginTop="8dp"
         android:layout_marginStart="14dp"
         android:layout_marginEnd="12dp"
-        app:dividerColor="#262626"/>
+        app:dividerColor="@color/s_line"/>
 
     <!-- Group: Sorting -->
     <TextView
@@ -88,7 +88,7 @@
                 android:layout_height="24dp"
                 android:layout_marginEnd="12dp"
                 android:src="@drawable/ic_sort"
-                android:tint="@android:color/darker_gray"/>
+                android:tint="@color/s_ink_faint"/>
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
@@ -107,7 +107,7 @@
                     android:id="@+id/row_sort_subtitle"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textColor="@android:color/darker_gray"
+                    android:textColor="@color/s_ink_faint"
                     android:textSize="12sp"
                     android:text="@string/sort_latest_first"
                     android:textAlignment="viewStart"/>
@@ -117,7 +117,7 @@
                 android:layout_width="14dp"
                 android:layout_height="14dp"
                 android:src="@drawable/ic_arrow_right"
-                android:tint="@android:color/darker_gray"/>
+                android:tint="@color/s_ink_faint"/>
         </LinearLayout>
 
         <!-- Divider between rows in card -->
@@ -126,7 +126,7 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="14dp"
             android:layout_marginEnd="12dp"
-            app:dividerColor="#262626"/>
+            app:dividerColor="@color/s_line"/>
 
         <!-- View Mode Row (moved from FAB) -->
         <LinearLayout
@@ -138,7 +138,7 @@
                 android:layout_height="24dp"
                 android:layout_marginEnd="12dp"
                 android:src="@drawable/ic_grid"
-                android:tint="@android:color/darker_gray"/>
+                android:tint="@color/s_ink_faint"/>
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
@@ -157,7 +157,7 @@
                     android:id="@+id/row_view_mode_subtitle"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textColor="@android:color/darker_gray"
+                    android:textColor="@color/s_ink_faint"
                     android:textSize="12sp"
                     android:text="@string/view_mode_grid"
                     android:textAlignment="viewStart"/>
@@ -167,7 +167,7 @@
                 android:layout_width="14dp"
                 android:layout_height="14dp"
                 android:src="@drawable/ic_arrow_right"
-                android:tint="@android:color/darker_gray"/>
+                android:tint="@color/s_ink_faint"/>
         </LinearLayout>
     </LinearLayout>
 
@@ -178,7 +178,7 @@
 
         android:layout_marginStart="14dp"
         android:layout_marginEnd="12dp"
-        android:textColor="@android:color/darker_gray"
+        android:textColor="@color/s_ink_faint"
         android:text="@string/records_sort_helper"/>
 
     <!-- Hide Thumbnails Group Card -->
@@ -209,7 +209,7 @@
                 android:layout_height="24dp"
                 android:layout_marginEnd="12dp"
                 android:src="@drawable/ic_video_placeholder"
-                android:tint="@android:color/darker_gray"/>
+                android:tint="@color/s_ink_faint"/>
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
@@ -227,7 +227,7 @@
                     android:id="@+id/row_hide_thumbnails_state"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textColor="@android:color/darker_gray"
+                    android:textColor="@color/s_ink_faint"
                     android:textSize="12sp"
                     android:text="@string/universal_close"/>
             </LinearLayout>

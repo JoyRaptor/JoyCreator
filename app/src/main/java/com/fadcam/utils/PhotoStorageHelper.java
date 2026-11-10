@@ -295,14 +295,14 @@ public final class PhotoStorageHelper {
         String base;
         switch (option) {
             case "badge_fadcam":
-                base = "Captured by <FADCAM_ICON>" + customLine;
+                base = "Captured by Joy Creator" + customLine;
                 break;
             case "timestamp":
                 base = timestamp + timezoneSuffix + customLine;
                 break;
             case "timestamp_fadcam":
             default:
-                base = "Captured by <FADCAM_ICON> - " + timestamp + timezoneSuffix + customLine;
+                base = "Captured by Joy Creator - " + timestamp + timezoneSuffix + customLine;
                 break;
         }
 

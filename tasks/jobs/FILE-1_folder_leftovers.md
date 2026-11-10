@@ -18,7 +18,8 @@ the Space screen. Live spec: [`SPEC_20261013_FILE_MANAGEMENT.md`](../SPEC_202610
 ## What is left
 - [ ] Undo after a Move: needs an outside file over 25 MB (smaller files are copied, not linked).
 - [ ] Space → "Move unused to Trash…" (multi-select): compiles, never on the phone.
-- [ ] Share-in of a large file still copies whatever the size; make it follow Copy / Move / Leave (link + warning above 25 MB).
+- [x] 11-10 Share-in of a large file (over 25 MB) now asks Copy / Move / Leave (`ShareInActivity`, reusing `BringInDialog.Choice` + `OriginalsRemover`). Leave links only when the sharing app allows a lasting grant, else copies with a note. **Note 9 11-10 PASS** (a throwaway 31 MB file sent by an intent): the card "This is a large file (31 MB)" appears with Copy / Move / Leave / Cancel; Leave saved nothing in the folder and said "linked, not copied"; Move put a copy in the folder and removed the original. The first try exposed a bug (a `file://` share reported no size, so it skipped the choice); fixed by reading the size from the file. Not tried: Leave on a `content://` share whose app refuses a lasting link (falls back to copy; code path only), and Undo after a Move.
+- [x] 11-10 Space → "Move unused to Trash…" PASS on the Note 9: the list pre-ticks every unused file (careful on a real phone); with only my throwaway ticked, "1 file moved to Trash", the folder went 643 → 611 MB, the file left the folder, the Trash showed it.
 - [ ] In real use only (testing would litter his real folder): recording when the folder is missing, and the
       "make a Recordings folder?" offer after 20 loose recordings.
 - [ ] The JoyBrush half: [`joybrush/briefs/JOY_FOLDER_FOR_JOYBRUSH.md`](../joybrush/briefs/JOY_FOLDER_FOR_JOYBRUSH.md) §0

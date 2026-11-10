@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/black"
+    android:background="@color/s_ground"
     android:layoutDirection="ltr"
     android:fillViewport="true">
 
@@ -59,7 +59,7 @@
                 android:text="@string/onboarding_human_desc"
                 android:textSize="@dimen/onboarding_desc_size"
                 android:fontFamily="@font/joy_body"
-                android:textColor="@color/white"
+                android:textColor="@color/s_ink"
                 android:gravity="center"
                 android:layout_marginTop="@dimen/onboarding_margin"
                 android:layout_marginLeft="@dimen/onboarding_margin"
@@ -89,7 +89,7 @@
                     android:contentDescription="@string/onboarding_human_checkbox1"
                     android:layout_marginRight="12dp"
                     android:padding="2dp"
-                    android:tint="@color/white" />
+                    android:tint="@color/s_ink_dim" />
 
                 <TextView
                     android:id="@+id/checkbox_label_1"
@@ -97,7 +97,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="@string/onboarding_human_checkbox1"
-                    android:textColor="@color/white"
+                    android:textColor="@color/s_ink"
                     android:fontFamily="@font/joy_body"
                     android:textSize="@dimen/onboarding_desc_size" />
             </LinearLayout>
@@ -126,7 +126,7 @@
                     android:contentDescription="@string/onboarding_human_checkbox2"
                     android:layout_marginRight="12dp"
                     android:padding="2dp"
-                    android:tint="@color/white" />
+                    android:tint="@color/s_ink_dim" />
 
                 <TextView
                     android:id="@+id/checkbox_label_2"
@@ -134,7 +134,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="@string/onboarding_human_checkbox2"
-                    android:textColor="@color/white"
+                    android:textColor="@color/s_ink"
                     android:fontFamily="@font/joy_body"
                     android:textSize="@dimen/onboarding_desc_size" />
             </LinearLayout>
@@ -163,7 +163,7 @@
                     android:contentDescription="@string/onboarding_human_checkbox3"
                     android:layout_marginRight="12dp"
                     android:padding="2dp"
-                    android:tint="@color/white" />
+                    android:tint="@color/s_ink_dim" />
 
                 <TextView
                     android:id="@+id/checkbox_label_3"
@@ -171,7 +171,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="@string/onboarding_human_checkbox3"
-                    android:textColor="@color/white"
+                    android:textColor="@color/s_ink"
                     android:fontFamily="@font/joy_body"
                     android:textSize="@dimen/onboarding_desc_size"
                     android:clickable="true"

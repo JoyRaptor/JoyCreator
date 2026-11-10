@@ -804,7 +804,7 @@ Export runs as a background service — you can close the app and it will keep e
     <string name="faditor_exporting">Export kigi…</string>
     <string name="faditor_exporting_percent">Exporting… %1$d%%</string>
     <string name="faditor_fadcam_source">Joy Creator</string>
-    <string name="faditor_fadrec_source">FadRec</string>
+    <string name="faditor_fadrec_source">Screen</string>
     <string name="faditor_feature_convert">Smart Convert</string>
     <string name="faditor_feature_convert_desc">Crash-safe recordings khpala seekable standard MP4 ke badal kai che smooth playback everywhere</string>
     <string name="faditor_feature_export">Quick Export ka</string>
@@ -880,9 +880,9 @@ Export runs as a background service — you can close the app and it will keep e
     <string name="fadrec_audio_source_mic">Microphone</string>
     <string name="fadrec_audio_source_none">Ghag Nadi</string>
     <string name="fadrec_audio_source_title">Da Ghag Manba</string>
-    <string name="fadrec_mic_permission_needed_message">FadRec sta mic ta rasai na lari. Ta record muted kol shaye — hes audio ba save na shi.</string>
+    <string name="fadrec_mic_permission_needed_message">Joy Creator sta mic ta rasai na lari. Ta record muted kol shaye — hes audio ba save na shi.</string>
     <string name="fadrec_mic_permission_needed_title">Microphone Ejazat Pakar De</string>
-    <string name="fadrec_mode_title">FadRec • Screen Recording</string>
+    <string name="fadrec_mode_title">Screen Recording</string>
     <string name="fadrec_mute_audio">Recording ghag khamosh ka</string>
     <string name="fadrec_notification_paused">Recording lag waqfa shu</string>
     <string name="fadrec_notification_recording">Recording screen…</string>
@@ -890,8 +890,8 @@ Export runs as a background service — you can close the app and it will keep e
     <string name="fadrec_pause_screen_recording">Screen Recording Lag Odrawa</string>
     <string name="fadrec_permission_denied">Screen recording permission denied</string>
     <string name="fadrec_preview_enable_hint">Hold to show preview</string>
-    <string name="fadrec_preview_not_available">Live screen preview enham FadRec ke wired na shwi</string>
-    <string name="fadrec_projects">FadRec Projects</string>
+    <string name="fadrec_preview_not_available">Live screen preview enham Joy Creator ke wired na shwi</string>
+    <string name="fadrec_projects">Screen Projects</string>
     <string name="fadrec_ready_to_record">Screen capture kolo lapara tayar</string>
     <string name="fadrec_ready_to_record_subtitle">Tap to begin</string>
     <string name="fadrec_record_muted">Khamosh Record Ka</string>
@@ -1203,7 +1203,7 @@ Fun fact: 10/Jul/2024 04:47 PM wakht ke Joy Creator v1.0 first shipped.</string>
     <string name="manage_projects">Manage Projects</string>
     <string name="media_type_photo">Tasweer</string>
     <string name="media_type_photo_back">Shata</string>
-    <string name="media_type_photo_fadrec">FadRec</string>
+    <string name="media_type_photo_fadrec">Screen</string>
     <string name="media_type_photo_selfie">Selfie</string>
     <string name="mini_app_clinometer_desc">Measure angles and slopes using gyroscope</string>
     <string name="mini_app_clinometer_title">Clinometer</string>
@@ -1387,7 +1387,7 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="preview_enabled">Preview enabled</string>
     <string name="preview_quick_actions_state_always">Always visible (idle + recording)</string>
     <string name="preview_quick_actions_state_recording_only">Zaher only while recording</string>
-    <string name="preview_quick_actions_sub">FadShot aw Fullscreen icons woyai hatta kala che recording idle wi.</string>
+    <string name="preview_quick_actions_sub">Photo aw Fullscreen icons woyai hatta kala che recording idle wi.</string>
     <string name="preview_quick_actions_title">Preview quick actions</string>
     <string name="preview_starting">Starting live preview...</string>
     <string name="preview_state_disable">Ghair Faal Ka</string>
@@ -1537,18 +1537,18 @@ Yadona: La na yao exit method faal pati shi che bended na shi!</string>
     <string name="records_filter_helper_faditor_all">All Faditor outputs and related files.</string>
     <string name="records_filter_helper_faditor_converted">Da bahrani players dapara fragmented MP4 standard seekable MP4 ke badal sho.</string>
     <string name="records_filter_helper_faditor_merge">Merged multiple clips into one output video.</string>
-    <string name="records_filter_helper_screen">Screen recordings (FadRec)</string>
+    <string name="records_filter_helper_screen">Screen recordings</string>
     <string name="records_filter_helper_shot_all">Captured photos and screenshots</string>
     <string name="records_filter_helper_shot_back">Captured photos with back camera</string>
-    <string name="records_filter_helper_shot_fadrec">Captured screenshots (FadRec)</string>
+    <string name="records_filter_helper_shot_fadrec">Captured screenshots</string>
     <string name="records_filter_helper_shot_selfie">Captured photos with front camera (selfie)</string>
     <string name="records_filter_helper_stream">Saved stream recordings</string>
     <string name="records_filter_miniapps_all">Tol</string>
-    <string name="records_filter_screen">FadRec</string>
-    <string name="records_filter_shot">FadShot</string>
+    <string name="records_filter_screen">Screen</string>
+    <string name="records_filter_shot">Photos</string>
     <string name="records_filter_shot_all">Tol</string>
     <string name="records_filter_shot_back">Shata</string>
-    <string name="records_filter_shot_fadrec">FadRec</string>
+    <string name="records_filter_shot_fadrec">Screen</string>
     <string name="records_filter_shot_selfie">Selfie</string>
     <string name="records_filter_stream">Stream</string>
     <string name="records_grid_1">1 column</string>
@@ -1677,7 +1677,7 @@ Yadona: La na yao exit method faal pati shi che bended na shi!</string>
     <string name="screen_rec_resolution">Resolution</string>
     <string name="screen_rec_settings_subtitle">Kaifiyat, audio &amp; output settings</string>
     <string name="screen_rec_settings_title">Screen Recording</string>
-    <string name="screenshot_accessibility_enable_needed">Faal Ka "FadRec Screenshot" in Accessibility to use da shortcut without recording prompt.</string>
+    <string name="screenshot_accessibility_enable_needed">Faal Ka "Joy Creator" in Accessibility to use da shortcut without recording prompt.</string>
     <string name="screenshot_accessibility_service_desc">Da FadRec shortcut dapara screenshot akhesti kai aw FadCam/FadShot ki save kai.</string>
     <string name="screenshot_capture_failed">Screenshot akhestel na shwa</string>
     <string name="screenshot_capture_saved">Screenshot save sho</string>
@@ -1728,7 +1728,7 @@ Yadona: La na yao exit method faal pati shi che bended na shi!</string>
     <string name="shortcut_start_front">Shuru Makhki</string>
     <string name="shortcut_take_photo">Tasweer</string>
     <string name="shortcut_take_photo_front">Selfie</string>
-    <string name="shortcut_take_screenshot">FadRec</string>
+    <string name="shortcut_take_screenshot">Screenshot</string>
     <string name="shortcuts_add_to_home">Kor screen ta Zaat ka</string>
     <string name="shortcuts_and_widgets">Shortcuts &amp; Widgets</string>
     <string name="shortcuts_choose_from_app_icons">App icons na intikhab ka</string>
@@ -2340,7 +2340,7 @@ How to read: "Zone 42N — 372,684m E, 3,512,334m N" = Zone 42 pa Northern hemis
 
     <string name="screen_recording_title">Screen Recording</string>
 
-    <string name="screen_recording_notif_title">FadRec - Screen Recording</string>
+    <string name="screen_recording_notif_title">Joy Creator - Screen Recording</string>
 
     <string name="screen_recording_saved">Screen Recording Save Shwe</string>
 
@@ -2460,16 +2460,16 @@ How to read: "Zone 42N — 372,684m E, 3,512,334m N" = Zone 42 pa Northern hemis
     <string name="screen_rec_resolution_value" translatable="false">1920×1080</string>
     <string name="screen_rec_framerate_value" translatable="false">30 fps</string>
     <string name="screen_rec_bitrate_value" translatable="false">8 Mbps</string>
-    <string name="screen_rec_splitting_value_format">%s (FadCam + FadRec)</string>
+    <string name="screen_rec_splitting_value_format">%s (Joy Creator + Screen)</string>
 
     <!-- Settings home tabs -->
     <string name="settings_tab_all">Tol</string>
     <string name="settings_tab_fadcam" translatable="false">Joy Creator</string>
-    <string name="settings_tab_fadrec" translatable="false">FadRec</string>
+    <string name="settings_tab_fadrec" translatable="false">Screen</string>
 
     <!-- Watermark preview labels -->
     <string name="watermark_preview_fadcam" translatable="false">Joy Creator</string>
-    <string name="watermark_preview_fadrec" translatable="false">FadRec</string>
+    <string name="watermark_preview_fadrec" translatable="false">Screen</string>
     <string name="settings_location_update_interval_5s">5.0 saniyah</string>
 
     <!-- Annotation toolbar -->
@@ -2551,7 +2551,7 @@ How to read: "Zone 42N — 372,684m E, 3,512,334m N" = Zone 42 pa Northern hemis
     <string name="desc_delete_text">Matn delete ka</string>
     <string name="desc_done">Mukammal</string>
     <string name="desc_exposure_compensation">Exposure tadil</string>
-    <string name="desc_fadrec_logo">FadRec Logo</string>
+    <string name="desc_fadrec_logo">Screen recorder logo</string>
     <string name="desc_fast_forward">5 saniyah bela</string>
     <string name="desc_increase">Zyat Ka</string>
     <string name="desc_italic">Italic</string>

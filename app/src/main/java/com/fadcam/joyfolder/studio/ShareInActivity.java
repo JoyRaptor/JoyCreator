@@ -109,7 +109,59 @@ public class ShareInActivity extends AppCompatActivity {
         }
         show(shared.size() == 1 ? "Saving…" : "Saving " + shared.size() + " files…", "", null);
         String source = sourceAppLabel();
-        JoyFolderHome.io().execute(() -> save(shared, source));
+        JoyFolderHome.io().execute(() -> {
+            int big = 0;
+            long bigBytes = 0;
+            for (Uri u : shared) {
+                long s = sizeOf(u);
+                if (s > LARGE_BYTES) {
+                    big++;
+                    bigBytes += s;
+                }
+            }
+            if (big == 0) {
+                save(shared, source, BringInDialog.Choice.COPY);
+            } else {
+                final int n = big;
+                final long bytes = bigBytes;
+                runOnUiThread(() -> askAboutLarge(shared, source, n, bytes));
+            }
+        });
+    }
+
+    // ── Large files: the same Copy / Move / Leave rule as Add ────────────
+
+    /** Above this a file from outside is not copied by default (same limit as the editor's Add). */
+    static final long LARGE_BYTES = 25L * 1024 * 1024;
+
+    private void askAboutLarge(List<Uri> shared, String source, int n, long bytes) {
+        buttons.removeAllViews();
+        String size = Formatter.formatShortFileSize(this, bytes);
+        show(n == 1 ? "This is a large file (" + size + ")" : n + " of these are large files (" + size + ")",
+                "Copy keeps a second copy in your Joy Creator folder, so it's safe if the original goes. "
+                        + "Move does that, then removes the original from where it was. "
+                        + "Leave keeps it where it is: it is linked, not copied, so it is not protected by your folder.",
+                null);
+        addButton("Copy into my folder", true, v -> startSaving(shared, source, BringInDialog.Choice.COPY));
+        addButton("Move into my folder", false, v -> startSaving(shared, source, BringInDialog.Choice.MOVE));
+        addButton("Leave where it is", false, v -> startSaving(shared, source, BringInDialog.Choice.LEAVE));
+        addButton("Cancel", false, v -> finish());
+    }
+
+    private void startSaving(List<Uri> shared, String source, BringInDialog.Choice large) {
+        buttons.removeAllViews();
+        show(shared.size() == 1 ? "Saving…" : "Saving " + shared.size() + " files…", "", null);
+        JoyFolderHome.io().execute(() -> save(shared, source, large));
+    }
+
+    /** Keep a link to a shared file past this screen; false when its app only lent it for now. */
+    private boolean keepLink(Uri u) {
+        try {
+            getContentResolver().takePersistableUriPermission(u, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            return true;
+        } catch (RuntimeException e) {
+            return "file".equals(u.getScheme());
+        }
     }
 
     // ── Saving ───────────────────────────────────────────────────────────
@@ -119,10 +171,15 @@ public class ShareInActivity extends AppCompatActivity {
         Uri uri;
         String mime;
         boolean already;
+        /** Left where it was: the project links to the original. */
+        boolean linked;
+        /** Asked to leave it, but its app only lent it for now, so it was copied. */
+        boolean copiedInstead;
     }
 
-    private void save(List<Uri> shared, String source) {
+    private void save(List<Uri> shared, String source, BringInDialog.Choice large) {
         List<Saved> saved = new ArrayList<>();
+        List<String> toRemove = new ArrayList<>();
         String problem = null;
         String projectId = ShareInbox.openProjectId();
         String projectName = ShareInbox.openProjectName();
@@ -135,7 +192,11 @@ public class ShareInActivity extends AppCompatActivity {
             String dir = jf.prepareDir(Placement.What.SHARE_IN, workRel, null, null);
             dirShown = dir.isEmpty() ? "your Joy Creator folder" : dir;
             long need = 0;
-            for (Uri u : shared) need += Math.max(0, sizeOf(u));
+            for (Uri u : shared) {
+                long s = sizeOf(u);
+                if (large == BringInDialog.Choice.LEAVE && s > LARGE_BYTES) continue;   // linked, not copied
+                need += Math.max(0, s);
+            }
             long free = freeBytes();
             if (free >= 0 && need > free) {
                 throw new java.io.IOException("it needs " + Formatter.formatShortFileSize(this, need)
@@ -148,6 +209,17 @@ public class ShareInActivity extends AppCompatActivity {
                 s.mime = getContentResolver().getType(u);
                 long size = sizeOf(u);
                 String rel = null;
+                boolean isLarge = size > LARGE_BYTES;
+                if (isLarge && large == BringInDialog.Choice.LEAVE) {
+                    if (keepLink(u)) {
+                        s.linked = true;
+                        s.uri = u;
+                        s.name = displayName(u);
+                        saved.add(s);
+                        continue;
+                    }
+                    s.copiedInstead = true;   // its app only lent it: a link would die, so copy
+                }
                 if (size > 0) {
                     try (InputStream in = getContentResolver().openInputStream(u)) {
                         if (in != null) rel = jf.index.find(jf.fs, null, Fingerprint.of(in, size));
@@ -168,10 +240,18 @@ public class ShareInActivity extends AppCompatActivity {
                 s.uri = saf.documentUri(rel);
                 if (s.mime == null && s.uri != null) s.mime = getContentResolver().getType(s.uri);
                 saved.add(s);
+                if (isLarge && large == BringInDialog.Choice.MOVE) toRemove.add(u.toString());
             }
             jf.saveIndex();
         } catch (Exception e) {
             problem = e.getMessage();
+        }
+        // Move: the copy has landed and the index is saved; only now do the originals go.
+        List<String> stuck = toRemove.isEmpty() ? new ArrayList<>() : OriginalsRemover.remove(this, toRemove);
+        if (!stuck.isEmpty()) {
+            problem = (problem == null ? "" : problem + ". ")
+                    + "The copy is safe, but these originals couldn't be removed, so delete them yourself: "
+                    + android.text.TextUtils.join(", ", stuck);
         }
         final String err = problem;
         final String where = dirShown;
@@ -188,9 +268,18 @@ public class ShareInActivity extends AppCompatActivity {
         StringBuilder sb = new StringBuilder();
         for (Saved s : saved) {
             sb.append(s.already ? "Already in your folder: " : "").append(s.name).append('\n');
+            if (s.linked) {
+                sb.append("   Large file, left where it is: linked, not copied, so your folder doesn't protect it.\n");
+            } else if (s.copiedInstead) {
+                sb.append("   Large file: the app that shared it only lends it, so it was copied instead of linked.\n");
+            }
         }
-        if (problem != null) sb.append("\nSome files couldn't be saved: ").append(problem).append('.');
-        show(saved.size() == 1 ? "Saved in " + where : saved.size() + " files saved in " + where, sb.toString().trim(), null);
+        if (problem != null) sb.append("\nNote: ").append(problem).append('.');
+        boolean allLinked = true;
+        for (Saved s : saved) allLinked &= s.linked;
+        show(allLinked ? (saved.size() == 1 ? "Left where it is" : saved.size() + " files left where they are")
+                        : saved.size() == 1 ? "Saved in " + where : saved.size() + " files saved in " + where,
+                sb.toString().trim(), null);
 
         ArrayList<Uri> uris = new ArrayList<>();
         Uri firstVideo = null;
@@ -256,9 +345,18 @@ public class ShareInActivity extends AppCompatActivity {
     }
 
     private long sizeOf(Uri u) {
+        if ("file".equals(u.getScheme()) && u.getPath() != null) {
+            long len = new java.io.File(u.getPath()).length();
+            if (len > 0) return len;
+        }
         try (Cursor c = getContentResolver().query(u, new String[]{OpenableColumns.SIZE}, null, null, null)) {
             if (c != null && c.moveToFirst() && !c.isNull(0)) return c.getLong(0);
         } catch (RuntimeException ignored) {
+        }
+        // A provider that doesn't report a size: ask the file itself.
+        try (android.content.res.AssetFileDescriptor fd = getContentResolver().openAssetFileDescriptor(u, "r")) {
+            if (fd != null && fd.getLength() > 0) return fd.getLength();
+        } catch (Exception ignored) {
         }
         return -1;
     }

@@ -597,6 +597,12 @@ public class FadRecHomeFragment extends HomeFragment {
             if (switchFloatingControls != null) {
                 // Set initial state from SharedPreferences
                 boolean isEnabled = sharedPreferencesManager.isFloatingControlsEnabled();
+                // Saved ON but the overlay permission is gone: the overlay cannot show, so the
+                // switch must not claim it is on.
+                if (isEnabled && !android.provider.Settings.canDrawOverlays(requireContext())) {
+                    isEnabled = false;
+                    sharedPreferencesManager.setFloatingControlsEnabled(false);
+                }
                 switchFloatingControls.setChecked(isEnabled);
                 
                 // Handle switch toggle

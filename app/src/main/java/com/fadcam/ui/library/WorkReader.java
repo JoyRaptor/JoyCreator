@@ -41,6 +41,7 @@ final class WorkReader {
             LibraryItem it = new LibraryItem("project:" + p.id, LibraryKind.PROJECTS, nameOf(c, p),
                     p.lastModified, -1, false);
             it.fileKind = FileKind.PROJECT;
+            it.searchAlias = p.name;   // the stored name, even when the card shows the video's file name
             it.projectId = p.id;
             it.thumb = p.videoUri;
             ProjectFacts.Facts facts = ProjectFacts.known(p);

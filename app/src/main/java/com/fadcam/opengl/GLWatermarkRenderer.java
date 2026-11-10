@@ -1209,7 +1209,7 @@ public class GLWatermarkRenderer {
         // Use standard line height for spacing between rows (no extra buffer)
         float effectiveLineHeight = lineHeight;
 
-        String[] lines = text.split("\n");
+        String[] lines = text.replace("<FADCAM_ICON>", "Joy Creator").replace("<ICON>", "Joy Creator").split("\n");
         watermarkLineCount = lines.length;
         float maxLineWidth = 0f;
         for (String line : lines) {

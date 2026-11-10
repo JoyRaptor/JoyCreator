@@ -121,8 +121,8 @@ public class OnboardingActivity extends AppIntro {
 
         // Fix for indicator dots - use custom colors
         setIndicatorColor(
-                ContextCompat.getColor(this, R.color.white), // Selected dot
-                ContextCompat.getColor(this, R.color.gray500) // Unselected dot
+                ContextCompat.getColor(this, R.color.s_ink), // Selected dot
+                ContextCompat.getColor(this, R.color.s_ink_faint) // Unselected dot
         );
 
         // Disable color transitions as our slides don't implement
@@ -607,8 +607,8 @@ public class OnboardingActivity extends AppIntro {
 
         // Update indicator dots (they sometimes need manual refresh)
         setIndicatorColor(
-                ContextCompat.getColor(this, R.color.white),
-                ContextCompat.getColor(this, R.color.gray500));
+                ContextCompat.getColor(this, R.color.s_ink),
+                ContextCompat.getColor(this, R.color.s_ink_faint));
 
         // Force refresh ALL fragments, not just the current one
         ViewPager viewPager = findViewById(com.github.appintro.R.id.view_pager);

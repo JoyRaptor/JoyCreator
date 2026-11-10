@@ -117,7 +117,7 @@
     <string name="fadrec_ready_to_record">Готов к записи экрана</string>
     <string name="fadrec_ready_to_record_subtitle">Нажмите, чтобы начать</string>
     <string name="fadrec_permission_denied">Разрешение на запись экрана отказано</string>
-    <string name="fadrec_mode_title">FadRec • Запись экрана</string>
+    <string name="fadrec_mode_title">Запись экрана</string>
 
     <string name="video_recording_started">Запись началась</string>
     <string name="video_recording_stopped">Запись остановлена</string>
@@ -1187,7 +1187,7 @@
     <string name="manage_projects">Управление проектами</string>
     <string name="name_your_project">Назовите свой проект</string>
     <string name="project_naming_message">Дайте своему проекту запоминающееся имя и описание, чтобы организовать свои записи</string>
-    <string name="fadrec_projects">Проекты FadRec</string>
+    <string name="fadrec_projects">Проекты экрана</string>
     <string name="delete_project">Удалить проект</string>
     <string name="delete_all">Удалить все</string>
     <string name="new_project">Новый проект</string>
@@ -1311,7 +1311,7 @@ Joy Creator использует фрагментированный формат
 
     <string name="fadrec_mic_permission_needed_title">Требуется разрешение на микрофон</string>
 
-    <string name="fadrec_mic_permission_needed_message">FadRec не может получить доступ к микрофону. Вы можете записывать без звука — аудио не будет сохранено.</string>
+    <string name="fadrec_mic_permission_needed_message">Joy Creator не может получить доступ к микрофону. Вы можете записывать без звука — аудио не будет сохранено.</string>
 
     <string name="fadrec_record_muted">Запись без звука</string>
 
@@ -1691,7 +1691,7 @@ Joy Creator использует фрагментированный формат
 
     <string name="media_type_photo_selfie">Селфи</string>
 
-    <string name="media_type_photo_fadrec">FadRec</string>
+    <string name="media_type_photo_fadrec">Экран</string>
 
     <string name="photo_capture_saved">Фото сохранено</string>
 
@@ -1705,13 +1705,13 @@ Joy Creator использует фрагментированный формат
 
     <string name="records_filter_dual">Двойная</string>
 
-    <string name="records_filter_screen">FadRec</string>
+    <string name="records_filter_screen">Экран</string>
 
     <string name="records_filter_faditor">Faditor</string>
 
     <string name="records_filter_stream">Поток</string>
 
-    <string name="records_filter_shot">FadShot</string>
+    <string name="records_filter_shot">Фото</string>
 
     <string name="records_filter_camera_all">Все</string>
 
@@ -1735,7 +1735,7 @@ Joy Creator использует фрагментированный формат
 
     <string name="records_filter_shot_selfie">Селфи</string>
 
-    <string name="records_filter_shot_fadrec">FadRec</string>
+    <string name="records_filter_shot_fadrec">Экран</string>
 
     <string name="records_filter_checklist_desc">Режим выбора</string>
 
@@ -1749,7 +1749,7 @@ Joy Creator использует фрагментированный формат
 
     <string name="records_filter_helper_dual">Записи двойной камеры</string>
 
-    <string name="records_filter_helper_screen">Записи экрана (FadRec)</string>
+    <string name="records_filter_helper_screen">Записи экрана</string>
 
     <string name="records_filter_helper_faditor">Отредактированные/экспортированные видео (Faditor)</string>
 
@@ -1767,7 +1767,7 @@ Joy Creator использует фрагментированный формат
 
     <string name="records_filter_helper_shot_selfie">Снятые фото фронтальной камерой (селфи)</string>
 
-    <string name="records_filter_helper_shot_fadrec">Скриншоты (FadRec)</string>
+    <string name="records_filter_helper_shot_fadrec">Скриншоты</string>
 
     <string name="records_location_format">Местоположение: %1$s/%2$s</string>
 
@@ -1989,7 +1989,7 @@ Joy Creator использует фрагментированный формат
 
     <string name="shortcut_take_photo_front">Селфи</string>
 
-    <string name="shortcut_take_screenshot">FadRec</string>
+    <string name="shortcut_take_screenshot">Скриншот</string>
 
     <string name="screenshot_capture_saved">Скриншот сохранён</string>
 
@@ -1997,7 +1997,7 @@ Joy Creator использует фрагментированный формат
 
     <string name="screenshot_capture_system_saved">Скриншот сделан системой. Сохранён в системных скриншотах.</string>
 
-    <string name="screenshot_accessibility_enable_needed">Включите «FadRec Screenshot» в специальных возможностях для использования этого ярлыка без запроса записи.</string>
+    <string name="screenshot_accessibility_enable_needed">Включите «Joy Creator» в специальных возможностях для использования этого ярлыка без запроса записи.</string>
 
     <string name="screenshot_accessibility_service_desc">Делает скриншот для ярлыка FadRec и сохраняет в FadCam/FadShot.</string>
 
@@ -2007,7 +2007,7 @@ Joy Creator использует фрагментированный формат
 
     <string name="preview_quick_actions_title">Быстрые действия предпросмотра</string>
 
-    <string name="preview_quick_actions_sub">Показывать иконки FadShot и полноэкранного режима даже в режиме ожидания записи.</string>
+    <string name="preview_quick_actions_sub">Показывать иконки Фото и полноэкранного режима даже в режиме ожидания записи.</string>
 
     <string name="preview_quick_actions_state_always">Всегда видимы (ожидание + запись)</string>
 
@@ -2292,7 +2292,7 @@ Joy Creator использует фрагментированный формат
 
     <string name="faditor_fadcam_source">Joy Creator</string>
 
-    <string name="faditor_fadrec_source">FadRec</string>
+    <string name="faditor_fadrec_source">Экран</string>
 
     <string name="faditor_browse_device_desc">Выберите любое видео с устройства</string>
 
@@ -2515,7 +2515,7 @@ Joy Creator использует фрагментированный формат
 
     <!-- FadRec Preview -->
     <string name="fadrec_preview_enable_hint">Удерживайте для показа предпросмотра</string>
-    <string name="fadrec_preview_not_available">Живой предпросмотр экрана ещё не подключён к FadRec</string>
+    <string name="fadrec_preview_not_available">Живой предпросмотр экрана ещё не подключён к Joy Creator</string>
 
     <!-- Forensics Appearance -->
     <string name="forensics_clip_black">Чёрная скрепка</string>
@@ -3007,7 +3007,7 @@ Joy Creator использует фрагментированный формат
     <string name="mini_apps_current_tools">Текущие инструменты</string>
     <string name="mini_apps_qr_scanner_reference">Справочник QR-сканера</string>
     <string name="screen_recording_title">Запись экрана</string>
-    <string name="screen_recording_notif_title">FadRec - Запись экрана</string>
+    <string name="screen_recording_notif_title">Joy Creator - Запись экрана</string>
     <string name="screen_recording_saved">Запись экрана сохранена</string>
     <string name="screen_recording_tap_to_view">Нажмите, чтобы просмотреть запись</string>
     <string name="notification_action_stop">Стоп</string>
@@ -3110,7 +3110,7 @@ Joy Creator использует фрагментированный формат
     <string name="video_split_custom_title">Пользовательский размер разделения (МБ)</string>
 
     <!-- Screen recording values -->
-    <string name="screen_rec_splitting_value_format">%s (FadCam + FadRec)</string>
+    <string name="screen_rec_splitting_value_format">%s (Joy Creator + Экран)</string>
 
     <!-- Settings home tabs -->
     <string name="settings_tab_all">Все</string>
@@ -3197,7 +3197,7 @@ Joy Creator использует фрагментированный формат
     <string name="desc_delete_text">Удалить текст</string>
     <string name="desc_done">Готово</string>
     <string name="desc_exposure_compensation">Компенсация экспозиции</string>
-    <string name="desc_fadrec_logo">Логотип FadRec</string>
+    <string name="desc_fadrec_logo">Логотип записи экрана</string>
     <string name="desc_fast_forward">Перемотка вперёд на 5 секунд</string>
     <string name="desc_increase">Увеличить</string>
     <string name="desc_italic">Курсив</string>

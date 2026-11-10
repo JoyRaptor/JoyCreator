@@ -36,6 +36,8 @@ public final class LibraryItem {
     public String projectId;
     /** The project's name, for "in Restore video test". */
     public String parentName;
+    /** Another name search should also match: a project shown by its video's file name still answers to "Untitled". */
+    public String searchAlias;
     /** A sprite sheet's or a character rig's id inside its project. */
     public String partId;
     /** A Joy Brush drawing's working file name. */

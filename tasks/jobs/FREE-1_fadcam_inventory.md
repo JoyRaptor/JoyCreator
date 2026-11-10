@@ -57,7 +57,7 @@ The build with `ad0665199` compiles (Gradle) and installed in place. On a video 
 
 ## 2026-11-10: phone checks owed, not run
 
-No device was connected. Still unproven on the phone: item sheet "Save to gallery" and "Details", batch Save to gallery / Trash / Open in Studio. Also 11-10: Library search now finds a project by its stored name ("Untitled"); JVM-tested and compiled, not seen on the phone.
+Note 9, build of 11-10, agent-run on throwaway items: the item sheet on an export lists Open, Save to gallery, Open in Studio, Details, Share, Move to Trash. **Save to gallery PASS** (Untitled.mp4, 1.1 MB, landed in Download/FadCam). **Details PASS** (name, size, path, duration, 1280x720, 30 fps, H.264, bitrate, location). **Batch Save to gallery PASS** on two chosen exports: the one with a file copied; the other export has no file on the phone (a stale Library entry) and was skipped, and the toast said "Saving 1 video" without saying one was left out (minor). Not run: batch Trash (would touch real items) and batch Open in Studio. Also 11-10: Library search now finds a project by its stored name ("Untitled"); JVM-tested and compiled, not seen on the phone.
 
 ## 2026-11-04 (4:25 am): Library multi-select, agent check (Note 9)
 

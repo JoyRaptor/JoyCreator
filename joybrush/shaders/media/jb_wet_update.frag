@@ -33,6 +33,7 @@ uniform float u_edgeEvap;       // extra drying at a thin edge (× evap)
 uniform float u_dryAfterS;      // older water dries faster: from this wet age (sim s) ...
 uniform float u_dryRampS;       // ... ramping in over this long ...
 uniform float u_dryBoost;       // ... to evaporation × (1 + this); 0 = off
+const float JB_DAMP_S = 0.01;   // below this, paper with no standing water is dry (MediaAtlasWater.DAMP_S)
 uniform float u_ageScale;       // real seconds per simulated second this step (a slow phone runs the water slower than the
                                 // clock): wet age counts real time, so "older water dries faster" means older on the clock
 uniform float u_absorb;         // 1/s
@@ -185,7 +186,12 @@ void main() {
     float sD = wf(u_w0, jb_clampCell(c + ivec2(0, -1), size)).g;
     float sU = wf(u_w0, jb_clampCell(c + ivec2(0, 1), size)).g;
     s = s + soak / u_capMm + u_wick * u_dt * (sL + sR + sD + sU - 4.0 * s);
-    s = clamp(s - u_sDry * u_dt * s * (wet ? 0.15 : 1.0), 0.0, 1.0);
+    // Damp paper dries on the clock (2026-11-10): like the wet age, the drying of dampness takes real time, so a phone that runs
+    // the water at a twentieth of real time no longer keeps paper damp twenty times as long (on the owner's Note 9 the damp
+    // spread until one damp pool covered the drawing, overflowed the atlas and froze in tile-shaped squares). Dampness this
+    // faint darkens the paper by under 0.1 % (jb_media_render.frag): it is let go, so the paper really dries.
+    s = clamp(s - u_sDry * u_dt * max(u_ageScale, 1.0) * s * (wet ? 0.15 : 1.0), 0.0, 1.0);
+    if (!wet && s < JB_DAMP_S) s = 0.0;
 
 #ifdef JB_WET_COARSE
     // --- settle, lift, dry out: each of the cell's four pixels by its own paper and paint (jb_wetChild, the very function

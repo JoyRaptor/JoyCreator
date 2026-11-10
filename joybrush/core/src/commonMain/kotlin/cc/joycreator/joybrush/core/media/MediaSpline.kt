@@ -18,9 +18,13 @@ class MediaSpline(private val stepPx: Double = 0.75, private val sink: (MediaSam
 
     fun add(s: MediaSample) {
         val lastPt = pts.lastOrNull()
-        if (lastPt != null && hypot(s.x - lastPt.x, s.y - lastPt.y) < 1e-3) { pts[pts.size - 1] = s; return }
+        if (lastPt != null && hypot(s.x - lastPt.x, s.y - lastPt.y) < 1e-3) {
+            if (pts.size == 1) pressedStill = true
+            pts[pts.size - 1] = s
+            return
+        }
         pts.add(s)
-        if (pts.size == 1) { sink(s); return }
+        if (pts.size == 1) { pressedStill = false; sink(s); return }
         if (pts.size >= 3) {
             val n = pts.size
             segment(pts[max(0, n - 4)], pts[n - 3], pts[n - 2], pts[n - 1])
@@ -32,8 +36,16 @@ class MediaSpline(private val stepPx: Double = 0.75, private val sink: (MediaSam
     fun finish() {
         val n = pts.size
         if (n >= 2) segment(pts[max(0, n - 3)], pts[n - 2], pts[n - 1], pts[n - 1])
+        // A press that never moved (a tap, a child's poke): the builders heard only the touch, and need a second report to lay
+        // anything. They get the press as it ended, same place, its own time and pressure, so a tap leaves its dot (second
+        // review E6: a still press painted nothing). What each brush lays for it is its builder's rule, as when fed directly.
+        else if (n == 1 && pressedStill) sink(pts[0])
+        pressedStill = false
         pts.clear()
     }
+
+    /** The only point so far was reported again without moving. */
+    private var pressedStill = false
 
     private fun segment(p0: MediaSample, p1: MediaSample, p2: MediaSample, p3: MediaSample) {
         // Identity, not equality: a repeated endpoint means "no neighbour" (as in the lab).

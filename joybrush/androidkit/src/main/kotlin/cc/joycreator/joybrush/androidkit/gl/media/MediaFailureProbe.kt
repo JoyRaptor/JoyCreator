@@ -35,10 +35,18 @@ internal object MediaFailureProbe {
             }
             val full = run(paper, preset, memory, keepPaint = true, roomRunsOut = true)
             o.put("roomRanOut", full)
-            if (full.getInt("lostPixels") * 200 > full.getInt("laidPixels") || full.getInt("refused") == 0) pass = false
+            // Refused or not (since 2026-11-09 old paint sets to make room where there is any to set): nothing laid is lost.
+            if (full.getInt("lostPixels") * 200 > full.getInt("laidPixels")) pass = false
             val unwritten = run(paper, preset, memory, keepPaint = true, writeFails = true)
             o.put("writeFailed", unwritten)
             if (unwritten.getInt("lostPixels") * 200 > unwritten.getInt("laidPixels")) pass = false
+            // The owner's bar: a full room and a far mark are never the artist's problem (MediaRoomProbe).
+            val room = MediaRoomProbe.roomMade(paper, preset, memory)
+            o.put("roomMade", room)
+            if (!room.optBoolean("ok")) pass = false
+            val far = MediaRoomProbe.farMark(paper, preset, memory)
+            o.put("farMark", far)
+            if (!far.optBoolean("ok")) pass = false
         } finally { MediaAtlasGl.enabled = atlasBefore }
         val names = sleepThenRelease(paper, preset, memory)
         o.put("sleepThenRelease", names)

@@ -781,6 +781,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * backup" restart so the dying activity never persists over the backup.
      */
     private boolean loadSkipDialogPending = false;
+    /**
+     * True from onResume (after any reload) to the end of onPause: this editor is the one the
+     * person is looking at, so its copy of the project is the one to save. See saveProjectNow.
+     */
+    private boolean editorOnScreen = false;
     private final Runnable autoSaveRunnable = () -> {
         if (loadSkipDialogPending) return; // don't clobber the backup we're offering
         if (project != null && projectStorage != null) {
@@ -1665,6 +1670,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         // Check if opening a saved project by ID
         String projectId = getIntent().getStringExtra(EXTRA_PROJECT_ID);
+        // Brought back by Android after it closed the app: the project this screen was holding
+        // wins over an Intent that would start a new one (see onSaveInstanceState).
+        if (projectId == null && savedInstanceState != null) {
+            String held = savedInstanceState.getString(STATE_PROJECT_ID);
+            if (held != null && projectStorage.exists(held)) {
+                projectId = held;
+                FLog.i(TAG, "Restarted by the system: reopening the project that was open, " + held);
+            }
+        }
         if (projectId != null) {
             boolean openBackup = getIntent().getBooleanExtra(EXTRA_LOAD_BACKUP, false);
             FaditorProject loaded = openBackup
@@ -2021,13 +2035,26 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // If the AI assistant modified the project on disk, reload it
         // so the editor reflects the AI's changes instead of the stale
         // in-memory copy (which would overwrite the AI's work on next save).
-        if (com.fadcam.ui.faditor.ai.AIChatState.projectModifiedByAI
+        //
+        // The same holds for ANYONE who wrote the file while this editor was off screen, signal or
+        // no signal (work-loss audit 2026-11-10): a second editor opened on this project (a board
+        // sent from Joy Brush opens one on top), a transcription that finished after its editor
+        // closed, a rename in the Library. This editor saved when it left the screen, so the file
+        // it finds changed now is newer than everything it holds; showing the old copy and then
+        // saving it would throw that work away. The signal only adds the words for the undo step.
+        boolean aiSignal = com.fadcam.ui.faditor.ai.AIChatState.projectModifiedByAI
                 && project != null
                 && project.getId().equals(
-                    com.fadcam.ui.faditor.ai.AIChatState.modifiedProjectId)) {
-            FLog.i(TAG, "AI modified project on disk — reloading from storage");
-            String aiWhat = com.fadcam.ui.faditor.ai.AIChatState.modifiedDescription;
-            com.fadcam.ui.faditor.ai.AIChatState.clearModified();
+                    com.fadcam.ui.faditor.ai.AIChatState.modifiedProjectId);
+        boolean changedElsewhere = !aiSignal && project != null && projectStorage != null
+                && !loadSkipDialogPending && !project.isLoadedFromNewerVersion()
+                && projectStorage.changedOutside(project.getId());
+        if (aiSignal || changedElsewhere) {
+            FLog.i(TAG, aiSignal ? "AI modified project on disk — reloading from storage"
+                    : "Project file was written by someone else while off screen — reloading");
+            String aiWhat = aiSignal ? com.fadcam.ui.faditor.ai.AIChatState.modifiedDescription
+                    : getString(R.string.studio_undo_changed_elsewhere);
+            if (aiSignal) com.fadcam.ui.faditor.ai.AIChatState.clearModified();
 
             try {
                 com.fadcam.ui.faditor.model.FaditorProject reloaded =
@@ -2067,7 +2094,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     }
                     FLog.i(TAG, "AI reload: undo checkpoint recorded=" + aiStepRecorded);
                     swapInProject(reloaded);
-                    Toast.makeText(this, R.string.studio_toast_ai_edits_applied, Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, aiSignal ? R.string.studio_toast_ai_edits_applied
+                            : R.string.studio_toast_changed_elsewhere, Toast.LENGTH_SHORT).show();
                 } else {
                     // The signal was consumed above, so refusing here means the change on disk
                     // is lost the moment this activity autosaves. Never do that silently.
@@ -2080,6 +2108,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 Toast.makeText(this, R.string.studio_toast_ai_edits_saved_reopen_project_to, Toast.LENGTH_LONG).show();
             }
         }
+
+        // From here this editor is the one on screen: its copy is the one to save (saveProjectNow).
+        editorOnScreen = true;
 
         // Files can change while we are backgrounded (the user goes to a file manager, or to the
         // sprite-sheet editor and relinks). Missing-frame state is cached to keep it off the draw
@@ -2265,6 +2296,23 @@ public class FaditorEditorActivity extends AppCompatActivity {
         releaseHeldBaselineRefresh();
         // Save project on pause (e.g. user switches away) — force-flush undo history.
         saveProjectNow(true);
+        editorOnScreen = false;
+    }
+
+    /** The project this editor holds, so a restart by Android reopens IT (see onCreate). */
+    private static final String STATE_PROJECT_ID = "faditor_open_project_id";
+
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        // A project started from a video has no project id in the Intent that opened this screen.
+        // When Android closes the app in the background and brings this screen back, it hands over
+        // that same Intent, and the editor started a NEW project from the video: the person came
+        // back to an empty timeline, their hour of edits apparently gone (they were in a second
+        // project in the list). Remember which project this is. Only once it is on disk.
+        if (project != null && projectStorage != null && projectStorage.exists(project.getId())) {
+            outState.putString(STATE_PROJECT_ID, project.getId());
+        }
     }
 
     @Override
@@ -45985,6 +46033,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (project.isLoadedFromNewerVersion()) {
                 FLog.d(TAG, "saveProjectNow skipped — read-only (newer schema v"
                         + project.getSchemaVersion() + "): " + project.getId());
+                return;
+            }
+            // An editor that is OFF screen and holds an older copy than the file must not save
+            // (work-loss audit 2026-11-10). It saved everything it had when it left the screen;
+            // somebody has written the project since (a second editor on it, Joybot, Sprite Lab),
+            // so what it holds now is the past. Saving here, typically from onDestroy when an
+            // editor left in the back stack is finally closed, put the project back to how it was
+            // when that editor went off screen and threw away everything done after. If it comes
+            // back on screen instead, onResume reloads it. An editor ON screen is never stopped
+            // here: the person is looking at it, so its copy is the one to keep (and
+            // ProjectStorage keeps a copy of whatever that save replaces).
+            if (!editorOnScreen && projectStorage.changedOutside(project.getId())) {
+                FLog.w(TAG, "saveProjectNow skipped — off screen and older than the file: "
+                        + project.getId());
                 return;
             }
             // forceUndoHistory is set on the critical paths (onPause/onDestroy) where

@@ -73,6 +73,58 @@ public class ProjectStorage {
     @Nullable
     private volatile Future<?> lastWrite;
 
+    // ── One writer at a time, and a memory of what this storage last saw on disk ──
+    //
+    // Work-loss audit 2026-11-10. Three things went wrong without these:
+    //  1. A synchronous save (main thread) and a queued one (the writer thread) could run
+    //     writeProjectJson at the same moment on the SAME project.json.tmp: two streams into one
+    //     file, then two rotations. The result could be an unreadable project.json and no .bak.
+    //  2. A queued save that a later synchronous save overtook (the 3 s flush ran out) landed
+    //     afterwards and put the older project back.
+    //  3. Whoever saved last won, silently: an editor left in the back stack wrote its old copy
+    //     over newer work the moment it was closed. Nothing kept what it replaced.
+
+    /** One lock per project folder, shared by every ProjectStorage in the process. */
+    private static final java.util.concurrent.ConcurrentHashMap<String, Object> WRITE_LOCKS =
+            new java.util.concurrent.ConcurrentHashMap<>();
+    /** Every save gets the next number, taken on the caller's thread: the order the saves were ASKED for. */
+    private static final java.util.concurrent.atomic.AtomicLong SAVE_SEQ =
+            new java.util.concurrent.atomic.AtomicLong();
+    /** Per project: the newest save number this storage has written. A queued older one is dropped. */
+    private final java.util.concurrent.ConcurrentHashMap<String, Long> newestWritten =
+            new java.util.concurrent.ConcurrentHashMap<>();
+    /**
+     * Per project: what project.json looked like when THIS storage last read or wrote it
+     * ({@link DiskStamp#of}). A different file now means someone else wrote it since.
+     */
+    private final java.util.concurrent.ConcurrentHashMap<String, long[]> seenOnDisk =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    @NonNull
+    private static Object writeLock(@NonNull File projectDir) {
+        String key = projectDir.getAbsolutePath();
+        Object lock = WRITE_LOCKS.get(key);
+        if (lock != null) return lock;
+        Object fresh = new Object();
+        Object raced = WRITE_LOCKS.putIfAbsent(key, fresh);
+        return raced != null ? raced : fresh;
+    }
+
+    /**
+     * True when project.json has been written by someone else since this storage last loaded or
+     * saved that project: another editor on the same project, Joybot, Sprite Lab, a board sent
+     * from Joy Brush. The copy in memory is then older than the file, and saving it would undo
+     * their work. False when this storage has never loaded or saved the project.
+     */
+    public boolean changedOutside(@NonNull String projectId) {
+        long[] seen = seenOnDisk.get(projectId);
+        if (seen == null) return false;
+        File projectDir = getProjectDir(projectId);
+        synchronized (writeLock(projectDir)) {
+            return DiskStamp.differs(seen, new File(projectDir, PROJECT_FILE));
+        }
+    }
+
     /**
      * Create a ProjectStorage instance.
      *
@@ -114,8 +166,9 @@ public class ProjectStorage {
         // here, once, right before every write, guarantees it always reflects "the
         // moment this save happened" regardless of what the caller touched.
         project.touch();
+        final long seq = SAVE_SEQ.incrementAndGet();
         String json = gson.toJson(project);
-        boolean ok = writeProjectJson(project.getId(), json);
+        boolean ok = writeProjectJson(project.getId(), json, seq, false);
         if (ok) project.setDiskLastModifiedAtLastSync(project.getLastModified());
         return ok;
     }
@@ -142,9 +195,11 @@ public class ProjectStorage {
         project.touch(); // Stage 1 P0 fix — see the comment in save() above.
         final String id = project.getId();
         final long syncedLastModified = project.getLastModified();
+        final long seq = SAVE_SEQ.incrementAndGet();
         final String json = gson.toJson(project);   // serialize on caller thread (no CME)
         lastWrite = ioExecutor.submit(() -> {
-            if (writeProjectJson(id, json)) {
+            // Queued: dropped if a later save from this storage has already been written.
+            if (writeProjectJson(id, json, seq, true)) {
                 project.setDiskLastModifiedAtLastSync(syncedLastModified);
             }
         });
@@ -195,7 +250,9 @@ public class ProjectStorage {
         if (syncedAt < 0) return; // never synced yet (new project) — nothing to merge against
         Long diskLastModified = peekDiskLastModified(project.getId());
         if (diskLastModified == null || diskLastModified <= syncedAt) return; // not stale
-        FaditorProject onDisk = load(project.getId());
+        // Straight from the file, and without remembering it: a peek here must not make a file
+        // somebody else wrote look like one this storage has already seen (changedOutside).
+        FaditorProject onDisk = loadFromDisk(project.getId(), false);
         if (onDisk == null) return; // inconclusive — leave project untouched
         Timeline mine = project.getTimeline();
         Timeline theirs = onDisk.getTimeline();
@@ -249,9 +306,42 @@ public class ProjectStorage {
         }
     }
 
-    /** Atomic write of a pre-serialized project JSON string. Safe to run off the main thread. */
+    /** A write that is not one of a run of saves (a load-time migration): never dropped as older. */
     private boolean writeProjectJson(@NonNull String projectId, @NonNull String json) {
+        return writeProjectJson(projectId, json, SAVE_SEQ.incrementAndGet(), false);
+    }
+
+    /**
+     * Atomic write of a pre-serialized project JSON string. Safe to run off the main thread.
+     * One at a time per project, across every ProjectStorage in the process.
+     *
+     * @param seq      the save's number (see {@link #SAVE_SEQ})
+     * @param droppable a queued save: skipped (false is returned) when this storage has already
+     *                  written a later one, so it cannot put an older project back
+     */
+    private boolean writeProjectJson(@NonNull String projectId, @NonNull String json,
+                                     long seq, boolean droppable) {
         File projectDir = getProjectDir(projectId);
+        synchronized (writeLock(projectDir)) {
+            Long newest = newestWritten.get(projectId);
+            if (droppable && newest != null && newest > seq) {
+                FLog.d(TAG, "Dropped a queued save that a later one overtook: " + projectId);
+                return false;
+            }
+            boolean ok = writeProjectJsonLocked(projectId, projectDir, json);
+            if (ok) {
+                if (newest == null || newest < seq) newestWritten.put(projectId, seq);
+                seenOnDisk.put(projectId, DiskStamp.of(new File(projectDir, PROJECT_FILE)));
+            }
+            return ok;
+        }
+    }
+
+    /** How many replaced or unreadable copies each project keeps (a safety net, not an archive). */
+    private static final int KEPT_COPIES = 5;
+
+    private boolean writeProjectJsonLocked(@NonNull String projectId, @NonNull File projectDir,
+                                           @NonNull String json) {
         if (!projectDir.exists() && !projectDir.mkdirs()) {
             FLog.e(TAG, "Failed to create project directory: " + projectDir);
             return false;
@@ -276,6 +366,19 @@ public class ProjectStorage {
             FLog.e(TAG, "Failed to write temp project: " + projectId, e);
             tmp.delete();
             return false;
+        }
+
+        // The file is not the one this storage last read or wrote: somebody else saved this
+        // project since (another editor on it, Joybot, Sprite Lab, a board from Joy Brush), and
+        // this save is about to replace their work with a copy that never saw it. The save still
+        // happens (the caller decided it should), but what it replaces is kept, so it can be
+        // brought back. The .bak alone is not enough: the very next save rotates it away.
+        long[] seen = seenOnDisk.get(projectId);
+        if (seen != null && file.isFile() && DiskStamp.differs(seen, file)) {
+            File kept = DiskStamp.keepCopy(projectDir, file, DiskStamp.REPLACED_PREFIX, KEPT_COPIES);
+            FLog.w(TAG, "Saving over a project.json somebody else wrote since this copy was loaded: "
+                    + projectId + (kept != null ? "; what it replaces is kept as backups/" + kept.getName()
+                    : "; could not keep a copy of what it replaces"));
         }
 
         // Keep the previous good copy as a backup, then move temp into place.
@@ -304,26 +407,72 @@ public class ProjectStorage {
      */
     @Nullable
     public FaditorProject load(@NonNull String projectId) {
-        File file = new File(getProjectDir(projectId), PROJECT_FILE);
-        File bak = new File(getProjectDir(projectId), PROJECT_FILE + ".bak");
+        return loadFromDisk(projectId, true);
+    }
+
+    /**
+     * Whether a parsed project holds anything a person made. Video clips are only one kind of
+     * content: an audio-only project (a podcast), a title-only one, a sprite or avatar library are
+     * all real. The old test here was video clips, sprite sheets or avatar rigs, so an audio-only
+     * project.json was read as "empty/invalid" on EVERY open and the project came back from its
+     * .bak instead: one save behind, silently (work-loss audit 2026-11-10).
+     */
+    static boolean hasAnyContent(@Nullable FaditorProject p) {
+        if (p == null || p.getTimeline() == null) return false;
+        Timeline t = p.getTimeline();
+        return !t.isEmpty()
+                || t.hasAudioClips()
+                || !t.getTextOverlays().isEmpty()
+                || !t.getSpriteOverlays().isEmpty()
+                || !p.getSpriteSheets().isEmpty()
+                || !p.getAvatarRigs().isEmpty();
+    }
+
+    /**
+     * @param remember true for a load whose result someone will hold and later save: this storage
+     *                 then remembers what the file looked like, so a later save can tell that
+     *                 somebody else wrote the file in between ({@link #changedOutside}). False for
+     *                 a peek that is thrown away (the stale-flags merge), which must not make a
+     *                 file written by someone else look like one this storage has seen.
+     */
+    @Nullable
+    private FaditorProject loadFromDisk(@NonNull String projectId, boolean remember) {
+        File projectDir = getProjectDir(projectId);
+        File file = new File(projectDir, PROJECT_FILE);
+        File bak = new File(projectDir, PROJECT_FILE + ".bak");
 
         // Files this project uses inside the user's Joy Creator folder may have been moved or
         // renamed there; point the project at where they are now before reading it.
         com.fadcam.joyfolder.studio.StudioMirror.healMovedFiles(context, projectId, file);
 
-        if (file.exists()) {
-            try (FileReader reader = new FileReader(file)) {
+        // Open under the write lock, read outside it. A save swaps the file in with two renames
+        // (project.json to .bak, then the new one into place); a reader arriving between them
+        // found no project.json and fell back to the .bak, an older project. Once open, the
+        // stream belongs to the file it opened, whatever is renamed afterwards.
+        FileReader mainReader = null;
+        long[] stamp;
+        synchronized (writeLock(projectDir)) {
+            stamp = DiskStamp.of(file);
+            if (file.exists()) {
+                try {
+                    mainReader = new FileReader(file);
+                } catch (IOException e) {
+                    FLog.e(TAG, "Main project file could not be opened: " + projectId, e);
+                }
+            }
+        }
+
+        FaditorProject emptyMain = null;
+        if (mainReader != null) {
+            try (FileReader reader = mainReader) {
                 FaditorProject p = gson.fromJson(reader, FaditorProject.class);
-                // Sprite Lab and Avatar Studio can save asset libraries before any
-                // asset is placed on the timeline. Those are real projects too.
-                if (p != null && p.getTimeline() != null
-                        && (!p.getTimeline().isEmpty() || !p.getSpriteSheets().isEmpty()
-                        || !p.getAvatarRigs().isEmpty())) {
+                if (hasAnyContent(p)) {
                     // Concurrent-instance guard (Stage 1 P0 fix): this copy is now known
                     // to match the file exactly — record its lastModified as the sync
                     // point so a LATER save from this same in-memory copy can detect if
                     // some OTHER instance has since saved something newer.
                     p.setDiskLastModifiedAtLastSync(p.getLastModified());
+                    if (remember) seenOnDisk.put(projectId, stamp);
                     // One-time transcript-duplicate migration (backup-first; see method doc).
                     dedupTranscriptsWithBackup(p, file);
                     // Then collapse per-clip forks onto one shared transcript per id, so an
@@ -332,9 +481,14 @@ public class ProjectStorage {
                     healDanglingAnchors(p);
                     return p;
                 }
+                if (p != null && p.getTimeline() != null) emptyMain = p;
                 FLog.w(TAG, "Main project file empty/invalid, trying backup: " + projectId);
             } catch (Exception e) {
                 FLog.e(TAG, "Main project file corrupt, trying backup: " + projectId, e);
+                // The next save rotates this file to .bak and the one after that deletes it. It may
+                // still hold most of the project (a cut-off file does), so keep it where it can be
+                // looked at. Once per distinct file: a list refresh loads again and again.
+                keepUnreadable(projectDir, file);
             }
         }
 
@@ -342,10 +496,13 @@ public class ProjectStorage {
         if (bak.exists()) {
             try (FileReader reader = new FileReader(bak)) {
                 FaditorProject p = gson.fromJson(reader, FaditorProject.class);
-                if (p != null) {
+                // A main file that opened but holds nothing is still newer than its backup. Prefer
+                // the backup only when the backup has something the main file does not.
+                if (p != null && (emptyMain == null || hasAnyContent(p))) {
                     FLog.i(TAG, "Recovered project from backup: " + projectId);
                     // Same sync-point bookkeeping as the main-file path above.
                     p.setDiskLastModifiedAtLastSync(p.getLastModified());
+                    if (remember) seenOnDisk.put(projectId, stamp);
                     // Same duplicate migration as the main-file path (backs up the
                     // .bak we actually loaded from).
                     dedupTranscriptsWithBackup(p, bak);
@@ -357,8 +514,29 @@ public class ProjectStorage {
             }
         }
 
+        // Nothing better than a main file that opened but holds nothing yet (a blank project saved
+        // before anything was added): that is still the project.
+        if (emptyMain != null) {
+            emptyMain.setDiskLastModifiedAtLastSync(emptyMain.getLastModified());
+            if (remember) seenOnDisk.put(projectId, stamp);
+            healDanglingAnchors(emptyMain);
+            return emptyMain;
+        }
+
         FLog.d(TAG, "No loadable project found: " + projectId);
         return null;
+    }
+
+    private static void keepUnreadable(@NonNull File projectDir, @NonNull File file) {
+        try {
+            for (File kept : DiskStamp.kept(projectDir, DiskStamp.UNREADABLE_PREFIX)) {
+                if (kept.length() == file.length()) return;   // this one is already kept
+            }
+            File copy = DiskStamp.keepCopy(projectDir, file, DiskStamp.UNREADABLE_PREFIX, 3);
+            if (copy != null) FLog.w(TAG, "Kept the unreadable project file as backups/" + copy.getName());
+        } catch (Exception e) {
+            FLog.w(TAG, "Could not keep the unreadable project file", e);
+        }
     }
 
     /**

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Work-loss audit 2026-11-10. Own file so it never collides with other lanes in strings.xml. -->
+<resources>
+    <string name="studio_undo_changed_elsewhere">Changes made elsewhere</string>
+    <string name="studio_toast_changed_elsewhere">Brought in changes made to this project elsewhere</string>
+</resources>

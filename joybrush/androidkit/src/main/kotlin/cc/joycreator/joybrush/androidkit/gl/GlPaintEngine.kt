@@ -194,6 +194,13 @@ fun maskStoreId(layerId: String): String = layerId + MASK_SUFFIX
 /** Refusal of a media write past [GlPaintEngine.mediaBudgetBytes]: [message] is the sentence to show. */
 class MediaRoomException(message: String) : RuntimeException(message)
 
+/**
+ * The graphics driver had no memory for a texture (its storage failed, or it came back unusable). Never the artist's to read:
+ * the canvas ends the stroke keeping what it painted, frees what it can, and works in a smaller atlas afterwards
+ * ([cc.joycreator.joybrush.androidkit.gl.media.MediaCanvas.graphicsFull]).
+ */
+class GraphicsMemoryException(message: String) : IllegalStateException(message)
+
 /** What [GlPaintEngine.writableMediaTiles] calls a layer's RGBA8 look, which keeps the layer's own id. */
 const val MEDIA_LOOK = "look"
 
@@ -2741,6 +2748,15 @@ class GlPaintEngine(
     private fun initializeTile(target: Int,source: Int?,white: Boolean) {
         GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,copyFbo); attach(target)
+        // Every caller owns [target] and lets it go when this throws (a tile with no memory behind it never joins a layer).
+        if (GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER) != GLES30.GL_FRAMEBUFFER_COMPLETE) {
+            android.util.Log.e("JoyBrushTiles", "new tile texture $target cannot be drawn into: GL error ${GLES30.glGetError()}")
+            // Gone for good, whatever the caller does with the name next: it must not go back into a pool.
+            deadTextures.add(target); floatNames.remove(target)
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+            GLES30.glDeleteTextures(1, intArrayOf(target), 0)
+            throw GraphicsMemoryException("The phone has no graphics memory for this stroke (new tile unusable)")
+        }
         val bg=if(white)1f else 0f; GLES30.glClearColor(bg,bg,bg,bg); GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
         if(source!=null)copyTextureRect(source,target,RegionTileRect(0,0,size,size))
     }
@@ -7270,6 +7286,7 @@ class GlPaintEngine(
         val tex = freeFloatTex.removeLastOrNull() ?: run {
             val t = IntArray(1)
             GLES30.glGenTextures(1, t, 0)
+            deadTextures.remove(t[0])
             GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, t[0])
             while (GLES30.glGetError() != GLES30.GL_NO_ERROR) Unit   // what an earlier pass left is not this allocation's
             GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D, 0, GLES30.GL_RGBA16F, size, size, 0, GLES30.GL_RGBA, GLES30.GL_HALF_FLOAT, null)
@@ -7283,10 +7300,27 @@ class GlPaintEngine(
             t[0]
         }
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, copyFbo); attach(tex)
+        refuseUnusableTile(tex, "float tile")
         GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
         GLES30.glClearColor(0f, 0f, 0f, 0f); GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
         return tex
+    }
+
+    /**
+     * [tex] is attached to the bound framebuffer: if the driver cannot draw into it, it has no memory behind its name (storage
+     * is often only promised when a texture is made, and found missing at first use). Such a tile drew black and could not be
+     * read or saved (the owner's four oil tiles, 2026-10-31). Refused here, where the caller can still put things back.
+     */
+    private fun refuseUnusableTile(tex: Int, what: String) {
+        val status = GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER)
+        if (status == GLES30.GL_FRAMEBUFFER_COMPLETE) return
+        val error = GLES30.glGetError()
+        android.util.Log.e("JoyBrushTiles", "texture $tex $what unusable at birth: framebuffer status $status, GL error $error")
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+        floatNames.remove(tex)
+        GLES30.glDeleteTextures(1, intArrayOf(tex), 0)
+        throw GraphicsMemoryException("The phone has no graphics memory for this stroke (framebuffer status $status)")
     }
 
     // ── display ──────────────────────────────────────────────────────────────
@@ -7666,8 +7700,12 @@ class GlPaintEngine(
         tipFailure?.let { throw it }
     }
 
+    /** Names deleted because the driver had no memory behind them ([initializeTile]): never pooled when a caller lets them go. */
+    private val deadTextures = HashSet<Int>()
+
     private fun recycleLayerTex(tex: Int) {
         if (forgettingGraphicsContext || tex == 0) return
+        if (deadTextures.remove(tex)) return
         // Twice in a pool, the next two tiles would share it, and freeing one would take the other's memory.
         if (tex in freeFloatTex || tex in freeLayerTex) {
             android.util.Log.e("JoyBrushTiles", "texture $tex retired twice", Throwable())
@@ -7689,6 +7727,21 @@ class GlPaintEngine(
         trimPool(freeLayerTex, 64)
     }
 
+    /**
+     * The driver ran short ([GraphicsMemoryException]): every pooled spare texture is given back to it. The pools refill as
+     * tiles are let go. Returns how many went.
+     */
+    fun freeSpareTextures(): Int {
+        val n = freeFloatTex.size + freeLayerTex.size + freeStrokeTex.size + freeSmudgeTex.size
+        while (freeFloatTex.isNotEmpty()) freeFloatTex.removeFirst().let {
+            floatNames.remove(it)
+            GLES30.glDeleteTextures(1, intArrayOf(it), 0)
+            recordedWorkingTiles.forget(physicalContextEpoch, it)
+        }
+        trimPool(freeLayerTex, 0); trimPool(freeStrokeTex, 0); trimPool(freeSmudgeTex, 0)
+        return n
+    }
+
     private fun trimPool(pool: ArrayDeque<Int>, keep: Int) {
         while (pool.size > keep) {
             val texture = pool.removeFirst()
@@ -7704,7 +7757,7 @@ class GlPaintEngine(
         android.util.Log.e("JoyBrushTiles", "texture ${name[0]} $what: GL error $error")
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
         GLES30.glDeleteTextures(1, name, 0)
-        throw IllegalStateException("The phone has no graphics memory for this stroke (GL error $error)")
+        throw GraphicsMemoryException("The phone has no graphics memory for this stroke (GL error $error)")
     }
 
     private fun newTexture(dim: Int, internal: Int, format: Int, type: Int): Int = newTexture(dim, dim, internal, format, type)
@@ -7713,6 +7766,7 @@ class GlPaintEngine(
         val dim = if (w == h) w else 0
         val t = IntArray(1)
         GLES30.glGenTextures(1, t, 0)
+        deadTextures.remove(t[0])
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, t[0])
         while (GLES30.glGetError() != GLES30.GL_NO_ERROR) Unit   // what an earlier pass left is not this allocation's
         GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D, 0, internal, w, h, 0, format, type, null)

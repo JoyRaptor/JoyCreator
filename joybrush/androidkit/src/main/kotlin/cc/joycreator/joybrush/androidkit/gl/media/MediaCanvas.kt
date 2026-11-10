@@ -555,6 +555,23 @@ class MediaCanvas(
     /** The atlas grid last made (see [ensure]). */
     private var lastGrid: Pair<Int, Int>? = null
 
+    /** The most slots an atlas may have for the rest of this session, once the driver has run short ([graphicsFull]). */
+    private var gridCap: Int? = null
+
+    /**
+     * The graphics driver ran out of memory with an atlas of the last size: the atlases made from now on have half its
+     * slots, never fewer than the smallest atlas. True when that lowered anything (false: already at the smallest).
+     * An artist is never asked to deal with it; painting goes on in a smaller working area, a little slower over wide strokes.
+     */
+    fun graphicsFull(): Boolean {
+        val had = lastGrid?.let { it.first * it.second } ?: MediaAtlasPlacement.MAX_SLOTS
+        val cap = maxOf(MediaAtlasPlacement.MIN_SLOTS, had / 2)
+        val lowered = gridCap?.let { cap < it } ?: (cap < had)
+        if (lowered) { gridCap = cap; android.util.Log.w("JoyBrushMediaMemory", "graphics memory ran short: atlases of at most $cap slots from now on") }
+        lastGrid = null
+        return lowered
+    }
+
     /**
      * A frame that was refused ([MediaRoomException], said in words by the caller) or failed: the stroke ends where it got to,
      * as its one undo step (the caller closes it), with what it painted in the layer's stores.
@@ -635,10 +652,11 @@ class MediaCanvas(
         if (e != null) return e
         // Media Atlas v2 B2 (off by default, MediaAtlasGl.enabled): the same textures as the window, tiles placed freely.
         val atlas = MediaAtlasGl.enabled
-        val made = warm?.takeIf { it.atlasMode == atlas && it.coarseWater == MediaLayerEngine.coarseWaterDefault } ?: MediaLayerEngine(shaders, atlasMode = atlas)
+        var made = warm?.takeIf { it.atlasMode == atlas && it.coarseWater == MediaLayerEngine.coarseWaterDefault } ?: MediaLayerEngine(shaders, atlasMode = atlas)
         if (warm !== made) warm?.releasePrograms()
         warm = null
-        try {
+        var tries = 0
+        while (true) try {
             if (atlas) {
                 // Slot scaling (MediaAtlasPlacement.slotGrid: what is free beyond a reserve for the phone, 24 to 48, near square). An atlas made again
                 // keeps at least the size it had while the phone still has room for it: sized afresh each time, it shrank as the
@@ -646,11 +664,23 @@ class MediaCanvas(
                 val perSlot = if (MediaLayerEngine.coarseWaterDefault) MediaAtlasPlacement.BYTES_PER_SLOT_COARSE else MediaAtlasPlacement.BYTES_PER_SLOT
                 val fresh = MediaAtlasPlacement.slotGrid(avail, perSlot)
                 val kept = lastGrid?.takeIf { (c, r) -> c * r > fresh.first * fresh.second && avail > 2L * c * r * perSlot }
-                val (cols, rows) = slotGrid ?: kept ?: fresh
+                val roomy = slotGrid ?: kept ?: fresh
+                // After the driver ran short once ([graphicsFull]) no atlas of this session is bigger than the cap.
+                val (cols, rows) = gridCap?.takeIf { roomy.first * roomy.second > it }
+                    ?.let { MediaAtlasPlacement.slotGrid(MediaAtlasPlacement.RESERVE_BYTES + it * perSlot, perSlot) } ?: roomy
                 lastGrid = cols to rows
                 android.util.Log.i("JoyBrushMediaMemory", "atlas $cols x $rows slots (available=$avail)")
                 made.init(cols * Tiles.SIZE, rows * Tiles.SIZE)
             } else made.init(MediaWindowMath.PX, MediaWindowMath.PX)
+            break
+        } catch (x: cc.joycreator.joybrush.androidkit.gl.GraphicsMemoryException) {
+            // The driver had no memory for an atlas this size. That is not "this phone cannot": a smaller one is tried, and if
+            // none can be made this stroke is refused as a busy phone, to be tried again at the next.
+            android.util.Log.e("JoyBrushMediaMemory", "no graphics memory for the atlas (${lastGrid}): ${x.message}")
+            runCatching { made.release() }
+            paint.freeSpareTextures()
+            if (!atlas || !graphicsFull() || ++tries >= 3) return null
+            made = MediaLayerEngine(shaders, atlasMode = atlas)
         } catch (x: IllegalStateException) {
             // Say what actually failed: a program that would not compile is this build's fault, not the phone's (a shader
             // error read "no float colour buffers" on the Note 9, 2026-10-27).

@@ -255,7 +255,7 @@ internal object MediaTex {
         if (error != GLES30.GL_NO_ERROR) {
             GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
             GLES30.glDeleteTextures(1, ids, 0)
-            throw IllegalStateException("The phone has no graphics memory for this paint (GL error $error)")
+            throw cc.joycreator.joybrush.androidkit.gl.GraphicsMemoryException("The phone has no graphics memory for this paint (GL error $error)")
         }
         GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, filter)
         GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, filter)

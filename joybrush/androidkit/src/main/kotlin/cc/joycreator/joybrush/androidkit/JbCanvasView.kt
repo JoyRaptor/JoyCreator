@@ -1421,6 +1421,12 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                     mediaCanvas.dropStroke()
                     if (engine.mediaStrokeInProgress) { engine.endMediaStroke(); reportMediaHistory() }
                     if (!refused) mediaCanvas.releaseAfterFailure()   // a refused frame leaves the engine and its water as they are
+                    // The driver ran short: give back every spare texture, and paint in a smaller atlas from now on.
+                    if (e is cc.joycreator.joybrush.androidkit.gl.GraphicsMemoryException) {
+                        val freed = engine.freeSpareTextures()
+                        mediaCanvas.graphicsFull()
+                        android.util.Log.w("JoyBrushMediaMemory", "graphics memory ran short in a stroke: $freed spare textures given back")
+                    }
                     // A refusal is written for the artist; any other failure's message is for the log only (it read
                     // "resident tiles spread over too large a table" on screen). What was painted is kept either way.
                     val say = if (refused) e.message ?: MEDIA_STROKE_STOPPED else MEDIA_STROKE_STOPPED

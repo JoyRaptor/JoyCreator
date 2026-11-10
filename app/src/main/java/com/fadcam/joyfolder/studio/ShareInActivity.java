@@ -275,7 +275,11 @@ public class ShareInActivity extends AppCompatActivity {
             }
         }
         if (problem != null) sb.append("\nNote: ").append(problem).append('.');
-        show(saved.size() == 1 ? "Saved in " + where : saved.size() + " files saved in " + where, sb.toString().trim(), null);
+        boolean allLinked = true;
+        for (Saved s : saved) allLinked &= s.linked;
+        show(allLinked ? (saved.size() == 1 ? "Left where it is" : saved.size() + " files left where they are")
+                        : saved.size() == 1 ? "Saved in " + where : saved.size() + " files saved in " + where,
+                sb.toString().trim(), null);
 
         ArrayList<Uri> uris = new ArrayList<>();
         Uri firstVideo = null;
@@ -341,9 +345,18 @@ public class ShareInActivity extends AppCompatActivity {
     }
 
     private long sizeOf(Uri u) {
+        if ("file".equals(u.getScheme()) && u.getPath() != null) {
+            long len = new java.io.File(u.getPath()).length();
+            if (len > 0) return len;
+        }
         try (Cursor c = getContentResolver().query(u, new String[]{OpenableColumns.SIZE}, null, null, null)) {
             if (c != null && c.moveToFirst() && !c.isNull(0)) return c.getLong(0);
         } catch (RuntimeException ignored) {
+        }
+        // A provider that doesn't report a size: ask the file itself.
+        try (android.content.res.AssetFileDescriptor fd = getContentResolver().openAssetFileDescriptor(u, "r")) {
+            if (fd != null && fd.getLength() > 0) return fd.getLength();
+        } catch (Exception ignored) {
         }
         return -1;
     }

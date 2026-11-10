@@ -41,6 +41,15 @@ import java.util.regex.Pattern;
  * file. {@link #KEY_VERSION} folds the chain definition into the identity so any DSP change
  * invalidates prior artifacts instead of being mistaken for them.
  *
+ * <h3>Timing: a bake is a drop-in for its source</h3>
+ * Only {@code [startMs,endMs]} is processed, but the file keeps the SOURCE's clock: it opens
+ * with {@code startMs} of silence, so source time T is file time T. The clip that switches to
+ * the bake keeps its in/out points, cut spans, envelope and waveform keys, and all of them stay
+ * true. Until 2026-11-10 the bake started at 0, so on any trimmed or split clip (in-point &gt; 0)
+ * the fixed audio played early by the in-point, ran out before the out-point, and the
+ * waveform lookups asked for a span past the end of the file and fell back to the old
+ * (unfixed) picture. {@link #KEY_VERSION} was bumped so no old-style bake is reused.
+ *
  * <h3>Chains</h3>
  * <ul>
  *   <li>{@link #CHAIN_DENOISE} — {@code afftdn} FFT denoise (single pass).</li>
@@ -73,7 +82,7 @@ public class BakedAudioCache {
      * artifact can never be served as if it were made by the new DSP (same reasoning as
      * ReversedSegmentCache.KEY_VERSION).
      */
-    private static final String KEY_VERSION = "v1";
+    private static final String KEY_VERSION = "v2-aligned";
 
     /** Single-pass FFT denoise. The value is the filter name passed after {@code -af}. */
     public static final String CHAIN_DENOISE = "afftdn";
@@ -257,11 +266,12 @@ public class BakedAudioCache {
                 + request.chain + " -> " + out.getName());
         File tmp = outTmp(out);
         long spanMs = request.endMs - request.startMs;
+        // The written file runs to endMs on the source's clock (see "Timing"), so a pass that
+        // writes it reports progress against endMs, not the span.
+        long writtenMs = request.endMs;
         if (CHAIN_LOUDNORM.equals(request.chain)) {
             StringBuilder logs = new StringBuilder();
-            String measureCmd = extractionPrefix(input, request)
-                    + " -af loudnorm=" + loudnormTargets() + ":print_format=json "
-                    + NULL_OUTPUT;
+            String measureCmd = measureCommand(input, request);
             FLog.d(TAG, "async loudnorm pass1: ffmpeg " + measureCmd);
             FFmpegKit.executeAsync(measureCmd, s1 -> {
                 if (!ReturnCode.isSuccess(s1.getReturnCode())) {
@@ -280,23 +290,15 @@ public class BakedAudioCache {
                     fail(callback, tmp, "source unreadable for pass 2: " + request.sourceUri);
                     return;
                 }
-                String applyCmd = extractionPrefix(applyInput, request)
-                        + " -af loudnorm=" + m.asApplyParams() + " "
-                        + encodeOutput(tmp.getAbsolutePath());
+                String applyCmd = bakeCommand(applyInput, request,
+                        "loudnorm=" + m.asApplyParams(), tmp);
                 FLog.d(TAG, "async loudnorm pass2: ffmpeg " + applyCmd);
-                runPassAsync(request, out, tmp, applyCmd, callback, 0.5f, spanMs);
+                runPassAsync(request, out, tmp, applyCmd, progress, callback, 0.5f, writtenMs);
             }, log -> collect(logs, log.getMessage()),
                     stats -> report(progress, stats, 0f, 0.5f, spanMs));
-        } else if (CHAIN_FIX.equals(request.chain)) {
-            String cmd = extractionPrefix(input, request)
-                    + " -af \"highpass=f=80,afftdn=nf=" + fmt(DENOISE_FLOOR_DB) + ",acompressor=threshold=-18dB:ratio=3:attack=20:release=250,loudnorm=I=-16:TP=-1.5:LRA=11\" "
-                    + encodeOutput(tmp.getAbsolutePath());
-            runPassAsync(request, out, tmp, cmd, callback, 0f, spanMs);
         } else {
-            String cmd = extractionPrefix(input, request)
-                    + " -af afftdn=nf=" + fmt(DENOISE_FLOOR_DB) + " "
-                    + encodeOutput(tmp.getAbsolutePath());
-            runPassAsync(request, out, tmp, cmd, callback, 0f, spanMs);
+            String cmd = bakeCommand(input, request, singlePassChain(request.chain), tmp);
+            runPassAsync(request, out, tmp, cmd, progress, callback, 0f, writtenMs);
         }
     }
 
@@ -326,9 +328,7 @@ public class BakedAudioCache {
         FFmpegSession session;
         if (CHAIN_LOUDNORM.equals(request.chain)) {
             StringBuilder logs = new StringBuilder();
-            String measureCmd = extractionPrefix(input, request)
-                    + " -af loudnorm=" + loudnormTargets() + ":print_format=json "
-                    + NULL_OUTPUT;
+            String measureCmd = measureCommand(input, request);
             FLog.d(TAG, "loudnorm pass1: ffmpeg " + measureCmd);
             // FIX 2026-08-23 (review): FFmpegKit has no execute(cmd, logCb, statsCb)
             // overload — the working call in TranscriptionEngine:517 is the 1-arg
@@ -350,21 +350,13 @@ public class BakedAudioCache {
                 tmp.delete();
                 return failSync(error, "source unreadable for pass 2: " + request.sourceUri);
             }
-            String applyCmd = extractionPrefix(applyInput, request)
-                    + " -af loudnorm=" + m.asApplyParams() + " "
-                    + encodeOutput(tmp.getAbsolutePath());
+            String applyCmd = bakeCommand(applyInput, request,
+                    "loudnorm=" + m.asApplyParams(), tmp);
             FLog.d(TAG, "loudnorm pass2: ffmpeg " + applyCmd);
             session = FFmpegKit.execute(applyCmd);
-        } else if (CHAIN_FIX.equals(request.chain)) {
-            String cmd = extractionPrefix(input, request)
-                    + " -af \"highpass=f=80,afftdn=nf=" + fmt(DENOISE_FLOOR_DB) + ",acompressor=threshold=-18dB:ratio=3:attack=20:release=250,loudnorm=I=-16:TP=-1.5:LRA=11\" "
-                    + encodeOutput(tmp.getAbsolutePath());
-            session = FFmpegKit.execute(cmd);
         } else {
-            String cmd = extractionPrefix(input, request)
-                    + " -af afftdn=nf=" + fmt(DENOISE_FLOOR_DB) + " "
-                    + encodeOutput(tmp.getAbsolutePath());
-            session = FFmpegKit.execute(cmd);
+            session = FFmpegKit.execute(
+                    bakeCommand(input, request, singlePassChain(request.chain), tmp));
         }
         boolean ok = ReturnCode.isSuccess(session.getReturnCode())
                 && tmp.exists() && tmp.length() >= MIN_VALID_BAKE_BYTES
@@ -382,7 +374,8 @@ public class BakedAudioCache {
     // ── internals ─────────────────────────────────────────────────────────
 
     private void runPassAsync(@NonNull Request request, @NonNull File out, @NonNull File tmp,
-                              @NonNull String cmd, @NonNull BakeCallback callback,
+                              @NonNull String cmd, @Nullable ProgressListener progress,
+                              @NonNull BakeCallback callback,
                               float progressBase, long spanMs) {
         FFmpegKit.executeAsync(cmd, session -> {
             if (ReturnCode.isSuccess(session.getReturnCode())
@@ -395,7 +388,7 @@ public class BakedAudioCache {
                         + "; tail: " + tail(session.getAllLogsAsString()));
             }
         }, log -> { /* muted — the loudnorm measure pass collects its own logs */ },
-                stats -> report(null, stats, progressBase,
+                stats -> report(progress, stats, progressBase,
                         progressBase > 0.49f ? 0.5f : 1f, spanMs));
     }
 
@@ -419,20 +412,61 @@ public class BakedAudioCache {
         return null;
     }
 
+    /** The filters of a one-pass chain ({@link #CHAIN_DENOISE} or {@link #CHAIN_FIX}). */
+    @NonNull
+    private static String singlePassChain(@NonNull String chain) {
+        if (CHAIN_FIX.equals(chain)) {
+            return "highpass=f=80,afftdn=nf=" + fmt(DENOISE_FLOOR_DB)
+                    + ",acompressor=threshold=-18dB:ratio=3:attack=20:release=250"
+                    + ",loudnorm=I=-16:TP=-1.5:LRA=11";
+        }
+        return "afftdn=nf=" + fmt(DENOISE_FLOOR_DB);
+    }
+
+    /** Loudnorm pass 1: measure the span only, write nothing. */
+    @NonNull
+    static String measureCommand(@NonNull String input, @NonNull Request request) {
+        return spanInput(input, request) + " -af \"" + spanTrim(request)
+                + ",loudnorm=" + loudnormTargets() + ":print_format=json\" " + NULL_OUTPUT;
+    }
+
     /**
-     * The device-proven EXACT-extraction prefix (TranscriptionEngine): coarse INPUT seek to
-     * a safe margin before the target, then an exact OUTPUT seek for the remainder, then a
-     * hard duration. Audio-only ({@code -vn}); re-encoded AAC at the tail via the output
-     * spec, so sample rate/container follow the encoder defaults until A6 sets policy.
+     * A writing pass: the span through {@code chain}, then {@code startMs} of silence in
+     * front so the file keeps the source's clock (class doc, "Timing").
      */
     @NonNull
-    private static String extractionPrefix(@NonNull String input, @NonNull Request request) {
-        double target = request.startMs / 1000.0;
-        double coarse = Math.max(0.0, target - SEEK_SAFETY_S);
-        double fine = target - coarse;
+    static String bakeCommand(@NonNull String input, @NonNull Request request,
+                              @NonNull String chain, @NonNull File tmp) {
+        String align = request.startMs > 0
+                ? ",adelay=delays=" + request.startMs + ":all=1" : "";
+        return spanInput(input, request) + " -af \"" + spanTrim(request) + "," + chain + align
+                + "\" " + encodeOutput(tmp.getAbsolutePath());
+    }
+
+    /**
+     * Input with the device-proven coarse seek (TranscriptionEngine): seek to a safe margin
+     * BEFORE the span, since fragmented-MP4 input lands on fragment boundaries. Audio only.
+     */
+    @NonNull
+    private static String spanInput(@NonNull String input, @NonNull Request request) {
+        return String.format(Locale.US, "-y -ss %.3f -i \"%s\" -vn",
+                coarseSeekS(request), input);
+    }
+
+    /**
+     * The exact cut, as a FILTER rather than output {@code -ss/-t}: output options act on
+     * the output clock, which the alignment silence moves, so the cut has to happen before it.
+     */
+    @NonNull
+    private static String spanTrim(@NonNull Request request) {
+        double fine = request.startMs / 1000.0 - coarseSeekS(request);
         double durSec = Math.max(0.1, (request.endMs - request.startMs) / 1000.0);
-        return String.format(Locale.US, "-y -ss %.3f -i \"%s\" -ss %.3f -t %.3f -vn",
-                coarse, input, fine, durSec);
+        return String.format(Locale.US, "atrim=start=%.3f:duration=%.3f,asetpts=PTS-STARTPTS",
+                fine, durSec);
+    }
+
+    private static double coarseSeekS(@NonNull Request request) {
+        return Math.max(0.0, request.startMs / 1000.0 - SEEK_SAFETY_S);
     }
 
     @NonNull

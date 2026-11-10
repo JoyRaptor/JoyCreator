@@ -2499,6 +2499,22 @@ public class EditorTimelineView extends View {
      * anchored on this method (volume sheet, mute, split, captions, delete,
      * trim-to-selection, …) keeps working unchanged on the new rows.</p>
      */
+    /** True while a layer row item (audio, text, picture, sprite...) holds the selection. */
+    private boolean layerItemSelected() {
+        return layerGestureController != null
+                && layerGestureController.getSelectedItemId() != null;
+    }
+
+    /**
+     * Whether film clip {@code i} DRAWS as selected. {@link #selectedIndex} also names the
+     * film clip that film-only tools fall back to, and it stays set when a layer item is
+     * picked; drawing it then showed two selections at once (the song and the film under it),
+     * and the film's tools looked like they would act on the song. One selection on screen.
+     */
+    private boolean filmShowsSelected(int i) {
+        return i == selectedIndex && !layerItemSelected();
+    }
+
     public int getSelectedAudioIndex() {
         String sel = layerGestureController != null
                 ? layerGestureController.getSelectedItemId() : null;
@@ -4263,10 +4279,10 @@ public class EditorTimelineView extends View {
                     ? meterThumbs != null
                     : (meterThumbs != null && !meterThumbs.isEmpty());
             boolean thumbsLoading = thumbnailsLoading.contains(meterKey);
-            int full = i == selectedIndex ? Studio.GO : Studio.INK_OFF;
+            int full = filmShowsSelected(i) ? Studio.GO : Studio.INK_OFF;
             // Selection is cyan across the whole editor now; this dark green was the
             // last place a selected thing still read as "go".
-            int darkC = i == selectedIndex ? Studio.LINE : Studio.RAISED;
+            int darkC = filmShowsSelected(i) ? Studio.LINE : Studio.RAISED;
             int color = thumbsReady ? full : darkC;
             if (!thumbsReady && thumbsLoading) {
                 float pulse = 0.5f + 0.5f * (float) Math.sin(
@@ -4725,7 +4741,7 @@ public class EditorTimelineView extends View {
         // inset (never in the time mapping). Narrow clips inset proportionally so they never vanish.
         float visInset = Math.min(segmentGapPx * 0.5f, full.width() * 0.2f);
         RectF r = new RectF(full.left + visInset, full.top, full.right - visInset, full.bottom);
-        boolean sel = (i == selectedIndex);
+        boolean sel = filmShowsSelected(i);
         SegmentData sd = segments.get(i);
 
         // Draw thumbnails if available, otherwise draw solid color
@@ -7059,7 +7075,7 @@ if (sd.clip.hasVolumeKeyframes()) {
             RectF r = segRects.get(i);
             if (r.right < visLeft || r.left > visRight) continue;
             SegmentData sd = segments.get(i);
-            boolean sel = (i == selectedIndex);
+            boolean sel = filmShowsSelected(i);
             // 1px display-only inset, the same trick drawSegment uses, so abutting clips
             // still read as separate blocks without perturbing the time mapping.
             collapsedStripRect.set(r.left + density, r.top,
@@ -9869,6 +9885,15 @@ if (sd.clip.hasVolumeKeyframes()) {
                             listener.onMasterAudioShelfToggled(doubleTapSegIndex, shelfOpening);
                         }
                         invalidate();
+                    } else if (layerItemSelected()) {
+                        // Under a layer selection (a song, a text...) the film clip was only
+                        // the fallback, never drawn as chosen: a tap CHOOSES it, and the layer
+                        // item lets go, so one thing is selected. It used to toggle the hidden
+                        // film selection OFF, or leave both selected (STU-4, 10-28).
+                        layerGestureController.clearSelection();
+                        selectedIndex = downSegIndex;
+                        invalidate();
+                        if (listener != null) listener.onSegmentSelected(downSegIndex);
                     } else if (downSegIndex == selectedIndex) {
                         // Toggle selection: deselect if same segment, select if different
                         selectedIndex = -1;

@@ -1245,6 +1245,8 @@
     <string name="faditor_tools_all_title">All tools</string>
     <string name="faditor_tools_edit">Edit</string>
     <string name="faditor_tools_edit_done">Done</string>
+    <string name="faditor_tools_edit_tooltip">Arrange the tools</string>
+    <string name="faditor_tools_edit_hint">Hold a tool and drag it to a new place. Drag it past the bar to pin it. Tap Done when finished.</string>
     <string name="faditor_settings_tool_order_title">Tool order</string>
     <string name="faditor_settings_tool_order_desc">How the bottom tool carousel is ordered: your manual arrangement, or most-recently-used first.</string>
     <string name="faditor_settings_tool_order_recent">Recent first</string>

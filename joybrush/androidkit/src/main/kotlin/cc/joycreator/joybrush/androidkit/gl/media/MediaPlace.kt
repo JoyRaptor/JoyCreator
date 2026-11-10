@@ -10,6 +10,12 @@ interface MediaPlace {
     val plane: String?
     /** The tiles this host holds now (the eraser writes only the stores those have). */
     fun heldKeys(): List<Long>
+    /**
+     * The tiles whose payload this host has a newer copy of, or is about to: never set to make media room
+     * ([cc.joycreator.joybrush.androidkit.gl.GlPaintEngine.mediaRoomKeep]). A payload set under the host would be written
+     * back without its ground.
+     */
+    fun keptForRoom(): Collection<Long> = heldKeys()
     var stats: cc.joycreator.joybrush.androidkit.bench.FrameStats?
     var legacyLook: Boolean
     var lookHalo: Int

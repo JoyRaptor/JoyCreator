@@ -73,6 +73,7 @@ import cc.joycreator.joybrush.core.paint.TuftShading
 import cc.joycreator.joybrush.core.paint.TuftStamp
 import cc.joycreator.joybrush.core.paint.UndoLog
 import cc.joycreator.joybrush.core.media.HalfFloat
+import cc.joycreator.joybrush.core.media.MediaRoom
 import cc.joycreator.joybrush.core.media.MediaStores
 import cc.joycreator.joybrush.core.layers.LayerBudget
 import cc.joycreator.joybrush.core.sprite.SpriteGridMath
@@ -6919,6 +6920,7 @@ class GlPaintEngine(
     fun agreeAllPayloads() {
         requireLocalPaint()
         agreedLook.clear()
+        mediaWritten.clear()
         for (l in layers.values) for ((plane, p) in l.planes()) for (key in p.values.flatMap { it.keys }.toSet()) agree(l.id, key, plane)
     }
 
@@ -7040,9 +7042,19 @@ class GlPaintEngine(
         val newBytes = stores.filter { it != MEDIA_LOOK }.sumOf { st ->
             keys.count { floatsOf(layer, plane)[st]?.containsKey(it) != true }.toLong() * MediaStores.tileBytes(size, st)
         }
-        if (newBytes > 0 && mediaResidentBytes() + newBytes > mediaBudgetBytes) {
-            throw MediaRoomException(LayerBudget.mediaFullMessage(mediaBudgetBytes))
+        // Full: the oldest paint far from the pen sets (keeps its picture, lets its payload go) to make the room
+        // ([MediaRoom]). Only when even that cannot is the write refused, as it always was.
+        val set = if (newBytes > 0 && mediaResidentBytes() + newBytes > mediaBudgetBytes) {
+            setOldMedia(layerId, plane, keys, mediaResidentBytes() + newBytes - mediaBudgetBytes, topHeld.keys)
+                ?: throw MediaRoomException(LayerBudget.mediaFullMessage(mediaBudgetBytes))
+        } else emptyList()
+        // In a stroke the set tiles are part of its one step already; outside one they join the step this write joins.
+        if (stroke != null && set.isNotEmpty()) {
+            MediaStrokeChanges.addDrops(stroke, set).forEach(::recycleLayerTex)
+            for (c in set) mediaStrokeHeld.remove(Triple(c.layerId, c.celId, c.key))
         }
+        mediaClock++
+        for (key in keys) mediaWritten[Triple(layerId, plane, key)] = mediaClock
         val fresh = ArrayList<UndoLog.TileChange<Int>>()
         val out = LinkedHashMap<String, Map<Long, Int>>()
         try {
@@ -7076,6 +7088,8 @@ class GlPaintEngine(
             // Put back what was swapped and free the copies: nothing half-done reaches the history.
             for (c in fresh.asReversed()) { put(c.layerId, c.key, c.before, c.celId); c.after?.let(::recycleLayerTex) }
             for (c in revived + strokeRevived.values) { put(c.layerId, c.key, null, c.celId); c.after?.let(::recycleLayerTex) }
+            // Outside a stroke the set tiles are in no step yet: back where they were.
+            if (stroke == null) for (c in set.asReversed()) put(c.layerId, c.key, c.before, c.celId)
             throw e
         } finally {
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
@@ -7093,9 +7107,64 @@ class GlPaintEngine(
             fresh.forEach { mediaStrokeHeld.add(Triple(it.layerId, it.celId, it.key)) }
         } else {
             if (revived.isNotEmpty()) check(undo.replaceInNewest(revived)) { "the step that dropped this water is no longer the newest" }
-            MediaStores.recordWater(undo, fresh)
+            MediaStores.recordWater(undo, set + fresh)
         }
         return out
+    }
+
+    /** When each payload tile was last written by the media, as a count of writes (not a clock): [MediaRoom] sets the oldest. */
+    private val mediaWritten = HashMap<Triple<String, String?, Long>, Long>()
+    private var mediaClock = 0L
+
+    /**
+     * The tiles of a layer's plane the media tool holds right now (its atlas or window), asked when room must be made: their
+     * payload is never set under the tool, which would write it back without its ground. Set by the media canvas.
+     */
+    var mediaRoomKeep: ((layerId: String, plane: String?) -> Collection<Long>)? = null
+
+    /** Tiles whose paint has set to make room since this engine was made (bench, and the log). */
+    var mediaTilesSet = 0
+        private set
+
+    /**
+     * Makes [overBytes] of media room for a write to [keys] of [layerId]'s [plane] by setting old paint ([MediaRoom]): the
+     * chosen tiles lose their payload, every store of it, and keep their look. Returns the changes (each `before` = the
+     * texture, `after` = null) for the caller to put in its step, already applied to the layers; null when no choice of
+     * tiles frees enough, and then nothing was touched.
+     *
+     * Not offered: tiles with water stores (wet, perhaps running or parked), tiles the tool holds ([mediaRoomKeep]), the
+     * tiles being written, and outside a stroke the tiles of the newest step ([held]), which later writes change in place.
+     */
+    private fun setOldMedia(layerId: String, plane: String?, keys: Collection<Long>, overBytes: Long,
+                            held: Set<Triple<String, String?, Long>>): List<UndoLog.TileChange<Int>>? {
+        val asked = keys.toSet()
+        val offered = ArrayList<MediaRoom.Tile>()
+        for (l in layers.values) for ((p, stores) in l.planes()) {
+            if (stores.values.all { it.isEmpty() }) continue
+            val kept = mediaRoomKeep?.invoke(l.id, p)?.toSet().orEmpty()
+            val wet = HashSet<Long>()
+            for (w in MediaStores.WATER) stores[w]?.let { wet.addAll(it.keys) }
+            val bytes = HashMap<Long, Long>()
+            for ((store, tiles) in stores) for (k in tiles.keys) bytes[k] = (bytes[k] ?: 0L) + MediaStores.tileBytes(size, store)
+            for ((k, b) in bytes) {
+                if (k in wet || k in kept || (l.id == layerId && p == plane && k in asked)) continue
+                if (held.isNotEmpty() && stores.keys.any { Triple(MediaStores.id(l.id, it), p, k) in held }) continue
+                offered += MediaRoom.Tile(l.id, p, k, b, mediaWritten[Triple(l.id, p, k)] ?: 0L)
+            }
+        }
+        val chosen = MediaRoom.choose(offered, asked, overBytes, MediaRoom.slack(mediaBudgetBytes)) ?: run {
+            android.util.Log.w("JoyBrushMedia", "media room full and nothing left to set: ${offered.size} tiles offered, ${overBytes shr 10} KB short")
+            return null
+        }
+        val changes = ArrayList<UndoLog.TileChange<Int>>()
+        for (t in chosen) {
+            val stores = floatsOf(layers.getValue(t.layerId), t.plane)
+            for ((store, tiles) in stores) tiles.remove(t.key)?.let { changes.add(UndoLog.TileChange(MediaStores.id(t.layerId, store), t.key, it, null, t.plane)) }
+            mediaWritten.remove(Triple(t.layerId, t.plane, t.key))
+        }
+        mediaTilesSet += chosen.size
+        android.util.Log.i("JoyBrushMedia", "media room: ${chosen.size} old tiles set to make room (${chosen.sumOf { it.bytes } shr 20} MB); ${mediaTilesSet} so far")
+        return changes
     }
 
     /**

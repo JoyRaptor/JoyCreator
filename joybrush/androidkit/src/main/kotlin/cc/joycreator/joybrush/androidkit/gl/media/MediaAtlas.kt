@@ -120,6 +120,9 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
     private fun page(key: Long) = MediaAtlasPage(layerId!!, plane, key)
     private fun resident(): Map<Long, Int> = slots.residents().associate { it.page.tileKey to it.slot }
     override fun heldKeys(): List<Long> = slots.residents().map { it.page.tileKey }
+    /** Besides the tiles in slots: the one loading into the staging slot (not resident until committed), and the park's. */
+    override fun keptForRoom(): Collection<Long> =
+        heldKeys() + listOfNotNull(parkAdmission?.incoming?.key) + parked.keys + parkedNext.keys
 
     override fun touched(nowMs: Long) { lastActiveMs = nowMs }
 
@@ -391,6 +394,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
             throw MediaRoomException("This pencil, watercolour or oil stroke reaches further than this phone can hold at once " +
                 "(${(wanted + held).size} areas of ${slots.capacity}). Paint a smaller area at a time.")
         }
+        letGoFar(wanted)
         // Hold what is here first: loading the rest writes back and evicts whatever is not held.
         for (key in wanted) {
             val p = page(key)
@@ -404,6 +408,36 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
             slots.pin(p); pinned += p; loaded = true
         }
         if (loaded) media.setResidency(resident())
+    }
+
+    /** Tiles written back and let go because they lay too far from the pen for one page table (bench). */
+    var farLetGo = 0; private set
+
+    /**
+     * Before [wanted] loads: resident tiles nobody holds that lie too far from it for one page table are written back and let
+     * go, the farthest first ([MediaAtlasPlacement.farToLetGo]). They were only cached. Without this a small mark far from
+     * old paint failed its frame ("resident tiles spread over too large a table") with most of the atlas free.
+     */
+    private fun letGoFar(wanted: Set<Long>) {
+        val here = slots.residents()
+        val must = wanted + here.filter { it.pins > 0 }.map { it.page.tileKey }
+        val loose = here.filter { it.pins == 0 && it.page.tileKey !in wanted }
+        val far = MediaAtlasPlacement.farToLetGo(must, loose.map { it.page.tileKey })
+            ?: throw MediaRoomException("This stroke is too far from paint that is still wet to be painted in one go. Let the wet paint settle, then paint here.")
+        if (far.isEmpty()) return
+        val gone = far.toSet()
+        for (r in loose) {
+            val key = r.page.tileKey
+            if (key !in gone) continue
+            if (key in borrowedBlockTiles) { dropBorrowedBlockTile(key); continue }
+            // As a slot given to another tile: live water waits in the park, pending paint goes to the stores.
+            backing.evicted(r.slot, r.page)
+            if (r.dirty) backing.writeBack(r.slot, r.page)
+            slots.remove(r.page)
+        }
+        farLetGo += far.size
+        media.setResidency(resident())
+        android.util.Log.i(TAG, "${far.size} cached areas far from the pen let go to keep one page table")
     }
 
     /**

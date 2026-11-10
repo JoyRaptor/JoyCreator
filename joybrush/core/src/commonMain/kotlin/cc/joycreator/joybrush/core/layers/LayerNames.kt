@@ -147,11 +147,16 @@ object LayerBudget {
         return need <= 0L || availBytes - 2 * thresholdBytes >= need
     }
 
+    // Sentences an artist reads: no megabytes, no "memory", and something they can do (the owner's bar, 2026-11-09).
     fun windowRefusal(wet: Boolean): String =
-        if (wet) "There is not enough free memory to paint with water right now. Close other apps to paint with watercolour."
-        else "There is not enough free memory for pencil and oil right now. Close other apps to paint with them."
+        if (wet) "The phone is too busy to paint with watercolour right now. Close a few other apps and try again."
+        else "The phone is too busy for pencil and oil right now. Close a few other apps and try again."
 
+    /**
+     * Only reached when nothing can set to make room (MediaRoom): what fills the room is wet, or under the brush. Old dry
+     * paint sets by itself long before this, so the artist normally never reads it.
+     */
+    @Suppress("UNUSED_PARAMETER")
     fun mediaFullMessage(budgetBytes: Long): String =
-        "This phone has room for ${budgetBytes shr 20} MB of pencil, watercolour and oil paint, and this drawing has used it. " +
-            "Clear some of it, or delete a layer that has it, to paint further."
+        "There is more wet paint on this drawing than this phone can keep at once. Give it a moment to dry, then paint on."
 }

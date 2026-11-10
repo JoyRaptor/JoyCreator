@@ -68,6 +68,10 @@ class MediaCanvas(
         paint.registerPaperTextureBorrower(this) { engine?.borrowedPaperTextureHandles().orEmpty() }
     }
     private var window: MediaPlace? = null
+    init {
+        // When the drawing's media room is full, old paint sets to make room (MediaRoom); never what the tool holds.
+        paint.mediaRoomKeep = { layer, plane -> window?.takeIf { it.layerId == layer && it.plane == plane }?.keptForRoom().orEmpty() }
+    }
     /** Debug probe only (MediaUndoProbe, MediaAtlasLedgerProbe): the atlas's slot grid, columns x rows, instead of the phone's memory. */
     internal var slotGrid: Pair<Int, Int>? = null
     /** The atlas in use, if the engine places tiles freely (probe counters: parked tiles, admission misses, blocks). */

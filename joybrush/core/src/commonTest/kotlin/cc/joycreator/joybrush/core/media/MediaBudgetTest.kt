@@ -35,7 +35,9 @@ class MediaBudgetTest {
     @Test fun theMediaCeilingIs256MbOnASixGbPhoneAndSaysSo() {
         assertEquals(256L shl 20, LayerBudget.mediaBudgetBytes(6L shl 30))
         assertEquals(LayerBudget.MIN_MEDIA_BYTES, LayerBudget.mediaBudgetBytes(0L))
-        assertTrue("256 MB" in LayerBudget.mediaFullMessage(256L shl 20))
+        // The artist never reads megabytes or "memory" (the owner's bar, 2026-11-09): old paint sets to make room first.
+        val said = LayerBudget.mediaFullMessage(256L shl 20) + LayerBudget.windowRefusal(true) + LayerBudget.windowRefusal(false)
+        assertTrue(listOf("MB", "memory", "256").none { it in said }, said)
     }
 
     @Test fun theWindowIsItsOwnReservationAndIsCheckedBeforeItIsMade() {

@@ -110,9 +110,19 @@ object MediaAtlasPlacement {
      * a tile is not resident. Empty residency = a 1 × 1 table holding −1 (a sampler must have a texture).
      */
     fun table(resident: Map<Long, Int>, walls: Set<Long> = emptySet()): Table {
-        if (resident.isEmpty() && walls.isEmpty()) return Table(0, 0, 1, 1, intArrayOf(-1))
+        // A pass draws resident tiles and reads at most [WALL_MARGIN] tiles round them, so a wall further out is never read:
+        // with nothing resident there is nothing to mark, and a wall far from every resident tile stays out of the grid
+        // (water set aside at one end of a drawing no longer stretches the table of a stroke at the other, 2026-11-09).
+        if (resident.isEmpty()) return Table(0, 0, 1, 1, intArrayOf(-1))
         var minX = Int.MAX_VALUE; var minY = Int.MAX_VALUE; var maxX = Int.MIN_VALUE; var maxY = Int.MIN_VALUE
-        for (k in resident.keys + walls) {
+        for (k in resident.keys) {
+            val x = Tiles.tx(k); val y = Tiles.ty(k)
+            if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y
+        }
+        val near = walls.filter { k ->
+            Tiles.tx(k) in minX - WALL_MARGIN..maxX + WALL_MARGIN && Tiles.ty(k) in minY - WALL_MARGIN..maxY + WALL_MARGIN
+        }
+        for (k in near) {
             val x = Tiles.tx(k); val y = Tiles.ty(k)
             if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y
         }
@@ -121,11 +131,58 @@ object MediaAtlasPlacement {
         val data = IntArray(w * h) { -1 }
         for ((k, slot) in resident) { require(slot >= 0) { "a slot index is not negative" }; data[(Tiles.ty(k) - minY) * w + (Tiles.tx(k) - minX)] = slot }
         // B3 (D2): tiles out of the water, marked for its passes (jb_media_atlas.glsl JB_WALL_BIT / JB_WALL_GONE).
-        for (k in walls) {
+        for (k in near) {
             val i = (Tiles.ty(k) - minY) * w + (Tiles.tx(k) - minX)
             data[i] = if (data[i] >= 0) data[i] + WALL_BIT else WALL_GONE
         }
         return Table(minX, minY, w, h, data)
+    }
+
+    /** How far round a resident tile a pass reads the table, in tiles (the paste brush's 5 x 5 neighbourhood). */
+    const val WALL_MARGIN = 2
+
+    /**
+     * True when one page table ([table]) can address every tile of [keys] at once: their bounding grid, with the walls'
+     * margin, is no more than [MAX_TILES] cells. Slots are not the limit here: two tiles 80 apart each way need 6561 cells.
+     */
+    fun tableFits(keys: Collection<Long>): Boolean {
+        if (keys.isEmpty()) return true
+        var minX = Int.MAX_VALUE; var minY = Int.MAX_VALUE; var maxX = Int.MIN_VALUE; var maxY = Int.MIN_VALUE
+        for (k in keys) {
+            val x = Tiles.tx(k); val y = Tiles.ty(k)
+            if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y
+        }
+        return (maxX - minX + 1L + 2 * WALL_MARGIN) * (maxY - minY + 1L + 2 * WALL_MARGIN) <= MAX_TILES
+    }
+
+    /**
+     * The tiles of [loose] (resident, not held; oldest first) to write back and let go so that [must] (what a frame needs
+     * and what is held) and the rest fit one table: the farthest from [must] first, and no more than it takes. Empty when
+     * everything fits already. Null when [must] alone does not fit: only then is there truly no way to hold the frame.
+     *
+     * Before this, a small mark far from old paint failed the frame although the atlas had slots to spare: the old tiles
+     * were merely cached, and the table had to reach from them to the pen (second review, E7).
+     */
+    fun farToLetGo(must: Collection<Long>, loose: Collection<Long>): List<Long>? {
+        if (!tableFits(must)) return null
+        val keep = loose.filterTo(ArrayList()) { it !in must }
+        if (tableFits(must + keep)) return emptyList()
+        // With nothing that must stay, the newest of the loose tiles is what the rest are measured from.
+        val anchor: Collection<Long> = if (must.isEmpty()) listOfNotNull(keep.removeLastOrNull()) else must
+        var minX = Int.MAX_VALUE; var minY = Int.MAX_VALUE; var maxX = Int.MIN_VALUE; var maxY = Int.MIN_VALUE
+        for (k in anchor) {
+            val x = Tiles.tx(k); val y = Tiles.ty(k)
+            if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y
+        }
+        fun away(k: Long): Int {
+            val x = Tiles.tx(k); val y = Tiles.ty(k)
+            return maxOf(maxOf(minX - x, x - maxX, 0), maxOf(minY - y, y - maxY, 0))
+        }
+        keep.sortByDescending(::away)
+        val out = ArrayList<Long>()
+        var at = 0
+        while (at < keep.size && !tableFits(anchor + keep.subList(at, keep.size))) out += keep[at++]
+        return out
     }
 
     /** `u_atlasGrid` = (x, y, w, h); [data] row-major from (x, y), the R32I texture's contents. */

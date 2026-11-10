@@ -45,6 +45,34 @@ class MediaAtlasPlacementTest {
         assertEquals(listOf(0, 0, 1, 1), listOf(empty.x, empty.y, empty.w, empty.h)); assertContentEquals(intArrayOf(-1), empty.data)
         assertFailsWith<IllegalArgumentException> { MediaAtlasPlacement.table(mapOf(Tiles.key(0, 0) to -3)) }
     }
+
+    @Test fun aWallFarFromEveryResidentTileStaysOutOfTheTable() {
+        // Water set aside 80 tiles away is a wall nothing here reads: it must not stretch (and fail) this table.
+        val resident = mapOf(Tiles.key(0, 0) to 1, Tiles.key(1, 0) to 2)
+        val t = MediaAtlasPlacement.table(resident, walls = keys(80 to 80, 2 to 0, 0 to 0))
+        assertEquals(listOf(0, 0, 3, 1), listOf(t.x, t.y, t.w, t.h))
+        assertContentEquals(intArrayOf(1 + MediaAtlasPlacement.WALL_BIT, 2, MediaAtlasPlacement.WALL_GONE), t.data)
+        val none = MediaAtlasPlacement.table(emptyMap(), walls = keys(5 to 5))
+        assertContentEquals(intArrayOf(-1), none.data, "nothing resident: nothing reads a wall")
+    }
+
+    @Test fun aSmallMarkFarFromOldPaintLetsTheOldPaintGoInsteadOfFailing() {
+        // The second review's case (E7): tiles at (0,0) and (80,80) need 6561 cells, yet two slots hold them.
+        assertTrue(MediaAtlasPlacement.tableFits(keys(0 to 0, 59 to 59)))
+        assertFalse(MediaAtlasPlacement.tableFits(keys(0 to 0, 80 to 80)))
+        val old = listOf(Tiles.key(0, 0), Tiles.key(1, 0), Tiles.key(70, 79))
+        val must = keys(80 to 80, 81 to 80)
+        // Only the far ones go; the cached tile near the pen stays.
+        assertEquals(keys(0 to 0, 1 to 0), MediaAtlasPlacement.farToLetGo(must, old)!!.toSet())
+        assertEquals(emptyList(), MediaAtlasPlacement.farToLetGo(must, listOf(Tiles.key(70, 79))))
+        // Farthest first, and no more than it takes: letting (0,0) go is enough for (30,30) to stay.
+        assertEquals(listOf(Tiles.key(0, 0)), MediaAtlasPlacement.farToLetGo(must, listOf(Tiles.key(30, 30), Tiles.key(0, 0))))
+        // What must stay is never offered, and a frame that cannot fit alone says so (null), whatever is loose.
+        assertEquals(emptyList(), MediaAtlasPlacement.farToLetGo(must, must))
+        assertEquals(null, MediaAtlasPlacement.farToLetGo(keys(0 to 0, 80 to 80), old))
+        // Nothing held (a tile loading outside a frame): measured from the newest loose tile.
+        assertEquals(listOf(Tiles.key(0, 0)), MediaAtlasPlacement.farToLetGo(emptyList(), listOf(Tiles.key(0, 0), Tiles.key(80, 80))))
+    }
     @Test fun aFrameFitsWhenItAndWhatMustStayNumberNoMoreThanTheSlots() {
         // A tile both needed and held counts once.
         assertTrue(MediaAtlasPlacement.fits(3, keys(0 to 0, 1 to 0), keys(1 to 0, 5 to 5)))

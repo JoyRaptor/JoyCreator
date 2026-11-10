@@ -1421,7 +1421,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                     mediaCanvas.dropStroke()
                     if (engine.mediaStrokeInProgress) { engine.endMediaStroke(); reportMediaHistory() }
                     if (!refused) mediaCanvas.releaseAfterFailure()   // a refused frame leaves the engine and its water as they are
-                    post { if (drawing && (mediaStroke || mediaErase)) cancelStroke(); onRefused?.invoke(e.message ?: "The pencil, watercolour or oil stroke could not be painted") }
+                    // A refusal is written for the artist; any other failure's message is for the log only (it read
+                    // "resident tiles spread over too large a table" on screen). What was painted is kept either way.
+                    val say = if (refused) e.message ?: MEDIA_STROKE_STOPPED else MEDIA_STROKE_STOPPED
+                    post { if (drawing && (mediaStroke || mediaErase)) cancelStroke(); onRefused?.invoke(say) }
                 }
                 // A frame that would not fit the pinned window is REFUSED, in words: the sentence waits here
                 // and is said once, on the UI thread.
@@ -4195,5 +4198,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         /** A new drawing's one layer. */
         private const val FIRST_LAYER = "layer-1"
         private const val FIRST_LAYER_NAME = "Layer 1"
+        /** Said when a pencil, watercolour or oil stroke ends early for a reason that is not the artist's to fix. */
+        private const val MEDIA_STROKE_STOPPED = "That stroke stopped early. What it painted is kept: carry on from there."
     }
 }

@@ -571,6 +571,20 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         onGl { mediaCanvas.releaseEngine() }
     }
 
+    /**
+     * The owner's water-detail switch (the ⋯ menu, 2026-11-10): the water on cells of 2 x 2 pixels (paint, paper and look stay
+     * full resolution; tasks/joybrush/specs/COARSE_WATER_20261021.md) runs about twice the steps a second, and each step
+     * carries running water twice as far, so drips run about four times as fast; the paper's fine tooth beads less. Off =
+     * the full-resolution water. Takes effect at once: the engine in use writes back and is let go (water stores keep one
+     * format, so wet paint carries over).
+     */
+    fun setMediaFastWater(on: Boolean) {
+        val e = cc.joycreator.joybrush.androidkit.gl.media.MediaLayerEngine
+        if (e.coarseWaterDefault == on) return
+        e.coarseWaterDefault = on
+        onGl { mediaCanvas.releaseEngine() }
+    }
+
     /** Water jobs in the atlas (MediaCanvas.waterJobs; on): the bench's A/B. Any thread. */
     var mediaWaterJobs: Boolean
         get() = mediaCanvas.waterJobs

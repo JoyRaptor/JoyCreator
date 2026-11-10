@@ -187,6 +187,7 @@ private const val PREF_GUIDES = "guides"
 /** LAYER_OPS L6: what Flatten does with hidden layers: "ask" (default), "keep" or "discard". */
 private const val PREF_FLATTEN_HIDDEN = "joybrush.flattenHidden"
 private const val PREF_WATER_TEST = "joybrush.waterTest"
+private const val PREF_FAST_WATER = "joybrush.fastWater"
 /** The paint engine for pencil, watercolour and oil: "atlas" (the whole layer) or "window" (the old 1024 px patch). */
 private const val PREF_PAINT_ENGINE = "joybrush.paintEngine"
 /** What a person who never chose gets: the atlas since 10-21 (water jobs, the whole layer); the old window one tap away. */
@@ -478,6 +479,7 @@ class JoyBrushActivity : Activity() {
         prefs = getSharedPreferences(CHROME_PREFS, Context.MODE_PRIVATE)
         canvas.mediaWaterAB = WaterTest.of(prefs.getString(PREF_WATER_TEST, null)).ab
         canvas.setMediaAtlas(prefs.getString(PREF_PAINT_ENGINE, DEFAULT_PAINT_ENGINE) == "atlas")
+        canvas.setMediaFastWater(prefs.getBoolean(PREF_FAST_WATER, false))
         // Each tool as the person left it; the first shipped brush of each kind on a first visit (JB-1.05b, JB-2.01).
         pendingCatalogTools = prefs.getString(PREF_TOOLS, null)
         catalogToolsPending = UnibrushActivation.SHIPPING_ENABLED || pendingCatalogTools?.contains("unibrush.") == true
@@ -1125,6 +1127,15 @@ class JoyBrushActivity : Activity() {
             val next = WaterTest.next(water.id)
             prefs.edit().putString(PREF_WATER_TEST, next.id).apply()
             canvas.mediaWaterAB = next.ab
+            popovers.close(); moreMenu(anchor)
+        })
+        // Water detail (2026-11-10): full-resolution water, or water on 2 x 2 pixel cells that runs about four times as fast.
+        val fastWater = prefs.getBoolean(PREF_FAST_WATER, false)
+        box.addView(menuRow(if (fastWater) "Water detail: Fast" else "Water detail: Detailed",
+            if (fastWater) "Water runs and drips about four times as fast; the paper's fine grain beads a little less. Tap for detailed water"
+            else "Water beads in the paper's finest grain, and runs slowly on big washes. Tap for fast water") {
+            prefs.edit().putBoolean(PREF_FAST_WATER, !fastWater).apply()
+            canvas.setMediaFastWater(!fastWater)
             popovers.close(); moreMenu(anchor)
         })
         // The paint engine (October 20): the atlas paints pencil, watercolour and oil on the whole layer, with no window edge;

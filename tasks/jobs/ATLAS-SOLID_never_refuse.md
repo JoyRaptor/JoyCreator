@@ -30,8 +30,20 @@ On branch `claude/atlas-solid-20261109`. Receipt with the numbers: [ATLAS_SOLID_
 | `GraphicsMemoryException`; a tile the driver cannot draw into is refused when made; spare textures given back; later atlases half the size; a failed atlas is retried smaller | No black squares from a tile born without memory; realistic paint is no longer switched off for the session when the big atlas cannot be made | Compiles; existing probes pass. **The failure itself has not been reproduced**, so this path has not run on a phone |
 | Sentences | "That stroke stopped early. What it painted is kept: carry on from there." replaces raw error text; no megabytes or "memory" | JVM test on the sentences |
 
+## 2026-11-10 later: water speed, lost squares
+
+- **Water speed** measured and explained: [WATER_SPEED_20261110.md](../joybrush/reviews/WATER_SPEED_20261110.md). The graphics chip is
+  the limit (4-11 water steps a second, 3-9 % of real time). A longer time step goes unstable. Shipped: a **Water detail**
+  switch in the ⋯ menu (Detailed, default; Fast = 2 x 2 water cells, drips about 4x as fast), all 7 watercolour brushes clean
+  in it. The road to about 20x is written there; it trades fine water detail while water runs, which is the owner's call.
+- **Lost squares:** 180 mixed strokes over 12.5 minutes at the phone's own room (oil, knife, scraper, wash, round, 6B,
+  tilted): 0 tile errors, 0 failed copies, 0 GL errors, no crash. Four Home-and-return cycles with the drawing on screen: no
+  black squares. Not reproduced; cause still open. Two further cycles were disturbed by something else using the phone
+  (screens not kept).
+
 ## What is left
-- [ ] Owner test on the Note 9 build, then the Note 20.
+- [ ] Owner test on the Note 9 build, then the Note 20; owner compares Water detail Fast and Detailed with tilt.
+- [ ] Water speed steps 1-3 of the WATER_SPEED road (cheap tilt path, 4 x 4 running water, step only moving water).
 - [ ] A stress run long enough to meet the 10-31 tile failures again (or not), reading `JoyBrushTiles` and `JoyBrushMediaMemory`.
 - [ ] When running water is pinned far from the pen, the stroke is still refused in words ("too far from paint that is still wet"). Rare; the water should be set aside instead.
 - [ ] Streaming saves (second review E4), then raise `LayerBudget.MEDIA_RAM_SHARE`.

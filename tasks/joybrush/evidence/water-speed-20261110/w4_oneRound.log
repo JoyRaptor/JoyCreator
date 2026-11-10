@@ -1,0 +1,12 @@
+11-10 07:40:33.998  5306  5354 I JoyBrushWater: speed: 2 steps in 1.04 s over 10 frames = 0.016 x real time; rectangle 1269 x 390 px, drew 0.0 M units, budget 0.15 M a frame
+11-10 07:40:34.365  5306  5306 I JoyBrushPerf: {"observation":{"status":"CONTACT_TIMING_ONLY","refusals":[],"effectiveBrushSizePx":60,"requestedSizePx":null,"effectiveSpacing":0.04,"flowBase":1,"brushJsonSha256":"d5cda3e3a25a5df3db33ed1600f259ecf6bfb57ce9b87cf7dd1dccf4625c5a27","liftToFinalMs":null,"finalCompletion":"Unavailable: no atomic final-publication receipt on the public bench API","scope":"FrameStats contact timing; no final output, editable lift, or quality acceptance claim"},"legacy":false,"brush":"media:wet:Round","case":"band4","run":1,"samples":337,"frames":18,"strokeFrames":13,"
+11-10 07:40:35.014  5306  5354 I JoyBrushWater: speed: 10 steps in 1.02 s over 29 frames = 0.082 x real time; rectangle 1281 x 414 px, drew 0.0 M units, budget 0.80 M a frame
+11-10 07:40:36.055  5306  5354 I JoyBrushWater: speed: 17 steps in 1.04 s over 29 frames = 0.136 x real time; rectangle 1297 x 446 px, drew 0.0 M units, budget 0.72 M a frame
+11-10 07:40:37.073  5306  5354 I JoyBrushWater: speed: 16 steps in 1.02 s over 31 frames = 0.131 x real time; rectangle 1313 x 478 px, drew 0.0 M units, budget 0.59 M a frame
+11-10 07:40:38.076  5306  5354 I JoyBrushWater: speed: 14 steps in 1.00 s over 29 frames = 0.116 x real time; rectangle 1329 x 510 px, drew 0.0 M units, budget 0.73 M a frame
+11-10 07:40:39.079  5306  5354 I JoyBrushWater: speed: 13 steps in 1.00 s over 30 frames = 0.108 x real time; rectangle 1341 x 534 px, drew 0.0 M units, budget 0.96 M a frame
+11-10 07:40:40.094  5306  5354 I JoyBrushWater: speed: 13 steps in 1.01 s over 27 frames = 0.107 x real time; rectangle 1353 x 558 px, drew 0.0 M units, budget 0.92 M a frame
+11-10 07:40:41.153  5306  5354 I JoyBrushWater: speed: 14 steps in 1.06 s over 30 frames = 0.110 x real time; rectangle 1369 x 590 px, drew 0.0 M units, budget 0.64 M a frame
+11-10 07:40:42.157  5306  5354 I JoyBrushWater: speed: 11 steps in 1.00 s over 30 frames = 0.091 x real time; rectangle 1381 x 614 px, drew 0.0 M units, budget 0.82 M a frame
+11-10 07:40:43.172  5306  5354 I JoyBrushWater: speed: 11 steps in 1.01 s over 31 frames = 0.090 x real time; rectangle 1389 x 630 px, drew 0.0 M units, budget 0.59 M a frame
+11-10 07:40:44.172  5306  5354 I JoyBrushWater: speed: 11 steps in 1.00 s over 31 frames = 0.092 x real time; rectangle 1401 x 654 px, drew 0.0 M units, budget 0.70 M a frame

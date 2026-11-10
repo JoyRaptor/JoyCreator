@@ -131,6 +131,15 @@ public final class LayerGestureController {
         default void onItemDoubleTapped(@NonNull TimedItem item) {}
 
         /**
+         * A clean single tap on an item that was ALREADY selected before the tap. Selecting is
+         * what a tap does, so on an already-selected item a tap had nothing left to do, and
+         * after closing an object's drawer the only ways back were double-tap or hold (STU-4,
+         * Note 9 10-28). The activity reopens the drawer when none is open. Fires on the UP;
+         * the second tap of a double-tap reports {@link #onItemDoubleTapped} instead.
+         */
+        default void onSelectedItemTapped(@NonNull TimedItem item) {}
+
+        /**
          * The user HELD {@code item} (pickup armed — it lifted, with haptic) and then
          * RELEASED it in place WITHOUT crossing the move slop (gesture contract §1:
          * hold → release-in-place = open the GENERAL ADVANCED MENU / object options sheet,
@@ -290,6 +299,8 @@ public final class LayerGestureController {
     // ── G1: double-tap detection (gesture contract §1 — double-tap = open type editor) ──
     /** Item id of the last resolved single TAP awaiting a possible second tap, or null. */
     @Nullable private String lastTapItemId;
+    /** The current body touch landed on the item that was already selected (see onSelectedItemTapped). */
+    private boolean downOnSelected;
     /** {@code SystemClock.uptimeMillis()} of the last resolved TAP's UP (pairs with {@link #lastTapItemId}). */
     private long lastTapUpMs;
     /**
@@ -623,6 +634,7 @@ public final class LayerGestureController {
         // consistent lifecycle, but activeKind stays MOVE only as the *potential* kind;
         // movedDuringGesture stays false until beginPickup().
         boolean selectionChanged = !hit.item.getId().equals(selectedItemId);
+        downOnSelected = !selectionChanged;
         selectedItemId = hit.item.getId();
         active = true;
         pendingBodyDown = true;
@@ -2723,6 +2735,7 @@ public final class LayerGestureController {
             } else {
                 lastTapItemId = item.getId();
                 lastTapUpMs = now;
+                if (downOnSelected) callback.onSelectedItemTapped(item);
             }
         } else if (holdReleaseInPlace && committed && item != null && fromTrack != null) {
             // G1 (gesture contract §1): hold → release in place. The pickup already lifted

@@ -289,6 +289,9 @@ public class FaditorToolsAdapter {
         editChip.setOnClickListener(v -> {
             if (editToggleListener != null) editToggleListener.onEditToggle();
         });
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(editChip,
+                context.getString(R.string.faditor_tools_edit_tooltip));
+        editChip.setContentDescription(context.getString(R.string.faditor_tools_edit_tooltip));
         container.addView(editChip);
     }
 
@@ -359,11 +362,46 @@ public class FaditorToolsAdapter {
         if (editMode) return;
         editMode = true;
         for (View cell : cellViews) {
-            if (cell.getVisibility() == View.VISIBLE) startWiggle(cell);
+            if (cell.getVisibility() == View.VISIBLE) {
+                startWiggle(cell);
+                raiseForEdit(cell);
+            }
         }
         applyDividerStyle();
         updateEditChip();
         showDoneControl(true);
+        // Say what the mode is for. Its only signs used to be a 2.5-degree wiggle and a
+        // greener divider: with system animations off (or reduced) the wiggle never runs, and
+        // Edit read as a button that flips to Done and does nothing (STU-4, Note 9 10-28).
+        android.widget.Toast.makeText(context, R.string.faditor_tools_edit_hint,
+                android.widget.Toast.LENGTH_LONG).show();
+    }
+
+    /** Backgrounds the tools had before edit mode, restored on the way out. */
+    private final java.util.Map<View, android.graphics.drawable.Drawable> preEditBackgrounds =
+            new java.util.HashMap<>();
+
+    /**
+     * Edit mode's STILL sign, which needs no animation: every tool sits on a raised pill,
+     * so the row visibly turns into things you can pick up.
+     */
+    private void raiseForEdit(@NonNull View cell) {
+        if (preEditBackgrounds.containsKey(cell)) return;
+        preEditBackgrounds.put(cell, cell.getBackground());
+        android.graphics.drawable.GradientDrawable pill =
+                new android.graphics.drawable.GradientDrawable();
+        pill.setColor(Studio.RAISED);
+        pill.setCornerRadius(dp(10));
+        pill.setStroke(Math.max(1, dp(1) / 2), Studio.alpha(Studio.INK, 0x33));
+        cell.setBackground(new android.graphics.drawable.InsetDrawable(pill, dp(2)));
+    }
+
+    private void lowerAfterEdit() {
+        for (java.util.Map.Entry<View, android.graphics.drawable.Drawable> e
+                : preEditBackgrounds.entrySet()) {
+            e.getKey().setBackground(e.getValue());
+        }
+        preEditBackgrounds.clear();
     }
 
     /** Commits edit mode: stops wiggle, hides Done, persists (already persisted per-drop). */
@@ -371,6 +409,7 @@ public class FaditorToolsAdapter {
         if (!editMode) return;
         editMode = false;
         stopWiggle();
+        lowerAfterEdit();
         applyDividerStyle();
         updateEditChip();
         showDoneControl(false);

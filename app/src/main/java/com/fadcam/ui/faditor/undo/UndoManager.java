@@ -809,6 +809,28 @@ public class UndoManager {
         return true;
     }
 
+    /** Completes a before-state the editor alone can supply (see {@link #completeTopAiBefore}). */
+    public interface BeforeCompleter {
+        /** @return the completed snapshot, or the same string when nothing is missing. */
+        @NonNull String complete(@NonNull String snapshotBefore);
+    }
+
+    /**
+     * Let the editor finish the BEFORE of the AI step on top of the stack. Joybot's chat parks
+     * each request's before as {@code project.json} alone, but timeline marks live beside that
+     * file, so undoing such a step restored everything except the marks: a mark Joybot added
+     * stayed after Undo (Note 9, 10-28). The editor still holds the marks as they were before it
+     * took the change in, and adds them here. Only an AI step is touched, and only by value.
+     *
+     * @return true when the top entry is an AI step and was offered to {@code completer}.
+     */
+    public boolean completeTopAiBefore(@NonNull BeforeCompleter completer) {
+        HistoryEntry top = undoStack.peek();
+        if (top == null || !top.aiOrigin || top.snapshotBefore == null) return false;
+        top.snapshotBefore = completer.complete(top.snapshotBefore);
+        return true;
+    }
+
     /**
      * The editor is about to replace the whole project object (an AI edit landed on disk).
      * Every {@link EditAction} on both stacks closes over the OUTGOING model objects, so

@@ -11,10 +11,12 @@ uniform vec4 u_rect;
 uniform mat3 u_docToClip;
 
 out vec2 v_uv;
+out vec2 v_doc;   // document px (jb_overlay_grain.frag reads the paper there)
 
 void main() {
     vec2 doc = u_rect.xy + a_corner01 * u_rect.zw;
     vec3 c = u_docToClip * vec3(doc, 1.0);
     gl_Position = vec4(c.xy, 0.0, 1.0);
     v_uv = a_corner01;
+    v_doc = doc;
 }

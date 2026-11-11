@@ -934,7 +934,7 @@ class GlPaintEngine(
         try {
         // Preview names belong to the dead context too. Do NOT endLift here: it would restore
         // old originals into current stores and recycle/delete names the new context can reuse.
-        lift = null; liftMatrix = null; liftProg = null; overlayProg = null
+        lift = null; liftMatrix = null; liftProg = null; overlayProg = null; overlayGrainProg = null; overlayGrainBroken = false
         resetJointPaint(RecordedScene.ResetMode.CONTEXT_LOST)
         recordedScene?.forget(); recordedScene = null
         wcPass?.forget(); wcPass = null; wcSpec = null; wcFading = false; wcPrepared = false
@@ -7465,12 +7465,20 @@ class GlPaintEngine(
      * (WetSheet: watercolour while it is wet, not yet printed into the layer's tiles). [texture] is premultiplied RGBA laid
      * like a tile, covering the square of [size] document px at ([x], [y]). GL thread.
      */
-    class LayerOverlay(val layerId: String, val texture: Int, val x: Float, val y: Float, val w: Float, val h: Float)
+    class LayerOverlay(val layerId: String, val texture: Int, val x: Float, val y: Float, val w: Float, val h: Float,
+                       /**
+                        * Above 0: the picture is the wet sheet's look on cells [cell] document px wide, and it is drawn with the
+                        * paper's fine grain worked into it at that strength (jb_overlay_grain.frag): "sharp when dry".
+                        */
+                       val grain: Float = 0f, val cell: Float = 1f)
 
     /** The overlays to draw, set by their owner each frame (GL thread). */
     var layerOverlays: List<LayerOverlay> = emptyList()
 
     private var overlayProg: GlProgram? = null
+    private var overlayGrainProg: GlProgram? = null
+    /** The grain shader would not build on this phone: overlays are drawn plain from then on (never a lost wash). */
+    private var overlayGrainBroken = false
 
     /** [layer]'s overlays, each one quad over its rectangle of the document (the caller has blending on and [tileVao] bound). */
     private fun drawLayerOverlays(layer: Layer, docToClip: FloatArray) {
@@ -7480,8 +7488,32 @@ class GlPaintEngine(
 
     /** One overlay through [docToClip] into whatever is bound: on screen, or into a layer tile ([printOverlay]). */
     private fun drawOverlay(o: LayerOverlay, docToClip: FloatArray, opacity: Float) {
-        val prog = overlayProg ?: GlProgram(shaders.source("jb_overlay.vert"), shaders.source("jb_tile.frag"), "overlay").also { overlayProg = it }
+        // With the paper's grain when the overlay asks for it and the document has a paper map to read.
+        val paper = if (o.grain > 0f && !overlayGrainBroken) mediaPaper().takeIf { it.surface.id != 0 && it.texelPx > 0f } else null
+        val grainProg = if (paper == null) null else overlayGrainProg ?: try {
+            GlProgram(shaders.source("jb_overlay.vert"), shaders.source("jb_overlay_grain.frag"), "overlay grain").also { overlayGrainProg = it }
+        } catch (e: RuntimeException) {
+            android.util.Log.e("JoyBrushTiles", "the overlay's grain shader did not build: overlays are drawn plain", e)
+            overlayGrainBroken = true
+            null
+        }
+        val prog = grainProg ?: overlayProg ?: GlProgram(shaders.source("jb_overlay.vert"), shaders.source("jb_tile.frag"), "overlay").also { overlayProg = it }
         prog.use()
+        if (grainProg != null && paper != null) {
+            GLES30.glUniform1f(prog.loc("u_grain"), o.grain)
+            GLES30.glUniform1f(prog.loc("u_cellPx"), o.cell)
+            GLES30.glUniform1f(prog.loc("u_paperTexelPx"), paper.texelPx)
+            GLES30.glUniform1f(prog.loc("u_paperSize"), paper.size)
+            GLES30.glUniform1f(prog.loc("u_paperHexTexels"), paper.hexTexels)
+            GLES30.glUniform1f(prog.loc("u_paperSlopeRange"), paper.slopeRange)
+            GLES30.glUniform1i(prog.loc("u_paperRotatable"), if (paper.rotatable) 1 else 0)
+            GLES30.glUniform1f(prog.loc("u_paperHeightMean"), paper.stats.heightMean.toFloat())
+            GLES30.glUniform1f(prog.loc("u_paperHBot"), paper.stats.heightBot.toFloat())
+            GLES30.glUniform1f(prog.loc("u_paperHTop"), paper.stats.heightTop.toFloat())
+            GLES30.glUniform1i(prog.loc("u_paperSurface"), 1)
+            GLES30.glActiveTexture(GLES30.GL_TEXTURE1)
+            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, paper.surface.id)
+        }
         GLES30.glUniform4f(prog.loc("u_rect"), o.x, o.y, o.w, o.h)
         GLES30.glUniformMatrix3fv(prog.loc("u_docToClip"), 1, false, docToClip, 0)
         GLES30.glUniform1f(prog.loc("u_layerOpacity"), opacity)

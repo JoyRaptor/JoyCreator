@@ -330,7 +330,8 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
     }
 
     /** The newest wet brush's granulation (WetBrush.gran). */
-    fun setGranulation(gran: Double) { engine?.wetGran = gran }
+    fun setGranulation(gran: Double) { engine?.wetGran = gran; this.gran = gran }
+    private var gran = 1.0
 
     /** The layer's own pixels changed under the sheet (another step undone, a stroke on it): the paint is lit over them anew. */
     fun groundChanged(layer: String) { if (holding && layer == layerId) groundStale = true }
@@ -340,7 +341,8 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
         val e = engine ?: return null
         val id = layerId ?: return null
         if (!holding || e.asleep) return null
-        return GlPaintEngine.LayerOverlay(id, e.lookTexture(), originX, originY, docW, docH)
+        return GlPaintEngine.LayerOverlay(id, e.lookTexture(), originX, originY, docW, docH,
+            grain = (grainPrint * gran).toFloat(), cell = cell.toFloat())
     }
 
     // ---- printing ----
@@ -762,6 +764,13 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
 
         /** The owner's dial: how fast running water may travel, 1 = as approved in the lab (WetSheetMath.runCapMmPerS). */
         @Volatile @JvmStatic var flowSpeed = 1.0
+
+        /**
+         * How strongly the paper's fine grain is worked into the sheet's look where a cell is wider than a pixel
+         * (GlPaintEngine.LayerOverlay.grain, times the brush's own granulation): 1 = as tuned on the Note 9, 0 = the plain
+         * smooth look. The bench's `jb_sheet_grain`.
+         */
+        @Volatile @JvmStatic var grainPrint = 1.0
 
         /** Debug bench only (`jb_sheet_print_hold_ms`): a dry sheet waits this long before it is printed (0 in the app). */
         @Volatile @JvmStatic var printHoldMs = 0L

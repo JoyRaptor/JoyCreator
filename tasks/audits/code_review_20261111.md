@@ -22,7 +22,7 @@ were not.
 | E2 | The same shortening leaves the export short of the timeline's length, and the "tail filler" pads it with black to make up the difference | A project with transitions ends with black frames as long as its transitions added together | confirmed. Same root as D5 |
 | D6 | In the export, a clip's fade, opacity keys, position keys and volume curve are read from the start of the exported piece. After a transition that piece starts part-way into the clip, so they are read early by the transition's length | A 1 s fade-out on a clip that follows a 0.6 s transition never reaches black; a fade-in pops | confirmed in the export code |
 | E5 | The piece of a clip that plays during a transition gets the clip's plain volume only: no volume curve, no audio effects | A clip that fades its sound out into a transition does not fade there | scout |
-| E6 | The repeats of a looped clip play at full volume whatever the clip's volume is | A clip at 30% volume with "loop after": the loops are loud | scout |
+| E6 | The repeats of a looped clip play at full volume whatever the clip's volume is | A clip at 30% volume with "loop after": the loops are loud | **fixed 11-11**: the repeats get the clip's volume (not its curve). Built; not heard on a phone |
 | D4 | The sound of a picture-in-picture divides by its speed twice when working out where the next one starts | With two picture-in-pictures and the first not at normal speed, the second one's sound is late or early | **fixed 11-11** (see C) |
 | D3 | A picture-in-picture at a speed other than normal: its window length and its sound follow the speed, its picture does not | Picture and sound of the same picture-in-picture show different moments | scout |
 | D1 | Preview captions apply the clip's speed to a position that is already in source time | In the editor, captions on a clip at 2x run ahead of the sound, more and more; the export is right | scout (worked through by the scout; the lead has not re-derived it) |
@@ -43,8 +43,8 @@ then audio lanes and the black tail **together, compared on a phone**, then cuts
 
 | # | Finding | State |
 |---|---|---|
-| E1 | A long export in parts (12 minutes and up) fails with "Part N came out the wrong length" when a part holds a looped or frozen clip, after doing the work: the expected length leaves the loop out (`rangeExpectedMs`), while the exact figure is already known (`chunkCompDurs`) | scout (marked confirmed by the scout) |
-| E7 | When copying the finished file into a chosen folder fails part-way (disk full), the cut-off file stays under the finished name and the export still reports "completed" | scout |
+| E1 | A long export in parts (12 minutes and up) fails with "Part N came out the wrong length" when a part holds a looped or frozen clip, after doing the work: the expected length leaves the loop out (`rangeExpectedMs`), while the exact figure is already known (`chunkCompDurs`) | **fixed 11-11**: each part is checked against the length it was planned at, and the plan measures the last part from where it really starts. Built; no 12-minute export run on it yet |
+| E7 | When copying the finished file into a chosen folder fails part-way (disk full), the cut-off file stays under the finished name and the export still reports "completed" | **fixed 11-11**: the cut-off file is removed, and the whole export is moved out of the temporary folder into the app's own exports folder. It still reports "completed" (with that place): telling the person the copy failed is left |
 | E8 | Cancel during "Preparing" does not tell the editor, and the export can start anyway | scout |
 | E9 | An out-of-memory or a missing native library in the "joining" or "loudness" thread leaves the export stuck "exporting" for good (only `Exception` is caught) | scout |
 | E10 | Cancel during "Joining" does not stop the join, which runs on for minutes | scout |

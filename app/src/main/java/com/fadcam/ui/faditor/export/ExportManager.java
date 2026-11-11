@@ -1234,7 +1234,8 @@ public class ExportManager {
                     finalPath = safName;
                     FLog.d(TAG, "Single-frame export (copied to SAF): " + safName);
                 } else {
-                    FLog.e(TAG, "SAF copy failed, image remains at: " + finalPath);
+                    finalPath = keepOutOfCache(finalPath);
+                    FLog.e(TAG, "SAF copy failed, image kept at: " + finalPath);
                 }
                 pendingSafCopy = false;
                 safExportFileName = null;
@@ -1626,7 +1627,10 @@ public class ExportManager {
             long editorBase = 0L;
             for (int i = 0; i < ranges.size(); i++) {
                 int[] r = ranges.get(i);
-                long compDur = builtRangeDurationMs(project, r[0], r[1]);
+                // Measured from where the part really starts (compBase), as it will be rendered.
+                // Measured from zero, the LAST part's black tail (the timeline's length less what
+                // has been laid down) came out too long by everything before the part.
+                long compDur = builtRangeDurationMs(project, r[0], r[1], compBase);
                 long editorDur = 0L;
                 for (int ci = r[0]; ci < r[1] && ci < tl.getClipCount(); ci++) {
                     editorDur += tl.getClip(ci).getVisualDurationMs();
@@ -2131,8 +2135,15 @@ public class ExportManager {
             this.expected = new long[n];
             long total = 0L;
             for (int i = 0; i < n; i++) {
-                expected[i] = Math.max(1L, rangeExpectedMs(project.getTimeline(),
-                        ranges.get(i)[0], ranges.get(i)[1]));
+                // The length each part was PLANNED to come out at (planChunks measured the built
+                // piece), when there is one. The estimate below adds up the clips' trimmed
+                // lengths only: it leaves out a loop or a held last frame, and the black tail
+                // under sound that runs past the last clip. A part holding 30 s of those rendered
+                // fine and was then refused as "the wrong length", after the work was done, and a
+                // good cached part was thrown away for the same reason (code review 2026-11-11).
+                long planned = chunkCompDurs != null && i < chunkCompDurs.length ? chunkCompDurs[i] : 0L;
+                expected[i] = Math.max(1L, planned > 0L ? planned
+                        : rangeExpectedMs(project.getTimeline(), ranges.get(i)[0], ranges.get(i)[1]));
                 total += expected[i];
             }
             this.totalExpected = Math.max(1L, total);
@@ -2692,13 +2703,23 @@ public class ExportManager {
      * the loop emitted, including loop reps and transition compression). No encode.
      */
     private long builtRangeDurationMs(@NonNull FaditorProject project, int start, int end) {
+        return builtRangeDurationMs(project, start, end, 0L);
+    }
+
+    /**
+     * @param baseMs where this range starts in the whole export. Only the last range reads it:
+     *               its tail filler is the timeline's length less (base + what the range lays
+     *               down), the same sum the render itself does with chunkBaseMs.
+     */
+    private long builtRangeDurationMs(@NonNull FaditorProject project, int start, int end,
+                                      long baseMs) {
         long keepBase = chunkBaseMs;
         boolean keepVideoOnly = chunkVideoOnly;
         int keepStart = chunkClipStart;
         int keepEnd = chunkClipEnd;
         boolean keepMeasuring = measuringOnly;
         try {
-            chunkBaseMs = 0L;
+            chunkBaseMs = Math.max(0L, baseMs);
             chunkVideoOnly = true;
             chunkClipStart = start;
             chunkClipEnd = end;
@@ -3109,7 +3130,8 @@ public class ExportManager {
                     finalPath = safResult;
                     FLog.d(TAG, completedLogTag + " (copied to SAF): " + safResult);
                 } else {
-                    FLog.e(TAG, "SAF copy failed, file remains at: " + outputPath);
+                    finalPath = keepOutOfCache(outputPath);
+                    FLog.e(TAG, "SAF copy failed, file kept at: " + finalPath);
                 }
                 pendingSafCopy = false;
                 safExportFileName = null;
@@ -5416,6 +5438,16 @@ public class ExportManager {
         if (!clip.isAudioMuted()) {
             SonicAudioProcessor sap = speedAndFit(speed, audioClockFit(itemUri, startMs, endMs));
             if (sap != null) audioProcessors.add(sap);
+            // The clip's own volume, as the transition item gets it. A repeat had none: a clip
+            // turned down to 30% played quietly and then looped at full volume in the file
+            // (code review 2026-11-11). A volume curve belongs to the clip's first pass and is
+            // not repeated here.
+            float vol = clip.getVolumeLevel();
+            if (Math.abs(vol - 1.0f) >= 0.01f) {
+                VolumeAudioProcessor vp = new VolumeAudioProcessor();
+                vp.setVolume(vol);
+                audioProcessors.add(vp);
+            }
         }
 
         // No reverse-mirror effect: a true reverse leg comes pre-reversed (video AND areverse'd
@@ -7774,6 +7806,44 @@ public class ExportManager {
      * @return the SAF display name on success, or null on failure
      */
     @Nullable
+    /**
+     * An export whose copy into the chosen folder failed is still whole in the temporary folder,
+     * which Android may empty whenever it likes and "Clear caches" empties on request: a finished
+     * export, lost after the fact (code review 2026-11-11). Move it to the app's own exports
+     * folder, where the Library lists it, under a name nothing else has. Returns where it is now
+     * (the temporary path itself when it could not be moved: a full phone, most likely).
+     */
+    @NonNull
+    private String keepOutOfCache(@NonNull String tempFilePath) {
+        try {
+            File temp = new File(tempFilePath);
+            if (!temp.isFile()) return tempFilePath;
+            File dir = RecordingStoragePaths.getInternalCategoryDir(
+                    context, RecordingStoragePaths.Category.FADITOR, true);
+            if (dir == null) dir = context.getExternalFilesDir(null);
+            if (dir == null) return tempFilePath;
+            File dest = ExportNames.freeFile(dir, temp.getName());
+            if (temp.renameTo(dest)) return dest.getAbsolutePath();
+            // A different storage volume: copy, check, then let the temporary one go.
+            File part = new File(dir, dest.getName() + ".part");
+            try (InputStream in = new FileInputStream(temp);
+                 OutputStream out = new java.io.FileOutputStream(part)) {
+                byte[] buffer = new byte[256 * 1024];
+                int n;
+                while ((n = in.read(buffer)) != -1) out.write(buffer, 0, n);
+            }
+            if (part.length() != temp.length() || !part.renameTo(dest)) {
+                part.delete();
+                return tempFilePath;
+            }
+            temp.delete();
+            return dest.getAbsolutePath();
+        } catch (Exception e) {
+            FLog.w(TAG, "Could not move the export out of the temporary folder", e);
+            return tempFilePath;
+        }
+    }
+
     private String copyTempToSaf(@NonNull String tempFilePath) {
         String customUriString = prefsManager.getCustomStorageUri();
         if (customUriString == null) {
@@ -7831,20 +7901,38 @@ public class ExportManager {
                 return null;
             }
 
-            // Stream-copy temp file to SAF
+            // Stream-copy temp file to SAF. A copy that fails part-way (the phone fills up) must
+            // not leave a cut-off video under the finished name in the person's folder: it looked
+            // like the export and was not (code review 2026-11-11). The whole export is still in
+            // the temporary file, which is only removed once the copy is known to be complete.
+            boolean copied = false;
             try (InputStream in = new FileInputStream(tempFile);
                  OutputStream out = context.getContentResolver()
                          .openOutputStream(docFile.getUri())) {
                 if (out == null) {
                     FLog.e(TAG, "SAF copy: failed to open output stream");
-                    return null;
+                } else {
+                    byte[] buffer = new byte[64 * 1024];
+                    int bytesRead;
+                    while ((bytesRead = in.read(buffer)) != -1) {
+                        out.write(buffer, 0, bytesRead);
+                    }
+                    out.flush();
+                    copied = true;
                 }
-                byte[] buffer = new byte[8192];
-                int bytesRead;
-                while ((bytesRead = in.read(buffer)) != -1) {
-                    out.write(buffer, 0, bytesRead);
+            } catch (Exception e) {
+                FLog.e(TAG, "SAF copy failed part-way", e);
+            }
+            // Some folders report no length (0): only a length that is known and wrong counts.
+            long landed = copied ? docFile.length() : -1L;
+            if (!copied || (landed > 0 && landed != tempFile.length())) {
+                try {
+                    docFile.delete();
+                } catch (Exception ignored) {
                 }
-                out.flush();
+                FLog.e(TAG, "SAF copy incomplete (" + landed + " of " + tempFile.length()
+                        + " bytes); the cut-off file was removed, the export stays at " + tempFilePath);
+                return null;
             }
 
             // Clean up temp file after successful copy

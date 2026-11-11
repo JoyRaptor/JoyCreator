@@ -63,7 +63,9 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
 - [ ] Emitter for VisLab; hand-drawn ink as a piece; weld mode (a whole word as one piece, for script faces).
 - [ ] Each letter's own motion carried to its particles; vines, fur and other growing elements (owner's wish list).
 - [ ] Materials from a photo of a shiny ball (the sphere is just a picture).
-- [ ] One-file build of the look book for sharing (as `tools/vislab-web/build.mjs`).
+- [x] One-file build of the look book for sharing: `node tools/textlab-web/build.mjs` (`--drafts` adds the drafts).
+      Published for the owner 11-11 as the artifact "TextLab Look Book", https://claude.ai/artifact/LwJZr7bdN3erpCreQib64S
+      (private to him; republish the same page from a new session by passing that address).
 
 ## Specs, handoffs and evidence
 - Design conversation and owner rulings: this card, `tasks/lessons.md` 2026-11-11.

@@ -48,3 +48,12 @@ fs.mkdirSync(path.join(here, 'dist'), { recursive: true });
 const dest = path.join(here, 'dist', 'textlab-lookbook.html');
 fs.writeFileSync(dest, out);
 console.log(`${dest}  ${(out.length / 1024).toFixed(0)} KB  ${Object.keys(shaders).length} shaders  ${looks.length} looks  ${Object.keys(fonts).length} fonts`);
+
+// The claude.ai artifact host wraps the page in its own document, so that copy carries only
+// the head's <title>/<meta>/<style> (title first) and the body's content.
+const h0 = out.indexOf('<head>'), h1 = out.indexOf('</head>');
+const b0 = out.indexOf('<body>'), b1 = out.lastIndexOf('</body>');
+const head = out.slice(h0 + 6, h1).split('\n').filter((l) => !/<meta charset|name="viewport"/.test(l)).join('\n').trim();
+const destA = path.join(here, 'dist', 'textlab-lookbook.artifact.html');
+fs.writeFileSync(destA, head + '\n' + out.slice(b0 + 6, b1).trim() + '\n');
+console.log(`${destA}  (artifact body)`);

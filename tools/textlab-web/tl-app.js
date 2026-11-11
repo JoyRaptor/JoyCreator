@@ -92,11 +92,11 @@
           const cur = engine.knob(name);
           if ('c' in k) {
             const [hex, gain] = String(cur).split('*');
-            const inp = document.createElement('input'); inp.type = 'color'; inp.value = hex; inp.title = k.label;
+            const inp = document.createElement('input'); inp.type = 'color'; inp.value = hex; inp.title = k.label; inp.id = 'k-' + name; lab.htmlFor = inp.id;
             inp.oninput = () => engine.setKnob(name, gain ? inp.value + '*' + gain : inp.value);
             row.appendChild(inp);
           } else {
-            const inp = document.createElement('input'); inp.type = 'range'; inp.title = k.label;
+            const inp = document.createElement('input'); inp.type = 'range'; inp.title = k.label; inp.id = 'k-' + name; lab.htmlFor = inp.id;
             inp.min = k.min; inp.max = k.max; inp.step = k.step || (k.max - k.min) / 400; inp.value = cur;
             const out = document.createElement('output'); out.textContent = Number(cur).toFixed(3).replace(/\.?0+$/, '');
             inp.oninput = () => { engine.setKnob(name, Number(inp.value)); out.textContent = Number(inp.value).toFixed(3).replace(/\.?0+$/, ''); };
@@ -113,7 +113,8 @@
     $('pause').onclick = () => { paused = !paused; $('pause').classList.toggle('on', paused); };
     $('copy').onclick = () => {
       const out = JSON.parse(JSON.stringify(look)); out.p = Object.assign({}, look.p, engine.over);
-      navigator.clipboard.writeText(JSON.stringify(out, null, 2)).then(() => { $('copy').textContent = 'Copied'; setTimeout(() => { $('copy').textContent = 'Copy look'; }, 1200); });
+      const say = (word) => { $('copy').textContent = word; setTimeout(() => { $('copy').textContent = 'Copy look'; }, 1400); };
+      navigator.clipboard.writeText(JSON.stringify(out, null, 2)).then(() => say('Copied'), () => say('Copy refused here'));
     };
     const cv = $('cv');
     cv.addEventListener('pointermove', (e) => {

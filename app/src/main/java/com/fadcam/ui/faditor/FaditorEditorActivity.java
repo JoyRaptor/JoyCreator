@@ -15093,7 +15093,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * @param projectJson the serialized project JSON to restore from
      */
     private void restoreProjectFromSnapshot(@NonNull String projectJson) {
-        FaditorProject restored = projectStorage.fromJson(projectJson);
+        // As THIS project, whatever id the snapshot carries: a snapshot from a project brought in from
+        // a zip is stamped with the original's id, and restoring it as written made this editor save
+        // over the original from then on (work-loss audit 2026-11-11).
+        FaditorProject restored = project != null
+                ? projectStorage.fromJson(projectJson, project.getId())
+                : projectStorage.fromJson(projectJson);
         if (restored == null) {
             FLog.e(TAG, "Failed to restore project from snapshot");
             return;

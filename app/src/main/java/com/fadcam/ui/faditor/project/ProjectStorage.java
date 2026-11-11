@@ -429,6 +429,66 @@ public class ProjectStorage {
     }
 
     /**
+     * A project is the folder it lives in. The id INSIDE a project file decides where every later
+     * save goes, so a file carrying another project's id is a file that will save over that other
+     * project (work-loss audit 2026-11-11). It happens: a project brought in from a zip keeps the
+     * original's undo history and backup, each snapshot stamped with the original's id; one Undo in
+     * the copy, and the copy saved itself into the original's folder from then on.
+     *
+     * @return {@code p} when it already carries {@code projectId}; otherwise the same content
+     *         re-read as project {@code projectId}; null when that re-read fails
+     */
+    @Nullable
+    private FaditorProject asProject(@NonNull String projectId, @Nullable FaditorProject p,
+                                     @NonNull String json) {
+        if (p == null || projectId.equals(p.getId())) return p;
+        FLog.w(TAG, "Project data for " + projectId + " carried the id of another project ("
+                + p.getId() + "); reading it as " + projectId);
+        try {
+            JsonObject root = gson.fromJson(json, JsonObject.class);
+            if (root == null) return null;
+            root.addProperty("id", projectId);
+            FaditorProject fixed = gson.fromJson(root, FaditorProject.class);
+            return fixed != null && projectId.equals(fixed.getId()) ? fixed : null;
+        } catch (Exception e) {
+            FLog.e(TAG, "Could not re-read project data as " + projectId, e);
+            return null;
+        }
+    }
+
+    @NonNull
+    private static String readWhole(@NonNull File file) throws IOException {
+        try (java.io.FileInputStream in = new java.io.FileInputStream(file)) {
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            byte[] buf = new byte[64 * 1024];
+            int n;
+            while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+            return new String(out.toByteArray(), java.nio.charset.StandardCharsets.UTF_8);
+        }
+    }
+
+    /**
+     * {@link #fromJson(String)} for a snapshot that must come back as a given project (undo and
+     * redo): see {@link #asProject}.
+     */
+    @Nullable
+    public FaditorProject fromJson(@NonNull String json, @NonNull String projectId) {
+        FaditorProject p = fromJson(json);
+        if (p == null || projectId.equals(p.getId())) return p;
+        try {
+            JsonObject root = gson.fromJson(json, JsonObject.class);
+            if (root == null) return null;
+            root.addProperty("id", projectId);
+            FLog.w(TAG, "A snapshot carried the id of another project (" + p.getId()
+                    + "); restoring it as " + projectId);
+            return fromJson(gson.toJson(root));
+        } catch (Exception e) {
+            FLog.e(TAG, "Could not restore a snapshot as " + projectId, e);
+            return null;
+        }
+    }
+
+    /**
      * @param remember true for a load whose result someone will hold and later save: this storage
      *                 then remembers what the file looked like, so a later save can tell that
      *                 somebody else wrote the file in between ({@link #changedOutside}). False for
@@ -466,6 +526,8 @@ public class ProjectStorage {
         if (mainReader != null) {
             try (FileReader reader = mainReader) {
                 FaditorProject p = gson.fromJson(reader, FaditorProject.class);
+                // The folder says which project this is, not the file: see asProject.
+                if (p != null && !projectId.equals(p.getId())) p = asProject(projectId, p, readWhole(file));
                 if (hasAnyContent(p)) {
                     // Concurrent-instance guard (Stage 1 P0 fix): this copy is now known
                     // to match the file exactly — record its lastModified as the sync
@@ -496,6 +558,7 @@ public class ProjectStorage {
         if (bak.exists()) {
             try (FileReader reader = new FileReader(bak)) {
                 FaditorProject p = gson.fromJson(reader, FaditorProject.class);
+                if (p != null && !projectId.equals(p.getId())) p = asProject(projectId, p, readWhole(bak));
                 // A main file that opened but holds nothing is still newer than its backup. Prefer
                 // the backup only when the backup has something the main file does not.
                 if (p != null && (emptyMain == null || hasAnyContent(p))) {
@@ -586,6 +649,7 @@ public class ProjectStorage {
         }
         try (FileReader reader = new FileReader(bak)) {
             FaditorProject p = gson.fromJson(reader, FaditorProject.class);
+            if (p != null && !projectId.equals(p.getId())) p = asProject(projectId, p, readWhole(bak));
             if (p != null && p.getTimeline() != null) {
                 p.setDiskLastModifiedAtLastSync(p.getLastModified());
                 // The person chose the backup over the main file: saving over that main file later

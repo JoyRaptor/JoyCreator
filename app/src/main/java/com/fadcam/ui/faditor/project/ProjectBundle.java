@@ -208,6 +208,7 @@ public final class ProjectBundle {
                 String rel = root.toURI().relativize(f.toURI()).getPath();
                 // Don't double-add manifest
                 if (MANIFEST.equals(rel)) continue;
+                if (BundleRules.notPartOfABundle(rel)) continue;
                 ZipEntry entry = new ZipEntry(rel);
                 zos.putNextEntry(entry);
                 try (InputStream in = new FileInputStream(f)) {
@@ -237,7 +238,7 @@ public final class ProjectBundle {
                 ZipEntry entry;
                 while ((entry = zis.getNextEntry()) != null) {
                     String name = entry.getName();
-                    if (name.contains("..") || name.startsWith("/")) { zis.closeEntry(); continue; }
+                    if (BundleRules.unsafePath(name) || BundleRules.notPartOfABundle(name)) { zis.closeEntry(); continue; }
                     if (entry.isDirectory()) {
                         new File(newDir, name).mkdirs();
                     } else {
@@ -279,11 +280,16 @@ public final class ProjectBundle {
                 }
             }
         } catch (Exception e) {
-            FLog.w(TAG, "Could not rewrite imported project id", e);
+            // Not a warning to carry on from: a copy that still carries the original's id would save
+            // itself over the original (work-loss audit 2026-11-11).
+            FLog.e(TAG, "Could not rewrite imported project id", e);
+            res.error = "Imported project could not be given its own identity";
+            deleteRecursive(newDir);
+            return res;
         }
 
         FaditorProject loaded = storage.load(newId);
-        if (loaded == null) {
+        if (loaded == null || !newId.equals(loaded.getId())) {
             res.error = "Imported project could not be loaded";
             deleteRecursive(newDir);
             return res;
@@ -304,9 +310,12 @@ public final class ProjectBundle {
     @NonNull
     private static String readFile(@NonNull File f) throws IOException {
         try (FileInputStream in = new FileInputStream(f)) {
-            byte[] buf = new byte[(int) f.length()];
-            int read = in.read(buf);
-            return new String(buf, 0, read, "UTF-8");
+            // To the end: one read() is allowed to return less than the whole file.
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            byte[] buf = new byte[64 * 1024];
+            int n;
+            while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+            return new String(out.toByteArray(), "UTF-8");
         }
     }
 

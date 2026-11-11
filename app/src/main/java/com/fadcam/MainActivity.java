@@ -1387,6 +1387,8 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
         // Choosing the Joy Creator folder comes first, so all work lives in one place from day one.
         com.fadcam.joyfolder.studio.JoyFolderSetupActivity.requireChoice(this);
+        // Folder copies that were still owed when the app last closed (once per run; see StudioMirror).
+        com.fadcam.joyfolder.studio.StudioMirror.catchUpOwed(this);
         // state)-----------
         applyCloakIfNeeded(false); // hide decoy overlay while active
         try {

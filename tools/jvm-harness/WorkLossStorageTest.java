@@ -214,6 +214,59 @@ public class WorkLossStorageTest {
                     "an emptied main file: the backup with the clip opens");
         }
 
+        // ── 7. A project is the folder it lives in, whatever id its file carries ──────────────
+        {
+            ProjectStorage ps = storage();
+            FaditorProject original = video("The original");
+            ps.save(original);
+            ps.save(original);                                   // so it has a backup too
+            String originalId = original.getId();
+            String originalBytes = text(new File(projectDir(originalId), "project.json"));
+
+            // A copy of the whole folder under another id, its files still stamped with the
+            // original's id: what a zip import left behind when the id rewrite did not happen.
+            String copyId = "copy-" + originalId;
+            File copyDir = projectDir(copyId);
+            copyDir.mkdirs();
+            for (String name : new String[]{"project.json", "project.json.bak"}) {
+                Files.copy(new File(projectDir(originalId), name).toPath(), new File(copyDir, name).toPath());
+            }
+            ProjectStorage other = storage();
+            FaditorProject copy = other.load(copyId);
+            check(copy != null && copyId.equals(copy.getId()), "a copied folder loads as ITS project, was "
+                    + (copy == null ? null : copy.getId()));
+            copy.setName("The copy, edited");
+            check(other.save(copy), "the copy saves");
+            check(originalBytes.equals(text(new File(projectDir(originalId), "project.json"))),
+                    "saving the copy leaves the original untouched");
+            check(text(new File(copyDir, "project.json")).contains("The copy, edited"), "and lands in the copy's folder");
+
+            // With the main file gone, the backup is read as this project too.
+            new File(copyDir, "project.json").delete();
+            FaditorProject fromBak = storage().load(copyId);
+            check(fromBak != null && copyId.equals(fromBak.getId()), "a copied backup loads as its own project");
+
+            // An undo snapshot from the original, restored in the copy, stays the copy.
+            String snapshot = ps.toJson(original);
+            FaditorProject restored = ps.fromJson(snapshot, copyId);
+            check(restored != null && copyId.equals(restored.getId()), "a snapshot is restored as the project it is restored into");
+            check(restored != null && restored.getTimeline().getClipCount() == 1, "with its content");
+            FaditorProject same = ps.fromJson(snapshot, originalId);
+            check(same != null && originalId.equals(same.getId()), "a snapshot of the same project is untouched");
+
+            // What a bundle carries, and what a zip may write.
+            check(com.fadcam.ui.faditor.project.BundleRules.notPartOfABundle("undo_history.json"), "undo history stays home");
+            check(com.fadcam.ui.faditor.project.BundleRules.notPartOfABundle("backups/replaced-1.json"), "backups stay home");
+            check(com.fadcam.ui.faditor.project.BundleRules.notPartOfABundle("project.json.bak"), "the backup stays home");
+            check(!com.fadcam.ui.faditor.project.BundleRules.notPartOfABundle("project.json"), "the project travels");
+            check(!com.fadcam.ui.faditor.project.BundleRules.notPartOfABundle("media/clip.mp4"), "media travels");
+            check(!com.fadcam.ui.faditor.project.BundleRules.notPartOfABundle("timeline-marks.json"), "marks travel");
+            check(com.fadcam.ui.faditor.project.BundleRules.unsafePath("../outside.json"), "a path out of the folder is refused");
+            check(com.fadcam.ui.faditor.project.BundleRules.unsafePath("media/../../x"), "anywhere in the path");
+            check(com.fadcam.ui.faditor.project.BundleRules.unsafePath("/absolute"), "an absolute path is refused");
+            check(!com.fadcam.ui.faditor.project.BundleRules.unsafePath("media/my..clip.mp4"), "two dots in a NAME are fine");
+        }
+
         System.out.println("WorkLossStorageTest: " + passes + " passed, " + fails + " failed");
         // Always exit: each ProjectStorage keeps a writer thread, which would hold the JVM open.
         System.exit(fails > 0 ? 1 : 0);

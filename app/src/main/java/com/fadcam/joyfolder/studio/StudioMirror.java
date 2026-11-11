@@ -72,6 +72,7 @@ public final class StudioMirror {
     public static void onProjectSaved(Context context, String projectId) {
         final Context app = context.getApplicationContext();
         if (!JoyFolderHome.isChosen(app)) return;
+        noteOwed(app, projectId);
         MAIN.post(() -> {
             Runnable old = PENDING.remove(projectId);
             if (old != null) MAIN.removeCallbacks(old);
@@ -90,6 +91,57 @@ public final class StudioMirror {
             PENDING.put(projectId, r);
             MAIN.postDelayed(r, DEBOUNCE_MS);
         });
+    }
+
+    // ── Folder copies still owed ─────────────────────────────────────────
+    //
+    // The folder copy is written a few seconds after a save, from memory of what is waiting. If the
+    // app is closed inside those seconds (or the copy fails: the folder was out of reach), nothing
+    // remembered that a copy was owed, and the folder stayed one save behind until that project was
+    // next saved, which for a finished project is never (work-loss audit 2026-11-10). So what is
+    // owed is written down, crossed off when the copy lands, and caught up when the app next opens.
+
+    private static final String OWED_PREFS = "joy_mirror_owed";
+
+    private static void noteOwed(Context app, String projectId) {
+        android.content.SharedPreferences p = app.getSharedPreferences(OWED_PREFS, Context.MODE_PRIVATE);
+        if (!p.contains(projectId)) p.edit().putBoolean(projectId, true).apply();
+    }
+
+    private static void noteDone(Context app, String projectId) {
+        android.content.SharedPreferences p = app.getSharedPreferences(OWED_PREFS, Context.MODE_PRIVATE);
+        if (p.contains(projectId)) p.edit().remove(projectId).apply();
+    }
+
+    private static boolean caughtUpThisRun;
+
+    /**
+     * Write the folder copies that were owed when the app last closed. Once per run, a little after
+     * the app opens, on the folder's thread. Costs nothing when nothing is owed (most starts).
+     */
+    public static void catchUpOwed(Context context) {
+        final Context app = context.getApplicationContext();
+        synchronized (StudioMirror.class) {
+            if (caughtUpThisRun) return;
+            caughtUpThisRun = true;
+        }
+        if (!JoyFolderHome.isChosen(app)) return;
+        final java.util.Set<String> owed = new java.util.HashSet<>(
+                app.getSharedPreferences(OWED_PREFS, Context.MODE_PRIVATE).getAll().keySet());
+        if (owed.isEmpty()) return;
+        MAIN.postDelayed(() -> JoyFolderHome.io().execute(() -> {
+            for (String id : owed) {
+                try {
+                    if (!new File(new File(projectsRoot(app), id), "project.json").isFile()) {
+                        noteDone(app, id);   // deleted since: nothing is owed
+                        continue;
+                    }
+                    mirror(app, id);
+                } catch (Exception e) {
+                    Log.w(TAG, "Owed folder copy of " + id + " still not written", e);
+                }
+            }
+        }), 6000);
     }
 
     /**
@@ -320,6 +372,9 @@ public final class StudioMirror {
         st.save(jf);
         if (res.filesCopied > 0) jf.saveIndex();
         rememberOutside(context, projectId, outside);
+        // The copy is in the folder. A media file that could not be copied is a problem of its own
+        // (res.problems), tried again with every later save; the project itself is no longer owed.
+        noteDone(context.getApplicationContext(), projectId);
         return res;
     }
 

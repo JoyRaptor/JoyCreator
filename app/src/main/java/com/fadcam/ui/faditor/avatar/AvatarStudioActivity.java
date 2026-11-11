@@ -377,6 +377,11 @@ public class AvatarStudioActivity extends AppCompatActivity {
     protected void onPause() {
         super.onPause();
         stopTracking(); // tracker thread must not outlive the visible studio
+        // Leaving the screen saves, as Back does (work-loss audit 2026-11-11). This used to save only
+        // on Back or the Save button: press Home in the middle of building a character, have Android
+        // close the app in the background, and every pin and part since the last save was gone.
+        // Quietly: no "Saved" pop-up each time the screen is left. rig == null: the chooser is still open.
+        if (rig != null && nameField != null && !isFinishing()) save(true);
     }
 
     // ── Arming + cell authoring ────────────────────────────────────────────
@@ -802,6 +807,11 @@ public class AvatarStudioActivity extends AppCompatActivity {
     // ── Save / lifecycle ──────────────────────────────────────────────────
 
     private void save() {
+        save(false);
+    }
+
+    /** @param quiet a save nobody asked for (leaving the screen): says nothing unless it failed */
+    private void save(boolean quiet) {
         String name = nameField.getText().toString().trim();
         rig.setName(name.isEmpty() ? getString(R.string.avatar_studio_default_name) : name);
         if (libraryMode) {
@@ -812,9 +822,11 @@ public class AvatarStudioActivity extends AppCompatActivity {
             AvatarLibrary.Entry e = libraryEntry;
             java.io.File out = e != null
                     ? AvatarLibrary.save(this, rig, e.sheets) : null;
-            Toast.makeText(this, out != null
-                    ? getString(R.string.avatar_studio_saved)
-                    : getString(R.string.avatar_studio_save_failed), Toast.LENGTH_SHORT).show();
+            if (!quiet || out == null) {
+                Toast.makeText(this, out != null
+                        ? getString(R.string.avatar_studio_saved)
+                        : getString(R.string.avatar_studio_save_failed), Toast.LENGTH_SHORT).show();
+            }
             return;
         }
         if (isNewRig && project.avatarRigById(rig.getId()) == null) {
@@ -823,8 +835,10 @@ public class AvatarStudioActivity extends AppCompatActivity {
         }
         boolean ok = storage.save(project);
         if (ok) AIChatState.signalModified(project.getId());
-        Toast.makeText(this, ok ? R.string.avatar_studio_saved : R.string.avatar_studio_save_failed,
-                Toast.LENGTH_SHORT).show();
+        if (!quiet || !ok) {
+            Toast.makeText(this, ok ? R.string.avatar_studio_saved : R.string.avatar_studio_save_failed,
+                    Toast.LENGTH_SHORT).show();
+        }
     }
 
     /**

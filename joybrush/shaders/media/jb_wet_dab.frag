@@ -23,6 +23,7 @@ flat in vec4 v_i1;
 flat in vec4 v_i2;
 flat in vec4 v_i3;
 flat in vec4 v_i0;
+flat in vec4 v_i4;
 uniform vec2 u_layerOrigin;
 uniform float u_layerScale;
 uniform float u_pxPerMm;
@@ -72,6 +73,8 @@ void main() {
 #endif
     float paperWet = clamp(water.r / u_fullMm, 0.0, 1.5);
     float give = v_i1.z * v_i3.x * contact * (v_i1.w - paperWet);   // signed exchange
+    // A brush that started loaded leaves a wetter wash nearly as it is (v_i4.y: WetStroke.holdBack); 0 = takes all it can.
+    if (give < 0.0) give *= 1.0 - clamp(v_i4.y, 0.0, 1.0);
     vec3 dK = give > 0.0 ? v_i2.rgb * give : vec3(0.0);
     float dS = give > 0.0 ? v_i2.a * give : 0.0;
     o_in0 = vec4(give, dK);

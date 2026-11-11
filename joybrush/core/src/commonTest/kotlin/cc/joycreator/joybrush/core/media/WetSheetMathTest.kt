@@ -71,9 +71,14 @@ class WetSheetMathTest {
         // Quick frames with many steps never go under the shipped step; a stalled frame never over the stable one.
         assertEquals(base.dt, WetSheetMath.constants(base, 16.7f, 8, 2.0).dt)
         assertEquals(1.0 / 30, WetSheetMath.constants(base, 400f, 1, 4.0).dt, 1e-9)
-        assertEquals(1.0 / 60, WetSheetMath.constants(base, 400f, 1, 2.0).dt, 1e-9, "2 px cells: the step running water needs")
-        assertEquals(1.75 / 120, WetSheetMath.constants(base, 400f, 1, 1.75).dt, 1e-9, "between: in proportion")
-        assertEquals(1.0 / 60, WetSheetMath.constants(base, 400f, 1, 4.0, speed = 2.0).dt, 1e-9, "twice as fast: half the step")
+        assertEquals(0.032, WetSheetMath.constants(base, 400f, 1, 2.0).dt, 1e-9, "2 px cells: as long as the spreading stays stable")
+        assertEquals(0.0245, WetSheetMath.constants(base, 400f, 1, 1.75).dt, 1e-9)
+        // One step in a 27 ms frame on the Note 9's cells: the water keeps the clock (its drips run under their limit).
+        assertEquals(0.0245, WetSheetMath.constants(base, 27f, 1, 1.75).dt, 1e-9)
+        assertEquals(0.0185, WetSheetMath.constants(base, 37f, 2, 1.75).dt, 1e-9)
+        // The step running water needs to reach its limit: a sixtieth on 2 px cells, half that at twice the speed.
+        assertEquals(1.0 / 60, WetSheetMath.runDt(2.0), 1e-9); assertEquals(1.75 / 120, WetSheetMath.runDt(1.75), 1e-9)
+        assertEquals(1.0 / 60, WetSheetMath.runDt(4.0, speed = 2.0), 1e-9); assertEquals(1.0 / 30, WetSheetMath.runDt(8.0), 1e-9)
         assertEquals(2.7, WetSheetMath.runCapMmPerS(), 1e-9, "what a full-resolution cell allows at the shipped step")
         assertEquals(5.4, WetSheetMath.runCapMmPerS(2.0), 1e-9)
         // Full-resolution cells cannot take a longer step at all (it broke into speckle on the Note 9).
@@ -104,7 +109,8 @@ class WetSheetMathTest {
         val p = WetSheetMath.Pace(most = 6)
         assertEquals(2, p.next(33f, 2), "what the clock wants")
         assertEquals(6, p.next(33f, 9), "never more than the most")
-        assertEquals(5, p.next(50f, 9), "a missed beat: one fewer than it ran")
+        assertEquals(6, p.next(50f, 9), "a frame of 50 ms is still worth its steps")
+        assertEquals(5, p.next(60f, 9), "too slow to watch: one fewer than it ran")
         repeat(30) { p.next(33.3f, 9) }
         assertEquals(5, p.steps, "and no higher again at once")
         repeat(40) { p.next(33.3f, 9) }

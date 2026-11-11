@@ -188,6 +188,9 @@ private const val PREF_GUIDES = "guides"
 private const val PREF_FLATTEN_HIDDEN = "joybrush.flattenHidden"
 private const val PREF_WATER_TEST = "joybrush.waterTest"
 private const val PREF_FAST_WATER = "joybrush.fastWater"
+/** Wet watercolour on the wet sheet (WET_SHEET_20261110.md) or in the layer's tiles (the old way, one tap away). */
+private const val PREF_WET_SHEET = "joybrush.wetSheet"
+private const val DEFAULT_WET_SHEET = true
 /** The paint engine for pencil, watercolour and oil: "atlas" (the whole layer) or "window" (the old 1024 px patch). */
 private const val PREF_PAINT_ENGINE = "joybrush.paintEngine"
 /** What a person who never chose gets: the atlas since 10-21 (water jobs, the whole layer); the old window one tap away. */
@@ -480,6 +483,7 @@ class JoyBrushActivity : Activity() {
         canvas.mediaWaterAB = WaterTest.of(prefs.getString(PREF_WATER_TEST, null)).ab
         canvas.setMediaAtlas(prefs.getString(PREF_PAINT_ENGINE, DEFAULT_PAINT_ENGINE) == "atlas")
         canvas.setMediaFastWater(prefs.getBoolean(PREF_FAST_WATER, false))
+        canvas.setWetSheet(prefs.getBoolean(PREF_WET_SHEET, DEFAULT_WET_SHEET))
         // Each tool as the person left it; the first shipped brush of each kind on a first visit (JB-1.05b, JB-2.01).
         pendingCatalogTools = prefs.getString(PREF_TOOLS, null)
         catalogToolsPending = UnibrushActivation.SHIPPING_ENABLED || pendingCatalogTools?.contains("unibrush.") == true
@@ -1127,6 +1131,15 @@ class JoyBrushActivity : Activity() {
             val next = WaterTest.next(water.id)
             prefs.edit().putString(PREF_WATER_TEST, next.id).apply()
             canvas.mediaWaterAB = next.ab
+            popovers.close(); moreMenu(anchor)
+        })
+        // Watercolour's engine (2026-11-10): the wet sheet, or the layer's own squares as before, kept to compare.
+        val wetSheet = prefs.getBoolean(PREF_WET_SHEET, DEFAULT_WET_SHEET)
+        box.addView(menuRow(if (wetSheet) "Watercolour: Wet sheet (new)" else "Watercolour: In the layer (old)",
+            if (wetSheet) "Wet watercolour floats on one sheet over the paper and sets into it as it dries: no squares, and it keeps the clock's pace. Tap for the old way"
+            else "Wet watercolour lives in the layer's squares, as before. Tap for the new wet sheet") {
+            prefs.edit().putBoolean(PREF_WET_SHEET, !wetSheet).apply()
+            canvas.setWetSheet(!wetSheet)
             popovers.close(); moreMenu(anchor)
         })
         // Water detail (2026-11-10): full-resolution water, or water on 2 x 2 pixel cells that runs about four times as fast.

@@ -165,7 +165,7 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
             e.worldScale = WetSheetMath.worldScale(cell)
             e.runCapMmPerS = WetSheetMath.runCapMmPerS(flowSpeed)
             val steps = pace.next(realMs, WetSheetMath.stepsWanted(realMs, pc, flowSpeed))
-            e.wetFrame(input, paper, DOC_PX_PER_MM, WetSheetMath.constants(base, realMs, steps, pc, flowSpeed), substeps = steps)
+            e.wetFrame(input, paper, DOC_PX_PER_MM, WetSheetMath.constants(base, realMs, steps, pc), substeps = steps)
             e.takeDirty(); e.takeDirtyStores()
             history.changed()
             if (!memoryLogged && e.hasWaterTextures) {
@@ -269,6 +269,16 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
         return true
     }
     private var settling = false
+
+    /** Bench only: the water dries where it lies and NOTHING is printed, so a screenshot of the dry sheet can be compared with its print. */
+    fun dryOnly(paper: MediaPaperGl) {
+        val e = engine ?: return
+        if (!holding || !e.wetActive) return
+        e.dryNow(paper, DOC_PX_PER_MM)
+        e.takeDirty(); e.takeDirtyStores()
+        lookStale = union(lookStale, content)
+        history.changed()
+    }
     private var memoryLogged = false
 
     /** The sheet holds nothing: its engine is cleared where it lies. */
@@ -585,6 +595,9 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
 
         /** The owner's dial: how fast running water may travel, 1 = as approved in the lab (WetSheetMath.runCapMmPerS). */
         @Volatile @JvmStatic var flowSpeed = 1.0
+
+        /** Debug bench only (`jb_sheet_print_hold_ms`): a dry sheet waits this long before it is printed (0 in the app). */
+        @Volatile @JvmStatic var printHoldMs = 0L
 
         /** Debug bench only (`jb_sheet_cell`): the cell in document px whatever the zoom. */
         @Volatile @JvmStatic var forcedCell: Int? = null

@@ -319,6 +319,10 @@ object BrushKnobs {
             "How a stroke starts and stops: a loaded brush landing and lifting off in streaks, or the clean cut from before.",
             EndsMode.entries.map { it.label }, { (it.paste?.ends ?: EndsMode.BRUSH).ordinal },
             { s, i -> s.copy(paste = s.paste?.copy(ends = EndsMode.entries[i])) })
+        if (!b.blade && !b.trowel) out += stepped("media.paste.vary", "Hairs",
+            "How the hairs mark the paint: in uneven bunches that come and go, or the even comb from before.",
+            listOf("Varied", "Even"), { if ((it.paste?.vary ?: 0.0) > 0.0) 0 else 1 },
+            { s, i -> s.copy(paste = s.paste?.copy(vary = if (i == 0) 1.0 else 0.0)) })
         if (!b.blade) out += stepped("media.paste.turns", "Sharp turns",
             "What the brush does when you change direction: its body folds under the pen, or swings round the pen point as it did before.",
             TurnMode.entries.map { it.label }, { (it.paste?.turns ?: TurnMode.FOLLOW).ordinal },

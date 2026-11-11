@@ -233,14 +233,26 @@ bool jb_pasteBeyond(float a, float aaA) {
 // Hair runs across the brush: coarse clumps plus single hairs. They are not rails: clumps wander a little
 // sideways and come and go along the stroke (read in document space, so overlapping steps agree).
 // Rigid knife: none.
+// u_hairVary, 0..1 (the owner, 2026-11-11: some strokes look "uniform and rake-like"): the runs were evenly spaced and
+// evenly deep, a comb. With it the hairs gather in a few wide bunches of unequal weight, their spacing is uneven across
+// the brush, and along the stroke there are stretches where the streaks all but smooth out and stretches where they bite.
+uniform float u_hairVary;
 float jb_pasteHair(float a, vec2 docPx) {
     if (u_shape > 1.5) return 0.5;
     uint s = uint(u_seed);
     float drift = 1.6 * (jb_pNoise2(docPx / 55.0, s + 9u) - 0.5);
-    float clump = jb_pNoise1((a + 1.0) * 6.0 + drift, s);
-    float hairs = jb_pNoise1((a + 1.0) * 19.0 + drift * 2.5, s + 5u);
+    float aw = a;
+    if (u_hairVary > 0.0) aw += u_hairVary * 0.16 * (jb_pNoise1((a + 1.0) * 3.1 + drift * 0.4, s + 23u) - 0.5);
+    float clump = jb_pNoise1((aw + 1.0) * 6.0 + drift, s);
+    float hairs = jb_pNoise1((aw + 1.0) * 19.0 + drift * 2.5, s + 5u);
     float come = 0.55 + 0.9 * jb_pNoise2(docPx / 30.0, s + 13u);
-    return clamp(0.5 + (0.6 * clump + 0.4 * hairs - 0.5) * come, 0.0, 1.0);
+    float runs = 0.6 * clump + 0.4 * hairs;
+    if (u_hairVary > 0.0) {
+        float bunch = jb_pNoise1((a + 1.0) * 2.3 + drift * 0.6, s + 21u);
+        runs = mix(runs, 0.45 * bunch + 0.35 * clump + 0.2 * hairs, u_hairVary);
+        come *= mix(1.0, 0.35 + 1.5 * jb_pNoise2(docPx / 130.0, s + 25u), u_hairVary);
+    }
+    return clamp(0.5 + (runs - 0.5) * come, 0.0, 1.0);
 }
 
 // The paint this part of the brush leaves (mm, measured from the paper/canvas surface), given how loaded

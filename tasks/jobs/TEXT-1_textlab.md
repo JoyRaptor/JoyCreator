@@ -78,6 +78,12 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
   `HOLO` variant), Phantom (letters of mist: the fire with `fireSteady` and the letters hidden). Fourteen looks in the
   list. Note 9, all fourteen, 6 to 40 ms a frame at 1280 wide (Diamond 40, Crystal Ice 35 are the slow ones), 22.8 C.
   His verdict on the seven is owed; I judged them from one or two frames each, less closely than the first wave.
+- **Owner, 11-12 later:** of the second wave, Carved Stone, Crystal Ice and Phantom were "completely unconvincing"
+  (in that order). Rebuilt from the real things: stone = broken edges (static wobble), rock relief (`detailKind` 9) with
+  darker hollows (`detailShade`) and patchy colour (`mottle`); ice = milky middle, fractures, frost, snow on top
+  (`ice*` knobs, REFRACT); Phantom = a faint ghost letter (HOLO, no scan lines) with slow sideways mist. Note 9: stone
+  29 ms, ice 45 ms (too slow, to trim), Phantom 9 ms. Owed: his verdict; then "take the others to the next level"
+  (Liquid Chrome, Diamond, Retro Pop, Hologram), not started.
 - **Honest limits today:** the fire is good stylised fire, not yet the photograph the owner showed;
   water and the other drafts are below the bar; only the app's own fonts are used (Archivo, Plex,
   Ubuntu, Doto), so there is no script or true display face yet.

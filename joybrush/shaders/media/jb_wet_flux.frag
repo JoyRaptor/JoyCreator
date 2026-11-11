@@ -179,19 +179,23 @@ void main() {
             // And while a neighbour is already pouring out (water a millimetre beyond its edge), this part holds
             // and the bead drains into that drip, as real water does; else each drained root made its neighbour
             // the new highest point and the edge unzipped into a wide curtain.
-            vec2 t = vec2(-nOut.y, nOut.x), out1 = nOut / u_cellMm;
-            float L = 0.5 * u_dripGapMm / u_cellMm;
-            float e0 = wb / sz, emax = 0.0, r0 = beadAtFar(vec2(c) + out1), rmax = 0.0;
-            for (int k = -2; k <= 2; k++) {
-                if (k == 0) continue;
-                vec2 o = t * (L * float(k));
-                emax = max(emax, beadAtFar(vec2(c) + o) / runSizingAt(docPx + o / u_layerScale));
-                rmax = max(rmax, beadAtFar(vec2(c) + o + out1));
+            // Only where the bead has an edge at all: away from one (edge = 0) the mix below is 1 whatever the taps say, and
+            // they are most of this pass's reads (nine bead taps and four noise fields a cell; a wash is mostly not edge).
+            if (edge > 0.0) {
+                vec2 t = vec2(-nOut.y, nOut.x), out1 = nOut / u_cellMm;
+                float L = 0.5 * u_dripGapMm / u_cellMm;
+                float e0 = wb / sz, emax = 0.0, r0 = beadAtFar(vec2(c) + out1), rmax = 0.0;
+                for (int k = -2; k <= 2; k++) {
+                    if (k == 0) continue;
+                    vec2 o = t * (L * float(k));
+                    emax = max(emax, beadAtFar(vec2(c) + o) / runSizingAt(docPx + o / u_layerScale));
+                    rmax = max(rmax, beadAtFar(vec2(c) + o + out1));
+                }
+                float peak = smoothstep(-0.02, 0.02, e0 - emax);
+                float pouring = smoothstep(0.01, 0.03, r0);
+                float quiet = 1.0 - smoothstep(u_quietMm, 3.0 * u_quietMm + 1.0e-4, rmax - r0);
+                breakable = mix(1.0, max(peak, pouring) * quiet, edge);
             }
-            float peak = smoothstep(-0.02, 0.02, e0 - emax);
-            float pouring = smoothstep(0.01, 0.03, r0);
-            float quiet = 1.0 - smoothstep(u_quietMm, 3.0 * u_quietMm + 1.0e-4, rmax - r0);
-            breakable = mix(1.0, max(peak, pouring) * quiet, edge);
         }
     }
     vec4 f;

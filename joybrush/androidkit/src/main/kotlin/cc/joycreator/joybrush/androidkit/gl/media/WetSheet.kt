@@ -15,6 +15,7 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.abs
 import kotlin.math.ceil
+import kotlin.math.cos
 import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
@@ -102,9 +103,16 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
         val turned = abs(sin(view.rotation.toDouble())) > 0.7071
         val wantGrid = if (turned) WetSheetMath.grid(view.screenH, view.screenW, longCells) else WetSheetMath.grid(view.screenW, view.screenH, longCells)
         val wantCell = forcedCell?.toDouble() ?: WetSheetMath.cellFor(view.zoom, max(view.screenW, view.screenH), longCells)
-        if (holding && (layer != layerId || !covers(docX, docY) || WetSheetMath.tooCoarse(cell, wantCell))) {
-            android.util.Log.i(TAG, "the wash sets: the next stroke is on ${if (layer != layerId) "another layer" else if (!covers(docX, docY)) "paper the sheet does not reach" else "a closer view"}")
-            settle(paper, look)
+        if (holding && (layer != layerId || !covers(docX, docY) || (forcedCell == null && !coversView(view)) || WetSheetMath.tooCoarse(cell, wantCell))) {
+            // The view moved: the sheet is laid over it anew and keeps, still wet, what is still on it (carry). Only another
+            // layer's stroke, a turned screen or a failure sets the whole wash.
+            val carried = layer == layerId && grid == wantGrid && try { carry(view, wantCell, paper, look) } catch (x: RuntimeException) {
+                android.util.Log.e(TAG, "the sheet could not be carried over to the new view", x); false
+            }
+            if (!carried || (holding && !covers(docX, docY))) {
+                android.util.Log.i(TAG, "the wash sets: the next stroke is ${if (layer != layerId) "on another layer" else "where the sheet cannot follow"}")
+                settle(paper, look)
+            }
         }
         val before = history.now()
         if (!holding) {
@@ -140,6 +148,102 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
         holding = true
         history.strokeBegan(before)
         return null
+    }
+
+    /** The corners of what the painter sees, pulled a tenth toward its middle, lie on the sheet. */
+    private fun coversView(v: View): Boolean {
+        val hw = v.screenW / 2.0 / v.zoom * VIEW_SHARE; val hh = v.screenH / 2.0 / v.zoom * VIEW_SHARE
+        val c = cos(v.rotation.toDouble()); val s = sin(v.rotation.toDouble())
+        for (corner in 0 until 4) {
+            val u = if (corner and 1 == 0) -hw else hw; val w = if (corner and 2 == 0) -hh else hh
+            // Screen to document, as ViewTransform.screenToDoc turns it.
+            if (!WetSheetMath.covers(originX, originY, grid, cell, v.centreX + c * u + s * w, v.centreY - s * u + c * w, 0.0)) return false
+        }
+        return true
+    }
+
+    /**
+     * The view moved while the sheet holds a wash: the sheet is laid over the new view and what is still on it comes along,
+     * water and all (a pan moves it by whole cells, exactly; a zoom lays it on other cells). What the new sheet does not
+     * reach has left the screen: it dries where it lies and is printed into the layer, as its own undo step that travels
+     * with the stroke before it. False when nothing was done (the caller sets the wash instead).
+     */
+    private fun carry(view: View, wantCell: Double, paper: MediaPaperGl, look: MediaLook): Boolean {
+        val e = engine ?: return false
+        val c = content?.let(::clamp) ?: return false
+        if (!paint.localHistory || paint.strokeInProgress || paint.mediaStrokeInProgress) return false
+        // The cell it had while that still covers the view and is fine enough: then the move is by whole cells.
+        val newCell = if (wantCell <= cell && !WetSheetMath.tooCoarse(cell, wantCell)) cell else wantCell
+        val nx = WetSheetMath.origin(view.centreX, grid.w, newCell); val ny = WetSheetMath.origin(view.centreY, grid.h, newCell)
+        if (nx == originX && ny == originY && newCell == cell) return true
+        val old = history.now() as? Was.Held ?: return false   // the whole wash, kept: what comes along is read from it
+        var kept = false
+        try {
+            // What the sheet holds and the new sheet's rectangle, in document px (whole px: cells are eighths, origins snap to 16).
+            val sx0 = nx.toInt(); val sy0 = ny.toInt()
+            val sx1 = Math.round(nx + grid.w * newCell).toInt(); val sy1 = Math.round(ny + grid.h * newCell).toInt()
+            val leaves = originX + c[0] * cell < sx0 || originY + c[1] * cell < sy0 || originX + c[2] * cell > sx1 || originY + c[3] * cell > sy1
+            if (leaves) {
+                if (e.wetActive) { e.dryNow(paper, DOC_PX_PER_MM); e.takeDirty(); e.takeDirtyStores() }
+                history.changed()
+                lookStale = union(lookStale, content)
+                refresh(paper, look)
+                val o = overlay()
+                val t = Tiles.SIZE
+                val keys = if (o == null) emptyList() else coveredTiles(e).filter { key ->
+                    val tx = Tiles.tx(key) * t; val ty = Tiles.ty(key) * t
+                    !(tx >= sx0 && ty >= sy0 && tx + t <= sx1 && ty + t <= sy1)
+                }
+                val mark = history.printBegan(old)   // undoing it puts the whole wash back on the sheet as it lay
+                kept = true
+                if (o != null) paint.printOverlay(o, keys, mark, intArrayOf(sx0, sy0, sx1, sy1)) else paint.pushSheetStep(mark)
+                android.util.Log.i(TAG, "carried: ${keys.size} tiles of the wash left the view and were printed")
+            }
+            loadInto(old.snap, nx, ny, newCell)
+            history.prune()
+            android.util.Log.i(TAG, "sheet carried to cells of $cell px at ($originX, $originY), zoom ${view.zoom}; holds ${if (holding) "the wash" else "nothing"}")
+        } finally { if (!kept) history.letGo(old) }
+        return true
+    }
+
+    /** [s], a copy of the sheet as it lay elsewhere, onto the sheet laid at ([nx], [ny]) with cells of [newCell]: what of it falls there. */
+    private fun loadInto(s: Snap, nx: Float, ny: Float, newCell: Double) {
+        val e = engine ?: return
+        e.stopWater()
+        originX = nx; originY = ny; cell = newCell
+        e.moveTo(originX, originY, (1.0 / cell).toFloat())
+        e.worldScale = WetSheetMath.worldScale(cell)
+        // The copy's cells on the new grid: new = at + old x k.
+        val k = s.cell / cell
+        val atX = (s.originX - originX) / cell; val atY = (s.originY - originY) / cell
+        val dx0 = max(0, Math.round(atX + s.rect[0] * k).toInt()); val dy0 = max(0, Math.round(atY + s.rect[1] * k).toInt())
+        val dx1 = min(grid.w, Math.round(atX + s.rect[2] * k).toInt()); val dy1 = min(grid.h, Math.round(atY + s.rect[3] * k).toInt())
+        holding = false; content = null; lookStale = null; lookParts = null; lastWet = null
+        if (dx1 > dx0 && dy1 > dy0) {
+            // The part of the copy that lands there, in the copy's own texels.
+            val w = s.rect[2] - s.rect[0]; val h = s.rect[3] - s.rect[1]
+            val ux0 = (Math.round((dx0 - atX) / k).toInt() - s.rect[0]).coerceIn(0, w); val ux1 = (Math.round((dx1 - atX) / k).toInt() - s.rect[0]).coerceIn(0, w)
+            val uy0 = (Math.round((dy0 - atY) / k).toInt() - s.rect[1]).coerceIn(0, h); val uy1 = (Math.round((dy1 - atY) / k).toInt() - s.rect[1]).coerceIn(0, h)
+            if (ux1 > ux0 && uy1 > uy0) {
+                // The same cells: an exact copy. Other cells: smoothed onto them (the copy is half floats, which filter).
+                val filter = if (k == 1.0) GLES30.GL_NEAREST else GLES30.GL_LINEAR
+                while (GLES30.glGetError() != GLES30.GL_NO_ERROR) Unit
+                for ((store, t) in s.tex) for (dst in e.loadTargets(store)) {
+                    e.blit(t, ux0, uy0, ux1, uy1, dst, dx0, dy0, dx1, dy1, filter)
+                    if (filter != GLES30.GL_NEAREST && GLES30.glGetError() != GLES30.GL_NO_ERROR) e.blit(t, ux0, uy0, ux1, uy1, dst, dx0, dy0, dx1, dy1)
+                }
+                content = floatArrayOf(dx0.toFloat(), dy0.toFloat(), dx1.toFloat(), dy1.toFloat())
+                s.wetRect?.let { wr ->
+                    val r = clamp(floatArrayOf((atX + wr[0] * k).toFloat(), (atY + wr[1] * k).toFloat(), (atX + wr[2] * k).toFloat(), (atY + wr[3] * k).toFloat()))
+                    if (r[2] > r[0] && r[3] > r[1]) e.resumeWater(r)
+                }
+                holding = true
+            }
+        }
+        e.takeDirty(); e.takeDirtyStores()
+        lookStale = content; lastWet = e.wetRect; groundStale = true
+        pace.reset()
+        history.changed()
     }
 
     /** The stroke [begin] started is over: its one undo step. */
@@ -466,6 +570,9 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
             return seen.sumOf { it.bytes }
         }
 
+        /** A state from [now] that no step took after all. */
+        fun letGo(was: Was) = drop(was)
+
         private fun retain(s: Snap): Snap { s.refs++; return s }
         private fun release(s: Snap) { if (--s.refs <= 0) MediaTex.deleteTex(*s.tex.values.toIntArray()) }
         private fun drop(was: Was) { if (was is Was.Held) release(was.snap) }
@@ -619,6 +726,8 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
 
     companion object {
         private const val TAG = "JoyBrushSheet"
+        /** How much of the view, from its middle outward, must lie on the sheet for it to stay where it is. */
+        const val VIEW_SHARE = 0.9
         /** A stroke that starts closer than this many cells to the sheet's edge is off it. */
         const val EDGE_MARGIN_CELLS = 24
         /** The most graphics memory the copies kept for undo may take; past it the oldest go and undo ends there. */

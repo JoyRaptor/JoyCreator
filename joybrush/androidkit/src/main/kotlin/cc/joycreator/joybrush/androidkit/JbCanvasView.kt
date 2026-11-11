@@ -2015,6 +2015,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                 // Without the board document a save would drop the media state, so nothing is painted - and that is always
                 // said: the reason when making the document failed (above), else a sentence here. Never a silent stroke.
                 if (engine.boardDocument != null) {
+                    mediaCanvas.viewZoom = viewSnapshot[0]
                     mediaCanvas.begin(target, p, argb, belly, first.x.toDouble(), first.y.toDouble(), now, mediaSymmetry)
                         ?.let { why -> post { onRefused?.invoke(why) } }
                 } else if (!mediaDocRefused) post { onRefused?.invoke("This drawing could not take pencil, watercolour or oil") }

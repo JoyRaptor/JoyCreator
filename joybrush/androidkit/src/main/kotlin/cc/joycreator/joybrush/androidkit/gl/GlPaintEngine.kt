@@ -7434,12 +7434,40 @@ class GlPaintEngine(
                     GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
                 }
             }
+            drawLayerOverlays(layer, docToClip)
         }
         GLES30.glBindVertexArray(0)
         GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
         drawLiftOverlay(docToClip, targetFbo)
     }
 
+
+    /**
+     * A picture drawn over one layer's tiles as part of that layer, every time the stack is drawn: the wet sheet's look
+     * (WetSheet: watercolour while it is wet, not yet printed into the layer's tiles). [texture] is premultiplied RGBA laid
+     * like a tile, covering the square of [size] document px at ([x], [y]). GL thread.
+     */
+    class LayerOverlay(val layerId: String, val texture: Int, val x: Float, val y: Float, val size: Float)
+
+    /** The overlays to draw, set by their owner each frame (GL thread). */
+    var layerOverlays: List<LayerOverlay> = emptyList()
+
+    /** [layer]'s overlays, drawn with the tile program as one big tile each (the caller has blending on and [tileVao] bound). */
+    private fun drawLayerOverlays(layer: Layer, docToClip: FloatArray) {
+        if (layerOverlays.isEmpty()) return
+        for (o in layerOverlays) {
+            if (o.layerId != layer.id || o.texture == 0) continue
+            tileProg.use()
+            GLES30.glUniform1f(tileProg.loc("u_tileSize"), o.size)
+            GLES30.glUniformMatrix3fv(tileProg.loc("u_docToClip"), 1, false, docToClip, 0)
+            GLES30.glUniform1f(tileProg.loc("u_layerOpacity"), layer.opacity)
+            GLES30.glUniform1i(tileProg.loc("u_layer"), 0)
+            GLES30.glUniform2f(tileProg.loc("u_tileOrigin"), o.x, o.y)
+            GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
+            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, o.texture)
+            GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+        }
+    }
 
     /** True when any visible layer composites with something other than plain source-over. */
     private fun drawsBoardLayer(layer: Layer): Boolean = layer.visible &&

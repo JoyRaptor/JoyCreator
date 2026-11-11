@@ -427,7 +427,10 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
      */
     private fun loadWetFrame(paper: MediaPaperGl, wc0: WetConstants, evapOverride: Double?, pxPerMm: Double) {
         wetFrameUniforms.load(wetUniforms(paper.stats, wc0) + ("u_gran" to wetGran), evapOverride, slope, wf / (pxPerMm * scale), wc0.beadMm * pxPerMm * scale / wf)
-        if (wf > 1) for (n in listOf("u_flow", "u_wick", "u_mingle")) wetFrameUniforms.scale(n, 1.0 / (wf * wf))
+        // The same for an engine whose layer px are themselves wider than a document px (scale under 1: the wet sheet,
+        // WetSheet): a cell is wf / scale document px across.
+        val cellDoc = wf / scale.toDouble()
+        if (cellDoc != 1.0) for (n in listOf("u_flow", "u_wick", "u_mingle")) wetFrameUniforms.scale(n, 1.0 / (cellDoc * cellDoc))
     }
 
     // ---- Media Atlas v2 B2: free placement (a [MediaAtlas] host places tiles; the engine then has no window edge) ----
@@ -731,8 +734,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
      * Moves the window to document px ([originX], [originY]) and empties it: the caller loads the stores for the new
      * place. Water stops (what was outside the old place stays asleep in the stores until a window loads it again).
      */
-    fun moveTo(originX: Float, originY: Float) {
-        this.originX = originX; this.originY = originY
+    fun moveTo(originX: Float, originY: Float, scale: Float = this.scale) {
+        this.originX = originX; this.originY = originY; this.scale = scale
         bakedPaper = null
         clearAll()
         if (lookFbo != 0) clearFbo(lookFbo)

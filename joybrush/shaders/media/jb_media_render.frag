@@ -36,6 +36,8 @@ uniform float u_capMm;
 uniform int u_mode;              // 0 final, 1 paper height, 2 deposit volume, 3 crush
 uniform float u_impasto;         // paint relief shown (1 = physical)
 uniform float u_look;            // 1: render the app layer's look tile (premultiplied, over its ground, paper removed)
+                                 // 2: the same paint WITHOUT its ground under it (the wet sheet's overlay, WetSheet: the
+                                 //    layer's own pixels are the ground, drawn under it at full resolution by the app)
 uniform float u_paperHBot;       // the paper's height percentiles: paint fills the NORMALISED relief (see the
 uniform float u_paperHTop;       // bake), so under paint the paper's relief is read on the same scale
 
@@ -97,7 +99,10 @@ void main() {
     vec3 under = u_paperColor;
     if (u_look > 0.5) {
         ground = jb_fetch(u_ground, ivec2(floor(lp)));   // lp >= 0 here in the window build: floor == truncation
-        if (p0 == vec4(0.0) && p1 == vec4(0.0) && wa == vec4(0.0) && wp == vec4(0.0) && dry.g == 0.0) { o_color = ground; return; }
+        if (p0 == vec4(0.0) && p1 == vec4(0.0) && wa == vec4(0.0) && wp == vec4(0.0) && dry.g == 0.0) {
+            o_color = u_look > 1.5 ? vec4(0.0) : ground;
+            return;
+        }
         under = ground.rgb + u_paperColor * (1.0 - ground.a);
     }
 
@@ -188,6 +193,7 @@ void main() {
         float a = clamp(max(max(max(dn.r, dn.g), dn.b), max(max(up.r, up.g), up.b)), 0.0, 1.0);
         vec3 c = a > 1.0e-4 ? clamp((final_ - (1.0 - a) * bg) / a, 0.0, 1.0) : vec3(0.0);
         if (a <= 1.0e-4) a = 0.0;
+        if (u_look > 1.5) { o_color = vec4(c * a, a); return; }
         o_color = vec4(c * a, a) + ground * (1.0 - a);
         return;
     }

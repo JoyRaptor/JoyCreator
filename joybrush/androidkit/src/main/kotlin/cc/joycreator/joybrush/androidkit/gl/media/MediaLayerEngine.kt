@@ -426,11 +426,13 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
      * its cell (a coarse cell is wf² times the area: the same per-cell rate would be wf² times faster across the paper).
      */
     private fun loadWetFrame(paper: MediaPaperGl, wc0: WetConstants, evapOverride: Double?, pxPerMm: Double) {
+        // [worldScale]: the water's world magnified (the wet sheet zoomed out), so a millimetre is that many times as many px.
+        val pxmm = pxPerMm * worldScale
         wetFrameUniforms.load(wetUniforms(paper.stats, wc0) + ("u_gran" to wetGran) + ("u_runCapMmPerS" to runCapMmPerS), evapOverride, slope,
-            wf / (pxPerMm * scale), wc0.beadMm * pxPerMm * scale / wf)
+            wf / (pxmm * scale), wc0.beadMm * pxmm * scale / wf)
         // The same for an engine whose layer px are themselves wider than a document px (scale under 1: the wet sheet,
-        // WetSheet): a cell is wf / scale document px across.
-        val cellDoc = wf / scale.toDouble()
+        // WetSheet): a cell is wf / scale document px across, wf / (scale x worldScale) of the lab's.
+        val cellDoc = wf / (scale.toDouble() * worldScale)
         if (cellDoc != 1.0) for (n in listOf("u_flow", "u_wick", "u_mingle")) wetFrameUniforms.scale(n, 1.0 / (cellDoc * cellDoc))
     }
 
@@ -1206,6 +1208,16 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
      */
     var runCapMmPerS = 0.0
 
+    /**
+     * How much the water's world is magnified (WetSheetMath.worldScale): 1 = the paper is life size, 20 document px to the
+     * millimetre; 3 = the water behaves as if every millimetre were three times as wide. The wet sheet sets it when the
+     * painter is zoomed out, so a wash runs on the screen as it does at 100 %.
+     */
+    var worldScale = 1.0
+
+    /** The look without its ground under it (jb_media_render.frag u_look = 2): the wet sheet's overlay. */
+    var lookPaintOnly = false
+
     /** Tiles out of the water's simulation (Media Atlas v2 B3, set by the host): the water passes draw nothing there. */
     var waterSkip: Set<Long> = emptySet()
 
@@ -1955,6 +1967,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
             val shown = finishedPaint()
             MediaUniforms.render(ru, shown.p0, shown.p1, state[0].paper, groundTex, bakeT, w0T, w1T, w, h, originX, originY, scale,
                 pxPerMm, paper.stats.toothMm, look)
+            if (lookPaintOnly) ru.f1("u_look", 2f)
             // The brush input not yet in the water (a water job is running, or this frame's dabs wait for the next one).
             val pending = ws != null && inputPending
             ru.f1("u_inputPending", if (pending) 1f else 0f)

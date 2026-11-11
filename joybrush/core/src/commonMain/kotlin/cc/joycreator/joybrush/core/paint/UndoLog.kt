@@ -96,6 +96,12 @@ class UndoLog<T : Any>(
         lines: List<LineChange> = emptyList(),
         /** Ordered pixel slabs, with the same copy-on-write ownership as [changes]. */
         slabs: List<SlabChange<T>> = emptyList(),
+        /**
+         * The wet sheet's mark (WetSheetMath.strokeMark / printMark; androidkit WetSheet): this step is a watercolour stroke
+         * still on the sheet, or the print of dried paint into the layer. The sheet keeps what it needs to go back by this
+         * mark; the log only carries it.
+         */
+        val sheet: Long? = null,
     ) {
         // Snapshot caller-owned collection backing, including the samples used by line replay.
         val changes: List<TileChange<T>> = FrozenStepList(changes)
@@ -506,7 +512,8 @@ class UndoLog<T : Any>(
             steps.firstOrNull { it.documentBefore != null }?.documentBefore,
             steps.lastOrNull { it.documentAfter != null }?.documentAfter,
             lines.values.filter { it.before != null || it.after != null },
-            slabs.values.filter { it.before != null || it.after != null }))
+            slabs.values.filter { it.before != null || it.after != null },
+            steps.firstOrNull { it.sheet != null }?.sheet))
         val dropped = prepareTrim(nextUndo, nextRedo)
         dropped.forEach { retired.addAll(beforeHandles(it)) }
         publishLocal(before, Cursor(cursorIdentity, nextUndo, nextRedo), retired, trimmed = dropped.size)
@@ -524,7 +531,7 @@ class UndoLog<T : Any>(
         val nextUndo = before.copyUndo()
         val nextRedo = before.copyRedo()
         nextUndo[nextUndo.lastIndex] = Step(top.changes + changes, top.stackBefore, top.stackAfter, top.paperBefore, top.paperAfter,
-            top.documentBefore, top.documentAfter, top.lines, top.slabs)
+            top.documentBefore, top.documentAfter, top.lines, top.slabs, top.sheet)
         val dropped = prepareTrim(nextUndo, nextRedo)
         publishLocal(before, Cursor(cursorIdentity, nextUndo, nextRedo), dropped.flatMap(::beforeHandles), trimmed = dropped.size)
         return true
@@ -544,11 +551,11 @@ class UndoLog<T : Any>(
             if (replacement.before == null && replacement.after == null) null else replacement
         }
         val bare = top.stackBefore == null && top.stackAfter == null && top.paperBefore == null && top.paperAfter == null &&
-            top.documentBefore == null && top.documentAfter == null && top.lines.isEmpty() && top.slabs.isEmpty()
+            top.documentBefore == null && top.documentAfter == null && top.lines.isEmpty() && top.slabs.isEmpty() && top.sheet == null
         val nextUndo = before.copyUndo()
         if (changes.isEmpty() && bare) nextUndo.removeLast()
         else nextUndo[nextUndo.lastIndex] = Step(changes, top.stackBefore, top.stackAfter, top.paperBefore, top.paperAfter,
-            top.documentBefore, top.documentAfter, top.lines, top.slabs)
+            top.documentBefore, top.documentAfter, top.lines, top.slabs, top.sheet)
         publishLocal(before, Cursor(cursorIdentity, nextUndo, before.copyRedo()), emptyList())
         return true
     }

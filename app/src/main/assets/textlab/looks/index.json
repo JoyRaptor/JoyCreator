@@ -15,7 +15,14 @@
     "diamond.text.json",
     "retro-pop.text.json",
     "hologram.text.json",
-    "phantom.text.json"
+    "phantom.text.json",
+    "slime.text.json",
+    "shag.text.json",
+    "marquee.text.json",
+    "fizz.text.json",
+    "voltage.text.json",
+    "paper-cut.text.json",
+    "ember-fade.text.json"
   ],
   "drafts": [
     "steel-plate.text.json",

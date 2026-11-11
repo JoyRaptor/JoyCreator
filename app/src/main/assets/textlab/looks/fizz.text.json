@@ -1,0 +1,18 @@
+{
+  "format": "joy.text/1",
+  "id": "fizz",
+  "name": "Fizz",
+  "family": "Stuff",
+  "sample": "FIZZ",
+  "stage": 5,
+  "font": { "family": "archivo", "weight": 900, "width": 100, "tracking": 0.06, "caps": true },
+  "margin": [ 1.0, 1.0, 1.0, 1.1 ],
+  "features": [ "REFRACT" ],
+  "description": "Glass letters part full of something fizzy: the liquid finds its level, leans when you tilt the phone, ripples, and bubbles rise through it.",
+  "p": { "vignette": 0.6, "grain": 0.3, "contrast": 1.08, "soften": 0.004, "bevel": 0.05, "bevelHeight": 0.06, "bevelShape": 0.33, "ao": 0, "depth": 0.3, "persp": -0.12, "vanishX": 0.5, "vanishY": 0.43, "parallax": 0.22, "metal": 0, "gloss": 1.0, "fillA": "#ffffff", "fillB": "#ffffff", "fillC": "#ffffff", "bend": 1.0, "fringe": 0.08, "tintAmount": 0.15, "tint": "#dff3ff", "edgeDark": 0.4, "gather": 0.8, "tankLevel": 0.58, "tankSlosh": 1.2, "tankWave": 1, "tankBubbles": 1, "tankCol": "#ff7a1a", "spec": 3.0, "shine": 220, "envUp": 0.35, "envAcross": 0.4, "envBevel": 0.95, "wearEdge": 1.4, "sideA": "#ffd9b0", "sideB": "#3a1a05", "sideMetal": 0.3, "shadow": 0.5, "shadowSoft": 0.16, "floor": 0.22, "floorLine": 0.3, "floorFade": 3.5, "stageTint": "#c98a3a", "bloom": 0.3, "bloomThreshold": 1.5, "saturation": 1.2 },
+  "sphere": { "ramp": [ [ 0.0, "#020202" ], [ 0.4, "#0c0c0e" ], [ 0.5, "#1c1c22" ], [ 0.65, "#0c0c0e" ], [ 1.0, "#020202" ] ], "boxes": [ [ -0.42, 0.58, 0.36, 0.1, -0.3, 0.035, 6.0, "#ffffff", 0.4 ], [ 0.76, 0.1, 0.05, 0.5, 0.12, 0.03, 3.5, "#ffffff", 0.2 ] ] },
+  "motion": {
+    "in": { "each": 0.08, "time": 0.8, "ease": "out", "scale": 1.1, "reveal": [ 0, 0.6 ] },
+    "idle": {}
+  }
+}

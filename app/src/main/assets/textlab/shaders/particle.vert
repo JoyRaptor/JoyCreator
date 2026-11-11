@@ -17,7 +17,7 @@ uniform vec4  uPBirth;   // born: 0 on the outline, 1 inside, 2 anywhere in the 
 uniform vec4  uPLife;    // seconds, size em, size at the end (x its start), stretch along its path
 uniform vec4  uPMove;    // speed outward, rise, sideways drift, random speed   (em/s)
 uniform vec4  uPForce;   // gravity (em/s2), swirl, swirl size, spin
-uniform vec4  uPKind;    // shape: 0 soft dot, 1 lens glint, 2 drop, 3 streak, 4 soft disc; twinkle 0..1; 1 = brightness follows the material sphere; seed
+uniform vec4  uPKind;    // shape: 0 soft dot, 1 lens glint, 2 drop, 3 streak, 4 soft disc, 5 bolt; twinkle 0..1; 1 = brightness follows the material sphere; seed
 uniform vec3  uEnvCurve;
 uniform float uEnvTurn;
 uniform float uEnvTilt;
@@ -25,6 +25,7 @@ out vec2 vQ;        // -1..1 across the particle
 out float vAge;     // 0 born .. 1 gone
 out float vBright;
 out float vRand;
+out float vSeed;
 
 void main() {
     int id = gl_VertexID / 6, c = gl_VertexID % 6;
@@ -74,7 +75,14 @@ void main() {
     vec2 ay = vec2(-ax.y, ax.x);
     vec2 off = ax * corner.x * size * stretch + ay * corner.y * size;
     vec2 P = pos + off * alive * step(1e-4, bright);
+    if (int(uPKind.x + 0.5) == 5) {
+        // a BOLT does not travel: it stands on the outline where it was born and leaps outward
+        // (gravity pulls it toward the ground). Its size is its length.
+        vec2 bd = normalize(rot((r.w - 0.5) * 1.7) * e.zw + vec2(1e-4, -uPForce.x * 0.15));
+        float len = uPLife.y * (0.45 + 1.1 * r0.z);
+        P = e.xy + (bd * (corner.x * 0.5 + 0.5) + vec2(-bd.y, bd.x) * corner.y * 0.4) * len * alive;
+    }
 
-    vQ = corner; vAge = age; vBright = bright * alive; vRand = r0.z;
+    vQ = corner; vAge = age; vBright = bright * alive; vRand = r0.z; vSeed = r.x * 37.0 + r.y * 11.0;
     gl_Position = vec4(P / uField.xy * 2.0 - 1.0, 0.0, 1.0);
 }

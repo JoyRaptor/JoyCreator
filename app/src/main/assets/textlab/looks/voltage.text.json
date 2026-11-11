@@ -1,0 +1,28 @@
+{
+  "format": "joy.text/1",
+  "id": "voltage",
+  "name": "Voltage",
+  "family": "Stuff",
+  "sample": "VOLT",
+  "stage": 7,
+  "font": { "family": "archivo", "weight": 800, "width": 88, "tracking": 0.14, "caps": true },
+  "margin": [ 1.0, 1.0, 1.0, 1.0 ],
+  "features": [ "ARCS" ],
+  "description": "Dark steel with lightning crawling round its edges: thin jagged threads that strike again many times a second and light the metal.",
+  "p": { "soften": 0.0025, "bevel": 0.014, "bevelHeight": 0.016, "bevelShape": 0, "rim": 0.034, "inset": 0.014, "cast": 0.85, "ao": 0.55, "depth": 0.5, "persp": -0.13, "vanishX": 0.5, "vanishY": 0.44, "parallax": 0.22, "metal": 1, "rough": 0.5, "fillA": "#59626d", "fillB": "#77828f", "fillC": "#96a3b1", "strokeCol": "#b4bfcc", "strokeMetal": 1, "envAcross": 0.42, "envUp": 0.5, "envBevel": 0.85, "envTilt": 0.4, "wearEdge": 1.5, "wearScratch": 0.22, "wearGrime": 0.45, "wearBrush": 0.8, "lightX": -0.5, "lightY": 0.6, "lightZ": 0.55, "spec": 0.25, "shine": 180, "sideA": "#343a42", "sideB": "#020203", "sideMetal": 0.75, "shadow": 0.75, "shadowSoft": 0.16, "shadowX": 0.03, "shadowY": -0.05, "floor": 0.22, "floorLine": 0.3, "floorRipple": 0.15, "floorFade": 3.5, "stageTint": "#2f5fa0", "bloom": 0.4, "bloomThreshold": 1.1, "bloomKnee": 0.6, "spill": 0.2, "streak": 0.3, "streakBlue": 1, "vignette": 0.6, "grain": 0.35, "contrast": 1.08, "saturation": 1.12, "revealFade": 1, "arc": 0.6, "arcReach": 0.035, "arcJag": 1, "arcRate": 0.5, "arcCol": "#7fb8ff*3" },
+  "sphere": { "ramp": [ [ 0.0, "#010102" ], [ 0.36, "#080b0f" ], [ 0.5, "#161c24" ], [ 0.68, "#0a0d12" ], [ 1.0, "#010102" ] ], "boxes": [ [ -0.42, 0.6, 0.36, 0.1, -0.3, 0.035, 6.0, "#eef4ff", 0.4 ], [ 0.78, 0.08, 0.04, 0.5, 0.12, 0.025, 4.0, "#8fd0ff", 0.2 ], [ -0.15, -0.76, 0.42, 0.045, 0.05, 0.04, 2.2, "#4f8fff", 0.3 ], [ 0.05, 0.3, 0.85, 0.16, 0.0, 0.16, 0.55, "#b7c7d9", 0.3 ] ], "uneven": 0.5, "rim": "#5f9fff*0.35" },
+  "particles": [
+    {
+      "count": 24,
+      "p": { "shape": 5, "from": 0, "life": 0.55, "size": 0.5, "gravity": 2, "colA": "#ffffff", "colB": "#7fb0ff", "gain": 7, "share": 0.6, "fadeIn": 0.01, "fadeOut": 0.75 }
+    },
+    {
+      "count": 40,
+      "p": { "shape": 3, "from": 0, "life": 0.5, "size": 0.006, "stretch": 0.3, "speedOut": 1.6, "scatter": 0.8, "gravity": 2.5, "colA": "#ffffff", "colB": "#6fa8ff", "gain": 12, "share": 0.4, "fadeIn": 0.02, "fadeOut": 0.5 }
+    }
+  ],
+  "motion": {
+    "in": { "each": 0.07, "time": 0.5, "ease": "out", "scale": 1.15, "reveal": [ 0, 0.3 ] },
+    "idle": {}
+  }
+}

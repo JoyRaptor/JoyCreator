@@ -3,7 +3,7 @@
 //
 // Address-bar switches (for checks and stills):
 //   ?look=<id>  &text=<words>  &stage=<0..6>  &t=<seconds: hold that moment>  &tx= &ty= (tilt, -1..1)
-//   &w= &h= (largest picture, px)  &bare=1 (picture only)  &bench=1 (time every look, POST to /report)
+//   &w= &h= (largest picture, px)  &bare=1 (picture only)  &bench=1 (time every look, POST to /report; &only=a,b for some)
 //   &crop=x,y (true pixels from that corner)  &k=knob:value,knob:value (turn knobs)
 (function () {
   const TL = window.TL;
@@ -32,7 +32,16 @@
     return { shaders, parts, looks, tubefont, fontUrl: (file) => '../../' + file };
   }
 
-  const SLOT_NEEDS = { Tube: 'TUBE', Glass: 'REFRACT', Surface: 'DETAIL', Pattern: 'PATTERN', Ember: 'EMBER', Hologram: 'HOLO', Stone: 'STONE' };
+  const SLOT_NEEDS = { Tube: 'TUBE', Glass: 'REFRACT', Surface: 'DETAIL', Pattern: 'PATTERN', Ember: 'EMBER', Hologram: 'HOLO', Stone: 'STONE', Fur: 'FUR', Lamps: 'CELLS', Lightning: 'ARCS', Paper: 'PAPER', Burn: 'BURN' };
+  // which groups of sliders are open: remembered on this device, so a person leaves open only what they use
+  let openSlots = new Set(['Shape', 'Finish']);
+  try { const saved = JSON.parse(localStorage.getItem('tl-open') || 'null'); if (saved) openSlots = new Set(saved); } catch (e) { /* no storage here */ }
+  // which family's sliders are showing: 'All', one family, or not chosen yet (then the page picks by its shape)
+  let tab = null;
+  try { tab = localStorage.getItem('tl-tab') || null; } catch (e) { /* no storage here */ }
+  const rememberTab = () => { try { localStorage.setItem('tl-tab', tab); } catch (e) { /* no storage here */ } };
+  const upright = () => window.matchMedia('(max-width: 900px)').matches;
+  const rememberOpen = () => { try { localStorage.setItem('tl-open', JSON.stringify([...openSlots])); } catch (e) { /* no storage here */ } };
   const HIDDEN_FOR_TUBE = new Set(['Depth', 'Coats', 'Material', 'Light', 'Sides']);
 
   async function main() {
@@ -81,11 +90,39 @@
     function buildKnobs() {
       const box = $('knobs'); box.textContent = '';
       const feats = new Set(look.features || []);
-      for (const slot of assets.parts.slots) {
-        if (SLOT_NEEDS[slot] && !feats.has(SLOT_NEEDS[slot])) continue;
-        if (slot === 'Fire' && !look.fire) continue;
-        if (feats.has('TUBE') && HIDDEN_FOR_TUBE.has(slot)) continue;
-        const h = document.createElement('h2'); h.textContent = slot; box.appendChild(h);
+      const slots = assets.parts.slots.filter((slot) => !(SLOT_NEEDS[slot] && !feats.has(SLOT_NEEDS[slot]))
+        && !(slot === 'Fire' && !look.fire) && !(feats.has('TUBE') && HIDDEN_FOR_TUBE.has(slot)));
+      // The families, as a row of tabs. A family shows only its own sliders (little to scroll, the picture
+      // stays in sight); All shows every group, each folding away. An upright phone starts on a family:
+      // the look's own special one if it has one. A dot marks the families this look actually uses.
+      const own = slots.find((slot) => SLOT_NEEDS[slot]);
+      let showing = tab === 'All' || slots.includes(tab) ? tab : upright() ? own || 'Shape' : 'All';
+      const used = new Set(Object.keys(look.p || {}).map((name) => (assets.parts.knobs[name] || {}).slot));
+      const tabs = document.createElement('div'); tabs.id = 'tabs'; tabs.setAttribute('role', 'tablist');
+      const apply = () => {
+        for (const b of tabs.children) b.classList.toggle('on', b.dataset.slot === showing);
+        for (const det of box.querySelectorAll('details')) {
+          const solo = showing !== 'All';
+          det.classList.toggle('solo', solo);
+          det.hidden = solo && det.dataset.slot !== showing;
+          det.open = solo || openSlots.has(det.dataset.slot) || !!SLOT_NEEDS[det.dataset.slot];   // a look's own special group starts open
+        }
+        const on = tabs.querySelector('.on');                    // the chosen tab is never off the end of the row
+        if (on) tabs.scrollLeft = on.offsetLeft - (tabs.clientWidth - on.offsetWidth) / 2;
+      };
+      for (const name of ['All', ...slots]) {
+        const b = document.createElement('button'); b.textContent = name; b.dataset.slot = name; b.setAttribute('role', 'tab');
+        b.title = name === 'All' ? 'Every group of sliders, each one folding away' : 'Only the ' + name + ' sliders';
+        if (used.has(name)) b.classList.add('used');
+        b.onclick = () => { showing = tab = name; rememberTab(); apply(); box.scrollTop = 0; };
+        tabs.appendChild(b);
+      }
+      box.appendChild(tabs);
+      for (const slot of slots) {
+        const det = document.createElement('details'), sum = document.createElement('summary');
+        sum.textContent = slot; det.appendChild(sum); det.dataset.slot = slot;
+        det.ontoggle = () => { if (det.classList.contains('solo')) return; if (det.open) openSlots.add(slot); else openSlots.delete(slot); rememberOpen(); };
+        box.appendChild(det);
         for (const [name, k] of Object.entries(assets.parts.knobs)) {
           if (k.slot !== slot) continue;
           const row = document.createElement('div'); row.className = 'row';
@@ -103,9 +140,10 @@
             inp.oninput = () => { engine.setKnob(name, Number(inp.value)); out.textContent = Number(inp.value).toFixed(3).replace(/\.?0+$/, ''); };
             row.appendChild(inp); row.appendChild(out);
           }
-          box.appendChild(row);
+          det.appendChild(row);
         }
       }
+      apply();
     }
 
     $('text').oninput = () => engine.setText($('text').value.replace(/\\n/g, '\n'));
@@ -199,7 +237,9 @@
   async function bench(engine, assets) {
     const gl = engine.gl, px = new Uint8Array(4), rows = [];
     engine.setSize(Number(q.get('w')) || 1280, Number(q.get('h')) || 720);
+    const only = (q.get('only') || '').split(',').filter(Boolean);      // &only=a,b times just those looks
     for (const l of assets.looks) {
+      if (only.length && !only.includes(l.id)) continue;
       let ms = -1, err = null;
       try {
         engine.setLook(l); engine.setText(l.sample || 'TEXT'); engine.stage = l.stage === undefined ? 1 : l.stage;

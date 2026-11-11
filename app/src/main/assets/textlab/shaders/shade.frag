@@ -124,6 +124,28 @@ uniform vec3  uFireC;
 uniform float uFireToon;
 #endif
 
+#ifdef FUR
+uniform vec4  uFur;          // fur: strand length past the edge (em), strands per em, 0 = stands straight out .. 1 = hangs down, sway
+uniform vec3  uFurTip;       // strand tips (the roots take the fill)
+#endif
+#ifdef CELLS
+uniform vec4  uCells;        // a board of lamps: lamps per em, 0 round .. 1 square, lamp size 0..1, chase speed
+uniform float uBoard;        // the sign board the lamps sit in: this far in from the picture's edge (em); 0 = no board
+#endif
+#ifdef ARCS
+uniform vec4  uArc;          // lightning round the outline: strength, how far it strays (em), jaggedness, strikes
+uniform vec3  uArcCol;
+#endif
+#ifdef PAPER
+uniform vec4  uPaper;        // cut paper: sheets, how much smaller each is (em), the shade each throws, paper grain
+#endif
+#ifdef BURN
+uniform vec4  uBurn;         // burning away: how much is gone 0..1, glow at the front, raggedness, 0 = hold .. >0 = it burns across by itself
+#endif
+#ifdef REFRACT
+uniform vec4  uTank;         // a vessel: how full 0..1 (0 = empty glass), how much the liquid leans with the tilt, waves, bubbles
+uniform vec3  uTankCol;
+#endif
 #ifdef STONE
 uniform vec4  uStone;        // what makes stone look carved and of one block: chisel marks, fresh pale chips on broken edges, veins and strata, mineral grain
 uniform vec2  uStoneB;       // what settles on it: dust on ledges that face up, moss in the deepest hollows
@@ -211,6 +233,13 @@ int march(vec2 p0, vec2 lean, out vec2 q, out float z, out float cover) {
     return 0;
 }
 
+#ifdef BURN
+// how far ahead of the burning front this point still is (em-ish; below 0 = already gone)
+float burnAt(vec2 q) {
+    float gone = uBurn.x + (uBurn.w > 0.0 ? fract(uTime * uBurn.w * 0.08) * 1.6 - 0.3 : 0.0);
+    return q.x / uField.x + (tfbm(q * uBurn.z) - 0.5) * 0.45 + (tnoise(q * uBurn.z * 5.0) - 0.5) * 0.06 - gone * 1.4 + 0.2;
+}
+#endif
 vec3 fillAt(float ly) {
     float t = sat(ly);
     float m = clamp(uFillMid, 0.02, 0.98);
@@ -417,6 +446,42 @@ void main() {
     return;
 #else
 
+#ifdef CELLS
+    {
+        // A BOARD OF LAMPS. The words exist only as rows of bulbs, each lit or not by whether its middle
+        // falls in a letter. A bulb is glass in a socket: lit, a white-hot middle inside coloured glass;
+        // unlit, dark glass that still catches the room. A wave of brightness chases along the rows.
+        float N = uCells.x, R = uCells.z;
+        vec2 cell = floor(p0 * N), mid = (cell + 0.5) / N;
+        vec4 fc = texture(uFieldTex, mid / uField.xy);
+        float on = smoothstep(-0.15 / N, 0.15 / N, fc.r) * fc.g;
+        vec2 l = (p0 - mid) * N * 2.0;                                       // -1..1 across the lamp's square
+        float shape = mix(length(l), max(abs(l.x), abs(l.y)), uCells.y);
+        float px = 2.0 * N / uField.z;                                       // one picture pixel, in lamp units
+        float bulb = smoothstep(R, R - max(0.1, px), shape);
+        float socket = smoothstep(R + 0.2, R + 0.2 - max(0.06, px), shape) * (1.0 - bulb);
+        float chase = mix(1.0, 0.5 + 0.5 * sin((cell.x + cell.y * 0.5) * 0.9 - uTime * uCells.w * 6.0), step(0.001, uCells.w) * 0.55);
+        float tw = 0.93 + 0.07 * hash21(cell + floor(uTime * 12.0));
+        vec3 lampC = fillAt(fc.a);
+        float rr = sat(shape / R);
+        vec3 litC = mix(mix(lampC, vec3(1.0, 0.96, 0.88), 0.6) * 2.4, lampC * 1.5, smoothstep(0.0, 0.6, rr)) * (1.0 - 0.5 * rr * rr);
+        vec3 offC = lampC * 0.045 * (1.0 - 0.6 * rr) + 0.012;
+        vec2 g = l - vec2(-0.3, 0.34) * R;
+        float glint = exp(-dot(g, g) / (0.035 * R * R));
+        vec3 glass = mix(offC, litC * chase * tw, on) + glint * mix(0.2, 0.7, on);
+        vec2 inset = min(p0, uField.xy - p0) - uBoard;
+        float edge = min(inset.x, inset.y);
+        float board = uBoard > 0.0 ? smoothstep(0.0, 1.5 / uField.z, edge) : smoothstep(-0.24, -0.1, fc.r);
+        vec3 boardC = vec3(0.02, 0.018, 0.016) * (0.7 + 0.6 * tnoise(p0 * 60.0));
+        vec3 sock = vec3(0.1, 0.09, 0.08) * (0.35 + 0.9 * sat(dot(normalize(l + 1e-4), vec2(-0.6, 0.8)) * 0.5 + 0.5));
+        col = mix(mix(boardC, sock, socket), glass, bulb);
+        col += lampC * on * chase * 0.4 * exp(-max(shape - R, 0.0) * 3.0) * (1.0 - bulb);        // its light on the board
+        if (uBoard > 0.0) col = mix(col, vec3(0.14, 0.12, 0.1) * (0.6 + 0.8 * sat(inset.y - inset.x + 0.5)), smoothstep(0.035, 0.03, edge)); // a metal frame
+        a = board * uOpacity;
+        o = vec4(col * a, a);
+        return;
+    }
+#endif
     vec2 lean = uExtrude + (vUv - uVanish) * uField.xy * uPersp + uTilt * uParallax;
     vec2 q; float z; float cover;
     int hit = march(p0, lean, q, z, cover);
@@ -464,6 +529,27 @@ void main() {
             alb = mix(alb, uPatternCol, pattern(q, f.a) * uPattern.z);
 #endif
             alb *= 1.0 + uMottle * ((tfbm(q * 2.6 + 11.0) - 0.5) * 1.1 + (tnoise(q * 31.0) - 0.5) * 0.25);
+#ifdef PAPER
+            {
+                // CUT PAPER: sheets stacked one inside the next, each a step smaller. Each is cut by hand
+                // (its edge wanders a little, differently from its neighbours) and throws a shadow on the
+                // sheet beneath, away from the lamp.
+                float top = uPaper.x - 1.0;
+                float k0 = min(floor(d / uPaper.y), top);
+                float cut = (tnoise(q * 6.0 + k0 * 7.3) - 0.5) * 0.007 * uPaper.w;
+                float sheet = min(floor(max(d + cut, 0.0) / uPaper.y), top);
+                float k = sheet / max(top, 1.0);
+                alb = mix(mix(uFillA, uFillB, sat(k * 2.0)), uFillC, sat(k * 2.0 - 1.0));
+                float lit = fieldD(q + Ld * 0.03) + cut;                            // the same sheet, a little toward the lamp
+                float shaded = smoothstep(-0.004, 0.02, lit - (sheet + 1.0) * uPaper.y) * step(sheet, top - 0.5);
+                alb *= 1.0 - uPaper.z * 0.6 * shaded;
+                // paper has a thickness: its cut edge is lit on the lamp's side and dark on the other
+                float into = d + cut - sheet * uPaper.y, facing = dot(-gn, Ld);
+                float rim = smoothstep(0.0055, 0.001, into) * step(0.5, sheet + step(0.0, d));
+                alb *= 1.0 + rim * (facing > 0.0 ? 0.35 * facing : 0.3 * facing) * uPaper.z;
+                alb *= 1.0 + ((tnoise(q * 260.0 + sheet * 5.0) - 0.5) * 0.12 + (tfbm(q * 30.0 + sheet * 9.0) - 0.5) * 0.12) * uPaper.w;
+            }
+#endif
 #ifdef DETAIL
             alb *= mix(1.0, 0.4 + 0.85 * sat(relief * 1.7), uDetailShade * (1.0 - trim));
 #endif
@@ -549,6 +635,31 @@ void main() {
             vec3 glassCol = bg * (1.0 - uGlass.w * rimw * smoothstep(-0.3, 0.9, side));
             glassCol += (uTint * 0.6 + 0.4) * uGather * pow(rimw, 1.4) * smoothstep(0.2, -0.9, side);
             glassCol = glassCol * (1.0 - F * uGloss * 0.5) + E * F * uGloss + sp;
+            if (uTank.x > 0.0) {
+                // A VESSEL: the letter is glass, part full. The liquid finds its level, leans as the phone
+                // tilts and never sits quite still; bubbles of every size rise through it and gather as
+                // a head of froth on top.
+                float wave = (sin(q.x * 9.0 + uTime * 2.1) * 0.6 + sin(q.x * 17.0 - uTime * 3.3) * 0.4) * uTank.z * 0.03;
+                float level = uTank.x + uTilt.x * uTank.y * c.x * 0.35 + wave;
+                float under = smoothstep(0.012, -0.012, f.a - level);
+                vec3 liquid = glassCol * mix(vec3(1.0), uTankCol * 1.3, 0.85) + uTankCol * 0.07;
+                liquid *= 0.75 + 0.5 * sat(f.a / max(level, 0.05));                              // deeper = darker
+                if (under > 0.001) for (int i = 0; i < 2; i++) {
+                    float sc = i == 0 ? 11.0 : 23.0, sp = i == 0 ? 0.9 : 1.6;
+                    vec3 bb = voronoi(vec2(q.x * sc + sin(q.y * 7.0 + uTime * 1.3) * 0.25, q.y * sc - uTime * sp * sc * 0.12) + float(i) * 17.0);
+                    float rad = 0.14 + 0.2 * fract(bb.z * 7.7);
+                    float ring = smoothstep(rad, rad - 0.05, bb.x) * (0.3 + 0.7 * smoothstep(rad - 0.14, rad - 0.02, bb.x));
+                    liquid += (vec3(1.0, 0.97, 0.9) * 0.55 + uTankCol * 0.5) * ring * step(1.0 - 0.4 * sat(uTank.w), bb.z) * uTank.w;
+                }
+                float head = sat(uTank.w) * 0.07;
+                float froth = smoothstep(level + head, level + head * 0.6, f.a) * (1.0 - under);
+                glassCol = mix(glassCol, liquid, under) + vec3(1.0) * exp(-abs(f.a - level) / 0.01) * 0.3 * (0.4 + 0.6 * under);
+                if (froth > 0.001) {
+                    vec3 fv = voronoi(q * 46.0 + vec2(0.0, uTime * 0.15));
+                    vec3 frothC = mix(vec3(1.0, 0.96, 0.9), uTankCol, 0.12) * (0.55 + 0.45 * smoothstep(0.02, 0.2, fv.y - fv.x));
+                    glassCol = mix(glassCol, frothC, froth * 0.9);
+                }
+            }
             if (uIce.x + uIce.y + uIce.z + uIce.w > 0.0) {
                 // Fissures run along the crystals' walls (the same walls the outline chips along, so a
                 // chip leads into a crack). Low down and deep inside the ice is milky and full of
@@ -631,6 +742,18 @@ void main() {
             col *= 1.0 - uAO * 0.6 * smoothstep(0.0, 0.25, dz) * (1.0 - uUnlit);
             a = 1.0;
         }
+#ifdef BURN
+        {
+            // BURNING AWAY: a ragged front eats across the word. Ahead of it the letter chars black; the
+            // front itself is a hair of live ember; behind it there is nothing, not even a shadow.
+            float m = burnAt(q);
+            float left = smoothstep(0.0, 0.006, m);
+            col *= mix(0.04, 1.0, smoothstep(0.015, 0.11, m));
+            add += (vec3(1.0, 0.75, 0.35) * exp(-max(m, 0.0) / 0.006) * 1.6 + vec3(1.0, 0.22, 0.02) * exp(-max(m, 0.0) / 0.028) * 0.5
+                    * (0.6 + 0.4 * tnoise(q * 30.0 + uTime * 2.0))) * uBurn.y * left;
+            a *= left;
+        }
+#endif
         a *= cover;
         a *= mix(1.0, f.g, uReveal.x);
         if (uReveal.y > 0.0) a *= mix(1.0, smoothstep(0.0, 0.06, f.g * 1.5 - 0.25 - f.a), uReveal.y);
@@ -642,12 +765,69 @@ void main() {
     if (uShadow > 0.0) {
         float sd = fieldD(p0 - lean * uDepth - uShadowOff);
         under = smoothstep(-max(uShadowSoft, aw), 0.3 * max(uShadowSoft, aw), sd) * uShadow;
+#ifdef BURN
+        under *= smoothstep(-0.02, 0.05, burnAt(p0 - lean * uDepth - uShadowOff));
+#endif
     }
     if (uGlow > 0.0) {
         vec4 f0 = texture(uFieldTex, vUv);
         float gd = min(f0.r + uStroke, 0.0);
         add += uGlowCol * uGlow * exp(gd / max(uGlowSize, 1e-4)) * (1.0 - a) * mix(1.0, f0.g, max(uReveal.x, uReveal.y));
     }
+#ifdef FUR
+    {
+        // FUR. Every strand is drawn: it is rooted in the letter, leans the way its tuft is combed,
+        // tapers to its tip, and may reach past the outline. Eighteen slices from tip to root; the strand
+        // nearest the eye hides those beneath it, which sit in its shade.
+        vec2 tuft = vec2(tnoise(p0 * 3.2 + 3.0), tnoise(p0 * 3.2 + 41.0)) - 0.5;
+        float sway = (sin(p0.x * 2.3 + uTime * uFur.w) * 0.14 + sin(p0.y * 3.1 - uTime * uFur.w * 0.7) * 0.07) * step(0.001, uFur.w);
+        vec2 comb = normalize(mix(tuft * 2.6, vec2(0.0, -1.0), uFur.z) + vec2(sway, 1e-4));
+        float longer = 0.55 + 0.9 * tnoise(p0 * 1.7 + 9.0);
+        float sheen = 0.85 + 0.3 * dot(comb, normalize(vec2(-0.5, 0.75)));
+        vec4 acc = vec4(0.0);
+        for (int i = 17; i >= 0; i--) {
+            float h = float(i) / 17.0;
+            vec2 root = p0 - comb * uFur.x * longer * h * (0.55 + 0.45 * h);          // a strand curves as it falls
+            vec4 fr = texture(uFieldTex, root / uField.xy);
+            vec2 cp = mat2(0.8, 0.6, -0.6, 0.8) * root * uFur.y, id = floor(cp);      // roots are not sown in rows
+            vec2 rnd = vec2(hash21(id), hash21(id + 57.0));
+            float tall = 0.3 + 0.7 * rnd.x;                                           // every strand its own length
+            float wide = 0.44 * (1.0 - 0.8 * h / tall);
+            float cov = smoothstep(-0.004, 0.004, fr.r + uStroke) * fr.g * step(h, tall)
+                      * smoothstep(wide, wide - 0.2, length(fract(cp) - 0.5 - (rnd - 0.5) * 0.3));
+            vec3 base = fillAt(fr.a);
+            vec3 sc = mix(base * 0.28, mix(base, uFurTip, h * h), h) * (0.7 + 0.6 * rnd.y) * sheen
+                    * (0.72 + 0.28 * smoothstep(0.0, 0.07, fr.r));
+            acc.rgb += (1.0 - acc.a) * cov * sc;
+            acc.a += (1.0 - acc.a) * cov;
+        }
+        vec3 skin = fillAt(texture(uFieldTex, vUv).a) * 0.14;
+        float oa = acc.a + (1.0 - acc.a) * a;
+        col = (acc.rgb + (1.0 - acc.a) * a * skin) / max(oa, 1e-4);
+        a = oa;
+    }
+#endif
+#ifdef ARCS
+    {
+        // LIGHTNING on the metal itself: a hair of light that crawls along the edge and re-strikes many
+        // times a second, and the flash it throws on the letter. (The bolts that leap off are particles.)
+        vec4 fa = texture(uFieldTex, vUv);
+        float dd = fa.r + uStroke;
+        float strike = floor(uTime * (8.0 + 16.0 * uArc.w));
+        float near = smoothstep(-0.2, -0.08, dd), arcs = 0.0;
+        if (near > 0.0) for (int i = 0; i < 2; i++) {
+            float fi = float(i);
+            float wander = (tfbm(p0 * (5.0 + 4.0 * fi) + vec2(strike * 7.13, fi * 31.0)) - 0.5) * uArc.y * 2.0
+                         + (tnoise(p0 * 42.0 + strike * 3.1 + fi * 9.0) - 0.5) * 0.022 * uArc.z;
+            float gate = smoothstep(0.6, 0.68, tnoise(p0 * 1.1 + vec2(strike * 3.7 + fi * 5.0, strike)));
+            float off = abs(dd - wander);
+            arcs += gate * (exp(-off / 0.0028) + 0.12 * exp(-off / 0.02));
+        }
+        float flash = 0.35 + 0.65 * hash11(strike);
+        add += uArcCol * arcs * uArc.x * fa.g * near * flash;
+        col += uArcCol * 0.05 * uArc.x * flash * exp(-max(dd, 0.0) / 0.035) * a;      // the edge of the metal catches it
+    }
+#endif
     if (uInline > 0.0 && dot(uHover, uHover) > 0.0) {
         // the drawn line is its own element: the letter's outline again, lifted a little off it
         float dh = texture(uFieldTex, (p0 - uHover) / uField.xy).r;

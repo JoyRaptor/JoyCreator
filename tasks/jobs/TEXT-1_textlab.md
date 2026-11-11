@@ -114,6 +114,28 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
   picker and a "Your font" file button. Set as the look's own face on Liquid Chrome (Pacifico), Carved Stone (Cinzel)
   and Hologram (Orbitron); the looks he has already approved keep Archivo. The app must load these from assets and
   mirror the keys in `TL.FONTS`.
+- **Third wave (real date 2026-11-11; the 11-12 to 11-14 labels above are steps of one long session, not days).**
+  The owner asked for seven more TYPES of look, each bringing a new PIECE people can build with (his example: fur),
+  an opinion on which fourteen would add the most, and slider groups that fold away. Mid-way he asked whether an
+  upright phone would do better with tabs for the families of controls. Built:
+  | Piece (new) | Where | Look that shows it | Note 9, 1280 wide |
+  |---|---|---|---|
+  | Drips: threads with a bead that lengthen, let go and fall; a true shape, so they take the whole finish | `soften.frag` `dripOf`, `uDrip` (`drip*` knobs, slot Shape); engine does shape first, then rounding | Slime | 28 ms |
+  | Fur: every strand drawn (18 slices tip to root), tufts combed their own way, ragged overhanging edge | `shade.frag` `FUR`, `uFur`, `furTip` | Shag | 22 ms |
+  | Lamp board: the word is rows of glass bulbs in sockets on a framed sign; round or square; a chase | `shade.frag` `CELLS`, `uCells`, `uBoard` | Marquee | 5 ms |
+  | Vessel: glass letters part full; level leans with tilt, waves, rising bubbles, a head of froth | `shade.frag` `REFRACT` + `uTank` (`tank*`, slot Glass) | Fizz | 38 ms (slow) |
+  | Lightning: bolts that leap off the outline, jag, fork and re-strike (particle shape 5, so ANY shape can throw them: VisLab's emitter gains it), plus a quiet crawl on the metal | `particle.vert/frag` kind 5; `shade.frag` `ARCS`, `uArc` | Voltage (Dark Steel's material) | 35 ms |
+  | Cut paper: stacked sheets, each cut by hand, lit and shaded cut edges, a shadow on the sheet beneath | `shade.frag` `PAPER`, `uPaper` | Paper Cut | 11 ms |
+  | Burning away: char, a hair of live ember, nothing behind it (no ghost shadow); `burnGone` is an exit animation | `shade.frag` `BURN`, `burnAt`, `uBurn` | Ember Fade | 15 ms |
+  Slider families: a row of tabs over the sliders (All + each family; a dot marks the families the look uses). A family
+  shows only its own sliders; All keeps the scroll-through view with every group folding away, remembered per device.
+  An upright phone starts on a family (the look's own special one). The phone room should copy this.
+  Checked: each of the seven looked at up close on the computer, most at one or two moments only (the motion of drips,
+  burn, chase and bolts was not watched as a moving picture); all 21 looks still draw; no shader errors on the Note 9's
+  GPU; battery stayed 23 C in short runs. Not checked: a long heat run; the owner's verdict on any of the seven.
+  Proposed next seven (my pick, his yes owed): vines and leaves that grow along the letter; real water with splashes;
+  stitched thread / embroidery; a foil balloon; sand or powder that blows away; a letter made of many small things
+  (sequins, coins, sprinkles); ink that bleeds into wet paper.
 - **Honest limits today:** the fire is good stylised fire, not yet the photograph the owner showed;
   water and the other drafts are below the bar; only the app's own fonts are used (Archivo, Plex,
   Ubuntu, Doto), so there is no script or true display face yet.

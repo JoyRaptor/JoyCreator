@@ -191,6 +191,10 @@ private const val PREF_FAST_WATER = "joybrush.fastWater"
 /** Wet watercolour on the wet sheet (WET_SHEET_20261110.md) or in the layer's tiles (the old way, one tap away). */
 private const val PREF_WET_SHEET = "joybrush.wetSheet"
 private const val DEFAULT_WET_SHEET = true
+/** How uneven a quick watercolour wash is laid on the wet sheet: "even", "little" (default) or "wavy". */
+private const val PREF_WASH_WAVE = "joybrush.washWave"
+/** How strongly the paper's grain shows in a wet-sheet wash: "none", "half" (default, the owner 2026-11-11) or "full". */
+private const val PREF_WASH_GRAIN = "joybrush.washGrain"
 /** The paint engine for pencil, watercolour and oil: "atlas" (the whole layer) or "window" (the old 1024 px patch). */
 private const val PREF_PAINT_ENGINE = "joybrush.paintEngine"
 /** What a person who never chose gets: the atlas since 10-21 (water jobs, the whole layer); the old window one tap away. */
@@ -484,6 +488,7 @@ class JoyBrushActivity : Activity() {
         canvas.setMediaAtlas(prefs.getString(PREF_PAINT_ENGINE, DEFAULT_PAINT_ENGINE) == "atlas")
         canvas.setMediaFastWater(prefs.getBoolean(PREF_FAST_WATER, false))
         canvas.setWetSheet(prefs.getBoolean(PREF_WET_SHEET, DEFAULT_WET_SHEET))
+        applyWashTaste()
         // Each tool as the person left it; the first shipped brush of each kind on a first visit (JB-1.05b, JB-2.01).
         pendingCatalogTools = prefs.getString(PREF_TOOLS, null)
         catalogToolsPending = UnibrushActivation.SHIPPING_ENABLED || pendingCatalogTools?.contains("unibrush.") == true
@@ -1108,6 +1113,14 @@ class JoyBrushActivity : Activity() {
         popovers.show(box, anchor, Popovers.Side.BESIDE, widthDp = 240f)
     }
 
+    /** The ⋯ menu's two wash rows as the wet sheet reads them ([PREF_WASH_WAVE], [PREF_WASH_GRAIN]). */
+    private fun applyWashTaste() {
+        val s = cc.joycreator.joybrush.androidkit.gl.media.WetSheet
+        canvas.setWashTaste(
+            wave = when (prefs.getString(PREF_WASH_WAVE, "little")) { "even" -> 0.0; "wavy" -> s.WAVE_MORE; else -> s.WAVE_LITTLE },
+            grain = when (prefs.getString(PREF_WASH_GRAIN, "half")) { "none" -> 0.0; "full" -> 1.0; else -> 0.5 })
+    }
+
     private fun moreMenu(anchor: View) {
         val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         box.addView(menuRow("Boards…", "Create or select an Image, Animation or Sprite board") { popovers.close(); boardController?.showMenu() })
@@ -1142,6 +1155,23 @@ class JoyBrushActivity : Activity() {
             canvas.setWetSheet(!wetSheet)
             popovers.close(); moreMenu(anchor)
         })
+        // The wash's two tastes (2026-11-11), wet sheet only: how even it is laid and how much paper grain shows in it.
+        if (wetSheet) {
+            val wave = prefs.getString(PREF_WASH_WAVE, "little") ?: "little"
+            box.addView(menuRow("Wash: ${mapOf("even" to "Even", "little" to "A little wavy", "wavy" to "Wavy")[wave] ?: "A little wavy"}",
+                "How evenly a quick watercolour stroke wets the paper: perfectly even, or with the faint scallops of a hand-laid wash. Tap to change") {
+                prefs.edit().putString(PREF_WASH_WAVE, when (wave) { "even" -> "little"; "little" -> "wavy"; else -> "even" }).apply()
+                applyWashTaste()
+                popovers.close(); moreMenu(anchor)
+            })
+            val grain = prefs.getString(PREF_WASH_GRAIN, "half") ?: "half"
+            box.addView(menuRow("Paper grain in washes: ${mapOf("none" to "None", "half" to "Half", "full" to "Full")[grain] ?: "Half"}",
+                "How strongly the paper's fine tooth shows in watercolour painted while zoomed out. Tap to change") {
+                prefs.edit().putString(PREF_WASH_GRAIN, when (grain) { "none" -> "half"; "half" -> "full"; else -> "none" }).apply()
+                applyWashTaste()
+                popovers.close(); moreMenu(anchor)
+            })
+        }
         // Water detail (2026-11-10): full-resolution water, or water on 2 x 2 pixel cells that runs about four times as fast.
         val fastWater = prefs.getBoolean(PREF_FAST_WATER, false)
         box.addView(menuRow(if (fastWater) "Water detail: Fast" else "Water detail: Detailed",

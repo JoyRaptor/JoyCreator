@@ -48,6 +48,8 @@ uniform float u_heightMean;
 uniform float u_useInput;       // 1 on the step that consumes the brush input
 uniform float u_fullMm;         // a puddle this deep counts as "as wet as a full brush" (jb_wet_dab.frag)
 uniform float u_inputCap;       // 1: a frame's dabs together wet the paper no further than dab after dab would (the wet sheet)
+uniform float u_capSlack;       // how far past that a frame's dabs may wet it, as a share, on average (0 = a perfectly even wash)
+uniform float u_capSeed;        // moves the slack's pattern each frame
 uniform float u_rimCells;       // > 0: water flowing into this many cells along the texture's edge thins out and is gone at the
                                 //      edge itself (the wet sheet's rim: see main); 0 = the edge is a wall, as always
 uniform float u_edgeDep;        // pigment drops out faster at the drying edge (contact-line deposition)
@@ -72,6 +74,17 @@ const highp int JB_W_SHIFT = 8;
 #endif
 // The water's fields at the water's resolution (every one of them below; the paint and paper are read where they live).
 vec4 wf(sampler2D t, highp ivec2 q) { return jb_fetchS(t, q, JB_W_SHIFT); }
+
+#ifndef JB_WET_COARSE
+// Smooth noise 0..1 over the cells, one bump about every 40: where the cap's slack is given and where it is not.
+float jb_capHash(vec2 q) { return fract(sin(dot(q, vec2(127.1, 311.7))) * 43758.5453); }
+float jb_capNoise(vec2 p) {
+    vec2 i = floor(p), f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(jb_capHash(i), jb_capHash(i + vec2(1.0, 0.0)), f.x),
+               mix(jb_capHash(i + vec2(0.0, 1.0)), jb_capHash(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+#endif
 
 void main() {
     jb_atlasBegin();
@@ -148,8 +161,16 @@ void main() {
             // middles three times as wet as their joins. With u_inputCap a frame's dabs wet the paper no further than that
             // same end: the dabs' own wetness (i1.b / i0.r, weighted by what each gave) of a full puddle; what is cut is
             // cut from the pigment that came with it.
+            // u_capSlack lets a little of that through again (the owner, 2026-11-11: a faint scallop makes the paper look
+            // a little wavy; the even wash was too even). Not the same everywhere, or it is a rhythm: a patch here takes
+            // up to three times the share, most of the paper next to none, and the patches move every frame.
             if (u_inputCap > 0.5 && i1.b > 0.0) {
-                float k = min(1.0, max(i1.b / i0.r * u_fullMm - w, 0.0) / i0.r);
+                float slack = 0.0;
+                if (u_capSlack > 0.0) {
+                    float n = jb_capNoise(vec2(c) / 40.0 + vec2(u_capSeed, u_capSeed * 1.618));
+                    slack = u_capSlack * 3.0 * n * n;
+                }
+                float k = min(1.0, max(i1.b / i0.r * u_fullMm * (1.0 + slack) - w, 0.0) / i0.r);
                 i0 *= k; i1 *= k;
             }
 #endif

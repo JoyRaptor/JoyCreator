@@ -115,6 +115,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                val sheetLong: Int? = null,
                /** `jb_sheet_grain`: how strongly the paper's fine grain is worked into the wet sheet's look (WetSheet.grainPrint). */
                val sheetGrain: Double? = null,
+               /** `jb_sheet_wave`: how uneven a quick wash is laid on the wet sheet (WetSheet.wave); -1 = no cap at all, as before 11-11. */
+               val sheetWave: Double? = null,
                /**
                 * `jb_bench_then`: what to do after the last stroke and before the hold, in order, separated by ';':
                 * "wait 3000", "undo", "redo", "save" (a snapshot, as the autosave takes one), "zoom 0.5", "dry" (the wet
@@ -169,6 +171,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         cc.joycreator.joybrush.androidkit.gl.media.WetSheet.printHoldMs = spec.sheetPrintHoldMs
         spec.sheetLong?.let { cc.joycreator.joybrush.androidkit.gl.media.WetSheet.longCells = it; Log.i(TAG, "wet sheet: $it cells along the screen") }
         spec.sheetGrain?.let { cc.joycreator.joybrush.androidkit.gl.media.WetSheet.grainPrint = it; Log.i(TAG, "wet sheet grain: $it") }
+        spec.sheetWave?.let { cc.joycreator.joybrush.androidkit.gl.media.WetSheet.wave = it; Log.i(TAG, "wet sheet wave: $it") }
         cc.joycreator.joybrush.core.media.WaterJobBudget.forced = spec.waterBudgetK?.let { it * 1000.0 }
         spec.waterBudgetK?.let { Log.i(TAG, "water budget forced: $it k units a frame") }
         spec.mediaBudgetMb?.let { canvas.mediaBudgetHeld = false; canvas.mediaBudgetBytes = it.toLong() shl 20; canvas.mediaBudgetHeld = true; Log.i(TAG, "media room: $it MB") }
@@ -749,6 +752,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 sheetPrintHoldMs = intent.getLongExtra("jb_sheet_print_hold_ms", 0L).coerceIn(0L, 120_000L),
                 sheetLong = intent.getIntExtra("jb_sheet_long", -1).takeIf { it in 256..2048 },
                 sheetGrain = intent.getStringExtra("jb_sheet_grain")?.toDoubleOrNull()?.coerceIn(0.0, 4.0),
+                sheetWave = intent.getStringExtra("jb_sheet_wave")?.toDoubleOrNull()?.coerceIn(0.0, 4.0),
                 then = intent.getStringExtra("jb_bench_then")?.split(';')?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty(),
                 mediaBudgetMb = intent.getIntExtra("jb_media_budget_mb", -1).takeIf { it > 0 },
                 dropDry = if (intent.hasExtra("jb_drop_dry")) intent.getBooleanExtra("jb_drop_dry", true) else null,

@@ -600,6 +600,17 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         if (!on) onGl { if (mediaCanvas.settleSheet()) reportHistory() }
     }
 
+    /**
+     * The owner's two tastes for a wet-sheet wash (the ⋯ menu, 2026-11-11). [wave]: how uneven a quick wash is laid
+     * (WetSheet.wave: 0 even, WAVE_LITTLE, WAVE_MORE). [grain]: how strongly the paper's fine grain shows in it
+     * (WetSheet.grainPrint: 0 none, 0.5, 1). Both take effect on the next stroke and the next frame.
+     */
+    fun setWashTaste(wave: Double, grain: Double) {
+        val s = cc.joycreator.joybrush.androidkit.gl.media.WetSheet
+        s.wave = wave.coerceIn(0.0, 2.0); s.grainPrint = grain.coerceIn(0.0, 2.0)
+        requestRender()
+    }
+
     /** The next frame of a wet sheet that only dries ([MediaCanvas.frameDelayMs]). */
     private val restingRender = Runnable { requestRender() }
 

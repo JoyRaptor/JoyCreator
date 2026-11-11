@@ -253,6 +253,7 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
             e.frameRealMs = realMs
             e.worldScale = WetSheetMath.worldScale(cell)
             e.runCapMmPerS = WetSheetMath.runCapMmPerS(flowSpeed)
+            e.capSlack = wave
             // Only dampness left and the pen up: one long step a frame, frames a few a second ([resting]); the drying keeps
             // the clock's pace by the frame's real time (MediaLayerEngine's wet age).
             if (input != null) lively = 12 else if (lively > 0) lively--
@@ -772,6 +773,15 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
          * has the comparison). The bench's `jb_sheet_grain`.
          */
         @Volatile @JvmStatic var grainPrint = 0.5
+
+        /**
+         * How uneven a quick wash is laid (MediaLayerEngine.capSlack): 0 = perfectly even, [WAVE_LITTLE] = a faint scallop
+         * here and there (the default: the owner, 2026-11-11, "a tiny bit ... makes the paper look a little wavy"),
+         * [WAVE_MORE] = plainly hand-laid. The ⋯ menu's "Wash" row; the bench's `jb_sheet_wave`.
+         */
+        @Volatile @JvmStatic var wave = WAVE_LITTLE
+        const val WAVE_LITTLE = 0.12
+        const val WAVE_MORE = 0.35
 
         /** Debug bench only (`jb_sheet_print_hold_ms`): a dry sheet waits this long before it is printed (0 in the app). */
         @Volatile @JvmStatic var printHoldMs = 0L

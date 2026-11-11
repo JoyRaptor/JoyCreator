@@ -436,7 +436,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         // [worldScale]: the water's world magnified (the wet sheet zoomed out), so a millimetre is that many times as many px.
         val pxmm = pxPerMm * worldScale
         wetFrameUniforms.load(wetUniforms(paper.stats, wc0) + ("u_gran" to wetGran) + ("u_runCapMmPerS" to runCapMmPerS) +
-            ("u_inputCap" to (if (capInput) 1.0 else 0.0)) + ("u_rimCells" to rimCells.toDouble()), evapOverride, slope,
+            ("u_inputCap" to (if (capInput) 1.0 else 0.0)) + ("u_capSlack" to capSlack) + ("u_capSeed" to nextCapSeed()) +
+            ("u_rimCells" to rimCells.toDouble()), evapOverride, slope,
             wf / (pxmm * scale), wc0.beadMm * pxmm * scale / wf)
         // The same for an engine whose layer px are themselves wider than a document px (scale under 1: the wet sheet,
         // WetSheet): a cell is wf / scale document px across, wf / (scale x worldScale) of the lab's.
@@ -1230,6 +1231,18 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
      * stroke is as wet, and as dark, as a slow one, with no scallop a frame. Set by the wet sheet.
      */
     var capInput = false
+
+    /**
+     * With [capInput]: how far past the cap a frame's dabs may wet the paper, as a share on average (jb_wet_update.frag
+     * u_capSlack). 0 = a perfectly even wash; a little leaves the faint, uneven scallops of a hand-laid one.
+     */
+    var capSlack = 0.0
+    private var capSeed = 0x2545F491
+    /** A new place for the slack's pattern every frame (0..64, so the shader's noise keeps its precision). */
+    private fun nextCapSeed(): Double {
+        capSeed = capSeed * 1103515245 + 12345
+        return ((capSeed ushr 8) and 0xFFFF) / 1024.0
+    }
 
     /**
      * Window mode: water flowing into this many cells along the window's edge thins out and is gone at the edge

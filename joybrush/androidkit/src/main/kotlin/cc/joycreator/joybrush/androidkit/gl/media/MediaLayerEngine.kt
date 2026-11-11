@@ -389,7 +389,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         } else IntArray(4) { MediaTex.fbo(ws[it shr 1].w0, ws[it shr 1].w1, state[it and 1].p0, state[it and 1].p1) }
         wetCopyFbo = IntArray(2) { if (it == 0) MediaTex.fbo(ws[0].w0, ws[0].w1, ws[0].flux, run) else MediaTex.fbo(ws[1].w0, ws[1].w1, ws[1].flux) }
         // Plane 1 holds two values (dS, the solubility weight): two half-float channels.
-        inTex = IntArray(4) { if (it % 2 == 0) MediaTex.make(ww, wh) else MediaTex.make(ww, wh, GLES30.GL_RG16F, GLES30.GL_RG, GLES30.GL_HALF_FLOAT) }
+        // The second of each pair is (dS, solubility weight): two channels, unless the cap on a frame's dabs reads its third ([capInput]).
+        inTex = IntArray(4) { if (it % 2 == 0 || capInput) MediaTex.make(ww, wh) else MediaTex.make(ww, wh, GLES30.GL_RG16F, GLES30.GL_RG, GLES30.GL_HALF_FLOAT) }
         inFbos = IntArray(2) { MediaTex.fbo(inTex[2 * it], inTex[2 * it + 1]) }
         for (f in wetCopyFbo) clearFbo(f)
         for (f in inFbos) clearFbo(f)

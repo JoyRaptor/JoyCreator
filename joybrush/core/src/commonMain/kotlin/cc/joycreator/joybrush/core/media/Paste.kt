@@ -85,6 +85,12 @@ const val PASTE_DEPTH = 8
     /** How far a blade travels to settle into a new pressure, tilt or lean; 0 takes each pen report raw, as before 2026-10-31. */
     val bladeEaseMm: Double = 2.5,
     val film: Double? = null, val clean: Boolean = false, val pressIn: Double? = null,
+    /**
+     * 0..1, blades (the owner, 2026-11-11: crossings "like sticks, no glop"): how soft the blade's passage is
+     * (jb_paste.glsl u_bladeSoft): a rounded underside, sides that fade in, thick paint ridden down over a stretch and wet
+     * paint dragged along. 0 = the flat plate, as before. An older build ignores the word.
+     */
+    val soft: Double = 0.0,
     val ends: EndsMode? = null,
     val turns: TurnMode? = null,
     /**

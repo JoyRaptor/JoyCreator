@@ -54,13 +54,21 @@ void main() {
         vec4 b0, b1;
         jb_bladeRead(xb, b0, b1);
         float load = b0.a;
+        // Soft: wet paint under the blade goes along with it at half its speed (set paint stays). Its colour and its
+        // thickness both, so a crossing trails what it crossed.
+        if (u_bladeSoft > 0.0) {
+            vec2 up = layerPx - u_travel * (0.5 * u_slideMm * u_pxPerMm * u_layerScale);
+            vec4 q0 = jb_bilinearL(u_p0, up), q1 = jb_bilinearL(u_p1, up);
+            float m = u_bladeSoft * cov * min(p1.a, q1.a);
+            p0 = mix(p0, q0, m); p1.rgb = mix(p1.rgb, q1.rgb, m);
+        }
         float t = p0.a;
         float open = p1.a;
         float valley = (1.0 - jb_fetch(u_paperBake, jb_cellAt(layerPx, u_targetSize)).b) * u_toothMm;
         float target = jb_bladeTarget(xb, yb, valley, load) + (load > 1e-6 ? jb_bladeChatter(docPx) : 0.0);
         float r = 1.0 - exp(-u_rate * u_slideMm / max(2.0 * jb_bladeHalf(xb), 0.3));
         // A rigid blade moves ALL the paint above its underside as it passes (r for laying is gentler).
-        float rPick = 1.0 - exp(-10.0 * u_rate * u_slideMm / max(2.0 * jb_bladeHalf(xb), 0.3));
+        float rPick = jb_bladePick(jb_bladeHalf(xb));
         vec3 Kc = t > 1e-6 ? p0.rgb / t : vec3(0.0);
         vec3 Sc = t > 1e-6 ? p1.rgb / t : vec3(0.0);
         if (t > target) {

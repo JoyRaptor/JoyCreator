@@ -7715,7 +7715,8 @@ public class ExportManager {
             pendingSafCopy = true;
             safExportFileName = fileName;
             FLog.d(TAG, "Custom storage mode: exporting to temp, will copy to SAF");
-            return new File(tempDir, fileName).getAbsolutePath();
+            // Never onto a finished export's name: see ExportNames.
+            return ExportNames.freeFile(tempDir, fileName).getAbsolutePath();
         } else {
             // Internal mode — same directory as recordings
             File outputDir = RecordingStoragePaths.getInternalCategoryDir(
@@ -7729,9 +7730,10 @@ public class ExportManager {
             }
             pendingSafCopy = false;
             safExportFileName = null;
-            return new File(outputDir, fileName).getAbsolutePath();
+            return ExportNames.freeFile(outputDir, fileName).getAbsolutePath();
         }
     }
+
 
     /**
      * Defensively sanitize a user-provided output file base name (no extension).

@@ -3,5 +3,6 @@
 <resources>
     <string name="studio_undo_changed_elsewhere">Changes made elsewhere</string>
     <string name="studio_undo_transcription">Transcription</string>
+    <string name="studio_consolidate_some_failed">Copied %1$d file(s), but these could not be copied in and still use the original: %2$s. Keep those originals; run it again to retry.</string>
     <string name="studio_toast_changed_elsewhere">Brought in changes made to this project elsewhere</string>
 </resources>

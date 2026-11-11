@@ -50,6 +50,13 @@ public final class ProjectConsolidator {
         public int copied = 0;
         public int skippedInside = 0;
         public int deduped = 0;
+        /**
+         * Files that could NOT be copied in (unreadable, or the copy came out short). They still point at
+         * their originals, so the project is not self-contained and nobody may be told it is (work-loss
+         * audit 2026-11-10: a failed copy used to be skipped without a word, and the result said "ok").
+         */
+        public int failed = 0;
+        @NonNull public List<String> failedNames = new ArrayList<>();
         @Nullable public String error;
         @NonNull public Map<String, String> undoMap = new LinkedHashMap<>();
     }
@@ -111,11 +118,18 @@ public final class ProjectConsolidator {
             File destFile = uniqueDest(targetDir, originalName, hashKey, hashToDest);
             File tmp = new File(destFile.getParentFile(), destFile.getName() + ".part");
             boolean copyOk = copyToTemp(ctx, projectDir, first, tmp);
-            if (!copyOk) { if (tmp.exists()) tmp.delete(); continue; }
-            if (tmp.length() == 0) { tmp.delete(); continue; }
+            // A source that stops answering part-way just ends its stream: a short copy, and nothing
+            // threw. A short copy is not a copy, and the original must stay the one in use.
+            long want = sizeOf(ctx, projectDir, first);
+            if (copyOk && want > 0 && tmp.length() != want) copyOk = false;
+            if (!copyOk || tmp.length() == 0) {
+                if (tmp.exists()) tmp.delete();
+                result.failed++; result.failedNames.add(originalName);
+                continue;
+            }
             if (destFile.exists()) destFile.delete();
             boolean renamed = tmp.renameTo(destFile);
-            if (!renamed) { try { copyFile(tmp, destFile); tmp.delete(); } catch (Exception e) { tmp.delete(); continue; } }
+            if (!renamed) { try { copyFile(tmp, destFile); tmp.delete(); } catch (Exception e) { tmp.delete(); result.failed++; result.failedNames.add(originalName); continue; } }
             copied++;
             hashToDest.put(hashKey, destFile);
             hashToOrig.put(hashKey, first.originalUri);
@@ -288,7 +302,11 @@ public final class ProjectConsolidator {
     private static File uniqueDest(@NonNull File dir, @NonNull String name, @NonNull String hashKey, @NonNull Map<String, File> existing) {
         File base = new File(dir, name);
         if (!base.exists() && !existing.containsValue(base)) return base;
-        for (File f : existing.values()) if (f.getName().equals(name)) return f;
+        // Never another asset's file. This used to hand back the file ALREADY chosen for a different
+        // asset with the same name in this run ("IMG_0001.jpg" from two folders, or every unnamed asset
+        // as "asset"): the second copy then replaced the first, both clips pointed at the second
+        // picture, and the project said it was self-contained (work-loss audit 2026-11-10). Two
+        // occurrences of the SAME file never reach here twice: they are one group, by content hash.
         int dot = name.lastIndexOf('.'); String stem = dot>=0? name.substring(0,dot):name; String ext = dot>=0? name.substring(dot):"";
         int idx=1; while(true){ String candName = stem + "_" + idx + ext; File cand = new File(dir, candName); if (!cand.exists() && !existing.containsValue(cand)) return cand; idx++; if(idx>999) return new File(dir, hashKey.substring(5,13)+ext); }
     }

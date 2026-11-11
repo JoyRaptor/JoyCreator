@@ -3683,6 +3683,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // tried to heal nothing - the "Split doesn't work" JoyRaptor hit. Posted, so it
             // runs after the undo has finished restoring the timeline, not before.
             if (btnUndo != null) btnUndo.post(this::updateSplitHealButton);
+            // EVERY recorded edit, undo and redo asks for an autosave (work-loss audit 2026-11-10).
+            // Until now each of some 330 call sites had to remember to; one that forgot left its
+            // edit in memory until the editor was left, and this app has a history of being closed
+            // by the system before that. Debounced, so the sites that do ask cost nothing extra.
+            // Not before the first change: loading the history passes through here too, and saving
+            // then would mark a project as changed just for being opened.
+            if (project != null && undoManager.hasChangedSinceOpen()) scheduleAutoSave();
         });
 
         // Segment tools
@@ -5978,6 +5985,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         : r.cancelled
                                 ? ("Cancelled after " + r.copied + " file(s). The project still "
                                         + "works; run it again to finish.")
+                                // Never "self-contained" while a file could not be copied: the person
+                                // may delete the originals on the strength of that sentence.
+                                : r.failed > 0
+                                ? getString(R.string.studio_consolidate_some_failed, r.copied,
+                                        android.text.TextUtils.join(", ", r.failedNames))
                                 : (r.copied == 0
                                         ? getString(R.string.studio_opt_already_self_contained_nothing_to) : getString(R.string.studio_opt_copied) + r.copied + " file(s). This project no longer "
                                                 + "depends on anything outside itself.");
@@ -20905,7 +20917,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         editorTimeline.setTimeline(project.getTimeline(), selectedClipIndex);
                         editorTimeline.setMissingSegments(computeMissingSegmentIndices());
                     }
-                    android.widget.Toast.makeText(this, getString(R.string.studio_sheet_consolidate_done, res.copied, res.deduped > 0 ? getString(R.string.studio_sheet_consolidate_deduped, res.deduped) : ""), android.widget.Toast.LENGTH_LONG).show();
+                    if (res.failed > 0) {
+                        // A dialog, not a toast: it names files the person must not delete.
+                        new androidx.appcompat.app.AlertDialog.Builder(this)
+                                .setTitle(R.string.studio_ui_consolidate)
+                                .setMessage(getString(R.string.studio_consolidate_some_failed, res.copied,
+                                        android.text.TextUtils.join(", ", res.failedNames)))
+                                .setPositiveButton(android.R.string.ok, null)
+                                .show();
+                    } else {
+                        android.widget.Toast.makeText(this, getString(R.string.studio_sheet_consolidate_done, res.copied, res.deduped > 0 ? getString(R.string.studio_sheet_consolidate_deduped, res.deduped) : ""), android.widget.Toast.LENGTH_LONG).show();
+                    }
                 }
             });
         }).start();
@@ -20917,7 +20939,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         android.widget.Toast.makeText(this, ok ? getString(R.string.studio_opt_reverted_to_external_references) : getString(R.string.studio_opt_nothing_to_revert), android.widget.Toast.LENGTH_SHORT).show();
         if (ok) {
             // Through this editor's own storage, so it knows the file it now holds (changedOutside).
-            project = projectStorage.load(project.getId());
+            // A reload that fails must not leave the editor holding no project at all.
+            FaditorProject reverted = projectStorage.load(project.getId());
+            if (reverted != null) project = reverted;
             if (editorTimeline != null && project != null) {
                 editorTimeline.setTimeline(project.getTimeline(), selectedClipIndex);
                 editorTimeline.setMissingSegments(computeMissingSegmentIndices());

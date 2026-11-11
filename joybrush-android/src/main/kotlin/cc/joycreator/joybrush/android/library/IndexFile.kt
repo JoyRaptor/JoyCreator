@@ -64,11 +64,16 @@ internal object IndexFile {
 
     fun backupOf(file: File): File = File(file.path + ".bak")
 
+    /** The names the library itself gives a drawing's file: `drawing-<time>.joybrush`, `drawing-<time>-<n>.joybrush`. */
+    private val OWN_NAME = Regex("^drawing-\\d+(-\\d+)?\\.joybrush$")
+
     /**
-     * The drawing files in a folder listing that the list does not know: names ending `.joybrush` (never a save's
-     * `.bak` or `.tmp` beside one), not already [listed], oldest name first. [legacy] is the first drawing's fixed
-     * file, which the library adds by itself under its own name.
+     * The drawing files in a folder listing that the list does not know, oldest name first. Only files the library
+     * named itself: a stray archive left in the folder by a test or a tool (the Note 9 had `export-check.joybrush`
+     * from October) is not a drawing the person lost, and must not turn up on their list as "Recovered drawing".
+     * Never a save's `.bak` or `.tmp` beside a drawing. [legacy] is the first drawing's fixed file, which the
+     * library adds by itself under its own name.
      */
     fun unlisted(names: Array<String>?, listed: Set<String>, legacy: String): List<String> =
-        (names ?: emptyArray()).filter { it.endsWith(".joybrush") && it != legacy && it !in listed }.sorted()
+        (names ?: emptyArray()).filter { OWN_NAME.matches(it) && it != legacy && it !in listed }.sorted()
 }

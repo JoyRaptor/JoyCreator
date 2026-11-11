@@ -117,6 +117,14 @@ class DrawingListRepairTest {
         File(dir, "drawing-1.joybrush.bak").writeBytes(drawing("jb-one", "older"))
         File(dir, "drawing-3.joybrush.tmp").writeBytes(drawing("jb-three", "half"))
         File(dir, "notes.joybrush").writeText("not an archive")
+        File(dir, "drawing-9.joybrush").writeText("the right name, but not an archive")
+        assertEquals(listOf("Castle", "Dino walk"), names())
+    }
+
+    @Test fun aStrayArchiveSomeoneLeftInTheFolderIsNotARecoveredDrawing() {
+        twoDrawings()
+        // A real archive, but not one the library named: a test or a tool left it (the Note 9 had one).
+        File(dir, "export-check.joybrush").writeBytes(drawing("jb-stray", "stray"))
         assertEquals(listOf("Castle", "Dino walk"), names())
     }
 

@@ -27,15 +27,16 @@ const fontFiles = {
   mono: 'app/src/main/res/font/plex_mono_semibold.ttf', ubuntu: 'app/src/main/res/font/ubuntu_regular.ttf', doto: 'app/src/main/assets/doto.ttf',
 };
 const fonts = {};
-for (const fam of new Set(looks.map((l) => (l.font && l.font.family) || 'archivo'))) {
+for (const fam of new Set(looks.map((l) => (l.font && l.font.family) || 'archivo').concat(['archivo']))) {
   const f = fontFiles[fam];
   if (f) fonts[f] = 'data:font/ttf;base64,' + fs.readFileSync(path.join(root, f)).toString('base64');
 }
 
 // "</" inside an inline <script> would end it early.
 const safe = (s) => s.replace(/<\//g, '<\\/');
-const blob = safe(JSON.stringify({ shaders, parts, looks, fonts }));
-const scripts = ['tl-gl.js', 'tl-glyphs.js', 'tl-engine.js', 'tl-app.js']
+const tubefont = JSON.parse(read(path.join(assets, 'tubefont.json')));
+const blob = safe(JSON.stringify({ shaders, parts, looks, fonts, tubefont }));
+const scripts = ['tl-gl.js', 'tl-glyphs.js', 'tl-tubes.js', 'tl-engine.js', 'tl-app.js']
   .map((f) => '<script>\n' + safe(read(path.join(here, f))) + '\n</script>').join('\n');
 
 const html = read(path.join(here, 'index.html'));

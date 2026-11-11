@@ -24,11 +24,12 @@
     const shaders = {};
     await Promise.all(SHADERS.map(async (n) => { shaders[n] = await text('shaders/' + n); }));
     const parts = JSON.parse(await text('parts.json'));
+    const tubefont = JSON.parse(await text('tubefont.json'));
     const index = JSON.parse(await text('looks/index.json'));
     // "looks" are the finished ones; "drafts" are kept, unfinished, and shown only with &drafts=1
     const files = index.looks.concat(q.get('drafts') ? index.drafts || [] : []);
     const looks = await Promise.all(files.map(async (f) => JSON.parse(await text('looks/' + f))));
-    return { shaders, parts, looks, fontUrl: (file) => '../../' + file };
+    return { shaders, parts, looks, tubefont, fontUrl: (file) => '../../' + file };
   }
 
   const SLOT_NEEDS = { Tube: 'TUBE', Glass: 'REFRACT', Surface: 'DETAIL', Pattern: 'PATTERN', Ember: 'EMBER' };

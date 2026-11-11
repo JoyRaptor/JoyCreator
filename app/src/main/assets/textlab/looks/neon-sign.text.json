@@ -3,13 +3,13 @@
   "id": "neon-sign",
   "name": "Neon Sign",
   "family": "Film",
-  "description": "The same thin written tubes on a brick wall, in two gases, lying in a wet floor.",
+  "description": "The same one-tube letters on a brick wall, in two gases, lying in a wet floor.",
   "sample": "NEON",
   "stage": 2,
-  "font": { "family": "archivo", "weight": 100, "width": 100, "tracking": 0.17, "caps": true },
+  "font": { "family": "tube" },
   "margin": [ 1.1, 1.0, 1.1, 1.5 ],
   "features": [ "TUBE" ],
-  "p": { "tubeSolid": 1, "tubeInset": 0, "tubeRadius": 0.032, "tubeCore": 2.4, "tubeGain": 1.45, "tubeHand": 0.6, "gasUneven": 0.55, "gasSize": 4.0, "gasThread": 0.55, "gasBands": 0.4, "flicker": 0.5, "tieChance": 0.3, "tieSpacing": 0.2, "glow": 0.4, "glowSize": 0.05, "bloom": 0.22, "bloomThreshold": 1.25, "bloomKnee": 0.5, "vignette": 0.55, "grain": 0.3, "contrast": 1.06, "saturation": 1.2, "weight": 0.027, "soften": 0.034, "tubeA": "#ff2a0c", "tubeB": "#1f6bff", "tubeSplit": 1, "shadow": 0.8, "shadowSoft": 0.035, "shadowX": 0.04, "shadowY": -0.055, "spill": 1.7, "floor": 0.5, "floorLine": 0.27, "floorRipple": 0.8, "floorFade": 2.4 },
+  "p": { "tubeSolid": 1, "tubeInset": 0, "tubeRadius": 0.03, "tubeCore": 2.4, "tubeGain": 1.45, "tubeHand": 0.5, "gasUneven": 0.55, "gasSize": 4.0, "gasThread": 0.55, "gasBands": 0.4, "flicker": 0.5, "tieChance": 0.3, "tieSpacing": 0.2, "glow": 0.4, "glowSize": 0.05, "bloom": 0.22, "bloomThreshold": 1.25, "bloomKnee": 0.5, "vignette": 0.55, "grain": 0.3, "contrast": 1.06, "saturation": 1.2, "tubeA": "#ff2a0c", "tubeB": "#1f6bff", "tubeSplit": 1, "shadow": 0.8, "shadowSoft": 0.035, "shadowX": 0.04, "shadowY": -0.055, "spill": 1.7, "floor": 0.5, "floorLine": 0.27, "floorRipple": 0.8, "floorFade": 2.4 },
   "motion": {
     "in": { "each": 0.25, "time": 0.01, "reveal": [ 0, 0.9 ] },
     "idle": {}

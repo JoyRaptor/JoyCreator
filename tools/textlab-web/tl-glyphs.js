@@ -163,6 +163,11 @@
     // Where every letter sits, in em, inside a field with room round the words.
     // margin = [left, top, right, bottom] em.
     layout(text, font, margin) {
+      // "tube": letters drawn as a neon bender makes them, from the tube font's centre lines
+      if (font.family === 'tube' && this.tubefont) {
+        this.tubeCache = this.tubeCache || new Map();
+        return TL.layoutTubes(this.glw, this.tubefont, this.tubeCache, text, font, margin);
+      }
       const px = TL.GLYPH_EM * SS;
       const lines = String(font.caps ? text.toUpperCase() : text).split('\n');
       const cap = this.measure(font, 'H').actualBoundingBoxAscent / px;

@@ -163,6 +163,14 @@
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
       return tex;
     }
+    // Two channels of floats (a tube's distance and its paint). Rows run bottom to top.
+    pairTexture(w, h, data) {
+      const gl = this.gl, tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG16F, w, h, 0, gl.RG, gl.FLOAT, data);
+      this.params(gl.LINEAR);
+      return tex;
+    }
     // Four exact floats per texel, never filtered (the emitter's point list).
     pointTexture(w, h, data, old) {
       const gl = this.gl, tex = old || gl.createTexture();

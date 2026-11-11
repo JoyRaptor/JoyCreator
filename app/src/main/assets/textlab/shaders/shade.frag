@@ -94,6 +94,7 @@ uniform vec4  uTubeLight;    // gain, colour split across the word (0 blended ..
 uniform vec4  uGas;          // the gas is not even: how blotchy, blotches per em, how far the bright thread wanders, bands running along the tube
 uniform vec2  uTie;          // tie wires that hold the tube: how many (0..1), spacing em
 uniform float uTubeHand;     // blown and bent by hand: how much the tube's width wavers along its length
+uniform float uTubePaint;    // 1 = the field's a channel says where the glass is painted black (tube letters: the ends, the double-backs)
 #endif
 #ifdef REFRACT
 uniform vec4  uGlass;        // bend, colour fringing, tint strength, dark edge
@@ -317,6 +318,10 @@ void main() {
     lit *= 1.0 - uTubeLight.z * buzz * (0.4 + 0.6 * hash21(vec2(tick, seed)));
     lit *= 1.0 - uGas.w * 0.25 * smoothstep(0.5, 0.9, tnoise(vec2(dot(p0, tang) * 2.2 - uTime * 1.3, seed * 3.0 + dot(p0, gdir) * 0.3)));
 
+    // painted glass lets no light out: the ends, where the tube turns back to its electrode
+    float bare = uTubePaint > 0.5 ? smoothstep(0.35, 0.65, f.a) : 1.0;
+    float lit0 = lit;      // the tube's light before the paint: what its glow and the wall still get from the bare glass beside it
+    lit *= bare;
     float cx = sat(f.b);
     vec3 tc = mix(uTubeA, uTubeB, smoothstep(0.5 - 0.5 * (1.0 - uTubeLight.y), 0.5 + 0.5 * (1.0 - uTubeLight.y) + 1e-3, cx));
     // light through a round rod of glowing gas: most where the eye looks through the most of it,
@@ -331,6 +336,7 @@ void main() {
     float spec2 = pow(max(dot(n, normalize(vec3(0.5, -0.7, 1.5))), 0.0), 34.0) * 0.22;
     float limb = pow(max(1.0 - n.z, 0.0), 2.5);
     vec3 glass = vec3(0.012, 0.013, 0.016) * (0.4 + chord) + tc * 0.012 + vec3(0.75, 0.82, 0.9) * (spec * 1.3 + spec2 + limb * 0.07);
+    glass = mix(vec3(0.004, 0.004, 0.005) + vec3(0.5, 0.52, 0.55) * spec * 0.5, glass, bare);   // black paint, a dull shine
     col = mix(glass, hot * (1.0 - 0.5 * limb) + vec3(1.0, 0.97, 0.94) * (spec * 1.3 + spec2 * 0.4), lit);
 
     // tie wires: thin twists of wire across the tube where it is held to its stand-offs
@@ -344,13 +350,13 @@ void main() {
     a = max(inT, wire);
 
     float halo = exp(-max(td, 0.0) / max(uGlowSize, 1e-4));
-    add = tc * uGlow * halo * halo * lit * gas * (1.0 - a);
+    add = tc * uGlow * halo * halo * lit0 * gas * (1.0 - a);
     // the tubes stand off the wall, so they shade it (less where they are lit: their own light fills it)
     float under = 0.0;
     if (uShadow > 0.0) {
         float fs = texture(uFieldTex, vUv - uShadowOff / uField.xy).r;
         float aways = uTube.w > 0.5 ? R - fs : abs(fs - uTube.x);
-        under = (1.0 - smoothstep(0.0, max(uShadowSoft, aw), aways - R)) * uShadow * (1.0 - 0.45 * lit);
+        under = (1.0 - smoothstep(0.0, max(uShadowSoft, aw), aways - R)) * uShadow * (1.0 - 0.45 * lit0);
     }
     a *= uOpacity;
     add *= uOpacity;

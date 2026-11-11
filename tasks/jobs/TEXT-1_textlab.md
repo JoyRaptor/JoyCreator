@@ -55,6 +55,12 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
   writes each letter, a window at night), then the same tube in `neon-sign` (brick, two gases) and `neon-outline` (a
   big sign: the tube runs round heavy letters). New: `tubeHand` (blown glass wavers in width), stage 8 (night window).
   Seven looks in the list now. Note 9: the three neons 11 to 13 ms a frame.
+- **Owner's neon rule, 11-11 night (with sketches of B and R):** one tube never joins another; a letter is as few
+  tubes as still read; a tube stops short, doubles back (a loop, sometimes painted black) or crosses; every tube has two
+  ends that go back to the case. Built: `app/src/main/assets/textlab/tubefont.json` (A-Z, 0-9, a few marks, as centre
+  lines), `tools/textlab-web/tl-tubes.js` (path to a round rod, painted ends), `glyph.frag` (the later tube passes in
+  front at a crossing), font family `"tube"` in a look. Neon Bar and Neon Sign use it. Owed: his verdict letter by letter
+  (the shapes are my first drawing), painted double-backs, supply wires, a pen stroke as a tube, the Kotlin twin.
 - **Honest limits today:** the fire is good stylised fire, not yet the photograph the owner showed;
   water and the other drafts are below the bar; only the app's own fonts are used (Archivo, Plex,
   Ubuntu, Doto), so there is no script or true display face yet.

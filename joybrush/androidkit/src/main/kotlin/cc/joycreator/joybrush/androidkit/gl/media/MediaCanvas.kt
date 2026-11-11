@@ -65,7 +65,15 @@ class MediaCanvas(
 ) {
     private var engine: MediaLayerEngine? = null
     init {
-        paint.registerPaperTextureBorrower(this) { engine?.borrowedPaperTextureHandles().orEmpty() }
+        paint.registerPaperTextureBorrower(this) { engine?.borrowedPaperTextureHandles().orEmpty() + sheet?.borrowedPaper().orEmpty() }
+        // The wet sheet (WetSheet): it prints before anything else writes its layer, and follows the undo log by its marks.
+        paint.beforeLayerWrite = { id -> settleSheet(id) }
+        paint.onSheetHistory = { mark, forward ->
+            // Never out of an undo: a sheet that cannot be brought back (no graphics memory) is left empty, and said in the log.
+            try { sheet?.historyMoved(mark, forward) } catch (x: RuntimeException) { android.util.Log.e("JoyBrushMedia", "the wet sheet could not follow the history", x) }
+            paint.layerOverlays = listOfNotNull(sheet?.overlay())
+        }
+        paint.sheetUndoBlocked = { mark -> sheet?.undoBlocked(mark) ?: true }
     }
     private var window: MediaPlace? = null
     init {
@@ -196,6 +204,8 @@ class MediaCanvas(
         /** The pen's own tilt reach (the tuned pencil's), as the media input reads it. */
         val reachDeg: Double = MediaInput.REACH_DEG,
         val erase: Boolean = false,
+        /** A watercolour stroke on the wet sheet ([WetSheet]): its dabs go to the sheet, the atlas and its window take no part. */
+        val sheet: Boolean = false,
     ) {
         var penX = 0.0
         var penY = 0.0
@@ -233,7 +243,7 @@ class MediaCanvas(
         }
     }
     /** Water is running somewhere in the window: keep drawing frames. */
-    val running: Boolean get() = engine?.wetActive == true
+    val running: Boolean get() = engine?.wetActive == true || sheet?.wet == true
 
     /**
      * The refusal a frame made, waiting to be said (the view reads it and shows it): a frame that
@@ -269,6 +279,13 @@ class MediaCanvas(
         symmetry: Guide.Symmetry? = null,
     ): String? {
         val spec = preset.media ?: return "This brush has no pencil, watercolour or oil settings."
+        // Watercolour on the wet sheet (WET_SHEET_20261110): the shared plane only for now; a frame of an animation board
+        // keeps the atlas's water.
+        if (spec.medium == MEDIUM_WET && WetSheet.enabled && paint.mediaPlaneAt(layerId, x, y) == null &&
+            paint.localHistory && !paint.layerHasLines(layerId))
+            return beginOnSheet(layerId, preset, spec, argb, x, y, nowMs, symmetry)
+        // Any other realistic paint on the sheet's layer goes over the wash: it is printed first.
+        settleSheet(layerId)
         val thinned = spec.medium == MEDIUM_PASTE && spec.thinner > 0 && spec.paste?.let { it.shape < 2 && !it.clean } == true
         val needsWater = spec.medium == MEDIUM_WET || thinned
         val e = ensure(needsWater) ?: return unsupported ?: LayerBudget.windowRefusal(needsWater)
@@ -333,8 +350,122 @@ class MediaCanvas(
         }
     }
 
+    // ---- the wet sheet (WetSheet): watercolour while it is wet ----
+    private var sheet: WetSheet? = null
+    private var sheetFrameAt = 0L
+    /** What the painter sees, as the canvas last told it: an empty sheet is laid over it. */
+    @Volatile var sheetView = WetSheet.View(1f, 540.0, 1110.0, 1080, 2220)
+    /** The sheet printed during the last frame: one more frame is asked for, so the caller reports the new undo step. */
+    private var sheetPrinted = false
+    private var sheetDryAt = 0L
+
+    /** Bench only ([WetSheet.dryOnly]). */
+    fun drySheet() { sheet?.dryOnly(paint.mediaPaper()) }
+
+    /** True while the wet sheet holds watercolour that is not in its layer's tiles yet. */
+    val sheetHolding: Boolean get() = sheet?.holding == true
+
+    /**
+     * How long the next frame may wait (ms; 0 = the next one) when [frame] asked for more: only dampness is left on the wet
+     * sheet and nothing else runs, so a few frames a second dry it at the clock's pace without redrawing the canvas sixty
+     * times a second for minutes.
+     */
+    val frameDelayMs: Long
+        get() = if (stroke == null && sheet?.resting == true && engine?.wetActive != true && WetSheet.printHoldMs == 0L) RESTING_FRAME_MS else 0L
+
+    /**
+     * The wet sheet's paint goes into its layer NOW, wet or dry ([WetSheet.settle]): before anything else writes
+     * [layerId]'s pixels (null: whichever layer the sheet is on), before a save, before the layers change.
+     * True when it printed something. Never during a stroke on the sheet.
+     */
+    fun settleSheet(layerId: String? = null): Boolean {
+        val s = sheet ?: return false
+        if (!s.holding || stroke?.sheet == true) return false
+        if (layerId != null && layerId != s.layerId) return false
+        val done = s.settle(paint.mediaPaper(), look)
+        paint.layerOverlays = listOfNotNull(s.overlay())
+        if (done) sheetPrinted = true
+        return done
+    }
+
+    /**
+     * A save's readback with the wet sheet's wash in it and the wash left wet ([WetSheet.stamped]): [body] sees the layer
+     * as a print this instant would leave it, and the layer is put back after. With no sheet in use it is just [body].
+     */
+    fun <T> withSheetStamped(body: () -> T): T {
+        val s = sheet
+        if (s == null || !s.holding) return body()
+        return s.stamped(paint.mediaPaper(), look, body)
+    }
+
+    private fun beginOnSheet(layerId: String, preset: BrushPreset, spec: MediaSpec, argb: Int, x: Double, y: Double, nowMs: Long,
+                             symmetry: Guide.Symmetry?): String? {
+        if (preset.mediaScale() <= 0.0) return "This brush has no size."
+        val (avail, threshold) = memory()
+        val s = sheet ?: WetSheet(paint, shaders).also { sheet = it }
+        look = MediaLook(rgb(paint.paperArgb).map { it.toFloat() }.toFloatArray(), lamp = look.lamp)
+        s.begin(layerId, x, y, sheetView, paint.mediaPaper(), look, avail, threshold)?.let { return it }
+        val scaled = spec.scaled(preset.mediaScale())
+        // The sheet has no edge to pin a symmetry on: every copy is its own lane, its dabs land wherever they fall.
+        val guide = symmetry?.takeIf { it.count >= 2 }
+        val seed = (nowMs and 0x7FFFFFFF).toInt()
+        val family = SymmetryLanes.familyFor(preset.engine, spec.medium)
+        val maps = guide?.let { SymmetryLanes.buildMedia(it, family, seed.toLong()) }?.lanes?.map { it.copy } ?: listOf(null)
+        val toothMm = paint.mediaPaper().stats.toothMm
+        val lanes = maps.map { map -> makeLane(map, scaled, rgb(argb), toothMm, seed, thinned = false) }
+        s.setGranulation(scaled.wet!!.gran)
+        stroke = Stroke(layerId, seed, lanes, symmetric = guide?.symmetric ?: true,
+            reachDeg = preset.media?.stick?.tuning?.tiltReachDeg ?: MediaInput.REACH_DEG, sheet = true).also {
+            it.penX = x; it.penY = y; it.reachPx = reachPx(scaled)
+        }
+        return null
+    }
+
+    /** One drawn frame of the sheet: the stroke's dabs if one paints on it, and the water's steps. True while it wants frames. */
+    private fun sheetFrame(nowMs: Long): Boolean {
+        val s = sheet ?: return false
+        val st = stroke?.takeIf { it.sheet }
+        val printed = sheetPrinted
+        sheetPrinted = false
+        if (!s.holding) {
+            sheetFrameAt = 0L
+            if (paint.layerOverlays.isNotEmpty()) paint.layerOverlays = emptyList()
+            if (stroke == null) s.releaseIfIdle(nowMs)
+            return printed
+        }
+        // While there is something to redo the water stands, so redo finds what undo left; the next stroke lets it run.
+        val still = st == null && paint.undo.canRedo
+        val real = if (sheetFrameAt > 0L) (nowMs - sheetFrameAt).coerceIn(0L, 1000L).toFloat() else 0f
+        sheetFrameAt = nowMs
+        val batch = st?.let { DabBatch.merge(it.lanes.mapNotNull { l -> l.wet?.take() }) }
+        var more = s.frame(batch, paint.mediaPaper(), water(), slope, look, real, still)
+        // All of it dry, the pen up, nothing to redo and no other stroke open: it goes into the layer.
+        if (stroke == null && s.dry && !still && !paint.strokeInProgress && !paint.mediaStrokeInProgress && paint.localHistory) {
+            if (sheetDryAt == 0L) sheetDryAt = nowMs
+            if (nowMs - sheetDryAt >= WetSheet.printHoldMs) {
+                s.print(paint.mediaPaper(), look)
+                sheetPrinted = true
+                sheetDryAt = 0L
+            }
+            more = true
+        } else sheetDryAt = 0L
+        if (!more && st == null) sheetFrameAt = 0L
+        paint.layerOverlays = listOfNotNull(s.overlay())
+        return more || st != null || printed
+    }
+
+    private fun endOnSheet(st: Stroke) {
+        for (lane in st.lanes) { lane.spline.finish(); lane.wet?.finish() }
+        val batch = DabBatch.merge(st.lanes.mapNotNull { it.wet?.take() })
+        stroke = null
+        val s = sheet ?: return
+        try { s.frame(batch, paint.mediaPaper(), water(), slope, look, 0f, still = false) } finally { s.strokeEnded() }
+        paint.layerOverlays = listOfNotNull(s.overlay())
+    }
+
     /** An eraser stroke on a media layer: the canvas places the dabs as for any eraser, and they take the state away. */
     fun beginErase(layerId: String, x: Double, y: Double, nowMs: Long): String? {
+        settleSheet(layerId)
         val e = ensure(false) ?: return unsupported ?: LayerBudget.windowRefusal(false)
         val w = window!!
         (w as? MediaAtlas)?.payOwedStores(paint.mediaPaper(), DOC_PX_PER_MM, water())
@@ -408,8 +539,8 @@ class MediaCanvas(
      * The caller reports the history afterwards: dried water can change the undo stack.
      */
     fun frame(nowMs: Long): Boolean {
-        val e = engine ?: return false
-        val w = window ?: return false
+        val e = engine
+        val w = window
         // Bench only: time every media section of this frame (glFinish brackets) and note what the textures cost.
         val rec = stats?.takeIf { it.recording }
         // The canvas may already time the whole GL frame (JbCanvasView.onDrawFrame): keep its timer, put it back after.
@@ -421,13 +552,18 @@ class MediaCanvas(
         val prof = rec == null && outer == null && profiling
         if (prof) MediaPhases.timer = { name: String, ms: Double -> profSums[name] = (profSums[name] ?: 0.0) + ms }
         val began = if (prof) System.nanoTime() else 0L
-        try { return frameInner(e, w, nowMs) } finally {
+        try {
+            // The wet sheet first (its own engine), inside the timed part so the profile shows its passes too.
+            val sheetRuns = mediaTrace("JB.media.sheet") { sheetFrame(nowMs) }
+            if (e == null || w == null) return sheetRuns
+            return frameInner(e, w, nowMs) || sheetRuns
+        } finally {
             if (prof) { android.opengl.GLES30.glFinish(); profTick((System.nanoTime() - began) / 1e6) }
             MediaPhases.timer = outer
-            if (rec != null && (rec.memory == null || (e.hasWaterTextures && !memoryHadWater))) {
+            if (e != null && rec != null && (rec.memory == null || (e.hasWaterTextures && !memoryHadWater))) {
                 rec.memory = e.memoryReport(); memoryHadWater = e.hasWaterTextures
             }
-            paint.collectPaperTextures()
+            if (e != null) paint.collectPaperTextures()
         }
     }
 
@@ -460,7 +596,7 @@ class MediaCanvas(
             android.util.Log.d("JoyBrushTilt", "slope=${slope[0]},${slope[1]} wetActive=${e.wetActive} wetRect=${e.wetRect?.contentToString()}")
         }
         e.slope = slope
-        val st = stroke
+        val st = stroke?.takeIf { !it.sheet }   // a stroke on the wet sheet is the sheet's ([sheetFrame])
         e.frameRealMs = if (lastFrameAt > 0L) (nowMs - lastFrameAt).coerceIn(0L, 1000L).toFloat() else 0f
         lastFrameAt = nowMs
         // Water jobs (WATER_JOBS_20261021): in the atlas the water does what the frame's budget allows and the brush shows at
@@ -515,6 +651,7 @@ class MediaCanvas(
     /** Lift: the rest of the stroke, then its ONE undo step. Water carries on in [frame]. */
     fun end() {
         val st = stroke ?: return
+        if (st.sheet) { endOnSheet(st); return }
         val e = engine!!
         val w = window!!
         // Each lane's own tail: the spline's catch-up, then the water's lift.
@@ -535,7 +672,12 @@ class MediaCanvas(
      * which reloads the window or atlas through [restored]), no step is made, and the water that was there before carries on.
      */
     fun cancel() {
-        stroke ?: return
+        val st = stroke ?: return
+        if (st.sheet) {
+            stroke = null
+            sheet?.let { it.strokeCancelled(); paint.layerOverlays = listOfNotNull(it.overlay()) }
+            return
+        }
         val e = engine!!
         e.endStroke()
         stroke = null
@@ -547,17 +689,26 @@ class MediaCanvas(
 
     /** [GlPaintEngine.onMediaRestored]: undo or redo stops the water and reloads (never restarting it). */
     fun restored(layerId: String, plane: String?, keys: Set<Long>) {
+        sheet?.groundChanged(layerId)
         if (window?.restored(layerId, plane, keys) == true) { waterStoppedByUndo = true; waterAsleep = false }
     }
 
     /** [GlPaintEngine.onLookWritten]: a plain write changed these tiles' pixels; the window reloads them. */
-    fun lookWritten(layerId: String, plane: String?, keys: Set<Long>) { window?.lookWritten(layerId, plane, keys) }
+    fun lookWritten(layerId: String, plane: String?, keys: Set<Long>) { sheet?.groundChanged(layerId); window?.lookWritten(layerId, plane, keys) }
 
-    /** The layer or the screen changed: write back and let the window go. */
-    fun releaseWindow() { if (stroke == null) { settleOwed(); window?.let(::refreshFlat); window?.release(); noteHeld() } }
+    /**
+     * The layers or the screen changed: write back and let the window go. [printSheet]: the wet sheet's paint goes into its
+     * layer first (a merge, a freeze, a flatten, a new drawing); false when only the layer being painted changed, which
+     * leaves the wash on its own layer to dry.
+     */
+    fun releaseWindow(printSheet: Boolean = true) {
+        if (stroke != null) return
+        if (printSheet) settleSheet()
+        settleOwed(); window?.let(::refreshFlat); window?.release(); noteHeld()
+    }
 
     /** The paint-engine switch (atlas or window): write back and let the engine go, so the next stroke makes the other kind. */
-    fun releaseEngine() { if (stroke != null) return; settleOwed(); window?.let(::refreshFlat); window?.release(); release(); noteHeld() }
+    fun releaseEngine() { if (stroke != null) return; settleSheet(); settleOwed(); window?.let(::refreshFlat); window?.release(); release(); noteHeld() }
 
     /**
      * Water jobs: the last stroke's dabs the water had not taken in yet go into its own stores now (before an undo or a redo,
@@ -569,13 +720,14 @@ class MediaCanvas(
     fun release() {
         engine?.release()
         warm?.releasePrograms()
+        sheet?.release(); sheet = null; paint.layerOverlays = emptyList()
         engine = null; window = null; stroke = null; warm = null
         heldBytes = 0L
         paint.collectPaperTextures()
     }
 
     /** The context these GL names came from is gone: forget them without deleting (they died with it). */
-    fun forget() { engine = null; window = null; stroke = null; heldBytes = 0L; warm = null }
+    fun forget() { sheet?.forget(); sheet = null; paint.layerOverlays = emptyList(); engine = null; window = null; stroke = null; heldBytes = 0L; warm = null }
 
     /** The atlas grid last made (see [ensure]). */
     private var lastGrid: Pair<Int, Int>? = null
@@ -602,7 +754,8 @@ class MediaCanvas(
      * as its one undo step (the caller closes it), with what it painted in the layer's stores.
      */
     fun dropStroke() {
-        stroke ?: return
+        val st = stroke ?: return
+        if (st.sheet) { stroke = null; runCatching { sheet?.strokeEnded() }; return }
         engine?.endStroke()
         stroke = null
         try { window?.flush() } catch (x: RuntimeException) { android.util.Log.w("JoyBrushMedia", "flush after a dropped frame: ${x.message}") }
@@ -615,6 +768,8 @@ class MediaCanvas(
      * the looks stand and the stores are dropped on load: flat paint, never a hole.
      */
     fun releaseAfterFailure() {
+        // The wet sheet's paint goes into its layer before everything is let go.
+        try { settleSheet() } catch (x: RuntimeException) { android.util.Log.e("JoyBrushMedia", "the wet sheet could not be printed after a failed frame", x) }
         val w = window
         try { w?.release() } catch (x: RuntimeException) {
             android.util.Log.e("JoyBrushMedia", "paint could not be written back after a failed frame", x)
@@ -772,6 +927,7 @@ class MediaCanvas(
         if (spec.medium == MEDIUM_DRY) mat = StickMaterial.of(spec.stick!!)
         val toothMm = paint.mediaPaper().stats.toothMm
         val lanes = maps.map { map -> makeLane(map, spec, color, toothMm, seed, thinned) }
+        if (spec.medium == MEDIUM_WET) e.wetGran = spec.wet!!.gran
         return Lanes(lanes, brush, mat)
     }
 
@@ -795,7 +951,6 @@ class MediaCanvas(
             // A clear brush (water, thirsty) carries at least its own load of water whatever the level says (lab).
             val wetness = if (brush.clear) level.copy(load = max(level.load, brush.load)) else level
             val wet = WetStroke(brush, paintFromColor(color), DOC_PX_PER_MM, seed, wetness)
-            engine!!.wetGran = brush.gran
             Lane(map, MediaSpline(sink = wet::add), wet = wet)
         }
         else -> {
@@ -1105,6 +1260,9 @@ class MediaCanvas(
     private fun rgb(argb: Int) = doubleArrayOf(((argb shr 16) and 0xFF) / 255.0, ((argb shr 8) and 0xFF) / 255.0, (argb and 0xFF) / 255.0)
 
     companion object {
+        /** Between frames while only dampness is left on the wet sheet ([frameDelayMs]). */
+        const val RESTING_FRAME_MS = 150L
+
         /**
          * How far from the pen the tool reaches, in document px: the window keeps that much room around it, and the
          * symmetry's safe zone keeps it around the symmetry centre.

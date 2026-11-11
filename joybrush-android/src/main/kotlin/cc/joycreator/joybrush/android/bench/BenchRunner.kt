@@ -105,6 +105,24 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                val atlasSlots: Pair<Int, Int>? = null,
                /** `jb_water_budget_k`: the water's work per frame, thousands of units, instead of the steered budget (calibration). */
                val waterBudgetK: Int? = null,
+               /** `jb_wet_sheet`: watercolour on the wet sheet (WetSheet) or the atlas; `jb_sheet_cell`: its cell in document px. */
+               val wetSheet: Boolean? = null, val sheetCell: Int? = null,
+               /** `jb_bench_zoom`: the view's zoom for the whole run (the strokes stay where they are on the SCREEN). */
+               val zoom: Float? = null, val sheetPrintHoldMs: Long = 0L,
+               /** `jb_bench_zooms`: the view's zoom for each case in turn ("1,0.6,1"): the view moves between strokes. */
+               val zooms: List<Float> = emptyList(),
+               /** `jb_sheet_long`: the wet sheet's cells along the screen's long side, whatever the Water detail switch says. */
+               val sheetLong: Int? = null,
+               /** `jb_sheet_grain`: how strongly the paper's fine grain is worked into the wet sheet's look (WetSheet.grainPrint). */
+               val sheetGrain: Double? = null,
+               /** `jb_sheet_wave`: how uneven a quick wash is laid on the wet sheet (WetSheet.wave): 0 even, 0.12 the default, 0.35 the menu's Wavy. */
+               val sheetWave: Double? = null,
+               /**
+                * `jb_bench_then`: what to do after the last stroke and before the hold, in order, separated by ';':
+                * "wait 3000", "undo", "redo", "save" (a snapshot, as the autosave takes one), "zoom 0.5", "dry" (the wet
+                * sheet's water dries where it lies; with `jb_sheet_print_hold_ms` its print waits that long after).
+                */
+               val then: List<String> = emptyList(),
                /** Debug-only resolved nominal stamp size; null retains the actual recipe. */
                val sizeOverridePx: Float? = null) {
         init {
@@ -146,6 +164,14 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         cc.joycreator.joybrush.androidkit.gl.media.MediaLayerEngine.pasteDetail = spec.pasteDetail
         spec.atlasRows?.let { cc.joycreator.joybrush.androidkit.gl.media.MediaLayerEngine.atlasRowPasses = it; Log.i(TAG, "atlas rows: $it") }
         spec.waterJobs?.let { canvas.mediaWaterJobs = it; Log.i(TAG, "water jobs: $it") }
+        spec.wetSheet?.let { cc.joycreator.joybrush.androidkit.gl.media.WetSheet.enabled = it; Log.i(TAG, "wet sheet: $it") }
+        cc.joycreator.joybrush.androidkit.gl.media.WetSheet.forcedCell = spec.sheetCell
+        spec.sheetCell?.let { Log.i(TAG, "wet sheet cell forced: $it px") }
+        spec.zoom?.let { canvas.view.zoom = it; canvas.requestRender(); Log.i(TAG, "view zoom: $it") }
+        cc.joycreator.joybrush.androidkit.gl.media.WetSheet.printHoldMs = spec.sheetPrintHoldMs
+        spec.sheetLong?.let { cc.joycreator.joybrush.androidkit.gl.media.WetSheet.longCells = it; Log.i(TAG, "wet sheet: $it cells along the screen") }
+        spec.sheetGrain?.let { cc.joycreator.joybrush.androidkit.gl.media.WetSheet.grainPrint = it; Log.i(TAG, "wet sheet grain: $it") }
+        spec.sheetWave?.let { cc.joycreator.joybrush.androidkit.gl.media.WetSheet.wave = it; Log.i(TAG, "wet sheet wave: $it") }
         cc.joycreator.joybrush.core.media.WaterJobBudget.forced = spec.waterBudgetK?.let { it * 1000.0 }
         spec.waterBudgetK?.let { Log.i(TAG, "water budget forced: $it k units a frame") }
         spec.mediaBudgetMb?.let { canvas.mediaBudgetHeld = false; canvas.mediaBudgetBytes = it.toLong() shl 20; canvas.mediaBudgetHeld = true; Log.i(TAG, "media room: $it MB") }
@@ -198,6 +224,31 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         waitForSurface()
     }
 
+    /** `jb_bench_then`: one step at a time on the UI thread, each logged, then [onEnd]. */
+    private fun runThen(ops: ArrayDeque<String>, onEnd: () -> Unit) {
+        val op = ops.removeFirstOrNull()?.trim() ?: run { onEnd(); return }
+        val word = op.substringBefore(' '); val arg = op.substringAfter(' ', "").trim()
+        Log.i(TAG, "then: $op")
+        var delay = 250L
+        when (word) {
+            "wait" -> delay = arg.toLongOrNull()?.coerceIn(0L, 600_000L) ?: 1000L
+            "undo" -> canvas.undo()
+            "redo" -> canvas.redo()
+            "zoom" -> arg.toFloatOrNull()?.let { canvas.view.zoom = it; canvas.requestRender() }
+            "dry" -> canvas.debugDryWetSheet()
+            "save" -> canvas.snapshot({ c -> Log.i(TAG, "then: snapshot of ${c.tiles.size} tiles") }, { why -> Log.w(TAG, "then: snapshot failed: $why") })
+            // As the autosave does while the person paints: the wet sheet's wash is in the save and stays wet. The tiles'
+            // bytes are summed so two saves can be compared in the log.
+            "savewet" -> canvas.snapshot({ c ->
+                var sum = 0L; for (b in c.tiles.values) { var s = 0L; for (x in b) s += (x.toInt() and 0xFF); sum += s }
+                Log.i(TAG, "then: snapshot (kept wet) of ${c.tiles.size} tiles, sum $sum")
+            }, { why -> Log.w(TAG, "then: snapshot failed: $why") }, keepWet = true)
+            "" -> delay = 0L
+            else -> Log.w(TAG, "then: unknown step '$op'")
+        }
+        ui.postDelayed({ runThen(ops, onEnd) }, delay)
+    }
+
     private fun waitForSurface() {
         if (!canvas.surfaceReady || canvas.width == 0) { ui.postDelayed({ waitForSurface() }, 200); return }
         ui.postDelayed({ next() }, spec.startMs)   // let startup settle (paper bakes, first frames, media prewarm)
@@ -205,9 +256,11 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
 
     private fun next() {
         val job = jobs.removeFirstOrNull() ?: run {
-            // The comparison holds the picture for a screenshot while the water runs on.
-            if (spec.holdMs > 0) { Log.i(TAG, "hold ${spec.holdMs}"); ui.postDelayed({ Log.i(TAG, "done"); onDone() }, spec.holdMs) }
-            else { Log.i(TAG, "done"); onDone() }
+            runThen(ArrayDeque(spec.then)) {
+                // The comparison holds the picture for a screenshot while the water runs on.
+                if (spec.holdMs > 0) { Log.i(TAG, "hold ${spec.holdMs}"); ui.postDelayed({ Log.i(TAG, "done"); onDone() }, spec.holdMs) }
+                else { Log.i(TAG, "done"); onDone() }
+            }
             return
         }
         val (preset, case, run) = job
@@ -402,6 +455,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 preset.copy(media = m.copy(paste = pb.copy(ends = spec.pasteEnds ?: pb.ends, turns = spec.pasteTurns ?: pb.turns, cover = spec.pasteCover ?: pb.cover, carry = spec.pasteCarry ?: pb.carry, force = spec.pasteForce ?: pb.force))) } } ?: preset
             canvas.preset = spec.wetness?.let { w -> ended.media?.let { m -> ended.copy(media = m.copy(wetness = w)) } } ?: ended
             spec.colors.getOrNull(spec.cases.indexOf(case))?.let { canvas.colorArgb = it }
+            spec.zooms.getOrNull(spec.cases.indexOf(case))?.let { canvas.view.zoom = it; canvas.requestRender(); Log.i(TAG, "view zoom: $it") }
             ui.postDelayed({ if (!terminal) guarded {
                 canvas.startFrameStats { if (!terminal) guarded {
                     StrokeReplay.play(canvas, samples, canvas.frameStats, onDown = {}, onUp = {
@@ -697,6 +751,15 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 atlasRows = if (intent.hasExtra("jb_atlas_rows")) intent.getIntExtra("jb_atlas_rows", 0) else null,
                 waterJobs = if (intent.hasExtra("jb_water_jobs")) intent.getBooleanExtra("jb_water_jobs", true) else null,
                 waterBudgetK = intent.getIntExtra("jb_water_budget_k", -1).takeIf { it > 0 },
+                wetSheet = if (intent.hasExtra("jb_wet_sheet")) intent.getBooleanExtra("jb_wet_sheet", false) else null,
+                sheetCell = intent.getIntExtra("jb_sheet_cell", -1).takeIf { it in 1..8 },
+                zoom = intent.getStringExtra("jb_bench_zoom")?.toFloatOrNull()?.takeIf { it > 0f },
+                zooms = list(intent.getStringExtra("jb_bench_zooms")).mapNotNull { it.toFloatOrNull()?.takeIf { z -> z > 0f } },
+                sheetPrintHoldMs = intent.getLongExtra("jb_sheet_print_hold_ms", 0L).coerceIn(0L, 120_000L),
+                sheetLong = intent.getIntExtra("jb_sheet_long", -1).takeIf { it in 256..2048 },
+                sheetGrain = intent.getStringExtra("jb_sheet_grain")?.toDoubleOrNull()?.coerceIn(0.0, 4.0),
+                sheetWave = intent.getStringExtra("jb_sheet_wave")?.toDoubleOrNull()?.coerceIn(0.0, 4.0),
+                then = intent.getStringExtra("jb_bench_then")?.split(';')?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty(),
                 mediaBudgetMb = intent.getIntExtra("jb_media_budget_mb", -1).takeIf { it > 0 },
                 dropDry = if (intent.hasExtra("jb_drop_dry")) intent.getBooleanExtra("jb_drop_dry", true) else null,
                 parkUnits = intent.getIntExtra("jb_water_park_units", -1).takeIf { it >= 0 },

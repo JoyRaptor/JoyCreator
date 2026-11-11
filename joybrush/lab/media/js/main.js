@@ -63,7 +63,12 @@ async function main() {
   catalogue = await loadCatalogue([[ASSETS, 'catalogue.json']]);
   paper = await loadSurface(gl, catalogue, state.paperId);
   state.look.paperColor = paperColorFor(paper.id);
-  engine = await MediaEngine.create(gl, SHADERS, size[0], size[1]);
+  // ?cell=2 (test sheets): the whole sheet simulated on cells 2 document px wide, as the app's wet sheet does (WetSheet,
+  // tasks/joybrush/specs/WET_SHEET_20261110.md), to compare a coarse sheet with this lab's own full-resolution look.
+  const cell = Math.max(1, Number(qs.get('cell') || 1));
+  engine = cell === 1 ? await MediaEngine.create(gl, SHADERS, size[0], size[1])
+    : await MediaEngine.create(gl, SHADERS, Math.round(size[0] / cell), Math.round(size[1] / cell), [0, 0], 1 / cell, { cellRates: true });
+  if (qs.get('runCap')) engine.runCap = Number(qs.get('runCap'));
   buildUi();
   if (test) {
     state.view = { pan: [0, 0], zoom: Number(qs.get('zoom') || 1) };

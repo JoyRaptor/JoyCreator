@@ -75,6 +75,7 @@ import cc.joycreator.joybrush.core.paint.UndoLog
 import cc.joycreator.joybrush.core.media.HalfFloat
 import cc.joycreator.joybrush.core.media.MediaRoom
 import cc.joycreator.joybrush.core.media.MediaStores
+import cc.joycreator.joybrush.core.media.WetSheetMath
 import cc.joycreator.joybrush.core.layers.LayerBudget
 import cc.joycreator.joybrush.core.sprite.SpriteGridMath
 import cc.joycreator.joybrush.core.render.MAX_REGION_PX
@@ -933,7 +934,7 @@ class GlPaintEngine(
         try {
         // Preview names belong to the dead context too. Do NOT endLift here: it would restore
         // old originals into current stores and recycle/delete names the new context can reuse.
-        lift = null; liftMatrix = null; liftProg = null
+        lift = null; liftMatrix = null; liftProg = null; overlayProg = null; overlayGrainProg = null; overlayGrainBroken = false
         resetJointPaint(RecordedScene.ResetMode.CONTEXT_LOST)
         recordedScene?.forget(); recordedScene = null
         wcPass?.forget(); wcPass = null; wcSpec = null; wcFading = false; wcPrepared = false
@@ -1152,6 +1153,7 @@ class GlPaintEngine(
         requireLocalPaint()
         settleLift()   // a lifted line's tiles are put back before they move into this step
         checkStrokeEnded("a layer change during a stroke would be undone out of order")
+        beforeLayerWrite?.invoke(id)
         val layer = layers[id] ?: return
         val oldDoc=boardDocument
         val changes=ArrayList<UndoLog.TileChange<Int>>()
@@ -1197,6 +1199,7 @@ class GlPaintEngine(
         requireLocalPaint()
         settleLift()   // copy the tiles as they are, not with a line lifted out
         checkStrokeEnded("a layer change during a stroke would be undone out of order")
+        beforeLayerWrite?.invoke(sourceId)
         val src = layers[sourceId] ?: return
         require(newId !in layers && after.layers.any { it.id == newId })
         val oldDoc = boardDocument
@@ -2104,6 +2107,7 @@ class GlPaintEngine(
         requireLocalPaint()
         settleLift()
         checkStrokeEnded("replaceTiles during a stroke would be undone out of order")
+        beforeLayerWrite?.invoke(layerId)
         val layer = storeOf(layerId) ?: error("no layer $layerId")
         for (rgba in tiles.values) {
             require(rgba == null || rgba.size == size * size * 4) { "tile must be ${size * size * 4} bytes" }
@@ -2318,6 +2322,7 @@ class GlPaintEngine(
     fun applyBoardChange(change: RegionChange): String? {
         requireLocalPaint()
         checkStrokeEnded("Check failed.")
+        beforeLayerWrite?.invoke(null)
         if(clipMovePreview != null) setClipMovePreview(null,null)
         val before=boardDocument ?: error("No board document is attached")
         // A runtime marker is untrusted input. Validate against the actual engine
@@ -5764,6 +5769,7 @@ class GlPaintEngine(
                     watercolour: WatercolourSpec? = null, watercolourSeed: Long = 0L) {
         settleLift()
         requireLocalPaint()
+        beforeLayerWrite?.invoke(layerId)
         beginStrokeBuffer(layerId, argb, opacity, accumulate, blend, tip, grain, smudge, tuft, watercolour, watercolourSeed)
     }
 
@@ -6261,6 +6267,8 @@ class GlPaintEngine(
         }
         settleWatercolourFade()
         val pending = undo.peekUndo() ?: return false
+        // The wet sheet let go of what this step needs to go back (its memory cap): history ends here, as after a trim.
+        pending.sheet?.let { if (sheetUndoBlocked?.invoke(it) == true) return false }
         if ((pending.lines.isNotEmpty() || pending.slabs.isNotEmpty()) && recordedScene != null) return recordedHistory(pending, false)
         check(recordedScene?.hasContent != true) { "Recorded artwork needs the joint pixel/media/structural history publisher" }
         val s = undo.undo() ?: return false
@@ -6278,6 +6286,11 @@ class GlPaintEngine(
         s.stackBefore?.let { restoreStack(it) }
         s.paperBefore?.let { setDocumentPaper(it) }
         restored?.let { setBoardDocument(it) }
+        s.sheet?.let { mark ->
+            onSheetHistory?.invoke(mark, false)
+            // A print is not something the person did: it goes back together with the step under it (one press, one step).
+            if (WetSheetMath.isPrintMark(mark)) undoStep()
+        }
         return true
     }
 
@@ -6307,6 +6320,9 @@ class GlPaintEngine(
         s.stackAfter?.let { restoreStack(it) }
         s.paperAfter?.let { setDocumentPaper(it) }
         restored?.let { setBoardDocument(it) }
+        s.sheet?.let { onSheetHistory?.invoke(it, true) }
+        // The print that followed this step comes back with it (see [undoStep]).
+        if (undo.peekRedo()?.sheet?.let(WetSheetMath::isPrintMark) == true) redoStep()
         return true
     }
 
@@ -7189,9 +7205,9 @@ class GlPaintEngine(
             }
         }
         val chosen = MediaRoom.choose(offered, asked, overBytes, MediaRoom.slack(mediaBudgetBytes))
-            ?: MediaRoom.choose(offered + offeredWet, asked, overBytes)?.let { all -> offered + all.filter { it in offeredWet } }
             ?: run {
-            android.util.Log.w("JoyBrushMedia", "media room full and nothing left to set: ${offered.size} dry and ${offeredWet.size} wet tiles offered, ${overBytes shr 10} KB short")
+            // Said through the view's hook, not the Android log: this path is also walked by the JVM tests.
+            onMediaWarning?.invoke("media room full and nothing left to set: ${offered.size} dry and ${offeredWet.size} wet tiles offered, ${overBytes shr 10} KB short")
             return null
         }
         val changes = ArrayList<UndoLog.TileChange<Int>>()
@@ -7201,7 +7217,8 @@ class GlPaintEngine(
             mediaWritten.remove(Triple(t.layerId, t.plane, t.key))
         }
         mediaTilesSet += chosen.size
-        android.util.Log.i("JoyBrushMedia", "media room: ${chosen.size} old tiles set to make room (${chosen.sumOf { it.bytes } shr 20} MB); ${mediaTilesSet} so far")
+        // The Android log is not there in the JVM tests, which walk this path too.
+        try { android.util.Log.i("JoyBrushMedia", "media room: ${chosen.size} old tiles set to make room (${chosen.sumOf { it.bytes } shr 20} MB); ${mediaTilesSet} so far") } catch (_: LinkageError) { }
         return changes
     }
 
@@ -7435,12 +7452,222 @@ class GlPaintEngine(
                     GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
                 }
             }
+            drawLayerOverlays(layer, docToClip)
         }
         GLES30.glBindVertexArray(0)
         GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
         drawLiftOverlay(docToClip, targetFbo)
     }
 
+
+    /**
+     * A picture drawn over one layer's tiles as part of that layer, every time the stack is drawn: the wet sheet's look
+     * (WetSheet: watercolour while it is wet, not yet printed into the layer's tiles). [texture] is premultiplied RGBA laid
+     * like a tile, covering the square of [size] document px at ([x], [y]). GL thread.
+     */
+    class LayerOverlay(val layerId: String, val texture: Int, val x: Float, val y: Float, val w: Float, val h: Float,
+                       /**
+                        * Above 0: the picture is the wet sheet's look on cells [cell] document px wide, and it is drawn with the
+                        * paper's fine grain worked into it at that strength (jb_overlay_grain.frag): "sharp when dry".
+                        */
+                       val grain: Float = 0f, val cell: Float = 1f)
+
+    /** The overlays to draw, set by their owner each frame (GL thread). */
+    var layerOverlays: List<LayerOverlay> = emptyList()
+
+    private var overlayProg: GlProgram? = null
+    private var overlayGrainProg: GlProgram? = null
+    /** The grain shader would not build on this phone: overlays are drawn plain from then on (never a lost wash). */
+    private var overlayGrainBroken = false
+
+    /** [layer]'s overlays, each one quad over its rectangle of the document (the caller has blending on and [tileVao] bound). */
+    private fun drawLayerOverlays(layer: Layer, docToClip: FloatArray) {
+        if (layerOverlays.isEmpty()) return
+        for (o in layerOverlays) if (o.layerId == layer.id && o.texture != 0) drawOverlay(o, docToClip, layer.opacity)
+    }
+
+    /** One overlay through [docToClip] into whatever is bound: on screen, or into a layer tile ([printOverlay]). */
+    private fun drawOverlay(o: LayerOverlay, docToClip: FloatArray, opacity: Float) {
+        // With the paper's grain when the overlay asks for it and the document has a paper map to read.
+        val paper = if (o.grain > 0f && !overlayGrainBroken) mediaPaper().takeIf { it.surface.id != 0 && it.texelPx > 0f } else null
+        val grainProg = if (paper == null) null else overlayGrainProg ?: try {
+            GlProgram(shaders.source("jb_overlay.vert"), shaders.source("jb_overlay_grain.frag"), "overlay grain").also { overlayGrainProg = it }
+        } catch (e: RuntimeException) {
+            android.util.Log.e("JoyBrushTiles", "the overlay's grain shader did not build: overlays are drawn plain", e)
+            overlayGrainBroken = true
+            null
+        }
+        val prog = grainProg ?: overlayProg ?: GlProgram(shaders.source("jb_overlay.vert"), shaders.source("jb_tile.frag"), "overlay").also { overlayProg = it }
+        prog.use()
+        if (grainProg != null && paper != null) {
+            GLES30.glUniform1f(prog.loc("u_grain"), o.grain)
+            GLES30.glUniform1f(prog.loc("u_cellPx"), o.cell)
+            GLES30.glUniform1f(prog.loc("u_paperTexelPx"), paper.texelPx)
+            GLES30.glUniform1f(prog.loc("u_paperSize"), paper.size)
+            GLES30.glUniform1f(prog.loc("u_paperHexTexels"), paper.hexTexels)
+            GLES30.glUniform1f(prog.loc("u_paperSlopeRange"), paper.slopeRange)
+            GLES30.glUniform1i(prog.loc("u_paperRotatable"), if (paper.rotatable) 1 else 0)
+            GLES30.glUniform1f(prog.loc("u_paperHeightMean"), paper.stats.heightMean.toFloat())
+            GLES30.glUniform1f(prog.loc("u_paperHBot"), paper.stats.heightBot.toFloat())
+            GLES30.glUniform1f(prog.loc("u_paperHTop"), paper.stats.heightTop.toFloat())
+            GLES30.glUniform1i(prog.loc("u_paperSurface"), 1)
+            GLES30.glActiveTexture(GLES30.GL_TEXTURE1)
+            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, paper.surface.id)
+        }
+        GLES30.glUniform4f(prog.loc("u_rect"), o.x, o.y, o.w, o.h)
+        GLES30.glUniformMatrix3fv(prog.loc("u_docToClip"), 1, false, docToClip, 0)
+        GLES30.glUniform1f(prog.loc("u_layerOpacity"), opacity)
+        GLES30.glUniform1i(prog.loc("u_layer"), 0)
+        GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, o.texture)
+        GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+    }
+
+    // ---- the wet sheet's side of the layers and the history (gl/media/WetSheet.kt) ----
+
+    /** Told before something other than the wet sheet writes [layerId]'s pixels (null: any layer's): the sheet prints first. */
+    var beforeLayerWrite: ((layerId: String?) -> Unit)? = null
+
+    /** Told after a step carrying a sheet mark was undone (forward false) or redone: the sheet puts its own state back. */
+    var onSheetHistory: ((mark: Long, forward: Boolean) -> Unit)? = null
+
+    /** Asked before a step carrying a sheet mark is undone: true when the sheet no longer has what going back needs. */
+    var sheetUndoBlocked: ((mark: Long) -> Boolean)? = null
+
+    /** A watercolour stroke that stays on the wet sheet: its step changes no tile yet, the sheet keeps what undoing it needs. */
+    fun pushSheetStep(mark: Long) {
+        requireLocalPaint()
+        undo.push(UndoLog.Step(emptyList(), sheet = mark))
+    }
+
+    /** Every sheet mark the history still holds, undo and redo. */
+    fun sheetMarks(): Set<Long> = undo.snapshotCursor().let { c -> (c.undoSteps + c.redoSteps).mapNotNullTo(HashSet()) { it.sheet } }
+
+    /** The newest undo step's sheet mark, or null. */
+    fun newestSheetMark(): Long? = undo.peekUndo()?.sheet
+
+    /** True while this engine's own history may be written (not the joint recorded-artwork publisher's). */
+    val localHistory: Boolean get() = publishedPaint == null && !resettingJointPaint && !preparingPlainPromotion && !undo.isCursorBound
+
+    /**
+     * [layerId]'s pixels as the screen shows them (its tiles, opacity 1, nothing else), drawn into [targetFbo] ([w] x [h]) so
+     * that the document rectangle at ([docX], [docY]) of [docW] x [docH] px fills it: the ground the wet sheet's paint is
+     * lit over. False when the layer is gone (the target is cleared).
+     */
+    fun layerLookInto(layerId: String, targetFbo: Int, w: Int, h: Int, docX: Float, docY: Float, docW: Float, docH: Float): Boolean {
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, targetFbo)
+        GLES30.glViewport(0, 0, w, h)
+        GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+        GLES30.glClearColor(0f, 0f, 0f, 0f)
+        GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
+        val layer = layers[layerId]
+        if (layer != null && !layer.isMask) {
+            val sx = 2f / docW; val sy = 2f / docH
+            val m = floatArrayOf(sx, 0f, 0f, 0f, sy, 0f, -docX * sx - 1f, -docY * sy - 1f, 1f)
+            GLES30.glDisable(GLES30.GL_BLEND)
+            GLES30.glBindVertexArray(tileVao)
+            tileProg.use()
+            GLES30.glUniform1f(tileProg.loc("u_tileSize"), size.toFloat())
+            GLES30.glUniformMatrix3fv(tileProg.loc("u_docToClip"), 1, false, m, 0)
+            GLES30.glUniform1f(tileProg.loc("u_layerOpacity"), 1f)
+            GLES30.glUniform1i(tileProg.loc("u_layer"), 0)
+            GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
+            for ((key, tex) in visibleTiles(layer)) {
+                if (!tileOnScreen(key, m)) continue
+                GLES30.glUniform2f(tileProg.loc("u_tileOrigin"), (Tiles.tx(key) * size).toFloat(), (Tiles.ty(key) * size).toFloat())
+                GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, tex)
+                GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+            }
+            GLES30.glBindVertexArray(0)
+        }
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+        return layer != null
+    }
+
+    /**
+     * Prints [o] into its layer's tiles [keys], exactly as the screen shows it over them (the same quad, the same program,
+     * source-over), as ONE undo step carrying [mark]: dried watercolour leaving the wet sheet. A plain write, so a tile's
+     * realistic-paint payload goes in the same step and its new pixels are the ground of whatever is painted next
+     * ([settlePlainWrites]). The step is pushed even when the layer is gone or nothing was printed: the sheet's history
+     * hangs on the mark. Returns how many tiles it wrote.
+     */
+    fun printOverlay(o: LayerOverlay, keys: Collection<Long>, mark: Long): Int {
+        requireLocalPaint()
+        check(!strokeInProgress && mediaStroke == null) { "printing the wet sheet inside a stroke would be undone out of order" }
+        val layer = layers[o.layerId]?.takeIf { !it.isMask }
+        val changes = ArrayList<UndoLog.TileChange<Int>>()
+        if (layer != null && o.texture != 0) {
+            try {
+                for (key in keys) {
+                    val before = layer.tiles[key]
+                    val after = newLayerTile()
+                    changes.add(UndoLog.TileChange(layer.id, key, before, after, null))
+                    initializeTile(after, before, false)
+                    GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, copyFbo); attach(after)
+                    GLES30.glViewport(0, 0, size, size)
+                    GLES30.glEnable(GLES30.GL_BLEND)
+                    GLES30.glBlendFunc(GLES30.GL_ONE, GLES30.GL_ONE_MINUS_SRC_ALPHA)
+                    GLES30.glBindVertexArray(tileVao)
+                    drawOverlay(o, tileToClip((Tiles.tx(key) * size).toFloat(), (Tiles.ty(key) * size).toFloat()), 1f)
+                }
+            } catch (e: Throwable) {
+                changes.forEach { it.after?.let(::recycleLayerTex) }
+                throw e
+            } finally {
+                GLES30.glBindVertexArray(0)
+                GLES30.glDisable(GLES30.GL_BLEND)
+                GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+            }
+            changes.forEach { put(it.layerId, it.key, it.after, it.celId) }
+        }
+        undo.push(UndoLog.Step(changes + settlePlainWrites(changes), sheet = mark))
+        return changes.size
+    }
+
+    /**
+     * Runs [body] with [o] stamped into [keys] of its layer exactly as [printOverlay] would leave them (the look written,
+     * those tiles' payload gone), then puts the layer back as it was: no undo step, nothing redone lost, nothing redrawn.
+     * For a save that must hold a wash that is still wet without drying it (WetSheet.stamped). GL thread, between frames.
+     */
+    fun <T> withOverlayStamped(o: LayerOverlay, keys: Collection<Long>, body: () -> T): T {
+        val layer = layers[o.layerId]?.takeIf { !it.isMask }
+        if (layer == null || o.texture == 0 || keys.isEmpty() || !localHistory) return body()
+        val stamped = LinkedHashMap<Long, Int>()
+        try {
+            for (key in keys) {
+                val after = newLayerTile()
+                stamped[key] = after
+                initializeTile(after, layer.tiles[key], false)
+                GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, copyFbo); attach(after)
+                GLES30.glViewport(0, 0, size, size)
+                GLES30.glEnable(GLES30.GL_BLEND)
+                GLES30.glBlendFunc(GLES30.GL_ONE, GLES30.GL_ONE_MINUS_SRC_ALPHA)
+                GLES30.glBindVertexArray(tileVao)
+                drawOverlay(o, tileToClip((Tiles.tx(key) * size).toFloat(), (Tiles.ty(key) * size).toFloat()), 1f)
+            }
+        } catch (e: Throwable) {
+            stamped.values.forEach(::recycleLayerTex)
+            throw e
+        } finally {
+            GLES30.glBindVertexArray(0)
+            GLES30.glDisable(GLES30.GL_BLEND)
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+        }
+        // The stand-ins take the tiles' places, and the payload under them steps aside, for the length of [body] only.
+        val had = HashMap<Long, Int?>()
+        val aside = ArrayList<Triple<HashMap<Long, Int>, Long, Int>>()
+        try {
+            for ((key, tex) in stamped) { had[key] = layer.tiles[key]; layer.tiles[key] = tex }
+            for (tiles in layer.floats.values) for (key in stamped.keys) tiles.remove(key)?.let { aside.add(Triple(tiles, key, it)) }
+            invalidateProjection(layer)
+            return body()
+        } finally {
+            for ((key, old) in had) if (old == null) layer.tiles.remove(key) else layer.tiles[key] = old
+            for ((tiles, key, tex) in aside) tiles[key] = tex
+            invalidateProjection(layer)
+            stamped.values.forEach(::recycleLayerTex)
+        }
+    }
 
     /** True when any visible layer composites with something other than plain source-over. */
     private fun drawsBoardLayer(layer: Layer): Boolean = layer.visible &&
@@ -7529,6 +7756,17 @@ class GlPaintEngine(
                     GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, tex)
                     GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
                 }
+            }
+            if (layerOverlays.any { it.layerId == layer.id }) {
+                // The wet sheet over its layer, plain source-over into the stack: its layer's own blend mode, mask and clip
+                // take hold when the paint dries and is printed into the tiles (WET_SHEET_20261110.md, limits).
+                GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, compositor.targetFbo)
+                GLES30.glViewport(0, 0, w, h)
+                GLES30.glEnable(GLES30.GL_BLEND)
+                GLES30.glBlendFunc(GLES30.GL_ONE, GLES30.GL_ONE_MINUS_SRC_ALPHA)
+                GLES30.glBindVertexArray(tileVao)
+                drawLayerOverlays(layer, docToClip)
+                GLES30.glDisable(GLES30.GL_BLEND)
             }
         }
         previews.values.forEach(::recycleLayerTex)

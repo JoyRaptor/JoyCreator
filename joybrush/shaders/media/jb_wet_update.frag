@@ -33,6 +33,7 @@ uniform float u_edgeEvap;       // extra drying at a thin edge (× evap)
 uniform float u_dryAfterS;      // older water dries faster: from this wet age (sim s) ...
 uniform float u_dryRampS;       // ... ramping in over this long ...
 uniform float u_dryBoost;       // ... to evaporation × (1 + this); 0 = off
+const float JB_DAMP_S = 0.01;   // below this, paper with no standing water is dry (MediaAtlasWater.DAMP_S)
 uniform float u_ageScale;       // real seconds per simulated second this step (a slow phone runs the water slower than the
                                 // clock): wet age counts real time, so "older water dries faster" means older on the clock
 uniform float u_absorb;         // 1/s
@@ -45,6 +46,12 @@ uniform float u_lift;           // 1/s
 uniform float u_stainCarry;
 uniform float u_heightMean;
 uniform float u_useInput;       // 1 on the step that consumes the brush input
+uniform float u_fullMm;         // a puddle this deep counts as "as wet as a full brush" (jb_wet_dab.frag)
+uniform float u_inputCap;       // 1: a frame's dabs together wet the paper no further than dab after dab would (the wet sheet)
+uniform float u_capSlack;       // how far past that a frame's dabs may wet it, as a share, on average (0 = a perfectly even wash)
+uniform float u_capSeed;        // moves the slack's pattern each frame
+uniform float u_rimCells;       // > 0: water flowing into this many cells along the texture's edge thins out and is gone at the
+                                //      edge itself (the wet sheet's rim: see main); 0 = the edge is a wall, as always
 uniform float u_edgeDep;        // pigment drops out faster at the drying edge (contact-line deposition)
 uniform float u_mingle;         // pigment spreading through connected water (cells²/s): wet-in-wet colour mixing
 uniform sampler2D u_waterBake;  // R = paper height smoothed to fibre scale
@@ -67,6 +74,17 @@ const highp int JB_W_SHIFT = 8;
 #endif
 // The water's fields at the water's resolution (every one of them below; the paint and paper are read where they live).
 vec4 wf(sampler2D t, highp ivec2 q) { return jb_fetchS(t, q, JB_W_SHIFT); }
+
+#ifndef JB_WET_COARSE
+// Smooth noise 0..1 over the cells, one bump about every 40: where the cap's slack is given and where it is not.
+float jb_capHash(vec2 q) { return fract(sin(dot(q, vec2(127.1, 311.7))) * 43758.5453); }
+float jb_capNoise(vec2 p) {
+    vec2 i = floor(p), f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(jb_capHash(i), jb_capHash(i + vec2(1.0, 0.0)), f.x),
+               mix(jb_capHash(i + vec2(0.0, 1.0)), jb_capHash(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+#endif
 
 void main() {
     jb_atlasBegin();
@@ -112,6 +130,17 @@ void main() {
             if (wq > u_minMm) mingle += (wf(u_w1, q) / wq - c0) * min(a.r, wq);
         }
     }
+#ifndef JB_ATLAS
+    // The wet sheet's rim (WetSheet): the sheet ends a little past the screen, and water that ran or spread that far stood
+    // against its edge in a straight line (Note 9 film carry3, 2026-11-11). Water FLOWING INTO the rim's cells arrives
+    // thinner the nearer the edge, and none reaches the edge: a drip that runs off the sheet tapers out as one running dry
+    // does. Water that stands there (a wash carried over from another view, a brush's own dab) is left alone.
+    if (u_rimCells > 0.0) {
+        float d = float(min(min(c.x, c.y), min(size.x - 1 - c.x, size.y - 1 - c.y)));
+        float rim = clamp(d / u_rimCells, 0.0, 1.0);
+        inW *= rim; inP *= rim; mingle *= rim;
+    }
+#endif
     w = w - outW + inW;
     pig = max(pig * keep + inP + u_mingle * u_dt * mingle, vec4(0.0));
 
@@ -125,6 +154,26 @@ void main() {
             pig *= 1.0 - take;
             w = max(0.0, w + i0.r);
         } else if (i0.r > 0.0) {
+#ifndef JB_WET_COARSE
+            // The dabs drawn in one frame all met the paper as it was before any of them, so where they overlap their water
+            // added up as it never would dab after dab: each later dab meets wetter paper and gives less, and the paper ends
+            // as wet as the brush (its wetness of a full puddle). A quick stroke was laid in scallops, one a frame, their
+            // middles three times as wet as their joins. With u_inputCap a frame's dabs wet the paper no further than that
+            // same end: the dabs' own wetness (i1.b / i0.r, weighted by what each gave) of a full puddle; what is cut is
+            // cut from the pigment that came with it.
+            // u_capSlack lets a little of that through again (the owner, 2026-11-11: a faint scallop makes the paper look
+            // a little wavy; the even wash was too even). Not the same everywhere, or it is a rhythm: a patch here takes
+            // up to three times the share, most of the paper next to none, and the patches move every frame.
+            if (u_inputCap > 0.5 && i1.b > 0.0) {
+                float slack = 0.0;
+                if (u_capSlack > 0.0) {
+                    float n = jb_capNoise(vec2(c) / 40.0 + vec2(u_capSeed, u_capSeed * 1.618));
+                    slack = u_capSlack * 3.0 * n * n;
+                }
+                float k = min(1.0, max(i1.b / i0.r * u_fullMm * (1.0 + slack) - w, 0.0) / i0.r);
+                i0 *= k; i1 *= k;
+            }
+#endif
             w += i0.r;
             if (w > u_minMm) age = 0.0;
         }
@@ -185,7 +234,12 @@ void main() {
     float sD = wf(u_w0, jb_clampCell(c + ivec2(0, -1), size)).g;
     float sU = wf(u_w0, jb_clampCell(c + ivec2(0, 1), size)).g;
     s = s + soak / u_capMm + u_wick * u_dt * (sL + sR + sD + sU - 4.0 * s);
-    s = clamp(s - u_sDry * u_dt * s * (wet ? 0.15 : 1.0), 0.0, 1.0);
+    // Damp paper dries on the clock (2026-11-10): like the wet age, the drying of dampness takes real time, so a phone that runs
+    // the water at a twentieth of real time no longer keeps paper damp twenty times as long (on the owner's Note 9 the damp
+    // spread until one damp pool covered the drawing, overflowed the atlas and froze in tile-shaped squares). Dampness this
+    // faint darkens the paper by under 0.1 % (jb_media_render.frag): it is let go, so the paper really dries.
+    s = clamp(s - u_sDry * u_dt * max(u_ageScale, 1.0) * s * (wet ? 0.15 : 1.0), 0.0, 1.0);
+    if (!wet && s < JB_DAMP_S) s = 0.0;
 
 #ifdef JB_WET_COARSE
     // --- settle, lift, dry out: each of the cell's four pixels by its own paper and paint (jb_wetChild, the very function

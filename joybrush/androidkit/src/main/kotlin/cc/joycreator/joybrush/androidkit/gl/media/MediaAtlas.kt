@@ -249,7 +249,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
         // atlas. With the pen up they run again, nearest first, as far as there is room (2026-10-21: the owner's crowded
         // drawing ran every pool on the page in every frame, and ran out of room).
         val (newlyPaused, _) = water.schedule(domain, reads, frame, held, painting = frame.isNotEmpty(), capacity = slots.capacity,
-            penX = (pen[0] + pen[2]) / 2.0, penY = (pen[1] + pen[3]) / 2.0, lookReach = look, nowMs = now)
+            penX = (pen[0] + pen[2]) / 2.0, penY = (pen[1] + pen[3]) / 2.0, lookReach = look, nowMs = now, aside = MediaAtlasPark.units <= 0)
         if (newlyPaused.isNotEmpty()) media.holdStill(newlyPaused.mapNotNull { k -> slots.resident(page(k))?.let { media.slotTexel(it.slot) } })
         media.waterPaused = water.paused.toSet()
         var must = water.mustStay(domain, reads, look)
@@ -348,7 +348,7 @@ class MediaAtlas(private val paint: GlPaintEngine, val media: MediaLayerEngine, 
                 val o = ((ay / 16 + j) * perRow + ax / 16 + i) * 4
                 mw = maxOf(mw, a[o]); ms = maxOf(ms, a[o + 1]); mf = maxOf(mf, a[o + 2])
                 val b = intArrayOf(tx0 + i * 16, ty0 + j * 16, tx0 + i * 16 + 16, ty0 + j * 16 + 16)
-                if (a[o] > minMm || a[o + 1] > 0f) ext = MediaAtlasWater.union(ext, b)
+                if (a[o] > minMm || a[o + 1] > MediaAtlasWater.DAMP_S) ext = MediaAtlasWater.union(ext, b)
                 if (a[o] > minMm) wetExt = MediaAtlasWater.union(wetExt, b)
             }
             water.observe(key, mw, ms, mf, now, minMm, FLOW_EPS, ext, wetExt)

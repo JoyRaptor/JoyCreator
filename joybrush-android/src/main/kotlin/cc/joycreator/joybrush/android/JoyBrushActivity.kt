@@ -188,6 +188,13 @@ private const val PREF_GUIDES = "guides"
 private const val PREF_FLATTEN_HIDDEN = "joybrush.flattenHidden"
 private const val PREF_WATER_TEST = "joybrush.waterTest"
 private const val PREF_FAST_WATER = "joybrush.fastWater"
+/** Wet watercolour on the wet sheet (WET_SHEET_20261110.md) or in the layer's tiles (the old way, one tap away). */
+private const val PREF_WET_SHEET = "joybrush.wetSheet"
+private const val DEFAULT_WET_SHEET = true
+/** How uneven a quick watercolour wash is laid on the wet sheet: "even", "little" (default) or "wavy". */
+private const val PREF_WASH_WAVE = "joybrush.washWave"
+/** How strongly the paper's grain shows in a wet-sheet wash: "none", "half" (default, the owner 2026-11-11) or "full". */
+private const val PREF_WASH_GRAIN = "joybrush.washGrain"
 /** The paint engine for pencil, watercolour and oil: "atlas" (the whole layer) or "window" (the old 1024 px patch). */
 private const val PREF_PAINT_ENGINE = "joybrush.paintEngine"
 /** What a person who never chose gets: the atlas since 10-21 (water jobs, the whole layer); the old window one tap away. */
@@ -489,6 +496,8 @@ class JoyBrushActivity : Activity() {
         canvas.mediaWaterAB = WaterTest.of(prefs.getString(PREF_WATER_TEST, null)).ab
         canvas.setMediaAtlas(prefs.getString(PREF_PAINT_ENGINE, DEFAULT_PAINT_ENGINE) == "atlas")
         canvas.setMediaFastWater(prefs.getBoolean(PREF_FAST_WATER, false))
+        canvas.setWetSheet(prefs.getBoolean(PREF_WET_SHEET, DEFAULT_WET_SHEET))
+        applyWashTaste()
         // Each tool as the person left it; the first shipped brush of each kind on a first visit (JB-1.05b, JB-2.01).
         pendingCatalogTools = prefs.getString(PREF_TOOLS, null)
         catalogToolsPending = UnibrushActivation.SHIPPING_ENABLED || pendingCatalogTools?.contains("unibrush.") == true
@@ -1114,6 +1123,14 @@ class JoyBrushActivity : Activity() {
         popovers.show(box, anchor, Popovers.Side.BESIDE, widthDp = 240f)
     }
 
+    /** The ⋯ menu's two wash rows as the wet sheet reads them ([PREF_WASH_WAVE], [PREF_WASH_GRAIN]). */
+    private fun applyWashTaste() {
+        val s = cc.joycreator.joybrush.androidkit.gl.media.WetSheet
+        canvas.setWashTaste(
+            wave = when (prefs.getString(PREF_WASH_WAVE, "little")) { "even" -> 0.0; "wavy" -> s.WAVE_MORE; else -> s.WAVE_LITTLE },
+            grain = when (prefs.getString(PREF_WASH_GRAIN, "half")) { "none" -> 0.0; "full" -> 1.0; else -> 0.5 })
+    }
+
     private fun moreMenu(anchor: View) {
         val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         box.addView(menuRow("Boards…", "Create or select an Image, Animation or Sprite board") { popovers.close(); boardController?.showMenu() })
@@ -1139,6 +1156,36 @@ class JoyBrushActivity : Activity() {
             canvas.mediaWaterAB = next.ab
             popovers.close(); moreMenu(anchor)
         })
+        // Watercolour's engine (2026-11-10): the wet sheet, or the layer's own squares as before, kept to compare.
+        val wetSheet = prefs.getBoolean(PREF_WET_SHEET, DEFAULT_WET_SHEET)
+        box.addView(menuRow(if (wetSheet) "Watercolour: Wet sheet (new)" else "Watercolour: In the layer (old)",
+            if (wetSheet) "Wet watercolour floats on one sheet over the paper and sets into it as it dries: no squares, and it keeps the clock's pace. Tap for the old way"
+            else "Wet watercolour lives in the layer's squares, as before. Tap for the new wet sheet") {
+            prefs.edit().putBoolean(PREF_WET_SHEET, !wetSheet).apply()
+            canvas.setWetSheet(!wetSheet)
+            popovers.close(); moreMenu(anchor)
+        })
+        // The wash's two tastes (2026-11-11), wet sheet only: how even it is laid and how much paper grain shows in it.
+        if (wetSheet) {
+            if (canvas.washIsWet) box.addView(menuRow("Dry the wash now",
+                "Wet watercolour dries where it lies, like a hair dryer. Left alone it dries by itself in a few minutes") {
+                popovers.close(); canvas.dryWashNow()
+            })
+            val wave = prefs.getString(PREF_WASH_WAVE, "little") ?: "little"
+            box.addView(menuRow("Wash: ${mapOf("even" to "Even", "little" to "A little wavy", "wavy" to "Wavy")[wave] ?: "A little wavy"}",
+                "How evenly a quick watercolour stroke wets the paper: perfectly even, or with the faint scallops of a hand-laid wash. Tap to change") {
+                prefs.edit().putString(PREF_WASH_WAVE, when (wave) { "even" -> "little"; "little" -> "wavy"; else -> "even" }).apply()
+                applyWashTaste()
+                popovers.close(); moreMenu(anchor)
+            })
+            val grain = prefs.getString(PREF_WASH_GRAIN, "half") ?: "half"
+            box.addView(menuRow("Paper grain in washes: ${mapOf("none" to "None", "half" to "Half", "full" to "Full")[grain] ?: "Half"}",
+                "How strongly the paper's fine tooth shows in watercolour painted while zoomed out. Tap to change") {
+                prefs.edit().putString(PREF_WASH_GRAIN, when (grain) { "none" -> "half"; "half" -> "full"; else -> "none" }).apply()
+                applyWashTaste()
+                popovers.close(); moreMenu(anchor)
+            })
+        }
         // Water detail (2026-11-10): full-resolution water, or water on 2 x 2 pixel cells that runs about four times as fast.
         val fastWater = prefs.getBoolean(PREF_FAST_WATER, false)
         box.addView(menuRow(if (fastWater) "Water detail: Fast" else "Water detail: Detailed",
@@ -2387,7 +2434,10 @@ class JoyBrushActivity : Activity() {
                 }
             }
         // Keep failure bound to this save, even if the GL response arrives after its timeout.
-        }, { why -> answer("Could not read the drawing: $why") })
+        // A wash still wet stays wet through a save made while the person is here (the autosave, a copy, an export); it is
+        // set for good only when the screen is leaving or the drawing is being replaced (the graphics may not come back).
+        }, { why -> answer("Could not read the drawing: $why") },
+            keepWet = !viewPausePending && dest !is SaveDest.Open && dest !is SaveDest.BoardHandoff)
         } catch (_: OutOfMemoryError) {
             answer("this device has too little memory to read the drawing for saving")
         } catch (e: Exception) {

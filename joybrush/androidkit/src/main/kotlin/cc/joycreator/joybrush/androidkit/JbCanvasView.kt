@@ -580,10 +580,51 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
      */
     fun setMediaFastWater(on: Boolean) {
         val e = cc.joycreator.joybrush.androidkit.gl.media.MediaLayerEngine
+        // The wet sheet's grid: fewer, wider cells for Fast (the next sheet laid takes it).
+        cc.joycreator.joybrush.androidkit.gl.media.WetSheet.longCells =
+            if (on) cc.joycreator.joybrush.core.media.WetSheetMath.LONG_FAST else cc.joycreator.joybrush.core.media.WetSheetMath.LONG_DETAILED
         if (e.coarseWaterDefault == on) return
         e.coarseWaterDefault = on
         onGl { mediaCanvas.releaseEngine() }
     }
+
+    /**
+     * The owner's watercolour switch (the ⋯ menu, 2026-11-10): wet watercolour on the wet sheet (WetSheet,
+     * tasks/joybrush/specs/WET_SHEET_20261110.md) or in the layer's tiles as before. Turning it off prints what the sheet
+     * holds into its layer first.
+     */
+    fun setWetSheet(on: Boolean) {
+        val s = cc.joycreator.joybrush.androidkit.gl.media.WetSheet
+        if (s.enabled == on) return
+        s.enabled = on
+        if (!on) onGl { if (mediaCanvas.settleSheet()) reportHistory() }
+    }
+
+    /**
+     * The owner's two tastes for a wet-sheet wash (the ⋯ menu, 2026-11-11). [wave]: how uneven a quick wash is laid
+     * (WetSheet.wave: 0 even, WAVE_LITTLE, WAVE_MORE). [grain]: how strongly the paper's fine grain shows in it
+     * (WetSheet.grainPrint: 0 none, 0.5, 1). Both take effect on the next stroke and the next frame.
+     */
+    fun setWashTaste(wave: Double, grain: Double) {
+        val s = cc.joycreator.joybrush.androidkit.gl.media.WetSheet
+        s.wave = wave.coerceIn(0.0, 2.0); s.grainPrint = grain.coerceIn(0.0, 2.0)
+        requestRender()
+    }
+
+    /** The next frame of a wet sheet that only dries ([MediaCanvas.frameDelayMs]). */
+    private val restingRender = Runnable { requestRender() }
+
+    /** True while watercolour is still wet on the wet sheet (the more menu then offers "Dry the wash now"). Any thread; a frame may be behind. */
+    val washIsWet: Boolean get() = mediaCanvas.sheetHolding
+
+    /**
+     * The hair dryer (the more menu, 2026-11-11): the wet sheet's wash dries where it lies and goes into its layer now,
+     * instead of in the few minutes it takes by itself. Undo brings the last stroke back wet, as after any print.
+     */
+    fun dryWashNow() { onGl { if (mediaCanvas.settleSheet()) reportHistory() }; requestRender() }
+
+    /** Bench only: the wet sheet's water dries where it lies (nothing is printed by this). */
+    fun debugDryWetSheet() { onGl { mediaCanvas.drySheet() }; requestRender() }
 
     /** Water jobs in the atlas (MediaCanvas.waterJobs; on): the bench's A/B. Any thread. */
     var mediaWaterJobs: Boolean
@@ -1266,7 +1307,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     }
 
     private fun adopt(next: LayerStack) {
-        if (next.activeId != activeLayer) onGl { mediaCanvas.releaseWindow() }
+        // The wet sheet's wash stays on its own layer to dry: only the old engine's window follows the layer painted.
+        if (next.activeId != activeLayer) onGl { mediaCanvas.releaseWindow(printSheet = false) }
         stackUi = next
         activeLayer = next.activeId
         if (!next.active.hasMask) editingMask = false
@@ -1430,7 +1472,13 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                 frameStats.afterWork()
                 // Media strokes and running water advance once per drawn frame, and keep frames coming while they run.
                 try {
-                    if (mediaCanvas.frame(SystemClock.uptimeMillis())) { reportMediaHistory(); super@JbCanvasView.requestRender() }
+                    if (mediaCanvas.frame(SystemClock.uptimeMillis())) {
+                        reportMediaHistory()
+                        // Only dampness left on the wet sheet: the next frame can wait (MediaCanvas.frameDelayMs).
+                        val wait = mediaCanvas.frameDelayMs
+                        if (wait <= 0L) super@JbCanvasView.requestRender()
+                        else { removeCallbacks(restingRender); postDelayed(restingRender, wait) }
+                    }
                 } catch (e: Exception) {
                     noteBenchError("media frame", e)
                     val refused = e is cc.joycreator.joybrush.androidkit.gl.MediaRoomException
@@ -2011,10 +2059,15 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                 MediaBelly.colorFor(m.belly, rgbOf(argb), now.toInt(), last = lastMediaArgb?.let(::rgbOf))?.let(::argbOf)
             }
             lastMediaArgb = argb
+            // What the painter sees now: an empty wet sheet is laid over it (WetSheet).
+            val middle = view.screenToDoc(width / 2f, height / 2f)
+            val sheetView = cc.joycreator.joybrush.androidkit.gl.media.WetSheet.View(view.zoom, middle.first.toDouble(), middle.second.toDouble(),
+                width.coerceAtLeast(1), height.coerceAtLeast(1), view.rotation)
             onGl {
                 // Without the board document a save would drop the media state, so nothing is painted - and that is always
                 // said: the reason when making the document failed (above), else a sentence here. Never a silent stroke.
                 if (engine.boardDocument != null) {
+                    mediaCanvas.sheetView = sheetView
                     mediaCanvas.begin(target, p, argb, belly, first.x.toDouble(), first.y.toDouble(), now, mediaSymmetry)
                         ?.let { why -> post { onRefused?.invoke(why) } }
                 } else if (!mediaDocRefused) post { onRefused?.invoke("This drawing could not take pencil, watercolour or oil") }
@@ -2905,17 +2958,29 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
      * the tiles live and where the next stroke will be laid down. Anything that cannot be written is
      * refused with a [JbArchiveException] on [onSnapshotFailed] — never skipped.
      */
-    fun snapshot(onReady: (JbContents) -> Unit) = snapshot(onReady) { why -> onSnapshotFailed?.invoke(why) }
+    fun snapshot(onReady: (JbContents) -> Unit) = snapshot(onReady, { why -> onSnapshotFailed?.invoke(why) })
 
-    /** Failure belongs to this request, including a late response after a caller's timeout. */
-    fun snapshot(onReady: (JbContents) -> Unit, onFailure: (String) -> Unit) {
+    /**
+     * Failure belongs to this request, including a late response after a caller's timeout.
+     *
+     * [keepWet]: watercolour still wet on the wet sheet is saved as it stands and STAYS wet on the screen (the autosave
+     * while the person paints: a wash that takes minutes to dry must not be set by a save 30 s after the stroke). Without
+     * it the wash dries where it lies and goes into its layer first (leaving the screen, opening another drawing).
+     */
+    fun snapshot(onReady: (JbContents) -> Unit, onFailure: (String) -> Unit, keepWet: Boolean = false) {
         val w = viewW
         val h = viewH
         val epoch = graphicsEpoch
         onGl(allowLost = true) {
             val made: JbContents? = try {
                 if (contentLost || epoch != graphicsEpoch) throw JbArchiveException("the graphics restarted; wait for drawing recovery")
-                readContents(w, h)
+                // Watercolour still on the wet sheet is not in any tile yet. The save holds what the screen shows either
+                // way (WET_SHEET_20261110.md rule 9): stamped into stand-in tiles for the readback alone, or really set.
+                if (keepWet) mediaCanvas.withSheetStamped { readContents(w, h) }
+                else {
+                    if (mediaCanvas.settleSheet()) reportHistory()
+                    readContents(w, h)
+                }
             } catch (e: OutOfMemoryError) {
                 post { onFailure("there is not enough memory to save this drawing; your previous save is kept") }
                 null

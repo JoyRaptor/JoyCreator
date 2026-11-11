@@ -112,7 +112,7 @@ class MediaAtlasWater(val quietMs: Long = 2000) {
         val t = tiles.getOrPut(key) { Tile(State.UNKNOWN, nowMs, nowMs, null) }
         val was = t.state
         val wasWet = t.wetExt
-        t.state = when { maxW > minMm -> State.WET; maxS > 0f -> State.DAMP; else -> State.DRY }
+        t.state = when { maxW > minMm -> State.WET; maxS > DAMP_S -> State.DAMP; else -> State.DRY }
         t.ext = if (t.state == State.DRY) null else extent
         t.wetExt = if (t.state == State.WET) wetExtent ?: rectOf(key) else null
         if (t.state == State.WET && was == State.WET && !(wasWet ?: rectOf(key)).contentEquals(t.wetExt!!)) t.lastFlowMs = nowMs
@@ -175,7 +175,13 @@ class MediaAtlasWater(val quietMs: Long = 2000) {
      * that ran before (the host keeps their state as it is) and those running now that were paused.
      */
     fun schedule(domain: Collection<Long>, reads: Collection<Long>, frame: Set<Long>, held: Set<Long>, painting: Boolean,
-                 capacity: Int, penX: Double, penY: Double, lookReach: Int = 0, nowMs: Long = 0L): Pair<Set<Long>, Set<Long>> {
+                 capacity: Int, penX: Double, penY: Double, lookReach: Int = 0, nowMs: Long = 0L,
+                 /**
+                  * D3 may set tiles aside. False when the host can run water too big for it block by block instead (the atlas's
+                  * water park): a tile set aside freezes beside moving water and leaves a tile-shaped square in the paint
+                  * (the owner's Note 9, 2026-11-10), while blocks keep every tile's water exact.
+                  */
+                 aside: Boolean = true): Pair<Set<Long>, Set<Long>> {
         val comps = components(domain, withPaused = true)
         val was = paused.toSet()
         val wasAside = setAside.toSet()
@@ -188,11 +194,14 @@ class MediaAtlasWater(val quietMs: Long = 2000) {
         val running = ArrayList(touching)
         if (!painting) running += others
         fun fits() = (frame + held + mustStay(running.flatten(), reads, lookReach)).size <= capacity
-        while (!fits() && running.size > touching.size) running.removeAt(running.size - 1)
+        // With the pen up the nearest pool always runs, whatever its size (2026-11-10: a pool bigger than the room was paused
+        // whole, so with the pen up nothing ran at all: water that "didn't run, then all of a sudden did").
+        val least = if (painting) touching.size else maxOf(touching.size, minOf(1, running.size))
+        while (!fits() && running.size > least) running.removeAt(running.size - 1)
         val nowPaused = comps.filter { it !in running }.flatten().toSet()
         paused.addAll(nowPaused)
         // D3: still too much (the pools the pen paints are bigger than the room): their stillest, farthest tiles wait.
-        if (!fits()) {
+        if (aside && !fits()) {
             val candidates = running.flatten().filter { it !in near }
                 .sortedWith(compareByDescending<Long> { nowMs > 0 && still(it, nowMs, STILL_MS) }.thenByDescending { dist(it, penX, penY) })
             for (k in candidates) { if (fits()) break; setAside += k }
@@ -276,6 +285,12 @@ class MediaAtlasWater(val quietMs: Long = 2000) {
     companion object {
         /** D3 sets aside tiles still this long first ([still]). */
         const val STILL_MS = 2000L
+        /**
+         * Paper with no standing water and its dampness at or under this is dry (2026-11-10). It was "any dampness at all", and
+         * dampness fades without ever reaching 0, so every tile water had touched stayed damp for good: one damp pool spread
+         * over the owner's drawing, more than the atlas holds. jb_wet_update.frag lets dampness this faint go (same value).
+         */
+        const val DAMP_S = 0.01f
         /** How far water reads around itself (layer px): [MediaAtlasPlacement.WET_REACH]. */
         const val READ = MediaAtlasPlacement.WET_REACH
         /** How far water may spread between two measurements (8 frames, the readback's latency): 48 px. */

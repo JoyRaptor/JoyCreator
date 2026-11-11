@@ -36,6 +36,8 @@ uniform float u_capMm;
 uniform int u_mode;              // 0 final, 1 paper height, 2 deposit volume, 3 crush
 uniform float u_impasto;         // paint relief shown (1 = physical)
 uniform float u_look;            // 1: render the app layer's look tile (premultiplied, over its ground, paper removed)
+                                 // 2: the same paint WITHOUT its ground under it (the wet sheet's overlay, WetSheet: the
+                                 //    layer's own pixels are the ground, drawn under it at full resolution by the app)
 uniform float u_paperHBot;       // the paper's height percentiles: paint fills the NORMALISED relief (see the
 uniform float u_paperHTop;       // bake), so under paint the paper's relief is read on the same scale
 
@@ -43,6 +45,51 @@ out vec4 o_color;
 
 float crushAt(vec2 lp) { return jb_bilinearL(u_paperState, lp).r; }
 
+#ifdef JB_LOOK_SHEET
+// The wet sheet's look (WetSheet, tasks/joybrush/specs/WET_SHEET_20261110.md): the paint alone over its ground, one cell of
+// the sheet a pixel, drawn flat. The optics of main() below for a layer that holds only watercolour and is shown without
+// relief (no pencil flakes, no crush, no paint body to light or to shadow), with every read at the pixel's own cell instead
+// of a smoothed one: about a tenth of the texture reads. On the Note 9 the general path cost a big wash 17 ms a frame, as
+// much as a whole water step (2026-11-10). What it leaves out is zero on the sheet; the gloss of wet oil is the one thing
+// dropped (watercolour's film is far too thin to show it).
+void main() {
+    ivec2 c = ivec2(gl_FragCoord.xy);
+    vec4 p0 = texelFetch(u_p0, c, 0);
+    vec4 p1 = texelFetch(u_p1, c, 0);
+    vec4 wa = texelFetch(u_w0, c, 0);
+    vec4 wp = texelFetch(u_w1, c, 0);
+    if (u_inputPending > 0.5) {
+        vec4 i0 = texelFetch(u_inA0, c, 0) + texelFetch(u_inB0, c, 0);
+        vec4 i1 = texelFetch(u_inA1, c, 0) + texelFetch(u_inB1, c, 0);
+        wa.r = max(0.0, wa.r + i0.r);
+        wp += vec4(max(i0.gba, 0.0), max(i1.r, 0.0));
+    }
+    if (p0 == vec4(0.0) && p1 == vec4(0.0) && wa == vec4(0.0) && wp == vec4(0.0)) { o_color = vec4(0.0); return; }
+    vec4 ground = texelFetch(u_ground, c, 0);
+    vec3 under = ground.rgb + u_paperColor * (1.0 - ground.a);
+    // Standing water tilts the light a little (its glint): the water's slope over one cell.
+    vec2 dW = vec2(texelFetch(u_w0, c + ivec2(1, 0), 0).r - texelFetch(u_w0, c - ivec2(1, 0), 0).r,
+                   texelFetch(u_w0, c + ivec2(0, 1), 0).r - texelFetch(u_w0, c - ivec2(0, 1), 0).r) * 0.5 * u_layerScale;
+    vec3 n = normalize(vec3(-dW * u_pxPerMm * 0.35, 1.0));
+    float amb = 0.55, dif = 0.45;
+    float shade = (amb + dif * max(dot(n, u_lamp), 0.0)) / (amb + dif * u_lamp.z);
+    // Wet paper is darker; pigment still floating reads a little deeper than when it has dried.
+    vec3 Rg = jb_srgbToLinear(under) * (1.0 - 0.10 * wa.g - 0.06 * smoothstep(0.0, 0.05, wa.r));
+    vec3 R = jb_km(p0.rgb + wp.rgb * 1.15, p1.rgb + vec3(wp.a), Rg);
+    vec3 hv = normalize(u_lamp + vec3(0.0, 0.0, 1.0));
+    float wet = smoothstep(0.004, 0.03, wa.r);
+    R += vec3(0.12 * wet * pow(max(dot(n, hv), 0.0), 120.0));
+    vec3 final_ = jb_linearToSrgb(R * shade);
+    // The least coverage that reproduces this pixel over its ground on the paper colour (as below), without the ground.
+    vec3 bg = under;
+    vec3 dn = (bg - final_) / max(bg, vec3(1.0e-3));
+    vec3 up = (final_ - bg) / max(vec3(1.0) - bg, vec3(1.0e-3));
+    float a = clamp(max(max(max(dn.r, dn.g), dn.b), max(max(up.r, up.g), up.b)), 0.0, 1.0);
+    vec3 col = a > 1.0e-4 ? clamp((final_ - (1.0 - a) * bg) / a, 0.0, 1.0) : vec3(0.0);
+    if (a <= 1.0e-4) a = 0.0;
+    o_color = vec4(col * a, a);
+}
+#else
 void main() {
     vec2 docPx = (gl_FragCoord.xy - u_pan) / u_zoom;
     vec2 lp = (docPx - u_layerOrigin) * u_layerScale;
@@ -97,7 +144,10 @@ void main() {
     vec3 under = u_paperColor;
     if (u_look > 0.5) {
         ground = jb_fetch(u_ground, ivec2(floor(lp)));   // lp >= 0 here in the window build: floor == truncation
-        if (p0 == vec4(0.0) && p1 == vec4(0.0) && wa == vec4(0.0) && wp == vec4(0.0) && dry.g == 0.0) { o_color = ground; return; }
+        if (p0 == vec4(0.0) && p1 == vec4(0.0) && wa == vec4(0.0) && wp == vec4(0.0) && dry.g == 0.0) {
+            o_color = u_look > 1.5 ? vec4(0.0) : ground;
+            return;
+        }
         under = ground.rgb + u_paperColor * (1.0 - ground.a);
     }
 
@@ -188,8 +238,10 @@ void main() {
         float a = clamp(max(max(max(dn.r, dn.g), dn.b), max(max(up.r, up.g), up.b)), 0.0, 1.0);
         vec3 c = a > 1.0e-4 ? clamp((final_ - (1.0 - a) * bg) / a, 0.0, 1.0) : vec3(0.0);
         if (a <= 1.0e-4) a = 0.0;
+        if (u_look > 1.5) { o_color = vec4(c * a, a); return; }
         o_color = vec4(c * a, a) + ground * (1.0 - a);
         return;
     }
     o_color = vec4(final_, 1.0);
 }
+#endif

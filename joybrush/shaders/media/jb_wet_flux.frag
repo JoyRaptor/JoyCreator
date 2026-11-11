@@ -33,6 +33,7 @@ uniform vec2 u_slope;         // the paper tilted: sin(angle), pointing DOWNHILL
                               // On the phone this comes from the gravity sensor; in the lab from the tilt pad.
 uniform float u_cellMm;       // one cell (mm)
 uniform float u_runMmPerS;    // how fast a full bead runs down an upright paper
+uniform float u_runCapMmPerS; // the fastest running water may travel (mm/s); 0 = only the step's own limit (0.45 cells)
 uniform float u_runMm;        // a bead this deep ABOVE the tooth runs freely; thinner water clings (speed ∝ depth²)
 uniform float u_runHoldMm;    // water the tooth holds before any runs
 uniform float u_runFilmMm;    // the film running water leaves behind on what it crosses
@@ -178,19 +179,23 @@ void main() {
             // And while a neighbour is already pouring out (water a millimetre beyond its edge), this part holds
             // and the bead drains into that drip, as real water does; else each drained root made its neighbour
             // the new highest point and the edge unzipped into a wide curtain.
-            vec2 t = vec2(-nOut.y, nOut.x), out1 = nOut / u_cellMm;
-            float L = 0.5 * u_dripGapMm / u_cellMm;
-            float e0 = wb / sz, emax = 0.0, r0 = beadAtFar(vec2(c) + out1), rmax = 0.0;
-            for (int k = -2; k <= 2; k++) {
-                if (k == 0) continue;
-                vec2 o = t * (L * float(k));
-                emax = max(emax, beadAtFar(vec2(c) + o) / runSizingAt(docPx + o / u_layerScale));
-                rmax = max(rmax, beadAtFar(vec2(c) + o + out1));
+            // Only where the bead has an edge at all: away from one (edge = 0) the mix below is 1 whatever the taps say, and
+            // they are most of this pass's reads (nine bead taps and four noise fields a cell; a wash is mostly not edge).
+            if (edge > 0.0) {
+                vec2 t = vec2(-nOut.y, nOut.x), out1 = nOut / u_cellMm;
+                float L = 0.5 * u_dripGapMm / u_cellMm;
+                float e0 = wb / sz, emax = 0.0, r0 = beadAtFar(vec2(c) + out1), rmax = 0.0;
+                for (int k = -2; k <= 2; k++) {
+                    if (k == 0) continue;
+                    vec2 o = t * (L * float(k));
+                    emax = max(emax, beadAtFar(vec2(c) + o) / runSizingAt(docPx + o / u_layerScale));
+                    rmax = max(rmax, beadAtFar(vec2(c) + o + out1));
+                }
+                float peak = smoothstep(-0.02, 0.02, e0 - emax);
+                float pouring = smoothstep(0.01, 0.03, r0);
+                float quiet = 1.0 - smoothstep(u_quietMm, 3.0 * u_quietMm + 1.0e-4, rmax - r0);
+                breakable = mix(1.0, max(peak, pouring) * quiet, edge);
             }
-            float peak = smoothstep(-0.02, 0.02, e0 - emax);
-            float pouring = smoothstep(0.01, 0.03, r0);
-            float quiet = 1.0 - smoothstep(u_quietMm, 3.0 * u_quietMm + 1.0e-4, rmax - r0);
-            breakable = mix(1.0, max(peak, pouring) * quiet, edge);
         }
     }
     vec4 f;
@@ -251,6 +256,10 @@ void main() {
         }
         vec2 v = drive * (u_runMmPerS / u_cellMm) * k * k;          // cells per second
         float vm = length(v), vMax = 0.45 / u_dt;
+        // On full-resolution cells that limit is 2.7 mm/s at the shipped step, and the look was tuned with it: fingers form
+        // because the water cannot outrun them. Wider cells (the wet sheet) would let it run 2 to 8 times as fast and slide as
+        // one sheet, so the host gives the limit in millimetres and it holds whatever the cell (WetSheet, 2026-11-10).
+        if (u_runCapMmPerS > 0.0) vMax = min(vMax, u_runCapMmPerS / u_cellMm);
         if (vm > vMax) v *= vMax / vm;
         // Running water wets what it crosses: a thin film stays behind on the paper, so a drip leaves a wet
         // trail and a sliding wash never drains a spot bare.

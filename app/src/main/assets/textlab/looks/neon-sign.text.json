@@ -1,0 +1,21 @@
+{
+  "format": "joy.text/1",
+  "id": "neon-sign",
+  "name": "Neon Sign",
+  "family": "Light",
+  "description": "Glass tubes that stutter on letter by letter, light the wall behind them and shine in a wet floor.",
+  "sample": "NEON",
+  "stage": 2,
+  "font": {"family": "archivo", "weight": 700, "width": 100, "tracking": 0.09, "caps": true},
+  "margin": [0.8, 0.7, 0.8, 1.3],
+  "features": ["TUBE"],
+  "p": {
+    "weight": -0.012,
+    "tubeInset": 0.0, "tubeRadius": 0.014, "tubeCore": 3.0, "tubeGain": 2.6, "tubeSplit": 1, "flicker": 0.5,
+    "tubeA": "#ff2d95", "tubeB": "#18b6ff",
+    "glow": 0.45, "glowSize": 0.05,
+    "bloom": 0.7, "bloomThreshold": 1.0, "bloomKnee": 0.5, "spill": 0.8,
+    "floor": 0.55, "floorLine": 0.3, "floorRipple": 0.8, "floorFade": 2.2
+  },
+  "motion": {"in": {"each": 0.22, "time": 0.01, "reveal": [0, 0.9]}, "idle": {}}
+}

@@ -1,0 +1,4 @@
+{
+  "format": "joy.textlooks/1",
+  "looks": ["chrome-84.text.json", "neon-sign.text.json", "blaze.text.json", "water.text.json"]
+}

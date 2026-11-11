@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TextLab look book</title>
+<style>
+  :root { --ground: #0b0b0c; --panel: #131315; --line: #26262b; --ink: #e7e7ea; --dim: #8e8e98; --cyan: #22d3ee; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--ground); color: var(--ink); font: 13px/1.35 system-ui, "Segoe UI", sans-serif; }
+  body { display: flex; flex-direction: column; }
+  header { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  header h1 { font-size: 13px; font-weight: 600; margin: 0 8px 0 0; letter-spacing: .04em; }
+  input[type=text], select { background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font: inherit; }
+  input[type=text] { width: 190px; }
+  button { background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font: inherit; cursor: pointer; }
+  button:hover { border-color: #3a3a42; }
+  button.on { background: var(--cyan); color: #06181c; border-color: var(--cyan); font-weight: 600; }
+  #stat { margin-left: auto; color: var(--dim); font-variant-numeric: tabular-nums; }
+  main { flex: 1; display: flex; min-height: 0; }
+  #looks { width: 168px; padding: 10px; overflow: auto; border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
+  #looks .fam { color: var(--dim); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; margin: 8px 4px 2px; }
+  #looks button { text-align: left; }
+  #view { flex: 1; display: flex; align-items: center; justify-content: center; min-width: 0; padding: 12px; overflow: hidden; }
+  canvas { max-width: 100%; max-height: 100%; border-radius: 6px; touch-action: none; }
+  #knobs { width: 300px; padding: 10px 12px; overflow: auto; border-left: 1px solid var(--line); }
+  #knobs h2 { font-size: 11px; color: var(--dim); letter-spacing: .08em; text-transform: uppercase; margin: 14px 0 6px; font-weight: 600; }
+  .row { display: grid; grid-template-columns: 1fr 44px; gap: 2px 8px; align-items: center; margin-bottom: 7px; }
+  .row label { grid-column: 1 / 3; color: #c9c9d1; }
+  .row input[type=range] { width: 100%; accent-color: var(--cyan); margin: 0; }
+  .row output { color: var(--dim); text-align: right; font-variant-numeric: tabular-nums; }
+  .row input[type=color] { width: 100%; height: 24px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); padding: 0; grid-column: 1 / 3; }
+  #err { position: fixed; left: 12px; bottom: 12px; right: 12px; background: #3b0d12; color: #ffd7dc; padding: 10px 12px; border-radius: 8px; white-space: pre-wrap; font: 12px ui-monospace, Consolas, monospace; display: none; max-height: 45%; overflow: auto; }
+  body.bare header, body.bare #looks, body.bare #knobs { display: none; }
+  body.bare #view { padding: 0; }
+  body.bare canvas { border-radius: 0; }
+  @media (max-width: 900px) { main { flex-direction: column; } #looks { width: auto; flex-direction: row; flex-wrap: wrap; border-right: 0; border-bottom: 1px solid var(--line); } #looks .fam { display: none; } #knobs { width: auto; border-left: 0; border-top: 1px solid var(--line); max-height: 40%; } #view { min-height: 38vh; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>TEXTLAB</h1>
+  <input id="text" type="text" title="The words" spellcheck="false">
+  <select id="stage" title="What is behind the words">
+    <option value="0">Black</option><option value="1">Dark studio</option><option value="2">Brick wall</option>
+    <option value="3">Sea and sky</option><option value="4">Sunset</option><option value="5">Forest lights</option><option value="6">Paper</option>
+  </select>
+  <button id="replay" title="Play the arrival again">Replay</button>
+  <button id="pause" title="Hold this moment">Pause</button>
+  <button id="copy" title="Copy this look, with your changes, as a look file">Copy look</button>
+  <span id="stat"></span>
+</header>
+<main>
+  <aside id="looks"></aside>
+  <section id="view"><canvas id="cv"></canvas></section>
+  <aside id="knobs"></aside>
+</main>
+<div id="err"></div>
+<!--@SCRIPTS@-->
+<script src="tl-gl.js"></script>
+<script src="tl-glyphs.js"></script>
+<script src="tl-engine.js"></script>
+<script src="tl-app.js"></script>
+<!--@END@-->
+</body>
+</html>

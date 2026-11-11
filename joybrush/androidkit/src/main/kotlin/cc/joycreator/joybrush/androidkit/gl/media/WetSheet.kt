@@ -7,6 +7,7 @@ import cc.joycreator.joybrush.androidkit.gl.ShaderLibrary
 import cc.joycreator.joybrush.core.layers.LayerBudget
 import cc.joycreator.joybrush.core.media.DOC_PX_PER_MM
 import cc.joycreator.joybrush.core.media.DabBatch
+import cc.joycreator.joybrush.core.media.WaterCull
 import cc.joycreator.joybrush.core.media.WetConstants
 import cc.joycreator.joybrush.core.media.WetSheetMath
 import cc.joycreator.joybrush.core.paint.Tiles
@@ -116,7 +117,7 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
                     runCatching { made.release() }
                     return LayerBudget.windowRefusal(true)
                 }
-                made.lookPaintOnly = true
+                made.lookPaintOnly = true; made.cullWater = true
                 engine = made; grid = wantGrid
                 android.util.Log.i(TAG, "sheet made: ${grid.w} x ${grid.h} cells")
             }
@@ -158,31 +159,65 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
         if (!holding || e.asleep) return false
         val input = batch?.takeIf { it.count > 0 }
         val run = input != null || (e.wetActive && !still)
+        var parts: List<FloatArray>? = null
         if (run) {
             val pc = WetSheetMath.physicsCell(cell)
             e.slope = slope
             e.frameRealMs = realMs
             e.worldScale = WetSheetMath.worldScale(cell)
             e.runCapMmPerS = WetSheetMath.runCapMmPerS(flowSpeed)
-            val steps = pace.next(realMs, WetSheetMath.stepsWanted(realMs, pc, flowSpeed))
+            // Only dampness left and the pen up: one long step a frame, frames a few a second ([resting]); the drying keeps
+            // the clock's pace by the frame's real time (MediaLayerEngine's wet age).
+            if (input != null) lively = 12 else if (lively > 0) lively--
+            resting = lively == 0 && e.waterPhase == WaterCull.DAMP
+            val steps = if (resting) 1 else pace.next(realMs, WetSheetMath.stepsWanted(realMs, pc, flowSpeed))
             e.wetFrame(input, paper, DOC_PX_PER_MM, WetSheetMath.constants(base, realMs, steps, pc), substeps = steps)
             e.takeDirty(); e.takeDirtyStores()
             history.changed()
+            parts = e.lastWaterParts
+            // The water measured every few frames (which blocks hold any: the engine draws only those), and found dry twice
+            // running it has dried: the sheet can go into the layer.
+            e.takeWaterActivity()
+            if (e.activitySeq != seenReading) {
+                seenReading = e.activitySeq
+                dryReadings = if (e.waterPhase == WaterCull.DRY && input == null && !e.inputPending) dryReadings + 1 else 0
+            }
+            if (++sinceReading >= READING_FRAMES && e.requestWaterActivity()) sinceReading = 0
+            if (dryReadings >= 2 && e.wetActive) {
+                dryReadings = 0
+                e.dryNow(paper, DOC_PX_PER_MM)
+                e.takeDirty(); e.takeDirtyStores()
+                parts = null
+                lookStale = union(lookStale, content)
+                android.util.Log.i(TAG, "the wash has dried")
+            }
             if (!memoryLogged && e.hasWaterTextures) {
                 memoryLogged = true
                 val bytes = runCatching { org.json.JSONObject(e.memoryReport()).optLong("totalBytes") }.getOrDefault(0L)
                 android.util.Log.i(TAG, "sheet memory: ${bytes shr 20} MB for ${grid.w} x ${grid.h} cells")
             }
         }
+        if (!e.wetActive) resting = false
         val wetNow = e.wetRect
         if (wetNow != null) content = union(content, wetNow)
-        // Where the water was a frame ago is drawn once more after it has gone: the dry look.
-        if (run) lookStale = union(lookStale, union(wetNow, lastWet))
+        // The look where the state changed: the parts the water drew, or (drawn whole) its rectangle, and where the water was
+        // a frame ago once more after it has gone: the dry look.
+        if (run) { if (parts != null) lookParts = parts else lookStale = union(lookStale, union(wetNow, lastWet)) }
         lastWet = wetNow
         refresh(paper, look)
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
         return e.wetActive && !still
     }
+
+    /** Only dampness is left on the sheet and the pen is up: a few frames a second are enough ([frame]). */
+    var resting = false
+        private set
+    private var lookParts: List<FloatArray>? = null
+    private var seenReading = 0
+    private var sinceReading = 0
+    private var dryReadings = 0
+    /** Frames since the brush last put water down, counted down from 12: the water is not treated as resting until 0. */
+    private var lively = 0
 
     /** The ground and the look brought up to date (cheap when nothing is stale). */
     private fun refresh(paper: MediaPaperGl, look: MediaLook) {
@@ -195,14 +230,16 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
                 lookStale = union(lookStale, content)
             }
         }
-        val stale = lookStale?.let(::clamp) ?: return
-        lookStale = null
-        if (stale[2] <= stale[0] || stale[3] <= stale[1]) return
+        // One rectangle when something asked for it (it covers the parts too), else the parts the water drew this frame.
+        val whole = lookStale?.let(::clamp)?.takeIf { it[2] > it[0] && it[3] > it[1] }
+        val rects = if (whole != null) listOf(whole) else lookParts?.map(::clamp)?.filter { it[2] > it[0] && it[3] > it[1] }
+        lookStale = null; lookParts = null
+        if (rects.isNullOrEmpty()) return
         linearLook(e)
         e.bakePaper(paper)
         // No relief on the sheet: watercolour has next to no body, and the shadow march is most of a look's cost.
         val flat = MediaLook(look.paperColor, look.lamp, impasto = 0f, sheen = look.sheen, capMm = look.capMm)
-        e.renderLook(stale, paper, flat, DOC_PX_PER_MM)
+        e.renderLook(rects, paper, flat, DOC_PX_PER_MM)
     }
 
     /** The newest wet brush's granulation (WetBrush.gran). */
@@ -283,6 +320,7 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
 
     /** The sheet holds nothing: its engine is cleared where it lies. */
     private fun empty() {
+        resting = false; lookParts = null; dryReadings = 0
         engine?.let { e -> if (!e.asleep) { e.stopWater(); e.moveTo(originX, originY, (1.0 / cell).toFloat()) } }
         holding = false; content = null; lookStale = null; lastWet = null
         history.changed()
@@ -482,7 +520,7 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
                 holding = false
                 return
             }
-            made.lookPaintOnly = true
+            made.lookPaintOnly = true; made.cullWater = true
             engine = made; grid = s.grid
         }
         val e = engine!!
@@ -586,6 +624,8 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
         /** The most graphics memory the copies kept for undo may take; past it the oldest go and undo ends there. */
         const val SNAPSHOT_CAP_BYTES = 128L * 1024 * 1024
         private const val IDLE_RELEASE_MS = 20_000L
+        /** Frames between the water's measurements. */
+        private const val READING_FRAMES = 4
 
         /** The owner's switch (the ⋯ menu) and the bench's `jb_wet_sheet`: watercolour on the wet sheet. */
         @Volatile @JvmStatic var enabled = false

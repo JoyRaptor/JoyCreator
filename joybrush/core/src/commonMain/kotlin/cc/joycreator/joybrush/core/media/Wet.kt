@@ -257,6 +257,6 @@ class WetStroke(
 
     companion object {
         /** What a fully loaded brush refuses of a take-back: nearly all. */
-        const val HOLD_BACK_LOADED = 0.92
+        const val HOLD_BACK_LOADED = 0.97
     }
 }

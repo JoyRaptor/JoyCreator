@@ -600,6 +600,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         if (!on) onGl { if (mediaCanvas.settleSheet()) reportHistory() }
     }
 
+    /** The next frame of a wet sheet that only dries ([MediaCanvas.frameDelayMs]). */
+    private val restingRender = Runnable { requestRender() }
+
     /** Bench only: the wet sheet's water dries where it lies (nothing is printed by this). */
     fun debugDryWetSheet() { onGl { mediaCanvas.drySheet() }; requestRender() }
 
@@ -1449,7 +1452,13 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                 frameStats.afterWork()
                 // Media strokes and running water advance once per drawn frame, and keep frames coming while they run.
                 try {
-                    if (mediaCanvas.frame(SystemClock.uptimeMillis())) { reportMediaHistory(); super@JbCanvasView.requestRender() }
+                    if (mediaCanvas.frame(SystemClock.uptimeMillis())) {
+                        reportMediaHistory()
+                        // Only dampness left on the wet sheet: the next frame can wait (MediaCanvas.frameDelayMs).
+                        val wait = mediaCanvas.frameDelayMs
+                        if (wait <= 0L) super@JbCanvasView.requestRender()
+                        else { removeCallbacks(restingRender); postDelayed(restingRender, wait) }
+                    }
                 } catch (e: Exception) {
                     noteBenchError("media frame", e)
                     val refused = e is cc.joycreator.joybrush.androidkit.gl.MediaRoomException

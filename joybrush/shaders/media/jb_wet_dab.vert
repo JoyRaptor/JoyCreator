@@ -8,7 +8,7 @@ layout(location = 1) in vec4 a_i0;   // centre.xy (doc px), axis.xy (unit, along
 layout(location = 2) in vec4 a_i1;   // half-length, half-width (mm), water per mm slid (mm), brush wetness 0..1
 layout(location = 3) in vec4 a_i2;   // pigment per mm of water: K rgb, S
 layout(location = 4) in vec4 a_i3;   // slide (mm), dryness 0..1, solubility, seed
-layout(location = 5) in vec4 a_i4;   // tip-to-belly lane colour shift (unused yet), -, -, -
+layout(location = 5) in vec4 a_i4;   // tip-to-belly lane colour shift (unused yet), how much of a take-back is refused 0..1, -, -
 
 uniform vec2 u_targetSize;
 uniform float u_pxPerMm;
@@ -27,6 +27,7 @@ flat out vec4 v_i1;
 flat out vec4 v_i2;
 flat out vec4 v_i3;
 flat out vec4 v_i0;    // centre.xy, axis.xy: the fragment derives its brush-frame position from these exactly
+flat out vec4 v_i4;
 
 void main() {
     vec2 r = a_i1.xy + 0.08;
@@ -35,7 +36,7 @@ void main() {
     vec2 docPx = a_i0.xy + (q.x * u + q.y * v) * u_pxPerMm;
     v_q = q;
     v_docPx = docPx;
-    v_i1 = a_i1; v_i2 = a_i2; v_i3 = a_i3; v_i0 = a_i0;
+    v_i1 = a_i1; v_i2 = a_i2; v_i3 = a_i3; v_i0 = a_i0; v_i4 = a_i4;
     v_layerPx = (docPx - u_layerOrigin) * u_layerScale;
 #ifdef JB_ATLAS
     highp ivec4 slot = ivec4(a_slot);

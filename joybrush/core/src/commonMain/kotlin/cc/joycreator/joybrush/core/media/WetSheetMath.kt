@@ -91,11 +91,16 @@ object WetSheetMath {
      * The longest stable time step (s) for cells [cell] lab pixels wide. The water's spreading terms are explicit diffusion
      * (the pigment's mingling is the first to break: 12 a second into four neighbours), whose stable step grows with the
      * cell's area. Full-resolution cells allow no more than the shipped 1/120 s: on the Note 9, 1/60 s and 1/30 s broke into
-     * coloured speckle (2026-11-10). Capped at 1/30 s, a frame, and at the step running water needs ([runCapMmPerS]).
+     * coloured speckle (2026-11-10). Capped at 1/30 s, a frame.
      * Checked against the lab's own look at 2 px cells with 1/60 s and 4 px cells with 1/30 s (flood2, 2026-11-10).
      */
-    fun maxDt(cell: Double, speed: Double = 1.0): Double =
-        if (cell <= 1.0) 1.0 / 120 else min(min(1.0 / 30, 0.8 * cell * cell / 100.0), cell / (120.0 * max(speed, 1e-3)))
+    fun maxDt(cell: Double): Double = if (cell <= 1.0) 1.0 / 120 else min(1.0 / 30, 0.8 * cell * cell / 100.0)
+
+    /**
+     * The step at which running water reaches its limit ([runCapMmPerS]): a step carries water 0.45 cells at most, so the
+     * limit needs a step no longer than cell / (120 x speed) seconds. Never longer than the stable one.
+     */
+    fun runDt(cell: Double, speed: Double = 1.0): Double = min(maxDt(cell), cell / (120.0 * max(speed, 1e-3)))
 
     /**
      * The fastest running water may travel, mm/s. On full-resolution cells a step carries water 0.45 cells at most, which at
@@ -104,18 +109,19 @@ object WetSheetMath {
      * (lab, 2026-11-10: tools/media_render.js "test=flood2&cell=4"), so the sheet keeps the limit in millimetres.
      * [speed] is the owner's dial: 1 = as approved, 2 = twice as fast.
      *
-     * A step still carries water 0.45 cells at most, so the limit is only reached with a step no longer than
-     * cell / (120 x speed) seconds: [maxDt] keeps the step under that.
+     * A step still carries water 0.45 cells at most, so the limit is only reached with steps no longer than [runDt]:
+     * [stepsWanted] asks for that many. A phone that cannot run them keeps the clock's pace for everything else (the
+     * soaking, the spreading, the drying) with longer steps, and its drips run that much under the limit.
      */
     fun runCapMmPerS(speed: Double = 1.0): Double = 0.45 * 120 / DOC_PX_PER_MM * speed
 
     /**
-     * The water steps a frame that came round in [realMs] needs to keep the clock's pace on cells [cell] lab pixels wide.
-     * A step is not added for the last tenth: on the Note 9's 1.75 px cells two steps a frame run the water at seven eighths
-     * of the clock, and a third would cost half as much again for the rest.
+     * The water steps a frame that came round in [realMs] wants on cells [cell] lab pixels wide, for running water to reach
+     * its limit ([runDt]). A step is not added for the last third: on the Note 9's 1.75 px cells two steps a frame let drips
+     * reach seven eighths of it, and a third step would cost half as much again for the rest.
      */
     fun stepsWanted(realMs: Float, cell: Double, speed: Double = 1.0): Int =
-        if (realMs <= 0f) 1 else ceil(realMs / 1000.0 / maxDt(cell, speed) - 0.3).toInt().coerceAtLeast(1)
+        if (realMs <= 0f) 1 else ceil(realMs / 1000.0 / runDt(cell, speed) - 0.3).toInt().coerceAtLeast(1)
 
     /**
      * The water's constants for a frame that came round in [realMs] and runs [steps] water steps on cells [cell] lab pixels
@@ -127,10 +133,10 @@ object WetSheetMath {
      * given per shipped step, so for a longer step the kept share is the same per SECOND and the push is what leaves the
      * steady flow unchanged: f = keep' * f + dt * flow' * dh settles at the same f as the shipped constants do.
      */
-    fun constants(base: WetConstants, realMs: Float, steps: Int, cell: Double, speed: Double = 1.0): WetConstants {
+    fun constants(base: WetConstants, realMs: Float, steps: Int, cell: Double): WetConstants {
         val n = max(1, steps)
         val want = if (realMs > 0f) realMs / 1000.0 / n else base.dt
-        val dt = want.coerceIn(base.dt, max(base.dt, maxDt(cell, speed)))
+        val dt = want.coerceIn(base.dt, max(base.dt, maxDt(cell)))
         if (dt == base.dt) return base.copy(substeps = n)
         val keep = base.keep.pow(dt / base.dt)
         val flow = base.flow * (1 - keep) * base.dt / ((1 - base.keep) * dt)
@@ -165,8 +171,12 @@ object WetSheetMath {
         fun reset() { steps = 1; ceiling = most; calm = 0 }
 
         private companion object {
-            /** A frame that took longer than this missed the 30-a-second beat on a 60 Hz screen. */
-            const val SLOW_MS = 42f
+            /**
+             * A frame that took longer than this is too slow to watch (under 18 a second): a step is given up. Up to here the
+             * steps are worth more than the frames: on the Note 9 a big wash at two steps comes round every 37 ms, and backing
+             * off at 42 left it at one step and six tenths of the clock (2026-11-10).
+             */
+            const val SLOW_MS = 55f
         }
     }
 

@@ -151,6 +151,15 @@ class WetStroke(
     var water: Double = if (wetness != null) min(1.5, wetness.load) else brush.load   // 0..1+ of capacity
         private set
     private val flow = wetness?.flow ?: 1.0
+
+    /**
+     * How much of a take-back this brush refuses, 0..1 (jb_wet_dab.frag, a_i4.y). The exchange follows wetness, so a brush
+     * crossing paper wetter than itself took water back, and the pigment in it: doubling back over its own fresh stroke,
+     * a loaded brush erased what it had just laid (the owner, 2026-11-10: "painting and then erasing"). A brush that starts
+     * loaded keeps nearly all of the wash where it is, however far it has run down since; the less it starts with (Dry brush,
+     * a blotted brush), the more it lifts, and Thirsty lifts as it always did.
+     */
+    private val holdBack = HOLD_BACK_LOADED * ((water - 0.1) / 0.8).coerceIn(0.0, 1.0)
     private var travelled = 0.0
     private var last: MediaSample? = null
     private var dirX = 0.0
@@ -234,7 +243,7 @@ class WetStroke(
             along, half, brush.waterPerMm * flow, wet,
             paint.k[0], paint.k[1], paint.k[2], paint.s,
             slideMm, dryness, 1 - brush.stain, seed.toDouble(),
-            0.0, 0.0, 0.0, 0.0,
+            0.0, holdBack, 0.0, 0.0,
         )
         // Water leaves the brush roughly in proportion to what it lays down on dry paper.
         val area = PI * along * half * 0.6
@@ -245,4 +254,9 @@ class WetStroke(
     }
 
     fun take(): DabBatch = out.take()
+
+    companion object {
+        /** What a fully loaded brush refuses of a take-back: nearly all. */
+        const val HOLD_BACK_LOADED = 0.92
+    }
 }

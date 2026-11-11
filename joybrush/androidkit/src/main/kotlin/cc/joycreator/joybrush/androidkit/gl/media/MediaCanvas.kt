@@ -68,7 +68,11 @@ class MediaCanvas(
         paint.registerPaperTextureBorrower(this) { engine?.borrowedPaperTextureHandles().orEmpty() + sheet?.borrowedPaper().orEmpty() }
         // The wet sheet (WetSheet): it prints before anything else writes its layer, and follows the undo log by its marks.
         paint.beforeLayerWrite = { id -> settleSheet(id) }
-        paint.onSheetHistory = { mark, forward -> sheet?.historyMoved(mark, forward); paint.layerOverlays = listOfNotNull(sheet?.overlay()) }
+        paint.onSheetHistory = { mark, forward ->
+            // Never out of an undo: a sheet that cannot be brought back (no graphics memory) is left empty, and said in the log.
+            try { sheet?.historyMoved(mark, forward) } catch (x: RuntimeException) { android.util.Log.e("JoyBrushMedia", "the wet sheet could not follow the history", x) }
+            paint.layerOverlays = listOfNotNull(sheet?.overlay())
+        }
         paint.sheetUndoBlocked = { mark -> sheet?.undoBlocked(mark) ?: true }
     }
     private var window: MediaPlace? = null
@@ -353,6 +357,10 @@ class MediaCanvas(
     @Volatile var sheetView = WetSheet.View(1f, 540.0, 1110.0, 1080, 2220)
     /** The sheet printed during the last frame: one more frame is asked for, so the caller reports the new undo step. */
     private var sheetPrinted = false
+    private var sheetDryAt = 0L
+
+    /** Bench only ([WetSheet.dryOnly]). */
+    fun drySheet() { sheet?.dryOnly(paint.mediaPaper()) }
 
     /** True while the wet sheet holds watercolour that is not in its layer's tiles yet. */
     val sheetHolding: Boolean get() = sheet?.holding == true
@@ -415,10 +423,14 @@ class MediaCanvas(
         var more = s.frame(batch, paint.mediaPaper(), water(), slope, look, real, still)
         // All of it dry, the pen up, nothing to redo and no other stroke open: it goes into the layer.
         if (stroke == null && s.dry && !still && !paint.strokeInProgress && !paint.mediaStrokeInProgress && paint.localHistory) {
-            s.print(paint.mediaPaper(), look)
-            sheetPrinted = true
+            if (sheetDryAt == 0L) sheetDryAt = nowMs
+            if (nowMs - sheetDryAt >= WetSheet.printHoldMs) {
+                s.print(paint.mediaPaper(), look)
+                sheetPrinted = true
+                sheetDryAt = 0L
+            }
             more = true
-        }
+        } else sheetDryAt = 0L
         if (!more && st == null) sheetFrameAt = 0L
         paint.layerOverlays = listOfNotNull(s.overlay())
         return more || st != null || printed

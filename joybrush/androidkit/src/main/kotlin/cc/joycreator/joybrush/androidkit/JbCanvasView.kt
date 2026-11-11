@@ -580,10 +580,28 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
      */
     fun setMediaFastWater(on: Boolean) {
         val e = cc.joycreator.joybrush.androidkit.gl.media.MediaLayerEngine
+        // The wet sheet's grid: fewer, wider cells for Fast (the next sheet laid takes it).
+        cc.joycreator.joybrush.androidkit.gl.media.WetSheet.longCells =
+            if (on) cc.joycreator.joybrush.core.media.WetSheetMath.LONG_FAST else cc.joycreator.joybrush.core.media.WetSheetMath.LONG_DETAILED
         if (e.coarseWaterDefault == on) return
         e.coarseWaterDefault = on
         onGl { mediaCanvas.releaseEngine() }
     }
+
+    /**
+     * The owner's watercolour switch (the ⋯ menu, 2026-11-10): wet watercolour on the wet sheet (WetSheet,
+     * tasks/joybrush/specs/WET_SHEET_20261110.md) or in the layer's tiles as before. Turning it off prints what the sheet
+     * holds into its layer first.
+     */
+    fun setWetSheet(on: Boolean) {
+        val s = cc.joycreator.joybrush.androidkit.gl.media.WetSheet
+        if (s.enabled == on) return
+        s.enabled = on
+        if (!on) onGl { if (mediaCanvas.settleSheet()) reportHistory() }
+    }
+
+    /** Bench only: the wet sheet's water dries where it lies (nothing is printed by this). */
+    fun debugDryWetSheet() { onGl { mediaCanvas.drySheet() }; requestRender() }
 
     /** Water jobs in the atlas (MediaCanvas.waterJobs; on): the bench's A/B. Any thread. */
     var mediaWaterJobs: Boolean

@@ -41,7 +41,31 @@ On branch `claude/atlas-solid-20261109`. Receipt with the numbers: [ATLAS_SOLID_
   black squares. Not reproduced; cause still open. Two further cycles were disturbed by something else using the phone
   (screens not kept).
 
+## 2026-11-10 night: the wet sheet (watercolour rebuilt)
+
+The owner tested the Water detail switch and the fixes above and called watercolour "still unacceptable": hairline seams,
+box cut-outs, flat patches, strokes that would not run and then did, tile marks when going back over paint, and all of it
+slow. Cause: he paints zoomed out (31 %), eight or nine marks wet 85 to 92 tiles, the atlas holds 62, and every overflow
+rule shows as a square or frozen water. Water in tiles cannot feel like paper there. So watercolour was rebuilt:
+**design and limits in [WET_SHEET_20261110.md](../joybrush/specs/WET_SHEET_20261110.md)**; the old engine stays one tap
+away (⋯ menu, "Watercolour: Wet sheet (new) / In the layer (old)").
+
+| What | Proof on the Note 9 (debug bench, the owner's own page replayed) |
+|---|---|
+| Wet watercolour on one screen-shaped sheet over the layer; no tiles in the water | Nine marks at 31 % zoom, tilted: all nine run at once, no box, no seam, no frozen band (film `o1`) |
+| Speed | The same page: 0.98 to 1.0 of the clock at 34 to 60 frames a second (Water detail Fast, the phone's setting). Before: 0.03 to 0.09 |
+| Printed into the layer when dry, exactly as shown | Dry sheet against its print, pixel by pixel: no pixel differs by more than 1 in 255 (film `q1`) |
+| Undo and redo by stroke, the print travelling with its stroke | Two wet strokes: undo, undo, redo, redo, save, undo, redo: each press one step, each picture right (film `u1`) |
+| A loaded brush no longer takes its own wash back ("painting and then erasing") | The hole where a wash doubles back is gone (films `p1` before, `q1` after) |
+| Sheet memory | 169 MB Detailed (624 x 1280 cells), 85 MB Fast (448 x 896) |
+
+Still to prove or build is in "What is left".
+
 ## What is left
+- [ ] **Wet sheet: owner's own test** on the Note 9 (his page, his hand, tilt), then the Note 20.
+- [ ] Wet sheet: moving the view far and painting again sets the wash; carry the wet state over instead (spec, limits).
+- [ ] Wet sheet: print with the paper's grain at full resolution ("sharp when dry"; the owner likes sharp).
+- [ ] Wet sheet: the small follow-ups in [LEDGER_SMALL_FIXES.md](../joybrush/LEDGER_SMALL_FIXES.md) section C.
 - [ ] Owner test on the Note 9 build, then the Note 20; owner compares Water detail Fast and Detailed with tilt.
 - [ ] Water speed steps 1-3 of the WATER_SPEED road (cheap tilt path, 4 x 4 running water, step only moving water).
 - [ ] A stress run long enough to meet the 10-31 tile failures again (or not), reading `JoyBrushTiles` and `JoyBrushMediaMemory`.

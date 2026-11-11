@@ -109,6 +109,10 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                val wetSheet: Boolean? = null, val sheetCell: Int? = null,
                /** `jb_bench_zoom`: the view's zoom for the whole run (the strokes stay where they are on the SCREEN). */
                val zoom: Float? = null, val sheetPrintHoldMs: Long = 0L,
+               /** `jb_bench_zooms`: the view's zoom for each case in turn ("1,0.6,1"): the view moves between strokes. */
+               val zooms: List<Float> = emptyList(),
+               /** `jb_sheet_long`: the wet sheet's cells along the screen's long side, whatever the Water detail switch says. */
+               val sheetLong: Int? = null,
                /**
                 * `jb_bench_then`: what to do after the last stroke and before the hold, in order, separated by ';':
                 * "wait 3000", "undo", "redo", "save" (a snapshot, as the autosave takes one), "zoom 0.5", "dry" (the wet
@@ -161,6 +165,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         spec.sheetCell?.let { Log.i(TAG, "wet sheet cell forced: $it px") }
         spec.zoom?.let { canvas.view.zoom = it; canvas.requestRender(); Log.i(TAG, "view zoom: $it") }
         cc.joycreator.joybrush.androidkit.gl.media.WetSheet.printHoldMs = spec.sheetPrintHoldMs
+        spec.sheetLong?.let { cc.joycreator.joybrush.androidkit.gl.media.WetSheet.longCells = it; Log.i(TAG, "wet sheet: $it cells along the screen") }
         cc.joycreator.joybrush.core.media.WaterJobBudget.forced = spec.waterBudgetK?.let { it * 1000.0 }
         spec.waterBudgetK?.let { Log.i(TAG, "water budget forced: $it k units a frame") }
         spec.mediaBudgetMb?.let { canvas.mediaBudgetHeld = false; canvas.mediaBudgetBytes = it.toLong() shl 20; canvas.mediaBudgetHeld = true; Log.i(TAG, "media room: $it MB") }
@@ -438,6 +443,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 preset.copy(media = m.copy(paste = pb.copy(ends = spec.pasteEnds ?: pb.ends, turns = spec.pasteTurns ?: pb.turns, cover = spec.pasteCover ?: pb.cover, carry = spec.pasteCarry ?: pb.carry, force = spec.pasteForce ?: pb.force))) } } ?: preset
             canvas.preset = spec.wetness?.let { w -> ended.media?.let { m -> ended.copy(media = m.copy(wetness = w)) } } ?: ended
             spec.colors.getOrNull(spec.cases.indexOf(case))?.let { canvas.colorArgb = it }
+            spec.zooms.getOrNull(spec.cases.indexOf(case))?.let { canvas.view.zoom = it; canvas.requestRender(); Log.i(TAG, "view zoom: $it") }
             ui.postDelayed({ if (!terminal) guarded {
                 canvas.startFrameStats { if (!terminal) guarded {
                     StrokeReplay.play(canvas, samples, canvas.frameStats, onDown = {}, onUp = {
@@ -736,7 +742,9 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 wetSheet = if (intent.hasExtra("jb_wet_sheet")) intent.getBooleanExtra("jb_wet_sheet", false) else null,
                 sheetCell = intent.getIntExtra("jb_sheet_cell", -1).takeIf { it in 1..8 },
                 zoom = intent.getStringExtra("jb_bench_zoom")?.toFloatOrNull()?.takeIf { it > 0f },
+                zooms = list(intent.getStringExtra("jb_bench_zooms")).mapNotNull { it.toFloatOrNull()?.takeIf { z -> z > 0f } },
                 sheetPrintHoldMs = intent.getLongExtra("jb_sheet_print_hold_ms", 0L).coerceIn(0L, 120_000L),
+                sheetLong = intent.getIntExtra("jb_sheet_long", -1).takeIf { it in 256..2048 },
                 then = intent.getStringExtra("jb_bench_then")?.split(';')?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty(),
                 mediaBudgetMb = intent.getIntExtra("jb_media_budget_mb", -1).takeIf { it > 0 },
                 dropDry = if (intent.hasExtra("jb_drop_dry")) intent.getBooleanExtra("jb_drop_dry", true) else null,

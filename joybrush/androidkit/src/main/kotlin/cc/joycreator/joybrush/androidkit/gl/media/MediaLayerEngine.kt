@@ -177,7 +177,12 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     }
 
     /** Deletes the programs compiled so far (an engine compiled ahead and let go before any media stroke, or [release]). */
-    fun releasePrograms() { programs.forEach { it.release() }; programs.clear() }
+    fun releasePrograms() { programs.forEach { it.release() }; programs.clear(); progRenderSheet = null }
+
+    private var progRenderSheet: MediaProgram? = null
+    private fun sheetRender(): MediaProgram = progRenderSheet
+        ?: MediaProgram(shaders, "media/jb_media_screen.vert", "media/jb_media_render.frag", "media render (sheet)", listOf("JB_LOOK_SHEET"))
+            .also { progRenderSheet = it; programs += it }
     private var eraseWetFbo = IntArray(0)
 
     private class State(val p0: Int, val p1: Int, val paper: Int, val fbo: Int)
@@ -2025,7 +2030,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
             val w0T = ws?.get(wc)?.w0 ?: emptyTex()
             val w1T = ws?.get(wc)?.w1 ?: emptyTex()
             val e = emptyTex()
-            val ru = progRender.use()
+            // The wet sheet's lean look (jb_media_render.frag JB_LOOK_SHEET), built when first wanted.
+            val ru = (if (lookPaintOnly && atlas == null) sheetRender() else progRender).use()
             common(ru); MediaUniforms.paper(ru, paper)
             // The last finished step, as the water's half is: a running job is overwriting the other half part by part.
             val shown = finishedPaint()

@@ -14,6 +14,7 @@ uniform float uOut;
 uniform vec4  uPost;         // bloom strength, light spilled onto what is behind, heat shimmer, exposure
 uniform vec4  uFloor;        // mirror strength, floor line (0..1 up the field), ripple, how fast it fades with distance
 uniform vec2  uGrade;        // contrast, saturation
+uniform vec2  uFringe;       // colours that do not quite line up: x = a lens's (nothing in the middle, growing toward the screen's edges), y = a printer's (the plates out of register, the same everywhere)
 uniform vec4  uFinish;       // vignette, grain, lens streak (a thin sideways flare off the brightest light), streak tint 0 white .. 1 blue
 
 // Film response on the BRIGHTEST channel only, the others scaled with it: an orange twice as
@@ -44,6 +45,18 @@ void main() {
     }
     vec4 sc = texture(uScene, uv);
     vec3 bl = texture(uBloom, uv).rgb * uPost.x;
+    vec3 a3 = vec3(sc.a);
+    if (uFringe.x + uFringe.y > 0.0) {
+        // red and blue are read from a little to either side of green
+        vec2 fromMid = vUv - 0.5;
+        vec2 oR = fromMid * dot(fromMid, fromMid) * 0.05 * uFringe.x + vec2(0.0038, -0.0022) * uFringe.y * vec2(uField.y / uField.x, 1.0);
+        vec2 oB = -fromMid * dot(fromMid, fromMid) * 0.05 * uFringe.x + vec2(-0.003, 0.0028) * uFringe.y * vec2(uField.y / uField.x, 1.0);
+        vec4 sR = texture(uScene, uv + oR), sB = texture(uScene, uv + oB);
+        sc.r = sR.r; sc.b = sB.b;
+        a3 = vec3(sR.a, sc.a, sB.a);
+        bl.r = texture(uBloom, uv + oR).r * uPost.x;
+        bl.b = texture(uBloom, uv + oB).b * uPost.x;
+    }
 
     if (uFinish.z > 0.0) {
         // lens streak: the bloom smeared sideways, thin, as an anamorphic lens does to a hard light
@@ -81,7 +94,7 @@ void main() {
     vec3 bg = uHasBack > 0.5 ? texture(uBack, uv).rgb : vec3(0.0);
     // the words' light falls on what is behind them, and takes its colour and texture
     vec3 lit = bg * (1.0 + bl * uPost.y * 6.0);
-    vec3 c = lit * (1.0 - sc.a) + sc.rgb + bl;
+    vec3 c = lit * (1.0 - a3) + sc.rgb + bl;
     c *= uPost.w;
     c = film(c);
     c = mix(vec3(luma(c)), c, uGrade.y);

@@ -9,7 +9,7 @@
   "font": { "family": "archivo", "weight": 300, "width": 125, "tracking": 0.3, "caps": true },
   "margin": [ 1.0, 1.0, 1.0, 1.1 ],
   "features": [ "HOLO" ],
-  "p": { "vignette": 0.6, "grain": 0.35, "contrast": 1.08, "bevel": 0.016, "bevelHeight": 0, "depth": 0, "unlit": 1, "spec": 0, "gloss": 0, "ao": 0, "fillA": "#0aa8ff", "fillB": "#18c8ff", "fillC": "#8ff4ff", "holo": 1.15, "holoLines": 22, "holoSpeed": 0.5, "holoGlitch": 1, "glow": 0.18, "glowSize": 0.06, "glowCol": "#18c8ff", "floor": 0.35, "floorLine": 0.3, "floorRipple": 0.2, "floorFade": 3.0, "stageTint": "#1f6f8f", "bloom": 0.45, "bloomThreshold": 0.9, "bloomKnee": 0.6, "streak": 0.5, "streakBlue": 1, "saturation": 1.2, "presence": 0.25, "presenceSpeed": 2 },
+  "p": { "vignette": 0.6, "grain": 0.35, "contrast": 1.08, "bevel": 0.016, "bevelHeight": 0, "depth": 0, "unlit": 1, "spec": 0, "gloss": 0, "ao": 0, "fillA": "#0aa8ff", "fillB": "#18c8ff", "fillC": "#8ff4ff", "holo": 1.15, "holoLines": 22, "holoSpeed": 0.5, "holoGlitch": 1, "glow": 0.18, "glowSize": 0.06, "glowCol": "#18c8ff", "floor": 0.35, "floorLine": 0.3, "floorRipple": 0.2, "floorFade": 3.0, "stageTint": "#1f6f8f", "bloom": 0.45, "bloomThreshold": 0.9, "bloomKnee": 0.6, "streak": 0.5, "streakBlue": 1, "saturation": 1.2, "presence": 0.25, "presenceSpeed": 2, "lensFringe": 0.8 },
   "particles": [
     {
       "count": 30,

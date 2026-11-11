@@ -100,6 +100,11 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
   a table and eight facets per stone); Hologram = colour split, ghost copy, projector beam from the floor line, static,
   and it uses `presence`; Liquid Chrome = slow flow and beads of metal off the edges; Retro Pop = uneven ink, rough
   edges, harder shadow. His verdict on these four is owed.
+- **Owner, 11-13 evening:** Diamond "is ready to ship. It's great" (still 46 ms a frame on the Note 9: trim before the
+  app). Hologram: a very soft lens colour fringe toward the screen's edges (`lensFringe`). Retro Pop: the printer's
+  version (plates out of register, `printFringe`), and the white line in his HOT reference is its own element hovering
+  over the letter, not an inner stroke (`hoverX` / `hoverY`). He wants to explore flat print styling further. He asked
+  what I would do to the STONE of Carved Stone (the shadow already works): answered in chat, his pick owed.
 - **Honest limits today:** the fire is good stylised fire, not yet the photograph the owner showed;
   water and the other drafts are below the bar; only the app's own fonts are used (Archivo, Plex,
   Ubuntu, Doto), so there is no script or true display face yet.

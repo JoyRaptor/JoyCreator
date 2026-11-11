@@ -32,6 +32,8 @@
     "strokeMetal":   {"u": "uStrokeMetal", "v": 0, "min": 0, "max": 1, "slot": "Coats", "label": "Stroke is metal"},
     "inline":        {"u": "uInline", "v": 0, "min": 0, "max": 0.05, "slot": "Coats", "label": "Inner line"},
     "inlineOff":     {"u": "uInlineOff", "v": 0.02, "min": 0, "max": 0.12, "slot": "Coats", "label": "Inner line inset"},
+    "hoverX":        {"u": "uHover", "i": 0, "v": 0, "min": -0.08, "max": 0.08, "slot": "Coats", "label": "Inner line hovers: across"},
+    "hoverY":        {"u": "uHover", "i": 1, "v": 0, "min": -0.08, "max": 0.08, "slot": "Coats", "label": "Inner line hovers: up"},
     "inlineCol":     {"u": "uInlineCol", "c": "#ffffff", "slot": "Coats", "label": "Inner line colour"},
     "fillA":         {"u": "uFillA", "c": "#d9d9d9", "slot": "Coats", "label": "Fill, bottom"},
     "fillB":         {"u": "uFillB", "c": "#d9d9d9", "slot": "Coats", "label": "Fill, middle"},
@@ -177,6 +179,8 @@
     "streak":        {"u": "uFinish", "i": 2, "v": 0, "min": 0, "max": 2, "slot": "Finish", "label": "Lens streak"},
     "streakBlue":    {"u": "uFinish", "i": 3, "v": 0.6, "min": 0, "max": 1, "slot": "Finish", "label": "Streak white / blue"},
     "stageTint":     {"u": "uStageTint", "c": "#8fa3c7", "slot": "Finish", "label": "Stage haze colour"},
+    "lensFringe":    {"u": "uFringe", "i": 0, "v": 0, "min": 0, "max": 3, "slot": "Finish", "label": "Lens colour fringe, toward the screen's edges"},
+    "printFringe":   {"u": "uFringe", "i": 1, "v": 0, "min": 0, "max": 3, "slot": "Finish", "label": "Print out of register"},
     "opacity":       {"u": "uOpacity", "v": 1, "min": 0, "max": 1, "slot": "Finish", "label": "Opacity"},
 
     "presence":      {"u": "uPresence", "i": 0, "v": 0, "min": 0, "max": 1, "slot": "Arrive", "label": "Parts fade out of existence and return"},

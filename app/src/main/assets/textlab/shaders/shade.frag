@@ -46,6 +46,7 @@ uniform float uStrokeMetal;
 uniform float uInline;       // a drawn line inside the edge: width em
 uniform float uInlineOff;    // its distance from the edge, em
 uniform vec3  uInlineCol;
+uniform vec2  uHover;        // the drawn line as its own element: moved this far off the letter (em), so it hovers over it
 uniform vec3  uFillA;        // baseline
 uniform vec3  uFillB;        // middle
 uniform vec3  uFillC;        // cap height
@@ -569,7 +570,7 @@ void main() {
             col = hc * 0.05;
             add += hc * (0.1 + 0.35 * scan * scan + 1.6 * rimH) * uHolo.x * waver / a0;
 #endif
-            if (uInline > 0.0) {
+            if (uInline > 0.0 && dot(uHover, uHover) == 0.0) {
                 float il = smoothstep(-aw, aw, uInline * 0.5 - abs(dRaw - uInlineOff - uInline * 0.5));
                 col = mix(col, uInlineCol, il);
             }
@@ -611,6 +612,13 @@ void main() {
         vec4 f0 = texture(uFieldTex, vUv);
         float gd = min(f0.r + uStroke, 0.0);
         add += uGlowCol * uGlow * exp(gd / max(uGlowSize, 1e-4)) * (1.0 - a) * mix(1.0, f0.g, max(uReveal.x, uReveal.y));
+    }
+    if (uInline > 0.0 && dot(uHover, uHover) > 0.0) {
+        // the drawn line is its own element: the letter's outline again, lifted a little off it
+        float dh = texture(uFieldTex, (p0 - uHover) / uField.xy).r;
+        float line = smoothstep(-aw, aw, uInline * 0.5 - abs(dh - uInlineOff - uInline * 0.5));
+        col = mix(col, uInlineCol, line);
+        a = max(a, line);
     }
 #ifdef HOLO
     {

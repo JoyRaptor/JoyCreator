@@ -15360,30 +15360,45 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private void refreshPreviewSurfaceAfterUndoRedo() {
         Timeline tl = project.getTimeline();
-        long abs = Math.max(0L, lastPlayheadAbsoluteMs);
-        Clip clip = null;
-        long segStart = 0L;
+        // The clip under the playhead by ON-TIMELINE spans (a loop-extended clip counts its whole
+        // visual length), the spans the timeline draws and seeks by. Summing trimmed lengths here
+        // picked the NEXT clip for a playhead in a loop extension and swapped the preview to it
+        // while the playhead stayed put (second Codex review 2026-11-01, S3).
         int count = tl.getClipCount();
+        long[] spans = new long[count];
         for (int i = 0; i < count; i++) {
             Clip c = tl.getClip(i);
-            if (c == null) continue;
-            long dur = c.getTrimmedDurationMs();
-            if (abs < segStart + dur || i == count - 1) { clip = c; break; }
-            segStart += dur;
+            spans[i] = c == null ? 0L
+                    : (c.hasLoopExtension() ? c.getVisualDurationMs() : c.getTrimmedDurationMs());
         }
+        long[] at = com.fadcam.ui.faditor.model.AnchorMath.clipAtTime(spans,
+                Math.max(0L, lastPlayheadAbsoluteMs));
+        Clip clip = at == null ? null : tl.getClip((int) at[0]);
         if (clip == null) {
             hideSlidePreview();
             hideImagePreview();
             return;
         }
-        long localMs = Math.max(0L, Math.min(abs - segStart, clip.getTrimmedDurationMs() - 1));
+        // Where in the clip's own media that moment is, in the unit each seek takes. Not looped:
+        // the timeline offset times speed, as before. Looped: the gapless engine takes the
+        // continuous position across the loop's repeats (same times-speed unit, see
+        // MasterPlaybackEngine#seekInClip); the single-clip player holds only the base pass, so
+        // it gets the source position the repeat maps to (Clip#mapToSourceMs: loops, ping-pong, still).
+        long visualMs = at[1];
+        boolean gapless = playerManager != null && playerManager.isGapless();
+        long mediaMs = (!clip.hasLoopExtension() || gapless)
+                ? (long) (visualMs * clip.getSpeedMultiplier())
+                : Math.max(0L, clip.mapToSourceMs(visualMs) - clip.getInPointMs());
+        // A slide's preview takes the timeline offset (as before); a looped one, its repeat's position.
+        long slideMs = clip.hasLoopExtension()
+                ? Math.max(0L, clip.mapToSourceMs(visualMs) - clip.getInPointMs()) : visualMs;
 
         if (clip.isGeneratedSlide()) {
             // Playback runs a slide off its rendered MP4 with the WebView hidden; leave it be.
             if (playerManager != null && playerManager.isPlaying()) return;
             hideMissingOverlay();
             hideImagePreview();
-            showSlidePreview(clip, localMs);
+            showSlidePreview(clip, slideMs);
             return;
         }
         boolean slideShowing = slidePreview != null && slidePreview.getVisibility() == View.VISIBLE;
@@ -15405,7 +15420,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         hideImagePreview();
         loadClipForPlayback(clip);
         if (playerManager != null) {
-            playerManager.seekInClip(clip, (long) (localMs * clip.getSpeedMultiplier()));
+            playerManager.seekInClip(clip, mediaMs);
         }
         updatePreviewTransforms();
     }

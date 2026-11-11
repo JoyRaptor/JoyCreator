@@ -173,6 +173,36 @@ public class AnchorMathTest {
                 com.fadcam.ui.faditor.model.RiderPolicy.SHIFT_RESOURCE, 1250, 2000);
         check(sr[0] == 1750 && sr[1] == 9250, "shiftRider SHIFT_RESOURCE: moves as SHIFT_ONLY (interim, documented)");
 
+        // ── clipAtTime: the clip under the playhead by ON-TIMELINE spans (Codex review 11-01, S3) ──
+        // A 2 s picture looped out to 10 s, then a 5 s video. Undo at 8 s: still the picture.
+        long[] loopSpans = {10_000, 5_000};
+        long[] at8 = AnchorMath.clipAtTime(loopSpans, 8_000);
+        eq(at8[0], 0, "clipAtTime: 8 s inside a loop-extended picture stays on the picture");
+        eq(at8[1], 8_000, "clipAtTime: the offset is NOT clamped to the 2 s base");
+        long[] trimmedOnly = {2_000, 5_000};
+        check(AnchorMath.clipAtTime(trimmedOnly, 8_000)[0] == 1,
+                "CONTROL: with trimmed spans (the old sum) 8 s lands on the video — the bug");
+        // Video then a looped picture: the picture's span starts after the video.
+        long[] vThenImg = {4_000, 10_000};
+        long[] at6 = AnchorMath.clipAtTime(vThenImg, 6_000);
+        check(at6[0] == 1 && at6[1] == 2_000, "clipAtTime: video then looped picture, 6 s is 2 s into the picture");
+        // Seams are half-open: the later clip owns the seam instant.
+        check(AnchorMath.clipAtTime(loopSpans, 10_000)[0] == 1 && AnchorMath.clipAtTime(loopSpans, 10_000)[1] == 0,
+                "clipAtTime: a seam belongs to the later clip, at its start");
+        check(AnchorMath.clipAtTime(loopSpans, 9_999)[0] == 0, "clipAtTime: one ms before the seam is the earlier clip");
+        // Past the end parks on the last clip's last ms (where the timeline parks it).
+        long[] past = AnchorMath.clipAtTime(loopSpans, 99_000);
+        check(past[0] == 1 && past[1] == 4_999, "clipAtTime: past the end is the last clip's last ms");
+        check(AnchorMath.clipAtTime(loopSpans, -50)[0] == 0 && AnchorMath.clipAtTime(loopSpans, -50)[1] == 0,
+                "clipAtTime: a negative time counts as 0");
+        // Zero-length clips are never chosen, before, between or at the end.
+        long[] withZero = {0, 3_000, 0, 2_000, 0};
+        check(AnchorMath.clipAtTime(withZero, 0)[0] == 1, "clipAtTime: a leading zero-length clip is skipped");
+        check(AnchorMath.clipAtTime(withZero, 3_000)[0] == 3, "clipAtTime: a zero-length clip at a seam is skipped");
+        check(AnchorMath.clipAtTime(withZero, 7_000)[0] == 3, "clipAtTime: past the end skips trailing zero-length clips");
+        check(AnchorMath.clipAtTime(new long[0], 0) == null, "clipAtTime: no clips, no answer");
+        check(AnchorMath.clipAtTime(new long[]{0, 0}, 0) == null, "clipAtTime: only empty clips, no answer");
+
         System.out.println();
         System.out.println(fails == 0
                 ? ("ALL PASS — " + checks + " checks")

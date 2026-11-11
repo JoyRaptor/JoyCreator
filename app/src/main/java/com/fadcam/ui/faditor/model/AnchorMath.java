@@ -69,6 +69,35 @@ public final class AnchorMath {
     }
 
     /**
+     * The master clip under timeline time {@code timeMs} and how far into its on-timeline span:
+     * {@code {index, offsetMs}}, or null when no clip occupies any time.
+     *
+     * <p>Spans are on-timeline lengths (a loop-extended clip contributes its whole visual span),
+     * the same spans {@code EditorTimelineView} draws and seeks against. Half-open like
+     * {@link #hostIndexForStart}; a time before 0 counts as 0, and a time at or past the end
+     * resolves to the last clip that occupies time, at its last millisecond, which is where the
+     * timeline parks a playhead that ran off the end. Zero-length spans are never chosen.</p>
+     *
+     * <p>Exists because the undo refresh summed TRIMMED lengths: with a 2 s picture looped out to
+     * 10 s ahead of a video, an undo at 8 s picked the video and swapped the preview to it while
+     * the playhead stayed inside the picture (second Codex review 2026-11-01, S3).</p>
+     */
+    public static long[] clipAtTime(long[] spans, long timeMs) {
+        long t = Math.max(0L, timeMs);
+        long start = 0L;
+        int last = -1;
+        for (int i = 0; i < spans.length; i++) {
+            long span = spans[i];
+            if (span <= 0) continue;
+            if (t < start + span) return new long[]{i, t - start};
+            last = i;
+            start += span;
+        }
+        if (last < 0) return null;
+        return new long[]{last, spans[last] - 1};
+    }
+
+    /**
      * Shift a rider's START by its host's delta.
      *
      * <p>Floored at 0 as a safety net only. It should be unreachable: a rider's start is always

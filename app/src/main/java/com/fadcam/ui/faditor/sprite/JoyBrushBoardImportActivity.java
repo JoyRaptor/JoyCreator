@@ -158,6 +158,10 @@ public final class JoyBrushBoardImportActivity extends Activity {
                 project.getTimeline().addSpriteOverlay(item);
             }
             if(!storage.save(project)) throw new IllegalStateException("The board project could not be saved");
+            // Saved: the project on disk now names this picture, so it is the project's from here on.
+            // A failed check below must never delete it, or the saved project points at a missing
+            // sheet (second Codex review 2026-11-01, S1). A project made here still goes as a whole.
+            unsavedImage=null;
             // Loading the saved model proves IDs and asset registration before launching the editor.
             FaditorProject saved=storage.load(project.getId());
             if(saved == null || saved.spriteSheetById(sheet.getId()) == null) throw new IllegalStateException("The saved board could not be reopened");

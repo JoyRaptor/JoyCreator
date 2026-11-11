@@ -134,6 +134,18 @@ Nine active owners accessing in frame order produce zero hits and nine misses ev
 
 ## New Studio work: recommended order
 
+## Studio findings S1–S5: checked against the source, 2026-11-11
+
+Read against `joy-creator` at a8071d3e (Claude Opus 5.5, branch `claude/studio-s1-s5-20261111`). No Android build or phone check was possible from this session: the fixes are tested off the phone only.
+
+| # | Finding | Verdict | What was done | Proof |
+|---|---|---|---|---|
+| S1 | Failed import check deletes a saved board picture | Confirmed | Fixed: the picture is the project's as soon as `storage.save` succeeds (`JoyBrushBoardImportActivity.receive`) | `run-boardimport-lint.sh` passes; fails on a8071d3e |
+| S2 | Folder copy loses marks, regions, loop | Confirmed, already fixed 11-10 by SAFE-1 | Nothing more: `ProjectSidecars` rides in `joyFolder.sidecars`, `restoreMissing` writes it back before `project.json` | `run-sidecars.sh` 16 pass (SAFE-1; not re-run here, no gson jar) |
+| S3 | Undo in a loop-extended clip picks the next clip | Confirmed | Fixed: `refreshPreviewSurfaceAfterUndoRedo` uses on-timeline spans (`AnchorMath.clipAtTime`) and `Clip.mapToSourceMs` for the repeat | `run-anchormath.sh` 52 pass; the old sum picks the wrong clip (control) |
+| S4 | Audio region export renders video | Confirmed | Deferred: the audio-only path still plays loop extensions as silence and has no transition crossfade, so switching would change the sound; needs a sample-by-sample comparison on the phone | none |
+| S5 | Region batch copies the project N times | Confirmed | Deferred: costs storage and memory per region, loses nothing; the shared snapshot must survive cancel and service restarts, which needs a build and phone run | none |
+
 ### S1 — P1: failed import verification deletes an already-committed PNG
 
 [Successful save followed by fallible reload](C:/+Projects/JoyCreator/app/src/main/java/com/fadcam/ui/faditor/sprite/JoyBrushBoardImportActivity.java:160); [cleanup deletes the image](C:/+Projects/JoyCreator/app/src/main/java/com/fadcam/ui/faditor/sprite/JoyBrushBoardImportActivity.java:177).

@@ -1,11 +1,12 @@
 // The finished picture: the lit words over what is behind them, their glow, heat shimmer,
-// a wet floor, then film response.
-//   uOut 0: for a screen (tone mapped, sRGB)          the look book and the room's preview
+// a wet floor, then the film: a response curve that KEEPS COLOUR, a grade, a vignette and grain.
+//   uOut 0: for a screen (film curve, sRGB)           the look book and the room's preview
 //   uOut 1: for a compositor (linear, premultiplied)  what Studio, VisLab and JoyBrush take
 in vec2 vUv;
 out vec4 o;
 uniform sampler2D uScene;    // the words: linear, premultiplied, may exceed 1
 uniform sampler2D uBloom;
+uniform sampler2D uBloomWide; // a small, far more blurred level of the bloom: what the lens streak is drawn from
 uniform sampler2D uBack;
 uniform sampler2D uHeat;
 uniform float uHasBack;
@@ -13,9 +14,19 @@ uniform float uOut;
 uniform vec4  uPost;         // bloom strength, light spilled onto what is behind, heat shimmer, exposure
 uniform vec4  uFloor;        // mirror strength, floor line (0..1 up the field), ripple, how fast it fades with distance
 uniform vec2  uGrade;        // contrast, saturation
+uniform vec4  uFinish;       // vignette, grain, lens streak (a thin sideways flare off the brightest light), streak tint 0 white .. 1 blue
 
-vec3 film(vec3 x) {          // ACES-like curve (Narkowicz)
-    return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0);
+// Film response on the BRIGHTEST channel only, the others scaled with it: an orange twice as
+// bright as white stays orange. (A curve run on each channel alone bleaches every strong colour
+// toward white, which is where a cheap, washed-out look comes from.) Only light far beyond the
+// film's range is let go to white, as it would on a negative.
+vec3 film(vec3 c) {
+    float peak = max3(c);
+    if (peak < 1e-5) return vec3(0.0);
+    const float knee = 0.6;
+    float m = peak < knee ? peak : knee + (1.0 - knee) * tanh((peak - knee) / (1.0 - knee));
+    vec3 kept = c * (m / peak);
+    return mix(kept, vec3(m), smoothstep(1.6, 9.0, peak) * 0.8);
 }
 vec3 toSrgb(vec3 c) { return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c)); }
 
@@ -28,17 +39,32 @@ void main() {
         float hx = texture(uHeat, uv + vec2(st.x, 0.0)).r - texture(uHeat, uv - vec2(st.x, 0.0)).r;
         float hy = texture(uHeat, uv + vec2(0.0, st.y)).r - texture(uHeat, uv - vec2(0.0, st.y)).r;
         float h = texture(uHeat, uv).r + texture(uHeat, uv - vec2(0.0, 0.25 / uField.y)).r * 0.6;
-        vec2 shiver = vec2(vnoise(p * 9.0 + vec2(0.0, -uTime * 5.0)), vnoise(p * 9.0 + vec2(7.0, -uTime * 4.3))) - 0.5;
+        vec2 shiver = vec2(tnoise(p * 9.0 + vec2(0.0, -uTime * 5.0)), tnoise(p * 9.0 + vec2(7.0, -uTime * 4.3))) - 0.5;
         uv += (clamp(vec2(hx, hy), -1.0, 1.0) * 0.006 + shiver * sat(h) * 0.01) * uPost.z / uField.xy;
     }
     vec4 sc = texture(uScene, uv);
     vec3 bl = texture(uBloom, uv).rgb * uPost.x;
 
+    if (uFinish.z > 0.0) {
+        // lens streak: the bloom smeared sideways, thin, as an anamorphic lens does to a hard light
+        vec3 st = vec3(0.0);
+        float wsum = 0.0;
+        for (int i = -14; i <= 14; i++) {
+            float fi = float(i);
+            float w = exp(-fi * fi / 60.0);
+            st += texture(uBloomWide, uv + vec2(fi * 0.011, 0.0)).rgb * w;
+            wsum += w;
+        }
+        st /= wsum;
+        float hot = smoothstep(0.05, 0.6, max3(st));
+        bl += st * hot * uFinish.z * 1.5 * mix(vec3(1.0), vec3(0.45, 0.7, 1.0), uFinish.w);
+    }
+
     if (uFloor.x > 0.0 && vUv.y < uFloor.y) {
         // a wet floor: the picture above the line, upside down, rippled, fading as it gets deeper
         float depth = (uFloor.y - vUv.y) * uField.y;
         vec2 rp = vec2(p.x * 3.0, depth * 14.0);
-        float rip = (fbm2(rp + vec2(uTime * 0.25, 0.0)) - 0.5) * uFloor.z * (0.4 + depth);
+        float rip = (tfbm2(rp + vec2(uTime * 0.25, 0.0)) - 0.5) * uFloor.z * (0.4 + depth);
         vec2 muv = vec2(uv.x + rip * 0.06 / uField.x, 2.0 * uFloor.y - vUv.y + rip * 0.05 / uField.y);
         float fadeOut = exp(-depth * uFloor.w) * uFloor.x;
         vec4 m = texture(uScene, muv);
@@ -58,10 +84,12 @@ void main() {
     vec3 c = lit * (1.0 - sc.a) + sc.rgb + bl;
     c *= uPost.w;
     c = film(c);
-    float l = luma(c);
-    c = mix(vec3(l), c, uGrade.y);
-    c = (c - 0.5) * uGrade.x + 0.5;
+    c = mix(vec3(luma(c)), c, uGrade.y);
     c = toSrgb(clamp(c, 0.0, 1.0));
-    c += (hash21(gl_FragCoord.xy + fract(uTime) * 61.0) - 0.5) / 255.0;
+    c = clamp((c - 0.5) * uGrade.x + 0.5, 0.0, 1.0);
+    vec2 cn = (vUv * 2.0 - 1.0) * vec2(1.0, uField.y / uField.x * 1.2);
+    c *= 1.0 - uFinish.x * smoothstep(0.35, 1.25, length(cn));
+    float gr = hash21(gl_FragCoord.xy + fract(uTime) * 61.0) - 0.5;
+    c += gr * (uFinish.y * 0.07 * (1.0 - 0.6 * luma(c)) + 1.0 / 255.0);
     o = vec4(c, 1.0);
 }

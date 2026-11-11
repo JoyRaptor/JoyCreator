@@ -2,31 +2,28 @@
   "format": "joy.text/1",
   "id": "blaze",
   "name": "Blaze",
-  "family": "Elements",
-  "description": "Hot iron letters that catch one by one, with real rising flame, embers and heat shimmer.",
+  "family": "Film",
+  "description": "Iron letters with a white-hot edge, catching fire one by one: real rising flame, sparks, heat shimmer, and the fire's light in the floor.",
   "sample": "BLAZE",
-  "stage": 0,
-  "font": {"family": "archivo", "weight": 800, "width": 100, "tracking": 0.05, "caps": true},
-  "margin": [0.8, 1.7, 0.8, 0.5],
-  "features": ["EMBER", "DETAIL"],
+  "stage": 7,
+  "font": { "family": "archivo", "weight": 800, "width": 100, "tracking": 0.07, "caps": true },
+  "margin": [ 1.0, 1.9, 1.0, 1.0 ],
+  "features": [ "EMBER", "DETAIL" ],
   "fire": true,
-  "p": {
-    "bevel": 0.03, "bevelHeight": 0.04, "bevelShape": 0.6,
-    "metal": 0.85, "fillA": "#3a2a22", "fillB": "#4a3830", "fillC": "#2a1c16",
-    "envUp": 0.5, "envBevel": 1.0,
-    "detailKind": 1, "detailScale": 9, "detailAmount": 0.05,
-    "emberHeat": 0.4, "emberScale": 8, "emberEdge": 0.52, "emberFireLight": 0.7,
-    "fireRise": 1.25, "fireSwirl": 0.3, "fireCool": 2.4, "fireFeed": 1.0, "fireUp": 0.45, "fireDepth": 0.035, "fireSmoke": 0.6,
-    "fireSize": 3.2, "fireDetail": 1.0, "fireFront": 0.5, "fireGain": 0.9,
-    "shimmer": 1.2, "bloom": 0.55, "bloomThreshold": 1.2, "spill": 0.6
-  },
-  "sphere": {
-    "ramp": [[0.0, "#000000"], [0.4, "#1a0d08"], [0.6, "#6b2a10"], [1.0, "#ffb060"]],
-    "lamps": [[0.0, 0.7, 0.3, 1.5, "#ff9a40"]]
-  },
+  "p": { "soften": 0.002, "bevel": 0.02, "bevelHeight": 0.025, "bevelShape": 0.2, "ao": 0.4, "depth": 0.3, "persp": -0.1, "vanishX": 0.5, "vanishY": 0.4, "metal": 0.8, "rough": 0.35, "fillA": "#241a15", "fillB": "#2e221b", "fillC": "#1a120e", "envUp": 0.45, "envBevel": 0.9, "envAcross": 0.4, "detailKind": 1, "detailScale": 10, "detailAmount": 0.045, "wearEdge": 0.6, "wearGrime": 0.5, "emberHeat": 0.3, "emberScale": 9, "emberEdge": 0.55, "emberFireLight": 0.8, "sideA": "#2a1408", "sideB": "#030100", "sideMetal": 0.5, "fireRise": 1.25, "fireSwirl": 0.3, "fireCool": 2.2, "fireFeed": 1.0, "fireUp": 0.35, "fireDepth": 0.03, "fireSmoke": 0.9, "fireSize": 3.2, "fireDetail": 1.0, "fireFront": 0.5, "fireGain": 1.1, "fireA": "#8f0a00", "fireB": "#ff4a00", "fireC": "#ffd040", "shadow": 0.6, "shadowSoft": 0.14, "floor": 0.3, "floorLine": 0.2, "floorRipple": 0.25, "floorFade": 3.0, "stageTint": "#8a3d14", "shimmer": 1.0, "bloom": 0.4, "bloomThreshold": 1.3, "bloomKnee": 0.6, "spill": 0.5, "streak": 0.25, "streakBlue": 0, "vignette": 0.6, "grain": 0.3, "contrast": 1.08, "saturation": 1.1 },
+  "sphere": { "ramp": [ [ 0.0, "#000000" ], [ 0.4, "#0c0603" ], [ 0.6, "#2a1206" ], [ 1.0, "#5a2a0c" ] ], "boxes": [ [ 0.0, 0.72, 0.5, 0.08, 0.0, 0.06, 2.5, "#ff8a30", 0.3 ] ], "uneven": 0.5 },
   "particles": [
-    {"count": 260, "p": {"shape": 0, "from": 0, "up": 0.6, "life": 1.8, "size": 0.012, "sizeEnd": 0.2, "rise": 1.3, "drift": 0.5, "scatter": 0.25, "swirl": 0.5, "swirlSize": 2.5, "colA": "#ffd08a", "colB": "#ff3a05", "gain": 9, "fadeIn": 0.05, "fadeOut": 0.5, "share": 0.8}},
-    {"count": 60, "p": {"shape": 3, "from": 0, "up": 0.3, "life": 0.9, "size": 0.008, "stretch": 0.25, "rise": 2.2, "drift": 1.2, "scatter": 0.6, "gravity": 1.5, "colA": "#fff0c0", "colB": "#ff6a10", "gain": 14, "share": 0.6, "seed": 7}}
+    {
+      "count": 220,
+      "p": { "shape": 0, "from": 0, "up": 0.6, "life": 1.9, "size": 0.008, "sizeEnd": 0.2, "rise": 1.3, "drift": 0.5, "scatter": 0.25, "swirl": 0.5, "swirlSize": 2.5, "colA": "#ffc46a", "colB": "#ff2a00", "gain": 7, "fadeIn": 0.05, "fadeOut": 0.5, "share": 0.7 }
+    },
+    {
+      "count": 60,
+      "p": { "shape": 3, "from": 0, "up": 0.3, "life": 0.9, "size": 0.006, "stretch": 0.3, "rise": 2.2, "drift": 1.2, "scatter": 0.6, "gravity": 1.5, "colA": "#ffe9b0", "colB": "#ff5a10", "gain": 10, "share": 0.6, "seed": 7 }
+    }
   ],
-  "motion": {"in": {"each": 0.12, "time": 0.01, "reveal": [0, 0.8]}, "idle": {}}
+  "motion": {
+    "in": { "each": 0.12, "time": 0.01, "reveal": [ 0, 0.8 ] },
+    "idle": {}
+  }
 }

@@ -8,7 +8,7 @@
 (function () {
   const TL = (window.TL = window.TL || {});
 
-  TL.GLYPH_EM = 144;   // pixels per em in a piece
+  TL.GLYPH_EM = 208;   // pixels per em in a piece
   TL.SPREAD = 0.25;    // em: the field stores no distance beyond this
   const SS = 2;        // drawn this many times larger, then averaged down: steadier edges
   const INF = 1e20;
@@ -78,20 +78,40 @@
     return { d: out, w: ow, h: oh };
   };
 
-  // Points on a piece: its outline (with the outward direction) and its inside. Cell em, y up.
+  // Points on a piece: its outline (with the outward direction), its inside, and its CORNERS
+  // (where the outline turns sharply outward: where a made object catches a glint). Cell em, y up.
   function pointsOf(pic) {
-    const { d, w, h } = pic, edge = [], fill = [], half = 0.6 / TL.GLYPH_EM;
+    const { d, w, h } = pic, edge = [], fill = [], half = 0.6 / TL.GLYPH_EM, cand = [];
+    const R = 3;
+    const dirAt = (x, y) => {
+      const gx = d[y * w + x + 1] - d[y * w + x - 1], gy = d[(y + 1) * w + x] - d[(y - 1) * w + x];
+      const l = Math.hypot(gx, gy) || 1;
+      return [gx / l, gy / l];
+    };
     for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
       const v = d[y * w + x];
       if (Math.abs(v) < half) {
         let gx = d[y * w + x + 1] - d[y * w + x - 1], gy = d[(y + 1) * w + x] - d[(y - 1) * w + x];
         const l = Math.hypot(gx, gy) || 1;
         edge.push((x + 0.5) / TL.GLYPH_EM, (y + 0.5) / TL.GLYPH_EM, -gx / l, -gy / l);
+        if (x > R && y > R && x < w - R - 1 && y < h - R - 1) {
+          // how fast the inward direction converges here: strongly negative at an outward corner
+          const div = (dirAt(x + R, y)[0] - dirAt(x - R, y)[0] + dirAt(x, y + R)[1] - dirAt(x, y - R)[1]) / (2 * R);
+          if (div < -0.07) cand.push([-div, (x + 0.5) / TL.GLYPH_EM, (y + 0.5) / TL.GLYPH_EM, -gx / l, -gy / l]);
+        }
       } else if (v > 0.012 && ((x * 7 + y * 13) % 5) === 0) {
         fill.push((x + 0.5) / TL.GLYPH_EM, (y + 0.5) / TL.GLYPH_EM, 0, 1);
       }
     }
-    return { edge, fill };
+    cand.sort((a, b) => b[0] - a[0]);
+    const corner = [];
+    for (const c of cand) {
+      let near = false;
+      for (let i = 0; i < corner.length && !near; i += 4) near = Math.hypot(corner[i] - c[1], corner[i + 1] - c[2]) < 0.07;
+      if (!near) corner.push(c[1], c[2], c[3], c[4]);
+      if (corner.length >= 4 * 16) break;
+    }
+    return { edge, fill, corner };
   }
 
   TL.Glyphs = class {
@@ -176,10 +196,10 @@
     }
   };
 
-  // The emitter's point list for a laid-out line of letters: 64 x 128 points, the first 64 rows
-  // on the outline and the last 64 inside. Each point: x, y (field em), outward x, y.
+  // The emitter's point list for a laid-out line of letters: 64 x 192 points. Rows 0..63 lie on
+  // the outline, 64..127 inside, 128..191 on corners. Each point: x, y (field em), outward x, y.
   TL.emitterPoints = (letters) => {
-    const W = 64, H = 128, out = new Float32Array(W * H * 4);
+    const W = 64, H = 192, out = new Float32Array(W * H * 4);
     let seed = 0x9e3779b9;
     const rnd = () => { seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
     const fillHalf = (which, row0) => {
@@ -194,7 +214,7 @@
         out[o] = l.x + pts[k]; out[o + 1] = l.y + pts[k + 1]; out[o + 2] = pts[k + 2]; out[o + 3] = pts[k + 3];
       }
     };
-    fillHalf('edge', 0); fillHalf('fill', 64);
+    fillHalf('edge', 0); fillHalf('fill', 64); fillHalf('corner', 128);
     return { w: W, h: H, data: out };
   };
 })();

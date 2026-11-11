@@ -48,7 +48,12 @@
         this.u[name] = { loc: gl.getUniformLocation(p, a.name), type: a.type, size: a.size };
       }
     }
-    use() { this.gl.useProgram(this.p); return this; }
+    use() {
+      const gl = this.gl;
+      gl.useProgram(this.p);
+      if (this.u.uNoise && Program.noise) { gl.activeTexture(gl.TEXTURE7); gl.bindTexture(gl.TEXTURE_2D, Program.noise); gl.uniform1i(this.u.uNoise.loc, 7); }
+      return this;
+    }
     has(name) { return name in this.u; }
     set(name, value) {
       const u = this.u[name]; if (!u) return this;
@@ -78,6 +83,7 @@
       this.gl = gl; this.src = sources; this.programs = new Map();
       this.floatOk = !!gl.getExtension('EXT_color_buffer_float') || !!gl.getExtension('EXT_color_buffer_half_float');
       gl.getExtension('OES_texture_float_linear');
+      Program.noise = this.noiseTexture();
       this.vao = gl.createVertexArray();
       gl.bindVertexArray(this.vao);
       gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
@@ -115,6 +121,13 @@
       if (!ok) throw new Error('this GPU cannot draw into a ' + kind + ' target');
       return { fbo, tex, rb, w, h };
     }
+    // Make the smaller, blurrier copies of a target's picture (a satin surface reads those).
+    mips(t) {
+      const gl = this.gl;
+      gl.bindTexture(gl.TEXTURE_2D, t.tex);
+      gl.generateMipmap(gl.TEXTURE_2D);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    }
     free(t) {
       if (!t) return;
       const gl = this.gl;
@@ -133,6 +146,21 @@
       gl.bindTexture(gl.TEXTURE_2D, tex);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.R16F, w, h, 0, gl.RED, gl.FLOAT, data);
       this.params(gl.LINEAR);
+      return tex;
+    }
+    // The engine's dice: 256 x 256 random bytes, repeating, from a fixed recipe (xorshift32 from
+    // 0x9E3779B9, the top byte of each step) so every device rolls the same picture.
+    noiseTexture() {
+      const gl = this.gl, n = 256, data = new Uint8Array(n * n);
+      let x = 0x9e3779b9 | 0;
+      for (let i = 0; i < n * n; i++) { x ^= x << 13; x ^= x >>> 17; x ^= x << 5; data[i] = x >>> 24; }
+      const tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, n, n, 0, gl.RED, gl.UNSIGNED_BYTE, data);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
       return tex;
     }
     // Four exact floats per texel, never filtered (the emitter's point list).

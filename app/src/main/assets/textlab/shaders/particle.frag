@@ -13,11 +13,11 @@ void main() {
     int kind = int(uPKind.x + 0.5);
     float m;
     if (kind == 1) {
-        // four-point star: a hot centre and two thin crossing rays
+        // a lens glint: a pin of light with one long thin ray sideways and a short one upright
         vec2 q = abs(vQ);
-        float rays = max(exp(-q.y * 26.0) * (1.0 - q.x), exp(-q.x * 26.0) * (1.0 - q.y));
-        m = sat(rays) * 0.8 + exp(-r * r * 22.0) * 1.6;
-        m *= 1.0 - smoothstep(0.85, 1.0, max(q.x, q.y));
+        float across = exp(-q.y * 70.0) * pow(1.0 - q.x, 2.5);
+        float upright = exp(-q.x * 70.0) * pow(1.0 - min(q.y * 2.2, 1.0), 2.5) * 0.55;
+        m = across + upright + exp(-r * r * 90.0) * 2.2;
     } else if (kind == 2) {
         // a drop: dark where it faces the lamp, a bright crescent on the far side, one hard glint
         float body = smoothstep(1.0, 0.86, r);
@@ -25,9 +25,12 @@ void main() {
         float glintDot = exp(-dot(vQ - vec2(-0.36, 0.42), vQ - vec2(-0.36, 0.42)) * 40.0);
         m = body * (0.22 + 1.1 * far) + glintDot * 2.5 * body;
     } else if (kind == 3) {
-        m = exp(-vQ.y * vQ.y * 5.0) * (1.0 - smoothstep(0.6, 1.0, abs(vQ.x))) * exp(-r * r * 1.5);
+        m = exp(-vQ.y * vQ.y * 9.0) * (1.0 - smoothstep(0.5, 1.0, abs(vQ.x))) * exp(-r * r * 1.2);
+    } else if (kind == 4) {
+        // out of focus: a flat disc with a slightly brighter rim; the bigger, the fainter
+        m = smoothstep(1.0, 0.86, r) * (0.55 + 0.45 * smoothstep(0.55, 0.95, r)) * (0.25 + 0.75 * (1.0 - vRand));
     } else {
-        m = exp(-r * r * 4.5) * (1.0 - smoothstep(0.85, 1.0, r));
+        m = exp(-r * r * 5.5) * (1.0 - smoothstep(0.85, 1.0, r));
     }
     float fade = smoothstep(0.0, max(uPCol.y, 1e-3), vAge) * (1.0 - smoothstep(1.0 - max(uPCol.z, 1e-3), 1.0, vAge));
     vec3 col = mix(uPColA, uPColB, sat(vAge * (0.7 + 0.6 * vRand)));

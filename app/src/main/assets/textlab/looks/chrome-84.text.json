@@ -2,23 +2,23 @@
   "format": "joy.text/1",
   "id": "chrome-84",
   "name": "Chrome '84",
-  "family": "Metal",
-  "description": "Mirror chrome with a mountain horizon, deep blue sides, and glints that follow the light.",
+  "family": "Film",
+  "description": "Airbrushed mirror chrome: a far horizon in every letter, a hard key light on the bevels, blue steel sides, over a lit grid at dusk.",
   "sample": "RAPTOR",
   "stage": 4,
-  "font": { "family": "archivo", "weight": 900, "width": 125, "slant": 0.2, "tracking": 0.01, "caps": true },
-  "margin": [ 0.7, 0.7, 0.9, 0.9 ],
+  "font": { "family": "archivo", "weight": 900, "width": 125, "slant": 0.2, "tracking": 0.015, "caps": true },
+  "margin": [ 0.9, 0.9, 0.9, 1.0 ],
   "features": [],
-  "p": { "bevel": 0.04, "bevelHeight": 0.045, "bevelShape": 0.0, "ao": 0.1, "depth": 0.3, "extrudeX": 0.35, "extrudeY": -0.5, "parallax": 0.3, "metal": 1, "fillA": "#ffffff", "fillB": "#ffffff", "fillC": "#ffffff", "envAcross": 0.05, "envUp": 0.8, "envBevel": 0.7, "envTilt": 0.22, "envJag": 0.16, "envJagCount": 5, "stroke": 0.01, "strokeCol": "#dcecff", "strokeMetal": 1, "sideA": "#2f6be0", "sideB": "#04082a", "sideMetal": 0.25, "sweep": 0.5, "sweepEvery": 3.5, "spec": 1.0, "shine": 140, "shadow": 0.6, "shadowSoft": 0.1, "shadowX": 0.05, "shadowY": -0.06, "bloom": 0.7, "bloomThreshold": 1.15, "revealFade": 1 },
-  "sphere": { "ramp": [ [ 0.0, "#eaf5ff" ], [ 0.2, "#3f8fe8" ], [ 0.487, "#01030f" ], [ 0.5, "#ffffff*1.8" ], [ 0.6, "#8fd0ff" ], [ 1.0, "#0b1f7a" ] ], "lamps": [ [ -0.45, 0.62, 0.14, 2.5, "#ffffff" ] ], "rim": "#9fc8ff*0.35" },
+  "p": { "soften": 0.002, "bevel": 0.024, "bevelHeight": 0.03, "bevelShape": 0, "ao": 0.2, "depth": 0.36, "persp": -0.11, "vanishX": 0.5, "vanishY": 0.3, "parallax": 0.25, "metal": 1, "rough": 0, "fillA": "#ffffff", "fillB": "#ffffff", "fillC": "#ffffff", "stroke": 0.007, "strokeCol": "#060c2e", "strokeMetal": 0, "envAcross": 0.06, "envUp": 0.82, "envBevel": 0.62, "envTilt": 0.22, "envJag": 0.17, "envJagCount": 5, "wearEdge": 2.2, "wearScratch": 0.05, "lightX": -0.5, "lightY": 0.65, "lightZ": 0.5, "spec": 0.5, "shine": 220, "sideA": "#3f6fe0", "sideB": "#02051a", "sideMetal": 0.85, "sweep": 0.6, "sweepEvery": 5, "shadow": 0.7, "shadowSoft": 0.14, "shadowX": 0.03, "shadowY": -0.05, "floor": 0.2, "floorLine": 0.36, "floorRipple": 0.1, "floorFade": 4.0, "bloom": 0.32, "bloomThreshold": 1.5, "bloomKnee": 0.6, "spill": 0.15, "streak": 0.55, "streakBlue": 0.5, "vignette": 0.55, "grain": 0.25, "contrast": 1.06, "saturation": 1.2 },
+  "sphere": { "ramp": [ [ 0.0, "#dcefff" ], [ 0.16, "#3f8fe8" ], [ 0.34, "#0b2a8c" ], [ 0.487, "#01020c" ], [ 0.5, "#ffffff*1.7" ], [ 0.57, "#8fd4ff" ], [ 0.78, "#1a4fd0" ], [ 1.0, "#030a3a" ] ], "boxes": [ [ -0.5, 0.66, 0.2, 0.05, -0.3, 0.03, 5.0, "#ffffff", 0.3 ] ], "rim": "#9fc8ff*0.3" },
   "particles": [
     {
-      "count": 150,
-      "p": { "shape": 1, "glint": 1, "twinkle": 0.85, "size": 0.1, "sizeEnd": 1, "life": 2.4, "gain": 6, "colA": "#ffffff", "colB": "#bfe0ff", "fadeIn": 0.3, "fadeOut": 0.5, "share": 0.5 }
+      "count": 44,
+      "p": { "from": 3, "shape": 1, "glint": 1, "twinkle": 0.7, "life": 3.5, "size": 0.2, "sizeEnd": 1, "colA": "#ffffff", "colB": "#bfe0ff", "gain": 3.6, "fadeIn": 0.35, "fadeOut": 0.45, "share": 0.8, "seed": 5 }
     }
   ],
   "motion": {
-    "in": { "each": 0.06, "time": 0.5, "ease": "back", "scale": 1.5, "reveal": [ 0, 0.18 ] },
+    "in": { "each": 0.06, "time": 0.6, "ease": "out", "scale": 1.3, "reveal": [ 0, 0.3 ] },
     "idle": {}
   }
 }

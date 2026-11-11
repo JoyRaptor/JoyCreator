@@ -9,7 +9,7 @@
   const TL = window.TL;
   const ASSETS = '../../app/src/main/assets/textlab/';
   const SHADERS = ['common.glsl', 'quad.vert', 'glyph.vert', 'glyph.frag', 'soften.frag', 'matcap.frag', 'shade.frag',
-    'fire_step.frag', 'fire_draw.frag', 'particle.vert', 'particle.frag', 'bloom_down.frag', 'bloom_up.frag', 'final.frag', 'backdrop.frag', 'copy.frag'];
+    'fire_step.frag', 'fire_draw.frag', 'particle.vert', 'particle.frag', 'bloom_down.frag', 'bloom_up.frag', 'final.frag', 'backdrop.frag', 'copy.frag', 'fxaa.frag'];
   const q = new URLSearchParams(location.search);
   const $ = (id) => document.getElementById(id);
   const fail = (e) => { const el = $('err'); el.style.display = 'block'; el.textContent = String(e && e.stack ? e.message : e); console.error(e); };
@@ -23,7 +23,9 @@
     await Promise.all(SHADERS.map(async (n) => { shaders[n] = await text('shaders/' + n); }));
     const parts = JSON.parse(await text('parts.json'));
     const index = JSON.parse(await text('looks/index.json'));
-    const looks = await Promise.all(index.looks.map(async (f) => JSON.parse(await text('looks/' + f))));
+    // "looks" are the finished ones; "drafts" are kept, unfinished, and shown only with &drafts=1
+    const files = index.looks.concat(q.get('drafts') ? index.drafts || [] : []);
+    const looks = await Promise.all(files.map(async (f) => JSON.parse(await text('looks/' + f))));
     return { shaders, parts, looks, fontUrl: (file) => '../../' + file };
   }
 

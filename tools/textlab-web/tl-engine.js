@@ -81,8 +81,12 @@
       const T = (this.targets = {});
       T.field = glw.target(W, H, 'half', true);
       T.fa = glw.target(W, H, 'half'); T.fb = glw.target(W, H, 'half');
-      T.scene = glw.target(W, H, 'half'); T.back = glw.target(W, H, 'half');
-      T.heat = [glw.target(W / 2, H / 2, 'half'), glw.target(W / 2, H / 2, 'half')];
+      T.scene = glw.target(W, H, 'half'); T.back = glw.target(W, H, 'half'); T.screen = glw.target(W, H, 'byte');
+      // the fire's heat picture has a fixed fineness (640 across at most): the same flame, and the
+      // same cost, whether the picture is a phone preview or a 4K still
+      const hw = Math.min(W / 2, 640), hh = hw * H / W;
+      T.heat = [glw.target(hw, hh, 'half'), glw.target(hw, hh, 'half')];
+      this.heatPx = hw / lay.fieldW;
       T.bloom = [];
       for (let i = 1; i <= 5; i++) T.bloom.push(glw.target(W >> i, H >> i, 'half'));
       const pts = TL.emitterPoints(lay.letters);
@@ -93,18 +97,24 @@
 
     bakeSphere() {
       const s = this.look.sphere || {}, gl = this.gl;
-      const ramp = (s.ramp || [[0, '#101010'], [1, '#f0f0f0']]).slice(0, 6);
-      while (ramp.length < 6) ramp.push([1.0001 + ramp.length * 1e-4, ramp[ramp.length - 1][1]]);
+      const ramp = (s.ramp || [[0, '#101010'], [1, '#f0f0f0']]).slice(0, 8);
+      while (ramp.length < 8) ramp.push([1.0001 + ramp.length * 1e-4, ramp[ramp.length - 1][1]]);
       const lamps = (s.lamps || []).slice(0, 4);
       while (lamps.length < 4) lamps.push([0, 0, 1, 0, '#000000']);
+      // softbox: [x, y, half width, half height, turn, softness, strength, colour, brighter middle]
+      const boxes = (s.boxes || []).slice(0, 4);
+      while (boxes.length < 4) boxes.push([0, 0, 0.1, 0.1, 0, 0.05, 0, '#000000', 0]);
       const p = this.glw.program('quad.vert', 'matcap.frag').use();
       p.set('uRamp', ramp.map((r) => r[1])).set('uRampPos', ramp.map((r) => r[0]));
       p.set('uJag', s.jag || [0.5, 0, 6, 0.08]);
       p.set('uLamp', lamps.map((l) => l.slice(0, 4))).set('uLampCol', lamps.map((l) => l[4]));
+      p.set('uBox', boxes.map((b) => b.slice(0, 4))).set('uBoxB', boxes.map((b) => [b[4], b[5], b[6], b[8] || 0])).set('uBoxCol', boxes.map((b) => b[7]));
+      p.set('uUneven', s.uneven || 0);
       p.set('uStrips', s.strips || [0, 6, 0.55, 0.2]).set('uRimCol', s.rim || '#000000');
       p.set('uIrid', s.irid || [0, 1.5]).set('uGain', s.gain === undefined ? 1 : s.gain);
       gl.disable(gl.BLEND);
       this.glw.pass(this.sphere);
+      this.glw.mips(this.sphere);
       this.sphereDirty = false;
     }
 
@@ -226,7 +236,10 @@
 
       // final
       const fin = glw.program('quad.vert', 'final.frag').use().setAll(U);
-      fin.tex('uScene', T.scene.tex, 0).tex('uBloom', T.bloom[0].tex, 1).tex('uBack', T.back.tex, 2).tex('uHeat', heat.tex, 3);
+      fin.tex('uScene', T.scene.tex, 0).tex('uBloom', T.bloom[0].tex, 1).tex('uBack', T.back.tex, 2).tex('uHeat', heat.tex, 3).tex('uBloomWide', T.bloom[3].tex, 4);
+      glw.pass(T.screen);
+      // smooth the steps left where two lit faces meet
+      glw.program('quad.vert', 'fxaa.frag').use().set('uPx', [1 / W, 1 / H]).tex('uSrc', T.screen.tex, 0);
       glw.pass(null, W, H);
       if (this.debug) {   // show one stage of the pipeline as it is
         const pick = { heat: [heat.tex, 1, 0, 1], field: [field.tex, 4, 0.5, 1], sphere: [this.sphere.tex, 0.5, 0, 0], scene: [T.scene.tex, 0.5, 0, 0], bloom: [T.bloom[0].tex, 0.5, 0, 0] }[this.debug];

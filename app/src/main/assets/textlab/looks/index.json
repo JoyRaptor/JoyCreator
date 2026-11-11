@@ -1,12 +1,16 @@
 {
   "format": "joy.textlooks/1",
+  "about": "looks = finished to the film-poster bar. drafts = kept and unfinished: never shown to a user, never deleted.",
   "looks": [
+    "dark-steel.text.json",
     "chrome-84.text.json",
     "gold-crown.text.json",
+    "neon-sign.text.json",
+    "blaze.text.json"
+  ],
+  "drafts": [
     "liquid-chrome.text.json",
     "steel-plate.text.json",
-    "neon-sign.text.json",
-    "blaze.text.json",
     "spirit-flame.text.json",
     "magma.text.json",
     "water.text.json",

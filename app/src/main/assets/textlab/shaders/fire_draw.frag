@@ -21,15 +21,21 @@ void main() {
     float s = uFireShape.x;
     // fine tongues: tall noise that rides up at the flame's own pace, carved OUT of the soft heat
     vec2 np = vec2(p.x - uTime * uWind.x * 0.8, p.y - uTime * (uFire.x * 0.8 + uWind.y));
-    float n = fbm(np * vec2(s * 2.6, s * 0.9) + vec2(uTime * 0.13, 0.0)) * 0.65
-            + fbm2(np * vec2(s * 6.5, s * 2.2) + vec2(4.0, uTime * 0.21)) * 0.35;
+    float n = tfbm(np * vec2(s * 2.6, s * 0.9) + vec2(uTime * 0.13, 0.0)) * 0.65
+            + tfbm2(np * vec2(s * 6.5, s * 2.2) + vec2(4.0, uTime * 0.21)) * 0.35;
     T -= uFireLook.x * (1.0 - n) * 0.32 * smoothstep(0.0, 0.12, T) * (1.0 - smoothstep(0.55, 1.0, T));
     float inside = smoothstep(0.0, 0.03, texture(uFieldTex, vUv).r);
     float show = 1.0 - inside * (1.0 - uFireFront);
     vec3 flame = fireRamp(T, uFireA, uFireB, uFireC, uFireToon) * uFireLook.y * show;
+    // a flame is a thin sheet of light: brighter round the rim of each tongue, streaked inside
+    float real = 1.0 - uFireToon;
+    float limb = smoothstep(0.07, 0.17, T) * (1.0 - smoothstep(0.17, 0.42, T));
+    float streaks = tfbm2(np * vec2(s * 9.0, s * 1.6) + vec2(1.7, uTime * 0.3));
+    flame *= mix(1.0, 0.72 + 0.6 * streaks, real * smoothstep(0.15, 0.5, T));
+    flame += mix(uFireA, uFireB, 0.6) * limb * 0.55 * real * uFireLook.y * show;
     float hide = smoothstep(0.12, 0.7, T) * uFireLook.w * show;
     float smoke = sat(h.g * uFireLook.z) * (1.0 - smoothstep(0.1, 0.45, T));
-    smoke *= 0.55 + 0.45 * fbm2(np * s * 1.4 + vec2(0.0, uTime * 0.2));
+    smoke *= 0.55 + 0.45 * tfbm2(np * s * 1.4 + vec2(0.0, uTime * 0.2));
     vec3 smokeCol = vec3(0.018, 0.016, 0.015) + uFireB * 0.05 * sat(T * 4.0);
     float a = sat(hide + smoke);
     o = vec4(flame + smokeCol * smoke, a);

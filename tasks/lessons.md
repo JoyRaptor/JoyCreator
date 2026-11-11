@@ -1220,3 +1220,10 @@ as `TIME * knob` are "rate" and the host integrates them.
 - A freed name is not a dead name: delete a GL object once, and clear every record of it when you do. A stale id looks like a real tile.
 - A probe that passes without reaching the bug proves nothing: count whether the condition happened. 32 textures survived, but no name was reused, so the double delete never had a victim.
 - A stricter test that fails is not proof of the bug it was aimed at. Check the control first: two water runs differ by 87 tiles, so 18 more said nothing. I called it proof to the owner and had to take it back.
+
+## 2026-11-11 TextLab: a handful of blockbusters, never a shelf of presets (owner)
+- I showed thirteen looks from one pass. The owner: "early 90s computer graphics", "cute Microsoft presets", desaturated, leaning on glow. The bar for any look is a movie poster.
+- Finish ONE look to that bar before starting the next. Never widen the set while the best one is still weak; a preset nobody would use costs more than a missing one.
+- Glow and bloom are a finish, never the execution. Judge a look with bloom off first; if it is weak then, it is weak.
+- Check colour at the source before blaming the screen: a film curve applied to each colour channel bleaches bright colours toward white. Use one that keeps the hue.
+- What reads as cheap: even flat light, fat 45-degree depth, pastel stages, big star sparkles, a white halo. What reads as film: deep blacks, one hard key light, thin crisp bevels, real studio reflections, small surface wear, restraint.

@@ -17,7 +17,7 @@ float source(vec2 uv, vec2 p) {
     // up < 0 on an edge that faces the sky (distance falls as you go up and out of the letter)
     float facesUp = mix(1.0, smoothstep(0.15, -0.5, up), uFireShape.z);
     float band = smoothstep(-0.012, 0.004, f.r) * (1.0 - smoothstep(0.0, max(uFireShape.y, 1e-3), f.r));
-    float flick = smoothstep(0.2, 0.75, fbm2(p * 7.0 + vec2(uTime * 1.7, -uTime * 3.6)));
+    float flick = smoothstep(0.2, 0.75, tfbm2(p * 7.0 + vec2(uTime * 1.7, -uTime * 3.6)));
     return band * facesUp * flick * uFire.w * 0.85 * f.g;
 }
 
@@ -25,7 +25,7 @@ void main() {
     vec2 p = vUv * uField.xy;
     // how hot it is round here, read from four corners: a single-pixel reading lets alternate
     // rows run at different speeds and the flame combs into stripes
-    vec2 tx = 1.5 / (uField.xy * uField.z * 0.5);
+    vec2 tx = 1.5 / vec2(textureSize(uPrev, 0));
     float here = 0.25 * (texture(uPrev, vUv + tx).r + texture(uPrev, vUv - tx).r
                        + texture(uPrev, vUv + vec2(tx.x, -tx.y)).r + texture(uPrev, vUv - vec2(tx.x, -tx.y)).r);
     float s = uFireShape.x;
@@ -33,11 +33,11 @@ void main() {
     // keeps its own shape as it climbs instead of boiling in place
     vec2 np = vec2(p.x - uTime * uWind.x * 0.8, p.y - uTime * (uFire.x * 0.8 + uWind.y));
     vec2 tall = vec2(s, s * 0.55);
-    vec2 sw = curl(np * tall + vec2(uTime * 0.11, 0.0)) + 0.5 * curl(np * tall * 2.6 + vec2(5.3, uTime * 0.17));
+    vec2 sw = tcurl(np * tall + vec2(uTime * 0.11, 0.0)) + 0.5 * tcurl(np * tall * 2.6 + vec2(5.3, uTime * 0.17));
     vec2 v = vec2(0.0, uFire.x * (0.5 + 0.9 * sat(here))) + uWind + sw * uFire.y;
     vec4 was = texture(uPrev, vUv - v * uDt / uField.xy);
 
-    float tear = fbm(np * tall * 1.9 + vec2(uTime * 0.07, 3.0));
+    float tear = tfbm(np * tall * 1.9 + vec2(uTime * 0.07, 3.0));
     float heat = was.r * exp(-uDt * uFire.z * (0.25 + 2.2 * tear * tear)) - uDt * 0.05 * uFire.z;
     heat = max(heat, 0.0);
     float lost = max(was.r - heat, 0.0);

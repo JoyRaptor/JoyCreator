@@ -57,6 +57,29 @@ vec2 curl(vec2 p) {
     return vec2(a - b, d - c) / (2.0 * e);
 }
 
+// ---- The same noise read from a texture: one tap where vnoise does four hashes. ----
+// uNoise is 256 x 256 random bytes, repeating (the host makes it from a fixed recipe, so it is
+// the same picture on every device). Use these for anything that moves and need not be exact:
+// fire, smoke, drift. Keep vnoise for surface bumps: a texture's 8-bit blend shows as steps
+// in a mirror.
+uniform sampler2D uNoise;
+float tnoise(vec2 p) {
+    vec2 i = floor(p), f = fract(p);
+    return textureLod(uNoise, (i + f * f * (3.0 - 2.0 * f) + 0.5) / 256.0, 0.0).r;
+}
+float tfbm(vec2 p) {
+    float a = 0.5, s = 0.0;
+    for (int i = 0; i < 4; i++) { s += a * tnoise(p); p = p * 2.03 + vec2(17.1, 9.2); a *= 0.5; }
+    return s / 0.9375;
+}
+float tfbm2(vec2 p) { return (tnoise(p) * 2.0 + tnoise(p * 2.03 + vec2(17.1, 9.2))) / 3.0; }
+vec2 tcurl(vec2 p) {
+    const float e = 0.07;
+    float a = tfbm2(p + vec2(0.0, e)), b = tfbm2(p - vec2(0.0, e));
+    float c = tfbm2(p + vec2(e, 0.0)), d = tfbm2(p - vec2(e, 0.0));
+    return vec2(a - b, d - c) / (2.0 * e);
+}
+
 // Cells: x = distance to the nearest seed, y = to the next, z = the cell's own random number.
 vec3 voronoi(vec2 p) {
     vec2 i = floor(p), f = fract(p);
@@ -79,10 +102,10 @@ vec3 hsv2rgb(vec3 c) {
 vec3 fireRamp(float t, vec3 a, vec3 b, vec3 c, float toon) {
     t = max(t, 0.0);
     float w = mix(1.0, 0.06, toon);
-    float k1 = smoothstep(0.30 - 0.22 * w, 0.30 + 0.22 * w, t);
-    float k2 = smoothstep(0.62 - 0.26 * w, 0.62 + 0.26 * w, t);
-    float k0 = smoothstep(0.10 - 0.09 * w, 0.10 + 0.09 * w, t);
-    vec3 col = mix(a * 0.9, b * 2.2, k1);
-    col = mix(col, c * 4.0, k2);
+    float k1 = smoothstep(0.20 - 0.17 * w, 0.20 + 0.17 * w, t);
+    float k2 = smoothstep(0.47 - 0.25 * w, 0.47 + 0.25 * w, t);
+    float k0 = smoothstep(0.07 - 0.06 * w, 0.07 + 0.06 * w, t);
+    vec3 col = mix(a * 0.75, b * 1.35, k1);
+    col = mix(col, c * 2.1, k2);
     return col * k0;
 }

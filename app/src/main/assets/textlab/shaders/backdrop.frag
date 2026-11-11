@@ -1,37 +1,62 @@
-// Scenes to judge a look against, painted with no pictures: what is BEHIND the words.
-// In Studio the real video takes this place; in the room these are the stage to try a look on.
-//   0 black   1 dark studio   2 brick wall at night   3 sea and sky   4 sunset   5 forest lights   6 paper
+// Stages to judge a look against, painted with no pictures: what is BEHIND the words.
+// In Studio the real video takes this place; in the room these are the sets to try a look on.
+// They are dark on purpose: a title is lit against black, the way a film lights one.
+//   0 black            1 dark stage (a pool of haze, a gloss floor)   2 brick wall at night
+//   3 sea and sky      4 dusk grid                                    5 far lights, out of focus
+//   6 paper            7 smoke
 in vec2 vUv;
 out vec4 o;
 uniform float uScene;
+uniform vec3  uStageTint;   // the colour of the room's haze and far light
+uniform vec4  uFloor;       // .y = the floor line, 0..1 up the field (the look's wet-floor line)
 
-float brick(vec2 p, out float mortar) {
-    vec2 g = p * vec2(2.4, 5.2);
+float brick(vec2 p, out float mortar, out vec2 cell) {
+    vec2 g = p * vec2(3.4, 7.6);
     g.x += 0.5 * mod(floor(g.y), 2.0);
-    vec2 id = floor(g), f = fract(g);
+    cell = floor(g);
+    vec2 f = fract(g);
     vec2 e = min(f, 1.0 - f) * vec2(2.2, 1.0);
-    mortar = 1.0 - smoothstep(0.03, 0.09, min(e.x, e.y));
-    return hash21(id);
+    mortar = 1.0 - smoothstep(0.035, 0.085, min(e.x, e.y) + (vnoise(g * 9.0) - 0.5) * 0.03);
+    return hash21(cell);
 }
 
 void main() {
     vec2 p = vUv * uField.xy;
     vec2 cn = vUv * 2.0 - 1.0;
+    float aspect = uField.x / uField.y;
     int s = int(uScene + 0.5);
     vec3 c = vec3(0.0);
-    if (s == 1) {
-        float v = 1.0 - dot(cn * vec2(0.75, 1.0), cn * vec2(0.75, 1.0));
-        c = mix(vec3(0.004, 0.004, 0.006), vec3(0.055, 0.058, 0.07), sat(v));
-        c += vec3(0.02, 0.022, 0.03) * smoothstep(0.42, 0.0, vUv.y) * 0.6;
+    vec2 cc = (vUv - vec2(0.5, 0.56)) * vec2(aspect, 1.0);
+    float pool = exp(-dot(cc * vec2(0.5, 1.15), cc * vec2(0.5, 1.15)) * 3.2);
+    if (s == 1 || s == 7) {
+        float drift = fbm(p * 0.8 + vec2(uTime * 0.02, 0.0));
+        c = vec3(0.0022, 0.0026, 0.0034) + uStageTint * pool * (0.035 + 0.075 * drift);
+        if (s == 7) {
+            float s1 = fbm(p * 0.7 + vec2(uTime * 0.03, -uTime * 0.012));
+            float s2 = fbm(p * 1.8 + vec2(-uTime * 0.05, uTime * 0.02) + s1 * 1.6);
+            float wisps = pow(s2, 2.4) * 1.9;
+            c += uStageTint * wisps * (0.02 + 0.3 * pool);
+        }
+        // a gloss floor: darker, with the haze lying along its far edge
+        float line = uFloor.y;
+        float fl = smoothstep(line + 0.004, line - 0.004, vUv.y);
+        float into = max(line - vUv.y, 0.0);
+        vec3 floorC = c * 0.25 + uStageTint * 0.02 * exp(-into * 11.0) * (0.4 + 0.6 * exp(-cc.x * cc.x * 1.5));
+        floorC *= 0.8 + 0.4 * vnoise(vec2(p.x * 2.0, into * 90.0));
+        c = mix(c, floorC, fl);
     } else if (s == 2) {
-        float mortar; float id = brick(p, mortar);
-        vec3 b = mix(vec3(0.05, 0.022, 0.018), vec3(0.11, 0.05, 0.04), id);
-        b *= 0.6 + 0.8 * fbm(p * 14.0);
-        b = mix(b, vec3(0.03, 0.028, 0.026), mortar);
-        float wall = smoothstep(0.26, 0.3, vUv.y);
-        vec3 floorC = vec3(0.012, 0.012, 0.016) * (0.6 + 0.8 * fbm(p * vec2(3.0, 18.0)));
-        c = mix(floorC, b * 0.5, wall);
-        c *= 0.35 + 0.65 * sat(1.0 - dot(cn, cn) * 0.5);
+        float mortar; vec2 cell; float id = brick(p, mortar, cell);
+        vec3 b = mix(vec3(0.032, 0.013, 0.010), vec3(0.075, 0.030, 0.022), id);
+        b = mix(b, vec3(0.05, 0.045, 0.04), step(0.9, hash21(cell + 7.0)) * 0.5);          // the odd pale brick
+        b *= 0.55 + 0.9 * fbm(p * 26.0) * (0.7 + 0.6 * vnoise(p * 3.0));
+        b = mix(b, vec3(0.012, 0.011, 0.010), mortar);
+        b *= 1.0 - 0.5 * smoothstep(0.45, 0.8, fbm(vec2(p.x * 2.5, p.y * 0.5)));             // soot runs
+        float line = uFloor.y;
+        float wall = smoothstep(line - 0.004, line + 0.004, vUv.y);
+        float into = max(line - vUv.y, 0.0);
+        vec3 floorC = vec3(0.006, 0.006, 0.008) * (0.5 + 1.0 * fbm(vec2(p.x * 5.0, into * 60.0)));
+        c = mix(floorC, b * 0.55, wall);
+        c *= 0.3 + 0.7 * sat(1.0 - dot(cn * vec2(0.8, 1.0), cn * vec2(0.8, 1.0)) * 0.6);
     } else if (s == 3) {
         float hz = 0.46;
         float up = sat((vUv.y - hz) / (1.0 - hz));
@@ -45,20 +70,29 @@ void main() {
         c = mix(sea, sky, smoothstep(hz - 0.003, hz + 0.003, vUv.y));
         c += vec3(0.35, 0.38, 0.4) * exp(-abs(vUv.y - hz) * 70.0);
     } else if (s == 4) {
-        vec3 skyC = mix(vec3(0.9, 0.28, 0.12), vec3(0.08, 0.02, 0.2), sat(vUv.y * 1.3 - 0.2));
-        float sun = smoothstep(0.52, 0.5, length((cn - vec2(0.0, -0.1)) * vec2(uField.x / uField.y, 1.0)));
-        float gy = max(0.36 - vUv.y, 1e-3);
-        vec2 gp = vec2(cn.x / gy * 0.5, 1.0 / gy + uTime * 0.4);
-        float grid = max(smoothstep(0.46, 0.5, abs(fract(gp.x) - 0.5)), smoothstep(0.44, 0.5, abs(fract(gp.y) - 0.5)));
-        vec3 ground = vec3(0.02, 0.0, 0.05) + vec3(0.9, 0.1, 0.6) * grid * sat(gy * 4.0);
-        c = vUv.y > 0.36 ? skyC + vec3(1.0, 0.7, 0.2) * sun * 0.8 : ground;
+        // dusk over a lit grid: thin lines that keep their width as they run to the horizon
+        float hz = 0.36;
+        float up = sat((vUv.y - hz) / (1.0 - hz));
+        vec3 skyC = mix(vec3(0.55, 0.10, 0.22), vec3(0.012, 0.006, 0.05), pow(up, 0.55));
+        skyC += vec3(1.0, 0.35, 0.2) * exp(-up * 9.0) * 0.5;
+        float gy = max(hz - vUv.y, 1e-3);
+        vec2 gp = vec2(cn.x * aspect * 0.35 / gy, 0.6 / gy + uTime * 0.35);
+        vec2 gw = fwidth(gp) * 1.2 + 0.012;
+        float grid = max(1.0 - smoothstep(0.0, gw.x, abs(fract(gp.x + 0.5) - 0.5)),
+                         1.0 - smoothstep(0.0, gw.y, abs(fract(gp.y + 0.5) - 0.5)));
+        vec3 ground = vec3(0.006, 0.002, 0.016) + vec3(0.9, 0.12, 0.55) * grid * sat(gy * 5.0) * exp(-gy * 2.0) * 0.8;
+        c = vUv.y > hz ? skyC : ground;
+        c += vec3(1.0, 0.4, 0.5) * exp(-abs(vUv.y - hz) * 90.0) * 0.5;
     } else if (s == 5) {
-        c = mix(vec3(0.01, 0.03, 0.015), vec3(0.04, 0.1, 0.04), fbm(p * 0.8));
-        for (int i = 0; i < 14; i++) {
+        c = vec3(0.003, 0.003, 0.004) + uStageTint * pool * 0.02;
+        for (int i = 0; i < 26; i++) {
             vec4 r = hash41(float(i) * 3.7 + 1.0);
-            vec2 d = (vUv - r.xy) * uField.xy;
-            float rad = 0.12 + 0.3 * r.z;
-            c += mix(vec3(0.5, 0.75, 0.2), vec3(0.95, 0.85, 0.4), r.w) * 0.16 * smoothstep(rad, rad * 0.8, length(d));
+            vec2 d = (vUv - vec2(r.x, 0.15 + 0.8 * r.y)) * vec2(aspect, 1.0);
+            float rad = 0.035 + 0.11 * r.z * r.z;
+            float disc = smoothstep(rad, rad * 0.9, length(d));
+            float ring = 0.55 + 0.45 * smoothstep(rad * 0.6, rad * 0.95, length(d));
+            vec3 lc = mix(uStageTint, mix(vec3(1.0, 0.62, 0.25), vec3(1.0, 0.9, 0.7), r.w), 0.75);
+            c += lc * disc * ring * 0.035 * (0.4 + r.w) * (0.6 + 0.4 * sin(uTime * (0.5 + r.z) + r.x * 30.0));
         }
     } else if (s == 6) {
         c = vec3(0.86, 0.83, 0.76) * (0.92 + 0.12 * fbm(p * 22.0)) * (0.85 + 0.15 * sat(1.0 - dot(cn, cn) * 0.4));

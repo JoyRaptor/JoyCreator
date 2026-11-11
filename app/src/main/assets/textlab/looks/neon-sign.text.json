@@ -2,20 +2,16 @@
   "format": "joy.text/1",
   "id": "neon-sign",
   "name": "Neon Sign",
-  "family": "Light",
-  "description": "Glass tubes that stutter on letter by letter, light the wall behind them and shine in a wet floor.",
+  "family": "Film",
+  "description": "Glass tubes standing off a brick wall: they stutter on letter by letter, colour the wall behind them and lie in a wet floor.",
   "sample": "NEON",
   "stage": 2,
-  "font": {"family": "archivo", "weight": 700, "width": 100, "tracking": 0.09, "caps": true},
-  "margin": [0.8, 0.7, 0.8, 1.3],
-  "features": ["TUBE"],
-  "p": {
-    "weight": -0.012,
-    "tubeInset": 0.0, "tubeRadius": 0.014, "tubeCore": 3.0, "tubeGain": 2.6, "tubeSplit": 1, "flicker": 0.5,
-    "tubeA": "#ff2d95", "tubeB": "#18b6ff",
-    "glow": 0.45, "glowSize": 0.05,
-    "bloom": 0.7, "bloomThreshold": 1.0, "bloomKnee": 0.5, "spill": 0.8,
-    "floor": 0.55, "floorLine": 0.3, "floorRipple": 0.8, "floorFade": 2.2
-  },
-  "motion": {"in": {"each": 0.22, "time": 0.01, "reveal": [0, 0.9]}, "idle": {}}
+  "font": { "family": "archivo", "weight": 600, "width": 100, "tracking": 0.11, "caps": true },
+  "margin": [ 1.0, 0.9, 1.0, 1.4 ],
+  "features": [ "TUBE" ],
+  "p": { "weight": -0.012, "tubeInset": 0.0, "tubeRadius": 0.0125, "tubeCore": 2.6, "tubeGain": 2.3, "tubeSplit": 1, "flicker": 0.5, "tubeA": "#ff1485", "tubeB": "#00aaff", "glow": 0.5, "glowSize": 0.045, "shadow": 0.7, "shadowSoft": 0.03, "shadowX": 0.03, "shadowY": -0.045, "bloom": 0.5, "bloomThreshold": 1.0, "bloomKnee": 0.5, "spill": 1.3, "floor": 0.5, "floorLine": 0.27, "floorRipple": 0.8, "floorFade": 2.4, "streak": 0.2, "streakBlue": 0.3, "vignette": 0.65, "grain": 0.35, "contrast": 1.06, "saturation": 1.2 },
+  "motion": {
+    "in": { "each": 0.22, "time": 0.01, "reveal": [ 0, 0.9 ] },
+    "idle": {}
+  }
 }

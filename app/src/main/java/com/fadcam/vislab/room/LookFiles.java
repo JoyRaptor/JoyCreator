@@ -87,6 +87,51 @@ final class LookFiles {
         return new Home(new FileJoyFs(c.getFilesDir()), null, FALLBACK_DIR);
     }
 
+    /** The app's own folder, where looks are kept only while the Joy Creator folder is out of reach. */
+    @NonNull
+    static Home fallbackHome(@NonNull Context c) {
+        return new Home(new FileJoyFs(c.getFilesDir()), null, FALLBACK_DIR);
+    }
+
+    /**
+     * Bring home the looks and parts that were made while the Joy Creator folder was out of reach.
+     *
+     * <p>On such a day VisLab keeps working out of the app's own folder. The next time the folder
+     * was there, nothing ever looked in the app's folder again: every look made or changed that
+     * day was gone from VisLab for good, and would have gone with an uninstall (work-loss audit
+     * 2026-11-11). So each file left there is moved into the folder under a free name; one whose
+     * text the folder already holds, or that {@code nothingOfThePersons} says is an untouched
+     * built-in, is simply removed. A file that cannot be moved stays, and is tried again next time.</p>
+     *
+     * @return how many came home
+     */
+    @WorkerThread
+    static int bringHome(@NonNull Home fallback, @NonNull Home folder,
+                         @NonNull java.util.function.Predicate<Found> nothingOfThePersons) {
+        if (folder.folder == null) return 0;
+        int moved = 0;
+        Set<String> have = new HashSet<>();
+        for (Found f : readAll(folder)) have.add(f.text);
+        for (Found f : readParts(folder)) have.add(f.text);
+        for (String ending : new String[]{ENDING, PART_ENDING}) {
+            for (Found f : readAll(fallback, ending)) {
+                try {
+                    if (!have.contains(f.text) && !nothingOfThePersons.test(f)) {
+                        String file = Placement.nameOf(f.rel);
+                        write(folder, null, file.substring(0, file.length() - ending.length()), f.text, ending);
+                        have.add(f.text);
+                        moved++;
+                    }
+                    fallback.fs.delete(f.rel);
+                } catch (IOException | RuntimeException e) {
+                    FLog.w(TAG, "Couldn't bring " + f.rel + " into the Joy Creator folder yet", e);
+                }
+            }
+        }
+        if (moved > 0) saveIndex(folder);
+        return moved;
+    }
+
     /** Every {@code .vis.json} in the looks folder, by file name. Unreadable files are skipped. */
     @WorkerThread
     @NonNull

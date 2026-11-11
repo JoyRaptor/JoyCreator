@@ -1090,7 +1090,7 @@ public class EditorTimelineView extends View {
      * and scrubbing — string-building + regex there was a measurable slice of the main-thread
      * budget on long projects. Constant-false so javac strips the calls; flip locally to debug.
      */
-    private static final boolean VLOG = true;
+    private static final boolean VLOG = false;
 
     // ── §2 item preview images (LANE_BADGES spec) — decode/extract state owned HERE so the
     //    renderer stays pure-draw. All served from these caches; misses kick an async load

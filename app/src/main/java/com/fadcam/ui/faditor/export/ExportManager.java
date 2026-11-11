@@ -3148,13 +3148,24 @@ public class ExportManager {
                 return;
             }
             if (!tmp.renameTo(outFile)) {
-                // rename can refuse over an existing file on some filesystems
-                outFile.delete();
-                if (!tmp.renameTo(outFile)) {
+                // rename can refuse over an existing file on some filesystems. The export is set
+                // ASIDE, not deleted: this used to delete it and then, if the second rename failed
+                // too, delete the louder copy as well, leaving nothing while the log said "keeping
+                // un-normalized export" (code review 2026-11-11).
+                File aside = new File(outFile.getParentFile(), outFile.getName() + ".pre-loudnorm");
+                aside.delete();
+                if (!outFile.renameTo(aside)) {
                     tmp.delete();
                     FLog.e(TAG, "C4/C8 loudnorm commit failed — keeping un-normalized export");
                     return;
                 }
+                if (!tmp.renameTo(outFile)) {
+                    aside.renameTo(outFile);
+                    tmp.delete();
+                    FLog.e(TAG, "C4/C8 loudnorm commit failed — keeping un-normalized export");
+                    return;
+                }
+                aside.delete();
             }
             LoudnessAnalyzer.Result after = LoudnessAnalyzer.measure(outFile);
             lastExportLoudnessAfter = after != null ? after.integratedLUFS : null;
@@ -6373,10 +6384,11 @@ public class ExportManager {
             // Advance by the REAL audio duration: Sonic compresses/stretches, so a sped-up
             // PiP occupies less. Getting this wrong would only ever mis-place the NEXT gap,
             // but that is exactly how a later clip drifts early.
+            // getTrimmedDurationMs() is ALREADY the played length (source span / speed). This
+            // divided by the speed a second time: after a 2x picture-in-picture the cursor stopped
+            // half-way through its sound, so the silence before the NEXT one was too long by the
+            // other half and that one came in late (early after a slowed one). Code review 2026-11-11.
             long dur = Math.max(0, c.getTrimmedDurationMs());
-            if (Math.abs(speed - 1.0f) >= 0.001f && speed > 0) {
-                dur = (long) (dur / speed);
-            }
             cursorMs = startMs + dur;
         }
         if (items.isEmpty()) return null;

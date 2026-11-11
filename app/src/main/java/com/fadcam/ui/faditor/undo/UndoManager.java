@@ -260,6 +260,12 @@ public class UndoManager {
     public boolean amendTopAction(@NonNull EditAction extra) {
         HistoryEntry top = undoStack.peek();
         if (top == null) return false;
+        // A step loaded from disk, an AI step, or any step after a snapshot restore has no action:
+        // it restores by snapshot. Wrapping it called original.execute() on null the first time
+        // the merged step was undone or redone, and turned a snapshot step into an action step
+        // that could not restore anything (code review 2026-11-11). Nothing to merge into: the
+        // caller records the change as a step of its own.
+        if (top.action == null) return false;
         final EditAction original = top.action;
         EditAction combined = new EditAction() {
             @Override public void execute() { original.execute(); extra.execute(); }
@@ -271,6 +277,11 @@ public class UndoManager {
         changedSinceOpen = true;
         notifyListener();
         return true;
+    }
+
+    /** {@link #amendTopAction}, or a step of its own when there is nothing it can be merged into. */
+    public void amendOrRecord(@NonNull EditAction extra) {
+        if (!amendTopAction(extra)) recordAction(extra);
     }
 
     /**

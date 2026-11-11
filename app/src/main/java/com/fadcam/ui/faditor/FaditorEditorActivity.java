@@ -1759,9 +1759,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // reference into an ANR, which is a worse bug than the one being detected.
                 final com.fadcam.ui.faditor.model.FaditorProject scanTarget = project;
                 new Thread(() -> {
-                    com.fadcam.ui.faditor.project.ProjectIntegrity.Report rep =
-                            com.fadcam.ui.faditor.project.ProjectIntegrity.scan(
-                                    getApplicationContext(), scanTarget);
+                    com.fadcam.ui.faditor.project.ProjectIntegrity.Report rep;
+                    try {
+                        rep = com.fadcam.ui.faditor.project.ProjectIntegrity.scan(
+                                getApplicationContext(), scanTarget);
+                    } catch (Throwable t) {
+                        // This thread reads the project while the editor is still opening it. A
+                        // check that only reports must never be the thing that closes the app:
+                        // nothing caught a failure here, and on a plain thread that is a crash.
+                        FLog.w(TAG, "INTEGRITY check did not finish", t);
+                        return;
+                    }
                     if (rep.isClean()) {
                         FLog.i(TAG, "INTEGRITY ok: " + rep.distinctSources + " source(s) readable");
                         return;
@@ -3216,7 +3224,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         final long afterOut = Math.min(beforeOut,
                                 oc.getInPointMs() + Math.max(1L, trimToMs));
                         oc.setOutPointMs(afterOut);
-                        undoManager.amendTopAction(new EditActions.LambdaAction(
+                        undoManager.amendOrRecord(new EditActions.LambdaAction(
                                 "Trim to fit",
                                 () -> trimmed.setOutPointMs(afterOut),
                                 () -> trimmed.setOutPointMs(beforeOut)));
@@ -6045,7 +6053,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         for (AudioClip ac : tl.getAudioClips()) after.put(ac.getId(), ac.getLayerId());
         FLog.i(TAG, "lane invariant: separated " + moved + " overlapping object(s)");
-        undoManager.amendTopAction(new EditActions.LambdaAction(getString(R.string.studio_label_separate_overlapping_objects),
+        undoManager.amendOrRecord(new EditActions.LambdaAction(getString(R.string.studio_label_separate_overlapping_objects),
                 () -> applyLaneMap(after), () -> applyLaneMap(before)));
     }
 
@@ -9933,6 +9941,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
 
         Uri videoUri = clip.getSourceUri();
+        // The clip the audio is taken FROM, by id: the work takes seconds and the selection can move.
+        final String extractFromClipId = clip.getId();
         Toast.makeText(this, R.string.faditor_audio_extracting, Toast.LENGTH_SHORT).show();
 
         audioExecutor.execute(() -> {
@@ -10014,7 +10024,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 audioClip.setWaveform(waveform);
 
                 runOnUiThread(() -> {
-                    Clip srcClip = getSelectedClip();
+                    // The editor may have closed while this ran: nothing to add the sound to.
+                    if (isFinishing() || isDestroyed() || project == null) return;
+                    // The clip it was taken from. This used to ask for the SELECTED clip here, after
+                    // seconds of work: tap another clip meanwhile and that one was muted instead,
+                    // the source kept its sound (now doubled), and Undo restored the wrong clip
+                    // (code review 2026-11-11).
+                    Clip srcClip = findClipById(extractFromClipId);
                     // Capture pre-extraction state for undo
                     boolean prevMuted = srcClip != null && srcClip.isAudioMuted();
                     float prevVolume = srcClip != null ? srcClip.getVolumeLevel() : 1.0f;
@@ -10034,13 +10050,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     if (srcClip != null) {
                         srcClip.setAudioMuted(true);
                         srcClip.setVolumeLevel(0f);
-                        playerManager.setVolume(0f);
-                        updateVolumeUI(0f, true);
+                        // The player and the volume control show the SELECTED clip: touch them only
+                        // when that is the clip just muted.
+                        if (srcClip == getSelectedClip()) {
+                            playerManager.setVolume(0f);
+                            updateVolumeUI(0f, true);
+                        }
                         FLog.i(TAG, "Auto-muted video clip after audio extraction: "
                                 + "audioMuted=" + srcClip.isAudioMuted()
                                 + ", volumeLevel=" + srcClip.getVolumeLevel());
                     } else {
-                        FLog.w(TAG, "Could not auto-mute: getSelectedClip() returned null");
+                        FLog.w(TAG, "Could not auto-mute: the clip the audio came from is gone");
                     }
 
                     updateAudioToolUI();
@@ -10089,8 +10109,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
             ByteBuffer[] outputBuffers = codec.getOutputBuffers();
             MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
 
-            // Collect all decoded PCM samples (short values)
-            List<Short> allSamples = new ArrayList<>();
+            // Peaks of short runs of samples, as plain ints. This used to keep EVERY sample as a
+            // boxed Short in a list: about 24 bytes each, so five minutes of stereo was over 600 MB
+            // and the app died of it (an Error, which the catch below does not catch). Code review
+            // 2026-11-11. A run is 64 samples (about 1 ms): far finer than any bar drawn from it.
+            final int run = 64;
+            int[] runPeaks = new int[8192];
+            int runCount = 0, inRun = 0, runPeak = 0;
+            long totalSamples = 0;
             boolean inputDone = false;
             boolean outputDone = false;
 
@@ -10124,7 +10150,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     outBuf.limit(info.offset + info.size);
                     ShortBuffer shorts = outBuf.asShortBuffer();
                     while (shorts.hasRemaining()) {
-                        allSamples.add(shorts.get());
+                        int a = Math.abs((int) shorts.get());
+                        if (a > runPeak) runPeak = a;
+                        totalSamples++;
+                        if (++inRun == run) {
+                            if (runCount == runPeaks.length) runPeaks = java.util.Arrays.copyOf(runPeaks, runCount * 2);
+                            runPeaks[runCount++] = runPeak;
+                            runPeak = 0;
+                            inRun = 0;
+                        }
                     }
                     codec.releaseOutputBuffer(outIdx, false);
                 } else if (outIdx == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED) {
@@ -10136,28 +10170,29 @@ public class FaditorEditorActivity extends AppCompatActivity {
             codec.release();
             extractor.release();
 
-            if (allSamples.isEmpty()) return null;
+            if (inRun > 0) {
+                if (runCount == runPeaks.length) runPeaks = java.util.Arrays.copyOf(runPeaks, runCount + 1);
+                runPeaks[runCount++] = runPeak;
+            }
+            if (totalSamples == 0 || runCount == 0) return null;
 
             // Downsample to PEAK bins. W1 accuracy (JoyRaptor 2026-07-06): store the peak (max |sample|)
             // per bin, NOT the mean — averaging smeared out onsets/transients so words couldn't be
             // lined up by ear. Resolution scales with duration (~60 bins/sec, capped) so a long clip
             // isn't crushed into a coarse 800-bin smear; short clips keep the caller's fine target.
-            int totalSamples = allSamples.size();
             int channels = 1;
             try { channels = Math.max(1, format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)); } catch (Exception ignore) {}
             int sampleRate = 44100;
             try { sampleRate = Math.max(8000, format.getInteger(MediaFormat.KEY_SAMPLE_RATE)); } catch (Exception ignore) {}
             float durationSec = (totalSamples / (float) channels) / sampleRate;
             int target = Math.max(targetSamples, Math.min(6000, Math.round(durationSec * 60f)));
-            int samplesPerBin = Math.max(1, totalSamples / target);
-            int[] waveform = new int[Math.min(target, totalSamples)];
+            int[] waveform = new int[Math.min(target, runCount)];
             for (int i = 0; i < waveform.length; i++) {
-                int start = i * samplesPerBin;
-                int end = Math.min(start + samplesPerBin, totalSamples);
+                int start = (int) ((long) i * runCount / waveform.length);
+                int end = Math.max(start + 1, (int) ((long) (i + 1) * runCount / waveform.length));
                 int peak = 0;
-                for (int j = start; j < end; j++) {
-                    int a = Math.abs(allSamples.get(j));
-                    if (a > peak) peak = a;
+                for (int j = start; j < end && j < runCount; j++) {
+                    if (runPeaks[j] > peak) peak = runPeaks[j];
                 }
                 // Normalise to 0–255.
                 waveform[i] = (int) Math.min(255, ((long) peak * 255) / 32768);
@@ -20910,6 +20945,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 @Override public boolean isCancelled() { return cancelled.get(); }
             });
             runOnUiThread(() -> {
+                // The copy can take minutes: the editor may be gone, and a dialog on a closed
+                // screen is a crash. The work itself is already saved by the consolidator.
+                if (isFinishing() || isDestroyed()) {
+                    try { pd.dismiss(); } catch (RuntimeException ignored) { }
+                    return;
+                }
                 pd.dismiss();
                 if (res.cancelled) {
                     android.widget.Toast.makeText(this, R.string.studio_toast_consolidate_cancelled_project_still_works, android.widget.Toast.LENGTH_LONG).show();
@@ -34006,7 +34047,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // textOverlayAddRecorded from a PREVIOUS close must not pull unrelated entries under
         // this one — an amend targets whatever is top, which may be an unrelated edit.
         if (session.addUndoRecordedHere) {
-            undoManager.amendTopAction(act);
+            undoManager.amendOrRecord(act);
         } else {
             undoManager.recordAction(act);
         }

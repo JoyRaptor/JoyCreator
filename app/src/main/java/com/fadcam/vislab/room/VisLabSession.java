@@ -765,6 +765,13 @@ public final class VisLabSession {
             LookFiles.Home h = LookFiles.home(app);
             home = h;
             SharedPreferences p = prefs();
+            // Looks made on a day the Joy Creator folder was out of reach come home first, so the
+            // read below finds them (LookFiles.bringHome).
+            if (h.folder != null) {
+                int came = LookFiles.bringHome(LookFiles.fallbackHome(app), h,
+                        f -> untouchedBuiltIn(f.text, factoryCopy, p));
+                if (came > 0) FLog.i(TAG, came + " look(s) made while the folder was out of reach are now in it");
+            }
             SharedPreferences.Editor ed = p.edit();
             Map<String, VisScene> mine = new LinkedHashMap<>();   // id -> look read from a file
             Map<String, String> text = new HashMap<>();            // id -> that file's text
@@ -821,6 +828,23 @@ public final class VisLabSession {
                 takeIn(mine, text);
             });
         });
+    }
+
+    /** A look file that is only the app's own copy of a built-in look, never changed by the person. */
+    private static boolean untouchedBuiltIn(@NonNull String text, @NonNull Map<String, String> factoryText,
+                                            @NonNull SharedPreferences p) {
+        try {
+            JsonObject o = JsonParser.parseString(text).getAsJsonObject();
+            if (!o.has("id") || !o.get("id").isJsonPrimitive()) return false;
+            String id = o.get("id").getAsString();
+            String now = factoryText.get(id);
+            if (now == null) return false;
+            if (now.equals(text)) return true;
+            String copied = p.getString(PREF_FACTORY + id, null);
+            return copied != null && copied.equals(fingerprint(text));
+        } catch (RuntimeException e) {
+            return false;   // not readable as a look: not ours to throw away
+        }
     }
 
     /** Main thread: the folder's looks replace and join the built-ins. */

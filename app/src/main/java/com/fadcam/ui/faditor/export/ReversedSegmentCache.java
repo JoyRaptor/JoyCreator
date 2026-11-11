@@ -161,6 +161,12 @@ public class ReversedSegmentCache {
 
         FLog.i(TAG, "Baking reversed segment [" + inPointMs + "," + outPointMs + "]ms -> "
                 + out.getName());
+        // Baked under another name and moved into place only when whole (code review 2026-11-11).
+        // It was written straight to its final name: an export or app closed part-way through left
+        // a cut-off file, any file over 1 KB counts as cached, and every later preview and export
+        // of that clip played the cut-off piece. The name keeps its ending so ffmpeg knows the format.
+        final File finalOut = out;
+        out = new File(finalOut.getParentFile(), "part-" + finalOut.getName());
         String[] attempts = buildCommandChain(inputFile.getAbsolutePath(),
                 out.getAbsolutePath(), inPointMs, outPointMs);
         long t0 = System.currentTimeMillis();
@@ -173,11 +179,17 @@ public class ReversedSegmentCache {
                 FFmpegSession session = FFmpegKit.execute(cmd);
                 if (ReturnCode.isSuccess(session.getReturnCode())
                         && out.exists() && out.length() >= 1024) {
+                    if (finalOut.exists()) finalOut.delete();
+                    if (!out.renameTo(finalOut)) {
+                        FLog.w(TAG, "Reverse bake could not be moved into place: " + finalOut.getName());
+                        out.delete();
+                        return null;
+                    }
                     FLog.i(TAG, "Reverse bake OK via attempt " + (attempt + 1) + " ("
-                            + ATTEMPT_NAMES[attempt] + "): " + out.getName() + " ("
-                            + (out.length() / 1024) + " KB) in "
+                            + ATTEMPT_NAMES[attempt] + "): " + finalOut.getName() + " ("
+                            + (finalOut.length() / 1024) + " KB) in "
                             + (System.currentTimeMillis() - t0) + "ms");
-                    return out;
+                    return finalOut;
                 }
                 FLog.w(TAG, "Reverse bake attempt " + (attempt + 1) + " ("
                         + ATTEMPT_NAMES[attempt] + ") FAILED rc=" + session.getReturnCode()

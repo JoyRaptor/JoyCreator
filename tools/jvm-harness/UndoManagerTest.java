@@ -558,6 +558,36 @@ public class UndoManagerTest {
                     true, um4.canUndo());
         }
 
+        // ── A follow-up change cannot be merged into a step that restores by snapshot ───────
+        // (code review 2026-11-11). A step loaded from disk has no action; wrapping it called
+        // execute()/undo() on null the first time the merged step was undone.
+        {
+            Model m = new Model("now");
+            UndoManager um = new UndoManager();
+            um.setSnapshotRestorer(new FakeRestorer(m));
+            List<String> d = new ArrayList<>(), s = new ArrayList<>();
+            d.add("from last time"); s.add("before");
+            um.loadHistory(d, s, new ArrayList<>());
+            um.resetBaseline();
+            StringBuilder log = new StringBuilder();
+            boolean amended = um.amendTopAction(act(log, "X", "x", "follow-up"));
+            eqB("amend: a snapshot step is not merged into", false, amended);
+            eqI("amend: the snapshot step is left as it was", 1, um.getUndoCount());
+
+            um.amendOrRecord(act(log, "Y", "y", "follow-up"));
+            eqI("amendOrRecord: the change becomes a step of its own", 2, um.getUndoCount());
+            boolean threw = false;
+            try {
+                um.undo();                                    // the follow-up
+                um.undo();                                    // the snapshot step
+            } catch (RuntimeException e) {
+                threw = true;
+            }
+            eqB("amend: undoing both does not crash", false, threw);
+            eq("amend: the follow-up was undone by its action", "y", log.toString());
+            eq("amend: the snapshot step restored its snapshot", "before", m.state);
+        }
+
         System.out.println("\n" + pass + " passed, " + fail + " failed");
         if (fail > 0) System.exit(1);
     }

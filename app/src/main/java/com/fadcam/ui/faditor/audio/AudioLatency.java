@@ -49,13 +49,30 @@ public final class AudioLatency {
 
     private AudioLatency() {}
 
+    // The answer is asked for on EVERY playhead tick (20 times a second while playing), and working
+    // it out asks Android for the list of audio devices twice and for two system properties: four
+    // calls into another process per tick, on the main thread (code review 2026-11-11; the measured
+    // value that would have made it cheap is never filled in, nothing calls sampleFromAudioTrack).
+    // So the answer is kept for a moment. A change of device, of the user's offset or a new
+    // measurement drops it at once; the short life covers a device change nobody told us about.
+    private static final long KEEP_MS = 2000;
+    private static volatile boolean keptValid;
+    private static volatile int kept;
+    private static volatile long keptAtMs;
+
     /** ms to SUBTRACT from decoder position to get what the user hears. 0 when paused. */
     public static int outputLatencyMs(@NonNull Context ctx) {
+        long now = android.os.SystemClock.uptimeMillis();
+        if (keptValid && now - keptAtMs < KEEP_MS) return kept;
         int base = measuredLatencyMs(ctx);
         int user = userOffsetMs(ctx);
         int total = base + user;
         // Clamp to sane range so a wild estimate doesn't pull playhead off-screen.
-        return Math.max(-500, Math.min(800, total));
+        int answer = Math.max(-500, Math.min(800, total));
+        kept = answer;
+        keptAtMs = now;
+        keptValid = true;
+        return answer;
     }
 
     /** Measured or estimated base latency (without user offset). */
@@ -108,6 +125,7 @@ public final class AudioLatency {
         int clamped = Math.max(-500, Math.min(500, ms));
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                 .edit().putInt(KEY_USER_OFFSET, clamped).apply();
+        keptValid = false;
         FLog.d(TAG, "userOffset set to " + clamped + " ms");
     }
 
@@ -139,6 +157,7 @@ public final class AudioLatency {
                         long median = latencies.get(latencies.size() / 2);
                         String key = currentDeviceKey(ctx);
                         measuredCache.put(key, (int) median);
+                        keptValid = false;
                         FLog.d(TAG, "measured latency " + median + " ms on " + key + " (" + latencies + ")");
                     }
                 }
@@ -150,6 +169,7 @@ public final class AudioLatency {
     /** Invalidate cache on device change. */
     public static void invalidateCache() {
         measuredCache.clear();
+        keptValid = false;
         FLog.d(TAG, "latency cache invalidated (device change)");
     }
 

@@ -351,6 +351,17 @@ layers, and a floating visualiser over other apps. Lead docs: `tasks/VISLAB_SPEC
 | Video inside a look: one of your videos playing in a look, round and round, with the picture's pump, shake, halo and colour split. Where: the room's editor, Add a layer, Video clip (or Use a video on any picture layer) | 🟡 ✔ | Agent phone-tested 10-28 (R12): plays in the room at 50-53 fps; in Studio a look's own video runs on the look's clock. Frames from Studio's forward decoder (`export/SequentialFrameReader`) at 540 px, `vislab/room/Videos`. The web look book has Video clip and "Use a video" too (10-28). Help `vislab_video` (Joybot HelpBook) |
 | Element packs for VisLab from other people (looks and parts as plugins) | 🔵 | Designed in VISLAB_TODO section F; not on the VisLab roadmap yet |
 
+## 5.55 TEXTLAB — film-poster title text (2026-11-11, name pending)
+
+Words made of chrome, gold, steel, neon and fire, lit like a film title. A PILOT so far: the looks are real and run on the
+phone's GPU, but nothing is in the app. Job card: `tasks/jobs/TEXT-1_textlab.md`. Do not promote; no help mapping yet.
+
+| Feature | Level | Notes |
+|---|---|---|
+| Look engine: letters as distance pictures, bevel / raised frame / sides, material sphere with studio softboxes, cast shadow, wear, fire, particles off any outline, film finish | 🔵 pilot ✔ | Shader files in `app/src/main/assets/textlab/shaders/` (written once, for the web look book and the app); knobs in `parts.json`. Runs in the look book `tools/textlab-web/`. All five looks ran on the Note 9's GPU through its Chrome 11-11 (11 to 35 ms a frame at 1280 wide, 25.1 °C before and after); no app engine yet |
+| Five hero looks: Dark Steel, Chrome '84, Gold Crown, Neon Sign, Blaze; nine drafts kept and hidden | 🔵 pilot ✔ | `app/src/main/assets/textlab/looks/` (`index.json`: looks and drafts). The owner has not yet judged the rebuilt five; his bar is a film poster (lessons 2026-11-11) |
+| A look as a one-tap style on text in Studio, VisLab and JoyBrush; the TextLab room on the phone | 🔵 | Planned on the card; reusable for others: the particle emitter (any shape's outline), the fire, the material sphere |
+
 ## 5.6 JOYBRUSH ENGINE — current feature families (October26)
 
 [Mandatory roadmap](joybrush/ROADMAP.md) owns broad progress;

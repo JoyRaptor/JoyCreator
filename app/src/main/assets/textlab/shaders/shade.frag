@@ -347,7 +347,7 @@ void main() {
             n = normalize(vec3(n.xy - dg * uDetail.z * (1.0 - trim), n.z));
 #endif
             // brushed grain: fine streaks that tip the surface a hair, so highlights smear along it
-            float grain = vnoise(vec2(q.x * 9.0, q.y * 520.0)) - 0.5;
+            float grain = tnoise(vec2(q.x * 9.0, q.y * 520.0)) - 0.5;
             n = normalize(vec3(n.x, n.y + grain * 0.22 * uWear.w * (1.0 - trim * 0.6), n.z));
 
             vec3 alb = fillAt(f.a);
@@ -373,11 +373,11 @@ void main() {
                 lit *= 1.0 - uCast * onFace * castShadow(q, heightAt(d));
             }
             // wear: grime gathers low and in corners; scratches catch the light
-            float dirt = smoothstep(0.35, 0.8, fbm(q * 5.0 + 3.0));
+            float dirt = smoothstep(0.35, 0.8, tfbm(q * 5.0 + 3.0));
             lit *= 1.0 - uWear.z * (0.45 * dirt + 0.4 * (1.0 - smoothstep(0.0, max(uBevel, aw) * 2.0, d)));
             col *= mix(1.0, lit, 1.0 - uUnlit);
-            float scr = smoothstep(0.80, 0.97, vnoise(rot(0.5) * q * vec2(310.0, 5.0)))
-                      + smoothstep(0.84, 0.98, vnoise(rot(-0.9) * q * vec2(220.0, 7.0)));
+            float scr = smoothstep(0.80, 0.97, tnoise(rot(0.5) * q * vec2(310.0, 5.0)))
+                      + smoothstep(0.84, 0.98, tnoise(rot(-0.9) * q * vec2(220.0, 7.0)));
             col += (E * 0.6 + 0.04) * scr * uWear.y * (0.3 + 0.7 * metal);
             // the catch-light: a hair-thin bright line where a slope meets a flat, on the lamp's side
             float crest = exp(-sq((d - uBevel) / (1.3 * aw)));
@@ -434,7 +434,7 @@ void main() {
             float k = uSideBands > 0.5 ? min(floor(dz * uSideBands), uSideBands - 1.0) / max(uSideBands - 1.0, 1.0) : dz;
             vec3 sc = mix(uSideA, uSideB, k);
             float ndl = 0.3 + 0.7 * max(dot(n, L), 0.0);
-            float grain = vnoise(vec2(dot(q, vec2(-gn.y, gn.x)) * 9.0, z * 520.0)) - 0.5;
+            float grain = tnoise(vec2(dot(q, vec2(-gn.y, gn.x)) * 9.0, z * 520.0)) - 0.5;
             vec3 E = envAt(n, c, q, uRough * 0.8 + 0.1);
             col = mix(mix(sc * ndl, sc, uUnlit), E * sc * (1.0 + grain * 0.5 * uWear.w), uSideMetal);
             col *= 1.0 - uAO * 0.6 * smoothstep(0.0, 0.25, dz) * (1.0 - uUnlit);

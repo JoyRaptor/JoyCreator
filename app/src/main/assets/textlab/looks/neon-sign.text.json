@@ -9,7 +9,7 @@
   "font": { "family": "archivo", "weight": 600, "width": 100, "tracking": 0.11, "caps": true },
   "margin": [ 1.0, 0.9, 1.0, 1.4 ],
   "features": [ "TUBE" ],
-  "p": { "weight": -0.012, "tubeInset": 0.0, "tubeRadius": 0.0125, "tubeCore": 2.6, "tubeGain": 2.3, "tubeSplit": 1, "flicker": 0.5, "tubeA": "#ff1485", "tubeB": "#00aaff", "glow": 0.5, "glowSize": 0.045, "shadow": 0.7, "shadowSoft": 0.03, "shadowX": 0.03, "shadowY": -0.045, "bloom": 0.5, "bloomThreshold": 1.0, "bloomKnee": 0.5, "spill": 1.3, "floor": 0.5, "floorLine": 0.27, "floorRipple": 0.8, "floorFade": 2.4, "streak": 0.2, "streakBlue": 0.3, "vignette": 0.65, "grain": 0.35, "contrast": 1.06, "saturation": 1.2 },
+  "p": { "weight": -0.012, "tubeInset": 0.0, "tubeRadius": 0.0125, "tubeCore": 5.0, "tubeGain": 2.0, "tubeSplit": 1, "flicker": 0.5, "tubeA": "#ff0a78", "tubeB": "#0096ff", "glow": 0.7, "glowSize": 0.04, "shadow": 0.7, "shadowSoft": 0.03, "shadowX": 0.03, "shadowY": -0.045, "bloom": 0.38, "bloomThreshold": 1.15, "bloomKnee": 0.5, "spill": 1.6, "floor": 0.5, "floorLine": 0.27, "floorRipple": 0.8, "floorFade": 2.4, "streak": 0.2, "streakBlue": 0.3, "vignette": 0.65, "grain": 0.35, "contrast": 1.06, "saturation": 1.3 },
   "motion": {
     "in": { "each": 0.22, "time": 0.01, "reveal": [ 0, 0.9 ] },
     "idle": {}

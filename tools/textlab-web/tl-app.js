@@ -17,7 +17,9 @@
   window.addEventListener('unhandledrejection', (e) => fail(e.reason));
 
   async function loadAssets() {
-    if (window.TL_ASSETS) return window.TL_ASSETS;   // the one-file build carries them inside
+    if (window.TL_ASSETS) {   // the one-file build carries everything inside, fonts too
+      return Object.assign({ fontUrl: (file) => window.TL_ASSETS.fonts[file] }, window.TL_ASSETS);
+    }
     const text = (p) => fetch(ASSETS + p).then((r) => { if (!r.ok) throw new Error('missing ' + p); return r.text(); });
     const shaders = {};
     await Promise.all(SHADERS.map(async (n) => { shaders[n] = await text('shaders/' + n); }));

@@ -23,6 +23,7 @@
   };
   TL.loadFonts = async (urlOf) => {
     for (const f of Object.values(TL.FONTS)) {
+      if (!urlOf(f.file)) continue;   // a one-file build carries only the fonts its looks use
       try {
         const face = new FontFace(f.css, 'url(' + urlOf(f.file) + ')', { weight: f.weight, stretch: f.stretch || 'normal' });
         document.fonts.add(await face.load());

@@ -1,6 +1,6 @@
 # STU-4: Studio sweep leftovers
 
-**Milestone:** M1  ·  **State:** 🔨 re-checked 10-28 (code scout + Note 9 agent pass 4): most items already fixed; three new bugs found  ·  **Owner:** lead  ·  **Checked:** 2026-10-28
+**Milestone:** M1  ·  **State:** 🟡 11-10: the 10-28 red items fixed and built, partly phone-checked (see "Fixed 11-10"); was 🔨 re-checked 10-28 (code scout + Note 9 agent pass 4): most items already fixed; three new bugs found  ·  **Owner:** lead  ·  **Checked:** 2026-11-10
 
 ## Why it matters
 Small rough edges the device sweeps found. Each one is the kind of thing that makes an app feel unfinished.
@@ -22,7 +22,7 @@ Small rough edges the device sweeps found. Each one is the kind of thing that ma
 - ✅ (fixed 11-10, below) ~~**Open:**~~ after a Fix audio cache hit the waveform keeps the unfixed look; Clean acts on the video clip because selecting an audio clip leaves the video clip selected too; the editor title's tap does not open Rename (hold does).
 - ✅ (fixed 11-10, below) ~~**New:**~~ the toolbar's last button "Edit" toggles to "Done" with no visible effect; after closing a text drawer, tapping the clip or preview doesn't reopen it (hold does, since 10-28).
 
-## Fixed 11-10 (Studio bugs session, commit 99f8b3ad5 on `claude/studio-bugs-20261110-f15370`)
+## Fixed 11-10 (Studio bugs session, commits 99f8b3ad5 + 3422a7a5a on `claude/studio-bugs-20261110-f15370`)
 - ✅ **Fix audio waveform stays unfixed.** Root cause was bigger than the waveform: a Fix/Clean bake wrote only
   the clip's slice, starting at 0, while the clip kept its in-point. On any trimmed or split clip the fixed sound
   played EARLY by the in-point and ran out before the out-point (ffmpeg on the PC: a beep at 9 s landed at 2 s),
@@ -53,7 +53,13 @@ Small rough edges the device sweeps found. Each one is the kind of thing that ma
   step is undone too; if Android recreated the Studio while the chat was open, the editor's "before" already holds
   the mark. Both go away if the chat's Step.before carries the marks (`MarkerWorkspaceStore.toSnapshotJson` under the
   editor's undo key): a Joybot-lane change, not made here. No sidecar save code was changed.
-- Proof: BUILD PENDING; phone check PENDING (see below).
+- Proof: APK built 11-10 13:54 (and again after the audio-Clean wording). Puppet/sprite hover strings (ANI-1 C7) compile
+  with it, nothing broke. Note 9 11-10, throwaway project "Untitled 3": ✅ one tap on the title opens Rename; ✅ Edit puts
+  every tool on a raised pill with the hint, Done removes them; ✅ selecting a song lights the audio tools and Clean opens
+  on it (a 1:25 song has no gaps, so no cut to see); ✅ a swipe on the film took the selection back from the song.
+  Not seen on the phone: the audio cut itself, the text-drawer reopen tap (the phone was taken by another session
+  mid-test), Fix audio's waveform, Joybot add_marker undo (needs the bridge). The test sound `stu4_gaps_test.m4a`
+  (2 s tone / 2 s silence) is in the Note 9's Downloads for the next check.
 - Found, not fixed (outside UI/undo, or not reached): the Clean tab code in `AudioDrawerTabs.cleanTab` is never
   called (the Fix toast says "Revert in Clean tab", which does not exist); inside it, undoing a bake deletes the baked
   file, so Redo would point at a missing file, and Revert's redo uses a bare path. Audio clips' cut spans

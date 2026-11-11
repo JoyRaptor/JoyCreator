@@ -46,6 +46,8 @@ uniform float u_lift;           // 1/s
 uniform float u_stainCarry;
 uniform float u_heightMean;
 uniform float u_useInput;       // 1 on the step that consumes the brush input
+uniform float u_fullMm;         // a puddle this deep counts as "as wet as a full brush" (jb_wet_dab.frag)
+uniform float u_inputCap;       // 1: a frame's dabs together wet the paper no further than dab after dab would (the wet sheet)
 uniform float u_edgeDep;        // pigment drops out faster at the drying edge (contact-line deposition)
 uniform float u_mingle;         // pigment spreading through connected water (cells²/s): wet-in-wet colour mixing
 uniform sampler2D u_waterBake;  // R = paper height smoothed to fibre scale
@@ -126,6 +128,18 @@ void main() {
             pig *= 1.0 - take;
             w = max(0.0, w + i0.r);
         } else if (i0.r > 0.0) {
+#ifndef JB_WET_COARSE
+            // The dabs drawn in one frame all met the paper as it was before any of them, so where they overlap their water
+            // added up as it never would dab after dab: each later dab meets wetter paper and gives less, and the paper ends
+            // as wet as the brush (its wetness of a full puddle). A quick stroke was laid in scallops, one a frame, their
+            // middles three times as wet as their joins. With u_inputCap a frame's dabs wet the paper no further than that
+            // same end: the dabs' own wetness (i1.b / i0.r, weighted by what each gave) of a full puddle; what is cut is
+            // cut from the pigment that came with it.
+            if (u_inputCap > 0.5 && i1.b > 0.0) {
+                float k = min(1.0, max(i1.b / i0.r * u_fullMm - w, 0.0) / i0.r);
+                i0 *= k; i1 *= k;
+            }
+#endif
             w += i0.r;
             if (w > u_minMm) age = 0.0;
         }

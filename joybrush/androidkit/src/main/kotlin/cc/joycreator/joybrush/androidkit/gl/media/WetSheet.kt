@@ -767,10 +767,11 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
 
         /**
          * How strongly the paper's fine grain is worked into the sheet's look where a cell is wider than a pixel
-         * (GlPaintEngine.LayerOverlay.grain, times the brush's own granulation): 1 = as tuned on the Note 9, 0 = the plain
-         * smooth look. The bench's `jb_sheet_grain`.
+         * (GlPaintEngine.LayerOverlay.grain, times the brush's own granulation): 0 = the plain smooth look, 1 = strong.
+         * 0.5 reads as paper at 100 % without looking sandy at the zoom it was painted at (Note 9, 2026-11-11; the owner
+         * has the comparison). The bench's `jb_sheet_grain`.
          */
-        @Volatile @JvmStatic var grainPrint = 1.0
+        @Volatile @JvmStatic var grainPrint = 0.5
 
         /** Debug bench only (`jb_sheet_print_hold_ms`): a dry sheet waits this long before it is printed (0 in the app). */
         @Volatile @JvmStatic var printHoldMs = 0L

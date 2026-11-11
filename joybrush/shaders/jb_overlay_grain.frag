@@ -9,7 +9,12 @@
 // denser where the paper lies under its cell's mean height and thinner where it stands above, as the water's own
 // granulation does at the cell's scale (jb_wet_update.frag). The look is the least coverage that reproduces the paint over
 // its ground, so what it lets through of white is 1 - a + rgb per channel: that is raised to the density's power and
-// coded back the same way. Where a pixel is no finer than a cell (zoomed far out) nothing is changed.
+// coded back the same way.
+//
+// The tooth is read at the grain of the DOCUMENT (one document pixel), whatever the zoom, because that is what the print
+// into the layer's tiles holds: on screen the wet sheet then shows the very grain its print will show, zoomed out too (read
+// at the screen's own pixel it looked smoother than its print, and changed at the moment it was printed). A sheet whose
+// cells are document pixels (zoomed well in) has nothing finer to add and is drawn as it is.
 precision highp float;
 
 #include "jb_paper.glsl"
@@ -31,10 +36,10 @@ void main() {
     vec2 p = v_doc / max(u_paperTexelPx, 1.0e-6);
     vec2 dx = dFdx(p), dy = dFdy(p);
     float px = max(length(dFdx(v_doc)), length(dFdy(v_doc)));   // this pixel's width, document px
-    float k = u_cellPx / max(px, 1.0e-4);                        // a cell's width in pixels
-    if (c.a > 0.0 && u_grain > 0.0 && k > 1.05 && u_paperTexelPx > 0.0) {
-        float hFine = jb_paperReadGrad(v_doc, 0, false, dx, dy).z;
-        float hCell = jb_paperReadGrad(v_doc, 0, false, dx * k, dy * k).z;
+    float unit = 1.0 / max(px, 1.0e-4);                          // scales this pixel's footprint to one document pixel
+    if (c.a > 0.0 && u_grain > 0.0 && u_cellPx > 1.05 && u_paperTexelPx > 0.0) {
+        float hFine = jb_paperReadGrad(v_doc, 0, false, dx * unit, dy * unit).z;
+        float hCell = jb_paperReadGrad(v_doc, 0, false, dx * unit * u_cellPx, dy * unit * u_cellPx).z;
         float g = clamp(1.0 + u_grain * 3.0 * (hCell - hFine) / max(u_paperHTop - u_paperHBot, 0.05), 0.55, 1.8);
         vec3 through = pow(clamp(vec3(1.0 - c.a) + c.rgb, 0.0, 1.0), vec3(g));
         float a = 1.0 - min(through.r, min(through.g, through.b));

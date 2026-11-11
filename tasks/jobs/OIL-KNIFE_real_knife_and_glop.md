@@ -1,6 +1,6 @@
 # OIL-KNIFE: a palette knife that handles like a real one, and oil that pulls where strokes cross
 
-**Milestone:** M1 (JoyBrush base brushes)  ·  **State:** 🔨 design written, nothing built  ·  **Owner:** Claude Fable 5.2 "atlas solid" session  ·  **Checked:** 2026-11-11 against `5ab0d27fe`
+**Milestone:** M1 (JoyBrush base brushes)  ·  **State:** 🔨 soft passage landed; Knife 3 first build on the branch  ·  **Owner:** Claude Fable 5.2 "atlas solid" session  ·  **Checked:** 2026-11-11 against `5ab0d27fe`
 
 ## Why it matters (for the user)
 The owner (2026-11-11, on a Note 9 film of four oil brushes crossing, with Bob Ross reference photos): where a stroke
@@ -51,6 +51,27 @@ Research 11-11 (read by a helper agent; mechanisms, not marketing):
 | **Travel with the edge leading** (the edge pushed into the paint) | Scrapes and carves; paint piles up ahead and curls off at the sides. |
 | **Travel along the edge** | A thin cut, or a thin line of paint. |
 | **The roll of paint** | Lumpy along the edge and running out as it is used, so touches are broken and uneven by themselves. Reloads when the pen lifts. |
+
+## Patents: what the two claims cover (an engineering reading 11-11, NOT legal advice; a patent lawyer before launch)
+- **US 9,030,464 (Microsoft, "Simulating painting", to 2031):** every independent claim needs a 2D paint pickup map on the tool
+  whose resolution matches the canvas paint map (and a 3D tool model). We have no pickup map. Its "streak map" is not claimed.
+- **US 8,462,173 (Adobe, pickup and reservoir model, to 2031):** needs TWO paint stores on the brush (pickup and reservoir)
+  and a rule that lays from the pickup store alone once it reaches the flow rate. Our brush cell holds ONE mixed paint and
+  lays a continuous blend: keep it so. Never add a "recently picked up" store beside the load, or a switch between stores.
+  Its dependent claims describe a bristle-by-position buffer layout like our lanes by depth, which is why the rule matters.
+- **Free as published before both:** moving the CANVAS paint under the tool (IMPaSTo 2004), which is what the soft passage does.
+- **Not read:** the Adobe siblings US 8,599,213 (wetness, drying, mixing settings) and US 8,654,143 (non-uniform brush loading).
+  Read them before touching Covers / Carries or the loading tray.
+- Claim PDFs: https://patentimages.storage.googleapis.com/25/15/3e/96a096e8bd187e/US9030464.pdf ,
+  https://patentimages.storage.googleapis.com/b2/b9/74/ad2c1ad1741f59/US8462173.pdf
+
+## 2026-11-11: built so far
+- **Soft passage** (`PasteBrush.soft`, `u_bladeSoft`): rounded underside, sides fading inward, thick paint ridden down over a
+  stretch, wet paint dragged at half the blade's speed. The owner chose strength 1 from a Note 9 film of 0 / 0.6 / 1. It is
+  the default on Palette knife 2 and the Scraper; a brush's settings have **Passage: Soft / Hard**. On `joy-creator`
+  (6bcc5a9e5), unit tests pass, lab table and golden updated. The lab's own picture of it has not been compared.
+- **Palette knife 3** (`PasteBrush.hand`, `rollLump`; `u_bladeLay`, `u_bladeLump`): first build on the branch, filmed on the
+  Note 9 with new bench strokes (`knifeSpread`, `knifeSnow`, `knifeCarve`, `tree0..9`). Not owner-tried, not landed.
 
 ## What is left
 - [ ] 1. Crossings (blades first, then hair brushes): the plate gets a rounded underside across its width; the paint it

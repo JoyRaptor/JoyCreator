@@ -8,6 +8,7 @@ out vec4 o;
 uniform sampler2D uHeat;
 uniform sampler2D uFieldTex;
 uniform float uFireFront;   // 0 = flame stays off the letters' faces, 1 = it licks right over them
+uniform float uFireSoft;    // 0 = flame has an edge from the moment it leaves the shape, 1 = it starts as a soft glow
 uniform vec3  uFireA;       // the cool fringe
 uniform vec3  uFireB;       // the body
 uniform vec3  uFireC;       // the core
@@ -41,7 +42,12 @@ void main() {
 
     float inside = smoothstep(0.0, 0.03, texture(uFieldTex, vUv).r);
     float show = 1.0 - inside * (1.0 - uFireFront);
-    vec3 flame = fireRamp(T, uFireA, uFireB, uFireC, uFireToon) * uFireLook.y * show;
+    vec3 flame = fireRamp(T, uFireA, uFireB, uFireC, uFireToon);
+    // Young flame, still at the shape, is drawn as a GLOW that simply fades with its heat: no
+    // outline at all. Fire is a glowing gas; an edge only appears once it has pulled into tongues.
+    vec3 glowOnly = mix(uFireA, uFireB, sat(T * 1.7)) * T * 1.5 + uFireC * sq(sat(T - 0.3)) * 1.6;
+    float young = (1.0 - smoothstep(0.02, 0.32, age)) * real * uFireSoft;
+    flame = mix(flame, glowOnly, young) * uFireLook.y * show;
     // a flame is a thin sheet of light: brighter round the rim of each tongue, streaked inside
     float limb = smoothstep(0.06, 0.15, T) * (1.0 - smoothstep(0.15, 0.4, T));
     flame *= mix(1.0, 0.7 + 0.65 * fib2, real * smoothstep(0.15, 0.5, T));

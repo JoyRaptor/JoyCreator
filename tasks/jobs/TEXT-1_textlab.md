@@ -69,6 +69,8 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
 - **Owner, 11-11 last:** Blaze "much closer, keep going"; the bottom must be softer (fire is a plasma): the pool now
   thins away downward with no edge of its own, trapped flame spreads, and carving and rims only come in as flame
   climbs. Neon ends show NO dark spot straight on (the tape is behind the turn): ends are plain round lit elbows.
+- **Owner, "softer still":** new knob `fireSoft` (young flame is drawn as an edgeless glow that fades with its heat;
+  off by default, on for Blaze), deeper and fainter pool, more spreading of trapped flame, cooler letter rim.
 - **Honest limits today:** the fire is good stylised fire, not yet the photograph the owner showed;
   water and the other drafts are below the bar; only the app's own fonts are used (Archivo, Plex,
   Ubuntu, Doto), so there is no script or true display face yet.

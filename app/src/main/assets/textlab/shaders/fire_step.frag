@@ -60,7 +60,7 @@ void main() {
         v -= clamp(slope * 0.02, -0.6, 0.6) * wall;
     }
     vec4 was = texture(uPrev, vUv - v * uDt / uField.xy);
-    was.r = mix(was.r, here, 0.45 * wall);   // trapped flame has nowhere to go, so it spreads and goes soft
+    was.r = mix(was.r, here, 0.7 * wall);   // trapped flame has nowhere to go, so it spreads and goes soft
 
     float tear = tfbm(np * tall * 1.9 + vec2(uTime * 0.07, 3.0));
     float heat = was.r * exp(-uDt * uFire.z * (0.25 + 2.2 * tear * tear)) - uDt * 0.05 * uFire.z;

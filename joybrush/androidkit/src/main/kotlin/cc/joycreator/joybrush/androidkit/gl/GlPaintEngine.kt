@@ -7556,11 +7556,8 @@ class GlPaintEngine(
      * realistic-paint payload goes in the same step and its new pixels are the ground of whatever is painted next
      * ([settlePlainWrites]). The step is pushed even when the layer is gone or nothing was printed: the sheet's history
      * hangs on the mark. Returns how many tiles it wrote.
-     *
-     * [except]: a rectangle of the document (x0, y0, x1, y1, whole px) that is NOT printed: the part of the paint that stays
-     * on the sheet when it is laid anew for a view that moved (WetSheet.carry); only what left the sheet goes into the tiles.
      */
-    fun printOverlay(o: LayerOverlay, keys: Collection<Long>, mark: Long, except: IntArray? = null): Int {
+    fun printOverlay(o: LayerOverlay, keys: Collection<Long>, mark: Long): Int {
         requireLocalPaint()
         check(!strokeInProgress && mediaStroke == null) { "printing the wet sheet inside a stroke would be undone out of order" }
         val layer = layers[o.layerId]?.takeIf { !it.isMask }
@@ -7577,19 +7574,7 @@ class GlPaintEngine(
                     GLES30.glEnable(GLES30.GL_BLEND)
                     GLES30.glBlendFunc(GLES30.GL_ONE, GLES30.GL_ONE_MINUS_SRC_ALPHA)
                     GLES30.glBindVertexArray(tileVao)
-                    val ox = Tiles.tx(key) * size; val oy = Tiles.ty(key) * size
-                    val m = tileToClip(ox.toFloat(), oy.toFloat())
-                    if (except == null) { drawOverlay(o, m, 1f); continue }
-                    // The tile's pixels outside the rectangle: all of them, or up to four strips round it.
-                    val x0 = (except[0] - ox).coerceIn(0, size); val x1 = (except[2] - ox).coerceIn(0, size)
-                    val y0 = (except[1] - oy).coerceIn(0, size); val y1 = (except[3] - oy).coerceIn(0, size)
-                    GLES30.glEnable(GLES30.GL_SCISSOR_TEST)
-                    fun strip(sx0: Int, sy0: Int, sx1: Int, sy1: Int) {
-                        if (sx1 > sx0 && sy1 > sy0) { GLES30.glScissor(sx0, sy0, sx1 - sx0, sy1 - sy0); drawOverlay(o, m, 1f) }
-                    }
-                    if (x1 <= x0 || y1 <= y0) strip(0, 0, size, size)
-                    else { strip(0, 0, size, y0); strip(0, y1, size, size); strip(0, y0, x0, y1); strip(x1, y0, size, y1) }
-                    GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+                    drawOverlay(o, tileToClip((Tiles.tx(key) * size).toFloat(), (Tiles.ty(key) * size).toFloat()), 1f)
                 }
             } catch (e: Throwable) {
                 changes.forEach { it.after?.let(::recycleLayerTex) }
@@ -7597,7 +7582,6 @@ class GlPaintEngine(
             } finally {
                 GLES30.glBindVertexArray(0)
                 GLES30.glDisable(GLES30.GL_BLEND)
-                GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
                 GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
             }
             changes.forEach { put(it.layerId, it.key, it.after, it.celId) }

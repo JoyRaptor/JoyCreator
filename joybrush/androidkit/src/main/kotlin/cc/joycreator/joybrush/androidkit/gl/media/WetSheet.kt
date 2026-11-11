@@ -104,8 +104,9 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
         val wantGrid = if (turned) WetSheetMath.grid(view.screenH, view.screenW, longCells) else WetSheetMath.grid(view.screenW, view.screenH, longCells)
         val wantCell = forcedCell?.toDouble() ?: WetSheetMath.cellFor(view.zoom, max(view.screenW, view.screenH), longCells)
         if (holding && (layer != layerId || !covers(docX, docY) || (forcedCell == null && !coversView(view)) || WetSheetMath.tooCoarse(cell, wantCell))) {
-            // The view moved: the sheet is laid over it anew and keeps, still wet, what is still on it (carry). Only another
-            // layer's stroke, a turned screen or a failure sets the whole wash.
+            // The view moved: when everything the sheet holds still fits on a sheet laid for the new view, it comes along whole,
+            // still wet (carry). When part of it would be left behind, the whole wash sets: cutting a wet wash in two, one
+            // part kept wet and the other dried, left a line where water later flowed across the cut (Note 9 film rim1).
             val carried = layer == layerId && grid == wantGrid && try { carry(view, wantCell, paper, look) } catch (x: RuntimeException) {
                 android.util.Log.e(TAG, "the sheet could not be carried over to the new view", x); false
             }
@@ -163,46 +164,28 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
     }
 
     /**
-     * The view moved while the sheet holds a wash: the sheet is laid over the new view and what is still on it comes along,
-     * water and all (a pan moves it by whole cells, exactly; a zoom lays it on other cells). What the new sheet does not
-     * reach has left the screen: it dries where it lies and is printed into the layer, as its own undo step that travels
-     * with the stroke before it. False when nothing was done (the caller sets the wash instead).
+     * The view moved while the sheet holds a wash: the sheet is laid over the new view and the wash comes along whole, water
+     * and all (a pan moves it by whole cells, exactly; a zoom lays it on other cells). Only when ALL of it fits on the new
+     * sheet: false when part would be left behind, or nothing could be done (the caller sets the wash instead).
      */
     private fun carry(view: View, wantCell: Double, paper: MediaPaperGl, look: MediaLook): Boolean {
         val e = engine ?: return false
-        val c = content?.let(::clamp) ?: return false
         if (!paint.localHistory || paint.strokeInProgress || paint.mediaStrokeInProgress) return false
+        // Where the paint and the water really are (the rectangle the water's steps keep is grown for where it could run).
+        val c = tightContent(e, paper, look) ?: return false
         // The cell it had while that still covers the view and is fine enough: then the move is by whole cells.
         val newCell = if (wantCell <= cell && !WetSheetMath.tooCoarse(cell, wantCell)) cell else wantCell
         val nx = WetSheetMath.origin(view.centreX, grid.w, newCell); val ny = WetSheetMath.origin(view.centreY, grid.h, newCell)
         if (nx == originX && ny == originY && newCell == cell) return true
-        val old = history.now() as? Was.Held ?: return false   // the whole wash, kept: what comes along is read from it
-        var kept = false
+        // What the sheet holds must lie inside the new sheet's rim, in document px.
+        val rim = WetSheetMath.RIM_CELLS * newCell
+        val sx0 = nx + rim; val sy0 = ny + rim; val sx1 = nx + grid.w * newCell - rim; val sy1 = ny + grid.h * newCell - rim
+        if (originX + c[0] * cell < sx0 || originY + c[1] * cell < sy0 || originX + c[2] * cell > sx1 || originY + c[3] * cell > sy1) return false
+        val old = history.now() as? Was.Held ?: return false   // the whole wash, kept: it is read back onto the new sheet
         try {
-            // What the sheet holds and the new sheet's rectangle, in document px (whole px: cells are eighths, origins snap to 16).
-            val sx0 = nx.toInt(); val sy0 = ny.toInt()
-            val sx1 = Math.round(nx + grid.w * newCell).toInt(); val sy1 = Math.round(ny + grid.h * newCell).toInt()
-            val leaves = originX + c[0] * cell < sx0 || originY + c[1] * cell < sy0 || originX + c[2] * cell > sx1 || originY + c[3] * cell > sy1
-            if (leaves) {
-                if (e.wetActive) { e.dryNow(paper, DOC_PX_PER_MM); e.takeDirty(); e.takeDirtyStores() }
-                history.changed()
-                lookStale = union(lookStale, content)
-                refresh(paper, look)
-                val o = overlay()
-                val t = Tiles.SIZE
-                val keys = if (o == null) emptyList() else coveredTiles(e).filter { key ->
-                    val tx = Tiles.tx(key) * t; val ty = Tiles.ty(key) * t
-                    !(tx >= sx0 && ty >= sy0 && tx + t <= sx1 && ty + t <= sy1)
-                }
-                val mark = history.printBegan(old)   // undoing it puts the whole wash back on the sheet as it lay
-                kept = true
-                if (o != null) paint.printOverlay(o, keys, mark, intArrayOf(sx0, sy0, sx1, sy1)) else paint.pushSheetStep(mark)
-                android.util.Log.i(TAG, "carried: ${keys.size} tiles of the wash left the view and were printed")
-            }
             loadInto(old.snap, nx, ny, newCell)
-            history.prune()
             android.util.Log.i(TAG, "sheet carried to cells of $cell px at ($originX, $originY), zoom ${view.zoom}; holds ${if (holding) "the wash" else "nothing"}")
-        } finally { if (!kept) history.letGo(old) }
+        } finally { history.letGo(old) }
         return true
     }
 
@@ -428,6 +411,41 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
         engine?.let { e -> if (!e.asleep) { e.stopWater(); e.moveTo(originX, originY, (1.0 / cell).toFloat()) } }
         holding = false; content = null; lookStale = null; lastWet = null
         history.changed()
+    }
+
+    /**
+     * The smallest rectangle (cells) that holds everything on the sheet: the paint its look shows (the alpha, read back) and
+     * the water or dampness last measured (clear water shows no paint). Null when it holds nothing to see or to run.
+     */
+    private fun tightContent(e: MediaLayerEngine, paper: MediaPaperGl, look: MediaLook): FloatArray? {
+        val c = content?.let(::clamp) ?: return null
+        lookStale = union(lookStale, content)
+        refresh(paper, look)
+        val x0 = floor(c[0]).toInt(); val y0 = floor(c[1]).toInt(); val x1 = ceil(c[2]).toInt(); val y1 = ceil(c[3]).toInt()
+        val w = x1 - x0; val h = y1 - y0
+        if (w <= 0 || h <= 0) return null
+        val px = ByteBuffer.allocateDirect(w * h * 4).order(ByteOrder.nativeOrder())
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fboOn(e.lookTexture(), ground = false))
+        GLES30.glPixelStorei(GLES30.GL_PACK_ALIGNMENT, 4)
+        GLES30.glReadPixels(x0, y0, w, h, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, px)
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+        var bx0 = Int.MAX_VALUE; var by0 = Int.MAX_VALUE; var bx1 = Int.MIN_VALUE; var by1 = Int.MIN_VALUE
+        for (y in 0 until h) {
+            var i = y * w * 4 + 3
+            for (x in 0 until w) {
+                if (px.get(i).toInt() != 0) { if (x < bx0) bx0 = x; if (x > bx1) bx1 = x; if (y < by0) by0 = y; if (y > by1) by1 = y }
+                i += 4
+            }
+        }
+        var out: FloatArray? = if (bx1 < bx0) null else floatArrayOf((x0 + bx0 - 1).toFloat(), (y0 + by0 - 1).toFloat(), (x0 + bx1 + 2).toFloat(), (y0 + by1 + 2).toFloat())
+        // Blocks of 16 cells that held water or dampness at the last measurement.
+        val a = e.lastActivity
+        val bw = grid.w / 16; val bh = grid.h / 16
+        if (a != null && a.size >= bw * bh * 4) for (by in 0 until bh) for (bx in 0 until bw) {
+            val i = (by * bw + bx) * 4
+            if (a[i] > 0f || a[i + 1] > 0f) out = union(out, floatArrayOf(bx * 16f, by * 16f, bx * 16f + 16f, by * 16f + 16f))
+        }
+        return out?.let(::clamp)
     }
 
     /**

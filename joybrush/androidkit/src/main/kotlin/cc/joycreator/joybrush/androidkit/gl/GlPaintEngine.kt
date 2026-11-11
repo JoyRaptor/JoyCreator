@@ -7206,7 +7206,8 @@ class GlPaintEngine(
         }
         val chosen = MediaRoom.choose(offered, asked, overBytes, MediaRoom.slack(mediaBudgetBytes))
             ?: run {
-            android.util.Log.w("JoyBrushMedia", "media room full and nothing left to set: ${offered.size} dry and ${offeredWet.size} wet tiles offered, ${overBytes shr 10} KB short")
+            // Said through the view's hook, not the Android log: this path is also walked by the JVM tests.
+            onMediaWarning?.invoke("media room full and nothing left to set: ${offered.size} dry and ${offeredWet.size} wet tiles offered, ${overBytes shr 10} KB short")
             return null
         }
         val changes = ArrayList<UndoLog.TileChange<Int>>()

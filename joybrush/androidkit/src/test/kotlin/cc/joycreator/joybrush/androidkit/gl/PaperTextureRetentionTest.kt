@@ -138,10 +138,11 @@ class PaperTextureRetentionTest {
 
     private fun waterJob(e: MediaLayerEngine, paper: MediaPaperGl): Any {
         val type = e.javaClass.declaredClasses.single { it.simpleName == "WaterJob" }
-        return type.declaredConstructors.first { it.parameterCount == 19 }.also { it.isAccessible = true }.newInstance(
+        // 21 since 2026-11-11: the parts a culled job draws and the bead field's (null: its whole rectangle).
+        return type.declaredConstructors.first { it.parameterCount == 21 }.also { it.isAccessible = true }.newInstance(
             floatArrayOf(0f, 0f, 1f, 1f), floatArrayOf(0f, 0f, 1f, 1f), 2, WetConstants(), 1.0,
             0, false, 1f, paper, 20.0, 240.0, listOf(0), null, 0.0,
-            emptySet<Long>(), emptySet<Long>(), true, null, 0)
+            emptySet<Long>(), emptySet<Long>(), true, null, 0, null, null)
     }
 
     @Test fun mediaCanvasAutomaticallyRegistersBakedAndRunningJobBorrowers() {

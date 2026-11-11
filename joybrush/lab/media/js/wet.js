@@ -137,6 +137,12 @@ export class WetStroke {
     // A wetness level replaces the brush's own load (the dry brush keeps its own unless asked).
     this.water = wetness ? Math.min(1.5, wetness.load) : brush.load;          // 0..1+ of capacity
     this.flow = wetness ? wetness.flow : 1;
+    // How much of a take-back this brush refuses, 0..1 (jb_wet_dab.frag a_i4.y; the app's WetStroke.holdBack, number for
+    // number). The exchange follows wetness, so a brush crossing paper wetter than itself took water back, and the pigment
+    // in it: doubling back over its own fresh stroke, a loaded brush erased what it had just laid (the owner, 2026-11-10).
+    // A brush that starts loaded keeps nearly all of the wash where it is; Dry brush and a blotted brush lift in
+    // proportion; Thirsty lifts as it always did.
+    this.holdBack = 0.97 * Math.min(1, Math.max(0, (this.water - 0.1) / 0.8));
     this.travelled = 0;
     this.pending = [];
     this.dirty = null;
@@ -210,7 +216,7 @@ export class WetStroke {
       along, half, this.brush.waterPerMm * this.flow, wet,
       this.paint.K[0], this.paint.K[1], this.paint.K[2], this.paint.S,
       slideMm, dryness, 1 - this.brush.stain, this.seed,
-      0, 0, 0, 0,
+      0, this.holdBack, 0, 0,
     ]);
     // Water leaves the brush roughly in proportion to what it lays down on dry paper.
     const area = Math.PI * along * half * 0.6;

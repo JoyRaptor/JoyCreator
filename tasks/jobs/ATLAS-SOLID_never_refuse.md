@@ -70,7 +70,8 @@ Still to prove or build is in "What is left".
 
 ## What is left
 - [ ] **Wet sheet: owner's own test** on the Note 9 (his page, his hand, tilt), then the Note 20.
-- [ ] Wet sheet: print with the paper's grain at full resolution ("sharp when dry"; the owner likes sharp).
+- [x] Wet sheet: the paper's grain at full resolution ("sharp when dry"): built 11-11, half strength by default; the owner
+      picks the strength from the comparison (evidence `grain_none_half_full_at_100pct.jpg`). A ⋯ menu row for it is not built.
 - [ ] Wet sheet: a wash wider than the screen sets when the view moves and the painter paints again (spec, rule 10). Keeping
       it all wet needs one simulation that spans both views.
 - [ ] Wet sheet: the tilted flux and update passes are now most of a frame (12 + 10 of about 36 ms a step on a big wash).

@@ -1266,7 +1266,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     }
 
     private fun adopt(next: LayerStack) {
-        if (next.activeId != activeLayer) onGl { mediaCanvas.releaseWindow() }
+        // The wet sheet's wash stays on its own layer to dry: only the old engine's window follows the layer painted.
+        if (next.activeId != activeLayer) onGl { mediaCanvas.releaseWindow(printSheet = false) }
         stackUi = next
         activeLayer = next.activeId
         if (!next.active.hasMask) editingMask = false
@@ -2011,11 +2012,15 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                 MediaBelly.colorFor(m.belly, rgbOf(argb), now.toInt(), last = lastMediaArgb?.let(::rgbOf))?.let(::argbOf)
             }
             lastMediaArgb = argb
+            // What the painter sees now: an empty wet sheet is laid over it (WetSheet).
+            val middle = view.screenToDoc(width / 2f, height / 2f)
+            val sheetView = cc.joycreator.joybrush.androidkit.gl.media.WetSheet.View(view.zoom, middle.first.toDouble(), middle.second.toDouble(),
+                width.coerceAtLeast(1), height.coerceAtLeast(1), view.rotation)
             onGl {
                 // Without the board document a save would drop the media state, so nothing is painted - and that is always
                 // said: the reason when making the document failed (above), else a sentence here. Never a silent stroke.
                 if (engine.boardDocument != null) {
-                    mediaCanvas.viewZoom = viewSnapshot[0]
+                    mediaCanvas.sheetView = sheetView
                     mediaCanvas.begin(target, p, argb, belly, first.x.toDouble(), first.y.toDouble(), now, mediaSymmetry)
                         ?.let { why -> post { onRefused?.invoke(why) } }
                 } else if (!mediaDocRefused) post { onRefused?.invoke("This drawing could not take pencil, watercolour or oil") }
@@ -2916,6 +2921,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         onGl(allowLost = true) {
             val made: JbContents? = try {
                 if (contentLost || epoch != graphicsEpoch) throw JbArchiveException("the graphics restarted; wait for drawing recovery")
+                // Watercolour still on the wet sheet is not in any tile yet: it dries where it lies and goes into its layer,
+                // so the save holds what the screen shows (WET_SHEET_20261110.md: a save sets the wash).
+                if (mediaCanvas.settleSheet()) reportHistory()
                 readContents(w, h)
             } catch (e: OutOfMemoryError) {
                 post { onFailure("there is not enough memory to save this drawing; your previous save is kept") }

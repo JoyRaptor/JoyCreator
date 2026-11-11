@@ -10,7 +10,6 @@
   const TL = (window.TL = window.TL || {});
   TL.TUBE_R = 0.03;      // em: the radius a baked tube has before the look thickens or thins it
   const PX = 144;        // pixels per em in a tube's piece (tubes are smooth, so this is plenty)
-  const END = 0.03;      // em of each end painted black (less on a very short tube)
 
   // Round every corner of a centre line with a bend of the given radius (a torch bends, never folds).
   function bendCorners(pts, radius) {
@@ -56,8 +55,12 @@
         if (dd < best) { best = dd; at = len[s - 1] + (len[s] - len[s - 1]) * u; }
       }
       const d = Math.max(TL.TUBE_R - Math.sqrt(best), -TL.SPREAD);
-      const fromEnd = Math.min(at, total - at);
-      const bare = Math.min(1, Math.max(0, (fromEnd - Math.min(END, total * 0.16)) / 0.012));
+      // An end is not cut off straight. The tube turns AWAY from you there, back to the case, and the
+      // black tape goes on behind the turn: from the front it is a round, lit elbow with a small
+      // dark spot in its middle, where you look down the tube going back.
+      const e0 = pts[0], e1 = pts[pts.length - 1];
+      const de = Math.min(Math.hypot(px - e0[0], py - e0[1]), Math.hypot(px - e1[0], py - e1[1]));
+      const bare = Math.min(1, Math.max(0, (de - 0.34 * TL.TUBE_R) / (0.3 * TL.TUBE_R)));
       const k = j * w + i;
       data[k * 2] = d; data[k * 2 + 1] = bare; dOnly[k] = d;
     }

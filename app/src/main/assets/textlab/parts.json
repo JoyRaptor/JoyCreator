@@ -127,6 +127,8 @@
     "fireDepth":     {"u": "uFireShape", "i": 1, "v": 0.05, "min": 0.005, "max": 0.3, "slot": "Fire", "label": "Burns this deep inside the edge"},
     "fireUp":        {"u": "uFireShape", "i": 2, "v": 0.4, "min": 0, "max": 1, "slot": "Fire", "label": "All edges / top edges only"},
     "fireSmoke":     {"u": "uFireShape", "i": 3, "v": 0.5, "min": 0, "max": 3, "slot": "Fire", "label": "Smoke made"},
+    "fireUnder":     {"u": "uFireUnder", "i": 0, "v": 0, "min": 0, "max": 1, "slot": "Fire", "label": "Pools under the shape and wraps round it"},
+    "firePool":      {"u": "uFireUnder", "i": 1, "v": 0.05, "min": 0.01, "max": 0.15, "slot": "Fire", "label": "How far the pool hangs below"},
     "windX":         {"u": "uWind", "i": 0, "v": 0, "min": -1.5, "max": 1.5, "slot": "Fire", "label": "Wind across"},
     "windY":         {"u": "uWind", "i": 1, "v": 0, "min": -1, "max": 1, "slot": "Fire", "label": "Wind up"},
     "fireA":         {"u": "uFireA", "c": "#b3160a", "slot": "Fire", "label": "Flame fringe"},

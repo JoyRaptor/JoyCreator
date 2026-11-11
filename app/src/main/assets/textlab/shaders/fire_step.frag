@@ -14,6 +14,7 @@ uniform float uDt;
 uniform vec4  uFire;     // rise (em/s), swirl, cooling, feed
 uniform vec4  uFireShape;// swirl size (per em), how deep inside the edge it burns (em), 0 = all edges .. 1 = upper edges only, smoke made
 uniform vec2  uWind;     // em/s
+uniform vec2  uFireUnder;// the shape stands in the flame's way (0 = flame passes through it, 1 = it pools underneath and wraps round); how far below an edge the pool hangs, em
 
 float source(vec2 uv, vec2 p) {
     vec4 f = texture(uFieldTex, uv);
@@ -23,7 +24,10 @@ float source(vec2 uv, vec2 p) {
     float facesUp = mix(1.0, smoothstep(0.15, -0.5, up), uFireShape.z);
     float band = smoothstep(-0.012, 0.004, f.r) * (1.0 - smoothstep(0.0, max(uFireShape.y, 1e-3), f.r));
     float flick = smoothstep(0.2, 0.75, tfbm2(p * 7.0 + vec2(uTime * 1.7, -uTime * 3.6)));
-    return band * facesUp * flick * uFire.w * 0.85 * f.g;
+    // under an edge that faces DOWN the flame hangs a little below it, trapped, before it finds its way out
+    float pool = smoothstep(-uFireUnder.y, -uFireUnder.y * 0.25, f.r) * (1.0 - smoothstep(-0.004, 0.004, f.r))
+               * smoothstep(0.1, 0.6, up) * uFireUnder.x;
+    return (band * facesUp + pool * 0.75) * flick * uFire.w * 0.85 * f.g;
 }
 
 void main() {
@@ -31,8 +35,9 @@ void main() {
     // how hot it is round here, read from four corners: a single-pixel reading lets alternate
     // rows run at different speeds and the flame combs into stripes
     vec2 tx = 1.5 / vec2(textureSize(uPrev, 0));
-    float here = 0.25 * (texture(uPrev, vUv + tx).r + texture(uPrev, vUv - tx).r
-                       + texture(uPrev, vUv + vec2(tx.x, -tx.y)).r + texture(uPrev, vUv - vec2(tx.x, -tx.y)).r);
+    float hpp = texture(uPrev, vUv + tx).r, hmm = texture(uPrev, vUv - tx).r;
+    float hpm = texture(uPrev, vUv + vec2(tx.x, -tx.y)).r, hmp = texture(uPrev, vUv - vec2(tx.x, -tx.y)).r;
+    float here = 0.25 * (hpp + hmm + hpm + hmp);
     float s = uFireShape.x;
     // the swirl and the cold lanes RIDE UP with the flame (and are taller than wide), so a tongue
     // keeps its own shape as it climbs instead of boiling in place
@@ -40,6 +45,18 @@ void main() {
     vec2 tall = vec2(s, s * 0.55);
     vec2 sw = tcurl(np * tall + vec2(uTime * 0.11, 0.0)) + 0.5 * tcurl(np * tall * 2.6 + vec2(5.3, uTime * 0.17));
     vec2 v = vec2(0.0, uFire.x * (0.5 + 0.9 * sat(here))) + uWind + sw * uFire.y;
+    if (uFireUnder.x > 0.0) {
+        // THE SHAPE IS IN THE WAY. Flame cannot rise through it: under an edge it pools, creeps
+        // sideways toward where there is less of it, and only climbs once it has found the corner.
+        float e2 = 2.0 / uField.z;
+        vec2 gin = vec2(texture(uFieldTex, vUv + vec2(e2 / uField.x, 0.0)).r - texture(uFieldTex, vUv - vec2(e2 / uField.x, 0.0)).r,
+                        texture(uFieldTex, vUv + vec2(0.0, e2 / uField.y)).r - texture(uFieldTex, vUv - vec2(0.0, e2 / uField.y)).r);
+        vec2 nin = normalize(gin + vec2(1e-6, 0.0));                                   // toward the inside of the shape
+        float wall = smoothstep(-uFireUnder.y * 1.3, 0.0, texture(uFieldTex, vUv).r) * uFireUnder.x;   // inside it, or just under its skin
+        v -= nin * max(dot(v, nin), 0.0) * wall;
+        vec2 slope = vec2((hpp + hpm) - (hmp + hmm), (hpp + hmp) - (hpm + hmm)) / (4.0 * tx * uField.xy);   // heat per em
+        v -= clamp(slope * 0.02, -0.6, 0.6) * wall;
+    }
     vec4 was = texture(uPrev, vUv - v * uDt / uField.xy);
 
     float tear = tfbm(np * tall * 1.9 + vec2(uTime * 0.07, 3.0));

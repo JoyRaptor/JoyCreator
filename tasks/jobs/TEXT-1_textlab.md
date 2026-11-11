@@ -61,6 +61,11 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
   lines), `tools/textlab-web/tl-tubes.js` (path to a round rod, painted ends), `glyph.frag` (the later tube passes in
   front at a crossing), font family `"tube"` in a look. Neon Bar and Neon Sign use it. Owed: his verdict letter by letter
   (the shapes are my first drawing), painted double-backs, supply wires, a pen stroke as a tube, the Kotlin twin.
+- **Owner, 11-11 late (with a marked-up Blaze):** (1) fire must also pool UNDER an edge and wrap round it before it
+  climbs: built as `fireUnder` / `firePool` (`fire_step.frag`: the shape blocks the rising flame, a pool hangs below
+  edges that face down, heat creeps sideways to the corner); off by default so the old fire stays selectable, on for
+  Blaze. (2) A neon end is ROUND from the front (the tube turns away before the black tape): ends are now lit round
+  elbows with a small dark spot (`tl-tubes.js`). Neither re-timed on the Note 9 yet.
 - **Honest limits today:** the fire is good stylised fire, not yet the photograph the owner showed;
   water and the other drafts are below the bar; only the app's own fonts are used (Archivo, Plex,
   Ubuntu, Doto), so there is no script or true display face yet.

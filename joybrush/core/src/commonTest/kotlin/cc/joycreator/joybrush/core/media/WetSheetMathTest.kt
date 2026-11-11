@@ -11,12 +11,13 @@ class WetSheetMathTest {
     @Test fun theSheetIsShapedLikeTheScreen() {
         // The Note 9 at its default resolution: 1080 x 2220.
         val g = WetSheetMath.grid(1080, 2220)
-        assertEquals(1280, g.h); assertEquals(624, g.w)
-        assertEquals(0, g.w % 16)
+        // 1280 x 624 cells for the screen itself, and 24 more on every side.
+        assertEquals(1280 + 48, g.h); assertEquals(624 + 48, g.w)
+        assertEquals(0, g.w % 16); assertEquals(0, g.h % 16)
         assertTrue(g.cells < 1024 * 1024, "less to hold than the first slice's square sheet")
-        assertEquals(WetSheetMath.Grid(1280, 624), WetSheetMath.grid(2220, 1080), "turned on its side")
-        assertEquals(WetSheetMath.Grid(896, 896), WetSheetMath.grid(1000, 1000, WetSheetMath.LONG_FAST))
-        assertEquals(128, WetSheetMath.grid(10, 4000).w, "never a sliver")
+        assertEquals(WetSheetMath.Grid(1328, 672), WetSheetMath.grid(2220, 1080), "turned on its side")
+        assertEquals(WetSheetMath.Grid(944, 944), WetSheetMath.grid(1000, 1000, WetSheetMath.LONG_FAST))
+        assertEquals(128 + 48, WetSheetMath.grid(10, 4000).w, "never a sliver")
     }
 
     @Test fun aCellCoversTheSameShareOfTheScreenAtEveryZoom() {
@@ -27,7 +28,7 @@ class WetSheetMathTest {
         assertEquals(5.625, out); assertTrue(out * 0.31 in 1.6..1.8)
         for (z in listOf(0.2f, 0.31f, 0.5f, 0.8f, 1f, 1.5f)) {
             val c = WetSheetMath.cellFor(z, long)
-            assertTrue(abs(c * 1280 * z - long) < 0.07 * long, "zoom $z: the sheet's long side is the screen's")
+            assertTrue(c * 1280 * z >= long - 0.01 && c * 1280 * z < 1.12 * long, "zoom $z: 1280 cells cover the screen's long side, and little more")
         }
         assertEquals(1.0, WetSheetMath.cellFor(4f, long), "zoomed in: a document pixel, never finer")
         assertEquals(16.0, WetSheetMath.cellFor(0.02f, long), "never coarser than 16")
@@ -46,7 +47,8 @@ class WetSheetMathTest {
     @Test fun theSheetIsPlacedRoundTheMiddleOfTheViewOnItsSnap() {
         val g = WetSheetMath.Grid(624, 1280)
         val o = WetSheetMath.origin(5000.0, g.w, 4.0)
-        assertEquals(0f, o % (16 * 4))
+        assertEquals(0f, o % (8 * 4))
+        assertEquals(0f, WetSheetMath.origin(5000.0, g.w, 1.625) % 1f, "a whole number of document px whatever the cell")
         assertTrue(abs(5000 - (o + g.w * 4 / 2)) <= 16 * 4, "the view's middle is the sheet's, to a snap")
         assertTrue(WetSheetMath.origin(-100.0, g.w, 2.0) < -700f, "negative paper too")
         val oy = WetSheetMath.origin(5000.0, g.h, 4.0)

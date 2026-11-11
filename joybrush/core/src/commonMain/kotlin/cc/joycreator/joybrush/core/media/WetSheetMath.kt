@@ -24,8 +24,19 @@ object WetSheetMath {
     const val MIN_CELL = 1.0
     const val MAX_CELL = 16.0
 
-    /** The sheet's origin snaps to this many cells, so the 16-cell activity blocks line up after a move. */
-    const val SNAP_CELLS = 16
+    /**
+     * The sheet's origin snaps to this many cells: a whole number of document px whatever the cell (cells are eighths of a
+     * pixel), and a whole number of cells from wherever it lay before, so a wash carried over to a view that only moved is
+     * copied cell for cell.
+     */
+    const val SNAP_CELLS = 8
+
+    /**
+     * Cells of margin beyond the screen's own on every side: the origin's snap, and room for a brush's reach and the water's
+     * spread past the screen's edge. Without it the sheet ended up to 27 px short of the screen's edge and a stroke that
+     * reached it was cut off straight (Note 9, 2026-11-10).
+     */
+    const val PAD_CELLS = 24
 
     /**
      * The widest cell the water's physics is run at, in the lab's pixels (20 to the millimetre). Up to here the sheet is
@@ -40,24 +51,26 @@ object WetSheetMath {
 
     /**
      * The grid for a screen [screenW] x [screenH] px with [longCells] along its long side: the same shape as the screen,
-     * each side a multiple of [SNAP_CELLS].
+     * with [PAD_CELLS] more on every side, each side a multiple of 16 (the water is measured in blocks of 16 cells).
      */
     fun grid(screenW: Int, screenH: Int, longCells: Int = LONG_DETAILED): Grid {
         val long = max(screenW, screenH).coerceAtLeast(1)
         val short = min(screenW, screenH).coerceAtLeast(1)
-        val l = longCells / SNAP_CELLS * SNAP_CELLS
-        val s = (ceil(l.toDouble() * short / long / SNAP_CELLS).toInt() * SNAP_CELLS).coerceIn(SNAP_CELLS * 8, l)
-        return if (screenW >= screenH) Grid(l, s) else Grid(s, l)
+        val l = longCells / 16 * 16
+        val s = (ceil(l.toDouble() * short / long / 16).toInt() * 16).coerceIn(128, l)
+        val pad = 2 * PAD_CELLS
+        return if (screenW >= screenH) Grid(l + pad, s + pad) else Grid(s + pad, l + pad)
     }
 
     /**
      * Document px per cell for a view at [zoom] (screen px per document px) on a screen [screenLong] px along its long side:
-     * the cell at which the grid's long side covers the screen's, in eighths of a pixel, never finer than a document pixel.
+     * the cell at which [longCells] cells cover the screen's long side, rounded UP to an eighth of a pixel (never short of
+     * the screen), never finer than a document pixel.
      */
     fun cellFor(zoom: Float, screenLong: Int, longCells: Int = LONG_DETAILED): Double {
         if (!(zoom > 0f) || screenLong <= 0) return 2.0
         val c = screenLong.toDouble() / longCells / zoom
-        return ((c * 8).roundToInt() / 8.0).coerceIn(MIN_CELL, MAX_CELL)
+        return (ceil(c * 8 - 1e-6) / 8.0).coerceIn(MIN_CELL, MAX_CELL)
     }
 
     /**

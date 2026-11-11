@@ -33,6 +33,7 @@ uniform vec2 u_slope;         // the paper tilted: sin(angle), pointing DOWNHILL
                               // On the phone this comes from the gravity sensor; in the lab from the tilt pad.
 uniform float u_cellMm;       // one cell (mm)
 uniform float u_runMmPerS;    // how fast a full bead runs down an upright paper
+uniform float u_runCapMmPerS; // the fastest running water may travel (mm/s); 0 = only the step's own limit (0.45 cells)
 uniform float u_runMm;        // a bead this deep ABOVE the tooth runs freely; thinner water clings (speed ∝ depth²)
 uniform float u_runHoldMm;    // water the tooth holds before any runs
 uniform float u_runFilmMm;    // the film running water leaves behind on what it crosses
@@ -251,6 +252,10 @@ void main() {
         }
         vec2 v = drive * (u_runMmPerS / u_cellMm) * k * k;          // cells per second
         float vm = length(v), vMax = 0.45 / u_dt;
+        // On full-resolution cells that limit is 2.7 mm/s at the shipped step, and the look was tuned with it: fingers form
+        // because the water cannot outrun them. Wider cells (the wet sheet) would let it run 2 to 8 times as fast and slide as
+        // one sheet, so the host gives the limit in millimetres and it holds whatever the cell (WetSheet, 2026-11-10).
+        if (u_runCapMmPerS > 0.0) vMax = min(vMax, u_runCapMmPerS / u_cellMm);
         if (vm > vMax) v *= vMax / vm;
         // Running water wets what it crosses: a thin film stays behind on the paper, so a drip leaves a wet
         // trail and a sliding wash never drains a spot bare.

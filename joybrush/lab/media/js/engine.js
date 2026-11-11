@@ -51,6 +51,8 @@ export class MediaEngine {
   init(w, h, origin = [0, 0], scale = 1, opts = {}) {
     const gl = this.gl;
     this.origin = origin; this.scale = scale;
+    // The app's wet sheet (MediaLayerEngine.loadWetFrame): the rates given per cell² follow the cell's real size.
+    this.cellRates = !!opts.cellRates;
     if (!gl.getExtension('EXT_color_buffer_float')) throw new Error('needs EXT_color_buffer_float');
     gl.getExtension('EXT_float_blend');
     this.w = w; this.h = h;
@@ -434,6 +436,9 @@ export class MediaEngine {
     this.touch(rect);
     this.wetSince = this.wetSince ? [Math.min(this.wetSince[0], rect[0]), Math.min(this.wetSince[1], rect[1]), Math.max(this.wetSince[2], rect[2]), Math.max(this.wetSince[3], rect[3])] : [...rect];
     const U = { ...wetUniforms(paper, w), u_slope: slope, u_cellMm: 1 / (pxPerMm * this.scale), u_beadCells: w.beadMm * pxPerMm * this.scale, ...(opts.override || {}) };
+    if (this.cellRates && this.scale !== 1) for (const n of ['u_flow', 'u_wick', 'u_mingle']) U[n] *= this.scale * this.scale;
+    // Running water's speed limit in mm/s: what a full-resolution cell allows at the shipped step, times ?runCap= (1).
+    if (this.cellRates) U.u_runCapMmPerS = (this.runCap ?? 1) * 0.45 * 120 / pxPerMm;
     gl.disable(gl.BLEND);
     const tilted = Math.hypot(slope[0], slope[1]) > 1e-4;
     const steps = opts.substeps ?? w.substeps;

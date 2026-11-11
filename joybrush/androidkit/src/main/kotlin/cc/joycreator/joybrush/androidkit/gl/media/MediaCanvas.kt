@@ -196,6 +196,8 @@ class MediaCanvas(
         /** The pen's own tilt reach (the tuned pencil's), as the media input reads it. */
         val reachDeg: Double = MediaInput.REACH_DEG,
         val erase: Boolean = false,
+        /** A watercolour stroke on the wet sheet ([WetSheet]): its dabs go to the sheet, the atlas and its window take no part. */
+        val sheet: Boolean = false,
     ) {
         var penX = 0.0
         var penY = 0.0
@@ -233,7 +235,7 @@ class MediaCanvas(
         }
     }
     /** Water is running somewhere in the window: keep drawing frames. */
-    val running: Boolean get() = engine?.wetActive == true
+    val running: Boolean get() = engine?.wetActive == true || sheet?.running == true
 
     /**
      * The refusal a frame made, waiting to be said (the view reads it and shows it): a frame that
@@ -269,6 +271,10 @@ class MediaCanvas(
         symmetry: Guide.Symmetry? = null,
     ): String? {
         val spec = preset.media ?: return "This brush has no pencil, watercolour or oil settings."
+        // Watercolour on the wet sheet (WET_SHEET_20261110): the shared plane only for now; a frame of an animation board
+        // keeps the atlas's water.
+        if (spec.medium == MEDIUM_WET && WetSheet.enabled && paint.mediaPlaneAt(layerId, x, y) == null)
+            return beginOnSheet(layerId, preset, spec, argb, x, y, nowMs, symmetry)
         val thinned = spec.medium == MEDIUM_PASTE && spec.thinner > 0 && spec.paste?.let { it.shape < 2 && !it.clean } == true
         val needsWater = spec.medium == MEDIUM_WET || thinned
         val e = ensure(needsWater) ?: return unsupported ?: LayerBudget.windowRefusal(needsWater)
@@ -331,6 +337,57 @@ class MediaCanvas(
             stroke = null
             r.message
         }
+    }
+
+    // ---- the wet sheet (WetSheet): watercolour while it is wet ----
+    private var sheet: WetSheet? = null
+    private var sheetFrameAt = 0L
+    /** The view's zoom (screen px per document px) as the canvas last saw it: the sheet takes its cell from it. */
+    @Volatile var viewZoom = 1f
+
+    private fun beginOnSheet(layerId: String, preset: BrushPreset, spec: MediaSpec, argb: Int, x: Double, y: Double, nowMs: Long,
+                             symmetry: Guide.Symmetry?): String? {
+        if (preset.mediaScale() <= 0.0) return "This brush has no size."
+        val (avail, threshold) = memory()
+        val s = sheet ?: WetSheet(paint, shaders).also { sheet = it }
+        s.begin(layerId, x, y, viewZoom, avail, threshold)?.let { return it }
+        val scaled = spec.scaled(preset.mediaScale())
+        // The sheet has no edge to pin a symmetry on: every copy is its own lane, its dabs land wherever they fall.
+        val guide = symmetry?.takeIf { it.count >= 2 }
+        val seed = (nowMs and 0x7FFFFFFF).toInt()
+        val family = SymmetryLanes.familyFor(preset.engine, spec.medium)
+        val maps = guide?.let { SymmetryLanes.buildMedia(it, family, seed.toLong()) }?.lanes?.map { it.copy } ?: listOf(null)
+        val toothMm = paint.mediaPaper().stats.toothMm
+        val lanes = maps.map { map -> makeLane(map, scaled, rgb(argb), toothMm, seed, thinned = false) }
+        s.setGranulation(scaled.wet!!.gran)
+        look = MediaLook(rgb(paint.paperArgb).map { it.toFloat() }.toFloatArray(), lamp = look.lamp)
+        stroke = Stroke(layerId, seed, lanes, symmetric = guide?.symmetric ?: true,
+            reachDeg = preset.media?.stick?.tuning?.tiltReachDeg ?: MediaInput.REACH_DEG, sheet = true).also {
+            it.penX = x; it.penY = y; it.reachPx = reachPx(scaled)
+        }
+        return null
+    }
+
+    /** One drawn frame of the sheet: the stroke's dabs if one paints on it, and the water's steps. True while it wants frames. */
+    private fun sheetFrame(nowMs: Long): Boolean {
+        val s = sheet ?: return false
+        val st = stroke?.takeIf { it.sheet }
+        if (st == null && !s.running) { sheetFrameAt = 0L; return false }
+        val real = if (sheetFrameAt > 0L) (nowMs - sheetFrameAt).coerceIn(0L, 1000L).toFloat() else 0f
+        sheetFrameAt = nowMs
+        val batch = st?.let { DabBatch.merge(it.lanes.mapNotNull { l -> l.wet?.take() }) }
+        val more = s.frame(batch, paint.mediaPaper(), water(), slope, look, real)
+        paint.layerOverlays = listOfNotNull(s.overlay())
+        return more || st != null
+    }
+
+    private fun endOnSheet(st: Stroke) {
+        for (lane in st.lanes) { lane.spline.finish(); lane.wet?.finish() }
+        val batch = DabBatch.merge(st.lanes.mapNotNull { it.wet?.take() })
+        stroke = null
+        val s = sheet ?: return
+        s.frame(batch, paint.mediaPaper(), water(), slope, look, 0f)
+        paint.layerOverlays = listOfNotNull(s.overlay())
     }
 
     /** An eraser stroke on a media layer: the canvas places the dabs as for any eraser, and they take the state away. */
@@ -408,8 +465,9 @@ class MediaCanvas(
      * The caller reports the history afterwards: dried water can change the undo stack.
      */
     fun frame(nowMs: Long): Boolean {
-        val e = engine ?: return false
-        val w = window ?: return false
+        val sheetRuns = sheetFrame(nowMs)
+        val e = engine ?: return sheetRuns
+        val w = window ?: return sheetRuns
         // Bench only: time every media section of this frame (glFinish brackets) and note what the textures cost.
         val rec = stats?.takeIf { it.recording }
         // The canvas may already time the whole GL frame (JbCanvasView.onDrawFrame): keep its timer, put it back after.
@@ -421,7 +479,7 @@ class MediaCanvas(
         val prof = rec == null && outer == null && profiling
         if (prof) MediaPhases.timer = { name: String, ms: Double -> profSums[name] = (profSums[name] ?: 0.0) + ms }
         val began = if (prof) System.nanoTime() else 0L
-        try { return frameInner(e, w, nowMs) } finally {
+        try { return frameInner(e, w, nowMs) || sheetRuns } finally {
             if (prof) { android.opengl.GLES30.glFinish(); profTick((System.nanoTime() - began) / 1e6) }
             MediaPhases.timer = outer
             if (rec != null && (rec.memory == null || (e.hasWaterTextures && !memoryHadWater))) {
@@ -460,7 +518,7 @@ class MediaCanvas(
             android.util.Log.d("JoyBrushTilt", "slope=${slope[0]},${slope[1]} wetActive=${e.wetActive} wetRect=${e.wetRect?.contentToString()}")
         }
         e.slope = slope
-        val st = stroke
+        val st = stroke?.takeIf { !it.sheet }   // a stroke on the wet sheet is the sheet's ([sheetFrame])
         e.frameRealMs = if (lastFrameAt > 0L) (nowMs - lastFrameAt).coerceIn(0L, 1000L).toFloat() else 0f
         lastFrameAt = nowMs
         // Water jobs (WATER_JOBS_20261021): in the atlas the water does what the frame's budget allows and the brush shows at
@@ -515,6 +573,7 @@ class MediaCanvas(
     /** Lift: the rest of the stroke, then its ONE undo step. Water carries on in [frame]. */
     fun end() {
         val st = stroke ?: return
+        if (st.sheet) { endOnSheet(st); return }
         val e = engine!!
         val w = window!!
         // Each lane's own tail: the spline's catch-up, then the water's lift.
@@ -535,7 +594,8 @@ class MediaCanvas(
      * which reloads the window or atlas through [restored]), no step is made, and the water that was there before carries on.
      */
     fun cancel() {
-        stroke ?: return
+        val st = stroke ?: return
+        if (st.sheet) { stroke = null; return }
         val e = engine!!
         e.endStroke()
         stroke = null
@@ -569,13 +629,14 @@ class MediaCanvas(
     fun release() {
         engine?.release()
         warm?.releasePrograms()
+        sheet?.release(); sheet = null; paint.layerOverlays = emptyList()
         engine = null; window = null; stroke = null; warm = null
         heldBytes = 0L
         paint.collectPaperTextures()
     }
 
     /** The context these GL names came from is gone: forget them without deleting (they died with it). */
-    fun forget() { engine = null; window = null; stroke = null; heldBytes = 0L; warm = null }
+    fun forget() { sheet?.forget(); sheet = null; paint.layerOverlays = emptyList(); engine = null; window = null; stroke = null; heldBytes = 0L; warm = null }
 
     /** The atlas grid last made (see [ensure]). */
     private var lastGrid: Pair<Int, Int>? = null
@@ -772,6 +833,7 @@ class MediaCanvas(
         if (spec.medium == MEDIUM_DRY) mat = StickMaterial.of(spec.stick!!)
         val toothMm = paint.mediaPaper().stats.toothMm
         val lanes = maps.map { map -> makeLane(map, spec, color, toothMm, seed, thinned) }
+        if (spec.medium == MEDIUM_WET) e.wetGran = spec.wet!!.gran
         return Lanes(lanes, brush, mat)
     }
 
@@ -795,7 +857,6 @@ class MediaCanvas(
             // A clear brush (water, thirsty) carries at least its own load of water whatever the level says (lab).
             val wetness = if (brush.clear) level.copy(load = max(level.load, brush.load)) else level
             val wet = WetStroke(brush, paintFromColor(color), DOC_PX_PER_MM, seed, wetness)
-            engine!!.wetGran = brush.gran
             Lane(map, MediaSpline(sink = wet::add), wet = wet)
         }
         else -> {

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Work-loss audit 2026-11-10: timeline marks ride in a project's Joy Creator folder copy and come back
-# on restore. Plain javac, no Gradle.
+# on restore, and files that live inside a project go back inside it. Plain javac, no Gradle.
 # Usage:  bash tools/jvm-harness/run-sidecars.sh
 set -u
 cd "$(dirname "$0")/../.." || exit 1
@@ -11,6 +11,6 @@ trap 'rm -rf "$OUT"' EXIT
 rm -rf "$OUT"; mkdir -p "$OUT"
 SEP=":"; case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) SEP=";"; GSON=$(cygpath -w "$GSON");; esac
 javac -nowarn -encoding UTF-8 -cp "$GSON" -d "$OUT" \
-  app/src/main/java/com/fadcam/joyfolder/studio/ProjectSidecars.java \
+  app/src/main/java/com/fadcam/joyfolder/studio/ProjectSidecars.java   app/src/main/java/com/fadcam/joyfolder/studio/ProjectLocals.java   studiokit/src/main/java/com/fadcam/joyfolder/*.java \
   tools/jvm-harness/ProjectSidecarsTest.java || exit 1
 java -cp "$OUT${SEP}$GSON" ProjectSidecarsTest

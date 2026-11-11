@@ -317,6 +317,7 @@ public final class StudioMirror {
 
         boolean copyMedia = JoyFolderHome.copyMediaAllowed(context);
         Map<String, String> files = new LinkedHashMap<>();
+        final Map<String, String> locals = new LinkedHashMap<>();
         final java.util.Set<String> outside = new java.util.LinkedHashSet<>();
         final java.util.concurrent.atomic.AtomicReference<Map<String, String>> known =
                 new java.util.concurrent.atomic.AtomicReference<>();
@@ -346,10 +347,19 @@ public final class StudioMirror {
             String rel = copyIn(context, jf, st, src, workRel, name, res);
             if (rel == null) return value;
             files.put(rel, st.mediaFingerprint(rel));
+            // A file from inside the project's own folder: remember where, so a restore puts it back
+            // there instead of leaving the project pointing at the folder (ProjectLocals).
+            String place = ProjectLocals.placeOf(projectDir, value, src.file != null ? src.file.getPath() : null);
+            if (place != null) locals.put(rel, place);
             return JOY + rel;
         });
         JsonObject block = new JsonObject();
         block.addProperty("version", 1);
+        if (!locals.isEmpty()) {
+            JsonObject places = new JsonObject();
+            for (Map.Entry<String, String> e : locals.entrySet()) places.addProperty(e.getKey(), e.getValue());
+            block.add("locals", places);
+        }
         JsonObject fps = new JsonObject();
         for (Map.Entry<String, String> e : files.entrySet()) fps.addProperty(e.getKey(), e.getValue());
         block.add("files", fps);
@@ -753,10 +763,24 @@ public final class StudioMirror {
                     fps.put(e.getKey(), e.getValue().isJsonNull() ? null : e.getValue().getAsString());
                 }
             }
+            final Map<String, String> places = new HashMap<>();
+            if (root.has("joyFolder") && root.getAsJsonObject("joyFolder").has("locals")
+                    && root.getAsJsonObject("joyFolder").get("locals").isJsonObject()) {
+                for (Map.Entry<String, JsonElement> e : root.getAsJsonObject("joyFolder").getAsJsonObject("locals").entrySet()) {
+                    if (e.getValue().isJsonPrimitive()) places.put(e.getKey(), e.getValue().getAsString());
+                }
+            }
+            // The project's folder exists before its files are looked at: some go back inside it.
+            if (!dir.isDirectory() && !dir.mkdirs()) throw new IOException("Cannot create " + dir);
             rewrite(root, value -> {
                 if (!value.startsWith(JOY)) return value;
                 String rel = value.substring(JOY.length());
                 String now = jf.index.find(jf.fs, rel, fps.get(rel));
+                // A file that lived inside the project goes back inside it (ProjectLocals).
+                if (now != null && places.containsKey(rel)) {
+                    String back = ProjectLocals.putBack(jf, now, dir, places.get(rel));
+                    if (back != null) return back;
+                }
                 Uri doc = now == null ? null : saf.documentUri(now);
                 return doc == null ? value : doc.toString();   // a missing file shows in the relink screen
             });

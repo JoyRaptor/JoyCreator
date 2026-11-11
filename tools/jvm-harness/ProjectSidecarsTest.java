@@ -95,6 +95,60 @@ public class ProjectSidecarsTest {
         ProjectSidecars.restore(Files.createTempDirectory("sidecars-none").toFile(), null);
         passes++;
 
+        // ── Files that live inside a project go back inside it on restore (ProjectLocals) ──────
+        File proj = Files.createTempDirectory("locals-project").toFile();
+        new File(proj, "assets").mkdirs();
+        new File(proj, "slides").mkdirs();
+        File sheet = new File(proj, "assets/sheet-1.png");
+        File slide = new File(proj, "slides/title card.html");
+        write(sheet, "PNG bytes of a sprite sheet");
+        write(slide, "<html>title</html>");
+        File elsewhere = Files.createTempFile("holiday", ".mp4").toFile();
+
+        String sheetPlace = com.fadcam.joyfolder.studio.ProjectLocals.placeOf(proj, "project://assets/sheet-1.png", null);
+        String slidePlace = com.fadcam.joyfolder.studio.ProjectLocals.placeOf(proj, "file://whatever", slide.getPath());
+        check("p:assets/sheet-1.png".equals(sheetPlace), "a project:// link is remembered by its place: " + sheetPlace);
+        check("f:slides/title card.html".equals(slidePlace), "a file link inside the project too: " + slidePlace);
+        check(com.fadcam.joyfolder.studio.ProjectLocals.placeOf(proj, "file://x", elsewhere.getPath()) == null,
+                "a file outside the project has no place in it");
+        check(com.fadcam.joyfolder.studio.ProjectLocals.placeOf(proj, "project://../other/secret.json", null) == null,
+                "a place outside the project is never remembered");
+        check(com.fadcam.joyfolder.studio.ProjectLocals.placeOf(proj, "content://media/1", null) == null,
+                "a gallery link has no place in the project");
+
+        // The Joy Creator folder holds copies of both (as the mirror left them).
+        File folderDir = Files.createTempDirectory("locals-folder").toFile();
+        com.fadcam.joyfolder.JoyFolder jf = com.fadcam.joyfolder.JoyFolder.open(new com.fadcam.joyfolder.FileJoyFs(folderDir));
+        write(new File(folderDir, "Promo image.png"), "PNG bytes of a sprite sheet");
+        write(new File(folderDir, "Promo file.html"), "<html>title</html>");
+
+        // After a reinstall: a new, empty project folder.
+        File restored = Files.createTempDirectory("locals-restored").toFile();
+        String back = com.fadcam.joyfolder.studio.ProjectLocals.putBack(jf, "Promo image.png", restored, sheetPlace);
+        check("project://assets/sheet-1.png".equals(back), "the sheet's link is as it was: " + back);
+        check(read(new File(restored, "assets/sheet-1.png")).equals("PNG bytes of a sprite sheet"), "and its file is back inside the project");
+        String backSlide = com.fadcam.joyfolder.studio.ProjectLocals.putBack(jf, "Promo file.html", restored, slidePlace);
+        File slideBack = new File(restored, "slides/title card.html");
+        check(backSlide != null && backSlide.startsWith("file:///") && backSlide.endsWith("/slides/title%20card.html"),
+                "the slide's link is a file on the phone again: " + backSlide);
+        check(slideBack.isFile() && read(slideBack).equals("<html>title</html>"), "and its code is back inside the project");
+        check(read(new File(folderDir, "Promo image.png")).equals("PNG bytes of a sprite sheet"), "the folder's copy is untouched");
+
+        // A file already on the phone is not replaced by the folder's.
+        write(new File(restored, "assets/sheet-1.png"), "edited on the phone since");
+        com.fadcam.joyfolder.studio.ProjectLocals.putBack(jf, "Promo image.png", restored, sheetPlace);
+        check(read(new File(restored, "assets/sheet-1.png")).equals("edited on the phone since"), "a file on the phone is kept");
+
+        // A hand-edited folder copy cannot write outside the project, and a missing folder file fails quietly.
+        check(com.fadcam.joyfolder.studio.ProjectLocals.putBack(jf, "Promo image.png", restored, "p:../../outside.png") == null,
+                "a place outside the project is refused");
+        check(!new File(restored.getParentFile().getParentFile(), "outside.png").exists(), "and nothing is written there");
+        check(com.fadcam.joyfolder.studio.ProjectLocals.putBack(jf, "Gone.png", restored, "p:assets/gone.png") == null,
+                "a folder file that is gone: no link, no failure");
+        check(!new File(restored, "assets/gone.png").exists(), "and no empty file left behind");
+        String[] leftovers = new File(restored, "assets").list((d, n) -> n.endsWith(".tmp"));
+        check(leftovers != null && leftovers.length == 0, "no temporary files are left");
+
         System.out.println("ProjectSidecarsTest: " + passes + " passed, " + fails + " failed");
         if (fails > 0) System.exit(1);
     }

@@ -202,9 +202,11 @@ object DrawingLibrary {
             index.optJSONObject("drawings")?.remove(file)
             if (index.optString("lastOpened") == file) index.remove("lastOpened")
             writeIndex(dir, index)
+            // Inside the lock with the list change: a drawing file the list does not know is put back on the list
+            // ([adoptUnlisted]), so the file must be gone before anyone else can read the list.
+            working.delete()
+            File(working.path + ".bak").delete()
         }
-        working.delete()
-        File(working.path + ".bak").delete()
         File(File(dir, THUMBS), "$file.png").delete()
         return null
     }
@@ -276,7 +278,9 @@ object DrawingLibrary {
                     return@execute
                 }
                 mirrorFile(app, jf, dir, file.name, contents.doc.id)
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
+                // Throwable: running out of memory here is an Error, and on this plain worker thread an Error that
+                // nobody catches closes the whole app, right after a save (work-loss audit 2026-11-10).
                 Log.w(TAG, "folder copy of ${file.name} not written; the next save tries again", e)
                 tellFolderCopyFailed(app, file.name)
             }
@@ -406,7 +410,9 @@ object DrawingLibrary {
             val where = jf.prepareDir(Placement.What.NEW_WORK, null, null, FileKind.DRAWING)
             rel = Placement.join(where, jf.freeName(where, ReadableNames.sanitize(name) + ".joybrush"))
         }
-        jf.writeAtomic(rel!!, working.readBytes())
+        // A piece at a time: a drawing can be tens of megabytes, and reading all of it into memory to copy it ran the
+        // phone out of memory while the picture itself was still held for the save.
+        FileInputStream(working).use { jf.writeAtomicFrom(rel!!, it) }
         val st = jf.fs.stat(rel!!)
         if (st != null) jf.index.put(rel!!, st.size, st.modified, null, "joybrush")
         jf.saveIndex()
@@ -437,8 +443,13 @@ object DrawingLibrary {
      * otherwise it gets a new file under a free name. One that fails doesn't stop the others; the next sync tries again.
      */
     internal fun backfillFolderCopies(context: Context, jf: JoyFolder, dir: File) {
+        val placed = HashMap<String, String>()
         val missing = synchronized(lock) {
             val entries = readIndex(dir).optJSONObject("drawings") ?: JSONObject()
+            for (k in entries.keys()) {
+                entries.getJSONObject(k).optString("folderPath", "").takeIf { it.isNotEmpty() && File(dir, k).isFile }
+                    ?.let { placed[k] = it }
+            }
             entries.keys().asSequence().filter { k ->
                 entries.getJSONObject(k).optString("folderPath", "").isEmpty() && File(dir, k).isFile
             }.toList()
@@ -446,11 +457,37 @@ object DrawingLibrary {
         for (file in missing) {
             try {
                 val own = ownFileInFolder(jf, dir, file, zipDocId(FileInputStream(File(dir, file))))
-                if (own != null) setFolderPath(dir, file, own) else mirrorFile(context, jf, dir, file, null)
-            } catch (e: Exception) {
+                if (own != null) { setFolderPath(dir, file, own); nameRecoveredAfter(dir, file, own) }
+                else mirrorFile(context, jf, dir, file, null)
+            } catch (e: Throwable) {
                 Log.w(TAG, "folder copy of $file not made; the next sync tries again", e)
             }
         }
+        // A drawing whose remembered place is not in the folder: the person chose another Joy Creator folder, or
+        // removed the copy by hand. It used to get a copy again only when it was next saved, so after a change of
+        // folder every drawing not touched since was missing from the new one (work-loss audit 2026-11-10).
+        // One listing per folder, not one per drawing.
+        val names = HashMap<String, Set<String>?>()
+        for ((file, rel) in placed) {
+            val parent = Placement.parentOf(rel)
+            val there = names.getOrPut(parent) {
+                try { jf.fs.list(parent).mapTo(HashSet()) { it.name } } catch (e: Exception) { null }
+            } ?: continue   // that folder can't be listed right now: say nothing about its drawings
+            if (Placement.nameOf(rel) in there) continue
+            try { mirrorFile(context, jf, dir, file, null) }
+            catch (e: Throwable) { Log.w(TAG, "folder copy of $file not remade; the next sync tries again", e) }
+        }
+    }
+
+    /** A drawing put back on the list without its name ([adoptUnlisted]) takes the name of its copy in the folder. */
+    private fun nameRecoveredAfter(dir: File, file: String, rel: String) = synchronized(lock) {
+        val index = readIndex(dir)
+        val e = index.optJSONObject("drawings")?.optJSONObject(file) ?: return@synchronized
+        if (!e.optBoolean("recovered", false)) return@synchronized
+        val name = FileKind.baseOf(Placement.nameOf(rel))
+        if (name.isNotBlank()) e.put("name", name)
+        e.remove("recovered")
+        writeIndex(dir, index)
     }
 
     /**
@@ -562,18 +599,52 @@ object DrawingLibrary {
         return Bitmap.createBitmap(out, tw, th, Bitmap.Config.ARGB_8888)
     }
 
-    private fun readIndex(dir: File): JSONObject = try {
-        val f = File(dir, INDEX)
-        if (f.isFile) JSONObject(f.readText()) else JSONObject()
-    } catch (e: Exception) {
-        Log.w(TAG, "library.json unreadable; starting it again", e)
-        JSONObject()
+    /**
+     * The list of drawings. It is one small file, and every drawing's name and place hang on it, so it is read with
+     * a fall-back and repaired from the drawings themselves (work-loss audit 2026-11-10). Before: an unreadable
+     * library.json was read as an empty list, and the next write (every time Joy Brush opens) saved that. Every
+     * drawing vanished from the list while its file sat untouched in the same folder.
+     *
+     * Order: the file; its backup (the list as it was one write ago); nothing. Then every `.joybrush` file in the
+     * folder that the list does not know is put back on it ([adoptUnlisted]): the files are the truth, the list is
+     * only how they are named and found. Call with [lock] held.
+     */
+    private fun readIndex(dir: File): JSONObject {
+        val index = IndexFile.read(File(dir, INDEX)) { which, e -> Log.w(TAG, "$which unreadable", e) }
+        adoptUnlisted(dir, index)
+        return index
     }
 
-    private fun writeIndex(dir: File, index: JSONObject) {
-        val f = File(dir, INDEX)
-        val tmp = File(dir, "$INDEX.tmp")
-        tmp.writeText(index.toString(2))
-        if (!tmp.renameTo(f)) { f.delete(); tmp.renameTo(f) }
+    /**
+     * Drawings whose files are here but whose line in the list is gone. Named "Recovered drawing N" (the real name
+     * went with the list); [backfillFolderCopies] gives one its real name back when its copy in the person's folder
+     * is found. A file is told from a stray by being a readable drawing archive: its id is read and kept, so the
+     * folder sync does not bring the same drawing in a second time.
+     */
+    private fun adoptUnlisted(dir: File, index: JSONObject) {
+        val entries = index.optJSONObject("drawings") ?: JSONObject()
+        val listed = HashSet<String>()
+        for (k in entries.keys()) listed.add(k)
+        val strays = IndexFile.unlisted(dir.list(), listed, LEGACY_FILE)
+        if (strays.isEmpty()) return
+        val taken = HashSet<String>()
+        for (k in entries.keys()) taken.add(entries.getJSONObject(k).optString("name").lowercase())
+        var n = 1
+        var adopted = 0
+        for (file in strays) {
+            val f = File(dir, file)
+            val id = try { zipDocId(FileInputStream(f)) } catch (e: Exception) { null } ?: continue
+            while ("recovered drawing $n" in taken) n++
+            taken.add("recovered drawing $n")
+            entries.put(file, JSONObject().put("name", "Recovered drawing $n").put("created", f.lastModified())
+                .put("docId", id).put("recovered", true))
+            adopted++
+        }
+        if (adopted == 0) return
+        index.put("drawings", entries)
+        Log.w(TAG, "$adopted drawing(s) were in the folder but not on the list; put back on it")
+        try { writeIndex(dir, index) } catch (e: Exception) { Log.w(TAG, "the repaired list could not be saved yet", e) }
     }
+
+    private fun writeIndex(dir: File, index: JSONObject) = IndexFile.write(File(dir, INDEX), index.toString(2))
 }

@@ -103,10 +103,28 @@ public class TrashManager {
             return new ArrayList<>();
         }
         File metadataFile = new File(context.getFilesDir(), Constants.TRASH_METADATA_FILENAME);
-        if (!metadataFile.exists()) {
-            FLog.i(TAG, "Trash metadata file does not exist. Returning empty list.");
-            return new ArrayList<>();
+        // The list as it was one save ago (see saveTrashMetadata). Work-loss audit 2026-11-10: a list that
+        // would not read used to count as an empty Trash, and the next thing trashed saved that: every
+        // recording trashed before could no longer be seen or put back, and "Empty Trash" deleted them.
+        File backupFile = new File(context.getFilesDir(), Constants.TRASH_METADATA_FILENAME + ".bak");
+        List<TrashItem> main = readTrashMetadata(metadataFile);
+        if (main != null) return main;
+        List<TrashItem> backup = readTrashMetadata(backupFile);
+        if (backup != null) {
+            FLog.w(TAG, "Trash list unreadable or missing; using its backup (" + backup.size() + " items).");
+            return backup;
         }
+        return new ArrayList<>();
+    }
+
+    /** The list in {@code metadataFile}, or null when there is no such file or it does not read. */
+    private static List<TrashItem> readTrashMetadata(File metadataFile) {
+        if (!metadataFile.exists()) {
+            FLog.i(TAG, "Trash metadata file does not exist: " + metadataFile.getName());
+            return null;
+        }
+        // A file cut off at zero bytes is not an empty Trash.
+        if (metadataFile.length() == 0) return null;
 
         Gson gson = new Gson();
         Type listType = new TypeToken<ArrayList<TrashItem>>() {
@@ -117,21 +135,18 @@ public class TrashManager {
                 BufferedReader reader = new BufferedReader(isr)) {
             List<TrashItem> items = gson.fromJson(reader, listType);
             if (items == null) {
-                FLog.w(TAG, "Parsed trash metadata is null. Returning empty list.");
-                return new ArrayList<>();
+                FLog.w(TAG, "Parsed trash metadata is null: " + metadataFile.getName());
+                return null;
             }
             FLog.i(TAG, "Loaded " + items.size() + " items from trash metadata.");
             return items;
         } catch (IOException e) {
             FLog.e(TAG, "IOException loading trash metadata from " + metadataFile.getAbsolutePath(), e);
-        } catch (com.google.gson.JsonSyntaxException e) {
-            FLog.e(TAG, "JsonSyntaxException parsing trash metadata. File might be corrupt: "
+        } catch (com.google.gson.JsonParseException e) {
+            FLog.e(TAG, "Trash metadata does not parse. File might be corrupt: "
                     + metadataFile.getAbsolutePath(), e);
-            // Optionally, attempt to delete the corrupt file here so it can be recreated
-            // cleanly next time.
-            // metadataFile.delete();
         }
-        return new ArrayList<>(); // Return empty list on error
+        return null;
     }
 
     /**
@@ -152,18 +167,40 @@ public class TrashManager {
         }
 
         File metadataFile = new File(context.getFilesDir(), Constants.TRASH_METADATA_FILENAME);
+        File tmp = new File(context.getFilesDir(), Constants.TRASH_METADATA_FILENAME + ".tmp");
+        File bak = new File(context.getFilesDir(), Constants.TRASH_METADATA_FILENAME + ".bak");
         Gson gson = new Gson();
 
-        try (FileOutputStream fos = new FileOutputStream(metadataFile); // Overwrites the file
+        // Written beside the list and moved into place, with the list as it was kept as the backup
+        // (work-loss audit 2026-11-10). This used to write straight over the only copy: a save cut
+        // off part-way left a list that would not read, which then counted as an empty Trash.
+        try (FileOutputStream fos = new FileOutputStream(tmp);
                 OutputStreamWriter osw = new OutputStreamWriter(fos, StandardCharsets.UTF_8)) {
             gson.toJson(items, osw);
-            FLog.i(TAG, "Successfully saved " + items.size() + " items to trash metadata at "
-                    + metadataFile.getAbsolutePath());
-            return true;
-        } catch (IOException e) {
-            FLog.e(TAG, "IOException saving trash metadata to " + metadataFile.getAbsolutePath(), e);
+            osw.flush();
+            fos.getFD().sync();
+        } catch (IOException | RuntimeException e) {
+            FLog.e(TAG, "Could not write trash metadata to " + tmp.getAbsolutePath(), e);
+            tmp.delete();
             return false;
         }
+        // Only a list that reads is worth keeping as the backup.
+        if (readTrashMetadata(metadataFile) != null) {
+            bak.delete();
+            if (!metadataFile.renameTo(bak)) FLog.w(TAG, "Could not keep the previous trash list as a backup");
+        }
+        if (!tmp.renameTo(metadataFile)) {
+            if (metadataFile.exists()) metadataFile.delete();   // a list that did not read, or no rename-over here
+            if (!tmp.renameTo(metadataFile)) {
+                FLog.e(TAG, "Could not move the trash list into place: " + metadataFile.getAbsolutePath());
+                if (!metadataFile.exists() && bak.exists()) bak.renameTo(metadataFile);
+                tmp.delete();
+                return false;
+            }
+        }
+        FLog.i(TAG, "Successfully saved " + items.size() + " items to trash metadata at "
+                + metadataFile.getAbsolutePath());
+        return true;
     }
 
     /**
@@ -361,14 +398,12 @@ public class TrashManager {
             } else {
                 FLog.e(TAG, "moveToTrash: File moved/copied, but FAILED to save trash metadata for: "
                         + originalDisplayName);
-                // Critical error: file is in trash, but not tracked. Attempt to revert by
-                // deleting from trash.
-                if (targetTrashFile.exists() && targetTrashFile.delete()) {
-                    FLog.w(TAG, "moveToTrash: Reverted by deleting untracked file from trash: " + targetTrashFileName);
-                } else {
-                    FLog.e(TAG, "moveToTrash: CRITICAL - Failed to revert untracked file in trash: "
-                            + targetTrashFileName + ". Manual cleanup needed.");
-                }
+                // The file is in Trash but the list could not be saved. It used to be DELETED here "to
+                // revert", but the original had already been moved or removed, so that deleted the only
+                // copy of a recording because a small list would not save (typically a full phone, which
+                // is exactly when people trash things). Leave it in the Trash folder: unlisted, but there.
+                FLog.e(TAG, "moveToTrash: the file is in the Trash folder but could not be listed: "
+                        + targetTrashFileName);
                 return false;
             }
         } else {

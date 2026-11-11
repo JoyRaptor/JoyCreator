@@ -179,7 +179,8 @@ public class ShareInActivity extends AppCompatActivity {
 
     private void save(List<Uri> shared, String source, BringInDialog.Choice large) {
         List<Saved> saved = new ArrayList<>();
-        List<String> toRemove = new ArrayList<>();
+        // Original link to its copy's link: an original goes only once its copy is confirmed whole.
+        java.util.Map<String, String> toRemove = new java.util.LinkedHashMap<>();
         String problem = null;
         String projectId = ShareInbox.openProjectId();
         String projectName = ShareInbox.openProjectName();
@@ -225,6 +226,13 @@ public class ShareInActivity extends AppCompatActivity {
                         if (in != null) rel = jf.index.find(jf.fs, null, Fingerprint.of(in, size));
                     }
                 }
+                // "Already in the folder" is judged by size plus three samples. Before a MOVE deletes the
+                // original on the strength of it, it has to be true byte for byte (work-loss audit 2026-11-10).
+                if (rel != null && isLarge && large == BringInDialog.Choice.MOVE) {
+                    try (InputStream in = getContentResolver().openInputStream(u)) {
+                        if (in == null || !StudioMirror.sameBytes(jf, in, rel)) rel = null;
+                    }
+                }
                 if (rel != null) {
                     s.already = true;
                 } else {
@@ -235,12 +243,20 @@ public class ShareInActivity extends AppCompatActivity {
                         if (in == null) throw new java.io.IOException("couldn't read the shared file");
                         rel = jf.addFile(dir, name, in, "share-in");
                     }
+                    // A source that stops part-way just ends its stream: a short copy, and nothing threw.
+                    // A short copy is not a copy (work-loss audit 2026-11-10).
+                    com.fadcam.joyfolder.JoyFs.Entry made = jf.fs.stat(rel);
+                    if (size > 0 && (made == null || made.size != size)) {
+                        jf.fs.delete(rel);
+                        jf.index.remove(rel);
+                        throw new java.io.IOException("the copy of " + displayName(u) + " came out incomplete");
+                    }
                 }
                 s.name = Placement.nameOf(rel);
                 s.uri = saf.documentUri(rel);
                 if (s.mime == null && s.uri != null) s.mime = getContentResolver().getType(s.uri);
                 saved.add(s);
-                if (isLarge && large == BringInDialog.Choice.MOVE) toRemove.add(u.toString());
+                if (isLarge && large == BringInDialog.Choice.MOVE && s.uri != null) toRemove.put(u.toString(), s.uri.toString());
             }
             jf.saveIndex();
         } catch (Exception e) {

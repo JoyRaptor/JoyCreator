@@ -36,7 +36,36 @@ public final class OriginalsRemover {
      *
      * @return names of originals that could not be removed (and needed no prompt), for the person to delete
      */
-    public static List<String> remove(Activity activity, List<String> refs) {
+    /**
+     * The MOVE's last step, with the check that makes it safe: an original is removed only when its copy
+     * in the folder is there and exactly as long. A copy that came out short (the source stopped
+     * answering part-way and the stream simply ended) used to count as landed, and the only whole file
+     * was then deleted (work-loss audit 2026-11-10). An original that fails the check is left where it
+     * is and named in the result, like one that could not be removed.
+     *
+     * @param moved original link to its copy's link
+     */
+    public static List<String> remove(Activity activity, java.util.Map<String, String> moved) {
+        List<String> unsure = new ArrayList<>();
+        List<String> safe = new ArrayList<>();
+        for (java.util.Map.Entry<String, String> e : moved.entrySet()) {
+            if (wholeCopy(StudioMirror.sizeOf(activity, e.getKey()), StudioMirror.sizeOf(activity, e.getValue()))) {
+                safe.add(e.getKey());
+            } else {
+                Log.w(TAG, "Kept an original whose copy could not be confirmed whole: " + e.getKey());
+                unsure.add(StudioMirror.nameOf(activity, e.getKey()));
+            }
+        }
+        unsure.addAll(remove(activity, safe));
+        return unsure;
+    }
+
+    /** Both sizes known, the copy not empty, and the same length. Anything else: keep the original. */
+    static boolean wholeCopy(long originalBytes, long copyBytes) {
+        return originalBytes > 0 && copyBytes > 0 && originalBytes == copyBytes;
+    }
+
+    private static List<String> remove(Activity activity, List<String> refs) {
         List<String> failed = new ArrayList<>();
         ArrayList<Uri> needAsk = new ArrayList<>();
         for (String ref : refs) {

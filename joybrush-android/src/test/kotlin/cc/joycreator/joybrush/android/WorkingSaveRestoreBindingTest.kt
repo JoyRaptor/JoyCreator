@@ -99,6 +99,43 @@ class WorkingSaveRestoreBindingTest {
 
         assertFalse(booleanField(fixture.activity, "workingSaveAllowed"))
         assertFalse(booleanField(fixture.activity, "loadingDrawing"))
+        // Work-loss audit 2026-11-10: with autosave off nothing drawn could be saved, so the canvas takes no strokes.
+        assertTrue(booleanField(fixture.activity, "drawingUnopened"))
+    }
+
+    @Test
+    fun aDrawingThatOpensLeavesTheCanvasOpenToStrokes() {
+        val fixture = fixture()
+        startRestore(fixture)
+        complete(fixture, null)
+        drainMainLooper()
+        drainFileIo()
+        drainMainLooper()
+
+        assertFalse(booleanField(fixture.activity, "drawingUnopened"))
+    }
+
+    @Test
+    fun aDrawingFileThatCannotBeReadClosesTheCanvasAndLeavesTheFileAlone() {
+        val fixture = fixture()
+        val file = JoyBrushActivity::class.java.getDeclaredField("openedDrawing")
+            .also { it.isAccessible = true }.get(fixture.activity) as File
+        val damaged = "this is not a drawing archive".toByteArray()
+        file.writeBytes(damaged)
+        try {
+            startRestore(fixture)
+            complete(fixture, null)
+            drainMainLooper()
+            drainFileIo()
+            drainMainLooper()
+
+            assertFalse(booleanField(fixture.activity, "workingSaveAllowed"))
+            assertFalse(booleanField(fixture.activity, "loadingDrawing"))
+            assertTrue(booleanField(fixture.activity, "drawingUnopened"))
+            assertTrue(damaged.contentEquals(file.readBytes()))
+        } finally {
+            file.delete()
+        }
     }
 
     @Test

@@ -490,13 +490,38 @@ public class FaditorMiniFragment extends BaseFragment {
                                 : "Delete " + count + " projects? You can put them back from Trash.")
                         : getString(R.string.faditor_delete_projects_message, count))
                 .setPositiveButton(R.string.faditor_delete_confirm, (dialog, which) -> {
-                    final java.util.List<String> deletedIds = new java.util.ArrayList<>(selectedIds);
-                    for (String id : selectedIds) {
-                        projectStorage.delete(id);
-                    }
+                    final java.util.List<String> ids = new java.util.ArrayList<>(selectedIds);
+                    final android.content.Context app = requireContext().getApplicationContext();
+                    final android.os.Handler main = new android.os.Handler(android.os.Looper.getMainLooper());
                     exitSelectionMode();
-                    refreshRecentProjects();
-                    offerUndoDelete(deletedIds);
+                    // On the folder's thread, and only after the folder copy is up to date (work-loss audit
+                    // 2026-11-10). This used to delete at once on this thread: the copy that went to Trash
+                    // was whatever the last background copy had caught, or nothing at all for a project
+                    // made moments before, while the message promised it could be put back.
+                    com.fadcam.joyfolder.android.JoyFolderHome.io().execute(() -> {
+                        final java.util.List<String> deleted = new java.util.ArrayList<>();
+                        int keptCount = 0;
+                        boolean folder = com.fadcam.joyfolder.android.JoyFolderHome.isChosen(app);
+                        for (String id : ids) {
+                            // With a Joy Creator folder, a project goes only when its copy can go to Trash.
+                            if (folder && !com.fadcam.joyfolder.studio.StudioMirror.mirrorNow(app, id)) {
+                                keptCount++;
+                                continue;
+                            }
+                            if (projectStorage.delete(id)) deleted.add(id);
+                        }
+                        final int kept = keptCount;
+                        main.post(() -> {
+                            if (!isAdded()) return;
+                            refreshRecentProjects();
+                            if (!deleted.isEmpty()) offerUndoDelete(deleted);
+                            if (kept > 0) {
+                                Toast.makeText(app, (kept == 1 ? "1 project wasn't deleted" : kept + " projects weren't deleted")
+                                        + ": it couldn't be put in Trash just now, so it could not have been put back. "
+                                        + "Check that your Joy Creator folder can be reached.", Toast.LENGTH_LONG).show();
+                            }
+                        });
+                    });
                 })
                 .setNegativeButton(R.string.faditor_cancel, null)
                 .show();
@@ -539,7 +564,7 @@ public class FaditorMiniFragment extends BaseFragment {
                             if (!moved.isEmpty()) {
                                 com.fadcam.joyfolder.studio.StudioMirror.rememberMoved(app, moved);
                                 com.fadcam.joyfolder.studio.StudioMirror.repointOthers(app, moved, projectId);
-                                left = com.fadcam.joyfolder.studio.OriginalsRemover.remove(activity, new java.util.ArrayList<>(moved.keySet()));
+                                left = com.fadcam.joyfolder.studio.OriginalsRemover.remove(activity, moved);
                             }
                             int c = copied.size() - moved.size();
                             msg = (c > 0 ? "Copied " + c + (moved.isEmpty() ? "" : " and moved " + moved.size())

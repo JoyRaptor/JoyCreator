@@ -406,6 +406,15 @@ class JoyBrushActivity : Activity() {
     private var loadingDrawing = true
     private var replacingDrawing = false
     private var workingSaveAllowed = false
+    /**
+     * The drawing on disk is NOT on the canvas: it would not open, or the save before it did not finish. The canvas is
+     * blank and autosave is off (so the file is left alone), which means nothing drawn now could ever be saved. So
+     * nothing may be drawn, and the person is asked what to do ([showDrawingDidNotOpen]). Work-loss audit 2026-11-10:
+     * this state used to be a blank canvas that took strokes, one toast, and then every autosave failing in silence;
+     * and "Open…" from it loaded another drawing whose autosave then replaced the one that had not opened.
+     */
+    private var drawingUnopened = false
+    private var unopenedDialog: android.app.AlertDialog? = null
     /** The debug stroke replay owns this screen: it never saves the working file, and says nothing about not saving. */
     private var benchMode = false
     private var destroyed = false
@@ -498,7 +507,7 @@ class JoyBrushActivity : Activity() {
         val root = object : FrameLayout(this) {
             // No stroke or layer edit can race startup restore or preservation-before-Open.
             override fun dispatchTouchEvent(event: MotionEvent): Boolean =
-                if (loadingDrawing || replacingDrawing || recoveringDrawing || canvas.needsRecovery) true else super.dispatchTouchEvent(event)
+                if (loadingDrawing || replacingDrawing || recoveringDrawing || canvas.needsRecovery || drawingUnopened) true else super.dispatchTouchEvent(event)
         }
         root.addView(canvas, FrameLayout.LayoutParams(MATCH, MATCH))
         boardBackdrop=cc.joycreator.joybrush.android.board.BoardBackdrop(this,canvas)
@@ -702,6 +711,7 @@ class JoyBrushActivity : Activity() {
         boardExports.dismiss()
         boardController?.stop()
         destroyed = true
+        unopenedDialog?.dismiss(); unopenedDialog = null
         restoreSaveWait?.close(); restoreSaveWait = null
         if (::canvas.isInitialized) canvas.onPaperBackdropChanged = null
         ui.removeCallbacks(iconCheck)
@@ -2425,17 +2435,62 @@ class JoyBrushActivity : Activity() {
      */
     private fun restoreWorkingFile() {
         val file = workingFile()
-        if (file == null) { finishStartup(false); return }
+        if (file == null) { startupFailed(null, "this device has nowhere to keep a working drawing"); return }
         restoreSaveWait = workingSaves.whenSettled(file.absoluteFile.normalize().path) { problem ->
             // Never wait inside fileIo: the outgoing snapshot still needs to queue its write there.
             ui.post {
                 restoreSaveWait = null
                 if (destroyed) return@post
-                if (problem != null) {
-                    toast("Your previous save failed. Reopening was stopped to protect your drawing. Use Open or recovery to continue: $problem")
-                    finishStartup(false)
-                } else readWorkingFile(file)
+                // The last save of this drawing did not finish, so the file holds an earlier one. It is never opened
+                // without saying so: the person chooses to open what was saved.
+                if (problem != null) startupFailed(file, "the previous save failed: $problem", lastSaveFailed = true)
+                else readWorkingFile(file)
             }
+        }
+    }
+
+    /** Startup did not put the drawing on the canvas. Leaves the file alone and asks the person; see [drawingUnopened]. */
+    private fun startupFailed(file: File?, detail: String?, lastSaveFailed: Boolean = false) {
+        // The reason is for the log. On the screen it would be a technical sentence nobody can act on.
+        android.util.Log.w("JoyBrush", "the drawing was not opened: $detail")
+        finishStartup(false)
+        if (destroyed || benchMode) return
+        showDrawingDidNotOpen(file, lastSaveFailed)
+    }
+
+    private fun showDrawingDidNotOpen(file: File?, lastSaveFailed: Boolean) {
+        drawingUnopened = true
+        if (isFinishing) return
+        unopenedDialog?.dismiss()
+        val dialog = android.app.AlertDialog.Builder(this)
+            .setTitle(if (lastSaveFailed) "The last save didn't finish" else "This drawing didn't open")
+            .setMessage(
+                if (lastSaveFailed) "Your drawing is safe as it was last saved, but the newest marks may be missing."
+                else "Your saved drawing is safe and hasn't been changed. Nothing can be drawn here until it opens, " +
+                    "because it couldn't be saved.")
+            .setCancelable(false)
+            .setNegativeButton("Close") { _, _ -> finish() }
+        if (file != null) {
+            dialog.setPositiveButton(if (lastSaveFailed) "Open saved drawing" else "Try again") { _, _ ->
+                unopenedDialog = null
+                drawingUnopened = false
+                loadingDrawing = true
+                // Straight to the file: the wait for the earlier screen's save has already answered.
+                readWorkingFile(file)
+            }
+        }
+        dialog.setNeutralButton("New drawing") { _, _ ->
+            // A fresh file of its own, so what is drawn next is saved and the one that didn't open is untouched.
+            val fresh = cc.joycreator.joybrush.android.library.DrawingLibrary.create(this)
+            if (fresh != null) startActivity(cc.joycreator.joybrush.android.library.DrawingLibrary.openIntent(this, fresh))
+            finish()
+        }
+        unopenedDialog = try { dialog.show() } catch (e: RuntimeException) {
+            // No window to show it in (the screen is on its way out). The canvas stays closed to strokes either way.
+            android.util.Log.w("JoyBrush", "could not ask about the unopened drawing", e)
+            try { toast("This drawing didn't open. Your saved drawing is safe. Close Joy Brush and open it again.") }
+            catch (_: RuntimeException) { }
+            null
         }
     }
 
@@ -2452,10 +2507,7 @@ class JoyBrushActivity : Activity() {
                 // thread, so the owner got a crash loop instead of the sentence below. A failed
                 // restore must never take the app down — the drawing on disk is left untouched and
                 // the screen opens empty, which is recoverable; a dead process is not.
-                ui.post {
-                    if (!destroyed) toast("Your last drawing could not be opened. Autosave will leave it intact: ${e.message}")
-                    finishStartup(false)
-                }
+                ui.post { startupFailed(file, e.message ?: e.javaClass.simpleName) }
                 return@execute
             }
             ui.post {
@@ -2463,7 +2515,7 @@ class JoyBrushActivity : Activity() {
                 if (read == null) finishStartup(true)
                 else showContents(read.contents, keepRecoveryCopy = false) { loaded ->
                     if (loaded && read.recoveredBackup) toast("Recovered your drawing from its backup")
-                    finishStartup(loaded)
+                    if (loaded) finishStartup(true) else startupFailed(file, "the drawing could not be shown")
                 }
             }
         }

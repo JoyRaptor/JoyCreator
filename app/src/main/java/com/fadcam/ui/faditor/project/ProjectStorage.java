@@ -886,6 +886,13 @@ public class ProjectStorage {
         File dir = getProjectDir(projectId);
         if (!dir.exists()) return false;
 
+        // What goes to Trash must be the project as it is now, not as the last background copy
+        // caught it (work-loss audit 2026-11-10). Folder I/O, so only off the main thread; both
+        // callers that delete for a person do so from the folder's own thread.
+        if (android.os.Looper.myLooper() != android.os.Looper.getMainLooper()) {
+            com.fadcam.joyfolder.studio.StudioMirror.mirrorNow(context, projectId);
+        }
+
         // The copy in the user's Joy Creator folder goes to its Trash, restorable for 30 days.
         com.fadcam.joyfolder.studio.StudioMirror.onProjectDeleted(context, projectId);
 
@@ -4025,7 +4032,13 @@ public class ProjectStorage {
                             sheet.setSequenceFrames(abs);
                         }
                         project.getSpriteSheets().add(sheet);
-                    } catch (Exception ignored) { }
+                    } catch (Exception e) {
+                        // Said, never silent (work-loss audit 2026-11-10): a sheet dropped here without a
+                        // word was gone for good at the next save, with every animation cut from it.
+                        // A skip puts up the "some parts couldn't be loaded" choice and holds saves.
+                        FLog.e(TAG, "Sprite sheet #" + (i + 1) + " could not be read", e);
+                        project.addLoadSkip("Sprite sheet #" + (i + 1));
+                    }
                 }
             }
 
@@ -4037,7 +4050,11 @@ public class ProjectStorage {
                         project.getAvatarRigs().add(
                                 com.fadcam.ui.faditor.avatar.AvatarRig.fromJson(
                                         rigsArr.get(i).getAsJsonObject()));
-                    } catch (Exception ignored) { }
+                    } catch (Exception e) {
+                        // As for sprite sheets above: a puppet dropped in silence is a puppet deleted.
+                        FLog.e(TAG, "Character #" + (i + 1) + " could not be read", e);
+                        project.addLoadSkip("Character #" + (i + 1));
+                    }
                 }
             }
 

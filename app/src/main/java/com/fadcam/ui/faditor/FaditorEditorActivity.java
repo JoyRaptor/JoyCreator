@@ -5263,6 +5263,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         for (com.fadcam.ui.faditor.markers.MarkerWorkspace.Point p : next.sortedPoints()) offsets.add(p.timeMs);
         project.setBookmarksMs(offsets);
         com.fadcam.ui.faditor.project.BookmarkStore.save(projectStorage.projectDir(project.getId()), offsets);
+        // Marks are not in project.json, so changing one saves no project; tell the folder copy itself
+        // (it carries the marks since the work-loss audit of 2026-11-10).
+        com.fadcam.joyfolder.studio.StudioMirror.onProjectSaved(this, project.getId());
         if (editorTimeline != null) {
             editorTimeline.setMarkerFrameRate(projectFps()); editorTimeline.setMarkerWorkspace(next);
         }
@@ -5525,7 +5528,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     if (!moved.isEmpty()) {
                         com.fadcam.joyfolder.studio.StudioMirror.rememberMoved(app, moved);
                         com.fadcam.joyfolder.studio.StudioMirror.repointOthers(app, moved, id);
-                        notRemoved = com.fadcam.joyfolder.studio.OriginalsRemover.remove(this, new java.util.ArrayList<>(moved.keySet()));
+                        notRemoved = com.fadcam.joyfolder.studio.OriginalsRemover.remove(this, moved);
                     }
                     final java.util.List<String> left = notRemoved;
                     runOnUiThread(() -> Toast.makeText(this, outcome(copied.size() - moved.size(), moved.size(), take.size(), why, left),

@@ -60,6 +60,10 @@ public final class JoyFolderTests {
         run("suggestions: never for the main work (half or more)", JoyFolderTests::suggestionsNotForMainWork);
         run("suggestions: recordings known by name, moved into Recordings", JoyFolderTests::suggestionsByName);
         run("folder: prepareDir and addFile", JoyFolderTests::prepareAndAdd);
+        run("atomic write from a stream", JoyFolderTests::atomicFromStream);
+        run("crash recovery reaches subfolders", JoyFolderTests::atomicInSubfolder);
+        run("trash: a lost log is rebuilt from the Trash folder", JoyFolderTests::trashLogRebuilt);
+        run("trash: an item whose log line was never written", JoyFolderTests::trashUnlisted);
         System.out.println();
         System.out.println(passed + " passed, " + failed + " failed");
         if (failed > 0) System.exit(1);
@@ -327,6 +331,96 @@ public final class JoyFolderTests {
         jf.trash("More.png", T);
         eq(2, jf.emptyTrash());
         eq(0, jf.trashItems().size());
+        eq(0, fs.list(JoyFolder.TRASH).size());
+    }
+
+    // ── work-loss audit 2026-11-10 ───────────────────────────────────────
+
+    static void atomicFromStream() throws IOException {
+        FileJoyFs fs = tempFs();
+        JoyFolder jf = JoyFolder.open(fs);
+        String big = repeat("0123456789abcdef", 40_000);   // 640 KB: more than one buffer
+        jf.writeAtomicFrom("Dino walk.joybrush", in("v1"));
+        jf.writeAtomicFrom("Dino walk.joybrush", in(big));
+        eq(big, read(fs, "Dino walk.joybrush"));
+        eq(Collections.singletonList("Dino walk.joybrush"), topFiles(fs));
+        // A source that fails part-way leaves the file that was there.
+        try {
+            jf.writeAtomicFrom("Dino walk.joybrush", new java.io.InputStream() {
+                int sent;
+                @Override public int read() throws IOException {
+                    if (sent++ < 10) return 'x';
+                    throw new IOException("source went away");
+                }
+            });
+            check(false, "a failing source must throw");
+        } catch (IOException expected) {
+        }
+        eq(big, read(fs, "Dino walk.joybrush"));
+        // The half-written temp is cleared the next time the folder opens.
+        JoyFolder.open(fs);
+        eq(Collections.singletonList("Dino walk.joybrush"), topFiles(fs));
+    }
+
+    static void atomicInSubfolder() throws IOException {
+        FileJoyFs fs = tempFs();
+        JoyFolder jf = JoyFolder.open(fs);
+        // A project kept in a folder the person made, known to the index.
+        jf.writeAtomic("Client A/Promo.joyproject", "v1".getBytes(StandardCharsets.UTF_8));
+        jf.index.scan(fs);
+        jf.saveIndex();
+        // The next save was cut off after the old copy was set aside, before the new one moved in.
+        check(fs.rename("Client A/Promo.joyproject", "Promo.joyproject.joyold"), "test setup");
+        write(fs, "Client A/Promo.joyproject.joytmp", "v2");
+        check(fs.stat("Client A/Promo.joyproject") == null, "the project is missing from the folder");
+        JoyFolder.open(fs);
+        eq("v2", read(fs, "Client A/Promo.joyproject"));
+        check(fs.stat("Client A/Promo.joyproject.joyold") == null, "old copy cleared");
+        check(fs.stat("Client A/Promo.joyproject.joytmp") == null, "temp cleared");
+    }
+
+    static void trashLogRebuilt() throws IOException {
+        FileJoyFs fs = tempFs();
+        JoyFolder jf = JoyFolder.open(fs);
+        write(fs, "Old.joyproject", "1");
+        write(fs, "Client A/Sketch.joybrush", "2");
+        String a = jf.trash("Old.joyproject", T);
+        String b = jf.trash("Client A/Sketch.joybrush", T);
+        // The log is damaged (a cut-off write, a sync conflict).
+        write(fs, JoyFolder.HIDDEN + "/trash.json", "{\"items\":[{\"name\":");
+        List<String> listed = jf.trashed();
+        check(listed.contains(a) && listed.contains(b), "both are still listed: " + listed);
+        // Trashing something else must not forget them.
+        write(fs, "New.png", "3");
+        String c = jf.trash("New.png", System.currentTimeMillis());
+        listed = jf.trashed();
+        eq(3, listed.size());
+        check(listed.contains(a) && listed.contains(b) && listed.contains(c), "all three listed: " + listed);
+        // Where it came from is gone with the log, so it goes back to the top under its own name.
+        eq("Sketch.joybrush", jf.restore(b));
+        eq("2", read(fs, "Sketch.joybrush"));
+        // It counts as trashed now: the keeping time starts over rather than ending at once.
+        eq(0, jf.emptyOlderThan(System.currentTimeMillis() + 60_000, 24L * 3600 * 1000));
+        check(jf.trashed().contains(a), "a rebuilt item is kept for the whole keeping time");
+    }
+
+    static void trashUnlisted() throws IOException {
+        FileJoyFs fs = tempFs();
+        JoyFolder jf = JoyFolder.open(fs);
+        write(fs, "One.png", "1");
+        jf.trash("One.png", T);
+        // A file that reached Trash while its log line never did.
+        write(fs, JoyFolder.TRASH + "/2026-10-13 14.32 Two.png", "2");
+        List<JoyFolder.TrashItem> items = jf.trashItems();
+        eq(2, items.size());
+        boolean found = false;
+        for (JoyFolder.TrashItem it : items) if ("Two.png".equals(it.originalName())) found = true;
+        check(found, "listed under the name it had");
+        // Trashing once more lists each item once.
+        write(fs, "Three.png", "3");
+        jf.trash("Three.png", T);
+        eq(3, jf.trashItems().size());
+        eq(3, jf.emptyTrash());
         eq(0, fs.list(JoyFolder.TRASH).size());
     }
 

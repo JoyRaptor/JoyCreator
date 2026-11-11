@@ -59,7 +59,34 @@ public final class JoyFolder {
                 FolderRoles.fromJson(readJsonQuietly(fs, ROLES_FILE)),
                 FolderIndex.fromJson(readJsonQuietly(fs, INDEX_FILE)));
         if (jf.roles.reconcile(fs)) jf.saveRoles();
+        jf.recoverInSubfolders();
         return jf;
+    }
+
+    /** No more subfolders than this are checked when the folder opens (each costs two listings). */
+    private static final int MAX_RECOVER_DIRS = 48;
+
+    /**
+     * The same repair as at the top, for every subfolder the index knows work in. A project kept in
+     * "Client A/" whose save was cut off between the two renames was left as "Promo.joyproject.joyold"
+     * plus ".joytmp" for good: the top and the hidden folder were the only places ever checked, so the
+     * project was missing from the folder until its next save (work-loss audit 2026-11-10).
+     * A folder that can't be listed is skipped: this must never stop the folder from opening.
+     */
+    private void recoverInSubfolders() {
+        Set<String> dirs = new java.util.LinkedHashSet<>();
+        for (FolderIndex.Item it : index.items()) {
+            String dir = Placement.parentOf(it.path);
+            if (dir.isEmpty() || dir.startsWith(HIDDEN)) continue;
+            dirs.add(dir);
+            if (dirs.size() >= MAX_RECOVER_DIRS) break;
+        }
+        for (String dir : dirs) {
+            try {
+                if (fs.stat(dir) != null) recoverInterruptedWrites(fs, dir);
+            } catch (IOException | RuntimeException ignored) {
+            }
+        }
     }
 
     // ── Atomic writes ────────────────────────────────────────────────────
@@ -71,13 +98,34 @@ public final class JoyFolder {
      * sequence a crash interrupted.
      */
     public synchronized void writeAtomic(String rel, byte[] data) throws IOException {
+        writeAtomic(rel, out -> out.write(data));
+    }
+
+    /**
+     * {@link #writeAtomic(String, byte[])} from a stream, a piece at a time. A drawing can be tens of
+     * megabytes; holding all of it in memory just to copy it ran the phone out of memory while it
+     * was already holding the picture (work-loss audit 2026-11-10). The stream is not closed here.
+     */
+    public synchronized void writeAtomicFrom(String rel, InputStream in) throws IOException {
+        writeAtomic(rel, out -> {
+            byte[] buf = new byte[256 * 1024];
+            int n;
+            while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+        });
+    }
+
+    private interface Body {
+        void writeTo(OutputStream out) throws IOException;
+    }
+
+    private void writeAtomic(String rel, Body body) throws IOException {
         String dir = Placement.parentOf(rel);
         String name = Placement.nameOf(rel);
         String tmp = Placement.join(dir, name + TMP_SUFFIX);
         String old = Placement.join(dir, name + OLD_SUFFIX);
         if (fs.stat(tmp) != null) fs.delete(tmp);
         try (OutputStream out = fs.create(tmp)) {
-            out.write(data);
+            body.writeTo(out);
         }
         boolean hadOld = fs.stat(rel) != null;
         if (hadOld) {
@@ -207,13 +255,15 @@ public final class JoyFolder {
         String trashName = freeName(TRASH, stamped);
         String dir = Placement.parentOf(rel);
         String name = Placement.nameOf(rel);
+        // The log is read BEFORE the move: read after it, the item just moved would look like one
+        // the log had lost (see trashLog) and be listed twice.
+        JsonObject log = trashLog();
         // Rename in place first so the move into Trash can never collide with another item's name.
         if (!trashName.equals(name) && !fs.rename(rel, trashName)) throw new IOException("Could not trash " + rel);
         if (!fs.move(Placement.join(dir, trashName), TRASH)) {
             fs.rename(Placement.join(dir, trashName), name);
             throw new IOException("Could not trash " + rel);
         }
-        JsonObject log = trashLog();
         JsonObject entry = new JsonObject();
         entry.addProperty("name", trashName);
         entry.addProperty("from", rel);
@@ -346,6 +396,46 @@ public final class JoyFolder {
             o = new JsonObject();
             o.add("items", new JsonArray());
         }
+        adoptUnlistedTrash(o);
         return o;
+    }
+
+    /** "2026-10-13 14.32 " at the start of a Trash name: the stamp {@link #trash} puts there. */
+    private static final java.util.regex.Pattern TRASH_STAMP =
+            java.util.regex.Pattern.compile("^\\d{4}-\\d{2}-\\d{2} \\d{2}\\.\\d{2} (.+)$");
+
+    /**
+     * Whatever is in the Trash folder is in the log. The log is one small file; when it could not be
+     * read it used to count as empty, and the next thing trashed wrote that over it: everything
+     * trashed before could no longer be seen or put back, though the files were still there. The same
+     * happened to an item whose log line was never written (the folder went away mid-trash).
+     *
+     * <p>An item found this way has lost where it came from, so it goes back to the top of the folder
+     * under its own name; and it counts as trashed NOW, so it gets the whole keeping time before the
+     * Trash rule may remove it (its file time is when it was last edited, which can be months ago).
+     * The log is only changed in memory here; the next trash, restore or delete saves it.</p>
+     */
+    private void adoptUnlistedTrash(JsonObject log) {
+        try {
+            if (fs.stat(TRASH) == null) return;
+            JsonArray items = log.getAsJsonArray("items");
+            Set<String> listed = new HashSet<>();
+            for (JsonElement el : items) {
+                JsonObject e = el.getAsJsonObject();
+                if (e.has("name")) listed.add(e.get("name").getAsString());
+            }
+            long now = System.currentTimeMillis();
+            for (JoyFs.Entry e : fs.list(TRASH)) {
+                if (listed.contains(e.name) || e.name.endsWith(TMP_SUFFIX) || e.name.endsWith(OLD_SUFFIX)) continue;
+                java.util.regex.Matcher m = TRASH_STAMP.matcher(e.name);
+                JsonObject entry = new JsonObject();
+                entry.addProperty("name", e.name);
+                entry.addProperty("from", m.matches() ? m.group(1) : e.name);
+                entry.addProperty("at", now);
+                items.add(entry);
+            }
+        } catch (IOException | RuntimeException ignored) {
+            // The folder can't be listed right now: the log as read is all there is to go on.
+        }
     }
 }

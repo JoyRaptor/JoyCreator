@@ -92,6 +92,33 @@ public final class StudioMirror {
         });
     }
 
+    /**
+     * Before a delete: bring the project's folder copy up to date NOW, not a few seconds from now, so
+     * what goes to Trash is the project as it is (work-loss audit 2026-11-10: the copy in Trash was
+     * whatever the last background copy had caught, and for a project deleted moments after it was
+     * made there was no copy at all). Folder I/O: never the main thread.
+     *
+     * @return true when the folder holds a copy of this project afterwards, so the delete can be undone
+     */
+    public static boolean mirrorNow(Context context, String projectId) {
+        final Context app = context.getApplicationContext();
+        if (!JoyFolderHome.isChosen(app)) return false;
+        MAIN.post(() -> {
+            Runnable waiting = PENDING.remove(projectId);
+            if (waiting != null) MAIN.removeCallbacks(waiting);
+        });
+        try {
+            mirror(app, projectId);
+        } catch (Exception e) {
+            Log.w(TAG, "Could not bring the folder copy of " + projectId + " up to date", e);
+        }
+        try {
+            return folderPathOf(app, projectId) != null;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     /** Called when the user deletes a project in the app: its folder copy goes to Trash. */
     public static void onProjectDeleted(Context context, String projectId) {
         final Context app = context.getApplicationContext();
@@ -274,6 +301,11 @@ public final class StudioMirror {
         JsonObject fps = new JsonObject();
         for (Map.Entry<String, String> e : files.entrySet()) fps.addProperty(e.getKey(), e.getValue());
         block.add("files", fps);
+        // Timeline marks and regions live beside project.json, not in it, so the folder copy had none:
+        // an uninstall or a new phone brought the project back with every mark gone (work-loss audit
+        // 2026-11-10). They ride along here and restoreMissing puts them back.
+        JsonObject marks = ProjectSidecars.read(projectDir);
+        if (marks != null) block.add("sidecars", marks);
         root.add("joyFolder", block);
 
         byte[] bytes = GSON.toJson(root).getBytes(StandardCharsets.UTF_8);
@@ -673,8 +705,14 @@ public final class StudioMirror {
                 Uri doc = now == null ? null : saf.documentUri(now);
                 return doc == null ? value : doc.toString();   // a missing file shows in the relink screen
             });
+            JsonObject sidecars = root.has("joyFolder") && root.get("joyFolder").isJsonObject()
+                    && root.getAsJsonObject("joyFolder").has("sidecars")
+                    && root.getAsJsonObject("joyFolder").get("sidecars").isJsonObject()
+                    ? root.getAsJsonObject("joyFolder").getAsJsonObject("sidecars") : null;
             root.remove("joyFolder");
             if (!dir.isDirectory() && !dir.mkdirs()) throw new IOException("Cannot create " + dir);
+            // Before project.json: a project with its file in place counts as restored, marks or not.
+            ProjectSidecars.restore(dir, sidecars);
             File tmp = new File(dir, "project.json.tmp");
             try (FileOutputStream out = new FileOutputStream(tmp)) {
                 out.write(GSON.toJson(root).getBytes(StandardCharsets.UTF_8));
@@ -929,11 +967,25 @@ public final class StudioMirror {
             String dir = jf.prepareDir(Placement.What.IMPORT, workRel, null, null);
             rel = jf.addFile(dir, name, src, "import");
         }
+        // A source that stops answering part-way just ends its stream: the copy is short and nothing
+        // threw. A short copy is not a copy. Without this the project was pointed at it and, on a
+        // MOVE, the whole original was then deleted (work-loss audit 2026-11-10).
+        long want = sizeOf(context, ref);
+        FolderIndex.Item made = jf.index.get(rel);
+        if (want > 0 && made != null && made.size != want) {
+            jf.fs.delete(rel);
+            jf.index.remove(rel);
+            throw new IOException("the copy of " + name + " came out incomplete, so the original was left as it is");
+        }
         // Already there under another name? Keep the first copy.
         FolderIndex.Item it = jf.index.get(rel);
         if (it != null && it.fingerprint != null) {
             for (FolderIndex.Item other : jf.index.items()) {
                 if (!other.path.equals(rel) && it.fingerprint.equals(other.fingerprint) && jf.fs.stat(other.path) != null) {
+                    // The fingerprint is the size plus three samples: enough to FIND a file again, not to
+                    // call two files the same one. A MOVE deletes the original next, so "already there"
+                    // has to be true byte for byte, or the copy just made stays (work-loss audit 2026-11-10).
+                    if (!sameBytes(jf, rel, other.path)) continue;
                     jf.fs.delete(rel);
                     jf.index.remove(rel);
                     rel = other.path;
@@ -943,6 +995,43 @@ public final class StudioMirror {
         }
         jf.saveIndex();
         return saf.documentUri(rel);
+    }
+
+    /** True when two folder files hold exactly the same bytes. Reads both to the end. */
+    static boolean sameBytes(JoyFolder jf, String a, String b) {
+        try (InputStream x = jf.fs.open(a)) {
+            return sameBytes(jf, x, b);
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    /** True when {@code source} holds exactly the bytes of the folder file {@code b}. Does not close {@code source}. */
+    static boolean sameBytes(JoyFolder jf, InputStream source, String b) {
+        try (InputStream x = new java.io.BufferedInputStream(source, 256 * 1024);
+             InputStream y = new java.io.BufferedInputStream(jf.fs.open(b), 256 * 1024)) {
+            byte[] p = new byte[64 * 1024];
+            byte[] q = new byte[64 * 1024];
+            while (true) {
+                int n = readFully(x, p);
+                int m = readFully(y, q);
+                if (n != m) return false;
+                if (n <= 0) return true;
+                for (int i = 0; i < n; i++) if (p[i] != q[i]) return false;
+            }
+        } catch (IOException e) {
+            return false;   // can't tell: treat as different, which only ever keeps a file
+        }
+    }
+
+    private static int readFully(InputStream in, byte[] buf) throws IOException {
+        int off = 0;
+        while (off < buf.length) {
+            int n = in.read(buf, off, buf.length - off);
+            if (n < 0) break;
+            off += n;
+        }
+        return off;
     }
 
     /**

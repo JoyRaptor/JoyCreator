@@ -119,8 +119,23 @@ public final class AvatarLibrary {
             try (OutputStream os = new FileOutputStream(new File(tmp, MANIFEST))) {
                 os.write(manifest.toString().getBytes(StandardCharsets.UTF_8));
             }
-            deleteRecursive(dir);
-            if (!tmp.renameTo(dir)) return null;
+            // Set the old bundle ASIDE, move the new one in, and only then remove the old. This used
+            // to delete the old bundle first: if the move then failed, or the app was closed between
+            // the two steps, the character was gone (work-loss audit 2026-11-10). A swap that was cut
+            // off is finished by recoverSwaps the next time the library is listed.
+            File old = new File(libraryDir(ctx), entryDirName(rig) + OLD_SUFFIX);
+            deleteRecursive(old);
+            boolean had = dir.exists();
+            if (had && !dir.renameTo(old)) {
+                deleteRecursive(tmp);
+                return null;
+            }
+            if (!tmp.renameTo(dir)) {
+                if (had) old.renameTo(dir);
+                deleteRecursive(tmp);
+                return null;
+            }
+            deleteRecursive(old);
             return dir;
         } catch (Exception e) {
             deleteRecursive(tmp);
@@ -128,10 +143,26 @@ public final class AvatarLibrary {
         }
     }
 
+    private static final String OLD_SUFFIX = ".old";
+
+    /** Finish a save that was cut off between setting the old bundle aside and moving the new one in. */
+    private static void recoverSwaps(@NonNull File library) {
+        File[] all = library.listFiles();
+        if (all == null) return;
+        for (File d : all) {
+            String name = d.getName();
+            if (!d.isDirectory() || !name.endsWith(ENTRY_SUFFIX + OLD_SUFFIX)) continue;
+            File entry = new File(library, name.substring(0, name.length() - OLD_SUFFIX.length()));
+            if (entry.exists()) deleteRecursive(d);          // the new one landed
+            else if (!d.renameTo(entry)) continue;           // put the old one back; try again next time
+        }
+    }
+
     /** All entries in the library, tolerant of unreadable strays (skipped). */
     @NonNull
     public static List<Entry> list(@NonNull Context ctx) {
         List<Entry> out = new ArrayList<>();
+        recoverSwaps(libraryDir(ctx));
         File[] dirs = libraryDir(ctx).listFiles();
         if (dirs == null) return out;
         for (File d : dirs) {

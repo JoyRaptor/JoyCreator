@@ -135,12 +135,12 @@ object PasteBrushes {
         "Palette knife 2" to PasteBrush(shape = 2, blade = true, orient = EdgeMode.PEN, press = PressMode.LOAD, face = FaceMode.EDGE,
             edgeHalfMm = 0.6, edgeMinMm = 3.0, acrossMaxMm = 16.0, riseMaxMm = 0.9, bladeLenMm = 22.0, bladeHalfMm = 4.5,
             bladeHmax = 0.9, bead = 0.35, bladeCap = 20.0, thickMm = 1.1, rate = 4.0, loadLenMm = 70.0, mix = 0.2, swap = 0.0,
-            scrape = 0.0, hairDepth = 0.0, ridge = 0.0, wick = 0.0, bow = 0.0, lump = 0.25, rigid = 1.0),
+            scrape = 0.0, hairDepth = 0.0, ridge = 0.0, wick = 0.0, bow = 0.0, lump = 0.25, rigid = 1.0, soft = 1.0),
         // An empty knife with a thin edge: Palette knife 2's rules, but it scrapes paint OFF; pressure is how deep.
         "Scraper" to PasteBrush(shape = 3, blade = true, orient = EdgeMode.PEN, press = PressMode.DEPTH, edgeMinMm = 2.0,
             acrossMaxMm = 10.0, riseMaxMm = 0.6, bladeLenMm = 14.0, bladeHalfMm = 0.35, bladeHmax = 0.6, bead = 0.5, bladeCap = 3.0,
             film = 0.002, thickMm = 0.0, rate = 5.0, loadLenMm = 40.0, mix = 0.0, swap = 0.0, scrape = 0.0, hairDepth = 0.0,
-            ridge = 0.0, wick = 0.0, bow = 0.0, lump = 0.0, rigid = 1.0, clean = true),
+            ridge = 0.0, wick = 0.0, bow = 0.0, lump = 0.0, rigid = 1.0, clean = true, soft = 1.0),
     )
 }
 

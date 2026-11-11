@@ -20,10 +20,10 @@ export const PASTE_BRUSHES = {
   'Palette knife 1': { shape: 2, trowel: true, widthMm: 9, lenMm: 13, thickMm: 1.1, scrape: 0.99, hairDepth: 0.0, ridge: 1.0, rate: 4.0, mix: 0.2, swap: 0.5, loadLenMm: 70, wick: 0.0, bow: 0.9, lump: 0.25, rigid: 1, fillDips: 1 },
   // Rigid blades, held like the pen: the edge lies along the pen's lean. Pressure lowers the blade (light
   // shaves the peaks, full reaches the canvas); tilt lays more of the edge down (upright = the point).
-  'Palette knife 2': { shape: 2, blade: 1, orient: 'pen', press: 'load', face: 'edge', edgeHalfMm: 0.6, edgeMinMm: 3, acrossMaxMm: 16, riseMaxMm: 0.9, bladeLenMm: 22, bladeHalfMm: 4.5, bladeHmax: 0.9, bead: 0.35, bladeCap: 20, thickMm: 1.1, rate: 4.0, loadLenMm: 70, mix: 0.2, swap: 0, scrape: 0, hairDepth: 0, ridge: 0, wick: 0, bow: 0, lump: 0.25, rigid: 1 },
+  'Palette knife 2': { shape: 2, blade: 1, orient: 'pen', press: 'load', face: 'edge', edgeHalfMm: 0.6, edgeMinMm: 3, acrossMaxMm: 16, riseMaxMm: 0.9, bladeLenMm: 22, bladeHalfMm: 4.5, bladeHmax: 0.9, bead: 0.35, bladeCap: 20, thickMm: 1.1, rate: 4.0, loadLenMm: 70, mix: 0.2, swap: 0, scrape: 0, hairDepth: 0, ridge: 0, wick: 0, bow: 0, lump: 0.25, rigid: 1, soft: 1 },
   // An empty knife with a thin edge (owner, 2026-10-07: "the scraper is just an empty knife"): the same edge rules
   // as Palette knife 2, but it scrapes paint OFF, and pressure is how deep.
-  'Scraper': { shape: 3, blade: 1, orient: 'pen', press: 'depth', edgeMinMm: 2, acrossMaxMm: 10, riseMaxMm: 0.6, bladeLenMm: 14, bladeHalfMm: 0.35, bladeHmax: 0.6, bead: 0.5, bladeCap: 3, film: 0.002, thickMm: 0, rate: 5.0, loadLenMm: 40, mix: 0, swap: 0, scrape: 0, hairDepth: 0, ridge: 0, wick: 0, bow: 0, lump: 0, rigid: 1, clean: true },
+  'Scraper': { shape: 3, blade: 1, orient: 'pen', press: 'depth', edgeMinMm: 2, acrossMaxMm: 10, riseMaxMm: 0.6, bladeLenMm: 14, bladeHalfMm: 0.35, bladeHmax: 0.6, bead: 0.5, bladeCap: 3, film: 0.002, thickMm: 0, rate: 5.0, loadLenMm: 40, mix: 0, swap: 0, scrape: 0, hairDepth: 0, ridge: 0, wick: 0, bow: 0, lump: 0, rigid: 1, clean: true, soft: 1 },
 };
 
 // Opaque paint: the colour it covers with when thick. Strong scattering; K from the KM masstone.

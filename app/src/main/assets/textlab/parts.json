@@ -1,7 +1,7 @@
 {
   "format": "joy.textparts/1",
   "about": "Every knob a TextLab look can turn. A look file lists only the knobs it changes. 'u' is the shader uniform, 'i' the component inside it (vec2/vec3/vec4), 'c' a colour default (\"#rrggbb\" or \"#rrggbb*gain\" for light brighter than white), 'v' a number default. The room builds its panels from this file; the look book does too.",
-  "slots": ["Shape", "Depth", "Coats", "Material", "Wear", "Light", "Sides", "Floor", "Tube", "Glass", "Surface", "Pattern", "Ember", "Fire", "Finish", "Arrive"],
+  "slots": ["Shape", "Depth", "Coats", "Material", "Wear", "Light", "Sides", "Floor", "Tube", "Glass", "Surface", "Pattern", "Ember", "Fire", "Hologram", "Finish", "Arrive"],
   "knobs": {
     "weight":        {"u": "uWeight", "v": 0, "min": -0.05, "max": 0.08, "slot": "Shape", "label": "Thickness"},
     "soften":        {"u": "", "v": 0, "min": 0, "max": 0.08, "slot": "Shape", "label": "Melt and round"},
@@ -129,6 +129,7 @@
     "fireSmoke":     {"u": "uFireShape", "i": 3, "v": 0.5, "min": 0, "max": 3, "slot": "Fire", "label": "Smoke made"},
     "fireUnder":     {"u": "uFireUnder", "i": 0, "v": 0, "min": 0, "max": 1, "slot": "Fire", "label": "Pools under the shape and wraps round it"},
     "firePool":      {"u": "uFireUnder", "i": 1, "v": 0.05, "min": 0.01, "max": 0.15, "slot": "Fire", "label": "How far the pool hangs below"},
+    "fireSteady":    {"u": "uFireSteady", "v": 0, "min": 0, "max": 1, "slot": "Fire", "label": "Burns in patches / feeds evenly"},
     "fireSoft":      {"u": "uFireSoft", "v": 0, "min": 0, "max": 1, "slot": "Fire", "label": "Starts as a soft glow, no edge"},
     "windX":         {"u": "uWind", "i": 0, "v": 0, "min": -1.5, "max": 1.5, "slot": "Fire", "label": "Wind across"},
     "windY":         {"u": "uWind", "i": 1, "v": 0, "min": -1, "max": 1, "slot": "Fire", "label": "Wind up"},
@@ -142,6 +143,10 @@
     "smokeDark":     {"u": "uFireLook", "i": 2, "v": 0.6, "min": 0, "max": 3, "slot": "Fire", "label": "Smoke darkness"},
     "fireHide":      {"u": "uFireLook", "i": 3, "v": 0.35, "min": 0, "max": 1, "slot": "Fire", "label": "Flame hides what is behind"},
 
+    "holo":          {"u": "uHolo", "i": 0, "v": 1, "min": 0, "max": 4, "slot": "Hologram", "label": "Projection strength"},
+    "holoLines":     {"u": "uHolo", "i": 1, "v": 60, "min": 10, "max": 200, "slot": "Hologram", "label": "Scan lines per letter"},
+    "holoSpeed":     {"u": "uHolo", "i": 2, "v": 0.5, "min": 0, "max": 3, "slot": "Hologram", "label": "Scan drift"},
+    "holoGlitch":    {"u": "uHolo", "i": 3, "v": 1, "min": 0, "max": 3, "slot": "Hologram", "label": "Slips sideways now and then"},
     "bloom":         {"u": "uPost", "i": 0, "v": 0.6, "min": 0, "max": 3, "slot": "Finish", "label": "Bloom"},
     "spill":         {"u": "uPost", "i": 1, "v": 0.5, "min": 0, "max": 3, "slot": "Finish", "label": "Light spills on what is behind"},
     "shimmer":       {"u": "uPost", "i": 2, "v": 0, "min": 0, "max": 3, "slot": "Finish", "label": "Heat shimmer"},

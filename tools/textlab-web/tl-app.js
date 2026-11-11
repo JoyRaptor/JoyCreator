@@ -32,7 +32,7 @@
     return { shaders, parts, looks, tubefont, fontUrl: (file) => '../../' + file };
   }
 
-  const SLOT_NEEDS = { Tube: 'TUBE', Glass: 'REFRACT', Surface: 'DETAIL', Pattern: 'PATTERN', Ember: 'EMBER' };
+  const SLOT_NEEDS = { Tube: 'TUBE', Glass: 'REFRACT', Surface: 'DETAIL', Pattern: 'PATTERN', Ember: 'EMBER', Hologram: 'HOLO' };
   const HIDDEN_FOR_TUBE = new Set(['Depth', 'Coats', 'Material', 'Light', 'Sides']);
 
   async function main() {

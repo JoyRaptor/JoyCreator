@@ -94,7 +94,7 @@ uniform vec4  uTubeLight;    // gain, colour split across the word (0 blended ..
 uniform vec4  uGas;          // the gas is not even: how blotchy, blotches per em, how far the bright thread wanders, bands running along the tube
 uniform vec2  uTie;          // tie wires that hold the tube: how many (0..1), spacing em
 uniform float uTubeHand;     // blown and bent by hand: how much the tube's width wavers along its length
-uniform float uTubePaint;    // 1 = the field's a channel says where the glass is painted black (tube letters: the ends, the double-backs)
+uniform float uTubePaint;    // what the field's a channel says: 1 = where the glass is painted black (tube letters); 2 = the distance to this loop's break (outline tubes)
 #endif
 #ifdef REFRACT
 uniform vec4  uGlass;        // bend, colour fringing, tint strength, dark edge
@@ -116,6 +116,10 @@ uniform vec3  uFireA;
 uniform vec3  uFireB;
 uniform vec3  uFireC;
 uniform float uFireToon;
+#endif
+
+#ifdef HOLO
+uniform vec4  uHolo;         // a projection of light, not a solid: strength, scan lines per em, scan speed, how often it slips
 #endif
 
 float fieldD(vec2 q) { return texture(uFieldTex, q / uField.xy).r + uStroke; }
@@ -281,6 +285,11 @@ void main() {
     float aw = 1.0 / uField.z;
     vec3 col = vec3(0.0), add = vec3(0.0);
     float a = 0.0;
+#ifdef HOLO
+    // a projector slips now and then: a band of the picture jumps sideways for a moment
+    float slipBand = floor(p0.y * 9.0 + uTime * 2.0);
+    p0.x += step(0.9, hash21(vec2(slipBand, floor(uTime * 8.0)))) * (hash21(vec2(slipBand, 7.0)) - 0.5) * 0.14 * uHolo.w;
+#endif
 
 #ifdef TUBE
     // NEON. A round rod of bent glass with gas glowing inside it; not an outline with a glow.
@@ -290,6 +299,13 @@ void main() {
     // glass is blown, then bent hot over a flame: no tube keeps one exact width along its length
     float fr = f.r + uTubeHand * R * 0.22 * (tfbm2(p0 * 4.5 + seed * 7.0) - 0.5);
     float away = uTube.w > 0.5 ? max(R - fr, 0.0) : abs(fr - uTube.x);     // distance from the tube's centre line
+    if (uTubePaint > 1.5 && uTube.w < 0.5) {
+        // An outline tube is never an endless ring. Each loop has a break where its two ends turn
+        // back into the wall, and from the front each end is round.
+        float toEnd = R * 2.1;                                    // from the break to the middle of each round end
+        float along = sqrt(max(f.a * f.a - away * away, 0.0));    // how far along the tube from the break
+        if (along < toEnd) away = length(vec2(toEnd - along, away));
+    }
     float td = uTube.w > 0.5 ? -fr : away - R;                              // below 0 = inside the glass
     float rr = sat(away / R);                                               // 0 on the centre line .. 1 at the glass
     float inT = smoothstep(-aw, aw, -td);
@@ -319,7 +335,7 @@ void main() {
     lit *= 1.0 - uGas.w * 0.25 * smoothstep(0.5, 0.9, tnoise(vec2(dot(p0, tang) * 2.2 - uTime * 1.3, seed * 3.0 + dot(p0, gdir) * 0.3)));
 
     // painted glass lets no light out: the ends, where the tube turns back to its electrode
-    float bare = uTubePaint > 0.5 ? smoothstep(0.35, 0.65, f.a) : 1.0;
+    float bare = (uTubePaint > 0.5 && uTubePaint < 1.5) ? smoothstep(0.35, 0.65, f.a) : 1.0;
     float lit0 = lit;      // the tube's light before the paint: what its glow and the wall still get from the bare glass beside it
     lit *= bare;
     float cx = sat(f.b);
@@ -458,6 +474,16 @@ void main() {
             a = mix(seeThrough, 1.0, trim);
 #else
             a = 1.0;
+#endif
+#ifdef HOLO
+            // light hanging in air: almost nothing in the body, scan lines drifting through it, a bright rim
+            float scan = 0.5 + 0.5 * sin((q.y * uHolo.y - uTime * uHolo.z * 6.0) * TAU);
+            float rimH = 1.0 - smoothstep(0.0, max(uBevel, aw) * 1.6, d);
+            float waver = 0.82 + 0.18 * tnoise(vec2(uTime * 13.0, f.b * 9.0));
+            vec3 hc = fillAt(f.a);
+            a = 0.14 + 0.2 * scan;
+            col = hc * 0.05;
+            add += hc * (0.1 + 0.35 * scan * scan + 1.6 * rimH) * uHolo.x * waver / a;
 #endif
             if (uInline > 0.0) {
                 float il = smoothstep(-aw, aw, uInline * 0.5 - abs(dRaw - uInlineOff - uInline * 0.5));

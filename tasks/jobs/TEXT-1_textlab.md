@@ -71,6 +71,13 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
   climbs. Neon ends show NO dark spot straight on (the tape is behind the turn): ends are plain round lit elbows.
 - **Owner, "softer still":** new knob `fireSoft` (young flame is drawn as an edgeless glow that fades with its heat;
   off by default, on for Blaze), deeper and fainter pool, more spreading of trapped flame, cooler letter rim.
+- **Owner, 11-12:** Blaze: "let's go somewhere in the middle of these two ... and then let's ship": set midway
+  (`fireSoft` 0.5, `firePool` 0.072, spread 0.57) and locked. Neon Outline had no breaks: every loop of an outline tube
+  now has one, with two round ends (`tl-glyphs.js` `withBreaks`, `glyph.frag` uTubePiece 2, `shade.frag`).
+  **Second wave of seven (his order):** Liquid Chrome, Crystal Ice, Carved Stone, Diamond, Retro Pop, Hologram (new
+  `HOLO` variant), Phantom (letters of mist: the fire with `fireSteady` and the letters hidden). Fourteen looks in the
+  list. Note 9, all fourteen, 6 to 40 ms a frame at 1280 wide (Diamond 40, Crystal Ice 35 are the slow ones), 22.8 C.
+  His verdict on the seven is owed; I judged them from one or two frames each, less closely than the first wave.
 - **Honest limits today:** the fire is good stylised fire, not yet the photograph the owner showed;
   water and the other drafts are below the bar; only the app's own fonts are used (Archivo, Plex,
   Ubuntu, Doto), so there is no script or true display face yet.

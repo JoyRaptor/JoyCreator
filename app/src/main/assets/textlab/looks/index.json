@@ -8,16 +8,21 @@
     "neon-bar.text.json",
     "neon-sign.text.json",
     "neon-outline.text.json",
-    "blaze.text.json"
+    "blaze.text.json",
+    "liquid-chrome.text.json",
+    "crystal-ice.text.json",
+    "carved-stone.text.json",
+    "diamond.text.json",
+    "retro-pop.text.json",
+    "hologram.text.json",
+    "phantom.text.json"
   ],
   "drafts": [
-    "liquid-chrome.text.json",
     "steel-plate.text.json",
     "spirit-flame.text.json",
     "magma.text.json",
     "water.text.json",
     "ice.text.json",
-    "retro-pop.text.json",
     "candy.text.json",
     "toon-fire.text.json"
   ]

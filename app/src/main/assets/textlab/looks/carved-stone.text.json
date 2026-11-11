@@ -1,0 +1,24 @@
+{
+  "format": "joy.text/1",
+  "id": "carved-stone",
+  "name": "Carved Stone",
+  "family": "Film",
+  "description": "Weathered stone with a raised border and a cut face, raked by one low light, standing in dust.",
+  "sample": "LEGEND",
+  "stage": 7,
+  "font": { "family": "archivo", "weight": 700, "width": 88, "tracking": 0.2, "caps": true },
+  "margin": [ 1.0, 1.0, 1.0, 1.0 ],
+  "features": [ "DETAIL" ],
+  "p": { "vignette": 0.6, "grain": 0.45, "contrast": 1.12, "persp": -0.12, "vanishX": 0.5, "vanishY": 0.43, "parallax": 0.22, "soften": 0.002, "bevel": 0.03, "bevelHeight": 0.034, "bevelShape": -0.1, "rim": 0.05, "inset": 0.016, "cast": 0.9, "ao": 0.7, "depth": 0.6, "metal": 0, "gloss": 0.06, "ambient": 0.2, "rough": 0.9, "fillA": "#5a5347", "fillB": "#786f61", "fillC": "#8f8575", "strokeCol": "#8a8172", "strokeMetal": 0, "detailKind": 1, "detailScale": 22, "detailAmount": 0.07, "wearEdge": 0.5, "wearScratch": 0.25, "wearGrime": 0.8, "lightX": -0.7, "lightY": 0.5, "lightZ": 0.38, "spec": 0.05, "shine": 20, "sideA": "#4a443a", "sideB": "#0a0907", "sideMetal": 0, "shadow": 0.85, "shadowSoft": 0.18, "shadowX": 0.05, "shadowY": -0.06, "stageTint": "#a8763a", "floor": 0.08, "floorLine": 0.3, "floorFade": 5, "bloom": 0.12, "bloomThreshold": 1.8, "streak": 0, "saturation": 0.95 },
+  "sphere": { "ramp": [ [ 0.0, "#0a0806" ], [ 0.5, "#2a2218" ], [ 0.8, "#6a5a44" ], [ 1.0, "#8a785c" ] ], "boxes": [ [ -0.5, 0.6, 0.3, 0.12, -0.3, 0.06, 2.5, "#ffe2b0", 0.3 ] ] },
+  "particles": [
+    {
+      "count": 30,
+      "p": { "from": 2, "shape": 4, "life": 11, "size": 0.05, "sizeEnd": 1, "rise": 0.015, "drift": 0.03, "scatter": 0.02, "swirl": 0.04, "swirlSize": 1.2, "colA": "#d9a860", "colB": "#d9a860", "gain": 0.14, "fadeIn": 0.3, "fadeOut": 0.3, "share": 1 }
+    }
+  ],
+  "motion": {
+    "in": { "each": 0.09, "time": 1.0, "ease": "out", "scale": 1.1, "reveal": [ 0, 0.8 ] },
+    "idle": {}
+  }
+}

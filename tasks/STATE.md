@@ -359,7 +359,7 @@ phone's GPU, but nothing is in the app. Job card: `tasks/jobs/TEXT-1_textlab.md`
 | Feature | Level | Notes |
 |---|---|---|
 | Look engine: letters as distance pictures, bevel / raised frame / sides, material sphere with studio softboxes, cast shadow, wear, fire, particles off any outline, film finish | 🔵 pilot ✔ | Shader files in `app/src/main/assets/textlab/shaders/` (written once, for the web look book and the app); knobs in `parts.json`. Runs in the look book `tools/textlab-web/`. All five looks ran on the Note 9's GPU through its Chrome 11-11 (11 to 35 ms a frame at 1280 wide, 25.1 °C before and after); no app engine yet |
-| Five hero looks: Dark Steel, Chrome '84, Gold Crown, Neon Sign, Blaze; nine drafts kept and hidden | 🔵 pilot ✔ | `app/src/main/assets/textlab/looks/` (`index.json`: looks and drafts). The owner has not yet judged the rebuilt five; his bar is a film poster (lessons 2026-11-11) |
+| Fourteen looks (11-12): Dark Steel, Chrome '84, Gold Crown, Neon Bar / Sign / Outline (real tube letters), Blaze, Liquid Chrome, Crystal Ice, Carved Stone, Diamond, Retro Pop, Hologram, Phantom; seven drafts kept and hidden | 🔵 pilot ✔ | `app/src/main/assets/textlab/looks/` (`index.json`: looks and drafts). The owner has not yet judged the rebuilt five; his bar is a film poster (lessons 2026-11-11) |
 | A look as a one-tap style on text in Studio, VisLab and JoyBrush; the TextLab room on the phone | 🔵 | Planned on the card; reusable for others: the particle emitter (any shape's outline), the fire, the material sphere |
 
 ## 5.6 JOYBRUSH ENGINE — current feature families (October26)

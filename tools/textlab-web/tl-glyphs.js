@@ -115,6 +115,42 @@
     return { edge, fill, corner };
   }
 
+  // Where each loop of a letter's outline gets its BREAK. A neon outline is never an endless ring:
+  // every loop is one tube with two ends that turn back into the wall. One break per loop, at the
+  // bottom of its lowest, leftmost foot. Returns the piece's picture as pairs: distance, and the
+  // distance to the nearest break (em).
+  function withBreaks(pic) {
+    const { d, w, h } = pic, half = 0.75 / TL.GLYPH_EM, seen = new Uint8Array(w * h), breaks = [];
+    for (let start = 0; start < w * h; start++) {
+      if (seen[start] || Math.abs(d[start]) >= half) continue;
+      const stack = [start], run = [];
+      seen[start] = 1;
+      while (stack.length) {
+        const k = stack.pop(); run.push(k);
+        const x = k % w, y = (k / w) | 0;
+        for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
+          const xx = x + i, yy = y + j, kk = yy * w + xx;
+          if (xx < 0 || yy < 0 || xx >= w || yy >= h || seen[kk] || Math.abs(d[kk]) >= half) continue;
+          seen[kk] = 1; stack.push(kk);
+        }
+      }
+      if (run.length < 12) continue;
+      let lowY = Infinity, leftX = Infinity, sx = 0, n = 0;
+      for (const k of run) lowY = Math.min(lowY, (k / w) | 0);
+      for (const k of run) if (((k / w) | 0) <= lowY + 1) leftX = Math.min(leftX, k % w);
+      for (const k of run) if (((k / w) | 0) <= lowY + 1 && k % w < leftX + 0.2 * TL.GLYPH_EM) { sx += k % w; n++; }
+      breaks.push([(sx / n + 0.5) / TL.GLYPH_EM, (lowY + 0.5) / TL.GLYPH_EM]);
+    }
+    const out = new Float32Array(w * h * 2);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const px = (x + 0.5) / TL.GLYPH_EM, py = (y + 0.5) / TL.GLYPH_EM;
+      let best = 9;
+      for (const b of breaks) best = Math.min(best, Math.hypot(px - b[0], py - b[1]));
+      out[(y * w + x) * 2] = d[y * w + x]; out[(y * w + x) * 2 + 1] = best;
+    }
+    return out;
+  }
+
   TL.Glyphs = class {
     constructor(glw) {
       this.glw = glw; this.cache = new Map();
@@ -151,7 +187,7 @@
       for (let i = 0; i < w * h; i++) alpha[i] = img[i * 4 + 3];
       const pic = TL.distanceFromCoverage(alpha, w, h);
       p = {
-        tex: this.glw.floatTexture(pic.w, pic.h, pic.d),
+        tex: this.glw.pairTexture(pic.w, pic.h, withBreaks(pic)),
         cellW: pic.w / TL.GLYPH_EM, cellH: pic.h / TL.GLYPH_EM,
         originX: ox / px, originY: (h - by) / px,      // from the cell's bottom left to the pen's point on the baseline, em
         points: pointsOf(pic),

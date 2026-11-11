@@ -151,7 +151,8 @@
       const T = this.targets, W = this.W, H = this.H, lay = this.lay;
       const U = this.uniformsFrom(this.parts.knobs, (name) => this.knob(name));
       U.uTime = [t]; U.uField = this.fieldU; U.uTilt = this.tilt; U.uHasBack = [1]; U.uOut = [0];
-      U.uTubePaint = [lay.tubes ? 1 : 0];
+      const neon = (look.features || []).includes('TUBE');
+      U.uTubePaint = [lay.tubes ? 1 : neon ? 2 : 0];
       U.uWobble.length = 4; U.uWobble[3] = 0; U.uBloomCfg.length = 4; U.uBloomCfg.fill(0, 2);
       const defines = look.features || [];
 
@@ -172,7 +173,7 @@
         gp.set('uCell', [l.x, l.y, l.piece.cellW, l.piece.cellH]).set('uPivot', [l.pivotX, l.pivotY])
           .set('uMove', ps.move).set('uScale', ps.scale).set('uTurn', ps.turn).set('uLine', [l.baseline, l.cap])
           .set('uSdfScale', (ps.scale[0] + ps.scale[1]) / 2).set('uWeight', weight + ps.weight)
-          .set('uLetter', [ps.reveal, (l.index + 0.5) / l.count]).set('uTubePiece', [l.piece.paint ? 1 : 0, l.order || 0])
+          .set('uLetter', [ps.reveal, (l.index + 0.5) / l.count]).set('uTubePiece', [l.piece.paint ? 1 : neon ? 2 : 0, l.order || 0])
           .tex('uSdf', l.piece.tex, 0);
         gl.drawArrays(gl.TRIANGLES, 0, 6);
       }

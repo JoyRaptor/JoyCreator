@@ -2,23 +2,23 @@
   "format": "joy.text/1",
   "id": "liquid-chrome",
   "name": "Liquid Chrome",
-  "family": "Metal",
-  "description": "Poured mirror metal with an oil-film rainbow that slides as you tilt.",
+  "family": "Film",
+  "description": "Poured mirror metal, round and wet, in a black room lit by coloured lights: white, cyan, magenta and gold slide over it as you tilt.",
   "sample": "Faith",
-  "stage": 0,
-  "font": { "family": "archivo", "weight": 600, "width": 100, "slant": 0.22, "tracking": 0.0 },
-  "margin": [ 0.7, 0.7, 0.7, 0.7 ],
+  "stage": 1,
+  "font": { "family": "archivo", "weight": 600, "width": 100, "slant": 0.2, "tracking": 0.01 },
+  "margin": [ 1.0, 1.0, 1.0, 1.1 ],
   "features": [ "DETAIL" ],
-  "p": { "soften": 0.012, "wobble": 0.006, "wobbleScale": 2.2, "wobbleSpeed": 0.35, "weight": 0.004, "bevel": 0.07, "bevelHeight": 0.08, "bevelShape": 0.33, "ao": 0.15, "metal": 1, "fillA": "#ffffff", "fillB": "#ffffff", "fillC": "#ffffff", "envAcross": 0.2, "envUp": 0.5, "envBevel": 1.05, "envTilt": 0.5, "detailKind": 4, "detailScale": 2.2, "detailAmount": 0.02, "detailDrift": 0.25, "sweep": 0.5, "sweepEvery": 5, "spec": 1.0, "shine": 200, "glow": 0, "glowSize": 0.06, "glowCol": "#9ad0ff", "bloom": 0.45, "bloomThreshold": 1.5 },
-  "sphere": { "ramp": [ [ 0.0, "#000000" ], [ 0.32, "#15151c" ], [ 0.47, "#e9ecff" ], [ 0.55, "#0a0a10" ], [ 0.8, "#a9afc6" ], [ 1.0, "#020204" ] ], "lamps": [ [ -0.45, 0.55, 0.07, 4, "#ffffff" ], [ 0.5, -0.4, 0.1, 1.2, "#cfe0ff" ] ], "strips": [ 0.6, 4, 0.58, 0.3 ], "irid": [ 0.6, 1.4 ], "rim": "#ffffff*0.25" },
+  "p": { "vignette": 0.6, "grain": 0.3, "contrast": 1.08, "floor": 0.22, "floorLine": 0.3, "floorRipple": 0.15, "floorFade": 3.5, "soften": 0.014, "wobble": 0.004, "wobbleScale": 2.2, "wobbleSpeed": 0.3, "weight": 0.004, "bevel": 0.075, "bevelHeight": 0.085, "bevelShape": 0.33, "ao": 0.2, "metal": 1, "rough": 0, "fillA": "#ffffff", "fillB": "#ffffff", "fillC": "#ffffff", "envAcross": 0.45, "envUp": 0.6, "envBevel": 1.0, "envTilt": 0.55, "detailKind": 4, "detailScale": 2.0, "detailAmount": 0.015, "detailDrift": 0.2, "sweep": 0.4, "sweepEvery": 6, "spec": 0.6, "shine": 240, "shadow": 0.6, "shadowSoft": 0.16, "stageTint": "#5a4a8a", "bloom": 0.25, "bloomThreshold": 1.5, "bloomKnee": 0.6, "streak": 0.2, "streakBlue": 0.5, "saturation": 1.3 },
+  "sphere": { "ramp": [ [ 0.0, "#000000" ], [ 0.35, "#0a0a10" ], [ 0.5, "#5a5a68" ], [ 0.7, "#16161e" ], [ 1.0, "#000000" ] ], "boxes": [ [ -0.42, 0.6, 0.36, 0.1, -0.3, 0.035, 6.5, "#ffffff", 0.4 ], [ 0.76, 0.1, 0.05, 0.5, 0.12, 0.03, 4.5, "#5fe6ff", 0.2 ], [ -0.2, -0.72, 0.42, 0.06, 0.05, 0.04, 3.4, "#ff45c4", 0.3 ], [ 0.05, 0.26, 0.9, 0.2, 0.0, 0.18, 1.7, "#e6eaff", 0.3 ] ], "irid": [ 0.35, 1.5 ], "uneven": 0.3 },
   "particles": [
     {
-      "count": 120,
-      "p": { "shape": 1, "glint": 1, "twinkle": 0.85, "size": 0.12, "sizeEnd": 1, "life": 2.5, "gain": 7, "colA": "#ffffff", "colB": "#cfe0ff", "fadeIn": 0.3, "fadeOut": 0.5, "share": 0.45, "seed": 0 }
+      "count": 36,
+      "p": { "from": 3, "shape": 1, "glint": 1, "twinkle": 0.7, "life": 3.5, "size": 0.18, "sizeEnd": 1, "colA": "#ffffff", "colB": "#cfe6ff", "gain": 3.2, "fadeIn": 0.35, "fadeOut": 0.45, "share": 0.8, "seed": 5 }
     }
   ],
   "motion": {
-    "in": { "each": 0.08, "time": 0.7, "ease": "out", "y": -0.2, "reveal": [ 0, 0.5 ] },
+    "in": { "each": 0.08, "time": 0.9, "ease": "out", "y": -0.15, "reveal": [ 0, 0.6 ] },
     "idle": {}
   }
 }

@@ -14,6 +14,7 @@ uniform float uDt;
 uniform vec4  uFire;     // rise (em/s), swirl, cooling, feed
 uniform vec4  uFireShape;// swirl size (per em), how deep inside the edge it burns (em), 0 = all edges .. 1 = upper edges only, smoke made
 uniform vec2  uWind;     // em/s
+uniform float uFireSteady;// 0 = the shape burns in flickering patches, 1 = it feeds evenly all over (mist, steady glow)
 uniform vec2  uFireUnder;// the shape stands in the flame's way (0 = flame passes through it, 1 = it pools underneath and wraps round); how far below an edge the pool hangs, em
 
 float source(vec2 uv, vec2 p) {
@@ -24,6 +25,7 @@ float source(vec2 uv, vec2 p) {
     float facesUp = mix(1.0, smoothstep(0.15, -0.5, up), uFireShape.z);
     float band = smoothstep(-0.012, 0.004, f.r) * (1.0 - smoothstep(0.0, max(uFireShape.y, 1e-3), f.r));
     float flick = smoothstep(0.2, 0.75, tfbm2(p * 7.0 + vec2(uTime * 1.7, -uTime * 3.6)));
+    flick = mix(flick, 1.0, uFireSteady);
     // under an edge that faces DOWN the flame hangs a little below it, trapped, before it finds its way out
     // (it thins away downward with no edge of its own: fire is a glowing gas, not a shape)
     float pool = smoothstep(-uFireUnder.y, 0.0, f.r);
@@ -60,7 +62,7 @@ void main() {
         v -= clamp(slope * 0.02, -0.6, 0.6) * wall;
     }
     vec4 was = texture(uPrev, vUv - v * uDt / uField.xy);
-    was.r = mix(was.r, here, 0.7 * wall);   // trapped flame has nowhere to go, so it spreads and goes soft
+    was.r = mix(was.r, here, 0.57 * wall);   // trapped flame has nowhere to go, so it spreads and goes soft
 
     float tear = tfbm(np * tall * 1.9 + vec2(uTime * 0.07, 3.0));
     float heat = was.r * exp(-uDt * uFire.z * (0.25 + 2.2 * tear * tear)) - uDt * 0.05 * uFire.z;

@@ -1,0 +1,18 @@
+{
+  "format": "joy.text/1",
+  "id": "phantom",
+  "name": "Phantom",
+  "family": "Film",
+  "description": "Letters made of nothing but lit mist: it gathers in their shape and drifts up off them as smoke.",
+  "sample": "PHANTOM",
+  "stage": 1,
+  "font": { "family": "archivo", "weight": 700, "width": 100, "tracking": 0.12, "caps": true },
+  "margin": [ 1.0, 1.8, 1.0, 0.9 ],
+  "features": [],
+  "fire": true,
+  "p": { "vignette": 0.65, "grain": 0.4, "contrast": 1.08, "opacity": 0, "fireRise": 0.45, "fireSwirl": 0.5, "fireCool": 1.3, "fireFeed": 1.1, "fireUp": 0, "fireDepth": 0.3, "fireSmoke": 1.4, "fireSize": 2.6, "fireDetail": 0.5, "fireFront": 1, "fireGain": 0.7, "fireSoft": 1, "fireA": "#2c3a4a", "fireB": "#8fa8c0", "fireC": "#eef6ff", "smokeDark": 0.2, "fireHide": 0.2, "floor": 0.2, "floorLine": 0.22, "floorFade": 3.0, "stageTint": "#3a5a8a", "shimmer": 0, "bloom": 0.35, "bloomThreshold": 1.0, "bloomKnee": 0.6, "saturation": 0.9, "fireSteady": 0.8 },
+  "motion": {
+    "in": { "each": 0.12, "time": 0.01, "reveal": [ 0, 1.5 ] },
+    "idle": {}
+  }
+}

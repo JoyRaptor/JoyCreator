@@ -124,6 +124,10 @@ uniform vec3  uFireC;
 uniform float uFireToon;
 #endif
 
+#ifdef STONE
+uniform vec4  uStone;        // what makes stone look carved and of one block: chisel marks, fresh pale chips on broken edges, veins and strata, mineral grain
+uniform vec2  uStoneB;       // what settles on it: dust on ledges that face up, moss in the deepest hollows
+#endif
 #ifdef HOLO
 uniform vec4  uHolo;         // a projection of light, not a solid: strength, scan lines per em, scan speed, how often it slips
 uniform vec4  uFloor;        // .y = the floor line: the projector's beam starts there
@@ -441,6 +445,16 @@ void main() {
             vec2 dg = vec2(detail(q + vec2(aw, 0.0)) - h0, detail(q + vec2(0.0, aw)) - h0) / aw;
             n = normalize(vec3(n.xy - dg * uDetail.z * (1.0 - trim), n.z));
 #endif
+#ifdef STONE
+            {
+                // chisel marks: short parallel cuts, all one way across a face and along the edge on a bevel
+                float onBevel = 1.0 - smoothstep(0.0, max(uBevel, aw), d);
+                vec2 along = normalize(mix(vec2(0.86, 0.5), vec2(-gn.y, gn.x), onBevel));
+                vec2 across = vec2(-along.y, along.x);
+                float mark = tnoise(vec2(dot(q, across) * 90.0, dot(q, along) * 7.0 + tnoise(q * 3.0) * 2.0));
+                n = normalize(vec3(n.xy + across * (mark - 0.5) * 0.9 * uStone.x * (0.35 + 0.65 * tnoise(q * 2.0 + 5.0)), n.z));
+            }
+#endif
             // brushed grain: fine streaks that tip the surface a hair, so highlights smear along it
             float grain = tnoise(vec2(q.x * 9.0, q.y * 520.0)) - 0.5;
             n = normalize(vec3(n.x, n.y + grain * 0.22 * uWear.w * (1.0 - trim * 0.6), n.z));
@@ -452,6 +466,27 @@ void main() {
             alb *= 1.0 + uMottle * ((tfbm(q * 2.6 + 11.0) - 0.5) * 1.1 + (tnoise(q * 31.0) - 0.5) * 0.25);
 #ifdef DETAIL
             alb *= mix(1.0, 0.4 + 0.85 * sat(relief * 1.7), uDetailShade * (1.0 - trim));
+#endif
+#ifdef STONE
+            {
+                // strata: faint bands through the whole word at one angle, so it is cut from one block; and a vein or two
+                float strata = (tnoise(vec2(dot(q, vec2(0.26, 0.97)) * 3.2 + tfbm2(q * 1.3) * 0.9, 0.5)) - 0.5) * 2.0;
+                float veinD = abs(fract(dot(q, vec2(0.93, -0.36)) * 0.9 + tfbm(q * 1.1) * 0.7) - 0.5);
+                float vein = (1.0 - smoothstep(0.0, 0.035, veinD)) * smoothstep(0.4, 0.7, tnoise(q * 0.8 + 2.0));
+                alb *= 1.0 + uStone.z * strata * 0.22;
+                alb = mix(alb, alb * 1.7 + 0.04, vein * uStone.z * 0.6);
+                // mineral grain: a fine speckle of lighter and darker crystals
+                float g1 = tnoise(q * 230.0), g2 = tnoise(q * 140.0 + 9.0);
+                alb *= 1.0 + uStone.w * ((g1 - 0.5) * 0.5 + smoothstep(0.8, 0.95, g2) * 0.6 - smoothstep(0.85, 0.97, g1) * 0.4);
+                // fresh chips: where the edge has broken, the stone is newly bared: paler and cleaner
+                float broken = (1.0 - smoothstep(0.0, max(uBevel, aw) * 1.6, d)) * smoothstep(0.45, 0.7, tfbm(q * 6.0 + 4.0));
+                alb = mix(alb, alb * 1.55 + 0.05, broken * uStone.y);
+                // what settles: dust lying where a ledge faces up, moss in the deepest hollows
+                float ledge = smoothstep(0.25, 0.8, -gn.y) * (1.0 - smoothstep(0.0, max(uBevel, aw) * 2.2, d));
+                alb = mix(alb, vec3(0.62, 0.55, 0.44), ledge * uStoneB.x * (0.5 + 0.5 * tnoise(q * 40.0)));
+                float hollow = (1.0 - smoothstep(0.08, 0.3, relief)) * smoothstep(0.4, 0.65, tfbm(q * 2.0 + 13.0));
+                alb = mix(alb, vec3(0.12, 0.2, 0.07) * (0.7 + 0.6 * tnoise(q * 90.0)), hollow * uStoneB.y);
+            }
 #endif
             float metal = mix(uMetal, uStrokeMetal, trim);
             float rough = uRough * mix(1.0, 0.3, trim);

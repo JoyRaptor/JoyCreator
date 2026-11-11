@@ -105,6 +105,10 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
   version (plates out of register, `printFringe`), and the white line in his HOT reference is its own element hovering
   over the letter, not an inner stroke (`hoverX` / `hoverY`). He wants to explore flat print styling further. He asked
   what I would do to the STONE of Carved Stone (the shadow already works): answered in chat, his pick owed.
+- **Owner, 11-14:** Retro Pop "is perfect". Carved Stone: build all five of my ideas: done as the `STONE` variant
+  (`stone*` knobs: chisel marks, fresh pale chips, veins and strata, mineral grain, dust on ledges, moss in hollows).
+  He asked whether people can bring their own fonts: the engine takes any shape, so yes in principle; the look book now
+  has a "Your font" file button (pilot only). In the app this should reuse Studio's font keys (`file:` fonts), not built.
 - **Honest limits today:** the fire is good stylised fire, not yet the photograph the owner showed;
   water and the other drafts are below the bar; only the app's own fonts are used (Archivo, Plex,
   Ubuntu, Doto), so there is no script or true display face yet.

@@ -1,7 +1,7 @@
 {
   "format": "joy.textparts/1",
   "about": "Every knob a TextLab look can turn. A look file lists only the knobs it changes. 'u' is the shader uniform, 'i' the component inside it (vec2/vec3/vec4), 'c' a colour default (\"#rrggbb\" or \"#rrggbb*gain\" for light brighter than white), 'v' a number default. The room builds its panels from this file; the look book does too.",
-  "slots": ["Shape", "Depth", "Coats", "Material", "Wear", "Light", "Sides", "Floor", "Tube", "Glass", "Surface", "Pattern", "Ember", "Fire", "Hologram", "Finish", "Arrive"],
+  "slots": ["Shape", "Depth", "Coats", "Material", "Wear", "Light", "Sides", "Floor", "Tube", "Glass", "Surface", "Pattern", "Stone", "Ember", "Fire", "Hologram", "Finish", "Arrive"],
   "knobs": {
     "weight":        {"u": "uWeight", "v": 0, "min": -0.05, "max": 0.08, "slot": "Shape", "label": "Thickness"},
     "soften":        {"u": "", "v": 0, "min": 0, "max": 0.08, "slot": "Shape", "label": "Melt and round"},
@@ -129,6 +129,12 @@
     "patternCol":    {"u": "uPatternCol", "c": "#ffffff", "slot": "Pattern", "label": "Pattern colour"},
     "patternTurn":   {"u": "uPatternTurn", "v": 0.785, "min": 0, "max": 3.1416, "slot": "Pattern", "label": "Pattern angle"},
 
+    "stoneMarks":    {"u": "uStone", "i": 0, "v": 0.7, "min": 0, "max": 2, "slot": "Stone", "label": "Chisel marks"},
+    "stoneChips":    {"u": "uStone", "i": 1, "v": 0.7, "min": 0, "max": 1.5, "slot": "Stone", "label": "Fresh pale chips on broken edges"},
+    "stoneVeins":    {"u": "uStone", "i": 2, "v": 0.6, "min": 0, "max": 2, "slot": "Stone", "label": "Veins and strata through the block"},
+    "stoneGrain":    {"u": "uStone", "i": 3, "v": 0.5, "min": 0, "max": 2, "slot": "Stone", "label": "Mineral grain"},
+    "stoneDust":     {"u": "uStoneB", "i": 0, "v": 0.5, "min": 0, "max": 1, "slot": "Stone", "label": "Dust on the ledges"},
+    "stoneMoss":     {"u": "uStoneB", "i": 1, "v": 0, "min": 0, "max": 1, "slot": "Stone", "label": "Moss in the hollows"},
     "emberHeat":     {"u": "uEmber", "i": 0, "v": 0.8, "min": 0, "max": 2, "slot": "Ember", "label": "Heat in the cracks"},
     "emberScale":    {"u": "uEmber", "i": 1, "v": 7, "min": 1, "max": 30, "slot": "Ember", "label": "Cracks per letter"},
     "emberEdge":     {"u": "uEmber", "i": 2, "v": 0.5, "min": 0, "max": 2, "slot": "Ember", "label": "Heat along the edge"},

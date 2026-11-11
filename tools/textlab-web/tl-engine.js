@@ -74,7 +74,10 @@
 
     build() {
       const look = this.look, glw = this.glw;
-      const lay = (this.lay = this.glyphs.layout(this.text, look.font || {}, look.margin || [0.7, 0.7, 0.7, 0.7]));
+      // a font the person brought replaces the look's own (not the neon tube letters: those are drawn, not typed)
+      const lf = look.font || {};
+      const font = this.userFont && lf.family !== 'tube' ? Object.assign({}, lf, { family: 'user', weight: 400, width: 100 }) : lf;
+      const lay = (this.lay = this.glyphs.layout(this.text, font, look.margin || [0.7, 0.7, 0.7, 0.7]));
       const em = (this.em = Math.min(this.maxW / lay.fieldW, this.maxH / lay.fieldH));
       const W = (this.W = Math.max(8, Math.round(lay.fieldW * em))), H = (this.H = Math.max(8, Math.round(lay.fieldH * em)));
       if (this.canvas.width !== W || this.canvas.height !== H) { this.canvas.width = W; this.canvas.height = H; }

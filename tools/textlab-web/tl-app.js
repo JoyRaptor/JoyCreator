@@ -32,7 +32,7 @@
     return { shaders, parts, looks, tubefont, fontUrl: (file) => '../../' + file };
   }
 
-  const SLOT_NEEDS = { Tube: 'TUBE', Glass: 'REFRACT', Surface: 'DETAIL', Pattern: 'PATTERN', Ember: 'EMBER', Hologram: 'HOLO' };
+  const SLOT_NEEDS = { Tube: 'TUBE', Glass: 'REFRACT', Surface: 'DETAIL', Pattern: 'PATTERN', Ember: 'EMBER', Hologram: 'HOLO', Stone: 'STONE' };
   const HIDDEN_FOR_TUBE = new Set(['Depth', 'Coats', 'Material', 'Light', 'Sides']);
 
   async function main() {
@@ -116,6 +116,21 @@
       const out = JSON.parse(JSON.stringify(look)); out.p = Object.assign({}, look.p, engine.over);
       const say = (word) => { $('copy').textContent = word; setTimeout(() => { $('copy').textContent = 'Copy look'; }, 1400); };
       navigator.clipboard.writeText(JSON.stringify(out, null, 2)).then(() => say('Copied'), () => say('Copy refused here'));
+    };
+    // Your own font: any .ttf / .otf / .woff file, used for every look that is drawn from type.
+    $('font').onchange = async () => {
+      const file = $('font').files[0];
+      if (!file) return;
+      try {
+        const face = new FontFace('TLUser', await file.arrayBuffer());
+        if (engine.userFace) document.fonts.delete(engine.userFace);
+        document.fonts.add(await face.load());
+        TL.FONTS.user = { css: 'TLUser' };
+        engine.userFace = face; engine.userFont = file.name;
+        engine.glyphs.cache.clear();
+        engine.dirty = true;
+        $('fontname').textContent = file.name.replace(/\.[^.]+$/, '');
+      } catch (e) { fail('That file could not be read as a font: ' + (e.message || e)); }
     };
     const cv = $('cv');
     cv.addEventListener('pointermove', (e) => {

@@ -125,6 +125,7 @@ uniform float uFireToon;
 
 #ifdef HOLO
 uniform vec4  uHolo;         // a projection of light, not a solid: strength, scan lines per em, scan speed, how often it slips
+uniform vec4  uFloor;        // .y = the floor line: the projector's beam starts there
 #endif
 
 float fieldD(vec2 q) { return texture(uFieldTex, q / uField.xy).r + uStroke; }
@@ -280,6 +281,23 @@ float detail(vec2 q) {
     if (kind == 8) {                                                           // gem-set: every cell a little cut stone
         vec3 v = voronoi(g);
         return (1.0 - smoothstep(0.0, 0.5, v.x)) * 0.6 + v.z * 0.4 * step(v.x, 0.42);
+    }
+    if (kind == 10) {                                                          // cut stones: each a brilliant, a flat table ringed by eight slanted facets
+        vec2 ci = floor(g), cf = fract(g);
+        vec2 v = vec2(8.0);
+        float id = 0.0;
+        for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
+            vec2 o = vec2(float(x), float(y));
+            vec2 c = cf - o - 0.5 - (hash22(ci + o) - 0.5) * 0.22;             // nearly a grid: stones are set in rows
+            if (dot(c, c) < dot(v, v)) { v = c; id = hash21(ci + o); }
+        }
+        float rad = length(v);
+        if (rad > 0.46) return 0.0;                                            // the metal between the stones
+        if (rad < 0.19) return 0.42;                                           // the table
+        float turn = id * TAU / 8.0;
+        float sector = floor((atan(v.y, v.x) + PI + turn) / TAU * 8.0);
+        float ang = (sector + 0.5) / 8.0 * TAU - PI - turn;
+        return 0.42 - (dot(v, vec2(cos(ang), sin(ang))) - 0.19) * 1.5 + (hash11(sector + id * 31.0) - 0.5) * 0.07;
     }
     if (kind == 9) {                                                           // living rock: worn lumps, pits, a few deep cracks
         // (rock is no mirror, so the cheap texture noise is fine here: three times faster on the phone)
@@ -594,6 +612,27 @@ void main() {
         float gd = min(f0.r + uStroke, 0.0);
         add += uGlowCol * uGlow * exp(gd / max(uGlowSize, 1e-4)) * (1.0 - a) * mix(1.0, f0.g, max(uReveal.x, uReveal.y));
     }
+#ifdef HOLO
+    {
+        // A projection is three colours that never quite line up, a fainter copy hanging behind it,
+        // the beam it rides up on from the floor, and a little static.
+        vec3 hc0 = fillAt(0.5);
+        float dx = 0.012 * (0.6 + 0.4 * sin(uTime * 1.7));
+        float mR = smoothstep(-aw, aw, fieldD(p0 + vec2(dx, 0.0)));
+        float mB = smoothstep(-aw, aw, fieldD(p0 - vec2(dx, 0.0)));
+        float ghost = smoothstep(-aw, aw, fieldD(p0 + vec2(0.02, 0.025) + uTilt * 0.03));
+        add += (vec3(1.0, 0.15, 0.3) * mR + vec3(0.2, 0.4, 1.0) * mB) * 0.22 * uHolo.x * (1.0 - a) * presence(p0);
+        add += hc0 * ghost * 0.12 * uHolo.x * (1.0 - a);
+        vec2 apex = vec2(uField.x * 0.5, uFloor.y * uField.y);
+        float rise = (p0.y - apex.y) / max(uField.y * 0.5 - apex.y, 0.05);
+        float halfW = (uField.x * 0.5 - 0.6) * sat(rise) + 0.03;
+        float across = abs(p0.x - apex.x) / max(halfW, 1e-3);
+        float cone = (1.0 - smoothstep(0.75, 1.0, across)) * smoothstep(0.0, 0.08, rise) * (1.0 - smoothstep(0.9, 1.7, rise));
+        float rays = 0.55 + 0.45 * tnoise(vec2((p0.x - apex.x) / max(halfW, 1e-3) * 14.0, uTime * 0.7));
+        add += hc0 * cone * rays * 0.055 * uHolo.x * (1.0 - a);
+        add += hc0 * (tnoise(p0 * 190.0 + uTime * 61.0) - 0.5) * 0.3 * a * uHolo.x;
+    }
+#endif
     a *= uOpacity;
     under *= uOpacity * (1.0 - a);
     o = vec4(col * a + uShadowCol * under + add * uOpacity, a + under);

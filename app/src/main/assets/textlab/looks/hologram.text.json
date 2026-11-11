@@ -3,13 +3,13 @@
   "id": "hologram",
   "name": "Hologram",
   "family": "Film",
-  "description": "Light hanging in the air: a thin wide title you can see through, scan lines drifting up it, a bright rim, and now and then the projector slips.",
+  "description": "A projection: three colours that never quite line up, scan lines drifting up, a fainter copy behind, the beam it rides up on from the floor, a little static, and now and then a slip.",
   "sample": "ORBIT",
   "stage": 1,
   "font": { "family": "archivo", "weight": 300, "width": 125, "tracking": 0.3, "caps": true },
   "margin": [ 1.0, 1.0, 1.0, 1.1 ],
   "features": [ "HOLO" ],
-  "p": { "vignette": 0.6, "grain": 0.35, "contrast": 1.08, "bevel": 0.016, "bevelHeight": 0, "depth": 0, "unlit": 1, "spec": 0, "gloss": 0, "ao": 0, "fillA": "#0aa8ff", "fillB": "#18c8ff", "fillC": "#8ff4ff", "holo": 1.0, "holoLines": 70, "holoSpeed": 0.5, "holoGlitch": 1, "glow": 0.3, "glowSize": 0.06, "glowCol": "#18c8ff", "floor": 0.35, "floorLine": 0.3, "floorRipple": 0.2, "floorFade": 3.0, "stageTint": "#1f6f8f", "bloom": 0.55, "bloomThreshold": 0.9, "bloomKnee": 0.6, "streak": 0.5, "streakBlue": 1, "saturation": 1.2 },
+  "p": { "vignette": 0.6, "grain": 0.35, "contrast": 1.08, "bevel": 0.016, "bevelHeight": 0, "depth": 0, "unlit": 1, "spec": 0, "gloss": 0, "ao": 0, "fillA": "#0aa8ff", "fillB": "#18c8ff", "fillC": "#8ff4ff", "holo": 1.15, "holoLines": 22, "holoSpeed": 0.5, "holoGlitch": 1, "glow": 0.18, "glowSize": 0.06, "glowCol": "#18c8ff", "floor": 0.35, "floorLine": 0.3, "floorRipple": 0.2, "floorFade": 3.0, "stageTint": "#1f6f8f", "bloom": 0.45, "bloomThreshold": 0.9, "bloomKnee": 0.6, "streak": 0.5, "streakBlue": 1, "saturation": 1.2, "presence": 0.25, "presenceSpeed": 2 },
   "particles": [
     {
       "count": 30,

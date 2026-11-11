@@ -96,6 +96,10 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
   phone (chip 0.011, crystals 6.285, bevel 0.014 wide, 0.128 high, scooped -0.65) and those ARE the look now. His ask:
   one more push of new parameters. Added: `grow` (shards stand proud), `iceVeil`, `iceBacklight`, `icePrism` (sparks
   that move with tilt), `iceWet`, and cold vapour sinking off the letters (the fire with a negative rise).
+- **Owner, 11-13 later:** ice accepted ("Yes, lift the others"). Lifted: Diamond = brilliant-cut stones (`detailKind` 10:
+  a table and eight facets per stone); Hologram = colour split, ghost copy, projector beam from the floor line, static,
+  and it uses `presence`; Liquid Chrome = slow flow and beads of metal off the edges; Retro Pop = uneven ink, rough
+  edges, harder shadow. His verdict on these four is owed.
 - **Honest limits today:** the fire is good stylised fire, not yet the photograph the owner showed;
   water and the other drafts are below the bar; only the app's own fonts are used (Archivo, Plex,
   Ubuntu, Doto), so there is no script or true display face yet.

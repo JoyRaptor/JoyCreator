@@ -114,7 +114,7 @@
     "caustic":       {"u": "uCaustic", "i": 0, "v": 0, "min": 0, "max": 3, "slot": "Glass", "label": "Dancing light inside"},
     "causticScale":  {"u": "uCaustic", "i": 1, "v": 5, "min": 1, "max": 20, "slot": "Glass", "label": "Dancing light size"},
 
-    "detailKind":    {"u": "uDetail", "i": 0, "v": 1, "min": 1, "max": 9, "step": 1, "slot": "Surface", "label": "Relief: cast, hammered, brushed, ripples, plates, tread, engine-turned, gem-set, rock"},
+    "detailKind":    {"u": "uDetail", "i": 0, "v": 1, "min": 1, "max": 10, "step": 1, "slot": "Surface", "label": "Relief: cast, hammered, brushed, ripples, plates, tread, engine-turned, gem-set, rock, cut stones"},
     "detailShade":   {"u": "uDetailShade", "v": 0, "min": 0, "max": 1, "slot": "Surface", "label": "Hollows are darker"},
     "detailScale":   {"u": "uDetail", "i": 1, "v": 8, "min": 1, "max": 60, "slot": "Surface", "label": "Bumps per letter"},
     "detailAmount":  {"u": "uDetail", "i": 2, "v": 0.02, "min": 0, "max": 0.2, "slot": "Surface", "label": "Bump strength"},

@@ -3,26 +3,26 @@
   "id": "crystal-ice",
   "name": "Crystal Ice",
   "family": "Film",
-  "description": "Blocks of real ice: clear at the edges and milky in the middle, bright fractures caught inside, frost on every edge and snow lying on top.",
-  "sample": "FROZEN",
-  "stage": 5,
-  "font": { "family": "archivo", "weight": 800, "width": 100, "tracking": 0.08, "caps": true },
+  "description": "Blocks of real ice: chipped along their crystals, with fissures running in from the chips, milk and bubbles low and deep inside, clear toward the top, and frosted patches on the skin.",
+  "sample": "ICE",
+  "stage": 7,
+  "font": { "family": "archivo", "weight": 800, "width": 100, "tracking": 0.1, "caps": true },
   "margin": [ 1.0, 1.0, 1.0, 1.1 ],
   "features": [ "REFRACT" ],
-  "p": { "vignette": 0.6, "grain": 0.3, "contrast": 1.08, "persp": -0.12, "vanishX": 0.5, "vanishY": 0.43, "parallax": 0.22, "soften": 0.003, "wobble": 0.003, "wobbleScale": 9, "wobbleSpeed": 0, "bevel": 0.035, "bevelHeight": 0.05, "bevelShape": 0, "ao": 0, "depth": 0.45, "metal": 0, "gloss": 0.8, "fillA": "#ffffff", "fillB": "#ffffff", "fillC": "#ffffff", "bend": 1.0, "fringe": 0.1, "tintAmount": 0.7, "tint": "#5fc0ff", "edgeDark": 0.35, "gather": 0.9, "caustic": 0, "iceCloud": 0.7, "iceCracks": 0.8, "iceFrost": 0.75, "iceSnow": 1.0, "spec": 2.5, "shine": 220, "envUp": 0.35, "envAcross": 0.4, "envBevel": 0.95, "wearEdge": 1.4, "lightX": -0.5, "lightY": 0.65, "lightZ": 0.5, "sideA": "#a8d8f0", "sideB": "#0a2f55", "sideMetal": 0.3, "shadow": 0.5, "shadowSoft": 0.16, "floor": 0.22, "floorLine": 0.3, "floorRipple": 0.15, "floorFade": 3.5, "stageTint": "#3f8fd0", "bloom": 0.25, "bloomThreshold": 1.5, "bloomKnee": 0.6, "streak": 0.25, "streakBlue": 0.8, "saturation": 1.15, "exposure": 1.1 },
+  "p": { "vignette": 0.6, "grain": 0.3, "contrast": 1.1, "persp": -0.12, "vanishX": 0.5, "vanishY": 0.43, "parallax": 0.22, "soften": 0, "wobble": 0.004, "wobbleScale": 9, "wobbleSpeed": 0, "chip": 0.014, "chipSize": 6.5, "bevel": 0.03, "bevelHeight": 0.045, "bevelShape": 0, "ao": 0, "depth": 0.3, "metal": 0, "gloss": 0.9, "fillA": "#ffffff", "fillB": "#ffffff", "fillC": "#ffffff", "bend": 1.9, "fringe": 0.12, "tintAmount": 0.7, "tint": "#4fb4f5", "edgeDark": 0.6, "gather": 1.3, "caustic": 0, "iceCloud": 0.5, "iceCracks": 1.0, "iceFrost": 0.2, "iceSnow": 0, "spec": 3.5, "shine": 260, "envUp": 0.35, "envAcross": 0.4, "envBevel": 0.95, "wearEdge": 1.8, "lightX": -0.5, "lightY": 0.65, "lightZ": 0.5, "sideA": "#9fd4f2", "sideB": "#082a50", "sideMetal": 0.35, "shadow": 0.5, "shadowSoft": 0.16, "floor": 0.25, "floorLine": 0.3, "floorRipple": 0.15, "floorFade": 3.5, "stageTint": "#2f78c0", "bloom": 0.25, "bloomThreshold": 1.5, "bloomKnee": 0.6, "streak": 0.25, "streakBlue": 0.8, "saturation": 1.2, "exposure": 1.1 },
   "sphere": { "ramp": [ [ 0.0, "#01040a" ], [ 0.4, "#0a1c30" ], [ 0.5, "#1c3a58" ], [ 0.65, "#0a1c30" ], [ 1.0, "#01040a" ] ], "boxes": [ [ -0.42, 0.58, 0.36, 0.1, -0.3, 0.035, 6.0, "#ffffff", 0.4 ], [ 0.76, 0.1, 0.05, 0.5, 0.12, 0.03, 4.0, "#9fe0ff", 0.2 ], [ -0.2, -0.72, 0.42, 0.05, 0.05, 0.04, 1.6, "#bfe8ff", 0.3 ] ], "rim": "#ffffff*0.4" },
   "particles": [
     {
-      "count": 90,
-      "p": { "from": 2, "shape": 0, "life": 7, "size": 0.012, "sizeEnd": 1, "rise": -0.16, "drift": 0.06, "swirl": 0.08, "swirlSize": 1.5, "colA": "#ffffff", "colB": "#dff3ff", "gain": 0.9, "fadeIn": 0.2, "fadeOut": 0.3, "paint": 0.3 }
+      "count": 50,
+      "p": { "from": 2, "shape": 0, "life": 7, "size": 0.01, "sizeEnd": 1, "rise": -0.14, "drift": 0.05, "swirl": 0.08, "swirlSize": 1.5, "colA": "#ffffff", "colB": "#dff3ff", "gain": 0.8, "fadeIn": 0.2, "fadeOut": 0.3, "paint": 0.3 }
     },
     {
-      "count": 16,
-      "p": { "from": 3, "shape": 1, "glint": 1, "twinkle": 0.7, "life": 3.5, "size": 0.16, "sizeEnd": 1, "colA": "#ffffff", "colB": "#dff3ff", "gain": 2.6, "fadeIn": 0.35, "fadeOut": 0.45, "share": 0.8, "seed": 5 }
+      "count": 12,
+      "p": { "from": 3, "shape": 1, "glint": 1, "twinkle": 0.7, "life": 3.5, "size": 0.15, "sizeEnd": 1, "colA": "#ffffff", "colB": "#dff3ff", "gain": 2.4, "fadeIn": 0.35, "fadeOut": 0.45, "share": 0.8, "seed": 5 }
     }
   ],
   "motion": {
-    "in": { "each": 0.07, "time": 0.9, "ease": "out", "scale": 1.1, "reveal": [ 0, 0.7 ] },
+    "in": { "each": 0.09, "time": 0.9, "ease": "out", "scale": 1.1, "reveal": [ 0, 0.7 ] },
     "idle": {}
   }
 }

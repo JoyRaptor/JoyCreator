@@ -84,6 +84,14 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
   (`ice*` knobs, REFRACT); Phantom = a faint ghost letter (HOLO, no scan lines) with slow sideways mist. Note 9: stone
   29 ms, ice 45 ms (too slow, to trim), Phantom 9 ms. Owed: his verdict; then "take the others to the next level"
   (Liquid Chrome, Diamond, Retro Pop, Hologram), not started.
+- **Owner, 11-12 night:** ice "actually looks a little bit worse" (with four reference photos): it must be crystalline
+  and jagged, clear in places with deep fissures, frosty in others, chips in the outline that lead to cracks, bubbly low
+  and inside, clearer outward and upward. Rebuilt: `chip`/`chipSize` (angular cells bitten out of the outline in
+  `soften.frag`), each crystal bends light on its own slant, fissures along the same cell walls and only where the
+  block has split, milk and bubbles low and deep, frosted patches. Still short of his photos (too even, too grey).
+  Phantom "coming along, push further" (two smoke-letter photos): parts fade in and out of existence (`presence`,
+  in `common.glsl`, used by the ghost letter and the mist's feed), the letters waver (animated wobble), denser curling
+  mist. Neither re-timed on the Note 9.
 - **Honest limits today:** the fire is good stylised fire, not yet the photograph the owner showed;
   water and the other drafts are below the bar; only the app's own fonts are used (Archivo, Plex,
   Ubuntu, Doto), so there is no script or true display face yet.

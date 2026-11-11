@@ -102,7 +102,8 @@ uniform vec4  uGlass;        // bend, colour fringing, tint strength, dark edge
 uniform vec3  uTint;
 uniform vec2  uCaustic;      // dancing light inside: strength, cells per em
 uniform float uGather;       // light gathered on the far side from the lamp, as in a drop
-uniform vec4  uIce;          // ice is not glass: milky in its thick middle, bright fractures inside, frost on its edges, snow lying on top
+uniform vec4  uIce;          // ice is not glass: milk and bubbles (low and deep), crystals and fissures, frosted patches, snow lying on top
+uniform vec2  uChip;         // the crystals: how deep a chip bites the outline (em), crystals per em
 #endif
 #ifdef DETAIL
 uniform vec4  uDetail;       // kind, bumps per em, strength, drift speed
@@ -469,7 +470,14 @@ void main() {
             }
 #ifdef REFRACT
             float thick = z + uDepth * 0.5 + 0.15;
-            vec2 off = n.xy * uGlass.x * thick / uField.xy;
+            // ICE is made of crystals: each one bends the light on its own slant
+            vec3 cr = vec3(1.0, 1.0, 0.5);
+            vec2 slant = vec2(0.0);
+            if (uIce.y > 0.0) {
+                cr = voronoi(q * uChip.y);
+                slant = (hash22(vec2(cr.z * 91.0, cr.z * 17.0)) - 0.5) * 0.55 * uIce.y;
+            }
+            vec2 off = (n.xy + slant) * uGlass.x * thick / uField.xy;
             vec3 bg = vec3(texture(uBack, vUv - off * (1.0 + uGlass.y)).r,
                            texture(uBack, vUv - off).g,
                            texture(uBack, vUv - off * (1.0 - uGlass.y)).b);
@@ -487,17 +495,30 @@ void main() {
             glassCol += (uTint * 0.6 + 0.4) * uGather * pow(rimw, 1.4) * smoothstep(0.2, -0.9, side);
             glassCol = glassCol * (1.0 - F * uGloss * 0.5) + E * F * uGloss + sp;
             if (uIce.x + uIce.y + uIce.z + uIce.w > 0.0) {
-                // ICE: clear at its edges and cloudy in its thick middle, a few bright fractures
-                // caught inside, frost along its edges, and snow lying on whatever faces the sky
-                float deep = smoothstep(0.0, max(uBevel, aw) * 2.5, d);
-                float cloud = uIce.x * deep * smoothstep(0.35, 0.75, tfbm(q * 2.2 + 3.0));
-                vec3 fr = voronoi(q * 1.6 + tfbm(q * 1.1) * 0.7);
-                float fracture = uIce.y * (1.0 - smoothstep(0.0, 0.03, fr.y - fr.x)) * (0.3 + 0.7 * tnoise(q * 9.0));
-                float frost = uIce.z * (1.0 - smoothstep(0.0, max(uBevel, aw) * 1.4, d)) * (0.5 + 0.5 * tnoise(q * 60.0));
+                // Fissures run along the crystals' walls (the same walls the outline chips along, so a
+                // chip leads into a crack). Low down and deep inside the ice is milky and full of
+                // bubbles; it clears toward the top and the outside. Patches of its skin are frosted.
+                float wallD = cr.y - cr.x;
+                float up = sat(f.a);
+                float inner = smoothstep(0.0, max(uBevel, aw) * 3.0, d);
+                // (not every wall has split: fissures gather in some parts of the block and leave others whole)
+                float split = smoothstep(0.42, 0.62, tfbm(q * 1.2 + 20.0)) * uIce.y;
+                float fis = (1.0 - smoothstep(0.0, 0.006 + 0.02 * tnoise(q * 5.0), wallD)) * split;
+                float sideLit = smoothstep(0.02, 0.1, wallD) * (1.0 - smoothstep(0.1, 0.28, wallD)) * (cr.z - 0.5) * split;
+                glassCol *= 1.0 + min(sideLit, 0.0) * 0.9;                                   // one side of a fissure is in shade
+                glassCol += vec3(0.75, 0.9, 1.0) * (fis * (0.4 + 0.6 * tnoise(q * 14.0)) + max(sideLit, 0.0) * 0.7);
+                float low = (1.0 - up) * 0.8 + 0.2;
+                float milk = uIce.x * inner * low * smoothstep(0.45, 0.8, tfbm(q * 2.4 + 3.0) + (1.0 - up) * 0.3);
+                vec3 bub = voronoi(q * 24.0 + 5.0);
+                float ring = smoothstep(0.17, 0.12, bub.x) * (0.35 + 0.65 * smoothstep(0.04, 0.13, bub.x));
+                float bubbles = uIce.x * inner * low * low * ring * step(0.7, bub.z);
+                float frostP = uIce.z * (smoothstep(0.5, 0.72, tfbm(q * 1.3 + 9.0)) * 0.8
+                             + (1.0 - smoothstep(0.0, max(uBevel, aw) * 1.2, d)) * 0.45) * (0.6 + 0.4 * tnoise(q * 70.0));
+                vec3 white = vec3(0.78, 0.88, 0.97) * (0.45 + 0.7 * ndl);
+                glassCol = mix(glassCol, white, sat(milk * 0.7 + frostP));
+                glassCol += vec3(0.9, 0.97, 1.0) * bubbles * 0.75;
                 float capDeep = 0.05 * (0.5 + 1.0 * tfbm2(vec2(q.x * 7.0, 2.0)));
                 float snow = uIce.w * smoothstep(0.3, 0.8, -gn.y) * (1.0 - smoothstep(capDeep * 0.6, capDeep, d));
-                vec3 white = vec3(0.8, 0.89, 0.97) * (0.4 + 0.75 * ndl);
-                glassCol = mix(glassCol, white, sat(cloud * 0.7 + fracture + frost));
                 glassCol = mix(glassCol, vec3(0.93, 0.96, 1.0) * (0.55 + 0.6 * ndl), snow);
             }
             float seeThrough = mix(sat(F * uGloss + sp + uGlass.z * 0.35), 1.0, uHasBack);
@@ -512,9 +533,10 @@ void main() {
             float rimH = 1.0 - smoothstep(0.0, max(uBevel, aw) * 1.6, d);
             float waver = 0.82 + 0.18 * tnoise(vec2(uTime * 13.0, f.b * 9.0));
             vec3 hc = fillAt(f.a);
-            a = 0.14 + 0.2 * scan;
+            float a0 = 0.14 + 0.2 * scan;
+            a = a0 * presence(q);
             col = hc * 0.05;
-            add += hc * (0.1 + 0.35 * scan * scan + 1.6 * rimH) * uHolo.x * waver / a;
+            add += hc * (0.1 + 0.35 * scan * scan + 1.6 * rimH) * uHolo.x * waver / a0;
 #endif
             if (uInline > 0.0) {
                 float il = smoothstep(-aw, aw, uInline * 0.5 - abs(dRaw - uInlineOff - uInline * 0.5));

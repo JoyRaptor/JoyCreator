@@ -7,6 +7,7 @@ uniform sampler2D uSrc;
 uniform vec2  uStep;     // one field pixel along this pass's direction, in uv
 uniform float uRadius;   // blur radius in field pixels
 uniform vec4  uWobble;   // amount em, scale, speed, 1 = this pass wobbles
+uniform vec2  uChip;     // crystal chips: how deep a chip bites (em), crystals per em
 void main() {
     vec2 uv = vUv;
     if (uWobble.w > 0.5 && uWobble.x > 0.0) {
@@ -16,6 +17,12 @@ void main() {
         uv += w * uWobble.x * 2.0 / uField.xy;
     }
     vec4 c = texture(uSrc, uv);
+    if (uWobble.w > 0.5 && uChip.x > 0.0) {
+        // crystal chips: whole angular cells of the shape are bitten back, so the outline breaks in
+        // straight facets (the same cells the look draws its fissures along, so a chip leads to a crack)
+        vec3 v = voronoi(uv * uField.xy * uChip.y);
+        c.r -= uChip.x * smoothstep(0.5, 0.72, v.z) * (0.35 + 0.65 * v.z);
+    }
     if (uRadius < 0.25) { o = c; return; }
     float sigma = uRadius * 0.5;
     float sum = c.r, wsum = 1.0;

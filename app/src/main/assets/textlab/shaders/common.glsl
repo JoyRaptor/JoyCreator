@@ -80,6 +80,15 @@ vec2 tcurl(vec2 p) {
     return vec2(a - b, d - c) / (2.0 * e);
 }
 
+// Presence: a slow drifting mask for things that are only half there. 1 = this part is here,
+// 0 = it has faded out of existence for now; it comes and goes.
+uniform vec2 uPresence;   // how much of the thing fades (0 = always whole), how fast it comes and goes
+float presence(vec2 p) {
+    if (uPresence.x <= 0.0) return 1.0;
+    float n = tfbm(p * 0.9 + vec2(uTime * uPresence.y * 0.11, -uTime * uPresence.y * 0.07));
+    return mix(1.0, smoothstep(0.34, 0.6, n), uPresence.x);
+}
+
 // Cells: x = distance to the nearest seed, y = to the next, z = the cell's own random number.
 vec3 voronoi(vec2 p) {
     vec2 i = floor(p), f = fract(p);

@@ -30,7 +30,7 @@ float source(vec2 uv, vec2 p) {
     // (it thins away downward with no edge of its own: fire is a glowing gas, not a shape)
     float pool = smoothstep(-uFireUnder.y, 0.0, f.r);
     pool = pool * pool * (1.0 - smoothstep(-0.004, 0.004, f.r)) * smoothstep(0.1, 0.6, up) * uFireUnder.x;
-    return (band * facesUp + pool * 0.55) * flick * uFire.w * 0.85 * f.g;
+    return (band * facesUp + pool * 0.55) * flick * uFire.w * 0.85 * f.g * presence(p);
 }
 
 void main() {

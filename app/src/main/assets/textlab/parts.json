@@ -11,6 +11,7 @@
 
     "chip":          {"u": "uChip", "i": 0, "v": 0, "min": 0, "max": 0.08, "slot": "Shape", "label": "Crystal chips in the outline"},
     "chipSize":      {"u": "uChip", "i": 1, "v": 5, "min": 1.5, "max": 16, "slot": "Shape", "label": "Crystals per letter"},
+    "grow":          {"u": "uGrow", "v": 0, "min": 0, "max": 0.06, "slot": "Shape", "label": "Crystal shards stand proud of the outline"},
     "bevel":         {"u": "uBevel", "v": 0.035, "min": 0, "max": 0.25, "slot": "Depth", "label": "Bevel width"},
     "bevelHeight":   {"u": "uBevelHeight", "v": 0.03, "min": 0, "max": 0.25, "slot": "Depth", "label": "Bevel height"},
     "bevelShape":    {"u": "uBevelShape", "v": 0, "min": -1, "max": 1, "slot": "Depth", "label": "Scooped / chisel / round"},
@@ -106,6 +107,10 @@
     "iceCracks":     {"u": "uIce", "i": 1, "v": 0, "min": 0, "max": 1.5, "slot": "Glass", "label": "Ice: crystals and fissures"},
     "iceFrost":      {"u": "uIce", "i": 2, "v": 0, "min": 0, "max": 1.5, "slot": "Glass", "label": "Ice: frosted patches"},
     "iceSnow":       {"u": "uIce", "i": 3, "v": 0, "min": 0, "max": 1.5, "slot": "Glass", "label": "Ice: snow lying on top"},
+    "iceVeil":       {"u": "uIceB", "i": 0, "v": 0, "min": 0, "max": 1.5, "slot": "Glass", "label": "Ice: fractures seen as veils inside"},
+    "iceBacklight":  {"u": "uIceB", "i": 1, "v": 0, "min": 0, "max": 2, "slot": "Glass", "label": "Ice: glows where it is thin (lit from behind)"},
+    "icePrism":      {"u": "uIceB", "i": 2, "v": 0, "min": 0, "max": 2, "slot": "Glass", "label": "Ice: prism sparks in the crystals"},
+    "iceWet":        {"u": "uIceB", "i": 3, "v": 0, "min": 0, "max": 2, "slot": "Glass", "label": "Ice: wet skin, sliding gleams"},
     "caustic":       {"u": "uCaustic", "i": 0, "v": 0, "min": 0, "max": 3, "slot": "Glass", "label": "Dancing light inside"},
     "causticScale":  {"u": "uCaustic", "i": 1, "v": 5, "min": 1, "max": 20, "slot": "Glass", "label": "Dancing light size"},
 

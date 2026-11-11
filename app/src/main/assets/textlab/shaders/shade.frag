@@ -104,6 +104,7 @@ uniform vec2  uCaustic;      // dancing light inside: strength, cells per em
 uniform float uGather;       // light gathered on the far side from the lamp, as in a drop
 uniform vec4  uIce;          // ice is not glass: milk and bubbles (low and deep), crystals and fissures, frosted patches, snow lying on top
 uniform vec2  uChip;         // the crystals: how deep a chip bites the outline (em), crystals per em
+uniform vec4  uIceB;         // more of what ice does: a fracture seen as a veil going into the block, light coming through its thin parts from behind, prism sparkles in its crystals, a wet skin
 #endif
 #ifdef DETAIL
 uniform vec4  uDetail;       // kind, bumps per em, strength, drift speed
@@ -517,6 +518,18 @@ void main() {
                 vec3 white = vec3(0.78, 0.88, 0.97) * (0.45 + 0.7 * ndl);
                 glassCol = mix(glassCol, white, sat(milk * 0.7 + frostP));
                 glassCol += vec3(0.9, 0.97, 1.0) * bubbles * 0.75;
+                // a fracture is a surface inside the block: beside its bright thread you see it as a pale veil
+                float veil = smoothstep(0.17, 0.0, wallD) * step(0.5, cr.z) * split * uIceB.x;
+                glassCol = mix(glassCol, vec3(0.8, 0.9, 1.0) * (0.45 + 0.55 * ndl), veil * 0.4);
+                // lit from behind, ice glows where it is thin
+                glassCol += uTint * uIceB.y * 0.55 * (1.0 - inner) * (0.5 + 0.5 * tfbm2(q * 3.0 + 1.0));
+                // a crystal now and then splits the light: small coloured sparks that move as you tilt
+                float spark = pow(sat(sin(dot(slant, uTilt * 6.0 + vec2(1.3, 0.7)) * 9.0 + cr.z * 40.0 + uTime * 0.5)), 26.0)
+                            * smoothstep(0.07, 0.015, cr.x) * uIceB.z;
+                glassCol += hsv2rgb(vec3(fract(cr.z * 3.0 + uTime * 0.03), 0.45, 1.0)) * spark * 3.0;
+                // a film of meltwater: slow sliding gleams on the skin
+                float wet = pow(sat(tfbm(q * 7.0 + vec2(uTime * 0.03, uTime * 0.11)) * 1.6 - 0.62), 2.0) * uIceB.w;
+                glassCol += vec3(0.9, 0.96, 1.0) * wet * (0.3 + 0.9 * ndl);
                 float capDeep = 0.05 * (0.5 + 1.0 * tfbm2(vec2(q.x * 7.0, 2.0)));
                 float snow = uIce.w * smoothstep(0.3, 0.8, -gn.y) * (1.0 - smoothstep(capDeep * 0.6, capDeep, d));
                 glassCol = mix(glassCol, vec3(0.93, 0.96, 1.0) * (0.55 + 0.6 * ndl), snow);

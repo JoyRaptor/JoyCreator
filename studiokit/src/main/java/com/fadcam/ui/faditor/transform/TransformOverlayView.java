@@ -214,6 +214,7 @@ public class TransformOverlayView extends View {
         handles = model;
         // A body-hold hook is installed for ONE object (see setOnBodyHold): a new host starts without.
         onBodyHold = null;
+        onBodyTap = null;
         cancelGesture();
         cancelBendDrag();
         bendMode = false;
@@ -813,6 +814,17 @@ public class TransformOverlayView extends View {
     @Nullable private Runnable onDoubleTap;
 
     public void setOnDoubleTap(@Nullable Runnable r) { onDoubleTap = r; }
+
+    /**
+     * Run on a clean, motionless SINGLE tap inside the object (the first of a would-be pair;
+     * the second still reports {@link #setOnDoubleTap}). The box is only up on a selected
+     * object, so this is "tapped the thing that is already selected": the editor reopens its
+     * drawer when none is open (STU-4: after closing the drawer a tap did nothing). Installed
+     * for ONE object; {@link #setHost} clears it. Null = a single tap does nothing.
+     */
+    @Nullable private Runnable onBodyTap;
+
+    public void setOnBodyTap(@Nullable Runnable r) { onBodyTap = r; }
 
     private long lastBodyTapUpMs;
     /**
@@ -2406,7 +2418,7 @@ public class TransformOverlayView extends View {
             togglePin(tapIndex); // K6: a tap pins a corner (its FREE role); tapped again, it lets go
         } else if (was && !didMove && clean && kind == HandleModel.Kind.BODY) {
             // A tap on the picture that moved nothing. Pair it with the previous one and forward
-            // the double-tap; a single tap deliberately does nothing at all. downX/downY is
+            // the double-tap; a single tap runs onBodyTap when one is installed. downX/downY is
             // the DOWN point, but an unmoved tap lifted within slop of it, so it stands in
             // for the UP point without threading the MotionEvent through (TEXT_REPAIR_PASS).
             long nowMs = SystemClock.uptimeMillis();
@@ -2423,6 +2435,8 @@ public class TransformOverlayView extends View {
                 lastBodyTapUpMs = nowMs;
                 lastBodyTapX = downX;
                 lastBodyTapY = downY;
+                Runnable st = onBodyTap;
+                if (st != null) st.run();
             }
         }
         hudEndedAtMs = SystemClock.uptimeMillis();

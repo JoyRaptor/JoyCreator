@@ -2093,7 +2093,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                         ? getString(R.string.faditor_undo_ai_edits) : aiWhat);
                     }
                     FLog.i(TAG, "AI reload: undo checkpoint recorded=" + aiStepRecorded);
-                    swapInProject(reloaded);
+                    swapInProject(reloaded, aiStepRecorded);
                     Toast.makeText(this, aiSignal ? R.string.studio_toast_ai_edits_applied
                             : R.string.studio_toast_changed_elsewhere, Toast.LENGTH_SHORT).show();
                 } else {
@@ -2206,8 +2206,24 @@ public class FaditorEditorActivity extends AppCompatActivity {
     /**
      * Swap in a project changed outside this editor (Joybot, SpriteLab, Avatar Studio). The caller
      * records the undo step first, from the state still held.
+     *
+     * @param stepOnTop the change landed in the undo step now on top of the stack, so that step
+     *     gets this editor's marks from before the swap when it was recorded without them.
      */
-    private void swapInProject(@NonNull com.fadcam.ui.faditor.model.FaditorProject reloaded) {
+    private void swapInProject(@NonNull com.fadcam.ui.faditor.model.FaditorProject reloaded,
+                               boolean stepOnTop) {
+        // TIMELINE MARKS JOIN THE STEP. Joybot writes marks to the bookmarks sidecar, which the
+        // wireBookmarks below reads in; the chat parks each request's before as project.json
+        // alone. So the step had no marks, and Undo put everything back except a mark Joybot
+        // added (Note 9, 10-28, add_marker held off for it). The marks this editor holds right
+        // now are the true before: nothing here has read the sidecar since Joybot wrote it.
+        final com.fadcam.ui.faditor.markers.MarkerWorkspace.State marksBefore =
+                markerState != null && project != null && project.getId().equals(markerProjectId)
+                        && reloaded.getId().equals(markerProjectId)
+                        ? markerState.copy() : null;
+        if (stepOnTop && marksBefore != null) {
+            undoManager.completeTopAiBefore(before -> withUndoMarks(before, marksBefore));
+        }
         // Everything already on the stacks closes over the model objects we are
         // about to discard; replaying one would silently mutate an orphan and
         // report success. Keep what can still be honoured (the snapshots), drop
@@ -2266,7 +2282,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (!reloadLooksReal(next)) return false;
             boolean sameRequest = request.equals(jbLiveRequest) && undoManager.getUndoCount() == jbLiveUndoCount;
             if (!sameRequest) undoManager.recordAiCheckpoint(label);
-            swapInProject(next);
+            // The step this write lands in (new, or the request's own) is on top either way.
+            swapInProject(next, true);
             saveProjectNow();
             jbLiveRequest = request;
             jbLiveUndoCount = undoManager.getUndoCount();
@@ -15010,6 +15027,26 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private static final String UNDO_MARKER_WORKSPACE_KEY =
             "com.fadcam.editor.undo.markerWorkspace.v1";
 
+    /**
+     * {@code snapshot} with {@code marks} as its timeline marks, unless it carries marks already
+     * (then it is returned as is: what it holds was captured at the right moment).
+     */
+    @NonNull
+    private String withUndoMarks(@NonNull String snapshot,
+                                 @NonNull com.fadcam.ui.faditor.markers.MarkerWorkspace.State marks) {
+        try {
+            org.json.JSONObject json = new org.json.JSONObject(snapshot);
+            if (json.has(UNDO_MARKER_WORKSPACE_KEY)) return snapshot;
+            String marksJson = com.fadcam.ui.faditor.markers.MarkerWorkspaceStore.toSnapshotJson(marks);
+            if (marksJson == null) return snapshot;
+            json.put(UNDO_MARKER_WORKSPACE_KEY, new org.json.JSONObject(marksJson));
+            return json.toString();
+        } catch (Exception e) {
+            FLog.w(TAG, "Could not add timeline marks to an AI undo step", e);
+            return snapshot;
+        }
+    }
+
     @Nullable
     private String captureEditorUndoSnapshot() {
         if (project == null || projectStorage == null) return null;
@@ -18003,6 +18040,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     @NonNull com.fadcam.ui.faditor.layers.Track fromTrack, int insertionIndex) {
                 if (isWordSyncActive()) return;
                 pendingLayerTrackUndo = stageCreateLayerAndMoveItem(item, fromTrack, insertionIndex);
+            }
+
+            @Override
+            public void onSelectedItemTapped(@NonNull com.fadcam.ui.faditor.layers.TimedItem item) {
+                if (isWordSyncActive()) return;
+                if (item.getTextOverlay() != null) reopenOverlayDrawerOnTap(item.getTextOverlay());
             }
 
             @Override
@@ -27431,6 +27474,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         v.setOnDoubleTap(() -> showTextOverlayEditor(o));
         // Hold opens it too, as it does for a visualiser. Set after setHost, which clears the hook.
         v.setOnBodyHold(() -> showTextOverlayEditor(o));
+        // And a tap on the selected picture brings its drawer back once it was closed.
+        v.setOnBodyTap(() -> reopenOverlayDrawerOnTap(o));
         v.bringToFront();
         v.refresh();
     }
@@ -27570,6 +27615,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         v.setBendVisible(o.hasMesh());
         v.setOnDoubleTap(() -> showTextOverlayEditor(o, true));
         v.setOnBodyHold(() -> showTextOverlayEditor(o, true));
+        v.setOnBodyTap(() -> reopenOverlayDrawerOnTap(o));
         v.bringToFront();
         v.refresh();
     }
@@ -37512,6 +37558,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
     @Nullable private String textDrawerItemId;
 
     /**
+     * A tap on a text or picture that is ALREADY selected (its box in the preview, or its tape
+     * on the timeline) opens its drawer, keyboard down, when no drawer is open. Tap = select,
+     * and the object was selected already, so the tap had no job: after closing the drawer the
+     * only ways back were a double-tap or a hold (STU-4, Note 9 10-28). With a drawer open the
+     * tap keeps its old meaning (nothing here; the text layer raises the keyboard on the words).
+     */
+    private void reopenOverlayDrawerOnTap(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem o) {
+        if (objectDrawer != null && objectDrawer.isShowing()) return;
+        if (objectMenuSheet != null && objectMenuSheet.isShowing()) return;
+        if (project == null || !project.getTimeline().getTextOverlays().contains(o)) return;
+        showTextOverlayEditor(o);
+    }
+
+    /**
      * The Text tab is for selecting words; every other tab is for moving the box. On the Text
      * tab the transform surface stands down so touches reach the in-picture editor; off it, the
      * handles return on the same box.
@@ -45246,6 +45306,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     /** Toggle the yellow silence-candidate view; detect on first show. */
     private void toggleSilenceDetect() {
+        // A selected AUDIO clip is what Clean works on, the same rule Split, Fix audio and
+        // Beats follow. Before 11-10 Clean only read the film selection, which stays set
+        // under an audio selection, so Clean on a song cut the video instead (STU-4).
+        AudioClip selectedAudio = selectedAudioClipOrNull();
+        if (selectedAudio != null) {
+            showAudioCleanDialog(selectedAudio);
+            return;
+        }
         if (editorTimeline.isShowSilence()) {
             removeDetectedGaps();
             return;
@@ -45284,6 +45352,132 @@ public class FaditorEditorActivity extends AppCompatActivity {
         previewSilenceCandidates(0.5f, preview);
     }
 
+    /** The audio clip the timeline has selected, or null (nothing, or something else). */
+    @Nullable
+    private AudioClip selectedAudioClipOrNull() {
+        if (project == null || editorTimeline == null) return null;
+        int idx = editorTimeline.getSelectedAudioIndex();
+        java.util.List<AudioClip> all = project.getTimeline().getAudioClips();
+        return idx >= 0 && idx < all.size() ? all.get(idx) : null;
+    }
+
+    /**
+     * Clean for an audio clip: the same sensitivity dialog as the film's, with the would-be
+     * cut counted live, then the silences cut in one step (one undo). The audio row has no
+     * yellow candidate marks, so the count in the dialog is the preview.
+     */
+    private void showAudioCleanDialog(@NonNull AudioClip target) {
+        int pad = (int) (16 * getResources().getDisplayMetrics().density);
+        android.widget.LinearLayout root = new android.widget.LinearLayout(this);
+        root.setOrientation(android.widget.LinearLayout.VERTICAL);
+        root.setPadding(pad, pad / 2, pad, 0);
+        android.widget.TextView label = new android.widget.TextView(this);
+        label.setText(R.string.faditor_silence_sensitivity);
+        label.setTextColor(Studio.INK_DIM);
+        root.addView(label);
+        final android.widget.SeekBar seek = new android.widget.SeekBar(this);
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.styleSlider(seek);
+        seek.setMax(100);
+        seek.setProgress(50);
+        root.addView(seek);
+        final android.widget.TextView preview = new android.widget.TextView(this);
+        preview.setTextColor(Studio.CAREFUL);
+        preview.setTextSize(12);
+        preview.setPadding(0, pad / 3, 0, 0);
+        root.addView(preview);
+        final Runnable scan = () -> {
+            final int gen = ++silencePreviewGen;
+            preview.setText(R.string.studio_text_scanning);
+            detectAudioSilence(target, seek.getProgress() / 100f, (keep, gaps, saved) -> {
+                if (gen != silencePreviewGen || isFinishing()) return;
+                preview.setText(gaps == 0 ? getString(R.string.studio_silence_none)
+                        : getString(R.string.studio_silence_summary, gaps, (saved / 1000)));
+            }, () -> {
+                if (gen != silencePreviewGen || isFinishing()) return;
+                preview.setText(R.string.studio_text_couldn_t_scan_the_audio);
+            });
+        };
+        seek.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(android.widget.SeekBar sb, int p, boolean u) { }
+            @Override public void onStartTrackingTouch(android.widget.SeekBar sb) { }
+            @Override public void onStopTrackingTouch(android.widget.SeekBar sb) { scan.run(); }
+        });
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.faditor_silence_detect_title)
+                .setMessage(R.string.faditor_silence_audio_desc)
+                .setView(root)
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(R.string.faditor_silence_audio_btn, (d, w) -> {
+                    ++silencePreviewGen; // a late preview must not write into a closed dialog
+                    Toast.makeText(this, R.string.faditor_silence_analyzing, Toast.LENGTH_SHORT).show();
+                    detectAudioSilence(target, seek.getProgress() / 100f,
+                            (keep, gaps, saved) -> cutAudioSilences(target, keep, gaps, saved),
+                            () -> Toast.makeText(this, R.string.faditor_silence_none,
+                                    Toast.LENGTH_SHORT).show());
+                })
+                .show();
+        scan.run();
+    }
+
+    private interface AudioSilenceResult { void onResult(List<long[]> keep, int gaps, long savedMs); }
+
+    private void detectAudioSilence(@NonNull AudioClip clip, float sensitivity,
+                                    @NonNull AudioSilenceResult onResult,
+                                    @NonNull Runnable onError) {
+        if (silenceDetector == null) silenceDetector = new SilenceDetector(this);
+        silenceDetector.detect(clip.getSourceUri(), clip.getInPointMs(), clip.getOutPointMs(),
+                sensitivity, new SilenceDetector.Callback() {
+                    @Override
+                    public void onResult(@NonNull List<long[]> keepRanges,
+                                         int gapsRemoved, long msSaved) {
+                        onResult.onResult(keepRanges, gapsRemoved, msSaved);
+                    }
+
+                    @Override
+                    public void onError(@NonNull Exception e) { onError.run(); }
+                });
+    }
+
+    /** Swap the clip for its kept pieces: one undo step, the first piece stays selected. */
+    private void cutAudioSilences(@NonNull AudioClip original, @NonNull List<long[]> keep,
+                                  int gaps, long savedMs) {
+        if (project == null) return;
+        final Timeline timeline = project.getTimeline();
+        if (!timeline.getAudioClips().contains(original)) return; // deleted while scanning
+        final List<AudioClip> pieces =
+                com.fadcam.ui.faditor.audio.AudioSilenceCut.pieces(original, keep);
+        if (pieces.isEmpty()) {
+            Toast.makeText(this, R.string.faditor_silence_none, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        playerManager.pause();
+        final Runnable cut = () -> {
+            timeline.removeAudioClip(original);
+            for (AudioClip p : pieces) timeline.addAudioClip(p, false);
+            afterAudioClipsReplaced(pieces.get(0).getId());
+        };
+        final Runnable uncut = () -> {
+            for (AudioClip p : pieces) timeline.removeAudioClip(p);
+            timeline.addAudioClip(original, false);
+            afterAudioClipsReplaced(original.getId());
+        };
+        undoManager.recordAction(new EditActions.LambdaAction(
+                getString(R.string.faditor_tool_silence), cut, uncut));
+        cut.run();
+        Toast.makeText(this, getString(R.string.faditor_silence_result, gaps, savedMs / 1000f),
+                Toast.LENGTH_LONG).show();
+    }
+
+    /** Refresh after audio clips were swapped for others (as splitAudioAtPlayhead does). */
+    private void afterAudioClipsReplaced(@NonNull String selectId) {
+        editorTimeline.setAudioClips(project.getTimeline().getAudioClips());
+        syncTimelineOverlays();
+        editorTimeline.selectLayerItemById(selectId);
+        prepareAudioPlayer();
+        refreshTotalTimeDisplay();
+        scheduleAutoSave();
+    }
+
     // ── C3: Fix audio — one-tap baked chain (highpass → afftdn → acompressor → loudnorm) ──
     private void fixSelectedAudio() {
         if (project == null) {
@@ -45315,9 +45509,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
             Toast.makeText(this, R.string.studio_toast_audio_has_no_duration, Toast.LENGTH_SHORT).show();
             return;
         }
-        // If already baked, the Clean tab's revert is the honest path — but Fix should still
-        // be reachable via undo, not by stacking bakes. For now, allow re-bake and let the
-        // BakedAudioCache's cache-hit handle it (it will be a no-op if already baked).
+        // On a clip that is already a bake, Fix processes what the clip plays now (the bake),
+        // and the revert target stays the true original (see the swap below). The bake keeps
+        // the source's clock, so in/out and cut spans stay true (BakedAudioCache "Timing").
         java.io.File projectDir = projectStorage.projectDir(project.getId());
         com.fadcam.ui.faditor.audio.BakedAudioCache cache = new com.fadcam.ui.faditor.audio.BakedAudioCache(this);
         // Progress dialog (honest, not instant — §6.2 baked)
@@ -45339,38 +45533,43 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 Toast.makeText(this, "Fix failed: " + (error != null ? error : "unknown"), Toast.LENGTH_LONG).show();
                 return;
             }
-            // Swap clip to baked file — one undo step (like Clean tab)
-            String originalUri = target.getSourceUri().toString();
+            // Swap clip to baked file — one undo step (like Clean tab).
+            // The revert target is the TRUE original: a Fix on a clip that is already a bake
+            // (Clean, then Fix) used to record the earlier bake as "the original", so the
+            // Clean tab's Revert went back to the half-processed file, not the recording.
+            String originalUri = target.isBakedSource()
+                    ? target.getBakedFromUri() : target.getSourceUri().toString();
             String bakedPath = result.bakedFile.getAbsolutePath();
             String beforeUri = target.getSourceUri().toString();
             String beforeBakedUri = target.getBakedFromUri();
             String beforeBakedFile = target.getBakedFromFile();
             android.net.Uri bakedUri = android.net.Uri.fromFile(result.bakedFile);
+            // Every swap ends the same way: the stored waveform is read again from the file
+            // the clip now plays (SourceWaveform), then the usual repaint, player and save.
+            final Runnable afterSwap = () -> {
+                com.fadcam.ui.faditor.audio.SourceWaveform.refresh(this, target, () -> {
+                    if (editorTimeline != null) editorTimeline.invalidate();
+                });
+                syncTimelineOverlays();
+                if (editorTimeline != null) editorTimeline.invalidate();
+                prepareAudioPlayer();
+                scheduleAutoSave();
+            };
             target.setSourceUri(bakedUri);
             target.setBakedFrom(originalUri, bakedPath);
-            // Invalidate waveform (stale until re-extract) — keep old for now
             undoManager.recordAction(new com.fadcam.ui.faditor.undo.EditActions.LambdaAction(
                     "Fix audio",
                     () -> {
                         target.setSourceUri(bakedUri);
                         target.setBakedFrom(originalUri, bakedPath);
-                        syncTimelineOverlays();
-                        if (editorTimeline != null) editorTimeline.invalidate();
-                        prepareAudioPlayer();
-                        scheduleAutoSave();
+                        afterSwap.run();
                     },
                     () -> {
                         target.setSourceUri(android.net.Uri.parse(beforeUri));
                         target.setBakedFrom(beforeBakedUri, beforeBakedFile);
-                        syncTimelineOverlays();
-                        if (editorTimeline != null) editorTimeline.invalidate();
-                        prepareAudioPlayer();
-                        scheduleAutoSave();
+                        afterSwap.run();
                     }));
-            syncTimelineOverlays();
-            if (editorTimeline != null) editorTimeline.invalidate();
-            prepareAudioPlayer();
-            scheduleAutoSave();
+            afterSwap.run();
             Toast.makeText(this, R.string.studio_toast_audio_fixed_revert_in_clean_tab, Toast.LENGTH_SHORT).show();
         }));
     }

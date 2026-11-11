@@ -63,10 +63,11 @@ final class OrganiseActions {
      * open editor's undo snapshot, and {@link #addMarker} now refuses unless the project is open in the
      * Studio; but on the Note 9 (10-28, through the computer bridge) the Studio's Undo said "Undid" and
      * the marker stayed: the AI checkpoint's "before" is recorded before the editor has taken the
-     * sidecar's new mark in (FaditorEditorActivity joybotLive.adopt / wireBookmarks). Turn on once the
-     * editor's adopt carries marks into its undo step (Studio lane; reported on the BOARD).
+     * sidecar's new mark in (FaditorEditorActivity joybotLive.adopt / wireBookmarks). ON since 11-10:
+     * the editor's swapInProject now gives the undo step it lands in the marks it held before the
+     * swap whenever the step was recorded without them (the chat's before is project.json alone).
      */
-    private static final boolean MARKER_ADD_UNDOABLE = false;
+    private static final boolean MARKER_ADD_UNDOABLE = true;
 
     static void register(@NonNull ActionRegistry<StudioCtx> r) {
         r.add(ActionSpec.of("duplicate_layer", "Copy a layer")

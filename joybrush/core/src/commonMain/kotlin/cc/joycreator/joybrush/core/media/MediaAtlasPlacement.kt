@@ -72,8 +72,11 @@ object MediaAtlasPlacement {
     /**
      * The most slots (64 x 14.9 MB = 952 MB, only with that much free beyond the reserve): 48 until 10-21, when a screenful of
      * wet paint on the Note 9 needed ~35-49 slots with its neighbours and was refused on days with memory to spare.
+     * 100 since 2026-11-10 (1.49 GB, only with that much free beyond the reserve): the owner's page of nine watercolour marks
+     * held about 75 tiles of water and what it reads; with 62 the water overflowed into pausing, setting aside and blocks,
+     * each of which drew tile-shaped squares in the paint.
      */
-    const val MAX_SLOTS = 64
+    const val MAX_SLOTS = 100
 
     fun slotGrid(availBytes: Long, bytesPerSlot: Long = BYTES_PER_SLOT): Pair<Int, Int> {
         // The most is [MAX_SLOTS] full-resolution slots' worth of memory (cheaper slots, more of them: 64 with coarse water).

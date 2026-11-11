@@ -3,14 +3,14 @@
   "id": "carved-stone",
   "name": "Carved Stone",
   "family": "Film",
-  "description": "Weathered stone with a raised border and a cut face, raked by one low light, standing in dust.",
+  "description": "Letters hewn from living rock: broken edges, worn lumps and pits, a few deep cracks, patchy colour, raked by one low light in drifting dust.",
   "sample": "LEGEND",
   "stage": 7,
-  "font": { "family": "archivo", "weight": 700, "width": 88, "tracking": 0.2, "caps": true },
+  "font": { "family": "archivo", "weight": 800, "width": 100, "tracking": 0.14, "caps": true },
   "margin": [ 1.0, 1.0, 1.0, 1.0 ],
   "features": [ "DETAIL" ],
-  "p": { "vignette": 0.6, "grain": 0.45, "contrast": 1.12, "persp": -0.12, "vanishX": 0.5, "vanishY": 0.43, "parallax": 0.22, "soften": 0.002, "bevel": 0.03, "bevelHeight": 0.034, "bevelShape": -0.1, "rim": 0.05, "inset": 0.016, "cast": 0.9, "ao": 0.7, "depth": 0.6, "metal": 0, "gloss": 0.06, "ambient": 0.2, "rough": 0.9, "fillA": "#5a5347", "fillB": "#786f61", "fillC": "#8f8575", "strokeCol": "#8a8172", "strokeMetal": 0, "detailKind": 1, "detailScale": 22, "detailAmount": 0.07, "wearEdge": 0.5, "wearScratch": 0.25, "wearGrime": 0.8, "lightX": -0.7, "lightY": 0.5, "lightZ": 0.38, "spec": 0.05, "shine": 20, "sideA": "#4a443a", "sideB": "#0a0907", "sideMetal": 0, "shadow": 0.85, "shadowSoft": 0.18, "shadowX": 0.05, "shadowY": -0.06, "stageTint": "#a8763a", "floor": 0.08, "floorLine": 0.3, "floorFade": 5, "bloom": 0.12, "bloomThreshold": 1.8, "streak": 0, "saturation": 0.95 },
-  "sphere": { "ramp": [ [ 0.0, "#0a0806" ], [ 0.5, "#2a2218" ], [ 0.8, "#6a5a44" ], [ 1.0, "#8a785c" ] ], "boxes": [ [ -0.5, 0.6, 0.3, 0.12, -0.3, 0.06, 2.5, "#ffe2b0", 0.3 ] ] },
+  "p": { "vignette": 0.6, "grain": 0.45, "contrast": 1.14, "persp": -0.12, "vanishX": 0.5, "vanishY": 0.43, "parallax": 0.22, "soften": 0.004, "wobble": 0.007, "wobbleScale": 11, "wobbleSpeed": 0, "bevel": 0.02, "bevelHeight": 0.022, "bevelShape": 0.15, "ao": 0.6, "depth": 0.7, "metal": 0, "gloss": 0.02, "ambient": 0.16, "rough": 1, "fillA": "#74695a", "fillB": "#8f8371", "fillC": "#a89c88", "mottle": 0.6, "detailKind": 9, "detailScale": 9, "detailAmount": 0.25, "detailShade": 0.85, "wearEdge": 0.2, "wearGrime": 0.9, "lightX": -0.75, "lightY": 0.45, "lightZ": 0.3, "spec": 0, "shine": 20, "sideA": "#544b3f", "sideB": "#0c0a08", "sideMetal": 0, "shadow": 0.9, "shadowSoft": 0.18, "shadowX": 0.06, "shadowY": -0.06, "stageTint": "#a8763a", "floor": 0.06, "floorLine": 0.3, "floorFade": 5, "bloom": 0.08, "bloomThreshold": 2, "streak": 0, "saturation": 0.9, "exposure": 1.2 },
+  "sphere": { "ramp": [ [ 0.0, "#080604" ], [ 0.5, "#1c1710" ], [ 0.8, "#4a3f30" ], [ 1.0, "#6a5a44" ] ] },
   "particles": [
     {
       "count": 30,

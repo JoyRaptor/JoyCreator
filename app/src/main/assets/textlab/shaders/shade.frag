@@ -67,6 +67,7 @@ uniform vec2  uEnvJag;       // far mountains on the room's horizon: height, pea
 uniform vec2  uSweep;        // a bar of light crossing the word: strength, seconds between passes
 uniform vec3  uLight;        // toward the lamp: x, y and its height
 uniform vec4  uWear;         // catch-light on crests, scratches, grime in the creases, brushed grain
+uniform float uMottle;       // the colour is not one colour: patches lighter and darker, as in stone or old paint
 
 // sides
 uniform vec3  uSideA;        // at the face
@@ -101,9 +102,11 @@ uniform vec4  uGlass;        // bend, colour fringing, tint strength, dark edge
 uniform vec3  uTint;
 uniform vec2  uCaustic;      // dancing light inside: strength, cells per em
 uniform float uGather;       // light gathered on the far side from the lamp, as in a drop
+uniform vec4  uIce;          // ice is not glass: milky in its thick middle, bright fractures inside, frost on its edges, snow lying on top
 #endif
 #ifdef DETAIL
 uniform vec4  uDetail;       // kind, bumps per em, strength, drift speed
+uniform float uDetailShade;  // the hollows of the relief are darker (dirt and shade collect there)
 #endif
 #ifdef PATTERN
 uniform vec4  uPattern;      // kind, cells per em, amount, dots shrink toward the top
@@ -276,6 +279,14 @@ float detail(vec2 q) {
         vec3 v = voronoi(g);
         return (1.0 - smoothstep(0.0, 0.5, v.x)) * 0.6 + v.z * 0.4 * step(v.x, 0.42);
     }
+    if (kind == 9) {                                                           // living rock: worn lumps, pits, a few deep cracks
+        // (rock is no mirror, so the cheap texture noise is fine here: three times faster on the phone)
+        float lumps = tfbm(g * 0.35) * 0.9 + tfbm(g * 1.3 + 7.0) * 0.35;
+        float pits = smoothstep(0.62, 0.9, tnoise(g * 3.1 + 2.0)) * 0.25;
+        vec3 v = voronoi(g * 0.22 + tfbm2(g * 0.5) * 0.6);
+        float crack = smoothstep(0.0, 0.035, v.y - v.x);                       // 0 down in a crack
+        return (lumps - pits) * 0.5 * (0.3 + 0.7 * crack);
+    }
     return 0.0;
 }
 #endif
@@ -402,8 +413,10 @@ void main() {
             float trim = 1.0 - smoothstep(-aw, aw, dRaw) * onFace;                        // the stroke and the frame
             float slope = (heightAt(d + aw) - heightAt(d - aw)) / (2.0 * aw);
             n = normalize(vec3(-slope * gn * min(gl, 1.5), 1.0));
+            float relief = 1.0;
 #ifdef DETAIL
             float h0 = detail(q);
+            relief = h0;
             vec2 dg = vec2(detail(q + vec2(aw, 0.0)) - h0, detail(q + vec2(0.0, aw)) - h0) / aw;
             n = normalize(vec3(n.xy - dg * uDetail.z * (1.0 - trim), n.z));
 #endif
@@ -414,6 +427,10 @@ void main() {
             vec3 alb = fillAt(f.a);
 #ifdef PATTERN
             alb = mix(alb, uPatternCol, pattern(q, f.a) * uPattern.z);
+#endif
+            alb *= 1.0 + uMottle * ((tfbm(q * 2.6 + 11.0) - 0.5) * 1.1 + (tnoise(q * 31.0) - 0.5) * 0.25);
+#ifdef DETAIL
+            alb *= mix(1.0, 0.4 + 0.85 * sat(relief * 1.7), uDetailShade * (1.0 - trim));
 #endif
             float metal = mix(uMetal, uStrokeMetal, trim);
             float rough = uRough * mix(1.0, 0.3, trim);
@@ -469,6 +486,20 @@ void main() {
             vec3 glassCol = bg * (1.0 - uGlass.w * rimw * smoothstep(-0.3, 0.9, side));
             glassCol += (uTint * 0.6 + 0.4) * uGather * pow(rimw, 1.4) * smoothstep(0.2, -0.9, side);
             glassCol = glassCol * (1.0 - F * uGloss * 0.5) + E * F * uGloss + sp;
+            if (uIce.x + uIce.y + uIce.z + uIce.w > 0.0) {
+                // ICE: clear at its edges and cloudy in its thick middle, a few bright fractures
+                // caught inside, frost along its edges, and snow lying on whatever faces the sky
+                float deep = smoothstep(0.0, max(uBevel, aw) * 2.5, d);
+                float cloud = uIce.x * deep * smoothstep(0.35, 0.75, tfbm(q * 2.2 + 3.0));
+                vec3 fr = voronoi(q * 1.6 + tfbm(q * 1.1) * 0.7);
+                float fracture = uIce.y * (1.0 - smoothstep(0.0, 0.03, fr.y - fr.x)) * (0.3 + 0.7 * tnoise(q * 9.0));
+                float frost = uIce.z * (1.0 - smoothstep(0.0, max(uBevel, aw) * 1.4, d)) * (0.5 + 0.5 * tnoise(q * 60.0));
+                float capDeep = 0.05 * (0.5 + 1.0 * tfbm2(vec2(q.x * 7.0, 2.0)));
+                float snow = uIce.w * smoothstep(0.3, 0.8, -gn.y) * (1.0 - smoothstep(capDeep * 0.6, capDeep, d));
+                vec3 white = vec3(0.8, 0.89, 0.97) * (0.4 + 0.75 * ndl);
+                glassCol = mix(glassCol, white, sat(cloud * 0.7 + fracture + frost));
+                glassCol = mix(glassCol, vec3(0.93, 0.96, 1.0) * (0.55 + 0.6 * ndl), snow);
+            }
             float seeThrough = mix(sat(F * uGloss + sp + uGlass.z * 0.35), 1.0, uHasBack);
             col = mix(glassCol, col, trim);
             a = mix(seeThrough, 1.0, trim);

@@ -435,7 +435,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         // [worldScale]: the water's world magnified (the wet sheet zoomed out), so a millimetre is that many times as many px.
         val pxmm = pxPerMm * worldScale
         wetFrameUniforms.load(wetUniforms(paper.stats, wc0) + ("u_gran" to wetGran) + ("u_runCapMmPerS" to runCapMmPerS) +
-            ("u_inputCap" to (if (capInput) 1.0 else 0.0)), evapOverride, slope,
+            ("u_inputCap" to (if (capInput) 1.0 else 0.0)) + ("u_rimCells" to rimCells.toDouble()), evapOverride, slope,
             wf / (pxmm * scale), wc0.beadMm * pxmm * scale / wf)
         // The same for an engine whose layer px are themselves wider than a document px (scale under 1: the wet sheet,
         // WetSheet): a cell is wf / scale document px across, wf / (scale x worldScale) of the lab's.
@@ -1229,6 +1229,12 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
      * stroke is as wet, and as dark, as a slow one, with no scallop a frame. Set by the wet sheet.
      */
     var capInput = false
+
+    /**
+     * Window mode: water flowing into this many cells along the window's edge thins out and is gone at the edge
+     * (jb_wet_update.frag u_rimCells), instead of standing against it as against a wall. 0 = a wall. Set by the wet sheet.
+     */
+    var rimCells = 0
 
     /** The look without its ground under it (jb_media_render.frag u_look = 2): the wet sheet's overlay. */
     var lookPaintOnly = false

@@ -11,13 +11,14 @@ class WetSheetMathTest {
     @Test fun theSheetIsShapedLikeTheScreen() {
         // The Note 9 at its default resolution: 1080 x 2220.
         val g = WetSheetMath.grid(1080, 2220)
-        // 1280 x 624 cells for the screen itself, and 24 more on every side.
-        assertEquals(1280 + 48, g.h); assertEquals(624 + 48, g.w)
+        // 1280 x 624 cells for the screen itself, and 48 more on every side (the outer 24 are the rim).
+        assertEquals(1280 + 96, g.h); assertEquals(624 + 96, g.w)
+        assertTrue(WetSheetMath.RIM_CELLS + WetSheetMath.SNAP_CELLS < WetSheetMath.PAD_CELLS, "the rim and the snap stay off the screen")
         assertEquals(0, g.w % 16); assertEquals(0, g.h % 16)
         assertTrue(g.cells < 1024 * 1024, "less to hold than the first slice's square sheet")
-        assertEquals(WetSheetMath.Grid(1328, 672), WetSheetMath.grid(2220, 1080), "turned on its side")
-        assertEquals(WetSheetMath.Grid(944, 944), WetSheetMath.grid(1000, 1000, WetSheetMath.LONG_FAST))
-        assertEquals(128 + 48, WetSheetMath.grid(10, 4000).w, "never a sliver")
+        assertEquals(WetSheetMath.Grid(1376, 720), WetSheetMath.grid(2220, 1080), "turned on its side")
+        assertEquals(WetSheetMath.Grid(992, 992), WetSheetMath.grid(1000, 1000, WetSheetMath.LONG_FAST))
+        assertEquals(128 + 96, WetSheetMath.grid(10, 4000).w, "never a sliver")
     }
 
     @Test fun aCellCoversTheSameShareOfTheScreenAtEveryZoom() {

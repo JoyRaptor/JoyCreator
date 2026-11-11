@@ -33,10 +33,16 @@ object WetSheetMath {
 
     /**
      * Cells of margin beyond the screen's own on every side: the origin's snap, and room for a brush's reach and the water's
-     * spread past the screen's edge. Without it the sheet ended up to 27 px short of the screen's edge and a stroke that
-     * reached it was cut off straight (Note 9, 2026-11-10).
+     * spread past the screen's edge, ending in the rim ([RIM_CELLS]). Without it the sheet ended up to 27 px short of the
+     * screen's edge and a stroke that reached it was cut off straight (Note 9, 2026-11-10).
      */
-    const val PAD_CELLS = 24
+    const val PAD_CELLS = 48
+
+    /**
+     * The outermost cells of the pad are the sheet's rim: water flowing into them thins out and none reaches the edge, so
+     * what runs or spreads off the sheet tapers out instead of standing against its edge in a straight line.
+     */
+    const val RIM_CELLS = 24
 
     /**
      * The widest cell the water's physics is run at, in the lab's pixels (20 to the millimetre). Up to here the sheet is

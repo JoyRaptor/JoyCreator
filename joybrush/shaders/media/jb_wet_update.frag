@@ -48,6 +48,8 @@ uniform float u_heightMean;
 uniform float u_useInput;       // 1 on the step that consumes the brush input
 uniform float u_fullMm;         // a puddle this deep counts as "as wet as a full brush" (jb_wet_dab.frag)
 uniform float u_inputCap;       // 1: a frame's dabs together wet the paper no further than dab after dab would (the wet sheet)
+uniform float u_rimCells;       // > 0: water flowing into this many cells along the texture's edge thins out and is gone at the
+                                //      edge itself (the wet sheet's rim: see main); 0 = the edge is a wall, as always
 uniform float u_edgeDep;        // pigment drops out faster at the drying edge (contact-line deposition)
 uniform float u_mingle;         // pigment spreading through connected water (cells²/s): wet-in-wet colour mixing
 uniform sampler2D u_waterBake;  // R = paper height smoothed to fibre scale
@@ -115,6 +117,17 @@ void main() {
             if (wq > u_minMm) mingle += (wf(u_w1, q) / wq - c0) * min(a.r, wq);
         }
     }
+#ifndef JB_ATLAS
+    // The wet sheet's rim (WetSheet): the sheet ends a little past the screen, and water that ran or spread that far stood
+    // against its edge in a straight line (Note 9 film carry3, 2026-11-11). Water FLOWING INTO the rim's cells arrives
+    // thinner the nearer the edge, and none reaches the edge: a drip that runs off the sheet tapers out as one running dry
+    // does. Water that stands there (a wash carried over from another view, a brush's own dab) is left alone.
+    if (u_rimCells > 0.0) {
+        float d = float(min(min(c.x, c.y), min(size.x - 1 - c.x, size.y - 1 - c.y)));
+        float rim = clamp(d / u_rimCells, 0.0, 1.0);
+        inW *= rim; inP *= rim; mingle *= rim;
+    }
+#endif
     w = w - outW + inW;
     pig = max(pig * keep + inP + u_mingle * u_dt * mingle, vec4(0.0));
 

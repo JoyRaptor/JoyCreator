@@ -115,7 +115,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                val sheetLong: Int? = null,
                /** `jb_sheet_grain`: how strongly the paper's fine grain is worked into the wet sheet's look (WetSheet.grainPrint). */
                val sheetGrain: Double? = null,
-               /** `jb_sheet_wave`: how uneven a quick wash is laid on the wet sheet (WetSheet.wave); -1 = no cap at all, as before 11-11. */
+               /** `jb_sheet_wave`: how uneven a quick wash is laid on the wet sheet (WetSheet.wave): 0 even, 0.12 the default, 0.35 the menu's Wavy. */
                val sheetWave: Double? = null,
                /**
                 * `jb_bench_then`: what to do after the last stroke and before the hold, in order, separated by ';':
@@ -237,6 +237,12 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
             "zoom" -> arg.toFloatOrNull()?.let { canvas.view.zoom = it; canvas.requestRender() }
             "dry" -> canvas.debugDryWetSheet()
             "save" -> canvas.snapshot({ c -> Log.i(TAG, "then: snapshot of ${c.tiles.size} tiles") }, { why -> Log.w(TAG, "then: snapshot failed: $why") })
+            // As the autosave does while the person paints: the wet sheet's wash is in the save and stays wet. The tiles'
+            // bytes are summed so two saves can be compared in the log.
+            "savewet" -> canvas.snapshot({ c ->
+                var sum = 0L; for (b in c.tiles.values) { var s = 0L; for (x in b) s += (x.toInt() and 0xFF); sum += s }
+                Log.i(TAG, "then: snapshot (kept wet) of ${c.tiles.size} tiles, sum $sum")
+            }, { why -> Log.w(TAG, "then: snapshot failed: $why") }, keepWet = true)
             "" -> delay = 0L
             else -> Log.w(TAG, "then: unknown step '$op'")
         }

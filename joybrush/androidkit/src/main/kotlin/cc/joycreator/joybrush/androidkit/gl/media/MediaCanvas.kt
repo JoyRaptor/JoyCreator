@@ -388,6 +388,16 @@ class MediaCanvas(
         return done
     }
 
+    /**
+     * A save's readback with the wet sheet's wash in it and the wash left wet ([WetSheet.stamped]): [body] sees the layer
+     * as a print this instant would leave it, and the layer is put back after. With no sheet in use it is just [body].
+     */
+    fun <T> withSheetStamped(body: () -> T): T {
+        val s = sheet
+        if (s == null || !s.holding) return body()
+        return s.stamped(paint.mediaPaper(), look, body)
+    }
+
     private fun beginOnSheet(layerId: String, preset: BrushPreset, spec: MediaSpec, argb: Int, x: Double, y: Double, nowMs: Long,
                              symmetry: Guide.Symmetry?): String? {
         if (preset.mediaScale() <= 0.0) return "This brush has no size."

@@ -2949,20 +2949,29 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
      * the tiles live and where the next stroke will be laid down. Anything that cannot be written is
      * refused with a [JbArchiveException] on [onSnapshotFailed] — never skipped.
      */
-    fun snapshot(onReady: (JbContents) -> Unit) = snapshot(onReady) { why -> onSnapshotFailed?.invoke(why) }
+    fun snapshot(onReady: (JbContents) -> Unit) = snapshot(onReady, { why -> onSnapshotFailed?.invoke(why) })
 
-    /** Failure belongs to this request, including a late response after a caller's timeout. */
-    fun snapshot(onReady: (JbContents) -> Unit, onFailure: (String) -> Unit) {
+    /**
+     * Failure belongs to this request, including a late response after a caller's timeout.
+     *
+     * [keepWet]: watercolour still wet on the wet sheet is saved as it stands and STAYS wet on the screen (the autosave
+     * while the person paints: a wash that takes minutes to dry must not be set by a save 30 s after the stroke). Without
+     * it the wash dries where it lies and goes into its layer first (leaving the screen, opening another drawing).
+     */
+    fun snapshot(onReady: (JbContents) -> Unit, onFailure: (String) -> Unit, keepWet: Boolean = false) {
         val w = viewW
         val h = viewH
         val epoch = graphicsEpoch
         onGl(allowLost = true) {
             val made: JbContents? = try {
                 if (contentLost || epoch != graphicsEpoch) throw JbArchiveException("the graphics restarted; wait for drawing recovery")
-                // Watercolour still on the wet sheet is not in any tile yet: it dries where it lies and goes into its layer,
-                // so the save holds what the screen shows (WET_SHEET_20261110.md: a save sets the wash).
-                if (mediaCanvas.settleSheet()) reportHistory()
-                readContents(w, h)
+                // Watercolour still on the wet sheet is not in any tile yet. The save holds what the screen shows either
+                // way (WET_SHEET_20261110.md rule 9): stamped into stand-in tiles for the readback alone, or really set.
+                if (keepWet) mediaCanvas.withSheetStamped { readContents(w, h) }
+                else {
+                    if (mediaCanvas.settleSheet()) reportHistory()
+                    readContents(w, h)
+                }
             } catch (e: OutOfMemoryError) {
                 post { onFailure("there is not enough memory to save this drawing; your previous save is kept") }
                 null

@@ -7624,6 +7624,51 @@ class GlPaintEngine(
         return changes.size
     }
 
+    /**
+     * Runs [body] with [o] stamped into [keys] of its layer exactly as [printOverlay] would leave them (the look written,
+     * those tiles' payload gone), then puts the layer back as it was: no undo step, nothing redone lost, nothing redrawn.
+     * For a save that must hold a wash that is still wet without drying it (WetSheet.stamped). GL thread, between frames.
+     */
+    fun <T> withOverlayStamped(o: LayerOverlay, keys: Collection<Long>, body: () -> T): T {
+        val layer = layers[o.layerId]?.takeIf { !it.isMask }
+        if (layer == null || o.texture == 0 || keys.isEmpty() || !localHistory) return body()
+        val stamped = LinkedHashMap<Long, Int>()
+        try {
+            for (key in keys) {
+                val after = newLayerTile()
+                stamped[key] = after
+                initializeTile(after, layer.tiles[key], false)
+                GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, copyFbo); attach(after)
+                GLES30.glViewport(0, 0, size, size)
+                GLES30.glEnable(GLES30.GL_BLEND)
+                GLES30.glBlendFunc(GLES30.GL_ONE, GLES30.GL_ONE_MINUS_SRC_ALPHA)
+                GLES30.glBindVertexArray(tileVao)
+                drawOverlay(o, tileToClip((Tiles.tx(key) * size).toFloat(), (Tiles.ty(key) * size).toFloat()), 1f)
+            }
+        } catch (e: Throwable) {
+            stamped.values.forEach(::recycleLayerTex)
+            throw e
+        } finally {
+            GLES30.glBindVertexArray(0)
+            GLES30.glDisable(GLES30.GL_BLEND)
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+        }
+        // The stand-ins take the tiles' places, and the payload under them steps aside, for the length of [body] only.
+        val had = HashMap<Long, Int?>()
+        val aside = ArrayList<Triple<HashMap<Long, Int>, Long, Int>>()
+        try {
+            for ((key, tex) in stamped) { had[key] = layer.tiles[key]; layer.tiles[key] = tex }
+            for (tiles in layer.floats.values) for (key in stamped.keys) tiles.remove(key)?.let { aside.add(Triple(tiles, key, it)) }
+            invalidateProjection(layer)
+            return body()
+        } finally {
+            for ((key, old) in had) if (old == null) layer.tiles.remove(key) else layer.tiles[key] = old
+            for ((tiles, key, tex) in aside) tiles[key] = tex
+            invalidateProjection(layer)
+            stamped.values.forEach(::recycleLayerTex)
+        }
+    }
+
     /** True when any visible layer composites with something other than plain source-over. */
     private fun drawsBoardLayer(layer: Layer): Boolean = layer.visible &&
         (!boardArtOnly || layer.plan?.frames?.any { it.boardId == ghostBoardId } == true)

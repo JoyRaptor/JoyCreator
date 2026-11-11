@@ -2420,7 +2420,10 @@ class JoyBrushActivity : Activity() {
                 }
             }
         // Keep failure bound to this save, even if the GL response arrives after its timeout.
-        }, { why -> answer("Could not read the drawing: $why") })
+        // A wash still wet stays wet through a save made while the person is here (the autosave, a copy, an export); it is
+        // set for good only when the screen is leaving or the drawing is being replaced (the graphics may not come back).
+        }, { why -> answer("Could not read the drawing: $why") },
+            keepWet = !viewPausePending && dest !is SaveDest.Open && dest !is SaveDest.BoardHandoff)
         } catch (_: OutOfMemoryError) {
             answer("this device has too little memory to read the drawing for saving")
         } catch (e: Exception) {

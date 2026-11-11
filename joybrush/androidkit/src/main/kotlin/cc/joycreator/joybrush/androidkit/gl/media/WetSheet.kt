@@ -373,6 +373,22 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
     }
 
     /**
+     * Runs [body] with what the sheet holds stamped into its layer as the screen shows it this instant, then puts the
+     * layer back: the sheet, its water and the history are untouched (GlPaintEngine.withOverlayStamped). A save taken
+     * inside holds the wash, as it would be had it dried where it lies; the wash on the screen keeps running.
+     */
+    fun <T> stamped(paper: MediaPaperGl, look: MediaLook, body: () -> T): T {
+        val e = engine
+        if (e == null || !holding || e.asleep || settling || !paint.localHistory) return body()
+        lookStale = union(lookStale, content)
+        refresh(paper, look)
+        val o = overlay() ?: return body()
+        val keys = coveredTiles(e)
+        android.util.Log.i(TAG, "saved as it stands: ${keys.size} tiles under the sheet, still wet")
+        return paint.withOverlayStamped(o, keys, body)
+    }
+
+    /**
      * Whatever the sheet holds goes into the layer NOW, wet or dry: the water dries where it lies first. Before anything
      * else writes the layer, before a save, when the sheet is needed elsewhere. True when it held something.
      */

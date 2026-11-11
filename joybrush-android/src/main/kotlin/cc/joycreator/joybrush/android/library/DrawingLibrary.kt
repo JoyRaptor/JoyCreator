@@ -97,7 +97,8 @@ object DrawingLibrary {
             if (legacy.isFile && !entries.has(LEGACY_FILE)) {
                 entries.put(LEGACY_FILE, JSONObject().put("name", "My drawing").put("created", legacy.lastModified()))
                 index.put("drawings", entries)
-                writeIndex(dir, index)
+                // Listing must work even when the list cannot be written just now (a full phone).
+                try { writeIndex(dir, index) } catch (e: Exception) { Log.w(TAG, "list not saved yet", e) }
             }
             val out = ArrayList<Drawing>()
             for (key in entries.keys()) {
@@ -129,7 +130,9 @@ object DrawingLibrary {
             while (File(dir, file).exists() || entries.has(file)) file = "drawing-${now + 1}.joybrush"
             entries.put(file, JSONObject().put("name", "Drawing $n").put("created", now))
             index.put("drawings", entries)
-            writeIndex(dir, index)
+            // A drawing that is not on the list would open as some OTHER drawing ([fileToOpen] falls back to the
+            // last one): no new drawing rather than that.
+            try { writeIndex(dir, index) } catch (e: Exception) { Log.w(TAG, "new drawing not made: the list could not be saved", e); return null }
             return file
         }
     }
@@ -162,7 +165,7 @@ object DrawingLibrary {
             val e = index.optJSONObject("drawings")?.optJSONObject(file) ?: return false
             e.put("name", clean)
             folderPath = e.optString("folderPath", "").ifEmpty { null }
-            writeIndex(dir, index)
+            try { writeIndex(dir, index) } catch (ex: Exception) { Log.w(TAG, "not renamed: the list could not be saved", ex); return false }
         }
         if (folderPath != null) {
             try {
@@ -201,7 +204,11 @@ object DrawingLibrary {
             val index = readIndex(dir)
             index.optJSONObject("drawings")?.remove(file)
             if (index.optString("lastOpened") == file) index.remove("lastOpened")
-            writeIndex(dir, index)
+            // The list first: with the file gone but still listed, the list would show a drawing that opens blank.
+            try { writeIndex(dir, index) } catch (e: Exception) {
+                Log.w(TAG, "not deleted: the list could not be saved", e)
+                return "the drawing list couldn't be saved, so it was left where it is"
+            }
             // Inside the lock with the list change: a drawing file the list does not know is put back on the list
             // ([adoptUnlisted]), so the file must be gone before anyone else can read the list.
             working.delete()
@@ -232,7 +239,8 @@ object DrawingLibrary {
                 index.put("drawings", entries)
             }
             index.put("lastOpened", name)
-            writeIndex(dir, index)
+            // "Last opened" is a convenience; failing to note it must never stop a drawing from opening.
+            try { writeIndex(dir, index) } catch (e: Exception) { Log.w(TAG, "last opened not noted", e) }
             return File(dir, name)
         }
     }

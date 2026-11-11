@@ -1,0 +1,28 @@
+{
+  "format": "joy.text/1",
+  "id": "diamond",
+  "name": "Diamond",
+  "family": "Film",
+  "description": "Letters set with brilliant-cut stones in a white-gold frame: every stone has its table and eight facets, each catching a different light, and they scintillate as you tilt.",
+  "sample": "GLAM",
+  "stage": 5,
+  "font": { "family": "archivo", "weight": 900, "width": 100, "tracking": 0.06, "caps": true },
+  "margin": [ 1.0, 1.0, 1.0, 1.1 ],
+  "features": [ "DETAIL" ],
+  "p": { "vignette": 0.6, "grain": 0.25, "contrast": 1.08, "floor": 0.22, "floorLine": 0.3, "floorRipple": 0.15, "floorFade": 3.5, "persp": -0.12, "vanishX": 0.5, "vanishY": 0.43, "parallax": 0.22, "soften": 0.002, "bevel": 0.016, "bevelHeight": 0.02, "bevelShape": 0.25, "rim": 0.028, "inset": 0.01, "cast": 0.5, "ao": 0.4, "depth": 0.35, "metal": 1, "rough": 0, "fillA": "#ffffff", "fillB": "#ffffff", "fillC": "#ffffff", "strokeCol": "#fff3d6", "strokeMetal": 1, "detailKind": 10, "detailScale": 14, "detailAmount": 0.02, "envAcross": 0.5, "envUp": 0.5, "envBevel": 0.9, "envTilt": 0.6, "wearEdge": 1.8, "sideA": "#d9c79a", "sideB": "#1a140a", "sideMetal": 0.8, "sweep": 0.6, "sweepEvery": 5, "spec": 0.5, "shine": 220, "shadow": 0.7, "shadowSoft": 0.16, "stageTint": "#b8c8ff", "bloom": 0.32, "bloomThreshold": 1.5, "bloomKnee": 0.6, "streak": 0.3, "streakBlue": 0.4, "saturation": 1.1 },
+  "sphere": { "ramp": [ [ 0.0, "#000000" ], [ 0.45, "#0a0a10" ], [ 0.55, "#20202c" ], [ 1.0, "#000000" ] ], "boxes": [ [ -0.42, 0.58, 0.3, 0.09, -0.3, 0.03, 7.0, "#ffffff", 0.4 ], [ 0.74, 0.1, 0.045, 0.45, 0.12, 0.03, 4.5, "#cfe0ff", 0.2 ], [ -0.2, -0.7, 0.36, 0.05, 0.05, 0.04, 2.5, "#ffe2b8", 0.3 ] ], "lamps": [ [ 0.3, 0.5, 0.06, 6, "#ffffff" ], [ -0.6, -0.2, 0.05, 5, "#bfd8ff" ], [ 0.5, -0.45, 0.05, 5, "#ffe9c8" ], [ -0.1, 0.1, 0.04, 4, "#ffffff" ] ], "irid": [ 0.45, 2.2 ] },
+  "particles": [
+    {
+      "count": 70,
+      "p": { "from": 1, "shape": 1, "twinkle": 1, "life": 2.0, "size": 0.11, "sizeEnd": 1, "colA": "#ffffff", "colB": "#dfe8ff", "gain": 3.0, "fadeIn": 0.35, "fadeOut": 0.45, "share": 0.4, "seed": 3 }
+    },
+    {
+      "count": 30,
+      "p": { "from": 3, "shape": 1, "glint": 1, "twinkle": 0.7, "life": 3.5, "size": 0.17, "sizeEnd": 1, "colA": "#ffffff", "colB": "#fff0d0", "gain": 3.2, "fadeIn": 0.35, "fadeOut": 0.45, "share": 0.8, "seed": 5 }
+    }
+  ],
+  "motion": {
+    "in": { "each": 0.07, "time": 0.9, "ease": "out", "scale": 1.1, "reveal": [ 0, 0.7 ] },
+    "idle": {}
+  }
+}

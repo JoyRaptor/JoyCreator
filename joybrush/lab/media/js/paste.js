@@ -20,10 +20,14 @@ export const PASTE_BRUSHES = {
   'Palette knife 1': { shape: 2, trowel: true, widthMm: 9, lenMm: 13, thickMm: 1.1, scrape: 0.99, hairDepth: 0.0, ridge: 1.0, rate: 4.0, mix: 0.2, swap: 0.5, loadLenMm: 70, wick: 0.0, bow: 0.9, lump: 0.25, rigid: 1, fillDips: 1 },
   // Rigid blades, held like the pen: the edge lies along the pen's lean. Pressure lowers the blade (light
   // shaves the peaks, full reaches the canvas); tilt lays more of the edge down (upright = the point).
-  'Palette knife 2': { shape: 2, blade: 1, orient: 'pen', press: 'load', face: 'edge', edgeHalfMm: 0.6, edgeMinMm: 3, acrossMaxMm: 16, riseMaxMm: 0.9, bladeLenMm: 22, bladeHalfMm: 4.5, bladeHmax: 0.9, bead: 0.35, bladeCap: 20, thickMm: 1.1, rate: 4.0, loadLenMm: 70, mix: 0.2, swap: 0, scrape: 0, hairDepth: 0, ridge: 0, wick: 0, bow: 0, lump: 0.25, rigid: 1 },
+  'Palette knife 2': { shape: 2, blade: 1, orient: 'pen', press: 'load', face: 'edge', edgeHalfMm: 0.6, edgeMinMm: 3, acrossMaxMm: 16, riseMaxMm: 0.9, bladeLenMm: 22, bladeHalfMm: 4.5, bladeHmax: 0.9, bead: 0.35, bladeCap: 20, thickMm: 1.1, rate: 4.0, loadLenMm: 70, mix: 0.2, swap: 0, scrape: 0, hairDepth: 0, ridge: 0, wick: 0, bow: 0, lump: 0.25, rigid: 1, soft: 1 },
+  // Knife 3 (owner, 2026-11-11): held like a real knife (hand): tilt picks tip / edge / face, pressure is bearing,
+  // pushed point first it scrapes. The app's PasteBrushes entry, number for number.
+  'Palette knife 3': { shape: 2, blade: 1, hand: 1, orient: 'pen', press: 'load', face: 'edge', edgeHalfMm: 0.6, edgeMinMm: 2, acrossMaxMm: 16, riseMaxMm: 0.9, bladeLenMm: 24, bladeHalfMm: 6, bladeHmax: 0.9, bead: 0.35, bladeCap: 20,
+    thickMm: 1.1, rate: 4.0, loadLenMm: 70, mix: 0.2, swap: 0, scrape: 0, hairDepth: 0, ridge: 0, wick: 0, bow: 0, lump: 0.25, rigid: 1, soft: 1, rollLump: 0.8 },
   // An empty knife with a thin edge (owner, 2026-10-07: "the scraper is just an empty knife"): the same edge rules
   // as Palette knife 2, but it scrapes paint OFF, and pressure is how deep.
-  'Scraper': { shape: 3, blade: 1, orient: 'pen', press: 'depth', edgeMinMm: 2, acrossMaxMm: 10, riseMaxMm: 0.6, bladeLenMm: 14, bladeHalfMm: 0.35, bladeHmax: 0.6, bead: 0.5, bladeCap: 3, film: 0.002, thickMm: 0, rate: 5.0, loadLenMm: 40, mix: 0, swap: 0, scrape: 0, hairDepth: 0, ridge: 0, wick: 0, bow: 0, lump: 0, rigid: 1, clean: true },
+  'Scraper': { shape: 3, blade: 1, orient: 'pen', press: 'depth', edgeMinMm: 2, acrossMaxMm: 10, riseMaxMm: 0.6, bladeLenMm: 14, bladeHalfMm: 0.35, bladeHmax: 0.6, bead: 0.5, bladeCap: 3, film: 0.002, thickMm: 0, rate: 5.0, loadLenMm: 40, mix: 0, swap: 0, scrape: 0, hairDepth: 0, ridge: 0, wick: 0, bow: 0, lump: 0, rigid: 1, clean: true, soft: 1 },
 };
 
 // Opaque paint: the colour it covers with when thick. Strong scattering; K from the KM masstone.
@@ -159,6 +163,22 @@ export class PasteStroke {
       //   pressure: 'load' raises the underside (more paint stays: light scrapes through, firm leaves a blob);
       //     'depth' lowers it (and firm presses into the weave).
       const t = Math.min(1, Math.max(0, s.tilt / (Math.PI / 2)));
+      if (b.hand) {
+        // Held like a real knife (the app's PasteStroke, number for number).
+        const edgeHalf = b.edgeHalfMm ?? 0.6;
+        const L = b.edgeMinMm + (b.bladeLenMm - b.edgeMinMm) * Math.min(1, t / 0.55);
+        const halfNow = edgeHalf + (b.bladeHalfMm - edgeHalf) * Math.max(0, (t - 0.5) / 0.5);
+        const h0 = b.bladeHmax * (1 - 0.75 * P);
+        const pressK = Math.max(0, (P - 0.6) / 0.4);
+        const rise = (b.riseMaxMm ?? 0.8) * (1 - t) / Math.max(L, 0.5);
+        const bladeDir = [Math.cos(s.az ?? 0), Math.sin(s.az ?? 0)];
+        const lay = 1 - Math.min(1, Math.max(0, (-(dir[0] * bladeDir[0] + dir[1] * bladeDir[1]) - 0.3) / 0.5));
+        this.steps.push({
+          x: s.x, y: s.y, wDir, lDir, halfW: halfNow, len: L, lenMax: L, pressure: P, slideMm,
+          bladeDir, bladeLen: L, bladeHalf: halfNow, travel: [...dir], bladeH0: h0, bladeTan: rise, pressK, loadMode: true, lay,
+        });
+        return;
+      }
       const load = this.press === 'load';
       const h0 = b.bladeHmax * (load ? P : 1 - P);
       const pressK = load ? 0 : P;

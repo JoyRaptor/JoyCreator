@@ -1,0 +1,18 @@
+{
+  "format": "joy.text/1",
+  "id": "slime",
+  "name": "Slime",
+  "family": "Stuff",
+  "sample": "SLIME",
+  "stage": 1,
+  "font": { "family": "archivo", "weight": 900, "width": 100, "tracking": 0.06, "caps": true },
+  "margin": [ 1.0, 1.0, 1.0, 1.5 ],
+  "features": [],
+  "description": "Thick wet goo: round and glossy, slowly wobbling, with drips that lengthen from every underside, let go, and start again.",
+  "p": { "vignette": 0.6, "grain": 0.3, "contrast": 1.08, "soften": 0.02, "wobble": 0.006, "wobbleScale": 2.4, "wobbleSpeed": 0.5, "weight": 0.006, "drip": 0.4, "dripCount": 6, "dripThick": 0.052, "dripSpeed": 1, "bevel": 0.13, "bevelHeight": 0.13, "bevelShape": 0.33, "ao": 0.25, "metal": 0, "gloss": 1.7, "ambient": 0.5, "fillA": "#1c7a10", "fillB": "#3fc21a", "fillC": "#9af03a", "spec": 3.0, "shine": 170, "envUp": 0.3, "envBevel": 1.0, "shadow": 0.6, "shadowSoft": 0.14, "stageTint": "#3a7a2a", "floor": 0.2, "floorLine": 0.2, "floorFade": 4, "bloom": 0.25, "bloomThreshold": 1.5, "saturation": 1.2 },
+  "sphere": { "ramp": [ [ 0.0, "#020202" ], [ 0.4, "#0c0c0e" ], [ 0.5, "#1c1c22" ], [ 0.65, "#0c0c0e" ], [ 1.0, "#020202" ] ], "boxes": [ [ -0.42, 0.58, 0.36, 0.1, -0.3, 0.035, 6.0, "#ffffff", 0.4 ], [ 0.76, 0.1, 0.05, 0.5, 0.12, 0.03, 3.5, "#ffffff", 0.2 ] ] },
+  "motion": {
+    "in": { "each": 0.08, "time": 0.6, "ease": "back", "scale": 0.3, "reveal": [ 0, 0.2 ] },
+    "idle": {}
+  }
+}

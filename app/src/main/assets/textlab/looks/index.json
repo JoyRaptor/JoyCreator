@@ -1,0 +1,36 @@
+{
+  "format": "joy.textlooks/1",
+  "about": "looks = finished to the film-poster bar. drafts = kept and unfinished: never shown to a user, never deleted.",
+  "looks": [
+    "dark-steel.text.json",
+    "chrome-84.text.json",
+    "gold-crown.text.json",
+    "neon-bar.text.json",
+    "neon-sign.text.json",
+    "neon-outline.text.json",
+    "blaze.text.json",
+    "liquid-chrome.text.json",
+    "crystal-ice.text.json",
+    "carved-stone.text.json",
+    "diamond.text.json",
+    "retro-pop.text.json",
+    "hologram.text.json",
+    "phantom.text.json",
+    "slime.text.json",
+    "shag.text.json",
+    "marquee.text.json",
+    "fizz.text.json",
+    "voltage.text.json",
+    "paper-cut.text.json",
+    "ember-fade.text.json"
+  ],
+  "drafts": [
+    "steel-plate.text.json",
+    "spirit-flame.text.json",
+    "magma.text.json",
+    "water.text.json",
+    "ice.text.json",
+    "candy.text.json",
+    "toon-fire.text.json"
+  ]
+}

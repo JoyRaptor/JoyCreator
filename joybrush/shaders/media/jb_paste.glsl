@@ -64,6 +64,17 @@ uniform float u_bladeBead;      // how much of what the blade carries rides ahea
 uniform float u_bladePressMm;   // a firm blade presses into the weave (the canvas yields): peaks come bare
 uniform float u_bladeFilm;      // mm: paint is sticky; a scraped surface keeps a thin stain
 uniform float u_bladeLoad;      // 1: pressure is the load (a light touch only catches what stands high)
+// 0..1 (the owner, 2026-11-11: a blade crossing wet paint left "hard lines ... like sticks, no glop"): 0 = the flat plate
+// as before, which planes everything above it off at once between two sharp sides. Above 0 the underside is rounded
+// across its width (paint is pressed out toward its flanks and stands there), its sides fade in over a good part of that
+// width, it takes thick paint off over a stretch of travel instead of at once, and the wet paint under it is dragged
+// along at half its speed (IMPaSTo, Baxter et al. 2004: the paint under a tool moves at half the tool's velocity).
+uniform float u_bladeSoft;
+// Palette knife 3 (the owner, 2026-11-11). u_bladeLay, 0..1: how much of its paint the blade lets go this step (1 = as
+// always; pushed point first into the paint it lays none and only scrapes). u_bladeLump, 0..1: the roll of paint on the
+// blade is lumpy, so where a light touch catches and where it skips comes in clumps a few millimetres wide, not evenly.
+uniform float u_bladeLay;
+uniform float u_bladeLump;
 float u_hairLen = 1.0;          // set per fragment before jb_pasteCover (how long this run of hair is)
 // Uneven pressure across a hair brush (owner, 2026-10-27; PasteBrush.force): 0 = every hair at u_pressure, as before.
 uniform float u_force;
@@ -328,6 +339,13 @@ void jb_pasteRead(float a, float b, out vec4 c0, out vec4 c1) {
 // strokes come out in streaks of separate colours, not one averaged mud.
 float jb_pasteSwapRate(float hair) { return u_swap * smoothstep(0.3, 0.75, hair); }
 
+// The roll's lump at this fragment, -1..1 (set per fragment with jb_bladeLumpAt before jb_bladeReach; 0 without lumps).
+float jb_lumpN = 0.0;
+float jb_bladeLumpAt(vec2 p) {   // p: the document position in mm
+    if (u_bladeLump <= 0.0) return 0.0;
+    return (jb_pNoise2(vec2(dot(p, u_bladeDir) * 0.7, dot(p, vec2(-u_bladeDir.y, u_bladeDir.x)) * 0.35), uint(u_seed) + 77u) - 0.5) * 2.0;
+}
+
 // ---- rigid blade ----
 // Blade frame: xb along the edge from the point (0) toward the handle, yb across. The underside is a
 // trowel: rounded point, widening to the full blade.
@@ -341,8 +359,12 @@ float jb_bladeCover(vec2 relMm, float aa, out float xb, out float yb) {
     // Edges ramp over at least one step of travel, so a moving blade never shows a line per step.
     float aaS = max(aa, 1.2 * u_slideMm);
     float along = smoothstep(-0.3 * half_ - aaS, -0.3 * half_ + aaS, xb) * smoothstep(u_bladeLen + aaS, u_bladeLen - aaS, xb);
-    return along * smoothstep(half_ + aaS, half_ - aaS, abs(yb));
+    // Soft: the side fades INWARD (the footprint's bounds are PasteFootprint's, unchanged).
+    return along * smoothstep(half_ + aaS, half_ - aaS - u_bladeSoft * 0.6 * half_, abs(yb));
 }
+// How much of the paint above the underside a blade takes off in this step: all but at once (the plate), or over a
+// stretch of travel (soft), so thick paint is ridden down, not planed.
+float jb_bladePick(float half_) { return 1.0 - exp(-mix(10.0, 1.5, u_bladeSoft) * u_rate * u_slideMm / max(2.0 * half_, 0.3)); }
 // The blade's underside height above the canvas peaks (mm) at xb. A loaded knife chatters a little as it
 // drags, so what it leaves is never machine-flat (u_lump, along the travel).
 float jb_bladeHeight(float xb) { return u_bladeH0 + max(xb, 0.0) * u_bladeTan; }
@@ -371,6 +393,9 @@ float jb_bladeTarget(float xb, float yb, float valleyMm, float load) {
     float endBand = alongEdge * (dot(u_travel, u_bladeDir) >= 0.0 ? smoothstep(u_bladeLen * 0.8, u_bladeLen, xb)
                                                                     : 1.0 - smoothstep(0.0, 0.2 * u_bladeLen, xb));
     float carried = clamp(load / max(u_cellCap, 1e-6), 0.0, 3.0);
+    // Soft: the underside is rounded across its width, lowest along its middle.
+    float q = clamp(yb / max(half_, 1e-3), -1.0, 1.0);
+    base += u_bladeSoft * min(0.15 * half_, 0.35) * q * q;
     return base + u_bladeBead * carried * max(frontBand * (1.0 - alongEdge), endBand);
 }
 
@@ -383,7 +408,7 @@ float jb_bladeTarget(float xb, float yb, float valleyMm, float load) {
 float jb_bladeThin(float load) { return smoothstep(0.0, 0.25 * u_cellCap, load); }
 float jb_bladeReach(float surfAboveMm, float toothMm) {
     if (u_bladeLoad < 0.5) return 1.0;
-    return smoothstep(-0.015, 0.015, surfAboveMm + u_pressure * 2.2 * toothMm - 0.01);
+    return smoothstep(-0.015, 0.015, surfAboveMm + u_pressure * 2.2 * toothMm - 0.01 + u_bladeLump * jb_lumpN * 1.2 * toothMm);
 }
 
 ivec2 jb_pasteCell(float a, float b) {

@@ -1,0 +1,23 @@
+{
+  "format": "joy.text/1",
+  "id": "hologram",
+  "name": "Hologram",
+  "family": "Film",
+  "description": "A projection: three colours that never quite line up, scan lines drifting up, a fainter copy behind, the beam it rides up on from the floor, a little static, and now and then a slip.",
+  "sample": "ORBIT",
+  "stage": 1,
+  "font": { "family": "orbitron", "weight": 500, "tracking": 0.22, "caps": true },
+  "margin": [ 1.0, 1.0, 1.0, 1.1 ],
+  "features": [ "HOLO" ],
+  "p": { "vignette": 0.6, "grain": 0.35, "contrast": 1.08, "bevel": 0.016, "bevelHeight": 0, "depth": 0, "unlit": 1, "spec": 0, "gloss": 0, "ao": 0, "fillA": "#0aa8ff", "fillB": "#18c8ff", "fillC": "#8ff4ff", "holo": 1.15, "holoLines": 22, "holoSpeed": 0.5, "holoGlitch": 1, "glow": 0.18, "glowSize": 0.06, "glowCol": "#18c8ff", "floor": 0.35, "floorLine": 0.3, "floorRipple": 0.2, "floorFade": 3.0, "stageTint": "#1f6f8f", "bloom": 0.45, "bloomThreshold": 0.9, "bloomKnee": 0.6, "streak": 0.5, "streakBlue": 1, "saturation": 1.2, "presence": 0.25, "presenceSpeed": 2, "lensFringe": 0.8 },
+  "particles": [
+    {
+      "count": 30,
+      "p": { "from": 2, "shape": 4, "life": 11, "size": 0.05, "sizeEnd": 1, "rise": 0.015, "drift": 0.03, "scatter": 0.02, "swirl": 0.04, "swirlSize": 1.2, "colA": "#5fd8ff", "colB": "#5fd8ff", "gain": 0.16, "fadeIn": 0.3, "fadeOut": 0.3, "share": 1 }
+    }
+  ],
+  "motion": {
+    "in": { "each": 0.06, "time": 0.4, "ease": "out", "reveal": [ 0, 0.3 ] },
+    "idle": {}
+  }
+}

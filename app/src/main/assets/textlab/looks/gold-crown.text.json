@@ -1,0 +1,28 @@
+{
+  "format": "joy.text/1",
+  "id": "gold-crown",
+  "name": "Gold Crown",
+  "family": "Film",
+  "description": "Deep gold with a polished frame round an engine-turned face, warm studio light, far lights out of focus behind.",
+  "sample": "ROYAL",
+  "stage": 5,
+  "font": { "family": "archivo", "weight": 700, "width": 100, "tracking": 0.08, "caps": true },
+  "margin": [ 1.0, 1.0, 1.0, 1.0 ],
+  "features": [ "DETAIL" ],
+  "p": { "soften": 0.0025, "bevel": 0.016, "bevelHeight": 0.02, "bevelShape": 0.25, "rim": 0.04, "inset": 0.02, "cast": 0.9, "ao": 0.6, "depth": 0.42, "persp": -0.12, "vanishX": 0.5, "vanishY": 0.42, "parallax": 0.22, "metal": 1, "rough": 0.2, "fillA": "#b8730f", "fillB": "#e8a020", "fillC": "#ffc84a", "strokeCol": "#ffd27a", "strokeMetal": 1, "detailKind": 7, "detailScale": 13, "detailAmount": 0.028, "envAcross": 0.45, "envUp": 0.5, "envBevel": 0.85, "envTilt": 0.4, "wearEdge": 1.7, "wearScratch": 0.1, "wearGrime": 0.35, "wearBrush": 0, "lightX": -0.5, "lightY": 0.6, "lightZ": 0.55, "spec": 0.3, "shine": 160, "sideA": "#7a4a0c", "sideB": "#0d0601", "sideMetal": 0.8, "sweep": 0.5, "sweepEvery": 7, "shadow": 0.75, "shadowSoft": 0.16, "shadowX": 0.03, "shadowY": -0.05, "floor": 0.2, "floorLine": 0.3, "floorRipple": 0.15, "floorFade": 3.5, "stageTint": "#c98a3a", "bloom": 0.3, "bloomThreshold": 1.6, "bloomKnee": 0.6, "spill": 0.2, "streak": 0.4, "streakBlue": 0.05, "vignette": 0.6, "grain": 0.3, "contrast": 1.08, "saturation": 1.15 },
+  "sphere": { "ramp": [ [ 0.0, "#020100" ], [ 0.36, "#120a03" ], [ 0.5, "#2a1808" ], [ 0.68, "#140b04" ], [ 1.0, "#020100" ] ], "boxes": [ [ -0.42, 0.6, 0.36, 0.1, -0.3, 0.035, 7.0, "#fff4de", 0.4 ], [ 0.78, 0.08, 0.04, 0.5, 0.12, 0.025, 3.8, "#ffd9a0", 0.2 ], [ -0.15, -0.76, 0.42, 0.045, 0.05, 0.04, 2.4, "#ff6a2a", 0.3 ], [ 0.05, 0.28, 0.9, 0.2, 0.0, 0.18, 1.5, "#ffe2b0", 0.3 ] ], "uneven": 0.4, "rim": "#ffb060*0.25" },
+  "particles": [
+    {
+      "count": 18,
+      "p": { "from": 2, "shape": 4, "life": 11, "size": 0.05, "sizeEnd": 1, "rise": 0.015, "drift": 0.03, "scatter": 0.02, "swirl": 0.04, "swirlSize": 1.2, "colA": "#ffc880", "colB": "#ffc880", "gain": 0.1, "fadeIn": 0.3, "fadeOut": 0.3, "share": 1 }
+    },
+    {
+      "count": 40,
+      "p": { "from": 3, "shape": 1, "glint": 1, "twinkle": 0.7, "life": 3.5, "size": 0.16, "sizeEnd": 1, "colA": "#ffffff", "colB": "#ffe2a8", "gain": 3.2, "fadeIn": 0.35, "fadeOut": 0.45, "share": 0.8, "seed": 5 }
+    }
+  ],
+  "motion": {
+    "in": { "each": 0.07, "time": 0.9, "ease": "out", "scale": 1.12, "reveal": [ 0, 0.7 ] },
+    "idle": {}
+  }
+}

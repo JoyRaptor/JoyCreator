@@ -1,0 +1,24 @@
+{
+  "format": "joy.text/1",
+  "id": "magma",
+  "name": "Magma",
+  "family": "Elements",
+  "description": "Dark rock split by slow glowing cracks. The same heat as Blaze without the flames, so it is cheap.",
+  "sample": "MAGMA",
+  "stage": 0,
+  "font": { "family": "archivo", "weight": 900, "width": 100, "tracking": 0.03, "caps": true },
+  "margin": [ 0.7, 0.8, 0.7, 0.6 ],
+  "features": [ "EMBER", "DETAIL" ],
+  "p": { "bevel": 0.035, "bevelHeight": 0.05, "bevelShape": 0.2, "ao": 0.5, "depth": 0.16, "extrudeX": 0.1, "extrudeY": -0.28, "metal": 0.3, "gloss": 0.3, "fillA": "#241a17", "fillB": "#2e2320", "fillC": "#1a1210", "detailKind": 1, "detailScale": 10, "detailAmount": 0.08, "emberHeat": 0.42, "emberScale": 6, "emberEdge": 0.2, "emberFireLight": 0, "sideA": "#3a1208", "sideB": "#050202", "glow": 0.25, "glowSize": 0.07, "glowCol": "#ff5a14", "shadow": 0.4, "bloom": 0.55, "bloomThreshold": 1.1 },
+  "sphere": { "ramp": [ [ 0.0, "#000000" ], [ 0.5, "#1c110c" ], [ 1.0, "#7a4a30" ] ], "lamps": [ [ -0.3, 0.6, 0.2, 1.2, "#ffb080" ] ] },
+  "particles": [
+    {
+      "count": 70,
+      "p": { "shape": 0, "from": 1, "life": 2.4, "size": 0.01, "sizeEnd": 0.2, "rise": 0.5, "drift": 0.25, "scatter": 0.1, "swirl": 0.4, "colA": "#ffd08a", "colB": "#ff3a05", "gain": 8, "fadeIn": 0.1, "fadeOut": 0.5, "share": 0.6 }
+    }
+  ],
+  "motion": {
+    "in": { "each": 0.1, "time": 0.01, "reveal": [ 0, 1.2 ] },
+    "idle": {}
+  }
+}

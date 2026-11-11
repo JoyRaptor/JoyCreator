@@ -1,0 +1,18 @@
+{
+  "format": "joy.text/1",
+  "id": "phantom",
+  "name": "Phantom",
+  "family": "Film",
+  "description": "A word that is barely there: a pale ghost of each letter hanging in the dark, with slow mist curling off it sideways and thinning to nothing.",
+  "sample": "PHANTOM",
+  "stage": 1,
+  "font": { "family": "archivo", "weight": 600, "width": 100, "tracking": 0.16, "caps": true },
+  "margin": [ 1.3, 1.5, 1.6, 1.0 ],
+  "features": [ "HOLO" ],
+  "fire": true,
+  "p": { "vignette": 0.65, "grain": 0.4, "contrast": 1.08, "bevel": 0.08, "bevelHeight": 0, "depth": 0, "unlit": 1, "spec": 0, "gloss": 0, "ao": 0, "fillA": "#8fa8c8", "fillB": "#a8c0dc", "fillC": "#dfeaf8", "holo": 0.14, "holoLines": 0, "holoSpeed": 0, "holoGlitch": 0, "glow": 0.14, "glowSize": 0.05, "glowCol": "#8fb0d8", "fireRise": 0.14, "windX": 0.12, "fireSwirl": 0.95, "fireCool": 0.28, "fireFeed": 1.0, "fireUp": 0, "fireDepth": 0.3, "fireSmoke": 0.8, "fireSize": 5.5, "fireDetail": 1.4, "fireFront": 1, "fireGain": 0.75, "fireSoft": 1, "fireSteady": 0.9, "fireA": "#34485e", "fireB": "#8aa4c0", "fireC": "#e6f0fb", "smokeDark": 0.1, "fireHide": 0.1, "floor": 0.18, "floorLine": 0.22, "floorFade": 3.0, "stageTint": "#3a5a8a", "shimmer": 0, "bloom": 0.35, "bloomThreshold": 0.9, "bloomKnee": 0.7, "saturation": 0.85, "soften": 0.012, "wobble": 0.02, "wobbleScale": 1.6, "wobbleSpeed": 0.25, "presence": 0.6, "presenceSpeed": 1 },
+  "motion": {
+    "in": { "each": 0.14, "time": 0.01, "reveal": [ 0, 2.0 ] },
+    "idle": {}
+  }
+}

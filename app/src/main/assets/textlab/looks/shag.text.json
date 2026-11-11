@@ -1,0 +1,18 @@
+{
+  "format": "joy.text/1",
+  "id": "shag",
+  "name": "Shag",
+  "family": "Stuff",
+  "sample": "COZY",
+  "stage": 1,
+  "font": { "family": "archivo", "weight": 900, "width": 100, "tracking": 0.06, "caps": true },
+  "margin": [ 1.0, 1.0, 1.0, 1.1 ],
+  "features": [ "FUR" ],
+  "description": "Deep-pile fur: strands lie down the face and stand off every edge, so the letters have a soft ragged outline that sways a little.",
+  "p": { "vignette": 0.6, "grain": 0.3, "contrast": 1.08, "soften": 0.012, "bevel": 0.07, "bevelHeight": 0.06, "bevelShape": 0.33, "ao": 0.3, "metal": 0, "gloss": 0, "ambient": 0.5, "spec": 0, "fillA": "#b83a0a", "fillB": "#e2590c", "fillC": "#f58a2a", "furTip": "#ffb86a", "furLength": 0.12, "furStrands": 42, "furCombed": 0.5, "furSway": 0.8, "shadow": 0.6, "shadowSoft": 0.16, "stageTint": "#7a4a2a", "bloom": 0.05, "bloomThreshold": 2, "saturation": 1.1, "exposure": 1.5 },
+  "sphere": { "ramp": [ [ 0.0, "#020202" ], [ 0.4, "#0c0c0e" ], [ 0.5, "#1c1c22" ], [ 0.65, "#0c0c0e" ], [ 1.0, "#020202" ] ], "boxes": [ [ -0.42, 0.58, 0.36, 0.1, -0.3, 0.035, 6.0, "#ffffff", 0.4 ], [ 0.76, 0.1, 0.05, 0.5, 0.12, 0.03, 3.5, "#ffffff", 0.2 ] ] },
+  "motion": {
+    "in": { "each": 0.08, "time": 0.7, "ease": "out", "scale": 0.6, "reveal": [ 0, 0.4 ] },
+    "idle": {}
+  }
+}

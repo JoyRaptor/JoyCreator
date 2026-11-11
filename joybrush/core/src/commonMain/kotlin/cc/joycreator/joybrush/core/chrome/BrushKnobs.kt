@@ -324,13 +324,18 @@ object BrushKnobs {
             TurnMode.entries.map { it.label }, { (it.paste?.turns ?: TurnMode.FOLLOW).ordinal },
             { s, i -> s.copy(paste = s.paste?.copy(turns = TurnMode.entries[i])) })
         if (b.blade) {
+            // The owner, 2026-11-11: a blade crossing wet paint left hard lines "like sticks"; he chose the soft passage.
+            out += stepped("media.paste.soft", "Passage",
+                "How the blade passes through wet paint: it drags and rounds the paint it crosses, or planes it off in a hard-edged strip as it did before.",
+                listOf("Soft", "Hard"), { if ((it.paste?.soft ?: 0.0) > 0.0) 0 else 1 },
+                { s, i -> s.copy(paste = s.paste?.copy(soft = if (i == 0) 1.0 else 0.0)) })
             out += stepped("media.paste.orient", "Edge", "Where the edge lies: along the pen's lean, across the stroke, or along the stroke.",
                 EdgeMode.entries.map { it.label }, { it.paste?.orient?.ordinal ?: 0 },
                 { s, i -> s.copy(paste = s.paste?.copy(orient = EdgeMode.entries[i])) })
-            if (!b.clean) out += stepped("media.paste.press", "Pressure", "What pressing harder does: lays more paint, or digs deeper.",
+            if (!b.clean && !b.hand) out += stepped("media.paste.press", "Pressure", "What pressing harder does: lays more paint, or digs deeper.",
                 PressMode.entries.map { it.id }, { (it.paste?.press ?: PressMode.LOAD).ordinal },
                 { s, i -> s.copy(paste = s.paste?.copy(press = PressMode.entries[i])) })
-            if (b.edgeHalfMm != null) out += stepped("media.paste.face", "Touches with", "The knife's thin edge, or its flat underside.",
+            if (b.edgeHalfMm != null && !b.hand) out += stepped("media.paste.face", "Touches with", "The knife's thin edge, or its flat underside.",
                 FaceMode.entries.map { it.id }, { (it.paste?.face ?: FaceMode.EDGE).ordinal },
                 { s, i -> s.copy(paste = s.paste?.copy(face = FaceMode.entries[i])) })
         }

@@ -1,0 +1,28 @@
+{
+  "format": "joy.text/1",
+  "id": "ice",
+  "name": "Ice",
+  "family": "Elements",
+  "description": "Cut ice: it bends what is behind it, shows cracks and a frosted edge, and sheds a little snow.",
+  "sample": "FROZEN",
+  "stage": 3,
+  "font": { "family": "archivo", "weight": 800, "width": 100, "tracking": 0.04, "caps": true },
+  "margin": [ 0.7, 0.7, 0.7, 0.9 ],
+  "features": [ "REFRACT", "DETAIL" ],
+  "p": { "bevel": 0.045, "bevelHeight": 0.06, "bevelShape": -0.2, "depth": 0.2, "extrudeX": 0.12, "extrudeY": -0.25, "ao": 0, "metal": 0, "gloss": 0.7, "fillA": "#ffffff", "fillB": "#ffffff", "fillC": "#ffffff", "bend": 1.1, "fringe": 0.12, "tintAmount": 0.65, "tint": "#8fd6ff", "edgeDark": 0.5, "gather": 1.2, "caustic": 0.0, "detailKind": 5, "detailScale": 5, "detailAmount": 0.03, "spec": 3.0, "shine": 180, "envUp": 0.3, "envBevel": 0.8, "sideA": "#d6f1ff", "sideB": "#3f86b8", "glow": 0.3, "glowSize": 0.05, "glowCol": "#bfe9ff", "shadow": 0.25, "shadowSoft": 0.12, "bloom": 0.6, "bloomThreshold": 1.1 },
+  "sphere": { "ramp": [ [ 0.0, "#0a2740" ], [ 0.4, "#3f7fb0" ], [ 0.5, "#f2fbff*1.3" ], [ 0.72, "#a6d6f5" ], [ 1.0, "#2f6ea6" ] ], "lamps": [ [ -0.42, 0.6, 0.06, 9, "#ffffff" ], [ 0.45, 0.2, 0.05, 4, "#ffffff" ] ], "rim": "#ffffff*0.6" },
+  "particles": [
+    {
+      "count": 120,
+      "p": { "shape": 0, "from": 0, "life": 3.2, "size": 0.012, "sizeEnd": 0.8, "rise": -0.18, "drift": 0.12, "scatter": 0.05, "swirl": 0.12, "gravity": 0.05, "colA": "#ffffff", "colB": "#dff3ff", "gain": 1.6, "fadeIn": 0.15, "fadeOut": 0.4, "paint": 0.5, "share": 0.7 }
+    },
+    {
+      "count": 90,
+      "p": { "shape": 1, "glint": 1, "twinkle": 0.85, "size": 0.08, "sizeEnd": 1, "life": 2.5, "gain": 5, "colA": "#ffffff", "colB": "#dff3ff", "fadeIn": 0.3, "fadeOut": 0.5, "share": 0.4, "seed": 3 }
+    }
+  ],
+  "motion": {
+    "in": { "each": 0.07, "time": 0.5, "ease": "out", "reveal": [ 0, 0.6 ] },
+    "idle": {}
+  }
+}

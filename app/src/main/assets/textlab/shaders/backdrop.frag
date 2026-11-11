@@ -3,7 +3,7 @@
 // They are dark on purpose: a title is lit against black, the way a film lights one.
 //   0 black            1 dark stage (a pool of haze, a gloss floor)   2 brick wall at night
 //   3 sea and sky      4 dusk grid                                    5 far lights, out of focus
-//   6 paper            7 smoke
+//   6 paper            7 smoke                                        8 a window at night, out of focus
 in vec2 vUv;
 out vec4 o;
 uniform float uScene;
@@ -94,6 +94,13 @@ void main() {
             vec3 lc = mix(uStageTint, mix(vec3(1.0, 0.62, 0.25), vec3(1.0, 0.9, 0.7), r.w), 0.75);
             c += lc * disc * ring * 0.035 * (0.4 + r.w) * (0.6 + 0.4 * sin(uTime * (0.5 + r.z) + r.x * 30.0));
         }
+    } else if (s == 8) {
+        // a shop window at night, far out of focus: tall soft bands of the room's dim light
+        float bands = smoothstep(0.3, 0.8, tfbm(vec2(p.x * 0.5 + 3.0, 0.3)));
+        float sway = 0.6 + 0.4 * tnoise(vec2(p.x * 1.6, p.y * 0.25 + 1.3));
+        c = uStageTint * (0.03 + 0.2 * bands * sway) * (0.5 + 0.5 * smoothstep(1.15, 0.1, abs(cn.y)));
+        c += vec3(0.6, 0.55, 0.3) * 0.018 * smoothstep(0.75, 0.95, tfbm(p * vec2(0.9, 2.2) + 9.0));   // a far lamp or two
+        c *= 0.75 + 0.25 * sat(1.0 - dot(cn, cn) * 0.5);
     } else if (s == 6) {
         c = vec3(0.86, 0.83, 0.76) * (0.92 + 0.12 * tfbm(p * 22.0)) * (0.85 + 0.15 * sat(1.0 - dot(cn, cn) * 0.4));
     }

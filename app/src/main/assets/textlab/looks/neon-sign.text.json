@@ -3,15 +3,15 @@
   "id": "neon-sign",
   "name": "Neon Sign",
   "family": "Film",
-  "description": "Real neon: thick bent glass with gas that gathers, thins and drifts inside it, a window-light along each tube, tie wires, a strike that catches in patches, colour thrown on the brick and a wet floor.",
+  "description": "The same thin written tubes on a brick wall, in two gases, lying in a wet floor.",
   "sample": "NEON",
   "stage": 2,
-  "font": { "family": "archivo", "weight": 100, "width": 100, "tracking": 0.26, "caps": true },
+  "font": { "family": "archivo", "weight": 100, "width": 100, "tracking": 0.17, "caps": true },
   "margin": [ 1.1, 1.0, 1.1, 1.5 ],
   "features": [ "TUBE" ],
-  "p": { "weight": 0.036, "tubeInset": 0, "tubeRadius": 0.046, "tubeCore": 1.6, "tubeGain": 1.55, "tubeSplit": 1, "flicker": 0.5, "tubeA": "#ff2a0c", "tubeB": "#1f6bff", "glow": 0.5, "glowSize": 0.07, "shadow": 0.8, "shadowSoft": 0.04, "shadowX": 0.045, "shadowY": -0.065, "bloom": 0.25, "bloomThreshold": 1.2, "bloomKnee": 0.5, "spill": 1.7, "floor": 0.5, "floorLine": 0.27, "floorRipple": 0.8, "floorFade": 2.4, "streak": 0, "streakBlue": 0.3, "vignette": 0.65, "grain": 0.35, "contrast": 1.06, "saturation": 1.25, "soften": 0.034, "tubeSolid": 1, "gasUneven": 0.85, "gasSize": 3.6, "gasThread": 0.7, "gasBands": 0.5, "tieChance": 0.42, "tieSpacing": 0.2 },
+  "p": { "tubeSolid": 1, "tubeInset": 0, "tubeRadius": 0.032, "tubeCore": 2.4, "tubeGain": 1.45, "tubeHand": 0.6, "gasUneven": 0.55, "gasSize": 4.0, "gasThread": 0.55, "gasBands": 0.4, "flicker": 0.5, "tieChance": 0.3, "tieSpacing": 0.2, "glow": 0.4, "glowSize": 0.05, "bloom": 0.22, "bloomThreshold": 1.25, "bloomKnee": 0.5, "vignette": 0.55, "grain": 0.3, "contrast": 1.06, "saturation": 1.2, "weight": 0.027, "soften": 0.034, "tubeA": "#ff2a0c", "tubeB": "#1f6bff", "tubeSplit": 1, "shadow": 0.8, "shadowSoft": 0.035, "shadowX": 0.04, "shadowY": -0.055, "spill": 1.7, "floor": 0.5, "floorLine": 0.27, "floorRipple": 0.8, "floorFade": 2.4 },
   "motion": {
-    "in": { "each": 0.22, "time": 0.01, "reveal": [ 0, 0.9 ] },
+    "in": { "each": 0.25, "time": 0.01, "reveal": [ 0, 0.9 ] },
     "idle": {}
   }
 }

@@ -93,6 +93,7 @@ uniform vec3  uTubeB;
 uniform vec4  uTubeLight;    // gain, colour split across the word (0 blended .. 1 hard), flicker, buzz speed
 uniform vec4  uGas;          // the gas is not even: how blotchy, blotches per em, how far the bright thread wanders, bands running along the tube
 uniform vec2  uTie;          // tie wires that hold the tube: how many (0..1), spacing em
+uniform float uTubeHand;     // blown and bent by hand: how much the tube's width wavers along its length
 #endif
 #ifdef REFRACT
 uniform vec4  uGlass;        // bend, colour fringing, tint strength, dark edge
@@ -285,12 +286,14 @@ void main() {
     vec4 f = texture(uFieldTex, vUv);
     float seed = hash11(f.b * 91.7);
     float R = max(uTube.y, 1e-4);
-    float away = uTube.w > 0.5 ? max(R - f.r, 0.0) : abs(f.r - uTube.x);   // distance from the tube's centre line
-    float td = uTube.w > 0.5 ? -f.r : away - R;                             // below 0 = inside the glass
+    // glass is blown, then bent hot over a flame: no tube keeps one exact width along its length
+    float fr = f.r + uTubeHand * R * 0.22 * (tfbm2(p0 * 4.5 + seed * 7.0) - 0.5);
+    float away = uTube.w > 0.5 ? max(R - fr, 0.0) : abs(fr - uTube.x);     // distance from the tube's centre line
+    float td = uTube.w > 0.5 ? -fr : away - R;                              // below 0 = inside the glass
     float rr = sat(away / R);                                               // 0 on the centre line .. 1 at the glass
     float inT = smoothstep(-aw, aw, -td);
     vec2 gdir = normalize(fieldGrad(p0) + vec2(1e-5, 0.0));
-    vec2 outward = gdir * ((uTube.w < 0.5 && f.r > uTube.x) ? 1.0 : -1.0);  // from the centre line toward the glass
+    vec2 outward = gdir * ((uTube.w < 0.5 && fr > uTube.x) ? 1.0 : -1.0);   // from the centre line toward the glass
     vec2 tang = vec2(-gdir.y, gdir.x);                                      // along the tube
     vec3 n = normalize(vec3(outward * rr, sqrt(max(1.0 - rr * rr, 0.0)) + 1e-3));   // which way the rod's surface faces
 

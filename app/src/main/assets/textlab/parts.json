@@ -90,6 +90,7 @@
     "gasSize":       {"u": "uGas", "i": 1, "v": 3, "min": 0.5, "max": 12, "slot": "Tube", "label": "Blotches per letter"},
     "gasThread":     {"u": "uGas", "i": 2, "v": 0.6, "min": 0, "max": 1, "slot": "Tube", "label": "Bright thread wanders"},
     "gasBands":      {"u": "uGas", "i": 3, "v": 0.5, "min": 0, "max": 1, "slot": "Tube", "label": "Faint bands run along it"},
+    "tubeHand":      {"u": "uTubeHand", "v": 0.5, "min": 0, "max": 1.5, "slot": "Tube", "label": "Hand-blown: the width wavers"},
     "tieChance":     {"u": "uTie", "i": 0, "v": 0, "min": 0, "max": 1, "slot": "Tube", "label": "Tie wires"},
     "tieSpacing":    {"u": "uTie", "i": 1, "v": 0.22, "min": 0.08, "max": 0.6, "slot": "Tube", "label": "Tie wire spacing"},
     "bend":          {"u": "uGlass", "i": 0, "v": 0.5, "min": 0, "max": 2, "slot": "Glass", "label": "Bends what is behind"},

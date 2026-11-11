@@ -51,6 +51,10 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
   fire now carries each streamline's own brightness up the flame (fibres; `fire_step.frag` channels b and a).
   Note 9 after that: neon 12 ms, blaze 32 ms a frame. Still owed on neon: electrode ends and blacked-out joins, real
   single-tube letter shapes (a monoline neon face); on fire: taller, wispier tongues.
+- **Owner, 11-11 later:** the first real-neon pass was too thick. Rebuilt from his BAR photo: `neon-bar` (one thin tube
+  writes each letter, a window at night), then the same tube in `neon-sign` (brick, two gases) and `neon-outline` (a
+  big sign: the tube runs round heavy letters). New: `tubeHand` (blown glass wavers in width), stage 8 (night window).
+  Seven looks in the list now. Note 9: the three neons 11 to 13 ms a frame.
 - **Honest limits today:** the fire is good stylised fire, not yet the photograph the owner showed;
   water and the other drafts are below the bar; only the app's own fonts are used (Archivo, Plex,
   Ubuntu, Doto), so there is no script or true display face yet.

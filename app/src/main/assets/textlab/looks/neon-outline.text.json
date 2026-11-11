@@ -1,0 +1,17 @@
+{
+  "format": "joy.text/1",
+  "id": "neon-outline",
+  "name": "Neon Outline",
+  "family": "Film",
+  "description": "A big sign: the tube runs round the outline of heavy letters, bent in smooth curves at every corner.",
+  "sample": "HOTEL",
+  "stage": 2,
+  "font": { "family": "archivo", "weight": 800, "width": 100, "tracking": 0.12, "caps": true },
+  "margin": [ 1.1, 1.0, 1.1, 1.5 ],
+  "features": [ "TUBE" ],
+  "p": { "tubeSolid": 0, "tubeInset": 0, "tubeRadius": 0.015, "tubeCore": 2.4, "tubeGain": 1.45, "tubeHand": 0.6, "gasUneven": 0.55, "gasSize": 6.0, "gasThread": 0.55, "gasBands": 0.4, "flicker": 0.5, "tieChance": 0.3, "tieSpacing": 0.16, "glow": 0.4, "glowSize": 0.05, "bloom": 0.22, "bloomThreshold": 1.25, "bloomKnee": 0.5, "vignette": 0.55, "grain": 0.3, "contrast": 1.06, "saturation": 1.2, "weight": -0.012, "soften": 0.026, "tubeA": "#ff1f6a", "tubeB": "#ff1f6a", "tubeSplit": 0, "shadow": 0.8, "shadowSoft": 0.03, "shadowX": 0.035, "shadowY": -0.05, "spill": 1.7, "floor": 0.5, "floorLine": 0.27, "floorRipple": 0.8, "floorFade": 2.4 },
+  "motion": {
+    "in": { "each": 0.25, "time": 0.01, "reveal": [ 0, 0.9 ] },
+    "idle": {}
+  }
+}

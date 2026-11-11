@@ -52,19 +52,31 @@ away (⋯ menu, "Watercolour: Wet sheet (new) / In the layer (old)").
 
 | What | Proof on the Note 9 (debug bench, the owner's own page replayed) |
 |---|---|
-| Wet watercolour on one screen-shaped sheet over the layer; no tiles in the water | Nine marks at 31 % zoom, tilted: all nine run at once, no box, no seam, no frozen band (film `o1`) |
-| Speed | The same page: 0.98 to 1.0 of the clock at 34 to 60 frames a second (Water detail Fast, the phone's setting). Before: 0.03 to 0.09 |
+| Wet watercolour on one screen-shaped sheet over the layer; no tiles in the water | Nine marks at 31 % zoom, tilted: all nine run at once, no box, no seam, no frozen band (films `o1`, `o2`) |
+| Speed | The same page, final build: about 1.0 of the clock at 34 to 60 frames a second on Water detail Fast (the phone's setting); 0.6 to 1.0 at 20 to 40 frames a second on Detailed. Before: 0.03 to 0.09 |
 | Printed into the layer when dry, exactly as shown | Dry sheet against its print, pixel by pixel: no pixel differs by more than 1 in 255 (film `q1`) |
+| A wash that dries by itself prints itself; the phone rests meanwhile | A flat wash: full pace for about 25 s, then 7 frames a second, dried and printed 2 min 56 s after the stroke (run `nat1`) |
 | Undo and redo by stroke, the print travelling with its stroke | Two wet strokes: undo, undo, redo, redo, save, undo, redo: each press one step, each picture right (film `u1`) |
 | A loaded brush no longer takes its own wash back ("painting and then erasing") | The hole where a wash doubles back is gone (films `p1` before, `q1` after) |
-| Sheet memory | 169 MB Detailed (624 x 1280 cells), 85 MB Fast (448 x 896) |
+| A quick stroke is laid as evenly as a slow one | The scallops, one a frame, along a 0.3 s wash stroke are gone (films `even1` before, `even2` after) |
+| The view moves: the wash comes along whole, or sets whole | Zoom out: carried, still wet (film `carry1`). Zoom in on a wash wider than the screen: it sets, no line where the screen's edge was (film `rule1`; the half-and-half version left a line, film `rim1`) |
+| Mixed media on one layer | Pencil, wash, oil, wash again over each other, save, undo, redo: 12 strokes, none refused, washes glaze the pencil and each other (film `mix1`) |
+| The profile of a frame (big tilted wash, one step) | Before: look 17 ms, flux 16, update 11, bead 6. After the sheet's lean look and the flux's edge guard: look 2.5, flux 12, update 10, bead 5 |
+| Sheet memory | 218 MB Detailed (720 x 1376 cells), 118 MB Fast (544 x 992) |
+
+Films and the measured lines: [evidence/wet-sheet-20261111](../joybrush/evidence/wet-sheet-20261111/README.md).
 
 Still to prove or build is in "What is left".
 
 ## What is left
 - [ ] **Wet sheet: owner's own test** on the Note 9 (his page, his hand, tilt), then the Note 20.
-- [ ] Wet sheet: moving the view far and painting again sets the wash; carry the wet state over instead (spec, limits).
 - [ ] Wet sheet: print with the paper's grain at full resolution ("sharp when dry"; the owner likes sharp).
+- [ ] Wet sheet: a wash wider than the screen sets when the view moves and the painter paints again (spec, rule 10). Keeping
+      it all wet needs one simulation that spans both views.
+- [ ] Wet sheet: the tilted flux and update passes are now most of a frame (12 + 10 of about 36 ms a step on a big wash).
+      On Detailed the owner's whole page runs at 0.6 to 1.0 of the clock; the cheap tilt path of the WATER_SPEED road is next.
+- [ ] Wet sheet: 218 MB of graphics memory on Detailed beside the atlas. Not seen to fail on the Note 9; measure on a
+      long mixed session, and let the atlas's engine sleep while only the sheet paints.
 - [ ] Wet sheet: the small follow-ups in [LEDGER_SMALL_FIXES.md](../joybrush/LEDGER_SMALL_FIXES.md) section C.
 - [ ] Owner test on the Note 9 build, then the Note 20; owner compares Water detail Fast and Detailed with tilt.
 - [ ] Water speed steps 1-3 of the WATER_SPEED road (cheap tilt path, 4 x 4 running water, step only moving water).

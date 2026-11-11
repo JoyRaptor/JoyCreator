@@ -61,15 +61,20 @@ class GlMediaStoresTest {
         assertNull(e.mediaTile(layer, "paper", 9))
     }
 
-    @Test fun pastTheMediaCeilingAStrokeIsRefusedInWordsBeforeAnythingIsSwapped() {
+    @Test fun pastTheMediaCeilingWithNoOldPaintToSetAStrokeIsRefusedInWordsBeforeAnythingIsSwapped() {
         val e = engine()
         e.mediaBudgetBytes = MediaStores.tileBytes(256).toLong()   // room for one store tile
         e.undo.push(UndoLog.Step(listOf(UndoLog.TileChange(MediaStores.id(layer, "paper"), 1, before = null, after = 801))))
         assertTrue(e.undoStep() && e.redoStep(), "plants tile 801 in the paper store")
         assertEquals(MediaStores.tileBytes(256).toLong(), e.mediaResidentBytes())
+        // Since 2026-11-10 a full room makes old paint set (MediaRoom) before it refuses. The one tile here is the tool's own
+        // (it holds it), so there is nothing to set and the stroke is refused, in words, as it always was.
+        e.mediaRoomKeep = { _, _ -> listOf(1L) }
         e.beginMediaStroke()
         val refused = assertFailsWith<MediaRoomException> { e.writableMediaTiles(layer, listOf(2L), listOf("paper")) }
-        assertTrue("pencil, watercolour and oil" in refused.message!!, refused.message)
+        // The sentence an artist reads (LayerBudget.mediaFullMessage, 2026-11-10): plain words, no megabytes.
+        assertEquals(cc.joycreator.joybrush.core.layers.LayerBudget.mediaFullMessage(e.mediaBudgetBytes), refused.message)
+        assertTrue("MB" !in refused.message!! && "memory" !in refused.message!!, refused.message)
         assertNull(e.mediaTile(layer, "paper", 2), "nothing was swapped in")
         assertEquals(0, e.endMediaStroke(), "and nothing reached the history")
     }

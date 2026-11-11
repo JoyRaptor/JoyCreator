@@ -7217,7 +7217,8 @@ class GlPaintEngine(
             mediaWritten.remove(Triple(t.layerId, t.plane, t.key))
         }
         mediaTilesSet += chosen.size
-        android.util.Log.i("JoyBrushMedia", "media room: ${chosen.size} old tiles set to make room (${chosen.sumOf { it.bytes } shr 20} MB); ${mediaTilesSet} so far")
+        // The Android log is not there in the JVM tests, which walk this path too.
+        try { android.util.Log.i("JoyBrushMedia", "media room: ${chosen.size} old tiles set to make room (${chosen.sumOf { it.bytes } shr 20} MB); ${mediaTilesSet} so far") } catch (_: LinkageError) { }
         return changes
     }
 

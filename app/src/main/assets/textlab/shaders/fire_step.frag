@@ -25,9 +25,10 @@ float source(vec2 uv, vec2 p) {
     float band = smoothstep(-0.012, 0.004, f.r) * (1.0 - smoothstep(0.0, max(uFireShape.y, 1e-3), f.r));
     float flick = smoothstep(0.2, 0.75, tfbm2(p * 7.0 + vec2(uTime * 1.7, -uTime * 3.6)));
     // under an edge that faces DOWN the flame hangs a little below it, trapped, before it finds its way out
-    float pool = smoothstep(-uFireUnder.y, -uFireUnder.y * 0.25, f.r) * (1.0 - smoothstep(-0.004, 0.004, f.r))
-               * smoothstep(0.1, 0.6, up) * uFireUnder.x;
-    return (band * facesUp + pool * 0.75) * flick * uFire.w * 0.85 * f.g;
+    // (it thins away downward with no edge of its own: fire is a glowing gas, not a shape)
+    float pool = smoothstep(-uFireUnder.y, 0.0, f.r);
+    pool = pool * pool * (1.0 - smoothstep(-0.004, 0.004, f.r)) * smoothstep(0.1, 0.6, up) * uFireUnder.x;
+    return (band * facesUp + pool * 0.55) * flick * uFire.w * 0.85 * f.g;
 }
 
 void main() {
@@ -45,6 +46,7 @@ void main() {
     vec2 tall = vec2(s, s * 0.55);
     vec2 sw = tcurl(np * tall + vec2(uTime * 0.11, 0.0)) + 0.5 * tcurl(np * tall * 2.6 + vec2(5.3, uTime * 0.17));
     vec2 v = vec2(0.0, uFire.x * (0.5 + 0.9 * sat(here))) + uWind + sw * uFire.y;
+    float wall = 0.0;
     if (uFireUnder.x > 0.0) {
         // THE SHAPE IS IN THE WAY. Flame cannot rise through it: under an edge it pools, creeps
         // sideways toward where there is less of it, and only climbs once it has found the corner.
@@ -52,12 +54,13 @@ void main() {
         vec2 gin = vec2(texture(uFieldTex, vUv + vec2(e2 / uField.x, 0.0)).r - texture(uFieldTex, vUv - vec2(e2 / uField.x, 0.0)).r,
                         texture(uFieldTex, vUv + vec2(0.0, e2 / uField.y)).r - texture(uFieldTex, vUv - vec2(0.0, e2 / uField.y)).r);
         vec2 nin = normalize(gin + vec2(1e-6, 0.0));                                   // toward the inside of the shape
-        float wall = smoothstep(-uFireUnder.y * 1.3, 0.0, texture(uFieldTex, vUv).r) * uFireUnder.x;   // inside it, or just under its skin
+        wall = smoothstep(-uFireUnder.y * 1.3, 0.0, texture(uFieldTex, vUv).r) * uFireUnder.x;   // inside it, or just under its skin
         v -= nin * max(dot(v, nin), 0.0) * wall;
         vec2 slope = vec2((hpp + hpm) - (hmp + hmm), (hpp + hmp) - (hpm + hmm)) / (4.0 * tx * uField.xy);   // heat per em
         v -= clamp(slope * 0.02, -0.6, 0.6) * wall;
     }
     vec4 was = texture(uPrev, vUv - v * uDt / uField.xy);
+    was.r = mix(was.r, here, 0.45 * wall);   // trapped flame has nowhere to go, so it spreads and goes soft
 
     float tear = tfbm(np * tall * 1.9 + vec2(uTime * 0.07, 3.0));
     float heat = was.r * exp(-uDt * uFire.z * (0.25 + 2.2 * tear * tear)) - uDt * 0.05 * uFire.z;

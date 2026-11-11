@@ -29,7 +29,9 @@ void main() {
     vec2 np = vec2(p.x - uTime * uWind.x * 0.8, p.y - uTime * (uFire.x * 0.8 + uWind.y));
     float n = tfbm(np * vec2(s * 2.6, s * 0.9) + vec2(uTime * 0.13, 0.0)) * 0.65
             + tfbm2(np * vec2(s * 6.5, s * 2.2) + vec2(4.0, uTime * 0.21)) * 0.35;
-    T -= uFireLook.x * (1.0 - n) * 0.26 * smoothstep(0.0, 0.12, T) * (1.0 - smoothstep(0.55, 1.0, T));
+    // (young flame, still at the shape, is left soft: the carving and the rim come in as it climbs)
+    float grown = 0.3 + 0.7 * smoothstep(0.03, 0.35, age);
+    T -= uFireLook.x * (1.0 - n) * 0.26 * grown * smoothstep(0.0, 0.12, T) * (1.0 - smoothstep(0.55, 1.0, T));
     // fibres: brightness that belongs to the streamline, so it is combed along the flow and
     // thins the flame more the further it has climbed
     float fib = tfbm(vec2(from * s * 5.0, age * 1.5 - uTime * 0.22));
@@ -43,7 +45,7 @@ void main() {
     // a flame is a thin sheet of light: brighter round the rim of each tongue, streaked inside
     float limb = smoothstep(0.06, 0.15, T) * (1.0 - smoothstep(0.15, 0.4, T));
     flame *= mix(1.0, 0.7 + 0.65 * fib2, real * smoothstep(0.15, 0.5, T));
-    flame += mix(uFireA, uFireB, 0.6) * limb * 0.5 * real * uFireLook.y * show;
+    flame += mix(uFireA, uFireB, 0.6) * limb * 0.5 * grown * real * uFireLook.y * show;
 
     float hide = smoothstep(0.12, 0.7, T) * uFireLook.w * show;
     float smoke = sat(h.g * uFireLook.z) * (1.0 - smoothstep(0.1, 0.45, T));

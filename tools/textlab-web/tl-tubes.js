@@ -55,12 +55,10 @@
         if (dd < best) { best = dd; at = len[s - 1] + (len[s] - len[s - 1]) * u; }
       }
       const d = Math.max(TL.TUBE_R - Math.sqrt(best), -TL.SPREAD);
-      // An end is not cut off straight. The tube turns AWAY from you there, back to the case, and the
-      // black tape goes on behind the turn: from the front it is a round, lit elbow with a small
-      // dark spot in its middle, where you look down the tube going back.
-      const e0 = pts[0], e1 = pts[pts.length - 1];
-      const de = Math.min(Math.hypot(px - e0[0], py - e0[1]), Math.hypot(px - e1[0], py - e1[1]));
-      const bare = Math.min(1, Math.max(0, (de - 0.34 * TL.TUBE_R) / (0.3 * TL.TUBE_R)));
+      // An end is not cut off straight: the tube turns AWAY from you there, back to the case, so from
+      // the front it is a round, lit elbow. The black tape is behind the turn and is not seen
+      // straight on (owner, 2026-11-11). `bare` stays in the piece for painted double-backs later.
+      const bare = 1;
       const k = j * w + i;
       data[k * 2] = d; data[k * 2 + 1] = bare; dOnly[k] = d;
     }

@@ -66,6 +66,9 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
   edges that face down, heat creeps sideways to the corner); off by default so the old fire stays selectable, on for
   Blaze. (2) A neon end is ROUND from the front (the tube turns away before the black tape): ends are now lit round
   elbows with a small dark spot (`tl-tubes.js`). Neither re-timed on the Note 9 yet.
+- **Owner, 11-11 last:** Blaze "much closer, keep going"; the bottom must be softer (fire is a plasma): the pool now
+  thins away downward with no edge of its own, trapped flame spreads, and carving and rims only come in as flame
+  climbs. Neon ends show NO dark spot straight on (the tape is behind the turn): ends are plain round lit elbows.
 - **Honest limits today:** the fire is good stylised fire, not yet the photograph the owner showed;
   water and the other drafts are below the bar; only the app's own fonts are used (Archivo, Plex,
   Ubuntu, Doto), so there is no script or true display face yet.

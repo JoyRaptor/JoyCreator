@@ -366,6 +366,14 @@ class MediaCanvas(
     val sheetHolding: Boolean get() = sheet?.holding == true
 
     /**
+     * How long the next frame may wait (ms; 0 = the next one) when [frame] asked for more: only dampness is left on the wet
+     * sheet and nothing else runs, so a few frames a second dry it at the clock's pace without redrawing the canvas sixty
+     * times a second for minutes.
+     */
+    val frameDelayMs: Long
+        get() = if (stroke == null && sheet?.resting == true && engine?.wetActive != true && WetSheet.printHoldMs == 0L) RESTING_FRAME_MS else 0L
+
+    /**
      * The wet sheet's paint goes into its layer NOW, wet or dry ([WetSheet.settle]): before anything else writes
      * [layerId]'s pixels (null: whichever layer the sheet is on), before a save, before the layers change.
      * True when it printed something. Never during a stroke on the sheet.
@@ -521,9 +529,8 @@ class MediaCanvas(
      * The caller reports the history afterwards: dried water can change the undo stack.
      */
     fun frame(nowMs: Long): Boolean {
-        val sheetRuns = sheetFrame(nowMs)
-        val e = engine ?: return sheetRuns
-        val w = window ?: return sheetRuns
+        val e = engine
+        val w = window
         // Bench only: time every media section of this frame (glFinish brackets) and note what the textures cost.
         val rec = stats?.takeIf { it.recording }
         // The canvas may already time the whole GL frame (JbCanvasView.onDrawFrame): keep its timer, put it back after.
@@ -535,13 +542,18 @@ class MediaCanvas(
         val prof = rec == null && outer == null && profiling
         if (prof) MediaPhases.timer = { name: String, ms: Double -> profSums[name] = (profSums[name] ?: 0.0) + ms }
         val began = if (prof) System.nanoTime() else 0L
-        try { return frameInner(e, w, nowMs) || sheetRuns } finally {
+        try {
+            // The wet sheet first (its own engine), inside the timed part so the profile shows its passes too.
+            val sheetRuns = mediaTrace("JB.media.sheet") { sheetFrame(nowMs) }
+            if (e == null || w == null) return sheetRuns
+            return frameInner(e, w, nowMs) || sheetRuns
+        } finally {
             if (prof) { android.opengl.GLES30.glFinish(); profTick((System.nanoTime() - began) / 1e6) }
             MediaPhases.timer = outer
-            if (rec != null && (rec.memory == null || (e.hasWaterTextures && !memoryHadWater))) {
+            if (e != null && rec != null && (rec.memory == null || (e.hasWaterTextures && !memoryHadWater))) {
                 rec.memory = e.memoryReport(); memoryHadWater = e.hasWaterTextures
             }
-            paint.collectPaperTextures()
+            if (e != null) paint.collectPaperTextures()
         }
     }
 
@@ -1238,6 +1250,9 @@ class MediaCanvas(
     private fun rgb(argb: Int) = doubleArrayOf(((argb shr 16) and 0xFF) / 255.0, ((argb shr 8) and 0xFF) / 255.0, (argb and 0xFF) / 255.0)
 
     companion object {
+        /** Between frames while only dampness is left on the wet sheet ([frameDelayMs]). */
+        const val RESTING_FRAME_MS = 150L
+
         /**
          * How far from the pen the tool reaches, in document px: the window keeps that much room around it, and the
          * symmetry's safe zone keeps it around the symmetry centre.

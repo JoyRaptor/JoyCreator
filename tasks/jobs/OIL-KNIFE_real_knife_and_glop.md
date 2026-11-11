@@ -73,6 +73,12 @@ Research 11-11 (read by a helper agent; mechanisms, not marketing):
 - **Palette knife 3** (`PasteBrush.hand`, `rollLump`; `u_bladeLay`, `u_bladeLump`): first build on `joy-creator`, unit tests pass, filmed on the
   Note 9 with new bench strokes (`knifeSpread`, `knifeSnow`, `knifeCarve`, `tree0..9`). Not owner-tried.
 
+- **Hair brushes, the rake look** (`PasteBrush.vary`, `u_hairVary`; on All-round, Oil flat, Oil round, Fan): the hair runs gather
+  in a few wide bunches of unequal weight with uneven spacing, and stretches of the stroke smooth out or bite; a flat
+  leaned sideways to its travel paints up to half as wide. A brush's settings: **Hairs: Varied / Even**. Note 9 film of six
+  matched strokes, Even against Varied, sent to the owner; unit tests pass; on `joy-creator`. Not owner-tried. The flat's
+  narrowing was not filmed (the bench strokes lean along their travel).
+
 ## What is left
 - [ ] 1. Crossings (blades first, then hair brushes): the plate gets a rounded underside across its width; the paint it
       displaces goes to its flanks and behind it, conserved; its side ramp widens with the wet thickness under it. New

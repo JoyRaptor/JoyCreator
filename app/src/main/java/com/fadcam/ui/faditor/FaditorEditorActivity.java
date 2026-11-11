@@ -45311,10 +45311,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         });
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.faditor_silence_detect_title)
-                .setMessage(R.string.faditor_silence_detect_desc)
+                .setMessage(R.string.faditor_silence_audio_desc)
                 .setView(root)
                 .setNegativeButton(android.R.string.cancel, null)
-                .setPositiveButton(R.string.faditor_silence_detect_btn, (d, w) -> {
+                .setPositiveButton(R.string.faditor_silence_audio_btn, (d, w) -> {
                     ++silencePreviewGen; // a late preview must not write into a closed dialog
                     Toast.makeText(this, R.string.faditor_silence_analyzing, Toast.LENGTH_SHORT).show();
                     detectAudioSilence(target, seek.getProgress() / 100f,

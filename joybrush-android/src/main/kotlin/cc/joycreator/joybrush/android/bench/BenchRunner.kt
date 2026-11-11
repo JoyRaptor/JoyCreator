@@ -97,6 +97,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                val pasteCover: Double? = null, val pasteCarry: Double? = null,
                /** Every oil hair brush's Leans for this run (`jb_paste_force`, 0..1); none = the brush's own. */
                val pasteForce: Double? = null,
+               /** `jb_paste_soft`: a blade's softness whatever the brush says (PasteBrush.soft). */
+               val pasteSoft: Double? = null,
                /** Strokes kept as editable lines on or off for this run (`jb_lines`); none = as the canvas has it. */
                val lines: Boolean? = null,
                /** lineParity: the shaped redraw at the lift fails, to prove the stroke survives it (`jb_lift_fail`). */
@@ -451,8 +453,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         ui.postDelayed(timeout, 30_000L)
         guarded {
             if (spec.clear) canvas.clearCanvas()
-            val ended = preset.media?.let { m -> m.paste?.takeIf { spec.pasteEnds != null || spec.pasteTurns != null || spec.pasteCover != null || spec.pasteCarry != null || spec.pasteForce != null }?.let { pb ->
-                preset.copy(media = m.copy(paste = pb.copy(ends = spec.pasteEnds ?: pb.ends, turns = spec.pasteTurns ?: pb.turns, cover = spec.pasteCover ?: pb.cover, carry = spec.pasteCarry ?: pb.carry, force = spec.pasteForce ?: pb.force))) } } ?: preset
+            val ended = preset.media?.let { m -> m.paste?.takeIf { spec.pasteEnds != null || spec.pasteTurns != null || spec.pasteCover != null || spec.pasteCarry != null || spec.pasteForce != null || spec.pasteSoft != null }?.let { pb ->
+                preset.copy(media = m.copy(paste = pb.copy(ends = spec.pasteEnds ?: pb.ends, turns = spec.pasteTurns ?: pb.turns, cover = spec.pasteCover ?: pb.cover, carry = spec.pasteCarry ?: pb.carry, force = spec.pasteForce ?: pb.force, soft = spec.pasteSoft ?: pb.soft))) } } ?: preset
             canvas.preset = spec.wetness?.let { w -> ended.media?.let { m -> ended.copy(media = m.copy(wetness = w)) } } ?: ended
             spec.colors.getOrNull(spec.cases.indexOf(case))?.let { canvas.colorArgb = it }
             spec.zooms.getOrNull(spec.cases.indexOf(case))?.let { canvas.view.zoom = it; canvas.requestRender(); Log.i(TAG, "view zoom: $it") }
@@ -772,6 +774,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 pasteCover = intent.getStringExtra("jb_paste_cover")?.toDoubleOrNull()?.coerceIn(0.0, 1.0),
                 pasteCarry = intent.getStringExtra("jb_paste_carry")?.toDoubleOrNull()?.coerceIn(0.0, 1.0),
                 pasteForce = intent.getStringExtra("jb_paste_force")?.toDoubleOrNull()?.coerceIn(0.0, 1.0),
+                pasteSoft = intent.getStringExtra("jb_paste_soft")?.toDoubleOrNull()?.coerceIn(0.0, 1.0),
                 lines = if (intent.hasExtra("jb_lines")) intent.getBooleanExtra("jb_lines", false) else null,
                 failLiftRedraw = intent.getBooleanExtra("jb_lift_fail", false),
                 sizeOverridePx = if (intent.hasExtra("jb_bench_size_px")) intent.getFloatExtra("jb_bench_size_px", Float.NaN) else null,

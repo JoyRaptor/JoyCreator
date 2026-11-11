@@ -61,7 +61,7 @@ void main() {
             float valley = (1.0 - jb_fetch(u_paperBake, jb_cellAt(pos, u_layerSize)).b) * u_toothMm;
             float target = jb_bladeTarget(xb, yb, valley, b0.a);
             float r = 1.0 - exp(-u_rate * u_slideMm / max(2.0 * half_, 0.3));
-            float rPick = 1.0 - exp(-10.0 * u_rate * u_slideMm / max(2.0 * half_, 0.3));
+            float rPick = jb_bladePick(half_);
             if (t > target) {
                 float pick = (t - target) * rPick * max(p1.a, 0.15);
                 gain += pick;

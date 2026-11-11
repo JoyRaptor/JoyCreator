@@ -3,13 +3,13 @@
   "id": "neon-sign",
   "name": "Neon Sign",
   "family": "Film",
-  "description": "Glass tubes standing off a brick wall: they stutter on letter by letter, colour the wall behind them and lie in a wet floor.",
+  "description": "Real neon: thick bent glass with gas that gathers, thins and drifts inside it, a window-light along each tube, tie wires, a strike that catches in patches, colour thrown on the brick and a wet floor.",
   "sample": "NEON",
   "stage": 2,
-  "font": { "family": "archivo", "weight": 600, "width": 100, "tracking": 0.11, "caps": true },
-  "margin": [ 1.0, 0.9, 1.0, 1.4 ],
+  "font": { "family": "archivo", "weight": 100, "width": 100, "tracking": 0.26, "caps": true },
+  "margin": [ 1.1, 1.0, 1.1, 1.5 ],
   "features": [ "TUBE" ],
-  "p": { "weight": -0.012, "tubeInset": 0.0, "tubeRadius": 0.0125, "tubeCore": 5.0, "tubeGain": 2.0, "tubeSplit": 1, "flicker": 0.5, "tubeA": "#ff0a78", "tubeB": "#0096ff", "glow": 0.7, "glowSize": 0.04, "shadow": 0.7, "shadowSoft": 0.03, "shadowX": 0.03, "shadowY": -0.045, "bloom": 0.38, "bloomThreshold": 1.15, "bloomKnee": 0.5, "spill": 1.6, "floor": 0.5, "floorLine": 0.27, "floorRipple": 0.8, "floorFade": 2.4, "streak": 0.2, "streakBlue": 0.3, "vignette": 0.65, "grain": 0.35, "contrast": 1.06, "saturation": 1.3 },
+  "p": { "weight": 0.036, "tubeInset": 0, "tubeRadius": 0.046, "tubeCore": 1.6, "tubeGain": 1.55, "tubeSplit": 1, "flicker": 0.5, "tubeA": "#ff2a0c", "tubeB": "#1f6bff", "glow": 0.5, "glowSize": 0.07, "shadow": 0.8, "shadowSoft": 0.04, "shadowX": 0.045, "shadowY": -0.065, "bloom": 0.25, "bloomThreshold": 1.2, "bloomKnee": 0.5, "spill": 1.7, "floor": 0.5, "floorLine": 0.27, "floorRipple": 0.8, "floorFade": 2.4, "streak": 0, "streakBlue": 0.3, "vignette": 0.65, "grain": 0.35, "contrast": 1.06, "saturation": 1.25, "soften": 0.034, "tubeSolid": 1, "gasUneven": 0.85, "gasSize": 3.6, "gasThread": 0.7, "gasBands": 0.5, "tieChance": 0.42, "tieSpacing": 0.2 },
   "motion": {
     "in": { "each": 0.22, "time": 0.01, "reveal": [ 0, 0.9 ] },
     "idle": {}

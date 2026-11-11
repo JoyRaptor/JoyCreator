@@ -91,6 +91,8 @@ uniform vec4  uTube;         // centre line this far inside the outline (em), ra
 uniform vec3  uTubeA;
 uniform vec3  uTubeB;
 uniform vec4  uTubeLight;    // gain, colour split across the word (0 blended .. 1 hard), flicker, buzz speed
+uniform vec4  uGas;          // the gas is not even: how blotchy, blotches per em, how far the bright thread wanders, bands running along the tube
+uniform vec2  uTie;          // tie wires that hold the tube: how many (0..1), spacing em
 #endif
 #ifdef REFRACT
 uniform vec4  uGlass;        // bend, colour fringing, tint strength, dark edge
@@ -279,39 +281,73 @@ void main() {
     float a = 0.0;
 
 #ifdef TUBE
+    // NEON. A round rod of bent glass with gas glowing inside it; not an outline with a glow.
     vec4 f = texture(uFieldTex, vUv);
     float seed = hash11(f.b * 91.7);
-    float away = uTube.w > 0.5 ? -f.r + uTube.y : abs(f.r - uTube.x);   // distance from the tube's centre line
-    float td = away - uTube.y;                                          // below 0 = inside the glass
-    float x = sat(1.0 - away / max(uTube.y, 1e-4));                     // 0 at the glass, 1 on the centre line
+    float R = max(uTube.y, 1e-4);
+    float away = uTube.w > 0.5 ? max(R - f.r, 0.0) : abs(f.r - uTube.x);   // distance from the tube's centre line
+    float td = uTube.w > 0.5 ? -f.r : away - R;                             // below 0 = inside the glass
+    float rr = sat(away / R);                                               // 0 on the centre line .. 1 at the glass
     float inT = smoothstep(-aw, aw, -td);
-    // switching on: a letter stutters before it holds; afterwards an unlucky one buzzes now and then
+    vec2 gdir = normalize(fieldGrad(p0) + vec2(1e-5, 0.0));
+    vec2 outward = gdir * ((uTube.w < 0.5 && f.r > uTube.x) ? 1.0 : -1.0);  // from the centre line toward the glass
+    vec2 tang = vec2(-gdir.y, gdir.x);                                      // along the tube
+    vec3 n = normalize(vec3(outward * rr, sqrt(max(1.0 - rr * rr, 0.0)) + 1e-3));   // which way the rod's surface faces
+
+    // the gas: it gathers and thins along the tube and drifts, and a brighter thread wanders in it
+    float blot = tfbm(p0 * uGas.y + vec2(uTime * 0.045, -uTime * 0.07) + seed * 17.0);
+    float fine = tnoise(p0 * uGas.y * 3.3 + vec2(-uTime * 0.19, uTime * 0.12));
+    float gas = max(1.0 + uGas.x * ((blot - 0.5) * 1.7 + (fine - 0.5) * 0.5), 0.2);
+    float side = dot(outward, vec2(0.6, 0.8)) * rr;                         // -1..1 across the tube
+    float wander = (tnoise(p0 * 1.7 + vec2(uTime * 0.23, seed * 9.0)) - 0.5) * 1.4 * uGas.z;
+    float thread = exp(-sq((side - wander) / 0.45));
+
+    // switching on: the discharge catches in patches and stutters before it holds; afterwards an
+    // unlucky tube buzzes now and then, and faint bands run along every tube
     float tick = floor(uTime * 24.0);
-    float lit = step(hash21(vec2(tick, seed * 77.0)), f.g * f.g * 1.15) * step(0.02, f.g);
+    float strike = f.g;
+    float where = tfbm(p0 * 2.3 + seed * 31.0);
+    float caught = smoothstep(where - 0.12, where + 0.1, strike * 1.3 - 0.1);
+    float stutter = step(hash21(vec2(tick, seed * 77.0)), 0.2 + strike * strike);
+    float lit = caught * mix(stutter, 1.0, smoothstep(0.8, 1.0, strike)) * step(0.02, strike);
     float buzz = step(0.93, vnoise(vec2(uTime * uTubeLight.w + seed * 40.0, seed * 9.0))) * step(seed, 0.4);
     lit *= 1.0 - uTubeLight.z * buzz * (0.4 + 0.6 * hash21(vec2(tick, seed)));
-    lit *= 0.9 + 0.1 * vnoise(p0 * 7.0 + seed * 30.0);                  // gas never burns quite evenly
+    lit *= 1.0 - uGas.w * 0.25 * smoothstep(0.5, 0.9, tnoise(vec2(dot(p0, tang) * 2.2 - uTime * 1.3, seed * 3.0 + dot(p0, gdir) * 0.3)));
+
     float cx = sat(f.b);
     vec3 tc = mix(uTubeA, uTubeB, smoothstep(0.5 - 0.5 * (1.0 - uTubeLight.y), 0.5 + 0.5 * (1.0 - uTubeLight.y) + 1e-3, cx));
-    // a lit tube: colour at the glass, a white-hot thread down the middle
-    float core = pow(x, uTube.z);
-    vec3 hot = (tc * (0.35 + 0.9 * x) + vec3(1.0) * core * 1.4) * uTubeLight.x;
-    // the glass itself: dark, with a thin window-light along the side that faces the lamp
-    vec2 g = fieldGrad(p0);
-    vec2 outward = normalize(g + vec2(1e-5, 0.0)) * (f.r > uTube.x ? 1.0 : -1.0) * (uTube.w > 0.5 ? -1.0 : 1.0);
-    float facing = dot(outward, normalize(vec2(-0.45, 0.89)));
-    float sheen = smoothstep(0.35, 0.6, 1.0 - x) * smoothstep(0.95, 0.7, 1.0 - x) * smoothstep(0.2, 0.9, facing);
-    vec3 glass = vec3(0.02, 0.021, 0.026) * (0.5 + 1.5 * x * x) + tc * 0.035 + vec3(0.5, 0.55, 0.6) * sheen * 0.35;
-    col = mix(glass, hot + vec3(1.0) * sheen * 0.25, lit);
-    a = inT;
+    // light through a round rod of glowing gas: most where the eye looks through the most of it,
+    // the gas's own deep colour at the wall, washed toward white down the middle
+    float chord = sqrt(max(1.0 - rr * rr, 0.0));
+    float bore = smoothstep(1.0, 0.84, rr);
+    vec3 hotc = mix(tc, vec3(1.0, 0.86, 0.7), 0.17);
+    vec3 glowc = mix(tc * 0.5, hotc * 1.4, pow(chord, uTube.z) * (0.4 + 0.6 * thread));
+    vec3 hot = glowc * gas * uTubeLight.x * (0.3 + 0.7 * bore);
+    // the glass: a hard window-light along the lamp side, a softer one below, a darker limb
+    float spec = pow(max(dot(n, normalize(vec3(-0.45, 0.75, 1.6))), 0.0), 110.0);
+    float spec2 = pow(max(dot(n, normalize(vec3(0.5, -0.7, 1.5))), 0.0), 34.0) * 0.22;
+    float limb = pow(max(1.0 - n.z, 0.0), 2.5);
+    vec3 glass = vec3(0.012, 0.013, 0.016) * (0.4 + chord) + tc * 0.012 + vec3(0.75, 0.82, 0.9) * (spec * 1.3 + spec2 + limb * 0.07);
+    col = mix(glass, hot * (1.0 - 0.5 * limb) + vec3(1.0, 0.97, 0.94) * (spec * 1.3 + spec2 * 0.4), lit);
+
+    // tie wires: thin twists of wire across the tube where it is held to its stand-offs
+    vec2 cellId = floor(p0 / max(uTie.y, 1e-3));
+    vec2 c0 = (cellId + 0.2 + 0.6 * hash22(cellId + 4.7)) * uTie.y;
+    vec2 dv = p0 - c0;
+    float nearTube = 1.0 - smoothstep(R * 0.12, R * 0.3, td);
+    float wire = step(hash21(cellId + seed * 13.0), uTie.x) * (1.0 - smoothstep(0.0035, 0.007, abs(dot(dv, tang))))
+               * (1.0 - smoothstep(R * 1.05, R * 1.25, length(dv))) * nearTube;
+    col = mix(col, vec3(0.025, 0.025, 0.03) + vec3(0.3) * spec, wire * 0.93);
+    a = max(inT, wire);
+
     float halo = exp(-max(td, 0.0) / max(uGlowSize, 1e-4));
-    add = tc * uGlow * halo * halo * lit * (1.0 - inT);
+    add = tc * uGlow * halo * halo * lit * gas * (1.0 - a);
     // the tubes stand off the wall, so they shade it (less where they are lit: their own light fills it)
     float under = 0.0;
     if (uShadow > 0.0) {
         float fs = texture(uFieldTex, vUv - uShadowOff / uField.xy).r;
-        float aways = uTube.w > 0.5 ? -fs + uTube.y : abs(fs - uTube.x);
-        under = (1.0 - smoothstep(0.0, max(uShadowSoft, aw), aways - uTube.y)) * uShadow * (1.0 - 0.45 * lit);
+        float aways = uTube.w > 0.5 ? R - fs : abs(fs - uTube.x);
+        under = (1.0 - smoothstep(0.0, max(uShadowSoft, aw), aways - R)) * uShadow * (1.0 - 0.45 * lit);
     }
     a *= uOpacity;
     add *= uOpacity;

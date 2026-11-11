@@ -45,6 +45,12 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
   1280 px wide including the look book's painted stage (`tools/textlab-web/note9-bench-20261111.json`);
   battery 25.1 °C before and after. **Not proven:** anything in the app; a long run's heat; the
   owner has not yet judged the rebuilt looks.
+- **Owner, 11-11 evening:** Dark Steel "is looking good". Blaze "on the right track but still not quite there, keep
+  iterating". Neon must be a real object, not a glow (see lessons): rebuilt that evening as a thick round glass rod with
+  uneven drifting gas, a window-light, tie wires and a patchy strike (`shade.frag` TUBE; knobs `gas*`, `tie*`), and the
+  fire now carries each streamline's own brightness up the flame (fibres; `fire_step.frag` channels b and a).
+  Note 9 after that: neon 12 ms, blaze 32 ms a frame. Still owed on neon: electrode ends and blacked-out joins, real
+  single-tube letter shapes (a monoline neon face); on fire: taller, wispier tongues.
 - **Honest limits today:** the fire is good stylised fire, not yet the photograph the owner showed;
   water and the other drafts are below the bar; only the app's own fonts are used (Archivo, Plex,
   Ubuntu, Doto), so there is no script or true display face yet.

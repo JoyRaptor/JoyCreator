@@ -2,6 +2,10 @@
 // on a swirl each tick, cools unevenly so it tears into tongues, and is fed by the shape.
 // It feeds from the FIELD, so anything with an outline can burn: letters, a drawing, a sprite.
 //   r = heat   g = smoke
+//   b = age: seconds since this bit of flame left the shape
+//   a = how far it has drifted sideways since then (em). With its place now, that says WHERE on
+//       the shape it came from, and that stays the same all the way up a streamline: it is what
+//       lets the flame be drawn as fibres combed along its own flow.
 in vec2 vUv;
 out vec4 o;
 uniform sampler2D uPrev;
@@ -10,6 +14,7 @@ uniform float uDt;
 uniform vec4  uFire;     // rise (em/s), swirl, cooling, feed
 uniform vec4  uFireShape;// swirl size (per em), how deep inside the edge it burns (em), 0 = all edges .. 1 = upper edges only, smoke made
 uniform vec2  uWind;     // em/s
+
 float source(vec2 uv, vec2 p) {
     vec4 f = texture(uFieldTex, uv);
     float e = 1.5 / uField.z;
@@ -42,16 +47,21 @@ void main() {
     heat = max(heat, 0.0);
     float lost = max(was.r - heat, 0.0);
     float smoke = was.g * exp(-uDt * 0.55) + lost * uFireShape.w;
+    float age = min(was.b + uDt, 8.0);
+    float drift = was.a - v.x * uDt;
 
     // The shape holds its edge at a temperature (it does not pile heat up without end). The flame
     // travels several pixels a tick, so the edge is read at three points along the way it came:
     // read once, a thin edge would be stamped upward as a ladder of stripes.
     vec2 back = v * uDt / uField.xy;
     float feed = max(source(vUv, p), max(source(vUv - back * 0.34, p), source(vUv - back * 0.67, p)));
+    float fresh = smoothstep(0.0, 0.06, feed - heat);
+    age = mix(age, 0.0, fresh);
+    drift = mix(drift, 0.0, fresh);
     heat = max(heat, feed);
 
     // the edges of the picture must not hold heat, or flame would smear along them
     vec2 b = min(vUv, 1.0 - vUv) * uField.xy;
     float keep = smoothstep(0.0, 0.12, min(b.x, b.y));
-    o = vec4(heat * keep, smoke * keep, 0.0, 1.0);
+    o = vec4(heat * keep, smoke * keep, age, drift);
 }

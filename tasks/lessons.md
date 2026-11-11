@@ -1226,4 +1226,5 @@ as `TIME * knob` are "rate" and the host integrates them.
 - Finish ONE look to that bar before starting the next. Never widen the set while the best one is still weak; a preset nobody would use costs more than a missing one.
 - Glow and bloom are a finish, never the execution. Judge a look with bloom off first; if it is weak then, it is weak.
 - Check colour at the source before blaming the screen: a film curve applied to each colour channel bleaches bright colours toward white. Use one that keeps the hue.
+- Model the real object, never the effect. Neon is gas in a bent glass rod: thick tube, bends that cannot be sharp, gas that gathers and drifts, a window-light on the glass, tie wires, a strike that catches in patches. An inner and outer glow on an outline is the cheap version everyone ships (owner, with a photo of a real sign).
 - What reads as cheap: even flat light, fat 45-degree depth, pastel stages, big star sparkles, a white halo. What reads as film: deep blacks, one hard key light, thin crisp bevels, real studio reflections, small surface wear, restraint.

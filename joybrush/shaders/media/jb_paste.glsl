@@ -70,6 +70,11 @@ uniform float u_bladeLoad;      // 1: pressure is the load (a light touch only c
 // width, it takes thick paint off over a stretch of travel instead of at once, and the wet paint under it is dragged
 // along at half its speed (IMPaSTo, Baxter et al. 2004: the paint under a tool moves at half the tool's velocity).
 uniform float u_bladeSoft;
+// Palette knife 3 (the owner, 2026-11-11). u_bladeLay, 0..1: how much of its paint the blade lets go this step (1 = as
+// always; pushed point first into the paint it lays none and only scrapes). u_bladeLump, 0..1: the roll of paint on the
+// blade is lumpy, so where a light touch catches and where it skips comes in clumps a few millimetres wide, not evenly.
+uniform float u_bladeLay;
+uniform float u_bladeLump;
 float u_hairLen = 1.0;          // set per fragment before jb_pasteCover (how long this run of hair is)
 // Uneven pressure across a hair brush (owner, 2026-10-27; PasteBrush.force): 0 = every hair at u_pressure, as before.
 uniform float u_force;
@@ -334,6 +339,13 @@ void jb_pasteRead(float a, float b, out vec4 c0, out vec4 c1) {
 // strokes come out in streaks of separate colours, not one averaged mud.
 float jb_pasteSwapRate(float hair) { return u_swap * smoothstep(0.3, 0.75, hair); }
 
+// The roll's lump at this fragment, -1..1 (set per fragment with jb_bladeLumpAt before jb_bladeReach; 0 without lumps).
+float jb_lumpN = 0.0;
+float jb_bladeLumpAt(vec2 p) {   // p: the document position in mm
+    if (u_bladeLump <= 0.0) return 0.0;
+    return (jb_pNoise2(vec2(dot(p, u_bladeDir) * 0.7, dot(p, vec2(-u_bladeDir.y, u_bladeDir.x)) * 0.35), uint(u_seed) + 77u) - 0.5) * 2.0;
+}
+
 // ---- rigid blade ----
 // Blade frame: xb along the edge from the point (0) toward the handle, yb across. The underside is a
 // trowel: rounded point, widening to the full blade.
@@ -396,7 +408,7 @@ float jb_bladeTarget(float xb, float yb, float valleyMm, float load) {
 float jb_bladeThin(float load) { return smoothstep(0.0, 0.25 * u_cellCap, load); }
 float jb_bladeReach(float surfAboveMm, float toothMm) {
     if (u_bladeLoad < 0.5) return 1.0;
-    return smoothstep(-0.015, 0.015, surfAboveMm + u_pressure * 2.2 * toothMm - 0.01);
+    return smoothstep(-0.015, 0.015, surfAboveMm + u_pressure * 2.2 * toothMm - 0.01 + u_bladeLump * jb_lumpN * 1.2 * toothMm);
 }
 
 ivec2 jb_pasteCell(float a, float b) {

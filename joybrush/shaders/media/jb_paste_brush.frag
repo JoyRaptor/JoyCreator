@@ -59,6 +59,7 @@ void main() {
             vec4 p1 = jb_bilinearL(u_p1, pos);
             float t = p0.a;
             float valley = (1.0 - jb_fetch(u_paperBake, jb_cellAt(pos, u_layerSize)).b) * u_toothMm;
+            jb_lumpN = jb_bladeLumpAt(docPos / u_pxPerMm);
             float target = jb_bladeTarget(xb, yb, valley, b0.a);
             float r = 1.0 - exp(-u_rate * u_slideMm / max(2.0 * half_, 0.3));
             float rPick = jb_bladePick(half_);
@@ -68,7 +69,7 @@ void main() {
                 gainK += (t > 1e-6 ? p0.rgb / t : vec3(0.0)) * pick;
                 gainS += (t > 1e-6 ? p1.r / t : 0.0) * pick;
             } else {
-                give += min(target - t, b0.a) * r * jb_bladeReach(t - valley, u_toothMm) * jb_bladeThin(b0.a);
+                give += min(target - t, b0.a) * r * jb_bladeReach(t - valley, u_toothMm) * jb_bladeThin(b0.a) * u_bladeLay;
             }
         }
         // The cell trades the AVERAGE of its strip (the same per-pixel units the canvas pass uses).

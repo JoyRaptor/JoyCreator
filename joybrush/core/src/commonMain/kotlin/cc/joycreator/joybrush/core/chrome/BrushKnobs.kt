@@ -332,10 +332,10 @@ object BrushKnobs {
             out += stepped("media.paste.orient", "Edge", "Where the edge lies: along the pen's lean, across the stroke, or along the stroke.",
                 EdgeMode.entries.map { it.label }, { it.paste?.orient?.ordinal ?: 0 },
                 { s, i -> s.copy(paste = s.paste?.copy(orient = EdgeMode.entries[i])) })
-            if (!b.clean) out += stepped("media.paste.press", "Pressure", "What pressing harder does: lays more paint, or digs deeper.",
+            if (!b.clean && !b.hand) out += stepped("media.paste.press", "Pressure", "What pressing harder does: lays more paint, or digs deeper.",
                 PressMode.entries.map { it.id }, { (it.paste?.press ?: PressMode.LOAD).ordinal },
                 { s, i -> s.copy(paste = s.paste?.copy(press = PressMode.entries[i])) })
-            if (b.edgeHalfMm != null) out += stepped("media.paste.face", "Touches with", "The knife's thin edge, or its flat underside.",
+            if (b.edgeHalfMm != null && !b.hand) out += stepped("media.paste.face", "Touches with", "The knife's thin edge, or its flat underside.",
                 FaceMode.entries.map { it.id }, { (it.paste?.face ?: FaceMode.EDGE).ordinal },
                 { s, i -> s.copy(paste = s.paste?.copy(face = FaceMode.entries[i])) })
         }

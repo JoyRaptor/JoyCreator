@@ -65,6 +65,7 @@ void main() {
         float t = p0.a;
         float open = p1.a;
         float valley = (1.0 - jb_fetch(u_paperBake, jb_cellAt(layerPx, u_targetSize)).b) * u_toothMm;
+        jb_lumpN = jb_bladeLumpAt(docPx / u_pxPerMm);
         float target = jb_bladeTarget(xb, yb, valley, load) + (load > 1e-6 ? jb_bladeChatter(docPx) : 0.0);
         float r = 1.0 - exp(-u_rate * u_slideMm / max(2.0 * jb_bladeHalf(xb), 0.3));
         // A rigid blade moves ALL the paint above its underside as it passes (r for laying is gentler).
@@ -77,7 +78,7 @@ void main() {
         } else if (load > 1e-6) {
             vec3 Kb = b0.rgb / load;
             float Sb = b1.r / load;
-            float dep = min(target - t, load) * r * cov * jb_bladeReach(t - valley, u_toothMm) * jb_bladeThin(load);
+            float dep = min(target - t, load) * r * cov * jb_bladeReach(t - valley, u_toothMm) * jb_bladeThin(load) * u_bladeLay;
             p0.rgb += Kb * dep; p1.rgb += vec3(Sb * dep);
             open = mix(open, 1.0, dep / max(t + dep, 1e-6));
             t += dep;

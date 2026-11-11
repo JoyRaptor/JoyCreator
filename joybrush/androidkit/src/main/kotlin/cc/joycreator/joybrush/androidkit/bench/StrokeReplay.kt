@@ -55,11 +55,23 @@ object StrokeReplay {
         "wideWash" -> zigzag(w * 0.04f, w * 0.96f, h * 0.04f, h * 0.96f, 16, 6000.0)
         // The owner's sharp turns (2026-10-31): one stroke, a 7, a right angle, then doubling straight back.
         "turns" -> corners(listOf(0.20f to 0.30f, 0.75f to 0.30f, 0.32f to 0.62f, 0.75f to 0.62f, 0.75f to 0.42f, 0.42f to 0.42f, 0.70f to 0.42f), w, h, 2600.0)
+        // Palette knife 3 held as a hand holds it (the owner, 2026-11-11): a spread with the face laid flat, a light pull down a
+        // slope (snow breaking), a push point first into the paint (carving).
+        "knifeSpread" -> held(w * 0.15f, h * 0.30f, w * 0.85f, h * 0.30f, 1100.0, 0.6f, 1.4f, (PI / 2).toFloat())
+        "knifeSnow" -> held(w * 0.30f, h * 0.45f, w * 0.62f, h * 0.62f, 900.0, 0.16f, 1.3f, (-PI / 4).toFloat())
+        "knifeCarve" -> held(w * 0.80f, h * 0.28f, w * 0.25f, h * 0.34f, 1200.0, 0.9f, 0.8f, 0f)
         "blue1" -> line(w * 0.05f, h * 0.55f, w * 0.45f, h * 0.30f, 900.0)
         "blue2" -> line(w * 0.95f, h * 0.50f, w * 0.60f, h * 0.27f, 900.0)
         "blue3" -> line(w * 0.25f, h * 0.62f, w * 0.75f, h * 0.48f, 900.0)
         // A long session (the drawing's media room, 2026-10-21): "band0".."band9", a zigzag across the page in its own tenth.
-        else -> name.removePrefix("band").toIntOrNull()?.takeIf { name.startsWith("band") && it in 0..9 }?.let { i ->
+        // Bob Ross's evergreen: the knife's edge lying level, touched lightly and drawn a few millimetres down, row after row,
+        // more of the edge laid down each row (more tilt), left and right of the trunk in turn. "tree0".."tree9".
+        else -> name.removePrefix("tree").toIntOrNull()?.takeIf { name.startsWith("tree") && it in 0..9 }?.let { i ->
+            val y = h * (0.18f + 0.045f * i)
+            val x = w * 0.5f + (if (i % 2 == 0) -1 else 1) * w * 0.004f * i
+            held(x, y, x + w * 0.012f * (if (i % 2 == 0) 1 else -1), y + h * 0.02f, 260.0, 0.22f, (0.12f + 0.08f * i).coerceAtMost(0.84f),
+                if (i % 2 == 0) 0f else PI.toFloat())
+        } ?: name.removePrefix("band").toIntOrNull()?.takeIf { name.startsWith("band") && it in 0..9 }?.let { i ->
             zigzag(w * 0.06f, w * 0.94f, h * (0.06f + 0.088f * i), h * (0.06f + 0.088f * i + 0.07f), 6, 1400.0)
         } ?: name.removePrefix("vert").toIntOrNull()?.takeIf { name.startsWith("vert") && it in 0..5 }?.let { i ->
             // The oil brushes' starts and ends (2026-10-23): straight strokes down the page, one per column, the pen pressing
@@ -72,6 +84,15 @@ object StrokeReplay {
             // …and strokes across them (new colour over old paint, colour carried from one to the next).
             val y = h * (0.36f + 0.17f * i)
             stroke(w * 0.10f, y, w * 0.90f, y, 1300.0, 0.55f, ramps = true)
+        }
+    }
+
+    /** A straight stroke at one pressure with the pen held at [tilt] (rad from upright) leaning toward [az] (rad), whatever the way it goes. */
+    private fun held(x0: Float, y0: Float, x1: Float, y1: Float, ms: Double, press: Float, tilt: Float, az: Float): List<Sample> {
+        val n = (ms / 1000.0 * HZ).toInt().coerceAtLeast(2)
+        return List(n + 1) { i ->
+            val t = i.toFloat() / n
+            Sample(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, press, tilt, az, t * ms)
         }
     }
 

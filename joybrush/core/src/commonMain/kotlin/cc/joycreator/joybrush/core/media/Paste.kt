@@ -91,6 +91,13 @@ const val PASTE_DEPTH = 8
      * paint dragged along. 0 = the flat plate, as before. An older build ignores the word.
      */
     val soft: Double = 0.0,
+    /**
+     * A blade held like a real knife (Palette knife 3; the owner, 2026-11-11; tasks/jobs/OIL-KNIFE_real_knife_and_glop.md):
+     * TILT picks what touches (upright the tip's corner, half way the straight edge, laid flat the whole face), PRESSURE is
+     * how hard it bears (light: its paint catches the high spots and breaks; hard: it presses thin and digs), and pushed
+     * point first it scrapes instead of laying. [rollLump]: how lumpy its roll of paint is (jb_paste.glsl u_bladeLump).
+     */
+    val hand: Boolean = false, val rollLump: Double = 0.0,
     val ends: EndsMode? = null,
     val turns: TurnMode? = null,
     /**
@@ -136,6 +143,11 @@ object PasteBrushes {
             edgeHalfMm = 0.6, edgeMinMm = 3.0, acrossMaxMm = 16.0, riseMaxMm = 0.9, bladeLenMm = 22.0, bladeHalfMm = 4.5,
             bladeHmax = 0.9, bead = 0.35, bladeCap = 20.0, thickMm = 1.1, rate = 4.0, loadLenMm = 70.0, mix = 0.2, swap = 0.0,
             scrape = 0.0, hairDepth = 0.0, ridge = 0.0, wick = 0.0, bow = 0.0, lump = 0.25, rigid = 1.0, soft = 1.0),
+        // Knife 3 (the owner, 2026-11-11): one knife that lays, breaks, cuts and carves by how it is held ([PasteBrush.hand]).
+        "Palette knife 3" to PasteBrush(shape = 2, blade = true, hand = true, orient = EdgeMode.PEN, press = PressMode.LOAD, face = FaceMode.EDGE,
+            edgeHalfMm = 0.6, edgeMinMm = 2.0, acrossMaxMm = 16.0, riseMaxMm = 0.9, bladeLenMm = 24.0, bladeHalfMm = 6.0,
+            bladeHmax = 0.9, bead = 0.35, bladeCap = 20.0, thickMm = 1.1, rate = 4.0, loadLenMm = 70.0, mix = 0.2, swap = 0.0,
+            scrape = 0.0, hairDepth = 0.0, ridge = 0.0, wick = 0.0, bow = 0.0, lump = 0.25, rigid = 1.0, soft = 1.0, rollLump = 0.8),
         // An empty knife with a thin edge: Palette knife 2's rules, but it scrapes paint OFF; pressure is how deep.
         "Scraper" to PasteBrush(shape = 3, blade = true, orient = EdgeMode.PEN, press = PressMode.DEPTH, edgeMinMm = 2.0,
             acrossMaxMm = 10.0, riseMaxMm = 0.6, bladeLenMm = 14.0, bladeHalfMm = 0.35, bladeHmax = 0.6, bead = 0.5, bladeCap = 3.0,
@@ -186,6 +198,8 @@ data class PasteStep(
     val bladeDirX: Double = 1.0, val bladeDirY: Double = 0.0, val bladeLen: Double? = null, val bladeHalf: Double? = null,
     val travelX: Double = 1.0, val travelY: Double = 0.0, val bladeH0: Double? = null, val bladeTan: Double? = null,
     val pressK: Double? = null, val loadMode: Boolean = false,
+    /** Blades: how much of its paint the blade lets go this step, 0..1 (jb_paste.glsl u_bladeLay; [PasteBrush.hand]). */
+    val lay: Double = 1.0,
     // Hair brushes and the trowel: how far the pen has eased off its press (0..1), and 1 at touchdown fading to 0 over about
     // the brush's width of travel (jb_paste.glsl u_lift, u_land; read only with [PasteBrush.loadedEnds]).
     val lift: Double = 0.0, val land: Double = 0.0,
@@ -376,6 +390,23 @@ class PasteStroke(
             bladeHeld = true
             val p = bladeP
             val t = min(1.0, max(0.0, bladeTilt / (PI / 2)))
+            if (b.hand) {
+                // Held like a real knife. All linear, as the owner asked of Knife 2 (curves felt like jumps).
+                val edgeHalf = b.edgeHalfMm ?: 0.6
+                val l = b.edgeMinMm + (b.bladeLenMm - b.edgeMinMm) * min(1.0, t / 0.55)        // tip, then the whole edge
+                val halfNow = edgeHalf + (b.bladeHalfMm - edgeHalf) * max(0.0, (t - 0.5) / 0.5)   // then the face comes down
+                val h0 = b.bladeHmax * (1 - 0.75 * p)                                           // bearing: hard presses thin
+                val pressK = max(0.0, (p - 0.6) / 0.4)                                          // and then digs
+                val rise = (b.riseMaxMm ?: 0.8) * (1 - t) / max(l, 0.5)
+                val bX = cos(bladeAz)
+                val bY = sin(bladeAz)
+                // Pulled (toward the handle) or drawn sideways it lays its paint; pushed point first it only scrapes.
+                val lay = 1 - min(1.0, max(0.0, (-(dX * bX + dY * bY) - 0.3) / 0.5))
+                steps.add(PasteStep(s.x, s.y, wX, wY, lX, lY, halfNow, l, l, p, slideMm,
+                    bladeDirX = bX, bladeDirY = bY, bladeLen = l, bladeHalf = halfNow, travelX = dX, travelY = dY,
+                    bladeH0 = h0, bladeTan = rise, pressK = pressK, loadMode = true, lay = lay))
+                return
+            }
             val load = press == PressMode.LOAD
             val h0 = b.bladeHmax * (if (load) p else 1 - p)
             val pressK = if (load) 0.0 else p

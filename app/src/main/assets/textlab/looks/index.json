@@ -1,4 +1,18 @@
 {
   "format": "joy.textlooks/1",
-  "looks": ["chrome-84.text.json", "neon-sign.text.json", "blaze.text.json", "water.text.json"]
+  "looks": [
+    "chrome-84.text.json",
+    "gold-crown.text.json",
+    "liquid-chrome.text.json",
+    "steel-plate.text.json",
+    "neon-sign.text.json",
+    "blaze.text.json",
+    "spirit-flame.text.json",
+    "magma.text.json",
+    "water.text.json",
+    "ice.text.json",
+    "retro-pop.text.json",
+    "candy.text.json",
+    "toon-fire.text.json"
+  ]
 }

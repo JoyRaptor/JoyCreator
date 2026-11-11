@@ -83,6 +83,7 @@
     "tintAmount":    {"u": "uGlass", "i": 2, "v": 0.3, "min": 0, "max": 1, "slot": "Glass", "label": "Tint strength"},
     "edgeDark":      {"u": "uGlass", "i": 3, "v": 0.35, "min": 0, "max": 1, "slot": "Glass", "label": "Dark edge"},
     "tint":          {"u": "uTint", "c": "#9fd8ff", "slot": "Glass", "label": "Tint"},
+    "gather":        {"u": "uGather", "v": 0.5, "min": 0, "max": 3, "slot": "Glass", "label": "Light gathers on the far side"},
     "caustic":       {"u": "uCaustic", "i": 0, "v": 0, "min": 0, "max": 3, "slot": "Glass", "label": "Dancing light inside"},
     "causticScale":  {"u": "uCaustic", "i": 1, "v": 5, "min": 1, "max": 20, "slot": "Glass", "label": "Dancing light size"},
 

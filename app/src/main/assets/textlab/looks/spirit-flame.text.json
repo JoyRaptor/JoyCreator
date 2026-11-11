@@ -1,0 +1,25 @@
+{
+  "format": "joy.text/1",
+  "id": "spirit-flame",
+  "name": "Spirit Flame",
+  "family": "Elements",
+  "description": "Cold blue fire leaning in a wind, on dark glass letters with a lit edge.",
+  "sample": "SPIRIT",
+  "stage": 0,
+  "font": { "family": "archivo", "weight": 700, "width": 100, "tracking": 0.08, "caps": true },
+  "margin": [ 0.8, 1.7, 1.1, 0.5 ],
+  "features": [ "EMBER" ],
+  "fire": true,
+  "p": { "bevel": 0.03, "bevelHeight": 0.04, "bevelShape": 0.5, "metal": 0.9, "fillA": "#0d1626", "fillB": "#101c30", "fillC": "#0a1220", "emberHeat": 0.0, "emberEdge": 0.42, "emberFireLight": 0.8, "fireRise": 1.0, "fireSwirl": 0.34, "fireCool": 1.5, "fireFeed": 1.25, "fireUp": 0.3, "fireDepth": 0.03, "fireSmoke": 0.2, "fireSize": 2.8, "fireDetail": 1.1, "fireFront": 0.55, "fireGain": 0.8, "windX": 0.35, "fireA": "#0b2a9c", "fireB": "#19a8ff", "fireC": "#d6fbff", "shimmer": 0.8, "bloom": 0.5, "bloomThreshold": 1.25 },
+  "sphere": { "ramp": [ [ 0.0, "#000000" ], [ 0.5, "#081222" ], [ 1.0, "#5fb8ff" ] ], "lamps": [ [ 0.0, 0.7, 0.25, 1.5, "#7fd0ff" ] ] },
+  "particles": [
+    {
+      "count": 200,
+      "p": { "shape": 0, "from": 0, "up": 0.5, "life": 2.0, "size": 0.01, "sizeEnd": 0.2, "rise": 1.1, "drift": 0.9, "scatter": 0.2, "swirl": 0.5, "colA": "#d6fbff", "colB": "#1466ff", "gain": 8, "fadeIn": 0.05, "fadeOut": 0.5, "share": 0.7 }
+    }
+  ],
+  "motion": {
+    "in": { "each": 0.1, "time": 0.01, "reveal": [ 0, 0.9 ] },
+    "idle": {}
+  }
+}

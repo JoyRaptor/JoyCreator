@@ -1,0 +1,18 @@
+{
+  "format": "joy.text/1",
+  "id": "steel-plate",
+  "name": "Steel Plate",
+  "family": "Metal",
+  "description": "Tread-plate steel with a polished rim, pushed back hard toward a vanishing point.",
+  "sample": "METAL",
+  "stage": 1,
+  "font": { "family": "archivo", "weight": 900, "width": 90, "tracking": 0.03, "caps": true },
+  "margin": [ 0.8, 0.7, 0.8, 1.1 ],
+  "features": [ "DETAIL" ],
+  "p": { "bevel": 0.03, "bevelHeight": 0.03, "bevelShape": 0, "ao": 0.4, "depth": 0.6, "persp": -0.3, "vanishX": 0.5, "vanishY": -0.5, "parallax": 0.35, "metal": 1, "fillA": "#aab0b8", "fillB": "#c3c8cf", "fillC": "#d7dbe0", "envAcross": 0.18, "envUp": 0.22, "envBevel": 0.9, "envTilt": 0.3, "stroke": 0.02, "strokeCol": "#eef1f5", "strokeMetal": 1, "detailKind": 6, "detailScale": 9, "detailAmount": 0.03, "sideA": "#70757d", "sideB": "#08090b", "sideMetal": 0.6, "spec": 0.8, "shine": 70, "sweep": 0.4, "sweepEvery": 5, "shadow": 0.5, "shadowSoft": 0.14, "bloom": 0.45, "bloomThreshold": 1.2 },
+  "sphere": { "ramp": [ [ 0.0, "#08090b" ], [ 0.3, "#4a4f57" ], [ 0.46, "#7c828b" ], [ 0.56, "#c9ced6" ], [ 0.8, "#8d939c" ], [ 1.0, "#1b1d22" ] ], "lamps": [ [ -0.4, 0.62, 0.12, 3, "#ffffff" ] ], "strips": [ 0.8, 6, 0.57, 0.25 ], "rim": "#b9c4d6*0.25" },
+  "motion": {
+    "in": { "each": 0.05, "time": 0.35, "ease": "out", "scale": 1.8, "reveal": [ 0, 0.12 ] },
+    "idle": {}
+  }
+}

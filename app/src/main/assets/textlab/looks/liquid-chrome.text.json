@@ -1,0 +1,24 @@
+{
+  "format": "joy.text/1",
+  "id": "liquid-chrome",
+  "name": "Liquid Chrome",
+  "family": "Metal",
+  "description": "Poured mirror metal with an oil-film rainbow that slides as you tilt.",
+  "sample": "Faith",
+  "stage": 0,
+  "font": { "family": "archivo", "weight": 600, "width": 100, "slant": 0.22, "tracking": 0.0 },
+  "margin": [ 0.7, 0.7, 0.7, 0.7 ],
+  "features": [ "DETAIL" ],
+  "p": { "soften": 0.012, "wobble": 0.006, "wobbleScale": 2.2, "wobbleSpeed": 0.35, "weight": 0.004, "bevel": 0.07, "bevelHeight": 0.08, "bevelShape": 0.33, "ao": 0.15, "metal": 1, "fillA": "#ffffff", "fillB": "#ffffff", "fillC": "#ffffff", "envAcross": 0.2, "envUp": 0.5, "envBevel": 1.05, "envTilt": 0.5, "detailKind": 4, "detailScale": 2.2, "detailAmount": 0.02, "detailDrift": 0.25, "sweep": 0.5, "sweepEvery": 5, "spec": 1.0, "shine": 200, "glow": 0, "glowSize": 0.06, "glowCol": "#9ad0ff", "bloom": 0.45, "bloomThreshold": 1.5 },
+  "sphere": { "ramp": [ [ 0.0, "#000000" ], [ 0.32, "#15151c" ], [ 0.47, "#e9ecff" ], [ 0.55, "#0a0a10" ], [ 0.8, "#a9afc6" ], [ 1.0, "#020204" ] ], "lamps": [ [ -0.45, 0.55, 0.07, 4, "#ffffff" ], [ 0.5, -0.4, 0.1, 1.2, "#cfe0ff" ] ], "strips": [ 0.6, 4, 0.58, 0.3 ], "irid": [ 0.6, 1.4 ], "rim": "#ffffff*0.25" },
+  "particles": [
+    {
+      "count": 120,
+      "p": { "shape": 1, "glint": 1, "twinkle": 0.85, "size": 0.12, "sizeEnd": 1, "life": 2.5, "gain": 7, "colA": "#ffffff", "colB": "#cfe0ff", "fadeIn": 0.3, "fadeOut": 0.5, "share": 0.45, "seed": 0 }
+    }
+  ],
+  "motion": {
+    "in": { "each": 0.08, "time": 0.7, "ease": "out", "y": -0.2, "reveal": [ 0, 0.5 ] },
+    "idle": {}
+  }
+}

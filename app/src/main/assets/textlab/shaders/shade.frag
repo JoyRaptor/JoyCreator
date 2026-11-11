@@ -86,6 +86,7 @@ uniform vec4  uTubeLight;    // gain, colour split across the word (0 blended ..
 uniform vec4  uGlass;        // bend, colour fringing, tint strength, dark edge
 uniform vec3  uTint;
 uniform vec2  uCaustic;      // dancing light inside: strength, cells per em
+uniform float uGather;       // light gathered on the far side from the lamp, as in a drop
 #endif
 #ifdef DETAIL
 uniform vec4  uDetail;       // kind, bumps per em, strength, drift speed
@@ -296,7 +297,8 @@ void main() {
             col *= 1.0 - uAO * (1.0 - smoothstep(0.0, max(uBevel, aw), d)) * (1.0 - uUnlit);
             if (uSweep.x > 0.0) {
                 float xs = mix(-1.5, uField.x + 1.5, fract(uTime / max(uSweep.y, 0.1)));
-                col += uSweep.x * exp(-sq((q.x + (q.y - 0.5 * uField.y) * 0.45 - xs) / 0.22)) * (0.25 + 0.75 * metal + sp);
+                float bar = uSweep.x * exp(-sq((q.x + (q.y - 0.5 * uField.y) * 0.45 - xs) / 0.16));
+                col = col * (1.0 + 1.6 * bar) + bar * 0.12;   // brighter, but still its own colour
             }
 #ifdef REFRACT
             float thick = z + uDepth * 0.5 + 0.15;
@@ -307,11 +309,16 @@ void main() {
             bg = mix(bg, bg * uTint * 1.4 + uTint * 0.03, sat(uGlass.z * (0.4 + 2.0 * thick)));
             if (uCaustic.x > 0.0) {
                 vec3 v = voronoi(q * uCaustic.y + vec2(uTime * 0.21, uTime * 0.13) + n.xy * 0.8);
-                bg += uTint * uCaustic.x * pow(sat(1.0 - (v.y - v.x) * 2.2), 6.0);
+                bg += uTint * uCaustic.x * pow(sat(1.0 - (v.y - v.x) * 1.6), 4.0);
             }
             float F = 0.04 + 0.96 * fres;
-            vec3 glassCol = bg * (1.0 - F * uGloss) + E * F * uGloss + sp;
-            glassCol *= 1.0 - uGlass.w * (1.0 - smoothstep(0.0, max(uBevel * 0.45, aw), d));
+            // a drop under a lamp: shaded just inside the edge that faces the lamp (that light has
+            // gone on through), and bright where it gathers on the far side
+            float rimw = 1.0 - sat(n.z);
+            float side = dot(n.xy / max(length(n.xy), 1e-4), normalize(L.xy + vec2(1e-4, 0.0)));
+            vec3 glassCol = bg * (1.0 - uGlass.w * rimw * smoothstep(-0.3, 0.9, side));
+            glassCol += (uTint * 0.6 + 0.4) * uGather * pow(rimw, 1.4) * smoothstep(0.2, -0.9, side);
+            glassCol = glassCol * (1.0 - F * uGloss * 0.5) + E * F * uGloss + sp;
             float seeThrough = mix(sat(F * uGloss + sp + uGlass.z * 0.35), 1.0, uHasBack);
             col = mix(col, glassCol, inFace);
             a = mix(1.0, seeThrough, inFace);

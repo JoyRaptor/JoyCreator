@@ -19,7 +19,11 @@ void main() {
         m = sat(rays) * 0.8 + exp(-r * r * 22.0) * 1.6;
         m *= 1.0 - smoothstep(0.85, 1.0, max(q.x, q.y));
     } else if (kind == 2) {
-        m = smoothstep(1.0, 0.82, r) * (0.55 + 0.45 * smoothstep(0.5, 0.95, r));
+        // a drop: dark where it faces the lamp, a bright crescent on the far side, one hard glint
+        float body = smoothstep(1.0, 0.86, r);
+        float far = smoothstep(0.1, 0.95, dot(vQ, vec2(0.55, -0.83))) * smoothstep(0.35, 0.95, r);
+        float glintDot = exp(-dot(vQ - vec2(-0.36, 0.42), vQ - vec2(-0.36, 0.42)) * 40.0);
+        m = body * (0.22 + 1.1 * far) + glintDot * 2.5 * body;
     } else if (kind == 3) {
         m = exp(-vQ.y * vQ.y * 5.0) * (1.0 - smoothstep(0.6, 1.0, abs(vQ.x))) * exp(-r * r * 1.5);
     } else {

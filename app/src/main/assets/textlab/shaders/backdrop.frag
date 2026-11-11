@@ -33,12 +33,17 @@ void main() {
         c = mix(floorC, b * 0.5, wall);
         c *= 0.35 + 0.65 * sat(1.0 - dot(cn, cn) * 0.5);
     } else if (s == 3) {
-        float hz = 0.42;
-        vec3 sky = mix(vec3(0.42, 0.56, 0.68), vec3(0.16, 0.3, 0.5), sat((vUv.y - hz) / (1.0 - hz)));
-        float w = fbm(vec2(p.x * 1.2, (hz - vUv.y) * 60.0 / (0.25 + (hz - vUv.y) * 6.0)) + vec2(uTime * 0.05, 0.0));
-        vec3 sea = mix(vec3(0.2, 0.36, 0.46), vec3(0.03, 0.1, 0.17), sat((hz - vUv.y) / hz)) * (0.75 + 0.5 * w);
-        c = mix(sea, sky, smoothstep(hz - 0.004, hz + 0.004, vUv.y));
-        c += vec3(0.3) * exp(-abs(vUv.y - hz) * 60.0);
+        float hz = 0.46;
+        float up = sat((vUv.y - hz) / (1.0 - hz));
+        vec3 sky = mix(vec3(0.5, 0.68, 0.8), vec3(0.03, 0.14, 0.4), pow(up, 0.6));
+        sky += vec3(0.4) * smoothstep(0.55, 0.68, fbm(vec2(p.x * 0.7 + uTime * 0.01, vUv.y * 9.0))) * up * (1.0 - up) * 1.4;
+        float dn = max(hz - vUv.y, 0.0);
+        vec2 wp = vec2(p.x * (1.2 + 6.0 * dn), 26.0 * sqrt(dn * 8.0)) + vec2(uTime * 0.06, -uTime * 0.12);
+        float w = fbm(wp);
+        vec3 sea = mix(vec3(0.16, 0.42, 0.55), vec3(0.01, 0.07, 0.17), sat(dn / hz * 1.2)) * (0.6 + 0.8 * w);
+        sea += vec3(0.75, 0.85, 0.9) * pow(smoothstep(0.62, 0.9, w), 2.0) * exp(-dn * 9.0) * 0.6;
+        c = mix(sea, sky, smoothstep(hz - 0.003, hz + 0.003, vUv.y));
+        c += vec3(0.35, 0.38, 0.4) * exp(-abs(vUv.y - hz) * 70.0);
     } else if (s == 4) {
         vec3 skyC = mix(vec3(0.9, 0.28, 0.12), vec3(0.08, 0.02, 0.2), sat(vUv.y * 1.3 - 0.2));
         float sun = smoothstep(0.52, 0.5, length((cn - vec2(0.0, -0.1)) * vec2(uField.x / uField.y, 1.0)));

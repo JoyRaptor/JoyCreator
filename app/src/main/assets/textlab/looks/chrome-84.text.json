@@ -6,27 +6,19 @@
   "description": "Mirror chrome with a mountain horizon, deep blue sides, and glints that follow the light.",
   "sample": "RAPTOR",
   "stage": 4,
-  "font": {"family": "archivo", "weight": 900, "width": 125, "slant": 0.2, "tracking": 0.01, "caps": true},
-  "margin": [0.7, 0.7, 0.9, 0.9],
+  "font": { "family": "archivo", "weight": 900, "width": 125, "slant": 0.2, "tracking": 0.01, "caps": true },
+  "margin": [ 0.7, 0.7, 0.9, 0.9 ],
   "features": [],
-  "p": {
-    "bevel": 0.04, "bevelHeight": 0.045, "bevelShape": 0.0, "ao": 0.1,
-    "depth": 0.3, "extrudeX": 0.35, "extrudeY": -0.5, "parallax": 0.3,
-    "metal": 1, "fillA": "#ffffff", "fillB": "#ffffff", "fillC": "#ffffff",
-    "envAcross": 0.05, "envUp": 0.8, "envBevel": 0.7, "envTilt": 0.22, "envJag": 0.16, "envJagCount": 5,
-    "stroke": 0.01, "strokeCol": "#dcecff", "strokeMetal": 1,
-    "sideA": "#2f6be0", "sideB": "#04082a", "sideMetal": 0.25,
-    "sweep": 0.7, "sweepEvery": 3.5, "spec": 1.0, "shine": 140,
-    "shadow": 0.6, "shadowSoft": 0.1, "shadowX": 0.05, "shadowY": -0.06,
-    "bloom": 0.7, "bloomThreshold": 1.15, "revealFade": 1
-  },
-  "sphere": {
-    "ramp": [[0.0, "#eaf5ff"], [0.2, "#3f8fe8"], [0.487, "#01030f"], [0.5, "#ffffff*1.8"], [0.6, "#8fd0ff"], [1.0, "#0b1f7a"]],
-    "lamps": [[-0.45, 0.62, 0.14, 2.5, "#ffffff"]],
-    "rim": "#9fc8ff*0.35"
-  },
+  "p": { "bevel": 0.04, "bevelHeight": 0.045, "bevelShape": 0.0, "ao": 0.1, "depth": 0.3, "extrudeX": 0.35, "extrudeY": -0.5, "parallax": 0.3, "metal": 1, "fillA": "#ffffff", "fillB": "#ffffff", "fillC": "#ffffff", "envAcross": 0.05, "envUp": 0.8, "envBevel": 0.7, "envTilt": 0.22, "envJag": 0.16, "envJagCount": 5, "stroke": 0.01, "strokeCol": "#dcecff", "strokeMetal": 1, "sideA": "#2f6be0", "sideB": "#04082a", "sideMetal": 0.25, "sweep": 0.5, "sweepEvery": 3.5, "spec": 1.0, "shine": 140, "shadow": 0.6, "shadowSoft": 0.1, "shadowX": 0.05, "shadowY": -0.06, "bloom": 0.7, "bloomThreshold": 1.15, "revealFade": 1 },
+  "sphere": { "ramp": [ [ 0.0, "#eaf5ff" ], [ 0.2, "#3f8fe8" ], [ 0.487, "#01030f" ], [ 0.5, "#ffffff*1.8" ], [ 0.6, "#8fd0ff" ], [ 1.0, "#0b1f7a" ] ], "lamps": [ [ -0.45, 0.62, 0.14, 2.5, "#ffffff" ] ], "rim": "#9fc8ff*0.35" },
   "particles": [
-    {"count": 150, "p": {"shape": 1, "glint": 1, "twinkle": 0.85, "size": 0.1, "sizeEnd": 1, "life": 2.4, "gain": 6, "colA": "#ffffff", "colB": "#bfe0ff", "fadeIn": 0.3, "fadeOut": 0.5, "share": 0.5}}
+    {
+      "count": 150,
+      "p": { "shape": 1, "glint": 1, "twinkle": 0.85, "size": 0.1, "sizeEnd": 1, "life": 2.4, "gain": 6, "colA": "#ffffff", "colB": "#bfe0ff", "fadeIn": 0.3, "fadeOut": 0.5, "share": 0.5 }
+    }
   ],
-  "motion": {"in": {"each": 0.06, "time": 0.5, "ease": "back", "scale": 1.5, "reveal": [0, 0.18]}, "idle": {}}
+  "motion": {
+    "in": { "each": 0.06, "time": 0.5, "ease": "back", "scale": 1.5, "reveal": [ 0, 0.18 ] },
+    "idle": {}
+  }
 }

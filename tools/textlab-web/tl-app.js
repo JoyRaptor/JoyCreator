@@ -131,6 +131,7 @@
     }
 
     if (q.get('bench')) { await bench(engine, assets); return; }
+    if (q.get('sheet')) { sheet(engine, assets); return; }
 
     let frames = 0, t0 = performance.now(), clock = 0, lastNow = performance.now();
     function tick(now) {
@@ -150,6 +151,26 @@
       if (holdAt === null) requestAnimationFrame(tick);
     }
     requestAnimationFrame(tick);
+  }
+
+  // Every look as a still, side by side: &sheet=<columns>  &t=<seconds>  &from=<first>  &n=<how many>
+  function sheet(engine, assets) {
+    document.body.classList.add('bare');
+    const view = document.getElementById('view'), gl = document.getElementById('cv');
+    gl.style.display = 'none';
+    view.style.cssText = 'display:grid;grid-template-columns:repeat(' + (Number(q.get('sheet')) || 2) + ',1fr);gap:6px;padding:6px;overflow:auto;align-items:start;align-content:start';
+    const t = Number(q.get('t') || 2.5), from = Number(q.get('from') || 0), n = Number(q.get('n') || 99);
+    for (const l of assets.looks.slice(from, from + n)) {
+      engine.setSize(Number(q.get('w')) || 800, Number(q.get('h')) || 450);
+      engine.setLook(l); engine.setText(q.get('text') || l.sample || 'TEXT'); engine.stage = l.stage === undefined ? 1 : l.stage;
+      engine.still(t);
+      const c = document.createElement('canvas'); c.width = engine.W; c.height = engine.H; c.title = l.name;
+      c.getContext('2d').drawImage(gl, 0, 0);
+      c.style.cssText = 'width:100%;border-radius:4px;display:block';
+      const box = document.createElement('div'), cap = document.createElement('div');
+      cap.textContent = l.name; cap.style.cssText = 'color:#8e8e98;font-size:11px;padding:2px 2px 6px';
+      box.appendChild(c); box.appendChild(cap); view.appendChild(box);
+    }
   }
 
   // Time every look on THIS device's GPU: frames drawn back to back, the GPU made to finish.

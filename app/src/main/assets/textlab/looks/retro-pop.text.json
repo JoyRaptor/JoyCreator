@@ -1,0 +1,17 @@
+{
+  "format": "joy.text/1",
+  "id": "retro-pop",
+  "name": "Retro Pop",
+  "family": "Poster",
+  "description": "Flat poster colour, halftone dots, a drawn inner line and a stack of coloured layers behind.",
+  "sample": "HOT",
+  "stage": 1,
+  "font": { "family": "archivo", "weight": 900, "width": 112, "tracking": 0.02, "caps": true },
+  "margin": [ 0.6, 0.6, 1.0, 1.0 ],
+  "features": [ "PATTERN" ],
+  "p": { "bevel": 0, "bevelHeight": 0, "ao": 0, "unlit": 1, "fillA": "#ff9a2e", "fillB": "#ff7a33", "fillC": "#e83a3a", "fillMid": 0.5, "fillSharp": 0.92, "patternKind": 1, "patternScale": 15, "patternAmount": 0.85, "patternShrink": 1, "patternCol": "#ffd9a0", "patternTurn": 0.785, "inline": 0.009, "inlineOff": 0.028, "inlineCol": "#ffffff", "depth": 0.55, "extrudeX": 0.42, "extrudeY": -0.42, "sideA": "#a80f1c", "sideB": "#ffc94d", "sideBands": 4, "shadow": 0.55, "shadowSoft": 0.06, "shadowX": 0.03, "shadowY": -0.03, "shadowCol": "#1a0205", "bloom": 0.15, "spec": 0, "gloss": 0 },
+  "motion": {
+    "in": { "each": 0.09, "time": 0.6, "ease": "bounce", "y": 0.9, "reveal": [ 0, 0.1 ] },
+    "idle": { "bob": 0.012, "speed": 0.5, "phase": 0.8 }
+  }
+}

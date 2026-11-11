@@ -1,0 +1,24 @@
+{
+  "format": "joy.text/1",
+  "id": "gold-crown",
+  "name": "Gold Crown",
+  "family": "Metal",
+  "description": "Hammered gold inside a polished rim, with deep sides and glints that follow the light.",
+  "sample": "ROYAL",
+  "stage": 1,
+  "font": { "family": "archivo", "weight": 800, "width": 100, "tracking": 0.03, "caps": true },
+  "margin": [ 0.7, 0.7, 0.8, 0.9 ],
+  "features": [ "DETAIL" ],
+  "p": { "bevel": 0.05, "bevelHeight": 0.06, "bevelShape": 0.33, "ao": 0.45, "depth": 0.22, "extrudeX": 0.2, "extrudeY": -0.4, "parallax": 0.3, "metal": 1, "fillA": "#ffb52e", "fillB": "#ffc94d", "fillC": "#ffe08a", "envAcross": 0.25, "envUp": 0.45, "envBevel": 1.0, "envTilt": 0.3, "stroke": 0.022, "strokeCol": "#fff3cf", "strokeMetal": 1, "detailKind": 2, "detailScale": 16, "detailAmount": 0.03, "sideA": "#b9770e", "sideB": "#2b1503", "sideMetal": 0.45, "sweep": 0.5, "sweepEvery": 4, "spec": 1.2, "shine": 90, "shadow": 0.7, "shadowSoft": 0.12, "shadowX": 0.04, "shadowY": -0.07, "bloom": 0.7, "bloomThreshold": 1.1 },
+  "sphere": { "ramp": [ [ 0.0, "#1a0d02" ], [ 0.3, "#8a5a1a" ], [ 0.47, "#2a1606" ], [ 0.52, "#fff6da*1.6" ], [ 0.75, "#d9a441" ], [ 1.0, "#3a2408" ] ], "lamps": [ [ -0.4, 0.6, 0.12, 4, "#fff6e0" ], [ 0.55, -0.35, 0.2, 1.2, "#ffd9a0" ] ], "strips": [ 0.9, 5, 0.56, 0.25 ], "rim": "#ffe2a0*0.3" },
+  "particles": [
+    {
+      "count": 140,
+      "p": { "shape": 1, "glint": 1, "twinkle": 0.85, "size": 0.09, "sizeEnd": 1, "life": 2.5, "gain": 6, "colA": "#fff8e0", "colB": "#ffd98a", "fadeIn": 0.3, "fadeOut": 0.5, "share": 0.5, "seed": 0 }
+    }
+  ],
+  "motion": {
+    "in": { "each": 0.07, "time": 0.55, "ease": "out", "y": 0.25, "reveal": [ 0, 0.3 ] },
+    "idle": {}
+  }
+}

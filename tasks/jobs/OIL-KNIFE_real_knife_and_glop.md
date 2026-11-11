@@ -70,8 +70,8 @@ Research 11-11 (read by a helper agent; mechanisms, not marketing):
   stretch, wet paint dragged at half the blade's speed. The owner chose strength 1 from a Note 9 film of 0 / 0.6 / 1. It is
   the default on Palette knife 2 and the Scraper; a brush's settings have **Passage: Soft / Hard**. On `joy-creator`
   (6bcc5a9e5), unit tests pass, lab table and golden updated. The lab's own picture of it has not been compared.
-- **Palette knife 3** (`PasteBrush.hand`, `rollLump`; `u_bladeLay`, `u_bladeLump`): first build on the branch, filmed on the
-  Note 9 with new bench strokes (`knifeSpread`, `knifeSnow`, `knifeCarve`, `tree0..9`). Not owner-tried, not landed.
+- **Palette knife 3** (`PasteBrush.hand`, `rollLump`; `u_bladeLay`, `u_bladeLump`): first build on `joy-creator`, unit tests pass, filmed on the
+  Note 9 with new bench strokes (`knifeSpread`, `knifeSnow`, `knifeCarve`, `tree0..9`). Not owner-tried.
 
 ## What is left
 - [ ] 1. Crossings (blades first, then hair brushes): the plate gets a rounded underside across its width; the paint it

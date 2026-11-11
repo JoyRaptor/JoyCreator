@@ -20,6 +20,12 @@
     mono: { css: 'TLMono', file: 'app/src/main/res/font/plex_mono_semibold.ttf', weight: '600' },
     ubuntu: { css: 'TLUbuntu', file: 'app/src/main/res/font/ubuntu_regular.ttf', weight: '400' },
     doto: { css: 'TLDoto', file: 'app/src/main/assets/doto.ttf', weight: '400' },
+    // TextLab's own display faces (open licence; see assets/textlab/fonts/README.md)
+    pacifico: { css: 'TLPacifico', file: 'app/src/main/assets/textlab/fonts/pacifico.ttf', weight: '400' },
+    bebas: { css: 'TLBebas', file: 'app/src/main/assets/textlab/fonts/bebas_neue.ttf', weight: '400' },
+    cinzel: { css: 'TLCinzel', file: 'app/src/main/assets/textlab/fonts/cinzel_variable.ttf', weight: '400 900' },
+    racing: { css: 'TLRacing', file: 'app/src/main/assets/textlab/fonts/racing_sans_one.ttf', weight: '400' },
+    orbitron: { css: 'TLOrbitron', file: 'app/src/main/assets/textlab/fonts/orbitron_variable.ttf', weight: '400 900' },
   };
   TL.loadFonts = async (urlOf) => {
     for (const f of Object.values(TL.FONTS)) {
@@ -159,7 +165,10 @@
     }
     fontString(font) {
       const f = TL.FONTS[font.family] || TL.FONTS.archivo;
-      return (font.weight || 700) + ' ' + stretchWord(font.width || 100) + ' ' + (TL.GLYPH_EM * SS) + 'px ' + f.css;
+      // a face with one weight is used at that weight (never a faked bold); only a face with widths is asked for one
+      const oneWeight = f.weight && !f.weight.includes(' ');
+      return (oneWeight ? f.weight : font.weight || 700) + ' ' + (f.stretch ? stretchWord(font.width || 100) : 'normal') + ' '
+        + (TL.GLYPH_EM * SS) + 'px ' + f.css;
     }
     measure(font, s) { this.ctx.font = this.fontString(font); return this.ctx.measureText(s); }
 

@@ -117,6 +117,7 @@
       const say = (word) => { $('copy').textContent = word; setTimeout(() => { $('copy').textContent = 'Copy look'; }, 1400); };
       navigator.clipboard.writeText(JSON.stringify(out, null, 2)).then(() => say('Copied'), () => say('Copy refused here'));
     };
+    $('fontpick').onchange = () => { engine.fontPick = $('fontpick').value; engine.userFont = null; $('fontname').textContent = 'Your font'; engine.dirty = true; };
     // Your own font: any .ttf / .otf / .woff file, used for every look that is drawn from type.
     $('font').onchange = async () => {
       const file = $('font').files[0];
@@ -126,7 +127,7 @@
         if (engine.userFace) document.fonts.delete(engine.userFace);
         document.fonts.add(await face.load());
         TL.FONTS.user = { css: 'TLUser' };
-        engine.userFace = face; engine.userFont = file.name;
+        engine.userFace = face; engine.userFont = file.name; $('fontpick').value = '';
         engine.glyphs.cache.clear();
         engine.dirty = true;
         $('fontname').textContent = file.name.replace(/\.[^.]+$/, '');

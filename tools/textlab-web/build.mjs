@@ -25,9 +25,12 @@ const looks = files.map((f) => JSON.parse(read(path.join(assets, 'looks', f))));
 const fontFiles = {
   archivo: 'app/src/main/res/font/archivo_variable.ttf', plex: 'app/src/main/res/font/plex_sans_variable.ttf',
   mono: 'app/src/main/res/font/plex_mono_semibold.ttf', ubuntu: 'app/src/main/res/font/ubuntu_regular.ttf', doto: 'app/src/main/assets/doto.ttf',
+  pacifico: 'app/src/main/assets/textlab/fonts/pacifico.ttf', bebas: 'app/src/main/assets/textlab/fonts/bebas_neue.ttf', cinzel: 'app/src/main/assets/textlab/fonts/cinzel_variable.ttf',
+  racing: 'app/src/main/assets/textlab/fonts/racing_sans_one.ttf', orbitron: 'app/src/main/assets/textlab/fonts/orbitron_variable.ttf',
 };
 const fonts = {};
-for (const fam of new Set(looks.map((l) => (l.font && l.font.family) || 'archivo').concat(['archivo']))) {
+// the page has a font picker, so it carries every display face (not the app's plain text faces)
+for (const fam of ['archivo', 'pacifico', 'bebas', 'cinzel', 'racing', 'orbitron']) {
   const f = fontFiles[fam];
   if (f) fonts[f] = 'data:font/ttf;base64,' + fs.readFileSync(path.join(root, f)).toString('base64');
 }

@@ -109,6 +109,11 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
   (`stone*` knobs: chisel marks, fresh pale chips, veins and strata, mineral grain, dust on ledges, moss in hollows).
   He asked whether people can bring their own fonts: the engine takes any shape, so yes in principle; the look book now
   has a "Your font" file button (pilot only). In the app this should reuse Studio's font keys (`file:` fonts), not built.
+- **Fonts (owner's yes, 11-14):** five open-licence faces bundled in `app/src/main/assets/textlab/fonts/` with their
+  OFL texts and a README (Pacifico, Bebas Neue, Cinzel, Racing Sans One, Orbitron; about 700 KB). Look book: a font
+  picker and a "Your font" file button. Set as the look's own face on Liquid Chrome (Pacifico), Carved Stone (Cinzel)
+  and Hologram (Orbitron); the looks he has already approved keep Archivo. The app must load these from assets and
+  mirror the keys in `TL.FONTS`.
 - **Honest limits today:** the fire is good stylised fire, not yet the photograph the owner showed;
   water and the other drafts are below the bar; only the app's own fonts are used (Archivo, Plex,
   Ubuntu, Doto), so there is no script or true display face yet.

@@ -170,6 +170,10 @@ Carried from the 10-15 roadmap ([archive](archive/ROADMAP_20261015.md)); not job
 - Automatic lip sync; live-performance polish; bend on sprites
 - Lecture mode; multi-camera (composed-frame vision was built 10-24: Joybot's `look`, 95c7cd868)
 - Supporter tier via Play Billing; F-Droid
+- **Joybot the brush maker** (owner, 2026-11-11): Joybot builds new JoyBrush brushes and edits yours "like a pro",
+  through an AI skill of his own (he knows every brush setting and what it does to a mark, and tries the brush before
+  he hands it over). **Only after** the base brushes are perfected and there is a whole library of them to start from.
+  Not a job yet; when it becomes one it joins the Joybot lane (BOT-4's JoyBrush reach).
 - **Restored 10-28** (dropped from the list when the roadmap was rewritten 10-27; checked in code 10-28):
   project sizes in the project list (not built); luma key (spec only, STATE §2; chroma key exists);
   community pack index (not built); automated tests for the Studio app module (none; JoyBrush and the

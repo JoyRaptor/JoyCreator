@@ -1157,6 +1157,10 @@ class JoyBrushActivity : Activity() {
         })
         // The wash's two tastes (2026-11-11), wet sheet only: how even it is laid and how much paper grain shows in it.
         if (wetSheet) {
+            if (canvas.washIsWet) box.addView(menuRow("Dry the wash now",
+                "Wet watercolour dries where it lies, like a hair dryer. Left alone it dries by itself in a few minutes") {
+                popovers.close(); canvas.dryWashNow()
+            })
             val wave = prefs.getString(PREF_WASH_WAVE, "little") ?: "little"
             box.addView(menuRow("Wash: ${mapOf("even" to "Even", "little" to "A little wavy", "wavy" to "Wavy")[wave] ?: "A little wavy"}",
                 "How evenly a quick watercolour stroke wets the paper: perfectly even, or with the faint scallops of a hand-laid wash. Tap to change") {

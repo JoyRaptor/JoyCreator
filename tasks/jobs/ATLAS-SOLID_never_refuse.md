@@ -68,6 +68,22 @@ Films and the measured lines: [evidence/wet-sheet-20261111](../joybrush/evidence
 
 Still to prove or build is in "What is left".
 
+## 2026-11-11: the owner's first answers, and the autosave
+
+- **Paper grain: half** stays the default (the owner). A more-menu row steps None / Half / Full.
+- **A little waviness in a wash** (the owner: "a tiny bit of scalloped arcs are nice ... just not so uniform and more
+  subtle"): spec rule 12, `u_capSlack`. More-menu row **Wash: Even / A little wavy (default) / Wavy**. Note 9 film of the
+  three: `wash_even_little_wavy.jpg`. His own try with the row is owed.
+- **A save no longer sets a wet wash** (was ledger C1; spec rule 9): the autosave, a copy and an export stamp the wash
+  into stand-in tiles for the readback only. Note 9 run `sw1`: saved 1.5 s after the strokes ("saved as it stands: 10
+  tiles ... still wet"), the drips ran on for the next 7 s; then dried on the sheet, saved again (sum of all tile bytes
+  54195908), really printed, saved again: 54195908, the same 16 tiles. Film `save_while_wet_keeps_running.jpg`.
+  Leaving the screen still sets the wash for good.
+- **"Dry the wash now"** in the more menu while a wash is wet (a hair dryer). Built; menu row not tapped on the phone by me.
+- **Oils looked at, not changed.** Four oil brushes crossing at 100 % and at 31 % on the Note 9 (runs `oil100`, `oil31`):
+  16 strokes each, none refused, no square or seam seen in the frames; a brush that crosses blue carries it on (yellow
+  turns green, red turns maroon). Whether that reads as real oil is the owner's eye: asked.
+
 ## What is left
 - [ ] **Wet sheet: owner's own test** on the Note 9 (his page, his hand, tilt), then the Note 20.
 - [x] Wet sheet: the paper's grain at full resolution ("sharp when dry"): built 11-11, half strength by default; the owner

@@ -13,6 +13,8 @@ seconds. Every picture here shows the app's own canvas only. Design: `../../spec
 | `view_moves_whole_wash_rule.jpg` | Zoom in on a wet wash wider than the screen (it sets whole), paint, zoom out (the new wash is carried, still wet), paint, save | "the wash sets", "sheet carried to cells of 4.25 px"; no line where the screen's edge was |
 | `pencil_wash_oil_wash.jpg` | Pencil, wash, oil, wash again over each other on one layer; save, undo, redo | 12 strokes, 0 refusals; the wash was printed when the oil began |
 | `grain_none_half_full_at_100pct.jpg` | A wash painted at 31 %, printed, seen at 100 %: no grain, half strength (the default), full | at 100 % the print is pixel for pixel the overlay; at 31 % about 1 % of the wash's pixels change at the print, at most 27 in 255 |
+| `wash_even_little_wavy.jpg` | Quick Wash strokes at the three settings of the more menu's Wash row (11-11) | `jb_sheet_wave` 0, 0.12 (default), 0.35 |
+| `save_while_wet_keeps_running.jpg` | A save taken 1.5 s after the strokes (frame 14.6 s): the drips keep running after it | "saved as it stands: 10 tiles under the sheet, still wet"; later a stamped save and the save after the real print: 16 tiles, byte sum 54195908 both |
 
 Measured without a picture kept:
 

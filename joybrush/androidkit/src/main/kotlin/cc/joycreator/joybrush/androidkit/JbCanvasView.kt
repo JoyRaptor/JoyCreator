@@ -614,6 +614,15 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     /** The next frame of a wet sheet that only dries ([MediaCanvas.frameDelayMs]). */
     private val restingRender = Runnable { requestRender() }
 
+    /** True while watercolour is still wet on the wet sheet (the more menu then offers "Dry the wash now"). Any thread; a frame may be behind. */
+    val washIsWet: Boolean get() = mediaCanvas.sheetHolding
+
+    /**
+     * The hair dryer (the more menu, 2026-11-11): the wet sheet's wash dries where it lies and goes into its layer now,
+     * instead of in the few minutes it takes by itself. Undo brings the last stroke back wet, as after any print.
+     */
+    fun dryWashNow() { onGl { if (mediaCanvas.settleSheet()) reportHistory() }; requestRender() }
+
     /** Bench only: the wet sheet's water dries where it lies (nothing is printed by this). */
     fun debugDryWetSheet() { onGl { mediaCanvas.drySheet() }; requestRender() }
 

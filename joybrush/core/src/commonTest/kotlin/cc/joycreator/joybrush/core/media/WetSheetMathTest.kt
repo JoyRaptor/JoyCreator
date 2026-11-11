@@ -36,7 +36,10 @@ class WetSheetMathTest {
         // Quick frames with many steps never go under the shipped step; a stalled frame never over the stable one.
         assertEquals(base.dt, WetSheetMath.constants(base, 16.7f, 8, 4).dt)
         assertEquals(1.0 / 30, WetSheetMath.constants(base, 400f, 1, 4).dt, 1e-9)
-        assertEquals(0.8 * 4 / 100, WetSheetMath.constants(base, 400f, 1, 2).dt, 1e-9, "2 px cells: the mingling's limit")
+        assertEquals(1.0 / 60, WetSheetMath.constants(base, 400f, 1, 2).dt, 1e-9, "2 px cells: the step running water needs")
+        assertEquals(1.0 / 60, WetSheetMath.constants(base, 400f, 1, 4, speed = 2.0).dt, 1e-9, "twice as fast: half the step")
+        assertEquals(2.7, WetSheetMath.runCapMmPerS(), 1e-9, "what a full-resolution cell allows at the shipped step")
+        assertEquals(5.4, WetSheetMath.runCapMmPerS(2.0), 1e-9)
         // Full-resolution cells cannot take a longer step at all (it broke into speckle on the Note 9).
         assertEquals(base, WetSheetMath.constants(base, 100f, 1, 1).copy(substeps = base.substeps))
     }

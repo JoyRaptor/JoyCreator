@@ -51,9 +51,23 @@ object WetSheetMath {
      * The longest stable time step (s) for cells [cell] document px wide. The water's spreading terms are explicit diffusion
      * (the pigment's mingling is the first to break: 12 a second into four neighbours), whose stable step grows with the
      * cell's area. Full-resolution cells allow no more than the shipped 1/120 s: on the Note 9, 1/60 s and 1/30 s broke into
-     * coloured speckle (2026-11-10). Capped at 1/30 s, a frame.
+     * coloured speckle (2026-11-10). Capped at 1/30 s, a frame, and at the step running water needs ([runCapMmPerS]).
+     * Checked against the lab's own look at 2 px cells with 1/60 s and 4 px cells with 1/30 s (flood2, 2026-11-10).
      */
-    fun maxDt(cell: Int): Double = if (cell <= 1) 1.0 / 120 else min(1.0 / 30, 0.8 * cell * cell / 100.0)
+    fun maxDt(cell: Int, speed: Double = 1.0): Double =
+        if (cell <= 1) 1.0 / 120 else min(min(1.0 / 30, 0.8 * cell * cell / 100.0), cell / (120.0 * max(speed, 1e-3)))
+
+    /**
+     * The fastest running water may travel, mm/s. On full-resolution cells a step carries water 0.45 cells at most, which at
+     * the shipped step is 2.7 mm/s, and the look the owner approved in the lab was tuned with it: drips break into fingers
+     * because the water cannot outrun them. Wider cells would let it run two to eight times as fast and slide as one sheet
+     * (lab, 2026-11-10: tools/media_render.js "test=flood2&cell=4"), so the sheet keeps the limit in millimetres.
+     * [speed] is the owner's dial: 1 = as approved, 2 = twice as fast.
+     *
+     * A step still carries water 0.45 cells at most, so the limit is only reached with a step no longer than
+     * cell / (120 x speed) seconds: [maxDt] keeps the step under that.
+     */
+    fun runCapMmPerS(speed: Double = 1.0): Double = 0.45 * 120 / DOC_PX_PER_MM * speed
 
     /**
      * The water's constants for a frame that came round in [realMs] and runs [steps] water steps: the time step is the frame's
@@ -65,10 +79,10 @@ object WetSheetMath {
      * given per shipped step, so for a longer step the kept share is the same per SECOND and the push is what leaves the
      * steady flow unchanged: f = keep' * f + dt * flow' * dh settles at the same f as the shipped constants do.
      */
-    fun constants(base: WetConstants, realMs: Float, steps: Int, cell: Int): WetConstants {
+    fun constants(base: WetConstants, realMs: Float, steps: Int, cell: Int, speed: Double = 1.0): WetConstants {
         val n = max(1, steps)
         val want = if (realMs > 0f) realMs / 1000.0 / n else base.dt
-        val dt = want.coerceIn(base.dt, max(base.dt, maxDt(cell)))
+        val dt = want.coerceIn(base.dt, max(base.dt, maxDt(cell, speed)))
         if (dt == base.dt) return base.copy(substeps = n)
         val keep = base.keep.pow(dt / base.dt)
         val flow = base.flow * (1 - keep) * base.dt / ((1 - base.keep) * dt)

@@ -426,7 +426,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
      * its cell (a coarse cell is wf² times the area: the same per-cell rate would be wf² times faster across the paper).
      */
     private fun loadWetFrame(paper: MediaPaperGl, wc0: WetConstants, evapOverride: Double?, pxPerMm: Double) {
-        wetFrameUniforms.load(wetUniforms(paper.stats, wc0) + ("u_gran" to wetGran), evapOverride, slope, wf / (pxPerMm * scale), wc0.beadMm * pxPerMm * scale / wf)
+        wetFrameUniforms.load(wetUniforms(paper.stats, wc0) + ("u_gran" to wetGran) + ("u_runCapMmPerS" to runCapMmPerS), evapOverride, slope,
+            wf / (pxPerMm * scale), wc0.beadMm * pxPerMm * scale / wf)
         // The same for an engine whose layer px are themselves wider than a document px (scale under 1: the wet sheet,
         // WetSheet): a cell is wf / scale document px across.
         val cellDoc = wf / scale.toDouble()
@@ -1198,6 +1199,12 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
      * never reached the shaders (u_gran stayed 0): the lab passed it, the app's port did not, so nothing granulated.
      */
     var wetGran = 0.0
+
+    /**
+     * The fastest running water may travel, mm/s (jb_wet_flux.frag u_runCapMmPerS); 0 = only the step's own limit, as every
+     * engine at full resolution. The wet sheet sets it (WetSheetMath.runCapMmPerS).
+     */
+    var runCapMmPerS = 0.0
 
     /** Tiles out of the water's simulation (Media Atlas v2 B3, set by the host): the water passes draw nothing there. */
     var waterSkip: Set<Long> = emptySet()

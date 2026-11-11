@@ -111,8 +111,9 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
         if (input == null && !e.wetActive) return false
         e.slope = slope
         e.frameRealMs = realMs
+        e.runCapMmPerS = WetSheetMath.runCapMmPerS(flowSpeed)
         val steps = pace.next(realMs)
-        val wc = WetSheetMath.constants(base, realMs, steps, cell)
+        val wc = WetSheetMath.constants(base, realMs, steps, cell, flowSpeed)
         e.wetFrame(input, paper, DOC_PX_PER_MM, wc, substeps = steps)
         e.takeDirty(); e.takeDirtyStores()
         val wet = e.wetRect
@@ -152,6 +153,9 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
 
         /** The owner's switch (the ⋯ menu) and the bench's `jb_wet_sheet`: watercolour on the wet sheet. */
         @Volatile @JvmStatic var enabled = false
+
+        /** The owner's dial: how fast running water may travel, 1 = as approved in the lab (WetSheetMath.runCapMmPerS). */
+        @Volatile @JvmStatic var flowSpeed = 1.0
 
         /** Debug bench only (`jb_sheet_cell`): the cell in document px whatever the zoom (the bench's view is always 100 %). */
         @Volatile @JvmStatic var forcedCell: Int? = null

@@ -245,8 +245,30 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
       lightning knob (vec4, `shade.frag`) and a tube's share of its letter (vec2, `glyph.frag`); `setAll` tries the
       knob on the glyph program every letter and is refused (both engines; harmless, the right value follows).
       Left: brief step 4 (`uOut = 1`), GPU time per pass, then Studio
-      (ask the lead first). The owner's later wishes: looks as picture chips, and moving previews in the Library
-      (a small sprite sheet saved beside each look file).
+      (ask the lead first).
+- [x] **Look previews (owner, 11-12):** pick a look by its picture, not its name, and browse saved looks in the
+      Library moving, like pictures. **Built and agent-checked on the Note 9, 11-12** (branch
+      `claude/textlab-phone-20261112`; pictures in `tasks/screens/textlab-phone/ui/`): the TextLab screen has the
+      chips (cyan ring on the chosen one, which plays), your words and Save; Save wrote `HOT.text.json` +
+      `HOT.5x4.sprite.png` (880 KB) to `Supplies/Looks/` in 3 s; the Library lists HOT once, and its card plays (four
+      screenshots 0.25 s apart, a fifth of the card changes between each); tapping a saved look opens it in the
+      TextLab screen with its words; a look saved without its picture got one from the Library by itself. A chip
+      picture costs 1.5 to 4 s to make, once (35 looks: about 2 minutes, in the background, the first time; remade
+      only when the shader, knob or tube files change). Code: `LookPreview`, `TextLabPreviews`, `LookChipRow`,
+      `com.fadcam.ui.library.SheetDrawable`, `FolderReader.linkSheets`, `LibraryThumbs.bindSheet`,
+      `joyfolder.SheetName` (+ `.text.json` in `FileKind.LOOK`; tests in `tools/joyfolder-tests`). Not done: the
+      owner has not tried it; the sheet is a PNG of about 0.9 MB (a WebP would be about a fifth); a hand-edited
+      look is remade only when the Library is next opened. Plan as built:
+      - A saved look is two files side by side in `Supplies/Looks/` (the existing Looks kind; `.text.json` added
+        to its endings): `<Name>.text.json` and its moving preview `<Name>.5x4.sprite.png`: a sprite sheet, 5
+        across and 4 down, 20 frames at 10 a second (2 s), each 256 x 144, drawn by the same renderer from 3 s in.
+        The grid is in the name, so anything reading the file knows how to cut it.
+      - Name: the words written (cleaned), the user can retype it; a clash gets "2", "3" (the folder's free-name rule).
+      - Library: any `*.<C>x<R>.sprite.png` plays as a loop (only cards on screen play); a look's card shows its
+        sheet, and a sheet beside its own look is not listed twice. A preview older than its look is remade.
+      - Chips: the TextLab screen gets a row of look chips (each look's own sheet, made once in the app's cache):
+        still until chosen, the chosen one plays. Studio's carousel will reuse the same chip row.
+      - Not here yet: packs, installable abilities (a separate job, with the lead).
 - [ ] Output for a compositor: `final.frag` `uOut = 1` (linear, premultiplied) is written, untested.
 - [ ] Studio: a look on `TextOverlayItem` (new optional field; old projects must still open), carousel in the
       text drawer (one press = one undo step), preview and export through the same renderer.

@@ -30,15 +30,16 @@ final class TlProgram {
         }
     }
 
-    /** The shared noise texture, bound to unit 7 for every program that reads it. */
-    static int noise;
+    /** Its engine's noise texture, bound to unit 7 when the program reads it (one per GL context). */
+    private final int noise;
 
     final GlProgram gl;
     final String label;
     private final Map<String, U> u = new HashMap<>();
     private final java.util.Set<String> warned = new java.util.HashSet<>();
 
-    TlProgram(@NonNull String vs, @NonNull String fs, @NonNull String label) {
+    TlProgram(@NonNull String vs, @NonNull String fs, @NonNull String label, int noise) {
+        this.noise = noise;
         this.gl = GlProgram.link(label, vs, fs);
         this.label = label;
         int[] count = new int[1];

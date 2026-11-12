@@ -50,10 +50,12 @@ final class TlGl {
     private final ShaderLib lib;
     private final Map<String, TlProgram> programs = new HashMap<>();
     private final int vao;
+    /** The engine's dice (unit 7), one per context: two engines on two threads never share a texture id. */
+    private final int noise;
 
     TlGl(@NonNull ShaderLib lib) {
         this.lib = lib;
-        TlProgram.noise = noiseTexture();
+        noise = noiseTexture();
         int[] id = new int[1];
         GLES30.glGenVertexArrays(1, id, 0);
         vao = id[0];
@@ -75,7 +77,7 @@ final class TlGl {
         TlProgram p = programs.get(key);
         if (p == null) {
             p = new TlProgram(assemble(vert, defines), assemble(frag, defines),
-                    frag + " [" + String.join(" ", defines) + "]");
+                    frag + " [" + String.join(" ", defines) + "]", noise);
             programs.put(key, p);
         }
         return p;
@@ -215,8 +217,7 @@ final class TlGl {
     void release() {
         for (TlProgram p : programs.values()) p.delete();
         programs.clear();
-        deleteTexture(TlProgram.noise);
-        TlProgram.noise = 0;
+        deleteTexture(noise);
         GLES30.glDeleteVertexArrays(1, new int[]{vao}, 0);
     }
 }

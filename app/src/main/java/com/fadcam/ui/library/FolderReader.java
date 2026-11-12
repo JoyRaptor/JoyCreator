@@ -80,7 +80,46 @@ public final class FolderReader {
                 FLog.w(TAG, "skipping " + fi.path, e);
             }
         }
+        List<String> stale = linkSheets(out);
+        // a look with no moving preview, or one older than the look (edited by hand): make it a new one
+        if (!stale.isEmpty()) cc.joycreator.textlab.TextLabPreviews.get(c).remake(stale);
         return new Result(State.READ, out);
+    }
+
+    /**
+     * Moving pictures (owner, 2026-11-12). A {@code <Name>.<C>x<R>.sprite.png} plays as a loop on its card. A
+     * look with a sheet beside it ({@code Dust.text.json} + {@code Dust.5x4.sprite.png}) shows the sheet as its
+     * own picture, and the sheet is not listed a second time: it is the look's preview, not a file of its own.
+     */
+    @NonNull
+    static List<String> linkSheets(@NonNull List<LibraryItem> items) {
+        List<String> stale = new ArrayList<>();
+        java.util.Map<String, LibraryItem> sheets = new java.util.HashMap<>();
+        for (LibraryItem it : items) {
+            com.fadcam.joyfolder.SheetName n = com.fadcam.joyfolder.SheetName.parse(it.fileName);
+            if (n == null || it.folderPath == null) continue;
+            it.thumbSheet = it.fileName;
+            sheets.put(dirOf(it.folderPath) + "/" + n.base.toLowerCase(java.util.Locale.ROOT), it);
+        }
+        java.util.Set<LibraryItem> owned = new java.util.HashSet<>();
+        for (LibraryItem it : items) {
+            if (it.fileName == null || it.folderPath == null
+                    || !it.fileName.toLowerCase(java.util.Locale.ROOT).endsWith(".text.json")) continue;
+            LibraryItem sheet = sheets.get(dirOf(it.folderPath) + "/" + FileKind.baseOf(it.fileName).toLowerCase(java.util.Locale.ROOT));
+            if (sheet == null || sheet.modified + 2000 < it.modified) stale.add(it.folderPath);
+            if (sheet == null) continue;
+            it.thumb = sheet.uri;
+            it.thumbSheet = sheet.fileName;
+            owned.add(sheet);
+        }
+        items.removeAll(owned);
+        return stale;
+    }
+
+    @NonNull
+    private static String dirOf(@NonNull String rel) {
+        int i = rel.lastIndexOf('/');
+        return i < 0 ? "" : rel.substring(0, i);
     }
 
     @Nullable

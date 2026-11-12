@@ -192,7 +192,7 @@
         <activity android:name="com.fadcam.ui.faditor.slides.SlideRenderActivity" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:exported="true" android:excludeFromRecents="true" android:noHistory="true" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden" />
         <activity android:name="com.fadcam.ui.faditor.waveform.WaveformDebugActivity" android:exported="true" android:excludeFromRecents="true" />
         <!-- TextLab phone engine check: one look on real words, its still saved for the look book comparison -->
-        <activity android:name="cc.joycreator.textlab.TextLabDebugActivity" android:exported="true" android:excludeFromRecents="true" android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" />
+        <activity android:name="cc.joycreator.textlab.TextLabDebugActivity" android:exported="true" android:excludeFromRecents="true" android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" android:windowSoftInputMode="adjustResize" />
 
         <!-- Detective App Icon (Activity Alias) -->
         <activity-alias android:name=".MainActivity.AlternativeIcon" android:enabled="false" android:label="Camera" android:icon="@mipmap/ic_launcher_2" android:roundIcon="@mipmap/ic_launcher_2_round" android:targetActivity=".MainActivity" android:exported="true">

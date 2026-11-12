@@ -74,6 +74,12 @@ final class LibraryOpener {
                                 .putExtra(com.fadcam.vislab.room.VisLabActivity.EXTRA_LOOK_FILE, it.folderPath));
                         return true;
                     }
+                    // A TextLab look: the TextLab screen, on that look (its words come with it).
+                    if (it.folderPath != null && it.folderPath.toLowerCase(java.util.Locale.ROOT).endsWith(".text.json")) {
+                        a.startActivity(new Intent(a, cc.joycreator.textlab.TextLabDebugActivity.class)
+                                .putExtra(cc.joycreator.textlab.TextLabDebugActivity.EXTRA_LOOK_FILE, it.folderPath));
+                        return true;
+                    }
                     if (it.isVideo() || it.isImage()) return openMedia(a, it);
                     return openWithOtherApp(a, it);
             }

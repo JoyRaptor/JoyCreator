@@ -483,11 +483,11 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
         val t = Tiles.SIZE
         val out = ArrayList<Long>()
-        val tx0 = floor((originX + (x0 - 1) * cell) / t).toInt(); val tx1 = floor((originX + (x1 + 1) * cell) / t).toInt()
-        val ty0 = floor((originY + (y0 - 1) * cell) / t).toInt(); val ty1 = floor((originY + (y1 + 1) * cell) / t).toInt()
+        val tx0 = floor((originX + (x0 - 2) * cell) / t).toInt(); val tx1 = floor((originX + (x1 + 2) * cell) / t).toInt()
+        val ty0 = floor((originY + (y0 - 2) * cell) / t).toInt(); val ty1 = floor((originY + (y1 + 2) * cell) / t).toInt()
         for (ty in ty0..ty1) for (tx in tx0..tx1) {
-            val cx0 = max(x0, floor((tx * t - originX) / cell).toInt() - 1); val cx1 = min(x1, ceil(((tx + 1) * t - originX) / cell).toInt() + 1)
-            val cy0 = max(y0, floor((ty * t - originY) / cell).toInt() - 1); val cy1 = min(y1, ceil(((ty + 1) * t - originY) / cell).toInt() + 1)
+            val cx0 = max(x0, floor((tx * t - originX) / cell).toInt() - 2); val cx1 = min(x1, ceil(((tx + 1) * t - originX) / cell).toInt() + 2)
+            val cy0 = max(y0, floor((ty * t - originY) / cell).toInt() - 2); val cy1 = min(y1, ceil(((ty + 1) * t - originY) / cell).toInt() + 2)
             var hit = false
             var y = cy0
             while (y < cy1 && !hit) {

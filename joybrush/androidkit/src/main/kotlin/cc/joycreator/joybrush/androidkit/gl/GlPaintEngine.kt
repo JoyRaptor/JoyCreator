@@ -7489,7 +7489,7 @@ class GlPaintEngine(
     /** One overlay through [docToClip] into whatever is bound: on screen, or into a layer tile ([printOverlay]). */
     private fun drawOverlay(o: LayerOverlay, docToClip: FloatArray, opacity: Float) {
         // With the paper's grain when the overlay asks for it and the document has a paper map to read.
-        val paper = if (o.grain > 0f && !overlayGrainBroken) mediaPaper().takeIf { it.surface.id != 0 && it.texelPx > 0f } else null
+        val paper = if ((o.grain > 0f || o.cell > 1.05f) && !overlayGrainBroken) mediaPaper().takeIf { it.surface.id != 0 && it.texelPx > 0f } else null
         val grainProg = if (paper == null) null else overlayGrainProg ?: try {
             GlProgram(shaders.source("jb_overlay.vert"), shaders.source("jb_overlay_grain.frag"), "overlay grain").also { overlayGrainProg = it }
         } catch (e: RuntimeException) {

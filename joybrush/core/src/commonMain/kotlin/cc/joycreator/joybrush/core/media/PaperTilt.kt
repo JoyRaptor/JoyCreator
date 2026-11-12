@@ -35,6 +35,11 @@ data class PaperSlope(val x: Float, val y: Float) {
  */
 class PaperTilt(private val smoothing: Float = SMOOTHING, private val deadZone: Float = DEAD_ZONE) {
 
+    /**
+     * True (the owner, 2026-11-11: he laid the phone flat and the water ran up the screen): level is the phone lying flat
+     * on a table, always. False: level is the pose the phone was in at the first reading after [reset], as before.
+     */
+    var flatIsLevel = false
     private var haveRef = false
     private var refX = 0f
     private var refY = 0f
@@ -63,7 +68,7 @@ class PaperTilt(private val smoothing: Float = SMOOTHING, private val deadZone: 
         if (!mag.isFinite() || mag < MIN_GRAVITY) return slope
         val dx = -gx / mag
         val dy = -gy / mag
-        if (!haveRef) { haveRef = true; refX = dx; refY = dy }
+        if (!haveRef) { haveRef = true; refX = if (flatIsLevel) 0f else dx; refY = if (flatIsLevel) 0f else dy }
         // Device frame, y up -> screen frame (still y up, turned by the display) -> y down.
         val (rx, ry) = rotateByDisplay(dx - refX, dy - refY, displayQuarterTurns)
         val (tx, ty) = screenToDoc(rx, -ry, canvasRotationRad)

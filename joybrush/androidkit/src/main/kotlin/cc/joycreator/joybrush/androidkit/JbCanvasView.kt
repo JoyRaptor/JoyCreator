@@ -581,8 +581,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     fun setMediaFastWater(on: Boolean) {
         val e = cc.joycreator.joybrush.androidkit.gl.media.MediaLayerEngine
         // The wet sheet's grid: fewer, wider cells for Fast (the next sheet laid takes it).
-        cc.joycreator.joybrush.androidkit.gl.media.WetSheet.longCells =
-            if (on) cc.joycreator.joybrush.core.media.WetSheetMath.LONG_FAST else cc.joycreator.joybrush.core.media.WetSheetMath.LONG_DETAILED
+        // The owner, 2026-11-11: "I'd rather have it flow just a little bit slower and be less pixelated": the sheet always
+        // takes the finer grid now; Fast only speeds the old in-the-layer water.
+        cc.joycreator.joybrush.androidkit.gl.media.WetSheet.longCells = cc.joycreator.joybrush.core.media.WetSheetMath.LONG_DETAILED
         if (e.coarseWaterDefault == on) return
         e.coarseWaterDefault = on
         onGl { mediaCanvas.releaseEngine() }

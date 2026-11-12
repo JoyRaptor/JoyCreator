@@ -30,8 +30,24 @@ in vec2 v_uv;
 in vec2 v_doc;
 out vec4 o_color;
 
+// The look between its cells, by a cubic B-spline (four bilinear reads). Plain bilinear magnification turned every edge of
+// a wash painted zoomed out into stair steps once the painter zoomed in (the owner's screen, 2026-11-11): this rounds them.
+vec4 jb_lookSmooth(vec2 uv) {
+    vec2 sz = vec2(textureSize(u_layer, 0));
+    vec2 st = uv * sz - 0.5;
+    vec2 i = floor(st), f = st - i;
+    vec2 w0 = (1.0 - f) * (1.0 - f) * (1.0 - f) / 6.0;
+    vec2 w1 = (4.0 - 6.0 * f * f + 3.0 * f * f * f) / 6.0;
+    vec2 w2 = (1.0 + 3.0 * f + 3.0 * f * f - 3.0 * f * f * f) / 6.0;
+    vec2 w3 = f * f * f / 6.0;
+    vec2 g0 = w0 + w1, g1 = w2 + w3;
+    vec2 h0 = (i + w1 / g0 - 0.5) / sz, h1 = (i + w3 / g1 + 1.5) / sz;
+    return g0.y * (g0.x * texture(u_layer, vec2(h0.x, h0.y)) + g1.x * texture(u_layer, vec2(h1.x, h0.y)))
+         + g1.y * (g0.x * texture(u_layer, vec2(h0.x, h1.y)) + g1.x * texture(u_layer, vec2(h1.x, h1.y)));
+}
+
 void main() {
-    vec4 c = texture(u_layer, v_uv);
+    vec4 c = u_cellPx > 1.05 ? jb_lookSmooth(v_uv) : texture(u_layer, v_uv);
     // Gradients are taken before any branch (they are undefined inside one that differs between neighbours).
     vec2 p = v_doc / max(u_paperTexelPx, 1.0e-6);
     vec2 dx = dFdx(p), dy = dFdy(p);

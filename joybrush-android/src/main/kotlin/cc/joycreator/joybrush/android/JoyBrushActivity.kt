@@ -180,6 +180,8 @@ private const val PREF_LAYERS_OPEN = "layers_open"
 /** M5.6 (owner 2026-10-11): the tilt pad on screen, and tipping the paper with the phone. Both off until chosen. */
 private const val PREF_TILT_PAD = "tilt_pad"
 private const val PREF_TILT_PHONE = "tilt_phone"
+/** What "Tilt with phone" takes as level: "flat" (lying on a table; the default since 2026-11-11) or "hold" (how it was held). */
+private const val PREF_TILT_LEVEL = "tilt_level"
 
 /** JB-2.12, Lead ruling R49: the guides are remembered by the app, never by the drawing. */
 private const val PREF_GUIDES = "guides"
@@ -1419,6 +1421,7 @@ class JoyBrushActivity : Activity() {
         tiltPad = TiltPadView(kit).apply { onPad = { paperTilt.padMoved(it) } }
         overlays.addView(tiltPad, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.BOTTOM or Gravity.END))
         tiltPad.setWanted(prefs.getBoolean(PREF_TILT_PAD, false))
+        paperTilt.flatIsLevel = prefs.getString(PREF_TILT_LEVEL, "flat") != "hold"
         paperTilt.phoneTilt = prefs.getBoolean(PREF_TILT_PHONE, false) && paperTilt.phoneTiltAvailable
         lockRotationForTilt(paperTilt.phoneTilt)
     }
@@ -1433,11 +1436,20 @@ class JoyBrushActivity : Activity() {
         })
         if (paperTilt.phoneTiltAvailable) {
             val phoneOn = paperTilt.phoneTilt
-            box.addView(menuRow(if (phoneOn) "Tilt with phone  ✓" else "Tilt with phone",
-                "Tip the phone to tip the paper; the way you hold it when you switch this on counts as level") {
-                prefs.edit().putBoolean(PREF_TILT_PHONE, !phoneOn).apply()
-                paperTilt.phoneTilt = !phoneOn
-                lockRotationForTilt(!phoneOn)
+            // Off, then level = lying flat on a table, then level = the way it is held when switched on (the old way).
+            val flat = paperTilt.flatIsLevel
+            box.addView(menuRow(if (!phoneOn) "Tilt with phone: Off" else if (flat) "Tilt with phone: Flat is level" else "Tilt with phone: My hold is level",
+                if (!phoneOn) "Tip the phone to tip the paper so wet paint runs downhill. Tap to turn on"
+                else if (flat) "Lying flat on a table the paint stays put; tipped, it runs downhill. Tap to take the way you hold it as level instead"
+                else "The way you held the phone when this was switched on counts as level. Tap to turn off") {
+                val on = !phoneOn || flat          // Off -> flat -> hold -> Off
+                val nextFlat = !phoneOn
+                prefs.edit().putBoolean(PREF_TILT_PHONE, on).putString(PREF_TILT_LEVEL, if (nextFlat) "flat" else "hold").apply()
+                paperTilt.phoneTilt = false        // so switching on again takes the pose anew
+                paperTilt.flatIsLevel = nextFlat
+                paperTilt.phoneTilt = on
+                lockRotationForTilt(on)
+                popovers.close()
             })
         }
     }

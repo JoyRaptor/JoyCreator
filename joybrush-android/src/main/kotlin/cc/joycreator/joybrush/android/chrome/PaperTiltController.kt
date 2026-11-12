@@ -40,6 +40,11 @@ class PaperTiltController(private val activity: Activity, private val canvas: Jb
     /** Whether this phone has any sensor to tip the paper with. */
     val phoneTiltAvailable: Boolean get() = gravitySensor != null || accelerometer != null
 
+    /** What counts as level ([PaperTilt.flatIsLevel]); takes hold at once. */
+    var flatIsLevel: Boolean
+        get() = tilt.flatIsLevel
+        set(v) { if (tilt.flatIsLevel != v) { tilt.flatIsLevel = v; tilt.reset() } }
+
     /** The "Tilt with phone" switch. Switching it on takes the pose the phone is in as level. */
     var phoneTilt = false
         set(value) {

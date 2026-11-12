@@ -137,7 +137,11 @@ final class PipFrameOverlay extends BitmapOverlay {
         // by construction, which is why it is safe to hand the reader a ceiling.
         int maxOutW = (int) Math.ceil(frameW * Math.max(0.01f, scale)) + 1;
         int maxOutH = (int) Math.ceil(frameH * Math.max(0.01f, scale)) + 1;
-        Bitmap frame = frameAt(clip.getInPointMs() + (timelineMs - start), maxOutW, maxOutH);
+        // At the clip's speed (D3, code review 2026-11-11): this read the source one-to-one, so a
+        // 2x picture-in-picture showed the first half of its footage while its sound (stretched
+        // to the same window) played all of it.
+        Bitmap frame = frameAt(com.fadcam.ui.faditor.model.PipSourceClock.sourceMsAt(clip, timelineMs),
+                maxOutW, maxOutH);
         if (frame == null) return transparent;
         float fit = Math.min(frameW / (float) frame.getWidth(), frameH / (float) frame.getHeight());
         float w = frame.getWidth() * fit * scale;

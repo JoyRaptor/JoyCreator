@@ -806,7 +806,13 @@ public class OverlayVideoPreviewView extends FrameLayout {
      * fetch as it settles rather than one per tick.</p>
      */
     private void syncPlayerTo(@NonNull ExoPlayer p, @NonNull Clip clip) {
-        long want = clip.getInPointMs() + Math.max(0, currentTimeMs - clip.getOverlayStartMs());
+        // The source clock runs at the clip's speed (D3): the window on the timeline is already
+        // the trimmed length divided by it, and the export reads the picture and plays the sound
+        // the same way (PipSourceClock). Without this a 2x picture-in-picture showed only the
+        // first half of its footage in a window its sound filled with all of it.
+        long want = com.fadcam.ui.faditor.model.PipSourceClock.sourceMsAt(clip, currentTimeMs);
+        float pipSpeed = clip.getSpeedMultiplier() > 0f ? clip.getSpeedMultiplier() : 1f;
+        if (p.getPlaybackParameters().speed != pipSpeed) p.setPlaybackSpeed(pipSpeed);
         long pos = p.getCurrentPosition();
         if (masterPlaying) {
             if (!p.isPlaying()) {
@@ -999,7 +1005,7 @@ public class OverlayVideoPreviewView extends FrameLayout {
             long end = start + Math.max(0, c.getTrimmedDurationMs());
             if (currentTimeMs < start || currentTimeMs > end) continue;
             visibleIds.add(c.getId());
-            long sourceMs = c.getInPointMs() + (currentTimeMs - start);
+            long sourceMs = com.fadcam.ui.faditor.model.PipSourceClock.sourceMsAt(c, currentTimeMs);
             long bucket = (sourceMs / STILL_BUCKET_MS) * STILL_BUCKET_MS;
             StillFrame sf = stills.get(c.getId());
             if (sf == null) {

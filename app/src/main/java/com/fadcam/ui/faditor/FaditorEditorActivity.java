@@ -12216,9 +12216,25 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 long transitionSourceDuration = Math.max(1L, transitionPlaybackDurationMs);
                 float progress = (currentPos - transitionPlaybackStartPositionMs) / (float) transitionSourceDuration;
                 progress = Math.max(0f, Math.min(1f, progress));
-                long outputMs = getOutputPositionForCurrentPlayback(currentPos);
-                editorTimeline.setPlayheadPositionMs(outputMs);
-                updateCurrentTimeDisplay(outputMs);
+                // THE EDITOR'S CLOCK, NOT THE FILE'S (code review E5). This used the export file's
+                // clock (every earlier transition taken off) for the playhead AND handed it to
+                // updateCurrentTimeDisplay as if it were the position in the clip. The editor plays
+                // every clip whole, so after the first seam the playhead sat early (and jumped at the
+                // end of the blend), and the outgoing clip's volume curve was read at the wrong
+                // moment: the sound the file's transition piece is built to continue was not
+                // continuing in the preview. The first seam is unchanged at normal speed.
+                Clip blendClip = project.getTimeline().getClip(transitionPlaybackSeam);
+                float blendSpeed = blendClip != null && blendClip.getSpeedMultiplier() > 0f
+                        ? blendClip.getSpeedMultiplier() : 1f;
+                long blendStartMs = project.getTimeline().getClipStartMs(transitionPlaybackSeam);
+                long blendSpanMs = blendClip == null ? 0L : (blendClip.hasLoopExtension()
+                        ? blendClip.getVisualDurationMs() : blendClip.getTrimmedDurationMs());
+                long editorMs = blendStartMs + Math.round(currentPos / (double) blendSpeed);
+                // One ms short of the seam: the later clip owns the cut, and the tick that lands on
+                // it must still read the clip that is being blended out.
+                editorMs = Math.min(editorMs, blendStartMs + Math.max(0L, blendSpanMs - 1));
+                editorTimeline.setPlayheadPositionMs(editorMs);
+                updateCurrentTimeDisplay(currentPos);
                 Transition activeTransition = getTransitionAtSeam(transitionPlaybackSeam);
                 if (activeTransition != null && activeTransition.isGlShader()) {
                     // Animator-driven: rendering + completion belong to startGlTransitionAnimator.
@@ -12341,7 +12357,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // (loopBeforeMs + loopVisualOffsetMs + position) would DOUBLE-COUNT loopBeforeMs,
                 // since loopVisualOffsetMs never advances in gapless mode (the poll-based wrap
                 // block that increments it is bypassed — see the isAtEnd branch above).
-                long visualPosMs = Math.min(position, clip.getVisualDurationMs());
+                // The engine's position is the clip's continuous SOURCE clock; the playhead is on
+                // the timeline's, which runs 1/speed as fast (D10). Same number at normal speed.
+                float loopSpeed = clip.getSpeedMultiplier();
+                long positionTl = loopSpeed > 0f && loopSpeed != 1f
+                        ? Math.round(position / (double) loopSpeed) : position;
+                long visualPosMs = Math.min(positionTl, clip.getVisualDurationMs());
                 Timeline tl = project.getTimeline();
                 long clipStartMs = 0;
                 for (int i = 0; i < tl.getClipCount() && i < selectedClipIndex; i++) {

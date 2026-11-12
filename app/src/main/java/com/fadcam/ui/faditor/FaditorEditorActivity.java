@@ -5715,9 +5715,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // position. This contains what was the ffcdc86 whole-timeline blackout to zero clips.
         playerManager.setErrorRecoveryListener(this::onReverseWindowFailed);
 
-        // Load the clip
+        // Load the clip. An audio-only project (B9: sound lanes, no video clip) has none: its
+        // saved-project path comes here too, and loading "no clip" crashed the editor on open, so
+        // such a project could never be reopened (Note 9, 2026-11-12, work-loss phone check 2).
         Clip clip = getSelectedClip();
-        playerManager.loadClip(clip);
+        if (clip != null) playerManager.loadClip(clip);
 
         // Listen for playback state changes
         playerManager.addListener(new Player.Listener() {
@@ -5816,7 +5818,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
         });
 
-        // Sync initial volume and speed from clip state
+        // Sync initial volume and speed from clip state (none to sync in an audio-only project).
+        if (clip == null) return;
         playerManager.setVolume(project == null ? (clip.isAudioMuted() ? 0f : clip.getVolumeLevel())
                         : com.fadcam.ui.faditor.compositor.LayerPreviewController.effectiveMasterVolume(project.getTimeline(), clip));
         playerManager.setPlaybackSpeed(clip.getSpeedMultiplier(), clip.isPitchCompensationEnabled());
@@ -6643,7 +6646,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
             updateAudioToolUI();
         }
 
-        FLog.d(TAG, "Timeline initialized: sourceDuration=" + clip.getSourceDurationMs()
+        // An audio-only project has no clip (this log line alone crashed its reopening).
+        FLog.d(TAG, clip == null ? "Timeline initialized: audio-only (no video clip)"
+                : "Timeline initialized: sourceDuration=" + clip.getSourceDurationMs()
                 + "ms, in=" + clip.getInPointMs() + ", out=" + clip.getOutPointMs());
     }
 
@@ -6969,13 +6974,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
         toolAudio.setOnClickListener(v -> extractAudioFromCurrentClip());
 
         // Sync UI to existing clip state (e.g. reopened project)
+        // (An audio-only project has no clip to sync from; its tools keep their defaults.)
         Clip clip = getSelectedClip();
-        updateVolumeUI(clip.getVolumeLevel(), clip.isAudioMuted());
-        updateOpacityUI();
-        updateSpeedUI(clip.getSpeedMultiplier());
-        updateRotateUI(clip.getRotationDegrees());
-        updateFlipUI(clip.isFlipHorizontal(), clip.isFlipVertical());
-        updateCropUI(clip.getCropPreset());
+        if (clip != null) {
+            updateVolumeUI(clip.getVolumeLevel(), clip.isAudioMuted());
+            updateOpacityUI();
+            updateSpeedUI(clip.getSpeedMultiplier());
+            updateRotateUI(clip.getRotationDegrees());
+            updateFlipUI(clip.isFlipHorizontal(), clip.isFlipVertical());
+            updateCropUI(clip.getCropPreset());
+        }
         updateCanvasUI(project.getCanvasPreset());
 
         // Apply live preview transforms (delayed to ensure player view is laid out)

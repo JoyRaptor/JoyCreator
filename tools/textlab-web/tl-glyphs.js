@@ -200,6 +200,7 @@
         cellW: pic.w / TL.GLYPH_EM, cellH: pic.h / TL.GLYPH_EM,
         originX: ox / px, originY: (h - by) / px,      // from the cell's bottom left to the pen's point on the baseline, em
         points: pointsOf(pic),
+        pic,                                              // kept: rivets are placed from it
       };
       this.cache.set(key, p);
       return p;
@@ -247,10 +248,98 @@
     }
   };
 
-  // The emitter's point list for a laid-out line of letters: 64 x 192 points. Rows 0..63 lie on
-  // the outline, 64..127 inside, 128..191 on corners. Each point: x, y (field em), outward x, y.
-  TL.emitterPoints = (letters) => {
-    const W = 64, H = 192, out = new Float32Array(W * H * 4);
+  // RIVETS, placed as a sign-maker places them: along a line `level` em in from the outline (the middle of the
+  // raised frame), one at every corner, then evenly spaced in a straight line between corners, never further apart
+  // than `gap`. A loop with no corners (an O) starts at its top. So a symmetric letter gets symmetric rivets.
+  // Returns [x, y] in the piece's cell, em.
+  TL.rivetsOf = (pic, level, gap) => {
+    const { d, w, h } = pic, E = TL.GLYPH_EM;
+    const f = (x, y) => d[y * w + x] - level;
+    // 1. the line, as closed loops (marching squares over the distance picture)
+    const at = new Map(), nb = new Map();
+    const pt = (k, x0, y0, x1, y1) => {
+      if (!at.has(k)) { const a = f(x0, y0), b = f(x1, y1), t = a / (a - b); at.set(k, [(x0 + (x1 - x0) * t + 0.5) / E, (y0 + (y1 - y0) * t + 0.5) / E]); }
+      return k;
+    };
+    const link = (a, b) => { if (!nb.has(a)) nb.set(a, []); if (!nb.has(b)) nb.set(b, []); nb.get(a).push(b); nb.get(b).push(a); };
+    const SEG = { 1: [[3, 0]], 2: [[0, 1]], 3: [[3, 1]], 4: [[1, 2]], 6: [[0, 2]], 7: [[3, 2]], 8: [[2, 3]], 9: [[0, 2]], 11: [[1, 2]], 12: [[3, 1]], 13: [[0, 1]], 14: [[3, 0]] };
+    for (let y = 0; y < h - 1; y++) for (let x = 0; x < w - 1; x++) {
+      const c = (f(x, y) > 0 ? 1 : 0) | (f(x + 1, y) > 0 ? 2 : 0) | (f(x + 1, y + 1) > 0 ? 4 : 0) | (f(x, y + 1) > 0 ? 8 : 0);
+      if (c === 0 || c === 15) continue;
+      const e = [() => pt('h' + x + ',' + y, x, y, x + 1, y), () => pt('v' + (x + 1) + ',' + y, x + 1, y, x + 1, y + 1),
+                 () => pt('h' + x + ',' + (y + 1), x, y + 1, x + 1, y + 1), () => pt('v' + x + ',' + y, x, y, x, y + 1)];
+      let segs = SEG[c];
+      if (c === 5 || c === 10) {
+        const mid = (f(x, y) + f(x + 1, y) + f(x + 1, y + 1) + f(x, y + 1)) / 4 > 0;
+        segs = (c === 5) === mid ? [[0, 1], [2, 3]] : [[3, 0], [1, 2]];
+      }
+      for (const [a, b] of segs) link(e[a](), e[b]());
+    }
+    const loops = [], seen = new Set();
+    for (const start of nb.keys()) {
+      if (seen.has(start)) continue;
+      const loop = [];
+      let prev = null, cur = start;
+      while (cur !== undefined && !seen.has(cur)) {
+        seen.add(cur); loop.push(at.get(cur));
+        const ns = nb.get(cur), nx = ns[0] === prev ? ns[1] : ns[0];
+        prev = cur; cur = nx;
+      }
+      if (loop.length > 8) loops.push(loop);
+    }
+    // 2. each loop: evenly resampled, its corners found, then the rivets
+    const out = [], step = 0.004, minGap = Math.max(gap * 0.45, 0.07);
+    for (const loop of loops) {
+      const L = [0];
+      for (let i = 1; i <= loop.length; i++) { const a = loop[i - 1], b = loop[i % loop.length]; L.push(L[i - 1] + Math.hypot(b[0] - a[0], b[1] - a[1])); }
+      const total = L[L.length - 1];
+      if (total < 0.25) continue;                                             // too small a loop to hold rivets
+      const n = Math.max(8, Math.round(total / step)), P = [];
+      for (let i = 0, j = 0; i < n; i++) {
+        const s = (i / n) * total;
+        while (L[j + 1] < s) j++;
+        const a = loop[j], b = loop[(j + 1) % loop.length], t = (s - L[j]) / Math.max(L[j + 1] - L[j], 1e-9);
+        P.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
+      }
+      const k = Math.max(3, Math.round(0.035 / step)), turn = [];
+      for (let i = 0; i < n; i++) {
+        const a = P[(i - k + n) % n], b = P[i], c = P[(i + k) % n];
+        const ux = b[0] - a[0], uy = b[1] - a[1], vx = c[0] - b[0], vy = c[1] - b[1];
+        turn.push(Math.acos(Math.max(-1, Math.min(1, (ux * vx + uy * vy) / ((Math.hypot(ux, uy) * Math.hypot(vx, vy)) || 1)))));
+      }
+      const cand = [];
+      for (let i = 0; i < n; i++) {
+        if (turn[i] < 0.6) continue;
+        let peak = true;
+        for (let j = 1; j <= k && peak; j++) peak = turn[i] >= turn[(i + j) % n] && turn[i] > turn[(i - j + n) % n];
+        if (peak) cand.push(i);
+      }
+      cand.sort((a, b) => turn[b] - turn[a]);
+      const kept = [], arc = (a, b) => { const g = Math.abs(a - b) * (total / n); return Math.min(g, total - g); };
+      for (const i of cand) if (kept.every((j) => arc(i, j) > minGap)) kept.push(i);
+      kept.sort((a, b) => a - b);
+      const place = (s) => { const i = ((Math.round(s / (total / n)) % n) + n) % n; out.push(P[i]); };
+      if (!kept.length) {
+        let top = 0;
+        for (let i = 1; i < n; i++) if (P[i][1] > P[top][1] + 1e-6) top = i;
+        const m = Math.max(3, Math.round(total / gap));
+        for (let q = 0; q < m; q++) place(top * (total / n) + (q * total) / m);
+      } else {
+        for (let q = 0; q < kept.length; q++) {
+          const s0 = kept[q] * (total / n), s1 = q + 1 < kept.length ? kept[q + 1] * (total / n) : kept[0] * (total / n) + total;
+          const m = Math.max(1, Math.round((s1 - s0) / gap));
+          for (let r = 0; r < m; r++) place(s0 + ((s1 - s0) * r) / m);
+        }
+      }
+    }
+    return out;
+  };
+
+  // The emitter's point list for a laid-out line of letters: 64 x 256 points. Rows 0..63 lie on
+  // the outline, 64..127 inside, 128..191 on corners, 192..255 an ORDERED list (the rivets, if any).
+  // Each point: x, y (field em), outward x, y.
+  TL.emitterPoints = (letters, rivets) => {
+    const W = 64, H = 256, out = new Float32Array(W * H * 4);
     let seed = 0x9e3779b9;
     const rnd = () => { seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
     const fillHalf = (which, row0) => {
@@ -266,6 +355,15 @@
       }
     };
     fillHalf('edge', 0); fillHalf('fill', 64); fillHalf('corner', 128);
-    return { w: W, h: H, data: out };
+    let count = 0;
+    for (let i = 0; i < W * 64; i++) { const o = (192 * W + i) * 4; out[o] = -99; out[o + 1] = -99; out[o + 3] = 1; }
+    (rivets || []).forEach((list, li) => {
+      for (const [x, y] of list) {
+        if (count >= W * 64) return;
+        const o = (192 * W + count++) * 4;
+        out[o] = letters[li].x + x; out[o + 1] = letters[li].y + y; out[o + 2] = 0; out[o + 3] = 1;
+      }
+    });
+    return { w: W, h: H, data: out, rivets: count };
   };
 })();

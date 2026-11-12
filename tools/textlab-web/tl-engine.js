@@ -49,7 +49,10 @@
     setLook(look) { this.look = look; this.over = {}; this.dirty = true; this.replay(); }
     setText(text) { if (text !== this.text) { this.text = text; this.dirty = true; } }
     setSize(w, h) { if (w !== this.maxW || h !== this.maxH) { this.maxW = w; this.maxH = h; this.dirty = true; } }
-    setKnob(name, value) { this.over[name] = value; this.sphereDirty = true; }
+    setKnob(name, value) {
+      this.over[name] = value; this.sphereDirty = true;
+      if (/^rivet|^weight$|^stroke$/.test(name)) this.emitDirty = true;      // rivets sit at a distance from the outline
+    }
     replay() { this.clock0 = null; this.resetFire = true; }
     // SHATTER. How far the word has broken, 0 whole .. 1 gone: the slider, or by itself (whole, it breaks, gone,
     // then it comes back together the way it went).
@@ -140,10 +143,22 @@
       this.heatPx = hw / lay.fieldW;
       T.bloom = [];
       for (let i = 1; i <= 5; i++) T.bloom.push(glw.target(W >> i, H >> i, 'half'));
-      const pts = TL.emitterPoints(lay.letters);
-      this.emit = glw.pointTexture(pts.w, pts.h, pts.data, this.emit);
+      this.buildEmitter();
       this.fieldU = [lay.fieldW, lay.fieldH, em, TL.SPREAD];
       this.dirty = false; this.sphereDirty = true; this.resetFire = true;
+    }
+
+    // The emitter's points, and the RIVETS (only for a look that asks for them, with `from` 4): a line a fixed
+    // distance in from the outline (by default the middle of the raised frame), one at every corner, the rest
+    // evenly spaced between. Rebuilt when the frame, the weight or the rivet sliders change.
+    buildEmitter() {
+      const lay = this.lay, wants = (this.look.particles || []).some((ps) => ps.p && ps.p.from === 4);
+      const level = this.knob('rivetInset') - this.knob('weight') - this.knob('stroke'), gap = Math.max(this.knob('rivetGap'), 0.08);
+      const rivets = wants ? lay.letters.map((l) => (l.piece.pic ? TL.rivetsOf(l.piece.pic, level, gap) : [])) : null;
+      const pts = TL.emitterPoints(lay.letters, rivets);
+      this.emit = this.glw.pointTexture(pts.w, pts.h, pts.data, this.emit);
+      this.rivetCount = pts.rivets;
+      this.emitDirty = false;
     }
 
     bakeSphere() {
@@ -194,6 +209,7 @@
       const gl = this.gl, glw = this.glw, look = this.look;
       if (!look) return;
       if (this.dirty) this.build();
+      if (this.emitDirty && this.lay) this.buildEmitter();
       if (this.sphereDirty) this.bakeSphere();
       if (this.clock0 === null) { this.clock0 = now; this.last = now; }
       const t = now - this.clock0, dt = Math.min(Math.max(now - this.last, 0), 0.1);
@@ -291,7 +307,8 @@
         const pp = glw.program('particle.vert', 'particle.frag').use().setAll(U).setAll(PU);
         pp.tex('uEmit', this.emit, 0).tex('uFieldTex', field.tex, 1).tex('uMatcap', this.sphere.tex, 2);
         glw.bind(T.scene);
-        gl.drawArrays(gl.TRIANGLES, 0, 6 * Math.round(ps.count || 200));
+        const many = ps.p && ps.p.from === 4 ? this.rivetCount : Math.round(ps.count || 200);     // an ordered list draws exactly its points
+        if (many > 0) gl.drawArrays(gl.TRIANGLES, 0, 6 * many);
       }
       gl.disable(gl.BLEND);
 

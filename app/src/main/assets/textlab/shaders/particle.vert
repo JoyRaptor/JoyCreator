@@ -8,7 +8,7 @@
 // The emitter texture is a list of points on a shape (any shape: letters, a drawing, a sprite):
 //   xy = the point, em     zw = the outward direction of the outline there
 // rows 0..63 are points on the OUTLINE, rows 64..127 points INSIDE the shape, rows 128..191 its
-// CORNERS (where a made object catches a glint).
+// CORNERS (where a made object catches a glint), rows 192..255 an ORDERED list (rivets, placed by rule).
 //
 // Six vertices per particle, no buffers.
 uniform sampler2D uEmit;
@@ -47,6 +47,7 @@ void main() {
     int mode = int(uPBirth.x + 0.5);
     int row = int(r.x * 63.999) + (mode == 1 ? 64 : mode == 3 ? 128 : 0);
     vec4 e = texelFetch(uEmit, ivec2(int(r.y * 63.999), row), 0);
+    if (mode == 4) e = texelFetch(uEmit, ivec2(id % 64, 192 + id / 64), 0);     // 4: the next point of an ordered list (rivets)
     float reveal = textureLod(uFieldTex, e.xy / uField.xy, 0.0).g;
     if (mode == 2) { e = vec4(r.xy * uField.xy, normalize(r.zw - 0.5 + vec2(1e-3, 0.0))); reveal = 1.0; }
     vec2 born = e.xy + e.zw * uPBirth.y * (0.3 + r.z);
@@ -54,6 +55,7 @@ void main() {
     // alive: its share of the crowd, its letter has arrived, and (if asked) its edge faces the sky
     float alive = step(hash11(fi * 3.31 + 7.0), uPBirth.w) * step(0.5, reveal);
     alive *= mix(1.0, smoothstep(0.0, 0.4, e.w), uPBirth.z);
+    if (mode == 4) alive *= step(-50.0, e.x);                                // (the list ends where the points stop)
     // born as the front passes: its age is how far the front has gone on since
     float past = 1.0;
     if (atFront) {

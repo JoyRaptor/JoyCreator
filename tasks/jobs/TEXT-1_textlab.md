@@ -219,6 +219,22 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
   runs down the paint; rivets hold the plates. Checked up close against the photographs on the computer; Note 9
   36 ms (as before). General wear (grain, mottle, grime, scratches) is now skipped when its slider is zero, which
   took Dark Steel from 30 to 24 ms. His verdict on the new Rusted is owed.
+- **Owner, 2026-11-12, on the rebuilt Rusted:** three surfaces need three kinds of light: "bare metal ... high
+  specular and anisotropic", rust "very, very matte, porous", paint "medium specular". And rivets need "logical
+  rules ... orderly in a line ... symmetric", either on the raised outline or in the recess. Done:
+  - `RUST` now has a band of bright bare steel between the old paint and the rust (`rustMetal`), brushed one way
+    per plate: fine grooves, a soft bright streak ACROSS the grooves that slides with the tilt, a slightly blurred
+    reflection. Paint: a satin sheen (`rustPaintShine`). Rust: no shine, its pores hold shadow. (`rustMetalShine`)
+  - Rivets by rule, `TL.rivetsOf` in `tl-glyphs.js`: the line a fixed distance in from the outline (`rivetInset`,
+    by default the middle of the raised frame) is traced from the letter's distance picture; a rivet at every
+    corner, then evenly spaced between corners, never further apart than `rivetGap`; a loop without corners (an O)
+    starts at its top. They are an ORDERED list in the emitter's rows 192 to 255 and drawn by particle `from` 4.
+    Changing the frame, weight, stroke or rivet sliders re-places them.
+  - Checked on the computer, up close. Note 9: 42 to 43 ms (it was 36 before the shiny steel), but the phone was
+    at 30.8 C against about 23 C in earlier runs, so heat slowdown may be part of it; not re-measured cool.
+  - A slip found on the way: a slider group that fills only three of a four-number setting is silently refused
+    (`Program.set` warns in the console and sets nothing), so the bare steel, paint sheen and steel shine all read
+    as zero until the setting was declared with three numbers.
 - **Honest limits today:** the fire is good stylised fire, not yet the photograph the owner showed;
   water and the other drafts are below the bar; only the app's own fonts are used (Archivo, Plex,
   Ubuntu, Doto), so there is no script or true display face yet.
@@ -335,5 +351,8 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
   particles), `&minus=VINE` (without that piece). Inside `adb shell "... -d '...'"` write `&` bare.
 - A film curve run per colour channel bleaches colour: `final.frag` scales by the brightest channel.
 - Half-float render targets are required (present on the Note 9).
+- A slider group must fill every number of the shader setting it drives (a `vec4` needs four sliders, or
+  declare it `vec3`). One short is refused whole, silently except for a console warning.
+
 - Look files are plain JSON; the web page reads them from the app's assets, so a look seen on the
   computer is the file the phone ships.

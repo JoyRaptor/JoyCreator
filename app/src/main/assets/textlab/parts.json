@@ -1,7 +1,7 @@
 {
   "format": "joy.textparts/1",
   "about": "Every knob a TextLab look can turn. A look file lists only the knobs it changes. 'u' is the shader uniform, 'i' the component inside it (vec2/vec3/vec4), 'c' a colour default (\"#rrggbb\" or \"#rrggbb*gain\" for light brighter than white), 'v' a number default. The room builds its panels from this file; the look book does too.",
-  "slots": ["Shape", "Depth", "Coats", "Material", "Wear", "Light", "Sides", "Floor", "Tube", "Glass", "Surface", "Pattern", "Stone", "Fur", "Lamps", "Lightning", "Paper", "Burn", "Vine", "Stitch", "Balloon", "Sand", "Bits", "Ink", "Front", "Shatter", "Fog", "Flag", "Panes", "Rust", "Jelly", "Ember", "Fire", "Hologram", "Finish", "Arrive"],
+  "slots": ["Shape", "Depth", "Coats", "Material", "Wear", "Light", "Sides", "Floor", "Tube", "Glass", "Surface", "Pattern", "Stone", "Fur", "Lamps", "Lightning", "Paper", "Burn", "Vine", "Stitch", "Balloon", "Sand", "Bits", "Ink", "Front", "Shatter", "Fog", "Flag", "Panes", "Rust", "Rivets", "Jelly", "Ember", "Fire", "Hologram", "Finish", "Arrive"],
   "knobs": {
     "weight":        {"u": "uWeight", "v": 0, "min": -0.05, "max": 0.08, "slot": "Shape", "label": "Thickness"},
     "soften":        {"u": "", "v": 0, "min": 0, "max": 0.08, "slot": "Shape", "label": "Melt and round"},
@@ -240,6 +240,11 @@
     "rustRelief": {"u": "uRustB", "i": 2, "v": 1.2, "min": 0, "max": 3, "slot": "Rust", "label": "Coats and rust stand in relief"},
     "rustSteel": {"u": "uRustB", "i": 3, "v": 0.5, "min": 0, "max": 1, "slot": "Rust", "label": "Patches of grey scale in the rust"},
     "rustUnderCol": {"u": "uRustUnder", "c": "#d9cfae", "slot": "Rust", "label": "The older coat"},
+    "rustMetal": {"u": "uRustC", "i": 0, "v": 0.5, "min": 0, "max": 1.5, "slot": "Rust", "label": "Bright bare steel before the rust begins"},
+    "rustPaintShine": {"u": "uRustC", "i": 1, "v": 1, "min": 0, "max": 2, "slot": "Rust", "label": "Paint's sheen"},
+    "rustMetalShine": {"u": "uRustC", "i": 2, "v": 1, "min": 0, "max": 2, "slot": "Rust", "label": "Bare steel's shine (brushed)"},
+    "rivetInset": {"u": "uRivet", "i": 0, "v": 0.03, "min": 0, "max": 0.2, "slot": "Rivets", "label": "Rivets this far in from the edge"},
+    "rivetGap": {"u": "uRivet", "i": 1, "v": 0.3, "min": 0.1, "max": 1, "slot": "Rivets", "label": "Most space between rivets"},
     "jellyDepth": {"u": "uJelly", "i": 0, "v": 0.8, "min": 0, "max": 1, "slot": "Jelly", "label": "Deeper colour in the thick middle"},
     "jellyGlow": {"u": "uJelly", "i": 1, "v": 1, "min": 0, "max": 3, "slot": "Jelly", "label": "Light gathered on the far side"},
     "jellyBend": {"u": "uJelly", "i": 2, "v": 1, "min": 0, "max": 3, "slot": "Jelly", "label": "Bends what is behind"},
@@ -306,7 +311,7 @@
     "revealFill":    {"u": "uReveal", "i": 1, "v": 0, "min": 0, "max": 1, "slot": "Arrive", "label": "Letters fill from the baseline"}
   },
   "particleKnobs": {
-    "from":      {"u": "uPBirth", "i": 0, "v": 0, "min": 0, "max": 3, "step": 1, "label": "Born on the outline, inside, anywhere, on corners"},
+    "from":      {"u": "uPBirth", "i": 0, "v": 0, "min": 0, "max": 4, "step": 1, "label": "Born on the outline, inside, anywhere, on corners, at the rivet places (in order)"},
     "out":       {"u": "uPBirth", "i": 1, "v": 0, "min": -0.1, "max": 0.3, "label": "Born this far out"},
     "up":        {"u": "uPBirth", "i": 2, "v": 0, "min": 0, "max": 1, "label": "Only edges that face up"},
     "share":     {"u": "uPBirth", "i": 3, "v": 1, "min": 0, "max": 1, "label": "How many"},

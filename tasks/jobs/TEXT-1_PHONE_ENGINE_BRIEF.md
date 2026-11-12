@@ -33,7 +33,7 @@ same picture. Never edit a look file to make the phone match.
    into a distance picture (the same two-pass exact distance transform), `GLYPH_EM = 208`, `SPREAD = 0.25`,
    rows bottom to top. Then `tl-tubes.js`. Load the bundled fonts by the keys in `TL.FONTS`.
 3. **Everything else in `frame()`**: fire (fixed 1/60 s ticks, heat picture at most 640 wide), particles
-   (six vertices each from `gl_VertexID`, the 64 x 192 RGBA32F emitter texture, read with `texelFetch`),
+   (six vertices each from `gl_VertexID`, the 64 x 256 RGBA32F emitter texture, read with `texelFetch`; rows 192 to 255 are an ordered list, the rivets placed by `TL.rivetsOf`),
    the noise texture (256 x 256 R8 from the fixed xorshift recipe in `tl-gl.js`, unit 7), the photo stage.
 4. **Clear output** for compositing: `final.frag` `uOut = 1` (linear, premultiplied). It is written and
    untested: test it here.

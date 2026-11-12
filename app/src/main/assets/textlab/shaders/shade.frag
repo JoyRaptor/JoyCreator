@@ -179,6 +179,7 @@ uniform vec4  uFloor;        // .y = the floor line
 uniform vec4  uRust;         // paint over rusting steel: how much of the coat has failed, patch size, edges go first, rust carried down by rain
 uniform vec4  uRustB;        // plates per em (0 = one piece), how much of the older coat shows round the bare steel, how strongly coats and rust stand in relief, patches of grey scale in the rust
 uniform vec3  uRustUnder;    // the older coat under the paint
+uniform vec3  uRustC;        // how much bright bare steel shows before rust begins, the paint's sheen, the bare steel's shine
 #endif
 #ifdef JELLY
 uniform vec4  uJelly;        // jelly: how deep its colour is in the thick middle, light gathered on the far side, how it bends what is behind, how see-through
@@ -740,7 +741,14 @@ void main() {
                        + (1.0 - smoothstep(0.0, 0.07, min(d, seam))) * 0.3 * uRust.z + trim * 0.35;
             float thrTop = mix(0.95, 0.3, uRust.x), thrUnder = thrTop + 0.02 + 0.1 * uRustB.y;
             float topGone = smoothstep(thrTop - 0.007, thrTop + 0.007, worn);
-            float rustBare = smoothstep(thrUnder - 0.007, thrUnder + 0.007, worn);
+            float bareAll = smoothstep(thrUnder - 0.007, thrUnder + 0.007, worn);           // no paint left at all
+            // where the paint has only lately gone the steel is still bright; further in it has rusted. How much
+            // bright steel shows is not the same everywhere.
+            float metalBand = uRustC.x * 0.07 * (0.15 + 1.6 * tnoise(q * 3.3 + 50.0));
+            float rustBare = smoothstep(thrUnder + metalBand - 0.006, thrUnder + metalBand + 0.006, worn);
+            // bare steel was brushed or ground when it was made: each plate one way
+            float brushA = uRustB.x > 0.0 ? step(0.5, fract(plateRnd * 7.0)) * 1.5708 + (plateRnd - 0.5) * 0.3 : 0.12;
+            vec2 brushT = vec2(cos(brushA), sin(brushA));
             float soon = smoothstep(thrTop - 0.14, thrTop, worn) * (1.0 - topGone);         // paint that is about to go
             float crazed = (1.0 - smoothstep(0.0, 0.035, chipV.y - chipV.x)) * (0.3 + 0.7 * soon);
             coat = mix(coat, vec3(luma(coat)) * 1.25 + 0.03, 0.35 * tfbm2(q * 2.1 + 5.0)) * (1.0 - 0.45 * crazed);     // chalked by the sun, cracked
@@ -755,15 +763,16 @@ void main() {
             float rustRuns = smoothstep(thrUnder - 0.05, thrUnder + 0.05, tfbm(vec2(q.x, q.y + 0.11) * uRust.y + plateRnd * 17.0 + 21.0))
                            * (0.35 + 0.65 * tnoise(vec2(q.x * 46.0, q.y * 2.5))) * uRust.w;
             coat = mix(coat, coat * vec3(0.72, 0.45, 0.26), rustRuns * 0.75);
-            alb = mix(mix(coat, under, topGone), steel, rustBare);
+            vec3 metalAlb = vec3(0.6, 0.6, 0.6) * (0.85 + 0.3 * tnoise(q * 9.0 + 3.0));
+            alb = mix(mix(mix(coat, under, topGone), metalAlb, bareAll), steel, rustBare);
             alb *= 1.0 - 0.4 * topGone * (1.0 - smoothstep(thrTop + 0.004, thrTop + 0.03, worn));       // shade lying under the coat's broken edge
             alb *= 1.0 - 0.85 * (1.0 - smoothstep(0.0015, 0.005, seam));                    // the seam between two plates
             // Heights: each coat has a thickness, a blister swells, rust is rough. Where the height changes the
             // surface tips, and the lamp does the rest.
-            float tall = (1.0 - topGone) * 0.55 + (1.0 - rustBare) * 0.45
+            float tall = (1.0 - topGone) * 0.55 + (1.0 - bareAll) * 0.45
                        + soon * max(1.0 - chipV.x * 2.4, 0.0) * 0.5
                        + rustBare * (r2 * 0.25 + r3 * 0.2 - smoothstep(0.66, 0.86, r3) * 0.45 + (tnoise(q * 260.0) - 0.5) * 0.3)
-                       + (1.0 - rustBare) * (tnoise(q * 150.0) - 0.5) * 0.06;
+                       + (1.0 - bareAll) * (tnoise(q * 150.0) - 0.5) * 0.06;
             n = normalize(vec3(n.xy - vec2(dFdx(tall), dFdy(tall)) * uRustB.z * 1.6, n.z));
 #endif
 #ifdef STITCH
@@ -847,6 +856,28 @@ void main() {
             col = mix(paint, E * alb, metal);
             col *= 1.0 + grain * 0.5 * uWear.w * metal;
             col = mix(col, alb, uUnlit) + sp;
+#ifdef RUST
+            {
+                // THREE SURFACES, THREE KINDS OF SHINE (owner, 2026-11-12). Bare steel is bright and BRUSHED: fine
+                // grooves run along the brush, so the lamp makes a soft bright band ACROSS them that slides as the
+                // phone tilts, and what it mirrors is smeared the same way. Paint has a medium, satin sheen. Rust has
+                // no shine at all: it is porous, and its pits hold shadow.
+                vec3 H3 = normalize(L + vec3(0.0, 0.0, 1.0));
+                float spP = pow(max(dot(n, H3), 0.0), 12.0) * 0.32 * uRustC.y;
+                vec3 paintC = alb * (0.24 + 0.88 * ndl) + E * (0.07 + 0.3 * fres) * uRustC.y + spP * vec3(1.0, 0.98, 0.95);
+                vec2 bB = vec2(-brushT.y, brushT.x);
+                float groove = tnoise(vec2(dot(q, brushT) * 5.0, dot(q, bB) * 230.0));
+                vec3 nm = normalize(vec3(n.xy + bB * (groove - 0.5) * 0.4, n.z));
+                vec3 Em = envAt(nm, c, q, 0.3);                                        // (slightly blurred: the grooves smear what it mirrors)
+                float along = dot(q, brushT) - dot(uTilt, brushT) * 0.7 - (plateRnd - 0.5) * 1.3;
+                float band = exp(-sq((fract(along / 1.1) - 0.5) * 1.1 / 0.17));         // the lamp's streak, once per 1.1 em of plate
+                float spM = band * (0.55 + 0.9 * groove) * 1.9 * uRustC.z;
+                vec3 metalC = metalAlb * (0.3 + 0.45 * ndl) * (0.8 + 0.4 * groove) + Em * metalAlb * 1.2 * uRustC.z
+                            + vec3(1.0, 0.97, 0.92) * spM;
+                vec3 rustC = alb * (0.07 + 1.2 * ndl) * (0.82 + 0.18 * tnoise(q * 320.0));
+                col = mix(mix(paintC, metalC, bareAll), rustC, rustBare);
+            }
+#endif
 #ifdef SAND
             // a few grains are glass: they flash, and which ones changes as the light or the phone moves
             col += vec3(1.0, 0.93, 0.8) * uSand.z * step(0.97, sandB) * pow(sat(sin(sandA * 50.0 + dot(uTilt, vec2(9.0, 7.0)) + uTime * 0.6)), 12.0) * 2.5;
@@ -868,7 +899,6 @@ void main() {
             col *= 1.0 - 0.5 * exp(-sq((d - uBalloon.z) / (1.6 * aw))) * step(1e-4, uBalloon.z);     // the crease where the weld ends
 #endif
 #ifdef RUST
-            col = mix(col, alb * (0.1 + 1.15 * ndl) * lit, rustBare * 0.95);                 // rust has no shine at all: only light and shade
 #endif
 #ifdef JELLY
             {

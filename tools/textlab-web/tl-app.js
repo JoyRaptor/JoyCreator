@@ -102,7 +102,7 @@
       const box = $('knobs'); box.textContent = '';
       const feats = new Set(look.features || []);
       const slots = assets.parts.slots.filter((slot) => !(SLOT_NEEDS[slot] && !feats.has(SLOT_NEEDS[slot]))
-        && !(slot === 'Fire' && !look.fire) && !(feats.has('TUBE') && HIDDEN_FOR_TUBE.has(slot)));
+        && !(slot === 'Fire' && !look.fire) && !(slot === 'Rivets' && !(look.particles || []).some((ps) => ps.p && ps.p.from === 4)) && !(feats.has('TUBE') && HIDDEN_FOR_TUBE.has(slot)));
       // The families, as a row of tabs. A family shows only its own sliders (little to scroll, the picture
       // stays in sight); All shows every group, each folding away. An upright phone starts on a family:
       // the look's own special one if it has one. A dot marks the families this look actually uses.

@@ -269,6 +269,17 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
       - Chips: the TextLab screen gets a row of look chips (each look's own sheet, made once in the app's cache):
         still until chosen, the chosen one plays. Studio's carousel will reuse the same chip row.
       - Not here yet: packs, installable abilities (a separate job, with the lead).
+- [ ] **Studio: a title wears a look, live (owner, 11-12).** A titled look in Studio is NOT a picture pasted in:
+      the words, the look and its knobs stay editable, and the engine draws each frame at its own moment (preview
+      at a lighter size, export at full size) as the see-through picture (`output = CLEAR`) Studio lays over the
+      video. **The light in Studio is recorded, never live:** the owner's "record live". Recommendation (phone-engine
+      session), to be agreed with the lead: the same pattern as the puppet's existing "Record on touch"
+      (`PuppetDrawerTabs`: arm it, then touching records; a take is a dense run of keys drawn as one bar on the tape,
+      `PuppetTapeMarks`; "Detail of recorded moves" thins it; `MeshEasingFit` turns the thinned keys into curves,
+      overshoots included). So: arm "Record tilt"; hold a thumb on the title; the video plays from the playhead and
+      the phone's tilt at that instant is the zero; the tilt is recorded as the light's keys until the thumb lifts;
+      one take = one undo step; recording over a stretch again replaces its keys; the keys then edit, thin and
+      cut like any. Export reads only the keys, never the sensor.
 - [x] Output for a compositor (phone-engine session, 11-12). `uOut = 1` (linear light, premultiplied) tested as
       written; and **`uOut = 2` added to `final.frag`** (the lead's file; the look book's own picture, `uOut 0`, is
       unchanged): the words alone, see-through, with the look's own film curve, colour and contrast, sRGB,

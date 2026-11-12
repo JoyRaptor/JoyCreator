@@ -32,7 +32,7 @@
     return { shaders, parts, looks, tubefont, fontUrl: (file) => '../../' + file };
   }
 
-  const SLOT_NEEDS = { Tube: 'TUBE', Glass: 'REFRACT', Surface: 'DETAIL', Pattern: 'PATTERN', Ember: 'EMBER', Hologram: 'HOLO', Stone: 'STONE', Fur: 'FUR', Lamps: 'CELLS', Lightning: 'ARCS', Paper: 'PAPER', Burn: 'BURN', Vine: 'VINE', Stitch: 'STITCH', Balloon: 'BALLOON', Sand: 'SAND', Bits: 'BITS', Ink: 'INK', Front: 'FRONT' };
+  const SLOT_NEEDS = { Tube: 'TUBE', Glass: 'REFRACT', Surface: 'DETAIL', Pattern: 'PATTERN', Ember: 'EMBER', Hologram: 'HOLO', Stone: 'STONE', Fur: 'FUR', Lamps: 'CELLS', Lightning: 'ARCS', Paper: 'PAPER', Burn: 'BURN', Vine: 'VINE', Stitch: 'STITCH', Balloon: 'BALLOON', Sand: 'SAND', Bits: 'BITS', Ink: 'INK', Front: 'FRONT', Shatter: 'SHATTER', Fog: 'FOG', Flag: 'FLAG', Panes: 'STAINED', Rust: 'RUST', Jelly: 'JELLY' };
   // which groups of sliders are open: remembered on this device, so a person leaves open only what they use
   let openSlots = new Set(['Shape', 'Finish']);
   try { const saved = JSON.parse(localStorage.getItem('tl-open') || 'null'); if (saved) openSlots = new Set(saved); } catch (e) { /* no storage here */ }
@@ -57,6 +57,7 @@
     engine.debug = q.get('debug');   // &debug=heat|field|sphere|scene|bloom
     let look = assets.looks.find((l) => l.id === q.get('look')) || assets.looks[0];
     let paused = false, holdAt = q.has('t') ? Number(q.get('t')) : null;
+    let progOf = { auto: 'frontAuto', gone: 'frontGone', at: (v) => 0.02 + v * 1.08 };     // which sliders the progress bar drives for this look
 
     function fit() {
       const v = $('view').getBoundingClientRect(), dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -75,8 +76,9 @@
       engine.stage = q.has('stage') ? Number(q.get('stage')) : picked !== '' ? Number(picked) : (l.stage === undefined ? 1 : l.stage);
       // looks that burn, blow away or grow get the progress bar
       const feats = l.features || [];
-      $('prog').hidden = !feats.includes('FRONT');
-      $('proglabel').textContent = feats.includes('VINE') ? 'Grown' : feats.includes('SAND') ? 'Blown away' : feats.includes('BURN') ? 'Burned away' : 'Progress';
+      $('prog').hidden = !feats.includes('FRONT') && !feats.includes('SHATTER');
+      progOf = feats.includes('SHATTER') ? { auto: 'shatterAuto', gone: 'shatter', at: (v) => v } : { auto: 'frontAuto', gone: 'frontGone', at: (v) => 0.02 + v * 1.08 };
+      $('proglabel').textContent = feats.includes('SHATTER') ? 'Broken' : feats.includes('VINE') ? 'Grown' : feats.includes('SAND') ? 'Blown away' : feats.includes('BURN') ? 'Burned away' : 'Progress';
       $('progbar').value = 0; $('progplay').classList.add('on');
       for (const b of $('looks').querySelectorAll('button')) b.classList.toggle('on', b.dataset.id === l.id);
       const row = $('looks'), chosen = row.querySelector('button.on');     // on a phone the looks are one row: keep the chosen one in sight
@@ -191,13 +193,13 @@
     // THE PROGRESS BAR: drag to choose the moment (the front holds there); Plays hands it back to the look's own clock
     const knobShows = (name, v) => { const el = $('k-' + name); if (el) { el.value = v; if (el.nextSibling) el.nextSibling.textContent = Number(v).toFixed(3).replace(/\.?0+$/, ''); } };
     $('progbar').oninput = () => {
-      const gone = 0.02 + Number($('progbar').value) * 1.08;
-      engine.setKnob('frontAuto', 0); engine.setKnob('frontGone', gone); knobShows('frontAuto', 0); knobShows('frontGone', gone);
+      const gone = progOf.at(Number($('progbar').value));
+      engine.setKnob(progOf.auto, 0); engine.setKnob(progOf.gone, gone); knobShows(progOf.auto, 0); knobShows(progOf.gone, gone);
       $('progplay').classList.remove('on');
     };
     $('progplay').onclick = () => {
-      const auto = (look.p && look.p.frontAuto) || 1, gone = (look.p && look.p.frontGone) || 0;
-      engine.setKnob('frontAuto', auto); engine.setKnob('frontGone', gone); knobShows('frontAuto', auto); knobShows('frontGone', gone);
+      const auto = (look.p && look.p[progOf.auto]) || 1, gone = (look.p && look.p[progOf.gone]) || 0;
+      engine.setKnob(progOf.auto, auto); engine.setKnob(progOf.gone, gone); knobShows(progOf.auto, auto); knobShows(progOf.gone, gone);
       $('progplay').classList.add('on'); engine.replay();
     };
     $('replay').onclick = () => { holdAt = null; paused = false; $('pause').classList.remove('on'); engine.replay(); };

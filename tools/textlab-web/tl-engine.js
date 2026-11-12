@@ -25,6 +25,7 @@
       if (k < 2.5 / d) return n * (k -= 2.25 / d) * k + 0.9375;
       return n * (k -= 2.625 / d) * k + 0.984375;
     },
+    spring: (k) => 1 - Math.exp(-6 * k) * Math.cos(11 * k),      // overshoots and settles, like jelly
   };
   const clamp01 = (x) => Math.min(1, Math.max(0, x));
 
@@ -50,6 +51,37 @@
     setSize(w, h) { if (w !== this.maxW || h !== this.maxH) { this.maxW = w; this.maxH = h; this.dirty = true; } }
     setKnob(name, value) { this.over[name] = value; this.sphereDirty = true; }
     replay() { this.clock0 = null; this.resetFire = true; }
+    // SHATTER. How far the word has broken, 0 whole .. 1 gone: the slider, or by itself (whole, it breaks, gone,
+    // then it comes back together the way it went).
+    brokenNow(t) {
+      const auto = this.knob('shatterAuto'), base = this.knob('shatter');
+      if (auto <= 0) return base;
+      const p = (t * auto * 0.11) % 1;
+      return clamp01(base + (p < 0.18 ? 0 : p < 0.55 ? (p - 0.18) / 0.37 : p < 0.65 ? 1 : 1 - (p - 0.65) / 0.35));
+    }
+    // A letter's shards: up to eight break points in its cell (the same every time), and each shard's flight.
+    // Letters break one after another along the word; in a letter, each shard lets go at its own moment, is
+    // thrown outward, falls, turns, and fades as it leaves.
+    shards(l) {
+      const n = Math.round(Math.min(8, Math.max(3, this.knob('shatterPieces'))));
+      if (l.shards && l.shards.n === n) return l.shards;
+      let seed = (l.index + 1) * 7919 + n * 31 + (l.order || 0) * 101;
+      const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+      for (let i = 0; i < 5; i++) rnd();
+      const S = TL.SPREAD, w = l.piece.cellW, h = l.piece.cellH, seeds = [], r = [];
+      for (let k = 0; k < 8; k++) { seeds.push(k < n ? [S + rnd() * Math.max(w - 2 * S, 0.01), S + rnd() * Math.max(h - 2 * S, 0.01)] : [99, 99]); r.push([rnd(), rnd(), rnd()]); }
+      const flight = (k, part) => {
+        const tau = clamp01((part - r[k][0] * 0.35) / 0.65), ox = seeds[k][0] - w / 2, oy = seeds[k][1] - h / 2, ol = Math.hypot(ox, oy) || 1;
+        const burst = this.knob('shatterBurst') * (0.5 + r[k][2]) * (1 - (1 - tau) * (1 - tau));
+        return {
+          move: [(ox / ol) * burst, (oy / ol) * burst - this.knob('shatterFall') * tau * tau],
+          turn: (r[k][1] - 0.5) * this.knob('shatterSpin') * 6.2832 * tau,
+          fade: 1 - clamp01((tau - 0.72) / 0.28),
+        };
+      };
+      l.shards = { n, seeds, flight, start: (l.index / Math.max(l.count - 1, 1)) * 0.55 };
+      return l.shards;
+    }
     // The user's own picture behind the words (stage 11). It is fitted to fill the field without stretching.
     setPhoto(source) {
       const gl = this.gl;
@@ -179,6 +211,7 @@
       glw.program('quad.vert', 'backdrop.frag').use().setAll(U).set('uScene', this.stage)
         .set('uPhotoFit', this.photoFit || [1, 1]).tex('uPhoto', this.photo || this.black.tex, 5);
       glw.pass(T.back);
+      if (defines.includes('FOG')) glw.mips(T.back);      // a steamed pane needs the world behind it soft as well as sharp
 
       // compose
       const gp = glw.program('glyph.vert', 'glyph.frag').use().setAll(U);
@@ -187,14 +220,26 @@
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
       gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.GREATER);
       const weight = this.knob('weight');
+      const broken = defines.includes('SHATTER') ? this.brokenNow(t) : 0;
       for (const l of lay.letters) {
         const ps = this.pose(l.index, l.count, t);
         gp.set('uCell', [l.x, l.y, l.piece.cellW, l.piece.cellH]).set('uPivot', [l.pivotX, l.pivotY])
           .set('uMove', ps.move).set('uScale', ps.scale).set('uTurn', ps.turn).set('uLine', [l.baseline, l.cap])
           .set('uSdfScale', (ps.scale[0] + ps.scale[1]) / 2).set('uWeight', weight + ps.weight)
           .set('uLetter', [ps.reveal, (l.index + 0.5) / l.count]).set('uTubePiece', [l.piece.paint ? 1 : neon ? 2 : 0, l.order || 0])
-          .tex('uSdf', l.piece.tex, 0);
-        gl.drawArrays(gl.TRIANGLES, 0, 6);
+          .set('uArc', l.arc || [0, 1]).set('uShard', -1).tex('uSdf', l.piece.tex, 0);
+        // SHATTER: a breaking letter is drawn as its shards, each a rigid piece with its own flight
+        const sh = broken > 0 ? this.shards(l) : null;
+        const part = sh ? clamp01((broken - sh.start) / 0.45) : 0;
+        if (part <= 0) { gl.drawArrays(gl.TRIANGLES, 0, 6); continue; }
+        gp.set('uSeeds', sh.seeds);
+        for (let k = 0; k < sh.n; k++) {
+          const m = sh.flight(k, part);
+          gp.set('uShard', k).set('uPivot', [l.x + sh.seeds[k][0], l.y + sh.seeds[k][1]])
+            .set('uMove', [ps.move[0] + m.move[0], ps.move[1] + m.move[1]]).set('uTurn', ps.turn + m.turn)
+            .set('uLetter', [ps.reveal * m.fade, (l.index + 0.5) / l.count]);
+          gl.drawArrays(gl.TRIANGLES, 0, 6);
+        }
       }
       gl.disable(gl.DEPTH_TEST);
 

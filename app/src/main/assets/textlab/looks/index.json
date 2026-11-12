@@ -29,7 +29,14 @@
     "balloon.text.json",
     "dust.text.json",
     "sequins.text.json",
-    "ink-bleed.text.json"
+    "ink-bleed.text.json",
+    "fogged.text.json",
+    "shatter.text.json",
+    "banner.text.json",
+    "handwritten.text.json",
+    "stained.text.json",
+    "rusted.text.json",
+    "jelly.text.json"
   ],
   "drafts": [
     "steel-plate.text.json",

@@ -190,6 +190,26 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
     cloth (the whole word waves like a flag: a warp for any look), written by hand (the stroke draws itself: the
     pen's path as a piece), stained glass (leaded panes, coloured light on the floor), peeling paint and rust (coats
     that wear through), jelly (light through the body, springy arrival).
+- **Owner, 2026-11-12 (who builds what).** He is short of credit for the lead's model and has Opus 5.5 as well. His
+  question: which of us should build the phone app? Lead's answer, which he acted on by asking for the looks: the
+  phone engine is a careful PORT with a picture to match (same shader files, a reference engine to mirror file for
+  file), so a second session builds it from `tasks/jobs/TEXT-1_PHONE_ENGINE_BRIEF.md`; the lead keeps to looks.
+- **Wave five (2026-11-12): the third seven.**
+  | Piece (new) | Where | Look that shows it | Note 9, 1280 wide |
+  |---|---|---|---|
+  | Shatter: a letter drawn as up to eight rigid shards, each a solid chunk with the look's whole finish; thrown, falling, turning, fading, then back together. Compose level, so ANY look can wear it | `glyph.frag` `uShard` / `uSeeds`; `tl-engine.js` `brokenNow` / `shards`; sliders `shatter*` | Shatter (Dark Steel's material) | 35.1 ms whole, 36.7 ms mid-break |
+  | The pen's path: a tube letter's picture says how far along its writing each point is (`1 + arc`, so neon still reads "bare"); the field carries it per letter (`uArc`) | `tl-tubes.js`, `glyph.frag`, `PEN` in `shade.frag` | Handwritten (ink + pen), Fogged Glass (the finger writes it) | 8 ms |
+  | Fog: a steamed pane over the whole picture, soft behind the mist (the backdrop's blurred copies), sharp where wiped, tiny drops, a bead along the wiped edge; runs are the look's own drips | `FOG` in `shade.frag`; the engine blurs the backdrop only for these looks | Fogged Glass | 15 ms |
+  | Flag: the word printed on a hemmed cloth flying from its left edge (a warp with fold light) | `FLAG` in `shade.frag` | Banner | 5.2 ms |
+  | Stained glass: leaded panes, each its own shade, lit from behind, shifting with tilt; their colours on the floor | `STAINED` in `shade.frag` | Stained Glass | 34.5 ms |
+  | Rust: a coat of paint failing in patches (edges first) over rusting steel, with runs | `RUST` in `shade.frag` | Rusted (Dark Steel's shape) | 36.8 ms |
+  | Jelly: light goes into the body (thin rims glow, deep middle, light out the far side, bends what is behind); `spring` arrival | `JELLY` in `shade.frag`; `EASE.spring` | Jelly | 18.4 ms |
+  The look book's progress bar also drives a break ("Broken"). Checked: all 35 looks draw with no shader errors on
+  the computer; each new one looked at on the computer at one to three moments (Shatter whole, mid-break and gone;
+  the pen mid-word; Jelly mid-bounce); the seven ran with no errors on the Note 9's GPU. Battery stayed at 21.4 C over two short runs. Not checked: the
+  motion of Banner, Fogged Glass and Stained Glass over time beyond two stills; anything by hand on a phone; the
+  owner's verdict. Known weak spots: Stained Glass's light on the floor still reads as a mosaic more than as light;
+  Banner has no pole and no shadow; the handwriting is the neon letters' single-stroke capitals, not a script hand.
 - **Honest limits today:** the fire is good stylised fire, not yet the photograph the owner showed;
   water and the other drafts are below the bar; only the app's own fonts are used (Archivo, Plex,
   Ubuntu, Doto), so there is no script or true display face yet.
@@ -198,7 +218,7 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
 - [ ] **Owner's verdict** on the five heroes (and which drafts he wants raised next).
 - [ ] Fonts: a short list of open-licence display faces to bundle (needs his yes to download).
 - [ ] Fire toward the photograph (finer filaments, a real fluid step if the Note 9 allows); water with splashes.
-- [ ] **Phone engine**: a small Kotlin module (new package `cc.joycreator.textlab`, no FadCam code) that runs
+- [ ] **Phone engine** (brief for the builder: `tasks/jobs/TEXT-1_PHONE_ENGINE_BRIEF.md`): a small Kotlin module (new package `cc.joycreator.textlab`, no FadCam code) that runs
       the same passes with GLES 3: reuse the VisLab patterns (`vislab/gl/ShaderLib`, `GlProgram`, `GlTarget`,
       `GpuTimer`, `StudioVis`' own GL thread, `OffscreenGl`). Twin of `tl-engine.js` + `tl-glyphs.js`.
 - [ ] Output for a compositor: `final.frag` `uOut = 1` (linear, premultiplied) is written, untested.

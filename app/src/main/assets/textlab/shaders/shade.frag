@@ -161,6 +161,26 @@ uniform vec4  uBits;         // made of small things: pieces per em, kind (0 seq
 uniform vec4  uBitsB;        // how far out of their rows, shimmer speed, colour variety, the shade each throws on the next
 uniform vec3  uBitsBase;     // what they are sewn or scattered on
 #endif
+#ifdef FOG
+uniform vec4  uFog;          // a steamed pane: how soft the world is behind it (0..7), how thick the mist, tiny drops per em, the bead of water along a wiped edge
+uniform vec3  uFogCol;       // the colour of the mist
+#endif
+#ifdef FLAG
+uniform vec4  uFlag;         // the word on a flying cloth: wave height (em), waves per em, speed, how far the cloth's edge is inside the picture (em)
+uniform vec3  uFlagCol;      // the cloth
+#endif
+#ifdef STAINED
+uniform vec4  uPane;         // stained glass: panes per em, lead width (em), the light behind, its light lying on the floor
+#ifndef HOLO
+uniform vec4  uFloor;        // .y = the floor line
+#endif
+#endif
+#ifdef RUST
+uniform vec4  uRust;         // paint over rusting steel: how much of the coat has failed, patch size, edges go first, rust carried down by rain
+#endif
+#ifdef JELLY
+uniform vec4  uJelly;        // jelly: how deep its colour is in the thick middle, light gathered on the far side, how it bends what is behind, how see-through
+#endif
 #ifdef INK
 uniform vec4  uInk;          // ink on wet paper: how far it bleeds (em), feathering along the fibres, the dark line where it dried, granulation
 uniform vec4  uInkB;         // a lighter dye runs this much further, backruns (pale blooms), wet shine, uneven brush load
@@ -499,6 +519,63 @@ void main() {
         return;
     }
 #endif
+#ifdef FOG
+    {
+        // A STEAMED WINDOW. The pane covers the whole picture. Behind the mist the world is soft and pale, and
+        // the mist itself is thousands of tiny drops; where a finger wrote the glass is clear and the world
+        // sharp, a little of the damp left in streaks, a bead of water pushed up along the stroke's edge.
+        // (Runs trickling down from the letters are the look's own drips: true shapes in the field.)
+        vec4 ff = texture(uFieldTex, vUv);
+        float d = ff.r + uStroke + (tnoise(p0 * 38.0) - 0.5) * 0.014;            // a fingertip's edge is not clean
+        float come = smoothstep(0.0, 0.6, ff.g);
+#ifdef PEN
+        come = step((clamp(ff.a - 1.0, 0.0, 1.0)) * 0.9, ff.g);                  // the finger writes it: clear only where it has been
+#endif
+        float wiped = smoothstep(-0.005, 0.005, d) * come;
+        vec3 sharp = texture(uBack, vUv).rgb;
+        vec3 soft = textureLod(uBack, vUv, uFog.x).rgb;
+        vec3 misted = mix(soft, uFogCol, sat(uFog.y * (0.8 + 0.5 * (tfbm(p0 * 1.2 + 4.0) - 0.5))));
+        vec3 dv = voronoi(p0 * uFog.z);
+        float drop = smoothstep(0.3, 0.2, dv.x) * step(0.4, dv.z);                // every drop is a little window of its own
+        misted = mix(misted, mix(soft, textureLod(uBack, vUv, 2.0).rgb, 0.6) * 1.08, drop * 0.55);
+        misted *= 1.0 - 0.16 * smoothstep(0.2, 0.28, dv.x) * smoothstep(0.34, 0.3, dv.x) * step(0.4, dv.z);      // each has a thin dark rim
+        misted += vec3(0.5) * smoothstep(0.09, 0.02, dv.x) * drop * 0.1;                                         // and a point of light
+        float smear = tnoise(vec2(p0.x * 4.0, p0.y * 70.0));
+        vec3 clearC = mix(sharp, soft, 0.18 * smear) * (0.9 + 0.1 * smear);
+        col = mix(misted, clearC, wiped);
+        col += vec3(0.85, 0.9, 1.0) * exp(-sq(d / 0.007)) * come * (0.5 + 0.5 * step(0.5, tnoise(p0 * 70.0))) * uFog.w * 0.22;
+        a = uOpacity;
+        o = vec4(col * a, a);
+        return;
+    }
+#endif
+#ifdef FLAG
+    {
+        // A FLAG. The word is printed on a cloth that flies from its left edge: the wave is small at the hoist
+        // and grows toward the free end; a fold facing the lamp is bright and its far side dark; it is hemmed.
+        float inset = uFlag.w, wide = max(uField.x - 2.0 * inset, 0.1);
+        vec2 pw = p0;
+        float slope = 0.0;
+        for (int i = 0; i < 2; i++) {                                              // where on the flat cloth this point of the picture comes from
+            float ph = pw.x * uFlag.y * TAU - uTime * uFlag.z + pw.y * 0.9;
+            float amp = uFlag.x * (0.12 + 0.88 * sat((pw.x - inset) / wide));
+            pw = p0 - vec2(0.0, amp * (sin(ph) + 0.35 * sin(ph * 2.3 + 1.7)));
+            slope = amp * uFlag.y * TAU * (cos(ph) + 0.8 * cos(ph * 2.3 + 1.7));
+        }
+        vec2 toEdge = min(pw - inset, uField.xy - inset - pw);
+        float nearest = min(toEdge.x, toEdge.y);
+        vec4 fd = texture(uFieldTex, pw / uField.xy);
+        float ink = smoothstep(-aw, aw, fd.r + uStroke) * fd.g;
+        float weave = 0.9 + 0.1 * sin(pw.x * 520.0) * sin(pw.y * 520.0) + (tnoise(pw * 60.0) - 0.5) * 0.08;
+        vec3 cloth = mix(uFlagCol, fillAt(fd.a), ink) * weave;
+        float hem = smoothstep(0.05, 0.04, nearest);
+        cloth *= 1.0 - 0.22 * hem + 0.14 * hem * step(0.5, fract((toEdge.x < toEdge.y ? pw.y : pw.x) * 26.0));     // the hem and its stitches
+        col = cloth * clamp(1.0 - slope * 1.5, 0.3, 1.7) + pow(sat(1.0 - abs(slope + 0.3) * 1.6), 6.0) * 0.2;
+        a = smoothstep(0.0, 1.5 * aw, nearest) * uOpacity;
+        o = vec4(col * a, a);
+        return;
+    }
+#endif
 #ifdef INK
     {
         // INK ON WET PAPER. The letter is where the brush touched, and stays the deepest part. From its edge
@@ -510,7 +587,15 @@ void main() {
         float tooth = tfbm(p0 * 22.0);                                           // the paper's own hills and valleys
         float d = fi.r + uStroke;
         float out_ = max(-d, 0.0);                                               // how far outside the brush mark
+#ifdef PEN
+        // WRITTEN BY HAND: the field also says how far along the pen's path each point is. The pen spends the
+        // first part of a letter's arrival writing it; a point begins to exist only when the pen reaches it.
+        float arcAt = clamp(fi.a - 1.0, 0.0, 1.0);
+        float since = sat((fi.g - arcAt * 0.62) / 0.38);
+        float nib = exp(-sq((fi.g - arcAt * 0.62) / 0.014)) * step(fi.g, 0.999);    // where the pen is at this moment
+#else
         float since = sat(fi.g);                                                 // how long this letter has been on the paper
+#endif
         float crept = sqrt(since);                                               // ink runs fast at first, then slows
         vec2 g = fieldGrad(p0);
         vec2 foot = p0 - g / max(length(g), 1e-4) * d;                           // the point of the edge this ink came from
@@ -535,7 +620,13 @@ void main() {
         float halo = exp(-t2 * t2 * 2.0) * (0.5 + 0.3 * exp(-sq((t2 - 0.8) / 0.12))) * (1.0 - inMark) * window
                    * sat(1.0 - bled * 1.5) * step(1e-4, uInkB.x);
         float show = smoothstep(0.0, 0.06, since);
-        vec3 through = exp(-(max(body, 0.0) * (1.0 - fillAt(fi.a)) * 3.0 + halo * (1.0 - uInkHalo) * 1.5) * show);
+#ifdef PEN
+        body += nib * 0.7 * inMark;                                              // wet ink under the nib
+        vec3 inkCol = fillAt(arcAt);
+#else
+        vec3 inkCol = fillAt(fi.a);
+#endif
+        vec3 through = exp(-(max(body, 0.0) * (1.0 - inkCol) * 3.0 + halo * (1.0 - uInkHalo) * 1.5) * show);
         vec3 paper = mix(vec3(0.86, 0.83, 0.76), texture(uBack, vUv).rgb, uHasBack);
         float wetShine = uInkB.z * (1.0 - since) * pow(tnoise(p0 * 26.0 + vec2(uTime * 0.05, 0.0)), 5.0) * sat(body) * 0.6;
         a = smoothstep(0.0, 0.02, 1.0 - min(through.r, min(through.g, through.b))) * uOpacity;
@@ -620,6 +711,21 @@ void main() {
             alb = mix(alb, uPatternCol, pattern(q, f.a) * uPattern.z);
 #endif
             alb *= 1.0 + uMottle * ((tfbm(q * 2.6 + 11.0) - 0.5) * 1.1 + (tnoise(q * 31.0) - 0.5) * 0.25);
+#ifdef RUST
+            // PEELING PAINT OVER RUST: the fill is a coat of paint. It has failed in patches (first along edges);
+            // there the steel beneath has rusted, the broken edge of the coat stands a little proud, and rain
+            // has carried the rust down the paint below.
+            float rustAt = tfbm(q * uRust.y + 21.0) + (1.0 - smoothstep(0.0, 0.07, d)) * 0.3 * uRust.z;
+            float rustThr = mix(0.92, 0.32, uRust.x);
+            float rustBare = smoothstep(rustThr - 0.012, rustThr + 0.012, rustAt);
+            float rustLip = exp(-sq((rustAt - rustThr) / 0.022));
+            float rustRuns = smoothstep(rustThr - 0.06, rustThr + 0.04, tfbm(vec2(q.x, q.y + 0.1) * uRust.y + 21.0))
+                           * (0.4 + 0.6 * tnoise(vec2(q.x * 46.0, q.y * 2.5))) * uRust.w;
+            alb = mix(alb, alb * vec3(0.78, 0.5, 0.3), rustRuns * 0.7 * (1.0 - rustBare));
+            alb *= 1.0 + 0.45 * rustLip * (1.0 - rustBare) - 0.3 * rustLip * rustBare;
+            vec3 rustC = mix(vec3(0.16, 0.05, 0.015), vec3(0.5, 0.2, 0.05), tnoise(q * 55.0)) * (0.55 + 0.9 * tfbm2(q * 8.0 + 3.0));
+            alb = mix(alb, rustC * (1.0 - 0.5 * smoothstep(0.6, 0.85, tnoise(q * 140.0))), rustBare);
+#endif
 #ifdef STITCH
             alb *= stitchShade;
 #endif
@@ -687,6 +793,9 @@ void main() {
 #endif
             float metal = mix(uMetal, uStrokeMetal, trim);
             float rough = uRough * mix(1.0, 0.3, trim);
+#ifdef RUST
+            metal *= 1.0 - rustBare; rough = mix(rough, 1.0, rustBare);
+#endif
             alb = mix(alb, uStrokeCol, trim);
             float ndl = max(dot(n, L), 0.0);
             float fres = pow(1.0 - sat(n.z), 3.0);
@@ -713,6 +822,40 @@ void main() {
             col *= mix(1.0, lit, 1.0 - uUnlit);
 #ifdef BALLOON
             col *= 1.0 - 0.5 * exp(-sq((d - uBalloon.z) / (1.6 * aw))) * step(1e-4, uBalloon.z);     // the crease where the weld ends
+#endif
+#ifdef RUST
+            col = mix(col, alb * (0.22 + 0.78 * ndl) * lit, rustBare * 0.9);                 // rust has no shine at all
+#endif
+#ifdef JELLY
+            {
+                // JELLY: light goes INTO it. The thin rim passes the light and glows with the colour; the thick
+                // middle is deeper; light gathers and comes out on the side away from the lamp; what is behind
+                // shows through it, bent; the room shines on its wet skin.
+                float thickJ = sat(heightAt(d) / max(uBevelHeight, 1e-4));                  // 0 at the rim .. 1 in the middle
+                vec3 bodyJ = mix(alb * 1.5 + 0.06, alb * alb * 0.55, pow(thickJ, 0.8) * uJelly.x);
+                vec3 behindJ = texture(uBack, vUv - n.xy * uJelly.z * 0.06).rgb;
+                bodyJ = mix(bodyJ, bodyJ * (0.5 + behindJ * 2.0), uJelly.w * 0.5);
+                float awayJ = sat(dot(n.xy / max(length(n.xy), 1e-4), -Ld));
+                bodyJ += alb * uJelly.y * pow(1.0 - sat(n.z), 1.5) * awayJ * 1.6;
+                col = bodyJ * (0.55 + 0.45 * ndl) + E * (0.04 + 0.96 * fres) * uGloss + sp;
+            }
+#endif
+#ifdef STAINED
+            {
+                // STAINED GLASS: panes of coloured glass, each its own shade, held in lead. The light comes
+                // THROUGH it, unevenly (old glass is rippled and seeded with bubbles) and it shifts as you move.
+                vec3 pv = voronoi(q * uPane.x + 7.0);
+                float toLead = min((pv.y - pv.x) * 0.5 / uPane.x, d);                       // em to the nearest came, or to the letter's own edge
+                float leadM = 1.0 - smoothstep(uPane.y * 0.5 - aw, uPane.y * 0.5 + aw, toLead);
+                vec3 paneC = (pv.z < 0.34 ? uFillA : pv.z < 0.67 ? uFillB : uFillC) * (0.65 + 0.7 * fract(pv.z * 7.31));
+                float through = uPane.z * (0.6 + 0.6 * tfbm2(q * 2.5 + pv.z * 9.0)) * (0.88 + 0.24 * tnoise(q * 46.0))
+                              * (1.0 + 0.35 * dot(uTilt, (q - 0.5 * uField.xy) / uField.x * 3.0));
+                float bubbles = smoothstep(0.93, 0.98, tnoise(q * 120.0 + pv.z * 30.0));
+                vec3 glassC = paneC * through * (1.0 + 0.6 * bubbles) * (1.0 - 0.5 * exp(-toLead / 0.012));
+                float acrossL = sat(toLead / max(uPane.y * 0.5, 1e-4));                     // across the came: 0 on its crest .. 1 at its edge
+                vec3 leadC = (vec3(0.03, 0.032, 0.036) + E * 0.3 * (1.0 - acrossL * acrossL) + sp) * lit;
+                col = mix(glassC, leadC, leadM);
+            }
 #endif
             float scr = smoothstep(0.80, 0.97, tnoise(rot(0.5) * q * vec2(310.0, 5.0)))
                       + smoothstep(0.84, 0.98, tnoise(rot(-0.9) * q * vec2(220.0, 7.0)));
@@ -1119,6 +1262,21 @@ void main() {
         float oa = acc.a + (1.0 - acc.a) * a;
         col = (acc.rgb + (1.0 - acc.a) * a * uBitsBase * (1.0 - shadeOn)) / max(oa, 1e-4);
         a = oa;
+    }
+#endif
+#ifdef STAINED
+    {
+        // the light that came through the glass lies on the floor in front of it, in the panes' own colours
+        float floorY = uFloor.y * uField.y, below = floorY - p0.y;
+        if (below > 0.0 && uPane.w > 0.0) {
+            vec2 src = vec2(p0.x - below * 0.35, floorY + below * 1.6) + (vec2(tnoise(p0 * 7.0), tnoise(p0 * 7.0 + 31.0)) - 0.5) * (0.05 + 0.25 * below);   // light spreads as it falls
+            vec4 fp = texture(uFieldTex, src / uField.xy);
+            vec3 pv = voronoi(src * uPane.x + 7.0);
+            float glassHere = smoothstep(-0.02, 0.02, fp.r + uStroke) * fp.g
+                            * smoothstep(uPane.y * 0.5, uPane.y * 0.5 + 0.02, min((pv.y - pv.x) * 0.5 / uPane.x, fp.r + uStroke));
+            vec3 paneC = (pv.z < 0.34 ? uFillA : pv.z < 0.67 ? uFillB : uFillC) * (0.65 + 0.7 * fract(pv.z * 7.31));
+            add += paneC * glassHere * uPane.w * 0.5 * exp(-below * 1.8) * (1.0 - a);
+        }
     }
 #endif
     if (uInline > 0.0 && dot(uHover, uHover) > 0.0) {

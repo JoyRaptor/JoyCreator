@@ -1,0 +1,17 @@
+{
+  "format": "joy.text/1",
+  "id": "handwritten",
+  "name": "Handwritten",
+  "family": "Poster",
+  "sample": "HELLO",
+  "stage": 6,
+  "font": { "family": "tube", "tracking": 0.2 },
+  "margin": [ 0.8, 0.8, 0.8, 0.8 ],
+  "features": [ "INK", "PEN" ],
+  "description": "The pen writes each letter in turn along its own path; the ink is wet under the nib, then soaks a little into the paper behind it.",
+  "p": { "weight": 0.012, "fillA": "#141a52", "fillB": "#1c2a8a", "fillC": "#2438b8", "inkBleed": 0.03, "inkFeather": 1, "inkEdge": 0.8, "inkGrain": 1, "inkHaloReach": 0.5, "inkBlooms": 0.3, "inkWet": 0.8, "inkPool": 0.6, "inkHalo": "#5a8fd8", "revealFade": 0, "revealFill": 0, "bloom": 0, "bloomThreshold": 3, "vignette": 0.3, "grain": 0.25, "contrast": 1.03, "exposure": 1.12 },
+  "motion": {
+    "in": { "each": 0.9, "time": 0.01, "reveal": [ 0, 1.6 ] },
+    "idle": {}
+  }
+}

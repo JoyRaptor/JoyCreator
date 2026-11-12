@@ -58,13 +58,14 @@
       // An end is not cut off straight: the tube turns AWAY from you there, back to the case, so from
       // the front it is a round, lit elbow. The black tape is behind the turn and is not seen
       // straight on (owner, 2026-11-11). `bare` stays in the piece for painted double-backs later.
-      const bare = 1;
+      // The second number: 1 (bare glass; no tube is painted yet) + how far along the tube this point is,
+      // 0 at its start .. 1 at its end. Neon reads it as bare; a pen reads the path.
       const k = j * w + i;
-      data[k * 2] = d; data[k * 2 + 1] = bare; dOnly[k] = d;
+      data[k * 2] = d; data[k * 2 + 1] = 1 + (total > 0 ? at / total : 0); dOnly[k] = d;
     }
     // the piece's cell, in the letter's own em space (its origin is the letter's baseline, left edge)
     return {
-      tex: glw.pairTexture(w, h, data), paint: true,
+      tex: glw.pairTexture(w, h, data), paint: true, len: total,
       cellW: w / PX, cellH: h / PX, cellX: x0, cellY: y0,
       points: pointsOfTube(dOnly, w, h),
     };
@@ -105,6 +106,7 @@
     rows.forEach((r, li) => {
       const baseline = mb + (rows.length - 1 - li) * pitch, left = ml + (boxW - r.width) / 2;
       for (const it of r.items) {
+        const first = letters.length;
         it.g.t.forEach((flat, order) => {
           const key = it.ch + ':' + order;
           let piece = cache.get(key);
@@ -115,6 +117,10 @@
             pivotX: left + it.x + (it.g.w * cap) / 2, pivotY: baseline + cap / 2,
           });
         });
+        // the pen writes the letter's tubes one after another: each tube's share of the whole letter
+        const whole = letters.slice(first).reduce((n, l) => n + l.piece.len, 0) || 1;
+        let done = 0;
+        for (const l of letters.slice(first)) { l.arc = [done / whole, l.piece.len / whole]; done += l.piece.len; }
         index++;
       }
     });

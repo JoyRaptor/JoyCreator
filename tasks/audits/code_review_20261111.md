@@ -25,7 +25,7 @@ were not.
 | E6 | The repeats of a looped clip play at full volume whatever the clip's volume is | A clip at 30% volume with "loop after": the loops are loud | **fixed 11-11**: the repeats get the clip's volume (not its curve). Built; not heard on a phone |
 | D4 | The sound of a picture-in-picture divides by its speed twice when working out where the next one starts | With two picture-in-pictures and the first not at normal speed, the second one's sound is late or early | **fixed 11-11** (see C) |
 | D3 | A picture-in-picture at a speed other than normal: its window length and its sound follow the speed, its picture does not | Picture and sound of the same picture-in-picture show different moments | scout |
-| D1 | Preview captions apply the clip's speed to a position that is already in source time | In the editor, captions on a clip at 2x run ahead of the sound, more and more; the export is right | scout (worked through by the scout; the lead has not re-derived it) |
+| D1 | Preview captions apply the clip's speed to a position that is already in source time | In the editor, captions on a clip at 2x run ahead of the sound, more and more; the export is right | **fixed 11-11**: the lead re-derived it (the same position is divided by the speed two lines away to get timeline time). Built; not seen on a phone |
 | D2 | Caption-style keys are placed in source time; opacity, position and volume keys in timeline time | On a clip at 2x, a style key and an opacity key set at the same number fire 1.5 s apart | scout; needs an owner ruling on which is meant |
 | D7 | Tapping exactly on a cut: the seek picks the earlier clip, the selection picks the later one | One frame off at every cut | scout |
 | D8 | "Cut" spans inside a clip shorten it for Joybot and the split guard but not for the timeline, the view or (as far as the scout found) the export | Joybot thinks a clip with cuts is shorter than the timeline shows | scout; needs an owner ruling on whether cuts shorten the timeline |
@@ -48,7 +48,7 @@ then audio lanes and the black tail **together, compared on a phone**, then cuts
 | E8 | Cancel during "Preparing" does not tell the editor, and the export can start anyway | scout |
 | E9 | An out-of-memory or a missing native library in the "joining" or "loudness" thread leaves the export stuck "exporting" for good (only `Exception` is caught) | scout |
 | E10 | Cancel during "Joining" does not stop the join, which runs on for minutes | scout |
-| E11 | The frozen frame for "hold the last frame" is kept under the clip's id only: trim the clip and export again, and the old frame is used; and it is the nearest key frame, not the last frame | scout |
+| E11 | The frozen frame for "hold the last frame" is kept under the clip's id only: trim the clip and export again, and the old frame is used; and it is the nearest key frame, not the last frame | **fixed 11-11**: named by the moment and the source, and the exact frame is asked for first. Built; not seen on a phone |
 | E12 | A reversed piece (ping-pong) is written straight to its final name; an export killed mid-way leaves a cut-off file that every later preview and export trusts | **fixed 11-11** (see C) |
 | E13 | Parts of an export are reused from the cache without checking whether a source picked from the gallery changed | scout |
 | E14 | A bad snapshot makes the export service stop without ever showing its notification, which Android punishes with a crash | scout |
@@ -68,7 +68,7 @@ then audio lanes and the black tail **together, compared on a phone**, then cuts
 | R5 | The "is every source still there" check reads the project's lists on its own thread while the opening editor is still changing them, with nothing to catch a failure: a rare crash on open | **fixed 11-11** |
 | R6 | "Extract audio" mutes whichever clip is selected when it finishes, not the clip it took the audio from | **fixed 11-11** |
 | R7 | The Consolidate result is shown without checking the editor is still open | **fixed 11-11** |
-| R8 | After Joybot or another screen changes the project, the editor swaps the project in but does not rebuild the audio players | scout (marked "likely") |
+| R8 | After Joybot or another screen changes the project, the editor swaps the project in but does not rebuild the audio players | **fixed 11-11**: it rebuilds them, as undo and redo do. Built; not heard on a phone |
 | R9 | Merging a follow-up change into the top undo step crashes when that step came from disk or from Joybot (it has no action to call) | **fixed 11-11** |
 | R10 | Small ones: a player that fails to build shifts every later audio player onto the wrong clip; a failed undo restore still says "Undid"; a picture-data cache never refreshed after a trim; a temporary file left behind when an import fails | scout |
 

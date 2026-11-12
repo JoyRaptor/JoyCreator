@@ -5548,8 +5548,12 @@ public class ExportManager {
             FLog.w(TAG, "STILL loop extension: cannot create cache dir for still frame");
             return null;
         }
+        // Named by the clip, the source and the exact moment. It was named by the clip alone: trim
+        // the clip's end (or relink it) and export again, and the frame from BEFORE the trim was
+        // found and held instead (code review 2026-11-11).
         File frameFile = new File(cacheDir, "loop_still_" + clip.getId()
-                + (isBefore ? "_first" : "_last") + ".jpg");
+                + (isBefore ? "_first_" : "_last_") + sourceMs + "_"
+                + Integer.toHexString(clip.getSourceUri().toString().hashCode()) + ".jpg");
         if (frameFile.exists() && frameFile.length() > 0) {
             return Uri.fromFile(frameFile);
         }
@@ -5559,8 +5563,15 @@ public class ExportManager {
             // Reuse the thread-local retriever instead of creating a new one per still frame.
             setRetrieverDataSource(clip.getSourceUri());
             android.media.MediaMetadataRetriever mmr = acquireRetriever();
+            // The frame AT that moment, not the nearest key frame: a key frame can be a second or
+            // more away, and the held picture then jumped back from the last frame played.
             frame = mmr.getFrameAtTime(sourceMs * 1000L,
-                    android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+                    android.media.MediaMetadataRetriever.OPTION_CLOSEST);
+            if (frame == null) {
+                // Some files only answer for key frames.
+                frame = mmr.getFrameAtTime(sourceMs * 1000L,
+                        android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+            }
             if (frame == null) {
                 FLog.w(TAG, "STILL loop extension: MediaMetadataRetriever returned null frame at "
                         + sourceMs + "ms");

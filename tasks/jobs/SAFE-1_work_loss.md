@@ -35,6 +35,8 @@ The tests that carry the proof (all run 2026-11-10):
       end to end, export and Capture.
 
 ## Specs, handoffs and evidence
+- **Handoff (read this first to continue): [`tasks/HANDOFF_20261111_work_loss_and_review.md`](../HANDOFF_20261111_work_loss_and_review.md)**
+- Code review of export, the timeline clock and the editor: [`tasks/audits/code_review_20261111.md`](../audits/code_review_20261111.md)
 - Report and findings table: [`tasks/audits/work_loss_20261110.md`](../audits/work_loss_20261110.md)
 - Related: [FILE-1](FILE-1_folder_leftovers.md) (storage roots outside the folder), JoyBrush `JB-LIVE-SAVE`
   (`tasks/joybrush/reviews/LIVE_SAVE_HANDOFF_20261104.md`).

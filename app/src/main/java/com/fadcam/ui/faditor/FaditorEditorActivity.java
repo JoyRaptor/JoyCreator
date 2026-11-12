@@ -2258,6 +2258,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         updateEditorTitle();
         refreshTotalTimeDisplay();
         syncTimelineTranscript();
+        // The sound players were built from the project just replaced: a track Joybot added had
+        // no player (silent in the preview until something else rebuilt them), a removed one
+        // kept playing, and the rest were tied to objects that are gone. Undo and redo rebuild
+        // them for the same reason; this swap did not (code review 2026-11-11).
+        prepareAudioPlayer();
+        updateAudioToolUI();
         // The checkpoint the caller recorded captured the PRE-change state as its before. Now
         // reseed the rolling baseline from the swapped-in project so the next user edit records
         // a correct pre-state (audit 1.6).
@@ -11069,6 +11075,24 @@ public class FaditorEditorActivity extends AppCompatActivity {
         return speed > 0 ? (long) (timelineOffset * speed) : timelineOffset;
     }
 
+    /**
+     * The moment in a clip's SOURCE that its captions should show, from the player's position in
+     * the clip. That position is already in the source's own time (it advances at the clip's
+     * speed; getAbsolutePlayheadMs divides it by the speed to get timeline time), so it is added to
+     * the in-point as it is. This used to multiply it by the speed as well: on a clip at 2x the
+     * editor's captions ran ahead of the sound by as much again as had played, while the export
+     * (CompositeExportOverlay) was right (code review 2026-11-11). At normal speed the two agree.
+     */
+    private static long captionSourceMs(@NonNull Clip clip, long sourcePositionInClipMs) {
+        return clip.getInPointMs() + Math.max(0L, sourcePositionInClipMs);
+    }
+
+    /** The same position on the TIMELINE's clock, local to the clip: what a caption's fade is timed against. */
+    private static long captionSpanLocalMs(@NonNull Clip clip, long sourcePositionInClipMs) {
+        float speed = clip.getSpeedMultiplier();
+        return speed > 0f ? (long) (sourcePositionInClipMs / speed) : sourcePositionInClipMs;
+    }
+
     private long getAbsolutePlayheadMs(long positionInCurrentSegmentMs) {
         Timeline tl = project.getTimeline();
         Clip clip = clipUnderPlayhead();
@@ -11325,10 +11349,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     if (!hasMultiAudio && captionMultiContainer != null) captionMultiContainer.setVisibility(View.GONE);
                 }
                 if (phClip != null) {
-                    long capSrc = phClip.getInPointMs() + (long) (positionInCurrentSegmentMs * phClip.getSpeedMultiplier());
+                    long capSrc = captionSourceMs(phClip, positionInCurrentSegmentMs);
                     // Second arg = the CLIP-LOCAL playhead, the clock the binding's opacity
                     // fade is measured against — the same one CompositeExportOverlay uses.
-                    for (com.fadcam.ui.faditor.transcript.CaptionOverlayView v : captionOverlays) v.setActiveSourceMs(capSrc, positionInCurrentSegmentMs);
+                    for (com.fadcam.ui.faditor.transcript.CaptionOverlayView v : captionOverlays) v.setActiveSourceMs(capSrc, captionSpanLocalMs(phClip, positionInCurrentSegmentMs));
                     if (captionMultiContainer != null && captionMultiContainer.getVisibility() != View.VISIBLE) captionMultiContainer.setVisibility(View.VISIBLE);
                 }
             } else if (captionOverlay != null) {
@@ -11337,8 +11361,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     if (!phClip.getId().equals(captionClipId)) {
                         bindCaptionData(phClip);
                     }
-                    long capSrc = phClip.getInPointMs() + (long) (positionInCurrentSegmentMs * phClip.getSpeedMultiplier());
-                    captionOverlay.setActiveSourceMs(capSrc, positionInCurrentSegmentMs);
+                    long capSrc = captionSourceMs(phClip, positionInCurrentSegmentMs);
+                    captionOverlay.setActiveSourceMs(capSrc, captionSpanLocalMs(phClip, positionInCurrentSegmentMs));
                     if (captionOverlay.getVisibility() != View.VISIBLE) captionOverlay.setVisibility(View.VISIBLE);
                 } else if (captionOverlay.getVisibility() == View.VISIBLE) {
                     captionOverlay.setVisibility(View.GONE);
@@ -41852,10 +41876,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (!captionOverlays.isEmpty()) {
             Clip ph = clipUnderPlayhead();
             if (ph != null) {
-                long capSrc = ph.getInPointMs()
-                        + (long) (lastSourcePositionInSegmentMs * ph.getSpeedMultiplier());
+                long capSrc = captionSourceMs(ph, lastSourcePositionInSegmentMs);
                 for (com.fadcam.ui.faditor.transcript.CaptionOverlayView v : captionOverlays) {
-                    v.setActiveSourceMs(capSrc, lastSourcePositionInSegmentMs);
+                    v.setActiveSourceMs(capSrc, captionSpanLocalMs(ph, lastSourcePositionInSegmentMs));
                 }
             }
         }

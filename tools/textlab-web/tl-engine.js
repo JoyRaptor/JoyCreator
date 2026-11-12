@@ -243,7 +243,7 @@
           .set('uMove', ps.move).set('uScale', ps.scale).set('uTurn', ps.turn).set('uLine', [l.baseline, l.cap])
           .set('uSdfScale', (ps.scale[0] + ps.scale[1]) / 2).set('uWeight', weight + ps.weight)
           .set('uLetter', [ps.reveal, (l.index + 0.5) / l.count]).set('uTubePiece', [l.piece.paint ? 1 : neon ? 2 : 0, l.order || 0])
-          .set('uArc', l.arc || [0, 1]).set('uShard', -1).tex('uSdf', l.piece.tex, 0);
+          .set('uPenArc', l.arc || [0, 1]).set('uShard', -1).tex('uSdf', l.piece.tex, 0);
         // SHATTER: a breaking letter is drawn as its shards, each a rigid piece with its own flight
         const sh = broken > 0 ? this.shards(l) : null;
         const part = sh ? clamp01((broken - sh.start) / 0.45) : 0;

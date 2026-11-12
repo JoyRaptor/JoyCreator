@@ -30,6 +30,8 @@ public final class LibraryItem {
     public String uri;
     /** A link or absolute path a picture can be drawn from, or null for a glyph. */
     public String thumb;
+    /** When {@link #thumb} is a moving sprite sheet, its file name ({@code Dust.5x4.sprite.png}: the grid). */
+    public String thumbSheet;
     /** Its path inside the Joy Creator folder ("Recordings/x.mp4"), when it lives there. */
     public String folderPath;
     /** The project, or the project a sheet or character lives in. */

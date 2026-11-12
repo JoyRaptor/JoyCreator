@@ -157,6 +157,59 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
   feature is skipped when its slider is zero. Drips and splashes find their edge by a fixed 7-look walk (Slime 28 to
   25 ms, Water 53 to 39). Still over the 33 ms line: Water 39, Overgrown 36 (with Diamond 46, Fizz 38, Voltage 35,
   Carved Stone 36 from before). The look book on an upright phone now shows the looks as one row to swipe.
+- **Owner, 2026-11-12 (after wave four).** Water "looks excellent, especially with these settings" (his sliders:
+  thickness 0.012, melt 0.019, wobble 0.047, wobble size 9.287, wobble speed 2.085, chips 0.009: now the look), but
+  "the drip particle emitters don't look as good as the rest of the text". Dust: he likes the idea, "pretty
+  unconvincing": the dust "blows away in round clusters" and the puffs do not seem to come from the grains
+  dissolving off the word. The painted backdrops (sea, bricks) do not convince him, and matter little: there will be
+  video, a visualiser or a picture behind; he wants transparent as an option. He asked how a look's shimmer and
+  its dissolves should be set for export, how this wires to VisLab, and what a next seven would be. Done:
+  - **Water**: the bubble sprites are gone; every drop is a true shape of the same water (two more followers behind
+    each leaping drop, `splashOf`).
+  - **Dust** rebuilt: no soft round sprites; the front can be combed into wandering tongues by the wind
+    (`frontComb`); the letter thins over a wider band that starts just ahead of the line; and THE STREAM
+    (`uSandB`, `sandWind` / `sandStream` / `sandLift` / `sandEddies`): the grains that have left are still drawn,
+    carried downwind. A point ahead of the line is reached only by grains from one place upwind, so it costs one
+    look per pixel and is the letter's own grains, moved. Front-born particles now start from rest, gather speed,
+    and leave a little before or after the line as the letter's grains do.
+  - **Look book helpers (pilots of what Studio and JoyBrush would carry)**: the LIGHT helper under the picture
+    (Live = follows the phone; Pinned = stays where the pad puts it, what an export uses; Sway = moves by itself
+    round the pinned place); a PROGRESS bar for looks with a front (drag to hold a moment, or Plays); what is
+    behind now stays as chosen from look to look, with Clear (grey squares) and Your picture (stage 10 and 11).
+  - Timing: Note 9 at 1280 wide after this pass: Dust 26 ms (was 19; the stream), Water 50 ms at his settings (was 39; his crystal-chips slider adds a cell search to the shape pass: to trim), Ember Fade 16, Overgrown 36. Battery 23.7 to 23.8 C. Checked on the computer at several moments and at phone size; the light helper, progress bar, Clear and own-picture were exercised by script, not by hand on a phone.
+  **My recommendations to him (his yes owed):**
+  - Export never reads the sensor. Every text carries a light position; the helper has Live (try it), Pinned (the
+    stored value) and Sway (a stored gentle motion, the no-thinking choice for video). Studio keyframes the pinned
+    position and the progress on its timeline; JoyBrush stores them with the layer (a still uses Pinned; an animated
+    export may use Sway). Progress defaults to "plays in at the clip's start / plays out at its end".
+  - VisLab: a look is a skin any VisLab word part can wear; the music's bands drive a look's sliders (glow, wobble,
+    light position, progress, particle rate) through the same follow-the-music mapping VisLab has; VisLab's own
+    shapes can use TextLab's pieces (bolts, leaves, sand, the front). One renderer draws to a clear layer that
+    VisLab, Studio and JoyBrush composite (`final.frag` `uOut = 1`, still untested).
+  - Next seven proposed: fog on glass (wipes clear, blurs the video behind), shatter (rigid shards, in or out),
+    cloth (the whole word waves like a flag: a warp for any look), written by hand (the stroke draws itself: the
+    pen's path as a piece), stained glass (leaded panes, coloured light on the floor), peeling paint and rust (coats
+    that wear through), jelly (light through the body, springy arrival).
+- **Owner, 2026-11-12 (who builds what).** He is short of credit for the lead's model and has Opus 5.5 as well. His
+  question: which of us should build the phone app? Lead's answer, which he acted on by asking for the looks: the
+  phone engine is a careful PORT with a picture to match (same shader files, a reference engine to mirror file for
+  file), so a second session builds it from `tasks/jobs/TEXT-1_PHONE_ENGINE_BRIEF.md`; the lead keeps to looks.
+- **Wave five (2026-11-12): the third seven.**
+  | Piece (new) | Where | Look that shows it | Note 9, 1280 wide |
+  |---|---|---|---|
+  | Shatter: a letter drawn as up to eight rigid shards, each a solid chunk with the look's whole finish; thrown, falling, turning, fading, then back together. Compose level, so ANY look can wear it | `glyph.frag` `uShard` / `uSeeds`; `tl-engine.js` `brokenNow` / `shards`; sliders `shatter*` | Shatter (Dark Steel's material) | 35.1 ms whole, 36.7 ms mid-break |
+  | The pen's path: a tube letter's picture says how far along its writing each point is (`1 + arc`, so neon still reads "bare"); the field carries it per letter (`uArc`) | `tl-tubes.js`, `glyph.frag`, `PEN` in `shade.frag` | Handwritten (ink + pen), Fogged Glass (the finger writes it) | 8 ms |
+  | Fog: a steamed pane over the whole picture, soft behind the mist (the backdrop's blurred copies), sharp where wiped, tiny drops, a bead along the wiped edge; runs are the look's own drips | `FOG` in `shade.frag`; the engine blurs the backdrop only for these looks | Fogged Glass | 15 ms |
+  | Flag: the word printed on a hemmed cloth flying from its left edge (a warp with fold light) | `FLAG` in `shade.frag` | Banner | 5.2 ms |
+  | Stained glass: leaded panes, each its own shade, lit from behind, shifting with tilt; their colours on the floor | `STAINED` in `shade.frag` | Stained Glass | 34.5 ms |
+  | Rust: a coat of paint failing in patches (edges first) over rusting steel, with runs | `RUST` in `shade.frag` | Rusted (Dark Steel's shape) | 36.8 ms |
+  | Jelly: light goes into the body (thin rims glow, deep middle, light out the far side, bends what is behind); `spring` arrival | `JELLY` in `shade.frag`; `EASE.spring` | Jelly | 18.4 ms |
+  The look book's progress bar also drives a break ("Broken"). Checked: all 35 looks draw with no shader errors on
+  the computer; each new one looked at on the computer at one to three moments (Shatter whole, mid-break and gone;
+  the pen mid-word; Jelly mid-bounce); the seven ran with no errors on the Note 9's GPU. Battery stayed at 21.4 C over two short runs. Not checked: the
+  motion of Banner, Fogged Glass and Stained Glass over time beyond two stills; anything by hand on a phone; the
+  owner's verdict. Known weak spots: Stained Glass's light on the floor still reads as a mosaic more than as light;
+  Banner has no pole and no shadow; the handwriting is the neon letters' single-stroke capitals, not a script hand.
 - **Honest limits today:** the fire is good stylised fire, not yet the photograph the owner showed;
   water and the other drafts are below the bar; only the app's own fonts are used (Archivo, Plex,
   Ubuntu, Doto), so there is no script or true display face yet.
@@ -165,10 +218,81 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
 - [ ] **Owner's verdict** on the five heroes (and which drafts he wants raised next).
 - [ ] Fonts: a short list of open-licence display faces to bundle (needs his yes to download).
 - [ ] Fire toward the photograph (finer filaments, a real fluid step if the Note 9 allows); water with splashes.
-- [ ] **Phone engine**: a small Kotlin module (new package `cc.joycreator.textlab`, no FadCam code) that runs
-      the same passes with GLES 3: reuse the VisLab patterns (`vislab/gl/ShaderLib`, `GlProgram`, `GlTarget`,
-      `GpuTimer`, `StudioVis`' own GL thread, `OffscreenGl`). Twin of `tl-engine.js` + `tl-glyphs.js`.
-- [ ] Output for a compositor: `final.frag` `uOut = 1` (linear, premultiplied) is written, untested.
+- [~] **Phone engine** (brief for the builder: `tasks/jobs/TEXT-1_PHONE_ENGINE_BRIEF.md`). **Built 11-12 by the
+      phone-engine session (Claude Opus 5.5, branch `claude/textlab-phone-20261112`)**, brief steps 1 to 3 in one go:
+      package `cc.joycreator.textlab` in `app/src/main/java` (Java, like VisLab, so the app module needs no Kotlin
+      plugin): `TextLabRenderer` (every pass of `frame()`, `still()`, fire, particles, shatter, photo stage),
+      `TlGlyphs` (letters, distance transform, emitter points), `TlTubes`, `TlGl` / `TlProgram` (typed uniforms by
+      name, on VisLab's `GlProgram` / `GlTarget` / `ShaderLib`, made public for it), `TlFonts`; debug screen
+      `TextLabDebugActivity` (adb: `--es look <id> --ef t 3 --ei w 1280 --ei h 720`; saves the still to the app's
+      files folder `textlab/<look>_t3.png`, then plays live with the frame time on screen; tap holds / plays).
+      **Proof, Note 9, against the look book in Chrome on the same Note 9** (`&t=3&w=1280&h=720`, same words; pictures
+      in `tasks/screens/textlab-phone/`, compare with `tools/textlab-web/compare.py`, phone side `phone-stills.sh`):
+      neon-bar identical (worst 0 of 255); slime, dust, ink-bleed mean 0.01 (worst 44, 126, 13 on a few pixels);
+      dark-steel mean 0.62 and blaze 0.17 (worst 133, 217 on single pixels; the same by eye, `side-by-side.png`).
+      Cause, measured: those two use Archivo at weight 800, and Chrome on Android snaps a big letter's outline to
+      the 64 px grid it builds it at (a T's top at 286.0 px where the font says 285.8; slight hinting), so a long
+      straight edge sits a fifth of a pixel apart and the brushed bevel detail along it speckles. No Android call
+      gives that snapped outline (drawing the letter as a path was tried: same pixels); the phone keeps the true
+      outline. Not the tilt sensor: a re-capture with the light pinned (`&tx=0&ty=0`) gave byte-identical stills
+      (Chrome sends no tilt to a plain http page). Every picture is the same size as the look book's.
+      Live frame time, dark-steel at 1280 x 686 (wall clock with glFinish, debug build): about 46 to 55 ms.
+      **Two traps found:** (1) the browser's letter ink box is Skia's box at 64 px rounded out and scaled
+      (multiples of 6.5 at 416 px); the phone copies that rule or every cell is cut a pixel or two off;
+      Android also rounds advances to whole pixels unless measured large. (2) The look book on the COMPUTER is not a
+      reference for font looks: Windows draws letters with DirectWrite, so edge points (where particles and glints
+      are born) differ; compare with the look book on the phone. **Name clash for the lead:** `uArc` is both the
+      lightning knob (vec4, `shade.frag`) and a tube's share of its letter (vec2, `glyph.frag`); `setAll` tries the
+      knob on the glyph program every letter and is refused (both engines; harmless, the right value follows).
+      Left: brief step 4 (`uOut = 1`), GPU time per pass, then Studio
+      (ask the lead first).
+- [x] **Look previews (owner, 11-12):** pick a look by its picture, not its name, and browse saved looks in the
+      Library moving, like pictures. **Built and agent-checked on the Note 9, 11-12** (branch
+      `claude/textlab-phone-20261112`; pictures in `tasks/screens/textlab-phone/ui/`): the TextLab screen has the
+      chips (cyan ring on the chosen one, which plays), your words and Save; Save wrote `HOT.text.json` +
+      `HOT.5x4.sprite.png` (880 KB) to `Supplies/Looks/` in 3 s; the Library lists HOT once, and its card plays (four
+      screenshots 0.25 s apart, a fifth of the card changes between each); tapping a saved look opens it in the
+      TextLab screen with its words; a look saved without its picture got one from the Library by itself. A chip
+      picture costs 1.5 to 4 s to make, once (35 looks: about 2 minutes, in the background, the first time; remade
+      only when the shader, knob or tube files change). Code: `LookPreview`, `TextLabPreviews`, `LookChipRow`,
+      `com.fadcam.ui.library.SheetDrawable`, `FolderReader.linkSheets`, `LibraryThumbs.bindSheet`,
+      `joyfolder.SheetName` (+ `.text.json` in `FileKind.LOOK`; tests in `tools/joyfolder-tests`). Not done: the
+      owner has not tried it; the sheet is a PNG of about 0.9 MB (a WebP would be about a fifth); a hand-edited
+      look is remade only when the Library is next opened. Plan as built:
+      - A saved look is two files side by side in `Supplies/Looks/` (the existing Looks kind; `.text.json` added
+        to its endings): `<Name>.text.json` and its moving preview `<Name>.5x4.sprite.png`: a sprite sheet, 5
+        across and 4 down, 20 frames at 10 a second (2 s), each 256 x 144, drawn by the same renderer from 3 s in.
+        The grid is in the name, so anything reading the file knows how to cut it.
+      - Name: the words written (cleaned), the user can retype it; a clash gets "2", "3" (the folder's free-name rule).
+      - Library: any `*.<C>x<R>.sprite.png` plays as a loop (only cards on screen play); a look's card shows its
+        sheet, and a sheet beside its own look is not listed twice. A preview older than its look is remade.
+      - Chips: the TextLab screen gets a row of look chips (each look's own sheet, made once in the app's cache):
+        still until chosen, the chosen one plays. Studio's carousel will reuse the same chip row.
+      - Not here yet: packs, installable abilities (a separate job, with the lead).
+- [ ] **Studio: a title wears a look, live (owner, 11-12).** A titled look in Studio is NOT a picture pasted in:
+      the words, the look and its knobs stay editable, and the engine draws each frame at its own moment (preview
+      at a lighter size, export at full size) as the see-through picture (`output = CLEAR`) Studio lays over the
+      video. **The light in Studio is recorded, never live:** the owner's "record live". Recommendation (phone-engine
+      session), to be agreed with the lead: the same pattern as the puppet's existing "Record on touch"
+      (`PuppetDrawerTabs`: arm it, then touching records; a take is a dense run of keys drawn as one bar on the tape,
+      `PuppetTapeMarks`; "Detail of recorded moves" thins it; `MeshEasingFit` turns the thinned keys into curves,
+      overshoots included). So: arm "Record tilt"; hold a thumb on the title; the video plays from the playhead and
+      the phone's tilt at that instant is the zero; the tilt is recorded as the light's keys until the thumb lifts;
+      one take = one undo step; recording over a stretch again replaces its keys; the keys then edit, thin and
+      cut like any. Export reads only the keys, never the sensor.
+- [x] Output for a compositor (phone-engine session, 11-12). `uOut = 1` (linear light, premultiplied) tested as
+      written; and **`uOut = 2` added to `final.frag`** (the lead's file; the look book's own picture, `uOut 0`, is
+      unchanged): the words alone, see-through, with the look's own film curve, colour and contrast, sRGB,
+      premultiplied, 8 bits: what Studio lays over video as a picture. Glow is light, not paint: its cover is its
+      own brightness. No dark corners or grain (they belong to a whole frame). Proof (`ClearCheck`, and the same
+      sums in the look book on the computer): laid over black, `uOut 2`, and `uOut 1` finished by
+      `final.frag`'s sums, equal the screen picture over a black ground to within 1 of 255 (rounding) on dark-steel,
+      neon-bar, blaze, slime, dust, ink-bleed; no pixel has more colour than cover. The renderer:
+      `TextLabRenderer.output` = `FOR_SCREEN` / `CLEAR` / `LINEAR_CLEAR`; `readBitmap()` gives a see-through
+      Bitmap for `CLEAR`, `readLinear()` floats for `LINEAR_CLEAR`; both skip FXAA (it would fill in the
+      see-through). **On the Note 9 too** (`tools/textlab-web/phone-clearcheck.sh`, the app's `ClearCheck`): the same six looks give the same result, within 1 of 255, no colour above cover. Limits, by nature: over a
+      bright video the words' film curve and their light spilling onto the background cannot be the same as the
+      look book's (that picture grades its own stage); paper looks (ink-bleed) bring their paper.
 - [ ] Studio: a look on `TextOverlayItem` (new optional field; old projects must still open), carousel in the
       text drawer (one press = one undo step), preview and export through the same renderer.
 - [ ] TextLab room; Supplies shelf (`Supplies/Text looks/<Name>.text.json`, the user's copy wins).

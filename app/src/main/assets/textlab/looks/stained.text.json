@@ -1,0 +1,18 @@
+{
+  "format": "joy.text/1",
+  "id": "stained",
+  "name": "Stained Glass",
+  "family": "Stuff",
+  "sample": "LUMEN",
+  "stage": 1,
+  "font": { "family": "cinzel", "weight": 900, "tracking": 0.08, "caps": true },
+  "margin": [ 1.0, 1.0, 1.0, 1.3 ],
+  "features": [ "STAINED" ],
+  "description": "Leaded panes of coloured glass with the light behind them: each pane its own shade, rippled and seeded, and their colours lying on the floor in front.",
+  "p": { "vignette": 0.6, "grain": 0.3, "contrast": 1.08, "soften": 0.003, "weight": 0.018, "bevel": 0.012, "bevelHeight": 0.012, "ao": 0.3, "depth": 0.14, "persp": -0.1, "vanishX": 0.5, "vanishY": 0.45, "parallax": 0.2, "metal": 0.6, "rough": 0.5, "fillA": "#d0122c", "fillB": "#1b4fd6", "fillC": "#f2a516", "panes": 6, "paneLead": 0.022, "paneLight": 2.3, "paneFloor": 0.7, "sideA": "#1a1a1e", "sideB": "#020203", "sideMetal": 0.5, "spec": 0.35, "shine": 60, "shadow": 0.4, "shadowSoft": 0.12, "floor": 0.12, "floorLine": 0.3, "floorFade": 4, "stageTint": "#3a2a5a", "bloom": 0.55, "bloomThreshold": 1.1, "bloomKnee": 0.6, "saturation": 1.15 },
+  "sphere": { "ramp": [ [ 0.0, "#020202" ], [ 0.4, "#0c0c0e" ], [ 0.5, "#1c1c22" ], [ 0.65, "#0c0c0e" ], [ 1.0, "#020202" ] ], "boxes": [ [ -0.42, 0.58, 0.36, 0.1, -0.3, 0.035, 6.0, "#ffffff", 0.4 ], [ 0.76, 0.1, 0.05, 0.5, 0.12, 0.03, 3.5, "#ffffff", 0.2 ] ] },
+  "motion": {
+    "in": { "each": 0.08, "time": 0.6, "ease": "out", "reveal": [ 0, 0.5 ] },
+    "idle": {}
+  }
+}

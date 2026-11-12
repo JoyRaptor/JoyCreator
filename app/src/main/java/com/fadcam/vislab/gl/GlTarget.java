@@ -8,10 +8,10 @@ import androidx.annotation.NonNull;
  * A framebuffer with one or more colour textures (several = MRT, for the particle state).
  * Created and freed on the GL thread that owns the context.
  */
-final class GlTarget {
+public final class GlTarget {
 
     /** Texture format: internal format and the pixel type used to allocate it. */
-    static final class Format {
+    public static final class Format {
         final int internal;
         final int type;
         final String name;
@@ -23,13 +23,13 @@ final class GlTarget {
         }
     }
 
-    static final Format RGBA8 = new Format(GLES30.GL_RGBA8, GLES30.GL_UNSIGNED_BYTE, "RGBA8");
-    static final Format RGBA16F = new Format(GLES30.GL_RGBA16F, GLES30.GL_HALF_FLOAT, "RGBA16F");
-    static final Format RGBA32F = new Format(GLES30.GL_RGBA32F, GLES30.GL_FLOAT, "RGBA32F");
+    public static final Format RGBA8 = new Format(GLES30.GL_RGBA8, GLES30.GL_UNSIGNED_BYTE, "RGBA8");
+    public static final Format RGBA16F = new Format(GLES30.GL_RGBA16F, GLES30.GL_HALF_FLOAT, "RGBA16F");
+    public static final Format RGBA32F = new Format(GLES30.GL_RGBA32F, GLES30.GL_FLOAT, "RGBA32F");
 
-    final int fb;
-    final int[] texs;
-    final int w, h;
+    public final int fb;
+    public final int[] texs;
+    public final int w, h;
 
     private GlTarget(int fb, int[] texs, int w, int h) {
         this.fb = fb;
@@ -38,12 +38,12 @@ final class GlTarget {
         this.h = h;
     }
 
-    int tex() {
+    public int tex() {
         return texs[0];
     }
 
     @NonNull
-    static GlTarget create(int w, int h, @NonNull Format fmt, int attachments, boolean linear) {
+    public static GlTarget create(int w, int h, @NonNull Format fmt, int attachments, boolean linear) {
         int[] ids = new int[1];
         GLES30.glGenFramebuffers(1, ids, 0);
         int fb = ids[0];
@@ -75,12 +75,12 @@ final class GlTarget {
         return new GlTarget(fb, texs, w, h);
     }
 
-    void free() {
+    public void free() {
         GLES30.glDeleteFramebuffers(1, new int[]{fb}, 0);
         GLES30.glDeleteTextures(texs.length, texs, 0);
     }
 
-    static void free(GlTarget t) {
+    public static void free(GlTarget t) {
         if (t != null) t.free();
     }
 }

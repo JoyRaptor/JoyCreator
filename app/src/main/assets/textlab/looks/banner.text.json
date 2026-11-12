@@ -1,0 +1,17 @@
+{
+  "format": "joy.text/1",
+  "id": "banner",
+  "name": "Banner",
+  "family": "Stuff",
+  "sample": "FREE",
+  "stage": 3,
+  "font": { "family": "archivo", "weight": 900, "width": 100, "tracking": 0.06, "caps": true },
+  "margin": [ 1.0, 0.75, 1.0, 0.75 ],
+  "features": [ "FLAG" ],
+  "description": "The word printed on a flag that flies from its left edge: the wave grows toward the free end, the folds catch and lose the light, and it is hemmed all round.",
+  "p": { "fillA": "#f6f0e0", "fillB": "#fbf6ea", "fillC": "#ffffff", "flagCol": "#b3161f", "flagWave": 0.115, "flagWaves": 0.33, "flagSpeed": 3, "flagInset": 0.38, "bloom": 0.1, "bloomThreshold": 2, "vignette": 0.4, "grain": 0.25, "contrast": 1.05, "saturation": 1.08 },
+  "motion": {
+    "in": { "each": 0.05, "time": 0.01, "reveal": [ 0, 0.4 ] },
+    "idle": {}
+  }
+}

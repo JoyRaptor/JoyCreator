@@ -57,7 +57,8 @@ void main() {
     // born as the front passes: its age is how far the front has gone on since
     float past = 1.0;
     if (atFront) {
-        past = frontGone() - frontBase(e.xy) / 1.4;
+        // (not all at one instant: each goes a little before or after the line, as the letter's own grains do)
+        past = frontGone() - frontBase(e.xy) / 1.4 + (rooted ? 0.0 : (r0.w - 0.7) * 0.1);
         if (!rooted) {
             float per = uFront.y > 0.0 ? uFront.y * 0.128 * life : 0.12;
             age = past / per;
@@ -67,12 +68,15 @@ void main() {
     }
 
     float t = age * life;
+    float go = atFront ? 1.0 - exp(-t / 0.35) : 1.0;            // what leaves at the front starts from rest and gathers speed
+    float tm = atFront ? t - 0.35 * go : t;
+    if (atFront) born += (r0.zw - 0.5) * 0.02;                  // (many may share one birthplace: spread them a grain or two)
     vec2 wind = atFront ? vec2(cos(uFront.w * TAU), sin(uFront.w * TAU)) * uPMove.z * (0.5 + r.z)
                         : vec2((r.z - 0.5) * 2.0 * uPMove.z, 0.0);
     vec2 vel = e.zw * uPMove.x * (0.4 + r.w) + wind + vec2(0.0, uPMove.y * (0.5 + r.w)) + (r0.zw - 0.5) * 2.0 * uPMove.w;
     vec2 sw = tcurl(born * uPForce.z + vec2(fi * 0.37, t * 0.35)) * uPForce.y;
-    vec2 pos = born + vel * t + vec2(0.0, -0.5 * uPForce.x * t * t) + sw * t;
-    vec2 velNow = vel + vec2(0.0, -uPForce.x * t) + sw;
+    vec2 pos = born + vel * tm + vec2(0.0, -0.5 * uPForce.x * t * t) + sw * tm;
+    vec2 velNow = (vel + sw) * go + vec2(0.0, -uPForce.x * t);
 
     float bright = 1.0;
     if (uPKind.z > 0.5) {

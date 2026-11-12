@@ -115,6 +115,15 @@ public final class JoyFolderTests {
         eq(FileKind.LOOK, FileKind.of("Teal orange.CUBE"));
         eq(FileKind.LOOK, FileKind.of("Sound City.vis.json"));   // a VisLab look
         eq(FileKind.LOOK, FileKind.of("Fire Aurora.vispart.json"));   // a VisLab part, beside the looks
+        eq(FileKind.LOOK, FileKind.of("Dust.text.json"));   // a TextLab look
+        eq("Dust", FileKind.baseOf("Dust.text.json"));
+        eq(FileKind.IMAGE, FileKind.of("Dust.5x4.sprite.png"));   // its moving preview is a picture
+        com.fadcam.joyfolder.SheetName n = com.fadcam.joyfolder.SheetName.parse("My Title 2.5x4.sprite.png");
+        check(n != null && n.base.equals("My Title 2") && n.cols == 5 && n.rows == 4 && n.frames() == 20, "sheet grid read from its name");
+        check(com.fadcam.joyfolder.SheetName.parse("Dust.png") == null, "a plain picture is not a sheet");
+        check(com.fadcam.joyfolder.SheetName.parse("Dust.0x4.sprite.png") == null, "an empty grid is not a sheet");
+        check(com.fadcam.joyfolder.SheetName.parse("Star guy.sprite.json") == null, "a Sprite Lab sheet file is not a moving picture");
+        eq("Dust.5x4.sprite.png", com.fadcam.joyfolder.SheetName.of("Dust", 5, 4));
         eq(FileKind.PROJECT, FileKind.of("Lecture 3.joyproject"));
         eq(FileKind.VIDEO, FileKind.of("Take 1.MP4"));
         eq(FileKind.OTHER, FileKind.of("README"));

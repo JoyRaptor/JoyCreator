@@ -1,7 +1,9 @@
 // The finished picture: the lit words over what is behind them, their glow, heat shimmer,
 // a wet floor, then the film: a response curve that KEEPS COLOUR, a grade, a vignette and grain.
 //   uOut 0: for a screen (film curve, sRGB)           the look book and the room's preview
-//   uOut 1: for a compositor (linear, premultiplied)  what Studio, VisLab and JoyBrush take
+//   uOut 1: for a compositor (linear, premultiplied)  a GL compositor that applies the film finish itself
+//   uOut 2: for an 8-bit compositor (sRGB, premultiplied, the look's own finish on the words alone):
+//           Studio's overlays. Over black it is exactly uOut 0 over a black ground, less vignette and grain.
 in vec2 vUv;
 out vec4 o;
 uniform sampler2D uScene;    // the words: linear, premultiplied, may exceed 1
@@ -86,6 +88,18 @@ void main() {
         sc.a = max(sc.a, m.a * fadeOut * 0.5);
     }
 
+    if (uOut > 1.5) {
+        // the finish on the words and their glow alone. Glow is light, not paint: its cover is its own
+        // brightness, so laid over black it adds exactly what the screen picture shows
+        float glowA = sat(max3(bl));
+        float a = sat(sc.a + glowA * (1.0 - sc.a));
+        vec3 w = film((sc.rgb + bl) * uPost.w);
+        w = mix(vec3(luma(w)), w, uGrade.y);
+        w = toSrgb(clamp(w, 0.0, 1.0));
+        w = clamp((w - 0.5) * uGrade.x + 0.5, 0.0, 1.0);
+        o = vec4(w, max(a, max3(w)));
+        return;
+    }
     if (uOut > 0.5) {
         float glowA = sat(max3(bl));
         o = vec4(sc.rgb + bl, sat(sc.a + glowA * (1.0 - sc.a)));

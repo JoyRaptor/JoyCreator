@@ -11,7 +11,7 @@ The structural ones make every later Studio fix cheaper and stop "fiddly" bugs; 
 |---|---|---|
 | **One authority for timeline time to source time** (four copies disagree; "the single most valuable structural fix left") | FUTURE_PLANS 1.2 S6 | **export half built 11-12**: `model/TimeMap` places sound lanes, picture-in-picture sound, the black tail, range cuts and a clip's own clock after a transition (code review 11-11 D5, D6, E2). Note 9 A/B done by an agent (numbers in [the code review](../audits/code_review_20261111.md) §A and STATE §2). Left: the editor side (seek at a cut D7, rounding D9, the playhead during a blend), E5 and the blend's missing fades, D2, D3, D8 (owner ruling), D10, D11 |
 | **One snapping authority, app-wide** (owner: "fiddly"): the playhead snaps to keys, objects align to each other | 1.2 S7 | magnet built; the rest not |
-| **Export speed**: the one-pass GPU stage, the owner's "one tap, fast" | 1.2 S17; old roadmap 1.9 | not built |
+| **Export speed**: the one-pass GPU stage, the owner's "one tap, fast" | 1.2 S17; old roadmap 1.9 | not built. 11-12: per-frame picture copies removed from four passes (code review E17); a 9 min 20 s export measured on the Note 9 at an even 1.2x real time, no slowdown. Next speed lead from its profile: Canvas blits and GL draws dominate, copies were about 1% |
 | **Primitives**: a Path object, text on a path, per-letter channels, paths as masks and motion paths | 1.2 S8, owner 09-24 | not built |
 
 ## Done when

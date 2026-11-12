@@ -101,9 +101,10 @@ final class SpriteBlendGlEffect implements GlEffect {
      * replaces about where the sprite is or what it shows. Only the destination differs: an
      * offscreen that is then composited inside the chain instead of painted over it.
      *
-     * <p>A NEW bitmap every frame: {@code BitmapOverlay} caches the GL texture on bitmap
-     * IDENTITY, so returning a reused scratch would freeze frame one forever — the trap
-     * {@code TextFxGlEffect.TextFrame} and {@code PipFrameOverlay} both document.
+     * <p>A DIFFERENT bitmap from last frame: {@code BitmapOverlay} caches the GL texture on
+     * bitmap IDENTITY, so returning the same scratch would freeze frame one forever. Two
+     * reusable pictures in turn ({@link OverlayFramePair}) satisfy that without a new 8 MB
+     * picture per frame (code review 11-11, E17).
      */
     private static final class SpriteFrame extends BitmapOverlay {
         @NonNull private final Context appContext;
@@ -120,6 +121,8 @@ final class SpriteBlendGlEffect implements GlEffect {
         private final Paint paint =
                 new Paint(Paint.FILTER_BITMAP_FLAG | Paint.ANTI_ALIAS_FLAG);
         private final android.graphics.Matrix pinMatrix = new android.graphics.Matrix();
+        /** The two reusable pictures and the fixed empty one (code review 11-11, E17). */
+        private final OverlayFramePair frames = new OverlayFramePair();
 
         SpriteFrame(@NonNull Context appContext, @NonNull SpriteOverlayItem item,
                     @NonNull List<com.fadcam.ui.faditor.sprite.SpriteSheet> sheets,
@@ -177,13 +180,22 @@ final class SpriteBlendGlEffect implements GlEffect {
         @Override
         public Bitmap getBitmap(long presentationTimeUs) {
             long timelineMs = presentationTimeUs / 1000L + editorTimeOffsetMs;
-            Bitmap full = Bitmap.createBitmap(frameW, frameH, Bitmap.Config.ARGB_8888);
-            Canvas canvas = new Canvas(full);
-            canvas.drawColor(0, android.graphics.PorterDuff.Mode.CLEAR);
+            // Nothing to draw: the fixed empty picture, uploaded once for the whole run. This
+            // used to allocate (and upload) a blank 8 MB picture for every frame the sprite was
+            // off screen, for the whole length of its clip (code review 11-11, E17).
+            boolean nothing;
             try {
-                if (item.isHidden() || !item.isVisibleAt(timelineMs)) return full;
+                nothing = item.isHidden() || !item.isVisibleAt(timelineMs)
+                        || !(item.animatedOpacity(timelineMs) > 0.001f);
+            } catch (Throwable t) {
+                nothing = true;   // a sprite never costs the frame
+            }
+            if (nothing) return frames.empty(frameW, frameH);
+            // One of two reusable pictures, never the one handed over last (OverlayFramePair);
+            // it replaces a new full-frame Bitmap per frame.
+            Canvas canvas = frames.begin(frameW, frameH);
+            try {
                 float opacity = item.animatedOpacity(timelineMs);
-                if (!(opacity > 0.001f)) return full;
                 com.fadcam.ui.faditor.sprite.SpriteSheet sheet = sheetById(item.getSheetId());
                 com.fadcam.ui.faditor.sprite.SpriteSheetRenderer r =
                         sheet != null ? rendererFor(item.getSheetId()) : null;
@@ -198,14 +210,14 @@ final class SpriteBlendGlEffect implements GlEffect {
                 // resolve). The preview's placeholder is a preview affordance, not a pixel.
                 if (p == null && (sheet == null || r == null
                         || cell == com.fadcam.ui.faditor.sprite.SpriteFrameResolver.NO_CELL)) {
-                    return full;
+                    return frames.empty(frameW, frameH);
                 }
                 float cx = item.animatedCenterX(timelineMs) * frameW;
                 float cy = item.animatedCenterY(timelineMs) * frameH;
                 float h = item.animatedSizeFraction(timelineMs) * frameH;
                 float aspect = r != null ? r.cellAspect() : 1f;
                 float w = h * (aspect > 0f ? aspect : 1f);
-                if (!(w > 0f) || !(h > 0f)) return full;
+                if (!(w > 0f) || !(h > 0f)) return frames.empty(frameW, frameH);
                 paint.setAlpha(Math.round(Math.max(0f, Math.min(1f, opacity)) * 255));
                 canvas.save();
                 canvas.rotate(item.animatedRotation(timelineMs), cx, cy);
@@ -242,7 +254,7 @@ final class SpriteBlendGlEffect implements GlEffect {
                 } catch (Throwable ignored) { }
                 FLog.w("SpriteBlend", "sprite frame bake failed; drawing empty", t);
             }
-            return full;
+            return frames.finish();
         }
 
         @Override
@@ -262,6 +274,7 @@ final class SpriteBlendGlEffect implements GlEffect {
             try {
                 super.release();
             } catch (Exception ignored) { }
+            frames.release();
         }
     }
 

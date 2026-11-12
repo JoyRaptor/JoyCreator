@@ -75,6 +75,8 @@ public final class TextFxGlEffect implements GlEffect {
         private int outW = 1, outH = 1;
         /** Scratch for the corner pin. Allocated once; getBitmap runs every exported frame. */
         @Nullable private android.graphics.Matrix textFxPinMatrix;
+        /** The two reusable pictures and the fixed empty one (code review 11-11, E17). */
+        private final OverlayFramePair frames = new OverlayFramePair();
 
         TextFrame(@NonNull TextOverlayItem item, long editorTimeOffsetMs) {
             this.item = item;
@@ -125,10 +127,12 @@ public final class TextFxGlEffect implements GlEffect {
             // so a styled caption came out enormous -- caught by looking at the first export
             // rather than by reading, because both paths call the same renderer and the bug
             // was in what happens AFTER it.
-            Bitmap full = Bitmap.createBitmap(outW, outH, Bitmap.Config.ARGB_8888);
             if (textFxPinMatrix == null) textFxPinMatrix = new android.graphics.Matrix();
-            if (textBmp != null && !textBmp.isRecycled()) {
-                android.graphics.Canvas c = new android.graphics.Canvas(full);
+            if (textBmp == null || textBmp.isRecycled()) return frames.empty(outW, outH);
+            {
+                // One of two reusable pictures, never the one handed over last; it replaces a
+                // new full-frame Bitmap per frame (code review 11-11, E17; OverlayFramePair).
+                android.graphics.Canvas c = frames.begin(outW, outH);
                 float cx = frameItem.getCenterX() * outW;
                 float cy = frameItem.getCenterY() * outH;
                 float rot = frameItem.getRotationDeg();
@@ -156,10 +160,15 @@ public final class TextFxGlEffect implements GlEffect {
                 c.restore();
                 textBmp.recycle();
             }
-            // A NEW instance every frame: BitmapOverlay caches the GL texture on bitmap
-            // IDENTITY, so returning a reused scratch would freeze frame one forever. The same
-            // trap PipFrameOverlay and GlTransitionFrameOverlay both document.
-            return full;
+            // A DIFFERENT instance from last frame: BitmapOverlay caches the GL texture on
+            // bitmap IDENTITY, so returning the same scratch would freeze frame one forever.
+            return frames.finish();
+        }
+
+        @Override
+        public void release() throws VideoFrameProcessingException {
+            super.release();
+            frames.release();
         }
     }
 

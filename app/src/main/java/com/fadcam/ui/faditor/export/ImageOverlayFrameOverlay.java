@@ -29,10 +29,8 @@ final class ImageOverlayFrameOverlay extends BitmapOverlay {
     /** Composition→editor time correction; see {@link PipFrameOverlay}'s note (LEDGER §2d). */
     private final long editorTimeOffsetMs;
 
-    @Nullable private Bitmap bitmap;
-    @Nullable private Canvas canvas;
-    /** Identity-stable, never mutated — safe for BitmapOverlay's texture cache. */
-    @Nullable private Bitmap transparent;
+    /** The two reusable pictures and the fixed empty one (code review 11-11, E17). */
+    private final OverlayFramePair frames = new OverlayFramePair();
     /**
      * 2026-09-22 static-content fast path. The old code returned a fresh full-frame
      * copy EVERY visible frame (needed: the patched BitmapOverlay re-uploads only on
@@ -70,22 +68,15 @@ final class ImageOverlayFrameOverlay extends BitmapOverlay {
     @NonNull
     @Override
     public Bitmap getBitmap(long presentationTimeUs) {
-        if (bitmap == null || bitmap.getWidth() != frameW || bitmap.getHeight() != frameH) {
-            bitmap = Bitmap.createBitmap(frameW, frameH, Bitmap.Config.ARGB_8888);
-            canvas = new Canvas(bitmap);
-            transparent = Bitmap.createBitmap(frameW, frameH, Bitmap.Config.ARGB_8888);
-            lastDrawnInstance = null;
-            lastStaticSide = 0;
-        }
         long timelineMs = presentationTimeUs / 1000 + editorTimeOffsetMs;   // →editor time (§2d)
-        // Empty frames return the IDENTITY-STABLE transparent bitmap rather than the cleared
-        // scratch: BitmapOverlay re-uploads only on instance change, so handing back the mutated
-        // scratch would leave the LAST drawn frame on screen past the overlay's window — the
-        // exact trap PipFrameOverlay documents.
+        // Empty frames return the IDENTITY-STABLE empty picture rather than a cleared scratch:
+        // BitmapOverlay re-uploads only on instance change, so handing back a mutated scratch
+        // would leave the LAST drawn frame on screen past the overlay's window — the exact trap
+        // PipFrameOverlay documents.
         if (!item.isVisibleAt(timelineMs)) {
             lastDrawnInstance = null;
             lastStaticSide = 0;
-            return transparent;
+            return frames.empty(frameW, frameH);
         }
         if (!decoded) {
             decoded = true;
@@ -98,32 +89,31 @@ final class ImageOverlayFrameOverlay extends BitmapOverlay {
         if (source == null || source.isRecycled()) {
             lastDrawnInstance = null;
             lastStaticSide = 0;
-            return transparent;
+            return frames.empty(frameW, frameH);
         }
 
         // Static fast path: provably-identical pixels → same instance back. The side
         // (before-first-key vs after-last-key) is part of the key: the two static
         // regions hold DIFFERENT clamped values, so crossing from one to the other
-        // must redraw.
+        // must redraw. lastDrawnInstance is only ever the picture handed over last.
         int side = staticSideAt(timelineMs);
         if (side != 0 && side == lastStaticSide
-                && lastDrawnInstance != null && !lastDrawnInstance.isRecycled()) {
+                && lastDrawnInstance != null && lastDrawnInstance == frames.last()) {
             return lastDrawnInstance;
         }
 
-        canvas.drawColor(0, PorterDuff.Mode.CLEAR);
+        Canvas canvas = frames.begin(frameW, frameH);
         if (!ImageOverlayDraw.draw(canvas, source, item, timelineMs, projectDurationMs,
                 frameW, frameH, 1f)) {
             lastDrawnInstance = null;
             lastStaticSide = 0;
-            return transparent;
+            return frames.empty(frameW, frameH);
         }
-        // NEW instance per frame, matching PipFrameOverlay. The patched BitmapOverlay also
-        // compares getGenerationId(), so reusing the scratch would in fact re-upload — but the
-        // in-repo precedent copies, the failure mode if that reading is wrong is a frozen first
-        // frame for the whole clip, and this is not the change to find that out on. If the copy
-        // is ever removed, remove it from BOTH classes in one commit and prove it on a device.
-        Bitmap out = Bitmap.createBitmap(bitmap);
+        // NOT a new copy per frame any more (code review 11-11, E17: 8 MB allocated and dropped
+        // every animated frame at 1080p, never freed until the collector caught up). The other
+        // of the two reusable pictures is a different instance from the one handed over last,
+        // so media3 re-uploads it; see OverlayFramePair for why that is safe.
+        Bitmap out = frames.finish();
         lastDrawnInstance = out;
         lastStaticSide = side;
         return out;
@@ -181,16 +171,9 @@ final class ImageOverlayFrameOverlay extends BitmapOverlay {
     @Override
     public void release() throws androidx.media3.common.VideoFrameProcessingException {
         super.release();
-        if (bitmap != null && !bitmap.isRecycled()) bitmap.recycle();
-        bitmap = null;
-        canvas = null;
-        if (transparent != null && !transparent.isRecycled()) transparent.recycle();
-        transparent = null;
+        frames.release();   // lastDrawnInstance is one of these
         if (source != null && !source.isRecycled()) source.recycle();
         source = null;
-        if (lastDrawnInstance != null && !lastDrawnInstance.isRecycled()) {
-            lastDrawnInstance.recycle();
-        }
         lastDrawnInstance = null;
         lastStaticSide = 0;
     }

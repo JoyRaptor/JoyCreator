@@ -30,8 +30,13 @@ public class GlTransitionFrameOverlay extends BitmapOverlay {
     private final long timelineStartMs;
     @Nullable private final int[] canvasDims;
     @NonNull private final android.net.Uri sourceUri;
+    /** The picture being drawn this frame: one of {@link #pictureA} / {@link #pictureB}. */
     private Bitmap bitmap;
     private Canvas canvas;
+    /** Two reusable pictures used in turn (code review 11-11, E17); see {@link #getBitmap}. */
+    @Nullable private Bitmap pictureA, pictureB;
+    @Nullable private Canvas canvasA, canvasB;
+    private boolean useB;
 
     /**
      * Per-instance retriever. {@link MediaMetadataRetriever} is not thread-safe, so this
@@ -65,21 +70,43 @@ public class GlTransitionFrameOverlay extends BitmapOverlay {
 
     @Override
     public void configure(@NonNull Size size) {
-        int w = Math.max(1, size.getWidth());
-        int h = Math.max(1, size.getHeight());
-        if (bitmap != null && bitmap.getWidth() == w && bitmap.getHeight() == h) return;
-        if (bitmap != null && !bitmap.isRecycled()) bitmap.recycle();
-        bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
-        canvas = new Canvas(bitmap);
+        allocatePictures(Math.max(1, size.getWidth()), Math.max(1, size.getHeight()));
+    }
+
+    private void allocatePictures(int w, int h) {
+        if (pictureA != null && !pictureA.isRecycled()
+                && pictureA.getWidth() == w && pictureA.getHeight() == h) return;
+        recyclePictures();
+        pictureA = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+        pictureB = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+        canvasA = new Canvas(pictureA);
+        canvasB = new Canvas(pictureB);
+        bitmap = pictureA;
+        canvas = canvasA;
+    }
+
+    private void recyclePictures() {
+        if (pictureA != null && !pictureA.isRecycled()) pictureA.recycle();
+        if (pictureB != null && !pictureB.isRecycled()) pictureB.recycle();
+        pictureA = pictureB = null;
+        canvasA = canvasB = null;
+        bitmap = null;
+        canvas = null;
     }
 
     @NonNull
     @Override
     public Bitmap getBitmap(long presentationTimeUs) throws VideoFrameProcessingException {
-        if (bitmap == null || bitmap.isRecycled()) {
-            bitmap = Bitmap.createBitmap(1080, 1920, Bitmap.Config.ARGB_8888);
-            canvas = new Canvas(bitmap);
-        }
+        if (pictureA == null || pictureA.isRecycled()) allocatePictures(1080, 1920);
+        // TWO PICTURES IN TURN, not a new copy per frame (code review 11-11, E17: 8 MB a frame
+        // at 1080p). BitmapOverlay.getTextureId re-uploads when the instance differs from the
+        // last one it saw and reads the pixels during that call, so the picture handed over
+        // last frame is never the one drawn into now. Every frame of a transition is drawn
+        // and handed over, so a plain toggle keeps consecutive frames different instances.
+        useB = !useB;
+        bitmap = useB ? pictureB : pictureA;
+        canvas = useB ? canvasB : canvasA;
+        canvas.restoreToCount(1);
         float localMs = (presentationTimeUs / 1000f) - timelineStartMs;
         float progress = clamp(localMs / durationMs);
         canvas.drawColor(Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR);
@@ -95,13 +122,12 @@ public class GlTransitionFrameOverlay extends BitmapOverlay {
                 drawFrame(frame);
             }
         }
-        // Return a NEW bitmap copy so BitmapOverlay.getTextureId() sees a new
-        // generationId each frame and re-uploads the GL texture. Without
-        // this the texture is uploaded once with the first frame and never
-        // updated — the Wipe/Glitch/whatever transition then shows that
-        // first frame as a static image (the user reported "flips vertical"
-        // because the wipe boundary moves over a static image).
-        return Bitmap.createBitmap(bitmap);
+        // A DIFFERENT instance from last frame so BitmapOverlay.getTextureId() re-uploads.
+        // Handing back the same picture uploads only the first frame and the Wipe/Glitch/
+        // whatever transition then shows that frame as a still (the user reported "flips
+        // vertical" because the wipe boundary moved over a static image). The toggle above
+        // gives a different instance every frame without the old full-frame copy.
+        return bitmap;
     }
 
     @NonNull
@@ -124,9 +150,10 @@ public class GlTransitionFrameOverlay extends BitmapOverlay {
         lastSourceMs = Long.MIN_VALUE;
         if (cachedImageBitmap != null && !cachedImageBitmap.isRecycled()) cachedImageBitmap.recycle();
         cachedImageBitmap = null;
-        if (bitmap != null && !bitmap.isRecycled()) bitmap.recycle();
-        bitmap = null;
-        canvas = null;
+        recyclePictures();
+        // The base class deletes the GL texture it uploaded into; this override never called
+        // it, so every transition in an export left one texture behind (code review 11-12).
+        super.release();
     }
 
     private void drawImage() {

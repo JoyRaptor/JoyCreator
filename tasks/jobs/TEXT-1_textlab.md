@@ -272,8 +272,8 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
 - [ ] **Studio: a title wears a look, live (owner, 11-12).** A titled look in Studio is NOT a picture pasted in:
       the words, the look and its knobs stay editable, and the engine draws each frame at its own moment (preview
       at a lighter size, export at full size) as the see-through picture (`output = CLEAR`) Studio lays over the
-      video. **The light in Studio is recorded, never live:** the owner's "record live". Recommendation (phone-engine
-      session), to be agreed with the lead: the same pattern as the puppet's existing "Record on touch"
+      video. **The light in Studio is recorded, never live:** the owner's "record live". **The owner's pick (11-12):
+      arm, then hold the title** (over arm-then-Play). It is the same pattern as the puppet's existing "Record on touch"
       (`PuppetDrawerTabs`: arm it, then touching records; a take is a dense run of keys drawn as one bar on the tape,
       `PuppetTapeMarks`; "Detail of recorded moves" thins it; `MeshEasingFit` turns the thinned keys into curves,
       overshoots included). So: arm "Record tilt"; hold a thumb on the title; the video plays from the playhead and

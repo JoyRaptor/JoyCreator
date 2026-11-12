@@ -2366,6 +2366,8 @@ public class LobbyFragment extends BaseFragment {
             int added = 0;
             try {
                 if (folder) added = cc.joycreator.joybrush.android.library.DrawingLibrary.syncFromFolder(app);
+                // Characters and fonts: a copy for each that has none, and back what the folder holds (audit F6).
+                if (folder) added += com.fadcam.joyfolder.studio.SuppliesFolderCopy.sync(app);
                 added += cc.joycreator.joybrush.android.library.DrawingLibrary.fillMissingThumbnails(app);
             } catch (Exception e) {
                 FLog.w("Lobby", "drawing sync failed", e);

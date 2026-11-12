@@ -1586,6 +1586,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         int n;
                         while ((n = in.read(buf)) != -1) out.write(buf, 0, n);
                         Toast.makeText(this, getString(R.string.studio_fmt_imported_1_s, name), Toast.LENGTH_SHORT).show(); // TODO(strings)
+                        com.fadcam.joyfolder.studio.SuppliesFolderCopy.fontImported(this);   // its copy in the Joy Creator folder
                         if (cb != null) cb.accept("file:" + dest.getAbsolutePath());
                     } catch (Exception e) {
                         FLog.w(TAG, "Font import failed", e);

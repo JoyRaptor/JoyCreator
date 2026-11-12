@@ -802,6 +802,8 @@ public final class StudioMirror {
             restored++;
         }
         st.save(jf);
+        // Characters and fonts the folder holds and the app does not come back too (audit F6).
+        SuppliesFolderCopy.sync(context);
         return restored;
     }
 

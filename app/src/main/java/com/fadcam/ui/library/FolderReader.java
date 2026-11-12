@@ -13,6 +13,7 @@ import com.fadcam.joyfolder.JoyFolder;
 import com.fadcam.joyfolder.Placement;
 import com.fadcam.joyfolder.android.JoyFolderHome;
 import com.fadcam.joyfolder.android.SafJoyFs;
+import com.fadcam.joyfolder.studio.SuppliesFolderCopy;
 import com.fadcam.utils.RecordingStoragePaths;
 
 import java.io.InputStream;
@@ -69,6 +70,10 @@ public final class FolderReader {
         }
         for (FolderIndex.Item fi : jf.index.items()) {
             try {
+                // A character's folder copy and a font the app already lists are the same thing, not a second one.
+                FileKind kind = FileKind.of(Placement.nameOf(fi.path));
+                if (kind == FileKind.AVATAR) continue;
+                if (kind == FileKind.FONT && SuppliesFolderCopy.hasLocalFont(c, Placement.nameOf(fi.path))) continue;
                 LibraryItem it = toItem(jf, saf, fi, projectIdsInApp);
                 if (it != null) out.add(it);
             } catch (Exception e) {

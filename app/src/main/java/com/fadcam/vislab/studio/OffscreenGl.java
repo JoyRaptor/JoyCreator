@@ -28,7 +28,7 @@ import java.nio.ByteOrder;
  * into {@link #framebuffer}. The output is premultiplied RGBA (VisLab blends ONE,
  * ONE_MINUS_SRC_ALPHA), which is what an ARGB_8888 Bitmap holds.</p>
  */
-final class OffscreenGl {
+public final class OffscreenGl {
 
     private static final String TAG = "VisStudioGl";
 
@@ -42,19 +42,19 @@ final class OffscreenGl {
     @Nullable private ByteBuffer pixels;
     @Nullable private byte[] row, row2;
 
-    OffscreenGl() {
+    public OffscreenGl() {
         thread.start();
         handler = new Handler(thread.getLooper());
         handler.post(this::setup);
     }
 
     @NonNull
-    Handler handler() {
+    public Handler handler() {
         return handler;
     }
 
     /** GL thread: the context is up. */
-    boolean ready() {
+    public boolean ready() {
         return ready;
     }
 

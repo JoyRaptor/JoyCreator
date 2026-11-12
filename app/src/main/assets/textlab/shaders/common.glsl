@@ -94,6 +94,7 @@ float presence(vec2 p) {
 // particles they throw agree exactly where it is.
 uniform vec4  uFront;       // how far it has got 0..1, moves by itself (speed; 0 = hold), raggedness, which way it travels (turns: 0 right, 0.25 up, 0.5 left)
 uniform float uFrontOnce;   // 1 = it crosses once and stays; 0 = again and again
+uniform float uFrontComb;   // its edge is combed into long tongues along the way it travels, as wind does to sand (0 = lobes only)
 float frontGone() {
     if (uFront.y <= 0.0) return uFront.x;
     float ph = uTime * uFront.y * 0.08;
@@ -103,7 +104,14 @@ float frontGone() {
 float frontBase(vec2 q) {
     vec2 dir = vec2(cos(uFront.w * TAU), sin(uFront.w * TAU));
     float along = dot(q / uField.xy - 0.5, dir) + 0.5;
-    return along + (tfbm(q * uFront.z) - 0.5) * 0.45 + (tnoise(q * uFront.z * 5.0) - 0.5) * 0.06 + 0.2;
+    float ragged = (tfbm(q * uFront.z) - 0.5) * 0.45 + (tnoise(q * uFront.z * 5.0) - 0.5) * 0.06;
+    if (uFrontComb > 0.0) {
+        float a = dot(q, dir), b = dot(q, vec2(-dir.y, dir.x));                     // along its travel, and across
+        b += (tnoise(vec2(a * 0.8, b * 0.6) + 5.0) - 0.5) * 0.3;                    // (the tongues wander a little; wind is not a ruler)
+        ragged = ragged * (1.0 - 0.65 * uFrontComb)
+               + ((tnoise(vec2(a * 1.1, b * 13.0)) - 0.5) * 0.34 + (tnoise(vec2(a * 3.0, b * 37.0) + 9.0) - 0.5) * 0.12) * uFrontComb;
+    }
+    return along + ragged + 0.2;
 }
 // how far ahead of the front this point still is (below 0 = the front has passed it)
 float frontAt(vec2 q) { return frontBase(q) - frontGone() * 1.4; }

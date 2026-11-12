@@ -3,20 +3,15 @@
   "id": "water",
   "name": "Water",
   "family": "Stuff",
-  "description": "Letters of clear water: they bend what is behind them, their surface never sits still, drops leap off the tops and fall back in, and it drips.",
+  "description": "Letters of clear water: they bend what is behind them, their surface never sits still, and drops leap off the tops and fall back in, every drop the same water as the word.",
   "sample": "WAVE",
   "stage": 3,
   "font": { "family": "archivo", "weight": 800, "width": 100, "tracking": 0.04, "caps": true },
   "margin": [ 0.8, 1.1, 0.8, 0.9 ],
   "features": [ "REFRACT", "DETAIL" ],
-  "p": { "soften": 0.02, "wobble": 0.012, "wobbleScale": 2.6, "wobbleSpeed": 0.5, "weight": 0.006, "bevel": 0.1, "bevelHeight": 0.1, "bevelShape": 0.33, "depth": 0.06, "ao": 0, "metal": 0, "gloss": 0.6, "fillA": "#ffffff", "fillB": "#ffffff", "fillC": "#ffffff", "bend": 1.9, "fringe": 0.07, "tintAmount": 0.28, "tint": "#3fb6f0", "edgeDark": 1.1, "gather": 1.1, "caustic": 0.12, "causticScale": 5, "detailKind": 4, "detailScale": 4, "detailAmount": 0.035, "detailDrift": 0.45, "spec": 4.0, "shine": 260, "envUp": 0.25, "envBevel": 0.8, "lightX": -0.5, "lightY": 0.7, "lightZ": 0.55, "shadow": 0.22, "shadowSoft": 0.14, "shadowX": 0.03, "shadowY": -0.07, "bloom": 0.45, "bloomThreshold": 1.2, "revealFade": 1, "revealFill": 0, "splash": 0.32, "splashCount": 4, "splashSize": 0.05, "splashSpeed": 1, "drip": 0.16, "dripCount": 3, "dripThick": 0.04, "dripSpeed": 1.2 },
+  "p": { "soften": 0.019, "wobble": 0.047, "wobbleScale": 9.287, "wobbleSpeed": 2.085, "weight": 0.012, "bevel": 0.1, "bevelHeight": 0.1, "bevelShape": 0.33, "depth": 0.06, "ao": 0, "metal": 0, "gloss": 0.6, "fillA": "#ffffff", "fillB": "#ffffff", "fillC": "#ffffff", "bend": 1.9, "fringe": 0.07, "tintAmount": 0.28, "tint": "#3fb6f0", "edgeDark": 1.1, "gather": 1.1, "caustic": 0.12, "causticScale": 5, "detailKind": 4, "detailScale": 4, "detailAmount": 0.035, "detailDrift": 0.45, "spec": 4.0, "shine": 260, "envUp": 0.25, "envBevel": 0.8, "lightX": -0.5, "lightY": 0.7, "lightZ": 0.55, "shadow": 0.22, "shadowSoft": 0.14, "shadowX": 0.03, "shadowY": -0.07, "bloom": 0.45, "bloomThreshold": 1.2, "revealFade": 1, "revealFill": 0, "splash": 0.32, "splashCount": 4, "splashSize": 0.055, "splashSpeed": 1, "drip": 0.16, "dripCount": 3, "dripThick": 0.04, "dripSpeed": 1.2, "chip": 0.009 },
   "sphere": { "ramp": [ [ 0.0, "#06223d" ], [ 0.42, "#1d5f8c" ], [ 0.5, "#eaf7ff" ], [ 0.7, "#8cc4ee" ], [ 1.0, "#2d6fb5" ] ], "lamps": [ [ -0.42, 0.6, 0.07, 9, "#ffffff" ], [ 0.5, 0.3, 0.04, 5, "#ffffff" ], [ -0.1, -0.62, 0.1, 1.5, "#bfe8ff" ] ], "rim": "#ffffff*0.5" },
-  "particles": [
-    {
-      "count": 110,
-      "p": { "shape": 2, "from": 0, "life": 1.5, "size": 0.026, "sizeEnd": 0.7, "speedOut": 0.55, "rise": 0.7, "gravity": 2.6, "scatter": 0.35, "colA": "#eaf8ff", "colB": "#bfe6ff", "gain": 1.1, "fadeIn": 0.05, "fadeOut": 0.25, "paint": 0.3, "share": 0.55 }
-    }
-  ],
+  "particles": [],
   "motion": {
     "in": { "each": 0.1, "time": 0.6, "ease": "out", "reveal": [ 0, 0.9 ] },
     "idle": { "bob": 0.012, "speed": 0.35, "phase": 0.9 }

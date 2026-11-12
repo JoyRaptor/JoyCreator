@@ -1,0 +1,18 @@
+{
+  "format": "joy.text/1",
+  "id": "jelly",
+  "name": "Jelly",
+  "family": "Stuff",
+  "sample": "YUM",
+  "stage": 1,
+  "font": { "family": "archivo", "weight": 900, "width": 100, "tracking": 0.06, "caps": true },
+  "margin": [ 1.0, 1.0, 1.0, 1.1 ],
+  "features": [ "JELLY" ],
+  "description": "Wobbling jelly: light goes into it, so its thin rims glow with the colour and the thick middle is deep; it bends what is behind it, and it arrives with a bounce.",
+  "p": { "vignette": 0.6, "grain": 0.3, "contrast": 1.08, "soften": 0.022, "weight": 0.004, "wobble": 0.008, "wobbleScale": 2.2, "wobbleSpeed": 1.1, "bevel": 0.11, "bevelHeight": 0.14, "bevelShape": 0.55, "ao": 0.1, "metal": 0, "gloss": 1.5, "ambient": 0.5, "fillA": "#b00838", "fillB": "#e01852", "fillC": "#ff4f86", "jellyDepth": 0.85, "jellyGlow": 1.1, "jellyBend": 1, "jellySee": 0.35, "spec": 2.6, "shine": 180, "envUp": 0.35, "envBevel": 0.95, "envTilt": 0.5, "lightX": -0.5, "lightY": 0.65, "lightZ": 0.55, "shadow": 0.5, "shadowSoft": 0.16, "shadowCol": "#3a0412", "floor": 0.2, "floorLine": 0.22, "floorFade": 4, "stageTint": "#c93a6a", "bloom": 0.3, "bloomThreshold": 1.4, "saturation": 1.2 },
+  "sphere": { "ramp": [ [ 0.0, "#020202" ], [ 0.4, "#0c0c0e" ], [ 0.5, "#1c1c22" ], [ 0.65, "#0c0c0e" ], [ 1.0, "#020202" ] ], "boxes": [ [ -0.42, 0.58, 0.36, 0.1, -0.3, 0.035, 6.0, "#ffffff", 0.4 ], [ 0.76, 0.1, 0.05, 0.5, 0.12, 0.03, 3.5, "#ffffff", 0.2 ] ] },
+  "motion": {
+    "in": { "each": 0.12, "time": 1.1, "ease": "spring", "scale": 0.2, "y": -0.3, "reveal": [ 0, 0.15 ] },
+    "idle": { "pulse": 0.018, "speed": 0.55, "phase": 0.9 }
+  }
+}

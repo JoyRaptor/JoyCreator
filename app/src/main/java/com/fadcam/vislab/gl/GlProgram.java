@@ -11,9 +11,9 @@ import java.util.HashMap;
  * is bound to slot 0 at link time. A uniform the driver optimised away reports -1, and every
  * setter here treats -1 as "not used by this shader" (GL defines that as a no-op anyway).
  */
-final class GlProgram {
+public final class GlProgram {
 
-    final int id;
+    public final int id;
     @NonNull final String name;
     private final HashMap<String, Integer> loc = new HashMap<>();
 
@@ -31,12 +31,12 @@ final class GlProgram {
         return l;
     }
 
-    void delete() {
+    public void delete() {
         GLES30.glDeleteProgram(id);
     }
 
     @NonNull
-    static GlProgram link(@NonNull String name, @NonNull String vertSrc, @NonNull String fragSrc) {
+    public static GlProgram link(@NonNull String name, @NonNull String vertSrc, @NonNull String fragSrc) {
         int vs = compile(GLES30.GL_VERTEX_SHADER, name, vertSrc);
         int fs;
         try {

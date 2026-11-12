@@ -72,11 +72,14 @@ float splashOf(vec2 p, float colm, out vec3 facts) {
     float t = fract(uTime * uSplash.w * (0.28 + 0.3 * r.y) + r.z);              // 0 leaves .. 1 lands
     float top = uSplash.x * (0.35 + 0.65 * r.w);
     float d = -1.0;
-    for (int i = 0; i < 2; i++) {
-        float ti = clamp(t - 0.13 * float(i), 0.0, 1.0);                         // the follower is a beat behind
-        float rad = uSplash.z * (0.6 + 0.55 * r.x) * (i == 0 ? 1.0 : 0.55);
+    for (int i = 0; i < 4; i++) {
+        float ti = clamp(t - 0.11 * float(i), 0.0, 1.0);                         // each follower is a beat behind the one before
+        float rad = uSplash.z * (0.6 + 0.55 * r.x) * (i == 0 ? 1.0 : i == 1 ? 0.7 : i == 2 ? 0.6 : 0.5);
         float fast = abs(1.0 - 2.0 * ti);                                        // 1 leaving and landing, 0 at the top
-        vec2 c = vec2(cx + (r.z - 0.5) * 0.2 / uSplash.y * (2.0 * ti - 1.0), edgeY + top * 4.0 * ti * (1.0 - ti) - rad * 0.4);
+        float aside = (i == 0 ? 0.0 : i == 1 ? 0.5 : i == 2 ? -0.75 : 1.0) * (r.z < 0.5 ? -1.0 : 1.0);
+        float high = i == 0 ? 1.0 : i == 1 ? 0.9 : i == 2 ? 1.15 : 0.75;
+        vec2 c = vec2(cx + ((r.z - 0.5) * 0.2 * (2.0 * ti - 1.0) + aside * 0.16 * ti) / uSplash.y,
+                      edgeY + top * high * 4.0 * ti * (1.0 - ti) - rad * 0.4);
         d = max(d, rad - length((p - c) * vec2(1.0 + 0.4 * fast, 1.0 / (1.0 + 0.55 * fast))));
     }
     return d;

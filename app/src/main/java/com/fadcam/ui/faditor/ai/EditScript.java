@@ -87,6 +87,8 @@ public class EditScript {
 
     public enum OpType {
         REMOVE_SPAN,
+        /** Whole clip off the spine, its seams' transitions too. Not offered to the model; the old delete_clip tool uses it. */
+        DELETE_CLIP,
         ADD_TEXT_OVERLAY,
         REMOVE_TEXT_OVERLAY,
         SET_OVERLAY_RANGE,

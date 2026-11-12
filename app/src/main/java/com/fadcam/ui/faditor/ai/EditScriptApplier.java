@@ -150,8 +150,7 @@ public class EditScriptApplier {
                 try {
                     for (EditScript.EditOp op : script.getOperations()) {
                         try {
-                            applyOp(project, op);
-                            count++;
+                            if (applyOp(project, op)) count++;
                         } catch (Exception e) {
                             return Result.fail("Failed applying op " + count
                                     + " (" + op.type + "): " + e.getMessage());
@@ -165,6 +164,7 @@ public class EditScriptApplier {
                     // timeline look nested, which would silently switch rippling off.
                     project.getTimeline().endStructural(before);
                 }
+                if (count == 0 && !script.getOperations().isEmpty()) return Result.fail(NOTHING_CHANGED);
                 project.touch();
                 return Result.ok(count);
             }
@@ -181,8 +181,7 @@ public class EditScriptApplier {
         try {
             for (EditScript.EditOp op : script.getOperations()) {
                 try {
-                    applyOp(project, op);
-                    count++;
+                    if (applyOp(project, op)) count++;
                 } catch (Exception e) {
                     return Result.fail("Failed applying op " + count
                             + " (" + op.type + "): " + e.getMessage());
@@ -191,13 +190,18 @@ public class EditScriptApplier {
         } finally {
             project.getTimeline().endStructural(before);   // see the structural path above
         }
+        if (count == 0 && !script.getOperations().isEmpty()) return Result.fail(NOTHING_CHANGED);
         project.touch();
         return Result.ok(count);
     }
 
+    /** Review B5: every op was valid but none changed anything, so it must not read as success. */
+    private static final String NOTHING_CHANGED = "nothing was changed (the edit could not be carried out)";
+
     private boolean hasStructuralOps(@NonNull EditScript script) {
         for (EditScript.EditOp op : script.getOperations()) {
             if (op.type == EditScript.OpType.REMOVE_SPAN
+                    || op.type == EditScript.OpType.DELETE_CLIP
                     || op.type == EditScript.OpType.SPLIT_CLIP_AT_TIME
                     || op.type == EditScript.OpType.REORDER_CLIPS
                     || op.type == EditScript.OpType.INSERT_BROLL_CUTAWAY) {
@@ -229,6 +233,7 @@ public class EditScriptApplier {
                               @NonNull EditScript.EditOp op) {
         switch (op.type) {
             case REMOVE_SPAN: return validateRemoveSpan(project, op);
+            case DELETE_CLIP: return validateClipExists(project, op);
             case ADD_TEXT_OVERLAY: return validateAddTextOverlay(op);
             case REMOVE_TEXT_OVERLAY: return validateOverlayExists(project, op);
             case SET_OVERLAY_RANGE: return validateOverlayExists(project, op);
@@ -245,12 +250,12 @@ public class EditScriptApplier {
             case ADD_KEYFRAME: return validateOverlayExists(project, op);
             case ADD_OPACITY_KEYFRAME: return validateOverlayExists(project, op);
             case CLEAR_KEYFRAMES: return validateOverlayExists(project, op);
-            case ADD_GENERATED_SLIDE: return validateAddGeneratedSlide(op);
+            case ADD_GENERATED_SLIDE: return validateAddGeneratedSlide(project, op);
             case REGENERATE_SLIDE: return validateRegenerateSlide(project, op);
             case SPLIT_CLIP_AT_TIME: return validateSplitClipAtTime(project, op);
             case REORDER_CLIPS: return validateReorderClips(project, op);
             case INSERT_BROLL_CUTAWAY: return validateInsertBrollCutaway(project, op);
-            case ADD_VISUALIZER: return validateAddVisualizer(op);
+            case ADD_VISUALIZER: return validateAddVisualizer(project, op);
             default: return "Unknown operation type: " + op.type;
         }
     }
@@ -305,8 +310,16 @@ public class EditScriptApplier {
 
     // ── Per-op application ──────────────────────────────────────────
 
-    private void applyOp(@NonNull FaditorProject project,
-                         @NonNull EditScript.EditOp op) {
+    /** @return false when the op was valid but changed nothing (review B5: not counted as applied) */
+    private boolean applyOp(@NonNull FaditorProject project,
+                            @NonNull EditScript.EditOp op) {
+        switch (op.type) {
+            case DELETE_CLIP: return applyDeleteClip(project, op);
+            case ADD_GENERATED_SLIDE: return applyAddGeneratedSlide(project, op);
+            case REGENERATE_SLIDE: return applyRegenerateSlide(project, op);
+            case ADD_VISUALIZER: return applyAddVisualizer(project, op);
+            default: break;
+        }
         switch (op.type) {
             case REMOVE_SPAN: applyRemoveSpan(project, op); break;
             case ADD_TEXT_OVERLAY: applyAddTextOverlay(project, op); break;
@@ -325,13 +338,28 @@ public class EditScriptApplier {
             case ADD_KEYFRAME: applyAddKeyframe(project, op); break;
             case ADD_OPACITY_KEYFRAME: applyAddOpacityKeyframe(project, op); break;
             case CLEAR_KEYFRAMES: applyClearKeyframes(project, op); break;
-            case ADD_GENERATED_SLIDE: applyAddGeneratedSlide(project, op); break;
-            case REGENERATE_SLIDE: applyRegenerateSlide(project, op); break;
             case SPLIT_CLIP_AT_TIME: applySplitClipAtTime(project, op); break;
             case REORDER_CLIPS: applyReorderClips(project, op); break;
             case INSERT_BROLL_CUTAWAY: applyInsertBrollCutaway(project, op); break;
-            case ADD_VISUALIZER: applyAddVisualizer(project, op); break;
+            default: break;
         }
+        return true;
+    }
+
+    /**
+     * Review B2: the editor's own delete, as an op: the clip goes, and the transitions on both
+     * of its seams go with it (the later ones renumber). The apply() bracket moves everything
+     * that rides on the footage.
+     */
+    private boolean applyDeleteClip(@NonNull FaditorProject project,
+                                    @NonNull EditScript.EditOp op) {
+        Timeline tl = project.getTimeline();
+        String id = getParamString(op, "clipId");
+        int index = id == null ? -1 : indexOfClip(tl, id);
+        if (index < 0) return false;
+        tl.removeClip(index);
+        tl.removeTransitionsForDeletedClip(index);
+        return true;
     }
 
     private void applyRemoveSpan(@NonNull FaditorProject project,
@@ -550,7 +578,8 @@ public class EditScriptApplier {
     // ── Generated slides ────────────────────────────────────────────
 
     @Nullable
-    private String validateAddGeneratedSlide(@NonNull EditScript.EditOp op) {
+    private String validateAddGeneratedSlide(@NonNull FaditorProject project,
+                                             @NonNull EditScript.EditOp op) {
         String mode = getParamString(op, "mode");
         if (mode == null) mode = SlideContract.MODE_FULLSCREEN;
         if (!SlideContract.MODE_FULLSCREEN.equals(mode)
@@ -564,7 +593,7 @@ public class EditScriptApplier {
         String text = slideText(op);
         if (text == null || text.trim().isEmpty()) return "title_or_text is required";
         if (context == null) return "slide context unavailable (setContext not called)";
-        return null;
+        return htmlUriProblem(project, getParamString(op, "htmlUri"));
     }
 
     @Nullable
@@ -574,11 +603,11 @@ public class EditScriptApplier {
         Clip clip = findClip(project, op);
         if (clip == null) return "clip not found: " + getParamString(op, "clipId");
         if (!clip.isGeneratedSlide()) return "clip is not a generated slide: " + clip.getId();
-        return null;
+        return htmlUriProblem(project, getParamString(op, "htmlUri"));
     }
 
-    private void applyAddGeneratedSlide(@NonNull FaditorProject project,
-                                        @NonNull EditScript.EditOp op) {
+    private boolean applyAddGeneratedSlide(@NonNull FaditorProject project,
+                                           @NonNull EditScript.EditOp op) {
         String mode = getParamString(op, "mode");
         if (mode == null) mode = SlideContract.MODE_FULLSCREEN;
         String text = slideText(op);
@@ -591,14 +620,13 @@ public class EditScriptApplier {
         String hashParam = getParamString(op, "contentHash");
 
         if (SlideContract.MODE_OVERLAY.equals(mode)) {
-            applyAddGeneratedOverlay(project, op, clipId, text, durationMs,
+            return applyAddGeneratedOverlay(project, op, clipId, text, durationMs,
                     htmlUriParam, hashParam, styleHint, sourceModel);
-            return;
         }
 
         Clip clip = buildSlideClip(project, clipId, mode, text, durationMs,
                 htmlUriParam, hashParam, styleHint, sourceModel);
-        if (clip == null) return;
+        if (clip == null) return false;
 
         int count = project.getTimeline().getClipCount();
         int index = (int) getParamLong(op, "insertAtClipIndex", count);
@@ -607,12 +635,13 @@ public class EditScriptApplier {
         project.getTimeline().addClip(index, clip);
         project.getTimeline().shiftTransitionsAfterInsert(index);
         lastGeneratedClipId = clip.getId();
+        return true;
     }
 
-    private void applyRegenerateSlide(@NonNull FaditorProject project,
-                                      @NonNull EditScript.EditOp op) {
+    private boolean applyRegenerateSlide(@NonNull FaditorProject project,
+                                         @NonNull EditScript.EditOp op) {
         Clip old = findClip(project, op);
-        if (old == null || !old.isGeneratedSlide()) return;
+        if (old == null || !old.isGeneratedSlide()) return false;
 
         // Locate the clip's index so the replacement lands in the same spot.
         int index = -1;
@@ -622,7 +651,7 @@ public class EditScriptApplier {
                 break;
             }
         }
-        if (index < 0) return;
+        if (index < 0) return false;
 
         GeneratedSource oldGs = old.getGeneratedSource();
         String mode = oldGs != null ? oldGs.mode : SlideContract.MODE_FULLSCREEN;
@@ -639,10 +668,11 @@ public class EditScriptApplier {
         // Keep the same clip id so undo/history stays coherent.
         Clip fresh = buildSlideClip(project, old.getId(), mode, text, durationMs,
                 htmlUriParam, hashParam, styleHint, sourceModel);
-        if (fresh == null) return;
+        if (fresh == null) return false;
         project.getTimeline().removeClip(index);
         project.getTimeline().addClip(index, fresh);
         lastGeneratedClipId = fresh.getId();
+        return true;
     }
 
     /**
@@ -651,14 +681,14 @@ public class EditScriptApplier {
      * generatedSource points at the PNG-sequence render path. The sequence
      * itself is produced lazily (background render / export pre-pass).
      */
-    private void applyAddGeneratedOverlay(@NonNull FaditorProject project,
+    private boolean applyAddGeneratedOverlay(@NonNull FaditorProject project,
                                           @NonNull EditScript.EditOp op,
                                           @NonNull String id, @NonNull String text,
                                           long durationMs, @Nullable String htmlUriParam,
                                           @Nullable String hashParam,
                                           @Nullable String styleHint,
                                           @Nullable String sourceModel) {
-        if (context == null) return;
+        if (context == null) return false;
         try {
             File projectDir = new ProjectStorage(context).projectDir(project.getId());
             int[] dims = SlideFiles.dimensionsFor(project);
@@ -667,7 +697,7 @@ public class EditScriptApplier {
             String html;
             File htmlFile;
             if (htmlUriParam != null && !htmlUriParam.isEmpty()) {
-                htmlFile = fileFromUri(htmlUriParam);
+                htmlFile = allowedHtmlFile(project, htmlUriParam);
                 html = readFileUtf8(htmlFile);
             } else {
                 html = SlideContract.buildFallbackHtml(w, h,
@@ -691,7 +721,11 @@ public class EditScriptApplier {
             item.setGeneratedSource(gs);
             project.getTimeline().addTextOverlay(item);
             lastGeneratedClipId = item.getId();
-        } catch (Exception ignored) { }
+            return true;
+        } catch (Exception e) {
+            // Review B5: this swallowed the failure and the op was still counted as applied.
+            return false;
+        }
     }
 
     /**
@@ -714,7 +748,7 @@ public class EditScriptApplier {
             String html;
             File htmlFile;
             if (htmlUriParam != null && !htmlUriParam.isEmpty()) {
-                htmlFile = fileFromUri(htmlUriParam);
+                htmlFile = allowedHtmlFile(project, htmlUriParam);
                 html = readFileUtf8(htmlFile);
             } else {
                 html = SlideContract.buildFallbackHtml(w, h, mode, text, durationMs);
@@ -763,6 +797,39 @@ public class EditScriptApplier {
             return new File(Uri.parse(uri).getPath());
         }
         return new File(uri);
+    }
+
+    /**
+     * Review D3: a slide's htmlUri may only name a file inside this project's folder or the app's
+     * own cache. It used to read any path the app could read (another project's JSON included) into
+     * a slide the AI can then look at. Canonical paths, so "../" and symlinks do not slip out.
+     */
+    @Nullable
+    private String htmlUriProblem(@NonNull FaditorProject project, @Nullable String uri) {
+        if (uri == null || uri.isEmpty()) return null;
+        try {
+            allowedHtmlFile(project, uri);
+            return null;
+        } catch (Exception e) {
+            return "htmlUri must be a file inside this project";
+        }
+    }
+
+    @NonNull
+    private File allowedHtmlFile(@NonNull FaditorProject project, @NonNull String uri) throws Exception {
+        if (context == null) throw new IllegalStateException("no context");
+        File f = fileFromUri(uri).getCanonicalFile();
+        java.util.List<File> roots = new java.util.ArrayList<>();
+        roots.add(new ProjectStorage(context).projectDir(project.getId()));
+        roots.add(context.getCacheDir());
+        File ext = context.getExternalCacheDir();
+        if (ext != null) roots.add(ext);
+        for (File root : roots) {
+            if (root == null) continue;
+            String r = root.getCanonicalPath();
+            if (f.getPath().startsWith(r + File.separator)) return f;
+        }
+        throw new SecurityException("outside the project");
     }
 
     @Nullable
@@ -1023,6 +1090,11 @@ public class EditScriptApplier {
         narration.setOutPointMs(spanSourceEnd);
         narration.setOffsetMs(atMs);
         narration.setLabel("Narration (cutaway)");
+        // Review B4: the host clip's mute and volume go with its sound. A clip the person had
+        // muted (or set to 30%) used to get its narration back at full level under every cutaway.
+        // (Fades and the volume curve are relative to the whole clip and are not carried; limit.)
+        narration.setMuted(target.isAudioMuted());
+        narration.setVolumeLevel(target.getVolumeLevel());
 
         // 2. Split target into [before][span][after].
         Clip[] firstSplit = splitClip(target, spanSourceStart,
@@ -1103,19 +1175,35 @@ public class EditScriptApplier {
     // ── Waveform visualizer ─────────────────────────────────────────
 
     @Nullable
-    private String validateAddVisualizer(@NonNull EditScript.EditOp op) {
+    private String validateAddVisualizer(@NonNull FaditorProject project,
+                                         @NonNull EditScript.EditOp op) {
         String styleId = getParamString(op, "presetId");
         if (styleId == null) styleId = getParamString(op, "styleId");
         if (styleId == null || styleId.isEmpty()) return "presetId (or styleId) is required";
         if (getParamLong(op, "durationMs", -1) <= 0) return "durationMs must be > 0";
+        // Review B5: a visualizer pointed at a clip that is not there drew nothing but counted as applied.
+        String ref = getParamString(op, "audioSourceRef");
+        if (ref == null) ref = getParamString(op, "clipId");
+        if (ref != null && !audioRefExists(project, ref)) return "no clip or audio track with id " + ref;
         return null;
     }
 
-    private void applyAddVisualizer(@NonNull FaditorProject project,
-                                    @NonNull EditScript.EditOp op) {
+    private boolean audioRefExists(@NonNull FaditorProject project, @NonNull String ref) {
+        Timeline tl = project.getTimeline();
+        for (int i = 0; i < tl.getClipCount(); i++) {
+            if (tl.getClip(i).getId().equals(ref)) return true;
+        }
+        for (AudioClip ac : tl.getAudioClips()) {
+            if (ac != null && ref.equals(ac.getId())) return true;
+        }
+        return false;
+    }
+
+    private boolean applyAddVisualizer(@NonNull FaditorProject project,
+                                       @NonNull EditScript.EditOp op) {
         String styleId = getParamString(op, "presetId");
         if (styleId == null) styleId = getParamString(op, "styleId");
-        if (styleId == null) return;
+        if (styleId == null) return false;
         com.fadcam.ui.faditor.model.WaveformOverlayInstance wo =
                 new com.fadcam.ui.faditor.model.WaveformOverlayInstance(styleId);
         String audioRef = getParamString(op, "audioSourceRef");
@@ -1132,6 +1220,7 @@ public class EditScriptApplier {
             wo.setSize(0.85f, 0.22f);
         }
         project.getTimeline().addWaveformOverlay(wo);
+        return true;
     }
 
     // ── Helpers ─────────────────────────────────────────────────────

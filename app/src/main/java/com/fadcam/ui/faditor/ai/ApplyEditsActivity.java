@@ -27,6 +27,9 @@ import org.json.JSONObject;
  * <p>Returns a result JSON string as an intent extra in the response:
  * {@code "ok": true/false, "message": "...", "applied": N}</p>
  *
+ * <p>The manifest entry requires the caller to hold android.permission.DUMP: the adb shell does,
+ * other apps cannot (review A1, 2026-11-12).</p>
+ *
  * <p>The activity finishes immediately — it does not display any UI.</p>
  */
 public class ApplyEditsActivity extends Activity {
@@ -55,7 +58,12 @@ public class ApplyEditsActivity extends Activity {
         }
 
         try {
-            ProjectStorage storage = new ProjectStorage(this);
+            // Review A1 (2026-11-12): was a plain ProjectStorage, which wrote the file behind an
+            // editor that was open on the same project (its next autosave undid this, or this
+            // undid the person's newer edits). JoybotStorage hands the change to the open editor
+            // as one undo step, and writes the file only when no editor owns the project.
+            com.fadcam.ui.faditor.ai.joybot.JoybotStorage storage =
+                    new com.fadcam.ui.faditor.ai.joybot.JoybotStorage(this);
             FaditorProject project = storage.load(projectId);
             if (project == null) {
                 finishWithError("Project not found: " + projectId);
@@ -78,7 +86,12 @@ public class ApplyEditsActivity extends Activity {
                 return;
             }
 
-            storage.save(project);
+            String label = script.getDescription();
+            if (label == null || label.trim().isEmpty()) label = "AI edits";
+            if (!storage.saveAs(project, label.trim(), "adb-edit-" + System.currentTimeMillis())) {
+                finishWithError("Not saved: the editor on screen did not take the change");
+                return;
+            }
             // Pass the script's own description through so the editor's undo history can
             // label this step with what was actually done, not just "AI edits".
             AIChatState.signalModified(projectId, script.getDescription());

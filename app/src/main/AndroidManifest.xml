@@ -180,17 +180,17 @@
         <!-- M-COMP-2 decoder-budget probe (PLAN_LAYERS_V2 Part 10 #1) — adb-driven debug tool -->
         <activity android:name="com.fadcam.ui.faditor.compositor.DecoderBudgetProbeActivity" android:theme="@style/Theme.FadCam.FaditorEditor" android:exported="false" />
 
-        <!-- Headless activity for applying EditScripts from external tools/ADB -->
-        <activity android:name="com.fadcam.ui.faditor.ai.ApplyEditsActivity" android:theme="@android:style/Theme.NoDisplay" android:exported="true" android:noHistory="true">
+        <!-- Headless activity for applying EditScripts from adb (caller must hold DUMP: shell yes, other apps no) -->
+        <activity android:name="com.fadcam.ui.faditor.ai.ApplyEditsActivity" android:theme="@android:style/Theme.NoDisplay" android:exported="true" android:permission="android.permission.DUMP" android:noHistory="true">
             <intent-filter>
                 <action android:name="com.fadcam.APPLY_EDITS" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
 
-        <!-- Headless WebView host for rasterizing AI-authored animated slides -->
-        <activity android:name="com.fadcam.ui.faditor.slides.SlideRenderActivity" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:exported="true" android:excludeFromRecents="true" android:noHistory="true" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden" />
-        <activity android:name="com.fadcam.ui.faditor.waveform.WaveformDebugActivity" android:exported="true" android:excludeFromRecents="true" />
+        <!-- Headless WebView host for rasterizing AI-authored animated slides (review D4: adb-triggerable per its javadoc, so closed with DUMP, not exported=false) -->
+        <activity android:name="com.fadcam.ui.faditor.slides.SlideRenderActivity" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:exported="true" android:permission="android.permission.DUMP" android:excludeFromRecents="true" android:noHistory="true" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden" />
+        <activity android:name="com.fadcam.ui.faditor.waveform.WaveformDebugActivity" android:exported="true" android:permission="android.permission.DUMP" android:excludeFromRecents="true" />
         <!-- TextLab phone engine check: one look on real words, its still saved for the look book comparison -->
         <activity android:name="cc.joycreator.textlab.TextLabDebugActivity" android:exported="true" android:excludeFromRecents="true" android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" android:windowSoftInputMode="adjustResize" />
 

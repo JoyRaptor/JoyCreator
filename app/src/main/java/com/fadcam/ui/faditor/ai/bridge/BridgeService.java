@@ -59,6 +59,8 @@ public class BridgeService extends Service {
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
     @Nullable private static Watcher watcher;
     @Nullable private BridgeServer server;
+    /** The same door on the phone's own loopback, for the cable (adb reverse). */
+    @Nullable private BridgeServer cableServer;
 
     @NonNull
     public static State state() {
@@ -128,12 +130,24 @@ public class BridgeService extends Service {
         try {
             version = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
         } catch (Exception ignored) { }
+        // Review D1: listen only on the address the screen shows (the Wi-Fi one) plus the phone's own
+        // loopback for the cable; never on every interface (cellular, hotspot, VPN, IPv6).
+        final String lan = BridgeAddress.wifi(this);
         for (int port = PORT; port < PORT + 10; port++) {
-            BridgeServer s = new BridgeServer(this, port, auth, intent.getStringExtra(EXTRA_PROJECT), room,
-                    version == null ? "1" : version, (line, connected) -> MAIN.post(() -> event(line, connected)));
+            BridgeServer s = lan != null
+                    ? new BridgeServer(this, lan, port, auth, intent.getStringExtra(EXTRA_PROJECT), room,
+                            version == null ? "1" : version, (line, connected) -> MAIN.post(() -> event(line, connected)))
+                    : new BridgeServer(this, port, auth, intent.getStringExtra(EXTRA_PROJECT), room,
+                            version == null ? "1" : version, (line, connected) -> MAIN.post(() -> event(line, connected)));
+            BridgeServer cable = null;
             try {
                 s.start(fi.iki.elonen.NanoHTTPD.SOCKET_READ_TIMEOUT, false);
+                if (lan != null) {
+                    cable = new BridgeServer(s, "127.0.0.1", s.getListeningPort());
+                    cable.start(fi.iki.elonen.NanoHTTPD.SOCKET_READ_TIMEOUT, false);
+                }
                 server = s;
+                cableServer = cable;
                 MAIN.post(() -> {
                     STATE.on = true;
                     STATE.code = code;
@@ -148,6 +162,8 @@ public class BridgeService extends Service {
                 return;
             } catch (Exception e) {
                 FLog.w(TAG, "port " + port + " taken: " + e.getClass().getSimpleName());
+                try { s.stop(); } catch (Exception ignored) { }
+                if (cable != null) try { cable.stop(); } catch (Exception ignored) { }
             }
         }
         MAIN.post(() -> {
@@ -178,6 +194,11 @@ public class BridgeService extends Service {
         server = null;
         if (s != null) {
             try { s.stop(); } catch (Exception ignored) { }
+        }
+        BridgeServer cs = cableServer;
+        cableServer = null;
+        if (cs != null) {
+            try { cs.stop(); } catch (Exception ignored) { }
         }
         MAIN.post(() -> {
             STATE.on = false;
@@ -222,6 +243,11 @@ public class BridgeService extends Service {
         server = null;
         if (s != null) {
             try { s.stop(); } catch (Exception ignored) { }
+        }
+        BridgeServer cs = cableServer;
+        cableServer = null;
+        if (cs != null) {
+            try { cs.stop(); } catch (Exception ignored) { }
         }
         MAIN.post(() -> {
             STATE.on = false;

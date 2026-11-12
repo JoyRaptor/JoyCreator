@@ -218,9 +218,31 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
 - [ ] **Owner's verdict** on the five heroes (and which drafts he wants raised next).
 - [ ] Fonts: a short list of open-licence display faces to bundle (needs his yes to download).
 - [ ] Fire toward the photograph (finer filaments, a real fluid step if the Note 9 allows); water with splashes.
-- [ ] **Phone engine** (brief for the builder: `tasks/jobs/TEXT-1_PHONE_ENGINE_BRIEF.md`): a small Kotlin module (new package `cc.joycreator.textlab`, no FadCam code) that runs
-      the same passes with GLES 3: reuse the VisLab patterns (`vislab/gl/ShaderLib`, `GlProgram`, `GlTarget`,
-      `GpuTimer`, `StudioVis`' own GL thread, `OffscreenGl`). Twin of `tl-engine.js` + `tl-glyphs.js`.
+- [~] **Phone engine** (brief for the builder: `tasks/jobs/TEXT-1_PHONE_ENGINE_BRIEF.md`). **Built 11-12 by the
+      phone-engine session (Claude Opus 5.5, branch `claude/textlab-phone-20261112`)**, brief steps 1 to 3 in one go:
+      package `cc.joycreator.textlab` in `app/src/main/java` (Java, like VisLab, so the app module needs no Kotlin
+      plugin): `TextLabRenderer` (every pass of `frame()`, `still()`, fire, particles, shatter, photo stage),
+      `TlGlyphs` (letters, distance transform, emitter points), `TlTubes`, `TlGl` / `TlProgram` (typed uniforms by
+      name, on VisLab's `GlProgram` / `GlTarget` / `ShaderLib`, made public for it), `TlFonts`; debug screen
+      `TextLabDebugActivity` (adb: `--es look <id> --ef t 3 --ei w 1280 --ei h 720`; saves the still to the app's
+      files folder `textlab/<look>_t3.png`, then plays live with the frame time on screen; tap holds / plays).
+      **Proof, Note 9, against the look book in Chrome on the same Note 9** (`&t=3&w=1280&h=720`, same words; pictures
+      in `tasks/screens/textlab-phone/`, compare with `tools/textlab-web/compare.py`, phone side `phone-stills.sh`):
+      neon-bar identical (worst 0 of 255); slime, dust, ink-bleed mean 0.01 (worst 44, 126, 13 on a few pixels);
+      dark-steel mean 0.62 and blaze 0.17, explained by the look book's light following the phone's tilt sensor in
+      those references (it reads `deviceorientation` even for a still); a re-capture with `&tx=0&ty=0` is owed (the
+      phone dropped off USB mid-run). Every picture is the same size as the look book's.
+      Live frame time, dark-steel at 1280 x 686 (wall clock with glFinish, debug build): about 46 to 55 ms.
+      **Two traps found:** (1) the browser's letter ink box is Skia's box at 64 px rounded out and scaled
+      (multiples of 6.5 at 416 px); the phone copies that rule or every cell is cut a pixel or two off;
+      Android also rounds advances to whole pixels unless measured large. (2) The look book on the COMPUTER is not a
+      reference for font looks: Windows draws letters with DirectWrite, so edge points (where particles and glints
+      are born) differ; compare with the look book on the phone. **Name clash for the lead:** `uArc` is both the
+      lightning knob (vec4, `shade.frag`) and a tube's share of its letter (vec2, `glyph.frag`); `setAll` tries the
+      knob on the glyph program every letter and is refused (both engines; harmless, the right value follows).
+      Left: the six-look re-capture with the light pinned, brief step 4 (`uOut = 1`), GPU time per pass, then Studio
+      (ask the lead first). The owner's later wishes: looks as picture chips, and moving previews in the Library
+      (a small sprite sheet saved beside each look file).
 - [ ] Output for a compositor: `final.frag` `uOut = 1` (linear, premultiplied) is written, untested.
 - [ ] Studio: a look on `TextOverlayItem` (new optional field; old projects must still open), carousel in the
       text drawer (one press = one undo step), preview and export through the same renderer.

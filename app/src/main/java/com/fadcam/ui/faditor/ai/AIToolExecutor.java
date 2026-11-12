@@ -209,7 +209,7 @@ public class AIToolExecutor {
                 args: {"text":"...", "centerX":0.5, "centerY":0.5, "sizeFraction":0.1, "startMs":0, "endMs":999999}
             13. remove_text_overlay — Remove an overlay by id
                 args: {"overlayId":"..."}
-            14. remove_span — Add a non-destructive cut to a clip
+            14. remove_span — Cut a stretch out of a clip (the rest closes up)
                 args: {"clipId":"...", "startMs":0, "endMs":0}
             15. add_opacity_keyframe — Add a fade in/out keyframe (opacity 0=invisible, 1=fully visible)
                 args: {"overlayId":"...", "timelineMs":0, "opacity":0.0}
@@ -2805,10 +2805,28 @@ public class AIToolExecutor {
         Clip clip = findClip(proj, clipId);
         if (clip == null) return "Error: clip not found: " + clipId;
         if (startMs < 0 || endMs <= startMs) return "Error: invalid span";
-        clip.getRemovedSpans().add(new long[]{startMs, endMs});
+        // A cut really cuts: it goes through the validated EditScript path, which turns the clip
+        // into the pieces that stay and closes up everything behind it (like Studio's Clean).
+        try {
+            JSONObject opObj = new JSONObject();
+            opObj.put("type", "REMOVE_SPAN");
+            opObj.put("clipId", clipId);
+            opObj.put("startMs", startMs);
+            opObj.put("endMs", endMs);
+            JSONObject scriptObj = new JSONObject();
+            scriptObj.put("version", 1);
+            scriptObj.put("description", "Cut part of a clip");
+            scriptObj.put("operations", new JSONArray().put(opObj));
+            EditScript script = EditScript.fromJson(scriptObj.toString());
+            EditScriptApplier.Result result = new EditScriptApplier().apply(proj, script);
+            if (!result.success) return "Error: " + result.error;
+        } catch (Exception e) {
+            return "Error: " + e.getMessage();
+        }
         storage.save(proj);
         AIChatState.signalModified(projectId);
-        return "Cut added: " + startMs + "-" + endMs + "ms on clip " + clipId;
+        return "Cut removed: " + startMs + "-" + endMs + "ms of clip " + clipId
+                + ". The rest closes up; the clip may now be several clips (list the clips again).";
     }
 
     private String toolAddOpacityKeyframe(@NonNull JSONObject args) {

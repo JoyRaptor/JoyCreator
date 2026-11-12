@@ -207,7 +207,7 @@ final class SourcesActions {
         long hitStart = 0;
         for (int i = 0; i < tl.getClipCount(); i++) {
             Clip c = tl.getClip(i);
-            long eff = c.getEffectiveDurationMs();
+            long eff = c.getVisualDurationMs();
             if (at >= segStart && at < segStart + eff) { hitIdx = i; hitStart = segStart; break; }
             segStart += eff;
         }
@@ -215,7 +215,7 @@ final class SourcesActions {
             Clip cur = tl.getClip(hitIdx);
             if (!cur.isImageClip()) {
                 long localMs = at - hitStart;
-                long eff = cur.getEffectiveDurationMs();
+                long eff = cur.getVisualDurationMs();
                 if (localMs > 200 && localMs < eff - 200) {
                     long sourceSplitMs = cur.getInPointMs() + (long) (localMs * cur.getSpeedMultiplier());
                     tl.splitAt(hitIdx, sourceSplitMs);
@@ -485,7 +485,7 @@ final class SourcesActions {
         if (tl.getClipCount() == 0) return 0;
         long cumul = 0;
         for (int i = 0; i < tl.getClipCount(); i++) {
-            long eff = tl.getClip(i).getEffectiveDurationMs();
+            long eff = tl.getClip(i).getVisualDurationMs();
             if (ms <= cumul + eff / 2) return i;
             cumul += eff;
         }
@@ -495,7 +495,7 @@ final class SourcesActions {
     /** The end of the line: where a clip goes when no atMs is given. */
     private static long spineEnd(@NonNull Timeline tl) {
         long end = 0;
-        for (int i = 0; i < tl.getClipCount(); i++) end += tl.getClip(i).getEffectiveDurationMs();
+        for (int i = 0; i < tl.getClipCount(); i++) end += tl.getClip(i).getVisualDurationMs();
         return end;
     }
 

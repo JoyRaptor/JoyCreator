@@ -10285,6 +10285,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 player.prepareAsync();
             } catch (Exception e) {
                 FLog.e(TAG, "Failed to prepare audio player[" + i + "]", e);
+                // Keep the slot: players are matched to audio clips by position, so a missing
+                // entry would move every later player onto the wrong clip. Null is skipped
+                // everywhere the list is read.
+                if (audioPlayers.size() == idx) audioPlayers.add(null);
             }
         }
         // Bind for drift/latency sync
@@ -11669,6 +11673,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     @NonNull
     private Uri copyUriToInternalStorage(@NonNull Uri uri, @NonNull String subDir) {
         if (!"content".equals(uri.getScheme())) return uri;
+        java.io.File tmp = null; // outside the try so a failed copy can remove its half-written file
         try {
             // Skip files > 10MB to avoid ANR on main thread (persistable URI permission handles survival)
             long size = -1;
@@ -11697,7 +11702,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // The hash costs nothing extra: the bytes are already being read once to copy them,
             // so it is computed DURING that same pass. A hit skips the write entirely.
             java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
-            java.io.File tmp = new java.io.File(dir, "asset_tmp_" + System.nanoTime());
+            tmp = new java.io.File(dir, "asset_tmp_" + System.nanoTime());
             try (java.io.InputStream is = getContentResolver().openInputStream(uri);
                  java.io.OutputStream os = new java.io.FileOutputStream(tmp)) {
                 if (is == null) { tmp.delete(); return uri; }
@@ -11738,6 +11743,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             return local;
         } catch (Exception e) {
             FLog.w(TAG, "Failed to copy URI to internal storage, using original", e);
+            if (tmp != null) tmp.delete();
             return uri;
         }
     }
@@ -14758,9 +14764,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         Timeline openedOn = project == null ? null : project.getTimeline();
         java.util.Map<String, Long> anchorsBefore = beginStructuralEdit();
         java.util.List<String> idsBefore = masterClipIds();
-        undoManager.undo();
+        captureAudioStateForUndoRefresh();
+        snapshotRestoreFailed = false;
+        boolean undone = undoManager.undo();
         endStructuralEditUnlessRestored(openedOn, anchorsBefore, "undo");
-        announceHistoryStep("Undid", what);
+        if (undone && !snapshotRestoreFailed) announceHistoryStep("Undid", what);
+        else announceHistoryFailed("undo");
         clipMembershipChanged = !idsBefore.equals(masterClipIds());
         refreshEditorAfterUndoRedo();
         scheduleAutoSave();
@@ -14775,9 +14784,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         Timeline openedOn = project == null ? null : project.getTimeline();
         java.util.Map<String, Long> anchorsBefore = beginStructuralEdit();
         java.util.List<String> idsBefore = masterClipIds();
-        undoManager.redo();
+        captureAudioStateForUndoRefresh();
+        snapshotRestoreFailed = false;
+        boolean redone = undoManager.redo();
         endStructuralEditUnlessRestored(openedOn, anchorsBefore, "redo");
-        announceHistoryStep("Redid", what);
+        if (redone && !snapshotRestoreFailed) announceHistoryStep("Redid", what);
+        else announceHistoryFailed("redo");
         clipMembershipChanged = !idsBefore.equals(masterClipIds());
         refreshEditorAfterUndoRedo();
         scheduleAutoSave();
@@ -14795,6 +14807,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * user stopped, which is worse than silence because it is confidently out of date.</p>
      */
     private android.widget.Toast historyToast;
+
+    /** Set when a snapshot restore could not read its snapshot (the editor keeps its project). */
+    private boolean snapshotRestoreFailed;
+
+    /** The step could not be restored: say so, instead of claiming it was undone. */
+    private void announceHistoryFailed(@NonNull String verb) {
+        if (historyToast != null) historyToast.cancel();
+        historyToast = Toast.makeText(this, "Could not " + verb + " that step", Toast.LENGTH_SHORT);
+        historyToast.show();
+    }
 
     private void announceHistoryStep(@NonNull String verb, @Nullable String what) {
         if (what == null || what.isEmpty()) return;
@@ -15112,6 +15134,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         Timeline openedOn = project == null ? null : project.getTimeline();
         java.util.Map<String, Long> anchorsBefore = beginStructuralEdit();
         java.util.List<String> idsBefore = masterClipIds();
+        captureAudioStateForUndoRefresh();
         for (int i = 0; i < steps; i++) {
             boolean ok = isRedo ? undoManager.redo() : undoManager.undo();
             if (!ok) break;
@@ -15190,6 +15213,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 : projectStorage.fromJson(projectJson);
         if (restored == null) {
             FLog.e(TAG, "Failed to restore project from snapshot");
+            snapshotRestoreFailed = true;
             return;
         }
         this.project = restored;
@@ -15231,6 +15255,34 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     /** Set by the undo/redo entry points around the actual undo call. */
     private boolean clipMembershipChanged;
+
+    /**
+     * What the audio players were built from, taken just before an undo/redo. After the step the
+     * players are rebuilt only if this no longer matches (R4: every undo, even of a text colour,
+     * used to tear down and rebuild every audio player). Null (nobody took one) means rebuild.
+     */
+    @Nullable private com.fadcam.ui.faditor.audio.AudioStateFingerprint audioStateBeforeUndo;
+
+    private void captureAudioStateForUndoRefresh() {
+        audioStateBeforeUndo = (project == null) ? null
+                : com.fadcam.ui.faditor.audio.AudioStateFingerprint.of(
+                        project.getTimeline().getAudioClips());
+    }
+
+    /** True when the step changed nothing the audio players depend on, so they can stay. */
+    private boolean audioPlayersStillValidAfterUndoRedo() {
+        com.fadcam.ui.faditor.audio.AudioStateFingerprint before = audioStateBeforeUndo;
+        audioStateBeforeUndo = null;
+        if (before == null || project == null) return false;
+        // One player per audio clip, none missing: a short list means a failed build earlier.
+        if (audioPlayers.size() != project.getTimeline().getAudioClips().size()) return false;
+        try {
+            return before.sameAs(com.fadcam.ui.faditor.audio.AudioStateFingerprint.of(
+                    project.getTimeline().getAudioClips()));
+        } catch (Exception e) {
+            return false;
+        }
+    }
 
     private void refreshEditorAfterUndoRedo() {
         // A history step from before a MOVE may bring back the original's link: point it at the copy.
@@ -15356,8 +15408,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         updateCurrentTimeDisplay(segmentRelativeForAbsolute(Math.max(0L, lastPlayheadAbsoluteMs)));
         refreshTotalTimeDisplay();
 
-        // Re-prepare audio player for any audio clip changes
-        prepareAudioPlayer();
+        // Rebuild the audio players only when the step touched sound (clips, timing, volume, mute,
+        // speed, effects ...); a colour or text step keeps them, so playback is not interrupted.
+        if (!audioPlayersStillValidAfterUndoRedo()) prepareAudioPlayer();
 
         // Bind any waveform visualizers and extract their audio.
         refreshWaveformOverlays();

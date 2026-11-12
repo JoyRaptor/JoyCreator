@@ -32,6 +32,12 @@ public class VolumeAudioProcessor extends BaseAudioProcessor {
     /** Optional volume automation envelope (clip-local time ms → gain). */
     private long[] kfTimes;
     private float[] kfVols;
+    /**
+     * Clip-local time of this item's first sample. 0 for a clip that plays from its start;
+     * after a transition the export starts the clip part-way in (its head plays under the
+     * blend), and the curve must be read from there or it runs early by the transition.
+     */
+    private long envelopeStartMs;
 
     private int sampleRate;
     private int channelCount;
@@ -84,7 +90,12 @@ public class VolumeAudioProcessor extends BaseAudioProcessor {
      */
     private float gainAtMs(long ms) {
         return volume * com.fadcam.ui.faditor.model.VolumeEnvelope.gainAt(
-                kfTimes, kfVols, ms, 1f);
+                kfTimes, kfVols, envelopeStartMs + ms, 1f);
+    }
+
+    /** Where on the clip's own clock this item starts (see {@link #envelopeStartMs}). */
+    public void setEnvelopeStartMs(long clipLocalMs) {
+        this.envelopeStartMs = Math.max(0L, clipLocalMs);
     }
 
     /**

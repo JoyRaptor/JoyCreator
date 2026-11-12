@@ -13521,7 +13521,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // (ExportManager.buildComposition) the video really does cover all of it. The other
         // totalEffectiveMs() callers mean "where does the video track end" and are correct.
         long totalDurationMs = tl.getTotalDurationMs();
-        String durationStr = TimeFormatter.formatAuto(totalDurationMs);
+        // What the FILE runs: transitions overlap two clips, so it is shorter than the timeline
+        // by them (STU-5, 2026-11-12; it used to be padded with black). Only the shown length;
+        // anything planned on the editor's clock keeps totalDurationMs.
+        String durationStr = TimeFormatter.formatAuto(
+                com.fadcam.ui.faditor.model.TimeMap.of(tl).editorToFileMs(totalDurationMs));
         boolean hasAudio = tl.hasAudioClips();
         // Plural resource, not "N audio" typed inline (drawer audit 2026-09-24, ExportConf-2).
         int audioCount = tl.getAudioClips().size();
@@ -14546,7 +14550,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Project duration, for the same reason as showExportConfirmation() above — this is the
         // length of the file the export actually writes.
         long totalDurationMs = tl.getTotalDurationMs();
-        String durationStr = TimeFormatter.formatAuto(totalDurationMs);
+        // What the FILE runs: transitions overlap two clips, so it is shorter than the timeline
+        // by them (STU-5, 2026-11-12; it used to be padded with black). Only the shown length;
+        // anything planned on the editor's clock keeps totalDurationMs.
+        String durationStr = TimeFormatter.formatAuto(
+                com.fadcam.ui.faditor.model.TimeMap.of(tl).editorToFileMs(totalDurationMs));
         boolean hasAudio = tl.hasAudioClips();
         // Plural resource, not "N audio" typed inline (drawer audit 2026-09-24, ExportConf-2).
         int audioCount = tl.getAudioClips().size();

@@ -18,9 +18,9 @@ were not.
 
 | # | Where the clocks disagree | What a person sees | State |
 |---|---|---|---|
-| D5 | The export overlaps two clips at a transition, so everything after is earlier in the file by the transition's length. Overlays, text and captions are shifted to match (`editorTimeOffsetFor`). Music and voiceover on audio lanes (`buildLaneAudioSequence`) and the sound of a picture-in-picture (`buildOverlayAudioSequence`) are not | After two 0.6 s transitions, a voiceover placed at 10 s plays 1.2 s late against the picture in the exported file | confirmed in the export code; the preview side not traced. Changes what exports contain: needs a device comparison first |
-| E2 | The same shortening leaves the export short of the timeline's length, and the "tail filler" pads it with black to make up the difference | A project with transitions ends with black frames as long as its transitions added together | confirmed. Same root as D5 |
-| D6 | In the export, a clip's fade, opacity keys, position keys and volume curve are read from the start of the exported piece. After a transition that piece starts part-way into the clip, so they are read early by the transition's length | A 1 s fade-out on a clip that follows a 0.6 s transition never reaches black; a fade-in pops | confirmed in the export code |
+| D5 | The export overlaps two clips at a transition, so everything after is earlier in the file by the transition's length. Overlays, text and captions are shifted to match (`editorTimeOffsetFor`). Music and voiceover on audio lanes (`buildLaneAudioSequence`) and the sound of a picture-in-picture (`buildOverlayAudioSequence`) are not | After two 0.6 s transitions, a voiceover placed at 10 s plays 1.2 s late against the picture in the exported file | **fixed 11-12** (see "The fix" below). Preview side traced: the editor plays every clip whole and draws the blend over the seam, so its sound is placed on the editor's clock and agrees with its picture; the file now places sound the same way its pictures are placed. Note 9 A/B: beep 18.643 s, now 13.243 s (the predicted 5.400 s earlier) |
+| E2 | The same shortening leaves the export short of the timeline's length, and the "tail filler" pads it with black to make up the difference | A project with transitions ends with black frames as long as its transitions added together | **fixed 11-12**: the filler runs to where the project's end lands in the file. Note 9 A/B: 20.000 s with 5.4 s black, now 14.600 s, none. The export sheet shows that length |
+| D6 | In the export, a clip's fade, opacity keys, position keys and volume curve are read from the start of the exported piece. After a transition that piece starts part-way into the clip, so they are read early by the transition's length | A 1 s fade-out on a clip that follows a 0.6 s transition never reaches black; a fade-in pops | **fixed 11-12**: the piece tells them where it starts on the clip's own clock (video pass and the separate sound pass of long and sound-only exports). Note 9 A/B, red clip with 1 s fades: was black at its first own frame and 70% at its last, now 60% (151/252) and 6/252 |
 | E5 | The piece of a clip that plays during a transition gets the clip's plain volume only: no volume curve, no audio effects | A clip that fades its sound out into a transition does not fade there | scout |
 | E6 | The repeats of a looped clip play at full volume whatever the clip's volume is | A clip at 30% volume with "loop after": the loops are loud | **fixed 11-11**: the repeats get the clip's volume (not its curve). Built; not heard on a phone |
 | D4 | The sound of a picture-in-picture divides by its speed twice when working out where the next one starts | With two picture-in-pictures and the first not at normal speed, the second one's sound is late or early | **fixed 11-11** (see C) |
@@ -31,6 +31,24 @@ were not.
 | D8 | "Cut" spans inside a clip shorten it for Joybot and the split guard but not for the timeline, the view or (as far as the scout found) the export | Joybot thinks a clip with cuts is shorter than the timeline shows | scout; needs an owner ruling on whether cuts shorten the timeline |
 | D9 | Lengths are cut off to whole milliseconds in some places and rounded in others | Each split of a speeded clip can lose 1 ms | scout |
 | D10, D11 | Seek units inside the gapless player for loop repeats at a speed other than normal; the export clamps a clip to its source length and the preview does not | Not worked through | scout, marked "likely" by the scout |
+
+**The fix, 2026-11-12 (Claude Opus 5.5, continuing this report).** `model/TimeMap` is the one answer
+to "where does editor time t land in the file": `t` less, for every seam, how far `t` is past the seam
+point, capped at that transition's clamped length. The incoming clip's head (played under the blend)
+folds onto the blend's end, so the map never runs backwards. `editorTimeOffsetFor` is now its
+`offsetBeforeClip` (same sum, checked against the old loop on 400 random timelines); the transition
+clamps moved into it unchanged. Users: audio lanes, picture-in-picture sound, the tail filler, a
+range export's cut points inside a part (`ChunkRun.compOf`, which was a straight line per part), the
+clip-local clock of a piece after a transition (`clipLocalMsAt`: opacity and fade, spine placement,
+volume curve), and the export sheet's length. Proof: `tools/jvm-harness/run-timemap.sh` 826 checks
+(pins the §2d device numbers, 5501 to 4901 and 13726 to 13126); Note 9 A/B of one fixture project
+(`stu5-timemap-20261112` on the sandbox: ten 2 s stills, nine 0.6 s transitions, the last a red still
+with 1 s fades, a 1 s beep at editor 18.6 s), exported as `stu5-A.mp4` (11-11 build) and `stu5-B.mp4`
+(this build) in the Joy Creator folder; every number matched a prediction written down before the
+run. **Still open from this section:** E5 (and its picture twin: during the blend both clips show
+without their fade or opacity, in the preview and the file alike), D2, D3, D7 to D11; the editor's
+playhead during a transition shows the file's clock (`getOutputPositionForCurrentPlayback`) and jumps
+at the end of the blend, a display quirk not traced further.
 
 **Recommended shape of the fix** (the scout's, and the lead agrees): one small class with no Android in it,
 `model/TimeMap`, that every reader asks: where on the timeline a clip starts, which clip a time falls in

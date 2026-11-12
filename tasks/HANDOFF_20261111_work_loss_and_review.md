@@ -55,7 +55,10 @@ phone lock, and say on the BOARD when you install over theirs.
 
 ## Not done: next, in this order
 
-1. **The timeline clock (the owner's "studio clock sync", job STU-5).** Section A of the code-review report
+1. **Done 11-12 for the export (Claude Opus 5.5):** `model/TimeMap`, D5 + D6 + E2, Note 9 A/B; see the
+   code-review report §A "The fix" and STATE §2. Left of this item: the editor side (D7, D9, the
+   playhead during a blend), E5, D2, D3, D8, D10, D11. The original note follows.
+   **The timeline clock (the owner's "studio clock sync", job STU-5).** Section A of the code-review report
    has every place that converts timeline time to source time and the worked disagreements. The root: a
    transition shortens the export but not the editor's timeline; overlays were corrected for it, music,
    voiceover, fades and volume curves were not, and the export pads the end with black. Recommended: a

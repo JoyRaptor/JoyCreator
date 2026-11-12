@@ -1513,6 +1513,9 @@ public class ExportManager {
     private long[] chunkEditorBases = null;
     @Nullable
     private long[] chunkEditorDurs = null;
+    /** The planned project's editor-to-file map, for a range's exact place inside a part. */
+    @Nullable
+    private com.fadcam.ui.faditor.model.TimeMap chunkTimeMap = null;
     /** Set while the chunked driver owns the run (chain stops when cancelled). */
     private volatile boolean chunkCancelled = false;
     /** Last chunk's ExportResult, handed to the final finalize (mirrors single-pass). */
@@ -1620,6 +1623,7 @@ public class ExportManager {
         chunkCompDurs = new long[ranges.size()];
         chunkEditorBases = new long[ranges.size()];
         chunkEditorDurs = new long[ranges.size()];
+        chunkTimeMap = com.fadcam.ui.faditor.model.TimeMap.of(tl);
         org.json.JSONObject o = new org.json.JSONObject();
         try {
             org.json.JSONArray chunks = new org.json.JSONArray();
@@ -2184,13 +2188,22 @@ public class ExportManager {
             return n - 1;
         }
 
-        /** Composition time of editor time t (linear inside the part holding it). */
+        /**
+         * Composition time of editor time t: the part's measured start plus how far into the
+         * part t lands in the file. That distance comes from the time map (STU-5), so a range
+         * that starts or ends after a transition inside a part is cut where its picture is;
+         * the old straight line from the part's editor start was late by those transitions.
+         */
         long compOf(long t) {
             if (chunkBases == null || chunkEditorBases == null || chunkEditorDurs == null
                     || chunkCompDurs == null) return t;
+            com.fadcam.ui.faditor.model.TimeMap map = chunkTimeMap;
             for (int i = 0; i < n; i++) {
                 if (t < chunkEditorBases[i] + chunkEditorDurs[i] || i == n - 1) {
-                    long local = Math.max(0L, t - chunkEditorBases[i]);
+                    long local = map != null
+                            ? map.editorToFileMs(t) - map.editorToFileMs(chunkEditorBases[i])
+                            : t - chunkEditorBases[i];
+                    local = Math.max(0L, local);
                     return chunkBases[i] + Math.min(local, chunkCompDurs[i]);
                 }
             }
@@ -3289,6 +3302,10 @@ public class ExportManager {
                         // capped its whole length at 100%.
                         vp.setVolume(clip.getVolumeLevel());
                         vp.setVolumeEnvelope(times, vols);
+                        // Head-trimmed after a transition: read the curve from where the
+                        // piece really starts (STU-5 D6), as the video pass does.
+                        vp.setEnvelopeStartMs(
+                                com.fadcam.ui.faditor.model.TimeMap.clipLocalMsAt(clip, clipInMs));
                         aps.add(vp);
                     } else if (Math.abs(clip.getVolumeLevel() - 1.0f) >= 0.01f) {
                         VolumeAudioProcessor vp = new VolumeAudioProcessor();
@@ -4473,7 +4490,15 @@ public class ExportManager {
         // pipeline exactly as any other clip does. That is also why this reuses the black spacer
         // the "Gap" feature already relies on — that feature is the existing proof that overlays
         // render correctly over a synthetic image clip.
-        long projectTotalMs = timeline.getTotalDurationMs();
+        // WHERE THE PROJECT ENDS IN THE FILE, not on the editor timeline (STU-5 E2, 2026-11-12).
+        // The spine above overlaps two clips at every transition, so it is shorter than the
+        // editor's timeline by the transitions added together; measuring the remainder against
+        // the editor's length padded every project that has a transition with that much black
+        // at the end (LEDGER §2e: 13126 ms of content padded to 13726). Everything past the
+        // master track lies past every seam, so it is the editor end less the whole total; a
+        // project without transitions is unchanged.
+        long projectTotalMs = com.fadcam.ui.faditor.model.TimeMap.of(timeline)
+                .editorToFileMs(timeline.getTotalDurationMs());
         // SPEC_C_SINGLE_FRAME: in a clamp pass the skipped items never advanced the cursor,
         // so the filler's length comes from the recorded pass-1 figure instead — and the
         // site's emit parity comes from the recorded flag, not from a recomputed tailMs.
@@ -4670,12 +4695,10 @@ public class ExportManager {
                 + "ms emitted so the covering item keeps its full-export clock");
     }
 
+    /** The seam's transition; the rule lives in {@link com.fadcam.ui.faditor.model.TimeMap}. */
     @Nullable
     private static Transition findTransitionAtSeam(@NonNull Timeline timeline, int seam) {
-        for (Transition t : timeline.getTransitions()) {
-            if (t.clipIndex == seam) return t;
-        }
-        return null;
+        return com.fadcam.ui.faditor.model.TimeMap.transitionAtSeam(timeline, seam);
     }
 
     /**
@@ -4938,19 +4961,13 @@ public class ExportManager {
             if (timeline.getClip(i) == clip
                     || timeline.getClip(i).getId().equals(clip.getId())) { idx = i; break; }
         }
-        if (idx < 0) {
-            // Not on the master track. The only such caller is the TAIL FILLER (:1055 builds a
-            // Clip that is deliberately not in the timeline), which represents time PAST the
-            // master track — i.e. after every transition has already been applied. Returning 0
-            // here left the filler on raw composition time while every clip before it was on
-            // editor time, so an overlay spanning the last-clip→filler seam jumped backwards by
-            // the whole transition total. The correct extrapolation is that total.
-            long all = 0L;
-            for (Transition t : timeline.getTransitions()) {
-                all += effectiveTransitionMs(timeline, t, t.clipIndex);
-            }
-            return all;
-        }
+        // ONE AUTHORITY (STU-5, 2026-11-12): TimeMap.offsetBeforeClip is this sum; the sound
+        // lanes and the black tail use the same map, so they cannot drift from the pictures.
+        // Not on the master track (idx < 0) = the TAIL FILLER, which lies past every seam, so
+        // it gets the whole total. Returning 0 there once left the filler on raw composition
+        // time while every clip before it was on editor time, so an overlay spanning the
+        // last-clip to filler seam jumped backwards by the whole transition total.
+        //
         // ⚠ KNOWN LIMIT — this is a MODEL of the composition cursor, not the cursor itself.
         // It sums transitions, but the cursor is also compressed by DEGENERATE items that get
         // skipped without advancing it (a main body or transition item shorter than
@@ -4972,52 +4989,18 @@ public class ExportManager {
         //
         // The real quantity is the cumulative content the export has swallowed before this clip:
         // the sum of every transition at a seam BEFORE it.
-        long off = 0L;
-        for (Transition t : timeline.getTransitions()) {
-            if (t.clipIndex < idx) off += effectiveTransitionMs(timeline, t, t.clipIndex);
-        }
-        return off;
+        return com.fadcam.ui.faditor.model.TimeMap.of(timeline).offsetBeforeClip(idx);
     }
 
 
+    /** Clamped transition length (see the comment above); the rule lives in TimeMap. */
     private static long effectiveTransitionMs(@NonNull Timeline timeline,
                                               @NonNull Transition trans, int seam) {
-        long d = Math.max(0L, trans.durationMs);
-        if (seam >= 0 && seam < timeline.getClipCount()) {
-            d = Math.min(d, transitionBudgetOnClip(timeline, trans, seam, /* clipIsOutgoing = */ true));
-        }
-        int next = seam + 1;
-        if (next >= 0 && next < timeline.getClipCount()) {
-            d = Math.min(d, transitionBudgetOnClip(timeline, trans, next, /* clipIsOutgoing = */ false));
-        }
-        return d;
+        return com.fadcam.ui.faditor.model.TimeMap.effectiveTransitionMs(timeline, trans, seam);
     }
 
-    /**
-     * How much of the clip at {@code clipIndex} the transition {@code trans} may claim.
-     * Normally the whole trimmed clip (the single-transition clamp). But when the SAME
-     * clip is straddled by transitions on BOTH of its seams (e.g. a short slide with a
-     * crossfade in and a radial out), the two would jointly overspend the clip and the
-     * later one used to be degenerate-skipped in export while the preview drew both.
-     * In that case each transition gets a share of the clip proportional to its
-     * authored duration — both iterations (outgoing tail-trim and incoming head-trim)
-     * compute from the same static timeline data, so they stay in lock-step.
-     */
-    private static long transitionBudgetOnClip(@NonNull Timeline timeline,
-                                               @NonNull Transition trans,
-                                               int clipIndex, boolean clipIsOutgoing) {
-        long clipLen = Math.max(0L, timeline.getClip(clipIndex).getTrimmedDurationMs());
-        // The transition on the clip's OTHER seam, if any: for a clip acting as the
-        // outgoing side of `trans` (trans sits at seam == clipIndex), the other seam is
-        // clipIndex - 1; for the incoming side (trans at seam == clipIndex - 1), it's
-        // clipIndex.
-        Transition other = findTransitionAtSeam(timeline, clipIsOutgoing ? clipIndex - 1 : clipIndex);
-        if (other == null) return clipLen;
-        long mine = Math.max(0L, trans.durationMs);
-        long theirs = Math.max(0L, other.durationMs);
-        if (mine + theirs <= clipLen || mine + theirs == 0) return clipLen;
-        return Math.max(0L, (clipLen * mine) / (mine + theirs));
-    }
+    // transitionBudgetOnClip (a short clip with a transition on both seams gives each a share in
+    // proportion to its length) moved unchanged to TimeMap.transitionBudgetOnClip, 2026-11-12.
 
     @Nullable
     private int[] resolveCanvasDims(@NonNull Timeline timeline,
@@ -5174,6 +5157,12 @@ public class ExportManager {
 
         EditedMediaItem.Builder editedBuilder = new EditedMediaItem.Builder(mediaItem);
         if (clip.isImageClip()) editedBuilder.setFrameRate(30);
+        // WHERE THIS PIECE STARTS ON THE CLIP'S OWN CLOCK (STU-5 D6, 2026-11-12). A clip after a
+        // transition is built from part-way in (its head plays under the blend), but its fade,
+        // opacity keys, placement keys and volume curve are all clip-local and were read from
+        // the start of this piece: a 1 s fade-out after a 0.6 s transition never reached black.
+        // 0 for every clip that starts at its in-point, so those exports are unchanged.
+        final long clipLocalStartMs = com.fadcam.ui.faditor.model.TimeMap.clipLocalMsAt(clip, clipInMs);
         // Chunked export: video chunks drop all master audio (single audio pass later).
         boolean dropAudio = clip.isAudioMuted() || clip.isImageClip() || chunkVideoOnly;
         // A clipped window that starts past the end of the source's AUDIO track yields
@@ -5221,6 +5210,7 @@ public class ExportManager {
                 // B1.Q: multipliers need their base — see the master-sequence site.
                 volumeProcessor.setVolume(volume);
                 volumeProcessor.setVolumeEnvelope(times, vols);
+                volumeProcessor.setEnvelopeStartMs(clipLocalStartMs);
                 volumeAdjusted = true;
             } else if (Math.abs(volume - 1.0f) >= 0.01f) {
                 volumeProcessor.setVolume(volume);
@@ -5247,7 +5237,9 @@ public class ExportManager {
                 clip, project, timelineCursorMs, outW, outH,
                 canvasDims, waveformSlots,
                 /* isTransitionItem = */ false,
-                /* preOverlayExtra = */ null);
+                /* preOverlayExtra = */ null,
+                /* isLoopBeforeItem = */ false,
+                clipLocalStartMs);
 
         if (!audioProcessors.isEmpty() || !videoEffects.isEmpty()) {
             editedBuilder.setEffects(new Effects(audioProcessors, videoEffects));
@@ -6202,9 +6194,12 @@ public class ExportManager {
         }
         Uri silenceUri = Uri.fromFile(silenceFile);
 
+        // The sound lanes are placed on the FILE's clock, the one the pictures above them use
+        // (STU-5 D5): editor offsets pass through the same map as editorTimeOffsetFor.
+        com.fadcam.ui.faditor.model.TimeMap timeMap = com.fadcam.ui.faditor.model.TimeMap.of(timeline);
         List<EditedMediaItemSequence> sequences = new ArrayList<>();
         for (Map.Entry<String, List<AudioClip>> e : byLane.entrySet()) {
-            EditedMediaItemSequence seq = buildLaneAudioSequence(timeline, e.getKey(), e.getValue(), silenceUri, projectSampleRate);
+            EditedMediaItemSequence seq = buildLaneAudioSequence(timeline, timeMap, e.getKey(), e.getValue(), silenceUri, projectSampleRate);
             if (seq != null) sequences.add(seq);
         }
         return sequences;
@@ -6214,6 +6209,7 @@ public class ExportManager {
      *  between them, each clip carrying its own trim/volume/envelope treatment. */
     @Nullable
     private EditedMediaItemSequence buildLaneAudioSequence(@NonNull Timeline timeline,
+            @NonNull com.fadcam.ui.faditor.model.TimeMap timeMap,
             @NonNull String laneId, @NonNull List<AudioClip> clips, @NonNull Uri silenceUri,
             int projectSampleRate) {
         // Sort by offset so we insert gaps correctly
@@ -6237,7 +6233,11 @@ public class ExportManager {
                 continue;
             }
 
-            long clipStartMs = ac.getOffsetMs();
+            // FILE time, not editor time (STU-5 D5, 2026-11-12). The pictures are overlapped at
+            // every transition, so after two 0.6 s transitions a voiceover placed at 12 s on the
+            // editor timeline belongs at 10.8 s in the file; placed at 12 s it came in 1.2 s
+            // late against the picture it was laid under. Unchanged without transitions.
+            long clipStartMs = timeMap.editorToFileMs(ac.getOffsetMs());
 
             // Insert silence gap if necessary. The silence WAV is SILENCE_FILE_MS long,
             // so a larger gap must be split into multiple items — otherwise the clip is
@@ -6348,6 +6348,9 @@ public class ExportManager {
         }
         Uri silenceUri = Uri.fromFile(silenceFile);
 
+        // A picture-in-picture's PIXELS are placed through editorTimeOffsetFor; its sound goes
+        // through the same map, or it would run late after every transition (STU-5 D5).
+        com.fadcam.ui.faditor.model.TimeMap timeMap = com.fadcam.ui.faditor.model.TimeMap.of(timeline);
         List<EditedMediaItem> items = new ArrayList<>();
         long cursorMs = 0;
         for (Clip c : overlays) {
@@ -6358,7 +6361,7 @@ public class ExportManager {
                 FLog.d(TAG, "buildOverlayAudioSequence: PiP " + c.getId() + " has no audio — skipped");
                 continue;
             }
-            long startMs = Math.max(0, c.getOverlayStartMs());
+            long startMs = Math.max(0, timeMap.editorToFileMs(c.getOverlayStartMs()));
             if (startMs > cursorMs) {
                 addSilence(items, silenceUri, startMs - cursorMs);
                 cursorMs = startMs;
@@ -6648,7 +6651,29 @@ public class ExportManager {
                                                   boolean isTransitionItem,
                                                   @Nullable Effect preOverlayExtra,
                                                   boolean isLoopBeforeItem) {
+        return assembleClipVideoEffects(clip, project, timelineCursorMs, outW, outH, canvasDims,
+                allWaveformSlots, isTransitionItem, preOverlayExtra, isLoopBeforeItem,
+                /* clipLocalStartMs = */ 0L);
+    }
+
+    /**
+     * @param clipLocalStartMs where this item starts on the clip's own clock: non-zero only for
+     *        a clip's main piece after a transition, whose head plays under the blend. The
+     *        clip-local readers (opacity and fade, spine placement) start their clock there.
+     */
+    private List<Effect> assembleClipVideoEffects(@NonNull Clip clip,
+                                                  @NonNull FaditorProject project,
+                                                  long timelineCursorMs,
+                                                  int outW, int outH,
+                                                  @Nullable int[] canvasDims,
+                                                  @NonNull List<CompositeExportOverlay.WaveformSlot> allWaveformSlots,
+                                                  boolean isTransitionItem,
+                                                  @Nullable Effect preOverlayExtra,
+                                                  boolean isLoopBeforeItem,
+                                                  long clipLocalStartMs) {
         List<Effect> videoEffects = new ArrayList<>();
+        // The export clock at which this clip's own clock reads 0 (may lie before this item).
+        final long clipLocalOriginMs = timelineCursorMs - clipLocalStartMs;
         boolean isVideo = !clip.isImageClip();
 
         // Per-clip waveform slot filter: a visualizer's audioSourceRef points to
@@ -6895,7 +6920,8 @@ public class ExportManager {
         // TRANSITION items are excluded, matching the Presentation and the FxStack this rides
         // behind: the seam segment is un-placed exactly as it is un-graded and un-filtered.
         //
-        // THE OFFSET IS timelineCursorMs, NOT editorTimeOffsetFor(...). The two are different
+        // THE OFFSET IS clipLocalOriginMs (timelineCursorMs, less how far into the clip a piece
+        // after a transition starts: STU-5 D6), NOT editorTimeOffsetFor(...). The two are different
         // clocks and the choice follows the KEYFRAME TIME BASE: spine-transform keys are
         // CLIP-LOCAL (Clip.spinePoseAt, same base as Clip.opacityAtClipMs), so the offset must be
         // this EditedMediaItem's own start on the export timeline -- which is exactly what
@@ -6904,7 +6930,7 @@ public class ExportManager {
         // against the whole timeline; using it here would shift a spine key by the clip's
         // position in the project.
         if (!isTransitionItem && clip.hasSpineTransform()) {
-            videoEffects.add(new SpineTransformExportEffect(clip, timelineCursorMs));
+            videoEffects.add(new SpineTransformExportEffect(clip, clipLocalOriginMs));
         }
 
         // ── Clip opacity / master fade — the CLIP's picture only ──────────────────────
@@ -6934,7 +6960,7 @@ public class ExportManager {
         // fade appends nothing at all, so its List<Effect> is element-for-element what it was
         // and its export is byte-identical.
         if (!isTransitionItem && (clip.hasOpacityKeyframes() || clip.hasMasterFade())) {
-            videoEffects.add(new OpacityExportEffect(clip, timelineCursorMs));
+            videoEffects.add(new OpacityExportEffect(clip, clipLocalOriginMs));
         }
 
         if (!isTransitionItem && overlayW > 0 && overlayH > 0) {

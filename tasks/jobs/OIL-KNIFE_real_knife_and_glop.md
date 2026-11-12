@@ -90,6 +90,11 @@ Research 11-11 (read by a helper agent; mechanisms, not marketing):
 - **Needed: a live hover preview of the brush**: a very thin outline of the most it could cover, shown while the pen
   hovers, so he sees the angle he is about to put paint down at ("sometimes it's not quite right"). All brushes, knife first.
 
+- **Hover outline** (`HoverOutlineView`, `JbCanvasView.onPenHover`; built 11-11 night, on `joy-creator`): under a hovering pen,
+  a thin outline of what this hold would put down and, fainter, the most the tool covers: a blade along the pen's lean
+  at the length this tilt gives, a hair brush or trowel the same way, any other brush a circle of its size. Compiles and
+  is installed; **never seen working**: the bench cannot hover a pen, so the lean's direction on screen is unchecked.
+
 ## What is left
 - [ ] 1. Crossings (blades first, then hair brushes): the plate gets a rounded underside across its width; the paint it
       displaces goes to its flanks and behind it, conserved; its side ramp widens with the wet thickness under it. New

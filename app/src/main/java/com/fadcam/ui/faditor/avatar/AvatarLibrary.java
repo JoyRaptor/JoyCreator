@@ -136,6 +136,8 @@ public final class AvatarLibrary {
                 return null;
             }
             deleteRecursive(old);
+            // The person's folder gets its readable copy (work-loss audit F6); never blocks or fails the save.
+            com.fadcam.joyfolder.studio.SuppliesFolderCopy.avatarSaved(ctx, dir);
             return dir;
         } catch (Exception e) {
             deleteRecursive(tmp);

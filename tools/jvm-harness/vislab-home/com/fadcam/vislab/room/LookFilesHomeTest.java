@@ -94,6 +94,26 @@ public class LookFilesHomeTest {
         int none = LookFiles.bringHome(fallback, fallback, f -> false);
         check(none == 0 && new File(away, "Later.vis.json").isFile(), "no folder: the look stays where it is");
 
+        // F7: the person changes their Joy Creator folder while the app runs. The new place is a
+        // different home (the session notices and writes there); a look the new folder already
+        // holds is adopted, and an unknown one is not mistaken for it.
+        File folderB = Files.createTempDirectory("vislab-folder-b").toFile();
+        JoyFolder jfB = JoyFolder.open(new FileJoyFs(folderB));
+        LookFiles.Home homeB = new LookFiles.Home(jfB.fs, jfB, looksDir);
+        check(!probe.same(homeB), "a changed folder is a different home");
+        check(probe.same(new LookFiles.Home(jf.fs, jf, looksDir)), "the same folder is the same home");
+        check(!probe.same(fallback) && !fallback.same(probe), "the folder and the app's own folder differ");
+        check(LookFiles.fileHolding(homeB, mine) == null, "an empty new folder holds nothing");
+        String wrote = LookFiles.write(homeB, null, "Calm Ocean", mine);
+        check(new File(folderB, wrote).isFile() && read(new File(folderB, wrote)).equals(mine),
+                "a look written after the change lands in the NEW folder");
+        check(LookFiles.fileHolding(homeB, mine) != null && LookFiles.fileHolding(homeB, mine).equals(wrote),
+                "a look the new folder already holds is found, to be adopted");
+        check(LookFiles.fileHolding(homeB, older) == null, "a different look is not mistaken for it");
+        String[] oldNow = looks.list();
+        check(oldNow != null && !java.util.Arrays.asList(oldNow).contains("Calm Ocean 3.vis.json"),
+                "and nothing more reached the old folder");
+
         System.out.println("LookFilesHomeTest: " + passes + " passed, " + fails + " failed");
         System.exit(fails > 0 ? 1 : 0);
     }

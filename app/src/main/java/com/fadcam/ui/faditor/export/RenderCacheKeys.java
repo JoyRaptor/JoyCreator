@@ -62,6 +62,25 @@ final class RenderCacheKeys {
     static String partKey(@NonNull String projectJson, int clipStart, int clipEnd,
                           long winStartMs, long winEndMs, long totalMs, boolean lastPart,
                           @NonNull String extras) {
+        return partKey(projectJson, clipStart, clipEnd, winStartMs, winEndMs, totalMs, lastPart,
+                extras, null);
+    }
+
+    /**
+     * Says whether a source that is not a plain file (a picture or clip picked from the gallery,
+     * {@code content://}) changed: any short text that differs when the source differs (size and
+     * time last changed), or null when it cannot be told. E13: such a source was not in the key
+     * at all, so replacing it left the old rendered part in use.
+     */
+    interface UriStamper {
+        @Nullable
+        String stampOf(@NonNull String uri);
+    }
+
+    @Nullable
+    static String partKey(@NonNull String projectJson, int clipStart, int clipEnd,
+                          long winStartMs, long winEndMs, long totalMs, boolean lastPart,
+                          @NonNull String extras, @Nullable UriStamper stamper) {
         try {
             JSONObject root = new JSONObject(projectJson);
             stripVolatile(root);
@@ -94,7 +113,7 @@ final class RenderCacheKeys {
             String total = runsToEnd ? String.valueOf(totalMs) : "-";
             return sha256(normalizeIds(canonical(root)) + "|clips=" + clipStart + ".." + clipEnd
                     + "|win=" + winStartMs + ".." + winEndMs + "|total=" + total
-                    + "|files=" + fileStamps(root) + "|" + extras);
+                    + "|files=" + fileStamps(root, stamper) + "|" + extras);
         } catch (Exception e) {
             return null;
         }
@@ -103,6 +122,12 @@ final class RenderCacheKeys {
     /** Key of the sound pass: the whole project minus picture-only data. */
     @Nullable
     static String audioKey(@NonNull String projectJson, @NonNull String extras) {
+        return audioKey(projectJson, extras, null);
+    }
+
+    @Nullable
+    static String audioKey(@NonNull String projectJson, @NonNull String extras,
+                           @Nullable UriStamper stamper) {
         try {
             JSONObject root = new JSONObject(projectJson);
             stripVolatile(root);
@@ -136,7 +161,7 @@ final class RenderCacheKeys {
             }
             JSONObject settings = root.optJSONObject("exportSettings");
             if (settings != null) settings.remove("resolution");
-            return sha256(normalizeIds(canonical(root)) + "|files=" + fileStamps(root)
+            return sha256(normalizeIds(canonical(root)) + "|files=" + fileStamps(root, stamper)
                     + "|" + extras);
         } catch (Exception e) {
             return null;
@@ -306,20 +331,30 @@ final class RenderCacheKeys {
 
     /** Local files the tree points at, with size + mtime: a replaced picture re-renders. */
     @NonNull
-    private static String fileStamps(@NonNull JSONObject root) throws Exception {
+    private static String fileStamps(@NonNull JSONObject root, @Nullable UriStamper stamper)
+            throws Exception {
         Set<String> strings = new HashSet<>();
         collectStrings(root, strings);
         List<String> paths = new ArrayList<>();
+        List<String> uris = new ArrayList<>();
         for (String s : strings) {
             String p = s.startsWith("file://") ? s.substring(7) : s;
             if (p.startsWith("/") && p.length() < 1024) paths.add(p);
+            else if (stamper != null && s.startsWith("content://") && s.length() < 2048) uris.add(s);
         }
         Collections.sort(paths);
+        Collections.sort(uris);
         StringBuilder sb = new StringBuilder();
         for (String p : paths) {
             File f = new File(p);
             if (f.isFile()) sb.append(p).append(':').append(f.length()).append(':')
                     .append(f.lastModified()).append(';');
+        }
+        // A gallery source cannot be opened as a File: its provider says how big it is and when
+        // it last changed. Nothing said = nothing added (the old behaviour).
+        for (String u : uris) {
+            String stamp = stamper.stampOf(u);
+            if (stamp != null) sb.append(u).append(':').append(stamp).append(';');
         }
         return sb.toString();
     }

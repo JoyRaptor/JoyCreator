@@ -90,6 +90,8 @@ public class ExportService extends Service {
     public static final String EXTRA_PROGRESS_BYTES = "progress_bytes";
     /** FIX-6: pace-measured remaining ms, -1 unknown. */
     public static final String EXTRA_PROGRESS_ETA_MS = "progress_eta_ms";
+    /** Boolean on COMPLETED: the copy into the chosen folder failed; the file is in the app's exports folder. */
+    public static final String EXTRA_COPY_TO_FOLDER_FAILED = "copy_to_folder_failed";
     public static final String EXTRA_ERROR_MESSAGE = "error_message";
     public static final String EXTRA_ERROR_CLASS = "error_class";
     /** Path of the serialized project snapshot the Activity wrote for this export job. */
@@ -139,6 +141,13 @@ public class ExportService extends Service {
     @Nullable
     private NotificationManager notificationManager;
     private boolean isExporting = false;
+    /** The "Preparing" stretch (remux, bakes, probe) before the manager takes over. */
+    private volatile boolean preparing = false;
+    /**
+     * Counts export starts and cancels. Work still in flight from an earlier count (the warm
+     * phase) checks it and stands down, so a cancelled export can never start afterwards.
+     */
+    private volatile int exportGeneration = 0;
 
     /** An export waiting for the running one; its snapshot is already read (edit-immune). */
     private static final class QueuedExport {
@@ -285,6 +294,10 @@ public class ExportService extends Service {
         }
 
         if (ACTION_START_EXPORT.equals(action)) {
+            // Android kills an app whose startForegroundService() is not followed by
+            // startForeground() within seconds, whatever happens next (an unreadable snapshot, a
+            // refusal for space). So the notification goes up first, on every start request.
+            if (!isExporting) ensureForeground();
             String loudName = intent.getStringExtra("extra_loudness_target");
             if (loudName == null) {
                 loudName = getSharedPreferences("faditor_export", MODE_PRIVATE).getString("pending_loudness_target", "OFF");
@@ -369,12 +382,19 @@ public class ExportService extends Service {
 
         if (project == null) {
             FLog.e(TAG, "No export snapshot (path=" + snapshotPath + ") — cannot export");
+            String msg = getString(R.string.faditor_export_snapshot_unreadable);
             Intent broadcast = new Intent(ACTION_EXPORT_ERROR);
-            broadcast.putExtra(EXTRA_ERROR_MESSAGE, "Export could not read the project snapshot");
+            broadcast.putExtra(EXTRA_ERROR_MESSAGE, msg);
             sendExportBroadcast(broadcast);
             // Never stop the service under an export that is still running (onDestroy
             // cancels it): only a bad SECOND request arrives while one runs.
-            if (!isExporting && queue.isEmpty()) stopSelf();
+            if (!isExporting && queue.isEmpty()) {
+                recordTerminalResult("error", null, msg, null);
+                stopForeground(STOP_FOREGROUND_REMOVE);
+                if (notificationManager != null) notificationManager.cancel(NOTIFICATION_ID);
+                showErrorNotification(msg);
+                stopSelf();
+            }
             return;
         }
         // ProjectStorage intentionally does not persist this one-shot export option. Apply it
@@ -408,10 +428,19 @@ public class ExportService extends Service {
                                        @Nullable long[] range) {
         isExporting = true;
         exportStartTimeMs = System.currentTimeMillis();
+        final int gen = ++exportGeneration;
 
         terminal = false;
         // Show initial foreground notification
         startForeground(NOTIFICATION_ID, buildProgressNotification(0, true));
+
+        // E15: refuse in plain words when the phone clearly cannot hold the export, before any
+        // work (a long export used to run for an hour and then die on a full phone).
+        String noRoom = noRoomMessage(project, audioOnly, frameTimeMs, range);
+        if (noRoom != null) {
+            failExportBeforeStart(noRoom, java.io.IOException.class.getName());
+            return;
+        }
         acquireExportWakeLock();
 
         // Create ExportManager and run
@@ -502,7 +531,15 @@ public class ExportService extends Service {
                 terminal = true;
                 FLog.d(TAG, "Export completed: " + outputPath);
                 isExporting = false;
+                // E7: the copy into the person's chosen folder failed; the file is safe in the
+                // app's own exports folder and the person is told so, in plain words.
+                final boolean copyFailed = exportManager != null
+                        && exportManager.copyToFolderFailed();
                 recordTerminalResult("completed", outputPath, null, null);
+                try {
+                    getSharedPreferences("faditor_export", MODE_PRIVATE).edit()
+                            .putBoolean("last_export_copy_failed", copyFailed).apply();
+                } catch (Exception ignored) { }
                 // FIX-1: post-export prune (30 days, 8 GB cap). The file just written is
                 // minutes fresh so the age rule can never take it; failures skip this so
                 // their helpers survive a retry.
@@ -518,10 +555,11 @@ public class ExportService extends Service {
                 // the completion under its own id.
                 stopForeground(STOP_FOREGROUND_REMOVE);
                 if (notificationManager != null) notificationManager.cancel(NOTIFICATION_ID);
-                showCompletionNotification(audioOnly, outputPath);
+                showCompletionNotification(audioOnly, outputPath, copyFailed);
                 Intent broadcast = new Intent(ACTION_EXPORT_COMPLETED);
                 broadcast.putExtra(EXTRA_OUTPUT_PATH, outputPath);
                 broadcast.putExtra(EXTRA_AUDIO_ONLY, audioOnly);
+                broadcast.putExtra(EXTRA_COPY_TO_FOLDER_FAILED, copyFailed);
                 sendExportBroadcast(broadcast);
                 finishOrRunNext();
             }
@@ -592,13 +630,16 @@ public class ExportService extends Service {
         if (remuxExecutor == null) {
             remuxExecutor = Executors.newSingleThreadExecutor();
         }
+        preparing = true;
         remuxExecutor.execute(() -> {
+            try {
             // FIX-2 (2026-09-21): verify AFTER warming — a remux that fails (or whose
             // output vanishes, cf. the 11:32 ENOENT) must fail FAST here with a retryable
             // message, never 28 minutes into the export. One synchronous retry; the
             // thread is already background.
             final List<String> unpreparable = new ArrayList<>();
             for (File f : needsRemux) {
+                if (gen != exportGeneration) return;   // cancelled while preparing (E8)
                 try {
                     File out = remuxer.remuxSync(f);
                     if (out == null || !remuxer.hasRemuxedVersion(f)) {
@@ -617,6 +658,7 @@ public class ExportService extends Service {
             // Reverse bakes AFTER remuxing, so a raw-fMP4 ping-pong source reverses from its
             // now-cached seekable copy (accurate fast-seek), mirroring the preview input choice.
             for (Clip c : needsReverse) {
+                if (gen != exportGeneration) return;
                 try {
                     File input = resolveReverseInputFile(c, remuxer);
                     File out = reversedCache.bakeSync(c.getSourceUri(), input,
@@ -636,6 +678,7 @@ public class ExportService extends Service {
             final boolean fullProbe = frameTimeMs == null;
             for (Clip c : needsPreTrim) {
                 if (!fullProbe) break;
+                if (gen != exportGeneration) return;
                 try {
                     File input = resolvePreTrimInputFile(c, remuxer);
                     if (input == null) continue;
@@ -672,6 +715,10 @@ public class ExportService extends Service {
             // a source could not be prepared (FIX-2: never a 28-minute delayed ENOENT).
             final List<String> failed = new ArrayList<>(unpreparable);
             new Handler(Looper.getMainLooper()).post(() -> {
+                // Cancelled while preparing (E8): the export must not start behind the
+                // person's back, and the service is already on its way out.
+                if (gen != exportGeneration) return;
+                preparing = false;
                 progressTextOverride = null;
                 if (probeFailed != null) {
                     isExporting = false;
@@ -718,7 +765,89 @@ public class ExportService extends Service {
                     dispatchExport(exportProject, audioOnly, frameTimeMs, frameJpeg, range);
                 }
             });
+            } catch (Throwable t) {
+                // E9: an out-of-memory or a missing native library here used to end this thread
+                // silently and leave the person at "Preparing" for good (only Exception was
+                // caught elsewhere in this body). Always end in a plain-words error.
+                FLog.e(TAG, "Export preparation crashed", t);
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    if (gen != exportGeneration) return;
+                    failExportBeforeStart(getString(R.string.faditor_export_prepare_failed),
+                            java.io.IOException.class.getName());
+                });
+            }
         });
+    }
+
+    /**
+     * The export ends before it began (no room, preparation crashed): the same plain-words
+     * ending as any failure, then the next queued export or a clean stop. Main thread.
+     */
+    private void failExportBeforeStart(@NonNull String message, @NonNull String errorClass) {
+        isExporting = false;
+        preparing = false;
+        terminal = true;
+        progressTextOverride = null;
+        FLog.e(TAG, "Export did not start: " + message);
+        recordTerminalResult("error", null, message, errorClass);
+        stopForeground(STOP_FOREGROUND_REMOVE);
+        if (notificationManager != null) notificationManager.cancel(NOTIFICATION_ID);
+        showErrorNotification(message);
+        Intent broadcast = new Intent(ACTION_EXPORT_ERROR);
+        broadcast.putExtra(EXTRA_ERROR_MESSAGE, message);
+        broadcast.putExtra(EXTRA_ERROR_CLASS, errorClass);
+        sendExportBroadcast(broadcast);
+        finishOrRunNext();
+    }
+
+    /** Android's rule for a foreground service: show the notification now. Main thread. */
+    private void ensureForeground() {
+        try {
+            startForeground(NOTIFICATION_ID, buildProgressNotification(0, true));
+        } catch (RuntimeException e) {
+            FLog.w(TAG, "Could not go foreground", e);
+        }
+    }
+
+    /**
+     * E15: a plain-words refusal when the phone clearly lacks room for this export, else null.
+     * Looks at the app's own storage (where the parts, the temporary file and the exports land).
+     */
+    @Nullable
+    private String noRoomMessage(@NonNull FaditorProject project, boolean audioOnly,
+                                 @Nullable Long frameTimeMs, @Nullable long[] range) {
+        try {
+            long durationMs = range != null ? range[1] - range[0]
+                    : project.getTimeline().getTotalDurationMs();
+            String quality = project.getExportSettings() != null
+                    && project.getExportSettings().getQuality() != null
+                    ? project.getExportSettings().getQuality().name() : "HIGH";
+            long needed = ExportSpace.estimateBytes(durationMs, quality, audioOnly,
+                    frameTimeMs != null);
+            long free = freeBytesIn(getFilesDir());
+            File ext = getExternalFilesDir(null);
+            if (ext != null) {
+                long extFree = freeBytesIn(ext);
+                if (extFree >= 0 && (free < 0 || extFree < free)) free = extFree;
+            }
+            if (!ExportSpace.shortOfSpace(needed, free)) return null;
+            FLog.w(TAG, "Not enough room: needs about " + needed + " bytes, " + free + " free");
+            return getString(R.string.faditor_export_no_room,
+                    android.text.format.Formatter.formatShortFileSize(this,
+                            ExportSpace.missingBytes(needed, free)));
+        } catch (Exception e) {
+            FLog.w(TAG, "Space check skipped", e);
+            return null;
+        }
+    }
+
+    private static long freeBytesIn(@Nullable File dir) {
+        try {
+            if (dir == null) return -1L;
+            return new android.os.StatFs(dir.getAbsolutePath()).getAvailableBytes();
+        } catch (Exception e) {
+            return -1L;
+        }
     }
 
     /**
@@ -921,10 +1050,18 @@ public class ExportService extends Service {
             queue.clear();
         }
         terminal = true;
+        exportGeneration++;   // anything still preparing stands down (E8)
         if (exportManager != null && exportManager.isExporting()) {
             exportManager.cancel();
             isExporting = false;
             FLog.d(TAG, "Export cancelled via service");
+            sendExportBroadcast(new Intent(ACTION_EXPORT_CANCELLED));
+        } else if (preparing) {
+            // E8: Cancel during "Preparing" reached no manager and told nobody; the export then
+            // started anyway once the preparation ended.
+            preparing = false;
+            isExporting = false;
+            FLog.d(TAG, "Export cancelled while preparing");
             sendExportBroadcast(new Intent(ACTION_EXPORT_CANCELLED));
         }
         stopForeground(STOP_FOREGROUND_REMOVE);
@@ -1068,7 +1205,8 @@ public class ExportService extends Service {
         oneShotText = null;
     }
 
-    private void showCompletionNotification(boolean audioOnly, @Nullable String outputPath) {
+    private void showCompletionNotification(boolean audioOnly, @Nullable String outputPath,
+                                            boolean copyFailed) {
         // Tap to open editor
         Intent openIntent = new Intent(this, FaditorEditorActivity.class);
         openIntent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -1084,10 +1222,17 @@ public class ExportService extends Service {
             String name = new File(outputPath).getName();
             doneText = name + " • " + doneText;
         }
+        String doneTitle = getString(R.string.faditor_export_complete_title);
+        if (copyFailed) {
+            doneTitle = getString(R.string.faditor_export_copy_failed_title);
+            doneText = getString(R.string.faditor_export_copy_failed_summary,
+                    outputPath != null ? new File(outputPath).getName() : "");
+        }
         Notification notification = new NotificationCompat.Builder(this, ALERTS_CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_export_video)
-                .setContentTitle(getString(R.string.faditor_export_complete_title))
+                .setContentTitle(doneTitle)
                 .setContentText(doneText)
+                .setStyle(new NotificationCompat.BigTextStyle().bigText(doneText))
                 .setOngoing(false)
                 .setAutoCancel(true)
                 .setContentIntent(openPi)

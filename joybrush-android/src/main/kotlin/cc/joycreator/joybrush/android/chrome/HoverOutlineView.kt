@@ -7,6 +7,7 @@ import android.graphics.Path
 import android.view.View
 import cc.joycreator.joybrush.core.brush.BrushPreset
 import cc.joycreator.joybrush.core.brush.mediaScale
+import cc.joycreator.joybrush.core.brush.scaled
 import cc.joycreator.joybrush.core.media.DOC_PX_PER_MM
 import cc.joycreator.joybrush.core.media.MediaInput
 import kotlin.math.PI

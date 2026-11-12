@@ -1405,7 +1405,8 @@ public final class FxLivePreviewController {
             // Style keyframes: first binding's style animates via Clip.captionStyleKeyframes (export parity)
             Clip.CaptionBinding effective = b;
             if (i == 0 && clip.hasCaptionStyleKeyframes()) {
-                String kfStyle = clip.captionStyleAtClipMs(clipLocalMs);
+                // Timeline ruler time (job STU-5, D2): localMs is timeline ms from the clip's start.
+                String kfStyle = clip.captionStyleAtClipMs(localMs);
                 if (kfStyle != null && !kfStyle.equals(b.styleId)) {
                     effective = b.copy();
                     effective.styleId = kfStyle;

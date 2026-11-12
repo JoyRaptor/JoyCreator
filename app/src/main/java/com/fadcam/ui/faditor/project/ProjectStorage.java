@@ -1790,6 +1790,10 @@ public class ProjectStorage {
                 kfArr.add(kfJson);
             }
             clipJson.add("captionStyleKeyframes", kfArr);
+            // Job STU-5 / D2: these keys are on the timeline ruler (timeline ms from the clip's
+            // own start), like opacity, placement and volume keys. Files written before that
+            // kept them in SOURCE ms and carry no such tag; the loader converts those once.
+            clipJson.addProperty("captionStyleKeyClock", "timeline");
         }
         serializeEffectStack(clipJson, clip.getEffectStack());
         serializeGeneratedSource(clipJson, clip.getGeneratedSource());
@@ -2160,6 +2164,16 @@ public class ProjectStorage {
                 kfs.add(new com.fadcam.ui.faditor.model.Clip.CaptionStyleKeyframe(
                         kf.get("t").getAsLong(),
                         kf.get("s").getAsString()));
+            }
+            // No tag = a file from before job STU-5 (D2): the times are source ms. Convert once
+            // (the tag is written back on the next save, so a reload never converts again). At
+            // normal speed source ms == timeline ms, so such a clip comes out unchanged.
+            boolean onTimelineClock = hasValue(clipObj, "captionStyleKeyClock")
+                    && "timeline".equals(clipObj.get("captionStyleKeyClock").getAsString());
+            if (!onTimelineClock) {
+                for (com.fadcam.ui.faditor.model.Clip.CaptionStyleKeyframe kf : kfs) {
+                    kf.timeMs = com.fadcam.ui.faditor.model.ClipClock.sourceToLocalMs(kf.timeMs, speed);
+                }
             }
             clip.getCaptionStyleKeyframes().addAll(kfs);
         }

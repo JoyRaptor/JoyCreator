@@ -8449,7 +8449,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         boolean showNav = captionStyleKeyframeMode && cc.hasCaptionStyleKeyframes();
         com.fadcam.ui.faditor.captions.CaptionStyleKeyframeController.NavState nav =
                 com.fadcam.ui.faditor.captions.CaptionStyleKeyframeController.computeNavState(
-                        cc, lastSourcePositionInSegmentMs);
+                        cc, lastPositionInSegmentMs);
         View prev = findViewById(R.id.caption_kf_prev);
         if (prev != null) {
             prev.setVisibility(showNav ? View.VISIBLE : View.GONE);
@@ -8465,7 +8465,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         // On-keyframe indicator + delete ("−" affordance)
         boolean onKf = showNav && com.fadcam.ui.faditor.captions.CaptionStyleKeyframeController
-                .isOnKeyframe(cc, lastSourcePositionInSegmentMs);
+                .isOnKeyframe(cc, lastPositionInSegmentMs);
         View onDot = findViewById(R.id.caption_kf_onkeyframe);
         if (onDot != null) onDot.setVisibility(onKf ? View.VISIBLE : View.INVISIBLE);
         View del = findViewById(R.id.caption_kf_delete);
@@ -8477,14 +8477,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (cc == null || !cc.hasCaptionStyleKeyframes()) return;
         com.fadcam.ui.faditor.captions.CaptionStyleKeyframeController.NavState nav =
                 com.fadcam.ui.faditor.captions.CaptionStyleKeyframeController.computeNavState(
-                        cc, lastSourcePositionInSegmentMs);
+                        cc, lastPositionInSegmentMs);
         long best = (dir > 0) ? (nav.hasNext ? nav.nextTimeMs : -1)
                                : (nav.hasPrev ? nav.prevTimeMs : -1);
         if (best >= 0) {
             long segStart = editorTimeline.getSegmentStartTimeMs(selectedClipIndex);
-            float speed = cc.getSpeedMultiplier();
-            long bestTimelineMs = (speed > 0) ? (long) (best / speed) : best;
-            editorTimeline.seekToTimelineMs(segStart + bestTimelineMs);
+            // Caption-style keys are on the timeline ruler already (job STU-5, D2): no speed maths.
+            editorTimeline.seekToTimelineMs(segStart + best);
             refreshCaptionKeyframeDrawer();
         }
     }
@@ -8493,7 +8492,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         Clip cc = getSelectedClip();
         if (cc == null) return;
         java.util.List<Clip.CaptionStyleKeyframe> beforeKfs = snapshotCaptionStyleKeyframes(cc);
-        cc.removeCaptionStyleKeyframe(lastSourcePositionInSegmentMs);
+        cc.removeCaptionStyleKeyframe(lastPositionInSegmentMs);
         recordCaptionStyleKeyframeEdit(cc, beforeKfs);
         if (!cc.hasCaptionStyleKeyframes()) captionStyleKeyframeMode = false;
         scheduleAutoSave();
@@ -11042,7 +11041,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * Should be called whenever clips are added, removed, trimmed, or speed-changed.
      */
     private void refreshTotalTimeDisplay() {
-        if (project == null || project.getTimeline().isEmpty()) return;
+        // A sound-only project has no clip but does have a length (job STU-5, B9).
+        if (project == null || (project.getTimeline().isEmpty()
+                && project.getTimeline().getAudioClips().isEmpty())) return;
         // Show the EFFECTIVE (post-edit) length — what the export will be — using
         // "≈" when blacked-out spans shorten it from the raw timeline length.
         long effective = 0;
@@ -11137,12 +11138,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (c != null) absoluteMs += c.getTrimmedDurationMs();
         }
         if (clip != null) {
-            float speed = clip.getSpeedMultiplier();
-            if (speed > 0) {
-                absoluteMs += (long) (positionInCurrentSegmentMs / speed);
-            } else {
-                absoluteMs += positionInCurrentSegmentMs;
-            }
+            absoluteMs += com.fadcam.ui.faditor.model.ClipClock.sourceToLocalMs(
+                    positionInCurrentSegmentMs, clip.getSpeedMultiplier());
         } else {
             absoluteMs += positionInCurrentSegmentMs;
         }
@@ -11167,10 +11164,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private float clipPictureAlphaFor(long positionInCurrentSegmentMs) {
         Clip clip = clipUnderPlayhead();
         if (clip == null) return 1f;
-        float speed = clip.getSpeedMultiplier();
-        long localMs = (speed > 0)
-                ? (long) (positionInCurrentSegmentMs / speed)
-                : positionInCurrentSegmentMs;
+        long localMs = com.fadcam.ui.faditor.model.ClipClock.sourceToLocalMs(
+                positionInCurrentSegmentMs, clip.getSpeedMultiplier());
         float opacity = 1f;
         if (clip.hasOpacityKeyframes()) {
             opacity = Math.max(0f, Math.min(1f, clip.opacityAtClipMs(localMs)));
@@ -11193,10 +11188,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private boolean clipSpinePoseFor(long positionInCurrentSegmentMs, @NonNull float[] out) {
         Clip clip = clipUnderPlayhead();
         if (clip == null || !clip.hasSpineTransform()) return false;
-        float speed = clip.getSpeedMultiplier();
-        long localMs = (speed > 0)
-                ? (long) (positionInCurrentSegmentMs / speed)
-                : positionInCurrentSegmentMs;
+        long localMs = com.fadcam.ui.faditor.model.ClipClock.sourceToLocalMs(
+                positionInCurrentSegmentMs, clip.getSpeedMultiplier());
         clip.spinePoseAt(localMs, out);
         return true;
     }
@@ -11261,7 +11254,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         syncAdjustmentPreview(absoluteMs);
         Clip currentClip = clipUnderPlayhead();
         float currentSpeed = currentClip != null ? currentClip.getSpeedMultiplier() : 1f;
-        long timelineLocalMs = (currentSpeed > 0) ? (long) (positionInCurrentSegmentMs / currentSpeed) : positionInCurrentSegmentMs;
+        long timelineLocalMs = com.fadcam.ui.faditor.model.ClipClock.sourceToLocalMs(
+                positionInCurrentSegmentMs, currentSpeed);
         lastPositionInSegmentMs = timelineLocalMs;
         lastSourcePositionInSegmentMs = positionInCurrentSegmentMs;
         timeCurrent.setText(TimeFormatter.formatAuto(absoluteMs));
@@ -11616,7 +11610,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (captionOverlay != null) {
             Clip cc = clipUnderPlayhead();
             if (cc != null && cc.hasCaptionStyleKeyframes() && cc.isCaptionsEnabled()) {
-                String sid = cc.captionStyleAtClipMs(positionInCurrentSegmentMs);
+                // Timeline ruler time (job STU-5, D2), the clock opacity keys are read on.
+                String sid = cc.captionStyleAtClipMs(
+                        com.fadcam.ui.faditor.model.ClipClock.sourceToLocalMs(
+                                positionInCurrentSegmentMs, cc.getSpeedMultiplier()));
                 if ("hidden".equals(sid)) {
                     if (captionOverlay.getVisibility() == View.VISIBLE) {
                         captionOverlay.setVisibility(View.GONE);
@@ -40932,8 +40929,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                     snapshotCaptionStyleKeyframes(cc);
                             com.fadcam.ui.faditor.captions.CaptionStyleKeyframeController.TapAction action =
                                     com.fadcam.ui.faditor.captions.CaptionStyleKeyframeController
-                                            .tapActionFor(cc, lastSourcePositionInSegmentMs);
-                            cc.addOrUpdateCaptionStyleKeyframe(lastSourcePositionInSegmentMs, s.id);
+                                            .tapActionFor(cc, lastPositionInSegmentMs);
+                            cc.addOrUpdateCaptionStyleKeyframe(lastPositionInSegmentMs, s.id);
                             recordCaptionStyleKeyframeEdit(cc, beforeKfs);
                             cc.setCaptionsEnabled(true);
                             bindCaptionData(cc);
@@ -40998,7 +40995,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     if (captionStyleKeyframeMode && cc.hasCaptionStyleKeyframes()) {
                         java.util.List<Clip.CaptionStyleKeyframe> beforeKfs =
                                 snapshotCaptionStyleKeyframes(cc);
-                        cc.addOrUpdateCaptionStyleKeyframe(lastSourcePositionInSegmentMs, "hidden");
+                        cc.addOrUpdateCaptionStyleKeyframe(lastPositionInSegmentMs, "hidden");
                         recordCaptionStyleKeyframeEdit(cc, beforeKfs);
                         if (editorTimeline != null) editorTimeline.invalidate();
                         scheduleAutoSave();

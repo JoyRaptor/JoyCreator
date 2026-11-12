@@ -399,7 +399,7 @@ public final class VisLabSession {
         parts.add(0, part);
         String text = part.toJson();
         JoyFolderHome.io().execute(() -> {
-            LookFiles.Home h = home != null ? home : LookFiles.home(app);
+            LookFiles.Home h = keptHome();
             try {
                 LookFiles.writePart(h, name, text);
                 LookFiles.saveIndex(h);
@@ -686,13 +686,47 @@ public final class VisLabSession {
     }
 
     /**
+     * Folder thread: where looks are kept RIGHT NOW. The person can change their Joy Creator folder
+     * (or lose it for a while and get it back) while the app runs; the place looks were read from at
+     * start-up must not stay the place they are written to (work-loss audit F7). When the place has
+     * changed: the old files no longer mean anything, looks made while the folder was out of reach
+     * come home, and every look is sent again so the new folder holds them all.
+     */
+    @Nullable
+    private LookFiles.Home keptHome() {
+        LookFiles.Home now = LookFiles.home(app);
+        LookFiles.Home was = home;
+        if (was == null) return now;   // not read yet: load() decides
+        if (was.same(now)) return was;
+        home = now;
+        files.clear();
+        if (now.folder != null) {
+            try {
+                int came = LookFiles.bringHome(LookFiles.fallbackHome(app), now,
+                        f -> untouchedBuiltIn(f.text, factory, prefs()));
+                if (came > 0) FLog.i(TAG, came + " look(s) made while the folder was out of reach are now in it");
+            } catch (RuntimeException e) {
+                FLog.w(TAG, "Couldn't bring looks into the changed folder yet", e);
+            }
+        }
+        FLog.i(TAG, "The Joy Creator folder changed: keeping looks in the new place");
+        main.post(() -> {
+            sent.clear();
+            sentName.clear();
+            for (VisScene s : looks) sentName.put(s.id(), s.name());
+            sync();
+        });
+        return now;
+    }
+
+    /**
      * Folder thread: do the writes {@link #sync} asked for, in order. A write or trash that fails
      * is NOT counted as kept: the main thread forgets it was sent (unless a newer edit replaced it)
      * and tries again later, and the person hears once (audit 10-18 V1: it was acknowledged before
      * the disk was touched, so a failed save was never retried and the old file won on restart).
      */
     private void write(@NonNull List<Job> jobs, @NonNull List<String> gone) {
-        LookFiles.Home h = home;
+        LookFiles.Home h = keptHome();
         if (h == null) return;
         SharedPreferences.Editor ed = prefs().edit();
         List<Job> failed = new ArrayList<>();
@@ -704,6 +738,15 @@ public final class VisLabSession {
         for (Job j : jobs) {
             String rel = files.get(j.id);
             try {
+                if (rel == null) {
+                    // After a change of folder: a look the new folder already holds is adopted, not doubled.
+                    String have = LookFiles.fileHolding(h, j.text);
+                    if (have != null) {
+                        files.put(j.id, have);
+                        if (j.factoryText != null && j.factoryText.equals(j.text)) ed.putString(PREF_FACTORY + j.id, fingerprint(j.text));
+                        continue;
+                    }
+                }
                 if (rel != null && j.oldName != null && !j.oldName.equals(j.name)) {
                     rel = LookFiles.follow(h, rel, j.oldName, j.name);
                 }

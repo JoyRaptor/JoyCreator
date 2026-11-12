@@ -132,6 +132,18 @@ final class LookFiles {
         return moved;
     }
 
+    /**
+     * The file in {@code h} that already holds exactly {@code text}, or null. Used after the person
+     * changes their Joy Creator folder to a folder that already has a look: it is adopted, not
+     * written a second time under another name.
+     */
+    @WorkerThread
+    @Nullable
+    static String fileHolding(@NonNull Home h, @NonNull String text) {
+        for (Found f : readAll(h)) if (f.text.equals(text)) return f.rel;
+        return null;
+    }
+
     /** Every {@code .vis.json} in the looks folder, by file name. Unreadable files are skipped. */
     @WorkerThread
     @NonNull

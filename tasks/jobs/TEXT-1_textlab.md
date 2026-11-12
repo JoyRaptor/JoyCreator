@@ -269,7 +269,19 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
       - Chips: the TextLab screen gets a row of look chips (each look's own sheet, made once in the app's cache):
         still until chosen, the chosen one plays. Studio's carousel will reuse the same chip row.
       - Not here yet: packs, installable abilities (a separate job, with the lead).
-- [ ] Output for a compositor: `final.frag` `uOut = 1` (linear, premultiplied) is written, untested.
+- [x] Output for a compositor (phone-engine session, 11-12). `uOut = 1` (linear light, premultiplied) tested as
+      written; and **`uOut = 2` added to `final.frag`** (the lead's file; the look book's own picture, `uOut 0`, is
+      unchanged): the words alone, see-through, with the look's own film curve, colour and contrast, sRGB,
+      premultiplied, 8 bits: what Studio lays over video as a picture. Glow is light, not paint: its cover is its
+      own brightness. No dark corners or grain (they belong to a whole frame). Proof (`ClearCheck`, and the same
+      sums in the look book on the computer): laid over black, `uOut 2`, and `uOut 1` finished by
+      `final.frag`'s sums, equal the screen picture over a black ground to within 1 of 255 (rounding) on dark-steel,
+      neon-bar, blaze, slime, dust, ink-bleed; no pixel has more colour than cover. The renderer:
+      `TextLabRenderer.output` = `FOR_SCREEN` / `CLEAR` / `LINEAR_CLEAR`; `readBitmap()` gives a see-through
+      Bitmap for `CLEAR`, `readLinear()` floats for `LINEAR_CLEAR`; both skip FXAA (it would fill in the
+      see-through). Phone run of `ClearCheck`: owed (adb: `--ez clearcheck true`). Limits, by nature: over a
+      bright video the words' film curve and their light spilling onto the background cannot be the same as the
+      look book's (that picture grades its own stage); paper looks (ink-bleed) bring their paper.
 - [ ] Studio: a look on `TextOverlayItem` (new optional field; old projects must still open), carousel in the
       text drawer (one press = one undo step), preview and export through the same renderer.
 - [ ] TextLab room; Supplies shelf (`Supplies/Text looks/<Name>.text.json`, the user's copy wins).

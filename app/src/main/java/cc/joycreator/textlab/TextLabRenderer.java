@@ -93,6 +93,19 @@ public final class TextLabRenderer {
     public double stage = 1;
     /** Where the light is, -1..1 each way. An input: the caller decides (a sensor live, a fixed value in export). */
     public double[] tilt = {0, 0};
+    /** What the finished picture is for. */
+    public static final int FOR_SCREEN = 0, LINEAR_CLEAR = 1, CLEAR = 2;
+    /**
+     * {@link #FOR_SCREEN}: over the look's own stage, film finish, smoothed edges (the look book's picture).
+     * {@link #CLEAR}: the words alone, see-through, with the look's finish, 8-bit premultiplied: what Studio lays
+     * over video. {@link #LINEAR_CLEAR}: the words alone as linear light (half-float), for a GL compositor that
+     * applies the finish itself. Both clear ones skip the edge smoothing (it would fill in the see-through).
+     */
+    public int output = FOR_SCREEN;
+    /** false: no stage behind the words (black), for checks. The clear outputs never have one. */
+    public boolean hasBack = true;
+    /** false: no edge smoothing on the screen picture, for checks. */
+    public boolean fxaa = true;
     private int maxW = 1280, maxH = 720;
 
     private TlText.Layout lay;
@@ -100,7 +113,7 @@ public final class TextLabRenderer {
     private int W, H;
     private double[] fieldU;
     private final TlGl.Target sphere, black;
-    private TlGl.Target field, fa, fb, scene, back, screen, out;
+    private TlGl.Target field, fa, fb, scene, back, screen, out, outHdr;
     private TlGl.Target[] heat, bloom;
     private int emit;
     private int photo;
@@ -197,6 +210,7 @@ public final class TextLabRenderer {
 
     /** The finished picture (RGBA8, W x H, rows bottom to top), ready to show or read back. */
     public int outputFramebuffer() {
+        if (output == LINEAR_CLEAR && outHdr != null) return outHdr.fbo();
         return out != null ? out.fbo() : 0;
     }
 
@@ -218,7 +232,8 @@ public final class TextLabRenderer {
         return k.has("c") ? k.opt("c") : k.opt("v");
     }
 
-    private double knob(@NonNull String name) {
+    /** A knob's value now (the person's, else the look's, else its default). */
+    public double knob(@NonNull String name) {
         return TlValues.num(knobValue(name), 0);
     }
 
@@ -277,7 +292,7 @@ public final class TextLabRenderer {
     // ---- build and the sphere ---------------------------------------------------------------
 
     private void freeTargets() {
-        TlGl.Target[] single = {field, fa, fb, scene, back, screen, out};
+        TlGl.Target[] single = {field, fa, fb, scene, back, screen, out, outHdr};
         for (TlGl.Target t : single) glw.free(t);
         if (heat != null) for (TlGl.Target t : heat) glw.free(t);
         if (bloom != null) for (TlGl.Target t : bloom) glw.free(t);
@@ -300,6 +315,7 @@ public final class TextLabRenderer {
         back = glw.target(W, H, true, false);
         screen = glw.target(W, H, false, false);
         out = glw.target(W, H, false, false);
+        outHdr = null;   // made when a linear clear picture is first asked for
         // the fire's heat picture has a fixed fineness (640 across at most): the same flame, and the
         // same cost, whether the picture is a phone preview or a 4K still
         double hw = Math.min(W / 2.0, 640), hh = hw * H / W;
@@ -530,8 +546,8 @@ public final class TextLabRenderer {
         U.put("uTime", new double[]{t});
         U.put("uField", fieldU);
         U.put("uTilt", tilt.clone());
-        U.put("uHasBack", new double[]{1});
-        U.put("uOut", new double[]{0});
+        U.put("uHasBack", new double[]{output == FOR_SCREEN && hasBack ? 1 : 0});
+        U.put("uOut", new double[]{output});
         List<String> defines = features();
         boolean neon = defines.contains("TUBE");
         U.put("uTubePaint", new double[]{lay.tubes ? 1 : neon ? 2 : 0});
@@ -688,10 +704,14 @@ public final class TextLabRenderer {
         TlProgram fin = glw.program("quad.vert", "final.frag", none).use().setAll(U);
         fin.tex("uScene", scene.tex(), 0).tex("uBloom", bloom[0].tex(), 1).tex("uBack", back.tex(), 2)
                 .tex("uHeat", heatNow.tex(), 3).tex("uBloomWide", bloom[3].tex(), 4);
-        glw.pass(screen);
-        // smooth the steps left where two lit faces meet
-        glw.program("quad.vert", "fxaa.frag", none).use().set("uPx", new double[]{1.0 / W, 1.0 / H}).tex("uSrc", screen.tex(), 0);
-        glw.pass(out);
+        if (output == LINEAR_CLEAR && outHdr == null) outHdr = glw.target(W, H, true, false);
+        boolean smooth = output == FOR_SCREEN && fxaa;
+        glw.pass(output == LINEAR_CLEAR ? outHdr : smooth ? screen : out);
+        if (smooth) {
+            // smooth the steps left where two lit faces meet
+            glw.program("quad.vert", "fxaa.frag", none).use().set("uPx", new double[]{1.0 / W, 1.0 / H}).tex("uSrc", screen.tex(), 0);
+            glw.pass(out);
+        }
         lookTime = t;
     }
 
@@ -737,6 +757,16 @@ public final class TextLabRenderer {
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0);
         byte[] raw = new byte[W * H * 4];
         px.get(raw);
+        if (output == CLEAR) {
+            // see-through: the bytes are already premultiplied RGBA, which is what an ARGB_8888 Bitmap holds
+            ByteBuffer flipped = ByteBuffer.allocateDirect(W * H * 4);
+            for (int y = 0; y < H; y++) flipped.put(raw, (H - 1 - y) * W * 4, W * 4);
+            flipped.position(0);
+            Bitmap b = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888);
+            b.setPremultiplied(true);
+            b.copyPixelsFromBuffer(flipped);
+            return b;
+        }
         int[] argb = new int[W * H];
         for (int y = 0; y < H; y++) {
             int src = (H - 1 - y) * W * 4;
@@ -746,6 +776,18 @@ public final class TextLabRenderer {
             }
         }
         return Bitmap.createBitmap(argb, W, H, Bitmap.Config.ARGB_8888);
+    }
+
+    /** The linear clear picture as floats, RGBA, rows bottom to top (after a frame with {@link #LINEAR_CLEAR}). */
+    @NonNull
+    public float[] readLinear() {
+        java.nio.FloatBuffer px = ByteBuffer.allocateDirect(W * H * 16).order(ByteOrder.nativeOrder()).asFloatBuffer();
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, outHdr.fbo());
+        GLES30.glReadPixels(0, 0, W, H, GLES30.GL_RGBA, GLES30.GL_FLOAT, px);
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0);
+        float[] f = new float[W * H * 4];
+        px.get(f);
+        return f;
     }
 
     public void release() {

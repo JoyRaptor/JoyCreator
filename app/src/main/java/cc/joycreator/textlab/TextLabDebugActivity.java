@@ -403,6 +403,14 @@ public final class TextLabDebugActivity extends Activity {
                             r.width(), r.height(), fmt(t), (t2 - t1) / 1e6);
                     Log.i(TAG, note + " -> " + f.getAbsolutePath());
                     Log.i(TAG, "layout " + r.layoutReport());
+                    if (getIntent().getBooleanExtra("clearcheck", false)) {
+                        // the see-through outputs against this picture; then the look as it was
+                        Log.i(TAG, ClearCheck.run(r, t, dir, benchId));
+                        r.setLook(look);
+                        if (!Float.isNaN(stage)) r.stage = stage;
+                        r.setText(ws);
+                        r.still(t);
+                    }
                 } catch (Exception e) {
                     Log.w(TAG, "still not saved", e);
                 }

@@ -279,7 +279,7 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
       neon-bar, blaze, slime, dust, ink-bleed; no pixel has more colour than cover. The renderer:
       `TextLabRenderer.output` = `FOR_SCREEN` / `CLEAR` / `LINEAR_CLEAR`; `readBitmap()` gives a see-through
       Bitmap for `CLEAR`, `readLinear()` floats for `LINEAR_CLEAR`; both skip FXAA (it would fill in the
-      see-through). Phone run of `ClearCheck`: owed (adb: `--ez clearcheck true`). Limits, by nature: over a
+      see-through). **On the Note 9 too** (`tools/textlab-web/phone-clearcheck.sh`, the app's `ClearCheck`): the same six looks give the same result, within 1 of 255, no colour above cover. Limits, by nature: over a
       bright video the words' film curve and their light spilling onto the background cannot be the same as the
       look book's (that picture grades its own stage); paper looks (ink-bleed) bring their paper.
 - [ ] Studio: a look on `TextOverlayItem` (new optional field; old projects must still open), carousel in the

@@ -331,6 +331,10 @@ final class TlGlyphs {
         Matrix mx = new Matrix();
         mx.setValues(new float[]{1, (float) -slant, (float) (slant * by), 0, 1, 0, 0, 0, 1});
         cv.setMatrix(mx);
+        // The TRUE outline. Chrome on Android snaps a big letter's outline to the 64 px grid it builds it at
+        // (a T's top at 286.0 px where the font says 285.8), which no Android call reproduces; drawing it as a
+        // path instead of text was tried and gives the same pixels. Effect: faint speckle in fine bevel detail
+        // on straight horizontal edges (dark-steel mean 0.62 of 255), nothing else.
         cv.drawText(ch, ox, by, paint(font));
         ByteBuffer buf = ByteBuffer.allocate(bmp.getRowBytes() * h);
         bmp.copyPixelsToBuffer(buf);

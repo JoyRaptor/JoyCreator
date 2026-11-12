@@ -229,9 +229,13 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
       **Proof, Note 9, against the look book in Chrome on the same Note 9** (`&t=3&w=1280&h=720`, same words; pictures
       in `tasks/screens/textlab-phone/`, compare with `tools/textlab-web/compare.py`, phone side `phone-stills.sh`):
       neon-bar identical (worst 0 of 255); slime, dust, ink-bleed mean 0.01 (worst 44, 126, 13 on a few pixels);
-      dark-steel mean 0.62 and blaze 0.17, explained by the look book's light following the phone's tilt sensor in
-      those references (it reads `deviceorientation` even for a still); a re-capture with `&tx=0&ty=0` is owed (the
-      phone dropped off USB mid-run). Every picture is the same size as the look book's.
+      dark-steel mean 0.62 and blaze 0.17 (worst 133, 217 on single pixels; the same by eye, `side-by-side.png`).
+      Cause, measured: those two use Archivo at weight 800, and Chrome on Android snaps a big letter's outline to
+      the 64 px grid it builds it at (a T's top at 286.0 px where the font says 285.8; slight hinting), so a long
+      straight edge sits a fifth of a pixel apart and the brushed bevel detail along it speckles. No Android call
+      gives that snapped outline (drawing the letter as a path was tried: same pixels); the phone keeps the true
+      outline. Not the tilt sensor: a re-capture with the light pinned (`&tx=0&ty=0`) gave byte-identical stills
+      (Chrome sends no tilt to a plain http page). Every picture is the same size as the look book's.
       Live frame time, dark-steel at 1280 x 686 (wall clock with glFinish, debug build): about 46 to 55 ms.
       **Two traps found:** (1) the browser's letter ink box is Skia's box at 64 px rounded out and scaled
       (multiples of 6.5 at 416 px); the phone copies that rule or every cell is cut a pixel or two off;
@@ -240,7 +244,7 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
       are born) differ; compare with the look book on the phone. **Name clash for the lead:** `uArc` is both the
       lightning knob (vec4, `shade.frag`) and a tube's share of its letter (vec2, `glyph.frag`); `setAll` tries the
       knob on the glyph program every letter and is refused (both engines; harmless, the right value follows).
-      Left: the six-look re-capture with the light pinned, brief step 4 (`uOut = 1`), GPU time per pass, then Studio
+      Left: brief step 4 (`uOut = 1`), GPU time per pass, then Studio
       (ask the lead first). The owner's later wishes: looks as picture chips, and moving previews in the Library
       (a small sprite sheet saved beside each look file).
 - [ ] Output for a compositor: `final.frag` `uOut = 1` (linear, premultiplied) is written, untested.

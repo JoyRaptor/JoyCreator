@@ -159,7 +159,7 @@ class WetStroke(
      * loaded keeps nearly all of the wash where it is, however far it has run down since; the less it starts with (Dry brush,
      * a blotted brush), the more it lifts, and Thirsty lifts as it always did.
      */
-    private val holdBack = HOLD_BACK_LOADED * ((water - 0.1) / 0.8).coerceIn(0.0, 1.0)
+    private val holdBack = (1 - lift.coerceIn(0.0, 1.0)) * ((water - 0.1) / 0.8).coerceIn(0.0, 1.0)
     private var travelled = 0.0
     private var last: MediaSample? = null
     private var dirX = 0.0
@@ -258,5 +258,12 @@ class WetStroke(
     companion object {
         /** What a fully loaded brush refuses of a take-back: nearly all. */
         const val HOLD_BACK_LOADED = 0.97
+        /**
+         * How much of a wash a loaded brush lifts when it goes back over it, 0..1 (the owner, 2026-11-11: with none it no
+         * longer felt like paint; "a little bit of lifting ... just not as extreme as before"). 1 = as before 11-10, when
+         * doubling back erased; 1 - [HOLD_BACK_LOADED] = next to none (the lab's number, and the tests'). The app sets it
+         * from the more menu's "Wash lifts" row; the next stroke takes it.
+         */
+        var lift = 1 - HOLD_BACK_LOADED
     }
 }

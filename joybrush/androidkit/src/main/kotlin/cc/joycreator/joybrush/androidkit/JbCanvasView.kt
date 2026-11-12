@@ -1355,6 +1355,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         }
     private var penSeenNow: Boolean? = null
     private var penHovering = false
+    /** The pen hovering over the canvas: this view's px, tilt from upright and Android's orientation (rad); false when it leaves or lands. UI thread. */
+    var onPenHover: ((x: Float, y: Float, tilt: Float, orientation: Float, hovering: Boolean) -> Unit)? = null
     private var penUpAt = 0L
     private var drawing = false
     private var pointerId = -1
@@ -1600,6 +1602,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         if (MotionEventSamples.tool(event, 0).let { it == Tool.STYLUS || it == Tool.ERASER }) {
             penSeen = true
             penHovering = event.actionMasked != MotionEvent.ACTION_HOVER_EXIT
+            onPenHover?.invoke(event.x, event.y, event.getAxisValue(MotionEvent.AXIS_TILT, 0),
+                event.getAxisValue(MotionEvent.AXIS_ORIENTATION, 0), penHovering)
         }
         return super.onHoverEvent(event)
     }

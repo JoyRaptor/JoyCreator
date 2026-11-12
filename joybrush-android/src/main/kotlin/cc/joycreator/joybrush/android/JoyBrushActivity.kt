@@ -197,6 +197,8 @@ private const val DEFAULT_WET_SHEET = true
 private const val PREF_WASH_WAVE = "joybrush.washWave"
 /** How strongly the paper's grain shows in a wet-sheet wash: "none", "half" (default, the owner 2026-11-11) or "full". */
 private const val PREF_WASH_GRAIN = "joybrush.washGrain"
+/** How much a loaded brush lifts of a wash it goes back over: "hardly", "little" (default), "more" or "full" (as before 11-10). */
+private const val PREF_WASH_LIFT = "joybrush.washLift"
 /** The paint engine for pencil, watercolour and oil: "atlas" (the whole layer) or "window" (the old 1024 px patch). */
 private const val PREF_PAINT_ENGINE = "joybrush.paintEngine"
 /** What a person who never chose gets: the atlas since 10-21 (water jobs, the whole layer); the old window one tap away. */
@@ -514,6 +516,16 @@ class JoyBrushActivity : Activity() {
         canvas.editableLines = BrushLinePreferences(prefs).enabled(canvas.preset)
         val overlays = buildOverlays()
         overlaysView = overlays
+        // The brush's outline under a hovering pen (2026-11-11): under every other overlay, and it takes no touch.
+        val hoverOutline = cc.joycreator.joybrush.android.chrome.HoverOutlineView(this)
+        overlays.addView(hoverOutline, 0, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+        val hoverAt = IntArray(2); val canvasAt = IntArray(2)
+        canvas.onPenHover = { x, y, tilt, orientation, hovering ->
+            if (!hovering || canvas.strokeInProgress) hoverOutline.hide() else {
+                hoverOutline.getLocationOnScreen(hoverAt); canvas.getLocationOnScreen(canvasAt)
+                hoverOutline.show(x + canvasAt[0] - hoverAt[0], y + canvasAt[1] - hoverAt[1], tilt, orientation, canvas.view.zoom, canvas.preset)
+            }
+        }
 
         val root = object : FrameLayout(this) {
             // No stroke or layer edit can race startup restore or preservation-before-Open.
@@ -1131,6 +1143,8 @@ class JoyBrushActivity : Activity() {
         canvas.setWashTaste(
             wave = when (prefs.getString(PREF_WASH_WAVE, "little")) { "even" -> 0.0; "wavy" -> s.WAVE_MORE; else -> s.WAVE_LITTLE },
             grain = when (prefs.getString(PREF_WASH_GRAIN, "half")) { "none" -> 0.0; "full" -> 1.0; else -> 0.5 })
+        cc.joycreator.joybrush.core.media.WetStroke.lift =
+            when (prefs.getString(PREF_WASH_LIFT, "little")) { "hardly" -> 0.03; "more" -> 0.5; "full" -> 1.0; else -> 0.2 }
     }
 
     private fun moreMenu(anchor: View) {
@@ -1177,6 +1191,13 @@ class JoyBrushActivity : Activity() {
             box.addView(menuRow("Wash: ${mapOf("even" to "Even", "little" to "A little wavy", "wavy" to "Wavy")[wave] ?: "A little wavy"}",
                 "How evenly a quick watercolour stroke wets the paper: perfectly even, or with the faint scallops of a hand-laid wash. Tap to change") {
                 prefs.edit().putString(PREF_WASH_WAVE, when (wave) { "even" -> "little"; "little" -> "wavy"; else -> "even" }).apply()
+                applyWashTaste()
+                popovers.close(); moreMenu(anchor)
+            })
+            val lift = prefs.getString(PREF_WASH_LIFT, "little") ?: "little"
+            box.addView(menuRow("Wash lifts: ${mapOf("hardly" to "Hardly", "little" to "A little", "more" to "More", "full" to "Fully (as before)")[lift] ?: "A little"}",
+                "How much paint a wet brush takes back when it goes over a wash that is still wet. Tap to change; the next stroke takes it") {
+                prefs.edit().putString(PREF_WASH_LIFT, when (lift) { "hardly" -> "little"; "little" -> "more"; "more" -> "full"; else -> "hardly" }).apply()
                 applyWashTaste()
                 popovers.close(); moreMenu(anchor)
             })

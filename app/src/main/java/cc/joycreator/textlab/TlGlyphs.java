@@ -351,6 +351,7 @@ final class TlGlyphs {
         p.originX = (double) ox / px;
         p.originY = (double) (h - by) / px;
         p.points = pointsOf(pic);
+        p.pic = pic;   // kept: rivets are placed from it
         cache.put(key, p);
         return p;
     }
@@ -429,13 +430,28 @@ final class TlGlyphs {
         return lay;
     }
 
+    /** The emitter's points, and how many of the ordered list (the rivets) are real. */
+    static final class Emit {
+        static final int W = 64, H = 256;
+        final float[] data;
+        final int rivets;
+
+        Emit(float[] data, int rivets) {
+            this.data = data;
+            this.rivets = rivets;
+        }
+    }
+
     /**
-     * The emitter's point list for a laid-out line of letters: 64 x 192 points. Rows 0..63 lie on the
-     * outline, 64..127 inside, 128..191 on corners. Each point: x, y (field em), outward x, y.
+     * The emitter's point list for a laid-out line of letters: 64 x 256 points. Rows 0..63 lie on the
+     * outline, 64..127 inside, 128..191 on corners, 192..255 an ORDERED list (the rivets, if any; unused
+     * entries x = -99). Each point: x, y (field em), outward x, y.
+     *
+     * @param rivets per letter (same order as {@code letters}), or null for none
      */
     @NonNull
-    static float[] emitterPoints(@NonNull List<TlText.Letter> letters) {
-        int W = 64, H = 192;
+    static Emit emitterPoints(@NonNull List<TlText.Letter> letters, @Nullable List<List<double[]>> rivets) {
+        int W = Emit.W, H = Emit.H;
         float[] out = new float[W * H * 4];
         int[] seed = {0x9e3779b9};
         for (int which = 0; which < 3; which++) {
@@ -469,7 +485,27 @@ final class TlGlyphs {
                 out[o + 3] = (float) pts[k + 3];
             }
         }
-        return out;
+        int count = 0;
+        for (int i = 0; i < W * 64; i++) {
+            int o = (192 * W + i) * 4;
+            out[o] = -99;
+            out[o + 1] = -99;
+            out[o + 3] = 1;
+        }
+        if (rivets != null) {
+            outer:
+            for (int li = 0; li < rivets.size(); li++) {
+                for (double[] r : rivets.get(li)) {
+                    if (count >= W * 64) break outer;
+                    int o = (192 * W + count++) * 4;
+                    out[o] = (float) (letters.get(li).x + r[0]);
+                    out[o + 1] = (float) (letters.get(li).y + r[1]);
+                    out[o + 2] = 0;
+                    out[o + 3] = 1;
+                }
+            }
+        }
+        return new Emit(out, count);
     }
 
     /** mulberry32, exactly as the look book rolls it. */

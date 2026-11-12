@@ -119,7 +119,8 @@ public final class TextLabRenderer {
     private int photo;
     private double photoAspect;
 
-    private boolean dirty = true, sphereDirty = true, resetFire = true;
+    private boolean dirty = true, sphereDirty = true, resetFire = true, emitDirty;
+    private int rivetCount;
     private double simTime, simDebt;
     @Nullable private Double clock0;
     private double last;
@@ -166,6 +167,8 @@ public final class TextLabRenderer {
     public void setKnob(@NonNull String name, @NonNull Object value) {
         over.put(name, value);
         sphereDirty = true;
+        // rivets sit at a distance from the outline
+        if (name.startsWith("rivet") || name.equals("weight") || name.equals("stroke")) emitDirty = true;
     }
 
     public void replay() {
@@ -322,11 +325,44 @@ public final class TextLabRenderer {
         heat = new TlGl.Target[]{glw.target(hw, hh, true, false), glw.target(hw, hh, true, false)};
         bloom = new TlGl.Target[5];
         for (int i = 1; i <= 5; i++) bloom[i - 1] = glw.target(W >> i, H >> i, true, false);
-        emit = glw.pointTexture(64, 192, TlGlyphs.emitterPoints(lay.letters), emit);
+        buildEmitter();
         fieldU = new double[]{lay.fieldW, lay.fieldH, em, TlGlyphs.SPREAD};
         dirty = false;
         sphereDirty = true;
         resetFire = true;
+    }
+
+    /** A particle system that takes its points from the ordered list ({@code from} 4: the rivets). */
+    private static boolean fromList(@NonNull JSONObject ps) {
+        JSONObject p = ps.optJSONObject("p");
+        Object f = p != null ? p.opt("from") : null;
+        return f instanceof Number && ((Number) f).doubleValue() == 4;
+    }
+
+    /**
+     * The emitter's points, and the RIVETS (only for a look that asks for them, with {@code from} 4): a line a
+     * fixed distance in from the outline (by default the middle of the raised frame), one at every corner, the
+     * rest evenly spaced between. Rebuilt when the frame, the weight or the rivet sliders change.
+     */
+    private void buildEmitter() {
+        boolean wants = false;
+        JSONArray ps = look.optJSONArray("particles");
+        for (int i = 0; ps != null && i < ps.length(); i++) {
+            JSONObject o = ps.optJSONObject(i);
+            if (o != null && fromList(o)) wants = true;
+        }
+        List<List<double[]>> rivets = null;
+        if (wants) {
+            double level = knob("rivetInset") - knob("weight") - knob("stroke"), gap = Math.max(knob("rivetGap"), 0.08);
+            rivets = new ArrayList<>();
+            for (TlText.Letter l : lay.letters) {
+                rivets.add(l.piece.pic != null ? TlRivets.of(l.piece.pic, level, gap) : new ArrayList<>());
+            }
+        }
+        TlGlyphs.Emit e = TlGlyphs.emitterPoints(lay.letters, rivets);
+        emit = glw.pointTexture(TlGlyphs.Emit.W, TlGlyphs.Emit.H, e.data, emit);
+        rivetCount = e.rivets;
+        emitDirty = false;
     }
 
     private static List<Object> list(@Nullable JSONArray a) {
@@ -535,6 +571,7 @@ public final class TextLabRenderer {
     public void frame(double now) {
         if (look == null) return;
         if (dirty) build();
+        if (emitDirty && lay != null) buildEmitter();
         if (sphereDirty) bakeSphere();
         if (clock0 == null) {
             clock0 = now;
@@ -586,7 +623,7 @@ public final class TextLabRenderer {
                     .set("uSdfScale", (ps.scale[0] + ps.scale[1]) / 2).set("uWeight", weight + ps.weight)
                     .set("uLetter", new double[]{ps.reveal, (l.index + 0.5) / l.count})
                     .set("uTubePiece", new double[]{l.piece.paint ? 1 : neon ? 2 : 0, l.order})
-                    .set("uArc", l.arc != null ? l.arc : new double[]{0, 1}).set("uShard", -1).tex("uSdf", l.piece.tex, 0);
+                    .set("uPenArc", l.arc != null ? l.arc : new double[]{0, 1}).set("uShard", -1).tex("uSdf", l.piece.tex, 0);
             // SHATTER: a breaking letter is drawn as its shards, each a rigid piece with its own flight
             Shards sh = broken > 0 ? shards(l) : null;
             double part = sh != null ? clamp01((broken - sh.start) / 0.45) : 0;
@@ -677,7 +714,9 @@ public final class TextLabRenderer {
             glw.bind(scene);
             double count = ps.optDouble("count", 200);
             if (count == 0 || Double.isNaN(count)) count = 200;
-            GLES30.glDrawArrays(GLES30.GL_TRIANGLES, 0, 6 * (int) Math.round(count));
+            // an ordered list (the rivets) draws exactly its points
+            int many = fromList(ps) ? rivetCount : (int) Math.round(count);
+            if (many > 0) GLES30.glDrawArrays(GLES30.GL_TRIANGLES, 0, 6 * many);
         }
         GLES30.glDisable(GLES30.GL_BLEND);
 

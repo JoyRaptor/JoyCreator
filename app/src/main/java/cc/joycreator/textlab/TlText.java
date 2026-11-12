@@ -72,6 +72,8 @@ final class TlText {
         boolean paint;             // a tube drawn from a path
         double len;
         Points points;
+        /** A letter's distance picture, kept: rivets are placed from it (null for a tube). */
+        @Nullable TlGlyphs.Pic pic;
     }
 
     /** One letter (or one tube of a tube letter) laid out in the field. */

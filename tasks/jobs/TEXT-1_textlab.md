@@ -210,6 +210,15 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
   motion of Banner, Fogged Glass and Stained Glass over time beyond two stills; anything by hand on a phone; the
   owner's verdict. Known weak spots: Stained Glass's light on the floor still reads as a mosaic more than as light;
   Banner has no pole and no shadow; the handwriting is the neon letters' single-stroke capitals, not a script hand.
+- **Owner, 2026-11-12 (wave five):** "They all look good, except Rust needs a lot of improvement", with four
+  photographs of rusted steel letters. Rebuilt from them (`RUST` in `shade.frag`, new sliders `rustPlates`,
+  `rustUnder`, `rustRelief`, `rustSteel`, `rustUnderCol`; particle shape 8 = rivet): the letter is a tray (a rusted
+  raised frame round a lower face) built of plates each painted its own colour, with seams; the paint is a coat
+  with a thickness that lets go in sharp flakes over an older coat, blisters, is crazed, chalked and dirty; the
+  steel beneath is rough, mostly deep red-brown with orange and ochre spots, black pits and dark iron scale; rust
+  runs down the paint; rivets hold the plates. Checked up close against the photographs on the computer; Note 9
+  36 ms (as before). General wear (grain, mottle, grime, scratches) is now skipped when its slider is zero, which
+  took Dark Steel from 30 to 24 ms. His verdict on the new Rusted is owed.
 - **Honest limits today:** the fire is good stylised fire, not yet the photograph the owner showed;
   water and the other drafts are below the bar; only the app's own fonts are used (Archivo, Plex,
   Ubuntu, Doto), so there is no script or true display face yet.

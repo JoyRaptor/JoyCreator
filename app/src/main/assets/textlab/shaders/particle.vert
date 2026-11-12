@@ -18,7 +18,7 @@ uniform vec4  uPBirth;   // born: 0 on the outline, 1 inside, 2 anywhere in the 
 uniform vec4  uPLife;    // seconds, size em, size at the end (x its start), stretch along its path
 uniform vec4  uPMove;    // speed outward, rise, sideways drift (for those born at the front: the wind, blowing the front's way), random speed   (em/s)
 uniform vec4  uPForce;   // gravity (em/s2), swirl (for a leaf: its flutter), swirl size, spin
-uniform vec4  uPKind;    // shape: 0 soft dot, 1 lens glint, 2 drop, 3 streak, 4 soft disc, 5 bolt, 6 leaf, 7 blossom; twinkle 0..1; 1 = brightness follows the material sphere; seed
+uniform vec4  uPKind;    // shape: 0 soft dot, 1 lens glint, 2 drop, 3 streak, 4 soft disc, 5 bolt, 6 leaf, 7 blossom, 8 rivet; twinkle 0..1; 1 = brightness follows the material sphere; seed
 uniform float uPFront;   // 1 = it is born as the FRONT (common.glsl) passes its birthplace
 uniform vec3  uEnvCurve;
 uniform float uEnvTurn;
@@ -34,7 +34,7 @@ void main() {
     int id = gl_VertexID / 6, c = gl_VertexID % 6;
     vec2 corner = vec2((c == 1 || c == 2 || c == 4) ? 1.0 : -1.0, (c == 2 || c == 4 || c == 5) ? 1.0 : -1.0);
     int kind = int(uPKind.x + 0.5);
-    bool rooted = kind == 6 || kind == 7;       // leaves and blossoms stay where they grew
+    bool rooted = kind == 6 || kind == 7 || kind == 8;       // leaves, blossoms and rivets stay where they are
     bool atFront = uPFront > 0.5;
     float fi = float(id) + uPKind.w * 131.0;
     vec4 r0 = hash41(fi * 1.37 + 0.5);
@@ -118,6 +118,16 @@ void main() {
         P = born + (bd * (kind == 6 ? cq.x * 0.5 + 0.5 : cq.x * 0.5) + by * cq.y * 0.5) * len * alive * step(1e-3, grow);
         vec2 sh = vec2(0.011, -0.015) / len;                      // the shadow lies down and to the right
         vQ = cq; vAux = 2.0 * vec2(dot(sh, bd), dot(sh, by));
+    }
+    if (kind == 8) {
+        // a RIVET holds a plate: it sits a fixed way in from a corner (born on corners), or deep in a stroke
+        // (born inside: "born this far out" is then how deep it must be), and all are one size.
+        float deep = textureLod(uFieldTex, e.xy / uField.xy, 0.0).r;
+        vec2 at = mode == 1 ? e.xy : e.xy + e.zw * uPBirth.y;
+        float len = uPLife.y / 0.36;
+        vec2 cq = corner * 1.3;
+        P = at + cq * 0.5 * len * alive * (mode == 1 ? step(-uPBirth.y, deep) : 1.0);
+        vQ = cq; vAux = 2.0 * vec2(0.012, -0.016) / len;
     }
 
     vAge = age; vBright = bright * alive; vRand = r0.z; vSeed = r.x * 37.0 + r.y * 11.0;

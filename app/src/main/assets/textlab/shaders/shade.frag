@@ -177,6 +177,8 @@ uniform vec4  uFloor;        // .y = the floor line
 #endif
 #ifdef RUST
 uniform vec4  uRust;         // paint over rusting steel: how much of the coat has failed, patch size, edges go first, rust carried down by rain
+uniform vec4  uRustB;        // plates per em (0 = one piece), how much of the older coat shows round the bare steel, how strongly coats and rust stand in relief, patches of grey scale in the rust
+uniform vec3  uRustUnder;    // the older coat under the paint
 #endif
 #ifdef JELLY
 uniform vec4  uJelly;        // jelly: how deep its colour is in the thick middle, light gathered on the far side, how it bends what is behind, how see-through
@@ -673,8 +675,11 @@ void main() {
             }
 #endif
             // brushed grain: fine streaks that tip the surface a hair, so highlights smear along it
-            float grain = tnoise(vec2(q.x * 9.0, q.y * 520.0)) - 0.5;
-            n = normalize(vec3(n.x, n.y + grain * 0.22 * uWear.w * (1.0 - trim * 0.6), n.z));
+            float grain = 0.0;
+            if (uWear.w > 0.0) {
+                grain = tnoise(vec2(q.x * 9.0, q.y * 520.0)) - 0.5;
+                n = normalize(vec3(n.x, n.y + grain * 0.22 * uWear.w * (1.0 - trim * 0.6), n.z));
+            }
 #ifdef STITCH
             // SATIN STITCH: threads laid side by side straight across each stroke, turning at a corner with
             // a mitre. Each is a twisted strand standing round off the cloth, with its own gleam; its ends
@@ -710,21 +715,56 @@ void main() {
 #ifdef PATTERN
             alb = mix(alb, uPatternCol, pattern(q, f.a) * uPattern.z);
 #endif
-            alb *= 1.0 + uMottle * ((tfbm(q * 2.6 + 11.0) - 0.5) * 1.1 + (tnoise(q * 31.0) - 0.5) * 0.25);
+            if (uMottle > 0.0) alb *= 1.0 + uMottle * ((tfbm(q * 2.6 + 11.0) - 0.5) * 1.1 + (tnoise(q * 31.0) - 0.5) * 0.25);
 #ifdef RUST
-            // PEELING PAINT OVER RUST: the fill is a coat of paint. It has failed in patches (first along edges);
-            // there the steel beneath has rusted, the broken edge of the coat stands a little proud, and rain
-            // has carried the rust down the paint below.
-            float rustAt = tfbm(q * uRust.y + 21.0) + (1.0 - smoothstep(0.0, 0.07, d)) * 0.3 * uRust.z;
-            float rustThr = mix(0.92, 0.32, uRust.x);
-            float rustBare = smoothstep(rustThr - 0.012, rustThr + 0.012, rustAt);
-            float rustLip = exp(-sq((rustAt - rustThr) / 0.022));
-            float rustRuns = smoothstep(rustThr - 0.06, rustThr + 0.04, tfbm(vec2(q.x, q.y + 0.1) * uRust.y + 21.0))
-                           * (0.4 + 0.6 * tnoise(vec2(q.x * 46.0, q.y * 2.5))) * uRust.w;
-            alb = mix(alb, alb * vec3(0.78, 0.5, 0.3), rustRuns * 0.7 * (1.0 - rustBare));
-            alb *= 1.0 + 0.45 * rustLip * (1.0 - rustBare) - 0.3 * rustLip * rustBare;
-            vec3 rustC = mix(vec3(0.16, 0.05, 0.015), vec3(0.5, 0.2, 0.05), tnoise(q * 55.0)) * (0.55 + 0.9 * tfbm2(q * 8.0 + 3.0));
-            alb = mix(alb, rustC * (1.0 - 0.5 * smoothstep(0.6, 0.85, tnoise(q * 140.0))), rustBare);
+            // PAINTED STEEL LEFT OUT FOR YEARS, from the owner's photographs (2026-11-12).
+            //  - The letter is PLATES, each painted its own colour at some time, with a seam between them.
+            //  - Paint is a COAT with a thickness. It lets go a chip at a time, so its edge is angular and stands
+            //    proud: lit on the lamp's side, shade under it. An older coat shows in a ring before bare steel.
+            //    Before it goes it blisters; old paint is crazed with hair cracks.
+            //  - The steel beneath is neither one colour nor flat: deep red-brown, orange, ochre blooms, black
+            //    pits, patches of grey scale, all of it rough.
+            //  - Edges, seams and the raised frame go first; rain carries the rust down the paint below.
+            vec3 coat = alb;
+            float seam = 9.0, plateRnd = 0.0;
+            if (uRustB.x > 0.0) {
+                vec2 pg = q * uRustB.x;
+                pg.x += hash11(floor(pg.y) * 3.7 + 1.0) * 0.8;                              // each course of plates is offset from the next
+                vec2 pf = fract(pg);
+                plateRnd = hash21(floor(pg) + 3.0);
+                seam = min(min(pf.x, 1.0 - pf.x), min(pf.y, 1.0 - pf.y)) / uRustB.x;      // em to the plate's edge
+                coat = plateRnd < 0.34 ? uFillA : plateRnd < 0.67 ? uFillB : uFillC;
+            }
+            vec3 chipV = voronoi(q * uRust.y * 5.0 + 3.0);                                  // the chips paint breaks into
+            float worn = tfbm(q * uRust.y + plateRnd * 17.0 + 21.0) + (chipV.z - 0.5) * 0.4 + (tnoise(q * uRust.y * 9.0) - 0.5) * 0.08
+                       + (1.0 - smoothstep(0.0, 0.07, min(d, seam))) * 0.3 * uRust.z + trim * 0.35;
+            float thrTop = mix(0.95, 0.3, uRust.x), thrUnder = thrTop + 0.02 + 0.1 * uRustB.y;
+            float topGone = smoothstep(thrTop - 0.007, thrTop + 0.007, worn);
+            float rustBare = smoothstep(thrUnder - 0.007, thrUnder + 0.007, worn);
+            float soon = smoothstep(thrTop - 0.14, thrTop, worn) * (1.0 - topGone);         // paint that is about to go
+            float crazed = (1.0 - smoothstep(0.0, 0.035, chipV.y - chipV.x)) * (0.3 + 0.7 * soon);
+            coat = mix(coat, vec3(luma(coat)) * 1.25 + 0.03, 0.35 * tfbm2(q * 2.1 + 5.0)) * (1.0 - 0.45 * crazed);     // chalked by the sun, cracked
+            coat *= 0.62 + 0.5 * tfbm(q * 4.0 + 61.0) - 0.18 * smoothstep(0.55, 0.85, tnoise(q * 13.0 + 5.0));        // years of dirt, stains
+            vec3 under = uRustUnder * (0.65 + 0.4 * tnoise(q * 30.0));
+            float r1 = tfbm(q * 6.0 + 9.0), r2 = tnoise(q * 37.0 + 2.0), r3 = tnoise(q * 110.0);
+            vec3 steel = mix(vec3(0.085, 0.026, 0.01), vec3(0.3, 0.085, 0.022), smoothstep(0.25, 0.75, r1));     // deep red-brown
+            steel = mix(steel, vec3(0.5, 0.17, 0.035), smoothstep(0.66, 0.86, r2) * 0.75);                         // orange where it is fresh
+            steel = mix(steel, vec3(0.48, 0.3, 0.07), smoothstep(0.8, 0.95, tnoise(q * 19.0 + 7.0)) * 0.6);       // an ochre bloom here and there
+            steel = mix(steel, vec3(0.025, 0.015, 0.01), smoothstep(0.66, 0.86, r3) * 0.85);                       // black pits
+            steel = mix(steel, vec3(0.075, 0.07, 0.068) * (0.6 + 0.8 * r2), smoothstep(0.6, 0.72, tfbm2(q * 3.0 + 40.0)) * uRustB.w);     // dark iron scale
+            float rustRuns = smoothstep(thrUnder - 0.05, thrUnder + 0.05, tfbm(vec2(q.x, q.y + 0.11) * uRust.y + plateRnd * 17.0 + 21.0))
+                           * (0.35 + 0.65 * tnoise(vec2(q.x * 46.0, q.y * 2.5))) * uRust.w;
+            coat = mix(coat, coat * vec3(0.72, 0.45, 0.26), rustRuns * 0.75);
+            alb = mix(mix(coat, under, topGone), steel, rustBare);
+            alb *= 1.0 - 0.4 * topGone * (1.0 - smoothstep(thrTop + 0.004, thrTop + 0.03, worn));       // shade lying under the coat's broken edge
+            alb *= 1.0 - 0.85 * (1.0 - smoothstep(0.0015, 0.005, seam));                    // the seam between two plates
+            // Heights: each coat has a thickness, a blister swells, rust is rough. Where the height changes the
+            // surface tips, and the lamp does the rest.
+            float tall = (1.0 - topGone) * 0.55 + (1.0 - rustBare) * 0.45
+                       + soon * max(1.0 - chipV.x * 2.4, 0.0) * 0.5
+                       + rustBare * (r2 * 0.25 + r3 * 0.2 - smoothstep(0.66, 0.86, r3) * 0.45 + (tnoise(q * 260.0) - 0.5) * 0.3)
+                       + (1.0 - rustBare) * (tnoise(q * 150.0) - 0.5) * 0.06;
+            n = normalize(vec3(n.xy - vec2(dFdx(tall), dFdy(tall)) * uRustB.z * 1.6, n.z));
 #endif
 #ifdef STITCH
             alb *= stitchShade;
@@ -796,7 +836,9 @@ void main() {
 #ifdef RUST
             metal *= 1.0 - rustBare; rough = mix(rough, 1.0, rustBare);
 #endif
+#ifndef RUST
             alb = mix(alb, uStrokeCol, trim);
+#endif
             float ndl = max(dot(n, L), 0.0);
             float fres = pow(1.0 - sat(n.z), 3.0);
             vec3 E = envAt(n, c, q, rough);
@@ -817,14 +859,16 @@ void main() {
                 lit *= 1.0 - uCast * onFace * castShadow(q, heightAt(d));
             }
             // wear: grime gathers low and in corners; scratches catch the light
-            float dirt = smoothstep(0.35, 0.8, tfbm(q * 5.0 + 3.0));
-            lit *= 1.0 - uWear.z * (0.45 * dirt + 0.4 * (1.0 - smoothstep(0.0, max(uBevel, aw) * 2.0, d)));
+            if (uWear.z > 0.0) {
+                float dirt = smoothstep(0.35, 0.8, tfbm(q * 5.0 + 3.0));
+                lit *= 1.0 - uWear.z * (0.45 * dirt + 0.4 * (1.0 - smoothstep(0.0, max(uBevel, aw) * 2.0, d)));
+            }
             col *= mix(1.0, lit, 1.0 - uUnlit);
 #ifdef BALLOON
             col *= 1.0 - 0.5 * exp(-sq((d - uBalloon.z) / (1.6 * aw))) * step(1e-4, uBalloon.z);     // the crease where the weld ends
 #endif
 #ifdef RUST
-            col = mix(col, alb * (0.22 + 0.78 * ndl) * lit, rustBare * 0.9);                 // rust has no shine at all
+            col = mix(col, alb * (0.1 + 1.15 * ndl) * lit, rustBare * 0.95);                 // rust has no shine at all: only light and shade
 #endif
 #ifdef JELLY
             {
@@ -857,9 +901,11 @@ void main() {
                 col = mix(glassC, leadC, leadM);
             }
 #endif
-            float scr = smoothstep(0.80, 0.97, tnoise(rot(0.5) * q * vec2(310.0, 5.0)))
-                      + smoothstep(0.84, 0.98, tnoise(rot(-0.9) * q * vec2(220.0, 7.0)));
-            col += (E * 0.6 + 0.04) * scr * uWear.y * (0.3 + 0.7 * metal);
+            if (uWear.y > 0.0) {
+                float scr = smoothstep(0.80, 0.97, tnoise(rot(0.5) * q * vec2(310.0, 5.0)))
+                          + smoothstep(0.84, 0.98, tnoise(rot(-0.9) * q * vec2(220.0, 7.0)));
+                col += (E * 0.6 + 0.04) * scr * uWear.y * (0.3 + 0.7 * metal);
+            }
             // the catch-light: a hair-thin bright line where a slope meets a flat, on the lamp's side
             float crest = exp(-sq((d - uBevel) / (1.3 * aw)));
             if (uRim > 0.0) crest = max(crest, exp(-sq((d - uRim) / (1.3 * aw))) * 0.8);

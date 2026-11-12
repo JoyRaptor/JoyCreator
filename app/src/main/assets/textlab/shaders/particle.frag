@@ -56,6 +56,20 @@ void main() {
         core += (exp(-d2 / 0.0016) + 0.15 * exp(-d2 / 0.008)) * step(u0, u) * (1.0 - smoothstep(u0, min(u0 + 0.45, 1.0), u)) * 0.6;
         float live = step(0.35, hash11(sd * 1.7));                       // between strikes there is nothing
         m = core * live * (0.5 + 0.5 * hash11(sd * 2.9)) * smoothstep(1.0, 0.75, abs(v)) * 3.0;
+    } else if (kind == 8) {
+        // a RIVET: a domed head lit from the upper left, rusted like the plate it holds; it sits in a ring of
+        // shade and throws a small shadow
+        float fw8 = fwidth(vQ.y) * 1.5, rr = length(vQ) / 0.72;
+        float head = smoothstep(1.0, 1.0 - fw8 / 0.72, rr);
+        vec3 nr = normalize(vec3(vQ / 0.72 * 0.9, sqrt(max(1.0 - rr * rr, 0.0)) + 0.3));
+        float ndl8 = max(dot(nr, normalize(vec3(-0.55, 0.6, 0.6))), 0.0);
+        float mott = tnoise(vQ * 2.6 + vSeed);
+        vec3 tone8 = mix(uPColB, uPColA, mott) * (0.2 + 1.0 * ndl8) + vec3(1.0, 0.9, 0.75) * pow(ndl8, 14.0) * 0.16;
+        tone8 *= 1.0 - 0.4 * smoothstep(0.75, 1.0, rr);
+        float shade8 = max(smoothstep(1.4, 1.0, rr) * 0.5, smoothstep(1.0, 0.75, length(vQ - vAux) / 0.72) * 0.5);
+        float k8 = head * vBright;
+        o = vec4(tone8 * uPCol.x * k8, k8 + shade8 * vBright * (1.0 - head));
+        return;
     } else if (kind == 6 || kind == 7) {
         // a LEAF (a pointed blade, folded a little along its midrib, veins swept forward, a waxy gleam)
         // or a BLOSSOM (five petals round a middle). Painted, not light; each throws a small shadow.

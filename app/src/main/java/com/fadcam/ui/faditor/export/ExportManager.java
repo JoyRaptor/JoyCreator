@@ -127,6 +127,16 @@ public class ExportManager {
 
     /** When true, the export was written to a temp file that needs to be copied to SAF. */
     private boolean pendingSafCopy = false;
+    /**
+     * Set when the finished file could not be copied into the person's chosen folder and was kept
+     * in the app's own exports folder instead (E7). The service reads it to say so in plain words.
+     */
+    private volatile boolean copyToFolderFailed = false;
+
+    /** True when the copy into the chosen folder failed and the export was kept in the app instead. */
+    public boolean copyToFolderFailed() {
+        return copyToFolderFailed;
+    }
 
     /** The display filename used for the SAF DocumentFile. */
     @Nullable
@@ -378,13 +388,33 @@ public class ExportManager {
      * Note 9 ZA_CONTROL, 2026-09-24) needs the remuxed copy the warm phase makes, exactly as a
      * video clip does. Non-file and non-fragmented sources come back unchanged.
      */
+    /**
+     * E18: whether a source is a fragmented recording, read once per file instead of at every
+     * lookup (each is a 64 KB read of the file, about six per clip per build, and a long export
+     * builds once per part). Keyed on path, size and time last changed, so a replaced file is
+     * read again. Whether a remuxed copy exists is NOT cached: the warm phase creates those.
+     */
+    private static final java.util.concurrent.ConcurrentHashMap<String, Boolean> REMUX_NEED =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static boolean needsRemuxCached(@NonNull FragmentedMp4Remuxer remuxer,
+                                            @NonNull java.io.File f) {
+        String key = f.getPath() + '|' + f.length() + '|' + f.lastModified();
+        Boolean known = REMUX_NEED.get(key);
+        if (known != null) return known;
+        boolean needs = remuxer.needsRemux(f);
+        if (REMUX_NEED.size() > 512) REMUX_NEED.clear();
+        REMUX_NEED.put(key, needs);
+        return needs;
+    }
+
     @Nullable
     private android.net.Uri seekableUriFor(@Nullable android.net.Uri uri) {
         java.io.File f = com.fadcam.utils.SafPaths.fileOf(uri);
         if (f == null) return uri;
         try {
             if (exportRemuxer == null) exportRemuxer = new FragmentedMp4Remuxer(context);
-            if (exportRemuxer.needsRemux(f) && exportRemuxer.hasRemuxedVersion(f)) {
+            if (needsRemuxCached(exportRemuxer, f) && exportRemuxer.hasRemuxedVersion(f)) {
                 java.io.File r = exportRemuxer.getRemuxedFile(f);
                 if (r != null && r.exists()) return android.net.Uri.fromFile(r);
             }
@@ -406,7 +436,7 @@ public class ExportManager {
             if (exportRemuxer == null) exportRemuxer = new FragmentedMp4Remuxer(context);
             java.io.File input = f;
             boolean remuxed = false;
-            if (exportRemuxer.needsRemux(f) && exportRemuxer.hasRemuxedVersion(f)) {
+            if (needsRemuxCached(exportRemuxer, f) && exportRemuxer.hasRemuxedVersion(f)) {
                 java.io.File remuxedFile = exportRemuxer.getRemuxedFile(f);
                 if (remuxedFile != null && remuxedFile.exists()) {
                     input = remuxedFile;
@@ -1235,6 +1265,7 @@ public class ExportManager {
                     FLog.d(TAG, "Single-frame export (copied to SAF): " + safName);
                 } else {
                     finalPath = keepOutOfCache(finalPath);
+                    copyToFolderFailed = true;
                     FLog.e(TAG, "SAF copy failed, image kept at: " + finalPath);
                 }
                 pendingSafCopy = false;
@@ -1249,6 +1280,12 @@ public class ExportManager {
             FLog.e(TAG, "Single-frame finalize failed", e);
             writeExportErrorLog(project, e, tempVideo.getPath());
             listener.onExportError(e);
+        } catch (Throwable t) {
+            // E9: an out-of-memory while decoding the frame must not leave the export stuck.
+            isExporting = false;
+            if (frame != null && !frame.isRecycled()) frame.recycle();
+            FLog.e(TAG, "Single-frame finalize failed", t);
+            listener.onExportError(new Exception("Single-frame finalize failed", t));
         } finally {
             deleteQuietly(tempVideo);
         }
@@ -1618,6 +1655,7 @@ public class ExportManager {
             FLog.w(TAG, "planChunks: project JSON unavailable; nothing will be reused", e);
         }
         String extras = renderCacheExtras();
+        final RenderCacheKeys.UriStamper stamps = new ContentUriStamps(context);   // E13
         long total = tl.getTotalDurationMs();
         chunkBases = new long[ranges.size()];
         chunkCompDurs = new long[ranges.size()];
@@ -1646,7 +1684,7 @@ public class ExportManager {
                 long winStart = Math.min(compBase, editorBase);
                 long winEnd = Math.max(compBase + compDur, editorBase + editorDur);
                 String key = json == null ? null : RenderCacheKeys.partKey(json, r[0], r[1],
-                        winStart, winEnd, total, i == ranges.size() - 1, extras);
+                        winStart, winEnd, total, i == ranges.size() - 1, extras, stamps);
                 // No key (should not happen) = a one-off name: rendered, never reused.
                 String name = key != null ? "part_" + key.substring(0, 24)
                         : "part_once_" + System.currentTimeMillis() + "_" + i;
@@ -1664,7 +1702,7 @@ public class ExportManager {
             }
             o.put("chunks", chunks);
             String akey = json == null ? null : RenderCacheKeys.audioKey(json, extras
-                    + "|fxBypass=" + fxBypassedSnapshot + "|clean=" + cleanAudioSnapshot);
+                    + "|fxBypass=" + fxBypassedSnapshot + "|clean=" + cleanAudioSnapshot, stamps);
             String aname = akey != null ? "audio_" + akey.substring(0, 24)
                     : "audio_once_" + System.currentTimeMillis();
             File af = new File(dir, aname + ".m4a");
@@ -2520,7 +2558,13 @@ public class ExportManager {
         // composition is built.
         new Thread(() -> {
             long t0 = System.currentTimeMillis();
-            w.readAudioClocks(run.project.getTimeline());
+            try {
+                w.readAudioClocks(run.project.getTimeline());
+            } catch (Throwable e) {
+                // E9: the sound pass reads whatever is left itself; the hand-back below must
+                // still happen or the export waits here for good.
+                FLog.w(TAG, "audio clocks: the sound pass reads what is left itself", e);
+            }
             new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
                 if (run != chunkRun || chunkCancelled || !isExporting) return;
                 trace("CHUNK audio clocks read in " + (System.currentTimeMillis() - t0) + " ms");
@@ -2888,6 +2932,7 @@ public class ExportManager {
                 trace("CHUNK joined in " + (System.currentTimeMillis() - joinT0) + " ms");
                 if (chunkCancelled) {
                     discardStaging(stagingPath);
+                    deleteQuietly(muxOut);
                     if (run.audioOnlyOutput) cleanupAudioRangeIntermediates(run);
                     isExporting = false;
                     return;
@@ -2908,8 +2953,14 @@ public class ExportManager {
                 videoFull.delete();
                 finishChunked(project, run, stagingPath, finalOutputPath,
                         "Chunked export completed");
-            } catch (Exception e) {
+            } catch (Throwable e) {
+                // E9: Throwable, not Exception - an out-of-memory or a missing ffmpeg library
+                // here left the export "exporting" for good. E10: a cancelled join (ffmpeg was
+                // stopped) leaves nothing half-written under the finished name.
                 if (chunkCancelled) {
+                    discardStaging(stagingPath);
+                    deleteQuietly(new File(audioRangeDir, "range_joined.mp4"));
+                    if (run.audioOnlyOutput) cleanupAudioRangeIntermediates(run);
                     isExporting = false;
                     return;
                 }
@@ -3128,30 +3179,51 @@ public class ExportManager {
         }
         new Thread(() -> {
             String finalPath = outputPath;
-            // FIX-6: announce the finalize phase (loudness + SAF copy run minutes on GB
-            // files with zero UI state today) BEFORE doing it.
+            // E9: only Exception was caught on this thread, so an out-of-memory or a missing
+            // native library (ffmpeg) left the export "exporting" for good. Anything thrown now
+            // ends in "done" (the file is whole, only a step after it failed) or a plain error.
+            boolean reported = false;
             try {
-                if (listener != null) listener.onExportFinalizing();
-            } catch (Exception ignored) {}
-            if (needsPass) {
-                applyLoudnessPass(new File(outputPath), target, cleanAudio);
-            }
-            // If exported to temp for SAF, copy to custom storage now
-            if (pendingSafCopy) {
-                String safResult = copyTempToSaf(outputPath);
-                if (safResult != null) {
-                    finalPath = safResult;
-                    FLog.d(TAG, completedLogTag + " (copied to SAF): " + safResult);
-                } else {
-                    finalPath = keepOutOfCache(outputPath);
-                    FLog.e(TAG, "SAF copy failed, file kept at: " + finalPath);
+                // FIX-6: announce the finalize phase (loudness + SAF copy run minutes on GB
+                // files with zero UI state today) BEFORE doing it.
+                try {
+                    if (listener != null) listener.onExportFinalizing();
+                } catch (Exception ignored) {}
+                if (needsPass) {
+                    applyLoudnessPass(new File(outputPath), target, cleanAudio);
                 }
-                pendingSafCopy = false;
-                safExportFileName = null;
-            }
-            FLog.d(TAG, completedLogTag + ": " + finalPath);
-            if (listener != null) {
-                listener.onExportCompleted(finalPath, result);
+                // If exported to temp for SAF, copy to custom storage now
+                if (pendingSafCopy) {
+                    String safResult = copyTempToSaf(outputPath);
+                    if (safResult != null) {
+                        finalPath = safResult;
+                        FLog.d(TAG, completedLogTag + " (copied to SAF): " + safResult);
+                    } else {
+                        finalPath = keepOutOfCache(outputPath);
+                        copyToFolderFailed = true;
+                        FLog.e(TAG, "SAF copy failed, file kept at: " + finalPath);
+                    }
+                    pendingSafCopy = false;
+                    safExportFileName = null;
+                }
+                FLog.d(TAG, completedLogTag + ": " + finalPath);
+                if (listener != null) {
+                    reported = true;
+                    listener.onExportCompleted(finalPath, result);
+                }
+            } catch (Throwable t) {
+                FLog.e(TAG, "Finishing the export failed", t);
+                isExporting = false;
+                if (!reported && listener != null) {
+                    File kept = new File(finalPath);
+                    if (!kept.isFile()) kept = new File(outputPath);
+                    if (kept.isFile() && kept.length() > 0L) {
+                        listener.onExportCompleted(kept.getAbsolutePath(), result);
+                    } else {
+                        listener.onExportError(new Exception(
+                                "Finishing the export failed", t));
+                    }
+                }
             }
         }, "faditor-loudness-finalize").start();
     }
@@ -3617,8 +3689,22 @@ public class ExportManager {
             // Chunked run: the parts and the sound live on workers. chunkCancelled also stops
             // a join already on its thread from committing (it was never set before).
             chunkCancelled = true;
+            ChunkRun cancelledRun = chunkRun;
             chunkRun = null;
             cancelChunkWorkers();
+            if (cancelledRun.joining) {
+                // E10: the join is one long ffmpeg call (minutes on a big file) that nothing
+                // stopped; it ran to the end and only then noticed. Stop it now, off the calling
+                // thread (the cancel waits on the native side); the join thread then removes its
+                // own half-written file.
+                new Thread(() -> {
+                    try {
+                        com.arthenica.ffmpegkit.FFmpegKit.cancel();
+                    } catch (Throwable t) {
+                        FLog.w(TAG, "Could not stop the join", t);
+                    }
+                }, "faditor-join-cancel").start();
+            }
             if (isExporting) {
                 isExporting = false;
                 stopProgressPolling();

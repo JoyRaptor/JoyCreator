@@ -288,7 +288,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             consumeTerminalResult();
                             restorePreviewAfterExport();
                             exportUiOnCompleted(intent.getStringExtra(ExportService.EXTRA_OUTPUT_PATH),
-                                    intent.getBooleanExtra(ExportService.EXTRA_AUDIO_ONLY, false));
+                                    intent.getBooleanExtra(ExportService.EXTRA_AUDIO_ONLY, false),
+                                    intent.getBooleanExtra(
+                                            ExportService.EXTRA_COPY_TO_FOLDER_FAILED, false));
                             break;
                         case ExportService.ACTION_EXPORT_ERROR:
                             exportStartedLocallyAtMs = 0;
@@ -298,7 +300,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                     intent.getStringExtra(ExportService.EXTRA_ERROR_CLASS));
                             break;
                         case ExportService.ACTION_EXPORT_CANCELLED:
+                            // Also when Cancel was pressed in the notification or while the
+                            // export was still preparing: the screen must not keep showing it.
                             exportStartedLocallyAtMs = 0;
+                            consumeTerminalResult();
+                            restorePreviewAfterExport();
+                            hideExportProgress();
                             break;
                     }
                 }
@@ -1997,7 +2004,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 String name = path != null
                         ? new java.io.File(path).getName() : null;
                 Toast.makeText(this,
-                        name != null ? getString(R.string.studio_export_saved_named, name) : getString(R.string.studio_export_complete),
+                        prefs.getBoolean("last_export_copy_failed", false)
+                                ? getString(R.string.faditor_export_copy_failed_toast)
+                                : name != null ? getString(R.string.studio_export_saved_named, name) : getString(R.string.studio_export_complete),
                         Toast.LENGTH_LONG).show();
                 com.fadcam.ui.RecordsFragment.requestRefresh();
             }
@@ -10708,8 +10717,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     });
     }
 
-    private void exportUiOnCompleted(@Nullable String outputPath, boolean audioOnly) {
-                    final int completeSummaryRes = audioOnly
+    private void exportUiOnCompleted(@Nullable String outputPath, boolean audioOnly,
+                                     boolean copyFailed) {
+                    // E7: finished, but the copy into the person's folder failed: say where it is.
+                    final int completeSummaryRes = copyFailed
+                            ? R.string.faditor_export_copy_failed_toast
+                            : audioOnly
                             ? R.string.faditor_export_complete_summary_audio
                             : R.string.faditor_export_complete_summary;
                     runOnUiThread(() -> {

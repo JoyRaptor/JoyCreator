@@ -1517,6 +1517,12 @@
     <string name="faditor_export_result_play">Play the video you just exported</string>
     <string name="faditor_export_result_open_records">Tap to play · View in Recordings</string>
     <string name="faditor_export_cancelled">Export Cancelled</string>
+    <string name="faditor_export_no_room">There is not enough free space on this phone for this export. Free up about %1$s (delete old exports or videos you no longer need) and try again. Your project is safe.</string>
+    <string name="faditor_export_prepare_failed">The export could not get ready, most likely because the phone ran short of memory or space. Close other apps, free up some space and try again. Your project is safe.</string>
+    <string name="faditor_export_snapshot_unreadable">The export could not start because it could not read your project. Please try again. Your project is safe.</string>
+    <string name="faditor_export_copy_failed_title">Export finished, but not in your folder</string>
+    <string name="faditor_export_copy_failed_summary">Copying to your chosen folder did not work (the phone may be full). Your video %1$s is safe inside Joy Creator: find it in the Library.</string>
+    <string name="faditor_export_copy_failed_toast">Your video is finished, but it could not be copied to your chosen folder (the phone may be full). It is safe inside Joy Creator: find it in the Library.</string>
     <string name="faditor_export_failed">Export Failed</string>
     <string name="export_eta_seconds">ETA %d s</string>
     <string name="export_eta_minutes">ETA %d m</string>

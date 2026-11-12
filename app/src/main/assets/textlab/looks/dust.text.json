@@ -8,17 +8,17 @@
   "font": { "family": "archivo", "weight": 900, "width": 100, "tracking": 0.06, "caps": true },
   "margin": [ 1.0, 1.0, 1.3, 1.0 ],
   "features": [ "SAND", "FRONT" ],
-  "description": "A word heaped from sand: every grain its own speck, a crumbling edge, a few glassy grains that flash. The wind takes it, grain by grain, from one side.",
-  "p": { "vignette": 0.6, "grain": 0.3, "contrast": 1.08, "soften": 0.006, "bevel": 0.075, "bevelHeight": 0.05, "bevelShape": 0.4, "ao": 0.3, "metal": 0, "gloss": 0, "ambient": 0.3, "spec": 0, "fillA": "#a87a40", "fillB": "#c89c5c", "fillC": "#e2c084", "sandGrains": 170, "sandCrumble": 0.014, "sandSparkle": 1, "sandSpill": 1, "frontGone": 0.22, "frontAuto": 1, "frontRagged": 4, "frontTurn": 0, "frontOnce": 0, "lightX": -0.75, "lightY": 0.45, "lightZ": 0.35, "shadow": 0.6, "shadowSoft": 0.1, "shadowX": 0.03, "shadowY": -0.04, "stageTint": "#a8763a", "bloom": 0.12, "bloomThreshold": 1.6, "saturation": 1.08 },
+  "description": "A word heaped from sand. The wind takes it from one side: grains loosen just ahead of the line, leave from where they lay, gather speed and stream away over the letters still standing.",
+  "p": { "vignette": 0.6, "grain": 0.3, "contrast": 1.08, "soften": 0.006, "bevel": 0.075, "bevelHeight": 0.05, "bevelShape": 0.4, "ao": 0.3, "metal": 0, "gloss": 0, "ambient": 0.3, "spec": 0, "fillA": "#a87a40", "fillB": "#c89c5c", "fillC": "#e2c084", "sandGrains": 170, "sandCrumble": 0.016, "sandSparkle": 1, "sandSpill": 1, "frontGone": 0.42, "frontAuto": 0.55, "frontRagged": 3, "frontTurn": 0, "frontOnce": 0, "lightX": -0.75, "lightY": 0.45, "lightZ": 0.35, "shadow": 0.6, "shadowSoft": 0.1, "shadowX": 0.03, "shadowY": -0.04, "stageTint": "#a8763a", "bloom": 0.12, "bloomThreshold": 1.6, "saturation": 1.08, "frontComb": 1, "sandWind": 3.5, "sandStream": 1.7, "sandLift": 0.14, "sandEddies": 0.16 },
   "sphere": { "ramp": [ [ 0.0, "#020202" ], [ 0.4, "#0c0c0e" ], [ 0.5, "#1c1c22" ], [ 0.65, "#0c0c0e" ], [ 1.0, "#020202" ] ], "boxes": [ [ -0.42, 0.58, 0.36, 0.1, -0.3, 0.035, 6.0, "#ffffff", 0.4 ], [ 0.76, 0.1, 0.05, 0.5, 0.12, 0.03, 3.5, "#ffffff", 0.2 ] ] },
   "particles": [
     {
-      "count": 1500,
-      "p": { "shape": 0, "from": 1, "front": 1, "life": 1.8, "size": 0.0045, "sizeEnd": 1, "drift": 1.1, "rise": 0.06, "scatter": 0.25, "gravity": 0.5, "swirl": 0.5, "swirlSize": 3, "colA": "#e2c084", "colB": "#a87a40", "gain": 1.0, "paint": 1, "fadeIn": 0.02, "fadeOut": 0.4, "share": 1 }
+      "count": 2600,
+      "p": { "shape": 0, "from": 1, "front": 1, "sizeEnd": 1, "paint": 1, "share": 1, "fadeIn": 0.01, "life": 1.5, "size": 0.004, "drift": 2.0, "rise": 0.2, "scatter": 0.45, "gravity": 0.7, "swirl": 0.7, "swirlSize": 3, "colA": "#e2c084", "colB": "#a87a40", "gain": 0.9, "fadeOut": 0.35 }
     },
     {
-      "count": 160,
-      "p": { "shape": 0, "from": 1, "front": 1, "life": 2.4, "size": 0.09, "sizeEnd": 2.2, "drift": 0.9, "rise": 0.1, "scatter": 0.1, "swirl": 0.4, "swirlSize": 2, "colA": "#c89c5c", "colB": "#c89c5c", "gain": 0.05, "fadeIn": 0.15, "fadeOut": 0.7, "share": 1, "seed": 3 }
+      "count": 700,
+      "p": { "shape": 3, "from": 1, "front": 1, "sizeEnd": 1, "paint": 1, "share": 1, "fadeIn": 0.01, "life": 0.9, "size": 0.0035, "stretch": 0.045, "drift": 3.2, "rise": 0.05, "scatter": 0.25, "gravity": 0.3, "swirl": 0.4, "swirlSize": 4, "colA": "#f0d6a0", "colB": "#c89c5c", "gain": 0.8, "fadeOut": 0.5, "seed": 5 }
     }
   ],
   "motion": {

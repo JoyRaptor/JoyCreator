@@ -154,6 +154,7 @@ uniform vec4  uBalloon;      // a foil balloon: crinkle strength, crinkles per e
 #endif
 #ifdef SAND
 uniform vec4  uSand;         // sand: grains per em, how far the edge crumbles (em), glassy grains that flash, loose grains lying round the foot
+uniform vec4  uSandB;        // the stream of grains the FRONT sets loose: wind speed (x the front's own), how far it carries them (em), how far they lift (em), how the eddies shake them (em)
 #endif
 #ifdef BITS
 uniform vec4  uBits;         // made of small things: pieces per em, kind (0 sequin, 1 bead, 2 sprinkle, 3 coin), size 0..1, how unevenly they tilt
@@ -827,7 +828,7 @@ void main() {
 #endif
 #ifdef SAND
             // its edge is grains, not a line; and so is the front that carries it away
-            a *= step(sandC * uSand.y, d) * step((sandC - 1.0) * 0.09, frontAt(q));
+            a *= step(sandC * uSand.y, d) * step((sandC - 0.7) * 0.14, frontAt(q));
 #endif
 #ifdef HOLO
             // light hanging in air: almost nothing in the body, scan lines drifting through it, a bright rim
@@ -960,9 +961,32 @@ void main() {
         if (e > 0.0 && e < 0.07 && uSand.w > 0.0) {
             vec2 gc = floor(p0 * uSand.x);
             float gh = hash21(gc + 77.0);
-            float lying = step(1.0 - 0.45 * uSand.w * exp(-e / 0.016), gh) * fs.g * step(0.0, frontAt(p0)) * (1.0 - a);
+            float lying = step(1.0 - 0.45 * uSand.w * exp(-e / 0.016), gh) * fs.g * step((gh - 0.7) * 0.14, frontAt(p0)) * (1.0 - a);
             col = mix(col, fillAt(fs.a) * (0.45 + 0.5 * hash21(gc)), lying);
             a = max(a, lying);
+        }
+        // THE STREAM. Every grain the front has set loose is still drawn, further along the wind. A point ahead
+        // of the line is reached, at this instant, only by grains from one place upwind (they left when the
+        // line was there), so the stream is the letter's own grains carried off: thick where they have only
+        // just gone, thinning, lifting and shaken by the wind's eddies as they travel.
+        if (uSandB.y > 0.0) {
+            vec2 wdir = vec2(cos(uFront.w * TAU), sin(uFront.w * TAU));
+            float perEm = wdir.x * wdir.x / uField.x + wdir.y * wdir.y / uField.y;       // how much nearer the line gets, per em along the wind
+            float R = max(uSandB.x, 1.2);
+            float upwind = frontAt(p0) / perEm * R / (R - 1.0);                          // em back to where these grains lay
+            float age = upwind / uSandB.y;                                               // 0 only just gone .. 1 carried out of sight
+            if (age > 0.0 && age < 1.0) {
+                vec2 eddy = vec2(tnoise(p0 * 2.3 + vec2(-uTime * 0.7, 3.0)), tnoise(p0 * 2.3 + vec2(-uTime * 0.7, 40.0))) - 0.5;
+                vec2 apart = (hash22(floor(p0 * uSand.x) + 13.0) - 0.5) * 0.4 * age;          // grains part company as they fly
+                vec2 src = p0 - wdir * upwind - vec2(0.0, uSandB.z * age * age) + eddy * uSandB.w * age + apart;
+                vec4 fsrc = texture(uFieldTex, src / uField.xy);
+                vec2 gc = floor(src * uSand.x);
+                float gh = hash21(gc + 77.0);
+                float thin = exp(-age * 4.5) * (1.0 - age);
+                float grain = step(gh * uSand.y, fsrc.r + uStroke) * step(gh, thin * 0.85) * fsrc.g;
+                col = mix(col, fillAt(fsrc.a) * (0.5 + 0.6 * hash21(gc)) * (0.7 + 0.3 * thin), grain);
+                a = max(a, grain);
+            }
         }
     }
 #endif

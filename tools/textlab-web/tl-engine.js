@@ -50,6 +50,20 @@
     setSize(w, h) { if (w !== this.maxW || h !== this.maxH) { this.maxW = w; this.maxH = h; this.dirty = true; } }
     setKnob(name, value) { this.over[name] = value; this.sphereDirty = true; }
     replay() { this.clock0 = null; this.resetFire = true; }
+    // The user's own picture behind the words (stage 11). It is fitted to fill the field without stretching.
+    setPhoto(source) {
+      const gl = this.gl;
+      if (!this.photo) this.photo = gl.createTexture();
+      gl.activeTexture(gl.TEXTURE0 + 5); gl.bindTexture(gl.TEXTURE_2D, this.photo);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      this.photoAspect = source.width / source.height;
+    }
+    get photoFit() {
+      const field = this.W / this.H, pic = this.photoAspect || field;
+      return field > pic ? [1, pic / field] : [field / pic, 1];
+    }
     knob(name) {
       if (name in this.over) return this.over[name];
       const p = this.look.p || {};
@@ -162,7 +176,8 @@
 
       // backdrop
       gl.disable(gl.BLEND); gl.disable(gl.DEPTH_TEST);
-      glw.program('quad.vert', 'backdrop.frag').use().setAll(U).set('uScene', this.stage);
+      glw.program('quad.vert', 'backdrop.frag').use().setAll(U).set('uScene', this.stage)
+        .set('uPhotoFit', this.photoFit || [1, 1]).tex('uPhoto', this.photo || this.black.tex, 5);
       glw.pass(T.back);
 
       // compose

@@ -5,11 +5,14 @@
 //   3 sea and sky      4 dusk grid                                    5 far lights, out of focus
 //   6 paper            7 smoke                                        8 a window at night, out of focus
 //   9 cloth (a plain weave, for stitched letters)
+//   10 clear (nothing behind: the usual grey squares)   11 the user's own picture
 in vec2 vUv;
 out vec4 o;
 uniform float uScene;
 uniform vec3  uStageTint;   // the colour of the room's haze and far light
 uniform vec4  uFloor;       // .y = the floor line, 0..1 up the field (the look's wet-floor line)
+uniform sampler2D uPhoto;   // the user's own picture, when they have loaded one
+uniform vec2  uPhotoFit;    // how much of the picture's width and height the field shows, so it fills the field uncropped in one direction
 
 float brick(vec2 p, out float mortar, out vec2 cell) {
     vec2 g = p * vec2(3.4, 7.6);
@@ -102,6 +105,12 @@ void main() {
         c = uStageTint * (0.03 + 0.2 * bands * sway) * (0.5 + 0.5 * smoothstep(1.15, 0.1, abs(cn.y)));
         c += vec3(0.6, 0.55, 0.3) * 0.018 * smoothstep(0.75, 0.95, tfbm(p * vec2(0.9, 2.2) + 9.0));   // a far lamp or two
         c *= 0.75 + 0.25 * sat(1.0 - dot(cn, cn) * 0.5);
+    } else if (s == 10) {
+        vec2 sq = floor(p * 5.0);
+        c = vec3(mod(sq.x + sq.y, 2.0) > 0.5 ? 0.05 : 0.028);
+    } else if (s == 11) {
+        vec2 uv = (vUv - 0.5) * uPhotoFit + 0.5;
+        c = pow(texture(uPhoto, vec2(uv.x, 1.0 - uv.y)).rgb, vec3(2.2));           // a photograph is stored for the eye; the scene works in light
     } else if (s == 9) {
         // cloth seen close: a plain weave, each thread going over one and under the next, a little fuzz
         vec2 g = p * 46.0, id = floor(g), f = fract(g) - 0.5;

@@ -60,8 +60,9 @@
 
     function fit() {
       const v = $('view').getBoundingClientRect(), dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const under = document.body.classList.contains('bare') ? 0 : $('helper').offsetHeight + 10;      // the helper row sits under the picture
       engine.setSize(Number(q.get('w')) || Math.min(Math.round((v.width - 24) * dpr), 1600),
-                     Number(q.get('h')) || Math.min(Math.round((v.height - 24) * dpr), 1000));
+                     Number(q.get('h')) || Math.min(Math.round((v.height - 24 - under) * dpr), 1000));
     }
 
     function choose(l, keepText) {
@@ -69,8 +70,14 @@
       engine.setLook(l);
       if (!keepText) $('text').value = q.get('text') || l.sample || 'TEXT';
       engine.setText($('text').value.replace(/\\n/g, '\n'));
-      engine.stage = q.has('stage') ? Number(q.get('stage')) : (l.stage === undefined ? 1 : l.stage);
-      $('stage').value = String(engine.stage);
+      // what is behind stays as you chose it from look to look ("Look's own backdrop" hands it back to the look)
+      const picked = $('stage').value;
+      engine.stage = q.has('stage') ? Number(q.get('stage')) : picked !== '' ? Number(picked) : (l.stage === undefined ? 1 : l.stage);
+      // looks that burn, blow away or grow get the progress bar
+      const feats = l.features || [];
+      $('prog').hidden = !feats.includes('FRONT');
+      $('proglabel').textContent = feats.includes('VINE') ? 'Grown' : feats.includes('SAND') ? 'Blown away' : feats.includes('BURN') ? 'Burned away' : 'Progress';
+      $('progbar').value = 0; $('progplay').classList.add('on');
       for (const b of $('looks').querySelectorAll('button')) b.classList.toggle('on', b.dataset.id === l.id);
       const row = $('looks'), chosen = row.querySelector('button.on');     // on a phone the looks are one row: keep the chosen one in sight
       if (chosen && row.scrollWidth > row.clientWidth) { const a = chosen.getBoundingClientRect(), b = row.getBoundingClientRect(); row.scrollLeft += a.left - b.left - (b.width - a.width) / 2; }
@@ -149,7 +156,50 @@
     }
 
     $('text').oninput = () => engine.setText($('text').value.replace(/\\n/g, '\n'));
-    $('stage').onchange = () => { engine.stage = Number($('stage').value); };
+    $('stage').onchange = () => { engine.stage = $('stage').value !== '' ? Number($('stage').value) : (look.stage === undefined ? 1 : look.stage); };
+    // Your own picture behind the words (it stays in this browser; nothing is sent anywhere)
+    $('photo').onchange = async () => {
+      const file = $('photo').files[0];
+      if (!file) return;
+      try {
+        const bmp = await createImageBitmap(file), k = Math.min(1, 2048 / Math.max(bmp.width, bmp.height));
+        const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+        c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+        engine.setPhoto(c);
+        $('photoopt').hidden = false; $('stage').value = '11'; engine.stage = 11;
+      } catch (e) { fail('That file could not be read as a picture: ' + (e.message || e)); }
+    };
+
+    // THE LIGHT HELPER. Live: the light follows the phone (or the pointer). Pinned: it stays where it is put, which is
+    // what an export or a keyframe would use. Sway: it moves by itself round the pinned place. (A pilot of the helper
+    // Studio and JoyBrush would carry: wiggle it live, pin it where it looks best, or let it sway.)
+    let lightMode = 'live', pin = [0, 0];
+    const showLight = () => { for (const [id, m] of [['lightLive', 'live'], ['lightPin', 'pin'], ['lightSway', 'sway']]) $(id).classList.toggle('on', lightMode === m); };
+    $('lightLive').onclick = () => { lightMode = 'live'; showLight(); };
+    $('lightPin').onclick = () => { if (lightMode === 'live') pin = engine.tilt.slice(); lightMode = 'pin'; showLight(); };
+    $('lightSway').onclick = () => { if (lightMode === 'live') pin = engine.tilt.slice(); lightMode = 'sway'; showLight(); };
+    const pad = $('lightpad');
+    const padTo = (e) => {
+      const r = pad.getBoundingClientRect(), c1 = (v) => Math.max(-1, Math.min(1, v));
+      pin = [c1(((e.clientX - r.left) / r.width) * 2 - 1), c1(-(((e.clientY - r.top) / r.height) * 2 - 1))];
+      if (lightMode === 'live') { lightMode = 'pin'; showLight(); }
+    };
+    pad.addEventListener('pointerdown', (e) => { pad.setPointerCapture(e.pointerId); padTo(e); });
+    pad.addEventListener('pointermove', (e) => { if (e.buttons) padTo(e); });
+    showLight();
+
+    // THE PROGRESS BAR: drag to choose the moment (the front holds there); Plays hands it back to the look's own clock
+    const knobShows = (name, v) => { const el = $('k-' + name); if (el) { el.value = v; if (el.nextSibling) el.nextSibling.textContent = Number(v).toFixed(3).replace(/\.?0+$/, ''); } };
+    $('progbar').oninput = () => {
+      const gone = 0.02 + Number($('progbar').value) * 1.08;
+      engine.setKnob('frontAuto', 0); engine.setKnob('frontGone', gone); knobShows('frontAuto', 0); knobShows('frontGone', gone);
+      $('progplay').classList.remove('on');
+    };
+    $('progplay').onclick = () => {
+      const auto = (look.p && look.p.frontAuto) || 1, gone = (look.p && look.p.frontGone) || 0;
+      engine.setKnob('frontAuto', auto); engine.setKnob('frontGone', gone); knobShows('frontAuto', auto); knobShows('frontGone', gone);
+      $('progplay').classList.add('on'); engine.replay();
+    };
     $('replay').onclick = () => { holdAt = null; paused = false; $('pause').classList.remove('on'); engine.replay(); };
     $('pause').onclick = () => { paused = !paused; $('pause').classList.toggle('on', paused); };
     $('copy').onclick = () => {
@@ -176,16 +226,16 @@
     const cv = $('cv');
     cv.addEventListener('pointermove', (e) => {
       const r = cv.getBoundingClientRect();
-      engine.tilt = [((e.clientX - r.left) / r.width) * 2 - 1, -(((e.clientY - r.top) / r.height) * 2 - 1)];
+      if (lightMode === 'live') engine.tilt = [((e.clientX - r.left) / r.width) * 2 - 1, -(((e.clientY - r.top) / r.height) * 2 - 1)];
     });
     window.addEventListener('deviceorientation', (e) => {
       if (e.gamma === null) return;
-      engine.tilt = [Math.max(-1, Math.min(1, e.gamma / 30)), Math.max(-1, Math.min(1, (e.beta - 45) / 30))];
+      if (lightMode === 'live') engine.tilt = [Math.max(-1, Math.min(1, e.gamma / 30)), Math.max(-1, Math.min(1, (e.beta - 45) / 30))];
     });
     window.addEventListener('resize', fit);
 
     buildLooks(); fit(); choose(look);
-    if (q.has('tx')) engine.tilt = [Number(q.get('tx')), Number(q.get('ty') || 0)];
+    if (q.has('tx')) { pin = [Number(q.get('tx')), Number(q.get('ty') || 0)]; engine.tilt = pin.slice(); lightMode = 'pin'; showLight(); }
     // &k=bevel:0.06,fillA:%23ff0000 turns knobs from the address bar (numbers, or colours starting with #)
     for (const pair of (q.get('k') || '').split(',').filter(Boolean)) {
       const i = pair.indexOf(':'), name = pair.slice(0, i), v = pair.slice(i + 1);
@@ -201,6 +251,9 @@
         if (holdAt !== null) { engine.still(holdAt); document.title = 'TextLab still ' + look.id; }
         else {
           if (!paused) clock += (now - lastNow) / 1000;
+          if (lightMode === 'pin') engine.tilt = pin.slice();
+          else if (lightMode === 'sway') engine.tilt = [Math.max(-1, Math.min(1, pin[0] + 0.4 * Math.sin(now / 1000 * 1.1))), Math.max(-1, Math.min(1, pin[1] + 0.28 * Math.sin(now / 1000 * 0.8 + 1)))];
+          $('lightdot').style.left = (50 + 50 * engine.tilt[0]) + '%'; $('lightdot').style.top = (50 - 50 * engine.tilt[1]) + '%';
           engine.frame(clock);
         }
         lastNow = now;

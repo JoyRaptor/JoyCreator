@@ -157,6 +157,39 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
   feature is skipped when its slider is zero. Drips and splashes find their edge by a fixed 7-look walk (Slime 28 to
   25 ms, Water 53 to 39). Still over the 33 ms line: Water 39, Overgrown 36 (with Diamond 46, Fizz 38, Voltage 35,
   Carved Stone 36 from before). The look book on an upright phone now shows the looks as one row to swipe.
+- **Owner, 2026-11-12 (after wave four).** Water "looks excellent, especially with these settings" (his sliders:
+  thickness 0.012, melt 0.019, wobble 0.047, wobble size 9.287, wobble speed 2.085, chips 0.009: now the look), but
+  "the drip particle emitters don't look as good as the rest of the text". Dust: he likes the idea, "pretty
+  unconvincing": the dust "blows away in round clusters" and the puffs do not seem to come from the grains
+  dissolving off the word. The painted backdrops (sea, bricks) do not convince him, and matter little: there will be
+  video, a visualiser or a picture behind; he wants transparent as an option. He asked how a look's shimmer and
+  its dissolves should be set for export, how this wires to VisLab, and what a next seven would be. Done:
+  - **Water**: the bubble sprites are gone; every drop is a true shape of the same water (two more followers behind
+    each leaping drop, `splashOf`).
+  - **Dust** rebuilt: no soft round sprites; the front can be combed into wandering tongues by the wind
+    (`frontComb`); the letter thins over a wider band that starts just ahead of the line; and THE STREAM
+    (`uSandB`, `sandWind` / `sandStream` / `sandLift` / `sandEddies`): the grains that have left are still drawn,
+    carried downwind. A point ahead of the line is reached only by grains from one place upwind, so it costs one
+    look per pixel and is the letter's own grains, moved. Front-born particles now start from rest, gather speed,
+    and leave a little before or after the line as the letter's grains do.
+  - **Look book helpers (pilots of what Studio and JoyBrush would carry)**: the LIGHT helper under the picture
+    (Live = follows the phone; Pinned = stays where the pad puts it, what an export uses; Sway = moves by itself
+    round the pinned place); a PROGRESS bar for looks with a front (drag to hold a moment, or Plays); what is
+    behind now stays as chosen from look to look, with Clear (grey squares) and Your picture (stage 10 and 11).
+  - Timing: Note 9 at 1280 wide after this pass: Dust 26 ms (was 19; the stream), Water 50 ms at his settings (was 39; his crystal-chips slider adds a cell search to the shape pass: to trim), Ember Fade 16, Overgrown 36. Battery 23.7 to 23.8 C. Checked on the computer at several moments and at phone size; the light helper, progress bar, Clear and own-picture were exercised by script, not by hand on a phone.
+  **My recommendations to him (his yes owed):**
+  - Export never reads the sensor. Every text carries a light position; the helper has Live (try it), Pinned (the
+    stored value) and Sway (a stored gentle motion, the no-thinking choice for video). Studio keyframes the pinned
+    position and the progress on its timeline; JoyBrush stores them with the layer (a still uses Pinned; an animated
+    export may use Sway). Progress defaults to "plays in at the clip's start / plays out at its end".
+  - VisLab: a look is a skin any VisLab word part can wear; the music's bands drive a look's sliders (glow, wobble,
+    light position, progress, particle rate) through the same follow-the-music mapping VisLab has; VisLab's own
+    shapes can use TextLab's pieces (bolts, leaves, sand, the front). One renderer draws to a clear layer that
+    VisLab, Studio and JoyBrush composite (`final.frag` `uOut = 1`, still untested).
+  - Next seven proposed: fog on glass (wipes clear, blurs the video behind), shatter (rigid shards, in or out),
+    cloth (the whole word waves like a flag: a warp for any look), written by hand (the stroke draws itself: the
+    pen's path as a piece), stained glass (leaded panes, coloured light on the floor), peeling paint and rust (coats
+    that wear through), jelly (light through the body, springy arrival).
 - **Honest limits today:** the fire is good stylised fire, not yet the photograph the owner showed;
   water and the other drafts are below the bar; only the app's own fonts are used (Archivo, Plex,
   Ubuntu, Doto), so there is no script or true display face yet.

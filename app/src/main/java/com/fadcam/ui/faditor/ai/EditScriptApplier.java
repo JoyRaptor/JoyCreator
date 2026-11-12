@@ -39,7 +39,7 @@ import java.util.List;
  *
  * <p>Supported operations:
  * <ul>
- *   <li><b>REMOVE_SPAN</b> — add a non-destructive cut to a clip. Params: clipId, startMs, endMs.</li>
+ *   <li><b>REMOVE_SPAN</b> — cut a stretch out of a clip (the clip becomes the pieces that stay; later clips close up). Params: clipId, startMs, endMs.</li>
  *   <li><b>ADD_TEXT_OVERLAY</b> — add a text overlay. Params: text, centerX, centerY, sizeFraction, startMs, endMs.</li>
  *   <li><b>REMOVE_TEXT_OVERLAY</b> — remove an overlay by id. Params: overlayId.</li>
  *   <li><b>SET_OVERLAY_RANGE</b> — set overlay visible time range. Params: overlayId, startMs, endMs.</li>
@@ -197,7 +197,8 @@ public class EditScriptApplier {
 
     private boolean hasStructuralOps(@NonNull EditScript script) {
         for (EditScript.EditOp op : script.getOperations()) {
-            if (op.type == EditScript.OpType.SPLIT_CLIP_AT_TIME
+            if (op.type == EditScript.OpType.REMOVE_SPAN
+                    || op.type == EditScript.OpType.SPLIT_CLIP_AT_TIME
                     || op.type == EditScript.OpType.REORDER_CLIPS
                     || op.type == EditScript.OpType.INSERT_BROLL_CUTAWAY) {
                 return true;
@@ -264,8 +265,11 @@ public class EditScriptApplier {
         if (startMs < 0 || endMs < 0 || endMs <= startMs) {
             return "invalid span: startMs=" + startMs + " endMs=" + endMs;
         }
-        if (startMs < clip.getInPointMs() || endMs > clip.getOutPointMs()) {
-            return "span outside clip trim range";
+        // An earlier cut in the same script may have moved this span into a sibling piece.
+        Clip host = findClipCovering(project.getTimeline(), clip.getId(), startMs, endMs);
+        if (host == null) return "span outside clip trim range";
+        if (startMs <= host.getInPointMs() && endMs >= host.getOutPointMs()) {
+            return "that cut would remove the whole clip (delete the clip instead)";
         }
         return null;
     }
@@ -332,11 +336,61 @@ public class EditScriptApplier {
 
     private void applyRemoveSpan(@NonNull FaditorProject project,
                                  @NonNull EditScript.EditOp op) {
-        Clip clip = findClip(project, op);
-        if (clip == null) return;
         long startMs = getParamLong(op, "startMs", -1);
         long endMs = getParamLong(op, "endMs", -1);
-        clip.getRemovedSpans().add(new long[]{startMs, endMs});
+        Timeline tl = project.getTimeline();
+        Clip host = findClipCovering(tl, getParamString(op, "clipId"), startMs, endMs);
+        if (host == null) return;
+        int index = indexOfClip(tl, host.getId());
+        if (index < 0) return;
+
+        // A cut REALLY cuts, the way Studio's Clean does: the clip becomes the pieces that stay
+        // (before the cut, after the cut) and everything behind closes up. The first piece keeps
+        // the clip's id so layer objects riding on it stay with it; the rest get fresh ids.
+        // Notes already inside the clip (removedSpans) travel with whichever piece holds them.
+        java.util.List<Clip> pieces = new java.util.ArrayList<>();
+        if (startMs > host.getInPointMs()) {
+            pieces.add(cutPiece(host, host.getInPointMs(), startMs, pieces.isEmpty()));
+        }
+        if (endMs < host.getOutPointMs()) {
+            pieces.add(cutPiece(host, endMs, host.getOutPointMs(), pieces.isEmpty()));
+        }
+        tl.removeClip(index);
+        for (int i = pieces.size() - 1; i >= 0; i--) tl.addClip(index, pieces.get(i));
+        // The seam that sat after the clip now sits after its last piece; a new seam between
+        // two pieces carries no transition (same rule as a split).
+        if (pieces.size() == 2) tl.shiftTransitionsAfterSplit(index);
+    }
+
+    /**
+     * The clip a REMOVE_SPAN works on: the one named, or (when an earlier cut in the same script
+     * already moved the span into a fresh-id piece of the same recording) the clip of the same
+     * source whose kept range covers the span. Null when nothing covers it any more.
+     */
+    @Nullable
+    private Clip findClipCovering(@NonNull Timeline tl, @Nullable String clipId,
+                                  long startMs, long endMs) {
+        Clip named = null;
+        for (int i = 0; i < tl.getClipCount(); i++) {
+            if (tl.getClip(i).getId().equals(clipId)) { named = tl.getClip(i); break; }
+        }
+        if (named == null) return null;
+        if (startMs >= named.getInPointMs() && endMs <= named.getOutPointMs()) return named;
+        for (int i = 0; i < tl.getClipCount(); i++) {
+            Clip c = tl.getClip(i);
+            if (c != named && java.util.Objects.equals(c.getSourceUri(), named.getSourceUri())
+                    && startMs >= c.getInPointMs() && endMs <= c.getOutPointMs()) return c;
+        }
+        return null;
+    }
+
+    @NonNull
+    private Clip cutPiece(@NonNull Clip host, long in, long out, boolean keepId) {
+        Clip piece = keepId ? new Clip(host, host.getId()) : new Clip(host, UUID.randomUUID().toString());
+        piece.setInPointMs(in);
+        piece.setOutPointMs(out);
+        piece.setRemovedSpans(clampSpans(host.getRemovedSpans(), in, out));
+        return piece;
     }
 
     private void applyAddTextOverlay(@NonNull FaditorProject project,
@@ -1011,7 +1065,7 @@ public class EditScriptApplier {
     private int[] locateClipAtTimeline(@NonNull Timeline tl, long timelineMs) {
         long cumul = 0;
         for (int i = 0; i < tl.getClipCount(); i++) {
-            long dur = tl.getClip(i).getEffectiveDurationMs();
+            long dur = tl.getClip(i).getVisualDurationMs();
             if (timelineMs <= cumul + dur) {
                 return new int[]{i, (int) (timelineMs - cumul)};
             }

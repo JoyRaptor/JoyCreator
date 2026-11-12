@@ -1734,7 +1734,8 @@ public class EditorTimelineView extends View {
             if (clip.hasLoopExtension()) {
                 this.effectiveMs = Math.max(1, clip.getVisualDurationMs());
             } else {
-                this.effectiveMs = Math.max(1, (long)(trimmedMs / speed));
+                this.effectiveMs = Math.max(1, com.fadcam.ui.faditor.model.ClipClock
+                        .sourceToLocalMs(trimmedMs, speed));
             }
             this.removedSpans = clip.getRemovedSpans();
             this.silenceCandidates = clip.getSilenceCandidates();
@@ -2612,21 +2613,13 @@ public class EditorTimelineView extends View {
         centerPlayhead();
         invalidate();
 
-        // Resolve which segment + source fraction this position maps to.
-        long cumul = 0;
-        int seg = segments.size() - 1;
-        long local = 0;
-        for (int i = 0; i < segments.size(); i++) {
-            SegmentData sd = segments.get(i);
-            if (clamped <= cumul + sd.effectiveMs) {
-                seg = i;
-                local = clamped - cumul;
-                break;
-            }
-            cumul += sd.effectiveMs;
-        }
+        // Resolve which segment + source fraction this position maps to. The same rule the
+        // selection uses (D7): the later clip owns a cut, the last clip also owns the very end.
+        int seg = segmentIndexAtTime(clamped);
+        long local = clamped - getSegmentStartTime(seg);
         SegmentData sd = segments.get(seg);
-        long sourceMs = sd.inPointMs + (long) (local * sd.speed);
+        long sourceMs = sd.inPointMs + com.fadcam.ui.faditor.model.ClipClock
+                .localToSourceMs(local, sd.speed);
         float frac = sd.sourceDurationMs > 0
                 ? Math.max(0f, Math.min(1f, sourceMs / (float) sd.sourceDurationMs)) : 0f;
         if (listener != null) {
@@ -2641,19 +2634,14 @@ public class EditorTimelineView extends View {
      * Returns -1 if no segment contains the playhead (e.g., playhead is past all segments).
      */
     public int getSegmentAtPlayhead() {
-        long cumulMs = 0;
-        for (int i = 0; i < segments.size(); i++) {
-            SegmentData sd = segments.get(i);
-            long endMs = cumulMs + sd.effectiveMs;
-            if (playheadPositionMs >= cumulMs && playheadPositionMs < endMs) {
-                return i;
-            }
-            if (i == segments.size() - 1 && playheadPositionMs == endMs) {
-                return i;
-            }
-            cumulMs = endMs;
-        }
-        return segments.isEmpty() ? -1 : segments.size() - 1;
+        return segmentIndexAtTime(playheadPositionMs);
+    }
+
+    /** THE rule for which segment owns a time (job STU-5, D7); see {@code ClipClock.spanIndexAt}. */
+    private int segmentIndexAtTime(long timeMs) {
+        long[] lens = new long[segments.size()];
+        for (int i = 0; i < lens.length; i++) lens[i] = segments.get(i).effectiveMs;
+        return com.fadcam.ui.faditor.model.ClipClock.spanIndexAt(lens, timeMs);
     }
 
     /**
@@ -2698,14 +2686,15 @@ public class EditorTimelineView extends View {
             if (rawSourceMs > sd.outPointMs) {
                 long overSourceMs = rawSourceMs - sd.outPointMs;
                 if (overSourceMs <= MAX_BOUNDARY_GLIDE_SOURCE_MS) {
-                    overshootMs = (long) (overSourceMs / sd.speed);
+                    overshootMs = com.fadcam.ui.faditor.model.ClipClock
+                            .sourceToLocalMs(overSourceMs, sd.speed);
                 }
             }
             // Convert from source position to trimmed position
             long localMs = Math.max(sd.inPointMs, Math.min(rawSourceMs, sd.outPointMs))
                     - sd.inPointMs;
             // Adjust for speed
-            localMs = (long)(localMs / sd.speed);
+            localMs = com.fadcam.ui.faditor.model.ClipClock.sourceToLocalMs(localMs, sd.speed);
             playheadPositionMs = Math.min(totalEffectiveMs,
                     selectedSegmentStartMs + localMs + overshootMs);
 
@@ -2897,7 +2886,7 @@ public class EditorTimelineView extends View {
 
     private void computeRects() {
         segRects.clear();
-        if (segments.isEmpty()) {
+        if (segments.isEmpty() && audioClips.isEmpty()) {
             contentWidthPx = 0;
             segRectsSpineTopPx = Float.NaN;
             segRectsSpineHeightPx = Float.NaN;
@@ -2933,7 +2922,8 @@ public class EditorTimelineView extends View {
         // — e.g. music under narration — get their own row instead of piling up).
         audioClipRects.clear();
         recomputeAudioLanes();
-        if (!audioClips.isEmpty() && totalEffectiveMs > 0) {
+        // (A sound-only project has no video length, so the audio rects no longer wait for one.)
+        if (!audioClips.isEmpty()) {
             float audioTop = audioBandTopPx();
             for (int i = 0; i < audioClips.size(); i++) {
                 AudioClip ac = audioClips.get(i);
@@ -3161,7 +3151,9 @@ public class EditorTimelineView extends View {
             canvas.drawRect(0, audioTop, w, audioBot, audioTrackBgPaint);
         }
 
-        if (segments.isEmpty() || segRects.isEmpty()) return;
+        // A sound-only project has no video clip but still has rows to draw (job STU-5, B9).
+        if ((segments.isEmpty() || segRects.isEmpty())
+                && audioClips.isEmpty() && audioLayerTracks.isEmpty()) return;
 
         // Apply scroll offset
         canvas.save();
@@ -4472,7 +4464,9 @@ public class EditorTimelineView extends View {
     }
 
     private void drawRuler(Canvas canvas, int viewW) {
-        if (totalEffectiveMs <= 0) return;
+        // With no video clip the ruler runs the length of the sound (job STU-5, B9).
+        final long rulerTotalMs = segments.isEmpty() ? getTimelineEndMs() : totalEffectiveMs;
+        if (rulerTotalMs <= 0) return;
         
         // Dynamic label interval based on zoom (like professional editors)
         // Calculate minimum pixels between labels to avoid overlap (~60dp)
@@ -4511,13 +4505,13 @@ public class EditorTimelineView extends View {
         // ±1 interval of margin so a label whose center sits just off-screen still paints its
         // on-screen half.
         final long rulerVisStartMs = Math.max(0L, xToTime(scrollOffsetPx));
-        final long rulerVisEndMs = Math.min(totalEffectiveMs, xToTime(scrollOffsetPx + viewW));
+        final long rulerVisEndMs = Math.min(rulerTotalMs, xToTime(scrollOffsetPx + viewW));
 
         // Draw minor ticks (finest detail) - skip if too dense
         if (dpPerSecondPx > 25f * density) {  // Only show when zoomed in enough
             rulerTickPaint.setStrokeWidth(1f * density);
             long tStart = Math.max(0L, (rulerVisStartMs / minorInterval - 1) * minorInterval);
-            long tEnd = Math.min(totalEffectiveMs, rulerVisEndMs + minorInterval);
+            long tEnd = Math.min(rulerTotalMs, rulerVisEndMs + minorInterval);
             for (long t = tStart; t <= tEnd; t += minorInterval) {
                 if (t % mediumInterval == 0) continue;  // Skip medium/major ticks
                 float x = timeToX(t);
@@ -4529,7 +4523,7 @@ public class EditorTimelineView extends View {
         if (labelInterval > mediumInterval) {
             rulerTickPaint.setStrokeWidth(1.5f * density);
             long tStart = Math.max(0L, (rulerVisStartMs / mediumInterval - 1) * mediumInterval);
-            long tEnd = Math.min(totalEffectiveMs, rulerVisEndMs + mediumInterval);
+            long tEnd = Math.min(rulerTotalMs, rulerVisEndMs + mediumInterval);
             for (long t = tStart; t <= tEnd; t += mediumInterval) {
                 if (t % labelInterval == 0) continue;  // Skip labeled ticks
                 float x = timeToX(t);
@@ -4541,7 +4535,7 @@ public class EditorTimelineView extends View {
         rulerTickPaint.setStrokeWidth(2f * density);
         {
             long tStart = Math.max(0L, (rulerVisStartMs / labelInterval - 1) * labelInterval);
-            long tEnd = Math.min(totalEffectiveMs, rulerVisEndMs + labelInterval);
+            long tEnd = Math.min(rulerTotalMs, rulerVisEndMs + labelInterval);
             for (long t = tStart; t <= tEnd; t += labelInterval) {
                 float x = timeToX(t);
                 String text = fmtTime(t);
@@ -4579,6 +4573,10 @@ public class EditorTimelineView extends View {
 
     /** Maps absolute timeline time (ms) to x coordinate in timeline space (NOT screen space). */
     private float timeToX(long timeMs) {
+        // No video clip (a sound-only project): the same axis the audio rects are laid out on.
+        // This used to fall through to 0, so every row item drew at the left edge, on top of
+        // the others (job STU-5, B9).
+        if (segments.isEmpty()) return edgePaddingPx + (timeMs / 1000f) * dpPerSecondPx;
         long cumulative = 0;
         for (int i = 0; i < segments.size(); i++) {
             SegmentData sd = segments.get(i);
@@ -4607,7 +4605,11 @@ public class EditorTimelineView extends View {
      * @return the corresponding timeline position in milliseconds
      */
     private long xToTime(float x) {
-        if (segments.isEmpty() || segRects.isEmpty()) return 0;
+        if (segments.isEmpty()) {
+            return dpPerSecondPx > 0
+                    ? Math.max(0L, (long) (((x - edgePaddingPx) / dpPerSecondPx) * 1000f)) : 0L;
+        }
+        if (segRects.isEmpty()) return 0;
         
         // Try to find which segment rect contains this X
         long cumulative = 0;
@@ -7645,7 +7647,8 @@ if (sd.clip.hasVolumeKeyframes()) {
                     // restore this block exists to perform. Worse than the bug it fixed, and
                     // invisible on an untrimmed 1x clip, i.e. invisible in a smoke test.
                     // Same expression as updatePlayheadFromX.
-                    long sourceMs = sd.inPointMs + (long) (within * sd.speed);
+                    long sourceMs = sd.inPointMs + com.fadcam.ui.faditor.model.ClipClock
+                            .localToSourceMs(within, sd.speed);
                     float frac = sd.sourceDurationMs > 0
                             ? Math.max(0f, Math.min(1f, (float) sourceMs / sd.sourceDurationMs))
                             : 0f;
@@ -10995,7 +10998,8 @@ if (sd.clip.hasVolumeKeyframes()) {
             long posInSegmentMs = newPlayheadMs - cumulMs;
             posInSegmentMs = Math.max(0, Math.min(posInSegmentMs, sd.effectiveMs));
             
-            long sourceMs = sd.inPointMs + (long)(posInSegmentMs * sd.speed);
+            long sourceMs = sd.inPointMs + com.fadcam.ui.faditor.model.ClipClock
+                    .localToSourceMs(posInSegmentMs, sd.speed);
             float sourceFrac = sd.sourceDurationMs > 0 ? (float)sourceMs / sd.sourceDurationMs : 0f;
             sourceFrac = Math.max(0f, Math.min(sourceFrac, 1f));
             

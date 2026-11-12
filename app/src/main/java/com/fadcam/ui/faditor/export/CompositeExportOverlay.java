@@ -770,7 +770,9 @@ public class CompositeExportOverlay extends BitmapOverlay {
             for (ClipCaptionSlot slot : clipCaptionSlots) {
                 String styleId;
                 if (isFirstBinding && clip.hasCaptionStyleKeyframes()) {
-                    styleId = clip.captionStyleAtClipMs(clipSourceLocalMs);
+                    // Timeline ruler time (job STU-5, D2): the clip-local clock the piece's opacity
+                    // and volume keys use, i.e. how far into the clip this frame is, speed not applied.
+                    styleId = clip.captionStyleAtClipMs(clipLocalMs + headTransitionMs);
                 } else {
                     styleId = slot.binding.styleId;
                 }

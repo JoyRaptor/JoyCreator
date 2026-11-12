@@ -458,6 +458,12 @@ public class Timeline {
         long minSplitMs = original.getInPointMs() + 100; // At least 100ms from start
         long maxSplitMs = original.getOutPointMs() - 100; // At least 100ms from end
         if (splitPointMs < minSplitMs || splitPointMs > maxSplitMs) return -1;
+        // D9: land the cut where the two halves' timeline lengths add up to the clip's own, so a
+        // clip split again and again at a speed other than normal does not shrink a ms per cut.
+        // Never moves the cut at normal speed and never out of the 100 ms margins.
+        long snapped = ClipClock.snapCut(original.getInPointMs(), original.getOutPointMs(),
+                original.getSpeedMultiplier(), splitPointMs);
+        if (snapped >= minSplitMs && snapped <= maxSplitMs) splitPointMs = snapped;
 
         // Create two copies with the same effects
         Clip clipA = new Clip(original);

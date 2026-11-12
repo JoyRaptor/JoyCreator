@@ -451,7 +451,7 @@ public class Clip implements AudioParams {
 
         // Inside the base clip region
         if (posInBase >= 0 && posInBase < trimmed) {
-            return inPointMs + (long) (posInBase * speedMultiplier);
+            return Math.min(outPointMs - 1, inPointMs + ClipClock.localToSourceMs(posInBase, speedMultiplier));
         }
 
         // In loop extension
@@ -471,13 +471,13 @@ public class Clip implements AudioParams {
 
         if (loopMode == LOOP_MODE_NORMAL) {
             // Always forward
-            return inPointMs + (long) (offsetInRep * speedMultiplier);
+            return inPointMs + ClipClock.localToSourceMs(offsetInRep, speedMultiplier);
         } else {
             // Ping-pong: alternate direction each repetition
             if (rep % 2 == 0) {
-                return inPointMs + (long) (offsetInRep * speedMultiplier);
+                return inPointMs + ClipClock.localToSourceMs(offsetInRep, speedMultiplier);
             } else {
-                return outPointMs - (long) (offsetInRep * speedMultiplier) - 1;
+                return outPointMs - ClipClock.localToSourceMs(offsetInRep, speedMultiplier) - 1;
             }
         }
     }
@@ -1118,7 +1118,8 @@ public class Clip implements AudioParams {
             if (b > a) removed += b - a;
         }
         long raw = (outPointMs - inPointMs) - removed;
-        return (long) (Math.max(0, raw) / speedMultiplier);
+        // Rounded, like TimeMap.clipLocalMsAt (job STU-5, D9): this used to cut off the fraction.
+        return ClipClock.sourceToLocalMs(Math.max(0, raw), speedMultiplier);
     }
 
     /**
@@ -1126,7 +1127,9 @@ public class Clip implements AudioParams {
      */
     public long getTrimmedDurationMs() {
         long raw = outPointMs - inPointMs;
-        return (long) (raw / speedMultiplier);
+        // Rounded, like TimeMap.clipLocalMsAt (job STU-5, D9): this used to cut off the fraction,
+        // so every split of a speeded clip could lose a millisecond.
+        return ClipClock.sourceToLocalMs(raw, speedMultiplier);
     }
 
     // ── Setters (for trim handle updates) ────────────────────────────

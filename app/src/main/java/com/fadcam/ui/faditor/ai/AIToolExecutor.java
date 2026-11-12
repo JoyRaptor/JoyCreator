@@ -735,6 +735,20 @@ public class AIToolExecutor {
         String html = authored[0];
         String usedModel = authored[1];
 
+        // Review A2: the model can take a long while, and the person may have kept editing. Read the
+        // project AGAIN now and put the slide into the current one; saving the copy loaded before
+        // the wait replaced their newer edits (the same rule generate_transcript follows).
+        proj = storage.load(projectId);
+        if (proj == null) {
+            return "Error: the project could not be read again after the slide was made, so nothing"
+                    + " was added. Ask for the slide again.";
+        }
+        int[] dimsNow = SlideFiles.dimensionsFor(proj);
+        if (dimsNow[0] != w || dimsNow[1] != h) {
+            return "Error: the canvas size changed while the slide was being made, so it no longer"
+                    + " fits. Ask for the slide again.";
+        }
+
         try {
             File projectDir = storage.projectDir(projectId);
             String clipId = UUID.randomUUID().toString();
@@ -1258,7 +1272,18 @@ public class AIToolExecutor {
         String reply = callOpenRouterForHtml(km[0], km[1], BROLL_PROMPT, user);
         if (reply == null) return "Error: model call failed.";
 
-        long total = clip.getTrimmedDurationMs();
+        // Review B3: the words above carry SOURCE-clock times (windowed() does not rebase), so the
+        // model's atMs is on the source clock. Guard on that clock (inside the clip's kept range),
+        // then hand INSERT_BROLL_CUTAWAY editor timeline time: the clip's start on the timeline
+        // plus (source - in point) / speed. Edge check uses the whole video track, as the applier does.
+        final Timeline brollTl = proj.getTimeline();
+        long clipStartMs = 0;
+        for (int i = 0; i < brollTl.getClipCount(); i++) {
+            if (brollTl.getClip(i) == clip) break;
+            clipStartMs += brollTl.getClip(i).getVisualDurationMs();
+        }
+        final float clipSpeed = clip.getSpeedMultiplier() > 0f ? clip.getSpeedMultiplier() : 1f;
+        final long trackMs = brollTl.getVideoTrackDurationMs();
         java.util.Map<String, Integer> useCount = new java.util.HashMap<>();
         JSONArray accepted = new JSONArray();
         try {
@@ -1269,16 +1294,19 @@ public class AIToolExecutor {
                 long atMs = s.optLong("atMs", -1);
                 long dur = s.optLong("durationMs", -1);
                 String name = s.optString("assetName", "");
-                if (dur < 1500 || dur > 8000) continue;            // guardrail: duration
-                if (atMs < 2000 || atMs + dur > total - 2000) continue; // guardrail: edges
+                if (atMs < clip.getInPointMs() || atMs + dur > clip.getOutPointMs()) continue; // inside the clip
+                long tlDur = Math.round(dur / clipSpeed);
+                long tlAt = AiEditMath.sourceToTimelineMs(clipStartMs, clip.getInPointMs(), clipSpeed, atMs);
+                if (tlDur < 1500 || tlDur > 8000) continue;        // guardrail: duration
+                if (tlAt < 2000 || tlAt + tlDur > trackMs - 2000) continue; // guardrail: edges
                 BRollBucket.AssetEntry a = byName.get(name);
                 if (a == null) continue;                            // guardrail: real asset
                 int c = useCount.getOrDefault(name, 0);
                 if (c >= 2) continue;                               // guardrail: ≤2 uses
                 useCount.put(name, c + 1);
                 JSONObject out = new JSONObject();
-                out.put("atMs", atMs);
-                out.put("durationMs", dur);
+                out.put("atMs", tlAt);            // editor timeline time, what apply_broll_proposal passes on
+                out.put("durationMs", tlDur);
                 out.put("assetName", name);
                 out.put("assetUri", a.uri);
                 out.put("reason", s.optString("reason", ""));
@@ -2676,16 +2704,39 @@ public class AIToolExecutor {
         FaditorProject proj = storage.load(projectId);
         if (proj == null) return "Error: project not found";
 
-        Timeline tl = proj.getTimeline();
-        for (int i = 0; i < tl.getClipCount(); i++) {
-            if (tl.getClip(i).getId().equals(clipId)) {
-                tl.removeClip(i);
-                storage.save(proj);
-                AIChatState.signalModified(projectId);
-                return "Clip deleted: " + clipId;
-            }
+        // Review B2: this used to call tl.removeClip(i) raw. The EditScript path brackets the
+        // change (titles, music, voiceover and picture-in-pictures ride along with the footage)
+        // and drops the transitions of the deleted clip, exactly as the editor's own delete does.
+        if (findClip(proj, clipId) == null) return "Error: clip not found: " + clipId;
+        String err = applyOneOp(proj, "Delete clip", "DELETE_CLIP", clipId, null, null);
+        if (err != null) return "Error: " + err;
+        if (!storage.save(proj)) return "Error: the change could not be saved.";
+        AIChatState.signalModified(projectId);
+        return "Clip deleted: " + clipId;
+    }
+
+    /**
+     * Applies a single EditScript op to {@code proj} through {@link EditScriptApplier} (validated,
+     * bracketed). Null on success, else a plain-words reason. The caller saves.
+     */
+    @Nullable
+    private String applyOneOp(@NonNull FaditorProject proj, @NonNull String description,
+                              @NonNull String type, @NonNull String clipId,
+                              @Nullable String extraKey, @Nullable Object extraValue) {
+        try {
+            JSONObject op = new JSONObject().put("type", type).put("clipId", clipId);
+            if (extraKey != null) op.put(extraKey, extraValue);
+            JSONObject scriptObj = new JSONObject();
+            scriptObj.put("version", 1);
+            scriptObj.put("description", description);
+            scriptObj.put("operations", new JSONArray().put(op));
+            EditScriptApplier applier = new EditScriptApplier();
+            applier.setContext(context);
+            EditScriptApplier.Result result = applier.apply(proj, EditScript.fromJson(scriptObj.toString()));
+            return result.success ? null : result.error;
+        } catch (Exception e) {
+            return e.getMessage() == null ? "could not apply the change" : e.getMessage();
         }
-        return "Error: clip not found: " + clipId;
     }
 
     private String toolSetClipSpeed(@NonNull JSONObject args) {
@@ -2695,10 +2746,14 @@ public class AIToolExecutor {
         if (proj == null) return "Error: project not found";
         Clip clip = findClip(proj, clipId);
         if (clip == null) return "Error: clip not found: " + clipId;
-        clip.setSpeedMultiplier(Math.max(0.25f, Math.min(4f, speed)));
-        storage.save(proj);
+        // Review B2 + B9: through the EditScript path (bracketed, so what follows the clip moves
+        // with it), and the reply says the speed that was really set (clamped to 0.25..4).
+        float clamped = Math.max(0.25f, Math.min(4f, speed));
+        String err = applyOneOp(proj, "Set clip speed", "SET_CLIP_SPEED", clipId, "speed", (double) clamped);
+        if (err != null) return "Error: " + err;
+        if (!storage.save(proj)) return "Error: the change could not be saved.";
         AIChatState.signalModified(projectId);
-        return "Speed set to " + speed + "x for clip " + clipId;
+        return "Speed set to " + clamped + "x for clip " + clipId;
     }
 
     private String toolSetClipMuted(@NonNull JSONObject args) {
@@ -3679,12 +3734,11 @@ public class AIToolExecutor {
             JSONObject opObj = new JSONObject();
             opObj.put("type", "REORDER_CLIPS");
             JSONArray newOrder = new JSONArray();
-            java.util.List<Clip> clips = new java.util.ArrayList<>();
-            for (int i = 0; i < tl.getClipCount(); i++) clips.add(tl.getClip(i));
-            clips.remove(fromIndex);
-            if (toIndex > fromIndex) toIndex--;
-            clips.add(toIndex, clip);
-            for (Clip c : clips) newOrder.put(c.getId());
+            java.util.List<String> ids = new java.util.ArrayList<>();
+            for (int i = 0; i < tl.getClipCount(); i++) ids.add(tl.getClip(i).getId());
+            // Review B1: toIndex is already the FINAL index, and the old "toIndex--" after the
+            // remove put every forward move one place short ("to the end" = second to last).
+            for (String id : AiEditMath.moveId(ids, fromIndex, toIndex)) newOrder.put(id);
             opObj.put("newOrder", newOrder);
 
             JSONObject scriptObj = new JSONObject();

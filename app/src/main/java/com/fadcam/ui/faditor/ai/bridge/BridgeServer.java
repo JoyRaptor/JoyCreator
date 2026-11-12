@@ -38,14 +38,33 @@ public final class BridgeServer extends NanoHTTPD {
     private final BridgeAuth auth;
     private final McpCore core;
     private final Events events;
+    /**
+     * The server that owns the shared state (the MCP session, Joybot's host, "has said hello").
+     * The phone may listen on two addresses at once (its Wi-Fi address and its own loopback for the
+     * cable); both are the SAME door, so they share one session. For a lone server this is itself.
+     */
+    private final BridgeServer root;
     @Nullable private final String projectId;
     @NonNull private final IdeaEngine.Room room;
     @Nullable private volatile JoybotAgent.Bridged bridged;
     private volatile boolean greeted;
 
+    /** Listens on the phone's own loopback only (what the cable and the tests use). */
     public BridgeServer(@NonNull Context context, int port, @NonNull BridgeAuth auth, @Nullable String projectId,
                         @NonNull IdeaEngine.Room room, @NonNull String version, @NonNull Events events) {
-        super(port);
+        this(context, "127.0.0.1", port, auth, projectId, room, version, events);
+    }
+
+    /**
+     * Review D1 (2026-11-12): the server used to bind every network interface (cellular, a
+     * hotspot, a VPN, IPv6), far wider than the one Wi-Fi address the screen shows. Now it binds
+     * only {@code host}: the Wi-Fi address shown to the person, or the loopback for the cable.
+     */
+    public BridgeServer(@NonNull Context context, @NonNull String host, int port, @NonNull BridgeAuth auth,
+                        @Nullable String projectId, @NonNull IdeaEngine.Room room, @NonNull String version,
+                        @NonNull Events events) {
+        super(host, port);
+        this.root = this;
         this.app = context.getApplicationContext();
         this.auth = auth;
         this.projectId = projectId;
@@ -70,10 +89,22 @@ public final class BridgeServer extends NanoHTTPD {
         }, version, INSTRUCTIONS);
     }
 
+    /** A second address for the same door: shares {@code first}'s session, code and pairing. */
+    public BridgeServer(@NonNull BridgeServer first, @NonNull String host, int port) {
+        super(host, port);
+        this.root = first.root;
+        this.app = first.app;
+        this.auth = first.auth;
+        this.projectId = first.projectId;
+        this.room = first.room;
+        this.events = first.events;
+        this.core = first.core;
+    }
+
     /** "Claude Code", "Codex"…: who is on the other end, in the person's words. */
     @NonNull
     public String who() {
-        return nameOf(core.clientName());
+        return nameOf(root.core.clientName());
     }
 
     @NonNull
@@ -90,13 +121,15 @@ public final class BridgeServer extends NanoHTTPD {
     }
 
     @NonNull
-    private synchronized JoybotAgent.Bridged bridged() {
-        JoybotAgent.Bridged b = bridged;
-        if (b == null) {
-            b = new JoybotAgent.Bridged(app, projectId, room, who());
-            bridged = b;
+    private JoybotAgent.Bridged bridged() {
+        synchronized (root) {
+            JoybotAgent.Bridged b = root.bridged;
+            if (b == null) {
+                b = new JoybotAgent.Bridged(app, projectId, room, who());
+                root.bridged = b;
+            }
+            return b;
         }
-        return b;
     }
 
     @Override
@@ -141,8 +174,8 @@ public final class BridgeServer extends NanoHTTPD {
             return plain(Response.Status.METHOD_NOT_ALLOWED, "POST only.");
         }
         String answer = core.handle(body);
-        if (!greeted && core.clientName() != null) {
-            greeted = true;
+        if (!root.greeted && core.clientName() != null) {
+            root.greeted = true;
             events.onEvent(who() + " connected from " + from + ".", true);
         }
         if (answer == null) return newFixedLengthResponse(Response.Status.ACCEPTED, "application/json", "");

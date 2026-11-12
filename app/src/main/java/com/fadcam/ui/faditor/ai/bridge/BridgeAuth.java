@@ -8,10 +8,14 @@ import java.security.SecureRandom;
 import java.nio.charset.StandardCharsets;
 
 /**
- * Who may use the bridge (BOT-6 safety): a fresh six-digit code each time it's switched on, only the
- * first computer that uses it, and a lock-out after a few wrong codes (so the code can't be guessed
- * from the same Wi-Fi). Short enough to say aloud or type; the bridge is off unless the person turned
- * it on, and Stop ends it. Pure Java (BridgeTest).
+ * Who may use the bridge (BOT-6 safety): a six-digit code, only the first computer that uses it, and
+ * a lock-out after a few wrong codes (so the code can't be guessed from the same Wi-Fi). Short
+ * enough to say aloud or type; the bridge is off unless the person turned it on, and Stop ends it.
+ * Pure Java (BridgeTest).
+ *
+ * <p>The code is KEPT between switch-ons (owner, BOT-6 card: so a computer set up once just
+ * reconnects) until the person taps "New code" ({@code BridgeService.code}/{@code forgetCode}).
+ * This comment used to say "a fresh code each time", which the service never did (review D2).</p>
  */
 public final class BridgeAuth {
 

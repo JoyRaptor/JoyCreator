@@ -50,7 +50,7 @@
   body.bare { padding: 0; }
   body.bare #view { padding: 0; }
   body.bare canvas { border-radius: 0; }
-  @media (max-width: 900px) { main { flex-direction: column; } #looks { width: auto; padding: 10px 0; flex-direction: row; flex-wrap: wrap; border-right: 0; border-bottom: 1px solid var(--line); } #looks .fam { display: none; } #knobs { width: auto; padding: 10px 0; border-left: 0; border-top: 1px solid var(--line); max-height: 40%; } #view { min-height: 38vh; padding: 12px 0; } }
+  @media (max-width: 900px) { main { flex-direction: column; } #looks { width: auto; padding: 10px 0; flex-direction: row; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; flex: none; scrollbar-width: none; border-right: 0; border-bottom: 1px solid var(--line); } #looks::-webkit-scrollbar { display: none; } #looks button { flex: none; } #looks .fam { display: none; } #knobs { width: auto; padding: 10px 0; border-left: 0; border-top: 1px solid var(--line); max-height: 40%; } #view { min-height: 38vh; padding: 12px 0; } }
 </style>
 </head>
 <body>
@@ -59,7 +59,7 @@
   <input id="text" type="text" title="The words" spellcheck="false">
   <select id="stage" title="What is behind the words">
     <option value="0">Black</option><option value="1">Dark stage</option><option value="7">Smoke</option><option value="2">Brick wall</option>
-    <option value="5">Far lights</option><option value="4">Dusk grid</option><option value="3">Sea and sky</option><option value="8">Night window</option><option value="6">Paper</option>
+    <option value="5">Far lights</option><option value="4">Dusk grid</option><option value="3">Sea and sky</option><option value="8">Night window</option><option value="6">Paper</option><option value="9">Cloth</option>
   </select>
   <button id="replay" title="Play the arrival again">Replay</button>
   <button id="pause" title="Hold this moment">Pause</button>

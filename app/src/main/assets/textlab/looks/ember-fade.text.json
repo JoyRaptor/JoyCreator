@@ -7,14 +7,14 @@
   "stage": 1,
   "font": { "family": "cinzel", "weight": 800, "tracking": 0.1, "caps": true },
   "margin": [ 1.0, 1.2, 1.0, 1.0 ],
-  "features": [ "BURN" ],
-  "description": "A title that burns away: a ragged glowing front eats across the word, scorching it first, and sparks lift off as it goes.",
-  "p": { "vignette": 0.6, "grain": 0.3, "contrast": 1.08, "soften": 0.002, "bevel": 0.012, "bevelHeight": 0.012, "ao": 0.2, "metal": 0, "gloss": 0.05, "ambient": 0.6, "fillA": "#cfc6b6", "fillB": "#ddd5c6", "fillC": "#ebe4d6", "mottle": 0.25, "burnGone": 0, "burnGlow": 1.6, "burnRagged": 5, "burnAuto": 1, "shadow": 0.5, "shadowSoft": 0.12, "stageTint": "#8a3d14", "bloom": 0.5, "bloomThreshold": 1.0, "saturation": 1.1 },
+  "features": [ "BURN", "FRONT" ],
+  "description": "A title that burns away: a ragged front eats across the word, charring it first, and sparks lift off the burning edge as it goes.",
+  "p": { "vignette": 0.6, "grain": 0.3, "contrast": 1.08, "soften": 0.002, "bevel": 0.012, "bevelHeight": 0.012, "ao": 0.2, "metal": 0, "gloss": 0.05, "ambient": 0.6, "fillA": "#cfc6b6", "fillB": "#ddd5c6", "fillC": "#ebe4d6", "mottle": 0.25, "burnGlow": 1.6, "shadow": 0.5, "shadowSoft": 0.12, "stageTint": "#8a3d14", "bloom": 0.5, "bloomThreshold": 1.0, "saturation": 1.1, "frontGone": 0, "frontRagged": 5, "frontAuto": 1 },
   "sphere": { "ramp": [ [ 0.0, "#020202" ], [ 0.4, "#0c0c0e" ], [ 0.5, "#1c1c22" ], [ 0.65, "#0c0c0e" ], [ 1.0, "#020202" ] ], "boxes": [ [ -0.42, 0.58, 0.36, 0.1, -0.3, 0.035, 6.0, "#ffffff", 0.4 ], [ 0.76, 0.1, 0.05, 0.5, 0.12, 0.03, 3.5, "#ffffff", 0.2 ] ] },
   "particles": [
     {
-      "count": 160,
-      "p": { "shape": 0, "from": 0, "life": 2.2, "size": 0.008, "sizeEnd": 0.2, "rise": 0.9, "drift": 0.5, "scatter": 0.2, "swirl": 0.5, "swirlSize": 2.5, "colA": "#ffc46a", "colB": "#ff2a00", "gain": 6, "fadeIn": 0.05, "fadeOut": 0.5, "share": 0.5 }
+      "count": 260,
+      "p": { "shape": 0, "from": 1, "front": 1, "life": 2.0, "size": 0.008, "sizeEnd": 0.2, "rise": 0.9, "drift": 0.15, "scatter": 0.25, "swirl": 0.5, "swirlSize": 2.5, "colA": "#ffc46a", "colB": "#ff2a00", "gain": 6, "fadeIn": 0.03, "fadeOut": 0.5, "share": 1 }
     }
   ],
   "motion": {

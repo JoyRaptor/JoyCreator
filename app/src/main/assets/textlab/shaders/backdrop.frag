@@ -4,6 +4,7 @@
 //   0 black            1 dark stage (a pool of haze, a gloss floor)   2 brick wall at night
 //   3 sea and sky      4 dusk grid                                    5 far lights, out of focus
 //   6 paper            7 smoke                                        8 a window at night, out of focus
+//   9 cloth (a plain weave, for stitched letters)
 in vec2 vUv;
 out vec4 o;
 uniform float uScene;
@@ -101,6 +102,14 @@ void main() {
         c = uStageTint * (0.03 + 0.2 * bands * sway) * (0.5 + 0.5 * smoothstep(1.15, 0.1, abs(cn.y)));
         c += vec3(0.6, 0.55, 0.3) * 0.018 * smoothstep(0.75, 0.95, tfbm(p * vec2(0.9, 2.2) + 9.0));   // a far lamp or two
         c *= 0.75 + 0.25 * sat(1.0 - dot(cn, cn) * 0.5);
+    } else if (s == 9) {
+        // cloth seen close: a plain weave, each thread going over one and under the next, a little fuzz
+        vec2 g = p * 46.0, id = floor(g), f = fract(g) - 0.5;
+        bool flat_ = mod(id.x + id.y, 2.0) > 0.5;                              // which thread is on top in this square
+        float across = flat_ ? f.y : f.x, along = flat_ ? f.x : f.y;
+        float thread = (1.0 - 1.7 * across * across) * (0.76 + 0.24 * cos(along * PI));     // round, and dipping under at each end
+        float fuzz = (tnoise(p * 300.0) - 0.5) * 0.14 + (tfbm(p * 9.0) - 0.5) * 0.2;
+        c = uStageTint * (0.42 + 0.58 * thread) * (1.0 + fuzz) * (0.62 + 0.38 * sat(1.0 - dot(cn, cn) * 0.5));
     } else if (s == 6) {
         c = vec3(0.86, 0.83, 0.76) * (0.92 + 0.12 * tfbm(p * 22.0)) * (0.85 + 0.15 * sat(1.0 - dot(cn, cn) * 0.4));
     }

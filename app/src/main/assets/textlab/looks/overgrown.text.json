@@ -1,0 +1,32 @@
+{
+  "format": "joy.text/1",
+  "id": "overgrown",
+  "name": "Overgrown",
+  "family": "Stuff",
+  "description": "Old carved stone that a vine climbs as you watch: woody stems along the edges, turns wound round the strokes, leaves opening after them, a few blossoms last.",
+  "sample": "EDEN",
+  "stage": 7,
+  "font": { "family": "cinzel", "weight": 800, "tracking": 0.1, "caps": true },
+  "margin": [ 1.0, 1.0, 1.0, 1.0 ],
+  "features": [ "STONE", "VINE", "FRONT" ],
+  "p": { "vignette": 0.6, "grain": 0.45, "contrast": 1.14, "persp": -0.12, "vanishX": 0.5, "vanishY": 0.43, "parallax": 0.22, "soften": 0.004, "wobble": 0.007, "wobbleScale": 11, "wobbleSpeed": 0, "bevel": 0.02, "bevelHeight": 0.022, "bevelShape": 0.15, "ao": 0.6, "depth": 0.7, "metal": 0, "gloss": 0.02, "ambient": 0.16, "rough": 1, "fillA": "#74695a", "fillB": "#8f8371", "fillC": "#a89c88", "mottle": 0.6, "detailKind": 9, "detailScale": 9, "detailAmount": 0.25, "detailShade": 0.85, "wearEdge": 0.2, "wearGrime": 0.9, "lightX": -0.75, "lightY": 0.45, "lightZ": 0.3, "spec": 0, "shine": 20, "sideA": "#544b3f", "sideB": "#0c0a08", "sideMetal": 0, "shadow": 0.9, "shadowSoft": 0.18, "shadowX": 0.06, "shadowY": -0.06, "stageTint": "#a8763a", "floor": 0.06, "floorLine": 0.3, "floorFade": 5, "bloom": 0.08, "bloomThreshold": 2, "streak": 0, "saturation": 0.9, "exposure": 1.2, "stoneMarks": 0.8, "stoneChips": 0.8, "stoneVeins": 0, "stoneGrain": 0.6, "stoneDust": 0, "stoneMoss": 0, "vineStems": 2, "vineThick": 0.012, "vineStray": 0.035, "vineWrap": 2.2, "vineCol": "#3a2a12", "frontGone": 0.45, "frontAuto": 1.0, "frontOnce": 1, "frontTurn": 0.25, "frontRagged": 3 },
+  "sphere": { "ramp": [ [ 0.0, "#080604" ], [ 0.5, "#1c1710" ], [ 0.8, "#4a3f30" ], [ 1.0, "#6a5a44" ] ] },
+  "particles": [
+    {
+      "count": 170,
+      "p": { "shape": 6, "from": 0, "front": 1, "size": 0.085, "swirl": 1, "colA": "#16400f", "colB": "#3f7d1a", "gain": 1, "paint": 1, "share": 1, "seed": 2 }
+    },
+    {
+      "count": 70,
+      "p": { "shape": 6, "from": 1, "front": 1, "size": 0.05, "swirl": 1, "colA": "#1c4a12", "colB": "#58902a", "gain": 1, "paint": 1, "share": 1, "seed": 9 }
+    },
+    {
+      "count": 30,
+      "p": { "shape": 7, "from": 0, "front": 1, "size": 0.05, "swirl": 0.5, "colA": "#f6dbe6", "colB": "#f0a81c", "gain": 1, "paint": 1, "share": 1, "seed": 4 }
+    }
+  ],
+  "motion": {
+    "in": { "each": 0.09, "time": 1.0, "ease": "out", "scale": 1.1, "reveal": [ 0, 0.8 ] },
+    "idle": {}
+  }
+}

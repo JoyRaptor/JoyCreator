@@ -10,7 +10,24 @@ uniform vec4  uWobble;   // amount em, scale, speed, 1 = this pass wobbles
 uniform vec2  uChip;     // crystal chips: how deep a chip bites (em), crystals per em
 uniform float uGrow;     // crystal growth: how far a shard stands proud of the outline (em)
 uniform vec4  uDrip;     // drips from undersides: longest (em), drips per em, thickness (em), speed
+uniform vec4  uSplash;   // drops that leap off the tops: how high (em), drops per em, drop size (em), speed
 float smax(float a, float b, float k) { float h = max(k - abs(a - b), 0.0) / k; return max(a, b) + h * h * k * 0.25; }
+
+// How far along its column (dir +1 up, -1 down) from this point the letter's edge is; -1 = none in reach.
+// It walks by the distance the field itself reports: a step that long can never pass an edge, and it
+// lands on a level edge at once. (An edge that runs nearly straight up is never reached: nothing hangs
+// from a wall.) Always the same seven looks, so every row of the picture agrees and the phone is not left
+// to guess which looks to skip.
+float edgeAlong(float x, float y, float dir, float reach) {
+    float d = texture(uSrc, vec2(x, y) / uField.xy).r;
+    if (d > 0.0) return -1.0;                                     // this point is inside the letter
+    float t = clamp(-d, 0.0, 0.25);
+    for (int k = 0; k < 6; k++) {
+        d = texture(uSrc, vec2(x, y + dir * t) / uField.xy).r;
+        t += clamp(-d, 0.0, 0.25);
+    }
+    return (d > -0.012 && t <= reach) ? t : -1.0;
+}
 
 // One column's drip: how far inside it this point is (em, negative outside; -1 = this column has none),
 // and the facts (reveal, letter, line height) of the letter it hangs from.
@@ -21,18 +38,10 @@ float dripOf(vec2 p, float colm, out vec3 facts) {
     vec4 r = hash41(colm * 7.3 + 1.0);
     if (r.y < 0.2) return -1.0;                                   // not every column drips
     float cx = (colm + 0.25 + 0.5 * r.x) / uDrip.y;
-    float reach = uDrip.x * 2.4, stepY = reach / 15.0;
-    // the letter's underside straight above, in this drip's column (found between two looks, so every
-    // row of the picture agrees where it is)
-    float y0 = p.y, d0 = texture(uSrc, vec2(cx, y0) / uField.xy).r, edgeY = -1.0;
-    if (d0 > 0.0) return -1.0;
-    for (int k = 1; k <= 15; k++) {
-        float y1 = p.y + stepY * float(k);
-        float d1 = texture(uSrc, vec2(cx, y1) / uField.xy).r;
-        if (d1 > 0.0) { edgeY = y0 + (y1 - y0) * (-d0) / (d1 - d0); break; }
-        y0 = y1; d0 = d1;
-    }
-    if (edgeY < 0.0) return -1.0;
+    float reach = uDrip.x * 2.4;
+    float up = edgeAlong(cx, p.y, 1.0, reach);                    // the letter's underside straight above, in this drip's column
+    if (up < 0.0) return -1.0;
+    float edgeY = p.y + up;
     facts = texture(uSrc, vec2(cx, edgeY + 0.03) / uField.xy).gba;
     float cyc = fract(uTime * uDrip.w * (0.06 + 0.1 * r.y) + r.z);
     float len = uDrip.x * (0.3 + 0.7 * r.w), rad = uDrip.z * (0.65 + 0.5 * r.x);
@@ -45,6 +54,30 @@ float dripOf(vec2 p, float colm, out vec3 facts) {
     if (fall > 0.0) {
         vec2 c = vec2(cx, edgeY - len - (reach - len) * fall * fall);
         d = max(d, rad * (1.0 - smoothstep(0.7, 1.0, fall)) - length((p - c) * vec2(1.0, 0.72)));
+    }
+    return d;
+}
+
+// One column's leaping drop: thrown up off the top of the letter, round at the top of its path,
+// stretched where it is fast, with a smaller drop following it; it falls back and merges.
+float splashOf(vec2 p, float colm, out vec3 facts) {
+    facts = vec3(0.0);
+    vec4 r = hash41(colm * 5.9 + 11.0);
+    if (r.y < 0.3) return -1.0;
+    float cx = (colm + 0.35 + 0.3 * r.x) / uSplash.y;
+    float dn = edgeAlong(cx, p.y, -1.0, uSplash.x * 1.3 + uSplash.z);    // the letter's top edge straight below, in this drop's column
+    if (dn < 0.0) return -1.0;
+    float edgeY = p.y - dn;
+    facts = texture(uSrc, vec2(cx, edgeY - 0.03) / uField.xy).gba;
+    float t = fract(uTime * uSplash.w * (0.28 + 0.3 * r.y) + r.z);              // 0 leaves .. 1 lands
+    float top = uSplash.x * (0.35 + 0.65 * r.w);
+    float d = -1.0;
+    for (int i = 0; i < 2; i++) {
+        float ti = clamp(t - 0.13 * float(i), 0.0, 1.0);                         // the follower is a beat behind
+        float rad = uSplash.z * (0.6 + 0.55 * r.x) * (i == 0 ? 1.0 : 0.55);
+        float fast = abs(1.0 - 2.0 * ti);                                        // 1 leaving and landing, 0 at the top
+        vec2 c = vec2(cx + (r.z - 0.5) * 0.2 / uSplash.y * (2.0 * ti - 1.0), edgeY + top * 4.0 * ti * (1.0 - ti) - rad * 0.4);
+        d = max(d, rad - length((p - c) * vec2(1.0 + 0.4 * fast, 1.0 / (1.0 + 0.55 * fast))));
     }
     return d;
 }
@@ -72,12 +105,27 @@ void main() {
         vec2 p = uv * uField.xy;
         float u = p.x * uDrip.y;
         vec3 fa, fb;
-        float da = dripOf(p, floor(u), fa), db = dripOf(p, floor(u) + (fract(u) < 0.5 ? -1.0 : 1.0), fb);
+        float da = dripOf(p, floor(u), fa), db = -1.0;
+        // (the next column's drip can reach this one only if a drip is fatter than its column's margin)
+        if (uDrip.z * 1.2 + 0.03 > 0.25 / uDrip.y) db = dripOf(p, floor(u) + (fract(u) < 0.5 ? -1.0 : 1.0), fb);
         if (db > da) { da = db; fa = fb; }
         if (da > -0.9) {
             float k = uDrip.z, h = max(k - abs(c.r - da), 0.0) / k;
             if (da > c.r) c.gba = fa;
             c.r = max(c.r, da) + h * h * k * 0.25;
+        }
+    }
+    if (uWobble.w > 0.5 && uSplash.x > 0.0) {
+        // SPLASHES: drops leap from the tops and fall back; where one touches the letter the two run together
+        vec2 p = uv * uField.xy;
+        float u = p.x * uSplash.y;
+        vec3 fa, fb;
+        float da = splashOf(p, floor(u), fa), db = -1.0;
+        if (uSplash.z * 1.15 > 0.25 / uSplash.y) db = splashOf(p, floor(u) + (fract(u) < 0.5 ? -1.0 : 1.0), fb);
+        if (db > da) { da = db; fa = fb; }
+        if (da > -0.9) {
+            if (da > c.r) c.gba = fa;
+            c.r = smax(c.r, da, uSplash.z * 1.2);
         }
     }
     if (uRadius < 0.25) { o = c; return; }

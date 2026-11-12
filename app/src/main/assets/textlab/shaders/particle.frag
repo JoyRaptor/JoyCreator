@@ -4,12 +4,22 @@ in float vAge;
 in float vBright;
 in float vRand;
 in float vSeed;
+in vec2 vAux;
 out vec4 o;
 uniform vec4  uPKind;    // shape, twinkle, glint, seed
 uniform vec4  uPLife;    // seconds, size em, size at the end, stretch
 uniform vec3  uPColA;    // when born
 uniform vec3  uPColB;    // when old
 uniform vec4  uPCol;     // gain, fade-in share of life, fade-out share of life, 0 = pure light .. 1 = paint
+// A leaf's outline: u 0 at the stalk .. 1 at the tip, v across. How far inside it this point is.
+float leafIn(float u, float v) {
+    if (u < 0.0 || u > 1.0) return -1.0;
+    float w = 0.62 * sin(PI * pow(u, 0.72)) * (1.0 - 0.3 * u);       // widest a third of the way along, drawn to a point
+    return max(w, 0.04 * step(u, 0.25)) - abs(v);                     // and a short stalk
+}
+// Five petals round a middle.
+float petalsIn(vec2 q) { return 0.5 + 0.42 * abs(cos(atan(q.y, q.x) * 2.5)) - length(q); }
+
 void main() {
     float r = length(vQ);
     int kind = int(uPKind.x + 0.5);
@@ -46,6 +56,30 @@ void main() {
         core += (exp(-d2 / 0.0016) + 0.15 * exp(-d2 / 0.008)) * step(u0, u) * (1.0 - smoothstep(u0, min(u0 + 0.45, 1.0), u)) * 0.6;
         float live = step(0.35, hash11(sd * 1.7));                       // between strikes there is nothing
         m = core * live * (0.5 + 0.5 * hash11(sd * 2.9)) * smoothstep(1.0, 0.75, abs(v)) * 3.0;
+    } else if (kind == 6 || kind == 7) {
+        // a LEAF (a pointed blade, folded a little along its midrib, veins swept forward, a waxy gleam)
+        // or a BLOSSOM (five petals round a middle). Painted, not light; each throws a small shadow.
+        float fw = fwidth(vQ.y) * 1.5, body, shadowM;
+        vec2 qs = vQ - vAux;
+        vec3 tone;
+        if (kind == 6) {
+            float u = vQ.x * 0.5 + 0.5, v = vQ.y, din = leafIn(u, v);
+            body = smoothstep(0.0, fw, din);
+            float rib = exp(-abs(v) / 0.035);
+            float veins = smoothstep(0.8, 1.0, sin((u * 6.0 - abs(v) * 5.0) * TAU));
+            tone = mix(uPColA, uPColB, vRand) * (v > 0.0 ? 1.12 : 0.78) * (0.8 + 0.35 * u)
+                 * (1.0 - 0.3 * rib) * (1.0 - 0.13 * veins) * (0.72 + 0.28 * smoothstep(0.0, 0.2, din));
+            tone += vec3(0.2, 0.26, 0.12) * exp(-sq((v - 0.22) / 0.12) - sq((u - 0.42) / 0.2)) * luma(uPColB) * 2.0;
+            shadowM = smoothstep(0.0, fw * 4.0, leafIn(qs.x * 0.5 + 0.5, qs.y));
+        } else {
+            float din = petalsIn(vQ), rr = length(vQ);
+            body = smoothstep(0.0, fw, din);
+            tone = mix(uPColA * (0.72 + 0.38 * smoothstep(0.1, 0.8, rr)) * (0.88 + 0.12 * cos(atan(vQ.y, vQ.x) * 5.0)), uPColB, smoothstep(0.2, 0.13, rr));
+            shadowM = smoothstep(0.0, fw * 4.0, petalsIn(qs));
+        }
+        float k6 = body * vBright;
+        o = vec4(tone * uPCol.x * k6, k6 + shadowM * 0.42 * vBright * (1.0 - body));
+        return;
     } else if (kind == 4) {
         // out of focus: a flat disc with a slightly brighter rim; the bigger, the fainter
         m = smoothstep(1.0, 0.86, r) * (0.55 + 0.45 * smoothstep(0.55, 0.95, r)) * (0.25 + 0.75 * (1.0 - vRand));

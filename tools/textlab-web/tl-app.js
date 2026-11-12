@@ -32,7 +32,7 @@
     return { shaders, parts, looks, tubefont, fontUrl: (file) => '../../' + file };
   }
 
-  const SLOT_NEEDS = { Tube: 'TUBE', Glass: 'REFRACT', Surface: 'DETAIL', Pattern: 'PATTERN', Ember: 'EMBER', Hologram: 'HOLO', Stone: 'STONE', Fur: 'FUR', Lamps: 'CELLS', Lightning: 'ARCS', Paper: 'PAPER', Burn: 'BURN' };
+  const SLOT_NEEDS = { Tube: 'TUBE', Glass: 'REFRACT', Surface: 'DETAIL', Pattern: 'PATTERN', Ember: 'EMBER', Hologram: 'HOLO', Stone: 'STONE', Fur: 'FUR', Lamps: 'CELLS', Lightning: 'ARCS', Paper: 'PAPER', Burn: 'BURN', Vine: 'VINE', Stitch: 'STITCH', Balloon: 'BALLOON', Sand: 'SAND', Bits: 'BITS', Ink: 'INK', Front: 'FRONT' };
   // which groups of sliders are open: remembered on this device, so a person leaves open only what they use
   let openSlots = new Set(['Shape', 'Finish']);
   try { const saved = JSON.parse(localStorage.getItem('tl-open') || 'null'); if (saved) openSlots = new Set(saved); } catch (e) { /* no storage here */ }
@@ -72,6 +72,8 @@
       engine.stage = q.has('stage') ? Number(q.get('stage')) : (l.stage === undefined ? 1 : l.stage);
       $('stage').value = String(engine.stage);
       for (const b of $('looks').querySelectorAll('button')) b.classList.toggle('on', b.dataset.id === l.id);
+      const row = $('looks'), chosen = row.querySelector('button.on');     // on a phone the looks are one row: keep the chosen one in sight
+      if (chosen && row.scrollWidth > row.clientWidth) { const a = chosen.getBoundingClientRect(), b = row.getBoundingClientRect(); row.scrollLeft += a.left - b.left - (b.width - a.width) / 2; }
       buildKnobs();
     }
 
@@ -242,7 +244,13 @@
       if (only.length && !only.includes(l.id)) continue;
       let ms = -1, err = null;
       try {
-        engine.setLook(l); engine.setText(l.sample || 'TEXT'); engine.stage = l.stage === undefined ? 1 : l.stage;
+        const minus = (q.get('minus') || '').split(',');                      // &minus=VINE times it without that piece
+        const lk = Object.assign({}, l, { features: (l.features || []).filter((f) => !minus.includes(f)) }, q.get('nop') ? { particles: [] } : {});
+        engine.setLook(lk); engine.setText(l.sample || 'TEXT'); engine.stage = l.stage === undefined ? 1 : l.stage;
+        for (const pair of (q.get('k') || '').split(',').filter(Boolean)) {      // &k= tries a variation; &nop=1 leaves the particles out
+          const i = pair.indexOf(':'), v = pair.slice(i + 1);
+          engine.setKnob(pair.slice(0, i), v[0] === '#' ? v : Number(v));
+        }
         let t = 0;
         for (let i = 0; i < 20; i++) engine.frame((t += 1 / 30));
         gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
@@ -255,7 +263,7 @@
       document.getElementById('stat').textContent = l.id + ' ' + ms.toFixed(1) + ' ms';
       await new Promise((r) => setTimeout(r, 50));
     }
-    const report = { kind: 'textlab-bench', when: new Date().toISOString(), gpu: engine.gpu(), agent: navigator.userAgent, rows };
+    const report = { kind: 'textlab-bench', tried: (q.get('k') || '') + (q.get('nop') ? ' no-particles' : '') + (q.get('minus') ? ' minus ' + q.get('minus') : ''), when: new Date().toISOString(), gpu: engine.gpu(), agent: navigator.userAgent, rows };
     document.getElementById('err').style.display = 'block';
     document.getElementById('err').style.background = '#10212a';
     document.getElementById('err').textContent = JSON.stringify(report, null, 1);

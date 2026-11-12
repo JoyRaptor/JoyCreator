@@ -1,0 +1,17 @@
+{
+  "format": "joy.text/1",
+  "id": "ink-bleed",
+  "name": "Ink Bleed",
+  "family": "Poster",
+  "sample": "Indigo",
+  "stage": 6,
+  "font": { "family": "pacifico", "tracking": 0.0 },
+  "margin": [ 0.8, 0.8, 0.8, 0.8 ],
+  "features": [ "INK" ],
+  "description": "Ink on wet paper: each letter is laid down, then creeps out along the paper's fibres in feathers, dries darker at its edge, and a lighter dye runs on ahead of it.",
+  "p": { "fillA": "#8a2be2", "fillB": "#3a4be0", "fillC": "#1d7fe0", "weight": -0.012, "inkBleed": 0.11, "inkFeather": 1, "inkEdge": 1, "inkGrain": 1, "inkHaloReach": 0.8, "inkBlooms": 0.6, "inkWet": 0.5, "inkPool": 0.5, "inkHalo": "#4fc4e0", "revealFade": 0, "revealFill": 0, "bloom": 0, "bloomThreshold": 3, "vignette": 0.3, "grain": 0.25, "contrast": 1.03, "saturation": 1.05, "exposure": 1.12 },
+  "motion": {
+    "in": { "each": 0.45, "time": 0.01, "reveal": [ 0, 5.0 ] },
+    "idle": {}
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "format": "joy.text/1",
+  "id": "stitched",
+  "name": "Stitched",
+  "family": "Stuff",
+  "sample": "CLUB",
+  "stage": 9,
+  "font": { "family": "archivo", "weight": 900, "width": 100, "tracking": 0.06, "caps": true },
+  "margin": [ 0.8, 0.8, 0.8, 0.8 ],
+  "features": [ "STITCH" ],
+  "description": "Embroidery: threads laid side by side straight across every stroke, turning at the corners, padded so the letters stand off the cloth, with a border sewn round them.",
+  "p": { "soften": 0.004, "bevel": 0.04, "bevelHeight": 0.035, "bevelShape": 0.5, "ao": 0.35, "metal": 0, "gloss": 0.2, "ambient": 0.4, "fillA": "#9a1220", "fillB": "#c41a2a", "fillC": "#e0303a", "stroke": 0.03, "strokeCol": "#f1e6c8", "strokeMetal": 0, "stitchCount": 55, "stitchRound": 1, "stitchLength": 0, "stitchRagged": 1, "lightX": -0.5, "lightY": 0.65, "lightZ": 0.55, "spec": 0.8, "shine": 34, "shadow": 0.6, "shadowSoft": 0.035, "shadowX": 0.008, "shadowY": -0.012, "shadowCol": "#000000", "stageTint": "#27466e", "bloom": 0, "bloomThreshold": 3, "vignette": 0.5, "grain": 0.25, "contrast": 1.05, "saturation": 1.08 },
+  "sphere": { "ramp": [ [ 0.0, "#020202" ], [ 0.4, "#0c0c0e" ], [ 0.5, "#1c1c22" ], [ 0.65, "#0c0c0e" ], [ 1.0, "#020202" ] ], "boxes": [ [ -0.42, 0.58, 0.36, 0.1, -0.3, 0.035, 6.0, "#ffffff", 0.4 ], [ 0.76, 0.1, 0.05, 0.5, 0.12, 0.03, 3.5, "#ffffff", 0.2 ] ] },
+  "motion": {
+    "in": { "each": 0.1, "time": 0.01, "reveal": [ 0, 0.8 ] },
+    "idle": {}
+  }
+}

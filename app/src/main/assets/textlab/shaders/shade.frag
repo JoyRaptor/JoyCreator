@@ -140,7 +140,30 @@ uniform vec3  uArcCol;
 uniform vec4  uPaper;        // cut paper: sheets, how much smaller each is (em), the shade each throws, paper grain
 #endif
 #ifdef BURN
-uniform vec4  uBurn;         // burning away: how much is gone 0..1, glow at the front, raggedness, 0 = hold .. >0 = it burns across by itself
+uniform float uBurnGlow;     // burning away (as the FRONT passes): how hot the burning edge glows
+#endif
+#ifdef VINE
+uniform vec4  uVine;         // a climbing vine: stems, their thickness (em), how far they stray from the outline (em), turns wound round each stroke per em
+uniform vec3  uVineCol;
+#endif
+#ifdef STITCH
+uniform vec4  uStitch;       // satin stitch: threads per em, how round each thread stands, stitch length em (0 = right across), ragged ends
+#endif
+#ifdef BALLOON
+uniform vec4  uBalloon;      // a foil balloon: crinkle strength, crinkles per em along the seam, seam width (em), how far a crinkle runs in (em)
+#endif
+#ifdef SAND
+uniform vec4  uSand;         // sand: grains per em, how far the edge crumbles (em), glassy grains that flash, loose grains lying round the foot
+#endif
+#ifdef BITS
+uniform vec4  uBits;         // made of small things: pieces per em, kind (0 sequin, 1 bead, 2 sprinkle, 3 coin), size 0..1, how unevenly they tilt
+uniform vec4  uBitsB;        // how far out of their rows, shimmer speed, colour variety, the shade each throws on the next
+uniform vec3  uBitsBase;     // what they are sewn or scattered on
+#endif
+#ifdef INK
+uniform vec4  uInk;          // ink on wet paper: how far it bleeds (em), feathering along the fibres, the dark line where it dried, granulation
+uniform vec4  uInkB;         // a lighter dye runs this much further, backruns (pale blooms), wet shine, uneven brush load
+uniform vec3  uInkHalo;      // the dye that runs furthest
 #endif
 #ifdef REFRACT
 uniform vec4  uTank;         // a vessel: how full 0..1 (0 = empty glass), how much the liquid leans with the tilt, waves, bubbles
@@ -233,13 +256,6 @@ int march(vec2 p0, vec2 lean, out vec2 q, out float z, out float cover) {
     return 0;
 }
 
-#ifdef BURN
-// how far ahead of the burning front this point still is (em-ish; below 0 = already gone)
-float burnAt(vec2 q) {
-    float gone = uBurn.x + (uBurn.w > 0.0 ? fract(uTime * uBurn.w * 0.08) * 1.6 - 0.3 : 0.0);
-    return q.x / uField.x + (tfbm(q * uBurn.z) - 0.5) * 0.45 + (tnoise(q * uBurn.z * 5.0) - 0.5) * 0.06 - gone * 1.4 + 0.2;
-}
-#endif
 vec3 fillAt(float ly) {
     float t = sat(ly);
     float m = clamp(uFillMid, 0.02, 0.98);
@@ -482,6 +498,50 @@ void main() {
         return;
     }
 #endif
+#ifdef INK
+    {
+        // INK ON WET PAPER. The letter is where the brush touched, and stays the deepest part. From its edge
+        // the ink creeps outward: far where the paper was wetter, and in fine feathers, each running straight
+        // out from the edge to its own length, as ink wicks along fibres. It thins smoothly as it goes and
+        // leaves a faint darker line where it stopped and dried. A lighter dye runs on beyond it. It takes
+        // light away from whatever is behind it (paper, or a video): thin ink is pale and clear, thick is deep.
+        vec4 fi = texture(uFieldTex, vUv);
+        float tooth = tfbm(p0 * 22.0);                                           // the paper's own hills and valleys
+        float d = fi.r + uStroke;
+        float out_ = max(-d, 0.0);                                               // how far outside the brush mark
+        float since = sat(fi.g);                                                 // how long this letter has been on the paper
+        float crept = sqrt(since);                                               // ink runs fast at first, then slows
+        vec2 g = fieldGrad(p0);
+        vec2 foot = p0 - g / max(length(g), 1e-4) * d;                           // the point of the edge this ink came from
+        float wetter = smoothstep(0.25, 0.75, tfbm(p0 * 3.2 + 3.0));
+        float ray = mix(tfbm2(foot * 9.0), tnoise(foot * 40.0 + 9.0), 0.35);     // one number per ray out of the edge
+        ray = mix(0.5, ray, smoothstep(0.45, 0.9, length(g)));                   // (where two edges' ink meets, neither ray rules)
+        float lead = mix(1.0, (0.3 + 1.3 * wetter) * (0.4 + 1.2 * ray), uInk.y);
+        float reach = clamp(uInk.x * crept * lead, 1e-4, 0.14);
+        float t = out_ / reach;                                                  // 0 at the mark .. about 1 where the ink gives out
+        float inMark = smoothstep(-0.004, 0.004, d);
+        float window = smoothstep(0.23, 0.15, out_);                             // the field knows nothing further out than this
+        float bled = 0.62 * exp(-t * t * 2.3) * window;
+        bled += uInk.z * 0.2 * exp(-sq((bled - 0.16) / 0.06)) * smoothstep(0.0, 0.3, crept) * window;     // the tide line
+        // in the mark: an uneven brush load, pigment drawn to its edge, pale backruns with a crinkled rim
+        float run = tfbm(p0 * 2.3 + 31.0);
+        float mark = (1.0 + uInkB.w * (tfbm(p0 * 1.6 + 11.0) - 0.5) * 0.8) * (0.88 + 0.2 * exp(-max(d, 0.0) / 0.012))
+                   * (1.0 - 0.4 * smoothstep(0.5, 0.62, run) * uInkB.y) + 0.14 * exp(-sq((run - 0.56) / 0.02)) * uInkB.y;
+        float body = mix(bled, mark, inMark);
+        body *= 1.0 + uInk.w * ((0.5 - tooth) * 0.45 + (tnoise(p0 * 240.0) - 0.5) * 0.08);     // pigment lies in the paper's valleys
+        // the lighter dye: thinner, further, and seen only where the ink itself has given out
+        float t2 = out_ / clamp(reach * (1.0 + uInkB.x * 1.4) + uInkB.x * 0.02 * crept, 1e-4, 0.2);
+        float halo = exp(-t2 * t2 * 2.0) * (0.5 + 0.3 * exp(-sq((t2 - 0.8) / 0.12))) * (1.0 - inMark) * window
+                   * sat(1.0 - bled * 1.5) * step(1e-4, uInkB.x);
+        float show = smoothstep(0.0, 0.06, since);
+        vec3 through = exp(-(max(body, 0.0) * (1.0 - fillAt(fi.a)) * 3.0 + halo * (1.0 - uInkHalo) * 1.5) * show);
+        vec3 paper = mix(vec3(0.86, 0.83, 0.76), texture(uBack, vUv).rgb, uHasBack);
+        float wetShine = uInkB.z * (1.0 - since) * pow(tnoise(p0 * 26.0 + vec2(uTime * 0.05, 0.0)), 5.0) * sat(body) * 0.6;
+        a = smoothstep(0.0, 0.02, 1.0 - min(through.r, min(through.g, through.b))) * uOpacity;
+        o = vec4((paper * through + wetShine) * a, a);
+        return;
+    }
+#endif
     vec2 lean = uExtrude + (vUv - uVanish) * uField.xy * uPersp + uTilt * uParallax;
     vec2 q; float z; float cover;
     int hit = march(p0, lean, q, z, cover);
@@ -511,7 +571,7 @@ void main() {
             n = normalize(vec3(n.xy - dg * uDetail.z * (1.0 - trim), n.z));
 #endif
 #ifdef STONE
-            {
+            if (uStone.x > 0.0) {
                 // chisel marks: short parallel cuts, all one way across a face and along the edge on a bevel
                 float onBevel = 1.0 - smoothstep(0.0, max(uBevel, aw), d);
                 vec2 along = normalize(mix(vec2(0.86, 0.5), vec2(-gn.y, gn.x), onBevel));
@@ -523,12 +583,52 @@ void main() {
             // brushed grain: fine streaks that tip the surface a hair, so highlights smear along it
             float grain = tnoise(vec2(q.x * 9.0, q.y * 520.0)) - 0.5;
             n = normalize(vec3(n.x, n.y + grain * 0.22 * uWear.w * (1.0 - trim * 0.6), n.z));
+#ifdef STITCH
+            // SATIN STITCH: threads laid side by side straight across each stroke, turning at a corner with
+            // a mitre. Each is a twisted strand standing round off the cloth, with its own gleam; its ends
+            // go down into the cloth a little short or long of the drawn line.
+            bool sideways = abs(gn.x) > abs(gn.y) * 0.8;                              // across an upright stroke they run left to right
+            float sAlong = sideways ? q.x : q.y;
+            float sTh = (sideways ? q.y : q.x) * uStitch.x, sId = floor(sTh), sC = fract(sTh) - 0.5;   // which thread; -0.5..0.5 across it
+            float sPly = sin((sAlong * uStitch.x * 0.85 + sC * 1.25) * TAU + hash11(sId) * TAU);       // the twist of the strand
+            float sSeg = uStitch.z > 0.0 ? fract(sAlong / uStitch.z + hash11(sId + 5.0)) : 0.5;        // a long stitch is sewn down in lengths
+            float sDip = uStitch.z > 0.0 ? exp(-sq(min(sSeg, 1.0 - sSeg) * uStitch.z / 0.006)) : 0.0;  // where the needle went through
+            n = normalize(vec3(n.xy * 0.7 + (sideways ? vec2(0.0, 1.0) : vec2(1.0, 0.0)) * sC * 2.2 * uStitch.y, n.z));
+            float stitchShade = (0.88 + 0.12 * sPly) * (0.86 + 0.28 * hash11(sId * 1.7 + 2.0)) * (1.0 - 0.75 * sC * sC * uStitch.y) * (1.0 - 0.6 * sDip);
+            float stitchCut = smoothstep(0.0, aw, d - hash11(sId * 2.3 + 1.0) * 0.011 * uStitch.w);
+#endif
+#ifdef BALLOON
+            {
+                // A FOIL BALLOON: two sheets welded along a flat seam and blown tight. The foil crinkles where
+                // it leaves the weld: sharp little ridges that run inward from the seam and die out, each to
+                // its own length. The weld itself lies flat.
+                vec2 foot = q - gn * d, tng = vec2(-gn.y, gn.x);                    // the nearest point of the seam; along the seam
+                float F = uBalloon.y, e = 0.35 / F;
+                float c1 = 1.0 - abs(2.0 * tnoise((foot + tng * e) * F) - 1.0), c2 = 1.0 - abs(2.0 * tnoise((foot - tng * e) * F) - 1.0);
+                float runIn = uBalloon.w * (0.35 + 1.3 * tnoise(foot * F * 0.37 + 9.0));
+                float fade = exp(-max(d - uBalloon.z, 0.0) / max(runIn, 1e-3));
+                float weld = 1.0 - smoothstep(uBalloon.z * 0.8, uBalloon.z * 1.25 + aw, d);
+                n = normalize(vec3(n.xy - tng * (c1 - c2) * 1.6 * uBalloon.x * fade * (1.0 - weld)
+                                   + (vec2(vnoise(q * 4.0), vnoise(q * 4.0 + 19.0)) - 0.5) * 0.1, n.z));
+                n = normalize(mix(n, vec3(0.0, 0.0, 1.0), weld * 0.92));
+            }
+#endif
 
             vec3 alb = fillAt(f.a);
 #ifdef PATTERN
             alb = mix(alb, uPatternCol, pattern(q, f.a) * uPattern.z);
 #endif
             alb *= 1.0 + uMottle * ((tfbm(q * 2.6 + 11.0) - 0.5) * 1.1 + (tnoise(q * 31.0) - 0.5) * 0.25);
+#ifdef STITCH
+            alb *= stitchShade;
+#endif
+#ifdef SAND
+            // SAND: a heap of grains. Each is its own lighter or darker speck and faces its own way.
+            vec2 sandCell = floor(q * uSand.x);
+            float sandA = hash21(sandCell), sandB = hash21(sandCell + 31.0), sandC = hash21(sandCell + 77.0);
+            alb *= 0.7 + 0.55 * sandA + (tfbm(q * 3.0 + 5.0) - 0.5) * 0.3;            // grain to grain, and damper patches
+            n = normalize(vec3(n.xy + (vec2(sandA, sandB) - 0.5) * 1.1, n.z));
+#endif
 #ifdef PAPER
             {
                 // CUT PAPER: sheets stacked one inside the next, each a step smaller. Each is cut by hand
@@ -556,22 +656,32 @@ void main() {
 #ifdef STONE
             {
                 // strata: faint bands through the whole word at one angle, so it is cut from one block; and a vein or two
-                float strata = (tnoise(vec2(dot(q, vec2(0.26, 0.97)) * 3.2 + tfbm2(q * 1.3) * 0.9, 0.5)) - 0.5) * 2.0;
-                float veinD = abs(fract(dot(q, vec2(0.93, -0.36)) * 0.9 + tfbm(q * 1.1) * 0.7) - 0.5);
-                float vein = (1.0 - smoothstep(0.0, 0.035, veinD)) * smoothstep(0.4, 0.7, tnoise(q * 0.8 + 2.0));
-                alb *= 1.0 + uStone.z * strata * 0.22;
-                alb = mix(alb, alb * 1.7 + 0.04, vein * uStone.z * 0.6);
-                // mineral grain: a fine speckle of lighter and darker crystals
-                float g1 = tnoise(q * 230.0), g2 = tnoise(q * 140.0 + 9.0);
-                alb *= 1.0 + uStone.w * ((g1 - 0.5) * 0.5 + smoothstep(0.8, 0.95, g2) * 0.6 - smoothstep(0.85, 0.97, g1) * 0.4);
-                // fresh chips: where the edge has broken, the stone is newly bared: paler and cleaner
-                float broken = (1.0 - smoothstep(0.0, max(uBevel, aw) * 1.6, d)) * smoothstep(0.45, 0.7, tfbm(q * 6.0 + 4.0));
-                alb = mix(alb, alb * 1.55 + 0.05, broken * uStone.y);
+                if (uStone.z > 0.0) {
+                    float strata = (tnoise(vec2(dot(q, vec2(0.26, 0.97)) * 3.2 + tfbm2(q * 1.3) * 0.9, 0.5)) - 0.5) * 2.0;
+                    float veinD = abs(fract(dot(q, vec2(0.93, -0.36)) * 0.9 + tfbm(q * 1.1) * 0.7) - 0.5);
+                    float vein = (1.0 - smoothstep(0.0, 0.035, veinD)) * smoothstep(0.4, 0.7, tnoise(q * 0.8 + 2.0));
+                    alb *= 1.0 + uStone.z * strata * 0.22;
+                    alb = mix(alb, alb * 1.7 + 0.04, vein * uStone.z * 0.6);
+                }
+                if (uStone.w > 0.0) {
+                    // mineral grain: a fine speckle of lighter and darker crystals
+                    float g1 = tnoise(q * 230.0), g2 = tnoise(q * 140.0 + 9.0);
+                    alb *= 1.0 + uStone.w * ((g1 - 0.5) * 0.5 + smoothstep(0.8, 0.95, g2) * 0.6 - smoothstep(0.85, 0.97, g1) * 0.4);
+                }
+                if (uStone.y > 0.0) {
+                    // fresh chips: where the edge has broken, the stone is newly bared: paler and cleaner
+                    float broken = (1.0 - smoothstep(0.0, max(uBevel, aw) * 1.6, d)) * smoothstep(0.45, 0.7, tfbm(q * 6.0 + 4.0));
+                    alb = mix(alb, alb * 1.55 + 0.05, broken * uStone.y);
+                }
                 // what settles: dust lying where a ledge faces up, moss in the deepest hollows
-                float ledge = smoothstep(0.25, 0.8, -gn.y) * (1.0 - smoothstep(0.0, max(uBevel, aw) * 2.2, d));
-                alb = mix(alb, vec3(0.62, 0.55, 0.44), ledge * uStoneB.x * (0.5 + 0.5 * tnoise(q * 40.0)));
-                float hollow = (1.0 - smoothstep(0.08, 0.3, relief)) * smoothstep(0.4, 0.65, tfbm(q * 2.0 + 13.0));
-                alb = mix(alb, vec3(0.12, 0.2, 0.07) * (0.7 + 0.6 * tnoise(q * 90.0)), hollow * uStoneB.y);
+                if (uStoneB.x > 0.0) {
+                    float ledge = smoothstep(0.25, 0.8, -gn.y) * (1.0 - smoothstep(0.0, max(uBevel, aw) * 2.2, d));
+                    alb = mix(alb, vec3(0.62, 0.55, 0.44), ledge * uStoneB.x * (0.5 + 0.5 * tnoise(q * 40.0)));
+                }
+                if (uStoneB.y > 0.0) {
+                    float hollow = (1.0 - smoothstep(0.08, 0.3, relief)) * smoothstep(0.4, 0.65, tfbm(q * 2.0 + 13.0));
+                    alb = mix(alb, vec3(0.12, 0.2, 0.07) * (0.7 + 0.6 * tnoise(q * 90.0)), hollow * uStoneB.y);
+                }
             }
 #endif
             float metal = mix(uMetal, uStrokeMetal, trim);
@@ -585,6 +695,10 @@ void main() {
             col = mix(paint, E * alb, metal);
             col *= 1.0 + grain * 0.5 * uWear.w * metal;
             col = mix(col, alb, uUnlit) + sp;
+#ifdef SAND
+            // a few grains are glass: they flash, and which ones changes as the light or the phone moves
+            col += vec3(1.0, 0.93, 0.8) * uSand.z * step(0.97, sandB) * pow(sat(sin(sandA * 50.0 + dot(uTilt, vec2(9.0, 7.0)) + uTime * 0.6)), 12.0) * 2.5;
+#endif
 
             // shade: creases, the well beside the frame, and the shadow the frame throws
             float lit = 1.0 - uAO * (1.0 - smoothstep(0.0, max(uBevel, aw), d));
@@ -596,6 +710,9 @@ void main() {
             float dirt = smoothstep(0.35, 0.8, tfbm(q * 5.0 + 3.0));
             lit *= 1.0 - uWear.z * (0.45 * dirt + 0.4 * (1.0 - smoothstep(0.0, max(uBevel, aw) * 2.0, d)));
             col *= mix(1.0, lit, 1.0 - uUnlit);
+#ifdef BALLOON
+            col *= 1.0 - 0.5 * exp(-sq((d - uBalloon.z) / (1.6 * aw))) * step(1e-4, uBalloon.z);     // the crease where the weld ends
+#endif
             float scr = smoothstep(0.80, 0.97, tnoise(rot(0.5) * q * vec2(310.0, 5.0)))
                       + smoothstep(0.84, 0.98, tnoise(rot(-0.9) * q * vec2(220.0, 7.0)));
             col += (E * 0.6 + 0.04) * scr * uWear.y * (0.3 + 0.7 * metal);
@@ -705,6 +822,13 @@ void main() {
 #else
             a = 1.0;
 #endif
+#ifdef STITCH
+            a *= stitchCut;
+#endif
+#ifdef SAND
+            // its edge is grains, not a line; and so is the front that carries it away
+            a *= step(sandC * uSand.y, d) * step((sandC - 1.0) * 0.09, frontAt(q));
+#endif
 #ifdef HOLO
             // light hanging in air: almost nothing in the body, scan lines drifting through it, a bright rim
             float scan = 0.5 + 0.5 * sin((q.y * uHolo.y - uTime * uHolo.z * 6.0) * TAU);
@@ -744,13 +868,13 @@ void main() {
         }
 #ifdef BURN
         {
-            // BURNING AWAY: a ragged front eats across the word. Ahead of it the letter chars black; the
-            // front itself is a hair of live ember; behind it there is nothing, not even a shadow.
-            float m = burnAt(q);
+            // BURNING AWAY: the FRONT eats across the word. Ahead of it the letter chars black; the front
+            // itself is a hair of live ember; behind it there is nothing, not even a shadow.
+            float m = frontAt(q);
             float left = smoothstep(0.0, 0.006, m);
             col *= mix(0.04, 1.0, smoothstep(0.015, 0.11, m));
             add += (vec3(1.0, 0.75, 0.35) * exp(-max(m, 0.0) / 0.006) * 1.6 + vec3(1.0, 0.22, 0.02) * exp(-max(m, 0.0) / 0.028) * 0.5
-                    * (0.6 + 0.4 * tnoise(q * 30.0 + uTime * 2.0))) * uBurn.y * left;
+                    * (0.6 + 0.4 * tnoise(q * 30.0 + uTime * 2.0))) * uBurnGlow * left;
             a *= left;
         }
 #endif
@@ -765,8 +889,8 @@ void main() {
     if (uShadow > 0.0) {
         float sd = fieldD(p0 - lean * uDepth - uShadowOff);
         under = smoothstep(-max(uShadowSoft, aw), 0.3 * max(uShadowSoft, aw), sd) * uShadow;
-#ifdef BURN
-        under *= smoothstep(-0.02, 0.05, burnAt(p0 - lean * uDepth - uShadowOff));
+#if defined(BURN) || defined(SAND)
+        under *= smoothstep(-0.05, 0.05, frontAt(p0 - lean * uDepth - uShadowOff));
 #endif
     }
     if (uGlow > 0.0) {
@@ -826,6 +950,151 @@ void main() {
         float flash = 0.35 + 0.65 * hash11(strike);
         add += uArcCol * arcs * uArc.x * fa.g * near * flash;
         col += uArcCol * 0.05 * uArc.x * flash * exp(-max(dd, 0.0) / 0.035) * a;      // the edge of the metal catches it
+    }
+#endif
+#ifdef SAND
+    {
+        // grains that have rolled off: a thin scatter round the foot of every edge
+        vec4 fs = texture(uFieldTex, vUv);
+        float e = -(fs.r + uStroke);
+        if (e > 0.0 && e < 0.07 && uSand.w > 0.0) {
+            vec2 gc = floor(p0 * uSand.x);
+            float gh = hash21(gc + 77.0);
+            float lying = step(1.0 - 0.45 * uSand.w * exp(-e / 0.016), gh) * fs.g * step(0.0, frontAt(p0)) * (1.0 - a);
+            col = mix(col, fillAt(fs.a) * (0.45 + 0.5 * hash21(gc)), lying);
+            a = max(a, lying);
+        }
+    }
+#endif
+#ifdef VINE
+    {
+        // A VINE climbs the letter. Woody stems follow its outline, wandering on and off the face and
+        // crossing one another; turns of it are wound round each stroke; thin tendrils curl off. All of it
+        // appears as the FRONT passes (its leaves and blossoms are particles rooted on the same outline).
+        // (Worked out only in the narrow band where a stem can be, and only once it has begun to grow.)
+        vec4 fv = texture(uFieldTex, vUv);
+        float dd = fv.r + uStroke;
+        float grown = dd > -0.09 ? smoothstep(0.03, -0.05, frontAt(p0)) * fv.g : 0.0;
+        if (grown > 0.0) {
+            float speck = 0.8 + 0.4 * tnoise(p0 * 60.0);
+            if (dd < 0.1) {
+                vec2 g0 = fieldGrad(p0);
+                float gside = dot(normalize(g0 + vec2(1e-5, 0.0)), normalize(uLight.xy + vec2(1e-4, 0.0)));
+                float thick = 0.75 + 0.5 * tnoise(p0 * 2.6);
+                for (int i = 0; i < 4; i++) {
+                    float fi = float(i), off, w;
+                    if (i < 3) {
+                        if (fi >= uVine.x) continue;
+                        off = (tnoise(p0 * (1.9 + 0.8 * fi) + fi * 23.0) - 0.5) * 2.4 * uVine.z + 0.014 * (fi - 0.7);
+                        w = uVine.y * (1.0 - 0.22 * fi) * thick;
+                    } else {
+                        if (uVine.x < 0.5 || tnoise(p0 * 1.9 + 60.0) < 0.5) continue;      // tendrils, here and there
+                        off = (tnoise(p0 * 8.0 + 40.0) - 0.5) * 0.09 - 0.01;
+                        w = uVine.y * 0.3;
+                    }
+                    float e = dd - off;
+                    float m = smoothstep(w, w - 1.5 * aw, abs(e)) * grown;
+                    float across = clamp(e / w, -1.0, 1.0);
+                    float lit = 0.5 + 0.5 * sqrt(max(1.0 - across * across, 0.0)) + 0.3 * across * gside;
+                    vec3 sc = uVineCol * (i == 3 ? vec3(0.9, 1.6, 0.7) : vec3(1.0)) * lit * speck;
+                    float shadeM = smoothstep(w * 1.9, w * 0.4, abs(e + dot(g0, vec2(-0.01, 0.012)))) * grown * 0.5;
+                    col = mix(col * (1.0 - shadeM * (1.0 - m)), sc, m);
+                    a = max(a, m);
+                }
+            }
+            if (uVine.w > 0.0) {
+                // turns wound round the stroke: seen crossing its face on a slant, then gone behind it
+                float ph = dot(p0, vec2(0.5, 0.866)) * uVine.w + (tnoise(p0 * 1.6 + 7.0) - 0.5) * 1.3;
+                float w = uVine.y * 0.85;
+                float band = (fract(ph) - 0.5) / uVine.w;                           // em from the middle of the nearest turn
+                float onLetter = smoothstep(-w, -w + 2.0 * aw, dd);                 // it stands a stem's thickness proud of the edge
+                float m = smoothstep(w, w - 1.5 * aw, abs(band)) * onLetter * grown;
+                float across = clamp(band / w, -1.0, 1.0);
+                float lit = (0.5 + 0.5 * sqrt(max(1.0 - across * across, 0.0)) + 0.25 * across) * (0.5 + 0.5 * smoothstep(-w, 0.02, dd));
+                float shadeM = smoothstep(w * 2.2, w * 0.5, abs(fract(ph + 0.016 * uVine.w) - 0.5) / uVine.w) * grown * 0.5 * onLetter;
+                col = mix(col * (1.0 - shadeM * (1.0 - m)), uVineCol * lit * speck, m);
+                a = max(a, m);
+            }
+        }
+    }
+#endif
+#ifdef BITS
+    {
+        // MADE OF SMALL THINGS: sequins, beads, sprinkles or coins, wherever the letter is. Each is its own
+        // object: its own tilt (so each catches the room at a different moment), its own shade of the
+        // colour, lying over the next like a roof tile and shading it.
+        float N = uBits.x, R = uBits.z;
+        int kind = int(uBits.y + 0.5);
+        vec2 gp = p0 * N;
+        float row0 = floor(gp.y);
+        float px = N / uField.z * 1.3;                                            // one picture pixel, in pieces
+        vec3 L3 = normalize(uLight), H3 = normalize(L3 + vec3(0.0, 0.0, 1.0));
+        vec4 acc = vec4(0.0);
+        float shadeOn = 0.0;                                                      // the shade of the pieces lying over this spot
+        float reachP = R * 1.45 + 0.71 * uBitsB.x;                                 // no piece further off than this can touch the pixel
+        bool anyNear = texture(uFieldTex, vUv).r + uStroke > -(reachP + 0.3) / N; // (and none at all, out in the open)
+        if (anyNear) for (int j = 1; j >= -1; j--) {                              // an upper row lies over the row below it
+            float row = row0 + float(j);
+            float shift = mod(row, 2.0) * 0.5;
+            float c0 = floor(gp.x - shift);
+            for (int i = -1; i <= 1; i++) {
+                vec2 id = vec2(c0 + float(i), row);
+                vec2 l0 = gp - id - vec2(0.5 + shift, 0.5);
+                if (dot(l0, l0) > reachP * reachP) continue;
+                vec2 h = hash22(id * 1.31 + 7.0);
+                vec2 ctr = (id + vec2(0.5 + shift, 0.5) + (h - 0.5) * uBitsB.x) / N;
+                vec2 l = (p0 - ctr) * N;
+                if (dot(l, l) > R * R * 2.1) continue;
+                vec4 fc = texture(uFieldTex, ctr / uField.xy);
+                if (fc.r + uStroke < -0.25 * R / N || fc.g * 1.05 < h.x) continue;  // no letter under it, or not arrived yet
+                vec2 h2 = hash22(id * 0.77 + 19.0);
+                vec2 tip = (h2 - 0.5) * 1.5 * uBits.w;
+                if (uBitsB.y > 0.0) tip += 0.3 * sin(uTime * uBitsB.y * (0.7 + 1.6 * h.x) + h.y * TAU) * vec2(cos(h2.x * TAU), sin(h2.x * TAU));
+                float len = length(l), dist;                                      // dist below 0 = inside the piece
+                vec3 nrm;
+                if (kind == 2) {
+                    mat2 turn = rot(h2.x * PI);
+                    vec2 lr = turn * l;
+                    float rad = R * 0.3;
+                    vec2 cq = vec2(lr.x - clamp(lr.x, -R * 0.7, R * 0.7), lr.y);
+                    dist = length(cq) - rad;
+                    nrm = normalize(vec3((cq / rad) * turn, sqrt(max(1.0 - dot(cq, cq) / (rad * rad), 0.0)) + 0.05));
+                } else if (kind == 1) {
+                    dist = len - R;
+                    nrm = normalize(vec3(l / R, sqrt(max(1.0 - len * len / (R * R), 0.0)) + 0.05) + vec3(tip * 0.15, 0.0));
+                } else if (kind == 3) {
+                    dist = len - R;
+                    float rr = len / R;
+                    float slope = smoothstep(0.7, 0.76, rr) * (1.0 - smoothstep(0.8, 0.84, rr)) - smoothstep(0.93, 1.0, rr)
+                                + smoothstep(0.4, 0.44, rr) * (1.0 - smoothstep(0.46, 0.5, rr)) * 0.6;
+                    nrm = normalize(vec3(tip * 0.25 - l / max(len, 1e-3) * slope * 0.8, 1.0));
+                } else {
+                    dist = len - R;
+                    nrm = normalize(vec3(tip + l / R * 0.45, 1.0));                // a sequin is a shallow cup
+                }
+                float cov = smoothstep(0.0, -px, dist);
+                vec3 base = fillAt(fc.a);
+                vec3 alb = mix(base * (1.0 + (h.y - 0.5) * 0.7 * uBitsB.z), hsv2rgb(vec3(h2.y, 0.7, 0.85)), kind == 2 ? uBitsB.z : 0.0);
+                vec2 cc = vec2(ctr.x / uField.x * 2.0 - 1.0, clamp(fc.a, -0.25, 1.25) * 2.0 - 1.0);
+                vec3 E = envAt(nrm, cc, ctr, uRough);
+                float ndl = max(dot(nrm, L3), 0.0);
+                vec3 pc = mix(alb * (uAmbient + (1.0 - uAmbient) * ndl) + E * uGloss * 0.25, E * alb, uMetal)
+                        + pow(max(dot(nrm, H3), 0.0), uShine) * uSpec;
+                if (kind == 0) {
+                    float rr = len / R;
+                    pc *= 1.0 + 0.6 * smoothstep(0.8, 0.97, rr);                    // its cut edge catches the light
+                    pc = mix(pc, vec3(0.01), smoothstep(0.17, 0.12, rr));           // the hole it is sewn through
+                }
+                pc *= 1.0 - shadeOn;
+                acc.rgb += (1.0 - acc.a) * cov * pc;
+                acc.a += (1.0 - acc.a) * cov;
+                // the shade this one throws on whatever lies under it, away from the lamp
+                shadeOn = max(shadeOn, smoothstep(R * 1.3, R * 0.8, length(l - vec2(0.1, -0.14))) * uBitsB.w * 0.65 * (1.0 - cov));
+            }
+        }
+        float oa = acc.a + (1.0 - acc.a) * a;
+        col = (acc.rgb + (1.0 - acc.a) * a * uBitsBase * (1.0 - shadeOn)) / max(oa, 1e-4);
+        a = oa;
     }
 #endif
     if (uInline > 0.0 && dot(uHover, uHover) > 0.0) {

@@ -1,0 +1,18 @@
+{
+  "format": "joy.text/1",
+  "id": "balloon",
+  "name": "Foil Balloon",
+  "family": "Stuff",
+  "sample": "PARTY",
+  "stage": 5,
+  "font": { "family": "archivo", "weight": 900, "width": 100, "tracking": 0.06, "caps": true },
+  "margin": [ 0.9, 1.0, 0.9, 1.1 ],
+  "features": [ "BALLOON" ],
+  "description": "Foil balloons: blown tight and round, mirror-bright, with a flat welded seam and the sharp little crinkles where the foil leaves it. They bob.",
+  "p": { "vignette": 0.6, "grain": 0.3, "contrast": 1.08, "soften": 0.018, "weight": 0.004, "bevel": 0.115, "bevelHeight": 0.17, "bevelShape": 0.55, "ao": 0.1, "metal": 1, "rough": 0.05, "fillA": "#c97a2a", "fillB": "#f0b04a", "fillC": "#ffd98a", "crinkle": 0.8, "crinkleCount": 34, "seam": 0.014, "crinkleReach": 0.022, "envAcross": 0.4, "envUp": 0.45, "envBevel": 0.95, "envTilt": 0.5, "spec": 0.6, "shine": 220, "lightX": -0.5, "lightY": 0.6, "lightZ": 0.6, "shadow": 0.45, "shadowSoft": 0.2, "shadowX": 0.05, "shadowY": -0.16, "floor": 0.16, "floorLine": 0.2, "floorFade": 4, "stageTint": "#c9864a", "bloom": 0.3, "bloomThreshold": 1.5, "bloomKnee": 0.6, "saturation": 1.12 },
+  "sphere": { "ramp": [ [ 0.0, "#050302" ], [ 0.36, "#2a1a10" ], [ 0.5, "#7a5a40" ], [ 0.68, "#33200f" ], [ 1.0, "#060403" ] ], "boxes": [ [ -0.42, 0.6, 0.36, 0.1, -0.3, 0.035, 7.0, "#fff4de", 0.4 ], [ 0.78, 0.08, 0.04, 0.5, 0.12, 0.025, 4.0, "#ffd9a0", 0.2 ], [ -0.15, -0.76, 0.42, 0.045, 0.05, 0.04, 2.4, "#ff6a2a", 0.3 ], [ 0.05, 0.28, 0.9, 0.2, 0.0, 0.18, 1.5, "#ffe2b0", 0.3 ] ], "uneven": 0.3, "rim": "#ffb060*0.25" },
+  "motion": {
+    "in": { "each": 0.09, "time": 0.9, "ease": "back", "y": -0.8, "scale": 0.7, "reveal": [ 0, 0.2 ] },
+    "idle": { "bob": 0.02, "sway": 0.035, "speed": 0.22, "phase": 1.3 }
+  }
+}

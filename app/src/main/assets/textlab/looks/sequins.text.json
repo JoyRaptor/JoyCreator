@@ -1,0 +1,18 @@
+{
+  "format": "joy.text/1",
+  "id": "sequins",
+  "name": "Sequins",
+  "family": "Stuff",
+  "sample": "GLITZ",
+  "stage": 5,
+  "font": { "family": "archivo", "weight": 900, "width": 100, "tracking": 0.06, "caps": true },
+  "margin": [ 0.9, 0.9, 0.9, 1.0 ],
+  "features": [ "BITS" ],
+  "description": "A word sewn from sequins: hundreds of small mirrors lying over each other like roof tiles, each tilted its own way, so the light runs through them as you move. One slider turns them into beads, sprinkles or coins.",
+  "p": { "vignette": 0.6, "grain": 0.3, "contrast": 1.08, "soften": 0.004, "bevel": 0, "bevelHeight": 0, "ao": 0, "metal": 0.55, "rough": 0.1, "ambient": 0.6, "gloss": 1, "fillA": "#b3124e", "fillB": "#e8226a", "fillC": "#ff6fa8", "bits": 19, "bitsKind": 0, "bitsSize": 0.62, "bitsTilt": 0.45, "bitsDisorder": 0.14, "bitsShimmer": 0.6, "bitsVariety": 0.5, "bitsShadow": 0.6, "bitsBase": "#14060e", "envAcross": 0.4, "envUp": 0.45, "envBevel": 1.0, "envTilt": 0.6, "spec": 0.5, "shine": 120, "lightX": -0.5, "lightY": 0.6, "lightZ": 0.6, "shadow": 0.6, "shadowSoft": 0.12, "shadowX": 0.02, "shadowY": -0.04, "floor": 0.18, "floorLine": 0.25, "floorFade": 4, "stageTint": "#c93a7a", "bloom": 0.3, "bloomThreshold": 1.7, "bloomKnee": 0.6, "streak": 0.08, "saturation": 1.15 },
+  "sphere": { "ramp": [ [ 0.0, "#0a0508" ], [ 0.36, "#3a2430" ], [ 0.5, "#8a6478" ], [ 0.68, "#3f2734" ], [ 1.0, "#0a0508" ] ], "boxes": [ [ -0.42, 0.6, 0.36, 0.1, -0.3, 0.035, 6.0, "#ffffff", 0.4 ], [ 0.78, 0.08, 0.04, 0.5, 0.12, 0.025, 4.0, "#ffd0e4", 0.2 ], [ -0.15, -0.76, 0.42, 0.045, 0.05, 0.04, 2.2, "#7a5cff", 0.3 ], [ 0.3, 0.45, 0.1, 0.1, 0.0, 0.05, 5.0, "#ffffff", 0.3 ] ], "uneven": 0.4 },
+  "motion": {
+    "in": { "each": 0.08, "time": 0.01, "reveal": [ 0, 0.9 ] },
+    "idle": {}
+  }
+}

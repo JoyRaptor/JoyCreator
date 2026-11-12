@@ -89,6 +89,25 @@ float presence(vec2 p) {
     return mix(1.0, smoothstep(0.34, 0.6, n), uPresence.x);
 }
 
+// The FRONT: a ragged line that travels across the words. Behind it something has happened (the
+// letter has burned, blown away, been overgrown). It lives here so that a look's letters and the
+// particles they throw agree exactly where it is.
+uniform vec4  uFront;       // how far it has got 0..1, moves by itself (speed; 0 = hold), raggedness, which way it travels (turns: 0 right, 0.25 up, 0.5 left)
+uniform float uFrontOnce;   // 1 = it crosses once and stays; 0 = again and again
+float frontGone() {
+    if (uFront.y <= 0.0) return uFront.x;
+    float ph = uTime * uFront.y * 0.08;
+    return uFront.x + (uFrontOnce > 0.5 ? min(ph, 1.0) : fract(ph)) * 1.6 - 0.3;
+}
+// a point's place in the queue, before the front has moved at all (about 0 .. 1.4 across the picture)
+float frontBase(vec2 q) {
+    vec2 dir = vec2(cos(uFront.w * TAU), sin(uFront.w * TAU));
+    float along = dot(q / uField.xy - 0.5, dir) + 0.5;
+    return along + (tfbm(q * uFront.z) - 0.5) * 0.45 + (tnoise(q * uFront.z * 5.0) - 0.5) * 0.06 + 0.2;
+}
+// how far ahead of the front this point still is (below 0 = the front has passed it)
+float frontAt(vec2 q) { return frontBase(q) - frontGone() * 1.4; }
+
 // Cells: x = distance to the nearest seed, y = to the next, z = the cell's own random number.
 vec3 voronoi(vec2 p) {
     vec2 i = floor(p), f = fract(p);

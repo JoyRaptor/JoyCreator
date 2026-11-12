@@ -136,6 +136,27 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
   Proposed next seven (my pick, his yes owed): vines and leaves that grow along the letter; real water with splashes;
   stitched thread / embroidery; a foil balloon; sand or powder that blows away; a letter made of many small things
   (sequins, coins, sprinkles); ink that bleeds into wet paper.
+- **Fourth wave (2026-11-11, the owner's "Yes, next seven").** Seven more pieces, the ones proposed above:
+  | Piece (new) | Where | Look that shows it | Note 9, 1280 wide |
+  |---|---|---|---|
+  | The FRONT: a ragged line that crosses the words; letters and particles share it, so a particle can be born exactly as it passes (`front` particle knob; its drift becomes the wind) | `common.glsl` `uFront` `frontAt`; `particle.vert` `uPFront`; slot Front | Ember Fade moved onto it (sparks now rise from the burning edge only) | 16.4 ms |
+  | Vines: stems along the outline, turns wound round each stroke, tendrils; leaves and blossoms are rooted particles (kinds 6 and 7) that open after the front passes, each with its own shadow | `shade.frag` `VINE`; `particle.vert/frag` | Overgrown (Carved Stone's material; grows from the ground up, once) | 35.9 ms |
+  | Splashes: drops thrown off the tops, a follower behind each, falling back and merging (true shapes, like the drips) | `soften.frag` `splashOf`, `uSplash` | Water (the draft rebuilt; out of drafts) | 39 ms |
+  | Satin stitch: threads straight across each stroke, mitred at corners, twisted, padded, ragged ends; a cloth stage (9) | `shade.frag` `STITCH`; `backdrop.frag` | Stitched | 14.9 ms |
+  | Foil balloon: flat weld seam, sharp crinkles that run in from it (along rays from the seam), slow dents | `shade.frag` `BALLOON` | Foil Balloon | 25.4 ms |
+  | Sand: every grain its own speck and tilt, glassy grains that flash with tilt, a crumbling edge, loose grains round the foot; blown off grain by grain at the front | `shade.frag` `SAND` | Dust | 19.4 ms |
+  | Made of small things: sequins, beads, sprinkles or coins (one knob), overlapping like roof tiles, each with its own tilt, colour and shade on the next | `shade.frag` `BITS` | Sequins | 32.7 ms |
+  | Ink on wet paper: bleeds outward along rays from the brush mark, tide line, lighter dye beyond, backruns; takes light from whatever is behind it (multiplies a video) | `shade.frag` `INK` | Ink Bleed (letters arrive one by one) | 7.7 ms |
+  Checked: every one looked at up close on the computer AND at several moments (vines growing, sand leaving, ink
+  spreading, splashes mid-leap); all 28 looks draw with no shader errors on the computer and none on the Note 9's GPU.
+  Battery went 28.2 to 28.8 C over about twenty-five short timing runs (it began warmer than last time). Not checked: the look book's tabs with the seven new families on a real phone screen; a long heat run; the
+  owner's verdict on any of the fourteen. Known weak spots: leaves are drawn (illustration, not photograph); sequins make
+  a coarse letter at small sizes; Water's top half reads a little like glass because it mirrors a pale sky.
+  Speed work this wave: Overgrown first timed 69 ms (its stone base, not the vine: the vine and its leaves cost about
+  5 ms); it now uses the stone without the rock relief, veins, dust or moss (all hidden under leaves) and each stone
+  feature is skipped when its slider is zero. Drips and splashes find their edge by a fixed 7-look walk (Slime 28 to
+  25 ms, Water 53 to 39). Still over the 33 ms line: Water 39, Overgrown 36 (with Diamond 46, Fizz 38, Voltage 35,
+  Carved Stone 36 from before). The look book on an upright phone now shows the looks as one row to swipe.
 - **Honest limits today:** the fire is good stylised fire, not yet the photograph the owner showed;
   water and the other drafts are below the bar; only the app's own fonts are used (Archivo, Plex,
   Ubuntu, Doto), so there is no script or true display face yet.
@@ -168,6 +189,17 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
   texture (`tnoise`, 4 to 7 times faster on the Note 9). Mixing them up shows as steps in a mirror.
 - The fire travels several pixels a tick: its feed is read along the path (`fire_step.frag`) and its heat
   picture has a fixed fineness (640 across), or flames comb into stripes and cost grows with the picture.
+- When a pattern must run ALONG an outline (crinkles from a seam, ink feathers, threads) there is no such
+  coordinate in a distance picture. Use the FOOT: `q - normal * distance` is the nearest point of the edge, and it
+  is the same for every point on one ray out of the edge; noise read there gives one value per ray. Where two
+  edges' rays meet (gradient shorter than 1) fade it out, or it shows as slits.
+- A shape change (drip, splash) must be its own pass BEFORE the rounding blur, or the blur dilutes it away.
+- **What the Note 9's driver skips (measured 11-11):** a branch whose test is a slider (uniform) alone IS skipped;
+  a per-pixel test round a block of texture looks is NOT (all the looks still run). So: guard optional work by
+  its own slider (`if (uStone.z > 0.0)` took Overgrown from 54 to 36 ms), and replace search loops that `break`
+  with a fixed, short walk (`edgeAlong` in `soften.frag` walks the field's own distance: 7 looks, was up to 19).
+- The timing page can leave things out to find a cost: `&bench=1&only=a,b`, `&k=knob:value`, `&nop=1` (no
+  particles), `&minus=VINE` (without that piece). Inside `adb shell "... -d '...'"` write `&` bare.
 - A film curve run per colour channel bleaches colour: `final.frag` scales by the brightest channel.
 - Half-float render targets are required (present on the Note 9).
 - Look files are plain JSON; the web page reads them from the app's assets, so a look seen on the

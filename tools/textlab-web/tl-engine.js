@@ -186,10 +186,10 @@
       // soften
       let field = T.field;
       const soft = this.knob('soften') * this.em, wob = this.knob('wobble');
-      if (soft > 0.25 || wob > 0 || this.knob('chip') > 0 || this.knob('grow') > 0 || this.knob('drip') > 0) {
+      if (soft > 0.25 || wob > 0 || this.knob('chip') > 0 || this.knob('grow') > 0 || (this.knob('drip') > 0 || this.knob('splash') > 0)) {
         const sp = glw.program('quad.vert', 'soften.frag').use().setAll(U).set('uRadius', soft);
         const shape = [wob, this.knob('wobbleScale'), this.knob('wobbleSpeed'), 1];
-        if (this.knob('drip') > 0 && soft > 0.25) {
+        if ((this.knob('drip') > 0 || this.knob('splash') > 0) && soft > 0.25) {
           // drips are new shape, so they go in first and the rounding then rounds them with the letter
           sp.set('uRadius', 0).set('uWobble', shape).set('uStep', [1 / W, 0]).tex('uSrc', T.field.tex, 0);
           glw.pass(T.fb);
@@ -280,7 +280,7 @@
       this.frame(1000);
       if (this.look.fire) {
         const fp = this.glw.program('quad.vert', 'fire_step.frag');
-        const field = this.knob('soften') * this.em > 0.25 || this.knob('wobble') > 0 || this.knob('chip') > 0 || this.knob('grow') > 0 || this.knob('drip') > 0 ? this.targets.fb : this.targets.field;
+        const field = this.knob('soften') * this.em > 0.25 || this.knob('wobble') > 0 || this.knob('chip') > 0 || this.knob('grow') > 0 || (this.knob('drip') > 0 || this.knob('splash') > 0) ? this.targets.fb : this.targets.field;
         // the field must be the settled one: draw the end pose first
         this.clock0 = 1000 - seconds; this.frame(1000);
         this.gl.disable(this.gl.BLEND);

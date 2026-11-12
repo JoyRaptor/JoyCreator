@@ -22,13 +22,19 @@
     "fizz.text.json",
     "voltage.text.json",
     "paper-cut.text.json",
-    "ember-fade.text.json"
+    "ember-fade.text.json",
+    "overgrown.text.json",
+    "water.text.json",
+    "stitched.text.json",
+    "balloon.text.json",
+    "dust.text.json",
+    "sequins.text.json",
+    "ink-bleed.text.json"
   ],
   "drafts": [
     "steel-plate.text.json",
     "spirit-flame.text.json",
     "magma.text.json",
-    "water.text.json",
     "ice.text.json",
     "candy.text.json",
     "toon-fire.text.json"

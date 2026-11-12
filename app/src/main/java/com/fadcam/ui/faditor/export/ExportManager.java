@@ -5305,11 +5305,15 @@ public class ExportManager {
             FLog.w(TAG, "Failed to create transition effect", e);
         }
 
+        // The piece is the outgoing clip's tail: its clip-local start is where its captions are
+        // read from now that the overlay passes run on transition pieces (E19).
         List<Effect> videoEffects = assembleClipVideoEffects(
                 clip, project, timelineCursorMs, outW, outH,
                 canvasDims, waveformSlots,
                 /* isTransitionItem = */ true,
-                /* preOverlayExtra = */ glTrans);
+                /* preOverlayExtra = */ glTrans,
+                /* isLoopBeforeItem = */ false,
+                com.fadcam.ui.faditor.model.TimeMap.clipLocalMsAt(clip, transInMs));
 
         // Audio: mirror the outgoing clip's mute/volume. Previously the transition
         // segment carried the clip's ORIGINAL audio at full volume — so a muted clip
@@ -5864,7 +5868,7 @@ public class ExportManager {
             @NonNull List<Effect> out,
             @NonNull List<CompositeExportOverlay.WaveformSlot> blendSlots,
             @NonNull Clip clip, @NonNull FaditorProject project, long timelineCursorMs,
-            int overlayW, int overlayH, long overlayOffsetMs, boolean isLoopBeforeItem) {
+            int overlayW, int overlayH, long overlayOffsetMs, long pieceClipStartMs) {
         for (CompositeExportOverlay.WaveformSlot slot : blendSlots) {
             WaveformOverlayInstance woi = slot.instance;
             CompositeExportOverlay one = new CompositeExportOverlay(
@@ -5877,7 +5881,7 @@ public class ExportManager {
                     project.getAvatarRigs(),
                     project.getTimeline().getTotalDurationMs(),
                     overlayOffsetMs,
-                    isLoopBeforeItem ? 0L : headTransitionMsFor(project.getTimeline(), clip));
+                    pieceClipStartMs);
             // Captions belong to the final pass; this one draws its visualizer and nothing else.
             one.setCaptionsViaGl(true);
             out.add(new VisualizerBlendGlEffect(one, woi.getOverlayBlendMode()));
@@ -6674,6 +6678,13 @@ public class ExportManager {
         List<Effect> videoEffects = new ArrayList<>();
         // The export clock at which this clip's own clock reads 0 (may lie before this item).
         final long clipLocalOriginMs = timelineCursorMs - clipLocalStartMs;
+        // Where this piece starts on the clip's own clock, for the clip's CAPTIONS in the
+        // overlay passes (CompositeExportOverlay's last argument): the head the transition
+        // before it played under the blend for a main piece, 0 for a loop-before piece, and the
+        // outgoing clip's tail for a transition piece (STU-5 E19), which buildTransitionItem
+        // passes in as clipLocalStartMs.
+        final long pieceClipStartMs = isTransitionItem ? clipLocalStartMs
+                : (isLoopBeforeItem ? 0L : headTransitionMsFor(project.getTimeline(), clip));
         boolean isVideo = !clip.isImageClip();
 
         // Per-clip waveform slot filter: a visualizer's audioSourceRef points to
@@ -6770,7 +6781,7 @@ public class ExportManager {
         // so there is one "we have no idea" answer rather than two.
         int overlayW = outW;
         int overlayH = outH;
-        if (!isTransitionItem && (overlayW <= 0 || overlayH <= 0)) {
+        if (overlayW <= 0 || overlayH <= 0) {
             overlayW = clip.isImageClip() ? 1080 : getSourceWidth(clip);
             overlayH = clip.isImageClip() ? 1920 : getSourceHeight(clip);
         }
@@ -6829,10 +6840,11 @@ public class ExportManager {
         // at output resolution instead of being downscaled after the fact (strictly
         // better, never different in geometry).
         //
-        // TRANSITIONS are still excluded by !isTransitionItem: the GL transition
-        // program's configure() reports its INPUT size, and the incoming leg is
-        // cropped/blended inside GlTransitionFrameOverlay against that size.
-        if (!isTransitionItem && overlayW > 0 && overlayH > 0) {
+        // TRANSITIONS TOO, since 2026-11-12 (E19). This runs AFTER the transition effect
+        // (preOverlayExtra, added above), so the GL transition program still sees its INPUT
+        // size and blends the incoming leg against it; only the finished blend is scaled to the
+        // canvas, which the overlay passes below need to place titles and pictures at 1:1.
+        if (overlayW > 0 && overlayH > 0) {
             videoEffects.add(Presentation.createForWidthAndHeight(
                     overlayW, overlayH, Presentation.LAYOUT_SCALE_TO_FIT));
         }
@@ -6963,7 +6975,14 @@ public class ExportManager {
             videoEffects.add(new OpacityExportEffect(clip, clipLocalOriginMs));
         }
 
-        if (!isTransitionItem && overlayW > 0 && overlayH > 0) {
+        // TITLES, PICTURES, SPRITES, PiPs, ADJUSTMENT LAYERS AND CAPTIONS RIDE TRANSITION PIECES TOO
+        // (code review E19, 2026-11-12). This block used to be skipped for them, so every one of
+        // those vanished from the file for the length of each transition and came back after:
+        // seen on the Note 9 in a 9-minute export (a picture and a sprite gone for each
+        // crosswarp). The preview stacks its overlay layers above the transition views, so it
+        // kept them on screen; the file now does too. The clip's OWN picture effects above
+        // (FxStack, placement, opacity and fade) stay off for the blend, as before.
+        if (overlayW > 0 && overlayH > 0) {
             // The overlay is added when EITHER the project has text overlays, OR
             // this clip has captions enabled, OR this clip's URI is referenced by
             // any waveform overlay in the project (even if slot building failed
@@ -7084,7 +7103,7 @@ public class ExportManager {
                         editorTimeOffsetForChunk(project.getTimeline(), clip, timelineCursorMs)
                                 - (isLoopBeforeItem
                                         ? headTransitionMsFor(project.getTimeline(), clip) : 0L),
-                        isLoopBeforeItem ? 0L : headTransitionMsFor(project.getTimeline(), clip));
+                        pieceClipStartMs);
                 videoEffects.add(new OverlayEffect(Collections.singletonList(belowOverlay)));
             }
             // Shared with the preview and with the overlay-audio sequence, so a matte peer
@@ -7213,7 +7232,7 @@ public class ExportManager {
                             project.getTimeline().getTotalDurationMs(),
                             editorTimeOffsetForChunk(project.getTimeline(), clip, timelineCursorMs)
                                     - (isLoopBeforeItem ? headTransitionMsFor(project.getTimeline(), clip) : 0L),
-                            isLoopBeforeItem ? 0L : headTransitionMsFor(project.getTimeline(), clip));
+                            pieceClipStartMs);
                     videoEffects.add(new OverlayEffect(Collections.singletonList(belowBlendOverlay)));
                 }
             }
@@ -7331,14 +7350,14 @@ public class ExportManager {
             // before, over the pictures, so a picture covering a look in the editor was covered by
             // the look in the video. Above the PiPs and the adjustment layers, as in the preview.
             addVisualizerBlendEffects(videoEffects, clipBlendSlots, clip, project,
-                    timelineCursorMs, overlayW, overlayH, overlayOffsetMs, isLoopBeforeItem);
+                    timelineCursorMs, overlayW, overlayH, overlayOffsetMs, pieceClipStartMs);
             if (!clipWaveformSlots.isEmpty()) {
                 CompositeExportOverlay vizPass = new CompositeExportOverlay(
                         context, timelineCursorMs, clip, overlayW, overlayH,
                         Collections.emptyList(), clipWaveformSlots, Collections.emptyList(),
                         Collections.emptyList(), project.getSpriteSheets(), project.getAvatarRigs(),
                         project.getTimeline().getTotalDurationMs(), overlayOffsetMs,
-                        isLoopBeforeItem ? 0L : headTransitionMsFor(project.getTimeline(), clip));
+                        pieceClipStartMs);
                 vizPass.setCaptionsViaGl(true);   // captions belong to the final pass
                 videoEffects.add(new OverlayEffect(Collections.singletonList(vizPass)));
             }
@@ -7390,8 +7409,7 @@ public class ExportManager {
                                 Collections.emptyList(), Collections.emptyList(),
                                 project.getSpriteSheets(), project.getAvatarRigs(),
                                 project.getTimeline().getTotalDurationMs(), overlayOffsetMs,
-                                isLoopBeforeItem ? 0L
-                                        : headTransitionMsFor(project.getTimeline(), clip));
+                                pieceClipStartMs);
                         glTextDrawer.setCaptionsViaGl(true);
                         break;
                     }
@@ -7445,8 +7463,7 @@ public class ExportManager {
                                 project.getTimeline().getAudioClips(), bottomSprites,
                                 project.getSpriteSheets(), project.getAvatarRigs(),
                                 project.getTimeline().getTotalDurationMs(), overlayOffsetMs,
-                                isLoopBeforeItem ? 0L
-                                        : headTransitionMsFor(project.getTimeline(), clip));
+                                pieceClipStartMs);
                         bottom.setCaptionsViaGl(true);   // captions belong to the final pass
                         videoEffects.add(new OverlayEffect(Collections.singletonList(bottom)));
                     }
@@ -7469,8 +7486,7 @@ public class ExportManager {
                                     project.getTimeline().getAudioClips(), sprRun,
                                     project.getSpriteSheets(), project.getAvatarRigs(),
                                     project.getTimeline().getTotalDurationMs(), overlayOffsetMs,
-                                    isLoopBeforeItem ? 0L
-                                            : headTransitionMsFor(project.getTimeline(), clip));
+                                    pieceClipStartMs);
                             run.setCaptionsViaGl(true);   // captions belong to the final pass only
                             videoEffects.add(new OverlayEffect(Collections.singletonList(run)));
                             txtRun = new ArrayList<>();
@@ -7612,7 +7628,7 @@ public class ExportManager {
                         editorTimeOffsetForChunk(project.getTimeline(), clip, timelineCursorMs)
                                 - (isLoopBeforeItem
                                         ? headTransitionMsFor(project.getTimeline(), clip) : 0L),
-                        isLoopBeforeItem ? 0L : headTransitionMsFor(project.getTimeline(), clip));
+                        pieceClipStartMs);
                 // Captions leave this Canvas pass for GlCaptionEffect (same renderers, tight
                 // boxes, uploaded only when they change). The Canvas pass itself is dropped when
                 // captions were all it had to draw.
@@ -7627,7 +7643,7 @@ public class ExportManager {
                 }
                 if (captionsOnGl) videoEffects.add(new GlCaptionEffect(overlay));
             }
-        } else if (!isTransitionItem) {
+        } else {
             FLog.w(TAG, "assembleClipVideoEffects: cannot infer overlay dimensions for clip "
                     + clip.getId() + " (uri=" + clip.getSourceUri() + "); skipping overlay");
         }

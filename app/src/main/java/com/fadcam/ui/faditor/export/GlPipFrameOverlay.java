@@ -95,7 +95,8 @@ final class GlPipFrameOverlay {
         float opacity = kf == null ? 1f : Math.max(0f, Math.min(1f, kf.valueAt(KeyframeSet.OPACITY, timelineMs, 1f)));
         if (opacity <= 0.001f) return getTransparentTexture();
 
-        long sourceMs = clip.getInPointMs() + (timelineMs - start);
+        // At the clip's speed (D3): see PipFrameOverlay.getBitmap, which reads the same clock.
+        long sourceMs = com.fadcam.ui.faditor.model.PipSourceClock.sourceMsAt(clip, timelineMs);
         // Surface path — update decoder to this source time
         boolean ok = surfaceReader.updateTo(sourceMs * 1000L);
         if (!ok) {

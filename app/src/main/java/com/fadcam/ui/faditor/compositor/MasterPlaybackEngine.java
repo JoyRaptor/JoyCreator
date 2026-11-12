@@ -784,18 +784,19 @@ public class MasterPlaybackEngine {
         while (first > 0 && windows.get(first - 1).clipId.equals(clipId)) first--;
         int last = fromWindow;
         while (last < windows.size() - 1 && windows.get(last + 1).clipId.equals(clipId)) last++;
-        long clamped = Math.max(0L, visualPositionMs);
-        for (int i = first; i <= last; i++) {
-            WindowInfo w = windows.get(i);
-            if (clamped < w.visualStartMs + w.visualLenMs || i == last) {
-                long local = clamped - w.visualStartMs;
-                local = Math.max(0L, Math.min(local, w.visualLenMs));
-                return new int[]{i, (int) local};
-            }
+        // SEEK UNITS (code review D10): the position is the clip's continuous SOURCE clock, and a
+        // window's length is in timeline ms, so the two are compared through the clip's speed
+        // (WindowSeekMap). This used to compare them raw, which at any speed but normal picked
+        // the wrong loop repeat and clamped a seek in the second half of a 2x window to its middle.
+        int n = last - first + 1;
+        long[] starts = new long[n];
+        long[] lens = new long[n];
+        for (int k = 0; k < n; k++) {
+            starts[k] = windows.get(first + k).visualStartMs;
+            lens[k] = windows.get(first + k).visualLenMs;
         }
-        // Unreachable (loop always returns at i==last), but keep the compiler happy.
-        WindowInfo w = windows.get(last);
-        return new int[]{last, (int) Math.max(0L, Math.min(clamped - w.visualStartMs, w.visualLenMs))};
+        long[] r = WindowSeekMap.resolve(starts, lens, windows.get(first).speed, visualPositionMs);
+        return new int[]{first + (int) r[0], (int) Math.min(r[1], Integer.MAX_VALUE)};
     }
 
     // ── Position / transport (all single-clip-relative; CONTINUOUS/visual across loop reps) ──
@@ -837,7 +838,12 @@ public class MasterPlaybackEngine {
         if (player == null) return 0L;
         long local = Math.max(0L, player.getCurrentPosition());
         if (currentWindow < 0 || currentWindow >= windows.size()) return local;
-        return windows.get(currentWindow).visualStartMs + local;
+        // The clip's continuous SOURCE clock (see WindowSeekMap): the window's start is in timeline
+        // ms, so it is carried through the speed before the source ms into the window are added.
+        // This added the two raw, which round-tripped wrongly through seekInClip on a looped clip
+        // at any speed but normal (D10); at normal speed it is the same number as before.
+        WindowInfo w = windows.get(currentWindow);
+        return WindowSeekMap.positionOf(w.visualStartMs, w.speed, local);
     }
 
     /**

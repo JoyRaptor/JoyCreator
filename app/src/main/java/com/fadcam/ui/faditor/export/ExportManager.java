@@ -4476,7 +4476,8 @@ public class ExportManager {
                 if (transSiteEmits) {
                     // Transition item uses the first clip's source (clipped to overlap) with GL effect
                     EditedMediaItem transItem = buildTransitionItem(project, clip, transInMs, transOutMs,
-                            nextClip, trans, timelineCursorMs, outW, outH, canvasDims, waveformSlots);
+                            nextClip, trans, timelineCursorMs, outW, outH, canvasDims, waveformSlots,
+                            projectSampleRate);
                     if (transItem != null) {
                         if (frameDirective != null) {
                             frameDirective.noteItem(timelineCursorMs,
@@ -5282,34 +5283,9 @@ public class ExportManager {
             SonicAudioProcessor sonicProcessor = speedAndFit(speed, audioClockFit(
                     resolveSeekableSourceUri(clip), clipInMs, clipInMs + sourceDurationMs));
             if (sonicProcessor != null) audioProcessors.add(sonicProcessor);
-            VolumeAudioProcessor volumeProcessor = new VolumeAudioProcessor();
-            boolean volumeAdjusted = false;
-            if (clip.hasVolumeKeyframes()) {
-                @SuppressWarnings("unchecked")
-                List<Clip.VolumeKeyframe> kfs = (List<Clip.VolumeKeyframe>) clip.getVolumeKeyframes();
-                long[] times = new long[kfs.size()];
-                float[] vols = new float[kfs.size()];
-                for (int i = 0; i < kfs.size(); i++) {
-                    times[i] = kfs.get(i).timeMs;
-                    vols[i] = kfs.get(i).volume;
-                }
-                // B1.Q: multipliers need their base — see the master-sequence site.
-                volumeProcessor.setVolume(volume);
-                volumeProcessor.setVolumeEnvelope(times, vols);
-                volumeProcessor.setEnvelopeStartMs(clipLocalStartMs);
-                volumeAdjusted = true;
-            } else if (Math.abs(volume - 1.0f) >= 0.01f) {
-                volumeProcessor.setVolume(volume);
-                volumeAdjusted = true;
-            }
-            // NOTE: do NOT gate on volumeProcessor.isActive() here — BaseAudioProcessor
-            // only becomes "active" after the Transformer pipeline calls configure(),
-            // which has not happened at composition-build time. isActive() is therefore
-            // always false here, so the old gate silently dropped EVERY clip's volume
-            // (static and keyframed) from the export. Add based on whether we set work.
-            if (volumeAdjusted) {
-                audioProcessors.add(volumeProcessor);
-            }
+            // The clip's volume (curve or flat level): one helper shared with the transition
+            // piece, so the two cannot read the curve differently (code review E5).
+            addClipVolumeProcessor(audioProcessors, clip, clipLocalStartMs);
             // C1.E: real-time FX chain — same factory the preview uses, so what the
             // user hears while editing is what lands in the file. The C7 bypass flag is
             // SNAPSHOT here (once per composition build): export runs in a service, so
@@ -5334,6 +5310,45 @@ public class ExportManager {
         return editedBuilder.build();
     }
 
+    /**
+     * Adds the clip's volume to an item's audio chain: its volume CURVE read from
+     * {@code clipLocalStartMs} on the clip's own clock (non-zero for a piece that starts part-way
+     * in), or its flat level when there is no curve, or nothing at normal volume. Moved out of
+     * {@link #buildClipItem} unchanged so the transition piece (E5) can use it too.
+     */
+    private static void addClipVolumeProcessor(@NonNull List<AudioProcessor> audioProcessors,
+                                               @NonNull Clip clip, long clipLocalStartMs) {
+        float volume = clip.getVolumeLevel();
+        VolumeAudioProcessor volumeProcessor = new VolumeAudioProcessor();
+        boolean volumeAdjusted = false;
+        if (clip.hasVolumeKeyframes()) {
+            @SuppressWarnings("unchecked")
+            List<Clip.VolumeKeyframe> kfs = (List<Clip.VolumeKeyframe>) clip.getVolumeKeyframes();
+            long[] times = new long[kfs.size()];
+            float[] vols = new float[kfs.size()];
+            for (int i = 0; i < kfs.size(); i++) {
+                times[i] = kfs.get(i).timeMs;
+                vols[i] = kfs.get(i).volume;
+            }
+            // B1.Q: multipliers need their base — see the master-sequence site.
+            volumeProcessor.setVolume(volume);
+            volumeProcessor.setVolumeEnvelope(times, vols);
+            volumeProcessor.setEnvelopeStartMs(clipLocalStartMs);
+            volumeAdjusted = true;
+        } else if (Math.abs(volume - 1.0f) >= 0.01f) {
+            volumeProcessor.setVolume(volume);
+            volumeAdjusted = true;
+        }
+        // NOTE: do NOT gate on volumeProcessor.isActive() here — BaseAudioProcessor
+        // only becomes "active" after the Transformer pipeline calls configure(),
+        // which has not happened at composition-build time. isActive() is therefore
+        // always false here, so the old gate silently dropped EVERY clip's volume
+        // (static and keyframed) from the export. Add based on whether we set work.
+        if (volumeAdjusted) {
+            audioProcessors.add(volumeProcessor);
+        }
+    }
+
     @Nullable
     private EditedMediaItem buildTransitionItem(@NonNull FaditorProject project,
                                                  @NonNull Clip clip,
@@ -5343,7 +5358,8 @@ public class ExportManager {
                                                  long timelineCursorMs,
                                                  int outW, int outH,
                                                  @Nullable int[] canvasDims,
-                                                 @NonNull List<CompositeExportOverlay.WaveformSlot> waveformSlots) {
+                                                 @NonNull List<CompositeExportOverlay.WaveformSlot> waveformSlots,
+                                                 int projectSampleRate) {
         long sourceDur = transOutMs - transInMs;
         if (sourceDur <= 0) return null;
 
@@ -5418,12 +5434,18 @@ public class ExportManager {
                     audioClockFit(resolveSeekableSourceUri(clip), transInMs,
                             Math.min(transOutMs, clip.getSourceDurationMs())));
             if (sap != null) aps.add(sap);
-            float vol = clip.getVolumeLevel();
-            if (Math.abs(vol - 1.0f) >= 0.01f) {
-                VolumeAudioProcessor vp = new VolumeAudioProcessor();
-                vp.setVolume(vol);
-                aps.add(vp);
-            }
+            // THE OUTGOING CLIP'S SOUND KEEPS GOING THROUGH THE BLEND (code review E5). The editor
+            // keeps playing the outgoing clip under the transition with its volume curve and its
+            // sound effects on; this piece carried only the flat volume, so a clip that faded its
+            // sound out into a transition came back to full at the start of the blend, and its
+            // effect dropped out for the length of it. Same curve, read from where this piece
+            // starts on the clip's own clock (buildClipItem does the same), and the same effects.
+            // The clip's PICTURE fade and opacity stay off here on purpose: the editor's blend
+            // draws both clips at full strength too, and the two must agree.
+            addClipVolumeProcessor(aps, clip,
+                    com.fadcam.ui.faditor.model.TimeMap.clipLocalMsAt(clip, transInMs));
+            AudioFxChainFactory.addTo(aps, clip, fxBypassedSnapshot,
+                    clip.isVoiceFxEnabled(), projectSampleRate);
         }
 
         if (!aps.isEmpty() || !videoEffects.isEmpty()) {

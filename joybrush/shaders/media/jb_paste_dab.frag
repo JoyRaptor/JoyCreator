@@ -57,7 +57,7 @@ void main() {
         // Soft: wet paint under the blade goes along with it at half its speed (set paint stays). Its colour and its
         // thickness both, so a crossing trails what it crossed.
         if (u_bladeSoft > 0.0) {
-            vec2 up = layerPx - u_travel * (0.5 * u_slideMm * u_pxPerMm * u_layerScale);
+            vec2 up = layerPx - u_travel * (u_bladeDrag * u_slideMm * u_pxPerMm * u_layerScale);
             vec4 q0 = jb_bilinearL(u_p0, up), q1 = jb_bilinearL(u_p1, up);
             float m = u_bladeSoft * cov * min(p1.a, q1.a);
             p0 = mix(p0, q0, m); p1.rgb = mix(p1.rgb, q1.rgb, m);

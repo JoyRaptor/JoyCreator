@@ -334,7 +334,7 @@ export class MediaEngine {
       u_blade: brush.blade ? 1 : 0, u_fillDips: brush.fillDips ?? 1, u_bladeLoad: st.loadMode ? 1 : 0,
       u_bladeDir: st.bladeDir || [1, 0], u_travel: st.travel || [1, 0], u_bladeLen: st.bladeLen ?? brush.bladeLenMm ?? 1,
       u_bladeHalfW: st.bladeHalf ?? brush.bladeHalfMm ?? 1, u_bladeH0: st.bladeH0 ?? 0, u_bladeTan: st.bladeTan ?? 0, u_bladeBead: brush.bead || 0,
-      u_bladePressMm: (brush.pressIn ?? 0.6) * paper.toothMm * (st.pressK ?? st.pressure * st.pressure), u_bladeFilm: brush.film ?? 0.004, u_bladeSoft: brush.blade ? (brush.soft ?? 0) : 0, u_hairVary: (brush.blade || brush.trowel) ? 0 : (brush.vary ?? 0), u_bladeLay: st.lay ?? 1, u_bladeLump: brush.blade ? (brush.rollLump ?? 0) : 0,
+      u_bladePressMm: (brush.pressIn ?? 0.6) * paper.toothMm * (st.pressK ?? st.pressure * st.pressure), u_bladeFilm: brush.film ?? 0.004, u_bladeSoft: brush.blade ? (brush.soft ?? 0) : 0, u_hairVary: (brush.blade || brush.trowel) ? 0 : (brush.vary ?? 0), u_bladeLay: st.lay ?? 1, u_bladeDrag: st.drag ?? 0.5, u_bladeLump: brush.blade ? (brush.rollLump ?? 0) : 0,
       u_hairDepth: brush.hairDepth, u_ridge: brush.ridge, u_rate: brush.rate, u_mix: brush.mix, u_swap: brush.swap ?? 0.6,
       u_bow: brush.bow ?? 0, u_lump: brush.lump ?? 0, u_rigid: brush.rigid ?? 0,
       u_slideMm: st.slideMm, u_cellCap: cap, u_seed: seed, u_pxPerMm: pxPerMm, u_toothMm: paper.toothMm,

@@ -74,6 +74,7 @@ uniform float u_bladeSoft;
 // always; pushed point first into the paint it lays none and only scrapes). u_bladeLump, 0..1: the roll of paint on the
 // blade is lumpy, so where a light touch catches and where it skips comes in clumps a few millimetres wide, not evenly.
 uniform float u_bladeLay;
+uniform float u_bladeDrag;       // soft blades: the share of the blade's travel the wet paint under it goes along (0.5; Knife 3: by pressure)
 uniform float u_bladeLump;
 float u_hairLen = 1.0;          // set per fragment before jb_pasteCover (how long this run of hair is)
 // Uneven pressure across a hair brush (owner, 2026-10-27; PasteBrush.force): 0 = every hair at u_pressure, as before.

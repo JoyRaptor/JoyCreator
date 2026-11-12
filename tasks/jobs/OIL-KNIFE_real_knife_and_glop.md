@@ -79,6 +79,17 @@ Research 11-11 (read by a helper agent; mechanisms, not marketing):
   matched strokes, Even against Varied, sent to the owner; unit tests pass; on `joy-creator`. Not owner-tried. The flat's
   narrowing was not filmed (the bench strokes lean along their travel).
 
+## The owner's rulings on Knife 3 after trying it (2026-11-11 night): these replace the feel table above where they differ
+- **Direction of tilt = the direction the knife points.** (As built.)
+- **How steep the tilt is = the LENGTH of blade in play.** Not which part touches: no switch from edge to face by tilt.
+- **Pressure = how hard it scrapes / scoops paint AND how far it trails other paints**: pressed hard it pushes the colours
+  under it FURTHER along.
+- **It must be able to leave close to razor-thin lines**, slightly clumpy.
+- Brainstorm, not a ruling: the pen's side button (S Pen, Wacom) held to switch between laying paint and scraping it, or to
+  load a new colour pair.
+- **Needed: a live hover preview of the brush**: a very thin outline of the most it could cover, shown while the pen
+  hovers, so he sees the angle he is about to put paint down at ("sometimes it's not quite right"). All brushes, knife first.
+
 ## What is left
 - [ ] 1. Crossings (blades first, then hair brushes): the plate gets a rounded underside across its width; the paint it
       displaces goes to its flanks and behind it, conserved; its side ramp widens with the wet thickness under it. New

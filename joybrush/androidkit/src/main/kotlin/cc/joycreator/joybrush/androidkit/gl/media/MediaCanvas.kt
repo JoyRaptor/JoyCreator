@@ -300,7 +300,10 @@ class MediaCanvas(
             // cannot make a centre (a line with no middle) makes no copies: the ordinary stroke.
             val guide = symmetry?.takeIf { it.count >= 2 }
             val centre = guide?.let { SymmetryMath.centre(it) }
-            val pin = if (centre != null) {
+            // Only the window has an edge to keep the copies inside: it is pinned on the centre and the pen kept to a safe
+            // zone. The atlas paints the whole layer, so there every copy is simply its own lane, as on the wet sheet
+            // (2026-11-11; before, pencil and oil refused symmetry in the atlas).
+            val pin = if (centre != null && w is MediaWindow) {
                 val (tx, ty) = MediaSafety.pinnedTile(centre.x, centre.y)
                 Pin(centre.x, centre.y, tx, ty, MediaSafety.safeRadius(tx, ty, centre.x, centre.y, reach))
             } else null
@@ -309,9 +312,6 @@ class MediaCanvas(
                 // every sample would fall off it. Refused in words, and NOTHING is painted.
                 android.util.Log.i("JoyBrushMedia", "symmetry refused: no safe zone (radius=${pin.radius})")
                 return MediaSafety.REFUSAL
-            }
-            if (pin != null && w !is MediaWindow) {
-                return "Symmetry is not available for pencil, watercolour and oil on this build."
             }
             // JB-2.40 slice 3: the stroke paints the plane under its first touch (an animation frame, or the shared plane).
             val plane = paint.mediaPlaneAt(layerId, x, y)

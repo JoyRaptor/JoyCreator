@@ -101,6 +101,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                val pasteSoft: Double? = null,
                /** `jb_paste_vary`: a hair brush's variance whatever the brush says (PasteBrush.vary). */
                val pasteVary: Double? = null,
+               /** `jb_symmetry`: a radial symmetry of this many copies about the middle of the view (2 = a mirror), for the whole run. */
+               val symmetry: Int? = null,
                /** Strokes kept as editable lines on or off for this run (`jb_lines`); none = as the canvas has it. */
                val lines: Boolean? = null,
                /** lineParity: the shaped redraw at the lift fails, to prove the stroke survives it (`jb_lift_fail`). */
@@ -175,6 +177,12 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         cc.joycreator.joybrush.androidkit.gl.media.WetSheet.printHoldMs = spec.sheetPrintHoldMs
         spec.sheetLong?.let { cc.joycreator.joybrush.androidkit.gl.media.WetSheet.longCells = it; Log.i(TAG, "wet sheet: $it cells along the screen") }
         spec.sheetGrain?.let { cc.joycreator.joybrush.androidkit.gl.media.WetSheet.grainPrint = it; Log.i(TAG, "wet sheet grain: $it") }
+        spec.symmetry?.let { n ->
+            val c = canvas.view.screenToDoc(canvas.width / 2f, canvas.height / 2f)
+            canvas.symmetryGuide = cc.joycreator.joybrush.core.guide.Guide.Symmetry(
+                cc.joycreator.joybrush.core.shape.Pt(c.first.toDouble(), c.second.toDouble()), cc.joycreator.joybrush.core.shape.Pt(c.first.toDouble(), c.second.toDouble() - 400.0), count = n)
+            Log.i(TAG, "symmetry: $n copies about the middle")
+        }
         spec.sheetWave?.let { cc.joycreator.joybrush.androidkit.gl.media.WetSheet.wave = it; Log.i(TAG, "wet sheet wave: $it") }
         cc.joycreator.joybrush.core.media.WaterJobBudget.forced = spec.waterBudgetK?.let { it * 1000.0 }
         spec.waterBudgetK?.let { Log.i(TAG, "water budget forced: $it k units a frame") }
@@ -778,6 +786,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 pasteForce = intent.getStringExtra("jb_paste_force")?.toDoubleOrNull()?.coerceIn(0.0, 1.0),
                 pasteSoft = intent.getStringExtra("jb_paste_soft")?.toDoubleOrNull()?.coerceIn(0.0, 1.0),
                 pasteVary = intent.getStringExtra("jb_paste_vary")?.toDoubleOrNull()?.coerceIn(0.0, 1.0),
+                symmetry = intent.getIntExtra("jb_symmetry", -1).takeIf { it in 2..16 },
                 lines = if (intent.hasExtra("jb_lines")) intent.getBooleanExtra("jb_lines", false) else null,
                 failLiftRedraw = intent.getBooleanExtra("jb_lift_fail", false),
                 sizeOverridePx = if (intent.hasExtra("jb_bench_size_px")) intent.getFloatExtra("jb_bench_size_px", Float.NaN) else null,

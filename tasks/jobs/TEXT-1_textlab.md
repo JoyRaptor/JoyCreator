@@ -305,6 +305,16 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
       the phone's tilt at that instant is the zero; the tilt is recorded as the light's keys until the thumb lifts;
       one take = one undo step; recording over a stretch again replaces its keys; the keys then edit, thin and
       cut like any. Export reads only the keys, never the sensor.
+      **The lead's answers (11-12), binding for the Studio step:** start it (after the rivets / `uPenArc` port, done
+      11-12, `1a15b7caa`). A look on a title is opaque data plus knob overrides keyed by name; unknown keys are
+      skipped, never an error (the lead keeps adding knobs, slots and pieces; existing names change only with a
+      note). Studio offers index.json `looks` and the person's own looks in Supplies, never drafts. Beside "Record
+      tilt", two no-thinking light choices, both stored as keys: **Still** (one key, set on a small pad: the look
+      book's Pinned) and **Sway** (generated keys round that point: x + 0.4 sin(1.1 t), y + 0.28 sin(0.8 t + 1) in
+      tilt units; the look book's default for video). Looks with a FRONT (Ember Fade, Dust, Overgrown) or SHATTER
+      play in from the clip's start by default (frontAuto / shatterAuto as the look sets them); a keyframe can pin
+      the progress (frontGone with frontAuto 0, or shatter with shatterAuto 0, as the look book's progress bar
+      does), so export is exact. Look values (not shapes) will still change with the owner's verdicts.
 - [x] Output for a compositor (phone-engine session, 11-12). `uOut = 1` (linear light, premultiplied) tested as
       written; and **`uOut = 2` added to `final.frag`** (the lead's file; the look book's own picture, `uOut 0`, is
       unchanged): the words alone, see-through, with the look's own film curve, colour and contrast, sRGB,

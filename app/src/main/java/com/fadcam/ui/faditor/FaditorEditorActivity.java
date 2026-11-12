@@ -12446,7 +12446,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // trimmed duration (clipping failure), the timelineMs above will have already
                 // advanced the segment; if it somehow stays past outPoint within the same
                 // segment, clamp the player position by advancing (requirement 3).
-                if (clip.getTrimmedDurationMs() > 0 && position >= clip.getTrimmedDurationMs() + 150
+                // SAME UNITS (2026-11-12): `position` is the player's place in the clip's SOURCE
+                // (ms from the in point); getTrimmedDurationMs is the TIMELINE length (source /
+                // speed). Compared directly, a clip faster than normal forced this advance half-way
+                // through, once WindowSeekMap let the position reach the source's real end (before,
+                // it was cut off at the timeline length, which hid the mismatch). Source span here.
+                long sourceSpanMs = clip.getOutPointMs() - clip.getInPointMs();
+                if (sourceSpanMs > 0 && position >= sourceSpanMs + 150
                         && !clip.hasLoopExtension()) {
                     Timeline timeline = tl;
                     int next = selectedClipIndex + 1;

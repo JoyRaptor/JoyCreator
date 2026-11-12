@@ -37,6 +37,10 @@ public class FragmentedMp4MuxerWrapper {
 
     private final FragmentedMp4Muxer muxer;
     private final FileOutputStream fileOutputStream;
+    /** Writes the pieces to the file and keeps it playable if a write fails (audit F5). */
+    private final FragmentFileWriter fileWriter;
+    /** Told once when the file can no longer be written (disk full, storage removed). */
+    private volatile Runnable writeFailureListener;
     private final Object muxerLock = new Object();
     private boolean started = false;
     private boolean released = false;
@@ -71,6 +75,7 @@ public class FragmentedMp4MuxerWrapper {
      */
     public FragmentedMp4MuxerWrapper(@NonNull String path) throws IOException {
         this.fileOutputStream = new FileOutputStream(path);
+        this.fileWriter = newFileWriter(fileOutputStream);
         
         // Create callback consumer for live streaming integration
         Consumer<ProcessedSegment> segmentConsumer = segment -> {
@@ -97,6 +102,7 @@ public class FragmentedMp4MuxerWrapper {
      */
     public FragmentedMp4MuxerWrapper(@NonNull FileDescriptor fd) throws IOException {
         this.fileOutputStream = new FileOutputStream(fd);
+        this.fileWriter = newFileWriter(fileOutputStream);
         // Verify the fd is valid immediately after wrapping it. If this logs a warning, the
         // ParcelFileDescriptor was already invalid when the new muxer was constructed, which
         // means the old PFD was closed too late (or the SAF provider returned a bad fd).
@@ -115,6 +121,25 @@ public class FragmentedMp4MuxerWrapper {
                 .setFragmentDurationMs(2000) // 2 seconds per fragment for stable streaming
                 .build();
         // FLog.d(TAG, "Created FragmentedMp4Muxer with 1s fragments and live streaming callback for file descriptor");
+    }
+
+    private FragmentFileWriter newFileWriter(FileOutputStream out) {
+        return new FragmentFileWriter(FragmentFileWriter.forStream(out), () -> {
+            FLog.e(TAG, "The recording file can no longer be written; it was cut back to its last whole piece");
+            Runnable l = writeFailureListener;
+            if (l != null) l.run();
+        });
+    }
+
+    /**
+     * Ask to be told, once, when the recording file can no longer be written (the storage is full or
+     * gone). From then on nothing more is written to the file, and what is in it is a whole,
+     * playable recording up to that point. The listener runs on the thread that was writing: it must
+     * only hand the news on.
+     */
+    public void setWriteFailureListener(Runnable listener) {
+        this.writeFailureListener = listener;
+        if (listener != null && fileWriter.hasFailed()) listener.run();
     }
 
     /**
@@ -684,8 +709,7 @@ public class FragmentedMp4MuxerWrapper {
                 
                 // Write to file only if STREAM_AND_SAVE mode
                 if (shouldSaveToDisk && fileOutputStream != null) {
-                    fileOutputStream.write(data);
-                    fileOutputStream.flush();
+                    fileWriter.write(data);
                     // FLog.d(TAG, "✅ Init segment written to file (STREAM_AND_SAVE mode)");
                 } else {
                     // FLog.d(TAG, "⏭️ Init segment NOT written to file (STREAM_ONLY mode)");
@@ -705,8 +729,7 @@ public class FragmentedMp4MuxerWrapper {
                 
                 // Write to file only if STREAM_AND_SAVE mode
                 if (shouldSaveToDisk && fileOutputStream != null) {
-                    fileOutputStream.write(data);
-                    fileOutputStream.flush();
+                    fileWriter.write(data);
                     FLog.d(TAG, "✅ Fragment #" + segment.segmentNr + " written to file (STREAM_AND_SAVE mode)");
                 } else {
                     // FLog.d(TAG, "⏭️ Fragment #" + segment.segmentNr + " NOT written to file (STREAM_ONLY mode)");

@@ -3241,6 +3241,9 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="toast_create_storage_dir_error">Error creating internal storage directory</string>
     <string name="toast_permissions_required">Permissions required for recording</string>
     <string name="toast_failed_open_file">Failed to open file for writing</string>
+    <string name="record_no_room_to_start">There is not enough room on this phone to record. Free up some space and try again.</string>
+    <string name="record_stopped_low_space">The phone is almost full, so the recording stopped. Everything recorded so far is saved.</string>
+    <string name="record_stopped_write_problem">The recording could not be saved any more, so it stopped. Everything recorded up to then is kept.</string>
     <string name="toast_cannot_write_custom_dir">Cannot write to selected custom directory</string>
     <string name="toast_failed_create_file">Failed to create file for writing</string>
     <!-- M12: spine <-> layer move (reliable button path) -->

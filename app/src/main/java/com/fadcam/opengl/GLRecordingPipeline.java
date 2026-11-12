@@ -54,6 +54,8 @@ public class GLRecordingPipeline {
     private MediaCodec videoEncoder;
     // Use FragmentedMp4MuxerWrapper for fMP4 streaming
     private FragmentedMp4MuxerWrapper mediaMuxer;
+    /** Told once when the recording file can no longer be written (work-loss audit F5). */
+    private volatile Runnable writeFailureListener;
     private Surface encoderInputSurface;
     private Surface cameraInputSurface;
     private boolean isRecording = false;
@@ -1380,6 +1382,16 @@ public class GLRecordingPipeline {
      * Uses FragmentedMp4MuxerWrapper for fMP4 streaming (Media3).
      * This is called for each segment.
      */
+    /**
+     * Ask to be told when the file being recorded can no longer be written (storage full or gone).
+     * It is carried to every muxer this pipeline makes, including the one for the next segment.
+     */
+    public void setWriteFailureListener(Runnable listener) {
+        this.writeFailureListener = listener;
+        FragmentedMp4MuxerWrapper m = mediaMuxer;
+        if (m != null) m.setWriteFailureListener(listener);
+    }
+
     private void setupMuxer() throws IOException {
         // Use FragmentedMp4MuxerWrapper for fMP4 streaming
         // Native Android MediaMuxer does NOT support fragmented MP4 output!
@@ -1390,6 +1402,7 @@ public class GLRecordingPipeline {
             mediaMuxer = new FragmentedMp4MuxerWrapper(currentOutputFilePath);
             // FLog.d(TAG, "Created FragmentedMp4Muxer with path: " + currentOutputFilePath + " (fMP4 for streaming)");
         }
+        mediaMuxer.setWriteFailureListener(writeFailureListener);
 
         // Set location metadata if available
         if (locationLatitude != null && locationLongitude != null) {

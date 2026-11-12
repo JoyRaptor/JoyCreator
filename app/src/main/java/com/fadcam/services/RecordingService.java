@@ -1775,6 +1775,7 @@ public class RecordingService extends Service {
         }
 
         isStopping = true;
+        stopStorageWatch();
         FLog.i(TAG, ">> stopRecording sequence initiated. Current state: " + recordingState);
 
         // Stop black frame rendering if active
@@ -6461,6 +6462,74 @@ public class RecordingService extends Service {
     }
 
     // Update startRecording to use new GLRecordingPipeline constructor
+    // --- Room to record (work-loss audit F5) ---
+    // Nothing used to look at free space: a recording on a nearly full phone started anyway, hit a write
+    // error in the middle and carried on into nothing. Now it is refused up front in plain words, watched
+    // while it runs and stopped in time (file finished, playable), and a write that fails anyway stops it
+    // with everything written so far kept (FragmentFileWriter).
+    private static final long AUDIO_BITS_PER_SECOND_GUESS = 192_000L;
+    private final Runnable storageWatch = new Runnable() {
+        @Override
+        public void run() {
+            if (recordingState == RecordingState.NONE || isStopping) return;
+            try {
+                if (com.fadcam.utils.RecordingRoom.mustStop(freeBytesWhereRecording())) {
+                    stopForStorage(R.string.record_stopped_low_space);
+                    return;
+                }
+            } catch (Throwable t) {
+                FLog.w(TAG, "Free space check failed; carrying on", t);
+            }
+            mainHandler.postDelayed(this, com.fadcam.utils.RecordingRoom.CHECK_EVERY_MS);
+        }
+    };
+
+    /** Free bytes on the volume of the file being recorded, or -1 when that cannot be told. */
+    private long freeBytesWhereRecording() {
+        android.os.ParcelFileDescriptor pfd = currentSegmentParcelFileDescriptor != null
+                ? currentSegmentParcelFileDescriptor : safRecordingPfd;
+        if (pfd != null) return com.fadcam.utils.StorageProbe.freeBytes(pfd.getFileDescriptor());
+        File f = currentSegmentFile;
+        return f != null ? com.fadcam.utils.StorageProbe.freeBytes(f) : -1L;
+    }
+
+    private void startStorageWatch() {
+        mainHandler.removeCallbacks(storageWatch);
+        mainHandler.postDelayed(storageWatch, com.fadcam.utils.RecordingRoom.CHECK_EVERY_MS);
+    }
+
+    private void stopStorageWatch() {
+        mainHandler.removeCallbacks(storageWatch);
+    }
+
+    /** Stop the recording because the storage is (nearly) full or cannot be written; the file is kept. */
+    private void stopForStorage(int messageRes) {
+        if (recordingState == RecordingState.NONE || isStopping) return;
+        FLog.w(TAG, "Stopping the recording: no room to go on");
+        try {
+            Toast.makeText(this, getString(messageRes), Toast.LENGTH_LONG).show();
+        } catch (Throwable ignored) {
+        }
+        stopRecording();
+    }
+
+    /**
+     * False (after telling the person, in plain words, and stepping back to "not recording") when
+     * there is clearly not enough room for about a minute of recording.
+     */
+    private boolean roomToStartOrRefuse(long freeBytes, int videoBitrate) {
+        long perSecond = com.fadcam.utils.RecordingRoom.bytesPerSecond(videoBitrate, AUDIO_BITS_PER_SECOND_GUESS);
+        if (com.fadcam.utils.RecordingRoom.enoughToStart(freeBytes, perSecond)) return true;
+        FLog.w(TAG, "Not starting: " + freeBytes + " bytes free, needs " + com.fadcam.utils.RecordingRoom.neededToStart(perSecond));
+        Toast.makeText(this, getString(R.string.record_no_room_to_start), Toast.LENGTH_LONG).show();
+        recordingState = RecordingState.NONE;
+        sharedPreferencesManager.setRecordingInProgress(false);
+        if (recordingWakeLock != null && recordingWakeLock.isHeld()) recordingWakeLock.release();
+        broadcastOnRecordingStopped();
+        stopSelf();
+        return false;
+    }
+
     private void startRecording() {
         if (recordingState != RecordingState.STARTING) {
             FLog.e(TAG, "startRecording was called but state is " + recordingState + ", expected STARTING");
@@ -6629,6 +6698,14 @@ public class RecordingService extends Service {
                     stopSelf();
                     return;
                 }
+                if (!roomToStartOrRefuse(com.fadcam.utils.StorageProbe.freeBytes(safRecordingPfd.getFileDescriptor()),
+                        videoBitrate)) {
+                    // The empty file made a moment ago for this recording is removed; nothing else is touched.
+                    try { safRecordingPfd.close(); } catch (Exception ignored) { }
+                    safRecordingPfd = null;
+                    try { videoFile.delete(); } catch (Exception ignored) { }
+                    return;
+                }
                 // Get location data for metadata embedding
                 Float latitude = null;
                 Float longitude = null;
@@ -6678,6 +6755,8 @@ public class RecordingService extends Service {
                     FLog.d(TAG, "💾 STREAM_AND_SAVE mode: Writing directly to file: " + outputFile.getAbsolutePath());
                 }
                 
+                if (!roomToStartOrRefuse(com.fadcam.utils.StorageProbe.freeBytes(outputFile), videoBitrate)) return;
+
                 // Track initial segment file for streaming
                 currentSegmentFile = outputFile;
                 currentSegmentPath = outputFile.getAbsolutePath();
@@ -6705,6 +6784,11 @@ public class RecordingService extends Service {
             } catch (Exception e) {
                 FLog.e(TAG, "Failed to notify RemoteStreamManager about recording start", e);
             }
+
+            // A write that fails (storage full or taken out) stops the recording, keeping what was written.
+            glRecordingPipeline.setWriteFailureListener(
+                    () -> mainHandler.post(() -> stopForStorage(R.string.record_stopped_write_problem)));
+            startStorageWatch();
 
             createCameraPreviewSession();
         } catch (Exception e) {

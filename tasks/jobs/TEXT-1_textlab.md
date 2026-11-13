@@ -240,6 +240,22 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
   Ubuntu, Doto), so there is no script or true display face yet.
 
 ## What is left
+
+**Audit, 11-12 evening (phone-engine session), checked against the code on `joy-creator`.** Everything below is
+real work, not done; the itemised history follows.
+- **The TextLab room on the phone** is the biggest gap: today's TextLab screen is a plain first screen (picture, chips,
+  words, Save). Owed: every knob in `parts.json` by its tab (37 tabs; icons proposed 11-12 for the owner's approval),
+  live tilt light with Still / Sway, the progress helper, a background picker, your own font, rename / delete / revert
+  a saved look, and a door from the lobby (today only the Library opens it).
+- **Studio's Look row:** no way to change a look's knobs for one title (the data is there: `TitleLook.knobs`); no
+  "Open in TextLab" to edit a title's look; the title's font, colour, bold etc. are ignored while it wears a look
+  (the look decides); Joybot cannot set a look yet; no help topics; the hand-tilt direction is unconfirmed; the
+  progress row and corner pin are not phone-tried; VisLab showing a looked title is not phone-tried.
+- **Previews:** PNG sheets are ~0.9 MB each (WebP would be ~1/5); Sprite Lab's own sheets do not use the moving name.
+- **Packs (PACK-1):** only title looks are read from packs; opening a pack from the Library or a share, removing,
+  signing and the shop are not built.
+- **Wider:** VisLab and JoyBrush using looks; the emitter for VisLab; hand-drawn ink as letters; abilities as
+  installable pieces (with the lead); an FX'd title never bends in export (plain titles too).
 - [ ] **Owner's verdict** on the five heroes (and which drafts he wants raised next).
 - [ ] Fonts: a short list of open-licence display faces to bundle (needs his yes to download).
 - [ ] Fire toward the photograph (finer filaments, a real fluid step if the Note 9 allows); water with splashes.

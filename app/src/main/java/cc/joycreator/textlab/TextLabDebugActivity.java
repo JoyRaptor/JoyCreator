@@ -400,7 +400,7 @@ public final class TextLabDebugActivity extends Activity {
         String error;
         int sw, sh;
         double liveStart = -1;
-        double sumMs;
+        double sumMs, sumCpu;
         int frames;
         long lastLabel;
         String note = "";
@@ -466,9 +466,11 @@ public final class TextLabDebugActivity extends Activity {
                     long a = SystemClock.elapsedRealtimeNanos();
                     // the still left the look's clock at 1000 = moment t: play on from there
                     r.frame(1000 + (now - liveStart));
+                    long cpuEnd = SystemClock.elapsedRealtimeNanos();
                     GLES30.glFinish();
                     ms = (SystemClock.elapsedRealtimeNanos() - a) / 1e6;
                     sumMs += ms;
+                    sumCpu += (cpuEnd - a) / 1e6;   // the phone's processor handing the work over, before the GPU finishes
                     frames++;
                 }
             } catch (RuntimeException e) {
@@ -480,10 +482,11 @@ public final class TextLabDebugActivity extends Activity {
             if (nowMs - lastLabel > 500) {
                 lastLabel = nowMs;
                 String s = live && frames > 0
-                        ? String.format(Locale.ROOT, "%s  %.1f ms a frame", name, sumMs / frames)
+                        ? String.format(Locale.ROOT, "%s  %.1f ms a frame (cpu %.1f)", name, sumMs / frames, sumCpu / frames)
                         : name + "  held (tap to play)";
                 if (frames > 0 && live && bench) Log.i(TAG, s + " (avg of " + frames + ")");
                 sumMs = 0;
+                sumCpu = 0;
                 frames = 0;
                 String text = note.isEmpty() ? s : s + "\n" + note;
                 runOnUiThread(() -> label.setText(text));

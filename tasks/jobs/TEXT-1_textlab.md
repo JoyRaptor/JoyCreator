@@ -280,6 +280,17 @@ TextLab lead's), packs beyond text looks and fonts (other wings' loaders; signin
 JoyBrush using looks (their leads; JoyBrush has no text tool), `strings.xml` (a whole-app job), WebP sheets (the sheet
 name rule spans Sprite Lab and the Library).
 
+**T13 in the phone app (11-13, phone session).** `TextLabRenderer` now builds the lead's passes (twin of tl-engine.js
+27fa20727): the march split into a 32-bit layer, FLAT_FACE, DETAIL_KIND 9/10, soften in small passes, the wobble worked
+out once; it falls back to the old way where 32-bit targets are refused. Pictures, Note 9, old build against new,
+1280x720 at t=3: ten of 14 looks byte-identical, Water worst 5/255, Diamond and Fizz scattered edge pixels (under 0.1%
+past 8/255). ClearCheck worst 1 on Rusted, Diamond, Water, Carved Stone, Slime, Dark Steel, Retro Pop. **Rusted stays on
+the one-pass march in the app:** with the split its see-through and screen pictures differed at edge pixels (worst 88)
+and it ran no faster. Speed in the app's check screen (GPU warmed, alternating builds at the same temperature):
+Diamond 53 -> 38 to 43 ms; Rusted 58 either way. The app's check screen times most looks at 50 to 58 ms where the look
+book on the same phone reads 20 to 31: the phone engine itself is slower than Chrome's, and finding where needs per-pass
+GPU timers (a job of its own). The app's processor work is 5 to 9 ms a frame of that.
+
 ## Ship list (2026-11-12 night): everything between today and a finished wing
 
 The owner asked: what is left before TextLab is a fully polished, fully integrated, ready-to-ship wing, with full

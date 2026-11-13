@@ -785,7 +785,10 @@ public final class TextLabRenderer {
         boolean slant = knob("persp") != 0 || knob("parallax") != 0 || knob("extrudeX") != 0 || knob("extrudeY") != 0;
         boolean ownWay = defines.contains("TUBE") || defines.contains("CELLS") || defines.contains("INK")
                 || defines.contains("FOG") || defines.contains("FLAG");
-        boolean split = slant && !ownWay && march != null;
+        // Not RUST (2026-11-13, Note 9 in the app): with the split, Rusted's see-through and screen pictures differed
+        // at edge pixels (worst 88 of 255, against 1 without) and it ran no faster; it keeps the one-pass march here
+        // until the TextLab lead has looked (the look book's own numbers are its own)
+        boolean split = slant && !ownWay && march != null && !defines.contains("RUST");
         if (split) {
             List<String> md = new ArrayList<>(defines);
             md.add("MARCH_PASS");

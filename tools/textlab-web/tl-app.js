@@ -290,6 +290,41 @@
     }
   }
 
+  // &same=1: does this GPU draw the look the same way twice, and the same with the march in one pass? (A value a
+  // GPU leaves undefined can come out different each draw; the Note 9 did that at Rusted's outline, 2026-11-13.)
+  function sameCheck(engine) {
+    const gl = engine.gl, shot = () => {
+      engine.still(3); engine.still(3);
+      const p = new Uint8Array(engine.W * engine.H * 4);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.readPixels(0, 0, engine.W, engine.H, gl.RGBA, gl.UNSIGNED_BYTE, p);
+      return p;
+    };
+    const diff = (x, y) => {
+      let max = 0, over = 0;
+      for (let i = 0; i < x.length; i++) { const d = Math.abs(x[i] - y[i]); if (d > max) max = d; if (d > 8) over++; }
+      return { max, pctOver8: +((over / x.length) * 100).toFixed(3) };
+    };
+    const was = engine.splitMarch, a = shot(), b = shot();
+    engine.splitMarch = was === false;
+    const c = shot();
+    engine.splitMarch = was;
+    const out = { again: diff(a, b), otherMarch: diff(a, c) };
+    if (q.get('samepic')) {
+      // &samepic=1 also sends the 160 x 160 patch where the two marches differ most, both ways (raw RGBA, base64)
+      const W = engine.W, H = engine.H, S = 160;
+      let best = -1, bx = 0, by = 0;
+      for (let y = 0; y + S <= H; y += 40) for (let x = 0; x + S <= W; x += 40) {
+        let n = 0;
+        for (let j = 0; j < S; j += 2) for (let i = 0; i < S; i += 2) { const k = ((y + j) * W + x + i) * 4; if (Math.abs(a[k] - c[k]) + Math.abs(a[k + 1] - c[k + 1]) > 16) n++; }
+        if (n > best) { best = n; bx = x; by = y; }
+      }
+      const patch = (p) => { const o = new Uint8Array(S * S * 4); for (let j = 0; j < S; j++) o.set(p.subarray(((by + j) * W + bx) * 4, ((by + j) * W + bx + S) * 4), j * S * 4); let str = ''; for (let i = 0; i < o.length; i++) str += String.fromCharCode(o[i]); return btoa(str); };
+      Object.assign(out, { at: [bx, by, S], thisMarch: patch(a), otherMarchPic: patch(c) });
+    }
+    return out;
+  }
+
   // Time every look on THIS device's GPU: frames drawn back to back, the GPU made to finish.
   async function bench(engine, assets) {
     const gl = engine.gl, px = new Uint8Array(4), rows = [];
@@ -299,7 +334,7 @@
     const only = (q.get('only') || '').split(',').filter(Boolean);      // &only=a,b times just those looks
     for (const l of assets.looks) {
       if (only.length && !only.includes(l.id)) continue;
-      let ms = -1, err = null;
+      let ms = -1, err = null, same = null;
       try {
         const minus = (q.get('minus') || '').split(',');                      // &minus=VINE times it without that piece
         const lk = Object.assign({}, l, { features: (l.features || []).filter((f) => !minus.includes(f)) }, q.get('nop') ? { particles: [] } : {});
@@ -316,12 +351,13 @@
         for (let i = 0; i < N; i++) engine.frame((t += 1 / 30));
         gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
         ms = (performance.now() - a) / N;
+        if (q.get('same')) same = sameCheck(engine);
       } catch (e) { err = String(e.message || e); }
-      rows.push({ look: l.id, w: engine.W, h: engine.H, ms: Math.round(ms * 100) / 100, err });
+      rows.push(Object.assign({ look: l.id, w: engine.W, h: engine.H, ms: Math.round(ms * 100) / 100, err }, same ? { same } : {}));
       document.getElementById('stat').textContent = l.id + ' ' + ms.toFixed(1) + ' ms';
       await new Promise((r) => setTimeout(r, 50));
     }
-    const report = { kind: 'textlab-bench', tried: (q.get('k') || '') + (q.get('nop') ? ' no-particles' : '') + (q.get('minus') ? ' minus ' + q.get('minus') : ''), when: new Date().toISOString(), gpu: engine.gpu(), agent: navigator.userAgent, rows };
+    const report = { kind: 'textlab-bench', tried: (q.get('k') || '') + (q.get('nop') ? ' no-particles' : '') + (q.get('same') ? ' same-check' : '') + (q.get('minus') ? ' minus ' + q.get('minus') : ''), when: new Date().toISOString(), gpu: engine.gpu(), agent: navigator.userAgent, rows };
     document.getElementById('err').style.display = 'block';
     document.getElementById('err').style.background = '#10212a';
     document.getElementById('err').textContent = JSON.stringify(report, null, 1);

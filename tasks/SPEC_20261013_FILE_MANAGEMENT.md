@@ -121,3 +121,29 @@ Everything in §4 is pushed. This is the complete open list; nothing else is hal
 ## 7. Test leftovers on the Note 9
 
 `/sdcard/Joy Creator (first test)` (pre-dedupe run) and the project "Restore video test" (a copy of ZA_CONTROL) — both safe to delete. "Restore test" is in Trash. Also from the 10-13/14 runs: `Camera 2026-10-13 23.51.mp4` and `z1.png` at the top of the folder (both "no project uses"), and the "Restore video test/" folder made by the Gather test.
+
+## 8. Joy packs in the folder (the contract; SHELL-27, written 2026-11-13 from PACK-1's code)
+
+No manager screen: a pack is a folder, and the folder is the manager. Code: `studiokit/.../joyfolder/JoyPack.java`
+(the manifest), `PackShelf.java` (the reader every room uses), `cc/joycreator/textlab/PackInstaller.java` (install).
+Format and sockets: [PACK-1](jobs/PACK-1_joypacks.md).
+
+- **Where:** `Supplies/Packs/<Pack name>/` inside the Joy Creator folder (`PackShelf.DIR`). One folder per pack,
+  unzipped, ordinary readable files.
+- **What marks a pack:** a `joypack.json` at the top of that folder (`JoyPack.MANIFEST`), format `joy.pack/1`.
+  The Library shows the folder as one Supplies item (it is filed like a plugin folder).
+- **Folder name:** the pack's `name`, made safe for a file name (`ReadableNames.sanitize`); `Pack` if that leaves
+  nothing; a free name (` 2`, ` 3` ...) if the folder exists for a different pack. The name is for people: the
+  pack's `id` is what identifies it.
+- **Installing again** (same `id`): updates that pack's folder in place, whatever the folder is called now.
+  A different `id` with the same name gets its own folder.
+- **Removing:** delete the folder (Library or a file manager). Copies the app made from it for Studio
+  (`files/packs/<pack id>/`, listed in `files/packs/shelf.json`) stay and are marked gone, so work that used a
+  pack's font or grade still opens.
+- **Your changes win:** a look changed and saved from a pack is saved as your own copy in `Supplies/Looks/`;
+  installing or updating a pack never writes there.
+- **Skipped, never deleted:** a pack whose manifest cannot be read, or that needs a newer Joy Creator (`needs`
+  above `JoyPack.LEVEL`), is left alone and not offered; an entry for a socket this version does not know is kept.
+- **Built-in packs** are not in the folder: they ship in the app (`assets/packs/*.joypack.json`) and point at files
+  the app already holds.
+- **Lobby:** the floor word "Packs" opens the Library on Supplies (11-13).

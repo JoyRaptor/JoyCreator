@@ -86,6 +86,9 @@ public class OnboardingHumanFragment extends Fragment {
             row.setClickable(false);
             row.setFocusable(false);
             row.setBackground(null);
+            // The tick box gave each line its indent; without it the words met the screen edge (Note 9, 11-13).
+            int pad = Math.round(20 * row.getResources().getDisplayMetrics().density);
+            row.setPaddingRelative(pad, row.getPaddingTop(), pad, row.getPaddingBottom());
         }
     }
 

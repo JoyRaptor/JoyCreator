@@ -1,3 +1,7 @@
+import { STICKS as SET_STICKS } from './stick.js';
+import { WET_BRUSHES as SET_WET } from './wet.js';
+import { PASTE_BRUSHES as SET_PASTE } from './paste.js';
+const SET_TOOLS = { dry: SET_STICKS, wet: SET_WET, paste: SET_PASTE };
 // tests.js — fixed stroke sheets with exact pressure and tilt, so a look can be judged as an image on the
 // PC and on the phone (adb swipes cannot vary pressure). Coordinates are doc px, y UP; angles in degrees;
 // az = the direction the barrel leans, doc space, counter-clockwise from +x.
@@ -373,6 +377,81 @@ export const SHEETS = {
       s.push(dry(stroke(PENCIL, 10, line(1000, 400, 1020, 180), { p: 0.8, tilt: 72, az: L }, 90), COL[1]));
       s.push(dry(stroke(PENCIL, 12, line(880, 240, 1140, 220), { p: 0.8, tilt: 72, az: L - 90 }, 90), COL[1]));
       s.push(stroke(PENCIL, 5, line(920, 280, 940, 180), { p: 0.8, tilt: 72, az: L }, 90));
+      return s;
+    },
+  },
+  // The curated brush set's contact sheets (brush lane, 2026-11-13; tasks/joybrush/reviews/BRUSH_SET_20261113.png is
+  // composed from these by tasks/joybrush/lead-scripts/brush_set_sheet.py, which adds the names). One cell a brush
+  // (800 x 400 doc px, two across, table order, or ?tools=a,b,c), each the same marks: an S-curve whose pressure
+  // lands, holds and lifts, and under it a line from a feather touch to full pressure. A brush that works on paint
+  // already there (clear watercolour brushes, the fan blender, the scraper) gets a ground laid first.
+  setwet: {
+    size: [1600, 3600],
+    paper: 'cold_press',
+    strokes() {
+      const q = new URLSearchParams(location.search), s = [], L = -45, cw = 800, ch = 600;
+      const names = (q.get('tools') || Object.keys(SET_TOOLS.wet).join(',')).split(',');
+      const H = Math.ceil(names.length / 2) * ch;
+      const COL = [[0.16, 0.34, 0.72], [0.78, 0.22, 0.30], [0.10, 0.48, 0.45], [0.82, 0.55, 0.14]];
+      const wet = (tool, color, st) => ({ ...st, kind: 'wet', tool, color, wetness: 3 });
+      const scurve = (x0, yT) => bez([x0 + 120, yT - 190], [x0 + 320, yT - 60], [x0 + 460, yT - 330], [x0 + 680, yT - 170]);
+      names.forEach((n, i) => {
+        const x0 = (i % 2) * cw, yT = H - Math.floor(i / 2) * ch, c = COL[i % COL.length];
+        if (SET_TOOLS.wet[n] && SET_TOOLS.wet[n].clear) {
+          s.push(wet('Wash', c, stroke('Wash', 34, line(x0 + 140, yT - 200, x0 + 660, yT - 200), { p: 0.85, tilt: 30, az: L }, 60)));
+          s.push(wet('Wash', c, stroke('Wash', 34, line(x0 + 660, yT - 320, x0 + 140, yT - 320), { p: 0.85, tilt: 30, az: L }, 60)));
+          s.push({ wait: 5 });
+          s.push(wet(n, c, stroke(n, 36, bez([x0 + 160, yT - 120], [x0 + 320, yT - 480], [x0 + 480, yT - 40], [x0 + 640, yT - 400]), { p: env(0.85, 0.4), tilt: 30, az: L }, 45)));
+          return;
+        }
+        s.push(wet(n, c, stroke(n, 38, scurve(x0, yT), { p: env(0.9, 0.15), tilt: 30, az: L }, 45)));
+        s.push(wet(n, c, stroke(n, 32, line(x0 + 120, yT - 450, x0 + 680, yT - 440), { p: ramp(0.06, 1.0), tilt: 25, az: L }, 45)));
+      });
+      s.push({ wait: Number(q.get('dryS') || 40) });
+      return s;
+    },
+  },
+  setoil: {
+    size: [1600, 2800],
+    paper: 'canvas_linen',
+    strokes() {
+      const q = new URLSearchParams(location.search), s = [], L = -60, cw = 800, ch = 400;
+      const names = (q.get('tools') || Object.keys(SET_TOOLS.paste).join(',')).split(',');
+      const H = Math.ceil(names.length / 2) * ch;
+      const COL = [[0.78, 0.16, 0.12], [0.14, 0.24, 0.60], [0.85, 0.62, 0.16], [0.12, 0.44, 0.30]], WHITE = [0.93, 0.91, 0.86];
+      const GROUND = { 'Fan blender': 1, 'Scraper': 1 };
+      const paste = (tool, color, st) => ({ ...st, kind: 'paste', tool, color });
+      const scurve = (x0, yT) => bez([x0 + 60, yT - 150], [x0 + 300, yT + 30], [x0 + 480, yT - 330], [x0 + 740, yT - 110]);
+      names.forEach((n, i) => {
+        const x0 = (i % 2) * cw, yT = H - Math.floor(i / 2) * ch, c = COL[i % COL.length];
+        if (GROUND[n]) {
+          // Two bands of wet paint, one above the other, for the brush to work across.
+          s.push(paste('Oil flat', COL[(i + 1) % 4], stroke('Oil flat', 34, line(x0 + 70, yT - 120, x0 + 730, yT - 120), { p: 0.85, tilt: 30, az: L }, 60)));
+          s.push(paste('Oil flat', COL[(i + 2) % 4], stroke('Oil flat', 34, line(x0 + 730, yT - 250, x0 + 70, yT - 250), { p: 0.85, tilt: 30, az: L }, 60)));
+          s.push(paste(n, WHITE, stroke(n, 60, zig(x0 + 110, x0 + 690, yT - 185, 110, 3), { p: 0.9, tilt: 50, az: L }, 70)));
+          return;
+        }
+        s.push(paste(n, c, stroke(n, 38, scurve(x0, yT), { p: env(0.9, 0.2), tilt: 35, az: L }, 50)));
+        s.push(paste(n, COL[(i + 2) % 4], stroke(n, 32, line(x0 + 60, yT - 330, x0 + 740, yT - 315), { p: ramp(0.08, 1.0), tilt: 30, az: L }, 50)));
+      });
+      return s;
+    },
+  },
+  setdry: {
+    size: [1600, 2000],
+    paper: 'drawing_tooth',
+    strokes() {
+      const q = new URLSearchParams(location.search), s = [], L = 200, cw = 800, ch = 400;
+      const names = (q.get('tools') || Object.keys(SET_TOOLS.dry).join(',')).split(',');
+      const H = Math.ceil(names.length / 2) * ch;
+      const INK = [[0.75, 0.15, 0.12], [0.15, 0.3, 0.7], [0.1, 0.5, 0.3], [0.55, 0.3, 0.1]];
+      names.forEach((n, i) => {
+        const x0 = (i % 2) * cw, yT = H - Math.floor(i / 2) * ch;
+        s.push(stroke(n, 38, bez([x0 + 60, yT - 120], [x0 + 300, yT + 10], [x0 + 480, yT - 250], [x0 + 740, yT - 90]), { p: env(0.9, 0.1), tilt: 8, az: L }, 90));
+        s.push(stroke(n, 32, line(x0 + 60, yT - 215, x0 + 740, yT - 200), { p: ramp(0.05, 1.0), tilt: 10, az: L }, 90));
+        s.push(stroke(n, 32, line(x0 + 80, yT - 285, x0 + 720, yT - 270), { p: env(0.6, 0.5), tilt: 76, az: L - 90 }, 90));
+        s.push({ ...stroke(n, 32, line(x0 + 80, yT - 355, x0 + 720, yT - 340), { p: env(0.7, 0.5), tilt: 76, az: L - 90 }, 90), color: INK[i % 4] });
+      });
       return s;
     },
   },

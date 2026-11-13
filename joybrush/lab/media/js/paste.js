@@ -28,6 +28,13 @@ export const PASTE_BRUSHES = {
   // An empty knife with a thin edge (owner, 2026-10-07: "the scraper is just an empty knife"): the same edge rules
   // as Palette knife 2, but it scrapes paint OFF, and pressure is how deep.
   'Scraper': { shape: 3, blade: 1, orient: 'pen', press: 'depth', edgeMinMm: 2, acrossMaxMm: 10, riseMaxMm: 0.6, bladeLenMm: 14, bladeHalfMm: 0.35, bladeHmax: 0.6, bead: 0.5, bladeCap: 3, film: 0.002, thickMm: 0, rate: 5.0, loadLenMm: 40, mix: 0, swap: 0, scrape: 0, hairDepth: 0, ridge: 0, wick: 0, bow: 0, lump: 0, rigid: 1, clean: true, soft: 1 },
+  // The curated set (brush lane, 2026-11-13): hair brushes made from the existing knobs only (app: PasteBrushes).
+  // A heavily loaded flat: thick ridged paint that stands up and covers what is under it.
+  'Impasto flat': { shape: 1, widthMm: 8, lenMm: 6, thickMm: 1.3, scrape: 0.25, hairDepth: 0.35, ridge: 0.9, rate: 3.2, mix: 0.06, swap: 0.3, loadLenMm: 220, wick: 0.003, bow: 0.7, lump: 0.45, rigid: 0, fingers: 0.6, force: 0.7, vary: 1, cover: 1 },
+  // The rounded flat: soft-cornered strokes between a round and a flat, for petals, faces and blending edges.
+  'Filbert': { shape: 0, widthMm: 7, lenMm: 5, thickMm: 0.5, scrape: 0.5, hairDepth: 0.4, ridge: 0.3, rate: 2.3, mix: 0.16, swap: 0.6, loadLenMm: 130, wick: 0.003, bow: 0.75, lump: 0.1, rigid: 0, fingers: 0.5, force: 0.5, vary: 1 },
+  // A long thin round with fluid paint: stems, whiskers, highlights and signatures over wet paint.
+  'Oil liner': { shape: 0, allround: true, tipHalfMm: 0.05, widthMm: 1.6, lenMm: 11, thickMm: 0.22, thinMm: 0.05, scrape: 0.2, hairDepth: 0.15, ridge: 0.15, rate: 2.6, mix: 0.05, swap: 0.25, loadLenMm: 320, wick: 0.003, bow: 0.2, lump: 0, rigid: 0, fingers: 0, rag: 0.2, vary: 0, cover: 0.8 },
 };
 
 // Opaque paint: the colour it covers with when thick. Strong scattering; K from the KM masstone.

@@ -79,6 +79,20 @@ object WetBrushes {
         "Dry brush" to WetBrush(3.5, 0.8, 0.05, 90.0, 0.22, 1.0, 0.3, 0.0, 0.0, 0.3),
         "Water" to WetBrush(4.0, 0.6, 0.1, 120.0, 1.0, 1.0, 0.0, 2.5, 3.0, 1.5, clear = true),
         "Thirsty" to WetBrush(3.0, 0.6, 0.05, 90.0, 0.08, 1.0, 0.0, 0.0, 0.0, 0.5, clear = true),
+        // The curated set (brush lane, 2026-11-13, the owner: "produce some other brush presets ... by fiddling with all the
+        // knobs"): made from the existing knobs only, each for one job. Twins of lab/media/js/wet.js.
+        // A thin, staining tint that lies flat and stays put: layer colour over dried work without lifting it.
+        "Glaze" to WetBrush(7.0, 2.5, 0.07, 220.0, 0.3, 0.0, 0.95, 1.0, 0.5, 0.5),
+        // A big wash whose pigment settles into the paper's dips: skies, stone, rust.
+        "Granulating wash" to WetBrush(7.5, 2.0, 0.11, 320.0, 1.0, 2.0, 0.1, 3.5, 4.0, 2.0),
+        // A soaking brush: far more water than pigment, so it floods, creeps and leaves back-runs in a damp wash.
+        "Bloom" to WetBrush(5.0, 1.0, 0.28, 400.0, 0.5, 0.6, 0.05, 5.5, 6.0, 4.0),
+        // A long thin liner that carries its load a long way: branches, rigging, grass, signatures.
+        "Rigger" to WetBrush(1.3, 0.04, 0.03, 70.0, 1.0, 0.3, 0.5, 0.4, 0.3, 0.4, allround = true),
+        // The biggest, softest brush: wets or tints a whole area in a pass, with a soft uneven edge.
+        "Mop" to WetBrush(11.0, 3.0, 0.14, 400.0, 0.7, 1.0, 0.2, 4.0, 5.0, 2.5),
+        // A small damp clear brush: touch a wet edge to feather it, or a dry one to wake it up and lose it.
+        "Edge softener" to WetBrush(2.2, 0.4, 0.045, 60.0, 0.5, 1.0, 0.0, 0.5, 0.3, 0.6, clear = true),
     )
 }
 

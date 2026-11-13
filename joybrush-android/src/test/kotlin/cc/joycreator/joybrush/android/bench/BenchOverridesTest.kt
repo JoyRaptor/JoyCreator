@@ -24,7 +24,7 @@ class BenchOverridesTest {
     }
     @Test fun aUnibrushNameFindsThatModeAndEveryOtherNameIsLeftToTheOldLookup() {
         val modes=UnibrushModes.presets()
-        assertEquals(11,modes.size)
+        assertEquals(22,modes.size)
         for (mode in modes) assertEquals(mode,BenchUnibrush.resolve("unibrush:"+mode.id.removePrefix("unibrush.")))
         assertEquals("unibrush.texture",BenchUnibrush.resolve("Unibrush:TEXTURE")!!.id)
         for (other in listOf("ink","soft","unibrush.soft","unibrush","media:wet:Round","media:dry:Proto")) assertNull(other,BenchUnibrush.resolve(other))
@@ -33,7 +33,8 @@ class BenchOverridesTest {
         for (bad in listOf("unibrush:nope","unibrush:","unibrush:soft2")) {
             try {BenchUnibrush.resolve(bad);fail("Accepted $bad")}
             catch(expected:IllegalArgumentException) {
-                for (slug in listOf("soft","hard","calligraphy","taper","fade","texture","round","chisel","living","dry","sparkle"))
+                for (slug in listOf("soft","hard","calligraphy","taper","fade","texture","round","chisel","living","dry","sparkle",
+                    "chalk","charcoal","technical","airbrush","pastel","ribbon","rainbow","foliage","stipple","dashes","hatch"))
                     assertTrue("$bad: ${expected.message}",expected.message!!.contains("unibrush:$slug"))
             }
         }

@@ -93,6 +93,19 @@ export const WET_BRUSHES = {
   'Dry brush': { bellyMm: 3.5, tipMm: 0.8, waterPerMm: 0.05, capacityMm3: 90, load: 0.22, gran: 1.0, stain: 0.3, beadMm: 0, liftMm: 0, dwellMmPerS: 0.3 },
   'Water': { bellyMm: 4.0, tipMm: 0.6, waterPerMm: 0.1, capacityMm3: 120, load: 1.0, gran: 1.0, stain: 0, clear: true, beadMm: 2.5, liftMm: 3, dwellMmPerS: 1.5 },
   'Thirsty': { bellyMm: 3.0, tipMm: 0.6, waterPerMm: 0.05, capacityMm3: 90, load: 0.08, gran: 1.0, stain: 0, clear: true, beadMm: 0, liftMm: 0, dwellMmPerS: 0.5 },
+  // The curated set (brush lane, 2026-11-13): made from the existing knobs only, each for one job (app: WetBrushes).
+  // A thin, staining tint that lies flat and stays put: layer colour over dried work without lifting it.
+  'Glaze': { bellyMm: 7, tipMm: 2.5, waterPerMm: 0.07, capacityMm3: 220, load: 0.3, gran: 0, stain: 0.95, beadMm: 1, liftMm: 0.5, dwellMmPerS: 0.5 },
+  // A big wash whose pigment settles into the paper's dips: skies, stone, rust.
+  'Granulating wash': { bellyMm: 7.5, tipMm: 2, waterPerMm: 0.11, capacityMm3: 320, load: 1, gran: 2, stain: 0.1, beadMm: 3.5, liftMm: 4, dwellMmPerS: 2 },
+  // A soaking brush: far more water than pigment, so it floods, creeps and leaves back-runs in a damp wash.
+  'Bloom': { bellyMm: 5, tipMm: 1, waterPerMm: 0.28, capacityMm3: 400, load: 0.5, gran: 0.6, stain: 0.05, beadMm: 5.5, liftMm: 6, dwellMmPerS: 4 },
+  // A long thin liner that carries its load a long way: branches, rigging, grass, signatures.
+  'Rigger': { bellyMm: 1.3, tipMm: 0.04, waterPerMm: 0.03, capacityMm3: 70, load: 1, gran: 0.3, stain: 0.5, beadMm: 0.4, liftMm: 0.3, dwellMmPerS: 0.4, allround: true },
+  // The biggest, softest brush: wets or tints a whole area in a pass, with a soft uneven edge.
+  'Mop': { bellyMm: 11, tipMm: 3, waterPerMm: 0.14, capacityMm3: 400, load: 0.7, gran: 1, stain: 0.2, beadMm: 4, liftMm: 5, dwellMmPerS: 2.5 },
+  // A small damp clear brush: touch a wet edge to feather it, or a dry one to wake it up and lose it.
+  'Edge softener': { bellyMm: 2.2, tipMm: 0.4, waterPerMm: 0.045, capacityMm3: 60, load: 0.5, gran: 1, stain: 0, beadMm: 0.5, liftMm: 0.3, dwellMmPerS: 0.6, clear: true },
 };
 
 // A paint = the colour a full-strength wash dries to on white. Transparent pigment: K from Beer–Lambert,

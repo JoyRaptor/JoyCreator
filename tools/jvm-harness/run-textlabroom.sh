@@ -22,5 +22,5 @@ AX="$(find "$HOME/.gradle/caches" -path '*/transforms/*' -name 'classes.jar' 2>/
 CP="$JSON;$ANDROID_JAR;$GSON;$ANNO;$RJAR;$AX"
 javac -nowarn -encoding UTF-8 -proc:none -d "$OUT" -cp "$CP" -implicit:class \
   -sourcepath "$OUT/anno;app/src/main/java;studiokit/src/main/java" \
-  tools/jvm-harness/TextLabRoomTest.java app/src/main/java/cc/joycreator/textlab/TlUndo.java app/src/main/java/cc/joycreator/textlab/LookFrame.java 2>&1 | grep -v "^Note:" | head -30
+  tools/jvm-harness/TextLabRoomTest.java app/src/main/java/cc/joycreator/textlab/TlUndo.java app/src/main/java/cc/joycreator/textlab/LookKnobs.java app/src/main/java/cc/joycreator/textlab/LookFrame.java 2>&1 | grep -v "^Note:" | head -30
 java -cp "$OUT;$CP" TextLabRoomTest

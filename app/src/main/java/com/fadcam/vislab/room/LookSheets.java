@@ -140,6 +140,36 @@ final class LookSheets {
      * Which sheet a Sprite layer plays: the built-in Joy record first, then every Sprite Lab sheet
      * on the phone with where it lives. {@code onPick} gets null for the built-in one.
      */
+    /**
+     * A look's own sliders over the room (TX-02): the room stays bright above the sheet so the words can be watched
+     * as they change. "As it came" in the header empties the changes (the caller makes it one undo step).
+     */
+    static void lookSliders(@NonNull Context c, @NonNull String title, @NonNull android.view.View panel,
+                            @NonNull Runnable asItCame) {
+        BottomSheetDialog d = sheet(c);
+        TextView reset = new TextView(c);
+        reset.setText("As it came");
+        reset.setTextSize(13);
+        reset.setTextColor(Studio.INK);
+        reset.setGravity(android.view.Gravity.CENTER);
+        reset.setPadding(SheetKit.dp(c, 12), 0, SheetKit.dp(c, 12), 0);
+        reset.setMinHeight(SheetKit.dp(c, 36));
+        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+        bg.setCornerRadius(SheetKit.dp(c, 18));
+        bg.setColor(0xFF1F1F26);
+        reset.setBackground(bg);
+        Ui.label(reset, "Put this look's sliders and colours back as the look came");
+        reset.setOnClickListener(v -> {
+            com.fadcam.ui.motion.Motion.press(v);
+            asItCame.run();
+        });
+        LinearLayout root = column(c, d, title, reset);
+        root.addView(panel, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, SheetKit.dp(c, 300)));
+        d.setContentView(root);
+        if (d.getWindow() != null) d.getWindow().setDimAmount(0f);
+        d.show();
+    }
+
     static void chooseSheet(@NonNull Context c, @NonNull java.util.List<SheetShelf.Entry> sheets,
                             @Nullable String currentId, @NonNull Consumer<SheetShelf.Entry> onPick) {
         BottomSheetDialog d = sheet(c);

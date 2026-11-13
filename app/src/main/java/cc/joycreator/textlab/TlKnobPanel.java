@@ -58,13 +58,20 @@ final class TlKnobPanel extends LinearLayout {
     private final Host host;
     private final LinearLayout tabs, body;
     private final HorizontalScrollView tabScroll;
+    /** False where the look's pieces are not the person's to change (a look worn outside the room): no Pieces tab. */
+    private final boolean withPieces;
     private String showing;
 
     TlKnobPanel(@NonNull Activity a, @NonNull TlParts parts, @NonNull Host host) {
+        this(a, parts, host, true);
+    }
+
+    TlKnobPanel(@NonNull Activity a, @NonNull TlParts parts, @NonNull Host host, boolean withPieces) {
         super(a);
         this.a = a;
         this.parts = parts;
         this.host = host;
+        this.withPieces = withPieces;
         setOrientation(VERTICAL);
         tabScroll = new HorizontalScrollView(a);
         tabScroll.setHorizontalScrollBarEnabled(false);
@@ -88,7 +95,7 @@ final class TlKnobPanel extends LinearLayout {
     void refresh() {
         JSONObject look = host.look();
         List<String> slots = parts.slotsFor(look);
-        if (showing == null || !(slots.contains(showing) || PIECES.equals(showing))) {
+        if (showing == null || !(slots.contains(showing) || withPieces && PIECES.equals(showing))) {
             String own = null;
             for (String s : slots) if (parts.needs(s) != null) { own = s; break; }   // the look's own special group first
             showing = own != null ? own : slots.isEmpty() ? PIECES : slots.get(0);
@@ -96,7 +103,7 @@ final class TlKnobPanel extends LinearLayout {
         Set<String> used = parts.used(look);
         tabs.removeAllViews();
         for (String s : slots) tabs.addView(tab(s, TlIcons.forTab(s), used.contains(s)));
-        tabs.addView(tab(PIECES, 0, false));
+        if (withPieces) tabs.addView(tab(PIECES, 0, false));
         showBody();
     }
 

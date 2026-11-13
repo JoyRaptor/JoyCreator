@@ -174,14 +174,20 @@ public final class TlParts {
         return out;
     }
 
-    /** The progress a look plays (burn, blow away, grow, shatter), or null: {auto knob, gone knob, label}. */
+    /**
+     * The progress a look plays (burn, blow away, grow, shatter), or null: {auto knob, gone knob, label, kind}. The
+     * label is English for Joybot and the checks; the screen shows the kind's own words ({@code broken}, {@code grown},
+     * {@code blown}, {@code burned} or {@code progress}) from {@code strings_textlab.xml}.
+     */
     @Nullable
     public static String[] progress(@NonNull JSONObject look) {
         Set<String> f = features(look);
-        if (f.contains("SHATTER")) return new String[]{"shatterAuto", "shatter", "Broken"};
+        if (f.contains("SHATTER")) return new String[]{"shatterAuto", "shatter", "Broken", "broken"};
         if (!f.contains("FRONT")) return null;
-        return new String[]{"frontAuto", "frontGone", f.contains("VINE") ? "Grown" : f.contains("SAND") ? "Blown away"
-                : f.contains("BURN") ? "Burned away" : "Progress"};
+        if (f.contains("VINE")) return new String[]{"frontAuto", "frontGone", "Grown", "grown"};
+        if (f.contains("SAND")) return new String[]{"frontAuto", "frontGone", "Blown away", "blown"};
+        if (f.contains("BURN")) return new String[]{"frontAuto", "frontGone", "Burned away", "burned"};
+        return new String[]{"frontAuto", "frontGone", "Progress", "progress"};
     }
 
     /** The progress bar's 0..1 as the gone knob's value (tl-app.js progOf.at). */

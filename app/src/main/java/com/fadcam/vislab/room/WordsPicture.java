@@ -41,8 +41,17 @@ public final class WordsPicture {
     private static final double FPS = 30;
 
     @NonNull private final Context app;
-    private final Map<String, Parsed> parsed = new HashMap<>();
+    /** The last few pictures read (a slider drag makes a new one each move: only the newest are kept). */
+    private final Map<String, Parsed> parsed = new java.util.LinkedHashMap<String, Parsed>(16, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<String, Parsed> e) {
+            return size() > 8;
+        }
+    };
+    // By slot (the words and the look they wear, not its sliders): one renderer and one frame per slot, so turning a
+    // slider redraws in place instead of starting a renderer for every value the drag passed through.
     private final Map<String, Long> lastStep = new HashMap<>();
+    private final Map<String, String> lastRef = new HashMap<>();
     private final Map<String, Bitmap> shown = new HashMap<>();
 
     WordsPicture(@NonNull Context c) {
@@ -57,6 +66,12 @@ public final class WordsPicture {
         Parsed(@NonNull String words, @NonNull cc.joycreator.textlab.TitleLook look) {
             this.words = words;
             this.look = look;
+        }
+
+        /** Which renderer draws it: the words and the look's name, not the look's sliders. */
+        @NonNull
+        String slot() {
+            return "vislab-words:" + Integer.toHexString((words + "\n" + look.key + "\n" + look.name).hashCode());
         }
     }
 
@@ -105,14 +120,18 @@ public final class WordsPicture {
     @WorkerThread
     @Nullable
     Bitmap frame(@NonNull String ref, double seconds) {
+        Parsed p = parsedOf(ref);
+        if (p == null) return null;
+        String slot = p.slot();
         long step = (long) Math.floor(Math.max(0, seconds) * FPS);
-        Long last = lastStep.get(ref);
-        Bitmap had = shown.get(ref);
-        if (last != null && last == step && had != null && !had.isRecycled()) return had;
-        Bitmap b = draw(ref, Math.round(step * 1000 / FPS));
+        Long last = lastStep.get(slot);
+        Bitmap had = shown.get(slot);
+        if (last != null && last == step && ref.equals(lastRef.get(slot)) && had != null && !had.isRecycled()) return had;
+        Bitmap b = draw(p, Math.round(step * 1000 / FPS));
         if (b == null) return null;
-        lastStep.put(ref, step);
-        Bitmap old = shown.put(ref, b);
+        lastStep.put(slot, step);
+        lastRef.put(slot, ref);
+        Bitmap old = shown.put(slot, b);
         if (old != null && old != b && !old.isRecycled()) old.recycle();   // the renderer let it go at this call
         return b;
     }
@@ -122,19 +141,30 @@ public final class WordsPicture {
         for (Bitmap b : shown.values()) if (b != null && !b.isRecycled()) b.recycle();
         shown.clear();
         lastStep.clear();
+        lastRef.clear();
     }
 
     @Nullable
-    private Bitmap draw(@NonNull String ref, long localMs) {
+    private Parsed parsedOf(@NonNull String ref) {
         Parsed p = parsed.get(ref);
         if (p == null && !parsed.containsKey(ref)) {
             p = parse(ref);
             parsed.put(ref, p);
         }
-        if (p == null) return null;
+        return p;
+    }
+
+    @Nullable
+    private Bitmap draw(@NonNull String ref, long localMs) {
+        Parsed p = parsedOf(ref);
+        return p == null ? null : draw(p, localMs);
+    }
+
+    @NonNull
+    private Bitmap draw(@NonNull Parsed p, long localMs) {
         try {
-            cc.joycreator.textlab.StudioTextLab.Frame f = cc.joycreator.textlab.StudioTextLab.get(app).renderBlocking(
-                    "vislab-words:" + Integer.toHexString(ref.hashCode()), p.look, p.words, localMs, EM);
+            cc.joycreator.textlab.StudioTextLab.Frame f =
+                    cc.joycreator.textlab.StudioTextLab.get(app).renderBlocking(p.slot(), p.look, p.words, localMs, EM);
             if (f != null) return f.bitmap;
         } catch (RuntimeException | Error e) {
             FLog.w(TAG, "TextLab could not draw these words; showing them plainly", e);

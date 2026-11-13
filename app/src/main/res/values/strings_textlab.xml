@@ -192,6 +192,10 @@
     <string name="textlab_light_sway_tip">The light drifts gently round where you put it</string>
 
     <string name="textlab_progress">Progress</string>
+    <string name="textlab_progress_broken">Broken</string>
+    <string name="textlab_progress_grown">Grown</string>
+    <string name="textlab_progress_blown">Blown away</string>
+    <string name="textlab_progress_burned">Burned away</string>
 
     <string name="textlab_plays">Plays</string>
     <string name="textlab_plays_tip">It plays by itself (burns, blows away, grows or breaks from the start)</string>

@@ -616,6 +616,47 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
         });
     }
 
+    /**
+     * The worn look's own sliders and colours (TX-02), TextLab's own panel in a sheet over the room: each slider or
+     * colour change is one undo step, the words redraw as it moves, and the layer keeps the changes with its look.
+     * "As it came" empties them (one step).
+     */
+    @Override
+    public void wordsLookSliders(@NonNull com.google.gson.JsonObject layer) {
+        com.google.gson.JsonElement img = layer.get("image");
+        WordsPicture.Parsed now = WordsPicture.parse(img != null && img.isJsonPrimitive() ? img.getAsString() : null);
+        if (now == null) return;
+        cc.joycreator.textlab.TitleLook t = now.look.copy();
+        String words = now.words;
+        Runnable put = () -> {
+            layer.addProperty("image", WordsPicture.ref(words, t));
+            edited();
+        };
+        android.view.View[] knobs = new android.view.View[1];
+        knobs[0] = cc.joycreator.textlab.LookKnobs.panel(this, t, new cc.joycreator.textlab.LookKnobs.Listener() {
+            @Override
+            public void begin(@NonNull String what) {
+                beginEdit("Look slider: " + what);
+            }
+
+            @Override
+            public void changed() {
+                put.run();
+            }
+        });
+        if (knobs[0] == null) {
+            android.widget.Toast.makeText(this, "This look's sliders can't be shown on this phone", android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
+        LookSheets.lookSliders(this, "Sliders · " + t.name, knobs[0], () -> {
+            if (!cc.joycreator.textlab.LookKnobs.changed(t)) return;
+            beginEdit("Look as it came");
+            cc.joycreator.textlab.LookKnobs.reset(t);
+            put.run();
+            cc.joycreator.textlab.LookKnobs.refresh(knobs[0]);
+        });
+    }
+
     @Override
     public void pickVideo(@NonNull com.google.gson.JsonObject layer) {
         pictureFor = layer;   // a video is kept in the layer's picture, as a picture is (R12)

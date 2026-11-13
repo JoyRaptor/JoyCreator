@@ -649,9 +649,20 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
         String[] p = TlParts.progress(look);
         progRow.setVisibility(p == null ? View.GONE : View.VISIBLE);
         if (p == null) return;
-        progLabel.setText(p[2]);
+        progLabel.setText(progressWords(p[3]));
         progBar.setProgress(0);
         paint(progPlay, true);
+    }
+
+    /** The progress bar's name on screen, for {@link TlParts#progress}'s kind. */
+    private String progressWords(@NonNull String kind) {
+        switch (kind) {
+            case "broken": return getString(com.fadcam.R.string.textlab_progress_broken);
+            case "grown": return getString(com.fadcam.R.string.textlab_progress_grown);
+            case "blown": return getString(com.fadcam.R.string.textlab_progress_blown);
+            case "burned": return getString(com.fadcam.R.string.textlab_progress_burned);
+            default: return getString(com.fadcam.R.string.textlab_progress);
+        }
     }
 
     /** Hold the look at a moment of its burn / break (shown only: the look's own values are unchanged). */

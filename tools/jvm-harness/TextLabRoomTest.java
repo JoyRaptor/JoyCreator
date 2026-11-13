@@ -82,7 +82,7 @@ public final class TextLabRoomTest {
         // ---- progress
         check("Dark Steel plays no progress", TlParts.progress(steel) == null, "");
         String[] pb = TlParts.progress(TlParts.withFeature(TlParts.withFeature(steel, "FRONT", true), "BURN", true));
-        check("a burning front is \"Burned away\" on frontGone", pb != null && pb[1].equals("frontGone") && pb[2].equals("Burned away"),
+        check("a burning front is \"Burned away\" on frontGone", pb != null && pb[1].equals("frontGone") && pb[2].equals("Burned away") && pb[3].equals("burned"),
                 pb == null ? "null" : String.join(",", pb));
         String[] ps = TlParts.progress(TlParts.withFeature(steel, "SHATTER", true));
         check("a shatter is \"Broken\" on shatter", ps != null && ps[1].equals("shatter"), "");
@@ -154,6 +154,20 @@ public final class TextLabRoomTest {
         check("room at the sides leaves the floor alone", sq.getJSONObject("p").getDouble("floorLine") == steel.getJSONObject("p").getDouble("floorLine"), "");
         check("the look itself is not changed by framing", steel.getJSONArray("margin").getDouble(1) == 1.0, "");
         if (addW > 99) System.out.println("unused");
+
+        // a look worn outside the room (VisLab words, TX-02): the person's changes lie over the look's own values
+        cc.joycreator.textlab.TitleLook worn = cc.joycreator.textlab.TitleLook.of("dark-steel", "Dark steel", steel.toString());
+        worn.knobs.addProperty("floorLine", 0.5);
+        worn.knobs.addProperty("faceColour", "#ff0000");
+        JSONObject wp = cc.joycreator.textlab.LookKnobs.worn(worn).getJSONObject("p");
+        check("a worn look's slider change lies over the look's own", wp.getDouble("floorLine") == 0.5
+                && "#ff0000".equals(wp.getString("faceColour")), wp.opt("floorLine"));
+        check("the look's other values stay", wp.length() >= steel.getJSONObject("p").length(), wp.length());
+        check("the worn look's own file is not changed", steel.getJSONObject("p").getDouble("floorLine") != 0.5
+                && !worn.look.getAsJsonObject("p").has("faceColour") || worn.look.getAsJsonObject("p").get("faceColour").getAsString().equals(steel.getJSONObject("p").optString("faceColour")), "");
+        cc.joycreator.textlab.LookKnobs.reset(worn);
+        check("as it came empties the changes", !cc.joycreator.textlab.LookKnobs.changed(worn)
+                && cc.joycreator.textlab.LookKnobs.worn(worn).getJSONObject("p").getDouble("floorLine") == steel.getJSONObject("p").getDouble("floorLine"), "");
 
         System.out.println();
         System.out.println(pass + " passed, " + fail + " failed");

@@ -70,6 +70,10 @@ final class KnobPanel extends LinearLayout {
         default void pickWordsLook(@NonNull JsonObject layer) {
         }
 
+        /** The TextLab look's own sliders and colours for the words this picture layer shows (TX-02). */
+        default void wordsLookSliders(@NonNull JsonObject layer) {
+        }
+
         /** Let the person choose which Sprite Lab sheet this Sprite layer plays. */
         void pickSheet(@NonNull JsonObject layer);
 
@@ -670,6 +674,15 @@ final class KnobPanel extends LinearLayout {
             host.pickWordsLook(L);
         });
         pills.addView(look);
+        if (words) {
+            TextView sliders = pill(c, "Look's sliders", false);
+            Ui.label(sliders, "Change this look's own sliders and colours for these words: shine, glow, colour and more");
+            sliders.setOnClickListener(v -> {
+                Motion.press(v);
+                host.wordsLookSliders(L);
+            });
+            pills.addView(sliders);
+        }
         if (own) {
             TextView back = pill(c, "Joy emblem", false);
             Ui.label(back, "Go back to the built-in Joy emblem");

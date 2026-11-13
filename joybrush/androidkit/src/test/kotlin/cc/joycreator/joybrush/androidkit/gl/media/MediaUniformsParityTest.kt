@@ -168,7 +168,7 @@ class MediaUniformsParityTest {
             "u_bladeH0" to (st.bladeH0 ?: 0.0), "u_bladeTan" to (st.bladeTan ?: 0.0), "u_bladeBead" to b.bead,
             "u_bladePressMm" to (b.pressIn ?: 0.6) * t * (st.pressK ?: (st.pressure * st.pressure)), "u_bladeFilm" to (b.film ?: 0.004),
             "u_bladeSoft" to (if (b.blade) b.soft else 0.0),
-            "u_hairVary" to (if (b.blade || b.trowel) 0.0 else b.vary), "u_pull" to (if (b.blade) 0.0 else b.pull),
+            "u_hairVary" to (if (b.blade || b.trowel) 0.0 else b.vary), "u_pull" to b.pullNow,
             "u_bladeLay" to st.lay, "u_bladeDrag" to st.drag, "u_bladeLump" to (if (b.blade) b.rollLump else 0.0),
             "u_hairDepth" to b.hairDepth, "u_ridge" to b.ridge, "u_rate" to b.rate, "u_mix" to b.mix, "u_swap" to b.swap,
             "u_bow" to b.bow, "u_lump" to b.lump, "u_rigid" to b.rigid, "u_slideMm" to st.slideMm, "u_cellCap" to cap,

@@ -109,9 +109,9 @@ const val PASTE_DEPTH = 8
      * 0..1, hair brushes and the trowel (the owner, 2026-11-11: crossing wet paint left hard lines "like sticks"; "if thick
      * the paint would be pulled as something went across"): the colour of the wet paint under the brush goes along with it
      * (jb_paste_dab.frag u_pull), so what a stroke crosses trails into it and out the far side. Its thickness stays where
-     * it lies, so ridges are kept. 0 = as before: the canvas paint only trades with the brush where it lies. 0.7 on the
-     * four hair brushes since 2026-11-13 (lab sheets oilover and oildirty; under 3 % a step on the Note 9); off on the
-     * trowel, where it cost 17 % a step.
+     * it lies, so ridges are kept. 0 = as before: the canvas paint only trades with the brush where it lies. 0.7 on
+     * All-round, Oil flat and Oil round since 2026-11-13 (lab sheets oilover and oildirty; within 6 % a step on the Note 9).
+     * Only [pullNow] reaches the shader.
      */
     val pull: Double = 0.0,
     val ends: EndsMode? = null,
@@ -131,12 +131,23 @@ const val PASTE_DEPTH = 8
      * (jb_paste.glsl u_force, u_lean, u_curve). 0 = every hair at the pen's pressure, as before.
      */
     val force: Double = 0.0,
-) {
+) {
+    /**
+     * [pull] as the engine uses it: none on a blade, none on the trowel (17 % a step on the Note 9 and its look unjudged),
+     * and none where the hairs are shorter than [PasteBrushes.PULL_MIN_LEN_MM]: in a burst a hop stretches to 12 % of the brush's width
+     * ([PasteSpacing.behind]), and on the Fan blender (14 mm wide, 2.5 mm of hair) that is most of the hair's length, so each
+     * hop pulled its own patch and a fast stroke left a row of beads (Note 9, 2026-11-13). Longer hairs overlap many times.
+     */
+    val pullNow: Double get() = if (blade || trowel || lenMm < PasteBrushes.PULL_MIN_LEN_MM) 0.0 else pull
+
     /** Whether this brush paints a loaded brush's ends ([EndsMode]); a rigid blade keeps its sharp edge. */
     val loadedEnds: Boolean get() = !blade && ends != EndsMode.CUT
 }
 
 object PasteBrushes {
+    /** Hairs shorter than this (mm) do not pull wet paint along ([PasteBrush.pullNow]). */
+    const val PULL_MIN_LEN_MM = 4.0
+
     val ALL: Map<String, PasteBrush> = linkedMapOf(
         // The all-rounder: from a hairline tip to a full belly on pressure and tilt, like the pencil.
         "All-round" to PasteBrush(shape = 0, allround = true, tipHalfMm = 0.08, widthMm = 6.0, lenMm = 8.0, thickMm = 0.45,
@@ -149,7 +160,7 @@ object PasteBrushes {
         // A fan: hair tips on an arc, spread apart; it feathers and blends rather than lays paint.
         "Fan blender" to PasteBrush(shape = 1, widthMm = 14.0, lenMm = 2.5, thickMm = 0.1, scrape = 0.3, hairDepth = 0.95, ridge = 0.0,
             rate = 1.2, mix = 0.45, swap = 0.3, loadLenMm = 60.0, wick = 0.002, bow = 0.1, lump = 0.0, rigid = 0.0, fingers = 0.5,
-            arc = 0.55, sparse = 0.6, force = 0.7, vary = 1.0, pull = 0.7),
+            arc = 0.55, sparse = 0.6, force = 0.7, vary = 1.0),
         // The trowel knife of v6/v7, back by the owner's request (2026-10-07: "the old one had excellent texture").
         "Palette knife 1" to PasteBrush(shape = 2, trowel = true, widthMm = 9.0, lenMm = 13.0, thickMm = 1.1, scrape = 0.99,
             hairDepth = 0.0, ridge = 1.0, rate = 4.0, mix = 0.2, swap = 0.5, loadLenMm = 70.0, wick = 0.0, bow = 0.9, lump = 0.25,

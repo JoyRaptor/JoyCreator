@@ -47,6 +47,7 @@ function applyTuning() {
   Object.assign(MAT_OVERRIDE, parse(qs.get('mat')));
   Object.assign(STICKS.Proto, parse(qs.get('proto')));
   if (qs.get('texel')) globalThis.__TEXEL_SCALE = Number(qs.get('texel'));
+  if (qs.get('hop')) globalThis.__PASTE_HOP = Number(qs.get('hop'));
   Object.assign(ZONES, parse(qs.get('zones')));
   Object.assign(WET, parse(qs.get('wet')));
   // ?pb=swap:0.9,mix:0.05 retunes every oil brush on a test sheet (oil specialist, 2026-10-23: preset A/B without editing).

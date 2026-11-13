@@ -1,5 +1,7 @@
 # JoyBrush roadmap — current completion board
 
+> **11-13 Codex → Claude engine handback:** [current-source status of live capture, editable watercolor lines and real Select pixels](reviews/CODEX_ENGINE_HANDBACK_20261113.md), with [helper recovery inventory](reviews/CODEX_WORKTREE_RECOVERY_20261113.md). Ordinary NativeLines is integrated; captured-physical joint-scene activation and Select pixel lift/clip/fade remain unfinished. No new runtime or device acceptance is claimed.
+
 Refreshed October 27, 2026 against integrated coordinator code **d2c6c8973** and exact-source
 receipts. Exact0adfde398 APK is built/preserved; new GPU checks await fresh unlocked Home. All specialist bounded turns are closed; ACTIVE names unfinished domain ownership, not a running worker. This is the one file to point a new agent at. Read
 [Agent start](AGENT_START_20261026.md) before editing or running jobs.

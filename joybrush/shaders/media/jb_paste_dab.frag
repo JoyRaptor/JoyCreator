@@ -125,14 +125,21 @@ void main() {
     float reach = smoothstep(-edgeW, edgeW, here - around + give - jb_pasteGraze(hair)) * jb_pasteDry(jb_tip, here - around, rise, u_toothMm);
     float c = cover * reach;
 
-    // Pull: the wet paint here is what lay a little way back along the hairs' travel (they trail toward u_lDir, so the
-    // travel is the other way), its thickness and its colour both. Set paint stays where it is.
+    // Pull: the wet paint here takes on the COLOUR of what lay a little way back along the hairs' travel (they trail toward
+    // u_lDir, so the travel is the other way), mixed by volume. Its thickness stays exactly as it lies: moved along with
+    // the colour, even a quarter of the way a step, every stroke's body lost its ridges and showed the canvas's weave
+    // instead (lab sheet oilover, 2026-11-13). Set paint stays where it is.
     if (u_pull > 0.0 && p1.a > 0.0) {
         float far = (0.2 + 0.3 * jb_press) * u_slideMm * u_pxPerMm * u_layerScale;
         vec2 up = layerPx + u_lDir * far;
         vec4 q0 = jb_bilinearL(u_p0, up), q1 = jb_bilinearL(u_p1, up);
         float m = u_pull * cover * min(p1.a, q1.a) * mix(0.55, 1.0, hair);
-        p0 = mix(p0, q0, m); p1.rgb = mix(p1.rgb, q1.rgb, m);
+        float tMix = mix(p0.a, q0.a, m);
+        if (tMix > 1.0e-6) {
+            float k = p0.a / tMix;
+            p0.rgb = mix(p0.rgb, q0.rgb, m) * k;
+            p1.rgb = mix(p1.rgb, q1.rgb, m) * k;
+        }
     }
     float t = p0.a;
     vec3 Kc = t > 1e-6 ? p0.rgb / t : vec3(0.0);

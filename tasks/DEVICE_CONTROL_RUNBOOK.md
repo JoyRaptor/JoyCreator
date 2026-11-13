@@ -41,11 +41,20 @@ export PATH="/c/Users/JoyRaptor/AppData/Local/Android/Sdk/platform-tools:$PATH"
 adb devices -l
 ```
 
-**2. Two phones exist. Name the one you mean** — a bare `adb` command fails with 'more than one device':
-```bash
-adb -s <note20-serial> shell ...      # Note 20, SM-N986U, 1440x3088 -- JoyRaptor's WORKING projects
-adb -s <note9-serial> shell ... # Note 9,  SM-N960U, 1440x2960 -- test device
+**2. Three test devices exist (2026-11-13). Name the one you mean** — a bare `adb` command fails with 'more than one device'. Never write a serial in a tracked file or commit message (the commit guard refuses them); get it at run time. `tools/phone.ps1` finds each device **by model**, and the default is always the Note 9:
+
+| Device | What it is | Rules | Slot and lock |
+|---|---|---|---|
+| **Note 9** (SM-N960U, 1440x2960) | The sandbox phone | Install and test freely; never uninstall or clear data; never touch his drawings | default; `jb-phone.lock` |
+| **Note 20** (SM-N986U, 1440x3088) | The owner's real projects. **Not in use and not open to any session** | Never install, tap or open anything unless he says so | `$env:PHONE_SLOT = "note20"`; `jb-phone2.lock` |
+| **Test tablet** (Tab S8 Ultra, SM-X900, 1848x2960 landscape, Android 15) | Blank test device with nothing of the owner's; for tablet layouts and checks | Throwaway projects named "TEST ..."; never change rotation or system settings; no `monkey`; never uninstall or clear data | `$env:PHONE_SLOT = "tablet"`; `jb-phone3.lock` |
+
+```powershell
+.\tools\phone.ps1 serial                       # the serial of the device the tool would use (Note 9 by default)
+$env:PHONE_SLOT = "tablet"; .\tools\phone.ps1 serial   # the tablet's
+adb -s (.\tools\phone.ps1 serial) shell ...     # raw adb always names the device
 ```
+Over Wi-Fi a device's address changes when wireless debugging restarts: `adb mdns services`, then `adb connect <address>`. The locks are the three files `%TEMP%\jb-phone.lock`, `jb-phone2.lock`, `jb-phone3.lock`; claim and release with `phone.ps1 claim/release` (with the slot set for the Note 20 or the tablet).
 
 **3. Prove an install actually landed.** `Success` is NOT proof — the file can install without the app
 restarting, and claiming a fix is on the phone when it isn't wastes JoyRaptor's testing time:

@@ -352,7 +352,7 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
         val id = layerId ?: return null
         if (!holding || e.asleep) return null
         return GlPaintEngine.LayerOverlay(id, e.lookTexture(), originX, originY, docW, docH,
-            grain = (grainPrint * gran).toFloat(), cell = cell.toFloat(), plane = plane, pieces = pieces()?.map { p ->
+            grain = if (debugPlain) 0f else (grainPrint * gran).toFloat(), cell = if (debugPlain) 1f else cell.toFloat(), plane = plane, pieces = pieces()?.map { p ->
                 floatArrayOf(p[0].toFloat(), p[1].toFloat(), p[2].toFloat(), p[3].toFloat()) })
     }
 
@@ -821,6 +821,9 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
 
         /** Debug bench only (`jb_sheet_print_hold_ms`): a dry sheet waits this long before it is printed (0 in the app). */
         @Volatile @JvmStatic var printHoldMs = 0L
+
+        /** Debug bench only (`jb_sheet_plain`): the overlay drawn with the plain tile shader (no grain, bilinear), to time what the grain shader costs. */
+        @Volatile @JvmStatic var debugPlain = false
 
         /** Debug bench only (`jb_sheet_cell`): the cell in document px whatever the zoom. */
         @Volatile @JvmStatic var forcedCell: Int? = null

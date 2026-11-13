@@ -11,6 +11,8 @@
 // each crest, and a little wear.
 //
 // Variants (#define, picked by the look so the phone compiles only what it draws):
+//   MARCH_PASS / MARCH_READ  the engine's split of a marching look into two passes (it sets these, not the look)
+//   FLAT_FACE  the engine's build of a look seen straight on: no march code at all
 //   TUBE     glass tubes that light up (neon), no solid
 //   REFRACT  see-through: bends what is behind (glass, water, ice)
 //   DETAIL   relief on the face (hammered, brushed, ripples, plate, engine-turned, gem-set)
@@ -24,6 +26,9 @@ uniform sampler2D uMatcap;   // the material sphere (with blurred copies in its 
 uniform sampler2D uBack;     // what is behind the words, same rectangle as the field
 uniform sampler2D uHeat;     // the fire, when the look has one
 uniform float uHasBack;
+#ifdef MARCH_READ
+uniform sampler2D uMarch;    // the march pass's answer for each pixel: offset to the hit point, its height, hit * 2 + cover
+#endif
 
 // depth
 uniform float uBevel;        // bevel width, em
@@ -232,13 +237,18 @@ int march(vec2 p0, vec2 lean, out vec2 q, out float z, out float cover) {
     float L = length(lean);
     float top = uBevelHeight, bottom = -uDepth;
     cover = 1.0;
-    if (L < 1e-4 || top - bottom < 1e-4) {
+#ifndef FLAT_FACE
+    if (L < 1e-4 || top - bottom < 1e-4)
+#endif
+    {
+        // seen straight on (the engine builds a look with no slant as FLAT_FACE: only this, no march at all)
         q = p0;
         float d = fieldD(q);
         z = heightAt(max(d, 0.0));
         cover = sat(d / aaw + 0.5);
         return cover > 0.0 ? 1 : 0;
     }
+#ifndef FLAT_FACE
     float minStep = (top - bottom) / 48.0;
     float best = -1e9; vec2 bestQ = p0; float bestZ = 0.0;
     bool inside = true, last = false;
@@ -278,6 +288,7 @@ int march(vec2 p0, vec2 lean, out vec2 q, out float z, out float cover) {
     cover = sat(best / aaw + 1.0);
     if (cover > 0.0) { q = bestQ; z = bestZ; return 2; }
     return 0;
+#endif
 }
 
 vec3 fillAt(float ly) {
@@ -329,7 +340,11 @@ float pattern(vec2 q, float ly) {
 
 #ifdef DETAIL
 float detail(vec2 q) {
+#ifdef DETAIL_KIND
+    const int kind = DETAIL_KIND;                 // the engine may build a look for its one kind
+#else
     int kind = int(uDetail.x + 0.5);
+#endif
     vec2 g = q * uDetail.y;
     if (kind == 1) return fbm(g);                                              // cast, rough
     if (kind == 2) { vec3 v = voronoi(g); return v.x * v.x; }                  // hammered
@@ -639,7 +654,23 @@ void main() {
 #endif
     vec2 lean = uExtrude + (vUv - uVanish) * uField.xy * uPersp + uTilt * uParallax;
     vec2 q; float z; float cover;
+#ifdef MARCH_PASS
+    // the first of two passes: only where this pixel's ray meets the letter (32-bit, so the second pass gets the
+    // very numbers it would have worked out itself)
+    {
+        int hitM = march(p0, lean, q, z, cover);
+        o = vec4(q - p0, z, float(hitM) * 2.0 + cover);
+        return;
+    }
+#endif
+#ifdef MARCH_READ
+    vec4 mr = texture(uMarch, vUv);
+    q = p0 + mr.xy; z = mr.z;
+    int hit = int(floor(mr.w * 0.5));
+    cover = mr.w - float(hit) * 2.0;
+#else
     int hit = march(p0, lean, q, z, cover);
+#endif
 
     if (hit != 0) {
         vec4 f = texture(uFieldTex, q / uField.xy);

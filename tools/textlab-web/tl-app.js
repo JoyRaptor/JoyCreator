@@ -294,6 +294,8 @@
   async function bench(engine, assets) {
     const gl = engine.gl, px = new Uint8Array(4), rows = [];
     engine.setSize(Number(q.get('w')) || 1280, Number(q.get('h')) || 720);
+    if (q.get('nosplit')) engine.splitMarch = false;                       // &nosplit=1 times the march in one pass, as before
+    if (q.get('onekind') === '0') engine.detailKindBuild = false;            // &onekind=0 times relief looks built for every kind
     const only = (q.get('only') || '').split(',').filter(Boolean);      // &only=a,b times just those looks
     for (const l of assets.looks) {
       if (only.length && !only.includes(l.id)) continue;
@@ -301,7 +303,8 @@
       try {
         const minus = (q.get('minus') || '').split(',');                      // &minus=VINE times it without that piece
         const lk = Object.assign({}, l, { features: (l.features || []).filter((f) => !minus.includes(f)) }, q.get('nop') ? { particles: [] } : {});
-        engine.setLook(lk); engine.setText(l.sample || 'TEXT'); engine.stage = l.stage === undefined ? 1 : l.stage;
+        engine.setLook(lk); engine.setText(l.sample || 'TEXT');
+        engine.stage = q.has('stage') ? Number(q.get('stage')) : l.stage === undefined ? 1 : l.stage;     // &stage= times it over another backdrop
         for (const pair of (q.get('k') || '').split(',').filter(Boolean)) {      // &k= tries a variation; &nop=1 leaves the particles out
           const i = pair.indexOf(':'), v = pair.slice(i + 1);
           engine.setKnob(pair.slice(0, i), v[0] === '#' ? v : Number(v));

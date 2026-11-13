@@ -104,8 +104,9 @@
       const tex = gl.createTexture();
       gl.bindTexture(gl.TEXTURE_2D, tex);
       if (kind === 'byte') gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      else if (kind === 'float') gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, w, h, 0, gl.RGBA, gl.FLOAT, null);
       else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, w, h, 0, gl.RGBA, gl.HALF_FLOAT, null);
-      this.params(gl.LINEAR);
+      this.params(kind === 'float' ? gl.NEAREST : gl.LINEAR);                    // (32-bit: read one pixel at a time)
       const fbo = gl.createFramebuffer();
       gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);

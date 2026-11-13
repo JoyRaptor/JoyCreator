@@ -136,6 +136,8 @@
       T.field = glw.target(W, H, 'half', true);
       T.fa = glw.target(W, H, 'half'); T.fb = glw.target(W, H, 'half');
       T.scene = glw.target(W, H, 'half'); T.back = glw.target(W, H, 'half'); T.screen = glw.target(W, H, 'byte');
+      T.march = glw.target(W, H, 'float');      // where each pixel's ray meets the letter (the march pass)
+      T.wob = glw.target(W, H, 'float');        // the wobble's offset for each pixel, worked out once a frame
       // the fire's heat picture has a fixed fineness (640 across at most): the same flame, and the
       // same cost, whether the picture is a phone preview or a 4K still
       const hw = Math.min(W / 2, 640), hh = hw * H / W;
@@ -263,21 +265,55 @@
       let field = T.field;
       const soft = this.knob('soften') * this.em, wob = this.knob('wobble');
       if (soft > 0.25 || wob > 0 || this.knob('chip') > 0 || this.knob('grow') > 0 || (this.knob('drip') > 0 || this.knob('splash') > 0)) {
-        const sp = glw.program('quad.vert', 'soften.frag').use().setAll(U).set('uRadius', soft);
+        // Each pass builds only the pieces it uses (the Note 9 runs a smaller program faster, 2026-11-13): the blur
+        // passes are blur alone; the shape work holds only the pieces switched on.
+        const parts = ['SOFTEN_PARTS'];
+        if (wob > 0) parts.push('SOFTEN_WOBBLE');
+        if (this.knob('chip') > 0 || this.knob('grow') > 0) parts.push('SOFTEN_CHIPS');
+        if (this.knob('drip') > 0) parts.push('SOFTEN_DRIP');
+        if (this.knob('splash') > 0) parts.push('SOFTEN_SPLASH');
+        const blurOnly = glw.program('quad.vert', 'soften.frag', ['SOFTEN_BLUR_ONLY']);
         const shape = [wob, this.knob('wobbleScale'), this.knob('wobbleSpeed'), 1];
         if ((this.knob('drip') > 0 || this.knob('splash') > 0) && soft > 0.25) {
-          // drips are new shape, so they go in first and the rounding then rounds them with the letter
-          sp.set('uRadius', 0).set('uWobble', shape).set('uStep', [1 / W, 0]).tex('uSrc', T.field.tex, 0);
-          glw.pass(T.fb);
-          sp.set('uRadius', soft).set('uWobble', [0, 0, 0, 0]).tex('uSrc', T.fb.tex, 0);
+          // drips are new shape, so they go in first and the rounding then rounds them with the letter. The shape
+          // work is a chain of small passes, each reading the one before (the Note 9 runs small programs much faster):
+          // chips with the wobble, if any, then each kind of drop in its own pass, the wobble worked out again in each
+          // only to find where the drops are. Same order, same sums as one pass.
+          // With more than one stage the wobble's offset is worked out once, into its own 32-bit layer, and read.
+          const pieces = ['SOFTEN_CHIPS', 'SOFTEN_DRIP', 'SOFTEN_SPLASH'].filter((p) => parts.includes(p));
+          const wobbleRead = parts.includes('SOFTEN_WOBBLE') && pieces.length > 1;
+          if (wobbleRead) {
+            glw.program('quad.vert', 'soften.frag', ['SOFTEN_PARTS', 'SOFTEN_WOBBLE', 'SOFTEN_WOBBLE_ONLY']).use().setAll(U).set('uWobble', shape);
+            glw.pass(T.wob);
+          }
+          const wob = ['SOFTEN_PARTS'].concat(parts.includes('SOFTEN_WOBBLE') ? (wobbleRead ? ['SOFTEN_WOBBLE_READ'] : ['SOFTEN_WOBBLE']) : []);
+          const stages = pieces.map((piece) => wob.concat([piece]));
+          let src = T.field, dst = T.fa;
+          stages.forEach((st, i) => {
+            const p = glw.program('quad.vert', 'soften.frag', st.concat(['SOFTEN_SHAPE_ONLY'], i > 0 ? ['SOFTEN_C_FROM_PREV'] : [])).use().setAll(U)
+              .set('uRadius', 0).set('uWobble', shape).set('uStep', [1 / W, 0]).tex('uSrc', T.field.tex, 0);
+            if (i > 0) p.tex('uPrev', src.tex, 1);
+            if (wobbleRead) p.tex('uWob', T.wob.tex, 2);
+            glw.pass(dst);
+            src = dst; dst = dst === T.fa ? T.fb : T.fa;
+          });
+          // then the rounding: across into the other target, and up back into this one
+          blurOnly.use().setAll(U).set('uRadius', soft).set('uWobble', [0, 0, 0, 0]).set('uStep', [1 / W, 0]).tex('uSrc', src.tex, 0);
+          glw.pass(dst);
+          blurOnly.use().setAll(U).set('uRadius', soft).set('uWobble', [0, 0, 0, 0]).set('uStep', [0, 1 / H]).tex('uSrc', dst.tex, 0);
+          glw.pass(src);
+          field = src;
         } else {
-          sp.set('uWobble', shape).set('uStep', [1 / W, 0]).tex('uSrc', T.field.tex, 0);
+          (parts.length > 1 ? glw.program('quad.vert', 'soften.frag', parts) : blurOnly).use().setAll(U)
+            .set('uRadius', soft).set('uWobble', shape).set('uStep', [1 / W, 0]).tex('uSrc', T.field.tex, 0);
+          glw.pass(T.fa);
+          blurOnly.use().setAll(U).set('uRadius', soft).set('uWobble', [0, 0, 0, 0]).set('uStep', [0, 1 / H]).tex('uSrc', T.fa.tex, 0);
+          glw.pass(T.fb);
+          field = T.fb;
         }
-        glw.pass(T.fa);
-        sp.set('uWobble', [0, 0, 0, 0]).set('uStep', [0, 1 / H]).tex('uSrc', T.fa.tex, 0);
-        glw.pass(T.fb);
-        field = T.fb;
       }
+
+      this.shapedField = field;                     // (still() reads the settled field from here)
 
       // fire
       let heat = this.black;
@@ -292,9 +328,24 @@
         heat = T.heat[0];
       }
 
-      // shade
-      const sh = glw.program('quad.vert', 'shade.frag', defines).use().setAll(U);
+      // shade. A look whose letters have depth seen at a slant marches each pixel's ray into the letter; that march
+      // runs as its own pass first (the Note 9 runs two smaller programs much faster than one big one: Rusted 45 ms
+      // in one, measured 2026-11-13), and the painting pass reads its answer. Looks that draw their own way skip it.
+      const slant = this.knob('persp') !== 0 || this.knob('parallax') !== 0 || this.knob('extrudeX') !== 0 || this.knob('extrudeY') !== 0;
+      const ownWay = ['TUBE', 'CELLS', 'INK', 'FOG', 'FLAG'].some((f) => defines.includes(f));
+      const split = slant && !ownWay && this.splitMarch !== false;
+      if (split) {
+        glw.program('quad.vert', 'shade.frag', defines.concat(['MARCH_PASS'])).use().setAll(U).tex('uFieldTex', field.tex, 0);
+        glw.pass(T.march);
+      }
+      const shadeDefs = split ? defines.concat(['MARCH_READ']) : !slant && !ownWay ? defines.concat(['FLAT_FACE']) : defines;
+      // a relief look built for its one kind only where that measured faster on the Note 9 (2026-11-13: cut stones
+      // and rock, Diamond 29 -> 24 ms, Carved Stone 22 -> 20; ripples measured much slower, 35 -> 53, so not those)
+      const kind = Math.round(this.knob('detailKind'));
+      const kindDefs = defines.includes('DETAIL') && (kind === 9 || kind === 10) && this.detailKindBuild !== false ? shadeDefs.concat(['DETAIL_KIND ' + kind]) : shadeDefs;
+      const sh = glw.program('quad.vert', 'shade.frag', kindDefs).use().setAll(U);
       sh.tex('uFieldTex', field.tex, 0).tex('uMatcap', this.sphere.tex, 1).tex('uBack', T.back.tex, 2).tex('uHeat', heat.tex, 3);
+      if (split) sh.tex('uMarch', T.march.tex, 6);
       glw.pass(T.scene);
 
       gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
@@ -357,7 +408,7 @@
       this.frame(1000);
       if (this.look.fire) {
         const fp = this.glw.program('quad.vert', 'fire_step.frag');
-        const field = this.knob('soften') * this.em > 0.25 || this.knob('wobble') > 0 || this.knob('chip') > 0 || this.knob('grow') > 0 || (this.knob('drip') > 0 || this.knob('splash') > 0) ? this.targets.fb : this.targets.field;
+        const field = this.shapedField || this.targets.field;          // wherever the frame's shape work left the field
         // the field must be the settled one: draw the end pose first
         this.clock0 = 1000 - seconds; this.frame(1000);
         this.gl.disable(this.gl.BLEND);

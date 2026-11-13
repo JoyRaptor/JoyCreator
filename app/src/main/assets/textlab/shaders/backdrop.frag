@@ -14,6 +14,37 @@ uniform vec4  uFloor;       // .y = the floor line, 0..1 up the field (the look'
 uniform sampler2D uPhoto;   // the user's own picture, when they have loaded one
 uniform vec2  uPhotoFit;    // how much of the picture's width and height the field shows, so it fills the field uncropped in one direction
 
+// The far lights' places, sizes and colours: hash41(i * 3.7 + 1) for i = 0..25, worked out once (they were
+// recomputed for every pixel, 26 times). The numbers are read back from the graphics chip, so they are the
+// very values the old line produced, to the last bit.
+const vec4 FAR_LIGHTS[26] = vec4[26](
+    vec4(0.43081665, 0.51019287, 0.70089722, 0.60766602),
+    vec4(0.76464844, 0.53710938, 0.79785156, 0.71484375),
+    vec4(0.57421875, 0.30078125, 0.06054688, 0.33398438),
+    vec4(0.06079102, 0.39599609, 0.00292969, 0.26391602),
+    vec4(0.87792969, 0.67480469, 0.40039063, 0.24804688),
+    vec4(0.20361328, 0.79345703, 0.35302734, 0.61865234),
+    vec4(0.73144531, 0.86816406, 0.00000000, 0.63232422),
+    vec4(0.05859375, 0.48242188, 0.92773438, 0.65234375),
+    vec4(0.62744141, 0.84082031, 0.26367188, 0.72314453),
+    vec4(0.01757813, 0.53515625, 0.37890625, 0.36230469),
+    vec4(0.31054688, 0.38671875, 0.42968750, 0.35351563),
+    vec4(0.98779297, 0.93017578, 0.75561523, 0.13916016),
+    vec4(0.88867188, 0.39648438, 0.21875000, 0.49218750),
+    vec4(0.35815430, 0.17675781, 0.54370117, 0.06250000),
+    vec4(0.72949219, 0.39160156, 0.13183594, 0.30810547),
+    vec4(0.79003906, 0.67089844, 0.35546875, 0.08984375),
+    vec4(0.97656250, 0.27343750, 0.90234375, 0.03076172),
+    vec4(0.36816406, 0.80029297, 0.18896484, 0.34521484),
+    vec4(0.52148438, 0.39062500, 0.27734375, 0.24804688),
+    vec4(0.91113281, 0.13867188, 0.32910156, 0.99218750),
+    vec4(0.44335938, 0.55566406, 0.54492188, 0.20703125),
+    vec4(0.01806641, 0.73828125, 0.32617188, 0.99609375),
+    vec4(0.26611328, 0.06250000, 0.11962891, 0.92431641),
+    vec4(0.16308594, 0.59863281, 0.19238281, 0.43066406),
+    vec4(0.34082031, 0.41699219, 0.72753906, 0.39453125),
+    vec4(0.02685547, 0.81591797, 0.82128906, 0.49951172));
+
 float brick(vec2 p, out float mortar, out vec2 cell) {
     vec2 g = p * vec2(3.4, 7.6);
     g.x += 0.5 * mod(floor(g.y), 2.0);
@@ -90,9 +121,10 @@ void main() {
     } else if (s == 5) {
         c = vec3(0.003, 0.003, 0.004) + uStageTint * pool * 0.02;
         for (int i = 0; i < 26; i++) {
-            vec4 r = hash41(float(i) * 3.7 + 1.0);
+            vec4 r = FAR_LIGHTS[i];
             vec2 d = (vUv - vec2(r.x, 0.15 + 0.8 * r.y)) * vec2(aspect, 1.0);
             float rad = 0.035 + 0.11 * r.z * r.z;
+            if (dot(d, d) >= rad * rad) continue;                               // this light does not reach here
             float disc = smoothstep(rad, rad * 0.9, length(d));
             float ring = 0.55 + 0.45 * smoothstep(rad * 0.6, rad * 0.95, length(d));
             vec3 lc = mix(uStageTint, mix(vec3(1.0, 0.62, 0.25), vec3(1.0, 0.9, 0.7), r.w), 0.75);

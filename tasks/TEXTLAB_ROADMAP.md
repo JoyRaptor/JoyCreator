@@ -40,7 +40,7 @@ presets; phone-first, one-handed; every look reachable everywhere words appear; 
 | T10 | **Studio round trip**: Edit in TextLab on the Look row; "Use on the title" brings the look back as one undo step | [~] 11-12 night, Note 9 (the saved project carries the change) |
 | T11 | **Library**: a look's card exports and renames (its preview follows; Trash takes both); a `.joypack` file opens the pack screen | [~] 11-12 night, Note 9 (export, rename row seen) |
 | T12 | The owner's verdicts on the looks (Rusted, Crystal Ice, Phantom, Dust, Water's drips; next level for Liquid Chrome, Diamond, Retro Pop, Hologram) | owner |
-| T13 | Speed: Diamond 46, Crystal Ice 45, Rusted 42, Water 39, Fizz 38, Overgrown 36, Carved Stone 36, Voltage 35 ms on the Note 9 | TextLab lead (shaders) |
+| T13 | Speed: all eight slow looks under 33 ms on the Note 9 in the look book (Diamond 48 -> 25, Water 48 -> 32, Rusted 45 -> 20, Carved Stone 35 -> 21, the rest 17-22), pictures unchanged; the phone engine gets the speed when `TextLabRenderer` makes the same passes | [~] 11-13 look book (TextLab lead); port: phone engine |
 | T14 | Packs: VisLab looks, brushes, papers, palettes, grades and caption styles read from packs (only text looks and fonts are today); signing; the shop and paywall | other wings / owner |
 | T15 | VisLab reading the look shelf and the emitter; a JoyBrush text tool (none exists) so a look can go on drawn words; hand-drawn ink as letters | VisLab / JoyBrush leads |
 | T16 | Words in `strings.xml` for translation (all TextLab English is in code, as in VisLab) | open: a whole-app job (UI-1) |

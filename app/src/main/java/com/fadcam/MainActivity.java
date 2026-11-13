@@ -1018,6 +1018,23 @@ public class MainActivity extends AppCompatActivity {
                         case "settings":
                             com.fadcam.ui.settingshub.SettingsHubFragment.open(this, false);
                             break;
+                        // SHELL-04 (11-13): the places Joybot could not take you. Same doors as the
+                        // lobby's floor words (Remote, Detect, Packs) and its stat line (Space).
+                        case "remote":
+                            switchFragment(2, true);
+                            break;
+                        case "detect":
+                            switchFragment(5, true);
+                            break;
+                        case "avatar":
+                            startActivity(new Intent(this, com.fadcam.ui.faditor.avatar.AvatarStudioActivity.class));
+                            break;
+                        case "supplies":
+                            com.fadcam.ui.library.LibraryFragment.open(this, com.fadcam.ui.library.LibraryKind.SUPPLIES, false);
+                            break;
+                        case "space":
+                            startActivity(com.fadcam.joyfolder.studio.SpaceActivity.intent(this));
+                            break;
                         default:
                             break;
                     }

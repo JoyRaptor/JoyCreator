@@ -184,6 +184,11 @@ public class LobbyFragment extends BaseFragment {
     private JoybotView joybot;
     private FrameLayout hero;
     private ImageView heroArt;
+    /** The hero's quiet motion: a moving preview or a slow drift (owner, 11-13). */
+    @Nullable private LobbyHeroMotion heroMotion;
+    /** An overlay (Library, Settings, Trash...) covers the lobby: the hero holds still under it. */
+    private final androidx.fragment.app.FragmentManager.OnBackStackChangedListener overlayWatch =
+            this::syncHeroMotion;
     private View heroWash, heroBar;
     private TextView heroTag, heroEmpty, heroName, heroSub, heroAction;
     private TextView statIcon, statText, wordmark;
@@ -255,6 +260,7 @@ public class LobbyFragment extends BaseFragment {
                     }
                 });
         heroArt    = v.findViewById(R.id.lobby_hero_art);
+        heroMotion = new LobbyHeroMotion(heroArt);
         heroWash   = v.findViewById(R.id.lobby_hero_wash);
         heroBar    = v.findViewById(R.id.lobby_hero_bar);
         heroTag    = v.findViewById(R.id.lobby_hero_tag);
@@ -453,6 +459,8 @@ public class LobbyFragment extends BaseFragment {
         reloadAsync();
         loadGlance();
         syncDrawingsOnce();
+        requireActivity().getSupportFragmentManager().addOnBackStackChangedListener(overlayWatch);
+        syncHeroMotion();
         // A drawing just left is still saving: repaint when its picture lands.
         cc.joycreator.joybrush.android.library.DrawingLibrary.setOnChange(() -> ui.post(() -> {
             if (!isAdded()) return;
@@ -463,6 +471,8 @@ public class LobbyFragment extends BaseFragment {
     @Override
     public void onPause() {
         cc.joycreator.joybrush.android.library.DrawingLibrary.setOnChange(null);
+        if (getActivity() != null) getActivity().getSupportFragmentManager().removeOnBackStackChangedListener(overlayWatch);
+        if (heroMotion != null) heroMotion.pause();
         unregisterExportWatch();
         super.onPause();
     }
@@ -470,10 +480,26 @@ public class LobbyFragment extends BaseFragment {
     @Override
     public void onDestroyView() {
         if (statTick != null) ui.removeCallbacks(statTick);
+        if (heroMotion != null) { heroMotion.pause(); heroMotion.still(); heroMotion = null; }
         if (libraryGlance != null) libraryGlance.cancel();
         unregisterExportWatch();
         hairlineFill = null;
         super.onDestroyView();
+    }
+
+    @Override
+    public void onHiddenChanged(boolean hidden) {
+        super.onHiddenChanged(hidden);
+        syncHeroMotion();   // another tab in front: nothing moves behind it
+    }
+
+    /** The hero moves only while the lobby is in front, shown, and not under an overlay. */
+    private void syncHeroMotion() {
+        if (heroMotion == null) return;
+        boolean covered = getActivity() != null
+                && getActivity().getSupportFragmentManager().getBackStackEntryCount() > 0;
+        if (isResumed() && !isHidden() && !covered) heroMotion.resume();
+        else heroMotion.pause();
     }
 
     // ── the rooms ───────────────────────────────────────────────────────────
@@ -1158,6 +1184,7 @@ public class LobbyFragment extends BaseFragment {
         heroWash.setBackground(wash);
 
 
+        if (heroMotion != null) heroMotion.still();
         heroArt.setImageDrawable(null);
         heroArt.setTag(R.id.lobby_thumb_tag, null);
         if (hasContent) {
@@ -1167,12 +1194,18 @@ public class LobbyFragment extends BaseFragment {
             // when there is none, or the decode fails, this is what stays. Never see-through.
             heroArt.setImageDrawable(new LobbyHeroPlaceholder(r.gradA, r.gradB, r.glyph, iconFont,
                     getResources().getDisplayMetrics().density));
+            // Motion (owner, 11-13): a look's moving preview when its room left one beside the still,
+            // otherwise a slow drift over whatever picture lands. Capture's hero states readiness
+            // and has no picture, so it never moves.
             if (lastDrawing != null) {
-                loadThumbInto(heroArt, lastDrawing.thumbPath);
-            } else if (heroPart != null || vizShown != null || tlShown != null) {
-                loadThumbInto(heroArt, art);   // the sheet's / look's own picture; plain ground if it has none
+                loadThumbInto(heroArt, lastDrawing.thumbPath, this::driftHero);
+            } else if (vizShown != null || tlShown != null) {
+                String still = art;
+                loadThumbInto(heroArt, still, () -> playHeroPreview(still));
+            } else if (heroPart != null) {
+                loadThumbInto(heroArt, art, this::driftHero);   // the sheet's / character's own picture
             } else if (!projects.isEmpty() && r.id != ROOM_CAPTURE) {
-                loadThumbInto(heroArt, projects.get(0).videoUri);
+                loadThumbInto(heroArt, projects.get(0).videoUri, this::driftHero);
             }
         } else {
             // A room with nothing in it has no artwork to protect, and a flat black
@@ -2485,11 +2518,16 @@ public class LobbyFragment extends BaseFragment {
     private static final ExecutorService THUMB_IO = Executors.newFixedThreadPool(2);
 
     private void loadThumbInto(@NonNull ImageView target, @Nullable String uriString) {
+        loadThumbInto(target, uriString, null);
+    }
+
+    /** As above; {@code shown} runs on the main thread once the real picture is in place. */
+    private void loadThumbInto(@NonNull ImageView target, @Nullable String uriString, @Nullable Runnable shown) {
         if (uriString == null || uriString.isEmpty()) return;
         target.setTag(R.id.lobby_thumb_tag, uriString);
 
         Bitmap cached = THUMBS.get(uriString);
-        if (cached != null) { target.setImageBitmap(cached); return; }
+        if (cached != null) { target.setImageBitmap(cached); if (shown != null) shown.run(); return; }
 
         THUMB_IO.execute(() -> {
             Bitmap bmp = decodeFrame(uriString);
@@ -2503,7 +2541,30 @@ public class LobbyFragment extends BaseFragment {
                 Object want = target.getTag(R.id.lobby_thumb_tag);
                 if (want instanceof String && want.equals(uriString)) {
                     target.setImageBitmap(bmp);
+                    if (shown != null) shown.run();
                 }
+            });
+        });
+    }
+
+    /** The hero's picture is in: drift slowly over it. */
+    private void driftHero() {
+        if (heroMotion != null) heroMotion.drift();
+    }
+
+    /**
+     * A VisLab or TextLab look: play its moving preview when the room left one beside the still (decoded off the
+     * main thread), else drift over the still. Checked against the tag so a room switch mid-decode changes nothing.
+     */
+    private void playHeroPreview(@Nullable String still) {
+        if (heroMotion == null || still == null) { driftHero(); return; }
+        THUMB_IO.execute(() -> {
+            String[] name = new String[1];
+            Bitmap sheet = LobbyHeroMotion.readSheetBeside(still, name);
+            ui.post(() -> {
+                if (!isAdded() || heroMotion == null) return;
+                if (!still.equals(heroArt.getTag(R.id.lobby_thumb_tag))) return;
+                heroMotion.play(sheet, name[0]);
             });
         });
     }

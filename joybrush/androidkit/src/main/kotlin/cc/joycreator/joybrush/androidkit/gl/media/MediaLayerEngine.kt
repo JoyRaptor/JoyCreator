@@ -120,6 +120,15 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     private fun cullProgram(i: Int): MediaProgram = progCull[i] ?: MediaProgram(shaders, "media/jb_media_quad.vert",
         "media/" + arrayOf("jb_wet_flux.frag", "jb_wet_update.frag", "jb_wet_bead.frag")[i],
         "media wet " + arrayOf("flux", "update", "bead")[i] + " (cull)", listOf("JB_CULL_MASK")).also { progCull[i] = it; programs += it }
+    /**
+     * Builds the programs only the wet sheet uses (the masked water passes, its lean look) now, at the stroke's start with
+     * the rest, instead of at the first frame that wants each: that was a stall a few frames into the first wash.
+     */
+    fun prewarmSheet() {
+        if (cullWater && cullByMask && atlas == null && wf == 1) for (i in 0..2) cullProgram(i)
+        if (lookPaintOnly && atlas == null) sheetRender()
+    }
+
     /** The mask for the flux and the update (a block: 16 cells) and the wider one for the bead field (a block: 8 of its cells). */
     private var cullMaskTex = 0
     private var cullMaskBeadTex = 0

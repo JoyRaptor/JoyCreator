@@ -570,6 +570,8 @@ public final class JoybotAgent {
                     || com.fadcam.ui.faditor.ai.actions.AppActions.changes() != appChangesAtStart;
         }
         @Nullable String lastError;
+        /** Which changing steps of this request worked and which failed, for the final reply. */
+        final HonestClaim.Ledger ledger = new HonestClaim.Ledger();
         /** The project as the last Director-tracked tool left it, so the next needn't re-read it. */
         @Nullable String lastAfter;
         /**
@@ -811,7 +813,7 @@ public final class JoybotAgent {
                                     + " say so plainly in one sentence instead, and that nothing changed."));
                     continue;
                 }
-                if (lastError != null && !changedSomething() && claimsAChange(aiText)
+                if (lastError != null && !changedSomething() && HonestClaim.claims(aiText)
                         && !HelpBook.saysItCant(aiText)) {
                     // Every attempt failed and nothing was written, yet the reply says "Done!"
                     // (a free model, three failed label_sprite_cells, Note 9 2026-10-15). Say what
@@ -831,6 +833,10 @@ public final class JoybotAgent {
                               + " model (tap its name at the top)."
                             : reply + "\n\n(Nothing was changed.)";
                 }
+                // Some steps changed the work and some failed, and the reply claims all of it:
+                // say which step didn't happen (BOT-A2, 11-13).
+                String honest = HonestClaim.note(reply, ledger);
+                if (honest != null) reply = reply + "\n\n" + honest;
                 finish(true, reply);
                 return;
             }
@@ -897,6 +903,7 @@ public final class JoybotAgent {
             com.fadcam.ui.faditor.ai.actions.StudioActions.takeTouched();   // clear a stale one
             final long writesBefore = JoybotStorage.writes();
             final long failsBefore = JoybotStorage.saveFailures();
+            final long appChangesBefore = com.fadcam.ui.faditor.ai.actions.AppActions.changes();
             String result;
             try {
                 result = new AIToolExecutor(app, pid, (t, pct) -> {
@@ -949,6 +956,11 @@ public final class JoybotAgent {
                 return name + " → " + result;
             }
             if (DirectRunner.isFailure(result)) lastError = result;
+            // A failed read is not a missing change; only changing tools go in the ledger.
+            if (!AgentTools.isRead(name)) {
+                ledger.ran(name, DirectRunner.isFailure(result) ? result : null,
+                        wrote || com.fadcam.ui.faditor.ai.actions.AppActions.changes() != appChangesBefore);
+            }
             else if (wrote) out.calls.add(new Idea.Step(name, com.fadcam.ui.faditor.ai.actions.StudioActions.toMap(args)));
             if (("open_room".equals(name) || "open_library_item".equals(name) || "new_project_from".equals(name)
                     || com.fadcam.ui.faditor.ai.actions.AppActions.hasPendingRoute())

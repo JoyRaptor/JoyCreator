@@ -104,7 +104,7 @@ public final class TipBook {
             t("capture_screen", Wing.CAPTURE, "Capture records your screen, with your face in a webcam bubble if you like.", "record"),
             t("capture_background", Wing.CAPTURE, "Capture can keep recording video with the screen off.", "record"),
             t("capture_dual", Wing.CAPTURE, "Capture can film with the front and back cameras at the same time.", "record"),
-            t("capture_remote", Wing.CAPTURE, "you can control Capture from another device on the same Wi-Fi.", "record"),
+            t("capture_remote", Wing.CAPTURE, "you can control Capture from another device on the same Wi-Fi.", "remote"),
             // ── Library and your files ──
             t("library_everything", Wing.LIBRARY, "the Library shows everything you've made in one place: projects, drawings, sprite sheets, recordings and exports.", "library"),
             t("library_folder", Wing.LIBRARY, "your work lives in your own Joy Creator folder, as files you can see, so nothing is lost if the app goes.", "library"),

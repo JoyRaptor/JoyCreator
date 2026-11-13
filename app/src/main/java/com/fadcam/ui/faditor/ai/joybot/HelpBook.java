@@ -28,7 +28,7 @@ public final class HelpBook {
         @NonNull public final String id;
         @NonNull final String[] keys;
         @NonNull public final String answer;
-        /** Where "Take me there" goes ("studio", "record", "library", "setup", "joybrush", "spritelab", "avatar", "space"), or null. */
+        /** Where "Take me there" goes ("studio", "record", "library", "setup", "joybrush", "spritelab", "avatar", "space", "remote", "finder"...), or null. */
         @Nullable public final String route;
         /** An idea key Joybot can run for them ("transcribe"…), a flow ("slide", "picture"), or null. */
         @Nullable public final String doIt;
@@ -463,8 +463,14 @@ public final class HelpBook {
                     + "|remote streaming|stream to my computer|stream to a browser|server room",
                     "Remote lets you watch and control the phone's camera from a browser on the same Wi-Fi. It "
                             + "works on your own network only: the old cloud parts were removed. The viewer's computer "
-                            + "needs internet for the page to look right.",
-                    null, null),
+                            + "needs internet for the page to look right. In the lobby it's the Remote word on the floor.",
+                    "remote", null),
+            new Topic("smart_detection", "smart detection|finder|detect people|detection|find people in|find a person"
+                    + "|find cars|find a car|find my pet|events timeline|activity summary|snapshot gallery|who came",
+                    "Smart Detection (the lobby's Finder) finds people, vehicles, pets and objects in your camera "
+                            + "recordings: an Events Timeline you can filter and jump from to the exact moment, an "
+                            + "Activity Summary and a Snapshot Gallery. Switch it on or off in Settings › Smart Detection.",
+                    "finder", null),
             // ── VisLab and Director (BOT-2, 10-28; from STATE 5.5 / 6) ──
             // ── TextLab (TEXT-1, 11-12): film-poster words ──
             new Topic("textlab", "textlab|text lab|film title|poster text|poster words|movie title|chrome text"

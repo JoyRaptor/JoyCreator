@@ -1,6 +1,6 @@
 # BOT-3: Joybot you can trust: never claims what it didn't do, never loses work
 
-**Milestone:** M1  ·  **State:** ⬜  ·  **Owner:** open (Joybot lane; frontier work)  ·  **Checked:** 2026-10-28 against `fbfa50ce4`
+**Milestone:** M1  ·  **State:** 🔨  ·  **Owner:** Joybot lane (Claude Opus 5.5, 11-13)  ·  **Checked:** 2026-11-13
 
 ## Why it matters (for the user)
 With free AI models, the weak point is honesty and safety: saying "done" when nothing changed, or a long job
@@ -20,8 +20,14 @@ and JoyBrush requests are not resumable. The bench runs 53 tasks with a fake mod
 (no key on the PC). Per-request size ~19,000 characters.
 
 ## What is left
-- [ ] **Honest by measurement**: compare the reply's claim with the request's real changes (write count,
-      touched ids, app-wide changes) and say what really happened. Audit recommendation 3.
+- [x] **Honest by measurement** (11-13, audit BOT-A2): `joybot/HonestClaim` keeps a ledger of the request's changing
+      steps (worked + changed the work, or failed; a retry that works clears the failure; reads are left out). Mixed
+      result + a reply claiming all of it: the reply gets "Not all of that happened: “rename clip” didn't work (why). The
+      other change did go through." The "nothing changed" check now also knows claims like "is called Intro now". The
+      wider claim words are used only after a failure, never for the "make the change now" nudge (an honest description
+      such as "the clip is called Beach" must not be pushed into a change). Bench 55/55 with `studio-rename-fails` and
+      `studio-partial-fail` (both FAIL on the old code: positive control); `IdeaEngineTest` 10 honesty checks. Not on a
+      phone with a live model. Left: touched-id comparison per claim (which item the reply names) stays a later step.
 - [ ] **Live benchmark on free models** (`run-joybot-bench.sh --live`): needs an OpenRouter key on the PC
       (owner) or ~$10 credit for four models. Publish the table in `tasks/joybot/`.
 - [ ] **Resume for VisLab and JoyBrush jobs**: checkpoint by conversation, not only project.

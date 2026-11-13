@@ -2195,6 +2195,10 @@ public class ChatAssistantActivity extends AppCompatActivity {
         int tab;
         switch (where) {
             case IdeaEngine.ROUTE_RECORD: tab = 0; break;
+            // Remote and Smart Detection are main-screen tabs; the Lobby's floor words "Remote" and
+            // "Finder" open them the same way (LobbyFragment.routeTab TAB_REMOTE / TAB_FINDER). SHELL-04.
+            case "remote": tab = 2; break;
+            case "finder": tab = 5; break;
             // The Lobby's own screens, not the classic FadCam tabs (lead, DOOR-1 10-28).
             case "library": openOverlay("library"); return;
             case "studio": openOverlay("projects"); return;
@@ -2212,10 +2216,13 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 finish();
                 return;
             case "avatar":
-                // Avatar Studio needs a project too, for the same reason and with the same fallback as Sprite Lab.
-                if (projectId == null) { route("studio"); return; }
-                startActivity(new Intent(this, com.fadcam.ui.faditor.avatar.AvatarStudioActivity.class)
-                        .putExtra(com.fadcam.ui.faditor.avatar.AvatarStudioActivity.EXTRA_PROJECT_ID, projectId));
+                // With a project, Avatar Studio opens on it; without one it opens standalone on the
+                // character library, as the Studio screen's Avatar Studio button does (FaditorMiniFragment).
+                Intent avatar = new Intent(this, com.fadcam.ui.faditor.avatar.AvatarStudioActivity.class);
+                if (projectId != null) {
+                    avatar.putExtra(com.fadcam.ui.faditor.avatar.AvatarStudioActivity.EXTRA_PROJECT_ID, projectId);
+                }
+                startActivity(avatar);
                 finish();
                 return;
             case "space":

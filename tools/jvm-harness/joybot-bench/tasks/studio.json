@@ -354,5 +354,27 @@
       {"text": "There is no tool that draws on a clip, so I still haven't changed anything."}
     ],
     "expect": {"unchanged": true, "undoSteps": 0}
+  },
+  {
+    "id": "studio-rename-fails",
+    "title": "“Rename the first clip to Intro”: the rename fails and the model says it worked (BOT-A2: say nothing changed)",
+    "words": "rename the first clip to Intro",
+    "reference": [
+      {"calls": [{"name": "rename_clip", "args": {"clipId": "c-nope", "newName": "Intro"}}]},
+      {"text": "The first clip is called Intro now."}
+    ],
+    "expect": {"unchanged": true, "undoSteps": 0, "ok": false, "reply": {"mentions": ["nothing changed"]}}
+  },
+  {
+    "id": "studio-partial-fail",
+    "title": "“Make the title red and rename the first clip to Intro”: only the rename fails (BOT-A2: say which part didn't happen)",
+    "words": "make the title red and rename the first clip to Intro",
+    "reference": [
+      {"calls": [{"name": "set_text_style", "args": {"text": "t-title", "color": "#FF0000"}}]},
+      {"calls": [{"name": "rename_clip", "args": {"clipId": "c-nope", "newName": "Intro"}}]},
+      {"text": "Done: the title is red and the first clip is called Intro now."}
+    ],
+    "expect": {"require": [{"path": "timeline.textOverlays[t-title].colorInt", "eq": "#FF0000"}],
+               "undoSteps": 1, "ok": true, "reply": {"mentions": ["didn't work", "rename clip"]}}
   }
 ]

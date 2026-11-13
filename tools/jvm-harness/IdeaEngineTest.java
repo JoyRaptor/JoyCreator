@@ -465,6 +465,10 @@ public class IdeaEngineTest {
                     {"how do I export", "export"},
                     {"how do I get the drawer back", "studio_drawer_back"},
                     {"how do I cut the silence out of my song", "silence"},
+                    // SHELL-04 (11-13): Remote and Smart Detection get a Take me there
+                    {"where is smart detection", "smart_detection"},
+                    {"how do I find people in my recordings", "smart_detection"},
+                    {"where is the finder", "smart_detection"},
             };
             for (String[] c : bot2Help) {
                 t = com.fadcam.ui.faditor.ai.joybot.HelpBook.find(c[0]);
@@ -484,7 +488,7 @@ public class IdeaEngineTest {
             }
             eq("help G3: no two topics share an id", com.fadcam.ui.faditor.ai.joybot.HelpBook.TOPICS.size(), helpIds.size());
             Set<String> helpRoutes = new HashSet<>(Arrays.asList(null, "record", "library", "studio", "setup", "vislab",
-                    "joybrush", "spritelab", "avatar", "space", "trash", "bridge", "textlab"));
+                    "joybrush", "spritelab", "avatar", "space", "trash", "bridge", "textlab", "remote", "finder"));
             for (com.fadcam.ui.faditor.ai.joybot.HelpBook.Topic x : com.fadcam.ui.faditor.ai.joybot.HelpBook.TOPICS) {
                 check("help G3: route is a real one: " + x.id, helpRoutes.contains(x.route), String.valueOf(x.route));
                 check("help G3: \"Or I can do it\" only with a doIt: " + x.id,
@@ -718,7 +722,7 @@ public class IdeaEngineTest {
             check("tips: a big library (40+)", tips.size() >= 40, String.valueOf(tips.size()));
             Set<String> tipIds = new HashSet<>();
             Set<String> tipRoutes = new HashSet<>(Arrays.asList(null, "record", "library", "studio", "vislab",
-                    "joybrush", "spritelab", "trash", "bridge", "textlab"));
+                    "joybrush", "spritelab", "trash", "bridge", "textlab", "remote", "finder"));
             java.util.EnumSet<com.fadcam.ui.faditor.ai.joybot.TipBook.Wing> wings =
                     java.util.EnumSet.noneOf(com.fadcam.ui.faditor.ai.joybot.TipBook.Wing.class);
             for (com.fadcam.ui.faditor.ai.joybot.TipBook.Tip x : tips) {
@@ -733,6 +737,39 @@ public class IdeaEngineTest {
             }
             eq("tips: no two share an id", tips.size(), tipIds.size());
             eq("tips: every wing has some", com.fadcam.ui.faditor.ai.joybot.TipBook.Wing.values().length, wings.size());
+            // SHELL-04 (11-13): every route a tip, a help topic or open_room names is a real case of the chat's
+            // route() (read as text), so "Take me there" never silently does nothing.
+            try {
+                String chat = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(
+                        "app/src/main/java/com/fadcam/ui/faditor/ai/ChatAssistantActivity.java")), "UTF-8");
+                String nav = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(
+                        "app/src/main/java/com/fadcam/ui/faditor/ai/actions/NavigateActions.java")), "UTF-8");
+                Set<String> named = new java.util.TreeSet<>();
+                for (com.fadcam.ui.faditor.ai.joybot.TipBook.Tip x : tips) if (x.route != null) named.add(x.route);
+                for (com.fadcam.ui.faditor.ai.joybot.HelpBook.Topic x : com.fadcam.ui.faditor.ai.joybot.HelpBook.TOPICS) {
+                    if (x.route != null) named.add(x.route);
+                }
+                java.util.regex.Matcher rooms = java.util.regex.Pattern.compile(
+                        "ROOMS = Arrays.asList\\(([^;]*)\\);").matcher(nav);
+                check("routes: open_room's list is readable", rooms.find(), "");
+                java.util.regex.Matcher q = java.util.regex.Pattern.compile("\"([a-z_]+)\"").matcher(rooms.group(1));
+                int navRooms = 0;
+                while (q.find()) { named.add(q.group(1)); navRooms++; }
+                check("routes: open_room has remote and finder", rooms.group(1).contains("\"remote\"")
+                        && rooms.group(1).contains("\"finder\""), rooms.group(1));
+                for (String r : named) {
+                    boolean has = chat.contains("case \"" + r + "\":")
+                            || ("record".equals(r) && chat.contains("case IdeaEngine.ROUTE_RECORD:"));
+                    check("routes: route() has a case for " + r, has, r);
+                }
+                check("routes: 13+ routes checked", named.size() >= 13, String.valueOf(named.size()));
+                int av = chat.indexOf("case \"avatar\":"), sp = chat.indexOf("case \"space\":");
+                check("routes: Avatar opens standalone with no project (no Studio fallback)",
+                        av > 0 && sp > av && !chat.substring(av, sp).contains("route(\"studio\")"), "");
+                check("routes: open_room lists 13 rooms", navRooms == 13, String.valueOf(navRooms));
+            } catch (java.io.IOException ex) {
+                check("routes: sources readable", false, ex.toString());
+            }
 
             // Someone who only draws: mostly JoyBrush, but other wings still turn up.
             java.util.Map<com.fadcam.ui.faditor.ai.joybot.TipBook.Wing, Integer> drawer = new java.util.EnumMap<>(
@@ -869,6 +906,45 @@ public class IdeaEngineTest {
             for (int i = 0; i < 20; i++) many.add(new com.fadcam.ui.faditor.ai.joybot.WhatHere.Action("t" + i, "Thing " + i, "STUDIO", false));
             check("what here: a long list ends with how many more",
                     com.fadcam.ui.faditor.ai.joybot.WhatHere.answer(IdeaEngine.Room.STUDIO, true, true, many).contains("…and 6 more"), "");
+        }
+
+        // ── HonestClaim: "done" checked against what really happened (BOT-A2, 11-13) ──
+        {
+            check("honest: the bench's rename claim is a claim",
+                    com.fadcam.ui.faditor.ai.joybot.HonestClaim.claims("The first clip is called Intro now."), "");
+            check("honest: the old tells still count",
+                    com.fadcam.ui.faditor.ai.joybot.HonestClaim.claims("Done — the title is red now."), "");
+            check("honest: a plain description is not a claim",
+                    !com.fadcam.ui.faditor.ai.joybot.HonestClaim.claims("Your video is 20 seconds long."), "");
+            com.fadcam.ui.faditor.ai.joybot.HonestClaim.Ledger l = new com.fadcam.ui.faditor.ai.joybot.HonestClaim.Ledger();
+            l.ran("set_text_style", null, true);
+            l.ran("rename_clip", "Error: no clip called c-nope.\nClips: c-beach, c-city", false);
+            String reply = "Done: the title is red and the first clip is called Intro now.";
+            String note = com.fadcam.ui.faditor.ai.joybot.HonestClaim.note(reply, l);
+            check("honest: one of two failed, the claim gets a note", note != null, String.valueOf(note));
+            check("honest: the note names the failed step and its reason", note != null
+                    && note.contains("“rename clip” didn't work (no clip called c-nope)")
+                    && note.contains("The other change did go through."), String.valueOf(note));
+            check("honest: a reply that owns up gets no note", com.fadcam.ui.faditor.ai.joybot.HonestClaim.note(
+                    "The title is red, but the rename didn't work: there's no such clip.", l) == null, "");
+            check("honest: a question back gets no note", com.fadcam.ui.faditor.ai.joybot.HonestClaim.note(
+                    "Which clip did you mean?", l) == null, "");
+            com.fadcam.ui.faditor.ai.joybot.HonestClaim.Ledger retried = new com.fadcam.ui.faditor.ai.joybot.HonestClaim.Ledger();
+            retried.ran("rename_clip", "Error: no clip called c-nope.", false);
+            retried.ran("rename_clip", null, true);
+            check("honest: a failed step made good on retry is no failure",
+                    com.fadcam.ui.faditor.ai.joybot.HonestClaim.note(reply, retried) == null, "");
+            com.fadcam.ui.faditor.ai.joybot.HonestClaim.Ledger none = new com.fadcam.ui.faditor.ai.joybot.HonestClaim.Ledger();
+            none.ran("rename_clip", "Error: no clip called c-nope.", false);
+            check("honest: nothing changed at all is the agent's own path, not a note",
+                    com.fadcam.ui.faditor.ai.joybot.HonestClaim.note(reply, none) == null, "");
+            com.fadcam.ui.faditor.ai.joybot.HonestClaim.Ledger three = new com.fadcam.ui.faditor.ai.joybot.HonestClaim.Ledger();
+            three.ran("set_text_style", null, true);
+            three.ran("add_text", null, true);
+            three.ran("rename_clip", "Error: " + "x".repeat(200), false);
+            String n3 = com.fadcam.ui.faditor.ai.joybot.HonestClaim.note("All set!", three);
+            check("honest: counts the other changes, keeps a long error short", n3 != null
+                    && n3.contains("The other 2 changes did go through.") && n3.length() < 200, String.valueOf(n3));
         }
 
         // ── HelpBook.wantsChange: a request that must end in a change (Note 9, 2026-10-15) ──

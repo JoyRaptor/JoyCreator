@@ -1,6 +1,6 @@
 # BOT-4: Joybot's new reach: everything a person can do, across the wings
 
-**Milestone:** M1 (the parts the owner wants before launch) and after launch  ·  **State:** ⬜  ·  **Owner:** open  ·  **Checked:** 2026-10-28 against `fbfa50ce4`
+**Milestone:** M1 (the parts the owner wants before launch) and after launch  ·  **State:** 🔨  ·  **Owner:** Joybot lane (Claude Opus 5.5, 11-13)  ·  **Checked:** 2026-11-13
 
 ## Why it matters (for the user)
 The goal is "anything you can do in Joy Creator, Joybot can do with you", in any wing, and whole jobs that
@@ -31,6 +31,12 @@ SpriteLab: grid, names, animations, sequences.
       labels (`LayerRowRenderer.labelFor`, name chip on the main strip, sprite default = sheet name, audio default = file
       name), hover labels, missing-file messages ("Cat 2 (IMG_0042.jpg) is missing"), clear-name path for Joybot
       (empty name = automatic label; the model setters already do it), no undo test on a phone.
+- [x] **Take me there to Remote, Smart Detection and standalone Avatar** (audit SHELL-04, 11-13): `open_room` gains
+      `remote` and `finder`; the chat's `route()` opens main-screen tabs 2 and 5 the way the lobby's floor words do
+      (no `MainActivity` change); Avatar with no project opens standalone on the character library; help `remote_lan`
+      and new `smart_detection` carry the route, the Remote tip too. IdeaEngineTest now checks that every route a
+      tip, help topic or `open_room` names has a `case` in `route()` (911/911; removing the remote case fails it).
+      Not yet tried on a phone.
 - [ ] **Capture**: start, pause, stop a recording; webcam bubble; floating visualiser with it. Android
       permission screens stay the person's tap.
 - [ ] **JoyBrush, deeper**: Select (move, scale, recolour a selection), symmetry, paper, undo/redo by voice,

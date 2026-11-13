@@ -76,18 +76,18 @@ The scan's first count of '0 in every file' was wrong (its regex matched nothing
 
 | locale | strings |
 |---|---|
-| main | 34 |
-| main | 34 |
-| main | 27 |
-| main | 34 |
-| main | 38 |
-| main | 34 |
-| main | 34 |
-| main | 27 |
-| main | 34 |
-| main | 34 |
-| main | 34 |
-| main | 55 |
+| values-ar | 34 |
+| values-de | 34 |
+| values-el | 27 |
+| values-es | 34 |
+| values-et | 38 |
+| values-fr | 34 |
+| values-in | 34 |
+| values-it | 27 |
+| values-ps | 34 |
+| values-ru | 34 |
+| values-tr | 34 |
+| values-zh-rCN | 55 |
 
 Most are the `Downloads/FadCam` folder wording and the copyright line (compare English `values/`, section 1); the same fix as English (L16, L17) covers them. English `values/` is the source to fix first.
 

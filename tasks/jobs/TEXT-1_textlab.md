@@ -1,6 +1,6 @@
 # TEXT-1: TextLab (name pending): title text that looks like a film poster
 
-**Milestone:** M1  ·  **State:** 🔨 look engine and look book built; nothing in the app yet  ·  **Owner:** Claude Fable 5.2 "TextLab" (branch `claude/textlab-20261111`, `C:/Temp/textlab-20261111`)  ·  **Checked:** 2026-11-11 against `joy-creator` at `5fe9c0c36`
+**Milestone:** M1  ·  **State:** 🔨 engine, Studio titles, previews, packs, export and icons in the app (agent-checked); the room, lobby door and JoyBot are not built; see "Ship list"  ·  **Owner:** looks: Claude Fable 5.2 "TextLab"; phone / Studio: Claude Opus 5.5  ·  **Checked:** 2026-11-12 night against `joy-creator` at `d69214364`
 
 ## Why it matters (for the user)
 Studio's text box is fine for slides. TextLab is the step beyond it, the way VisLab went beyond the
@@ -238,6 +238,45 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
 - **Honest limits today:** the fire is good stylised fire, not yet the photograph the owner showed;
   water and the other drafts are below the bar; only the app's own fonts are used (Archivo, Plex,
   Ubuntu, Doto), so there is no script or true display face yet.
+
+## Ship list (2026-11-12 night): everything between today and a finished wing
+
+The owner asked: what is left before TextLab is a fully polished, fully integrated, ready-to-ship wing, with full
+Joybot integration, its own lab room and its ties to the Library, packs and everything else. Checked against the
+code on `joy-creator` (an audit of every place VisLab, the model wing, is wired in; evidence in this session's
+handoff). Order is the recommended build order; the owner's verdicts run alongside.
+
+1. **The room (biggest; everything else hangs off it).** Today's screen is a picture, chips, words, Save, Export.
+   Owed: every slider of `parts.json` in its 37 tabs (icons ready: `TlIcons.forTab`); the light (Still / Sway /
+   Record tilt, as in Studio) and the progress scrubber; a background picker (stage, see-through, your picture or
+   video); font picker; duplicate, rename, delete, revert-to-default (the user's copy wins, factory copy kept);
+   undo (one press, one step); a Joybot orb; building a look from parts, VisLab's lab model.
+2. **Lobby:** a TextLab room tab and door (`LobbyFragment` has `ROOM_VIZ` = 4, nothing for TextLab), a hero still,
+   saved looks in the recents (`LibraryGlance.recentParts` leaves `.text.json` out).
+3. **Joybot:** actions to list looks, put a look on a title, set its light and sliders, save / rename / revert /
+   delete a look, open TextLab, export (VisLab has 12, `VisLabActions` + `VisLabLookFiles`; TextLab has 0: today's
+   `TextLookActions` are the plain text drawer); a navigate route; room awareness (`IdeaEngine.Room`, `WhatHere`);
+   tips (`TipBook` Wing); help topics in `HelpBook` (four STATE rows say "Help mapping: pending").
+4. **Studio round trip:** "Open in TextLab" from a title and back (VisLab has "Edit in VisLab"); a title's own
+   slider changes (`TitleLook.knobs` is there, no UI); the title's font / colour with a look on; phone-try the
+   progress row, corner pin, a real hand tilt; VisLab showing a looked title on the phone.
+5. **Library and files:** item-sheet actions for a look (Open in TextLab, Use on a title, Export); WebP previews
+   (sheets are ~0.9 MB PNG); Sprite Lab's own sheets on the moving-name rule.
+6. **Packs (PACK-1):** open a pack from the Library or a share; remove and update; only the `text-look` socket is
+   read (vis-look, vis-part, brush, paper, palette, font, grade, caption-style are kept but unread); signing; the
+   shop and paywall; the release waves.
+7. **The looks (the owner's bar, his verdicts):** rebuilt Rusted, Crystal Ice (short of his photos), Phantom,
+   Dust, Water's drips; "next level" for Liquid Chrome, Diamond, Retro Pop, Hologram; Stained Glass's floor light,
+   Banner's pole and shadow, a real script hand; fire toward the photograph; open-licence display fonts (his yes
+   to download) and your own font.
+8. **Speed and phones:** over the 33 ms line on the Note 9: Diamond 46, Crystal Ice 45, Rusted 42, Water 39,
+   Fizz 38, Overgrown 36, Carved Stone 36, Voltage 35; never run on the Note 20; a long run's heat; a phone without
+   half-float targets needs a plain-words fallback.
+9. **Other wings:** VisLab reading the look shelf and the emitter; JoyBrush has no text tool at all (a look needs
+   one there first); hand-drawn ink as letters. Related, separate job: STU-6 (TextLab's pieces as Studio effects).
+10. **Ship hygiene:** the words in `strings.xml` (all English is in code today, as in VisLab); JVM tests for the
+    shelf, packs, `linkSheets`, `LookFrame`; a `TEXTLAB_ROADMAP.md` like VisLab's; the name ("name pending");
+    STATE rows from agent-checked to LIVE with the owner's own try; help mapping filled in.
 
 ## What is left
 

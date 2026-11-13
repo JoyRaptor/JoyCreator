@@ -50,3 +50,7 @@ Nothing inside the app depends on the folder's name. What depends on it, checked
   absolute path from `local.properties`. Moving those (and the old backups beside them) is HYG-3 work.
 - No junction at the old path: the owner wants no "FadCam" folder left.
 - Do not rename while any session is running in it: their edits would land in a folder that no longer exists.
+
+## Missed by the rename: the commit guard (found and fixed 2026-11-13)
+
+The 10-27 rename left `core.hooksPath` pointing at the old folder, in the repo config and in 17 app-made worktrees, so `.githooks/pre-commit` and `commit-msg` (the guard against the owner's personal identifiers and phone serials) were silently off from 10-27 to 11-13. Repointed 11-13 about 13:50 by the orchestrator and tested in each. Still open: `tasks/joybrush/LEAD_HANDOFF.md` has one old hit from 09-29, and `tasks/BOARD.md` has three lines the guard now flags (written 10-27 and 11-13, not by this lane): the next person to edit those files must clean them.

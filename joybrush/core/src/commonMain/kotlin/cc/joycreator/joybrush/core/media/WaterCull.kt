@@ -65,6 +65,37 @@ class WaterCull(val bw: Int, val bh: Int, val block: Int = 16) {
         return intArrayOf(live, ringed)
     }
 
+    /**
+     * The blocks a step must draw, one byte each ([bw] x [bh], rows from the bottom as the grid's): 255 where the block is
+     * live or within [grow] blocks of a live one, else 0. Null until something has been measured (everything is drawn).
+     * With grow 1 this is exactly the set [parts] gathers into rectangles: the same blocks, without the rectangles' slack.
+     */
+    fun mask(grow: Int = 1): ByteArray? {
+        if (readings == 0) return null
+        // Along x, then along y: a square of side 2 x grow + 1 round every live block.
+        val row = BooleanArray(bw * bh)
+        for (by in 0 until bh) {
+            var reach = -1   // the last column a live block seen so far still covers
+            for (bx in 0 until bw) {
+                if (life[by * bw + bx] > 0) {
+                    for (x in max(max(0, bx - grow), reach + 1)..bx) row[by * bw + x] = true
+                    reach = bx + grow
+                } else if (bx <= reach) row[by * bw + bx] = true
+            }
+        }
+        val out = ByteArray(bw * bh)
+        for (bx in 0 until bw) {
+            var reach = -1
+            for (by in 0 until bh) {
+                if (row[by * bw + bx]) {
+                    for (y in max(max(0, by - grow), reach + 1)..by) out[y * bw + bx] = -1
+                    reach = by + grow
+                } else if (by <= reach) out[by * bw + bx] = -1
+            }
+        }
+        return out
+    }
+
     /** The brush put water on cells [x0], [y0] .. [x1], [y1]: those blocks are live at once. */
     fun wetted(x0: Float, y0: Float, x1: Float, y1: Float) {
         val bx0 = max(0, floor(x0 / block).toInt()); val by0 = max(0, floor(y0 / block).toInt())

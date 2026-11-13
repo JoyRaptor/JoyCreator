@@ -90,7 +90,7 @@ final class LibrarySource {
             });
             // While the folder is walked on its own thread: each project's layers and running time
             // (slow on first sight, remembered after; see ProjectFacts).
-            if (gen == generation) ProjectFacts.read(storage, projects);
+            if (gen == generation) ProjectFacts.read(app, storage, projects);
         });
     }
 

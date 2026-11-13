@@ -578,7 +578,23 @@ object DrawingLibrary {
     }
 
     /**
-     * A small picture of the active board over its paper colour. Renders only the rows the picture samples, one row at
+     * JBX-15: the paper as the screen and the PNG export show it (its look, surface and tint, through the same
+     * [cc.joycreator.joybrush.androidkit.io.PaperResources] the export uses), so a kraft or textured drawing's picture
+     * in the list is not plain white. Null for a flat paper (the plain colour is drawn, exactly as before) or a paper
+     * whose loading fails outright (the plain colour again: a thumbnail never fails over its paper). A look whose
+     * picture is missing comes back from PaperResources as its flat base and tint, as the export does.
+     */
+    internal fun paperLookOf(p: cc.joycreator.joybrush.core.doc.Paper): ((RectPx) -> ByteArray)? {
+        if (p.screenTransparent || (p.lookId == null && p.textureId == null && p.tint == null)) return null
+        return try {
+            cc.joycreator.joybrush.androidkit.io.PaperResources.load(p)::render
+        } catch (e: Exception) {
+            Log.w(TAG, "thumbnail paper look unavailable", e); null
+        }
+    }
+
+    /**
+     * A small picture of the active board over its paper (its look and tint since JBX-15, [paperLookOf]). Renders only the rows the picture samples, one row at
      * a time, so a big board costs a few megabytes, never the full-size composite. Layers this renderer can't draw
      * (vector, animated) are left out rather than failing the whole picture. A drawing with editable lines is drawn as the
      * screen shows it ([ExportPicture.asShown], as every export is): handed its line storage, the renderer refused it, and
@@ -595,11 +611,13 @@ object DrawingLibrary {
         val tw = max(1, (r.w * scale).roundToInt())
         val th = max(1, (r.h * scale).roundToInt())
         val paper = full.paper.color.takeIf { Regex("^#[0-9a-fA-F]{6}$").matches(it) } ?: "#FFFFFF"
+        val look = paperLookOf(full.paper)
         val source = TileSource { layer, cel, tx, ty -> contents.tiles[Triple(layer, cel, DocOps.key(tx, ty))] }
         val out = IntArray(tw * th)
         for (oy in 0 until th) {
             val sy = min(r.h - 1, ((oy + 0.5f) / scale).toInt())
-            val row = RegionRenderer.render(doc, source, RectPx(r.x, r.y + sy, r.w, 1), null, paper)
+            val row = RegionRenderer.render(doc, source, RectPx(r.x, r.y + sy, r.w, 1), null,
+                if (look != null) null else paper, look)
             for (ox in 0 until tw) {
                 val sx = min(r.w - 1, ((ox + 0.5f) / scale).toInt())
                 val i = sx * 4

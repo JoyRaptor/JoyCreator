@@ -71,10 +71,25 @@ object BrushShelf {
     }
 
     /**
+     * JBX-06: whether the canvas can paint with [p] today. A modern (Unibrush) stamp whose line is a screen-width wire is
+     * not connected to drawing yet (JbCanvasView.startStroke would only refuse it), so the drawer leaves it out rather
+     * than offer a brush that does nothing. The older Wire line brush (no Unibrush marks) paints and stays. Keep this in
+     * step with the `modernStamp && isWire` test in JbCanvasView.startStroke.
+     */
+    fun paintsToday(p: BrushPreset): Boolean {
+        val modernStamp = p.engine == "stamp" && (p.extensions["unibrush.family"] in setOf("builtin", "user") ||
+            p.tip.angleSource != null || p.tip.profile != null || p.tip.fade != null ||
+            p.tip.quad != null || p.color.dynamics?.isActive == true ||
+            p.tip.sampled != null || p.tip.dual != null)
+        return !(modernStamp && cc.joycreator.joybrush.core.vector.LineStyle.of(p.line).isWire)
+    }
+
+    /**
      * The drawer's shelves: [Kind.ALL] first with every brush, then each kind that holds at least one, in [Kind] order.
      * Brushes keep [library] order within a shelf. An empty library has no shelves at all.
      */
-    fun shelves(library: List<BrushPreset>): List<Pair<Kind, List<BrushPreset>>> {
+    fun shelves(all: List<BrushPreset>): List<Pair<Kind, List<BrushPreset>>> {
+        val library = all.filter { paintsToday(it) }
         if (library.isEmpty()) return emptyList()
         val grouped = library.groupBy { kindOf(it) }
         val out = ArrayList<Pair<Kind, List<BrushPreset>>>()

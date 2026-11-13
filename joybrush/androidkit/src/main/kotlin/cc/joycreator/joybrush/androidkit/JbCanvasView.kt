@@ -2152,11 +2152,13 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
             onRefused?.invoke(lockedSentence(activeLayer))
             return
         }
-        // A hidden layer is refused out loud: painting where the paint cannot be seen is how work gets lost (JB-2.04).
+        // Painting where the paint cannot be seen is how work gets lost (JB-2.04), but a refusal turned the toddler away
+        // (JBX-05, ledger A3): the hidden layer is shown and the stroke paints. The way back is the layer's Hide, as
+        // before; showing is still not an undo step (JB-2.04 Decision 7), so Undo takes the stroke and leaves it shown.
         if (!stackUi.active.visible) {
-            drawing = false
-            onRefused?.invoke("\"${stackUi.active.name}\" is hidden. Show it to paint on it.")
-            return
+            val name = stackUi.active.name
+            setLayerVisible(activeLayer, true)
+            onNotice?.invoke("\"$name\" was hidden, so it is shown again for your paint.")
         }
         onBeforeStroke?.invoke()
         val b = brush
@@ -2172,9 +2174,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         val wholeStroke = cc.joycreator.joybrush.core.vector.LineStyle.of(p?.line)
         // Unibrush U6: a modern stamp that shapes the whole stroke (Taper, dashes) draws plainly while the pen is down and
         // is redrawn shaped at the lift from its own recording ([shapeCapture], LiftShape). A screen-width wire is not.
+        // The drawer no longer offers these (BrushShelf.paintsToday, JBX-06); this is the net for one still in hand.
         if (modernStamp && wholeStroke.isWire) {
             drawing = false
-            onRefused?.invoke("Screen-width wire brushes are not connected to drawing yet.")
+            onRefused?.invoke("This wire brush can't paint yet. Pick another brush from the drawer.")
             return
         }
         shapeAtLift = modernStamp && cc.joycreator.joybrush.core.vector.LiftShape.wanted(p)
@@ -2203,10 +2206,13 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         } catch (e: Exception) {
             drawing = false; onRefused?.invoke(e.message ?: "The brush image could not be read"); return
         }
-        if(p?.engine == ENGINE_FILL && editingMask) {
-            drawing=false; onRefused?.invoke("Select the paint layer to use the fill pen; masks are not supported yet."); return
-        }
         val erase = b.erase || eraser
+        // JBX-05 (ledger A5, A6): the fill pen, and a multiply or screen glaze, cannot paint a mask's grey (a glaze would
+        // grey out the white it should keep). They used to be refused; now this ONE stroke paints the layer's own pixels
+        // and the mask stays selected, so the next ordinary brush still goes to the mask. Said in words each time.
+        val offMask = editingMask && stackUi.active.hasMask && p?.engine != ENGINE_MEDIA &&
+            (p?.engine == ENGINE_FILL || ((p?.blend == BLEND_MULTIPLY || p?.blend == BLEND_SCREEN) && !erase))
+        val maskStroke = editingMask && !offMask
         val diagnosticObserver = onDiagnosticStrokeCapture
         val amount = if (p != null && !smoothingFromUser) p.smoothing else smoothing
         var frozen: FrozenBrushResult? = null
@@ -2248,7 +2254,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
             return
         }
         var lineFrozen: FrozenBrushResult? = null
-        if (!editingMask && watercolourPreviewSeed == null) {
+        if (!maskStroke && watercolourPreviewSeed == null) {
             val holdsItems = lineSnapshot.holdsItemsOnLayer(activeLayer)
             if (editableLines || holdsItems) {
                 if (holdsItems) LineAdmission.slabRefusal(p, tileBoardId != null)?.let { why ->
@@ -2274,13 +2280,6 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                 }
             }
         }
-        // The glaze blends (brush version 9) composite colour over colour. A mask holds grey with missing tiles meaning
-        // white, so a screen glaze would grey out the white it should keep: refused in words, never painted as normal.
-        if ((p?.blend == BLEND_MULTIPLY || p?.blend == BLEND_SCREEN) && editingMask && !erase) {
-            drawing = false
-            onRefused?.invoke("Multiply and screen brushes don't paint on masks. Select the paint layer, or pick another brush for the mask.")
-            return
-        }
         // JB-2.12a's Phase B: the symmetry line, read ONCE at pen-down and frozen for the whole
         // stroke. A stroke is never copied onto a line that moved halfway through it.
         val symmetry = symmetryGuide?.takeIf { it.count >= 2 }
@@ -2297,11 +2296,14 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         }
         // A media brush paints through the media engine (step 4c) on the active layer (R51).
         if (p?.engine == ENGINE_MEDIA && !eraser) { startMediaStroke(p); return }
+        if (offMask) onNotice?.invoke(
+            if (p?.engine == ENGINE_FILL) "The fill pen fills the layer itself. The mask stays selected for your other brushes."
+            else "Multiply and screen paint the layer itself. The mask stays selected for your other brushes.")
         // Every other brush, the eraser included, writes pixels; over media the engine's bake keeps the two agreeing.
         mediaErase = false
         mediaBegun = false
         // JB-2.23: on the mask, the stroke goes to the mask's store and paints GREY — white shows, black hides.
-        strokeOnMask = editingMask && stackUi.active.hasMask
+        strokeOnMask = maskStroke && stackUi.active.hasMask
         val primary = (colorArgb ?: b.argb).let { if (strokeOnMask) maskGrey(it) else it }
         val secondary = (secondaryColorArgb ?: 0xFFFFFFFF.toInt()).let { if (strokeOnMask) maskGrey(it) else it }
         contactColors = cc.joycreator.joybrush.core.brush.StrokeColors(primary, secondary)

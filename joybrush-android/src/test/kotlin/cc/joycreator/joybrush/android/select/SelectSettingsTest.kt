@@ -84,4 +84,18 @@ class SelectSettingsTest {
         choice("Pans").performClick()
         assertFalse(SelectPreferences(context).fingerSelects)
     }
+
+    @Test fun dimTheRestIsHiddenUntilTheCanvasCanDimButItsSavedChoiceIsKept() {
+        // JBX-02: CanvasSelectionHost.dimRest paints nothing yet, so the switch is not shown; the preference stays.
+        val context = RuntimeEnvironment.getApplication()
+        context.getSharedPreferences("joybrush_select", Context.MODE_PRIVATE).edit().clear().commit()
+        val preferences = SelectPreferences(context)
+        preferences.dimRest = false
+        val menu = SelectSettingsView(ChromeKit(context), false, false, {}, {}, dimRest = preferences.dimRest)
+        assertFalse(descendants(menu).any { it.contentDescription?.startsWith("Dim the rest") == true })
+        assertFalse(descendants(menu).filterIsInstance<android.widget.TextView>().any { it.text.toString().startsWith("Dim the rest") })
+        assertFalse(SelectPreferences(context).dimRest)
+        val later = SelectSettingsView(ChromeKit(context), false, false, {}, {}, dimRest = true, showDimRest = true)
+        assertEquals(2, descendants(later).count { it.contentDescription?.startsWith("Dim the rest") == true })
+    }
 }

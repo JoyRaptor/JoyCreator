@@ -327,8 +327,9 @@ class GuideOverlayView(private val kit: ChromeKit, private val transform: ViewTr
                 val key = handleAt(settings, e.x, e.y)
                 if (key != null) {
                     grabbed = key
-                } else if (sym != null && nearLine(sym, e.x, e.y)) {
-                    // The body of the line: both ends move together.
+                } else if (sym != null && bodyGrabsFor(e.getToolType(0)) && nearLine(sym, e.x, e.y)) {
+                    // The body of the line: both ends move together. Only a finger takes hold of it (JBX-03): a pen
+                    // stroke that starts on the axis is painting there, and it paints.
                     bodyGrab = true
                     val (dx, dy) = transform.screenToDoc(e.x, e.y)
                     lastDocX = dx
@@ -529,7 +530,15 @@ class GuideOverlayView(private val kit: ChromeKit, private val transform: ViewTr
     /** What the soft snap keeps still while the angle is pulled onto a quarter turn. */
     private enum class Anchor { END_A, END_B, MIDDLE }
 
-    private companion object {
+    internal companion object {
+        /**
+         * Whether a touch by [toolType] may take hold of the symmetry line's BODY. A finger may (that is how the line is
+         * moved); a pen, its eraser end or a mouse never does: painting on the axis is ordinary work, and a stroke that
+         * moved the line instead read as a broken brush (symmetry session, 10-27). The end handles still answer any tool.
+         */
+        fun bodyGrabsFor(toolType: Int): Boolean =
+            toolType == MotionEvent.TOOL_TYPE_FINGER || toolType == MotionEvent.TOOL_TYPE_UNKNOWN
+
         const val HANDLE_DP = 13f
 
         /**

@@ -149,13 +149,15 @@ class FillPenDispatchTest {
         assertTrue((get(view,"fillSamples") as List<*>).isEmpty())
     }
 
-    @Test fun hiddenLayerRefusesFillBeforeAnyPreviewOrStrokeStarts() {
+    // JBX-05 (ledger A3): a hidden layer is shown and filled; it used to be refused before the preview started.
+    @Test fun hiddenLayerIsShownAndTheFillStarts() {
         val view=surface(); val stack=view.layers
         set(view,"stackUi",stack.withVisible(stack.activeId,false))
         var reason=""; view.onRefused={reason=it}
+        var notice=""; view.onNotice={notice=it}
         begin(view)
-        assertFalse(view.strokeInProgress); assertTrue(reason.contains("hidden"))
-        assertNull(get(view,"strokePreset")); assertTrue((get(view,"fillPoints") as List<*>).isEmpty())
+        assertTrue(view.strokeInProgress); assertEquals("",reason)
+        assertTrue(view.layers.active.visible); assertTrue(notice.contains("shown"))
     }
 
     @Test fun lockedLayerRefusesFillBeforeStarting() {
@@ -166,13 +168,15 @@ class FillPenDispatchTest {
         assertNull(get(view,"strokePreset"))
     }
 
-    @Test fun aMaskRefusesFillWithAnActionableExplanation() {
+    // JBX-05 (ledger A5): with the mask selected the fill pen fills the layer itself; the mask stays selected.
+    @Test fun withTheMaskSelectedTheFillPenFillsTheLayer() {
         val view=surface(); val stack=view.layers
         set(view,"stackUi",stack.withMask(stack.activeId,true)); set(view,"editingMask",true)
         var reason=""; view.onRefused={reason=it}
         begin(view)
-        assertFalse(view.strokeInProgress); assertTrue(reason.contains("paint layer"))
-        assertTrue(reason.contains("masks")); assertNull(get(view,"strokePreset"))
+        assertTrue(view.strokeInProgress); assertEquals("",reason)
+        assertFalse(get(view,"strokeOnMask") as Boolean); assertEquals(view.activeLayerId,get(view,"strokeLayerId"))
+        assertTrue(view.editingMask)
     }
 
     // Tile tools (2026-10-16): the fill pen works on an armed Tile board; its shape is folded into the repeat at commit.

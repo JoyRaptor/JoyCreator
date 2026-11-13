@@ -210,4 +210,18 @@ class ChromeCoreTest {
         val fine = SampleStroke.dabs(brush("fine", size = 2f), 200f, 40f, displaySize = 16f)
         assertTrue(fine.all { it.radius <= 1f + 1e-3f })
     }
+
+    @Test
+    fun aUnibrushScreenWidthWireIsLeftOffTheShelvesButTheOldWireStays() {
+        // JBX-06: the canvas cannot paint a modern stamp that is a screen-width wire yet, so the drawer never offers it.
+        val wire = cc.joycreator.joybrush.core.brush.LineStyleSpec(screenWidthPx = 1f)
+        val modernWire = brush("user.wire", "My wire").copy(line = wire, extensions = mapOf("unibrush.family" to "user"))
+        val oldWire = brush("joybrush.lines.wire", "Wire").copy(line = wire)
+        assertFalse(BrushShelf.paintsToday(modernWire))
+        assertTrue(BrushShelf.paintsToday(oldWire))
+        val shelves = BrushShelf.shelves(library + modernWire + oldWire)
+        assertTrue(shelves.none { (_, list) -> modernWire in list })
+        assertTrue(oldWire in shelves.first().second)
+        assertTrue(BrushShelf.shelves(listOf(modernWire)).isEmpty())
+    }
 }

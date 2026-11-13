@@ -32,16 +32,18 @@ class SelectMenuScrollTest {
         val app = RuntimeEnvironment.getApplication()
         val context = app.createConfigurationContext(Configuration(app.resources.configuration).apply { fontScale = 1.8f })
         val kit = ChromeKit(context)
-        var dimChanges = 0
+        var lockedChanges = 0
         val settings = SelectSettingsView(kit, false, false, {}, {}, canPasteLines = true,
-            showLockedOption = true, onDimRest = { dimChanges++ })
+            showLockedOption = true, onPickLocked = { lockedChanges++ })
         val scroll = SelectMenuScrollView(context, settings) { kit.dpi(36f) }
         layout(scroll, kit.dpi(260f), kit.dpi(240f))
         assertTrue(scroll.height <= kit.dpi(204f))
         assertTrue(settings.height > scroll.height)
         val controls = descendants(settings)
         assertTrue(controls.any { it.contentDescription == "Paste the copied editable lines onto this layer" })
-        val last = controls.first { it.contentDescription == "Dim the rest while selecting: on" }
+        // JBX-02: the dead "Dim the rest" row is gone, so the locked-lines choice is the last one.
+        assertTrue(controls.none { it.contentDescription?.startsWith("Dim the rest") == true })
+        val last = controls.first { it.contentDescription == "Pick locked lines too: on" }
         assertEquals(kit.dpi(40f), last.height)
         scroll.scrollTo(0, settings.height)
         val lastAt = IntArray(2); val scrollAt = IntArray(2)
@@ -49,7 +51,7 @@ class SelectMenuScrollTest {
         assertTrue(lastAt[1] >= scrollAt[1])
         assertTrue(lastAt[1] + last.height <= scrollAt[1] + scroll.height)
         last.performClick()
-        assertEquals(1, dimChanges)
+        assertEquals(1, lockedChanges)
     }
 
     @Test fun moreLengthRowsKeepTheirTargetsAndReflowWhenTheHeightChanges() {

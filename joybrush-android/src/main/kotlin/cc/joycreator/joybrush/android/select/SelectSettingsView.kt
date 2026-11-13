@@ -28,6 +28,12 @@ class SelectSettingsView(
     private val onDimRest: (Boolean) -> Unit = {},
     showLockedOption: Boolean = false,
     perBrushLinesOverrideShelf: Boolean = false,
+    /**
+     * JBX-02: the "Dim the rest" row stays hidden until the canvas can really dim (SEL-C3's compositor hook;
+     * CanvasSelectionHost.dimRest is empty today). A switch that changes nothing is worse than none. The saved
+     * choice ([SelectPreferences.dimRest]) is kept, so turning this on later brings the person's choice back.
+     */
+    showDimRest: Boolean = false,
 ) : LinearLayout(kit.context) {
     init {
         orientation = VERTICAL
@@ -36,7 +42,7 @@ class SelectSettingsView(
         action("Select all lines", "Select every editable line on this layer", onSelectAllLines)
         if (canPasteLines) action("Paste", "Paste the copied editable lines onto this layer", onPasteLines)
         if (showLockedOption || pickLocked) toggle("Pick locked lines too", pickLocked, onPickLocked)
-        toggle("Dim the rest while selecting", dimRest, onDimRest)
+        if (showDimRest) toggle("Dim the rest while selecting", dimRest, onDimRest)
     }
 
     private fun action(words: String, label: String, run: () -> Unit) {

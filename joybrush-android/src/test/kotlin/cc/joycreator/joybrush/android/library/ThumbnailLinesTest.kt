@@ -34,4 +34,17 @@ class ThumbnailLinesTest {
         assertNotNull("a line drawing gets a picture", thumb)
         assertEquals(0xFF0000FF.toInt(), thumb!!.getPixel(10, 10))
     }
+
+    @Test fun aTintedPaperIsDrawnAsTheScreenShowsItNotAsItsBaseColour() {
+        // JBX-15: the picture uses the paper's look, the same as the export (PaperResources), not just paper.color.
+        var id = 0
+        val base = DocOps.newDocument("doc", "Art", 64, 64) { "id${id++}" }
+        val doc = base.copy(paper = cc.joycreator.joybrush.core.doc.Paper("#123456", tint = "#204060"))
+        val thumb = DrawingLibrary.thumbnailOf(JbContents(doc, emptyMap(), emptyMap()))
+        assertNotNull(thumb)
+        assertEquals(0xFF204060.toInt(), thumb!!.getPixel(10, 10))
+        // A flat paper is drawn exactly as before.
+        val flat = DrawingLibrary.thumbnailOf(JbContents(base.copy(paper = cc.joycreator.joybrush.core.doc.Paper("#123456")), emptyMap(), emptyMap()))
+        assertEquals(0xFF123456.toInt(), flat!!.getPixel(10, 10))
+    }
 }

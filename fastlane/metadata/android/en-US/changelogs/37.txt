@@ -1,0 +1,1 @@
+Joy Creator beta: paint and animate (JoyBrush), edit video (Studio), music visuals (VisLab), title looks (TextLab), sprites and puppets, recording, and the Joybot helper. All your work is kept in one folder you choose.

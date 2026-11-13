@@ -296,10 +296,30 @@ out once; it falls back to the old way where 32-bit targets are refused. Picture
 past 8/255). ClearCheck worst 1 on Rusted, Diamond, Water, Carved Stone, Slime, Dark Steel, Retro Pop. Rusted's edge
 flicker (a surface slope taken inside a branch, undefined at the outline; the lead's b2e267eb9) is fixed in shade.frag,
 so Rusted uses the split in the app too: ClearCheck worst 1 on two runs, two draws identical, 0.015% of pixels moved
-against the old build (single sparkles); it still reads 58 ms in the app's check screen. Speed in the app's check screen (GPU warmed, alternating builds at the same temperature):
-Diamond 53 -> 38 to 43 ms; Rusted 58 either way. The app's check screen times most looks at 50 to 58 ms where the look
-book on the same phone reads 20 to 31: the phone engine itself is slower than Chrome's, and finding where needs per-pass
-GPU timers (a job of its own). The app's processor work is 5 to 9 ms a frame of that.
+against the old build (single sparkles). Speed in the app's check screen (GPU warmed, alternating builds at the same
+temperature): Diamond 53 -> 38 to 43 ms; Rusted 58 either way.
+
+**Where the app's "slow" frames went (11-13, phone session): nowhere; the check screen measured differently.** The
+check screen waits for the GPU to finish after every frame (glFinish) and times that, so its number is the processor's
+5 to 12 ms plus the GPU's work plus the wait, with the GPU idle between frames. The look book sends 40 frames back to
+back and times the lot. Timed both ways in the app, Note 9, 1280x720, 28 to 29 C:
+
+| Look | Check screen, wait each frame | App, 8 frames back to back (`--ei burst 8`) | Look book in Chrome | Room's real frames (SurfaceFlinger) |
+|---|---|---|---|---|
+| Dark Steel | 52 to 61 ms | 18.6 to 19.6 | 17.6 | 18.3 ms (55 fps) |
+| Rusted | 33 to 51 | 21.9 to 22.6 | 20.4 | |
+| Diamond | 45 to 51 | 24.1 to 24.3 | 24.9 | 24.6 ms (41 fps) |
+
+So the phone engine is as fast as Chrome's, and the room, which never waits on the GPU, gets that speed. GPU time by step
+(`--ez gputime true`, `TlGpuTimer`, EXT_disjoint_timer_query; ms):
+Dark Steel backdrop 1.5, letters 0.3, soften 3.4, march 1.6, shade 5.4 to 6.1, sparks 0.2, bloom 1.3, final 5.9 to 6.3, fxaa 0.7 (20 to 22 total);
+Rusted shade 21.5 to 22.3 of 36; Diamond backdrop 4.9, shade 14.3 to 14.9, final 7.0 to 7.2 of 35 (the timer's own waits
+inflate the totals a little). Next speed targets, if any: Rusted's and Diamond's shade, Diamond's backdrop, the final
+pass (6 to 7 ms on Dark Steel and Diamond).
+**Still to check:** Studio draws a title's look and reads the picture back every frame (`StudioTextLab.draw` ->
+`readBitmap`), so Studio waits on the GPU per frame like the check screen and may play a TextLab title nearer 20 fps than
+40-55. Not measured (needs a Studio project with a TextLab title); the fix would read the frame back one frame late
+(two pixel buffers) during playback, exact on a jump or an export.
 
 ## Ship list (2026-11-12 night): everything between today and a finished wing
 

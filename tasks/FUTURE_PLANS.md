@@ -365,9 +365,9 @@ Columns below: **What** · **Source** (file:line, date) · **Kind** · **In code
 
 ### 2.11 Stale STATE rows found on the way (for HYG-5)
 
-- `STATE.md:378` "Image generation 🔵": Joybot already makes pictures (`ai/joybot/JoybotPictures.java`, bfce16319, 10-15).
-- `STATE.md:197` "Bend / squash-and-stretch on sprites 🔵, not built" contradicts `STATE.md:136` "Bend — SPRITES 🟢". The After-launch line "bend on sprites" follows the stale row.
-- `STATE.md:381` "Joybot sprite and states ⚪" is now BOT-5 (moods built, sheet awaited).
+- **Fixed 11-13 (L01):** `STATE.md:378` "Image generation 🔵": Joybot already makes pictures (`ai/joybot/JoybotPictures.java`, bfce16319, 10-15).
+- **Fixed 11-04 (STATE:224 'Corrected 11-04'):** `STATE.md:197` "Bend / squash-and-stretch on sprites 🔵, not built" contradicts `STATE.md:136` "Bend — SPRITES 🟢". The After-launch line "bend on sprites" follows the stale row.
+- **Fixed 11-13 (L01):** `STATE.md:381` "Joybot sprite and states ⚪" is now BOT-5 (moods built, sheet awaited).
 
 ### 2.12 Decisions still owed, not in today's S-list
 

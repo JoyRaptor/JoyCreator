@@ -3,7 +3,7 @@ FORMAT GUIDELINES (read by the app's update sheet):
 - Use # for section headers (# New Features, # Fixes)
 - Use bullet points with - for individual changes
 - Comments like this won't be displayed in the app
-FadCam's own history (the app this grew out of) is kept in docs/FADCAM_CHANGELOG.md.
+FadCam's own history (the app this grew out of) is kept in tasks/archive/fadcam-docs/FADCAM_CHANGELOG.md.
 -->
 
 # Joy Creator beta

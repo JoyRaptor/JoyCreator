@@ -191,6 +191,8 @@
         <!-- Headless WebView host for rasterizing AI-authored animated slides -->
         <activity android:name="com.fadcam.ui.faditor.slides.SlideRenderActivity" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:exported="true" android:excludeFromRecents="true" android:noHistory="true" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden" />
         <activity android:name="com.fadcam.ui.faditor.waveform.WaveformDebugActivity" android:exported="true" android:excludeFromRecents="true" />
+        <!-- The TextLab room (TEXT-1): a look's every slider, its pieces, light, font, background; save, rename, delete, export -->
+        <activity android:name="cc.joycreator.textlab.TextLabActivity" android:exported="true" android:theme="@style/Theme.FadCam.FaditorEditor" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize" android:windowSoftInputMode="adjustResize|stateHidden" android:screenOrientation="portrait" />
         <!-- TextLab phone engine check: one look on real words, its still saved for the look book comparison -->
         <activity android:name="cc.joycreator.textlab.TextLabDebugActivity" android:exported="true" android:excludeFromRecents="true" android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" android:windowSoftInputMode="adjustResize" />
         <!-- Opening a .joypack (job PACK-1): shows what it holds, installs on one tap. A zip by type; the screen checks for joypack.json. -->

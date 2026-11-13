@@ -55,7 +55,7 @@ public final class TextLookRow extends LinearLayout {
     private final List<TextLookShelf.Item> shelf = new ArrayList<>();
     private final LinearLayout lightRow, progressRow;
     private final TextView still, sway, record, byItself, pinned, note;
-    private final LightPad pad;
+    private final TlLightPad pad;
     private final SeekBar progress;
     private final LightTake take;
     private boolean armed;
@@ -89,7 +89,7 @@ public final class TextLookRow extends LinearLayout {
         lightRow.addView(still);
         lightRow.addView(sway);
         lightRow.addView(record);
-        pad = new LightPad(c);
+        pad = new TlLightPad(c);
         LayoutParams plp = new LayoutParams(dp(64), dp(40));
         plp.setMarginStart(dp(8));
         lightRow.addView(pad, plp);
@@ -386,60 +386,4 @@ public final class TextLookRow extends LinearLayout {
     // ---- the little pad where the light sits ---------------------------------------------------------
 
     /** A small pad: the dot is where the light is (the middle = straight on); drag it. */
-    private static final class LightPad extends View {
-        interface Moved {
-            void moved(float x, float y, boolean done);
-        }
-
-        @Nullable Moved onMoved;
-        private float x, y;
-        private final Paint frame = new Paint(Paint.ANTI_ALIAS_FLAG), dot = new Paint(Paint.ANTI_ALIAS_FLAG);
-
-        LightPad(Context c) {
-            super(c);
-            frame.setStyle(Paint.Style.STROKE);
-            frame.setStrokeWidth(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 1, c.getResources().getDisplayMetrics()));
-            frame.setColor(0xFF3F3F46);
-            dot.setColor(CYAN);
-            setContentDescription("Where the light is: drag the dot");
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) setTooltipText("Where the light is: drag the dot");
-        }
-
-        void set(float x, float y) {
-            this.x = x;
-            this.y = y;
-            invalidate();
-        }
-
-        @Override
-        protected void onDraw(@NonNull Canvas c) {
-            float r = getHeight() * 0.12f;
-            c.drawRoundRect(1, 1, getWidth() - 1, getHeight() - 1, r, r, frame);
-            float cx = (x + 1) / 2 * getWidth(), cy = (1 - (y + 1) / 2) * getHeight();
-            c.drawCircle(cx, cy, Math.max(4, getHeight() * 0.11f), dot);
-        }
-
-        @SuppressLint("ClickableViewAccessibility")
-        @Override
-        public boolean onTouchEvent(MotionEvent e) {
-            float nx = Math.max(-1, Math.min(1, e.getX() / Math.max(1, getWidth()) * 2 - 1));
-            float ny = Math.max(-1, Math.min(1, 1 - e.getY() / Math.max(1, getHeight()) * 2));
-            switch (e.getActionMasked()) {
-                case MotionEvent.ACTION_DOWN:
-                    getParent().requestDisallowInterceptTouchEvent(true);
-                    // fall through
-                case MotionEvent.ACTION_MOVE:
-                    set(nx, ny);
-                    if (onMoved != null) onMoved.moved(nx, ny, false);
-                    return true;
-                case MotionEvent.ACTION_UP:
-                case MotionEvent.ACTION_CANCEL:
-                    set(nx, ny);
-                    if (onMoved != null) onMoved.moved(nx, ny, true);
-                    return true;
-                default:
-                    return true;
-            }
-        }
-    }
 }

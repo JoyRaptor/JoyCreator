@@ -51,8 +51,21 @@ final class TlFonts {
     }
 
     private final Map<String, Face> faces = new HashMap<>();
+    private final Context app;
+    /** Folder fonts that could not be read: asked once, then Archivo. */
+    private final java.util.Set<String> missing = new java.util.HashSet<>();
+
+    /** A person's own font in the Joy Creator folder, named in a look as {@code "file:Supplies/Fonts/X.ttf"}. */
+    public static final String FILE = "file:";
+
+    /** The built-in faces a person can choose in the room: key, name. */
+    public static final String[][] CHOICES = {
+            {"archivo", "Archivo"}, {"bebas", "Bebas Neue"}, {"cinzel", "Cinzel"}, {"orbitron", "Orbitron"},
+            {"racing", "Racing Sans"}, {"pacifico", "Pacifico"}, {"plex", "Plex Sans"}, {"mono", "Plex Mono"},
+            {"ubuntu", "Ubuntu"}, {"doto", "Doto"}};
 
     TlFonts(@NonNull Context c) {
+        app = c.getApplicationContext();
         add(c, new Face("archivo", R.font.archivo_variable, null, 100, 900, 62, 125));
         add(c, new Face("plex", R.font.plex_sans_variable, null, 100, 700, 85, 100));
         add(c, new Face("mono", R.font.plex_mono_semibold, null, 600, 600, 0, 0));
@@ -79,9 +92,40 @@ final class TlFonts {
     @NonNull
     Face face(@Nullable String family) {
         Face f = family != null ? faces.get(family) : null;
+        if (f == null && family != null && family.startsWith(FILE) && !missing.contains(family)) f = folderFace(family);
         if (f == null) f = faces.get("archivo");
         if (f == null) throw new IllegalStateException("TextLab has no fonts");
         return f;
+    }
+
+    /**
+     * A font file from the Joy Creator folder (GL thread, once per font): copied to the app's cache, where Android
+     * can open it as a typeface. A file that cannot be read draws in Archivo.
+     */
+    @Nullable
+    private Face folderFace(@NonNull String family) {
+        try {
+            com.fadcam.joyfolder.JoyFolder jf = com.fadcam.joyfolder.android.JoyFolderHome.open(app);
+            if (jf == null) throw new java.io.IOException("folder out of reach");
+            byte[] data = jf.readAll(family.substring(FILE.length()));
+            java.io.File dir = new java.io.File(app.getCacheDir(), "textlab/fonts");
+            //noinspection ResultOfMethodCallIgnored
+            dir.mkdirs();
+            java.io.File f = new java.io.File(dir, Integer.toHexString(family.hashCode()) + "-" + data.length + ".ttf");
+            if (!f.exists() || f.length() != data.length) {
+                try (java.io.FileOutputStream os = new java.io.FileOutputStream(f)) {
+                    os.write(data);
+                }
+            }
+            Face face = new Face(family, 0, null, 400, 400, 0, 0);
+            face.typeface = Typeface.createFromFile(f);
+            faces.put(family, face);
+            return face;
+        } catch (Exception | Error e) {
+            Log.w(TAG, "folder font not read: " + family, e);
+            missing.add(family);
+            return null;
+        }
     }
 
     /** The CSS width keyword the look book asks for, as the percent the browser then applies. */

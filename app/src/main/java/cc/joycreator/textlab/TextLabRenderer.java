@@ -129,6 +129,7 @@ public final class TextLabRenderer {
     private double lookTime;
 
     public TextLabRenderer(@NonNull Assets assets, @NonNull android.content.Context context) {
+        TlTrouble.check();   // a phone that cannot draw the looks says so in words, before anything is built
         glw = new TlGl(assets.shaders);
         parts = assets.parts;
         knobs = parts.optJSONObject("knobs");

@@ -11,7 +11,7 @@
 set -u
 cd "$(dirname "$0")/../.." || exit 1
 
-STUDIO_SUITES="adjust align anchor audio-fx audio-fx2 audioid bakedparse bakepop beats caption
+STUDIO_SUITES="adjust align anchor audio-fx audio-fx2 audioid bakepop beats caption
 clipwarp consolidate cutspan duck envelope flextime flip frame-parity frame-time fx gestureangle
 key lanechain mask matte mesh motionrange para pinbudget preview-parity puppet rebase resample
 rotation scalesnap sidecars specj-suite speck specq specr spect splitcopy sprite textstyle

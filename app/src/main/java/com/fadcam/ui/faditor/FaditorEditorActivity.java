@@ -36717,6 +36717,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 o.setTextLook(t == null ? null : t.copy());
                 refreshOverlayPreview();
                 scheduleAutoSave();
+                if (lookSlidersPill != null) {
+                    lookSlidersPill.setVisibility(o.getTextLook() != null ? View.VISIBLE : View.GONE);
+                }
             }
 
             @Override
@@ -36780,6 +36783,57 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 setLookHoldCatcher(down, up, hint);
             }
         };
+    }
+
+    /** The text drawer's "Look sliders" pill (TX-01); shown only while the title wears a look. */
+    @androidx.annotation.Nullable private TextView lookSlidersPill;
+
+    @NonNull
+    private View buildLookSlidersPill(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem o) {
+        int d = (int) getResources().getDisplayMetrics().density;
+        TextView pill = new TextView(this);
+        pill.setText(R.string.tx01_pill);
+        pill.setTextColor(Studio.INK);
+        pill.setTextSize(13);
+        pill.setGravity(android.view.Gravity.CENTER);
+        pill.setPadding(14 * d, 0, 14 * d, 0);
+        pill.setMinHeight(34 * d);
+        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+        bg.setCornerRadius(17 * d);
+        bg.setColor(Studio.RAISED);
+        pill.setBackground(bg);
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(pill, getString(R.string.tx01_pill_hover));
+        pill.setContentDescription(getString(R.string.tx01_pill_hover));
+        android.widget.LinearLayout.LayoutParams lp = new android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = 4 * d;
+        lp.bottomMargin = 4 * d;
+        pill.setLayoutParams(lp);
+        pill.setVisibility(o.getTextLook() != null ? View.VISIBLE : View.GONE);
+        pill.setOnClickListener(v -> com.fadcam.ui.faditor.text.LookSlidersSheet.show(this, o,
+                new com.fadcam.ui.faditor.text.LookSlidersSheet.Host() {
+                    private void apply(@NonNull cc.joycreator.textlab.TitleLook t) {
+                        o.setTextLook(t.copy());
+                        refreshOverlayPreview();
+                        scheduleAutoSave();
+                    }
+
+                    @Override public void put(@NonNull cc.joycreator.textlab.TitleLook look) {
+                        o.setTextLook(look.copy());
+                        refreshOverlayPreview();
+                    }
+
+                    @Override public void record(@NonNull String label,
+                                                 @NonNull cc.joycreator.textlab.TitleLook before,
+                                                 @NonNull cc.joycreator.textlab.TitleLook after) {
+                        scheduleAutoSave();
+                        undoManager.recordAction(new EditActions.LambdaAction(label,
+                                () -> apply(after), () -> apply(before)));
+                    }
+                }));
+        lookSlidersPill = pill;
+        return pill;
     }
 
     /** While "Record tilt" is armed: a see-through sheet over the picture that turns a hold into a take. */
@@ -36862,6 +36916,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         // LOOK (TEXT-1): a TextLab look by its picture, its light (Still / Sway / Record tilt) and progress.
         root.addView(new cc.joycreator.textlab.TextLookRow(this, item, textLookHost(item)));
+        // TX-01: the worn look's own sliders and colours (TextLab's panel), only while there is a look.
+        root.addView(buildLookSlidersPill(item));
 
         // Motion range (Start/Span/End) · selection status (Whole/Clear) · trash — one line.
         root.addView(buildTextMotionRangeSection(item, session));

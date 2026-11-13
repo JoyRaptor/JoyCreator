@@ -56,6 +56,14 @@
     <string name="a11y_degrees">%1$d degrees</string>
     <string name="a11y_gradient_stops">Gradient color stops</string>
     <string name="studio_d3_caption_style">Caption style</string>
+    <!-- TX-01 (11-13): a title's look sliders in Studio -->
+    <string name="tx01_pill">Look sliders</string>
+    <string name="tx01_pill_hover">Change this look\'s own sliders and colors for this title</string>
+    <string name="tx01_title">Sliders · %1$s</string>
+    <string name="tx01_as_it_came">As it came</string>
+    <string name="tx01_as_it_came_hover">Put this look\'s sliders and colors back as the look came</string>
+    <string name="tx01_slider_step">Look slider: %1$s</string>
+    <string name="tx01_no_sliders">This look\'s sliders can\'t be shown on this phone</string>
     <string name="studio_d3_tap_in_tool_strip">Tap %1$s in the tool strip</string>
     <string name="studio_d3_select_a_region">Select at least one region to export</string>
     <string name="studio_d3_uses_region_names">Uses each region\'s name</string>

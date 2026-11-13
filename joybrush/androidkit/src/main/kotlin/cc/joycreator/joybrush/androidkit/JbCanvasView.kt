@@ -676,6 +676,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         requestRender()
     }
 
+    /** Bench only: paint store tiles read back and uploaded with the reused buffers ([GlPaintEngine.reuseMediaStaging]) or with new ones a tile. */
+    fun benchReuseMediaStaging(on: Boolean) { onGl(allowLost = true) { engine.reuseMediaStaging = on } }
+
     /** Bench only: lets go of what [benchHogGpu] took. */
     fun benchUnhogGpu() {
         onGl(allowLost = true) {

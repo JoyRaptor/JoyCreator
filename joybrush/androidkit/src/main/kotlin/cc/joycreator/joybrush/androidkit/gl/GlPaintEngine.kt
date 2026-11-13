@@ -239,6 +239,12 @@ class GlPaintEngine(
     private val boardSnapshotAllowanceBytes = undoBudgetBytes.coerceAtLeast(0L)
     // GL-thread only. Reuse staging storage while a large snapshot fills its output arrays.
     private val tileReadback by lazy { ByteBuffer.allocateDirect(size * size * 4).order(ByteOrder.nativeOrder()) }
+    // The same for a paint store tile ([readMediaTile], [writeMediaTile]): its full floats in native memory and as an array.
+    // Made new for every tile, a save of 31 oil tiles left 124 MB of garbage behind it (2026-11-13). GL thread only.
+    private val mediaStaging by lazy { ByteBuffer.allocateDirect(size * size * 4 * 4).order(ByteOrder.nativeOrder()) }
+    private val mediaFloats by lazy { FloatArray(size * size * 4) }
+    /** Bench only: false makes both new for every tile, as before, so the bytes of the two ways can be compared. */
+    var reuseMediaStaging = true
 
     private lateinit var dabProg: GlProgram
     private lateinit var commitProg: GlProgram
@@ -7286,7 +7292,7 @@ class GlPaintEngine(
         val tex = mediaTile(layerId, store, key, plane) ?: return null
         // The ground is RGBA8 like a look tile, and is read like one.
         if (store == MediaStores.GROUND) return readTextureTile(tex)
-        val buf = ByteBuffer.allocateDirect(size * size * 4 * 4).order(ByteOrder.nativeOrder())
+        val buf = if (reuseMediaStaging) mediaStaging.also { it.clear() } else ByteBuffer.allocateDirect(size * size * 4 * 4).order(ByteOrder.nativeOrder())
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
         attach(tex)
         try {
@@ -7297,7 +7303,7 @@ class GlPaintEngine(
         } finally {
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
         }
-        val floats = FloatArray(size * size * 4)
+        val floats = if (reuseMediaStaging) mediaFloats else FloatArray(size * size * 4)
         buf.rewind()
         buf.asFloatBuffer().get(floats)
         return HalfFloat.encode(floats)
@@ -7312,8 +7318,9 @@ class GlPaintEngine(
         val tex = payload(layer, store, planeOf(layer, plane)).getOrPut(key) { newPayloadTile(store) }
         if (store == MediaStores.GROUND) { uploadTile(tex, bytes); return }
         // Uploaded as full floats (ES 3 takes FLOAT data for an RGBA16F texture) so the rounding is the one [HalfFloat] did.
-        val floats = HalfFloat.decode(bytes)
-        val buf = ByteBuffer.allocateDirect(floats.size * 4).order(ByteOrder.nativeOrder())
+        // A store tile is always size x size x 4 values (the require above), which is what the reused pair holds.
+        val floats = if (reuseMediaStaging) mediaFloats.also { HalfFloat.decodeInto(bytes, it) } else HalfFloat.decode(bytes)
+        val buf = if (reuseMediaStaging) mediaStaging.also { it.clear() } else ByteBuffer.allocateDirect(floats.size * 4).order(ByteOrder.nativeOrder())
         buf.asFloatBuffer().put(floats)
         buf.rewind()
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, tex)

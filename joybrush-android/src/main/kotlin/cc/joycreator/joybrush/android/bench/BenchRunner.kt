@@ -133,7 +133,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                val sheetWave: Double? = null,
                /**
                 * `jb_bench_then`: what to do after the last stroke and before the hold, in order, separated by ';':
-                * "wait 3000", "undo", "redo", "save" (a snapshot, as the autosave takes one), "zoom 0.5", "dry" (the wet
+                * "wait 3000", "undo", "redo", "save" (a snapshot, as the autosave takes one), "savecmp" (two, compared), "reload" (save, open it, save again, compared), "zoom 0.5", "dry" (the wet
                 * sheet's water dries where it lies; with `jb_sheet_print_hold_ms` its print waits that long after).
                 */
                val then: List<String> = emptyList(),
@@ -266,6 +266,35 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
             "dry" -> canvas.debugDryWetSheet()
             "save" -> canvas.snapshot({ c -> Log.i(TAG, "then: snapshot of ${c.tiles.size} tiles; tile incidents this run: ${cc.joycreator.joybrush.androidkit.diag.TileIncidents.count}") }, { why -> Log.w(TAG, "then: snapshot failed: $why") })
             "unhog" -> canvas.benchUnhogGpu()
+            // Save, open what was saved, save again: every paint store tile must come back byte for byte (opening uploads
+            // them through the same reused buffers; the pictures are counted apart, an open may redraw them).
+            "reload" -> canvas.snapshot({ a ->
+                try {
+                    canvas.load(a) {
+                        canvas.snapshot({ b ->
+                            val stores = a.mediaTiles.count { (k, v) -> b.mediaTiles[k]?.contentEquals(v) != true } + b.mediaTiles.keys.count { it !in a.mediaTiles }
+                            val looks = a.tiles.count { (k, v) -> b.tiles[k]?.contentEquals(v) != true } + b.tiles.keys.count { it !in a.tiles }
+                            Log.i(TAG, "then: reload: after open and save again, $stores of ${a.mediaTiles.size} paint store tiles differ, $looks of ${a.tiles.size} picture tiles differ")
+                        }, { why -> Log.w(TAG, "then: snapshot failed: $why") })
+                    }
+                } catch (x: Exception) { Log.w(TAG, "then: reload refused: ${x.message}") }
+            }, { why -> Log.w(TAG, "then: snapshot failed: $why") })
+            // Two saves of the same drawing, the paint stores read back with the reused buffers and then with new ones for
+            // every tile: the bytes must be the same (GlPaintEngine.reuseMediaStaging, 2026-11-13).
+            "savecmp" -> {
+                val t0 = android.os.SystemClock.elapsedRealtime()
+                canvas.snapshot({ a ->
+                    val t1 = android.os.SystemClock.elapsedRealtime()
+                    canvas.benchReuseMediaStaging(false)
+                    canvas.snapshot({ b ->
+                        val t2 = android.os.SystemClock.elapsedRealtime()
+                        canvas.benchReuseMediaStaging(true)
+                        val same = a.mediaTiles.size == b.mediaTiles.size && a.mediaTiles.all { (k, v) -> b.mediaTiles[k]?.contentEquals(v) == true } &&
+                            a.tiles.size == b.tiles.size && a.tiles.all { (k, v) -> b.tiles[k]?.contentEquals(v) == true }
+                        Log.i(TAG, "then: savecmp: ${a.tiles.size} tiles and ${a.mediaTiles.size} paint store tiles, ${if (same) "byte for byte the same" else "DIFFERENT"} with reused and with new buffers; ${t1 - t0} ms reused, ${t2 - t1} ms new")
+                    }, { why -> canvas.benchReuseMediaStaging(true); Log.w(TAG, "then: snapshot failed: $why") })
+                }, { why -> Log.w(TAG, "then: snapshot failed: $why") })
+            }
             // As the autosave does while the person paints: the wet sheet's wash is in the save and stays wet. The tiles'
             // bytes are summed so two saves can be compared in the log.
             "savewet" -> canvas.snapshot({ c ->

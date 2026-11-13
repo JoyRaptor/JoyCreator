@@ -67,4 +67,11 @@ object HalfFloat {
         require(bytes.size % 2 == 0) { "half floats come in pairs of bytes, got ${bytes.size}" }
         return FloatArray(bytes.size / 2) { toFloat((bytes[2 * it].toInt() and 0xFF) or ((bytes[2 * it + 1].toInt() and 0xFF) shl 8)) }
     }
+
+    /** As [decode], into the first `bytes.size / 2` places of [out]: no array is made (a drawing opens tile after tile). */
+    fun decodeInto(bytes: ByteArray, out: FloatArray) {
+        require(bytes.size % 2 == 0) { "half floats come in pairs of bytes, got ${bytes.size}" }
+        require(out.size >= bytes.size / 2) { "${bytes.size / 2} values do not fit in ${out.size} places" }
+        for (i in 0 until bytes.size / 2) out[i] = toFloat((bytes[2 * i].toInt() and 0xFF) or ((bytes[2 * i + 1].toInt() and 0xFF) shl 8))
+    }
 }

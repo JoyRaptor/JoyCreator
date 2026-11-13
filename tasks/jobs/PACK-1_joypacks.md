@@ -123,11 +123,21 @@ and "Coral from a pack" (its id clashed with the built-in Coral, so it became `c
 under "CROSS WING TEST"; changing Pack Aurora wrote `Supplies/Looks/Pack Aurora.vis.json`, Revert moved it to Trash,
 one undo brought it back; Joybot's delete refused in words; Studio's text font list offered "Pack Bebas · Cross wing
 test" and the text drew in it. Pack folder removed: the untouched pack look left VisLab, the changed one stayed as the
-person's own, Studio's three items were marked gone. **Not seen:** the grade in Studio's LUT list and the caption style
-in the ticker (on disk and in the list only); a pack installed while VisLab is open.
+person's own, Studio's three items were marked gone. **Not seen:** a pack installed while VisLab is open.
+
+**Note 9, 11-13 later** (same test pack put back, app reopened: `shelf.json` offered the three items again): Studio's
+filter sheet › Look (LUT) listed "Pack Teal · Cross wing test" after the built-ins; choosing it named it on the row, the
+whole grading was one undo step, and reopening the project still named it (stored as `grade:<pack id>/<file>`). Studio's
+preview never shows a LUT, built-in or pack (`ColorGradeGlSource`: no 3D texture), so it was proven by single-frame
+exports at 1.6 s of the test project: the pack grade's frame and the built-in "Teal Orange" frame (the same `.cube`)
+were byte-identical, and both differ from the no-grade frame (mean 16 of 255, warmer). The caption style strip (tap a
+caption in the preview) showed "Pack Pop" after the built-ins; tapping it drew the pack's style (cyan word, dark pill,
+four words a line). The test project was put back as it was and the test frames deleted. **Found, not ours:** on a
+video clip, picking a caption style chip is not an undo step (`FaditorEditorActivity` style-chip tap, clip branch;
+the audio branch records one).
 
 ## What is left
-- [ ] Studio's LUT list and caption ticker with a pack's grade and style, seen on the phone.
+- [x] Studio's LUT list and caption ticker with a pack's grade and style, seen on the phone (11-13, above).
 - [ ] JoyBrush's shelf (spec above) when its lead takes it; `vis-element` (new shader pieces) with VisLab.
 - [ ] Signing, the shop (owner).
 

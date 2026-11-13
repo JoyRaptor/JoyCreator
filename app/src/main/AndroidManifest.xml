@@ -352,7 +352,7 @@
         <activity android:name=".ui.ImageViewerActivity" android:theme="@style/Base.Theme.FadCam" />
         <activity
             android:name=".ui.FullscreenPreviewActivity"
-            android:theme="@style/Base.Theme.FadCam"
+            android:theme="@style/Theme.FadCam.JoyCreator"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
             android:screenOrientation="unspecified"
             android:exported="false" />

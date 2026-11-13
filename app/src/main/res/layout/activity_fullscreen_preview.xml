@@ -94,7 +94,7 @@
                     android:tag="preserve_color"
                     android:text="z"
                     android:textSize="9sp"
-                    android:textColor="#a8d8f0"
+                    android:textColor="#71717A"
                     android:fontFamily="sans-serif-black"
                     android:textStyle="bold" />
 
@@ -105,7 +105,7 @@
                     android:tag="preserve_color"
                     android:text="Z"
                     android:textSize="13sp"
-                    android:textColor="#ceecf8"
+                    android:textColor="#A1A1AA"
                     android:fontFamily="sans-serif-black"
                     android:textStyle="bold" />
 
@@ -116,7 +116,7 @@
                     android:tag="preserve_color"
                     android:text="Z"
                     android:textSize="17sp"
-                    android:textColor="#e8f5fd"
+                    android:textColor="#E4E4E7"
                     android:fontFamily="sans-serif-black"
                     android:textStyle="bold" />
             </LinearLayout>

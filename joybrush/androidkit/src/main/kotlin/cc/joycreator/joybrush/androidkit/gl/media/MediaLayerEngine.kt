@@ -108,9 +108,44 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     private var progFluxW: MediaProgram? = null
     private var progUpdateW: MediaProgram? = null
     private var progBeadW: MediaProgram? = null
-    private fun fluxProgram() = atlas?.takeIf { it.wallsOn }?.let { progFluxW } ?: progFlux
-    private fun updateProgram() = atlas?.takeIf { it.wallsOn }?.let { progUpdateW } ?: progUpdate
-    private fun beadProgram() = atlas?.takeIf { it.wallsOn }?.let { progBeadW } ?: progBead
+    private fun fluxProgram() = if (cullMaskOn) cullProgram(0) else atlas?.takeIf { it.wallsOn }?.let { progFluxW } ?: progFlux
+    private fun updateProgram() = if (cullMaskOn) cullProgram(1) else atlas?.takeIf { it.wallsOn }?.let { progUpdateW } ?: progUpdate
+    private fun beadProgram() = if (cullMaskOn) cullProgram(2) else atlas?.takeIf { it.wallsOn }?.let { progBeadW } ?: progBead
+
+    // ---- the cull mask ([cullWater]: the wet sheet) ----
+    // The water's three passes built with JB_CULL_MASK read one texel per block of 16 cells and leave a block alone where
+    // the mask says nothing is there (core/media/WaterCull.mask): one draw a pass over the water's rectangle, whatever shape
+    // the wet paper has. The rectangles of [WaterCull.parts] stay for the cheap passes round them (the tail copy, the look).
+    private val progCull = arrayOfNulls<MediaProgram>(3)
+    private fun cullProgram(i: Int): MediaProgram = progCull[i] ?: MediaProgram(shaders, "media/jb_media_quad.vert",
+        "media/" + arrayOf("jb_wet_flux.frag", "jb_wet_update.frag", "jb_wet_bead.frag")[i],
+        "media wet " + arrayOf("flux", "update", "bead")[i] + " (cull)", listOf("JB_CULL_MASK")).also { progCull[i] = it; programs += it }
+    /** The mask for the flux and the update (a block: 16 cells) and the wider one for the bead field (a block: 8 of its cells). */
+    private var cullMaskTex = 0
+    private var cullMaskBeadTex = 0
+    private var cullMaskBuf: java.nio.ByteBuffer? = null
+    /** The job that is running (or about to) draws its water stages through the masks. */
+    private var cullMaskOn = false
+    /** Bench only (`jb_water_mask false`): the rectangles alone, as before 2026-11-13, to measure the mask against. */
+    var cullByMask = cullByMaskDefault
+
+    private fun uploadCullMask(tex: Int, bytes: ByteArray, bw: Int, bh: Int): Int {
+        val buf = cullMaskBuf?.takeIf { it.capacity() >= bytes.size } ?: java.nio.ByteBuffer.allocateDirect(bytes.size).also { cullMaskBuf = it }
+        buf.clear(); buf.put(bytes); buf.flip()
+        GLES30.glPixelStorei(GLES30.GL_UNPACK_ALIGNMENT, 1)
+        val t = if (tex != 0) tex else MediaTex.make(bw, bh, GLES30.GL_R8, GLES30.GL_RED, GLES30.GL_UNSIGNED_BYTE, GLES30.GL_NEAREST)
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, t)
+        GLES30.glTexSubImage2D(GLES30.GL_TEXTURE_2D, 0, 0, 0, bw, bh, GLES30.GL_RED, GLES30.GL_UNSIGNED_BYTE, buf)
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
+        GLES30.glPixelStorei(GLES30.GL_UNPACK_ALIGNMENT, 4)
+        return t
+    }
+
+    private fun dropCullMasks() {
+        if (cullMaskTex != 0) MediaTex.deleteTex(cullMaskTex)
+        if (cullMaskBeadTex != 0) MediaTex.deleteTex(cullMaskBeadTex)
+        cullMaskTex = 0; cullMaskBeadTex = 0; cullMaskOn = false
+    }
 
     /**
      * Every media program, in compile order: field setter, vertex, fragment, label, and whether it draws into the paste
@@ -177,7 +212,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     }
 
     /** Deletes the programs compiled so far (an engine compiled ahead and let go before any media stroke, or [release]). */
-    fun releasePrograms() { programs.forEach { it.release() }; programs.clear(); progRenderSheet = null }
+    fun releasePrograms() { programs.forEach { it.release() }; programs.clear(); progRenderSheet = null; progCull.fill(null) }
 
     private var progRenderSheet: MediaProgram? = null
     private fun sheetRender(): MediaProgram = progRenderSheet
@@ -319,6 +354,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     fun sleep() {
         if (asleep) return
         finishWaterJob()
+        dropCullMasks()
         val tex = ArrayList<Int>()
         for (s in state) tex += listOf(s.p0, s.p1, s.paper)
         wet?.forEach { tex += listOf(it.w0, it.w1, it.flux) }
@@ -1411,7 +1447,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         job?.paper?.let { addAll(it.borrowedTextureHandles()) }
     }
     /** The job goes (finished, dropped or the engine sleeps); a block host lets go of what it borrowed for it. */
-    private fun dropJob() { val j = job; job = null; if (j?.blocks != null) blockHost?.jobDone() }
+    private fun dropJob() { val j = job; job = null; cullMaskOn = false; if (j?.blocks != null) blockHost?.jobDone() }
     private var lastJobNs = 0L
     /** Real time (ms) the water's age has not yet taken in; below 0, steps that ran ahead of the clock. */
     private var ageOweMs = 0f
@@ -1540,6 +1576,17 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
             floatArrayOf(it[0].toFloat(), it[1].toFloat(), it[2].toFloat(), it[3].toFloat())
         }
         lastWaterParts = parts
+        // The same blocks as a mask for the water's own passes (exact, one draw each); the bead field's mask reaches as far
+        // again as the flux reads it and its blur spreads (cells), in blocks.
+        cullMaskOn = false
+        val masked = if (!cullByMask || host != null || evapOverride != null) null else culler()
+        masked?.mask(1)?.let { m ->
+            val blurCells = if (hr == null) 0 else 2 * (3 + 2 * min(12, ceil(2.5 * sigma).toInt()))
+            val grow = 1 + (fluxReach(wc0, beadCells) + blurCells + 15) / 16
+            cullMaskTex = uploadCullMask(cullMaskTex, m, masked.bw, masked.bh)
+            cullMaskBeadTex = uploadCullMask(cullMaskBeadTex, masked.mask(grow)!!, masked.bw, masked.bh)
+            cullMaskOn = true
+        }
         val beadParts = if (parts == null || hr == null) null else {
             // Each part on the half grid with the field's margin; when those together are most of the field, the field whole.
             val m = 3 + 2 * min(12, ceil(2.5 * sigma).toInt())
@@ -1603,7 +1650,9 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
             val stage = j.stages[j.stage]
             val (area, shift) = stageArea(j, stage)
             // [cullWater]: the stage's parts in place of its one band (none: nothing in this stage holds water).
-            val bands = if (j.parts != null) (if (stage == STAGE_BEAD0 || stage == STAGE_BEAD1 || stage == STAGE_BEAD2) j.beadParts ?: j.parts else j.parts)
+            // Through the mask a stage is one draw over its whole rectangle (the passes themselves leave the dry blocks out).
+            val bands = if (cullMaskOn && stage != STAGE_PAINT) listOf(area)
+                else if (j.parts != null) (if (stage == STAGE_BEAD0 || stage == STAGE_BEAD1 || stage == STAGE_BEAD2) j.beadParts ?: j.parts else j.parts)
                 else bandsOf(area, shift, j.sliced)
             if (bands.isNotEmpty()) {
                 val band = bands[j.band]
@@ -1761,6 +1810,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
                 common(bu)
                 MediaUniforms.bead(bu, area, beadW, beadH, j.sigma, pass, a.w0, bead[1 - (pass and 1)], if (pass < 2) 1f else 0f, if (pass < 2) 0f else 1f)
                 atlas?.uniforms(bu, MediaAtlasDraw.SHIFT - 1)   // the half-resolution field's slots are 128 cells
+                if (cullMaskOn) { bu.tex("u_cullMask", cullMaskBeadTex); bu.f1("u_cullBlock", 8f) }
                 part(band, area) { quad(band, MediaAtlasDraw.SHIFT - 1) }
             }
             STAGE_FLUX -> {
@@ -1771,6 +1821,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
                 fu.ownReach = fluxReach(j.wc0, j.beadCells / wf) * wf   // the reach in full-resolution px
                 MediaUniforms.wetFlux(fu, bead[0], src.p0, a.w0, a.flux, bakeTex, fluidBake, waterBake, area, ww, wh)
                 if (wf > 1) fu.tex("u_terrain", terrain)
+                if (cullMaskOn) { fu.tex("u_cullMask", cullMaskTex); fu.f1("u_cullBlock", 16f) }
                 mediaTrace("JB.media.wet.flux") { part(band, area) { quad(band, wShift) } }
             }
             STAGE_UPDATE -> {
@@ -1782,6 +1833,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
                 MediaUniforms.wetUpdate(pu, a.w0, a.w1, b.flux, run, src.p0, src.p1, bakeTex, waterBake, fluidBake,
                     inTex[2 * j.inIdx], inTex[2 * j.inIdx + 1], if (k == 0 && j.useInput) 1 else 0, area, ww, wh)
                 MediaUniforms.wetAgeScale(pu, j.ageScale)
+                if (cullMaskOn) { pu.tex("u_cullMask", cullMaskTex); pu.f1("u_cullBlock", 16f) }
                 mediaTrace("JB.media.wet.update") { part(band, area) { quad(band, wShift) } }
             }
             STAGE_PAINT -> mediaTrace("JB.media.wet.paint") { paintStep(src, if ((k and 1) == 0) pFbo1 else pFbo0, band) }
@@ -2173,6 +2225,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         if (released) return
         released = true
         dropJob()   // everything goes; what was worth keeping was written back before (a write-back finishes the job)
+        dropCullMasks()
         releasePrograms()
         val tex = ArrayList<Int>()
         // Asleep, [sleep] already deleted these. Their names are free for anyone: a stroke's new tile can hold one by now, and
@@ -2201,6 +2254,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     }
 
     companion object {
+        /** Bench only (`jb_water_mask`): whether a new engine's water passes follow the cull mask (yes) or its rectangles alone. */
+        @Volatile @JvmStatic var cullByMaskDefault = true
         private val WATER_WRITES = listOf("p0", "p1", "w0", "w1")
         private val WATER_STORES = listOf("w0", "w1")
         /**

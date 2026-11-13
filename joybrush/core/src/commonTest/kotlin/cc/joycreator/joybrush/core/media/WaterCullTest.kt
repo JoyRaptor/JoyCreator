@@ -2,6 +2,7 @@ package cc.joycreator.joybrush.core.media
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -87,5 +88,42 @@ class WaterCullTest {
         assertTrue(parts.isNotEmpty() && parts.all { it[0] >= 100 && it[2] <= 500 && it[1] >= 150 })
         c.reset()
         assertNull(c.parts(whole))
+    }
+
+    /** A measurement with water in the given blocks only. */
+    private fun wetAt(c: WaterCull, vararg blocks: Pair<Int, Int>) {
+        val a = FloatArray(c.bw * c.bh * 4)
+        for ((bx, by) in blocks) a[(by * c.bw + bx) * 4] = 0.2f
+        repeat(WaterCull.HOLD + 1) { c.reading(a) }
+    }
+
+    @Test fun theMaskIsTheLiveBlocksAndTheirRingAndNothingElse() {
+        val c = WaterCull(20, 30)
+        assertEquals(null, c.mask(), "nothing measured: everything is drawn")
+        wetAt(c, 5 to 7, 0 to 0, 19 to 29)
+        val m = c.mask(1)!!
+        fun on(bx: Int, by: Int) = m[by * c.bw + bx].toInt() != 0
+        var n = 0
+        for (b in m) if (b.toInt() != 0) n++
+        assertEquals(9 + 4 + 4, n, "a block in the open has a ring of eight; one in a corner, three")
+        assertTrue(on(4, 6) && on(6, 8) && on(5, 7) && on(1, 1) && on(18, 28))
+        assertFalse(on(7, 7) || on(5, 9) || on(2, 0))
+        val wide = c.mask(3)!!
+        var w = 0
+        for (b in wide) if (b.toInt() != 0) w++
+        assertEquals(49 + 16 + 16, w, "grown by three blocks each way, cut at the grid's edge")
+    }
+
+    @Test fun theMaskNeverReachesPastTheRectanglesTheSameStepDraws() {
+        val c = WaterCull(40, 80)
+        wetAt(c, 3 to 3, 4 to 3, 20 to 40, 21 to 41, 22 to 42, 39 to 79)
+        val cells = intArrayOf(0, 0, 40 * 16, 80 * 16)
+        val parts = c.parts(cells)!!
+        val m = c.mask(1)!!
+        for (by in 0 until c.bh) for (bx in 0 until c.bw) {
+            if (m[by * c.bw + bx].toInt() == 0) continue
+            val x = bx * 16; val y = by * 16
+            assertTrue(parts.any { x >= it[0] && x + 16 <= it[2] && y >= it[1] && y + 16 <= it[3] }, "block $bx, $by is drawn by the mask and by no rectangle")
+        }
     }
 }

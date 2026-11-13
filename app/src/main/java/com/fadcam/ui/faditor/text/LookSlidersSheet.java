@@ -115,6 +115,10 @@ public final class LookSlidersSheet {
 
         d.setContentView(root);
         d.setOnDismissListener(x -> commit.run());
+        // Open all the way: on a landscape tablet the default half state showed only the tab row
+        // (Tab S8, 11-13).
+        d.getBehavior().setSkipCollapsed(true);
+        d.getBehavior().setState(com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED);
         if (d.getWindow() != null) d.getWindow().setDimAmount(0f); // the title stays visible as it changes
         d.show();
     }

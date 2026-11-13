@@ -517,7 +517,7 @@
     <string name="nav_about">About</string>
     <string name="nav_remote">Remote</string>
     <string name="nav_faditor_mini">Studio</string>
-    <string name="nav_lab">Lab</string>
+    <string name="nav_lab">Detect</string>
     <string name="setting_cam_title">Camera Selection</string>
     <string name="note_cam_sele">Select camera \n(Default: Back)</string>
     <string name="button_settings_cam_back">Back</string>

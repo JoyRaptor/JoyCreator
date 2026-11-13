@@ -5,7 +5,7 @@
     <string name="hover_remote_password_toggle">Turn password protection on or off</string>
     <!-- SHELL-01: the lobby floor words, each saying where it goes. -->
     <string name="hover_lobby_floor_detect">Smart Detection: people and things the camera found in your recordings</string>
-    <string name="hover_lobby_floor_remote">Remote: control this phone from another device on your Wi-Fi</string>
+    <string name="hover_lobby_floor_remote">Remote Studio: watch and control this phone\'s camera from a browser on your Wi-Fi</string>
     <string name="hover_lobby_floor_bits">Bits: torch, QR scanner and home-screen shortcuts</string>
     <string name="hover_lobby_floor_packs">Packs: your installed packs, looks, brushes and fonts</string>
     <string name="hover_lobby_floor_setup">Setup: all settings</string>

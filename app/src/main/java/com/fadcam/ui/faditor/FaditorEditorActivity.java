@@ -36697,15 +36697,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void setLookHoldCatcher(@androidx.annotation.Nullable Runnable down,
                                     @androidx.annotation.Nullable Runnable up,
                                     @androidx.annotation.Nullable String hint) {
-        android.view.ViewGroup content = findViewById(android.R.id.content);
         if (lookHoldCatcher != null) {
-            content.removeView(lookHoldCatcher);
+            if (lookHoldCatcher.getParent() instanceof android.view.ViewGroup) {
+                ((android.view.ViewGroup) lookHoldCatcher.getParent()).removeView(lookHoldCatcher);
+            }
             lookHoldCatcher = null;
         }
-        if (down == null || overlayLayer == null) return;
-        int[] at = new int[2], base = new int[2];
-        overlayLayer.getLocationInWindow(at);
-        content.getLocationInWindow(base);
+        if (down == null || overlayLayer == null || !(overlayLayer.getParent() instanceof android.view.ViewGroup)) return;
+        // just above the titles, in the same frame as them: the drawer stays on top and usable (to disarm)
+        android.view.ViewGroup host = (android.view.ViewGroup) overlayLayer.getParent();
         android.widget.TextView c = new android.widget.TextView(this);
         c.setText(hint);
         c.setTextColor(0xFF000000);
@@ -36730,11 +36730,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     return true;
             }
         });
-        android.widget.FrameLayout.LayoutParams lp = new android.widget.FrameLayout.LayoutParams(
-                Math.max(1, overlayLayer.getWidth()), Math.max(1, overlayLayer.getHeight()));
-        lp.leftMargin = at[0] - base[0];
-        lp.topMargin = at[1] - base[1];
-        content.addView(c, lp);
+        host.addView(c, host.indexOfChild(overlayLayer) + 1, new android.widget.FrameLayout.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.MATCH_PARENT));
         lookHoldCatcher = c;
     }
 

@@ -64,13 +64,22 @@ pieces built in, until the engine takes abilities as plug-in pieces (the separat
 A pack look that needs a piece this app lacks is shown as "needs a newer Joy Creator", never broken.
 
 ## Done when
-- [ ] `joypack.json` read by one class, with every socket listed and unknown ones kept; tests on a plain JVM.
-- [ ] Built-in TextLab looks in three packs (Film, Poster, Stuff, from their `family`), all in; a held pack disappears.
-- [ ] One shelf of text looks for every room (built-in packs + installed packs + the person's own), used by the TextLab
-      screen and Studio.
-- [ ] Opening a `.joypack` (from the Library, a share, or a file manager) installs it to `Supplies/Packs/` and its
-      looks appear; removing the folder removes them. Phone-proven.
-- [ ] STATE row; help mapping.
+- [x] `joypack.json` read by one class, with every socket listed and unknown ones kept; tests on a plain JVM.
+      `studiokit/.../joyfolder/JoyPack.java`; `tools/joyfolder-tests` "packs: manifest, sockets, unknown kept, unsafe
+      paths refused" (26 passed, 11-12).
+- [x] Built-in TextLab looks in three packs (Film 13, Poster 4, Stuff 18, from their `family`), all in:
+      `app/src/main/assets/packs/textlab-*.joypack.json` (+ README). `"held": true` keeps a pack out (code path; not
+      yet tried by flipping one on the phone).
+- [x] One shelf of text looks for every room: `cc.joycreator.textlab.TextLookShelf` (built-in packs + installed packs
+      + `Supplies/Looks/*.text.json`), used by the TextLab screen's chips and Studio's Look row.
+- [~] Opening a `.joypack` installs it: `PackOpenActivity` (VIEW / SEND of a zip; shows name, author, version, what it
+      holds, size, "N things wait for a newer Joy Creator"; Install) and `PackInstaller` (reads the whole pack first,
+      refuses paths out of the pack, 300 MB / 5000 files cap; installs to `Supplies/Packs/<name>/`, same id = update
+      in place). **Note 9, 11-12:** a two-look test pack made with `tools/joypack/make_pack.py`, opened from a file,
+      installed, its two looks on the TextLab screen's shelf. Not yet tried: opening from the Library or a share,
+      removing a pack's folder, a pack with fonts. An installed pack is one Library item (`FolderIndex` treats a
+      folder with `joypack.json` like a plugin folder). Making a pack: `python -I tools/joypack/make_pack.py <folder>`.
+- [ ] STATE row; help mapping. (STATE row added 11-12; help mapping pending.)
 
 ## What is left
 - [ ] The above, in order. Then the other sockets room by room (VisLab element packs join here), signing, the shop.

@@ -294,7 +294,30 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
       - Chips: the TextLab screen gets a row of look chips (each look's own sheet, made once in the app's cache):
         still until chosen, the chosen one plays. Studio's carousel will reuse the same chip row.
       - Not here yet: packs, installable abilities (a separate job, with the lead).
-- [ ] **Studio: a title wears a look, live (owner, 11-12).** A titled look in Studio is NOT a picture pasted in:
+- [x] **Studio: built 11-12 (phone-engine session), agent-checked on the Note 9, not owner-tried.** The text drawer
+      has a LOOK row (picture chips, "Plain" first; built-in packs + installed packs + your own looks), then Light
+      (Still with a small pad, Sway, Record tilt) and, for burn / blow-away / grow / shatter looks, Plays (By itself /
+      Pinned + a slider at the playhead). A title keeps its look in its own block (`TitleLook`, saved as
+      `"textLook"`: a whole copy of the look, knobs by name, light, its own keys), never in the title's keyframes;
+      a project with a look is stamped v14 (`FaditorProject.SCHEMA_VERSION`), so an older build refuses it instead
+      of dropping the look. Preview: `TextBoxView.drawLook` asks `StudioTextLab` (its own GL thread, one renderer per
+      title, newest request wins) and draws the see-through picture at the title's letter size; the box resizes to
+      the look. Export: `CompositeExportOverlay.drawLookItem` (both the GPU and the canvas routes go through
+      `drawTextItem`; a look makes the title clocked). Light takes: `LightTake` (rotation sensor only during a take;
+      the tilt at the start is the zero; thinned and curve-fitted with the puppet's `simplifyRange` and
+      `MeshEasingFit`; one undo step). Arming puts a see-through sheet over the picture (under the drawer): hold
+      anywhere on the picture, not only the letters (easier one-handed; does not fight the title's own drag).
+      Split and trim shift the look's keys. **Proof on the Note 9 (test project "Untitled audio 4"):** HELLO in Dark
+      Steel drawn live in the preview; exported `textlab-hello-check.mp4` (5 s, 17 s to export) carries the look in
+      every frame checked; a 3 s hold recorded a take (one undo step, saved as v14 with lightX / lightY keys, thinned
+      to 2 each because the phone lay still); closing the drawer disarms. Pictures:
+      `tasks/screens/textlab-phone/ui/studio-*.png`, `export-hello-frames.png`.
+      **Not checked yet:** a real tilt by hand (the sensor's left / right and up / down signs are a guess:
+      `LightTake.onSensorChanged`; the owner's first try settles it), the progress row on the phone; a title with
+      FX plus a look draws the plain words in export (`TextFxGlEffect` does not know looks yet); a bend or a corner
+      pin is not applied to a look (the look is drawn flat); VisLab showing a looked title (`StudioPictures`, plain), Joybot setting a look.
+      Original plan below.
+- [x] **Studio: a title wears a look, live (owner, 11-12).** A titled look in Studio is NOT a picture pasted in:
       the words, the look and its knobs stay editable, and the engine draws each frame at its own moment (preview
       at a lighter size, export at full size) as the see-through picture (`output = CLEAR`) Studio lays over the
       video. **The light in Studio is recorded, never live:** the owner's "record live". **The owner's pick (11-12):

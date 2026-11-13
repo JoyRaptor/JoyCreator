@@ -106,9 +106,12 @@ const val PASTE_DEPTH = 8
      */
     val vary: Double = 0.0,
     /**
-     * 0..1, hair brushes and the trowel (the owner, 2026-11-11: crossing wet paint, "if thick the paint would be pulled as
-     * something went across"): the wet paint under the brush goes along with it (jb_paste.glsl u_pull), so what a stroke
-     * crosses trails into it. 0 = as before: the canvas paint only trades with the brush where it lies.
+     * 0..1, hair brushes and the trowel (the owner, 2026-11-11: crossing wet paint left hard lines "like sticks"; "if thick
+     * the paint would be pulled as something went across"): the colour of the wet paint under the brush goes along with it
+     * (jb_paste_dab.frag u_pull), so what a stroke crosses trails into it and out the far side. Its thickness stays where
+     * it lies, so ridges are kept. 0 = as before: the canvas paint only trades with the brush where it lies. 0.7 on the
+     * four hair brushes since 2026-11-13 (lab sheets oilover and oildirty; under 3 % a step on the Note 9); off on the
+     * trowel, where it cost 17 % a step.
      */
     val pull: Double = 0.0,
     val ends: EndsMode? = null,
@@ -138,15 +141,15 @@ object PasteBrushes {
         // The all-rounder: from a hairline tip to a full belly on pressure and tilt, like the pencil.
         "All-round" to PasteBrush(shape = 0, allround = true, tipHalfMm = 0.08, widthMm = 6.0, lenMm = 8.0, thickMm = 0.45,
             thinMm = 0.04, scrape = 0.4, hairDepth = 0.2, ridge = 0.25, rate = 2.4, mix = 0.12, swap = 0.5, loadLenMm = 160.0,
-            wick = 0.003, bow = 0.35, lump = 0.08, rigid = 0.0, fingers = 0.0, rag = 0.35, vary = 1.0),
+            wick = 0.003, bow = 0.35, lump = 0.08, rigid = 0.0, fingers = 0.0, rag = 0.35, vary = 1.0, pull = 0.7),
         "Oil flat" to PasteBrush(shape = 1, widthMm = 7.0, lenMm = 6.0, thickMm = 0.6, scrape = 0.5, hairDepth = 0.4, ridge = 0.5,
-            rate = 2.5, mix = 0.12, swap = 0.7, loadLenMm = 140.0, wick = 0.003, bow = 0.6, lump = 0.2, rigid = 0.0, fingers = 1.0, force = 0.7, vary = 1.0),
+            rate = 2.5, mix = 0.12, swap = 0.7, loadLenMm = 140.0, wick = 0.003, bow = 0.6, lump = 0.2, rigid = 0.0, fingers = 1.0, force = 0.7, vary = 1.0, pull = 0.7),
         "Oil round" to PasteBrush(shape = 0, widthMm = 4.5, lenMm = 7.0, thickMm = 0.5, scrape = 0.5, hairDepth = 0.35, ridge = 0.35,
-            rate = 2.2, mix = 0.12, swap = 0.6, loadLenMm = 120.0, wick = 0.003, bow = 0.5, lump = 0.12, rigid = 0.0, fingers = 0.4, vary = 1.0),
+            rate = 2.2, mix = 0.12, swap = 0.6, loadLenMm = 120.0, wick = 0.003, bow = 0.5, lump = 0.12, rigid = 0.0, fingers = 0.4, vary = 1.0, pull = 0.7),
         // A fan: hair tips on an arc, spread apart; it feathers and blends rather than lays paint.
         "Fan blender" to PasteBrush(shape = 1, widthMm = 14.0, lenMm = 2.5, thickMm = 0.1, scrape = 0.3, hairDepth = 0.95, ridge = 0.0,
             rate = 1.2, mix = 0.45, swap = 0.3, loadLenMm = 60.0, wick = 0.002, bow = 0.1, lump = 0.0, rigid = 0.0, fingers = 0.5,
-            arc = 0.55, sparse = 0.6, force = 0.7, vary = 1.0),
+            arc = 0.55, sparse = 0.6, force = 0.7, vary = 1.0, pull = 0.7),
         // The trowel knife of v6/v7, back by the owner's request (2026-10-07: "the old one had excellent texture").
         "Palette knife 1" to PasteBrush(shape = 2, trowel = true, widthMm = 9.0, lenMm = 13.0, thickMm = 1.1, scrape = 0.99,
             hairDepth = 0.0, ridge = 1.0, rate = 4.0, mix = 0.2, swap = 0.5, loadLenMm = 70.0, wick = 0.0, bow = 0.9, lump = 0.25,

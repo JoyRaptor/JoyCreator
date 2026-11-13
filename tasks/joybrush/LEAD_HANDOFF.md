@@ -5,7 +5,7 @@ animation wing of Joy Creator (repo `JoyRaptor/JoyCreator`, branch `joy-creator`
 ran in a cloud session; you run on the owner's PC. Read this whole file first, then the files in §3.
 
 ## 1. The owner and how to work with him
-- JoyRaptor ("scott"). An **artist, not a programmer**: he cannot code and does not use git. Never
+- JoyRaptor. An **artist, not a programmer**: he cannot code and does not use git. Never
   give him a git, gradle or file chore. His jobs: rulings, pasting reports between agents, and phone
   checks with a Note 9 plugged in. Talk to him in plain language, short, and hand him ready-to-paste
   blocks for the orchestrator.

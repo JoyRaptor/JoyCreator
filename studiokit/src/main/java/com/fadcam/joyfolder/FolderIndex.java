@@ -109,7 +109,9 @@ public final class FolderIndex {
     }
 
     static boolean isPluginDir(JoyFs fs, String rel) throws IOException {
-        return fs.stat(rel + "/plugin.json") != null || fs.stat(rel + "/mod.json") != null;
+        // an installed Joy pack (job PACK-1) is one thing too: its looks and brushes are read from inside it
+        return fs.stat(rel + "/plugin.json") != null || fs.stat(rel + "/mod.json") != null
+                || fs.stat(rel + "/" + JoyPack.MANIFEST) != null;
     }
 
     /**

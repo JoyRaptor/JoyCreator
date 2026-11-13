@@ -238,10 +238,50 @@ public class TextBoxView extends FrameLayout {
      * @param out receives {@code {width, height}}
      */
     public void measureView(@NonNull float[] out) {
-        TextBoxRenderer.measure(item, text, fontPx, out);
+        if (item.hasTextLook() && lookFieldW > 0) {
+            // a title wearing a TextLab look is as big as the look's picture at this letter size
+            out[0] = (float) (lookFieldW * fontPx);
+            out[1] = (float) (lookFieldH * fontPx);
+        } else {
+            TextBoxRenderer.measure(item, text, fontPx, out);
+        }
         float m = boxInsetPx() * 2f;
         out[0] += m;
         out[1] += m;
+    }
+
+    /** The last look picture's field, em (0 before the first): the box size for a title wearing a look. */
+    private double lookFieldW, lookFieldH;
+    @Nullable private android.graphics.Paint lookPaint;
+
+    /**
+     * A title wearing a TextLab look: its picture at this moment, drawn by TextLab on its own thread and placed so
+     * its letters are this title's size. Until the first picture is in, the plain words show.
+     *
+     * @return false when there is no picture yet
+     */
+    private boolean drawLook(@NonNull Canvas canvas, float inset) {
+        cc.joycreator.textlab.TitleLook look = item.getTextLook();
+        if (look == null) return false;
+        cc.joycreator.textlab.StudioTextLab.Frame f = cc.joycreator.textlab.StudioTextLab.get(getContext())
+                .previewFrame(cc.joycreator.textlab.StudioTextLab.previewKey(item.getId()), look, text,
+                        item.lookTime(mediaMs), fontPx, this::invalidate);
+        if (f == null || f.bitmap.isRecycled()) return false;
+        double fw = f.bitmap.getWidth() / f.em, fh = f.bitmap.getHeight() / f.em;
+        if (Math.abs(fw - lookFieldW) > 1e-3 || Math.abs(fh - lookFieldH) > 1e-3) {
+            lookFieldW = fw;
+            lookFieldH = fh;
+            post(this::relayoutLook);
+        }
+        if (lookPaint == null) lookPaint = new android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG);
+        lookPaint.setAlpha(Math.round(255 * Math.max(0f, Math.min(1f, objectAlpha))));
+        float bw = (float) (lookFieldW * fontPx), bh = (float) (lookFieldH * fontPx);
+        canvas.drawBitmap(f.bitmap, null, new android.graphics.RectF(inset, inset, inset + bw, inset + bh), lookPaint);
+        return true;
+    }
+
+    private void relayoutLook() {
+        if (getParent() instanceof TextOverlayLayer) ((TextOverlayLayer) getParent()).refreshLookSizes();
     }
 
     /**
@@ -274,6 +314,7 @@ public class TextBoxView extends FrameLayout {
     protected void onDraw(@NonNull Canvas canvas) {
         float inset = boxInsetPx();
         if (item.isProxy()) { drawProxyMarker(canvas, inset); return; }
+        if (item.hasTextLook() && drawLook(canvas, inset)) return;
         TextBoxRenderer.draw(canvas, item, text, inset, inset, fontPx, mediaMs,
                 projectDurationMs, animate, objectAlpha, selStart, selEnd);
     }

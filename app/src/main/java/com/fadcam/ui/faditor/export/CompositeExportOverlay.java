@@ -610,6 +610,33 @@ public class CompositeExportOverlay extends BitmapOverlay {
      * true lane order, so the two routes cannot draw a box differently. The caller has already
      * checked {@code isVisibleAt}. Returns true when something was drawn.
      */
+    @Nullable private Paint lookPaint;
+
+    /** A TextLab look's picture for {@code o} at this moment, at its pose. False: not drawn (plain words instead). */
+    private boolean drawLookItem(@NonNull Canvas canvas, @NonNull TextOverlayItem o, @NonNull String shown,
+                                 long timelineMs, float cx, float cy, float rot, float fontPx, float opacity) {
+        cc.joycreator.textlab.TitleLook look = o.getTextLook();
+        if (look == null) return false;
+        cc.joycreator.textlab.StudioTextLab.Frame f = cc.joycreator.textlab.StudioTextLab.get(context)
+                .renderBlocking(cc.joycreator.textlab.StudioTextLab.exportKey(o.getId()), look, shown,
+                        o.lookTime(timelineMs), fontPx);
+        if (f == null) return false;
+        try {
+            float k = (float) (fontPx / f.em);
+            float w = f.bitmap.getWidth() * k, h = f.bitmap.getHeight() * k;
+            if (lookPaint == null) lookPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
+            lookPaint.setAlpha(Math.round(Math.max(0f, Math.min(1f, opacity)) * 255));
+            canvas.save();
+            canvas.rotate(rot, cx, cy);
+            canvas.drawBitmap(f.bitmap, null, new android.graphics.RectF(cx - w / 2f, cy - h / 2f, cx + w / 2f, cy + h / 2f),
+                    lookPaint);
+            canvas.restore();
+            return true;
+        } finally {
+            f.bitmap.recycle();
+        }
+    }
+
     /** The frame {@link #drawTextItem} lays text out in. */
     int drawWidth() { return outW; }
 
@@ -656,6 +683,12 @@ public class CompositeExportOverlay extends BitmapOverlay {
             String shown = com.fadcam.ui.faditor.overlay.TextBoxRenderer.textAt(
                     o, timelineMs, projectDurationMs);
             float fontPx = Math.max(1f, sizeFrac * outH);
+            // A title wearing a TextLab look (TEXT-1): TextLab draws the look at this moment on its own GL thread,
+            // at this letter size, from the title's saved look, knobs and light keys (never a sensor); it is placed
+            // at the title's centre, turned and faded as the plain words would be.
+            if (o.hasTextLook() && drawLookItem(canvas, o, shown, timelineMs, cx, cy, rot, fontPx, opacity)) {
+                return true;
+            }
             float[] size = new float[2];
             com.fadcam.ui.faditor.overlay.TextBoxRenderer.measure(o, shown, fontPx, size);
             canvas.save();
@@ -717,6 +750,7 @@ public class CompositeExportOverlay extends BitmapOverlay {
     static String textSignature(@NonNull TextOverlayItem o, long timelineMs, long projectDurationMs) {
         StringBuilder sb = new StringBuilder(96);
         boolean clocked = o.isGeneratedSlide() || o.isTimer() || o.hasMesh() || o.hasCornerPin()
+                || o.hasTextLook()   // a TextLab look moves every frame (fire, particles, its light)
                 || com.fadcam.ui.faditor.transcript.CaptionAnimator.parsePreset(
                         o.getTextAnimPreset())
                         != com.fadcam.ui.faditor.transcript.CaptionAnimator.Preset.NONE;

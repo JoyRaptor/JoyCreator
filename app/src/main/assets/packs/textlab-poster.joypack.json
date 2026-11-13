@@ -1,0 +1,28 @@
+{
+  "format": "joy.pack/1",
+  "id": "joycreator.textlab.poster",
+  "name": "Poster titles",
+  "author": "Joy Creator",
+  "version": "1.0",
+  "needs": "1",
+  "about": "Print and paper: pop art, cut paper, ink and the pen.",
+  "held": false,
+  "contents": [
+    {
+      "socket": "text-look",
+      "file": "textlab/looks/retro-pop.text.json"
+    },
+    {
+      "socket": "text-look",
+      "file": "textlab/looks/paper-cut.text.json"
+    },
+    {
+      "socket": "text-look",
+      "file": "textlab/looks/ink-bleed.text.json"
+    },
+    {
+      "socket": "text-look",
+      "file": "textlab/looks/handwritten.text.json"
+    }
+  ]
+}

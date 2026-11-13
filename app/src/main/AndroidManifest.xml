@@ -193,6 +193,28 @@
         <activity android:name="com.fadcam.ui.faditor.waveform.WaveformDebugActivity" android:exported="true" android:excludeFromRecents="true" />
         <!-- TextLab phone engine check: one look on real words, its still saved for the look book comparison -->
         <activity android:name="cc.joycreator.textlab.TextLabDebugActivity" android:exported="true" android:excludeFromRecents="true" android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" android:windowSoftInputMode="adjustResize" />
+        <!-- Opening a .joypack (job PACK-1): shows what it holds, installs on one tap. A zip by type; the screen checks for joypack.json. -->
+        <activity android:name="cc.joycreator.textlab.PackOpenActivity" android:exported="true" android:excludeFromRecents="true" android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter android:label="Install Joy pack">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="application/zip" />
+                <data android:mimeType="application/x-zip-compressed" />
+                <data android:mimeType="application/octet-stream" />
+                <data android:mimeType="application/vnd.joycreator.pack" />
+            </intent-filter>
+            <intent-filter android:label="Install Joy pack">
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/zip" />
+                <data android:mimeType="application/x-zip-compressed" />
+                <data android:mimeType="application/octet-stream" />
+                <data android:mimeType="application/vnd.joycreator.pack" />
+            </intent-filter>
+        </activity>
 
         <!-- Detective App Icon (Activity Alias) -->
         <activity-alias android:name=".MainActivity.AlternativeIcon" android:enabled="false" android:label="Camera" android:icon="@mipmap/ic_launcher_2" android:roundIcon="@mipmap/ic_launcher_2_round" android:targetActivity=".MainActivity" android:exported="true">

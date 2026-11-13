@@ -3,6 +3,7 @@ import com.fadcam.joyfolder.FileJoyFs;
 import com.fadcam.joyfolder.FileKind;
 import com.fadcam.joyfolder.Fingerprint;
 import com.fadcam.joyfolder.FolderIndex;
+import com.fadcam.joyfolder.JoyPack;
 import com.fadcam.joyfolder.FolderRoles;
 import com.fadcam.joyfolder.JoyFolder;
 import com.fadcam.joyfolder.JoyFs;
@@ -44,6 +45,7 @@ public final class JoyFolderTests {
         run("names: share-in and recordings", JoyFolderTests::namesShareIn);
         run("names: unique ignores case", JoyFolderTests::namesUnique);
         run("kinds: endings and bases", JoyFolderTests::kinds);
+        run("packs: manifest, sockets, unknown kept, unsafe paths refused", JoyFolderTests::packs);
         run("placement: the three rules", JoyFolderTests::placement);
         run("roles: adopt by name, drop when gone", JoyFolderTests::roles);
         run("fingerprint: content identity, sampling", JoyFolderTests::fingerprint);
@@ -106,6 +108,44 @@ public final class JoyFolderTests {
         eq("Photo 3.jpg", ReadableNames.unique(taken, "Photo.jpg"));   // keeps the case the user typed
         eq("Soft pencil 2.brush.json", ReadableNames.unique(taken, "Soft pencil.brush.json"));
         eq("new.png", ReadableNames.unique(taken, "new.png"));
+    }
+
+    static void packs() {
+        JoyPack p = JoyPack.parse("{\"format\":\"joy.pack/1\",\"id\":\"someone.neon\",\"name\":\"Neon nights\","
+                + "\"author\":\"Someone\",\"version\":\"2.1\",\"needs\":\"1\",\"contents\":["
+                + "{\"socket\":\"text-look\",\"file\":\"looks/Pink tube.text.json\"},"
+                + "{\"socket\":\"Font\",\"file\":\"fonts/tube.ttf\"},"
+                + "{\"socket\":\"hologram-room\",\"file\":\"later/thing.json\"},"
+                + "{\"socket\":\"brush\"}]}");
+        eq("someone.neon", p.id);
+        eq("Neon nights", p.name);
+        eq(3, p.contents.size());   // the entry with no file is skipped
+        eq(1, p.of("text-look").size());
+        eq(1, p.of("font").size());   // sockets are matched without regard to case
+        eq(1, p.waiting().size());    // a socket this app does not know is kept, and waits
+        eq("hologram-room", p.waiting().get(0).socket);
+        check(p.usable() && !p.held, "level 1 is usable, not held");
+        check(!JoyPack.parse("{\"id\":\"x\",\"needs\":\"7\"}").usable(), "a pack for a later app waits");
+        check(JoyPack.parse("{\"id\":\"x\",\"held\":true}").held, "a held built-in pack is held");
+        eq("x", JoyPack.parse("{\"id\":\"x\"}").name);   // no name: its id
+        for (String bad : new String[]{"../evil.txt", "a/../../b", "/etc/x", "C:/x"}) {
+            boolean refused = false;
+            try {
+                JoyPack.parse("{\"id\":\"x\",\"contents\":[{\"socket\":\"brush\",\"file\":\"" + bad + "\"}]}");
+            } catch (IllegalArgumentException e) {
+                refused = true;
+            }
+            check(refused, "a file path out of the pack is refused: " + bad);
+        }
+        for (String bad : new String[]{"[]", "not json", "{\"name\":\"no id\"}"}) {
+            boolean refused = false;
+            try {
+                JoyPack.parse(bad);
+            } catch (IllegalArgumentException e) {
+                refused = true;
+            }
+            check(refused, "not a manifest: " + bad);
+        }
     }
 
     static void kinds() {

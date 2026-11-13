@@ -513,6 +513,21 @@ public class TextOverlayItem implements LinkFollower {
     private String textAnimPreset = "NONE";
 
     /**
+     * A TextLab look the words wear (TEXT-1), or null for plain text. Its own saved block ("textLook"): its light
+     * and progress keys live inside it, never in {@link #keyframes} (a track there would switch on automatic
+     * position keys when the title is dragged). Old projects have none and open unchanged.
+     */
+    @Nullable
+    private cc.joycreator.textlab.TitleLook textLook;
+
+    @Nullable
+    public cc.joycreator.textlab.TitleLook getTextLook() { return textLook; }
+
+    public void setTextLook(@Nullable cc.joycreator.textlab.TitleLook look) { this.textLook = look; }
+
+    public boolean hasTextLook() { return textLook != null; }
+
+    /**
      * {@code CaptionAnimator.Granularity} name. LETTER (owner, 2026-09-22: a whole BLOCK
      * flying in can read as an unclear flash, per-letter reads as a title). Missing on
      * load inherits this — owner's ruling, sole user, BLOCK never authored.
@@ -749,6 +764,8 @@ public class TextOverlayItem implements LinkFollower {
         c.imageAnimPreset = imageAnimPreset == null ? null : imageAnimPreset.copy();
         c.imageFadeInMs = imageFadeInMs;
         c.imageFadeOutMs = imageFadeOutMs;
+        // a duplicate wears the same look, its own copy (its light keys are its own to change)
+        c.textLook = textLook == null ? null : textLook.copy();
         return c;
     }
 
@@ -2327,6 +2344,8 @@ public class TextOverlayItem implements LinkFollower {
         if (after != before && mesh != null && mesh.track() != null) {
             try { mesh.track().shiftAll(before - after); } catch (Exception ignored) { }
         }
+        // a TextLab look's recorded light and pinned progress ride the same rebase
+        if (after != before && textLook != null) textLook.keys.shiftAll(before - after);
         if (hasPresetOwnedKeys()) reflowPresetOwnedKeys(timelineDurationMs);
     }
 
@@ -2358,6 +2377,11 @@ public class TextOverlayItem implements LinkFollower {
     /** Local time (ms from this overlay's start) used as the keyframe time base. */
     private long localTime(long timelineMs) {
         return Math.max(0, timelineMs - startMs);
+    }
+
+    /** A TextLab look's clock: the title's own time (ms from its start), as its keys are. */
+    public long lookTime(long timelineMs) {
+        return localTime(timelineMs);
     }
 
     // ── LINKED TO A PARENT (SPEC_20260924_LINKING) ────────────────────────────────────────

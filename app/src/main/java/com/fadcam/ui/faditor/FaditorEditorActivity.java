@@ -2364,6 +2364,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         playheadHandler.removeCallbacks(playheadUpdater);
         autoSaveHandler.removeCallbacks(autoSaveRunnable);
         com.fadcam.vislab.studio.StudioVis.releasePreviewIfRunning();   // VisLab looks' renderers
+        cc.joycreator.textlab.StudioTextLab.releasePreviewIfRunning();  // TextLab title looks' renderers
         if (silenceDetector != null) silenceDetector.shutdown();
         // Do NOT kill a transcription that is still running. This shutdown() is what threw away
         // a 20-minute Whisper/Accurate run when the user closed the editor on it (2026-07-28) —
@@ -36631,6 +36632,112 @@ public class FaditorEditorActivity extends AppCompatActivity {
      *     FX, More… — opens the drawer with the keyboard down, because the keyboard covers the
      *     timeline; a tap on the words raises it (TextOverlayLayer.keyboardWanted).
      */
+    /** A title's look, light and progress as the text drawer's Look row changes them: undo, preview, save. */
+    @NonNull
+    private cc.joycreator.textlab.TextLookRow.Host textLookHost(
+            @NonNull com.fadcam.ui.faditor.model.TextOverlayItem o) {
+        return new cc.joycreator.textlab.TextLookRow.Host() {
+            private void put(@androidx.annotation.Nullable cc.joycreator.textlab.TitleLook t) {
+                o.setTextLook(t == null ? null : t.copy());
+                refreshOverlayPreview();
+                scheduleAutoSave();
+            }
+
+            @Override
+            public void apply(@androidx.annotation.Nullable cc.joycreator.textlab.TitleLook before,
+                              @androidx.annotation.Nullable cc.joycreator.textlab.TitleLook after,
+                              @NonNull String label) {
+                put(after);
+                undoManager.recordAction(new EditActions.LambdaAction(label, () -> put(after), () -> put(before)));
+            }
+
+            @Override
+            public void recorded(@NonNull cc.joycreator.textlab.TitleLook before,
+                                 @NonNull cc.joycreator.textlab.TitleLook after) {
+                apply(before, after, "Record the light");
+            }
+
+            @Override
+            public long playheadLocalMs() {
+                return o.lookTime(lastPlayheadAbsoluteMs);
+            }
+
+            @Override
+            public boolean isPlaying() {
+                return puppetTransportRolling();
+            }
+
+            @Override
+            public void play() {
+                if (!puppetTransportRolling() && btnPlayPause != null) btnPlayPause.performClick();
+            }
+
+            @Override
+            public void pause() {
+                if (puppetTransportRolling() && btnPlayPause != null) btnPlayPause.performClick();
+            }
+
+            @Override
+            public void changed() {
+                refreshOverlayPreview();
+            }
+
+            @Override
+            public void catchHold(@androidx.annotation.Nullable Runnable down,
+                                  @androidx.annotation.Nullable Runnable up,
+                                  @androidx.annotation.Nullable String hint) {
+                setLookHoldCatcher(down, up, hint);
+            }
+        };
+    }
+
+    /** While "Record tilt" is armed: a see-through sheet over the picture that turns a hold into a take. */
+    @androidx.annotation.Nullable private android.widget.TextView lookHoldCatcher;
+
+    private void setLookHoldCatcher(@androidx.annotation.Nullable Runnable down,
+                                    @androidx.annotation.Nullable Runnable up,
+                                    @androidx.annotation.Nullable String hint) {
+        android.view.ViewGroup content = findViewById(android.R.id.content);
+        if (lookHoldCatcher != null) {
+            content.removeView(lookHoldCatcher);
+            lookHoldCatcher = null;
+        }
+        if (down == null || overlayLayer == null) return;
+        int[] at = new int[2], base = new int[2];
+        overlayLayer.getLocationInWindow(at);
+        content.getLocationInWindow(base);
+        android.widget.TextView c = new android.widget.TextView(this);
+        c.setText(hint);
+        c.setTextColor(0xFF000000);
+        c.setTextSize(12);
+        c.setGravity(android.view.Gravity.TOP | android.view.Gravity.CENTER_HORIZONTAL);
+        int p = Math.round(8 * getResources().getDisplayMetrics().density);
+        c.setPadding(p, p, p, p);
+        android.graphics.drawable.GradientDrawable stripe = new android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{0xE622D3EE, 0x0022D3EE, 0x00000000});
+        c.setBackground(stripe);
+        c.setOnTouchListener((v, e) -> {
+            switch (e.getActionMasked()) {
+                case android.view.MotionEvent.ACTION_DOWN:
+                    down.run();
+                    return true;
+                case android.view.MotionEvent.ACTION_UP:
+                case android.view.MotionEvent.ACTION_CANCEL:
+                    if (up != null) up.run();
+                    return true;
+                default:
+                    return true;
+            }
+        });
+        android.widget.FrameLayout.LayoutParams lp = new android.widget.FrameLayout.LayoutParams(
+                Math.max(1, overlayLayer.getWidth()), Math.max(1, overlayLayer.getHeight()));
+        lp.leftMargin = at[0] - base[0];
+        lp.topMargin = at[1] - base[1];
+        content.addView(c, lp);
+        lookHoldCatcher = c;
+    }
+
     private void showTextOverlayEditor(
             @NonNull com.fadcam.ui.faditor.model.TextOverlayItem item, boolean type) {
         if (item.isImage()) {
@@ -36664,6 +36771,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         // TOP ROW: colour · font · B/I/U · case · alignment · motion · FX — one scrollable line.
         root.addView(buildTextTopRow(item, session));
+
+        // LOOK (TEXT-1): a TextLab look by its picture, its light (Still / Sway / Record tilt) and progress.
+        root.addView(new cc.joycreator.textlab.TextLookRow(this, item, textLookHost(item)));
 
         // Motion range (Start/Span/End) · selection status (Whole/Clear) · trash — one line.
         root.addView(buildTextMotionRangeSection(item, session));

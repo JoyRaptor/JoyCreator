@@ -50,8 +50,13 @@ public class FaditorProject {
      * INTERSECT or actually carries an explicit slot — {@code CompositingSpec.toJson} writes
      * neither key otherwise, so every add/subtract-only project keeps its old stamp and
      * BYTE-IDENTICAL JSON. Reproduced offline in {@code tasks/schema_mask_stamp.py}.</p>
+     *
+     * <p>v14 covers TEXTLAB LOOKS on titles (TEXT-1): a title's {@code "textLook"} block. Additive on disk, but an
+     * older build would ignore it and autosave the title without it, silently losing the look and its recorded
+     * light. Stamped 14 only when some title wears a look, so every other project keeps its old stamp and
+     * byte-identical JSON.</p>
      */
-    public static final int SCHEMA_VERSION = 13;
+    public static final int SCHEMA_VERSION = 14;
 
     /**
      * URI scheme used in saved project JSON for assets that live inside the project

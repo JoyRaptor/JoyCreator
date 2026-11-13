@@ -183,6 +183,13 @@ public final class LookChipRow extends RecyclerView {
                 }
             });
             ring.addView(pic, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            // a chip with no picture (yet, or ever: "Plain") says what it is in words
+            android.widget.TextView word = new android.widget.TextView(parent.getContext());
+            word.setTextColor(0xFFD4D4D8);
+            word.setTextSize(12);
+            word.setGravity(android.view.Gravity.CENTER);
+            word.setMaxLines(2);
+            ring.addView(word, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
             return new ViewHolder(ring) {};
         }
 
@@ -208,6 +215,9 @@ public final class LookChipRow extends RecyclerView {
             });
             pic.setImageDrawable(null);
             pic.setTag(null);
+            android.widget.TextView word = (android.widget.TextView) ring.getChildAt(1);
+            word.setText(c.name);
+            word.setVisibility(c.sheet == null ? View.VISIBLE : View.GONE);
             if (c.sheet == null) return;
             if (on) playing(c.sheet, pic);
             else first(c.sheet, pic);

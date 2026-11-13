@@ -1,0 +1,64 @@
+{
+  "format": "joy.pack/1",
+  "id": "joycreator.textlab.film",
+  "name": "Film titles",
+  "author": "Joy Creator",
+  "version": "1.0",
+  "needs": "1",
+  "about": "Chrome, steel, gold, neon, fire and glass, lit like a film poster.",
+  "held": false,
+  "contents": [
+    {
+      "socket": "text-look",
+      "file": "textlab/looks/dark-steel.text.json"
+    },
+    {
+      "socket": "text-look",
+      "file": "textlab/looks/chrome-84.text.json"
+    },
+    {
+      "socket": "text-look",
+      "file": "textlab/looks/gold-crown.text.json"
+    },
+    {
+      "socket": "text-look",
+      "file": "textlab/looks/neon-bar.text.json"
+    },
+    {
+      "socket": "text-look",
+      "file": "textlab/looks/neon-sign.text.json"
+    },
+    {
+      "socket": "text-look",
+      "file": "textlab/looks/neon-outline.text.json"
+    },
+    {
+      "socket": "text-look",
+      "file": "textlab/looks/blaze.text.json"
+    },
+    {
+      "socket": "text-look",
+      "file": "textlab/looks/liquid-chrome.text.json"
+    },
+    {
+      "socket": "text-look",
+      "file": "textlab/looks/crystal-ice.text.json"
+    },
+    {
+      "socket": "text-look",
+      "file": "textlab/looks/carved-stone.text.json"
+    },
+    {
+      "socket": "text-look",
+      "file": "textlab/looks/diamond.text.json"
+    },
+    {
+      "socket": "text-look",
+      "file": "textlab/looks/hologram.text.json"
+    },
+    {
+      "socket": "text-look",
+      "file": "textlab/looks/phantom.text.json"
+    }
+  ]
+}

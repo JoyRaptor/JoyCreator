@@ -107,6 +107,8 @@ public final class TextLabRenderer {
     /** false: no edge smoothing on the screen picture, for checks. */
     public boolean fxaa = true;
     private int maxW = 1280, maxH = 720;
+    private double emPx;
+    private int emCap = 2048;
 
     private TlText.Layout lay;
     private double em;
@@ -164,7 +166,31 @@ public final class TextLabRenderer {
         }
     }
 
+    /**
+     * Draw at a fixed size: {@code px} pixels to the em (a Studio title's letter size), the picture as large as the
+     * words and the look's margins need, no side over {@code cap}. {@code px <= 0} returns to {@link #setSize}.
+     */
+    public void setEm(double px, int cap) {
+        if (Math.abs(px - emPx) > 0.25 || cap != emCap) {
+            emPx = px;
+            emCap = cap;
+            dirty = true;
+        }
+    }
+
+    /** The em the last picture was drawn at, px (a title places the picture by it). */
+    public double em() {
+        return em;
+    }
+
+    /** The field the words sit in, em: width, height. */
+    @NonNull
+    public double[] fieldEm() {
+        return lay == null ? new double[]{0, 0} : new double[]{lay.fieldW, lay.fieldH};
+    }
+
     public void setKnob(@NonNull String name, @NonNull Object value) {
+        if (value.equals(over.get(name))) return;   // set every frame by Studio: only a change counts
         over.put(name, value);
         sphereDirty = true;
         // rivets sit at a distance from the outline
@@ -308,6 +334,8 @@ public final class TextLabRenderer {
         if (m != null && m.length() == 4) for (int i = 0; i < 4; i++) margin[i] = m.optDouble(i);
         lay = glyphs.layout(text, font, margin);
         em = Math.min(maxW / lay.fieldW, maxH / lay.fieldH);
+        // a title in Studio asks for its letter size; the picture is then as wide as the words need (capped)
+        if (emPx > 0) em = Math.min(emPx, Math.min(emCap / lay.fieldW, emCap / lay.fieldH));
         W = Math.max(8, (int) Math.round(lay.fieldW * em));
         H = Math.max(8, (int) Math.round(lay.fieldH * em));
         freeTargets();

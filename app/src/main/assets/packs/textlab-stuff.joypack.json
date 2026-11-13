@@ -1,0 +1,84 @@
+{
+  "format": "joy.pack/1",
+  "id": "joycreator.textlab.stuff",
+  "name": "Stuff titles",
+  "author": "Joy Creator",
+  "version": "1.0",
+  "needs": "1",
+  "about": "Words made of things: slime, fur, sand, water, sequins, rust, jelly and more.",
+  "held": false,
+  "contents": [
+    {
+      "socket": "text-look",
+      "file": "textlab/looks/slime.text.json"
+    },
+    {
+      "socket": "text-look",
+      "file": "textlab/looks/shag.text.json"
+    },
+    {
+      "socket": "text-look",
+      "file": "textlab/looks/marquee.text.json"
+    },
+    {
+      "socket": "text-look",
+      "file": "textlab/looks/fizz.text.json"
+    },
+    {
+      "socket": "text-look",
+      "file": "textlab/looks/voltage.text.json"
+    },
+    {
+      "socket": "text-look",
+      "file": "textlab/looks/ember-fade.text.json"
+    },
+    {
+      "socket": "text-look",
+      "file": "textlab/looks/overgrown.text.json"
+    },
+    {
+      "socket": "text-look",
+      "file": "textlab/looks/water.text.json"
+    },
+    {
+      "socket": "text-look",
+      "file": "textlab/looks/stitched.text.json"
+    },
+    {
+      "socket": "text-look",
+      "file": "textlab/looks/balloon.text.json"
+    },
+    {
+      "socket": "text-look",
+      "file": "textlab/looks/dust.text.json"
+    },
+    {
+      "socket": "text-look",
+      "file": "textlab/looks/sequins.text.json"
+    },
+    {
+      "socket": "text-look",
+      "file": "textlab/looks/fogged.text.json"
+    },
+    {
+      "socket": "text-look",
+      "file": "textlab/looks/shatter.text.json"
+    },
+    {
+      "socket": "text-look",
+      "file": "textlab/looks/banner.text.json"
+    },
+    {
+      "socket": "text-look",
+      "file": "textlab/looks/stained.text.json"
+    },
+    {
+      "socket": "text-look",
+      "file": "textlab/looks/rusted.text.json"
+    },
+    {
+      "socket": "text-look",
+      "file": "textlab/looks/jelly.text.json"
+    }
+  ]
+}

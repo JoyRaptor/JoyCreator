@@ -2468,6 +2468,14 @@ public class ProjectStorage {
             if (src.getTimeline().usesAdjustmentLayers()) {
                 stampedVersion = Math.max(stampedVersion, 13);
             }
+            // v14 — a title wearing a TextLab look (TEXT-1). An older build ignores "textLook" and would autosave
+            // the title without it, losing the look and its recorded light: raising the stamp makes it refuse.
+            for (com.fadcam.ui.faditor.model.TextOverlayItem lookItem : src.getTimeline().getTextOverlays()) {
+                if (lookItem.hasTextLook()) {
+                    stampedVersion = Math.max(stampedVersion, 14);
+                    break;
+                }
+            }
             com.fadcam.ui.faditor.transcript.TranscriptPoolCodec.Pool transcriptPool =
                     poolingWouldPay(src)
                             ? new com.fadcam.ui.faditor.transcript.TranscriptPoolCodec.Pool()
@@ -2699,6 +2707,10 @@ public class ProjectStorage {
                 }
                 if (!"NONE".equals(o.getTextAnimPreset())) {
                     oJson.addProperty("textAnimPreset", o.getTextAnimPreset());
+                }
+                if (o.hasTextLook()) {
+                    // TEXT-1: the look, a whole copy, its knobs, light and keys (stamps the project v14)
+                    oJson.add("textLook", o.getTextLook().toJson());
                 }
                 if (!"BLOCK".equals(o.getTextAnimGranularity())) {
                     oJson.addProperty("textAnimGranularity", o.getTextAnimGranularity());
@@ -3700,6 +3712,13 @@ public class ProjectStorage {
                         }
                         if (hasValue(oObj, "textAnimPreset")) {
                             o.setTextAnimPreset(oObj.get("textAnimPreset").getAsString());
+                        }
+                        if (hasValue(oObj, "textLook")) {
+                            try {
+                                o.setTextLook(cc.joycreator.textlab.TitleLook.fromJson(oObj.get("textLook")));
+                            } catch (Exception ignored) {
+                                // Tolerant: lose the look, keep the title (its words stay as plain text).
+                            }
                         }
                         if (hasValue(oObj, "textAnimGranularity")) {
                             o.setTextAnimGranularity(oObj.get("textAnimGranularity").getAsString());

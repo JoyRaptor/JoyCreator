@@ -145,16 +145,21 @@ public final class TextLabDebugActivity extends Activity {
 
         // ---- the built-in looks, as chips
         loadLooks();
-        List<LookChipRow.Chip> list = new ArrayList<>();
-        for (JSONObject l : looks) list.add(new LookChipRow.Chip(l.optString("name", l.optString("id"))));
-        chips.setChips(list);
-        // chip pictures are made once and kept (not during an adb bench run: its timing must be the look's alone)
-        for (int i = 0; i < looks.size() && !bench; i++) {
-            final int at = i;
-            JSONObject l = looks.get(i);
-            TextLabPreviews.get(this).chip(l, l.optString("sample", "TEXT"), f -> chips.setSheet(at, f));
-        }
+        showChips(bench);
         chips.setOnPick(i -> pick(looks.get(i), null));
+        if (!bench) {
+            // the packs the person installed and their own saved looks join the built-in ones
+            JoyFolderHome.io().execute(() -> {
+                List<TextLookShelf.Item> more = TextLookShelf.inFolder(this);
+                if (more.isEmpty()) return;
+                runOnUiThread(() -> {
+                    for (TextLookShelf.Item it : more) looks.add(it.look);
+                    int keep = chips.chosen();
+                    showChips(false);
+                    if (keep >= 0) chips.choose(keep);
+                });
+            });
+        }
 
         words.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
@@ -192,16 +197,20 @@ public final class TextLabDebugActivity extends Activity {
         return g;
     }
 
+    /** The built-in looks, from their packs (a held pack stays out; drafts never appear). */
     private void loadLooks() {
-        try {
-            JSONObject index = new JSONObject(ShaderLib.readAll(getAssets().open("textlab/looks/index.json")));
-            JSONArray names = index.optJSONArray("looks");   // finished looks only: drafts are never shown
-            for (int i = 0; names != null && i < names.length(); i++) {
-                String f = names.optString(i);
-                looks.add(new JSONObject(ShaderLib.readAll(getAssets().open("textlab/looks/" + f))));
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "looks not read", e);
+        for (TextLookShelf.Item it : TextLookShelf.builtIn(this)) looks.add(it.look);
+    }
+
+    /** The chips for {@link #looks}, and their pictures (made once and kept; not during an adb bench run). */
+    private void showChips(boolean bench) {
+        List<LookChipRow.Chip> list = new ArrayList<>();
+        for (JSONObject l : looks) list.add(new LookChipRow.Chip(l.optString("name", l.optString("id"))));
+        chips.setChips(list);
+        for (int i = 0; i < looks.size() && !bench; i++) {
+            final int at = i;
+            JSONObject l = looks.get(i);
+            TextLabPreviews.get(this).chip(l, l.optString("sample", "TEXT"), f -> chips.setSheet(at, f));
         }
     }
 

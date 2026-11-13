@@ -1079,6 +1079,11 @@ public class TextOverlayLayer extends FrameLayout {
                 && ((TextOverlayItem) tag).getId().equals(o.getId());
     }
 
+    /** A title's TextLab look picture came in at a new size: lay the boxes out again (main thread). */
+    public void refreshLookSizes() {
+        refreshPositions();
+    }
+
     /** Re-run {@link #position} for every child, without rebuilding any view. */
     private void refreshPositions() {
         for (int i = 0; i < getChildCount(); i++) {

@@ -261,6 +261,17 @@ public class TextBoxView extends FrameLayout {
      * @return false when there is no picture yet
      */
     private boolean drawLook(@NonNull Canvas canvas, float inset) {
+        float bw = (float) (lookFieldW * fontPx), bh = (float) (lookFieldH * fontPx);
+        return drawLookInto(canvas, new android.graphics.RectF(inset, inset, inset + bw, inset + bh));
+    }
+
+    /**
+     * The look's picture into {@code into} (the title's box): the plain view draws it straight; a pinned or bent
+     * title ({@link CornerPinTextView}) draws it inside its pin and bend, as it draws the plain words.
+     *
+     * @return false when there is no picture yet (the caller draws the plain words)
+     */
+    protected boolean drawLookInto(@NonNull Canvas canvas, @NonNull android.graphics.RectF into) {
         cc.joycreator.textlab.TitleLook look = item.getTextLook();
         if (look == null) return false;
         cc.joycreator.textlab.StudioTextLab.Frame f = cc.joycreator.textlab.StudioTextLab.get(getContext())
@@ -272,11 +283,11 @@ public class TextBoxView extends FrameLayout {
             lookFieldW = fw;
             lookFieldH = fh;
             post(this::relayoutLook);
+            return false;   // the box is about to take the look's size; draw it then
         }
         if (lookPaint == null) lookPaint = new android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG);
         lookPaint.setAlpha(Math.round(255 * Math.max(0f, Math.min(1f, objectAlpha))));
-        float bw = (float) (lookFieldW * fontPx), bh = (float) (lookFieldH * fontPx);
-        canvas.drawBitmap(f.bitmap, null, new android.graphics.RectF(inset, inset, inset + bw, inset + bh), lookPaint);
+        canvas.drawBitmap(f.bitmap, null, into, lookPaint);
         return true;
     }
 

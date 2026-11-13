@@ -313,9 +313,14 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
       to 2 each because the phone lay still); closing the drawer disarms. Pictures:
       `tasks/screens/textlab-phone/ui/studio-*.png`, `export-hello-frames.png`.
       **Not checked yet:** a real tilt by hand (the sensor's left / right and up / down signs are a guess:
-      `LightTake.onSensorChanged`; the owner's first try settles it), the progress row on the phone; a title with
-      FX plus a look draws the plain words in export (`TextFxGlEffect` does not know looks yet); a bend or a corner
-      pin is not applied to a look (the look is drawn flat); VisLab showing a looked title (`StudioPictures`, plain), Joybot setting a look.
+      `LightTake.onSensorChanged`; the owner's first try settles it), the progress row on the phone; Joybot setting a look.
+      **Done 11-12 (later the same day):** a title with FX exports its look with the effect on it (`TextFxGlEffect`;
+      Note 9: Invert on Dark Steel, `export-look-fx-invert.png`; the FX route has never applied a bend, plain titles
+      included, so an FX'd title exports unbent); a bend and a corner pin apply to the look in the preview
+      (`CornerPinTextView` via `TextBoxView.drawLookInto`) and the export (`CompositeExportOverlay.drawLookItem`)
+      (Note 9: an arched Dark Steel in the preview and in `textlab-bend-check.mp4`, `export-look-bent.png`; corner pin
+      shares the code but was not tried on the phone); VisLab shows a looked title moving (`StudioPictures.lookTitle`,
+      its own renderer) (built, not tried on the phone).
       Original plan below.
 - [x] **Studio: a title wears a look, live (owner, 11-12).** A titled look in Studio is NOT a picture pasted in:
       the words, the look and its knobs stay editable, and the engine draws each frame at its own moment (preview

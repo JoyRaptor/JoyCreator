@@ -626,10 +626,33 @@ public class CompositeExportOverlay extends BitmapOverlay {
             float w = f.bitmap.getWidth() * k, h = f.bitmap.getHeight() * k;
             if (lookPaint == null) lookPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
             lookPaint.setAlpha(Math.round(Math.max(0f, Math.min(1f, opacity)) * 255));
+            final Bitmap pic = f.bitmap;
+            final Paint paint = lookPaint;
             canvas.save();
             canvas.rotate(rot, cx, cy);
-            canvas.drawBitmap(f.bitmap, null, new android.graphics.RectF(cx - w / 2f, cy - h / 2f, cx + w / 2f, cy + h / 2f),
-                    lookPaint);
+            // BEND and CORNER PIN, through the same SpriteMeshDraw and cornerPinMatrix the plain words use (and the
+            // preview's CornerPinTextView), the box being the look's picture: a bent or pinned title bends its look.
+            textMeshRect.set(cx - w / 2f, cy - h / 2f, cx + w / 2f, cy + h / 2f);
+            if (o.hasMesh()) {
+                boolean bent = textMeshDraw.draw(canvas, o.getMesh(), o.meshLocalTime(timelineMs), textMeshRect,
+                        (c, into) -> {
+                            c.save();
+                            if (o.cornerPinMatrix(textPinMatrix, timelineMs,
+                                    into.left, into.top, into.width(), into.height())) {
+                                c.concat(textPinMatrix);
+                            }
+                            c.drawBitmap(pic, null, into, paint);
+                            c.restore();
+                        }, null);
+                if (bent) {
+                    canvas.restore();
+                    return true;
+                }
+            }
+            if (o.cornerPinMatrix(textPinMatrix, timelineMs, textMeshRect.left, textMeshRect.top, w, h)) {
+                canvas.concat(textPinMatrix);
+            }
+            canvas.drawBitmap(pic, null, textMeshRect, paint);
             canvas.restore();
             return true;
         } finally {

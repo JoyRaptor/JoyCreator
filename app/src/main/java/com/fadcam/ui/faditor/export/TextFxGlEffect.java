@@ -65,7 +65,7 @@ public final class TextFxGlEffect implements GlEffect {
         if (useHdr) {
             throw new VideoFrameProcessingException("HDR text effects are not supported");
         }
-        return new Program(overlay, editorTimeOffsetMs);
+        return new Program(context, overlay, editorTimeOffsetMs);
     }
 
     /** The text raster, as a texture. {@link BitmapOverlay} owns the upload and the cache. */
@@ -78,7 +78,11 @@ public final class TextFxGlEffect implements GlEffect {
         /** The two reusable pictures and the fixed empty one (code review 11-11, E17). */
         private final OverlayFramePair frames = new OverlayFramePair();
 
-        TextFrame(@NonNull TextOverlayItem item, long editorTimeOffsetMs) {
+        @NonNull private final Context context;
+        private final android.graphics.Paint lookPaint = new android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG);
+
+        TextFrame(@NonNull Context context, @NonNull TextOverlayItem item, long editorTimeOffsetMs) {
+            this.context = context;
             this.item = item;
             this.editorTimeOffsetMs = editorTimeOffsetMs;
         }
@@ -123,7 +127,22 @@ public final class TextFxGlEffect implements GlEffect {
             // delegates to TextBoxRenderer, which resolves them exactly like the preview and
             // the no-FX export, so an FX'd caption cannot lose its formatting at export.
             frameItem.setStyleSpans(item.getStyleSpans());
-            Bitmap textBmp = TextOverlayRenderer.render(frameItem, outW, outH);
+            // A title wearing a TextLab look (TEXT-1): its look's picture at this moment is what the FX work on, drawn
+            // by TextLab at this letter size; turned, pinned and placed below exactly as the plain words are.
+            // k: how much to grow it when TextLab had to draw it smaller than asked (its size cap).
+            Bitmap textBmp = null;
+            float k = 1f;
+            if (item.hasTextLook()) {
+                float fontPx = Math.max(1f, frameItem.getSizeFraction() * outH);
+                cc.joycreator.textlab.StudioTextLab.Frame f = cc.joycreator.textlab.StudioTextLab.get(context)
+                        .renderBlocking(cc.joycreator.textlab.StudioTextLab.exportKey(item.getId()),
+                                item.getTextLook(), item.getText(), item.lookTime(timelineMs), fontPx);
+                if (f != null) {
+                    textBmp = f.bitmap;
+                    k = (float) (fontPx / f.em);
+                }
+            }
+            if (textBmp == null) textBmp = TextOverlayRenderer.render(frameItem, outW, outH);
             // COMPOSE ONTO A FULL FRAME. render() returns a bitmap sized to the TEXT, which
             // CompositeExportOverlay then positions with canvas.drawBitmap(cx - w/2, ...).
             // Handing that small bitmap to BitmapOverlay stretched it across the whole frame,
@@ -154,12 +173,17 @@ public final class TextFxGlEffect implements GlEffect {
                 //
                 // Asked of the ORIGINAL item, not frameItem: the pin lives on the authored
                 // overlay, and frameItem is a per-frame copy of the things the rasteriser needs.
-                float tw = textBmp.getWidth(), th = textBmp.getHeight();
+                float tw = textBmp.getWidth() * k, th = textBmp.getHeight() * k;
                 if (item.cornerPinMatrix(textFxPinMatrix, timelineMs,
                         cx - tw / 2f, cy - th / 2f, tw, th)) {
                     c.concat(textFxPinMatrix);
                 }
-                c.drawBitmap(textBmp, cx - tw / 2f, cy - th / 2f, null);
+                if (k == 1f) {
+                    c.drawBitmap(textBmp, cx - tw / 2f, cy - th / 2f, null);
+                } else {
+                    c.drawBitmap(textBmp, null, new android.graphics.RectF(cx - tw / 2f, cy - th / 2f,
+                            cx + tw / 2f, cy + th / 2f), lookPaint);
+                }
                 c.restore();
                 textBmp.recycle();
             }
@@ -210,11 +234,11 @@ public final class TextFxGlEffect implements GlEffect {
         @Nullable private GlProgram program;
         private boolean degraded;
 
-        Program(@NonNull TextOverlayItem item, long editorTimeOffsetMs)
+        Program(@NonNull Context context, @NonNull TextOverlayItem item, long editorTimeOffsetMs)
                 throws VideoFrameProcessingException {
             super(/* useHighPrecisionColorComponents= */ false, /* texturePoolCapacity= */ 1);
             this.item = item;
-            this.frame = new TextFrame(item, editorTimeOffsetMs);
+            this.frame = new TextFrame(context, item, editorTimeOffsetMs);
             this.editorTimeOffsetMs = editorTimeOffsetMs;
             try {
                 this.program = new GlProgram(VERTEX_SHADER, fragmentFor(item));

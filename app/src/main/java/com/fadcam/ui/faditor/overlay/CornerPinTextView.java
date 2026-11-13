@@ -181,8 +181,11 @@ public class CornerPinTextView extends TextBoxView {
         if (snapItem.cornerPinMatrix(pinMatrix, snapMediaMs, inset, inset, w, h)) {
             canvas.concat(pinMatrix);
         }
-        TextBoxRenderer.draw(canvas, snapItem, snapText, inset, inset, snapFontPx, snapMediaMs,
-                snapProjectDurationMs, snapAnimate, snapObjectAlpha, snapSelStart, snapSelEnd);
+        // a title wearing a TextLab look: its picture is what gets pinned (the plain words until it is in)
+        if (!(snapItem.hasTextLook() && drawLookInto(canvas, new android.graphics.RectF(inset, inset, inset + w, inset + h)))) {
+            TextBoxRenderer.draw(canvas, snapItem, snapText, inset, inset, snapFontPx, snapMediaMs,
+                    snapProjectDurationMs, snapAnimate, snapObjectAlpha, snapSelStart, snapSelEnd);
+        }
         canvas.restore();
     }
 
@@ -213,9 +216,12 @@ public class CornerPinTextView extends TextBoxView {
                             into.left, into.top, into.width(), into.height())) {
                         c.concat(pinMatrix);
                     }
-                    TextBoxRenderer.draw(c, snapItem, snapText, into.left, into.top, snapFontPx,
-                            snapMediaMs, snapProjectDurationMs, snapAnimate, snapObjectAlpha,
-                            snapSelStart, snapSelEnd);
+                    // a title wearing a TextLab look bends its look's picture (the plain words until it is in)
+                    if (!(snapItem.hasTextLook() && drawLookInto(c, into))) {
+                        TextBoxRenderer.draw(c, snapItem, snapText, into.left, into.top, snapFontPx,
+                                snapMediaMs, snapProjectDurationMs, snapAnimate, snapObjectAlpha,
+                                snapSelStart, snapSelEnd);
+                    }
                     c.restore();
                 }, null);
     }

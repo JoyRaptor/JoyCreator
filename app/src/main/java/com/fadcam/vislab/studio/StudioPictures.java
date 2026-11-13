@@ -64,6 +64,7 @@ final class StudioPictures implements VisRenderer.ImageSource {
             VisShow s = show;
             TextOverlayItem o = s != null ? s.textItems.get(ref) : null;
             if (o == null) return null;
+            if (o.hasTextLook()) return lookTitle(ref, o, s.timelineMs);
             try {
                 return TextOverlayRenderer.render(o, TEXT_FRAME_H * 16 / 9, TEXT_FRAME_H);
             } catch (RuntimeException e) {
@@ -76,13 +77,55 @@ final class StudioPictures implements VisRenderer.ImageSource {
     @Override
     public boolean moves(@Nullable String ref) {
         if (ref == null) return false;
-        return ref.startsWith(VisShow.SPRITE) || ref.startsWith(VisShow.VIDEO) || pictures.moves(ref);
+        return ref.startsWith(VisShow.SPRITE) || ref.startsWith(VisShow.VIDEO) || pictures.moves(ref)
+                || lookTitleRef(ref);   // a title wearing a TextLab look moves (fire, particles, its light)
+    }
+
+    private boolean lookTitleRef(@NonNull String ref) {
+        if (!ref.startsWith(VisShow.TEXT)) return false;
+        VisShow s = show;
+        TextOverlayItem o = s != null ? s.textItems.get(ref) : null;
+        return o != null && o.hasTextLook();
+    }
+
+    private final Map<String, Bitmap> lookFrames = new HashMap<>();
+
+    /**
+     * A title wearing a TextLab look (TEXT-1), as it is at {@code timelineMs}: TextLab draws it on its own thread
+     * (its own renderer for VisLab, apart from the preview's and an export's) at the size a plain title would have
+     * here, into one reused picture per title (as sprites are).
+     */
+    @Nullable
+    private Bitmap lookTitle(@NonNull String ref, @NonNull TextOverlayItem o, long timelineMs) {
+        float fontPx = Math.max(1f, o.getSizeFraction() * TEXT_FRAME_H);
+        cc.joycreator.textlab.StudioTextLab.Frame f = cc.joycreator.textlab.StudioTextLab.get(app).renderBlocking(
+                "vislab:" + o.getId(), o.getTextLook(), o.getText(), o.lookTime(timelineMs), fontPx);
+        if (f == null) return null;
+        try {
+            float k = (float) (fontPx / f.em);
+            int w = Math.max(1, Math.round(f.bitmap.getWidth() * k)), h = Math.max(1, Math.round(f.bitmap.getHeight() * k));
+            Bitmap b = lookFrames.get(ref);
+            if (b == null || b.isRecycled() || b.getWidth() != w || b.getHeight() != h) {
+                if (b != null && !b.isRecycled()) b.recycle();
+                b = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+                lookFrames.put(ref, b);
+            }
+            b.eraseColor(0);
+            new Canvas(b).drawBitmap(f.bitmap, null, new android.graphics.Rect(0, 0, w, h), spritePaint);
+            return b;
+        } finally {
+            f.bitmap.recycle();
+        }
     }
 
     @Nullable
     @Override
     public Bitmap frame(@NonNull String ref, double seconds) {
         VisShow s = show;
+        if (ref.startsWith(VisShow.TEXT)) {
+            TextOverlayItem o = s != null ? s.textItems.get(ref) : null;
+            return o != null && o.hasTextLook() ? lookTitle(ref, o, s.timelineMs) : bitmap(ref);
+        }
         if (ref.startsWith(VisShow.SPRITE)) {
             SpriteOverlayItem o = s != null ? s.sprites.get(ref) : null;
             return o != null ? sprite(ref, o, s.timelineMs) : null;

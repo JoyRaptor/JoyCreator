@@ -101,6 +101,14 @@ public class PuppetOverlayView extends View {
         /** The pose gesture ended and changed something: record ONE undo step. */
         void commitPose(@NonNull String label);
 
+        /**
+         * The gesture ended without {@link #commitPose}: cancelled, released where it began, or the pin dropped on
+         * the strip. Close any take it opened (stop the playback it started). {@code keep}: whatever it wrote stays,
+         * as one undo step; false: put it back as it was (the pin is about to be removed, one step of its own).
+         * Safe to call when nothing is open.
+         */
+        default void endPose(boolean keep) { }
+
         /** The pins were ADDED or RE-PLACED — the mesh has to be rebuilt. */
         void onRigStructureChanged();
 
@@ -828,6 +836,8 @@ public class PuppetOverlayView extends View {
                                 PuppetPalette.of(gp.type, false));
                         host.say("Removed " + gp.name + " \u2014 undo brings it back");
                         wasOverStrip = false;
+                        // the drag's own changes go back first: removing the pin is the one step this gesture makes
+                        host.endPose(false);
                         reset();
                         host.deletePin(gone);
                         invalidate();
@@ -943,6 +953,10 @@ public class PuppetOverlayView extends View {
         // very thing being dragged towards it. Every way out of a gesture is through here,
         // which makes this the one place that latch can be honestly cleared.
         if (host != null) host.helperGestureEnded();
+        // ...and the one place a take can be honestly closed. A cancelled gesture, a pin let go where it began, or
+        // one dropped on the strip never reach commitPose: before 2026-11-12 the take then stayed open (playback
+        // rolling, "recording" still set) until the next touch. A gesture that already committed is a no-op here.
+        if (host != null) host.endPose(true);
     }
 
     private void structureChanged() {

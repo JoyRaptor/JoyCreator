@@ -34977,6 +34977,40 @@ public class FaditorEditorActivity extends AppCompatActivity {
         repaintPuppetPicture();
     }
 
+    /**
+     * A pose gesture ended WITHOUT {@link #puppetCommitPose}: cancelled by the system, a pin let go where it began, or
+     * a pin dropped on the strip. Before 2026-11-12 nothing closed it: the take stayed "recording", the playback it
+     * started kept rolling, and the keys a take had already written stayed with no undo step until the next touch.
+     *
+     * @param keep true: whatever the gesture wrote is kept, as the normal one undo step; false: it is put back
+     *             (the pin is about to be removed, which is the gesture's one step)
+     */
+    private void puppetEndPose(boolean keep) {
+        if (puppetWorkPose == null && puppetSpecBefore == null && !puppetRecording && !puppetRolledForTake) return;
+        com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec spec = puppetSpec();
+        com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec before = puppetSpecBefore;
+        boolean wrote = spec != null && before != null
+                && !String.valueOf(spec.toJson()).equals(String.valueOf(before.toJson()));
+        if (keep && wrote) {
+            puppetCommitPose("Bend");   // closes the take, stops our playback, one undo step
+            return;
+        }
+        if (!keep && wrote && puppetItem != null) {
+            puppetItem.setMesh(before.copy());
+            repaintPuppetPicture();
+        }
+        puppetWorkPose = null;
+        puppetSpecBefore = null;
+        puppetRecording = false;
+        puppetArmed = false;
+        puppetTakeComponents = null;
+        if (puppetHelper != null) puppetHelper.setFaded(false);
+        if (puppetRolledForTake) {
+            puppetRolledForTake = false;
+            if (puppetTransportRolling() && btnPlayPause != null) btnPlayPause.performClick();
+        }
+    }
+
     /** Union of two component lists — a take may cross chains if the user re-grabs mid-roll. */
     @NonNull
     private int[] puppetMergeComponents(@Nullable int[] a, @NonNull int[] b) {
@@ -35862,6 +35896,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 @Override public void beginPose() { puppetBeginPose(); }
 
                 @Override public void commitPose(@NonNull String label) { puppetCommitPose(label); }
+
+                @Override public void endPose(boolean keep) { puppetEndPose(keep); }
 
                 @Override public void onRigStructureChanged() {
                     rebuildPuppetMesh(puppetItem, -1);

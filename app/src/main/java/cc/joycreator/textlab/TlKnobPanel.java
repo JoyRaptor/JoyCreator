@@ -44,6 +44,9 @@ final class TlKnobPanel extends LinearLayout {
 
         /** Open the pieces chooser. */
         void pieces();
+
+        /** A change has ended (a slider let go, a colour dialog closed): whether anything is unsaved is worked out again. */
+        void settled();
     }
 
     private static final int CYAN = 0xFF22D3EE, GROUND = 0xFF0B0B0C, CONTROL = 0xFF1F1F26, INK = 0xFFD4D4D8,
@@ -196,6 +199,7 @@ final class TlKnobPanel extends LinearLayout {
             @Override
             public void onStopTrackingTouch(SeekBar sb) {
                 markUsed();
+                host.settled();
             }
         });
         row.addView(s);
@@ -218,7 +222,10 @@ final class TlKnobPanel extends LinearLayout {
             TlColourDialog.show(a, k.label, cur != null ? cur : "#ffffff", c -> {
                 host.knob(k.name, c);
                 paintSwatch(sw, c);
-            }, c -> markUsed());
+            }, c -> {
+                markUsed();
+                host.settled();
+            });
         });
         row.addView(sw, new LayoutParams(dp(56), dp(30)));
         return row;

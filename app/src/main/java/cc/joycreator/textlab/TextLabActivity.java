@@ -539,6 +539,11 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
         showUndo();
     }
 
+    @Override
+    public void settled() {
+        changed();
+    }
+
     /** Whether there is anything to save: the look or words differ from how they were opened or saved. */
     private void changed() {
         dirty = look != null && !(look.toString().equals(savedLook) && words.equals(savedWords));

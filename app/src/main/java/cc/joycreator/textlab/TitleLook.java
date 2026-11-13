@@ -11,11 +11,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
-
-import org.json.JSONObject;
-
-import java.util.Map;
-
 /**
  * A Studio title wearing a TextLab look (TEXT-1, Studio step). Saved inside the title as its own block
  * ({@code "textLook"}), never in the title's own keyframes (a track there would switch on the title's automatic
@@ -32,6 +27,9 @@ import java.util.Map;
  *       {@code progress} track pins it (frontGone with frontAuto 0, or shatter with shatterAuto 0).</li>
  * </ul>
  * Times in {@code keys} are the title's own (ms from its start), as the title's other keyframes are.
+ *
+ * <p>Plain saved data (Gson and the keyframe classes only): the drawing side, which sets this on a renderer, is
+ * {@link StudioTextLab}. That keeps the project's own model free of the engine (and testable off the phone).</p>
  */
 public final class TitleLook {
 
@@ -57,10 +55,10 @@ public final class TitleLook {
         this.keys = keys;
     }
 
-    /** From a shelf item (the look book's JSON, org.json) to a title's look. */
+    /** A title's look from a look file's text (a shelf item: its key, its name and its JSON). */
     @NonNull
-    public static TitleLook of(@NonNull TextLookShelf.Item it) {
-        return new TitleLook(it.key, it.name, JsonParser.parseString(it.look.toString()).getAsJsonObject());
+    public static TitleLook of(@NonNull String key, @NonNull String name, @NonNull String lookJson) {
+        return new TitleLook(key, name, JsonParser.parseString(lookJson).getAsJsonObject());
     }
 
     @NonNull
@@ -162,39 +160,6 @@ public final class TitleLook {
         if (fs == null || !fs.isJsonArray()) return false;
         for (JsonElement e : fs.getAsJsonArray()) if (e.isJsonPrimitive() && f.equals(e.getAsString())) return true;
         return false;
-    }
-
-    /** The look for the renderer: its file as TextLab reads it (org.json). */
-    @NonNull
-    public JSONObject lookForRenderer() {
-        try {
-            return new JSONObject(look.toString());
-        } catch (Exception e) {
-            return new JSONObject();
-        }
-    }
-
-    /**
-     * Set the renderer up for {@code localMs}: the person's knobs, the light, and a pinned progress. The look itself
-     * is set by the caller when it changes ({@link #lookSignature}).
-     */
-    public void apply(@NonNull TextLabRenderer r, long localMs) {
-        for (Map.Entry<String, JsonElement> k : knobs.entrySet()) {
-            JsonElement v = k.getValue();
-            if (!v.isJsonPrimitive()) continue;
-            r.setKnob(k.getKey(), v.getAsJsonPrimitive().isNumber() ? (Object) v.getAsDouble() : v.getAsString());
-        }
-        r.tilt = tiltAt(localMs);
-        if (progressPinned()) {
-            float p = keys.valueAt(PROGRESS, localMs, 0f);
-            if (feature("FRONT")) {
-                r.setKnob("frontAuto", 0.0);
-                r.setKnob("frontGone", (double) p);
-            } else if (feature("SHATTER")) {
-                r.setKnob("shatterAuto", 0.0);
-                r.setKnob("shatter", (double) p);
-            }
-        }
     }
 
     /** Changes when what the look draws changes (not the light or the time): the renderer re-sets the look then. */

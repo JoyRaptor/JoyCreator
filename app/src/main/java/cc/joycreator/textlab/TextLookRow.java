@@ -217,7 +217,8 @@ public final class TextLookRow extends LinearLayout {
             TitleLook before = item.getTextLook() == null ? null : item.getTextLook().copy();
             TitleLook after = null;
             if (i > 0) {
-                after = TitleLook.of(shelf.get(i - 1));
+                TextLookShelf.Item it = shelf.get(i - 1);
+                after = TitleLook.of(it.key, it.name, it.look.toString());
                 if (before != null) {   // keep the light the person set; knobs belonged to the old look
                     after.light = before.light;
                     after.stillX = before.stillX;

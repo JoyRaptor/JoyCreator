@@ -116,6 +116,9 @@ public final class TextFxGlEffect implements GlEffect {
             frameItem.setUnderline(item.isUnderline());
             frameItem.setTextCase(item.getTextCase());
             frameItem.setTextAlign(item.getTextAlign());
+            // the wrap width and "fit width" shape the lines: without them an FX'd title exported on one line
+            frameItem.setWrapEm(item.getWrapEm());
+            frameItem.setFitWidth(item.isFitWidth());
             // W5-2 §3.8: the per-selection spans ride into the GL rasteriser too — render()
             // delegates to TextBoxRenderer, which resolves them exactly like the preview and
             // the no-FX export, so an FX'd caption cannot lose its formatting at export.

@@ -247,6 +247,29 @@ public final class StudioTextLab {
         }, IDLE_MS);
     }
 
+    /**
+     * Set the renderer up for the title's moment: the person's knobs, the light (never a sensor) and a pinned
+     * progress (frontGone with frontAuto 0, or shatter with shatterAuto 0). The look itself is set when it changes.
+     */
+    static void apply(@NonNull TitleLook t, @NonNull TextLabRenderer r, long localMs) {
+        for (Map.Entry<String, com.google.gson.JsonElement> k : t.knobs.entrySet()) {
+            com.google.gson.JsonElement v = k.getValue();
+            if (!v.isJsonPrimitive()) continue;
+            r.setKnob(k.getKey(), v.getAsJsonPrimitive().isNumber() ? (Object) v.getAsDouble() : v.getAsString());
+        }
+        r.tilt = t.tiltAt(localMs);
+        if (t.progressPinned()) {
+            double p = t.keys.valueAt(TitleLook.PROGRESS, localMs, 0f);
+            if (t.feature("FRONT")) {
+                r.setKnob("frontAuto", 0.0);
+                r.setKnob("frontGone", p);
+            } else if (t.feature("SHATTER")) {
+                r.setKnob("shatterAuto", 0.0);
+                r.setKnob("shatter", p);
+            }
+        }
+    }
+
     // ---- GL thread ------------------------------------------------------------------------------
 
     @Nullable
@@ -267,13 +290,13 @@ public final class StudioTextLab {
             String sig = q.look.lookSignature();
             boolean jump = false;
             if (!sig.equals(it.lookSig)) {
-                r.setLook(q.look.lookForRenderer());
+                r.setLook(new org.json.JSONObject(q.look.look.toString()));
                 it.lookSig = sig;
                 jump = true;
             }
             r.setText(q.words.isEmpty() ? q.look.sample() : q.words);
             r.setEm(q.em, CAP);
-            q.look.apply(r, q.localMs);
+            apply(q.look, r, q.localMs);
             double t = q.localMs / 1000.0;
             // a jump (or the first frame, or a new look): that moment exactly; a step forward: on, as live
             if (jump || Double.isNaN(it.lastT) || t < it.lastT || t - it.lastT > 0.25) {

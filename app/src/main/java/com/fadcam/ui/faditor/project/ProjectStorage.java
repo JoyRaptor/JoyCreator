@@ -2787,6 +2787,17 @@ public class ProjectStorage {
                 }
                 if (o.getWrapEm() > 0f) oJson.addProperty("wrapEm", o.getWrapEm());
                 if (o.isFitWidth()) oJson.addProperty("fitWidth", true);
+                // The same gap as alignment had: bold, italic, underline, letter case and the shadow's angle and
+                // distance were never written, so they reset on every reopen (and after a cross-session undo,
+                // which restores from this JSON). Written only when not the default: old files stay byte-identical.
+                if (o.isBold()) oJson.addProperty("bold", true);
+                if (o.isItalic()) oJson.addProperty("italic", true);
+                if (o.isUnderline()) oJson.addProperty("underline", true);
+                if (!com.fadcam.ui.faditor.model.TextOverlayItem.CASE_NONE.equals(o.getTextCase())) {
+                    oJson.addProperty("textCase", o.getTextCase());
+                }
+                if (o.getShadowAngleDeg() != 0f) oJson.addProperty("shadowAngleDeg", o.getShadowAngleDeg());
+                if (o.getShadowDistancePx() != 4f) oJson.addProperty("shadowDistancePx", o.getShadowDistancePx());
                 if (o.isLocked()) oJson.addProperty("objLocked", true);
                 // Image-overlay drawer state (M-IMG-1). All sparse defaults:
                 // passThrough/scaleLinked false/true and blend "NORMAL" write nothing,
@@ -3866,6 +3877,17 @@ public class ProjectStorage {
                         if (hasValue(oObj, "textAlign")) o.setTextAlign(oObj.get("textAlign").getAsString());
                         if (hasValue(oObj, "wrapEm")) o.setWrapEm(oObj.get("wrapEm").getAsFloat());
                         if (hasValue(oObj, "fitWidth")) o.setFitWidth(oObj.get("fitWidth").getAsBoolean());
+                        // (see the writer) Tolerant: a value that cannot be read loses that style, never the title.
+                        try {
+                            if (hasValue(oObj, "bold")) o.setBold(oObj.get("bold").getAsBoolean());
+                            if (hasValue(oObj, "italic")) o.setItalic(oObj.get("italic").getAsBoolean());
+                            if (hasValue(oObj, "underline")) o.setUnderline(oObj.get("underline").getAsBoolean());
+                            if (hasValue(oObj, "textCase")) o.setTextCase(oObj.get("textCase").getAsString());
+                            if (hasValue(oObj, "shadowAngleDeg")) o.setShadowAngleDeg(oObj.get("shadowAngleDeg").getAsFloat());
+                            if (hasValue(oObj, "shadowDistancePx")) o.setShadowDistancePx(oObj.get("shadowDistancePx").getAsFloat());
+                        } catch (Exception ignored) {
+                            // keep the title with whatever styles were read
+                        }
                         if (hasValue(oObj, "objLocked")) o.setLocked(oObj.get("objLocked").getAsBoolean());
                         o.setTimerSpec(deserializeTimerSpec(oObj)); // absent = ordinary text
                         // W5-2 rich text spans (§3.8). Tolerant per-span read: a malformed

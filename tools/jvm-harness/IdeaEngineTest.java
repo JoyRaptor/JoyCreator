@@ -469,6 +469,19 @@ public class IdeaEngineTest {
                     {"where is smart detection", "smart_detection"},
                     {"how do I find people in my recordings", "smart_detection"},
                     {"where is the finder", "smart_detection"},
+                    // BOT-A7 (11-13): STATE rows that had help pending
+                    {"how do I save to gallery from the library", "library_item"},
+                    {"can I choose several things at once", "library_item"},
+                    {"how do I put my words in a look in vislab", "vislab_words_look"},
+                    {"how do I switch back to the old watercolour", "joybrush_watercolour"},
+                    {"my watercolour is slow", "joybrush_watercolour"},
+                    {"how do I use palette knife 3", "joybrush_knife"},
+                    {"how do I name a layer", "name_layers"},
+                    {"how do I install a pack", "textlab_pack"},
+                    {"where do the pack fonts go", "textlab_pack"},
+                    {"how do I filter my library", "library_find"},
+                    {"how do I rename a project", "library_projects"},
+                    {"how do I change the brush settings", "joybrush_brushes"},
             };
             for (String[] c : bot2Help) {
                 t = com.fadcam.ui.faditor.ai.joybot.HelpBook.find(c[0]);

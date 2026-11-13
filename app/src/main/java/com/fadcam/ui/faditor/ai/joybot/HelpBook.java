@@ -424,7 +424,8 @@ public final class HelpBook {
             new Topic("library_find", "filter my library|search my library|search the library|find in the library"
                     + "|library chips|sort the library|sort my library|grid or list|list view|library view|shared in"
                     + "|find a recording|classic records",
-                    "In the Library, the chips across the top filter by kind and show a count for each. Search sits above "
+                    "In the Library, the chips across the top filter by kind and show a count for each; Recordings "
+                            + "adds a second row (All, Camera, Screen, Stream, Dual). Search sits above "
                             + "the keyboard, and “shared in” shows what you shared into Joy Creator. The header buttons "
                             + "cycle the sort and switch between grid and list. The old Records tab is still there as "
                             + "Classic Records.",
@@ -471,6 +472,40 @@ public final class HelpBook {
                             + "recordings: an Events Timeline you can filter and jump from to the exact moment, an "
                             + "Activity Summary and a Snapshot Gallery. Switch it on or off in Settings › Smart Detection.",
                     "finder", null),
+            // ── 11-13 (BOT-A7): STATE rows that had "help mapping pending" ──
+            new Topic("library_item", "hold an item|hold a card|save to gallery|save it to my gallery|details of"
+                    + "|item options|choose several|pick several|select several|several at once|batch",
+                    "In the Library, hold anything for its options: Open, Save to gallery, Open in Studio, Share, "
+                            + "Details (videos) and Move to Trash (tap it twice). Choose several, at the top, lets you "
+                            + "pick many: the bar at the bottom saves them to the gallery, opens one video in the "
+                            + "Studio or moves them to Trash. Recently deleted brings things back.",
+                    "library", null),
+            new Topic("vislab_words_look", "words in a look|textlab look in vislab|my words in a look|title look in vislab"
+                    + "|chrome words in vislab|poster words in vislab",
+                    "In VisLab tap Edit, open a Picture layer and tap Words in a look: pick a TextLab look and type "
+                            + "your words; they move with the look. Change the words edits them, and Joy emblem goes "
+                            + "back to the built-in picture. Each change is one Undo.",
+                    "vislab", null),
+            new Topic("joybrush_watercolour", "wet sheet|watercolour mode|watercolor mode|old watercolour|old watercolor"
+                    + "|water detail|watercolour slow|watercolor slow|watercolour is slow|watercolor is slow|water is slow"
+                    + "|faster water|watercolour fast",
+                    "In JoyBrush, watercolour paints on a wet sheet over the layer and sets into it when dry. The ⋯ "
+                            + "menu has Watercolour: Wet sheet (new) or In the layer (old), and Water detail: "
+                            + "Detailed or Fast. Fast runs the water about twice as fast; the paint, paper and look "
+                            + "stay sharp, and the finest paper grain beads a little less.",
+                    "joybrush", null),
+            new Topic("joybrush_knife", "palette knife 3|knife 3|real knife|hold the knife|knife tilt|scrape paint"
+                    + "|scrape the paint|carve the paint",
+                    "In JoyBrush, Palette knife 3 is held like a real knife: tilt the pen to use its tip, edge or "
+                            + "face, press harder to bear down (a light touch breaks over the canvas), and push it "
+                            + "point first to scrape. Palette knife 1 and 2 are still there to compare.",
+                    "joybrush", null),
+            new Topic("name_layers", "name a layer|name the layer|name my clip|name a clip|call it cat|label a layer"
+                    + "|label the clip|rename a layer|rename the layer|rename a clip|rename the clip|name the picture",
+                    "Ask me: “call the second picture Cat 2” or “name the first clip Intro”. I can name clips, text, "
+                            + "picture, sprite and visualiser layers; the name is saved with the project and kept when "
+                            + "you duplicate or split. Renaming them by hand in the drawer isn't built yet.",
+                    "studio", null),
             // ── VisLab and Director (BOT-2, 10-28; from STATE 5.5 / 6) ──
             // ── TextLab (TEXT-1, 11-12): film-poster words ──
             new Topic("textlab", "textlab|text lab|film title|poster text|poster words|movie title|chrome text"
@@ -506,10 +541,13 @@ public final class HelpBook {
                             + "shape (wide, square or tall) and the size, up to 4K. A picture or sheet can be "
                             + "see-through. It lands in your Joy Creator folder, where Studio's exports go.",
                     "textlab", null),
-            new Topic("textlab_pack", "joy pack|joypack|install a pack|look pack|more looks|pack of looks",
+            new Topic("textlab_pack", "joy pack|joypack|install a pack|look pack|more looks|pack of looks|from a pack|pack's looks|pack fonts",
                     "A Joy pack (.joypack) brings new looks. Open the file on your phone (or share it to Joy Creator) "
-                            + "and tap Install: its looks join TextLab and Studio's Look row. Packs live in your Joy "
-                            + "Creator folder under Supplies, Packs.",
+                            + "and tap Install: its looks join TextLab and Studio's Look row. A pack can also bring "
+                            + "VisLab looks (in VisLab's strip; change one and you get your own copy, Revert puts the "
+                            + "pack's back) and parts, fonts (Studio's text and caption fonts, VisLab words), colour "
+                            + "grades (Studio's LUT list) and caption styles. Packs live in your Joy Creator folder "
+                            + "under Supplies, Packs.",
                     "textlab", null),
             new Topic("vislab", "vislab|vis lab|viz lab|music visual|visuals that react|react to the music"
                     + "|music video look",

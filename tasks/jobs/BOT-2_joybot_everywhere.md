@@ -38,6 +38,13 @@ Select, symmetry, Send to Studio. Hover labels: ~220 controls done 10-15; the ch
         `studio_arrange_tools`, `studio_drawer_back`, `export_safety` (Cancel, too-full warning, "name 2"), and `silence`
         now names an audio clip's Cut gaps. Words read from the code (strings, `JoyBrushActivity.layerPanel`,
         `LayerColumnView`). Ideas 843/843 (18 new question checks). Not yet asked in the app on a phone.
+  - [x] **11-13 (BOT-A7): the 45 STATE rows marked help pending** (list: `tasks/audits/help_pending_20261113.md`).
+        All mapped: 5 new topics (`library_item`, `vislab_words_look`, `joybrush_watercolour`, `joybrush_knife`,
+        `name_layers`), `textlab_pack` rewritten (packs now reach VisLab and Studio), `library_find` names the
+        Recordings row; 16 rows marked "not needed" with the reason (automatic safety, crash fixes, look-only polish);
+        frame tweens kept out on purpose (not reachable yet); one owed: Link to a pin of a bent sprite (its
+        chooser's words not read yet). The 7 JoyBrush board/paper rows already named topics (their "pending" is
+        acceptance). Ideas 951/951. Not asked on a phone.
   - [ ] Capture: STATE gives no entry point for photo/screenshot capture, dual camera, Remote (LAN streaming) or the
         watermark switch, so no topics (the record, record_screen, record_webcam, record_background topics stand).
         Settings hub v2, Home recorder, About: also no entry-point text in STATE. Needs the rows filled first (HYG-5).

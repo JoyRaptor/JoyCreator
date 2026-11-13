@@ -48,6 +48,18 @@ Ordered by how much it costs a newcomer: valuable and hard to find first, then p
 
 ---
 
+## Worst ten: status on 2026-11-13 (added by the launch-and-truth lane; read from the code and `git log`, not re-walked on a phone)
+
+| # | Status 11-13 | Evidence |
+|---|---|---|
+| 1 Import chip | ✅ fixed 10-28 | 1d1bd5500 (`LobbyFragment.java:1362` comment: it used to only open the Library) |
+| 2 AI key has no Settings home | ✅ fixed | `SettingsCatalog` has the `AI_JOYBOT` row; `SettingsDestinations` opens Joybot's own settings dialog |
+| 3 Floor words lie | ❓ not re-checked | FREE-1 / DOOR-2 own it |
+| 4 Two trash bins | ✅ fixed 10-28 | 1d1bd5500: every way to the trash opens Recently deleted |
+| 5 Joybot Take me there to old screens | 🟡 partly | `NavigateActions.ROOMS` now also reaches space, setup, vislab and textlab; whether each room lands on the new screen was not re-read |
+| 6 Timeline marks not on `joy-creator` | ✅ fixed 10-28 | b3c2b23b0 (job STU-3) |
+| 7 to 10 | ❓ not re-checked | still as written above |
+
 ## The front door (lobby)
 
 | Control | Goes to | Taps | Newcomer finds it? | Problem | Evidence |

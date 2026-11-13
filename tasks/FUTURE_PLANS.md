@@ -155,7 +155,7 @@ Columns below: **What** · **Source** (file:line, date) · **Kind** · **In code
 | # | What | Source | Kind | In code today | Suggested home |
 |---|---|---|---|---|---|
 | V1 | Element packs from other people (looks and parts as plugins: a Supplies folder with its own `types.json` + shaders, off until turned on, test-compiled and timed) | `VISLAB_TODO.md:194-203` (owner question 10-22); `STATE.md:328-329` ("not on the VisLab roadmap yet") | PLAN | Not built | VisLab roadmap (add a row, after launch) |
-| V2 | Lobby Viz Lab hero shows the last look; Recent work shows looks | `VISLAB_SPEC.md:243` (❌); `jobs/DOOR-2_lobby_landing.md:24` | PLAN | Not built (`LobbyFragment.java:1628-1638` per DOOR-2) | DOOR-2 |
+| V2 | Lobby Viz Lab hero shows the last look; Recent work shows looks | `VISLAB_SPEC.md:243` (❌); `jobs/DOOR-2_lobby_landing.md:24` | PLAN | Partly: recents with looks (and sheets, characters) built 11-04 per the DOOR-2 row; the hero showing the last look was not re-checked 11-13 | DOOR-2 |
 | V3 | Studio's per-letter text animations offered as VisLab letter styles | `VISLAB_TODO.md:300-302` | IDEA | Not built | VisLab roadmap |
 
 ### 1.7 JoyBrush (planned outside its roadmap)

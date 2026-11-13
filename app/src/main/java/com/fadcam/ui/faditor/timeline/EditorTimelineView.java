@@ -2618,7 +2618,11 @@ public class EditorTimelineView extends View {
         long local = 0;
         for (int i = 0; i < segments.size(); i++) {
             SegmentData sd = segments.get(i);
-            if (clamped <= cumul + sd.effectiveMs) {
+            // Half-open, as getSegmentAtPlayhead and the exported file: a time exactly on a cut is
+            // the LATER clip's first frame (only the project's very end belongs to the last clip).
+            // This used `<=`, so a tap on a cut showed the earlier clip's last frame while the
+            // selection and the file showed the later one (code review 11-11, D7).
+            if (clamped < cumul + sd.effectiveMs || i == segments.size() - 1) {
                 seg = i;
                 local = clamped - cumul;
                 break;

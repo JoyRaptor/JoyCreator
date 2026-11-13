@@ -10,7 +10,7 @@ so easy that iPhone fans like it. This is the first thing every user and every d
 ## Done when
 - [ ] A first-time user can say within five seconds what they can make here, and start any of them in one tap:
       draw and paint, edit a video, make a music visual, animate a character, record.
-- [ ] Every room, chip and floor word goes where its name says (see [DOOR-1](DOOR-1_feature_map_audit.md)).
+- [ ] Every room, chip and floor word goes where its name says (see [DOOR-1](DOOR-1_feature_map_audit.md)). 11-13 (SHELL-01/03): floor words fixed (Detect, Bits -> Settings tools, Packs -> Library supplies, Setup), stat line opens Space, heroes move (owner request); Note 9 shots `tasks/screens/shell-20261113/`. Left for the redesign (S18): the New row (no Drawing or music visual), Character chip.
 - [ ] Recent work of every kind (projects, drawings, looks, sheets, recordings) shows and opens in the right place.
 - [ ] Joybot greets with something true and useful, and can take you anywhere.
 - [ ] The owner picked the direction on a mix-and-match design page, and approved it on the phone.

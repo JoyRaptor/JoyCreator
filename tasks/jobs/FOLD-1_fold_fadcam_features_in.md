@@ -26,6 +26,9 @@ DECISIONS"): Remote / Server Room and Smart Detection are launch features. Plann
 | **Dual-stream recording finish** | screen + webcam recording | The webcam file rolls over on long recordings like the screen file | Spec'd, half-built ([FUTURE_PLANS](../FUTURE_PLANS.md) 1.1 C1) |
 | Verified original badge, cross-device sync | integrity hashing, sync queue | parked (DESIGN §7) | parked |
 
+## Progress
+- 11-13 (app-shell lane): names only. The Remote screen and its Settings row say **Remote Studio**; the old Lab tab and the lobby word say **Detect** (Smart Detection); no "forensics" or "evidence" wording is left in the English strings. Seen on the Note 9. Restyles, auto-markers, Story Board and multi-camera untouched.
+
 ## What is left
 - [ ] Order with the owner: suggest Remote Studio restyle first (it ships), then Auto-markers (cheap now that marks exist),
       then Smart Detection restyle, then Story Board, then Multi-camera.

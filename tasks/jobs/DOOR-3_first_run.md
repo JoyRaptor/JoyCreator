@@ -9,7 +9,7 @@ A stranger's first two minutes. Today the intro still carries FadCam's shape: pe
 ## Done when
 - [ ] The intro uses the copy the owner approved on 9-09 (he must paste it: S5).
 - [ ] Permissions are asked where they are first needed, not all at the start.
-- [ ] The "verify you are a human" screen is rewritten or removed (it fails Play review as it stands).
+- [x] The "verify you are a human" screen is rewritten or removed (it fails Play review as it stands). 11-13 (SHELL-35): three plain promises, no forced ticks, no FadCam privacy link; its Joybot key buttons wired. Note 9 shots `tasks/screens/shell-20261113/after_11..13_*`. English only; our own privacy link waits on PRIVACY.md being published.
 - [ ] The Joy Creator folder step (required since 10-14) sits naturally in the flow.
 - [ ] A small demo project you can press play on (the design record lists its assets).
 - [ ] Onboarding and What's New use the Joy Creator theme (today: legacy MaterialComponents themes).

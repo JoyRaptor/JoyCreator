@@ -6,11 +6,14 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.RectF;
 import android.media.Image;
-import org.tensorflow.lite.support.image.TensorImage;
-import org.tensorflow.lite.support.label.Category;
-import org.tensorflow.lite.task.core.BaseOptions;
-import org.tensorflow.lite.task.vision.detector.Detection;
-import org.tensorflow.lite.task.vision.detector.ObjectDetector;
+import com.google.mediapipe.framework.image.BitmapImageBuilder;
+import com.google.mediapipe.framework.image.MPImage;
+import com.google.mediapipe.tasks.components.containers.Category;
+import com.google.mediapipe.tasks.components.containers.Detection;
+import com.google.mediapipe.tasks.core.BaseOptions;
+import com.google.mediapipe.tasks.vision.core.RunningMode;
+import com.google.mediapipe.tasks.vision.objectdetector.ObjectDetector;
+import com.google.mediapipe.tasks.vision.objectdetector.ObjectDetectorResult;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -19,6 +22,10 @@ import java.util.Locale;
 
 /**
  * Single-source detector for person/vehicle/pet/object using EfficientDet-Lite1 metadata.
+ *
+ * <p>Runs through MediaPipe Tasks' ObjectDetector (same model file, same labels and thresholds as the old
+ * TensorFlow Lite Task Vision detector). Switched 2026-11-13 because the task library's native file is not
+ * 16 KB page-aligned, which Google Play requires.</p>
  */
 public class EfficientDetLite1Detector {
     private static final String TAG = "EfficientDetLite1";
@@ -141,18 +148,19 @@ public class EfficientDetLite1Detector {
         ObjectDetector local = null;
         try {
             BaseOptions baseOptions = BaseOptions.builder()
-                    .setNumThreads(4)
+                    .setModelAssetPath(MODEL_PATH)
                     .build();
             ObjectDetector.ObjectDetectorOptions options =
                     ObjectDetector.ObjectDetectorOptions.builder()
                             .setBaseOptions(baseOptions)
+                            .setRunningMode(RunningMode.IMAGE)
                             .setScoreThreshold(MIN_CONFIDENCE)
                             .setMaxResults(MAX_RESULTS)
                             .build();
-            local = ObjectDetector.createFromFileAndOptions(context, MODEL_PATH, options);
-            FLog.i(TAG, "Loaded model via Task Vision API: " + MODEL_PATH);
+            local = ObjectDetector.createFromOptions(context, options);
+            FLog.i(TAG, "Loaded model via MediaPipe Tasks: " + MODEL_PATH);
         } catch (Throwable t) {
-            FLog.e(TAG, "Failed to initialize EfficientDet Task Vision detector", t);
+            FLog.e(TAG, "Failed to initialize EfficientDet MediaPipe detector", t);
         }
         this.detector = local;
     }
@@ -179,23 +187,24 @@ public class EfficientDetLite1Detector {
             if (bitmap == null || bitmap.getWidth() <= 0 || bitmap.getHeight() <= 0) {
                 return out;
             }
-            TensorImage tensorImage = TensorImage.fromBitmap(bitmap);
-            List<Detection> detections = detector.detect(tensorImage);
+            MPImage mpImage = new BitmapImageBuilder(bitmap).build();
+            ObjectDetectorResult result = detector.detect(mpImage);
+            List<Detection> detections = result == null ? new ArrayList<>() : result.detections();
             int frameWidth = bitmap.getWidth();
             int frameHeight = bitmap.getHeight();
             for (Detection detection : detections) {
-                if (detection == null || detection.getCategories() == null || detection.getCategories().isEmpty()) {
+                if (detection == null || detection.categories() == null || detection.categories().isEmpty()) {
                     continue;
                 }
-                Category best = bestCategory(detection.getCategories());
+                Category best = bestCategory(detection.categories());
                 if (best == null) {
                     continue;
                 }
-                float score = best.getScore();
+                float score = best.score();
                 if (score < MIN_CONFIDENCE) {
                     continue;
                 }
-                RectF box = detection.getBoundingBox();
+                RectF box = detection.boundingBox();
                 if (box == null) {
                     continue;
                 }
@@ -213,7 +222,7 @@ public class EfficientDetLite1Detector {
                 String label = normalizeLabel(best);
                 String coarse = mapCoarseType(label);
                 out.add(new DetectionResult(
-                        best.getIndex(),
+                        best.index(),
                         label,
                         coarse,
                         score,
@@ -279,7 +288,7 @@ public class EfficientDetLite1Detector {
             if (category == null) {
                 continue;
             }
-            if (best == null || category.getScore() > best.getScore()) {
+            if (best == null || category.score() > best.score()) {
                 best = category;
             }
         }
@@ -287,9 +296,9 @@ public class EfficientDetLite1Detector {
     }
 
     private String normalizeLabel(Category category) {
-        String label = category.getLabel();
+        String label = category.categoryName();
         if (label == null || label.trim().isEmpty()) {
-            label = category.getDisplayName();
+            label = category.displayName();
         }
         if (label == null || label.trim().isEmpty()) {
             return "object";

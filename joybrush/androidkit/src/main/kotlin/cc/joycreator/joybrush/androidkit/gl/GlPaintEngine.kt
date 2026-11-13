@@ -2023,6 +2023,17 @@ class GlPaintEngine(
     }
 
     /**
+     * Every tile of [layerId] the screen draws: the shared plane's and, on a layer with animation frames, the tiles of the
+     * frames that show ([tileKeys] lists the shared plane's alone there). What [readTile] can read. Bench only so far.
+     */
+    fun visibleTileKeys(layerId: String): List<Long> {
+        settleWatercolourFade()
+        settleLift()
+        val layer = storeOf(layerId) ?: return emptyList()
+        return visibleTiles(layer).keys.toList()
+    }
+
+    /**
      * A tile's pixels: 256×256 premultiplied RGBA8, 262,144 bytes, row 0 = the tile's TOP document
      * row (no flip needed). Null if the tile does not exist.
      */

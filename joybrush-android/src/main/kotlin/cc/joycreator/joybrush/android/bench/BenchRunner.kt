@@ -127,8 +127,6 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                val sheetPlain: Boolean = false,
                /** `jb_gpu_hog_mb`: this many MB of graphics memory are taken and held before the first stroke (JbCanvasView.benchHogGpu). */
                val gpuHogMb: Int? = null,
-               /** `jb_water_mask`: false = the wet sheet's water passes over rectangles alone, as before 2026-11-13 (MediaLayerEngine.cullByMaskDefault). */
-               val waterMask: Boolean? = null,
                /** `jb_sheet_cut`: false = a wash too wide for the new view sets whole, as before 2026-11-13 (WetSheet.cutOnMove). */
                val sheetCut: Boolean? = null,
                /** `jb_sheet_wave`: how uneven a quick wash is laid on the wet sheet (WetSheet.wave): 0 even, 0.12 the default, 0.35 the menu's Wavy. */
@@ -186,7 +184,6 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         spec.zoom?.let { canvas.view.zoom = it; canvas.requestRender(); Log.i(TAG, "view zoom: $it") }
         cc.joycreator.joybrush.androidkit.gl.media.WetSheet.printHoldMs = spec.sheetPrintHoldMs
         cc.joycreator.joybrush.androidkit.gl.media.WetSheet.debugPlain = spec.sheetPlain
-        cc.joycreator.joybrush.androidkit.gl.media.MediaLayerEngine.cullByMaskDefault = spec.waterMask ?: true
         cc.joycreator.joybrush.androidkit.gl.media.WetSheet.cutOnMove = spec.sheetCut ?: true
         spec.sheetLong?.let { cc.joycreator.joybrush.androidkit.gl.media.WetSheet.longCells = it; Log.i(TAG, "wet sheet: $it cells along the screen") }
         spec.sheetGrain?.let { cc.joycreator.joybrush.androidkit.gl.media.WetSheet.grainPrint = it; Log.i(TAG, "wet sheet grain: $it") }
@@ -798,7 +795,6 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 sheetGrain = intent.getStringExtra("jb_sheet_grain")?.toDoubleOrNull()?.coerceIn(0.0, 4.0),
                 sheetPlain = intent.getBooleanExtra("jb_sheet_plain", false),
                 gpuHogMb = intent.getIntExtra("jb_gpu_hog_mb", -1).takeIf { it > 0 },
-                waterMask = if (intent.hasExtra("jb_water_mask")) intent.getBooleanExtra("jb_water_mask", true) else null,
                 sheetCut = if (intent.hasExtra("jb_sheet_cut")) intent.getBooleanExtra("jb_sheet_cut", true) else null,
                 sheetWave = intent.getStringExtra("jb_sheet_wave")?.toDoubleOrNull()?.coerceIn(0.0, 4.0),
                 then = intent.getStringExtra("jb_bench_then")?.split(';')?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty(),

@@ -66,6 +66,13 @@ final class LibraryOpener {
                     return openAvatar(a, it);
                 default:
                     if (it.fileKind == FileKind.FONT || it.fileKind == FileKind.PLUGIN) return false;
+                    // A Joy pack file not yet installed: the pack screen (what it holds, Install)
+                    if (it.folderPath != null && it.uri != null
+                            && it.folderPath.toLowerCase(java.util.Locale.ROOT).endsWith(".joypack")) {
+                        a.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(it.uri), a, cc.joycreator.textlab.PackOpenActivity.class)
+                                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION));
+                        return true;
+                    }
                     FLog.i("LibraryOpener", "open " + it.key + " kind=" + it.kind + " fileKind=" + it.fileKind
                             + " path=" + it.folderPath);
                     // VisLab's own looks only: a .grade.json or .caption.json is a LOOK too, and not VisLab's.

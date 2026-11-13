@@ -109,6 +109,11 @@ public final class LookExport {
         listener = l;
     }
 
+    /** The Export dialog (type, shape, size) for {@code look} with {@code words}, as TextLab's export button opens it. */
+    public static void ask(@NonNull android.app.Activity a, @NonNull JSONObject look, @NonNull String words) {
+        LookExportDialog.show(a, look, words, () -> { }, () -> { });
+    }
+
     /** Start an export; {@link #stop()} ends it early (nothing is saved). */
     @NonNull
     public static LookExport start(@NonNull Context c, @NonNull Job job, @NonNull Listener l) {

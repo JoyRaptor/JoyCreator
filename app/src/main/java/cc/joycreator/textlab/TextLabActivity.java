@@ -486,9 +486,6 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
         changed();
         stage.show(look, words.isEmpty() ? " " : words);
         if (photo != null && look.optInt("stage", 1) == 11) stage.run(r -> r.setPhoto(photo));
-        // the lobby's hero: a still of this look once it has arrived
-        main.removeCallbacks(heroSnap);
-        main.postDelayed(heroSnap, 1500);
         panel.refresh();
         showProgress();
         showName();
@@ -507,6 +504,9 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
 
     private void showName() {
         nameView.setText(nameOf() + (dirty ? " •" : ""));
+        // the lobby's hero: a still of the look as it is now, once it has settled (any change re-arms it)
+        main.removeCallbacks(heroSnap);
+        main.postDelayed(heroSnap, 2000);
     }
 
     @NonNull
@@ -894,6 +894,19 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
                 for (JoyFs.Entry e : jf.fs.list(dir)) {
                     String n = e.name.toLowerCase(Locale.ROOT);
                     if (!e.dir && (n.endsWith(".ttf") || n.endsWith(".otf"))) out.add(Placement.join(dir, e.name));
+                }
+            }
+            // fonts that came in Joy packs (their "font" socket)
+            if (jf != null && jf.fs.stat(TextLookShelf.PACKS_DIR) != null) {
+                for (JoyFs.Entry d : jf.fs.list(TextLookShelf.PACKS_DIR)) {
+                    if (!d.dir) continue;
+                    String top = Placement.join(TextLookShelf.PACKS_DIR, d.name);
+                    try {
+                        com.fadcam.joyfolder.JoyPack p = com.fadcam.joyfolder.JoyPack.parse(new String(
+                                jf.readAll(Placement.join(top, com.fadcam.joyfolder.JoyPack.MANIFEST)), StandardCharsets.UTF_8));
+                        if (!p.usable()) continue;
+                        for (com.fadcam.joyfolder.JoyPack.Entry e : p.of("font")) out.add(Placement.join(top, e.file));
+                    } catch (Exception ignored) { }
                 }
             }
         } catch (Exception e) {

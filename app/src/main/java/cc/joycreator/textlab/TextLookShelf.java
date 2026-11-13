@@ -53,7 +53,7 @@ public final class TextLookShelf {
         /** Its path: inside the app's assets, or inside the Joy Creator folder. */
         public final String path;
 
-        Item(String key, String name, String pack, From from, JSONObject look, String path) {
+        public Item(String key, String name, String pack, From from, JSONObject look, String path) {
             this.key = key;
             this.name = name;
             this.pack = pack;

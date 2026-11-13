@@ -123,8 +123,23 @@ public final class TlLookFiles {
     @NonNull
     public static Done rename(@NonNull Context c, @NonNull TextLookShelf.Item mine, @NonNull String name) {
         if (mine.from != TextLookShelf.From.MINE) return new Done(null, "Only your own looks can be renamed.");
+        return renamePath(c, mine.path, name);
+    }
+
+    /** A look file in the folder renamed (the Library's Rename too): its moving preview follows. */
+    @WorkerThread
+    @NonNull
+    public static Done renamePath(@NonNull Context c, @NonNull String path, @NonNull String name) {
         String clean = ReadableNames.sanitize(name).trim();
         if (clean.isEmpty()) return new Done(null, "A look needs a name.");
+        TextLookShelf.Item mine;
+        try {
+            JoyFolder jf0 = folder(c);
+            mine = new TextLookShelf.Item("folder:" + path, FileKind.baseOf(Placement.nameOf(path)), "My looks",
+                    TextLookShelf.From.MINE, new JSONObject(new String(jf0.readAll(path), StandardCharsets.UTF_8)), path);
+        } catch (Exception e) {
+            return new Done(null, "Not renamed: " + e.getMessage());
+        }
         try {
             JoyFolder jf = folder(c);
             String dir = Placement.parentOf(mine.path);
@@ -177,6 +192,15 @@ public final class TlLookFiles {
     public static Done revert(@NonNull Context c, @NonNull TextLookShelf.Item mine) {
         if (!isCopyOfBuiltIn(mine)) return new Done(null, "This look has no original to go back to.");
         return delete(c, mine);
+    }
+
+    /** The look file and its moving preview beside it (what goes to Trash together). */
+    @NonNull
+    public static List<String> withSheet(@NonNull String lookPath) {
+        List<String> out = new ArrayList<>();
+        out.add(lookPath);
+        out.add(Placement.join(Placement.parentOf(lookPath), LookPreview.sheetName(FileKind.baseOf(Placement.nameOf(lookPath)))));
+        return out;
     }
 
     // ---- folder -------------------------------------------------------------------------------------

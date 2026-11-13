@@ -58,6 +58,10 @@ final class LibraryItemSheet {
         } else {
             actions.addView(SheetKit.subtitle(c, c.getString(R.string.library_nowhere_to_open)));
         }
+        if (LibraryActions.canExportLook(it) && c instanceof android.app.Activity) {
+            actions.addView(SheetKit.row(c, "ios_share", "Export as a picture, video or sheet", false,
+                    SheetKit.Trail.NONE, v -> { d.dismiss(); LibraryActions.exportLook((android.app.Activity) c, it); }).view);
+        }
         if (LibraryActions.canSaveToGallery(it)) {
             actions.addView(SheetKit.row(c, "file_download", c.getString(R.string.library_action_save_gallery), false,
                     SheetKit.Trail.NONE, v -> { d.dismiss(); LibraryActions.saveToGallery(c, it, l::onDone); }).view);

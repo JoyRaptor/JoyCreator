@@ -56,6 +56,7 @@ final class LibraryActions {
 
     static boolean canRename(@NonNull LibraryItem it) {
         if (it.kind == LibraryKind.PROJECTS) return it.projectId != null;
+        if (LibraryGlance.isTextLabLook(it)) return true;   // a TextLab look: its moving preview follows the name
         return it.kind == LibraryKind.DRAWINGS && it.drawingFile != null;
     }
 
@@ -67,6 +68,28 @@ final class LibraryActions {
         if (it.kind == LibraryKind.PROJECTS) return it.projectId != null || it.folderPath != null;
         if (it.kind == LibraryKind.DRAWINGS) return it.drawingFile != null;
         return it.folderPath != null || it.captureCategory != null;
+    }
+
+    /** A TextLab look: export it as a picture, video or moving sheet, as the room's export button does. */
+    static boolean canExportLook(@NonNull LibraryItem it) {
+        return LibraryGlance.isTextLabLook(it);
+    }
+
+    static void exportLook(@NonNull android.app.Activity a, @NonNull LibraryItem it) {
+        JoyFolderHome.io().execute(() -> {
+            org.json.JSONObject look = null;
+            try {
+                com.fadcam.joyfolder.JoyFolder jf = JoyFolderHome.open(a);
+                if (jf != null) look = new org.json.JSONObject(new String(jf.readAll(it.folderPath), java.nio.charset.StandardCharsets.UTF_8));
+            } catch (Exception e) {
+                FLog.w("LibraryActions", "look not read for export: " + it.folderPath, e);
+            }
+            final org.json.JSONObject l = look;
+            MAIN.post(() -> {
+                if (l == null || a.isFinishing()) return;
+                cc.joycreator.textlab.LookExport.ask(a, l, l.optString("sample", it.name));
+            });
+        });
     }
 
     /** Recordings and other videos only, the same files the classic Records could save. */
@@ -172,6 +195,8 @@ final class LibraryActions {
                     ProjectStorage ps = new ProjectStorage(app);
                     com.fadcam.ui.faditor.model.FaditorProject p = ps.load(it.projectId);
                     if (p != null) { p.setName(newName); ok = ps.save(p); }
+                } else if (LibraryGlance.isTextLabLook(it)) {
+                    ok = cc.joycreator.textlab.TlLookFiles.renamePath(app, it.folderPath, newName).ok();
                 } else {
                     ok = cc.joycreator.joybrush.android.library.DrawingLibrary.rename(app, it.drawingFile, newName);
                 }
@@ -224,7 +249,10 @@ final class LibraryActions {
                 Set<String> used = StudioMirror.usedByAnyProject(app);
                 if (used.contains(StudioMirror.usageKey(doc.toString()))) return app.getString(R.string.library_trash_in_use);
             }
-            if (StudioMirror.trashFiles(app, Collections.singletonList(it.folderPath)) == 0) {
+            // a TextLab look goes to Trash with its moving preview (one item to the person)
+            java.util.List<String> paths = LibraryGlance.isTextLabLook(it)
+                    ? cc.joycreator.textlab.TlLookFiles.withSheet(it.folderPath) : Collections.singletonList(it.folderPath);
+            if (StudioMirror.trashFiles(app, paths) == 0) {
                 return app.getString(R.string.library_trash_failed, it.name);
             }
             if (doc != null && (it.isVideo() || it.isImage())) {

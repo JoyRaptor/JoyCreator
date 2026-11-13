@@ -177,12 +177,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         cc.joycreator.joybrush.androidkit.gl.media.WetSheet.printHoldMs = spec.sheetPrintHoldMs
         spec.sheetLong?.let { cc.joycreator.joybrush.androidkit.gl.media.WetSheet.longCells = it; Log.i(TAG, "wet sheet: $it cells along the screen") }
         spec.sheetGrain?.let { cc.joycreator.joybrush.androidkit.gl.media.WetSheet.grainPrint = it; Log.i(TAG, "wet sheet grain: $it") }
-        spec.symmetry?.let { n ->
-            val c = canvas.view.screenToDoc(canvas.width / 2f, canvas.height / 2f)
-            canvas.symmetryGuide = cc.joycreator.joybrush.core.guide.Guide.Symmetry(
-                cc.joycreator.joybrush.core.shape.Pt(c.first.toDouble(), c.second.toDouble()), cc.joycreator.joybrush.core.shape.Pt(c.first.toDouble(), c.second.toDouble() - 400.0), count = n)
-            Log.i(TAG, "symmetry: $n copies about the middle")
-        }
+        applySymmetry()
         spec.sheetWave?.let { cc.joycreator.joybrush.androidkit.gl.media.WetSheet.wave = it; Log.i(TAG, "wet sheet wave: $it") }
         cc.joycreator.joybrush.core.media.WaterJobBudget.forced = spec.waterBudgetK?.let { it * 1000.0 }
         spec.waterBudgetK?.let { Log.i(TAG, "water budget forced: $it k units a frame") }
@@ -234,6 +229,17 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         // Texture, Dry and Sparkle draw from PNGs the host controller hands the canvas; it is not running here, so the bench does.
         if (unibrush) canvas.brushPngs = UnibrushResources()::pngs
         waitForSurface()
+    }
+
+    /** `jb_symmetry`: a radial symmetry of that many copies about the middle of the view, set on the canvas as the guide widget would. */
+    private fun applySymmetry() {
+        val n = spec.symmetry ?: return
+        val c = canvas.view.screenToDoc(canvas.width / 2f, canvas.height / 2f)
+        val guide = cc.joycreator.joybrush.core.guide.Guide.Symmetry(
+            cc.joycreator.joybrush.core.shape.Pt(c.first.toDouble(), c.second.toDouble()),
+            cc.joycreator.joybrush.core.shape.Pt(c.first.toDouble(), c.second.toDouble() - 400.0), count = n)
+        if (canvas.symmetryGuide != guide) Log.i(TAG, "symmetry: $n copies about the middle")
+        canvas.symmetryGuide = guide
     }
 
     /** `jb_bench_then`: one step at a time on the UI thread, each logged, then [onEnd]. */
@@ -467,6 +473,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 preset.copy(media = m.copy(paste = pb.copy(ends = spec.pasteEnds ?: pb.ends, turns = spec.pasteTurns ?: pb.turns, cover = spec.pasteCover ?: pb.cover, carry = spec.pasteCarry ?: pb.carry, force = spec.pasteForce ?: pb.force, soft = spec.pasteSoft ?: pb.soft, vary = spec.pasteVary ?: pb.vary))) } } ?: preset
             canvas.preset = spec.wetness?.let { w -> ended.media?.let { m -> ended.copy(media = m.copy(wetness = w)) } } ?: ended
             spec.colors.getOrNull(spec.cases.indexOf(case))?.let { canvas.colorArgb = it }
+            applySymmetry()   // again before every stroke: the screen's own guide settings write over it when they load
             spec.zooms.getOrNull(spec.cases.indexOf(case))?.let { canvas.view.zoom = it; canvas.requestRender(); Log.i(TAG, "view zoom: $it") }
             ui.postDelayed({ if (!terminal) guarded {
                 canvas.startFrameStats { if (!terminal) guarded {

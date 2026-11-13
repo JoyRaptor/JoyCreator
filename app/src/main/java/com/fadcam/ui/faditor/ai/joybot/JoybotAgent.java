@@ -383,8 +383,9 @@ public final class JoybotAgent {
                 if (current == ask) current = null;
                 LIVE.remove(ask);
                 // Over, however it ended: nothing to carry on. (A killed process never gets here,
-                // which is exactly what leaves the file for interrupted() to find.)
-                JobFile.clear(app);
+                // which is exactly what leaves the file for interrupted() to find.) Only this
+                // conversation's job: another room's killed job keeps its Carry on (BOT-A16).
+                JobFile.clearIf(app, ask.key());
                 AIJobService.stop(app);
             }
             if (ask.cancelled.get()) f.reply = null;
@@ -642,7 +643,7 @@ public final class JoybotAgent {
                     return;
                 }
                 // Written every round, so a job the phone kills can carry on (interrupted()).
-                if (ask.projectId != null) JobFile.save(app, ask, round, history);
+                JobFile.save(app, ask, round, history);
                 opened = round == 0;   // the first reply fills the "Thinking…" bubble
                 Completion c;
                 boolean picture = (round == 0 && ask.imageDataUrl != null) || (sight != null && sightMsg != null);
@@ -745,7 +746,7 @@ public final class JoybotAgent {
                     }
                     // Saved now, so a phone that kills the app here resumes knowing these calls ran
                     // (audit J10: it used to resume from before them and could repeat an edit).
-                    if (ask.projectId != null) JobFile.save(app, ask, round + 1, history);
+                    JobFile.save(app, ask, round + 1, history);
                     if (planShown) { finish(true, PLAN_SHOWN); return; }
                     if (navigated) {
                         // The chat is leaving for another room: anything the model said next would
@@ -783,7 +784,7 @@ public final class JoybotAgent {
                             + "\n\nNow tell the person what changed, in one or two plain sentences"
                             + " (or call the next tool if the request needs another step).");
                     history.add(result);
-                    if (ask.projectId != null) JobFile.save(app, ask, round + 1, history);
+                    JobFile.save(app, ask, round + 1, history);
                     // A look: this message carries the picture on the next request (only).
                     if (sight != null) sightMsg = result;
                     continue;
@@ -1913,7 +1914,7 @@ public final class JoybotAgent {
      * forgets the file. The chat then asks with a "carry on" request as a Director run.
      */
     public static void restore(@NonNull Context context, @NonNull JobFile.Interrupted job) {
-        List<JSONObject> h = history(conversationKey(job.projectId, IdeaEngine.Room.STUDIO));
+        List<JSONObject> h = history(job.key);
         synchronized (h) {
             h.clear();
             h.addAll(job.history);

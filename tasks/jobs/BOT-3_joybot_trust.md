@@ -30,7 +30,15 @@ and JoyBrush requests are not resumable. The bench runs 53 tasks with a fake mod
       phone with a live model. Left: touched-id comparison per claim (which item the reply names) stays a later step.
 - [ ] **Live benchmark on free models** (`run-joybot-bench.sh --live`): needs an OpenRouter key on the PC
       (owner) or ~$10 credit for four models. Publish the table in `tasks/joybot/`.
-- [ ] **Resume for VisLab and JoyBrush jobs**: checkpoint by conversation, not only project.
+- [x] **Resume for VisLab and JoyBrush jobs** (11-13, audit BOT-A16): `JobFile` checkpoints by conversation
+      (`joybot/JobKey`: a Studio project, or the VisLab / JoyBrush / TextLab room; a lobby question is not kept). The
+      Carry on card shows in the room the job ran in and tells the model to read the look / describe the drawing first
+      so nothing is done twice (Studio's words unchanged). A request that ends clears only its own job, so a VisLab
+      question can't wipe a killed Studio job. Older job files (project id only) still open. Proof: `run-joybot-bench.sh
+      --resume` 15/15 on the real JobFile and restore; ideas 968/968; bench 58/58; bridge 19/19. **Found on the way:**
+      the bench's Android shim had no `AtomicFile`, so on the PC every job checkpoint (Studio's too) and the Studio's
+      timeline-marks file silently never wrote; a shim now does (`shim/android/util/AtomicFile.java`). Not killed and
+      resumed on a phone (the Note 9 has no AI connection).
 - [ ] **Edits against a revision**: long jobs commit only if the document hasn't moved, else a clear conflict
       (audit recommendation 2: document id + revision + operation id). Start with Studio.
 - [~] **Model-aware size budget**: built 11-04, harness-tested (`bash tools/jvm-harness/run-promptbudget.sh`, 50 pass),

@@ -1969,7 +1969,8 @@ public class ChatAssistantActivity extends AppCompatActivity {
     /** A job the phone stopped in the middle (the app was killed): offer to pick it up, or let it go. */
     private void offerCarryOn() {
         JobFile.Interrupted j = JoybotAgent.interrupted(this);
-        if (j == null || projectId == null || !projectId.equals(j.projectId)) return;
+        // Offered where the job ran: its project, or its VisLab / JoyBrush / TextLab room (BOT-A16).
+        if (j == null || !j.key.equals(JoybotAgent.conversationKey(projectId, room))) return;
         String steps = j.round + (j.round == 1 ? " step" : " steps");
         JoybotChatViews.Card card = JoybotChatViews.resultCard(this,
                 "The phone stopped me in the middle of “" + JoybotAgent.shortOf(j.text) + "” (after " + steps + ").",
@@ -1995,7 +1996,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         // saved conversation, which carries its own system prompt; and it forgets the file.
         JoybotAgent.restore(this, j);
         sendFollowUp("Carry on.",
-                "Carry on with the job from where you stopped. Check the project first — some of it is already done.",
+                "Carry on with the job from where you stopped. " + com.fadcam.ui.faditor.ai.joybot.JobKey.checkFirst(j.room),
                 j.undoLabel, true, JoybotAgent.DIRECTOR_STEPS);
     }
 

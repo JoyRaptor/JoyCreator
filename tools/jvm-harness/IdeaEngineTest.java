@@ -960,6 +960,46 @@ public class IdeaEngineTest {
                     && n3.contains("The other 2 changes did go through.") && n3.length() < 200, String.valueOf(n3));
         }
 
+        // ── JobKey: a killed VisLab / JoyBrush / TextLab job carries on where it ran (BOT-A16, 11-13) ──
+        {
+            check("job key: a Studio project's job is resumable",
+                    com.fadcam.ui.faditor.ai.joybot.JobKey.resumable("p1", "STUDIO"), "");
+            for (String r : new String[]{"VISLAB", "JOYBRUSH", "TEXTLAB"}) {
+                check("job key: a " + r + " job with no project is resumable",
+                        com.fadcam.ui.faditor.ai.joybot.JobKey.resumable(null, r), "");
+            }
+            check("job key: a lobby question is not kept", !com.fadcam.ui.faditor.ai.joybot.JobKey.resumable(null, "LOBBY"), "");
+            eq("job key: spelled like the agent's conversation key (project)", "project:p1",
+                    com.fadcam.ui.faditor.ai.joybot.JobKey.of("p1", "STUDIO"));
+            eq("job key: spelled like the agent's conversation key (room)", "room:VISLAB",
+                    com.fadcam.ui.faditor.ai.joybot.JobKey.of(null, "VISLAB"));
+            eq("job key: a pre-11-13 file (project id only) is a Studio job", "project:p1",
+                    com.fadcam.ui.faditor.ai.joybot.JobKey.fromSaved("", "p1"));
+            eq("job key: a saved room key is kept", "room:JOYBRUSH",
+                    com.fadcam.ui.faditor.ai.joybot.JobKey.fromSaved("room:JOYBRUSH", ""));
+            eq("job key: a file naming nothing has nothing to carry on", null,
+                    com.fadcam.ui.faditor.ai.joybot.JobKey.fromSaved("", ""));
+            eq("job key: room of a project job", "STUDIO", com.fadcam.ui.faditor.ai.joybot.JobKey.roomOf("project:p1"));
+            eq("job key: room of a VisLab job", "VISLAB", com.fadcam.ui.faditor.ai.joybot.JobKey.roomOf("room:VISLAB"));
+            eq("job key: Studio's carry-on words unchanged", "Check the project first — some of it is already done.",
+                    com.fadcam.ui.faditor.ai.joybot.JobKey.checkFirst("STUDIO"));
+            check("job key: VisLab carry-on reads the look first, no repeats",
+                    com.fadcam.ui.faditor.ai.joybot.JobKey.checkFirst("VISLAB").contains("don't repeat"), "");
+            // The agent's own key must stay spelled the same way, read as text (JoybotAgent needs Android).
+            try {
+                String agent = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(
+                        "app/src/main/java/com/fadcam/ui/faditor/ai/joybot/JoybotAgent.java")), "UTF-8");
+                check("job key: JoybotAgent.conversationKey has the same spelling",
+                        agent.contains("return projectId != null ? \"project:\" + projectId : \"room:\" + room.name();"), "");
+                check("job key: a finished request clears only its own job",
+                        agent.contains("JobFile.clearIf(app, ask.key());") && !agent.contains("JobFile.clear(app);\n                AIJobService"), "");
+                check("job key: every checkpoint goes through JobFile.save's own rule",
+                        !agent.contains("if (ask.projectId != null) JobFile.save"), "");
+            } catch (java.io.IOException ex) {
+                check("job key: agent readable", false, ex.toString());
+            }
+        }
+
         // ── CellTags: Joybot's sprite cell tags, spelled as SpriteLab spells them (AN-05, 11-13) ──
         {
             java.util.List<String> parsed = com.fadcam.ui.faditor.ai.joybot.CellTags.parse(

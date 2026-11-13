@@ -427,6 +427,8 @@ real work, not done; the itemised history follows.
   particles), `&minus=VINE` (without that piece). Inside `adb shell "... -d '...'"` write `&` bare.
 - A film curve run per colour channel bleaches colour: `final.frag` scales by the brightest channel.
 - Half-float render targets are required (present on the Note 9).
+- A NEW slider group (slot) in `parts.json` also needs an icon for the phone room: `TlIcons.forTab(slot)` maps every
+  slot to one (the Studio session added 46 on 2026-11-12). Tell that session when you add a slot.
 - A slider group must fill every number of the shader setting it drives (a `vec4` needs four sliders, or
   declare it `vec3`). One short is refused whole, silently except for a console warning.
 

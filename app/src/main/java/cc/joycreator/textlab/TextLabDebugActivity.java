@@ -92,6 +92,15 @@ public final class TextLabDebugActivity extends Activity {
         final float stage = in.getFloatExtra("stage", Float.NaN);
         final float tx = in.getFloatExtra("tx", 0f), ty = in.getFloatExtra("ty", 0f);
         live = in.getBooleanExtra("live", true);
+        if (in.hasExtra("studio")) {
+            // adb --es studio <look> [--ef pem 80 --ef xem 120]: Studio's preview and export of a title in that look
+            String sid = in.getStringExtra("studio");
+            JSONObject sl = sid != null ? readAssetLook(sid) : null;
+            if (sl != null) {
+                StudioTextLabBench.run(this, sid, sl.toString(), text != null ? text : sl.optString("sample", "TEXT"),
+                        in.getFloatExtra("pem", 80f), in.getFloatExtra("xem", 120f));
+            }
+        }
 
         // ---- the screen: picture, chips, words + Save
         LinearLayout root = new LinearLayout(this);

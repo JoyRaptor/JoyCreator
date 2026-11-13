@@ -188,4 +188,17 @@
         <item quantity="other">Moved %d items to Trash. You can put them back from Trash.</item>
     </plurals>
     <string name="library_batch_trashed_some">Moved %1$d to Trash; %2$d could not be moved. %3$s</string>
+    <!-- SHELL-11: batch Save to gallery says what it left out. -->
+    <plurals name="library_batch_save_skipped_missing">
+        <item quantity="one">%d was left out: its file is no longer on the phone.</item>
+        <item quantity="other">%d were left out: their files are no longer on the phone.</item>
+    </plurals>
+    <plurals name="library_batch_save_skipped_not_video">
+        <item quantity="one">%d is not a video, so it was left out.</item>
+        <item quantity="other">%d are not videos, so they were left out.</item>
+    </plurals>
+    <plurals name="library_batch_save_none_there">
+        <item quantity="one">Nothing to save: the file of the %d video you chose is no longer on the phone.</item>
+        <item quantity="other">Nothing to save: the files of the %d videos you chose are no longer on the phone.</item>
+    </plurals>
 </resources>

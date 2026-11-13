@@ -17,6 +17,10 @@ endif ()
 
 message(STATUS "whisper.cpp source: ${WHISPER_DIR}")
 
+# Google Play requires 16 KB page-aligned native libraries (targetSdk 35+). NDK r27 still links 4 KB by default,
+# so ask for 16 KB for every shared library built here (whisper_jni, ggml, ggml-base, ggml-cpu). Set BEFORE ggml.
+set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-z,max-page-size=16384")
+
 # Build ggml (the CPU math backend) from the whisper.cpp checkout.
 include(FetchContent)
 FetchContent_Declare(ggml SOURCE_DIR ${WHISPER_DIR}/ggml)

@@ -37,7 +37,9 @@ android {
         versionName = "4.0.0"
         vectorDrawables.useSupportLibrary = true
         
-        // Fix 16KB native library alignment for Android 15
+        // 16 KB native library alignment (Play, targetSdk 35+): our own libraries get the linker flag in
+        // src/main/cpp/CMakeLists.txt; vosk 0.3.75 and MediaPipe 0.10.26.1 ship aligned libraries. Still open:
+        // libtask_vision_jni.so (tensorflow-lite-task-vision 0.4.4, no aligned release), see tasks/audits/launch_checks_20261113.md
         // Generate full native debug symbols so they can be uploaded to Play Console
         ndk {
             debugSymbolLevel = "FULL"
@@ -236,13 +238,13 @@ dependencies {
 
     // Vosk offline speech recognition (word-level timestamps) for transcript
     // editing + on-screen captions. Model is downloaded on first use, not bundled.
-    implementation("com.alphacephei:vosk-android:0.3.47")
+    implementation("com.alphacephei:vosk-android:0.3.75")
 
     // MediaPipe Tasks Vision — FaceLandmarker for the Avatar Studio face tracker
     // (PLAN_AVATAR_STUDIO A2 / Fable-day spec D4). USER-GATED dep; the face
     // model ships as assets/mediapipe/face_landmarker.task. Drives the same
     // TrackingFrame contract the synthetic source proved on device.
-    implementation("com.google.mediapipe:tasks-vision:0.10.14")
+    implementation("com.google.mediapipe:tasks-vision:0.10.26.1")
 
     annotationProcessor(libs.compiler)
     annotationProcessor(libs.room.compiler)

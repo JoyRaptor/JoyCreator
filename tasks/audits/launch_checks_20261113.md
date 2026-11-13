@@ -70,3 +70,20 @@ After the change, build and check the real release output (take `jb-gradle.lock`
 ```
 Every library must print ALIGNED. (The exact output path depends on the splits config; use `find app/build/outputs -name "*.apk"`.)
 Alternative without zipalign: Android Studio, Build > Analyze APK, which flags 16 KB alignment per library.
+
+## 3. Result of the fix build (2026-11-13, later the same day)
+
+Changes (build files and dependency versions only): `app/src/main/cpp/CMakeLists.txt` links every library we build with
+`-Wl,-z,max-page-size=16384`; `vosk-android` 0.3.47 -> 0.3.75; MediaPipe `tasks-vision` 0.10.14 -> 0.10.26.1.
+`./gradlew assembleDefaultDebug` succeeded (13 min under the build lock; `app-default-arm64-v8a-debug.apk`, 172.1 MB, was 176.8 MB).
+Alignment re-run on that APK with the same script:
+
+* **22 of 23 native libraries are now 16 KB aligned**, including all four from our CMake build, `libvosk.so` and `libmediapipe_tasks_vision_jni.so`.
+* **Still failing: `libtask_vision_jni.so` (4096)**, from `org.tensorflow:tensorflow-lite-task-vision:0.4.4`. 0.4.4 is the newest release on Maven Central
+  (checked 11-13 by downloading it) and no aligned release exists. Not forced. Options, cheapest first:
+  1. Use MediaPipe's `ObjectDetector` (already a dependency, aligned) in `motion/domain/detector/EfficientDetLite1Detector.java` instead of the task-library one. Needs app source changes and a check that `efficientdet_lite1.tflite` loads there; it also lets the 6 MB TFLite task library go.
+  2. Hide or drop the object-detection part of Smart Detection for the Play build and keep the rest.
+  3. Build `libtask_vision_jni.so` ourselves from the TFLite Support sources with the 16 KB flag (heavy).
+  4. Ask Google (the open forum thread "Tflite vision task library is not 16kb compatible") and wait.
+* Not tested: the APK was built, not installed or run. Vosk jumped four minor versions and MediaPipe 12; speech to text and the avatar's face tracking must be tried on the Note 9 before this ships. MediaPipe 0.10.26 also re-adds an OpenCV dependency; the build merged without complaint, but the OpenCV copy in the APK was not compared.
+* Zip offsets stay aligned (`useLegacyPackaging = false`).

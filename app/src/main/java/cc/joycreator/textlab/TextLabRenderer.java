@@ -644,6 +644,7 @@ public final class TextLabRenderer {
         List<String> none = Collections.emptyList();
 
         // backdrop
+        TlGpuTimer.mark("backdrop");
         GLES30.glDisable(GLES30.GL_BLEND);
         GLES30.glDisable(GLES30.GL_DEPTH_TEST);
         glw.program("quad.vert", "backdrop.frag", none).use().setAll(U).set("uScene", stage)
@@ -652,6 +653,7 @@ public final class TextLabRenderer {
         if (defines.contains("FOG")) glw.mips(back);   // a steamed pane needs the world behind it soft as well as sharp
 
         // compose
+        TlGpuTimer.mark("letters");
         TlProgram gp = glw.program("glyph.vert", "glyph.frag", none).use().setAll(U);
         glw.bind(field);
         GLES30.glClearColor((float) -TlGlyphs.SPREAD, 0, 0, 0);
@@ -697,6 +699,7 @@ public final class TextLabRenderer {
         TlGl.Target fieldNow = field;
         double soft = knob("soften") * em, wobble = knob("wobble");
         if (softens()) {
+            TlGpuTimer.mark("soften");
             // Each pass builds only the pieces it uses (the Note 9 runs a smaller program faster, T13): the blur passes
             // are blur alone; the shape work holds only the pieces switched on. Twin of tl-engine.js.
             List<String> parts = new ArrayList<>();
@@ -759,6 +762,7 @@ public final class TextLabRenderer {
         TlGl.Target heatNow = black;
         boolean fire = hasFire();
         if (fire) {
+            TlGpuTimer.mark("fire");
             if (resetFire) {
                 for (TlGl.Target h : heat) {
                     glw.bind(h);
@@ -787,11 +791,13 @@ public final class TextLabRenderer {
                 || defines.contains("FOG") || defines.contains("FLAG");
         boolean split = slant && !ownWay && march != null;
         if (split) {
+            TlGpuTimer.mark("march");
             List<String> md = new ArrayList<>(defines);
             md.add("MARCH_PASS");
             glw.program("quad.vert", "shade.frag", md).use().setAll(U).tex("uFieldTex", fieldNow.tex(), 0);
             glw.pass(march);
         }
+        TlGpuTimer.mark("shade");
         List<String> shadeDefs = new ArrayList<>(defines);
         if (split) shadeDefs.add("MARCH_READ");
         else if (!slant && !ownWay) shadeDefs.add("FLAT_FACE");
@@ -804,6 +810,7 @@ public final class TextLabRenderer {
         if (split) sh.tex("uMarch", march.tex(), 6);
         glw.pass(scene);
 
+        TlGpuTimer.mark("sparks");
         GLES30.glEnable(GLES30.GL_BLEND);
         GLES30.glBlendFunc(GLES30.GL_ONE, GLES30.GL_ONE_MINUS_SRC_ALPHA);
         if (fire) {
@@ -829,6 +836,7 @@ public final class TextLabRenderer {
         GLES30.glDisable(GLES30.GL_BLEND);
 
         // bloom: down the chain, then back up adding
+        TlGpuTimer.mark("bloom");
         TlProgram down = glw.program("quad.vert", "bloom_down.frag", none).use();
         TlGl.Target src = scene;
         for (int i = 0; i < bloom.length; i++) {
@@ -848,6 +856,7 @@ public final class TextLabRenderer {
         GLES30.glDisable(GLES30.GL_BLEND);
 
         // final
+        TlGpuTimer.mark("final");
         TlProgram fin = glw.program("quad.vert", "final.frag", none).use().setAll(U);
         fin.tex("uScene", scene.tex(), 0).tex("uBloom", bloom[0].tex(), 1).tex("uBack", back.tex(), 2)
                 .tex("uHeat", heatNow.tex(), 3).tex("uBloomWide", bloom[3].tex(), 4);
@@ -856,9 +865,11 @@ public final class TextLabRenderer {
         glw.pass(output == LINEAR_CLEAR ? outHdr : smooth ? screen : out);
         if (smooth) {
             // smooth the steps left where two lit faces meet
+            TlGpuTimer.mark("fxaa");
             glw.program("quad.vert", "fxaa.frag", none).use().set("uPx", new double[]{1.0 / W, 1.0 / H}).tex("uSrc", screen.tex(), 0);
             glw.pass(out);
         }
+        TlGpuTimer.end();
         lookTime = t;
     }
 

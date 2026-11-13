@@ -406,6 +406,10 @@ public final class TextLabDebugActivity extends Activity {
         String note = "";
         String name = "";
         boolean benchDone;
+        /** adb --ez gputime true: each step of the frame timed by the GPU; --ei burst N: N frames, then one wait. */
+        final boolean gpuTime = getIntent().getBooleanExtra("gputime", false);
+        final int burst = Math.max(1, getIntent().getIntExtra("burst", 1));
+        TlGpuTimer timer;
 
         Renderer(boolean bench, String benchId, float t, int w, int h, float stage, float tx, float ty) {
             this.bench = bench;
@@ -424,6 +428,10 @@ public final class TextLabDebugActivity extends Activity {
                 r = new TextLabRenderer(TextLabRenderer.Assets.load(getAssets()), TextLabDebugActivity.this);
                 r.setSize(w, h);
                 r.tilt = new double[]{tx, ty};
+                if (gpuTime) {
+                    timer = TlGpuTimer.start();
+                    Log.i(TAG, timer != null ? "gpu step timer on" : "no gpu timer on this phone");
+                }
                 // a new surface after a pause: draw what was showing again
                 if (current != null && pending.get() == null) pending.set(new Object[]{current, words.getText().toString()});
             } catch (Exception | Error e) {
@@ -465,12 +473,15 @@ public final class TextLabDebugActivity extends Activity {
                     if (liveStart < 0) liveStart = now;
                     long a = SystemClock.elapsedRealtimeNanos();
                     // the still left the look's clock at 1000 = moment t: play on from there
-                    r.frame(1000 + (now - liveStart));
+                    TlGpuTimer.on = timer;
+                    for (int i = 0; i < burst; i++) r.frame(1000 + (now - liveStart) + i / 60.0);
                     long cpuEnd = SystemClock.elapsedRealtimeNanos();
                     GLES30.glFinish();
-                    ms = (SystemClock.elapsedRealtimeNanos() - a) / 1e6;
+                    if (timer != null) timer.collect();
+                    TlGpuTimer.on = null;
+                    ms = (SystemClock.elapsedRealtimeNanos() - a) / 1e6 / burst;
                     sumMs += ms;
-                    sumCpu += (cpuEnd - a) / 1e6;   // the phone's processor handing the work over, before the GPU finishes
+                    sumCpu += (cpuEnd - a) / 1e6 / burst;   // the phone's processor handing the work over, before the GPU finishes
                     frames++;
                 }
             } catch (RuntimeException e) {
@@ -484,7 +495,8 @@ public final class TextLabDebugActivity extends Activity {
                 String s = live && frames > 0
                         ? String.format(Locale.ROOT, "%s  %.1f ms a frame (cpu %.1f)", name, sumMs / frames, sumCpu / frames)
                         : name + "  held (tap to play)";
-                if (frames > 0 && live && bench) Log.i(TAG, s + " (avg of " + frames + ")");
+                if (frames > 0 && live && bench) Log.i(TAG, s + " (avg of " + frames + (burst > 1 ? " bursts of " + burst : "") + ")");
+                if (frames > 0 && live && bench && timer != null) Log.i(TAG, name + " " + timer.report());
                 sumMs = 0;
                 sumCpu = 0;
                 frames = 0;

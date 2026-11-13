@@ -125,6 +125,15 @@ void main() {
     float reach = smoothstep(-edgeW, edgeW, here - around + give - jb_pasteGraze(hair)) * jb_pasteDry(jb_tip, here - around, rise, u_toothMm);
     float c = cover * reach;
 
+    // Pull: the wet paint here is what lay a little way back along the hairs' travel (they trail toward u_lDir, so the
+    // travel is the other way), its thickness and its colour both. Set paint stays where it is.
+    if (u_pull > 0.0 && p1.a > 0.0) {
+        float far = (0.2 + 0.3 * jb_press) * u_slideMm * u_pxPerMm * u_layerScale;
+        vec2 up = layerPx + u_lDir * far;
+        vec4 q0 = jb_bilinearL(u_p0, up), q1 = jb_bilinearL(u_p1, up);
+        float m = u_pull * cover * min(p1.a, q1.a) * mix(0.55, 1.0, hair);
+        p0 = mix(p0, q0, m); p1.rgb = mix(p1.rgb, q1.rgb, m);
+    }
     float t = p0.a;
     vec3 Kc = t > 1e-6 ? p0.rgb / t : vec3(0.0);
     vec3 Sc = t > 1e-6 ? p1.rgb / t : vec3(0.0);

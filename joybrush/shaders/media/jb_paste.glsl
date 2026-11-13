@@ -238,6 +238,12 @@ bool jb_pasteBeyond(float a, float aaA) {
 // evenly deep, a comb. With it the hairs gather in a few wide bunches of unequal weight, their spacing is uneven across
 // the brush, and along the stroke there are stretches where the streaks all but smooth out and stretches where they bite.
 uniform float u_hairVary;
+// u_pull, 0..1 (the owner, 2026-11-11: where a stroke crosses wet paint "if thick the paint would be pulled as something
+// went across"): the wet paint under the hairs or the trowel goes along with them, at up to half the brush's own travel
+// (IMPaSTo, Baxter et al. 2004: paint under a tool moves at half the tool's velocity), more under the runs of hair that
+// press hardest, so what a stroke crosses trails into it in streaks instead of lying untouched under a clean-edged coat.
+// It moves the paint ON THE CANVAS; the brush's cells know nothing of it. 0 = as before.
+uniform float u_pull;
 float jb_pasteHair(float a, vec2 docPx) {
     if (u_shape > 1.5) return 0.5;
     uint s = uint(u_seed);

@@ -105,6 +105,12 @@ const val PASTE_DEPTH = 8
      * its travel rolls onto its corner and paints narrower. 0 = as before.
      */
     val vary: Double = 0.0,
+    /**
+     * 0..1, hair brushes and the trowel (the owner, 2026-11-11: crossing wet paint, "if thick the paint would be pulled as
+     * something went across"): the wet paint under the brush goes along with it (jb_paste.glsl u_pull), so what a stroke
+     * crosses trails into it. 0 = as before: the canvas paint only trades with the brush where it lies.
+     */
+    val pull: Double = 0.0,
     val ends: EndsMode? = null,
     val turns: TurnMode? = null,
     /**

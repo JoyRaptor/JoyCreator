@@ -288,6 +288,45 @@ handoff). Order is the recommended build order; the owner's verdicts run alongsi
     shelf, packs, `linkSheets`, `LookFrame`; a `TEXTLAB_ROADMAP.md` like VisLab's; the name ("name pending");
     STATE rows from agent-checked to LIVE with the owner's own try; help mapping filled in.
 
+## Other wings (11-13, cross-wing session, branch `claude/textlab-cross-wing-2dd79d`; roadmap T14 to T17)
+
+**VisLab wears TextLab looks (T15, built).** VisLab › a Picture layer › Picture row › "Words in a look": pick a look
+(the app's, the packs' and your own, from `TextLookShelf`; the one worn is ticked), type the words, Use. The layer
+shows them in that look, moving (fire, particles, its light swaying), drawn by `StudioTextLab` exactly as Studio's
+titles are; "Change the words" on the same row edits them; "Joy emblem" goes back. One undo step. The layer keeps the
+whole look with its words (`"image": "textlab:{words, look}"`, `vislab/room/WordsPicture`), so a VisLab look carries
+it into Studio, an export and another phone, and a later change to the look's file never changes it. Frames at 30 a
+second of the look's clock (the same in the room and an export); plain white words when a phone cannot draw looks.
+Not yet: the look's own sliders from VisLab (open it in TextLab, save, pick it again).
+
+**Packs (T14), previews (T17), words (T16), built 11-13:** see PACK-1 for what every wing now reads from packs. Look
+previews are written as `<Name>.5x4.sprite.webp` (Note 9: 77 KB against 894 KB as PNG, same picture); old PNG
+previews still play, follow a rename and go to Trash with their look; a new preview replaces an old PNG one. TextLab's
+on-screen English is in `res/values/strings_textlab.xml` (206 strings, keys `textlab_*`): put new UI words there.
+Left in code on purpose: what Joybot reads (`TextLabRoom`, the room's `*FromJoybot` replies), names stored or compared
+as data (stage names, fonts, slots, "My looks"), `TlParts.progress` labels and `LookVideo.refuses` (no Context; the
+latter is matched by `startsWith`), `PackInstaller`'s reasons, and the debug screen.
+
+**Spec: the emitter for VisLab (not built: large).** TextLab's particles start on a letter's outline
+(`particle.vert/frag`, `TlGlyphs` distance field, the emitter rows in `TextLabRenderer`). To offer them to VisLab as a
+layer of their own ("sparks off my logo", "embers off the words"): (1) a VisLab element type `tl-particles` in
+`types.json` whose knobs are the particle knobs of `parts.json` (kind, rate, life, speed, gravity, size, colour); (2)
+its source shape is the layer's picture (any picture: a logo, the words): build a distance field from the picture's
+alpha with `TlGlyphs`'s code path, once per picture; (3) draw with TextLab's particle program on VisLab's GL thread
+(TextLab's engine already compiles its shaders with VisLab's own `GlProgram`, so the GL side is shared); (4) sound drives rate and speed as VisLab's own
+elements do. Cost: a new element in VisLab's compiler and renderer, a shared distance-field helper moved out of
+`cc.joycreator.textlab`, and the TextLab lead's yes on sharing the particle shaders. Until then, a words layer already
+carries its look's own particles.
+
+**Spec for the JoyBrush lead: a text tool (none exists; not built).** JoyBrush has no way to put words on a drawing,
+so a look has nowhere to go there. The smallest useful tool: (1) a T in the tool bar; tap the canvas to place a box,
+type, drag to move, pinch to size, as Studio's text box; (2) a Look row under it from `TextLookShelf` (Plain first);
+(3) the words stay editable as a layer of their own until "Flatten onto the layer below" (one undo step), which
+paints `StudioTextLab.renderBlocking`'s picture onto the layer at the box's place; (4) saved in the drawing as the box
+(words, font, place, `TitleLook` JSON), so it reopens editable; (5) the export draws it the same way. Hand-drawn ink as
+letters (the owner's idea) is a later step on top of the same box. This is JoyBrush's own design call; nothing was
+built here.
+
 ## What is left
 
 **Audit, 11-12 evening (phone-engine session), checked against the code on `joy-creator`.** Everything below is

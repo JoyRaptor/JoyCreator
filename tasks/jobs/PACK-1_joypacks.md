@@ -81,8 +81,55 @@ A pack look that needs a piece this app lacks is shown as "needs a newer Joy Cre
       folder with `joypack.json` like a plugin folder). Making a pack: `python -I tools/joypack/make_pack.py <folder>`.
 - [ ] STATE row; help mapping. (STATE row added 11-12; help mapping pending.)
 
+## Every wing reads its sockets (TEXTLAB_ROADMAP T14, 11-13, branch `claude/textlab-cross-wing-2dd79d`)
+
+One reader for every wing: `studiokit/.../joyfolder/PackShelf.installed(fs, socket)` (installed, usable packs in
+folder order, entries in manifest order; a missing file, a broken manifest or a later level is left out). JVM test
+"packs: installed shelf by socket" in `tools/joyfolder-tests` (27 pass). `TextLookShelf` and the TextLab room's
+pack fonts now use it too.
+
+| Socket | Who reads it now | How |
+|---|---|---|
+| `text-look` | TextLab room, Studio's Look row (11-12) | `TextLookShelf` |
+| `vis-look` | VisLab room, Joybot's VisLab actions | `vislab/room/PackLooks` + `VisLabSession`: offered after the built-ins like one of them, never copied out; the person's copy is written once they change it and wins from then on; "Revert to default" puts the pack's version back (the copy goes to Trash); delete is refused in plain words ("Removing the pack takes them away"). A pack installed while the app runs joins at once (`VisLabSession.packsChanged`). An id that clashes with a built-in gets the pack's name in front |
+| `vis-part` | VisLab's parts shelf, one row per pack under the pack's name | `PackLooks.Part`, `KnobPanel.packParts` |
+| `font` | Studio's text and caption font pickers, VisLab words, Joybot's font lists (and TextLab, 11-12) | `joyfolder/studio/PackSupplies` copies each into the app (`files/packs/<pack id>/`; Studio draws and exports from file paths, its export in a process of its own); `FontLibrary.fromPacks()` / `choosable()`, labelled "Name · Pack" |
+| `grade` (`.cube`) | Studio's LUT list (filter sheet, LUT panel), preview and export | `PackSupplies` + `LutManager.presets(ctx)` / `nameOf`; a project stores `grade:<pack id>/<file>` so it finds the grade on any phone with the pack |
+| `caption-style` (`.caption.json`, a saved style's JSON) | Studio's caption style ticker and Joybot's caption actions, preview and export | `PackSupplies` + `CaptionStyleStore` (listed after your own styles; not deletable, like the built-ins) |
+| `brush`, `paper`, `palette` | **nobody yet**: JoyBrush has no supplies shelf at all (no `.brush.json` / `.paper.json` / `.palette.json` reader in `joybrush*/`); its engine is held (BOARD: Codex save lifecycle, JoyBrush Lead backlog) | spec below for the JoyBrush lead |
+
+`PackSupplies.sync` runs once a run after the app opens (`MainActivity.onResume`) and right after an install
+(`PackOpenActivity`); it writes `files/packs/shelf.json`. A removed pack's copies stay, marked gone: work that uses
+its font, grade or caption style keeps its look, but the pickers stop offering them. Nothing is ever written into
+the person's folder by this.
+
+**Spec for the JoyBrush lead: brushes, papers and palettes from packs.** When JoyBrush gets a shelf of supplies
+(its own `Supplies/Brushes`, `Papers`, `Palettes`), read packs the same way and nothing more:
+1. On the folder thread, `PackShelf.installed(jf.fs, "brush")` (and `"paper"`, `"palette"`): each `Found` has the
+   pack's name (`pack.name`, show it as the shelf row's heading), the file (`rel`) and a label.
+2. Offer them after the built-ins and before the person's own, under the pack's name. Never copy them out.
+3. Changing one and saving writes the person's copy into their own `Supplies/<kind>/` under the same name; that copy
+   wins (the pack's stays as "back to the original", one step away), as VisLab's `PackLooks` does.
+4. A drawing that uses a pack brush or paper must keep drawing after the pack is removed: store the brush/paper
+   settings in the drawing (as a title carries its whole look), not just a reference to the pack file.
+5. Papers that are pictures: read them through `JoyFs.open`, never by a file path (the folder is a SAF tree).
+No engine change is needed for any of this; it is shelf code only.
+
+**Owner decisions, not built:** signing (who counts as "ours"), the shop and paywall, which waves ship first.
+
+**Note 9, 11-13** (test pack "Cross wing test": two VisLab looks, one part, a font, a grade, a caption style, made
+with `make_pack.py`): installed from a file; the app's copies and `shelf.json` written; VisLab offered "Pack Aurora"
+and "Coral from a pack" (its id clashed with the built-in Coral, so it became `cross-wing-test-coral`) and the part
+under "CROSS WING TEST"; changing Pack Aurora wrote `Supplies/Looks/Pack Aurora.vis.json`, Revert moved it to Trash,
+one undo brought it back; Joybot's delete refused in words; Studio's text font list offered "Pack Bebas · Cross wing
+test" and the text drew in it. Pack folder removed: the untouched pack look left VisLab, the changed one stayed as the
+person's own, Studio's three items were marked gone. **Not seen:** the grade in Studio's LUT list and the caption style
+in the ticker (on disk and in the list only); a pack installed while VisLab is open.
+
 ## What is left
-- [ ] The above, in order. Then the other sockets room by room (VisLab element packs join here), signing, the shop.
+- [ ] Studio's LUT list and caption ticker with a pack's grade and style, seen on the phone.
+- [ ] JoyBrush's shelf (spec above) when its lead takes it; `vis-element` (new shader pieces) with VisLab.
+- [ ] Signing, the shop (owner).
 
 ## Specs, handoffs and evidence
 - VisLab's earlier element-pack design: `tasks/VISLAB_TODO.md` section F. Roadmap "After launch": pack manager.

@@ -252,7 +252,7 @@ final class KnobPanel extends LinearLayout {
         if (!host.lookIsBuiltIn()) {
             w.addView(footerPill(c, "Delete", "Move this look to the Trash (asks first; undo brings it back)", host::deleteLook));
         } else if (host.lookIsCustomised()) {
-            w.addView(footerPill(c, "Revert to default", "Put this look back as it came with the app (asks first)", host::revertLook));
+            w.addView(footerPill(c, "Revert to default", "Put this look back as it came, with the app or in its pack (asks first)", host::revertLook));
         }
         body.addView(w);
         String f = host.lookFile();

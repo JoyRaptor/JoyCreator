@@ -80,7 +80,7 @@
     <string name="lane_b_audio_bake_offline">Offline renders — the original file is never modified.</string>
     <string name="lane_b_audio_bake_progress">%1$s · %2$d%%</string>
     <string name="lane_b_audio_bake_failed">Failed: %1$s</string>
-    <string name="lane_b_audio_bake_note">Runs ffmpeg offline over this clip\'s trimmed range.</string>
+    <string name="lane_b_audio_bake_note">Works on a copy of this clip\'s sound and plays that instead. Revert goes back to the original.</string>
     <string name="lane_b_audio_revert">Revert to original</string>
     <string name="lane_b_audio_revert_desc">Go back to the original, unprocessed audio file</string>
     <string name="lane_b_audio_denoise">Reduce noise</string>

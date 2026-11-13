@@ -520,6 +520,9 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
         // Holder, not a plain local: the row's own listeners re-run this refresh, and a
         // lambda may not capture itself before its initializer completes.
         final Runnable[] refreshHolder = new Runnable[1];
+        // The two process chips are built further down; the refresh puts them back each time
+        // it rebuilds the row (it used to clear them for good after the first Revert).
+        final java.util.List<View> applyChips = new java.util.ArrayList<>();
         final Runnable refresh = () -> {
             actions.removeAllViews();
             if (baking[0]) {
@@ -563,6 +566,12 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
                 if (refreshHolder[0] != null) refreshHolder[0].run();
             });
             actions.addView(revert);
+            if (!clip.isBakedSource()) {
+                for (View c : applyChips) {
+                    if (c.getParent() instanceof android.view.ViewGroup) ((android.view.ViewGroup) c.getParent()).removeView(c);
+                    actions.addView(c);
+                }
+            }
         };
         refresh.run();
         refreshHolder[0] = refresh;
@@ -625,16 +634,28 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
         dn.setOnClickListener(v -> new Apply(
                 com.fadcam.ui.faditor.audio.BakedAudioCache.CHAIN_DENOISE,
                 ctx.getString(R.string.lane_b_audio_denoise)).run());
-        actions.addView(dn);
+        applyChips.add(dn);
         TextView ln = chip(ctx, ctx.getString(R.string.lane_b_audio_normalize));
         hoverLabel(ln, ctx.getString(R.string.lane_b_audio_normalize_desc));
         ln.setOnClickListener(v -> new Apply(
                 com.fadcam.ui.faditor.audio.BakedAudioCache.CHAIN_LOUDNORM,
                 ctx.getString(R.string.lane_b_audio_normalize)).run());
-        actions.addView(ln);
+        applyChips.add(ln);
+        refresh.run();
+        // Undo/Redo change the clip behind this tab: the drawer's row tick re-checks it and
+        // rebuilds only when processed/original/busy actually changed.
+        final int[] shown = {stateOf(clip, baking[0])};
+        root.setTag(R.id.faditor_tag_row_refresh, (Runnable) () -> {
+            int now = stateOf(clip, baking[0]);
+            if (now != shown[0]) { shown[0] = now; refresh.run(); }
+        });
 
         root.addView(note(ctx, ctx.getString(R.string.lane_b_audio_bake_note)));
         return root;
+    }
+
+    private static int stateOf(@NonNull AudioParams clip, boolean baking) {
+        return baking ? 2 : clip.isBakedSource() ? 1 : 0;
     }
 
     // ── Tab 3: FX ────────────────────────────────────────────────────────────────────────

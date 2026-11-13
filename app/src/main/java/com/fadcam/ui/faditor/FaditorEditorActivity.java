@@ -18218,12 +18218,31 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @Override
             public void onSelectedItemTapped(@NonNull com.fadcam.ui.faditor.layers.TimedItem item) {
                 if (isWordSyncActive()) return;
+                boolean wasShowing = objectDrawer != null && objectDrawer.isShowing();
                 if (item.getTextOverlay() != null) reopenOverlayDrawerOnTap(item.getTextOverlay());
+                if (!wasShowing && objectDrawer != null && objectDrawer.isShowing()) {
+                    drawerOpenedByTapAt = android.os.SystemClock.uptimeMillis();
+                }
             }
 
             @Override
             public void onItemDoubleTapped(@NonNull com.fadcam.ui.faditor.layers.TimedItem item) {
                 if (isWordSyncActive()) return;
+                // S12 (owner 08-23, "double tap like the audio drawer"): a double-tap on the object
+                // whose drawer is ALREADY open closes it. Only when it was open before this
+                // double-tap began: if its first tap selected the object (the drawer retargeted to
+                // it) or reopened the drawer, the double-tap means "open", as before.
+                long now = android.os.SystemClock.uptimeMillis();
+                if (objectDrawer != null && objectDrawer.isShowing()
+                        && now - lastLayerSelectionChangeAt > DOUBLE_TAP_GRACE_MS
+                        && now - drawerOpenedByTapAt > DOUBLE_TAP_GRACE_MS
+                        // Only kinds whose double-tap opens this drawer: audio has its own toggle
+                        // (G3), a PiP's opens its sound strip, captions their own drawer.
+                        && (item.getTextOverlay() != null || item.getSprite() != null
+                            || item.getWaveform() != null || item.getAdjustment() != null)) {
+                    objectDrawer.hide();
+                    return;
+                }
                 // G1 (gesture contract §1): double-tap a layer-row item = the express lane
                 // to that object's type editor / power-tools drawer. The item is already
                 // selected (first tap); here we just open the right editor per payload type.
@@ -18301,6 +18320,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     @Nullable com.fadcam.ui.faditor.layers.Track track,
                     @Nullable com.fadcam.ui.faditor.layers.TimedItem item) {
                 if (isWordSyncActive()) return; // §3.1 lockout — selecting other objects is locked out
+                lastLayerSelectionChangeAt = android.os.SystemClock.uptimeMillis();
                 // ARMED LINK: this tap is the choice of what to follow (SPEC_20260924_LINKING).
                 if (linkTool != null && linkTool.isArmed() && item != null
                         && !item.getId().equals(linkTool.armedSource())) {
@@ -37912,6 +37932,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
     /** Which text object the drawer is showing, or null. */
     @Nullable private String textDrawerItemId;
 
+    /** S12: when the timeline selection last changed, and when a tap last reopened a drawer. */
+    private long lastLayerSelectionChangeAt;
+    private long drawerOpenedByTapAt;
+    /** A double-tap's two taps fall inside this; a change this recent belongs to the double-tap. */
+    private static final long DOUBLE_TAP_GRACE_MS = 700;
+
     /**
      * A tap on a text or picture that is ALREADY selected (its box in the preview, or its tape
      * on the timeline) opens its drawer, keyboard down, when no drawer is open. Tap = select,
@@ -41093,15 +41119,35 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 if (preferAudio) {
                     AudioClip ac = project.getTimeline().getAudioClips().get(editorTimeline.getSelectedAudioIndex());
                     if (ac != null && ac.hasTranscript()) {
-                        ac.setCaptionStyleId(s.id);
-                        ac.setCaptionsEnabled(true);
-                        activeCaptionIsAudio = true;
-                        audioCaptionClipId = ac.getId();
-                        bindAudioCaptionData(ac);
-                        audioCaptionOverlay.setStyle(s);
-                        audioCaptionOverlay.setVisibility(View.VISIBLE);
+                        // One press, one undo step (owner rule): neither branch recorded one.
+                        final String beforeId = ac.getCaptionStyleId();
+                        final boolean beforeOn = ac.isCaptionsEnabled();
+                        final Runnable apply = () -> {
+                            ac.setCaptionStyleId(s.id);
+                            ac.setCaptionsEnabled(true);
+                            activeCaptionIsAudio = true;
+                            audioCaptionClipId = ac.getId();
+                            bindAudioCaptionData(ac);
+                            audioCaptionOverlay.setStyle(s);
+                            audioCaptionOverlay.setVisibility(View.VISIBLE);
+                            scheduleAutoSave();
+                        };
+                        final Runnable revert = () -> {
+                            ac.setCaptionStyleId(beforeId);
+                            ac.setCaptionsEnabled(beforeOn);
+                            bindAudioCaptionData(ac);
+                            com.fadcam.ui.faditor.transcript.CaptionStyle b = beforeId == null ? null
+                                    : com.fadcam.ui.faditor.transcript.CaptionStyle.byId(beforeId);
+                            if (b != null) audioCaptionOverlay.setStyle(b);
+                            audioCaptionOverlay.setVisibility(beforeOn ? View.VISIBLE : View.GONE);
+                            scheduleAutoSave();
+                        };
+                        apply.run();
                         if (captionStyleBar != null) { captionStyleBarRequested = true; captionStyleBar.setVisibility(View.VISIBLE); }
-                        scheduleAutoSave();
+                        if (!s.id.equals(beforeId) || !beforeOn) {
+                            undoManager.recordAction(new EditActions.LambdaAction(
+                                    getString(R.string.studio_d3_caption_style), apply, revert));
+                        }
                     }
                 } else {
                     Clip cc = getSelectedClip();
@@ -41126,13 +41172,34 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                             ? getString(R.string.studio_opt_keyframe_style_replaced) : getString(R.string.studio_opt_style_keyframe_dropped),
                                     Toast.LENGTH_SHORT).show();
                         } else if (cc.hasTranscript()) {
-                            cc.setCaptionStyleId(s.id);
-                            cc.setCaptionsEnabled(true);
-                            activeCaptionIsAudio = false;
-                            bindCaptionData(cc);
-                            captionOverlay.setStyle(s);
-                            captionOverlay.setVisibility(View.VISIBLE);
-                            scheduleAutoSave();
+                            // One press, one undo step (PACK-1 report 11-13: this was none).
+                            final Clip fc = cc;
+                            final String beforeId = fc.getCaptionStyleId();
+                            final boolean beforeOn = fc.isCaptionsEnabled();
+                            final Runnable apply = () -> {
+                                fc.setCaptionStyleId(s.id);
+                                fc.setCaptionsEnabled(true);
+                                activeCaptionIsAudio = false;
+                                bindCaptionData(fc);
+                                captionOverlay.setStyle(s);
+                                captionOverlay.setVisibility(View.VISIBLE);
+                                scheduleAutoSave();
+                            };
+                            final Runnable revert = () -> {
+                                fc.setCaptionStyleId(beforeId);
+                                fc.setCaptionsEnabled(beforeOn);
+                                bindCaptionData(fc);
+                                com.fadcam.ui.faditor.transcript.CaptionStyle b = beforeId == null ? null
+                                        : com.fadcam.ui.faditor.transcript.CaptionStyle.byId(beforeId);
+                                if (b != null) captionOverlay.setStyle(b);
+                                captionOverlay.setVisibility(beforeOn ? View.VISIBLE : View.GONE);
+                                scheduleAutoSave();
+                            };
+                            apply.run();
+                            if (!s.id.equals(beforeId) || !beforeOn) {
+                                undoManager.recordAction(new EditActions.LambdaAction(
+                                        getString(R.string.studio_d3_caption_style), apply, revert));
+                            }
                         }
                     }
                 }
@@ -45837,14 +45904,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
             return;
         }
         playerManager.pause();
+        // Same place in the list both ways, so the clip keeps its row (Note 9, 11-13: the
+        // pieces, and the undo, landed in a new bottom row).
+        final int at = timeline.getAudioClips().indexOf(original);
         final Runnable cut = () -> {
             timeline.removeAudioClip(original);
-            for (AudioClip p : pieces) timeline.addAudioClip(p, false);
+            timeline.insertAudioClips(at, pieces);
             afterAudioClipsReplaced(pieces.get(0).getId());
         };
         final Runnable uncut = () -> {
             for (AudioClip p : pieces) timeline.removeAudioClip(p);
-            timeline.addAudioClip(original, false);
+            timeline.insertAudioClips(at, java.util.Collections.singletonList(original));
             afterAudioClipsReplaced(original.getId());
         };
         undoManager.recordAction(new EditActions.LambdaAction(

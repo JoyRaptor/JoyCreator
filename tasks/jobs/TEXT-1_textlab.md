@@ -1,6 +1,6 @@
 # TEXT-1: TextLab (name pending): title text that looks like a film poster
 
-**Milestone:** M1  ·  **State:** 🔨 engine, Studio titles, previews, packs, export and icons in the app (agent-checked); the room, lobby door and JoyBot are not built; see "Ship list"  ·  **Owner:** looks: Claude Fable 5.2 "TextLab"; phone / Studio: Claude Opus 5.5  ·  **Checked:** 2026-11-12 night against `joy-creator` at `d69214364`
+**Milestone:** M1  ·  **State:** 🔨 the room, lobby door, Joybot, Studio round trip and Library actions built 11-12 night (agent-checked); left: the owner's verdicts and tries, speed, packs beyond looks, other wings; see [TEXTLAB_ROADMAP](../TEXTLAB_ROADMAP.md)  ·  **Owner:** looks: Claude Fable 5.2 "TextLab"; phone / Studio: Claude Opus 5.5  ·  **Checked:** 2026-11-12 night
 
 ## Why it matters (for the user)
 Studio's text box is fine for slides. TextLab is the step beyond it, the way VisLab went beyond the
@@ -238,6 +238,16 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
 - **Honest limits today:** the fire is good stylised fire, not yet the photograph the owner showed;
   water and the other drafts are below the bar; only the app's own fonts are used (Archivo, Plex,
   Ubuntu, Doto), so there is no script or true display face yet.
+
+**Night run 11-12 (owner: "try to get through the whole list"; anything unsure deferred).** Built and checked on
+the Note 9 by the agent, none of it owner-tried: (1) the room, (2) the lobby door, (3) Joybot, (4) the Studio round trip,
+(5) the Library's look actions, a `.joypack` file opening the pack screen, (8) plain words on a phone that cannot draw
+the looks, (10) 36 JVM checks and `TEXTLAB_ROADMAP.md`. Also fixed: the Fire tab never showed (the panel expected an
+object where looks say `"fire": true`); the room lost Joybot's changes when it came back from behind the chat.
+Deferred, with reasons, in the roadmap: the owner's verdicts and name (his), speed of eight looks (the shaders are the
+TextLab lead's), packs beyond text looks and fonts (other wings' loaders; signing and the shop are his calls), VisLab /
+JoyBrush using looks (their leads; JoyBrush has no text tool), `strings.xml` (a whole-app job), WebP sheets (the sheet
+name rule spans Sprite Lab and the Library).
 
 ## Ship list (2026-11-12 night): everything between today and a finished wing
 

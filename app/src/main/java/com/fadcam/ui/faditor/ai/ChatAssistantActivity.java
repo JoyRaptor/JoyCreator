@@ -2234,10 +2234,11 @@ public class ChatAssistantActivity extends AppCompatActivity {
         int tab;
         switch (where) {
             case IdeaEngine.ROUTE_RECORD: tab = 0; break;
-            // Remote and Smart Detection are main-screen tabs; the Lobby's floor words "Remote" and
-            // "Finder" open them the same way (LobbyFragment.routeTab TAB_REMOTE / TAB_FINDER). SHELL-04.
-            case "remote": tab = 2; break;
-            case "finder": tab = 5; break;
+            // Remote Studio, Smart Detection and the Library's Fonts and supplies: the app shell's own
+            // doors (MainActivity open_overlay, the same ones the lobby uses; SHELL-04, 11-13).
+            case "remote": openOverlay("remote"); return;
+            case "finder": openOverlay("detect"); return;
+            case "supplies": openOverlay("supplies"); return;
             // The Lobby's own screens, not the classic FadCam tabs (lead, DOOR-1 10-28).
             case "library": openOverlay("library"); return;
             case "studio": openOverlay("projects"); return;

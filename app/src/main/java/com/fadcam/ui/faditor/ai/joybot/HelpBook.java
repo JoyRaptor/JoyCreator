@@ -462,13 +462,13 @@ public final class HelpBook {
                     "setup", null),
             new Topic("remote_lan", "remote control|remote camera|watch my phone camera|control the phone camera|lan remote"
                     + "|remote streaming|stream to my computer|stream to a browser|server room",
-                    "Remote lets you watch and control the phone's camera from a browser on the same Wi-Fi. It "
+                    "Remote Studio lets you watch and control the phone's camera from a browser on the same Wi-Fi. It "
                             + "works on your own network only: the old cloud parts were removed. The viewer's computer "
                             + "needs internet for the page to look right. In the lobby it's the Remote word on the floor.",
                     "remote", null),
-            new Topic("smart_detection", "smart detection|finder|detect people|detection|find people in|find a person"
+            new Topic("smart_detection", "smart detection|finder|detect tab|detect people|detection|find people in|find a person"
                     + "|find cars|find a car|find my pet|events timeline|activity summary|snapshot gallery|who came",
-                    "Smart Detection (the lobby's Finder) finds people, vehicles, pets and objects in your camera "
+                    "Smart Detection (Detect in the lobby) finds people, vehicles, pets and objects in your camera "
                             + "recordings: an Events Timeline you can filter and jump from to the exact moment, an "
                             + "Activity Summary and a Snapshot Gallery. Switch it on or off in Settings › Smart Detection.",
                     "finder", null),
@@ -547,8 +547,8 @@ public final class HelpBook {
                             + "VisLab looks (in VisLab's strip; change one and you get your own copy, Revert puts the "
                             + "pack's back) and parts, fonts (Studio's text and caption fonts, VisLab words), colour "
                             + "grades (Studio's LUT list) and caption styles. Packs live in your Joy Creator folder "
-                            + "under Supplies, Packs.",
-                    "textlab", null),
+                            + "under Supplies, Packs; the Library's Fonts and supplies shows them.",
+                    "supplies", null),
             new Topic("vislab", "vislab|vis lab|viz lab|music visual|visuals that react|react to the music"
                     + "|music video look",
                     "VisLab is the music visualiser lab: looks that move to a song. Open Viz Lab from the lobby. "

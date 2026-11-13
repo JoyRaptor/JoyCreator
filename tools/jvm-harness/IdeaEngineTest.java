@@ -560,7 +560,7 @@ public class IdeaEngineTest {
             }
             eq("help G3: no two topics share an id", com.fadcam.ui.faditor.ai.joybot.HelpBook.TOPICS.size(), helpIds.size());
             Set<String> helpRoutes = new HashSet<>(Arrays.asList(null, "record", "library", "studio", "setup", "vislab",
-                    "joybrush", "spritelab", "avatar", "space", "trash", "bridge", "textlab", "remote", "finder"));
+                    "joybrush", "spritelab", "avatar", "space", "trash", "bridge", "textlab", "remote", "finder", "supplies"));
             for (com.fadcam.ui.faditor.ai.joybot.HelpBook.Topic x : com.fadcam.ui.faditor.ai.joybot.HelpBook.TOPICS) {
                 check("help G3: route is a real one: " + x.id, helpRoutes.contains(x.route), String.valueOf(x.route));
                 check("help G3: \"Or I can do it\" only with a doIt: " + x.id,
@@ -794,7 +794,7 @@ public class IdeaEngineTest {
             check("tips: a big library (40+)", tips.size() >= 40, String.valueOf(tips.size()));
             Set<String> tipIds = new HashSet<>();
             Set<String> tipRoutes = new HashSet<>(Arrays.asList(null, "record", "library", "studio", "vislab",
-                    "joybrush", "spritelab", "trash", "bridge", "textlab", "remote", "finder"));
+                    "joybrush", "spritelab", "trash", "bridge", "textlab", "remote", "finder", "supplies"));
             java.util.EnumSet<com.fadcam.ui.faditor.ai.joybot.TipBook.Wing> wings =
                     java.util.EnumSet.noneOf(com.fadcam.ui.faditor.ai.joybot.TipBook.Wing.class);
             for (com.fadcam.ui.faditor.ai.joybot.TipBook.Tip x : tips) {
@@ -838,7 +838,7 @@ public class IdeaEngineTest {
                 int av = chat.indexOf("case \"avatar\":"), sp = chat.indexOf("case \"space\":");
                 check("routes: Avatar opens standalone with no project (no Studio fallback)",
                         av > 0 && sp > av && !chat.substring(av, sp).contains("route(\"studio\")"), "");
-                check("routes: open_room lists 13 rooms", navRooms == 13, String.valueOf(navRooms));
+                check("routes: open_room lists 14 rooms", navRooms == 14, String.valueOf(navRooms));
             } catch (java.io.IOException ex) {
                 check("routes: sources readable", false, ex.toString());
             }

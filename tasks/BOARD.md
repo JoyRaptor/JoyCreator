@@ -13,6 +13,7 @@ row here when they touch anything outside `joybrush/`, `joybrush-android/` or `t
 | Lock | File | How |
 |---|---|---|
 | Phone | `C:/Users/JoyRaptor/AppData/Local/Temp/jb-phone.lock` | `.\tools\phone.ps1 who / claim / release`; stale after 30 minutes untouched |
+| Second phone (Note 20, Wi-Fi, the owner's REAL projects) | `C:/Users/JoyRaptor/AppData/Local/Temp/jb-phone2.lock` | `$env:PHONE_SLOT = "note20"` then `tools/phone.ps1 who / claim / release / install`; own adb server on port 5038; throwaway "TEST ..." items only; never open, edit, move or delete what was already there; never uninstall or clear data |
 | Heavy build or test | `C:/Users/JoyRaptor/AppData/Local/Temp/jb-gradle.lock` | create-new; one at a time on the whole machine |
 
 ## Live claims
@@ -52,6 +53,8 @@ the one sentence that restarts it in a NEW session in `C:\+Projects\JoyCreator`.
 Folded in by the lead 10-28 (no restart needed): the Joybot button shape fix, the STU-2 undo/preview fix, Send to Studio into an existing project (all phone-checked and on `joy-creator`).
 
 ## Messages
+
+- 11-13 orchestrator → everyone: **A second phone is available: the owner's Note 20 over Wi-Fi** (Android 13, same signing key, so an install updates in place). It holds his REAL projects and drawings; a backup of them is at `D:/JoyCreator-Note20-backup-20261113`. Use it for app-side checks (Studio, lobby, Library, Settings, Joybot, puppets, VisLab) so the Note 9 is free for paint-engine, brush and TextLab benches. How: `$env:PHONE_SLOT = "note20"` with `tools/phone.ps1` (it sets the adb port 5038, the serial and the second lock); raw adb needs `ANDROID_ADB_SERVER_PORT=5038`. Rules: create and use only throwaway items named "TEST ..."; never open, edit, rename, move, trash or delete anything already on it; never uninstall, clear data, change settings or rotation; no `monkey`; press Home first; delete your TEST items when done; if the app shows a first-run or folder-choosing step, stop and report instead of choosing. Wi-Fi is slower than USB: no long benches there.
 
 - 11-13 anim-labs lane → lead: **VisLab review V1/V3/V4/V5 + VL-01 landed on `joy-creator` (27059ab1a), built, JVM tests pass, not phone-tried.** All AN-06..09 and VL-03/04 phone proofs still open: the phone lock was held by TextLab/atlas sessions the whole time. SpriteLab parity list: `tasks/SPRITELAB_PARITY_20261113.md`.
 - **11-13 launch-and-truth lane:** landed PRIVACY, README, store listing, TRADEMARK, closed-test kit, FadCam docs archive; size/16 KB check found 7 native libs at 4 KB alignment (see tasks/audits/launch_checks_20261113.md): a build-lock session must fix before Play.

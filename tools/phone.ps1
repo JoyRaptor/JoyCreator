@@ -1,4 +1,4 @@
-# phone.ps1 — PowerShell twin of tools/phone.sh, for driving the test phones over adb.
+﻿# phone.ps1 — PowerShell twin of tools/phone.sh, for driving the test phones over adb.
 #
 # WHY BOTH EXIST: phone.sh needs bash. JoyRaptor's terminal is PowerShell, and at least one
 # agent reported "bash tools/phone.sh needs WSL" and fell back to raw adb paths. A tool
@@ -27,6 +27,13 @@
 # Screenshots, logcat and dumpsys only look, so they don't need the lock.
 #
 # Multi-device: $env:PHONE = "<serial>" to pin one. Otherwise the first is used.
+#
+# SECOND PHONE (owner, 2026-11-13): the Note 20, over Wi-Fi. It holds the owner's REAL projects.
+# It lives on its own adb server (port 5038) so nothing reaches it by accident. To use it:
+#   $env:PHONE_SLOT = "note20"     (this tool then sets the adb port, pins the serial and uses
+#                                   its own lock, %TEMP%\jb-phone2.lock; who/claim/release work the same)
+# Rules there: throwaway projects and drawings only, named "TEST ..."; never open, edit, move or
+# delete anything that was already on it; never uninstall or clear data. See tasks/BOARD.md.
 
 param(
     [Parameter(Position = 0)][string]$Cmd = "help",
@@ -60,6 +67,14 @@ function Adb {
 }
 
 $phoneLock = Join-Path $env:TEMP "jb-phone.lock"
+if ($env:PHONE_SLOT -eq "note20") {
+    $env:ANDROID_ADB_SERVER_PORT = "5038"
+    if (-not $env:PHONE) {
+        $n20 = & $adb devices | Select-String "^\d+\.\d+\.\d+\.\d+:\d+\s+device$" | Select-Object -First 1
+        if ($null -ne $n20) { $env:PHONE = ($n20.ToString() -split "`t")[0] }
+    }
+    $phoneLock = Join-Path $env:TEMP "jb-phone2.lock"
+}
 
 function Get-PhoneLock {
     if (-not (Test-Path $phoneLock)) { return $null }

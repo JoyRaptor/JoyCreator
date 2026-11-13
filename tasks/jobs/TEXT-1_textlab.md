@@ -320,7 +320,8 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
       (`CornerPinTextView` via `TextBoxView.drawLookInto`) and the export (`CompositeExportOverlay.drawLookItem`)
       (Note 9: an arched Dark Steel in the preview and in `textlab-bend-check.mp4`, `export-look-bent.png`; corner pin
       shares the code but was not tried on the phone); VisLab shows a looked title moving (`StudioPictures.lookTitle`,
-      its own renderer) (built, not tried on the phone).
+      its own renderer) (built, not tried on the phone: the test taps could not open a visualizer's drawer to point a
+      picture layer at the title).
       Original plan below.
 - [x] **Studio: a title wears a look, live (owner, 11-12).** A titled look in Studio is NOT a picture pasted in:
       the words, the look and its knobs stay editable, and the engine draws each frame at its own moment (preview

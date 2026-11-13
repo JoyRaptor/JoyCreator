@@ -68,6 +68,8 @@ public final class StudioTextLab {
     private static final class Item {
         TextLabRenderer r;
         String lookSig;
+        /** The knob names this renderer was last given (TX-01: a removed one must go back to the look's value). */
+        java.util.Set<String> knobNames = new java.util.HashSet<>();
         double base = Double.NaN;   // the renderer's clock = base + the title's seconds
         double lastT = Double.NaN;
         long usedAt;
@@ -309,11 +311,19 @@ public final class StudioTextLab {
             TextLabRenderer r = it.r;
             String sig = q.look.lookSignature();
             boolean jump = false;
-            if (!sig.equals(it.lookSig)) {
+            // A knob the person had changed and has now taken back ("As it came", an undo) is not in
+            // knobs any more, and setKnob alone would leave the renderer on the old value: the preview
+            // would differ from an export, which starts from a fresh renderer. Set the look again then.
+            boolean knobTakenBack = false;
+            for (String k : it.knobNames) {
+                if (!q.look.knobs.has(k)) { knobTakenBack = true; break; }
+            }
+            if (!sig.equals(it.lookSig) || knobTakenBack) {
                 r.setLook(new org.json.JSONObject(q.look.look.toString()));
                 it.lookSig = sig;
-                jump = true;
+                jump = !knobTakenBack;
             }
+            it.knobNames = new java.util.HashSet<>(q.look.knobs.keySet());
             r.setText(q.words.isEmpty() ? q.look.sample() : q.words);
             r.setEm(q.em, CAP);
             apply(q.look, r, q.localMs);

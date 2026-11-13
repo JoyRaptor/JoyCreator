@@ -752,6 +752,10 @@ public class Clip implements AudioParams {
                 speedMultiplier, audioMuted, volumeLevel, rotationDegrees,
                 flipHorizontal, flipVertical, cropPreset,
                 cropLeft, cropTop, cropRight, cropBottom);
+        // The clip's own fade in/out (its knobs on the spine) were dropped too; the copy lint
+        // (run-copy-lint.sh) caught it 11-13.
+        c.masterFadeInMs = masterFadeInMs;
+        c.masterFadeOutMs = masterFadeOutMs;
         // These five were dropped, and relinked()'s own javadoc promises to keep "every
         // edit". Relinking happens when media has moved or been restored — precisely when
         // the user is already worried about their work — so losing their clip's name, its

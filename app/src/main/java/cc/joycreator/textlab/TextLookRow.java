@@ -72,7 +72,7 @@ public final class TextLookRow extends LinearLayout {
         setPadding(0, dp(4), 0, dp(4));
 
         TextView label = new TextView(c);
-        label.setText("LOOK");
+        label.setText(c.getString(com.fadcam.R.string.textlab_look_label));
         label.setTextColor(DIM);
         label.setTextSize(11);
         label.setLetterSpacing(0.08f);
@@ -80,8 +80,7 @@ public final class TextLookRow extends LinearLayout {
         LinearLayout head = new LinearLayout(c);
         head.setGravity(Gravity.CENTER_VERTICAL);
         head.addView(label, new LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
-        editIn = pill(c, "Edit in TextLab", "Open this title's look in TextLab: every slider, its pieces, its font; "
-                + "Use on the title brings it back", com.fadcam.R.drawable.ic_tl_look);
+        editIn = pill(c, c.getString(com.fadcam.R.string.textlab_edit_in_textlab), c.getString(com.fadcam.R.string.textlab_hover_edit_in_textlab), com.fadcam.R.drawable.ic_tl_look);
         editIn.setOnClickListener(v -> host.openInTextLab());
         head.addView(editIn);
         addView(head);
@@ -91,10 +90,10 @@ public final class TextLookRow extends LinearLayout {
         addView(chips, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         lightRow = row(c);
-        lightRow.addView(small(c, "Light", com.fadcam.R.drawable.ic_tl_light));
-        still = pill(c, "Still", "The light stays where you put it (drag the little pad)", com.fadcam.R.drawable.ic_tl_still);
-        sway = pill(c, "Sway", "The light drifts gently round where you put it", com.fadcam.R.drawable.ic_tl_sway);
-        record = pill(c, "Record tilt", "Arm, then hold your thumb on the picture and tilt the phone: the light follows",
+        lightRow.addView(small(c, c.getString(com.fadcam.R.string.textlab_light), com.fadcam.R.drawable.ic_tl_light));
+        still = pill(c, c.getString(com.fadcam.R.string.textlab_light_still), c.getString(com.fadcam.R.string.textlab_light_still_tip), com.fadcam.R.drawable.ic_tl_still);
+        sway = pill(c, c.getString(com.fadcam.R.string.textlab_light_sway), c.getString(com.fadcam.R.string.textlab_light_sway_tip), com.fadcam.R.drawable.ic_tl_sway);
+        record = pill(c, c.getString(com.fadcam.R.string.textlab_record_tilt), c.getString(com.fadcam.R.string.textlab_record_tilt_tip),
                 com.fadcam.R.drawable.ic_tl_record_tilt);
         lightRow.addView(still);
         lightRow.addView(sway);
@@ -106,10 +105,10 @@ public final class TextLookRow extends LinearLayout {
         addView(lightRow);
 
         progressRow = row(c);
-        progressRow.addView(small(c, "Plays", com.fadcam.R.drawable.ic_tl_plays));
-        byItself = pill(c, "By itself", "Burns, blows away or shatters by itself from the title's start",
+        progressRow.addView(small(c, c.getString(com.fadcam.R.string.textlab_plays), com.fadcam.R.drawable.ic_tl_plays));
+        byItself = pill(c, c.getString(com.fadcam.R.string.textlab_by_itself), c.getString(com.fadcam.R.string.textlab_by_itself_tip),
                 com.fadcam.R.drawable.ic_tl_by_itself);
-        pinned = pill(c, "Pinned", "Set how far along it is at the playhead (a key)", com.fadcam.R.drawable.ic_tl_pinned);
+        pinned = pill(c, c.getString(com.fadcam.R.string.textlab_pinned), c.getString(com.fadcam.R.string.textlab_pinned_tip), com.fadcam.R.drawable.ic_tl_pinned);
         progressRow.addView(byItself);
         progressRow.addView(pinned);
         progress = new SeekBar(c);
@@ -214,7 +213,7 @@ public final class TextLookRow extends LinearLayout {
     /** "Plain" first, then every look on the shelf; the title's own look chosen. */
     private void showChips() {
         List<LookChipRow.Chip> list = new ArrayList<>();
-        list.add(new LookChipRow.Chip("Plain").withIcon(com.fadcam.R.drawable.ic_tl_plain));
+        list.add(new LookChipRow.Chip(getContext().getString(com.fadcam.R.string.textlab_chip_plain)).withIcon(com.fadcam.R.drawable.ic_tl_plain));
         for (TextLookShelf.Item it : shelf) list.add(new LookChipRow.Chip(it.name));
         chips.setChips(list);
         for (int i = 0; i < shelf.size(); i++) {
@@ -262,7 +261,8 @@ public final class TextLookRow extends LinearLayout {
                 }
             }
             disarm();
-            host.apply(before, after, after == null ? "Plain text" : "Look: " + after.name);
+            host.apply(before, after, after == null ? getContext().getString(com.fadcam.R.string.textlab_undo_plain_text)
+                    : getContext().getString(com.fadcam.R.string.textlab_undo_look, after.name));
             refresh();
         });
         still.setOnClickListener(v -> setLight(TitleLook.STILL));
@@ -286,14 +286,14 @@ public final class TextLookRow extends LinearLayout {
             padBefore = null;
             t.stillX = x;
             t.stillY = y;
-            host.apply(before, t.copy(), "Move the light");
+            host.apply(before, t.copy(), getContext().getString(com.fadcam.R.string.textlab_undo_move_light));
         };
         byItself.setOnClickListener(v -> {
             TitleLook t = item.getTextLook();
             if (t == null || !t.progressPinned()) return;
             TitleLook before = t.copy(), after = t.copy();
             after.keys.removeProperty(TitleLook.PROGRESS);
-            host.apply(before, after, "Plays by itself");
+            host.apply(before, after, getContext().getString(com.fadcam.R.string.textlab_undo_plays_by_itself));
             refresh();
         });
         pinned.setOnClickListener(v -> pinAtPlayhead(progress.getProgress() / 1000f));
@@ -313,7 +313,7 @@ public final class TextLookRow extends LinearLayout {
             @Override public void onStopTrackingTouch(SeekBar s) {
                 TitleLook t = item.getTextLook();
                 if (t == null || progressBefore == null) return;
-                host.apply(progressBefore, t.copy(), "Set how far along");
+                host.apply(progressBefore, t.copy(), getContext().getString(com.fadcam.R.string.textlab_undo_set_progress));
                 progressBefore = null;
                 refresh();
             }
@@ -332,7 +332,8 @@ public final class TextLookRow extends LinearLayout {
         }
         TitleLook before = t.copy(), after = t.copy();
         after.light = mode;
-        host.apply(before, after, mode.equals(TitleLook.STILL) ? "Light: still" : "Light: sway");
+        host.apply(before, after, getContext().getString(mode.equals(TitleLook.STILL) ? com.fadcam.R.string.textlab_undo_light_still
+                : com.fadcam.R.string.textlab_undo_light_sway));
         refresh();
     }
 
@@ -341,7 +342,7 @@ public final class TextLookRow extends LinearLayout {
         if (t == null) return;
         TitleLook before = t.copy(), after = t.copy();
         after.pinProgress(host.playheadLocalMs(), value);
-        host.apply(before, after, "Pin how far along");
+        host.apply(before, after, getContext().getString(com.fadcam.R.string.textlab_undo_pin_progress));
         refresh();
     }
 
@@ -354,7 +355,7 @@ public final class TextLookRow extends LinearLayout {
         }, () -> {
             take.stop();
             refresh();
-        }, "Hold your thumb on the picture and tilt the phone to record the light. Lift to stop.");
+        }, getContext().getString(com.fadcam.R.string.textlab_hold_to_record));
     }
 
     private void disarm() {
@@ -382,7 +383,8 @@ public final class TextLookRow extends LinearLayout {
             paint(still, TitleLook.STILL.equals(t.light) && !armed);
             paint(sway, TitleLook.SWAY.equals(t.light) && !armed);
             paint(record, armed || TitleLook.TAKE.equals(t.light));
-            record.setText(armed ? "Armed: hold the picture" : TitleLook.TAKE.equals(t.light) ? "Recorded tilt" : "Record tilt");
+            record.setText(getContext().getString(armed ? com.fadcam.R.string.textlab_armed : TitleLook.TAKE.equals(t.light)
+                    ? com.fadcam.R.string.textlab_recorded_tilt : com.fadcam.R.string.textlab_record_tilt));
             pad.set(t.stillX, t.stillY);
             pad.setVisibility(TitleLook.TAKE.equals(t.light) && !armed ? GONE : VISIBLE);
             boolean pin = t.progressPinned();
@@ -392,8 +394,8 @@ public final class TextLookRow extends LinearLayout {
             progress.setProgress(Math.round(1000 * t.keys.valueAt(TitleLook.PROGRESS, host.playheadLocalMs(), 0f)));
         }
         record.setEnabled(take.available());
-        note.setText(!on ? "" : !take.available() ? "This phone has no tilt sensor: Still and Sway only."
-                : armed ? "Hold your thumb on the picture and tilt the phone. Lift to stop." : "");
+        note.setText(!on ? "" : !take.available() ? getContext().getString(com.fadcam.R.string.textlab_no_tilt)
+                : armed ? getContext().getString(com.fadcam.R.string.textlab_note_hold) : "");
         note.setVisibility(note.getText().length() > 0 ? VISIBLE : GONE);
     }
 

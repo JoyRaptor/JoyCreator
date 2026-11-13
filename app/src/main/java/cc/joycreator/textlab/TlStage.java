@@ -198,7 +198,7 @@ public final class TlStage extends GLSurfaceView {
         Log.e(TAG, "TextLab room picture failed", e);
         r = null;
         Trouble t = trouble;
-        String why = TlTrouble.words(e);
+        String why = TlTrouble.words(getContext(), e);
         if (t != null) post(() -> t.failed(why));
     }
 

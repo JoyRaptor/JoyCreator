@@ -103,7 +103,7 @@ final class TlKnobPanel extends LinearLayout {
     private TextView tab(String slot, int icon, boolean used) {
         boolean on = slot.equals(showing);
         TextView t = new TextView(a);
-        t.setText(PIECES.equals(slot) ? "+ Pieces" : used ? slot + " •" : slot);
+        t.setText(PIECES.equals(slot) ? a.getString(com.fadcam.R.string.textlab_tab_pieces) : used ? slot + " •" : slot);
         t.setTextSize(12.5f);
         t.setGravity(Gravity.CENTER);
         t.setTextColor(on ? GROUND : INK);
@@ -122,8 +122,8 @@ final class TlKnobPanel extends LinearLayout {
                 t.setCompoundDrawablePadding(dp(5));
             }
         }
-        String tip = PIECES.equals(slot) ? "Add or take away what this look is built from"
-                : "The " + slot + " sliders" + (used ? " (this look has changed them)" : "");
+        String tip = PIECES.equals(slot) ? a.getString(com.fadcam.R.string.textlab_tab_pieces_tip)
+                : a.getString(used ? com.fadcam.R.string.textlab_tab_tip_used : com.fadcam.R.string.textlab_tab_tip, slot);
         t.setContentDescription(tip);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) t.setTooltipText(tip);
         t.setOnClickListener(v -> {
@@ -213,8 +213,8 @@ final class TlKnobPanel extends LinearLayout {
         row.addView(label(k.label), new LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
         TextView sw = new TextView(a);
         paintSwatch(sw, value);
-        sw.setContentDescription(k.label + ": change the colour");
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) sw.setTooltipText(k.label + ": change the colour");
+        sw.setContentDescription(a.getString(com.fadcam.R.string.textlab_colour_hover, k.label));
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) sw.setTooltipText(a.getString(com.fadcam.R.string.textlab_colour_hover, k.label));
         sw.setOnClickListener(v -> {
             JSONObject p = host.look().optJSONObject("p");
             String cur = p != null && p.has(k.name) ? p.optString(k.name) : k.defColour;
@@ -243,7 +243,7 @@ final class TlKnobPanel extends LinearLayout {
         g.setCornerRadius(dp(8));
         g.setStroke(dp(1), 0xFF3F3F46);
         sw.setBackground(g);
-        sw.setText(value.contains("*") ? "glow" : "");
+        sw.setText(value.contains("*") ? sw.getContext().getString(com.fadcam.R.string.textlab_glow) : "");
         sw.setTextSize(10);
         sw.setGravity(Gravity.CENTER);
         sw.setTextColor((Color.luminance(c) > 0.5f) ? GROUND : INK);

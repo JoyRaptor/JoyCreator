@@ -44,12 +44,12 @@ final class TlPiecesDialog {
         bg.setCornerRadius(dp(a, 16));
         body.setBackground(bg);
         TextView t = new TextView(a);
-        t.setText("Pieces");
+        t.setText(a.getString(com.fadcam.R.string.textlab_pieces_title));
         t.setTextColor(INK);
         t.setTextSize(18);
         body.addView(t);
         TextView sub = new TextView(a);
-        sub.setText("What this look is built from. Tap to add or take away; each piece brings its own sliders.");
+        sub.setText(a.getString(com.fadcam.R.string.textlab_pieces_sub));
         sub.setTextColor(DIM);
         sub.setTextSize(12);
         sub.setPadding(0, dp(a, 4), 0, dp(a, 10));
@@ -79,7 +79,8 @@ final class TlPiecesDialog {
             cell.setGravity(Gravity.CENTER);
             cell.setCompoundDrawablePadding(dp(a, 4));
             cell.setPadding(dp(a, 4), dp(a, 10), dp(a, 4), dp(a, 8));
-            String tip = "The " + p.slot + " piece: tap to " + (on[0] ? "take it away" : "add it");
+            String tip = a.getString(on[0] ? com.fadcam.R.string.textlab_piece_tip_remove
+                    : com.fadcam.R.string.textlab_piece_tip_add, p.slot);
             cell.setContentDescription(tip);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) cell.setTooltipText(tip);
             paint.run();
@@ -101,14 +102,14 @@ final class TlPiecesDialog {
         Dialog d = new Dialog(a);
         d.requestWindowFeature(Window.FEATURE_NO_TITLE);
         TextView close = new TextView(a);
-        close.setText("Done");
+        close.setText(a.getString(com.fadcam.R.string.textlab_done));
         close.setTextColor(GROUND);
         close.setGravity(Gravity.CENTER);
         GradientDrawable cg = new GradientDrawable();
         cg.setColor(CYAN);
         cg.setCornerRadius(999);
         close.setBackground(cg);
-        close.setContentDescription("Close the pieces");
+        close.setContentDescription(a.getString(com.fadcam.R.string.textlab_pieces_close));
         close.setOnClickListener(v -> d.dismiss());
         LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(dp(a, 96), dp(a, 40));
         clp.gravity = Gravity.END;

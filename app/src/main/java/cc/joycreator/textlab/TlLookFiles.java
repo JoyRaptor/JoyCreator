@@ -114,7 +114,7 @@ public final class TlLookFiles {
             return new Done(rel, null);
         } catch (Exception e) {
             Log.w(TAG, "look not saved", e);
-            return new Done(null, "Not saved: " + e.getMessage());
+            return new Done(null, c.getString(com.fadcam.R.string.textlab_not_saved, e.getMessage()));
         }
     }
 
@@ -122,7 +122,7 @@ public final class TlLookFiles {
     @WorkerThread
     @NonNull
     public static Done rename(@NonNull Context c, @NonNull TextLookShelf.Item mine, @NonNull String name) {
-        if (mine.from != TextLookShelf.From.MINE) return new Done(null, "Only your own looks can be renamed.");
+        if (mine.from != TextLookShelf.From.MINE) return new Done(null, c.getString(com.fadcam.R.string.textlab_only_rename));
         return renamePath(c, mine.path, name);
     }
 
@@ -131,14 +131,14 @@ public final class TlLookFiles {
     @NonNull
     public static Done renamePath(@NonNull Context c, @NonNull String path, @NonNull String name) {
         String clean = ReadableNames.sanitize(name).trim();
-        if (clean.isEmpty()) return new Done(null, "A look needs a name.");
+        if (clean.isEmpty()) return new Done(null, c.getString(com.fadcam.R.string.textlab_needs_name));
         TextLookShelf.Item mine;
         try {
             JoyFolder jf0 = folder(c);
             mine = new TextLookShelf.Item("folder:" + path, FileKind.baseOf(Placement.nameOf(path)), "My looks",
                     TextLookShelf.From.MINE, new JSONObject(new String(jf0.readAll(path), StandardCharsets.UTF_8)), path);
         } catch (Exception e) {
-            return new Done(null, "Not renamed: " + e.getMessage());
+            return new Done(null, c.getString(com.fadcam.R.string.textlab_not_renamed, e.getMessage()));
         }
         try {
             JoyFolder jf = folder(c);
@@ -163,7 +163,7 @@ public final class TlLookFiles {
             return new Done(rel, null);
         } catch (Exception e) {
             Log.w(TAG, "look not renamed", e);
-            return new Done(null, "Not renamed: " + e.getMessage());
+            return new Done(null, c.getString(com.fadcam.R.string.textlab_not_renamed, e.getMessage()));
         }
     }
 
@@ -171,7 +171,7 @@ public final class TlLookFiles {
     @WorkerThread
     @NonNull
     public static Done delete(@NonNull Context c, @NonNull TextLookShelf.Item mine) {
-        if (mine.from != TextLookShelf.From.MINE) return new Done(null, "Only your own looks can be deleted.");
+        if (mine.from != TextLookShelf.From.MINE) return new Done(null, c.getString(com.fadcam.R.string.textlab_only_delete));
         try {
             JoyFolder jf = folder(c);
             long now = System.currentTimeMillis();
@@ -184,7 +184,7 @@ public final class TlLookFiles {
             return new Done(null, null);
         } catch (Exception e) {
             Log.w(TAG, "look not deleted", e);
-            return new Done(null, "Not deleted: " + e.getMessage());
+            return new Done(null, c.getString(com.fadcam.R.string.textlab_not_deleted, e.getMessage()));
         }
     }
 
@@ -192,7 +192,7 @@ public final class TlLookFiles {
     @WorkerThread
     @NonNull
     public static Done revert(@NonNull Context c, @NonNull TextLookShelf.Item mine) {
-        if (!isCopyOfBuiltIn(mine)) return new Done(null, "This look has no original to go back to.");
+        if (!isCopyOfBuiltIn(mine)) return new Done(null, c.getString(com.fadcam.R.string.textlab_no_original));
         return delete(c, mine);
     }
 

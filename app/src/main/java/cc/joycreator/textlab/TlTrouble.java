@@ -34,11 +34,11 @@ public final class TlTrouble {
 
     /** What to tell the person when the picture could not be made. */
     @NonNull
-    public static String words(@NonNull Throwable e) {
+    public static String words(@NonNull android.content.Context c, @NonNull Throwable e) {
         if (e instanceof Unsupported) {
-            return "This phone's graphics can't draw TextLab's looks. Your titles still show, as plain words.";
+            return c.getString(com.fadcam.R.string.textlab_trouble_unsupported);
         }
-        if (e instanceof OutOfMemoryError) return "The phone ran short of memory for this look. Close other apps and try again.";
-        return "This look couldn't be drawn on this phone. Try another look; your titles still show as plain words.";
+        if (e instanceof OutOfMemoryError) return c.getString(com.fadcam.R.string.textlab_trouble_memory);
+        return c.getString(com.fadcam.R.string.textlab_trouble_other);
     }
 }

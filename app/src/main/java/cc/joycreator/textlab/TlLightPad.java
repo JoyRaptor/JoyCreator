@@ -28,8 +28,8 @@ public final class TlLightPad extends View {
         frame.setStrokeWidth(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 1, c.getResources().getDisplayMetrics()));
         frame.setColor(0xFF3F3F46);
         dot.setColor(0xFF22D3EE);
-        setContentDescription("Where the light is: drag the dot");
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) setTooltipText("Where the light is: drag the dot");
+        setContentDescription(c.getString(com.fadcam.R.string.textlab_light_pad));
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) setTooltipText(c.getString(com.fadcam.R.string.textlab_light_pad));
     }
 
     public void set(float x, float y) {

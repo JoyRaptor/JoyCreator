@@ -229,7 +229,7 @@ public final class TextLabPreviews {
                 }
             }
             Log.w(TAG, "Joy Creator folder unreachable; look kept in the app's own folder: " + f);
-            return "the app's own folder (the Joy Creator folder could not be reached)";
+            return app.getString(com.fadcam.R.string.textlab_looks_own_folder);
         }
         String dir = jf.prepareDir(Placement.What.SUPPLY, null, null, FileKind.LOOK);
         String file = jf.freeName(dir, base + TEXT_ENDING);

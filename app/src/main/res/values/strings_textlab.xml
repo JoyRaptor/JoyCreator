@@ -1,0 +1,275 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- TextLab (cc.joycreator.textlab): every word the person sees in the room, the export dialog and the pack installer, for translation (TEXTLAB_ROADMAP T16). Text read by Joybot and look/font names stay in code. -->
+<resources>
+    <string name="textlab_export_type_picture">Picture</string>
+    <string name="textlab_export_type_video">Video</string>
+    <string name="textlab_export_type_sheet">Sheet</string>
+    <string name="textlab_export_tip_picture">A still PNG of the look</string>
+    <string name="textlab_export_tip_video">An MP4 from the letters arriving</string>
+    <string name="textlab_export_tip_sheet">A moving sprite sheet, 5 × 4: two seconds at 10 frames a second, for Studio and Sprite Lab</string>
+    <string name="textlab_export_shape_wide">Wide</string>
+    <string name="textlab_export_shape_square">Square</string>
+    <string name="textlab_export_shape_tall">Tall</string>
+    <string name="textlab_export_tip_wide">16:9, like a video</string>
+    <string name="textlab_export_tip_square">1:1, for posts</string>
+    <string name="textlab_export_tip_tall">9:16, for phone stories</string>
+    <string name="textlab_export_cell_small">Small</string>
+    <string name="textlab_export_cell_medium">Medium</string>
+    <string name="textlab_export_cell_large">Large</string>
+    <string name="textlab_export_back_stage">Stage</string>
+    <string name="textlab_export_back_clear">See-through</string>
+    <string name="textlab_export_tip_stage">The look\'s own background</string>
+    <string name="textlab_export_tip_clear">Only the words, transparent round them</string>
+    <string name="textlab_export_title">Export</string>
+    <string name="textlab_export_row_type">Type</string>
+    <string name="textlab_export_row_shape">Shape</string>
+    <string name="textlab_export_row_frame_size">Frame size</string>
+    <string name="textlab_export_row_size">Size</string>
+    <string name="textlab_export_row_length">Length</string>
+    <string name="textlab_export_row_background">Background</string>
+    <string name="textlab_export_cancel">Cancel</string>
+    <string name="textlab_export_cancel_hover">Close without exporting</string>
+    <string name="textlab_export_go">Export</string>
+    <string name="textlab_export_go_hover">Make it and put it in the Joy Creator folder\'s exports</string>
+    <string name="textlab_export_row_tip">%1$s: %2$s</string>
+    <string name="textlab_export_desc_video">MP4 video, %1$s, %2$s at 30 frames a second, silent.</string>
+    <string name="textlab_export_desc_sheet">Sprite sheet %1$d × %2$d: 20 frames of %3$s.</string>
+    <string name="textlab_export_desc_sheet_clear">Sprite sheet %1$d × %2$d: 20 frames of %3$s, see-through.</string>
+    <string name="textlab_export_desc_picture">PNG picture, %1$s.</string>
+    <string name="textlab_export_desc_picture_clear">PNG picture, %1$s, see-through.</string>
+    <string name="textlab_export_making_picture">Making the picture…</string>
+    <string name="textlab_export_making_video">Making the video…</string>
+    <string name="textlab_export_making_sheet">Making the moving sheet…</string>
+    <string name="textlab_export_stop">Stop</string>
+    <string name="textlab_export_stop_hover">Stop; nothing is saved</string>
+    <string name="textlab_export_exported">Exported: %1$s</string>
+    <string name="textlab_export_too_big">That size is too big for this phone. Try a smaller one.</string>
+    <string name="textlab_export_went_wrong">Something went wrong making it. Try a smaller size.</string>
+    <string name="textlab_export_own_folder">the app\'s own folder (the Joy Creator folder could not be reached)</string>
+
+    <string name="textlab_pack_not_openable">This is not a pack Joy Creator can open: %1$s.</string>
+    <string name="textlab_pack_needs_newer">\"%1$s\" needs a newer Joy Creator. Update the app, then open the pack again.</string>
+    <string name="textlab_pack_by">By %1$s</string>
+    <string name="textlab_pack_by_version">"By %1$s  ·  version %2$s"</string>
+    <string name="textlab_pack_nothing_usable">Nothing this version can use yet</string>
+    <string name="textlab_pack_waits_one">%1$d thing waits for a newer Joy Creator.</string>
+    <string name="textlab_pack_waits_many">%1$d things wait for a newer Joy Creator.</string>
+    <string name="textlab_pack_goes_to">It goes to Supplies › Packs in your Joy Creator folder.</string>
+    <string name="textlab_pack_install">Install</string>
+    <string name="textlab_pack_cancel">Cancel</string>
+    <string name="textlab_pack_ok">OK</string>
+    <string name="textlab_pack_installed">Installed \"%1$s\" in %2$s</string>
+    <string name="textlab_pack_not_installed">Not installed: %1$s</string>
+    <string name="textlab_pack_file_not_opened">the file could not be opened</string>
+    <string name="textlab_pack_not_readable">it could not be read</string>
+    <string name="textlab_pack_choose_folder">choose your Joy Creator folder first (Setup)</string>
+    <string name="textlab_pack_kind_text_look">title looks</string>
+    <string name="textlab_pack_kind_vis_look">VisLab looks</string>
+    <string name="textlab_pack_kind_vis_part">VisLab parts</string>
+    <string name="textlab_pack_kind_brush">brushes</string>
+    <string name="textlab_pack_kind_paper">papers</string>
+    <string name="textlab_pack_kind_palette">palettes</string>
+    <string name="textlab_pack_kind_font">fonts</string>
+    <string name="textlab_pack_kind_grade">colour grades</string>
+    <string name="textlab_pack_kind_caption_style">caption styles</string>
+
+    <string name="textlab_looks_own_folder">the app\'s own folder (the Joy Creator folder could not be reached)</string>
+
+    <string name="textlab_could_not_open">TextLab could not open.</string>
+
+    <string name="textlab_back">Back</string>
+
+    <string name="textlab_undo">Undo</string>
+
+    <string name="textlab_redo">Redo</string>
+
+    <string name="textlab_save_this_look">Save this look</string>
+
+    <string name="textlab_hover_name">This look\'s name: tap to rename your own look</string>
+    <string name="textlab_hover_export">Export: a picture, a video or a moving sheet</string>
+    <string name="textlab_hover_more">More: background, font, save as, rename, delete</string>
+    <string name="textlab_hover_joybot">Joybot, your helper: ask him to change this look</string>
+    <string name="textlab_hover_stage">The look: tap to hold or play</string>
+
+    <string name="textlab_held_toast">Held: tap the picture to play</string>
+
+    <string name="textlab_playing_toast">Playing</string>
+
+    <string name="textlab_words_hint">Your words</string>
+
+    <string name="textlab_hover_progress_bar">Drag to choose the moment (the look holds there)</string>
+
+    <string name="textlab_look_not_opened">That look could not be opened.</string>
+
+    <string name="textlab_ask_save_title">Save your changes?</string>
+    <string name="textlab_ask_save_other">You changed %1$s. Save it before opening another look?</string>
+    <string name="textlab_ask_save_plain">You changed %1$s.</string>
+
+    <string name="textlab_save">Save</string>
+
+    <string name="textlab_dont_save">Don\'t save</string>
+
+    <string name="textlab_undo_joybot">Joybot\'s change</string>
+    <string name="textlab_undo_add_piece">Add a piece</string>
+    <string name="textlab_undo_take_piece">Take a piece away</string>
+    <string name="textlab_undo_what">Undo: %1$s</string>
+    <string name="textlab_undo_none">Nothing to undo</string>
+
+    <string name="textlab_redo_what">Redo: %1$s</string>
+    <string name="textlab_redo_none">Nothing to redo</string>
+
+    <string name="textlab_no_tilt">This phone has no tilt sensor: Still and Sway only.</string>
+
+    <string name="textlab_studio_closed">Studio was closed, so the look couldn\'t go back to the title. Save it as a look instead.</string>
+
+    <string name="textlab_save_first_rename">Save it as your own look first; then it can be renamed.</string>
+    <string name="textlab_save_as_title">Save as a new look</string>
+
+    <string name="textlab_saved">Saved</string>
+
+    <string name="textlab_rename_title">Rename this look</string>
+    <string name="textlab_rename">Rename</string>
+
+    <string name="textlab_delete_title">Delete %1$s?</string>
+    <string name="textlab_delete_body">It goes to the Joy Creator folder\'s Trash for 30 days.</string>
+    <string name="textlab_delete">Delete</string>
+
+    <string name="textlab_revert_title">Back to the original?</string>
+    <string name="textlab_revert_body">Your changes to %1$s go to the Trash (30 days) and the original look comes back.</string>
+    <string name="textlab_revert_go">Go back</string>
+
+    <string name="textlab_more_background">Background…</string>
+    <string name="textlab_more_background_tip">What is behind the words</string>
+    <string name="textlab_more_font">Font…</string>
+    <string name="textlab_more_font_tip">Which typeface the words are set in</string>
+    <string name="textlab_more_picture">Your picture behind…</string>
+    <string name="textlab_more_picture_tip">Put one of your pictures behind the words (not saved in the look)</string>
+    <string name="textlab_more_save_as">Save as a new look…</string>
+    <string name="textlab_more_save_as_tip">Keep this as a new look of your own</string>
+    <string name="textlab_more_rename">Rename…</string>
+    <string name="textlab_more_rename_tip">Give your look a new name</string>
+    <string name="textlab_more_revert">Back to the original</string>
+    <string name="textlab_more_revert_tip">Forget your changes to this built-in look</string>
+    <string name="textlab_more_delete">Delete</string>
+    <string name="textlab_more_delete_tip">Your look to the Trash</string>
+    <string name="textlab_more_use_on_title">Use on the title</string>
+    <string name="textlab_more_use_on_title_tip">Back to Studio with this look on the title</string>
+
+    <string name="textlab_stage_tip">Behind the words: %1$s</string>
+    <string name="textlab_stage_picture">Your picture</string>
+    <string name="textlab_stage_picture_tip">Your picture behind the words</string>
+
+    <string name="textlab_background">Background</string>
+
+    <string name="textlab_font">Font</string>
+
+    <string name="textlab_words">Words</string>
+
+    <string name="textlab_tube_no_font">This look\'s letters are drawn as glass tubes: it has no font to change.</string>
+
+    <string name="textlab_font_tip">Set the words in %1$s</string>
+    <string name="textlab_font_own_tip">Your font %1$s</string>
+    <string name="textlab_font_add">Add a font file…</string>
+    <string name="textlab_font_add_tip">A .ttf or .otf font of yours: it goes to Supplies › Fonts</string>
+
+    <string name="textlab_picture_unreadable">That picture could not be read.</string>
+
+    <string name="textlab_font_not_font">That isn\'t a font file (a .ttf or .otf).</string>
+    <string name="textlab_font_not_added">That font could not be added.</string>
+
+    <string name="textlab_title_ask_title">Use your changes on the title?</string>
+    <string name="textlab_title_ask_body">You changed this title\'s look here.</string>
+    <string name="textlab_title_use_them">Use them</string>
+    <string name="textlab_title_dont">Don\'t</string>
+    <string name="textlab_title_look">Title look: %1$s</string>
+
+    <string name="textlab_light">Light</string>
+    <string name="textlab_light_live">Live</string>
+    <string name="textlab_light_live_tip">The light follows the phone as you tilt it</string>
+    <string name="textlab_light_still">Still</string>
+    <string name="textlab_light_still_tip">The light stays where you put it (drag the little pad)</string>
+    <string name="textlab_light_sway">Sway</string>
+    <string name="textlab_light_sway_tip">The light drifts gently round where you put it</string>
+
+    <string name="textlab_progress">Progress</string>
+
+    <string name="textlab_plays">Plays</string>
+    <string name="textlab_plays_tip">It plays by itself (burns, blows away, grows or breaks from the start)</string>
+
+    <string name="textlab_look_label">LOOK</string>
+
+    <string name="textlab_edit_in_textlab">Edit in TextLab</string>
+
+    <string name="textlab_hover_edit_in_textlab">Open this title\'s look in TextLab: every slider, its pieces, its font; Use on the title brings it back</string>
+
+    <string name="textlab_record_tilt">Record tilt</string>
+    <string name="textlab_record_tilt_tip">Arm, then hold your thumb on the picture and tilt the phone: the light follows</string>
+
+    <string name="textlab_armed">Armed: hold the picture</string>
+
+    <string name="textlab_recorded_tilt">Recorded tilt</string>
+
+    <string name="textlab_by_itself">By itself</string>
+    <string name="textlab_by_itself_tip">Burns, blows away or shatters by itself from the title\'s start</string>
+
+    <string name="textlab_pinned">Pinned</string>
+    <string name="textlab_pinned_tip">Set how far along it is at the playhead (a key)</string>
+
+    <string name="textlab_chip_plain">Plain</string>
+
+    <string name="textlab_undo_plain_text">Plain text</string>
+    <string name="textlab_undo_look">Look: %1$s</string>
+    <string name="textlab_undo_move_light">Move the light</string>
+    <string name="textlab_undo_plays_by_itself">Plays by itself</string>
+    <string name="textlab_undo_set_progress">Set how far along</string>
+    <string name="textlab_undo_pin_progress">Pin how far along</string>
+    <string name="textlab_undo_light_still">Light: still</string>
+    <string name="textlab_undo_light_sway">Light: sway</string>
+
+    <string name="textlab_hold_to_record">Hold your thumb on the picture and tilt the phone to record the light. Lift to stop.</string>
+
+    <string name="textlab_note_hold">Hold your thumb on the picture and tilt the phone. Lift to stop.</string>
+
+    <string name="textlab_tab_pieces">+ Pieces</string>
+    <string name="textlab_tab_pieces_tip">Add or take away what this look is built from</string>
+    <string name="textlab_tab_tip">The %1$s sliders</string>
+    <string name="textlab_tab_tip_used">The %1$s sliders (this look has changed them)</string>
+
+    <string name="textlab_colour_hover">%1$s: change the colour</string>
+
+    <string name="textlab_glow">glow</string>
+
+    <string name="textlab_light_pad">Where the light is: drag the dot</string>
+
+    <string name="textlab_colour_hue">Hue</string>
+    <string name="textlab_colour_strength">Strength</string>
+    <string name="textlab_colour_brightness">Brightness</string>
+    <string name="textlab_colour_code">Colour code</string>
+
+    <string name="textlab_cancel">Cancel</string>
+
+    <string name="textlab_done">Done</string>
+
+    <string name="textlab_pieces_title">Pieces</string>
+    <string name="textlab_pieces_sub">What this look is built from. Tap to add or take away; each piece brings its own sliders.</string>
+
+    <string name="textlab_piece_tip_remove">The %1$s piece: tap to take it away</string>
+    <string name="textlab_piece_tip_add">The %1$s piece: tap to add it</string>
+
+    <string name="textlab_pieces_close">Close the pieces</string>
+
+    <string name="textlab_not_saved">Not saved: %1$s</string>
+    <string name="textlab_not_renamed">Not renamed: %1$s</string>
+    <string name="textlab_not_deleted">Not deleted: %1$s</string>
+
+    <string name="textlab_only_rename">Only your own looks can be renamed.</string>
+    <string name="textlab_only_delete">Only your own looks can be deleted.</string>
+
+    <string name="textlab_needs_name">A look needs a name.</string>
+
+    <string name="textlab_no_original">This look has no original to go back to.</string>
+
+    <string name="textlab_trouble_unsupported">This phone\'s graphics can\'t draw TextLab\'s looks. Your titles still show, as plain words.</string>
+    <string name="textlab_trouble_memory">The phone ran short of memory for this look. Close other apps and try again.</string>
+    <string name="textlab_trouble_other">This look couldn\'t be drawn on this phone. Try another look; your titles still show as plain words.</string>
+</resources>

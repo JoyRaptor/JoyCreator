@@ -87,7 +87,8 @@ final class TlColourDialog {
             }
             live.accept(now[0]);
         };
-        String[] names = {"Hue", "Strength", "Brightness"};
+        String[] names = {a.getString(com.fadcam.R.string.textlab_colour_hue), a.getString(com.fadcam.R.string.textlab_colour_strength),
+                a.getString(com.fadcam.R.string.textlab_colour_brightness)};
         float[] max = {360, 1, 1};
         for (int i = 0; i < 3; i++) {
             final int at = i;
@@ -130,7 +131,7 @@ final class TlColourDialog {
         hex.setTextColor(INK);
         hex.setSingleLine(true);
         hex.setTextSize(14);
-        hex.setContentDescription("Colour code");
+        hex.setContentDescription(a.getString(com.fadcam.R.string.textlab_colour_code));
         hexRow.addView(hex, new LinearLayout.LayoutParams(dp(a, 120), ViewGroup.LayoutParams.WRAP_CONTENT));
         body.addView(hexRow);
         hex.addTextChangedListener(new TextWatcher() {
@@ -159,8 +160,8 @@ final class TlColourDialog {
         buttons.setGravity(Gravity.END);
         buttons.setPadding(0, dp(a, 12), 0, 0);
         final boolean[] kept = {false};
-        buttons.addView(button(a, "Cancel", CONTROL, INK, v -> d.dismiss()));
-        Button ok = button(a, "Done", CYAN, GROUND, v -> {
+        buttons.addView(button(a, a.getString(com.fadcam.R.string.textlab_cancel), CONTROL, INK, v -> d.dismiss()));
+        Button ok = button(a, a.getString(com.fadcam.R.string.textlab_done), CYAN, GROUND, v -> {
             kept[0] = true;
             d.dismiss();
         });

@@ -119,7 +119,7 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
             parts = new TlParts(new JSONObject(ShaderLib.readAll(getAssets().open("textlab/parts.json"))));
         } catch (Exception e) {
             Log.e(TAG, "parts.json not read", e);
-            Toast.makeText(this, "TextLab could not open.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, R.string.textlab_could_not_open, Toast.LENGTH_LONG).show();
             finish();
             return;
         }
@@ -160,35 +160,35 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
         LinearLayout top = new LinearLayout(this);
         top.setGravity(Gravity.CENTER_VERTICAL);
         top.setPadding(dp(6), dp(6), dp(8), dp(4));
-        top.addView(iconButton("arrow_back", "Back", v -> onBackPressed()));
+        top.addView(iconButton("arrow_back", getString(R.string.textlab_back), v -> onBackPressed()));
         nameView = new TextView(this);
         nameView.setTextColor(INK);
         nameView.setTextSize(16);
         nameView.setSingleLine(true);
         nameView.setEllipsize(android.text.TextUtils.TruncateAt.END);
         nameView.setPadding(dp(6), 0, dp(6), 0);
-        label(nameView, "This look's name: tap to rename your own look");
+        label(nameView, getString(R.string.textlab_hover_name));
         nameView.setOnClickListener(v -> askRename());
         top.addView(nameView, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
-        undoBtn = iconButton("undo", "Undo", v -> doUndo());
-        redoBtn = iconButton("redo", "Redo", v -> doRedo());
+        undoBtn = iconButton("undo", getString(R.string.textlab_undo), v -> doUndo());
+        redoBtn = iconButton("redo", getString(R.string.textlab_redo), v -> doRedo());
         top.addView(undoBtn);
         top.addView(redoBtn);
-        top.addView(iconButton("save", "Save this look", v -> save(null)));
+        top.addView(iconButton("save", getString(R.string.textlab_save_this_look), v -> save(null)));
         ImageView export = new ImageView(this);
         export.setImageResource(R.drawable.ic_export_studio);
         export.setPadding(dp(8), dp(8), dp(8), dp(8));
-        label(export, "Export: a picture, a video or a moving sheet");
+        label(export, getString(R.string.textlab_hover_export));
         export.setOnClickListener(v -> askExport());
         top.addView(export, new LinearLayout.LayoutParams(dp(40), dp(40)));
-        top.addView(iconButton("more_vert", "More: background, font, save as, rename, delete", v -> more()));
+        top.addView(iconButton("more_vert", getString(R.string.textlab_hover_more), v -> more()));
         joy = new ImageView(this);
         joy.setImageResource(R.drawable.joybot_neutral);
         joy.setBackgroundResource(R.drawable.joybot_orb);
         joy.setImageTintList(android.content.res.ColorStateList.valueOf(INK));
         int jp = dp(7);
         joy.setPadding(jp, jp, jp, jp);
-        label(joy, "Joybot, your helper: ask him to change this look");
+        label(joy, getString(R.string.textlab_hover_joybot));
         joy.setOnClickListener(v -> {
             startActivity(new Intent(this, com.fadcam.ui.faditor.ai.ChatAssistantActivity.class)
                     .putExtra(com.fadcam.ui.faditor.ai.ChatAssistantActivity.EXTRA_ROOM, "TEXTLAB"));
@@ -209,9 +209,9 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
         });
         stage.setOnClickListener(v -> {
             stage.setHeld(!stage.held());
-            Toast.makeText(this, stage.held() ? "Held: tap the picture to play" : "Playing", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(stage.held() ? R.string.textlab_held_toast : R.string.textlab_playing_toast), Toast.LENGTH_SHORT).show();
         });
-        label(stage, "The look: tap to hold or play");
+        label(stage, getString(R.string.textlab_hover_stage));
         stageBox.addView(stage);
         int w = getResources().getDisplayMetrics().widthPixels;
         root.addView(stageBox, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Math.min(w * 9 / 16, dp(260))));
@@ -226,7 +226,7 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
         wordsBox.setSingleLine(true);
         wordsBox.setTextColor(INK);
         wordsBox.setHintTextColor(DIM);
-        wordsBox.setHint("Your words");
+        wordsBox.setHint(R.string.textlab_words_hint);
         wordsBox.setTextSize(15);
         wordsBox.setPadding(dp(12), dp(6), dp(12), dp(6));
         wordsBox.setBackground(round(CONTROL));
@@ -253,10 +253,10 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
         root.addView(wordsRow);
 
         LinearLayout lightRow = row();
-        lightRow.addView(small("Light", R.drawable.ic_tl_light));
-        lightLive = pill("Live", "The light follows the phone as you tilt it", R.drawable.ic_tl_record_tilt);
-        lightStill = pill("Still", "The light stays where you put it (drag the little pad)", R.drawable.ic_tl_still);
-        lightSway = pill("Sway", "The light drifts gently round where you put it", R.drawable.ic_tl_sway);
+        lightRow.addView(small(getString(R.string.textlab_light), R.drawable.ic_tl_light));
+        lightLive = pill(getString(R.string.textlab_light_live), getString(R.string.textlab_light_live_tip), R.drawable.ic_tl_record_tilt);
+        lightStill = pill(getString(R.string.textlab_light_still), getString(R.string.textlab_light_still_tip), R.drawable.ic_tl_still);
+        lightSway = pill(getString(R.string.textlab_light_sway), getString(R.string.textlab_light_sway_tip), R.drawable.ic_tl_sway);
         lightLive.setOnClickListener(v -> setLight("live"));
         lightStill.setOnClickListener(v -> setLight(TitleLook.STILL));
         lightSway.setOnClickListener(v -> setLight(TitleLook.SWAY));
@@ -273,16 +273,16 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
         root.addView(lightRow);
 
         progRow = row();
-        progLabel = small("Progress", R.drawable.ic_tl_plays);
+        progLabel = small(getString(R.string.textlab_progress), R.drawable.ic_tl_plays);
         progRow.addView(progLabel);
-        progPlay = pill("Plays", "It plays by itself (burns, blows away, grows or breaks from the start)", R.drawable.ic_tl_by_itself);
+        progPlay = pill(getString(R.string.textlab_plays), getString(R.string.textlab_plays_tip), R.drawable.ic_tl_by_itself);
         progPlay.setOnClickListener(v -> playProgress());
         progRow.addView(progPlay);
         progBar = new SeekBar(this);
         progBar.setMax(1000);
         progBar.setProgressTintList(android.content.res.ColorStateList.valueOf(CYAN));
         progBar.setThumbTintList(android.content.res.ColorStateList.valueOf(CYAN));
-        label(progBar, "Drag to choose the moment (the look holds there)");
+        label(progBar, getString(R.string.textlab_hover_progress_bar));
         progBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar s, int v, boolean user) {
@@ -397,7 +397,7 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
                 if (openRel != null) {
                     int i = indexOf("folder:" + openRel);
                     if (i >= 0) chooseItem(i, true);
-                    else Toast.makeText(this, "That look could not be opened.", Toast.LENGTH_SHORT).show();
+                    else Toast.makeText(this, R.string.textlab_look_not_opened, Toast.LENGTH_SHORT).show();
                 } else if (keep != null) {
                     // the built-in being shown may have a copy of the person's own: show theirs
                     int i = indexOf(keep);
@@ -452,8 +452,8 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
             chooseItem(i, !wordsTyped());
             return;
         }
-        TlSheet.ask(this, "Save your changes?", "You changed " + nameOf() + ". Save it before opening another look?",
-                "Save", () -> save(() -> chooseItem(i, !wordsTyped())), "Don't save", () -> chooseItem(i, !wordsTyped()));
+        TlSheet.ask(this, getString(R.string.textlab_ask_save_title), getString(R.string.textlab_ask_save_other, nameOf()),
+                getString(R.string.textlab_save), () -> save(() -> chooseItem(i, !wordsTyped())), getString(R.string.textlab_dont_save), () -> chooseItem(i, !wordsTyped()));
         if (editing != null) chips.choose(indexOf(editing.key));
     }
 
@@ -511,7 +511,7 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
 
     @NonNull
     private String nameOf() {
-        if (titleMode) return "Title look: " + look.optString("name", "look");
+        if (titleMode) return getString(R.string.textlab_title_look, look.optString("name", "look"));
         return editing != null ? editing.name : look != null ? look.optString("name", "New look") : "New look";
     }
 
@@ -528,7 +528,7 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
 
     void joybotStep(boolean remember, boolean grouped) {
         jbGrouped = grouped;
-        if (remember && look != null) undo.before(look.toString(), words, "Joybot's change");
+        if (remember && look != null) undo.before(look.toString(), words, getString(R.string.textlab_undo_joybot));
     }
 
     @Override
@@ -566,7 +566,7 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
     @Override
     public void pieces() {
         TlPiecesDialog.show(this, parts, TlParts.features(look), (feature, on) -> {
-            beginChange(on ? "Add a piece" : "Take a piece away");
+            beginChange(getString(on ? R.string.textlab_undo_add_piece : R.string.textlab_undo_take_piece));
             try {
                 JSONObject next = TlParts.withFeature(look, feature, on);
                 look = next;
@@ -600,8 +600,8 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
     private void showUndo() {
         undoBtn.setAlpha(undo.canUndo() ? 1f : 0.35f);
         redoBtn.setAlpha(undo.canRedo() ? 1f : 0.35f);
-        label(undoBtn, undo.canUndo() ? "Undo: " + undo.undoWhat() : "Nothing to undo");
-        label(redoBtn, undo.canRedo() ? "Redo: " + undo.redoWhat() : "Nothing to redo");
+        label(undoBtn, undo.canUndo() ? getString(R.string.textlab_undo_what, undo.undoWhat()) : getString(R.string.textlab_undo_none));
+        label(redoBtn, undo.canRedo() ? getString(R.string.textlab_redo_what, undo.redoWhat()) : getString(R.string.textlab_redo_none));
     }
 
     // ---- light and progress -------------------------------------------------------------------------
@@ -613,7 +613,7 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
         paint(lightSway, TitleLook.SWAY.equals(mode));
         if ("live".equals(mode)) {
             if (!tilt.available()) {
-                Toast.makeText(this, "This phone has no tilt sensor: Still and Sway only.", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, R.string.textlab_no_tilt, Toast.LENGTH_SHORT).show();
                 setLight(TitleLook.STILL);
                 return;
             }
@@ -703,7 +703,7 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
     }
 
     private void saveAs(@Nullable Runnable then) {
-        TlSheet.name(this, "Save as a new look", (editing != null ? editing.name : "My look") + " 2", "Save", n ->
+        TlSheet.name(this, getString(R.string.textlab_save_as_title), (editing != null ? editing.name : "My look") + " 2", getString(R.string.textlab_save), n ->
                 TextLabPreviews.get(this).save(look, words, n, s -> afterSave(new TlLookFiles.Done(
                         s.where != null && s.where.startsWith("Supplies") ? s.where : null,
                         s.where == null ? s.problem : null), then)));
@@ -717,7 +717,7 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
         savedLook = look.toString();
         savedWords = words;
         changed();
-        Toast.makeText(this, "Saved", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, R.string.textlab_saved, Toast.LENGTH_SHORT).show();
         if (d.rel != null) loadFolder(null, false);
         if (d.rel != null && then == null) {
             final String rel = d.rel;
@@ -740,7 +740,7 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
             out.put("sample", words);
             setResult(RESULT_OK, new Intent().putExtra(EXTRA_RESULT_LOOK, out.toString()));
             if (!TlTitleEdit.deliver(out.toString())) {
-                Toast.makeText(this, "Studio was closed, so the look couldn't go back to the title. Save it as a look instead.",
+                Toast.makeText(this, R.string.textlab_studio_closed,
                         Toast.LENGTH_LONG).show();
                 return;
             }
@@ -754,11 +754,11 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
     private void askRename() {
         if (titleMode) return;
         if (editing == null || editing.from != TextLookShelf.From.MINE) {
-            Toast.makeText(this, "Save it as your own look first; then it can be renamed.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.textlab_save_first_rename, Toast.LENGTH_SHORT).show();
             return;
         }
         final TextLookShelf.Item it = editing;
-        TlSheet.name(this, "Rename this look", it.name, "Rename", n -> JoyFolderHome.io().execute(() -> {
+        TlSheet.name(this, getString(R.string.textlab_rename_title), it.name, getString(R.string.textlab_rename), n -> JoyFolderHome.io().execute(() -> {
             TlLookFiles.Done d = TlLookFiles.rename(this, it, n);
             runOnUiThread(() -> {
                 if (!d.ok()) Toast.makeText(this, d.problem, Toast.LENGTH_LONG).show();
@@ -773,8 +773,8 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
     private void askDelete() {
         if (editing == null || editing.from != TextLookShelf.From.MINE) return;
         final TextLookShelf.Item it = editing;
-        TlSheet.ask(this, "Delete " + it.name + "?", "It goes to the Joy Creator folder's Trash for 30 days.",
-                "Delete", () -> JoyFolderHome.io().execute(() -> {
+        TlSheet.ask(this, getString(R.string.textlab_delete_title, it.name), getString(R.string.textlab_delete_body),
+                getString(R.string.textlab_delete), () -> JoyFolderHome.io().execute(() -> {
                     TlLookFiles.Done d = TlLookFiles.delete(this, it);
                     runOnUiThread(() -> {
                         if (!d.ok()) Toast.makeText(this, d.problem, Toast.LENGTH_LONG).show();
@@ -786,8 +786,8 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
     private void askRevert() {
         if (editing == null || !TlLookFiles.isCopyOfBuiltIn(editing)) return;
         final TextLookShelf.Item it = editing;
-        TlSheet.ask(this, "Back to the original?", "Your changes to " + it.name + " go to the Trash (30 days) and the "
-                + "original look comes back.", "Go back", () -> JoyFolderHome.io().execute(() -> {
+        TlSheet.ask(this, getString(R.string.textlab_revert_title), getString(R.string.textlab_revert_body, it.name),
+                getString(R.string.textlab_revert_go), () -> JoyFolderHome.io().execute(() -> {
                     TlLookFiles.Done d = TlLookFiles.revert(this, it);
                     runOnUiThread(() -> {
                         if (!d.ok()) Toast.makeText(this, d.problem, Toast.LENGTH_LONG).show();
@@ -816,22 +816,22 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
 
     private void more() {
         List<TlSheet.Row> rows = TlSheet.rows();
-        rows.add(new TlSheet.Row("Background…", "What is behind the words", false, this::pickStage));
-        rows.add(new TlSheet.Row("Font…", "Which typeface the words are set in", false, this::pickFont));
-        rows.add(new TlSheet.Row("Your picture behind…", "Put one of your pictures behind the words (not saved in the look)",
+        rows.add(new TlSheet.Row(getString(R.string.textlab_more_background), getString(R.string.textlab_more_background_tip), false, this::pickStage));
+        rows.add(new TlSheet.Row(getString(R.string.textlab_more_font), getString(R.string.textlab_more_font_tip), false, this::pickFont));
+        rows.add(new TlSheet.Row(getString(R.string.textlab_more_picture), getString(R.string.textlab_more_picture_tip),
                 false, () -> startActivityForResult(new Intent(Intent.ACTION_GET_CONTENT).setType("image/*")
                 .addCategory(Intent.CATEGORY_OPENABLE), PICK_PICTURE)));
         if (!titleMode) {
-            rows.add(new TlSheet.Row("Save as a new look…", "Keep this as a new look of your own", false, () -> saveAs(null)));
+            rows.add(new TlSheet.Row(getString(R.string.textlab_more_save_as), getString(R.string.textlab_more_save_as_tip), false, () -> saveAs(null)));
             if (editing != null && editing.from == TextLookShelf.From.MINE) {
-                rows.add(new TlSheet.Row("Rename…", "Give your look a new name", false, this::askRename));
+                rows.add(new TlSheet.Row(getString(R.string.textlab_more_rename), getString(R.string.textlab_more_rename_tip), false, this::askRename));
                 if (TlLookFiles.isCopyOfBuiltIn(editing)) {
-                    rows.add(new TlSheet.Row("Back to the original", "Forget your changes to this built-in look", false, this::askRevert));
+                    rows.add(new TlSheet.Row(getString(R.string.textlab_more_revert), getString(R.string.textlab_more_revert_tip), false, this::askRevert));
                 }
-                rows.add(new TlSheet.Row("Delete", "Your look to the Trash", false, this::askDelete));
+                rows.add(new TlSheet.Row(getString(R.string.textlab_more_delete), getString(R.string.textlab_more_delete_tip), false, this::askDelete));
             }
         } else {
-            rows.add(new TlSheet.Row("Use on the title", "Back to Studio with this look on the title", true, this::useOnTitle));
+            rows.add(new TlSheet.Row(getString(R.string.textlab_more_use_on_title), getString(R.string.textlab_more_use_on_title_tip), true, this::useOnTitle));
         }
         TlSheet.menu(this, nameOf(), rows);
     }
@@ -841,14 +841,14 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
         int cur = look.optInt("stage", 1);
         for (String[] s : STAGES) {
             boolean on = !s[0].isEmpty() && Integer.parseInt(s[0]) == cur;
-            rows.add(new TlSheet.Row(s[1], "Behind the words: " + s[1], on, () -> setStage(s[0])));
+            rows.add(new TlSheet.Row(s[1], getString(R.string.textlab_stage_tip, s[1]), on, () -> setStage(s[0])));
         }
-        if (photo != null) rows.add(new TlSheet.Row("Your picture", "Your picture behind the words", cur == 11, () -> setStage("11")));
-        TlSheet.menu(this, "Background", rows);
+        if (photo != null) rows.add(new TlSheet.Row(getString(R.string.textlab_stage_picture), getString(R.string.textlab_stage_picture_tip), cur == 11, () -> setStage("11")));
+        TlSheet.menu(this, getString(R.string.textlab_background), rows);
     }
 
     private void setStage(String v) {
-        beginChange("Background");
+        beginChange(getString(R.string.textlab_background));
         try {
             if (v.isEmpty()) {
                 JSONObject orig = editing != null ? editing.look : look;
@@ -867,24 +867,24 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
         JSONObject f = look.optJSONObject("font");
         String fam = f != null ? f.optString("family", "archivo") : "archivo";
         if ("tube".equals(fam)) {
-            Toast.makeText(this, "This look's letters are drawn as glass tubes: it has no font to change.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, R.string.textlab_tube_no_font, Toast.LENGTH_LONG).show();
             return;
         }
         List<TlSheet.Row> rows = TlSheet.rows();
         for (String[] c : TlFonts.CHOICES) {
-            rows.add(new TlSheet.Row(c[1], "Set the words in " + c[1], c[0].equals(fam), () -> setFont(c[0])));
+            rows.add(new TlSheet.Row(c[1], getString(R.string.textlab_font_tip, c[1]), c[0].equals(fam), () -> setFont(c[0])));
         }
         JoyFolderHome.io().execute(() -> {
             List<String> own = folderFonts();
             runOnUiThread(() -> {
                 for (String rel : own) {
                     String n = FileKind.baseOf(Placement.nameOf(rel));
-                    rows.add(new TlSheet.Row(n, "Your font " + n, (TlFonts.FILE + rel).equals(fam), () -> setFont(TlFonts.FILE + rel)));
+                    rows.add(new TlSheet.Row(n, getString(R.string.textlab_font_own_tip, n), (TlFonts.FILE + rel).equals(fam), () -> setFont(TlFonts.FILE + rel)));
                 }
-                rows.add(new TlSheet.Row("Add a font file…", "A .ttf or .otf font of yours: it goes to Supplies › Fonts", false,
+                rows.add(new TlSheet.Row(getString(R.string.textlab_font_add), getString(R.string.textlab_font_add_tip), false,
                         () -> startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*")
                                 .addCategory(Intent.CATEGORY_OPENABLE), PICK_FONT)));
-                TlSheet.menu(this, "Font", rows);
+                TlSheet.menu(this, getString(R.string.textlab_font), rows);
             });
         });
     }
@@ -914,7 +914,7 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
     }
 
     private void setFont(String family) {
-        beginChange("Font");
+        beginChange(getString(R.string.textlab_font));
         try {
             JSONObject f = look.optJSONObject("font");
             if (f == null) look.put("font", f = new JSONObject());
@@ -937,7 +937,7 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
                 Bitmap b = decode(uri);
                 runOnUiThread(() -> {
                     if (b == null) {
-                        Toast.makeText(this, "That picture could not be read.", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, R.string.textlab_picture_unreadable, Toast.LENGTH_SHORT).show();
                         return;
                     }
                     photo = b;
@@ -961,10 +961,10 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
                     }
                     jf.saveIndex();
                 } catch (IllegalArgumentException e) {
-                    why = "That isn't a font file (a .ttf or .otf).";
+                    why = getString(R.string.textlab_font_not_font);
                 } catch (Exception e) {
                     Log.w(TAG, "font not added", e);
-                    why = "That font could not be added.";
+                    why = getString(R.string.textlab_font_not_added);
                 }
                 String r = rel, w = why;
                 runOnUiThread(() -> {
@@ -1024,15 +1024,15 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
             return;
         }
         if (titleMode) {
-            TlSheet.ask(this, "Use your changes on the title?", "You changed this title's look here.", "Use them",
-                    this::useOnTitle, "Don't", () -> {
+            TlSheet.ask(this, getString(R.string.textlab_title_ask_title), getString(R.string.textlab_title_ask_body), getString(R.string.textlab_title_use_them),
+                    this::useOnTitle, getString(R.string.textlab_title_dont), () -> {
                         dirty = false;
                         finish();
                     });
             return;
         }
-        TlSheet.ask(this, "Save your changes?", "You changed " + nameOf() + ".", "Save", () -> save(this::finish),
-                "Don't save", () -> {
+        TlSheet.ask(this, getString(R.string.textlab_ask_save_title), getString(R.string.textlab_ask_save_plain, nameOf()), getString(R.string.textlab_save), () -> save(this::finish),
+                getString(R.string.textlab_dont_save), () -> {
                     dirty = false;
                     finish();
                 });
@@ -1095,7 +1095,7 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
     }
 
     void setWordsFromJoybot(@NonNull String w) {
-        beginChange("Words");
+        beginChange(getString(R.string.textlab_words));
         words = w;
         wordsBox.setText(w);
         stage.run(r -> r.setText(w.isEmpty() ? " " : w));
@@ -1130,7 +1130,7 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
     String setPieceFromJoybot(@NonNull String piece, boolean on) {
         for (TlParts.Piece p : parts.pieces) {
             if (p.slot.equalsIgnoreCase(piece) || p.feature.equalsIgnoreCase(piece)) {
-                beginChange(on ? "Add a piece" : "Take a piece away");
+                beginChange(getString(on ? R.string.textlab_undo_add_piece : R.string.textlab_undo_take_piece));
                 try {
                     look = TlParts.withFeature(look, p.feature, on);
                 } catch (Exception e) {

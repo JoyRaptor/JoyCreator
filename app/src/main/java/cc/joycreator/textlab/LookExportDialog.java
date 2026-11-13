@@ -16,6 +16,8 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 
+import com.fadcam.R;
+
 import org.json.JSONObject;
 
 import java.util.Locale;
@@ -32,17 +34,21 @@ final class LookExportDialog {
             ZINC_DIM = 0xFF8A8A96, CYAN = 0xFF22D3EE;
     private static final String PREFS = "textlab_export";
 
-    private static final String[] TYPES = {"Picture", "Video", "Sheet"};
-    private static final String[] TYPE_TIPS = {"A still PNG of the look", "An MP4 from the letters arriving",
-            "A moving sprite sheet, 5 × 4: two seconds at 10 frames a second, for Studio and Sprite Lab"};
-    private static final String[] SHAPES = {"Wide", "Square", "Tall"};
-    private static final String[] SHAPE_TIPS = {"16:9, like a video", "1:1, for posts", "9:16, for phone stories"};
+    private static final int[] TYPES = {R.string.textlab_export_type_picture, R.string.textlab_export_type_video,
+            R.string.textlab_export_type_sheet};
+    private static final int[] TYPE_TIPS = {R.string.textlab_export_tip_picture, R.string.textlab_export_tip_video,
+            R.string.textlab_export_tip_sheet};
+    private static final int[] SHAPES = {R.string.textlab_export_shape_wide, R.string.textlab_export_shape_square,
+            R.string.textlab_export_shape_tall};
+    private static final int[] SHAPE_TIPS = {R.string.textlab_export_tip_wide, R.string.textlab_export_tip_square,
+            R.string.textlab_export_tip_tall};
     private static final String[] SIZES = {"720", "1080", "4K"};
     private static final int[] SHORT_SIDE = {720, 1080, 2160};
-    private static final String[] CELLS = {"Small", "Medium", "Large"};
+    private static final int[] CELLS = {R.string.textlab_export_cell_small, R.string.textlab_export_cell_medium,
+            R.string.textlab_export_cell_large};
     private static final int[] CELL_SHORT = {144, 270, 540};
-    private static final String[] BACKS = {"Stage", "See-through"};
-    private static final String[] BACK_TIPS = {"The look's own background", "Only the words, transparent round them"};
+    private static final int[] BACKS = {R.string.textlab_export_back_stage, R.string.textlab_export_back_clear};
+    private static final int[] BACK_TIPS = {R.string.textlab_export_tip_stage, R.string.textlab_export_tip_clear};
     private static final String[] LENGTHS = {"3 s", "5 s", "10 s"};
     private static final double[] SECONDS = {3, 5, 10};
 
@@ -104,15 +110,16 @@ final class LookExportDialog {
 
     private void build() {
         body.removeAllViews();
-        TextView title = text("Export", 20, ZINC);
+        TextView title = text(a.getString(R.string.textlab_export_title), 20, ZINC);
         title.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
         body.addView(title);
-        row("Type", TYPES, TYPE_TIPS, type, i -> { type = i; build(); });
-        row("Shape", SHAPES, SHAPE_TIPS, shape, i -> { shape = i; build(); });
+        row(a.getString(R.string.textlab_export_row_type), strs(TYPES), strs(TYPE_TIPS), type, i -> { type = i; build(); });
+        row(a.getString(R.string.textlab_export_row_shape), strs(SHAPES), strs(SHAPE_TIPS), shape, i -> { shape = i; build(); });
         boolean sheet = type == 2;
-        row(sheet ? "Frame size" : "Size", sheet ? CELLS : SIZES, null, size, i -> { size = i; build(); });
-        if (type == 1) row("Length", LENGTHS, null, length, i -> { length = i; build(); });
-        else row("Background", BACKS, BACK_TIPS, back, i -> { back = i; build(); });
+        row(a.getString(sheet ? R.string.textlab_export_row_frame_size : R.string.textlab_export_row_size),
+                sheet ? strs(CELLS) : SIZES, null, size, i -> { size = i; build(); });
+        if (type == 1) row(a.getString(R.string.textlab_export_row_length), LENGTHS, null, length, i -> { length = i; build(); });
+        else row(a.getString(R.string.textlab_export_row_background), strs(BACKS), strs(BACK_TIPS), back, i -> { back = i; build(); });
         TextView summary = text(describe(), 13, ZINC_DIM);
         summary.setPadding(0, dp(14), 0, dp(6));
         body.addView(summary);
@@ -120,13 +127,19 @@ final class LookExportDialog {
         LinearLayout buttons = new LinearLayout(a);
         buttons.setGravity(Gravity.END);
         buttons.setPadding(0, dp(8), 0, 0);
-        buttons.addView(button("Cancel", CONTROL, ZINC, "Close without exporting", v -> dialog.dismiss()),
+        buttons.addView(button(a.getString(R.string.textlab_export_cancel), CONTROL, ZINC, a.getString(R.string.textlab_export_cancel_hover), v -> dialog.dismiss()),
                 new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(40)));
-        Button go = button("Export", CYAN, BLACK, "Make it and put it in the Joy Creator folder's exports", v -> go());
+        Button go = button(a.getString(R.string.textlab_export_go), CYAN, BLACK, a.getString(R.string.textlab_export_go_hover), v -> go());
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(40));
         lp.setMarginStart(dp(8));
         buttons.addView(go, lp);
         body.addView(buttons);
+    }
+
+    private String[] strs(int[] ids) {
+        String[] out = new String[ids.length];
+        for (int i = 0; i < ids.length; i++) out[i] = a.getString(ids[i]);
+        return out;
     }
 
     private interface Pick {
@@ -143,7 +156,7 @@ final class LookExportDialog {
             final int at = i;
             boolean on = i == chosen;
             Button b = button(options[i], on ? CYAN : CONTROL, on ? BLACK : ZINC,
-                    tips != null ? tips[i] : label + ": " + options[i], v -> pick.at(at));
+                    tips != null ? tips[i] : a.getString(R.string.textlab_export_row_tip, label, options[i]), v -> pick.at(at));
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(36), 1);
             if (i > 0) lp.setMarginStart(dp(6));
             r.addView(b, lp);
@@ -163,12 +176,12 @@ final class LookExportDialog {
         String px = d[0] + " × " + d[1];
         switch (type) {
             case 1:
-                return "MP4 video, " + px + ", " + LENGTHS[length] + " at 30 frames a second, silent.";
+                return a.getString(R.string.textlab_export_desc_video, px, LENGTHS[length]);
             case 2:
-                return "Sprite sheet " + d[0] * LookPreview.COLS + " × " + d[1] * LookPreview.ROWS + ": 20 frames of "
-                        + px + (back == 1 ? ", see-through." : ".");
+                return a.getString(back == 1 ? R.string.textlab_export_desc_sheet_clear : R.string.textlab_export_desc_sheet,
+                        d[0] * LookPreview.COLS, d[1] * LookPreview.ROWS, px);
             default:
-                return "PNG picture, " + px + (back == 1 ? ", see-through." : ".");
+                return a.getString(back == 1 ? R.string.textlab_export_desc_picture_clear : R.string.textlab_export_desc_picture, px);
         }
     }
 
@@ -182,8 +195,9 @@ final class LookExportDialog {
         LookExport.Job job = new LookExport.Job(look, words, kind, d[0], d[1], back == 1, SECONDS[length]);
 
         body.removeAllViews();
-        String[] what = {"picture", "video", "moving sheet"};
-        TextView title = text("Making the " + what[type] + "…", 18, ZINC);
+        int[] making = {R.string.textlab_export_making_picture, R.string.textlab_export_making_video,
+                R.string.textlab_export_making_sheet};
+        TextView title = text(a.getString(making[type]), 18, ZINC);
         body.addView(title);
         ProgressBar bar = new ProgressBar(a, null, android.R.attr.progressBarStyleHorizontal);
         bar.setMax(1000);
@@ -196,7 +210,7 @@ final class LookExportDialog {
         body.addView(line);
         LinearLayout buttons = new LinearLayout(a);
         buttons.setGravity(Gravity.END);
-        buttons.addView(button("Stop", CONTROL, ZINC, "Stop; nothing is saved", v -> dialog.dismiss()),
+        buttons.addView(button(a.getString(R.string.textlab_export_stop), CONTROL, ZINC, a.getString(R.string.textlab_export_stop_hover), v -> dialog.dismiss()),
                 new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(40)));
         body.addView(buttons);
         dialog.setCanceledOnTouchOutside(false);
@@ -213,7 +227,7 @@ final class LookExportDialog {
                 running = null;
                 after.run();
                 if (dialog.isShowing()) dialog.dismiss();
-                if (where != null) Toast.makeText(a, "Exported: " + where, Toast.LENGTH_LONG).show();
+                if (where != null) Toast.makeText(a, a.getString(R.string.textlab_export_exported, where), Toast.LENGTH_LONG).show();
                 else if (problem != null) Toast.makeText(a, problem, Toast.LENGTH_LONG).show();
             }
         });

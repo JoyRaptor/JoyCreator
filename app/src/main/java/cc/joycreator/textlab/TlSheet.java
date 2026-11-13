@@ -84,7 +84,7 @@ final class TlSheet {
         LinearLayout body = panel(a, title, text);
         Dialog d = dialog(a);
         LinearLayout buttons = buttons(a);
-        buttons.addView(button(a, "Cancel", CONTROL, INK, d::dismiss));
+        buttons.addView(button(a, a.getString(com.fadcam.R.string.textlab_cancel), CONTROL, INK, d::dismiss));
         if (otherWord != null && other != null) {
             buttons.addView(button(a, otherWord, CONTROL, INK, () -> {
                 d.dismiss();
@@ -112,7 +112,7 @@ final class TlSheet {
         body.addView(e);
         Dialog d = dialog(a);
         LinearLayout buttons = buttons(a);
-        buttons.addView(button(a, "Cancel", CONTROL, INK, d::dismiss));
+        buttons.addView(button(a, a.getString(com.fadcam.R.string.textlab_cancel), CONTROL, INK, d::dismiss));
         buttons.addView(button(a, yesWord, CYAN, GROUND, () -> {
             String n = e.getText().toString().trim();
             if (n.isEmpty()) return;

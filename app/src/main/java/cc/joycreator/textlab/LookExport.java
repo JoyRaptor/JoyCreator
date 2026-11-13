@@ -176,11 +176,11 @@ public final class LookExport {
             main.post(() -> listener.done(null, null));
         } catch (OutOfMemoryError e) {
             Log.w(TAG, "export too big", e);
-            main.post(() -> listener.done(null, "That size is too big for this phone. Try a smaller one."));
+            main.post(() -> listener.done(null, app.getString(com.fadcam.R.string.textlab_export_too_big)));
         } catch (Throwable e) {
             Log.w(TAG, "export failed", e);
             String why = e.getMessage() != null && e.getMessage().startsWith("This phone") ? e.getMessage()
-                    : "Something went wrong making it. Try a smaller size.";
+                    : app.getString(com.fadcam.R.string.textlab_export_went_wrong);
             main.post(() -> listener.done(null, why));
         } finally {
             if (tmp != null) //noinspection ResultOfMethodCallIgnored
@@ -285,7 +285,7 @@ public final class LookExport {
                     while ((k = in.read(buf)) > 0) os.write(buf, 0, k);
                 }
                 Log.w(TAG, "Joy Creator folder unreachable; export kept in " + f);
-                return "the app's own folder (the Joy Creator folder could not be reached)";
+                return app.getString(com.fadcam.R.string.textlab_export_own_folder);
             }
             String dir = jf.prepareDir(Placement.What.EXPORT, null, null, null);
             String rel;

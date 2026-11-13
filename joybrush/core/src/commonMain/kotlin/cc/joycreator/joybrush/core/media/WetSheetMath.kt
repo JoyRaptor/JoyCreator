@@ -199,6 +199,41 @@ object WetSheetMath {
         }
     }
 
+    // ---- what a layer's plane owns of the sheet (a layer with animation frames) ----
+    // Rectangles are (x, y, width, height) in document px.
+
+    /** The parts of [rect] inside any of [inside] (which do not overlap each other): what a frame's plane owns of the sheet. */
+    fun piecesInside(rect: DoubleArray, inside: List<DoubleArray>): List<DoubleArray> = inside.mapNotNull { r ->
+        val x0 = max(rect[0], r[0]); val y0 = max(rect[1], r[1])
+        val x1 = min(rect[0] + rect[2], r[0] + r[2]); val y1 = min(rect[1] + rect[3], r[1] + r[3])
+        if (x1 > x0 && y1 > y0) doubleArrayOf(x0, y0, x1 - x0, y1 - y0) else null
+    }
+
+    /** [rect] with every one of [holes] cut out, as rectangles that do not overlap: what the shared plane owns round the boards. */
+    fun piecesOutside(rect: DoubleArray, holes: List<DoubleArray>): List<DoubleArray> {
+        var left = listOf(rect)
+        for (h in holes) left = left.flatMap { cut(it, h) }
+        return left
+    }
+
+    private fun cut(r: DoubleArray, h: DoubleArray): List<DoubleArray> {
+        val rx1 = r[0] + r[2]; val ry1 = r[1] + r[3]
+        val x0 = max(r[0], h[0]); val y0 = max(r[1], h[1]); val x1 = min(rx1, h[0] + h[2]); val y1 = min(ry1, h[1] + h[3])
+        if (x1 <= x0 || y1 <= y0) return listOf(r)
+        val out = ArrayList<DoubleArray>(4)
+        if (y0 > r[1]) out.add(doubleArrayOf(r[0], r[1], r[2], y0 - r[1]))       // above the hole, the full width
+        if (ry1 > y1) out.add(doubleArrayOf(r[0], y1, r[2], ry1 - y1))         // below it, the full width
+        if (x0 > r[0]) out.add(doubleArrayOf(r[0], y0, x0 - r[0], y1 - y0))     // left of it
+        if (rx1 > x1) out.add(doubleArrayOf(x1, y0, rx1 - x1, y1 - y0))        // right of it
+        return out
+    }
+
+    /** True when the tile square at ([tx], [ty]) of [tile] px touches any of [pieces]. */
+    fun tileTouches(tx: Int, ty: Int, tile: Int, pieces: List<DoubleArray>): Boolean {
+        val x0 = tx.toDouble() * tile; val y0 = ty.toDouble() * tile
+        return pieces.any { p -> p[0] < x0 + tile && p[0] + p[2] > x0 && p[1] < y0 + tile && p[1] + p[3] > y0 }
+    }
+
     // ---- the undo log's marks (UndoLog.Step.sheet) ----
     /** A step that only prints dried paint into the layer: undone and redone together with the step under it. */
     fun isPrintMark(mark: Long): Boolean = mark and 1L == 1L

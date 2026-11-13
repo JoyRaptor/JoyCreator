@@ -3465,7 +3465,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                 val layerId = activeLayer
                 val doc = engine.boardDocument
                 val planes = LinkedHashMap<String, Map<Long, ByteArray>>()
-                if (readPixels) {
+                // Watercolour still wet on the wet sheet is in no tile yet: the pixels are read as a save made now would hold
+                // them (the wash stamped into stand-in tiles for the read alone, MediaCanvas.withSheetStamped), which is what
+                // the screen shows. Without this the matrix saw every wet-sheet stroke as "changed nothing".
+                if (readPixels) mediaCanvas.withSheetStamped {
                     planes["visible"] = engine.tileKeys(layerId).associateWith { k -> engine.readTile(layerId, k) ?: ByteArray(TILE_BYTES) }
                     val meta = doc?.layers?.firstOrNull { it.id == layerId }
                     if (meta != null && meta.regions.isNotEmpty()) {

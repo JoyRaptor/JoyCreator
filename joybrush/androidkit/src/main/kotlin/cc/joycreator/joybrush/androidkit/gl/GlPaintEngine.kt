@@ -7470,7 +7470,38 @@ class GlPaintEngine(
                         * Above 0: the picture is the wet sheet's look on cells [cell] document px wide, and it is drawn with the
                         * paper's fine grain worked into it at that strength (jb_overlay_grain.frag): "sharp when dry".
                         */
-                       val grain: Float = 0f, val cell: Float = 1f)
+                       val grain: Float = 0f, val cell: Float = 1f,
+                       /** The layer's plane the picture belongs to: null the shared one, else an animation frame's cel. It is drawn only while that frame shows. */
+                       val plane: String? = null,
+                       /** The parts of the rectangle that plane owns ((x, y, w, h) document px each; [planeRegion]); null = all of it. */
+                       val pieces: List<FloatArray>? = null)
+
+    /**
+     * What a plane of a layer with animation frames owns of the document (RegionPaintPlan): a frame's plane its board's
+     * rectangles ([inside] true), the shared plane everything but the boards' ([inside] false: [rects] are holes).
+     */
+    class PlaneRegion(val inside: Boolean, val rects: List<DoubleArray>)
+
+    /** [plane] of [layerId]'s share of the document as the layer's plan stands now; null when the layer has no frames (all of it). */
+    fun planeRegion(layerId: String, plane: String?): PlaneRegion? {
+        val layer = layers[layerId] ?: return null
+        val plan = layer.plan ?: return null
+        if (plan.frames.isEmpty()) return null
+        fun r(f: RegionFrame) = doubleArrayOf(f.rect.x.toDouble(), f.rect.y.toDouble(), f.rect.w.toDouble(), f.rect.h.toDouble())
+        return if (plane == null) PlaneRegion(false, plan.frames.map(::r))
+        else PlaneRegion(true, plan.frames.filter { planeOf(layer, it.celId) == plane }.map(::r))
+    }
+
+    /** True while [plane] of [layer] is what the screen shows of it: the shared plane always, a frame's while it is its board's current frame. */
+    private fun planeShown(layer: Layer, plane: String?): Boolean =
+        plane == null || layer.plan?.frames?.any { !it.blank && planeOf(layer, it.celId) == plane } == true
+
+    /** True when the frame under document ([docX], [docY]) of [layerId] is a blank one (nothing is painted on it as a plane of its own). */
+    fun mediaPlaneBlankAt(layerId: String, docX: Double, docY: Double): Boolean {
+        val layer = layers[layerId] ?: return false
+        val plan = layer.plan ?: return false
+        return plan.frames.any { it.blank && docX >= it.rect.x && docX < it.rect.x.toLong() + it.rect.w && docY >= it.rect.y && docY < it.rect.y.toLong() + it.rect.h }
+    }
 
     /** The overlays to draw, set by their owner each frame (GL thread). */
     var layerOverlays: List<LayerOverlay> = emptyList()
@@ -7483,7 +7514,7 @@ class GlPaintEngine(
     /** [layer]'s overlays, each one quad over its rectangle of the document (the caller has blending on and [tileVao] bound). */
     private fun drawLayerOverlays(layer: Layer, docToClip: FloatArray) {
         if (layerOverlays.isEmpty()) return
-        for (o in layerOverlays) if (o.layerId == layer.id && o.texture != 0) drawOverlay(o, docToClip, layer.opacity)
+        for (o in layerOverlays) if (o.layerId == layer.id && o.texture != 0 && planeShown(layer, o.plane)) drawOverlay(o, docToClip, layer.opacity)
     }
 
     /** One overlay through [docToClip] into whatever is bound: on screen, or into a layer tile ([printOverlay]). */
@@ -7520,7 +7551,14 @@ class GlPaintEngine(
         GLES30.glUniform1i(prog.loc("u_layer"), 0)
         GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, o.texture)
-        GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+        val pieces = o.pieces
+        if (pieces == null) {
+            GLES30.glUniform4f(prog.loc("u_piece"), o.x, o.y, o.w, o.h)
+            GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+        } else for (p in pieces) {
+            GLES30.glUniform4f(prog.loc("u_piece"), p[0], p[1], p[2], p[3])
+            GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+        }
     }
 
     // ---- the wet sheet's side of the layers and the history (gl/media/WetSheet.kt) ----
@@ -7554,7 +7592,8 @@ class GlPaintEngine(
      * that the document rectangle at ([docX], [docY]) of [docW] x [docH] px fills it: the ground the wet sheet's paint is
      * lit over. False when the layer is gone (the target is cleared).
      */
-    fun layerLookInto(layerId: String, targetFbo: Int, w: Int, h: Int, docX: Float, docY: Float, docW: Float, docH: Float): Boolean {
+    fun layerLookInto(layerId: String, targetFbo: Int, w: Int, h: Int, docX: Float, docY: Float, docW: Float, docH: Float,
+                      plane: String? = null): Boolean {
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, targetFbo)
         GLES30.glViewport(0, 0, w, h)
         GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
@@ -7572,7 +7611,9 @@ class GlPaintEngine(
             GLES30.glUniform1f(tileProg.loc("u_layerOpacity"), 1f)
             GLES30.glUniform1i(tileProg.loc("u_layer"), 0)
             GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
-            for ((key, tex) in visibleTiles(layer)) {
+            // A frame's plane: that frame's own pixels, whichever frame its board shows now (the sheet may hold a wash on a
+            // frame the painter has stepped away from). The shared plane: the layer as shown.
+            for ((key, tex) in (if (plane == null) visibleTiles(layer) else physicalDisplayTiles(layer, plane))) {
                 if (!tileOnScreen(key, m)) continue
                 GLES30.glUniform2f(tileProg.loc("u_tileOrigin"), (Tiles.tx(key) * size).toFloat(), (Tiles.ty(key) * size).toFloat())
                 GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, tex)
@@ -7597,11 +7638,13 @@ class GlPaintEngine(
         val layer = layers[o.layerId]?.takeIf { !it.isMask }
         val changes = ArrayList<UndoLog.TileChange<Int>>()
         if (layer != null && o.texture != 0) {
+            // The plane's own tiles: the layer's, or the frame cel's (the picture is drawn in the pieces that plane owns).
+            val store = planeTiles(layer, o.plane)
             try {
                 for (key in keys) {
-                    val before = layer.tiles[key]
+                    val before = store[key]
                     val after = newLayerTile()
-                    changes.add(UndoLog.TileChange(layer.id, key, before, after, null))
+                    changes.add(UndoLog.TileChange(layer.id, key, before, after, o.plane))
                     initializeTile(after, before, false)
                     GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, copyFbo); attach(after)
                     GLES30.glViewport(0, 0, size, size)
@@ -7633,11 +7676,12 @@ class GlPaintEngine(
         val layer = layers[o.layerId]?.takeIf { !it.isMask }
         if (layer == null || o.texture == 0 || keys.isEmpty() || !localHistory) return body()
         val stamped = LinkedHashMap<Long, Int>()
+        val store = planeTiles(layer, o.plane)
         try {
             for (key in keys) {
                 val after = newLayerTile()
                 stamped[key] = after
-                initializeTile(after, layer.tiles[key], false)
+                initializeTile(after, store[key], false)
                 GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, copyFbo); attach(after)
                 GLES30.glViewport(0, 0, size, size)
                 GLES30.glEnable(GLES30.GL_BLEND)
@@ -7657,12 +7701,12 @@ class GlPaintEngine(
         val had = HashMap<Long, Int?>()
         val aside = ArrayList<Triple<HashMap<Long, Int>, Long, Int>>()
         try {
-            for ((key, tex) in stamped) { had[key] = layer.tiles[key]; layer.tiles[key] = tex }
-            for (tiles in layer.floats.values) for (key in stamped.keys) tiles.remove(key)?.let { aside.add(Triple(tiles, key, it)) }
+            for ((key, tex) in stamped) { had[key] = store[key]; store[key] = tex }
+            for (tiles in floatsOf(layer, o.plane).values) for (key in stamped.keys) tiles.remove(key)?.let { aside.add(Triple(tiles, key, it)) }
             invalidateProjection(layer)
             return body()
         } finally {
-            for ((key, old) in had) if (old == null) layer.tiles.remove(key) else layer.tiles[key] = old
+            for ((key, old) in had) if (old == null) store.remove(key) else store[key] = old
             for ((tiles, key, tex) in aside) tiles[key] = tex
             invalidateProjection(layer)
             stamped.values.forEach(::recycleLayerTex)

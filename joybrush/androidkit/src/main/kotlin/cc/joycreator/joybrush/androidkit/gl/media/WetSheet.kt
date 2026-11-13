@@ -54,6 +54,12 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
     var layerId: String? = null
         private set
 
+    /** That layer's plane the wash is on: null the shared one, else the cel of an animation frame (the board's frame under the first touch). */
+    var plane: String? = null
+        private set
+    /** What that plane owns of the document, as the layer's frames stood at the last stroke's start; null = all of it. */
+    private var region: GlPaintEngine.PlaneRegion? = null
+
     /** Document px per cell, and the sheet's origin (document px). */
     var cell = 2.0
         private set
@@ -98,20 +104,21 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
      * that its cells would show as blocks, prints what it holds first (as it lies: [settle]) and is laid again.
      * Returns the sentence to show when the phone has no memory for the sheet.
      */
-    fun begin(layer: String, docX: Double, docY: Double, view: View, paper: MediaPaperGl, look: MediaLook,
+    fun begin(layer: String, plane: String?, docX: Double, docY: Double, view: View, paper: MediaPaperGl, look: MediaLook,
               availBytes: Long, thresholdBytes: Long): String? {
+        val same = layer == layerId && plane == this.plane
         val turned = abs(sin(view.rotation.toDouble())) > 0.7071
         val wantGrid = if (turned) WetSheetMath.grid(view.screenH, view.screenW, longCells) else WetSheetMath.grid(view.screenW, view.screenH, longCells)
         val wantCell = forcedCell?.toDouble() ?: WetSheetMath.cellFor(view.zoom, max(view.screenW, view.screenH), longCells)
-        if (holding && (layer != layerId || !covers(docX, docY) || (forcedCell == null && !coversView(view)) || WetSheetMath.tooCoarse(cell, wantCell))) {
+        if (holding && (!same || !covers(docX, docY) || (forcedCell == null && !coversView(view)) || WetSheetMath.tooCoarse(cell, wantCell))) {
             // The view moved: when everything the sheet holds still fits on a sheet laid for the new view, it comes along whole,
             // still wet (carry). When part of it would be left behind, the whole wash sets: cutting a wet wash in two, one
             // part kept wet and the other dried, left a line where water later flowed across the cut (Note 9 film rim1).
-            val carried = layer == layerId && grid == wantGrid && try { carry(view, wantCell, paper, look) } catch (x: RuntimeException) {
+            val carried = same && grid == wantGrid && try { carry(view, wantCell, paper, look) } catch (x: RuntimeException) {
                 android.util.Log.e(TAG, "the sheet could not be carried over to the new view", x); false
             }
             if (!carried || (holding && !covers(docX, docY))) {
-                android.util.Log.i(TAG, "the wash sets: the next stroke is ${if (layer != layerId) "on another layer" else "where the sheet cannot follow"}")
+                android.util.Log.i(TAG, "the wash sets: the next stroke is ${if (!same) "on another layer or frame" else "where the sheet cannot follow"}")
                 settle(paper, look)
             }
         }
@@ -146,6 +153,8 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
             android.util.Log.i(TAG, "sheet laid: cells of $cell px at ($originX, $originY), zoom ${view.zoom}, world x${e.worldScale}")
         }
         layerId = layer
+        this.plane = plane
+        region = paint.planeRegion(layer, plane)
         holding = true
         history.strokeBegan(before)
         return null
@@ -314,7 +323,7 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
             groundStale = false
             val id = layerId
             if (id != null) {
-                paint.layerLookInto(id, fboOn(e.groundTexture(), ground = true), grid.w, grid.h, originX, originY, docW, docH)
+                paint.layerLookInto(id, fboOn(e.groundTexture(), ground = true), grid.w, grid.h, originX, originY, docW, docH, plane)
                 lookStale = union(lookStale, content)
             }
         }
@@ -343,7 +352,15 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
         val id = layerId ?: return null
         if (!holding || e.asleep) return null
         return GlPaintEngine.LayerOverlay(id, e.lookTexture(), originX, originY, docW, docH,
-            grain = (grainPrint * gran).toFloat(), cell = cell.toFloat())
+            grain = (grainPrint * gran).toFloat(), cell = cell.toFloat(), plane = plane, pieces = pieces()?.map { p ->
+                floatArrayOf(p[0].toFloat(), p[1].toFloat(), p[2].toFloat(), p[3].toFloat()) })
+    }
+
+    /** The parts of the sheet's rectangle its plane owns (document px), or null when that is all of it ([region]). */
+    private fun pieces(): List<DoubleArray>? {
+        val r = region ?: return null
+        val rect = doubleArrayOf(originX.toDouble(), originY.toDouble(), docW.toDouble(), docH.toDouble())
+        return if (r.inside) WetSheetMath.piecesInside(rect, r.rects) else WetSheetMath.piecesOutside(rect, r.rects)
     }
 
     // ---- printing ----
@@ -482,10 +499,12 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
         GLES30.glReadPixels(x0, y0, w, h, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, px)
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
         val t = Tiles.SIZE
+        val own = pieces()
         val out = ArrayList<Long>()
         val tx0 = floor((originX + (x0 - 2) * cell) / t).toInt(); val tx1 = floor((originX + (x1 + 2) * cell) / t).toInt()
         val ty0 = floor((originY + (y0 - 2) * cell) / t).toInt(); val ty1 = floor((originY + (y1 + 2) * cell) / t).toInt()
         for (ty in ty0..ty1) for (tx in tx0..tx1) {
+            if (own != null && !WetSheetMath.tileTouches(tx, ty, t, own)) continue   // the plane owns nothing of this tile
             val cx0 = max(x0, floor((tx * t - originX) / cell).toInt() - 2); val cx1 = min(x1, ceil(((tx + 1) * t - originX) / cell).toInt() + 2)
             val cy0 = max(y0, floor((ty * t - originY) / cell).toInt() - 2); val cy1 = min(y1, ceil(((ty + 1) * t - originY) / cell).toInt() + 2)
             var hit = false
@@ -515,7 +534,7 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
     }
 
     /** A copy of the sheet's state: its paint (and water, while wet) over [rect] (cells), as half floats, with where it lay. */
-    private class Snap(val layer: String, val originX: Float, val originY: Float, val cell: Double, val grid: WetSheetMath.Grid,
+    private class Snap(val layer: String, val plane: String?, val originX: Float, val originY: Float, val cell: Double, val grid: WetSheetMath.Grid,
                        val rect: IntArray, val tex: Map<String, Int>, val wetRect: FloatArray?, val bytes: Long) { var refs = 0 }
 
     private class Rec(var before: Was, var after: Was? = null)
@@ -649,7 +668,7 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
             MediaTex.deleteTex(*tex.values.toIntArray())
             throw x
         }
-        return Snap(id, originX, originY, cell, grid, intArrayOf(r[0], r[1], r[0] + w, r[1] + h), tex, e.wetRect?.copyOf(),
+        return Snap(id, plane, originX, originY, cell, grid, intArrayOf(r[0], r[1], r[0] + w, r[1] + h), tex, e.wetRect?.copyOf(),
             w.toLong() * h * 8 * tex.size)
     }
 
@@ -670,7 +689,8 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
         val e = engine!!
         if (e.asleep) e.wake()
         e.stopWater()
-        layerId = s.layer; cell = s.cell; originX = s.originX; originY = s.originY
+        layerId = s.layer; plane = s.plane; region = paint.planeRegion(s.layer, s.plane)
+        cell = s.cell; originX = s.originX; originY = s.originY
         e.moveTo(originX, originY, (1.0 / cell).toFloat())
         e.worldScale = WetSheetMath.worldScale(cell)
         val w = s.rect[2] - s.rect[0]; val h = s.rect[3] - s.rect[1]

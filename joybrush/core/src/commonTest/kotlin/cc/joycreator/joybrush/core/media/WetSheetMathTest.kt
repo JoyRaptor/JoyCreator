@@ -128,4 +128,40 @@ class WetSheetMathTest {
         assertTrue(WetSheetMath.isPrintMark(WetSheetMath.printMark(7)))
         assertTrue(WetSheetMath.strokeMark(8) > WetSheetMath.printMark(7), "later marks are larger")
     }
+
+    private fun area(rs: List<DoubleArray>) = rs.sumOf { it[2] * it[3] }
+    private fun disjoint(rs: List<DoubleArray>): Boolean {
+        for (i in rs.indices) for (j in 0 until i) {
+            val a = rs[i]; val b = rs[j]
+            if (a[0] < b[0] + b[2] && a[0] + a[2] > b[0] && a[1] < b[1] + b[3] && a[1] + a[3] > b[1]) return false
+        }
+        return true
+    }
+
+    @Test fun aFramesPlaneOwnsItsBoardsPartOfTheSheet() {
+        val sheet = doubleArrayOf(100.0, 100.0, 1000.0, 2000.0)
+        val board = doubleArrayOf(600.0, 50.0, 800.0, 500.0)          // sticks out above and to the right of the sheet
+        val inside = WetSheetMath.piecesInside(sheet, listOf(board, doubleArrayOf(5000.0, 5000.0, 10.0, 10.0)))
+        assertEquals(1, inside.size, "the far board owns nothing of this sheet")
+        assertEquals(listOf(600.0, 100.0, 500.0, 450.0), inside[0].toList())
+    }
+
+    @Test fun theSharedPlaneOwnsTheSheetRoundTheBoards() {
+        val sheet = doubleArrayOf(0.0, 0.0, 1000.0, 2000.0)
+        val holes = listOf(doubleArrayOf(200.0, 300.0, 400.0, 400.0), doubleArrayOf(500.0, 1500.0, 900.0, 900.0), doubleArrayOf(-50.0, -50.0, 60.0, 60.0))
+        val out = WetSheetMath.piecesOutside(sheet, holes)
+        assertTrue(disjoint(out), "the pieces do not overlap (paint would be drawn twice where they did)")
+        // The holes' parts inside the sheet: 400 x 400, 500 x 500 and 10 x 10.
+        assertEquals(1000.0 * 2000.0 - 160000.0 - 250000.0 - 100.0, area(out), 1e-6)
+        for (p in out) for (h in holes) assertFalse(p[0] < h[0] + h[2] && p[0] + p[2] > h[0] && p[1] < h[1] + h[3] && p[1] + p[3] > h[1], "no piece reaches into a board")
+        assertEquals(listOf(sheet.toList()), WetSheetMath.piecesOutside(sheet, emptyList()).map { it.toList() })
+        assertTrue(WetSheetMath.piecesOutside(sheet, listOf(doubleArrayOf(-1.0, -1.0, 2000.0, 3000.0))).isEmpty(), "a board over the whole sheet leaves nothing")
+    }
+
+    @Test fun onlyTilesThePlaneTouchesArePrinted() {
+        val pieces = listOf(doubleArrayOf(300.0, 300.0, 100.0, 100.0))
+        assertTrue(WetSheetMath.tileTouches(1, 1, 256, pieces))
+        assertFalse(WetSheetMath.tileTouches(0, 0, 256, pieces))
+        assertFalse(WetSheetMath.tileTouches(2, 1, 256, pieces), "512 is past the piece's right edge at 400")
+    }
 }

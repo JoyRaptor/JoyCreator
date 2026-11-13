@@ -1,6 +1,6 @@
 # UI-1: App UI leftovers from the two retired UI sessions
 
-**Milestone:** M1 (feeds M2 and M3)  ·  **State:** ⬜  ·  **Owner:** open (Opus for whole-screen redesigns, Sonnet for restyles with these records)  ·  **Checked:** 2026-10-27 against the 10-17 and 10-20 handoffs
+**Milestone:** M1 (feeds M2 and M3)  ·  **State:** 🔨 in progress since 11-10 (see the 11-13 session note below)  ·  **Owner:** open (Opus for whole-screen redesigns, Sonnet for restyles with these records)  ·  **Checked:** 2026-11-13 (header only; body checked 10-27 against the 10-17 and 10-20 handoffs, with the 11-10 and 11-13 sessions' notes added)
 
 ## Why it matters
 The screens a user passes through between the lobby and the wings still look and feel like FadCam in

@@ -31,7 +31,7 @@ the app. Puppet code has barely changed since 9-17, so this card is still accura
 - [ ] Sprite read-back, the "three missing doors": saved animations as chips, cell names on chips and the tape,
       a sheet library across projects ([SPEC_20260910_SEMANTIC_CELLS](../SPEC_20260910_SEMANTIC_CELLS.md) §5). The old roadmap put this after launch; ask the owner.
 - [ ] Sprite warp net looks detached from the sprite (owner report 10-15; see [STU-4](STU-4_studio_sweep_leftovers.md)).
-- [ ] SpriteLab web tool (`tools/spritelab/SpriteLab.html`) vs the phone editor: list what the web tool does that the phone
+- [x] (list written 11-13: [SPRITELAB_PARITY_20261113.md](../SPRITELAB_PARITY_20261113.md); the gaps are still to build) SpriteLab web tool (`tools/spritelab/SpriteLab.html`) vs the phone editor: list what the web tool does that the phone
       cannot (phone-first rule) and the per-cell transforms the sprite format must hold.
 - [ ] Avatar Studio: an owner decision for launch.
 

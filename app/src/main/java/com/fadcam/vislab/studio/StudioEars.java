@@ -14,10 +14,7 @@ import com.fadcam.ui.faditor.model.Timeline;
 import com.fadcam.vislab.audio.Features;
 
 import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * What a Studio effect hears (roadmap R14): the music at a moment of the timeline, read by the
@@ -26,12 +23,13 @@ import java.util.Map;
  * own sound.
  *
  * <p>One clock per {@code owner} and source, because a clock steps forward through its source and
- * the preview and an export walk the timeline separately, on different threads.</p>
+ * the preview and each part of an export walk the timeline separately, on different threads. The
+ * effects inside one walk share theirs ({@link EarShelf}).</p>
  */
 public final class StudioEars {
 
     private static final int MAX_CLOCKS = 8;
-    private static final Map<String, SoundClock> clocks = new LinkedHashMap<>(8, 0.75f, true);
+    private static final EarShelf<SoundClock> shelf = new EarShelf<>(MAX_CLOCKS);
 
     private StudioEars() {}
 
@@ -39,7 +37,7 @@ public final class StudioEars {
      * The music at {@code editorMs}, or null when nothing sounds there (an image clip, a gap).
      * Silence until Studio's sound copy of the source exists ({@link StudioVisExport#warm}).
      *
-     * @param owner who walks the timeline: "preview", or one id per export effect
+     * @param owner who walks the timeline: "preview", or one id per export part
      */
     @Nullable
     public static synchronized FxMusic.Ears at(@NonNull Context c, @NonNull Timeline t,
@@ -70,24 +68,13 @@ public final class StudioEars {
         }
         if (uri == null || sourceMs < 0) return null;
         String key = owner + '|' + uri;
-        SoundClock k = clocks.get(key);
-        if (k == null) {
-            k = new SoundClock(c, uri);
-            clocks.put(key, k);
+        final Uri source = uri;
+        final double sourceSec = sourceMs / 1000.0;
+        float[] heard = shelf.heard(key, sourceMs, () -> {
             com.fadcam.FLog.d("StudioEars", "listening for " + owner + " at " + editorMs + " ms");
-            Iterator<Map.Entry<String, SoundClock>> it = clocks.entrySet().iterator();
-            while (clocks.size() > MAX_CLOCKS && it.hasNext()) {
-                it.next();
-                it.remove();
-            }
-        }
-        Features f = k.at(sourceMs / 1000.0);
-        // Read now: the clock reuses its Features object for the next moment.
-        final float level = f.level, bass = f.bass, kick = f.kick, snare = f.snare, hat = f.hat, beat = f.beat;
-        if (k.firstSound(level)) {
-            com.fadcam.FLog.d("StudioEars", "first sound for " + owner + " at " + editorMs + " ms (level "
-                    + level + ", kick " + kick + ")");
-        }
+            return new SoundClock(c, source);
+        }, k -> listen(k, sourceSec, owner, editorMs));
+        final float level = heard[0], bass = heard[1], kick = heard[2], snare = heard[3], hat = heard[4], beat = heard[5];
         return signal -> {
             switch (signal) {
                 case "level": return level;
@@ -99,6 +86,20 @@ public final class StudioEars {
                 default: return 0f;
             }
         };
+    }
+
+    /** The six signals at this moment, in {@link #at}'s order. Remembered once the sound is read. */
+    @NonNull
+    private static EarShelf.Heard listen(@NonNull SoundClock k, double sourceSec, @NonNull String owner,
+                                         long editorMs) {
+        Features f = k.at(sourceSec);
+        // Read now: the clock reuses its Features object for the next moment.
+        float[] heard = {f.level, f.bass, f.kick, f.snare, f.hat, f.beat};
+        if (k.firstSound(f.level)) {
+            com.fadcam.FLog.d("StudioEars", "first sound for " + owner + " at " + editorMs + " ms (level "
+                    + f.level + ", kick " + f.kick + ")");
+        }
+        return new EarShelf.Heard(heard, k.listening());
     }
 
     /** The sources music-linked effects can hear (for the export's warm-up), or empty. */

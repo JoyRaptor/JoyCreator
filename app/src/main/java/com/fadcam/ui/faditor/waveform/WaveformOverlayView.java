@@ -245,6 +245,9 @@ public class WaveformOverlayView extends View {
             String visId = o.visLookAt(playheadMs);   // its look keys can change the look
             String visJson = visId != null ? visLookJson(visId) : null;
             Bitmap vis = null;
+            // A look VisLab cannot draw at all gets the classic style, as in the export.
+            if (visJson != null && StudioVis.get(getContext())
+                    .cannotDraw(StudioVis.previewKey(o.getId()), visJson)) visJson = null;
             if (visJson != null) {
                 float s = Math.min(1f, VIS_PREVIEW_MAX / Math.max(rw, rh));
                 String ref = o.getAudioSourceRef();

@@ -19,8 +19,7 @@ import com.fadcam.vislab.model.VisScene;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 
 /**
  * VisLab looks inside Studio (VISLAB_SPEC section 7, handoff tasks/VISLAB_HANDOFF_20261018_STUDIO.md):
@@ -29,7 +28,8 @@ import java.util.concurrent.TimeUnit;
  *
  * <ul>
  *   <li>{@link #renderBlocking}: export. Waits for the picture; returns a NEW Bitmap the caller
- *       draws and recycles (Studio's export loop does exactly that with its own visualisers).</li>
+ *       draws and recycles (Studio's export loop does exactly that with its own visualisers), and
+ *       throws {@link LookFailed} rather than let a slow frame become some other picture.</li>
  *   <li>{@link #previewFrame}: preview. Never waits: returns the newest finished picture for
  *       that item (or null), asks for the requested moment, and calls {@code onReady} on the main
  *       thread when it is there (invalidate the view).</li>
@@ -48,6 +48,12 @@ public final class StudioVis {
     private static final String TAG = "VisStudio";
     /** An item not drawn for this long lets go of its renderer and sound (GL thread). */
     private static final long IDLE_MS = 20_000;
+    /**
+     * How long an export waits for one frame. Long on purpose: the first frame of a look compiles
+     * shaders and can open a video on this same thread, and a slow frame must never be taken for
+     * a failed one. Only a thread that has truly stuck gets here.
+     */
+    private static final long EXPORT_WAIT_MS = 60_000;
     @Nullable private static StudioVis instance;
 
     private final Context app;
@@ -59,10 +65,26 @@ public final class StudioVis {
     /** The last moment the preview asked for, per item (guarded by {@link #pending}). */
     private final Map<String, Request> asked = new HashMap<>();
     private boolean sweeping;   // GL thread
+    /** The last {@link #draw} threw on a look that had been drawing (GL thread). */
+    private boolean brokeDrawing;
+    /** Per key, the look VisLab could not draw at all (never drew; no ES 3). Guarded by itself. */
+    private final Map<String, String> cannotDraw = new HashMap<>();
+    private static final int COST_FRAMES = 120;
+    private int costFrames;    // GL thread, with the two below
+    private long costRenderNs, costAllocNs;
+
+    /** A look that was drawing could not give this frame: the export must stop, not carry on. */
+    public static final class LookFailed extends RuntimeException {
+        LookFailed(@NonNull String what) {
+            super(what);
+        }
+    }
 
     private static final class Item {
         final VisRenderer renderer;
         String lookJson;
+        /** The look this item last drew, so a frame that throws tells broken from breaking. */
+        @Nullable String drewLook;
         @Nullable Uri uri;
         @Nullable SoundClock sound;
         double lastTime = Double.NaN;
@@ -122,6 +144,23 @@ public final class StudioVis {
         return instance;
     }
 
+    /**
+     * True once VisLab has found it cannot draw this look for {@code key} at all (unreadable, or no
+     * ES 3). The preview then shows the classic style, as the export does, rather than nothing.
+     */
+    public boolean cannotDraw(@NonNull String key, @NonNull String lookJson) {
+        synchronized (cannotDraw) {
+            return lookJson.equals(cannotDraw.get(key));
+        }
+    }
+
+    private void markCannotDraw(@NonNull String key, @NonNull String lookJson, boolean cannot) {
+        synchronized (cannotDraw) {
+            if (cannot) cannotDraw.put(key, lookJson);
+            else cannotDraw.remove(key);
+        }
+    }
+
     /** The key for an item's picture in the editor's preview. */
     @NonNull
     public static String previewKey(@NonNull String itemId) {
@@ -136,31 +175,32 @@ public final class StudioVis {
 
     /**
      * Export: the look for item {@code key} at this moment, {@code w} x {@code h}, with the item's
-     * VisLab values {@code ctl} (React, Bright, Colour, Size, Speed) and its clip's words. Blocks (up to 2 s). Returns a new
-     * Bitmap, or null when VisLab cannot draw here (no ES 3, a broken look). Never call on the
-     * main thread while the main thread waits for you.
+     * VisLab values {@code ctl} (React, Bright, Colour, Size, Speed) and its clip's words. Blocks
+     * until the picture is in, however slow. Returns a new Bitmap, or null when VisLab cannot draw
+     * this look at all (no ES 3, a look that never drew). Never call on the main thread while the
+     * main thread waits for you.
+     *
+     * @param cancelled polled while waiting: a cancelled export stops waiting at once
+     * @throws LookFailed the frame stuck, the look broke part way, or the export was cancelled:
+     *                    there is no right picture for this frame
      */
     @Nullable
     public Bitmap renderBlocking(@NonNull String key, @NonNull String lookJson, @Nullable Uri uri,
                                  long sourceMs, long timelineMs, int w, int h, @NonNull VisControls ctl,
-                                 @Nullable StudioWords words) {
+                                 @Nullable StudioWords words, @Nullable BooleanSupplier cancelled) {
         if (w <= 0 || h <= 0) return null;
-        final Bitmap[] out = new Bitmap[1];
-        CountDownLatch done = new CountDownLatch(1);
+        LookTicket<Bitmap> ticket = new LookTicket<>(Bitmap::recycle);
         Request r = new Request(lookJson, uri, sourceMs, timelineMs, w, h, ctl, words);
         gl.handler().post(() -> {
-            try {
-                out[0] = draw(key, r);
-            } finally {
-                done.countDown();
-            }
+            if (!ticket.begin()) return;   // the export gave up on this frame
+            Bitmap b = draw(key, r);
+            ticket.finish(b, brokeDrawing);
         });
-        try {
-            if (!done.await(2, TimeUnit.SECONDS)) Log.w(TAG, "render timed out for " + key);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+        LookTicket.Outcome o = ticket.await(EXPORT_WAIT_MS, cancelled);
+        if (o != LookTicket.Outcome.READY) {
+            throw new LookFailed("VisLab look " + o + " for " + key + " at " + timelineMs + " ms");
         }
-        return out[0];
+        return ticket.take();
     }
 
     /**
@@ -201,7 +241,11 @@ public final class StudioVis {
                 }
                 if (r == null) return;
                 Bitmap b = draw(key, r);
-                if (b == null) return;
+                if (b == null) {
+                    // Say so: the view asks again and draws the classic style, not a blank.
+                    if (cannotDraw(key, r.lookJson) && onReady != null) main.post(onReady);
+                    return;
+                }
                 Bitmap old;
                 synchronized (latest) {
                     old = latest.put(key, b);
@@ -251,6 +295,21 @@ public final class StudioVis {
         return w == null ? 0 : w.key;
     }
 
+    // GL thread: every COST_FRAMES frames, where the time went (the GPU-handoff job needs this).
+    private void noteCost(@NonNull String key, @NonNull Request r, long renderNs, long allocNs) {
+        costRenderNs += renderNs;
+        costAllocNs += allocNs;
+        if (++costFrames < COST_FRAMES) return;
+        double f = 1e6 * costFrames;
+        com.fadcam.FLog.d(TAG, String.format(java.util.Locale.ROOT,
+                "cost %s %dx%d over %d frames, ms each: submit %.2f, gpu wait %.2f, read %.2f, "
+                        + "flip %.2f, alloc %.2f, into bitmap %.2f", key, r.w, r.h, costFrames,
+                costRenderNs / f, gl.finishNs / f, gl.readNs / f, gl.flipNs / f, costAllocNs / f, gl.copyNs / f));
+        costFrames = 0;
+        costRenderNs = costAllocNs = 0;
+        gl.finishNs = gl.readNs = gl.flipNs = gl.copyNs = 0;
+    }
+
     // GL thread: let go of items nobody has drawn for a while.
     private void sweepLater() {
         if (sweeping) return;
@@ -273,9 +332,13 @@ public final class StudioVis {
 
     @Nullable
     private Bitmap draw(@NonNull String key, @NonNull Request r) {
-        if (!gl.ready()) return null;
+        brokeDrawing = false;
+        if (!gl.ready()) {
+            markCannotDraw(key, r.lookJson, true);
+            return null;
+        }
+        Item it = items.get(key);
         try {
-            Item it = items.get(key);
             if (it == null) {
                 VisRenderer vr = VisLab.get(app).newRenderer();
                 vr.init();
@@ -303,6 +366,7 @@ public final class StudioVis {
             if (it.sound == null || (r.uri != null && !r.uri.equals(it.uri))) {
                 it.uri = r.uri;
                 it.sound = r.uri != null ? new SoundClock(app, r.uri) : null;
+                it.renderer.setHitCounter(it.sound);
             }
             Features f = it.sound != null ? it.sound.at(r.sourceMs / 1000.0) : new Features();
             double t = r.timelineMs / 1000.0;
@@ -328,12 +392,20 @@ public final class StudioVis {
                 }
             }
             it.renderer.setWordsTime(r.sourceMs / 1000.0);
+            long t0 = System.nanoTime();
             it.renderer.render(f, t, dt, fbo, r.w, r.h);
+            long t1 = System.nanoTime();
             Bitmap out = Bitmap.createBitmap(r.w, r.h, Bitmap.Config.ARGB_8888);
+            long t2 = System.nanoTime();
             gl.readInto(out);
+            it.drewLook = r.lookJson;
+            markCannotDraw(key, r.lookJson, false);
+            noteCost(key, r, t1 - t0, t2 - t1);
             return out;
-        } catch (RuntimeException e) {
+        } catch (RuntimeException | OutOfMemoryError e) {
             Log.w(TAG, "VisLab look failed to draw for " + key, e);
+            brokeDrawing = it != null && r.lookJson.equals(it.drewLook);
+            if (!brokeDrawing) markCannotDraw(key, r.lookJson, true);   // never drew: classic, as export
             return null;
         }
     }

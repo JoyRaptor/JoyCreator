@@ -9,7 +9,9 @@ import androidx.annotation.Nullable;
 import com.fadcam.ui.faditor.waveform.PcmSidecar;
 import com.fadcam.vislab.audio.FeatureExtractor;
 import com.fadcam.vislab.audio.Features;
+import com.fadcam.vislab.audio.HitCounts;
 import com.fadcam.vislab.audio.SpectrumAnalyzer;
+import com.fadcam.vislab.gl.VisRenderer;
 
 /**
  * What a VisLab look hears at a moment of a Studio clip: VisLab's own analysis (the one the room
@@ -19,9 +21,10 @@ import com.fadcam.vislab.audio.SpectrumAnalyzer;
  * replays up to it, which fills the 64-row history and settles the beat tracking. So a frame
  * looks the same in preview and in export.
  *
- * <p>Not thread-safe: one clock per item, used on the {@link OffscreenGl} thread only.</p>
+ * <p>Not thread-safe: one clock per item on the {@link OffscreenGl} thread, or under
+ * {@link StudioEars}' lock.</p>
  */
-final class SoundClock {
+final class SoundClock implements VisRenderer.HitCounter {
 
     private static final int FFT = 2048;
     private static final double STEP = 1.0 / 60.0;
@@ -38,6 +41,7 @@ final class SoundClock {
     private double at = Double.NaN;   // source seconds of the last analysed step
     private final Features last = new Features();
     private boolean heard;   // a sound has been reported once (StudioEars' log)
+    private double now;      // the moment last asked for
 
     SoundClock(@NonNull Context context, @NonNull Uri uri) {
         this.app = context.getApplicationContext();
@@ -47,6 +51,7 @@ final class SoundClock {
     /** The features at source time {@code sourceSec}. Silence until Studio's PCM copy exists. */
     @NonNull
     Features at(double sourceSec) {
+        now = sourceSec;
         PcmSidecar.Handle h = handle();
         if (h == null) return last;
         if (extractor == null || Double.isNaN(at) || sourceSec < at || sourceSec - at > AHEAD) {
@@ -61,6 +66,28 @@ final class SoundClock {
         // The extractor reuses one Features object: copy once, after the last step.
         if (f != null) f.copyTo(last);
         return last;
+    }
+
+    /** The source's sound can be read (until then {@link #at} is silence). */
+    boolean listening() {
+        return handle() != null;
+    }
+
+    @Override
+    public long beats() {
+        HitCounts h = counts();
+        return h != null ? h.beatsAt(now) : -1;
+    }
+
+    @Override
+    public long kicks() {
+        HitCounts h = counts();
+        return h != null ? h.kicksAt(now) : -1;
+    }
+
+    @Nullable
+    private HitCounts counts() {
+        return handle() != null ? SoundHits.of(app, uri) : null;
     }
 
     /** True the first time this clock hears anything ({@code level} above silence), once. */

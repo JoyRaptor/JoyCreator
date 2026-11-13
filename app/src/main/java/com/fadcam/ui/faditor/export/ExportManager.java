@@ -3662,6 +3662,7 @@ public class ExportManager {
      * Cancel the current export.
      */
     public void cancel() {
+        visCancels++;   // first: Transformer.cancel() waits for a frame stuck waiting on a look
         AudioOnlyRangeRun rangeRun = audioOnlyRangeRun;
         if (rangeRun != null) {
             rangeRun.cancelled = true;
@@ -3750,6 +3751,17 @@ public class ExportManager {
      */
     private int stallKey = Integer.MIN_VALUE;
     private long stallSinceMs = 0L;
+    /** Counts {@link #cancel} calls: an export's overlays watch it from where it stood at build. */
+    private volatile int visCancels;
+
+    /**
+     * Who walks the timeline for music-linked effects (R14): this manager, which runs one export
+     * or one chunked part. All its effects hear one moment, so they share one clock (StudioEars).
+     */
+    @NonNull
+    private String earsOwner() {
+        return "export:" + System.identityHashCode(this);
+    }
     private long lastStackDumpMs = 0L;
     private static final long STALL_STACKS_AFTER_MS = 90_000L;
     private static final long STALL_STACKS_REPEAT_MS = 300_000L;
@@ -5919,6 +5931,8 @@ public class ExportManager {
                             + woi.getId() + "; the classic style draws there");
                 }
                 slot.visLooks = looks;
+                final int cancelsAtBuild = visCancels;
+                slot.visCancelled = () -> visCancels != cancelsAtBuild;
                 slot.visUri = wfUri;
                 // A lyrics look shows the source clip's transcript (S5), as the preview does.
                 com.fadcam.ui.faditor.transcript.Transcript tr = srcClip != null ? srcClip.getTranscript()
@@ -6975,7 +6989,7 @@ public class ExportManager {
         // it is un-filtered today.
         if (!isTransitionItem && clip.getFx() != null && !clip.getFx().active().isEmpty()) {
             // R14: the clip's own effects can follow the music too, heard as a layer hears it.
-            final String spineEarsOwner = "export:spine:" + clip.getId() + ":" + System.identityHashCode(clip);
+            final String spineEarsOwner = earsOwner();
             final com.fadcam.ui.faditor.model.Timeline spineEarsTimeline = project.getTimeline();
             videoEffects.add(new AdjustmentLayerGlEffect(
                     context, spineFxLayer(clip),
@@ -7685,7 +7699,7 @@ public class ExportManager {
                     if (al == null || !al.rendersAnything()) continue;
                     int at = pipEffectStart + Math.min(pipsSeen, pipEffectCount) + inserted;
                     // R14: a layer with music-linked knobs hears the timeline (its own clock).
-                    final String earsOwner = "export:" + al.getId() + ":" + System.identityHashCode(clip);
+                    final String earsOwner = earsOwner();
                     final com.fadcam.ui.faditor.model.Timeline earsTimeline = project.getTimeline();
                     videoEffects.add(at,
                             new AdjustmentLayerGlEffect(context, al, adjustmentOffset,

@@ -1330,6 +1330,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
             // project is needed (without this JoyBrush showed the lobby's "Start a project").
             com.fadcam.ui.faditor.ai.joybot.ProjectFacts f = new com.fadcam.ui.faditor.ai.joybot.ProjectFacts();
             f.online = AiService.ready(this, apiKey);
+            if (room == IdeaEngine.Room.JOYBRUSH) f.drawing = readDrawing();
             currentOffer = IdeaEngine.offer(f, room, java.util.Collections.<String>emptySet(),
                     java.util.Collections.<String>emptySet());
             if (!busy && slideFlow == null) showChips(currentOffer.ideas);
@@ -1776,7 +1777,8 @@ public class ChatAssistantActivity extends AppCompatActivity {
     private void renderFinishedExtras(@NonNull JoybotAgent.Finished f) {
         String words = f.usageWords();
         if (!words.isEmpty() && (f.director || f.steps > 1)) addUsageLine(words);
-        if (f.projectId != null && f.changes.size() >= 2) addReviewCard(f.projectId, f.changes);
+        // A Studio project's run, or a VisLab / JoyBrush / TextLab one (BOT-A18: no project, one Undo).
+        if (f.changes.size() >= 2) addReviewCard(f.projectId, f.changes);
         if (f.budgetHit) addKeepGoingCard(f);
         if (f.plan != null) addPlanCard(f.plan);
         if (f.ok && !f.calls.isEmpty()) addSaveRecipeCard(f);
@@ -1871,7 +1873,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
     /** This screen already shows the last Director run's Review card. */
     private boolean reviewCardShown;
 
-    private void addReviewCard(@NonNull String pid, @NonNull List<JoybotAgent.Change> changes) {
+    private void addReviewCard(@Nullable String pid, @NonNull List<JoybotAgent.Change> changes) {
         reviewCardShown = true;
         JoybotChatViews.Card card = JoybotChatViews.resultCard(this,
                 "Review — " + changes.size() + " changes", null);
@@ -1901,13 +1903,22 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 row.addView(JoybotChatViews.cardButton(this, "Show me", "Go to this clip in the editor",
                         v -> showMe(clip)));
             }
-            if (ch.canRevert()) {
+            if (pid != null && ch.canRevert()) {
                 row.addView(JoybotChatViews.cardButton(this, "Undo from here",
                         "Put the project back the way it was before this change",
                         v -> confirmUndoFrom(pid, list, index, rows)));
             }
             card.root.addView(row);
             rows.add(row);
+        }
+        if (pid == null) {
+            // No project, so no per-change snapshots: say how they all come back (BOT-A18).
+            TextView how = new TextView(this);
+            how.setText("One Undo in " + roomWords() + " takes all of these back.");
+            how.setTextSize(12);
+            how.setTextColor(Studio.INK_DIM);
+            how.setPadding(0, dp(8), 0, 0);
+            card.root.addView(how);
         }
         // Rows already put back (before this screen was closed) stay grey, with no buttons.
         for (int k = Math.max(0, JoybotAgent.reviewRevertedFrom(pid)); k < rows.size(); k++) {
@@ -1919,6 +1930,17 @@ public class ChatAssistantActivity extends AppCompatActivity {
         messageViews.add(card.root);
         addTickerTick(false);
         scrollToBottom();
+    }
+
+    /** The room's name as the person sees it, for "One Undo in VisLab…". */
+    @NonNull
+    private String roomWords() {
+        switch (room) {
+            case VISLAB: return "VisLab";
+            case JOYBRUSH: return "JoyBrush";
+            case TEXTLAB: return "TextLab";
+            default: return "the Studio";
+        }
     }
 
     private void confirmUndoFrom(@NonNull String pid, @NonNull List<JoybotAgent.Change> changes, int index,
@@ -1966,10 +1988,27 @@ public class ChatAssistantActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * The drawing open in JoyBrush, for its idea buttons (BOT-A9): the same read Joybot's model gets
+     * (JoybotHands.describe, on this UI thread). Null when JoyBrush isn't open or can't answer: the
+     * general buttons show then.
+     */
+    @Nullable
+    private com.fadcam.ui.faditor.ai.joybot.DrawingFacts readDrawing() {
+        if (!cc.joycreator.joybrush.android.JoybotHands.isOpen()) return null;
+        try {
+            return com.fadcam.ui.faditor.ai.joybot.DrawingFacts.parse(cc.joycreator.joybrush.android.JoybotHands.describe());
+        } catch (Throwable t) {
+            com.fadcam.FLog.w(TAG, "could not read the drawing for ideas: " + t.getMessage());
+            return null;
+        }
+    }
+
     /** A job the phone stopped in the middle (the app was killed): offer to pick it up, or let it go. */
     private void offerCarryOn() {
         JobFile.Interrupted j = JoybotAgent.interrupted(this);
-        if (j == null || projectId == null || !projectId.equals(j.projectId)) return;
+        // Offered where the job ran: its project, or its VisLab / JoyBrush / TextLab room (BOT-A16).
+        if (j == null || !j.key.equals(JoybotAgent.conversationKey(projectId, room))) return;
         String steps = j.round + (j.round == 1 ? " step" : " steps");
         JoybotChatViews.Card card = JoybotChatViews.resultCard(this,
                 "The phone stopped me in the middle of “" + JoybotAgent.shortOf(j.text) + "” (after " + steps + ").",
@@ -1995,7 +2034,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         // saved conversation, which carries its own system prompt; and it forgets the file.
         JoybotAgent.restore(this, j);
         sendFollowUp("Carry on.",
-                "Carry on with the job from where you stopped. Check the project first — some of it is already done.",
+                "Carry on with the job from where you stopped. " + com.fadcam.ui.faditor.ai.joybot.JobKey.checkFirst(j.room),
                 j.undoLabel, true, JoybotAgent.DIRECTOR_STEPS);
     }
 

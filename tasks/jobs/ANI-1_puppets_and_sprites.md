@@ -41,3 +41,8 @@ the app. Puppet code has barely changed since 9-17, so this card is still accura
 
 ## Files and traps
 - `app/.../ui/faditor/puppet/**`, `ui/faditor/sprite/**`. Use a throwaway project, never his real ones.
+
+## Phone results, 2026-11-13 (anim-labs lane, Note 9, build of 374fe099f, throwaway project "Animation test")
+- ✅ **AN-09 bend (partly):** selected a sprite, Bend on, dragged the centre point and the top-left corner point with a finger: the sprite bent in the preview each time, one undo step per drag, two undo taps put it back flat. Screens: `tasks/screens/anim-labs-20261113/`. **Not checked:** preview equals an exported frame; the yellow corner-pin squares; a drag started within ~20 px of the screen edge opens the phone's camera (Samsung edge gesture, not the app).
+- ✅ **VisLab lobby hero sheet (c32a62808):** leaving the room after ~9 s wrote `hero-<t>.jpg` and `hero-<t>.5x4.sprite.webp` (135 KB, 1280x576, 20 distinct moving frames), old pair gone. Lobby playback not seen: the lobby side (`LobbyHeroMotion`) had not landed.
+- ❌ Not yet run (no rigged picture project found; needs one made): AN-06 pins, key, live take, tape drags, bone tap; AN-07 tail swing; AN-08 grab bar.

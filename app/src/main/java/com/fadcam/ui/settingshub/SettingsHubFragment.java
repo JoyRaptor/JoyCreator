@@ -47,6 +47,7 @@ public class SettingsHubFragment extends BaseFragment {
 
     public static final String TAG = "settings_hub";
     private static final String ARG_SEARCH = "focus_search";
+    private static final String ARG_AT = "open_at";
 
     /** Show the hub over the lobby; with {@code focusSearch}, the keyboard opens on the search. */
     public static void open(@NonNull FragmentActivity activity, boolean focusSearch) {
@@ -54,6 +55,19 @@ public class SettingsHubFragment extends BaseFragment {
         SettingsHubFragment f = new SettingsHubFragment();
         Bundle b = new Bundle();
         b.putBoolean(ARG_SEARCH, focusSearch);
+        f.setArguments(b);
+        OverlayNavUtil.show(activity, f, TAG);
+    }
+
+    /**
+     * Show the hub scrolled to the section that holds {@code row}, its chip lit. The lobby's "Bits"
+     * word uses it to land on the tools (Torch, QR scanner) instead of the top of Settings.
+     */
+    public static void openAt(@NonNull FragmentActivity activity, @NonNull SettingsKey row) {
+        if (activity.getSupportFragmentManager().findFragmentByTag(TAG) != null) return;
+        SettingsHubFragment f = new SettingsHubFragment();
+        Bundle b = new Bundle();
+        b.putString(ARG_AT, row.name());
         f.setArguments(b);
         OverlayNavUtil.show(activity, f, TAG);
     }
@@ -151,6 +165,17 @@ public class SettingsHubFragment extends BaseFragment {
         if (getArguments() != null && getArguments().getBoolean(ARG_SEARCH)) {
             getArguments().putBoolean(ARG_SEARCH, false);   // once: not again when a screen closes over it
             dock.focusSearch();
+        }
+        String at = getArguments() == null ? null : getArguments().getString(ARG_AT);
+        if (at != null) {
+            getArguments().remove(ARG_AT);   // once, as with search
+            Integer section = null;
+            try { section = SettingsCatalog.sectionOf().get(SettingsKey.valueOf(at)); }
+            catch (IllegalArgumentException ignored) { }
+            if (section != null) {
+                int target = section;
+                list.post(() -> jump(target));
+            }
         }
     }
 

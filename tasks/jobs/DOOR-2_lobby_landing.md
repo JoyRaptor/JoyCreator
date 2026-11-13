@@ -10,7 +10,7 @@ so easy that iPhone fans like it. This is the first thing every user and every d
 ## Done when
 - [ ] A first-time user can say within five seconds what they can make here, and start any of them in one tap:
       draw and paint, edit a video, make a music visual, animate a character, record.
-- [ ] Every room, chip and floor word goes where its name says (see [DOOR-1](DOOR-1_feature_map_audit.md)).
+- [ ] Every room, chip and floor word goes where its name says (see [DOOR-1](DOOR-1_feature_map_audit.md)). 11-13 (SHELL-01/03): floor words fixed (Detect, Bits -> Settings tools, Packs -> Library supplies, Setup), stat line opens Space, heroes move (owner request); Note 9 shots `tasks/screens/shell-20261113/`. Left for the redesign (S18): the New row (no Drawing or music visual), Character chip.
 - [ ] Recent work of every kind (projects, drawings, looks, sheets, recordings) shows and opens in the right place.
 - [ ] Joybot greets with something true and useful, and can take you anywhere.
 - [ ] The owner picked the direction on a mix-and-match design page, and approved it on the phone.
@@ -44,3 +44,28 @@ so easy that iPhone fans like it. This is the first thing every user and every d
 ## 2026-11-04: lobby recents with sheets, characters and looks, agent check (Note 9)
 
 Build with `1517f6189` compiles (Gradle) and installs in place; the lobby loads, the Library count and recents row are intact, and the hero now shows the newest project's picture. The new SHEET, CHARACTER and LOOK cards were NOT seen: the row shows the 10 newest items of all kinds and every sheet and character on the Note 9 is older than the newest 10 recordings, exports and projects. So the feature is built and does not regress the lobby, but it is not yet proven. To prove it: open a sprite sheet (making it recent), return to the lobby, and look for a SPRITE SHEET card and tap it. **11-10 PASS on the Note 9:** opened the sheet "Sprite pang" from the Library and returned to the lobby: Recent work now shows a PROJECT, a CHARACTER card (Avatar) and SPRITE SHEET cards (Sprite pang, Starguy), all "just now"; tapping the Sprite pang card opened Sprite Lab. Not seen: a VisLab LOOK card. Owner question for later: should the row cap at 10 mixed items, or reserve a slot per kind?
+
+## The lobby in landscape on a big screen (first look, 11-13; list only, the redesign waits on S18)
+
+Seen on the test tablet (Tab S8 Ultra, 2960x1848 landscape, Android 15), app-shell lane, on a fresh install with
+nothing made yet (so the empty states). Shots: `tasks/screens/shell-20261113/tablet_landscape_lobby_empty.png`,
+`tablet_landscape_settings.png`, `tablet_landscape_library.png`. Not yet seen with real work in it.
+
+What breaks or reads wrong:
+1. **The room strip repeats itself.** The wrap-around marquee fits more than one lap on a wide screen, so it reads
+   STUDIO CAPTURE SPRITE LAB AVATAR VIZ LAB TEXTLAB JOY BRUSH STUDIO CAPTURE SPRITE LAB... across the top.
+2. **The hero is a wide, short letterbox** (about a third of the height across the full 2960 px). A 16:9 picture
+   would be cropped hard top and bottom; the empty-state line floats alone in a big green band.
+3. **A large dead band** between the New row and the floor words (about a fifth of the screen), and the floor words
+   are spread thin across the full width, far from each other and from the thumb.
+4. **The New row chips stretch** to about 290 dp each: four giant slanted pills, out of scale with everything else.
+5. **"New" / "Start one" sit alone at the right edge** with nothing on the left in the empty state; the hero's name
+   line is missing, so the buttons look orphaned.
+6. **The header is phone-sized** (banner at the left, stat and Joybot at the far right) with empty space between.
+7. **The FadRec annotation pencil** floats over the bottom-left corner of every screen (an overlay service, not the
+   lobby's own), and covers the left end of the New row's level.
+8. Found on the way (first run, UI leftovers lane): after the intro the app went straight to the lobby with **no
+   Joy Creator folder step**; Settings says "Not chosen yet". The permissions page's "Allow what's missing" showed
+   no system prompt (granted from adb to get through).
+
+Settings and the Library hold up in landscape: rows and chips stretch to the width but nothing overlaps or is cut.

@@ -68,6 +68,8 @@ public final class ProjectFacts {
 
     public String projectId = "";
     public String projectName = "";
+    /** The drawing open in JoyBrush, for its idea buttons (BOT-A9); null outside JoyBrush or when it can't be read. */
+    @androidx.annotation.Nullable public DrawingFacts drawing;
 
     /** The video spine, in timeline order. */
     public final List<ClipFacts> spine = new ArrayList<>();

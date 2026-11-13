@@ -110,18 +110,56 @@ final class LibraryActions {
         done.onDone(c.getString(R.string.library_save_gallery_queued), false);
     }
 
-    /** Batch save: every video among {@code its}, queued as one session; says how many at once. */
+    /**
+     * Batch save: every video among {@code its} whose file is really there, queued as one session.
+     * Says how many at once, and (SHELL-11, 11-13) how many it left out and why: a chosen item that
+     * is not a video, or a stale entry whose file is gone, used to vanish from the count unexplained.
+     * The files are looked at on the folder thread.
+     */
     static void saveAllToGallery(@NonNull Context c, @NonNull List<LibraryItem> its, @NonNull Done done) {
-        List<com.fadcam.service.RecordsDeletionRequestItem> q = new ArrayList<>();
-        for (LibraryItem it : its) {
-            if (!canSaveToGallery(it)) continue;
-            com.fadcam.service.RecordsDeletionRequestItem r = RecordsMediaActions.requestItem(
-                    Uri.parse(it.uri), it.fileName != null ? it.fileName : it.name, it.size);
-            if (r != null) q.add(r);
+        final Context app = c.getApplicationContext();
+        final List<LibraryItem> chosen = new ArrayList<>(its);
+        JoyFolderHome.io().execute(() -> {
+            List<com.fadcam.service.RecordsDeletionRequestItem> q = new ArrayList<>();
+            int notVideo = 0, missing = 0;
+            for (LibraryItem it : chosen) {
+                if (!canSaveToGallery(it)) { notVideo++; continue; }
+                Uri u = Uri.parse(it.uri);
+                if (!fileIsThere(app, u)) { missing++; continue; }
+                com.fadcam.service.RecordsDeletionRequestItem r = RecordsMediaActions.requestItem(
+                        u, it.fileName != null ? it.fileName : it.name, it.size);
+                if (r != null) q.add(r); else missing++;
+            }
+            final String m;
+            if (q.isEmpty()) {
+                m = missing > 0
+                        ? app.getResources().getQuantityString(R.plurals.library_batch_save_none_there, missing, missing)
+                        : app.getString(R.string.library_save_gallery_failed);
+            } else {
+                String said = app.getResources().getQuantityString(R.plurals.library_batch_save_queued, q.size(), q.size());
+                if (missing > 0) said += " " + app.getResources().getQuantityString(R.plurals.library_batch_save_skipped_missing, missing, missing);
+                if (notVideo > 0) said += " " + app.getResources().getQuantityString(R.plurals.library_batch_save_skipped_not_video, notVideo, notVideo);
+                m = said;
+            }
+            final List<com.fadcam.service.RecordsDeletionRequestItem> go = q;
+            MAIN.post(() -> {
+                if (!go.isEmpty()) RecordsMediaActions.saveToGallery(app, go, false);
+                done.onDone(m, false);
+            });
+        });
+    }
+
+    /** True when the file behind {@code u} can be opened for reading now. Folder thread. */
+    static boolean fileIsThere(@NonNull Context c, @NonNull Uri u) {
+        if ("file".equals(u.getScheme()) || u.getScheme() == null) {
+            String p = u.getPath();
+            return p != null && new java.io.File(p).isFile();
         }
-        if (q.isEmpty()) { done.onDone(c.getString(R.string.library_save_gallery_failed), false); return; }
-        RecordsMediaActions.saveToGallery(c, q, false);
-        done.onDone(c.getResources().getQuantityString(R.plurals.library_batch_save_queued, q.size(), q.size()), false);
+        try (android.os.ParcelFileDescriptor fd = c.getContentResolver().openFileDescriptor(u, "r")) {
+            return fd != null;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     /**

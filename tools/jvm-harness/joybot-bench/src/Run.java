@@ -178,6 +178,11 @@ final class Run {
         JoybotAgent.Ask ask = new JoybotAgent.Ask(s.pid, words, model, apiKey,
                 "Joybot: “" + JoybotAgent.shortOf(words) + "”", sit);
         ask.question = HelpBook.isQuestion(words);   // as the chat sets it
+        if (task.has("director") && task.get("director").getAsBoolean()) {
+            // As the chat's Go ahead does it (BOT-A18): a Director run, its own step budget.
+            ask.director = true;
+            ask.maxSteps = JoybotAgent.DIRECTOR_STEPS;
+        }
         return ask;
     }
 

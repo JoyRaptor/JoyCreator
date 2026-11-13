@@ -38,7 +38,12 @@ public final class JobFile {
 
     /** A job the app stopped in the middle of. */
     public static final class Interrupted {
-        @NonNull public final String projectId;
+        /** The Studio project it ran on, or null for a VisLab, JoyBrush or TextLab job. */
+        @Nullable public final String projectId;
+        /** Its conversation ({@link JobKey}): where "Carry on" is offered and what it restores. */
+        @NonNull public final String key;
+        /** The room it ran in, by name ("STUDIO" for a project's job). */
+        @NonNull public final String room;
         /** The person's request, in their words. */
         @NonNull public final String text;
         @NonNull public final String undoLabel;
@@ -47,9 +52,11 @@ public final class JobFile {
         public final int round;
         @NonNull final List<JSONObject> history;
 
-        Interrupted(@NonNull String projectId, @NonNull String text, @NonNull String undoLabel,
+        Interrupted(@Nullable String projectId, @NonNull String key, @NonNull String text, @NonNull String undoLabel,
                     boolean director, int round, @NonNull List<JSONObject> history) {
             this.projectId = projectId;
+            this.key = key;
+            this.room = JobKey.roomOf(key);
             this.text = text;
             this.undoLabel = undoLabel;
             this.director = director;
@@ -66,24 +73,46 @@ public final class JobFile {
     /** Rewrites the running job's file. Never the API key: that is read fresh when it carries on. */
     static void save(@NonNull Context app, @NonNull JoybotAgent.Ask ask, int round,
                      @NonNull java.util.List<JSONObject> history) {
-        if (ask.projectId == null) return;
+        // A Studio project's job, or one in a room whose work lives outside a project (VisLab,
+        // JoyBrush, TextLab: BOT-A16, 11-13). Before, only Studio jobs could carry on.
+        if (!JobKey.resumable(ask.projectId, ask.situation.room.name())) return;
         try {
             JSONArray h = new JSONArray();
             synchronized (history) {
                 for (JSONObject m : history) h.put(m);
             }
             JSONObject o = new JSONObject()
-                    .put("projectId", ask.projectId)
+                    .put("key", ask.key())
                     .put("text", ask.text)
                     .put("undoLabel", ask.undoLabel)
                     .put("director", ask.director)
                     .put("round", round)
                     .put("at", System.currentTimeMillis())
                     .put("history", h);
+            if (ask.projectId != null) o.put("projectId", ask.projectId);
             write(jobFile(app), o.toString());
         } catch (Exception e) {
             FLog.w(TAG, "could not save the job: " + e.getMessage());
         }
+    }
+
+    /**
+     * A request ended: forget ITS job file, not another conversation's. With jobs in several rooms
+     * (BOT-A16), a quick VisLab question must not wipe a Studio job the phone killed earlier and
+     * that is still waiting for its "Carry on". An unreadable file goes too.
+     */
+    static void clearIf(@NonNull Context app, @NonNull String key) {
+        File f = jobFile(app);
+        if (!f.isFile()) return;
+        String saved = null;
+        try {
+            String s = read(f);
+            if (s != null) {
+                JSONObject o = new JSONObject(s);
+                saved = JobKey.fromSaved(o.optString("key", ""), o.optString("projectId", ""));
+            }
+        } catch (Exception ignored) { }
+        if (saved == null || saved.equals(key)) clear(app);
     }
 
     static void clear(@NonNull Context app) {
@@ -111,8 +140,11 @@ public final class JobFile {
                 if (m != null) h.add(m);
             }
             String pid = o.optString("projectId", "");
-            if (pid.isEmpty() || h.isEmpty()) { clear(app); return null; }
-            return new Interrupted(pid, o.optString("text", ""), o.optString("undoLabel", "Joybot"),
+            // Files from before 11-13 carry only a project id (they were all Studio jobs).
+            String key = JobKey.fromSaved(o.optString("key", ""), pid);
+            if (key == null || h.isEmpty()) { clear(app); return null; }
+            return new Interrupted(pid.isEmpty() ? null : pid, key, o.optString("text", ""),
+                    o.optString("undoLabel", "Joybot"),
                     o.optBoolean("director", false), o.optInt("round", 0), h);
         } catch (Exception e) {
             FLog.w(TAG, "unreadable job file, dropped: " + e.getMessage());

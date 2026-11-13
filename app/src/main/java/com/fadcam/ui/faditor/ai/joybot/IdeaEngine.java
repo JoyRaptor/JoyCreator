@@ -125,7 +125,7 @@ public final class IdeaEngine {
             return;
         }
         if (room == Room.JOYBRUSH) {
-            joybrush(out);
+            joybrush(f.drawing, out);
             return;
         }
         if (f.isEmpty()) {
@@ -400,16 +400,42 @@ public final class IdeaEngine {
      * JoyBrush: the open drawing is the subject. Only what the joybrush tools really do (layers,
      * frames, reading the drawing); a lobby-style "Start a project" there was wrong (BOT-1, 10-28).
      */
-    private static void joybrush(List<Idea> out) {
-        out.add(Idea.of("joybrush_colour_layer", Idea.Kind.ASK, "A layer to colour on")
-                .say("Add a layer called Colour above my sketch and switch to it")
-                .hint("A new layer, so colour never smudges your lines").needsKey().priority(40).build());
-        out.add(Idea.of("joybrush_animate", Idea.Kind.ASK, "Start an animation")
-                .say("Turn this drawing into an animation with 8 blank frames")
-                .hint("An animation board with frames to draw on").needsKey().priority(38).build());
-        out.add(Idea.of("joybrush_next_frame", Idea.Kind.ASK, "Next frame from this one")
-                .say("Add a copy of this frame after it and go to it")
-                .hint("For small changes from frame to frame").needsKey().priority(36).build());
+    /**
+     * JoyBrush's buttons. With the open drawing read ({@link DrawingFacts}, BOT-A9) they fit it: no
+     * "layer to colour on" when one exists, "Start an animation" only without an animation board,
+     * frames once there is one, and a way to bring back hidden layers. Unread: the four general ones.
+     */
+    private static void joybrush(@Nullable DrawingFacts d, List<Idea> out) {
+        if (d == null || !d.hasColourLayer()) {
+            String under = d != null && d.layers.size() == 1 ? q(d.layers.get(0)) : "my sketch";
+            out.add(Idea.of("joybrush_colour_layer", Idea.Kind.ASK, "A layer to colour on")
+                    .say("Add a layer called Colour above " + under + " and switch to it")
+                    .hint(d != null && d.layers.size() == 1 ? "Your drawing has one layer: colour on its own never smudges the lines"
+                            : "A new layer, so colour never smudges your lines")
+                    .needsKey().priority(d != null && d.layers.size() == 1 ? 44 : 40).build());
+        }
+        if (d != null && d.hiddenLayers > 0) {
+            out.add(Idea.of("joybrush_show_hidden", Idea.Kind.ASK,
+                    d.hiddenLayers == 1 ? "Show the hidden layer" : "Show the " + d.hiddenLayers + " hidden layers")
+                    .say(d.hiddenLayers == 1 ? "Show the hidden layer" : "Show every hidden layer")
+                    .hint("Hidden layers aren't in the picture or the export").needsKey().priority(42).build());
+        }
+        if (d == null || !d.animation) {
+            out.add(Idea.of("joybrush_animate", Idea.Kind.ASK, "Start an animation")
+                    .say("Turn this drawing into an animation with 8 blank frames")
+                    .hint("An animation board with frames to draw on").needsKey().priority(38).build());
+        }
+        if (d != null && d.animation && d.frames <= 1) {
+            out.add(Idea.of("joybrush_more_frames", Idea.Kind.ASK, "Add 7 more frames")
+                    .say("Add 7 blank frames after this one on the animation board")
+                    .hint("Your animation has one frame: room for a short loop").needsKey().priority(39).build());
+        }
+        if (d == null || (d.animation && d.frames >= 2)) {
+            out.add(Idea.of("joybrush_next_frame", Idea.Kind.ASK, "Next frame from this one")
+                    .say("Add a copy of this frame after it and go to it")
+                    .hint(d != null ? "Frame " + d.onFrame + " of " + d.frames + ": copy it, then change a little"
+                            : "For small changes from frame to frame").needsKey().priority(36).build());
+        }
         out.add(Idea.of("joybrush_whats_here", Idea.Kind.ASK, "What's in this drawing?")
                 .say("Tell me what's in this drawing: its size, layers and frames")
                 .hint("A quick read of the drawing; changes nothing").needsKey().priority(34).build());

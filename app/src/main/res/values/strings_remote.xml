@@ -5,7 +5,7 @@
 -->
 <resources>
     <!-- Header -->
-    <string name="remote_title">Remote</string>
+    <string name="remote_title">Remote Studio</string>
     <string name="remote_chip_on_air">ON AIR</string>
     <string name="remote_chip_off_air">OFF AIR</string>
 

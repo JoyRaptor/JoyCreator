@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- SHELL-05 (11-13): the Tips carousel (Settings, Tips) for Joy Creator. Each tip was checked
+         against the code on 11-13. The counter ("3/11") is added by TipsCarouselFragment, so a
+         tip can be added or removed without renumbering. English only: translations pending.
+         The FadCam-era camera tips stay in tips_widget, which the Home recorder still uses. -->
+    <string-array name="tips_joycreator">
+        <item>Everything you make is saved in your Joy Creator folder as ordinary files you can see, copy and back up.</item>
+        <item>Deleted something by mistake? Hold the Joy Creator logo at the top of the lobby to open Recently deleted.</item>
+        <item>Tap the search glass in the lobby to find any project, recording, drawing or picture in your Library.</item>
+        <item>Hold anything in the Library to see everything you can do with it.</item>
+        <item>Share a video, picture or sound into Joy Creator from any app and it lands in your folder, ready for Studio.</item>
+        <item>Tap Joybot for an idea about what you are working on. To chat with your own AI, connect it in Settings, AI and Joybot.</item>
+        <item>TextLab makes movie-poster titles. In Studio, tap Edit in TextLab beside a title\'s look to change it there.</item>
+        <item>Open a .joypack file to add new looks and fonts. Tap Packs at the bottom of the lobby to see what you have.</item>
+        <item>Tap the storage line in the lobby to see what is using room on your phone and get some back.</item>
+        <item>Search Settings for what you want to change, like \"watermark\" or \"theme\".</item>
+        <item>Viz Lab turns your music into moving visuals, built from parts you can mix and tweak.</item>
+    </string-array>
+</resources>

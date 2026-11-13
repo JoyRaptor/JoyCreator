@@ -270,6 +270,65 @@ public class IdeaEngineTest {
             check("joybrush: no opener", jb.opener == null, String.valueOf(jb.opener));
         }
 
+        // ── JoyBrush ideas that read the open drawing (BOT-A9, 11-13) ──
+        {
+            // Written exactly as JoybotHands.describe() writes it (pinned against the .kt below).
+            String one = "Drawing “Cat”, 2048×1536 px.\nLayers, top to bottom (number 1 = bottom):\n"
+                    + "★ 1. Sketch — shown, 100%\n★ = the layer being painted on.\n"
+                    + "No boards (animation frames need an animation board).\n"
+                    + "In hand: Pencil, size 6 px, 100% opacity, colour #000000.";
+            com.fadcam.ui.faditor.ai.joybot.DrawingFacts d = com.fadcam.ui.faditor.ai.joybot.DrawingFacts.parse(one);
+            check("drawing: parsed", d != null, "");
+            eq("drawing: one layer", "[Sketch]", d == null ? null : d.layers.toString());
+            check("drawing: no animation", d != null && !d.animation && d.boards == 0, "");
+            ProjectFacts f = new ProjectFacts();
+            f.online = true;
+            f.drawing = d;
+            IdeaEngine.Offer o = IdeaEngine.offer(f, IdeaEngine.Room.JOYBRUSH, FLOWS, NONE);
+            eq("drawing: one layer, colour layer first", "A layer to colour on", o.ideas.get(0).label);
+            check("drawing: the colour layer goes above the named sketch",
+                    o.ideas.get(0).say != null && o.ideas.get(0).say.contains("“Sketch”"), String.valueOf(o.ideas.get(0).say));
+            check("drawing: no animation yet offers one", labels(o).contains("Start an animation"), labels(o));
+            check("drawing: no frames idea without frames", !labels(o).contains("Next frame from this one"), labels(o));
+
+            String anim = "Drawing “Walk”, 1080×1080 px.\nLayers, top to bottom (number 1 = bottom):\n"
+                    + "• 3. Colour — shown, 100%\n★ 2. Ink — shown, 100%\n• 1. Rough — hidden, 40%, locked\n"
+                    + "★ = the layer being painted on.\n"
+                    + "Board “Walk cycle” (animation): 8 frames, on frame 3, 12 fps ★\n"
+                    + "In hand: Ink pen, size 4 px, 100% opacity, colour #222222.";
+            d = com.fadcam.ui.faditor.ai.joybot.DrawingFacts.parse(anim);
+            eq("drawing: layers bottom first", "[Rough, Ink, Colour]", d == null ? null : d.layers.toString());
+            check("drawing: one hidden, an 8-frame animation on frame 3", d != null && d.hiddenLayers == 1
+                    && d.animation && d.frames == 8 && d.onFrame == 3, "");
+            f.drawing = d;
+            o = IdeaEngine.offer(f, IdeaEngine.Room.JOYBRUSH, FLOWS, NONE);
+            check("drawing: a colour layer exists, so no colour idea", !labels(o).contains("A layer to colour on"), labels(o));
+            check("drawing: the hidden layer can come back", labels(o).contains("Show the hidden layer"), labels(o));
+            check("drawing: an animation exists, so no Start an animation", !labels(o).contains("Start an animation"), labels(o));
+            check("drawing: frames idea names the frame", labels(o).contains("Next frame from this one"), labels(o));
+
+            String single = anim.replace("8 frames, on frame 3", "1 frame, on frame 1");
+            f.drawing = com.fadcam.ui.faditor.ai.joybot.DrawingFacts.parse(single);
+            o = IdeaEngine.offer(f, IdeaEngine.Room.JOYBRUSH, FLOWS, NONE);
+            check("drawing: a one-frame animation gets more frames", labels(o).contains("Add 7 more frames"), labels(o));
+            check("drawing: an error text is no drawing",
+                    com.fadcam.ui.faditor.ai.joybot.DrawingFacts.parse("JoyBrush isn't open.") == null, "");
+            // The format the parser reads, as JoybotHands.describe() builds it.
+            try {
+                String hands = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(
+                        "joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/JoybotHands.kt")), "UTF-8");
+                for (String piece : new String[]{"sb.append(\"Drawing “\")", ".append(\". \").append(l.name)",
+                        ".append(\" — \").append(if (l.visible) \"shown\" else \"hidden\")",
+                        "sb.append(\"Board “\").append(b.name).append(\"” (\")",
+                        ".append(\" frame\").append(if (b.frames.size == 1) \"\" else \"s\")",
+                        ".append(\", on frame \").append(at)"}) {
+                    check("drawing: JoybotHands still writes " + piece, hands.contains(piece), piece);
+                }
+            } catch (java.io.IOException ex) {
+                check("drawing: JoybotHands readable", false, ex.toString());
+            }
+        }
+
         // ── never invents a number ───────────────────────────────────────
         // Every number in every opener across all of the scenarios above must be a number held in
         // the facts (or one rounding of a held duration). Run across a mixed project.
@@ -958,6 +1017,46 @@ public class IdeaEngineTest {
             String n3 = com.fadcam.ui.faditor.ai.joybot.HonestClaim.note("All set!", three);
             check("honest: counts the other changes, keeps a long error short", n3 != null
                     && n3.contains("The other 2 changes did go through.") && n3.length() < 200, String.valueOf(n3));
+        }
+
+        // ── JobKey: a killed VisLab / JoyBrush / TextLab job carries on where it ran (BOT-A16, 11-13) ──
+        {
+            check("job key: a Studio project's job is resumable",
+                    com.fadcam.ui.faditor.ai.joybot.JobKey.resumable("p1", "STUDIO"), "");
+            for (String r : new String[]{"VISLAB", "JOYBRUSH", "TEXTLAB"}) {
+                check("job key: a " + r + " job with no project is resumable",
+                        com.fadcam.ui.faditor.ai.joybot.JobKey.resumable(null, r), "");
+            }
+            check("job key: a lobby question is not kept", !com.fadcam.ui.faditor.ai.joybot.JobKey.resumable(null, "LOBBY"), "");
+            eq("job key: spelled like the agent's conversation key (project)", "project:p1",
+                    com.fadcam.ui.faditor.ai.joybot.JobKey.of("p1", "STUDIO"));
+            eq("job key: spelled like the agent's conversation key (room)", "room:VISLAB",
+                    com.fadcam.ui.faditor.ai.joybot.JobKey.of(null, "VISLAB"));
+            eq("job key: a pre-11-13 file (project id only) is a Studio job", "project:p1",
+                    com.fadcam.ui.faditor.ai.joybot.JobKey.fromSaved("", "p1"));
+            eq("job key: a saved room key is kept", "room:JOYBRUSH",
+                    com.fadcam.ui.faditor.ai.joybot.JobKey.fromSaved("room:JOYBRUSH", ""));
+            eq("job key: a file naming nothing has nothing to carry on", null,
+                    com.fadcam.ui.faditor.ai.joybot.JobKey.fromSaved("", ""));
+            eq("job key: room of a project job", "STUDIO", com.fadcam.ui.faditor.ai.joybot.JobKey.roomOf("project:p1"));
+            eq("job key: room of a VisLab job", "VISLAB", com.fadcam.ui.faditor.ai.joybot.JobKey.roomOf("room:VISLAB"));
+            eq("job key: Studio's carry-on words unchanged", "Check the project first — some of it is already done.",
+                    com.fadcam.ui.faditor.ai.joybot.JobKey.checkFirst("STUDIO"));
+            check("job key: VisLab carry-on reads the look first, no repeats",
+                    com.fadcam.ui.faditor.ai.joybot.JobKey.checkFirst("VISLAB").contains("don't repeat"), "");
+            // The agent's own key must stay spelled the same way, read as text (JoybotAgent needs Android).
+            try {
+                String agent = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(
+                        "app/src/main/java/com/fadcam/ui/faditor/ai/joybot/JoybotAgent.java")), "UTF-8");
+                check("job key: JoybotAgent.conversationKey has the same spelling",
+                        agent.contains("return projectId != null ? \"project:\" + projectId : \"room:\" + room.name();"), "");
+                check("job key: a finished request clears only its own job",
+                        agent.contains("JobFile.clearIf(app, ask.key());") && !agent.contains("JobFile.clear(app);\n                AIJobService"), "");
+                check("job key: every checkpoint goes through JobFile.save's own rule",
+                        !agent.contains("if (ask.projectId != null) JobFile.save"), "");
+            } catch (java.io.IOException ex) {
+                check("job key: agent readable", false, ex.toString());
+            }
         }
 
         // ── CellTags: Joybot's sprite cell tags, spelled as SpriteLab spells them (AN-05, 11-13) ──

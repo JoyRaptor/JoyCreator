@@ -328,9 +328,12 @@ turns the rows over buffer to buffer: read back on a 1086x561 picture 20 -> 9 to
 | Diamond, 80 px to the em (434x224) | 44 to 47 | 30 to 34 (120 px/em) |
 | Diamond, 200 px to the em (1086x561) | 14.5 to 19 (was 14) | 64 to 77 (240 px/em, 1303x673) |
 
-A title at an ordinary size keeps up with video. A very big title is still under 24 pictures a second while playing:
-its picture is drawn, then waited for, then read, one after the other. Next: during playback read each picture back one
-frame late so the drawing and the reading overlap (exact on a jump, a pause and an export).
+A title at an ordinary size keeps up with video. Asked the way Studio really asks while playing (the title box wants the
+playhead's moment on every tick, not only when the last picture is in; the bench now does that), the very big Diamond
+title previews at 20.6 to 26.2 pictures a second and the 80 px one at 50 (Note 9, 26 C).
+**Tried and dropped: reading the picture back one frame late** (a GPU pixel buffer and a fence, so the drawing of one
+picture and the reading of the last overlap). On the Note 9 it was slower, not faster: the big title 16.5 to 17.5
+pictures a second against 20.6 to 26.2 waiting for each, the 80 px one 39 to 40 against 50. Not kept.
 
 ## Ship list (2026-11-12 night): everything between today and a finished wing
 

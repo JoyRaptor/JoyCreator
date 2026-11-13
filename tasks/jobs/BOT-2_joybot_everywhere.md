@@ -50,9 +50,17 @@ Select, symmetry, Send to Studio. Hover labels: ~220 controls done 10-15; the ch
         Settings hub v2, Home recorder, About: also no entry-point text in STATE. Needs the rows filled first (HYG-5).
   - [ ] JoyBrush ideas (IdeaEngine) unchanged: the four existing ones stand; the help topics are all "how do I",
         none is an action Joybot can run, so no `doIt` keys were added.
-- [ ] **JoyBrush ideas** that read the open drawing (e.g. "Add a layer for colour", "Make a 12-frame loop",
-      "Send this to Studio"), using `JoybotHands.describe()`.
+- [x] **JoyBrush ideas** that read the open drawing (11-13, audit BOT-A9): the chat reads `JoybotHands.describe()`
+      (the model's own read; no JoyBrush file changed) into `joybot/DrawingFacts`. One layer: "A layer to colour on"
+      first, above the named layer; a colour layer already there: not offered; hidden layers: "Show the hidden layer";
+      no animation board: "Start an animation"; one frame: "Add 7 more frames"; several: "Next frame from this one"
+      naming the frame. JoyBrush closed or unreadable: the four general buttons. "Send this to Studio" waits for a
+      joybrush Send tool (BOT-A30, JoyBrush lead). IdeaEngineTest pins describe()'s format against JoybotHands.kt;
+      ideas 989/989, bench 58/58. Not seen on a phone.
 - [ ] **Avatar room**: a Joybot button and ideas (Avatar stays hidden for launch: decide with ANI-1).
+- [x] **Hover-label sweep re-run 11-13** (audit BOT-A37) over every `setOnClickListener` in `ai/**` after the 11-12
+      TextLab additions: clean (the two script hits, Send and Attach, are labelled a few lines below). The app-wide
+      sweep stays with UI-1.
 - [x] **Hover-label sweep** of the chat screen and every card it draws: checked 10-28 by script over every
       `setOnClickListener` in `ai/**` and the chat layout: all labelled (the header and input buttons in code,
       cards through `cardButton`); the new setup, tip and bridge buttons carry labels too.

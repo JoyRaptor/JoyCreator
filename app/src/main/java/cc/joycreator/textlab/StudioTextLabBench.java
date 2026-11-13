@@ -12,8 +12,8 @@ import java.util.Locale;
 
 /**
  * The check screen's test of Studio's two ways of asking for a title's look (adb {@code --es studio <look>}), through
- * {@link StudioTextLab} exactly as Studio calls it: the preview while playing (each finished picture asks for the next
- * moment, as the title box does on {@code invalidate}) and the export (one blocking picture per video frame).
+ * {@link StudioTextLab} exactly as Studio calls it: the preview while playing (the title box asks for the playhead's
+ * moment on every tick) and the export (one blocking picture per video frame).
  * Logs how many pictures a second each gets, and how a picture's time splits between drawing and reading it back.
  */
 final class StudioTextLabBench {
@@ -52,11 +52,10 @@ final class StudioTextLabBench {
                 }
                 return;
             }
-            // playback: the title's own time runs with the clock; the picture comes back on the main thread
-            s.previewFrame(StudioTextLab.previewKey("bench"), look, words, now - t0, em, () -> {
-                got[0]++;
-                main.post(ask[0]);
-            });
+            // playback: the title box asks for the playhead's moment on every tick (60 a second), whether or not the
+            // last picture is in; the pictures come back on the main thread
+            s.previewFrame(StudioTextLab.previewKey("bench"), look, words, now - t0, em, () -> got[0]++);
+            main.postDelayed(ask[0], 16);
         };
         main.post(ask[0]);
         synchronized (done) {

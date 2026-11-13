@@ -116,5 +116,19 @@
       "allow": ["looks.neon-bars.layers[*]"],
       "undoSteps": 1, "ok": true
     }
+  },
+  {
+    "id": "vislab-director-review",
+    "title": "VisLab Director run: “Add lasers and make the bars taller” lists both changes for Review, still one undo (BOT-A18)",
+    "room": "vislab", "look": "neon-bars", "director": true,
+    "words": "add lasers and make the bars taller",
+    "reference": [
+      {"calls": [{"name": "vislab_change", "args": {"add_layers": ["lasers as Lasers"]}}]},
+      {"calls": [{"name": "vislab_change", "args": {"changes": ["Bars.height = 0.9"]}}]},
+      {"text": "Added lasers and made the bars taller."}
+    ],
+    "expect": {"require": [{"path": "looks.neon-bars.layers[*].type", "eq": "lasers", "any": true},
+                           {"path": "looks.neon-bars.layers[0].p.height", "moreThanBefore": true}],
+               "allow": ["looks.neon-bars.layers[*]"], "undoSteps": 1, "ok": true, "reviewRows": 2}
   }
 ]

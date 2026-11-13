@@ -1391,7 +1391,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             ring.setCornerRadius(dp(10));
             ring.setStroke(dp(2), Studio.ARMED);
             cell.setForeground(ring);
-            Toast.makeText(this, "Tap " + label + " in the tool strip", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.studio_d3_tap_in_tool_strip, label), Toast.LENGTH_SHORT).show();
             if (reduced) {
                 ring.setAlpha(255);
                 cell.postDelayed(() -> cell.setForeground(null), SHOW_HOW_MS);
@@ -13583,7 +13583,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         com.fadcam.ui.faditor.markers.RegionExportPlan.create(
                                 namedRegions, totalDurationMs, project.getName());
                 if (plan.getJobs().isEmpty()) {
-                    Toast.makeText(this, "Select at least one region for export", Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, R.string.studio_d3_select_a_region, Toast.LENGTH_LONG).show();
                     return;
                 }
                 StringBuilder summary = new StringBuilder()
@@ -13660,7 +13660,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             fnInputLp.topMargin = (int) (4 * getResources().getDisplayMetrics().density);
             fileNameInput.setLayoutParams(fnInputLp);
             if (namedRegionExport) {
-                fileNameInput.setText("Uses each region's name");
+                fileNameInput.setText(R.string.studio_d3_uses_region_names);
                 fileNameInput.setEnabled(false);
                 fileNameInput.setAlpha(0.6f);
             }
@@ -14782,7 +14782,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         boolean undone = undoManager.undo();
         endStructuralEditUnlessRestored(openedOn, anchorsBefore, "undo");
         if (undone && !snapshotRestoreFailed) announceHistoryStep("Undid", what);
-        else announceHistoryFailed("undo");
+        else announceHistoryFailed(true);
         clipMembershipChanged = !idsBefore.equals(masterClipIds());
         refreshEditorAfterUndoRedo();
         scheduleAutoSave();
@@ -14802,7 +14802,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         boolean redone = undoManager.redo();
         endStructuralEditUnlessRestored(openedOn, anchorsBefore, "redo");
         if (redone && !snapshotRestoreFailed) announceHistoryStep("Redid", what);
-        else announceHistoryFailed("redo");
+        else announceHistoryFailed(false);
         clipMembershipChanged = !idsBefore.equals(masterClipIds());
         refreshEditorAfterUndoRedo();
         scheduleAutoSave();
@@ -14825,9 +14825,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private boolean snapshotRestoreFailed;
 
     /** The step could not be restored: say so, instead of claiming it was undone. */
-    private void announceHistoryFailed(@NonNull String verb) {
+    private void announceHistoryFailed(boolean undo) {
         if (historyToast != null) historyToast.cancel();
-        historyToast = Toast.makeText(this, "Could not " + verb + " that step", Toast.LENGTH_SHORT);
+        historyToast = Toast.makeText(this, undo ? R.string.studio_d3_could_not_undo
+                : R.string.studio_d3_could_not_redo, Toast.LENGTH_SHORT);
         historyToast.show();
     }
 
@@ -21156,7 +21157,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 byte[] buf = new byte[64*1024]; int n;
                 while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
                 tmp.delete();
-                runOnUiThread(() -> android.widget.Toast.makeText(this, "Exported " + r.manifest.fileCount + " file(s), " + r.manifest.totalBytes + " bytes", android.widget.Toast.LENGTH_LONG).show());
+                runOnUiThread(() -> android.widget.Toast.makeText(this, getString(R.string.studio_d3_exported_files, r.manifest.fileCount, android.text.format.Formatter.formatShortFileSize(this, r.manifest.totalBytes)), android.widget.Toast.LENGTH_LONG).show());
             } catch (Exception e) {
                 runOnUiThread(() -> android.widget.Toast.makeText(this, getString(R.string.studio_fmt_export_copy_failed_1_s, e.getMessage()), android.widget.Toast.LENGTH_LONG).show());
             }
@@ -21176,7 +21177,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             runOnUiThread(() -> {
                 if (!r.ok) android.widget.Toast.makeText(this, getString(R.string.studio_fmt_import_failed_1_s, r.error), android.widget.Toast.LENGTH_LONG).show();
                 else {
-                    android.widget.Toast.makeText(this, "Imported " + r.project.getName() + " (" + r.newProjectId + ")", android.widget.Toast.LENGTH_LONG).show();
+                    android.widget.Toast.makeText(this, getString(R.string.studio_d3_imported_project, r.project.getName()), android.widget.Toast.LENGTH_LONG).show();
                     // Optionally open it — for now just toast. Project appears in list.
                 }
             });
@@ -21897,8 +21898,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 }
                 int hostIdx = tl.getClips().indexOf(host) + 1;
                 desc = "Attach visualizer";
-                Toast.makeText(this, "Attached to clip " + hostIdx
-                        + " — rides its trims and moves", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.studio_d3_attached_to_clip, hostIdx),
+                        Toast.LENGTH_SHORT).show();
             }
             final String afterId = wo.getAttachedClipId();
             final long afterOff = wo.getAttachOffsetMs(), afterDur = wo.getAttachDurationMs();
@@ -43668,7 +43669,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         final int n = seq.cellCount();
         if (n <= 0) return;
-        Toast.makeText(this, "Packing " + n + " frames…", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, getString(R.string.studio_d3_packing_frames, n), Toast.LENGTH_SHORT).show();
 
         final String seqId = seq.getId();
         thumbnailExecutorRun(() -> {
@@ -43714,9 +43715,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         new EditActions.LambdaAction(getString(R.string.studio_label_convert_to_sprite_sheet), apply, undo));
                 scheduleAutoSave();
                 if (spriteOverlayView != null) spriteOverlayView.invalidate();
-                Toast.makeText(this, "Packed into a "
-                        + result.getCols() + "×" + result.getRows() + " sheet",
-                        Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.studio_d3_packed_sheet,
+                        result.getCols(), result.getRows()), Toast.LENGTH_SHORT).show();
             });
         });
     }
@@ -45234,7 +45234,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         }
                         if (newest != null) wireNewCaptionTrack(newest.id);
                     }
-                    Toast.makeText(this, "Imported " + parsed.words.size() + " words",
+                    Toast.makeText(this, getString(R.string.studio_d3_imported_words, parsed.words.size()),
                             Toast.LENGTH_SHORT).show();
                 })
                 .show();
@@ -45916,7 +45916,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }), (result, error) -> runOnUiThread(() -> {
             pd.dismiss();
             if (result == null) {
-                Toast.makeText(this, "Fix failed: " + (error != null ? error : "unknown"), Toast.LENGTH_LONG).show();
+                // Plain words for the person; the ffmpeg detail goes to the log only.
+                FLog.w(TAG, "Fix audio failed: " + error);
+                Toast.makeText(this, R.string.studio_d3_fix_audio_failed, Toast.LENGTH_LONG).show();
                 return;
             }
             // Swap clip to baked file — one undo step (like Clean tab).
@@ -47318,7 +47320,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 .setMessage(getString(R.string.studio_dual_stream_prompt, screen.shortLabel(), webcam.displayName))
                 .setPositiveButton(R.string.studio_ui_add_as_linked_pair,
                         (d, w) -> addDualStreamLinkedPair(screen, webcam))
-                .setNeutralButton("Add “" + tapped.shortLabel() + "” only",
+                .setNeutralButton(getString(R.string.studio_d3_add_only, tapped.shortLabel()),
                         (d, w) -> insertAssetAtPlayhead(tapped))
                 .setNegativeButton(R.string.studio_ui_cancel, null)
                 .show();
@@ -48387,7 +48389,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                 () -> { for (com.fadcam.ui.faditor.model.TextOverlayItem it : fCreated) tl.removeTextOverlay(it); refreshAfterOverlayLayerChange(); }));
                         refreshAfterOverlayLayerChange();
                         saveProjectNow();
-                        Toast.makeText(this, "Added " + fCreated.size() + " image(s)", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, getResources().getQuantityString(R.plurals.studio_d3_added_images, fCreated.size(), fCreated.size()), Toast.LENGTH_SHORT).show();
                     }
                 } else {
                     // Video multi-select: insert clips in selection order at successive indices.
@@ -48581,7 +48583,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         undoManager.recordAction(new EditActions.AddAudioClipAction(project.getTimeline(), ac, null, false, 1f));
         prepareAudioPlayer();
         scheduleAutoSave();
-        android.widget.Toast.makeText(this, "Voiceover added (" + (durationMs / 1000f) + "s) at " + (startMs / 1000f) + "s", android.widget.Toast.LENGTH_SHORT).show();
+        android.widget.Toast.makeText(this, getString(R.string.studio_d3_voiceover_added, durationMs / 1000f, startMs / 1000f), android.widget.Toast.LENGTH_SHORT).show();
     }
 
     // ── AI slide: copy-a-prompt / paste-HTML import (API-less path) ──────

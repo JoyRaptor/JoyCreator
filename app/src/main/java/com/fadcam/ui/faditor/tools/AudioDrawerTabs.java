@@ -264,7 +264,7 @@ public final class AudioDrawerTabs {
             @Override public void onProgressChanged(SeekBar s, int p, boolean fromUser) {
                 if (!fromUser && !bar.isFineDriving()) return;
                 writePan(clip, host, panOf(p));
-                value.setText(fmtPan(panAt(clip)));
+                value.setText(fmtPan(value.getContext(), panAt(clip)));
                 host.onChanged();
             }
             @Override public void onStartTrackingTouch(SeekBar s) {
@@ -298,7 +298,7 @@ public final class AudioDrawerTabs {
 
         selfRefresh[0] = () -> {
             float cur = panAt(clip);
-            value.setText(fmtPan(cur));
+            value.setText(fmtPan(value.getContext(), cur));
             bar.setProgress(progressOfPan(cur));
         };
         return selfRefresh[0];
@@ -413,7 +413,7 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
             @Override public void onProgressChanged(SeekBar s, int p, boolean fromUser) {
                 if (!fromUser && !bar.isFineDriving()) return;
                 setFade(clip, fadeIn, fadeMsOf(p, maxFade));
-                value.setText(fmtMs(readFade(clip, fadeIn)));
+                value.setText(fmtMs(value.getContext(), readFade(clip, fadeIn)));
                 host.onChanged();
             }
             // ONE undo step per gesture (§0 rule 7).
@@ -443,7 +443,7 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
 
         selfRefresh[0] = () -> {
             long cur = readFade(clip, fadeIn);
-            value.setText(fmtMs(cur));
+            value.setText(fmtMs(value.getContext(), cur));
             bar.setProgress(fadeProgressOf(cur, maxFade));
         };
         return selfRefresh[0];
@@ -756,7 +756,7 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
             float gr = reportedGainReductionDb;
             boolean live = !Float.isNaN(gr);
             bar.setLevelDb(live ? Math.max(0f, -gr) : 0f);
-            value.setText(live ? fmtGr(gr) : fmtGr(0f));
+            value.setText(fmtGr(value.getContext(), live ? gr : 0f));
             note.setText(fxChainBypassed
                     ? R.string.lane_b_audio_comp_bypassed
                     : live ? R.string.lane_b_audio_comp_live
@@ -770,8 +770,8 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
     }
 
     @NonNull
-    private static String fmtGr(float negativeDb) {
-        return String.format(java.util.Locale.US, "%.1f dB", negativeDb);
+    private static String fmtGr(@NonNull Context ctx, float negativeDb) {
+        return ctx.getString(R.string.audio_readout_db, negativeDb);
     }
 
     /**
@@ -1267,15 +1267,17 @@ private static void promptForFadeSeconds(@NonNull Context ctx, @NonNull AudioCli
     }
 
     @NonNull
-    private static String fmtPan(float pan) {
-        if (pan == 0f) return "C";
-        return (pan > 0 ? "R" : "L") + Math.round(Math.abs(pan) * 100f) + "%";
+    private static String fmtPan(@NonNull Context ctx, float pan) {
+        if (pan == 0f) return ctx.getString(R.string.audio_readout_pan_centre);
+        int pct = Math.round(Math.abs(pan) * 100f);
+        return ctx.getString(pan > 0 ? R.string.audio_readout_pan_right
+                : R.string.audio_readout_pan_left, pct);
     }
 
     @NonNull
-    private static String fmtMs(long ms) {
-        if (ms < 1000) return ms + "ms";
-        return String.format(java.util.Locale.US, "%.2fs", ms / 1000f);
+    private static String fmtMs(@NonNull Context ctx, long ms) {
+        if (ms < 1000) return ctx.getString(R.string.audio_readout_ms, ms);
+        return ctx.getString(R.string.audio_readout_seconds, ms / 1000f);
     }
 
     /** "500" not "500.0"; keeps decimals only when they carry information. */

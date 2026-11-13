@@ -15,7 +15,7 @@ or "areas", lose a stroke, or see a black square. Pencil, watercolour and oil mu
 - [ ] The owner paints a long session on the Note 9 and the Note 20 and meets no refusal (his own test).
 - [ ] The cause of the 10-31 lost tiles and the failed tile copy is reproduced, or shown gone by a long stress run.
 - [ ] Saves stream to disk so the room can grow past 315 MB (then old paint sets far later).
-- [ ] Symmetry works with pencil, watercolour and oil in the atlas (today: refused in words).
+- [~] Symmetry works with pencil, watercolour and oil in the atlas. Built 11-11 for pencil and oil (2a23c082e, every copy its own lane, no pin) and the wet sheet carries watercolour; not yet used by the owner (checked 11-13).
 - [x] STATE.md rows (5.6 and section 9).
 
 ## Where it stands (2026-11-10)

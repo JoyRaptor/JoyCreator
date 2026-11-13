@@ -22,7 +22,7 @@ Owner, 2026-10-31: larger brushes felt far too slow, wants 10-20x. He was on Pal
 3. [ ] Measure one oil step's parts: does each framebuffer switch reload the whole atlas? Try invalidate or a smaller target.
 4. [ ] Simulate large brushes at half resolution (4x fewer pixels), if the look survives.
 5. [ ] Water: cut flush; same half-resolution question.
-6. [ ] Lift the 380 px refusal.
+6. [x] Lift the 380 px refusal. (Done 10-31, 75e055f8d: oil asks the atlas for the box it paints; 380 and 512 px are not refused. Checked 11-13.)
 
 Target: 10-20x. Not reached.
 

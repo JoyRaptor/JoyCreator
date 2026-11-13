@@ -99,9 +99,9 @@ Research 11-11 (read by a helper agent; mechanisms, not marketing):
 - [ ] 1. Crossings (blades first, then hair brushes): the plate gets a rounded underside across its width; the paint it
       displaces goes to its flanks and behind it, conserved; its side ramp widens with the wet thickness under it. New
       terms default to today's behaviour so the lab golden stays exact until the lab is ported.
-- [ ] 2. Palette knife 3: outline with a straight edge, a facet and a curved tip; contact from tilt; pressure as bearing;
+- [x] 2. (built 11-11, be4cdee6d; owner has not tried it) Palette knife 3: outline with a straight edge, a facet and a curved tip; contact from tilt; pressure as bearing;
       lay or scrape by travel against the blade's normal; a lumpy, depleting roll. Bench strokes with tilt and lean.
-- [ ] 3. Hair brushes: per-run variance in length, load and width that drifts along the stroke (clumps), instead of a
+- [x] 3. (built 11-11, 41926d158: uneven bunches, Hairs Varied / Even; owner look owed) Hair brushes: per-run variance in length, load and width that drifts along the stroke (clumps), instead of a
       fixed streak profile; width from how many hairs touch.
 - [ ] 4. Lab port (`lab/media/js/paste.js`, `oils.js`), golden, `MediaUniformsParityTest`, `PasteFootprint` bounds and tests.
 - [ ] 5. Note 9 films of each against the reference photos; the owner's try; STATE row; help text.

@@ -24,7 +24,7 @@ Found 2026-11-10 at `e9b1dfb16`. Sentences are in `joybrush/androidkit/.../JbCan
 | A8 | "Screen-width wire brushes are not connected to drawing yet." (~2120) | Hide such brushes from the drawer until they paint |
 | A9 | "Turn tiling off to use <tool>" (~647) | Turn tiling off for the stroke, or make the tool work tiled |
 | A10 | "This phone has room for N layers..." (~1252) | Keep (a real limit), but check the wording against the no-jargon rule |
-| A11 | Symmetry with pencil or oil in the atlas: "Symmetry is not available for pencil, watercolour and oil on this build." (`MediaCanvas.begin`) | The atlas has no edge to pin: build the lanes without a pin, as the wet sheet does (`MediaCanvas.beginOnSheet`) |
+| A11 | Symmetry with pencil or oil in the atlas: "Symmetry is not available for pencil, watercolour and oil on this build." (`MediaCanvas.begin`) | The atlas has no edge to pin: build the lanes without a pin, as the wet sheet does (`MediaCanvas.beginOnSheet`) | **DONE in code 11-11 (2a23c082e, checked 11-13):** symmetry for pencil and oil in the atlas, every copy its own lane with no pin; phone use by the owner not recorded. Watercolour already symmetric on the wet sheet.
 
 ## B. Small features
 

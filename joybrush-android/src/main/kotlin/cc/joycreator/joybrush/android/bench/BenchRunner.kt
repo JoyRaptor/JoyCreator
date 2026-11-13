@@ -121,6 +121,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                val sheetLong: Int? = null,
                /** `jb_sheet_grain`: how strongly the paper's fine grain is worked into the wet sheet's look (WetSheet.grainPrint). */
                val sheetGrain: Double? = null,
+               /** `jb_sheet_plain`: the wet sheet's overlay through the plain tile shader, to time the grain shader's cost. */
+               val sheetPlain: Boolean = false,
                /** `jb_sheet_wave`: how uneven a quick wash is laid on the wet sheet (WetSheet.wave): 0 even, 0.12 the default, 0.35 the menu's Wavy. */
                val sheetWave: Double? = null,
                /**
@@ -175,6 +177,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         spec.sheetCell?.let { Log.i(TAG, "wet sheet cell forced: $it px") }
         spec.zoom?.let { canvas.view.zoom = it; canvas.requestRender(); Log.i(TAG, "view zoom: $it") }
         cc.joycreator.joybrush.androidkit.gl.media.WetSheet.printHoldMs = spec.sheetPrintHoldMs
+        cc.joycreator.joybrush.androidkit.gl.media.WetSheet.debugPlain = spec.sheetPlain
         spec.sheetLong?.let { cc.joycreator.joybrush.androidkit.gl.media.WetSheet.longCells = it; Log.i(TAG, "wet sheet: $it cells along the screen") }
         spec.sheetGrain?.let { cc.joycreator.joybrush.androidkit.gl.media.WetSheet.grainPrint = it; Log.i(TAG, "wet sheet grain: $it") }
         applySymmetry()
@@ -777,6 +780,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 sheetPrintHoldMs = intent.getLongExtra("jb_sheet_print_hold_ms", 0L).coerceIn(0L, 120_000L),
                 sheetLong = intent.getIntExtra("jb_sheet_long", -1).takeIf { it in 256..2048 },
                 sheetGrain = intent.getStringExtra("jb_sheet_grain")?.toDoubleOrNull()?.coerceIn(0.0, 4.0),
+                sheetPlain = intent.getBooleanExtra("jb_sheet_plain", false),
                 sheetWave = intent.getStringExtra("jb_sheet_wave")?.toDoubleOrNull()?.coerceIn(0.0, 4.0),
                 then = intent.getStringExtra("jb_bench_then")?.split(';')?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty(),
                 mediaBudgetMb = intent.getIntExtra("jb_media_budget_mb", -1).takeIf { it > 0 },

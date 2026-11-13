@@ -36,6 +36,12 @@
 # To use the Note 20 through this tool:
 #   $env:PHONE_SLOT = "note20"     (finds it by model, on USB or Wi-Fi port 5038, and uses its own
 #                                   lock, %TEMP%\jb-phone2.lock; who/claim/release work the same)
+#
+# TEST TABLET (owner, 2026-11-13): a Tab S8 Ultra with nothing of the owner's on it, for app
+# checks and tablet layouts (1848x2960, landscape, Android 15). To use it:
+#   $env:PHONE_SLOT = "tablet"     (finds it by model, USB or Wi-Fi; lock %TEMP%\jb-phone3.lock)
+# Over Wi-Fi its address changes when wireless debugging restarts: `adb mdns services` shows the
+# current one, then `adb connect <address>`.
 # Rules there: throwaway projects and drawings only, named "TEST ..."; never open, edit, move or
 # delete anything that was already on it; never uninstall or clear data. See tasks/BOARD.md.
 
@@ -61,6 +67,7 @@ $apk = "app\build\outputs\apk\default\debug\app-default-arm64-v8a-debug.apk"
 # file or any tracked file (tasks/AGENT_START.md rule 1; the commit hook refuses them).
 $modelNote9 = "SM_N960U"      # the sandbox phone: the default for everything
 $modelNote20 = "SM_N986U"     # the owner's REAL projects: only ever by PHONE_SLOT = "note20"
+$modelTablet = "SM_X900"      # the Tab S8 Ultra, a blank test tablet: PHONE_SLOT = "tablet"
 
 # Serials of attached, ready devices of one model ("" = any model).
 function Find-ByModel([string]$model) {
@@ -75,8 +82,9 @@ function Get-Serial {
     # is its first character, not the serial.
     $n9 = @(Find-ByModel $modelNote9)
     if ($n9.Count -ge 1) { return $n9[0] }
-    $n20 = @(Find-ByModel $modelNote20)
-    $others = @(Find-ByModel "" | Where-Object { $n20 -notcontains $_ })
+    # No Note 9: use a lone unknown device, but never fall through to the Note 20 or the tablet.
+    $named = @(Find-ByModel $modelNote20) + @(Find-ByModel $modelTablet)
+    $others = @(Find-ByModel "" | Where-Object { $named -notcontains $_ })
     if ($others.Count -eq 1) { return $others[0] }
     return $null
 }
@@ -99,9 +107,18 @@ if ($env:PHONE_SLOT -eq "note20") {
         $env:PHONE = if ($n20.Count -ge 1) { $n20[0] } else { "note20-not-attached" }
     }
 }
-# The Note 20 always uses its own lock, however it was reached.
+if ($env:PHONE_SLOT -eq "tablet") {
+    if (-not $env:PHONE) {
+        $tab = @(Find-ByModel $modelTablet)           # USB or Wi-Fi, same adb server as the Note 9
+        $env:PHONE = if ($tab.Count -ge 1) { $tab[0] } else { "tablet-not-attached" }
+    }
+}
+# The Note 20 and the tablet each use their own lock, however they were reached.
 if ($env:PHONE_SLOT -eq "note20" -or (@(Find-ByModel $modelNote20) -contains (Get-Serial))) {
     $phoneLock = Join-Path $env:TEMP "jb-phone2.lock"
+}
+if ($env:PHONE_SLOT -eq "tablet" -or (@(Find-ByModel $modelTablet) -contains (Get-Serial))) {
+    $phoneLock = Join-Path $env:TEMP "jb-phone3.lock"
 }
 
 function Get-PhoneLock {
@@ -159,7 +176,7 @@ switch ($Cmd) {
     # For scripts that call raw adb. Prints nothing and exits 1 when that phone is not attached.
     "serial" {
         $s = Get-Serial
-        if ($null -eq $s -or $s -eq "note20-not-attached") { exit 1 }
+        if ($null -eq $s -or $s -like "*-not-attached") { exit 1 }
         Write-Output $s
     }
 

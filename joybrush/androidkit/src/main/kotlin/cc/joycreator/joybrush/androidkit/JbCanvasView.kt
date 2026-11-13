@@ -628,14 +628,17 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
 
     /**
      * Bench only (the lost-tile hunt): takes about [mb] MB of graphics memory in 32 MB textures and holds it, each one
-     * cleared so the driver really backs it, stopping at the first the driver cannot give. [done] hears what it got. The
-     * drawing then paints with that much less room, as on a phone whose graphics memory is nearly gone.
+     * filled with noise so the driver really backs it and the phone cannot squeeze it (cleared to one colour, 3 GB cost
+     * the Note 9 nothing: 2026-11-13), stopping at the first the driver cannot give. [done] hears what it got. The drawing
+     * then paints with that much less room, as on a phone whose graphics memory is nearly gone.
      */
     fun benchHogGpu(mb: Int, done: (String) -> Unit) {
         onGl(allowLost = true) {
             val side = 2048
             val each = side * side * 8 / (1 shl 20)
             val fbo = IntArray(1); GLES30.glGenFramebuffers(1, fbo, 0)
+            val noise = java.nio.ByteBuffer.allocateDirect(side * side * 8)
+            ByteArray(1 shl 20).let { chunk -> val r = java.util.Random(20261113L); while (noise.hasRemaining()) { r.nextBytes(chunk); noise.put(chunk, 0, minOf(chunk.size, noise.remaining())) } }
             var got = 0
             var why = "all of it"
             while (got + each <= mb) {
@@ -649,9 +652,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                 GLES30.glFramebufferTexture2D(GLES30.GL_FRAMEBUFFER, GLES30.GL_COLOR_ATTACHMENT0, GLES30.GL_TEXTURE_2D, t[0], 0)
                 val status = GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER)
                 if (status == GLES30.GL_FRAMEBUFFER_COMPLETE) {
-                    GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
-                    GLES30.glViewport(0, 0, side, side)
-                    GLES30.glClearColor(0.25f, 0.5f, 0.75f, 1f); GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
+                    noise.position((got / each * 4096) % (side * 8)).limit(noise.capacity())   // a different start each time
+                    noise.rewind()
+                    GLES30.glBindBuffer(GLES30.GL_PIXEL_UNPACK_BUFFER, 0)
+                    GLES30.glTexSubImage2D(GLES30.GL_TEXTURE_2D, 0, 0, 0, side, side, GLES30.GL_RGBA, GLES30.GL_HALF_FLOAT, noise)
                     GLES30.glFinish()
                 }
                 val err = GLES30.glGetError()
@@ -3537,7 +3541,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                 // them (the wash stamped into stand-in tiles for the read alone, MediaCanvas.withSheetStamped), which is what
                 // the screen shows. Without this the matrix saw every wet-sheet stroke as "changed nothing".
                 if (readPixels) mediaCanvas.withSheetStamped {
-                    planes["visible"] = engine.tileKeys(layerId).associateWith { k -> engine.readTile(layerId, k) ?: ByteArray(TILE_BYTES) }
+                    // As drawn: a frame's tiles too (tileKeys lists the shared plane's alone, so every realistic-paint stroke on
+                    // an animation board read as "changed nothing": matrix runs of 2026-11-13, oil, pencil and watercolour).
+                    planes["visible"] = engine.visibleTileKeys(layerId).associateWith { k -> engine.readTile(layerId, k) ?: ByteArray(TILE_BYTES) }
                     val meta = doc?.layers?.firstOrNull { it.id == layerId }
                     if (meta != null && meta.regions.isNotEmpty()) {
                         fun cel(id: String) = engine.celTileKeys(layerId, id).associateWith { k -> engine.readCelTile(layerId, id, k) ?: ByteArray(TILE_BYTES) }

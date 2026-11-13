@@ -132,6 +132,7 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
             if (engine == null || grid != wantGrid) {
                 if (!LayerBudget.windowFits(availBytes, thresholdBytes, wet = true)) return LayerBudget.windowRefusal(true)
                 releaseEngine()
+                val madeAt = System.nanoTime()
                 val made = MediaLayerEngine(shaders, atlasMode = false, coarseWater = false)
                 try { made.init(wantGrid.w, wantGrid.h, 0f, 0f, 1f) } catch (x: GraphicsMemoryException) {
                     android.util.Log.e(TAG, "no graphics memory for the wet sheet: ${x.message}")
@@ -141,7 +142,8 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
                 made.lookPaintOnly = true; made.cullWater = true; made.capInput = true; made.rimCells = WetSheetMath.RIM_CELLS
                 made.prewarmSheet()
                 engine = made; grid = wantGrid
-                android.util.Log.i(TAG, "sheet made: ${grid.w} x ${grid.h} cells")
+                android.opengl.GLES30.glFinish()
+                android.util.Log.i(TAG, "sheet made: ${grid.w} x ${grid.h} cells in ${(System.nanoTime() - madeAt) / 1_000_000} ms (its programs and textures; the stroke waited for it)")
             }
             val e = engine!!
             if (e.asleep) try { e.wake() } catch (x: GraphicsMemoryException) {

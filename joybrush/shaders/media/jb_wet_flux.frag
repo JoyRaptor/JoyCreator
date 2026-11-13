@@ -147,18 +147,7 @@ bool outside(ivec2 q) {
     return float(q.x) < u_rect.x || float(q.y) < u_rect.y || float(q.x) >= u_rect.z || float(q.y) >= u_rect.w || jb_wall(q);
 }
 
-#ifdef JB_CULL_MASK
-// The wet sheet's culling (MediaLayerEngine.cullWater, core/media/WaterCull): one texel per block of this pass's cells,
-// u_cullBlock cells on a side, 0 where the step has nothing to do (no water, no dampness, and none within a block of it).
-// Those cells are left exactly as they are, as a scissor would leave them. Rectangles round the live blocks took three to
-// six times a thin stroke's own width with them; this follows the blocks themselves.
-uniform sampler2D u_cullMask;
-uniform float u_cullBlock;
-#endif
 void main() {
-#ifdef JB_CULL_MASK
-    if (texelFetch(u_cullMask, ivec2(gl_FragCoord.xy / u_cullBlock), 0).r == 0.0) discard;
-#endif
     jb_atlasBegin();
     ivec2 c = jb_cell();
     ivec2 size = textureSize(u_w0, 0);

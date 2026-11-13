@@ -164,6 +164,8 @@ public class FaditorToolsDrawer {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         scrim.setBackgroundColor(OUTSIDE_VEIL);
         scrim.setOnClickListener(v -> dismiss());
+        // The sheet has its own close button; TalkBack need not stop on the veil behind it.
+        scrim.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         overlay.addView(scrim);
 
         // The sheet. Its height is capped so it never climbs over the top bar.

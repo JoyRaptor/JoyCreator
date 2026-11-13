@@ -63,6 +63,8 @@ git -C "C:/+Projects/JoyCreator" worktree add C:/Temp/<topic>-<yyyymmdd> -b <har
   about 2.2 GB for focused tests, 2.8 GB for full tests, 3.2 GB for an APK.
 - **Check disk space first.** C: filled up on 10-24 and broke every session's builds. D: has room.
 - A quick type check without Gradle: `tools/jvm-harness/typecheck.sh`.
+- All Studio test suites in one go: `bash tools/jvm-harness/run-studio-all.sh` (takes the build lock; one PASS/FAIL
+  line per suite; `run-studio-all.sh timemap fx` runs just those). Run it before landing Studio model or export changes.
 - "Unable to establish loopback connection" from Gradle is a Windows socket problem, not your code
   (see the lessons file).
 

@@ -82,6 +82,18 @@ public class RotationDialView extends View {
         text.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
         text.setColor(TEXT_COL);
         text.setTextAlign(Paint.Align.CENTER);
+        // TalkBack: the dial is named, says its angle, and a double-tap opens the same
+        // type-a-value prompt a finger tap does (it had no accessibility at all; STU-D2).
+        setFocusable(true);
+        setContentDescription(context.getString(com.fadcam.R.string.faditor_tool_rotate));
+        androidx.core.view.ViewCompat.setStateDescription(this,
+                context.getString(com.fadcam.R.string.a11y_degrees, Math.round(degrees)));
+    }
+
+    @Override public boolean performClick() {
+        super.performClick();
+        if (listener != null) listener.onTap();
+        return true;
     }
 
     public void setListener(@NonNull Listener l) { listener = l; }
@@ -93,6 +105,8 @@ public class RotationDialView extends View {
      *  the single source of truth; the dial is a view of it. */
     public void setDegrees(float raw) {
         degrees = raw;
+        androidx.core.view.ViewCompat.setStateDescription(this,
+                getContext().getString(com.fadcam.R.string.a11y_degrees, Math.round(raw)));
         invalidate();
     }
 

@@ -271,6 +271,7 @@ public class FaditorToolsAdapter {
         editChipIcon.setLayoutParams(iconLp);
         editChipIcon.setGravity(Gravity.CENTER);
         editChipIcon.setTypeface(ResourcesCompat.getFont(context, R.font.materialicons));
+        editChipIcon.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO); // icon-font glyph: TalkBack would read the word
         editChipIcon.setText("tune");
         editChipIcon.setTextColor(Studio.INK_FAINT);
         editChipIcon.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f);
@@ -809,6 +810,7 @@ public class FaditorToolsAdapter {
         TextView icon = new TextView(context);
         icon.setTypeface(ResourcesCompat.getFont(context, R.font.materialicons));
         icon.setText("check");
+        icon.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO); // icon-font glyph: TalkBack would read the word
         icon.setTextColor(Studio.GO);
         icon.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f);
         icon.setGravity(Gravity.CENTER);
@@ -883,6 +885,7 @@ public class FaditorToolsAdapter {
 
         TextView icon = new TextView(context);
         icon.setId(tool.iconViewId);
+        icon.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO); // icon-font glyph: TalkBack would read the word
         LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(dp(24), dp(22));
         icon.setLayoutParams(iconLp);
         icon.setGravity(Gravity.CENTER);
@@ -948,6 +951,7 @@ public class FaditorToolsAdapter {
             chevronLp.gravity = Gravity.CENTER_HORIZONTAL;
             chevron.setLayoutParams(chevronLp);
             chevron.setTypeface(ResourcesCompat.getFont(context, R.font.materialicons));
+            chevron.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO); // icon-font glyph: TalkBack would read the word
             chevron.setText("expand_more");
             chevron.setTextColor(Studio.INK_OFF);
             chevron.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f);

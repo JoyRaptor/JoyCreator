@@ -448,6 +448,18 @@ public final class FxPanel {
         return card;
     }
 
+    /** An effect family's heading, from resources (was its enum name, English only). */
+    @NonNull
+    private static String familyName(@NonNull Context ctx, @NonNull FxEffectDef.Family family) {
+        switch (family) {
+            case BLUR: return ctx.getString(com.fadcam.R.string.fx_family_blur);
+            case COLOR: return ctx.getString(com.fadcam.R.string.fx_family_color);
+            case GENERATE: return ctx.getString(com.fadcam.R.string.fx_family_generate);
+            case DISTORT: return ctx.getString(com.fadcam.R.string.fx_family_distort);
+            default: return pretty(family.name());
+        }
+    }
+
     @NonNull
     private static String pretty(@NonNull String mode) {
         if (mode.length() < 2) return mode;
@@ -1818,7 +1830,7 @@ public final class FxPanel {
         for (FxEffectDef.Family family : FxEffectDef.Family.values()) {
             List<FxEffectDef> defs = FxRegistry.byFamily(family);
             if (defs.isEmpty()) continue;
-            picker.addView(TextOverlayDrawer.Kit.sectionLabel(ctx, pretty(family.name())));
+            picker.addView(TextOverlayDrawer.Kit.sectionLabel(ctx, familyName(ctx, family)));
 
             LinearLayout rowA = new LinearLayout(ctx);
             rowA.setOrientation(LinearLayout.HORIZONTAL);

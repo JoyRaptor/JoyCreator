@@ -15,7 +15,7 @@ Date: 2026-11-13. Worktree `launch-docs-20261113-042476` (branch off `joy-creato
 | Credit / licence (leave) | 2 |
 | Layout `android:text` | 1 |
 | Manifest launcher-disguise labels | 3 aliases say "FadCam" / "FadCam ++" (plus 1 `0xFF0000`, others generic) |
-| `values-*` (14 locale folders) | 0 in every file |
+| `values-*` (locale folders) | see section 4 (corrected: not zero) |
 | `menu/`, `xml/` visible text | 0 (file_paths.xml has an `external-files-path` name, not shown) |
 | `assets/` shown to a user | web remote page (FadCam Remote), 2 PNG banners, Pro previews |
 | Java/Kotlin literals that reach a user (name on phone, clipboard, text overlay) | about 14, plus about 30 that are AI-prompt or JS contract text |
@@ -70,9 +70,26 @@ No `menu/` hits.
 
 Other aliases are intentionally generic (Camera, Notes, Calculator, Clock, Weather, FootballX 2024, ClutchX, JF-17: ThunderX, `$ ~/r00t`, `0xFF0000`). The application `android:label` is `@string/app_name` (fine). Whether the alias labels stay is a question for the owner: they are disguise icons, so a FadCam name on four of them is still the old brand in the launcher.
 
-## 4. Locale folders
+## 4. Locale folders (CORRECTED by the launch lane 2026-11-13)
 
-14 `values-*` folders; per-file counts of visible FadCam/FadRec/FadShot/Faditor strings: **0 in every file**. (Command: `rg -c -i '>[^<]*(fadcam|fadrec|fadshot|faditor)[^<]*<' res/values-*`, no output.)
+The scan's first count of '0 in every file' was wrong (its regex matched nothing). Re-counted with a script: `<string>` values containing FadCam / FadRec / FadShot / Faditor, per locale `strings.xml`:
+
+| locale | strings |
+|---|---|
+| main | 34 |
+| main | 34 |
+| main | 27 |
+| main | 34 |
+| main | 38 |
+| main | 34 |
+| main | 34 |
+| main | 27 |
+| main | 34 |
+| main | 34 |
+| main | 34 |
+| main | 55 |
+
+Most are the `Downloads/FadCam` folder wording and the copyright line (compare English `values/`, section 1); the same fix as English (L16, L17) covers them. English `values/` is the source to fix first.
 
 ## 5. Assets
 

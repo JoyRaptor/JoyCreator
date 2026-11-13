@@ -116,6 +116,14 @@ public final class TextLabRenderer {
     private double[] fieldU;
     private final TlGl.Target sphere, black;
     private TlGl.Target field, fa, fb, scene, back, screen, out, outHdr;
+    /**
+     * The 32-bit layers of the speed work (T13, 2026-11-13, twin of tl-engine.js): where each pixel's ray meets the
+     * letter (the march pass), and the wobble's offset worked out once. Null when this GPU cannot draw into 32-bit
+     * floats: then every look draws the old way (the same picture, only slower).
+     */
+    @Nullable private TlGl.Target march, wobT;
+    /** Where this frame's shape work left the field (a still runs the fire on it). */
+    private TlGl.Target shapedField;
     private TlGl.Target[] heat, bloom;
     private int emit;
     private int photo;
@@ -322,7 +330,7 @@ public final class TextLabRenderer {
     // ---- build and the sphere ---------------------------------------------------------------
 
     private void freeTargets() {
-        TlGl.Target[] single = {field, fa, fb, scene, back, screen, out, outHdr};
+        TlGl.Target[] single = {field, fa, fb, scene, back, screen, out, outHdr, march, wobT};
         for (TlGl.Target t : single) glw.free(t);
         if (heat != null) for (TlGl.Target t : heat) glw.free(t);
         if (bloom != null) for (TlGl.Target t : bloom) glw.free(t);
@@ -347,6 +355,15 @@ public final class TextLabRenderer {
         back = glw.target(W, H, true, false);
         screen = glw.target(W, H, false, false);
         out = glw.target(W, H, false, false);
+        try {
+            march = glw.floatTarget(W, H);
+            wobT = glw.floatTarget(W, H);
+        } catch (RuntimeException e) {
+            glw.free(march);
+            march = null;
+            wobT = null;
+            android.util.Log.w("TextLab", "no 32-bit float targets here: looks draw the old way", e);
+        }
         outHdr = null;   // made when a linear clear picture is first asked for
         // the fire's heat picture has a fixed fineness (640 across at most): the same flame, and the
         // same cost, whether the picture is a phone preview or a 4K still
@@ -680,22 +697,63 @@ public final class TextLabRenderer {
         TlGl.Target fieldNow = field;
         double soft = knob("soften") * em, wobble = knob("wobble");
         if (softens()) {
-            TlProgram sp = glw.program("quad.vert", "soften.frag", none).use().setAll(U).set("uRadius", soft);
+            // Each pass builds only the pieces it uses (the Note 9 runs a smaller program faster, T13): the blur passes
+            // are blur alone; the shape work holds only the pieces switched on. Twin of tl-engine.js.
+            List<String> parts = new ArrayList<>();
+            parts.add("SOFTEN_PARTS");
+            if (wobble > 0) parts.add("SOFTEN_WOBBLE");
+            if (knob("chip") > 0 || knob("grow") > 0) parts.add("SOFTEN_CHIPS");
+            if (knob("drip") > 0) parts.add("SOFTEN_DRIP");
+            if (knob("splash") > 0) parts.add("SOFTEN_SPLASH");
+            List<String> blurDefs = Collections.singletonList("SOFTEN_BLUR_ONLY");
             double[] shape = {wobble, knob("wobbleScale"), knob("wobbleSpeed"), 1};
             double[] zero4 = {0, 0, 0, 0};
             if ((knob("drip") > 0 || knob("splash") > 0) && soft > 0.25) {
-                // drips are new shape, so they go in first and the rounding then rounds them with the letter
-                sp.set("uRadius", 0).set("uWobble", shape).set("uStep", new double[]{1.0 / W, 0}).tex("uSrc", field.tex(), 0);
-                glw.pass(fb);
-                sp.set("uRadius", soft).set("uWobble", zero4).tex("uSrc", fb.tex(), 0);
+                // drips are new shape, so they go in first and the rounding then rounds them with the letter: a chain
+                // of small passes, each reading the one before (same order, same sums as one pass)
+                List<String> pieces = new ArrayList<>();
+                for (String p : new String[]{"SOFTEN_CHIPS", "SOFTEN_DRIP", "SOFTEN_SPLASH"}) if (parts.contains(p)) pieces.add(p);
+                boolean wobbleRead = parts.contains("SOFTEN_WOBBLE") && pieces.size() > 1 && wobT != null;
+                if (wobbleRead) {
+                    glw.program("quad.vert", "soften.frag", java.util.Arrays.asList("SOFTEN_PARTS", "SOFTEN_WOBBLE", "SOFTEN_WOBBLE_ONLY"))
+                            .use().setAll(U).set("uWobble", shape);
+                    glw.pass(wobT);
+                }
+                List<String> wobDefs = new ArrayList<>();
+                wobDefs.add("SOFTEN_PARTS");
+                if (parts.contains("SOFTEN_WOBBLE")) wobDefs.add(wobbleRead ? "SOFTEN_WOBBLE_READ" : "SOFTEN_WOBBLE");
+                TlGl.Target src = field, dst = fa;
+                for (int i = 0; i < pieces.size(); i++) {
+                    List<String> st = new ArrayList<>(wobDefs);
+                    st.add(pieces.get(i));
+                    st.add("SOFTEN_SHAPE_ONLY");
+                    if (i > 0) st.add("SOFTEN_C_FROM_PREV");
+                    TlProgram p = glw.program("quad.vert", "soften.frag", st).use().setAll(U)
+                            .set("uRadius", 0).set("uWobble", shape).set("uStep", new double[]{1.0 / W, 0}).tex("uSrc", field.tex(), 0);
+                    if (i > 0) p.tex("uPrev", src.tex(), 1);
+                    if (wobbleRead) p.tex("uWob", wobT.tex(), 2);
+                    glw.pass(dst);
+                    src = dst;
+                    dst = dst == fa ? fb : fa;
+                }
+                // then the rounding: across into the other target, and up back into this one
+                TlProgram blur = glw.program("quad.vert", "soften.frag", blurDefs);
+                blur.use().setAll(U).set("uRadius", soft).set("uWobble", zero4).set("uStep", new double[]{1.0 / W, 0}).tex("uSrc", src.tex(), 0);
+                glw.pass(dst);
+                blur.use().setAll(U).set("uRadius", soft).set("uWobble", zero4).set("uStep", new double[]{0, 1.0 / H}).tex("uSrc", dst.tex(), 0);
+                glw.pass(src);
+                fieldNow = src;
             } else {
-                sp.set("uWobble", shape).set("uStep", new double[]{1.0 / W, 0}).tex("uSrc", field.tex(), 0);
+                TlProgram first = glw.program("quad.vert", "soften.frag", parts.size() > 1 ? parts : blurDefs);
+                first.use().setAll(U).set("uRadius", soft).set("uWobble", shape).set("uStep", new double[]{1.0 / W, 0}).tex("uSrc", field.tex(), 0);
+                glw.pass(fa);
+                glw.program("quad.vert", "soften.frag", blurDefs).use().setAll(U).set("uRadius", soft).set("uWobble", zero4)
+                        .set("uStep", new double[]{0, 1.0 / H}).tex("uSrc", fa.tex(), 0);
+                glw.pass(fb);
+                fieldNow = fb;
             }
-            glw.pass(fa);
-            sp.set("uWobble", zero4).set("uStep", new double[]{0, 1.0 / H}).tex("uSrc", fa.tex(), 0);
-            glw.pass(fb);
-            fieldNow = fb;
         }
+        shapedField = fieldNow;   // (still() runs the fire on the settled field from here)
 
         // fire
         TlGl.Target heatNow = black;
@@ -721,8 +779,29 @@ public final class TextLabRenderer {
         }
 
         // shade
-        TlProgram sh = glw.program("quad.vert", "shade.frag", defines).use().setAll(U);
+        // A look whose letters have depth seen at a slant marches each pixel's ray into the letter; that march runs as
+        // its own pass first (two smaller programs run much faster than one big one on the Note 9, T13), and the
+        // painting pass reads its answer. Looks that draw their own way skip it; flat ones build without the march.
+        boolean slant = knob("persp") != 0 || knob("parallax") != 0 || knob("extrudeX") != 0 || knob("extrudeY") != 0;
+        boolean ownWay = defines.contains("TUBE") || defines.contains("CELLS") || defines.contains("INK")
+                || defines.contains("FOG") || defines.contains("FLAG");
+        boolean split = slant && !ownWay && march != null;
+        if (split) {
+            List<String> md = new ArrayList<>(defines);
+            md.add("MARCH_PASS");
+            glw.program("quad.vert", "shade.frag", md).use().setAll(U).tex("uFieldTex", fieldNow.tex(), 0);
+            glw.pass(march);
+        }
+        List<String> shadeDefs = new ArrayList<>(defines);
+        if (split) shadeDefs.add("MARCH_READ");
+        else if (!slant && !ownWay) shadeDefs.add("FLAT_FACE");
+        // a relief built for its one kind only where that measured faster on the Note 9 (cut stones and rock; ripples
+        // measured much slower, so not those)
+        long kind = Math.round(knob("detailKind"));
+        if (defines.contains("DETAIL") && (kind == 9 || kind == 10)) shadeDefs.add("DETAIL_KIND " + kind);
+        TlProgram sh = glw.program("quad.vert", "shade.frag", shadeDefs).use().setAll(U);
         sh.tex("uFieldTex", fieldNow.tex(), 0).tex("uMatcap", sphere.tex(), 1).tex("uBack", back.tex(), 2).tex("uHeat", heatNow.tex(), 3);
+        if (split) sh.tex("uMarch", march.tex(), 6);
         glw.pass(scene);
 
         GLES30.glEnable(GLES30.GL_BLEND);
@@ -802,7 +881,7 @@ public final class TextLabRenderer {
         frame(1000);
         if (hasFire()) {
             TlProgram fp = glw.program("quad.vert", "fire_step.frag", Collections.emptyList());
-            TlGl.Target f = softens() ? fb : field;
+            TlGl.Target f = shapedField != null ? shapedField : field;   // wherever the frame's shape work left the field
             // the field must be the settled one: draw the end pose first
             clock0 = 1000 - seconds;
             frame(1000);

@@ -116,6 +116,16 @@ final class TlGl {
         GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_LINEAR_MIPMAP_LINEAR);
     }
 
+    /**
+     * A 32-bit float target read one pixel at a time (NEAREST): the march's answers and the wobble's offsets, which
+     * 16-bit floats would move. Throws when this GPU cannot draw into one (the caller then draws the old way).
+     */
+    @NonNull
+    Target floatTarget(double w, double h) {
+        int iw = Math.max(1, (int) Math.round(w)), ih = Math.max(1, (int) Math.round(h));
+        return new Target(GlTarget.create(iw, ih, GlTarget.RGBA32F, 1, false), 0);
+    }
+
     void free(@Nullable Target t) {
         if (t == null) return;
         t.t.free();

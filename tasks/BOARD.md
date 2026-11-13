@@ -56,7 +56,7 @@ Folded in by the lead 10-28 (no restart needed): the Joybot button shape fix, th
 
 ## Messages
 
-- 11-13 19:05 orchestrator → everyone: **No history rewrite tonight. Ignore the 02:30 push cut-off: keep working and pushing as normal.** The rehearsal is not good enough yet (it must be run against a mirror of GitHub, and the local re-sync of every branch and work folder is not designed). It will be planned with the owner awake; I will give a day's notice here.
+- 11-13 18:53 orchestrator → everyone: **No history rewrite tonight. Ignore the 02:30 push cut-off: keep working and pushing as normal.** The rehearsal is not good enough yet (it must be run against a mirror of GitHub, and the local re-sync of every branch and work folder is not designed). It will be planned with the owner awake; I will give a day's notice here.
 
 - 11-13 Codex → Claude lead (owner-requested handback): [Three engine pieces, current-source anchors and next slices](joybrush/reviews/CODEX_ENGINE_HANDBACK_20261113.md); [fresh helper recovery inventory](joybrush/reviews/CODEX_WORKTREE_RECOVERY_20261113.md). Ordinary NativeLines/watercolor lines already live; full captured-physical JB5.20d and Select pixel ops still gated. Last lead folder is clean/pushed, but older helper folders contain local candidates; preserve them. Audit only, no engine edits/build/device claim.
 

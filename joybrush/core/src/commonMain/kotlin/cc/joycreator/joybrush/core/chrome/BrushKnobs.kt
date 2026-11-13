@@ -22,6 +22,7 @@ import cc.joycreator.joybrush.core.media.EndsMode
 import cc.joycreator.joybrush.core.media.TurnMode
 import cc.joycreator.joybrush.core.media.FaceMode
 import cc.joycreator.joybrush.core.media.PasteBrush
+import cc.joycreator.joybrush.core.media.PasteBrushes
 import cc.joycreator.joybrush.core.media.PressMode
 import cc.joycreator.joybrush.core.media.Stick
 import cc.joycreator.joybrush.core.media.THINNER
@@ -323,6 +324,10 @@ object BrushKnobs {
             "How the hairs mark the paint: in uneven bunches that come and go, or the even comb from before.",
             listOf("Varied", "Even"), { if ((it.paste?.vary ?: 0.0) > 0.0) 0 else 1 },
             { s, i -> s.copy(paste = s.paste?.copy(vary = if (i == 0) 1.0 else 0.0)) })
+        if (!b.blade) out += stepped("media.paste.pull", "Wet paint",
+            "What the brush does to wet paint it crosses: pulls it along in streaks, or leaves it lying and only trades with it, as before.",
+            listOf("Pulled along", "Left lying"), { if ((it.paste?.pull ?: 0.0) > 0.0) 0 else 1 },
+            { s, i -> s.copy(paste = s.paste?.copy(pull = if (i == 0) (PasteBrushes.ALL[s.tool]?.pull?.takeIf { it > 0.0 } ?: 0.7) else 0.0)) })
         if (!b.blade) out += stepped("media.paste.turns", "Sharp turns",
             "What the brush does when you change direction: its body folds under the pen, or swings round the pen point as it did before.",
             TurnMode.entries.map { it.label }, { (it.paste?.turns ?: TurnMode.FOLLOW).ordinal },

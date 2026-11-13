@@ -2636,7 +2636,7 @@ class GlPaintEngine(
                 attach(tex)
                 val status = GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER)
                 if (status == GLES30.GL_FRAMEBUFFER_COMPLETE) continue
-                android.util.Log.e("JoyBrushTiles", "layer ${layer.id}: tile texture $tex lost (framebuffer status $status, is texture ${GLES30.glIsTexture(tex)}, GL error ${GLES30.glGetError()})")
+                cc.joycreator.joybrush.androidkit.diag.TileIncidents.e("layer ${layer.id}: tile texture $tex lost (framebuffer status $status, is texture ${GLES30.glIsTexture(tex)}, GL error ${GLES30.glGetError()})")
                 GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, tex)
                 GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D, 0, GLES30.GL_RGBA8, size, size, 0, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, null)
                 attach(tex)
@@ -2755,7 +2755,7 @@ class GlPaintEngine(
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,copyFbo); attach(target)
         // Every caller owns [target] and lets it go when this throws (a tile with no memory behind it never joins a layer).
         if (GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER) != GLES30.GL_FRAMEBUFFER_COMPLETE) {
-            android.util.Log.e("JoyBrushTiles", "new tile texture $target cannot be drawn into: GL error ${GLES30.glGetError()}")
+            cc.joycreator.joybrush.androidkit.diag.TileIncidents.e("new tile texture $target cannot be drawn into: GL error ${GLES30.glGetError()}")
             // Gone for good, whatever the caller does with the name next: it must not go back into a pool.
             deadTextures.add(target); floatNames.remove(target)
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
@@ -2772,7 +2772,7 @@ class GlPaintEngine(
         require(from.w == to.w && from.h == to.h)
         // An error an earlier pass left is not this copy's: it would fail the copy, and a stroke with it.
         val earlier = GLES30.glGetError()
-        if (earlier != GLES30.GL_NO_ERROR) android.util.Log.e("JoyBrushTiles", "GL error $earlier, left by an earlier pass, reached a tile copy")
+        if (earlier != GLES30.GL_NO_ERROR) cc.joycreator.joybrush.androidkit.diag.TileIncidents.e("GL error $earlier, left by an earlier pass, reached a tile copy")
         GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
         GLES30.glBindFramebuffer(GLES30.GL_READ_FRAMEBUFFER,readFbo)
         GLES30.glFramebufferTexture2D(GLES30.GL_READ_FRAMEBUFFER,GLES30.GL_COLOR_ATTACHMENT0,GLES30.GL_TEXTURE_2D,source,0)
@@ -6240,7 +6240,7 @@ class GlPaintEngine(
         pendingLine = null
         // After the history: the paint is in, so a failed cleanup must not read as a failed stroke, or the next undo takes
         // the action before it.
-        try { releaseStrokeTiles() } catch (e: RuntimeException) { android.util.Log.e("JoyBrushTiles", "a stroke's tiles were not all let go", e) }
+        try { releaseStrokeTiles() } catch (e: RuntimeException) { cc.joycreator.joybrush.androidkit.diag.TileIncidents.e("a stroke's tiles were not all let go", e) }
         collectPaperTextures()
         return changes.size
     }
@@ -6856,6 +6856,10 @@ class GlPaintEngine(
     var mediaBudgetBytes: Long = Long.MAX_VALUE
 
     /** Bytes of media payload the layers hold now, every plane (undo snapshots are the undo budget's business). */
+    /** What the engine holds, in a line, for the record of a tile failure (diag/TileIncidents.context). GL thread. */
+    fun incidentContext(): String = "layers ${layers.size}, look tiles about ${layers.values.sumOf { l -> l.tiles.size + l.cels.values.sumOf { c -> if (c === l.tiles) 0 else c.size } }}, " +
+        "paint room ${mediaResidentBytes() shr 20} of ${mediaBudgetBytes shr 20} MB, free pools ${freeLayerTex.size}/${freeFloatTex.size}/${freeStrokeTex.size}, undo steps ${undo.undoDepth}"
+
     fun mediaResidentBytes(): Long = layers.values.sumOf { l ->
         l.planes().sumOf { (_, p) -> p.entries.sumOf { (store, tiles) -> tiles.size.toLong() * MediaStores.tileBytes(size, store) } }
     }
@@ -7103,7 +7107,7 @@ class GlPaintEngine(
                     val after = if (look) newLayerTile() else newPayloadTile(store)
                     // A tile whose memory went ([repairLostTiles]) starts blank: one square, not the whole stroke.
                     val readable = now != null && tileReadable(now)
-                    if (now != null && !readable) android.util.Log.e("JoyBrushTiles", "$storeId tile ${key shr 32},${key.toInt()}: texture $now lost, started blank")
+                    if (now != null && !readable) cc.joycreator.joybrush.androidkit.diag.TileIncidents.e("$storeId tile ${key shr 32},${key.toInt()}: texture $now lost, started blank")
                     initializeTile(after, now.takeIf { readable }, false)
                     val dropped = topHeld[tile]
                     // A tile this stroke itself dropped (a stale payload, [dropStalePayload]) comes back in that same change.
@@ -7355,7 +7359,7 @@ class GlPaintEngine(
         val status = GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER)
         if (status == GLES30.GL_FRAMEBUFFER_COMPLETE) return
         val error = GLES30.glGetError()
-        android.util.Log.e("JoyBrushTiles", "texture $tex $what unusable at birth: framebuffer status $status, GL error $error")
+        cc.joycreator.joybrush.androidkit.diag.TileIncidents.e("texture $tex $what unusable at birth: framebuffer status $status, GL error $error")
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
         floatNames.remove(tex)
         GLES30.glDeleteTextures(1, intArrayOf(tex), 0)
@@ -7524,7 +7528,7 @@ class GlPaintEngine(
         val grainProg = if (paper == null) null else overlayGrainProg ?: try {
             GlProgram(shaders.source("jb_overlay.vert"), shaders.source("jb_overlay_grain.frag"), "overlay grain").also { overlayGrainProg = it }
         } catch (e: RuntimeException) {
-            android.util.Log.e("JoyBrushTiles", "the overlay's grain shader did not build: overlays are drawn plain", e)
+            cc.joycreator.joybrush.androidkit.diag.TileIncidents.e("the overlay's grain shader did not build: overlays are drawn plain", e)
             overlayGrainBroken = true
             null
         }
@@ -8012,7 +8016,7 @@ class GlPaintEngine(
         if (deadTextures.remove(tex)) return
         // Twice in a pool, the next two tiles would share it, and freeing one would take the other's memory.
         if (tex in freeFloatTex || tex in freeLayerTex) {
-            android.util.Log.e("JoyBrushTiles", "texture $tex retired twice", Throwable())
+            cc.joycreator.joybrush.androidkit.diag.TileIncidents.e("texture $tex retired twice", Throwable())
             return
         }
         // Scene caches, baked slabs and UndoLog endpoints all retire through this hook.
@@ -8058,7 +8062,7 @@ class GlPaintEngine(
     private fun refuseFailedStorage(name: IntArray, what: String) {
         val error = GLES30.glGetError()
         if (error == GLES30.GL_NO_ERROR) return
-        android.util.Log.e("JoyBrushTiles", "texture ${name[0]} $what: GL error $error")
+        cc.joycreator.joybrush.androidkit.diag.TileIncidents.e("texture ${name[0]} $what: GL error $error")
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
         GLES30.glDeleteTextures(1, name, 0)
         throw GraphicsMemoryException("The phone has no graphics memory for this stroke (GL error $error)")

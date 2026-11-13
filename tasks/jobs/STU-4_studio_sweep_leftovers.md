@@ -89,6 +89,26 @@ Small rough edges the device sweeps found. Each one is the kind of thing that ma
   (`MarkerWorkspaceStore.toSnapshotJson` under `com.fadcam.editor.undo.markerWorkspace.v1`) to each Step.before
   when the chat parks it; the editor already restores that key.
 
+## 11-13 afternoon (Studio lane): results by device
+- **Note 9:** text-drawer reopen tap (timeline and preview) ✅; Clean cut a 2 s/2 s gap sound into 3 pieces, one
+  Undo back ✅ (pieces landed in a new bottom row: fixed, `Timeline.insertAudioClips`, not re-seen); Fix audio's
+  waveform follows Fix/Undo/Redo ✅; Clean tab Revert/Undo/Redo ✅ (after Revert its Reduce noise/Normalize chips
+  vanished and its status line ignored Undo: fixed, not re-seen). "Untitled audio 3" would not open from the Library
+  (a tap did nothing): Library lane.
+- **Tab S8 Ultra (landscape, test tablet):** TX-01 "Look sliders" shows while a title wears a look, TextLab's panel
+  opens, a slider drag is one undo step ✅; the sheet opened only peeking (fixed: opens expanded, not re-seen). A
+  double-tap opens the text drawer and a second double-tap closes it ✅ (S12). The Neon Bar title drew unlit/plain at
+  0:00 on the tablet, so the slider's visual effect was not judged (TextLab lane to look).
+- **Landscape layout notes (tablet):** the Library's Start New Project sheet only peeks (drag it up to use it); the
+  floating pencil button bottom-left covers the tool row's first cell ("1x"); the text drawer's top rows sit over
+  the preview's upper third. Studio otherwise lays out well: the whole tool row fits.
+- **Also 11-13:** D7 (a seek exactly on a cut now shows the later clip, as selection and file do); Clip.relinked keeps
+  the clip's fades (copy-lint); caption style chip is one undo step (video and audio).
+- **Test run:** `run-studio-all.sh` 43 pass, 9 fail; the same 9 fail on a clean joy-creator (caption, fx, mesh,
+  motionrange, preview-parity, puppet, specq, specr, spect): old breakage, not this work. Needs its own job.
+- **Not done:** Joybot add_marker undo (needs the bridge); the audio-only project's clip on reopen; old early bakes on
+  open (no such project to hand); D9 rounding, B3 export of cut spans (diagnosed above).
+
 ## What is left (from `tasks/todo.md` on 10-16/17; may already be fixed)
 - [ ] Caption motion "Type – word" stuck.
 - [ ] Caption hide-eye and outline swatch show no visible response.

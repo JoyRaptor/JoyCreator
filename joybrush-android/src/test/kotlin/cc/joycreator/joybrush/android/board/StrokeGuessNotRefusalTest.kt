@@ -103,4 +103,34 @@ class StrokeGuessNotRefusalTest {
         assertTrue(heard.notices.isEmpty())
         view.cancelInterruptedStroke()
     }
+
+    @Test fun anArmedTileIsTurnedOffForRealisticPaintInsteadOfRefusing() {
+        // Ledger A9: pencil, watercolour and oil cannot wrap round a tile; tiling goes off, the stroke paints, one notice.
+        val view = surface(); val heard = Heard(view)
+        set(view, "tileBoardId", "tile")
+        val m = JbCanvasView::class.java.getDeclaredMethod("refuseTileTool", String::class.java).also { it.isAccessible = true }
+        assertFalse(m.invoke(view, "pencil, watercolour and oil") as Boolean)
+        assertEquals(null, view.tileBoardId)
+        assertTrue(heard.refused.isEmpty())
+        assertEquals(listOf("Tiling is off so pencil, watercolour and oil can paint. Tap Tile to repeat again."), heard.notices)
+        // Already off: nothing more is said.
+        assertFalse(m.invoke(view, "pencil, watercolour and oil") as Boolean)
+        assertEquals(1, heard.notices.size)
+    }
+
+    @Test fun theSymmetrySafeZoneIsDrawnForTheWindowEngineOnly() {
+        // JBX-01: the atlas has no reach limit, so no dotted circle or dimming there.
+        val view = surface()
+        val before = view.mediaAtlasEnabled
+        try {
+            view.preset = cc.joycreator.joybrush.androidkit.BrushLibrary.builtIn()
+                .first { it.engine == cc.joycreator.joybrush.core.brush.ENGINE_MEDIA }
+            view.symmetryGuide = cc.joycreator.joybrush.core.guide.Guide.Symmetry(
+                cc.joycreator.joybrush.core.shape.Pt(500.0, 0.0), cc.joycreator.joybrush.core.shape.Pt(500.0, 1000.0))
+            view.setMediaAtlas(false)
+            assertTrue(view.safeZoneRadiusDocPx > 0f)
+            view.setMediaAtlas(true)
+            assertEquals(0f, view.safeZoneRadiusDocPx)
+        } finally { view.setMediaAtlas(before) }
+    }
 }

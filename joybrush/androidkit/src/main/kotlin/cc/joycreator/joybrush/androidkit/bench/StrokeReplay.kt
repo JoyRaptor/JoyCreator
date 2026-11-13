@@ -84,7 +84,7 @@ object StrokeReplay {
             // …and strokes across them (new colour over old paint, colour carried from one to the next).
             val y = h * (0.36f + 0.17f * i)
             stroke(w * 0.10f, y, w * 0.90f, y, 1300.0, 0.55f, ramps = true)
-        }
+        } ?: BrushSetCases.case(name, w, h)   // the brush lane's sheets: proko*, pcol*, setA*, setB* (2026-11-13)
     }
 
     /** A straight stroke at one pressure with the pen held at [tilt] (rad from upright) leaning toward [az] (rad), whatever the way it goes. */

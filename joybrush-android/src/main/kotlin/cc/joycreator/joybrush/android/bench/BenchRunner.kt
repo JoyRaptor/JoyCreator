@@ -224,7 +224,9 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
             if (p == null) { Log.w(TAG, "no brush '$b'"); continue }
             if (mode != null) unibrush = true
             val effective = BenchBrushOverride.resolve(p, spec.sizeOverridePx)
-            for (c in spec.cases) for (r in 1..spec.runs) jobs.addLast(Triple(effective, c, r))
+            // The contact sheet (BrushSetCases): `setA` / `setB` draw in the cell of the brush's place in the list.
+            val cell = spec.brushes.indexOf(b)
+            for (c in spec.cases) for (r in 1..spec.runs) jobs.addLast(Triple(effective, if (c == "setA" || c == "setB") c + cell else c, r))
         }
         // Texture, Dry and Sparkle draw from PNGs the host controller hands the canvas; it is not running here, so the bench does.
         if (unibrush) canvas.brushPngs = UnibrushResources()::pngs
@@ -473,6 +475,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 preset.copy(media = m.copy(paste = pb.copy(ends = spec.pasteEnds ?: pb.ends, turns = spec.pasteTurns ?: pb.turns, cover = spec.pasteCover ?: pb.cover, carry = spec.pasteCarry ?: pb.carry, force = spec.pasteForce ?: pb.force, soft = spec.pasteSoft ?: pb.soft, vary = spec.pasteVary ?: pb.vary))) } } ?: preset
             canvas.preset = spec.wetness?.let { w -> ended.media?.let { m -> ended.copy(media = m.copy(wetness = w)) } } ?: ended
             spec.colors.getOrNull(spec.cases.indexOf(case))?.let { canvas.colorArgb = it }
+            // A contact-sheet cell takes the colours in turn, one a brush.
+            if (spec.colors.isNotEmpty() && (case.startsWith("setA") || case.startsWith("setB"))) case.drop(4).toIntOrNull()?.let { canvas.colorArgb = spec.colors[it % spec.colors.size] }
             applySymmetry()   // again before every stroke: the screen's own guide settings write over it when they load
             spec.zooms.getOrNull(spec.cases.indexOf(case))?.let { canvas.view.zoom = it; canvas.requestRender(); Log.i(TAG, "view zoom: $it") }
             ui.postDelayed({ if (!terminal) guarded {

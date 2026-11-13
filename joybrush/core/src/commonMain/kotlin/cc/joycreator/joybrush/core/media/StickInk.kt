@@ -12,7 +12,7 @@ import kotlin.math.pow
 // watercolour and oil live), in the same grain and the same amounts the graphite would have gone down in, and marks
 // that share of the deposit as tinted so the display does not also draw it as grey flakes. A grey, white or black
 // stick stays flakes, lighter or darker. Black is the stick's own graphite, exactly as before.
-// Twin of lab/media/js/stick.js stickInk; the GPU half is jb_media_apply.frag (u_inkK, u_inkS, u_inkTint).
+// Twin of lab/media/js/stick.js stickInk; the GPU half is jb_media_apply.frag built with JB_INK (u_inkK, u_inkS).
 
 /**
  * What one stroke of a dry stick lays. [flakeR]: the flakes' brightness (linear). [k], [s]: the pigment film a full

@@ -214,7 +214,7 @@ void main() {
     float hide = 1.0 - exp(-0.6 * (p1.r + wp.a));
     // A coloured stick's deposit is a pigment film in p0 / p1 (jb_media_apply.frag), already in R: only the graphite
     // share of the deposit shows as flakes. A layer drawn before pencils took colour has none tinted.
-    float graphite = dry.g > 1e-8 ? 1.0 - clamp(dry.a / dry.g, 0.0, 1.0) : 1.0;
+    float graphite = 1.0 - clamp(dry.a / max(dry.g, 1e-8), 0.0, 1.0);
     R = mix(R, vec3(flake), cover * (1.0 - hide) * graphite);
 
     // Heavy graphite on flattened tooth reads silvery: a soft specular from the lamp off the deposit.

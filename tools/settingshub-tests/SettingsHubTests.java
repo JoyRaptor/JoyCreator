@@ -144,6 +144,12 @@ public final class SettingsHubTests {
         eq(SettingsKey.QR_SCANNER, first("barcode"));
         eq(SettingsKey.SMART_DETECTION, first("forensics"));
         eq(SettingsKey.SETTINGS_BACKUP, first("import"));
+        // SHELL-14 (11-13): the AI row by the words people use for it, and the lobby's names.
+        eq(SettingsKey.AI_JOYBOT, first("api key"));
+        eq(SettingsKey.AI_JOYBOT, first("model"));
+        eq(SettingsKey.AI_JOYBOT, first("openrouter"));
+        eq(SettingsKey.SMART_DETECTION, first("detect"));
+        eq(SettingsKey.REMOTE, first("remote studio"));
     }
 
     static void caseAndAccents() {

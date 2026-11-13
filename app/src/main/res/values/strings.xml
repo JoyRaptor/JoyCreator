@@ -3385,7 +3385,7 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="lobby_new_project">Project</string>
     <string name="lobby_new_character">Character</string>
     <string name="lobby_new_import">Import</string>
-    <string name="lobby_floor_finder">Finder</string>
+    <string name="lobby_floor_finder">Detect</string>
     <string name="lobby_floor_remote">Remote</string>
     <string name="lobby_floor_bits">Bits</string>
     <string name="lobby_floor_packs">Packs</string>

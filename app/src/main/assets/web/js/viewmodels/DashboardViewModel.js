@@ -1,11 +1,8 @@
 /**
  * DashboardViewModel - Business logic for dashboard page
  * 
- * Supports two modes (handled by ApiService internally):
- * - Local mode: Phone's HTTP server (192.168.x.x)
- * - Cloud mode: Relay server (live.fadseclab.com:8443)
- * 
- * ApiService automatically detects the mode based on FadCamRemote.isCloudMode()
+ * Talks only to the phone's own HTTP server on the local Wi-Fi (192.168.x.x). FadCam's cloud
+ * relay was cut (S19); ApiService.isCloudMode() is always false and nothing here reaches it.
  * 
  * Multi-tab support (Step 6.11.5.4):
  * Uses BroadcastChannel to coordinate polling across tabs. Only the active/visible

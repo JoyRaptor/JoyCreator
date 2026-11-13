@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- SHELL-35 (11-13): the intro's last page states three promises instead of asking for
+         three ticks. Facts from PRIVACY.md's short version (draft, owner review owed).
+         English only: translations pending (other languages show these in English). -->
+    <string name="onboarding_promise_desc">Three things to know, and then the app is yours.</string>
+    <string name="onboarding_promise_1">Your work stays on your phone, in the Joy Creator folder you choose.</string>
+    <string name="onboarding_promise_2">No account, no ads, no tracking. Nothing about you is sold or shared.</string>
+    <string name="onboarding_promise_3">Something leaves your phone only when you use a feature that needs the internet, like an AI you connect.</string>
+    <string name="hover_intro_ai_add">Connect your own AI to Joybot now</string>
+    <string name="hover_intro_ai_later">Hide this; you can connect an AI later from Joybot\'s chat</string>
+</resources>

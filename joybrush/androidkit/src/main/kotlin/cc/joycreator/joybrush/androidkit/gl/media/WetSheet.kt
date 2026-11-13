@@ -139,6 +139,7 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
                     return LayerBudget.windowRefusal(true)
                 }
                 made.lookPaintOnly = true; made.cullWater = true; made.capInput = true; made.rimCells = WetSheetMath.RIM_CELLS
+                made.prewarmSheet()
                 engine = made; grid = wantGrid
                 android.util.Log.i(TAG, "sheet made: ${grid.w} x ${grid.h} cells")
             }
@@ -757,6 +758,7 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
                 return
             }
             made.lookPaintOnly = true; made.cullWater = true; made.capInput = true; made.rimCells = WetSheetMath.RIM_CELLS
+            made.prewarmSheet()
             engine = made; grid = s.grid
         }
         val e = engine!!

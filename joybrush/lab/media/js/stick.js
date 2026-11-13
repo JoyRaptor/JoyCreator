@@ -43,14 +43,14 @@ export const STICKS = {
   // transferExp, leadSoftX, plateau): tone with a fine speckle that builds over passes, not black specks. The sheet
   // bends fully onto the lead (conform 1), so only the fine tooth breaks a mark. A longer, wider side (side2, face).
   // The flagship stays beside it to compare.
-  'Proto Pencil 2': { tipR: 0.15, tipMax: 0.55, side1: 3.5, side2: 14, face: 1.6, soft: 0.53, rInf: 0.01243, blend: 1, build: 0.14,
+  'Proto Pencil 2': { tipR: 0.15, tipMax: 0.55, side1: 3.5, side2: 14, face: 1.6, soft: 0.53, rInf: 0.01243, blend: 1, build: 0.2,
     tuning: {
       pressDepth: 2.6, pressGamma: 1.68, sideEase: 3, toothStiffness: 9.2, padSoft: 0.9,
       side1From: 0.57, side1Full: 0.82, side2From: 0.74, side2Full: 0.95, evenFrom: 0.98, grad1: 1.2, grad2: 2,
       bell: 4.45, bellReach: 0.6, acrossSoft: 1.6, tipYield: 0.5, tail: 3.6,
       capMm: 0.0055, transferExp: 1.15, plateau: 3.3, crushStart: 0.58, crushMax: 0.45, clump: 0.1, pileLo: 0.11, pileHi: 0.44,
       dirStrength: 1.31, conform: 1,
-      abrasionX: 1.39, leadSoftX: 5.5, dustRateX: 2.2, smearX: 0.4, smearMmX: 2, crushRateX: 0.56, sheenX: 1.12,
+      abrasionX: 0.973, leadSoftX: 5.5, dustRateX: 1.54, smearX: 0.4, smearMmX: 2, crushRateX: 0.56, sheenX: 1.12,
       sizeCurve: [0.327214, 0.1815, 0.776646, 0.608461], darkCurve: [0.16948, 0.639946, 0.695278, 0.473668],
       sideCurve: [0.340697, 0.377986, 0.682266, 0.607197], pointCurve: [0.533494, 0.112884, 0.470578, 0.890346],
       tiltReachDeg: 61,

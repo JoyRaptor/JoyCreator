@@ -34,7 +34,7 @@ export const PASTE_BRUSHES = {
   // The rounded flat: soft-cornered strokes between a round and a flat, for petals, faces and blending edges.
   'Filbert': { shape: 0, widthMm: 7, lenMm: 5, thickMm: 0.5, scrape: 0.5, hairDepth: 0.4, ridge: 0.3, rate: 2.3, mix: 0.16, swap: 0.6, loadLenMm: 130, wick: 0.003, bow: 0.75, lump: 0.1, rigid: 0, fingers: 0.5, force: 0.5, vary: 1 },
   // A long thin round with fluid paint: stems, whiskers, highlights and signatures over wet paint.
-  'Oil liner': { shape: 0, allround: true, tipHalfMm: 0.05, widthMm: 1.6, lenMm: 11, thickMm: 0.22, thinMm: 0.05, scrape: 0.2, hairDepth: 0.15, ridge: 0.15, rate: 2.6, mix: 0.05, swap: 0.25, loadLenMm: 320, wick: 0.003, bow: 0.2, lump: 0, rigid: 0, fingers: 0, rag: 0.2, vary: 0, cover: 0.8 },
+  'Oil liner': { shape: 0, allround: true, tipHalfMm: 0.05, widthMm: 1.6, lenMm: 11, thickMm: 0.22, thinMm: 0.05, scrape: 0.2, hairDepth: 0.15, ridge: 0.15, rate: 2.6, mix: 0.05, swap: 0.25, loadLenMm: 300, wick: 0.003, bow: 0.2, lump: 0, rigid: 0, fingers: 0, rag: 0.2, vary: 0, cover: 0.8 },
 };
 
 // Opaque paint: the colour it covers with when thick. Strong scattering; K from the KM masstone.

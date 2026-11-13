@@ -101,13 +101,13 @@ object Sticks {
         // retuned so one pencil at one size gives what they show. The point presses deep and the side barely, so an
         // upright line stays whole on any paper; graphite goes down in thin even films (tone with a fine speckle that
         // builds, not black specks); a longer, wider side. Twin of stick.js; the flagship stays beside it to compare.
-        "Proto Pencil 2" to Stick(0.15, 0.55, 3.5, 14.0, 1.6, 0.53, 0.01243, blend = 1.0, build = 0.14, tuning = StickTuning(
+        "Proto Pencil 2" to Stick(0.15, 0.55, 3.5, 14.0, 1.6, 0.53, 0.01243, blend = 1.0, build = 0.2, tuning = StickTuning(
             pressDepth = 2.6, pressGamma = 1.68, sideEase = 3.0, toothStiffness = 9.2, padSoft = 0.9,
             side1From = 0.57, side1Full = 0.82, side2From = 0.74, side2Full = 0.95, evenFrom = 0.98, grad1 = 1.2, grad2 = 2.0,
             bell = 4.45, bellReach = 0.6, acrossSoft = 1.6, tipYield = 0.5, tail = 3.6,
             capMm = 0.0055, transferExp = 1.15, plateau = 3.3, crushStart = 0.58, crushMax = 0.45, clump = 0.1,
             pileLo = 0.11, pileHi = 0.44, dirStrength = 1.31, conform = 1.0,
-            abrasionX = 1.39, leadSoftX = 5.5, dustRateX = 2.2, smearX = 0.4, smearMmX = 2.0, crushRateX = 0.56, sheenX = 1.12,
+            abrasionX = 0.973, leadSoftX = 5.5, dustRateX = 1.54, smearX = 0.4, smearMmX = 2.0, crushRateX = 0.56, sheenX = 1.12,
             sizeCurve = listOf(0.327214, 0.1815, 0.776646, 0.608461), darkCurve = listOf(0.16948, 0.639946, 0.695278, 0.473668),
             sideCurve = listOf(0.340697, 0.377986, 0.682266, 0.607197), pointCurve = listOf(0.533494, 0.112884, 0.470578, 0.890346),
             tiltReachDeg = 61.0,

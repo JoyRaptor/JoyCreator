@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- STU-6 stage 1: effect pictures in the effect picker and on each effect card. -->
+<resources>
+    <string name="faditor_fx_swatch_card">How %1$s looks with these settings</string>
+    <string name="faditor_fx_picker_pictures">Pictures</string>
+    <string name="faditor_fx_picker_names">Names</string>
+    <string name="faditor_fx_picker_pictures_hint">Show the effects as pictures</string>
+    <string name="faditor_fx_picker_names_hint">Show the effects as a list of names</string>
+</resources>

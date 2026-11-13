@@ -137,7 +137,7 @@ public final class FxPanel {
      *                and the card has to tell the truth about which one this is.
      */
     @NonNull
-    public static View build(@NonNull Context ctx, @NonNull FxStack stack, @NonNull Host host,
+    public static View build(@NonNull Context ctx, @NonNull FxStack stack, @NonNull Host editor,
                              @NonNull FxPreviewTier.Subject subject) {
         float d = ctx.getResources().getDisplayMetrics().density;
         LinearLayout root = new LinearLayout(ctx);
@@ -150,11 +150,17 @@ public final class FxPanel {
         // on playhead ticks.
         final RefreshState rs = new RefreshState();
         root.setTag(REFRESH_TAG, rs);
+        // STU-6: every change the panel reports also tells the card swatches (each redraws only
+        // if its own values changed, at most ~10 a second).
+        final Host host = new com.fadcam.ui.faditor.tools.fxswatch.FxHostRelay(editor, () -> {
+            for (com.fadcam.ui.faditor.tools.fxswatch.FxCardSwatch s : rs.swatches) s.request();
+        });
 
         final Runnable[] rebuild = new Runnable[1];
         rebuild[0] = () -> {
             root.removeAllViews();
             rs.entries.clear();
+            rs.swatches.clear();
             root.addView(headerRow(ctx, stack, host, rebuild[0], d));
             List<FxInstance> cards = stack.cards();
             if (cards.isEmpty()) {
@@ -309,6 +315,14 @@ public final class FxPanel {
         head.addView(caret);
         installDragHandle(ctx, head, card, stack,
                 (stack.size() - 1) - index, stack.size(), host, rebuild, d);
+
+        // STU-6: this card alone, at its values and the playhead's moment, open or collapsed.
+        com.fadcam.ui.faditor.tools.fxswatch.FxCardSwatch swatch =
+                com.fadcam.ui.faditor.tools.fxswatch.FxCardSwatch.make(
+                        ctx, stack, fx, host::playheadMs, d);
+        rs.swatches.add(swatch);
+        rs.entries.add(ms -> swatch.request());
+        head.addView(swatch.view());
 
         TextView name = new TextView(ctx);
         name.setText(def.displayName);
@@ -1424,6 +1438,9 @@ public final class FxPanel {
     /** The panel's live-refresh list, attached to the root returned by {@link #build}. */
     private static final class RefreshState {
         final java.util.List<RefreshEntry> entries = new java.util.ArrayList<>();
+        /** The cards' live pictures (STU-6), told about every change and playhead move. */
+        final java.util.List<com.fadcam.ui.faditor.tools.fxswatch.FxCardSwatch> swatches =
+                new java.util.ArrayList<>();
     }
 
     /**
@@ -1811,25 +1828,34 @@ public final class FxPanel {
         picker.setOrientation(LinearLayout.VERTICAL);
         picker.setVisibility(View.GONE);
 
-        add.setOnClickListener(v -> picker.setVisibility(
-                picker.getVisibility() == View.GONE ? View.VISIBLE : View.GONE));
+        // STU-6: the picker shows pictures; the name list below is kept, one tap away.
+        final LinearLayout names = new LinearLayout(ctx);
+        names.setOrientation(LinearLayout.VERTICAL);
+        final View[] content = new View[1];
+        add.setOnClickListener(v -> {
+            boolean open = picker.getVisibility() == View.GONE;
+            picker.setVisibility(open ? View.VISIBLE : View.GONE);
+            if (open && content[0] != null) {
+                com.fadcam.ui.faditor.tools.fxswatch.FxPickerGrid.shown(content[0]);
+            }
+        });
         wrap.addView(add);
 
         for (FxEffectDef.Family family : FxEffectDef.Family.values()) {
             List<FxEffectDef> defs = FxRegistry.byFamily(family);
             if (defs.isEmpty()) continue;
-            picker.addView(TextOverlayDrawer.Kit.sectionLabel(ctx, pretty(family.name())));
+            names.addView(TextOverlayDrawer.Kit.sectionLabel(ctx, pretty(family.name())));
 
             LinearLayout rowA = new LinearLayout(ctx);
             rowA.setOrientation(LinearLayout.HORIZONTAL);
             int perRow = 0;
             LinearLayout current = rowA;
-            picker.addView(rowA);
+            names.addView(rowA);
             for (FxEffectDef def : defs) {
                 if (perRow == 3) {
                     LinearLayout next = new LinearLayout(ctx);
                     next.setOrientation(LinearLayout.HORIZONTAL);
-                    picker.addView(next);
+                    names.addView(next);
                     current = next;
                     perRow = 0;
                 }
@@ -1857,27 +1883,49 @@ public final class FxPanel {
                             ObjectDrawer.Kit.pill(ctx, Studio.alpha(Studio.GROUND, 0),
                                     ObjectDrawer.Kit.RING), 0, inset, 0, inset));
                     c.setTextColor(TXT_DIM);
-                    c.setOnClickListener(v -> new com.google.android.material.dialog
-                            .MaterialAlertDialogBuilder(ctx)
-                            .setTitle(ctx.getString(com.fadcam.R.string.faditor_fx_needs_pass_title,
-                                    def.displayName))
-                            .setMessage(ctx.getString(com.fadcam.R.string.faditor_fx_needs_pass_body,
-                                    def.displayName))
-                            .setPositiveButton(com.fadcam.R.string.faditor_coachmark_got_it, null)
-                            .show());
+                    c.setOnClickListener(v -> explainUnavailable(ctx, def));
                 } else {
-                    c.setOnClickListener(v -> {
-                        picker.setVisibility(View.GONE);
-                        structural(stack, host, rebuild,
-                                ctx.getString(com.fadcam.R.string.faditor_undo_fx_add, def.displayName),
-                                () -> stack.add(def.id));
-                    });
+                    c.setOnClickListener(v -> addEffect(ctx, stack, host, rebuild, picker, def));
                 }
                 current.addView(c);
                 perRow++;
             }
         }
+        content[0] = com.fadcam.ui.faditor.tools.fxswatch.FxPickerGrid.build(ctx, subject, names,
+                new com.fadcam.ui.faditor.tools.fxswatch.FxPickerGrid.Pick() {
+                    @Override
+                    public void add(@NonNull FxEffectDef def) {
+                        addEffect(ctx, stack, host, rebuild, picker, def);
+                    }
+
+                    @Override
+                    public void explain(@NonNull FxEffectDef def) {
+                        explainUnavailable(ctx, def);
+                    }
+                });
+        picker.addView(content[0]);
         wrap.addView(picker);
         return wrap;
+    }
+
+    /** Add {@code def} to the stack as one undo step, closing the picker. */
+    private static void addEffect(@NonNull Context ctx, @NonNull FxStack stack, @NonNull Host host,
+                                  @NonNull Runnable rebuild, @NonNull View picker,
+                                  @NonNull FxEffectDef def) {
+        picker.setVisibility(View.GONE);
+        structural(stack, host, rebuild,
+                ctx.getString(com.fadcam.R.string.faditor_undo_fx_add, def.displayName),
+                () -> stack.add(def.id));
+    }
+
+    /** Why {@code def} cannot go on this subject, and what would let it. */
+    private static void explainUnavailable(@NonNull Context ctx, @NonNull FxEffectDef def) {
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(ctx)
+                .setTitle(ctx.getString(com.fadcam.R.string.faditor_fx_needs_pass_title,
+                        def.displayName))
+                .setMessage(ctx.getString(com.fadcam.R.string.faditor_fx_needs_pass_body,
+                        def.displayName))
+                .setPositiveButton(com.fadcam.R.string.faditor_coachmark_got_it, null)
+                .show();
     }
 }

@@ -1,6 +1,6 @@
 # STU-6: Effect swatches, and TextLab's pieces as Studio effects
 
-**Milestone:** M1  ·  **State:** ⬜ planned 2026-11-12  ·  **Owner:** the TextLab phone-engine / Studio session (Opus)  ·  **Checked:** 2026-11-12 against `402899218`+
+**Milestone:** M1  ·  **State:** 🟡 stage 1 built on `claude/stu6-swatches-20261112` (owner look owed; not on `joy-creator`) 2026-11-12  ·  **Owner:** the TextLab phone-engine / Studio session (Opus)  ·  **Checked:** 2026-11-12 against `402899218`+
 
 ## Why it matters (for the user)
 The owner, 2026-11-12: Studio's effect picker is "all just a text list"; every effect, Clouds included, should
@@ -10,8 +10,10 @@ paint, burn-away...) should become Studio effects, so he can build textures the 
 plus displacement plus masks. "You already did a lot of the hard work to make it for one place."
 
 ## Done when
-- [ ] The effect picker is a grid of pictures (every existing effect, not only the new ones), each with its name.
-- [ ] Every card in an effect stack shows a small live swatch of that card alone, updating as its sliders move.
+- [x] The effect picker is a grid of pictures (every existing effect, not only the new ones), each with its name.
+      (stage 1, branch `claude/stu6-swatches-20261112`; agent-checked on the Note 9, owner look owed)
+- [x] Every card in an effect stack shows a small live swatch of that card alone, updating as its sliders move.
+      (same branch and proof level)
 - [ ] The new Generate cards and the new over-video effects below exist, keyable, previewed live and identical in
       export, each phone-proven on the Note 9 with a before/after screenshot in `tasks/screens/` and its cost.
 - [ ] STATE.md rows, roadmap row and this card updated; pushed, local equal to remote.
@@ -33,6 +35,40 @@ plus displacement plus masks. "You already did a lot of the hard work to make it
 ## What is left (in this order; stop and show the owner after 1, after 2, after 3)
 
 ### 1. Swatches for every effect (first: it helps all of Studio's existing effects)
+**Built 2026-11-12 on `claude/stu6-swatches-20261112` (not merged; the owner looks first).** What there is:
+- [x] Picker: "＋ Add effect" opens a grid of tiles, 4 across, grouped Blur / Color / Generate / Distort as before; each tile
+      is the effect's still at its default settings with its name under it (two lines, so long names read whole); hover
+      label = name + its FxBlurbs line. A tile that cannot go on this subject (blur etc. on a single object) is dimmed and
+      tapping it explains, exactly as the name list did. A tap adds the card as one undo step (the same `structural` call).
+- [x] Old list kept: a "Pictures | Names" pair on top of the picker (chosen one solid cyan via `ObjectDrawer.Kit.setChipOn`);
+      the choice is remembered (`fx_picker` prefs). There was no search/filter in the picker, so none to keep.
+- [x] Stills drawn once with the real compiler (`FxCompiler.plan` + `FxGlSource.fragment` + `FxUniforms.forPass`) on its own
+      GL thread (`OffscreenGl`), cached as PNGs in the app cache `fx_swatches/<id>.<hash>.png`; the hash covers every pass's
+      emitted shader source (body and compiler prelude), the default uniform values, the sample's version and the size and
+      moment drawn (2 s). An edited effect remakes its own still and drops the old file. Generators over neutral grey,
+      everything else over the sample scene.
+- [x] Sample frame: `FxSampleFrame`, drawn in code (sky, sun, clouds, hills, a brick building with hard white windows, a
+      striped awning, a picket fence, two faces of different skin tones). No photo bundled; none of the owner's used.
+- [x] Card: a 44 x 25dp swatch in every card's header (collapsed too), that card alone at its current values resolved at
+      the playhead (keyframes applied), over the sample scene. Redrawn when a slider moves (through one host relay,
+      `FxHostRelay`, after every `onFxChanged`) and on playhead moves only if the values or (for an effect that reads
+      `FX_TIME`) the moment changed; at most one drawing in flight, no sooner than 100 ms after the last. A bypassed
+      card's swatch is dimmed.
+- Proof (Note 9, agent): first opening of the picker drew 34 stills in **1683 ms**; after a force-stop, from the PNG cache
+  **185 ms**; reopening in the same session is instant (memory). Card swatch: 2 to 10 ms each to draw (median 4 ms, 128 x 72 px); a 3 s slider drag drew 28 pictures (about 9 a second), 0 in 5 s idle, and 0 during 3.5 s of playback (Duotone does not move with time).
+  Dragging Duotone's Amount 100 to 15 changed the card's swatch from the golden duotone to nearly the plain scene
+  (`after_card_slider_moved.png`) and made ONE undo step (counter 14 to 15). Battery 27.7-28.2 C, no throttling seen.
+  Screens: `tasks/screens/stu6/` (`before_picker`, `before_card`, `after_picker`, `after_picker_scrolled`,
+  `after_picker_names_kept`, `after_card`, `after_card_collapsed`, `after_card_slider_moved`). Test card left on the
+  Note 9: a Duotone on the stick-figure picture in "Untitled audio 4" (safe to delete).
+- Left / deferred (and why):
+  - [ ] The card swatch draws over the sample scene, not the current frame. The preview on screen already has the
+        effect in it, so it cannot be fed back; a clean frame needs a decode at the playhead (or what is beneath an
+        adjustment layer), which would compete with the editor's own decoder. Worth doing with the filmstrip cache later.
+  - [ ] Blur stills are faithful but subtle: Studio's blur units are fractions of a 1080 picture, so a default blur on a
+        144 px still is about one pixel. Owner to say whether the picker should show blurs at a stronger demo setting.
+  - [ ] Effects that only move (Shake, Flash at rest) show their frame at 2 s; no looping animation (not asked for).
+  - [ ] Owner look on the phone; then merge to `joy-creator`.
 - **Picker:** replace the text list with a grid of tiles: a still of the effect at its default settings, its
   name under it. Generators are shown on their own over a neutral grey; colour, blur and distort effects over
   one fixed sample frame (a small bundled photo with faces, sky and edges, so blur and colour read). Rendered

@@ -68,6 +68,7 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
     private static final long SOUND_MEMORY_MS = 1500;
 
     private VisTextureView view;
+    private final HeroMotion heroMotion = new HeroMotion();
     private FrameLayout stage;
     private LinearLayout top;
     private SlantRow sources;
@@ -757,7 +758,8 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
     @Override
     protected void onPause() {
         super.onPause();
-        LobbyHero.save(this, view, scene());   // the lobby's Viz Lab hero shows where you left off
+        heroMotion.stop();
+        LobbyHero.save(this, view, scene(), heroMotion);   // the lobby's Viz Lab hero shows where you left off
         if (source != null) source.setPaused(true);
         view.setPaused(true);
         session.flush();   // the app may be closed from here: keep every change now
@@ -767,6 +769,7 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
     protected void onResume() {
         super.onResume();
         com.fadcam.ui.faditor.ai.joybot.JoybotPulse.lightButton(joy, null, com.fadcam.ui.faditor.ai.joybot.IdeaEngine.Room.VISLAB);
+        heroMotion.start(view);
         if (!paused) {
             if (source != null) source.setPaused(false);
             view.setPaused(false);

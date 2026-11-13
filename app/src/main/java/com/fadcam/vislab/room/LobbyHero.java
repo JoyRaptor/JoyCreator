@@ -38,7 +38,8 @@ public final class LobbyHero {
     private LobbyHero() {}
 
     /** Main thread, as the room closes: grab the frame now, write it on a background thread. */
-    static void save(@NonNull Context c, @NonNull VisTextureView view, @Nullable VisScene look) {
+    static void save(@NonNull Context c, @NonNull VisTextureView view, @Nullable VisScene look,
+                     @Nullable HeroMotion motion) {
         if (look == null || !view.isAvailable() || view.getWidth() <= 0 || view.getHeight() <= 0) return;
         Bitmap b;
         try {
@@ -47,6 +48,7 @@ public final class LobbyHero {
             return;
         }
         if (b == null) return;
+        final Bitmap sheet = motion != null ? motion.sheet() : null;   // the moving preview
         Context app = c.getApplicationContext();
         String name = look.name(), family = look.family();
         new Thread(() -> {
@@ -62,12 +64,15 @@ public final class LobbyHero {
             } finally {
                 b.recycle();
             }
+            if (sheet != null) HeroMotion.write(sheet, HeroMotion.sheetFor(out));
             SharedPreferences p = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
             String old = p.getString(IMAGE, null);
             p.edit().putString(NAME, name).putString(FAMILY, family).putString(IMAGE, out.getAbsolutePath()).apply();
             if (old != null && !old.equals(out.getAbsolutePath())) {
                 //noinspection ResultOfMethodCallIgnored
                 new File(old).delete();
+                //noinspection ResultOfMethodCallIgnored
+                HeroMotion.sheetFor(new File(old)).delete();
             }
         }, "vislab-hero").start();
     }

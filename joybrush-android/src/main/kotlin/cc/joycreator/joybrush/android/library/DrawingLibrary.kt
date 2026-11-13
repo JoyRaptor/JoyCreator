@@ -580,9 +580,12 @@ object DrawingLibrary {
     /**
      * A small picture of the active board over its paper colour. Renders only the rows the picture samples, one row at
      * a time, so a big board costs a few megabytes, never the full-size composite. Layers this renderer can't draw
-     * (vector, animated) are left out rather than failing the whole picture.
+     * (vector, animated) are left out rather than failing the whole picture. A drawing with editable lines is drawn as the
+     * screen shows it ([ExportPicture.asShown], as every export is): handed its line storage, the renderer refused it, and
+     * the Library kept a blank or old picture (second code review E8; the Note 9's log, 2026-10-31).
      */
-    internal fun thumbnailOf(contents: JbContents): Bitmap? {
+    internal fun thumbnailOf(saved: JbContents): Bitmap? {
+        val contents = cc.joycreator.joybrush.androidkit.io.ExportPicture.asShown(saved)
         val full = contents.doc
         val doc = full.copy(layers = full.layers.filter { it.kind.hasPixels && it.animatedIn == null })
         val board = doc.boards.firstOrNull { it.id == doc.activeBoardId } ?: doc.boards.firstOrNull() ?: return null

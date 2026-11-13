@@ -92,7 +92,7 @@ Full text: [CODEX_REVIEW_WAVE2_20261101.md](../joybrush/reviews/CODEX_REVIEW_WAV
 - E5 masked stroke previews: not checked yet.
 - E6 a stationary hold paints nothing: confirmed (`MediaSpline.add`).
 - E7 distant tiles fail the atlas table: confirmed; it throws, so it takes the failed-frame path.
-- E8 Library thumbnails fail on line drawings: confirmed in the Note 9 log.
+- E8 Library thumbnails fail on line drawings: confirmed in the Note 9 log; fixed 11-12 (`thumbnailOf` draws `ExportPicture.asShown`). `ThumbnailLinesTest` fails on the old code with the phone's own error and passes now; not installed on the Note 9 (another session's 19:56 build was there).
 
 ## Third review: engine and atlas, 2026-11-01
 
@@ -114,3 +114,5 @@ Full text: [CODEX_REVIEW_WAVE3_20261101.md](../joybrush/reviews/CODEX_REVIEW_WAV
 T1 is a possible cause of the four black tiles of 10-31, not a shown one. A deleted name that is bound again comes back with no storage, which is what jdb found on them, but it needs the driver to reuse the name, and the Note 9 did not in the probe. Both tile failures stay unexplained.
 
 `mediaAtlasLedgerProbe` with watercolour: 87 tiles differ between two roomy runs, so water has no exact answer and the probe is inconclusive. 18 tiles differ beyond those, before and after the park fix. Oil is exact: 0 tiles differ. Water parity needs a run with a fixed clock before T2 and T3 can be proved.
+
+- Status 11-12: E1 is Codex's (JB-LIVE-SAVE), E2 fixed (export catches running out of memory), E3 on [ATLAS-SOLID](ATLAS-SOLID_never_refuse.md), E4 belongs to the save lane, E6 and E7 fixed, E5 handed to Codex on the board.

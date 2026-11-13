@@ -47,7 +47,11 @@ and JoyBrush requests are not resumable. The bench runs 53 tasks with a fake mod
       the families the request named are never dropped; the older core tools are shortened, then dropped, least relevant
       first; one line tells the model what was left out. Big or unknown paid models get exactly the old request.
       Left: read the `request size` log on the Note 9 with a free model; the window comes from OpenRouter's list.
-- [ ] **Director review for VisLab and JoyBrush** changes (today the Review card lists Studio changes only).
+- [x] **Director review for VisLab and JoyBrush** (11-13, audit BOT-A18; TextLab too): a Director run there lists each
+      change on the Review card; with no project there is no per-change snapshot, so the card says "One Undo in VisLab
+      takes all of these back" (the room's own undo holds the whole request as one step; the bench checks undoSteps 1).
+      Bench gains `"director": true` and `"reviewRows"`: `vislab-director-review` (FAILS on the old code: 0 rows) and
+      `studio-director-review` (Studio unchanged); bench 60/60. Not seen on a phone (needs an AI connection).
 
 ## Specs, handoffs and evidence
 - [Audit](../audits/2026-10-18/joybot.md) (recommendations 1–6), [fixes](../audits/2026-10-18/joybot_fixes.md),

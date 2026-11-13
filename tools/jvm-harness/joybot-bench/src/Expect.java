@@ -46,6 +46,8 @@ final class Expect {
         Boolean secondReplied;
         boolean stillRunning;
         boolean scriptRanOut;
+        /** Rows the Review card would list (the last finished request's changes). */
+        int reviewRows;
     }
 
     /** The fake-service run in this process, as an {@link Outcome}. */
@@ -55,6 +57,7 @@ final class Expect {
         JoybotAgent.Finished last = s.finished.isEmpty() ? null : s.finished.get(s.finished.size() - 1);
         o.reply = last == null ? null : last.reply;
         o.ok = last == null ? null : last.ok;
+        o.reviewRows = last == null ? 0 : last.changes.size();
         for (JoybotAgent.Finished f : s.finished) o.toolLines.addAll(f.toolLines);
         o.ended = ended;
         o.hookErrors.addAll(s.hookErrors);
@@ -120,6 +123,9 @@ final class Expect {
         // ── undo, verdict, reply ──
         if (ex.has("undoSteps") && ex.get("undoSteps").getAsInt() != undoSteps) {
             fails.add("made " + undoSteps + " undo step(s), expected " + ex.get("undoSteps").getAsInt());
+        }
+        if (ex.has("reviewRows") && ex.get("reviewRows").getAsInt() != o.reviewRows) {
+            fails.add("the Review card would list " + o.reviewRows + " change(s), expected " + ex.get("reviewRows").getAsInt());
         }
         if (ex.has("ok") && o.ok != null && ex.get("ok").getAsBoolean() != o.ok) {
             fails.add("Joybot reported " + (o.ok ? "success" : "failure") + ", expected " + (ex.get("ok").getAsBoolean() ? "success" : "failure"));

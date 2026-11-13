@@ -947,6 +947,14 @@ public final class JoybotAgent {
             } else if (track && wrote) {
                 lastAfter = null;   // it wrote but failed: re-read before the next change
             }
+            // VisLab, JoyBrush and TextLab Director runs list their changes for the Review card too
+            // (BOT-A18). Their work is not a Studio project, so there is no snapshot for "Undo from
+            // here": the room's own undo takes the whole request back in one press.
+            if (ask.director && pid == null && JobKey.roomHasOwnWork(ask.situation.room.name())
+                    && !AgentTools.isRead(name) && result != null && !DirectRunner.isFailure(result)
+                    && com.fadcam.ui.faditor.ai.actions.AppActions.changes() != appChangesBefore) {
+                out.changes.add(new Change(name, shortOf(result.split("\n", 2)[0]), new ArrayList<String>(), null));
+            }
             cardWaiting = result != null && result.startsWith("@@PROPOSAL:");
             if (cardWaiting) {
                 // The card is for the person; the model saw the raw sentinel and told them "Your

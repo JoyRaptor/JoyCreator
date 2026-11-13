@@ -1777,7 +1777,8 @@ public class ChatAssistantActivity extends AppCompatActivity {
     private void renderFinishedExtras(@NonNull JoybotAgent.Finished f) {
         String words = f.usageWords();
         if (!words.isEmpty() && (f.director || f.steps > 1)) addUsageLine(words);
-        if (f.projectId != null && f.changes.size() >= 2) addReviewCard(f.projectId, f.changes);
+        // A Studio project's run, or a VisLab / JoyBrush / TextLab one (BOT-A18: no project, one Undo).
+        if (f.changes.size() >= 2) addReviewCard(f.projectId, f.changes);
         if (f.budgetHit) addKeepGoingCard(f);
         if (f.plan != null) addPlanCard(f.plan);
         if (f.ok && !f.calls.isEmpty()) addSaveRecipeCard(f);
@@ -1872,7 +1873,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
     /** This screen already shows the last Director run's Review card. */
     private boolean reviewCardShown;
 
-    private void addReviewCard(@NonNull String pid, @NonNull List<JoybotAgent.Change> changes) {
+    private void addReviewCard(@Nullable String pid, @NonNull List<JoybotAgent.Change> changes) {
         reviewCardShown = true;
         JoybotChatViews.Card card = JoybotChatViews.resultCard(this,
                 "Review — " + changes.size() + " changes", null);
@@ -1902,13 +1903,22 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 row.addView(JoybotChatViews.cardButton(this, "Show me", "Go to this clip in the editor",
                         v -> showMe(clip)));
             }
-            if (ch.canRevert()) {
+            if (pid != null && ch.canRevert()) {
                 row.addView(JoybotChatViews.cardButton(this, "Undo from here",
                         "Put the project back the way it was before this change",
                         v -> confirmUndoFrom(pid, list, index, rows)));
             }
             card.root.addView(row);
             rows.add(row);
+        }
+        if (pid == null) {
+            // No project, so no per-change snapshots: say how they all come back (BOT-A18).
+            TextView how = new TextView(this);
+            how.setText("One Undo in " + roomWords() + " takes all of these back.");
+            how.setTextSize(12);
+            how.setTextColor(Studio.INK_DIM);
+            how.setPadding(0, dp(8), 0, 0);
+            card.root.addView(how);
         }
         // Rows already put back (before this screen was closed) stay grey, with no buttons.
         for (int k = Math.max(0, JoybotAgent.reviewRevertedFrom(pid)); k < rows.size(); k++) {
@@ -1920,6 +1930,17 @@ public class ChatAssistantActivity extends AppCompatActivity {
         messageViews.add(card.root);
         addTickerTick(false);
         scrollToBottom();
+    }
+
+    /** The room's name as the person sees it, for "One Undo in VisLab…". */
+    @NonNull
+    private String roomWords() {
+        switch (room) {
+            case VISLAB: return "VisLab";
+            case JOYBRUSH: return "JoyBrush";
+            case TEXTLAB: return "TextLab";
+            default: return "the Studio";
+        }
     }
 
     private void confirmUndoFrom(@NonNull String pid, @NonNull List<JoybotAgent.Change> changes, int index,

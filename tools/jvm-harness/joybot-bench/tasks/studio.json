@@ -376,5 +376,19 @@
     ],
     "expect": {"require": [{"path": "timeline.textOverlays[t-title].colorInt", "eq": "#FF0000"}],
                "undoSteps": 1, "ok": true, "reply": {"mentions": ["didn't work", "rename clip"]}}
+  },
+  {
+    "id": "studio-director-review",
+    "title": "Studio Director run: “Make the title red and the draft note blue” lists both changes for Review (BOT-A18 regression)",
+    "director": true,
+    "words": "make the title red and the draft note blue",
+    "reference": [
+      {"calls": [{"name": "set_text_style", "args": {"text": "t-title", "color": "#FF0000"}}]},
+      {"calls": [{"name": "set_text_style", "args": {"text": "t-draft", "color": "#0000FF"}}]},
+      {"text": "The title is red and the draft note is blue."}
+    ],
+    "expect": {"require": [{"path": "timeline.textOverlays[t-title].colorInt", "eq": "#FF0000"},
+                           {"path": "timeline.textOverlays[t-draft].colorInt", "eq": "#0000FF"}],
+               "undoSteps": 1, "ok": true, "reviewRows": 2}
   }
 ]

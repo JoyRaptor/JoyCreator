@@ -26,12 +26,15 @@
 # name you claimed with. A lock untouched for 30 minutes is stale and may be taken over.
 # Screenshots, logcat and dumpsys only look, so they don't need the lock.
 #
-# Multi-device: $env:PHONE = "<serial>" to pin one. Otherwise the first is used.
+# Multi-device: the Note 9 (29e37138071c7ece) is ALWAYS the default, never "the first device".
+# $env:PHONE = "<serial>" pins another one.
 #
-# SECOND PHONE (owner, 2026-11-13): the Note 20, over Wi-Fi. It holds the owner's REAL projects.
-# It lives on its own adb server (port 5038) so nothing reaches it by accident. To use it:
-#   $env:PHONE_SLOT = "note20"     (this tool then sets the adb port, pins the serial and uses
-#                                   its own lock, %TEMP%\jb-phone2.lock; who/claim/release work the same)
+# SECOND PHONE (owner, 2026-11-13): the Note 20 (R5CN81AMTKH). It holds the owner's REAL projects.
+# On USB it shares the adb server with the Note 9, so RAW adb MUST name a serial: `adb -s <serial>`.
+# Bare `adb install` / `adb shell` with both phones attached fails or, worse, hits the wrong one.
+# To use the Note 20 through this tool:
+#   $env:PHONE_SLOT = "note20"     (pins its serial, on USB or Wi-Fi port 5038, and uses its own
+#                                   lock, %TEMP%\jb-phone2.lock; who/claim/release work the same)
 # Rules there: throwaway projects and drawings only, named "TEST ..."; never open, edit, move or
 # delete anything that was already on it; never uninstall or clear data. See tasks/BOARD.md.
 
@@ -53,11 +56,21 @@ if (-not (Test-Path $adb)) {
 $pkg = "com.fadcam.beta"
 $apk = "app\build\outputs\apk\default\debug\app-default-arm64-v8a-debug.apk"
 
+$note9 = "29e37138071c7ece"     # the sandbox phone: the default for everything
+$note20 = "R5CN81AMTKH"         # the owner's REAL projects: only ever by PHONE_SLOT = "note20"
+
+function Get-Attached {
+    @(& $adb devices | Select-String "`tdevice$" | ForEach-Object { ($_.ToString() -split "`t")[0] })
+}
+
+# Never "the first device": with both phones on USB the first one may be the Note 20.
 function Get-Serial {
     if ($env:PHONE) { return $env:PHONE }
-    $line = & $adb devices | Select-String "`tdevice$" | Select-Object -First 1
-    if ($null -eq $line) { return $null }
-    return ($line.ToString() -split "`t")[0]
+    $all = Get-Attached
+    if ($all -contains $note9) { return $note9 }
+    $others = @($all | Where-Object { $_ -ne $note20 })
+    if ($others.Count -eq 1) { return $others[0] }
+    return $null
 }
 
 function Adb {
@@ -68,11 +81,18 @@ function Adb {
 
 $phoneLock = Join-Path $env:TEMP "jb-phone.lock"
 if ($env:PHONE_SLOT -eq "note20") {
-    $env:ANDROID_ADB_SERVER_PORT = "5038"
     if (-not $env:PHONE) {
-        $n20 = & $adb devices | Select-String "^\d+\.\d+\.\d+\.\d+:\d+\s+device$" | Select-Object -First 1
-        if ($null -ne $n20) { $env:PHONE = ($n20.ToString() -split "`t")[0] }
+        if ((Get-Attached) -contains $note20) {
+            $env:PHONE = $note20                      # on USB, same adb server as the Note 9
+        } else {
+            $env:ANDROID_ADB_SERVER_PORT = "5038"     # over Wi-Fi, on its own adb server
+            $n20 = & $adb devices | Select-String "^\d+\.\d+\.\d+\.\d+:\d+\s+device$" | Select-Object -First 1
+            if ($null -ne $n20) { $env:PHONE = ($n20.ToString() -split "`t")[0] } else { $env:PHONE = $note20 }
+        }
     }
+}
+# The Note 20 always uses its own lock, however it was reached.
+if ((Get-Serial) -eq $note20 -or $env:PHONE_SLOT -eq "note20") {
     $phoneLock = Join-Path $env:TEMP "jb-phone2.lock"
 }
 

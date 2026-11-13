@@ -10,6 +10,8 @@ the Play build (a full build can keep them for side-loading if the owner wants).
 
 Play needs 16 KB aligned native libraries. Measured on the debug APK: 7 of 23 failed. A build-config fix (CMake linker flag, vosk-android 0.3.75, MediaPipe 0.10.26.1) built and **22 of 23 now pass**; the last, `libtask_vision_jni.so` from tensorflow-lite-task-vision 0.4.4, has no aligned release (options listed). Not yet installed or run on a phone: speech to text and avatar tracking need a try. Debug APK 172.1 MB against Play's 200 MB limit; no release build exists yet. Details: [launch_checks_20261113](../audits/launch_checks_20261113.md).
 
+**Evening 11-13:** the last failing library is removed by switching Smart Detection to MediaPipe's detector (branch `claude/mediapipe-detector-20261113`, built, 21 of 21 libraries aligned). **Not merged: no device was attached to run Smart Detection, speech to text or face tracking after the library upgrades.** See section 4 of the audit.
+
 ## Done when
 - [ ] A Play build variant without: the 30 disguise icons; the accessibility service used for screenshots;
       MANAGE_EXTERNAL_STORAGE; the privacy black screen; cloud and streaming.

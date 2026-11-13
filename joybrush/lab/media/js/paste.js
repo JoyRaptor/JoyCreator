@@ -10,9 +10,9 @@ export const PASTE_DEPTH = 8;
 export const PASTE_BRUSHES = {
   // The all-rounder (owner, 2026-10-06): one round that goes from a hairline tip to a full belly on pressure
   // and tilt, like the pencil; thin paint for detail, thick for impasto.
-  'All-round': { shape: 0, allround: true, tipHalfMm: 0.08, widthMm: 6, lenMm: 8, thickMm: 0.45, thinMm: 0.04, scrape: 0.4, hairDepth: 0.2, ridge: 0.25, rate: 2.4, mix: 0.12, swap: 0.5, loadLenMm: 160, wick: 0.003, bow: 0.35, lump: 0.08, rigid: 0, fingers: 0, rag: 0.35, vary: 1 },
-  'Oil flat': { shape: 1, widthMm: 7, lenMm: 6, thickMm: 0.6, scrape: 0.5, hairDepth: 0.4, ridge: 0.5, rate: 2.5, mix: 0.12, swap: 0.7, loadLenMm: 140, wick: 0.003, bow: 0.6, lump: 0.2, rigid: 0, fingers: 1, vary: 1 },
-  'Oil round': { shape: 0, widthMm: 4.5, lenMm: 7, thickMm: 0.5, scrape: 0.5, hairDepth: 0.35, ridge: 0.35, rate: 2.2, mix: 0.12, swap: 0.6, loadLenMm: 120, wick: 0.003, bow: 0.5, lump: 0.12, rigid: 0, fingers: 0.4, vary: 1 },
+  'All-round': { shape: 0, allround: true, tipHalfMm: 0.08, widthMm: 6, lenMm: 8, thickMm: 0.45, thinMm: 0.04, scrape: 0.4, hairDepth: 0.2, ridge: 0.25, rate: 2.4, mix: 0.12, swap: 0.5, loadLenMm: 160, wick: 0.003, bow: 0.35, lump: 0.08, rigid: 0, fingers: 0, rag: 0.35, vary: 1, pull: 0.7 },
+  'Oil flat': { shape: 1, widthMm: 7, lenMm: 6, thickMm: 0.6, scrape: 0.5, hairDepth: 0.4, ridge: 0.5, rate: 2.5, mix: 0.12, swap: 0.7, loadLenMm: 140, wick: 0.003, bow: 0.6, lump: 0.2, rigid: 0, fingers: 1, vary: 1, pull: 0.7 },
+  'Oil round': { shape: 0, widthMm: 4.5, lenMm: 7, thickMm: 0.5, scrape: 0.5, hairDepth: 0.35, ridge: 0.35, rate: 2.2, mix: 0.12, swap: 0.6, loadLenMm: 120, wick: 0.003, bow: 0.5, lump: 0.12, rigid: 0, fingers: 0.4, vary: 1, pull: 0.7 },
   // A fan: hair tips on an arc, spread apart; it feathers and blends rather than lays paint.
   'Fan blender': { shape: 1, widthMm: 14, lenMm: 2.5, thickMm: 0.1, scrape: 0.3, hairDepth: 0.95, ridge: 0.0, rate: 1.2, mix: 0.45, swap: 0.3, loadLenMm: 60, wick: 0.002, bow: 0.1, lump: 0.0, rigid: 0, fingers: 0.5, arc: 0.55, sparse: 0.6, vary: 1 },
   // The trowel knife of v6/v7, back by the owner's request (2026-10-07: "the old one had excellent texture" and
@@ -30,11 +30,11 @@ export const PASTE_BRUSHES = {
   'Scraper': { shape: 3, blade: 1, orient: 'pen', press: 'depth', edgeMinMm: 2, acrossMaxMm: 10, riseMaxMm: 0.6, bladeLenMm: 14, bladeHalfMm: 0.35, bladeHmax: 0.6, bead: 0.5, bladeCap: 3, film: 0.002, thickMm: 0, rate: 5.0, loadLenMm: 40, mix: 0, swap: 0, scrape: 0, hairDepth: 0, ridge: 0, wick: 0, bow: 0, lump: 0, rigid: 1, clean: true, soft: 1 },
   // The curated set (brush lane, 2026-11-13): hair brushes made from the existing knobs only (app: PasteBrushes).
   // A heavily loaded flat: thick ridged paint that stands up and covers what is under it.
-  'Impasto flat': { shape: 1, widthMm: 8, lenMm: 6, thickMm: 1.3, scrape: 0.25, hairDepth: 0.35, ridge: 0.9, rate: 3.2, mix: 0.06, swap: 0.3, loadLenMm: 220, wick: 0.003, bow: 0.7, lump: 0.45, rigid: 0, fingers: 0.6, force: 0.7, vary: 1, cover: 1 },
+  'Impasto flat': { shape: 1, widthMm: 8, lenMm: 6, thickMm: 1.3, scrape: 0.25, hairDepth: 0.35, ridge: 0.9, rate: 3.2, mix: 0.06, swap: 0.3, loadLenMm: 220, wick: 0.003, bow: 0.7, lump: 0.45, rigid: 0, fingers: 0.6, force: 0.7, vary: 1, cover: 1, pull: 0.7 },
   // The rounded flat: soft-cornered strokes between a round and a flat, for petals, faces and blending edges.
-  'Filbert': { shape: 0, widthMm: 7, lenMm: 5, thickMm: 0.5, scrape: 0.5, hairDepth: 0.4, ridge: 0.3, rate: 2.3, mix: 0.16, swap: 0.6, loadLenMm: 130, wick: 0.003, bow: 0.75, lump: 0.1, rigid: 0, fingers: 0.5, force: 0.5, vary: 1 },
+  'Filbert': { shape: 0, widthMm: 7, lenMm: 5, thickMm: 0.5, scrape: 0.5, hairDepth: 0.4, ridge: 0.3, rate: 2.3, mix: 0.16, swap: 0.6, loadLenMm: 130, wick: 0.003, bow: 0.75, lump: 0.1, rigid: 0, fingers: 0.5, force: 0.5, vary: 1, pull: 0.7 },
   // A long thin round with fluid paint: stems, whiskers, highlights and signatures over wet paint.
-  'Oil liner': { shape: 0, allround: true, tipHalfMm: 0.05, widthMm: 1.6, lenMm: 11, thickMm: 0.22, thinMm: 0.05, scrape: 0.2, hairDepth: 0.15, ridge: 0.15, rate: 2.6, mix: 0.05, swap: 0.25, loadLenMm: 300, wick: 0.003, bow: 0.2, lump: 0, rigid: 0, fingers: 0, rag: 0.2, vary: 0, cover: 0.8 },
+  'Oil liner': { shape: 0, allround: true, tipHalfMm: 0.05, widthMm: 1.6, lenMm: 11, thickMm: 0.22, thinMm: 0.05, scrape: 0.2, hairDepth: 0.15, ridge: 0.15, rate: 2.6, mix: 0.05, swap: 0.25, loadLenMm: 300, wick: 0.003, bow: 0.2, lump: 0, rigid: 0, fingers: 0, rag: 0.2, vary: 0, cover: 0.8, pull: 0.7 },
 };
 
 // Opaque paint: the colour it covers with when thick. Strong scattering; K from the KM masstone.
@@ -119,7 +119,9 @@ export class PasteStroke {
     }
     // Small hops: a paste brush is a continuous sweep, so no step may show as an edge. A thin blade edge
     // crossing its own width needs hops finer than that width (else it leaves a zip of ribs).
-    const stepMm = b.blade ? Math.min(0.3, 0.6 * this.half * 0.35) : 0.3;
+    // ?hop=N (test sheets): hair brushes hop N times as far, as the app does in a burst (PasteSpacing.behind stretches a
+    // hop to 12 % of the brush's width when a frame's steps pile up); 1 here, so the golden numbers are the shipped hops.
+    const stepMm = b.blade ? Math.min(0.3, 0.6 * this.half * 0.35) : 0.3 * (globalThis.__PASTE_HOP || 1);
     const stepPx = Math.max(1 / this.layerScale, stepMm * this.pxPerMm / this.layerScale);
     const interp = w => ({ x: prev.x + dx * w, y: prev.y + dy * w, p: prev.p + (s.p - prev.p) * w, tilt: prev.tilt + (s.tilt - prev.tilt) * w,
       az: (prev.az ?? 0) + angleDelta(prev.az ?? 0, s.az ?? 0) * w, t: (prev.t ?? 0) + ((s.t ?? 0) - (prev.t ?? 0)) * w });

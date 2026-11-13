@@ -322,6 +322,21 @@ export class MediaEngine {
     }
   }
 
+  // The paste shaders' noise lattice (the app's MediaPasteNoise, the same values: java.util.Random(0x4A6F79) floats): a
+  // texel holds its own value and its right, upper and upper-right neighbours', wrapping. Without it bound every noise
+  // read is 0 and a hair brush's stroke dies a few mm in (this lab, 2026-10-31 to 2026-11-13).
+  pasteNoise() {
+    if (this._pasteNoise) return this._pasteNoise;
+    const gl = this.gl, N = 256, M = (1n << 48n) - 1n;
+    let seed = (0x4A6F79n ^ 0x5DEECE66Dn) & M;
+    const lattice = new Float32Array(N * N);
+    for (let i = 0; i < N * N; i++) { seed = (seed * 0x5DEECE66Dn + 0xBn) & M; lattice[i] = Number(seed >> 24n) / 16777216; }
+    const at = (x, y) => lattice[(y & (N - 1)) * N + (x & (N - 1))];
+    const data = new Float32Array(N * N * 4);
+    for (let y = 0, k = 0; y < N; y++) for (let x = 0; x < N; x++) { data[k++] = at(x, y); data[k++] = at(x + 1, y); data[k++] = at(x, y + 1); data[k++] = at(x + 1, y + 1); }
+    return (this._pasteNoise = makeTexture(gl, N, N, { internal: gl.RGBA16F, format: gl.RGBA, type: gl.FLOAT, filter: gl.NEAREST, data }));
+  }
+
   // One step of a paste brush: the brush trades with the canvas under it, both sides from the same state.
   pasteStep(st, brush, paper, pxPerMm, seed) {
     const gl = this.gl;
@@ -336,11 +351,11 @@ export class MediaEngine {
       u_blade: brush.blade ? 1 : 0, u_fillDips: brush.fillDips ?? 1, u_bladeLoad: st.loadMode ? 1 : 0,
       u_bladeDir: st.bladeDir || [1, 0], u_travel: st.travel || [1, 0], u_bladeLen: st.bladeLen ?? brush.bladeLenMm ?? 1,
       u_bladeHalfW: st.bladeHalf ?? brush.bladeHalfMm ?? 1, u_bladeH0: st.bladeH0 ?? 0, u_bladeTan: st.bladeTan ?? 0, u_bladeBead: brush.bead || 0,
-      u_bladePressMm: (brush.pressIn ?? 0.6) * paper.toothMm * (st.pressK ?? st.pressure * st.pressure), u_bladeFilm: brush.film ?? 0.004, u_bladeSoft: brush.blade ? (brush.soft ?? 0) : 0, u_hairVary: (brush.blade || brush.trowel) ? 0 : (brush.vary ?? 0), u_bladeLay: st.lay ?? 1, u_bladeDrag: st.drag ?? 0.5, u_bladeLump: brush.blade ? (brush.rollLump ?? 0) : 0,
+      u_bladePressMm: (brush.pressIn ?? 0.6) * paper.toothMm * (st.pressK ?? st.pressure * st.pressure), u_bladeFilm: brush.film ?? 0.004, u_bladeSoft: brush.blade ? (brush.soft ?? 0) : 0, u_hairVary: (brush.blade || brush.trowel) ? 0 : (brush.vary ?? 0), u_pull: (brush.blade || brush.trowel || (brush.lenMm ?? 0) < 4) ? 0 : (brush.pull ?? 0), u_bladeLay: st.lay ?? 1, u_bladeDrag: st.drag ?? 0.5, u_bladeLump: brush.blade ? (brush.rollLump ?? 0) : 0,
       u_hairDepth: brush.hairDepth, u_ridge: brush.ridge, u_rate: brush.rate, u_mix: brush.mix, u_swap: brush.swap ?? 0.6,
       u_bow: brush.bow ?? 0, u_lump: brush.lump ?? 0, u_rigid: brush.rigid ?? 0,
       u_slideMm: st.slideMm, u_cellCap: cap, u_seed: seed, u_pxPerMm: pxPerMm, u_toothMm: paper.toothMm,
-      u_paperBake: this.bakeTex, u_p0: this.state[0].p0, u_p1: this.state[0].p1,
+      u_paperBake: this.bakeTex, u_p0: this.state[0].p0, u_p1: this.state[0].p1, u_pasteNoise: this.pasteNoise(),
     };
     const cur = this.brush[this.bc], nxt = this.brush[1 - this.bc];
     gl.disable(gl.BLEND);

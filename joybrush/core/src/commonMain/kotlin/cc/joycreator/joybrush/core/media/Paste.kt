@@ -105,6 +105,15 @@ const val PASTE_DEPTH = 8
      * its travel rolls onto its corner and paints narrower. 0 = as before.
      */
     val vary: Double = 0.0,
+    /**
+     * 0..1, hair brushes and the trowel (the owner, 2026-11-11: crossing wet paint left hard lines "like sticks"; "if thick
+     * the paint would be pulled as something went across"): the colour of the wet paint under the brush goes along with it
+     * (jb_paste_dab.frag u_pull), so what a stroke crosses trails into it and out the far side. Its thickness stays where
+     * it lies, so ridges are kept. 0 = as before: the canvas paint only trades with the brush where it lies. 0.7 on
+     * All-round, Oil flat and Oil round since 2026-11-13 (lab sheets oilover and oildirty; within 6 % a step on the Note 9).
+     * Only [pullNow] reaches the shader.
+     */
+    val pull: Double = 0.0,
     val ends: EndsMode? = null,
     val turns: TurnMode? = null,
     /**
@@ -122,21 +131,32 @@ const val PASTE_DEPTH = 8
      * (jb_paste.glsl u_force, u_lean, u_curve). 0 = every hair at the pen's pressure, as before.
      */
     val force: Double = 0.0,
-) {
+) {
+    /**
+     * [pull] as the engine uses it: none on a blade, none on the trowel (17 % a step on the Note 9 and its look unjudged),
+     * and none where the hairs are shorter than [PasteBrushes.PULL_MIN_LEN_MM]: in a burst a hop stretches to 12 % of the brush's width
+     * ([PasteSpacing.behind]), and on the Fan blender (14 mm wide, 2.5 mm of hair) that is most of the hair's length, so each
+     * hop pulled its own patch and a fast stroke left a row of beads (Note 9, 2026-11-13). Longer hairs overlap many times.
+     */
+    val pullNow: Double get() = if (blade || trowel || lenMm < PasteBrushes.PULL_MIN_LEN_MM) 0.0 else pull
+
     /** Whether this brush paints a loaded brush's ends ([EndsMode]); a rigid blade keeps its sharp edge. */
     val loadedEnds: Boolean get() = !blade && ends != EndsMode.CUT
 }
 
 object PasteBrushes {
+    /** Hairs shorter than this (mm) do not pull wet paint along ([PasteBrush.pullNow]). */
+    const val PULL_MIN_LEN_MM = 4.0
+
     val ALL: Map<String, PasteBrush> = linkedMapOf(
         // The all-rounder: from a hairline tip to a full belly on pressure and tilt, like the pencil.
         "All-round" to PasteBrush(shape = 0, allround = true, tipHalfMm = 0.08, widthMm = 6.0, lenMm = 8.0, thickMm = 0.45,
             thinMm = 0.04, scrape = 0.4, hairDepth = 0.2, ridge = 0.25, rate = 2.4, mix = 0.12, swap = 0.5, loadLenMm = 160.0,
-            wick = 0.003, bow = 0.35, lump = 0.08, rigid = 0.0, fingers = 0.0, rag = 0.35, vary = 1.0),
+            wick = 0.003, bow = 0.35, lump = 0.08, rigid = 0.0, fingers = 0.0, rag = 0.35, vary = 1.0, pull = 0.7),
         "Oil flat" to PasteBrush(shape = 1, widthMm = 7.0, lenMm = 6.0, thickMm = 0.6, scrape = 0.5, hairDepth = 0.4, ridge = 0.5,
-            rate = 2.5, mix = 0.12, swap = 0.7, loadLenMm = 140.0, wick = 0.003, bow = 0.6, lump = 0.2, rigid = 0.0, fingers = 1.0, force = 0.7, vary = 1.0),
+            rate = 2.5, mix = 0.12, swap = 0.7, loadLenMm = 140.0, wick = 0.003, bow = 0.6, lump = 0.2, rigid = 0.0, fingers = 1.0, force = 0.7, vary = 1.0, pull = 0.7),
         "Oil round" to PasteBrush(shape = 0, widthMm = 4.5, lenMm = 7.0, thickMm = 0.5, scrape = 0.5, hairDepth = 0.35, ridge = 0.35,
-            rate = 2.2, mix = 0.12, swap = 0.6, loadLenMm = 120.0, wick = 0.003, bow = 0.5, lump = 0.12, rigid = 0.0, fingers = 0.4, vary = 1.0),
+            rate = 2.2, mix = 0.12, swap = 0.6, loadLenMm = 120.0, wick = 0.003, bow = 0.5, lump = 0.12, rigid = 0.0, fingers = 0.4, vary = 1.0, pull = 0.7),
         // A fan: hair tips on an arc, spread apart; it feathers and blends rather than lays paint.
         "Fan blender" to PasteBrush(shape = 1, widthMm = 14.0, lenMm = 2.5, thickMm = 0.1, scrape = 0.3, hairDepth = 0.95, ridge = 0.0,
             rate = 1.2, mix = 0.45, swap = 0.3, loadLenMm = 60.0, wick = 0.002, bow = 0.1, lump = 0.0, rigid = 0.0, fingers = 0.5,
@@ -161,13 +181,13 @@ object PasteBrushes {
             film = 0.002, thickMm = 0.0, rate = 5.0, loadLenMm = 40.0, mix = 0.0, swap = 0.0, scrape = 0.0, hairDepth = 0.0,
             ridge = 0.0, wick = 0.0, bow = 0.0, lump = 0.0, rigid = 1.0, clean = true, soft = 1.0),
         // The curated set (brush lane, 2026-11-13): hair brushes made from the existing knobs only, each for one job.
-        // Twins of lab/media/js/paste.js.
+        // Twins of lab/media/js/paste.js. They pull wet paint along as the four hair brushes above do.
         // A heavily loaded flat: thick ridged paint that stands up and covers what is under it.
-        "Impasto flat" to PasteBrush(shape = 1, widthMm = 8.0, lenMm = 6.0, thickMm = 1.3, scrape = 0.25, hairDepth = 0.35, ridge = 0.9, rate = 3.2, mix = 0.06, swap = 0.3, loadLenMm = 220.0, wick = 0.003, bow = 0.7, lump = 0.45, rigid = 0.0, fingers = 0.6, force = 0.7, vary = 1.0, cover = 1.0),
+        "Impasto flat" to PasteBrush(shape = 1, widthMm = 8.0, lenMm = 6.0, thickMm = 1.3, scrape = 0.25, hairDepth = 0.35, ridge = 0.9, rate = 3.2, mix = 0.06, swap = 0.3, loadLenMm = 220.0, wick = 0.003, bow = 0.7, lump = 0.45, rigid = 0.0, fingers = 0.6, force = 0.7, vary = 1.0, cover = 1.0, pull = 0.7),
         // The rounded flat: soft-cornered strokes between a round and a flat, for petals, faces and blending edges.
-        "Filbert" to PasteBrush(shape = 0, widthMm = 7.0, lenMm = 5.0, thickMm = 0.5, scrape = 0.5, hairDepth = 0.4, ridge = 0.3, rate = 2.3, mix = 0.16, swap = 0.6, loadLenMm = 130.0, wick = 0.003, bow = 0.75, lump = 0.1, rigid = 0.0, fingers = 0.5, force = 0.5, vary = 1.0),
+        "Filbert" to PasteBrush(shape = 0, widthMm = 7.0, lenMm = 5.0, thickMm = 0.5, scrape = 0.5, hairDepth = 0.4, ridge = 0.3, rate = 2.3, mix = 0.16, swap = 0.6, loadLenMm = 130.0, wick = 0.003, bow = 0.75, lump = 0.1, rigid = 0.0, fingers = 0.5, force = 0.5, vary = 1.0, pull = 0.7),
         // A long thin round with fluid paint: stems, whiskers, highlights and signatures over wet paint.
-        "Oil liner" to PasteBrush(shape = 0, allround = true, tipHalfMm = 0.05, widthMm = 1.6, lenMm = 11.0, thickMm = 0.22, thinMm = 0.05, scrape = 0.2, hairDepth = 0.15, ridge = 0.15, rate = 2.6, mix = 0.05, swap = 0.25, loadLenMm = 300.0, wick = 0.003, bow = 0.2, lump = 0.0, rigid = 0.0, fingers = 0.0, rag = 0.2, vary = 0.0, cover = 0.8),
+        "Oil liner" to PasteBrush(shape = 0, allround = true, tipHalfMm = 0.05, widthMm = 1.6, lenMm = 11.0, thickMm = 0.22, thinMm = 0.05, scrape = 0.2, hairDepth = 0.15, ridge = 0.15, rate = 2.6, mix = 0.05, swap = 0.25, loadLenMm = 300.0, wick = 0.003, bow = 0.2, lump = 0.0, rigid = 0.0, fingers = 0.0, rag = 0.2, vary = 0.0, cover = 0.8, pull = 0.7),
     )
 }
 

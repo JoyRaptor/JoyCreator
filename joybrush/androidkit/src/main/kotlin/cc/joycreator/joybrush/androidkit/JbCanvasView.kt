@@ -624,6 +624,66 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
      */
     fun dryWashNow() { onGl { if (mediaCanvas.settleSheet()) reportHistory() }; requestRender() }
 
+    private val benchHog = ArrayList<Int>()
+
+    /**
+     * Bench only (the lost-tile hunt): takes about [mb] MB of graphics memory in 32 MB textures and holds it, each one
+     * filled with noise so the driver really backs it and the phone cannot squeeze it (cleared to one colour, 3 GB cost
+     * the Note 9 nothing: 2026-11-13), stopping at the first the driver cannot give. [done] hears what it got. The drawing
+     * then paints with that much less room, as on a phone whose graphics memory is nearly gone.
+     */
+    fun benchHogGpu(mb: Int, done: (String) -> Unit) {
+        onGl(allowLost = true) {
+            val side = 2048
+            val each = side * side * 8 / (1 shl 20)
+            val fbo = IntArray(1); GLES30.glGenFramebuffers(1, fbo, 0)
+            val noise = java.nio.ByteBuffer.allocateDirect(side * side * 8)
+            ByteArray(1 shl 20).let { chunk -> val r = java.util.Random(20261113L); while (noise.hasRemaining()) { r.nextBytes(chunk); noise.put(chunk, 0, minOf(chunk.size, noise.remaining())) } }
+            var got = 0
+            var why = "all of it"
+            while (got + each <= mb) {
+                while (GLES30.glGetError() != GLES30.GL_NO_ERROR) Unit
+                val t = IntArray(1); GLES30.glGenTextures(1, t, 0)
+                GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, t[0])
+                GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D, 0, GLES30.GL_RGBA16F, side, side, 0, GLES30.GL_RGBA, GLES30.GL_HALF_FLOAT, null)
+                GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_NEAREST)
+                GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_NEAREST)
+                GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo[0])
+                GLES30.glFramebufferTexture2D(GLES30.GL_FRAMEBUFFER, GLES30.GL_COLOR_ATTACHMENT0, GLES30.GL_TEXTURE_2D, t[0], 0)
+                val status = GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER)
+                if (status == GLES30.GL_FRAMEBUFFER_COMPLETE) {
+                    noise.position((got / each * 4096) % (side * 8)).limit(noise.capacity())   // a different start each time
+                    noise.rewind()
+                    GLES30.glBindBuffer(GLES30.GL_PIXEL_UNPACK_BUFFER, 0)
+                    GLES30.glTexSubImage2D(GLES30.GL_TEXTURE_2D, 0, 0, 0, side, side, GLES30.GL_RGBA, GLES30.GL_HALF_FLOAT, noise)
+                    GLES30.glFinish()
+                }
+                val err = GLES30.glGetError()
+                if (status != GLES30.GL_FRAMEBUFFER_COMPLETE || err != GLES30.GL_NO_ERROR) {
+                    GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+                    GLES30.glDeleteTextures(1, t, 0)
+                    why = "the driver stopped: framebuffer status $status, GL error $err"
+                    break
+                }
+                benchHog.add(t[0]); got += each
+            }
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
+            GLES30.glDeleteFramebuffers(1, fbo, 0)
+            val said = "graphics memory held: $got MB of $mb asked, in ${benchHog.size} textures ($why)"
+            post { done(said) }
+        }
+        requestRender()
+    }
+
+    /** Bench only: lets go of what [benchHogGpu] took. */
+    fun benchUnhogGpu() {
+        onGl(allowLost = true) {
+            if (benchHog.isNotEmpty()) GLES30.glDeleteTextures(benchHog.size, benchHog.toIntArray(), 0)
+            benchHog.clear()
+        }
+    }
+
     /** Bench only: the wet sheet's water dries where it lies (nothing is printed by this). */
     fun debugDryWetSheet() { onGl { mediaCanvas.drySheet() }; requestRender() }
 
@@ -1413,6 +1473,13 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     private val afterFrameWork = ArrayDeque<() -> Unit>()
 
     init {
+        // Tile failures are kept in a small file as well as logcat (diag/TileIncidents: the 10-31 lost tiles left no trace).
+        cc.joycreator.joybrush.androidkit.diag.TileIncidents.file = java.io.File(context.filesDir, cc.joycreator.joybrush.androidkit.diag.TileIncidents.FILE_NAME)
+        cc.joycreator.joybrush.androidkit.diag.TileIncidents.context = {
+            val mem = android.app.ActivityManager.MemoryInfo()
+            (context.getSystemService(Context.ACTIVITY_SERVICE) as? android.app.ActivityManager)?.getMemoryInfo(mem)
+            engine.incidentContext() + ", phone free RAM ${mem.availMem shr 20} MB (low at ${mem.threshold shr 20})"
+        }
         setEGLContextClientVersion(3)
         setEGLConfigChooser(8, 8, 8, 8, 0, 0)
         preserveEGLContextOnPause = true
@@ -1485,7 +1552,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                 } catch (e: Exception) {
                     noteBenchError("media frame", e)
                     val refused = e is cc.joycreator.joybrush.androidkit.gl.MediaRoomException
-                    if (!refused) android.util.Log.e("JoyBrushMedia", "a media frame failed", e)
+                    if (!refused) {
+                        android.util.Log.e("JoyBrushMedia", "a media frame failed", e)
+                        cc.joycreator.joybrush.androidkit.diag.TileIncidents.e("a media frame failed", e)
+                    }
                     // What the stroke already painted stays, as its one undo step; a step left open made the NEXT media
                     // stroke crash ("a media stroke inside another stroke", Note 9 2026-10-20, after a refused atlas frame).
                     mediaCanvas.dropStroke()
@@ -3467,8 +3537,13 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                 val layerId = activeLayer
                 val doc = engine.boardDocument
                 val planes = LinkedHashMap<String, Map<Long, ByteArray>>()
-                if (readPixels) {
-                    planes["visible"] = engine.tileKeys(layerId).associateWith { k -> engine.readTile(layerId, k) ?: ByteArray(TILE_BYTES) }
+                // Watercolour still wet on the wet sheet is in no tile yet: the pixels are read as a save made now would hold
+                // them (the wash stamped into stand-in tiles for the read alone, MediaCanvas.withSheetStamped), which is what
+                // the screen shows. Without this the matrix saw every wet-sheet stroke as "changed nothing".
+                if (readPixels) mediaCanvas.withSheetStamped {
+                    // As drawn: a frame's tiles too (tileKeys lists the shared plane's alone, so every realistic-paint stroke on
+                    // an animation board read as "changed nothing": matrix runs of 2026-11-13, oil, pencil and watercolour).
+                    planes["visible"] = engine.visibleTileKeys(layerId).associateWith { k -> engine.readTile(layerId, k) ?: ByteArray(TILE_BYTES) }
                     val meta = doc?.layers?.firstOrNull { it.id == layerId }
                     if (meta != null && meta.regions.isNotEmpty()) {
                         fun cel(id: String) = engine.celTileKeys(layerId, id).associateWith { k -> engine.readCelTile(layerId, id, k) ?: ByteArray(TILE_BYTES) }

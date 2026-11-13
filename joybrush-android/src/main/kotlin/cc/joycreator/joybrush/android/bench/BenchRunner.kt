@@ -101,6 +101,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                val pasteSoft: Double? = null,
                /** `jb_paste_vary`: a hair brush's variance whatever the brush says (PasteBrush.vary). */
                val pasteVary: Double? = null,
+               /** `jb_paste_pull`: how much a hair brush or the trowel pulls wet paint along, whatever the brush says (PasteBrush.pull). */
+               val pastePull: Double? = null,
                /** `jb_symmetry`: a radial symmetry of this many copies about the middle of the view (2 = a mirror), for the whole run. */
                val symmetry: Int? = null,
                /** Strokes kept as editable lines on or off for this run (`jb_lines`); none = as the canvas has it. */
@@ -121,6 +123,12 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                val sheetLong: Int? = null,
                /** `jb_sheet_grain`: how strongly the paper's fine grain is worked into the wet sheet's look (WetSheet.grainPrint). */
                val sheetGrain: Double? = null,
+               /** `jb_sheet_plain`: the wet sheet's overlay through the plain tile shader, to time the grain shader's cost. */
+               val sheetPlain: Boolean = false,
+               /** `jb_gpu_hog_mb`: this many MB of graphics memory are taken and held before the first stroke (JbCanvasView.benchHogGpu). */
+               val gpuHogMb: Int? = null,
+               /** `jb_sheet_cut`: false = a wash too wide for the new view sets whole, as before 2026-11-13 (WetSheet.cutOnMove). */
+               val sheetCut: Boolean? = null,
                /** `jb_sheet_wave`: how uneven a quick wash is laid on the wet sheet (WetSheet.wave): 0 even, 0.12 the default, 0.35 the menu's Wavy. */
                val sheetWave: Double? = null,
                /**
@@ -175,6 +183,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         spec.sheetCell?.let { Log.i(TAG, "wet sheet cell forced: $it px") }
         spec.zoom?.let { canvas.view.zoom = it; canvas.requestRender(); Log.i(TAG, "view zoom: $it") }
         cc.joycreator.joybrush.androidkit.gl.media.WetSheet.printHoldMs = spec.sheetPrintHoldMs
+        cc.joycreator.joybrush.androidkit.gl.media.WetSheet.debugPlain = spec.sheetPlain
+        cc.joycreator.joybrush.androidkit.gl.media.WetSheet.cutOnMove = spec.sheetCut ?: true
         spec.sheetLong?.let { cc.joycreator.joybrush.androidkit.gl.media.WetSheet.longCells = it; Log.i(TAG, "wet sheet: $it cells along the screen") }
         spec.sheetGrain?.let { cc.joycreator.joybrush.androidkit.gl.media.WetSheet.grainPrint = it; Log.i(TAG, "wet sheet grain: $it") }
         applySymmetry()
@@ -256,7 +266,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
             "redo" -> canvas.redo()
             "zoom" -> arg.toFloatOrNull()?.let { canvas.view.zoom = it; canvas.requestRender() }
             "dry" -> canvas.debugDryWetSheet()
-            "save" -> canvas.snapshot({ c -> Log.i(TAG, "then: snapshot of ${c.tiles.size} tiles") }, { why -> Log.w(TAG, "then: snapshot failed: $why") })
+            "save" -> canvas.snapshot({ c -> Log.i(TAG, "then: snapshot of ${c.tiles.size} tiles; tile incidents this run: ${cc.joycreator.joybrush.androidkit.diag.TileIncidents.count}") }, { why -> Log.w(TAG, "then: snapshot failed: $why") })
+            "unhog" -> canvas.benchUnhogGpu()
             // As the autosave does while the person paints: the wet sheet's wash is in the save and stays wet. The tiles'
             // bytes are summed so two saves can be compared in the log.
             "savewet" -> canvas.snapshot({ c ->
@@ -271,7 +282,12 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
 
     private fun waitForSurface() {
         if (!canvas.surfaceReady || canvas.width == 0) { ui.postDelayed({ waitForSurface() }, 200); return }
-        ui.postDelayed({ next() }, spec.startMs)   // let startup settle (paper bakes, first frames, media prewarm)
+        // Let startup settle (paper bakes, first frames, media prewarm); then, when asked, most of the graphics memory is
+        // taken away before the first stroke (`jb_gpu_hog_mb`: the lost-tile hunt).
+        ui.postDelayed({
+            val hog = spec.gpuHogMb
+            if (hog == null) next() else canvas.benchHogGpu(hog) { said -> Log.i(TAG, said); next() }
+        }, spec.startMs)
     }
 
     private fun next() {
@@ -471,8 +487,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         ui.postDelayed(timeout, 30_000L)
         guarded {
             if (spec.clear) canvas.clearCanvas()
-            val ended = preset.media?.let { m -> m.paste?.takeIf { spec.pasteEnds != null || spec.pasteTurns != null || spec.pasteCover != null || spec.pasteCarry != null || spec.pasteForce != null || spec.pasteSoft != null || spec.pasteVary != null }?.let { pb ->
-                preset.copy(media = m.copy(paste = pb.copy(ends = spec.pasteEnds ?: pb.ends, turns = spec.pasteTurns ?: pb.turns, cover = spec.pasteCover ?: pb.cover, carry = spec.pasteCarry ?: pb.carry, force = spec.pasteForce ?: pb.force, soft = spec.pasteSoft ?: pb.soft, vary = spec.pasteVary ?: pb.vary))) } } ?: preset
+            val ended = preset.media?.let { m -> m.paste?.takeIf { spec.pasteEnds != null || spec.pasteTurns != null || spec.pasteCover != null || spec.pasteCarry != null || spec.pasteForce != null || spec.pasteSoft != null || spec.pasteVary != null || spec.pastePull != null }?.let { pb ->
+                preset.copy(media = m.copy(paste = pb.copy(ends = spec.pasteEnds ?: pb.ends, turns = spec.pasteTurns ?: pb.turns, cover = spec.pasteCover ?: pb.cover, carry = spec.pasteCarry ?: pb.carry, force = spec.pasteForce ?: pb.force, soft = spec.pasteSoft ?: pb.soft, vary = spec.pasteVary ?: pb.vary, pull = spec.pastePull ?: pb.pull))) } } ?: preset
             canvas.preset = spec.wetness?.let { w -> ended.media?.let { m -> ended.copy(media = m.copy(wetness = w)) } } ?: ended
             spec.colors.getOrNull(spec.cases.indexOf(case))?.let { canvas.colorArgb = it }
             // A contact-sheet cell takes the colours in turn, one a brush.
@@ -781,6 +797,9 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 sheetPrintHoldMs = intent.getLongExtra("jb_sheet_print_hold_ms", 0L).coerceIn(0L, 120_000L),
                 sheetLong = intent.getIntExtra("jb_sheet_long", -1).takeIf { it in 256..2048 },
                 sheetGrain = intent.getStringExtra("jb_sheet_grain")?.toDoubleOrNull()?.coerceIn(0.0, 4.0),
+                sheetPlain = intent.getBooleanExtra("jb_sheet_plain", false),
+                gpuHogMb = intent.getIntExtra("jb_gpu_hog_mb", -1).takeIf { it > 0 },
+                sheetCut = if (intent.hasExtra("jb_sheet_cut")) intent.getBooleanExtra("jb_sheet_cut", true) else null,
                 sheetWave = intent.getStringExtra("jb_sheet_wave")?.toDoubleOrNull()?.coerceIn(0.0, 4.0),
                 then = intent.getStringExtra("jb_bench_then")?.split(';')?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty(),
                 mediaBudgetMb = intent.getIntExtra("jb_media_budget_mb", -1).takeIf { it > 0 },
@@ -797,6 +816,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 pasteForce = intent.getStringExtra("jb_paste_force")?.toDoubleOrNull()?.coerceIn(0.0, 1.0),
                 pasteSoft = intent.getStringExtra("jb_paste_soft")?.toDoubleOrNull()?.coerceIn(0.0, 1.0),
                 pasteVary = intent.getStringExtra("jb_paste_vary")?.toDoubleOrNull()?.coerceIn(0.0, 1.0),
+                pastePull = intent.getStringExtra("jb_paste_pull")?.toDoubleOrNull()?.coerceIn(0.0, 1.0),
                 symmetry = intent.getIntExtra("jb_symmetry", -1).takeIf { it in 2..16 },
                 lines = if (intent.hasExtra("jb_lines")) intent.getBooleanExtra("jb_lines", false) else null,
                 failLiftRedraw = intent.getBooleanExtra("jb_lift_fail", false),

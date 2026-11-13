@@ -24,7 +24,7 @@ internal class MediaWaterPark(private val wf: Int, private val maxUnits: Int, pr
     /** A free unit, making a chunk when none is left; null when [maxUnits] are made and in use. */
     fun take(): Int? {
         if (free.isEmpty() && capacity + perChunk <= maxUnits) {
-            try { grow() } catch (x: IllegalStateException) { android.util.Log.e("JoyBrushTiles", "the water park could not grow: ${x.message}") }
+            try { grow() } catch (x: IllegalStateException) { cc.joycreator.joybrush.androidkit.diag.TileIncidents.e("the water park could not grow: ${x.message}") }
         }
         return free.removeFirstOrNull()
     }

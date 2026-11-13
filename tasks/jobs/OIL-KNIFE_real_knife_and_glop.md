@@ -1,6 +1,6 @@
 # OIL-KNIFE: a palette knife that handles like a real one, and oil that pulls where strokes cross
 
-**Milestone:** M1 (JoyBrush base brushes)  ·  **State:** 🔨 soft passage landed; Knife 3 first build on the branch  ·  **Owner:** Claude Fable 5.2 "atlas solid" session  ·  **Checked:** 2026-11-11 against `5ab0d27fe`
+**Milestone:** M1 (JoyBrush base brushes)  ·  **State:** 🔨 soft passage, Knife 3 first build, varied hairs and the hair brushes' colour pull built; the knife is parked by the owner (11-11: "the app can survive without a perfect palette knife")  ·  **Owner:** Claude Fable 5.2 "atlas solid" session  ·  **Checked:** 2026-11-13
 
 ## Why it matters (for the user)
 The owner (2026-11-11, on a Note 9 film of four oil brushes crossing, with Bob Ross reference photos): where a stroke
@@ -79,6 +79,25 @@ Research 11-11 (read by a helper agent; mechanisms, not marketing):
   matched strokes, Even against Varied, sent to the owner; unit tests pass; on `joy-creator`. Not owner-tried. The flat's
   narrowing was not filmed (the bench strokes lean along their travel).
 
+- **Hair brushes pull wet colour along** (2026-11-13; `PasteBrush.pull`, `jb_paste_dab.frag u_pull`; 0.7 on All-round, Oil
+  flat and Oil round): the wet paint under the brush takes on the colour of what lay a little way back along the
+  travel, mixed by volume, so a stroke crossing wet paint trails that paint into itself and out the far side instead of
+  showing it through a hard-edged strip (the owner's "sticks"). Only colour moves: with thickness moved too, even a
+  quarter of the way a step, every stroke lost its ridges and showed the canvas weave. One mixed paint a brush cell and
+  canvas-side movement only, as the patent reading below requires. A brush's settings: **Wet paint: Pulled along / Left
+  lying**. Judged on the lab's sheets `oilover` and `oildirty` (pictures in
+  [evidence/atlas-2to8-20261113](../joybrush/evidence/atlas-2to8-20261113/README.md)); unit tests, golden and uniform
+  parity pass. Cost on the Note 9 (profiler off, off against on): Oil flat 3.50 and 3.50 ms a step, Oil round 3.15 and
+  3.33, All-round 3.12 and 2.99; Palette knife 1 3.74 and 4.36 in an earlier form, so it stays off there.
+  **Not on the Fan blender:** on the Note 9 its fast stroke across wet stripes left a row of bead-like patches and dotted
+  lines. In a burst a hop stretches to 12 % of the brush's width (`PasteSpacing.behind`); the fan is 14 mm wide with
+  2.5 mm of hair, so each hop pulled its own patch. `PasteBrush.pullNow` is the one rule: no pull on a blade, on the
+  trowel, or where the hairs are shorter than 4 mm, and the setting is offered only where it can act. The other three at
+  their widest hops stay clean (lab, `?hop=`). Not owner-tried.
+- **The media lab draws hair-brush oil strokes again** (2026-11-13): since the 10-31 noise-texture speed change it had
+  drawn each as a stub a few mm long (the shader's noise texture was never bound in the lab). `lab/media/js/engine.js`
+  now builds the same lattice as the app's `MediaPasteNoise`.
+
 ## The owner's rulings on Knife 3 after trying it (2026-11-11 night): these replace the feel table above where they differ
 - **Direction of tilt = the direction the knife points.** (As built.)
 - **How steep the tilt is = the LENGTH of blade in play.** Not which part touches: no switch from edge to face by tilt.
@@ -96,14 +115,14 @@ Research 11-11 (read by a helper agent; mechanisms, not marketing):
   is installed; **never seen working**: the bench cannot hover a pen, so the lean's direction on screen is unchecked.
 
 ## What is left
-- [ ] 1. Crossings (blades first, then hair brushes): the plate gets a rounded underside across its width; the paint it
-      displaces goes to its flanks and behind it, conserved; its side ramp widens with the wet thickness under it. New
-      terms default to today's behaviour so the lab golden stays exact until the lab is ported.
+- [~] 1. Crossings. Blades: the soft passage (11-11). Hair brushes: the colour pull (11-13). Still open: paint squeezed up
+      at a stroke's flanks and heaped ahead of it (thickness, not colour: ledger E2), and Palette knife 1 (ledger E1).
 - [x] 2. (built 11-11, be4cdee6d; owner has not tried it) Palette knife 3: outline with a straight edge, a facet and a curved tip; contact from tilt; pressure as bearing;
       lay or scrape by travel against the blade's normal; a lumpy, depleting roll. Bench strokes with tilt and lean.
 - [x] 3. (built 11-11, 41926d158: uneven bunches, Hairs Varied / Even; owner look owed) Hair brushes: per-run variance in length, load and width that drifts along the stroke (clumps), instead of a
       fixed streak profile; width from how many hairs touch.
-- [ ] 4. Lab port (`lab/media/js/paste.js`, `oils.js`), golden, `MediaUniformsParityTest`, `PasteFootprint` bounds and tests.
+- [~] 4. Lab port: `paste.js`, `engine.js`, golden and `MediaUniformsParityTest` carry soft, vary, pull and the knife's hand
+      terms (11-13). `oils.js` (the lab's free-painting page) and `PasteFootprint` bounds not re-checked.
 - [ ] 5. Note 9 films of each against the reference photos; the owner's try; STATE row; help text.
 
 ## Specs, handoffs and evidence

@@ -103,7 +103,7 @@ internal object MediaUniforms {
         u.f1("u_bladeH0", st.bladeH0 ?: 0.0); u.f1("u_bladeTan", st.bladeTan ?: 0.0); u.f1("u_bladeBead", b.bead)
         u.f1("u_bladePressMm", (b.pressIn ?: 0.6) * toothMm * (st.pressK ?: (st.pressure * st.pressure))); u.f1("u_bladeFilm", b.film ?: 0.004)
         u.f1("u_bladeSoft", if (b.blade) b.soft else 0.0)
-        u.f1("u_hairVary", if (b.blade || b.trowel) 0.0 else b.vary)
+        u.f1("u_hairVary", if (b.blade || b.trowel) 0.0 else b.vary); u.f1("u_pull", b.pullNow)
         u.f1("u_bladeLay", st.lay); u.f1("u_bladeDrag", st.drag); u.f1("u_bladeLump", if (b.blade) b.rollLump else 0.0)
         u.f1("u_hairDepth", b.hairDepth); u.f1("u_ridge", b.ridge); u.f1("u_rate", b.rate); u.f1("u_mix", b.mix); u.f1("u_swap", b.swap)
         u.f1("u_bow", b.bow); u.f1("u_lump", b.lump); u.f1("u_rigid", b.rigid); u.f1("u_slideMm", st.slideMm); u.f1("u_cellCap", cap)

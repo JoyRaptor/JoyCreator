@@ -113,6 +113,12 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     private fun beadProgram() = atlas?.takeIf { it.wallsOn }?.let { progBeadW } ?: progBead
 
     /**
+     * Builds the program only the wet sheet uses (its lean look) now, at the stroke's start with the rest, instead of at the
+     * first frame that wants it: that was a stall a few frames into the first wash.
+     */
+    fun prewarmSheet() { if (lookPaintOnly && atlas == null) sheetRender() }
+
+    /**
      * Every media program, in compile order: field setter, vertex, fragment, label, and whether it draws into the paste
      * brush's cells (not layer-shaped: JB_PLAIN_TARGET in atlas mode). One table, so [compileNext] can never skip one.
      */
@@ -177,7 +183,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     }
 
     /** Deletes the programs compiled so far (an engine compiled ahead and let go before any media stroke, or [release]). */
-    fun releasePrograms() { programs.forEach { it.release() }; programs.clear(); progRenderSheet = null; progApplyInk = null }
+    fun releasePrograms() { programs.forEach { it.release() }; programs.clear(); progRenderSheet = null; progFeather = null; progApplyInk = null }
 
     /** The dry apply pass for a coloured stick (jb_media_apply.frag JB_INK), built when a pencil first draws in a colour:
      *  graphite keeps [progApply], the program it always had. */
@@ -1211,7 +1217,14 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         waterSpeed = (steps * dt / real).toFloat()
         val r = wetRect
         android.util.Log.i("JoyBrushWater", "speed: $steps steps in ${"%.2f".format(real)} s over $speedFrames frames = ${"%.3f".format(waterSpeed)} x real time; " +
-            "rectangle ${r?.let { "${(it[2] - it[0]).toInt()} x ${(it[3] - it[1]).toInt()}" }} px, drew ${"%.1f".format(speedDrawn / 1e6)} M units, budget ${"%.2f".format(waterBudget / 1e6)} M a frame")
+            "rectangle ${r?.let { "${(it[2] - it[0]).toInt()} x ${(it[3] - it[1]).toInt()}" }} px, drew ${"%.1f".format(speedDrawn / 1e6)} M units, budget ${"%.2f".format(waterBudget / 1e6)} M a frame" +
+            // [cullWater]: what the passes draw against what holds water (blocks of 16 cells; live, and live with their ring).
+            (cull?.takeIf { it.readings > 0 }?.let { c ->
+                val n = c.counts()
+                val parts = lastWaterParts
+                "; culled: ${parts?.size ?: 0} parts of ${parts?.sumOf { ((it[2] - it[0]) * (it[3] - it[1])).toDouble() }?.let { (it / 1000).toInt() } ?: (w * h / 1000)} k cells, " +
+                    "live blocks ${n[0]} (${n[0] * 256 / 1000} k), with ring ${n[1]} (${n[1] * 256 / 1000} k), sheet ${w * h / 1000} k"
+            } ?: ""))
         speedAtNs = now; speedSteps = waterSteps; speedFrames = 0; speedDrawn = 0.0
     }
 
@@ -2137,6 +2150,46 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         GLES30.glBlitFramebuffer(sx0, sy0, sx1, sy1, dx0, dy0, dx1, dy1, GLES30.GL_COLOR_BUFFER_BIT, filter)
         GLES30.glBindFramebuffer(GLES30.GL_READ_FRAMEBUFFER, 0)
         GLES30.glBindFramebuffer(GLES30.GL_DRAW_FRAMEBUFFER, 0)
+    }
+
+    private var progFeather: MediaProgram? = null
+
+    /**
+     * [blit] through a weight (jb_wet_feather.frag): [src]'s rectangle laid on [dst]'s, smoothed when [linear], every channel
+     * [channels] marks multiplied by a weight that is 1 well inside [inner] (x0, y0, x1, y1 in this engine's cells) and falls
+     * to 0 at its edge over [feather] cells; with [outer] the weight is turned round (0 inside, 1 at and beyond the edge).
+     * The two halves of the wet sheet's feathered cut (WetSheet.cutCarry) are drawn with it, so together they are the whole.
+     */
+    fun blitWeighted(src: Int, sx0: Int, sy0: Int, sx1: Int, sy1: Int, dst: Int, dx0: Int, dy0: Int, dx1: Int, dy1: Int,
+                     inner: FloatArray, feather: Float, channels: FloatArray, outer: Boolean, linear: Boolean) {
+        val prog = progFeather ?: MediaProgram(shaders, "media/jb_media_quad.vert", "media/jb_wet_feather.frag", "media wet feather")
+            .also { progFeather = it; programs += it }
+        val filter = if (linear) GLES30.GL_LINEAR else GLES30.GL_NEAREST
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, src)
+        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, filter)
+        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, filter)
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, drawFbo)
+        GLES30.glFramebufferTexture2D(GLES30.GL_FRAMEBUFFER, GLES30.GL_COLOR_ATTACHMENT0, GLES30.GL_TEXTURE_2D, dst, 0)
+        GLES30.glDrawBuffers(1, intArrayOf(GLES30.GL_COLOR_ATTACHMENT0), 0)
+        GLES30.glViewport(0, 0, w, h)
+        GLES30.glDisable(GLES30.GL_BLEND)
+        GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+        val u = prog.use()
+        common(u)
+        u.tex("u_src", src)
+        u.f4("u_srcRect", sx0.toFloat(), sy0.toFloat(), sx1.toFloat(), sy1.toFloat())
+        u.f4("u_dstRect", dx0.toFloat(), dy0.toFloat(), dx1.toFloat(), dy1.toFloat())
+        u.f4("u_rect", dx0.toFloat(), dy0.toFloat(), dx1.toFloat(), dy1.toFloat())
+        u.f2("u_targetSize", w.toFloat(), h.toFloat())
+        u.f4("u_inner", inner); u.f1("u_feather", feather); u.f4("u_channels", channels); u.f1("u_invert", if (outer) 1f else 0f)
+        GLES30.glBindVertexArray(quadVao)
+        GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+        GLES30.glBindVertexArray(0)
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, src)
+        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_NEAREST)
+        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_NEAREST)
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
     }
 
     /** After state was written from outside (undo, load): water there starts again from rest. */

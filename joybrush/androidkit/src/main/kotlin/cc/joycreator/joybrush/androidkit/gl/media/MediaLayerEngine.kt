@@ -212,7 +212,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     }
 
     /** Deletes the programs compiled so far (an engine compiled ahead and let go before any media stroke, or [release]). */
-    fun releasePrograms() { programs.forEach { it.release() }; programs.clear(); progRenderSheet = null; progCull.fill(null) }
+    fun releasePrograms() { programs.forEach { it.release() }; programs.clear(); progRenderSheet = null; progCull.fill(null); progFeather = null }
 
     private var progRenderSheet: MediaProgram? = null
     private fun sheetRender(): MediaProgram = progRenderSheet
@@ -2187,6 +2187,46 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         GLES30.glBlitFramebuffer(sx0, sy0, sx1, sy1, dx0, dy0, dx1, dy1, GLES30.GL_COLOR_BUFFER_BIT, filter)
         GLES30.glBindFramebuffer(GLES30.GL_READ_FRAMEBUFFER, 0)
         GLES30.glBindFramebuffer(GLES30.GL_DRAW_FRAMEBUFFER, 0)
+    }
+
+    private var progFeather: MediaProgram? = null
+
+    /**
+     * [blit] through a weight (jb_wet_feather.frag): [src]'s rectangle laid on [dst]'s, smoothed when [linear], every channel
+     * [channels] marks multiplied by a weight that is 1 well inside [inner] (x0, y0, x1, y1 in this engine's cells) and falls
+     * to 0 at its edge over [feather] cells; with [outer] the weight is turned round (0 inside, 1 at and beyond the edge).
+     * The two halves of the wet sheet's feathered cut (WetSheet.cutCarry) are drawn with it, so together they are the whole.
+     */
+    fun blitWeighted(src: Int, sx0: Int, sy0: Int, sx1: Int, sy1: Int, dst: Int, dx0: Int, dy0: Int, dx1: Int, dy1: Int,
+                     inner: FloatArray, feather: Float, channels: FloatArray, outer: Boolean, linear: Boolean) {
+        val prog = progFeather ?: MediaProgram(shaders, "media/jb_media_quad.vert", "media/jb_wet_feather.frag", "media wet feather")
+            .also { progFeather = it; programs += it }
+        val filter = if (linear) GLES30.GL_LINEAR else GLES30.GL_NEAREST
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, src)
+        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, filter)
+        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, filter)
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, drawFbo)
+        GLES30.glFramebufferTexture2D(GLES30.GL_FRAMEBUFFER, GLES30.GL_COLOR_ATTACHMENT0, GLES30.GL_TEXTURE_2D, dst, 0)
+        GLES30.glDrawBuffers(1, intArrayOf(GLES30.GL_COLOR_ATTACHMENT0), 0)
+        GLES30.glViewport(0, 0, w, h)
+        GLES30.glDisable(GLES30.GL_BLEND)
+        GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+        val u = prog.use()
+        common(u)
+        u.tex("u_src", src)
+        u.f4("u_srcRect", sx0.toFloat(), sy0.toFloat(), sx1.toFloat(), sy1.toFloat())
+        u.f4("u_dstRect", dx0.toFloat(), dy0.toFloat(), dx1.toFloat(), dy1.toFloat())
+        u.f4("u_rect", dx0.toFloat(), dy0.toFloat(), dx1.toFloat(), dy1.toFloat())
+        u.f2("u_targetSize", w.toFloat(), h.toFloat())
+        u.f4("u_inner", inner); u.f1("u_feather", feather); u.f4("u_channels", channels); u.f1("u_invert", if (outer) 1f else 0f)
+        GLES30.glBindVertexArray(quadVao)
+        GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+        GLES30.glBindVertexArray(0)
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, src)
+        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_NEAREST)
+        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_NEAREST)
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
     }
 
     /** After state was written from outside (undo, load): water there starts again from rest. */

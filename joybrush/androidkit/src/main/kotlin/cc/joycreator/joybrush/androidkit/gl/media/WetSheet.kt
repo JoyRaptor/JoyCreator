@@ -117,7 +117,12 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
             val carried = same && grid == wantGrid && try { carry(view, wantCell, paper, look) } catch (x: RuntimeException) {
                 android.util.Log.e(TAG, "the sheet could not be carried over to the new view", x); false
             }
-            if (!carried || (holding && !covers(docX, docY))) {
+            // It does not fit whole: what lies well inside the new sheet stays wet and the rest sets, the two fading into each
+            // other ([cutCarry]). Only when that leaves the pen on the sheet; otherwise, as before, all of it sets.
+            val cut = !carried && same && grid == wantGrid && cutOnMove && try { cutCarry(view, wantCell, paper, look) } catch (x: RuntimeException) {
+                android.util.Log.e(TAG, "the wash could not be parted for the new view", x); false
+            }
+            if ((!carried && !cut) || (holding && !covers(docX, docY))) {
                 android.util.Log.i(TAG, "the wash sets: the next stroke is ${if (!same) "on another layer or frame" else "where the sheet cannot follow"}")
                 settle(paper, look)
             }
@@ -198,8 +203,68 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
         return true
     }
 
-    /** [s], a copy of the sheet as it lay elsewhere, onto the sheet laid at ([nx], [ny]) with cells of [newCell]: what of it falls there. */
-    private fun loadInto(s: Snap, nx: Float, ny: Float, newCell: Double) {
+    /**
+     * One side of a feathered cut ([cutCarry]): the rectangle (document px) well inside which the wash stays wet, how wide
+     * the fade to its edge is (document px), and whether this is the part left outside it.
+     */
+    private class Part(val x0: Double, val y0: Double, val x1: Double, val y1: Double, val feather: Double, val outer: Boolean)
+
+    /**
+     * The view moved and the wash is too wide to come along whole ([carry] said no). What lies well inside the sheet laid
+     * for the new view stays wet and comes along; the rest dries where it lies and is printed into the layer as one undo
+     * step; over [FEATHER_CELLS] of the new sheet's cells the two fade into each other (jb_wet_feather.frag), because a
+     * clean cut left a line as soon as water flowed across it (Note 9 film rim1, 2026-11-11). False when it could not be
+     * done or nothing would stay wet: the caller sets the whole wash, as before.
+     */
+    private fun cutCarry(view: View, wantCell: Double, paper: MediaPaperGl, look: MediaLook): Boolean {
+        val e = engine ?: return false
+        if (!paint.localHistory || paint.strokeInProgress || paint.mediaStrokeInProgress || settling) return false
+        if (!e.wetActive) return false                       // all dry already: it simply prints
+        val c = tightContent(e, paper, look) ?: return false
+        val newCell = if (wantCell <= cell && !WetSheetMath.tooCoarse(cell, wantCell)) cell else wantCell
+        val nx = WetSheetMath.origin(view.centreX, grid.w, newCell); val ny = WetSheetMath.origin(view.centreY, grid.h, newCell)
+        // The new sheet inside its rim (document px): the wash stays fully wet [FEATHER_CELLS] further in.
+        val rim = WetSheetMath.RIM_CELLS * newCell
+        val feather = FEATHER_CELLS * newCell
+        val ix0 = nx + rim; val iy0 = ny + rim; val ix1 = nx + grid.w * newCell - rim; val iy1 = ny + grid.h * newCell - rim
+        // Something of the wash must reach the part that stays wet, or nothing is gained by parting it.
+        val cx0 = originX + c[0] * cell; val cy0 = originY + c[1] * cell; val cx1 = originX + c[2] * cell; val cy1 = originY + c[3] * cell
+        if (cx1 <= ix0 + feather || cx0 >= ix1 - feather || cy1 <= iy0 + feather || cy0 >= iy1 - feather) return false
+        val whole = history.now() as? Was.Held ?: return false
+        var kept = false   // the print's record took [whole]
+        settling = true
+        try {
+            // 1. What is left behind: the whole wash weighted to nothing inside the new sheet, dried where it lies, printed.
+            loadInto(whole.snap, whole.snap.originX, whole.snap.originY, whole.snap.cell, Part(ix0, iy0, ix1, iy1, feather, outer = true))
+            if (holding) {
+                if (e.wetActive) { e.dryNow(paper, DOC_PX_PER_MM); e.takeDirty(); e.takeDirtyStores() }
+                history.changed()
+                lookStale = union(lookStale, content)
+                refresh(paper, look)
+                val o = overlay()
+                val keys = if (o == null) emptyList() else coveredTiles(e)
+                // As [print]: straight after the stroke that laid it, undoing the print leaves the sheet for that stroke's undo.
+                val before: Was = if (history.newestIsStroke()) Was.AsIs else whole.also { kept = true }
+                val mark = history.printBegan(before)
+                val n = if (o != null) paint.printOverlay(o, keys, mark) else { paint.pushSheetStep(mark); 0 }
+                android.util.Log.i(TAG, "the wash is parted: $n tiles of what the new view leaves behind are printed")
+            }
+            // 2. What stays wet, onto the sheet laid for the new view.
+            loadInto(whole.snap, nx, ny, newCell, Part(ix0, iy0, ix1, iy1, feather, outer = false))
+            history.prune()
+            android.util.Log.i(TAG, "sheet parted and carried to cells of $cell px at ($originX, $originY), zoom ${view.zoom}; holds ${if (holding) "the part in view, still wet" else "nothing"}")
+        } finally {
+            settling = false
+            if (!kept) history.letGo(whole)
+        }
+        return holding
+    }
+
+    /**
+     * [s], a copy of the sheet as it lay elsewhere, onto the sheet laid at ([nx], [ny]) with cells of [newCell]: what of it
+     * falls there; with [part], only that side of a feathered cut of it.
+     */
+    private fun loadInto(s: Snap, nx: Float, ny: Float, newCell: Double, part: Part? = null) {
         val e = engine ?: return
         e.stopWater()
         originX = nx; originY = ny; cell = newCell
@@ -220,9 +285,17 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
                 // The same cells: an exact copy. Other cells: smoothed onto them (the copy is half floats, which filter).
                 val filter = if (k == 1.0) GLES30.GL_NEAREST else GLES30.GL_LINEAR
                 while (GLES30.glGetError() != GLES30.GL_NO_ERROR) Unit
-                for ((store, t) in s.tex) for (dst in e.loadTargets(store)) {
+                if (part == null) for ((store, t) in s.tex) for (dst in e.loadTargets(store)) {
                     e.blit(t, ux0, uy0, ux1, uy1, dst, dx0, dy0, dx1, dy1, filter)
                     if (filter != GLES30.GL_NEAREST && GLES30.glGetError() != GLES30.GL_NO_ERROR) e.blit(t, ux0, uy0, ux1, uy1, dst, dx0, dy0, dx1, dy1)
+                } else {
+                    // The cut's rectangle and fade in this sheet's cells; amounts are weighted, ratios and ages are kept.
+                    val inner = floatArrayOf(((part.x0 - originX) / cell).toFloat(), ((part.y0 - originY) / cell).toFloat(),
+                        ((part.x1 - originX) / cell).toFloat(), ((part.y1 - originY) / cell).toFloat())
+                    val fade = (part.feather / cell).toFloat()
+                    for ((store, t) in s.tex) for (dst in e.loadTargets(store))
+                        e.blitWeighted(t, ux0, uy0, ux1, uy1, dst, dx0, dy0, dx1, dy1, inner, fade, CUT_CHANNELS.getValue(store), part.outer,
+                            linear = filter != GLES30.GL_NEAREST)
                 }
                 content = floatArrayOf(dx0.toFloat(), dy0.toFloat(), dx1.toFloat(), dy1.toFloat())
                 s.wetRect?.let { wr ->
@@ -821,6 +894,26 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
 
         /** Debug bench only (`jb_sheet_print_hold_ms`): a dry sheet waits this long before it is printed (0 in the app). */
         @Volatile @JvmStatic var printHoldMs = 0L
+
+        /**
+         * How wide the fade of a feathered cut is, in the new sheet's cells ([cutCarry]): the wash is fully wet this far
+         * inside the sheet's rim and fully set at the rim.
+         */
+        const val FEATHER_CELLS = 48
+
+        /** Which channels of each kept store hold an amount (weighted by a cut) and which a ratio or an age (kept as they are). */
+        private val CUT_CHANNELS = mapOf(
+            "p0" to floatArrayOf(1f, 1f, 1f, 1f),   // pigment on the paper (K) and its volume
+            "p1" to floatArrayOf(1f, 1f, 1f, 0f),   // pigment on the paper (S); how soluble it is
+            "w0" to floatArrayOf(1f, 1f, 0f, 0f),   // water, dampness; the wet age
+            "w1" to floatArrayOf(1f, 1f, 1f, 1f),   // pigment in the water
+        )
+
+        /**
+         * The view moved and the wash is too wide to come along whole: true = the part in view stays wet and the rest sets
+         * ([cutCarry]); false = all of it sets, as before 2026-11-13. The bench's `jb_sheet_cut`.
+         */
+        @Volatile @JvmStatic var cutOnMove = true
 
         /** Debug bench only (`jb_sheet_plain`): the overlay drawn with the plain tile shader (no grain, bilinear), to time what the grain shader costs. */
         @Volatile @JvmStatic var debugPlain = false

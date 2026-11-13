@@ -68,11 +68,13 @@ git -C "C:/+Projects/JoyCreator" worktree add C:/Temp/<topic>-<yyyymmdd> -b <har
 
 ## The phones
 
-| Phone | What it is | Rules |
+| Device | What it is | Rules |
 |---|---|---|
-| **Note 9** | The sandbox | Install and test freely. Never uninstall and never clear data. Never touch his drawings. |
-| **Note 20** | His real projects | Install only when he asks. Upgrade in place, never fresh. |
+| **Note 9** | The sandbox phone and the default | Install and test freely. Never uninstall and never clear data. Never touch his drawings. |
+| **Note 20** | His real projects; **not in use, not open to any session** | Never install to it or tap it unless he asks. |
+| **Test tablet** (Tab S8 Ultra) | A blank test device for tablet layouts and checks | Throwaway "TEST ..." projects only; no rotation or system-settings changes; never uninstall or clear data. `$env:PHONE_SLOT = "tablet"`. |
 
+- Several devices can be on one adb server, so **raw `adb` must always name one**: `adb -s (.\tools\phone.ps1 serial)`. The tool finds each device by model; never write a serial in a tracked file (rule 1). Each device has its own lock file: `jb-phone.lock` (Note 9), `jb-phone2.lock` (Note 20, `PHONE_SLOT=note20`), `jb-phone3.lock` (tablet, `PHONE_SLOT=tablet`).
 - **One agent drives a phone at a time:** `.\tools\phone.ps1 claim <name> "<why>"`, refresh it while you
   work, `.\tools\phone.ps1 release <name>` when done. Looking (screenshots, logcat) needs no lock.
 - **Never launch with `adb shell monkey`**: it turns his rotation lock off. Use `am start -n <activity>`.

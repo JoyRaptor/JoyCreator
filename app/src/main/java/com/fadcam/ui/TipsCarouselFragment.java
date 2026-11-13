@@ -59,7 +59,7 @@ public class TipsCarouselFragment extends BottomSheetDialogFragment {
     }
 
     private void setupTips() {
-        tips = getResources().getStringArray(R.array.tips_widget);
+        tips = getResources().getStringArray(R.array.tips_joycreator);
     }
 
     private void setupViewPager() {

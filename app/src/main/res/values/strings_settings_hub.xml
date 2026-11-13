@@ -133,10 +133,10 @@
     <string name="settingshub_motion_lab_names">motion, motion detection, cctv, security camera, surveillance, sensor, sensitivity, events</string>
     <string name="settingshub_smart_detection">Smart Detection</string>
     <string name="settingshub_smart_detection_desc">Story Board, people and smart insights from what the camera sees</string>
-    <string name="settingshub_smart_detection_names">smart detection, ai, people, person, snapshots, story board, forensics, insights, overlay</string>
+    <string name="settingshub_smart_detection_names">smart detection, detect, detection, finder, find, objects, things, ai, people, person, pets, snapshots, story board, forensics, insights, overlay</string>
     <string name="settingshub_remote">Remote streaming</string>
     <string name="settingshub_remote_desc">Watch and control the camera from a browser on your network</string>
-    <string name="settingshub_remote_names">remote, stream, streaming, server, lan, wifi, browser, hls, cloud, live</string>
+    <string name="settingshub_remote_names">remote, remote studio, control, stream, streaming, server, lan, wifi, browser, hls, live</string>
 
     <!-- About and help -->
     <string name="settingshub_whats_new">What\'s new</string>

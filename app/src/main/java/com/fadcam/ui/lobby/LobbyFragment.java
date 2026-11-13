@@ -284,6 +284,20 @@ public class LobbyFragment extends BaseFragment {
         heroNew.setOnClickListener(b -> startNewInRoom());
         statIcon   = v.findViewById(R.id.lobby_stat_icon);
         statText   = v.findViewById(R.id.lobby_stat_text);
+        // SHELL-03 (11-13): the line looked tappable and did nothing. Every number it cycles
+        // (free space, projects, recording time left) is about room, so it opens Space.
+        View stat = v.findViewById(R.id.lobby_stat);
+        if (stat != null) {
+            com.fadcam.ui.faditor.SheetKit.label(stat, getString(R.string.hover_lobby_stat));
+            Motion.press(stat);
+            stat.setOnClickListener(b -> {
+                try {
+                    startActivity(com.fadcam.joyfolder.studio.SpaceActivity.intent(requireContext()));
+                } catch (Exception e) {
+                    FLog.w("Lobby", "Space screen did not open", e);
+                }
+            });
+        }
         wordmark   = v.findViewById(R.id.lobby_wordmark);
         libraryCount = v.findViewById(R.id.lobby_library_count);
         // Capitals as before ("12 ITEMS"), from the Library's own words for its count.
@@ -2056,16 +2070,38 @@ public class LobbyFragment extends BaseFragment {
     private void buildFloor() {
         if (floorRow == null) return;
         floorRow.removeAllViews();
-        addFloorWord("travel_explore", getString(R.string.lobby_floor_finder), () -> routeTab(TAB_FINDER));
-        addFloorWord("cast",           getString(R.string.lobby_floor_remote), () -> routeTab(TAB_REMOTE));
-        addFloorWord("build",          getString(R.string.lobby_floor_bits),   () -> routeTab(TAB_CAPTURE));
-        // Packs has no room of its own yet and has always opened Settings; both now open the new
-        // Settings hub, whose last row is the classic Settings tab (TAB_SETUP).
-        addFloorWord("inventory_2",    getString(R.string.lobby_floor_packs),  this::openSettings);
-        addFloorWord("tune",           getString(R.string.lobby_floor_setup),  this::openSettings);
+        // SHELL-01 (11-13): each word opens the place its name says and no two open the same one.
+        // "Finder" opened Smart Detection's gallery under a name that promised a file finder; it
+        // is now "Detect". "Bits" opened Capture, the same place as the Capture room; it now opens
+        // the Settings hub on its tools (Torch, QR scanner), which is what Bits always meant.
+        // "Packs" opened Settings, like "Setup"; it now opens the Library on Supplies, where
+        // installed Joy packs, looks, brushes and fonts are. The lobby's own redesign (S18) may
+        // still rename or cut any of these.
+        addFloorWord("travel_explore", getString(R.string.lobby_floor_finder),
+                getString(R.string.hover_lobby_floor_detect), () -> routeTab(TAB_FINDER));
+        addFloorWord("cast",           getString(R.string.lobby_floor_remote),
+                getString(R.string.hover_lobby_floor_remote), () -> routeTab(TAB_REMOTE));
+        addFloorWord("build",          getString(R.string.lobby_floor_bits),
+                getString(R.string.hover_lobby_floor_bits),   this::openTools);
+        addFloorWord("inventory_2",    getString(R.string.lobby_floor_packs),
+                getString(R.string.hover_lobby_floor_packs),  this::openSupplies);
+        addFloorWord("tune",           getString(R.string.lobby_floor_setup),
+                getString(R.string.hover_lobby_floor_setup),  this::openSettings);
     }
 
-    private void addFloorWord(String glyph, String label, Runnable onTap) {
+    /** Floor "Bits": the Settings hub on its tools section (Torch, QR scanner, shortcuts). */
+    private void openTools() {
+        if (getActivity() != null) com.fadcam.ui.settingshub.SettingsHubFragment.openAt(getActivity(),
+                com.fadcam.ui.settingshub.SettingsKey.TORCH);
+    }
+
+    /** Floor "Packs": the Library on its Supplies chip, where installed Joy packs and looks live. */
+    private void openSupplies() {
+        if (getActivity() != null) com.fadcam.ui.library.LibraryFragment.open(getActivity(),
+                com.fadcam.ui.library.LibraryKind.SUPPLIES, false);
+    }
+
+    private void addFloorWord(String glyph, String label, String hover, Runnable onTap) {
         LinearLayout cell = new LinearLayout(requireContext());
         cell.setOrientation(LinearLayout.HORIZONTAL);
         cell.setGravity(Gravity.CENTER);
@@ -2098,7 +2134,8 @@ public class LobbyFragment extends BaseFragment {
         tv.setEllipsize(android.text.TextUtils.TruncateAt.END);
         cell.addView(tv);
 
-        cell.setContentDescription(label);
+        cell.setContentDescription(label + ". " + hover);
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(cell, hover);
         cell.setOnClickListener(v -> onTap.run());
         Motion.press(cell);
         floorRow.addView(cell);

@@ -48,9 +48,17 @@ public final class LookChipRow extends RecyclerView {
     public static final class Chip {
         public final String name;
         @Nullable File sheet;
+        /** An icon above the name on a chip with no picture ("Plain"), or 0. */
+        int icon;
 
         public Chip(@NonNull String name) {
             this.name = name;
+        }
+
+        @NonNull
+        public Chip withIcon(int drawableRes) {
+            icon = drawableRes;
+            return this;
         }
     }
 
@@ -217,6 +225,14 @@ public final class LookChipRow extends RecyclerView {
             pic.setTag(null);
             android.widget.TextView word = (android.widget.TextView) ring.getChildAt(1);
             word.setText(c.name);
+            android.graphics.drawable.Drawable ic = null;
+            if (c.icon != 0) {
+                ic = word.getContext().getDrawable(c.icon).mutate();
+                ic.setTint(0xFFD4D4D8);
+                ic.setBounds(0, 0, dp(20), dp(20));
+                word.setCompoundDrawablePadding(dp(4));
+            }
+            word.setCompoundDrawablesRelative(null, ic, null, null);
             word.setVisibility(c.sheet == null ? View.VISIBLE : View.GONE);
             if (c.sheet == null) return;
             if (on) playing(c.sheet, pic);

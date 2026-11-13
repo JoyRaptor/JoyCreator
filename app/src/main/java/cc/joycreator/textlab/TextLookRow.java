@@ -73,6 +73,7 @@ public final class TextLookRow extends LinearLayout {
         label.setTextColor(DIM);
         label.setTextSize(11);
         label.setLetterSpacing(0.08f);
+        icon(label, com.fadcam.R.drawable.ic_tl_look, DIM, 14);
         addView(label);
 
         chips = new LookChipRow(c);
@@ -80,10 +81,11 @@ public final class TextLookRow extends LinearLayout {
         addView(chips, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         lightRow = row(c);
-        lightRow.addView(small(c, "Light"));
-        still = pill(c, "Still", "The light stays where you put it (drag the little pad)");
-        sway = pill(c, "Sway", "The light drifts gently round where you put it");
-        record = pill(c, "Record tilt", "Arm, then hold your thumb on the picture and tilt the phone: the light follows");
+        lightRow.addView(small(c, "Light", com.fadcam.R.drawable.ic_tl_light));
+        still = pill(c, "Still", "The light stays where you put it (drag the little pad)", com.fadcam.R.drawable.ic_tl_still);
+        sway = pill(c, "Sway", "The light drifts gently round where you put it", com.fadcam.R.drawable.ic_tl_sway);
+        record = pill(c, "Record tilt", "Arm, then hold your thumb on the picture and tilt the phone: the light follows",
+                com.fadcam.R.drawable.ic_tl_record_tilt);
         lightRow.addView(still);
         lightRow.addView(sway);
         lightRow.addView(record);
@@ -94,9 +96,10 @@ public final class TextLookRow extends LinearLayout {
         addView(lightRow);
 
         progressRow = row(c);
-        progressRow.addView(small(c, "Plays"));
-        byItself = pill(c, "By itself", "Burns, blows away or shatters by itself from the title's start");
-        pinned = pill(c, "Pinned", "Set how far along it is at the playhead (a key)");
+        progressRow.addView(small(c, "Plays", com.fadcam.R.drawable.ic_tl_plays));
+        byItself = pill(c, "By itself", "Burns, blows away or shatters by itself from the title's start",
+                com.fadcam.R.drawable.ic_tl_by_itself);
+        pinned = pill(c, "Pinned", "Set how far along it is at the playhead (a key)", com.fadcam.R.drawable.ic_tl_pinned);
         progressRow.addView(byItself);
         progressRow.addView(pinned);
         progress = new SeekBar(c);
@@ -128,16 +131,30 @@ public final class TextLookRow extends LinearLayout {
         return r;
     }
 
-    private TextView small(Context c, String s) {
+    private TextView small(Context c, String s, int iconRes) {
         TextView t = new TextView(c);
         t.setText(s);
         t.setTextColor(DIM);
         t.setTextSize(12);
         t.setMinWidth(dp(44));
+        t.setGravity(Gravity.CENTER_VERTICAL);
+        t.setPadding(0, 0, dp(8), 0);
+        icon(t, iconRes, DIM, 16);
         return t;
     }
 
-    private TextView pill(Context c, String text, String hover) {
+    /** A TextLab icon before the words (owner-approved set, 11-12), tinted {@code colour}. */
+    private void icon(TextView t, int res, int colour, int sizeDp) {
+        android.graphics.drawable.Drawable d = getContext().getDrawable(res);
+        if (d == null) return;
+        d = d.mutate();
+        d.setTint(colour);
+        d.setBounds(0, 0, dp(sizeDp), dp(sizeDp));
+        t.setCompoundDrawablesRelative(d, null, null, null);
+        t.setCompoundDrawablePadding(dp(5));
+    }
+
+    private TextView pill(Context c, String text, String hover, int iconRes) {
         TextView t = new TextView(c);
         t.setText(text);
         t.setTextSize(12.5f);
@@ -149,6 +166,8 @@ public final class TextLookRow extends LinearLayout {
         LayoutParams lp = new LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(32));
         lp.setMarginEnd(dp(6));
         t.setLayoutParams(lp);
+        t.setTag(iconRes);
+        t.setPadding(dp(10), 0, dp(12), 0);
         paint(t, false);
         return t;
     }
@@ -160,6 +179,8 @@ public final class TextLookRow extends LinearLayout {
         g.setColor(on ? CYAN : CONTROL);
         t.setBackground(g);
         t.setTextColor(on ? GROUND : INK);
+        // the icon is cut out with the words: ground-coloured on cyan
+        if (t.getTag() instanceof Integer) icon(t, (Integer) t.getTag(), on ? GROUND : INK, 16);
         t.setSelected(on);
     }
 
@@ -180,7 +201,7 @@ public final class TextLookRow extends LinearLayout {
     /** "Plain" first, then every look on the shelf; the title's own look chosen. */
     private void showChips() {
         List<LookChipRow.Chip> list = new ArrayList<>();
-        list.add(new LookChipRow.Chip("Plain"));
+        list.add(new LookChipRow.Chip("Plain").withIcon(com.fadcam.R.drawable.ic_tl_plain));
         for (TextLookShelf.Item it : shelf) list.add(new LookChipRow.Chip(it.name));
         chips.setChips(list);
         for (int i = 0; i < shelf.size(); i++) {

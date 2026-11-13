@@ -23,3 +23,12 @@ TextLab screen uses Studio's own export mark (`ic_export_studio`), his call for 
 
 - `gen_textlab_icons_v2.py` rebuilds v2; `build_icons_page_v2.py <v2.json> <out.html> <v1.json>` builds the
   round-two page (redrawn first, then unmarked, then already kept).
+
+## Final (2026-11-12 late): in the app
+
+His last word: "depth should taper as it goes back other then that ship em" (he had sent screenshots of the tile
+for Sides and the block for Depth). `textlab-icons-final.json` (46): Depth = the block redrawn with its back face
+smaller (a vanishing point up and to the right), Sides = the bevelled tile, no swap entries, no Export drawing.
+`python -I to_android.py textlab-icons-v2.json textlab-icons-final.json ../../../app/src/main/res/drawable`
+writes `ic_tl_<word>.xml` (Look row) and `ic_tl_tab_<slot>.xml` (tabs): white, tinted in code. Edit the JSON
+and rerun; never hand-edit the drawables.

@@ -1,0 +1,324 @@
+[
+ {
+  "group": "Look row",
+  "word": "Look",
+  "meaning": "pick a finished title look (film-poster lettering)",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4.5 20L10.5 5L16.5 20M6.9 15H14.1\"/><path d=\"M18.5 2.3Q19.27 4.73 21.7 5.5Q19.27 6.27 18.5 8.7Q17.73 6.27 15.3 5.5Q17.73 4.73 18.5 2.3Z\" fill=\"currentColor\" stroke=\"none\"/></svg>",
+  "note": "A bold poster capital with a glint: lettering that has been given a finished look."
+ },
+ {
+  "group": "Look row",
+  "word": "Plain",
+  "meaning": "no look, ordinary text",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5.5 7V5H18.5V7M12 5V19.5M9.5 19.5H14.5\"/></svg>",
+  "note": "A bare type T with its small serifs: ordinary letters, nothing added."
+ },
+ {
+  "group": "Look row",
+  "word": "Light",
+  "meaning": "where the light comes from on the letters",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"7\" cy=\"7\" r=\"2.2\" fill=\"currentColor\" stroke=\"none\"/><path d=\"M10.5 7H11.7M7 10.5V11.7M4.53 9.47L3.68 10.32M3.5 7H2.3M4.53 4.53L3.68 3.68M7 3.5V2.3M9.47 4.53L10.32 3.68\"/><path d=\"M10.8 10.8L17.5 17.5M17.5 13.3V17.5H13.3\"/><path d=\"M3.5 20.5H20.5\"/></svg>",
+  "note": "A sun with its light arrowing down to the ground: where the light comes from."
+ },
+ {
+  "group": "Look row",
+  "word": "Still",
+  "meaning": "the light stays put where you place it",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M9.2 15.5V14.6C9.2 12.8 6 11.6 6 8.5A6 6 0 0 1 18 8.5C18 11.6 14.8 12.8 14.8 14.6V15.5Z\"/><path d=\"M9.5 18H14.5M10.5 20.5H13.5\"/></svg>",
+  "note": "A plain lightbulb: the light simply stays where it is put."
+ },
+ {
+  "group": "Look row",
+  "word": "Sway",
+  "meaning": "the light drifts gently back and forth",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4.5 15Q6.5 12.33 8.5 11.09M15.5 11.09Q17.5 12.33 19.5 15\"/><path d=\"M7.4 14.3L4.5 15L4.3 12M16.6 14.3L19.5 15L19.7 12\"/><path d=\"M9.8 8.3a2.2 2.2 0 1 0 4.4 0a2.2 2.2 0 1 0 -4.4 0M10.57 10.9V12.55H13.43V10.9Z\" fill=\"currentColor\" stroke=\"none\"/></svg>",
+  "note": "A small bulb at the top of a swing, the arc breaking around it, arrows both ways."
+ },
+ {
+  "group": "Look row",
+  "word": "Record tilt",
+  "meaning": "record the light by tilting the phone (a phone tilting with motion)",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"8.25\" y=\"5\" width=\"7.5\" height=\"14\" rx=\"2\" transform=\"rotate(-15 12 12)\"/><path d=\"M15.25 3.07A9.5 9.5 0 0 1 20.61 7.98\"/><path d=\"M8.75 20.93A9.5 9.5 0 0 1 3.39 16.01\"/><path d=\"M10.4 11.2a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0 -3.2 0M10.96 13.2V14.4H13.04V13.2Z\" fill=\"currentColor\" stroke=\"none\" transform=\"rotate(-15 12 12)\"/></svg>",
+  "note": "A tipped phone between two swing arcs, a little bulb on its screen."
+ },
+ {
+  "group": "Look row",
+  "word": "Plays",
+  "meaning": "how the look plays over time",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M8.5 4.5L17 10L8.5 15.5Z\"/><path d=\"M3.5 19.5H20.5\"/><circle cx=\"12\" cy=\"19.5\" r=\"1.9\" fill=\"currentColor\" stroke=\"none\"/></svg>",
+  "note": "A play mark above a timeline and its playhead."
+ },
+ {
+  "group": "Look row",
+  "word": "By itself",
+  "meaning": "plays by itself from the start",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 12A8 8 0 1 1 16.59 5.45\"/><path d=\"M16.1 2.5L16.6 5.45L13.6 6\"/><path d=\"M10 8.8L15.2 12L10 15.2Z\"/></svg>",
+  "note": "A play mark inside a self-turning loop arrow: it runs on its own."
+ },
+ {
+  "group": "Look row",
+  "word": "Pinned",
+  "meaning": "pinned at a chosen moment (a keyframe)",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 3.5L16.5 8L12 12.5L7.5 8Z\" fill=\"currentColor\"/><path d=\"M12 12.5V20.5\"/><path d=\"M4 17H20\"/></svg>",
+  "note": "A keyframe diamond on a stem, pinned through the timeline at one moment."
+ },
+ {
+  "group": "Properties",
+  "word": "Shape",
+  "meaning": "letter thickness, melting, wobble",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 16V5.5Q5 4 6.5 4H17.5Q19 4 19 5.5V10.5Q19 12 17.5 12Q16 12 16 13.5Q16 15 14.5 15Q13 15 13 13.5Q13 12 11.5 12H10Q8.5 12 8.5 13.5V16Q8.5 17.8 6.75 17.8Q5 17.8 5 16Z\"/><path d=\"M14.5 17Q15.9 18.68 15.9 20.08A1.4 1.4 0 0 1 13.1 20.08Q13.1 18.68 14.5 17Z\" fill=\"currentColor\" stroke=\"none\"/></svg>",
+  "note": "A soft letter bar melting into drips, one drop falling: the body can thicken, melt and wobble."
+ },
+ {
+  "group": "Properties",
+  "word": "Depth",
+  "meaning": "bevel, extrusion, 3D sides",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4.82 8.39H15.82V19.39H4.82Z\"/><path d=\"M4.82 8.39L12.8 4.61H19.18L15.82 8.39M19.18 4.61V10.99L15.82 19.39\"/></svg>",
+  "note": "A block whose faces taper as it goes back: depth and perspective."
+ },
+ {
+  "group": "Properties",
+  "word": "Coats",
+  "meaning": "layered colour coats (fill colours)",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 14V6Q4 4 6 4H14\"/><path d=\"M7 17V9Q7 7 9 7H17\"/><rect x=\"10\" y=\"10\" width=\"10\" height=\"10\" rx=\"2\"/></svg>",
+  "note": "Three coats laid one over another, only the top one seen whole."
+ },
+ {
+  "group": "Properties",
+  "word": "Material",
+  "meaning": "metal/gloss/the reflective sphere material",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"8\"/><path d=\"M4.3 13.8Q12 17.5 19.7 13.8\"/><ellipse cx=\"9\" cy=\"8.4\" rx=\"1.9\" ry=\"1.2\" transform=\"rotate(-35 9 8.4)\" fill=\"currentColor\" stroke=\"none\"/></svg>",
+  "note": "A chrome ball: a horizon reflected across it and one bright glint."
+ },
+ {
+  "group": "Properties",
+  "word": "Wear",
+  "meaning": "scratches, wear and grime",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 6Q4 4 6 4H12.5L14 6.2L16.2 5.4L17.2 7.6L20 8.6V18Q20 20 18 20H6Q4 20 4 18Z\"/><path d=\"M7 16L12 11M10.5 17.5L16 12\"/></svg>",
+  "note": "A plate with a chipped corner and two scratches across it."
+ },
+ {
+  "group": "Properties",
+  "word": "Light",
+  "meaning": "lamp position and shadow",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M9 8H14.5V16.5H9Z\"/><path d=\"M9 16.5L14.5 20.5H20L14.5 16.5Z\" fill=\"currentColor\" stroke=\"none\"/><circle cx=\"5\" cy=\"4.8\" r=\"1.8\"/><path d=\"M7.6 7.4L8.6 8.4\"/></svg>",
+  "note": "A lamp up in the corner throws a block's shadow long across the floor."
+ },
+ {
+  "group": "Properties",
+  "word": "Sides",
+  "meaning": "the extruded side walls of letters",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"4\" y=\"4\" width=\"16\" height=\"16\" rx=\"2\"/><rect x=\"8.5\" y=\"8.5\" width=\"7\" height=\"7\" rx=\"1\"/><path d=\"M4.6 4.6L8.5 8.5M19.4 4.6L15.5 8.5M4.6 19.4L8.5 15.5M19.4 19.4L15.5 15.5\"/></svg>",
+  "note": "A bevelled tile seen face on: the walls round the face."
+ },
+ {
+  "group": "Properties",
+  "word": "Floor",
+  "meaning": "a wet reflective floor under the words",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M7 12.5V8.5A5 5 0 0 1 17 8.5V12.5\"/><path d=\"M3 14.5H21\"/><path d=\"M6 17.5H18M9 20.5H15\"/></svg>",
+  "note": "A letter standing on a floor line, its reflection breaking into ripples below."
+ },
+ {
+  "group": "Properties",
+  "word": "Tube",
+  "meaning": "neon glass tube letters",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4.5 18V10A4 4 0 0 1 12.5 10V14A3.5 3.5 0 0 0 19.5 14V6\"/><path d=\"M3 18H6M18 6H21\"/></svg>",
+  "note": "One bent neon tube looping over and under, capped with electrodes at both ends."
+ },
+ {
+  "group": "Properties",
+  "word": "Glass",
+  "meaning": "clear glass / ice refraction",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M6 4.5H18L16.6 19Q16.5 20 15.4 20H8.6Q7.5 20 7.4 19Z\"/><path d=\"M6.6 10.5Q12 12 17.4 10.5\"/><rect x=\"10.6\" y=\"7.6\" width=\"4\" height=\"4\" rx=\"0.8\" transform=\"rotate(18 12.6 9.6)\"/><path d=\"M9.2 13.5V17\"/></svg>",
+  "note": "A clear tumbler with an ice cube at the waterline and a shine down its side."
+ },
+ {
+  "group": "Properties",
+  "word": "Surface",
+  "meaning": "fine surface texture",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3.5 18L7.5 6H20.5L16.5 18Z\"/><path d=\"M9.6 9.5H11.4M14 9.5H15.8M8.4 13H10.2M12.8 13H14.6\"/></svg>",
+  "note": "A swatch laid flat in perspective, its face flecked with fine grain."
+ },
+ {
+  "group": "Properties",
+  "word": "Pattern",
+  "meaning": "pop-art pattern (halftone dots, stripes)",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"4\" y=\"4\" width=\"16\" height=\"16\" rx=\"3\"/><path d=\"M5 10L10 5M5 14.5L14.5 5\"/><path d=\"M15 13.2a1 1 0 1 0 2 0a1 1 0 1 0 -2 0M12.2 16a1 1 0 1 0 2 0a1 1 0 1 0 -2 0M14.9 16.4a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0 -3 0\" fill=\"currentColor\" stroke=\"none\"/></svg>",
+  "note": "A pop-art swatch: stripes in one corner, halftone dots swelling in the other."
+ },
+ {
+  "group": "Properties",
+  "word": "Stone",
+  "meaning": "carved stone (chisel marks)",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 17L6.5 9L12 5L18.5 7.5L20 15L15 19.5H7.5Z\"/><path d=\"M6.5 9L11 12.5L18.5 7.5M11 12.5L12.5 19.5\"/></svg>",
+  "note": "A chiselled block, its faces cut flat into facets."
+ },
+ {
+  "group": "Properties",
+  "word": "Fur",
+  "meaning": "furry/shaggy letters",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3.5 15C7 14 7 9 9.5 7.5S13 5 14 3.5\"/><path d=\"M5 19C9 18 9 12 12 10S17 7 19 4\"/><path d=\"M8 20.5C12 19.5 12.5 14.5 15 13S19 11 20.5 8.5\"/></svg>",
+  "note": "A lock of three flowing strands: the soft combed lie of fur."
+ },
+ {
+  "group": "Properties",
+  "word": "Lamps",
+  "meaning": "a marquee board of light bulbs",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"5\" width=\"18\" height=\"14\" rx=\"2.5\"/><path d=\"M8.5 12H15.5\"/><path d=\"M5.4 8.5a1.1 1.1 0 1 0 2.2 0a1.1 1.1 0 1 0 -2.2 0M10.9 8.5a1.1 1.1 0 1 0 2.2 0a1.1 1.1 0 1 0 -2.2 0M16.4 8.5a1.1 1.1 0 1 0 2.2 0a1.1 1.1 0 1 0 -2.2 0M5.4 15.5a1.1 1.1 0 1 0 2.2 0a1.1 1.1 0 1 0 -2.2 0M10.9 15.5a1.1 1.1 0 1 0 2.2 0a1.1 1.1 0 1 0 -2.2 0M16.4 15.5a1.1 1.1 0 1 0 2.2 0a1.1 1.1 0 1 0 -2.2 0\" fill=\"currentColor\" stroke=\"none\"/></svg>",
+  "note": "A marquee sign: rows of bulbs above and below the title bar."
+ },
+ {
+  "group": "Properties",
+  "word": "Lightning",
+  "meaning": "electric bolts",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M13.5 3L6.5 13H12L10.5 21L17.5 10.5H12Z\"/></svg>",
+  "note": "A single hand-cut bolt."
+ },
+ {
+  "group": "Properties",
+  "word": "Paper",
+  "meaning": "cut paper layers",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M7.5 7.5V6Q7.5 4 9.5 4H18Q20 4 20 6V14.5Q20 16.5 18 16.5H17\"/><path d=\"M4 10Q6.5 7.5 9 9.5T14 9.5T17 9V18Q17 20 15 20H6Q4 20 4 18Z\"/></svg>",
+  "note": "Two sheets layered, the front one cut along a wavy edge."
+ },
+ {
+  "group": "Properties",
+  "word": "Burn",
+  "meaning": "paper burning away",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 20V6Q5 4 7 4H10.5Q11.5 7 13.5 6.8Q14 9.5 16 9.8Q16.5 12 19 13V18Q19 20 17 20Z\"/><path d=\"M12.74 6.75C12.3 5.2 13.6 4.2 14.6 3.2C14.9 4.4 15.7 5 16.4 5.2C16.4 4 17.3 3.1 18.2 2.6C18.6 4.6 20.8 7 20 9.6C19.6 10.7 18.5 11.3 17 11.7\"/></svg>",
+  "note": "A page burned to a ragged corner, a flame outline licking up off the edge."
+ },
+ {
+  "group": "Properties",
+  "word": "Vine",
+  "meaning": "vines with leaves growing over letters",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M6 20C6 15 10 14.5 12 12C14 9.5 13 6 16 5\"/><path d=\"M8.3 15.1C5.4 15.4 3.9 13.3 4.1 11C6.7 10.9 8.6 12.6 8.3 15.1Z\"/><path d=\"M13.2 9.6C14.2 7.2 16.8 6.8 19.4 7.8C18.4 10.2 15.8 11 13.2 9.6Z\" fill=\"currentColor\"/></svg>",
+  "note": "A climbing stem with a leaf on each side, one leaf in full colour."
+ },
+ {
+  "group": "Properties",
+  "word": "Stitch",
+  "meaning": "satin stitch embroidery",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"13\" r=\"7.5\"/><path d=\"M10.5 5.5V3.5H13.5V5.5\"/><path d=\"M8.2 15.2L10.2 11.2M10.7 16.4L12.7 12.4M13.2 17.6L15.2 13.6\"/></svg>",
+  "note": "An embroidery hoop holding a band of slanted satin stitches."
+ },
+ {
+  "group": "Properties",
+  "word": "Balloon",
+  "meaning": "inflated foil balloon letters",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 3C16 3 18.5 6 18.5 9.5C18.5 13.5 15 16 12 16C9 16 5.5 13.5 5.5 9.5C5.5 6 8 3 12 3Z\"/><path d=\"M8.6 8.8A3.6 3.6 0 0 1 10.8 6\"/><path d=\"M10.9 17.6L12 16L13.1 17.6Z\" fill=\"currentColor\"/><path d=\"M12 17.6C10.6 18.8 13.4 19.6 12 21\"/></svg>",
+  "note": "A blown-up balloon with its shine, tied knot and curling string."
+ },
+ {
+  "group": "Properties",
+  "word": "Sand",
+  "meaning": "letters heaped from sand",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 19.5H21\"/><path d=\"M4.5 19.5C8 19.5 8.5 12 12 12C15.5 12 16 19.5 19.5 19.5\"/><path d=\"M10.05 4.5a0.95 0.95 0 1 0 1.9 0a0.95 0.95 0 1 0 -1.9 0M12.05 6.9a0.95 0.95 0 1 0 1.9 0a0.95 0.95 0 1 0 -1.9 0M10.85 9.3a0.95 0.95 0 1 0 1.9 0a0.95 0.95 0 1 0 -1.9 0\" fill=\"currentColor\" stroke=\"none\"/></svg>",
+  "note": "Grains pouring down onto a soft heap."
+ },
+ {
+  "group": "Properties",
+  "word": "Bits",
+  "meaning": "made of many small things (sequins, beads, sprinkles)",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"7\" cy=\"7.5\" r=\"2.5\"/><path d=\"M15 4.5L18.5 7.5M5 16.5L9 18\"/><path d=\"M16.5 12L19.5 15L16.5 18L13.5 15Z\"/><circle cx=\"11.5\" cy=\"12.8\" r=\"1.7\" fill=\"currentColor\" stroke=\"none\"/></svg>",
+  "note": "A scatter of sequin, bead, crystal and sprinkles: one thing made of many."
+ },
+ {
+  "group": "Properties",
+  "word": "Ink",
+  "meaning": "ink bleeding into paper",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 11C15.5 10.5 19.5 12 19 15.5C18.6 18.5 15 20.5 12 19.8C8.5 20.6 4.6 18.6 5 15.5C5.4 12.4 8.5 11.5 12 11Z\"/><path d=\"M9.5 15.6C9.8 14.2 14.4 13.9 14.7 15.4C15 16.9 9.3 17.3 9.5 15.6Z\"/><path d=\"M12 2.8Q14 5.2 14 7.2A2 2 0 0 1 10 7.2Q10 5.2 12 2.8Z\" fill=\"currentColor\" stroke=\"none\"/></svg>",
+  "note": "A drop landing in a blot that spreads out past its dark core."
+ },
+ {
+  "group": "Properties",
+  "word": "Front",
+  "meaning": "a sweeping front (letters are revealed or carried away as it passes)",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3.5 12H8.3\"/><path d=\"M12 3.5Q9 12 12 20.5\"/><path d=\"M12.95 12a0.95 0.95 0 1 0 1.9 0a0.95 0.95 0 1 0 -1.9 0M15.65 12a0.95 0.95 0 1 0 1.9 0a0.95 0.95 0 1 0 -1.9 0M18.35 12a0.95 0.95 0 1 0 1.9 0a0.95 0.95 0 1 0 -1.9 0\" fill=\"currentColor\" stroke=\"none\"/></svg>",
+  "note": "Solid line still standing, the sweep, then the same line as dots: carried away."
+ },
+ {
+  "group": "Properties",
+  "word": "Shatter",
+  "meaning": "breaking into shards",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 4.5L11 4.5L9.5 11L4 13Z\"/><path d=\"M14 4.3L20 4.3L20 14.8L12.5 10.8Z\"/><path d=\"M5.5 15.5L11 13.5L18.5 17.5L18.5 20L5.5 20Z\"/></svg>",
+  "note": "A tile cracked into three pieces that still fit, drifting a little apart along the cracks."
+ },
+ {
+  "group": "Properties",
+  "word": "Fog",
+  "meaning": "fog on a glass pane (writing in steam)",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"4\" y=\"4\" width=\"16\" height=\"16\" rx=\"3\"/><path d=\"M6.5 11Q8.25 8 10 11T13.5 11T17 11V14\"/><path d=\"M17 14.3Q18.3 15.86 18.3 17.16A1.3 1.3 0 0 1 15.7 17.16Q15.7 15.86 17 14.3Z\" fill=\"currentColor\" stroke=\"none\"/></svg>",
+  "note": "A finger-drawn squiggle on a steamed pane, a drip running off its end."
+ },
+ {
+  "group": "Properties",
+  "word": "Flag",
+  "meaning": "a waving cloth flag",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 21V3.5\"/><path d=\"M5 4.5C8 3 10.5 6 13.5 5S18 3.5 19.5 4.5V13.5C18 12.5 16 14 13.5 14.5S8 13 5 14.5\"/></svg>",
+  "note": "A cloth rippling from its pole."
+ },
+ {
+  "group": "Properties",
+  "word": "Panes",
+  "meaning": "stained-glass panes with lead lines",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 20V10A7 7 0 0 1 19 10V20Z\"/><path d=\"M12 3V20M5 14L12 11L19 14\"/></svg>",
+  "note": "An arched window divided into panes by its lead lines."
+ },
+ {
+  "group": "Properties",
+  "word": "Rust",
+  "meaning": "peeling paint and rust",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3.5 18.5H20.5\"/><path d=\"M8 18.5C14 18.5 19.5 14.5 19 9.5C18.6 5.8 13.6 5.5 13.6 9.2C13.6 11.8 17 12 17.2 9.6\"/><path d=\"M5.5 11L8 10.4L8.4 12.8L6 13.6Z\" fill=\"currentColor\" stroke=\"none\"/></svg>",
+  "note": "A strip of paint curling up off the surface, a flake drifting away."
+ },
+ {
+  "group": "Properties",
+  "word": "Rivets",
+  "meaning": "rivets on a metal frame",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 5.5Q4 4 5.5 4H9Q10.5 4 10.5 5.5V13.5H18.5Q20 13.5 20 15V18.5Q20 20 18.5 20H5.5Q4 20 4 18.5Z\"/><path d=\"M5.95 8a1.3 1.3 0 1 0 2.6 0a1.3 1.3 0 1 0 -2.6 0M5.95 16.75a1.3 1.3 0 1 0 2.6 0a1.3 1.3 0 1 0 -2.6 0M14.2 16.75a1.3 1.3 0 1 0 2.6 0a1.3 1.3 0 1 0 -2.6 0\" fill=\"currentColor\" stroke=\"none\"/></svg>",
+  "note": "An angle bracket of plate metal held by three rivets."
+ },
+ {
+  "group": "Properties",
+  "word": "Jelly",
+  "meaning": "wobbly jelly",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M6.5 17.5C5.5 12.5 8.5 5 12 5C15.5 5 18.5 12.5 17.5 17.5C17.2 19.2 15 19.5 12 19.5C9 19.5 6.8 19.2 6.5 17.5Z\"/><path d=\"M9.3 11.5Q9.6 9.2 11 8.2\"/><path d=\"M3.5 10Q2.6 12 3.5 14M20.5 10Q21.4 12 20.5 14\"/></svg>",
+  "note": "A soft gumdrop of jelly with its shine, quivering at both sides."
+ },
+ {
+  "group": "Properties",
+  "word": "Ember",
+  "meaning": "glowing embers on hot iron",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5.5 19.5Q3.5 19.5 4 17.5L5.8 12Q6.4 10.2 8.3 10L15 9.4Q17 9.2 17.8 11L20 17Q20.6 19.5 18 19.5Z\"/><path d=\"M12.4 9.7L10.8 13L13.4 15.6L12 19.5\"/><path d=\"M17 2.2Q17.62 4.18 19.6 4.8Q17.62 5.42 17 7.4Q16.38 5.42 14.4 4.8Q16.38 4.18 17 2.2Z\" fill=\"currentColor\" stroke=\"none\"/></svg>",
+  "note": "A coal split by a glowing crack, a spark lifting off it."
+ },
+ {
+  "group": "Properties",
+  "word": "Fire",
+  "meaning": "real flames",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 3C13 6.5 18 8.5 18 14A6 6 0 0 1 6 14C6 10.5 8 9 9 7C9.5 9 10.5 10 11 10.5C11.5 8 11 5.5 12 3Z\"/><path d=\"M12 20A2.6 2.6 0 0 1 9.4 17.4C9.4 15.5 11 14.5 12 12.5C13 14.5 14.6 15.5 14.6 17.4A2.6 2.6 0 0 1 12 20Z\"/></svg>",
+  "note": "A full flame with its hot inner tongue."
+ },
+ {
+  "group": "Properties",
+  "word": "Hologram",
+  "meaning": "sci-fi hologram scanlines",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"8.5\" r=\"4.5\"/><path d=\"M7.7 7H16.3M7.7 10H16.3\"/><path d=\"M7 18L8.3 13.5M17 18L15.7 13.5\"/><ellipse cx=\"12\" cy=\"19\" rx=\"6\" ry=\"1.6\"/></svg>",
+  "note": "An orb drawn in scanlines, held in the beam of its projector pad."
+ },
+ {
+  "group": "Properties",
+  "word": "Finish",
+  "meaning": "the final film finish (bloom, grain, vignette, contrast)",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"4\" width=\"18\" height=\"16\" rx=\"0\"/><path d=\"M7 4V20M17 4V20\"/><path d=\"M5 7.2V8.8M5 11.2V12.8M5 15.2V16.8M19 7.2V8.8M19 11.2V12.8M19 15.2V16.8\" stroke-linecap=\"butt\"/><path d=\"M12 8.6Q12.82 11.18 15.4 12Q12.82 12.82 12 15.4Q11.18 12.82 8.6 12Q11.18 11.18 12 8.6Z\" fill=\"currentColor\" stroke=\"none\"/></svg>",
+  "note": "A square film frame with square sprocket holes, glowing at its heart: the last polish of the picture."
+ },
+ {
+  "group": "Properties",
+  "word": "Arrive",
+  "meaning": "how letters arrive (fly in, scale in)",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3.5\" y=\"10.75\" width=\"2.5\" height=\"2.5\" rx=\"0.6\"/><rect x=\"8\" y=\"9.75\" width=\"4.5\" height=\"4.5\" rx=\"1\"/><rect x=\"14.5\" y=\"7.5\" width=\"6\" height=\"9\" rx=\"1.5\"/></svg>",
+  "note": "A shape growing as it flies in: small, bigger, there."
+ }
+]

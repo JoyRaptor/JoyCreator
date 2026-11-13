@@ -244,8 +244,8 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
 **Audit, 11-12 evening (phone-engine session), checked against the code on `joy-creator`.** Everything below is
 real work, not done; the itemised history follows.
 - **The TextLab room on the phone** is the biggest gap: today's TextLab screen is a plain first screen (picture, chips,
-  words, Save, Export since 11-12 late). Owed: every knob in `parts.json` by its tab (37 tabs; icons: round two approved
-  11-12 late, one pick left, Depth / Sides; not in the app yet),
+  words, Save, Export since 11-12 late). Owed: every knob in `parts.json` by its tab (37 tabs; their icons are
+  in the app, ready: `TlIcons.forTab`),
   live tilt light with Still / Sway, the progress helper, a background picker, your own font, rename / delete / revert
   a saved look, and a door from the lobby (today only the Library opens it).
 - **Studio's Look row:** no way to change a look's knobs for one title (the data is there: `TitleLook.knobs`); no
@@ -288,6 +288,14 @@ real work, not done; the itemised history follows.
       knob on the glyph program every letter and is refused (both engines; harmless, the right value follows).
       Left: brief step 4 (`uOut = 1`), GPU time per pass, then Studio
       (ask the lead first).
+- [x] **TextLab icons (owner, 11-12):** "Stylish custom small icons… next to their word". Two rounds on the review
+      page; final picks 11-12 late: all kept; Depth = the block, tapering as it goes back (his note); Sides = the
+      bevelled tile; Export = Studio's own mark. **In the app:** 46 vector drawables `ic_tl_*` (9 Look row,
+      37 `ic_tl_tab_*`), written by `tasks/design/textlab-icons/to_android.py` from `textlab-icons-final.json`.
+      Studio's Look row shows them beside LOOK, Plain, Light, Still, Sway, Record tilt, Plays, By itself, Pinned
+      (zinc off, cut out of the cyan when on). The tab icons wait for the TextLab room (`TlIcons.forTab(slot)`).
+      Proof: all 46 drawn by the Note 9 (`--ez iconcheck true`, 0 failed) and the Look row seen in Studio
+      (`tasks/screens/textlab-phone/icons/`).
 - [x] **Quick export (owner, 11-12 late):** "textlab should have an export icon (could reuse the same one as studio
       has) for quick exports directly from it with type and size dialogue". **Built and agent-checked on the Note 9**:
       the TextLab screen's export button (`ic_export_studio`) opens a dialog (Picture / Video / Sheet; Wide / Square /

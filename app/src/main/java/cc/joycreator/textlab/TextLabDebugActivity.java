@@ -204,6 +204,47 @@ public final class TextLabDebugActivity extends Activity {
         // the export's check, by adb: --es export picture|video|sheet --ei ew 1920 --ei eh 1080 --ez eclear true --ef es 3
         String ex = in.getStringExtra("export");
         if (ex != null) view.postDelayed(() -> benchExport(ex, in), 1500);
+        if (in.getBooleanExtra("iconcheck", false)) iconCheck();
+    }
+
+    /** adb --ez iconcheck true: every TextLab icon drawn as the phone draws it, on one sheet in the files folder. */
+    private void iconCheck() {
+        List<Integer> all = new ArrayList<>();
+        int[] row = {com.fadcam.R.drawable.ic_tl_look, com.fadcam.R.drawable.ic_tl_plain, com.fadcam.R.drawable.ic_tl_light,
+                com.fadcam.R.drawable.ic_tl_still, com.fadcam.R.drawable.ic_tl_sway, com.fadcam.R.drawable.ic_tl_record_tilt,
+                com.fadcam.R.drawable.ic_tl_plays, com.fadcam.R.drawable.ic_tl_by_itself, com.fadcam.R.drawable.ic_tl_pinned};
+        for (int r : row) all.add(r);
+        try {
+            JSONArray slots = TextLabRenderer.Assets.load(getAssets()).parts.getJSONArray("slots");
+            for (int i = 0; i < slots.length(); i++) all.add(TlIcons.forTab(slots.getString(i)));
+        } catch (Exception e) {
+            Log.w(TAG, "icon check: slots not read", e);
+        }
+        int cell = 96, cols = 10, rows = (all.size() + cols - 1) / cols, bad = 0;
+        Bitmap b = Bitmap.createBitmap(cols * cell, rows * cell, Bitmap.Config.ARGB_8888);
+        android.graphics.Canvas c = new android.graphics.Canvas(b);
+        c.drawColor(BLACK);
+        for (int i = 0; i < all.size(); i++) {
+            try {
+                android.graphics.drawable.Drawable d = getDrawable(all.get(i)).mutate();
+                d.setTint(ZINC);
+                int x = (i % cols) * cell, y = (i / cols) * cell;
+                d.setBounds(x + 12, y + 12, x + cell - 12, y + cell - 12);
+                d.draw(c);
+            } catch (Exception e) {
+                bad++;
+                Log.w(TAG, "icon check: icon " + i + " did not draw", e);
+            }
+        }
+        File f = new File(getExternalFilesDir(null), "textlab/icons.png");
+        //noinspection ResultOfMethodCallIgnored
+        f.getParentFile().mkdirs();
+        try (FileOutputStream os = new FileOutputStream(f)) {
+            b.compress(Bitmap.CompressFormat.PNG, 100, os);
+        } catch (Exception e) {
+            Log.w(TAG, "icon check not saved", e);
+        }
+        Log.i(TAG, "icon check: " + all.size() + " icons, " + bad + " failed -> " + f);
     }
 
     private void benchExport(@NonNull String kind, @NonNull Intent in) {

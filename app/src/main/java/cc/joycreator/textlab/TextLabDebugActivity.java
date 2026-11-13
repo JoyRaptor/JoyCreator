@@ -140,6 +140,18 @@ public final class TextLabDebugActivity extends Activity {
         LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(40));
         slp.setMarginStart(dp(8));
         bar.addView(save, slp);
+        // quick export (owner, 2026-11-12): Studio's own export mark, a type and size dialog
+        android.widget.ImageButton export = new android.widget.ImageButton(this);
+        export.setImageResource(com.fadcam.R.drawable.ic_export_studio);
+        export.setBackground(pill(CONTROL));
+        export.setScaleType(android.widget.ImageView.ScaleType.CENTER_INSIDE);
+        export.setPadding(dp(9), dp(9), dp(9), dp(9));
+        export.setContentDescription("Export this look as a picture, video or moving sheet");
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) export.setTooltipText("Export: a picture, a video or a moving sheet, at a size you choose");
+        LinearLayout.LayoutParams elp = new LinearLayout.LayoutParams(dp(40), dp(40));
+        elp.setMarginStart(dp(8));
+        bar.addView(export, elp);
+        export.setOnClickListener(v -> askExport());
         root.addView(bar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         setContentView(root);
 
@@ -188,6 +200,29 @@ public final class TextLabDebugActivity extends Activity {
 
         view.setRenderer(new Renderer(bench, lookId, t, w, h, stage, tx, ty));
         view.setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY);
+
+        // the export's check, by adb: --es export picture|video|sheet --ei ew 1920 --ei eh 1080 --ez eclear true --ef es 3
+        String ex = in.getStringExtra("export");
+        if (ex != null) view.postDelayed(() -> benchExport(ex, in), 1500);
+    }
+
+    private void benchExport(@NonNull String kind, @NonNull Intent in) {
+        JSONObject look = current;
+        if (look == null) return;
+        LookExport.Kind k = "video".equals(kind) ? LookExport.Kind.VIDEO
+                : "sheet".equals(kind) ? LookExport.Kind.SHEET : LookExport.Kind.PICTURE;
+        LookExport.Job job = new LookExport.Job(look, words.getText().toString(), k, in.getIntExtra("ew", 1920),
+                in.getIntExtra("eh", 1080), in.getBooleanExtra("eclear", false), in.getFloatExtra("es", 3f));
+        long t0 = SystemClock.uptimeMillis();
+        LookExport.start(this, job, new LookExport.Listener() {
+            @Override public void progress(float done) {}
+
+            @Override
+            public void done(String where, String problem) {
+                Log.i(TAG, "bench export " + kind + " " + job.w + "x" + job.h + ": " + (where != null ? where : problem)
+                        + " in " + (SystemClock.uptimeMillis() - t0) + " ms");
+            }
+        });
     }
 
     private static GradientDrawable pill(int colour) {
@@ -283,6 +318,17 @@ public final class TextLabDebugActivity extends Activity {
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
+    }
+
+    /** The look on the screen, with its words, out as a picture, video or sheet; the live picture rests meanwhile. */
+    private void askExport() {
+        JSONObject look = current;
+        if (look == null) return;
+        String ws = words.getText().toString();
+        final boolean[] was = {live};
+        LookExportDialog.show(this, look, ws.isEmpty() ? look.optString("sample", "TEXT") : ws,
+                () -> { was[0] = live; live = false; },
+                () -> live = was[0]);
     }
 
     // ---- the GL thread ------------------------------------------------------------------------------

@@ -244,7 +244,8 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
 **Audit, 11-12 evening (phone-engine session), checked against the code on `joy-creator`.** Everything below is
 real work, not done; the itemised history follows.
 - **The TextLab room on the phone** is the biggest gap: today's TextLab screen is a plain first screen (picture, chips,
-  words, Save). Owed: every knob in `parts.json` by its tab (37 tabs; icons proposed 11-12 for the owner's approval),
+  words, Save, Export since 11-12 late). Owed: every knob in `parts.json` by its tab (37 tabs; icons: round two approved
+  11-12 late, one pick left, Depth / Sides; not in the app yet),
   live tilt light with Still / Sway, the progress helper, a background picker, your own font, rename / delete / revert
   a saved look, and a door from the lobby (today only the Library opens it).
 - **Studio's Look row:** no way to change a look's knobs for one title (the data is there: `TitleLook.knobs`); no
@@ -287,6 +288,18 @@ real work, not done; the itemised history follows.
       knob on the glyph program every letter and is refused (both engines; harmless, the right value follows).
       Left: brief step 4 (`uOut = 1`), GPU time per pass, then Studio
       (ask the lead first).
+- [x] **Quick export (owner, 11-12 late):** "textlab should have an export icon (could reuse the same one as studio
+      has) for quick exports directly from it with type and size dialogue". **Built and agent-checked on the Note 9**:
+      the TextLab screen's export button (`ic_export_studio`) opens a dialog (Picture / Video / Sheet; Wide / Square /
+      Tall; 720 / 1080 / 4K, a sheet Small / Medium / Large frames; Stage / See-through or 3 / 5 / 10 s), then a
+      progress bar with Stop. Files go where Studio's exports go (`Placement.What.EXPORT`). Code: `LookExport` (own GL
+      thread and renderer per export), `LookVideo` (H.264 fed from GL through the encoder's surface), `LookFrame`
+      (margins widened to the frame's shape; the floor line moved so it stays under the words), `LookExportDialog`;
+      adb check `--es export picture|video|sheet --ei ew 1920 --ei eh 1080 --ez eclear true --ef es 3`. Proof
+      (pictures in `tasks/screens/textlab-phone/export/`): 1080p Dark Steel picture; 3 s Blaze video 1920 x 1080,
+      90 frames (and 4K, 30 s to make); a tall see-through Neon Sign (corners clear, alpha 0..255); a medium Dust sheet
+      2400 x 1080; the dialog's Video export made `TITAN - Dark Steel.mp4`; Stop saved nothing. First try: the tall
+      frame put the floor far below the words (the floor line is a share of the height); fixed.
 - [x] **Look previews (owner, 11-12):** pick a look by its picture, not its name, and browse saved looks in the
       Library moving, like pictures. **Built and agent-checked on the Note 9, 11-12** (branch
       `claude/textlab-phone-20261112`; pictures in `tasks/screens/textlab-phone/ui/`): the TextLab screen has the

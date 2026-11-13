@@ -446,6 +446,25 @@ public class IdeaEngineTest {
                     {"how do I put the location in my video", "settings_location"},
                     {"where is the tips row", "settings_tips"},
                     {"how do I watch my phone camera from my computer", "remote_lan"},
+                    // BOT-A5 + Studio "Help: PENDING" rows (11-13)
+                    {"how do I lock a layer", "joybrush_layers"},
+                    {"how do I merge down", "joybrush_layers"},
+                    {"how do I flatten my drawing", "joybrush_layers"},
+                    {"how do I freeze a layer", "joybrush_layers"},
+                    {"how do I flatten clips", "joybrush_clips"},
+                    {"how do I drop a bookmark", "studio_marks"},
+                    {"how do I loop a region", "studio_marks"},
+                    {"how do I export just part of my video", "studio_marks"},
+                    {"can I set an in point and out point", "studio_marks"},
+                    {"how do I change the project title", "studio_title_rename"},
+                    {"how do I rename a project", "library_projects"},
+                    {"how do I arrange the tools", "studio_arrange_tools"},
+                    {"can I pin a tool", "studio_arrange_tools"},
+                    {"how do I cancel an export", "export_safety"},
+                    {"my export is stuck", "export_safety"},
+                    {"how do I export", "export"},
+                    {"how do I get the drawer back", "studio_drawer_back"},
+                    {"how do I cut the silence out of my song", "silence"},
             };
             for (String[] c : bot2Help) {
                 t = com.fadcam.ui.faditor.ai.joybot.HelpBook.find(c[0]);

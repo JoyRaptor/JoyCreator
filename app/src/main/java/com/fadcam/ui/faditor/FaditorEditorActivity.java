@@ -3952,6 +3952,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void continueLoadFromSavedProject() {
         // Project is already set from saved data, refresh time display
         refreshTotalTimeDisplay();
+        repairEarlyBakes();
         updateEditorTitle();
         selectedClipIndex = Math.max(0, Math.min(selectedClipIndex,
                 project.getTimeline().getClipCount() - 1));
@@ -6655,6 +6656,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             editorTimeline.setAudioClips(project.getTimeline().getAudioClips());
             prepareAudioPlayer();
             updateAudioToolUI();
+            refreshTotalTimeDisplay(); // an audio-only project's length comes from these
         }
 
         // An audio-only project has no clip (this log line alone crashed its reopening).
@@ -11043,7 +11045,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * Should be called whenever clips are added, removed, trimmed, or speed-changed.
      */
     private void refreshTotalTimeDisplay() {
-        if (project == null || project.getTimeline().isEmpty()) return;
+        if (project == null) return;
+        if (project.getTimeline().isEmpty()) {
+            // An audio-only project (no film): its length is where its last sound ends. This
+            // returned early, so a reopened audio project read 00:00 (STU-E1, 11-13).
+            long end = 0;
+            for (AudioClip ac : project.getTimeline().getAudioClips()) {
+                end = Math.max(end, ac.getEndOnTimelineMs());
+            }
+            if (timeTotal != null) timeTotal.setText(TimeFormatter.formatAuto(end));
+            return;
+        }
         // Show the EFFECTIVE (post-edit) length — what the export will be — using
         // "≈" when blacked-out spans shorten it from the raw timeline length.
         long effective = 0;
@@ -32424,6 +32436,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // C6: the FX tab — compressor gain-reduction bar. Tuning blind is guesswork.
         // Carries the per-clip voice-chain switch (the clip IS the real AudioClip here).
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(getString(R.string.drawer_tab_effects), R.drawable.ic_fx_24, ctx -> com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxTab(ctx, host, ac)));
+        // CLEAN: Reduce noise, Normalize loudness, and Revert to original (which also undoes
+        // Fix audio: its message says "Revert in Clean tab"). Built in C2.U and never added to
+        // the drawer until 11-13 (STU-B2), so that message pointed at nothing.
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(getString(R.string.drawer_tab_clean), 0,
+                ctx -> com.fadcam.ui.faditor.tools.AudioDrawerTabs.cleanTab(ctx, ac, host,
+                        projectStorage.projectDir(project.getId()),
+                        new com.fadcam.ui.faditor.audio.BakedAudioCache(this))));
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle> toggles = new java.util.ArrayList<>();
         // JoyRaptor 2026-08-23: the ⇤/⇥ range CHIPS moved out of the bottom peek sheet and up here,
         // "on the left side of the mute button ... start here, end here, break, mute, shield".
@@ -45685,6 +45704,38 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         runSilenceDetect(seek.getProgress() / 100f))
                 .show();
         previewSilenceCandidates(0.5f, preview);
+    }
+
+    /**
+     * STU-B4: audio clips still playing an old-style (before 11-10) Fix/Clean file, which started
+     * at 0 and so played early on a trimmed or split clip, get correctly timed sound back (see
+     * EarlyBakeRepair). The file lengths are read off the main thread.
+     */
+    private void repairEarlyBakes() {
+        if (project == null) return;
+        final java.util.List<AudioClip> clips =
+                new java.util.ArrayList<>(project.getTimeline().getAudioClips());
+        final java.io.File projectDir = projectStorage.projectDir(project.getId());
+        final android.content.Context app = getApplicationContext();
+        new Thread(() -> {
+            for (AudioClip c : clips) {
+                try {
+                    if (!com.fadcam.ui.faditor.audio.EarlyBakeRepair.isEarly(c)) continue;
+                } catch (Throwable t) {
+                    continue;
+                }
+                com.fadcam.ui.faditor.audio.EarlyBakeRepair.repair(app, projectDir, c, clip -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    com.fadcam.ui.faditor.audio.SourceWaveform.refresh(this, clip, () -> {
+                        if (editorTimeline != null) editorTimeline.invalidate();
+                    });
+                    syncTimelineOverlays();
+                    if (editorTimeline != null) editorTimeline.invalidate();
+                    prepareAudioPlayer();
+                    scheduleAutoSave();
+                });
+            }
+        }, "EarlyBakeRepair").start();
     }
 
     /** The audio clip the timeline has selected, or null (nothing, or something else). */

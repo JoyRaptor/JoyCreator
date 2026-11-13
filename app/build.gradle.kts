@@ -38,8 +38,8 @@ android {
         vectorDrawables.useSupportLibrary = true
         
         // 16 KB native library alignment (Play, targetSdk 35+): our own libraries get the linker flag in
-        // src/main/cpp/CMakeLists.txt; vosk 0.3.75 and MediaPipe 0.10.26.1 ship aligned libraries. Still open:
-        // libtask_vision_jni.so (tensorflow-lite-task-vision 0.4.4, no aligned release), see tasks/audits/launch_checks_20261113.md
+        // src/main/cpp/CMakeLists.txt; vosk 0.3.75 and MediaPipe 0.10.26.1 ship aligned libraries. Done:
+        // libtask_vision_jni.so is gone: Smart Detection uses MediaPipe's ObjectDetector, see tasks/audits/launch_checks_20261113.md
         // Generate full native debug symbols so they can be uploaded to Play Console
         ndk {
             debugSymbolLevel = "FULL"
@@ -203,10 +203,8 @@ dependencies {
     implementation(libs.navigation.fragment.ktx)
     implementation(libs.navigation.ui.ktx)
     implementation(libs.okhttp)
-    implementation(libs.tensorflow.lite)
-    implementation(libs.tensorflow.lite.task.vision) {
-        exclude(group = "org.tensorflow", module = "tensorflow-lite-api")
-    }
+    // TensorFlow Lite and its Task Vision library were removed 2026-11-13: Smart Detection now runs through
+    // MediaPipe's ObjectDetector (below), because libtask_vision_jni.so is not 16 KB aligned.
     implementation(libs.opencv.android)
     implementation(libs.osmdroid.android)
     implementation(libs.osmdroid.wms)

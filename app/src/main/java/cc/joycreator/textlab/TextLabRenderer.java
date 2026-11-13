@@ -135,6 +135,8 @@ public final class TextLabRenderer {
     @Nullable private Double clock0;
     private double last;
     private double lookTime;
+    /** readBitmap's pixel buffers, kept between reads (GL thread). */
+    @Nullable private ByteBuffer readBuf, flipBuf;
 
     public TextLabRenderer(@NonNull Assets assets, @NonNull android.content.Context context) {
         TlTrouble.check();   // a phone that cannot draw the looks says so in words, before anything is built
@@ -909,22 +911,37 @@ public final class TextLabRenderer {
     /** The finished picture as a Bitmap, the right way up (call after a frame). */
     @NonNull
     public Bitmap readBitmap() {
-        ByteBuffer px = ByteBuffer.allocateDirect(W * H * 4).order(ByteOrder.nativeOrder());
+        // The two pixel buffers are kept (Studio reads a title's picture back every frame; making them new each time
+        // cost more than the read itself on the Note 9) and the rows are turned over buffer to buffer, no Java array.
+        int n = W * H * 4, row = W * 4;
+        if (readBuf == null || readBuf.capacity() != n) {
+            readBuf = ByteBuffer.allocateDirect(n).order(ByteOrder.nativeOrder());
+            flipBuf = null;
+        }
+        ByteBuffer px = readBuf;
+        px.clear();
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, out.fbo());
         GLES30.glReadPixels(0, 0, W, H, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, px);
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0);
-        byte[] raw = new byte[W * H * 4];
-        px.get(raw);
         if (output == CLEAR) {
             // see-through: the bytes are already premultiplied RGBA, which is what an ARGB_8888 Bitmap holds
-            ByteBuffer flipped = ByteBuffer.allocateDirect(W * H * 4);
-            for (int y = 0; y < H; y++) flipped.put(raw, (H - 1 - y) * W * 4, W * 4);
+            if (flipBuf == null) flipBuf = ByteBuffer.allocateDirect(n);
+            ByteBuffer flipped = flipBuf;
+            flipped.clear();
+            for (int y = 0; y < H; y++) {
+                px.limit((H - y) * row).position((H - 1 - y) * row);
+                flipped.put(px);
+            }
+            px.clear();
             flipped.position(0);
             Bitmap b = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888);
             b.setPremultiplied(true);
             b.copyPixelsFromBuffer(flipped);
             return b;
         }
+        byte[] raw = new byte[n];
+        px.get(raw);
+        px.clear();
         int[] argb = new int[W * H];
         for (int y = 0; y < H; y++) {
             int src = (H - 1 - y) * W * 4;
@@ -956,5 +973,7 @@ public final class TextLabRenderer {
         TlGl.deleteTexture(photo);
         glyphs.release();
         glw.release();
+        readBuf = null;
+        flipBuf = null;
     }
 }

@@ -316,10 +316,21 @@ Dark Steel backdrop 1.5, letters 0.3, soften 3.4, march 1.6, shade 5.4 to 6.1, s
 Rusted shade 21.5 to 22.3 of 36; Diamond backdrop 4.9, shade 14.3 to 14.9, final 7.0 to 7.2 of 35 (the timer's own waits
 inflate the totals a little). Next speed targets, if any: Rusted's and Diamond's shade, Diamond's backdrop, the final
 pass (6 to 7 ms on Dark Steel and Diamond).
-**Still to check:** Studio draws a title's look and reads the picture back every frame (`StudioTextLab.draw` ->
-`readBitmap`), so Studio waits on the GPU per frame like the check screen and may play a TextLab title nearer 20 fps than
-40-55. Not measured (needs a Studio project with a TextLab title); the fix would read the frame back one frame late
-(two pixel buffers) during playback, exact on a jump or an export.
+**Studio's titles (11-13, phone session).** Studio draws a title's look and reads the picture back every frame
+(`StudioTextLab.draw` -> `readBitmap`), so it waits on the GPU per picture. Timed through `StudioTextLab` exactly as
+Studio calls it (check screen `--es studio <look> --ef pem <preview px/em> --ef xem <export px/em>`,
+`StudioTextLabBench`), Note 9, 21.6 to 22 C, after the read-back speed-up (`readBitmap` keeps its two pixel buffers and
+turns the rows over buffer to buffer: read back on a 1086x561 picture 20 -> 9 to 12 ms; ClearCheck worst 1, the same bytes):
+
+| Title | Preview, pictures a second | Export, ms a video frame |
+|---|---|---|
+| Dark Steel, 80 px to the em (401x215) | 61 to 68 | 25 to 26 (120 px/em) |
+| Diamond, 80 px to the em (434x224) | 44 to 47 | 30 to 34 (120 px/em) |
+| Diamond, 200 px to the em (1086x561) | 14.5 to 19 (was 14) | 64 to 77 (240 px/em, 1303x673) |
+
+A title at an ordinary size keeps up with video. A very big title is still under 24 pictures a second while playing:
+its picture is drawn, then waited for, then read, one after the other. Next: during playback read each picture back one
+frame late so the drawing and the reading overlap (exact on a jump, a pause and an export).
 
 ## Ship list (2026-11-12 night): everything between today and a finished wing
 

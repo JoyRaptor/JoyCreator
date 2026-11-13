@@ -270,11 +270,31 @@ public final class StudioTextLab {
         }
     }
 
+    // ---- the check screen's split of a picture's time (StudioTextLabBench) --------------------------
+
+    private static volatile boolean splitOn;
+    private static final long[] splitSums = new long[3];
+    private static int splitN;
+    private static String splitSize = "";
+
+    /** On: time each picture's processor work, GPU wait and read-back. Off: the averages since it went on. */
+    @NonNull
+    static synchronized String split(boolean on) {
+        String s = splitN == 0 ? "no pictures" : String.format(java.util.Locale.ROOT,
+                "%s, processor %.1f ms, GPU wait %.1f ms, read back %.1f ms (%d pictures)", splitSize,
+                splitSums[0] / 1e6 / splitN, splitSums[1] / 1e6 / splitN, splitSums[2] / 1e6 / splitN, splitN);
+        java.util.Arrays.fill(splitSums, 0);
+        splitN = 0;
+        splitOn = on;
+        return s;
+    }
+
     // ---- GL thread ------------------------------------------------------------------------------
 
     @Nullable
     private Frame draw(@NonNull String key, @NonNull Request q) {
         if (!gl.ready()) return null;
+        long c0 = SystemClock.elapsedRealtimeNanos();
         try {
             if (assets == null) assets = TextLabRenderer.Assets.load(app.getAssets());
             Item it = items.get(key);
@@ -306,7 +326,20 @@ public final class StudioTextLab {
                 r.frame(it.base + t);
             }
             it.lastT = t;
-            return new Frame(r.readBitmap(), r.em());
+            if (!splitOn) return new Frame(r.readBitmap(), r.em());
+            long c1 = SystemClock.elapsedRealtimeNanos();
+            android.opengl.GLES30.glFinish();
+            long c2 = SystemClock.elapsedRealtimeNanos();
+            Frame f = new Frame(r.readBitmap(), r.em());
+            long c3 = SystemClock.elapsedRealtimeNanos();
+            synchronized (StudioTextLab.class) {
+                splitSums[0] += c1 - c0;
+                splitSums[1] += c2 - c1;
+                splitSums[2] += c3 - c2;
+                splitN++;
+                splitSize = f.bitmap.getWidth() + "x" + f.bitmap.getHeight();
+            }
+            return f;
         } catch (Exception | Error e) {
             Log.w(TAG, "title look not drawn for " + key, e);
             return null;

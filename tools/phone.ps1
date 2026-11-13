@@ -26,14 +26,15 @@
 # name you claimed with. A lock untouched for 30 minutes is stale and may be taken over.
 # Screenshots, logcat and dumpsys only look, so they don't need the lock.
 #
-# Multi-device: the Note 9 (29e37138071c7ece) is ALWAYS the default, never "the first device".
-# $env:PHONE = "<serial>" pins another one.
+# Multi-device: the Note 9 (the sandbox phone) is ALWAYS the default, never "the first device".
+# $env:PHONE = "<serial>" pins another one. `.\tools\phone.ps1 serial` prints the serial this
+# tool would use, for scripts that call raw adb: `adb -s (.\tools\phone.ps1 serial) ...`.
 #
-# SECOND PHONE (owner, 2026-11-13): the Note 20 (R5CN81AMTKH). It holds the owner's REAL projects.
+# SECOND PHONE (owner, 2026-11-13): the Note 20. It holds the owner's REAL projects.
 # On USB it shares the adb server with the Note 9, so RAW adb MUST name a serial: `adb -s <serial>`.
 # Bare `adb install` / `adb shell` with both phones attached fails or, worse, hits the wrong one.
 # To use the Note 20 through this tool:
-#   $env:PHONE_SLOT = "note20"     (pins its serial, on USB or Wi-Fi port 5038, and uses its own
+#   $env:PHONE_SLOT = "note20"     (finds it by model, on USB or Wi-Fi port 5038, and uses its own
 #                                   lock, %TEMP%\jb-phone2.lock; who/claim/release work the same)
 # Rules there: throwaway projects and drawings only, named "TEST ..."; never open, edit, move or
 # delete anything that was already on it; never uninstall or clear data. See tasks/BOARD.md.
@@ -56,19 +57,26 @@ if (-not (Test-Path $adb)) {
 $pkg = "com.fadcam.beta"
 $apk = "app\build\outputs\apk\default\debug\app-default-arm64-v8a-debug.apk"
 
-$note9 = "29e37138071c7ece"     # the sandbox phone: the default for everything
-$note20 = "R5CN81AMTKH"         # the owner's REAL projects: only ever by PHONE_SLOT = "note20"
+# Phones are told apart by MODEL, read live from `adb devices -l`. No serial is written in this
+# file or any tracked file (tasks/AGENT_START.md rule 1; the commit hook refuses them).
+$modelNote9 = "SM_N960U"      # the sandbox phone: the default for everything
+$modelNote20 = "SM_N986U"     # the owner's REAL projects: only ever by PHONE_SLOT = "note20"
 
-function Get-Attached {
-    @(& $adb devices | Select-String "`tdevice$" | ForEach-Object { ($_.ToString() -split "`t")[0] })
+# Serials of attached, ready devices of one model ("" = any model).
+function Find-ByModel([string]$model) {
+    $rx = if ($model) { "^\S+\s+device\s.*\bmodel:$model\b" } else { "^\S+\s+device\s" }
+    @(& $adb devices -l | Select-String $rx | ForEach-Object { ($_.ToString() -split "\s+")[0] })
 }
 
 # Never "the first device": with both phones on USB the first one may be the Note 20.
 function Get-Serial {
     if ($env:PHONE) { return $env:PHONE }
-    $all = Get-Attached
-    if ($all -contains $note9) { return $note9 }
-    $others = @($all | Where-Object { $_ -ne $note20 })
+    # @(...) at every call: PowerShell hands back ONE match as a bare string, and [0] of a string
+    # is its first character, not the serial.
+    $n9 = @(Find-ByModel $modelNote9)
+    if ($n9.Count -ge 1) { return $n9[0] }
+    $n20 = @(Find-ByModel $modelNote20)
+    $others = @(Find-ByModel "" | Where-Object { $n20 -notcontains $_ })
     if ($others.Count -eq 1) { return $others[0] }
     return $null
 }
@@ -82,17 +90,17 @@ function Adb {
 $phoneLock = Join-Path $env:TEMP "jb-phone.lock"
 if ($env:PHONE_SLOT -eq "note20") {
     if (-not $env:PHONE) {
-        if ((Get-Attached) -contains $note20) {
-            $env:PHONE = $note20                      # on USB, same adb server as the Note 9
-        } else {
+        $n20 = @(Find-ByModel $modelNote20)           # on USB, same adb server as the Note 9
+        if ($n20.Count -eq 0) {
             $env:ANDROID_ADB_SERVER_PORT = "5038"     # over Wi-Fi, on its own adb server
-            $n20 = & $adb devices | Select-String "^\d+\.\d+\.\d+\.\d+:\d+\s+device$" | Select-Object -First 1
-            if ($null -ne $n20) { $env:PHONE = ($n20.ToString() -split "`t")[0] } else { $env:PHONE = $note20 }
+            $n20 = @(Find-ByModel $modelNote20)
         }
+        # Not attached: pin a name adb cannot find, so nothing falls through to the Note 9.
+        $env:PHONE = if ($n20.Count -ge 1) { $n20[0] } else { "note20-not-attached" }
     }
 }
 # The Note 20 always uses its own lock, however it was reached.
-if ((Get-Serial) -eq $note20 -or $env:PHONE_SLOT -eq "note20") {
+if ($env:PHONE_SLOT -eq "note20" -or (@(Find-ByModel $modelNote20) -contains (Get-Serial))) {
     $phoneLock = Join-Path $env:TEMP "jb-phone2.lock"
 }
 
@@ -146,6 +154,14 @@ switch ($Cmd) {
     }
 
     "devices" { & $adb devices -l }
+
+    # The serial this tool would act on (the Note 9, or the Note 20 with PHONE_SLOT = "note20").
+    # For scripts that call raw adb. Prints nothing and exits 1 when that phone is not attached.
+    "serial" {
+        $s = Get-Serial
+        if ($null -eq $s -or $s -eq "note20-not-attached") { exit 1 }
+        Write-Output $s
+    }
 
     "size" {
         Adb shell wm size

@@ -6866,11 +6866,11 @@ class GlPaintEngine(
      */
     var mediaBudgetBytes: Long = Long.MAX_VALUE
 
-    /** Bytes of media payload the layers hold now, every plane (undo snapshots are the undo budget's business). */
     /** What the engine holds, in a line, for the record of a tile failure (diag/TileIncidents.context). GL thread. */
     fun incidentContext(): String = "layers ${layers.size}, look tiles about ${layers.values.sumOf { l -> l.tiles.size + l.cels.values.sumOf { c -> if (c === l.tiles) 0 else c.size } }}, " +
         "paint room ${mediaResidentBytes() shr 20} of ${mediaBudgetBytes shr 20} MB, free pools ${freeLayerTex.size}/${freeFloatTex.size}/${freeStrokeTex.size}, undo steps ${undo.undoDepth}"
 
+    /** Bytes of media payload the layers hold now, every plane (undo snapshots are the undo budget's business). */
     fun mediaResidentBytes(): Long = layers.values.sumOf { l ->
         l.planes().sumOf { (_, p) -> p.entries.sumOf { (store, tiles) -> tiles.size.toLong() * MediaStores.tileBytes(size, store) } }
     }

@@ -2557,6 +2557,14 @@ public class LobbyFragment extends BaseFragment {
      * main thread), else drift over the still. Checked against the tag so a room switch mid-decode changes nothing.
      */
     private void playHeroPreview(@Nullable String still) {
+        playHeroPreview(still, true);
+    }
+
+    /**
+     * @param again a room makes its sheet as the person leaves it (TextLab: on pause), so it can land a second or
+     *              two after the lobby is back: with none yet, look once more 2.5 s later, drifting meanwhile.
+     */
+    private void playHeroPreview(@Nullable String still, boolean again) {
         if (heroMotion == null || still == null) { driftHero(); return; }
         THUMB_IO.execute(() -> {
             String[] name = new String[1];
@@ -2565,6 +2573,11 @@ public class LobbyFragment extends BaseFragment {
                 if (!isAdded() || heroMotion == null) return;
                 if (!still.equals(heroArt.getTag(R.id.lobby_thumb_tag))) return;
                 heroMotion.play(sheet, name[0]);
+                if (sheet == null && again) {
+                    ui.postDelayed(() -> {
+                        if (isAdded() && still.equals(heroArt.getTag(R.id.lobby_thumb_tag))) playHeroPreview(still, false);
+                    }, 2500L);
+                }
             });
         });
     }

@@ -129,7 +129,8 @@ public final class TextLabRoomTest {
         check("another own look cannot", !TlLookFiles.isCopyOfBuiltIn(other), "");
         check("a look goes to Trash with its moving preview",
                 TlLookFiles.withSheet("Supplies/Looks/HOT.text.json").equals(Arrays.asList("Supplies/Looks/HOT.text.json",
-                        "Supplies/Looks/HOT.5x4.sprite.png")), TlLookFiles.withSheet("Supplies/Looks/HOT.text.json"));
+                        "Supplies/Looks/HOT.5x4.sprite.webp", "Supplies/Looks/HOT.5x4.sprite.png")),   // WebP now, PNG before (T17)
+                TlLookFiles.withSheet("Supplies/Looks/HOT.text.json"));
 
         // ---- an export's frame: margins widened to the frame's shape, the floor kept under the words
         Class<?> lf = Class.forName("cc.joycreator.textlab.LookFrame");

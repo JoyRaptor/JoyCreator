@@ -36,6 +36,7 @@ public final class LibraryTests {
         run("bands: today, yesterday, week, month, earlier", LibraryTests::bands);
         run("bands: rows carry headers only when banded", LibraryTests::bandRows);
         run("clock: m:ss, then h:mm:ss, as the lobby writes it", LibraryTests::clock);
+        run("sheets: a look and its PNG or WebP preview are one card; the newer of two wins", LibraryTests::sheets);
         System.out.println();
         System.out.println(passed + " passed, " + failed + " failed");
         if (failed > 0) System.exit(1);
@@ -212,6 +213,39 @@ public final class LibraryTests {
         all.add(item("Screen recording 2026-10-13", LibraryKind.RECORDINGS, TODAY + 4, false));
         all.add(item("Lecture 3 image", LibraryKind.PROJECT_MEDIA, TODAY + 3, false));
         return all;
+    }
+
+    static LibraryItem file(String path, long modified) {
+        String name = path.substring(path.lastIndexOf('/') + 1);
+        LibraryItem it = new LibraryItem("folder:" + path, LibraryKind.SUPPLIES, name, modified, 1, false);
+        it.fileName = name;
+        it.folderPath = path;
+        it.uri = "uri:" + path;
+        return it;
+    }
+
+    static void sheets() {
+        List<LibraryItem> items = new ArrayList<>(Arrays.asList(
+                file("Supplies/Looks/Dust.text.json", 10_000),
+                file("Supplies/Looks/Dust.5x4.sprite.png", 5_000),      // the old preview
+                file("Supplies/Looks/Dust.5x4.sprite.webp", 11_000),    // the new one
+                file("Supplies/Looks/Gold.text.json", 10_000),
+                file("Supplies/Looks/Gold.5x4.sprite.png", 10_500),     // only an old PNG: still its preview
+                file("Supplies/Looks/Ice.text.json", 20_000),
+                file("Supplies/Looks/Ice.5x4.sprite.webp", 1_000),      // older than its look: made again
+                file("Supplies/Looks/Ink.text.json", 1_000),            // no preview at all: made again
+                file("Pictures/Run.4x2.sprite.webp", 1_000),            // a sheet of its own plays on its card
+                file("Pictures/Dust.5x4.sprite.webp", 1_000)));         // another folder: not Dust's preview
+        List<String> stale = com.fadcam.ui.library.SheetLinks.link(items);
+        List<String> names = new ArrayList<>();
+        for (LibraryItem it : items) names.add(it.folderPath);
+        eq(Arrays.asList("Supplies/Looks/Dust.text.json", "Supplies/Looks/Gold.text.json", "Supplies/Looks/Ice.text.json",
+                "Supplies/Looks/Ink.text.json", "Pictures/Run.4x2.sprite.webp", "Pictures/Dust.5x4.sprite.webp"), names);
+        eq("Dust.5x4.sprite.webp", items.get(0).thumbSheet);
+        eq("uri:Supplies/Looks/Dust.5x4.sprite.webp", items.get(0).thumb);
+        eq("Gold.5x4.sprite.png", items.get(1).thumbSheet);
+        eq("Run.4x2.sprite.webp", items.get(4).thumbSheet);
+        eq(Arrays.asList("Supplies/Looks/Ice.text.json", "Supplies/Looks/Ink.text.json"), stale);
     }
 
     static LibraryItem item(String name, LibraryKind kind, long modified, boolean shared) {

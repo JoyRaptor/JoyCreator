@@ -112,13 +112,13 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
         val wantCell = forcedCell?.toDouble() ?: WetSheetMath.cellFor(view.zoom, max(view.screenW, view.screenH), longCells)
         if (holding && (!same || !covers(docX, docY) || (forcedCell == null && !coversView(view)) || WetSheetMath.tooCoarse(cell, wantCell))) {
             // The view moved: when everything the sheet holds still fits on a sheet laid for the new view, it comes along whole,
-            // still wet (carry). When part of it would be left behind, the whole wash sets: cutting a wet wash in two, one
-            // part kept wet and the other dried, left a line where water later flowed across the cut (Note 9 film rim1).
+            // still wet (carry).
             val carried = same && grid == wantGrid && try { carry(view, wantCell, paper, look) } catch (x: RuntimeException) {
                 android.util.Log.e(TAG, "the sheet could not be carried over to the new view", x); false
             }
             // It does not fit whole: what lies well inside the new sheet stays wet and the rest sets, the two fading into each
-            // other ([cutCarry]). Only when that leaves the pen on the sheet; otherwise, as before, all of it sets.
+            // other ([cutCarry]); a clean cut, one part kept wet and the other dried, left a line where water later flowed
+            // across it (Note 9 film rim1). Only when that leaves the pen on the sheet; otherwise, as before, all of it sets.
             val cut = !carried && same && grid == wantGrid && cutOnMove && try { cutCarry(view, wantCell, paper, look) } catch (x: RuntimeException) {
                 android.util.Log.e(TAG, "the wash could not be parted for the new view", x); false
             }

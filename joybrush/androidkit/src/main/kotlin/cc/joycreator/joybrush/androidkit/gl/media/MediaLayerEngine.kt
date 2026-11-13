@@ -1202,7 +1202,14 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         waterSpeed = (steps * dt / real).toFloat()
         val r = wetRect
         android.util.Log.i("JoyBrushWater", "speed: $steps steps in ${"%.2f".format(real)} s over $speedFrames frames = ${"%.3f".format(waterSpeed)} x real time; " +
-            "rectangle ${r?.let { "${(it[2] - it[0]).toInt()} x ${(it[3] - it[1]).toInt()}" }} px, drew ${"%.1f".format(speedDrawn / 1e6)} M units, budget ${"%.2f".format(waterBudget / 1e6)} M a frame")
+            "rectangle ${r?.let { "${(it[2] - it[0]).toInt()} x ${(it[3] - it[1]).toInt()}" }} px, drew ${"%.1f".format(speedDrawn / 1e6)} M units, budget ${"%.2f".format(waterBudget / 1e6)} M a frame" +
+            // [cullWater]: what the passes draw against what holds water (blocks of 16 cells; live, and live with their ring).
+            (cull?.takeIf { it.readings > 0 }?.let { c ->
+                val n = c.counts()
+                val parts = lastWaterParts
+                "; culled: ${parts?.size ?: 0} parts of ${parts?.sumOf { ((it[2] - it[0]) * (it[3] - it[1])).toDouble() }?.let { (it / 1000).toInt() } ?: (w * h / 1000)} k cells, " +
+                    "live blocks ${n[0]} (${n[0] * 256 / 1000} k), with ring ${n[1]} (${n[1] * 256 / 1000} k), sheet ${w * h / 1000} k"
+            } ?: ""))
         speedAtNs = now; speedSteps = waterSteps; speedFrames = 0; speedDrawn = 0.0
     }
 

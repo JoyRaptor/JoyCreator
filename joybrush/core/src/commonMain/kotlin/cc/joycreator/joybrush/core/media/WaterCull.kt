@@ -49,6 +49,22 @@ class WaterCull(val bw: Int, val bh: Int, val block: Int = 16) {
         return if (water) RUNNING else if (damp) DAMP else DRY
     }
 
+    /** How many blocks are live, and how many are live or in the ring of [grow] blocks round a live one (a measure of what a step must draw at the least). */
+    fun counts(grow: Int = 1): IntArray {
+        var live = 0; var ringed = 0
+        for (by in 0 until bh) for (bx in 0 until bw) {
+            if (life[by * bw + bx] > 0) { live++; ringed++; continue }
+            var near = false
+            var ny = max(0, by - grow)
+            while (!near && ny <= min(bh - 1, by + grow)) {
+                for (nx in max(0, bx - grow)..min(bw - 1, bx + grow)) if (life[ny * bw + nx] > 0) { near = true; break }
+                ny++
+            }
+            if (near) ringed++
+        }
+        return intArrayOf(live, ringed)
+    }
+
     /** The brush put water on cells [x0], [y0] .. [x1], [y1]: those blocks are live at once. */
     fun wetted(x0: Float, y0: Float, x1: Float, y1: Float) {
         val bx0 = max(0, floor(x0 / block).toInt()); val by0 = max(0, floor(y0 / block).toInt())

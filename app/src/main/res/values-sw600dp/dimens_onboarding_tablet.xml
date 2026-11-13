@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tablet: the welcome words sit in a centred column instead of hugging the left edge. -->
+    <dimen name="welcome_column_w">560dp</dimen>
+</resources>

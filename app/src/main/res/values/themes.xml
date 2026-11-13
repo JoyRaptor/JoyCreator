@@ -192,6 +192,9 @@
          product. Crimson Bloom is still there for anyone who wants it.
          ═══════════════════════════════════════════════════════════════════════════ -->
     <style name="Theme.FadCam.JoyCreator" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Said out loud: left to the parent, the bar can come back green (colorPrimaryVariant)
+             after the app returns from another screen. -->
+        <item name="android:statusBarColor">@color/s_surface</item>
         <item name="colorTopBar">@color/s_surface</item>
         <item name="colorBottomNav">@color/s_surface</item>
         <!-- A heading is STRUCTURE, so it takes ink rather than accent. Colour spent on

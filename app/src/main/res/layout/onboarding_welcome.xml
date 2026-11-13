@@ -91,8 +91,9 @@
              now that it is exactly as tall as its content, the clearance has to be asked
              for, or the buttons sit under the dots. -->
         <LinearLayout
-            android:layout_width="match_parent"
+            android:layout_width="@dimen/welcome_column_w"
             android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
             android:orientation="vertical"
             android:layout_marginTop="-84dp"
             android:paddingStart="22dp"

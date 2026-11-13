@@ -494,11 +494,12 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
 
     private final Runnable heroSnap = () -> {
         if (isFinishing() || titleMode || look == null) return;
-        final String name = nameOf(), key = editing != null ? editing.key : "";
+        final String name = nameOf(), key = editing != null ? editing.key : "", lookNow = look.toString(),
+                wordsNow = words.trim().isEmpty() ? look.optString("sample", "TEXT") : words;
         stage.still(b -> {
             Bitmap small = Bitmap.createScaledBitmap(b, Math.max(1, b.getWidth() / 2), Math.max(1, b.getHeight() / 2), true);
             if (small != b) b.recycle();
-            TlLobbyHero.save(this, small, name, key);
+            TlLobbyHero.save(this, small, name, key, lookNow, wordsNow);
         });
     };
 
@@ -1054,6 +1055,7 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
         super.onResume();
         open = new WeakReference<>(this);
         stage.onResume();
+        TlLobbyHero.entered();
         com.fadcam.ui.faditor.ai.joybot.JoybotPulse.lightButton(joy, null, com.fadcam.ui.faditor.ai.joybot.IdeaEngine.Room.TEXTLAB);
         if ("live".equals(light)) setLight("live");
     }
@@ -1063,6 +1065,7 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
         super.onPause();
         stage.onPause();
         tilt.stop();
+        TlLobbyHero.leaving(this);   // the lobby's hero gets its moving preview now, not while sliders turn
     }
 
     @Override

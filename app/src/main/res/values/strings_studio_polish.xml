@@ -38,6 +38,7 @@
     <string name="drawer_tab_transform">Transform</string>
     <string name="drawer_tab_effects">Effects</string>
     <string name="drawer_tab_level">Level</string>
+    <string name="drawer_tab_clean">Clean</string>
     <string name="drawer_tab_lanes">Lanes</string>
     <string name="faditor_back_to_lobby">Back to your projects</string>
     <string name="drawer_tab_text">Text</string>

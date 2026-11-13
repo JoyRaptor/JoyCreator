@@ -38,8 +38,9 @@ final class WorkReader {
     static List<LibraryItem> projects(@NonNull Context c, @NonNull List<ProjectStorage.ProjectSummary> summaries) {
         List<LibraryItem> out = new ArrayList<>(summaries.size());
         for (ProjectStorage.ProjectSummary p : summaries) {
+            ProjectFacts.Facts known = ProjectFacts.known(p);
             LibraryItem it = new LibraryItem("project:" + p.id, LibraryKind.PROJECTS, nameOf(c, p),
-                    p.lastModified, -1, false);
+                    p.lastModified, known != null ? known.bytes : -1, false);
             it.fileKind = FileKind.PROJECT;
             it.searchAlias = p.name;   // the stored name, even when the card shows the video's file name
             it.projectId = p.id;

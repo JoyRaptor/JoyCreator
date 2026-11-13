@@ -1330,6 +1330,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
             // project is needed (without this JoyBrush showed the lobby's "Start a project").
             com.fadcam.ui.faditor.ai.joybot.ProjectFacts f = new com.fadcam.ui.faditor.ai.joybot.ProjectFacts();
             f.online = AiService.ready(this, apiKey);
+            if (room == IdeaEngine.Room.JOYBRUSH) f.drawing = readDrawing();
             currentOffer = IdeaEngine.offer(f, room, java.util.Collections.<String>emptySet(),
                     java.util.Collections.<String>emptySet());
             if (!busy && slideFlow == null) showChips(currentOffer.ideas);
@@ -1964,6 +1965,22 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 refreshIdeas(false);
             });
         });
+    }
+
+    /**
+     * The drawing open in JoyBrush, for its idea buttons (BOT-A9): the same read Joybot's model gets
+     * (JoybotHands.describe, on this UI thread). Null when JoyBrush isn't open or can't answer: the
+     * general buttons show then.
+     */
+    @Nullable
+    private com.fadcam.ui.faditor.ai.joybot.DrawingFacts readDrawing() {
+        if (!cc.joycreator.joybrush.android.JoybotHands.isOpen()) return null;
+        try {
+            return com.fadcam.ui.faditor.ai.joybot.DrawingFacts.parse(cc.joycreator.joybrush.android.JoybotHands.describe());
+        } catch (Throwable t) {
+            com.fadcam.FLog.w(TAG, "could not read the drawing for ideas: " + t.getMessage());
+            return null;
+        }
     }
 
     /** A job the phone stopped in the middle (the app was killed): offer to pick it up, or let it go. */

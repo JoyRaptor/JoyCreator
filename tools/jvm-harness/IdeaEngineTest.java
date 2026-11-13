@@ -270,6 +270,65 @@ public class IdeaEngineTest {
             check("joybrush: no opener", jb.opener == null, String.valueOf(jb.opener));
         }
 
+        // ── JoyBrush ideas that read the open drawing (BOT-A9, 11-13) ──
+        {
+            // Written exactly as JoybotHands.describe() writes it (pinned against the .kt below).
+            String one = "Drawing “Cat”, 2048×1536 px.\nLayers, top to bottom (number 1 = bottom):\n"
+                    + "★ 1. Sketch — shown, 100%\n★ = the layer being painted on.\n"
+                    + "No boards (animation frames need an animation board).\n"
+                    + "In hand: Pencil, size 6 px, 100% opacity, colour #000000.";
+            com.fadcam.ui.faditor.ai.joybot.DrawingFacts d = com.fadcam.ui.faditor.ai.joybot.DrawingFacts.parse(one);
+            check("drawing: parsed", d != null, "");
+            eq("drawing: one layer", "[Sketch]", d == null ? null : d.layers.toString());
+            check("drawing: no animation", d != null && !d.animation && d.boards == 0, "");
+            ProjectFacts f = new ProjectFacts();
+            f.online = true;
+            f.drawing = d;
+            IdeaEngine.Offer o = IdeaEngine.offer(f, IdeaEngine.Room.JOYBRUSH, FLOWS, NONE);
+            eq("drawing: one layer, colour layer first", "A layer to colour on", o.ideas.get(0).label);
+            check("drawing: the colour layer goes above the named sketch",
+                    o.ideas.get(0).say != null && o.ideas.get(0).say.contains("“Sketch”"), String.valueOf(o.ideas.get(0).say));
+            check("drawing: no animation yet offers one", labels(o).contains("Start an animation"), labels(o));
+            check("drawing: no frames idea without frames", !labels(o).contains("Next frame from this one"), labels(o));
+
+            String anim = "Drawing “Walk”, 1080×1080 px.\nLayers, top to bottom (number 1 = bottom):\n"
+                    + "• 3. Colour — shown, 100%\n★ 2. Ink — shown, 100%\n• 1. Rough — hidden, 40%, locked\n"
+                    + "★ = the layer being painted on.\n"
+                    + "Board “Walk cycle” (animation): 8 frames, on frame 3, 12 fps ★\n"
+                    + "In hand: Ink pen, size 4 px, 100% opacity, colour #222222.";
+            d = com.fadcam.ui.faditor.ai.joybot.DrawingFacts.parse(anim);
+            eq("drawing: layers bottom first", "[Rough, Ink, Colour]", d == null ? null : d.layers.toString());
+            check("drawing: one hidden, an 8-frame animation on frame 3", d != null && d.hiddenLayers == 1
+                    && d.animation && d.frames == 8 && d.onFrame == 3, "");
+            f.drawing = d;
+            o = IdeaEngine.offer(f, IdeaEngine.Room.JOYBRUSH, FLOWS, NONE);
+            check("drawing: a colour layer exists, so no colour idea", !labels(o).contains("A layer to colour on"), labels(o));
+            check("drawing: the hidden layer can come back", labels(o).contains("Show the hidden layer"), labels(o));
+            check("drawing: an animation exists, so no Start an animation", !labels(o).contains("Start an animation"), labels(o));
+            check("drawing: frames idea names the frame", labels(o).contains("Next frame from this one"), labels(o));
+
+            String single = anim.replace("8 frames, on frame 3", "1 frame, on frame 1");
+            f.drawing = com.fadcam.ui.faditor.ai.joybot.DrawingFacts.parse(single);
+            o = IdeaEngine.offer(f, IdeaEngine.Room.JOYBRUSH, FLOWS, NONE);
+            check("drawing: a one-frame animation gets more frames", labels(o).contains("Add 7 more frames"), labels(o));
+            check("drawing: an error text is no drawing",
+                    com.fadcam.ui.faditor.ai.joybot.DrawingFacts.parse("JoyBrush isn't open.") == null, "");
+            // The format the parser reads, as JoybotHands.describe() builds it.
+            try {
+                String hands = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(
+                        "joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/JoybotHands.kt")), "UTF-8");
+                for (String piece : new String[]{"sb.append(\"Drawing “\")", ".append(\". \").append(l.name)",
+                        ".append(\" — \").append(if (l.visible) \"shown\" else \"hidden\")",
+                        "sb.append(\"Board “\").append(b.name).append(\"” (\")",
+                        ".append(\" frame\").append(if (b.frames.size == 1) \"\" else \"s\")",
+                        ".append(\", on frame \").append(at)"}) {
+                    check("drawing: JoybotHands still writes " + piece, hands.contains(piece), piece);
+                }
+            } catch (java.io.IOException ex) {
+                check("drawing: JoybotHands readable", false, ex.toString());
+            }
+        }
+
         // ── never invents a number ───────────────────────────────────────
         // Every number in every opener across all of the scenarios above must be a number held in
         // the facts (or one rounding of a held duration). Run across a mixed project.

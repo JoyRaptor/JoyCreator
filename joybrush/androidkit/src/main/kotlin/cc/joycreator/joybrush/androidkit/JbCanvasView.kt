@@ -324,7 +324,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         mediaBrushInHand = spec != null
         val guide = symmetryGuide?.takeIf { it.count >= 2 }
         val centre = guide?.let { SymmetryMath.centre(it) }
-        val radius = if (centre != null && spec != null && p != null) {
+        // JBX-01: the atlas has no reach limit and pins nothing for symmetry (since 11-11), so the circle and the dimming
+        // would mean nothing there; only the old Window engine keeps its safe zone.
+        val radius = if (centre != null && spec != null && p != null && !mediaAtlasEnabled) {
             MediaSafety.safeRadiusFor(centre.x, centre.y, spec.scaled(p.mediaScale()).reachDocPx())
         } else 0.0
         safeZoneRadiusDocPx = if (radius > 0.0) radius.toFloat() else 0f
@@ -569,6 +571,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         if (mediaAtlasEnabled == on) return
         mediaAtlasEnabled = on
         onGl { mediaCanvas.releaseEngine() }
+        refreshSafeZone()   // JBX-01: the dotted zone belongs to the Window engine only
     }
 
     /**
@@ -740,14 +743,22 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         onGl { try { engine.setOnionBoard(id) } catch(e: Exception) { post { onRefused?.invoke(e.message ?: "Onion preview could not be started") } } }
     }
     /**
-     * A tool that cannot wrap round an armed tile board says so EVERY time it is tried (once per stroke, which is when
-     * this runs). It used to say it once per arming and then do nothing at all, which read as a broken brush (owner's
-     * report: "brushes not working on all the boards", LEAD_PLAN F6).
+     * A tool that cannot wrap round an armed tile board (pencil, watercolour, oil) used to be refused, every stroke
+     * ("Turn tiling off to use ..."; LEAD_PLAN F6 before that). JBX-05/ledger A9, the toddler bar: tiling is turned off
+     * and the stroke paints, with one sentence naming the way back. The switch is not an undo step. Tiling goes off on
+     * the GL queue AHEAD of this stroke's media begin (same queue, in order), so the stroke never starts half on the
+     * tile-board path. Returns false: the caller paints. (Name kept for the call site's history.)
      */
     private fun refuseTileTool(tool: String): Boolean {
         if(tileBoardId == null) return false
-        onRefused?.invoke("Turn tiling off to use $tool")
-        return true
+        tileBoardId = null
+        onGl {
+            try { engine.setTileBoard(null) } catch (e: Exception) { noteBenchError("tiling off for media", e) }
+            val actual = engine.tileBoardId
+            post { tileBoardId = actual; onTileBoardChanged?.invoke(actual) }
+        }
+        onNotice?.invoke("Tiling is off so $tool can paint. Tap Tile to repeat again.")
+        return false
     }
     private fun boardStrokeWork(block: () -> Unit) {
         onGl {

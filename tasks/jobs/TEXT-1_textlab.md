@@ -266,6 +266,15 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
   from the noise's own slope (it also moved Water's highlights), fewer blur samples, the march as an unknown-length
   loop. The shaders work unchanged in an engine that passes none of these names (they compile whole, as before), so
   the phone app is correct today; it is faster once `TextLabRenderer` makes the same passes (sent to the Studio session).
+  **Rusted's outline (same day, found by the Studio session's ClearCheck in the app):** Rust tips its surface by
+  `dFdx`/`dFdy` of its heights inside the "hit the face" branch; at the outline a pixel of the 2x2 block has missed,
+  so the slope is undefined and the Note 9 gave a different answer each draw (two identical draws differed by up to
+  49/255). Now the slope is used only along rows/columns where both compared pixels are on the face (a test worked out
+  before the branch, weighted by `gl_FragCoord` because the GPU's pair need not include this pixel). Proof on the
+  Note 9's own GPU (`?bench=1&only=rusted&same=1`): two draws 0 difference (was 49); with the slope term off, split and
+  one-pass match exactly. With it on they still differ at 0.4% of values, single sparkles along the frame's edges: the
+  GPU measures slope at a different grain in the two builds (`&samepic=1` sends the patch; side by side at 3x they
+  look the same). PC vs the original: 0.02-0.05% of values, the outline ring. Speed unchanged (21 ms on the Note 9).
 - **Honest limits today:** the fire is good stylised fire, not yet the photograph the owner showed;
   water and the other drafts are below the bar; only the app's own fonts are used (Archivo, Plex,
   Ubuntu, Doto), so there is no script or true display face yet.

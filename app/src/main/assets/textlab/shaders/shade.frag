@@ -671,6 +671,17 @@ void main() {
 #else
     int hit = march(p0, lean, q, z, cover);
 #endif
+#ifdef RUST
+    // Rust tips its surface by how its heights change from pixel to pixel (dFdx / dFdy below). A GPU works that out
+    // across each 2x2 block of pixels, and it is only defined where the pixels it compares all reach that line: at
+    // the letter's outline one of them has missed the letter, and the Note 9 gave a different answer each draw
+    // there (2026-11-13). So the change is taken only along rows and columns where both pixels landed on the face.
+    // (The pair compared need not include this pixel, so the test is weighted by position: the change across the
+    // pair is exactly 1 where both are on the face, 0 where neither is, 8 or more where only one is.)
+    float onTop = hit == 1 ? 1.0 : 0.0;
+    vec2 rustBoth = abs(vec2(dFdx(onTop * (gl_FragCoord.x + 8.0)), dFdy(onTop * (gl_FragCoord.y + 8.0))));
+    bvec2 rustSlopeOk = lessThan(abs(rustBoth - 1.0), vec2(0.01));     // worked out here, where every pixel is running
+#endif
 
     if (hit != 0) {
         vec4 f = texture(uFieldTex, q / uField.xy);
@@ -804,7 +815,9 @@ void main() {
                        + soon * max(1.0 - chipV.x * 2.4, 0.0) * 0.5
                        + rustBare * (r2 * 0.25 + r3 * 0.2 - smoothstep(0.66, 0.86, r3) * 0.45 + (tnoise(q * 260.0) - 0.5) * 0.3)
                        + (1.0 - bareAll) * (tnoise(q * 150.0) - 0.5) * 0.06;
-            n = normalize(vec3(n.xy - vec2(dFdx(tall), dFdy(tall)) * uRustB.z * 1.6, n.z));
+            vec2 tallSlope = vec2(dFdx(tall), dFdy(tall));
+            tallSlope = vec2(rustSlopeOk.x ? tallSlope.x : 0.0, rustSlopeOk.y ? tallSlope.y : 0.0);
+            n = normalize(vec3(n.xy - tallSlope * uRustB.z * 1.6, n.z));
 #endif
 #ifdef STITCH
             alb *= stitchShade;

@@ -1,0 +1,41 @@
+[
+  {
+    "id": "sprite-tag-mouths",
+    "title": "“Tag cells 2 and 3 as mouths, and 3 is the open one” (AN-05: Joybot writes cell tags)",
+    "fixture": "studio-sprite",
+    "words": "tag cells 2 and 3 of my Faces sheet as mouth, and 3 is the open one",
+    "reference": [
+      {"calls": [{"name": "tag_sprite_cells", "args": {"sheetId": "s-face", "tags": {"2": "Mouth", "3": ["mouth", " Open "]}}}]},
+      {"text": "Cells 2 and 3 are tagged mouth now, and 3 is also tagged open."}
+    ],
+    "expect": {"require": [{"path": "spriteSheets[s-face].cells[*].tags[*]", "count": 4},
+                           {"path": "spriteSheets[s-face].cells[*].tags[*]", "eq": "open", "any": true}],
+               "allow": ["spriteSheets[s-face].cells.**"], "allowNew": ["spriteSheets[s-face].cells"],
+               "undoSteps": 1, "ok": true}
+  },
+  {
+    "id": "sprite-untag",
+    "title": "“Cell 1 isn't a mouth” (AN-05: a tag comes off, the cell's name is kept)",
+    "fixture": "studio-sprite",
+    "words": "cell 1 on the Faces sheet isn't a mouth, take that tag off",
+    "reference": [
+      {"calls": [{"name": "tag_sprite_cells", "args": {"sheetId": "s-face", "tags": {"1": "mouth"}, "mode": "remove"}}]},
+      {"text": "I took the mouth tag off cell 1."}
+    ],
+    "expect": {"require": [{"path": "spriteSheets[s-face].cells[*].tags[*]", "count": 0},
+                           {"path": "spriteSheets[s-face].cellNames.0", "eq": "smile"}],
+               "allow": ["spriteSheets[s-face].cells.**"],
+               "undoSteps": 1, "ok": true}
+  },
+  {
+    "id": "sprite-tag-out-of-range",
+    "title": "“Tag cell 99 as blink” on an 8-cell sheet: refused, and Joybot must not say it worked",
+    "fixture": "studio-sprite",
+    "words": "tag cell 99 of the Faces sheet as blink",
+    "reference": [
+      {"calls": [{"name": "tag_sprite_cells", "args": {"sheetId": "s-face", "tags": {"99": "blink"}}}]},
+      {"text": "Done, cell 99 has the blink tag."}
+    ],
+    "expect": {"unchanged": true, "undoSteps": 0, "ok": false, "reply": {"mentions": ["nothing changed"]}}
+  }
+]

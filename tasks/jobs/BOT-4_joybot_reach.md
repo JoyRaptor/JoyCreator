@@ -46,7 +46,10 @@ SpriteLab: grid, names, animations, sequences.
 - [ ] **Pictures**: placed reference images to picture models (canvas half: JoyBrush,
       [brief](../joybrush/briefs/PLACED_IMAGES_JOYBOT_20261014.md)); a free "design a picture" (HTML/SVG) with no
       paid model; picture jobs keep the revision they started from (M5).
-- [ ] **SpriteLab, deeper**: pivots / auto-centre, background key and bake, dope sheet, viseme labels, export.
+- [~] **SpriteLab, deeper**: pivots / auto-centre, background key and bake, dope sheet, viseme labels, export.
+      - [x] **Cell tags** (audit AN-05, 11-13): `tag_sprite_cells` (add / set / remove, `joybot/CellTags` rules, the
+            SpriteLab spelling); `describe_sprite_sheet` reads names and tags first. Bench fixture `studio-sprite` +
+            `tasks/sprite.json` 3/3 (tag, untag keeping the name, out-of-range refused and not claimed). Not on a phone.
 - [ ] **Avatar**: pose matrix, mic lip-sync, the .avatar library (Avatar is hidden for launch).
 - [ ] **Recipes with triggers** ("every new recording: transcribe, cut ums, captions, export a draft").
 - [ ] **Model routing per step** (a cheap model for simple steps, a seeing one for `look`, a strong one for plans).

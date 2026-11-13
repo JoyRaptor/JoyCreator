@@ -28,6 +28,25 @@ final class Fixtures {
         write(ctx, dir, "studio-basic", basic(false, false));
         write(ctx, dir, "studio-locked", basic(true, false));
         write(ctx, dir, "studio-two-logos", basic(false, true));
+        write(ctx, dir, "studio-sprite", sprite());
+    }
+
+    /**
+     * The basic project plus a 4 x 2 sprite sheet of faces ("s-face"): cell 0 named "smile", cell 1
+     * already tagged "mouth" (AN-05: tags are added to, kept, replaced and taken off).
+     */
+    private static Built sprite() {
+        Built b = basic(false, false);
+        com.fadcam.ui.faditor.sprite.SpriteSheet s =
+                com.fadcam.ui.faditor.sprite.SpriteSheet.create("Faces", "file:///bench/media/faces.png");
+        s.setGrid(4, 2);
+        s.setCellName(0, "smile");
+        com.fadcam.ui.faditor.sprite.SpriteSheet.Cell one = new com.fadcam.ui.faditor.sprite.SpriteSheet.Cell(1, "");
+        one.tags.add("mouth");
+        s.getCells().add(one);
+        b.p.getSpriteSheets().add(s);
+        b.ids.put(s.getId(), "s-face");
+        return b;
     }
 
     private static final class Built {

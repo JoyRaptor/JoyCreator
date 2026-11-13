@@ -947,6 +947,29 @@ public class IdeaEngineTest {
                     && n3.contains("The other 2 changes did go through.") && n3.length() < 200, String.valueOf(n3));
         }
 
+        // ── CellTags: Joybot's sprite cell tags, spelled as SpriteLab spells them (AN-05, 11-13) ──
+        {
+            java.util.List<String> parsed = com.fadcam.ui.faditor.ai.joybot.CellTags.parse(
+                    Arrays.asList(" Mouth ", "mouth, OPEN", "#blink", ""));
+            eq("cell tags: cleaned, split on commas, no repeats", "[mouth, open, blink]", parsed.toString());
+            java.util.List<String> have = Arrays.asList("mouth", "closed");
+            eq("cell tags: add keeps the old and adds the new", "[mouth, closed, open]",
+                    com.fadcam.ui.faditor.ai.joybot.CellTags.apply(have, Arrays.asList("open", "mouth"),
+                            com.fadcam.ui.faditor.ai.joybot.CellTags.Mode.ADD).toString());
+            eq("cell tags: set replaces", "[open]", com.fadcam.ui.faditor.ai.joybot.CellTags.apply(have,
+                    Arrays.asList("open"), com.fadcam.ui.faditor.ai.joybot.CellTags.Mode.SET).toString());
+            eq("cell tags: remove takes off only those", "[closed]", com.fadcam.ui.faditor.ai.joybot.CellTags.apply(have,
+                    Arrays.asList("mouth"), com.fadcam.ui.faditor.ai.joybot.CellTags.Mode.REMOVE).toString());
+            eq("cell tags: remove with none given clears", "[]", com.fadcam.ui.faditor.ai.joybot.CellTags.apply(have,
+                    new java.util.ArrayList<String>(), com.fadcam.ui.faditor.ai.joybot.CellTags.Mode.REMOVE).toString());
+            eq("cell tags: unknown mode is add", com.fadcam.ui.faditor.ai.joybot.CellTags.Mode.ADD,
+                    com.fadcam.ui.faditor.ai.joybot.CellTags.modeOf("whatever"));
+            eq("cell tags: replace means set", com.fadcam.ui.faditor.ai.joybot.CellTags.Mode.SET,
+                    com.fadcam.ui.faditor.ai.joybot.CellTags.modeOf(" Replace"));
+            check("cell tags: 'lip sync' wakes the sprite tools", com.fadcam.ui.faditor.ai.joybot.ToolRouter.pick(
+                    "tag the mouths for lip sync").contains("sprites"), "");
+        }
+
         // ── HelpBook.wantsChange: a request that must end in a change (Note 9, 2026-10-15) ──
         {
             check("wants change: name every cell", com.fadcam.ui.faditor.ai.joybot.HelpBook.wantsChange(

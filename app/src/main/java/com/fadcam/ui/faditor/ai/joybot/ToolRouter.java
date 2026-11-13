@@ -46,7 +46,7 @@ public final class ToolRouter {
         f.put("motion", "movement over time: keyframes for position, size, rotation, opacity");
         f.put("looks", "how things look: colour grade, LUTs, blend modes, green screen, position and size of layers");
         f.put("organise", "layers: order, duplicate, hide, lock, link, markers");
-        f.put("sprites", "sprite sheets: grid, cell names, animations, sequences, placing a sprite on the video");
+        f.put("sprites", "sprite sheets: grid, cell names and tags, animations, sequences, placing a sprite on the video");
         f.put("avatar", "avatar puppet rigs");
         f.put("story", "the story: structure, best parts, B-roll and chapter proposals");
         f.put("project", "the whole project: export, canvas shape, health check");
@@ -72,7 +72,7 @@ public final class ToolRouter {
                 + "bright\\w*|contrast|saturat\\w*|vintage|cinematic|bigger|smaller|position|corner");
         w("organise", "layers?|order|in front|behind|bring .* front|send .* back|duplicate|copy of|lock|hide|"
                 + "unhide|markers?|bookmark|link|group");
-        w("sprites", "sprites?|sprite sheet|sheet|cells?|frames?|walk cycle|character|expressions?");
+        w("sprites", "sprites?|sprite sheet|sheet|cells?|frames?|walk cycle|character|expressions?|mouths?|visemes?|lip.?sync");
         w("avatar", "avatar|puppet|rig");
         w("story", "story|narrative|structure|best (part|bits|moments)|highlights?|b-?roll|chapters?");
         w("vislab", "vislab|vis lab|visuali[sz]er looks?|music visuali[sz]er");
@@ -172,7 +172,7 @@ public final class ToolRouter {
         legacy("media", "list_broll", "add_broll_overlay", "tag_broll_assets", "rename_asset");
         legacy("story", "analyze_narrative_structure", "apply_narrative_proposal", "suggest_broll_placements",
                 "apply_broll_proposal");
-        legacy("sprites", "describe_sprite_sheet", "set_sprite_grid", "label_sprite_cells",
+        legacy("sprites", "describe_sprite_sheet", "set_sprite_grid", "label_sprite_cells", "tag_sprite_cells",
                 "author_sprite_animation", "apply_sprite_proposal", "describe_sequence", "edit_sequence");
         legacy("avatar", "author_avatar_rig", "apply_avatar_rig");
         legacy("project", "set_canvas_preset", "export_project", "health_check");

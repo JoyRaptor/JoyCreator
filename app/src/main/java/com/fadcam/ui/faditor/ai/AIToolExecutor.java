@@ -150,6 +150,7 @@ public class AIToolExecutor {
                 case "edit_sequence": return toolEditSequence(args);
                 case "set_sprite_grid": return toolSetSpriteGrid(args);
                 case "label_sprite_cells": return toolLabelSpriteCells(args);
+                case "tag_sprite_cells": return toolTagSpriteCells(args);
                 case "author_sprite_animation": return toolAuthorSpriteAnimation(args);
                 case "apply_sprite_proposal": return toolApplySpriteProposal(args);
                 case "author_avatar_rig": return toolAuthorAvatarRig(args);
@@ -403,6 +404,15 @@ public class AIToolExecutor {
                 occupancy and bounding boxes to decide. An empty name clears one.
                 Out-of-range cells are reported back, never silently skipped.
                 args: {"sheetId":"...","labels":{"0":"idle","1":"walk_01","2":""}}
+
+            33g. tag_sprite_cells — TAG cells so they can be found as a group across the sheet
+                ("mouth", "blink", "hand", "open"). A name says what one cell is; tags say
+                which family it belongs to (a lip-sync finds every "mouth", a puppet every
+                "hand"). A cell can carry several. mode "add" (default) keeps its tags and adds
+                these, "set" replaces them, "remove" takes these off (no tags: all of them).
+                Tags are lowercase, as SpriteLab writes them. describe_sprite_sheet lists every
+                cell's names and tags first. Out-of-range cells are reported back.
+                args: {"sheetId":"...","tags":{"0":["mouth","closed"],"1":"mouth, open"},"mode":"add|set|remove"}
 
             33f. apply_sprite_proposal — Apply grid + labels + animations in ONE call, when
                 you have just inspected a sheet and want to say "it is 8x4, these are the
@@ -1598,6 +1608,23 @@ public class AIToolExecutor {
 
             JSONObject out = new JSONObject();
             out.put("source", sheetId.isEmpty() ? "image" : ("sheet:" + sheetId));
+            // Names and tags FIRST (AN-05): what the sheet already knows about its cells is what
+            // the next step builds on, and it is kept even when per-cell detail is cut (over 256).
+            // Indexed as the tools number cells (display order); a name can live in the sheet's
+            // name map without a cell record, so read both stores.
+            JSONObject known = new JSONObject();
+            for (int i = 0, n = Math.min(sheet.cellCount(), 1024); i < n; i++) {
+                String nm = sheet.getCellNames().get(sheet.sourceCell(i));
+                com.fadcam.ui.faditor.sprite.SpriteSheet.Cell c = sheet.cellAt(i);
+                if ((nm == null || nm.isEmpty()) && c != null && !c.name.isEmpty()) nm = c.name;
+                boolean hasTags = c != null && !c.tags.isEmpty();
+                if ((nm == null || nm.isEmpty()) && !hasTags) continue;
+                JSONObject k = new JSONObject();
+                if (nm != null && !nm.isEmpty()) k.put("name", nm);
+                if (hasTags) k.put("tags", new JSONArray(c.tags));
+                known.put(String.valueOf(i), k);
+            }
+            if (known.length() > 0) out.put("namesAndTags", known);
             out.put("imageWidth", trueW);
             out.put("imageHeight", trueH);
             JSONObject grid = new JSONObject();
@@ -1625,6 +1652,7 @@ public class AIToolExecutor {
                     cj.put("index", i);
                     com.fadcam.ui.faditor.sprite.SpriteSheet.Cell named = sheet.cellAt(i);
                     if (named != null && !named.name.isEmpty()) cj.put("name", named.name);
+                    if (named != null && !named.tags.isEmpty()) cj.put("tags", new JSONArray(named.tags));
                     cj.put("x", src.left);
                     cj.put("y", src.top);
                     cj.put("w", src.width());
@@ -1993,6 +2021,77 @@ public class AIToolExecutor {
             out.append(" REJECTED (outside the ")
                .append(sheet.getCols() * sheet.getRows()).append("-cell grid): ")
                .append(rejected).append('.');
+        }
+        return out.toString();
+    }
+
+    /**
+     * AN-05: write cell TAGS, the second half of STATE 9 #12 (names were the first). Rules in
+     * {@link com.fadcam.ui.faditor.ai.joybot.CellTags}; the record is made under the SOURCE cell, as
+     * SpriteLab's own tag chips do ({@code SpriteSheetEditorActivity.ensureCell}), so a rearranged
+     * sheet keeps each tag on its picture.
+     */
+    private String toolTagSpriteCells(@NonNull JSONObject args) {
+        String sheetId = args.optString("sheetId", "");
+        if (sheetId.isEmpty()) return "Error: 'sheetId' is required.";
+        JSONObject tags = labelsAsObject(args.opt("tags"));
+        if (tags == null || tags.length() == 0) {
+            return "Error: 'tags' must be an object of cellIndex -> tags, "
+                    + "e.g. {\"0\":[\"mouth\",\"closed\"],\"1\":\"mouth, open\"}.";
+        }
+        com.fadcam.ui.faditor.ai.joybot.CellTags.Mode mode =
+                com.fadcam.ui.faditor.ai.joybot.CellTags.modeOf(args.optString("mode", "add"));
+        FaditorProject proj = storage.load(projectId);
+        if (proj == null) return "Error: project not found";
+        com.fadcam.ui.faditor.sprite.SpriteSheet sheet = proj.spriteSheetById(sheetId);
+        if (sheet == null) {
+            return "Error: no sprite sheet with id '" + sheetId + "'. " + availableSheetsLine(proj);
+        }
+        int count = sheet.cellCount();
+        int changed = 0;
+        java.util.List<String> rejected = new java.util.ArrayList<>();
+        java.util.Iterator<String> keys = tags.keys();
+        while (keys.hasNext()) {
+            String k = keys.next();
+            int cell;
+            try {
+                cell = Integer.parseInt(k.trim());
+            } catch (NumberFormatException e) {
+                rejected.add(k + " (not a cell index)");
+                continue;
+            }
+            if (cell < 0 || cell >= count) { rejected.add(String.valueOf(cell)); continue; }
+            java.util.List<String> given = new java.util.ArrayList<>();
+            Object v = tags.opt(k);
+            if (v instanceof JSONArray) {
+                JSONArray a = (JSONArray) v;
+                for (int i = 0; i < a.length(); i++) given.add(a.optString(i, ""));
+            } else if (v != null && v != JSONObject.NULL) {
+                given.add(String.valueOf(v));
+            }
+            given = com.fadcam.ui.faditor.ai.joybot.CellTags.parse(given);
+            com.fadcam.ui.faditor.sprite.SpriteSheet.Cell meta = sheet.cellAt(cell);
+            java.util.List<String> now = meta != null ? meta.tags : java.util.Collections.<String>emptyList();
+            java.util.List<String> next = com.fadcam.ui.faditor.ai.joybot.CellTags.apply(now, given, mode);
+            if (next.equals(now)) continue;
+            if (meta == null) {
+                meta = new com.fadcam.ui.faditor.sprite.SpriteSheet.Cell(sheet.sourceCell(cell), "");
+                sheet.getCells().add(meta);
+            }
+            meta.tags.clear();
+            meta.tags.addAll(next);
+            changed++;
+        }
+        if (changed == 0) {
+            return rejected.isEmpty()
+                    ? "Nothing to change: those cells already have those tags on '" + sheet.getName() + "'."
+                    : "Error: nothing applied. Rejected: " + rejected + ". This sheet has " + count + " cells.";
+        }
+        storage.save(proj);
+        AIChatState.signalModified(projectId);   // SpriteLab reloads on this, as for names
+        StringBuilder out = new StringBuilder("Tagged " + changed + " cell(s) on '" + sheet.getName() + "'.");
+        if (!rejected.isEmpty()) {
+            out.append(" REJECTED (outside the ").append(count).append("-cell grid): ").append(rejected).append('.');
         }
         return out.toString();
     }

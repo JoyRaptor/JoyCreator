@@ -66,6 +66,29 @@ Small rough edges the device sweeps found. Each one is the kind of thing that ma
   (`removedSpans`) are drawn on the timeline but playback and export ignore them. Clips already pointing at an
   old-style (v1) bake keep its early timing.
 
+## 11-13 (Studio lane, from `tasks/audits/remaining_work_20261113.md`)
+- STU-B2 Clean tab: wired into the audio drawer ("Clean": Reduce noise, Normalize loudness, Revert to original), so
+  Fix audio's "Revert in Clean tab" points at something real. Its own faults fixed first: Undo of a Revert left the
+  original playing (redo and undo were swapped), Revert's redo used a bare path, Undo of a bake deleted the
+  processed file so Redo pointed at nothing; every swap now re-reads the waveform and rebuilds the preview players.
+- STU-B4 old-style bakes: on open, a clip whose processed file is shorter than its out-point (made before 11-10,
+  early by the in-point) plays its original at once and is re-baked in the new style in the background
+  (`audio/EarlyBakeRepair`). Not a load-code change: it edits the open project like any other edit.
+- STU-E1 audio-only project read 00:00 on reopen: the total-time display returned early when there was no film.
+  It now shows where the last sound ends. Whether the clip itself draws on reopen: phone check owed.
+- STU-B3 (diagnosis, not fixed; bigger than the audit says): cut spans (`removedSpans`, made by striking transcript
+  words or tapping a yellow silence gap) are skipped by the PREVIEW for film clips only and ignored by EXPORT for
+  every clip, film and audio alike (no reader under `export/`). So a struck word plays in the file. Two ways out:
+  (a) export expands each clip's spans into kept pieces before building the composition, and TimeMap maps
+  riders across the closed gaps (preview must then close gaps the same way, today it only jumps the playhead);
+  (b) every action that makes a span makes pieces instead, as Clean and Joybot's cut already do (D8), keeping
+  strikes editable through the transcript. (b) is the smaller, single-authority change; it needs a decision on
+  whether a struck word stays re-instatable after the cut. Rule 5 (preview equals export) is broken until then.
+- STU-B5 (diagnosis only, Save/engine row): the chat parks each request's before as `ProjectStorage.toJson`
+  without marks (`AIChatState.Step.before`). Fix on the Joybot/save side: add the editor's undo marks payload
+  (`MarkerWorkspaceStore.toSnapshotJson` under `com.fadcam.editor.undo.markerWorkspace.v1`) to each Step.before
+  when the chat parks it; the editor already restores that key.
+
 ## What is left (from `tasks/todo.md` on 10-16/17; may already be fixed)
 - [ ] Caption motion "Type – word" stuck.
 - [ ] Caption hide-eye and outline swatch show no visible response.

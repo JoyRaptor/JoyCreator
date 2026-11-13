@@ -1,7 +1,7 @@
 // main.js — the media lab page: draw with a pen (pressure + tilt), or run a fixed test sheet.
 import { MediaEngine } from './engine.js';
 import { loadCatalogue, loadSurface, DOC_PX_PER_MM } from './paper.js';
-import { STICKS, DryStroke, stickMaterial, PRESS, MAT_OVERRIDE, ZONES } from './stick.js';
+import { STICKS, DryStroke, stickMaterial, inked, PRESS, MAT_OVERRIDE, ZONES } from './stick.js';
 import { SHEETS } from './tests.js';
 import { WET, WET_BRUSHES, WETNESS, WetStroke, paintFromColor, tiltSlope, THINNER, thinnerStroke } from './wet.js';
 import { SplineFeeder } from './spline.js';
@@ -46,6 +46,10 @@ function applyTuning() {
   Object.assign(PRESS, parse(qs.get('press')));
   Object.assign(MAT_OVERRIDE, parse(qs.get('mat')));
   Object.assign(STICKS.Proto, parse(qs.get('proto')));
+  // ?stick=<name>&stickdef=soft:0.6,plateau:3 retunes one pencil of the table for a test sheet: a number the stick's
+  // tuning has goes there, any other onto the stick itself (brush lane, 2026-11-13: the Proko comparison).
+  const sd = parse(qs.get('stickdef')), target = STICKS[qs.get('stick')];
+  if (target) for (const [k, v] of Object.entries(sd)) { if (target.tuning && k in target.tuning) target.tuning[k] = v; else target[k] = v; }
   if (qs.get('texel')) globalThis.__TEXEL_SCALE = Number(qs.get('texel'));
   Object.assign(ZONES, parse(qs.get('zones')));
   Object.assign(WET, parse(qs.get('wet')));
@@ -190,7 +194,7 @@ function runSheet(sheet, offset = [0, 0]) {
     }
     const stick = STICKS[st.tool];
     const ds = new DryStroke(stick, paper, DOC_PX_PER_MM);
-    const mat = stickMaterial(stick);
+    const mat = st.color ? inked(stickMaterial(stick), st.color) : stickMaterial(stick);
     const feeder = new SplineFeeder(s => ds.add(s));
     const put = st.spline === false ? s => ds.add(s) : s => feeder.add(s);
     for (let i = 0; i < st.samples.length; i++) {

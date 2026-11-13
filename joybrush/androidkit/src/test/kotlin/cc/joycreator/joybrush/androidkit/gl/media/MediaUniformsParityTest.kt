@@ -315,6 +315,7 @@ class MediaUniformsParityTest {
                 "u_capMm" to stick.capMm, "u_abrasion" to stick.abrasion, "u_flakeR" to stick.flakeR, "u_crushRate" to stick.crushRate,
                 "u_crushMax" to stick.crushMax, "u_smear" to stick.smear,
                 "u_smearPx" to doubleArrayOf(tx * stick.smearMm * 9.1 * lay.scale, ty * stick.smearMm * 9.1 * lay.scale),
+                "u_inkK" to floatArrayOf(0f, 0f, 0f), "u_inkS" to floatArrayOf(0f, 0f, 0f), "u_inkTint" to 0.0,
             )))
             r.new(dApply).let { u ->
                 MediaUniforms.common(u, lay.ox, lay.oy, lay.scale)

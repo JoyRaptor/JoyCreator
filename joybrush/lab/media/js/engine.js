@@ -563,6 +563,7 @@ export class MediaEngine {
       u_targetSize: [this.w, this.h], u_rect: rect,
       u_capMm: mat.capMm, u_abrasion: mat.abrasion, u_flakeR: mat.flakeR,
       u_crushRate: mat.crushRate, u_crushMax: mat.crushMax, u_smear: mat.smear,
+      u_inkK: mat.ink ? mat.ink.k : [0, 0, 0], u_inkS: mat.ink ? mat.ink.s : [0, 0, 0], u_inkTint: mat.ink ? mat.ink.tint : 0,
       u_smearPx: [t[0] * mat.smearMm * pxPerMm * this.scale, t[1] * mat.smearMm * pxPerMm * this.scale],
     });
     gl.bindVertexArray(this.quadVao);

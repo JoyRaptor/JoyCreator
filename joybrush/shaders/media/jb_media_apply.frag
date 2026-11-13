@@ -16,7 +16,7 @@ precision highp int;
 
 uniform sampler2D u_p0;          // K·X rgb, deposit volume V (mm)
 uniform sampler2D u_p1;          // S·X rgb, openness
-uniform sampler2D u_paperState;  // R crush (tooth units), G dry volume V (mm), B Σ V·flake reflectance
+uniform sampler2D u_paperState;  // R crush (tooth units), G dry volume V (mm), B Σ V·flake reflectance, A the tinted share of V
 uniform sampler2D u_delta;       // from jb_dry_dab.frag
 uniform vec2 u_targetSize;
 uniform float u_capMm;           // how much dry deposit the tooth holds (mm)
@@ -26,6 +26,12 @@ uniform float u_crushRate;       // tooth units per mm² of crush work
 uniform float u_crushMax;
 uniform float u_smear;           // fraction moved per mm slid in contact
 uniform vec2 u_smearPx;          // how far loose deposit is dragged (LAYER px, along travel)
+// A coloured stick (core/media/StickInk.kt): its deposit goes down as a pigment film in the paint planes, in the same
+// grain and amounts, and counts as tinted so the display does not also draw it as grey flakes. All zero = graphite,
+// to the bit as before.
+uniform vec3 u_inkK;             // K per mm of deposit
+uniform vec3 u_inkS;             // S per mm of deposit
+uniform float u_inkTint;         // 1 a colour, 0 graphite
 
 in vec2 v_docPx;
 in vec2 v_layerPx;
@@ -50,10 +56,10 @@ void main() {
     // read as a soft dusting rather than as dots. Rate ∝ how much the lead rubbed this pixel this frame.
     float sw = clamp(dl.a * u_smear, 0.0, 0.3);
     if (sw > 0.0) {
-        vec2 up = jb_bilinearL(u_paperState, lp - u_smearPx).gb;
-        vec2 nb = 0.25 * (jb_bilinearL(u_paperState, lp + vec2(1.5, 0.0)).gb + jb_bilinearL(u_paperState, lp - vec2(1.5, 0.0)).gb
-                        + jb_bilinearL(u_paperState, lp + vec2(0.0, 1.5)).gb + jb_bilinearL(u_paperState, lp - vec2(0.0, 1.5)).gb);
-        ps.gb = mix(ps.gb, mix(nb, up, 0.6), sw);
+        vec3 up = jb_bilinearL(u_paperState, lp - u_smearPx).gba;
+        vec3 nb = 0.25 * (jb_bilinearL(u_paperState, lp + vec2(1.5, 0.0)).gba + jb_bilinearL(u_paperState, lp - vec2(1.5, 0.0)).gba
+                        + jb_bilinearL(u_paperState, lp + vec2(0.0, 1.5)).gba + jb_bilinearL(u_paperState, lp - vec2(0.0, 1.5)).gba);
+        ps.gba = mix(ps.gba, mix(nb, up, 0.6), sw);
     }
 
     // Pile saturates as the tooth fills; dust settles freely until the tooth is full.
@@ -62,10 +68,15 @@ void main() {
     float add = pile + min(dl.b, room - pile);
     ps.g += add;
     ps.b += add * u_flakeR;
+    // The colour's share uses a sane deposit only (a pixel whose deposit is not one keeps graphite's old behaviour).
+    float inkAdd = abs(add) < 1.0 ? add : 0.0;
+    ps.a += inkAdd * u_inkTint;
     ps.r = min(u_crushMax, ps.r + u_crushRate * dl.g);
 
+    // A pixel whose state went bad lays no colour either: the paint planes keep what they had.
+    float ink = any(isnan(ps)) ? 0.0 : inkAdd;
     if (any(isnan(ps))) ps = keepS;
-    o_p0 = p0;
-    o_p1 = p1;
+    o_p0 = p0 + vec4(ink * u_inkK, 0.0);
+    o_p1 = p1 + vec4(ink * u_inkS, 0.0);
     o_paper = ps;
 }

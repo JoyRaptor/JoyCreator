@@ -3,6 +3,8 @@
 // az = the direction the barrel leans, doc space, counter-clockwise from +x.
 
 const D2R = Math.PI / 180;
+// ?stick=<name> draws the Proko comparison sheets (prokoside, proto) with another pencil of the table.
+const PENCIL = (typeof location !== 'undefined' && new URLSearchParams(location.search).get('stick')) || 'Proto';
 
 // A stroke: path(u) → [x, y] for u in 0..1, plus per-u pressure/tilt/az; mm per second sets the timing.
 function stroke(tool, lenMm, path, { p, tilt, az }, speedMm = 70, pxPerMm = 20) {
@@ -305,13 +307,72 @@ export const SHEETS = {
     paper: 'drawing_tooth',
     strokes() {
       const s = [], L = 200;   // barrel to the lower left of the hand: the tip edge is on the right
-      const vert = (x, p, tilt, lenPx = 1100) => stroke('Proto', lenPx / 20, u => [x + 30 * Math.sin(u * 2.4), 1900 - u * lenPx], { p, tilt, az: L }, 90);
+      const vert = (x, p, tilt, lenPx = 1100) => stroke(PENCIL, lenPx / 20, u => [x + 30 * Math.sin(u * 2.4), 1900 - u * lenPx], { p, tilt, az: L }, 90);
       s.push(vert(140, env(0.75, 0.6), 76));      // 3: firm, dark tip edge
       s.push(vert(390, env(0.45, 0.6), 80));      // 2: wide, softer
       s.push(vert(630, env(0.22, 0.6), 79));      // 1: light, soft
       s.push(vert(870, env(0.6, 0.5), 75));       // 4: curved, darker edge
-      s.push(stroke('Proto', 120, zig(80, 700, 560, 140, 3.5), { p: env(0.55, 0.5), tilt: 74, az: L }, 110));
-      s.push(stroke('Proto', 90, zig(60, 760, 240, 90, 6), { p: env(0.9, 0.5), tilt: 30, az: L }, 110));
+      s.push(stroke(PENCIL, 120, zig(80, 700, 560, 140, 3.5), { p: env(0.55, 0.5), tilt: 74, az: L }, 110));
+      s.push(stroke(PENCIL, 90, zig(60, 760, 240, 90, 6), { p: env(0.9, 0.5), tilt: 30, az: L }, 110));
+      return s;
+    },
+  },
+  // The owner's three Proko screenshots of 2026-11-13 (tasks/joybrush/research/proko_pencil_20261113), one sheet: six
+  // pressure steps upright (1.jpg / 3.jpg), two upright S lines that fade, a tilted ribbon S and a tilted zigzag whose
+  // dark edge swaps sides through the turns (3.jpg), three tall side strokes light / wide / firm (2.jpg), a firm upright
+  // zigzag that thins to a hairline, a super light soft sweep, and two crossing side strokes (how passes build).
+  proko: {
+    size: [1000, 1700],
+    paper: 'drawing_tooth',
+    strokes() {
+      const s = [], L = 200;
+      [0.06, 0.14, 0.26, 0.42, 0.65, 1.0].forEach((p, i) =>
+        s.push(stroke(PENCIL, 10, line(700, 1600 - i * 34, 900, 1560 - i * 34), { p: env(p, 0.5), tilt: 8, az: L }, 90)));
+      s.push(stroke(PENCIL, 45, bez([180, 1620], [120, 1380], [420, 1700], [760, 1640]), { p: env(0.95, 0.05), tilt: 8, az: L }, 90));
+      s.push(stroke(PENCIL, 50, bez([100, 1500], [80, 1220], [460, 1600], [640, 1360]), { p: env(0.85, 0.2), tilt: 10, az: L }, 90));
+      s.push(stroke(PENCIL, 60, bez([60, 1180], [330, 980], [520, 1420], [800, 1080]), { p: env(0.55, 0.3), tilt: 58, az: L }, 80));
+      s.push(stroke(PENCIL, 90, zig(80, 620, 900, 110, 3), { p: env(0.75, 0.4), tilt: 66, az: L }, 90));
+      const vert = (x, p, tilt, lenPx = 560) => stroke(PENCIL, lenPx / 20, u => [x + 20 * Math.sin(u * 2.4), 680 - u * lenPx], { p, tilt, az: L }, 90);
+      s.push(vert(110, env(0.2, 0.6), 79));
+      s.push(vert(330, env(0.45, 0.6), 80));
+      s.push(vert(540, env(0.8, 0.6), 76));
+      s.push(stroke(PENCIL, 60, zig(640, 960, 620, 60, 5), { p: ramp(0.95, 0.03), tilt: 20, az: L }, 110));
+      s.push(stroke(PENCIL, 40, bez([660, 520], [760, 470], [860, 480], [980, 380]), { p: ramp(0.3, 0.03), tilt: 70, az: L }, 70));
+      s.push(stroke(PENCIL, 16, line(680, 330, 960, 110), { p: env(0.5, 0.5), tilt: 74, az: L }, 90));
+      s.push(stroke(PENCIL, 16, line(680, 110, 960, 330), { p: env(0.5, 0.5), tilt: 74, az: L - 90 }, 90));
+      s.push(stroke(PENCIL, 140, zig(700, 960, 800, 30, 9), { p: env(1.0, 0.6), tilt: 45, az: L }, 120));
+      return s;
+    },
+  },
+  // The pencil takes a colour (the owner, 2026-11-13). One pencil (?stick=): black graphite first, then red, blue,
+  // yellow and green, each a firm upright line, a tilted side stroke and a light one; yellow and blue side strokes
+  // crossing (they should read green where both lie); a mid grey and a white pencil over a dark graphite patch; red
+  // over graphite and graphite over red.
+  pencilcolour: {
+    size: [1200, 1000],
+    paper: 'drawing_tooth',
+    strokes() {
+      const s = [], L = 200;
+      const COL = [null, [0.80, 0.12, 0.10], [0.12, 0.25, 0.75], [0.95, 0.80, 0.10], [0.10, 0.55, 0.25]];
+      const dry = (st, color) => (color ? { ...st, color } : st);
+      COL.forEach((c, i) => {
+        const y = 940 - i * 110;
+        s.push(dry(stroke(PENCIL, 16, line(40, y, 360, y - 30), { p: env(0.9, 0.3), tilt: 8, az: L }, 90), c));
+        s.push(dry(stroke(PENCIL, 16, line(420, y, 740, y - 30), { p: env(0.7, 0.5), tilt: 74, az: L - 90 }, 90), c));
+        s.push(dry(stroke(PENCIL, 16, line(820, y, 1140, y - 30), { p: env(0.25, 0.5), tilt: 74, az: L - 90 }, 90), c));
+      });
+      // Yellow then blue, crossing.
+      s.push(dry(stroke(PENCIL, 18, line(60, 360, 400, 160), { p: 0.7, tilt: 74, az: L }, 90), COL[3]));
+      s.push(dry(stroke(PENCIL, 18, line(60, 160, 400, 360), { p: 0.7, tilt: 74, az: L - 90 }, 90), COL[2]));
+      // A dark graphite patch, then a mid grey and a white pencil across it.
+      s.push(stroke(PENCIL, 200, zigzag(480, 150, 300, 220, 14), { p: 0.9, tilt: 70, az: L }, 120));
+      s.push(dry(stroke(PENCIL, 20, line(440, 320, 820, 300), { p: 0.9, tilt: 20, az: L }, 90), [0.5, 0.5, 0.5]));
+      s.push(dry(stroke(PENCIL, 20, line(440, 220, 820, 200), { p: 0.9, tilt: 20, az: L }, 90), [1, 1, 1]));
+      // Red over graphite, graphite over red.
+      s.push(stroke(PENCIL, 12, line(880, 360, 1140, 340), { p: 0.8, tilt: 72, az: L - 90 }, 90));
+      s.push(dry(stroke(PENCIL, 10, line(1000, 400, 1020, 180), { p: 0.8, tilt: 72, az: L }, 90), COL[1]));
+      s.push(dry(stroke(PENCIL, 12, line(880, 240, 1140, 220), { p: 0.8, tilt: 72, az: L - 90 }, 90), COL[1]));
+      s.push(stroke(PENCIL, 5, line(920, 280, 940, 180), { p: 0.8, tilt: 72, az: L }, 90));
       return s;
     },
   },
@@ -535,19 +596,19 @@ export const SHEETS = {
     size: [1000, 1500],
     strokes() {
       const s = [], L = -45;   // right-handed lean: barrel toward lower right
-      s.push(stroke('Proto', 45, bez([185, 1245], [150, 1370], [420, 1080], [720, 1330]), { p: env(0.95, 0.1), tilt: 8, az: L }, 90));
-      s.push(stroke('Proto', 50, bez([125, 1085], [60, 880], [480, 1000], [800, 1160]), { p: env(1.0, 0.25), tilt: 6, az: L }, 90));
-      s.push(stroke('Proto', 60, bez([60, 930], [330, 660], [520, 1120], [780, 760]), { p: env(0.5, 0.3), tilt: 52, az: L }, 80));
-      s.push(stroke('Proto', 70, bez([40, 520], [420, 300], [200, 980], [680, 560]), { p: env(0.65, 0.4), tilt: 66, az: L }, 80));
-      s.push(stroke('Proto', 70, zig(260, 760, 300, 120, 3.5), { p: env(0.75, 0.4), tilt: 67, az: L }, 90));
-      s.push(stroke('Proto', 40, zig(740, 900, 170, 70, 4), { p: env(0.9, 0.5), tilt: 64, az: L }, 90));
+      s.push(stroke(PENCIL, 45, bez([185, 1245], [150, 1370], [420, 1080], [720, 1330]), { p: env(0.95, 0.1), tilt: 8, az: L }, 90));
+      s.push(stroke(PENCIL, 50, bez([125, 1085], [60, 880], [480, 1000], [800, 1160]), { p: env(1.0, 0.25), tilt: 6, az: L }, 90));
+      s.push(stroke(PENCIL, 60, bez([60, 930], [330, 660], [520, 1120], [780, 760]), { p: env(0.5, 0.3), tilt: 52, az: L }, 80));
+      s.push(stroke(PENCIL, 70, bez([40, 520], [420, 300], [200, 980], [680, 560]), { p: env(0.65, 0.4), tilt: 66, az: L }, 80));
+      s.push(stroke(PENCIL, 70, zig(260, 760, 300, 120, 3.5), { p: env(0.75, 0.4), tilt: 67, az: L }, 90));
+      s.push(stroke(PENCIL, 40, zig(740, 900, 170, 70, 4), { p: env(0.9, 0.5), tilt: 64, az: L }, 90));
       [0.05, 0.12, 0.25, 0.45, 0.7, 1.0].forEach((p, i) =>
-        s.push(stroke('Proto', 12, line(750, 1010 - i * 34, 900 + i * 12, 960 - i * 40), { p: env(p, 0.4), tilt: 7, az: L }, 90)));
-      s.push(stroke('Proto', 50, bez([60, 70], [160, 300], [300, 160], [440, 420]), { p: env(0.12, 0.6), tilt: 70, az: L }, 60));
+        s.push(stroke(PENCIL, 12, line(750, 1010 - i * 34, 900 + i * 12, 960 - i * 40), { p: env(p, 0.4), tilt: 7, az: L }, 90)));
+      s.push(stroke(PENCIL, 50, bez([60, 70], [160, 300], [300, 160], [440, 420]), { p: env(0.12, 0.6), tilt: 70, az: L }, 60));
       [0.15, 0.6, 0.9].forEach((p, i) =>
-        s.push(stroke('Proto', 5, line(110, 470 - i * 30, 175, 430 - i * 30), { p: env(p, 0.3), tilt: 8, az: L }, 70)));
+        s.push(stroke(PENCIL, 5, line(110, 470 - i * 30, 175, 430 - i * 30), { p: env(p, 0.3), tilt: 8, az: L }, 70)));
       // Soft shading: a tilted sweep that eases from firm to a feather touch fans out wide and faint.
-      s.push(stroke('Proto', 45, bez([520, 1460], [640, 1400], [760, 1420], [960, 1300]), { p: ramp(0.55, 0.04), tilt: 68, az: L }, 70));
+      s.push(stroke(PENCIL, 45, bez([520, 1460], [640, 1400], [760, 1420], [960, 1300]), { p: ramp(0.55, 0.04), tilt: 68, az: L }, 70));
       return s;
     },
   },

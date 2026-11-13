@@ -906,6 +906,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         need(rect, n.reach)
         touch(rect)
         stores += "paper"
+        // A coloured stick lays its colour in the paint planes (StickInk): they are written back too.
+        if (mat.ink?.tinted == true) { stores += "p0"; stores += "p1" }
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, deltaFbo)
         GLES30.glViewport(0, 0, w, h)
         GLES30.glEnable(GLES30.GL_BLEND)

@@ -924,7 +924,8 @@ class MediaCanvas(
             e.reloadBrush(opaquePaint(color), paste, seed, belly)
             brush = paste
         }
-        if (spec.medium == MEDIUM_DRY) mat = StickMaterial.of(spec.stick!!)
+        // The pencil takes the chosen colour (the owner, 2026-11-13): black is the stick's own graphite as before.
+        if (spec.medium == MEDIUM_DRY) mat = StickMaterial.of(spec.stick!!).inked(color)
         val toothMm = paint.mediaPaper().stats.toothMm
         val lanes = maps.map { map -> makeLane(map, spec, color, toothMm, seed, thinned) }
         if (spec.medium == MEDIUM_WET) e.wetGran = spec.wet!!.gran

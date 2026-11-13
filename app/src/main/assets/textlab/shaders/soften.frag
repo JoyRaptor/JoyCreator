@@ -4,6 +4,12 @@
 in vec2 vUv;
 out vec4 o;
 uniform sampler2D uSrc;
+#ifdef SOFTEN_WOBBLE_READ
+uniform sampler2D uWob;    // the wobble's offset for each pixel, worked out once (SOFTEN_WOBBLE_ONLY)
+#endif
+#ifdef SOFTEN_C_FROM_PREV
+uniform sampler2D uPrev;   // the first shape pass's finished pixel (wobble and chips done)
+#endif
 uniform vec2  uStep;     // one field pixel along this pass's direction, in uv
 uniform float uRadius;   // blur radius in field pixels
 uniform vec4  uWobble;   // amount em, scale, speed, 1 = this pass wobbles
@@ -11,6 +17,15 @@ uniform vec2  uChip;     // crystal chips: how deep a chip bites (em), crystals 
 uniform float uGrow;     // crystal growth: how far a shard stands proud of the outline (em)
 uniform vec4  uDrip;     // drips from undersides: longest (em), drips per em, thickness (em), speed
 uniform vec4  uSplash;   // drops that leap off the tops: how high (em), drops per em, drop size (em), speed
+
+// Which pieces this program holds. The engine names them (SOFTEN_PARTS plus each piece in use, or SOFTEN_BLUR_ONLY,
+// and SOFTEN_SHAPE_ONLY for a pass that only changes the shape); an engine that names nothing gets them all.
+#if !defined(SOFTEN_PARTS) && !defined(SOFTEN_BLUR_ONLY)
+#define SOFTEN_WOBBLE
+#define SOFTEN_CHIPS
+#define SOFTEN_DRIP
+#define SOFTEN_SPLASH
+#endif
 float smax(float a, float b, float k) { float h = max(k - abs(a - b), 0.0) / k; return max(a, b) + h * h * k * 0.25; }
 
 // How far along its column (dir +1 up, -1 down) from this point the letter's edge is; -1 = none in reach.
@@ -87,13 +102,27 @@ float splashOf(vec2 p, float colm, out vec3 facts) {
 
 void main() {
     vec2 uv = vUv;
+#ifdef SOFTEN_WOBBLE
     if (uWobble.w > 0.5 && uWobble.x > 0.0) {
         vec2 p = uv * uField.xy;
         vec2 w = vec2(fbm2(p * uWobble.y + vec2(0.0, -uTime * uWobble.z)),
                       fbm2(p * uWobble.y + vec2(31.7, uTime * uWobble.z * 0.8))) - 0.5;
         uv += w * uWobble.x * 2.0 / uField.xy;
     }
+#endif
+#ifdef SOFTEN_WOBBLE_ONLY
+    o = vec4(uv - vUv, 0.0, 0.0);                   // only the offset, for the passes after (32-bit, so exact)
+    return;
+#endif
+#ifdef SOFTEN_WOBBLE_READ
+    uv += texture(uWob, vUv).xy;
+#endif
+#ifdef SOFTEN_C_FROM_PREV
+    vec4 c = texture(uPrev, vUv);                  // wobble and chips were done by the pass before
+#else
     vec4 c = texture(uSrc, uv);
+#endif
+#ifdef SOFTEN_CHIPS
     if (uWobble.w > 0.5 && uChip.x + uGrow > 0.0) {
         // crystal chips: whole angular cells of the shape are bitten back, so the outline breaks in
         // straight facets (the same cells the look draws its fissures along, so a chip leads to a crack).
@@ -102,6 +131,8 @@ void main() {
         c.r -= uChip.x * smoothstep(0.5, 0.72, v.z) * (0.35 + 0.65 * v.z);
         c.r += uGrow * smoothstep(0.38, 0.12, v.z) * (1.0 - smoothstep(0.25, 0.6, v.x));
     }
+#endif
+#ifdef SOFTEN_DRIP
     if (uWobble.w > 0.5 && uDrip.x > 0.0) {
         // DRIPS: the nearer two columns' drips, joined to the letter with a wet fillet. A drip is a true
         // shape in the field, so it takes the look's whole finish (bevel, gloss, shadow) like the letter.
@@ -118,6 +149,8 @@ void main() {
             c.r = max(c.r, da) + h * h * k * 0.25;
         }
     }
+#endif
+#ifdef SOFTEN_SPLASH
     if (uWobble.w > 0.5 && uSplash.x > 0.0) {
         // SPLASHES: drops leap from the tops and fall back; where one touches the letter the two run together
         vec2 p = uv * uField.xy;
@@ -131,6 +164,10 @@ void main() {
             c.r = smax(c.r, da, uSplash.z * 1.2);
         }
     }
+#endif
+#ifdef SOFTEN_SHAPE_ONLY
+    o = c;
+#else
     if (uRadius < 0.25) { o = c; return; }
     float sigma = uRadius * 0.5;
     float sum = c.r, wsum = 1.0;
@@ -141,4 +178,5 @@ void main() {
         wsum += 2.0 * w;
     }
     o = vec4(sum / wsum, c.gba);
+#endif
 }

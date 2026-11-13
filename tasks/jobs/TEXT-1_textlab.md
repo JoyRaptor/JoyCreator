@@ -235,6 +235,37 @@ Built on the computer, as VisLab was, with the shader files written ONCE in the 
   - A slip found on the way: a slider group that fills only three of a four-number setting is silently refused
     (`Program.set` warns in the console and sets nothing), so the bare steel, paint sheen and steel shine all read
     as zero until the setting was declared with three numbers.
+- **T13, the eight slow looks (2026-11-13, the owner asked through the Studio session).** All eight now run under
+  33 ms on the Note 9 (its own GPU through its Chrome, 1280 wide, 28.7 C, two runs each):
+  | Look | before | after |
+  |---|---|---|
+  | Diamond | 48.1 | 24.8 |
+  | Water (his settings) | 48.1 | 31.7 |
+  | Rusted | 45.1 | 20.2 |
+  | Carved Stone | 35.4 | 20.6 |
+  | Fizz | 32.6 | 17.6 |
+  | Voltage | 29.4 | 21.5 |
+  | Overgrown | 29.1 | 19.2 |
+  | Crystal Ice | 28.8 | 19.1 |
+  ("Before" is the original code measured the same night at 27.8 C; the roadmap's older numbers came from a warmer
+  phone.) **No look changed:** all 35 looks' stills were compared with the original code's (`tools/textlab-web/tl-compare.js`,
+  1280 x 720 at 3.0 s and 6.3 s): the worst (Chrome 84, Rusted) have 0.004% of their values off by more than 8 out of
+  255, scattered single pixels on sharp highlights, from the compiler arranging the same sums differently.
+  **What it took.** On this phone a program's SIZE is the cost, more than its work: code switched off by a setting
+  still slows everything round it, and two small passes beat one big one. Measured: Rusted's rust costs 4 ms on a
+  flat letter and 24 ms in the same program as the 3D march. So:
+  - the depth march runs as its own pass (`MARCH_PASS` writes each pixel's hit to a 32-bit target, `MARCH_READ`
+    paints from it); a look seen straight on is built without the march at all (`FLAT_FACE`);
+  - the shape pass builds only the pieces in use (`SOFTEN_PARTS` + `SOFTEN_WOBBLE` / `_CHIPS` / `_DRIP` / `_SPLASH`),
+    the blur passes are blur alone (`SOFTEN_BLUR_ONLY`), and a look with drops runs its shape work as a chain of
+    small passes (chips, drips, splashes, each reading the last: `SOFTEN_SHAPE_ONLY`, `SOFTEN_C_FROM_PREV`), with the
+    wobble's offset worked out once into a 32-bit layer (`SOFTEN_WOBBLE_ONLY` / `_READ`);
+  - the far-lights backdrop's 26 lights are a table read back from the GPU (they were recomputed per pixel: 7 ms);
+  - cut-stone and rock reliefs are built for their one kind (`DETAIL_KIND`); ripples are NOT (measured 35 -> 53 ms).
+  Tried and dropped, measured slower or no faster: a shared search for the relief's three points, the relief's slope
+  from the noise's own slope (it also moved Water's highlights), fewer blur samples, the march as an unknown-length
+  loop. The shaders work unchanged in an engine that passes none of these names (they compile whole, as before), so
+  the phone app is correct today; it is faster once `TextLabRenderer` makes the same passes (sent to the Studio session).
 - **Honest limits today:** the fire is good stylised fire, not yet the photograph the owner showed;
   water and the other drafts are below the bar; only the app's own fonts are used (Archivo, Plex,
   Ubuntu, Doto), so there is no script or true display face yet.
@@ -507,6 +538,12 @@ real work, not done; the itemised history follows.
   is the same for every point on one ray out of the edge; noise read there gives one value per ray. Where two
   edges' rays meet (gradient shorter than 1) fade it out, or it shows as slits.
 - A shape change (drip, splash) must be its own pass BEFORE the rounding blur, or the blur dilutes it away.
+- **Program size is the Note 9's real cost (measured 2026-11-13, T13):** code a setting switches off still slows the
+  whole program, and two small passes beat one big one (Rusted 45 -> 20 ms by moving the march into its own pass).
+  Prefer a build option (`#define` from the engine) to a runtime switch for big optional code; split a heavy
+  program into passes with a 32-bit target between them; and MEASURE each change on the phone: making a value a
+  compile-time constant helped two relief kinds and made a third 50% slower. Time with `?bench=1&only=...`
+  (`&k=`, `&nop=1`, `&minus=`, `&stage=`, `&nosplit=1`, `&onekind=0`), prove the picture with `tl-compare.js`.
 - **What the Note 9's driver skips (measured 11-11):** a branch whose test is a slider (uniform) alone IS skipped;
   a per-pixel test round a block of texture looks is NOT (all the looks still run). So: guard optional work by
   its own slider (`if (uStone.z > 0.0)` took Overgrown from 54 to 36 ms), and replace search loops that `break`

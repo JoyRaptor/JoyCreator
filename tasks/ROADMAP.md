@@ -144,7 +144,7 @@ One line per job. The card holds the detail. "Owner" is the session or harness t
 |---|---|---|---|---|---|
 | [DOOR-1](jobs/DOOR-1_feature_map_audit.md) | Map every feature to the path a user takes to reach it; find the dead ends, the hidden pockets and the FadCam-shaped routes | ✅ report written 10-28, lead to review | Sonnet Worker 1 | [tasks/audits/feature_reach_20261028.md](audits/feature_reach_20261028.md) | 10-28 |
 | [DOOR-2](jobs/DOOR-2_lobby_landing.md) | The lobby: clear at a glance whether you are here to draw, edit, visualise, animate or record; every room and button honest | ⬜ design can start; build after M1; recents with sheets, characters and looks built 11-04 (compiled, lobby not regressed on the Note 9, new cards not yet seen) | open | Mix-and-match design page; open a sprite sheet and look for its lobby card; owner call: cap recents at 10 or a slot per kind | 11-04 |
-| [DOOR-3](jobs/DOOR-3_first_run.md) | First run: intro, permissions asked where they are used, folder step, a demo project | ⬜ | open | Needs S5 for the copy | 10-27 |
+| [DOOR-3](jobs/DOOR-3_first_run.md) | First run: intro, permissions asked where they are used, folder step, a demo project | ⬜; 11-13: the folder step was skipped on Android 11+ (the picker lookup was empty under targetSdk 36); fixed in 0c5a597dc by declaring it in the manifest, found on the Android 15 test tablet; not re-seen after the fix by this lane | open | Needs S5 for the copy | 11-13 |
 | [DOOR-4](jobs/DOOR-4_interwoven.md) | Wings that hand work to each other (JoyBrush to an existing Studio project, VisLab and Studio, SpriteLab, the Library showing everything) | ⬜ partly built | open | Inventory from DOOR-1, then one flow at a time | 10-27 |
 
 ### M3 Free of FadCam

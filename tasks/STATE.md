@@ -636,6 +636,7 @@ so they stay 🟡 and are not to be promoted yet. Old screens are kept reachable
 
 | Feature | Level | Notes |
 |---|---|---|
+| The required folder step shows on Android 11 and newer | 🟡 | 11-13 (0c5a597dc): on the Android 15 test tablet a fresh install skipped the folder step and went straight to the lobby, because the picker lookup came back empty without a manifest `<queries>` entry (the Note 9, Android 10, never filtered). Fixed in the manifest; the fix was not re-seen on a device by the lane that wrote this row. Help: not needed. |
 | App name is "Joy Creator" | 🟢 ✔ | strings.xml line 2 |
 | Only 19 of 2,844 strings say "FadCam" | ✔ | Branding surface is small. Recounted 11-04 (`grep -c` on `values/strings.xml`: 19 lines of 2,844 `<string>` entries); user-visible wording was moved to Joy Creator on 10-28 (5885d6499, UI-1 part A) and 10-20 (d5710ef80). Cloud device name and dashboard toast left as written until the cloud screens' fate is decided (7d01fbd07). |
 | Intro with animated fading lines | 🟢 ✔ | RowFadeAnimator — **the cycling-words mechanic already exists** |

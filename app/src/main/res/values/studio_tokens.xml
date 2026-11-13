@@ -150,6 +150,8 @@
     <color name="s_video">#FF4397FD</color>
     <color name="s_room_avatar_deep">#FF8C3DFA</color>
     <color name="s_room_viz_deep">#FFFC6818</color>
+    <color name="s_room_textlab">#FF38A3FF</color>
+    <color name="s_room_textlab_deep">#FF3B4BFF</color>
     <color name="s_armed_light">#FF55E0F9</color>
     <color name="s_orb_deep">#FF5C43FD</color>
 </resources>

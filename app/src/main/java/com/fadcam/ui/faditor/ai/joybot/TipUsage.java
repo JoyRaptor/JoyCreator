@@ -107,6 +107,7 @@ public final class TipUsage {
         switch (room) {
             case STUDIO: return TipBook.Wing.STUDIO;
             case VISLAB: return TipBook.Wing.VISLAB;
+            case TEXTLAB: return TipBook.Wing.TEXTLAB;
             case JOYBRUSH: return TipBook.Wing.JOYBRUSH;
             case SPRITELAB: case AVATAR: return TipBook.Wing.SPRITELAB;
             case LIBRARY: return TipBook.Wing.LIBRARY;

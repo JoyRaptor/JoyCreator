@@ -136,6 +136,7 @@ public class LobbyFragment extends BaseFragment {
     private static final int ROOM_AVATAR   = 3;
     private static final int ROOM_VIZ      = 4;
     private static final int ROOM_JOYBRUSH = 5;
+    private static final int ROOM_TEXTLAB  = 6;
 
     /** Ink for the dark room gradients: pure white, studio_tokens.xml {@code s_on_room}. */
     private static int onRoom(@NonNull android.content.Context c) {
@@ -498,6 +499,12 @@ public class LobbyFragment extends BaseFragment {
                 Studio.ROOM_VIZ, Studio.ROOM_VIZ_DEEP, ON_LIGHT, getString(R.string.lobbyv2_tag_last_visualiser),
                 getString(R.string.lobby_act_start),
                 getString(R.string.lobby_empty_viz), -1, "graphic_eq"));
+
+        // TEXT-1: TextLab, film-poster words. Its own room (no project needed), like VisLab.
+        rooms.add(new Room(ROOM_TEXTLAB, getString(R.string.lobby_room_textlab),
+                Studio.ROOM_TEXTLAB, Studio.ROOM_TEXTLAB_DEEP, onRoom, getString(R.string.lobbyv2_tag_last_look),
+                getString(R.string.lobby_act_open),
+                getString(R.string.lobby_empty_textlab), -1, "title"));
 
         // JB-0.09 — Joy Brush, the painting room. Rooms are addressed by id (ROOM_*), not by position, so
         // where it sits on the dial is a design choice only. Its colours are Joy Brush's own (jb_tokens.xml,
@@ -1041,6 +1048,7 @@ public class LobbyFragment extends BaseFragment {
         // A sheet or character the hero names, so tapping it opens exactly that.
         heroPart = null;
         com.fadcam.vislab.room.LobbyHero.Shown vizShown = null;
+        cc.joycreator.textlab.TlLobbyHero.Shown tlShown = null;
 
         if (r.id == ROOM_CAPTURE) {
             // Capture's hero is the room's READINESS, not a picture of a camera. Until the
@@ -1075,6 +1083,12 @@ public class LobbyFragment extends BaseFragment {
                 hasContent = false;
                 name = sub = "";
             }
+        } else if (r.id == ROOM_TEXTLAB && (tlShown = cc.joycreator.textlab.TlLobbyHero.read(requireContext())) != null) {
+            // TextLab keeps a still of the look you left it on (TextLabActivity.onPause).
+            hasContent = true;
+            name = tlShown.name;
+            sub = "";
+            art = tlShown.image;
         } else if (r.id == ROOM_VIZ && (vizShown = com.fadcam.vislab.room.LobbyHero.read(requireContext())) != null) {
             // VisLab keeps a still of the look you left it on (VisLabActivity.onPause).
             hasContent = true;
@@ -1141,7 +1155,7 @@ public class LobbyFragment extends BaseFragment {
                     getResources().getDisplayMetrics().density));
             if (lastDrawing != null) {
                 loadThumbInto(heroArt, lastDrawing.thumbPath);
-            } else if (heroPart != null || vizShown != null) {
+            } else if (heroPart != null || vizShown != null || tlShown != null) {
                 loadThumbInto(heroArt, art);   // the sheet's / look's own picture; plain ground if it has none
             } else if (!projects.isEmpty() && r.id != ROOM_CAPTURE) {
                 loadThumbInto(heroArt, projects.get(0).videoUri);
@@ -1167,7 +1181,7 @@ public class LobbyFragment extends BaseFragment {
         heroSub.setText(sub);
         heroSub.setVisibility(hasContent ? View.VISIBLE : View.INVISIBLE);
 
-        heroAction.setText(lastDrawing != null || vizShown != null ? getString(R.string.lobby_act_carry_on)
+        heroAction.setText(lastDrawing != null || vizShown != null || tlShown != null ? getString(R.string.lobby_act_carry_on)
                 : hasContent || r.id == ROOM_JOYBRUSH ? r.action : getString(R.string.lobby_act_start));
         heroAction.setTextColor(r.onGrad);
         heroAction.setBackground(pillGradient(r.gradA, r.gradB, dp(999)));
@@ -1211,6 +1225,10 @@ public class LobbyFragment extends BaseFragment {
         if (r.id == ROOM_VIZ) {
             startActivity(new Intent(requireContext(), com.fadcam.vislab.room.VisLabActivity.class)
                     .putExtra(com.fadcam.vislab.room.VisLabActivity.EXTRA_NEW_LOOK, true));
+            return;
+        }
+        if (r.id == ROOM_TEXTLAB) {
+            startActivity(new Intent(requireContext(), cc.joycreator.textlab.TextLabActivity.class));
             return;
         }
         openProjects(r.id == ROOM_STUDIO);
@@ -1259,6 +1277,13 @@ public class LobbyFragment extends BaseFragment {
 
         if (r.id == ROOM_VIZ) {                                      // VisLab: its own room (VISLAB_20261016)
             startActivity(new Intent(requireContext(), com.fadcam.vislab.room.VisLabActivity.class));
+            return;
+        }
+        if (r.id == ROOM_TEXTLAB) {                                  // TextLab: its own room, on the last look
+            cc.joycreator.textlab.TlLobbyHero.Shown h = cc.joycreator.textlab.TlLobbyHero.read(requireContext());
+            Intent i = new Intent(requireContext(), cc.joycreator.textlab.TextLabActivity.class);
+            if (h != null && !h.key.isEmpty()) i.putExtra(cc.joycreator.textlab.TextLabActivity.EXTRA_LOOK_ID, h.key);
+            startActivity(i);
             return;
         }
 
@@ -1684,6 +1709,7 @@ public class LobbyFragment extends BaseFragment {
     private static final int G_SPRITE_A  = Studio.ROOM_SPRITE,  G_SPRITE_B  = Studio.ROOM_AVATAR;
     private static final int G_AVATAR_A  = Studio.ROOM_AVATAR,  G_AVATAR_B  = Studio.ROOM_AVATAR_DEEP;
     private static final int G_VIZ_A     = Studio.ROOM_VIZ,     G_VIZ_B     = Studio.ROOM_VIZ_DEEP;
+    private static final int G_TEXT_A    = Studio.ROOM_TEXTLAB, G_TEXT_B    = Studio.ROOM_TEXTLAB_DEEP;
 
     /**
      * Merge projects and recordings into one recency-ordered list, off the main thread.
@@ -1716,6 +1742,8 @@ public class LobbyFragment extends BaseFragment {
             kind = Kind.SHEET; a = G_SPRITE_A; b = G_SPRITE_B;
         } else if (it.kind == com.fadcam.ui.library.LibraryKind.AVATARS) {
             kind = Kind.CHARACTER; a = G_AVATAR_A; b = G_AVATAR_B;
+        } else if (com.fadcam.ui.library.LibraryGlance.isTextLabLook(it)) {
+            kind = Kind.LOOK; a = G_TEXT_A; b = G_TEXT_B;   // a TextLab look, in TextLab's own blue
         } else {
             kind = Kind.LOOK; a = G_VIZ_A; b = G_VIZ_B;
         }

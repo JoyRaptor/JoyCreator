@@ -15,6 +15,7 @@
     <string name="lobbyv2_tag_last_sheet">LAST SHEET</string>
     <string name="lobbyv2_tag_last_character">LAST CHARACTER</string>
     <string name="lobbyv2_tag_last_visualiser">LAST VISUALISER</string>
+    <string name="lobbyv2_tag_last_look">LAST LOOK</string>
     <string name="lobbyv2_tag_new_drawing">NEW DRAWING</string>
     <string name="lobbyv2_tag_last_drawing">LAST DRAWING</string>
 

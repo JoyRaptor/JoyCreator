@@ -21,7 +21,7 @@ public final class TipBook {
     private TipBook() { }
 
     /** The parts of the app a tip can be about (also the usage buckets). */
-    public enum Wing { STUDIO, VISLAB, JOYBRUSH, SPRITELAB, CAPTURE, LIBRARY, JOYBOT }
+    public enum Wing { STUDIO, VISLAB, JOYBRUSH, SPRITELAB, CAPTURE, LIBRARY, JOYBOT, TEXTLAB }
 
     public static final class Tip {
         @NonNull public final String id;
@@ -63,6 +63,11 @@ public final class TipBook {
             t("sound_beats", Wing.STUDIO, "the Studio can find the beats in your music, so cuts land right on them.", "studio"),
             t("sound_voiceover", Wing.STUDIO, "you can record a voice-over straight onto the timeline while the video plays.", "studio"),
             // ── VisLab ──
+            t("textlab_room", Wing.TEXTLAB, "TextLab makes words look like a film poster: chrome, gold, neon, fire, ice and more, drawn live on your phone.", "textlab"),
+            t("textlab_title", Wing.TEXTLAB, "any title in Studio can wear a TextLab look: tap the text, then pick a picture in the Look row.", "studio"),
+            t("textlab_pieces", Wing.TEXTLAB, "a TextLab look is built from pieces: tap + Pieces to add fire, rust, glass or lightning to any look.", "textlab"),
+            t("textlab_tilt", Wing.TEXTLAB, "in TextLab, tap Live and tilt your phone: the light on the letters follows your hand.", "textlab"),
+            t("textlab_export", Wing.TEXTLAB, "TextLab's export button makes a picture, a video or a moving sprite sheet of your words, in any size up to 4K.", "textlab"),
             t("vislab_room", Wing.VISLAB, "VisLab has 42 looks that move to music: play the demo song, your microphone or any song.", "vislab"),
             t("vislab_build", Wing.VISLAB, "you can build a VisLab look from nothing: stack bars, particles, lasers, stars and words, then make any ♪ slider follow the beat.", "vislab"),
             t("vislab_words", Wing.VISLAB, "VisLab turns a song's words into art: spirals, ribbons, tunnels and flights, each line in its own font.", "vislab"),

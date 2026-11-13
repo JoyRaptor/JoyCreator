@@ -612,7 +612,7 @@ public final class JoybotAgent {
                 return;
             }
             families.addAll(ToolRouter.pick(ask.text, ask.situation.room == IdeaEngine.Room.VISLAB,
-                    ask.situation.room == IdeaEngine.Room.JOYBRUSH));
+                    ask.situation.room == IdeaEngine.Room.JOYBRUSH, ask.situation.room == IdeaEngine.Room.TEXTLAB));
             AIChatState.liveAsk = ask.text;
             AIChatState.liveReplyBefore = lastReply();
             JSONObject retained = new JSONObject().put("role", "user").put("content", ask.imageDataUrl == null
@@ -788,7 +788,7 @@ public final class JoybotAgent {
                 }
                 boolean unfinished = claimsAChange(aiText) || HelpBook.wantsChange(ask.text);
                 boolean hasWork = ask.projectId != null || ask.situation.room == IdeaEngine.Room.VISLAB
-                        || ask.situation.room == IdeaEngine.Room.JOYBRUSH;
+                        || ask.situation.room == IdeaEngine.Room.JOYBRUSH || ask.situation.room == IdeaEngine.Room.TEXTLAB;
                 // A refusal ("it's locked", "ask first") is an honest answer, not a model dodging the
                 // work: don't push it to "make the change now" (it unlocked a title to obey, 10-23).
                 // "I can't do that" is an answer too: pass it on, don't push for a change that no
@@ -1415,6 +1415,17 @@ public final class JoybotAgent {
             }
         }
 
+        /** TextLab: the look on screen in words, read just now (the textlab tools change it). */
+        @NonNull
+        String textLabNow() {
+            try {
+                return cc.joycreator.textlab.TextLabRoom.describe()
+                        + "\n\"This\" / \"it\" means this look; the textlab tools read and change it (textlab_describe first).\n";
+            } catch (Exception e) {
+                return "The TextLab room isn't open (open_room textlab opens it).\n";
+            }
+        }
+
         /** JoyBrush: the open drawing in words, read just now (the joybrush tools change it). */
         @NonNull
         String joyBrushNow() {
@@ -1437,6 +1448,7 @@ public final class JoybotAgent {
             sb.append("Joybot was opened from: ").append(s.room.name().toLowerCase(Locale.US)).append('\n');
             if (s.room == IdeaEngine.Room.VISLAB) sb.append(visLabNow());
             if (s.room == IdeaEngine.Room.JOYBRUSH) sb.append(joyBrushNow());
+            if (s.room == IdeaEngine.Room.TEXTLAB) sb.append(textLabNow());
             String pid = ask.projectId;
             if (pid == null) return sb.append("No project is open.\n").toString();
             try {

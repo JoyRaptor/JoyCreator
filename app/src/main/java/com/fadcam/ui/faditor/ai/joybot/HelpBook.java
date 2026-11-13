@@ -422,6 +422,45 @@ public final class HelpBook {
                             + "needs internet for the page to look right.",
                     null, null),
             // ── VisLab and Director (BOT-2, 10-28; from STATE 5.5 / 6) ──
+            // ── TextLab (TEXT-1, 11-12): film-poster words ──
+            new Topic("textlab", "textlab|text lab|film title|poster text|poster words|movie title|chrome text"
+                    + "|gold text|neon text|fire text|3d text|fancy title|title look",
+                    "TextLab makes words look like a film poster: chrome, gold, steel, neon, fire, ice, rust and more, "
+                            + "drawn live on your phone. Open TextLab from the lobby, pick a look from the pictures, type "
+                            + "your words, and change any slider in the tabs below. + Pieces adds fire, rust, glass or "
+                            + "lightning to any look. Tap me there and I can change a look for you.",
+                    "textlab", null),
+            new Topic("textlab_title", "look on a title|look on my text|give my title a look|film look on a title"
+                    + "|text look in studio|title wear a look|look row",
+                    "In Studio, tap your text, then pick a picture in the Look row (Plain takes it off). The words stay "
+                            + "typed and editable. The look is live in the preview and exact in the export. To change "
+                            + "the look itself, tap Edit in TextLab beside the row.",
+                    "studio", null),
+            new Topic("textlab_light", "tilt the light|move the light|light follows|record tilt|sway the light"
+                    + "|still light|where the light",
+                    "A TextLab look has a light. Still keeps it where you drag the little pad; Sway lets it drift. In "
+                            + "Studio, Record tilt: arm it, hold your thumb on the picture and tilt the phone, and the "
+                            + "light follows as the video plays. In the TextLab room, Live follows your phone as you "
+                            + "tilt it.",
+                    "textlab", null),
+            new Topic("textlab_save", "save a look|my own look|save my look|rename a look|delete a look"
+                    + "|back to the original|reset a look",
+                    "In TextLab, Save keeps your look in the Joy Creator folder, Supplies, Looks, with a moving "
+                            + "picture. Change a built-in look and save it, and your copy takes its place; the menu's "
+                            + "Back to the original brings the original back. Rename and Delete are in the menu too "
+                            + "(deleted looks wait 30 days in the Trash).",
+                    "textlab", null),
+            new Topic("textlab_export", "export a title|export the look|title as a video|title as a picture"
+                    + "|sprite sheet of a title|transparent title|title png",
+                    "In TextLab, tap the export button: pick Picture, Video or Sheet (a moving sprite sheet), the "
+                            + "shape (wide, square or tall) and the size, up to 4K. A picture or sheet can be "
+                            + "see-through. It lands in your Joy Creator folder, where Studio's exports go.",
+                    "textlab", null),
+            new Topic("textlab_pack", "joy pack|joypack|install a pack|look pack|more looks|pack of looks",
+                    "A Joy pack (.joypack) brings new looks. Open the file on your phone (or share it to Joy Creator) "
+                            + "and tap Install: its looks join TextLab and Studio's Look row. Packs live in your Joy "
+                            + "Creator folder under Supplies, Packs.",
+                    "textlab", null),
             new Topic("vislab", "vislab|vis lab|viz lab|music visual|visuals that react|react to the music"
                     + "|music video look",
                     "VisLab is the music visualiser lab: looks that move to a song. Open Viz Lab from the lobby. "

@@ -77,6 +77,7 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
     private static WeakReference<TextLabActivity> open = new WeakReference<>(null);
 
     private TlParts parts;
+    private ImageView joy;
     private TlStage stage;
     private TlKnobPanel panel;
     private LookChipRow chips;
@@ -181,15 +182,18 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
         export.setOnClickListener(v -> askExport());
         top.addView(export, new LinearLayout.LayoutParams(dp(40), dp(40)));
         top.addView(iconButton("more_vert", "More: background, font, save as, rename, delete", v -> more()));
-        ImageView joy = new ImageView(this);
+        joy = new ImageView(this);
         joy.setImageResource(R.drawable.joybot_neutral);
         joy.setBackgroundResource(R.drawable.joybot_orb);
         joy.setImageTintList(android.content.res.ColorStateList.valueOf(INK));
         int jp = dp(7);
         joy.setPadding(jp, jp, jp, jp);
         label(joy, "Joybot, your helper: ask him to change this look");
-        joy.setOnClickListener(v -> startActivity(new Intent(this, com.fadcam.ui.faditor.ai.ChatAssistantActivity.class)
-                .putExtra(com.fadcam.ui.faditor.ai.ChatAssistantActivity.EXTRA_ROOM, "TEXTLAB")));
+        joy.setOnClickListener(v -> {
+            startActivity(new Intent(this, com.fadcam.ui.faditor.ai.ChatAssistantActivity.class)
+                    .putExtra(com.fadcam.ui.faditor.ai.ChatAssistantActivity.EXTRA_ROOM, "TEXTLAB"));
+            com.fadcam.ui.faditor.ai.joybot.JoybotPulse.breathe(v, false);
+        });
         LinearLayout.LayoutParams jlp = new LinearLayout.LayoutParams(dp(40), dp(40));
         jlp.setMarginStart(dp(6));
         top.addView(joy, jlp);
@@ -198,6 +202,11 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
         FrameLayout stageBox = new FrameLayout(this);
         stage = new TlStage(this);
         stage.setTrouble(why -> Toast.makeText(this, why, Toast.LENGTH_LONG).show());
+        stage.setRestore(() -> {
+            if (look == null) return;
+            stage.show(look, words.isEmpty() ? " " : words);
+            if (photo != null && look.optInt("stage", 1) == 11) stage.run(r -> r.setPhoto(photo));
+        });
         stage.setOnClickListener(v -> {
             stage.setHeld(!stage.held());
             Toast.makeText(this, stage.held() ? "Held: tap the picture to play" : "Playing", Toast.LENGTH_SHORT).show();
@@ -477,11 +486,24 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
         changed();
         stage.show(look, words.isEmpty() ? " " : words);
         if (photo != null && look.optInt("stage", 1) == 11) stage.run(r -> r.setPhoto(photo));
+        // the lobby's hero: a still of this look once it has arrived
+        main.removeCallbacks(heroSnap);
+        main.postDelayed(heroSnap, 1500);
         panel.refresh();
         showProgress();
         showName();
         showUndo();
     }
+
+    private final Runnable heroSnap = () -> {
+        if (isFinishing() || titleMode || look == null) return;
+        final String name = nameOf(), key = editing != null ? editing.key : "";
+        stage.still(b -> {
+            Bitmap small = Bitmap.createScaledBitmap(b, Math.max(1, b.getWidth() / 2), Math.max(1, b.getHeight() / 2), true);
+            if (small != b) b.recycle();
+            TlLobbyHero.save(this, small, name, key);
+        });
+    };
 
     private void showName() {
         nameView.setText(nameOf() + (dirty ? " •" : ""));
@@ -501,9 +523,17 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
         return look;
     }
 
+    /** Joybot's request in progress: its changes share one undo step (TextLabRoom). */
+    private boolean jbGrouped;
+
+    void joybotStep(boolean remember, boolean grouped) {
+        jbGrouped = grouped;
+        if (remember && look != null) undo.before(look.toString(), words, "Joybot's change");
+    }
+
     @Override
     public void beginChange(@NonNull String what) {
-        undo.before(look.toString(), words, what);
+        if (!jbGrouped) undo.before(look.toString(), words, what);
         dirty = true;
         showName();
         showUndo();
@@ -704,6 +734,11 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
             JSONObject out = new JSONObject(look.toString());
             out.put("sample", words);
             setResult(RESULT_OK, new Intent().putExtra(EXTRA_RESULT_LOOK, out.toString()));
+            if (!TlTitleEdit.deliver(out.toString())) {
+                Toast.makeText(this, "Studio was closed, so the look couldn't go back to the title. Save it as a look instead.",
+                        Toast.LENGTH_LONG).show();
+                return;
+            }
         } catch (Exception e) {
             return;
         }
@@ -997,6 +1032,7 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
         super.onResume();
         open = new WeakReference<>(this);
         stage.onResume();
+        com.fadcam.ui.faditor.ai.joybot.JoybotPulse.lightButton(joy, null, com.fadcam.ui.faditor.ai.joybot.IdeaEngine.Room.TEXTLAB);
         if ("live".equals(light)) setLight("live");
     }
 
@@ -1010,6 +1046,7 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (titleMode && isFinishing()) TlTitleEdit.cancel();
         main.removeCallbacksAndMessages(null);
         if (open.get() == this) open = new WeakReference<>(null);
     }
@@ -1121,7 +1158,52 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
         return parts;
     }
 
-    void saveFromJoybot() {
+    @NonNull
+    String saveFromJoybot(@Nullable String asNew) {
+        if (titleMode) {
+            useOnTitle();
+            return "Put the look on the title and went back to Studio.";
+        }
+        if (asNew != null && !asNew.trim().isEmpty()) {
+            TextLabPreviews.get(this).save(look, words, asNew.trim(), sv -> afterSave(new TlLookFiles.Done(
+                    sv.where != null && sv.where.startsWith("Supplies") ? sv.where : null, sv.where == null ? sv.problem : null), null));
+            return "Saving it as a new look, “" + asNew.trim() + "”, in Supplies › Looks.";
+        }
+        if (editing == null || editing.from == TextLookShelf.From.PACK) {
+            String n = (editing != null ? editing.name : look.optString("name", "My look")) + " (mine)";
+            return saveFromJoybot(n);
+        }
         save(null);
+        return editing.from == TextLookShelf.From.BUILT_IN
+                ? "Saved as your own copy of " + editing.name + " (it takes the built-in's place; “Back to the original” undoes that)."
+                : "Saved " + editing.name + ".";
+    }
+
+    /** Joybot picks a font by name ("Bebas", "Cinzel"…). */
+    @NonNull
+    String setFontFromJoybot(@NonNull String name) {
+        for (String[] c : TlFonts.CHOICES) {
+            if (c[0].equalsIgnoreCase(name.trim()) || c[1].toLowerCase(Locale.ROOT).startsWith(name.trim().toLowerCase(Locale.ROOT))) {
+                JSONObject f = look.optJSONObject("font");
+                if (f != null && "tube".equals(f.optString("family"))) return "This look's letters are glass tubes: it has no font.";
+                setFont(c[0]);
+                return "Font: " + c[1];
+            }
+        }
+        StringBuilder all = new StringBuilder();
+        for (String[] c : TlFonts.CHOICES) all.append(c[1]).append(", ");
+        return "No font called " + name + ". Fonts: " + all.substring(0, all.length() - 2) + ".";
+    }
+
+    /** Joybot picks what is behind the words by name ("smoke", "brick wall", "clear"…). */
+    @NonNull
+    String setStageFromJoybot(@NonNull String name) {
+        for (String[] st : STAGES) {
+            if (!st[0].isEmpty() && st[1].toLowerCase(Locale.ROOT).contains(name.trim().toLowerCase(Locale.ROOT))) {
+                setStage(st[0]);
+                return "Background: " + st[1];
+            }
+        }
+        return "No background called " + name + ". Backgrounds: clear, black, dark stage, smoke, brick wall, far lights, dusk grid, sea and sky, night window, paper, cloth.";
     }
 }

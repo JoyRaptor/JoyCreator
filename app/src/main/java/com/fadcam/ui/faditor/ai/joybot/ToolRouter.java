@@ -51,6 +51,7 @@ public final class ToolRouter {
         f.put("story", "the story: structure, best parts, B-roll and chapter proposals");
         f.put("project", "the whole project: export, canvas shape, health check");
         f.put("vislab", "VisLab, the music visualiser room: its looks, their layers and knobs, music links, brand colours");
+        f.put("textlab", "TextLab, the film-poster words room: its looks, their sliders and pieces, words, font, background, saving a look");
         f.put("joybrush", "JoyBrush, the drawing room: the open drawing's layers (add, rename, hide, reorder), animation frames, brush and colour, drawing simple shapes");
         FAMILIES = Collections.unmodifiableMap(f);
 
@@ -75,6 +76,7 @@ public final class ToolRouter {
         w("avatar", "avatar|puppet|rig");
         w("story", "story|narrative|structure|best (part|bits|moments)|highlights?|b-?roll|chapters?");
         w("vislab", "vislab|vis lab|visuali[sz]er looks?|music visuali[sz]er");
+        w("textlab", "text ?lab|film (title|poster) (look|text|words)|poster (look|text|words)|chrome letters|neon letters|gold letters");
         w("joybrush", "joy ?brush|draw\\w*|paint\\w*|brush\\w*|sketch\\w*|strokes?|canvas|doodle|circle|rectangle|ellipse");
         w("project", "export|render|save|share|post|upload|health|broken|check|canvas|aspect|vertical|"
                 + "square|landscape|portrait|tiktok|reels|youtube");
@@ -106,9 +108,20 @@ public final class ToolRouter {
     /** As above; asked from inside JoyBrush, the request is about the open drawing: core + joybrush only. */
     @NonNull
     public static Set<String> pick(@NonNull String request, boolean inVisLab, boolean inJoyBrush) {
+        return pick(request, inVisLab, inJoyBrush, false);
+    }
+
+    /** As above; asked from inside TextLab, the request is about the look on screen: core + textlab only. */
+    @NonNull
+    public static Set<String> pick(@NonNull String request, boolean inVisLab, boolean inJoyBrush, boolean inTextLab) {
         String t = request.toLowerCase(Locale.US);
         Set<String> out = new LinkedHashSet<>();
         out.add(CORE);
+        if (inTextLab) {
+            // "fire", "light", "font", "deeper" mean the look here, not the Studio's tools of those names.
+            out.add("textlab");
+            return out;
+        }
         if (inJoyBrush) {
             // "layers", "frames", "brush" mean the drawing here, not the Studio's tools of those names.
             out.add("joybrush");

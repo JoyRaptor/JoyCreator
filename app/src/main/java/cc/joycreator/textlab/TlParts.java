@@ -65,6 +65,9 @@ public final class TlParts {
     private static final Set<String> HIDDEN_FOR_TUBE = new HashSet<>(java.util.Arrays.asList(
             "Depth", "Coats", "Material", "Light", "Sides"));
 
+    /** The Fire piece: a look's {@code "fire": true}, kept beside its features. */
+    public static final String FIRE = "FIRE";
+
     public final List<String> slots = new ArrayList<>();
     public final Map<String, Knob> knobs = new LinkedHashMap<>();
     public final List<Piece> pieces = new ArrayList<>();
@@ -81,6 +84,7 @@ public final class TlParts {
                 if (o != null) knobs.put(n, new Knob(n, o));
             }
         }
+        pieces.add(new Piece(FIRE, "Fire"));   // fire is a switch of its own in a look ("fire": true), not a feature
         for (String[] p : NEEDS) {
             needs.put(p[0], p[1]);
             pieces.add(new Piece(p[1], p[0]));
@@ -99,6 +103,8 @@ public final class TlParts {
         Set<String> out = new HashSet<>();
         JSONArray f = look.optJSONArray("features");
         if (f != null) for (int i = 0; i < f.length(); i++) out.add(f.optString(i));
+        Object fire = look.opt("fire");
+        if (fire != null && fire != JSONObject.NULL && !Boolean.FALSE.equals(fire)) out.add(FIRE);
         return out;
     }
 
@@ -119,7 +125,7 @@ public final class TlParts {
         for (String slot : slots) {
             String need = needs.get(slot);
             if (need != null && !feats.contains(need)) continue;
-            if (slot.equals("Fire") && look.optJSONObject("fire") == null) continue;
+            if (slot.equals("Fire") && !feats.contains(FIRE)) continue;
             if (slot.equals("Rivets") && !rivets) continue;
             if (feats.contains("TUBE") && HIDDEN_FOR_TUBE.contains(slot)) continue;
             out.add(slot);
@@ -152,7 +158,13 @@ public final class TlParts {
     @NonNull
     public static JSONObject withFeature(@NonNull JSONObject look, @NonNull String feature, boolean on) throws Exception {
         JSONObject out = new JSONObject(look.toString());
+        if (FIRE.equals(feature)) {
+            if (on) out.put("fire", true);
+            else out.remove("fire");
+            return out;
+        }
         List<String> f = new ArrayList<>(features(look));
+        f.remove(FIRE);
         f.remove(feature);
         if (on) f.add(feature);
         Collections.sort(f);

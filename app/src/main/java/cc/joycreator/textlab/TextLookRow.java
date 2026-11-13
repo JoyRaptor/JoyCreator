@@ -47,6 +47,9 @@ public final class TextLookRow extends LinearLayout {
          * lifts (or the gesture is taken away). Pass nulls to stop catching.
          */
         void catchHold(@Nullable Runnable down, @Nullable Runnable up, @Nullable String hint);
+
+        /** Open this title's look in the TextLab room ("Use on the title" brings it back as one undo step). */
+        default void openInTextLab() {}
     }
 
     private final TextOverlayItem item;
@@ -54,7 +57,7 @@ public final class TextLookRow extends LinearLayout {
     private final LookChipRow chips;
     private final List<TextLookShelf.Item> shelf = new ArrayList<>();
     private final LinearLayout lightRow, progressRow;
-    private final TextView still, sway, record, byItself, pinned, note;
+    private final TextView still, sway, record, byItself, pinned, note, editIn;
     private final TlLightPad pad;
     private final SeekBar progress;
     private final LightTake take;
@@ -74,7 +77,14 @@ public final class TextLookRow extends LinearLayout {
         label.setTextSize(11);
         label.setLetterSpacing(0.08f);
         icon(label, com.fadcam.R.drawable.ic_tl_look, DIM, 14);
-        addView(label);
+        LinearLayout head = new LinearLayout(c);
+        head.setGravity(Gravity.CENTER_VERTICAL);
+        head.addView(label, new LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        editIn = pill(c, "Edit in TextLab", "Open this title's look in TextLab: every slider, its pieces, its font; "
+                + "Use on the title brings it back", com.fadcam.R.drawable.ic_tl_look);
+        editIn.setOnClickListener(v -> host.openInTextLab());
+        head.addView(editIn);
+        addView(head);
 
         chips = new LookChipRow(c);
         chips.setPadding(0, dp(6), 0, dp(6));
@@ -191,8 +201,11 @@ public final class TextLookRow extends LinearLayout {
         JoyFolderHome.io().execute(() -> {
             List<TextLookShelf.Item> more = TextLookShelf.inFolder(c);
             if (more.isEmpty()) return;
+            // the person's own copy of a built-in look stands in its place (the user's copy wins)
+            List<TextLookShelf.Item> all = TlLookFiles.merged(TextLookShelf.builtIn(c), more);
             post(() -> {
-                shelf.addAll(more);
+                shelf.clear();
+                shelf.addAll(all);
                 showChips();
             });
         });
@@ -363,6 +376,7 @@ public final class TextLookRow extends LinearLayout {
         TitleLook t = item.getTextLook();
         boolean on = t != null;
         lightRow.setVisibility(on ? VISIBLE : GONE);
+        editIn.setVisibility(on ? VISIBLE : GONE);   // a plain title has no look to edit
         progressRow.setVisibility(on && t.hasProgress() ? VISIBLE : GONE);
         if (on) {
             paint(still, TitleLook.STILL.equals(t.light) && !armed);

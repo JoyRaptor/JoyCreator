@@ -465,7 +465,7 @@ public class IdeaEngineTest {
             }
             eq("help G3: no two topics share an id", com.fadcam.ui.faditor.ai.joybot.HelpBook.TOPICS.size(), helpIds.size());
             Set<String> helpRoutes = new HashSet<>(Arrays.asList(null, "record", "library", "studio", "setup", "vislab",
-                    "joybrush", "spritelab", "avatar", "space", "trash", "bridge"));
+                    "joybrush", "spritelab", "avatar", "space", "trash", "bridge", "textlab"));
             for (com.fadcam.ui.faditor.ai.joybot.HelpBook.Topic x : com.fadcam.ui.faditor.ai.joybot.HelpBook.TOPICS) {
                 check("help G3: route is a real one: " + x.id, helpRoutes.contains(x.route), String.valueOf(x.route));
                 check("help G3: \"Or I can do it\" only with a doIt: " + x.id,
@@ -699,7 +699,7 @@ public class IdeaEngineTest {
             check("tips: a big library (40+)", tips.size() >= 40, String.valueOf(tips.size()));
             Set<String> tipIds = new HashSet<>();
             Set<String> tipRoutes = new HashSet<>(Arrays.asList(null, "record", "library", "studio", "vislab",
-                    "joybrush", "spritelab", "trash", "bridge"));
+                    "joybrush", "spritelab", "trash", "bridge", "textlab"));
             java.util.EnumSet<com.fadcam.ui.faditor.ai.joybot.TipBook.Wing> wings =
                     java.util.EnumSet.noneOf(com.fadcam.ui.faditor.ai.joybot.TipBook.Wing.class);
             for (com.fadcam.ui.faditor.ai.joybot.TipBook.Tip x : tips) {
@@ -708,7 +708,7 @@ public class IdeaEngineTest {
                 check("tips: route is a real one: " + x.id, tipRoutes.contains(x.route), String.valueOf(x.route));
                 check("tips: reads after 'Did you know ': " + x.id,
                         (Character.isLowerCase(x.text.charAt(0))
-                                || x.text.matches("^(I|VisLab|SpriteLab|Capture|JoyBrush|Claude)\\b.*"))
+                                || x.text.matches("^(I|VisLab|SpriteLab|Capture|JoyBrush|Claude|TextLab)\\b.*"))
                                 && x.text.endsWith("."), x.text);
                 check("tips: short enough for one look: " + x.id, x.text.length() <= 160, String.valueOf(x.text.length()));
             }

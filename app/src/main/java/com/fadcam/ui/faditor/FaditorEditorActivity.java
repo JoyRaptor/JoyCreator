@@ -36694,6 +36694,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
 
             @Override
+            public void openInTextLab() {
+                cc.joycreator.textlab.TitleLook cur = o.getTextLook();
+                if (cur == null) return;
+                final cc.joycreator.textlab.TitleLook before = cur.copy();
+                cc.joycreator.textlab.TlTitleEdit.start(FaditorEditorActivity.this, before, o.getText(), json -> {
+                    // the look as edited in TextLab: its sliders are in the look now, so the title's own are cleared
+                    cc.joycreator.textlab.TitleLook after = before.copy();
+                    after.look = com.google.gson.JsonParser.parseString(json).getAsJsonObject();
+                    after.knobs = new com.google.gson.JsonObject();
+                    apply(before, after, "Look edited in TextLab");
+                    if (overlayLayer != null) overlayLayer.refreshLookSizes();
+                });
+            }
+
+            @Override
             public long playheadLocalMs() {
                 return o.lookTime(lastPlayheadAbsoluteMs);
             }

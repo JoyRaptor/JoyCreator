@@ -66,6 +66,19 @@ final class TextLookActions {
                 .number("opacity", false, "0 invisible … 1 solid", 0.0, 1.0)
                 .build(), TextLookActions::setStyle);
 
+        r.add(ActionSpec.of("set_title_look", "Give a text a TextLab look")
+                .help("Dresses a text layer in a TextLab look (film-poster words: Dark Steel, Chrome 84, Gold"
+                        + " Crown, Neon Sign, Blaze, Ice, Rusted and more, and the person's own looks); plain takes"
+                        + " the look off. The words stay typed and editable. light: still (where the person put it)"
+                        + " or sway (drifts gently), default sway. To edit the look itself, the person taps Edit in"
+                        + " TextLab on the Look row.")
+                .wing("STUDIO", FAMILY)
+                .where("Studio › tap a text › Look")
+                .id("text", "text", true, TEXT_HELP)
+                .text("look", true, "The look's name, or plain")
+                .choice("light", false, "How the light moves", Arrays.asList("still", "sway"))
+                .build(), TextLookActions::setTitleLook);
+
         r.add(ActionSpec.of("set_text_words", "Change what a text says")
                 .help("Replace the words on a text layer.")
                 .wing("STUDIO", FAMILY)
@@ -206,6 +219,42 @@ final class TextLookActions {
     }
 
     @NonNull
+    private static ActionResult setTitleLook(@NonNull StudioCtx ctx, @NonNull Args a) throws ActionError {
+        List<TextOverlayItem> ts = ctx.texts(a.str("text"));
+        String want = a.str("look") == null ? "" : a.str("look").trim();
+        if (want.equalsIgnoreCase("plain") || want.equalsIgnoreCase("none")) {
+            for (TextOverlayItem t : ts) t.setTextLook(null);
+            return ActionResult.changed("The text is plain words again.", ids(ts));
+        }
+        List<cc.joycreator.textlab.TextLookShelf.Item> shelf = cc.joycreator.textlab.TlLookFiles.merged(
+                cc.joycreator.textlab.TextLookShelf.builtIn(ctx.app), cc.joycreator.textlab.TextLookShelf.inFolder(ctx.app));
+        cc.joycreator.textlab.TextLookShelf.Item found = null;
+        for (cc.joycreator.textlab.TextLookShelf.Item it : shelf) if (it.name.equalsIgnoreCase(want)) { found = it; break; }
+        if (found == null) {
+            for (cc.joycreator.textlab.TextLookShelf.Item it : shelf) {
+                if (it.name.toLowerCase(Locale.ROOT).contains(want.toLowerCase(Locale.ROOT))) { found = it; break; }
+            }
+        }
+        if (found == null) {
+            List<String> names = new ArrayList<>();
+            for (cc.joycreator.textlab.TextLookShelf.Item it : shelf) names.add(it.name);
+            throw new ActionError("No TextLab look called " + want + ". Looks: " + String.join(", ", names) + ".");
+        }
+        String light = a.has("light") ? a.str("light").toLowerCase(Locale.ROOT) : null;
+        for (TextOverlayItem t : ts) {
+            cc.joycreator.textlab.TitleLook before = t.getTextLook();
+            cc.joycreator.textlab.TitleLook tl = cc.joycreator.textlab.TitleLook.of(found.key, found.name, found.look.toString());
+            if (before != null) {   // keep the light the person set; the old look's own sliders go with it
+                tl.light = before.light;
+                tl.stillX = before.stillX;
+                tl.stillY = before.stillY;
+            }
+            if (light != null) tl.light = light;
+            t.setTextLook(tl);
+        }
+        return ActionResult.changed("The text now wears the TextLab look " + found.name + ".", ids(ts));
+    }
+
     private static List<String> ids(@NonNull List<TextOverlayItem> ts) {
         List<String> out = new ArrayList<>();
         for (TextOverlayItem t : ts) out.add(t.getId());

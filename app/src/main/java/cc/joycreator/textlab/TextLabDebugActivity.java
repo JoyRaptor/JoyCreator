@@ -205,6 +205,23 @@ public final class TextLabDebugActivity extends Activity {
         String ex = in.getStringExtra("export");
         if (ex != null) view.postDelayed(() -> benchExport(ex, in), 1500);
         if (in.getBooleanExtra("iconcheck", false)) iconCheck();
+        // Joybot's TextLab actions without an AI, by adb (the room open underneath):
+        // --es action textlab_change --es args '{"changes":["Pushed back = 1.4"]}'
+        String action = in.getStringExtra("action");
+        if (action != null) {
+            String args = in.getStringExtra("args");
+            new Thread(() -> {
+                String out;
+                try {
+                    out = com.fadcam.ui.faditor.ai.actions.AppActions.execute(getApplicationContext(), null, action,
+                            new JSONObject(args != null ? args : "{}"));
+                } catch (Exception e) {
+                    out = "bench action failed: " + e;
+                }
+                Log.i(TAG, "bench action " + action + ": " + out.replace("\n", " | "));
+                runOnUiThread(this::finish);
+            }).start();
+        }
     }
 
     /** adb --ez iconcheck true: every TextLab icon drawn as the phone draws it, on one sheet in the files folder. */

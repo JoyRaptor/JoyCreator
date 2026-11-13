@@ -37,6 +37,8 @@ public final class TlStage extends GLSurfaceView {
     private volatile boolean held;
     private volatile String label = "";
     @Nullable private Trouble trouble;
+    /** Called on the main thread when the picture is made again (after a pause): show the room's state now. */
+    @Nullable private Runnable restore;
     @Nullable private JSONObject shown;
     @Nullable private String shownWords;
     private TextLabRenderer r;
@@ -51,6 +53,10 @@ public final class TlStage extends GLSurfaceView {
 
     public void setTrouble(@Nullable Trouble t) {
         trouble = t;
+    }
+
+    public void setRestore(@Nullable Runnable r) {
+        restore = r;
     }
 
     /** Queue a job for the GL thread (with the renderer). */
@@ -114,8 +120,12 @@ public final class TlStage extends GLSurfaceView {
             try {
                 r = new TextLabRenderer(TextLabRenderer.Assets.load(getContext().getAssets()), getContext());
                 r.setSize(1280, 720);
-                // a new surface after a pause: draw what was showing again
-                if (shown != null) show(shown, shownWords != null ? shownWords : "");
+                // a new surface after a pause: the room shows its state as it is NOW (changes made while it was
+                // behind Joybot are in it); jobs queued for the old picture are dropped
+                jobs.clear();
+                Runnable re = restore;
+                if (re != null) post(re);
+                else if (shown != null) show(shown, shownWords != null ? shownWords : "");
             } catch (Exception | Error e) {
                 fail(e);
             }

@@ -3375,6 +3375,7 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="lobby_room_sprites">Sprite Lab</string>
     <string name="lobby_room_avatar">Avatar</string>
     <string name="lobby_room_viz">Viz Lab</string>
+    <string name="lobby_room_textlab">TextLab</string>
     <string name="lobby_room_joybrush">Joy Brush</string>
     <!-- JoyRaptor: "it is unclear to the user how to start a NEW project if theres
          already a history project being shown." The hero's only control was Carry on, so
@@ -3393,6 +3394,7 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="lobby_empty_sprites">No sheets yet. Bring a drawing in and slice it into frames.</string>
     <string name="lobby_empty_avatar">No characters yet. Rig a picture and it will move.</string>
     <string name="lobby_empty_viz">No visualisers yet. Make one from any sound you have.</string>
+    <string name="lobby_empty_textlab">Words that look like a film poster: chrome, gold, neon, fire. Pick a look and type.</string>
     <string name="lobby_empty_joybrush">Draw something. It saves itself.</string>
     <string name="lobby_act_carry_on">Carry on</string>
     <string name="lobby_act_open">Open</string>

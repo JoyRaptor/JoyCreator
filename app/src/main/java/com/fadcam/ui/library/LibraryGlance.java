@@ -48,6 +48,12 @@ public final class LibraryGlance {
                 && it.folderPath.toLowerCase(java.util.Locale.ROOT).endsWith(".vis.json");
     }
 
+    /** True for a TextLab look of the Library's (a ".text.json"), opened in the TextLab room. */
+    public static boolean isTextLabLook(@NonNull LibraryItem it) {
+        return it.kind == LibraryKind.SUPPLIES && it.folderPath != null
+                && it.folderPath.toLowerCase(java.util.Locale.ROOT).endsWith(".text.json");
+    }
+
     public interface Listener {
         /** On the main thread: once after the fast in-app pass, again after the full read. */
         void onGlance(@NonNull Glance glance);
@@ -71,7 +77,7 @@ public final class LibraryGlance {
     private static List<LibraryItem> recentParts(@NonNull List<LibraryItem> items) {
         List<LibraryItem> parts = new java.util.ArrayList<>();
         for (LibraryItem it : items) {
-            if (it.kind == LibraryKind.SPRITE_SHEETS || it.kind == LibraryKind.AVATARS || isVisLabLook(it)) {
+            if (it.kind == LibraryKind.SPRITE_SHEETS || it.kind == LibraryKind.AVATARS || isVisLabLook(it) || isTextLabLook(it)) {
                 parts.add(it);
             }
         }

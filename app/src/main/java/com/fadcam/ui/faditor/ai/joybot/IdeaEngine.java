@@ -36,7 +36,7 @@ public final class IdeaEngine {
 
     /** Where Joybot was opened; the same project can call for different help in different rooms. */
     /** Where Joybot was opened from. VISLAB: the visualiser room (VisLab lane, 10-17); its ideas are about the look on screen. */
-    public enum Room { LOBBY, STUDIO, SPRITELAB, AVATAR, LIBRARY, JOYBRUSH, VISLAB }
+    public enum Room { LOBBY, STUDIO, SPRITELAB, AVATAR, LIBRARY, JOYBRUSH, VISLAB, TEXTLAB }
 
     /** Guided flows that are actually built; an idea for an unbuilt flow is never shown. */
     public static final String FLOW_SLIDE = "slide";
@@ -118,6 +118,10 @@ public final class IdeaEngine {
         }
         if (room == Room.VISLAB) {
             vislab(out);
+            return;
+        }
+        if (room == Room.TEXTLAB) {
+            textlab(out);
             return;
         }
         if (room == Room.JOYBRUSH) {
@@ -361,6 +365,22 @@ public final class IdeaEngine {
     }
 
     /** VisLab: the look on screen is the subject; every idea is a request the model carries out. */
+    /** TextLab: the look on screen is the subject; only what the textlab tools really do. */
+    private static void textlab(List<Idea> out) {
+        out.add(Idea.of("textlab_fire", Idea.Kind.ASK, "Set it on fire")
+                .say("Add fire to this look")
+                .hint("The Fire piece, tuned to suit the letters").needsKey().priority(40).build());
+        out.add(Idea.of("textlab_gold", Idea.Kind.ASK, "Make it gold")
+                .say("Make this look's metal gold and keep the rest")
+                .hint("Warmer metal, the same shape and light").needsKey().priority(38).build());
+        out.add(Idea.of("textlab_deeper", Idea.Kind.ASK, "Deeper letters")
+                .say("Push the letters back further so they read as solid blocks")
+                .hint("More depth and a stronger bevel").needsKey().priority(36).build());
+        out.add(Idea.of("textlab_save", Idea.Kind.ASK, "Keep it as mine")
+                .say("Save this as a new look of mine")
+                .hint("Into Supplies, Looks, with its moving picture").needsKey().priority(34).build());
+    }
+
     private static void vislab(List<Idea> out) {
         out.add(Idea.of("vislab_kick", Idea.Kind.ASK, "Hit harder on the kick")
                 .say("Make this look hit harder on the kick")

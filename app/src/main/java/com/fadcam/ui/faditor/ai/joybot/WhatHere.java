@@ -43,18 +43,19 @@ public final class WhatHere {
 
     /** Whether {@code a} belongs in {@code room}. */
     static boolean fits(@NonNull Action a, @NonNull IdeaEngine.Room room, boolean project) {
-        boolean vis = a.tool.startsWith("vislab_"), jb = a.tool.startsWith("joybrush_");
+        boolean vis = a.tool.startsWith("vislab_"), jb = a.tool.startsWith("joybrush_"), tl = a.tool.startsWith("textlab_");
         switch (room) {
             case VISLAB: return vis;
+            case TEXTLAB: return tl;
             case JOYBRUSH: return jb;
             case STUDIO:
             case SPRITELAB:
             case AVATAR:
-                return project && !vis && !jb && "STUDIO".equals(a.wing);
+                return project && !vis && !jb && !tl && "STUDIO".equals(a.wing);
             case LIBRARY:
             case LOBBY:
             default:
-                return "APP".equals(a.wing) && !vis && !jb;
+                return "APP".equals(a.wing) && !vis && !jb && !tl;
         }
     }
 
@@ -94,6 +95,7 @@ public final class WhatHere {
     private static String where(@NonNull IdeaEngine.Room room) {
         switch (room) {
             case VISLAB: return "in VisLab";
+            case TEXTLAB: return "in TextLab";
             case JOYBRUSH: return "in JoyBrush";
             case STUDIO:
             case SPRITELAB:

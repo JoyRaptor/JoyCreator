@@ -903,6 +903,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         switch (r) {
             case STUDIO: return "studio";
             case VISLAB: return "vislab";
+            case TEXTLAB: return "textlab";
             case JOYBRUSH: return "joybrush";
             case SPRITELAB: return "spritelab";
             case LIBRARY: return IdeaEngine.ROUTE_LIBRARY;
@@ -1324,7 +1325,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
      */
     private void refreshIdeas(boolean speak) {
         checkRecipes();
-        if (room == IdeaEngine.Room.VISLAB || room == IdeaEngine.Room.JOYBRUSH) {
+        if (room == IdeaEngine.Room.VISLAB || room == IdeaEngine.Room.JOYBRUSH || room == IdeaEngine.Room.TEXTLAB) {
             // VisLab's ideas are about the look on screen, JoyBrush's about the open drawing: no
             // project is needed (without this JoyBrush showed the lobby's "Start a project").
             com.fadcam.ui.faditor.ai.joybot.ProjectFacts f = new com.fadcam.ui.faditor.ai.joybot.ProjectFacts();
@@ -2229,6 +2230,12 @@ public class ChatAssistantActivity extends AppCompatActivity {
                     startActivity(new Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                             android.net.Uri.parse("package:" + getPackageName())));
                 }
+                finish();
+                return;
+            case "textlab":
+                // TextLab is its own room (the Lobby's tile opens it the same way); open already: back to it.
+                if (cc.joycreator.textlab.TextLabRoom.isOpen()) { finish(); return; }
+                startActivity(new Intent(this, cc.joycreator.textlab.TextLabActivity.class));
                 finish();
                 return;
             case "vislab":

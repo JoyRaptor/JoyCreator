@@ -182,6 +182,9 @@ public final class Studio {
     public static final int ROOM_VIZ     = 0xFFFAA03D;
     /** Viz Lab's deeper stop. The lobby draws the pair; this is the far end. */
     public static final int ROOM_VIZ_DEEP = 0xFFFC6818;
+    /** TextLab (TEXT-1): sky to royal blue, a chrome-and-steel blue apart from the cyan of a chosen control. */
+    public static final int ROOM_TEXTLAB = 0xFF38A3FF;
+    public static final int ROOM_TEXTLAB_DEEP = 0xFF3B4BFF;
     /**
      * The light end of the armed ramp.
      *

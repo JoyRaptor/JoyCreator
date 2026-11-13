@@ -14,7 +14,7 @@ export const PASTE_BRUSHES = {
   'Oil flat': { shape: 1, widthMm: 7, lenMm: 6, thickMm: 0.6, scrape: 0.5, hairDepth: 0.4, ridge: 0.5, rate: 2.5, mix: 0.12, swap: 0.7, loadLenMm: 140, wick: 0.003, bow: 0.6, lump: 0.2, rigid: 0, fingers: 1, vary: 1, pull: 0.7 },
   'Oil round': { shape: 0, widthMm: 4.5, lenMm: 7, thickMm: 0.5, scrape: 0.5, hairDepth: 0.35, ridge: 0.35, rate: 2.2, mix: 0.12, swap: 0.6, loadLenMm: 120, wick: 0.003, bow: 0.5, lump: 0.12, rigid: 0, fingers: 0.4, vary: 1, pull: 0.7 },
   // A fan: hair tips on an arc, spread apart; it feathers and blends rather than lays paint.
-  'Fan blender': { shape: 1, widthMm: 14, lenMm: 2.5, thickMm: 0.1, scrape: 0.3, hairDepth: 0.95, ridge: 0.0, rate: 1.2, mix: 0.45, swap: 0.3, loadLenMm: 60, wick: 0.002, bow: 0.1, lump: 0.0, rigid: 0, fingers: 0.5, arc: 0.55, sparse: 0.6, vary: 1, pull: 0.7 },
+  'Fan blender': { shape: 1, widthMm: 14, lenMm: 2.5, thickMm: 0.1, scrape: 0.3, hairDepth: 0.95, ridge: 0.0, rate: 1.2, mix: 0.45, swap: 0.3, loadLenMm: 60, wick: 0.002, bow: 0.1, lump: 0.0, rigid: 0, fingers: 0.5, arc: 0.55, sparse: 0.6, vary: 1 },
   // The trowel knife of v6/v7, back by the owner's request (2026-10-07: "the old one had excellent texture" and
   // was easier to control). It follows the stroke, skates over the dips (fillDips 0) and keeps its own geometry.
   'Palette knife 1': { shape: 2, trowel: true, widthMm: 9, lenMm: 13, thickMm: 1.1, scrape: 0.99, hairDepth: 0.0, ridge: 1.0, rate: 4.0, mix: 0.2, swap: 0.5, loadLenMm: 70, wick: 0.0, bow: 0.9, lump: 0.25, rigid: 1, fillDips: 1 },
@@ -112,7 +112,9 @@ export class PasteStroke {
     }
     // Small hops: a paste brush is a continuous sweep, so no step may show as an edge. A thin blade edge
     // crossing its own width needs hops finer than that width (else it leaves a zip of ribs).
-    const stepMm = b.blade ? Math.min(0.3, 0.6 * this.half * 0.35) : 0.3;
+    // ?hop=N (test sheets): hair brushes hop N times as far, as the app does in a burst (PasteSpacing.behind stretches a
+    // hop to 12 % of the brush's width when a frame's steps pile up); 1 here, so the golden numbers are the shipped hops.
+    const stepMm = b.blade ? Math.min(0.3, 0.6 * this.half * 0.35) : 0.3 * (globalThis.__PASTE_HOP || 1);
     const stepPx = Math.max(1 / this.layerScale, stepMm * this.pxPerMm / this.layerScale);
     const interp = w => ({ x: prev.x + dx * w, y: prev.y + dy * w, p: prev.p + (s.p - prev.p) * w, tilt: prev.tilt + (s.tilt - prev.tilt) * w,
       az: (prev.az ?? 0) + angleDelta(prev.az ?? 0, s.az ?? 0) * w, t: (prev.t ?? 0) + ((s.t ?? 0) - (prev.t ?? 0)) * w });

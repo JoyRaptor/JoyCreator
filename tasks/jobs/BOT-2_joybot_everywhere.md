@@ -68,6 +68,10 @@ Select, symmetry, Send to Studio. Hover labels: ~220 controls done 10-15; the ch
 - [x] **Offline ends on hope** (owner, 10-28): "Your phone isn't online…" is followed by "But I'm still right
       here", what works offline, and a tip (`TipBook.offlineHope`). Not phone-tested (an agent may not switch the
       phone's Wi-Fi off): owner check.
+- [x] **11-13 (BOT-A38): 11 new tips**, 62 in all: TextLab 4 (Edit in TextLab, Words in a look in VisLab, saved looks
+      move in the Library, .joypack install), Library 3 (Recordings sub-filter, hold an item, lobby recents), JoyBrush 4
+      (layer menu, Symmetry, Send to Studio into a project, Water detail Fast). Each from a STATE row on `joy-creator`
+      and agent-checked on the Note 9; "Choose several" left out (its batch actions not run on a phone). Ideas 887/887.
 - [ ] Later: grow the tip library as STATE grows (JoyBrush tips after [HYG-2](HYG-2_one_main_line.md); never a
       tip for a tool the person doesn't have).
 

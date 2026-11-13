@@ -68,6 +68,11 @@ public final class TipBook {
             t("textlab_pieces", Wing.TEXTLAB, "a TextLab look is built from pieces: tap + Pieces to add fire, rust, glass or lightning to any look.", "textlab"),
             t("textlab_tilt", Wing.TEXTLAB, "in TextLab, tap Live and tilt your phone: the light on the letters follows your hand.", "textlab"),
             t("textlab_export", Wing.TEXTLAB, "TextLab's export button makes a picture, a video or a moving sprite sheet of your words, in any size up to 4K.", "textlab"),
+            // 11-13 (BOT-A38): STATE 5.55 rows agent-checked on the Note 9 and on joy-creator.
+            t("textlab_edit_title", Wing.TEXTLAB, "a Studio title wearing a look has Edit in TextLab: change the look there, and Use on the title brings it back as one undo step.", "studio"),
+            t("textlab_in_vislab", Wing.TEXTLAB, "a VisLab picture layer can show your own words in a TextLab look: Edit, the Picture layer, then Words in a look.", "vislab"),
+            t("textlab_saved_move", Wing.TEXTLAB, "a look you save from TextLab moves on its card in the Library, and the lobby's TextLab room opens the last one again.", "library"),
+            t("textlab_packs", Wing.TEXTLAB, "one .joypack file can bring a whole pack of looks, fonts and colour grades into the app: open it and tap Install.", "library"),
             t("vislab_room", Wing.VISLAB, "VisLab has 42 looks that move to music: play the demo song, your microphone or any song.", "vislab"),
             t("vislab_build", Wing.VISLAB, "you can build a VisLab look from nothing: stack bars, particles, lasers, stars and words, then make any ♪ slider follow the beat.", "vislab"),
             t("vislab_words", Wing.VISLAB, "VisLab turns a song's words into art: spirals, ribbons, tunnels and flights, each line in its own font.", "vislab"),
@@ -84,6 +89,11 @@ public final class TipBook {
             t("joybrush_reference", Wing.JOYBRUSH, "you can pin a reference picture beside your JoyBrush drawing; hold the pin for its options.", "joybrush"),
             t("joybrush_brush_settings", Wing.JOYBRUSH, "holding the Brush, Smudge or Eraser button opens that tool's settings straight away.", "joybrush"),
             t("joybrush_joybot", Wing.JOYBRUSH, "I can help inside JoyBrush too: add or rename layers, make animation frames, or draw simple shapes.", "joybrush"),
+            // 11-13 (BOT-A38): STATE 5.6 rows on joy-creator and agent-checked on the Note 9.
+            t("joybrush_layer_menu", Wing.JOYBRUSH, "tapping the ringed layer in JoyBrush opens its options: Lock, Merge down, Freeze layer and Flatten, each one Undo.", "joybrush"),
+            t("joybrush_symmetry", Wing.JOYBRUSH, "JoyBrush's Helpers have Symmetry: mirror your brush across a line, eight ways round, or as a 16-copy kaleidoscope.", "joybrush"),
+            t("joybrush_to_project", Wing.JOYBRUSH, "JoyBrush's Send to Studio can drop your drawing straight into a project you already have.", "joybrush"),
+            t("joybrush_water_fast", Wing.JOYBRUSH, "if watercolour feels slow, the ⋯ menu's Water detail: Fast runs the water about twice as fast and keeps the paint sharp.", "joybrush"),
             // ── SpriteLab and puppets ──
             t("sprite_grid", Wing.SPRITELAB, "SpriteLab finds the grid of a sprite sheet for you, and remembers a name for every cell.", "spritelab"),
             t("sprite_animations", Wing.SPRITELAB, "a sprite sheet can hold saved animations, ready to drop into a video.", "spritelab"),
@@ -100,6 +110,10 @@ public final class TipBook {
             t("library_folder", Wing.LIBRARY, "your work lives in your own Joy Creator folder, as files you can see, so nothing is lost if the app goes.", "library"),
             t("library_share_in", Wing.LIBRARY, "you can share pictures and videos into Joy Creator from any other app, and drop them straight onto your timeline.", "library"),
             t("library_trash", Wing.LIBRARY, "deleted things wait in Recently deleted, so you can bring them back.", "trash"),
+            // 11-13 (BOT-A38): STATE section 7 rows on joy-creator and agent-checked on the Note 9.
+            t("library_recordings_filter", Wing.LIBRARY, "in the Library, choosing Recordings shows a second row so you can see just Camera, Screen, Stream or Dual recordings.", "library"),
+            t("library_hold_item", Wing.LIBRARY, "holding anything in the Library gives you Save to gallery, Open in Studio, Share and Details.", "library"),
+            t("library_lobby_recents", Wing.LIBRARY, "the lobby's recent work shows your sprite sheets, characters and VisLab looks too, not just videos.", null),
             t("library_zip", Wing.LIBRARY, "a whole project can be zipped up with all its pictures, sounds and fonts, and opened on another phone.", "library"),
             // ── Joybot himself ──
             t("joybot_offline", Wing.JOYBOT, "most of my buttons work with no internet and no AI at all: transcribing, cutting ums, captions, transitions and slides.", null),

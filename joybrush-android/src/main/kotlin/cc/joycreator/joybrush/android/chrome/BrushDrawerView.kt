@@ -53,6 +53,8 @@ class BrushDrawerView(
      * Null keeps the ordinary drawer.
      */
     private val swap: Swap? = null,
+    /** BRUSH-IMPORT: "Import brushes…" at the end of the All and Imported shelves. Null leaves the row out. */
+    private val onImport: (() -> Unit)? = null,
 ) : LinearLayout(kit.context) {
 
     /** What the swap list draws with: the selected lines' [ink], the drawing's [paper], the brushes they [use] now. */
@@ -135,6 +137,17 @@ class BrushDrawerView(
                 }, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
             }
             strokes.addView(row(p), LayoutParams(LayoutParams.MATCH_PARENT, kit.dpi(ROW_DP)).apply { bottomMargin = kit.dpi(2f) })
+        }
+        if (onImport != null && swap == null && (kind == BrushShelf.Kind.ALL || kind == BrushShelf.Kind.IMPORTED)) {
+            strokes.addView(TextView(context).apply {
+                text = "Import brushes…"
+                textSize = 13f
+                setTextColor(kit.p.drawerInk)
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                setPadding(kit.dpi(8f), 0, kit.dpi(8f), 0)
+                kit.label(this, "Bring in Photoshop, Procreate, Krita or MyPaint brushes from a file")
+                setOnClickListener { onImport.invoke() }
+            }, LayoutParams(LayoutParams.MATCH_PARENT, kit.dpi(ChromeKit.TOUCH_DP)))
         }
         swap?.let { s ->
             strokes.addView(TextView(context).apply {

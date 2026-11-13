@@ -139,6 +139,12 @@ public final class VisLabSession {
     @Nullable private volatile LookFiles.Home home;
     /** The person's own parts (layers saved out of looks), newest first. Main thread. */
     private final List<com.fadcam.vislab.model.VisPart> parts = new ArrayList<>();
+    /** Looks that came in Joy packs: id -> their text as the pack has it (PACK-1). Main thread. */
+    private final Map<String, String> packText = new HashMap<>();
+    /** Pack look id -> its pack's name. Main thread. */
+    private final Map<String, String> packOf = new HashMap<>();
+    /** Parts that came in Joy packs, in pack order. Main thread. */
+    private List<PackLooks.Part> packParts = new ArrayList<>();
     private boolean loaded;
     private final Runnable syncSoon = this::sync;
 
@@ -228,16 +234,25 @@ public final class VisLabSession {
         return onMain(() -> brand);
     }
 
-    /** True for a look that ships with the app (it has a factory version to go back to). */
+    /**
+     * True for a look that ships with the app or came in a Joy pack: it has an original to go back to, and is
+     * reverted, never deleted.
+     */
     public boolean isBuiltIn(@NonNull String id) {
-        return onMain(() -> factory.containsKey(id));
+        return onMain(() -> factory.containsKey(id) || packText.containsKey(id));
+    }
+
+    /** The name of the Joy pack look {@code id} came in, or null for the app's own looks and the person's. */
+    @Nullable
+    public String packOf(@NonNull String id) {
+        return onMain(() -> packOf.get(id));
     }
 
     /** True for a built-in look that has been changed from its factory version. */
     public boolean isCustomised(@NonNull String id) {
         return onMain(() -> {
             int i = indexOf(id);
-            String f = factory.get(id);
+            String f = factory.containsKey(id) ? factory.get(id) : packText.get(id);
             return i >= 0 && f != null && !f.equals(fileText(looks.get(i)));
         });
     }
@@ -335,6 +350,9 @@ public final class VisLabSession {
         return onMain(() -> {
             int i = indexOf(id);
             VisScene f = VisLab.get(app).builtIn(id);
+            if (f == null && packText.containsKey(id)) {
+                f = new VisScene(JsonParser.parseString(packText.get(id)).getAsJsonObject());   // the pack's own version
+            }
             if (i < 0 || f == null) return fail("\"" + id + "\" has no factory version: it was made here.");
             remember(group, undoLabel, i);
             looks.set(i, f.copy());
@@ -381,6 +399,12 @@ public final class VisLabSession {
     @NonNull
     List<com.fadcam.vislab.model.VisPart> parts() {
         return parts;
+    }
+
+    /** Parts that came in Joy packs, each with its pack's name (empty until the folder has been read). */
+    @NonNull
+    List<PackLooks.Part> packParts() {
+        return packParts;
     }
 
     /**
@@ -454,6 +478,10 @@ public final class VisLabSession {
             int i = indexOf(id);
             if (i < 0) return fail("There is no look called \"" + id + "\".");
             if (factory.containsKey(id)) return fail("Built-in looks can be reverted to default, not deleted.");
+            if (packOf.containsKey(id)) {
+                return fail("Looks from the " + packOf.get(id) + " pack can be put back as they came, not deleted. "
+                        + "Removing the pack takes them away.");
+            }
             if (looks.size() <= 1) return fail("The last look stays.");
             // Snapshot every look from i on: removing shifts them, and undo puts them all back.
             int[] touched = new int[looks.size() - i];
@@ -464,6 +492,42 @@ public final class VisLabSession {
             changedList();
             show(Math.min(i, looks.size() - 1));
             return new ApplyResult(true, name, new ArrayList<>());
+        });
+    }
+
+    /**
+     * A Joy pack was just installed: offer its looks and parts now, without waiting for the next start. Looks
+     * already on the list stay as they are (the person's copy wins); only new ones join, after the rest.
+     */
+    public static void packsChanged(@NonNull Context c) {
+        VisLabSession s = instance;
+        if (s == null) return;   // read with everything else when VisLab first opens
+        Context app = c.getApplicationContext();
+        JoyFolderHome.io().execute(() -> {
+            LookFiles.Home h = LookFiles.home(app);
+            if (h.folder == null) return;
+            java.util.Set<String> taken = new HashSet<>(s.factory.keySet());   // read-only after construction
+            PackLooks.Read packs = PackLooks.read(h.fs, taken, VisLab.get(app).types());
+            s.main.post(() -> {
+                if (!s.loaded) return;   // the first read has not finished: it reads the packs itself
+                s.packParts = PackLooks.unmodifiable(packs.parts);
+                boolean added = false;
+                for (Map.Entry<String, VisScene> e : packs.looks.entrySet()) {
+                    String id = e.getKey();
+                    if (s.packText.containsKey(id) || s.indexOf(id) >= 0) continue;
+                    s.packText.put(id, fileText(e.getValue()));
+                    s.packOf.put(id, packs.packOf.get(id));
+                    s.sent.put(id, s.packText.get(id));
+                    s.sentName.put(id, e.getValue().name());
+                    s.looks.add(e.getValue());
+                    added = true;
+                }
+                if (!added) return;
+                // Undo steps restore the list's length: start clean, or one would drop the new looks.
+                s.undo.clear();
+                s.redo.clear();
+                if (s.room != null) s.room.onLooks();
+            });
         });
     }
 
@@ -665,14 +729,20 @@ public final class VisLabSession {
         if (!loaded) return;   // the read of the folder syncs when it is done
         List<Job> jobs = new ArrayList<>();
         Set<String> alive = new HashSet<>();
+        List<String> unkept = new ArrayList<>();   // pack looks back as the pack has them: no copy of the person's
         for (VisScene s : looks) {
             String id = s.id();
             if (!alive.add(id)) continue;
             String text = fileText(s);
             if (text.equals(sent.get(id))) continue;
-            jobs.add(new Job(id, s.name(), sentName.get(id), text, factory.get(id)));
+            String oldName = sentName.get(id);
             sent.put(id, text);
             sentName.put(id, s.name());
+            if (text.equals(packText.get(id))) {
+                unkept.add(id);
+                continue;
+            }
+            jobs.add(new Job(id, s.name(), oldName, text, factory.get(id)));
         }
         List<String> gone = new ArrayList<>();
         for (String id : new ArrayList<>(sent.keySet())) {
@@ -681,8 +751,8 @@ public final class VisLabSession {
             sent.remove(id);
             sentName.remove(id);
         }
-        if (jobs.isEmpty() && gone.isEmpty()) return;
-        JoyFolderHome.io().execute(() -> write(jobs, gone));
+        if (jobs.isEmpty() && gone.isEmpty() && unkept.isEmpty()) return;
+        JoyFolderHome.io().execute(() -> write(jobs, gone, unkept));
     }
 
     /**
@@ -725,7 +795,7 @@ public final class VisLabSession {
      * and tries again later, and the person hears once (audit 10-18 V1: it was acknowledged before
      * the disk was touched, so a failed save was never retried and the old file won on restart).
      */
-    private void write(@NonNull List<Job> jobs, @NonNull List<String> gone) {
+    private void write(@NonNull List<Job> jobs, @NonNull List<String> gone, @NonNull List<String> unkept) {
         LookFiles.Home h = keptHome();
         if (h == null) return;
         SharedPreferences.Editor ed = prefs().edit();
@@ -734,6 +804,13 @@ public final class VisLabSession {
         for (String id : gone) {
             String rel = files.remove(id);
             if (rel != null && !LookFiles.trash(h, rel)) failedGone.put(id, rel);
+        }
+        // A pack look put back as the pack has it: the person's copy goes to the Trash (restorable there), so the
+        // pack's own version, and any update to it, is the one used again.
+        Map<String, String> failedUnkept = new HashMap<>();
+        for (String id : unkept) {
+            String rel = files.remove(id);
+            if (rel != null && !LookFiles.trash(h, rel)) failedUnkept.put(id, rel);
         }
         for (Job j : jobs) {
             String rel = files.get(j.id);
@@ -762,7 +839,11 @@ public final class VisLabSession {
         ed.apply();
         LookFiles.saveIndex(h);
         main.post(() -> {
-            if (failed.isEmpty() && failedGone.isEmpty()) {
+            for (Map.Entry<String, String> u : failedUnkept.entrySet()) {
+                files.put(u.getKey(), u.getValue());   // still there: the next sync tries again
+                sent.remove(u.getKey());
+            }
+            if (failed.isEmpty() && failedGone.isEmpty() && failedUnkept.isEmpty()) {
                 retryMs = RETRY_FIRST_MS;
                 toldFailure = false;
                 if (room != null) room.onKept();
@@ -857,6 +938,8 @@ public final class VisLabSession {
             }
             ed.apply();
             LookFiles.saveIndex(h);
+            PackLooks.Read packs = h.folder == null ? PackLooks.none()
+                    : PackLooks.read(h.fs, factoryCopy.keySet(), VisLab.get(app).types());
             List<com.fadcam.vislab.model.VisPart> found = new ArrayList<>();
             for (LookFiles.Found f : LookFiles.readParts(h)) {
                 String file = f.rel.substring(f.rel.lastIndexOf('/') + 1);
@@ -868,7 +951,8 @@ public final class VisLabSession {
             main.post(() -> {
                 parts.clear();
                 parts.addAll(found);
-                takeIn(mine, text);
+                packParts = PackLooks.unmodifiable(packs.parts);
+                takeIn(mine, text, packs);
             });
         });
     }
@@ -891,7 +975,8 @@ public final class VisLabSession {
     }
 
     /** Main thread: the folder's looks replace and join the built-ins. */
-    private void takeIn(@NonNull Map<String, VisScene> mine, @NonNull Map<String, String> text) {
+    private void takeIn(@NonNull Map<String, VisScene> mine, @NonNull Map<String, String> text,
+                        @NonNull PackLooks.Read packs) {
         String showing = looks.isEmpty() ? null : looks.get(current).id();
         List<VisScene> madeHere = new ArrayList<>();
         for (int i = 0; i < looks.size(); i++) {
@@ -905,8 +990,19 @@ public final class VisLabSession {
             // A look changed here in the moment before the read keeps that change.
             if (fromFile != null && f.equals(fileText(s))) looks.set(i, fromFile);
         }
-        // Built-ins first (in their order), then the person's own looks, then anything made here.
+        // Built-ins first (in their order), then the packs' looks, then the person's own, then anything made here.
         looks.removeAll(madeHere);
+        for (Map.Entry<String, VisScene> e : packs.looks.entrySet()) {
+            String id = e.getKey();
+            packText.put(id, fileText(e.getValue()));
+            packOf.put(id, packs.packOf.get(id));
+            VisScene theirs = mine.remove(id);   // the person's copy of a pack look wins
+            looks.add(theirs != null ? theirs : e.getValue());
+            if (theirs == null) {   // nothing to write until it is changed
+                sent.put(id, packText.get(id));
+                sentName.put(id, e.getValue().name());
+            }
+        }
         looks.addAll(mine.values());
         for (VisScene s : madeHere) if (indexOf(s.id()) < 0) looks.add(s);
         // What the files hold now, so sync writes only what differs.

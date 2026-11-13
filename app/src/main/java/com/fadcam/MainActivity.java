@@ -1389,6 +1389,8 @@ public class MainActivity extends AppCompatActivity {
         com.fadcam.joyfolder.studio.JoyFolderSetupActivity.requireChoice(this);
         // Folder copies that were still owed when the app last closed (once per run; see StudioMirror).
         com.fadcam.joyfolder.studio.StudioMirror.catchUpOwed(this);
+        // Fonts, grades and caption styles from Joy packs, copied where Studio draws from (once per run).
+        com.fadcam.joyfolder.studio.PackSupplies.syncOnce(this);
         // state)-----------
         applyCloakIfNeeded(false); // hide decoy overlay while active
         try {

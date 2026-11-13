@@ -29,10 +29,27 @@ public final class LookPreview {
 
     private LookPreview() {}
 
-    /** The file name of a look's sheet: "Dust" → "Dust.5x4.sprite.png". */
+    /** The file name of a look's sheet as written now: "Dust" → "Dust.5x4.sprite.webp" (T17: a fifth of a PNG). */
     @NonNull
     public static String sheetName(@NonNull String base) {
-        return SheetName.of(base, COLS, ROWS);
+        return SheetName.of(base, COLS, ROWS, SheetName.WEBP);
+    }
+
+    /** Every name a look's sheet may have: the WebP written now, and the PNG older previews were written as. */
+    @NonNull
+    public static String[] sheetNames(@NonNull String base) {
+        return new String[]{sheetName(base), SheetName.of(base, COLS, ROWS, SheetName.PNG)};
+    }
+
+    /** A sheet as WebP bytes: lossy at a high quality (the edges stay clean at card size), alpha kept. */
+    @NonNull
+    public static byte[] webp(@NonNull Bitmap b) {
+        java.io.ByteArrayOutputStream bo = new java.io.ByteArrayOutputStream();
+        @SuppressWarnings("deprecation")
+        Bitmap.CompressFormat f = android.os.Build.VERSION.SDK_INT >= 30
+                ? Bitmap.CompressFormat.WEBP_LOSSY : Bitmap.CompressFormat.WEBP;
+        b.compress(f, 90, bo);
+        return bo.toByteArray();
     }
 
     @NonNull

@@ -66,6 +66,10 @@ final class KnobPanel extends LinearLayout {
             pickPicture(layer);
         }
 
+        /** Choose a TextLab look and type the words this picture layer shows in it (T15). */
+        default void pickWordsLook(@NonNull JsonObject layer) {
+        }
+
         /** Let the person choose which Sprite Lab sheet this Sprite layer plays. */
         void pickSheet(@NonNull JsonObject layer);
 
@@ -97,6 +101,12 @@ final class KnobPanel extends LinearLayout {
 
         /** Ask for a name and save this layer as one of the person's parts. */
         void saveLayerAsPart(@NonNull JsonObject layer);
+
+        /** Parts that came in Joy packs, each with its pack's name (PACK-1). */
+        @NonNull
+        default java.util.List<PackLooks.Part> packParts() {
+            return java.util.Collections.emptyList();
+        }
     }
 
     private static final String[][] PALETTES = {
@@ -296,6 +306,7 @@ final class KnobPanel extends LinearLayout {
         alp.topMargin = Ui.dp(c, 6);
         body.addView(add, alp);
         myParts(c, s, addBox);
+        packParts(c, s, addBox);
         partsFromLooks(c, s, addBox);
         for (VisTypes.Family fam : types.families) {
             addBox.addView(section(c, fam.label));
@@ -439,9 +450,27 @@ final class KnobPanel extends LinearLayout {
     private void myParts(@NonNull Context c, @NonNull VisScene s, @NonNull LinearLayout addBox) {
         java.util.List<com.fadcam.vislab.model.VisPart> mine = host.myParts();
         if (mine.isEmpty()) return;
-        addBox.addView(section(c, "My parts"));
+        partPills(c, s, addBox, "My parts", mine);
+    }
+
+    /** Then the parts that came in Joy packs, one row per pack, under the pack's name. */
+    private void packParts(@NonNull Context c, @NonNull VisScene s, @NonNull LinearLayout addBox) {
+        java.util.Map<String, java.util.List<com.fadcam.vislab.model.VisPart>> byPack = new java.util.LinkedHashMap<>();
+        for (PackLooks.Part p : host.packParts()) {
+            java.util.List<com.fadcam.vislab.model.VisPart> l = byPack.get(p.pack);
+            if (l == null) byPack.put(p.pack, l = new java.util.ArrayList<>());
+            l.add(p.part);
+        }
+        for (java.util.Map.Entry<String, java.util.List<com.fadcam.vislab.model.VisPart>> e : byPack.entrySet()) {
+            partPills(c, s, addBox, e.getKey(), e.getValue());
+        }
+    }
+
+    private void partPills(@NonNull Context c, @NonNull VisScene s, @NonNull LinearLayout addBox, @NonNull String title,
+                           @NonNull java.util.List<com.fadcam.vislab.model.VisPart> list) {
+        addBox.addView(section(c, title));
         WrapLayout w = new WrapLayout(c, Ui.dp(c, 6), Ui.dp(c, 6));
-        for (com.fadcam.vislab.model.VisPart part : mine) {
+        for (com.fadcam.vislab.model.VisPart part : list) {
             VisType t = types.type(str(part.layer, "type"));
             TextView p = pill(c, part.name, false);
             Ui.label(p, (t != null ? t.label : "A layer") + (part.from.isEmpty() ? "" : ", saved from " + part.from));
@@ -632,6 +661,15 @@ final class KnobPanel extends LinearLayout {
         });
         pills.addView(videoFirst ? vid : pic);
         pills.addView(videoFirst ? pic : vid);
+        boolean words = own && WordsPicture.is(L.get("image").getAsString());
+        TextView look = pill(c, words ? "Change the words" : "Words in a look", false);
+        Ui.label(look, words ? "Change these words, or the TextLab look they wear"
+                : "Your own words in one of TextLab's looks: chrome, gold, fire, neon and more, moving with the look");
+        look.setOnClickListener(v -> {
+            Motion.press(v);
+            host.pickWordsLook(L);
+        });
+        pills.addView(look);
         if (own) {
             TextView back = pill(c, "Joy emblem", false);
             Ui.label(back, "Go back to the built-in Joy emblem");

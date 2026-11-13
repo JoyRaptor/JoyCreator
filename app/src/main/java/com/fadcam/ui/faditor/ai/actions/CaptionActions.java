@@ -437,7 +437,7 @@ final class CaptionActions {
             if (!c[0].startsWith("file:") && seen.add(c[0])) all.add(c);
         }
         for (String[] c : FontLibrary.TEXT_FONTS) if (seen.add(c[0])) all.add(c);
-        for (String[] f : FontLibrary.imported()) if (seen.add(f[0])) all.add(new String[]{f[0], f[1]});
+        for (String[] f : FontLibrary.choosable()) if (seen.add(f[0])) all.add(new String[]{f[0], f[1]});
         for (String[] f : all) if (f[0].equals(n)) return f;
         for (String[] f : all) if (f[1].equalsIgnoreCase(n)) return f;
         String want = n.toLowerCase(Locale.ROOT).replace('_', ' ');

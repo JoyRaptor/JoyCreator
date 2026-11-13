@@ -87,7 +87,7 @@ public final class FolderReader {
     }
 
     /**
-     * Moving pictures (owner, 2026-11-12). A {@code <Name>.<C>x<R>.sprite.png} plays as a loop on its card. A
+     * Moving pictures (owner, 2026-11-12). A {@code <Name>.<C>x<R>.sprite.png} (or {@code .webp}) plays as a loop on its card. A
      * look with a sheet beside it ({@code Dust.text.json} + {@code Dust.5x4.sprite.png}) shows the sheet as its
      * own picture, and the sheet is not listed a second time: it is the look's preview, not a file of its own.
      */
@@ -95,11 +95,16 @@ public final class FolderReader {
     static List<String> linkSheets(@NonNull List<LibraryItem> items) {
         List<String> stale = new ArrayList<>();
         java.util.Map<String, LibraryItem> sheets = new java.util.HashMap<>();
+        List<LibraryItem> older = new ArrayList<>();
         for (LibraryItem it : items) {
             com.fadcam.joyfolder.SheetName n = com.fadcam.joyfolder.SheetName.parse(it.fileName);
             if (n == null || it.folderPath == null) continue;
             it.thumbSheet = it.fileName;
-            sheets.put(dirOf(it.folderPath) + "/" + n.base.toLowerCase(java.util.Locale.ROOT), it);
+            String key = dirOf(it.folderPath) + "/" + n.base.toLowerCase(java.util.Locale.ROOT);
+            LibraryItem had = sheets.get(key);
+            // a look with an old PNG preview and a new WebP one: the newer is its preview, and neither is listed
+            if (had != null) older.add(had.modified > it.modified ? it : had);
+            if (had == null || it.modified >= had.modified) sheets.put(key, it);
         }
         java.util.Set<LibraryItem> owned = new java.util.HashSet<>();
         for (LibraryItem it : items) {
@@ -111,6 +116,11 @@ public final class FolderReader {
             it.thumb = sheet.uri;
             it.thumbSheet = sheet.fileName;
             owned.add(sheet);
+        }
+        for (LibraryItem o : older) {   // the other preview of a look that has two: never a card of its own
+            String key = dirOf(o.folderPath) + "/" + com.fadcam.joyfolder.SheetName.parse(o.fileName).base.toLowerCase(java.util.Locale.ROOT);
+            LibraryItem chosen = sheets.get(key);
+            if (chosen != null && owned.contains(chosen)) owned.add(o);
         }
         items.removeAll(owned);
         return stale;

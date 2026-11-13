@@ -30,7 +30,7 @@ public class LutLibraryPanel extends LinearLayout {
 
     private void rebuild() {
         removeAllViews();
-        for (LutPreset preset : LutManager.builtInPresets()) {
+        for (LutPreset preset : LutManager.presets(getContext())) {
             android.widget.TextView button = new android.widget.TextView(getContext());
             button.setText(preset.displayName);
             // A drawer list row — record 06 `.dr`: 46dp, single line, drawer ink (this panel is
@@ -55,6 +55,6 @@ public class LutLibraryPanel extends LinearLayout {
 
     @NonNull
     public List<LutPreset> presets() {
-        return LutManager.builtInPresets();
+        return LutManager.presets(getContext());
     }
 }

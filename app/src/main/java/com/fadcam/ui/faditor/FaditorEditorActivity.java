@@ -38728,6 +38728,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         for (String[] f : com.fadcam.ui.faditor.text.FontLibrary.imported()) {
             out.add(new String[]{f[0], f[1] + " ★"});
         }
+        out.addAll(com.fadcam.ui.faditor.text.FontLibrary.fromPacks());   // fonts from Joy packs
         return out;
     }
 

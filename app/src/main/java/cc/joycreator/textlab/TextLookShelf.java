@@ -11,6 +11,7 @@ import com.fadcam.joyfolder.FileKind;
 import com.fadcam.joyfolder.JoyFolder;
 import com.fadcam.joyfolder.JoyFs;
 import com.fadcam.joyfolder.JoyPack;
+import com.fadcam.joyfolder.PackShelf;
 import com.fadcam.joyfolder.Placement;
 import com.fadcam.joyfolder.android.JoyFolderHome;
 import com.fadcam.vislab.gl.ShaderLib;
@@ -38,7 +39,7 @@ import java.util.Set;
 public final class TextLookShelf {
 
     private static final String TAG = "TextLab";
-    public static final String PACKS_DIR = "Supplies/Packs";
+    public static final String PACKS_DIR = PackShelf.DIR;
 
     /** Where a look on the shelf came from. */
     public enum From { BUILT_IN, PACK, MINE }
@@ -134,28 +135,12 @@ public final class TextLookShelf {
         JoyFolder jf = JoyFolderHome.open(c);
         if (jf == null) return out;
         try {
-            if (jf.fs.stat(PACKS_DIR) != null) {
-                List<JoyFs.Entry> packs = jf.fs.list(PACKS_DIR);
-                packs.sort((a, b) -> a.name.compareToIgnoreCase(b.name));
-                for (JoyFs.Entry d : packs) {
-                    if (!d.dir) continue;
-                    String top = Placement.join(PACKS_DIR, d.name);
-                    try {
-                        JoyPack p = JoyPack.parse(text(jf, Placement.join(top, JoyPack.MANIFEST)));
-                        if (!p.usable()) continue;
-                        for (JoyPack.Entry e : p.of("text-look")) {
-                            String rel = Placement.join(top, e.file);
-                            try {
-                                JSONObject look = new JSONObject(text(jf, rel));
-                                out.add(new Item("folder:" + rel, look.optString("name", FileKind.baseOf(Placement.nameOf(rel))),
-                                        p.name, From.PACK, look, rel));
-                            } catch (Exception ex) {
-                                Log.w(TAG, "pack look not read: " + rel, ex);
-                            }
-                        }
-                    } catch (Exception ex) {
-                        Log.w(TAG, "pack not read: " + top, ex);
-                    }
+            for (PackShelf.Found f : PackShelf.installed(jf.fs, "text-look")) {
+                try {
+                    JSONObject look = new JSONObject(text(jf, f.rel));
+                    out.add(new Item("folder:" + f.rel, look.optString("name", f.label()), f.pack.name, From.PACK, look, f.rel));
+                } catch (Exception ex) {
+                    Log.w(TAG, "pack look not read: " + f.rel, ex);
                 }
             }
             String mine = "Supplies/" + FileKind.LOOK.suppliesFolder;

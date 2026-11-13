@@ -114,6 +114,9 @@ final class TextLookActions {
         List<String[]> mine = FontLibrary.imported();
         sb.append(mine.isEmpty() ? ". No imported fonts." : ". Imported: ");
         for (int i = 0; i < mine.size(); i++) sb.append(i > 0 ? ", " : "").append(mine.get(i)[1]);
+        List<String[]> packs = FontLibrary.fromPacks();
+        if (!packs.isEmpty()) sb.append(". From packs: ");
+        for (int i = 0; i < packs.size(); i++) sb.append(i > 0 ? ", " : "").append(packs.get(i)[1]);
         return ActionResult.unchanged(sb.toString());
     }
 
@@ -206,7 +209,7 @@ final class TextLookActions {
     static String[] font(@NonNull String name) throws ActionError {
         String n = name.trim();
         List<String[]> all = new ArrayList<>(Arrays.asList(FontLibrary.TEXT_FONTS));
-        all.addAll(FontLibrary.imported());
+        all.addAll(FontLibrary.choosable());
         for (String[] f : all) if (f[0].equals(n)) return f;
         for (String[] f : all) if (f[1].equalsIgnoreCase(n)) return f;
         String want = n.toLowerCase(Locale.ROOT).replace('_', ' ');

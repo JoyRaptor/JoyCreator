@@ -34,7 +34,7 @@ import java.util.function.Consumer;
  * <ul>
  *   <li>{@link #chip}: a built-in look's sheet, made once into the app's cache (remade after an app update).</li>
  *   <li>{@link #save}: a look the person saves goes to {@code Supplies/Looks/} as {@code <Name>.text.json} with
- *       its moving preview {@code <Name>.5x4.sprite.png} beside it; the Library plays it.</li>
+ *       its moving preview {@code <Name>.5x4.sprite.webp} beside it (older ones: {@code .png}); the Library plays it.</li>
  *   <li>{@link #remake}: a look file whose preview is missing or older than the look gets a new one (a look
  *       edited by hand, or copied in without its picture).</li>
  * </ul>
@@ -108,7 +108,8 @@ public final class TextLabPreviews {
                 dir.mkdirs();
                 File tmp = new File(dir, f.getName() + ".part");
                 try (FileOutputStream os = new FileOutputStream(tmp)) {
-                    b.compress(Bitmap.CompressFormat.PNG, 100, os);
+                    os.write(LookPreview.webp(b));
+                    os.close();
                     if (tmp.renameTo(f)) out = f;
                 } catch (Exception e) {
                     Log.w(TAG, "preview not cached", e);
@@ -212,7 +213,7 @@ public final class TextLabPreviews {
         if (base.isEmpty()) base = "Text look";
         // readable by hand: org.json writes every slash with a backslash before it, which no person would
         byte[] text = look.toString(2).replace("\\/", "/").getBytes(StandardCharsets.UTF_8);
-        byte[] png = sheet != null ? png(sheet) : null;
+        byte[] sheetBytes = sheet != null ? LookPreview.webp(sheet) : null;
         JoyFolder jf = JoyFolderHome.open(app);
         if (jf == null) {
             File dir = new File(app.getFilesDir(), "textlab/looks");
@@ -222,9 +223,9 @@ public final class TextLabPreviews {
             try (FileOutputStream os = new FileOutputStream(f)) {
                 os.write(text);
             }
-            if (png != null) {
+            if (sheetBytes != null) {
                 try (FileOutputStream os = new FileOutputStream(new File(dir, LookPreview.sheetName(FileKind.baseOf(f.getName()))))) {
-                    os.write(png);
+                    os.write(sheetBytes);
                 }
             }
             Log.w(TAG, "Joy Creator folder unreachable; look kept in the app's own folder: " + f);
@@ -234,7 +235,7 @@ public final class TextLabPreviews {
         String file = jf.freeName(dir, base + TEXT_ENDING);
         String rel = Placement.join(dir, file);
         put(jf, rel, text);
-        if (png != null) put(jf, Placement.join(dir, LookPreview.sheetName(FileKind.baseOf(file))), png);
+        if (sheetBytes != null) putSheet(jf, dir, FileKind.baseOf(file), sheetBytes);
         jf.saveIndex();
         return rel;
     }
@@ -245,18 +246,25 @@ public final class TextLabPreviews {
         if (e != null) jf.index.put(rel, e.size, e.modified, Fingerprint.of(jf.fs, rel), null);
     }
 
+    /**
+     * A look's moving preview, written as WebP; an older PNG preview of the same look beside it is then removed
+     * (it is the app's own picture of the look, made again from the look at any time, never the person's work).
+     */
+    private static void putSheet(@NonNull JoyFolder jf, @NonNull String dir, @NonNull String base, @NonNull byte[] webp)
+            throws Exception {
+        String[] names = LookPreview.sheetNames(base);
+        put(jf, Placement.join(dir, names[0]), webp);
+        for (int i = 1; i < names.length; i++) {
+            String old = Placement.join(dir, names[i]);
+            if (jf.fs.stat(old) != null && jf.fs.delete(old)) jf.index.remove(old);
+        }
+    }
+
     @NonNull
     private static File freeFile(@NonNull File dir, @NonNull String base) {
         File f = new File(dir, base + TEXT_ENDING);
         for (int n = 2; f.exists(); n++) f = new File(dir, base + " " + n + TEXT_ENDING);
         return f;
-    }
-
-    @NonNull
-    private static byte[] png(@NonNull Bitmap b) {
-        ByteArrayOutputStream bo = new ByteArrayOutputStream();
-        b.compress(Bitmap.CompressFormat.PNG, 100, bo);
-        return bo.toByteArray();
     }
 
     // ---- previews for looks already in the folder ------------------------------------------------
@@ -284,7 +292,7 @@ public final class TextLabPreviews {
                         JoyFolderHome.io().execute(() -> {
                             try {
                                 String dir = rel.contains("/") ? rel.substring(0, rel.lastIndexOf('/')) : "";
-                                put(jf, Placement.join(dir, LookPreview.sheetName(FileKind.baseOf(Placement.nameOf(rel)))), png(b));
+                                putSheet(jf, dir, FileKind.baseOf(Placement.nameOf(rel)), LookPreview.webp(b));
                                 jf.saveIndex();
                             } catch (Exception e) {
                                 Log.w(TAG, "preview not written for " + rel, e);

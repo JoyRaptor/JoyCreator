@@ -216,6 +216,31 @@ public final class FontLibrary {
     }
 
     /**
+     * Fonts that came in Joy packs (PACK-1, the {@code font} socket) as {@code {key, label}}: the same
+     * {@code "file:<path>"} key as an imported font (the app's own copy, {@code PackSupplies}), labelled
+     * "Name · Pack". A removed pack's fonts are no longer offered, but text that uses one still draws in it.
+     */
+    @NonNull
+    public static List<String[]> fromPacks() {
+        List<String[]> out = new ArrayList<>();
+        File d = dir;
+        if (d == null || d.getParentFile() == null) return out;
+        for (com.fadcam.joyfolder.studio.PackSupplies.Item i
+                : com.fadcam.joyfolder.studio.PackSupplies.offered(d.getParentFile(), com.fadcam.joyfolder.studio.PackSupplies.FONT)) {
+            if (isFontName(i.file.getName())) out.add(new String[]{"file:" + i.file.getAbsolutePath(), i.label + " · " + i.pack});
+        }
+        return out;
+    }
+
+    /** Every font a picker offers beyond the built-ins: the person's imported fonts, then the packs'. */
+    @NonNull
+    public static List<String[]> choosable() {
+        List<String[]> out = imported();
+        out.addAll(fromPacks());
+        return out;
+    }
+
+    /**
      * Best-effort rescue of fonts sitting in the old {@code Pictures/FadCam/fonts}. On a device
      * where the original write failed there is nothing there, which is the normal case and not
      * an error; on an older device that DID manage to write, this keeps them working.

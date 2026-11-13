@@ -40,6 +40,30 @@ public final class LutManager {
         return Collections.unmodifiableList(presets);
     }
 
+    /**
+     * Every grade a picker offers: the built-in ones, then the {@code .cube} grades that came in Joy packs
+     * (PACK-1, the {@code grade} socket; their id is the pack's id and the file's place in it, so a project
+     * that uses one finds it again on any phone with the pack).
+     */
+    @NonNull
+    public static List<LutPreset> presets(@NonNull Context context) {
+        List<LutPreset> presets = new ArrayList<>(builtInPresets());
+        for (com.fadcam.joyfolder.studio.PackSupplies.Item i : com.fadcam.joyfolder.studio.PackSupplies.offered(
+                context.getApplicationContext().getFilesDir(), com.fadcam.joyfolder.studio.PackSupplies.GRADE)) {
+            presets.add(new LutPreset(i.id, i.label + " · " + i.pack, i.file.getAbsolutePath(), null));
+        }
+        return presets;
+    }
+
+    /** A grade's name for the person: built in, from a pack (even one removed since), or "Custom grade". */
+    @NonNull
+    public static String nameOf(@NonNull Context context, @NonNull String id) {
+        for (LutPreset p : builtInPresets()) if (p.id.equals(id)) return p.displayName;
+        com.fadcam.joyfolder.studio.PackSupplies.Item i =
+                com.fadcam.joyfolder.studio.PackSupplies.find(context.getApplicationContext().getFilesDir(), id);
+        return i != null ? i.label + " · " + i.pack : "Custom grade";
+    }
+
     @Nullable
     public static ColorLut load(@NonNull Context context, @NonNull String id) {
         return load(context, id, 1f);
@@ -96,6 +120,17 @@ public final class LutManager {
 
     @Nullable
     public static Bitmap loadBitmap(@NonNull Context context, @NonNull String id) {
+        if (id.startsWith(com.fadcam.joyfolder.studio.PackSupplies.GRADE + ":")) {   // a grade from a Joy pack
+            com.fadcam.joyfolder.studio.PackSupplies.Item i =
+                    com.fadcam.joyfolder.studio.PackSupplies.find(context.getApplicationContext().getFilesDir(), id);
+            if (i == null || !i.file.isFile()) return null;
+            try (InputStream in = new java.io.FileInputStream(i.file)) {
+                int[][][] cube = parseCube(in);
+                return cube == null ? null : cubeToBitmap(cube);
+            } catch (Exception ignored) {
+                return null;
+            }
+        }
         try (InputStream in = context.getAssets().open("luts/" + id + ".png")) {
             return BitmapFactory.decodeStream(in);
         } catch (Exception ignored) {

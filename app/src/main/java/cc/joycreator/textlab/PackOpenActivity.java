@@ -96,6 +96,10 @@ public final class PackOpenActivity extends Activity {
                 JoyFolder jf = JoyFolderHome.open(this);
                 if (jf == null) throw new java.io.IOException("choose your Joy Creator folder first (Setup)");
                 done = PackInstaller.install(jf, r);
+                // Every wing that reads packs sees this one now (PACK-1): Studio's fonts, grades and caption
+                // styles are copied into the app; VisLab offers its looks and parts.
+                com.fadcam.joyfolder.studio.PackSupplies.sync(this);
+                com.fadcam.vislab.room.VisLabSession.packsChanged(this);
             } catch (Exception e) {
                 done = null;
                 problem = e.getMessage();

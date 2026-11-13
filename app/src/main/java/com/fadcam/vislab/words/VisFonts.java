@@ -49,7 +49,7 @@ public final class VisFonts {
         List<String[]> out = new ArrayList<>();
         out.add(new String[]{DEFAULT, "Joy"});
         for (String[] f : FontLibrary.TEXT_FONTS) out.add(f);
-        out.addAll(FontLibrary.imported());
+        out.addAll(FontLibrary.choosable());   // imported fonts, then fonts from Joy packs
         return out;
     }
 }

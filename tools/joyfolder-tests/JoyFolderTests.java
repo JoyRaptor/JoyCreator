@@ -46,6 +46,7 @@ public final class JoyFolderTests {
         run("names: unique ignores case", JoyFolderTests::namesUnique);
         run("kinds: endings and bases", JoyFolderTests::kinds);
         run("packs: manifest, sockets, unknown kept, unsafe paths refused", JoyFolderTests::packs);
+        run("packs: installed shelf by socket, order, missing files, later levels", JoyFolderTests::packShelf);
         run("placement: the three rules", JoyFolderTests::placement);
         run("roles: adopt by name, drop when gone", JoyFolderTests::roles);
         run("fingerprint: content identity, sampling", JoyFolderTests::fingerprint);
@@ -148,6 +149,38 @@ public final class JoyFolderTests {
         }
     }
 
+    static void packShelf() throws IOException {
+        FileJoyFs fs = tempFs();
+        eq(0, com.fadcam.joyfolder.PackShelf.installed(fs, "vis-look").size());   // no packs folder at all
+        write(fs, "Supplies/Packs/B pack/joypack.json", "{\"id\":\"b\",\"name\":\"B pack\",\"contents\":["
+                + "{\"socket\":\"vis-look\",\"file\":\"looks/Two.vis.json\"},"
+                + "{\"socket\":\"vis-look\",\"file\":\"looks/Gone.vis.json\"},"
+                + "{\"socket\":\"font\",\"file\":\"fonts/Tube.ttf\"}]}");
+        write(fs, "Supplies/Packs/B pack/looks/Two.vis.json", "{}");
+        write(fs, "Supplies/Packs/B pack/fonts/Tube.ttf", "font");
+        write(fs, "Supplies/Packs/a pack/joypack.json", "{\"id\":\"a\",\"name\":\"A pack\",\"contents\":["
+                + "{\"socket\":\"vis-look\",\"file\":\"One.vis.json\"}]}");
+        write(fs, "Supplies/Packs/a pack/One.vis.json", "{}");
+        write(fs, "Supplies/Packs/Later/joypack.json", "{\"id\":\"l\",\"needs\":\"9\",\"contents\":["
+                + "{\"socket\":\"vis-look\",\"file\":\"x.vis.json\"}]}");
+        write(fs, "Supplies/Packs/Later/x.vis.json", "{}");
+        write(fs, "Supplies/Packs/Broken/joypack.json", "not json");
+        write(fs, "Supplies/Packs/No manifest/y.vis.json", "{}");
+        write(fs, "Supplies/Packs/loose.vis.json", "{}");
+        List<com.fadcam.joyfolder.PackShelf.Found> looks = com.fadcam.joyfolder.PackShelf.installed(fs, "vis-look");
+        eq(2, looks.size());   // the missing file, the later level, the broken and manifest-less packs are left out
+        eq("Supplies/Packs/a pack/One.vis.json", looks.get(0).rel);   // folder order, ignoring case
+        eq("Supplies/Packs/B pack/looks/Two.vis.json", looks.get(1).rel);
+        eq("B pack", looks.get(1).pack.name);
+        eq("Supplies/Packs/B pack", looks.get(1).packDir);
+        eq("Two", looks.get(1).label());
+        List<com.fadcam.joyfolder.PackShelf.Found> both = com.fadcam.joyfolder.PackShelf.installed(fs,
+                new HashSet<>(Arrays.asList("vis-look", "font")));
+        eq(3, both.size());
+        eq("Tube", both.get(2).label());
+        check(com.fadcam.joyfolder.PackShelf.manifest(fs, "Supplies/Packs/Broken") == null, "a broken manifest reads as none");
+    }
+
     static void kinds() {
         eq(FileKind.BRUSH, FileKind.of("Soft pencil.brush.json"));
         eq(FileKind.DOCUMENT, FileKind.of("notes.json"));
@@ -161,6 +194,12 @@ public final class JoyFolderTests {
         com.fadcam.joyfolder.SheetName n = com.fadcam.joyfolder.SheetName.parse("My Title 2.5x4.sprite.png");
         check(n != null && n.base.equals("My Title 2") && n.cols == 5 && n.rows == 4 && n.frames() == 20, "sheet grid read from its name");
         check(com.fadcam.joyfolder.SheetName.parse("Dust.png") == null, "a plain picture is not a sheet");
+        com.fadcam.joyfolder.SheetName w = com.fadcam.joyfolder.SheetName.parse("Dust.5x4.sprite.WEBP");
+        check(w != null && w.cols == 5 && w.rows == 4 && w.ext.equals("webp") && w.base.equals("Dust"), "a WebP sheet");
+        eq("png", com.fadcam.joyfolder.SheetName.parse("Dust.5x4.sprite.png").ext);
+        eq("Dust.5x4.sprite.webp", com.fadcam.joyfolder.SheetName.of("Dust", 5, 4, "webp"));
+        eq("Dust.5x4.sprite.png", com.fadcam.joyfolder.SheetName.of("Dust", 5, 4));
+        check(com.fadcam.joyfolder.SheetName.parse("Dust.5x4.sprite.jpg") == null, "only PNG and WebP sheets");
         check(com.fadcam.joyfolder.SheetName.parse("Dust.0x4.sprite.png") == null, "an empty grid is not a sheet");
         check(com.fadcam.joyfolder.SheetName.parse("Star guy.sprite.json") == null, "a Sprite Lab sheet file is not a moving picture");
         eq("Dust.5x4.sprite.png", com.fadcam.joyfolder.SheetName.of("Dust", 5, 4));

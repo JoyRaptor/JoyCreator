@@ -40,6 +40,12 @@ public final class CaptionStyleStore {
 
     @Nullable private static SharedPreferences prefs;
     @Nullable private static List<CaptionStyle> cache;
+    /** The app's files folder, where the copies of Joy packs' caption styles are listed (PackSupplies). */
+    @Nullable private static java.io.File filesDir;
+    /** The pack list the styles below were read from (same object = unchanged). */
+    @Nullable private static List<com.fadcam.joyfolder.studio.PackSupplies.Item> packSource;
+    private static List<CaptionStyle> packStyles = new ArrayList<>();
+    private static java.util.Set<String> packGone = new java.util.HashSet<>();
 
     private CaptionStyleStore() { }
 
@@ -49,6 +55,41 @@ public final class CaptionStyleStore {
                     .getSharedPreferences(PREFS, Context.MODE_PRIVATE);
             cache = null;
         }
+        if (filesDir == null) filesDir = context.getApplicationContext().getFilesDir();
+    }
+
+    /**
+     * Caption styles that came in Joy packs (PACK-1, the {@code caption-style} socket: a {@code .caption.json}
+     * as a saved style is written). Their id names the pack and the file, so a project that uses one finds it
+     * in the export process too; a removed pack's styles still resolve but are no longer listed.
+     */
+    @NonNull
+    private static synchronized List<CaptionStyle> packStyles() {
+        java.io.File dir = filesDir;
+        if (dir == null) return packStyles;
+        List<com.fadcam.joyfolder.studio.PackSupplies.Item> src = com.fadcam.joyfolder.studio.PackSupplies.all(dir);
+        if (src == packSource) return packStyles;
+        List<CaptionStyle> out = new ArrayList<>();
+        java.util.Set<String> gone = new java.util.HashSet<>();
+        for (com.fadcam.joyfolder.studio.PackSupplies.Item i : src) {
+            if (!i.socket.equals(com.fadcam.joyfolder.studio.PackSupplies.CAPTION)) continue;
+            try {
+                JSONObject o = new JSONObject(new String(java.nio.file.Files.readAllBytes(i.file.toPath()),
+                        java.nio.charset.StandardCharsets.UTF_8));
+                o.put("id", i.id);
+                if (o.optString("label", "").trim().isEmpty()) o.put("label", i.label);
+                CaptionStyle s = CaptionStyle.fromJson(o);
+                if (s == null) continue;
+                out.add(s);
+                if (i.gone) gone.add(i.id);
+            } catch (Exception ignored) {
+                // a pack file that is not a caption style: left out
+            }
+        }
+        packSource = src;
+        packStyles = out;
+        packGone = gone;
+        return out;
     }
 
     /** All custom styles (named + drafts). Empty when not initialised. */
@@ -66,6 +107,10 @@ public final class CaptionStyleStore {
         for (CaptionStyle s : all()) {
             if (s.id.startsWith("custom_")) out.add(s);
         }
+        List<CaptionStyle> packs = packStyles();
+        synchronized (CaptionStyleStore.class) {
+            for (CaptionStyle s : packs) if (!packGone.contains(s.id)) out.add(s);   // then the packs' styles
+        }
         return out;
     }
 
@@ -73,6 +118,9 @@ public final class CaptionStyleStore {
     public static CaptionStyle find(@NonNull String id) {
         for (CaptionStyle s : all()) {
             if (s.id.equals(id)) return s;
+        }
+        if (id.startsWith(com.fadcam.joyfolder.studio.PackSupplies.CAPTION + ":")) {
+            for (CaptionStyle s : packStyles()) if (s.id.equals(id)) return s;
         }
         return null;
     }

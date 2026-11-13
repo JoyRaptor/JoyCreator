@@ -902,16 +902,9 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
                 }
             }
             // fonts that came in Joy packs (their "font" socket)
-            if (jf != null && jf.fs.stat(TextLookShelf.PACKS_DIR) != null) {
-                for (JoyFs.Entry d : jf.fs.list(TextLookShelf.PACKS_DIR)) {
-                    if (!d.dir) continue;
-                    String top = Placement.join(TextLookShelf.PACKS_DIR, d.name);
-                    try {
-                        com.fadcam.joyfolder.JoyPack p = com.fadcam.joyfolder.JoyPack.parse(new String(
-                                jf.readAll(Placement.join(top, com.fadcam.joyfolder.JoyPack.MANIFEST)), StandardCharsets.UTF_8));
-                        if (!p.usable()) continue;
-                        for (com.fadcam.joyfolder.JoyPack.Entry e : p.of("font")) out.add(Placement.join(top, e.file));
-                    } catch (Exception ignored) { }
+            if (jf != null) {
+                for (com.fadcam.joyfolder.PackShelf.Found f : com.fadcam.joyfolder.PackShelf.installed(jf.fs, "font")) {
+                    out.add(f.rel);
                 }
             }
         } catch (Exception e) {

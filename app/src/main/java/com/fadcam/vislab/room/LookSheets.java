@@ -59,6 +59,12 @@ final class LookSheets {
      */
     static void askName(@NonNull Context c, @NonNull String title, @NonNull String current,
                         @NonNull String action, @NonNull Consumer<String> onName) {
+        askText(c, title, current, action, "Look name", onName);
+    }
+
+    /** One line of text to type ({@code hint} is also the field's spoken label), then the action. */
+    static void askText(@NonNull Context c, @NonNull String title, @NonNull String current,
+                        @NonNull String action, @NonNull String hint, @NonNull Consumer<String> onName) {
         BottomSheetDialog d = sheet(c);
         EditText field = new EditText(c);
         Runnable go = () -> {
@@ -73,14 +79,14 @@ final class LookSheets {
         field.setSingleLine(true);
         field.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_WORDS);
         field.setImeOptions(EditorInfo.IME_ACTION_DONE);
-        field.setHint("Look name");
+        field.setHint(hint);
         field.setHintTextColor(Studio.INK_FAINT);
         field.setTextColor(Studio.INK);
         field.setTextSize(TypedValue.COMPLEX_UNIT_SP, SheetKit.ROW_SP);
         Type.body(field, Type.REGULAR);
         field.setBackground(SheetKit.pillBackground(c, Studio.RAISED));
         field.setPadding(SheetKit.dp(c, 16), SheetKit.dp(c, 12), SheetKit.dp(c, 16), SheetKit.dp(c, 12));
-        SheetKit.label(field, "Look name");
+        SheetKit.label(field, hint);
         int inset = SheetKit.dp(c, SheetKit.ROW_INSET_DP);
         LinearLayout.LayoutParams fLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -100,6 +106,34 @@ final class LookSheets {
             InputMethodManager imm = (InputMethodManager) c.getSystemService(Context.INPUT_METHOD_SERVICE);
             if (imm != null) imm.showSoftInput(field, InputMethodManager.SHOW_IMPLICIT);
         });
+    }
+
+    /**
+     * Which TextLab look a picture layer's words wear (T15): the looks that come with the app, the packs' and the
+     * person's own, each with where it is from. The one worn now is ticked.
+     */
+    static void chooseTextLook(@NonNull Context c, @NonNull java.util.List<cc.joycreator.textlab.TextLookShelf.Item> looks,
+                               @Nullable String currentKey, @NonNull Consumer<cc.joycreator.textlab.TextLookShelf.Item> onPick) {
+        BottomSheetDialog d = sheet(c);
+        LinearLayout root = column(c, d, "Words in a TextLab look", null);
+        LinearLayout list = new LinearLayout(c);
+        list.setOrientation(LinearLayout.VERTICAL);
+        for (cc.joycreator.textlab.TextLookShelf.Item it : looks) {
+            boolean on = it.key.equals(currentKey);
+            SheetKit.Row r = SheetKit.row(c, "title", it.name + "  ·  " + it.pack, on, SheetKit.Trail.CHECK, v -> {
+                d.dismiss();
+                onPick.accept(it);
+            });
+            SheetKit.label(r.view, "Put the words in " + it.name + " (" + it.pack + ")");
+            list.addView(r.view);
+        }
+        if (looks.isEmpty()) root.addView(SheetKit.subtitle(c, "TextLab's looks could not be read just now."));
+        android.widget.ScrollView scroll = new android.widget.ScrollView(c);
+        scroll.addView(list);
+        root.addView(scroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                Math.min(SheetKit.dp(c, 64) * Math.max(1, looks.size()), SheetKit.dp(c, 420))));
+        d.setContentView(SheetKit.fitNavBar(root));
+        d.show();
     }
 
     /**

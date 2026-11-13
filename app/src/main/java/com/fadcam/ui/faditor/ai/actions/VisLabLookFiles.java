@@ -69,7 +69,9 @@ final class VisLabLookFiles {
     @NonNull
     static String status(@NonNull VisLabSession s, @NonNull String id) {
         if (!s.isBuiltIn(id)) return " [yours]";
-        return s.isCustomised(id) ? " [changed from how it came]" : "";
+        String pack = s.packOf(id);
+        String from = pack == null ? "" : " [from the " + pack + " pack]";
+        return from + (s.isCustomised(id) ? " [changed from how it came]" : "");
     }
 
     @NonNull
@@ -107,11 +109,13 @@ final class VisLabLookFiles {
         if (!s.isBuiltIn(id)) {
             throw new ActionError("“" + name + "” is one of their own looks, so it has no version to go back to.");
         }
-        if (!s.isCustomised(id)) return ActionResult.unchanged("“" + name + "” is already as it came with the app.");
+        String pack = s.packOf(id);
+        String came = pack == null ? "as it came with the app" : "as it came in the " + pack + " pack";
+        if (!s.isCustomised(id)) return ActionResult.unchanged("“" + name + "” is already " + came + ".");
         askedFirst(a, "revert:" + id, name, "Revert " + name + " to default? This will override any customisations"
                 + " you have made to this look. Undo can still bring them back.");
         VisLabSession.ApplyResult r = s.revertToDefault(id, VisLabActions.label(), VisLabActions.group());
-        return VisLabActions.result(s, r, "“" + name + "” is back as it came with the app. Undo brings your changes back.");
+        return VisLabActions.result(s, r, "“" + name + "” is back " + came + ". Undo brings your changes back.");
     }
 
     @NonNull
@@ -120,8 +124,9 @@ final class VisLabLookFiles {
         JsonObject look = VisLabActions.look(s, a.str("look"));
         String id = VisLabEdit.str(look, "id"), name = VisLabEdit.str(look, "name");
         if (s.isBuiltIn(id)) {
-            throw new ActionError("“" + name + "” came with the app, so it can't be deleted — only put back as it came"
-                    + " (vislab_revert).");
+            String pack = s.packOf(id);
+            throw new ActionError("“" + name + "” came " + (pack == null ? "with the app" : "in the " + pack + " pack")
+                    + ", so it can't be deleted — only put back as it came (vislab_revert).");
         }
         askedFirst(a, "delete:" + id, name, "Delete " + name + "? Its file goes to the Trash in your Joy Creator"
                 + " folder. Undo brings it back.");

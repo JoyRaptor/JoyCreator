@@ -318,7 +318,7 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
 
     private void showLutChooser() {
         if (stack == null) return;
-        List<LutPreset> presets = LutManager.builtInPresets();
+        List<LutPreset> presets = LutManager.presets(requireContext());
         CharSequence[] labels = new CharSequence[presets.size() + 1];
         labels[0] = getString(R.string.faditor_filter_lut_none);
         int checked = (!stack.isLutEnabled() || stack.getLutId() == null) ? 0 : -1;
@@ -535,10 +535,7 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
         if (stack == null || !stack.isLutEnabled() || stack.getLutId() == null) {
             return getString(R.string.faditor_filter_lut_none);
         }
-        for (LutPreset p : LutManager.builtInPresets()) {
-            if (p.id.equals(stack.getLutId())) return p.displayName;
-        }
-        return stack.getLutId();
+        return LutManager.nameOf(requireContext(), stack.getLutId());
     }
 
     private static String format(float v) {

@@ -198,6 +198,7 @@ public class CaptionStyle {
         for (String[] f : com.fadcam.ui.faditor.text.FontLibrary.imported()) {
             all.add(new String[]{f[0], f[1] + " *"});
         }
+        all.addAll(com.fadcam.ui.faditor.text.FontLibrary.fromPacks());   // fonts from Joy packs
         return all.toArray(new String[0][]);
     }
 

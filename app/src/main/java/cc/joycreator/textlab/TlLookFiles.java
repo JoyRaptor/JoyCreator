@@ -148,12 +148,13 @@ public final class TlLookFiles {
             JSONObject look = new JSONObject(mine.look.toString());
             look.put("name", clean);
             write(jf, rel, look);
-            String oldSheet = Placement.join(dir, LookPreview.sheetName(FileKind.baseOf(Placement.nameOf(mine.path))));
-            String newSheet = LookPreview.sheetName(FileKind.baseOf(file));
-            if (jf.fs.stat(oldSheet) != null) {
-                if (jf.fs.rename(oldSheet, newSheet)) {
+            String[] oldSheets = LookPreview.sheetNames(FileKind.baseOf(Placement.nameOf(mine.path)));
+            String[] newSheets = LookPreview.sheetNames(FileKind.baseOf(file));
+            for (int i = 0; i < oldSheets.length; i++) {   // the WebP preview, and an older PNG one
+                String oldSheet = Placement.join(dir, oldSheets[i]);
+                if (jf.fs.stat(oldSheet) != null && jf.fs.rename(oldSheet, newSheets[i])) {
                     jf.index.remove(oldSheet);
-                    index(jf, Placement.join(dir, newSheet));
+                    index(jf, Placement.join(dir, newSheets[i]));
                 }
             }
             jf.fs.delete(mine.path);
@@ -174,10 +175,11 @@ public final class TlLookFiles {
         try {
             JoyFolder jf = folder(c);
             long now = System.currentTimeMillis();
-            String sheet = Placement.join(Placement.parentOf(mine.path),
-                    LookPreview.sheetName(FileKind.baseOf(Placement.nameOf(mine.path))));
             jf.trash(mine.path, now);
-            if (jf.fs.stat(sheet) != null) jf.trash(sheet, now);
+            for (String sheet : LookPreview.sheetNames(FileKind.baseOf(Placement.nameOf(mine.path)))) {
+                String rel = Placement.join(Placement.parentOf(mine.path), sheet);
+                if (jf.fs.stat(rel) != null) jf.trash(rel, now);
+            }
             jf.saveIndex();
             return new Done(null, null);
         } catch (Exception e) {
@@ -199,7 +201,9 @@ public final class TlLookFiles {
     public static List<String> withSheet(@NonNull String lookPath) {
         List<String> out = new ArrayList<>();
         out.add(lookPath);
-        out.add(Placement.join(Placement.parentOf(lookPath), LookPreview.sheetName(FileKind.baseOf(Placement.nameOf(lookPath)))));
+        for (String sheet : LookPreview.sheetNames(FileKind.baseOf(Placement.nameOf(lookPath)))) {
+            out.add(Placement.join(Placement.parentOf(lookPath), sheet));   // WebP, or an older PNG
+        }
         return out;
     }
 

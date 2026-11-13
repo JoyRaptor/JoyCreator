@@ -630,7 +630,7 @@ public final class InspectActions {
     private static String fontLabel(@Nullable String key) {
         if (key == null) return "default";
         for (String[] f : FontLibrary.TEXT_FONTS) if (f[0].equals(key)) return f[1];
-        for (String[] f : FontLibrary.imported()) if (f[0].equals(key)) return f[1];
+        for (String[] f : FontLibrary.choosable()) if (f[0].equals(key)) return f[1];
         return key;
     }
 

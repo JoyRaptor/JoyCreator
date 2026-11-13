@@ -36,33 +36,42 @@ public final class Pictures implements VisRenderer.ImageSource {
     @Nullable private Bitmap emblem;
     /** A video chosen for a picture layer plays in it (R12), round and round. */
     @NonNull private final Videos videos;
+    /** Words wearing a TextLab look (T15): they move with the look. */
+    @NonNull private final WordsPicture words;
 
     public Pictures(@NonNull Context c) {
         app = c.getApplicationContext();
         videos = new Videos(app);
+        words = new WordsPicture(app);
     }
 
     @Override
     public synchronized boolean moves(@Nullable String ref) {
-        return videos.isVideo(ref);
+        return WordsPicture.is(ref) || videos.isVideo(ref);
     }
 
     /** A video's frame at {@code seconds} of the look's clock, looping over its length (R12). */
     @Nullable
     @Override
     public synchronized Bitmap frame(@NonNull String ref, double seconds) {
+        if (WordsPicture.is(ref)) return words.frame(ref, seconds);
         return videos.frame(ref, seconds, true);
     }
 
     /** Let go of the video decoders (the room closed, or the renderer was let go). */
     public synchronized void release() {
         videos.release();
+        words.release();
     }
 
     @Nullable
     @Override
     public synchronized Bitmap bitmap(@Nullable String ref) {
         if (ref == null || ref.isEmpty()) return emblem();
+        if (WordsPicture.is(ref)) {
+            Bitmap b = words.still(ref);
+            return b != null ? b : emblem();
+        }
         try {
             Uri uri = Uri.parse(ref);
             BitmapFactory.Options o = new BitmapFactory.Options();

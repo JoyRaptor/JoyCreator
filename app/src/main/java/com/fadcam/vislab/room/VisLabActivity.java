@@ -529,6 +529,12 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
         return session.parts();
     }
 
+    @NonNull
+    @Override
+    public java.util.List<PackLooks.Part> packParts() {
+        return session.packParts();
+    }
+
     @Override
     public void saveLayerAsPart(@NonNull com.google.gson.JsonObject layer) {
         VisScene s = scene();
@@ -580,6 +586,34 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
     public void pickPicture(@NonNull com.google.gson.JsonObject layer) {
         pictureFor = layer;
         pickPicture.launch(new String[]{"image/*"});
+    }
+
+    /**
+     * Words in a TextLab look (T15): pick the look (the one worn now is ticked), then type the words. The layer
+     * keeps both, so the VisLab look carries them everywhere. One undo step.
+     */
+    @Override
+    public void pickWordsLook(@NonNull com.google.gson.JsonObject layer) {
+        com.google.gson.JsonElement img = layer.get("image");
+        WordsPicture.Parsed now = WordsPicture.parse(img != null && img.isJsonPrimitive() ? img.getAsString() : null);
+        com.fadcam.joyfolder.android.JoyFolderHome.io().execute(() -> {
+            java.util.List<cc.joycreator.textlab.TextLookShelf.Item> looks =
+                    new java.util.ArrayList<>(cc.joycreator.textlab.TextLookShelf.builtIn(this));
+            looks.addAll(cc.joycreator.textlab.TextLookShelf.inFolder(this));
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                LookSheets.chooseTextLook(this, looks, now != null ? now.look.key : null, it -> {
+                    String start = now != null ? now.words : it.look.optString("sample", "JOY");
+                    LookSheets.askText(this, "Words in " + it.name, start, "Use", "Your words", words -> {
+                        beginEdit("Words");
+                        cc.joycreator.textlab.TitleLook t = cc.joycreator.textlab.TitleLook.of(it.key, it.name, it.look.toString());
+                        layer.addProperty("image", WordsPicture.ref(words, t));
+                        edited();
+                        panel.rebuild();
+                    });
+                });
+            });
+        });
     }
 
     @Override

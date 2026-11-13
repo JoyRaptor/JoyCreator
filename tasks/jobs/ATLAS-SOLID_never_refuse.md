@@ -1,6 +1,6 @@
 # ATLAS-SOLID: realistic paint never stops an artist for a technical reason
 
-**Milestone:** M1  ·  **State:** 🟡  ·  **Owner:** Claude Fable 5.2 session "atlas solid" (2026-11-09/10), branch `claude/atlas-solid-20261109`  ·  **Checked:** 2026-11-10 against `origin/joy-creator` `93c1cf76f`
+**Milestone:** M1  ·  **State:** 🟡  ·  **Owner:** Claude Fable 5.2 session "atlas solid" (2026-11-09/10), branch `claude/atlas-solid-20261109`  ·  **Checked:** 2026-11-13 (the 11-13 section below)
 
 ## Why it matters (for the user)
 The owner's three bars for JoyBrush (2026-11-09): his wife (a skilled artist, impatient with technology), his toddlers (too
@@ -13,7 +13,9 @@ or "areas", lose a stroke, or see a black square. Pencil, watercolour and oil mu
 - [x] A tap leaves a dot with oil and watercolour brushes.
 - [x] No raw error text and no megabytes in any sentence an artist can read from the paint engine.
 - [ ] The owner paints a long session on the Note 9 and the Note 20 and meets no refusal (his own test).
-- [ ] The cause of the 10-31 lost tiles and the failed tile copy is reproduced, or shown gone by a long stress run.
+- [~] The cause of the 10-31 lost tiles and the failed tile copy is reproduced, or shown gone by a long stress run. 11-13:
+      the likely cause was already fixed on 11-01 (see below), a starvation bench finds nothing, and any failure is now
+      kept in a file on the phone. Not reproduced, so not proven gone.
 - [ ] Saves stream to disk so the room can grow past 315 MB (then old paint sets far later).
 - [~] Symmetry works with pencil, watercolour and oil in the atlas. Built 11-11 for pencil and oil (2a23c082e, every copy its own lane, no pin) and the wet sheet carries watercolour; not yet used by the owner (checked 11-13).
 - [x] STATE.md rows (5.6 and section 9).
@@ -84,12 +86,54 @@ Still to prove or build is in "What is left".
   16 strokes each, none refused, no square or seam seen in the frames; a brush that crosses blue carries it on (yellow
   turns green, red turns maroon). Whether that reads as real oil is the owner's eye: asked.
 
+## 2026-11-13: the owner's list, items 2 to 8 ("break from the knife and get 2-8 done")
+
+| # | Item | Where it stands | Proof, and what is not proven |
+|---|---|---|---|
+| 2 | Oil that moves as one body | Hair brushes pull the colour of wet paint along; on by default, old way one tap away. Card [OIL-KNIFE](OIL-KNIFE_real_knife_and_glop.md) | PC lab sheets; Note 9: Oil flat, Oil round and All-round each alone, no failed frame, within 6 % a step. The Fan blender does not pull: it left a row of beads in a fast stroke. Thick paint heaped and squeezed is not built (ledger E2) |
+| 3 | A bigger wet-paint room (streaming saves) | **Not started.** A painted oil tile is about 1.28 MB (two paint stores and its ground), so the 315 MB room is about 246 tiles wet at once; past that old paint sets (never a refusal). Growing the room needs saves that stream tile by tile through `JbArchive`, `readContents` and open: a multi-day job in the save path | Second review E4. The Codex claim on `JoyBrushActivity` save/restore is dead (orchestrator, 11-13): whoever takes this claims it on the BOARD |
+| 4 | A wet wash wider than the screen when the view moves | The part still in view stays wet; the rest is parted off through a soft band and sets (spec rule 10) | Note 9 films: a stroke painted after zooming in runs into the still-wet wash; no line at the join (brightness measured along each band); undo and redo across the parting go one press a step. The kept part goes on spreading while the rest has set, so their texture differs a little at the edge of the view |
+| 5 | Watercolour at full speed on the fine grid | No engine change. Measured with the profiler off: three Round strokes 39 frames a second at 0.94 of the clock, three Wash strokes 33 at 0.76, the nine-band page at 31 % 31 at 0.85 | My 11-11 figure of 0.33 was wrong: the profiler's own waits were left on (a setprop lasts until reboot). A mask of live blocks was tried and taken out (spec rule 6) |
+| 6 | The wet sheet on animation frames, and on layers with editable lines | **Frames: built** (spec rule 17). **Layers with lines: open, no owner**: the recorded-line engine draws them and Codex has left | Note 9 matrix on an animation board, final build: watercolour 161047 px, oil 98839, pencil 28741, all in the frame's own cel, none on the shared plane inside the board, undo exact; canvas and sprite boards work (morning build) |
+| 7 | The 10-31 lost squares | The Engine Lead's 11-01 fix is the likely cure: a slept engine's textures were deleted twice (`MediaLayerEngine.release`). New: every tile failure is written to `files/joybrush-incidents.log` with what the engine held (`TileIncidents`), and a bench takes graphics memory away first (`jb_gpu_hog_mb`) | 2 and 3 GB of noise held (and 1 to 3 GB of flat colour on the morning build), then oil strokes and a save: no failed frame, no incident line. All 23 realistic-paint brushes, two strokes each: none. Not reproduced |
+| 8 | Symmetry for realistic paint in the atlas | Works: every copy is its own lane, nothing is pinned or refused | Note 9 pictures: Oil round, 6B pencil and watercolour on the wet sheet, six copies each |
+
+### Streaming saves: what the code does today and the order to build it (read 11-13; not started)
+
+Why the room is 256 MB for every 6 GB of phone memory (`LayerBudget.MEDIA_RAM_SHARE`, `core/layers/LayerNames.kt`): a save
+reads the whole drawing back from the graphics chip into the app's 512 MB heap and holds all of it until the zip is closed
+(`JbCanvasView.snapshot` -> `readContents` -> `BoardSnapshot.capture` -> `JbArchive.save`); opening a file holds all of it
+again (`JbArchive.read`, then `JbCanvasView.load` uploads in one go). A painted oil tile is 1.5 MB there (its picture, two
+paint stores, its ground); with water 2.5 MB. Measured on the Note 9: reading 31 oil tiles back takes 0.11 s, so a full
+room is about a second with the pen waiting. The save itself is safe today (`.tmp`, sync, `.bak`, rename; refusals happen
+before any byte is written): this job is about room, not about a risk of losing work.
+
+1. **No more waste per tile** (small, safe): `GlPaintEngine.readMediaTile` makes a new 1 MB native buffer and a new 1 MB
+   float array for every store tile; one of each, reused, removes about 2 MB of garbage a tile. `DrawingLibrary`'s
+   after-save task keeps the whole snapshot alive only to read its id.
+2. **Write as it is read**: the tiles go from the readback to the zip through a bounded queue instead of a map
+   (`BoardSnapshot.capture`'s callbacks; `JbArchive.write`). `document.json` then has to be written last (blank tiles are
+   only known once read); every reader tolerates that order. The hard part is one consistent picture while painting goes
+   on: the read is one go on the graphics thread today, so nothing can change under it. Read across several frames, the
+   tile textures of that moment must be held (undo already works copy-on-write on textures), the wet sheet's stamp held
+   with them, and a lost graphics context must fail the save cleanly. The 15 s watchdog must cancel the writer and delete
+   the `.tmp`. `writeCopy` and `DrawingHistory.preserve` take the same path.
+3. **Open as it is read**: list the entries first (`ZipFile`), then inflate and upload in batches.
+4. **Then** raise `MEDIA_RAM_SHARE` and the read limits (`MAX_TOTAL_BYTES` 1 GiB, `MAX_ENTRIES` 20,000), or a bigger save
+   would not open.
+
+Tests that guard it today: `JbArchiveTest` (34), `JbArchiveCompletenessTest` (refusals before any output: step 2 changes
+what "before any output" can mean), `JbArchiveMediaTest`, `MediaSaveTest`, `BoardSnapshotTest`, `WorkingSaveBarrierTest`.
+Second review E4 asks for the same and for exports to skip the paint stores.
+
+Pictures and the numbers behind this table: [evidence/atlas-2to8-20261113](../joybrush/evidence/atlas-2to8-20261113/README.md).
+
 ## What is left
 - [ ] **Wet sheet: owner's own test** on the Note 9 (his page, his hand, tilt), then the Note 20.
 - [x] Wet sheet: the paper's grain at full resolution ("sharp when dry"): built 11-11, half strength by default; the owner
       picks the strength from the comparison (evidence `grain_none_half_full_at_100pct.jpg`). A ⋯ menu row for it is not built.
-- [ ] Wet sheet: a wash wider than the screen sets when the view moves and the painter paints again (spec, rule 10). Keeping
-      it all wet needs one simulation that spans both views.
+- [~] Wet sheet: a wash wider than the screen (spec, rule 10). Since 11-13 the part in view stays wet and the rest is
+      parted off softly. Keeping all of it wet needs one simulation that spans both views.
 - [ ] Wet sheet: the tilted flux and update passes are now most of a frame (12 + 10 of about 36 ms a step on a big wash).
       On Detailed the owner's whole page runs at 0.6 to 1.0 of the clock; the cheap tilt path of the WATER_SPEED road is next.
 - [ ] Wet sheet: 218 MB of graphics memory on Detailed beside the atlas. Not seen to fail on the Note 9; measure on a
@@ -99,9 +143,11 @@ Still to prove or build is in "What is left".
 - [ ] Water speed steps 1-3 of the WATER_SPEED road (cheap tilt path, 4 x 4 running water, step only moving water).
 - [ ] A stress run long enough to meet the 10-31 tile failures again (or not), reading `JoyBrushTiles` and `JoyBrushMediaMemory`.
 - [ ] When running water is pinned far from the pen, the stroke is still refused in words ("too far from paint that is still wet"). Rare; the water should be set aside instead.
-- [ ] Streaming saves (second review E4), then raise `LayerBudget.MEDIA_RAM_SHARE`.
+- [ ] **Streaming saves** (second review E4), then raise `LayerBudget.MEDIA_RAM_SHARE`. Launch-critical with the lost
+      squares (orchestrator, 11-13: work loss matters more than speed). Multi-day, in the save path; not started.
+- [ ] **Wet sheet on layers with editable lines** (ledger C6): open, no owner.
 - [ ] Memory admission for the atlas itself (second review E3): the check before making water still counts the old 1024 window.
-- [ ] Symmetry for realistic paint in the atlas.
+- [x] Symmetry for realistic paint in the atlas (11-11 code, 11-13 Note 9 pictures). The owner's own use is owed.
 - [ ] A tile boundary can show where set paint meets live thick paint that is re-lit. Not seen in the runs; ask the owner to look.
 
 ## Specs, handoffs and evidence

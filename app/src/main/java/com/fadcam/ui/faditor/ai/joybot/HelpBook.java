@@ -68,7 +68,9 @@ public final class HelpBook {
                     "Open Transcript and tap Clean fillers, or just ask me to cut the ums.",
                     "studio", "cut_ums", "transcript"),
             new Topic("silence", "silen|quiet part|dead air|pause|gap",
-                    "Tap Clean in " + STRIP + " to find the quiet stretches and cut them. Each cut can be tapped back.",
+                    "Tap Clean in " + STRIP + " to find the quiet stretches and cut them. Each cut can be tapped back. "
+                            + "With a song or voice clip selected, Clean works on that clip instead: Cut gaps takes its "
+                            + "quiet gaps out and closes them up, and one Undo puts it back.",
                     "studio", "silences", "silence"),
             new Topic("split", "split|cut a clip|cut the clip|cut in two|chop",
                     "Move the playhead to where you want the cut and tap Split in the tool strip.",
@@ -126,6 +128,36 @@ public final class HelpBook {
             new Topic("export", "export|save the video|render|share the video|post|upload",
                     "Tap Export at the top right of the Studio, next to me. Exports land in your "
                             + "Joy Creator folder.", "studio", null),
+            new Topic("export_safety", "cancel an export|cancel the export|stop an export|stop the export"
+                    + "|export stuck|export is stuck|export failed|export went wrong|export overwrote|export replaced"
+                    + "|same name as|not enough space to export|phone is full|too full to export",
+                    "While a video exports, Cancel stops it and leaves no half-made file. If the phone is clearly too "
+                            + "full, you're told before it starts. Exporting again under the same name keeps the first "
+                            + "file and saves the new one as “name 2”. If copying into your Joy Creator folder fails, "
+                            + "the message says where the finished file is.", "studio", null),
+            new Topic("studio_marks", "bookmark|timeline mark|drop a mark|add a mark|marker|marks and regions"
+                    + "|marks & regions|a region|regions|in and out point|in point|out point"
+                    + "|loop a part|loop a region|loop part of|export a region|export just part|export part of"
+                    + "|export only part",
+                    "In the Studio, tap the playhead time on the timeline to drop a bookmark; hold it for Marks & "
+                            + "regions. There you can rename a mark, jump Previous / Next, use Set In and Set Out to "
+                            + "make a region, turn Loop on to replay a region while it plays, and tick regions to "
+                            + "Export just those parts (video or sound only). Every change is one Undo. Or ask me to "
+                            + "drop a mark where the playhead is.", "studio", null),
+            new Topic("studio_title_rename", "project title|title at the top|rename this project|rename the project here"
+                    + "|change the project name|rename it in the studio|rename in the studio",
+                    "Tap the project's title at the top of the Studio: Rename project opens at once (holding it works "
+                            + "too).", "studio", null),
+            new Topic("studio_arrange_tools", "arrange the tools|arrange my tools|rearrange the tools|rearrange tools|reorder the tools"
+                    + "|reorder tools|move a tool|move the tools|pin a tool|pin my tool|tool order|tools in a different order",
+                    "Tap Edit at the end of the Studio's tool row. Every tool sits on a raised pill: hold one and drag "
+                            + "it to a new place, or drag it past the bar to pin it. Tap Done when you're finished. "
+                            + "Tool order in the Studio's settings picks your own order or most-recent first.",
+                    "studio", null),
+            new Topic("studio_drawer_back", "drawer back|drawer again|reopen the drawer|drawer closed|get the drawer"
+                    + "|bring back the drawer|open the drawer again",
+                    "Closed a text's or picture's drawer? Tap the selected text or picture once more, on its timeline "
+                            + "strip or its box in the preview, and its drawer comes back.", "studio", null),
             new Topic("undo", "undo|go back|mistake|redo|history",
                     "The undo arrow is in the Studio's top bar; hold it to see the history. Everything I do is "
                             + "one undo step — or just tell me “undo that”.", "studio", null),
@@ -358,6 +390,18 @@ public final class HelpBook {
                             + "body, or turn it with two fingers. It gives a mirror ×2, a radial ×8 or a 16-copy "
                             + "kaleidoscope. Tap one copy to select the whole set; one Undo takes back a stroke. Pencil, "
                             + "watercolour and oil don't support it on this build.",
+                    "joybrush", null),
+            new Topic("joybrush_layers", "lock a layer|lock the layer|lock my layer|lock layer|unlock a layer"
+                    + "|unlock the layer|merge down|merge layers|merge a layer|merge two layers|flatten|flatten lower"
+                    + "|freeze layer|freeze a layer|freeze the layer|freeze my layer|clip to layer|clip to the layer"
+                    + "|clear a layer|clear the layer|clear layer|layer options|layer menu|joybrush layer",
+                    "In JoyBrush, tap a layer in the layer column to paint on it, then tap it again (the ringed one) "
+                            + "for its options: Lock keeps its paint and lines from changing (opacity, blend and "
+                            + "hiding still work); Merge down joins it into the layer under it; Freeze layer turns its "
+                            + "editable lines and realistic paint into plain pixels and frees memory; Flatten makes "
+                            + "every visible layer one, exactly as it looks (it asks about hidden layers first); there "
+                            + "are also Clip to layer below, Duplicate, Clear and Delete. Each is one Undo. In the "
+                            + "Studio, a layer's drawer has its own Lock.",
                     "joybrush", null),
             new Topic("sprite_align", "align the frames|align my frames|align each frame|line up the frames|centre the sprite"
                     + "|center the sprite|plant feet|plant the feet|auto-centre|auto centre|auto-center|frame alignment"

@@ -1,6 +1,6 @@
 # BOT-2: Joybot everywhere, and everything findable through him
 
-**Milestone:** M1 (feeds M2)  ·  **State:** 🔨  ·  **Owner:** "JoyBot UX vision and capabilities" (Claude, account C)  ·  **Checked:** 2026-10-28 against `fbfa50ce4`
+**Milestone:** M1 (feeds M2)  ·  **State:** 🔨  ·  **Owner:** Joybot lane (Claude Opus 5.5, 11-13; was "JoyBot UX vision and capabilities")  ·  **Checked:** 2026-11-13
 
 ## Why it matters (for the user)
 Wherever you are, tapping Joybot should offer the right next things and answer "how do I…" for that room.
@@ -32,6 +32,12 @@ Select, symmetry, Send to Studio. Hover labels: ~220 controls done 10-15; the ch
   - [x] SpriteLab (3 more: `sprite_align`, `sprite_sheets`, `sprite_reorder`), Library (4: `library_find`,
         `library_projects`, `library_import`, `library_look`): 11-04. Space and Trash were already covered by `space`,
         `trash`, `trash_restore`; STATE row mapped.
+  - [x] **11-13: JoyBrush layer menu and the Studio rows STATE marked "Help: PENDING"** (BOT-A5): `joybrush_layers`
+        (Lock, Merge down, Freeze layer, Flatten, Flatten Lower, Clip, Clear, Delete; STATE row `joybrush.layer-ops`
+        added), `studio_marks` (bookmarks, regions, loop, region export, "ask me to drop a mark"), `studio_title_rename`,
+        `studio_arrange_tools`, `studio_drawer_back`, `export_safety` (Cancel, too-full warning, "name 2"), and `silence`
+        now names an audio clip's Cut gaps. Words read from the code (strings, `JoyBrushActivity.layerPanel`,
+        `LayerColumnView`). Ideas 843/843 (18 new question checks). Not yet asked in the app on a phone.
   - [ ] Capture: STATE gives no entry point for photo/screenshot capture, dual camera, Remote (LAN streaming) or the
         watermark switch, so no topics (the record, record_screen, record_webcam, record_background topics stand).
         Settings hub v2, Home recorder, About: also no entry-point text in STATE. Needs the rows filled first (HYG-5).

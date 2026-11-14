@@ -252,15 +252,20 @@ public class FxCompilerTest {
 
     static void gradientRampModel() {
         GradientRamp r = GradientRamp.defaultRamp();
-        check("default ramp starts black->white", r.colorStops.size() == 2
-                && r.colorStops.get(0).color == 0xFF000000
-                && r.colorStops.get(1).color == 0xFFFFFFFF);
+        // The default ramp runs ground -> ink from the palette since 32e77fe52 ("the palette
+        // becomes a place of truth"); it was pure black -> white before, and this test kept
+        // asking for that (11-13).
+        final int lo = com.fadcam.ui.faditor.Studio.GROUND, hi = com.fadcam.ui.faditor.Studio.INK;
+        check("default ramp starts ground->ink", r.colorStops.size() == 2
+                && r.colorStops.get(0).color == lo
+                && r.colorStops.get(1).color == hi);
         check("default ramp is fully opaque throughout",
                 Math.abs(r.sampleAlpha(0f) - 1f) < 0.001f
                         && Math.abs(r.sampleAlpha(0.5f) - 1f) < 0.001f
                         && Math.abs(r.sampleAlpha(1f) - 1f) < 0.001f);
-        check("midpoint of black->white samples mid-grey",
-                Math.abs(((r.sampleColor(0.5f) >> 16) & 0xFF) - 127.5) < 2.0);
+        check("midpoint of ground->ink samples halfway between them",
+                Math.abs(((r.sampleColor(0.5f) >> 16) & 0xFF)
+                        - (((lo >> 16) & 0xFF) + ((hi >> 16) & 0xFF)) / 2.0) < 2.0);
 
         int added = 0;
         for (int i = 0; i < GradientRamp.CAP; i++) {
@@ -294,9 +299,9 @@ public class FxCompilerTest {
         GradientRamp solid = GradientRamp.defaultRamp();
         solid.solidBands = true;
         check("solid band holds the left colour just before the midpoint",
-                solid.sampleColor(0.49f) == 0xFF000000);
+                solid.sampleColor(0.49f) == (lo | 0xFF000000));
         check("solid band snaps to the right colour just after the midpoint",
-                solid.sampleColor(0.51f) == 0xFFFFFFFF);
+                solid.sampleColor(0.51f) == (hi | 0xFF000000));
     }
 
     static void gradientEffectCompiles() {

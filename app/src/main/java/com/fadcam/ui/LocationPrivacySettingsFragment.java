@@ -28,7 +28,7 @@ import com.fadcam.SharedPreferencesManager;
  * Extracted from legacy SettingsFragment: now ONLY location embed toggle (watermark moved to WatermarkSettingsFragment)
  * EXACT preference keys & permission flow preserved.
  */
-public class LocationPrivacySettingsFragment extends Fragment {
+public class LocationPrivacySettingsFragment extends Fragment implements com.fadcam.ui.size.ContentColumn.Page {
 
     private SharedPreferencesManager prefs;
     private TextView valueEmbed;

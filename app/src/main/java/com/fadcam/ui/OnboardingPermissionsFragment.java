@@ -35,7 +35,7 @@ import com.fadcam.ui.type.Type;
  * gradient primary that asks for whatever is still missing. An optional fourth row offers
  * to turn battery optimisation off; it never gates anything.
  */
-public class OnboardingPermissionsFragment extends Fragment implements SlidePolicy {
+public class OnboardingPermissionsFragment extends Fragment implements SlidePolicy, com.fadcam.ui.size.ContentColumn.Page {
     private static final int PERMISSIONS_REQUEST_CODE = 101;
     private boolean permissionsGranted = false;
     private MaterialButton grantButton;

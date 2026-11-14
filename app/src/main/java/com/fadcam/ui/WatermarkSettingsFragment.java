@@ -44,7 +44,7 @@ import com.fadcam.ui.utils.NewFeatureManager;
  * WatermarkSettingsFragment
  * Unified design migration: bottom sheet picker + live preview replacing spinner.
  */
-public class WatermarkSettingsFragment extends Fragment {
+public class WatermarkSettingsFragment extends Fragment implements com.fadcam.ui.size.ContentColumn.Page {
 
     private static final String TAG = "WatermarkSettings";
 

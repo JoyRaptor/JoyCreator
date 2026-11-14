@@ -56,7 +56,7 @@ import java.util.Arrays;
  * SettingsFragment.
  * Keeps preference keys and semantics identical; only UI container changes.
  */
-public class VideoSettingsFragment extends Fragment {
+public class VideoSettingsFragment extends Fragment implements com.fadcam.ui.size.ContentColumn.Page {
 
     private static final String TAG = "VideoSettingsFragment";
 

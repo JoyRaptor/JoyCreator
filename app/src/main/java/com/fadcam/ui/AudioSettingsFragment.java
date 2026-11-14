@@ -29,7 +29,7 @@ import java.util.Locale;
  * Modular extraction of audio related settings from legacy SettingsFragment.
  * Preserves EXACT logic & preference keys. UI presented as iOS-style rows.
  */
-public class AudioSettingsFragment extends Fragment {
+public class AudioSettingsFragment extends Fragment implements com.fadcam.ui.size.ContentColumn.Page {
 
     private static final String TAG = "AudioSettingsFragment";
 

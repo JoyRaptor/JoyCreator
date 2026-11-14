@@ -52,7 +52,7 @@ import java.net.URL;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class AboutFragment extends BaseFragment {
+public class AboutFragment extends BaseFragment implements com.fadcam.ui.size.ContentColumn.Page {
 
     private View view;
     private ExecutorService executorService;

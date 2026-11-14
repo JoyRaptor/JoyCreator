@@ -353,6 +353,8 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // TAB-1: Settings pages keep a centred reading column on a wide window.
+        com.fadcam.ui.size.ContentColumn.watch(getSupportFragmentManager());
         swipeTouchSlop = ViewConfiguration.get(this).getScaledTouchSlop();
         // Install splash screen (shows the themed windowSplashScreenAnimatedIcon)
         SplashScreen.installSplashScreen(this);

@@ -99,6 +99,10 @@ public class LibraryFragment extends BaseFragment {
     private TextView count, notice;
     private List<LibraryItem> items = new ArrayList<>();
     private boolean complete;
+    /** Narrowest a grid card may be: a 360dp phone's two cards (TAB-1). */
+    private static final int CARD_MIN_DP = 168;
+    /** Narrowest a list row may be: a phone's full-width row (TAB-1). */
+    private static final int LIST_ROW_MIN_DP = 360;
     private boolean dense;
 
     @Override
@@ -160,6 +164,10 @@ public class LibraryFragment extends BaseFragment {
         grid = new GridLayoutManager(requireContext(), dense ? 1 : 2);
         grid.setSpanSizeLookup(adapter.spans(grid));
         list.setLayoutManager(grid);
+        // TAB-1: a wide window gets more cards (or rows) across, each the size it is on a phone.
+        list.addOnLayoutChangeListener((lv, l, t, r, b, ol, ot, or, ob) -> {
+            if (r - l != or - ol) fitSpans();
+        });
         list.setAdapter(adapter);
         list.addOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override public void onScrollStateChanged(@NonNull RecyclerView rv, int state) {
@@ -445,9 +453,20 @@ public class LibraryFragment extends BaseFragment {
     private void cycleView() {
         dense = !dense;
         LibraryPrefs.setList(requireContext(), dense);
-        grid.setSpanCount(dense ? 1 : 2);
+        fitSpans();
         paintHeaderCycles();
         render();
+    }
+
+    /** Cells at least the phone's size: two cards or one row on a phone, more on a wide window. */
+    private void fitSpans() {
+        if (list == null || grid == null) return;
+        int inner = list.getWidth() - list.getPaddingLeft() - list.getPaddingRight();
+        int widthDp = Math.round(inner / getResources().getDisplayMetrics().density);
+        int spans = widthDp <= 0 ? (dense ? 1 : 2)
+                : com.fadcam.ui.size.SizeClass.columns(widthDp, dense ? LIST_ROW_MIN_DP : CARD_MIN_DP, dense ? 1 : 2);
+        // The span lookup reads the live count, so a new count needs only a fresh layout.
+        if (grid.getSpanCount() != spans) grid.setSpanCount(spans);
     }
 
     private void options() {

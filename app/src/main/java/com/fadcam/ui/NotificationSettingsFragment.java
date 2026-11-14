@@ -20,7 +20,7 @@ import com.fadcam.SharedPreferencesManager;
  * to unified bottom sheet pickers & number inputs. Complete today (checked 2026-11-04): preset picker,
  * custom title/text editor (showCustomEditorSheet), live preview card and hide-stop-button switch.
  */
-public class NotificationSettingsFragment extends Fragment {
+public class NotificationSettingsFragment extends Fragment implements com.fadcam.ui.size.ContentColumn.Page {
 
     private SharedPreferencesManager prefs;
     private TextView valuePreset;

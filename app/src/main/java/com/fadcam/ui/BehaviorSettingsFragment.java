@@ -31,7 +31,7 @@ import com.google.android.material.textfield.TextInputEditText;
  * NOTIFICATIONS). This screen now holds only the onboarding and auto-update switches, which the hub
  * reaches as SHOW_INTRO and UPDATE_CHECK.
  */
-public class BehaviorSettingsFragment extends BaseFragment {
+public class BehaviorSettingsFragment extends BaseFragment implements com.fadcam.ui.size.ContentColumn.Page {
 
     private SharedPreferencesManager prefs;
     private TextView valueOnboardingState;

@@ -35,7 +35,7 @@ import org.json.JSONObject;
  * icon pins to home.
  * Row click uses the unified PickerBottomSheetFragment to confirm pin.
  */
-public class ShortcutsSettingsFragment extends Fragment {
+public class ShortcutsSettingsFragment extends Fragment implements com.fadcam.ui.size.ContentColumn.Page {
 
     private View widgetPreviewContainer;
     private Handler previewUpdateHandler = new Handler(Looper.getMainLooper());

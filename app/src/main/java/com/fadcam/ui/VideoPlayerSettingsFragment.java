@@ -15,7 +15,7 @@ import com.fadcam.R;
  * Displays Video Player Settings as a full screen in Settings tab, matching the app's settings design.
  * Rows open the same bottom pickers: Playback Speed and Quick Speed.
  */
-public class VideoPlayerSettingsFragment extends Fragment {
+public class VideoPlayerSettingsFragment extends Fragment implements com.fadcam.ui.size.ContentColumn.Page {
 
     @Nullable
     @Override

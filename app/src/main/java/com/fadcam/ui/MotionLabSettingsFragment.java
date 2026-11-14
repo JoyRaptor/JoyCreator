@@ -38,7 +38,7 @@ import com.fadcam.ui.joybot.JoybotSwitch;
 
 import java.util.ArrayList;
 
-public class MotionLabSettingsFragment extends Fragment {
+public class MotionLabSettingsFragment extends Fragment implements com.fadcam.ui.size.ContentColumn.Page {
 
     private MotionLabViewModel viewModel;
 

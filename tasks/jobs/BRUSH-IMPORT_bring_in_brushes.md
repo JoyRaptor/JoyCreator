@@ -83,7 +83,12 @@ the choice between embedding and a side picture file goes back to the lead, not 
      What the importer drops (its own notes): the "fuzzy" (random) sensor has no JoyBrush input; about 190
      settings are kept raw and unused, among them **CompositeOp multiply** (the pen multiplies in Krita and
      paints normally here), Darken, Sharpness/Softness, the HSV sensors and the whole masking brush.
-     Test tablet: app and both bundles copied, import not done (its screen was locked behind a PIN).
+     **Test tablet 11-14 00:52-00:57** (main-line build 1d56a6cf4, after the owner unlocked it): both imported ("Added
+     1 brush from "Vals_Realistic_Ink_Pen"."), 19 files in `Supplies/Brushes`, and the 17 Photoshop brushes are
+     still on the Imported shelf after the update. Left installed. **Painting with V2:** a slow stroke draws a clean
+     ink line; a fast stroke thins to almost nothing. The preset's size listens to pressure AND speed, and the
+     speed input (a ChildSensor with no curve, read as a straight 0..1 line) does not behave as it does in Krita.
+     Owed: check Krita's speed default and the speed scale against JoyBrush's speed input, then retest.
   - Found on the way: picking a picture by mistake says "None of the brushes in … could come across" (a PNG is
     tried as a Krita preset); a plainer "isn't a brush file" would be kinder. Small, not fixed yet.
 - **Krita: Memileo Impasto and Metallics by Draneria** (both CC-BY-SA per the command session): need a browser

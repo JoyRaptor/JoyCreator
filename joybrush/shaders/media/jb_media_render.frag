@@ -11,7 +11,7 @@ precision highp int;
 
 uniform sampler2D u_p0;          // K·X rgb, volume
 uniform sampler2D u_p1;          // S·X rgb, openness
-uniform sampler2D u_paperState;  // R crush, G dry flake volume V (mm), B Σ V·flake reflectance
+uniform sampler2D u_paperState;  // R crush, G dry flake volume V (mm), B Σ V·flake reflectance, A the tinted share of V
 uniform sampler2D u_w0;          // water: w (mm), s (capillary saturation)
 uniform sampler2D u_w1;          // pigment still in the water: K rgb, S
 uniform sampler2D u_inA0;        // brush input the water has not taken in yet (WATER_JOBS_20261021), two buffers:
@@ -212,10 +212,13 @@ void main() {
     float cover = 1.0 - exp(-dry.g / max(0.18 * u_capMm, 1e-7));
     float flake = dry.g > 1e-8 ? dry.b / dry.g : 0.0;
     float hide = 1.0 - exp(-0.6 * (p1.r + wp.a));
-    R = mix(R, vec3(flake), cover * (1.0 - hide));
+    // A coloured stick's deposit is a pigment film in p0 / p1 (jb_media_apply.frag), already in R: only the graphite
+    // share of the deposit shows as flakes. A layer drawn before pencils took colour has none tinted.
+    float graphite = 1.0 - clamp(dry.a / max(dry.g, 1e-8), 0.0, 1.0);
+    R = mix(R, vec3(flake), cover * (1.0 - hide) * graphite);
 
     // Heavy graphite on flattened tooth reads silvery: a soft specular from the lamp off the deposit.
-    float fill = cover * (1.0 - hide);
+    float fill = cover * (1.0 - hide) * graphite;
     vec3 hv = normalize(u_lamp + vec3(0.0, 0.0, 1.0));
     float spec = pow(max(dot(n, hv), 0.0), 24.0);
     R += vec3(u_sheen * fill * fill * (0.35 + 0.65 * clamp(crush * 3.0, 0.0, 1.0)) * (0.25 + spec));

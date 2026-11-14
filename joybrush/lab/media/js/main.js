@@ -1,7 +1,7 @@
 // main.js — the media lab page: draw with a pen (pressure + tilt), or run a fixed test sheet.
 import { MediaEngine } from './engine.js';
 import { loadCatalogue, loadSurface, DOC_PX_PER_MM } from './paper.js';
-import { STICKS, DryStroke, stickMaterial, PRESS, MAT_OVERRIDE, ZONES } from './stick.js';
+import { STICKS, DryStroke, stickMaterial, inked, PRESS, MAT_OVERRIDE, ZONES } from './stick.js';
 import { SHEETS } from './tests.js';
 import { WET, WET_BRUSHES, WETNESS, WetStroke, paintFromColor, tiltSlope, THINNER, thinnerStroke } from './wet.js';
 import { SplineFeeder } from './spline.js';
@@ -191,7 +191,7 @@ function runSheet(sheet, offset = [0, 0]) {
     }
     const stick = STICKS[st.tool];
     const ds = new DryStroke(stick, paper, DOC_PX_PER_MM);
-    const mat = stickMaterial(stick);
+    const mat = st.color ? inked(stickMaterial(stick), st.color) : stickMaterial(stick);
     const feeder = new SplineFeeder(s => ds.add(s));
     const put = st.spline === false ? s => ds.add(s) : s => feeder.add(s);
     for (let i = 0; i < st.samples.length; i++) {

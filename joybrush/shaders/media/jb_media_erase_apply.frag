@@ -41,5 +41,5 @@ void main() {
     vec4 ps = jb_fetch(u_c, c);
     o_a = a * keep;                                              // K·X and the paint volume
     o_b = vec4(b.rgb * keep, b.a);                               // S·X; openness is the surface's, kept
-    o_c = vec4(ps.r, ps.g * keep, ps.b * keep, ps.a);            // crush stays; graphite volume and reflectance go
+    o_c = vec4(ps.r, ps.g * keep, ps.b * keep, ps.a * keep);     // crush stays; the deposit, its reflectance and its tinted share go
 }

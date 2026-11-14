@@ -71,6 +71,11 @@ internal object MediaUniforms {
         u.f2("u_targetSize", w.toFloat(), h.toFloat()); u.f4("u_rect", rect)
         u.f1("u_capMm", mat.capMm); u.f1("u_abrasion", mat.abrasion); u.f1("u_flakeR", mat.flakeR); u.f1("u_crushRate", mat.crushRate)
         u.f1("u_crushMax", mat.crushMax); u.f1("u_smear", mat.smear)
+        // A coloured stick (StickInk) runs the JB_INK build, which alone has these: its pigment film beside the flakes.
+        mat.ink?.takeIf { it.tinted }?.let { ink ->
+            u.f3("u_inkK", ink.k[0].toFloat(), ink.k[1].toFloat(), ink.k[2].toFloat())
+            u.f3("u_inkS", ink.s[0].toFloat(), ink.s[1].toFloat(), ink.s[2].toFloat())
+        }
         u.f2("u_smearPx", travelX * mat.smearMm * pxPerMm * scale, travelY * mat.smearMm * pxPerMm * scale)
     }
 

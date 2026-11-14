@@ -183,8 +183,15 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     }
 
     /** Deletes the programs compiled so far (an engine compiled ahead and let go before any media stroke, or [release]). */
-    fun releasePrograms() { programs.forEach { it.release() }; programs.clear(); progRenderSheet = null; progFeather = null }
+    fun releasePrograms() { programs.forEach { it.release() }; programs.clear(); progRenderSheet = null; progFeather = null; progApplyInk = null }
 
+    /** The dry apply pass for a coloured stick (jb_media_apply.frag JB_INK), built when a pencil first draws in a colour:
+     *  graphite keeps [progApply], the program it always had. */
+    private var progApplyInk: MediaProgram? = null
+    private fun applyInk(): MediaProgram = progApplyInk
+        ?: MediaProgram(shaders, "media/jb_media_quad.vert", "media/jb_media_apply.frag", "media apply (ink)",
+            (if (atlasMode) listOf("JB_ATLAS") + ATLAS_NBR else emptyList()) + "JB_INK")
+            .also { progApplyInk = it; programs += it }
     private var progRenderSheet: MediaProgram? = null
     private fun sheetRender(): MediaProgram = progRenderSheet
         ?: MediaProgram(shaders, "media/jb_media_screen.vert", "media/jb_media_render.frag", "media render (sheet)", listOf("JB_LOOK_SHEET"))
@@ -912,6 +919,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         need(rect, n.reach)
         touch(rect)
         stores += "paper"
+        // A coloured stick lays its colour in the paint planes (StickInk): they are written back too.
+        if (mat.ink?.tinted == true) { stores += "p0"; stores += "p1" }
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, deltaFbo)
         GLES30.glViewport(0, 0, w, h)
         GLES30.glEnable(GLES30.GL_BLEND)
@@ -931,7 +940,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
 
         mediaTrace("JB.media.dry.apply") {
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, nxt.fbo)
-            val au = progApply.use()
+            val au = (if (mat.ink?.tinted == true) applyInk() else progApply).use()
             common(au)
             MediaUniforms.dryApply(au, cur.p0, cur.p1, cur.paper, delta, w, h, rect, mat, travelX, travelY, pxPerMm, scale)
             quad(rect)

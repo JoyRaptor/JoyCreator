@@ -87,6 +87,22 @@ function tunedMaterial(stick, tu) {
   };
 }
 
+// The colour a dry stick lays (twin of core/media/StickInk.kt; the owner, 2026-11-13: the pencil takes the chosen
+// colour). Graphite is grey flakes with one brightness number; a colour goes down as a pigment film in the paint
+// planes, in the same grain, and counts as tinted (jb_media_apply.frag u_inkK / u_inkS / u_inkTint). Black is the
+// stick's own graphite.
+export const STICK_GREY_CHROMA = 0.02;
+export const STICK_INK_S_PER_MM = 1.2 / (0.18 * 0.004);
+const srgbLinear = c => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+export function stickInk(rgb, stickFlakeR) {
+  const hi = Math.max(...rgb), lo = Math.min(...rgb);
+  if (hi - lo < STICK_GREY_CHROMA) return { flakeR: stickFlakeR + (1 - stickFlakeR) * srgbLinear((rgb[0] + rgb[1] + rgb[2]) / 3), k: [0, 0, 0], s: [0, 0, 0], tint: 0 };
+  const s = STICK_INK_S_PER_MM;
+  const k = rgb.map(c => { const r = Math.min(0.95, Math.max(0.02, srgbLinear(c))); return s * (1 - r) * (1 - r) / (2 * r); });
+  return { flakeR: stickFlakeR, k, s: [s, s, s], tint: 1 };
+}
+export function inked(mat, rgb) { const ink = stickInk(rgb, mat.flakeR); return { ...mat, flakeR: ink.flakeR, ink }; }
+
 // Tuning hook (lab only): numbers set here override the derived material (see main.js ?mat=).
 export const MAT_OVERRIDE = {};
 

@@ -25,6 +25,8 @@ export class MediaEngine {
     e.progs = {
       dab: makeProgram(gl, dabV, dabF, 'dry dab'),
       apply: makeProgram(gl, quadV, applyF, 'apply'),
+      // A coloured pencil's apply pass (JB_INK, as MediaLayerEngine.applyInk): graphite keeps the plain one.
+      applyInk: makeProgram(gl, quadV, applyF.replace(/^(#version[^\n]*\n)/, '$1#define JB_INK\n'), 'apply (ink)'),
       copy: makeProgram(gl, quadV, copyF, 'copy'),
       render: makeProgram(gl, screenV, renderF, 'render'),
       bake: makeProgram(gl, quadV, bakeF, 'bake'),
@@ -573,11 +575,13 @@ export class MediaEngine {
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, nxt.fbo);
     const t = batch.travel;
-    this.use(this.progs.apply, {
+    const tinted = !!(mat.ink && mat.ink.tint);
+    this.use(tinted ? this.progs.applyInk : this.progs.apply, {
       u_p0: cur.p0, u_p1: cur.p1, u_paperState: cur.paper, u_delta: this.delta,
       u_targetSize: [this.w, this.h], u_rect: rect,
       u_capMm: mat.capMm, u_abrasion: mat.abrasion, u_flakeR: mat.flakeR,
       u_crushRate: mat.crushRate, u_crushMax: mat.crushMax, u_smear: mat.smear,
+      ...(tinted ? { u_inkK: mat.ink.k, u_inkS: mat.ink.s } : {}),
       u_smearPx: [t[0] * mat.smearMm * pxPerMm * this.scale, t[1] * mat.smearMm * pxPerMm * this.scale],
     });
     gl.bindVertexArray(this.quadVao);

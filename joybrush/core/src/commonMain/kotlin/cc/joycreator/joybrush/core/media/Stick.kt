@@ -186,7 +186,12 @@ data class StickMaterial(
     val grad1: Double = Zones().grad1, val grad2: Double = Zones().grad2,
     /** The paper's two-layer contact table is built for these (MediaPaper.contactLut). */
     val toothStiffness: Double = Press().toothStiffness, val padSoft: Double = Press().padSoft,
+    /** The colour this stroke lays ([stickInk]), or null for the stick's own graphite. */
+    val ink: StickInk? = null,
 ) {
+    /** This material laying the colour [rgb] (sRGB, 0..1): a grey moves [flakeR], a colour adds its film. */
+    fun inked(rgb: DoubleArray): StickMaterial = stickInk(rgb, flakeR).let { copy(flakeR = it.flakeR, ink = it) }
+
     /** The press the contact table is built for. */
     val lutPress: Press get() = Press(toothStiffness = toothStiffness, padSoft = padSoft)
 

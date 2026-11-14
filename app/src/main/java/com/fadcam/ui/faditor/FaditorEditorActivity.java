@@ -15303,6 +15303,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void refreshEditorAfterUndoRedo() {
         // A history step from before a MOVE may bring back the original's link: point it at the copy.
         healMovedInEditor();
+        // An open drawer's rows read the model on the playhead tick, which does not run while
+        // paused: after an undo its rows (e.g. the Clean tab's "processed / original" line) stayed
+        // on the old state until play (Note 9, 11-13). Read them again now.
+        if (objectDrawer != null && objectDrawer.isShowing()) {
+            com.fadcam.ui.faditor.tools.PipDrawerTabs.refreshRows(objectDrawer.currentTabContent());
+        }
         // Clamp selected index in case clip count changed (e.g. after snapshot restore)
         int clipCount = project.getTimeline().getClipCount();
         if (clipCount == 0) {

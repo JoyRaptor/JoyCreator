@@ -117,6 +117,13 @@ Small rough edges the device sweeps found. Each one is the kind of thing that ma
   a hover label (Android 8+, re-applied after layouts, drawers included; dialogs/sheets in their own windows are not).
   Controls with no name at all still need one by hand: recount owed. Not seen with a stylus yet.
 
+## 11-13 20:15 Note 9 re-check (build 6c1829849)
+- ✅ Clean's pieces now stay in the clip's own row ("Removed 2 gaps · saved 3.6s", three pieces in place).
+- ✅ After Revert in the Clean tab, Reduce noise and Normalize loudness are back; the note reads in plain words.
+- ⚠️ With the Clean tab open and paused, Undo changed the clip but the tab's status line stayed on the old state
+  (drawer rows only re-read on the playback tick). Fixed: undo/redo re-reads the open drawer's rows. Not re-seen.
+- Seen in passing, not fixed: expanding a collapsed audio row is recorded as an undo step (8 → 9).
+
 ## What is left (from `tasks/todo.md` on 10-16/17; may already be fixed)
 - [ ] Caption motion "Type – word" stuck.
 - [ ] Caption hide-eye and outline swatch show no visible response.

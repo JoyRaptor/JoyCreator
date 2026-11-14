@@ -52,6 +52,30 @@ terrible"; a screenshot of it is at `D:/JoyCreator-brush-samples/owner_feedback_
 - The paint engine's files belong to the paint-engine session: agree any engine change (oil taper, hover
   footprint from tilt) with it first.
 
+## K. The owner's picks from the design page (11-14 afternoon; this is the spec now)
+Picked from `tasks/design/UI-Brush-editor-options.html`, told in words to the orchestrator.
+
+1. **Layout: L1 "Stage"** at true size, with one change: **no tab buttons under the stage.** The top bar matches
+   Studio's tabs drawer: the brush's title (for example "Ink pen") on the left, then a row of **round icon buttons**
+   for the setting groups (colour, wet, scatter, and so on) to jump between quickly, then Done / Cancel (X) at the
+   far right. Reuse the Studio tabs drawer's look and parts; do not draw new ones.
+2. **Keep as they are now in the paint brushes:** the pressure and direction helper, the tilt curve and the pressure
+   curve, and the ramp that shows how high your pressure goes while you draw ("I can tell exactly what my brush
+   stroke is actually doing").
+3. **Slider-end pictures: liked.** Each setting picks its own kind of picture:
+   - **dabs** for softness, shape and size;
+   - **tiny strokes** for spacing, taper, ink pickup, blending and the like;
+   - **words always**, beside every picture.
+4. **A more compact helper row:** the footprint and the tilt may be stacked **vertically** instead of side by side, to
+   pack the row tighter.
+   - Do NOT overlay Unibrush's shape editor on the live pressure/tilt readout. The readout shows what you are doing
+     now; the shape editor is a circle with a direction mark and handles to grab. They do different jobs.
+   - Unibrush's advanced shape editing **opens by tapping the footprint**, which expands into the shape editor.
+5. **Test stroke (brush lane):** his own scribble (`joybrush/research/test_stroke_20261114/`): no other shape, and
+   no need to ask him again. The colour lines it crosses are **painted first, underneath**. They are the print
+   colours **cyan, magenta, yellow, black and white**, close together with a little space between each, so you can
+   see what the brush does with each one.
+
 ## Progress 11-14 (JoyBrush screens lane)
 - **Unreadable Unibrush chips: fixed, seen on the Note 9.** Cause: the unselected chip's faint 8% fill had its alpha reset to
   255, so it drew solid white under white words (`UnibrushSheetChip`). No other JoyBrush sheet has the pattern (all

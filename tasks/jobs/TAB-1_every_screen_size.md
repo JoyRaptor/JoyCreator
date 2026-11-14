@@ -47,7 +47,7 @@ two-thirds empty, one button across the whole width.
       >= 360 dp); under 600 dp it keeps the phone's 2 / 1. Bottom sheets stop at 640 dp (`CustomBottomSheetStyle`
       maxWidth; the Material 3 theme already did). The folder step already had its own column (5a390fa4d).
       **Note 9 (548 dp wide at the owner's dense setting, 1127 dp sideways):** Settings and Library pixel-identical
-      before/after; the first build showed 3 Library cards there, fixed by the under-600 rule. Shots
+      before/after (the only change was a "4h ago" turning "5h ago"); the first build showed 3 Library cards there, fixed by the under-600 rule and re-seen: 2 cards (`note9_after_library_projects_grid.png`). Shots
       `tasks/screens/tab1-20261114/`. **Tablet: not yet seen** (off Wi-Fi debugging 11-14 afternoon).
       Open: sheets still open only peeking in tablet landscape (Material's auto peek uses the window's width);
       dialog widths on the tablet not looked at.

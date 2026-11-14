@@ -1059,6 +1059,29 @@ public class IdeaEngineTest {
             }
         }
 
+        // ── InkAlign: SpriteLab's Auto-centre / Feet arithmetic for Joybot (BOT-A31, 11-14) ──
+        {
+            java.util.Map<Integer, com.fadcam.ui.faditor.ai.joybot.InkAlign.Box> boxes = new java.util.LinkedHashMap<>();
+            // 100x100 cells; a drawing 20 wide sitting high, and one sitting low.
+            boxes.put(0, new com.fadcam.ui.faditor.ai.joybot.InkAlign.Box(10, 10, 30, 50, 100, 100));
+            boxes.put(1, new com.fadcam.ui.faditor.ai.joybot.InkAlign.Box(60, 40, 80, 90, 100, 100));
+            java.util.Map<Integer, float[]> c = com.fadcam.ui.faditor.ai.joybot.InkAlign.shifts(boxes, 0.5f, 0.5f, false);
+            check("align: centre puts cell 0's middle on the pivot", c.get(0)[0] == 30f && c.get(0)[1] == 20f,
+                    java.util.Arrays.toString(c.get(0)));
+            check("align: centre puts cell 1's middle on the pivot", c.get(1)[0] == -20f && c.get(1)[1] == -15f,
+                    java.util.Arrays.toString(c.get(1)));
+            java.util.Map<Integer, float[]> f = com.fadcam.ui.faditor.ai.joybot.InkAlign.shifts(boxes, 0.5f, 1f, true);
+            // average bottom (50 + 90) / 2 = 70: both bottoms land there; across is still centred.
+            check("align: feet line both bottoms up at the average", 50 + f.get(0)[1] == 70f && 90 + f.get(1)[1] == 70f,
+                    java.util.Arrays.toString(f.get(0)) + java.util.Arrays.toString(f.get(1)));
+            check("align: feet still centre across", f.get(0)[0] == 30f && f.get(1)[0] == -20f, "");
+            check("align: nothing to align, nothing moved",
+                    com.fadcam.ui.faditor.ai.joybot.InkAlign.shifts(new java.util.HashMap<>(), 0.5f, 0.5f, true).isEmpty(), "");
+            eq("align: 'feet' mode", Boolean.TRUE, com.fadcam.ui.faditor.ai.joybot.InkAlign.feetMode("feet"));
+            eq("align: 'center' mode", Boolean.FALSE, com.fadcam.ui.faditor.ai.joybot.InkAlign.feetMode("center"));
+            eq("align: an unknown mode is refused", null, com.fadcam.ui.faditor.ai.joybot.InkAlign.feetMode("diagonal"));
+        }
+
         // ── Greeting: the owner's 9-09 empty-state words (BOT-A10, 11-14) ──
         {
             String off = com.fadcam.ui.faditor.ai.joybot.Greeting.offline("Did you know x.");

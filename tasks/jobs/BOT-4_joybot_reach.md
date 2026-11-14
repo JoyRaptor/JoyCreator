@@ -66,7 +66,12 @@ SpriteLab: grid, names, animations, sequences.
             setters; mouth shapes in the lip-sync's names (REST AA EE OO CLOSURE FRIC) plus everyday spellings
             (`joybot/SpriteOptions`); all checked before anything changes. Bench `sprite-options` and
             `sprite-options-bad-shape` (refused whole), bench 62/62; ideas 1008/1008. Not on a phone.
-            Left of this row: auto-centre / per-cell alignment, background bake, dope sheet, export.
+      - [x] **Auto-centre / feet** (11-14): `align_sprite_cells` measures each cell's drawing on the sheet's picture and
+            sets its offset with SpriteLab's own arithmetic, now a pure class (`joybot/InkAlign`, 8 checks) the editor can
+            reuse. It SETS the offset; SpriteLab's own button ADDS to it while measuring the untouched picture, so pressing
+            it twice may move cells again (told to the animation lane on the BOARD, not changed: their file). Compiles;
+            not run end to end (the bench can't decode pictures) and not on a device.
+            Left of this row: background bake, dope sheet, export.
 - [ ] **Avatar**: pose matrix, mic lip-sync, the .avatar library (Avatar is hidden for launch).
 - [ ] **Recipes with triggers** ("every new recording: transcribe, cut ums, captions, export a draft").
 - [ ] **Model routing per step** (a cheap model for simple steps, a seeing one for `look`, a strong one for plans).

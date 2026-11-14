@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | DESIGN, sent to the paint-engine session for review 11-14 (its answers: §R). No engine code is written by this spec. Nothing here is built |
+| **Status** | DESIGN. **Engine review pending**: sent to the paint-engine session 11-14 (directly and through the orchestrator); it is landing its own batch, so its answers come later and go into §R. Until then P1 (core only) may start; no engine slice (P2 on) is built. Nothing here is built |
 | **Roadmap rows** | `tasks/joybrush/ROADMAP.md` SEL-PHASE-B (this spec), SEL-C3 (outside fade: separate), SEL-D23 (notices: separate) |
 | **Supersedes** | The unlanded October proposal `specs/SELECT_PIXELS_DESIGN_20261023.md` (commit `c1c6d172d`, only on `origin/lead/select-integration-20261024`). Its findings are kept here (§4.3 soft edges, §6 memory, §7 lines); that file stays where it is |
 | **Builds on** | `specs/JB-5.20e_select_ui.md` (D9, D10, D12, D16-D20, H4/H5, the owner's §K), `specs/JB-2.05_selection_transform_ui.md` + Lead ruling (one layer, same layer, one undo step), Codex's handback `reviews/CODEX_ENGINE_HANDBACK_20261113.md` §3, `specs/WET_SHEET_20261110.md` |
@@ -320,4 +320,6 @@ Questions sent 11-14:
    Note 9, and which existing accounting should the lift report into?
 6. Files (§5.1): who builds the engine section and `PixelLift.kt`, and when, given your current work (streaming saves)?
 
-_Answers: pending at the time of the first commit; folded in below when they arrive._
+_Answers: pending (11-14). The session is landing its own batch; its answers are folded in here when they come. Owner
+decisions owed: none to start; the Cut button (§3.5) and the "set" behaviour of moved realistic paint until P5 (§1) are
+his to keep or change when he tries them._

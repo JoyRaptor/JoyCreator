@@ -47,6 +47,8 @@ Shots in `tasks/screens/tablet/`.
 - Onboarding permissions page: rows and the "Allow what's missing" bar run the full width; text is phone-size. Needs the same column.
 - Choose-a-folder screen: stock grey, unthemed, content top-left. Needs the Joy Creator look and a centred column.
 - Lobby: headline strip, row of four buttons across the whole width, empty lower third.
+- Lobby (11-14): the hero picture stretches the full width, Library cards sit at far left with a mostly empty right side (`ui1_tablet_lobby2_20261114.png`).
+- What's New (11-14): text hugs the left third, "Got it" is a full-width bar; needs a centred column (`ui1_tablet_whats_new_20261114.png`).
 - Settings hub: rows run edge to edge (2900 px wide); tab chips and search bar fine.
 
 ## Files and traps

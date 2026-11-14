@@ -64,6 +64,11 @@ Shots in `tasks/screens/tablet/`. Agent-run; I did not grant any system permissi
 - The choose-a-folder step **now appears** after the 0c5a597dc fix (`ui1_tablet_folder_step_20261113.png`). It is a plain stock-grey screen (system font, flat #2D2D30 background rather than the Joy Creator black), with the heading, paragraph and two small buttons all stuck top-left and the rest of the 2960 px screen empty. Not themed like the rest of the app; the folder lane's screen (`JoyFolderSetupActivity`). Choosing a folder needs the system picker, so the walk stops there; the welcome column, status-bar fix, pages after the folder, What's New and the translated screen on the tablet are still not seen.
 - A relaunch from the launcher once left the tablet on its home screen instead of the app (taps then landed on empty launcher space); a second launch worked.
 
+**Tablet, 11-14 (main-line build on the Tab S8 Ultra, no install; folder step already done by the owner):**
+- Lobby (`ui1_tablet_lobby2_20261114.png`): the hero is the last project's picture stretched across the whole 2960 px width, the four action buttons span the full width, the Library row sits in the top-left with the right 70% empty. Settings (`ui1_tablet_settings_20261114.png`): rows run edge to edge.
+- What's New (`ui1_tablet_whats_new_20261114.png`): on the Joy Creator look, text hugging the left third, "Got it" a full-width bar. Fine to read; wants a centred column.
+- Not seen: the welcome column / permissions pages (the intro is off on this install), the translated screen (needs a language change).
+
 ## Files and traps
 - New screens follow the benchmark packages `ui/library`, `ui/settingshub`, `ui/trash`: thin fragment, bottom dock,
   small classes, tests, own strings file. Keep the legacy screen reachable ("Classic …") until the new one is proven.

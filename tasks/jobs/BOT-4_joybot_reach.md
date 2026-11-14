@@ -73,7 +73,12 @@ SpriteLab: grid, names, animations, sequences.
             not run end to end (the bench can't decode pictures) and not on a device.
             Left of this row: background bake, dope sheet, export.
 - [ ] **Avatar**: pose matrix, mic lip-sync, the .avatar library (Avatar is hidden for launch).
-- [ ] **Recipes with triggers** ("every new recording: transcribe, cut ums, captions, export a draft").
+- [~] **Recipes with triggers** (11-14, audit BOT-A33): a recipe can be switched to **For new recordings** in My recipes
+      (solid cyan when on; saved as `"offerForNewRecordings": true` in its own readable file). When a Studio project
+      holds a recording that recipe hasn't been offered for, Joybot asks once: "This project has a new recording. Run
+      your recipe … on it?" with Run it / Not this time. It never runs a recipe by itself (the owner's rule: an automatic
+      guess keeps a way back). Proof: `run-joybot-bench.sh --recipes` 13/13 (the file, older files, the trigger);
+      bench 63/63. Not seen on a device. Left: model routing per step (the other half of the audit row).
 - [ ] **Model routing per step** (a cheap model for simple steps, a seeing one for `look`, a strong one for plans).
 - [ ] **Before/after thumbnails** on a result card (M6).
 - [ ] **A Library-wide B-roll index** (tag every asset once, cached) (M8).

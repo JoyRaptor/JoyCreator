@@ -130,6 +130,32 @@ public final class ProjectFactsReader {
     }
 
     /**
+     * This project's clips that are recordings (in the Library's recordings), in timeline order: the
+     * new-recording recipe trigger's input ({@link RecipeTrigger}, BOT-A33). Empty when unknown.
+     */
+    @NonNull
+    public static List<String> recordingClips(@NonNull Context context, @Nullable Timeline tl) {
+        List<String> out = new java.util.ArrayList<>();
+        if (tl == null) return out;
+        try {
+            Set<String> recordings = new HashSet<>();
+            for (VideoItem v : VideoIndexRepository.getInstance(context)
+                    .getVideos(SharedPreferencesManager.getInstance(context))) {
+                if (v == null || v.uri == null || v.mediaType != VideoItem.MediaType.VIDEO) continue;
+                if (v.isTemporary || v.isProcessingUri || v.isSkeleton) continue;
+                recordings.add(v.uri.toString());
+            }
+            for (int i = 0; i < tl.getClipCount(); i++) {
+                Clip c = tl.getClip(i);
+                if (c == null || c.getSourceUri() == null) continue;
+                String u = c.getSourceUri().toString();
+                if (recordings.contains(u) && !out.contains(u)) out.add(u);
+            }
+        } catch (Exception ignored) { }
+        return out;
+    }
+
+    /**
      * The newest Library video that no clip on this timeline comes from, by its name; "" if none.
      * Off the main thread (the Library index may be read from disk). Any failure is "none".
      */

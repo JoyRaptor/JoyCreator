@@ -7,6 +7,12 @@ The owner, 10-27: the lobby is much better than before, but at a glance it may s
 came to draw or to edit video; features can be missed; parts are still structured like FadCam. It has to be
 so easy that iPhone fans like it. This is the first thing every user and every demo video shows.
 
+**Owner, 11-14 evening (overrides a full redesign):** the lobby needs little work and no full makeover. It needs
+**everything connected**, and it comes after the wings are built and working well. His idea: **room reels**. When
+you have no project in a room, that room plays a short motion-graphic loop of what it makes, to get you
+interested. It works like an ad for the room, never asking for money. Build on what exists: the moving hero sheets
+and drift landed 11-13 (0c5a597dc, c32a62808).
+
 ## Done when
 - [ ] A first-time user can say within five seconds what they can make here, and start any of them in one tap:
       draw and paint, edit a video, make a music visual, animate a character, record.

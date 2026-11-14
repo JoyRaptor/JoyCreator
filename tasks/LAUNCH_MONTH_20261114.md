@@ -5,6 +5,28 @@ a sizzle video, a website and the app on the Play Store. Claude usage is limited
 outranks the M1 to M4 order in [ROADMAP.md](ROADMAP.md) until launch.** Nothing is deleted: parked work keeps
 its card and returns after launch.
 
+## 0. Owner rulings, 11-14 evening (these override anything below)
+
+- **No half-built public launch.** Once people use it we can't make big breaking changes. So: the closed test still
+  starts 11-21 (it is private, only his testers see it, and its 14-day clock costs nothing), and we keep building
+  through it. The public release goes out when the work he wants is built and polished, not on a fixed date.
+  Before the public release, the saved-file formats (projects, drawings, sprite sheets, packs) are frozen.
+- **The lobby needs connecting, not a makeover.** It is the most important screen but comes after the wings work
+  well. His idea: a room you have no project in plays a short motion-graphic reel of what that room makes (an ad
+  for the room, never for money). See DOOR-2.
+- **JBX-09 (dark-paper buttons) is stale:** he watches the top buttons flip black/white over dark paper and dark
+  parts of the drawing. Off the launch list unless someone finds a case that does not flip.
+- **Money: no subscription, ever.** Website idea: JoyBrush packs, some paid, simple "pay, then download". A
+  separate business-model planning session is owed (AI-built apps will close this window; plant the flag soon).
+- **Website domain:** keep `joycreator.cc` (already bought) for now; `joycreator.studio` or similar only once it
+  earns. App ID `cc.joycreator.app` matches the domain he owns.
+- **Privacy:** expect identity slips until launch; the new guard blocks most. Run the history scrub once, right
+  before the public release, not now.
+- **Usage:** weekly reset plus a 5-hour Fable window. **Fable ends 11-17**: until then Fable does only the hardest
+  engine work (streaming saves JBX-36, strokes surviving recreation JBX-37, the lost-tile cause JBX-35).
+  **No tokens spent waiting:** a lane blocked on a build lock, RAM or a device ends its turn, or waits in a
+  background script, never in turns. One or two test devices at a time.
+
 ## 1. The clock: Google Play's test rule
 
 For a personal developer account created after 13 November 2023 (organisation accounts and older accounts are

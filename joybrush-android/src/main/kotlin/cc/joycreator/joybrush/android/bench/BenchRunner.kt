@@ -101,6 +101,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                val pasteSoft: Double? = null,
                /** `jb_paste_vary`: a hair brush's variance whatever the brush says (PasteBrush.vary). */
                val pasteVary: Double? = null,
+               /** `jb_paste_taper`: a hair brush's taper whatever the brush says (PasteBrush.taper). */
+               val pasteTaper: Double? = null,
                /** `jb_paste_pull`: how much a hair brush or the trowel pulls wet paint along, whatever the brush says (PasteBrush.pull). */
                val pastePull: Double? = null,
                /** `jb_symmetry`: a radial symmetry of this many copies about the middle of the view (2 = a mirror), for the whole run;
@@ -494,8 +496,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         ui.postDelayed(timeout, 30_000L)
         guarded {
             if (spec.clear) canvas.clearCanvas()
-            val ended = preset.media?.let { m -> m.paste?.takeIf { spec.pasteEnds != null || spec.pasteTurns != null || spec.pasteCover != null || spec.pasteCarry != null || spec.pasteForce != null || spec.pasteSoft != null || spec.pasteVary != null || spec.pastePull != null }?.let { pb ->
-                preset.copy(media = m.copy(paste = pb.copy(ends = spec.pasteEnds ?: pb.ends, turns = spec.pasteTurns ?: pb.turns, cover = spec.pasteCover ?: pb.cover, carry = spec.pasteCarry ?: pb.carry, force = spec.pasteForce ?: pb.force, soft = spec.pasteSoft ?: pb.soft, vary = spec.pasteVary ?: pb.vary, pull = spec.pastePull ?: pb.pull))) } } ?: preset
+            val ended = preset.media?.let { m -> m.paste?.takeIf { spec.pasteEnds != null || spec.pasteTurns != null || spec.pasteCover != null || spec.pasteCarry != null || spec.pasteForce != null || spec.pasteSoft != null || spec.pasteVary != null || spec.pastePull != null || spec.pasteTaper != null }?.let { pb ->
+                preset.copy(media = m.copy(paste = pb.copy(ends = spec.pasteEnds ?: pb.ends, turns = spec.pasteTurns ?: pb.turns, cover = spec.pasteCover ?: pb.cover, carry = spec.pasteCarry ?: pb.carry, force = spec.pasteForce ?: pb.force, soft = spec.pasteSoft ?: pb.soft, vary = spec.pasteVary ?: pb.vary, pull = spec.pastePull ?: pb.pull, taper = spec.pasteTaper ?: pb.taper))) } } ?: preset
             canvas.preset = spec.wetness?.let { w -> ended.media?.let { m -> ended.copy(media = m.copy(wetness = w)) } } ?: ended
             spec.colors.getOrNull(spec.cases.indexOf(case))?.let { canvas.colorArgb = it }
             // A contact-sheet cell takes the colours in turn, one a brush.
@@ -824,6 +826,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 pasteForce = intent.getStringExtra("jb_paste_force")?.toDoubleOrNull()?.coerceIn(0.0, 1.0),
                 pasteSoft = intent.getStringExtra("jb_paste_soft")?.toDoubleOrNull()?.coerceIn(0.0, 1.0),
                 pasteVary = intent.getStringExtra("jb_paste_vary")?.toDoubleOrNull()?.coerceIn(0.0, 1.0),
+                pasteTaper = intent.getStringExtra("jb_paste_taper")?.toDoubleOrNull()?.coerceIn(0.0, 1.0),
                 pastePull = intent.getStringExtra("jb_paste_pull")?.toDoubleOrNull()?.coerceIn(0.0, 1.0),
                 symmetry = intent.getIntExtra("jb_symmetry", -1).takeIf { it == 0 || it in 2..16 },
                 lines = if (intent.hasExtra("jb_lines")) intent.getBooleanExtra("jb_lines", false) else null,

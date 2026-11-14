@@ -34,7 +34,7 @@
 # On USB it shares the adb server with the Note 9, so RAW adb MUST name a serial: `adb -s <serial>`.
 # Bare `adb install` / `adb shell` with both phones attached fails or, worse, hits the wrong one.
 # To use the Note 20 through this tool:
-#   $env:PHONE_SLOT = "note20"     (finds it by model, on USB or Wi-Fi port 5038, and uses its own
+#   $env:PHONE_SLOT = "note20"     (finds it by model on the one adb server, and uses its own
 #                                   lock, %TEMP%\jb-phone2.lock; who/claim/release work the same)
 #
 # TEST TABLET (owner, 2026-11-13): a Tab S8 Ultra with nothing of the owner's on it, for app
@@ -98,11 +98,9 @@ function Adb {
 $phoneLock = Join-Path $env:TEMP "jb-phone.lock"
 if ($env:PHONE_SLOT -eq "note20") {
     if (-not $env:PHONE) {
-        $n20 = @(Find-ByModel $modelNote20)           # on USB, same adb server as the Note 9
-        if ($n20.Count -eq 0) {
-            $env:ANDROID_ADB_SERVER_PORT = "5038"     # over Wi-Fi, on its own adb server
-            $n20 = @(Find-ByModel $modelNote20)
-        }
+        # ONE adb server only (the default). A second server, as this tool briefly started on
+        # 11-13, grabs every USB device and hides the Note 9 and the tablet from everyone.
+        $n20 = @(Find-ByModel $modelNote20)
         # Not attached: pin a name adb cannot find, so nothing falls through to the Note 9.
         $env:PHONE = if ($n20.Count -ge 1) { $n20[0] } else { "note20-not-attached" }
     }

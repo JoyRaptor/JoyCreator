@@ -241,7 +241,7 @@ class BrushPreviewRenderer(private val memory: () -> Pair<Long, Long>) {
         }
         // The test stroke's colour stripes (TestStroke.STRIPES): painted bands the curve passes through, to show pick-up,
         // smear and blur. A smudge has its own two bands, an eraser its strip.
-        else for (stripe in cc.joycreator.joybrush.core.brush.TestStroke.STRIPES) {
+        else if (req.snapshot.stripes) for (stripe in cc.joycreator.joybrush.core.brush.TestStroke.STRIPES) {
             val inset = CannedStroke.inset(shown.size.base)
             val sw = w - 2 * inset
             val sh = h - 2 * inset
@@ -252,7 +252,7 @@ class BrushPreviewRenderer(private val memory: () -> Pair<Long, Long>) {
 
         // A smudge begins carrying the colour it begins on.
         val argb = if (kind == PreviewKind.SMUDGE) req.style.bandLeft else ink
-        val canned = CannedStroke.pen(w, h, shown.size.base)
+        val canned = cc.joycreator.joybrush.core.brush.TestStroke.pen(w, h, shown.size.base, part = req.snapshot.part)
         val samples = req.snapshot.penOverride?.apply(canned) ?: canned
         when (kind) {
             PreviewKind.WATERCOLOUR -> {

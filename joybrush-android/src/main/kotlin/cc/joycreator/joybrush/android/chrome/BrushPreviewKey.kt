@@ -41,7 +41,7 @@ object BrushPreviewKey {
     /** Key retains digests and scalar text only, never a PNG owner or request. */
     fun of(request: cc.joycreator.joybrush.androidkit.preview.BrushPreviewRequest): Key {
         val text = BrushJson.encode(request.preset)
-        val payload = "v$RENDERER_VERSION|$STROKE|${request.style.key}|$text|${request.resourceFingerprint}|${request.actualStabilizerKey}|${request.penOverride?.key ?: "canned"}"
+        val payload = "v$RENDERER_VERSION|$STROKE|${request.style.key}|$text|${request.resourceFingerprint}|${request.actualStabilizerKey}|${request.penOverride?.key ?: "canned"}|${request.part}|${request.stripes}"
         return Key(idPart(request.preset.id), hash(payload), request.width, request.height)
     }
 

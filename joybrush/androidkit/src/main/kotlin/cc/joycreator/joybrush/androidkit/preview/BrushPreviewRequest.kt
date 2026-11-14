@@ -36,9 +36,14 @@ class BrushPreviewRequest private constructor(
     val actualStabilizer: StabilizerSpec?,
     val penOverride: PreviewPenOverride?,
     val resourceFingerprint: String,
+    /** Which part of the test stroke to draw: all of it, or the S-turns alone for a slider's tiny end picture. */
+    val part: cc.joycreator.joybrush.core.brush.TestStroke.Part = cc.joycreator.joybrush.core.brush.TestStroke.Part.WHOLE,
+    /** Whether the test stroke's colour stripes are painted under it (off for a slider's end picture). */
+    val stripes: Boolean = true,
 ) {
     val requiresResourceAwareMaker: Boolean
-        get() = pngs != null || actualStabilizer != null || penOverride != null
+        get() = pngs != null || actualStabilizer != null || penOverride != null ||
+            part != cc.joycreator.joybrush.core.brush.TestStroke.Part.WHOLE || !stripes
 
     /** Exact stored settings, including inactive fields; null preserves the legacy preview path. */
     val actualStabilizerKey: String get() = actualStabilizer?.let {
@@ -58,6 +63,8 @@ class BrushPreviewRequest private constructor(
             pngs: FrozenBrushPngs? = null,
             actualStabilizer: StabilizerSpec? = null,
             penOverride: PreviewPenOverride? = null,
+            part: cc.joycreator.joybrush.core.brush.TestStroke.Part = cc.joycreator.joybrush.core.brush.TestStroke.Part.WHOLE,
+            stripes: Boolean = true,
         ): BrushPreviewRequest {
             // Detach lists/maps from the editable sheet before a queued IO or GL operation can run.
             val frozen = BrushJson.decodeChecked(BrushJson.encode(preset))
@@ -77,7 +84,7 @@ class BrushPreviewRequest private constructor(
                 }
             }
             return BrushPreviewRequest(frozen, width, height, style.copy(), pngs,
-                actualStabilizer?.copy(), penOverride?.copy(), PreviewResourceFingerprint.of(pngs))
+                actualStabilizer?.copy(), penOverride?.copy(), PreviewResourceFingerprint.of(pngs), part, stripes)
         }
     }
 }

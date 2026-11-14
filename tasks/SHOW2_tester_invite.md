@@ -1,6 +1,6 @@
 # Test Joy Creator with me
 
-*Source of the page `docs/testers.html`. Placeholders in [BRACKETS IN CAPITALS] need the owner. Written 2026-11-14.*
+> Source of the page `docs/testers.html`. Placeholders in square brackets, in capitals, need the owner (the Google Group link, the Play opt-in link, the feedback form link). Not published. Written 2026-11-14.
 
 **Joy Creator is a free creative studio for your Android phone**: paint and animate, edit video, make music visuals and title looks, build characters, and keep it all in one folder you choose. No ads, no subscription, no watermark.
 
@@ -16,12 +16,14 @@ You don't need to know anything technical. If something is confusing, that is ex
 
 ## How to join (about 3 minutes)
 
-1. **Use an Android phone or tablet** with a Google account (Gmail).
-2. **Send me your Gmail address**: [HOW TO REACH THE OWNER: EMAIL OR MESSAGE]. I add you to the tester list.
-3. **Open the test link on your phone**: [PLAY OPT-IN LINK]. Tap **Become a tester**.
-4. Tap the link to **install it from the Play Store** (it can take a few minutes after you join before the button appears).
-5. **Open Joy Creator.** It asks you to pick a folder for your work: that's where everything you make is kept. Removing the app never deletes it.
-6. That's it. Come back to it now and then over the next two weeks.
+You need an Android phone or tablet and the Google account (Gmail) you use on it. Do these in order.
+
+1. **Join the tester group.** Open this link on your phone and tap **Join group**: [GOOGLE GROUP LINK]. If it asks to be approved, I will approve you the same day. (If you would rather not use a group, send me your Gmail address at studio@joycreator.cc and I will add you by hand.)
+2. **Opt in.** Open this link on your phone, signed in with the same Gmail, and tap **Become a tester**: [PLAY OPT-IN LINK].
+3. **Install it from Google Play.** On the same page, tap the link to **Download it on Google Play**, then **Install**. The button can take a few minutes to appear after you opt in.
+4. **Open Joy Creator.** It asks you to pick a folder for your work: that is where everything you make is kept. Removing the app never deletes it. Any folder is fine.
+5. **Keep it installed for 14 days in a row**, and **open it a few times** over those two weeks, a few minutes each time. Google counts this, and it is what lets me release the app. Please do not uninstall it early.
+6. **Tell me what you found** (see the end of this page).
 
 ## The ten-step checklist
 
@@ -40,9 +42,12 @@ Stop at any step that is confusing and write down what you expected.
 
 ## Tell me what happened
 
-Fill in the short form (about 5 minutes): [FEEDBACK FORM LINK]. Nothing is graded. Tell me what you really thought. Your answers are used only to improve the app.
+Nothing is graded. Tell me what you really thought, even "I did not understand this". Any of these works:
 
-If something crashes or loses your work, tell me right away: [HOW TO REACH THE OWNER: EMAIL OR MESSAGE].
+- The short form (about 5 minutes): [FEEDBACK FORM LINK].
+- An email to studio@joycreator.cc. A screenshot helps a lot.
+
+If something crashes or loses your work, tell me right away by email.
 
 ## What you should know
 
@@ -50,3 +55,4 @@ If something crashes or loses your work, tell me right away: [HOW TO REACH THE O
 - Your drawings and videos stay **on your phone**. See the [privacy policy](privacy.html).
 - Joybot, the AI helper, only sends a request when you use it, to the service you set up with your own key.
 - You can leave the test at any time from the same Play link.
+- There is no ad, no account and no payment anywhere in the app.

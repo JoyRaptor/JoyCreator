@@ -125,6 +125,7 @@ def page(title, body, draft):
 
 
 def has_placeholder(md):
+    md = re.sub(r"\[[^\]]+\]\([^)]+\)", "", md)      # a link's own text is not a placeholder
     return re.search(r"\[[A-Z][A-Z0-9 ,/:'\-.()]{6,}", md) is not None
 
 
@@ -152,14 +153,14 @@ no watermark, no account.</p>
 </ul>
 <p>Joy Creator is in beta and is coming to Google Play. This page will grow into the full site; until then it holds the
 privacy policy and the tester sign-up.</p>
-<p>Contact: [CONTACT EMAIL: OWNER TO CONFIRM]</p>
+<p>Contact: studio@joycreator.cc</p>
 """
 
 
 def main():
     DOCS.mkdir(exist_ok=True)
     (DOCS / ".nojekyll").write_text("", encoding="utf-8")
-    (DOCS / "index.html").write_text(page("Joy Creator: a creative studio for your phone", INDEX, True),
+    (DOCS / "index.html").write_text(page("Joy Creator: a creative studio for your phone", INDEX, False),
                                      encoding="utf-8", newline="\n")
     built = ["index.html"]
     built.append(build_md_page("PRIVACY.md", "privacy.html"))

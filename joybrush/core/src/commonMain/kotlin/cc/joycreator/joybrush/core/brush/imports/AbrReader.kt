@@ -233,6 +233,8 @@ internal object AbrReader {
     private val VERSIONS = setOf(6, 7, 9, 10)
 
     private const val SIG_8BIM = "8BIM"
+    /** The sections this reader parses; every other one is skipped by its declared length. */
+    private val PARSED_SECTIONS = setOf("samp", "desc")
 
     /** Bytes ag-psd skips after a `samp` entry's Pascal id: 10 for minor version 1, 264 for 2. */
     private const val SAMP_SKIP_SUB1 = 10
@@ -290,7 +292,10 @@ internal object AbrReader {
             }
             val key = cur.ascii(4)
             val length = cur.u32()
-            if (length > AbrImport.MAX_SECTION_BYTES) {
+            // The per-section cap guards what is PARSED (tips and brush settings). A section that is only skipped
+            // (`patt` patterns, `phry`) costs a seek bounded by the file's own size, which is capped already; a real
+            // Photoshop set with a 33.9 MB pattern section was refused whole by this cap (owner's file, 11-13).
+            if (length > AbrImport.MAX_SECTION_BYTES && key.lowercase() in PARSED_SECTIONS) {
                 throw AbrCap("section $sections (\"$key\") is at most ${AbrImport.MAX_SECTION_BYTES} bytes, it claims $length")
             }
             if (length > cur.remaining().toLong()) {

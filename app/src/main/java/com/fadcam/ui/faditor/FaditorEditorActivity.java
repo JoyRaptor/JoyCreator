@@ -1637,6 +1637,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
 
         setContentView(R.layout.activity_faditor_editor);
+        // Every named control shows its name on hover (stylus, mouse), drawers included (STU-D1).
+        com.fadcam.ui.faditor.util.HoverLabels.watch(getWindow().getDecorView());
 
         // fitsSystemWindows handles safe area automatically on topBar
 

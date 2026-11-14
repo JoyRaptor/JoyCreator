@@ -109,6 +109,14 @@ Small rough edges the device sweeps found. Each one is the kind of thing that ma
 - **Not done:** Joybot add_marker undo (needs the bridge); the audio-only project's clip on reopen; old early bakes on
   open (no such project to hand); D9 rounding, B3 export of cut spans (diagnosed above).
 
+## 11-13 evening (Studio lane, no device reachable)
+- **All 52 Studio suites green** (`run-studio-all.sh`), for the first time: the 9 silent ones were a mesh-engine
+  annotation import (5 suites), two missing test stubs (2), a stale gradient default in a test (1), and a parity lint
+  that did not know the preview routes pictures through `wantsGlExport()` (1; now checked against the model's code).
+- **STU-D1 hover labels:** `util/HoverLabels` gives every tappable Studio control that has a spoken name its name as
+  a hover label (Android 8+, re-applied after layouts, drawers included; dialogs/sheets in their own windows are not).
+  Controls with no name at all still need one by hand: recount owed. Not seen with a stylus yet.
+
 ## What is left (from `tasks/todo.md` on 10-16/17; may already be fixed)
 - [ ] Caption motion "Type – word" stuck.
 - [ ] Caption hide-eye and outline swatch show no visible response.

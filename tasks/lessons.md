@@ -1248,3 +1248,6 @@ as `TIME * knob` are "rate" and the host integrates them.
 - Sprite animations: every prop must emerge from behind Joybot, backpack, or belly door, never from a frame edge. Reserve transparent safety padding for maximum motion. Animate floating symbols and push mouth/finger acting with controlled squash-and-stretch.
 
 SCALE LOCK (owner correction): Keep Joybot at the earlier approved full scale consistently across ALL sheets. Do not shrink the whole scene to add padding. Existing small transparent margin is enough. Solve clipping by changing prop angle, articulation, fold, position or reveal route within the cell. Keep character body scale and anchor consistent; squash/stretch is temporary acting around that common scale. The latest tiny video-choice generation is rejected.
+
+## 2026-11-13 - Never put a timeout around a build that holds the shared lock
+A `timeout` around a script that waits for `jb-gradle.lock`, takes it and runs Gradle killed Gradle mid-build and left the lock file behind, blocking every lane until removed by hand. Run lock-holding builds in the background with no timeout and wait on their completion; if a run is cut anyway, check the lock file and remove it only if its text is yours.

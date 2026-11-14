@@ -1,5 +1,9 @@
 # Joy Creator roadmap: the source of truth
 
+> **Launch month (owner, 2026-11-14):** on the Play Store, with a website and a sizzle video, by mid-December.
+> Until launch, [LAUNCH_MONTH_20261114.md](LAUNCH_MONTH_20261114.md) outranks the milestone order below: finish and
+> fix only, no new big features, at most four or five lanes at once. The closed-test build must be on Play by 11-21.
+
 **Point any agent at this one file.** It is enough to start work.
 
 Reading order (progressive disclosure, stop as soon as you have what you need):

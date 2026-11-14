@@ -1,5 +1,7 @@
 package cc.joycreator.joybrush.core.chrome
 
+import cc.joycreator.joybrush.core.brush.TestStroke
+
 import cc.joycreator.joybrush.core.brush.BrushInput
 import cc.joycreator.joybrush.core.brush.BrushJson
 import cc.joycreator.joybrush.core.brush.BrushPreset
@@ -229,8 +231,8 @@ class BrushTuningTest {
     }
 
     @Test
-    fun theSpecimenSheetChangesOneThingAtATime() {
-        val w = 1000f; val h = 500f
+    fun theSettingsStageDrawsTheOwnersTestStrokeOverItsColourLines() {
+        val w = 1000f; val h = 300f
         val sheet = BrushPreviewStrokes.sheet(w, h)
         for (s in sheet) {
             assertTrue(s.samples.size >= 2)
@@ -239,18 +241,12 @@ class BrushTuningTest {
             val t = TuftStroke(sable(), 1L)
             assertTrue((t.add(s.samples) + t.finish()).isNotEmpty())
         }
-        // The swoosh walks every mode, and a second-colour stroke crosses it.
-        val swoosh = sheet[0].samples
-        assertTrue(swoosh.any { it.pressure < 0.1f } && swoosh.any { it.pressure > 0.95f } && swoosh.any { it.tilt > 1f })
-        assertEquals(1, sheet.count { it.second })
-        // The ladders: pressure alone, then tilt alone, then speed alone.
-        val shorts = sheet.subList(2, 14).map { s -> s.samples[s.samples.size / 2] }
-        assertEquals(listOf(0.1f, 0.3f, 0.5f, 0.75f, 1f), shorts.take(5).map { it.pressure })
-        assertEquals(listOf(0f, 0.45f, 0.9f, 1.3f), shorts.subList(5, 9).map { it.tilt })
-        assertTrue(shorts.subList(5, 12).all { it.pressure == 0.6f })
-        val durations = sheet.subList(11, 14).map { it.samples.last().timeMs - it.samples.first().timeMs }
-        assertTrue(durations[0] > durations[1] && durations[1] > durations[2], "slow, medium, fast")
-        assertEquals(4, BrushPreviewStrokes.captions.size)
+        // The colour lines come first, in their own colours; the curve is last, in the colour in hand.
+        val lines = sheet.takeWhile { it.argb != null }
+        assertEquals(TestStroke.STRIPES.map { it.argb }.toSet(), lines.map { it.argb }.toSet())
+        assertEquals(null, sheet.last().argb)
+        assertEquals(TestStroke.pen(1000, 300, 12f), sheet.last().samples)
+        assertEquals(0, BrushPreviewStrokes.captions.size)
     }
 
     @Test

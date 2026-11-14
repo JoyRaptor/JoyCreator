@@ -658,7 +658,7 @@ so they stay 🟡 and are not to be promoted yet. Old screens are kept reachable
 | Permission screen (all up front) | 🟢 ✔ | Recommend deferring to point of use |
 | Intro last page: "Before we start" promises, no forced ticks (SHELL-35) | 🟡 ✔ | 11-13. The FadCam "verify you are human" gate (three boxes to tick, one a joke, and a link to FadCam's own privacy policy) is now three plain promises from PRIVACY.md's short version, with "Let me in" always ready; no link until our policy is published (owner). Its Joybot key card's two dead buttons work: Add it now opens Joybot's AI settings, Later folds the card. English only. Agent-checked on the Note 9 via Settings, Show the intro (`after_11..13_*`). |
 | New intro copy | 🔵 | Drafted 2026-09-09, approved by JoyRaptor |
-| Vault picker screen ("Your Joy Creator folder") | 🟢 | Required first step since 2026-10-14 (shown after onboarding, before using the app); Note 9-proven. |
+| Vault picker screen ("Your Joy Creator folder") | 🟢 | Required first step since 2026-10-14 (shown after onboarding, before using the app); Note 9-proven. 11-13: it was silently skipped on Android 11+ (no `<queries>` for the picker); fixed 0c5a597dc, seen in front on the Android 15 test tablet. 11-14: restyled in the Joy Creator look (house tokens, Archivo heading, the go pill for the main action, a centred 560 dp column on wide screens; phone layout unchanged); Note 9 before/after `tasks/screens/shell-20261113/*_16_folder_screen_note9.png`. The tablet showed it flat grey on 11-13; the Note 9 draws true black, so the tablet look is still to be seen. |
 | Demo project | ⚪ | INBOX.md |
 | New landing screen / studio funnel | ⚪ | INBOX.md — its own session |
 

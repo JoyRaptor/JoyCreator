@@ -199,12 +199,9 @@ public final class JoybotActs {
         });
     }
 
-    /** The way in, then the loop. With {@code still}, just his pose: reduced motion never loops. */
+    /** The way in, then the loop. */
     @NonNull
-    JoybotFilm film(@NonNull Act a, @NonNull Bitmap picture, boolean still) {
-        if (still) {
-            return new JoybotFilm(picture, new Rect[]{cell(a, picture, a.loop[0])}, null, 1f, true).asActor(focus);
-        }
+    JoybotFilm film(@NonNull Act a, @NonNull Bitmap picture) {
         Rect[] r = new Rect[a.in.length + a.loop.length];
         for (int i = 0; i < a.in.length; i++) r[i] = cell(a, picture, a.in[i]);
         for (int i = 0; i < a.loop.length; i++) r[a.in.length + i] = cell(a, picture, a.loop[i]);

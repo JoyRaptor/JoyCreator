@@ -5,8 +5,6 @@ import android.graphics.Bitmap;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.fadcam.ui.motion.Motion;
-
 import java.util.List;
 import java.util.Random;
 
@@ -18,6 +16,10 @@ import java.util.Random;
  * just do, plays its way in, loops it, and plays its way out before the next. A job described in
  * words ({@link #hint}) picks the animation that fits it (deleting, trimming, colour...). Left
  * idle he starts to read, and later falls asleep.</p>
+ *
+ * <p>He ALWAYS animates, whatever the phone's "remove animations" setting says (owner, 11-14: "he's
+ * a character that guides you. He needs to be animated"). His frames run on the clock, not on
+ * system animators, so that setting cannot stop them.</p>
  *
  * <p>One director per {@link JoybotView}. Everything here runs on the main thread.</p>
  */
@@ -67,7 +69,7 @@ public final class JoybotDirector implements JoybotView.Director {
     @Nullable
     @Override
     public JoybotFilm leave() {
-        if (now == null || Motion.reduced(bot.getContext())) return null;
+        if (now == null) return null;
         Bitmap p = acts.opened(now);
         return p == null ? null : acts.outFilm(now, p);
     }
@@ -95,12 +97,11 @@ public final class JoybotDirector implements JoybotView.Director {
             hinted = null;
         }
         if (a == null) { now = null; nowMood = null; return null; }
-        if (fresh && !Motion.reduced(bot.getContext())) {
+        if (fresh) {
             // A flourish first: when he arrives, and one time in three when he is excited.
-            boolean arrive = m == JoybotView.Mood.IDLE && !greeted && idleStep == 0;
+            boolean arrive = m == JoybotView.Mood.IDLE && !greeted;
             boolean cheer = m == JoybotView.Mood.EXCITED && dice.nextInt(3) == 0;
             JoybotActs.Act f = arrive || cheer ? acts.named(FLOURISH) : null;
-            if (m == JoybotView.Mood.IDLE) greeted = true;
             if (f != null && f != a) { chainTo = a; chainMood = m; a = f; }
         }
         Bitmap p = acts.opened(a);
@@ -120,6 +121,9 @@ public final class JoybotDirector implements JoybotView.Director {
             final JoybotActs.Act next = chainTo;
             now = null;
             nowMood = null;
+            // Only now has he really done it: the chat changes his mood several times as it opens,
+            // and each of those used to count as the greeting before a frame of it had played.
+            if (m == JoybotView.Mood.IDLE) greeted = true;
             return acts.onceFilm(a, p).thenRun(() -> {
                 if (chainTo != next) return;
                 chainTo = null;
@@ -134,7 +138,7 @@ public final class JoybotDirector implements JoybotView.Director {
         now = a;
         nowMood = m;
         lastName = a.name;
-        return acts.film(a, p, Motion.reduced(bot.getContext()));
+        return acts.film(a, p);
     }
 
     @Nullable private JoybotActs.Act reopened;

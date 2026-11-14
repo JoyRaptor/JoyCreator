@@ -21,8 +21,11 @@ stills; a sheet loader exists and maps animations by name. The owner is drawing 
   `joybot.animations.json` (edit this) and previews. `python tools/joybot/pack_joybot.py <that folder>` remakes `assets/joybot/`.
 - `JoybotActs` (catalogue + picture cache), `JoybotDirector` (which animation, way in / out, idle drift, flourish, job hints),
   `JoybotFilm` (intro-then-loop, body box, end action), `JoybotView` (Director hook, sway / bob / squash, flight lean).
-- Branch `claude/joybot-sheet-20261113`. **Type-checked only.** Next: build, then check every mood on the Note 9.
-- Owner asks still open (11-13): he wants the corner to be LOWER LEFT (it is lower right); a pointing frame for "show me where";
+- Branch `claude/joybot-sheet-20261113`. **Builds.** Test tablet 11-14: idle seen (bob, blink, lower left, speech tail). The arrival spin was 
+  skipped (the chat changes his mood several times as it opens); fixed, rebuilt, installed, **not re-seen**: the tablet locked itself.
+  Next: record arrival, a change of action and the return; then every mood on the Note 9.
+- Owner, 11-14: he ALWAYS animates (never a still for the phone's animation setting); lower LEFT is his corner; answer bubbles point at him.
+- Owner asks still open: a pointing frame for "show me where" (he is generating pointing and display gestures);
   about 22 free cells on the sheet for the actions left off (presenting-player, organizing-files, greeting).
 
 ## What is left

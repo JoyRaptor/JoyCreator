@@ -258,7 +258,7 @@ public final class JoybotView extends FrameLayout {
             }
             long now = android.os.SystemClock.uptimeMillis();
             int saved = canvas.save();
-            if (f.isActor() && body != null && !Motion.reduced(getContext())) {
+            if (f.isActor() && body != null) {
                 float px = getWidth() / 2f;
                 float py = box.top + box.height() * body.bottom;
                 double t = (now % SWAY_MS) / (double) SWAY_MS * Math.PI * 2.0;

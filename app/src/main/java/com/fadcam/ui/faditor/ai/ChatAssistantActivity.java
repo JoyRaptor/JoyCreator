@@ -3492,13 +3492,10 @@ public class ChatAssistantActivity extends AppCompatActivity {
         // Joybot's answer carries the colour; your own words fade back (owner, 10-28).
         tv.setTextColor(isUser ? Studio.INK_DIM : Studio.ON_GO);
         tv.setBackgroundResource(isUser ? R.drawable.chat_bubble_user : R.drawable.chat_bubble_joybot);
-        // Tail side (bottom for user, top for bot — see chat_bubble_user/bot.xml) gets extra
-        // padding so text clears the reserved tail-nub band baked into the background drawable.
-        if (isUser) {
-            tv.setPadding(dp(14), dp(10), dp(14), dp(17));
-        } else {
-            tv.setPadding(dp(14), dp(17), dp(14), dp(10));
-        }
+        // Both tails are at the bottom now: yours drops to the send button on the right, Joybot's
+        // drops to Joybot himself in the lower left (owner, 11-14). The padding clears the band
+        // the tail is drawn in.
+        tv.setPadding(dp(14), dp(10), dp(14), dp(17));
         tv.setLayoutParams(new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT));
@@ -3517,7 +3514,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT);
         clp.gravity = android.view.Gravity.BOTTOM | android.view.Gravity.END;
-        clp.setMargins(0, 0, dp(2), isUser ? dp(9) : dp(2));
+        clp.setMargins(0, 0, dp(2), dp(9));
         copyBtn.setLayoutParams(clp);
         copyBtn.setTag(text);
         androidx.appcompat.widget.TooltipCompat.setTooltipText(copyBtn, "Copy this message");

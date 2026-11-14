@@ -63,9 +63,21 @@ the choice between embedding and a side picture file goes back to the lead, not 
   each), colour purity and colour variance; roundness dynamics (the tip keeps one fixed roundness); flip X/Y and the
   dual brush; tilt scale clamped to 1 and texture scale clamped to 64. Every unmapped setting is kept raw in the
   brush file (`extensions`), so a later JoyBrush can use it without importing again.
-- **Krita packs** (owner said yes, three named threads on krita-artists.org: Memileo impasto, Metallics by
-  Draneria, Val's realistic ink pen): not downloaded yet. Downloads wait for the owner's own yes in this session
-  (file names and sources first); licences and dates go here when fetched.
+- **Krita: Val's Realistic Ink Pen, v1 and v2** (downloaded 11-13 by the JoyBrush command session after the owner's
+  yes, from https://krita-artists.org/t/vals-realistic-ink-pen/144394, into `D:/JoyCreator-brush-samples/`, outside
+  the repo, never committed). The forum post states no licence; each bundle's own `meta.xml` says **CC-BY-SA**, author
+  "Val / echolessowl", dated 16/10/2025 and 22/11/2025. One preset per bundle. Findings on the PC (11-13):
+  1. Every real bundle failed to parse: a CDATA section in the preset text was sliced after the read position had
+     moved past it. **Fixed** in `KritaImport` (regression test `aPresetWithACdataSectionConverts`; core 2960 green).
+  2. After that fix both are still refused: "its preset XML has no <paintop id=…>". Real Krita presets are
+     `<Preset paintopid="paintbrush">` with about 200 `<param name=…>` entries (brush_definition as nested XML,
+     Size/Opacity/Flow/Rotation sensors with curves, Scatter, Sharpness, CompositeOp, masking brush…). The importer
+     reads a simplified layout of its own design and has **never read a real Krita file**. Owed: a reader for the real
+     format (Pixel / "paintbrush" engine first: auto-brush mask, spacing, pressure curves, rotation, scatter, blend),
+     tested against these two files. Not on a device yet: an import there would say "None of the brushes in … could
+     come across. Nothing was added."
+- **Krita: Memileo Impasto and Metallics by Draneria** (both CC-BY-SA per the command session): need a browser
+  download by the owner into the same folder; not here yet.
 - Entry point moved 11-13: "Import…" sits under the shelf names (always in view); at the end of the All list it was
   out of reach on the tablet.
 
@@ -77,8 +89,8 @@ the choice between embedding and a side picture file goes back to the lead, not 
        previews. Tablet and Note 9, 11-13.
 4. [ ] Packs: the same reader also lists `PackShelf.installed(fs, "brush")` under each pack's name (JBX-48, step 2 of
        the PACK-1 spec).
-5. [ ] Krita packs (waiting for the owner's own yes in the screens session) and a Procreate file; the per-setting
-       drop list for each.
+5. [ ] A reader for real Krita presets (`<Preset paintopid>` / `<param>`), proven on Val's two bundles, then the
+       other two packs when they arrive; a Procreate file; the per-setting drop list for each.
 6. [ ] Help mapping for the STATE row (Joybot HelpBook) with the Joybot lane.
 
 ## Specs, handoffs and evidence

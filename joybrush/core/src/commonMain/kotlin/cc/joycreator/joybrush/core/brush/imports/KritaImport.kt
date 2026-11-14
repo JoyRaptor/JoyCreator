@@ -1253,8 +1253,12 @@ object KritaImport {
                         }
                         text.startsWith("<!--", at) -> skipComment()
                         text.startsWith("<![CDATA[", at) -> {
+                            // The text starts after "<![CDATA[" at the position BEFORE the skip: skipCdata moves `at`
+                            // past the section, and slicing from the moved position threw on every real Krita
+                            // bundle tried (11-13, Val's Realistic Ink Pen, both versions).
+                            val start = at + 9
                             val end = skipCdata()
-                            body.append(text.substring(at + 9, end))
+                            body.append(text.substring(start, end))
                         }
                         text.startsWith("<!", at) -> bad(
                             "holds a <! declaration, which is refused before it is read: a DOCTYPE or an " +

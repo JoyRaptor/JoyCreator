@@ -22,6 +22,7 @@ object BrushKnobGroups {
     data class Ends(val low: String, val high: String, val picture: EndPicture)
 
     fun groupOf(key: String): Group {
+        MEDIA[key]?.let { return it.group }
         val k = key.lowercase()
         return when {
             k.startsWith("response.") -> Group.PRESSURE
@@ -39,6 +40,7 @@ object BrushKnobGroups {
 
     /** The words and the kind of picture for each end. Dabs for softness, shape and size; strokes for the rest. */
     fun endsOf(key: String): Ends {
+        MEDIA[key]?.let { return it.ends }
         val k = key.lowercase()
         fun dab(a: String, b: String) = Ends(a, b, EndPicture.DAB)
         fun stroke(a: String, b: String) = Ends(a, b, EndPicture.STROKE)
@@ -74,4 +76,50 @@ object BrushKnobGroups {
     }
 
     private fun has(k: String, vararg parts: String) = parts.any { k.contains(it) }
+
+    private class Media(val group: Group, val ends: Ends)
+
+    /** Pencil (stick), watercolour (wet) and oil/knife (paste) settings, by their exact keys in [BrushKnobs]. */
+    private val MEDIA: Map<String, Media> = buildMap {
+        fun dab(key: String, g: Group, a: String, b: String) = put(key, Media(g, Ends(a, b, EndPicture.DAB)))
+        fun stroke(key: String, g: Group, a: String, b: String) = put(key, Media(g, Ends(a, b, EndPicture.STROKE)))
+        val st = "media.stick."; val w = "media.wet."; val pa = "media.paste."
+        dab(st + "tipR", Group.SHAPE, "Sharp", "Blunt")
+        dab(st + "tipMax", Group.PRESSURE, "Narrow", "Wide")
+        stroke(st + "side1", Group.SHAPE, "Short", "Long")
+        stroke(st + "side2", Group.SHAPE, "Short", "Long")
+        dab(st + "face", Group.SHAPE, "Narrow", "Wide")
+        dab(st + "soft", Group.SHAPE, "Crisp", "Soft")
+        stroke(st + "blend", Group.COLOUR, "Separate", "Blended")
+        stroke(st + "build", Group.INK, "Even", "Builds up")
+        dab(w + "bellyMm", Group.SHAPE, "Small", "Large")
+        dab(w + "tipMm", Group.SHAPE, "Fine", "Broad")
+        stroke(w + "capacityMm3", Group.WATER, "Little", "Lots")
+        stroke(w + "dwellMmPerS", Group.WATER, "Flows", "Pools")
+        stroke(w + "gran", Group.PAPER, "Smooth", "Grainy")
+        stroke(w + "liftMm", Group.WATER, "None", "Lifts")
+        stroke(w + "load", Group.INK, "Pale", "Strong")
+        stroke(w + "stain", Group.COLOUR, "Lifts off", "Stains")
+        stroke(w + "waterPerMm", Group.WATER, "Dry", "Wet")
+        stroke(w + "beadMm", Group.WATER, "Small", "Big")
+        dab(pa + "acrossMaxMm", Group.SHAPE, "Narrow", "Wide")
+        stroke(pa + "bead", Group.INK, "Flat", "Beaded")
+        stroke(pa + "bladeHmax", Group.SHAPE, "Short", "Far")
+        dab(pa + "bladeLenMm", Group.SHAPE, "Short", "Long")
+        stroke(pa + "bow", Group.SHAPE, "Straight", "Bent")
+        stroke(pa + "carry", Group.COLOUR, "Drops", "Carries")
+        stroke(pa + "cover", Group.INK, "Thin", "Covers")
+        stroke(pa + "edgeMinMm", Group.PRESSURE, "Flat", "Upright")
+        stroke(pa + "force", Group.PRESSURE, "Upright", "Leans")
+        stroke(pa + "hairDepth", Group.INK, "Smooth", "Marked")
+        stroke(pa + "lenMm", Group.SHAPE, "Short", "Long")
+        stroke(pa + "loadLenMm", Group.INK, "Short", "Long")
+        stroke(pa + "lump", Group.INK, "Smooth", "Lumpy")
+        stroke(pa + "mix", Group.COLOUR, "Pure", "Mixes")
+        stroke(pa + "ridge", Group.INK, "Flat", "Ridged")
+        stroke(pa + "riseMaxMm", Group.ENDS, "Blunt", "Tapered")
+        stroke(pa + "scrape", Group.COLOUR, "Lays", "Scrapes")
+        stroke(pa + "thickMm", Group.INK, "Thin", "Thick")
+        dab(pa + "widthMm", Group.SHAPE, "Narrow", "Wide")
+    }
 }

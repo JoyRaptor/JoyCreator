@@ -44,4 +44,12 @@ class BrushKnobGroupsTest {
             assertTrue(e.low.isNotBlank() && e.high.isNotBlank() && e.low != e.high, knob.key)
         }
     }
+
+    @Test fun pencilWatercolourAndOilSettingsHaveRealWords() {
+        assertEquals("Sharp" to "Blunt", BrushKnobGroups.endsOf("media.stick.tipR").let { it.low to it.high })
+        assertEquals(EndPicture.DAB, BrushKnobGroups.endsOf("media.stick.tipR").picture)
+        assertEquals(Group.WATER, BrushKnobGroups.groupOf("media.wet.dwellMmPerS"))
+        assertEquals(Group.ENDS, BrushKnobGroups.groupOf("media.paste.riseMaxMm"))
+        assertEquals("Pure" to "Mixes", BrushKnobGroups.endsOf("media.paste.mix").let { it.low to it.high })
+    }
 }

@@ -74,8 +74,18 @@ the choice between embedding and a side picture file goes back to the lead, not 
      Size/Opacity/Flow/Rotation sensors with curves, Scatter, Sharpness, CompositeOp, masking brush…). The importer
      reads a simplified layout of its own design and has **never read a real Krita file**. Owed: a reader for the real
      format (Pixel / "paintbrush" engine first: auto-brush mask, spacing, pressure curves, rotation, scatter, blend),
-     tested against these two files. Not on a device yet: an import there would say "None of the brushes in … could
-     come across. Nothing was added."
+     tested against these two files. **Built 11-14** (`KritaRealPreset`, a75d17632): the real form is translated
+     into the layout `KritaImport` already maps (engine id, auto-brush tip and ratio, diameter, spacing, every
+     switched-on sensor with its inputs and curves; the rest kept raw). A 0..1 size curve now scales the diameter
+     instead of being read as pixels. On the PC both bundles convert (1 brush each, nothing refused).
+  3. **Note 9 11-14 00:04-00:07:** both imported through "Import…" → `!! Val's realistic ink pen.brush.json` and
+     `… V2.brush.json` in `Supplies/Brushes`, both on the Imported shelf with fine-ink previews; left installed.
+     What the importer drops (its own notes): the "fuzzy" (random) sensor has no JoyBrush input; about 190
+     settings are kept raw and unused, among them **CompositeOp multiply** (the pen multiplies in Krita and
+     paints normally here), Darken, Sharpness/Softness, the HSV sensors and the whole masking brush.
+     Test tablet: app and both bundles copied, import not done (its screen was locked behind a PIN).
+  - Found on the way: picking a picture by mistake says "None of the brushes in … could come across" (a PNG is
+    tried as a Krita preset); a plainer "isn't a brush file" would be kinder. Small, not fixed yet.
 - **Krita: Memileo Impasto and Metallics by Draneria** (both CC-BY-SA per the command session): need a browser
   download by the owner into the same folder; not here yet.
 - Entry point moved 11-13: "Import…" sits under the shelf names (always in view); at the end of the All list it was
@@ -89,8 +99,8 @@ the choice between embedding and a side picture file goes back to the lead, not 
        previews. Tablet and Note 9, 11-13.
 4. [ ] Packs: the same reader also lists `PackShelf.installed(fs, "brush")` under each pack's name (JBX-48, step 2 of
        the PACK-1 spec).
-5. [ ] A reader for real Krita presets (`<Preset paintopid>` / `<param>`), proven on Val's two bundles, then the
-       other two packs when they arrive; a Procreate file; the per-setting drop list for each.
+5. [~] Real Krita presets: reader built, Val's two bundles on the Note 9 (11-14). Owed: the tablet import (locked),
+       painting with them on a device, Memileo Impasto and Metallics when the owner downloads them, a Procreate file.
 6. [ ] Help mapping for the STATE row (Joybot HelpBook) with the Joybot lane.
 
 ## Specs, handoffs and evidence

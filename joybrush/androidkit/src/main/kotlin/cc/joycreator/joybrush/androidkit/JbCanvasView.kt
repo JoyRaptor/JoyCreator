@@ -1679,6 +1679,21 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
 
     // ── input ────────────────────────────────────────────────────────────────
 
+    /** How the pen was held at its last contact (tilt from upright, Android's orientation): what a hover that reports no lean is shown with. */
+    private var heldTilt = 0f
+    private var heldOrientation = 0f
+
+    private fun notePenHold(ev: MotionEvent) {
+        if (ev.actionMasked != MotionEvent.ACTION_MOVE && ev.actionMasked != MotionEvent.ACTION_DOWN) return
+        for (i in 0 until ev.pointerCount) {
+            val tool = MotionEventSamples.tool(ev, i)
+            if (tool != Tool.STYLUS && tool != Tool.ERASER) continue
+            heldTilt = ev.getAxisValue(MotionEvent.AXIS_TILT, i)
+            heldOrientation = ev.getAxisValue(MotionEvent.AXIS_ORIENTATION, i)
+            return
+        }
+    }
+
     override fun onHoverEvent(event: MotionEvent): Boolean {
         onRawEvent?.invoke(event)
         reportPen(event)
@@ -1686,8 +1701,13 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         if (MotionEventSamples.tool(event, 0).let { it == Tool.STYLUS || it == Tool.ERASER }) {
             penSeen = true
             penHovering = event.actionMasked != MotionEvent.ACTION_HOVER_EXIT
-            onPenHover?.invoke(event.x, event.y, event.getAxisValue(MotionEvent.AXIS_TILT, 0),
-                event.getAxisValue(MotionEvent.AXIS_ORIENTATION, 0), penHovering)
+            // A digitiser that reports no lean while the pen hovers (both axes exactly 0: the Note 9's S Pen has no
+            // orientation of its own, Android derives it from tilt x and y, and those may come only in contact) is given
+            // the hold of the pen's last contact instead, so the outline does not point one way whatever the hand does.
+            val tilt = event.getAxisValue(MotionEvent.AXIS_TILT, 0)
+            val orientation = event.getAxisValue(MotionEvent.AXIS_ORIENTATION, 0)
+            val unreported = tilt == 0f && orientation == 0f
+            onPenHover?.invoke(event.x, event.y, if (unreported) heldTilt else tilt, if (unreported) heldOrientation else orientation, penHovering)
         }
         return super.onHoverEvent(event)
     }
@@ -1771,6 +1791,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     val penHasBeenSeen: Boolean get() = penSeen
 
     override fun onTouchEvent(ev: MotionEvent): Boolean {
+        notePenHold(ev)
         onRawEvent?.invoke(ev)
         reportPen(ev)
         if (eyedropTouch(ev)) return true

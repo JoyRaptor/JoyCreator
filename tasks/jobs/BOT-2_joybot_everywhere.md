@@ -44,7 +44,9 @@ Select, symmetry, Send to Studio. Hover labels: ~220 controls done 10-15; the ch
         Recordings row; 16 rows marked "not needed" with the reason (automatic safety, crash fixes, look-only polish);
         frame tweens kept out on purpose (not reachable yet); one owed: Link to a pin of a bent sprite (its
         chooser's words not read yet). The 7 JoyBrush board/paper rows already named topics (their "pending" is
-        acceptance). Ideas 951/951. Not asked on a phone.
+        acceptance). Ideas 951/951. **Device ✅ 11-13 20:25 (agent, the test tablet, build a6cdd3ea4):** `textlab_pack`,
+        `name_layers` and `joybrush_knife` answer as written ([evidence](../joybot/evidence/help_pack_name_knife_tablet_20261113.png));
+        the other new topics not asked on a device.
   - [ ] Capture: STATE gives no entry point for photo/screenshot capture, dual camera, Remote (LAN streaming) or the
         watermark switch, so no topics (the record, record_screen, record_webcam, record_background topics stand).
         Settings hub v2, Home recorder, About: also no entry-point text in STATE. Needs the rows filled first (HYG-5).

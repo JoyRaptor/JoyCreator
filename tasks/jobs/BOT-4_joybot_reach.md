@@ -39,7 +39,10 @@ SpriteLab: grid, names, animations, sequences.
       **Device ✅ 11-13 19:20 (agent, the test tablet, the installed 13:58 build):** "where is smart detection" answers
       and its Take me there opens the Smart Detection screen ([answer](../joybot/evidence/help_smart_detection_tablet_20261113.png),
       [screen](../joybot/evidence/route_smart_detection_tablet_20261113.png)). That build still said "the lobby's Finder" and
-      used the tab route; 9d04a03e3 (Remote Studio / Detect names, the shell's own doors) is not on a device yet.
+      used the tab route. **Device ✅ 11-13 20:25 (agent, the test tablet, my build of `joy-creator` a6cdd3ea4):** the answer
+      says "Detect in the lobby" and Take me there opens Smart Detection through the shell's door (the tab now reads
+      Detect); the pack answer's Take me there opens the Library on Fonts and supplies
+      ([1](../joybot/evidence/route_detect_door_tablet_20261113.png), [2](../joybot/evidence/route_supplies_tablet_20261113.png)).
 - [~] **Capture** (11-13, audit BOT-A29): `recording` (app-wide family "capture"): status, start (back / front / dual),
       pause, resume, stop, each through a door the app already has (the shortcut's `RecordingStartActivity`, the
       service intents the Remote Studio page sends, `RecordingStopActivity`). The camera starts only on the person's

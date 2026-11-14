@@ -1219,6 +1219,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
             if (percent < 0) showStatus(task);
             else showStatusProgress(task, percent);
             markChecklistFromTask(task);
+            com.fadcam.ui.lobby.JoybotDirector.hint(actor, task);
             actor.setMood(JoybotView.Mood.WORK);
         }
 
@@ -1284,7 +1285,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
     private void setupActor() {
         actor.setOrb(com.fadcam.ui.faditor.Studio.ROOM_AVATAR, com.fadcam.ui.faditor.Studio.ORB_DEEP);
         androidx.appcompat.widget.TooltipCompat.setTooltipText(actor, "Joybot: tap for ideas");
-        JoybotPulse.dressWhenReady(actor);
+        JoybotPulse.actWhenReady(actor);
         actor.setOnClickListener(v -> {
             actor.react();
             if (busy) return;
@@ -1728,6 +1729,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         if (projectId == null) return;
         setBusy(true);
         cancelled = false;
+        com.fadcam.ui.lobby.JoybotDirector.hint(actor, idea.label);
         actor.setMood(JoybotView.Mood.WORK);
         showStatus(idea.label);
         // On the app-wide worker, not this screen's: closing the chat must not stop a long job.

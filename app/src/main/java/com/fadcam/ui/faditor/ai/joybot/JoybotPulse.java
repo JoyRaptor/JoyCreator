@@ -100,6 +100,23 @@ public final class JoybotPulse {
         });
     }
 
+    /**
+     * Make this Joybot the full-colour, animated character (the chat's actor). The owner's own
+     * sheet in the Joy Creator folder wins when there is one; otherwise the animations the app
+     * ships with play, several per mood, each with its way in and out.
+     */
+    public static void actWhenReady(@NonNull JoybotView bot) {
+        final Context app = bot.getContext().getApplicationContext();
+        IO.execute(() -> {
+            java.util.Map<JoybotView.Mood, com.fadcam.ui.lobby.JoybotFilm> films = JoybotSheet.load(app);
+            com.fadcam.ui.lobby.JoybotActs acts = films.isEmpty() ? com.fadcam.ui.lobby.JoybotActs.get(app) : null;
+            MAIN.post(() -> {
+                if (!films.isEmpty()) JoybotSheet.dress(bot, films);
+                else if (acts != null) bot.setDirector(new com.fadcam.ui.lobby.JoybotDirector(bot, acts));
+            });
+        });
+    }
+
     /** Light a plain button (the editor's Joybot) the same way. */
     public static void lightButton(@NonNull View button, @Nullable String projectId, @NonNull IdeaEngine.Room room) {
         check(button.getContext(), projectId, room, (o, fresh) -> {

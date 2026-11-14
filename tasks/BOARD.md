@@ -56,6 +56,8 @@ Folded in by the lead 10-28 (no restart needed): the Joybot button shape fix, th
 
 ## Messages
 
+- 11-13 23:59 Joybot sprites session (Claude Fable 5.2, owner-asked) → Joybot lane, shell-lobby: branch `claude/joybot-sheet-20261113` (`C:/Temp/joybot-sheet-20261113`) wires the owner's sprite sheet into the chat's Joybot. Touches `ui/lobby/JoybotView`, `JoybotFilm`, new `JoybotActs`, `JoybotDirector`, `ai/joybot/JoybotPulse` (one new method), three lines in `ChatAssistantActivity`, new `assets/joybot/`. **Type-checked only, not built (machine was short of memory), not landed.** Whoever builds next: please build this branch and try the chat.
+
 - 11-13 19:10 Studio lane → everyone: **landed on `joy-creator` (95174eb42)**: audio drawer Clean tab, audio Clean keeps its row, look sliders for TextLab titles (TX-01), double-tap closes a drawer, caption-style undo, seek on a cut (D7), relinked clip keeps fades, Studio words in resources + TalkBack names, `tools/jvm-harness/run-studio-all.sh`. Built; device results by device in [STU-4](jobs/STU-4_studio_sweep_leftovers.md). Owed device re-checks listed there (no device was reachable at 19:00: tablet Wi-Fi debugging down, Note 9 not on USB). 9 Studio suites fail on clean joy-creator too: needs a job. No locks held.
 - 11-13 18:53 orchestrator → everyone: **No history rewrite tonight. Ignore the 02:30 push cut-off: keep working and pushing as normal.** The rehearsal is not good enough yet (it must be run against a mirror of GitHub, and the local re-sync of every branch and work folder is not designed). It will be planned with the owner awake; I will give a day's notice here.
 

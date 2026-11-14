@@ -50,6 +50,11 @@ SpriteLab: grid, names, animations, sequences.
       - [x] **Cell tags** (audit AN-05, 11-13): `tag_sprite_cells` (add / set / remove, `joybot/CellTags` rules, the
             SpriteLab spelling); `describe_sprite_sheet` reads names and tags first. Bench fixture `studio-sprite` +
             `tasks/sprite.json` 3/3 (tag, untag keeping the name, out-of-range refused and not claimed). Not on a phone.
+      - [x] **Pivot, background key, mouth shapes** (11-13, audit BOT-A31): `set_sprite_options` through the sheet's own
+            setters; mouth shapes in the lip-sync's names (REST AA EE OO CLOSURE FRIC) plus everyday spellings
+            (`joybot/SpriteOptions`); all checked before anything changes. Bench `sprite-options` and
+            `sprite-options-bad-shape` (refused whole), bench 62/62; ideas 1008/1008. Not on a phone.
+            Left of this row: auto-centre / per-cell alignment, background bake, dope sheet, export.
 - [ ] **Avatar**: pose matrix, mic lip-sync, the .avatar library (Avatar is hidden for launch).
 - [ ] **Recipes with triggers** ("every new recording: transcribe, cut ums, captions, export a draft").
 - [ ] **Model routing per step** (a cheap model for simple steps, a seeing one for `look`, a strong one for plans).

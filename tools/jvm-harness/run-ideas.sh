@@ -24,6 +24,7 @@ javac -nowarn -encoding UTF-8 -d "$OUT" \
   app/src/main/java/com/fadcam/ui/faditor/ai/joybot/CellTags.java \
   app/src/main/java/com/fadcam/ui/faditor/ai/joybot/JobKey.java \
   app/src/main/java/com/fadcam/ui/faditor/ai/joybot/DrawingFacts.java \
+  app/src/main/java/com/fadcam/ui/faditor/ai/joybot/SpriteOptions.java \
   app/src/main/java/com/fadcam/ui/faditor/ai/joybot/TipBook.java \
   app/src/main/java/com/fadcam/ui/faditor/ai/joybot/KeyCatcher.java \
   app/src/main/java/com/fadcam/ui/faditor/ai/joybot/SetupTalk.java \

@@ -151,6 +151,7 @@ public class AIToolExecutor {
                 case "set_sprite_grid": return toolSetSpriteGrid(args);
                 case "label_sprite_cells": return toolLabelSpriteCells(args);
                 case "tag_sprite_cells": return toolTagSpriteCells(args);
+                case "set_sprite_options": return toolSetSpriteOptions(args);
                 case "author_sprite_animation": return toolAuthorSpriteAnimation(args);
                 case "apply_sprite_proposal": return toolApplySpriteProposal(args);
                 case "author_avatar_rig": return toolAuthorAvatarRig(args);
@@ -404,6 +405,14 @@ public class AIToolExecutor {
                 occupancy and bounding boxes to decide. An empty name clears one.
                 Out-of-range cells are reported back, never silently skipped.
                 args: {"sheetId":"...","labels":{"0":"idle","1":"walk_01","2":""}}
+
+            33h. set_sprite_options — A sheet's PIVOT (the point it turns and stands on, 0..1 of a
+                cell: 0.5,1 = bottom centre, for feet on the ground), its BACKGROUND KEY (a colour made
+                see-through, "#RRGGBB", "green" or "none"; tolerance in percent 0..50) and its MOUTH
+                SHAPES for lip-sync: visemes REST, AA, EE, OO, CLOSURE (m b p), FRIC (f v s), each the
+                cell that draws it (-1 clears one). Give only what changes. Grid and fps: set_sprite_grid.
+                args: {"sheetId":"...","pivot":{"x":0.5,"y":1},"key":"#00FF00","tolerance":15,
+                       "visemes":{"REST":0,"AA":2,"MBP":5}}
 
             33g. tag_sprite_cells — TAG cells so they can be found as a group across the sheet
                 ("mouth", "blink", "hand", "open"). A name says what one cell is; tags say
@@ -2023,6 +2032,78 @@ public class AIToolExecutor {
                .append(rejected).append('.');
         }
         return out.toString();
+    }
+
+    /**
+     * BOT-A31: a sheet's pivot, background key and lip-sync mouth shapes in one call, through the
+     * sheet's own setters ({@code setPivot}, {@code setBgKey}, {@code assignViseme}) so the rules are
+     * SpriteLab's. Everything is checked before anything changes; one save.
+     */
+    private String toolSetSpriteOptions(@NonNull JSONObject args) {
+        String sheetId = args.optString("sheetId", "");
+        if (sheetId.isEmpty()) return "Error: 'sheetId' is required.";
+        FaditorProject proj = storage.load(projectId);
+        if (proj == null) return "Error: project not found";
+        com.fadcam.ui.faditor.sprite.SpriteSheet sheet = proj.spriteSheetById(sheetId);
+        if (sheet == null) {
+            return "Error: no sprite sheet with id '" + sheetId + "'. " + availableSheetsLine(proj);
+        }
+        int count = sheet.cellCount();
+        java.util.List<String> said = new java.util.ArrayList<>();
+        // Read and check everything first: a half-applied sheet is worse than a refusal.
+        Float px = null, py = null;
+        JSONObject pivot = args.optJSONObject("pivot");
+        if (pivot != null) {
+            double x = pivot.optDouble("x", sheet.getPivotX()), y = pivot.optDouble("y", sheet.getPivotY());
+            if (Double.isNaN(x) || Double.isNaN(y) || x < 0 || x > 1 || y < 0 || y > 1) {
+                return "Error: pivot x and y are 0..1 of a cell (0.5,1 = bottom centre). Nothing changed.";
+            }
+            px = (float) x; py = (float) y;
+        }
+        Integer key = null;
+        if (args.has("key")) {
+            key = com.fadcam.ui.faditor.ai.joybot.SpriteOptions.keyColour(args.optString("key", ""));
+            if (key == null) return "Error: key is \"#RRGGBB\", a colour name (green, blue, magenta, white, black) or \"none\". Nothing changed.";
+        }
+        java.util.LinkedHashMap<String, Integer> vis = new java.util.LinkedHashMap<>();
+        JSONObject v = args.optJSONObject("visemes");
+        if (v != null) {
+            java.util.Iterator<String> it = v.keys();
+            while (it.hasNext()) {
+                String k = it.next();
+                String name = com.fadcam.ui.faditor.ai.joybot.SpriteOptions.viseme(k);
+                if (name == null) {
+                    return "Error: '" + k + "' is not a mouth shape. Use REST, AA, EE, OO, CLOSURE (m b p) or FRIC (f v s). Nothing changed.";
+                }
+                int cell = v.optInt(k, Integer.MIN_VALUE);
+                if (cell == Integer.MIN_VALUE || cell >= count || cell < -1) {
+                    return "Error: " + name + " needs a cell 0.." + (count - 1) + " (or -1 to clear). Nothing changed.";
+                }
+                vis.put(name, cell);
+            }
+        }
+        if (px == null && key == null && vis.isEmpty() && !args.has("tolerance")) {
+            return "Error: give a pivot, a key or visemes to change.";
+        }
+        if (px != null) {
+            sheet.setPivot(px, py);
+            said.add("pivot " + Math.round(px * 100) + "%, " + Math.round(py * 100) + "%");
+        }
+        if (key != null || args.has("tolerance")) {
+            int colour = key != null ? key : sheet.getBgKeyColor();
+            Double pct = args.has("tolerance") ? args.optDouble("tolerance") : null;
+            float tol = colour == 0 ? 0f : com.fadcam.ui.faditor.ai.joybot.SpriteOptions.tolerance(pct, sheet.getKeyTolerance());
+            sheet.setBgKey(colour, tol);
+            said.add(colour == 0 ? "no background key" : String.format(java.util.Locale.US,
+                    "background key #%06X at %d%%", 0xFFFFFF & colour, Math.round(tol * 100)));
+        }
+        for (java.util.Map.Entry<String, Integer> e : vis.entrySet()) {
+            sheet.assignViseme(e.getKey(), e.getValue());
+            said.add(e.getValue() < 0 ? e.getKey() + " cleared" : e.getKey() + " = cell " + e.getValue());
+        }
+        storage.save(proj);
+        AIChatState.signalModified(projectId);
+        return "Set on '" + sheet.getName() + "': " + android.text.TextUtils.join(", ", said) + ".";
     }
 
     /**

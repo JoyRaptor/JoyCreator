@@ -37,5 +37,32 @@
       {"text": "Done, cell 99 has the blink tag."}
     ],
     "expect": {"unchanged": true, "undoSteps": 0, "ok": false, "reply": {"mentions": ["nothing changed"]}}
+  },
+  {
+    "id": "sprite-options",
+    "title": "“Feet on the ground, key out the green, cell 2 is the open mouth and 3 is m-b-p” (BOT-A31: pivot, key, mouth shapes)",
+    "fixture": "studio-sprite",
+    "words": "on my Faces sheet put the pivot at the feet, key out the green background, cell 2 is the open mouth and cell 3 is m b p",
+    "reference": [
+      {"calls": [{"name": "set_sprite_options", "args": {"sheetId": "s-face", "pivot": {"x": 0.5, "y": 1},
+                  "key": "green", "visemes": {"AA": 2, "mbp": 3}}}]},
+      {"text": "Done: the pivot is at the feet, the green is keyed out, and cells 2 and 3 are the AA and CLOSURE mouths."}
+    ],
+    "expect": {"require": [{"path": "spriteSheets[s-face].pivotY", "eq": 1.0},
+                           {"path": "spriteSheets[s-face].bgKeyColor", "eq": -16711936},
+                           {"path": "spriteSheets[s-face].visemeMap.AA", "eq": 2},
+                           {"path": "spriteSheets[s-face].visemeMap.CLOSURE", "eq": 3}],
+               "allow": ["spriteSheets[s-face].**"], "undoSteps": 1, "ok": true}
+  },
+  {
+    "id": "sprite-options-bad-shape",
+    "title": "“Cell 4 is the yawn mouth”: not a mouth shape, refused whole, nothing changes (BOT-A31)",
+    "fixture": "studio-sprite",
+    "words": "cell 4 of Faces is the yawn mouth, and put the pivot at the feet",
+    "reference": [
+      {"calls": [{"name": "set_sprite_options", "args": {"sheetId": "s-face", "pivot": {"x": 0.5, "y": 1}, "visemes": {"yawn": 4}}}]},
+      {"text": "Yawn isn't one of the mouth shapes, so I haven't changed anything. The shapes are REST, AA, EE, OO, CLOSURE and FRIC."}
+    ],
+    "expect": {"unchanged": true, "undoSteps": 0}
   }
 ]

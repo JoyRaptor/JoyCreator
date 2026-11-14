@@ -1059,6 +1059,34 @@ public class IdeaEngineTest {
             }
         }
 
+        // ── SpriteOptions: mouth shapes and key colours as SpriteLab names them (BOT-A31, 11-13) ──
+        {
+            String[][] shapes = {{"AA", "AA"}, {"ah", "AA"}, {"mbp", "CLOSURE"}, {"m/b/p", "CLOSURE"}, {"f-v", "FRIC"},
+                    {"oo", "OO"}, {"rest", "REST"}, {"Ee", "EE"}};
+            for (String[] s : shapes) {
+                eq("sprite: mouth '" + s[0] + "'", s[1], com.fadcam.ui.faditor.ai.joybot.SpriteOptions.viseme(s[0]));
+            }
+            eq("sprite: a yawn is no mouth shape", null, com.fadcam.ui.faditor.ai.joybot.SpriteOptions.viseme("yawn"));
+            check("sprite: the six names match the lip-sync's (SpectralVisemeAnalyzer)", java.util.Arrays.equals(
+                    com.fadcam.ui.faditor.ai.joybot.SpriteOptions.VISEMES,
+                    new String[]{"REST", "AA", "EE", "OO", "CLOSURE", "FRIC"}), "");
+            eq("sprite: green", (Integer) 0xFF00FF00, com.fadcam.ui.faditor.ai.joybot.SpriteOptions.keyColour("green"));
+            eq("sprite: #ff00ff", (Integer) 0xFFFF00FF, com.fadcam.ui.faditor.ai.joybot.SpriteOptions.keyColour("#ff00ff"));
+            eq("sprite: none is no key", (Integer) 0, com.fadcam.ui.faditor.ai.joybot.SpriteOptions.keyColour("none"));
+            eq("sprite: an unreadable colour is refused", null, com.fadcam.ui.faditor.ai.joybot.SpriteOptions.keyColour("greenish"));
+            eq("sprite: tolerance 15% is 0.15", 0.15f, com.fadcam.ui.faditor.ai.joybot.SpriteOptions.tolerance(15.0, 0f));
+            eq("sprite: tolerance capped at 50%", 0.5f, com.fadcam.ui.faditor.ai.joybot.SpriteOptions.tolerance(90.0, 0f));
+            eq("sprite: no tolerance keeps the sheet's", 0.2f, com.fadcam.ui.faditor.ai.joybot.SpriteOptions.tolerance(null, 0.2f));
+            try {
+                String lip = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(
+                        "app/src/main/java/com/fadcam/ui/faditor/avatar/SpectralVisemeAnalyzer.java")), "UTF-8");
+                check("sprite: SpectralVisemeAnalyzer still names these six",
+                        lip.replaceAll("\\s+", " ").contains("\"REST\", \"AA\", \"EE\", \"OO\", \"CLOSURE\", \"FRIC\""), "");
+            } catch (java.io.IOException ex) {
+                check("sprite: analyzer readable", false, ex.toString());
+            }
+        }
+
         // ── CellTags: Joybot's sprite cell tags, spelled as SpriteLab spells them (AN-05, 11-13) ──
         {
             java.util.List<String> parsed = com.fadcam.ui.faditor.ai.joybot.CellTags.parse(

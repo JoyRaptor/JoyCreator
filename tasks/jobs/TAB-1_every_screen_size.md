@@ -32,6 +32,9 @@ two-thirds empty, one button across the whole width.
 ## What is left
 - [ ] Survey: each lane lists its screens' problems on the tablet in its own card (the UI leftovers and lobby
       sessions started 11-13; Studio, JoyBrush, VisLab, TextLab, SpriteLab, Library, Settings to follow).
+      Studio (11-13, test tablet, landscape): see [STU-4](STU-4_studio_sweep_leftovers.md) "11-13 afternoon":
+      the tool row fits; text drawer rows sit over the preview's upper third; bottom sheets open only peeking;
+      the floating pencil covers the first tool cell.
 - [ ] Shared size-class helper and a maximum content width for the simple screens (onboarding, Settings,
       Library lists, dialogs): cheap, no design call needed.
 - [ ] Design page: Studio drawers as side panels (which side, how wide, one or two at once, where the

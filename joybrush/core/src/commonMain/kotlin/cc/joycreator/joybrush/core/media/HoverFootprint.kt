@@ -25,9 +25,13 @@ import kotlin.math.sin
  */
 object HoverFootprint {
 
-    /** How far the make-believe drag runs before the pen point (mm): past every brush's body, so the hairs are fully out. */
+    /**
+     * How far the make-believe drag runs before the pen point: at least this many mm and at least four of the brush's
+     * widths, so the hairs are fully out and anything that eases in over the stroke's start (a taper) has run its course.
+     */
     private const val RUN_MM = 40.0
-    private const val SAMPLE_MM = 0.5
+    private const val RUN_WIDTHS = 4.0
+    private const val SAMPLES = 80
     private const val ROUND_POINTS = 28
 
     /**
@@ -62,10 +66,11 @@ object HoverFootprint {
         // A brush at rest lines up with the pen's lean ([PasteStroke.push]: travel = -(cos az, sin az)).
         val dx = -cos(held.az)
         val dy = -sin(held.az)
-        val n = (RUN_MM / SAMPLE_MM).toInt()
+        val n = SAMPLES
+        val sampleMm = max(RUN_MM, RUN_WIDTHS * brush.widthMm) / n
         var last: PasteStep? = null
         for (i in 0..n) {
-            val back = (n - i) * SAMPLE_MM * ppm
+            val back = (n - i) * sampleMm * ppm
             stroke.add(MediaSample(-dx * back, -dy * back, held.p, held.tilt, held.az, i * 4.0))
             stroke.take().lastOrNull()?.let { last = it }
         }

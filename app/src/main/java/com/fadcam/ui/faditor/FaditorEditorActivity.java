@@ -16791,6 +16791,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         timeline.pruneDefaultTrackFlags();
         final com.fadcam.ui.faditor.layers.TrackFlags after = flags.copy();
 
+        // Opening or closing a row is looking, not editing: it is saved with the project but is no
+        // undo step (it took one Undo press each, and Undo then "undid" a fold, Note 9 11-13).
+        // Hide, lock and mute change what plays and exports, so they stay undoable.
+        if (zone != com.fadcam.ui.faditor.layers.LayerRowRenderer.HitZone.CARET)
         undoManager.recordAction(new EditActions.LambdaAction(description,
                 () -> { timeline.setTrackFlags(trackId, after.copy()); syncTimelineOverlays();
                         refreshPreviewOverlayVisibility(); applyAudioTrackMuteLive(timeline); },

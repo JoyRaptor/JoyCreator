@@ -114,6 +114,13 @@ const val PASTE_DEPTH = 8
      * Only [pullNow] reaches the shader.
      */
     val pull: Double = 0.0,
+    /**
+     * 0..1, hair brushes only (the owner, 2026-11-14: "oil brushes have no taper setting, they need one"): how far the
+     * stroke narrows and thins at its two ends. The start eases in over [taper] x 2.5 brush widths of travel; the end follows
+     * the lift the ends code already tracks (pressure falling below the press last held), so a lifted pen tapers and a
+     * stroke that stops pressed hard does not. At 1 an end is 15 % of the width. 0 = as before, to the bit.
+     */
+    val taper: Double = 0.0,
     val ends: EndsMode? = null,
     val turns: TurnMode? = null,
     /**
@@ -131,7 +138,7 @@ const val PASTE_DEPTH = 8
      * (jb_paste.glsl u_force, u_lean, u_curve). 0 = every hair at the pen's pressure, as before.
      */
     val force: Double = 0.0,
-) {
+) {
     /**
      * [pull] as the engine uses it: none on a blade, none on the trowel (17 % a step on the Note 9 and its look unjudged),
      * and none where the hairs are shorter than [PasteBrushes.PULL_MIN_LEN_MM]: in a burst a hop stretches to 12 % of the brush's width
@@ -474,7 +481,7 @@ class PasteStroke(
         }
         // Splayed hairs come in only after the brush has travelled a little, never on touchdown.
         val fingers = (b.fingers ?: 1.0) * smoothstep(2.0, 6.0, tr)
-        val halfW: Double
+        var halfW: Double
         val lenFull = bodyLen(p, tiltFrac)
         var thick: Double? = null
         if (b.allround) {
@@ -486,6 +493,14 @@ class PasteStroke(
             // A flat leaned sideways to its travel rolls onto its corner: up to half as wide ([PasteBrush.vary]).
             val onCorner = if (b.shape == 1 && b.vary > 0.0) 1 - 0.5 * b.vary * abs(cos(s.az) * wX + sin(s.az) * wY) * tiltFrac else 1.0
             halfW = b.widthMm / 2 * (if (b.shape == 0) 0.55 + 0.45 * sqrt(p) else 0.9 + 0.1 * p) * (1 + 0.2 * tiltFrac) * onCorner
+        }
+        // Taper (PasteBrush.taper): narrower and thinner at both ends. Never wider, so the footprint's bounds still hold.
+        if (b.taper > 0.0) {
+            val t = b.taper.coerceIn(0.0, 1.0)
+            val start = smoothstep(0.0, t * 2.5 * max(b.widthMm, 1.0), tr)
+            val k = (1 - 0.85 * t * (1 - start)) * (1 - 0.85 * t * lift)
+            halfW *= k
+            thick = (thick ?: b.thickMm) * k
         }
         // On touchdown a round is a dot and a flat its pressed chisel; the hairs trail out as far as it travelled.
         val minLen = if (b.shape == 0) 2 * halfW else 0.5 * halfW

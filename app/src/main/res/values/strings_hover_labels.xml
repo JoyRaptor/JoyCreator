@@ -11,4 +11,9 @@
     <string name="hover_lobby_floor_setup">Setup: all settings</string>
     <string name="hover_lobby_stat">Space: what is using room on this phone</string>
     <string name="hover_library_paste_picture">Put a picture you copied in another app into your Joy Creator folder</string>
+    <!-- SHELL-06: the rest of the lobby's controls. -->
+    <string name="hover_lobby_room">Go to %1$s</string>
+    <string name="hover_lobby_hero_action">%1$s in %2$s</string>
+    <string name="hover_lobby_hero_new">Start something new in %1$s</string>
+    <string name="hover_lobby_library">Open the Library: everything you have made</string>
 </resources>

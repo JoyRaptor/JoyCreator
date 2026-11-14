@@ -1385,7 +1385,7 @@ class JoyBrushActivity : Activity() {
                 val sheet = BrushPreviewStrokes.sheet(preview.width.toFloat(), preview.height.toFloat())
                 val second = secondColour(canvas.strokeColor)
                 preview.replaceWithStrokes(sheet.map { it.samples } + preview.drawnStrokes,
-                    sheet.map { if (it.second) second else null })
+                    sheet.map { it.argb ?: if (it.second) second else null })
             }
         }
         fun redrawSoon() {

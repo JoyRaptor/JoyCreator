@@ -54,6 +54,14 @@ if (file(media3PatchedPath).exists()) {
             // any requested profile to High (proven by ffprobe on a flag-ON export) — the app-side
             // REQUEST_BASELINE_PROFILE hook only works with the fork's transformer.
             substitute(module("androidx.media3:media3-transformer")).using(project(":lib-transformer"))
+            // SHOW-1 (2026-11-14): the fork's transformer and exoplayer bring the fork's own copies of these
+            // (unchanged 1.8.0 code), while the app and other Media3 artifacts asked for the Maven ones, so
+            // the classes were there twice. The debug build tolerated it; R8 in the release build refuses it.
+            substitute(module("androidx.media3:media3-effect")).using(project(":lib-effect"))
+            substitute(module("androidx.media3:media3-datasource")).using(project(":lib-datasource"))
+            substitute(module("androidx.media3:media3-decoder")).using(project(":lib-decoder"))
+            substitute(module("androidx.media3:media3-extractor")).using(project(":lib-extractor"))
+            substitute(module("androidx.media3:media3-database")).using(project(":lib-database"))
         }
     }
 } else {

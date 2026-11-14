@@ -70,7 +70,9 @@ public class SecuritySettingsFragment extends Fragment implements com.fadcam.ui.
         }
         View rowPrivacyBlack = view.findViewById(R.id.row_privacy_black);
         if (rowPrivacyBlack != null) {
-            rowPrivacyBlack.setOnClickListener(v -> showPrivacyBlackConfig());
+            // SHOW-1: the privacy black screen is left out of the Play build.
+            if (com.fadcam.BuildConfig.PLAY_BUILD) rowPrivacyBlack.setVisibility(View.GONE);
+            else rowPrivacyBlack.setOnClickListener(v -> showPrivacyBlackConfig());
         }
     }
 

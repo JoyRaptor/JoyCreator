@@ -358,8 +358,8 @@ footer b{color:var(--dim)}
 
 <!-- ========== 03 TABLET ========== -->
 <section>
-  <div class="h2"><span>03</span><h2>On a tablet <span class="pend">width pending TAB-1</span></h2></div>
-  <p class="dek">Your mix on the test tablet (Tab S8 Ultra, landscape), drawn at <b>half size</b>. The chat takes the side-panel region instead of the whole screen; the lobby stays usable beside it. He still comes off the lobby button. The tablet lane is fixing one panel width and side for every room; until it does this draws <b>420 dp</b>, full height, from 840 dp-wide windows up. The phone keeps its dp values exactly as drawn.</p>
+  <div class="h2"><span>03</span><h2>On a tablet <span class="pend">pending TAB-1 picks</span></h2></div>
+  <p class="dek">Your mix on the test tablet (Tab S8 Ultra, landscape), drawn at <b>half size</b>. The chat takes the side-panel region instead of the whole screen; the lobby stays usable beside it. He still comes off the lobby button. The tablet lane's lead rule, not yet picked by you: <b>360 dp</b> (a phone's width, so the panel is exactly the phone drawer), on the right, full height, from 840 dp-wide windows up. Its own page also offers 420 dp, a third of the window, and a left-hand switch. The phone keeps its dp values exactly as drawn.</p>
   <div class="fit"><div class="scale" id="tabScale"><div class="half" id="tabHost"></div></div></div>
   <p class="halfcap">TAB S8 ULTRA · 1480 x 924 dp · SHOWN AT 50%</p>
   <div class="ctrls" style="justify-content:center">
@@ -450,7 +450,7 @@ var PARTS = [
     {v:'full',  n:'The whole show again', s:'Every open, the full flight.'},
     {v:'hop',   n:'A quick hop', s:'Straight off the button to his spot in under half a second, small squash.'},
     {v:'trim',  n:'The show, shorter', s:'The same flight in about 0.8 s.'}]},
-  {k:'tablet', t:'On a tablet', d:'Where the chat sits on a big screen. Width follows TAB-1.', pend:true, o:[
+  {k:'tablet', t:'On a tablet', d:'Where the chat sits on a big screen. 360 dp wide, per the tablet lane’s lead rule; the width itself is picked on the TAB-1 page.', pend:true, o:[
     {v:'right', n:'Side panel, right', s:'Under the lobby button he comes from: a short, steep flight.'},
     {v:'left',  n:'Side panel, left',  s:'Across the whole screen to the far side: the longest flight.'},
     {v:'card',  n:'Floating card',     s:'A tall card at the right, inset like the phone\'s inset card.'}]}
@@ -520,7 +520,7 @@ var SP = 80, BCX = 38.2, BCY = 45.4, PGY = 77.3, PEG_UP = PGY - BCY;
 
 function drawerRect(G, cfg){
   if (G.tab){
-    var w = 420, H = G.H;
+    var w = 360, H = G.H;
     if (cfg.tablet === 'left') return {x:0, y:24, w:w, h:H - 24, cls:'panel left'};
     if (cfg.tablet === 'card') return {x:G.W - w - 16, y:40, w:w, h:H - 56, cls:'pcard'};
     return {x:G.W - w, y:24, w:w, h:H - 24, cls:'panel'};
@@ -831,7 +831,7 @@ function buildDirs(){
 function buildParts(){
   var host = document.getElementById('parts');
   host.innerHTML = PARTS.map(function(p){
-    return '<div class="part" data-part="' + p.k + '"><h3>' + p.t + (p.pend ? '<span class="pend">width pending TAB-1</span>' : '') + '</h3><p class="pd">' + p.d + '</p><div class="opts">' +
+    return '<div class="part" data-part="' + p.k + '"><h3>' + p.t + (p.pend ? '<span class="pend">pending TAB-1 picks</span>' : '') + '</h3><p class="pd">' + p.d + '</p><div class="opts">' +
       p.o.map(function(o){ return '<button type="button" class="opt" data-k="' + p.k + '" data-v="' + o.v + '" aria-pressed="false" title="' + o.n + '"><span class="ck">' + ic('check') + '</span><b>' + o.n + '</b><span>' + o.s + '</span><span class="dflt"></span></button>'; }).join('') +
       '</div></div>';
   }).join('');

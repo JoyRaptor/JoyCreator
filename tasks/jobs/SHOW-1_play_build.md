@@ -12,6 +12,8 @@ Play needs 16 KB aligned native libraries. Measured on the debug APK: 7 of 23 fa
 
 **Evening 11-13:** the last failing library is removed by switching Smart Detection to MediaPipe's detector (branch `claude/mediapipe-detector-20261113`, built, 21 of 21 libraries aligned). **Not merged: no device was attached to run Smart Detection, speech to text or face tracking after the library upgrades.** See section 4 of the audit.
 
+**11-14, Note 9:** rebuilt on main (`claude/mediapipe-detector-20261114`), 21 of 21 libraries aligned, the detector loads through MediaPipe without error. Still owed (need a person, a dictated clip, the avatar room): detections on a live subject, speech to text after the Vosk upgrade, avatar face tracking. Section 5 of the audit.
+
 ## Done when
 - [ ] A Play build variant without: the 30 disguise icons; the accessibility service used for screenshots;
       MANAGE_EXTERNAL_STORAGE; the privacy black screen; cloud and streaming.

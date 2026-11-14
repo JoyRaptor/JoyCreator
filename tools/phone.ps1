@@ -8,7 +8,7 @@
 # Usage:
 #   .\tools\phone.ps1 devices             list attached devices
 #   .\tools\phone.ps1 size                physical AND override size (tap against OVERRIDE)
-#   .\tools\phone.ps1 install             install the current debug APK
+#   .\tools\phone.ps1 install [apk]       install the current debug APK (or the APK given)
 #   .\tools\phone.ps1 launch              force-stop + launch the app
 #   .\tools\phone.ps1 shot out.png        screenshot to that path
 #   .\tools\phone.ps1 tap 628 2110        tap (device pixels, per `size`)
@@ -200,6 +200,8 @@ switch ($Cmd) {
 
     "install" {
         Assert-PhoneFree
+        # Optional path: a cloud build fetched by tools\cloud-build.ps1 lands under build\cloud\<sha>\.
+        if ($Rest.Count -ge 1) { $apk = $Rest[0] }
         if (-not (Test-Path $apk)) { Write-Output "no APK at $apk - has the watcher built yet?"; exit 1 }
         Adb install -r $apk
         Adb shell dumpsys package $pkg | Select-String "lastUpdateTime" | Select-Object -First 1

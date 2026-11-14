@@ -127,7 +127,7 @@ case "$cmd" in
   size)    "$ADB" $(dev) shell wm size
            echo "NOTE: if an Override size is printed, compute ALL taps against the OVERRIDE." ;;
   install) ensure_device || { echo "no phone reachable"; exit 1; }
-           "$ADB" $(dev) install -r "$APK" ;;
+           "$ADB" $(dev) install -r "${1:-$APK}" ;;   # optional path, e.g. a cloud build under build/cloud/<sha>/
 
   # ── THE ONE TO USE ──────────────────────────────────────────────────────────
   #

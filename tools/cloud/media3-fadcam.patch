@@ -1,0 +1,272 @@
+diff --git a/libraries/common/src/main/java/androidx/media3/common/audio/AudioMixingUtil.java b/libraries/common/src/main/java/androidx/media3/common/audio/AudioMixingUtil.java
+index 33b03fe..15f1469 100644
+--- a/libraries/common/src/main/java/androidx/media3/common/audio/AudioMixingUtil.java
++++ b/libraries/common/src/main/java/androidx/media3/common/audio/AudioMixingUtil.java
+@@ -88,6 +88,14 @@ public final class AudioMixingUtil {
+     boolean int16Output = mixingAudioFormat.encoding == C.ENCODING_PCM_16BIT;
+     int inputChannels = matrix.getInputChannelCount();
+     int outputChannels = matrix.getOutputChannelCount();
++    if (int16Input && int16Output) {
++      // FadCam patch (2026-09-24): bulk 16-bit path. Measured on a Note 20 export, this method
++      // was ~half of the sound pass (per-sample ByteBuffer get/put) and ran on hours of
++      // padding silence (a short music clip's sequence is silence-padded to the project's
++      // length). Same float arithmetic in the same order, so the output is bit-identical.
++      return mixInt16(inputBuffer, mixingBuffer, matrix, framesToMix, accumulate,
++          inputChannels, outputChannels);
++    }
+     float[] inputFrame = new float[inputChannels];
+     float[] outputFrame = new float[outputChannels];
+ 
+@@ -143,6 +151,60 @@ public final class AudioMixingUtil {
+    *     range of values. If {@code false}, Float PCM range is used.
+    * @return The next sample from the buffer.
+    */
++  private static ByteBuffer mixInt16(
++      ByteBuffer inputBuffer,
++      ByteBuffer mixingBuffer,
++      ChannelMixingMatrix matrix,
++      int framesToMix,
++      boolean accumulate,
++      int inputChannels,
++      int outputChannels) {
++    int inCount = framesToMix * inputChannels;
++    int outCount = framesToMix * outputChannels;
++    short[] in = new short[inCount];
++    inputBuffer.asShortBuffer().get(in);
++    inputBuffer.position(inputBuffer.position() + inCount * 2);
++    boolean silent = true;
++    for (int i = 0; i < inCount; i++) {
++      if (in[i] != 0) {
++        silent = false;
++        break;
++      }
++    }
++    int mixPos = mixingBuffer.position();
++    if (silent && accumulate) {
++      // x + 0*c == x for every sample, then (short) of an in-range float: unchanged.
++      mixingBuffer.position(mixPos + outCount * 2);
++      return mixingBuffer;
++    }
++    short[] out = new short[outCount];
++    if (accumulate) {
++      mixingBuffer.asShortBuffer().get(out);
++    }
++    if (!silent || accumulate) {
++      float[] coef = new float[inputChannels * outputChannels];
++      for (int ic = 0; ic < inputChannels; ic++) {
++        for (int oc = 0; oc < outputChannels; oc++) {
++          coef[ic * outputChannels + oc] = matrix.getMixingCoefficient(ic, oc);
++        }
++      }
++      for (int f = 0; f < framesToMix; f++) {
++        int inBase = f * inputChannels;
++        int outBase = f * outputChannels;
++        for (int oc = 0; oc < outputChannels; oc++) {
++          float v = accumulate ? out[outBase + oc] : 0f;
++          for (int ic = 0; ic < inputChannels; ic++) {
++            v += (float) in[inBase + ic] * coef[ic * outputChannels + oc];
++          }
++          out[outBase + oc] = (short) constrainValue(v, Short.MIN_VALUE, Short.MAX_VALUE);
++        }
++      }
++    }
++    mixingBuffer.asShortBuffer().put(out);
++    mixingBuffer.position(mixPos + outCount * 2);
++    return mixingBuffer;
++  }
++
+   private static float getPcmSample(ByteBuffer buffer, boolean int16Buffer, boolean int16Output) {
+     if (int16Output) {
+       return int16Buffer ? buffer.getShort() : floatSampleToInt16Pcm(buffer.getFloat());
+diff --git a/libraries/exoplayer/src/main/java/androidx/media3/exoplayer/audio/DefaultAudioSink.java b/libraries/exoplayer/src/main/java/androidx/media3/exoplayer/audio/DefaultAudioSink.java
+index 0a0f8b5..4ff6df9 100644
+--- a/libraries/exoplayer/src/main/java/androidx/media3/exoplayer/audio/DefaultAudioSink.java
++++ b/libraries/exoplayer/src/main/java/androidx/media3/exoplayer/audio/DefaultAudioSink.java
+@@ -142,6 +142,13 @@ public final class DefaultAudioSink implements AudioSink {
+   /** The time it takes to ramp AudioTrack's volume up or down when pausing or starting to play. */
+   private static final int AUDIO_TRACK_VOLUME_RAMP_TIME_MS = 20;
+ 
++  /**
++   * PATCH(short-first-window deadlock): how long the track must sit in PLAYSTATE_PLAYING with its
++   * playback head at 0 and no incoming data before {@link #maybeKickStalledNeverStartedTrack}
++   * forces playout. Long enough that normal startup/buffer-fill never trips it.
++   */
++  private static final long STALL_KICK_TIMEOUT_MS = 400;
++
+   /**
+    * Thrown when the audio track has provided a spurious timestamp, if {@link
+    * #failOnSpuriousAudioTimestamp} is set.
+@@ -614,6 +621,10 @@ public final class DefaultAudioSink implements AudioSink {
+   private boolean tunneling;
+   private long lastTunnelingAvSyncPresentationTimeUs;
+   private long lastFeedElapsedRealtimeMs;
++
++  // PATCH(short-first-window deadlock): see maybeKickStalledNeverStartedTrack().
++  private long lastPlayElapsedRealtimeMs;
++  private boolean pendingStallRecoveryFlush;
+   private boolean offloadDisabledUntilNextConfiguration;
+   private boolean isWaitingForOffloadEndOfStreamHandled;
+   @Nullable private Looper playbackLooper;
+@@ -718,11 +729,69 @@ public final class DefaultAudioSink implements AudioSink {
+     if (!isAudioTrackInitialized() || startMediaTimeUsNeedsInit) {
+       return CURRENT_POSITION_NOT_SET;
+     }
++    maybeKickStalledNeverStartedTrack();
+     long positionUs = audioTrackPositionTracker.getCurrentPositionUs();
+     positionUs = min(positionUs, configuration.framesToDurationUs(getWrittenFrames()));
+     return applySkipping(applyMediaPositionParameters(positionUs));
+   }
+ 
++  /**
++   * PATCH(short-first-window deadlock): breaks a cross-renderer deadlock that freezes playback
++   * when the first playing period's audio (after processing, e.g. Sonic speed-up) is smaller than
++   * the AudioTrack's start threshold (one full buffer on API &lt; 31).
++   *
++   * <p>Signature: the track is in PLAYSTATE_PLAYING but its playback head never leaves 0 (the
++   * platform won't start playout below the threshold), no more input is arriving (the upstream
++   * reading period can't advance because the video renderer is clock-gated and the clock is this
++   * sink), and everything wedges permanently: audio waits for data, data waits for the reading
++   * period, the reading period waits for video, video waits for the clock, the clock waits for
++   * audio playout.
++   *
++   * <p>Recovery: stop the track so the platform plays out the partial buffer
++   * ({@link #playPendingData()} also switches the position tracker to its simulated-playout mode),
++   * which un-freezes the clock; once the pipeline unwedges and new data arrives,
++   * {@link #handleBuffer} flushes and rebuilds the track (same shape as the non-reusable
++   * configuration path).
++   */
++  private void maybeKickStalledNeverStartedTrack() {
++    if (!playing
++        || stoppedAudioTrack
++        || pendingStallRecoveryFlush
++        || handledEndOfStream
++        || pendingConfiguration != null
++        || tunneling
++        || configuration.outputMode != OUTPUT_MODE_PCM) {
++      return;
++    }
++    if (audioTrack.getPlayState() != AudioTrack.PLAYSTATE_PLAYING) {
++      return;
++    }
++    long writtenFrames = getWrittenFrames();
++    long bufferFrames = configuration.bufferSize / configuration.outputPcmFrameSize;
++    if (writtenFrames <= 0 || writtenFrames >= bufferFrames) {
++      // Nothing written yet, or enough to reach the default start threshold — not the signature.
++      return;
++    }
++    if (audioTrack.getPlaybackHeadPosition() != 0) {
++      // Playout has started; the platform is draining the buffer normally.
++      return;
++    }
++    long nowMs = SystemClock.elapsedRealtime();
++    if (nowMs - lastFeedElapsedRealtimeMs < STALL_KICK_TIMEOUT_MS
++        || nowMs - lastPlayElapsedRealtimeMs < STALL_KICK_TIMEOUT_MS) {
++      return;
++    }
++    Log.w(
++        TAG,
++        "Audio track wedged below its start threshold (written="
++            + writtenFrames
++            + " frames, buffer="
++            + bufferFrames
++            + " frames) with no incoming data; forcing playout to un-freeze the position clock.");
++    playPendingData();
++    pendingStallRecoveryFlush = true;
++  }
++
+   @Override
+   public void configure(Format inputFormat, int specifiedBufferSize, @Nullable int[] outputChannels)
+       throws ConfigurationException {
+@@ -933,6 +1002,7 @@ public final class DefaultAudioSink implements AudioSink {
+   @Override
+   public void play() {
+     playing = true;
++    lastPlayElapsedRealtimeMs = SystemClock.elapsedRealtime();
+     if (isAudioTrackInitialized()) {
+       audioTrackPositionTracker.start();
+       if (!stoppedAudioTrack || isOffloadedPlayback(audioTrack)) {
+@@ -953,6 +1023,16 @@ public final class DefaultAudioSink implements AudioSink {
+       throws InitializationException, WriteException {
+     Assertions.checkArgument(inputBuffer == null || buffer == inputBuffer);
+ 
++    // PATCH(short-first-window deadlock): a stall-kick stopped the track to un-freeze the clock;
++    // now that data is flowing again, wait for the (simulated) playout to finish, then rebuild the
++    // track — the same shape as the non-reusable configuration path below.
++    if (pendingStallRecoveryFlush) {
++      if (hasPendingData()) {
++        return false;
++      }
++      flush(); // Also clears pendingStallRecoveryFlush.
++    }
++
+     if (pendingConfiguration != null) {
+       if (!drainToEndOfStream()) {
+         // There's still pending data in audio processors to write to the track.
+@@ -1611,6 +1691,7 @@ public final class DefaultAudioSink implements AudioSink {
+ 
+   @Override
+   public void flush() {
++    pendingStallRecoveryFlush = false; // PATCH(short-first-window deadlock)
+     if (isAudioTrackInitialized()) {
+       resetSinkStateForFlush();
+ 
+diff --git a/libraries/transformer/src/main/java/androidx/media3/transformer/DefaultEncoderFactory.java b/libraries/transformer/src/main/java/androidx/media3/transformer/DefaultEncoderFactory.java
+index 310f6c3..3950617 100644
+--- a/libraries/transformer/src/main/java/androidx/media3/transformer/DefaultEncoderFactory.java
++++ b/libraries/transformer/src/main/java/androidx/media3/transformer/DefaultEncoderFactory.java
+@@ -371,7 +371,14 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
+     }
+ 
+     if (mimeType.equals(MimeTypes.VIDEO_H264)) {
+-      adjustMediaFormatForH264EncoderSettings(format.colorInfo, encoderInfo, mediaFormat);
++      // FadCam patch: pass the ORIGINAL requested profile (from requestedVideoEncoderSettings,
++      // the factory field) rather than supportedVideoEncoderSettings.profile. The latter is reset
++      // to NO_VALUE by the validation at findVideoEncoderWithClosestSupportedFormat (see the
++      // profile/level guard ~30 lines below the resolution filter) whenever no level is supplied,
++      // so a level-less Baseline request would be silently dropped. The original field is never
++      // touched by that reset, so the requested Baseline survives to reach MediaCodec.
++      adjustMediaFormatForH264EncoderSettings(
++          format.colorInfo, encoderInfo, mediaFormat, requestedVideoEncoderSettings.profile);
+     }
+ 
+     if (SDK_INT >= 31 && ColorInfo.isTransferHdr(format.colorInfo)) {
+@@ -748,7 +755,10 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
+    * <p>The adjustment is applied in-place to {@code mediaFormat}.
+    */
+   private static void adjustMediaFormatForH264EncoderSettings(
+-      @Nullable ColorInfo colorInfo, MediaCodecInfo encoderInfo, MediaFormat mediaFormat) {
++      @Nullable ColorInfo colorInfo,
++      MediaCodecInfo encoderInfo,
++      MediaFormat mediaFormat,
++      int requestedProfile) {
+     // TODO: b/210593256 - Remove overriding profile/level (before API 29) after switching to in-app
+     //  muxing.
+     String mimeType = MimeTypes.VIDEO_H264;
+@@ -763,6 +773,15 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
+           expectedEncodingProfile = codecProfiles.get(0);
+         }
+       }
++      // FadCam patch: honor an explicitly requested H.264 Baseline profile (low-bandwidth /
++      // max-compatibility export). Only when HDR hasn't forced a profile (i.e. it's still the
++      // High default). The level is auto-derived just below via findHighestSupportedEncodingLevel
++      // against this profile, so it is guaranteed supported — no invalid-level rejection risk.
++      // Default exports never request Baseline, so the High path stays byte-identical.
++      if (requestedProfile == MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline
++          && expectedEncodingProfile == MediaCodecInfo.CodecProfileLevel.AVCProfileHigh) {
++        expectedEncodingProfile = MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline;
++      }
+       int supportedEncodingLevel =
+           EncoderUtil.findHighestSupportedEncodingLevel(
+               encoderInfo, mimeType, expectedEncodingProfile);
+@@ -776,6 +795,11 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
+       }
+     } else if (SDK_INT >= 26 && !deviceNeedsNoH264HighProfileWorkaround()) {
+       int expectedEncodingProfile = MediaCodecInfo.CodecProfileLevel.AVCProfileHigh;
++      // FadCam patch: honor an explicitly requested Baseline profile on API 26-28 too (same
++      // rationale as the SDK >= 29 branch). Level is auto-derived below and thus safe.
++      if (requestedProfile == MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline) {
++        expectedEncodingProfile = MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline;
++      }
+       int supportedEncodingLevel =
+           EncoderUtil.findHighestSupportedEncodingLevel(
+               encoderInfo, mimeType, expectedEncodingProfile);

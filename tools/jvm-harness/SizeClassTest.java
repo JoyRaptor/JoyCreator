@@ -16,8 +16,9 @@ public class SizeClassTest {
 
     public static void main(String[] args) {
         // Classes: by window, not device.
-        eq("phone upright is compact", SizeClass.Width.COMPACT, SizeClass.width(412));
-        eq("phone sideways is medium wide", SizeClass.Width.MEDIUM, SizeClass.width(780));
+        eq("Note 9 upright is compact", SizeClass.Width.COMPACT, SizeClass.width(548));
+        eq("small phone sideways is medium wide", SizeClass.Width.MEDIUM, SizeClass.width(780));
+        eq("Note 9 sideways is expanded wide", SizeClass.Width.EXPANDED, SizeClass.width(1127));
         eq("phone sideways is short", SizeClass.Height.COMPACT, SizeClass.height(390));
         eq("tablet sideways is expanded", SizeClass.Width.EXPANDED, SizeClass.width(1480));
         eq("tablet sideways is medium tall", SizeClass.Height.MEDIUM, SizeClass.height(880));
@@ -31,7 +32,9 @@ public class SizeClassTest {
         eq("840 is expanded", SizeClass.Width.EXPANDED, SizeClass.width(840));
 
         // Library cards: two on any phone upright, more on wide windows, never under 168dp.
-        eq("Note 9 Library grid stays two", 2, SizeClass.columns(395, 168, 2));
+        eq("Note 9 Library grid stays two (found on the phone: it showed three)", 2, SizeClass.columns(532, 168, 2));
+        eq("any phone upright stays two, even 599 dp", 2, SizeClass.columns(599, 168, 2));
+        eq("Note 9 list rows stay one", 1, SizeClass.columns(532, 360, 1));
         eq("small 360dp phone stays two", 2, SizeClass.columns(344, 168, 2));
         eq("tablet sideways gets eight cards", 8, SizeClass.columns(1464, 168, 2));
         eq("tablet upright gets five cards", 5, SizeClass.columns(908, 168, 2));
@@ -39,7 +42,7 @@ public class SizeClassTest {
         eq("list rows: four on a tablet sideways", 4, SizeClass.columns(1464, 360, 1));
         eq("bad cell size never divides by zero", 2, SizeClass.columns(500, 0, 2));
         truth("cards on the tablet are no bigger than on the Note 9",
-                1464 / SizeClass.columns(1464, 168, 2) <= 395 / 2);
+                1464 / SizeClass.columns(1464, 168, 2) <= 532 / 2);
 
         // Reading column: zero on a phone, centred to 640 on a tablet, base padding kept.
         eq("phone upright: no extra padding", 0, SizeClass.sideInset(1080, 0, 0, 1280));

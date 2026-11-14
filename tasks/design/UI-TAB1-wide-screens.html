@@ -208,8 +208,8 @@ const SIZES = [
   {k:'tl', n:'Tablet sideways', w:1480, h:924},
   {k:'tp', n:'Tablet upright', w:924, h:1480},
   {k:'half', n:'Half tablet', w:736, h:924, tip:'Split-screen: the app gets half of the tablet sideways'},
-  {k:'ps', n:'Phone sideways', w:846, h:411},
-  {k:'pu', n:'Note 9 upright', w:411, h:846}
+  {k:'ps', n:'Note 9 sideways', w:1127, h:548, tip:'At your Note 9’s dense screen setting'},
+  {k:'pu', n:'Note 9 upright', w:548, h:1127}
 ];
 const STATUS = 24, NAV = 20;
 const WIDTH_MEDIUM = 600, WIDTH_EXPANDED = 840;   /* the app's SizeClass, same numbers */
@@ -282,8 +282,8 @@ const PARTS = {
       {k:'A', n:'Moves aside', d:'The picture shrinks to the room left beside the panel: nothing is covered.'},
       {k:'B', n:'Stays put', d:'The picture keeps its size; the see-through panel stands over its edge.'}]},
     {k:'S6', q:'When the panel appears', why:'Below this, drawers rise from the bottom as on the phone. Try the size bar.', opts:[
-      {k:'A', n:'Wide windows only', d:'840 dp and up: the tablet either way. Half a tablet and a phone on its side keep the phone drawer.'},
-      {k:'B', n:'Any window 600 dp and up', d:'Also half a tablet and a phone on its side.'},
+      {k:'A', n:'Wide windows only', d:'840 dp and up: the tablet either way, and your Note 9 on its side (1127 dp at its dense setting). Half a tablet keeps the phone drawer.'},
+      {k:'B', n:'Any window 600 dp and up', d:'Also half a tablet in split-screen.'},
       {k:'C', n:'A switch in Settings', d:'"Drawers: rise from the bottom / stand beside", starting as A. Keeps the old way one tap away.'}]}
   ]
 };

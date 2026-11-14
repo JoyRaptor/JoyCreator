@@ -53,10 +53,15 @@ public final class SizeClass {
      * How many cells of at least {@code minCellDp} fit across {@code availableDp}, never fewer than
      * {@code atLeast}. Cells keep their phone size and a wide window gets MORE of them, not bigger
      * ones (owner's rule: dp values stay as drawn, use the room for content).
+     *
+     * <p>Anything narrower than {@link #MEDIUM_WIDTH_DP} is a phone held upright and gets exactly
+     * {@code atLeast}: the phone layout as drawn. (The owner's Note 9 runs at a dense 548 dp, where
+     * a plain division would have added a third card.)
      */
     public static int columns(int availableDp, int minCellDp, int atLeast) {
-        if (minCellDp <= 0) return Math.max(1, atLeast);
-        return Math.max(Math.max(1, atLeast), availableDp / minCellDp);
+        int phone = Math.max(1, atLeast);
+        if (minCellDp <= 0 || availableDp < MEDIUM_WIDTH_DP) return phone;
+        return Math.max(phone, availableDp / minCellDp);
     }
 
     /**

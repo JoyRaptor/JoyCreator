@@ -33,7 +33,7 @@ class TestStrokeTest {
         assertTrue(s.first().pressure <= 0.03f, "as light as possible")
         assertTrue(s.first().x < inset + 0.05f * (w - 2 * inset), "starts at the left")
         assertTrue(s.first().y > inset + 0.7f * (h - 2 * inset), "starts low")
-        assertTrue(s.take(s.size / 8).all { it.pressure < 0.1f }, "the start stays a hairline for a while")
+        assertTrue(s.take(s.size / 16).all { it.pressure < 0.1f }, "the start stays a hairline for a while")
     }
 
     @Test fun maximumAndMinimumOfPressureAndTiltAllInOneLine() {

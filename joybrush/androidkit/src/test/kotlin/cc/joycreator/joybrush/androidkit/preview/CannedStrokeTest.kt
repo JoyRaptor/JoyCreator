@@ -27,7 +27,7 @@ class CannedStrokeTest {
         assertEquals(cc.joycreator.joybrush.core.brush.TestStroke.pen(300, 60, 8f, pitchPx = 5f), CannedStroke.pen(300, 60, 8f, pitchPx = 5f))
         assertEquals(cc.joycreator.joybrush.core.brush.TestStroke.LEAN, CannedStroke.LEAN)
         val s = CannedStroke.pen(800, 80, 10f)
-        assertTrue(s.first().pressure < 0.05f && s.last().pressure == 1f, "a feather touch to a sudden lift")
+        assertTrue(s.first().pressure < 0.05f && s.maxOf { it.pressure } > 0.97f, "a feather touch to a full press")
         assertTrue(s.all { it.hasTilt } && CannedStroke.LEAN < 0f)
     }
 

@@ -41,6 +41,16 @@ class KritaImportTest {
      * the deflated run is the one that could not happen at all: this row exists so that a real `.bundle`,
      * which Krita writes with method 8, opens.
      */
+    /** A CDATA section in the preset's XML (real Krita bundles carry them) is read, not a crash. 11-13. */
+    @Test
+    fun aPresetWithACdataSectionConverts() {
+        val xml = pixel(ink(), extra = """<note><![CDATA[a <b>bold</b> note & more]]></note>""")
+        val library = KritaImport.convertBundle(
+            bundleOf(ZipEntry("paintoppresets/Ink.kpp", ZIP_DEFLATED, kpp(xml))), "Cdata Pack")
+        assertEquals(0, library.refused.size, "${library.refused}")
+        assertEquals(listOf("Ink"), library.brushes.map { it.preset.name })
+    }
+
     @Test
     fun aWholeBundleConvertsAndEveryPresetIsALegalBrush() {
         for (method in listOf(ZIP_STORED, ZIP_DEFLATED)) {

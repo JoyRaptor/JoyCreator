@@ -104,8 +104,8 @@ the choice between embedding and a side picture file goes back to the lead, not 
        previews. Tablet and Note 9, 11-13.
 4. [ ] Packs: the same reader also lists `PackShelf.installed(fs, "brush")` under each pack's name (JBX-48, step 2 of
        the PACK-1 spec).
-5. [~] Real Krita presets: reader built, Val's two bundles on the Note 9 (11-14). Owed: the tablet import (locked),
-       painting with them on a device, Memileo Impasto and Metallics when the owner downloads them, a Procreate file.
+5. [~] Real Krita presets: reader built, Val's two bundles on the Note 9 and the tablet (11-14). Owed: the speed
+       response (fast strokes vanish), Memileo Impasto and Metallics when the owner downloads them, a Procreate file.
 6. [ ] Help mapping for the STATE row (Joybot HelpBook) with the Joybot lane.
 
 ## Specs, handoffs and evidence

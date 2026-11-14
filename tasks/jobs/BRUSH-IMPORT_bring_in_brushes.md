@@ -1,6 +1,6 @@
 # BRUSH-IMPORT (JBX-18): bring Photoshop, Procreate, Krita and MyPaint brushes into JoyBrush
 
-**Milestone:** M2  ·  **State:** 🟡  ·  **Owner:** JoyBrush screens lane (Claude Opus 5.5, `claude/joybrush-screens-20261113-1a6f0b`)  ·  **Checked:** 2026-11-13 against `02c782894`
+**Milestone:** M2  ·  **State:** 🟡  ·  **Owner:** JoyBrush screens lane (Claude Opus 5.5, `claude/joybrush-screens-20261113-1a6f0b`)  ·  **Checked:** 2026-11-13 against `e79a2e216`
 
 ## Why it matters (for the user)
 An artist arrives with brushes they already love. Today JoyBrush can convert four kinds of brush file, but there is no
@@ -52,12 +52,17 @@ the choice between embedding and a side picture file goes back to the lead, not 
   shows all 17 with their own tip pictures → "CLOD 1" paints its cloud tip. Left installed on the tablet (owner's
   wish). Two app closes found and fixed on the way: the drawer's stand-in and its real preview both asked for tip
   pictures they were not given (now the stand-in draws the disc, the preview is handed the pictures, and a row that
-  still cannot draw stays empty instead of closing the app). Note 9: the same set is owed (the phone was held by
-  another lane); the MyPaint charcoal is there since 13:59.
-- **What the Photoshop importer drops, seen so far:** the pattern textures (never imported) and the two bristle
-  brushes. Each converted brush also carries the importer's own per-brush warnings (`ImportResult.warnings`); the app
-  does not show them (owner bar) and logs them under `JoyBrushImport` from 11-13 20:30; the per-setting list for this set is
-  still to be copied here from the next import's log.
+  still cannot draw stays empty instead of closing the app).
+- **Note 9 11-13 20:24-20:37** (APK of `9ffc56639`): the same set imported through "Import…", same sentence, 17 files
+  beside the MyPaint charcoal, all 18 on the Imported shelf with their own previews, no app close; after an app
+  restart "CLOD 1" was still in hand and painted (the restart fix, seen). Left installed on the Note 9.
+- **What the Photoshop importer drops for this set** (the importer's own per-brush notes, logged under
+  `JoyBrushImport` on the Note 9 11-13; never shown to the artist): two bristle brushes refused; brush textures kept
+  but not drawn (the textures are Photoshop patterns, not image files, and patterns are not imported); noise (6
+  brushes) and wet edges (5) have no JoyBrush equivalent yet; wet and mix variance of the wet mixer (wtVr, mxVr, 5
+  each), colour purity and colour variance; roundness dynamics (the tip keeps one fixed roundness); flip X/Y and the
+  dual brush; tilt scale clamped to 1 and texture scale clamped to 64. Every unmapped setting is kept raw in the
+  brush file (`extensions`), so a later JoyBrush can use it without importing again.
 - **Krita packs** (owner said yes, three named threads on krita-artists.org: Memileo impasto, Metallics by
   Draneria, Val's realistic ink pen): not downloaded yet. Downloads wait for the owner's own yes in this session
   (file names and sources first); licences and dates go here when fetched.
@@ -65,16 +70,16 @@ the choice between embedding and a side picture file goes back to the lead, not 
   out of reach on the tablet.
 
 ## What is left
-1. [ ] Self-contained brush file: `BrushFile` (androidkit) = `BrushJson` recipe plus an `"assets"` object (path → PNG,
-       base64), read back through `FrozenBrushPngs` with its existing size limits. Round-trip tests.
-2. [ ] `SuppliesBrushes` (joybrush-android/library): list, read and write `Supplies/Brushes/*.brush.json` through the
-       studiokit folder (`JoyFs`, SAF tree; never by path), on the folder thread. Name clashes get " 2", " 3".
-3. [ ] Drawer row + picker + toast; the activity adds the shelf's brushes to its list and gives the canvas their
-       pictures (the `brushPngs` lookup the Unibrush store already feeds).
+1. [x] Self-contained brush file (`androidkit/brush/BrushFile`), round-trip tests. 11-13.
+2. [x] `library/SuppliesBrushes`: read and write `Supplies/Brushes/*.brush.json` through the folder; reading creates
+       nothing; name clashes get " 2". 11-13.
+3. [x] Drawer "Import…" + picker + sentence; brushes merged into the list; tip pictures handed to the canvas and the
+       previews. Tablet and Note 9, 11-13.
 4. [ ] Packs: the same reader also lists `PackShelf.installed(fs, "brush")` under each pack's name (JBX-48, step 2 of
-       the PACK-1 spec), so packs come almost for free.
-5. [ ] Sample files (MyPaint and Krita brushes are freely licensed; Photoshop and Procreate samples need the owner's
-       own files or freely licensed ones), Note 9 run, STATE + roadmap rows.
+       the PACK-1 spec).
+5. [ ] Krita packs (waiting for the owner's own yes in the screens session) and a Procreate file; the per-setting
+       drop list for each.
+6. [ ] Help mapping for the STATE row (Joybot HelpBook) with the Joybot lane.
 
 ## Specs, handoffs and evidence
 - Audit row JBX-18 in `tasks/audits/remaining_work_20261113.md`; folder kinds `studiokit/.../joyfolder/FileKind.java`;

@@ -77,8 +77,9 @@ class TestStrokeTest {
     }
 
     @Test fun theCurvePassesThroughEveryStripe() {
-        assertEquals(3, TestStroke.STRIPES.size)
-        assertEquals(3, TestStroke.STRIPES.map { it.argb }.toSet().size)
+        assertEquals(5, TestStroke.STRIPES.size)
+        assertEquals(5, TestStroke.STRIPES.map { it.argb }.toSet().size)
+        assertTrue(TestStroke.STRIPES.zipWithNext().all { (a, b) -> b.x - b.half > a.x + a.half }, "a little space between each")
         for (st in TestStroke.STRIPES) {
             val x0 = inset + (w - 2 * inset) * (st.x - st.half)
             val x1 = inset + (w - 2 * inset) * (st.x + st.half)

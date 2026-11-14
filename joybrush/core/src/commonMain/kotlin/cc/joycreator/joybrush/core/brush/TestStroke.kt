@@ -23,6 +23,9 @@ import kotlin.math.roundToInt
  *    pressure with the pen laid over, and a hook back to the left that ends in a quick flick: a sudden lift, not a fade.
  */
 object TestStroke {
+    /** Bumped whenever the stroke, its marks or its stripes change: stored brush previews drawn with an older one are stale. */
+    const val VERSION = 4
+
     /** One traced point of the curve: [x], [y] as shares of the box (0..1), the pen's [pressure] and [tilt] (radians from upright) there. */
     class P(val x: Float, val y: Float, val pressure: Float, val tilt: Float)
 
@@ -82,13 +85,16 @@ object TestStroke {
     class Stripe(val x: Float, val half: Float, val y0: Float, val y1: Float, val argb: Int)
 
     /**
-     * Three bands where he drew them (pink, cyan, yellow in his drawing), in softer colours that sit together: a dusty
-     * rose, a sea teal, a straw yellow. The screens lane's design page may choose others; only these values change.
+     * The colour lines the curve crosses, painted first, underneath it (the owner's ruling, BRUSH-UI section K.5): the print
+     * colours cyan, magenta, yellow, black and white, close together with a little space between each, where his three
+     * bands were, so each shows what the brush does with it (pick-up, smear, blur, cover).
      */
     val STRIPES: List<Stripe> = listOf(
-        Stripe(0.458f, 0.036f, 0.07f, 0.97f, 0xFFDE8FA6.toInt()),
-        Stripe(0.572f, 0.036f, 0.07f, 0.97f, 0xFF6FC3BE.toInt()),
-        Stripe(0.657f, 0.034f, 0.07f, 0.97f, 0xFFE9CF6E.toInt()),
+        Stripe(0.430f, 0.025f, 0.07f, 0.97f, 0xFF00AEEF.toInt()),   // cyan
+        Stripe(0.492f, 0.025f, 0.07f, 0.97f, 0xFFEC008C.toInt()),   // magenta
+        Stripe(0.554f, 0.025f, 0.07f, 0.97f, 0xFFFFF200.toInt()),   // yellow
+        Stripe(0.616f, 0.025f, 0.07f, 0.97f, 0xFF231F20.toInt()),   // black
+        Stripe(0.678f, 0.025f, 0.07f, 0.97f, 0xFFFFFFFF.toInt()),   // white
     )
 
     /** The pen leans up and to the left as a right hand holds it (radians, 0 = +x, y grows down); it swings round with the hand through the loop and the arc. */
@@ -119,9 +125,25 @@ object TestStroke {
     private fun cr(a: Float, b: Float, c: Float, d: Float, t: Float): Float =
         0.5f * (2f * b + (c - a) * t + (2f * a - 5f * b + 4f * c - d) * t * t + (3f * b - a - 3f * c + d) * t * t * t)
 
+    /** Which part of the curve to draw: all of it, or ([SWOOSH]) the light-to-heavy S-turns alone, for a picture too small for the loop. */
+    enum class Part { WHOLE, SWOOSH }
+
+    /**
+     * The S-turns, from the hairline start through both turns to where the loop begins, stretched to fill the box, its pressure
+     * spread from a feather touch to a full press so a tiny picture (a slider's end, about 40 x 20 dp) still shows the range.
+     */
+    val SWOOSH: List<P> by lazy {
+        val part = PATH.subList(2, 25)
+        val x0 = part.minOf { it.x }; val x1 = part.maxOf { it.x }
+        val y0 = part.minOf { it.y }; val y1 = part.maxOf { it.y }
+        val p0 = part.minOf { it.pressure }; val p1 = part.maxOf { it.pressure }
+        part.map { P((it.x - x0) / (x1 - x0), (it.y - y0) / (y1 - y0), 0.03f + 0.97f * (it.pressure - p0) / (p1 - p0), it.tilt) }
+    }
+
     /** The curve for a [width] x [height] picture and a brush [sizePx] wide, a sample about every [pitchPx] along it. */
-    fun pen(width: Int, height: Int, sizePx: Float, pitchPx: Float = 3f): List<PenSample> {
+    fun pen(width: Int, height: Int, sizePx: Float, pitchPx: Float = 3f, part: Part = Part.WHOLE): List<PenSample> {
         val box = Box(width, height, sizePx)
+        val PATH = if (part == Part.SWOOSH) SWOOSH else PATH
         // A fine polyline through the traced points, with pressure and tilt carried along it.
         val fine = ArrayList<FloatArray>(PATH.size * FINE)
         for (i in 0 until PATH.size - 1) {

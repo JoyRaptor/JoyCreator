@@ -26,6 +26,29 @@ button for it, so those converters are useless. The owner asked about it on 11-1
 - 11-13: `core/brush/imports/BrushFileKind` (which converter a picked file goes to, by name, then by its first bytes)
   and `androidkit/BrushFileImport` (runs the converter, makes the sentence) are written. **Not built yet**, not landed.
 - No reader or writer for `Supplies/Brushes` in JoyBrush yet (PACK-1 line 99).
+- 11-13 evening, branch `claude/joybrush-screens-brush-import-20261113` (not landed): steps 1-3 built. JoyBrush
+  suites green (core 2950, androidkit 1340, Android 583). Note 9 run (13:59-14:10, build before the restart fix):
+  "Import brushes…" → picker → a CC0 MyPaint `charcoal.myb` (the fixture the MyPaint tests already hold) →
+  `Joy Creator/Supplies/Brushes/Charcoal (MyPaint CC0).brush.json` (6 KB) → Imported shelf → painted with its grain.
+  Found there: after an app restart the tool fell back to Ink (the folder loads later); fixed (the saved tools are
+  kept until the folder's brushes are in, then restored), unit-tested, not yet re-run on a device.
+
+## Format (decided 11-13)
+One shape for shipped, Unibrush, pack and imported brushes: the ordinary brush recipe (`BrushJson`, the same fields
+every `brush.json` in `joybrush/brushes/` and a pack's `.brush.json` carry), readable and first in the file. Tip
+pictures, when a brush has any, come last as one `"assets"` object (path → base64 PNG, the paths the recipe already
+names). A recipe-only file is exactly an ordinary brush file. **Size:** the MyPaint charcoal is 6 KB (no pictures).
+Photoshop tips can be large; sizes of the owner's set go here once it imports. If a brush file passes about 1 MB
+the choice between embedding and a side picture file goes back to the lead, not silently either way.
+
+## Real files (11-13)
+- **Owner's Photoshop set** (`Battle_demo_brushes.abr`, 35 MB, format version 9; copied read-only from his asset
+  folder to a scratch folder outside the repo; never committed). First run on the PC: the whole file was refused
+  because its pattern section (33.9 MB of textures) was over the 32 MB per-section cap, although nothing reads that
+  section. Fixed in `AbrReader` (the cap now guards only the parsed tip and brush sections; patterns are still skipped
+  and not imported). After the fix, on the PC: **17 of 19 brushes convert**; the 2 left out are "Flat Point 22" and "Flat Point 11", Photoshop bristle brushes (a hair simulation JoyBrush has no equivalent for). Dropped for every brush: the pattern textures. Device run and file sizes still owed.
+- **Krita packs** (owner said yes, three named threads on krita-artists.org): not downloaded yet; asked the owner in
+  this session to confirm the downloads (files, source) first.
 
 ## What is left
 1. [ ] Self-contained brush file: `BrushFile` (androidkit) = `BrushJson` recipe plus an `"assets"` object (path → PNG,

@@ -202,6 +202,16 @@ class AbrReaderTest {
         assertTrue(read.brushes.single() is AbrBrush.Read)
     }
 
+    /** A pattern section bigger than the parse cap is still only skipped: the brushes come across (owner's set, 11-13). */
+    @Test
+    fun aPatternSectionOverTheParseCapIsSkippedNotRefused() {
+        val big = ByteArray((AbrImport.MAX_SECTION_BYTES + 4096).toInt())
+        val read = AbrReader.read(
+            file(desc = descSection(listOf(brush("Round", itemOf("Brsh", computedTip(itemOf("Dmtr", longV(40))))))), patt = big)
+        )
+        assertEquals(1, read.brushes.size)
+    }
+
     // ---- 3/4. a truncated file and a count that lies ---------------------------------------------------
 
     /** A file cut in half mid-`desc` says so and returns nothing (D1). */

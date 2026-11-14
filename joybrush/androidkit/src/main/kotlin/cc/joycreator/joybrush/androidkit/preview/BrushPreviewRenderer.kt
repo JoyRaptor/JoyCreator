@@ -239,6 +239,14 @@ class BrushPreviewRenderer(private val memory: () -> Pair<Long, Long>) {
         } else if (erase) {
             PreviewRaster.fillRect(ground, 0, (h * STRIP_INSET).toInt(), w, h - (h * STRIP_INSET).toInt(), req.style.strip)
         }
+        // The test stroke's colour lines (TestStroke.LINES): what the swoosh crosses. A smudge has its bands, an eraser its strip.
+        else for (line in cc.joycreator.joybrush.core.brush.TestStroke.LINES) {
+            val inset = CannedStroke.inset(shown.size.base)
+            val half = maxOf(1, (h * 0.03f).toInt())
+            val x = (inset + (w - 2 * inset) * (line.x0 + line.x1) / 2f).toInt()
+            PreviewRaster.fillRect(ground, x - half, (inset + (h - 2 * inset) * line.y0).toInt(), x + half + 1,
+                (inset + (h - 2 * inset) * line.y1).toInt(), line.argb)
+        }
         for ((key, bytes) in ground) e.writeTile(LAYER, key, bytes)
 
         // A smudge begins carrying the colour it begins on.

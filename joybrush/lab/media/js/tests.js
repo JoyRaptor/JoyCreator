@@ -50,7 +50,55 @@ const zig = (x0, x1, y, amp, n) => u => {
   return [x, y + amp * (k % 2 === 0 ? t : 1 - t) * 2 - amp];
 };
 
+
+// The owner's test stroke (2026-11-14, job BRUSH-UI), twin of core/brush/TestStroke.kt: a swoosh from a feather touch to a
+// hard press, a curl at the end with the pen laid over, a sudden lift; and the three colour lines it crosses. The box is
+// [x0, yTop] (doc px, y UP here) w wide and h tall. Tilt: the app's radians over the pen's reach (68 degrees) are the
+// lab's 0..90; the lean is up and to the left, swinging round in the curl.
+const TEST_LINES = [[0.30, 0.14, 0.33, 0.86, [0.78, 0.165, 0.133]], [0.43, 0.14, 0.46, 0.86, [0.141, 0.251, 0.659]], [0.56, 0.14, 0.59, 0.86, [0.851, 0.604, 0.122]]];
+function testStroke(tool, x0, yTop, w, h, pitch = 3) {
+  const r = Math.min(h * 0.4, w * 0.12), cx = x0 + w - r, yStart = h * 0.38, yEnd = h * 0.5 + r, cy = yEnd - r, TURN = 1.85 * Math.PI;
+  const n = Math.min(600, Math.max(24, Math.round((Math.hypot(cx - x0, yEnd - yStart) + r * TURN) / pitch))), ns = Math.max(2, Math.round(n * 0.72));
+  const deg = rad => Math.min(90, rad * 180 / Math.PI / 68 * 90);
+  const samples = [];
+  let t = 0, px = 0, py = 0;
+  for (let i = 0; i < n; i++) {
+    let x, y, p, tilt, az, v;
+    if (i < ns) { const k = i / (ns - 1); x = x0 + (cx - x0) * k; y = yStart + (yEnd - yStart) * k * k; p = 0.03 + 0.87 * Math.pow(k, 1.7); tilt = 0.12 + 0.38 * k; az = 135; v = 1.4; }
+    else { const k = (i - ns + 1) / (n - ns), a = TURN * k; x = cx + r * Math.sin(a); y = cy + r * Math.cos(a); p = 0.9 + 0.1 * k; tilt = 0.5 + 0.6 * k; az = 135 + 80 * k; v = 0.7; }
+    if (i > 0) t += Math.hypot(x - px, y - py) / v;
+    px = x; py = y;
+    samples.push({ x, y: yTop - y, p, tilt: deg(tilt) * D2R, az: az * D2R, t });
+  }
+  return { tool, samples };
+}
+function testLine(tool, line, x0, yTop, w, h) {
+  const n = 40, samples = [];
+  for (let i = 0; i < n; i++) { const k = i / (n - 1); samples.push({ x: x0 + w * (line[0] + (line[2] - line[0]) * k), y: yTop - h * (line[1] + (line[3] - line[1]) * k), p: 0.7, tilt: 26 * D2R, az: 135 * D2R, t: i * 6 }); }
+  return { tool, samples, color: line[4] };
+}
+
 export const SHEETS = {
+  // The test stroke, one cell a brush (?tools=a,b,c with ?medium=dry|wet|paste, default the pencils): the three colour lines
+  // laid with the brush itself, then the swoosh in a dark ink. What the editor preview, the drawer and the contact sheets draw.
+  teststroke: {
+    size: [1700, 2600],
+    paper: 'drawing_tooth',
+    strokes() {
+      const q = new URLSearchParams(location.search), kind = q.get('medium') || 'dry', s = [];
+      const names = (q.get('tools') || Object.keys(SET_TOOLS[kind]).join(',')).split(','), cw = 850, ch = 320;
+      const H = Math.ceil(names.length / 2) * ch, INK = [0.18, 0.2, 0.27];
+      names.forEach((n, i) => {
+        const x0 = (i % 2) * cw + 50, yTop = H - Math.floor(i / 2) * ch - 30, w = cw - 100, h = ch - 60;
+        const as = st => (kind === 'dry' ? st : { ...st, kind, tool: n, wetness: 3 });
+        for (const l of TEST_LINES) s.push(as(testLine(n, l, x0, yTop, w, h)));
+        if (kind === 'wet') s.push({ wait: 3 });
+        s.push(as({ ...testStroke(n, x0, yTop, w, h), color: kind === 'dry' ? undefined : INK }));
+      });
+      if (kind === 'wet') s.push({ wait: Number(q.get('dryS') || 15) });
+      return s;
+    },
+  },
   // Wetness (owner, 2026-10-07: Expresii's drop and napkin): the all-round brush at dry, damp, wet, loaded and
   // runny, left to right; then the paper tilted toward the bottom for ?tiltS= seconds (runny paint should run).
   runny: {

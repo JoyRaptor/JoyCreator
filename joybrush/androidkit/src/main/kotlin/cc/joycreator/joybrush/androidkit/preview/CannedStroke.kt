@@ -1,17 +1,16 @@
 package cc.joycreator.joybrush.androidkit.preview
 
+import cc.joycreator.joybrush.core.brush.TestStroke
 import cc.joycreator.joybrush.core.input.PenSample
 import kotlin.math.PI
 import kotlin.math.cos
-import kotlin.math.hypot
-import kotlin.math.roundToInt
 import kotlin.math.sin
 
 /**
- * The one stroke every brush preview is drawn with, so rows differ only by the brush: a gentle S from left to right, the
- * pressure swelling from light to full and back, the pen tilted a little (more at the swell) and leaning up and to the
- * left as a right hand holds it, at a steady walking speed. Pure and repeatable: the same box always gives the same
- * samples, so a preview never shimmers between renders. Positions are pixels of the picture, origin top-left.
+ * The one stroke every brush preview is drawn with, so rows differ only by the brush. Since 2026-11-14 it is the owner's
+ * test stroke ([TestStroke], job BRUSH-UI): a swoosh from a feather touch to a hard press, a curl at the end with the pen
+ * laid over, and a sudden lift. The samples come from the core, where every engine and the bench share them; this object
+ * keeps the preview's seeds and the fill pen's blob. Positions are pixels of the picture, origin top-left.
  */
 object CannedStroke {
 
@@ -21,43 +20,14 @@ object CannedStroke {
     /** The scatter stream's salt, as the canvas salts its own (JbCanvasView.SCATTER_SALT). */
     const val SCATTER_SALT = 0x5CA7L
 
-    /** The pen leans up and to the left (radians, document space: 0 = +x, y grows down). */
-    const val LEAN = (-0.75 * PI).toFloat()
-
-    /** Speed along the path: pixels per millisecond (about a relaxed stroke). */
-    const val SPEED_PX_PER_MS = 1.2f
-
-    private const val MIN_SAMPLES = 24
-    private const val MAX_SAMPLES = 600
+    /** The pen's lean on the swoosh (radians, document space: 0 = +x, y grows down). */
+    const val LEAN = TestStroke.LEAN
 
     /** How far from the picture's edge the pen stays for a brush [sizePx] wide. */
-    fun inset(sizePx: Float): Float = sizePx / 2f + 2f
+    fun inset(sizePx: Float): Float = TestStroke.inset(sizePx)
 
-    /**
-     * The S inside a [width] × [height] picture, for a brush [sizePx] wide, a sample about every [pitchPx]. The first
-     * sample is at pressure 0.25 and tilt 0.4 rad; the swell (mid-stroke) is pressure 1 and tilt 0.85 rad.
-     */
-    fun pen(width: Int, height: Int, sizePx: Float, pitchPx: Float = 3f): List<PenSample> {
-        val inset = inset(sizePx)
-        val w = (width - 2f * inset).coerceAtLeast(1f)
-        val amp = ((height - 2f * inset) / 2f).coerceAtLeast(0f)
-        val mid = height / 2f
-        val n = (w / pitchPx.coerceAtLeast(1f)).roundToInt().coerceIn(MIN_SAMPLES, MAX_SAMPLES)
-        val out = ArrayList<PenSample>(n)
-        var time = 0.0
-        var px = 0f
-        var py = 0f
-        for (i in 0 until n) {
-            val t = i / (n - 1f)
-            val x = inset + w * t
-            val y = mid - amp * sin(2.0 * PI * t).toFloat() * 0.8f
-            if (i > 0) time += hypot(x - px, y - py) / SPEED_PX_PER_MS
-            px = x; py = y
-            val swell = sin(PI * t).toFloat()
-            out.add(PenSample(x, y, timeMs = time, pressure = 0.25f + 0.75f * swell, tilt = 0.4f + 0.45f * swell, azimuth = LEAN))
-        }
-        return out
-    }
+    /** The test stroke inside a [width] x [height] picture, for a brush [sizePx] wide, a sample about every [pitchPx]. */
+    fun pen(width: Int, height: Int, sizePx: Float, pitchPx: Float = 3f): List<PenSample> = TestStroke.pen(width, height, sizePx, pitchPx)
 
     /**
      * A small closed blob for the fill pen, [count] corners round in a [width] × [height] picture: wider than tall, a

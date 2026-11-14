@@ -1,6 +1,5 @@
 package cc.joycreator.joybrush.androidkit.preview
 
-import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -22,40 +21,14 @@ class CannedStrokeTest {
         }
     }
 
-    @Test fun theStrokeRunsLeftToRightAndTheClockOnlyMovesForward() {
+    // The stroke's shape is the owner's test stroke (2026-11-14); core TestStrokeTest holds each thing he asked of it.
+    @Test fun thePreviewDrawsTheCoresTestStroke() {
+        assertEquals(cc.joycreator.joybrush.core.brush.TestStroke.pen(900, 90, 20f), CannedStroke.pen(900, 90, 20f))
+        assertEquals(cc.joycreator.joybrush.core.brush.TestStroke.pen(300, 60, 8f, pitchPx = 5f), CannedStroke.pen(300, 60, 8f, pitchPx = 5f))
+        assertEquals(cc.joycreator.joybrush.core.brush.TestStroke.LEAN, CannedStroke.LEAN)
         val s = CannedStroke.pen(800, 80, 10f)
-        assertTrue(s.zipWithNext().all { (a, b) -> b.x > a.x && b.timeMs >= a.timeMs })
-        assertEquals(0.0, s.first().timeMs)
-        assertTrue(s.last().timeMs > 0.0)
-    }
-
-    @Test fun pressureSwellsFromLightToFullAndBack() {
-        val s = CannedStroke.pen(800, 80, 10f)
-        assertEquals(0.25f, s.first().pressure, 0.001f)
-        assertEquals(0.25f, s.last().pressure, 0.001f)
-        val peak = s.maxOf { it.pressure }
-        assertEquals(1f, peak, 0.01f)
-        assertTrue(abs(s.indexOfFirst { it.pressure == peak } - s.size / 2) <= 2, "the swell is mid-stroke")
-    }
-
-    @Test fun thePenIsTiltedALittleMoreAtTheSwellAndLeansUpAndLeft() {
-        val s = CannedStroke.pen(800, 80, 10f)
-        assertEquals(0.4f, s.first().tilt, 0.001f)
-        assertEquals(0.85f, s.maxOf { it.tilt }, 0.01f)
-        assertTrue(s.all { it.azimuth == CannedStroke.LEAN && it.hasTilt })
-        assertTrue(CannedStroke.LEAN < 0f)
-    }
-
-    @Test fun theSampleCountFollowsTheLengthButStaysBounded() {
-        assertTrue(CannedStroke.pen(300, 60, 10f).size < CannedStroke.pen(1200, 60, 10f).size)
-        assertEquals(24, CannedStroke.pen(40, 60, 10f).size)
-        assertEquals(600, CannedStroke.pen(2048, 60, 10f, pitchPx = 1f).size)
-    }
-
-    @Test fun aPitchOfFivePixelsSpacesTheSamplesAboutFivePixelsApartAlongX() {
-        val s = CannedStroke.pen(1000, 8, 6f, pitchPx = 5f)
-        val gap = (s.last().x - s.first().x) / (s.size - 1)
-        assertEquals(5f, gap, 0.5f)
+        assertTrue(s.first().pressure < 0.05f && s.last().pressure == 1f, "a feather touch to a sudden lift")
+        assertTrue(s.all { it.hasTilt } && CannedStroke.LEAN < 0f)
     }
 
     @Test fun aPictureNoTallerThanTheBrushStillGivesAStraightLine() {

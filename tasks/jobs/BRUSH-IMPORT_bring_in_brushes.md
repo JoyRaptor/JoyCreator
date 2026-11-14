@@ -52,12 +52,17 @@ the choice between embedding and a side picture file goes back to the lead, not 
   shows all 17 with their own tip pictures → "CLOD 1" paints its cloud tip. Left installed on the tablet (owner's
   wish). Two app closes found and fixed on the way: the drawer's stand-in and its real preview both asked for tip
   pictures they were not given (now the stand-in draws the disc, the preview is handed the pictures, and a row that
-  still cannot draw stays empty instead of closing the app). Note 9: the same set is owed (the phone was held by
-  another lane); the MyPaint charcoal is there since 13:59.
-- **What the Photoshop importer drops, seen so far:** the pattern textures (never imported) and the two bristle
-  brushes. Each converted brush also carries the importer's own per-brush warnings (`ImportResult.warnings`); the app
-  does not show them (owner bar) and logs them under `JoyBrushImport` from 11-13 20:30; the per-setting list for this set is
-  still to be copied here from the next import's log.
+  still cannot draw stays empty instead of closing the app).
+- **Note 9 11-13 20:24-20:37** (APK of `9ffc56639`): the same set imported through "Import…", same sentence, 17 files
+  beside the MyPaint charcoal, all 18 on the Imported shelf with their own previews, no app close; after an app
+  restart "CLOD 1" was still in hand and painted (the restart fix, seen). Left installed on the Note 9.
+- **What the Photoshop importer drops for this set** (the importer's own per-brush notes, logged under
+  `JoyBrushImport` on the Note 9 11-13; never shown to the artist): two bristle brushes refused; brush textures kept
+  but not drawn (the textures are Photoshop patterns, not image files, and patterns are not imported); noise (6
+  brushes) and wet edges (5) have no JoyBrush equivalent yet; wet and mix variance of the wet mixer (wtVr, mxVr, 5
+  each), colour purity and colour variance; roundness dynamics (the tip keeps one fixed roundness); flip X/Y and the
+  dual brush; tilt scale clamped to 1 and texture scale clamped to 64. Every unmapped setting is kept raw in the
+  brush file (`extensions`), so a later JoyBrush can use it without importing again.
 - **Krita packs** (owner said yes, three named threads on krita-artists.org: Memileo impasto, Metallics by
   Draneria, Val's realistic ink pen): not downloaded yet. Downloads wait for the owner's own yes in this session
   (file names and sources first); licences and dates go here when fetched.

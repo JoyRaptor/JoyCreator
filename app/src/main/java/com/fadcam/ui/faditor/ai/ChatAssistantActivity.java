@@ -861,12 +861,12 @@ public class ChatAssistantActivity extends AppCompatActivity {
         String did = com.fadcam.ui.faditor.ai.joybot.TipBook.said(tip);
         if (!AiService.ready(this, apiKey)) {
             // Offline is not a lesser Joybot: everything the buttons do runs on the phone.
-            addBotMessage("Hi, I'm Joybot. " + did + "\n\nRight here on the phone I can transcribe, "
-                    + "add captions, cut the ums and silences, add transitions and make slides — tap a "
-                    + "button below. Connect an AI (there's a free one) and I can take on anything you "
-                    + "can describe: tap “Connect an AI” and I'll walk you through it.");
+            addBotMessage(com.fadcam.ui.faditor.ai.joybot.Greeting.offline(did));
         } else {
-            addBotMessage("Hi, I'm Joybot. " + did + "\n\nTap a button below, or tell me what you'd like to make.");
+            // The owner's 9-09 words (BOT-A10): who he is talking to, and that costs are the provider's alone.
+            String account = null;
+            try { account = AiAccounts.active(this).name; } catch (Exception ignored) { }
+            addBotMessage(com.fadcam.ui.faditor.ai.joybot.Greeting.connected(did, account, model));
         }
         addTakeMeThere(tip);
     }

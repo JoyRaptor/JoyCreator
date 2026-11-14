@@ -66,8 +66,12 @@ Select, symmetry, Send to Studio. Hover labels: ~220 controls done 10-15; the ch
 - [x] **Hover-label sweep** of the chat screen and every card it draws: checked 10-28 by script over every
       `setOnClickListener` in `ai/**` and the chat layout: all labelled (the header and input buttons in code,
       cards through `cardButton`); the new setup, tip and bridge buttons carry labels too.
-- [ ] **Empty-state copy** the owner drafted 9-09 (no key: what Joybot does free; key: "no markup, watch
-      your usage"). Check what the chat shows today first.
+- [x] **Empty-state copy** the owner drafted 9-09 (11-14, audit BOT-A10). Checked first: the no-AI greeting already
+      said what works on the phone (seen on the tablet 11-13) but not "free, no account"; the connected greeting had
+      none of his cost words. Now `joybot/Greeting`: offline adds "free and with no account"; connected says "Connected
+      to <account> (<model>)", "Joy Creator never adds a markup and never sees your bill", and on a paid model "keep an
+      eye on your usage" (free models are not nagged). Ideas 1028/1028, bench 63/63. Not yet seen on a device (the
+      connected half needs an AI on the device).
 - [x] **"What can I do here?"** (10-28): `joybot/WhatHere` lists the room's real actions from both registries
       in plain words (changes first, then reads; 14 then "and N more"); Studio also names what works with no AI;
       without an AI it says the list needs one. Online or off. Tests in `IdeaEngineTest`. **Phone ✅ 10-28**

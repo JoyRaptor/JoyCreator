@@ -1059,6 +1059,23 @@ public class IdeaEngineTest {
             }
         }
 
+        // ── Greeting: the owner's 9-09 empty-state words (BOT-A10, 11-14) ──
+        {
+            String off = com.fadcam.ui.faditor.ai.joybot.Greeting.offline("Did you know x.");
+            check("greeting: offline says free and no account", off.contains("free and with no account"), off);
+            check("greeting: offline says how to get more", off.contains("Connect an AI"), off);
+            String paid = com.fadcam.ui.faditor.ai.joybot.Greeting.connected("Did you know x.", "My OpenAI", "openai/gpt-5");
+            check("greeting: connected names the account and model", paid.contains("Connected to My OpenAI (gpt-5)"), paid);
+            check("greeting: never a markup, never sees the bill", paid.contains("never adds a markup and never sees your bill"), paid);
+            check("greeting: a paid model is told to watch usage", paid.contains("keep an eye on your usage"), paid);
+            String free = com.fadcam.ui.faditor.ai.joybot.Greeting.connected("Did you know x.", "OpenRouter",
+                    "google/gemma-4-31b-it:free");
+            check("greeting: a free model is not nagged about usage", !free.contains("keep an eye"), free);
+            check("greeting: the free router counts as free", com.fadcam.ui.faditor.ai.joybot.Greeting.freeModel("openrouter/free"), "");
+            String bare = com.fadcam.ui.faditor.ai.joybot.Greeting.connected("Did you know x.", "", "");
+            check("greeting: no names, no empty 'Connected to'", !bare.contains("Connected to"), bare);
+        }
+
         // ── CaptureRules: the camera starts only on the person's own words (BOT-A29, 11-13) ──
         {
             com.fadcam.ui.faditor.ai.joybot.CaptureRules.Verdict GO = com.fadcam.ui.faditor.ai.joybot.CaptureRules.Verdict.GO;
